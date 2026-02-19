@@ -11,6 +11,7 @@ bld/
 # NuGet
 *.nupkg
 *.snupkg
+nupkgs/
 packages/
 *.nuget.props
 *.nuget.targets
