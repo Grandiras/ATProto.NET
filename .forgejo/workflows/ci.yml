@@ -21,7 +21,7 @@ jobs:
           git checkout "${GITHUB_SHA}"
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore --source https://api.nuget.org/v3/index.json
 
       - name: Build
         run: dotnet build --no-restore --configuration Release
@@ -44,12 +44,15 @@ jobs:
           git fetch --depth=1 origin "${GITHUB_SHA}"
           git checkout "${GITHUB_SHA}"
 
+      - name: Restore dependencies
+        run: dotnet restore --source https://api.nuget.org/v3/index.json
+
       - name: Pack NuGet packages
-        run: dotnet pack --configuration Release --output ./nupkgs
+        run: dotnet pack --configuration Release --output ./nupkgs --no-restore
 
       - name: Push to Forgejo NuGet registry
         run: |
           dotnet nuget push ./nupkgs/*.nupkg \
-            --source "https://git.grandiras.net/api/packages/Grandiras/nuget/v3/index.json" \
+            --source "https://git.grandiras.net/api/packages/Grandiras/nuget" \
             --api-key "${{ secrets.NUGET_API_KEY }}" \
             --skip-duplicate
