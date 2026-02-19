@@ -1,0 +1,29 @@
+<Project>
+
+  <PropertyGroup>
+    <!-- Shared package metadata for all packable projects -->
+    <Version>0.1.0</Version>
+    <Authors>Grandiras</Authors>
+    <Company>Grandiras</Company>
+    <Copyright>Copyright (c) 2025-present ATProto.NET Contributors</Copyright>
+    <PackageProjectUrl>https://git.grandiras.net/Grandiras/ATProto.NET</PackageProjectUrl>
+    <RepositoryUrl>https://git.grandiras.net/Grandiras/ATProto.NET.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>atproto;at-protocol;bluesky;decentralized;lexicon;sdk</PackageTags>
+
+    <!-- SourceLink / deterministic builds -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+  <!-- Include README in all packages -->
+  <ItemGroup Condition="'$(IsPackable)' != 'false'">
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>

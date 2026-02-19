@@ -1,0 +1,82 @@
+<div class="atproto-compose @CssClass">
+    @if (_error is not null)
+    {
+        <div class="atproto-compose-error" role="alert">@_error</div>
+    }
+
+    <form @onsubmit="HandlePostAsync">
+        <textarea @bind="_text"
+                  placeholder="@Placeholder"
+                  maxlength="3000"
+                  rows="@Rows"
+                  disabled="@_posting"
+                  class="atproto-compose-textarea" />
+
+        <div class="atproto-compose-footer">
+            <span class="atproto-compose-charcount @(_text.Length > 300 ? "over" : "")">
+                @_text.Length / 300 graphemes
+            </span>
+
+            <button type="submit"
+                    disabled="@(_posting || string.IsNullOrWhiteSpace(_text))"
+                    class="atproto-compose-submit">
+                @(_posting ? "Posting…" : "Post")
+            </button>
+        </div>
+    </form>
+</div>
+
+@code {
+    [Inject] private AtProtoClient Client { get; set; } = default!;
+
+    /// <summary>Placeholder text for the compose area.</summary>
+    [Parameter] public string Placeholder { get; set; } = "What's happening?";
+
+    /// <summary>Number of visible rows for the textarea.</summary>
+    [Parameter] public int Rows { get; set; } = 4;
+
+    /// <summary>Reply reference — set this to compose a reply to a specific post.</summary>
+    [Parameter] public ReplyRef? ReplyTo { get; set; }
+
+    /// <summary>Language tags for the post (BCP-47).</summary>
+    [Parameter] public List<string>? Langs { get; set; }
+
+    /// <summary>Callback invoked when the post is successfully created.</summary>
+    [Parameter] public EventCallback<ATProtoNet.Lexicon.Com.AtProto.Repo.CreateRecordResponse> OnPostCreated { get; set; }
+
+    /// <summary>Optional CSS class.</summary>
+    [Parameter] public string? CssClass { get; set; }
+
+    private string _text = string.Empty;
+    private string? _error;
+    private bool _posting;
+
+    private async Task HandlePostAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_text) || _posting) return;
+
+        _posting = true;
+        _error = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await Client.PostAsync(
+                _text,
+                reply: ReplyTo,
+                langs: Langs);
+
+            _text = string.Empty;
+            await OnPostCreated.InvokeAsync(result);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _posting = false;
+            StateHasChanged();
+        }
+    }
+}

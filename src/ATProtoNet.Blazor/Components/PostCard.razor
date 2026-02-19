@@ -1,0 +1,140 @@
+@using System.Text.Json
+
+<article class="atproto-post @CssClass">
+    <div class="atproto-post-header">
+        @if (Post.Author.Avatar is not null)
+        {
+            <img class="atproto-post-avatar" src="@Post.Author.Avatar"
+                 alt="@(Post.Author.DisplayName ?? Post.Author.Handle)"
+                 loading="lazy" />
+        }
+
+        <div class="atproto-post-author">
+            @if (Post.Author.DisplayName is not null)
+            {
+                <span class="atproto-post-displayname">@Post.Author.DisplayName</span>
+            }
+            <span class="atproto-post-handle">@@@Post.Author.Handle</span>
+        </div>
+
+        <time class="atproto-post-time" datetime="@Post.IndexedAt">
+            @FormatTime(Post.IndexedAt)
+        </time>
+    </div>
+
+    <div class="atproto-post-content">
+        <p class="atproto-post-text">@GetPostText()</p>
+
+        @if (Post.Embed is not null)
+        {
+            <div class="atproto-post-embed">
+                @RenderEmbed(Post.Embed)
+            </div>
+        }
+    </div>
+
+    <div class="atproto-post-actions">
+        <button class="atproto-post-action" @onclick="HandleReply" title="Reply">
+            💬 @(Post.ReplyCount ?? 0)
+        </button>
+        <button class="atproto-post-action @(Post.Viewer?.Repost is not null ? "active" : "")"
+                @onclick="HandleRepost" title="Repost">
+            🔁 @(Post.RepostCount ?? 0)
+        </button>
+        <button class="atproto-post-action @(Post.Viewer?.Like is not null ? "active" : "")"
+                @onclick="HandleLike" title="Like">
+            ❤️ @(Post.LikeCount ?? 0)
+        </button>
+    </div>
+</article>
+
+@code {
+    /// <summary>The post to display.</summary>
+    [Parameter, EditorRequired]
+    public PostView Post { get; set; } = default!;
+
+    /// <summary>Callback when the reply button is clicked.</summary>
+    [Parameter] public EventCallback<PostView> OnReply { get; set; }
+
+    /// <summary>Callback when the repost button is clicked.</summary>
+    [Parameter] public EventCallback<PostView> OnRepost { get; set; }
+
+    /// <summary>Callback when the like button is clicked.</summary>
+    [Parameter] public EventCallback<PostView> OnLike { get; set; }
+
+    /// <summary>Optional CSS class.</summary>
+    [Parameter] public string? CssClass { get; set; }
+
+    private string GetPostText()
+    {
+        if (Post.Record.TryGetProperty("text", out var textProp))
+            return textProp.GetString() ?? string.Empty;
+        return string.Empty;
+    }
+
+    private RenderFragment? RenderEmbed(EmbedView embed) => embed switch
+    {
+        ImagesView images => builder =>
+        {
+            builder.OpenElement(0, "div");
+            builder.AddAttribute(1, "class", "atproto-embed-images");
+            var seq = 2;
+            foreach (var img in images.Images)
+            {
+                builder.OpenElement(seq++, "img");
+                builder.AddAttribute(seq++, "src", img.Thumb);
+                builder.AddAttribute(seq++, "alt", img.Alt);
+                builder.AddAttribute(seq++, "loading", "lazy");
+                builder.CloseElement();
+            }
+            builder.CloseElement();
+        },
+        ExternalView ext => builder =>
+        {
+            builder.OpenElement(0, "a");
+            builder.AddAttribute(1, "class", "atproto-embed-external");
+            builder.AddAttribute(2, "href", ext.External.Uri);
+            builder.AddAttribute(3, "target", "_blank");
+            builder.AddAttribute(4, "rel", "noopener noreferrer");
+
+            if (ext.External.Thumb is not null)
+            {
+                builder.OpenElement(5, "img");
+                builder.AddAttribute(6, "src", ext.External.Thumb);
+                builder.AddAttribute(7, "alt", ext.External.Title);
+                builder.AddAttribute(8, "loading", "lazy");
+                builder.CloseElement();
+            }
+
+            builder.OpenElement(9, "div");
+            builder.OpenElement(10, "strong");
+            builder.AddContent(11, ext.External.Title);
+            builder.CloseElement();
+            builder.OpenElement(12, "p");
+            builder.AddContent(13, ext.External.Description);
+            builder.CloseElement();
+            builder.CloseElement();
+
+            builder.CloseElement();
+        },
+        _ => null,
+    };
+
+    private static string FormatTime(string indexedAt)
+    {
+        if (DateTimeOffset.TryParse(indexedAt, out var dt))
+        {
+            var elapsed = DateTimeOffset.UtcNow - dt;
+            return elapsed.TotalMinutes < 1 ? "just now"
+                : elapsed.TotalHours < 1 ? $"{(int)elapsed.TotalMinutes}m"
+                : elapsed.TotalDays < 1 ? $"{(int)elapsed.TotalHours}h"
+                : elapsed.TotalDays < 7 ? $"{(int)elapsed.TotalDays}d"
+                : dt.ToString("MMM d");
+        }
+        return indexedAt;
+    }
+
+    private Task HandleReply() => OnReply.InvokeAsync(Post);
+    private Task HandleRepost() => OnRepost.InvokeAsync(Post);
+    private Task HandleLike() => OnLike.InvokeAsync(Post);
+}

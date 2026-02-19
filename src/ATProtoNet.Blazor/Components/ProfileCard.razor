@@ -1,0 +1,71 @@
+@if (Profile is not null)
+{
+    <div class="atproto-profile-card @CssClass">
+        @if (ShowBanner && Profile.Banner is not null)
+        {
+            <div class="atproto-profile-banner">
+                <img src="@Profile.Banner" alt="Banner" loading="lazy" />
+            </div>
+        }
+
+        <div class="atproto-profile-info">
+            @if (Profile.Avatar is not null)
+            {
+                <img class="atproto-profile-avatar" src="@Profile.Avatar"
+                     alt="@(Profile.DisplayName ?? Profile.Handle)"
+                     loading="lazy" />
+            }
+            else
+            {
+                <div class="atproto-profile-avatar-placeholder">
+                    @(Profile.Handle.FirstOrDefault())
+                </div>
+            }
+
+            <div class="atproto-profile-names">
+                @if (Profile.DisplayName is not null)
+                {
+                    <span class="atproto-profile-displayname">@Profile.DisplayName</span>
+                }
+                <span class="atproto-profile-handle">@@@Profile.Handle</span>
+            </div>
+        </div>
+
+        @if (ShowDescription && Profile.Description is not null)
+        {
+            <p class="atproto-profile-description">@Profile.Description</p>
+        }
+
+        @if (ShowStats)
+        {
+            <div class="atproto-profile-stats">
+                <span><strong>@(Profile.FollowersCount ?? 0)</strong> followers</span>
+                <span><strong>@(Profile.FollowsCount ?? 0)</strong> following</span>
+                <span><strong>@(Profile.PostsCount ?? 0)</strong> posts</span>
+            </div>
+        }
+
+        @ChildContent
+    </div>
+}
+
+@code {
+    /// <summary>The profile to display.</summary>
+    [Parameter, EditorRequired]
+    public ProfileViewDetailed? Profile { get; set; }
+
+    /// <summary>Whether to show the banner image.</summary>
+    [Parameter] public bool ShowBanner { get; set; } = true;
+
+    /// <summary>Whether to show the profile description.</summary>
+    [Parameter] public bool ShowDescription { get; set; } = true;
+
+    /// <summary>Whether to show follower/following/post counts.</summary>
+    [Parameter] public bool ShowStats { get; set; } = true;
+
+    /// <summary>Optional additional CSS class.</summary>
+    [Parameter] public string? CssClass { get; set; }
+
+    /// <summary>Optional child content rendered at the bottom of the card.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

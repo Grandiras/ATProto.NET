@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ATProtoNet.Blazor/ATProtoNet.Blazor.csproj" />
+    <Project Path="src/ATProtoNet.Server/ATProtoNet.Server.csproj" />
+    <Project Path="src/ATProtoNet/ATProtoNet.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ATProtoNet.IntegrationTests/ATProtoNet.IntegrationTests.csproj" />
+    <Project Path="tests/ATProtoNet.Tests/ATProtoNet.Tests.csproj" />
+  </Folder>
+</Solution>

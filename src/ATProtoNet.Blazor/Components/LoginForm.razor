@@ -1,0 +1,86 @@
+@using ATProtoNet.Blazor.Services
+
+<div class="atproto-login-form">
+    @if (_error is not null)
+    {
+        <div class="atproto-login-error" role="alert">
+            @_error
+        </div>
+    }
+
+    <form @onsubmit="HandleSubmitAsync">
+        <div class="atproto-login-field">
+            <label for="atproto-identifier">Handle or Email</label>
+            <input id="atproto-identifier"
+                   type="text"
+                   @bind="_identifier"
+                   placeholder="alice.bsky.social"
+                   required
+                   disabled="@_loading" />
+        </div>
+
+        <div class="atproto-login-field">
+            <label for="atproto-password">App Password</label>
+            <input id="atproto-password"
+                   type="password"
+                   @bind="_password"
+                   placeholder="xxxx-xxxx-xxxx-xxxx"
+                   required
+                   disabled="@_loading" />
+        </div>
+
+        <button type="submit" disabled="@_loading" class="atproto-login-button">
+            @if (_loading)
+            {
+                <span>Signing in…</span>
+            }
+            else
+            {
+                <span>Sign In</span>
+            }
+        </button>
+    </form>
+</div>
+
+@code {
+    [Inject] private AtProtoAuthStateProvider AuthState { get; set; } = default!;
+
+    /// <summary>Callback invoked when login succeeds.</summary>
+    [Parameter] public EventCallback OnLoginSuccess { get; set; }
+
+    /// <summary>Callback invoked when login fails.</summary>
+    [Parameter] public EventCallback<string> OnLoginError { get; set; }
+
+    /// <summary>Optional CSS class for the form container.</summary>
+    [Parameter] public string? CssClass { get; set; }
+
+    private string _identifier = string.Empty;
+    private string _password = string.Empty;
+    private string? _error;
+    private bool _loading;
+
+    private async Task HandleSubmitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_identifier) || string.IsNullOrWhiteSpace(_password))
+            return;
+
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            await AuthState.LoginAsync(_identifier, _password);
+            _password = string.Empty;
+            await OnLoginSuccess.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            await OnLoginError.InvokeAsync(_error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

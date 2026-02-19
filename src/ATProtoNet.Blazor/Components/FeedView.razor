@@ -1,0 +1,143 @@
+@if (_loading && !_feedItems.Any())
+{
+    <div class="atproto-feed-loading">
+        <p>Loading feed…</p>
+    </div>
+}
+else if (_error is not null)
+{
+    <div class="atproto-feed-error" role="alert">
+        <p>@_error</p>
+        <button @onclick="LoadFeedAsync">Retry</button>
+    </div>
+}
+else
+{
+    <div class="atproto-feed @CssClass">
+        @foreach (var item in _feedItems)
+        {
+            <PostCard Post="@item.Post"
+                      OnReply="OnReply"
+                      OnRepost="OnRepost"
+                      OnLike="OnLike" />
+        }
+
+        @if (_cursor is not null)
+        {
+            <div class="atproto-feed-load-more">
+                <button @onclick="LoadMoreAsync" disabled="@_loading">
+                    @(_loading ? "Loading…" : "Load More")
+                </button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Inject] private AtProtoClient Client { get; set; } = default!;
+
+    /// <summary>
+    /// The type of feed to display:
+    /// "timeline" (default), "author:{handle}", "feed:{at-uri}", "list:{at-uri}".
+    /// </summary>
+    [Parameter] public string FeedSource { get; set; } = "timeline";
+
+    /// <summary>Number of posts per page.</summary>
+    [Parameter] public int PageSize { get; set; } = 25;
+
+    /// <summary>Callback when reply is clicked on a post.</summary>
+    [Parameter] public EventCallback<PostView> OnReply { get; set; }
+
+    /// <summary>Callback when repost is clicked on a post.</summary>
+    [Parameter] public EventCallback<PostView> OnRepost { get; set; }
+
+    /// <summary>Callback when like is clicked on a post.</summary>
+    [Parameter] public EventCallback<PostView> OnLike { get; set; }
+
+    /// <summary>Optional CSS class.</summary>
+    [Parameter] public string? CssClass { get; set; }
+
+    private List<FeedViewPost> _feedItems = new();
+    private string? _cursor;
+    private string? _error;
+    private bool _loading;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _feedItems.Clear();
+        _cursor = null;
+        await LoadFeedAsync();
+    }
+
+    private async Task LoadFeedAsync()
+    {
+        if (!Client.IsAuthenticated) return;
+
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await GetFeedResponseAsync(null);
+            _feedItems = response.Feed.ToList();
+            _cursor = response.Cursor;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadMoreAsync()
+    {
+        if (_cursor is null || _loading) return;
+
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var response = await GetFeedResponseAsync(_cursor);
+            _feedItems.AddRange(response.Feed);
+            _cursor = response.Cursor;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private Task<FeedResponse> GetFeedResponseAsync(string? cursor)
+    {
+        if (FeedSource.StartsWith("author:"))
+        {
+            var actor = FeedSource["author:".Length..];
+            return Client.Bsky.Feed.GetAuthorFeedAsync(actor, PageSize, cursor);
+        }
+        else if (FeedSource.StartsWith("feed:"))
+        {
+            var feedUri = FeedSource["feed:".Length..];
+            return Client.Bsky.Feed.GetFeedAsync(feedUri, PageSize, cursor);
+        }
+        else if (FeedSource.StartsWith("list:"))
+        {
+            var listUri = FeedSource["list:".Length..];
+            return Client.Bsky.Feed.GetListFeedAsync(listUri, PageSize, cursor);
+        }
+        else
+        {
+            return Client.Bsky.Feed.GetTimelineAsync(PageSize, cursor);
+        }
+    }
+}
