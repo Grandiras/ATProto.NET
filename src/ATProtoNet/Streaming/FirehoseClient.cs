@@ -253,12 +253,10 @@ public sealed class FirehoseConsumer : IDisposable
             _client?.Dispose();
             _client = new FirehoseClient(_serviceUrl, _logger);
 
-            var yielded = false;
             await foreach (var frame in _client.SubscribeAsync(currentCursor, cancellationToken))
             {
                 IsConnected = true;
                 reconnectAttempts = 0;
-                yielded = true;
                 yield return frame;
             }
 

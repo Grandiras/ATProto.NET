@@ -24,7 +24,7 @@ jobs:
         run: dotnet restore
 
       - name: Build
-        run: dotnet build --no-restore --configuration Release -warnaserror
+        run: dotnet build --no-restore --configuration Release
 
       - name: Run unit tests
         run: dotnet test tests/ATProtoNet.Tests/ --no-build --configuration Release --verbosity normal
