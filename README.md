@@ -2,6 +2,8 @@
 
 A comprehensive .NET SDK for the [AT Protocol](https://atproto.com). Build custom AT Protocol applications with your own Lexicon schemas, or interact with Bluesky — all with clean, modern .NET 10 APIs.
 
+⚠️ Disclosure: This repository was mainly created by a coding agent. Thorough testing has been conducted. The maintainer is a human though (me :), Grandiras)
+
 ## Why ATProto.NET?
 
 The AT Protocol isn't just Bluesky — it's an open protocol where **one account works across many apps**. Each app defines its own [Lexicon schemas](https://atproto.com/guides/lexicon) and stores records in the user's Personal Data Server (PDS). ATProto.NET makes it easy to build these custom applications in .NET.
