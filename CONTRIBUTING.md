@@ -2,6 +2,12 @@
 
 Thank you for your interest in contributing! This guide will help you get started.
 
+## Where to Contribute
+
+The canonical source is hosted on [Forgejo](https://git.grandiras.net/Grandiras/ATProto.NET), but **issues and pull requests are accepted on [GitHub](https://github.com/Grandiras/ATProto.NET)** so you don't need an account on the Forgejo instance.
+
+The GitHub repository is a push mirror — code pushed to Forgejo is automatically synced to GitHub.
+
 ## Code of Conduct
 
 By participating in this project, you agree to maintain a respectful and inclusive environment.
@@ -17,7 +23,7 @@ By participating in this project, you agree to maintain a respectful and inclusi
 ### Building
 
 ```bash
-git clone https://git.grandiras.net/Grandiras/ATProto.NET.git
+git clone https://github.com/Grandiras/ATProto.NET.git
 cd ATProto.NET
 dotnet build
 ```
@@ -74,13 +80,13 @@ dotnet test tests/ATProtoNet.IntegrationTests/
 
 ### Submitting Code
 
-1. **Fork** the repository
+1. **Fork** the [GitHub repository](https://github.com/Grandiras/ATProto.NET)
 2. **Create a branch** from `main`: `git checkout -b feature/my-feature`
 3. **Write code** following the project conventions (see below)
 4. **Add tests** — both unit and integration tests where applicable
 5. **Run all tests** and ensure they pass
 6. **Commit** with clear, descriptive messages
-7. **Open a Pull Request** against `main`
+7. **Open a Pull Request** against `main` on GitHub
 
 ### PR Guidelines
 

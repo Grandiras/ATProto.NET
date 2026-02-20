@@ -1,6 +1,10 @@
 # ATProto.NET
 
+[![CI](https://github.com/Grandiras/ATProto.NET/actions/workflows/ci.yml/badge.svg)](https://github.com/Grandiras/ATProto.NET/actions/workflows/ci.yml)
+
 A comprehensive .NET SDK for the [AT Protocol](https://atproto.com). Build custom AT Protocol applications with your own Lexicon schemas, or interact with Bluesky — all with clean, modern .NET 10 APIs.
+
+**Source:** [Forgejo (canonical)](https://git.grandiras.net/Grandiras/ATProto.NET) · [GitHub (mirror — issues & PRs welcome here)](https://github.com/Grandiras/ATProto.NET)
 
 ⚠️ Disclosure: This repository was mainly created by a coding agent. Thorough testing has been conducted. The maintainer is a human though (me :), Grandiras)
 
