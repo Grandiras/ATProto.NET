@@ -1,0 +1,131 @@
+name: Sync Pull Requests to Forgejo
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, closed]
+
+jobs:
+  sync-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Sync PR to Forgejo
+        env:
+          FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+          FORGEJO_API: https://git.grandiras.net/api/v1
+          FORGEJO_REPO: Grandiras/ATProto.NET
+          FORGEJO_GIT: https://Grandiras:${{ secrets.FORGEJO_TOKEN }}@git.grandiras.net/Grandiras/ATProto.NET.git
+        run: |
+          set -euo pipefail
+
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          ACTION="${{ github.event.action }}"
+          TITLE="${{ github.event.pull_request.title }}"
+          AUTHOR="${{ github.event.pull_request.user.login }}"
+          HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
+          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+          GITHUB_URL="${{ github.event.pull_request.html_url }}"
+          MERGED="${{ github.event.pull_request.merged }}"
+
+          FORGEJO_BRANCH="gh-pr-${PR_NUMBER}/${HEAD_BRANCH}"
+          PREFIXED_TITLE="[GH-PR-#${PR_NUMBER}] ${TITLE}"
+
+          # Build body with attribution
+          BODY=$(cat <<'BODYEOF'
+          ${{ github.event.pull_request.body }}
+          BODYEOF
+          )
+          ATTRIBUTED_BODY=$(printf "> Mirrored from GitHub PR %s by @%s\n> %s\n\n%s" "#${PR_NUMBER}" "$AUTHOR" "$GITHUB_URL" "$BODY")
+
+          # Find existing Forgejo PR
+          EXISTING=$(curl -sf -H "Authorization: token ${FORGEJO_TOKEN}" \
+            "${FORGEJO_API}/repos/${FORGEJO_REPO}/pulls?state=all&limit=50" \
+            | jq -r --arg prefix "[GH-PR-#${PR_NUMBER}]" \
+            '[.[] | select(.title | startswith($prefix))][0] // empty')
+
+          if [ "$ACTION" = "closed" ]; then
+            if [ -n "$EXISTING" ]; then
+              FORGEJO_PR_NUMBER=$(echo "$EXISTING" | jq -r '.number')
+
+              if [ "$MERGED" = "true" ]; then
+                # PR was merged on GitHub — push the merge to Forgejo main and close the PR
+                git remote add forgejo "$FORGEJO_GIT"
+                git push forgejo "HEAD:${BASE_BRANCH}" || true
+
+                # Close the Forgejo PR
+                curl -sf -X PATCH \
+                  -H "Authorization: token ${FORGEJO_TOKEN}" \
+                  -H "Content-Type: application/json" \
+                  -d '{"state":"closed"}' \
+                  "${FORGEJO_API}/repos/${FORGEJO_REPO}/pulls/${FORGEJO_PR_NUMBER}" > /dev/null
+
+                # Add a comment noting it was merged on GitHub
+                PAYLOAD=$(jq -n --arg body "This PR was merged on GitHub. The changes have been synced to \`${BASE_BRANCH}\`." '{body: $body}')
+                curl -sf -X POST \
+                  -H "Authorization: token ${FORGEJO_TOKEN}" \
+                  -H "Content-Type: application/json" \
+                  -d "$PAYLOAD" \
+                  "${FORGEJO_API}/repos/${FORGEJO_REPO}/issues/${FORGEJO_PR_NUMBER}/comments" > /dev/null
+
+                echo "Closed Forgejo PR #${FORGEJO_PR_NUMBER} (merged on GitHub)"
+              else
+                # PR was closed without merging
+                curl -sf -X PATCH \
+                  -H "Authorization: token ${FORGEJO_TOKEN}" \
+                  -H "Content-Type: application/json" \
+                  -d '{"state":"closed"}' \
+                  "${FORGEJO_API}/repos/${FORGEJO_REPO}/pulls/${FORGEJO_PR_NUMBER}" > /dev/null
+                echo "Closed Forgejo PR #${FORGEJO_PR_NUMBER} (not merged)"
+              fi
+
+              # Clean up the branch
+              curl -sf -X DELETE \
+                -H "Authorization: token ${FORGEJO_TOKEN}" \
+                "${FORGEJO_API}/repos/${FORGEJO_REPO}/branches/${FORGEJO_BRANCH}" > /dev/null 2>&1 || true
+            fi
+            exit 0
+          fi
+
+          # Push the PR branch to Forgejo
+          git remote add forgejo "$FORGEJO_GIT" 2>/dev/null || true
+          git push forgejo "HEAD:refs/heads/${FORGEJO_BRANCH}" --force
+          echo "Pushed branch ${FORGEJO_BRANCH} to Forgejo"
+
+          if [ -n "$EXISTING" ]; then
+            FORGEJO_PR_NUMBER=$(echo "$EXISTING" | jq -r '.number')
+
+            if [ "$ACTION" = "edited" ]; then
+              PAYLOAD=$(jq -n \
+                --arg title "$PREFIXED_TITLE" \
+                --arg body "$ATTRIBUTED_BODY" \
+                '{title: $title, body: $body}')
+              curl -sf -X PATCH \
+                -H "Authorization: token ${FORGEJO_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d "$PAYLOAD" \
+                "${FORGEJO_API}/repos/${FORGEJO_REPO}/pulls/${FORGEJO_PR_NUMBER}" > /dev/null
+              echo "Updated Forgejo PR #${FORGEJO_PR_NUMBER}"
+            else
+              echo "Forgejo PR #${FORGEJO_PR_NUMBER} branch updated (synchronize)"
+            fi
+          else
+            # Create new PR on Forgejo
+            PAYLOAD=$(jq -n \
+              --arg title "$PREFIXED_TITLE" \
+              --arg body "$ATTRIBUTED_BODY" \
+              --arg head "$FORGEJO_BRANCH" \
+              --arg base "$BASE_BRANCH" \
+              '{title: $title, body: $body, head: $head, base: $base}')
+            RESULT=$(curl -sf -X POST \
+              -H "Authorization: token ${FORGEJO_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$PAYLOAD" \
+              "${FORGEJO_API}/repos/${FORGEJO_REPO}/pulls")
+            FORGEJO_PR_NUMBER=$(echo "$RESULT" | jq -r '.number')
+            echo "Created Forgejo PR #${FORGEJO_PR_NUMBER}"
+          fi

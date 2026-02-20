@@ -1,0 +1,95 @@
+name: Sync Closures to GitHub
+
+on:
+  issues:
+    types: [closed, reopened]
+  pull_request:
+    types: [closed]
+
+jobs:
+  sync-closure:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/dotnet/sdk:10.0
+    steps:
+      - name: Sync state to GitHub
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_MIRROR_TOKEN }}
+          GITHUB_API: https://api.github.com
+          GITHUB_REPO: Grandiras/ATProto.NET
+        run: |
+          set -euo pipefail
+
+          # Install jq (not in dotnet SDK image)
+          apt-get update -qq && apt-get install -y -qq jq curl > /dev/null 2>&1
+
+          EVENT_ACTION="${{ github.event.action }}"
+
+          # Determine if this is an issue or PR
+          if [ -n "${{ github.event.issue.title }}" ] && [ -z "${{ github.event.pull_request.title }}" ]; then
+            TYPE="issue"
+            TITLE="${{ github.event.issue.title }}"
+          else
+            TYPE="pr"
+            TITLE="${{ github.event.pull_request.title }}"
+            MERGED="${{ github.event.pull_request.merged }}"
+          fi
+
+          # Extract the GitHub number from the title prefix [GH-#N] or [GH-PR-#N]
+          if [ "$TYPE" = "issue" ]; then
+            GH_NUMBER=$(echo "$TITLE" | grep -oP '^\[GH-#\K[0-9]+' || true)
+          else
+            GH_NUMBER=$(echo "$TITLE" | grep -oP '^\[GH-PR-#\K[0-9]+' || true)
+          fi
+
+          if [ -z "$GH_NUMBER" ]; then
+            echo "Not a mirrored GitHub issue/PR (no [GH-#N] prefix), skipping"
+            exit 0
+          fi
+
+          echo "Found GitHub ${TYPE} #${GH_NUMBER}"
+
+          if [ "$TYPE" = "issue" ]; then
+            if [ "$EVENT_ACTION" = "closed" ]; then
+              curl -sf -X PATCH \
+                -H "Authorization: token ${GITHUB_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d '{"state":"closed"}' \
+                "${GITHUB_API}/repos/${GITHUB_REPO}/issues/${GH_NUMBER}" > /dev/null
+              echo "Closed GitHub issue #${GH_NUMBER}"
+
+            elif [ "$EVENT_ACTION" = "reopened" ]; then
+              curl -sf -X PATCH \
+                -H "Authorization: token ${GITHUB_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d '{"state":"open"}' \
+                "${GITHUB_API}/repos/${GITHUB_REPO}/issues/${GH_NUMBER}" > /dev/null
+              echo "Reopened GitHub issue #${GH_NUMBER}"
+            fi
+
+          elif [ "$TYPE" = "pr" ] && [ "$EVENT_ACTION" = "closed" ]; then
+            if [ "$MERGED" = "true" ]; then
+              # The push mirror will sync the code. Just close the GitHub PR with a comment.
+              PAYLOAD=$(jq -n --arg body "This PR was reviewed and merged on [Forgejo](https://git.grandiras.net/Grandiras/ATProto.NET). The changes are synced automatically." '{body: $body}')
+              curl -sf -X POST \
+                -H "Authorization: token ${GITHUB_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d "$PAYLOAD" \
+                "${GITHUB_API}/repos/${GITHUB_REPO}/issues/${GH_NUMBER}/comments" > /dev/null
+
+              # Close the PR
+              curl -sf -X PATCH \
+                -H "Authorization: token ${GITHUB_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d '{"state":"closed"}' \
+                "${GITHUB_API}/repos/${GITHUB_REPO}/pulls/${GH_NUMBER}" > /dev/null
+              echo "Closed GitHub PR #${GH_NUMBER} (merged on Forgejo)"
+            else
+              curl -sf -X PATCH \
+                -H "Authorization: token ${GITHUB_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d '{"state":"closed"}' \
+                "${GITHUB_API}/repos/${GITHUB_REPO}/pulls/${GH_NUMBER}" > /dev/null
+              echo "Closed GitHub PR #${GH_NUMBER} (not merged)"
+            fi
+          fi

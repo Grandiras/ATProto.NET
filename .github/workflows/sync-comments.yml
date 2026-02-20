@@ -1,0 +1,124 @@
+name: Sync Comments to Forgejo
+
+on:
+  issue_comment:
+    types: [created, edited, deleted]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  sync-comment:
+    runs-on: ubuntu-latest
+    # Don't sync bot comments to avoid loops
+    if: github.event.sender.type != 'Bot'
+    steps:
+      - name: Sync comment to Forgejo
+        env:
+          FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+          FORGEJO_API: https://git.grandiras.net/api/v1
+          FORGEJO_REPO: Grandiras/ATProto.NET
+        run: |
+          set -euo pipefail
+
+          ACTION="${{ github.event.action }}"
+          AUTHOR="${{ github.event.sender.login }}"
+          EVENT_NAME="${{ github.event_name }}"
+
+          # Determine the GitHub issue/PR number and the comment body
+          if [ "$EVENT_NAME" = "issue_comment" ]; then
+            GH_NUMBER="${{ github.event.issue.number }}"
+            IS_PR="${{ github.event.issue.pull_request && 'true' || 'false' }}"
+
+            COMMENT_BODY=$(cat <<'BODYEOF'
+          ${{ github.event.comment.body }}
+          BODYEOF
+            )
+            COMMENT_ID="${{ github.event.comment.id }}"
+            COMMENT_URL="${{ github.event.comment.html_url }}"
+
+          elif [ "$EVENT_NAME" = "pull_request_review_comment" ]; then
+            GH_NUMBER="${{ github.event.pull_request.number }}"
+            IS_PR="true"
+
+            COMMENT_BODY=$(cat <<'BODYEOF'
+          ${{ github.event.comment.body }}
+          BODYEOF
+            )
+            FILE_PATH="${{ github.event.comment.path }}"
+            COMMENT_ID="${{ github.event.comment.id }}"
+            COMMENT_URL="${{ github.event.comment.html_url }}"
+            COMMENT_BODY=$(printf "**Review comment on \`%s\`:**\n\n%s" "$FILE_PATH" "$COMMENT_BODY")
+
+          elif [ "$EVENT_NAME" = "pull_request_review" ]; then
+            GH_NUMBER="${{ github.event.pull_request.number }}"
+            IS_PR="true"
+
+            REVIEW_STATE="${{ github.event.review.state }}"
+            COMMENT_BODY=$(cat <<'BODYEOF'
+          ${{ github.event.review.body }}
+          BODYEOF
+            )
+            COMMENT_ID="${{ github.event.review.id }}"
+            COMMENT_URL="${{ github.event.review.html_url }}"
+
+            # Skip reviews with no body (approval-only)
+            if [ -z "$COMMENT_BODY" ] || [ "$COMMENT_BODY" = "null" ]; then
+              echo "Skipping review with no body"
+              exit 0
+            fi
+
+            STATE_LABEL=""
+            case "$REVIEW_STATE" in
+              approved) STATE_LABEL="✅ Approved" ;;
+              changes_requested) STATE_LABEL="🔄 Changes requested" ;;
+              commented) STATE_LABEL="💬 Review" ;;
+              *) STATE_LABEL="Review ($REVIEW_STATE)" ;;
+            esac
+            COMMENT_BODY=$(printf "**%s:**\n\n%s" "$STATE_LABEL" "$COMMENT_BODY")
+          fi
+
+          # Attribute the comment
+          ATTRIBUTED_BODY=$(printf "> Comment by @%s on GitHub ([link](%s))\n\n%s" "$AUTHOR" "$COMMENT_URL" "$COMMENT_BODY")
+
+          # Find the corresponding Forgejo issue/PR
+          if [ "$IS_PR" = "true" ]; then
+            PREFIX="[GH-PR-#${GH_NUMBER}]"
+            SEARCH_URL="${FORGEJO_API}/repos/${FORGEJO_REPO}/pulls?state=all&limit=50"
+          else
+            PREFIX="[GH-#${GH_NUMBER}]"
+            SEARCH_URL="${FORGEJO_API}/repos/${FORGEJO_REPO}/issues?type=issues&state=all&limit=50"
+          fi
+
+          EXISTING=$(curl -sf -H "Authorization: token ${FORGEJO_TOKEN}" "$SEARCH_URL" \
+            | jq -r --arg prefix "$PREFIX" \
+            '[.[] | select(.title | startswith($prefix))][0] // empty')
+
+          if [ -z "$EXISTING" ]; then
+            echo "No matching Forgejo issue/PR found for GitHub #${GH_NUMBER}, skipping"
+            exit 0
+          fi
+
+          FORGEJO_NUMBER=$(echo "$EXISTING" | jq -r '.number')
+
+          if [ "$ACTION" = "created" ] || [ "$ACTION" = "submitted" ]; then
+            PAYLOAD=$(jq -n --arg body "$ATTRIBUTED_BODY" '{body: $body}')
+            curl -sf -X POST \
+              -H "Authorization: token ${FORGEJO_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$PAYLOAD" \
+              "${FORGEJO_API}/repos/${FORGEJO_REPO}/issues/${FORGEJO_NUMBER}/comments" > /dev/null
+            echo "Synced comment to Forgejo issue/PR #${FORGEJO_NUMBER}"
+
+          elif [ "$ACTION" = "edited" ]; then
+            # For edits, add a new comment with the updated content
+            EDIT_BODY=$(printf "**[Edited comment]**\n\n%s" "$ATTRIBUTED_BODY")
+            PAYLOAD=$(jq -n --arg body "$EDIT_BODY" '{body: $body}')
+            curl -sf -X POST \
+              -H "Authorization: token ${FORGEJO_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$PAYLOAD" \
+              "${FORGEJO_API}/repos/${FORGEJO_REPO}/issues/${FORGEJO_NUMBER}/comments" > /dev/null
+            echo "Synced edited comment to Forgejo issue/PR #${FORGEJO_NUMBER}"
+          fi

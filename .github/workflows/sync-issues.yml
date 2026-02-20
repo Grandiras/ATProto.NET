@@ -1,0 +1,89 @@
+name: Sync Issues to Forgejo
+
+on:
+  issues:
+    types: [opened, edited, closed, reopened, labeled, unlabeled]
+
+jobs:
+  sync-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync issue to Forgejo
+        env:
+          FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+          FORGEJO_API: https://git.grandiras.net/api/v1
+          FORGEJO_REPO: Grandiras/ATProto.NET
+        run: |
+          set -euo pipefail
+
+          ISSUE_NUMBER="${{ github.event.issue.number }}"
+          ACTION="${{ github.event.action }}"
+          TITLE="${{ github.event.issue.title }}"
+          STATE="${{ github.event.issue.state }}"
+          AUTHOR="${{ github.event.issue.user.login }}"
+          GITHUB_URL="${{ github.event.issue.html_url }}"
+
+          # Build body with attribution
+          BODY=$(cat <<'BODYEOF'
+          ${{ github.event.issue.body }}
+          BODYEOF
+          )
+          ATTRIBUTED_BODY=$(printf "> Mirrored from GitHub issue %s by @%s\n> %s\n\n%s" "#${ISSUE_NUMBER}" "$AUTHOR" "$GITHUB_URL" "$BODY")
+
+          PREFIXED_TITLE="[GH-#${ISSUE_NUMBER}] ${TITLE}"
+
+          # Check if a mirrored issue already exists (search by title prefix)
+          EXISTING=$(curl -sf -H "Authorization: token ${FORGEJO_TOKEN}" \
+            "${FORGEJO_API}/repos/${FORGEJO_REPO}/issues?type=issues&state=all&limit=50" \
+            | jq -r --arg prefix "[GH-#${ISSUE_NUMBER}]" \
+            '[.[] | select(.title | startswith($prefix))][0] // empty')
+
+          if [ -n "$EXISTING" ]; then
+            FORGEJO_ISSUE_NUMBER=$(echo "$EXISTING" | jq -r '.number')
+
+            if [ "$ACTION" = "closed" ]; then
+              # Close the issue
+              curl -sf -X PATCH \
+                -H "Authorization: token ${FORGEJO_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d '{"state":"closed"}' \
+                "${FORGEJO_API}/repos/${FORGEJO_REPO}/issues/${FORGEJO_ISSUE_NUMBER}" > /dev/null
+              echo "Closed Forgejo issue #${FORGEJO_ISSUE_NUMBER}"
+
+            elif [ "$ACTION" = "reopened" ]; then
+              curl -sf -X PATCH \
+                -H "Authorization: token ${FORGEJO_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d '{"state":"open"}' \
+                "${FORGEJO_API}/repos/${FORGEJO_REPO}/issues/${FORGEJO_ISSUE_NUMBER}" > /dev/null
+              echo "Reopened Forgejo issue #${FORGEJO_ISSUE_NUMBER}"
+
+            elif [ "$ACTION" = "edited" ]; then
+              # Update title and body
+              PAYLOAD=$(jq -n \
+                --arg title "$PREFIXED_TITLE" \
+                --arg body "$ATTRIBUTED_BODY" \
+                '{title: $title, body: $body}')
+              curl -sf -X PATCH \
+                -H "Authorization: token ${FORGEJO_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d "$PAYLOAD" \
+                "${FORGEJO_API}/repos/${FORGEJO_REPO}/issues/${FORGEJO_ISSUE_NUMBER}" > /dev/null
+              echo "Updated Forgejo issue #${FORGEJO_ISSUE_NUMBER}"
+            fi
+          else
+            if [ "$ACTION" = "opened" ]; then
+              # Create new issue
+              PAYLOAD=$(jq -n \
+                --arg title "$PREFIXED_TITLE" \
+                --arg body "$ATTRIBUTED_BODY" \
+                '{title: $title, body: $body}')
+              RESULT=$(curl -sf -X POST \
+                -H "Authorization: token ${FORGEJO_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d "$PAYLOAD" \
+                "${FORGEJO_API}/repos/${FORGEJO_REPO}/issues")
+              FORGEJO_ISSUE_NUMBER=$(echo "$RESULT" | jq -r '.number')
+              echo "Created Forgejo issue #${FORGEJO_ISSUE_NUMBER}"
+            fi
+          fi
