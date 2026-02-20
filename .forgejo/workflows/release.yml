@@ -51,3 +51,28 @@ jobs:
             --api-key "${{ secrets.NUGET_API_KEY }}" \
             --skip-duplicate
         continue-on-error: true
+
+      - name: Extract changelog for release
+        id: changelog
+        run: |
+          # Extract the section for this version from CHANGELOG.md
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          # Use awk to extract content between the current version header and the next one
+          BODY=$(awk "/^## \[${VERSION}\]/{found=1; next} /^## \[/{if(found) exit} found{print}" CHANGELOG.md)
+          # Write to a temp file to preserve newlines
+          echo "$BODY" > /tmp/release-notes.md
+
+      - name: Create Forgejo release
+        run: |
+          # Install curl and jq if not available
+          apt-get update -qq && apt-get install -y -qq curl jq > /dev/null 2>&1 || true
+          curl -s -X POST \
+            "https://git.grandiras.net/api/v1/repos/Grandiras/ATProto.NET/releases" \
+            -H "Authorization: token ${{ secrets.NUGET_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg tag "${{ github.ref_name }}" \
+              --arg name "v${{ steps.version.outputs.VERSION }}" \
+              --arg body "$(cat /tmp/release-notes.md)" \
+              '{tag_name: $tag, name: $name, body: $body, draft: false, prerelease: false}'
+            )"
