@@ -13,6 +13,7 @@ Welcome to the ATProto.NET documentation. This SDK enables you to build custom a
 - [AT Protocol Overview](at-protocol-overview.md) — Understanding DIDs, handles, repositories, Lexicons
 - [Identity Types](identity-types.md) — DID, Handle, AtUri, NSID, TID, RecordKey, CID
 - [Session Management](session-management.md) — Authentication, token refresh, custom persistence
+- [OAuth Authentication](oauth.md) — AT Protocol OAuth with DPoP, PAR, PKCE, dynamic PDS
 - [Error Handling](error-handling.md) — XRPC errors, HTTP exceptions, retry patterns
 
 ### Integration

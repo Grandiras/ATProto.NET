@@ -1,0 +1,98 @@
+@using ATProtoNet.Blazor.Services
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Authorization
+
+<div class="atproto-oauth-callback">
+    @if (_error is not null)
+    {
+        <div class="atproto-login-error" role="alert">
+            <h3>Authentication Failed</h3>
+            <p>@_error</p>
+            @if (ReturnUrl is not null)
+            {
+                <a href="@ReturnUrl">Try again</a>
+            }
+        </div>
+    }
+    else if (_processing)
+    {
+        <div class="atproto-oauth-processing">
+            <p>Completing sign in…</p>
+        </div>
+    }
+    else
+    {
+        <div class="atproto-oauth-success">
+            <p>Signed in successfully. Redirecting…</p>
+        </div>
+    }
+</div>
+
+@code {
+    [Inject] private AtProtoAuthStateProvider AuthState { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    /// <summary>URL to navigate to after successful OAuth callback.</summary>
+    [Parameter] public string? RedirectUrl { get; set; }
+
+    /// <summary>URL to show as a "try again" link on error.</summary>
+    [Parameter] public string? ReturnUrl { get; set; }
+
+    /// <summary>Callback when OAuth completes successfully.</summary>
+    [Parameter] public EventCallback OnAuthenticationComplete { get; set; }
+
+    /// <summary>Callback when OAuth fails.</summary>
+    [Parameter] public EventCallback<string> OnAuthenticationError { get; set; }
+
+    private string? _error;
+    private bool _processing = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Parse the callback URL query parameters
+            var uri = new Uri(Navigation.Uri);
+            var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
+
+            var code = queryParams["code"];
+            var state = queryParams["state"];
+            var issuer = queryParams["iss"];
+            var error = queryParams["error"];
+            var errorDescription = queryParams["error_description"];
+
+            // Check for error response from Authorization Server
+            if (!string.IsNullOrEmpty(error))
+            {
+                _error = errorDescription ?? error;
+                _processing = false;
+                await OnAuthenticationError.InvokeAsync(_error);
+                return;
+            }
+
+            if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(state) || string.IsNullOrEmpty(issuer))
+            {
+                _error = "Missing required OAuth callback parameters (code, state, or iss).";
+                _processing = false;
+                await OnAuthenticationError.InvokeAsync(_error);
+                return;
+            }
+
+            // Complete the OAuth flow
+            await AuthState.CompleteOAuthLoginAsync(code, state, issuer);
+
+            _processing = false;
+            await OnAuthenticationComplete.InvokeAsync();
+
+            // Navigate to the success page
+            var target = RedirectUrl ?? "/";
+            Navigation.NavigateTo(target, forceLoad: false);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            _processing = false;
+            await OnAuthenticationError.InvokeAsync(_error);
+        }
+    }
+}

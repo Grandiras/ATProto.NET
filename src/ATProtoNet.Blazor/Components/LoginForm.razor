@@ -1,51 +1,112 @@
 @using ATProtoNet.Blazor.Services
+@using ATProtoNet.Blazor.Components
+@using Microsoft.AspNetCore.Components
 
-<div class="atproto-login-form">
+<div class="atproto-login-form @CssClass">
     @if (_error is not null)
     {
-        <div class="atproto-login-error" role="alert">
+        <div class="atproto-login-error alert alert-danger" role="alert">
             @_error
         </div>
     }
 
-    <form @onsubmit="HandleSubmitAsync">
-        <div class="atproto-login-field">
-            <label for="atproto-identifier">Handle or Email</label>
+    <form @onsubmit="HandleSubmitAsync" @onsubmit:preventDefault>
+        @* PDS selector — only shown for password auth (OAuth auto-discovers PDS from handle) *@
+        @if (!_useOAuth)
+        {
+            <div class="atproto-login-field mb-3">
+                <label for="atproto-pds" class="form-label">PDS Server</label>
+                <select id="atproto-pds-select"
+                        value="@_selectedPds"
+                        @onchange="OnPdsSelectionChanged"
+                        disabled="@_loading"
+                        class="atproto-pds-select form-select">
+                    <option value="https://bsky.social">bsky.social (default)</option>
+                    @if (AdditionalPdsOptions is not null)
+                    {
+                        @foreach (var pds in AdditionalPdsOptions)
+                        {
+                            <option value="@pds.Url">@pds.Label</option>
+                        }
+                    }
+                    <option value="custom">Custom PDS…</option>
+                </select>
+            </div>
+
+            @* Custom PDS URL — always rendered, visibility controlled by style *@
+            <div class="atproto-login-field mb-3" style="@(_selectedPds != "custom" ? "display:none" : "")">
+                <label for="atproto-pds-url" class="form-label">PDS URL</label>
+                <input id="atproto-pds-url"
+                       type="url"
+                       class="form-control"
+                       @bind="_customPdsUrl"
+                       placeholder="https://pds.example.com"
+                       disabled="@_loading" />
+            </div>
+        }
+
+        @* Handle / identifier — always shown *@
+        <div class="atproto-login-field mb-3">
+            <label for="atproto-identifier" class="form-label">Handle</label>
             <input id="atproto-identifier"
                    type="text"
+                   class="form-control"
                    @bind="_identifier"
                    placeholder="alice.bsky.social"
                    required
                    disabled="@_loading" />
+            @if (_useOAuth)
+            {
+                <small class="atproto-login-hint form-text text-muted">Your PDS will be detected automatically from your handle.</small>
+            }
         </div>
 
-        <div class="atproto-login-field">
-            <label for="atproto-password">App Password</label>
-            <input id="atproto-password"
-                   type="password"
-                   @bind="_password"
-                   placeholder="xxxx-xxxx-xxxx-xxxx"
-                   required
-                   disabled="@_loading" />
-        </div>
+        @* Password field — only shown for app password auth *@
+        @if (!_useOAuth)
+        {
+            <div class="atproto-login-field mb-3">
+                <label for="atproto-password" class="form-label">App Password</label>
+                <input id="atproto-password"
+                       type="password"
+                       class="form-control"
+                       @bind="_password"
+                       placeholder="xxxx-xxxx-xxxx-xxxx"
+                       required
+                       disabled="@_loading" />
+            </div>
+        }
 
-        <button type="submit" disabled="@_loading" class="atproto-login-button">
+        <button type="submit" disabled="@_loading" class="atproto-login-button btn btn-primary w-100">
             @if (_loading)
             {
-                <span>Signing in…</span>
+                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                <span>@(_useOAuth ? "Redirecting…" : "Signing in…")</span>
             }
             else
             {
-                <span>Sign In</span>
+                <span>@(_useOAuth ? "Sign in with OAuth" : "Sign In")</span>
             }
         </button>
+
+        @if (AuthState.IsOAuthEnabled && ShowPasswordOption)
+        {
+            <div class="atproto-login-toggle text-center mt-3">
+                <button type="button"
+                        class="atproto-link-button btn btn-link"
+                        @onclick="ToggleAuthMethod"
+                        disabled="@_loading">
+                    @(_useOAuth ? "Use app password instead" : "Sign in via OAuth")
+                </button>
+            </div>
+        }
     </form>
 </div>
 
 @code {
     [Inject] private AtProtoAuthStateProvider AuthState { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
 
-    /// <summary>Callback invoked when login succeeds.</summary>
+    /// <summary>Callback invoked when login succeeds (password auth) or when OAuth redirect begins.</summary>
     [Parameter] public EventCallback OnLoginSuccess { get; set; }
 
     /// <summary>Callback invoked when login fails.</summary>
@@ -54,24 +115,97 @@
     /// <summary>Optional CSS class for the form container.</summary>
     [Parameter] public string? CssClass { get; set; }
 
+    /// <summary>
+    /// The OAuth redirect URI. Defaults to "/oauth/callback" relative to the current origin.
+    /// </summary>
+    [Parameter] public string? OAuthRedirectUri { get; set; }
+
+    /// <summary>
+    /// Pre-selected PDS URLs to show in the dropdown (in addition to bsky.social).
+    /// </summary>
+    [Parameter] public List<PdsOption>? AdditionalPdsOptions { get; set; }
+
+    /// <summary>
+    /// Whether to default to OAuth when available. Default: true.
+    /// </summary>
+    [Parameter] public bool PreferOAuth { get; set; } = true;
+
+    /// <summary>
+    /// Whether to show the toggle button for switching between OAuth and app password login.
+    /// Default: true.
+    /// </summary>
+    [Parameter] public bool ShowPasswordOption { get; set; } = true;
+
+    private string _selectedPds = "https://bsky.social";
+    private string _customPdsUrl = string.Empty;
     private string _identifier = string.Empty;
     private string _password = string.Empty;
     private string? _error;
     private bool _loading;
+    private bool _useOAuth;
+
+    protected override void OnInitialized()
+    {
+        _useOAuth = AuthState.IsOAuthEnabled && PreferOAuth;
+    }
+
+    private string EffectivePdsUrl =>
+        _selectedPds == "custom" ? _customPdsUrl : _selectedPds;
+
+    private void OnPdsSelectionChanged(ChangeEventArgs e)
+    {
+        _selectedPds = e.Value?.ToString() ?? "https://bsky.social";
+    }
+
+    private void ToggleAuthMethod()
+    {
+        _useOAuth = !_useOAuth;
+        _error = null;
+    }
 
     private async Task HandleSubmitAsync()
     {
-        if (string.IsNullOrWhiteSpace(_identifier) || string.IsNullOrWhiteSpace(_password))
+        _error = null;
+
+        // Validate inputs
+        if (string.IsNullOrWhiteSpace(_identifier))
+        {
+            _error = "Please enter your handle.";
             return;
+        }
+
+        if (_useOAuth)
+        {
+            // OAuth: just need the handle
+        }
+        else
+        {
+            // Password login: validate password and custom PDS URL
+            if (string.IsNullOrWhiteSpace(_password))
+            {
+                _error = "Please enter your app password.";
+                return;
+            }
+
+            if (_selectedPds == "custom" && string.IsNullOrWhiteSpace(_customPdsUrl))
+            {
+                _error = "Please enter your PDS URL.";
+                return;
+            }
+        }
 
         _loading = true;
-        _error = null;
 
         try
         {
-            await AuthState.LoginAsync(_identifier, _password);
-            _password = string.Empty;
-            await OnLoginSuccess.InvokeAsync();
+            if (_useOAuth)
+            {
+                await HandleOAuthLoginAsync();
+            }
+            else
+            {
+                await HandlePasswordLoginAsync();
+            }
         }
         catch (Exception ex)
         {
@@ -82,5 +216,34 @@
         {
             _loading = false;
         }
+    }
+
+    private async Task HandlePasswordLoginAsync()
+    {
+        var pdsUrl = EffectivePdsUrl;
+
+        if (!string.Equals(pdsUrl, "https://bsky.social", StringComparison.OrdinalIgnoreCase))
+        {
+            // Dynamic PDS — set the PDS URL before login
+            await AuthState.LoginAsync(pdsUrl, _identifier, _password);
+        }
+        else
+        {
+            await AuthState.LoginAsync(_identifier, _password);
+        }
+
+        _password = string.Empty;
+        await OnLoginSuccess.InvokeAsync();
+    }
+
+    private async Task HandleOAuthLoginAsync()
+    {
+        var redirectUri = OAuthRedirectUri ?? $"{Navigation.BaseUri.TrimEnd('/')}/oauth/callback";
+
+        var (authorizationUrl, _) = await AuthState.StartOAuthLoginAsync(
+            _identifier, redirectUri);
+
+        // Redirect the user to the Authorization Server
+        Navigation.NavigateTo(authorizationUrl, forceLoad: true);
     }
 }

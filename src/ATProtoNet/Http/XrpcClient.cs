@@ -19,6 +19,9 @@ public sealed class XrpcClient : IDisposable
     private readonly JsonSerializerOptions _jsonOptions;
     private string? _accessToken;
     private string? _refreshToken;
+    private Auth.OAuth.DPoPProofGenerator? _dpop;
+    private string? _dpopNonce;
+    private bool _useDPoP;
 
     /// <summary>
     /// The base URL of the XRPC service (e.g., https://bsky.social).
@@ -50,12 +53,49 @@ public sealed class XrpcClient : IDisposable
     }
 
     /// <summary>
+    /// Sets OAuth DPoP-bound tokens for subsequent requests.
+    /// When DPoP is configured, requests use <c>Authorization: DPoP &lt;token&gt;</c>
+    /// and include a DPoP proof JWT header.
+    /// </summary>
+    /// <param name="accessToken">The DPoP-bound access token.</param>
+    /// <param name="refreshToken">The refresh token.</param>
+    /// <param name="dpop">The DPoP proof generator for this session.</param>
+    /// <param name="dpopNonce">The current DPoP nonce from the Resource Server.</param>
+    public void SetOAuthTokens(string accessToken, string? refreshToken, Auth.OAuth.DPoPProofGenerator dpop, string? dpopNonce = null)
+    {
+        _accessToken = accessToken;
+        _refreshToken = refreshToken;
+        _dpop = dpop;
+        _dpopNonce = dpopNonce;
+        _useDPoP = true;
+    }
+
+    /// <summary>
+    /// Updates the DPoP nonce for the Resource Server.
+    /// </summary>
+    public void UpdateDPoPNonce(string nonce)
+    {
+        _dpopNonce = nonce;
+    }
+
+    /// <summary>
+    /// Changes the base URL of this client (for dynamic PDS selection).
+    /// </summary>
+    public void SetBaseUrl(string url)
+    {
+        _httpClient.BaseAddress = new Uri(url.TrimEnd('/') + "/");
+    }
+
+    /// <summary>
     /// Clears the authentication tokens.
     /// </summary>
     public void ClearTokens()
     {
         _accessToken = null;
         _refreshToken = null;
+        _dpop = null;
+        _dpopNonce = null;
+        _useDPoP = false;
     }
 
     /// <summary>
@@ -315,14 +355,33 @@ public sealed class XrpcClient : IDisposable
 
     private void ApplyAuthHeader(HttpRequestMessage request)
     {
-        if (_accessToken is not null)
+        if (_accessToken is null) return;
+
+        if (_useDPoP && _dpop is not null)
         {
+            // OAuth DPoP: Authorization: DPoP <token> + DPoP proof header
+            request.Headers.Authorization = new AuthenticationHeaderValue("DPoP", _accessToken);
+
+            var url = new Uri(_httpClient.BaseAddress!, request.RequestUri!).ToString();
+            var method = request.Method.Method;
+            var proof = _dpop.GenerateProofWithAccessToken(method, url, _dpopNonce, _accessToken);
+            request.Headers.TryAddWithoutValidation("DPoP", proof);
+        }
+        else
+        {
+            // Legacy Bearer token auth
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
         }
     }
 
     private async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
+        // Always update DPoP nonce from response headers
+        if (_useDPoP && response.Headers.TryGetValues("DPoP-Nonce", out var nonceValues))
+        {
+            _dpopNonce = nonceValues.First();
+        }
+
         if (response.IsSuccessStatusCode)
             return;
 

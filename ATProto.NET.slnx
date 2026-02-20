@@ -8,4 +8,7 @@
     <Project Path="tests/ATProtoNet.IntegrationTests/ATProtoNet.IntegrationTests.csproj" />
     <Project Path="tests/ATProtoNet.Tests/ATProtoNet.Tests.csproj" />
   </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/BlazorOAuthSample/BlazorOAuthSample.csproj" />
+  </Folder>
 </Solution>

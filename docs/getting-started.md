@@ -87,5 +87,7 @@ client.Session   // Full Session object with tokens, email, etc.
 ## What's Next?
 
 - [Custom Lexicon Records](custom-records.md) — Build your own AT Protocol app
+- [OAuth Authentication](oauth.md) — Secure auth for web apps with DPoP, PAR, PKCE
 - [Session Management](session-management.md) — Token refresh, persistence, resume
 - [ASP.NET Core](aspnet-core.md) — Use in web applications
+- [Blazor](blazor.md) — Components with OAuth login support

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using ATProtoNet.Auth;
+using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Actor;
@@ -58,6 +59,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     private readonly ISessionStore _sessionStore;
     private readonly ILogger<AtProtoClient> _logger;
     private Session? _session;
+    private OAuthSessionResult? _oauthSession;
     private Timer? _refreshTimer;
     private bool _disposed;
 
@@ -378,13 +380,14 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// </summary>
     public async Task LogoutAsync(CancellationToken cancellationToken = default)
     {
-        if (_session is null) return;
+        if (_session is null && _oauthSession is null) return;
 
-        _logger.LogInformation("Logging out {Did}", _session.Did);
+        _logger.LogInformation("Logging out {Did}", _session?.Did ?? _oauthSession?.Did);
 
         try
         {
-            await Server.DeleteSessionAsync(cancellationToken);
+            if (_session is not null)
+                await Server.DeleteSessionAsync(cancellationToken);
         }
         catch (Exception ex)
         {
@@ -393,10 +396,92 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
         _xrpc.ClearTokens();
         _session = null;
+        _oauthSession?.Dispose();
+        _oauthSession = null;
         StopRefreshTimer();
 
         await _sessionStore.ClearAsync(cancellationToken);
     }
+
+    // ──────────────────────────────────────────────────────────
+    //  Dynamic PDS
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Changes the target PDS URL at runtime. Call this before <see cref="LoginAsync"/> or
+    /// <see cref="ApplyOAuthSessionAsync"/> when the user selects a different PDS.
+    /// </summary>
+    /// <param name="pdsUrl">The new PDS URL (e.g., "https://pds.example.com").</param>
+    public void SetPdsUrl(string pdsUrl)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(pdsUrl);
+        _logger.LogInformation("Switching PDS to {PdsUrl}", pdsUrl);
+        _xrpc.SetBaseUrl(pdsUrl);
+    }
+
+    /// <summary>
+    /// Gets the current PDS base URL.
+    /// </summary>
+    public string PdsUrl => _httpClient.BaseAddress?.ToString().TrimEnd('/') ?? "https://bsky.social";
+
+    // ──────────────────────────────────────────────────────────
+    //  OAuth Authentication
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Apply an OAuth session obtained from <see cref="OAuthClient.CompleteAuthorizationAsync"/>.
+    /// Sets up DPoP-bound tokens and points the client at the correct PDS.
+    /// </summary>
+    /// <param name="oauthSession">The completed OAuth session.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task ApplyOAuthSessionAsync(
+        OAuthSessionResult oauthSession,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(oauthSession);
+
+        _logger.LogInformation("Applying OAuth session for {Did} on PDS {PdsUrl}",
+            oauthSession.Did, oauthSession.PdsUrl);
+
+        // Point the XRPC client at the user's PDS
+        _xrpc.SetBaseUrl(oauthSession.PdsUrl);
+
+        // Set DPoP-bound tokens
+        _xrpc.SetOAuthTokens(
+            oauthSession.AccessToken,
+            oauthSession.RefreshToken,
+            oauthSession.DPoP,
+            oauthSession.ResourceServerDpopNonce);
+
+        _oauthSession = oauthSession;
+
+        // Create a session object for backward compatibility
+        _session = new Session
+        {
+            Did = oauthSession.Did,
+            Handle = oauthSession.Handle,
+            AccessJwt = oauthSession.AccessToken,
+            RefreshJwt = oauthSession.RefreshToken ?? string.Empty,
+        };
+
+        await _sessionStore.SaveAsync(_session, cancellationToken);
+
+        // Schedule token refresh
+        if (oauthSession.ExpiresIn.HasValue)
+        {
+            var refreshIn = TimeSpan.FromSeconds(Math.Max(oauthSession.ExpiresIn.Value - 60, 30));
+            StartRefreshTimer(refreshIn);
+        }
+        else
+        {
+            StartRefreshTimer(TimeSpan.FromMinutes(4));
+        }
+    }
+
+    /// <summary>
+    /// The current OAuth session, if authenticated via OAuth.
+    /// </summary>
+    public OAuthSessionResult? OAuthSession => _oauthSession;
 
     // ──────────────────────────────────────────────────────────
     //  High-level convenience methods
@@ -706,6 +791,10 @@ public sealed class AtProtoClientOptions
     /// The base URL of the PDS or service instance.
     /// Default: "https://bsky.social"
     /// </summary>
+    /// <remarks>
+    /// With OAuth, this can be overridden dynamically via <see cref="AtProtoClient.SetPdsUrl"/>
+    /// or automatically when applying an OAuth session.
+    /// </remarks>
     public string InstanceUrl { get; set; } = "https://bsky.social";
 
     /// <summary>
@@ -713,4 +802,9 @@ public sealed class AtProtoClientOptions
     /// Default: true.
     /// </summary>
     public bool AutoRefreshSession { get; set; } = true;
+
+    /// <summary>
+    /// OAuth configuration options. When set, enables OAuth authentication support.
+    /// </summary>
+    public OAuthOptions? OAuth { get; set; }
 }

@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-02-20
+
+### Added
+
+- **OAuth Authentication** — Full [AT Protocol OAuth](https://atproto.com/specs/oauth) implementation
+  - DPoP (RFC 9449) — proof-of-possession bound tokens with ES256 (P-256) key pairs
+  - Pushed Authorization Requests (RFC 9126) — secure authorization initiation
+  - PKCE (RFC 7636) — S256 code challenge for public clients
+  - Authorization Server Discovery — full resolution chain (Handle → DID → PDS → AS)
+  - Identity verification — DID/issuer consistency checks after token exchange
+  - Token refresh with DPoP binding
+  - `OAuthClient` orchestrator with `StartAuthorizationAsync()` / `CompleteAuthorizationAsync()`
+  - `AuthorizationServerDiscovery` for handle, DID, and PDS resolution
+  - `DPoPProofGenerator` for ES256 DPoP proof JWT generation
+  - `PkceGenerator` for PKCE S256 code verifier and challenge generation
+  - Complete `OAuthModels` — client metadata, server metadata, token responses, DID documents
+
+- **Dynamic PDS Selection** — Connect to any AT Protocol PDS at runtime
+  - `AtProtoClient.SetPdsUrl()` — change PDS URL dynamically
+  - `AtProtoClient.ApplyOAuthSessionAsync()` — apply OAuth session with DPoP tokens
+  - `XrpcClient.SetBaseUrl()` — runtime base URL changes
+  - OAuth flow automatically resolves user's PDS from their identity
+
+- **Blazor OAuth Components**
+  - `LoginForm` — redesigned with PDS selector, OAuth toggle, custom PDS URL input
+  - `OAuthCallback` — callback handler component for OAuth redirect
+  - `PdsOption` — model for PDS dropdown options
+  - `AtProtoAuthStateProvider` — OAuth-aware auth state with `StartOAuthLoginAsync()` and `CompleteOAuthLoginAsync()`
+  - `AddAtProtoBlazor()` — now registers `OAuthClient` when OAuth options are configured
+
+- **Security hardening**
+  - Handle format validation (SSRF prevention)
+  - DID:web host validation (private IP blocking)
+  - Redirect URI HTTPS enforcement (localhost exception for dev)
+  - DID format validation on token response `sub` claim
+  - Pending authorization cleanup (10-minute expiry, 100 max entries)
+  - DPoP private key export security documentation
+
+- **Sample project**
+  - `samples/BlazorOAuthSample` — minimal Blazor Server app demonstrating OAuth login with loopback client
+
+- **Documentation**
+  - OAuth authentication guide (`docs/oauth.md`) with loopback client development section
+  - Updated Blazor, session management, and getting started guides
+  - Updated README with OAuth sections
+
+- **Tests**
+  - 50 new unit tests for OAuth components (DPoP, PKCE, models, dynamic PDS)
+  - Total: 268 unit tests
+
 ## [0.1.1] - 2026-02-20
 
 ### Fixed

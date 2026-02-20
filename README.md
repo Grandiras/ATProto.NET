@@ -16,14 +16,16 @@ The AT Protocol isn't just Bluesky — it's an open protocol where **one account
 
 - **Custom Lexicon support** — `RecordCollection<T>` for typed CRUD on your own record schemas
 - **Full AT Protocol** — authentication, repositories, identity, sync, admin, labels, moderation
+- **OAuth authentication** — DPoP, PAR, PKCE with dynamic PDS selection
 - **Custom XRPC endpoints** — call your own query/procedure methods
 - **Bluesky APIs** — actors, feeds, posts, social graph, notifications, rich text
 - **ASP.NET Core integration** — dependency injection, JWT authentication handler
-- **Blazor components** — login forms, profile cards, post cards, feed views, composers
+- **Blazor components** — login forms (with OAuth), profile cards, post cards, feed views, composers
 - **Rich text builder** — fluent API with automatic UTF-8 byte offset calculation
 - **Firehose client** — real-time WebSocket streaming
 - **Type-safe identity** — `Did`, `Handle`, `AtUri`, `Nsid`, `Tid`, `RecordKey`, `Cid`
 - **Automatic session management** — token refresh, persistence, resume
+- **Dynamic PDS** — connect to any PDS at runtime, resolve from user identity
 
 ## Quick Start
 
@@ -44,6 +46,45 @@ var client = new AtProtoClientBuilder()
 
 await client.LoginAsync("alice.example.com", "app-password");
 ```
+
+### OAuth Authentication (Recommended for Web Apps)
+
+For user-facing applications, use [AT Protocol OAuth](https://atproto.com/specs/oauth) instead of handling passwords:
+
+```csharp
+using ATProtoNet.Auth.OAuth;
+
+// Configure OAuth client
+var oauthOptions = new OAuthOptions
+{
+    ClientMetadata = new OAuthClientMetadata
+    {
+        ClientId = "https://myapp.example.com/client-metadata.json",
+        ClientName = "My App",
+        RedirectUris = ["https://myapp.example.com/oauth/callback"],
+        Scope = "atproto transition:generic",
+        TokenEndpointAuthMethod = "none",
+        DpopBoundAccessTokens = true,
+    },
+};
+
+var oauthClient = new OAuthClient(oauthOptions, httpClient, logger);
+
+// Step 1: Start authorization — works with any handle, DID, or PDS URL
+var (authUrl, state) = await oauthClient.StartAuthorizationAsync(
+    "alice.bsky.social",
+    "https://myapp.example.com/oauth/callback");
+
+// Step 2: Redirect user to authUrl...
+// Step 3: Handle callback
+var session = await oauthClient.CompleteAuthorizationAsync(code, state, issuer);
+
+// Step 4: Use the session
+await client.ApplyOAuthSessionAsync(session);
+await client.PostAsync("Hello from OAuth!");
+```
+
+OAuth handles DPoP proof-of-possession, PKCE, server discovery, and identity verification automatically. See the [OAuth guide](docs/oauth.md) for full details.
 
 ## Building Custom AT Protocol Apps
 
@@ -296,7 +337,22 @@ public class TodoController : ControllerBase
 ### Register Services
 
 ```csharp
+// Program.cs — without OAuth
 builder.Services.AddAtProtoBlazor();
+
+// With OAuth
+builder.Services.AddAtProtoBlazor(options =>
+{
+    options.InstanceUrl = "https://bsky.social";
+    options.OAuth = new OAuthOptions
+    {
+        ClientMetadata = new OAuthClientMetadata
+        {
+            ClientId = "https://myapp.example.com/client-metadata.json",
+            // ...
+        },
+    };
+});
 ```
 
 ### Components
@@ -304,7 +360,16 @@ builder.Services.AddAtProtoBlazor();
 ```razor
 @using ATProtoNet.Blazor.Components
 
-<AtProtoLoginForm OnLoginSuccess="HandleLogin" />
+@* Login with OAuth support *@
+<AtProtoLoginForm 
+    OnLoginSuccess="HandleLogin"
+    OAuthRedirectUri="https://myapp.example.com/oauth/callback"
+    PreferOAuth="true" />
+
+@* OAuth callback page *@
+<OAuthCallback />
+
+@* Other components *@
 <AtProtoProfileCard Actor="@did" />
 <AtProtoFeedView />
 <AtProtoComposePost OnPostCreated="HandlePost" />
@@ -319,6 +384,7 @@ ATProto.NET/
 │   ├── ATProtoNet/                    # Core SDK
 │   │   ├── Identity/                  # Did, Handle, AtUri, Nsid, Tid, etc.
 │   │   ├── Auth/                      # Session, ISessionStore
+│   │   │   └── OAuth/                 # OAuth client, DPoP, PKCE, discovery
 │   │   ├── Http/                      # XrpcClient, AtProtoHttpException
 │   │   ├── Models/                    # BlobRef, StrongRef, Label, etc.
 │   │   ├── Serialization/             # JSON converters, defaults
@@ -345,11 +411,13 @@ ATProto.NET/
 │   │   ├── Extensions/               # DI registration
 │   │   └── Authentication/           # JWT auth handler
 │   └── ATProtoNet.Blazor/            # Blazor components
-│       ├── Components/                # Razor components
-│       ├── Services/                  # Auth state provider
+│       ├── Components/                # Razor components (login, OAuth callback)
+│       ├── Services/                  # Auth state provider (OAuth-aware)
 │       └── Extensions/               # DI registration
+├── samples/
+│   └── BlazorOAuthSample/            # Blazor Server OAuth example
 └── tests/
-    ├── ATProtoNet.Tests/              # Unit tests (218 tests)
+    ├── ATProtoNet.Tests/              # Unit tests (268 tests)
     └── ATProtoNet.IntegrationTests/   # Integration tests (requires PDS)
 ```
 

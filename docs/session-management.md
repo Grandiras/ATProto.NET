@@ -2,7 +2,18 @@
 
 ATProto.NET handles AT Protocol session lifecycle including authentication, token refresh, and persistence.
 
-## Authentication
+## Authentication Methods
+
+ATProto.NET supports two authentication methods:
+
+| Method | Use Case | Security |
+|--------|----------|----------|
+| **App Password** | CLI tools, scripts, server-to-server | Simple, direct |
+| **OAuth** | User-facing web apps, mobile apps | DPoP-bound tokens, no password handling |
+
+For OAuth, see the [OAuth Authentication guide](oauth.md).
+
+## App Password Authentication
 
 ### Login
 
@@ -157,3 +168,38 @@ builder.Services.AddAtProtoScoped(options =>
 ```
 
 See [ASP.NET Core Integration](aspnet-core.md) for more details.
+
+## OAuth Sessions
+
+OAuth sessions are managed differently from app password sessions. They use DPoP-bound tokens and are created via the OAuth flow rather than direct password login.
+
+### Apply an OAuth Session
+
+```csharp
+var session = await oauthClient.CompleteAuthorizationAsync(code, state, issuer);
+
+// Apply to AtProtoClient — sets PDS URL, DPoP tokens, and creates Session
+await client.ApplyOAuthSessionAsync(session);
+
+// Client is now authenticated
+Console.WriteLine($"Authenticated as {client.Handle}");
+```
+
+### Refresh OAuth Tokens
+
+```csharp
+var newTokens = await oauthClient.RefreshTokensAsync(session);
+session.AccessToken = newTokens.AccessToken;
+if (newTokens.RefreshToken is not null)
+    session.RefreshToken = newTokens.RefreshToken;
+```
+
+### Dynamic PDS
+
+Change the PDS URL at runtime:
+
+```csharp
+client.SetPdsUrl("https://different-pds.example.com");
+```
+
+For full OAuth documentation, see [OAuth Authentication](oauth.md).
