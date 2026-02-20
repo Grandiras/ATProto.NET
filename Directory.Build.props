@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <!-- Shared package metadata for all packable projects -->
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Authors>Grandiras</Authors>
     <Company>Grandiras</Company>
     <Copyright>Copyright (c) 2025-present ATProto.NET Contributors</Copyright>

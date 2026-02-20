@@ -70,7 +70,7 @@ public sealed class NotificationClient
     /// Mark notifications as seen up to the given timestamp.
     /// </summary>
     /// <param name="seenAt">ISO 8601 timestamp of when the user last viewed notifications.
-    /// Pass <c>DateTime.UtcNow.ToString("o")</c> to mark all as read.</param>
+    /// Pass <c>AtProtoJsonDefaults.NowTimestamp()</c> to mark all as read.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task UpdateSeenAsync(
         string seenAt, CancellationToken cancellationToken = default)
@@ -85,7 +85,7 @@ public sealed class NotificationClient
     /// </summary>
     public Task MarkAllReadAsync(CancellationToken cancellationToken = default)
     {
-        return UpdateSeenAsync(DateTime.UtcNow.ToString("o"), cancellationToken);
+        return UpdateSeenAsync(Serialization.AtProtoJsonDefaults.NowTimestamp(), cancellationToken);
     }
 
     /// <summary>

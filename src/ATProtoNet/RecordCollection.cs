@@ -43,7 +43,7 @@ public abstract class AtProtoRecord
     /// Automatically set to UTC now when not provided.
     /// </summary>
     [JsonPropertyName("createdAt")]
-    public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+    public string CreatedAt { get; set; } = Serialization.AtProtoJsonDefaults.NowTimestamp();
 }
 
 /// <summary>

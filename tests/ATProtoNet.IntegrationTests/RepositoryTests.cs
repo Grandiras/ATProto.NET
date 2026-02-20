@@ -23,7 +23,7 @@ public class RepositoryTests
         {
             ["$type"] = "app.bsky.feed.post",
             ["text"] = $"Integration test post {Guid.NewGuid():N}",
-            ["createdAt"] = DateTime.UtcNow.ToString("O"),
+            ["createdAt"] = ATProtoNet.Serialization.AtProtoJsonDefaults.NowTimestamp(),
         };
 
         var createResult = await client.Repo.CreateRecordAsync(

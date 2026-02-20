@@ -432,7 +432,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             Reply = reply,
             Langs = langs,
             Labels = labels,
-            CreatedAt = DateTime.UtcNow.ToString("o"),
+            CreatedAt = AtProtoJsonDefaults.NowTimestamp(),
         };
 
         return await Repo.CreateRecordAsync(
@@ -453,7 +453,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         var like = new LikeRecord
         {
             Subject = new StrongRef { Uri = uri, Cid = cid },
-            CreatedAt = DateTime.UtcNow.ToString("o"),
+            CreatedAt = AtProtoJsonDefaults.NowTimestamp(),
         };
 
         return await Repo.CreateRecordAsync(
@@ -484,7 +484,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         var repost = new RepostRecord
         {
             Subject = new StrongRef { Uri = uri, Cid = cid },
-            CreatedAt = DateTime.UtcNow.ToString("o"),
+            CreatedAt = AtProtoJsonDefaults.NowTimestamp(),
         };
 
         return await Repo.CreateRecordAsync(
@@ -515,7 +515,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         var follow = new FollowRecord
         {
             Subject = did,
-            CreatedAt = DateTime.UtcNow.ToString("o"),
+            CreatedAt = AtProtoJsonDefaults.NowTimestamp(),
         };
 
         return await Repo.CreateRecordAsync(
@@ -588,7 +588,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             Description = description ?? current?.Description,
             Avatar = avatar ?? current?.Avatar,
             Banner = banner ?? current?.Banner,
-            CreatedAt = current?.CreatedAt ?? DateTime.UtcNow.ToString("o"),
+            CreatedAt = current?.CreatedAt ?? AtProtoJsonDefaults.NowTimestamp(),
         };
 
         await Repo.PutRecordAsync(

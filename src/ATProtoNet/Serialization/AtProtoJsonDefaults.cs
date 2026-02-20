@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 namespace ATProtoNet.Serialization;
 
 /// <summary>
-/// Provides configured JSON serializer options for AT Protocol data.
+/// Provides configured JSON serializer options and helpers for AT Protocol data.
 /// </summary>
 public static class AtProtoJsonDefaults
 {
@@ -14,6 +14,20 @@ public static class AtProtoJsonDefaults
     /// Gets the default JSON serializer options configured for AT Protocol data.
     /// </summary>
     public static JsonSerializerOptions Options => _options ??= CreateOptions();
+
+    /// <summary>
+    /// Formats a <see cref="DateTime"/> as an AT Protocol-compliant ISO 8601 timestamp
+    /// with millisecond precision and UTC "Z" suffix (e.g. "2024-01-15T12:30:45.123Z").
+    /// </summary>
+    /// <param name="dateTime">The date/time value. Will be treated as UTC.</param>
+    /// <returns>An AT Protocol-compliant timestamp string.</returns>
+    public static string FormatTimestamp(DateTime dateTime)
+        => dateTime.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'");
+
+    /// <summary>
+    /// Gets the current UTC time formatted as an AT Protocol-compliant timestamp.
+    /// </summary>
+    public static string NowTimestamp() => FormatTimestamp(DateTime.UtcNow);
 
     private static JsonSerializerOptions CreateOptions()
     {
