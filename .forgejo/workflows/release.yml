@@ -52,6 +52,21 @@ jobs:
             --skip-duplicate
         continue-on-error: true
 
+      - name: Push to nuget.org
+        run: |
+          dotnet nuget push ./nupkgs/*.nupkg \
+            --source "https://api.nuget.org/v3/index.json" \
+            --api-key "${{ secrets.NUGET_ORG_API_KEY }}" \
+            --skip-duplicate
+
+      - name: Push symbol packages to nuget.org
+        run: |
+          dotnet nuget push ./nupkgs/*.snupkg \
+            --source "https://api.nuget.org/v3/index.json" \
+            --api-key "${{ secrets.NUGET_ORG_API_KEY }}" \
+            --skip-duplicate
+        continue-on-error: true
+
       - name: Extract changelog for release
         id: changelog
         run: |

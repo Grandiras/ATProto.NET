@@ -9,9 +9,20 @@
     <AssemblyName>ATProtoNet</AssemblyName>
     <PackageId>ATProtoNet</PackageId>
     <Description>A comprehensive .NET SDK for the AT Protocol — build custom AT Proto apps with typed records, XRPC, and full repository CRUD.</Description>
+    <Authors>Grandiras</Authors>
+    <PackageTags>atproto;bluesky;at-protocol;sdk;dotnet</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://git.grandiras.net/Grandiras/ATProto.NET</PackageProjectUrl>
+    <RepositoryUrl>https://git.grandiras.net/Grandiras/ATProto.NET</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="ATProtoNet.Tests" />

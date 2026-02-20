@@ -7,8 +7,19 @@
     <RootNamespace>ATProtoNet.Blazor</RootNamespace>
     <PackageId>ATProtoNet.Blazor</PackageId>
     <Description>Blazor components and services for AT Protocol applications — login forms, profile cards, feeds, and auth state integration.</Description>
+    <Authors>Grandiras</Authors>
+    <PackageTags>atproto;bluesky;blazor;at-protocol;dotnet</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://git.grandiras.net/Grandiras/ATProto.NET</PackageProjectUrl>
+    <RepositoryUrl>https://git.grandiras.net/Grandiras/ATProto.NET</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
 
   <ItemGroup>
     <SupportedPlatform Include="browser" />

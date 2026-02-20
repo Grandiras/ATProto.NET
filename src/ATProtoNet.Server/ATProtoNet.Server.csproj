@@ -7,8 +7,19 @@
     <RootNamespace>ATProtoNet.Server</RootNamespace>
     <PackageId>ATProtoNet.Server</PackageId>
     <Description>ASP.NET Core integration for ATProtoNet — dependency injection, authentication, and middleware for AT Protocol applications.</Description>
+    <Authors>Grandiras</Authors>
+    <PackageTags>atproto;bluesky;aspnetcore;at-protocol;dotnet</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://git.grandiras.net/Grandiras/ATProto.NET</PackageProjectUrl>
+    <RepositoryUrl>https://git.grandiras.net/Grandiras/ATProto.NET</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\ATProtoNet\ATProtoNet.csproj" />
