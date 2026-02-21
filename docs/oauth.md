@@ -188,82 +188,71 @@ var (url, state) = await oauthClient.StartAuthorizationAsync(
 
 ## Blazor Integration
 
-### Service Registration
+ATProtoNet.Blazor provides cookie-based OAuth integration that works with standard Blazor authentication patterns.
+
+### Setup
 
 ```csharp
 // Program.cs
-builder.Services.AddAtProtoBlazor(options =>
+builder.Services.AddAuthentication("Cookies").AddCookie("Cookies");
+builder.Services.AddAtProtoAuthentication();
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddAuthorizationCore();
+
+var app = builder.Build();
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapAtProtoOAuth();  // Maps /atproto/login, /atproto/callback, /atproto/logout
+```
+
+### Login Form
+
+The `LoginForm` component renders a form that submits to the login endpoint:
+
+```razor
+<LoginForm ReturnUrl="/" ShowPdsOption="true" />
+```
+
+### OAuth Flow
+
+1. User submits their handle via the `LoginForm`
+2. `GET /atproto/login?handle=alice.bsky.social` resolves the user's PDS and starts OAuth
+3. User authorizes at their PDS
+4. `GET /atproto/callback` exchanges the code for tokens, creates claims, and issues a cookie via `HttpContext.SignInAsync()`
+5. Standard Blazor `<AuthorizeView>` components work automatically
+
+### Available Claims
+
+After login, these claims are available on `context.User`:
+
+| Claim | Description |
+|-------|-------------|
+| `ClaimTypes.NameIdentifier` | User's DID |
+| `ClaimTypes.Name` | User's handle |
+| `did` | User's DID |
+| `handle` | User's handle |
+| `pds_url` | User's PDS URL |
+| `auth_method` | Always `"oauth"` |
+
+### Production Configuration
+
+For production, provide explicit client metadata instead of the auto-generated loopback client_id:
+
+```csharp
+builder.Services.AddAtProtoAuthentication(options =>
 {
-    options.InstanceUrl = "https://bsky.social"; // Default PDS
-    options.OAuth = new OAuthOptions
+    options.ClientMetadata = new OAuthClientMetadata
     {
-        ClientMetadata = new OAuthClientMetadata
-        {
-            ClientId = "https://myapp.example.com/client-metadata.json",
-            // ... rest of metadata
-        },
+        ClientId = "https://myapp.example.com/client-metadata.json",
+        ClientName = "My App",
+        ClientUri = "https://myapp.example.com",
+        RedirectUris = ["https://myapp.example.com/atproto/callback"],
+        Scope = "atproto transition:generic",
     };
 });
 ```
 
-### Login Form with OAuth
-
-The `AtProtoLoginForm` component automatically supports OAuth when configured:
-
-```razor
-@using ATProtoNet.Blazor.Components
-
-<AtProtoLoginForm
-    OnLoginSuccess="HandleLogin"
-    OnLoginError="HandleError"
-    OAuthRedirectUri="https://myapp.example.com/oauth/callback"
-    PreferOAuth="true" />
-```
-
-The login form includes:
-- PDS selector dropdown (bsky.social + custom PDS option)
-- Handle input field
-- Password field (for app password login)
-- OAuth toggle button
-- Custom PDS URL input
-
-### OAuth Callback Component
-
-Add the callback component on your redirect URI page:
-
-```razor
-@page "/oauth/callback"
-@using ATProtoNet.Blazor.Components
-
-<OAuthCallback />
-```
-
-This component automatically:
-- Parses the `code`, `state`, and `iss` query parameters
-- Calls `CompleteOAuthLoginAsync` on the auth state provider
-- Redirects to the home page on success
-
-### Auth State Provider
-
-The `AtProtoAuthStateProvider` provides OAuth-aware authentication state:
-
-```csharp
-@inject AtProtoAuthStateProvider AuthState
-
-// Start OAuth
-var (url, state) = await AuthState.StartOAuthLoginAsync(
-    "alice.bsky.social",
-    "https://myapp.example.com/oauth/callback");
-NavigationManager.NavigateTo(url, forceLoad: true);
-
-// Complete OAuth (called from callback)
-var session = await AuthState.CompleteOAuthLoginAsync(code, state, issuer);
-
-// Check auth method
-var claims = (await AuthState.GetAuthenticationStateAsync()).User.Claims;
-var authMethod = claims.FirstOrDefault(c => c.Type == "auth_method")?.Value;
-// "oauth" or "password"
-```
+See [blazor.md](blazor.md) for complete documentation.
 
 ## Security Considerations
 

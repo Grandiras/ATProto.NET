@@ -1,0 +1,54 @@
+@page "/"
+
+<PageTitle>ATProto.NET Server Integration Sample</PageTitle>
+
+<h1>ATProto.NET Server Integration Sample</h1>
+<p class="text-muted">
+    This sample demonstrates using <strong>ATProtoNet.Blazor</strong> for OAuth login
+    and <strong>ATProtoNet.Server</strong> for backend AT Protocol access.
+</p>
+
+<AuthorizeView>
+    <Authorized>
+        <div class="card shadow-sm" style="max-width: 500px;">
+            <div class="card-body p-4">
+                <h5 class="card-title mb-3">
+                    <span class="badge bg-success me-2">Authenticated</span>
+                </h5>
+                <table class="table table-sm mb-3">
+                    <tbody>
+                        <tr>
+                            <th scope="row" style="width: 100px;">DID</th>
+                            <td><code>@context.User.FindFirst("did")?.Value</code></td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Handle</th>
+                            <td><code>@context.User.Identity?.Name</code></td>
+                        </tr>
+                        <tr>
+                            <th scope="row">PDS</th>
+                            <td><code>@context.User.FindFirst("pds_url")?.Value</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p class="text-muted small mb-3">
+                    Visit the <a href="/profile">Profile</a> or <a href="/timeline">Timeline</a> pages
+                    to see server-side AT Protocol integration in action.
+                </p>
+                <form action="/atproto/logout" method="post">
+                    <button type="submit" class="btn btn-outline-danger">Sign Out</button>
+                </form>
+            </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="card shadow-sm" style="max-width: 500px;">
+            <div class="card-body p-4">
+                <p class="card-text text-muted">
+                    Sign in with your AT Protocol account to see server-side integration.
+                </p>
+                <a class="btn btn-primary" href="/login">Sign In</a>
+            </div>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>

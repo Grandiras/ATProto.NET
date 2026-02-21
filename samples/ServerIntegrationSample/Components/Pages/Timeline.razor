@@ -1,0 +1,121 @@
+@page "/timeline"
+@using ATProtoNet.Server.Services
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize]
+
+<PageTitle>Timeline — ATProto.NET</PageTitle>
+
+<h1>Your Timeline</h1>
+<p class="text-muted mb-4">
+    This page fetches your Bluesky timeline using <code>IAtProtoClientFactory</code>
+    on the server side. No tokens are exposed to the browser.
+</p>
+
+@if (_loading)
+{
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+}
+else if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else if (_posts is not null)
+{
+    <div class="list-group" style="max-width: 650px;">
+        @foreach (var post in _posts)
+        {
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-start mb-1">
+                    <div>
+                        @if (!string.IsNullOrEmpty(post.AuthorAvatar))
+                        {
+                            <img src="@post.AuthorAvatar" alt="" class="rounded-circle me-2"
+                                 style="width: 24px; height: 24px; object-fit: cover;" />
+                        }
+                        <strong>@(post.AuthorDisplayName ?? post.AuthorHandle)</strong>
+                        <small class="text-muted ms-1">@@@post.AuthorHandle</small>
+                    </div>
+                    <small class="text-muted">@post.IndexedAt</small>
+                </div>
+                @if (!string.IsNullOrEmpty(post.Text))
+                {
+                    <p class="mb-1">@post.Text</p>
+                }
+                <small class="text-muted">
+                    @post.LikeCount likes &middot; @post.RepostCount reposts &middot; @post.ReplyCount replies
+                </small>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    [Inject]
+    private IAtProtoClientFactory ClientFactory { get; set; } = null!;
+
+    private List<TimelinePost>? _posts;
+    private string? _error;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var auth = await AuthState;
+            await using var client = await ClientFactory.CreateClientForUserAsync(auth.User);
+
+            if (client is null)
+            {
+                _error = "No AT Protocol tokens found. Please sign in again.";
+                return;
+            }
+
+            var timeline = await client.Bsky.Feed.GetTimelineAsync(limit: 20);
+            _posts = timeline.Feed.Select(item =>
+            {
+                // Record is a JsonElement; extract "text" if present
+                string? text = null;
+                if (item.Post.Record.TryGetProperty("text", out var textProp))
+                    text = textProp.GetString();
+
+                return new TimelinePost
+                {
+                    AuthorHandle = item.Post.Author.Handle,
+                    AuthorDisplayName = item.Post.Author.DisplayName,
+                    AuthorAvatar = item.Post.Author.Avatar,
+                    Text = text,
+                    LikeCount = item.Post.LikeCount ?? 0,
+                    RepostCount = item.Post.RepostCount ?? 0,
+                    ReplyCount = item.Post.ReplyCount ?? 0,
+                    IndexedAt = item.Post.IndexedAt,
+                };
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load timeline: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private sealed class TimelinePost
+    {
+        public string AuthorHandle { get; init; } = "";
+        public string? AuthorDisplayName { get; init; }
+        public string? AuthorAvatar { get; init; }
+        public string? Text { get; init; }
+        public int LikeCount { get; init; }
+        public int RepostCount { get; init; }
+        public int ReplyCount { get; init; }
+        public string? IndexedAt { get; init; }
+    }
+}

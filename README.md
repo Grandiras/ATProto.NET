@@ -276,105 +276,103 @@ await client.RepostAsync("at://did:plc:abc/app.bsky.feed.post/3k2la", "bafyreib.
 
 ## ASP.NET Core Integration
 
-### Register Services
+### Standalone Client (Server-to-Server)
+
+For bot or service scenarios with app-password authentication:
+
+```csharp
+builder.Services.AddAtProto(options =>
+{
+    options.InstanceUrl = "https://bsky.social";
+});
+```
+
+### User-Authenticated Access (with Blazor OAuth)
+
+For apps where users log in via OAuth and the backend accesses AT Proto on their behalf:
 
 ```csharp
 // Program.cs
-builder.Services.AddAtProto(options =>
-{
-    options.InstanceUrl = "https://your-pds.example.com";
-});
+builder.Services.AddAuthentication("Cookies").AddCookie();
+builder.Services.AddAtProtoAuthentication();  // Blazor OAuth login
+builder.Services.AddAtProtoServer();           // Backend AT Proto access
 
-// Or scoped (per-request) clients
-builder.Services.AddAtProtoScoped(options =>
-{
-    options.InstanceUrl = "https://your-pds.example.com";
-});
+app.MapAtProtoOAuth();
 ```
 
-### AT Protocol Authentication
+Then use `IAtProtoClientFactory` in API endpoints or Blazor components:
 
 ```csharp
-builder.Services.AddAuthentication()
-    .AddScheme<AtProtoAuthenticationOptions, AtProtoAuthenticationHandler>(
-        "AtProto", options =>
-        {
-            options.PdsUrl = "https://your-pds.example.com";
-        });
+// Minimal API endpoint
+app.MapGet("/api/profile", async (ClaimsPrincipal user, IAtProtoClientFactory factory) =>
+{
+    await using var client = await factory.CreateClientForUserAsync(user);
+    if (client is null) return Results.Unauthorized();
+    var profile = await client.Bsky.Actor.GetProfileAsync(client.Session!.Did);
+    return Results.Ok(new { profile.DisplayName, profile.Handle });
+}).RequireAuthorization();
 ```
 
-### Use in Controllers
+```razor
+@* Or in a Blazor component *@
+@inject IAtProtoClientFactory ClientFactory
 
-```csharp
-[ApiController]
-[Route("api/todos")]
-public class TodoController : ControllerBase
-{
-    private readonly AtProtoClient _client;
+@code {
+    [CascadingParameter] Task<AuthenticationState> AuthState { get; set; } = null!;
 
-    public TodoController(AtProtoClient client) => _client = client;
-
-    [HttpGet]
-    public async Task<IActionResult> ListTodos()
+    protected override async Task OnInitializedAsync()
     {
-        var todos = _client.GetCollection<TodoItem>("com.example.todo.item");
-        var page = await todos.ListAsync(limit: 50);
-        return Ok(page.Records.Select(r => r.Value));
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> CreateTodo([FromBody] TodoItem item)
-    {
-        var todos = _client.GetCollection<TodoItem>("com.example.todo.item");
-        var created = await todos.CreateAsync(item);
-        return Created(created.Uri, item);
+        var auth = await AuthState;
+        await using var client = await ClientFactory.CreateClientForUserAsync(auth.User);
+        // Use client to call AT Proto APIs...
     }
 }
 ```
 
+See the [ServerIntegrationSample](samples/ServerIntegrationSample/) for a complete example.
+
 ## Blazor Integration
 
-### Register Services
+### Setup
 
 ```csharp
-// Program.cs — without OAuth
-builder.Services.AddAtProtoBlazor();
+// Program.cs
+builder.Services.AddAuthentication("Cookies").AddCookie("Cookies");
+builder.Services.AddAtProtoAuthentication();
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddAuthorizationCore();
 
-// With OAuth
-builder.Services.AddAtProtoBlazor(options =>
-{
-    options.InstanceUrl = "https://bsky.social";
-    options.OAuth = new OAuthOptions
-    {
-        ClientMetadata = new OAuthClientMetadata
-        {
-            ClientId = "https://myapp.example.com/client-metadata.json",
-            // ...
-        },
-    };
-});
+var app = builder.Build();
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapAtProtoOAuth();   // Maps /atproto/login, /atproto/callback, /atproto/logout
 ```
 
-### Components
+### Login Component
 
 ```razor
 @using ATProtoNet.Blazor.Components
 
-@* Login with OAuth support *@
-<AtProtoLoginForm 
-    OnLoginSuccess="HandleLogin"
-    OAuthRedirectUri="https://myapp.example.com/oauth/callback"
-    PreferOAuth="true" />
-
-@* OAuth callback page *@
-<OAuthCallback />
-
-@* Other components *@
-<AtProtoProfileCard Actor="@did" />
-<AtProtoFeedView />
-<AtProtoComposePost OnPostCreated="HandlePost" />
-<AtProtoPostCard Post="@post" />
+<LoginForm ReturnUrl="/" />
 ```
+
+### Auth State
+
+```razor
+<AuthorizeView>
+    <Authorized>
+        Signed in as @context.User.FindFirst("handle")?.Value
+        <form action="/atproto/logout" method="post">
+            <button type="submit">Logout</button>
+        </form>
+    </Authorized>
+    <NotAuthorized>
+        <a href="/login">Sign in</a>
+    </NotAuthorized>
+</AuthorizeView>
+```
+
+See [docs/blazor.md](docs/blazor.md) for full documentation including custom claims, configuration, and production setup.
 
 ## Architecture
 
@@ -408,14 +406,17 @@ ATProto.NET/
 │   │           ├── RichText/          # Rich text builder, facets
 │   │           └── Embed/             # Images, links, quotes, video
 │   ├── ATProtoNet.Server/            # ASP.NET Core integration
-│   │   ├── Extensions/               # DI registration
-│   │   └── Authentication/           # JWT auth handler
+│   │   ├── Extensions/               # DI registration (AddAtProtoServer, AddAtProto)
+│   │   ├── Authentication/           # JWT auth handler
+│   │   ├── Services/                 # IAtProtoClientFactory
+│   │   └── TokenStore/               # IAtProtoTokenStore, InMemoryAtProtoTokenStore
 │   └── ATProtoNet.Blazor/            # Blazor components
-│       ├── Components/                # Razor components (login, OAuth callback)
-│       ├── Services/                  # Auth state provider (OAuth-aware)
-│       └── Extensions/               # DI registration
+│       ├── Components/                # Razor components (LoginForm)
+│       ├── Authentication/            # OAuth service, options
+│       └── Extensions/               # DI registration (AddAtProtoAuthentication)
 ├── samples/
-│   └── BlazorOAuthSample/            # Blazor Server OAuth example
+│   ├── BlazorOAuthSample/            # Blazor Server OAuth example
+│   └── ServerIntegrationSample/      # Blazor + server-side AT Proto access
 └── tests/
     ├── ATProtoNet.Tests/              # Unit tests (268 tests)
     └── ATProtoNet.IntegrationTests/   # Integration tests (requires PDS)

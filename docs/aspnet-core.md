@@ -178,9 +178,9 @@ app.MapPost("/todos", async (TodoItem item) =>
 app.Run();
 ```
 
-## Multi-User Pattern
+## Multi-User Pattern (App Password)
 
-For apps where each user authenticates with their own AT Protocol account:
+For apps where each user authenticates with app passwords (not OAuth):
 
 ```csharp
 // Create a per-request client
@@ -202,3 +202,25 @@ app.Use(async (context, next) =>
     await next();
 });
 ```
+
+## Multi-User Pattern (OAuth)
+
+For apps with OAuth-based user login (recommended), use `IAtProtoClientFactory`
+from the Server package, which handles DPoP keys, token storage, and per-user client creation:
+
+```csharp
+builder.Services.AddAtProtoAuthentication(); // Blazor OAuth login
+builder.Services.AddAtProtoServer();          // Token store + client factory
+
+// In endpoints or services:
+app.MapGet("/api/profile", async (ClaimsPrincipal user, IAtProtoClientFactory factory) =>
+{
+    await using var client = await factory.CreateClientForUserAsync(user);
+    if (client is null) return Results.Unauthorized();
+
+    var profile = await client.Bsky.Actor.GetProfileAsync(client.Session!.Did);
+    return Results.Ok(profile);
+}).RequireAuthorization();
+```
+
+See [Server Integration](server.md) for full documentation on `IAtProtoClientFactory`, `IAtProtoTokenStore`, and custom token store implementations.

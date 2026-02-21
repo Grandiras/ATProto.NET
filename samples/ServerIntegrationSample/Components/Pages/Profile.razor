@@ -1,0 +1,116 @@
+@page "/profile"
+@using ATProtoNet.Server.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize]
+
+<PageTitle>Profile — ATProto.NET</PageTitle>
+
+<h1>Your Profile</h1>
+<p class="text-muted mb-4">
+    This page uses <code>IAtProtoClientFactory</code> to create an authenticated
+    <code>AtProtoClient</code> and fetch your Bluesky profile from your PDS.
+</p>
+
+@if (_loading)
+{
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+}
+else if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else if (_profile is not null)
+{
+    <div class="card shadow-sm" style="max-width: 600px;">
+        @if (!string.IsNullOrEmpty(_profile.Banner))
+        {
+            <img src="@_profile.Banner" class="card-img-top" alt="Banner" style="max-height: 200px; object-fit: cover;" />
+        }
+        <div class="card-body">
+            <div class="d-flex align-items-center mb-3">
+                @if (!string.IsNullOrEmpty(_profile.Avatar))
+                {
+                    <img src="@_profile.Avatar" alt="Avatar" class="rounded-circle me-3"
+                         style="width: 64px; height: 64px; object-fit: cover;" />
+                }
+                <div>
+                    <h5 class="card-title mb-0">@(_profile.DisplayName ?? _profile.Handle)</h5>
+                    <small class="text-muted">@@@_profile.Handle</small>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_profile.Description))
+            {
+                <p class="card-text">@_profile.Description</p>
+            }
+
+            <div class="d-flex gap-4 text-muted small">
+                <span><strong>@_profile.FollowersCount</strong> followers</span>
+                <span><strong>@_profile.FollowsCount</strong> following</span>
+                <span><strong>@_profile.PostsCount</strong> posts</span>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    [Inject]
+    private IAtProtoClientFactory ClientFactory { get; set; } = null!;
+
+    private ProfileData? _profile;
+    private string? _error;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var auth = await AuthState;
+            await using var client = await ClientFactory.CreateClientForUserAsync(auth.User);
+
+            if (client is null)
+            {
+                _error = "No AT Protocol tokens found. Please sign in again.";
+                return;
+            }
+
+            var profile = await client.Bsky.Actor.GetProfileAsync(client.Session!.Did);
+            _profile = new ProfileData
+            {
+                Handle = profile.Handle,
+                DisplayName = profile.DisplayName,
+                Description = profile.Description,
+                Avatar = profile.Avatar,
+                Banner = profile.Banner,
+                FollowersCount = profile.FollowersCount,
+                FollowsCount = profile.FollowsCount,
+                PostsCount = profile.PostsCount,
+            };
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load profile: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private sealed class ProfileData
+    {
+        public string Handle { get; init; } = "";
+        public string? DisplayName { get; init; }
+        public string? Description { get; init; }
+        public string? Avatar { get; init; }
+        public string? Banner { get; init; }
+        public int? FollowersCount { get; init; }
+        public int? FollowsCount { get; init; }
+        public int? PostsCount { get; init; }
+    }
+}

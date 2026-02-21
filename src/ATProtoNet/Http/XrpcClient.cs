@@ -120,10 +120,9 @@ public sealed class XrpcClient : IDisposable
 
         _logger.LogDebug("XRPC Query: GET {Url}", url);
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        ApplyAuthHeader(request);
-
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        using var response = await SendWithDPoPRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, url),
+            cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
 
         var result = await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions, cancellationToken);
@@ -142,10 +141,9 @@ public sealed class XrpcClient : IDisposable
 
         _logger.LogDebug("XRPC Query: GET {Url}", url);
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        ApplyAuthHeader(request);
-
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        using var response = await SendWithDPoPRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, url),
+            cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
@@ -169,13 +167,12 @@ public sealed class XrpcClient : IDisposable
 
         _logger.LogDebug("XRPC Procedure: POST {Url}", url);
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, url)
-        {
-            Content = JsonContent.Create(body, options: _jsonOptions),
-        };
-        ApplyAuthHeader(request);
-
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        using var response = await SendWithDPoPRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = JsonContent.Create(body, options: _jsonOptions),
+            },
+            cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
 
         var result = await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions, cancellationToken);
@@ -195,13 +192,12 @@ public sealed class XrpcClient : IDisposable
 
         _logger.LogDebug("XRPC Procedure: POST {Url}", url);
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, url)
-        {
-            Content = JsonContent.Create(body, options: _jsonOptions),
-        };
-        ApplyAuthHeader(request);
-
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        using var response = await SendWithDPoPRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = JsonContent.Create(body, options: _jsonOptions),
+            },
+            cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
@@ -217,10 +213,9 @@ public sealed class XrpcClient : IDisposable
 
         _logger.LogDebug("XRPC Procedure: POST {Url}", url);
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, url);
-        ApplyAuthHeader(request);
-
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        using var response = await SendWithDPoPRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Post, url),
+            cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
@@ -237,10 +232,9 @@ public sealed class XrpcClient : IDisposable
 
         _logger.LogDebug("XRPC Procedure: POST {Url}", url);
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, url);
-        ApplyAuthHeader(request);
-
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        using var response = await SendWithDPoPRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Post, url),
+            cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
 
         var result = await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions, cancellationToken);
@@ -266,16 +260,19 @@ public sealed class XrpcClient : IDisposable
 
         _logger.LogDebug("XRPC Upload: POST {Url} ({MimeType})", url, mimeType);
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, url)
-        {
-            Content = new StreamContent(data)
+        using var response = await SendWithDPoPRetryAsync(
+            () =>
             {
-                Headers = { ContentType = new MediaTypeHeaderValue(mimeType) }
+                if (data.CanSeek) data.Position = 0;
+                return new HttpRequestMessage(HttpMethod.Post, url)
+                {
+                    Content = new StreamContent(data)
+                    {
+                        Headers = { ContentType = new MediaTypeHeaderValue(mimeType) }
+                    },
+                };
             },
-        };
-        ApplyAuthHeader(request);
-
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
+            cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
 
         var result = await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions, cancellationToken);
@@ -298,10 +295,10 @@ public sealed class XrpcClient : IDisposable
 
         _logger.LogDebug("XRPC Download: GET {Url}", url);
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        ApplyAuthHeader(request);
-
-        var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        var response = await SendWithDPoPRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, url),
+            cancellationToken,
+            HttpCompletionOption.ResponseHeadersRead);
         await EnsureSuccessAsync(response, cancellationToken);
 
         var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -372,6 +369,48 @@ public sealed class XrpcClient : IDisposable
             // Legacy Bearer token auth
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
         }
+    }
+
+    /// <summary>
+    /// Sends an HTTP request with automatic DPoP nonce retry.
+    /// When a server requires a DPoP nonce (responds with 401 + DPoP-Nonce header),
+    /// the nonce is captured and the request is retried once with the new nonce.
+    /// </summary>
+    /// <param name="createRequest">Factory that creates a new HttpRequestMessage for each attempt.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="completionOption">HTTP completion option.</param>
+    /// <returns>The HTTP response (from retry if nonce was required, otherwise from first attempt).</returns>
+    private async Task<HttpResponseMessage> SendWithDPoPRetryAsync(
+        Func<HttpRequestMessage> createRequest,
+        CancellationToken cancellationToken,
+        HttpCompletionOption completionOption = HttpCompletionOption.ResponseContentRead)
+    {
+        var request = createRequest();
+        ApplyAuthHeader(request);
+
+        var response = await _httpClient.SendAsync(request, completionOption, cancellationToken);
+
+        // DPoP nonce retry: if the server requires a nonce we don't have (or ours is stale),
+        // it responds with 401 + DPoP-Nonce header. Capture the nonce and retry once.
+        if (_useDPoP &&
+            response.StatusCode == HttpStatusCode.Unauthorized &&
+            response.Headers.TryGetValues("DPoP-Nonce", out var nonceValues))
+        {
+            var newNonce = nonceValues.FirstOrDefault();
+            if (newNonce is not null)
+            {
+                _logger.LogDebug("DPoP nonce required, retrying request with server-provided nonce");
+                _dpopNonce = newNonce;
+
+                response.Dispose();
+
+                var retryRequest = createRequest();
+                ApplyAuthHeader(retryRequest);
+                response = await _httpClient.SendAsync(retryRequest, completionOption, cancellationToken);
+            }
+        }
+
+        return response;
     }
 
     private async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)

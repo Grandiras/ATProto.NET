@@ -1,51 +1,48 @@
 ﻿@page "/"
-@inject AtProtoAuthStateProvider AuthState
-@inject NavigationManager Navigation
 
 <PageTitle>ATProto.NET OAuth Sample</PageTitle>
 
 <h1>ATProto.NET OAuth Sample</h1>
 
-@if (AuthState.IsAuthenticated)
-{
-    <div class="card shadow-sm" style="max-width: 500px;">
-        <div class="card-body p-4">
-            <h5 class="card-title mb-3">
-                <span class="badge bg-success me-2">Authenticated</span>
-            </h5>
-            @if (AuthState.Session is { } session)
-            {
+<AuthorizeView>
+    <Authorized>
+        <div class="card shadow-sm" style="max-width: 500px;">
+            <div class="card-body p-4">
+                <h5 class="card-title mb-3">
+                    <span class="badge bg-success me-2">Authenticated</span>
+                </h5>
                 <table class="table table-sm mb-3">
                     <tbody>
                         <tr>
-                            <th scope="row" style="width: 80px;">DID</th>
-                            <td><code>@session.Did</code></td>
+                            <th scope="row" style="width: 100px;">DID</th>
+                            <td><code>@context.User.FindFirst("did")?.Value</code></td>
                         </tr>
                         <tr>
                             <th scope="row">Handle</th>
-                            <td><code>@session.Handle</code></td>
+                            <td><code>@context.User.Identity?.Name</code></td>
+                        </tr>
+                        <tr>
+                            <th scope="row">PDS</th>
+                            <td><code>@context.User.FindFirst("pds_url")?.Value</code></td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Auth Method</th>
+                            <td><code>@context.User.FindFirst("auth_method")?.Value</code></td>
                         </tr>
                     </tbody>
                 </table>
-            }
-            <button class="btn btn-outline-danger" @onclick="HandleLogout">Sign Out</button>
+                <form action="/atproto/logout" method="post">
+                    <button type="submit" class="btn btn-outline-danger">Sign Out</button>
+                </form>
+            </div>
         </div>
-    </div>
-}
-else
-{
-    <div class="card shadow-sm" style="max-width: 500px;">
-        <div class="card-body p-4">
-            <p class="card-text text-muted">Sign in with your AT Protocol account to get started.</p>
-            <a class="btn btn-primary" href="/login">Sign In</a>
+    </Authorized>
+    <NotAuthorized>
+        <div class="card shadow-sm" style="max-width: 500px;">
+            <div class="card-body p-4">
+                <p class="card-text text-muted">Sign in with your AT Protocol account to get started.</p>
+                <a class="btn btn-primary" href="/login">Sign In</a>
+            </div>
         </div>
-    </div>
-}
-
-@code {
-    private async Task HandleLogout()
-    {
-        await AuthState.LogoutAsync();
-        Navigation.NavigateTo("/", forceLoad: true);
-    }
-}
+    </NotAuthorized>
+</AuthorizeView>

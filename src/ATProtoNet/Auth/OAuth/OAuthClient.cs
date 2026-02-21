@@ -62,6 +62,10 @@ public sealed class OAuthClient : IDisposable
     /// When a URL is provided, it is used directly as the PDS.
     /// </param>
     /// <param name="redirectUri">The callback URL the user will be redirected to after authorization.</param>
+    /// <param name="pdsUrl">
+    /// Optional PDS URL. When provided, skips the automatic handle → DID → PDS resolution
+    /// and uses this URL directly. The identifier is still passed as a login hint.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// The authorization URL to redirect the user to, and the state parameter for verification.
@@ -69,6 +73,7 @@ public sealed class OAuthClient : IDisposable
     public async Task<(string AuthorizationUrl, string State)> StartAuthorizationAsync(
         string identifier,
         string redirectUri,
+        string? pdsUrl = null,
         CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -91,23 +96,30 @@ public sealed class OAuthClient : IDisposable
         _logger.LogInformation("Starting OAuth authorization flow for {Identifier}", identifier);
 
         // Step 1: Resolve identity and Authorization Server
-        string pdsUrl;
+        string resolvedPdsUrl;
         string? expectedDid = null;
         AuthorizationServerMetadata metadata;
         string? loginHint = null;
 
-        if (IsUrl(identifier))
+        if (!string.IsNullOrWhiteSpace(pdsUrl))
         {
-            // Starting with PDS URL
-            pdsUrl = identifier;
+            // PDS URL explicitly provided — skip resolution, use identifier as login hint
+            resolvedPdsUrl = pdsUrl;
             metadata = await _discovery.ResolveAuthorizationServerAsync(pdsUrl, cancellationToken);
+            loginHint = identifier;
+        }
+        else if (IsUrl(identifier))
+        {
+            // Starting with PDS URL (identifier IS the URL)
+            resolvedPdsUrl = identifier;
+            metadata = await _discovery.ResolveAuthorizationServerAsync(resolvedPdsUrl, cancellationToken);
         }
         else
         {
-            // Starting with handle or DID
+            // Starting with handle or DID — full resolution chain
             var (resolvedPds, resolvedMetadata, did) =
                 await _discovery.ResolveFromIdentifierAsync(identifier, cancellationToken);
-            pdsUrl = resolvedPds;
+            resolvedPdsUrl = resolvedPds;
             metadata = resolvedMetadata;
             expectedDid = did;
             loginHint = identifier; // Pass original identifier as login_hint
@@ -138,7 +150,7 @@ public sealed class OAuthClient : IDisposable
             ExpectedDid = expectedDid,
             Issuer = metadata.Issuer,
             TokenEndpoint = metadata.TokenEndpoint,
-            PdsUrl = pdsUrl,
+            PdsUrl = resolvedPdsUrl,
             DPoP = dpop,
             RedirectUri = redirectUri,
             ClientId = _options.ClientMetadata.ClientId,

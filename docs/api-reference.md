@@ -232,6 +232,24 @@ All support: `Parse()`, `TryParse()`, equality, implicit string conversion.
 | `LoadAsync(ct?)` | Load saved session |
 | `ClearAsync(ct?)` | Clear saved session |
 
+### IAtProtoTokenStore
+
+Server-side OAuth token storage for multi-user scenarios. See [server.md](server.md).
+
+| Method | Description |
+|--------|-------------|
+| `StoreAsync(did, data, ct?)` | Store token data for a user |
+| `GetAsync(did, ct?)` | Retrieve stored token data |
+| `RemoveAsync(did, ct?)` | Remove stored token data |
+
+### IAtProtoClientFactory
+
+Creates authenticated `AtProtoClient` instances from stored OAuth tokens. See [server.md](server.md).
+
+| Method | Description |
+|--------|-------------|
+| `CreateClientForUserAsync(user, ct?)` | Create a client for the authenticated user |
+
 ---
 
 ## Exceptions

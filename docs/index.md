@@ -18,7 +18,8 @@ Welcome to the ATProto.NET documentation. This SDK enables you to build custom a
 
 ### Integration
 - [ASP.NET Core](aspnet-core.md) — Dependency injection, authentication handler, controllers
-- [Blazor](blazor.md) — Components, auth state provider, interactive apps
+- [Server Integration](server.md) — IAtProtoClientFactory, OAuth token store, backend AT Proto access
+- [Blazor](blazor.md) — Components, cookie-based OAuth login, interactive apps
 
 ### Advanced
 - [Batch Operations](batch-operations.md) — ApplyWrites for atomic multi-record operations

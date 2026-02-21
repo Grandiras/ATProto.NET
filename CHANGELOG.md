@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-02-21
+
+### Added
+
+- **Cookie-based OAuth for Blazor** — Standard cookie authentication that works with `<AuthorizeView>`, `[Authorize]`, and all built-in Blazor auth patterns
+  - `AddAtProtoAuthentication()` — registers OAuth service and options
+  - `MapAtProtoOAuth()` — maps `/atproto/login`, `/atproto/callback`, `/atproto/logout` endpoints
+  - Auto-generated loopback `client_id` for zero-config development
+  - Configurable claims via `ClaimsFactory` option
+  - Default claims: DID, handle, PDS URL, auth method
+
+- **Server-side AT Protocol access** — Backend API integration via `IAtProtoClientFactory`
+  - `AddAtProtoServer()` — registers token store, client factory, and HTTP client
+  - `IAtProtoClientFactory` — creates per-request authenticated `AtProtoClient` from stored OAuth tokens
+  - `IAtProtoTokenStore` — interface for multi-user server-side token storage
+  - `FileAtProtoTokenStore` (default) — persistent file-based token storage with ASP.NET Core Data Protection encryption
+  - `InMemoryAtProtoTokenStore` — volatile in-memory store for development/testing
+  - `AddAtProtoServer(string tokenDirectory)` overload for custom token storage directory
+  - `AtProtoTokenData` — serializable token data including DPoP private key
+  - Blazor OAuth service automatically stores/removes tokens when `IAtProtoTokenStore` is registered
+
+- **Rewritten `LoginForm` component** — Pure HTML form that submits to the login endpoint
+  - Fully customizable labels for localization
+  - Optional PDS URL input for custom PDS connections
+  - Auto-displays OAuth callback errors
+
+- **ServerIntegrationSample** — New sample showing Blazor OAuth + backend AT Proto access
+  - Minimal API endpoints (`/api/profile`, `/api/timeline`)
+  - Blazor pages using `IAtProtoClientFactory` directly
+  - Profile and timeline views
+
+### Fixed
+
+- **DPoP nonce handling** — `AtProtoClientFactory` now passes `null` DPoP nonces instead of stale stored values; the XRPC client's retry logic acquires fresh nonces on first request, preventing `use_dpop_nonce` 401 errors
+
+### Changed
+
+- **ATProtoNet.Blazor.csproj** — Replaced individual NuGet package references with `<FrameworkReference Include="Microsoft.AspNetCore.App" />`
+- **ATProtoNet.Server `ServiceCollectionExtensions`** — Added `AddAtProtoServer()` for OAuth-based multi-user access; default token store changed from `InMemoryAtProtoTokenStore` to `FileAtProtoTokenStore`; improved docs on existing `AddAtProto()` and `AddAtProtoScoped()` methods
+
+### Removed
+
+- **BREAKING:** `AddAtProtoBlazor()` extension method — replaced by `AddAtProtoAuthentication()`
+- **BREAKING:** `AtProtoAuthStateProvider` — no longer needed; standard `ServerAuthenticationStateProvider` works via cookies
+- **BREAKING:** `OAuthCallback` component — callback is now an HTTP endpoint mapped by `MapAtProtoOAuth()`
+- **BREAKING:** `PdsOption` model — PDS selection is now a simple text input in `LoginForm`
+- **BREAKING:** `BlazorServiceCollectionExtensions` class — replaced by `AtProtoAuthenticationExtensions`
+
 ## [0.2.0] - 2026-02-20
 
 ### Added

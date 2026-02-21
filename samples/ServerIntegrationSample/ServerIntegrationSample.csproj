@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ATProtoNet\ATProtoNet.csproj" />
+    <ProjectReference Include="..\..\src\ATProtoNet.Blazor\ATProtoNet.Blazor.csproj" />
+    <ProjectReference Include="..\..\src\ATProtoNet.Server\ATProtoNet.Server.csproj" />
+  </ItemGroup>
+
+</Project>

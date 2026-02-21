@@ -10,5 +10,6 @@
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/BlazorOAuthSample/BlazorOAuthSample.csproj" />
+    <Project Path="samples/ServerIntegrationSample/ServerIntegrationSample.csproj" />
   </Folder>
 </Solution>
