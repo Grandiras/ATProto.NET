@@ -1,6 +1,6 @@
 # ATProto.NET
 
-[![CI](https://github.com/Grandiras/ATProto.NET/actions/workflows/ci.yml/badge.svg)](https://github.com/Grandiras/ATProto.NET/actions/workflows/ci.yml)
+[![CI](https://git.grandiras.net/Grandiras/ATProto.NET/actions/workflows/ci.yml/badge.svg)](https://git.grandiras.net/Grandiras/ATProto.NET/actions)
 
 A comprehensive .NET SDK for the [AT Protocol](https://atproto.com). Build custom AT Protocol applications with your own Lexicon schemas, or interact with Bluesky — all with clean, modern .NET 10 APIs.
 
@@ -409,7 +409,7 @@ ATProto.NET/
 │   │   ├── Extensions/               # DI registration (AddAtProtoServer, AddAtProto)
 │   │   ├── Authentication/           # JWT auth handler
 │   │   ├── Services/                 # IAtProtoClientFactory
-│   │   └── TokenStore/               # IAtProtoTokenStore, InMemoryAtProtoTokenStore
+│   │   └── TokenStore/               # IAtProtoTokenStore, FileAtProtoTokenStore (default), InMemoryAtProtoTokenStore
 │   └── ATProtoNet.Blazor/            # Blazor components
 │       ├── Components/                # Razor components (LoginForm)
 │       ├── Authentication/            # OAuth service, options
@@ -418,7 +418,7 @@ ATProto.NET/
 │   ├── BlazorOAuthSample/            # Blazor Server OAuth example
 │   └── ServerIntegrationSample/      # Blazor + server-side AT Proto access
 └── tests/
-    ├── ATProtoNet.Tests/              # Unit tests (268 tests)
+    ├── ATProtoNet.Tests/              # Unit tests (308 tests)
     └── ATProtoNet.IntegrationTests/   # Integration tests (requires PDS)
 ```
 
