@@ -329,17 +329,86 @@ public sealed class AuthorizationServerDiscovery
         if (string.IsNullOrWhiteSpace(host))
             throw new OAuthException("DID:web host cannot be empty.", "invalid_did");
 
-        // Block private/internal IPs and localhost
-        if (host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
-            host.StartsWith("127.", StringComparison.OrdinalIgnoreCase) ||
-            host.StartsWith("10.", StringComparison.OrdinalIgnoreCase) ||
-            host.StartsWith("192.168.", StringComparison.OrdinalIgnoreCase) ||
-            host.StartsWith("169.254.", StringComparison.OrdinalIgnoreCase) ||
-            host.Equals("[::1]", StringComparison.OrdinalIgnoreCase))
-            throw new OAuthException($"DID:web host '{host}' points to a private address.", "invalid_did");
-
+        // Block URL-unsafe characters
         if (host.Contains('?') || host.Contains('#') || host.Contains('@') || host.Contains(' '))
             throw new OAuthException($"DID:web host '{host}' contains invalid characters.", "invalid_did");
+
+        // Block localhost (case-insensitive)
+        if (host.Equals("localhost", StringComparison.OrdinalIgnoreCase))
+            throw new OAuthException($"DID:web host '{host}' points to a private address.", "invalid_did");
+
+        // Block IPv6 loopback and private addresses
+        if (host.StartsWith('['))
+        {
+            // IPv6 addresses in brackets — block all (public IPv6 should use domain names)
+            throw new OAuthException($"DID:web host '{host}' uses an IP address. Use a domain name.", "invalid_did");
+        }
+
+        // Parse as IP address to accurately check private ranges
+        if (System.Net.IPAddress.TryParse(host, out var ip))
+        {
+            if (IsPrivateOrReservedIp(ip))
+                throw new OAuthException($"DID:web host '{host}' points to a private address.", "invalid_did");
+        }
+    }
+
+    /// <summary>
+    /// Checks whether an IP address belongs to private, loopback, or reserved ranges.
+    /// </summary>
+    private static bool IsPrivateOrReservedIp(System.Net.IPAddress ip)
+    {
+        // Map IPv6-mapped IPv4 addresses to their IPv4 equivalent
+        if (ip.IsIPv4MappedToIPv6)
+            ip = ip.MapToIPv4();
+
+        // Loopback: 127.0.0.0/8, ::1
+        if (System.Net.IPAddress.IsLoopback(ip))
+            return true;
+
+        var bytes = ip.GetAddressBytes();
+
+        if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+        {
+            // 10.0.0.0/8
+            if (bytes[0] == 10)
+                return true;
+
+            // 172.16.0.0/12 (172.16.x.x – 172.31.x.x)
+            if (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31)
+                return true;
+
+            // 192.168.0.0/16
+            if (bytes[0] == 192 && bytes[1] == 168)
+                return true;
+
+            // 169.254.0.0/16 (link-local)
+            if (bytes[0] == 169 && bytes[1] == 254)
+                return true;
+
+            // 0.0.0.0/8
+            if (bytes[0] == 0)
+                return true;
+
+            // 100.64.0.0/10 (Carrier-grade NAT / shared address space)
+            if (bytes[0] == 100 && bytes[1] >= 64 && bytes[1] <= 127)
+                return true;
+        }
+        else if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+        {
+            // Link-local: fe80::/10
+            if (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80)
+                return true;
+
+            // Unique local: fc00::/7
+            if ((bytes[0] & 0xfe) == 0xfc)
+                return true;
+
+            // Unspecified address ::
+            if (ip.Equals(System.Net.IPAddress.IPv6None))
+                return true;
+        }
+
+        return false;
     }
 
     private static string NormalizeUrl(string url)

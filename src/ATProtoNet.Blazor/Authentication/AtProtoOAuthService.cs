@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using ATProtoNet.Auth.OAuth;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -25,6 +27,7 @@ public sealed class AtProtoOAuthService : IDisposable
     private readonly ILogger<AtProtoOAuthService> _logger;
     private readonly ILogger<OAuthClient> _oauthClientLogger;
     private OAuthClient? _oauthClient;
+    private HttpClient? _httpClient;
     private readonly object _lock = new();
     private bool _disposed;
 
@@ -59,6 +62,7 @@ public sealed class AtProtoOAuthService : IDisposable
             httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd(
                 $"ATProtoNet/{typeof(OAuthClient).Assembly.GetName().Version}");
 
+            _httpClient = httpClient;
             _oauthClient = new OAuthClient(oauthOptions, httpClient, _oauthClientLogger);
 
             _logger.LogInformation(
@@ -238,7 +242,40 @@ public sealed class AtProtoOAuthService : IDisposable
         if (!string.IsNullOrWhiteSpace(_serverOptions.BaseUrl))
             return $"{_serverOptions.BaseUrl.TrimEnd('/')}{_serverOptions.RoutePrefix}/callback";
 
+        // Auto-detect loopback HTTP URL from server bindings (e.g. Aspire, Kestrel multi-bind).
+        // AT Proto loopback OAuth requires http:// with 127.0.0.1, but the incoming request may
+        // arrive on HTTPS. Check the server's bound addresses for an HTTP URL.
+        if (_serverOptions.ClientMetadata is null)
+        {
+            var httpUrl = TryGetLoopbackHttpUrl(context);
+            if (httpUrl is not null)
+                return $"{httpUrl.TrimEnd('/')}{_serverOptions.RoutePrefix}/callback";
+        }
+
         return $"{context.Request.Scheme}://{context.Request.Host}{_serverOptions.RoutePrefix}/callback";
+    }
+
+    /// <summary>
+    /// Attempts to find an HTTP loopback URL from the server's bound addresses.
+    /// Used for AT Proto loopback OAuth when no explicit BaseUrl is configured.
+    /// </summary>
+    private static string? TryGetLoopbackHttpUrl(HttpContext context)
+    {
+        var server = context.RequestServices.GetService<IServer>();
+        var addressFeature = server?.Features.Get<IServerAddressesFeature>();
+        if (addressFeature is null)
+            return null;
+
+        foreach (var address in addressFeature.Addresses)
+        {
+            if (address.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+            {
+                // Normalize localhost → 127.0.0.1 for AT Proto loopback compatibility
+                return address.Replace("://localhost", "://127.0.0.1", StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        return null;
     }
 
     private static List<Claim> CreateDefaultClaims(OAuthSessionResult result)
@@ -284,6 +321,7 @@ public sealed class AtProtoOAuthService : IDisposable
         {
             _disposed = true;
             _oauthClient?.Dispose();
+            _httpClient?.Dispose();
         }
     }
 }

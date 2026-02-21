@@ -48,6 +48,20 @@ public sealed class FileAtProtoTokenStore : IAtProtoTokenStore
             ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ATProtoNet", "tokens");
 
         Directory.CreateDirectory(_directory);
+
+        // Set restrictive permissions on Unix (owner-only: rwx------)
+        if (!OperatingSystem.IsWindows())
+        {
+            try
+            {
+                File.SetUnixFileMode(_directory,
+                    UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not set restrictive permissions on token store directory");
+            }
+        }
     }
 
     /// <inheritdoc/>

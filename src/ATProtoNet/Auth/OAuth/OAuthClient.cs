@@ -210,18 +210,33 @@ public sealed class OAuthClient : IDisposable
         }
 
         // Step 4: Exchange code for tokens
-        var tokenResponse = await ExchangeCodeForTokensAsync(
-            pending, code, cancellationToken);
+        OAuthTokenResponse tokenResponse;
+        try
+        {
+            tokenResponse = await ExchangeCodeForTokensAsync(
+                pending, code, cancellationToken);
+        }
+        catch
+        {
+            pending.DPoP.Dispose();
+            throw;
+        }
 
         // Step 5: Verify the sub (DID) matches expected
         if (tokenResponse.Sub is null)
+        {
+            pending.DPoP.Dispose();
             throw new OAuthException("Token response missing 'sub' field.", "missing_sub");
+        }
 
         // Validate DID format (must start with "did:")
         if (!tokenResponse.Sub.StartsWith("did:", StringComparison.OrdinalIgnoreCase))
+        {
+            pending.DPoP.Dispose();
             throw new OAuthException(
                 $"Token response 'sub' is not a valid DID: '{tokenResponse.Sub}'.",
                 "invalid_sub");
+        }
 
         if (pending.ExpectedDid is not null &&
             !string.Equals(pending.ExpectedDid, tokenResponse.Sub, StringComparison.Ordinal))
@@ -232,8 +247,9 @@ public sealed class OAuthClient : IDisposable
                 "did_mismatch");
         }
 
-        // Step 6: Verify scope includes 'atproto'
-        if (tokenResponse.Scope is null || !tokenResponse.Scope.Contains("atproto"))
+        // Step 6: Verify scope includes 'atproto' (exact token match, not substring)
+        if (tokenResponse.Scope is null ||
+            !tokenResponse.Scope.Split(' ').Contains("atproto", StringComparer.Ordinal))
         {
             pending.DPoP.Dispose();
             throw new OAuthException("Token response does not include 'atproto' scope.", "invalid_scope");
@@ -242,8 +258,16 @@ public sealed class OAuthClient : IDisposable
         // Step 7: If started from server (no expected DID), verify DID → PDS → AS consistency
         if (pending.ExpectedDid is null)
         {
-            await VerifyDidToAuthServerConsistencyAsync(
-                tokenResponse.Sub, pending.Issuer, cancellationToken);
+            try
+            {
+                await VerifyDidToAuthServerConsistencyAsync(
+                    tokenResponse.Sub, pending.Issuer, cancellationToken);
+            }
+            catch
+            {
+                pending.DPoP.Dispose();
+                throw;
+            }
         }
 
         // Step 8: Resolve handle from DID document

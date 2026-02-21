@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Security hardening** — Comprehensive SSRF prevention, TLS enforcement, and input validation
+  - Accurate private IP range detection using `IPAddress.TryParse` covering RFC 1918, CGN (100.64/10), loopback, link-local, and IPv6 private ranges
+  - IPv6 bracket host blocking in DID:web resolution (all bracketed IPs rejected — use domain names)
+  - TLS enforcement in `XrpcClient.SetBaseUrl()` — HTTP only allowed for localhost/loopback
+  - Exact token matching for `atproto` scope validation (prevents substring false-positives)
+  - Open redirect prevention in OAuth callback return URLs
+  - Error message sanitization (truncation to 200 chars) to prevent leaking internal details
+  - DPoP key disposal on all OAuth error paths (prevents cryptographic key leaks)
+  - Concurrent session refresh guard via `SemaphoreSlim` in `AtProtoClient`
+  - Restrictive Unix file permissions (700) on `FileAtProtoTokenStore` directory
+  - 54 new security-focused tests (362 total)
+
+- **Aspire auto-detection** — Automatic HTTP loopback URL discovery for AT Proto OAuth
+  - `TryGetLoopbackHttpUrl()` inspects `IServerAddressesFeature` for HTTP bindings when request arrives on HTTPS
+  - Normalizes `localhost` → `127.0.0.1` for AT Proto loopback compatibility
+  - Zero-config: works automatically with Aspire, Kestrel multi-bind, and reverse proxy setups
+
+### Fixed
+
+- **Issue templates** — Converted from invalid hybrid format (YAML frontmatter + Markdown body in `.yml` files) to proper Forgejo YAML form templates with structured `body:` sections
+
 ## [0.3.0] - 2026-02-21
 
 ### Added

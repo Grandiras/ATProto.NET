@@ -58,6 +58,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     private readonly XrpcClient _xrpc;
     private readonly ISessionStore _sessionStore;
     private readonly ILogger<AtProtoClient> _logger;
+    private readonly SemaphoreSlim _refreshLock = new(1, 1);
     private Session? _session;
     private OAuthSessionResult? _oauthSession;
     private Timer? _refreshTimer;
@@ -708,6 +709,12 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
     private async void OnRefreshTimerElapsed(object? state)
     {
+        if (!await _refreshLock.WaitAsync(0))
+        {
+            _logger.LogDebug("Session refresh already in progress, skipping");
+            return;
+        }
+
         try
         {
             await RefreshSessionAsync();
@@ -715,6 +722,10 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Automatic session refresh failed");
+        }
+        finally
+        {
+            _refreshLock.Release();
         }
     }
 

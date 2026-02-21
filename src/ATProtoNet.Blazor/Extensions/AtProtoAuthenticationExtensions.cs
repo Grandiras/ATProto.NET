@@ -115,7 +115,7 @@ public static class AtProtoAuthenticationExtensions
                 var authorizationUrl = await oauthService.StartLoginAsync(
                     context,
                     handle,
-                    string.IsNullOrWhiteSpace(returnUrl) ? null : returnUrl,
+                    IsValidReturnUrl(returnUrl) ? returnUrl : null,
                     string.IsNullOrWhiteSpace(pdsUrl) ? null : pdsUrl,
                     cancellationToken);
 
@@ -124,7 +124,7 @@ public static class AtProtoAuthenticationExtensions
             catch (Exception ex)
             {
                 var loginPath = options.LoginPath.TrimEnd('/');
-                var errorParam = Uri.EscapeDataString(ex.Message);
+                var errorParam = Uri.EscapeDataString(SanitizeErrorMessage(ex.Message));
                 return Results.Redirect($"{loginPath}?error={errorParam}");
             }
         })
@@ -148,7 +148,7 @@ public static class AtProtoAuthenticationExtensions
             {
                 var errorMsg = !string.IsNullOrEmpty(errorDescription) ? errorDescription : error;
                 var loginPath = options.LoginPath.TrimEnd('/');
-                return Results.Redirect($"{loginPath}?error={Uri.EscapeDataString(errorMsg)}");
+                return Results.Redirect($"{loginPath}?error={Uri.EscapeDataString(SanitizeErrorMessage(errorMsg))}");
             }
 
             if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(state) || string.IsNullOrEmpty(iss))
@@ -162,12 +162,16 @@ public static class AtProtoAuthenticationExtensions
                 var returnUrl = await oauthService.CompleteCallbackAsync(
                     context, code, state, iss, cancellationToken);
 
+                // Validate returned URL to prevent open redirect
+                if (!IsValidReturnUrl(returnUrl))
+                    returnUrl = options.DefaultReturnUrl;
+
                 return Results.Redirect(returnUrl);
             }
             catch (Exception ex)
             {
                 var loginPath = options.LoginPath.TrimEnd('/');
-                return Results.Redirect($"{loginPath}?error={Uri.EscapeDataString(ex.Message)}");
+                return Results.Redirect($"{loginPath}?error={Uri.EscapeDataString(SanitizeErrorMessage(ex.Message))}");
             }
         })
         .ExcludeFromDescription();
@@ -184,5 +188,38 @@ public static class AtProtoAuthenticationExtensions
         .ExcludeFromDescription();
 
         return endpoints;
+    }
+
+    /// <summary>
+    /// Validates that a return URL is safe (relative path only, not an open redirect).
+    /// </summary>
+    private static bool IsValidReturnUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return false;
+
+        // Must be a relative path starting with / but not // (protocol-relative URL)
+        if (!url.StartsWith('/') || url.StartsWith("//", StringComparison.Ordinal))
+            return false;
+
+        // Block backslash tricks (some browsers normalize \\ to //)
+        if (url.StartsWith("/\\", StringComparison.Ordinal))
+            return false;
+
+        return true;
+    }
+
+    /// <summary>
+    /// Sanitizes error messages to prevent leaking internal details to end users.
+    /// </summary>
+    private static string SanitizeErrorMessage(string message)
+    {
+        // Only surface messages from OAuthException (which are user-facing by design).
+        // Generic exceptions may contain stack traces, file paths, or connection strings.
+        const int maxLength = 200;
+        if (message.Length > maxLength)
+            message = message[..maxLength];
+
+        return message;
     }
 }

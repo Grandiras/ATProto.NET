@@ -80,10 +80,21 @@ public sealed class XrpcClient : IDisposable
 
     /// <summary>
     /// Changes the base URL of this client (for dynamic PDS selection).
+    /// Requires HTTPS unless the URL is a localhost/loopback address (for development).
     /// </summary>
+    /// <exception cref="ArgumentException">Thrown when the URL is not HTTPS and not a loopback address.</exception>
     public void SetBaseUrl(string url)
     {
-        _httpClient.BaseAddress = new Uri(url.TrimEnd('/') + "/");
+        var uri = new Uri(url.TrimEnd('/') + "/");
+
+        if (!string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase) && !uri.IsLoopback)
+        {
+            throw new ArgumentException(
+                "PDS URL must use HTTPS. HTTP is only allowed for localhost during development.",
+                nameof(url));
+        }
+
+        _httpClient.BaseAddress = uri;
     }
 
     /// <summary>
