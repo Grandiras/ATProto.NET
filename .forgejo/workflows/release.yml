@@ -8,6 +8,7 @@ on:
     inputs:
       version:
         description: 'Version to release (e.g. 0.2.0)'
+        type: string
         required: true
 
 jobs:
