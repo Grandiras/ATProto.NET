@@ -267,4 +267,79 @@ public sealed class AtProtoCryptoTests
             // K-256 not available on this platform — skip
         }
     }
+
+    // ── Security: Low-S Normalization ────────────────────────
+
+    [Fact]
+    public void P256_Sign_ProducesLowSSignature()
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var message = "Low-S test"u8.ToArray();
+
+        // Sign multiple times and verify all produce low-S
+        for (var i = 0; i < 20; i++)
+        {
+            var signature = key.Sign(message);
+            Assert.True(AtProtoCrypto.IsLowS(signature, KeyCurve.P256),
+                $"Signature {i} should be in low-S form.");
+        }
+    }
+
+    [Fact]
+    public void P256_Verify_RejectsHighSSignature()
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var message = "High-S test"u8.ToArray();
+        var signature = key.Sign(message);
+
+        // Craft a high-S version: S' = order - S
+        var halfLen = signature.Length / 2;
+        var order = new System.Numerics.BigInteger(
+            new byte[] {
+                0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00,
+                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                0xBC, 0xE6, 0xFA, 0xAD, 0xA7, 0x17, 0x9E, 0x84,
+                0xF3, 0xB9, 0xCA, 0xC2, 0xFC, 0x63, 0x25, 0x51
+            }, true, true);
+
+        var sValue = new System.Numerics.BigInteger(
+            signature.AsSpan(halfLen).ToArray(), true, true);
+        var highS = order - sValue;
+        var highSBytes = highS.ToByteArray(true, true);
+
+        var highSSig = (byte[])signature.Clone();
+        Array.Clear(highSSig, halfLen, halfLen);
+        highSBytes.CopyTo(highSSig, halfLen + (halfLen - highSBytes.Length));
+
+        // The high-S signature should be rejected
+        Assert.False(key.Verify(message, highSSig));
+    }
+
+    // ── Security: ImportPrivateKey Curve Validation ──────────
+
+    [Fact]
+    public void ImportPrivateKey_RejectsCurveMismatch()
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var exported = key.ExportPrivateKey();
+
+        // Try to import P-256 key as K-256 — should throw
+        Assert.Throws<ArgumentException>(() =>
+            AtProtoCrypto.ImportPrivateKey(exported, KeyCurve.K256));
+    }
+
+    [Fact]
+    public void ImportPrivateKey_AcceptsCorrectCurve()
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var exported = key.ExportPrivateKey();
+
+        using var reimported = AtProtoCrypto.ImportPrivateKey(exported, KeyCurve.P256);
+        Assert.Equal(KeyCurve.P256, reimported.Curve);
+
+        // Verify signing still works
+        var message = "Reimport test"u8.ToArray();
+        var sig = reimported.Sign(message);
+        Assert.True(reimported.Verify(message, sig));
+    }
 }

@@ -73,9 +73,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 60-second default expiry, 5-minute maximum enforcement
   - Used for Feed Generators, Labelers, and relay services
 
+- **Lexicon code generator packaging** — `atproto-lexgen` is now a publishable `dotnet tool`
+  - NuGet package metadata: `PackageId`, `Version`, `Authors`, `PackageTags`, `License`, `RepositoryUrl`
+  - Install globally via `dotnet tool install -g ATProtoNet.LexiconGenerator`
+
 ### Fixed
 
 - **Issue templates** — Converted from invalid hybrid format (YAML frontmatter + Markdown body in `.yml` files) to proper Forgejo YAML form templates with structured `body:` sections
+
+- **Cryptographic security hardening** — Fixes from security audit of crypto primitives
+  - **Low-S normalization** — `NormalizeLowS` was a complete no-op (dead code). Now compares S against the actual curve half-order and computes `order - S` when needed. Prevents signature malleability.
+  - **High-S signature rejection** — `Verify()` now rejects signatures with S > half-order, enforcing AT Protocol's low-S requirement
+  - **`ImportPrivateKey` curve validation** — Validates the imported key's curve OID matches the declared `KeyCurve` parameter. Prevents silent identity corruption from curve mismatch.
+  - **`DecompressPoint` range check** — Validates X coordinate is in range `[0, p)` before modular arithmetic
+  - **JWT `audience` validation** — `ServiceAuthGenerator.CreateToken` now rejects null/whitespace audience
+  - **Base58 performance** — Replaced LINQ `.Any()` with a `for` loop in hot path
+  - 4 new crypto security tests (455 total)
 
 ## [0.3.0] - 2026-02-21
 

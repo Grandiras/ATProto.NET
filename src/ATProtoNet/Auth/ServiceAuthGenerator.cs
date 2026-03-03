@@ -49,6 +49,7 @@ public sealed class ServiceAuthGenerator : IDisposable
     public string CreateToken(string audience, string? lxm = null, TimeSpan? expiresIn = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentException.ThrowIfNullOrWhiteSpace(audience);
 
         var exp = expiresIn ?? TimeSpan.FromSeconds(60);
         if (exp > TimeSpan.FromMinutes(5))

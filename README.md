@@ -30,6 +30,11 @@ While this library is near to feature complete, it's still vibe-coded for the mo
 - **Type-safe identity** — `Did`, `Handle`, `AtUri`, `Nsid`, `Tid`, `RecordKey`, `Cid`
 - **Automatic session management** — token refresh, persistence, resume
 - **Dynamic PDS** — connect to any PDS at runtime, resolve from user identity
+- **Lexicon code generator** — bidirectional `dotnet tool` for Lexicon JSON ↔ C# with schema diff
+- **Cryptography** — P-256 & K-256 key generation, ECDSA signing, `did:key` / multikey encoding
+- **CAR file reader** — parse Content Addressable aRchive (CAR v1) files from repo sync
+- **PLC directory client** — resolve DIDs, fetch operation logs and audit trails
+- **Service authentication** — generate inter-service JWT tokens for feed generators, labelers, relays
 
 ## Quick Start
 
@@ -233,6 +238,147 @@ await bookmarks.CreateAsync(new Bookmark { Url = "https://example.com", Title = 
 await recipes.CreateAsync(new Recipe { Name = "Pasta", Ingredients = ["pasta", "sauce"] });
 ```
 
+## Lexicon Code Generator
+
+ATProto.NET includes a bidirectional `dotnet tool` for working with AT Protocol Lexicon schemas.
+
+### Install
+
+```bash
+dotnet tool install -g ATProtoNet.LexiconGenerator
+```
+
+This installs the `atproto-lexgen` command globally.
+
+### Generate C# from Lexicon JSON
+
+```bash
+# Generate C# classes from Lexicon schema files
+atproto-lexgen csharp --input ./lexicons --output ./Generated --namespace MyApp.Lexicon
+```
+
+Generates `sealed class` records with `required`/`init` properties, `[JsonPropertyName]` attributes, and `$type` expression-body properties — matching the ATProto.NET SDK patterns.
+
+### Generate Lexicon JSON from C# Assemblies
+
+```bash
+# Reverse-generate Lexicon schemas from compiled .NET types
+atproto-lexgen lexicon --assembly ./bin/MyApp.dll --output ./lexicons
+```
+
+### Diff Schemas (Breaking Change Detection)
+
+```bash
+# Compare two schema directories for breaking changes
+atproto-lexgen diff --baseline ./lexicons-v1 --current ./lexicons-v2
+
+# Strict mode — exit code 1 on breaking changes (for CI)
+atproto-lexgen diff --baseline ./lexicons-v1 --current ./lexicons-v2 --strict
+```
+
+Detects: added/removed definitions, added/removed properties, type changes, required status changes, and constraint tightening (e.g., `maxLength` decreased, enum values removed).
+
+## Cryptography
+
+AT Protocol cryptographic operations for P-256 and K-256 (secp256k1) curves.
+
+### Key Generation & Signing
+
+```csharp
+using ATProtoNet.Crypto;
+
+// Generate a new key pair
+using var key = AtProtoCrypto.GenerateKey(KeyCurve.P256);
+
+// Sign and verify
+byte[] data = "Hello AT Protocol"u8.ToArray();
+byte[] signature = key.Sign(data);
+bool valid = key.Verify(data, signature);
+
+// Export/import private key (PKCS#8)
+byte[] privateKey = key.ExportPrivateKey();
+using var restored = AtProtoKey.ImportPrivateKey(privateKey, KeyCurve.P256);
+```
+
+### DID Key & Multikey
+
+```csharp
+// Convert to did:key
+string didKey = key.ToDidKey();    // "did:key:zDnae..."
+string multikey = key.ToMultikey(); // "zDnae..."
+
+// Parse did:key back to a verification key
+using var parsed = AtProtoCrypto.FromDidKey(didKey);
+
+// Compressed public key
+byte[] compressed = key.GetCompressedPublicKey();
+```
+
+## CAR File Parsing
+
+Parse CAR v1 (Content Addressable aRchive) files, used by `com.atproto.sync.getRepo`.
+
+```csharp
+using ATProtoNet.Repo;
+
+// Parse from a stream (e.g., HTTP response)
+var car = CarReader.ReadFromStream(stream);
+
+// Access header and roots
+Console.WriteLine($"Version: {car.Header.Version}");
+foreach (var root in car.Header.Roots)
+    Console.WriteLine($"Root CID: {root}");
+
+// Iterate blocks
+foreach (var block in car.Blocks)
+    Console.WriteLine($"CID: {block.Cid}, Size: {block.Data.Length}");
+
+// Lookup by CID
+var block = car.GetBlock("bafyrei...");
+```
+
+## PLC Directory
+
+Resolve DIDs and query the PLC directory.
+
+```csharp
+using ATProtoNet.Identity;
+
+var plc = new PlcClient(httpClient);
+
+// Resolve a DID to its document
+var doc = await plc.ResolveDidAsync("did:plc:z72i7hdynmk6r22z27h6tvur");
+Console.WriteLine($"Handle: {doc.GetHandle()}");
+Console.WriteLine($"PDS: {doc.GetPdsEndpoint()}");
+
+// Operation and audit logs
+var ops = await plc.GetOperationLogAsync("did:plc:z72i7hdynmk6r22z27h6tvur");
+var audit = await plc.GetAuditLogAsync("did:plc:z72i7hdynmk6r22z27h6tvur");
+
+// Health check
+bool healthy = await plc.IsHealthyAsync();
+```
+
+## Service Authentication
+
+Generate inter-service JWT tokens for feed generators, labelers, and relay services.
+
+```csharp
+using ATProtoNet.Auth;
+using ATProtoNet.Crypto;
+
+using var signingKey = AtProtoCrypto.GenerateKey(KeyCurve.P256);
+var authGen = new ServiceAuthGenerator("did:plc:myservice", signingKey);
+
+// Generate a service auth token (default 60s expiry)
+string jwt = await authGen.GenerateTokenAsync(
+    serviceDid: "did:plc:myservice",
+    audience: "did:web:feed.example.com",
+    lxm: "app.bsky.feed.getFeedSkeleton");
+```
+
+The token includes `iss`, `aud`, `exp`, `iat`, `jti`, and optional `lxm` claims. Maximum expiry is enforced at 5 minutes per the AT Protocol spec.
+
 ## Bluesky Integration
 
 ATProto.NET also provides full Bluesky application support:
@@ -384,11 +530,13 @@ See [docs/blazor.md](docs/blazor.md) for full documentation including custom cla
 ATProto.NET/
 ├── src/
 │   ├── ATProtoNet/                    # Core SDK
-│   │   ├── Identity/                  # Did, Handle, AtUri, Nsid, Tid, etc.
-│   │   ├── Auth/                      # Session, ISessionStore
+│   │   ├── Identity/                  # Did, Handle, AtUri, Nsid, Tid, PlcClient
+│   │   ├── Auth/                      # Session, ISessionStore, ServiceAuthGenerator
 │   │   │   └── OAuth/                 # OAuth client, DPoP, PKCE, discovery
+│   │   ├── Crypto/                    # AtProtoCrypto, AtProtoKey (P-256/K-256)
 │   │   ├── Http/                      # XrpcClient, AtProtoHttpException
 │   │   ├── Models/                    # BlobRef, StrongRef, Label, etc.
+│   │   ├── Repo/                      # CarReader (CAR v1 parsing)
 │   │   ├── Serialization/             # JSON converters, defaults
 │   │   ├── Streaming/                 # FirehoseClient
 │   │   ├── RecordCollection.cs        # Typed collection CRUD for custom records
@@ -418,11 +566,15 @@ ATProto.NET/
 │       ├── Components/                # Razor components (LoginForm)
 │       ├── Authentication/            # OAuth service, options
 │       └── Extensions/               # DI registration (AddAtProtoAuthentication)
+├── tools/
+│   └── ATProtoNet.LexiconGenerator/   # Lexicon ↔ C# code generator (dotnet tool)
+│       ├── CodeGen/                   # Generators, LexiconDiffer
+│       └── Models/                    # Lexicon schema models
 ├── samples/
 │   ├── BlazorOAuthSample/            # Blazor Server OAuth example
 │   └── ServerIntegrationSample/      # Blazor + server-side AT Proto access
 └── tests/
-    ├── ATProtoNet.Tests/              # Unit tests (308 tests)
+    ├── ATProtoNet.Tests/              # Unit tests (451 tests)
     └── ATProtoNet.IntegrationTests/   # Integration tests (requires PDS)
 ```
 
@@ -446,6 +598,16 @@ ATProto.NET/
 | `client.Bsky.Feed` | `app.bsky.feed.*` | Posts, timeline, feeds, likes |
 | `client.Bsky.Graph` | `app.bsky.graph.*` | Follows, blocks, mutes, lists |
 | `client.Bsky.Notification` | `app.bsky.notification.*` | Notification management |
+
+### Additional Components
+
+| Class | Namespace | Description |
+|-------|-----------|-------------|
+| `AtProtoCrypto` | `ATProtoNet.Crypto` | P-256/K-256 key generation, signing, `did:key`/multikey |
+| `AtProtoKey` | `ATProtoNet.Crypto` | Key pair wrapper: sign, verify, export/import |
+| `CarReader` | `ATProtoNet.Repo` | CAR v1 file parsing (repo sync) |
+| `PlcClient` | `ATProtoNet.Identity` | PLC directory resolution and queries |
+| `ServiceAuthGenerator` | `ATProtoNet.Auth` | Inter-service JWT generation |
 
 ### Identity Types
 

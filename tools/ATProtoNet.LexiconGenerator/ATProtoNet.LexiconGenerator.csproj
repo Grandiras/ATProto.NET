@@ -12,7 +12,14 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>atproto-lexgen</ToolCommandName>
     <PackageId>ATProtoNet.LexiconGenerator</PackageId>
-    <Description>Bidirectional code generator for AT Protocol Lexicon schemas: Lexicon JSON ↔ C# classes</Description>
+    <Version>0.3.0</Version>
+    <Authors>Grandiras</Authors>
+    <Description>Bidirectional code generator for AT Protocol Lexicon schemas: Lexicon JSON ↔ C# classes. Generate C# from Lexicon, Lexicon from C#, and diff schemas for breaking changes.</Description>
+    <PackageTags>atproto;lexicon;codegen;schema;at-protocol;dotnet-tool</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://git.grandiras.net/Grandiras/ATProto.NET</PackageProjectUrl>
+    <RepositoryUrl>https://git.grandiras.net/Grandiras/ATProto.NET</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
 </Project>

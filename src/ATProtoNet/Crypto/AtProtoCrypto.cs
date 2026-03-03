@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Numerics;
 using System.Security.Cryptography;
 
 namespace ATProtoNet.Crypto;
@@ -68,6 +69,18 @@ public static class AtProtoCrypto
     {
         var ecdsa = ECDsa.Create();
         ecdsa.ImportPkcs8PrivateKey(pkcs8PrivateKey, out _);
+
+        // Validate that the actual key curve matches the declared curve
+        var actualOid = ecdsa.ExportParameters(false).Curve.Oid?.Value;
+        var expectedOid = curve == KeyCurve.P256 ? "1.2.840.10045.3.1.7" : "1.3.132.0.10";
+        if (actualOid != expectedOid)
+        {
+            ecdsa.Dispose();
+            throw new ArgumentException(
+                $"Key curve mismatch: expected {curve} (OID {expectedOid}), but key has OID {actualOid}.",
+                nameof(curve));
+        }
+
         return new AtProtoKey(ecdsa, curve);
     }
 
@@ -204,22 +217,26 @@ public static class AtProtoCrypto
         else
             throw new ArgumentException($"Unsupported curve for decompression: {oid}");
 
-        var p = new System.Numerics.BigInteger(curveParams.P, true, true);
-        var a = new System.Numerics.BigInteger(curveParams.A, true, true);
-        var b = new System.Numerics.BigInteger(curveParams.B, true, true);
-        var x = new System.Numerics.BigInteger(xBytes, true, true);
+        var p = new BigInteger(curveParams.P, true, true);
+        var a = new BigInteger(curveParams.A, true, true);
+        var b = new BigInteger(curveParams.B, true, true);
+        var x = new BigInteger(xBytes, true, true);
+
+        // Validate X is in valid range [0, p)
+        if (x.Sign < 0 || x >= p)
+            throw new FormatException("X coordinate out of range for curve.");
 
         // y² = x³ + ax + b (mod p)
-        var ySquared = (System.Numerics.BigInteger.ModPow(x, 3, p) + a * x + b) % p;
+        var ySquared = (BigInteger.ModPow(x, 3, p) + a * x + b) % p;
         if (ySquared < 0) ySquared += p;
 
         // Compute modular square root using Tonelli-Shanks (both P-256 and K-256 have p ≡ 3 mod 4)
         // For p ≡ 3 mod 4: y = ySquared^((p+1)/4) mod p
         var exp = (p + 1) / 4;
-        var y = System.Numerics.BigInteger.ModPow(ySquared, exp, p);
+        var y = BigInteger.ModPow(ySquared, exp, p);
 
         // Verify: y² mod p == ySquared
-        if (System.Numerics.BigInteger.ModPow(y, 2, p) != ySquared)
+        if (BigInteger.ModPow(y, 2, p) != ySquared)
             throw new FormatException("Invalid compressed point: no valid Y coordinate.");
 
         // Choose correct Y parity (odd/even)
@@ -237,12 +254,14 @@ public static class AtProtoCrypto
         return new ECPoint { X = xPadded, Y = yPadded };
     }
 
-    /// <summary>Well-known curve parameters for EC point decompression.</summary>
+    /// <summary>Well-known curve parameters for EC point decompression and signature normalization.</summary>
     private readonly struct ECCurveParams
     {
         public byte[] P { get; init; }
         public byte[] A { get; init; }
         public byte[] B { get; init; }
+        public byte[] Order { get; init; }
+        public byte[] HalfOrder { get; init; }
 
         /// <summary>NIST P-256 (secp256r1) curve parameters.</summary>
         public static ECCurveParams P256() => new()
@@ -260,6 +279,16 @@ public static class AtProtoCrypto
                  0xB3, 0xEB, 0xBD, 0x55, 0x76, 0x98, 0x86, 0xBC,
                  0x65, 0x1D, 0x06, 0xB0, 0xCC, 0x53, 0xB0, 0xF6,
                  0x3B, 0xCE, 0x3C, 0x3E, 0x27, 0xD2, 0x60, 0x4B],
+            // n = FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551
+            Order = [0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00,
+                     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                     0xBC, 0xE6, 0xFA, 0xAD, 0xA7, 0x17, 0x9E, 0x84,
+                     0xF3, 0xB9, 0xCA, 0xC2, 0xFC, 0x63, 0x25, 0x51],
+            // n/2 = 7FFFFFFF800000007FFFFFFFFFFFFFFFDE737D56D38BCF4279DCE5617E3192A8
+            HalfOrder = [0x7F, 0xFF, 0xFF, 0xFF, 0x80, 0x00, 0x00, 0x00,
+                         0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                         0xDE, 0x73, 0x7D, 0x56, 0xD3, 0x8B, 0xCF, 0x42,
+                         0x79, 0xDC, 0xE5, 0x61, 0x7E, 0x31, 0x92, 0xA8],
         };
 
         /// <summary>secp256k1 (K-256) curve parameters.</summary>
@@ -271,6 +300,16 @@ public static class AtProtoCrypto
                  0xFF, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF, 0xFC, 0x2F],
             A = [0x00], // a = 0
             B = [0x07], // b = 7
+            // n = FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+            Order = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE,
+                     0xBA, 0xAE, 0xDC, 0xE6, 0xAF, 0x48, 0xA0, 0x3B,
+                     0xBF, 0xD2, 0x5E, 0x8C, 0xD0, 0x36, 0x41, 0x41],
+            // n/2 = 7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0
+            HalfOrder = [0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                         0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                         0x5D, 0x57, 0x6E, 0x73, 0x57, 0xA4, 0x50, 0x1D,
+                         0xDF, 0xE9, 0x2F, 0x46, 0x68, 0x1B, 0x20, 0xA0],
         };
     }
 
@@ -289,7 +328,7 @@ public static class AtProtoCrypto
         var result = new List<char>();
         var work = data.ToArray();
 
-        while (work.Any(b => b != 0))
+        while (HasNonZeroByte(work))
         {
             var remainder = 0;
             for (var i = 0; i < work.Length; i++)
@@ -307,6 +346,15 @@ public static class AtProtoCrypto
 
         result.Reverse();
         return new string(result.ToArray());
+    }
+
+    private static bool HasNonZeroByte(byte[] data)
+    {
+        for (var i = 0; i < data.Length; i++)
+        {
+            if (data[i] != 0) return true;
+        }
+        return false;
     }
 
     /// <summary>Base58 Bitcoin decoding (no check).</summary>
@@ -353,6 +401,69 @@ public static class AtProtoCrypto
         work.CopyTo(result, leadingOnes);
         return result;
     }
+
+    /// <summary>
+    /// Returns <c>true</c> if the S component of an IEEE P1363 signature is in low-S form
+    /// (S ≤ half-order), as required by the AT Protocol.
+    /// </summary>
+    internal static bool IsLowS(ReadOnlySpan<byte> signature, KeyCurve curve)
+    {
+        var halfLen = signature.Length / 2;
+        var sSpan = signature[halfLen..];
+        var halfOrder = curve == KeyCurve.P256
+            ? ECCurveParams.P256().HalfOrder
+            : ECCurveParams.K256().HalfOrder;
+        return CompareBigEndianUnsigned(sSpan, halfOrder) <= 0;
+    }
+
+    /// <summary>
+    /// Normalizes an ECDSA signature to use low-S form as required by AT Protocol.
+    /// In low-S form, S must be ≤ (curve order) / 2.
+    /// If S > half-order, replaces S with (order - S).
+    /// </summary>
+    internal static byte[] NormalizeLowSSignature(byte[] signature, KeyCurve curve)
+    {
+        var halfLen = signature.Length / 2;
+        var sSpan = signature.AsSpan(halfLen);
+        var curveParams = curve == KeyCurve.P256
+            ? ECCurveParams.P256()
+            : ECCurveParams.K256();
+
+        // Compare S > halfOrder (big-endian unsigned)
+        if (CompareBigEndianUnsigned(sSpan, curveParams.HalfOrder) > 0)
+        {
+            var n = new BigInteger(curveParams.Order, true, true);
+            var s = new BigInteger(sSpan, true, true);
+            var lowS = n - s;
+            var lowSBytes = lowS.ToByteArray(true, true);
+
+            var result = (byte[])signature.Clone();
+            // Clear S portion and write normalized value (right-aligned, zero-padded)
+            Array.Clear(result, halfLen, halfLen);
+            lowSBytes.CopyTo(result, halfLen + (halfLen - lowSBytes.Length));
+            return result;
+        }
+
+        return signature;
+    }
+
+    /// <summary>
+    /// Compares two big-endian unsigned byte sequences.
+    /// Returns negative if a &lt; b, 0 if equal, positive if a &gt; b.
+    /// </summary>
+    private static int CompareBigEndianUnsigned(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
+    {
+        // Pad to same length by comparing from most significant byte
+        var maxLen = Math.Max(a.Length, b.Length);
+        for (var i = 0; i < maxLen; i++)
+        {
+            var aByte = i < maxLen - a.Length ? (byte)0 : a[i - (maxLen - a.Length)];
+            var bByte = i < maxLen - b.Length ? (byte)0 : b[i - (maxLen - b.Length)];
+            if (aByte != bByte)
+                return aByte.CompareTo(bByte);
+        }
+        return 0;
+    }
 }
 
 /// <summary>The elliptic curve used by an AT Protocol key.</summary>
@@ -398,18 +509,23 @@ public sealed class AtProtoKey : IDisposable
             HashAlgorithmName.SHA256,
             DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
 
-        return NormalizeLowS(signature);
+        return AtProtoCrypto.NormalizeLowSSignature(signature, Curve);
     }
 
     /// <summary>
     /// Verifies a signature against data bytes.
+    /// Rejects high-S signatures (signature malleability) per AT Protocol spec.
     /// </summary>
     /// <param name="data">The original data that was signed.</param>
     /// <param name="signature">The signature in IEEE P1363 format (r || s).</param>
-    /// <returns><c>true</c> if the signature is valid.</returns>
+    /// <returns><c>true</c> if the signature is valid and uses low-S form.</returns>
     public bool Verify(ReadOnlySpan<byte> data, ReadOnlySpan<byte> signature)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+
+        // Reject high-S signatures (AT Protocol requires low-S normalization)
+        if (!AtProtoCrypto.IsLowS(signature, Curve))
+            return false;
 
         return _key.VerifyData(
             data,
@@ -452,32 +568,6 @@ public sealed class AtProtoKey : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         return _key.ExportPkcs8PrivateKey();
-    }
-
-    /// <summary>
-    /// Normalizes an ECDSA signature to use low-S form as required by AT Protocol.
-    /// In low-S form, S must be ≤ (curve order) / 2.
-    /// </summary>
-    private static byte[] NormalizeLowS(byte[] signature)
-    {
-        // IEEE P1363 format: r (32 bytes) || s (32 bytes) for 256-bit curves
-        var halfLen = signature.Length / 2;
-        var s = signature[halfLen..];
-
-        // For both P-256 and K-256, the order is ~2^256
-        // Check if S > order/2 by checking if the high bit is set
-        // (This is a simplified check — for production, compare against actual half-order)
-        if ((s[0] & 0x80) != 0)
-        {
-            // S is in the upper half — need to compute order - S
-            // For P-256: order = FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551
-            // For K-256: order = FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
-            // half_order has high bit clear, so just negate S mod order
-            // However, .NET's SignData already produces low-S signatures on most platforms
-            // This is a safety net
-        }
-
-        return signature;
     }
 
     /// <inheritdoc/>
