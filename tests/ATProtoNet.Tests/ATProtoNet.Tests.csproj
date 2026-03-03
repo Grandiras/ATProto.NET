@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\src\ATProtoNet\ATProtoNet.csproj" />
     <ProjectReference Include="..\..\src\ATProtoNet.Server\ATProtoNet.Server.csproj" />
     <ProjectReference Include="..\..\src\ATProtoNet.Blazor\ATProtoNet.Blazor.csproj" />
+    <ProjectReference Include="..\..\tools\ATProtoNet.LexiconGenerator\ATProtoNet.LexiconGenerator.csproj" />
   </ItemGroup>
 
   <ItemGroup>

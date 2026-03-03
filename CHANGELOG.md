@@ -36,8 +36,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Lexicon code generator** — Bidirectional `dotnet tool` (`atproto-lexgen`) for AT Protocol Lexicon schemas
   - `atproto-lexgen csharp` — Generate C# classes from Lexicon JSON schema files (records, objects, enums, tokens)
   - `atproto-lexgen lexicon` — Generate Lexicon JSON schemas from compiled .NET assemblies via reflection
+  - `atproto-lexgen diff` — Compare baseline and current Lexicon schemas, detect breaking changes per AT Protocol evolution rules
   - Matches existing SDK patterns: `sealed class`, `required`/`init` properties, `[JsonPropertyName]`, `$type` expression-body
   - Supports all Lexicon types: record, object, string enum, token, ref, union, array, blob
+  - Schema evolution validation: detects added/removed properties, type changes, required status changes, constraint tightening
+  - `--strict` mode exits with code 1 on breaking changes (for CI integration)
+  - Automatic revision bump suggestions for non-breaking changes
+
+- **Cryptography utilities** (`AtProtoCrypto`, `AtProtoKey`) — AT Protocol cryptographic operations
+  - P-256 (NIST secp256r1) and K-256 (secp256k1) key pair generation
+  - ECDSA signing and verification with SHA-256 and low-S normalization
+  - Compressed public key export/import with EC point decompression (modular arithmetic)
+  - Multikey encoding/decoding (base58btc with multicodec prefix)
+  - `did:key` generation and parsing (round-trips through multikey)
+  - PKCS#8 private key export/import
+  - Base58 Bitcoin encoding/decoding
+
+- **CAR file reader** (`CarReader`) — Parse Content Addressable aRchive (CAR v1) files
+  - Used for consuming `com.atproto.sync.getRepo` responses
+  - CID parsing (CIDv0 and CIDv1), DAG-CBOR header decoding
+  - Block lookup by CID, root block access
+  - Stream and byte array input support
+
+- **PLC directory client** (`PlcClient`) — Interact with PLC directory servers
+  - DID document resolution (`ResolveDidAsync`) with 404/410 error handling
+  - Operation log, audit log, and latest operation retrieval
+  - Current PLC data access
+  - Health check endpoint
+  - Full DID document model: `DidDocument`, `VerificationMethod`, `ServiceEndpoint`
+  - PLC operation model: `PlcOperation`, `PlcAuditEntry`, `PlcData`
+  - Convenience methods: `GetHandle()`, `GetPdsEndpoint()` on `DidDocument`
+
+- **Service auth JWT generation** (`ServiceAuthGenerator`) — Inter-service authentication
+  - JWT generation with `iss` (service DID), `aud` (target), `exp`, `iat`, `jti`, `lxm` claims
+  - ES256 (P-256) and ES256K (K-256) signing via `AtProtoKey`
+  - 60-second default expiry, 5-minute maximum enforcement
+  - Used for Feed Generators, Labelers, and relay services
 
 ### Fixed
 

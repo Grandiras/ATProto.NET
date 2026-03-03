@@ -37,6 +37,7 @@ public static class Program
         {
             "csharp" => await RunCSharpCommand(args[1..]),
             "lexicon" => RunLexiconCommand(args[1..]),
+            "diff" => await RunDiffCommand(args[1..]),
             _ => Error($"Unknown command: '{args[0]}'. Run with --help for usage."),
         };
     }
@@ -237,6 +238,7 @@ public static class Program
             COMMANDS:
                 csharp      Generate C# source files from Lexicon JSON schemas
                 lexicon     Generate Lexicon JSON schemas from a compiled .NET assembly
+                diff        Compare Lexicon schemas and detect breaking changes
 
             OPTIONS:
                 -h, --help      Show help
@@ -248,6 +250,9 @@ public static class Program
 
                 # Generate Lexicon JSON from your custom C# record types
                 atproto-lexgen lexicon --assembly ./bin/Debug/net10.0/MyApp.dll --output ./lexicons
+
+                # Check for breaking changes between schema versions
+                atproto-lexgen diff --baseline ./lexicons-v1 --current ./lexicons-v2
 
             Run 'atproto-lexgen <command> --help' for command-specific options.
             """);
@@ -299,6 +304,179 @@ public static class Program
                 atproto-lexgen lexicon \
                   --assembly ./bin/Debug/net10.0/MyApp.dll \
                   --output ./lexicons
+            """);
+    }
+
+    /// <summary>
+    /// Compares two sets of Lexicon schemas and reports breaking changes.
+    /// Supports directory-to-directory or assembly-to-directory comparison.
+    /// </summary>
+    private static async Task<int> RunDiffCommand(string[] args)
+    {
+        string? baselineDir = null;
+        string? currentDir = null;
+        string? currentAssembly = null;
+        var strict = false;
+
+        for (var i = 0; i < args.Length; i++)
+        {
+            switch (args[i])
+            {
+                case "--baseline" or "-b" when i + 1 < args.Length:
+                    baselineDir = args[++i];
+                    break;
+                case "--current" or "-c" when i + 1 < args.Length:
+                    currentDir = args[++i];
+                    break;
+                case "--assembly" or "-a" when i + 1 < args.Length:
+                    currentAssembly = args[++i];
+                    break;
+                case "--strict":
+                    strict = true;
+                    break;
+                case "--help" or "-h":
+                    PrintDiffHelp();
+                    return 0;
+                default:
+                    return Error($"Unknown option: '{args[i]}'");
+            }
+        }
+
+        if (baselineDir is null)
+            return Error("--baseline is required. Specify the directory containing baseline Lexicon .json files.");
+        if (currentDir is null && currentAssembly is null)
+            return Error("Either --current (directory) or --assembly (DLL) is required for the new schemas.");
+        if (!Directory.Exists(baselineDir))
+            return Error($"Baseline directory not found: {baselineDir}");
+
+        // Parse baseline schemas
+        var baselineDocs = await ParseDirectory(baselineDir);
+        if (baselineDocs.Count == 0)
+            return Error($"No valid Lexicon documents found in baseline: {baselineDir}");
+
+        Console.WriteLine($"Baseline: {baselineDocs.Count} schema(s) from {baselineDir}");
+
+        // Parse current schemas (from directory or assembly)
+        List<LexiconDocument> currentDocs;
+
+        if (currentAssembly is not null)
+        {
+            if (!File.Exists(currentAssembly))
+                return Error($"Assembly not found: {currentAssembly}");
+
+            Console.WriteLine($"Current:  analyzing assembly {currentAssembly}");
+
+            var emitter = new LexiconEmitter();
+            var schemas = emitter.EmitFromAssembly(currentAssembly);
+            currentDocs = [];
+
+            foreach (var (_, json) in schemas)
+            {
+                var doc = JsonSerializer.Deserialize<LexiconDocument>(json, s_parseOptions);
+                if (doc is not null && !string.IsNullOrEmpty(doc.Id))
+                    currentDocs.Add(doc);
+            }
+        }
+        else
+        {
+            if (!Directory.Exists(currentDir))
+                return Error($"Current directory not found: {currentDir}");
+
+            currentDocs = await ParseDirectory(currentDir!);
+        }
+
+        if (currentDocs.Count == 0)
+            return Error("No valid Lexicon documents found in current schemas.");
+
+        Console.WriteLine($"Current:  {currentDocs.Count} schema(s)");
+        Console.WriteLine();
+
+        // Run diff
+        var differ = new LexiconDiffer();
+        var result = differ.Compare(baselineDocs, currentDocs);
+
+        Console.WriteLine(result.ToReport());
+
+        // Suggest revision bumps
+        if (result.HasChanges && !result.HasBreakingChanges)
+        {
+            var suggestions = result.SuggestRevisions(baselineDocs);
+            if (suggestions.Count > 0)
+            {
+                Console.WriteLine("Suggested revision bumps:");
+                foreach (var (nsid, rev) in suggestions.OrderBy(s => s.Key))
+                    Console.WriteLine($"  {nsid}: revision → {rev}");
+            }
+        }
+
+        // Exit code: 0 = no changes or non-breaking, 1 = breaking (when --strict)
+        return strict && result.HasBreakingChanges ? 1 : 0;
+    }
+
+    /// <summary>Parses all .json files in a directory into LexiconDocuments.</summary>
+    private static async Task<List<LexiconDocument>> ParseDirectory(string dir)
+    {
+        var documents = new List<LexiconDocument>();
+        var jsonFiles = Directory.GetFiles(dir, "*.json", SearchOption.AllDirectories);
+
+        foreach (var file in jsonFiles)
+        {
+            try
+            {
+                var json = await File.ReadAllTextAsync(file);
+                var doc = JsonSerializer.Deserialize<LexiconDocument>(json, s_parseOptions);
+
+                if (doc is not null && !string.IsNullOrEmpty(doc.Id) && doc.Lexicon == 1)
+                    documents.Add(doc);
+            }
+            catch (JsonException)
+            {
+                // Skip invalid files silently in diff mode
+            }
+        }
+
+        return documents;
+    }
+
+    private static void PrintDiffHelp()
+    {
+        Console.WriteLine("""
+            atproto-lexgen diff — Compare Lexicon schemas for breaking changes
+
+            Compares a baseline set of Lexicon schemas against current schemas and
+            reports any changes. Enforces AT Protocol schema evolution rules.
+
+            OPTIONS:
+                -b, --baseline <dir>    Directory of baseline Lexicon .json files (required)
+                -c, --current <dir>     Directory of current Lexicon .json files
+                -a, --assembly <path>   Or: path to assembly to derive current schemas from
+                --strict                Exit with code 1 if breaking changes are detected
+
+            Provide either --current (directory) or --assembly (DLL), not both.
+
+            BREAKING CHANGES (will fail with --strict):
+                - Removing a schema or definition
+                - Removing a property
+                - Changing a property type
+                - Making a property required
+                - Adding a new required property
+                - Tightening string constraints
+
+            NON-BREAKING CHANGES:
+                - Adding a new schema or definition
+                - Adding an optional property
+                - Making a property optional
+                - Loosening constraints
+
+            EXAMPLES:
+                # Compare two directories of schemas
+                atproto-lexgen diff --baseline ./lexicons-v1 --current ./lexicons-v2
+
+                # Compare baseline schemas against a live assembly
+                atproto-lexgen diff --baseline ./lexicons --assembly ./bin/MyApp.dll
+
+                # Fail in CI if breaking changes detected
+                atproto-lexgen diff --baseline ./lexicons --current ./lexicons-new --strict
             """);
     }
 
