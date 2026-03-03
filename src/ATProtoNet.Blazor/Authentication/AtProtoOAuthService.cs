@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using ATProtoNet.Auth.OAuth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -30,6 +32,8 @@ public sealed class AtProtoOAuthService : IDisposable
     private HttpClient? _httpClient;
     private readonly object _lock = new();
     private bool _disposed;
+    private readonly ConcurrentDictionary<string, LoginContext> _loginContexts = new();
+    private readonly ConcurrentDictionary<string, RelayEntry> _relayCodes = new();
 
     /// <summary>
     /// Creates a new <see cref="AtProtoOAuthService"/>.
@@ -107,8 +111,16 @@ public sealed class AtProtoOAuthService : IDisposable
             });
         }
 
-        var (authorizationUrl, _) = await client.StartAuthorizationAsync(
+        var (authorizationUrl, state) = await client.StartAuthorizationAsync(
             handle, callbackUrl, pdsUrl, cancellationToken);
+
+        // Store login context server-side for cross-origin cookie relay.
+        // When the OAuth callback arrives on a different origin (e.g., http://127.0.0.1)
+        // than the user's browser (e.g., https://localhost), the SDK automatically
+        // relays the auth cookie back to the correct origin.
+        var loginOrigin = $"{context.Request.Scheme}://{context.Request.Host}";
+        _loginContexts[state] = new LoginContext(loginOrigin, returnUrl, DateTime.UtcNow.AddMinutes(10));
+        CleanupExpiredLoginContexts();
 
         _logger.LogInformation("OAuth login started for handle: {Handle}", handle);
 
@@ -138,6 +150,9 @@ public sealed class AtProtoOAuthService : IDisposable
             ?? throw new InvalidOperationException(
                 "OAuth client not initialized. Ensure StartLoginAsync was called first.");
 
+        // Retrieve login context (stored by StartLoginAsync) for cross-origin cookie relay
+        var loginContext = _loginContexts.TryRemove(state, out var lc) ? lc : null;
+
         // Exchange authorization code for tokens
         var result = await client.CompleteAuthorizationAsync(code, state, issuer, cancellationToken);
 
@@ -158,10 +173,7 @@ public sealed class AtProtoOAuthService : IDisposable
                 AllowRefresh = true,
             };
 
-            // Issue the authentication cookie
-            await context.SignInAsync(_serverOptions.CookieScheme, principal, properties);
-
-            // Store tokens server-side if IAtProtoTokenStore is registered (for backend API access)
+            // Store tokens server-side if IAtProtoTokenStore is registered (regardless of relay)
             var tokenStore = context.RequestServices.GetService<IAtProtoTokenStore>();
             if (tokenStore is not null)
             {
@@ -186,9 +198,47 @@ public sealed class AtProtoOAuthService : IDisposable
                 _logger.LogInformation("Stored OAuth tokens for DID: {Did}", result.Did);
             }
 
+            // Determine return URL: prefer server-side store, fall back to cookie, then default
+            var returnUrl = loginContext?.ReturnUrl
+                ?? context.Request.Cookies["atproto_return_url"]
+                ?? _serverOptions.DefaultReturnUrl;
+
+            // Clean up the return URL cookie (best-effort; may be on a different domain)
+            context.Response.Cookies.Delete("atproto_return_url", new CookieOptions
+            {
+                Path = _serverOptions.RoutePrefix,
+            });
+
+            // Check if cookie relay is needed (callback domain ≠ login domain).
+            // This handles Aspire / Kestrel multi-bind where the OAuth callback arrives on
+            // http://127.0.0.1 but the user's browser is on https://localhost.
+            var callbackOrigin = $"{context.Request.Scheme}://{context.Request.Host}";
+            if (loginContext is not null &&
+                !callbackOrigin.Equals(loginContext.Origin, StringComparison.OrdinalIgnoreCase))
+            {
+                // Callback arrived on a different origin than the user's browser.
+                // Don't issue a cookie here (it would be on the wrong domain).
+                // Instead, redirect to the login origin with a one-time relay code.
+                var relayCode = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+                _relayCodes[relayCode] = new RelayEntry(
+                    principal, properties, returnUrl, DateTime.UtcNow.AddMinutes(2));
+                CleanupExpiredRelayCodes();
+
+                _logger.LogInformation(
+                    "Cookie relay initiated: {CallbackOrigin} -> {LoginOrigin} for {Handle}",
+                    callbackOrigin, loginContext.Origin, result.Handle);
+
+                return $"{loginContext.Origin}{_serverOptions.RoutePrefix}/relay?code={relayCode}";
+            }
+
+            // Same origin — issue the cookie directly
+            await context.SignInAsync(_serverOptions.CookieScheme, principal, properties);
+
             _logger.LogInformation(
                 "OAuth login completed for DID: {Did}, Handle: {Handle}",
                 result.Did, result.Handle);
+
+            return returnUrl;
         }
         finally
         {
@@ -197,15 +247,6 @@ public sealed class AtProtoOAuthService : IDisposable
             // no longer needed (cookie-only mode)
             result.Dispose();
         }
-
-        // Read and delete the return URL cookie
-        var returnUrl = context.Request.Cookies["atproto_return_url"];
-        context.Response.Cookies.Delete("atproto_return_url", new CookieOptions
-        {
-            Path = _serverOptions.RoutePrefix,
-        });
-
-        return returnUrl ?? _serverOptions.DefaultReturnUrl;
     }
 
     /// <summary>
@@ -313,6 +354,71 @@ public sealed class AtProtoOAuthService : IDisposable
             DpopBoundAccessTokens = true,
         };
     }
+
+    /// <summary>
+    /// Redeems a one-time cookie relay code, issuing the authentication cookie on the
+    /// correct domain. Used internally by the relay endpoint mapped by <c>MapAtProtoOAuth()</c>.
+    /// </summary>
+    /// <param name="context">The current HTTP context (on the user's browsing domain).</param>
+    /// <param name="code">The one-time relay code from the query string.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The return URL to redirect to, or null if the code is invalid or expired.</returns>
+    public async Task<string?> TryRedeemRelayCodeAsync(
+        HttpContext context, string? code, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        if (string.IsNullOrWhiteSpace(code))
+            return null;
+
+        CleanupExpiredRelayCodes();
+
+        if (!_relayCodes.TryRemove(code, out var entry) || entry.Expiry < DateTime.UtcNow)
+            return null;
+
+        // Issue the cookie on this domain (the user's actual browsing domain)
+        await context.SignInAsync(_serverOptions.CookieScheme, entry.Principal, entry.Properties);
+
+        _logger.LogInformation(
+            "Cookie relay completed: auth cookie issued on {Host}",
+            context.Request.Host);
+
+        return entry.ReturnUrl;
+    }
+
+    private void CleanupExpiredLoginContexts()
+    {
+        var expired = _loginContexts
+            .Where(kv => kv.Value.Expiry < DateTime.UtcNow)
+            .Select(kv => kv.Key)
+            .ToList();
+        foreach (var key in expired)
+            _loginContexts.TryRemove(key, out _);
+    }
+
+    private void CleanupExpiredRelayCodes()
+    {
+        var expired = _relayCodes
+            .Where(kv => kv.Value.Expiry < DateTime.UtcNow)
+            .Select(kv => kv.Key)
+            .ToList();
+        foreach (var key in expired)
+            _relayCodes.TryRemove(key, out _);
+    }
+
+    /// <summary>
+    /// Stores the login origin and return URL for a pending OAuth flow,
+    /// enabling cross-origin cookie relay when the callback arrives on a different domain.
+    /// </summary>
+    private sealed record LoginContext(string Origin, string? ReturnUrl, DateTime Expiry);
+
+    /// <summary>
+    /// Stores the authentication result for a one-time cookie relay redirect,
+    /// allowing the SDK to issue the cookie on the user's actual browsing domain.
+    /// </summary>
+    private sealed record RelayEntry(
+        ClaimsPrincipal Principal, AuthenticationProperties Properties,
+        string ReturnUrl, DateTime Expiry);
 
     /// <inheritdoc/>
     public void Dispose()
