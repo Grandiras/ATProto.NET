@@ -302,6 +302,68 @@ public sealed class XrpcClient : IDisposable
         return result ?? throw new InvalidOperationException($"Failed to deserialize response from {nsid}");
     }
 
+    // ──────────────────────────────────────────────────────────
+    //  Internal proxy-aware overloads (for chat sub-clients)
+    // ──────────────────────────────────────────────────────────
+
+    internal async Task<TResponse> QueryAsync<TResponse>(
+        string nsid,
+        string proxyHeader,
+        IDictionary<string, string?>? parameters = null,
+        CancellationToken cancellationToken = default)
+    {
+        var url = BuildUrl(nsid, parameters);
+
+        _logger.LogDebug("XRPC Query (proxied): GET {Url}", url);
+
+        using var response = await SendWithDPoPRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, url),
+            cancellationToken, proxyOverride: proxyHeader);
+        await EnsureSuccessAsync(response, cancellationToken);
+
+        var result = await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions, cancellationToken);
+        return result ?? throw new InvalidOperationException($"Failed to deserialize response from {nsid}");
+    }
+
+    internal async Task<TResponse> ProcedureAsync<TRequest, TResponse>(
+        string nsid,
+        TRequest body,
+        string proxyHeader,
+        IDictionary<string, string?>? parameters = null,
+        CancellationToken cancellationToken = default)
+    {
+        var url = BuildUrl(nsid, parameters);
+
+        _logger.LogDebug("XRPC Procedure (proxied): POST {Url}", url);
+
+        using var response = await SendWithDPoPRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = JsonContent.Create(body, options: _jsonOptions),
+            },
+            cancellationToken, proxyOverride: proxyHeader);
+        await EnsureSuccessAsync(response, cancellationToken);
+
+        var result = await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions, cancellationToken);
+        return result ?? throw new InvalidOperationException($"Failed to deserialize response from {nsid}");
+    }
+
+    internal async Task ProcedureAsync(
+        string nsid,
+        string proxyHeader,
+        IDictionary<string, string?>? parameters = null,
+        CancellationToken cancellationToken = default)
+    {
+        var url = BuildUrl(nsid, parameters);
+
+        _logger.LogDebug("XRPC Procedure (proxied): POST {Url}", url);
+
+        using var response = await SendWithDPoPRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Post, url),
+            cancellationToken, proxyOverride: proxyHeader);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     /// <summary>
     /// Uploads a blob (binary data) to the server.
     /// </summary>
@@ -411,7 +473,7 @@ public sealed class XrpcClient : IDisposable
         return url;
     }
 
-    private void ApplyAuthHeader(HttpRequestMessage request)
+    private void ApplyAuthHeader(HttpRequestMessage request, string? proxyOverride = null)
     {
         if (_accessToken is null) return;
 
@@ -431,10 +493,11 @@ public sealed class XrpcClient : IDisposable
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
         }
 
-        // Apply atproto-proxy header for service proxying
-        if (_proxyHeader is not null)
+        // Apply atproto-proxy header for service proxying (per-request override takes priority)
+        var effectiveProxy = proxyOverride ?? _proxyHeader;
+        if (effectiveProxy is not null)
         {
-            request.Headers.TryAddWithoutValidation("atproto-proxy", _proxyHeader);
+            request.Headers.TryAddWithoutValidation("atproto-proxy", effectiveProxy);
         }
     }
 
@@ -452,10 +515,11 @@ public sealed class XrpcClient : IDisposable
     private async Task<HttpResponseMessage> SendWithDPoPRetryAsync(
         Func<HttpRequestMessage> createRequest,
         CancellationToken cancellationToken,
-        HttpCompletionOption completionOption = HttpCompletionOption.ResponseContentRead)
+        HttpCompletionOption completionOption = HttpCompletionOption.ResponseContentRead,
+        string? proxyOverride = null)
     {
         var request = createRequest();
-        ApplyAuthHeader(request);
+        ApplyAuthHeader(request, proxyOverride);
 
         var response = await _httpClient.SendAsync(request, completionOption, cancellationToken);
 
@@ -474,7 +538,7 @@ public sealed class XrpcClient : IDisposable
                 response.Dispose();
 
                 var retryRequest = createRequest();
-                ApplyAuthHeader(retryRequest);
+                ApplyAuthHeader(retryRequest, proxyOverride);
                 response = await _httpClient.SendAsync(retryRequest, completionOption, cancellationToken);
             }
         }
@@ -495,7 +559,7 @@ public sealed class XrpcClient : IDisposable
             await Task.Delay(delay, cancellationToken);
 
             var retryRequest = createRequest();
-            ApplyAuthHeader(retryRequest);
+            ApplyAuthHeader(retryRequest, proxyOverride);
             response = await _httpClient.SendAsync(retryRequest, completionOption, cancellationToken);
         }
 

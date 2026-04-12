@@ -6,6 +6,8 @@ using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Actor;
 using ATProtoNet.Lexicon.App.Bsky.Embed;
 using ATProtoNet.Lexicon.App.Bsky.Feed;
+using ATProtoNet.Lexicon.Chat.Bsky.Actor;
+using ATProtoNet.Lexicon.Chat.Bsky.Convo;
 using ATProtoNet.Lexicon.App.Bsky.Graph;
 using ATProtoNet.Lexicon.App.Bsky.Notification;
 using ATProtoNet.Lexicon.App.Bsky.RichText;
@@ -128,6 +130,11 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             new NotificationClient(_xrpc, bskyLogger),
             new VideoClient(_xrpc, bskyLogger));
 
+        // Chat sub-clients (automatically proxied to chat service)
+        Chat = new ChatClients(
+            new ConvoClient(_xrpc, _logger),
+            new ChatActorClient(_xrpc, _logger));
+
         if (options.AutoRefreshSession)
             _refreshTimer = new Timer(OnRefreshTimerElapsed, null, Timeout.Infinite, Timeout.Infinite);
 
@@ -161,6 +168,9 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
     /// <summary>app.bsky.* — Bluesky social application APIs.</summary>
     public BlueskyClients Bsky { get; }
+
+    /// <summary>chat.bsky.* — Bluesky direct message / chat APIs (proxied to chat service).</summary>
+    public ChatClients Chat { get; }
 
     // ──────────────────────────────────────────────────────────
     //  Firehose / Relay
@@ -875,6 +885,26 @@ public sealed class BlueskyClients
 
     /// <summary>app.bsky.video.* — video upload, processing, limits.</summary>
     public VideoClient Video { get; }
+}
+
+/// <summary>
+/// Groups the Bluesky Chat sub-clients.
+/// All requests are automatically proxied to the chat service via the <c>atproto-proxy</c> header.
+/// Requires the <c>transition:chat.bsky</c> OAuth scope.
+/// </summary>
+public sealed class ChatClients
+{
+    internal ChatClients(ConvoClient convo, ChatActorClient actor)
+    {
+        Convo = convo;
+        Actor = actor;
+    }
+
+    /// <summary>chat.bsky.convo.* — conversations, messages, reactions.</summary>
+    public ConvoClient Convo { get; }
+
+    /// <summary>chat.bsky.actor.* — chat account management.</summary>
+    public ChatActorClient Actor { get; }
 }
 
 /// <summary>
