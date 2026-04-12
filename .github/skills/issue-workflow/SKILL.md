@@ -26,7 +26,7 @@ Complete lifecycle for taking issues from the tracker through to shipped code.
    ```
    fj issue search -R origin --state open
    ```
-3. Present the prioritized list to the user and confirm which to work on.
+3. Use the ask_questions tool to clarity unclear details and to confirm the selected issue(s) before implementation.
 
 ### Phase 2 — Research & Plan
 
