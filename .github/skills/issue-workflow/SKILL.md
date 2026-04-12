@@ -59,11 +59,13 @@ Complete lifecycle for taking issues from the tracker through to shipped code.
    ```
 3. All tests must pass (0 failures) before proceeding.
 
-### Phase 5 — Release Notes
+### Phase 5 — Release Notes and Documentation
 
 1. Update the `## [Unreleased]` section in `CHANGELOG.md`.
 2. Follow the existing format: `- **Bold title** — Description with details`.
 3. Place new entries at the top of the `### Added` / `### Fixed` / `### Changed` section as appropriate.
+4. Update the documentation to reflect the new features or changes, following existing patterns and style.
+5. Expand the documentation if the changes introduce new concepts or usage patterns.
 
 ### Phase 6 — Commit & Push
 
