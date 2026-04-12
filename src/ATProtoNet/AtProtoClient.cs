@@ -20,6 +20,7 @@ using ATProtoNet.Lexicon.Com.AtProto.Moderation;
 using ATProtoNet.Lexicon.Com.AtProto.Repo;
 using ATProtoNet.Lexicon.Com.AtProto.Server;
 using ATProtoNet.Lexicon.Com.AtProto.Sync;
+using ATProtoNet.Lexicon.Tools.Ozone;
 using ATProtoNet.Models;
 using ATProtoNet.Serialization;
 using Microsoft.Extensions.Logging;
@@ -137,6 +138,9 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             new ConvoClient(_xrpc, _logger),
             new ChatActorClient(_xrpc, _logger));
 
+        // Ozone moderation service
+        Ozone = new OzoneClient(_xrpc, _logger);
+
         if (options.AutoRefreshSession)
             _refreshTimer = new Timer(OnRefreshTimerElapsed, null, Timeout.Infinite, Timeout.Infinite);
 
@@ -173,6 +177,9 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
     /// <summary>chat.bsky.* — Bluesky direct message / chat APIs (proxied to chat service).</summary>
     public ChatClients Chat { get; }
+
+    /// <summary>tools.ozone.* — Ozone moderation service APIs.</summary>
+    public OzoneClient Ozone { get; }
 
     // ──────────────────────────────────────────────────────────
     //  Firehose / Relay

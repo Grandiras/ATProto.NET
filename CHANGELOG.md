@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Ozone moderation client** (Issue #18) — Full `tools.ozone.*` namespace support via `client.Ozone`
+  - `OzoneClient` top-level client aggregating all Ozone sub-clients
+  - `ModerationClient` — emitEvent, getEvent, getRecord, getRepo, queryEvents, querySubjects, searchRepos
+  - `CommunicationClient` — createTemplate, deleteTemplate, listTemplates, updateTemplate
+  - `TeamClient` — addMember, deleteMember, listMembers, updateMember
+  - `SetClient` — upsertSet, deleteSet, addValues, deleteValues, getValues, querySets
+  - `OzoneServerClient` — getConfig
+  - `SignatureClient` — findCorrelation, searchAccounts, findRelatedAccounts
+  - Polymorphic moderation event types (takedown, label, comment, mute, email, tag, etc.)
+  - `SubjectReviewState` and `TeamMemberRole` constants
+
 - **Aspire integration package** (Issue #5) — `ATProtoNet.Aspire` package for .NET Aspire service defaults
   - `AddAtProtoClient()` extension on `IHostApplicationBuilder` — registers `AtProtoClient` as a singleton with configuration binding, `IHttpClientFactory`, and optional standard resilience
   - `AtProtoClientSettings` for `IConfiguration` binding (InstanceUrl, RelayUrl, AutoRefreshSession, DisableHealthChecks, DisableResilience)
