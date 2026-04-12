@@ -24,6 +24,7 @@ public sealed class XrpcClient : IDisposable
     private bool _useDPoP;
     private string? _latestRepoRev;
     private RateLimitInfo? _latestRateLimitInfo;
+    private string? _proxyHeader;
 
     /// <summary>
     /// The base URL of the XRPC service (e.g., https://bsky.social).
@@ -132,6 +133,30 @@ public sealed class XrpcClient : IDisposable
         _dpop = null;
         _dpopNonce = null;
         _useDPoP = false;
+    }
+
+    /// <summary>
+    /// Sets the default <c>atproto-proxy</c> header value for subsequent requests.
+    /// When set, all XRPC requests will include this header, instructing the PDS
+    /// to proxy the request to the specified service.
+    /// </summary>
+    /// <param name="proxyHeader">
+    /// The proxy header value: a DID with a service endpoint fragment
+    /// (e.g., <c>did:web:api.bsky.app#bsky_appview</c>).
+    /// Use <see cref="ServiceProxy.Build"/> to construct this value.
+    /// </param>
+    public void SetProxy(string proxyHeader)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(proxyHeader);
+        _proxyHeader = proxyHeader;
+    }
+
+    /// <summary>
+    /// Clears the default <c>atproto-proxy</c> header.
+    /// </summary>
+    public void ClearProxy()
+    {
+        _proxyHeader = null;
     }
 
     /// <summary>
@@ -404,6 +429,12 @@ public sealed class XrpcClient : IDisposable
         {
             // Legacy Bearer token auth
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
+        }
+
+        // Apply atproto-proxy header for service proxying
+        if (_proxyHeader is not null)
+        {
+            request.Headers.TryAddWithoutValidation("atproto-proxy", _proxyHeader);
         }
     }
 

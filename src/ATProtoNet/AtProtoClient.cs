@@ -9,6 +9,7 @@ using ATProtoNet.Lexicon.App.Bsky.Feed;
 using ATProtoNet.Lexicon.App.Bsky.Graph;
 using ATProtoNet.Lexicon.App.Bsky.Notification;
 using ATProtoNet.Lexicon.App.Bsky.RichText;
+using ATProtoNet.Lexicon.App.Bsky.Video;
 using ATProtoNet.Lexicon.Com.AtProto.Admin;
 using ATProtoNet.Lexicon.Com.AtProto.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Label;
@@ -124,7 +125,8 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             new ActorClient(_xrpc, bskyLogger),
             new FeedClient(_xrpc, bskyLogger),
             new GraphClient(_xrpc, bskyLogger),
-            new NotificationClient(_xrpc, bskyLogger));
+            new NotificationClient(_xrpc, bskyLogger),
+            new VideoClient(_xrpc, bskyLogger));
 
         if (options.AutoRefreshSession)
             _refreshTimer = new Timer(OnRefreshTimerElapsed, null, Timeout.Infinite, Timeout.Infinite);
@@ -316,6 +318,26 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// Updated after every XRPC request.
     /// </summary>
     public RateLimitInfo? LatestRateLimitInfo => _xrpc.LatestRateLimitInfo;
+
+    // ──────────────────────────────────────────────────────────
+    //  Service Proxying
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Sets the default <c>atproto-proxy</c> header for all subsequent XRPC requests.
+    /// When set, the PDS will proxy requests to the specified service.
+    /// </summary>
+    /// <param name="proxyHeader">
+    /// The proxy header value: a DID with a service endpoint fragment
+    /// (e.g., <c>did:web:api.bsky.app#bsky_appview</c>).
+    /// Use <see cref="Http.ServiceProxy"/> to construct or use pre-built constants.
+    /// </param>
+    public void SetProxy(string proxyHeader) => _xrpc.SetProxy(proxyHeader);
+
+    /// <summary>
+    /// Clears the default <c>atproto-proxy</c> header.
+    /// </summary>
+    public void ClearProxy() => _xrpc.ClearProxy();
 
     // ──────────────────────────────────────────────────────────
     //  Authentication
@@ -829,12 +851,14 @@ public sealed class BlueskyClients
         ActorClient actor,
         FeedClient feed,
         GraphClient graph,
-        NotificationClient notification)
+        NotificationClient notification,
+        VideoClient video)
     {
         Actor = actor;
         Feed = feed;
         Graph = graph;
         Notification = notification;
+        Video = video;
     }
 
     /// <summary>app.bsky.actor.* — profiles, preferences, search.</summary>
@@ -848,6 +872,9 @@ public sealed class BlueskyClients
 
     /// <summary>app.bsky.notification.* — notifications.</summary>
     public NotificationClient Notification { get; }
+
+    /// <summary>app.bsky.video.* — video upload, processing, limits.</summary>
+    public VideoClient Video { get; }
 }
 
 /// <summary>
