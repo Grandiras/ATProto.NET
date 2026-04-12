@@ -140,4 +140,78 @@ public sealed class SyncClient
         await _xrpc.ProcedureAsync<RequestCrawlRequest, object>(
             "com.atproto.sync.requestCrawl", request, cancellationToken: cancellationToken);
     }
+
+    /// <summary>
+    /// Get the hosting status for a repository on this server.
+    /// Expected to be implemented by PDS and Relay.
+    /// </summary>
+    /// <param name="did">The DID of the repo.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<GetRepoStatusResponse> GetRepoStatusAsync(
+        string did, CancellationToken cancellationToken = default)
+    {
+        var parameters = new Dictionary<string, string?> { ["did"] = did };
+        return _xrpc.QueryAsync<GetRepoStatusResponse>(
+            "com.atproto.sync.getRepoStatus", parameters, cancellationToken);
+    }
+
+    /// <summary>
+    /// Enumerate upstream hosts (PDS or relay instances) that this service consumes from.
+    /// Implemented by relays.
+    /// </summary>
+    /// <param name="limit">Maximum number of results per page (default 200, max 1000).</param>
+    /// <param name="cursor">Pagination cursor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<ListHostsResponse> ListHostsAsync(
+        int? limit = null,
+        string? cursor = null,
+        CancellationToken cancellationToken = default)
+    {
+        var parameters = new Dictionary<string, string?>
+        {
+            ["limit"] = limit?.ToString(),
+            ["cursor"] = cursor,
+        };
+
+        return _xrpc.QueryAsync<ListHostsResponse>(
+            "com.atproto.sync.listHosts", parameters, cancellationToken);
+    }
+
+    /// <summary>
+    /// Get information about a specified upstream host. Implemented by relays.
+    /// </summary>
+    /// <param name="hostname">Hostname of the host (e.g., PDS or relay) being queried.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<GetHostStatusResponse> GetHostStatusAsync(
+        string hostname, CancellationToken cancellationToken = default)
+    {
+        var parameters = new Dictionary<string, string?> { ["hostname"] = hostname };
+        return _xrpc.QueryAsync<GetHostStatusResponse>(
+            "com.atproto.sync.getHostStatus", parameters, cancellationToken);
+    }
+
+    /// <summary>
+    /// Enumerate all DIDs which have records with the given collection NSID.
+    /// Useful for efficient backfill of specific record types. New in Sync v1.1.
+    /// </summary>
+    /// <param name="collection">The collection NSID to filter by.</param>
+    /// <param name="limit">Maximum number of results per page (default 500, max 2000).</param>
+    /// <param name="cursor">Pagination cursor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<ListReposByCollectionResponse> ListReposByCollectionAsync(
+        string collection,
+        int? limit = null,
+        string? cursor = null,
+        CancellationToken cancellationToken = default)
+    {
+        var parameters = new Dictionary<string, string?>
+        {
+            ["collection"] = collection,
+            ["limit"] = limit?.ToString(),
+            ["cursor"] = cursor,
+        };
+
+        return _xrpc.QueryAsync<ListReposByCollectionResponse>(
+            "com.atproto.sync.listReposByCollection", parameters, cancellationToken);
+    }
 }

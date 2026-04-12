@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Missing sync endpoints & Sync v1.1 support** (Issue #21) — Complete com.atproto.sync coverage and Sync v1.1 fields
+  - `SyncClient.GetRepoStatusAsync` — Get repository hosting status
+  - `SyncClient.ListHostsAsync` — Enumerate upstream hosts consumed by a relay
+  - `SyncClient.GetHostStatusAsync` — Get status of a specified upstream host
+  - `SyncClient.ListReposByCollectionAsync` — Enumerate DIDs with records in a given collection
+  - `AccountHostingStatus` constants: takendown, suspended, deleted, deactivated, desynchronized, throttled
+  - `HostStatus` constants: active, idle, offline, throttled, banned
+  - `SyncEvent` (#sync) firehose message type for Sync v1.1 repo state recovery
+  - `CommitEvent.PrevData` and `CommitEvent.Blobs` Sync v1.1 fields
+  - `RepoOp.Prev` field for inductive firehose verification
+
+- **Firehose event parsing, verification, and typed consumer** (Issue #27) — Full firehose commit verification pipeline and advanced consumer
+  - `FirehoseEventParser` — Decodes raw CBOR firehose frames into typed `FirehoseMessage` objects with DAG-CBOR JSON normalization
+  - `FirehoseVerifier` — CID integrity verification for commit and sync events, commit signature verification against DID document signing keys
+  - `VerificationResult` — Structured verification result with error details
+  - `TypedFirehoseConsumer` — High-level consumer with CBOR parsing, collection filtering, CID/signature verification, and periodic cursor persistence
+  - `TypedFirehoseConsumerOptions` — Configuration for verification, collection filters, cursor persistence interval, and reconnection
+  - `IFirehoseCursorStore` — Interface for persistent cursor storage enabling resumable firehose consumption
+  - `InMemoryFirehoseCursorStore` — In-memory cursor store for development and testing
+
 - **Merkle Search Tree (MST) implementation** (Issue #19) — Full in-memory MST for AT Protocol repository data structure
   - `MstKeyDepth` — Computes key depth via SHA-256 leading-zero counting (fanout 4), matching AT Protocol spec
   - `MstNodeData` — CBOR-serializable MST node with deterministic DAG-CBOR encoding/decoding via tag 42 CID links
