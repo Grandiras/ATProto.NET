@@ -273,6 +273,57 @@ public static class AtProtoScopes
         return string.IsNullOrWhiteSpace(aud) ? scope : $"{scope}?aud={EncodeScopeValue(aud)}";
     }
 
+    // ─── Well-known Bluesky permission set NSIDs ────────────────────────
+
+    /// <summary>
+    /// Well-known Bluesky permission set NSIDs for use with <see cref="Include"/>.
+    /// These correspond to the <c>app.bsky.auth*</c> permission set Lexicons.
+    /// </summary>
+    public static class PermissionSets
+    {
+        /// <summary>Full Bluesky Social app functionality. Superset of all other permission sets.</summary>
+        public const string FullApp = "app.bsky.authFullApp";
+
+        /// <summary>Manage Bluesky profile (read/update/delete profile, actor status, notification declaration).</summary>
+        public const string ManageProfile = "app.bsky.authManageProfile";
+
+        /// <summary>Create posts only (not update/delete). Usually needs blob permission as well.</summary>
+        public const string CreatePosts = "app.bsky.authCreatePosts";
+
+        /// <summary>Delete posts only (not create/update). For "delete old posts" automation.</summary>
+        public const string DeletePosts = "app.bsky.authDeletePosts";
+
+        /// <summary>Full create/update/delete permissions for posts.</summary>
+        public const string ManagePosts = "app.bsky.authManagePosts";
+
+        /// <summary>Manage follows (create/update/delete).</summary>
+        public const string ManageFollows = "app.bsky.authManageFollows";
+
+        /// <summary>Manage lists and starter packs.</summary>
+        public const string ManageListsAndPacks = "app.bsky.authManageListsAndPacks";
+
+        /// <summary>View notifications (unread count, list, mark seen).</summary>
+        public const string ViewNotifications = "app.bsky.authViewNotifs";
+
+        /// <summary>Full notification management including preferences and push registration.</summary>
+        public const string ManageNotifications = "app.bsky.authManageNotifs";
+
+        /// <summary>Manage hosted feed generators (declarative feeds).</summary>
+        public const string ManageFeedDeclarations = "app.bsky.authManageFeedDeclarations";
+
+        /// <summary>Manage hosted labeling service (e.g., Ozone).</summary>
+        public const string ManageLabelerService = "app.bsky.authManageLabelerService";
+
+        /// <summary>Manage Bluesky preferences (get/put).</summary>
+        public const string ManagePreferences = "app.bsky.authManagePrefs";
+
+        /// <summary>Manage personal moderation (blocks, mutes, services).</summary>
+        public const string ManageModeration = "app.bsky.authManageModeration";
+
+        /// <summary>Read-only access to all content (profiles, feeds, search, etc.).</summary>
+        public const string ViewAll = "app.bsky.authViewAll";
+    }
+
     // ─── Helpers ────────────────────────────────────────────────────────
 
     /// <summary>
