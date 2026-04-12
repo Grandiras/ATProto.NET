@@ -217,3 +217,89 @@ See [samples/ServerIntegrationSample/](../samples/ServerIntegrationSample/) for 
 - Profile page using `IAtProtoClientFactory`
 - Timeline page with live AT Proto data
 - Minimal API endpoints (`/api/profile`, `/api/timeline`)
+
+## XRPC Endpoint Handlers
+
+ATProtoNet.Server supports defining server-side XRPC endpoint handlers using a DI-friendly interface pattern. This is useful for building AT Protocol services (PDS, appview, relay, etc.) that expose `/xrpc/{nsid}` routes.
+
+### Defining a Query Endpoint
+
+```csharp
+[XrpcEndpoint(Nsid = "com.example.getStatus")]
+public class GetStatusEndpoint : IXrpcQuery<StatusOutput>
+{
+    public string Nsid => "com.example.getStatus";
+
+    public Task<StatusOutput> HandleAsync(HttpContext context, CancellationToken ct)
+    {
+        return Task.FromResult(new StatusOutput { Status = "ok" });
+    }
+}
+```
+
+For queries with parameters:
+
+```csharp
+[XrpcEndpoint(Nsid = "app.bsky.feed.getTimeline")]
+public class GetTimelineEndpoint : IXrpcQuery<TimelineParams, TimelineOutput>
+{
+    public string Nsid => "app.bsky.feed.getTimeline";
+
+    public Task<TimelineOutput> HandleAsync(TimelineParams parameters, HttpContext context, CancellationToken ct)
+    {
+        // parameters are bound from ?key=value query string
+        // ...
+    }
+}
+```
+
+### Defining a Procedure Endpoint
+
+```csharp
+[XrpcEndpoint(Nsid = "com.atproto.repo.createRecord")]
+public class CreateRecordEndpoint : IXrpcProcedure<CreateRecordInput, CreateRecordOutput>
+{
+    public string Nsid => "com.atproto.repo.createRecord";
+
+    public Task<CreateRecordOutput> HandleAsync(CreateRecordInput input, HttpContext context, CancellationToken ct)
+    {
+        // input is deserialized from the JSON request body
+        // ...
+    }
+}
+```
+
+For procedures that return no output:
+
+```csharp
+[XrpcEndpoint(Nsid = "com.example.ping")]
+public class PingEndpoint : IXrpcProcedureVoid<PingInput>
+{
+    public string Nsid => "com.example.ping";
+
+    public Task HandleAsync(PingInput input, HttpContext context, CancellationToken ct)
+    {
+        // ...
+        return Task.CompletedTask;
+    }
+}
+```
+
+### Registering Endpoints
+
+Register individual endpoints or scan an entire assembly:
+
+```csharp
+// Individual registration
+builder.Services.AddXrpcEndpoint<GetStatusEndpoint>();
+
+// Assembly scanning (finds all [XrpcEndpoint]-attributed handlers)
+builder.Services.AddXrpcEndpointsFromAssembly(typeof(Program).Assembly);
+
+var app = builder.Build();
+
+// Map all registered endpoints as /xrpc/{nsid} routes
+app.MapXrpcEndpoints();
+```
+
+Query endpoints map as `GET /xrpc/{nsid}`, procedures map as `POST /xrpc/{nsid}`. Invalid or missing request bodies return a `400 Bad Request` with an XRPC-style error response.

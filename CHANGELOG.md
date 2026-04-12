@@ -20,6 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `CommitEvent.PrevData` and `CommitEvent.Blobs` Sync v1.1 fields
   - `RepoOp.Prev` field for inductive firehose verification
 
+- **Auto-register XRPC endpoints with DI** (Issue #15) — Server-side XRPC endpoint handler infrastructure
+  - `IXrpcEndpoint` — Base interface for XRPC endpoint handlers with NSID identification
+  - `IXrpcQuery<TParams, TOutput>` / `IXrpcQuery<TOutput>` — Interfaces for XRPC query endpoints (GET)
+  - `IXrpcProcedure<TInput, TOutput>` / `IXrpcProcedureVoid<TInput>` — Interfaces for XRPC procedure endpoints (POST)
+  - `[XrpcEndpoint]` attribute — Assembly scanning marker with optional NSID override
+  - `AddXrpcEndpoint<T>()` — Register a single XRPC endpoint handler in DI
+  - `AddXrpcEndpointsFromAssembly()` — Assembly scanning for `[XrpcEndpoint]`-attributed handlers
+  - `MapXrpcEndpoints()` — Maps all registered handlers as ASP.NET Core minimal API routes at `/xrpc/{nsid}`
+  - Query parameter binding, JSON body deserialization, and XRPC error format support
+
 - **Firehose event parsing, verification, and typed consumer** (Issue #27) — Full firehose commit verification pipeline and advanced consumer
   - `FirehoseEventParser` — Decodes raw CBOR firehose frames into typed `FirehoseMessage` objects with DAG-CBOR JSON normalization
   - `FirehoseVerifier` — CID integrity verification for commit and sync events, commit signature verification against DID document signing keys
