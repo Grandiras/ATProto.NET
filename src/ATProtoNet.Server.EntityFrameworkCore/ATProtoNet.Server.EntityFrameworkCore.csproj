@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>ATProtoNet.Server.EntityFrameworkCore</RootNamespace>
+    <PackageId>ATProtoNet.Server.EntityFrameworkCore</PackageId>
+    <Description>Entity Framework Core token store for ATProtoNet — persist OAuth tokens in any EF Core-supported database (SQL Server, PostgreSQL, SQLite, etc.).</Description>
+    <Authors>Grandiras</Authors>
+    <PackageTags>atproto;bluesky;aspnetcore;at-protocol;entityframeworkcore;efcore</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://git.grandiras.net/Grandiras/ATProto.NET</PackageProjectUrl>
+    <RepositoryUrl>https://git.grandiras.net/Grandiras/ATProto.NET</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ATProtoNet\ATProtoNet.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0-preview.4.25258.110" />
+  </ItemGroup>
+
+</Project>

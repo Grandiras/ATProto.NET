@@ -59,6 +59,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     private readonly ISessionStore _sessionStore;
     private readonly ILogger<AtProtoClient> _logger;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
+    private readonly string? _relayUrl;
     private Session? _session;
     private OAuthSessionResult? _oauthSession;
     private Timer? _refreshTimer;
@@ -127,6 +128,8 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
         if (options.AutoRefreshSession)
             _refreshTimer = new Timer(OnRefreshTimerElapsed, null, Timeout.Infinite, Timeout.Infinite);
+
+        _relayUrl = options.RelayUrl;
     }
 
     // ──────────────────────────────────────────────────────────
@@ -156,6 +159,47 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
     /// <summary>app.bsky.* — Bluesky social application APIs.</summary>
     public BlueskyClients Bsky { get; }
+
+    // ──────────────────────────────────────────────────────────
+    //  Firehose / Relay
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Create a new <see cref="Streaming.FirehoseClient"/> using the configured relay URL.
+    /// </summary>
+    /// <returns>A new <see cref="Streaming.FirehoseClient"/>. Caller is responsible for disposal.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when no relay URL is configured (set <see cref="AtProtoClientOptions.RelayUrl"/>).
+    /// </exception>
+    public Streaming.FirehoseClient CreateFirehoseClient()
+    {
+        if (string.IsNullOrEmpty(_relayUrl))
+            throw new InvalidOperationException(
+                "No relay URL configured. Set AtProtoClientOptions.RelayUrl or use AtProtoClientBuilder.WithRelayUrl().");
+
+        return new Streaming.FirehoseClient(_relayUrl, _logger);
+    }
+
+    /// <summary>
+    /// Create a new <see cref="Streaming.FirehoseConsumer"/> using the configured relay URL.
+    /// The consumer handles automatic reconnection and cursor management.
+    /// </summary>
+    /// <param name="reconnectDelay">Delay between reconnection attempts. Default: 5 seconds.</param>
+    /// <param name="maxReconnectAttempts">Max reconnection attempts. Default: 10. Use -1 for unlimited.</param>
+    /// <returns>A new <see cref="Streaming.FirehoseConsumer"/>. Caller is responsible for disposal.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when no relay URL is configured (set <see cref="AtProtoClientOptions.RelayUrl"/>).
+    /// </exception>
+    public Streaming.FirehoseConsumer CreateFirehoseConsumer(
+        TimeSpan? reconnectDelay = null,
+        int maxReconnectAttempts = 10)
+    {
+        if (string.IsNullOrEmpty(_relayUrl))
+            throw new InvalidOperationException(
+                "No relay URL configured. Set AtProtoClientOptions.RelayUrl or use AtProtoClientBuilder.WithRelayUrl().");
+
+        return new Streaming.FirehoseConsumer(_relayUrl, _logger, reconnectDelay, maxReconnectAttempts);
+    }
 
     // ──────────────────────────────────────────────────────────
     //  Custom Lexicon support
@@ -818,4 +862,13 @@ public sealed class AtProtoClientOptions
     /// OAuth configuration options. When set, enables OAuth authentication support.
     /// </summary>
     public OAuthOptions? OAuth { get; set; }
+
+    /// <summary>
+    /// The WebSocket URL of the relay service for firehose subscriptions.
+    /// Default: "wss://bsky.network".
+    /// Set to a custom URL to use a different relay, or <c>null</c> to disable
+    /// the convenience <see cref="AtProtoClient.CreateFirehoseClient"/> and
+    /// <see cref="AtProtoClient.CreateFirehoseConsumer"/> methods.
+    /// </summary>
+    public string? RelayUrl { get; set; } = "wss://bsky.network";
 }

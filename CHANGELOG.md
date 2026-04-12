@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **OAuth scope constants & granular permission builders** (`AtProtoScopes`) — Full AT Protocol Permissions spec support
+  - Transitional scope constants: `AtProto`, `TransitionGeneric`, `TransitionChatBsky`, `TransitionEmail`
+  - Convenience presets: `Default`, `WithChat`, `AuthOnly`
+  - `Repo()` — Record collection permissions with `RepoAction` flags (Create, Update, Delete), single or multiple collections, wildcard support
+  - `Rpc()` — Service authentication (RPC) permissions with Lexicon method and audience parameters, DID fragment encoding
+  - `Blob()` — Blob upload permissions with MIME type patterns (`*/*`, `video/*`, etc.)
+  - `Account()` — Account attribute permissions (email, repo, status) with Read/Manage actions
+  - `Identity()` — Identity attribute permissions (handle, wildcard) with Manage/Submit actions
+  - `Include()` — Permission set references for published Lexicon-based permission bundles with optional audience inheritance
+  - `Combine()` — Merge and deduplicate multiple scope strings
+  - Replaced hardcoded scope strings in `OAuthModels` and `AtProtoOAuthServerOptions` with `AtProtoScopes.Default`
+
+- **Custom relay URL configuration** (Issue #8) — Configurable relay WebSocket URL for firehose
+  - `WithRelayUrl()` on `AtProtoClientBuilder` (default: `wss://bsky.network`)
+  - `RelayUrl` property on `AtProtoClientOptions`
+  - `CreateFirehoseClient()` and `CreateFirehoseConsumer()` convenience methods on `AtProtoClient`
+
+- **EF Core token store** (`ATProtoNet.Server.EntityFrameworkCore`) — New package for database-backed token storage (Issue #3)
+  - `EfCoreAtProtoTokenStore<TContext>` — Generic `IAtProtoTokenStore` implementation using `IDbContextFactory<TContext>`
+  - ASP.NET Core Data Protection encryption for stored tokens
+  - `AtProtoTokenEntity` with DID primary key
+  - `AtProtoTokenDbContext` with `ConfigureAtProtoTokenModel()` for use in custom DbContexts
+  - `AddAtProtoEfCoreTokenStore<TContext>()` DI extension
+
 - **Security hardening** — Comprehensive SSRF prevention, TLS enforcement, and input validation
   - Accurate private IP range detection using `IPAddress.TryParse` covering RFC 1918, CGN (100.64/10), loopback, link-local, and IPv6 private ranges
   - IPv6 bracket host blocking in DID:web resolution (all bracketed IPs rejected — use domain names)

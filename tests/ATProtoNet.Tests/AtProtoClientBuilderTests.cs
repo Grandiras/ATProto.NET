@@ -101,4 +101,47 @@ public class AtProtoClientBuilderTests
         // Should not throw
         await client.DisposeAsync();
     }
+
+    [Fact]
+    public void WithRelayUrl_SetsCustomRelayUrl()
+    {
+        var client = new AtProtoClientBuilder()
+            .WithRelayUrl("wss://relay.example.com")
+            .Build();
+
+        Assert.NotNull(client);
+
+        // Should create a firehose client with the custom relay URL
+        using var firehose = client.CreateFirehoseClient();
+        Assert.NotNull(firehose);
+    }
+
+    [Fact]
+    public void WithRelayUrl_Null_DisablesFirehose()
+    {
+        var client = new AtProtoClientBuilder()
+            .WithRelayUrl(null)
+            .Build();
+
+        Assert.Throws<InvalidOperationException>(() => client.CreateFirehoseClient());
+        Assert.Throws<InvalidOperationException>(() => client.CreateFirehoseConsumer());
+    }
+
+    [Fact]
+    public void CreateFirehoseClient_DefaultRelay_Works()
+    {
+        var client = new AtProtoClientBuilder().Build();
+
+        using var firehose = client.CreateFirehoseClient();
+        Assert.NotNull(firehose);
+    }
+
+    [Fact]
+    public void CreateFirehoseConsumer_DefaultRelay_Works()
+    {
+        var client = new AtProtoClientBuilder().Build();
+
+        using var consumer = client.CreateFirehoseConsumer();
+        Assert.NotNull(consumer);
+    }
 }

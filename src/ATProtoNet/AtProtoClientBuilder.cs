@@ -18,6 +18,7 @@ namespace ATProtoNet;
 public sealed class AtProtoClientBuilder
 {
     private string _instanceUrl = "https://bsky.social";
+    private string? _relayUrl = "wss://bsky.network";
     private bool _autoRefreshSession = true;
     private HttpClient? _httpClient;
     private ISessionStore? _sessionStore;
@@ -31,6 +32,16 @@ public sealed class AtProtoClientBuilder
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(url);
         _instanceUrl = url;
+        return this;
+    }
+
+    /// <summary>
+    /// Set the WebSocket URL of the relay service for firehose subscriptions.
+    /// Default: "wss://bsky.network". Pass <c>null</c> to disable relay integration.
+    /// </summary>
+    public AtProtoClientBuilder WithRelayUrl(string? url)
+    {
+        _relayUrl = url;
         return this;
     }
 
@@ -82,6 +93,7 @@ public sealed class AtProtoClientBuilder
         {
             InstanceUrl = _instanceUrl,
             AutoRefreshSession = _autoRefreshSession,
+            RelayUrl = _relayUrl,
         };
 
         var logger = _loggerFactory?.CreateLogger<AtProtoClient>();

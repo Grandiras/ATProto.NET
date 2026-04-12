@@ -56,9 +56,10 @@ public sealed class AtProtoOAuthServerOptions
 
     /// <summary>
     /// OAuth scopes to request. Must include "atproto".
-    /// Default: "atproto transition:generic".
+    /// Default: <see cref="AtProtoScopes.Default"/> ("atproto transition:generic").
+    /// Use <see cref="AtProtoScopes"/> constants to compose scope values.
     /// </summary>
-    public string Scopes { get; set; } = "atproto transition:generic";
+    public string Scopes { get; set; } = AtProtoScopes.Default;
 
     /// <summary>
     /// Optional application name shown on the authorization server's consent page.

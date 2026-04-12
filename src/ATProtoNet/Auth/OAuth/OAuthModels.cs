@@ -110,7 +110,7 @@ public sealed class OAuthClientMetadata
     public List<string> ResponseTypes { get; set; } = ["code"];
 
     [JsonPropertyName("scope")]
-    public string Scope { get; set; } = "atproto transition:generic";
+    public string Scope { get; set; } = AtProtoScopes.Default;
 
     [JsonPropertyName("token_endpoint_auth_method")]
     public string TokenEndpointAuthMethod { get; set; } = "none";
@@ -253,9 +253,9 @@ public sealed class OAuthOptions
 
     /// <summary>
     /// The scopes to request. Must include "atproto".
-    /// Default: "atproto transition:generic"
+    /// Default: <see cref="AtProtoScopes.Default"/> ("atproto transition:generic")
     /// </summary>
-    public string Scope { get; set; } = "atproto transition:generic";
+    public string Scope { get; set; } = AtProtoScopes.Default;
 
     /// <summary>
     /// Default PDS URL shown in the login form. Users can override this.
