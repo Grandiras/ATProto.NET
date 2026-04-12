@@ -25,6 +25,7 @@ public sealed class XrpcClient : IDisposable
     private string? _latestRepoRev;
     private RateLimitInfo? _latestRateLimitInfo;
     private string? _proxyHeader;
+    private List<string>? _labelerDids;
 
     /// <summary>
     /// The base URL of the XRPC service (e.g., https://bsky.social).
@@ -157,6 +158,27 @@ public sealed class XrpcClient : IDisposable
     public void ClearProxy()
     {
         _proxyHeader = null;
+    }
+
+    /// <summary>
+    /// Sets the subscribed labeler DIDs for the <c>atproto-accept-labelers</c> header.
+    /// When set, all XRPC requests will include this header so the server knows which
+    /// labelers' labels to include in responses.
+    /// </summary>
+    /// <param name="labelerDids">
+    /// The DIDs of labeler services to subscribe to (e.g., <c>did:plc:ar7c4by46qjdydhdevvrndac</c>).
+    /// </param>
+    public void SetLabelers(IEnumerable<string> labelerDids)
+    {
+        _labelerDids = labelerDids.ToList();
+    }
+
+    /// <summary>
+    /// Clears the subscribed labeler DIDs, removing the <c>atproto-accept-labelers</c> header.
+    /// </summary>
+    public void ClearLabelers()
+    {
+        _labelerDids = null;
     }
 
     /// <summary>
@@ -498,6 +520,13 @@ public sealed class XrpcClient : IDisposable
         if (effectiveProxy is not null)
         {
             request.Headers.TryAddWithoutValidation("atproto-proxy", effectiveProxy);
+        }
+
+        // Apply atproto-accept-labelers header for labeler subscriptions
+        if (_labelerDids is { Count: > 0 })
+        {
+            request.Headers.TryAddWithoutValidation("atproto-accept-labelers",
+                string.Join(", ", _labelerDids));
         }
     }
 

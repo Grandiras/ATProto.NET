@@ -24,6 +24,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Complete model types: `ConvoView`, `MessageView`, `DeletedMessageView`, `ChatMemberView`, `MessageInput`, reaction models, all request/response types
   - `ChatDeclarationRecord` and `ChatAllowIncoming` constants (all/none/following)
 
+- **Labeler service support** (Issue #25) — Labeler service information, label definitions, and header management
+  - `LabelerClient.GetServicesAsync` — Fetch labeler service info and label value definitions
+  - `LabelerServiceRecord` — Record type for declaring labeler services with policies
+  - `LabelValueDefinition` — Custom label definitions with severity, blur behavior, default settings, and localized strings
+  - `LabelerViewDetailed`, `LabelerView`, `LabelerViewerState` — View types for labeler services
+  - `SetLabelers()`/`ClearLabelers()` on `XrpcClient` and `AtProtoClient` — Automatic `atproto-accept-labelers` header injection
+  - `StandardLabelValues` constants: porn, sexual, nudity, graphic-media, gore, spam, impersonation, etc.
+  - `LabelSeverity`, `LabelBlurs`, `LabelDefaultSetting` constant classes
+  - `LabelerClient` wired into `BlueskyClients.Labeler`
+
 - **atproto-proxy header support** (Issue #24) — Route XRPC requests through AT Protocol service proxies
   - `ServiceProxy` static helper with `Build()` method and well-known constants (`BskyAppView`, `BskyChat`, `AtProtoLabeler`, `AtProtoPds`)
   - Pre-built header values: `BskyAppViewHeader`, `BskyChatHeader`, `BskyAppViewDid`, `BskyChatDid`

@@ -6,6 +6,7 @@ using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Actor;
 using ATProtoNet.Lexicon.App.Bsky.Embed;
 using ATProtoNet.Lexicon.App.Bsky.Feed;
+using ATProtoNet.Lexicon.App.Bsky.Labeler;
 using ATProtoNet.Lexicon.Chat.Bsky.Actor;
 using ATProtoNet.Lexicon.Chat.Bsky.Convo;
 using ATProtoNet.Lexicon.App.Bsky.Graph;
@@ -127,6 +128,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             new ActorClient(_xrpc, bskyLogger),
             new FeedClient(_xrpc, bskyLogger),
             new GraphClient(_xrpc, bskyLogger),
+            new LabelerClient(_xrpc, bskyLogger),
             new NotificationClient(_xrpc, bskyLogger),
             new VideoClient(_xrpc, bskyLogger));
 
@@ -348,6 +350,24 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// Clears the default <c>atproto-proxy</c> header.
     /// </summary>
     public void ClearProxy() => _xrpc.ClearProxy();
+
+    /// <summary>
+    /// Sets the subscribed labeler DIDs. When set, all XRPC requests include the
+    /// <c>atproto-accept-labelers</c> header so the server returns labels from these labelers.
+    /// </summary>
+    /// <param name="labelerDids">The DIDs of labeler services to subscribe to.</param>
+    public void SetLabelers(IEnumerable<string> labelerDids) => _xrpc.SetLabelers(labelerDids);
+
+    /// <summary>
+    /// Sets the subscribed labeler DIDs from string parameters.
+    /// </summary>
+    /// <param name="labelerDids">The DIDs of labeler services to subscribe to.</param>
+    public void SetLabelers(params string[] labelerDids) => _xrpc.SetLabelers(labelerDids);
+
+    /// <summary>
+    /// Clears the subscribed labeler DIDs, removing the <c>atproto-accept-labelers</c> header.
+    /// </summary>
+    public void ClearLabelers() => _xrpc.ClearLabelers();
 
     // ──────────────────────────────────────────────────────────
     //  Authentication
@@ -861,12 +881,14 @@ public sealed class BlueskyClients
         ActorClient actor,
         FeedClient feed,
         GraphClient graph,
+        LabelerClient labeler,
         NotificationClient notification,
         VideoClient video)
     {
         Actor = actor;
         Feed = feed;
         Graph = graph;
+        Labeler = labeler;
         Notification = notification;
         Video = video;
     }
@@ -879,6 +901,9 @@ public sealed class BlueskyClients
 
     /// <summary>app.bsky.graph.* — follows, blocks, mutes, lists.</summary>
     public GraphClient Graph { get; }
+
+    /// <summary>app.bsky.labeler.* — labeler service information and definitions.</summary>
+    public LabelerClient Labeler { get; }
 
     /// <summary>app.bsky.notification.* — notifications.</summary>
     public NotificationClient Notification { get; }
