@@ -364,3 +364,234 @@ public sealed class MuteActorListRequest
     [JsonPropertyName("list")]
     public required string List { get; init; }
 }
+
+// ──────────────────────────────────────────────────────────────
+//  Starter pack records & views
+// ──────────────────────────────────────────────────────────────
+
+/// <summary>
+/// A starter pack record. Collection: app.bsky.graph.starterpack
+/// </summary>
+public sealed class StarterPackRecord
+{
+    [JsonPropertyName("$type")]
+    public string Type => "app.bsky.graph.starterpack";
+
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
+
+    [JsonPropertyName("descriptionFacets")]
+    public List<Facet>? DescriptionFacets { get; init; }
+
+    [JsonPropertyName("list")]
+    public required string List { get; init; }
+
+    [JsonPropertyName("feeds")]
+    public List<StarterPackFeedItem>? Feeds { get; init; }
+
+    [JsonPropertyName("createdAt")]
+    public required string CreatedAt { get; init; }
+}
+
+/// <summary>
+/// A feed item reference in a starter pack.
+/// </summary>
+public sealed class StarterPackFeedItem
+{
+    [JsonPropertyName("uri")]
+    public required string Uri { get; init; }
+}
+
+/// <summary>
+/// Basic view of a starter pack.
+/// </summary>
+public sealed class StarterPackViewBasic
+{
+    [JsonPropertyName("uri")]
+    public required string Uri { get; init; }
+
+    [JsonPropertyName("cid")]
+    public required string Cid { get; init; }
+
+    [JsonPropertyName("record")]
+    public required JsonElement Record { get; init; }
+
+    [JsonPropertyName("creator")]
+    public required ProfileViewBasic Creator { get; init; }
+
+    [JsonPropertyName("listItemCount")]
+    public int? ListItemCount { get; init; }
+
+    [JsonPropertyName("joinedWeekCount")]
+    public int? JoinedWeekCount { get; init; }
+
+    [JsonPropertyName("joinedAllTimeCount")]
+    public int? JoinedAllTimeCount { get; init; }
+
+    [JsonPropertyName("labels")]
+    public List<Label>? Labels { get; init; }
+
+    [JsonPropertyName("indexedAt")]
+    public required string IndexedAt { get; init; }
+}
+
+/// <summary>
+/// Full view of a starter pack.
+/// </summary>
+public sealed class StarterPackView
+{
+    [JsonPropertyName("uri")]
+    public required string Uri { get; init; }
+
+    [JsonPropertyName("cid")]
+    public required string Cid { get; init; }
+
+    [JsonPropertyName("record")]
+    public required JsonElement Record { get; init; }
+
+    [JsonPropertyName("creator")]
+    public required ProfileViewBasic Creator { get; init; }
+
+    [JsonPropertyName("list")]
+    public ListViewBasic? List { get; init; }
+
+    [JsonPropertyName("listItemsSample")]
+    public List<ListItemView>? ListItemsSample { get; init; }
+
+    [JsonPropertyName("feeds")]
+    public List<JsonElement>? Feeds { get; init; }
+
+    [JsonPropertyName("joinedWeekCount")]
+    public int? JoinedWeekCount { get; init; }
+
+    [JsonPropertyName("joinedAllTimeCount")]
+    public int? JoinedAllTimeCount { get; init; }
+
+    [JsonPropertyName("labels")]
+    public List<Label>? Labels { get; init; }
+
+    [JsonPropertyName("indexedAt")]
+    public required string IndexedAt { get; init; }
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Relationship types
+// ──────────────────────────────────────────────────────────────
+
+/// <summary>
+/// A relationship between two actors.
+/// </summary>
+public sealed class Relationship
+{
+    [JsonPropertyName("$type")]
+    public string? Type { get; init; }
+
+    [JsonPropertyName("did")]
+    public required string Did { get; init; }
+
+    [JsonPropertyName("following")]
+    public string? Following { get; init; }
+
+    [JsonPropertyName("followedBy")]
+    public string? FollowedBy { get; init; }
+}
+
+/// <summary>
+/// A "not found" actor placeholder in relationship responses.
+/// </summary>
+public sealed class NotFoundActor
+{
+    [JsonPropertyName("$type")]
+    public string? Type { get; init; }
+
+    [JsonPropertyName("actor")]
+    public required string Actor { get; init; }
+
+    [JsonPropertyName("notFound")]
+    public required bool NotFound { get; init; }
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Additional API responses
+// ──────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Response from getRelationships.
+/// </summary>
+public sealed class GetRelationshipsResponse
+{
+    [JsonPropertyName("actor")]
+    public string? Actor { get; init; }
+
+    [JsonPropertyName("relationships")]
+    public required List<JsonElement> Relationships { get; init; }
+}
+
+/// <summary>
+/// Response from getKnownFollowers.
+/// </summary>
+public sealed class GetKnownFollowersResponse
+{
+    [JsonPropertyName("subject")]
+    public required ProfileView Subject { get; init; }
+
+    [JsonPropertyName("cursor")]
+    public string? Cursor { get; init; }
+
+    [JsonPropertyName("followers")]
+    public required List<ProfileView> Followers { get; init; }
+}
+
+/// <summary>
+/// Response from getStarterPack.
+/// </summary>
+public sealed class GetStarterPackResponse
+{
+    [JsonPropertyName("starterPack")]
+    public required StarterPackView StarterPack { get; init; }
+}
+
+/// <summary>
+/// Response from getStarterPacks.
+/// </summary>
+public sealed class GetStarterPacksResponse
+{
+    [JsonPropertyName("starterPacks")]
+    public required List<StarterPackViewBasic> StarterPacks { get; init; }
+}
+
+/// <summary>
+/// Response from getActorStarterPacks.
+/// </summary>
+public sealed class GetActorStarterPacksResponse
+{
+    [JsonPropertyName("cursor")]
+    public string? Cursor { get; init; }
+
+    [JsonPropertyName("starterPacks")]
+    public required List<StarterPackViewBasic> StarterPacks { get; init; }
+}
+
+/// <summary>
+/// Response from searchStarterPacks.
+/// </summary>
+public sealed class SearchStarterPacksResponse
+{
+    [JsonPropertyName("cursor")]
+    public string? Cursor { get; init; }
+
+    [JsonPropertyName("starterPacks")]
+    public required List<StarterPackViewBasic> StarterPacks { get; init; }
+}
+
+/// <summary>
+/// Request body for muteThread / unmuteThread.
+/// </summary>
+public sealed class MuteThreadRequest
+{
+    [JsonPropertyName("root")]
+    public required string Root { get; init; }
+}

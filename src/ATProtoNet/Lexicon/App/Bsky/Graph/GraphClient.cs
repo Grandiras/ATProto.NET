@@ -228,4 +228,134 @@ public sealed class GraphClient
         return _xrpc.QueryAsync<GetListMutesResponse>(
             "app.bsky.graph.getListMutes", parameters, cancellationToken);
     }
+
+    // ──────────────────────────────────────────────────────────
+    //  Relationships
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Get relationships between the authenticated user and other actors.
+    /// </summary>
+    public Task<GetRelationshipsResponse> GetRelationshipsAsync(
+        string actor, List<string>? others = null,
+        CancellationToken cancellationToken = default)
+    {
+        var parameters = new Dictionary<string, string?>
+        {
+            ["actor"] = actor,
+        };
+        // others is an array parameter, pass as comma-separated
+        if (others is { Count: > 0 })
+            parameters["others"] = string.Join(",", others);
+
+        return _xrpc.QueryAsync<GetRelationshipsResponse>(
+            "app.bsky.graph.getRelationships", parameters, cancellationToken);
+    }
+
+    /// <summary>
+    /// Get followers of an actor that are known (followed by) the authenticated user.
+    /// </summary>
+    public Task<GetKnownFollowersResponse> GetKnownFollowersAsync(
+        string actor, int? limit = null, string? cursor = null,
+        CancellationToken cancellationToken = default)
+    {
+        var parameters = new Dictionary<string, string?>
+        {
+            ["actor"] = actor,
+            ["limit"] = limit?.ToString(),
+            ["cursor"] = cursor,
+        };
+
+        return _xrpc.QueryAsync<GetKnownFollowersResponse>(
+            "app.bsky.graph.getKnownFollowers", parameters, cancellationToken);
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Thread mutes
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Mute a thread (stop receiving notifications).
+    /// </summary>
+    public async Task MuteThreadAsync(
+        string root, CancellationToken cancellationToken = default)
+    {
+        var request = new MuteThreadRequest { Root = root };
+        await _xrpc.ProcedureAsync<MuteThreadRequest, object>(
+            "app.bsky.graph.muteThread", request, cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Unmute a thread.
+    /// </summary>
+    public async Task UnmuteThreadAsync(
+        string root, CancellationToken cancellationToken = default)
+    {
+        var request = new MuteThreadRequest { Root = root };
+        await _xrpc.ProcedureAsync<MuteThreadRequest, object>(
+            "app.bsky.graph.unmuteThread", request, cancellationToken: cancellationToken);
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Starter packs
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Get a starter pack by its AT-URI.
+    /// </summary>
+    public Task<GetStarterPackResponse> GetStarterPackAsync(
+        string starterPack, CancellationToken cancellationToken = default)
+    {
+        var parameters = new Dictionary<string, string?> { ["starterPack"] = starterPack };
+        return _xrpc.QueryAsync<GetStarterPackResponse>(
+            "app.bsky.graph.getStarterPack", parameters, cancellationToken);
+    }
+
+    /// <summary>
+    /// Get multiple starter packs by their AT-URIs.
+    /// </summary>
+    public Task<GetStarterPacksResponse> GetStarterPacksAsync(
+        List<string> uris, CancellationToken cancellationToken = default)
+    {
+        var parameters = new Dictionary<string, string?>
+        {
+            ["uris"] = string.Join(",", uris),
+        };
+        return _xrpc.QueryAsync<GetStarterPacksResponse>(
+            "app.bsky.graph.getStarterPacks", parameters, cancellationToken);
+    }
+
+    /// <summary>
+    /// Get starter packs created by an actor.
+    /// </summary>
+    public Task<GetActorStarterPacksResponse> GetActorStarterPacksAsync(
+        string actor, int? limit = null, string? cursor = null,
+        CancellationToken cancellationToken = default)
+    {
+        var parameters = new Dictionary<string, string?>
+        {
+            ["actor"] = actor,
+            ["limit"] = limit?.ToString(),
+            ["cursor"] = cursor,
+        };
+        return _xrpc.QueryAsync<GetActorStarterPacksResponse>(
+            "app.bsky.graph.getActorStarterPacks", parameters, cancellationToken);
+    }
+
+    /// <summary>
+    /// Search for starter packs.
+    /// </summary>
+    public Task<SearchStarterPacksResponse> SearchStarterPacksAsync(
+        string query, int? limit = null, string? cursor = null,
+        CancellationToken cancellationToken = default)
+    {
+        var parameters = new Dictionary<string, string?>
+        {
+            ["q"] = query,
+            ["limit"] = limit?.ToString(),
+            ["cursor"] = cursor,
+        };
+        return _xrpc.QueryAsync<SearchStarterPacksResponse>(
+            "app.bsky.graph.searchStarterPacks", parameters, cancellationToken);
+    }
 }

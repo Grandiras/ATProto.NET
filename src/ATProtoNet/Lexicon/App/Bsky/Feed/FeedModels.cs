@@ -150,6 +150,28 @@ public sealed class ThreadgateRecord
     public List<string>? HiddenReplies { get; init; }
 }
 
+/// <summary>
+/// A postgate record that controls embedding/quoting of a post.
+/// Collection: app.bsky.feed.postgate
+/// </summary>
+public sealed class PostgateRecord
+{
+    [JsonPropertyName("$type")]
+    public string Type => "app.bsky.feed.postgate";
+
+    [JsonPropertyName("post")]
+    public required string Post { get; init; }
+
+    [JsonPropertyName("detachedEmbeddingUris")]
+    public List<string>? DetachedEmbeddingUris { get; init; }
+
+    [JsonPropertyName("embeddingRules")]
+    public List<JsonElement>? EmbeddingRules { get; init; }
+
+    [JsonPropertyName("createdAt")]
+    public required string CreatedAt { get; init; }
+}
+
 // ──────────────────────────────────────────────────────────────
 //  Feed generator record
 // ──────────────────────────────────────────────────────────────
