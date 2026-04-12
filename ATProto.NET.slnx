@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/ATProtoNet.Aspire/ATProtoNet.Aspire.csproj" />
     <Project Path="src/ATProtoNet.Blazor/ATProtoNet.Blazor.csproj" />
     <Project Path="src/ATProtoNet.Server/ATProtoNet.Server.csproj" />
     <Project Path="src/ATProtoNet.Server.EntityFrameworkCore/ATProtoNet.Server.EntityFrameworkCore.csproj" />
