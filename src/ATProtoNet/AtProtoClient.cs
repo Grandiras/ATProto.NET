@@ -304,6 +304,19 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <summary>The handle of the authenticated user, or null.</summary>
     public string? Handle => _session?.Handle;
 
+    /// <summary>
+    /// The latest repository revision (TID) received from the service via the
+    /// <c>Atproto-Repo-Rev</c> response header. Indicates how up-to-date
+    /// the service is with the authenticated account's repository.
+    /// </summary>
+    public string? LatestRepoRev => _xrpc.LatestRepoRev;
+
+    /// <summary>
+    /// The latest rate limit information parsed from HTTP response headers.
+    /// Updated after every XRPC request.
+    /// </summary>
+    public RateLimitInfo? LatestRateLimitInfo => _xrpc.LatestRateLimitInfo;
+
     // ──────────────────────────────────────────────────────────
     //  Authentication
     // ──────────────────────────────────────────────────────────

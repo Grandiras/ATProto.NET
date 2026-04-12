@@ -22,11 +22,36 @@ public sealed class XrpcClient : IDisposable
     private Auth.OAuth.DPoPProofGenerator? _dpop;
     private string? _dpopNonce;
     private bool _useDPoP;
+    private string? _latestRepoRev;
+    private RateLimitInfo? _latestRateLimitInfo;
 
     /// <summary>
     /// The base URL of the XRPC service (e.g., https://bsky.social).
     /// </summary>
     public Uri BaseUrl => _httpClient.BaseAddress!;
+
+    /// <summary>
+    /// The latest repository revision (TID) received from the service via the
+    /// <c>Atproto-Repo-Rev</c> response header. This indicates how up-to-date
+    /// the service is with the authenticated account's repository.
+    /// </summary>
+    /// <remarks>
+    /// Clients can compare this value against a known revision after a write
+    /// to detect whether the service has caught up (read-after-write awareness).
+    /// </remarks>
+    public string? LatestRepoRev => _latestRepoRev;
+
+    /// <summary>
+    /// The latest rate limit information parsed from HTTP response headers.
+    /// Updated after every XRPC request.
+    /// </summary>
+    public RateLimitInfo? LatestRateLimitInfo => _latestRateLimitInfo;
+
+    /// <summary>
+    /// Maximum number of automatic retries when receiving HTTP 429 (Too Many Requests).
+    /// Default is 3. Set to 0 to disable automatic retry.
+    /// </summary>
+    public int MaxRateLimitRetries { get; set; } = 3;
 
     /// <summary>
     /// Whether this client currently has authentication credentials.
@@ -383,9 +408,11 @@ public sealed class XrpcClient : IDisposable
     }
 
     /// <summary>
-    /// Sends an HTTP request with automatic DPoP nonce retry.
+    /// Sends an HTTP request with automatic DPoP nonce retry and rate limit handling.
     /// When a server requires a DPoP nonce (responds with 401 + DPoP-Nonce header),
     /// the nonce is captured and the request is retried once with the new nonce.
+    /// When a server responds with 429 Too Many Requests, the request is retried
+    /// after the delay indicated by Retry-After or RateLimit-Reset headers.
     /// </summary>
     /// <param name="createRequest">Factory that creates a new HttpRequestMessage for each attempt.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -421,6 +448,26 @@ public sealed class XrpcClient : IDisposable
             }
         }
 
+        // Rate limit retry: if the server responds with 429, retry with backoff.
+        for (int attempt = 0;
+             attempt < MaxRateLimitRetries &&
+             response.StatusCode == HttpStatusCode.TooManyRequests;
+             attempt++)
+        {
+            var delay = GetRetryDelay(response, attempt);
+            _logger.LogWarning(
+                "Rate limited (429). Retry {Attempt}/{Max} after {Delay}ms",
+                attempt + 1, MaxRateLimitRetries, (int)delay.TotalMilliseconds);
+
+            response.Dispose();
+
+            await Task.Delay(delay, cancellationToken);
+
+            var retryRequest = createRequest();
+            ApplyAuthHeader(retryRequest);
+            response = await _httpClient.SendAsync(retryRequest, completionOption, cancellationToken);
+        }
+
         return response;
     }
 
@@ -432,8 +479,24 @@ public sealed class XrpcClient : IDisposable
             _dpopNonce = nonceValues.First();
         }
 
+        // Track latest repo revision for read-after-write awareness
+        if (response.Headers.TryGetValues("Atproto-Repo-Rev", out var revValues))
+        {
+            var rev = revValues.FirstOrDefault();
+            if (rev is not null)
+            {
+                _latestRepoRev = rev;
+            }
+        }
+
         if (response.IsSuccessStatusCode)
+        {
+            ParseRateLimitHeaders(response);
             return;
+        }
+
+        // Also parse rate limit headers on error responses (especially 429)
+        ParseRateLimitHeaders(response);
 
         string? responseBody = null;
         try
@@ -464,6 +527,70 @@ public sealed class XrpcClient : IDisposable
             response.StatusCode)
         {
         };
+    }
+
+    private void ParseRateLimitHeaders(HttpResponseMessage response)
+    {
+        int? limit = null;
+        int? remaining = null;
+        DateTimeOffset? reset = null;
+
+        if (response.Headers.TryGetValues("RateLimit-Limit", out var limitValues) &&
+            int.TryParse(limitValues.FirstOrDefault(), out var parsedLimit))
+        {
+            limit = parsedLimit;
+        }
+
+        if (response.Headers.TryGetValues("RateLimit-Remaining", out var remainingValues) &&
+            int.TryParse(remainingValues.FirstOrDefault(), out var parsedRemaining))
+        {
+            remaining = parsedRemaining;
+        }
+
+        if (response.Headers.TryGetValues("RateLimit-Reset", out var resetValues) &&
+            long.TryParse(resetValues.FirstOrDefault(), out var resetUnix))
+        {
+            reset = DateTimeOffset.FromUnixTimeSeconds(resetUnix);
+        }
+
+        if (limit is not null || remaining is not null || reset is not null)
+        {
+            _latestRateLimitInfo = new RateLimitInfo
+            {
+                Limit = limit,
+                Remaining = remaining,
+                Reset = reset,
+            };
+        }
+    }
+
+    private static TimeSpan GetRetryDelay(HttpResponseMessage response, int attempt)
+    {
+        // Prefer Retry-After header (seconds)
+        if (response.Headers.TryGetValues("Retry-After", out var retryAfterValues))
+        {
+            var retryAfter = retryAfterValues.FirstOrDefault();
+            if (retryAfter is not null && int.TryParse(retryAfter, out var seconds))
+            {
+                return TimeSpan.FromSeconds(seconds);
+            }
+        }
+
+        // Fall back to RateLimit-Reset header (Unix timestamp)
+        if (response.Headers.TryGetValues("RateLimit-Reset", out var resetValues))
+        {
+            var resetStr = resetValues.FirstOrDefault();
+            if (resetStr is not null && long.TryParse(resetStr, out var resetUnix))
+            {
+                var resetTime = DateTimeOffset.FromUnixTimeSeconds(resetUnix);
+                var delay = resetTime - DateTimeOffset.UtcNow;
+                if (delay > TimeSpan.Zero)
+                    return delay;
+            }
+        }
+
+        // Exponential backoff fallback: 1s, 2s, 4s, ...
+        return TimeSpan.FromSeconds(Math.Pow(2, attempt));
     }
 
     /// <inheritdoc />
