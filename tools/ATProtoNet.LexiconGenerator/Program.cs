@@ -1,5 +1,7 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using ATProtoNet.LexiconGenerator.CodeGen;
+using ATProtoNet.LexiconGenerator.Migrations;
 using ATProtoNet.LexiconGenerator.Schema;
 
 namespace ATProtoNet.LexiconGenerator;
@@ -38,6 +40,8 @@ public static class Program
             "csharp" => await RunCSharpCommand(args[1..]),
             "lexicon" => RunLexiconCommand(args[1..]),
             "diff" => await RunDiffCommand(args[1..]),
+            "migrate" => await RunMigrateCommand(args[1..]),
+            "publish" => await RunPublishCommand(args[1..]),
             _ => Error($"Unknown command: '{args[0]}'. Run with --help for usage."),
         };
     }
@@ -239,6 +243,8 @@ public static class Program
                 csharp      Generate C# source files from Lexicon JSON schemas
                 lexicon     Generate Lexicon JSON schemas from a compiled .NET assembly
                 diff        Compare Lexicon schemas and detect breaking changes
+                migrate     Apply schema migrations to JSON records
+                publish     Publish Lexicon schemas with version tracking and diff validation
 
             OPTIONS:
                 -h, --help      Show help
@@ -477,6 +483,469 @@ public static class Program
 
                 # Fail in CI if breaking changes detected
                 atproto-lexgen diff --baseline ./lexicons --current ./lexicons-new --strict
+            """);
+    }
+
+    /// <summary>
+    /// Applies schema migrations to JSON records and writes the output.
+    /// Reads a migration plan (JSON file mapping NSID revisions to transforms)
+    /// and applies them to input records.
+    /// </summary>
+    private static async Task<int> RunMigrateCommand(string[] args)
+    {
+        string? inputFile = null;
+        string? outputFile = null;
+        string? nsid = null;
+        int? fromRevision = null;
+        int? toRevision = null;
+        string? migrationsDir = null;
+        string? baselineDir = null;
+        string? currentDir = null;
+
+        for (var i = 0; i < args.Length; i++)
+        {
+            switch (args[i])
+            {
+                case "--input" or "-i" when i + 1 < args.Length:
+                    inputFile = args[++i];
+                    break;
+                case "--output" or "-o" when i + 1 < args.Length:
+                    outputFile = args[++i];
+                    break;
+                case "--nsid" when i + 1 < args.Length:
+                    nsid = args[++i];
+                    break;
+                case "--from" when i + 1 < args.Length:
+                    if (!int.TryParse(args[++i], out var from))
+                        return Error("--from must be an integer.");
+                    fromRevision = from;
+                    break;
+                case "--to" when i + 1 < args.Length:
+                    if (!int.TryParse(args[++i], out var to))
+                        return Error("--to must be an integer.");
+                    toRevision = to;
+                    break;
+                case "--baseline" or "-b" when i + 1 < args.Length:
+                    baselineDir = args[++i];
+                    break;
+                case "--current" or "-c" when i + 1 < args.Length:
+                    currentDir = args[++i];
+                    break;
+                case "--migrations" or "-m" when i + 1 < args.Length:
+                    migrationsDir = args[++i];
+                    break;
+                case "--help" or "-h":
+                    PrintMigrateHelp();
+                    return 0;
+                default:
+                    return Error($"Unknown option: '{args[i]}'");
+            }
+        }
+
+        // Scaffold mode: generate migration stubs from diff
+        if (baselineDir is not null && currentDir is not null)
+        {
+            if (!Directory.Exists(baselineDir))
+                return Error($"Baseline directory not found: {baselineDir}");
+            if (!Directory.Exists(currentDir))
+                return Error($"Current directory not found: {currentDir}");
+
+            var baselineDocs = await ParseDirectory(baselineDir);
+            var currentDocs = await ParseDirectory(currentDir);
+
+            if (baselineDocs.Count == 0)
+                return Error("No valid Lexicon documents found in baseline.");
+            if (currentDocs.Count == 0)
+                return Error("No valid Lexicon documents found in current.");
+
+            var differ = new LexiconDiffer();
+            var diff = differ.Compare(baselineDocs, currentDocs);
+
+            if (!diff.HasChanges)
+            {
+                Console.WriteLine("No changes detected between baseline and current schemas.");
+                return 0;
+            }
+
+            Console.WriteLine(diff.ToReport());
+
+            var revisions = diff.SuggestRevisions(baselineDocs);
+            var targetRev = revisions.Values.DefaultIfEmpty(2).Max();
+            var scaffolds = LexiconMigrationRunner.ScaffoldFromDiff(diff, baselineDocs, targetRev);
+
+            Console.WriteLine($"\nScaffolded {scaffolds.Count} migration(s):");
+            foreach (var m in scaffolds)
+                Console.WriteLine($"  {m.Nsid}: rev {m.FromRevision} → {m.ToRevision} — {m.Description}");
+
+            return 0;
+        }
+
+        // Run mode: apply migrations to records
+        if (inputFile is null)
+            return Error("--input is required. Specify the file containing JSON records.");
+        if (nsid is null)
+            return Error("--nsid is required. Specify the NSID of the records.");
+        if (fromRevision is null)
+            return Error("--from is required. Specify the source revision.");
+        if (toRevision is null)
+            return Error("--to is required. Specify the target revision.");
+        if (!File.Exists(inputFile))
+            return Error($"Input file not found: {inputFile}");
+
+        // Read records (one JSON object per line, or a JSON array)
+        var inputText = await File.ReadAllTextAsync(inputFile);
+        var records = ParseRecords(inputText);
+        if (records.Count == 0)
+            return Error("No valid JSON records found in input file.");
+
+        Console.WriteLine($"Loaded {records.Count} record(s) for migration.");
+
+        // If a migrations directory is provided, load migration scripts
+        // Otherwise, the runner has no migrations and will fail to build a chain
+        var runner = new LexiconMigrationRunner();
+
+        if (migrationsDir is not null && Directory.Exists(migrationsDir))
+        {
+            var migrationFiles = Directory.GetFiles(migrationsDir, "*.json", SearchOption.TopDirectoryOnly);
+            foreach (var file in migrationFiles)
+            {
+                try
+                {
+                    var migrationJson = await File.ReadAllTextAsync(file);
+                    var migration = ParseMigrationFile(migrationJson);
+                    if (migration is not null)
+                        runner.AddMigration(migration);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"  SKIP  {file}: {ex.Message}");
+                }
+            }
+        }
+
+        if (!runner.CanMigrate(nsid, fromRevision.Value, toRevision.Value))
+            return Error($"No valid migration chain for '{nsid}' from revision {fromRevision} to {toRevision}.");
+
+        var result = runner.Migrate(nsid, fromRevision.Value, toRevision.Value, records);
+
+        if (result.HasErrors)
+        {
+            Console.Error.WriteLine($"\n{result.FailureCount} record(s) failed migration:");
+            foreach (var error in result.Errors)
+                Console.Error.WriteLine($"  Record {error.RecordIndex}: {error.Message}");
+        }
+
+        Console.WriteLine($"Migrated {result.SuccessCount}/{records.Count} record(s).");
+
+        // Write output
+        if (outputFile is not null)
+        {
+            var outputJson = "[\n" + string.Join(",\n", result.MigratedRecords) + "\n]";
+            await File.WriteAllTextAsync(outputFile, outputJson);
+            Console.WriteLine($"Output written to: {outputFile}");
+        }
+        else
+        {
+            foreach (var rec in result.MigratedRecords)
+                Console.WriteLine(rec);
+        }
+
+        return result.HasErrors ? 1 : 0;
+    }
+
+    /// <summary>
+    /// Publishes Lexicon schemas to an output directory with diff validation and revision bumping.
+    /// </summary>
+    private static async Task<int> RunPublishCommand(string[] args)
+    {
+        string? inputDir = null;
+        string? assemblyPath = null;
+        string? outputDir = null;
+        string? baselineDir = null;
+        var autoBump = true;
+        var force = false;
+
+        for (var i = 0; i < args.Length; i++)
+        {
+            switch (args[i])
+            {
+                case "--input" or "-i" when i + 1 < args.Length:
+                    inputDir = args[++i];
+                    break;
+                case "--assembly" or "-a" when i + 1 < args.Length:
+                    assemblyPath = args[++i];
+                    break;
+                case "--output" or "-o" when i + 1 < args.Length:
+                    outputDir = args[++i];
+                    break;
+                case "--baseline" or "-b" when i + 1 < args.Length:
+                    baselineDir = args[++i];
+                    break;
+                case "--no-bump":
+                    autoBump = false;
+                    break;
+                case "--force":
+                    force = true;
+                    break;
+                case "--help" or "-h":
+                    PrintPublishHelp();
+                    return 0;
+                default:
+                    return Error($"Unknown option: '{args[i]}'");
+            }
+        }
+
+        if (outputDir is null)
+            return Error("--output is required. Specify the target directory for published schemas.");
+        if (inputDir is null && assemblyPath is null)
+            return Error("Either --input (directory) or --assembly (DLL) is required.");
+
+        var publisher = new LexiconPublisher();
+        PublishResult result;
+
+        if (assemblyPath is not null)
+        {
+            if (!File.Exists(assemblyPath))
+                return Error($"Assembly not found: {assemblyPath}");
+
+            Console.WriteLine($"Publishing from assembly: {assemblyPath}");
+            result = await publisher.PublishFromAssemblyAsync(assemblyPath, outputDir, baselineDir, autoBump, !force);
+        }
+        else
+        {
+            if (!Directory.Exists(inputDir))
+                return Error($"Input directory not found: {inputDir}");
+
+            var documents = await LexiconPublisher.LoadFromDirectoryAsync(inputDir!);
+            if (documents.Count == 0)
+                return Error("No valid Lexicon documents found in input directory.");
+
+            Console.WriteLine($"Publishing {documents.Count} schema(s) from: {inputDir}");
+            result = await publisher.PublishAsync(documents, outputDir, baselineDir, autoBump, !force);
+        }
+
+        if (result.HasErrors)
+        {
+            Console.Error.WriteLine("Publish failed:");
+            foreach (var error in result.Errors)
+                Console.Error.WriteLine($"  {error}");
+            return 1;
+        }
+
+        if (result.Diff is not null)
+        {
+            Console.WriteLine();
+            Console.WriteLine(result.Diff.ToReport());
+        }
+
+        if (result.SuggestedRevisions is not null && result.SuggestedRevisions.Count > 0)
+        {
+            Console.WriteLine("Applied revision bumps:");
+            foreach (var (revNsid, rev) in result.SuggestedRevisions.OrderBy(kv => kv.Key))
+                Console.WriteLine($"  {revNsid}: revision → {rev}");
+        }
+
+        Console.WriteLine($"\nPublished: {result.WrittenNsids.Count} schema(s)");
+        if (result.SkippedNsids.Count > 0)
+            Console.WriteLine($"Skipped (unchanged): {result.SkippedNsids.Count}");
+
+        foreach (var id in result.WrittenNsids)
+            Console.WriteLine($"  WRITE {id}");
+
+        return 0;
+    }
+
+    /// <summary>Parses JSON records from text (array or newline-delimited).</summary>
+    private static List<string> ParseRecords(string text)
+    {
+        var trimmed = text.Trim();
+        var records = new List<string>();
+
+        if (trimmed.StartsWith('['))
+        {
+            // JSON array
+            try
+            {
+                var array = JsonNode.Parse(trimmed) as JsonArray;
+                if (array is not null)
+                {
+                    foreach (var item in array)
+                    {
+                        if (item is not null)
+                            records.Add(item.ToJsonString());
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // Fall through to line-by-line
+            }
+        }
+
+        if (records.Count > 0)
+            return records;
+
+        // Newline-delimited JSON
+        foreach (var line in trimmed.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            try
+            {
+                // Verify it's valid JSON
+                JsonNode.Parse(line);
+                records.Add(line);
+            }
+            catch (JsonException)
+            {
+                // Skip invalid lines
+            }
+        }
+
+        return records;
+    }
+
+    /// <summary>
+    /// Parses a migration definition file. Format:
+    /// { "nsid": "...", "fromRevision": 1, "toRevision": 2, "operations": [...] }
+    /// Operations: { "op": "addProperty", "name": "...", "default": ... }
+    ///             { "op": "removeProperty", "name": "..." }
+    ///             { "op": "renameProperty", "from": "...", "to": "..." }
+    /// </summary>
+    private static ILexiconMigration? ParseMigrationFile(string json)
+    {
+        var node = JsonNode.Parse(json);
+        if (node is not JsonObject obj)
+            return null;
+
+        var migNsid = obj["nsid"]?.GetValue<string>();
+        var from = obj["fromRevision"]?.GetValue<int>();
+        var to = obj["toRevision"]?.GetValue<int>();
+        var ops = obj["operations"] as JsonArray;
+
+        if (migNsid is null || from is null || to is null || ops is null)
+            return null;
+
+        var builder = new MigrationBuilder(migNsid, from.Value, to.Value);
+
+        foreach (var op in ops)
+        {
+            if (op is not JsonObject opObj)
+                continue;
+
+            var opType = opObj["op"]?.GetValue<string>();
+            switch (opType)
+            {
+                case "addProperty":
+                    var addName = opObj["name"]?.GetValue<string>();
+                    if (addName is not null)
+                        builder.AddProperty(addName, opObj["default"]?.DeepClone());
+                    break;
+
+                case "removeProperty":
+                    var removeName = opObj["name"]?.GetValue<string>();
+                    if (removeName is not null)
+                        builder.RemoveProperty(removeName);
+                    break;
+
+                case "renameProperty":
+                    var renameFrom = opObj["from"]?.GetValue<string>();
+                    var renameTo = opObj["to"]?.GetValue<string>();
+                    if (renameFrom is not null && renameTo is not null)
+                        builder.RenameProperty(renameFrom, renameTo);
+                    break;
+            }
+        }
+
+        var description = obj["description"]?.GetValue<string>();
+        if (description is not null)
+            builder.WithDescription(description);
+
+        return builder.Build();
+    }
+
+    private static void PrintMigrateHelp()
+    {
+        Console.WriteLine("""
+            atproto-lexgen migrate — Apply schema migrations to records
+
+            Transforms JSON records from one schema revision to another using a
+            chain of migration steps. Can also scaffold migrations from schema diffs.
+
+            MODES:
+                Scaffold mode (--baseline + --current):
+                  Compares two schema directories and generates migration stubs.
+
+                Run mode (--input + --nsid + --from + --to):
+                  Applies migrations to JSON records.
+
+            OPTIONS:
+                -i, --input <file>       JSON file containing records to migrate
+                -o, --output <file>      Output file for migrated records (default: stdout)
+                --nsid <nsid>            NSID of the records
+                --from <revision>        Source schema revision
+                --to <revision>          Target schema revision
+                -m, --migrations <dir>   Directory containing migration .json files
+                -b, --baseline <dir>     Baseline schema directory (scaffold mode)
+                -c, --current <dir>      Current schema directory (scaffold mode)
+
+            MIGRATION FILE FORMAT:
+                {
+                  "nsid": "com.example.post",
+                  "fromRevision": 1,
+                  "toRevision": 2,
+                  "description": "Add tags field",
+                  "operations": [
+                    { "op": "addProperty", "name": "tags", "default": [] },
+                    { "op": "removeProperty", "name": "legacy" },
+                    { "op": "renameProperty", "from": "old", "to": "new" }
+                  ]
+                }
+
+            EXAMPLES:
+                # Scaffold migrations from schema diff
+                atproto-lexgen migrate --baseline ./v1 --current ./v2
+
+                # Apply migrations to records
+                atproto-lexgen migrate \
+                  --input records.json --output migrated.json \
+                  --nsid com.example.post --from 1 --to 2 \
+                  --migrations ./migrations
+            """);
+    }
+
+    private static void PrintPublishHelp()
+    {
+        Console.WriteLine("""
+            atproto-lexgen publish — Publish Lexicon schemas with versioning
+
+            Publishes Lexicon schemas to a directory with automatic diff validation
+            and revision bumping. Detects breaking changes and prevents publishing
+            them unless --force is used.
+
+            OPTIONS:
+                -i, --input <dir>       Directory of Lexicon .json files to publish
+                -a, --assembly <path>   Or: .NET assembly to derive schemas from
+                -o, --output <dir>      Target directory for published schemas (required)
+                -b, --baseline <dir>    Existing published schemas for comparison
+                --no-bump               Don't auto-bump revisions for changed schemas
+                --force                 Publish even if breaking changes are detected
+
+            WORKFLOW:
+                1. Develop your schema changes (Lexicon JSON or C# types)
+                2. Diff against baseline: atproto-lexgen diff --baseline ./published --current ./dev
+                3. Publish with versioning: atproto-lexgen publish -i ./dev -o ./published -b ./published
+
+            EXAMPLES:
+                # Publish schemas from directory with baseline comparison
+                atproto-lexgen publish \
+                  --input ./schemas --output ./published --baseline ./published
+
+                # Publish from a compiled assembly
+                atproto-lexgen publish \
+                  --assembly ./bin/MyApp.dll --output ./published
+
+                # Force-publish breaking changes
+                atproto-lexgen publish \
+                  --input ./schemas --output ./published --baseline ./published --force
             """);
     }
 
