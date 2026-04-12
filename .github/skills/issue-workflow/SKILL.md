@@ -26,7 +26,7 @@ Complete lifecycle for taking issues from the tracker through to shipped code.
    ```
    fj issue search -R origin --state open
    ```
-3. Use the ask_questions tool to clarity unclear details and to confirm the selected issue(s) before implementation.
+3. Use the ask_questions tool to clarify unclear details and to confirm the selected issue(s) before implementation. Start with the implementation without yielding control back to the user, only use the ask_questions tool if you need more information or confirmation.
 
 ### Phase 2 — Research & Plan
 
