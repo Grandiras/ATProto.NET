@@ -346,3 +346,49 @@ catch (AtProtoHttpException ex)
 - [Custom XRPC Endpoints](custom-xrpc.md) — Define and call custom Lexicon methods
 - [Batch Operations](batch-operations.md) — Atomic multi-record writes
 - [Blob Upload](blob-upload.md) — Upload images and files
+
+## Distributing Lexicons as NuGet Packages
+
+ATProto.NET supports **Lexicon plugins** — NuGet packages that register custom record types and union variants automatically at startup.
+
+### Creating a Plugin
+
+1. Implement `ILexiconPlugin`:
+
+```csharp
+using ATProtoNet.Serialization;
+
+public class MyAppLexicons : ILexiconPlugin
+{
+    public void Register(ILexiconTypeRegistrar registrar)
+    {
+        // Register custom record types
+        registrar.RegisterRecordType<TodoItem>("com.example.todo.item");
+        registrar.RegisterRecordType<Project>("com.example.todo.project");
+
+        // Register union variants (extends built-in polymorphic types)
+        registrar.RegisterUnionVariant<EmbedBase, CustomEmbed>("com.example.embed.custom");
+    }
+}
+```
+
+2. Mark the assembly with `[LexiconPlugin]`:
+
+```csharp
+[assembly: LexiconPlugin(typeof(MyAppLexicons))]
+```
+
+### Loading Plugins
+
+```csharp
+// Load a specific plugin
+LexiconTypeRegistry.Instance.LoadPlugin<MyAppLexicons>();
+
+// Or scan an assembly for [LexiconPlugin] attributes
+LexiconTypeRegistry.Instance.LoadPluginsFromAssembly(typeof(MyAppLexicons).Assembly);
+
+// Create JSON options that include plugin types
+var options = LexiconTypeRegistry.Instance.CreateOptions();
+```
+
+Plugin-registered union variants work alongside built-in `[JsonDerivedType]` attributes, so custom types can extend the standard AT Protocol type hierarchy at runtime.

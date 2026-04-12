@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Lexicon plugin support for custom types** (Issue #6) — Runtime registration of custom record types and union variants via NuGet packages
+  - `ILexiconPlugin` interface for plugins to register custom types at startup
+  - `ILexiconTypeRegistrar` for registering record types and union variants
+  - `[LexiconPlugin]` assembly attribute for auto-discovery
+  - `LexiconTypeRegistry` — Singleton registry with `LoadPlugin<T>()`, `LoadPluginsFromAssembly()`, and `CreateOptions()` for plugin-aware JSON serialization
+  - Runtime union variant registration augments built-in `[JsonDerivedType]` attributes via `JsonTypeInfo` modifier
+
 - **Missing sync endpoints & Sync v1.1 support** (Issue #21) — Complete com.atproto.sync coverage and Sync v1.1 fields
   - `SyncClient.GetRepoStatusAsync` — Get repository hosting status
   - `SyncClient.ListHostsAsync` — Enumerate upstream hosts consumed by a relay
