@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>ATProtoNet.Aspire.Hosting</RootNamespace>
+    <AssemblyName>ATProtoNet.Aspire.Hosting</AssemblyName>
+    <PackageId>ATProtoNet.Aspire.Hosting</PackageId>
+    <Description>Aspire hosting integration for ATProto.NET — adds AT Protocol PDS containers to .NET Aspire AppHosts with automatic configuration.</Description>
+    <PackageTags>atproto;bluesky;aspire;hosting;pds;container</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting" Version="9.2.1" />
+  </ItemGroup>
+
+</Project>

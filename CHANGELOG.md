@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Aspire hosting integration for PDS containers** (Issue #31) — New `ATProtoNet.Aspire.Hosting` package for adding the official Bluesky PDS container to .NET Aspire AppHosts
+  - `AtProtoPdsContainerResource` — Aspire container resource representing a `ghcr.io/bluesky-social/pds` instance with `IResourceWithConnectionString` support
+  - `AddAtProtoPds()` extension on `IDistributedApplicationBuilder` — Adds the PDS container with auto-generated secrets (admin password, JWT secret, PLC rotation key), dev mode enabled by default, and a persistent data volume
+  - Fluent configuration: `WithHostname()`, `WithPlcUrl()`, `WithAppView()`, `WithCrawlers()`, `WithProductionMode()`, `WithBlobUploadLimit()`, `WithReportService()`, `WithEmail()`
+  - Configurable port mapping and image tag selection
+  - Replaces the need for manual Docker/Podman PDS setup during development
+
 - **PDS hosting package** (Issue #2) — New `ATProtoNet.Pds` package for building AT Protocol Personal Data Servers
   - `PdsService` — core business logic for account management, session handling, record CRUD, and blob operations
   - `PdsSessionService` — JWT token issuing and validation with HMAC-SHA256 signing
@@ -248,6 +255,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Lexicon code generator packaging** — `atproto-lexgen` is now a publishable `dotnet tool`
   - NuGet package metadata: `PackageId`, `Version`, `Authors`, `PackageTags`, `License`, `RepositoryUrl`
   - Install globally via `dotnet tool install -g ATProtoNet.LexiconGenerator`
+
+- **Documentation** — Comprehensive documentation for all new features
+  - New guides: PDS Hosting, Chat & DMs, Ozone Moderation, Standard.site, .NET Aspire, Video Upload, Labeler Services, Cryptography, DID Resolution, Lexicon Code Generator, XRPC Endpoint Handlers
+  - Updated guides: Firehose Streaming (TypedFirehoseConsumer, verification, cursor persistence), Getting Started (new packages, builder options), Server Integration (EF Core token store), API Reference (all new client types)
 
 ### Fixed
 

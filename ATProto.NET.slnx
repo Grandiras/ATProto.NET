@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/ATProtoNet.Aspire/ATProtoNet.Aspire.csproj" />
+    <Project Path="src/ATProtoNet.Aspire.Hosting/ATProtoNet.Aspire.Hosting.csproj" />
     <Project Path="src/ATProtoNet.Blazor/ATProtoNet.Blazor.csproj" />
     <Project Path="src/ATProtoNet.Server/ATProtoNet.Server.csproj" />
     <Project Path="src/ATProtoNet.Server.EntityFrameworkCore/ATProtoNet.Server.EntityFrameworkCore.csproj" />
@@ -13,6 +14,8 @@
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/BlazorOAuthSample/BlazorOAuthSample.csproj" />
+    <Project Path="samples/FirehoseConsumerSample/FirehoseConsumerSample.csproj" />
+    <Project Path="samples/PdsSample/PdsSample.csproj" />
     <Project Path="samples/ServerIntegrationSample/ServerIntegrationSample.csproj" />
   </Folder>
   <Folder Name="/tools/">
