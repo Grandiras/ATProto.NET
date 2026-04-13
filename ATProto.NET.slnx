@@ -4,6 +4,7 @@
     <Project Path="src/ATProtoNet.Blazor/ATProtoNet.Blazor.csproj" />
     <Project Path="src/ATProtoNet.Server/ATProtoNet.Server.csproj" />
     <Project Path="src/ATProtoNet.Server.EntityFrameworkCore/ATProtoNet.Server.EntityFrameworkCore.csproj" />
+    <Project Path="src/ATProtoNet.Pds/ATProtoNet.Pds.csproj" />
     <Project Path="src/ATProtoNet/ATProtoNet.csproj" />
   </Folder>
   <Folder Name="/tests/">

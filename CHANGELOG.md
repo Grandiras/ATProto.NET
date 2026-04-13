@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **PDS hosting package** (Issue #2) — New `ATProtoNet.Pds` package for building AT Protocol Personal Data Servers
+  - `PdsService` — core business logic for account management, session handling, record CRUD, and blob operations
+  - `PdsSessionService` — JWT token issuing and validation with HMAC-SHA256 signing
+  - `IAccountStore` / `InMemoryAccountStore` — pluggable account persistence with DID, handle, email, and signing key management
+  - `IRepoStore` / `InMemoryRepoStore` — pluggable repository storage for records and blobs with cursor-based pagination
+  - `PdsHostingExtensions` — `AddAtProtoPds()` DI registration and `MapAtProtoPds()` XRPC endpoint mapping
+  - Full XRPC endpoint support: `com.atproto.server.createAccount`, `createSession`, `getSession`, `refreshSession`, `describeServer`
+  - Repository endpoints: `com.atproto.repo.createRecord`, `getRecord`, `putRecord`, `deleteRecord`, `listRecords`
+  - Blob endpoints: `com.atproto.repo.uploadBlob`, `com.atproto.sync.getBlob`
+  - Custom store implementations via `AddAtProtoPds<TAccountStore, TRepoStore>()`
+  - PBKDF2 password hashing with 100k iterations, SHA-256 based CID computation
+  - Bearer token authentication with authorization checks for repo ownership
+
 - **Native Standard.site integration** (Issue #9) — First-class support for Standard.site long-form publishing lexicons
   - `PublicationRecord` model for `site.standard.publication` — blog/site identity with URL, name, description, icon, theme, and preferences
   - `DocumentRecord` model for `site.standard.document` — published documents with title, path, tags, content union, cover image, and Bluesky post reference

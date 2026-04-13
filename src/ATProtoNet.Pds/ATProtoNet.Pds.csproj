@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>ATProtoNet.Pds</RootNamespace>
+    <AssemblyName>ATProtoNet.Pds</AssemblyName>
+    <PackageId>ATProtoNet.Pds</PackageId>
+    <Description>PDS (Personal Data Server) hosting for ATProto.NET — run your own AT Protocol server with account management, repository storage, and XRPC endpoints.</Description>
+    <PackageTags>atproto;bluesky;pds;hosting;decentralized;server</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ATProtoNet.Server\ATProtoNet.Server.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+</Project>
