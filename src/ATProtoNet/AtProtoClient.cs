@@ -20,6 +20,7 @@ using ATProtoNet.Lexicon.Com.AtProto.Moderation;
 using ATProtoNet.Lexicon.Com.AtProto.Repo;
 using ATProtoNet.Lexicon.Com.AtProto.Server;
 using ATProtoNet.Lexicon.Com.AtProto.Sync;
+using ATProtoNet.Lexicon.Site.Standard;
 using ATProtoNet.Lexicon.Tools.Ozone;
 using ATProtoNet.Models;
 using ATProtoNet.Serialization;
@@ -141,6 +142,9 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         // Ozone moderation service
         Ozone = new OzoneClient(_xrpc, _logger);
 
+        // Standard.site — long-form publishing
+        Site = new StandardSiteClient(_xrpc, _logger, Repo);
+
         if (options.AutoRefreshSession)
             _refreshTimer = new Timer(OnRefreshTimerElapsed, null, Timeout.Infinite, Timeout.Infinite);
 
@@ -180,6 +184,9 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
     /// <summary>tools.ozone.* — Ozone moderation service APIs.</summary>
     public OzoneClient Ozone { get; }
+
+    /// <summary>site.standard.* — Standard.site long-form publishing APIs.</summary>
+    public StandardSiteClient Site { get; }
 
     // ──────────────────────────────────────────────────────────
     //  Firehose / Relay
