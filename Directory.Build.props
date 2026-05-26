@@ -7,7 +7,7 @@
     <Company>Grandiras</Company>
     <Copyright>Copyright (c) 2025-present ATProto.NET Contributors</Copyright>
     <PackageProjectUrl>https://git.grandiras.net/Grandiras/ATProto.NET</PackageProjectUrl>
-    <RepositoryUrl>https://git.grandiras.net/Grandiras/ATProto.NET.git</RepositoryUrl>
+    <RepositoryUrl>https://git.grandiras.net/Grandiras/ATProto.NET</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
