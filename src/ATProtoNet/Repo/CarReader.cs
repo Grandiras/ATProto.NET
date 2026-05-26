@@ -39,9 +39,14 @@ public sealed class CarReader
     /// Parses a CAR file from a byte array.
     /// </summary>
     /// <param name="data">The raw CAR file bytes.</param>
+    /// <param name="verifyBlockCids">
+    /// When <c>true</c>, every block's CID is recomputed from its bytes and compared
+    /// against the embedded CID; a mismatch throws <see cref="FormatException"/>.
+    /// Pass <c>true</c> for any CAR coming from untrusted input.
+    /// </param>
     /// <returns>A <see cref="CarReader"/> containing the parsed header and blocks.</returns>
-    /// <exception cref="FormatException">Thrown when the CAR file is malformed.</exception>
-    public static CarReader FromBytes(ReadOnlySpan<byte> data)
+    /// <exception cref="FormatException">Thrown when the CAR file is malformed or a block CID does not match its data.</exception>
+    public static CarReader FromBytes(ReadOnlySpan<byte> data, bool verifyBlockCids = false)
     {
         var offset = 0;
 
@@ -87,7 +92,77 @@ public sealed class CarReader
             blocks.Add(new CarBlock(cid, blockData));
         }
 
-        return new CarReader(header, blocks);
+        var reader = new CarReader(header, blocks);
+        if (verifyBlockCids)
+            reader.VerifyAllBlockCids();
+        return reader;
+    }
+
+    /// <summary>
+    /// Recomputes each block's CID from its bytes and asserts it matches the embedded CID.
+    /// Throws <see cref="FormatException"/> on mismatches AND on unknown codecs.
+    /// </summary>
+    /// <remarks>
+    /// AT Protocol only ever uses dag-cbor (0x71) and raw (0x55) on the wire; any
+    /// other codec from an untrusted source is suspicious enough to fail closed
+    /// rather than silently pass — a hostile relay could otherwise smuggle blocks
+    /// with codecs the verifier can't recompute (e.g. dag-pb 0x70) and have them
+    /// sail through. The lower-level <see cref="VerifyBlockCid"/> still returns the
+    /// tri-state result so callers who want softer semantics can opt in.
+    /// </remarks>
+    public void VerifyAllBlockCids()
+    {
+        foreach (var block in _blocks)
+        {
+            switch (VerifyBlockCid(block))
+            {
+                case BlockCidVerification.Mismatch:
+                    throw new FormatException(
+                        $"CAR block CID does not match its data (CID: {block.CidHex}). " +
+                        "The CAR file may be corrupt or has been tampered with.");
+                case BlockCidVerification.UnknownCodec:
+                    throw new FormatException(
+                        $"CAR block (CID: {block.CidHex}) uses an unknown codec. " +
+                        "AT Protocol only permits dag-cbor (0x71) and raw (0x55); " +
+                        "rejecting to avoid smuggled blocks bypassing CID verification.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Recomputes a block's CID from its bytes and reports whether it matches.
+    /// Returns <see cref="BlockCidVerification.UnknownCodec"/> when the codec is one
+    /// we can't recompute (rather than conflating that with tampering).
+    /// </summary>
+    public static BlockCidVerification VerifyBlockCid(CarBlock block)
+    {
+        // CIDv0 form: 0x12 0x20 + 32 bytes — multihash-only, implies dag-pb (not used in atproto).
+        if (block.Cid.Length == 34 && block.Cid[0] == 0x12 && block.Cid[1] == 0x20)
+        {
+            Span<byte> hash = stackalloc byte[32];
+            System.Security.Cryptography.SHA256.HashData(block.Data, hash);
+            return hash.SequenceEqual(block.Cid.AsSpan(2))
+                ? BlockCidVerification.Match
+                : BlockCidVerification.Mismatch;
+        }
+
+        // CIDv1: version(0x01) + codec + 0x12 + 0x20 + 32-byte SHA-256 digest.
+        if (block.Cid.Length < 4 || block.Cid[0] != 0x01)
+            return BlockCidVerification.UnknownCodec;
+
+        var codec = block.Cid[1];
+        var isDagCbor = codec == 0x71;
+        var isRaw = codec == 0x55;
+        if (!isDagCbor && !isRaw)
+            return BlockCidVerification.UnknownCodec;
+
+        var expected = isDagCbor
+            ? CidComputation.ComputeBinaryForDagCbor(block.Data)
+            : CidComputation.ComputeBinaryForRaw(block.Data);
+
+        return expected.AsSpan().SequenceEqual(block.Cid)
+            ? BlockCidVerification.Match
+            : BlockCidVerification.Mismatch;
     }
 
     /// <summary>
@@ -353,4 +428,20 @@ public sealed record CarBlock(byte[] Cid, byte[] Data)
 
     /// <summary>Returns the block data length.</summary>
     public int DataLength => Data.Length;
+}
+
+/// <summary>Tri-state outcome of recomputing a CAR block's CID from its bytes.</summary>
+public enum BlockCidVerification
+{
+    /// <summary>The recomputed CID matches the embedded CID.</summary>
+    Match,
+
+    /// <summary>The recomputed CID does not match the embedded CID — likely tampering or corruption.</summary>
+    Mismatch,
+
+    /// <summary>
+    /// The block uses a codec this implementation can't recompute (e.g. dag-pb, dag-json,
+    /// a future codec). The block isn't necessarily bad — we just can't verify it here.
+    /// </summary>
+    UnknownCodec,
 }

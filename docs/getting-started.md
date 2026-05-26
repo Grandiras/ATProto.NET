@@ -16,6 +16,18 @@ dotnet add package ATProtoNet.Server
 
 # Blazor components (optional)
 dotnet add package ATProtoNet.Blazor
+
+# .NET Aspire integration (optional)
+dotnet add package ATProtoNet.Aspire
+
+# PDS hosting (optional)
+dotnet add package ATProtoNet.Pds
+
+# EF Core token store (optional)
+dotnet add package ATProtoNet.Server.EntityFrameworkCore
+
+# Lexicon code generator CLI tool (optional)
+dotnet tool install -g ATProtoNet.LexiconGenerator
 ```
 
 ## Create a Client
@@ -35,6 +47,7 @@ var client = new AtProtoClientBuilder()
 ```csharp
 var client = new AtProtoClientBuilder()
     .WithInstanceUrl("https://your-pds.example.com")  // Required: PDS URL
+    .WithRelayUrl("wss://bsky.network")                // Relay for firehose (default)
     .WithAutoRefreshSession(true)                       // Auto-refresh tokens (default: true)
     .WithSessionStore(new FileSessionStore("sess.json"))// Custom session persistence
     .WithHttpClient(httpClient)                         // Custom HttpClient
@@ -91,3 +104,6 @@ client.Session   // Full Session object with tokens, email, etc.
 - [Session Management](session-management.md) — Token refresh, persistence, resume
 - [ASP.NET Core](aspnet-core.md) — Use in web applications
 - [Blazor](blazor.md) — Components with OAuth login support
+- [Firehose Streaming](firehose.md) — Real-time event streaming with verification
+- [.NET Aspire](aspire.md) — Cloud-native integration
+- [PDS Hosting](pds.md) — Host your own Personal Data Server

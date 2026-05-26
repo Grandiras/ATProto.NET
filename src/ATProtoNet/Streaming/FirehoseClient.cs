@@ -246,6 +246,11 @@ public sealed class FirehoseConsumer : IDisposable
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var currentCursor = cursor;
+        // Floor for monotonicity checks. Pre-seed with the caller's cursor so a
+        // misbehaving relay can't rewind us below the requested resume point on
+        // the very first frame (when currentCursor is still null and a naive
+        // long.MinValue baseline would accept anything).
+        var monotonicFloor = cursor ?? long.MinValue;
         var reconnectAttempts = 0;
 
         while (!cancellationToken.IsCancellationRequested)
@@ -258,6 +263,31 @@ public sealed class FirehoseConsumer : IDisposable
                 IsConnected = true;
                 reconnectAttempts = 0;
                 yield return frame;
+
+                // Cursor advancement rules:
+                //
+                //  * If the consumer calls Acknowledge(seq), LastSeq drives the
+                //    reconnect cursor and the SDK delivers at-least-once
+                //    semantics: frames yielded but not acknowledged are
+                //    redelivered on reconnect.
+                //
+                //  * If the consumer NEVER calls Acknowledge, we fall back to
+                //    the current frame's in-band seq so the reconnect cursor
+                //    still moves forward — but this path is at-MOST-once: a
+                //    crash between yield and the next reconnect drops the
+                //    unprocessed frame. Consumers that need at-least-once MUST
+                //    call Acknowledge after successful processing.
+                //
+                // Either way the cursor is monotonic — a misbehaving relay that
+                // rolls seq backward (or a first frame with a seq below the
+                // caller-supplied resume cursor) cannot trick us into replaying
+                // older events.
+                var nextCursor = LastSeq ?? TryReadSeq(frame);
+                if (nextCursor is { } seq && seq > monotonicFloor)
+                {
+                    currentCursor = seq;
+                    monotonicFloor = seq;
+                }
             }
 
             IsConnected = false;
@@ -293,6 +323,19 @@ public sealed class FirehoseConsumer : IDisposable
     public void Acknowledge(long seq)
     {
         LastSeq = seq;
+    }
+
+    private static long? TryReadSeq(FirehoseFrame frame)
+    {
+        try
+        {
+            var message = FirehoseEventParser.Parse(frame);
+            return message?.Seq;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return null;
+        }
     }
 
     /// <inheritdoc/>

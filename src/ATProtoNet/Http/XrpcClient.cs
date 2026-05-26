@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Web;
 using ATProtoNet.Serialization;
 using Microsoft.Extensions.Logging;
 
@@ -196,7 +195,7 @@ public sealed class XrpcClient : IDisposable
     /// <returns>The deserialized response.</returns>
     public async Task<TResponse> QueryAsync<TResponse>(
         string nsid,
-        IDictionary<string, string?>? parameters = null,
+        IEnumerable<KeyValuePair<string, string?>>? parameters = null,
         CancellationToken cancellationToken = default)
     {
         var url = BuildUrl(nsid, parameters);
@@ -217,7 +216,7 @@ public sealed class XrpcClient : IDisposable
     /// </summary>
     public async Task QueryAsync(
         string nsid,
-        IDictionary<string, string?>? parameters = null,
+        IEnumerable<KeyValuePair<string, string?>>? parameters = null,
         CancellationToken cancellationToken = default)
     {
         var url = BuildUrl(nsid, parameters);
@@ -243,7 +242,7 @@ public sealed class XrpcClient : IDisposable
     public async Task<TResponse> ProcedureAsync<TRequest, TResponse>(
         string nsid,
         TRequest body,
-        IDictionary<string, string?>? parameters = null,
+        IEnumerable<KeyValuePair<string, string?>>? parameters = null,
         CancellationToken cancellationToken = default)
     {
         var url = BuildUrl(nsid, parameters);
@@ -268,7 +267,7 @@ public sealed class XrpcClient : IDisposable
     public async Task ProcedureAsync<TRequest>(
         string nsid,
         TRequest body,
-        IDictionary<string, string?>? parameters = null,
+        IEnumerable<KeyValuePair<string, string?>>? parameters = null,
         CancellationToken cancellationToken = default)
     {
         var url = BuildUrl(nsid, parameters);
@@ -289,7 +288,7 @@ public sealed class XrpcClient : IDisposable
     /// </summary>
     public async Task ProcedureAsync(
         string nsid,
-        IDictionary<string, string?>? parameters = null,
+        IEnumerable<KeyValuePair<string, string?>>? parameters = null,
         CancellationToken cancellationToken = default)
     {
         var url = BuildUrl(nsid, parameters);
@@ -307,7 +306,7 @@ public sealed class XrpcClient : IDisposable
     /// </summary>
     public async Task<TResponse> ProcedureAsync<TResponse>(
         string nsid,
-        IDictionary<string, string?>? parameters = null,
+        IEnumerable<KeyValuePair<string, string?>>? parameters = null,
         CancellationToken cancellationToken = default)
         where TResponse : class
     {
@@ -331,7 +330,7 @@ public sealed class XrpcClient : IDisposable
     internal async Task<TResponse> QueryAsync<TResponse>(
         string nsid,
         string proxyHeader,
-        IDictionary<string, string?>? parameters = null,
+        IEnumerable<KeyValuePair<string, string?>>? parameters = null,
         CancellationToken cancellationToken = default)
     {
         var url = BuildUrl(nsid, parameters);
@@ -351,7 +350,7 @@ public sealed class XrpcClient : IDisposable
         string nsid,
         TRequest body,
         string proxyHeader,
-        IDictionary<string, string?>? parameters = null,
+        IEnumerable<KeyValuePair<string, string?>>? parameters = null,
         CancellationToken cancellationToken = default)
     {
         var url = BuildUrl(nsid, parameters);
@@ -373,7 +372,7 @@ public sealed class XrpcClient : IDisposable
     internal async Task ProcedureAsync(
         string nsid,
         string proxyHeader,
-        IDictionary<string, string?>? parameters = null,
+        IEnumerable<KeyValuePair<string, string?>>? parameters = null,
         CancellationToken cancellationToken = default)
     {
         var url = BuildUrl(nsid, parameters);
@@ -433,7 +432,7 @@ public sealed class XrpcClient : IDisposable
     /// <returns>The response stream and content type.</returns>
     public async Task<(Stream Stream, string? ContentType)> DownloadBlobAsync(
         string nsid,
-        IDictionary<string, string?>? parameters = null,
+        IEnumerable<KeyValuePair<string, string?>>? parameters = null,
         CancellationToken cancellationToken = default)
     {
         var url = BuildUrl(nsid, parameters);
@@ -477,22 +476,29 @@ public sealed class XrpcClient : IDisposable
         return result ?? throw new InvalidOperationException($"Failed to deserialize response from {nsid}");
     }
 
-    private string BuildUrl(string nsid, IDictionary<string, string?>? parameters = null)
+    private static string BuildUrl(string nsid, IEnumerable<KeyValuePair<string, string?>>? parameters = null)
     {
         var url = $"/xrpc/{nsid}";
 
-        if (parameters is { Count: > 0 })
+        if (parameters is null)
+            return url;
+
+        // Emit each key=value pair separately so XRPC array parameters
+        // (e.g., uris=a&uris=b) round-trip as repeated keys rather than
+        // a single comma-joined value. Order is preserved from the input.
+        var first = true;
+        var sb = new System.Text.StringBuilder();
+        foreach (var (key, value) in parameters)
         {
-            var query = HttpUtility.ParseQueryString(string.Empty);
-            foreach (var (key, value) in parameters)
-            {
-                if (value is not null)
-                    query[key] = value;
-            }
-            url = $"{url}?{query}";
+            if (value is null) continue;
+            sb.Append(first ? '?' : '&');
+            first = false;
+            sb.Append(Uri.EscapeDataString(key));
+            sb.Append('=');
+            sb.Append(Uri.EscapeDataString(value));
         }
 
-        return url;
+        return sb.Length == 0 ? url : url + sb;
     }
 
     private void ApplyAuthHeader(HttpRequestMessage request, string? proxyOverride = null)

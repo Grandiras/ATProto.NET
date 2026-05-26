@@ -185,6 +185,52 @@ builder.Services.AddAtProtoServer<DatabaseTokenStore>();
 > **Security:** `AtProtoTokenData.DPoPPrivateKey` contains an unencrypted PKCS#8 private key.
 > Always encrypt it before persisting to a database or external store.
 
+### Entity Framework Core Token Store
+
+ATProtoNet provides a ready-made EF Core implementation via the `ATProtoNet.Server.EntityFrameworkCore` package:
+
+```bash
+dotnet add package ATProtoNet.Server.EntityFrameworkCore
+```
+
+Register with your `DbContext`:
+
+```csharp
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlite("Data Source=app.db"));
+
+// Add the EF Core token store
+builder.Services.AddAtProtoEfCoreTokenStore<AppDbContext>();
+```
+
+Your `DbContext` must inherit from `AtProtoTokenDbContext` or include the `AtProtoTokenEntity` set:
+
+```csharp
+public class AppDbContext : AtProtoTokenDbContext
+{
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+
+    // Your other DbSets...
+}
+```
+
+Or add the entity to an existing context:
+
+```csharp
+public class AppDbContext : DbContext
+{
+    public DbSet<AtProtoTokenEntity> AtProtoTokens => Set<AtProtoTokenEntity>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+        modelBuilder.ApplyConfiguration(new AtProtoTokenEntityConfiguration());
+    }
+}
+```
+
+The `EfCoreAtProtoTokenStore` handles encryption via ASP.NET Core Data Protection before persisting DPoP keys.
+
 ## Standalone Client (Server-to-Server)
 
 For bot or service scenarios where you authenticate with app passwords (not user OAuth):
@@ -303,3 +349,5 @@ app.MapXrpcEndpoints();
 ```
 
 Query endpoints map as `GET /xrpc/{nsid}`, procedures map as `POST /xrpc/{nsid}`. Invalid or missing request bodies return a `400 Bad Request` with an XRPC-style error response.
+
+For a comprehensive guide covering dependency injection, combining with PDS hosting, and more examples, see [XRPC Endpoint Handlers](xrpc-handlers.md).

@@ -1,5 +1,4 @@
-using System.Security.Cryptography;
-using System.Text.Json;
+using System.Formats.Cbor;
 using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Sync;
@@ -76,38 +75,27 @@ public sealed class FirehoseVerifier : IDisposable
 
         try
         {
-            // Parse the CAR file and find the commit block (first root)
-            var car = CarReader.FromBytes(commit.Blocks);
+            // Parse the CAR file and find the commit block (first root). Verify
+            // every block's CID against its bytes — a signed commit only binds the
+            // commit block itself; subtree blocks must be checked separately or a
+            // peer can swap record bytes while leaving the commit signature valid.
+            var car = CarReader.FromBytes(commit.Blocks, verifyBlockCids: true);
             var rootBlock = car.GetRootBlock();
             if (rootBlock is null)
                 return VerificationResult.Failure("No root block in CAR");
 
-            // Decode the commit block as JSON to extract the signature
-            var commitJson = DagCborDecoder.DecodeToNode(rootBlock.Data);
-            if (commitJson is null)
+            // Build the unsigned commit by splicing the `sig` key/value out of the
+            // ORIGINAL CBOR bytes, not by round-tripping through JSON. Re-encoding via
+            // JsonObject is lossy: CBOR integer widths, byte-string vs `$bytes` shape,
+            // CID tag-42 vs `$link` shape, and length-first-lex key ordering may not
+            // be preserved, producing a different hash than the signer used.
+            var splice = ExtractSignedView(rootBlock.Data);
+            if (splice is null)
                 return VerificationResult.Failure("Could not decode commit block");
 
-            var commitObj = commitJson.AsObject();
-
-            // Extract and remove the signature to create the unsigned commit
-            if (!commitObj.ContainsKey("sig"))
-                return VerificationResult.Failure("Commit has no sig field");
-
-            var sigNode = commitObj["sig"];
-            var sigBytes = sigNode?["$bytes"] is not null
-                ? Convert.FromBase64String(sigNode["$bytes"]!.GetValue<string>())
-                : null;
-
+            var (unsignedCborBytes, sigBytes) = splice.Value;
             if (sigBytes is null || sigBytes.Length == 0)
                 return VerificationResult.Failure("Commit has empty signature");
-
-            // Remove sig to create unsigned commit, then re-encode as DAG-CBOR
-            commitObj.Remove("sig");
-            var unsignedCommitElement = JsonSerializer.SerializeToElement(commitObj);
-            var unsignedCborBytes = DagCborEncoder.Encode(unsignedCommitElement);
-
-            // Hash the unsigned commit bytes
-            var hash = SHA256.HashData(unsignedCborBytes);
 
             // Resolve the DID document to get the signing key
             var didDoc = await _didResolver.ResolveDidAsync(commit.Repo, cancellationToken);
@@ -115,8 +103,11 @@ public sealed class FirehoseVerifier : IDisposable
             if (signingKey is null)
                 return VerificationResult.Failure($"No atproto signing key found for {commit.Repo}");
 
-            // Verify the ECDSA signature
-            var isValid = AtProtoCrypto.VerifySignature(signingKey, hash, sigBytes);
+            // Verify the ECDSA signature. AtProtoCrypto.VerifySignature hashes the
+            // message internally (via ECDsa.VerifyData), so pass the RAW unsigned
+            // commit bytes here, not a pre-computed digest — otherwise we'd verify
+            // SHA256(SHA256(bytes)) against a signature over SHA256(bytes).
+            var isValid = AtProtoCrypto.VerifySignature(signingKey, unsignedCborBytes, sigBytes);
             return isValid
                 ? VerificationResult.Success()
                 : VerificationResult.Failure("Signature verification failed");
@@ -154,17 +145,162 @@ public sealed class FirehoseVerifier : IDisposable
     {
         foreach (var block in car.Blocks)
         {
-            var cidString = CidComputation.EncodeCidToString(block.Cid);
-            var cid = Identity.Cid.Parse(cidString);
-
-            if (!CidComputation.Verify(cid, block.Data, isDagCbor: true) &&
-                !CidComputation.Verify(cid, block.Data, isDagCbor: false))
+            // Fail closed on UnknownCodec, matching CarReader.VerifyAllBlockCids.
+            // AT Protocol only uses dag-cbor (0x71) and raw (0x55); anything else
+            // from an untrusted source could smuggle blocks past CID verification
+            // because the verifier can't recompute the digest under a codec it
+            // doesn't recognize. Diverging policy here from the CarReader path
+            // would let a hostile relay's commit pass the cheap pre-check while
+            // failing the full signature verification — opposite verdicts on the
+            // same input.
+            switch (CarReader.VerifyBlockCid(block))
             {
-                return VerificationResult.Failure($"CID mismatch for block {block.CidHex}");
+                case BlockCidVerification.Mismatch:
+                    return VerificationResult.Failure($"CID mismatch for block {block.CidHex}");
+                case BlockCidVerification.UnknownCodec:
+                    return VerificationResult.Failure(
+                        $"Block {block.CidHex} uses an unsupported CID codec; " +
+                        "AT Protocol only permits dag-cbor (0x71) and raw (0x55).");
             }
         }
 
         return VerificationResult.Success();
+    }
+
+    /// <summary>
+    /// Walks a commit-block's DAG-CBOR bytes, captures the value at the <c>sig</c>
+    /// key, and returns a new CBOR byte sequence representing the same map with
+    /// the <c>sig</c> key/value pair removed (map header entry count decremented).
+    /// </summary>
+    /// <remarks>
+    /// This preserves the original byte-for-byte encoding of every other field, so
+    /// the SHA-256 of the result matches what the signer hashed.
+    /// </remarks>
+    /// <returns>
+    /// A tuple of <c>(unsignedCborBytes, sigBytes)</c>, or <c>null</c> if the input
+    /// is not a CBOR map or has no <c>sig</c> field.
+    /// </returns>
+    internal static (byte[] UnsignedBytes, byte[]? SigBytes)? ExtractSignedView(byte[] commitCbor)
+    {
+        if (commitCbor.Length == 0)
+            return null;
+
+        // Walk the map with the framework reader to find each key/value pair's byte
+        // range. We can't mutate CBOR with CborReader, but we can ask it to skip
+        // values to learn how many bytes each pair consumed and then slice the
+        // original buffer byte-for-byte.
+        //
+        // Use Strict (not Ctap2Canonical): DAG-CBOR REQUIRES CBOR tag 42 to encode
+        // CIDs, and atproto commits always carry `data` (and often `prev`) as tag-42
+        // values. Ctap2Canonical forbids all tags and would throw on every real
+        // commit. Canonical-form integrity is preserved here by the byte-for-byte
+        // splice of the original buffer; the reader is only used to discover field
+        // boundaries.
+        var reader = new CborReader(commitCbor, CborConformanceMode.Strict);
+        int entryCount;
+        var pairs = new List<(int Start, int Length, string Key)>();
+        int sigPairIndex = -1;
+        byte[]? sigBytes = null;
+
+        // Wrap the entire walk in try/catch — a hostile commit can encode keys
+        // or values in ways that throw mid-loop (non-text key, sig encoded as a
+        // non-byte-string, truncated buffer). Returning null here surfaces as
+        // "Could not decode commit block" rather than the framework's CBOR
+        // exception text, so consumers can distinguish malformed commits from
+        // transient errors without parsing exception strings.
+        try
+        {
+            var entryCountNullable = reader.ReadStartMap();
+            if (entryCountNullable is not { } parsed)
+                return null; // Indefinite-length maps are forbidden by DAG-CBOR.
+            entryCount = parsed;
+
+            for (var i = 0; i < entryCount; i++)
+            {
+                var pairStart = commitCbor.Length - reader.BytesRemaining;
+                var key = reader.ReadTextString();
+
+                if (key == "sig")
+                {
+                    // The sig MUST be a CBOR byte string (DAG-CBOR major type 2).
+                    // Anything else is a malformed commit; fail closed.
+                    if (reader.PeekState() != CborReaderState.ByteString)
+                        return null;
+                    sigPairIndex = i;
+                    sigBytes = reader.ReadByteString();
+                }
+                else
+                {
+                    reader.SkipValue();
+                }
+
+                int pairEnd = commitCbor.Length - reader.BytesRemaining;
+                pairs.Add((pairStart, pairEnd - pairStart, key));
+            }
+        }
+        catch (CborContentException)
+        {
+            return null;
+        }
+        catch (InvalidOperationException)
+        {
+            // CborReader throws InvalidOperationException for state-machine
+            // misuse (e.g. ReadTextString when the next item isn't a text
+            // string). Treat as malformed input.
+            return null;
+        }
+
+        if (sigPairIndex < 0)
+            return null;
+
+        // Compose the unsigned bytes: new map header (entryCount - 1) + every pair
+        // except the sig pair, preserved byte-for-byte from the original.
+        var newCount = entryCount - 1;
+        var unsigned = new System.IO.MemoryStream();
+        WriteMapHeader(unsigned, newCount);
+        for (var i = 0; i < pairs.Count; i++)
+        {
+            if (i == sigPairIndex) continue;
+            unsigned.Write(commitCbor, pairs[i].Start, pairs[i].Length);
+        }
+
+        return (unsigned.ToArray(), sigBytes);
+    }
+
+    internal static void WriteMapHeader(System.IO.MemoryStream stream, int count)
+    {
+        const int majorType5 = 5 << 5;
+        if (count < 0)
+            throw new ArgumentOutOfRangeException(nameof(count), count, "Map entry count cannot be negative.");
+
+        if (count < 24)
+        {
+            stream.WriteByte((byte)(majorType5 | count));
+        }
+        else if (count < 256)
+        {
+            stream.WriteByte((byte)(majorType5 | 24));
+            stream.WriteByte((byte)count);
+        }
+        else if (count < 65536)
+        {
+            stream.WriteByte((byte)(majorType5 | 25));
+            stream.WriteByte((byte)((count >> 8) & 0xFF));
+            stream.WriteByte((byte)(count & 0xFF));
+        }
+        else
+        {
+            // 4-byte length (CBOR 0x1a). Fail closed at int max — DAG-CBOR maps
+            // larger than this would also push the splice well past anything a
+            // real atproto commit could hold, and silently truncating to 16 bits
+            // (the prior behavior) would produce a malformed header whose count
+            // doesn't match the bytes that follow, hashing to garbage.
+            stream.WriteByte((byte)(majorType5 | 26));
+            stream.WriteByte((byte)((count >> 24) & 0xFF));
+            stream.WriteByte((byte)((count >> 16) & 0xFF));
+            stream.WriteByte((byte)((count >> 8) & 0xFF));
+            stream.WriteByte((byte)(count & 0xFF));
+        }
     }
 
     /// <summary>

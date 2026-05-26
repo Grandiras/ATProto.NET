@@ -247,20 +247,16 @@ public sealed class ApplyWritesRequest
 /// <summary>
 /// A single write operation in an applyWrites batch.
 /// </summary>
-[JsonDerivedType(typeof(ApplyWriteCreate), "#create")]
-[JsonDerivedType(typeof(ApplyWriteUpdate), "#update")]
-[JsonDerivedType(typeof(ApplyWriteDelete), "#delete")]
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
+[JsonDerivedType(typeof(ApplyWriteCreate), "com.atproto.repo.applyWrites#create")]
+[JsonDerivedType(typeof(ApplyWriteUpdate), "com.atproto.repo.applyWrites#update")]
+[JsonDerivedType(typeof(ApplyWriteDelete), "com.atproto.repo.applyWrites#delete")]
 public abstract class ApplyWriteOperation
 {
-    [JsonPropertyName("$type")]
-    public abstract string Type { get; }
 }
 
 public sealed class ApplyWriteCreate : ApplyWriteOperation
 {
-    [JsonPropertyName("$type")]
-    public override string Type => "com.atproto.repo.applyWrites#create";
-
     [JsonPropertyName("collection")]
     public required string Collection { get; init; }
 
@@ -273,9 +269,6 @@ public sealed class ApplyWriteCreate : ApplyWriteOperation
 
 public sealed class ApplyWriteUpdate : ApplyWriteOperation
 {
-    [JsonPropertyName("$type")]
-    public override string Type => "com.atproto.repo.applyWrites#update";
-
     [JsonPropertyName("collection")]
     public required string Collection { get; init; }
 
@@ -288,9 +281,6 @@ public sealed class ApplyWriteUpdate : ApplyWriteOperation
 
 public sealed class ApplyWriteDelete : ApplyWriteOperation
 {
-    [JsonPropertyName("$type")]
-    public override string Type => "com.atproto.repo.applyWrites#delete";
-
     [JsonPropertyName("collection")]
     public required string Collection { get; init; }
 

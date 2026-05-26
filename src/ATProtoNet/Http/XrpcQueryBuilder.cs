@@ -11,92 +11,97 @@ internal static class XrpcQueryBuilder
     /// <summary>
     /// Convert an object (anonymous type, dictionary, or null) into a query string prefix
     /// like "?key=value&amp;key2=value2" or "" if no parameters.
+    /// Properties whose value is a non-string <see cref="IEnumerable"/> are emitted as
+    /// repeated keys per XRPC array-parameter convention.
     /// </summary>
     public static string BuildQueryString(object? parameters)
     {
-        if (parameters is null)
-            return string.Empty;
+        var pairs = ToQueryParams(parameters);
+        if (pairs is null) return string.Empty;
 
-        IDictionary<string, string?> dict;
-
-        if (parameters is IDictionary<string, string?> stringDict)
+        var first = true;
+        var sb = new System.Text.StringBuilder();
+        foreach (var (key, value) in pairs)
         {
-            dict = stringDict;
+            if (value is null) continue;
+            sb.Append(first ? '?' : '&');
+            first = false;
+            sb.Append(Uri.EscapeDataString(key));
+            sb.Append('=');
+            sb.Append(Uri.EscapeDataString(value));
         }
-        else if (parameters is IDictionary genericDict)
-        {
-            dict = new Dictionary<string, string?>();
-            foreach (DictionaryEntry entry in genericDict)
-            {
-                var key = entry.Key?.ToString();
-                if (key is not null)
-                    dict[key] = entry.Value?.ToString();
-            }
-        }
-        else
-        {
-            // Treat as anonymous object — reflect properties
-            dict = new Dictionary<string, string?>();
-            foreach (var prop in parameters.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
-            {
-                var value = prop.GetValue(parameters);
-                if (value is not null)
-                {
-                    if (value is bool b)
-                        dict[prop.Name] = b ? "true" : "false";
-                    else
-                        dict[prop.Name] = value.ToString();
-                }
-            }
-        }
-
-        if (dict.Count == 0)
-            return string.Empty;
-
-        var pairs = dict
-            .Where(kv => kv.Value is not null)
-            .Select(kv => $"{Uri.EscapeDataString(kv.Key)}={Uri.EscapeDataString(kv.Value!)}");
-
-        return "?" + string.Join("&", pairs);
+        return sb.ToString();
     }
 
     /// <summary>
-    /// Convert an object to an IDictionary for XrpcClient methods.
+    /// Convert an object to a sequence of query parameter pairs for XrpcClient methods.
+    /// Duplicate keys are preserved (required for XRPC array parameters).
     /// </summary>
-    public static IDictionary<string, string?>? ToDictionary(object? parameters)
+    public static IEnumerable<KeyValuePair<string, string?>>? ToDictionary(object? parameters)
+        => ToQueryParams(parameters);
+
+    /// <summary>
+    /// Convert an object to a sequence of query parameter pairs.
+    /// <see cref="IEnumerable"/> property values (other than <see cref="string"/>) are
+    /// expanded into one KVP per element, sharing the same key.
+    /// </summary>
+    public static IEnumerable<KeyValuePair<string, string?>>? ToQueryParams(object? parameters)
     {
         if (parameters is null)
             return null;
 
-        if (parameters is IDictionary<string, string?> stringDict)
-            return stringDict;
+        if (parameters is IEnumerable<KeyValuePair<string, string?>> alreadyPairs)
+            return alreadyPairs;
 
-        var dict = new Dictionary<string, string?>();
+        var list = new List<KeyValuePair<string, string?>>();
 
         if (parameters is IDictionary genericDict)
         {
             foreach (DictionaryEntry entry in genericDict)
             {
                 var key = entry.Key?.ToString();
-                if (key is not null)
-                    dict[key] = entry.Value?.ToString();
+                if (key is null) continue;
+                AppendValue(list, key, entry.Value);
             }
         }
         else
         {
             foreach (var prop in parameters.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
             {
-                var value = prop.GetValue(parameters);
-                if (value is not null)
-                {
-                    if (value is bool b)
-                        dict[prop.Name] = b ? "true" : "false";
-                    else
-                        dict[prop.Name] = value.ToString();
-                }
+                AppendValue(list, prop.Name, prop.GetValue(parameters));
             }
         }
 
-        return dict.Count > 0 ? dict : null;
+        return list.Count > 0 ? list : null;
+    }
+
+    private static void AppendValue(List<KeyValuePair<string, string?>> list, string key, object? value)
+    {
+        if (value is null) return;
+
+        if (value is string s)
+        {
+            list.Add(new KeyValuePair<string, string?>(key, s));
+            return;
+        }
+
+        if (value is bool b)
+        {
+            list.Add(new KeyValuePair<string, string?>(key, b ? "true" : "false"));
+            return;
+        }
+
+        if (value is IEnumerable items)
+        {
+            foreach (var item in items)
+            {
+                if (item is null) continue;
+                list.Add(new KeyValuePair<string, string?>(
+                    key, item is bool ib ? (ib ? "true" : "false") : item.ToString()));
+            }
+            return;
+        }
+
+        list.Add(new KeyValuePair<string, string?>(key, value.ToString()));
     }
 }

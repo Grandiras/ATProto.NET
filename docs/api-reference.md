@@ -14,6 +14,8 @@ The main entry point. Created via `AtProtoClientBuilder` or direct construction.
 | `IsAuthenticated` | `bool` | Whether the client has an active session |
 | `Did` | `string?` | Authenticated user's DID |
 | `Handle` | `string?` | Authenticated user's handle |
+| `LatestRepoRev` | `string?` | Latest repo revision from server responses |
+| `LatestRateLimitInfo` | `RateLimitInfo?` | Most recent rate limit info |
 | `Server` | `ServerClient` | `com.atproto.server.*` methods |
 | `Repo` | `RepoClient` | `com.atproto.repo.*` methods |
 | `Identity` | `IdentityClient` | `com.atproto.identity.*` methods |
@@ -22,6 +24,9 @@ The main entry point. Created via `AtProtoClientBuilder` or direct construction.
 | `Label` | `LabelClient` | `com.atproto.label.*` methods |
 | `Moderation` | `ModerationClient` | `com.atproto.moderation.*` methods |
 | `Bsky` | `BlueskyClients` | `app.bsky.*` sub-clients |
+| `Chat` | `ChatClients` | `chat.bsky.*` sub-clients |
+| `Ozone` | `OzoneClient` | `tools.ozone.*` sub-clients |
+| `Site` | `StandardSiteClient` | `standard.site.*` sub-clients |
 
 ### Custom Lexicon Methods
 
@@ -131,6 +136,7 @@ Fluent builder for `AtProtoClient`.
 | Method | Description |
 |--------|-------------|
 | `WithInstanceUrl(url)` | Set the PDS/service URL |
+| `WithRelayUrl(url)` | Set the relay WebSocket URL for firehose |
 | `WithAutoRefreshSession(bool)` | Enable/disable auto token refresh |
 | `WithSessionStore(store)` | Set custom session persistence |
 | `WithHttpClient(client)` | Use a custom HttpClient |
@@ -262,3 +268,94 @@ Creates authenticated `AtProtoClient` instances from stored OAuth tokens. See [s
 | `ErrorMessage` | `string?` | Human-readable error message |
 | `StatusCode` | `HttpStatusCode` | HTTP status code |
 | `ResponseBody` | `string?` | Raw response body |
+
+---
+
+## BlueskyClients (`app.bsky.*`)
+
+Accessed via `client.Bsky`.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Actor` | `ActorClient` | Profile and actor operations |
+| `Feed` | `FeedClient` | Posts, likes, reposts, timelines |
+| `Graph` | `GraphClient` | Follows, blocks, lists, starter packs |
+| `Notification` | `NotificationClient` | Notifications |
+| `Unspecced` | `UnspeccedClient` | Unspecced/experimental endpoints |
+| `Labeler` | `LabelerClient` | Label service declarations |
+| `Video` | `VideoClient` | Video upload (`app.bsky.video.*`) |
+
+---
+
+## ChatClients (`chat.bsky.*`)
+
+Accessed via `client.Chat`. See [Chat & Direct Messages](chat.md).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Convo` | `ConvoClient` | Conversations and messages |
+| `Actor` | `ChatActorClient` | Chat actor preferences |
+
+---
+
+## OzoneClient (`tools.ozone.*`)
+
+Accessed via `client.Ozone`. See [Ozone Moderation](ozone.md).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Moderation` | `OzoneModerationClient` | Subject review, reports, actions |
+| `Communication` | `OzoneCommunicationClient` | Email templates and user emails |
+| `Team` | `OzoneTeamClient` | Team member management |
+| `Set` | `OzoneSetClient` | Named sets of DIDs/URIs |
+| `Signature` | `OzoneSignatureClient` | Signature search and verification |
+| `Server` | `OzoneServerClient` | Server config and statistics |
+
+---
+
+## StandardSiteClient (`standard.site.*`)
+
+Accessed via `client.Site`. See [Standard.site](standard-site.md).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Publication` | `PublicationClient` | Blog/article management |
+| `Document` | `DocumentClient` | Document management |
+| `Graph` | `SiteGraphClient` | Subscriptions |
+| `Theme` | `ThemeClient` | Theme management |
+
+---
+
+## RateLimitInfo
+
+Tracked automatically on every XRPC response. Available via `client.LatestRateLimitInfo`.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Limit` | `int` | Maximum requests per window |
+| `Remaining` | `int` | Requests remaining |
+| `Reset` | `DateTimeOffset` | When the window resets |
+| `Policy` | `string?` | Rate limit policy name |
+
+---
+
+## ServiceProxy
+
+Used for proxied requests (e.g., to appview, labeler, or chat services):
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `ServiceDid` | `string` | Target service DID |
+| `ServiceType` | `string` | Service type (e.g., `atproto_labeler`) |
+
+---
+
+## AtProtoScopes
+
+Permission NSIDs for OAuth scope negotiation:
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `Full` | `atproto` | Full access |
+| `TransitionGeneric` | `transition:generic` | Generic transition scope |
+| `TransitionChatBsky` | `transition:chat.bsky` | Chat messaging scope |

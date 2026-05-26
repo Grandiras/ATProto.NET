@@ -270,26 +270,68 @@ public sealed class OAuthClient : IDisposable
             }
         }
 
-        // Step 8: Resolve handle from DID document
+        // Step 8: Resolve handle from DID document — and verify bidirectionally.
+        // A handle is only authentic if (a) the DID document declares it in
+        // alsoKnownAs, AND (b) the handle's authoritative resolution (DNS TXT
+        // _atproto.<handle> or /.well-known/atproto-did) maps back to this DID.
+        // Without the second check, a PDS could announce any handle for its users.
         string? handle = null;
         try
         {
             var didDoc = await _discovery.FetchDidDocumentAsync(tokenResponse.Sub, cancellationToken);
-            handle = didDoc.AlsoKnownAs?
+            var claimedHandle = didDoc.AlsoKnownAs?
                 .FirstOrDefault(a => a.StartsWith("at://", StringComparison.OrdinalIgnoreCase))
                 ?["at://".Length..];
+
+            if (!string.IsNullOrEmpty(claimedHandle))
+            {
+                try
+                {
+                    // Use the AUTHORITATIVE resolver only (DNS TXT + .well-known on
+                    // the handle's own domain). The convenience resolver falls back
+                    // to the Bluesky appview, which is not the handle's authority —
+                    // accepting its answer would defeat bidirectional verification.
+                    var resolvedDid = await _discovery.ResolveHandleAuthoritativeAsync(claimedHandle, cancellationToken);
+                    if (string.Equals(resolvedDid, tokenResponse.Sub, StringComparison.Ordinal))
+                    {
+                        handle = claimedHandle;
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "Handle '{Handle}' resolves to '{ResolvedDid}', not '{ExpectedDid}'; treating as unverified.",
+                            claimedHandle, resolvedDid, tokenResponse.Sub);
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex,
+                        "Could not bidirectionally verify handle '{Handle}'; treating as unverified.",
+                        claimedHandle);
+                }
+            }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "Could not resolve handle from DID document");
         }
 
-        _logger.LogInformation("OAuth flow completed for {Did} ({Handle})", tokenResponse.Sub, handle);
+        // If bidirectional verification didn't pass, fall back to the DID so callers
+        // still have a unique identifier per user. Inspect IsHandleVerified before
+        // rendering Handle as a user-facing display name; the atproto convention is
+        // to show 'handle.invalid' in UIs for unverified accounts, but the SDK
+        // surfaces the DID so downstream code stays able to distinguish users.
+        var isHandleVerified = handle is not null;
+        handle ??= tokenResponse.Sub;
+
+        _logger.LogInformation("OAuth flow completed for {Did} (Handle={Handle}, Verified={Verified})",
+            tokenResponse.Sub, handle, isHandleVerified);
 
         return new OAuthSessionResult
         {
             Did = tokenResponse.Sub,
-            Handle = handle ?? tokenResponse.Sub,
+            Handle = handle,
+            IsHandleVerified = isHandleVerified,
             AccessToken = tokenResponse.AccessToken,
             RefreshToken = tokenResponse.RefreshToken,
             TokenType = tokenResponse.TokenType,
@@ -704,8 +746,19 @@ public sealed class OAuthSessionResult : IDisposable
     /// <summary>The DID of the authenticated account.</summary>
     public string Did { get; init; } = string.Empty;
 
-    /// <summary>The handle of the authenticated account.</summary>
+    /// <summary>
+    /// The handle of the authenticated account. Falls back to the DID when the
+    /// handle could not be bidirectionally verified — check <see cref="IsHandleVerified"/>
+    /// before displaying this as a user-facing identifier.
+    /// </summary>
     public string Handle { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Whether the handle was bidirectionally verified against the handle's own
+    /// authority (DNS TXT / .well-known). When false, <see cref="Handle"/> holds
+    /// the DID and the account should be rendered as unverified.
+    /// </summary>
+    public bool IsHandleVerified { get; init; }
 
     /// <summary>The OAuth access token (opaque, DPoP-bound).</summary>
     public string AccessToken { get; set; } = string.Empty;

@@ -65,11 +65,18 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     private readonly ISessionStore _sessionStore;
     private readonly ILogger<AtProtoClient> _logger;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
+    private static readonly TimeSpan _refreshTimerDeadline = TimeSpan.FromSeconds(30);
     private readonly string? _relayUrl;
     private Session? _session;
     private OAuthSessionResult? _oauthSession;
+    private OAuthClient? _oauthClient;
+    private IAtProtoTokenStore? _oauthTokenStore;
     private Timer? _refreshTimer;
-    private bool _disposed;
+    // Marked volatile so the timer callback (running on a thread-pool thread)
+    // sees Dispose's _disposed=true write without a memory barrier, and so the
+    // post-lock recheck inside OnRefreshTimerElapsed is reliable on weakly-
+    // ordered CPUs (ARM/Apple Silicon).
+    private volatile bool _disposed;
 
     // ──────────────────────────────────────────────────────────
     //  Construction
@@ -272,7 +279,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         var dict = XrpcQueryBuilder.ToDictionary(parameters);
-        return await _xrpc.QueryAsync<T>($"xrpc/{nsid}", dict, cancellationToken);
+        return await _xrpc.QueryAsync<T>(nsid, dict, cancellationToken);
     }
 
     /// <summary>
@@ -295,8 +302,8 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         CancellationToken cancellationToken = default) where T : class
     {
         if (body is not null)
-            return await _xrpc.ProcedureAsync<object, T>($"xrpc/{nsid}", body, cancellationToken: cancellationToken);
-        return await _xrpc.ProcedureAsync<T>($"xrpc/{nsid}", cancellationToken: cancellationToken);
+            return await _xrpc.ProcedureAsync<object, T>(nsid, body, cancellationToken: cancellationToken);
+        return await _xrpc.ProcedureAsync<T>(nsid, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -311,9 +318,9 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         if (body is not null)
-            await _xrpc.ProcedureAsync<object>($"xrpc/{nsid}", body, cancellationToken: cancellationToken);
+            await _xrpc.ProcedureAsync<object>(nsid, body, cancellationToken: cancellationToken);
         else
-            await _xrpc.ProcedureAsync($"xrpc/{nsid}", cancellationToken: cancellationToken);
+            await _xrpc.ProcedureAsync(nsid, cancellationToken: cancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -470,11 +477,100 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     }
 
     /// <summary>
-    /// Refresh the current session tokens.
+    /// Refresh the current session tokens. Routes OAuth-bound sessions through the
+    /// OAuth token endpoint (requires a registered <see cref="OAuthClient"/> — see
+    /// <see cref="ApplyOAuthSessionAsync"/>) and legacy app-password sessions through
+    /// <c>com.atproto.server.refreshSession</c>.
     /// </summary>
     public async Task RefreshSessionAsync(CancellationToken cancellationToken = default)
     {
-        if (_session?.RefreshJwt is null)
+        await _refreshLock.WaitAsync(cancellationToken);
+        try
+        {
+            await RefreshSessionUnlockedAsync(cancellationToken);
+        }
+        finally
+        {
+            _refreshLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Performs the actual refresh work without touching <see cref="_refreshLock"/>.
+    /// Public callers should go through <see cref="RefreshSessionAsync"/>; the timer
+    /// callback acquires the lock itself with a non-blocking wait so it can skip
+    /// when a refresh is already in progress.
+    /// </summary>
+    private async Task RefreshSessionUnlockedAsync(CancellationToken cancellationToken)
+    {
+        if (_oauthSession is not null)
+        {
+            if (_oauthClient is null)
+                throw new InvalidOperationException(
+                    "Cannot refresh OAuth session: no OAuthClient was registered. " +
+                    "Pass an OAuthClient to ApplyOAuthSessionAsync, or refresh manually.");
+
+            _logger.LogDebug("Refreshing OAuth session for {Did}", _oauthSession.Did);
+
+            var tokens = await _oauthClient.RefreshTokensAsync(_oauthSession, cancellationToken);
+            var refreshedAt = DateTimeOffset.UtcNow;
+
+            // Persist BEFORE mutating in-memory state. The auth server has
+            // already invalidated the old refresh token at this point — if the
+            // store write fails and we'd already mutated memory, the current
+            // process would silently continue with new tokens while the durable
+            // store keeps the dead old ones. A later process or sibling instance
+            // would then reload the dead token and log the user out with no
+            // visible signal that this refresh succeeded server-side.
+            //
+            // Writing the store first makes the failure mode loud: the in-memory
+            // session is still pointing at the (now-dead) old refresh token, so
+            // the next request fails fast with an unmistakable invalid_grant
+            // rather than silently corrupting persistence.
+            if (_oauthTokenStore is not null)
+            {
+                var updated = BuildRefreshedTokenData(_oauthSession, tokens, refreshedAt);
+                await _oauthTokenStore.StoreAsync(_oauthSession.Did, updated, cancellationToken);
+            }
+
+            // Store write succeeded (or no store wired). Safe to update memory.
+            _oauthSession.AccessToken = tokens.AccessToken;
+            if (tokens.RefreshToken is not null)
+                _oauthSession.RefreshToken = tokens.RefreshToken;
+            _oauthSession.TokenObtainedAt = refreshedAt;
+
+            _xrpc.SetOAuthTokens(
+                _oauthSession.AccessToken,
+                _oauthSession.RefreshToken,
+                _oauthSession.DPoP,
+                _oauthSession.ResourceServerDpopNonce);
+
+            if (_session is not null)
+            {
+                _session = new Session
+                {
+                    Did = _session.Did,
+                    Handle = _session.Handle,
+                    AccessJwt = _oauthSession.AccessToken,
+                    RefreshJwt = _oauthSession.RefreshToken ?? string.Empty,
+                    Email = _session.Email,
+                    EmailConfirmed = _session.EmailConfirmed,
+                    EmailAuthFactor = _session.EmailAuthFactor,
+                    DidDoc = _session.DidDoc,
+                    Active = _session.Active,
+                    Status = _session.Status,
+                };
+                await _sessionStore.SaveAsync(_session, cancellationToken);
+            }
+
+            if (tokens.ExpiresIn is { } expiresIn && expiresIn > 0)
+                StartRefreshTimer(TimeSpan.FromSeconds(Math.Max(expiresIn - 60, 30)));
+
+            _logger.LogDebug("OAuth session refreshed successfully");
+            return;
+        }
+
+        if (_session?.RefreshJwt is null or "")
             throw new InvalidOperationException("No session to refresh. Call LoginAsync first.");
 
         _logger.LogDebug("Refreshing session for {Did}", _session.Did);
@@ -504,27 +600,66 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// </summary>
     public async Task LogoutAsync(CancellationToken cancellationToken = default)
     {
-        if (_session is null && _oauthSession is null) return;
-
-        _logger.LogInformation("Logging out {Did}", _session?.Did ?? _oauthSession?.Did);
-
+        // Serialize the entire logout against any concurrent refresh or
+        // ApplyOAuthSessionAsync. Holding _refreshLock across the network call
+        // is intentional — the alternative (drop-the-lock-for-the-network-call)
+        // races a concurrent Apply that completes between DeleteSession and
+        // the post-network re-acquisition, then nulls the new session's state
+        // out from under the user. Callers concerned about a slow PDS pinning
+        // logout should pass a CancellationToken with their preferred timeout.
+        await _refreshLock.WaitAsync(cancellationToken);
         try
         {
-            if (_session is not null)
-                await Server.DeleteSessionAsync(cancellationToken);
+            if (_session is null && _oauthSession is null) return;
+
+            var loggingOutDid = _session?.Did ?? _oauthSession?.Did;
+            _logger.LogInformation("Logging out {Did}", loggingOutDid);
+
+            try
+            {
+                if (_session is not null)
+                    await Server.DeleteSessionAsync(cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Failed to delete session on server");
+            }
+
+            // Purge the persisted OAuth record (refresh token + DPoP key) so
+            // the user's credentials don't remain at rest beyond the documented
+            // session lifetime. Best-effort — a store outage shouldn't block
+            // the in-process state teardown that follows.
+            if (_oauthTokenStore is not null && loggingOutDid is not null)
+            {
+                try
+                {
+                    await _oauthTokenStore.RemoveAsync(loggingOutDid, cancellationToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex,
+                        "Failed to remove persisted OAuth tokens for {Did}; " +
+                        "stored tokens may outlive the in-process session.", loggingOutDid);
+                }
+            }
+
+            _xrpc.ClearTokens();
+            _session = null;
+            _oauthSession?.Dispose();
+            _oauthSession = null;
+            _oauthClient = null;
+            // Drop the token-store reference so a subsequent ApplyOAuthSessionAsync
+            // for a different user doesn't inherit it implicitly; the next caller
+            // must pass tokenStore explicitly (or accept no persistent rotation).
+            _oauthTokenStore = null;
+            StopRefreshTimer();
+
+            await _sessionStore.ClearAsync(cancellationToken);
         }
-        catch (Exception ex)
+        finally
         {
-            _logger.LogWarning(ex, "Failed to delete session on server");
+            _refreshLock.Release();
         }
-
-        _xrpc.ClearTokens();
-        _session = null;
-        _oauthSession?.Dispose();
-        _oauthSession = null;
-        StopRefreshTimer();
-
-        await _sessionStore.ClearAsync(cancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -557,49 +692,129 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// Sets up DPoP-bound tokens and points the client at the correct PDS.
     /// </summary>
     /// <param name="oauthSession">The completed OAuth session.</param>
+    /// <param name="oauthClient">
+    /// The <see cref="OAuthClient"/> that issued the session. Required for token
+    /// refresh; without it, <see cref="RefreshSessionAsync"/> will throw rather than
+    /// fall through to the legacy refresh endpoint with an empty bearer token.
+    /// </param>
+    /// <param name="tokenStore">
+    /// Optional durable store to receive rotated tokens after each successful
+    /// OAuth refresh. When provided, the rotated access/refresh tokens are
+    /// written back to <paramref name="tokenStore"/> alongside the in-memory
+    /// session so other processes and per-request clients see the latest
+    /// refresh token. Without this, a rotated refresh token is invalidated
+    /// before the next request reads the stale value from the store and the
+    /// user is silently logged out.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task ApplyOAuthSessionAsync(
         OAuthSessionResult oauthSession,
+        OAuthClient? oauthClient = null,
+        IAtProtoTokenStore? tokenStore = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(oauthSession);
 
-        _logger.LogInformation("Applying OAuth session for {Did} on PDS {PdsUrl}",
-            oauthSession.Did, oauthSession.PdsUrl);
-
-        // Point the XRPC client at the user's PDS
-        _xrpc.SetBaseUrl(oauthSession.PdsUrl);
-
-        // Set DPoP-bound tokens
-        _xrpc.SetOAuthTokens(
-            oauthSession.AccessToken,
-            oauthSession.RefreshToken,
-            oauthSession.DPoP,
-            oauthSession.ResourceServerDpopNonce);
-
-        _oauthSession = oauthSession;
-
-        // Create a session object for backward compatibility
-        _session = new Session
+        // Serialize against any in-flight refresh — without this lock the timer
+        // callback can dereference _oauthSession/_oauthClient/_xrpc tokens while
+        // Apply swaps them out, producing torn state or writing refresh results
+        // onto a freshly-installed session it never targeted.
+        await _refreshLock.WaitAsync(cancellationToken);
+        try
         {
-            Did = oauthSession.Did,
-            Handle = oauthSession.Handle,
-            AccessJwt = oauthSession.AccessToken,
-            RefreshJwt = oauthSession.RefreshToken ?? string.Empty,
+            // Only overwrite when the caller actually supplied a value. A
+            // shorthand re-Apply like `ApplyOAuthSessionAsync(session)` (the
+            // pattern in docs/oauth.md) would otherwise silently null out the
+            // refresh client and token store from a prior full Apply, and the
+            // next timer-driven refresh would throw "no OAuthClient was
+            // registered" — silently logging the user out an hour later.
+            // Callers that truly want to clear these can call LogoutAsync first
+            // (which nulls them deterministically).
+            if (oauthClient is not null) _oauthClient = oauthClient;
+            if (tokenStore is not null) _oauthTokenStore = tokenStore;
+
+            _logger.LogInformation("Applying OAuth session for {Did} on PDS {PdsUrl}",
+                oauthSession.Did, oauthSession.PdsUrl);
+
+            // Point the XRPC client at the user's PDS
+            _xrpc.SetBaseUrl(oauthSession.PdsUrl);
+
+            // Set DPoP-bound tokens
+            _xrpc.SetOAuthTokens(
+                oauthSession.AccessToken,
+                oauthSession.RefreshToken,
+                oauthSession.DPoP,
+                oauthSession.ResourceServerDpopNonce);
+
+            // Dispose the previous session's DPoP key BEFORE swapping. Without
+            // this, a re-Apply (account switch, factory reuse) leaks the prior
+            // ECDsa instance — only the GC finalizer would release the native
+            // handle. Per-request factory clients are unaffected (Dispose runs
+            // at request end), but long-lived Blazor hosts accumulate handles.
+            // Skip disposing the same instance (idempotent re-Apply).
+            if (!ReferenceEquals(_oauthSession, oauthSession))
+                _oauthSession?.Dispose();
+
+            _oauthSession = oauthSession;
+
+            // Create a session object for backward compatibility
+            _session = new Session
+            {
+                Did = oauthSession.Did,
+                Handle = oauthSession.Handle,
+                AccessJwt = oauthSession.AccessToken,
+                RefreshJwt = oauthSession.RefreshToken ?? string.Empty,
+            };
+
+            await _sessionStore.SaveAsync(_session, cancellationToken);
+
+            // Schedule token refresh
+            if (oauthSession.ExpiresIn.HasValue)
+            {
+                var refreshIn = TimeSpan.FromSeconds(Math.Max(oauthSession.ExpiresIn.Value - 60, 30));
+                StartRefreshTimer(refreshIn);
+            }
+            else
+            {
+                StartRefreshTimer(TimeSpan.FromMinutes(4));
+            }
+        }
+        finally
+        {
+            _refreshLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Builds an <see cref="AtProtoTokenData"/> snapshot using the unchanged
+    /// session metadata (DPoP key, PDS URL, issuer, handle) combined with the
+    /// freshly-rotated tokens from a refresh response. Used by the OAuth
+    /// refresh path to persist the new state to <see cref="IAtProtoTokenStore"/>
+    /// BEFORE mutating the in-memory session.
+    /// </summary>
+    private static AtProtoTokenData BuildRefreshedTokenData(
+        OAuthSessionResult session, OAuthTokenResponse tokens, DateTimeOffset refreshedAt)
+    {
+        return new AtProtoTokenData
+        {
+            Did = session.Did,
+            Handle = session.Handle,
+            IsHandleVerified = session.IsHandleVerified,
+            AccessToken = tokens.AccessToken,
+            // Refresh responses MAY omit refresh_token to mean "reuse the prior
+            // one"; keep the existing one in that case.
+            RefreshToken = tokens.RefreshToken ?? session.RefreshToken,
+            PdsUrl = session.PdsUrl,
+            Issuer = session.Issuer,
+            TokenEndpoint = session.TokenEndpoint,
+            DPoPPrivateKey = session.DPoP.ExportPrivateKey(),
+            AuthServerDpopNonce = session.AuthServerDpopNonce,
+            ResourceServerDpopNonce = session.ResourceServerDpopNonce,
+            TokenObtainedAt = refreshedAt,
+            // ExpiresIn / Scope may be rotated by the AS — prefer fresh values.
+            ExpiresIn = tokens.ExpiresIn ?? session.ExpiresIn,
+            Scope = tokens.Scope ?? session.Scope,
         };
-
-        await _sessionStore.SaveAsync(_session, cancellationToken);
-
-        // Schedule token refresh
-        if (oauthSession.ExpiresIn.HasValue)
-        {
-            var refreshIn = TimeSpan.FromSeconds(Math.Max(oauthSession.ExpiresIn.Value - 60, 30));
-            StartRefreshTimer(refreshIn);
-        }
-        else
-        {
-            StartRefreshTimer(TimeSpan.FromMinutes(4));
-        }
     }
 
     /// <summary>
@@ -832,7 +1047,21 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
     private async void OnRefreshTimerElapsed(object? state)
     {
-        if (!await _refreshLock.WaitAsync(0))
+        // Cheap pre-check: bail if Dispose has already run. Volatile read so the
+        // result is current across cores. The post-lock recheck below covers
+        // the case where Dispose interleaves between this check and the wait.
+        if (_disposed) return;
+
+        // WaitAsync(0) can throw ObjectDisposedException if Dispose ran between
+        // the timer firing and this code; treat that as "client is gone, drop".
+        bool acquired;
+        try
+        {
+            acquired = await _refreshLock.WaitAsync(0);
+        }
+        catch (ObjectDisposedException) { return; }
+
+        if (!acquired)
         {
             _logger.LogDebug("Session refresh already in progress, skipping");
             return;
@@ -840,7 +1069,16 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
         try
         {
-            await RefreshSessionAsync();
+            // Recheck after acquiring the lock — Dispose could have raced
+            // between our pre-check and the wait, and we don't want to refresh
+            // (and persist) tokens for a client whose shutdown has been signaled.
+            if (_disposed) return;
+
+            // Bound the timer-driven refresh so a slow/unresponsive token endpoint
+            // doesn't pin _refreshLock forever, blocking foreground LogoutAsync /
+            // ApplyOAuthSessionAsync that share the lock.
+            using var cts = new CancellationTokenSource(_refreshTimerDeadline);
+            await RefreshSessionUnlockedAsync(cts.Token);
         }
         catch (Exception ex)
         {
@@ -848,7 +1086,10 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         }
         finally
         {
-            _refreshLock.Release();
+            // Dispose could have raced ahead — guard the release.
+            try { _refreshLock.Release(); }
+            catch (ObjectDisposedException) { }
+            catch (SemaphoreFullException) { }
         }
     }
 
@@ -868,7 +1109,34 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         if (_disposed) return;
         _disposed = true;
 
-        _refreshTimer?.Dispose();
+        // Drain any in-flight timer callbacks BEFORE disposing _refreshLock or
+        // _oauthSession — Timer.Dispose() (no-arg) returns immediately without
+        // waiting for callbacks, leaving a fire-in-progress refresh holding the
+        // lock and dereferencing the session we're about to dispose. The
+        // WaitHandle overload signals when all callbacks have drained.
+        if (_refreshTimer is not null)
+        {
+            using var waitHandle = new System.Threading.ManualResetEvent(false);
+            if (_refreshTimer.Dispose(waitHandle))
+            {
+                // Cap the wait at the timer-callback deadline (callback bounds
+                // its own work with the same value), then fall through. The
+                // callback's Release is wrapped in try/catch so even if it lands
+                // after the lock is disposed, it won't escape — but a callback
+                // that exceeds its own deadline is investigation-worthy, so log.
+                if (!waitHandle.WaitOne(_refreshTimerDeadline + TimeSpan.FromSeconds(5)))
+                {
+                    _logger.LogWarning(
+                        "Refresh-timer callback did not drain within {Timeout}s during Dispose; " +
+                        "proceeding with lock/session teardown. Late callback completion is " +
+                        "guarded but may produce harmless ObjectDisposedException log noise.",
+                        (_refreshTimerDeadline + TimeSpan.FromSeconds(5)).TotalSeconds);
+                }
+            }
+        }
+
+        _oauthSession?.Dispose();
+        _refreshLock.Dispose();
         if (_ownsHttpClient)
             _httpClient.Dispose();
     }
@@ -879,8 +1147,12 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         if (_disposed) return;
         _disposed = true;
 
+        // Timer.DisposeAsync waits for in-flight callbacks, so the lock and
+        // session are safe to dispose afterward.
         if (_refreshTimer is not null)
             await _refreshTimer.DisposeAsync();
+        _oauthSession?.Dispose();
+        _refreshLock.Dispose();
         if (_ownsHttpClient)
             _httpClient.Dispose();
     }

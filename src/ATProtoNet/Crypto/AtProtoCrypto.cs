@@ -169,7 +169,7 @@ public static class AtProtoCrypto
     /// Verifies a signature against message bytes using a <c>did:key</c>.
     /// </summary>
     /// <param name="didKey">The signer's did:key.</param>
-    /// <param name="message">The message bytes that were signed (pre-hashed with SHA-256).</param>
+    /// <param name="message">The raw message bytes that were signed. Do NOT pre-hash; this method hashes with SHA-256 internally.</param>
     /// <param name="signature">The signature bytes (IEEE P1363 format — r || s concatenation).</param>
     /// <returns><c>true</c> if the signature is valid.</returns>
     public static bool VerifySignature(string didKey, ReadOnlySpan<byte> message, ReadOnlySpan<byte> signature)

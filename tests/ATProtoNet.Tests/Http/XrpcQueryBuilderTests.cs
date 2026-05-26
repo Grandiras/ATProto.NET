@@ -61,8 +61,9 @@ public class XrpcQueryBuilderTests
     {
         var result = XrpcQueryBuilder.ToDictionary(new { limit = 10, reverse = true });
         Assert.NotNull(result);
-        Assert.Equal("10", result["limit"]);
-        Assert.Equal("true", result["reverse"]);
+        var pairs = result.ToList();
+        Assert.Contains(pairs, kv => kv.Key == "limit" && kv.Value == "10");
+        Assert.Contains(pairs, kv => kv.Key == "reverse" && kv.Value == "true");
     }
 
     [Fact]
@@ -71,5 +72,22 @@ public class XrpcQueryBuilderTests
         var dict = new Dictionary<string, string?> { ["a"] = "b" };
         var result = XrpcQueryBuilder.ToDictionary(dict);
         Assert.Same(dict, result);
+    }
+
+    [Fact]
+    public void ToDictionary_EnumerableValue_ExpandsToRepeatedKeys()
+    {
+        var result = XrpcQueryBuilder.ToDictionary(new { uris = new[] { "a", "b", "c" } });
+        Assert.NotNull(result);
+        var values = result.Where(kv => kv.Key == "uris").Select(kv => kv.Value).ToList();
+        Assert.Equal(new[] { "a", "b", "c" }, values);
+    }
+
+    [Fact]
+    public void BuildQueryString_EnumerableValue_EmitsRepeatedKeys()
+    {
+        var result = XrpcQueryBuilder.BuildQueryString(new { langs = new[] { "en", "fr" } });
+        // repeated keys, not a single comma-joined value
+        Assert.Equal("?langs=en&langs=fr", result);
     }
 }

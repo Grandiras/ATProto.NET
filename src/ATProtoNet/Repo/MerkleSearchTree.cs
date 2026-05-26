@@ -43,14 +43,14 @@ public sealed class MerkleSearchTree
     /// </summary>
     /// <param name="entries">The key/value pairs. Keys are UTF-8 repo paths, values are CID bytes.</param>
     /// <returns>A new MST containing all entries.</returns>
+    /// <remarks>
+    /// Delegates to <see cref="CreateFromEntries"/> so both factories produce
+    /// the same spec-conformant shape. The earlier <c>BuildLayer</c> recursion
+    /// did not materialize empty parent layers and could diverge from the
+    /// atproto/ts reference for key sets spanning non-contiguous depths.
+    /// </remarks>
     public static MerkleSearchTree Create(IEnumerable<KeyValuePair<string, byte[]>> entries)
-    {
-        var sorted = entries.OrderBy(e => e.Key, StringComparer.Ordinal).ToList();
-
-        // Build from sorted entries using the layer algorithm
-        var root = BuildLayer(sorted, 0);
-        return new MerkleSearchTree(root ?? new MstMemoryNode());
-    }
+        => CreateFromEntries(entries);
 
     /// <summary>
     /// Gets the record CID for a given key, or <c>null</c> if not found.
@@ -161,67 +161,6 @@ public sealed class MerkleSearchTree
 
     // ── Build from sorted entries ────────────────────────────
 
-    private static MstMemoryNode? BuildLayer(List<KeyValuePair<string, byte[]>> entries, int layer)
-    {
-        if (entries.Count == 0)
-            return layer == 0 ? new MstMemoryNode() : null;
-
-        // Separate entries at this layer from those at lower layers
-        var nodeEntries = new List<MstMemoryEntry>();
-        var leftEntries = new List<KeyValuePair<string, byte[]>>();
-
-        foreach (var entry in entries)
-        {
-            var depth = MstKeyDepth.ComputeDepth(entry.Key);
-            if (depth == layer)
-            {
-                // Before adding this entry, build a subtree from accumulated lower entries
-                var subtree = BuildLayer(leftEntries, layer - 1);
-                nodeEntries.Add(new MstMemoryEntry(entry.Key, entry.Value, subtree));
-                leftEntries = [];
-            }
-            else if (depth < layer)
-            {
-                leftEntries.Add(entry);
-            }
-            else
-            {
-                // depth > layer: shouldn't happen if we picked the right max layer
-                // This can happen when building recursive subtrees; pass through
-                leftEntries.Add(entry);
-            }
-        }
-
-        // Remaining entries form the rightmost subtree (which becomes the left pointer)
-        var lastSubtree = BuildLayer(leftEntries, layer - 1);
-
-        if (nodeEntries.Count == 0)
-        {
-            // No entries at this layer; the node is just a pass-through
-            return lastSubtree;
-        }
-
-        var node = new MstMemoryNode
-        {
-            Left = nodeEntries[0].Subtree, // Left of first entry
-        };
-
-        // The first entry's subtree is now the node's Left
-        nodeEntries[0] = nodeEntries[0] with { Subtree = null };
-
-        // Set the last entry's subtree to lastSubtree
-        if (lastSubtree is not null)
-        {
-            var lastIdx = nodeEntries.Count - 1;
-            var last = nodeEntries[lastIdx];
-            // If no entries were accumulated after the last key, this is the right subtree
-            nodeEntries[lastIdx] = last with { Subtree = lastSubtree };
-        }
-
-        node.Entries.AddRange(nodeEntries);
-        return node;
-    }
-
     /// <summary>
     /// Creates an MST from a set of key/value pairs by finding the max depth
     /// and using the layer-based build algorithm.
@@ -264,8 +203,11 @@ public sealed class MerkleSearchTree
 
         if (atLayer.Count == 0)
         {
-            // No entries at this layer; recurse down
-            return BuildLayerTopDown(entries, layer - 1);
+            // No entries at this exact layer. Build the subtree at layer-1 and wrap
+            // in one empty parent node so the structural depth of the returned slot
+            // matches `layer`. Matches the reference impl's empty-parent chain.
+            var inner = BuildLayerTopDown(entries, layer - 1);
+            return inner is null ? null : new MstMemoryNode { Left = inner };
         }
 
         var node = new MstMemoryNode();
@@ -429,21 +371,38 @@ public sealed class MerkleSearchTree
 
     private static MstMemoryNode SplitAndInsert(MstMemoryNode node, string key, byte[] value, int currentDepth, int targetDepth)
     {
-        // We need to create layers from currentDepth up to targetDepth
-        // and insert the key at targetDepth
-        var newNode = new MstMemoryNode();
-
-        // Split the current node around the key
+        // Split the existing node around `key`. The two halves sit at `currentDepth`;
+        // the new entry sits at `targetDepth`. When `targetDepth - currentDepth > 1`
+        // we must wrap each half in (targetDepth - currentDepth - 1) empty parent
+        // nodes so the structural depth between the new entry and the split halves
+        // matches the spec. The reference atproto/ts MST (`createParent()` loop in
+        // packages/repo/src/mst/mst.ts `add`) does exactly this; without it, the
+        // root CID diverges from spec-conformant peers.
         var (leftNode, rightNode) = SplitNodeAtKey(node, key, currentDepth);
 
-        newNode.Left = leftNode;
-        newNode.Entries.Add(new MstMemoryEntry(key, value, rightNode));
+        var extraLayers = targetDepth - currentDepth - 1;
+        if (extraLayers > 0)
+        {
+            leftNode = WrapInEmptyLayers(leftNode, extraLayers);
+            rightNode = WrapInEmptyLayers(rightNode, extraLayers);
+        }
 
-        // If we need more intermediate layers, wrap
-        // Actually: the current node was at 'currentDepth'. The key needs to be at 'targetDepth'.
-        // We directly create the node at targetDepth. Empty intermediate nodes are allowed
-        // as long as they point to subtrees with entries.
+        var newNode = new MstMemoryNode { Left = leftNode };
+        newNode.Entries.Add(new MstMemoryEntry(key, value, rightNode));
         return newNode;
+    }
+
+    /// <summary>
+    /// Wraps <paramref name="node"/> in <paramref name="count"/> empty parent
+    /// layers, with the inner node as each parent's <c>Left</c> pointer. Matches
+    /// the reference impl's <c>createParent()</c> chain.
+    /// </summary>
+    private static MstMemoryNode? WrapInEmptyLayers(MstMemoryNode? node, int count)
+    {
+        if (node is null) return null;
+        for (var i = 0; i < count; i++)
+            node = new MstMemoryNode { Left = node };
+        return node;
     }
 
     private static (MstMemoryNode? Left, MstMemoryNode? Right) SplitSubtree(MstMemoryNode? subtree, string splitKey)

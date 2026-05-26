@@ -124,7 +124,7 @@ public static class PdsHostingExtensions
 
         endpoints.MapPost("/xrpc/com.atproto.server.refreshSession", async (HttpContext ctx, PdsService pds, PdsSessionService sessions) =>
         {
-            var did = await ExtractDidFromTokenAsync(ctx, sessions);
+            var did = await ExtractDidFromTokenAsync(ctx, sessions, requiredScope: "com.atproto.refresh");
             if (did is null) return Results.Json(new PdsErrorResponse("AuthenticationRequired", "Invalid or missing token."), statusCode: 401);
 
             try
@@ -252,15 +252,30 @@ public static class PdsHostingExtensions
 
         // ── Blob endpoints ──
 
-        endpoints.MapPost("/xrpc/com.atproto.repo.uploadBlob", async (HttpContext ctx, PdsService pds, PdsSessionService sessions) =>
+        endpoints.MapPost("/xrpc/com.atproto.repo.uploadBlob", async (HttpContext ctx, PdsService pds, PdsSessionService sessions, PdsOptions pdsOptions) =>
         {
             var did = await ExtractDidFromTokenAsync(ctx, sessions);
             if (did is null) return Results.Json(new PdsErrorResponse("AuthenticationRequired", "Invalid or missing token."), statusCode: 401);
 
             var contentType = ctx.Request.ContentType ?? "application/octet-stream";
-            using var ms = new MemoryStream();
-            await ctx.Request.Body.CopyToAsync(ms, ctx.RequestAborted);
-            var data = ms.ToArray();
+
+            // Reject oversized uploads before allocating: prefer Content-Length when present
+            // and otherwise stream-copy with a hard ceiling so a hostile client can't OOM us.
+            var maxSize = pdsOptions.MaxBlobSize;
+            if (ctx.Request.ContentLength is { } declared && declared > maxSize)
+            {
+                return Results.Json(
+                    new PdsErrorResponse("BlobTooLarge", $"Blob size {declared} exceeds maximum of {maxSize} bytes."),
+                    statusCode: 413);
+            }
+
+            var data = await ReadBoundedBodyAsync(ctx.Request.Body, maxSize, ctx.RequestAborted);
+            if (data is null)
+            {
+                return Results.Json(
+                    new PdsErrorResponse("BlobTooLarge", $"Blob size exceeds maximum of {maxSize} bytes."),
+                    statusCode: 413);
+            }
 
             try
             {
@@ -291,7 +306,45 @@ public static class PdsHostingExtensions
         return endpoints;
     }
 
-    private static Task<string?> ExtractDidFromTokenAsync(HttpContext ctx, PdsSessionService sessions)
+    /// <summary>
+    /// Stream-copies a request body into a byte array, aborting once <paramref name="maxBytes"/>
+    /// is exceeded. Returns <c>null</c> if the body is too large.
+    /// </summary>
+    private static async Task<byte[]?> ReadBoundedBodyAsync(Stream body, long maxBytes, CancellationToken cancellationToken)
+    {
+        using var ms = new MemoryStream();
+        var buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(81920);
+        try
+        {
+            while (true)
+            {
+                var read = await body.ReadAsync(buffer.AsMemory(), cancellationToken);
+                if (read == 0) break;
+
+                if (ms.Length + read > maxBytes)
+                    return null;
+
+                ms.Write(buffer, 0, read);
+            }
+        }
+        finally
+        {
+            System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
+        }
+
+        return ms.ToArray();
+    }
+
+    /// <summary>
+    /// Extracts the DID from a Bearer token, enforcing that the token carries the
+    /// expected scope. Defaults to the access-token scope ("atproto"); pass
+    /// "com.atproto.refresh" to gate the refresh endpoint so refresh tokens cannot
+    /// be replayed as access tokens (or vice versa).
+    /// </summary>
+    private static Task<string?> ExtractDidFromTokenAsync(
+        HttpContext ctx,
+        PdsSessionService sessions,
+        string requiredScope = "atproto")
     {
         var authHeader = ctx.Request.Headers.Authorization.ToString();
         if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
@@ -301,7 +354,23 @@ public static class PdsHostingExtensions
         var result = sessions.ValidateToken(token);
         if (result is null || !result.IsValid) return Task.FromResult<string?>(null);
 
+        // OAuth scope is a space-separated set (RFC 6749 §3.3); the required scope
+        // must be one of its members, not the full string.
+        if (!HasScope(result.Scope, requiredScope))
+            return Task.FromResult<string?>(null);
+
         return Task.FromResult<string?>(result.Did);
+    }
+
+    private static bool HasScope(string? tokenScope, string requiredScope)
+    {
+        if (string.IsNullOrEmpty(tokenScope)) return false;
+        foreach (var part in tokenScope.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (string.Equals(part, requiredScope, StringComparison.Ordinal))
+                return true;
+        }
+        return false;
     }
 
     // ── Input DTOs for endpoint deserialization ──

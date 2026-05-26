@@ -1,4 +1,5 @@
 using ATProtoNet.Blazor.Authentication;
+using ATProtoNet.Server.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -61,6 +62,10 @@ public static class AtProtoAuthenticationExtensions
 
         services.AddSingleton(options);
         services.TryAddSingleton<AtProtoOAuthService>();
+
+        // Make the same instance available to AtProtoClientFactory so per-request
+        // clients can refresh expired OAuth tokens via the same OAuthClient.
+        services.TryAddSingleton<IOAuthClientProvider>(sp => sp.GetRequiredService<AtProtoOAuthService>());
 
         return services;
     }

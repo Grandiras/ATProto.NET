@@ -20,6 +20,14 @@ public sealed class AtProtoTokenData
     /// <summary>The user's AT Protocol handle.</summary>
     public required string Handle { get; init; }
 
+    /// <summary>
+    /// Whether the handle was bidirectionally verified at login. When false,
+    /// <see cref="Handle"/> holds the DID and the account should be rendered
+    /// as unverified. Defaults to <c>false</c> for tokens persisted before
+    /// this field was introduced — re-login refreshes the value.
+    /// </summary>
+    public bool IsHandleVerified { get; init; }
+
     /// <summary>The DPoP-bound OAuth access token.</summary>
     public required string AccessToken { get; set; }
 

@@ -95,8 +95,118 @@ public sealed class AuthorizationServerDiscovery
     }
 
     /// <summary>
+    /// Resolves a handle to a DID using only AUTHORITATIVE methods: DNS TXT
+    /// (<c>_atproto.&lt;handle&gt;</c>) and HTTPS well-known
+    /// (<c>https://&lt;handle&gt;/.well-known/atproto-did</c>). Does NOT fall back to
+    /// the Bluesky appview — use this when correctness against the handle's own
+    /// authority matters (e.g. bidirectional verification of an OAuth identity).
+    /// </summary>
+    public async Task<string> ResolveHandleAuthoritativeAsync(
+        string handle, CancellationToken cancellationToken = default)
+    {
+        ValidateHandleFormat(handle);
+
+        // Run HTTPS well-known and DNS TXT lookups concurrently. Each authority is
+        // a different trust root (TLS CA vs DNSSEC), so a first-success-wins
+        // strategy lets an attacker who compromises EITHER source (e.g. an HTTPS
+        // cert hijack of a victim's domain) silently complete verification.
+        // When both sources answer we require agreement, fail closed on conflict.
+        var httpsTask = ResolveHandleViaHttpsAsync(handle, cancellationToken);
+        var dnsTask = ResolveHandleViaDnsAsync(handle, cancellationToken);
+        await Task.WhenAll(httpsTask, dnsTask);
+
+        var httpsDid = httpsTask.Result;
+        var dnsDid = dnsTask.Result;
+
+        if (httpsDid is not null && dnsDid is not null)
+        {
+            if (!string.Equals(httpsDid, dnsDid, StringComparison.Ordinal))
+            {
+                _logger.LogWarning(
+                    "Handle '{Handle}' resolved to conflicting DIDs (HTTPS={HttpsDid}, DNS={DnsDid}); failing closed.",
+                    handle, httpsDid, dnsDid);
+                throw new OAuthException(
+                    $"Handle '{handle}' resolution conflict: HTTPS reports '{httpsDid}', DNS reports '{dnsDid}'.",
+                    "handle_resolution_conflict");
+            }
+            return httpsDid;
+        }
+
+        if (httpsDid is not null)
+        {
+            _logger.LogInformation(
+                "Handle '{Handle}' resolved via HTTPS only (DNS lookup did not produce a DID).", handle);
+            return httpsDid;
+        }
+
+        if (dnsDid is not null)
+        {
+            _logger.LogInformation(
+                "Handle '{Handle}' resolved via DNS only (HTTPS lookup did not produce a DID).", handle);
+            return dnsDid;
+        }
+
+        throw new OAuthException(
+            $"Could not authoritatively resolve handle '{handle}' to a DID.",
+            "handle_resolution_failed");
+    }
+
+    private async Task<string?> ResolveHandleViaHttpsAsync(string handle, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var url = $"https://{handle}/.well-known/atproto-did";
+            var response = await _httpClient.GetAsync(url, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            var did = (await response.Content.ReadAsStringAsync(cancellationToken)).Trim();
+            return did.StartsWith("did:", StringComparison.OrdinalIgnoreCase) ? did : null;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "HTTPS handle resolution failed for {Handle}", handle);
+            return null;
+        }
+    }
+
+    private async Task<string?> ResolveHandleViaDnsAsync(string handle, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var dnsUrl = $"https://dns.google/resolve?name=_atproto.{handle}&type=TXT";
+            var dnsResponse = await _httpClient.GetFromJsonAsync<DnsResponse>(dnsUrl, cancellationToken);
+            if (dnsResponse?.Answer is { } answers)
+            {
+                foreach (var answer in answers)
+                {
+                    var data = answer.Data?.Trim('"');
+                    if (data?.StartsWith("did=", StringComparison.OrdinalIgnoreCase) == true)
+                        return data["did=".Length..];
+                }
+            }
+            return null;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "DNS-over-HTTPS handle resolution failed for {Handle}", handle);
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Resolves a handle to a DID using the AT Protocol handle resolution methods.
-    /// Tries HTTPS resolution first (via any PDS), then DNS TXT.
+    /// Tries HTTPS resolution first (via any PDS), then DNS TXT, then falls back to
+    /// the Bluesky appview. Use only when convenience matters more than authority —
+    /// for identity-verification flows, prefer <see cref="ResolveHandleAuthoritativeAsync"/>.
     /// </summary>
     public async Task<string> ResolveHandleToDidAsync(
         string handle, CancellationToken cancellationToken = default)
@@ -172,7 +282,8 @@ public sealed class AuthorizationServerDiscovery
         var didDoc = await FetchDidDocumentAsync(did, cancellationToken);
 
         var pdsService = didDoc.Service?.FirstOrDefault(s =>
-            s.Id == "#atproto_pds" || s.Type == "AtprotoPersonalDataServer");
+            (s.Id == "#atproto_pds" || s.Id == $"{did}#atproto_pds") &&
+            s.Type == "AtprotoPersonalDataServer");
 
         if (pdsService is null)
             throw new OAuthException(
@@ -213,7 +324,53 @@ public sealed class AuthorizationServerDiscovery
         var didDoc = await response.Content.ReadFromJsonAsync<DidDocument>(_jsonOptions, cancellationToken)
             ?? throw new OAuthException($"Failed to deserialize DID document for '{did}'.", "did_resolution_failed");
 
+        // The DID document MUST self-identify as the requested DID. Without this
+        // check a malicious directory could swap a victim's signing key or PDS
+        // endpoint by returning a forged document under a different `id`.
+        //
+        // did:plc identifiers are case-sensitive (the suffix is base32 over a hash);
+        // for did:web the identifier embeds a DNS host, which is case-insensitive
+        // per RFC 1035 — so `did:web:Example.com` and `did:web:example.com` MUST
+        // be treated as equal even though their byte-string forms differ.
+        if (!DidIdsMatch(didDoc.Id, did))
+        {
+            throw new OAuthException(
+                $"DID document id '{didDoc.Id}' does not match requested DID '{did}'.",
+                "did_resolution_failed");
+        }
+
         return didDoc;
+    }
+
+    private static bool DidIdsMatch(string documentId, string requestedDid)
+    {
+        if (requestedDid.StartsWith("did:web:", StringComparison.OrdinalIgnoreCase))
+        {
+            // Lowercase the host portion (everything after "did:web:" up to the
+            // first ':') for comparison; preserve the optional path-style suffix
+            // after the colon, which is case-sensitive per the did:web spec.
+            return string.Equals(
+                NormalizeDidWeb(documentId), NormalizeDidWeb(requestedDid),
+                StringComparison.Ordinal);
+        }
+
+        return string.Equals(documentId, requestedDid, StringComparison.Ordinal);
+
+        static string NormalizeDidWeb(string did)
+        {
+            if (!did.StartsWith("did:web:", StringComparison.OrdinalIgnoreCase))
+                return did;
+
+            var suffix = did["did:web:".Length..];
+            var sep = suffix.IndexOf(':');
+            if (sep < 0)
+                return "did:web:" + suffix.ToLowerInvariant();
+
+            // Host is case-insensitive, path-style suffix is case-sensitive.
+            var host = suffix[..sep].ToLowerInvariant();
+            var path = suffix[sep..];
+            return "did:web:" + host + path;
+        }
     }
 
     /// <summary>

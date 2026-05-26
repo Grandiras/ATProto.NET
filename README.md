@@ -23,18 +23,32 @@ While this library is near to feature complete, it's still vibe-coded for the mo
 - **OAuth authentication** — DPoP, PAR, PKCE with dynamic PDS selection
 - **Custom XRPC endpoints** — call your own query/procedure methods
 - **Bluesky APIs** — actors, feeds, posts, social graph, notifications, rich text
+- **Chat & DMs** — full `chat.bsky` direct messaging with conversations, reactions, batch send
+- **Ozone moderation** — `tools.ozone` moderation, communication, team management, sets, signatures
+- **Standard.site** — publications, documents, subscriptions for long-form content
+- **Video upload** — `app.bsky.video` upload, job status polling, upload limits
+- **Labeler services** — service declarations, custom label definitions, header management
+- **PDS hosting** — host your own Personal Data Server with `ATProtoNet.Pds`
+- **XRPC endpoint handlers** — DI-friendly server-side XRPC query/procedure handlers
 - **ASP.NET Core integration** — dependency injection, JWT authentication handler
 - **Blazor components** — login forms (with OAuth), profile cards, post cards, feed views, composers
+- **.NET Aspire** — service defaults, health checks, standard resilience
+- **EF Core token store** — database-backed OAuth token storage
 - **Rich text builder** — fluent API with automatic UTF-8 byte offset calculation
-- **Firehose client** — real-time WebSocket streaming
+- **Firehose client** — real-time streaming with typed consumer, collection filtering, CID/signature verification
 - **Type-safe identity** — `Did`, `Handle`, `AtUri`, `Nsid`, `Tid`, `RecordKey`, `Cid`
 - **Automatic session management** — token refresh, persistence, resume
 - **Dynamic PDS** — connect to any PDS at runtime, resolve from user identity
-- **Lexicon code generator** — bidirectional `dotnet tool` for Lexicon JSON ↔ C# with schema diff
+- **Lexicon code generator** — bidirectional `dotnet tool` for Lexicon JSON ↔ C# with schema diff, migrations, publishing
 - **Cryptography** — P-256 & K-256 key generation, ECDSA signing, `did:key` / multikey encoding
+- **DID resolution** — `did:plc` via PLC directory, `did:web` with SSRF prevention, unified `DidResolver`
 - **CAR file reader** — parse Content Addressable aRchive (CAR v1) files from repo sync
+- **Merkle Search Tree** — full MST implementation with CID computation
+- **DAG-CBOR** — deterministic encoding/decoding layer for AT Protocol data
 - **PLC directory client** — resolve DIDs, fetch operation logs and audit trails
 - **Service authentication** — generate inter-service JWT tokens for feed generators, labelers, relays
+- **Rate limiting** — automatic 429 retry with configurable behavior, exposed `RateLimitInfo`
+- **Repo-Rev tracking** — automatic `Atproto-Repo-Rev` header extraction
 
 ## Quick Start
 
@@ -561,7 +575,13 @@ ATProto.NET/
 │   │   ├── Extensions/               # DI registration (AddAtProtoServer, AddAtProto)
 │   │   ├── Authentication/           # JWT auth handler
 │   │   ├── Services/                 # IAtProtoClientFactory
-│   │   └── TokenStore/               # IAtProtoTokenStore, FileAtProtoTokenStore (default), InMemoryAtProtoTokenStore
+│   │   ├── TokenStore/               # IAtProtoTokenStore, FileAtProtoTokenStore (default), InMemoryAtProtoTokenStore
+│   │   └── Xrpc/                     # XRPC endpoint handler interfaces and routing
+│   ├── ATProtoNet.Server.EntityFrameworkCore/  # EF Core token store
+│   ├── ATProtoNet.Aspire/            # .NET Aspire integration
+│   │   └── AtProtoAspireExtensions   # AddAtProtoClient(), health checks, resilience
+│   ├── ATProtoNet.Pds/               # PDS hosting
+│   │   └── PdsHostingExtensions      # AddAtProtoPds(), MapAtProtoPds()
 │   └── ATProtoNet.Blazor/            # Blazor components
 │       ├── Components/                # Razor components (LoginForm)
 │       ├── Authentication/            # OAuth service, options
@@ -572,6 +592,8 @@ ATProto.NET/
 │       └── Models/                    # Lexicon schema models
 ├── samples/
 │   ├── BlazorOAuthSample/            # Blazor Server OAuth example
+│   ├── FirehoseConsumerSample/       # Typed firehose consumer with filtering
+│   ├── PdsSample/                    # Minimal PDS hosting
 │   └── ServerIntegrationSample/      # Blazor + server-side AT Proto access
 └── tests/
     ├── ATProtoNet.Tests/              # Unit tests (451 tests)
@@ -598,6 +620,12 @@ ATProto.NET/
 | `client.Bsky.Feed` | `app.bsky.feed.*` | Posts, timeline, feeds, likes |
 | `client.Bsky.Graph` | `app.bsky.graph.*` | Follows, blocks, mutes, lists |
 | `client.Bsky.Notification` | `app.bsky.notification.*` | Notification management |
+| `client.Bsky.Video` | `app.bsky.video.*` | Video upload and processing |
+| `client.Bsky.Labeler` | `app.bsky.labeler.*` | Labeler service declarations |
+| `client.Chat.Convo` | `chat.bsky.convo.*` | Direct messages, conversations |
+| `client.Chat.Actor` | `chat.bsky.actor.*` | Chat actor preferences |
+| `client.Ozone` | `tools.ozone.*` | Moderation, communication, team, sets |
+| `client.Site` | `standard.site.*` | Publications, documents, subscriptions |
 
 ### Additional Components
 
@@ -606,8 +634,16 @@ ATProto.NET/
 | `AtProtoCrypto` | `ATProtoNet.Crypto` | P-256/K-256 key generation, signing, `did:key`/multikey |
 | `AtProtoKey` | `ATProtoNet.Crypto` | Key pair wrapper: sign, verify, export/import |
 | `CarReader` | `ATProtoNet.Repo` | CAR v1 file parsing (repo sync) |
+| `MerkleSearchTree` | `ATProtoNet.Repo` | Full MST implementation for repository data |
+| `DagCborEncoder/Decoder` | `ATProtoNet.Repo` | Deterministic CBOR encoding/decoding |
+| `CidComputation` | `ATProtoNet.Repo` | CIDv1 computation and verification |
 | `PlcClient` | `ATProtoNet.Identity` | PLC directory resolution and queries |
+| `DidWebResolver` | `ATProtoNet.Identity` | did:web resolution with SSRF prevention |
+| `DidResolver` | `ATProtoNet.Identity` | Unified DID dispatcher (did:plc + did:web) |
 | `ServiceAuthGenerator` | `ATProtoNet.Auth` | Inter-service JWT generation |
+| `TypedFirehoseConsumer` | `ATProtoNet.Streaming` | High-level firehose with filtering/verification |
+| `FirehoseEventParser` | `ATProtoNet.Streaming` | CBOR frame parsing into typed events |
+| `FirehoseVerifier` | `ATProtoNet.Streaming` | CID and signature verification |
 
 ### Identity Types
 
@@ -660,11 +696,28 @@ var client = new AtProtoClientBuilder()
 ```csharp
 using ATProtoNet.Streaming;
 
+// Basic streaming
 var firehose = new FirehoseClient("wss://bsky.network");
 
 await foreach (var message in firehose.SubscribeAsync())
 {
     Console.WriteLine($"Seq: {message.Seq}, Repo: {message.Repo}");
+}
+
+// Typed consumer with collection filtering and verification
+var consumer = new TypedFirehoseConsumer(new TypedFirehoseConsumerOptions
+{
+    ServiceUrl = "wss://bsky.network",
+    CollectionFilter = new HashSet<string> { "app.bsky.feed.post" },
+    VerifyCids = true,
+    MaxReconnectAttempts = -1,
+});
+
+await foreach (var msg in consumer.ConsumeAsync())
+{
+    if (msg is CommitEvent commit)
+        foreach (var op in commit.Ops ?? [])
+            Console.WriteLine($"{op.Action} {op.Path} from {commit.Repo}");
 }
 ```
 

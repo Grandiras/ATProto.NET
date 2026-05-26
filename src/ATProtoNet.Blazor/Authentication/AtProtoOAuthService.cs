@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using ATProtoNet.Auth.OAuth;
+using ATProtoNet.Server.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -23,12 +24,12 @@ namespace ATProtoNet.Blazor.Authentication;
 /// <c>&lt;AuthorizeView&gt;</c>, <c>[Authorize]</c>, and <c>AuthorizeRouteView</c>.</para>
 /// <para>Registered as a singleton by <see cref="AtProtoAuthenticationExtensions.AddAtProtoAuthentication"/>.</para>
 /// </remarks>
-public sealed class AtProtoOAuthService : IDisposable
+public sealed class AtProtoOAuthService : IOAuthClientProvider, IDisposable
 {
     private readonly AtProtoOAuthServerOptions _serverOptions;
     private readonly ILogger<AtProtoOAuthService> _logger;
     private readonly ILogger<OAuthClient> _oauthClientLogger;
-    private OAuthClient? _oauthClient;
+    private volatile OAuthClient? _oauthClient;
     private HttpClient? _httpClient;
     private readonly object _lock = new();
     private bool _disposed;
@@ -43,6 +44,45 @@ public sealed class AtProtoOAuthService : IDisposable
         _serverOptions = serverOptions ?? throw new ArgumentNullException(nameof(serverOptions));
         _logger = loggerFactory.CreateLogger<AtProtoOAuthService>();
         _oauthClientLogger = loggerFactory.CreateLogger<OAuthClient>();
+    }
+
+    /// <summary>
+    /// Returns the shared OAuth client used to refresh expired tokens on
+    /// factory-built per-request clients. Constructs one lazily on first call
+    /// when <see cref="AtProtoOAuthServerOptions.ClientMetadata"/> is set
+    /// explicitly — that's the only case where the synthesized
+    /// <c>client_id</c> is guaranteed to match the one registered at login,
+    /// because the redirect URI is part of <c>ClientMetadata</c> and stable
+    /// across calls.
+    /// </summary>
+    /// <remarks>
+    /// Returns <c>null</c> when no user has logged in on this process AND
+    /// either (a) no explicit <c>ClientMetadata</c> is configured (auto
+    /// loopback), or (b) only <c>BaseUrl</c> is set. The loopback case cannot
+    /// be lazily constructed without an <see cref="HttpContext"/>: the
+    /// client_id encodes the callback URL, and the SDK rewrites
+    /// <c>localhost</c> → <c>127.0.0.1</c> based on the live request, so a
+    /// BaseUrl-derived URL would differ from the one a real login produced and
+    /// every refresh would fail with <c>invalid_client</c>. Factory-built
+    /// clients fall back to <c>null</c>, the OAuth refresh path then throws a
+    /// loud <see cref="InvalidOperationException"/> — operators see the issue
+    /// instead of silent logout on next token expiry. Production deployments
+    /// should set <c>ClientMetadata</c> explicitly to enable this path.
+    /// </remarks>
+    public OAuthClient? TryGetClient()
+    {
+        var existing = _oauthClient;
+        if (existing is not null) return existing;
+
+        // Only construct eagerly when ClientMetadata is explicit. The redirect
+        // URI registered with the AS is the first entry; this is the URL the
+        // OAuthClient binds its client_id to. Loopback (no ClientMetadata) has
+        // no stable callback to derive at this point — fall through to null.
+        var registeredCallback = _serverOptions.ClientMetadata?.RedirectUris.FirstOrDefault();
+        if (registeredCallback is null)
+            return null;
+
+        return GetOrCreateClient(registeredCallback);
     }
 
     private OAuthClient GetOrCreateClient(string callbackUrl)
@@ -181,6 +221,7 @@ public sealed class AtProtoOAuthService : IDisposable
                 {
                     Did = result.Did,
                     Handle = result.Handle,
+                    IsHandleVerified = result.IsHandleVerified,
                     AccessToken = result.AccessToken,
                     RefreshToken = result.RefreshToken,
                     PdsUrl = result.PdsUrl,
@@ -321,12 +362,21 @@ public sealed class AtProtoOAuthService : IDisposable
 
     private static List<Claim> CreateDefaultClaims(OAuthSessionResult result)
     {
+        // For unverified handles, OAuthSessionResult.Handle is the DID (see
+        // OAuthClient.CompleteAuthorizationAsync). Stamping a DID into ClaimTypes.Name
+        // pollutes UI greetings, URL slugs, and log filters keyed on User.Identity.Name.
+        // Use the atproto sentinel "handle.invalid" for Name so callers can branch
+        // on the IsHandleVerified claim, while still surfacing the DID via the
+        // `did` claim and the actual stored handle value via `handle`.
+        var nameForDisplay = result.IsHandleVerified ? result.Handle : "handle.invalid";
+
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, result.Did),
-            new(ClaimTypes.Name, result.Handle),
+            new(ClaimTypes.Name, nameForDisplay),
             new("did", result.Did),
             new("handle", result.Handle),
+            new("handle_verified", result.IsHandleVerified ? "true" : "false"),
             new("pds_url", result.PdsUrl),
             new("auth_method", "oauth"),
         };

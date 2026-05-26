@@ -77,6 +77,13 @@ public sealed class PlcClient : IDisposable
         var doc = await response.Content.ReadFromJsonAsync<DidDocument>(_jsonOptions, cancellationToken)
             ?? throw new PlcException("Failed to parse DID document.", PlcErrorKind.ParseError);
 
+        // Defend against a compromised or misbehaving directory returning a forged
+        // document for a different DID. The `id` field must echo the requested DID.
+        if (!string.Equals(doc.Id, did, StringComparison.Ordinal))
+            throw new PlcException(
+                $"DID document id '{doc.Id}' does not match requested DID '{did}'.",
+                PlcErrorKind.ParseError);
+
         return doc;
     }
 
