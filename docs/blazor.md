@@ -88,14 +88,26 @@ The form includes:
 | `ReturnUrl` | `string` | `"/"` | Redirect URL after successful login |
 | `CssClass` | `string?` | — | CSS class for the form container |
 | `ShowPdsOption` | `bool` | `true` | Show "Specify PDS manually" checkbox |
-| `HandleLabel` | `string` | `"Handle"` | Label for the handle input |
-| `HandlePlaceholder` | `string` | `"alice.bsky.social"` | Placeholder text |
-| `HandleHint` | `string` | `"Your AT Protocol handle..."` | Hint text below input |
-| `PdsCheckboxLabel` | `string` | `"Specify PDS manually"` | PDS checkbox label |
-| `PdsHint` | `string` | `"Skip automatic PDS discovery..."` | PDS hint text |
-| `ButtonText` | `string` | `"Sign in with AT Proto"` | Submit button text |
+| `HeadingText` | `string?` | — | Optional heading rendered above the form |
+| `SubtitleText` | `string?` | — | Optional subtitle rendered above the form |
+| `HandleLabel` | `string?` | `"Handle"` | Label for the handle input |
+| `HandlePlaceholder` | `string?` | `"alice.bsky.social"` | Placeholder text |
+| `HandleHint` | `string?` | `"Your Atmosphere account handle — your PDS is detected automatically."` | Hint text below input |
+| `PdsCheckboxLabel` | `string?` | `"Specify PDS manually"` | PDS checkbox label |
+| `PdsHint` | `string?` | `"Skip automatic PDS discovery and connect directly."` | PDS hint text |
+| `ButtonText` | `string?` | `"Sign in with your Atmosphere account"` | Submit button text |
 
-All labels are customizable — useful for localization.
+All labels are customizable — useful for localization. Default copy uses
+"Atmosphere account" terminology (the community-facing umbrella term for the
+AT Protocol ecosystem). Override any parameter to use different wording.
+
+#### Translations
+
+Register an `IStringLocalizer<LoginForm>` (e.g. via `services.AddLocalization()`
+and a `.resx` resource source) and the form will look up its default copy by
+parameter name (`ButtonText`, `HandleLabel`, `HandleHint`, etc.). Explicit
+parameter values still override the localizer; missing resource keys fall back
+to the English defaults above.
 
 ### Using AuthorizeView
 

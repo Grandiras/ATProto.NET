@@ -1,6 +1,16 @@
 @using Microsoft.AspNetCore.Components
+@using Microsoft.Extensions.Localization
 
 <div class="atproto-login-form @CssClass">
+    @if (!string.IsNullOrEmpty(EffectiveHeadingText))
+    {
+        <h1 class="atproto-login-heading">@EffectiveHeadingText</h1>
+    }
+    @if (!string.IsNullOrEmpty(EffectiveSubtitleText))
+    {
+        <p class="atproto-login-subtitle text-muted">@EffectiveSubtitleText</p>
+    }
+
     @if (!string.IsNullOrEmpty(_error))
     {
         <div class="atproto-login-error alert alert-danger" role="alert">
@@ -11,14 +21,14 @@
     <form action="@LoginEndpoint" method="get">
         @* Handle / identifier *@
         <div class="atproto-login-field mb-3">
-            <label for="atproto-handle" class="form-label">@HandleLabel</label>
+            <label for="atproto-handle" class="form-label">@EffectiveHandleLabel</label>
             <input id="atproto-handle"
                    name="handle"
                    type="text"
                    class="form-control"
-                   placeholder="@HandlePlaceholder"
+                   placeholder="@EffectiveHandlePlaceholder"
                    required />
-            <small class="atproto-login-hint form-text text-muted">@HandleHint</small>
+            <small class="atproto-login-hint form-text text-muted">@EffectiveHandleHint</small>
         </div>
 
         @* Optional PDS URL — shown when user wants to specify their PDS directly *@
@@ -31,7 +41,7 @@
                            class="form-check-input"
                            @bind="_specifyPds" />
                     <label for="atproto-specify-pds" class="form-check-label text-muted">
-                        @PdsCheckboxLabel
+                        @EffectivePdsCheckboxLabel
                     </label>
                 </div>
                 @if (_specifyPds)
@@ -41,7 +51,7 @@
                            type="url"
                            class="form-control"
                            placeholder="https://pds.example.com" />
-                    <small class="form-text text-muted">@PdsHint</small>
+                    <small class="form-text text-muted">@EffectivePdsHint</small>
                 }
             </div>
         }
@@ -49,13 +59,23 @@
         <input type="hidden" name="returnUrl" value="@ReturnUrl" />
 
         <button type="submit" class="atproto-login-button btn btn-primary w-100">
-            @ButtonText
+            @EffectiveButtonText
         </button>
     </form>
 </div>
 
 @code {
     [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    /// <summary>
+    /// Optional <see cref="IStringLocalizer{T}"/> for translating the form's default copy.
+    /// When registered in DI, string lookups by parameter name (e.g. "ButtonText",
+    /// "HandleLabel") override the built-in English defaults. Explicit parameter values
+    /// still take precedence over the localizer. Register with
+    /// <c>services.AddLocalization()</c> and provide a resource source (.resx,
+    /// <see cref="IStringLocalizerFactory"/>, etc.).
+    /// </summary>
+    [Inject] private IStringLocalizer<LoginForm>? Localizer { get; set; }
 
     /// <summary>
     /// The login endpoint URL that the form submits to.
@@ -78,23 +98,67 @@
     /// </summary>
     [Parameter] public bool ShowPdsOption { get; set; } = true;
 
+    /// <summary>
+    /// Optional heading rendered above the form. When null/empty, no heading is rendered.
+    /// Default: null (no heading). Resolved through <see cref="Localizer"/> key
+    /// <c>HeadingText</c> when registered.
+    /// </summary>
+    [Parameter] public string? HeadingText { get; set; }
+
+    /// <summary>
+    /// Optional subtitle rendered between the heading and the form. When null/empty,
+    /// no subtitle is rendered.
+    /// Default: null (no subtitle). Resolved through <see cref="Localizer"/> key
+    /// <c>SubtitleText</c> when registered.
+    /// </summary>
+    [Parameter] public string? SubtitleText { get; set; }
+
     /// <summary>Label for the handle input field. Default: "Handle".</summary>
-    [Parameter] public string HandleLabel { get; set; } = "Handle";
+    [Parameter] public string? HandleLabel { get; set; }
 
     /// <summary>Placeholder for the handle input field. Default: "alice.bsky.social".</summary>
-    [Parameter] public string HandlePlaceholder { get; set; } = "alice.bsky.social";
+    [Parameter] public string? HandlePlaceholder { get; set; }
 
-    /// <summary>Hint text below the handle input. Default: "Your AT Protocol handle — PDS is detected automatically.".</summary>
-    [Parameter] public string HandleHint { get; set; } = "Your AT Protocol handle — PDS is detected automatically.";
+    /// <summary>
+    /// Hint text below the handle input.
+    /// Default: "Your Atmosphere account handle — your PDS is detected automatically.".
+    /// </summary>
+    [Parameter] public string? HandleHint { get; set; }
 
     /// <summary>Label for the PDS checkbox. Default: "Specify PDS manually".</summary>
-    [Parameter] public string PdsCheckboxLabel { get; set; } = "Specify PDS manually";
+    [Parameter] public string? PdsCheckboxLabel { get; set; }
 
     /// <summary>Hint text below the PDS URL input. Default: "Skip automatic PDS discovery and connect directly.".</summary>
-    [Parameter] public string PdsHint { get; set; } = "Skip automatic PDS discovery and connect directly.";
+    [Parameter] public string? PdsHint { get; set; }
 
-    /// <summary>Text for the submit button. Default: "Sign in with AT Proto".</summary>
-    [Parameter] public string ButtonText { get; set; } = "Sign in with AT Proto";
+    /// <summary>
+    /// Text for the submit button.
+    /// Default: "Sign in with your Atmosphere account".
+    /// </summary>
+    [Parameter] public string? ButtonText { get; set; }
+
+    private string? EffectiveHeadingText => Resolve(HeadingText, nameof(HeadingText), null);
+    private string? EffectiveSubtitleText => Resolve(SubtitleText, nameof(SubtitleText), null);
+    private string EffectiveHandleLabel => Resolve(HandleLabel, nameof(HandleLabel), "Handle")!;
+    private string EffectiveHandlePlaceholder => Resolve(HandlePlaceholder, nameof(HandlePlaceholder), "alice.bsky.social")!;
+    private string EffectiveHandleHint => Resolve(HandleHint, nameof(HandleHint),
+        "Your Atmosphere account handle — your PDS is detected automatically.")!;
+    private string EffectivePdsCheckboxLabel => Resolve(PdsCheckboxLabel, nameof(PdsCheckboxLabel), "Specify PDS manually")!;
+    private string EffectivePdsHint => Resolve(PdsHint, nameof(PdsHint),
+        "Skip automatic PDS discovery and connect directly.")!;
+    private string EffectiveButtonText => Resolve(ButtonText, nameof(ButtonText),
+        "Sign in with your Atmosphere account")!;
+
+    private string? Resolve(string? explicitValue, string key, string? fallback)
+    {
+        if (explicitValue is not null) return explicitValue;
+        if (Localizer is not null)
+        {
+            var localized = Localizer[key];
+            if (!localized.ResourceNotFound) return localized.Value;
+        }
+        return fallback;
+    }
 
     private bool _specifyPds;
     private string? _error;
