@@ -187,10 +187,10 @@ builder.Services.AddAtProtoServer<DatabaseTokenStore>();
 
 ### Entity Framework Core Token Store
 
-ATProtoNet provides a ready-made EF Core implementation via the `ATProtoNet.Server.EntityFrameworkCore` package:
+ATProtoNet provides a ready-made EF Core implementation, included in the `ATProtoNet.Server` package. (It previously shipped as the separate `ATProtoNet.Server.EntityFrameworkCore` package, which has been merged into `ATProtoNet.Server`; the `ATProtoNet.Server.EntityFrameworkCore` namespace and the `AddAtProtoEfCoreTokenStore<T>()` API are unchanged.)
 
 ```bash
-dotnet add package ATProtoNet.Server.EntityFrameworkCore
+dotnet add package ATProtoNet.Server
 ```
 
 Register with your `DbContext`:

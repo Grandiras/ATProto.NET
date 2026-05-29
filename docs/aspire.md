@@ -1,11 +1,11 @@
 # .NET Aspire Integration
 
-The `ATProtoNet.Aspire` package integrates ATProto.NET into .NET Aspire service defaults with health checks, resilience policies, and configuration binding.
+The `ATProtoNet.Server` package integrates ATProto.NET into .NET Aspire service defaults with health checks, resilience policies, and configuration binding. (This client integration previously shipped as the separate `ATProtoNet.Aspire` package; it has been merged into `ATProtoNet.Server`. The `ATProtoNet.Aspire` namespace and the `AddAtProtoClient()` API are unchanged.)
 
 ## Installation
 
 ```bash
-dotnet add package ATProtoNet.Aspire
+dotnet add package ATProtoNet.Server
 ```
 
 ## Quick Start

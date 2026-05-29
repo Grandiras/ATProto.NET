@@ -11,20 +11,18 @@
 # Core SDK
 dotnet add package ATProtoNet
 
-# ASP.NET Core integration (optional)
+# ASP.NET Core integration — DI, JWT auth, EF Core token store,
+# and .NET Aspire client integration (optional)
 dotnet add package ATProtoNet.Server
 
 # Blazor components (optional)
 dotnet add package ATProtoNet.Blazor
 
-# .NET Aspire integration (optional)
-dotnet add package ATProtoNet.Aspire
-
 # PDS hosting (optional)
 dotnet add package ATProtoNet.Pds
 
-# EF Core token store (optional)
-dotnet add package ATProtoNet.Server.EntityFrameworkCore
+# Aspire AppHost-side PDS container resource (optional)
+dotnet add package ATProtoNet.Aspire.Hosting
 
 # Lexicon code generator CLI tool (optional)
 dotnet tool install -g ATProtoNet.LexiconGenerator

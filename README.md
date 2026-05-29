@@ -29,7 +29,7 @@ The SDK is in `0.*` because, while it's near feature-complete, it's mostly vibe-
 dotnet add package ATProtoNet
 ```
 
-Additional packages (`ATProtoNet.Server`, `ATProtoNet.Blazor`, `ATProtoNet.Aspire`, `ATProtoNet.Pds`, `ATProtoNet.Server.EntityFrameworkCore`) and the `atproto-lexgen` `dotnet tool` are documented in the [full package matrix](docs/getting-started.md#install-the-package).
+Additional packages (`ATProtoNet.Server` — ASP.NET Core integration including the EF Core token store and Aspire client integration, `ATProtoNet.Blazor`, `ATProtoNet.Pds`, `ATProtoNet.Aspire.Hosting`) and the `atproto-lexgen` `dotnet tool` are documented in the [full package matrix](docs/getting-started.md#install-the-package).
 
 ## A 30-second taste
 

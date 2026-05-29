@@ -43,13 +43,12 @@ The **canonical remote is Forgejo** at `git.grandiras.net` (origin), with GitHub
 
 Shared package metadata (`Version`, `Authors`, SourceLink, deterministic build flags) lives in `Directory.Build.props` — do not duplicate it in individual `.csproj` files. Set `<IsPackable>false</IsPackable>` on non-packable projects (tests, samples).
 
-The seven `src/` projects layer onto each other:
+The five `src/` projects layer onto each other:
 
 - **`ATProtoNet`** — core SDK, zero ASP.NET dependency. The `AtProtoClient` facade composes per-Lexicon-domain sub-clients (`Server`, `Repo`, `Identity`, `Sync`, `Admin`, `Label`, `Moderation`, `Bsky`, `Chat`, `Ozone`, `Site`), each wrapping the shared `XrpcClient`. Custom records flow through `RecordCollection<T>` and `GetCollection<T>(nsid)`; custom XRPC through `QueryAsync<T>` / `ProcedureAsync<T>`. `InternalsVisibleTo` is granted to `ATProtoNet.Tests`.
-- **`ATProtoNet.Server`** — ASP.NET Core integration: DI extensions (`AddAtProto`, `AddAtProtoServer`), JWT auth handler, `IAtProtoClientFactory`, `IAtProtoTokenStore` (in-memory + file implementations live here), and the server-side XRPC handler routing in `Xrpc/`.
-- **`ATProtoNet.Server.EntityFrameworkCore`** — EF Core-backed `IAtProtoTokenStore`.
+- **`ATProtoNet.Server`** — ASP.NET Core integration: DI extensions (`AddAtProto`, `AddAtProtoServer`), JWT auth handler, `IAtProtoClientFactory`, `IAtProtoTokenStore` (in-memory + file implementations in `TokenStore/`, plus the EF Core implementation in `TokenStore/EntityFrameworkCore/` — namespace `ATProtoNet.Server.EntityFrameworkCore`), the server-side XRPC handler routing in `Xrpc/`, and .NET Aspire client integration in `Aspire/` (`AddAtProtoClient`, health checks, resilience — namespace `ATProtoNet.Aspire`). The EF Core token store and Aspire client were merged in from separate packages; both keep their original namespaces.
 - **`ATProtoNet.Blazor`** — Blazor components (`LoginForm`, etc.) and the OAuth login endpoints registered by `MapAtProtoOAuth()`.
-- **`ATProtoNet.Aspire`** / **`ATProtoNet.Aspire.Hosting`** — .NET Aspire client integration (resilience, health checks) and Aspire `AppHost`-side resource/container hosting for a PDS.
+- **`ATProtoNet.Aspire.Hosting`** — Aspire `AppHost`-side resource/container hosting for a PDS.
 - **`ATProtoNet.Pds`** — Host your own PDS in-process via `AddAtProtoPds()` / `MapAtProtoPds()`. Pluggable `IAccountStore` and `IRepoStore` (in-memory implementations included).
 
 Tool: **`tools/ATProtoNet.LexiconGenerator`** is a `dotnet tool` (binary `atproto-lexgen`) for bidirectional Lexicon JSON ↔ C# generation, schema diffing, and migrations.

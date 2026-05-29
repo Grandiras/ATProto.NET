@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking changes
+
+- **`ATProtoNet.Server.EntityFrameworkCore` package merged into `ATProtoNet.Server`** (Issue #33) — The EF Core-backed `IAtProtoTokenStore` now ships inside `ATProtoNet.Server`. Remove the `ATProtoNet.Server.EntityFrameworkCore` `<PackageReference>` (it is replaced by `ATProtoNet.Server`); the `ATProtoNet.Server.EntityFrameworkCore` namespace, `AddAtProtoEfCoreTokenStore<TContext>()`, `AtProtoTokenDbContext`, and `AtProtoTokenEntity` are unchanged, so only the package reference changes. `ATProtoNet.Server` now transitively depends on `Microsoft.EntityFrameworkCore.Relational`
+- **`ATProtoNet.Aspire` package merged into `ATProtoNet.Server`** (Issue #33) — The .NET Aspire client integration now ships inside `ATProtoNet.Server`. Remove the `ATProtoNet.Aspire` `<PackageReference>` (it is replaced by `ATProtoNet.Server`); the `ATProtoNet.Aspire` namespace, `AddAtProtoClient(...)`, `AtProtoClientSettings`, and `AtProtoPdsHealthCheck` are unchanged. `ATProtoNet.Server` now depends on `Microsoft.Extensions.Http.Resilience`
+
+### Removed
+
+- **`ATProtoNet.Server.EntityFrameworkCore` and `ATProtoNet.Aspire` NuGet packages** (Issue #33) — Consolidated into `ATProtoNet.Server`, cutting the published set from 8 packages to 6. See **Breaking changes** above for the (reference-only) migration
+
 ### Fixed
 
 - **`Directory.Build.props` `RepositoryUrl` dropped the `.git` suffix** so Forgejo's NuGet registry can match the URL against the canonical repo URL on first upload. Without this, every new packable project published as an *orphan* (resolvable by `dotnet add package` but absent from the repo's Packages tab in the Forgejo UI), requiring a manual `POST /api/v1/packages/Grandiras/nuget/{name}/-/link/ATProto.NET` to relink after each first release. Affects new packages only; the five v0.4.0 packages already orphaned (`Aspire`, `Aspire.Hosting`, `Pds`, `LexiconGenerator`, `Server.EntityFrameworkCore`) were relinked manually post-release
