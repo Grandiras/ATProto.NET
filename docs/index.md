@@ -45,6 +45,7 @@ If you want a map of how the seven packages compose, see **[Architecture](archit
 
 ### Advanced
 - [Firehose Streaming](firehose.md) — real-time event streaming, typed consumers, verification
+- [Jetstream Streaming](jetstream.md) — JSON event streaming with server-side collection/DID filtering
 - [Cryptography](crypto.md) — key generation, signing, multikey encoding, service auth
 - [Lexicon Code Generator](lexicon-codegen.md) — generate C# from Lexicons (and vice versa)
 - [Low-Level Repo API](low-level-repo.md) — direct `RepoClient`, MST, DAG-CBOR, CAR files

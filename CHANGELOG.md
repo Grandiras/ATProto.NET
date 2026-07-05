@@ -12,6 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`ATProtoNet.Server.EntityFrameworkCore` package merged into `ATProtoNet.Server`** (Issue #33) — The EF Core-backed `IAtProtoTokenStore` now ships inside `ATProtoNet.Server`. Remove the `ATProtoNet.Server.EntityFrameworkCore` `<PackageReference>` (it is replaced by `ATProtoNet.Server`); the `ATProtoNet.Server.EntityFrameworkCore` namespace, `AddAtProtoEfCoreTokenStore<TContext>()`, `AtProtoTokenDbContext`, and `AtProtoTokenEntity` are unchanged, so only the package reference changes. `ATProtoNet.Server` now transitively depends on `Microsoft.EntityFrameworkCore.Relational`
 - **`ATProtoNet.Aspire` package merged into `ATProtoNet.Server`** (Issue #33) — The .NET Aspire client integration now ships inside `ATProtoNet.Server`. Remove the `ATProtoNet.Aspire` `<PackageReference>` (it is replaced by `ATProtoNet.Server`); the `ATProtoNet.Aspire` namespace, `AddAtProtoClient(...)`, `AtProtoClientSettings`, and `AtProtoPdsHealthCheck` are unchanged. `ATProtoNet.Server` now depends on `Microsoft.Extensions.Http.Resilience`
 
+### Added
+
+- **Jetstream consumer** (Issue #43) — JSON event streaming with server-side filtering, the bandwidth-friendly alternative to the binary firehose for indexing specific collections
+  - `JetstreamClient` — single WebSocket connection to a Jetstream instance's `/subscribe` endpoint with `wantedCollections` (NSIDs or prefix wildcards, max 100), `wantedDids` (max 10,000), `cursor` (unix microseconds), and `maxMessageSizeBytes` support
+  - `JetstreamConsumer` — managed consumer with automatic reconnection (backoff, `MaxReconnectAttempts`), cursor persistence through the existing `IFirehoseCursorStore` (cursor = `time_us`), reconnect rewind (`ReconnectRewind`, default 5 s) with duplicate suppression, and at-least-once delivery semantics across restarts
+  - `JetstreamEventParser` — forward-tolerant parser for `commit`/`identity`/`account` event kinds; unknown kinds, operations, and fields are skipped instead of throwing
+  - `JetstreamCommitEvent.GetRecord<T>()` — typed record deserialization honouring `LexiconTypeRegistry` registrations; computed `Uri` (`at://did/collection/rkey`)
+  - `IJetstreamDecompressor` — optional zstd seam; the SDK ships no zstd dependency, `docs/jetstream.md` includes a copy-paste `ZstdSharp.Port` implementation
+  - Jetstream events carry no MST proofs or signatures and cannot be cryptographically verified (documented; use the binary firehose where verification matters)
+  - New documentation page `docs/jetstream.md` incl. Jetstream-vs-firehose comparison table
+
 ### Removed
 
 - **`ATProtoNet.Server.EntityFrameworkCore` and `ATProtoNet.Aspire` NuGet packages** (Issue #33) — Consolidated into `ATProtoNet.Server`, cutting the published set from 8 packages to 6. See **Breaking changes** above for the (reference-only) migration
