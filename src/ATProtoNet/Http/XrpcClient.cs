@@ -25,6 +25,7 @@ public sealed class XrpcClient : IDisposable
     private RateLimitInfo? _latestRateLimitInfo;
     private string? _proxyHeader;
     private List<string>? _labelerDids;
+    private string? _adminCredential;
 
     /// <summary>
     /// The base URL of the XRPC service (e.g., https://bsky.social).
@@ -58,6 +59,11 @@ public sealed class XrpcClient : IDisposable
     /// Whether this client currently has authentication credentials.
     /// </summary>
     public bool IsAuthenticated => _accessToken is not null;
+
+    /// <summary>
+    /// Whether this client currently has PDS admin credentials.
+    /// </summary>
+    public bool HasAdminCredentials => _adminCredential is not null;
 
     /// <summary>
     /// Creates a new XrpcClient with the specified HttpClient and logger.
@@ -121,6 +127,34 @@ public sealed class XrpcClient : IDisposable
         }
 
         _httpClient.BaseAddress = uri;
+    }
+
+    /// <summary>
+    /// Sets PDS admin credentials for subsequent requests, sent as HTTP Basic
+    /// authentication (<c>Authorization: Basic base64(user:password)</c>).
+    /// </summary>
+    /// <remarks>
+    /// This is the scheme the reference Bluesky PDS expects on <c>com.atproto.admin.*</c>
+    /// endpoints, where the user is <c>admin</c> and the password is the server's
+    /// <c>PDS_ADMIN_PASSWORD</c>. Session tokens take priority: when a session is also
+    /// set via <see cref="SetTokens"/> or <see cref="SetOAuthTokens"/>, that token is
+    /// sent instead, so an admin client should not carry a user session.
+    /// </remarks>
+    /// <param name="password">The PDS admin password.</param>
+    /// <param name="user">The admin user name. Defaults to <c>"admin"</c>.</param>
+    public void SetAdminCredentials(string password, string user = "admin")
+    {
+        ArgumentException.ThrowIfNullOrEmpty(password);
+        _adminCredential = Convert.ToBase64String(
+            System.Text.Encoding.UTF8.GetBytes($"{user}:{password}"));
+    }
+
+    /// <summary>
+    /// Clears the PDS admin credentials.
+    /// </summary>
+    public void ClearAdminCredentials()
+    {
+        _adminCredential = null;
     }
 
     /// <summary>
@@ -503,7 +537,16 @@ public sealed class XrpcClient : IDisposable
 
     private void ApplyAuthHeader(HttpRequestMessage request, string? proxyOverride = null)
     {
-        if (_accessToken is null) return;
+        if (_accessToken is null)
+        {
+            // Admin (Basic) auth for com.atproto.admin.* against a self-hosted PDS.
+            if (_adminCredential is not null)
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Basic", _adminCredential);
+            }
+
+            return;
+        }
 
         if (_useDPoP && _dpop is not null)
         {

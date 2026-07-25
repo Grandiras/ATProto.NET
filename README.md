@@ -2,7 +2,7 @@
 
 [![CI](https://git.grandiras.net/Grandiras/ATProto.NET/actions/workflows/ci.yml/badge.svg)](https://git.grandiras.net/Grandiras/ATProto.NET/actions)
 
-A comprehensive .NET 10 SDK for the [AT Protocol](https://atproto.com). Build custom AT Protocol applications with your own Lexicon schemas, interact with Bluesky, or host your own PDS — all from clean, modern .NET APIs.
+A comprehensive .NET 10 SDK for the [AT Protocol](https://atproto.com). Build custom AT Protocol applications with your own Lexicon schemas, interact with Bluesky, or run your own managed PDS — all from clean, modern .NET APIs.
 
 **Source:** [Forgejo (canonical)](https://git.grandiras.net/Grandiras/ATProto.NET) · [GitHub (mirror — issues & PRs welcome here)](https://github.com/Grandiras/ATProto.NET)
 
@@ -19,7 +19,7 @@ The SDK is in `0.*` because, while it's near feature-complete, it's mostly vibe-
 - **Custom Lexicon support** — `RecordCollection<T>` for typed CRUD on your own record schemas, plus `QueryAsync<T>` / `ProcedureAsync<T>` for custom XRPC methods.
 - **OAuth & identity** — full AT Protocol OAuth (DPoP, PAR, PKCE), `did:plc` / `did:web` resolution, type-safe `Did` / `Handle` / `AtUri` / `Nsid` / `Tid` / `RecordKey` / `Cid`.
 - **Bluesky, Chat, Ozone** — `app.bsky.*` (actors, feeds, graph, notifications, rich text, video), `chat.bsky.*` (conversations, DMs), `tools.ozone.*` (moderation).
-- **Hosting** — ASP.NET Core DI + JWT auth, Blazor components with cookie-based OAuth, .NET Aspire integration, and **host your own PDS in-process** via `ATProtoNet.Pds`.
+- **Hosting** — ASP.NET Core DI + JWT auth, Blazor components with cookie-based OAuth, .NET Aspire integration, and a **managed PDS** — run the official Bluesky PDS container via `ATProtoNet.Aspire.Hosting` and administer it with `PdsAdminClient`.
 - **Repository internals** — typed firehose consumer with CID/signature verification, MST, CAR v1 parsing, DAG-CBOR, PLC directory client, P-256/K-256 crypto.
 - **Lexicon tooling** — `atproto-lexgen` `dotnet tool` for bidirectional Lexicon JSON ↔ C#, schema diffing, and publishing.
 
@@ -29,7 +29,7 @@ The SDK is in `0.*` because, while it's near feature-complete, it's mostly vibe-
 dotnet add package ATProtoNet
 ```
 
-Additional packages (`ATProtoNet.Server` — ASP.NET Core integration including the EF Core token store and Aspire client integration, `ATProtoNet.Blazor`, `ATProtoNet.Pds`, `ATProtoNet.Aspire.Hosting`) and the `atproto-lexgen` `dotnet tool` are documented in the [full package matrix](docs/getting-started.md#install-the-package).
+Additional packages (`ATProtoNet.Server` — ASP.NET Core integration including the EF Core token store and Aspire client integration, `ATProtoNet.Blazor`, `ATProtoNet.Aspire.Hosting`) and the `atproto-lexgen` `dotnet tool` are documented in the [full package matrix](docs/getting-started.md#install-the-package).
 
 ## A 30-second taste
 
@@ -75,7 +75,7 @@ One AT Protocol account can power many such apps — todos, bookmarks, recipes, 
 | Use OAuth (recommended for user-facing apps) | [OAuth Authentication](docs/oauth.md) |
 | Wire AT Proto into an ASP.NET / Blazor backend | [ASP.NET Core](docs/aspnet-core.md), [Blazor](docs/blazor.md) |
 | Consume the firehose with typed events | [Firehose Streaming](docs/firehose.md) |
-| Host your own PDS | [PDS Hosting](docs/pds.md) |
+| Run your own PDS | [Managed PDS](docs/managed-pds.md) |
 | Understand how the packages compose | [Architecture](docs/architecture.md) |
 | Everything else | [docs/index.md](docs/index.md) |
 

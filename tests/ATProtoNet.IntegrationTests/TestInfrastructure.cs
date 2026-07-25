@@ -49,10 +49,44 @@ public sealed class RequiresBlueskyFactAttribute : FactAttribute
     }
 }
 
+/// <summary>
+/// Skips a test that administers a PDS when no admin password is available.
+/// Set ATPROTO_PDS_ADMIN_PASSWORD (and optionally ATPROTO_PDS_URL).
+/// </summary>
+/// <remarks>
+/// Unlike <see cref="RequiresPdsFactAttribute"/> these tests need no pre-existing
+/// account — they provision their own — but they do need the server's admin password.
+/// </remarks>
+public sealed class RequiresPdsAdminFactAttribute : FactAttribute
+{
+    public RequiresPdsAdminFactAttribute()
+    {
+        if (string.IsNullOrEmpty(TestConfig.AdminPassword) && !TestConfig.IntegrationRequired)
+        {
+            Skip = "PDS admin tests require the ATPROTO_PDS_ADMIN_PASSWORD environment variable. " +
+                   "Optionally set ATPROTO_PDS_URL (defaults to http://localhost:2583).";
+        }
+    }
+}
+
 public static class TestConfig
 {
     public static string PdsUrl =>
         Environment.GetEnvironmentVariable("ATPROTO_PDS_URL") ?? "http://localhost:2583";
+
+    public static string AdminPassword =>
+        Environment.GetEnvironmentVariable("ATPROTO_PDS_ADMIN_PASSWORD") ?? "";
+
+    /// <summary>
+    /// Whether environment-dependent tests must run rather than skip.
+    /// </summary>
+    /// <remarks>
+    /// <c>dotnet test --filter</c> exits 0 when every matched test skips, so a CI job
+    /// whose environment variables drifted would pass while verifying nothing. Setting
+    /// <c>ATPROTO_REQUIRE_INTEGRATION=1</c> makes a missing prerequisite a failure.
+    /// </remarks>
+    public static bool IntegrationRequired =>
+        Environment.GetEnvironmentVariable("ATPROTO_REQUIRE_INTEGRATION") is "1" or "true";
 
     public static string Handle =>
         Environment.GetEnvironmentVariable("ATPROTO_TEST_HANDLE") ?? "";

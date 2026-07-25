@@ -28,3 +28,77 @@ jobs:
 
       - name: Run unit tests
         run: dotnet test tests/ATProtoNet.Tests/ --no-build --configuration Release --verbosity normal
+
+      # Publishing is the path least covered by unit tests: it is where local-only
+      # defaults (dev mode, a localhost hostname, generated hex secrets) would otherwise
+      # leak into a deployment. Generating the manifest needs no container runtime.
+      - name: Verify Aspire publish manifest
+        # One variable names the manifest for both the publish and the assertions, so the
+        # two cannot drift apart. `dotnet test --filter` exits 0 both when everything it
+        # matched skipped and when it matched nothing at all, so a drifted variable or a
+        # renamed test class would otherwise leave a green check that asserted nothing:
+        # ATPROTO_REQUIRE_INTEGRATION closes the first, TreatNoTestsAsError the second.
+        run: |
+          dotnet run --project samples/ManagedPdsSample.AppHost --no-build --configuration Release -- \
+            --publisher manifest --output-path "$ATPROTO_ASPIRE_MANIFEST"
+          cat "$ATPROTO_ASPIRE_MANIFEST"
+          dotnet test tests/ATProtoNet.Tests/ --no-build --configuration Release \
+            --filter "FullyQualifiedName~AspireManifestTests" \
+            -- RunConfiguration.TreatNoTestsAsError=true
+        env:
+          ATPROTO_ASPIRE_MANIFEST: ${{ github.workspace }}/manifest.json
+          ATPROTO_REQUIRE_INTEGRATION: "1"
+
+  # Exercises PdsAdminClient against the real reference PDS: the wire format, the admin
+  # auth scheme, and the account-provisioning flow are all seams unit tests cannot cover.
+  pds-integration:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/dotnet/sdk:10.0
+    services:
+      pds:
+        image: ghcr.io/bluesky-social/pds:latest
+        env:
+          PDS_HOSTNAME: localhost
+          PDS_DEV_MODE: "true"
+          # A service container gets no volume, and the PDS will not create its data
+          # directory — pointing it at /pds would exit with "Cannot open database because
+          # the directory does not exist". /tmp already exists and the server is
+          # ephemeral, so nothing needs to outlive the job.
+          PDS_DATA_DIRECTORY: /tmp
+          PDS_BLOBSTORE_DISK_LOCATION: /tmp/blocks
+          PDS_ADMIN_PASSWORD: ci-admin-password
+          # Fixed values: this server is torn down with the job.
+          PDS_JWT_SECRET: 00112233445566778899aabbccddeeff
+          PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    steps:
+      - name: Checkout
+        run: |
+          git config --global --add safe.directory "$(pwd)"
+          git init
+          git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin "${GITHUB_SHA}"
+          git checkout "${GITHUB_SHA}"
+
+      - name: Wait for the PDS to come up
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf "http://pds:3000/xrpc/_health"; then
+              echo "PDS is up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "PDS did not become healthy in time"
+          exit 1
+
+      - name: Run PDS admin integration tests
+        run: |
+          dotnet test tests/ATProtoNet.IntegrationTests/ --configuration Release \
+            --filter "FullyQualifiedName~PdsAdminTests" --verbosity normal \
+            -- RunConfiguration.TreatNoTestsAsError=true
+        env:
+          ATPROTO_PDS_URL: http://pds:3000
+          ATPROTO_PDS_ADMIN_PASSWORD: ci-admin-password
+          # Refuse to pass by skipping if the variables above ever drift.
+          ATPROTO_REQUIRE_INTEGRATION: "1"

@@ -44,6 +44,7 @@ podman run -d --name atproto-pds \
   -p 2583:3000 \
   -e PDS_HOSTNAME=pds.test \
   -e PDS_DATA_DIRECTORY=/pds \
+  -e PDS_BLOBSTORE_DISK_LOCATION=/pds/blocks \
   -e PDS_JWT_SECRET=$(openssl rand -hex 16) \
   -e PDS_ADMIN_PASSWORD=admin-pass \
   -e PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX=$(openssl rand -hex 32) \

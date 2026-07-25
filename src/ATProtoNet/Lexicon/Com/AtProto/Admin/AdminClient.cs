@@ -95,7 +95,7 @@ public sealed class AdminClient
         string did, CancellationToken cancellationToken = default)
     {
         var request = new AdminDeleteAccountRequest { Did = did };
-        await _xrpc.ProcedureAsync<AdminDeleteAccountRequest, object>(
+        await _xrpc.ProcedureAsync<AdminDeleteAccountRequest>(
             "com.atproto.admin.deleteAccount", request, cancellationToken: cancellationToken);
     }
 
@@ -107,7 +107,7 @@ public sealed class AdminClient
         CancellationToken cancellationToken = default)
     {
         var request = new DisableAccountInvitesRequest { Account = account, Note = note };
-        await _xrpc.ProcedureAsync<DisableAccountInvitesRequest, object>(
+        await _xrpc.ProcedureAsync<DisableAccountInvitesRequest>(
             "com.atproto.admin.disableAccountInvites", request, cancellationToken: cancellationToken);
     }
 
@@ -119,7 +119,7 @@ public sealed class AdminClient
         CancellationToken cancellationToken = default)
     {
         var request = new EnableAccountInvitesRequest { Account = account, Note = note };
-        await _xrpc.ProcedureAsync<EnableAccountInvitesRequest, object>(
+        await _xrpc.ProcedureAsync<EnableAccountInvitesRequest>(
             "com.atproto.admin.enableAccountInvites", request, cancellationToken: cancellationToken);
     }
 
@@ -131,7 +131,7 @@ public sealed class AdminClient
         CancellationToken cancellationToken = default)
     {
         var request = new UpdateAccountEmailRequest { Account = account, Email = email };
-        await _xrpc.ProcedureAsync<UpdateAccountEmailRequest, object>(
+        await _xrpc.ProcedureAsync<UpdateAccountEmailRequest>(
             "com.atproto.admin.updateAccountEmail", request, cancellationToken: cancellationToken);
     }
 
@@ -143,7 +143,7 @@ public sealed class AdminClient
         CancellationToken cancellationToken = default)
     {
         var request = new UpdateAccountHandleRequest { Did = did, Handle = handle };
-        await _xrpc.ProcedureAsync<UpdateAccountHandleRequest, object>(
+        await _xrpc.ProcedureAsync<UpdateAccountHandleRequest>(
             "com.atproto.admin.updateAccountHandle", request, cancellationToken: cancellationToken);
     }
 
@@ -155,7 +155,7 @@ public sealed class AdminClient
         CancellationToken cancellationToken = default)
     {
         var request = new UpdateAccountPasswordRequest { Did = did, Password = password };
-        await _xrpc.ProcedureAsync<UpdateAccountPasswordRequest, object>(
+        await _xrpc.ProcedureAsync<UpdateAccountPasswordRequest>(
             "com.atproto.admin.updateAccountPassword", request, cancellationToken: cancellationToken);
     }
 
@@ -167,7 +167,7 @@ public sealed class AdminClient
         CancellationToken cancellationToken = default)
     {
         var request = new DisableInviteCodesRequest { Codes = codes, Accounts = accounts };
-        await _xrpc.ProcedureAsync<DisableInviteCodesRequest, object>(
+        await _xrpc.ProcedureAsync<DisableInviteCodesRequest>(
             "com.atproto.admin.disableInviteCodes", request, cancellationToken: cancellationToken);
     }
 

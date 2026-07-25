@@ -1,14 +1,14 @@
 # ATProto.NET Documentation
 
-ATProto.NET is a .NET 10 SDK for the [AT Protocol](https://atproto.com) — the open protocol behind Bluesky, where one account can power many apps. These docs cover building your own AT Protocol apps in .NET, hosting your own PDS, and integrating with Bluesky.
+ATProto.NET is a .NET 10 SDK for the [AT Protocol](https://atproto.com) — the open protocol behind Bluesky, where one account can power many apps. These docs cover building your own AT Protocol apps in .NET, running a managed PDS, and integrating with Bluesky.
 
 ## Start here
 
 1. **[Installation & Setup](getting-started.md)** — install the packages, create a client, authenticate.
 2. **[Custom Lexicon Records](custom-records.md)** — the SDK's headline feature: define your own record types and use `RecordCollection<T>` for typed CRUD.
-3. **Pick your integration** — [ASP.NET Core](aspnet-core.md), [Blazor](blazor.md), [Aspire](aspire.md), or host your own [PDS](pds.md).
+3. **Pick your integration** — [ASP.NET Core](aspnet-core.md), [Blazor](blazor.md), [Aspire](aspire.md), or run a [managed PDS](managed-pds.md).
 
-If you want a map of how the seven packages compose, see **[Architecture](architecture.md)**.
+If you want a map of how the packages compose, see **[Architecture](architecture.md)**.
 
 ## Guides
 
@@ -40,7 +40,7 @@ If you want a map of how the seven packages compose, see **[Architecture](archit
 - [Standard.site](standard-site.md) — long-form publishing integration
 
 ### Building Servers
-- [PDS Hosting](pds.md) — host your own Personal Data Server
+- [Managed PDS](managed-pds.md) — run the Bluesky PDS container and administer it from .NET
 - [XRPC Endpoint Handlers](xrpc-handlers.md) — server-side XRPC endpoints with DI
 
 ### Advanced

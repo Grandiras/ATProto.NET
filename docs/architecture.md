@@ -28,8 +28,8 @@ ATProto.NET is split into five runtime packages plus one `dotnet tool`. They lay
               └──────────────────────────────────────────────┘
 
        ┌──────────────────────────────────────────────────────┐
-       │  ATProtoNet.Pds  +  ATProtoNet.Aspire.Hosting        │
-       │  Host your own PDS in-process / as an Aspire resource │
+       │  ATProtoNet.Aspire.Hosting                            │
+       │  Run the Bluesky PDS container as an Aspire resource  │
        └──────────────────────────────────────────────────────┘
 ```
 
@@ -40,8 +40,7 @@ ATProto.NET is split into five runtime packages plus one `dotnet tool`. They lay
 | **`ATProtoNet`** | Core SDK, zero ASP.NET dependency. `AtProtoClient` composes per-Lexicon-domain sub-clients (`Server`, `Repo`, `Identity`, `Sync`, `Admin`, `Label`, `Moderation`, `Bsky`, `Chat`, `Ozone`, `Site`) around a shared `XrpcClient`. Custom records flow through `RecordCollection<T>` / `GetCollection<T>(nsid)`; custom XRPC through `QueryAsync<T>` / `ProcedureAsync<T>`. |
 | **`ATProtoNet.Server`** | ASP.NET Core integration: DI extensions (`AddAtProto`, `AddAtProtoServer`), JWT auth handler, `IAtProtoClientFactory`, `IAtProtoTokenStore` (in-memory, file, and EF Core implementations), server-side XRPC handler routing, and .NET Aspire client integration (`AddAtProtoClient` with health checks and resilience). |
 | **`ATProtoNet.Blazor`** | Blazor components (`LoginForm`, etc.) and the OAuth login endpoints registered by `MapAtProtoOAuth()`. |
-| **`ATProtoNet.Aspire.Hosting`** | Aspire `AppHost`-side resource for running a PDS container. |
-| **`ATProtoNet.Pds`** | Host your own PDS in-process via `AddAtProtoPds()` / `MapAtProtoPds()`. Pluggable `IAccountStore` / `IRepoStore` with in-memory defaults. |
+| **`ATProtoNet.Aspire.Hosting`** | Aspire `AppHost`-side resource for running the official Bluesky PDS container (`AddAtProtoPds`, `WithAtProtoPds`). Administer the result with `PdsAdminClient` from the core package. |
 | **`tools/ATProtoNet.LexiconGenerator`** | `dotnet tool` (binary `atproto-lexgen`) for bidirectional Lexicon JSON ↔ C# generation, schema diffing, and publishing. |
 
 ## Source tree
@@ -59,6 +58,7 @@ ATProto.NET/
 │   │   ├── Repo/                              # CarReader, MerkleSearchTree, DAG-CBOR, CID
 │   │   ├── Serialization/                     # JSON converters, defaults
 │   │   ├── Streaming/                         # FirehoseClient, TypedFirehoseConsumer
+│   │   ├── Admin/                             # PdsAdminClient — administer a PDS you operate
 │   │   ├── RecordCollection.cs                # Typed CRUD for custom records
 │   │   ├── AtProtoClient.cs                   # Main client facade
 │   │   └── Lexicon/
@@ -69,14 +69,14 @@ ATProto.NET/
 │   │       └── Tools/Ozone/                   # Moderation tooling
 │   ├── ATProtoNet.Server/                     # ASP.NET Core integration (incl. EF Core token store + Aspire client)
 │   ├── ATProtoNet.Blazor/                     # Blazor components + OAuth endpoints
-│   ├── ATProtoNet.Aspire.Hosting/             # Aspire AppHost-side PDS resource
-│   └── ATProtoNet.Pds/                        # In-process PDS hosting
+│   └── ATProtoNet.Aspire.Hosting/             # Aspire AppHost-side PDS container resource
 ├── tools/
 │   └── ATProtoNet.LexiconGenerator/           # `atproto-lexgen` dotnet tool
 ├── samples/
 │   ├── BlazorOAuthSample/                     # Blazor Server OAuth example
 │   ├── FirehoseConsumerSample/                # Typed firehose with filtering
-│   ├── PdsSample/                             # Minimal PDS hosting
+│   ├── ManagedPdsSample/                      # Account provisioning via PdsAdminClient
+│   ├── ManagedPdsSample.AppHost/              # Aspire AppHost running the PDS container
 │   └── ServerIntegrationSample/               # Blazor + server-side AT Proto access
 └── tests/
     ├── ATProtoNet.Tests/                      # Unit tests

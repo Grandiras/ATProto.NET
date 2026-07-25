@@ -12,7 +12,6 @@
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
     <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.5" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="NSubstitute" Version="5.3.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
@@ -27,7 +26,6 @@
     <ProjectReference Include="..\..\src\ATProtoNet\ATProtoNet.csproj" />
     <ProjectReference Include="..\..\src\ATProtoNet.Aspire.Hosting\ATProtoNet.Aspire.Hosting.csproj" />
     <ProjectReference Include="..\..\src\ATProtoNet.Server\ATProtoNet.Server.csproj" />
-    <ProjectReference Include="..\..\src\ATProtoNet.Pds\ATProtoNet.Pds.csproj" />
     <ProjectReference Include="..\..\src\ATProtoNet.Blazor\ATProtoNet.Blazor.csproj" />
     <ProjectReference Include="..\..\tools\ATProtoNet.LexiconGenerator\ATProtoNet.LexiconGenerator.csproj" />
   </ItemGroup>

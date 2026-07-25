@@ -176,31 +176,8 @@ public class GetProfileEndpoint : IXrpcQuery<ProfileParams, ProfileOutput>
 }
 ```
 
-## Combining with PDS Hosting
-
-You can use XRPC endpoint handlers alongside PDS hosting:
-
-```csharp
-builder.Services.AddAtProtoPds();
-builder.Services.AddXrpcEndpointsFromAssembly(typeof(Program).Assembly);
-
-var app = builder.Build();
-
-app.MapAtProtoPds();        // Core PDS endpoints
-app.MapXrpcEndpoints();     // Custom XRPC endpoints
-```
-
-To replace one of the built-in PDS endpoints with your own handler, exclude it from `MapAtProtoPds()` first — otherwise both routes match the same path and the request fails with an ambiguous-match error:
-
-```csharp
-app.MapAtProtoPds(options => options.Exclude(PdsEndpointNames.CreateAccount));
-app.MapXrpcEndpoints();     // may now handle com.atproto.server.createAccount itself
-```
-
-See [PDS Hosting](pds.md#excluding-or-overriding-individual-endpoints) for details.
-
 ## Next Steps
 
-- [PDS Hosting](pds.md) — Build a full PDS
+- [Managed PDS](managed-pds.md) — run the Bluesky PDS container and administer it
 - [Server Integration](server.md) — Backend AT Proto access patterns
 - [ASP.NET Core](aspnet-core.md) — DI integration

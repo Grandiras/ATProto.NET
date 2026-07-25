@@ -197,4 +197,4 @@ builder.AddAtProtoClient();
 
 - [Getting Started](getting-started.md) — Core SDK usage
 - [Server Integration](server.md) — Backend AT Proto access patterns
-- [PDS Hosting](pds.md) — Build your own PDS
+- [Managed PDS](managed-pds.md) — run the Bluesky PDS container and administer it

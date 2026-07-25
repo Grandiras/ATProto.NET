@@ -18,9 +18,6 @@ dotnet add package ATProtoNet.Server
 # Blazor components (optional)
 dotnet add package ATProtoNet.Blazor
 
-# PDS hosting, incl. EF Core-backed account/repo stores (optional)
-dotnet add package ATProtoNet.Pds
-
 # Aspire AppHost-side PDS container resource (optional)
 dotnet add package ATProtoNet.Aspire.Hosting
 
@@ -104,4 +101,4 @@ client.Session   // Full Session object with tokens, email, etc.
 - [Blazor](blazor.md) — Components with OAuth login support
 - [Firehose Streaming](firehose.md) — Real-time event streaming with verification
 - [.NET Aspire](aspire.md) — Cloud-native integration
-- [PDS Hosting](pds.md) — Host your own Personal Data Server
+- [Managed PDS](managed-pds.md) — run the Bluesky PDS container and administer it

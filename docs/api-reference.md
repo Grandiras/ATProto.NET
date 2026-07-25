@@ -258,6 +258,34 @@ Creates authenticated `AtProtoClient` instances from stored OAuth tokens. See [s
 
 ---
 
+## PdsAdminClient
+
+Administers a PDS you operate, authenticating with the server's admin password over
+HTTP Basic. See [managed-pds.md](managed-pds.md).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `PdsUrl` | `Uri` | The PDS being administered |
+| `Admin` | `AdminClient` | Raw `com.atproto.admin.*`, admin-authenticated |
+| `Server` | `ServerClient` | Raw `com.atproto.server.*`, admin-authenticated |
+
+| Method | Description |
+|--------|-------------|
+| `DescribeServerAsync(ct?)` | Server DID, handle domains, invite policy |
+| `CreateInviteCodeAsync(useCount?, forAccount?, ct?)` | Mint one invite code |
+| `CreateInviteCodesAsync(codeCount, useCount?, forAccounts?, ct?)` | Mint several invite codes |
+| `CreateAccountAsync(request, ct?)` | Create an account, minting an invite code if required |
+| `GetAccountAsync(did, ct?)` | Account details |
+| `DeleteAccountAsync(did, ct?)` | Permanently delete an account and its repository |
+| `TakedownAccountAsync(did, reference?, ct?)` | Take an account down |
+| `RestoreAccountAsync(did, ct?)` | Reverse a takedown |
+| `UpdateAccountHandleAsync(did, handle, ct?)` | Change an account's handle |
+| `UpdateAccountEmailAsync(account, email, ct?)` | Change an account's email |
+| `UpdateAccountPasswordAsync(did, password, ct?)` | Reset an account's password |
+| `CreateClient()` | An `AtProtoClient` pointed at the same PDS |
+
+---
+
 ## Exceptions
 
 ### AtProtoHttpException
