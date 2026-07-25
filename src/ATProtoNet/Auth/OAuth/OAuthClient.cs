@@ -185,6 +185,13 @@ public sealed class OAuthClient : IDisposable
     /// <param name="issuer">The issuer (iss) parameter from the callback.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The OAuth session containing tokens, DID, and PDS URL.</returns>
+    /// <remarks>
+    /// Handle verification is best-effort: an unreachable, slow, or silent handle
+    /// authority yields a session with <see cref="OAuthSessionResult.IsHandleVerified"/>
+    /// <c>false</c> and the DID as the handle, never an exception. Only
+    /// <paramref name="cancellationToken"/> being cancelled aborts the flow at that
+    /// point — the DID is already established by the token response's <c>sub</c>.
+    /// </remarks>
     public async Task<OAuthSessionResult> CompleteAuthorizationAsync(
         string code,
         string state,
@@ -278,6 +285,13 @@ public sealed class OAuthClient : IDisposable
         // alsoKnownAs, AND (b) the handle's authoritative resolution (DNS TXT
         // _atproto.<handle> or /.well-known/atproto-did) maps back to this DID.
         // Without the second check, a PDS could announce any handle for its users.
+        //
+        // Nothing here can fail the login: the authoritative DID is the token
+        // response's `sub`, already in hand. A probe that times out (a parked
+        // handle domain swallowing the connection, or an HttpClient with a
+        // ConnectTimeout set) surfaces as OperationCanceledException, which is
+        // just another way for verification not to have happened — only the
+        // CALLER cancelling means the session is no longer wanted.
         string? handle = null;
         try
         {
@@ -306,7 +320,12 @@ public sealed class OAuthClient : IDisposable
                             claimedHandle, resolvedDid, tokenResponse.Sub);
                     }
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException)
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    // Caller gave up on the login; the outer handler cleans up.
+                    throw;
+                }
+                catch (Exception ex)
                 {
                     _logger.LogWarning(ex,
                         "Could not bidirectionally verify handle '{Handle}'; treating as unverified.",
@@ -314,7 +333,13 @@ public sealed class OAuthClient : IDisposable
                 }
             }
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // No session is being returned, so nothing else will dispose the key.
+            pending.DPoP.Dispose();
+            throw;
+        }
+        catch (Exception ex)
         {
             _logger.LogWarning(ex, "Could not resolve handle from DID document");
         }
@@ -612,6 +637,13 @@ public sealed class OAuthClient : IDisposable
         }
         catch (OAuthException)
         {
+            throw;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The caller cancelling is not a failed security check — report it as
+            // cancellation rather than as an inconsistent identity. A probe that
+            // merely timed out still falls through to the fail-closed wrap below.
             throw;
         }
         catch (Exception ex)
