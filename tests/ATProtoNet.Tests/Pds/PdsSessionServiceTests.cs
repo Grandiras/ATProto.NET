@@ -126,4 +126,94 @@ public class PdsSessionServiceTests
         Assert.NotNull(result);
         Assert.True(result!.IsValid);
     }
+
+    [Fact]
+    public void GenerateSigningKey_ReturnsBase64KeyOfExpectedSize()
+    {
+        var key = PdsSessionService.GenerateSigningKey();
+
+        Assert.Equal(PdsSessionService.SigningKeySize, Convert.FromBase64String(key).Length);
+        Assert.NotEqual(key, PdsSessionService.GenerateSigningKey());
+    }
+
+    [Fact]
+    public void ConfiguredSigningKey_SurvivesRestart()
+    {
+        var options = new PdsOptions
+        {
+            Hostname = "test.local",
+            SessionSigningKey = PdsSessionService.GenerateSigningKey(),
+        };
+
+        // Two instances stand in for two process lifetimes sharing the same configuration.
+        var before = new PdsSessionService(options);
+        var after = new PdsSessionService(options);
+
+        var token = before.IssueAccessToken("did:plc:test123", "alice.test.local");
+        var result = after.ValidateToken(token);
+
+        Assert.NotNull(result);
+        Assert.Equal("did:plc:test123", result!.Did);
+        Assert.False(before.UsesEphemeralSigningKey);
+        Assert.False(after.UsesEphemeralSigningKey);
+    }
+
+    [Fact]
+    public void NoConfiguredSigningKey_UsesEphemeralKey()
+    {
+        var before = new PdsSessionService(_options);
+        var after = new PdsSessionService(_options);
+
+        var token = before.IssueAccessToken("did:plc:test123", "alice.test.local");
+
+        Assert.True(before.UsesEphemeralSigningKey);
+        Assert.Null(after.ValidateToken(token));
+    }
+
+    [Fact]
+    public void ExplicitSigningKey_TakesPrecedenceOverOptions()
+    {
+        var explicitKey = new byte[32];
+        Array.Fill(explicitKey, (byte)0x7F);
+
+        var options = new PdsOptions
+        {
+            Hostname = "test.local",
+            SessionSigningKey = PdsSessionService.GenerateSigningKey(),
+        };
+
+        var service = new PdsSessionService(options, explicitKey);
+        var token = service.IssueAccessToken("did:plc:test123", "alice.test.local");
+
+        Assert.False(service.UsesEphemeralSigningKey);
+        Assert.NotNull(new PdsSessionService(options, explicitKey).ValidateToken(token));
+        Assert.Null(new PdsSessionService(options).ValidateToken(token));
+    }
+
+    [Fact]
+    public void ResolveSigningKey_Unset_ReturnsNull()
+    {
+        Assert.Null(PdsSessionService.ResolveSigningKey(_options));
+
+        // An unset environment variable binds to an empty string — treat it as unset too.
+        Assert.Null(PdsSessionService.ResolveSigningKey(new PdsOptions { SessionSigningKey = "" }));
+        Assert.Null(PdsSessionService.ResolveSigningKey(new PdsOptions { SessionSigningKey = "  " }));
+    }
+
+    [Fact]
+    public void ResolveSigningKey_InvalidBase64_Throws()
+    {
+        var options = new PdsOptions { SessionSigningKey = "not base64!!" };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => PdsSessionService.ResolveSigningKey(options));
+        Assert.Contains("SessionSigningKey", ex.Message);
+    }
+
+    [Fact]
+    public void Constructor_InvalidConfiguredKey_Throws()
+    {
+        var options = new PdsOptions { SessionSigningKey = "%%%" };
+
+        Assert.Throws<InvalidOperationException>(() => new PdsSessionService(options));
+    }
 }

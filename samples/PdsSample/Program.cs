@@ -9,6 +9,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddAtProtoPds(options =>
 {
     options.Hostname = "localhost";
+
+    // Persist this in production — without it every restart generates a new signing key
+    // and invalidates all issued session tokens. PdsSessionService.GenerateSigningKey()
+    // produces a value suitable for storing as a secret.
+    options.SessionSigningKey = builder.Configuration["Pds:SessionSigningKey"];
 });
 
 var app = builder.Build();

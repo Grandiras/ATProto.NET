@@ -4,6 +4,9 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Pds;
 
@@ -25,7 +28,8 @@ public static class PdsHostingExtensions
         configure?.Invoke(options);
 
         services.AddSingleton(options);
-        services.AddSingleton<PdsSessionService>();
+        services.AddSingleton(CreateSessionService);
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, PdsSessionKeyStartupCheck>());
         services.AddSingleton<PdsService>();
 
         // Default in-memory stores; can be replaced by calling
@@ -53,13 +57,46 @@ public static class PdsHostingExtensions
         configure?.Invoke(options);
 
         services.AddSingleton(options);
-        services.AddSingleton<PdsSessionService>();
+        services.AddSingleton(CreateSessionService);
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, PdsSessionKeyStartupCheck>());
         services.AddSingleton<PdsService>();
 
         services.AddSingleton<IAccountStore, TAccountStore>();
         services.AddSingleton<IRepoStore, TRepoStore>();
 
         return services;
+    }
+
+    /// <summary>
+    /// Builds the singleton <see cref="PdsSessionService"/>. DI cannot supply the
+    /// <c>byte[]</c> signing key itself, so the key comes from
+    /// <see cref="PdsOptions.SessionSigningKey"/>; when it is unset the service falls back to
+    /// a per-process random key and we warn, because that silently logs every client out on
+    /// each restart.
+    /// </summary>
+    private static PdsSessionService CreateSessionService(IServiceProvider services)
+    {
+        var options = services.GetRequiredService<PdsOptions>();
+        var logger = services.GetService<ILoggerFactory>()?.CreateLogger(typeof(PdsSessionService).FullName!);
+        var key = PdsSessionService.ResolveSigningKey(options);
+
+        if (key is null)
+        {
+            logger?.LogWarning(
+                "PdsOptions.SessionSigningKey is not configured — session tokens are signed with a " +
+                "random key that is discarded when this process exits, so every access and refresh " +
+                "token is invalidated on restart. Set PdsOptions.SessionSigningKey to a persisted " +
+                "base64 key (generate one with PdsSessionService.GenerateSigningKey()).");
+        }
+        else if (key.Length < PdsSessionService.SigningKeySize)
+        {
+            logger?.LogWarning(
+                "PdsOptions.SessionSigningKey decodes to {KeyLength} bytes; HMAC-SHA256 session " +
+                "signing keys should be at least {MinimumKeyLength} bytes.",
+                key.Length, PdsSessionService.SigningKeySize);
+        }
+
+        return new PdsSessionService(options, key);
     }
 
     /// <summary>

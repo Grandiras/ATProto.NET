@@ -113,7 +113,33 @@ builder.Services.AddAtProtoPds(options =>
     options.OpenRegistration = false;       // Require invite codes for signup
     options.AvailableUserDomains = [".my-pds.example.com"];
     options.ContactEmail = "admin@my-pds.example.com";
+
+    // Persisted HMAC-SHA256 key for session tokens — see below
+    options.SessionSigningKey = builder.Configuration["Pds:SessionSigningKey"];
 });
+```
+
+### Session signing key
+
+Access and refresh tokens are signed with an HMAC-SHA256 key. Set `SessionSigningKey` to a persisted base64 key:
+
+```csharp
+options.SessionSigningKey = builder.Configuration["Pds:SessionSigningKey"];
+```
+
+Generate one once and store it as a secret (environment variable, key vault, user secrets, …):
+
+```csharp
+Console.WriteLine(PdsSessionService.GenerateSigningKey()); // 32 random bytes, base64
+```
+
+If it is left unset, the PDS generates a **random key on every process start** and logs a warning at startup. Tokens signed with that key stop validating when the process exits, so every client is silently logged out on each restart or redeploy — fine for local development, not for production. A key that is set but not valid base64 throws `InvalidOperationException` when the `PdsSessionService` is resolved; keys shorter than 32 bytes are accepted but warned about.
+
+If you already hold the key as bytes, you can still register the service yourself — the last registration wins:
+
+```csharp
+builder.Services.AddSingleton(sp =>
+    new PdsSessionService(sp.GetRequiredService<PdsOptions>(), myKeyBytes));
 ```
 
 ## Custom Store Implementations
@@ -174,7 +200,7 @@ builder.Services.AddAtProtoPds<DatabaseAccountStore, DatabaseRepoStore>(options 
 
 The PDS uses JWT Bearer tokens for authentication. `PdsSessionService` handles:
 
-- Token issuance with HMAC-SHA256 signing
+- Token issuance with HMAC-SHA256 signing (see [Session signing key](#session-signing-key))
 - Token validation on protected endpoints
 - Session refresh
 
