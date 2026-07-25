@@ -109,6 +109,10 @@ parameter name (`ButtonText`, `HandleLabel`, `HandleHint`, etc.). Explicit
 parameter values still override the localizer; missing resource keys fall back
 to the English defaults above.
 
+The localizer is optional — `LoginForm` resolves it from the service provider
+and renders the English defaults when no `IStringLocalizer<LoginForm>` is
+registered, so apps that never call `AddLocalization()` need no extra setup.
+
 ### Using AuthorizeView
 
 Standard Blazor `<AuthorizeView>` works automatically after login:

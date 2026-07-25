@@ -1,4 +1,5 @@
 @using Microsoft.AspNetCore.Components
+@using Microsoft.Extensions.DependencyInjection
 @using Microsoft.Extensions.Localization
 
 <div class="atproto-login-form @CssClass">
@@ -67,6 +68,11 @@
 @code {
     [Inject] private NavigationManager Navigation { get; set; } = default!;
 
+    [Inject] private IServiceProvider Services { get; set; } = default!;
+
+    private IStringLocalizer<LoginForm>? _localizer;
+    private bool _localizerResolved;
+
     /// <summary>
     /// Optional <see cref="IStringLocalizer{T}"/> for translating the form's default copy.
     /// When registered in DI, string lookups by parameter name (e.g. "ButtonText",
@@ -75,7 +81,23 @@
     /// <c>services.AddLocalization()</c> and provide a resource source (.resx,
     /// <see cref="IStringLocalizerFactory"/>, etc.).
     /// </summary>
-    [Inject] private IStringLocalizer<LoginForm>? Localizer { get; set; }
+    /// <remarks>
+    /// Resolved through <see cref="IServiceProvider.GetService(Type)"/> rather than
+    /// <c>[Inject]</c> so the component renders in apps that never called
+    /// <c>services.AddLocalization()</c>.
+    /// </remarks>
+    private IStringLocalizer<LoginForm>? Localizer
+    {
+        get
+        {
+            if (!_localizerResolved)
+            {
+                _localizerResolved = true;
+                _localizer = Services.GetService<IStringLocalizer<LoginForm>>();
+            }
+            return _localizer;
+        }
+    }
 
     /// <summary>
     /// The login endpoint URL that the form submits to.
