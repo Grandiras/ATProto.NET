@@ -190,6 +190,15 @@ app.MapAtProtoPds();        // Core PDS endpoints
 app.MapXrpcEndpoints();     // Custom XRPC endpoints
 ```
 
+To replace one of the built-in PDS endpoints with your own handler, exclude it from `MapAtProtoPds()` first — otherwise both routes match the same path and the request fails with an ambiguous-match error:
+
+```csharp
+app.MapAtProtoPds(options => options.Exclude(PdsEndpointNames.CreateAccount));
+app.MapXrpcEndpoints();     // may now handle com.atproto.server.createAccount itself
+```
+
+See [PDS Hosting](pds.md#excluding-or-overriding-individual-endpoints) for details.
+
 ## Next Steps
 
 - [PDS Hosting](pds.md) — Build a full PDS

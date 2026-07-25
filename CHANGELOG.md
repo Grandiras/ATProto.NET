@@ -26,7 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`AtProtoOAuthServerOptions.HttpClient`** (Issue #52) — Lets a consuming app supply the `HttpClient` used for OAuth discovery and token requests (e.g. an `IHttpClientFactory` client, a proxy, custom handlers). The supplied client's `Timeout` is left untouched and it is not disposed with the service
 - **`AtProtoOAuthServerOptions.HttpClientTimeout`** (Issue #52) — Timeout applied to the SDK-created OAuth `HttpClient`. Default 30 s
 - **`OAuthClientMetadata.ToJson(bool writeIndented = false)`** (Issue #41) — Renders the client-metadata document exactly as it must be served at the `client_id` URL, with unset optional fields omitted. `app.MapGet("/client-metadata.json", () => Results.Content(metadata.ToJson(), "application/json"))`
+- **`MapAtProtoPds(Action<PdsEndpointOptions>)`** (Issue #39) — New overload that lets a host exclude, restrict, or decorate the PDS XRPC endpoints instead of taking all of them unconditionally. `PdsEndpointOptions.Exclude(...)` skips mapping an endpoint so the host can map its own implementation on the same route without an ambiguous-match conflict (the previous workaround — terminal middleware ahead of `MapAtProtoPds()` — bypassed endpoint routing entirely); `Only(...)` maps just the listed subset (`Exclude` wins over `Only`); `Configure(nsid, ...)` and `ConfigureAll(...)` apply route conventions (authorization policies, endpoint filters, rate limiting, metadata) to the mapped endpoints. The parameterless `MapAtProtoPds()` is unchanged and still maps everything
+- **`PdsEndpointNames`** (Issue #39) — Constants for the twelve endpoint NSIDs mapped by `MapAtProtoPds()`, plus `PdsEndpointNames.All`. `PdsEndpointOptions` validates NSIDs against this list and throws `ArgumentException` at startup on an unknown one, so a typo can't silently leave an endpoint mapped
 - **`AtProtoJsonDefaults.ApplyRecordTypeDiscriminator(JsonTypeInfo)`** (Issue #49) — Public `JsonTypeInfo` contract modifier that guarantees `AtProtoRecord`-derived types serialize their Lexicon type as exactly one `$type` property. Applied automatically by the SDK's own serializer options; expose it to hand-built `JsonSerializerOptions` via `DefaultJsonTypeInfoResolver.Modifiers`
+
+### Changed
+
+- **PDS endpoints mapped by `MapAtProtoPds()` now carry their NSID as the endpoint display name** (Issue #39) — e.g. `com.atproto.repo.createRecord` instead of the generated `HTTP: POST /xrpc/com.atproto.repo.createRecord`, so routes are identifiable in logs, diagnostics, and `EndpointDataSource` inspection
 
 ### Removed
 

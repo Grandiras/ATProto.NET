@@ -68,12 +68,42 @@ public static class PdsHostingExtensions
     /// </summary>
     /// <param name="endpoints">The endpoint route builder.</param>
     public static IEndpointRouteBuilder MapAtProtoPds(this IEndpointRouteBuilder endpoints)
+        => MapAtProtoPds(endpoints, configure: null);
+
+    /// <summary>
+    /// Map the core AT Protocol XRPC endpoints for a PDS, optionally excluding endpoints
+    /// the host wants to implement itself or applying route conventions to the mapped ones.
+    /// </summary>
+    /// <param name="endpoints">The endpoint route builder.</param>
+    /// <param name="configure">
+    /// Configures which endpoints are mapped. Exclude an endpoint to map your own
+    /// implementation on the same route without an ambiguous-match conflict:
+    /// <c>app.MapAtProtoPds(o =&gt; o.Exclude(PdsEndpointNames.CreateAccount))</c>.
+    /// </param>
+    public static IEndpointRouteBuilder MapAtProtoPds(
+        this IEndpointRouteBuilder endpoints,
+        Action<PdsEndpointOptions>? configure)
     {
+        ArgumentNullException.ThrowIfNull(endpoints);
+
         var jsonOptions = AtProtoJsonDefaults.Options;
+        var options = new PdsEndpointOptions();
+        configure?.Invoke(options);
+
+        // Maps a route only when the host hasn't excluded it, then runs any configured
+        // route conventions (auth policies, filters, metadata) against the result.
+        void Map(string nsid, Func<string, IEndpointConventionBuilder> map)
+        {
+            if (!options.IsMapped(nsid)) return;
+
+            var builder = map($"/xrpc/{nsid}");
+            builder.WithDisplayName(nsid);
+            options.ApplyConventions(nsid, builder);
+        }
 
         // ── Server endpoints ──
 
-        endpoints.MapPost("/xrpc/com.atproto.server.createAccount", async (HttpContext ctx, PdsService pds) =>
+        Map(PdsEndpointNames.CreateAccount, route => endpoints.MapPost(route, async (HttpContext ctx, PdsService pds) =>
         {
             var body = await ctx.Request.ReadFromJsonAsync<CreateAccountInput>(jsonOptions, ctx.RequestAborted);
             if (body is null) return Results.BadRequest(new PdsErrorResponse("InvalidRequest", "Missing request body."));
@@ -88,9 +118,9 @@ public static class PdsHostingExtensions
             {
                 return Results.Json(new PdsErrorResponse(ex.ErrorCode, ex.Message), statusCode: 400);
             }
-        });
+        }));
 
-        endpoints.MapPost("/xrpc/com.atproto.server.createSession", async (HttpContext ctx, PdsService pds) =>
+        Map(PdsEndpointNames.CreateSession, route => endpoints.MapPost(route, async (HttpContext ctx, PdsService pds) =>
         {
             var body = await ctx.Request.ReadFromJsonAsync<CreateSessionInput>(jsonOptions, ctx.RequestAborted);
             if (body is null) return Results.BadRequest(new PdsErrorResponse("InvalidRequest", "Missing request body."));
@@ -104,9 +134,9 @@ public static class PdsHostingExtensions
             {
                 return Results.Json(new PdsErrorResponse(ex.ErrorCode, ex.Message), statusCode: 401);
             }
-        });
+        }));
 
-        endpoints.MapGet("/xrpc/com.atproto.server.getSession", async (HttpContext ctx, PdsService pds, PdsSessionService sessions) =>
+        Map(PdsEndpointNames.GetSession, route => endpoints.MapGet(route, async (HttpContext ctx, PdsService pds, PdsSessionService sessions) =>
         {
             var did = await ExtractDidFromTokenAsync(ctx, sessions);
             if (did is null) return Results.Json(new PdsErrorResponse("AuthenticationRequired", "Invalid or missing token."), statusCode: 401);
@@ -120,9 +150,9 @@ public static class PdsHostingExtensions
             {
                 return Results.Json(new PdsErrorResponse(ex.ErrorCode, ex.Message), statusCode: 401);
             }
-        });
+        }));
 
-        endpoints.MapPost("/xrpc/com.atproto.server.refreshSession", async (HttpContext ctx, PdsService pds, PdsSessionService sessions) =>
+        Map(PdsEndpointNames.RefreshSession, route => endpoints.MapPost(route, async (HttpContext ctx, PdsService pds, PdsSessionService sessions) =>
         {
             var did = await ExtractDidFromTokenAsync(ctx, sessions, requiredScope: "com.atproto.refresh");
             if (did is null) return Results.Json(new PdsErrorResponse("AuthenticationRequired", "Invalid or missing token."), statusCode: 401);
@@ -136,17 +166,17 @@ public static class PdsHostingExtensions
             {
                 return Results.Json(new PdsErrorResponse(ex.ErrorCode, ex.Message), statusCode: 401);
             }
-        });
+        }));
 
-        endpoints.MapGet("/xrpc/com.atproto.server.describeServer", (PdsService pds) =>
+        Map(PdsEndpointNames.DescribeServer, route => endpoints.MapGet(route, (PdsService pds) =>
         {
             var description = pds.DescribeServer();
             return Results.Json(description, jsonOptions);
-        });
+        }));
 
         // ── Repo endpoints ──
 
-        endpoints.MapPost("/xrpc/com.atproto.repo.createRecord", async (HttpContext ctx, PdsService pds, PdsSessionService sessions) =>
+        Map(PdsEndpointNames.CreateRecord, route => endpoints.MapPost(route, async (HttpContext ctx, PdsService pds, PdsSessionService sessions) =>
         {
             var did = await ExtractDidFromTokenAsync(ctx, sessions);
             if (did is null) return Results.Json(new PdsErrorResponse("AuthenticationRequired", "Invalid or missing token."), statusCode: 401);
@@ -168,9 +198,9 @@ public static class PdsHostingExtensions
             {
                 return Results.Json(new PdsErrorResponse(ex.ErrorCode, ex.Message), statusCode: 400);
             }
-        });
+        }));
 
-        endpoints.MapGet("/xrpc/com.atproto.repo.getRecord", async (HttpContext ctx, PdsService pds) =>
+        Map(PdsEndpointNames.GetRecord, route => endpoints.MapGet(route, async (HttpContext ctx, PdsService pds) =>
         {
             var repo = ctx.Request.Query["repo"].ToString();
             var collection = ctx.Request.Query["collection"].ToString();
@@ -184,9 +214,9 @@ public static class PdsHostingExtensions
                 return Results.Json(new PdsErrorResponse("RecordNotFound", "Record not found."), statusCode: 400);
 
             return Results.Json(result, jsonOptions);
-        });
+        }));
 
-        endpoints.MapPost("/xrpc/com.atproto.repo.putRecord", async (HttpContext ctx, PdsService pds, PdsSessionService sessions) =>
+        Map(PdsEndpointNames.PutRecord, route => endpoints.MapPost(route, async (HttpContext ctx, PdsService pds, PdsSessionService sessions) =>
         {
             var did = await ExtractDidFromTokenAsync(ctx, sessions);
             if (did is null) return Results.Json(new PdsErrorResponse("AuthenticationRequired", "Invalid or missing token."), statusCode: 401);
@@ -206,9 +236,9 @@ public static class PdsHostingExtensions
             {
                 return Results.Json(new PdsErrorResponse(ex.ErrorCode, ex.Message), statusCode: 400);
             }
-        });
+        }));
 
-        endpoints.MapPost("/xrpc/com.atproto.repo.deleteRecord", async (HttpContext ctx, PdsService pds, PdsSessionService sessions) =>
+        Map(PdsEndpointNames.DeleteRecord, route => endpoints.MapPost(route, async (HttpContext ctx, PdsService pds, PdsSessionService sessions) =>
         {
             var did = await ExtractDidFromTokenAsync(ctx, sessions);
             if (did is null) return Results.Json(new PdsErrorResponse("AuthenticationRequired", "Invalid or missing token."), statusCode: 401);
@@ -221,9 +251,9 @@ public static class PdsHostingExtensions
 
             await pds.DeleteRecordAsync(did, body.Collection, body.Rkey, ctx.RequestAborted);
             return Results.Ok();
-        });
+        }));
 
-        endpoints.MapGet("/xrpc/com.atproto.repo.listRecords", async (HttpContext ctx, PdsService pds) =>
+        Map(PdsEndpointNames.ListRecords, route => endpoints.MapGet(route, async (HttpContext ctx, PdsService pds) =>
         {
             var repo = ctx.Request.Query["repo"].ToString();
             var collection = ctx.Request.Query["collection"].ToString();
@@ -248,11 +278,11 @@ public static class PdsHostingExtensions
             };
 
             return Results.Json(response, jsonOptions);
-        });
+        }));
 
         // ── Blob endpoints ──
 
-        endpoints.MapPost("/xrpc/com.atproto.repo.uploadBlob", async (HttpContext ctx, PdsService pds, PdsSessionService sessions, PdsOptions pdsOptions) =>
+        Map(PdsEndpointNames.UploadBlob, route => endpoints.MapPost(route, async (HttpContext ctx, PdsService pds, PdsSessionService sessions, PdsOptions pdsOptions) =>
         {
             var did = await ExtractDidFromTokenAsync(ctx, sessions);
             if (did is null) return Results.Json(new PdsErrorResponse("AuthenticationRequired", "Invalid or missing token."), statusCode: 401);
@@ -286,9 +316,9 @@ public static class PdsHostingExtensions
             {
                 return Results.Json(new PdsErrorResponse(ex.ErrorCode, ex.Message), statusCode: 400);
             }
-        });
+        }));
 
-        endpoints.MapGet("/xrpc/com.atproto.sync.getBlob", async (HttpContext ctx, PdsService pds) =>
+        Map(PdsEndpointNames.GetBlob, route => endpoints.MapGet(route, async (HttpContext ctx, PdsService pds) =>
         {
             var repoDid = ctx.Request.Query["did"].ToString();
             var cid = ctx.Request.Query["cid"].ToString();
@@ -301,7 +331,7 @@ public static class PdsHostingExtensions
                 return Results.Json(new PdsErrorResponse("BlobNotFound", "Blob not found."), statusCode: 400);
 
             return Results.File(blob.Data, blob.MimeType);
-        });
+        }));
 
         return endpoints;
     }

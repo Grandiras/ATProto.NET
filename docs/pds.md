@@ -60,6 +60,49 @@ This maps the following XRPC endpoints:
 | `com.atproto.repo.uploadBlob` | POST | Upload a blob |
 | `com.atproto.sync.getBlob` | GET | Download a blob |
 
+## Excluding or Overriding Individual Endpoints
+
+By default `MapAtProtoPds()` maps every endpoint above. Pass a configuration callback to exclude the ones you want to implement yourself — the built-in route is then never registered, so mapping your own handler on the same path doesn't produce an ambiguous-match conflict:
+
+```csharp
+app.MapAtProtoPds(options => options.Exclude(PdsEndpointNames.CreateAccount));
+
+// Your implementation now owns the route — a real endpoint, with routing
+// metadata and route-level auth, not terminal middleware.
+app.MapPost("/xrpc/com.atproto.server.createAccount", async (CreateAccountRequest req, IInviteStore invites) =>
+{
+    if (!await invites.RedeemAsync(req.InviteCode))
+        return Results.Json(new { error = "InvalidInviteCode", message = "Invalid invite code." }, statusCode: 400);
+
+    // ... delegate to PdsService for the rest
+});
+```
+
+Use the `PdsEndpointNames` constants rather than raw strings — an unknown NSID throws `ArgumentException` at startup instead of silently doing nothing.
+
+To map only a subset (for example a read-only mirror), use `Only`:
+
+```csharp
+app.MapAtProtoPds(options => options.Only(
+    PdsEndpointNames.DescribeServer,
+    PdsEndpointNames.GetRecord,
+    PdsEndpointNames.ListRecords));
+```
+
+`Exclude` takes precedence over `Only`.
+
+### Applying Route Conventions
+
+Because the built-in routes are ordinary endpoints, you can attach authorization policies, endpoint filters, rate limiting, or metadata to them:
+
+```csharp
+app.MapAtProtoPds(options => options
+    .Configure(PdsEndpointNames.UploadBlob, endpoint => endpoint.RequireRateLimiting("uploads"))
+    .ConfigureAll((nsid, endpoint) => endpoint.WithMetadata(new XrpcNsidMetadata(nsid))));
+```
+
+Every mapped endpoint also carries its NSID as its display name, so it shows up as `com.atproto.repo.createRecord` in logs and diagnostics.
+
 ## Configuration
 
 ```csharp
