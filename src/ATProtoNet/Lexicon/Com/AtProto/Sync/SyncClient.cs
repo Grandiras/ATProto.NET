@@ -126,7 +126,7 @@ public sealed class SyncClient
         string hostname, CancellationToken cancellationToken = default)
     {
         var request = new NotifyOfUpdateRequest { Hostname = hostname };
-        await _xrpc.ProcedureAsync<NotifyOfUpdateRequest, object>(
+        await _xrpc.ProcedureAsync<NotifyOfUpdateRequest>(
             "com.atproto.sync.notifyOfUpdate", request, cancellationToken: cancellationToken);
     }
 
@@ -137,7 +137,7 @@ public sealed class SyncClient
         string hostname, CancellationToken cancellationToken = default)
     {
         var request = new RequestCrawlRequest { Hostname = hostname };
-        await _xrpc.ProcedureAsync<RequestCrawlRequest, object>(
+        await _xrpc.ProcedureAsync<RequestCrawlRequest>(
             "com.atproto.sync.requestCrawl", request, cancellationToken: cancellationToken);
     }
 

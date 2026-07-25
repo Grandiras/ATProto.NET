@@ -76,7 +76,7 @@ public sealed class NotificationClient
         string seenAt, CancellationToken cancellationToken = default)
     {
         var request = new UpdateSeenRequest { SeenAt = seenAt };
-        await _xrpc.ProcedureAsync<UpdateSeenRequest, object>(
+        await _xrpc.ProcedureAsync<UpdateSeenRequest>(
             "app.bsky.notification.updateSeen", request, cancellationToken: cancellationToken);
     }
 
@@ -94,7 +94,7 @@ public sealed class NotificationClient
     public async Task RegisterPushAsync(
         RegisterPushRequest request, CancellationToken cancellationToken = default)
     {
-        await _xrpc.ProcedureAsync<RegisterPushRequest, object>(
+        await _xrpc.ProcedureAsync<RegisterPushRequest>(
             "app.bsky.notification.registerPush", request, cancellationToken: cancellationToken);
     }
 }

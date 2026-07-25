@@ -34,7 +34,7 @@ public sealed class SetClient
         CancellationToken cancellationToken = default)
     {
         var request = new DeleteSetRequest { Name = name };
-        await _xrpc.ProcedureAsync<DeleteSetRequest, object>(
+        await _xrpc.ProcedureAsync<DeleteSetRequest>(
             "tools.ozone.set.deleteSet", request, cancellationToken: cancellationToken);
     }
 
@@ -47,7 +47,7 @@ public sealed class SetClient
         CancellationToken cancellationToken = default)
     {
         var request = new AddValuesRequest { Name = name, Values = values };
-        await _xrpc.ProcedureAsync<AddValuesRequest, object>(
+        await _xrpc.ProcedureAsync<AddValuesRequest>(
             "tools.ozone.set.addValues", request, cancellationToken: cancellationToken);
     }
 
@@ -60,7 +60,7 @@ public sealed class SetClient
         CancellationToken cancellationToken = default)
     {
         var request = new DeleteValuesRequest { Name = name, Values = values };
-        await _xrpc.ProcedureAsync<DeleteValuesRequest, object>(
+        await _xrpc.ProcedureAsync<DeleteValuesRequest>(
             "tools.ozone.set.deleteValues", request, cancellationToken: cancellationToken);
     }
 

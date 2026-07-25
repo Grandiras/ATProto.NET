@@ -118,7 +118,7 @@ public sealed class GraphClient
         string actor, CancellationToken cancellationToken = default)
     {
         var request = new MuteActorRequest { Actor = actor };
-        await _xrpc.ProcedureAsync<MuteActorRequest, object>(
+        await _xrpc.ProcedureAsync<MuteActorRequest>(
             "app.bsky.graph.muteActor", request, cancellationToken: cancellationToken);
     }
 
@@ -129,7 +129,7 @@ public sealed class GraphClient
         string actor, CancellationToken cancellationToken = default)
     {
         var request = new MuteActorRequest { Actor = actor };
-        await _xrpc.ProcedureAsync<MuteActorRequest, object>(
+        await _xrpc.ProcedureAsync<MuteActorRequest>(
             "app.bsky.graph.unmuteActor", request, cancellationToken: cancellationToken);
     }
 
@@ -140,7 +140,7 @@ public sealed class GraphClient
         string list, CancellationToken cancellationToken = default)
     {
         var request = new MuteActorListRequest { List = list };
-        await _xrpc.ProcedureAsync<MuteActorListRequest, object>(
+        await _xrpc.ProcedureAsync<MuteActorListRequest>(
             "app.bsky.graph.muteActorList", request, cancellationToken: cancellationToken);
     }
 
@@ -151,7 +151,7 @@ public sealed class GraphClient
         string list, CancellationToken cancellationToken = default)
     {
         var request = new MuteActorListRequest { List = list };
-        await _xrpc.ProcedureAsync<MuteActorListRequest, object>(
+        await _xrpc.ProcedureAsync<MuteActorListRequest>(
             "app.bsky.graph.unmuteActorList", request, cancellationToken: cancellationToken);
     }
 
@@ -281,7 +281,7 @@ public sealed class GraphClient
         string root, CancellationToken cancellationToken = default)
     {
         var request = new MuteThreadRequest { Root = root };
-        await _xrpc.ProcedureAsync<MuteThreadRequest, object>(
+        await _xrpc.ProcedureAsync<MuteThreadRequest>(
             "app.bsky.graph.muteThread", request, cancellationToken: cancellationToken);
     }
 
@@ -292,7 +292,7 @@ public sealed class GraphClient
         string root, CancellationToken cancellationToken = default)
     {
         var request = new MuteThreadRequest { Root = root };
-        await _xrpc.ProcedureAsync<MuteThreadRequest, object>(
+        await _xrpc.ProcedureAsync<MuteThreadRequest>(
             "app.bsky.graph.unmuteThread", request, cancellationToken: cancellationToken);
     }
 

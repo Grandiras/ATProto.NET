@@ -40,7 +40,7 @@ public sealed class IdentityClient
         string handle, CancellationToken cancellationToken = default)
     {
         var request = new UpdateHandleRequest { Handle = handle };
-        await _xrpc.ProcedureAsync<UpdateHandleRequest, object>(
+        await _xrpc.ProcedureAsync<UpdateHandleRequest>(
             "com.atproto.identity.updateHandle", request, cancellationToken: cancellationToken);
     }
 
@@ -61,7 +61,7 @@ public sealed class IdentityClient
     public async Task RequestPlcOperationSignatureAsync(
         CancellationToken cancellationToken = default)
     {
-        await _xrpc.ProcedureAsync<object, object>(
+        await _xrpc.ProcedureAsync<object>(
             "com.atproto.identity.requestPlcOperationSignature",
             new { }, cancellationToken: cancellationToken);
     }
@@ -82,7 +82,7 @@ public sealed class IdentityClient
     public async Task SubmitPlcOperationAsync(
         SubmitPlcOperationRequest request, CancellationToken cancellationToken = default)
     {
-        await _xrpc.ProcedureAsync<SubmitPlcOperationRequest, object>(
+        await _xrpc.ProcedureAsync<SubmitPlcOperationRequest>(
             "com.atproto.identity.submitPlcOperation", request, cancellationToken: cancellationToken);
     }
 }

@@ -34,7 +34,7 @@ public sealed class TeamClient
         CancellationToken cancellationToken = default)
     {
         var request = new DeleteMemberRequest { Did = did };
-        await _xrpc.ProcedureAsync<DeleteMemberRequest, object>(
+        await _xrpc.ProcedureAsync<DeleteMemberRequest>(
             "tools.ozone.team.deleteMember", request, cancellationToken: cancellationToken);
     }
 

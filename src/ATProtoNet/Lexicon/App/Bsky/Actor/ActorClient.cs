@@ -64,7 +64,7 @@ public sealed class ActorClient
         List<JsonElement> preferences, CancellationToken cancellationToken = default)
     {
         var request = new PutPreferencesRequest { Preferences = preferences };
-        await _xrpc.ProcedureAsync<PutPreferencesRequest, object>(
+        await _xrpc.ProcedureAsync<PutPreferencesRequest>(
             "app.bsky.actor.putPreferences", request, cancellationToken: cancellationToken);
     }
 
