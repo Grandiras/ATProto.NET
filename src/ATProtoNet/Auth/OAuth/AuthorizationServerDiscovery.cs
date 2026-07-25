@@ -11,9 +11,22 @@ namespace ATProtoNet.Auth.OAuth;
 /// </summary>
 public sealed class AuthorizationServerDiscovery
 {
+    /// <summary>
+    /// Default budget applied to each handle resolution round (5 seconds).
+    /// </summary>
+    public static readonly TimeSpan DefaultHandleResolutionTimeout = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// Maximum number of bytes read from a <c>/.well-known/atproto-did</c> response.
+    /// A DID is at most a few hundred bytes and the request target is derived from
+    /// untrusted input, so the body is capped instead of buffered in full.
+    /// </summary>
+    private const int MaxWellKnownResponseBytes = 1024;
+
     private readonly HttpClient _httpClient;
     private readonly ILogger _logger;
     private readonly JsonSerializerOptions _jsonOptions;
+    private TimeSpan _handleResolutionTimeout = DefaultHandleResolutionTimeout;
 
     /// <summary>
     /// Creates a new discovery instance.
@@ -25,6 +38,38 @@ public sealed class AuthorizationServerDiscovery
         _httpClient = httpClient;
         _logger = logger;
         _jsonOptions = AtProtoJsonDefaults.Options;
+    }
+
+    /// <summary>
+    /// Budget for each handle resolution round, enforced with a
+    /// <see cref="CancellationTokenSource"/> linked to the caller's token.
+    /// Default: <see cref="DefaultHandleResolutionTimeout"/> (5 seconds).
+    /// </summary>
+    /// <remarks>
+    /// A handle's domain may be parked or firewalled and silently drop packets on
+    /// port 443 — without a budget of its own, such a host stalls the whole OAuth
+    /// flow for the <see cref="HttpClient.Timeout"/> (100 seconds by default)
+    /// before a working resolution method is even attempted. The raced
+    /// HTTPS + DNS round gets one budget; the Bluesky appview fallback in
+    /// <see cref="ResolveHandleToDidAsync"/> gets a fresh one.
+    /// Set to <see cref="Timeout.InfiniteTimeSpan"/> to rely solely on the
+    /// <see cref="HttpClient"/> timeout and the caller's cancellation token.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// The value is zero or negative and is not <see cref="Timeout.InfiniteTimeSpan"/>.
+    /// </exception>
+    public TimeSpan HandleResolutionTimeout
+    {
+        get => _handleResolutionTimeout;
+        set
+        {
+            if (value != Timeout.InfiniteTimeSpan && value <= TimeSpan.Zero)
+                throw new ArgumentOutOfRangeException(
+                    nameof(value),
+                    "Handle resolution timeout must be positive or Timeout.InfiniteTimeSpan.");
+
+            _handleResolutionTimeout = value;
+        }
     }
 
     /// <summary>
@@ -111,12 +156,20 @@ public sealed class AuthorizationServerDiscovery
         // strategy lets an attacker who compromises EITHER source (e.g. an HTTPS
         // cert hijack of a victim's domain) silently complete verification.
         // When both sources answer we require agreement, fail closed on conflict.
-        var httpsTask = ResolveHandleViaHttpsAsync(handle, cancellationToken);
-        var dnsTask = ResolveHandleViaDnsAsync(handle, cancellationToken);
+        //
+        // Both lookups share one HandleResolutionTimeout budget: an authority that
+        // never answers (parked domain dropping SYNs on :443) resolves to "no
+        // answer" after a few seconds instead of holding the flow for the
+        // HttpClient timeout.
+        using var budget = CreateResolutionBudget(cancellationToken);
+        var attemptToken = budget?.Token ?? cancellationToken;
+
+        var httpsTask = ResolveHandleViaHttpsAsync(handle, attemptToken, cancellationToken);
+        var dnsTask = ResolveHandleViaDnsAsync(handle, attemptToken, cancellationToken);
         await Task.WhenAll(httpsTask, dnsTask);
 
-        var httpsDid = httpsTask.Result;
-        var dnsDid = dnsTask.Result;
+        var httpsDid = await httpsTask;
+        var dnsDid = await dnsTask;
 
         if (httpsDid is not null && dnsDid is not null)
         {
@@ -151,21 +204,76 @@ public sealed class AuthorizationServerDiscovery
             "handle_resolution_failed");
     }
 
-    private async Task<string?> ResolveHandleViaHttpsAsync(string handle, CancellationToken cancellationToken)
+    /// <summary>
+    /// Resolves a handle via <c>https://&lt;handle&gt;/.well-known/atproto-did</c>.
+    /// </summary>
+    /// <param name="handle">The (already format-validated) handle.</param>
+    /// <param name="attemptToken">
+    /// Token bounding this attempt — usually the <see cref="HandleResolutionTimeout"/>
+    /// budget linked to <paramref name="callerToken"/>.
+    /// </param>
+    /// <param name="callerToken">
+    /// The caller's token. Cancellation from the caller propagates; the attempt
+    /// budget expiring is reported as "no answer" (<c>null</c>) instead.
+    /// </param>
+    private async Task<string?> ResolveHandleViaHttpsAsync(
+        string handle, CancellationToken attemptToken, CancellationToken callerToken)
     {
         try
         {
-            var url = $"https://{handle}/.well-known/atproto-did";
-            var response = await _httpClient.GetAsync(url, cancellationToken);
+            // Build the Uri up front so the expected host is compared in the same
+            // (punycode-normalized) form the response reports for an IDN handle.
+            var url = new Uri($"https://{handle}/.well-known/atproto-did");
+            using var response = await _httpClient.GetAsync(
+                url, HttpCompletionOption.ResponseHeadersRead, attemptToken);
             if (!response.IsSuccessStatusCode)
                 return null;
 
-            var did = (await response.Content.ReadAsStringAsync(cancellationToken)).Trim();
+            // The request target is built from untrusted input, so a redirect can
+            // point anywhere — including into this server's own network. A DID
+            // handed back by some other host is not the handle domain's answer, so
+            // treat an off-host final URI as no answer at all. Same-host redirects
+            // (http→https, trailing slash) stay acceptable.
+            var finalHost = response.RequestMessage?.RequestUri?.Host;
+            if (finalHost is not null && !finalHost.Equals(url.Host, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogDebug(
+                    "Ignoring atproto-did response for {Handle}: request was redirected to {FinalHost}.",
+                    handle, finalHost);
+                return null;
+            }
+
+            if (response.Content.Headers.ContentLength > MaxWellKnownResponseBytes)
+            {
+                _logger.LogDebug(
+                    "Ignoring atproto-did response for {Handle}: body exceeds {MaxBytes} bytes.",
+                    handle, MaxWellKnownResponseBytes);
+                return null;
+            }
+
+            var body = await ReadCappedStringAsync(
+                response.Content, MaxWellKnownResponseBytes, attemptToken);
+            if (body is null)
+            {
+                _logger.LogDebug(
+                    "Ignoring atproto-did response for {Handle}: body exceeds {MaxBytes} bytes.",
+                    handle, MaxWellKnownResponseBytes);
+                return null;
+            }
+
+            var did = body.Trim();
             return did.StartsWith("did:", StringComparison.OrdinalIgnoreCase) ? did : null;
+        }
+        catch (OperationCanceledException) when (callerToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (OperationCanceledException)
         {
-            throw;
+            _logger.LogDebug(
+                "HTTPS handle resolution for {Handle} exceeded its {Timeout} budget.",
+                handle, _handleResolutionTimeout);
+            return null;
         }
         catch (Exception ex)
         {
@@ -174,12 +282,14 @@ public sealed class AuthorizationServerDiscovery
         }
     }
 
-    private async Task<string?> ResolveHandleViaDnsAsync(string handle, CancellationToken cancellationToken)
+    /// <inheritdoc cref="ResolveHandleViaHttpsAsync"/>
+    private async Task<string?> ResolveHandleViaDnsAsync(
+        string handle, CancellationToken attemptToken, CancellationToken callerToken)
     {
         try
         {
             var dnsUrl = $"https://dns.google/resolve?name=_atproto.{handle}&type=TXT";
-            var dnsResponse = await _httpClient.GetFromJsonAsync<DnsResponse>(dnsUrl, cancellationToken);
+            var dnsResponse = await _httpClient.GetFromJsonAsync<DnsResponse>(dnsUrl, attemptToken);
             if (dnsResponse?.Answer is { } answers)
             {
                 foreach (var answer in answers)
@@ -191,9 +301,16 @@ public sealed class AuthorizationServerDiscovery
             }
             return null;
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (callerToken.IsCancellationRequested)
         {
             throw;
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogDebug(
+                "DNS-over-HTTPS handle resolution for {Handle} exceeded its {Timeout} budget.",
+                handle, _handleResolutionTimeout);
+            return null;
         }
         catch (Exception ex)
         {
@@ -202,12 +319,84 @@ public sealed class AuthorizationServerDiscovery
         }
     }
 
+    /// <inheritdoc cref="ResolveHandleViaHttpsAsync"/>
+    private async Task<string?> ResolveHandleViaAppViewAsync(
+        string handle, CancellationToken attemptToken, CancellationToken callerToken)
+    {
+        try
+        {
+            var apiUrl = $"https://bsky.social/xrpc/com.atproto.identity.resolveHandle?handle={Uri.EscapeDataString(handle)}";
+            var resolveResponse = await _httpClient.GetFromJsonAsync<ResolveHandleFallbackResponse>(
+                apiUrl, _jsonOptions, attemptToken);
+            return resolveResponse?.Did;
+        }
+        catch (OperationCanceledException) when (callerToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogDebug(
+                "Fallback handle resolution via bsky.social for {Handle} exceeded its {Timeout} budget.",
+                handle, _handleResolutionTimeout);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Fallback handle resolution via bsky.social failed for {Handle}", handle);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Creates the cancellation source bounding one handle resolution round, linked
+    /// to the caller's token. Returns <c>null</c> when no budget is configured.
+    /// </summary>
+    private CancellationTokenSource? CreateResolutionBudget(CancellationToken cancellationToken)
+    {
+        if (_handleResolutionTimeout == Timeout.InfiniteTimeSpan)
+            return null;
+
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(_handleResolutionTimeout);
+        return cts;
+    }
+
+    /// <summary>
+    /// Reads a response body as UTF-8 text, returning <c>null</c> when it exceeds
+    /// <paramref name="maxBytes"/> rather than buffering the whole thing.
+    /// </summary>
+    private static async Task<string?> ReadCappedStringAsync(
+        HttpContent content, int maxBytes, CancellationToken cancellationToken)
+    {
+        using var stream = await content.ReadAsStreamAsync(cancellationToken);
+
+        // One byte of headroom: filling the buffer means the body is over the cap.
+        var buffer = new byte[maxBytes + 1];
+        var read = 0;
+        while (read < buffer.Length)
+        {
+            var n = await stream.ReadAsync(buffer.AsMemory(read), cancellationToken);
+            if (n == 0)
+                break;
+            read += n;
+        }
+
+        return read > maxBytes ? null : System.Text.Encoding.UTF8.GetString(buffer, 0, read);
+    }
+
     /// <summary>
     /// Resolves a handle to a DID using the AT Protocol handle resolution methods.
-    /// Tries HTTPS resolution first (via any PDS), then DNS TXT, then falls back to
-    /// the Bluesky appview. Use only when convenience matters more than authority —
-    /// for identity-verification flows, prefer <see cref="ResolveHandleAuthoritativeAsync"/>.
+    /// Races the HTTPS well-known lookup against the DNS TXT lookup (first DID wins),
+    /// then falls back to the Bluesky appview. Use only when convenience matters more
+    /// than authority — for identity-verification flows, prefer
+    /// <see cref="ResolveHandleAuthoritativeAsync"/>.
     /// </summary>
+    /// <remarks>
+    /// Each round is bounded by <see cref="HandleResolutionTimeout"/>, so a handle
+    /// domain that never answers on port 443 cannot dominate the flow: the raced
+    /// pair shares one budget and the appview fallback gets a fresh one.
+    /// </remarks>
     public async Task<string> ResolveHandleToDidAsync(
         string handle, CancellationToken cancellationToken = default)
     {
@@ -215,62 +404,70 @@ public sealed class AuthorizationServerDiscovery
         // AT Proto handles are domain names: labels separated by dots, each 1-63 alphanumeric/hyphen chars.
         ValidateHandleFormat(handle);
 
-        // Try HTTPS resolution: GET https://handle/.well-known/atproto-did
-        try
-        {
-            var url = $"https://{handle}/.well-known/atproto-did";
-            var response = await _httpClient.GetAsync(url, cancellationToken);
-            if (response.IsSuccessStatusCode)
-            {
-                var did = (await response.Content.ReadAsStringAsync(cancellationToken)).Trim();
-                if (did.StartsWith("did:", StringComparison.OrdinalIgnoreCase))
-                    return did;
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "HTTPS handle resolution failed for {Handle}, trying DNS", handle);
-        }
+        var did = await RaceAuthoritativeLookupsAsync(handle, cancellationToken);
+        if (did is not null)
+            return did;
 
-        // Try DNS TXT resolution via DNS-over-HTTPS (works in browser environments too)
-        try
-        {
-            var dnsUrl = $"https://dns.google/resolve?name=_atproto.{handle}&type=TXT";
-            var dnsResponse = await _httpClient.GetFromJsonAsync<DnsResponse>(dnsUrl, cancellationToken);
-            if (dnsResponse?.Answer is { } answers)
-            {
-                foreach (var answer in answers)
-                {
-                    var data = answer.Data?.Trim('"');
-                    if (data?.StartsWith("did=", StringComparison.OrdinalIgnoreCase) == true)
-                    {
-                        return data["did=".Length..];
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "DNS-over-HTTPS handle resolution failed for {Handle}", handle);
-        }
-
-        // Fallback: try resolving via bsky.social API
-        try
-        {
-            var apiUrl = $"https://bsky.social/xrpc/com.atproto.identity.resolveHandle?handle={Uri.EscapeDataString(handle)}";
-            var resolveResponse = await _httpClient.GetFromJsonAsync<ResolveHandleFallbackResponse>(
-                apiUrl, _jsonOptions, cancellationToken);
-            if (resolveResponse?.Did is not null)
-                return resolveResponse.Did;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Fallback handle resolution via bsky.social failed for {Handle}", handle);
-        }
+        // Fallback: resolve via the bsky.social appview, on its own budget so a slow
+        // (or dead) handle domain doesn't eat the fallback's time as well.
+        using var fallbackBudget = CreateResolutionBudget(cancellationToken);
+        did = await ResolveHandleViaAppViewAsync(
+            handle, fallbackBudget?.Token ?? cancellationToken, cancellationToken);
+        if (did is not null)
+            return did;
 
         throw new OAuthException(
             $"Could not resolve handle '{handle}' to a DID.",
             "handle_resolution_failed");
+    }
+
+    /// <summary>
+    /// Runs the HTTPS well-known and DNS TXT lookups concurrently under a single
+    /// <see cref="HandleResolutionTimeout"/> budget and returns the first DID
+    /// produced, or <c>null</c> when neither answers in time.
+    /// </summary>
+    private async Task<string?> RaceAuthoritativeLookupsAsync(
+        string handle, CancellationToken cancellationToken)
+    {
+        using var budget = CreateResolutionBudget(cancellationToken);
+        var attemptToken = budget?.Token ?? cancellationToken;
+
+        Task<string?>[] lookups =
+        [
+            ResolveHandleViaHttpsAsync(handle, attemptToken, cancellationToken),
+            ResolveHandleViaDnsAsync(handle, attemptToken, cancellationToken),
+        ];
+
+        try
+        {
+            var pending = new List<Task<string?>>(lookups);
+            while (pending.Count > 0)
+            {
+                var completed = await Task.WhenAny(pending);
+                pending.Remove(completed);
+
+                // Propagates only caller cancellation — the lookups map their own
+                // failures and budget expiry to null.
+                var did = await completed;
+                if (did is not null)
+                    return did;
+            }
+
+            return null;
+        }
+        finally
+        {
+            // A first-success win leaves the loser in flight. Cancel it before the
+            // linked source is disposed, and observe every outcome so a late
+            // failure never surfaces as an unobserved task exception.
+            budget?.Cancel();
+            foreach (var lookup in lookups)
+                _ = lookup.ContinueWith(
+                    static t => _ = t.Exception,
+                    CancellationToken.None,
+                    TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default);
+        }
     }
 
     /// <summary>

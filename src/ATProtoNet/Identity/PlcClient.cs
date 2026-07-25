@@ -65,7 +65,7 @@ public sealed class PlcClient : IDisposable
     {
         ValidateDid(did);
 
-        using var response = await _httpClient.GetAsync(did, cancellationToken);
+        using var response = await _httpClient.GetAsync("./" + did, cancellationToken);
 
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             throw new PlcException($"DID not found: {did}", PlcErrorKind.NotFound);
@@ -98,7 +98,7 @@ public sealed class PlcClient : IDisposable
     {
         ValidateDid(did);
 
-        using var response = await _httpClient.GetAsync($"{did}/log", cancellationToken);
+        using var response = await _httpClient.GetAsync($"./{did}/log", cancellationToken);
         response.EnsureSuccessStatusCode();
 
         var operations = await response.Content.ReadFromJsonAsync<List<PlcOperation>>(
@@ -118,7 +118,7 @@ public sealed class PlcClient : IDisposable
     {
         ValidateDid(did);
 
-        using var response = await _httpClient.GetAsync($"{did}/log/audit", cancellationToken);
+        using var response = await _httpClient.GetAsync($"./{did}/log/audit", cancellationToken);
         response.EnsureSuccessStatusCode();
 
         var entries = await response.Content.ReadFromJsonAsync<List<PlcAuditEntry>>(
@@ -138,7 +138,7 @@ public sealed class PlcClient : IDisposable
     {
         ValidateDid(did);
 
-        using var response = await _httpClient.GetAsync($"{did}/log/last", cancellationToken);
+        using var response = await _httpClient.GetAsync($"./{did}/log/last", cancellationToken);
 
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             throw new PlcException($"DID not found: {did}", PlcErrorKind.NotFound);
@@ -161,7 +161,7 @@ public sealed class PlcClient : IDisposable
     {
         ValidateDid(did);
 
-        using var response = await _httpClient.GetAsync($"{did}/data", cancellationToken);
+        using var response = await _httpClient.GetAsync($"./{did}/data", cancellationToken);
 
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             throw new PlcException($"DID not found: {did}", PlcErrorKind.NotFound);

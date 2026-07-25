@@ -44,7 +44,10 @@ public sealed class OAuthClient : IDisposable
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _discovery = new AuthorizationServerDiscovery(httpClient, logger);
+        _discovery = new AuthorizationServerDiscovery(httpClient, logger)
+        {
+            HandleResolutionTimeout = _options.HandleResolutionTimeout,
+        };
     }
 
     /// <summary>

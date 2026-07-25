@@ -117,6 +117,8 @@ public sealed class LexiconTypeRegistry : ILexiconTypeRegistrar
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             WriteIndented = false,
             NumberHandling = JsonNumberHandling.AllowReadingFromString,
+            // Match AtProtoJsonDefaults: "$type" may appear anywhere in the object (#50).
+            AllowOutOfOrderMetadataProperties = true,
             TypeInfoResolver = new DefaultJsonTypeInfoResolver
             {
                 Modifiers = { ApplyUnionVariants },
