@@ -98,6 +98,102 @@ public class OAuthModelsTests
     }
 
     [Fact]
+    public void OAuthClientMetadata_SerializationWithDefaultOptions_OmitsUnsetOptionalFields()
+    {
+        var metadata = new OAuthClientMetadata
+        {
+            ClientId = "https://myapp.example.com/oauth/client-metadata.json",
+            ClientName = "My App",
+            RedirectUris = ["https://myapp.example.com/oauth/callback"],
+        };
+
+        // Serialized with stock options — what Results.Json / JsonSerializer.Serialize does.
+        var json = JsonSerializer.Serialize(metadata);
+
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+
+        // Authorization servers distinguish absent from null and reject nulls here.
+        Assert.False(root.TryGetProperty("logo_uri", out _));
+        Assert.False(root.TryGetProperty("tos_uri", out _));
+        Assert.False(root.TryGetProperty("policy_uri", out _));
+        Assert.False(root.TryGetProperty("token_endpoint_auth_signing_alg", out _));
+        Assert.False(root.TryGetProperty("jwks", out _));
+        Assert.False(root.TryGetProperty("jwks_uri", out _));
+        Assert.False(root.TryGetProperty("client_uri", out _));
+
+        // Set fields still make it into the document.
+        Assert.Equal(metadata.ClientId, root.GetProperty("client_id").GetString());
+        Assert.Equal("My App", root.GetProperty("client_name").GetString());
+        Assert.Equal("none", root.GetProperty("token_endpoint_auth_method").GetString());
+        Assert.True(root.GetProperty("dpop_bound_access_tokens").GetBoolean());
+    }
+
+    [Fact]
+    public void OAuthClientMetadata_ToJson_OmitsUnsetOptionalFields()
+    {
+        var metadata = new OAuthClientMetadata
+        {
+            ClientId = "https://myapp.example.com/oauth/client-metadata.json",
+            RedirectUris = ["https://myapp.example.com/oauth/callback"],
+        };
+
+        var json = metadata.ToJson();
+
+        Assert.DoesNotContain("null", json);
+        Assert.Contains("\"client_id\"", json);
+
+        var roundTripped = JsonSerializer.Deserialize<OAuthClientMetadata>(json, _options)!;
+        Assert.Equal(metadata.ClientId, roundTripped.ClientId);
+        Assert.Null(roundTripped.JwksUri);
+    }
+
+    [Fact]
+    public void OAuthClientMetadata_ToJson_Indented_ProducesSameDocument()
+    {
+        var metadata = new OAuthClientMetadata
+        {
+            ClientId = "https://myapp.example.com/oauth/client-metadata.json",
+            ClientName = "My App",
+            RedirectUris = ["https://myapp.example.com/oauth/callback"],
+        };
+
+        var indented = metadata.ToJson(writeIndented: true);
+
+        Assert.Contains("\n", indented);
+        Assert.DoesNotContain("null", indented);
+
+        var roundTripped = JsonSerializer.Deserialize<OAuthClientMetadata>(indented, _options)!;
+        Assert.Equal("My App", roundTripped.ClientName);
+    }
+
+    [Fact]
+    public void JsonWebKey_SerializationWithDefaultOptions_OmitsUnsetOptionalFields()
+    {
+        var metadata = new OAuthClientMetadata
+        {
+            ClientId = "https://myapp.example.com/oauth/client-metadata.json",
+            TokenEndpointAuthMethod = "private_key_jwt",
+            TokenEndpointAuthSigningAlg = "ES256",
+            Jwks = new JsonWebKeySet
+            {
+                Keys = [new JsonWebKey { Kty = "EC", Crv = "P-256", X = "x-coord", Y = "y-coord", Kid = "key-1" }],
+            },
+        };
+
+        var json = JsonSerializer.Serialize(metadata);
+
+        using var document = JsonDocument.Parse(json);
+        var key = document.RootElement.GetProperty("jwks").GetProperty("keys")[0];
+
+        Assert.Equal("EC", key.GetProperty("kty").GetString());
+        Assert.Equal("P-256", key.GetProperty("crv").GetString());
+        Assert.False(key.TryGetProperty("use", out _));
+        Assert.False(key.TryGetProperty("alg", out _));
+        Assert.Equal("ES256", document.RootElement.GetProperty("token_endpoint_auth_signing_alg").GetString());
+    }
+
+    [Fact]
     public void OAuthTokenResponse_Deserialization()
     {
         var json = """

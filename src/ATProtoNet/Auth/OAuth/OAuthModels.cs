@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace ATProtoNet.Auth.OAuth;
@@ -74,6 +75,15 @@ public sealed class ProtectedResourceMetadata
 /// OAuth client metadata document as defined by draft-parecki-oauth-client-id-metadata-document.
 /// The <c>client_id</c> is the URL at which this document is served.
 /// </summary>
+/// <remarks>
+/// Optional properties are annotated with
+/// <see cref="JsonIgnoreAttribute"/> (<see cref="JsonIgnoreCondition.WhenWritingNull"/>) so that
+/// serializing this type — with any <see cref="JsonSerializerOptions"/>, including the ASP.NET
+/// Core defaults used by <c>Results.Json</c> — omits unset fields instead of writing JSON
+/// <c>null</c>. Authorization servers distinguish absent from null and reject a document that
+/// contains, for example, <c>"jwks_uri": null</c> with <c>invalid_client_metadata</c>.
+/// Use <see cref="ToJson"/> to render the document directly.
+/// </remarks>
 public sealed class OAuthClientMetadata
 {
     [JsonPropertyName("client_id")]
@@ -83,18 +93,23 @@ public sealed class OAuthClientMetadata
     public string ApplicationType { get; set; } = "web";
 
     [JsonPropertyName("client_name")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ClientName { get; set; }
 
     [JsonPropertyName("client_uri")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ClientUri { get; set; }
 
     [JsonPropertyName("logo_uri")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? LogoUri { get; set; }
 
     [JsonPropertyName("tos_uri")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? TosUri { get; set; }
 
     [JsonPropertyName("policy_uri")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? PolicyUri { get; set; }
 
     [JsonPropertyName("dpop_bound_access_tokens")]
@@ -116,13 +131,37 @@ public sealed class OAuthClientMetadata
     public string TokenEndpointAuthMethod { get; set; } = "none";
 
     [JsonPropertyName("token_endpoint_auth_signing_alg")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? TokenEndpointAuthSigningAlg { get; set; }
 
     [JsonPropertyName("jwks")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public JsonWebKeySet? Jwks { get; set; }
 
     [JsonPropertyName("jwks_uri")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? JwksUri { get; set; }
+
+    /// <summary>
+    /// Serializes this document to the JSON that must be served at the <c>client_id</c> URL.
+    /// Unset optional fields are omitted rather than written as <c>null</c>, as authorization
+    /// servers require.
+    /// </summary>
+    /// <param name="writeIndented">Whether to pretty-print the JSON. Default: <c>false</c>.</param>
+    /// <returns>The client-metadata document as a JSON string.</returns>
+    public string ToJson(bool writeIndented = false)
+        => JsonSerializer.Serialize(this, writeIndented ? IndentedJsonOptions : JsonOptions);
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
+
+    private static readonly JsonSerializerOptions IndentedJsonOptions = new()
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        WriteIndented = true,
+    };
 }
 
 /// <summary>
@@ -143,21 +182,27 @@ public sealed class JsonWebKey
     public string Kty { get; set; } = string.Empty;
 
     [JsonPropertyName("crv")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Crv { get; set; }
 
     [JsonPropertyName("x")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? X { get; set; }
 
     [JsonPropertyName("y")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Y { get; set; }
 
     [JsonPropertyName("kid")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Kid { get; set; }
 
     [JsonPropertyName("use")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Use { get; set; }
 
     [JsonPropertyName("alg")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Alg { get; set; }
 }
 

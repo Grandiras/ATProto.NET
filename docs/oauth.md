@@ -43,6 +43,15 @@ Host a JSON document at a public URL (e.g., `https://myapp.example.com/client-me
 }
 ```
 
+You can also serve the document straight from the `OAuthClientMetadata` you configure below — `ToJson()` omits unset optional fields, which authorization servers require (a `"jwks_uri": null` is rejected with `invalid_client_metadata`; *absent* and *null* are not the same thing):
+
+```csharp
+app.MapGet("/client-metadata.json", () =>
+    Results.Content(oauthOptions.ClientMetadata.ToJson(), "application/json"));
+```
+
+`Results.Json(metadata)` works too — the optional properties are annotated with `[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]`, so nulls are never written regardless of the serializer options in play.
+
 ### 2. Configure OAuthClient
 
 ```csharp
