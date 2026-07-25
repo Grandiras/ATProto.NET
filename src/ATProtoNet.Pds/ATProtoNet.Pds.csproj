@@ -26,4 +26,9 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- EF Core-backed IAccountStore/IRepoStore implementations -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0" />
+  </ItemGroup>
+
 </Project>

@@ -34,9 +34,11 @@ public static class PdsHostingExtensions
         services.AddSingleton(CreatePdsService);
 
         // Default in-memory stores; can be replaced by calling
-        // AddAtProtoPds<TAccountStore, TRepoStore>() instead
-        services.AddSingleton<IAccountStore, InMemoryAccountStore>();
-        services.AddSingleton<IRepoStore, InMemoryRepoStore>();
+        // AddAtProtoPds<TAccountStore, TRepoStore>() instead, or by registering
+        // a store beforehand (e.g. AddAtProtoPdsEfCoreStores<TContext>()) — TryAdd
+        // leaves an existing registration alone rather than shadowing it.
+        services.TryAddSingleton<IAccountStore, InMemoryAccountStore>();
+        services.TryAddSingleton<IRepoStore, InMemoryRepoStore>();
 
         AddFederationServices(services, options);
         return services;

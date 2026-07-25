@@ -44,6 +44,16 @@ public sealed class PdsAccount
 /// Persistent store for PDS accounts. Implementations may be backed by
 /// a database, file system, or in-memory storage.
 /// </summary>
+/// <remarks>
+/// <para><b>Lookups other than by DID may load and filter.</b> Only
+/// <see cref="GetByDidAsync"/> is guaranteed to be a keyed lookup; a store whose handle
+/// or email columns are encrypted at rest with a non-deterministic scheme cannot express
+/// those comparisons as a query predicate at all, and is expected to read candidate
+/// accounts and compare them in memory. Callers should therefore treat
+/// <see cref="GetByHandleAsync"/>, <see cref="GetByEmailAsync"/>, and
+/// <see cref="HandleExistsAsync"/> as potentially O(accounts) and avoid calling them in
+/// a loop.</para>
+/// </remarks>
 public interface IAccountStore
 {
     /// <summary>Create a new account.</summary>
@@ -52,10 +62,16 @@ public interface IAccountStore
     /// <summary>Get an account by DID.</summary>
     Task<PdsAccount?> GetByDidAsync(string did, CancellationToken cancellationToken = default);
 
-    /// <summary>Get an account by handle.</summary>
+    /// <summary>
+    /// Get an account by handle. Implementations may load and filter in memory —
+    /// see the remarks on <see cref="IAccountStore"/>.
+    /// </summary>
     Task<PdsAccount?> GetByHandleAsync(string handle, CancellationToken cancellationToken = default);
 
-    /// <summary>Get an account by email.</summary>
+    /// <summary>
+    /// Get an account by email. Implementations may load and filter in memory —
+    /// see the remarks on <see cref="IAccountStore"/>.
+    /// </summary>
     Task<PdsAccount?> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
 
     /// <summary>Update an existing account.</summary>
@@ -64,6 +80,9 @@ public interface IAccountStore
     /// <summary>Delete an account by DID.</summary>
     Task DeleteAsync(string did, CancellationToken cancellationToken = default);
 
-    /// <summary>Check whether a handle is already taken.</summary>
+    /// <summary>
+    /// Check whether a handle is already taken. Implementations may load and filter
+    /// in memory — see the remarks on <see cref="IAccountStore"/>.
+    /// </summary>
     Task<bool> HandleExistsAsync(string handle, CancellationToken cancellationToken = default);
 }

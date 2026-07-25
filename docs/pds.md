@@ -1,6 +1,6 @@
 # PDS Hosting
 
-The `ATProtoNet.Pds` package lets you build your own AT Protocol Personal Data Server (PDS) using ASP.NET Core. It provides core business logic for account management, session handling, record CRUD, and blob operations.
+The `ATProtoNet.Pds` package lets you build your own AT Protocol Personal Data Server (PDS) using ASP.NET Core. It provides core business logic for account management, session handling, record CRUD, and blob operations, with in-memory stores for development and [EF Core-backed stores](#persistent-storage-ef-core) for production.
 
 ## Installation
 
@@ -335,9 +335,84 @@ builder.Services.AddSingleton(sp =>
     new PdsSessionService(sp.GetRequiredService<PdsOptions>(), myKeyBytes));
 ```
 
+## Persistent Storage (EF Core)
+
+The in-memory stores lose everything on restart. For production, `ATProtoNet.Pds` ships EF Core-backed `IAccountStore`, `IRepoStore`, and `IRepoCommitStore` implementations in the `ATProtoNet.Pds.EntityFrameworkCore` namespace — no extra package, just a provider of your choice:
+
+```bash
+dotnet add package Npgsql.EntityFrameworkCore.PostgreSQL   # or Sqlite, SqlServer, ...
+```
+
+```csharp
+using ATProtoNet.Pds;
+using ATProtoNet.Pds.EntityFrameworkCore;
+
+builder.Services.AddDbContextFactory<PdsDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("Pds")));
+
+builder.Services.AddAtProtoPds(options => options.Hostname = "my-pds.example.com");
+builder.Services.AddAtProtoPdsEfCoreStores<PdsDbContext>();
+```
+
+`AddAtProtoPdsEfCoreStores<TContext>()` replaces the in-memory stores, in either call order — including the repository head store, which a federating PDS needs persisted: lose the head and the next commit restarts the revision sequence, which relays read as the repository rewinding. The stores resolve a fresh `DbContext` per operation from `IDbContextFactory<TContext>`, so they are registered as singletons and are safe to use concurrently. Calling the method twice replaces everything the first call registered, options included.
+
+Create the schema with the usual EF Core migration workflow:
+
+```bash
+dotnet ef migrations add InitialPds --context PdsDbContext
+dotnet ef database update --context PdsDbContext
+```
+
+### Using your own DbContext
+
+If you already have an application `DbContext`, add the five PDS entities to it instead of hosting a second context:
+
+```csharp
+public class AppDbContext : DbContext
+{
+    public DbSet<PdsAccountEntity> PdsAccounts => Set<PdsAccountEntity>();
+    public DbSet<PdsRecordEntity> PdsRecords => Set<PdsRecordEntity>();
+    public DbSet<PdsBlobEntity> PdsBlobs => Set<PdsBlobEntity>();
+    public DbSet<PdsBlobRefEntity> PdsBlobRefs => Set<PdsBlobRefEntity>();
+    public DbSet<PdsRepoHeadEntity> PdsRepoHeads => Set<PdsRepoHeadEntity>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+        PdsDbContext.ConfigurePdsModel(modelBuilder);   // tables, keys, indexes
+    }
+}
+
+builder.Services.AddAtProtoPdsEfCoreStores<AppDbContext>();
+```
+
+### What the stores do
+
+- **Records** page on `rkey` with a keyset (seek) cursor, not an offset, so paging cost does not grow with page depth. The cursor is the last returned `rkey` and is exclusive — the same contract as `InMemoryRepoStore`. Ordering follows the column's collation; record keys are ASCII, so any ASCII-compatible collation matches the in-memory ordering.
+- **Blobs are content-addressed and de-duplicated.** The bytes live in one `PdsBlobs` row per CID; each uploading account gets a `PdsBlobRefs` row carrying its own declared MIME type. Deleting a blob drops the caller's reference, and the shared content only once the last reference is gone — so one account cannot delete another's copy. Concurrent uploads of identical content are safe: the loser of the insert race retries against the row the winner wrote, and a foreign key from `PdsBlobRefs` to `PdsBlobs` stops content being collected out from under a reference that has just appeared.
+- **Handle and email lookups are case-insensitive**, matching the in-memory store. They translate to `LOWER(column) = @p`, which most providers serve from an expression index — add one in a migration if the account table gets large.
+- **Repository heads live in `PdsRepoHeads`**, one row per repo, replaced on every commit and paged by DID for `com.atproto.sync.listRepos`.
+- **The federation surface is fully implemented** — `ListAllRecordsAsync` (the record set the Merkle Search Tree is built from, ordered by the ordinal `collection/rkey` MST key rather than by the database collation) and `ListBlobCidsAsync`.
+
+### Encrypted columns
+
+If you encrypt handle or email at rest with a **non-deterministic** scheme (an EF Core value converter that encrypts on write, Always Encrypted with randomized encryption), the same plaintext yields different ciphertext each time and `WHERE handle = @p` can never match. That is a property of the store contract, not of this implementation: only `GetByDidAsync` is guaranteed to be a keyed lookup, and `IAccountStore` documents that implementations of `GetByHandleAsync` / `GetByEmailAsync` / `HandleExistsAsync` **may load and filter in memory**.
+
+Turn that on when you need it:
+
+```csharp
+builder.Services.AddAtProtoPdsEfCoreStores<PdsDbContext>(options =>
+{
+    options.ClientSideAccountLookup = true;    // decrypt and compare in memory
+    options.MaxClientSideLookupRows = 50_000;  // optional ceiling on the scan
+});
+```
+
+Each such lookup then streams accounts out of the database and compares them after the converter has decrypted them — O(accounts) per call, so keep it off unless the encryption scheme leaves no alternative.
+
 ## Custom Store Implementations
 
-The in-memory stores are suitable for development and testing. For production, implement `IAccountStore` and `IRepoStore`:
+If neither the in-memory nor the EF Core stores fit, implement `IAccountStore` and `IRepoStore` yourself:
 
 ### Account Store
 
@@ -348,25 +423,25 @@ public class DatabaseAccountStore : IAccountStore
 
     public DatabaseAccountStore(MyDbContext db) => _db = db;
 
-    public async Task<AccountInfo?> GetByDidAsync(string did, CancellationToken ct)
+    public async Task<PdsAccount?> GetByDidAsync(string did, CancellationToken ct = default)
     {
         var entity = await _db.Accounts.FindAsync([did], ct);
-        return entity?.ToAccountInfo();
+        return entity?.ToPdsAccount();
     }
 
-    public async Task<AccountInfo?> GetByHandleAsync(string handle, CancellationToken ct)
+    public async Task<PdsAccount?> GetByHandleAsync(string handle, CancellationToken ct = default)
     {
         var entity = await _db.Accounts.FirstOrDefaultAsync(a => a.Handle == handle, ct);
-        return entity?.ToAccountInfo();
+        return entity?.ToPdsAccount();
     }
 
-    public async Task CreateAsync(AccountInfo account, CancellationToken ct)
+    public async Task CreateAsync(PdsAccount account, CancellationToken ct = default)
     {
-        _db.Accounts.Add(AccountEntity.FromAccountInfo(account));
+        _db.Accounts.Add(AccountEntity.FromPdsAccount(account));
         await _db.SaveChangesAsync(ct);
     }
 
-    // ... VerifyPasswordAsync, etc.
+    // ... GetByEmailAsync, UpdateAsync, DeleteAsync, HandleExistsAsync
 }
 ```
 

@@ -18,7 +18,7 @@ dotnet add package ATProtoNet.Server
 # Blazor components (optional)
 dotnet add package ATProtoNet.Blazor
 
-# PDS hosting (optional)
+# PDS hosting, incl. EF Core-backed account/repo stores (optional)
 dotnet add package ATProtoNet.Pds
 
 # Aspire AppHost-side PDS container resource (optional)
