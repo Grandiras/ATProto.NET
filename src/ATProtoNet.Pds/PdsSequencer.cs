@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using System.Threading.Channels;
 
 namespace ATProtoNet.Pds;
 
@@ -20,7 +19,7 @@ public sealed class PdsSequencer
 
     private readonly object _gate = new();
     private readonly Queue<PdsFirehoseEvent> _backlog = new();
-    private readonly List<Subscriber> _subscribers = [];
+    private readonly List<PdsFirehoseSubscription> _subscribers = [];
     private readonly int _capacity;
     private long _seq;
 
@@ -69,7 +68,7 @@ public sealed class PdsSequencer
         ArgumentNullException.ThrowIfNull(buildFrame);
 
         PdsFirehoseEvent evt;
-        Subscriber[] targets;
+        PdsFirehoseSubscription[] targets;
 
         lock (_gate)
         {
@@ -109,6 +108,34 @@ public sealed class PdsSequencer
     }
 
     /// <summary>
+    /// Registers a subscription and snapshots the backlog atomically, so that from this call
+    /// onwards every event is either in the returned subscription's replay list or queued on its
+    /// live channel — never neither.
+    /// <para>
+    /// Prefer this over <see cref="SubscribeAsync"/> when the caller has to do work between
+    /// deciding to subscribe and starting to read (accepting a WebSocket, say). Registration
+    /// happens here, so events published during that gap are buffered rather than missed.
+    /// Dispose the result to unregister.
+    /// </para>
+    /// </summary>
+    /// <param name="cursor">
+    /// Resume after this sequence number. <c>null</c> streams live events only, which is what
+    /// a relay connecting for the first time wants.
+    /// </param>
+    public PdsFirehoseSubscription Subscribe(long? cursor)
+    {
+        lock (_gate)
+        {
+            IReadOnlyList<PdsFirehoseEvent> replay = cursor is { } c ? [.. _backlog.Where(e => e.Seq > c)] : [];
+            var subscription = new PdsFirehoseSubscription(
+                this, cursor, replay, _seq, _backlog.Count == 0 ? 0 : _backlog.Peek().Seq);
+
+            _subscribers.Add(subscription);
+            return subscription;
+        }
+    }
+
+    /// <summary>
     /// Streams events to a subscriber, starting with any retained events after
     /// <paramref name="cursor"/> and then following live.
     /// </summary>
@@ -118,70 +145,30 @@ public sealed class PdsSequencer
     /// </param>
     /// <param name="cancellationToken">Stops the subscription.</param>
     /// <remarks>
+    /// The subscription registers when enumeration begins, not when this method is called; use
+    /// <see cref="Subscribe"/> if that gap matters.
+    /// <para>
     /// A subscriber that cannot keep up with <see cref="DefaultBufferCapacity"/> queued events
     /// is dropped rather than allowed to grow the buffer without bound; the stream simply ends,
     /// and the consumer is expected to reconnect with its last cursor.
+    /// </para>
     /// </remarks>
     public async IAsyncEnumerable<PdsFirehoseEvent> SubscribeAsync(
         long? cursor,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var subscriber = new Subscriber();
-        IReadOnlyList<PdsFirehoseEvent> replay;
+        using var subscription = Subscribe(cursor);
 
-        // Register and snapshot the backlog atomically: anything published from here on lands
-        // in the subscriber's channel, so there is no window in which an event is neither in
-        // the replay list nor in the live stream.
-        lock (_gate)
-        {
-            replay = cursor is { } c ? [.. _backlog.Where(e => e.Seq > c)] : [];
-            _subscribers.Add(subscriber);
-        }
-
-        try
-        {
-            var lastReplayed = 0L;
-            foreach (var evt in replay)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                lastReplayed = evt.Seq;
-                yield return evt;
-            }
-
-            await foreach (var evt in subscriber.Channel.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
-            {
-                // Skip anything the replay pass already delivered.
-                if (evt.Seq <= lastReplayed) continue;
-                yield return evt;
-            }
-        }
-        finally
-        {
-            lock (_gate)
-                _subscribers.Remove(subscriber);
-        }
+        await foreach (var evt in subscription.ReadAllAsync(cancellationToken).ConfigureAwait(false))
+            yield return evt;
     }
 
     /// <summary>How many events a single subscriber may fall behind before being dropped.</summary>
     public const int DefaultBufferCapacity = 512;
 
-    private sealed class Subscriber
+    internal void Unsubscribe(PdsFirehoseSubscription subscription)
     {
-        public Channel<PdsFirehoseEvent> Channel { get; } =
-            System.Threading.Channels.Channel.CreateBounded<PdsFirehoseEvent>(
-                new BoundedChannelOptions(DefaultBufferCapacity)
-                {
-                    FullMode = BoundedChannelFullMode.DropWrite,
-                    SingleReader = true,
-                });
-
-        public void Offer(PdsFirehoseEvent evt)
-        {
-            // A full buffer means this consumer is too slow to keep the stream coherent;
-            // dropping an event silently would hand it a repo diff with a hole in it, so end
-            // the subscription instead and let it reconnect with a cursor.
-            if (!Channel.Writer.TryWrite(evt))
-                Channel.Writer.TryComplete();
-        }
+        lock (_gate)
+            _subscribers.Remove(subscription);
     }
 }

@@ -737,8 +737,15 @@ public static class PdsHostingExtensions
                 cursor = parsed;
             }
 
+            // Register with the sequencer *before* the handshake completes. Accepting first
+            // would leave a window in which the client believes it is connected and can already
+            // provoke events (a write to its own repo, say) that are published while nothing is
+            // yet listening — the frame would be in neither the replay snapshot nor the live
+            // channel, and a live-only subscriber would wait forever for it.
+            using var subscription = sequencer.Subscribe(cursor);
+
             using var socket = await ctx.WebSockets.AcceptWebSocketAsync();
-            await StreamFirehoseAsync(socket, sequencer, cursor, ctx.RequestAborted);
+            await StreamFirehoseAsync(socket, subscription, ctx.RequestAborted);
             return Results.Empty;
         }));
 
@@ -778,14 +785,18 @@ public static class PdsHostingExtensions
     /// Streams sequenced firehose frames to a subscribed relay until it disconnects.
     /// </summary>
     private static async Task StreamFirehoseAsync(
-        WebSocket socket, PdsSequencer sequencer, long? cursor, CancellationToken cancellationToken)
+        WebSocket socket, PdsFirehoseSubscription subscription, CancellationToken cancellationToken)
     {
-        if (cursor is { } requested)
+        if (subscription.Cursor is { } requested)
         {
+            // Both checks read the snapshot taken when the subscription registered rather than
+            // the sequencer's live state, so a publish racing the handshake cannot make a valid
+            // cursor look like a future one.
+
             // A cursor past our own sequence means the consumer is talking to a different (or
             // reset) instance; per the lexicon this is a terminal FutureCursor error, not
             // something to silently start streaming over.
-            if (requested > sequencer.CurrentSeq)
+            if (requested > subscription.CurrentSeq)
             {
                 await SendFrameAsync(socket,
                     PdsFirehoseFrame.Error("FutureCursor", "Cursor is ahead of the server's sequence."),
@@ -794,7 +805,7 @@ public static class PdsHostingExtensions
                 return;
             }
 
-            var oldest = sequencer.OldestAvailableSeq;
+            var oldest = subscription.OldestAvailableSeq;
             if (oldest > 0 && requested < oldest - 1)
             {
                 await SendFrameAsync(socket,
@@ -805,7 +816,7 @@ public static class PdsHostingExtensions
 
         try
         {
-            await foreach (var evt in sequencer.SubscribeAsync(cursor, cancellationToken).ConfigureAwait(false))
+            await foreach (var evt in subscription.ReadAllAsync(cancellationToken).ConfigureAwait(false))
             {
                 if (socket.State != WebSocketState.Open) break;
                 await SendFrameAsync(socket, evt.Frame, cancellationToken);

@@ -216,6 +216,79 @@ public sealed class PdsSequencerTests
         Assert.Equal([1L, 1L], firstSeqs);
     }
 
+    [Fact]
+    public async Task Subscribe_BuffersEventsPublishedBeforeReadingStarts()
+    {
+        var sequencer = new PdsSequencer();
+        using var subscription = sequencer.Subscribe(cursor: null);
+
+        // Registration is what Subscribe does — no enumeration yet, and no polling for it.
+        Assert.Equal(1, sequencer.SubscriberCount);
+
+        // This is the gap a WebSocket handler spends accepting the handshake. Anything
+        // published in it must be waiting when the handler finally reads.
+        for (var i = 0; i < 3; i++) Publish(sequencer);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var received = new List<long>();
+        await foreach (var evt in subscription.ReadAllAsync(cts.Token))
+        {
+            received.Add(evt.Seq);
+            if (received.Count == 3) break;
+        }
+
+        Assert.Equal([1L, 2L, 3L], received);
+    }
+
+    [Fact]
+    public void Subscribe_SnapshotsTheSequenceStateAtRegistration()
+    {
+        var sequencer = new PdsSequencer(backlogCapacity: 2);
+        for (var i = 0; i < 3; i++) Publish(sequencer);
+
+        using var subscription = sequencer.Subscribe(cursor: 1);
+
+        // A later publish must not move the snapshot the cursor checks are made against,
+        // or a valid cursor could be reported as a FutureCursor.
+        Publish(sequencer);
+
+        Assert.Equal(1, subscription.Cursor);
+        Assert.Equal(3, subscription.CurrentSeq);
+        Assert.Equal(2, subscription.OldestAvailableSeq);
+        Assert.Equal([2L, 3L], subscription.Replay.Select(e => e.Seq));
+    }
+
+    [Fact]
+    public void Subscribe_Dispose_RemovesTheSubscriber()
+    {
+        var sequencer = new PdsSequencer();
+
+        var subscription = sequencer.Subscribe(cursor: null);
+        Assert.Equal(1, sequencer.SubscriberCount);
+
+        subscription.Dispose();
+        Assert.Equal(0, sequencer.SubscriberCount);
+
+        // Disposal is idempotent — the endpoint's `using` may run after an early return.
+        subscription.Dispose();
+        Assert.Equal(0, sequencer.SubscriberCount);
+    }
+
+    [Fact]
+    public async Task Subscribe_EnumeratedTwice_Throws()
+    {
+        var sequencer = new PdsSequencer();
+        using var subscription = sequencer.Subscribe(cursor: null);
+
+        Publish(sequencer);
+        await foreach (var _ in subscription.ReadAllAsync(CancellationToken.None)) break;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            await foreach (var _ in subscription.ReadAllAsync(CancellationToken.None)) break;
+        });
+    }
+
     private static async Task WaitForSubscriberAsync(
         PdsSequencer sequencer, CancellationToken cancellationToken, int expected = 1)
     {
