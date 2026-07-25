@@ -56,12 +56,15 @@ public class RecordCollectionTests
     public void AtProtoRecord_SerializesWithDollarType()
     {
         var todo = new TodoItem { Title = "Buy milk", Completed = false };
-        var json = System.Text.Json.JsonSerializer.Serialize(todo);
+        var json = System.Text.Json.JsonSerializer.Serialize(
+            todo, ATProtoNet.Serialization.AtProtoJsonDefaults.Options);
 
         Assert.Contains("\"$type\":\"com.example.todo.item\"", json);
         Assert.Contains("\"title\":\"Buy milk\"", json);
         Assert.Contains("\"completed\":false", json);
         Assert.Contains("\"createdAt\":", json);
+        // #49: the override must not also emit a camelCased "type" alongside "$type".
+        Assert.DoesNotContain("\"type\":", json);
     }
 
     [Fact]

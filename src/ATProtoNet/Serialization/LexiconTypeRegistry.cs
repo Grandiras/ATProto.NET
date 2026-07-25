@@ -121,7 +121,7 @@ public sealed class LexiconTypeRegistry : ILexiconTypeRegistrar
             AllowOutOfOrderMetadataProperties = true,
             TypeInfoResolver = new DefaultJsonTypeInfoResolver
             {
-                Modifiers = { ApplyUnionVariants },
+                Modifiers = { AtProtoJsonDefaults.ApplyRecordTypeDiscriminator, ApplyUnionVariants },
             },
         };
 

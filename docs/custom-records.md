@@ -54,6 +54,27 @@ This serializes to:
 }
 ```
 
+> **Note on `$type` and custom serializer options.** `System.Text.Json` does not inherit
+> `[JsonPropertyName]` through a property `override`, so the SDK guarantees the `$type` name with a
+> contract modifier rather than the attribute alone. Every serializer the SDK uses
+> (`AtProtoJsonDefaults.Options`, `LexiconTypeRegistry.CreateOptions()`, and therefore
+> `RecordCollection<T>` / `RepoClient`) applies it automatically — write the plain `override` above
+> and nothing else. If you serialize records with `JsonSerializerOptions` you built yourself, add the
+> modifier so you get the same guarantee:
+>
+> ```csharp
+> var options = new JsonSerializerOptions
+> {
+>     TypeInfoResolver = new DefaultJsonTypeInfoResolver
+>     {
+>         Modifiers = { AtProtoJsonDefaults.ApplyRecordTypeDiscriminator },
+>     },
+> };
+> ```
+>
+> Without it, the record writes both `"$type"` (from the base member) and a stray `"type"` (from your
+> override).
+
 ### Using Plain C# Classes
 
 You don't have to extend `AtProtoRecord`. Any serializable class works:
