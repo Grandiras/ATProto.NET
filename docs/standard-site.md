@@ -12,6 +12,10 @@ Standard.site is a long-form publishing platform built on AT Protocol. It uses t
 | Document | `site.standard.document` | Published articles/pages |
 | Subscription | `site.standard.graph.subscription` | Follow/subscribe to publications |
 
+`StandardSiteClient` is a thin typed wrapper over `com.atproto.repo.*`, so **every method takes the
+repository (DID or handle) as its first argument** — your own (`client.Did!`) for writes, anyone's for
+reads.
+
 ## Publications
 
 A publication represents a blog or website identity.
@@ -19,22 +23,30 @@ A publication represents a blog or website identity.
 ### Create a Publication
 
 ```csharp
-await client.Site.CreatePublicationAsync(new PublicationRecord
+using ATProtoNet.Lexicon.Site.Standard.Publication;
+
+await client.Site.CreatePublicationAsync(client.Did!, new PublicationRecord
 {
     Url = "https://myblog.example.com",
     Name = "My Blog",
     Description = "A blog about .NET and AT Protocol",
-    Theme = new BasicTheme
+    BasicTheme = new BasicTheme
     {
-        PrimaryColor = new ThemeColorRgb { R = 59, G = 130, B = 246 },
+        Background = new ThemeColorRgb { R = 255, G = 255, B = 255 },
+        Foreground = new ThemeColorRgb { R = 17, G = 24, B = 39 },
+        Accent = new ThemeColorRgb { R = 59, G = 130, B = 246 },
+        AccentForeground = new ThemeColorRgb { R = 255, G = 255, B = 255 },
     },
-});
+}, rkey: "self");
 ```
+
+`Url` and `Name` are required; the record key for a publication is conventionally `self`.
 
 ### Get a Publication
 
 ```csharp
-var pub = await client.Site.GetPublicationAsync(did: "did:plc:abc123", rkey: "self");
+var pub = await client.Site.GetPublicationAsync("did:plc:abc123", "self");
+
 Console.WriteLine($"Name: {pub.Value.Name}");
 Console.WriteLine($"URL: {pub.Value.Url}");
 ```
@@ -42,7 +54,7 @@ Console.WriteLine($"URL: {pub.Value.Url}");
 ### Update a Publication
 
 ```csharp
-await client.Site.UpdatePublicationAsync("self", new PublicationRecord
+await client.Site.PutPublicationAsync(client.Did!, "self", new PublicationRecord
 {
     Url = "https://myblog.example.com",
     Name = "My Updated Blog",
@@ -53,7 +65,7 @@ await client.Site.UpdatePublicationAsync("self", new PublicationRecord
 ### Delete a Publication
 
 ```csharp
-await client.Site.DeletePublicationAsync(rkey: "self");
+await client.Site.DeletePublicationAsync(client.Did!, "self");
 ```
 
 ## Documents
@@ -63,40 +75,63 @@ Documents represent published articles, blog posts, or pages.
 ### Create a Document
 
 ```csharp
-await client.Site.CreateDocumentAsync(new DocumentRecord
+using ATProtoNet.Lexicon.Site.Standard.Document;
+
+await client.Site.CreateDocumentAsync(client.Did!, new DocumentRecord
 {
+    Site = $"at://{client.Did}/site.standard.publication/self",
     Title = "Getting Started with ATProto.NET",
+    PublishedAt = DateTime.UtcNow.ToString("o"),
     Path = "/getting-started",
     Tags = ["atproto", "dotnet", "tutorial"],
-    CreatedAt = DateTime.UtcNow.ToString("o"),
 });
 ```
 
+`Site` (the publication this belongs to, as an `at://` URI or an `https://` URL), `Title`, and
+`PublishedAt` are required.
+
 ### List Documents
 
-```csharp
-var docs = await client.Site.ListDocumentsAsync(limit: 25);
+`ListDocumentsAsync` returns the raw `com.atproto.repo.listRecords` response, so each entry's `Value`
+is a `JsonElement` — deserialize it to get typed access:
 
-foreach (var doc in docs.Records)
+```csharp
+var docs = await client.Site.ListDocumentsAsync("did:plc:abc123", limit: 25);
+
+foreach (var entry in docs.Records)
 {
-    Console.WriteLine($"Title: {doc.Value.Title}");
-    Console.WriteLine($"Path: {doc.Value.Path}");
-    Console.WriteLine($"Tags: {string.Join(", ", doc.Value.Tags ?? [])}");
+    var doc = entry.Value.Deserialize<DocumentRecord>(AtProtoJsonDefaults.Options)!;
+    Console.WriteLine($"Title: {doc.Title}");
+    Console.WriteLine($"Path: {doc.Path}");
+    Console.WriteLine($"Tags: {string.Join(", ", doc.Tags ?? [])}");
 }
+```
+
+For typed listing and automatic pagination, use a `RecordCollection<T>` instead — see
+[Custom Lexicon Records](custom-records.md):
+
+```csharp
+var documents = client.GetCollection<DocumentRecord>("site.standard.document");
+await foreach (var record in documents.EnumerateFromAsync("did:plc:abc123"))
+    Console.WriteLine(record.Value.Title);
 ```
 
 ### Get a Document
 
 ```csharp
-var doc = await client.Site.GetDocumentAsync(did: "did:plc:abc123", rkey: "doc-key");
+var doc = await client.Site.GetDocumentAsync("did:plc:abc123", "doc-key");
+Console.WriteLine(doc.Value.Title);
 ```
 
 ### Update a Document
 
 ```csharp
-await client.Site.UpdateDocumentAsync("doc-key", new DocumentRecord
+await client.Site.PutDocumentAsync(client.Did!, "doc-key", new DocumentRecord
 {
+    Site = $"at://{client.Did}/site.standard.publication/self",
     Title = "Updated: Getting Started with ATProto.NET",
+    PublishedAt = originalPublishedAt,
+    UpdatedAt = DateTime.UtcNow.ToString("o"),
     Path = "/getting-started",
     Tags = ["atproto", "dotnet", "tutorial", "updated"],
 });
@@ -105,7 +140,7 @@ await client.Site.UpdateDocumentAsync("doc-key", new DocumentRecord
 ### Delete a Document
 
 ```csharp
-await client.Site.DeleteDocumentAsync(rkey: "doc-key");
+await client.Site.DeleteDocumentAsync(client.Did!, "doc-key");
 ```
 
 ## Subscriptions
@@ -115,46 +150,48 @@ Subscribe to other publications:
 ### Subscribe to a Publication
 
 ```csharp
-await client.Site.CreateSubscriptionAsync(new SubscriptionRecord
+using ATProtoNet.Lexicon.Site.Standard.Graph;
+
+await client.Site.CreateSubscriptionAsync(client.Did!, new SubscriptionRecord
 {
-    Subject = "did:plc:publisher",
+    Publication = "at://did:plc:publisher/site.standard.publication/self",
 });
 ```
 
 ### List Subscriptions
 
 ```csharp
-var subs = await client.Site.ListSubscriptionsAsync();
+var subs = await client.Site.ListSubscriptionsAsync(client.Did!);
 
-foreach (var sub in subs.Records)
+foreach (var entry in subs.Records)
 {
-    Console.WriteLine($"Subscribed to: {sub.Value.Subject}");
+    var sub = entry.Value.Deserialize<SubscriptionRecord>(AtProtoJsonDefaults.Options)!;
+    Console.WriteLine($"Subscribed to: {sub.Publication}");
 }
 ```
 
 ### Unsubscribe
 
 ```csharp
-await client.Site.DeleteSubscriptionAsync(rkey: "subscription-key");
+await client.Site.DeleteSubscriptionAsync(client.Did!, "subscription-key");
 ```
 
 ## Themes
 
-Publications support theming with color definitions:
+Publications carry an optional `BasicTheme`, built from RGB colors. All four colors are required when
+a theme is present:
 
 ```csharp
-// RGB color
-var color = new ThemeColorRgb { R = 59, G = 130, B = 246 };
-
-// RGBA color (with transparency)
-var colorWithAlpha = new ThemeColorRgba { R = 59, G = 130, B = 246, A = 0.8 };
-
-// Basic theme
 var theme = new BasicTheme
 {
-    PrimaryColor = color,
+    Background = new ThemeColorRgb { R = 255, G = 255, B = 255 },
+    Foreground = new ThemeColorRgb { R = 17, G = 24, B = 39 },
+    Accent = new ThemeColorRgb { R = 59, G = 130, B = 246 },
+    AccentForeground = new ThemeColorRgb { R = 255, G = 255, B = 255 },
 };
 ```
+
+`ThemeColorRgba` adds an integer `A` (alpha) component for the places the Lexicon accepts it.
 
 ## Client Pattern
 
@@ -164,7 +201,8 @@ The `StandardSiteClient` follows the same pattern as `client.Bsky`, `client.Chat
 // Access via the top-level client
 var siteClient = client.Site;
 
-// All CRUD operations go through the user's PDS repository
+// All CRUD operations go through the named repository, so reads work for any account
+var theirDocs = await client.Site.ListDocumentsAsync("did:plc:someoneelse");
 ```
 
 ## Next Steps

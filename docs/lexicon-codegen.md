@@ -159,69 +159,89 @@ atproto-lexgen diff --baseline ./baseline --current ./current --strict
 
 ## Schema Migrations
 
-### Scaffold a Migration
+`atproto-lexgen migrate` has two modes, selected by which options you pass.
 
-Generate a migration file from the diff between two schema versions:
+### Scaffold Migrations
+
+Passing `--baseline` and `--current` compares two schema directories and generates migration stubs
+from the diff:
 
 ```bash
-atproto-lexgen migrate scaffold --baseline ./v1 --current ./v2 --output ./migrations/001.json
+atproto-lexgen migrate --baseline ./v1 --current ./v2
 ```
 
 ### Migration File Format
 
 ```json
 {
-  "version": 1,
-  "lexiconId": "com.example.todo.item",
+  "nsid": "com.example.todo.item",
+  "fromRevision": 1,
+  "toRevision": 2,
+  "description": "Add tags, drop the legacy field",
   "operations": [
-    { "type": "addProperty", "name": "tags", "default": [] },
-    { "type": "removeProperty", "name": "oldField" },
-    { "type": "renameProperty", "from": "dueDate", "to": "deadline" }
+    { "op": "addProperty", "name": "tags", "default": [] },
+    { "op": "removeProperty", "name": "oldField" },
+    { "op": "renameProperty", "from": "dueDate", "to": "deadline" }
   ]
 }
 ```
 
 ### Apply Migrations
 
-Apply a migration file to transform JSON records:
+Passing `--input`, `--nsid`, `--from`, and `--to` runs the migration chain over a JSON file of
+records. `--migrations` points at the directory holding the migration files; `--output` defaults to
+stdout:
 
 ```bash
-atproto-lexgen migrate apply --migration ./migrations/001.json --input ./records
+atproto-lexgen migrate \
+  --input records.json --output migrated.json \
+  --nsid com.example.todo.item --from 1 --to 2 \
+  --migrations ./migrations
 ```
 
 ### Programmatic Migrations
 
-Use the migration API in code:
+The migration types live in the generator tool's own assembly
+(`ATProtoNet.LexiconGenerator.Migrations`), so this API is available when you reference that project
+rather than through the runtime SDK packages.
 
 ```csharp
-using ATProtoNet.Lexicon;
+using System.Text.Json.Nodes;
+using ATProtoNet.LexiconGenerator.Migrations;
 
-// Fluent migration builder
-var migration = new MigrationBuilder()
-    .AddProperty("tags", defaultValue: new string[] { })
+// Fluent migration builder — a migration is scoped to one NSID and revision step
+ILexiconMigration migration = new MigrationBuilder("com.example.todo.item", 1, 2)
+    .WithDescription("Add tags, drop the legacy field")
+    .AddProperty("tags", new JsonArray())
     .RemoveProperty("oldField")
     .RenameProperty("dueDate", "deadline")
     .Build();
 
-// Apply to a JSON record
-var migrated = migration.Apply(originalRecord);
+// Transform a record in place
+migration.Transform(record);   // record is a JsonObject
 ```
 
 ### Migration Runner
 
+The runner chains migrations across revisions and reports per-record results:
+
 ```csharp
-var runner = new LexiconMigrationRunner();
+var runner = new LexiconMigrationRunner()
+    .AddMigration(migration)
+    .AddMigration(new DelegateMigration(
+        "com.example.todo.item", 2, 3,
+        record => record["archived"] = false));
 
-// Register migrations in order
-runner.AddMigration(new DelegateMigration(1, record =>
-{
-    record["tags"] = new JsonArray();
-    return record;
-}));
+MigrationResult result = runner.Migrate(
+    "com.example.todo.item", fromRevision: 1, toRevision: 3, records);
 
-// Run all migrations
-var result = runner.Run(record, fromRevision: 0);
+Console.WriteLine($"{result.SuccessCount} migrated, {result.FailureCount} failed");
+foreach (var error in result.Errors)
+    Console.WriteLine($"  record {error.RecordIndex}: {error.Message}");
 ```
+
+`records` is a list of JSON strings, and `result.MigratedRecords` holds the transformed output in the
+same order. `CanMigrate(nsid, from, to)` checks whether a complete chain exists before running one.
 
 ## Publishing Schemas
 
@@ -229,13 +249,16 @@ Publish schemas to a directory with version tracking:
 
 ```bash
 # Publish with automatic revision bump for non-breaking changes
-atproto-lexgen publish --schema ./lexicons --directory ./published
+atproto-lexgen publish --input ./lexicons --output ./published --baseline ./published
+
+# Publish from a compiled assembly instead of JSON files
+atproto-lexgen publish --assembly ./bin/Debug/net10.0/MyApp.dll --output ./published
 
 # Force publish even with breaking changes
-atproto-lexgen publish --schema ./lexicons --directory ./published --force
+atproto-lexgen publish --input ./lexicons --output ./published --baseline ./published --force
 
 # Publish without bumping the revision
-atproto-lexgen publish --schema ./lexicons --directory ./published --no-bump
+atproto-lexgen publish --input ./lexicons --output ./published --no-bump
 ```
 
 The publisher:

@@ -1,6 +1,6 @@
 # Architecture
 
-ATProto.NET is split into five runtime packages plus one `dotnet tool`. They layer onto each other so you take only what you need — the core SDK has no ASP.NET dependency, and each integration package adds one capability on top.
+ATProto.NET is split into four runtime packages plus one `dotnet tool`. They layer onto each other so you take only what you need — the core SDK has no ASP.NET dependency, and each integration package adds one capability on top.
 
 ## Package layering
 
@@ -55,9 +55,9 @@ ATProto.NET/
 │   │   ├── Crypto/                            # AtProtoCrypto, AtProtoKey (P-256 / K-256)
 │   │   ├── Http/                              # XrpcClient, AtProtoHttpException
 │   │   ├── Models/                            # BlobRef, StrongRef, Label, …
-│   │   ├── Repo/                              # CarReader, MerkleSearchTree, DAG-CBOR, CID
+│   │   ├── Repo/                              # CarReader/CarWriter, MerkleSearchTree, RepoCommit, DAG-CBOR, CID
 │   │   ├── Serialization/                     # JSON converters, defaults
-│   │   ├── Streaming/                         # FirehoseClient, TypedFirehoseConsumer
+│   │   ├── Streaming/                         # FirehoseClient, TypedFirehoseConsumer, Jetstream
 │   │   ├── Admin/                             # PdsAdminClient — administer a PDS you operate
 │   │   ├── RecordCollection.cs                # Typed CRUD for custom records
 │   │   ├── AtProtoClient.cs                   # Main client facade
@@ -101,4 +101,6 @@ JSON property names use `camelCase` (the AT Proto convention) — set `[JsonProp
 
 Shared package metadata (`Version`, `Authors`, SourceLink, deterministic build flags) lives in `Directory.Build.props` — do not duplicate it in individual `.csproj` files. Set `<IsPackable>false</IsPackable>` on non-packable projects (tests, samples).
 
-Nullable reference types are enabled everywhere. `<TreatWarningsAsErrors>` is intentionally `false` on the core project, but new warnings on touched files should be addressed. Public APIs are XML-documented (`GenerateDocumentationFile` is on for the core project).
+Nullable reference types are enabled everywhere. `<TreatWarningsAsErrors>` is intentionally `false`, but the solution builds warning-free and new warnings on touched files should be addressed.
+
+Public APIs are XML-documented: `ATProtoNet`, `ATProtoNet.Server`, `ATProtoNet.Blazor`, and `ATProtoNet.Aspire.Hosting` all set `GenerateDocumentationFile` and promote **CS1591 to an error**, so a new public member without an XML comment fails the build.

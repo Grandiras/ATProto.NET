@@ -21,7 +21,7 @@ ATProto.NET provides full support for the `tools.ozone.*` namespace — the cont
 // Take down content
 await client.Ozone.Moderation.EmitEventAsync(new EmitEventRequest
 {
-    Event = new ModerationEventTakedown
+    Event = new ModEventTakedown
     {
         Comment = "Violates community guidelines",
     },
@@ -32,7 +32,7 @@ await client.Ozone.Moderation.EmitEventAsync(new EmitEventRequest
 // Apply a label
 await client.Ozone.Moderation.EmitEventAsync(new EmitEventRequest
 {
-    Event = new ModerationEventLabel
+    Event = new ModEventLabel
     {
         CreateLabelVals = ["spam"],
         NegateLabelVals = [],
@@ -45,7 +45,7 @@ await client.Ozone.Moderation.EmitEventAsync(new EmitEventRequest
 // Add a comment
 await client.Ozone.Moderation.EmitEventAsync(new EmitEventRequest
 {
-    Event = new ModerationEventComment
+    Event = new ModEventComment
     {
         Comment = "Reviewing this account",
     },
@@ -75,7 +75,7 @@ var subjects = await client.Ozone.Moderation.QuerySubjectsAsync(limit: 25);
 foreach (var subject in subjects.Subjects)
 {
     Console.WriteLine($"Subject: {subject.Subject}");
-    Console.WriteLine($"Review state: {subject.SubjectReviewState}");
+    Console.WriteLine($"Review state: {subject.ReviewState}");
 }
 ```
 
@@ -89,7 +89,7 @@ var repo = await client.Ozone.Moderation.GetRepoAsync(did: "did:plc:abc123");
 ### Search Repositories
 
 ```csharp
-var results = await client.Ozone.Moderation.SearchReposAsync(query: "spam");
+var results = await client.Ozone.Moderation.SearchReposAsync(q: "spam");
 ```
 
 ## Communication Templates
@@ -116,7 +116,7 @@ await client.Ozone.Communication.UpdateTemplateAsync(new UpdateTemplateRequest
 });
 
 // Delete a template
-await client.Ozone.Communication.DeleteTemplateAsync(templateId: template.Id);
+await client.Ozone.Communication.DeleteTemplateAsync(id: template.Id);
 ```
 
 ## Team Management
@@ -156,11 +156,9 @@ await client.Ozone.Set.UpsertSetAsync(new UpsertSetRequest
 });
 
 // Add values to a set
-await client.Ozone.Set.AddValuesAsync(new AddValuesRequest
-{
-    Name = "blocked-domains",
-    Values = ["spam-site.example.com", "bad-domain.example.com"],
-});
+await client.Ozone.Set.AddValuesAsync(
+    "blocked-domains",
+    ["spam-site.example.com", "bad-domain.example.com"]);
 
 // Get values from a set
 var values = await client.Ozone.Set.GetValuesAsync(name: "blocked-domains");
@@ -169,11 +167,9 @@ var values = await client.Ozone.Set.GetValuesAsync(name: "blocked-domains");
 var sets = await client.Ozone.Set.QuerySetsAsync();
 
 // Remove values
-await client.Ozone.Set.DeleteValuesAsync(new DeleteValuesRequest
-{
-    Name = "blocked-domains",
-    Values = ["spam-site.example.com"],
-});
+await client.Ozone.Set.DeleteValuesAsync(
+    "blocked-domains",
+    ["spam-site.example.com"]);
 
 // Delete a set
 await client.Ozone.Set.DeleteSetAsync(name: "blocked-domains");
@@ -188,7 +184,8 @@ Find related accounts through signature correlation:
 var correlation = await client.Ozone.Signature.FindCorrelationAsync(dids: ["did:plc:abc", "did:plc:def"]);
 
 // Search accounts by signature
-var accounts = await client.Ozone.Signature.SearchAccountsAsync(values: ["some-signal"]);
+var accounts = await client.Ozone.Signature.SearchAccountsAsync(
+    values: [new SigDetail { Property = "userAgent", Value = "some-signal" }]);
 
 // Find related accounts
 var related = await client.Ozone.Signature.FindRelatedAccountsAsync(did: "did:plc:abc123");
@@ -204,16 +201,19 @@ var config = await client.Ozone.Server.GetConfigAsync();
 
 | Event Type | Description |
 |------------|-------------|
-| `ModerationEventTakedown` | Take down content or account |
-| `ModerationEventLabel` | Add or negate labels |
-| `ModerationEventComment` | Add a moderator comment |
-| `ModerationEventMuteReporter` | Mute a reporter |
-| `ModerationEventEmail` | Send a moderation email |
-| `ModerationEventTag` | Add/remove tags |
-| `ModerationEventAcknowledge` | Acknowledge a report |
-| `ModerationEventEscalate` | Escalate for review |
-| `ModerationEventReverseTakedown` | Reverse a takedown |
-| `ModerationEventDivert` | Divert a report |
+| `ModEventTakedown` | Take down content or account |
+| `ModEventLabel` | Add or negate labels |
+| `ModEventComment` | Add a moderator comment |
+| `ModEventMuteReporter` | Mute a reporter |
+| `ModEventEmail` | Send a moderation email |
+| `ModEventTag` | Add/remove tags |
+| `ModEventAcknowledge` | Acknowledge a report |
+| `ModEventEscalate` | Escalate for review |
+| `ModEventReverseTakedown` | Reverse a takedown |
+| `ModEventDivert` | Divert a report |
+| `ModEventReport` | Record a report against the subject |
+| `ModEventMute` / `ModEventUnmute` | Mute or unmute a subject |
+| `ModEventUnmuteReporter` | Unmute a reporter |
 
 ## Review States
 

@@ -72,6 +72,7 @@ The `TypedFirehoseConsumer` is the highest-level API. It parses CBOR frames into
 
 ```csharp
 using ATProtoNet.Streaming;
+using ATProtoNet.Lexicon.Com.AtProto.Sync;   // CommitEvent, SyncEvent, IdentityEvent, AccountEvent
 
 var options = new TypedFirehoseConsumerOptions
 {
@@ -122,7 +123,7 @@ Implement `IFirehoseCursorStore` for resumable consumption across restarts:
 public interface IFirehoseCursorStore
 {
     Task<long?> GetCursorAsync(string streamId, CancellationToken ct = default);
-    Task SetCursorAsync(string streamId, long cursor, CancellationToken ct = default);
+    Task StoreCursorAsync(string streamId, long cursor, CancellationToken ct = default);
 }
 ```
 
@@ -149,7 +150,7 @@ public class FileFirehoseCursorStore : IFirehoseCursorStore
         return long.TryParse(text, out var cursor) ? cursor : null;
     }
 
-    public async Task SetCursorAsync(string streamId, long cursor, CancellationToken ct)
+    public async Task StoreCursorAsync(string streamId, long cursor, CancellationToken ct)
     {
         Directory.CreateDirectory(_directory);
         var path = Path.Combine(_directory, $"{streamId}.cursor");
@@ -174,6 +175,8 @@ FirehoseMessage? message = FirehoseEventParser.Parse(cborBytes);
 
 ### Message Types
 
+The message types live in `ATProtoNet.Lexicon.Com.AtProto.Sync`:
+
 | Type | Description |
 |------|-------------|
 | `CommitEvent` | Repository commit with record operations |
@@ -186,13 +189,16 @@ FirehoseMessage? message = FirehoseEventParser.Parse(cborBytes);
 | Property | Type | Description |
 |----------|------|-------------|
 | `Repo` | `string` | DID of the repository |
-| `Rev` | `string` | Revision string |
-| `Seq` | `long` | Sequence number |
-| `Time` | `string` | ISO 8601 timestamp |
-| `Ops` | `List<RepoOp>` | Record operations |
+| `Commit` | `string` | CID of the commit block |
+| `Rev` | `string` | Revision string (a TID) |
+| `Since` | `string?` | Revision the diff is relative to, for a partial commit |
+| `Seq` | `long` | Sequence number (from `FirehoseMessage`) |
+| `Time` | `string?` | ISO 8601 timestamp (from `FirehoseMessage`) |
+| `Ops` | `List<RepoOp>?` | Record operations |
 | `Blocks` | `byte[]?` | CAR-encoded block data |
+| `TooBig` | `bool` | Commit was too large to inline — fetch the repo separately |
 | `PrevData` | `string?` | Previous data CID (Sync v1.1) |
-| `Blobs` | `List<string>?` | Referenced blobs (Sync v1.1) |
+| `Blobs` | `List<string>?` | Referenced blobs (deprecated — soon always empty) |
 
 ### RepoOp
 

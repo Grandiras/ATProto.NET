@@ -4,13 +4,15 @@ Upload images, files, and binary data to a PDS for use in records.
 
 ## Basic Upload
 
+`UploadBlobAsync` returns the `BlobRef` itself — store it on a record to reference the uploaded data.
+
 ```csharp
 // From a file path
-var result = await client.Repo.UploadBlobAsync(
+BlobRef blob = await client.Repo.UploadBlobAsync(
     filePath: "/path/to/image.jpg",
     mimeType: "image/jpeg");
 
-Console.WriteLine($"Blob ref: {result.Blob}");
+Console.WriteLine($"Blob CID: {blob.Ref?.Link}, {blob.Size} bytes");
 ```
 
 ## Upload Methods
@@ -18,7 +20,7 @@ Console.WriteLine($"Blob ref: {result.Blob}");
 ### From File Path
 
 ```csharp
-var result = await client.Repo.UploadBlobAsync(
+BlobRef blob = await client.Repo.UploadBlobAsync(
     "/path/to/photo.png",
     "image/png");
 ```
@@ -27,7 +29,7 @@ var result = await client.Repo.UploadBlobAsync(
 
 ```csharp
 using var stream = File.OpenRead("/path/to/file.pdf");
-var result = await client.Repo.UploadBlobAsync(
+BlobRef blob = await client.Repo.UploadBlobAsync(
     stream,
     "application/pdf");
 ```
@@ -36,7 +38,7 @@ var result = await client.Repo.UploadBlobAsync(
 
 ```csharp
 byte[] imageBytes = await DownloadImageAsync(url);
-var result = await client.Repo.UploadBlobAsync(
+BlobRef blob = await client.Repo.UploadBlobAsync(
     imageBytes,
     "image/jpeg");
 ```
@@ -62,14 +64,14 @@ public class PhotoRecord : AtProtoRecord
 }
 
 // Upload then create record
-var uploadResult = await client.Repo.UploadBlobAsync(
+BlobRef uploaded = await client.Repo.UploadBlobAsync(
     "/path/to/vacation.jpg",
     "image/jpeg");
 
 var photos = client.GetCollection<PhotoRecord>("com.example.photos.photo");
 await photos.CreateAsync(new PhotoRecord
 {
-    Image = uploadResult.Blob,
+    Image = uploaded,
     Caption = "Beach sunset",
     AltText = "A beautiful sunset over the ocean",
 });
@@ -78,15 +80,12 @@ await photos.CreateAsync(new PhotoRecord
 ## Download Blobs
 
 ```csharp
-var (stream, contentType) = await client.Sync.DownloadBlobAsync(
+await using var stream = await client.Sync.GetBlobAsync(
     "did:plc:abc123",
     "bafyreib...");
 
-using (stream)
-{
-    await using var file = File.Create("downloaded.jpg");
-    await stream.CopyToAsync(file);
-}
+await using var file = File.Create("downloaded.jpg");
+await stream.CopyToAsync(file);
 ```
 
 ## Size Limits

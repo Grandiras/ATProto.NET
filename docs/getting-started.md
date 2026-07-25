@@ -44,11 +44,14 @@ var client = new AtProtoClientBuilder()
     .WithInstanceUrl("https://your-pds.example.com")  // Required: PDS URL
     .WithRelayUrl("wss://bsky.network")                // Relay for firehose (default)
     .WithAutoRefreshSession(true)                       // Auto-refresh tokens (default: true)
-    .WithSessionStore(new FileSessionStore("sess.json"))// Custom session persistence
+    .WithSessionStore(new InMemorySessionStore())       // Session persistence (default)
     .WithHttpClient(httpClient)                         // Custom HttpClient
     .WithLoggerFactory(loggerFactory)                   // Logging
     .Build();
 ```
+
+`InMemorySessionStore` is the only store that ships with the SDK — implement `ISessionStore` to keep
+sessions across restarts, as shown in [Session Management](session-management.md#custom-session-store).
 
 ### Direct Construction
 

@@ -10,8 +10,8 @@ using ATProtoNet.Identity;
 var resolver = new DidResolver();
 
 // Resolves any DID method automatically
-var doc = await resolver.ResolveAsync("did:plc:z72i7hdynmk6r22z27h6tvur");
-var doc2 = await resolver.ResolveAsync("did:web:alice.example.com");
+var doc = await resolver.ResolveDidAsync("did:plc:z72i7hdynmk6r22z27h6tvur");
+var doc2 = await resolver.ResolveDidAsync("did:web:alice.example.com");
 
 Console.WriteLine($"Handle: {doc.GetHandle()}");
 Console.WriteLine($"PDS: {doc.GetPdsEndpoint()}");
@@ -37,16 +37,16 @@ Console.WriteLine($"Handle: {doc.GetHandle()}");
 Console.WriteLine($"PDS endpoint: {doc.GetPdsEndpoint()}");
 
 // Access verification methods (signing keys)
-foreach (var method in doc.VerificationMethod ?? [])
+foreach (var method in doc.VerificationMethod)
 {
     Console.WriteLine($"Key: {method.Id} ({method.Type})");
     Console.WriteLine($"  Public key: {method.PublicKeyMultibase}");
 }
 
 // Access service endpoints
-foreach (var service in doc.Service ?? [])
+foreach (var service in doc.Service)
 {
-    Console.WriteLine($"Service: {service.Id} → {service.ServiceEndpoint}");
+    Console.WriteLine($"Service: {service.Id} → {service.Endpoint}");
 }
 ```
 
@@ -60,7 +60,7 @@ var log = await plcClient.GetOperationLogAsync("did:plc:abc123");
 var audit = await plcClient.GetAuditLogAsync("did:plc:abc123");
 
 // Get the latest operation
-var latest = await plcClient.GetLatestOperationAsync("did:plc:abc123");
+var latest = await plcClient.GetLastOperationAsync("did:plc:abc123");
 
 // Get current PLC data
 var data = await plcClient.GetPlcDataAsync("did:plc:abc123");
@@ -71,16 +71,29 @@ bool healthy = await plcClient.IsHealthyAsync();
 
 ### Error Handling
 
+`PlcClient` surfaces directory failures as `PlcException`, with a `Kind` describing what went wrong:
+
 ```csharp
 try
 {
     var doc = await plcClient.ResolveDidAsync("did:plc:nonexistent");
 }
-catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+catch (PlcException ex) when (ex.Kind == PlcErrorKind.NotFound)
 {
     Console.WriteLine("DID not found in PLC directory");
 }
+catch (PlcException ex) when (ex.Kind == PlcErrorKind.Tombstoned)
+{
+    Console.WriteLine("DID has been deleted");
+}
 ```
+
+| `PlcErrorKind` | Meaning |
+|---|---|
+| `NotFound` | The directory returned 404 for this DID |
+| `Tombstoned` | The DID has been deleted (HTTP 410) |
+| `ParseError` | The response could not be parsed, or its `id` did not echo the requested DID |
+| `InvalidOperation` | The directory rejected a submitted operation |
 
 ## did:web Resolution
 
@@ -91,7 +104,7 @@ using ATProtoNet.Identity;
 
 var webResolver = new DidWebResolver();
 
-var doc = await webResolver.ResolveAsync("did:web:alice.example.com");
+var doc = await webResolver.ResolveDidAsync("did:web:alice.example.com");
 // Fetches https://alice.example.com/.well-known/did.json
 
 Console.WriteLine($"Handle: {doc.GetHandle()}");
@@ -114,11 +127,11 @@ using ATProtoNet.Identity;
 
 try
 {
-    var doc = await webResolver.ResolveAsync("did:web:bad-host.example.com");
+    var doc = await webResolver.ResolveDidAsync("did:web:bad-host.example.com");
 }
 catch (DidWebException ex)
 {
-    switch (ex.ErrorKind)
+    switch (ex.Kind)
     {
         case DidWebErrorKind.InvalidDid:
             Console.WriteLine("Invalid did:web format");
@@ -149,9 +162,12 @@ The `DidDocument` model represents a resolved DID document:
 | Property | Type | Description |
 |----------|------|-------------|
 | `Id` | `string` | The DID |
-| `AlsoKnownAs` | `List<string>?` | Alternative identifiers (handles) |
-| `VerificationMethod` | `List<VerificationMethod>?` | Public keys |
-| `Service` | `List<ServiceEndpoint>?` | Service endpoints |
+| `Context` | `List<string>?` | The `@context` field. Omitted when serializing unless set — required when *publishing* a document (e.g. a `did:web` `/.well-known/did.json`), ignorable when consuming one |
+| `AlsoKnownAs` | `List<string>` | Alternative identifiers (handles) |
+| `VerificationMethod` | `List<VerificationMethod>` | Public keys |
+| `Service` | `List<ServiceEndpoint>` | Service endpoints |
+
+The three list properties default to empty rather than null, so they can be enumerated directly.
 
 ### Convenience Methods
 
@@ -168,7 +184,7 @@ string? pdsUrl = doc.GetPdsEndpoint();
 ### Verification Methods
 
 ```csharp
-foreach (var method in doc.VerificationMethod ?? [])
+foreach (var method in doc.VerificationMethod)
 {
     Console.WriteLine($"ID: {method.Id}");         // e.g., "did:plc:abc#atproto"
     Console.WriteLine($"Type: {method.Type}");      // e.g., "Multikey"
@@ -180,11 +196,11 @@ foreach (var method in doc.VerificationMethod ?? [])
 ### Service Endpoints
 
 ```csharp
-foreach (var service in doc.Service ?? [])
+foreach (var service in doc.Service)
 {
     Console.WriteLine($"ID: {service.Id}");                    // e.g., "#atproto_pds"
     Console.WriteLine($"Type: {service.Type}");                // e.g., "AtprotoPersonalDataServer"
-    Console.WriteLine($"Endpoint: {service.ServiceEndpoint}"); // e.g., "https://bsky.social"
+    Console.WriteLine($"Endpoint: {service.Endpoint}");        // e.g., "https://bsky.social"
 }
 ```
 

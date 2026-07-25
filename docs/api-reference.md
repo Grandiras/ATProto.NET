@@ -26,7 +26,9 @@ The main entry point. Created via `AtProtoClientBuilder` or direct construction.
 | `Bsky` | `BlueskyClients` | `app.bsky.*` sub-clients |
 | `Chat` | `ChatClients` | `chat.bsky.*` sub-clients |
 | `Ozone` | `OzoneClient` | `tools.ozone.*` sub-clients |
-| `Site` | `StandardSiteClient` | `standard.site.*` sub-clients |
+| `Site` | `StandardSiteClient` | `site.standard.*` records |
+| `OAuthSession` | `OAuthSessionResult?` | The applied OAuth session, if any |
+| `PdsUrl` | `string` | The service URL requests currently go to |
 
 ### Custom Lexicon Methods
 
@@ -42,15 +44,26 @@ The main entry point. Created via `AtProtoClientBuilder` or direct construction.
 | Method | Description |
 |--------|-------------|
 | `LoginAsync(identifier, password, authFactorToken?)` | Authenticate and create a session |
-| `ResumeSessionAsync(session)` | Resume from a saved session |
+| `ResumeSessionAsync(session)` | Resume from a saved `Session` |
 | `RefreshSessionAsync()` | Manually refresh session tokens |
 | `LogoutAsync()` | Destroy the session |
+| `ApplyOAuthSessionAsync(oauthSession)` | Adopt an `OAuthSessionResult` (sets PDS URL, DPoP, session) |
+| `SetPdsUrl(url)` | Point the client at a different PDS at runtime |
+
+### Streaming, Proxying & Labelers
+
+| Method | Description |
+|--------|-------------|
+| `CreateFirehoseClient()` | Low-level `FirehoseClient` bound to the configured relay |
+| `CreateFirehoseConsumer(...)` | Reconnecting `FirehoseConsumer` |
+| `SetProxy(header)` / `ClearProxy()` | Set the `atproto-proxy` header for subsequent calls |
+| `SetLabelers(dids)` / `ClearLabelers()` | Set the `atproto-accept-labelers` header |
 
 ### Bluesky Convenience Methods
 
 | Method | Description |
 |--------|-------------|
-| `PostAsync(text, facets?, embed?, reply?, langs?, labels?)` | Create a text post |
+| `PostAsync(text, facets?, embed?, reply?, langs?, labels?)` | Create a text post (returns `CreateRecordResponse`) |
 | `LikeAsync(uri, cid)` | Like a post |
 | `UnlikeAsync(likeUri)` | Unlike a post |
 | `RepostAsync(uri, cid)` | Repost a post |
@@ -64,7 +77,7 @@ The main entry point. Created via `AtProtoClientBuilder` or direct construction.
 
 ## RecordCollection\<T\>
 
-Typed CRUD interface for a specific Lexicon collection.
+Typed CRUD interface for a specific Lexicon collection. `Collection` exposes the NSID it is bound to.
 
 | Method | Description |
 |--------|-------------|
@@ -101,6 +114,10 @@ Reference to a created/updated record.
 | `Uri` | `string` | AT URI of the record |
 | `Cid` | `string` | Content hash |
 | `RecordKey` | `string` | Record key portion of the URI |
+
+Returned by `RecordCollection<T>.CreateAsync` / `PutAsync`. The `RepoClient` methods return the raw
+`CreateRecordResponse` / `PutRecordResponse` instead, which also carry `Commit` (`CommitMeta` with
+`Cid` and `Rev`).
 
 ---
 
@@ -226,7 +243,7 @@ All support: `Parse()`, `TryParse()`, equality, implicit string conversion.
 | `Email` | `string?` | Email |
 | `EmailConfirmed` | `bool?` | Email confirmed |
 | `EmailAuthFactor` | `bool?` | 2FA enabled |
-| `DidDoc` | `JsonElement?` | DID document |
+| `DidDoc` | `object?` | DID document as returned by the server |
 | `Active` | `bool?` | Account active |
 | `Status` | `string?` | Account status |
 
@@ -294,7 +311,7 @@ HTTP Basic. See [managed-pds.md](managed-pds.md).
 |----------|------|-------------|
 | `ErrorType` | `string?` | XRPC error type (e.g., "RecordNotFound") |
 | `ErrorMessage` | `string?` | Human-readable error message |
-| `StatusCode` | `HttpStatusCode` | HTTP status code |
+| `StatusCode` | `HttpStatusCode?` | HTTP status code (shadows `HttpRequestException.StatusCode`) |
 | `ResponseBody` | `string?` | Raw response body |
 
 ---
@@ -309,7 +326,6 @@ Accessed via `client.Bsky`.
 | `Feed` | `FeedClient` | Posts, likes, reposts, timelines |
 | `Graph` | `GraphClient` | Follows, blocks, lists, starter packs |
 | `Notification` | `NotificationClient` | Notifications |
-| `Unspecced` | `UnspeccedClient` | Unspecced/experimental endpoints |
 | `Labeler` | `LabelerClient` | Label service declarations |
 | `Video` | `VideoClient` | Video upload (`app.bsky.video.*`) |
 
@@ -330,27 +346,33 @@ Accessed via `client.Chat`. See [Chat & Direct Messages](chat.md).
 
 Accessed via `client.Ozone`. See [Ozone Moderation](ozone.md).
 
+Type names below live under `ATProtoNet.Lexicon.Tools.Ozone.*`.
+
 | Property | Type | Description |
 |----------|------|-------------|
-| `Moderation` | `OzoneModerationClient` | Subject review, reports, actions |
-| `Communication` | `OzoneCommunicationClient` | Email templates and user emails |
-| `Team` | `OzoneTeamClient` | Team member management |
-| `Set` | `OzoneSetClient` | Named sets of DIDs/URIs |
-| `Signature` | `OzoneSignatureClient` | Signature search and verification |
-| `Server` | `OzoneServerClient` | Server config and statistics |
+| `Moderation` | `ModerationClient` | Subject review, reports, actions |
+| `Communication` | `CommunicationClient` | Email templates and user emails |
+| `Team` | `TeamClient` | Team member management |
+| `Set` | `SetClient` | Named sets of DIDs/URIs |
+| `Signature` | `SignatureClient` | Signature search and correlation |
+| `Server` | `OzoneServerClient` | Server config |
 
 ---
 
-## StandardSiteClient (`standard.site.*`)
+## StandardSiteClient (`site.standard.*`)
 
-Accessed via `client.Site`. See [Standard.site](standard-site.md).
+Accessed via `client.Site`. See [Standard.site](standard-site.md). A flat client over
+`com.atproto.repo.*` — every method takes the repository (DID or handle) first.
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `Publication` | `PublicationClient` | Blog/article management |
-| `Document` | `DocumentClient` | Document management |
-| `Graph` | `SiteGraphClient` | Subscriptions |
-| `Theme` | `ThemeClient` | Theme management |
+| Method | Description |
+|--------|-------------|
+| `CreatePublicationAsync(repo, record, rkey?)` | Create a publication |
+| `GetPublicationAsync(repo, rkey)` | Get a publication (typed) |
+| `PutPublicationAsync(repo, rkey, record, swapRecord?)` | Create or update a publication |
+| `DeletePublicationAsync(repo, rkey)` | Delete a publication |
+| `ListPublicationsAsync(repo, limit?, cursor?)` | List publications (untyped values) |
+| `CreateDocumentAsync` / `GetDocumentAsync` / `PutDocumentAsync` / `DeleteDocumentAsync` / `ListDocumentsAsync` | The same five operations for `site.standard.document` |
+| `CreateSubscriptionAsync` / `GetSubscriptionAsync` / `DeleteSubscriptionAsync` / `ListSubscriptionsAsync` | Subscription records |
 
 ---
 
@@ -360,21 +382,26 @@ Tracked automatically on every XRPC response. Available via `client.LatestRateLi
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Limit` | `int` | Maximum requests per window |
-| `Remaining` | `int` | Requests remaining |
-| `Reset` | `DateTimeOffset` | When the window resets |
-| `Policy` | `string?` | Rate limit policy name |
+| `Limit` | `int?` | Maximum requests per window |
+| `Remaining` | `int?` | Requests remaining |
+| `Reset` | `DateTimeOffset?` | When the window resets (UTC) |
+| `IsExceeded` | `bool` | Whether `Remaining` has hit zero |
 
 ---
 
 ## ServiceProxy
 
-Used for proxied requests (e.g., to appview, labeler, or chat services):
+Constants for the `atproto-proxy` header, used to route a request at a specific service. Pass one to
+`client.SetProxy(...)`, optionally prefixed with the service DID:
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `ServiceDid` | `string` | Target service DID |
-| `ServiceType` | `string` | Service type (e.g., `atproto_labeler`) |
+| Constant | Value |
+|----------|-------|
+| `BskyAppView` | `#bsky_appview` |
+| `BskyChat` | `#bsky_chat` |
+| `AtProtoLabeler` | `#atproto_labeler` |
+| `AtProtoPds` | `#atproto_pds` |
+| `BskyAppViewDid` | `did:web:api.bsky.app` |
+| `BskyChatDid` | `did:web:api.bsky.chat` |
 
 ---
 
@@ -384,6 +411,40 @@ Permission NSIDs for OAuth scope negotiation:
 
 | Constant | Value | Description |
 |----------|-------|-------------|
-| `Full` | `atproto` | Full access |
+| `AtProto` | `atproto` | Base AT Protocol scope |
 | `TransitionGeneric` | `transition:generic` | Generic transition scope |
 | `TransitionChatBsky` | `transition:chat.bsky` | Chat messaging scope |
+| `TransitionEmail` | `transition:email` | Access to the account's email address |
+| `Default` | `atproto transition:generic` | The SDK's default scope string |
+
+---
+
+## Streaming
+
+See [Firehose](firehose.md) and [Jetstream](jetstream.md).
+
+| Type | Description |
+|------|-------------|
+| `FirehoseClient` | Raw WebSocket subscription to `com.atproto.sync.subscribeRepos` |
+| `FirehoseConsumer` / `TypedFirehoseConsumer` | Reconnecting consumers; the typed one parses frames, filters by collection, and verifies |
+| `FirehoseEventParser` | CBOR frame → `CommitEvent` / `SyncEvent` / `IdentityEvent` / `AccountEvent` |
+| `FirehoseVerifier` | `VerifyCid(...)` (local) and `VerifySignatureAsync(...)` (needs DID resolution) |
+| `IFirehoseCursorStore` | `GetCursorAsync` / `StoreCursorAsync`; `InMemoryFirehoseCursorStore` included |
+| `JetstreamClient` / `JetstreamConsumer` | JSON streaming with server-side collection/DID filtering |
+| `JetstreamEventParser`, `IJetstreamDecompressor` | Forward-tolerant parsing; optional zstd seam |
+
+---
+
+## Repository Primitives (`ATProtoNet.Repo`)
+
+See [Low-Level Repo API](low-level-repo.md) and [Cryptography](crypto.md).
+
+| Type | Description |
+|------|-------------|
+| `CarReader` / `CarWriter` | Parse and produce CAR v1 files |
+| `MerkleSearchTree` | In-memory MST; `Serialize()`, `SerializeProof(keys)`, `Deserialize(root, blocks)` |
+| `MstKeyDepth` | `ComputeDepth(key)` |
+| `DagCborEncoder` / `DagCborDecoder` | Deterministic CBOR encode/decode |
+| `CidComputation` | `ComputeForDagCbor`, `ComputeForRaw`, `Verify`, `DecodeCidString`, `TryDecodeCidString` |
+| `RepoCommit` / `SignedRepoCommit` | Build, sign, and verify repository commit objects |
+| `PlcOperationBuilder` (`ATProtoNet.Identity`) | Build, sign, and derive a DID from a `did:plc` genesis operation |

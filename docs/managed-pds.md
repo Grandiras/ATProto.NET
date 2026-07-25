@@ -197,8 +197,16 @@ The response carries `AccessJwt` and `RefreshJwt`, a ready-to-use session for th
 account:
 
 ```csharp
+using ATProtoNet.Auth;
+
 using var client = pds.CreateClient();
-await client.ResumeSessionAsync(account.AccessJwt, account.RefreshJwt);
+await client.ResumeSessionAsync(new Session
+{
+    Did = account.Did,
+    Handle = account.Handle,
+    AccessJwt = account.AccessJwt,
+    RefreshJwt = account.RefreshJwt,
+});
 ```
 
 ### Managing accounts
@@ -229,6 +237,11 @@ already applied:
 var invites = await pds.Admin.GetInviteCodesAsync(sort: "recent", limit: 50);
 await pds.Admin.DisableAccountInvitesAsync("did:plc:...");
 ```
+
+At the lowest level, `XrpcClient` carries the same HTTP Basic admin auth directly —
+`SetAdminCredentials(password, user = "admin")`, `ClearAdminCredentials()`, and
+`HasAdminCredentials`. A session token still takes priority when both are set, so an
+admin-authenticated client that later logs in acts as that account.
 
 ## Without Aspire
 

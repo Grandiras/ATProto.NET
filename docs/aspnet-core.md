@@ -47,20 +47,24 @@ builder.Services.AddAtProtoScoped(options =>
 Validate AT Protocol JWTs on incoming requests:
 
 ```csharp
+using ATProtoNet.Server.Authentication;
+
 builder.Services.AddAuthentication()
-    .AddScheme<AtProtoAuthenticationOptions, AtProtoAuthenticationHandler>(
-        "AtProto", options =>
-        {
-            options.PdsUrl = "https://your-pds.example.com";
-        });
+    .AddAtProto(options =>
+    {
+        options.PdsUrl = "https://your-pds.example.com";
+    });
 
 builder.Services.AddAuthorization();
 ```
 
+The default scheme name is `AtProtoAuthenticationExtensions.DefaultScheme` (`"ATProto"`); pass your
+own as the first argument to `AddAtProto` if you need a different one.
+
 Then protect endpoints:
 
 ```csharp
-app.MapGet("/api/protected", [Authorize(AuthenticationSchemes = "AtProto")] 
+app.MapGet("/api/protected", [Authorize(AuthenticationSchemes = "ATProto")]
     (ClaimsPrincipal user) =>
 {
     var did = user.FindFirstValue("did");

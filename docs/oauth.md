@@ -307,21 +307,29 @@ Handle → DID → PDS → Protected Resource Metadata → Authorization Server 
 
 ### Resolution Methods
 
+`OAuthClient.StartAuthorizationAsync` walks the whole chain for you. The individual steps are public
+if you need them on their own:
+
 ```csharp
 var discovery = new AuthorizationServerDiscovery(httpClient, logger);
 
-// Full resolution from any identifier type
-var (pdsUrl, metadata, did) = await discovery.ResolveFromIdentifierAsync("alice.bsky.social");
-
-// Resolve handle → DID (HTTPS well-known, DNS TXT fallback)
+// Resolve handle → DID: HTTPS well-known raced against DNS TXT (first answer wins),
+// then the Bluesky appview as a fallback. Each round is bounded by HandleResolutionTimeout.
 var did = await discovery.ResolveHandleToDidAsync("alice.bsky.social");
 
-// Resolve DID → PDS URL
-var pds = await discovery.ResolvePdsFromDidAsync("did:plc:abc123");
+// Resolve DID → PDS URL (via the DID document)
+var pds = await discovery.ResolvePdsFromDidAsync(did);
 
-// Fetch authorization server metadata
-var metadata = await discovery.ResolveAuthorizationServerAsync("https://pds.example.com");
+// Fetch the DID document itself
+var didDoc = await discovery.FetchDidDocumentAsync(did);
+
+// PDS → authorization server metadata (protected-resource metadata, then AS metadata)
+var metadata = await discovery.ResolveAuthorizationServerAsync(pds);
 ```
+
+For identity verification, prefer `ResolveHandleAuthoritativeAsync`: it consults only the handle's own
+authorities (HTTPS well-known and DNS TXT), requires them to agree when both answer, and never falls
+back to the appview.
 
 ## DPoP Key Management
 
@@ -375,9 +383,20 @@ catch (OAuthException ex)
 | `invalid_sub` | Token response subject is not a valid DID |
 | `did_mismatch` | Token DID doesn't match expected identity |
 | `invalid_scope` | Token doesn't include `atproto` scope |
-| `par_error` | Pushed Authorization Request failed |
+| `unsupported_scope` | The authorization server does not offer a required scope |
+| `par_failed` | Pushed Authorization Request failed |
 | `token_error` | Token exchange failed |
 | `no_refresh_token` | Refresh attempted without refresh token |
 | `invalid_handle` | Handle contains invalid characters or format |
 | `invalid_did` | DID format or host is invalid |
-| `discovery_error` | Failed to discover authorization server |
+| `unsupported_did_method` | The DID uses a method other than `did:plc` / `did:web` |
+| `handle_resolution_failed` | No authority answered for the handle |
+| `handle_resolution_conflict` | HTTPS and DNS resolution returned different DIDs |
+| `did_resolution_failed` | The DID document could not be fetched |
+| `pds_not_found` | The DID document declares no PDS service endpoint |
+| `invalid_resource_metadata` | Protected-resource metadata was malformed |
+| `metadata_fetch_failed` | Authorization server metadata could not be fetched |
+| `invalid_metadata` | Authorization server metadata was malformed |
+| `auth_server_mismatch` | The AS the DID resolves to isn't the one that issued the token |
+| `unsupported_dpop_alg` | The authorization server does not accept ES256 DPoP proofs |
+| `server_error` | The authorization server returned an error response |

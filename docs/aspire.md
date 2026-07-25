@@ -135,9 +135,9 @@ var builder = DistributedApplication.CreateBuilder(args);
 // Add a PDS container with auto-generated secrets and dev mode
 var pds = builder.AddAtProtoPds("pds");
 
-// Wire it to your API project
+// Wire it to your API project — reference, admin configuration, and WaitFor in one call
 var api = builder.AddProject<Projects.MyApi>("api")
-    .WithReference(pds);
+    .WithAtProtoPds(pds);
 
 builder.Build().Run();
 ```
@@ -165,14 +165,22 @@ builder.AddAtProtoPds("pds", port: 2583, tag: "0.4")
 | Method | Description |
 |--------|-------------|
 | `AddAtProtoPds(name, port?, tag?)` | Add a PDS container with optional port and image tag |
-| `WithHostname(hostname)` | Set the PDS hostname (`PDS_HOSTNAME`) |
+| `WithAtProtoPds(pds)` | *(on a project)* reference the PDS, supply admin configuration, and wait for its health check |
+| `WithHostname(hostname)` | Set the PDS hostname (`PDS_HOSTNAME`); also takes a `ParameterResource` |
+| `WithHandleDomains(domains)` | Set the domains new handles may be created under |
 | `WithPlcUrl(url)` | Set the PLC directory URL |
 | `WithAppView(url, did?)` | Configure Bluesky app view URL and DID |
 | `WithCrawlers(crawlers)` | Set relay crawler URLs |
 | `WithProductionMode()` | Disable dev mode for production deployments |
+| `WithInviteCodeRequired()` | Gate signups behind invite codes |
 | `WithBlobUploadLimit(bytes)` | Set max blob upload size (default: 5 MB) |
 | `WithReportService(url, did?)` | Configure moderation/report service |
 | `WithEmail(smtpUrl, fromAddress)` | Configure SMTP email settings |
+| `WithAdminPassword(param)` / `WithJwtSecret(param)` / `WithPlcRotationKey(param)` | Supply secrets instead of the generated parameters |
+| `WithDataVolume(name?)` / `WithDataBindMount(path)` | Replace the default `/pds` data mount |
+
+See [Managed PDS](managed-pds.md) for what these settings mean in run mode versus a published
+manifest, and for administering the running server with `PdsAdminClient`.
 
 ### Service Defaults Only
 

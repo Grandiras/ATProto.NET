@@ -47,7 +47,6 @@ Handle.Parse("@alice.bsky.social").Value  // "alice.bsky.social" (@ stripped)
 
 // Properties
 handle.Value    // "alice.bsky.social"
-handle.Segments // ["alice", "bsky", "social"]
 
 // Validation
 Handle.TryParse("not valid!", out _)   // false
@@ -114,8 +113,8 @@ uri.Repo         // "did:plc:abc" (alias for Authority)
 var collUri = AtUri.Parse("at://did:plc:abc/com.example.todo.item");
 collUri.RecordKey  // null
 
-// Create from components
-var created = AtUri.Create("did:plc:abc", "com.example.todo.item", "3k2la");
+// Create from components — the repo is an AtIdentifier (DID or handle)
+var created = AtUri.Create(AtIdentifier.Parse("did:plc:abc"), "com.example.todo.item", "3k2la");
 ```
 
 ### Format
@@ -128,13 +127,17 @@ at://authority/collection/recordKey
 A 13-character, base32-sortable identifier. Used as the default record key format.
 
 ```csharp
-var tid = Tid.Next();  // Generate a new TID
+var tid = Tid.Next();          // Generate a new TID
+string s = Tid.NextString();   // …or straight to its string form
 
 tid.Value      // "3k2la7rxjgs2t" (13 chars)
-tid.Timestamp  // Microsecond timestamp
 
 // Parse
 var parsed = Tid.Parse("3k2la7rxjgs2t");
+
+// Raw 64-bit value — for minting a strictly increasing sequence yourself
+long raw = tid.ToInt64();
+var next = Tid.FromInt64(raw + 1);
 
 // TIDs sort chronologically
 var a = Tid.Next();

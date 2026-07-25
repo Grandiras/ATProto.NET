@@ -11,7 +11,7 @@ namespace ATProtoNet;
 /// <code>
 /// var client = new AtProtoClientBuilder()
 ///     .WithInstanceUrl("https://bsky.social")
-///     .WithSessionStore(new FileSessionStore("session.json"))
+///     .WithSessionStore(new InMemorySessionStore())
 ///     .Build();
 /// </code>
 /// </example>

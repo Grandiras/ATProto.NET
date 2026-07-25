@@ -97,14 +97,18 @@ await client.Repo.ApplyWritesAsync(client.Did!, new List<ApplyWriteOperation>
 
 Use `swapCommit` for compare-and-swap on the repository state:
 
+`swapCommit` takes the commit CID the write must apply on top of. The client tracks the revision the
+server last reported on `client.LatestRepoRev`, and every write response carries a `Commit` with the
+new `Cid` and `Rev`:
+
 ```csharp
-// Get current repo state
-var repoInfo = await client.Repo.DescribeRepoAsync(client.Did!);
+var created = await client.Repo.CreateRecordAsync(
+    client.Did!, "com.example.todo.item", new TodoItem { Title = "First" });
 
 await client.Repo.ApplyWritesAsync(
     client.Did!,
     operations,
-    swapCommit: repoInfo.Rev  // Fails if repo was modified since this rev
+    swapCommit: created.Commit?.Cid  // Fails if the repo moved on since that commit
 );
 ```
 

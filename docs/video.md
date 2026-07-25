@@ -4,10 +4,12 @@ ATProto.NET supports video upload and processing via the `app.bsky.video.*` endp
 
 ## Upload a Video
 
+`UploadVideoAsync` takes a stream:
+
 ```csharp
-var response = await client.Bsky.Video.UploadVideoAsync(
-    videoData: File.ReadAllBytes("my-video.mp4"),
-    mimeType: "video/mp4");
+await using var video = File.OpenRead("my-video.mp4");
+
+var response = await client.Bsky.Video.UploadVideoAsync(video, "video/mp4");
 
 Console.WriteLine($"Job ID: {response.JobStatus.JobId}");
 Console.WriteLine($"State: {response.JobStatus.State}");
@@ -26,17 +28,24 @@ Console.WriteLine($"Progress: {status.JobStatus.Progress}");
 
 ### Job States
 
-| State | Description |
-|-------|-------------|
-| `JobState.Created` | Job created, not yet processing |
-| `JobState.Processing` | Video is being processed |
-| `JobState.Completed` | Processing complete, blob ready |
-| `JobState.Failed` | Processing failed |
+`JobStatus.State` is a string; the well-known values are constants on `JobState`:
+
+| Constant | Wire value | Description |
+|----------|------------|-------------|
+| `JobState.Created` | `JOB_STATE_CREATED` | Job created, not yet processing |
+| `JobState.Encoding` | `JOB_STATE_ENCODING` | Video is being encoded |
+| `JobState.Scanning` | `JOB_STATE_SCANNING` | Video is being scanned |
+| `JobState.Completed` | `JOB_STATE_COMPLETED` | Processing complete, blob ready |
+| `JobState.Failed` | `JOB_STATE_FAILED` | Processing failed |
+
+The server may report states beyond these, so treat "not completed and not failed" as still in
+progress rather than matching the intermediate states exhaustively.
 
 ## Wait for Processing
 
 ```csharp
-var upload = await client.Bsky.Video.UploadVideoAsync(videoData, "video/mp4");
+await using var video = File.OpenRead("my-video.mp4");
+var upload = await client.Bsky.Video.UploadVideoAsync(video, "video/mp4");
 var jobId = upload.JobStatus.JobId;
 
 // Poll until complete
@@ -48,7 +57,7 @@ do
     status = result.JobStatus;
     Console.WriteLine($"Status: {status.State} ({status.Progress}%)");
 }
-while (status.State is JobState.Created or JobState.Processing);
+while (status.State is not (JobState.Completed or JobState.Failed));
 
 if (status.State == JobState.Completed && status.Blob is not null)
 {
@@ -79,7 +88,8 @@ After the video is processed, use the blob reference to create a post:
 
 ```csharp
 // Upload and wait for processing
-var upload = await client.Bsky.Video.UploadVideoAsync(videoData, "video/mp4");
+await using var video = File.OpenRead("my-video.mp4");
+var upload = await client.Bsky.Video.UploadVideoAsync(video, "video/mp4");
 
 // ... poll for completion ...
 

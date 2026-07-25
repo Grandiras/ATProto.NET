@@ -4,34 +4,42 @@ ATProto.NET supports labeler service information, custom label definitions, and 
 
 ## Fetching Labeler Services
 
+`GetLabelerServicesResponse.Views` is a `List<JsonElement>` — the Lexicon returns a union of
+`labelerView` and `labelerViewDetailed`, so deserialize each entry into the shape you asked for:
+
 ```csharp
+using System.Text.Json;
+using ATProtoNet.Serialization;
+
 var response = await client.Bsky.Labeler.GetServicesAsync(
     dids: ["did:plc:labeler1", "did:plc:labeler2"],
     detailed: true);
 
-foreach (var labeler in response.Views)
+foreach (var view in response.Views)
 {
-    if (labeler is LabelerViewDetailed detailed)
-    {
-        Console.WriteLine($"Labeler: {detailed.Creator.Handle}");
-        Console.WriteLine($"Likes: {detailed.LikeCount}");
+    var detailed = view.Deserialize<LabelerViewDetailed>(AtProtoJsonDefaults.Options)!;
 
-        foreach (var labelDef in detailed.Policies.LabelValueDefinitions ?? [])
-        {
-            Console.WriteLine($"  Label: {labelDef.Identifier}");
-            Console.WriteLine($"  Severity: {labelDef.Severity}");
-            Console.WriteLine($"  Blurs: {labelDef.Blurs}");
-        }
+    // Creator is a raw JsonElement (app.bsky.actor.defs#profileView)
+    Console.WriteLine($"Labeler: {detailed.Creator.GetProperty("handle").GetString()}");
+    Console.WriteLine($"Likes: {detailed.LikeCount}");
+
+    foreach (var labelDef in detailed.Policies.LabelValueDefinitions ?? [])
+    {
+        Console.WriteLine($"  Label: {labelDef.Identifier}");
+        Console.WriteLine($"  Severity: {labelDef.Severity}");
+        Console.WriteLine($"  Blurs: {labelDef.Blurs}");
     }
 }
 ```
+
+Without `detailed: true`, deserialize into `LabelerView` instead — it carries no `Policies`.
 
 ## Standard Label Values
 
 The SDK provides constants for all well-known Bluesky label values:
 
 ```csharp
-using ATProtoNet.Lexicon.Com.AtProto.Label;
+using ATProtoNet.Lexicon.App.Bsky.Labeler;
 
 // Content labels
 StandardLabelValues.Porn
@@ -47,7 +55,8 @@ StandardLabelValues.Impersonation
 
 ## Custom Label Definitions
 
-Labeler services define their own labels with `LabelValueDefinition`:
+Labeler services define their own labels with `LabelValueDefinition`. `Identifier`, `Severity`,
+`Blurs`, and `Locales` are required; `DefaultSetting` and `AdultOnly` are optional:
 
 ```csharp
 var labelDef = new LabelValueDefinition
@@ -119,6 +128,7 @@ Declare your own labeler service:
 ```csharp
 var labelerRecord = new LabelerServiceRecord
 {
+    CreatedAt = DateTime.UtcNow.ToString("o"),
     Policies = new LabelerPolicies
     {
         LabelValues = ["spam", "impersonation"],

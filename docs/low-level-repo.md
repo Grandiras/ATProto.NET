@@ -155,6 +155,79 @@ var response = await client.Repo.ApplyWritesAsync(
     swapCommit: null);
 ```
 
+## Authoring Repository Data
+
+The types above talk to a PDS. The `ATProtoNet.Repo` and `ATProtoNet.Identity` namespaces also let
+you *produce* the structures a PDS serves — useful for tests, for a service that mints its own
+`did:plc`, or for serving `com.atproto.sync.getRepo` yourself.
+
+### Commit objects
+
+`RepoCommit` builds and signs the commit block that sits at the root of a repository's CAR file, and
+that relays verify:
+
+```csharp
+using ATProtoNet.Crypto;
+using ATProtoNet.Identity;
+using ATProtoNet.Repo;
+
+var (mstRoot, blocks) = mst.Serialize();
+
+var commit = new RepoCommit
+{
+    Did = "did:plc:abc123",
+    Data = mstRoot,          // binary CID of the MST root
+    Rev = Tid.NextString(),  // monotonically increasing revision
+    Prev = null,             // deprecated by the spec, but the field must be present
+};
+
+using var signingKey = AtProtoCrypto.GenerateP256Key();
+SignedRepoCommit signed = commit.Sign(signingKey);
+
+Console.WriteLine(signed.Cid);        // commit CID
+bool ok = signed.Verify(signingKey);  // check the signature round-trips
+```
+
+`EncodeUnsigned()` returns exactly the bytes that get signed — a byte-for-byte prefix of the signed
+encoding, which is what makes `FirehoseVerifier.ExtractSignedView` able to recover them.
+
+Write the commit and its blocks out as a CAR file with `CarWriter` (see
+[Cryptography → CAR Files](crypto.md#car-files)).
+
+### did:plc genesis operations
+
+`PlcOperationBuilder` builds, signs, and derives the DID from a `did:plc` genesis operation;
+`PlcClient.SubmitOperationAsync` publishes it:
+
+```csharp
+using var rotationKey = AtProtoCrypto.GenerateK256Key();
+using var repoSigningKey = AtProtoCrypto.GenerateP256Key();
+
+var unsigned = PlcOperationBuilder.CreateGenesisOperation(
+    rotationKeys: [rotationKey.ToDidKey()],
+    signingKeyDidKey: repoSigningKey.ToDidKey(),
+    handle: "alice.example.com",
+    pdsEndpoint: "https://pds.example.com");
+
+PlcSignedOperation signedOp = PlcOperationBuilder.Sign(unsigned, rotationKey);
+Console.WriteLine(signedOp.Did);   // did:plc:… derived from the signed operation
+
+using var plc = new PlcClient();
+await plc.SubmitOperationAsync(signedOp);
+```
+
+A directory rejection surfaces as `PlcException` with `Kind == PlcErrorKind.InvalidOperation`.
+
+### Record keys from a sequence
+
+`Tid.FromInt64` / `Tid.ToInt64` convert between a TID and its raw 64-bit value, for callers that need
+to mint a strictly increasing sequence themselves:
+
+```csharp
+long raw = Tid.Next().ToInt64();
+var next = Tid.FromInt64(raw + 1);
+```
+
 ## When to Use Low-Level API
 
 Use `RepoClient` directly when you need:

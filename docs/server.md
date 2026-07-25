@@ -224,7 +224,7 @@ public class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        modelBuilder.ApplyConfiguration(new AtProtoTokenEntityConfiguration());
+        AtProtoTokenDbContext.ConfigureAtProtoTokenModel(modelBuilder);
     }
 }
 ```
@@ -251,7 +251,7 @@ public class MyService
     public async Task PostAsync(string text)
     {
         await _client.LoginAsync("my-bot.bsky.social", "app-password-here");
-        await _client.Bsky.Feed.CreatePostAsync(text);
+        await _client.PostAsync(text);
     }
 }
 ```
