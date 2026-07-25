@@ -53,13 +53,38 @@ public sealed partial class Cid : IEquatable<Cid>
     /// </summary>
     internal static Cid UnsafeCreate(string value) => new(value);
 
+    /// <summary>
+    /// Implicitly converts a <see cref="Cid"/> to its <see cref="string"/> representation.
+    /// </summary>
+    /// <param name="cid">The value to convert.</param>
+    /// <returns>The converted value.</returns>
     public static implicit operator string(Cid cid) => cid.Value;
 
+    /// <summary>
+    /// Determines whether this instance and another <see cref="Cid"/> represent the same value.
+    /// </summary>
+    /// <param name="other">The value to compare with.</param>
+    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
     public bool Equals(Cid? other) => other is not null && Value == other.Value;
+
+    /// <inheritdoc />
     public override bool Equals(object? obj) => obj is Cid other && Equals(other);
+
+    /// <inheritdoc />
     public override int GetHashCode() => Value.GetHashCode(StringComparison.Ordinal);
+
+    /// <inheritdoc />
     public override string ToString() => Value;
 
+    /// <summary>Determines whether two <see cref="Cid"/> instances are equal.</summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
     public static bool operator ==(Cid? left, Cid? right) => Equals(left, right);
+
+    /// <summary>Determines whether two <see cref="Cid"/> instances are not equal.</summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns><see langword="true"/> if the values differ; otherwise <see langword="false"/>.</returns>
     public static bool operator !=(Cid? left, Cid? right) => !Equals(left, right);
 }

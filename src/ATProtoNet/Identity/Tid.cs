@@ -122,14 +122,41 @@ public sealed partial class Tid : IEquatable<Tid>, IComparable<Tid>
     /// </summary>
     internal static Tid UnsafeCreate(string value) => new(value);
 
+    /// <summary>
+    /// Implicitly converts a <see cref="Tid"/> to its <see cref="string"/> representation.
+    /// </summary>
+    /// <param name="tid">The value to convert.</param>
+    /// <returns>The converted value.</returns>
     public static implicit operator string(Tid tid) => tid.Value;
 
+    /// <summary>
+    /// Determines whether this instance and another <see cref="Tid"/> represent the same value.
+    /// </summary>
+    /// <param name="other">The value to compare with.</param>
+    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
     public bool Equals(Tid? other) => other is not null && Value == other.Value;
+
+    /// <inheritdoc />
     public override bool Equals(object? obj) => obj is Tid other && Equals(other);
+
+    /// <inheritdoc />
     public override int GetHashCode() => Value.GetHashCode(StringComparison.Ordinal);
+
+    /// <inheritdoc />
     public override string ToString() => Value;
+
+    /// <inheritdoc />
     public int CompareTo(Tid? other) => string.Compare(Value, other?.Value, StringComparison.Ordinal);
 
+    /// <summary>Determines whether two <see cref="Tid"/> instances are equal.</summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
     public static bool operator ==(Tid? left, Tid? right) => Equals(left, right);
+
+    /// <summary>Determines whether two <see cref="Tid"/> instances are not equal.</summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns><see langword="true"/> if the values differ; otherwise <see langword="false"/>.</returns>
     public static bool operator !=(Tid? left, Tid? right) => !Equals(left, right);
 }

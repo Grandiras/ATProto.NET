@@ -589,6 +589,7 @@ public sealed class XrpcClient : IDisposable
     /// <param name="createRequest">Factory that creates a new HttpRequestMessage for each attempt.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <param name="completionOption">HTTP completion option.</param>
+    /// <param name="proxyOverride">Value for the <c>atproto-proxy</c> header, if the request targets a specific service.</param>
     /// <returns>The HTTP response (from retry if nonce was required, otherwise from first attempt).</returns>
     private async Task<HttpResponseMessage> SendWithDPoPRetryAsync(
         Func<HttpRequestMessage> createRequest,

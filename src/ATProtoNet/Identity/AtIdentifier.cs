@@ -102,15 +102,55 @@ public sealed class AtIdentifier : IEquatable<AtIdentifier>
         return false;
     }
 
+    /// <summary>
+    /// Implicitly converts a <see cref="Did"/> to its <see cref="AtIdentifier"/> representation.
+    /// </summary>
+    /// <param name="did">The value to convert.</param>
+    /// <returns>The converted value.</returns>
     public static implicit operator AtIdentifier(Did did) => FromDid(did);
+
+    /// <summary>
+    /// Implicitly converts a <see cref="Handle"/> to its <see cref="AtIdentifier"/> representation.
+    /// </summary>
+    /// <param name="handle">The value to convert.</param>
+    /// <returns>The converted value.</returns>
     public static implicit operator AtIdentifier(Handle handle) => FromHandle(handle);
+
+    /// <summary>
+    /// Implicitly converts a <see cref="AtIdentifier"/> to its <see cref="string"/> representation.
+    /// </summary>
+    /// <param name="id">The value to convert.</param>
+    /// <returns>The converted value.</returns>
     public static implicit operator string(AtIdentifier id) => id.Value;
 
+    /// <summary>
+    /// Determines whether this instance and another <see cref="AtIdentifier"/> represent the same
+    /// value.
+    /// </summary>
+    /// <param name="other">The value to compare with.</param>
+    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
     public bool Equals(AtIdentifier? other) => other is not null && Value == other.Value;
+
+    /// <inheritdoc />
     public override bool Equals(object? obj) => obj is AtIdentifier other && Equals(other);
+
+    /// <inheritdoc />
     public override int GetHashCode() => Value.GetHashCode(StringComparison.Ordinal);
+
+    /// <inheritdoc />
     public override string ToString() => Value;
 
+    /// <summary>Determines whether two <see cref="AtIdentifier"/> instances are equal.</summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
     public static bool operator ==(AtIdentifier? left, AtIdentifier? right) => Equals(left, right);
+
+    /// <summary>
+    /// Determines whether two <see cref="AtIdentifier"/> instances are not equal.
+    /// </summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns><see langword="true"/> if the values differ; otherwise <see langword="false"/>.</returns>
     public static bool operator !=(AtIdentifier? left, AtIdentifier? right) => !Equals(left, right);
 }

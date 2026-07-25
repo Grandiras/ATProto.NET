@@ -96,15 +96,18 @@ public sealed class InMemorySessionStore : ISessionStore
 {
     private Session? _session;
 
+    /// <inheritdoc />
     public Task SaveAsync(Session session, CancellationToken cancellationToken = default)
     {
         _session = session;
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
     public Task<Session?> LoadAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(_session);
 
+    /// <inheritdoc />
     public Task ClearAsync(CancellationToken cancellationToken = default)
     {
         _session = null;

@@ -12,6 +12,7 @@ namespace ATProtoNet.Lexicon.Site.Standard.Publication;
 /// </summary>
 public sealed class PublicationRecord
 {
+    /// <summary>The Lexicon type discriminator (<c>site.standard.publication</c>).</summary>
     [JsonPropertyName("$type")]
     public string Type => "site.standard.publication";
 
@@ -59,6 +60,7 @@ public sealed class PublicationPreferences
 /// </summary>
 public sealed class BasicTheme
 {
+    /// <summary>The Lexicon type discriminator (<c>site.standard.theme.basic</c>).</summary>
     [JsonPropertyName("$type")]
     public string Type => "site.standard.theme.basic";
 
@@ -84,6 +86,7 @@ public sealed class BasicTheme
 /// </summary>
 public sealed class ThemeColorRgb
 {
+    /// <summary>The Lexicon type discriminator (<c>site.standard.theme.color#rgb</c>).</summary>
     [JsonPropertyName("$type")]
     public string Type => "site.standard.theme.color#rgb";
 
@@ -105,15 +108,19 @@ public sealed class ThemeColorRgb
 /// </summary>
 public sealed class ThemeColorRgba
 {
+    /// <summary>The Lexicon type discriminator (<c>site.standard.theme.color#rgba</c>).</summary>
     [JsonPropertyName("$type")]
     public string Type => "site.standard.theme.color#rgba";
 
+    /// <summary>The red channel, 0-255.</summary>
     [JsonPropertyName("r")]
     public required int R { get; init; }
 
+    /// <summary>The green channel, 0-255.</summary>
     [JsonPropertyName("g")]
     public required int G { get; init; }
 
+    /// <summary>The blue channel, 0-255.</summary>
     [JsonPropertyName("b")]
     public required int B { get; init; }
 

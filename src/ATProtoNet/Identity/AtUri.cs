@@ -112,13 +112,38 @@ public sealed partial class AtUri : IEquatable<AtUri>
     internal static AtUri UnsafeCreate(string value, string authority, string? collection, string? rkey) =>
         new(value, authority, collection, rkey);
 
+    /// <summary>
+    /// Implicitly converts a <see cref="AtUri"/> to its <see cref="string"/> representation.
+    /// </summary>
+    /// <param name="atUri">The value to convert.</param>
+    /// <returns>The converted value.</returns>
     public static implicit operator string(AtUri atUri) => atUri.Value;
 
+    /// <summary>
+    /// Determines whether this instance and another <see cref="AtUri"/> represent the same value.
+    /// </summary>
+    /// <param name="other">The value to compare with.</param>
+    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
     public bool Equals(AtUri? other) => other is not null && Value == other.Value;
+
+    /// <inheritdoc />
     public override bool Equals(object? obj) => obj is AtUri other && Equals(other);
+
+    /// <inheritdoc />
     public override int GetHashCode() => Value.GetHashCode(StringComparison.Ordinal);
+
+    /// <inheritdoc />
     public override string ToString() => Value;
 
+    /// <summary>Determines whether two <see cref="AtUri"/> instances are equal.</summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
     public static bool operator ==(AtUri? left, AtUri? right) => Equals(left, right);
+
+    /// <summary>Determines whether two <see cref="AtUri"/> instances are not equal.</summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns><see langword="true"/> if the values differ; otherwise <see langword="false"/>.</returns>
     public static bool operator !=(AtUri? left, AtUri? right) => !Equals(left, right);
 }

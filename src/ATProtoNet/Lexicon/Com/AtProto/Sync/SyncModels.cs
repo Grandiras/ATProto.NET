@@ -13,11 +13,22 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Sync;
 /// </summary>
 public static class AccountHostingStatus
 {
+    /// <summary>The <c>takendown</c> account hosting status.</summary>
     public const string Takendown = "takendown";
+
+    /// <summary>The <c>suspended</c> account hosting status.</summary>
     public const string Suspended = "suspended";
+
+    /// <summary>The <c>deleted</c> account hosting status.</summary>
     public const string Deleted = "deleted";
+
+    /// <summary>The <c>deactivated</c> account hosting status.</summary>
     public const string Deactivated = "deactivated";
+
+    /// <summary>The <c>desynchronized</c> account hosting status.</summary>
     public const string Desynchronized = "desynchronized";
+
+    /// <summary>The <c>throttled</c> account hosting status.</summary>
     public const string Throttled = "throttled";
 }
 
@@ -27,10 +38,19 @@ public static class AccountHostingStatus
 /// </summary>
 public static class HostStatus
 {
+    /// <summary>The <c>active</c> host status.</summary>
     public const string Active = "active";
+
+    /// <summary>The <c>idle</c> host status.</summary>
     public const string Idle = "idle";
+
+    /// <summary>The <c>offline</c> host status.</summary>
     public const string Offline = "offline";
+
+    /// <summary>The <c>throttled</c> host status.</summary>
     public const string Throttled = "throttled";
+
+    /// <summary>The <c>banned</c> host status.</summary>
     public const string Banned = "banned";
 }
 
@@ -43,9 +63,11 @@ public static class HostStatus
 /// </summary>
 public sealed class GetLatestCommitResponse
 {
+    /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
     public required string Cid { get; init; }
 
+    /// <summary>The repository revision (a TID) this data was read at.</summary>
     [JsonPropertyName("rev")]
     public required string Rev { get; init; }
 }
@@ -59,9 +81,14 @@ public sealed class GetLatestCommitResponse
 /// </summary>
 public sealed class ListBlobsResponse
 {
+    /// <summary>
+    /// Pagination cursor; pass this back on the next request to continue where this page ended.
+    /// <see langword="null"/> when there are no further results.
+    /// </summary>
     [JsonPropertyName("cursor")]
     public string? Cursor { get; init; }
 
+    /// <summary>The CIDs.</summary>
     [JsonPropertyName("cids")]
     public required List<string> Cids { get; init; }
 }
@@ -75,18 +102,25 @@ public sealed class ListBlobsResponse
 /// </summary>
 public sealed class RepoInfo
 {
+    /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
     public required string Did { get; init; }
 
+    /// <summary>The CID of the current repository head commit.</summary>
     [JsonPropertyName("head")]
     public required string Head { get; init; }
 
+    /// <summary>The repository revision (a TID) this data was read at.</summary>
     [JsonPropertyName("rev")]
     public required string Rev { get; init; }
 
+    /// <summary>
+    /// Whether the account is active (not deactivated, suspended, or taken down).
+    /// </summary>
     [JsonPropertyName("active")]
     public bool? Active { get; init; }
 
+    /// <summary>The hosting status of the repository, if it is not active.</summary>
     [JsonPropertyName("status")]
     public string? Status { get; init; }
 }
@@ -96,9 +130,14 @@ public sealed class RepoInfo
 /// </summary>
 public sealed class ListReposResponse
 {
+    /// <summary>
+    /// Pagination cursor; pass this back on the next request to continue where this page ended.
+    /// <see langword="null"/> when there are no further results.
+    /// </summary>
     [JsonPropertyName("cursor")]
     public string? Cursor { get; init; }
 
+    /// <summary>The repositories.</summary>
     [JsonPropertyName("repos")]
     public required List<RepoInfo> Repos { get; init; }
 }
@@ -112,6 +151,7 @@ public sealed class ListReposResponse
 /// </summary>
 public sealed class NotifyOfUpdateRequest
 {
+    /// <summary>The hostname of the host to crawl or that was updated.</summary>
     [JsonPropertyName("hostname")]
     public required string Hostname { get; init; }
 }
@@ -121,6 +161,7 @@ public sealed class NotifyOfUpdateRequest
 /// </summary>
 public sealed class RequestCrawlRequest
 {
+    /// <summary>The hostname of the host to crawl or that was updated.</summary>
     [JsonPropertyName("hostname")]
     public required string Hostname { get; init; }
 }
@@ -134,9 +175,13 @@ public sealed class RequestCrawlRequest
 /// </summary>
 public sealed class GetRepoStatusResponse
 {
+    /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
     public required string Did { get; init; }
 
+    /// <summary>
+    /// Whether the account is active (not deactivated, suspended, or taken down).
+    /// </summary>
     [JsonPropertyName("active")]
     public required bool Active { get; init; }
 
@@ -193,9 +238,14 @@ public sealed class HostInfo
 /// </summary>
 public sealed class ListHostsResponse
 {
+    /// <summary>
+    /// Pagination cursor; pass this back on the next request to continue where this page ended.
+    /// <see langword="null"/> when there are no further results.
+    /// </summary>
     [JsonPropertyName("cursor")]
     public string? Cursor { get; init; }
 
+    /// <summary>The upstream hosts known to this relay.</summary>
     [JsonPropertyName("hosts")]
     public required List<HostInfo> Hosts { get; init; }
 }
@@ -209,6 +259,7 @@ public sealed class ListHostsResponse
 /// </summary>
 public sealed class GetHostStatusResponse
 {
+    /// <summary>The hostname of the host to crawl or that was updated.</summary>
     [JsonPropertyName("hostname")]
     public required string Hostname { get; init; }
 
@@ -240,6 +291,7 @@ public sealed class GetHostStatusResponse
 /// </summary>
 public sealed class CollectionRepoInfo
 {
+    /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
     public required string Did { get; init; }
 }
@@ -250,9 +302,14 @@ public sealed class CollectionRepoInfo
 /// </summary>
 public sealed class ListReposByCollectionResponse
 {
+    /// <summary>
+    /// Pagination cursor; pass this back on the next request to continue where this page ended.
+    /// <see langword="null"/> when there are no further results.
+    /// </summary>
     [JsonPropertyName("cursor")]
     public string? Cursor { get; init; }
 
+    /// <summary>The repositories.</summary>
     [JsonPropertyName("repos")]
     public required List<CollectionRepoInfo> Repos { get; init; }
 }
@@ -288,21 +345,32 @@ public abstract class FirehoseMessage
 /// </summary>
 public sealed class CommitEvent : FirehoseMessage
 {
+    /// <summary>The DID of the repository the commit belongs to.</summary>
     [JsonPropertyName("repo")]
     public required string Repo { get; init; }
 
+    /// <summary>The commit the write was applied in.</summary>
     [JsonPropertyName("commit")]
     public required string Commit { get; init; }
 
+    /// <summary>The repository revision (a TID) this data was read at.</summary>
     [JsonPropertyName("rev")]
     public required string Rev { get; init; }
 
+    /// <summary>The revision the diff is relative to, if this is a partial commit.</summary>
     [JsonPropertyName("since")]
     public string? Since { get; init; }
 
+    /// <summary>
+    /// Whether the commit was too large to include inline; the repository must be fetched
+    /// separately.
+    /// </summary>
     [JsonPropertyName("tooBig")]
     public bool TooBig { get; init; }
 
+    /// <summary>
+    /// Whether the commit is a rebase. Deprecated and always <see langword="false"/>.
+    /// </summary>
     [JsonPropertyName("rebase")]
     public bool Rebase { get; init; }
 
@@ -360,6 +428,7 @@ public sealed class RepoOp
 /// </summary>
 public sealed class SyncEvent : FirehoseMessage
 {
+    /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
     public required string Did { get; init; }
 
@@ -377,9 +446,11 @@ public sealed class SyncEvent : FirehoseMessage
 /// </summary>
 public sealed class IdentityEvent : FirehoseMessage
 {
+    /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
     public required string Did { get; init; }
 
+    /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
     [JsonPropertyName("handle")]
     public string? Handle { get; init; }
 }
@@ -389,12 +460,17 @@ public sealed class IdentityEvent : FirehoseMessage
 /// </summary>
 public sealed class AccountEvent : FirehoseMessage
 {
+    /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
     public required string Did { get; init; }
 
+    /// <summary>
+    /// Whether the account is active (not deactivated, suspended, or taken down).
+    /// </summary>
     [JsonPropertyName("active")]
     public bool Active { get; init; }
 
+    /// <summary>The new hosting status of the account.</summary>
     [JsonPropertyName("status")]
     public string? Status { get; init; }
 }
@@ -404,9 +480,11 @@ public sealed class AccountEvent : FirehoseMessage
 /// </summary>
 public sealed class HandleEvent : FirehoseMessage
 {
+    /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
     public required string Did { get; init; }
 
+    /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
     [JsonPropertyName("handle")]
     public required string Handle { get; init; }
 }
@@ -416,6 +494,7 @@ public sealed class HandleEvent : FirehoseMessage
 /// </summary>
 public sealed class TombstoneEvent : FirehoseMessage
 {
+    /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
     public required string Did { get; init; }
 }
@@ -425,9 +504,11 @@ public sealed class TombstoneEvent : FirehoseMessage
 /// </summary>
 public sealed class InfoEvent : FirehoseMessage
 {
+    /// <summary>The name.</summary>
     [JsonPropertyName("name")]
     public required string Name { get; init; }
 
+    /// <summary>The message.</summary>
     [JsonPropertyName("message")]
     public string? Message { get; init; }
 }

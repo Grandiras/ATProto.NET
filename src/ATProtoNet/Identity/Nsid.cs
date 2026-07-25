@@ -99,14 +99,41 @@ public sealed partial class Nsid : IEquatable<Nsid>, IComparable<Nsid>
     /// </summary>
     internal static Nsid UnsafeCreate(string value) => new(value);
 
+    /// <summary>
+    /// Implicitly converts a <see cref="Nsid"/> to its <see cref="string"/> representation.
+    /// </summary>
+    /// <param name="nsid">The value to convert.</param>
+    /// <returns>The converted value.</returns>
     public static implicit operator string(Nsid nsid) => nsid.Value;
 
+    /// <summary>
+    /// Determines whether this instance and another <see cref="Nsid"/> represent the same value.
+    /// </summary>
+    /// <param name="other">The value to compare with.</param>
+    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
     public bool Equals(Nsid? other) => other is not null && Value == other.Value;
+
+    /// <inheritdoc />
     public override bool Equals(object? obj) => obj is Nsid other && Equals(other);
+
+    /// <inheritdoc />
     public override int GetHashCode() => Value.GetHashCode(StringComparison.Ordinal);
+
+    /// <inheritdoc />
     public override string ToString() => Value;
+
+    /// <inheritdoc />
     public int CompareTo(Nsid? other) => string.Compare(Value, other?.Value, StringComparison.Ordinal);
 
+    /// <summary>Determines whether two <see cref="Nsid"/> instances are equal.</summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
     public static bool operator ==(Nsid? left, Nsid? right) => Equals(left, right);
+
+    /// <summary>Determines whether two <see cref="Nsid"/> instances are not equal.</summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns><see langword="true"/> if the values differ; otherwise <see langword="false"/>.</returns>
     public static bool operator !=(Nsid? left, Nsid? right) => !Equals(left, right);
 }

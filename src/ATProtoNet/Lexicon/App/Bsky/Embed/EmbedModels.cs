@@ -28,6 +28,7 @@ public abstract class EmbedBase { }
 /// </summary>
 public sealed class ImagesEmbed : EmbedBase
 {
+    /// <summary>The images to embed (up to four).</summary>
     [JsonPropertyName("images")]
     public required List<EmbedImage> Images { get; init; }
 }
@@ -55,9 +56,11 @@ public sealed class EmbedImage
 /// </summary>
 public sealed class AspectRatio
 {
+    /// <summary>The width in pixels.</summary>
     [JsonPropertyName("width")]
     public int Width { get; init; }
 
+    /// <summary>The height in pixels.</summary>
     [JsonPropertyName("height")]
     public int Height { get; init; }
 }
@@ -71,6 +74,7 @@ public sealed class AspectRatio
 /// </summary>
 public sealed class ExternalEmbed : EmbedBase
 {
+    /// <summary>The external link preview.</summary>
     [JsonPropertyName("external")]
     public required ExternalInfo External { get; init; }
 }
@@ -80,12 +84,15 @@ public sealed class ExternalEmbed : EmbedBase
 /// </summary>
 public sealed class ExternalInfo
 {
+    /// <summary>URL of the linked page.</summary>
     [JsonPropertyName("uri")]
     public required string Uri { get; init; }
 
+    /// <summary>The title of the linked page.</summary>
     [JsonPropertyName("title")]
     public required string Title { get; init; }
 
+    /// <summary>Description of the linked page.</summary>
     [JsonPropertyName("description")]
     public required string Description { get; init; }
 
@@ -103,6 +110,7 @@ public sealed class ExternalInfo
 /// </summary>
 public sealed class RecordEmbed : EmbedBase
 {
+    /// <summary>A reference to the embedded record.</summary>
     [JsonPropertyName("record")]
     public required StrongRef Record { get; init; }
 }
@@ -116,6 +124,7 @@ public sealed class RecordEmbed : EmbedBase
 /// </summary>
 public sealed class RecordWithMediaEmbed : EmbedBase
 {
+    /// <summary>The embedded record.</summary>
     [JsonPropertyName("record")]
     public required RecordEmbed Record { get; init; }
 
@@ -133,15 +142,21 @@ public sealed class RecordWithMediaEmbed : EmbedBase
 /// </summary>
 public sealed class VideoEmbed : EmbedBase
 {
+    /// <summary>The uploaded video blob.</summary>
     [JsonPropertyName("video")]
     public required BlobRef Video { get; init; }
 
+    /// <summary>Alt text describing the media for accessibility.</summary>
     [JsonPropertyName("alt")]
     public string? Alt { get; init; }
 
+    /// <summary>
+    /// The intrinsic aspect ratio of the media, used to lay out the placeholder before it loads.
+    /// </summary>
     [JsonPropertyName("aspectRatio")]
     public AspectRatio? AspectRatio { get; init; }
 
+    /// <summary>The caption tracks for the video.</summary>
     [JsonPropertyName("captions")]
     public List<VideoCaption>? Captions { get; init; }
 }
@@ -151,9 +166,11 @@ public sealed class VideoEmbed : EmbedBase
 /// </summary>
 public sealed class VideoCaption
 {
+    /// <summary>The BCP-47 language tag of the caption track.</summary>
     [JsonPropertyName("lang")]
     public required string Lang { get; init; }
 
+    /// <summary>The uploaded caption file (WebVTT).</summary>
     [JsonPropertyName("file")]
     public required BlobRef File { get; init; }
 }
@@ -178,6 +195,7 @@ public abstract class EmbedView { }
 /// </summary>
 public sealed class ImagesView : EmbedView
 {
+    /// <summary>The embedded image views.</summary>
     [JsonPropertyName("images")]
     public required List<ImageViewItem> Images { get; init; }
 }
@@ -187,15 +205,21 @@ public sealed class ImagesView : EmbedView
 /// </summary>
 public sealed class ImageViewItem
 {
+    /// <summary>URL of the thumbnail image.</summary>
     [JsonPropertyName("thumb")]
     public required string Thumb { get; init; }
 
+    /// <summary>URL of the full-size image.</summary>
     [JsonPropertyName("fullsize")]
     public required string Fullsize { get; init; }
 
+    /// <summary>Alt text describing the media for accessibility.</summary>
     [JsonPropertyName("alt")]
     public required string Alt { get; init; }
 
+    /// <summary>
+    /// The intrinsic aspect ratio of the media, used to lay out the placeholder before it loads.
+    /// </summary>
     [JsonPropertyName("aspectRatio")]
     public AspectRatio? AspectRatio { get; init; }
 }
@@ -205,6 +229,7 @@ public sealed class ImageViewItem
 /// </summary>
 public sealed class ExternalView : EmbedView
 {
+    /// <summary>The external link preview.</summary>
     [JsonPropertyName("external")]
     public required ExternalViewInfo External { get; init; }
 }
@@ -214,15 +239,19 @@ public sealed class ExternalView : EmbedView
 /// </summary>
 public sealed class ExternalViewInfo
 {
+    /// <summary>URL of the linked page.</summary>
     [JsonPropertyName("uri")]
     public required string Uri { get; init; }
 
+    /// <summary>The title of the linked page.</summary>
     [JsonPropertyName("title")]
     public required string Title { get; init; }
 
+    /// <summary>Description of the linked page.</summary>
     [JsonPropertyName("description")]
     public required string Description { get; init; }
 
+    /// <summary>URL of the thumbnail image.</summary>
     [JsonPropertyName("thumb")]
     public string? Thumb { get; init; }
 }
@@ -232,6 +261,7 @@ public sealed class ExternalViewInfo
 /// </summary>
 public sealed class RecordView : EmbedView
 {
+    /// <summary>The embedded record view.</summary>
     [JsonPropertyName("record")]
     public required JsonElement Record { get; init; }
 }
@@ -241,9 +271,11 @@ public sealed class RecordView : EmbedView
 /// </summary>
 public sealed class RecordWithMediaView : EmbedView
 {
+    /// <summary>The embedded record view.</summary>
     [JsonPropertyName("record")]
     public required RecordView Record { get; init; }
 
+    /// <summary>The media embedded alongside the record.</summary>
     [JsonPropertyName("media")]
     public required EmbedView Media { get; init; }
 }
@@ -253,18 +285,25 @@ public sealed class RecordWithMediaView : EmbedView
 /// </summary>
 public sealed class VideoView : EmbedView
 {
+    /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
     public required string Cid { get; init; }
 
+    /// <summary>URL of the HLS playlist for the video.</summary>
     [JsonPropertyName("playlist")]
     public required string Playlist { get; init; }
 
+    /// <summary>URL of the video thumbnail image.</summary>
     [JsonPropertyName("thumbnail")]
     public string? Thumbnail { get; init; }
 
+    /// <summary>Alt text describing the media for accessibility.</summary>
     [JsonPropertyName("alt")]
     public string? Alt { get; init; }
 
+    /// <summary>
+    /// The intrinsic aspect ratio of the media, used to lay out the placeholder before it loads.
+    /// </summary>
     [JsonPropertyName("aspectRatio")]
     public AspectRatio? AspectRatio { get; init; }
 }

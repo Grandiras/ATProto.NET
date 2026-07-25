@@ -11,6 +11,7 @@ namespace ATProtoNet.Lexicon.Site.Standard.Graph;
 /// </summary>
 public sealed class SubscriptionRecord
 {
+    /// <summary>The Lexicon type discriminator (<c>site.standard.graph.subscription</c>).</summary>
     [JsonPropertyName("$type")]
     public string Type => "site.standard.graph.subscription";
 

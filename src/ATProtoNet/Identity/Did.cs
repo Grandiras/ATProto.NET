@@ -76,15 +76,49 @@ public sealed partial class Did : IEquatable<Did>, IComparable<Did>
     /// </summary>
     internal static Did UnsafeCreate(string value) => new(value);
 
+    /// <summary>
+    /// Implicitly converts a <see cref="Did"/> to its <see cref="string"/> representation.
+    /// </summary>
+    /// <param name="did">The value to convert.</param>
+    /// <returns>The converted value.</returns>
     public static implicit operator string(Did did) => did.Value;
+
+    /// <summary>
+    /// Explicitly converts a <see cref="string"/> to its <see cref="Did"/> representation.
+    /// </summary>
+    /// <param name="value">The value to convert.</param>
+    /// <returns>The converted value.</returns>
+    /// <exception cref="ArgumentException">Thrown if the value is not a valid <see cref="Did"/>.</exception>
     public static explicit operator Did(string value) => Parse(value);
 
+    /// <summary>
+    /// Determines whether this instance and another <see cref="Did"/> represent the same value.
+    /// </summary>
+    /// <param name="other">The value to compare with.</param>
+    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
     public bool Equals(Did? other) => other is not null && Value == other.Value;
+
+    /// <inheritdoc />
     public override bool Equals(object? obj) => obj is Did other && Equals(other);
+
+    /// <inheritdoc />
     public override int GetHashCode() => Value.GetHashCode(StringComparison.Ordinal);
+
+    /// <inheritdoc />
     public override string ToString() => Value;
+
+    /// <inheritdoc />
     public int CompareTo(Did? other) => string.Compare(Value, other?.Value, StringComparison.Ordinal);
 
+    /// <summary>Determines whether two <see cref="Did"/> instances are equal.</summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
     public static bool operator ==(Did? left, Did? right) => Equals(left, right);
+
+    /// <summary>Determines whether two <see cref="Did"/> instances are not equal.</summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns><see langword="true"/> if the values differ; otherwise <see langword="false"/>.</returns>
     public static bool operator !=(Did? left, Did? right) => !Equals(left, right);
 }

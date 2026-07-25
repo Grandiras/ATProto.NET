@@ -13,9 +13,11 @@ namespace ATProtoNet.Lexicon.App.Bsky.Video;
 /// </summary>
 public sealed class JobStatus
 {
+    /// <summary>The identifier of the processing job.</summary>
     [JsonPropertyName("jobId")]
     public required string JobId { get; init; }
 
+    /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
     public required string Did { get; init; }
 
@@ -45,10 +47,19 @@ public sealed class JobStatus
 /// </summary>
 public static class JobState
 {
+    /// <summary>The <c>JOB_STATE_CREATED</c> video processing job state.</summary>
     public const string Created = "JOB_STATE_CREATED";
+
+    /// <summary>The <c>JOB_STATE_ENCODING</c> video processing job state.</summary>
     public const string Encoding = "JOB_STATE_ENCODING";
+
+    /// <summary>The <c>JOB_STATE_SCANNING</c> video processing job state.</summary>
     public const string Scanning = "JOB_STATE_SCANNING";
+
+    /// <summary>The <c>JOB_STATE_COMPLETED</c> video processing job state.</summary>
     public const string Completed = "JOB_STATE_COMPLETED";
+
+    /// <summary>The <c>JOB_STATE_FAILED</c> video processing job state.</summary>
     public const string Failed = "JOB_STATE_FAILED";
 }
 
@@ -61,6 +72,7 @@ public static class JobState
 /// </summary>
 public sealed class GetJobStatusResponse
 {
+    /// <summary>The status of the processing job.</summary>
     [JsonPropertyName("jobStatus")]
     public required JobStatus JobStatus { get; init; }
 }
@@ -70,6 +82,7 @@ public sealed class GetJobStatusResponse
 /// </summary>
 public sealed class UploadVideoResponse
 {
+    /// <summary>The status of the processing job.</summary>
     [JsonPropertyName("jobStatus")]
     public required JobStatus JobStatus { get; init; }
 }
@@ -79,18 +92,23 @@ public sealed class UploadVideoResponse
 /// </summary>
 public sealed class GetUploadLimitsResponse
 {
+    /// <summary>Whether the account may currently upload a video.</summary>
     [JsonPropertyName("canUpload")]
     public required bool CanUpload { get; init; }
 
+    /// <summary>The number of videos the account may still upload today.</summary>
     [JsonPropertyName("remainingDailyVideos")]
     public int? RemainingDailyVideos { get; init; }
 
+    /// <summary>The number of bytes the account may still upload today.</summary>
     [JsonPropertyName("remainingDailyBytes")]
     public long? RemainingDailyBytes { get; init; }
 
+    /// <summary>A human-readable explanation of the limit.</summary>
     [JsonPropertyName("message")]
     public string? Message { get; init; }
 
+    /// <summary>The error code, if the limits could not be determined.</summary>
     [JsonPropertyName("error")]
     public string? Error { get; init; }
 }

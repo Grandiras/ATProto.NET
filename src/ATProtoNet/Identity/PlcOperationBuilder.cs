@@ -13,7 +13,7 @@ namespace ATProtoNet.Identity;
 /// A PDS needs this to register real identities: it creates a genesis operation carrying the
 /// account's rotation key, ATProto signing key, handle and PDS endpoint, signs it with a
 /// rotation key, derives the DID from the signed operation's hash, and submits it to a PLC
-/// directory through <see cref="PlcClient.SubmitOperationAsync"/>.
+/// directory through <see cref="PlcClient.SubmitOperationAsync(PlcSignedOperation, CancellationToken)"/>.
 /// </para>
 /// </summary>
 /// <remarks>

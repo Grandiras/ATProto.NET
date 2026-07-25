@@ -11,6 +11,8 @@
     <Description>Aspire hosting integration for ATProto.NET — adds AT Protocol PDS containers to .NET Aspire AppHosts with automatic configuration.</Description>
     <PackageTags>atproto;bluesky;aspire;hosting;pds;container</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Undocumented public members are a build error, not a warning. -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS1591</WarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>

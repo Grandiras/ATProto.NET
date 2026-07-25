@@ -20,6 +20,7 @@ public abstract class ReportSubject { }
 /// </summary>
 public sealed class RepoSubject : ReportSubject
 {
+    /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
     public required string Did { get; init; }
 }
@@ -29,9 +30,11 @@ public sealed class RepoSubject : ReportSubject
 /// </summary>
 public sealed class RecordSubject : ReportSubject
 {
+    /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
     public required string Uri { get; init; }
 
+    /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
     public required string Cid { get; init; }
 }
@@ -68,21 +71,27 @@ public sealed class CreateReportRequest
 /// </summary>
 public sealed class CreateReportResponse
 {
+    /// <summary>The identifier of the report.</summary>
     [JsonPropertyName("id")]
     public long Id { get; init; }
 
+    /// <summary>The reason type the report was filed under.</summary>
     [JsonPropertyName("reasonType")]
     public required string ReasonType { get; init; }
 
+    /// <summary>The free-text reason given by the reporter.</summary>
     [JsonPropertyName("reason")]
     public string? Reason { get; init; }
 
+    /// <summary>The subject the report was filed against.</summary>
     [JsonPropertyName("subject")]
     public required JsonElement Subject { get; init; }
 
+    /// <summary>The DID of the account that filed the report.</summary>
     [JsonPropertyName("reportedBy")]
     public required string ReportedBy { get; init; }
 
+    /// <summary>Timestamp of creation (ISO 8601).</summary>
     [JsonPropertyName("createdAt")]
     public required string CreatedAt { get; init; }
 }
@@ -92,11 +101,24 @@ public sealed class CreateReportResponse
 /// </summary>
 public static class ReportReasons
 {
+    /// <summary>The <c>com.atproto.moderation.defs#reasonSpam</c> report reason.</summary>
     public const string Spam = "com.atproto.moderation.defs#reasonSpam";
+
+    /// <summary>The <c>com.atproto.moderation.defs#reasonViolation</c> report reason.</summary>
     public const string Violation = "com.atproto.moderation.defs#reasonViolation";
+
+    /// <summary>The <c>com.atproto.moderation.defs#reasonMisleading</c> report reason.</summary>
     public const string Misleading = "com.atproto.moderation.defs#reasonMisleading";
+
+    /// <summary>The <c>com.atproto.moderation.defs#reasonSexual</c> report reason.</summary>
     public const string Sexual = "com.atproto.moderation.defs#reasonSexual";
+
+    /// <summary>The <c>com.atproto.moderation.defs#reasonRude</c> report reason.</summary>
     public const string Rude = "com.atproto.moderation.defs#reasonRude";
+
+    /// <summary>The <c>com.atproto.moderation.defs#reasonOther</c> report reason.</summary>
     public const string Other = "com.atproto.moderation.defs#reasonOther";
+
+    /// <summary>The <c>com.atproto.moderation.defs#reasonAppeal</c> report reason.</summary>
     public const string Appeal = "com.atproto.moderation.defs#reasonAppeal";
 }

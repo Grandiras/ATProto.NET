@@ -17,6 +17,7 @@ namespace ATProtoNet.Lexicon.App.Bsky.Feed;
 /// </summary>
 public sealed class PostRecord
 {
+    /// <summary>The Lexicon type discriminator (<c>app.bsky.feed.post</c>).</summary>
     [JsonPropertyName("$type")]
     public string Type => "app.bsky.feed.post";
 
@@ -58,9 +59,11 @@ public sealed class PostRecord
 /// </summary>
 public sealed class ReplyRef
 {
+    /// <summary>The root post of the thread.</summary>
     [JsonPropertyName("root")]
     public required StrongRef Root { get; init; }
 
+    /// <summary>The direct parent post.</summary>
     [JsonPropertyName("parent")]
     public required StrongRef Parent { get; init; }
 }
@@ -70,9 +73,13 @@ public sealed class ReplyRef
 /// </summary>
 public sealed class SelfLabels
 {
+    /// <summary>
+    /// The Lexicon type discriminator (<c>com.atproto.label.defs#selfLabels</c>).
+    /// </summary>
     [JsonPropertyName("$type")]
     public string Type => "com.atproto.label.defs#selfLabels";
 
+    /// <summary>The self-applied labels.</summary>
     [JsonPropertyName("values")]
     public required List<SelfLabelValue> Values { get; init; }
 }
@@ -82,6 +89,7 @@ public sealed class SelfLabels
 /// </summary>
 public sealed class SelfLabelValue
 {
+    /// <summary>The label value.</summary>
     [JsonPropertyName("val")]
     public required string Val { get; init; }
 }
@@ -95,12 +103,15 @@ public sealed class SelfLabelValue
 /// </summary>
 public sealed class LikeRecord
 {
+    /// <summary>The Lexicon type discriminator (<c>app.bsky.feed.like</c>).</summary>
     [JsonPropertyName("$type")]
     public string Type => "app.bsky.feed.like";
 
+    /// <summary>A strong reference to the post being liked.</summary>
     [JsonPropertyName("subject")]
     public required StrongRef Subject { get; init; }
 
+    /// <summary>Timestamp of creation (ISO 8601).</summary>
     [JsonPropertyName("createdAt")]
     public required string CreatedAt { get; init; }
 }
@@ -114,12 +125,15 @@ public sealed class LikeRecord
 /// </summary>
 public sealed class RepostRecord
 {
+    /// <summary>The Lexicon type discriminator (<c>app.bsky.feed.repost</c>).</summary>
     [JsonPropertyName("$type")]
     public string Type => "app.bsky.feed.repost";
 
+    /// <summary>A strong reference to the post being reposted.</summary>
     [JsonPropertyName("subject")]
     public required StrongRef Subject { get; init; }
 
+    /// <summary>Timestamp of creation (ISO 8601).</summary>
     [JsonPropertyName("createdAt")]
     public required string CreatedAt { get; init; }
 }
@@ -134,18 +148,26 @@ public sealed class RepostRecord
 /// </summary>
 public sealed class ThreadgateRecord
 {
+    /// <summary>The Lexicon type discriminator (<c>app.bsky.feed.threadgate</c>).</summary>
     [JsonPropertyName("$type")]
     public string Type => "app.bsky.feed.threadgate";
 
+    /// <summary>The AT-URI of the post this threadgate applies to.</summary>
     [JsonPropertyName("post")]
     public required string Post { get; init; }
 
+    /// <summary>
+    /// The rules controlling who may reply. An empty list disables replies entirely; <see
+    /// langword="null"/> allows everyone.
+    /// </summary>
     [JsonPropertyName("allow")]
     public List<JsonElement>? Allow { get; init; }
 
+    /// <summary>Timestamp of creation (ISO 8601).</summary>
     [JsonPropertyName("createdAt")]
     public required string CreatedAt { get; init; }
 
+    /// <summary>The AT-URIs of replies hidden by the thread author.</summary>
     [JsonPropertyName("hiddenReplies")]
     public List<string>? HiddenReplies { get; init; }
 }
@@ -156,18 +178,23 @@ public sealed class ThreadgateRecord
 /// </summary>
 public sealed class PostgateRecord
 {
+    /// <summary>The Lexicon type discriminator (<c>app.bsky.feed.postgate</c>).</summary>
     [JsonPropertyName("$type")]
     public string Type => "app.bsky.feed.postgate";
 
+    /// <summary>The AT-URI of the post this postgate applies to.</summary>
     [JsonPropertyName("post")]
     public required string Post { get; init; }
 
+    /// <summary>The AT-URIs of quote posts the author has detached.</summary>
     [JsonPropertyName("detachedEmbeddingUris")]
     public List<string>? DetachedEmbeddingUris { get; init; }
 
+    /// <summary>The rules controlling who may quote this post.</summary>
     [JsonPropertyName("embeddingRules")]
     public List<JsonElement>? EmbeddingRules { get; init; }
 
+    /// <summary>Timestamp of creation (ISO 8601).</summary>
     [JsonPropertyName("createdAt")]
     public required string CreatedAt { get; init; }
 }
@@ -181,30 +208,39 @@ public sealed class PostgateRecord
 /// </summary>
 public sealed class GeneratorRecord
 {
+    /// <summary>The Lexicon type discriminator (<c>app.bsky.feed.generator</c>).</summary>
     [JsonPropertyName("$type")]
     public string Type => "app.bsky.feed.generator";
 
+    /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
     public required string Did { get; init; }
 
+    /// <summary>The human-readable display name.</summary>
     [JsonPropertyName("displayName")]
     public required string DisplayName { get; init; }
 
+    /// <summary>A free-text description.</summary>
     [JsonPropertyName("description")]
     public string? Description { get; init; }
 
+    /// <summary>Rich-text facets (mentions, links, tags) applied to the description.</summary>
     [JsonPropertyName("descriptionFacets")]
     public List<Facet>? DescriptionFacets { get; init; }
 
+    /// <summary>The avatar image.</summary>
     [JsonPropertyName("avatar")]
     public BlobRef? Avatar { get; init; }
 
+    /// <summary>Whether the feed generator accepts interaction events.</summary>
     [JsonPropertyName("acceptsInteractions")]
     public bool? AcceptsInteractions { get; init; }
 
+    /// <summary>The labels applied to this subject.</summary>
     [JsonPropertyName("labels")]
     public SelfLabels? Labels { get; init; }
 
+    /// <summary>Timestamp of creation (ISO 8601).</summary>
     [JsonPropertyName("createdAt")]
     public required string CreatedAt { get; init; }
 }
@@ -218,42 +254,55 @@ public sealed class GeneratorRecord
 /// </summary>
 public sealed class PostView
 {
+    /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
     public required string Uri { get; init; }
 
+    /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
     public required string Cid { get; init; }
 
+    /// <summary>The account that authored the post.</summary>
     [JsonPropertyName("author")]
     public required ProfileViewBasic Author { get; init; }
 
+    /// <summary>The post record.</summary>
     [JsonPropertyName("record")]
     public required JsonElement Record { get; init; }
 
+    /// <summary>Embedded content attached to the post.</summary>
     [JsonPropertyName("embed")]
     public EmbedView? Embed { get; init; }
 
+    /// <summary>The number of replies to the post.</summary>
     [JsonPropertyName("replyCount")]
     public int? ReplyCount { get; init; }
 
+    /// <summary>The number of reposts.</summary>
     [JsonPropertyName("repostCount")]
     public int? RepostCount { get; init; }
 
+    /// <summary>The number of likes.</summary>
     [JsonPropertyName("likeCount")]
     public int? LikeCount { get; init; }
 
+    /// <summary>The number of quote posts.</summary>
     [JsonPropertyName("quoteCount")]
     public int? QuoteCount { get; init; }
 
+    /// <summary>Timestamp at which the app view indexed this data (ISO 8601).</summary>
     [JsonPropertyName("indexedAt")]
     public required string IndexedAt { get; init; }
 
+    /// <summary>The requesting account's relationship to this subject.</summary>
     [JsonPropertyName("viewer")]
     public PostViewerState? Viewer { get; init; }
 
+    /// <summary>The labels applied to this subject.</summary>
     [JsonPropertyName("labels")]
     public List<Label>? Labels { get; init; }
 
+    /// <summary>The threadgate record controlling who may reply.</summary>
     [JsonPropertyName("threadgate")]
     public JsonElement? Threadgate { get; init; }
 }
@@ -271,15 +320,19 @@ public sealed class PostViewerState
     [JsonPropertyName("repost")]
     public string? Repost { get; init; }
 
+    /// <summary>Whether the viewer has muted this thread.</summary>
     [JsonPropertyName("threadMuted")]
     public bool? ThreadMuted { get; init; }
 
+    /// <summary>Whether the viewer is prevented from replying by a threadgate.</summary>
     [JsonPropertyName("replyDisabled")]
     public bool? ReplyDisabled { get; init; }
 
+    /// <summary>Whether the viewer is prevented from quoting this post by a postgate.</summary>
     [JsonPropertyName("embeddingDisabled")]
     public bool? EmbeddingDisabled { get; init; }
 
+    /// <summary>Whether the post is pinned to the author's profile.</summary>
     [JsonPropertyName("pinned")]
     public bool? Pinned { get; init; }
 }
@@ -289,15 +342,21 @@ public sealed class PostViewerState
 /// </summary>
 public sealed class FeedViewPost
 {
+    /// <summary>The post.</summary>
     [JsonPropertyName("post")]
     public required PostView Post { get; init; }
 
+    /// <summary>Reply information for the post, if it is a reply.</summary>
     [JsonPropertyName("reply")]
     public FeedReplyRef? Reply { get; init; }
 
+    /// <summary>The reason this item appears in the feed (for example a repost).</summary>
     [JsonPropertyName("reason")]
     public JsonElement? Reason { get; init; }
 
+    /// <summary>
+    /// An opaque context string the feed generator may pass back in interaction events.
+    /// </summary>
     [JsonPropertyName("feedContext")]
     public string? FeedContext { get; init; }
 }
@@ -307,12 +366,15 @@ public sealed class FeedViewPost
 /// </summary>
 public sealed class FeedReplyRef
 {
+    /// <summary>The root post of the thread.</summary>
     [JsonPropertyName("root")]
     public required JsonElement Root { get; init; }
 
+    /// <summary>The direct parent post.</summary>
     [JsonPropertyName("parent")]
     public required JsonElement Parent { get; init; }
 
+    /// <summary>The author of the parent post's parent, when available.</summary>
     [JsonPropertyName("grandparentAuthor")]
     public ProfileViewBasic? GrandparentAuthor { get; init; }
 }
@@ -335,12 +397,15 @@ public abstract class ThreadNode { }
 /// </summary>
 public sealed class ThreadViewPost : ThreadNode
 {
+    /// <summary>The post at this node of the thread.</summary>
     [JsonPropertyName("post")]
     public required PostView Post { get; init; }
 
+    /// <summary>The direct parent post.</summary>
     [JsonPropertyName("parent")]
     public ThreadNode? Parent { get; init; }
 
+    /// <summary>The replies to this post.</summary>
     [JsonPropertyName("replies")]
     public List<ThreadNode>? Replies { get; init; }
 }
@@ -350,9 +415,13 @@ public sealed class ThreadViewPost : ThreadNode
 /// </summary>
 public sealed class NotFoundPost : ThreadNode
 {
+    /// <summary>The AT-URI of the post that could not be found.</summary>
     [JsonPropertyName("uri")]
     public required string Uri { get; init; }
 
+    /// <summary>
+    /// Always <see langword="true"/>; marks the referenced subject as unavailable.
+    /// </summary>
     [JsonPropertyName("notFound")]
     public bool NotFound => true;
 }
@@ -362,12 +431,15 @@ public sealed class NotFoundPost : ThreadNode
 /// </summary>
 public sealed class BlockedPost : ThreadNode
 {
+    /// <summary>The AT-URI of the blocked post.</summary>
     [JsonPropertyName("uri")]
     public required string Uri { get; init; }
 
+    /// <summary>Whether the subject is blocked.</summary>
     [JsonPropertyName("blocked")]
     public bool Blocked => true;
 
+    /// <summary>The account that authored the post.</summary>
     [JsonPropertyName("author")]
     public JsonElement? Author { get; init; }
 }
@@ -381,42 +453,55 @@ public sealed class BlockedPost : ThreadNode
 /// </summary>
 public sealed class GeneratorView
 {
+    /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
     public required string Uri { get; init; }
 
+    /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
     public required string Cid { get; init; }
 
+    /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
     public required string Did { get; init; }
 
+    /// <summary>The account that created this.</summary>
     [JsonPropertyName("creator")]
     public required ProfileView Creator { get; init; }
 
+    /// <summary>The human-readable display name.</summary>
     [JsonPropertyName("displayName")]
     public required string DisplayName { get; init; }
 
+    /// <summary>A free-text description.</summary>
     [JsonPropertyName("description")]
     public string? Description { get; init; }
 
+    /// <summary>Rich-text facets (mentions, links, tags) applied to the description.</summary>
     [JsonPropertyName("descriptionFacets")]
     public List<Facet>? DescriptionFacets { get; init; }
 
+    /// <summary>The avatar image.</summary>
     [JsonPropertyName("avatar")]
     public string? Avatar { get; init; }
 
+    /// <summary>The number of likes.</summary>
     [JsonPropertyName("likeCount")]
     public int? LikeCount { get; init; }
 
+    /// <summary>Whether the feed generator accepts interaction events.</summary>
     [JsonPropertyName("acceptsInteractions")]
     public bool? AcceptsInteractions { get; init; }
 
+    /// <summary>The labels applied to this subject.</summary>
     [JsonPropertyName("labels")]
     public List<Label>? Labels { get; init; }
 
+    /// <summary>The requesting account's relationship to this subject.</summary>
     [JsonPropertyName("viewer")]
     public GeneratorViewerState? Viewer { get; init; }
 
+    /// <summary>Timestamp at which the app view indexed this data (ISO 8601).</summary>
     [JsonPropertyName("indexedAt")]
     public required string IndexedAt { get; init; }
 }
@@ -426,6 +511,7 @@ public sealed class GeneratorView
 /// </summary>
 public sealed class GeneratorViewerState
 {
+    /// <summary>The AT-URI of the viewer's like record, if they have liked this.</summary>
     [JsonPropertyName("like")]
     public string? Like { get; init; }
 }
@@ -439,9 +525,14 @@ public sealed class GeneratorViewerState
 /// </summary>
 public sealed class FeedResponse
 {
+    /// <summary>
+    /// Pagination cursor; pass this back on the next request to continue where this page ended.
+    /// <see langword="null"/> when there are no further results.
+    /// </summary>
     [JsonPropertyName("cursor")]
     public string? Cursor { get; init; }
 
+    /// <summary>The feed items.</summary>
     [JsonPropertyName("feed")]
     public required List<FeedViewPost> Feed { get; init; }
 }
@@ -451,9 +542,11 @@ public sealed class FeedResponse
 /// </summary>
 public sealed class GetPostThreadResponse
 {
+    /// <summary>The thread rooted at the requested post.</summary>
     [JsonPropertyName("thread")]
     public required ThreadNode Thread { get; init; }
 
+    /// <summary>The threadgate record controlling who may reply.</summary>
     [JsonPropertyName("threadgate")]
     public JsonElement? Threadgate { get; init; }
 }
@@ -463,6 +556,7 @@ public sealed class GetPostThreadResponse
 /// </summary>
 public sealed class GetPostsResponse
 {
+    /// <summary>The posts.</summary>
     [JsonPropertyName("posts")]
     public required List<PostView> Posts { get; init; }
 }
@@ -472,15 +566,22 @@ public sealed class GetPostsResponse
 /// </summary>
 public sealed class GetLikesResponse
 {
+    /// <summary>
+    /// Pagination cursor; pass this back on the next request to continue where this page ended.
+    /// <see langword="null"/> when there are no further results.
+    /// </summary>
     [JsonPropertyName("cursor")]
     public string? Cursor { get; init; }
 
+    /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
     public required string Uri { get; init; }
 
+    /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
     public string? Cid { get; init; }
 
+    /// <summary>The likes.</summary>
     [JsonPropertyName("likes")]
     public required List<LikeInfo> Likes { get; init; }
 }
@@ -490,12 +591,15 @@ public sealed class GetLikesResponse
 /// </summary>
 public sealed class LikeInfo
 {
+    /// <summary>Timestamp at which the app view indexed this data (ISO 8601).</summary>
     [JsonPropertyName("indexedAt")]
     public required string IndexedAt { get; init; }
 
+    /// <summary>Timestamp of creation (ISO 8601).</summary>
     [JsonPropertyName("createdAt")]
     public required string CreatedAt { get; init; }
 
+    /// <summary>The account that liked the subject.</summary>
     [JsonPropertyName("actor")]
     public required ProfileView Actor { get; init; }
 }
@@ -505,15 +609,22 @@ public sealed class LikeInfo
 /// </summary>
 public sealed class GetRepostedByResponse
 {
+    /// <summary>
+    /// Pagination cursor; pass this back on the next request to continue where this page ended.
+    /// <see langword="null"/> when there are no further results.
+    /// </summary>
     [JsonPropertyName("cursor")]
     public string? Cursor { get; init; }
 
+    /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
     public required string Uri { get; init; }
 
+    /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
     public string? Cid { get; init; }
 
+    /// <summary>The profiles that reposted the post.</summary>
     [JsonPropertyName("repostedBy")]
     public required List<ProfileView> RepostedBy { get; init; }
 }
@@ -523,15 +634,22 @@ public sealed class GetRepostedByResponse
 /// </summary>
 public sealed class GetQuotesResponse
 {
+    /// <summary>
+    /// Pagination cursor; pass this back on the next request to continue where this page ended.
+    /// <see langword="null"/> when there are no further results.
+    /// </summary>
     [JsonPropertyName("cursor")]
     public string? Cursor { get; init; }
 
+    /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
     public required string Uri { get; init; }
 
+    /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
     public string? Cid { get; init; }
 
+    /// <summary>The posts.</summary>
     [JsonPropertyName("posts")]
     public required List<PostView> Posts { get; init; }
 }
@@ -541,12 +659,15 @@ public sealed class GetQuotesResponse
 /// </summary>
 public sealed class GetFeedGeneratorResponse
 {
+    /// <summary>The feed generator view.</summary>
     [JsonPropertyName("view")]
     public required GeneratorView View { get; init; }
 
+    /// <summary>Whether the feed generator service is currently reachable.</summary>
     [JsonPropertyName("isOnline")]
     public bool IsOnline { get; init; }
 
+    /// <summary>Whether the feed generator service is correctly configured.</summary>
     [JsonPropertyName("isValid")]
     public bool IsValid { get; init; }
 }
@@ -556,6 +677,7 @@ public sealed class GetFeedGeneratorResponse
 /// </summary>
 public sealed class GetFeedGeneratorsResponse
 {
+    /// <summary>The feed generators.</summary>
     [JsonPropertyName("feeds")]
     public required List<GeneratorView> Feeds { get; init; }
 }
@@ -565,9 +687,14 @@ public sealed class GetFeedGeneratorsResponse
 /// </summary>
 public sealed class GetActorFeedsResponse
 {
+    /// <summary>
+    /// Pagination cursor; pass this back on the next request to continue where this page ended.
+    /// <see langword="null"/> when there are no further results.
+    /// </summary>
     [JsonPropertyName("cursor")]
     public string? Cursor { get; init; }
 
+    /// <summary>The feed generators.</summary>
     [JsonPropertyName("feeds")]
     public required List<GeneratorView> Feeds { get; init; }
 }
@@ -577,9 +704,14 @@ public sealed class GetActorFeedsResponse
 /// </summary>
 public sealed class GetSuggestedFeedsResponse
 {
+    /// <summary>
+    /// Pagination cursor; pass this back on the next request to continue where this page ended.
+    /// <see langword="null"/> when there are no further results.
+    /// </summary>
     [JsonPropertyName("cursor")]
     public string? Cursor { get; init; }
 
+    /// <summary>The feed generators.</summary>
     [JsonPropertyName("feeds")]
     public required List<GeneratorView> Feeds { get; init; }
 }
@@ -589,12 +721,18 @@ public sealed class GetSuggestedFeedsResponse
 /// </summary>
 public sealed class SearchPostsResponse
 {
+    /// <summary>
+    /// Pagination cursor; pass this back on the next request to continue where this page ended.
+    /// <see langword="null"/> when there are no further results.
+    /// </summary>
     [JsonPropertyName("cursor")]
     public string? Cursor { get; init; }
 
+    /// <summary>The total number of matching results, when the server reports it.</summary>
     [JsonPropertyName("hitsTotal")]
     public int? HitsTotal { get; init; }
 
+    /// <summary>The posts.</summary>
     [JsonPropertyName("posts")]
     public required List<PostView> Posts { get; init; }
 }
@@ -604,12 +742,15 @@ public sealed class SearchPostsResponse
 /// </summary>
 public sealed class DescribeFeedGeneratorResponse
 {
+    /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
     public required string Did { get; init; }
 
+    /// <summary>The feed generators.</summary>
     [JsonPropertyName("feeds")]
     public required List<DescribeFeedGeneratorFeed> Feeds { get; init; }
 
+    /// <summary>Links to the server's policy documents.</summary>
     [JsonPropertyName("links")]
     public JsonElement? Links { get; init; }
 }
@@ -619,6 +760,7 @@ public sealed class DescribeFeedGeneratorResponse
 /// </summary>
 public sealed class DescribeFeedGeneratorFeed
 {
+    /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
     public required string Uri { get; init; }
 }
@@ -628,9 +770,14 @@ public sealed class DescribeFeedGeneratorFeed
 /// </summary>
 public sealed class GetFeedSkeletonResponse
 {
+    /// <summary>
+    /// Pagination cursor; pass this back on the next request to continue where this page ended.
+    /// <see langword="null"/> when there are no further results.
+    /// </summary>
     [JsonPropertyName("cursor")]
     public string? Cursor { get; init; }
 
+    /// <summary>The feed items.</summary>
     [JsonPropertyName("feed")]
     public required List<SkeletonFeedPost> Feed { get; init; }
 }
@@ -640,12 +787,17 @@ public sealed class GetFeedSkeletonResponse
 /// </summary>
 public sealed class SkeletonFeedPost
 {
+    /// <summary>The AT-URI of the post.</summary>
     [JsonPropertyName("post")]
     public required string Post { get; init; }
 
+    /// <summary>The reason this item appears in the feed (for example a repost).</summary>
     [JsonPropertyName("reason")]
     public JsonElement? Reason { get; init; }
 
+    /// <summary>
+    /// An opaque context string the feed generator may pass back in interaction events.
+    /// </summary>
     [JsonPropertyName("feedContext")]
     public string? FeedContext { get; init; }
 }

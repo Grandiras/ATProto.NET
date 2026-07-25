@@ -27,6 +27,13 @@ public sealed class AtProtoHttpException : HttpRequestException
     /// </summary>
     public string? ResponseBody { get; }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AtProtoHttpException"/> class.
+    /// </summary>
+    /// <param name="errorType">The error type name reported by the endpoint.</param>
+    /// <param name="errorMessage">The human-readable error message reported by the endpoint.</param>
+    /// <param name="statusCode">The HTTP status code of the response.</param>
+    /// <param name="responseBody">The raw response body, if available.</param>
     public AtProtoHttpException(string? errorType, string? errorMessage, HttpStatusCode statusCode, string? responseBody = null)
         : base($"XRPC Error [{statusCode}] {errorType}: {errorMessage}", null, statusCode)
     {
@@ -36,6 +43,11 @@ public sealed class AtProtoHttpException : HttpRequestException
         ResponseBody = responseBody;
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AtProtoHttpException"/> class.
+    /// </summary>
+    /// <param name="message">The exception message.</param>
+    /// <param name="statusCode">The HTTP status code of the response.</param>
     public AtProtoHttpException(string message, HttpStatusCode statusCode)
         : base(message, null, statusCode)
     {

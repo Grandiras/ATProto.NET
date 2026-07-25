@@ -75,13 +75,39 @@ public sealed partial class RecordKey : IEquatable<RecordKey>
     /// </summary>
     internal static RecordKey UnsafeCreate(string value) => new(value);
 
+    /// <summary>
+    /// Implicitly converts a <see cref="RecordKey"/> to its <see cref="string"/> representation.
+    /// </summary>
+    /// <param name="key">The value to convert.</param>
+    /// <returns>The converted value.</returns>
     public static implicit operator string(RecordKey key) => key.Value;
 
+    /// <summary>
+    /// Determines whether this instance and another <see cref="RecordKey"/> represent the same
+    /// value.
+    /// </summary>
+    /// <param name="other">The value to compare with.</param>
+    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
     public bool Equals(RecordKey? other) => other is not null && Value == other.Value;
+
+    /// <inheritdoc />
     public override bool Equals(object? obj) => obj is RecordKey other && Equals(other);
+
+    /// <inheritdoc />
     public override int GetHashCode() => Value.GetHashCode(StringComparison.Ordinal);
+
+    /// <inheritdoc />
     public override string ToString() => Value;
 
+    /// <summary>Determines whether two <see cref="RecordKey"/> instances are equal.</summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
     public static bool operator ==(RecordKey? left, RecordKey? right) => Equals(left, right);
+
+    /// <summary>Determines whether two <see cref="RecordKey"/> instances are not equal.</summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns><see langword="true"/> if the values differ; otherwise <see langword="false"/>.</returns>
     public static bool operator !=(RecordKey? left, RecordKey? right) => !Equals(left, right);
 }

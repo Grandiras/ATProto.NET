@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The core package's public API is now fully XML-documented** (Issue #72) — `ATProtoNet` emitted 1114 CS1591 warnings, so most of the public surface — chiefly the per-Lexicon `*Models.cs` DTOs — arrived in a consumer's IntelliSense with an empty tooltip. All 1114 members now carry a `<summary>`: DTO properties describe the AT Protocol field they map to, `$type` discriminators name the Lexicon ID they carry, the `Did`/`Handle`/`AtUri`/`Nsid`/`Tid`/`Cid`/`RecordKey`/`AtIdentifier` conversion operators and equality members are documented (or `<inheritdoc />`), and the moderation-event and invite-code types gained type-level summaries. No existing documentation was rewritten — the change is insert-only apart from one `cref` fix
+
+### Changed
+
+- **CS1591 is now a build error on all four documented packages** (Issue #72) — `ATProtoNet`, `ATProtoNet.Server`, `ATProtoNet.Blazor`, and `ATProtoNet.Aspire.Hosting` set `<WarningsAsErrors>$(WarningsAsErrors);CS1591</WarningsAsErrors>`, so a new public member without an XML comment fails the build instead of adding to a warning pile. `TreatWarningsAsErrors` stays `false`
+
+### Fixed
+
+- **The solution now builds with zero warnings** (Issue #72) — beyond CS1591: `XrpcClient.SendWithDPoPRetryAsync` was missing a `<param>` tag for `proxyOverride` (CS1573), `PlcOperationBuilder`'s `<see cref="PlcClient.SubmitOperationAsync"/>` was ambiguous between two overloads (CS0419), and `ServerIntegrationSample` was missing a `@using` for the namespace `ReconnectModal` lives in (RZ10012)
+
 ## [0.5.0] - 2026-07-26
 
 ### Breaking changes

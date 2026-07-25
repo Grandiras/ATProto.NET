@@ -77,17 +77,51 @@ public sealed partial class Handle : IEquatable<Handle>, IComparable<Handle>
     /// </summary>
     internal static Handle UnsafeCreate(string value) => new(value);
 
+    /// <summary>
+    /// Implicitly converts a <see cref="Handle"/> to its <see cref="string"/> representation.
+    /// </summary>
+    /// <param name="handle">The value to convert.</param>
+    /// <returns>The converted value.</returns>
     public static implicit operator string(Handle handle) => handle.Value;
+
+    /// <summary>
+    /// Explicitly converts a <see cref="string"/> to its <see cref="Handle"/> representation.
+    /// </summary>
+    /// <param name="value">The value to convert.</param>
+    /// <returns>The converted value.</returns>
+    /// <exception cref="ArgumentException">Thrown if the value is not a valid <see cref="Handle"/>.</exception>
     public static explicit operator Handle(string value) => Parse(value);
 
+    /// <summary>
+    /// Determines whether this instance and another <see cref="Handle"/> represent the same value.
+    /// </summary>
+    /// <param name="other">The value to compare with.</param>
+    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
     public bool Equals(Handle? other) => other is not null
         && string.Equals(Value, other.Value, StringComparison.OrdinalIgnoreCase);
+
+    /// <inheritdoc />
     public override bool Equals(object? obj) => obj is Handle other && Equals(other);
+
+    /// <inheritdoc />
     public override int GetHashCode() => Value.GetHashCode(StringComparison.OrdinalIgnoreCase);
+
+    /// <inheritdoc />
     public override string ToString() => Value;
+
+    /// <inheritdoc />
     public int CompareTo(Handle? other) =>
         string.Compare(Value, other?.Value, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Determines whether two <see cref="Handle"/> instances are equal.</summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
     public static bool operator ==(Handle? left, Handle? right) => Equals(left, right);
+
+    /// <summary>Determines whether two <see cref="Handle"/> instances are not equal.</summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns><see langword="true"/> if the values differ; otherwise <see langword="false"/>.</returns>
     public static bool operator !=(Handle? left, Handle? right) => !Equals(left, right);
 }

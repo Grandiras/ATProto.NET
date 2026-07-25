@@ -19,6 +19,10 @@ public sealed class LexiconPluginAttribute : Attribute
     /// </summary>
     public Type PluginType { get; }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="LexiconPluginAttribute"/> class.
+    /// </summary>
+    /// <param name="pluginType">The type implementing <see cref="ILexiconPlugin"/> that registers the assembly's Lexicon types.</param>
     public LexiconPluginAttribute(Type pluginType)
     {
         ArgumentNullException.ThrowIfNull(pluginType);

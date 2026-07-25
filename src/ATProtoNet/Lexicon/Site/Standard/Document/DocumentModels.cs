@@ -13,6 +13,7 @@ namespace ATProtoNet.Lexicon.Site.Standard.Document;
 /// </summary>
 public sealed class DocumentRecord
 {
+    /// <summary>The Lexicon type discriminator (<c>site.standard.document</c>).</summary>
     [JsonPropertyName("$type")]
     public string Type => "site.standard.document";
 

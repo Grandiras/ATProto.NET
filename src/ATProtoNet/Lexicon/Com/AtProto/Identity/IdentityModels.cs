@@ -25,6 +25,7 @@ public sealed class ResolveHandleResponse
 /// </summary>
 public sealed class UpdateHandleRequest
 {
+    /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
     [JsonPropertyName("handle")]
     public required string Handle { get; init; }
 }
@@ -38,15 +39,19 @@ public sealed class UpdateHandleRequest
 /// </summary>
 public sealed class GetRecommendedDidCredentialsResponse
 {
+    /// <summary>The DID PLC rotation keys, as <c>did:key</c> strings.</summary>
     [JsonPropertyName("rotationKeys")]
     public List<string>? RotationKeys { get; init; }
 
+    /// <summary>The <c>alsoKnownAs</c> entries (handles) for the DID document.</summary>
     [JsonPropertyName("alsoKnownAs")]
     public List<string>? AlsoKnownAs { get; init; }
 
+    /// <summary>The verification methods for the DID document, keyed by key identifier.</summary>
     [JsonPropertyName("verificationMethods")]
     public Dictionary<string, string>? VerificationMethods { get; init; }
 
+    /// <summary>The services for the DID document, keyed by service identifier.</summary>
     [JsonPropertyName("services")]
     public Dictionary<string, DidService>? Services { get; init; }
 }
@@ -56,9 +61,11 @@ public sealed class GetRecommendedDidCredentialsResponse
 /// </summary>
 public sealed class DidService
 {
+    /// <summary>The service type (for example <c>AtprotoPersonalDataServer</c>).</summary>
     [JsonPropertyName("type")]
     public required string Type { get; init; }
 
+    /// <summary>The endpoint URL of the service.</summary>
     [JsonPropertyName("endpoint")]
     public required string Endpoint { get; init; }
 }
@@ -72,18 +79,23 @@ public sealed class DidService
 /// </summary>
 public sealed class SignPlcOperationRequest
 {
+    /// <summary>The confirmation token emailed to the account holder.</summary>
     [JsonPropertyName("token")]
     public string? Token { get; init; }
 
+    /// <summary>The DID PLC rotation keys, as <c>did:key</c> strings.</summary>
     [JsonPropertyName("rotationKeys")]
     public List<string>? RotationKeys { get; init; }
 
+    /// <summary>The <c>alsoKnownAs</c> entries (handles) for the DID document.</summary>
     [JsonPropertyName("alsoKnownAs")]
     public List<string>? AlsoKnownAs { get; init; }
 
+    /// <summary>The verification methods for the DID document, keyed by key identifier.</summary>
     [JsonPropertyName("verificationMethods")]
     public Dictionary<string, string>? VerificationMethods { get; init; }
 
+    /// <summary>The services for the DID document, keyed by service identifier.</summary>
     [JsonPropertyName("services")]
     public Dictionary<string, DidService>? Services { get; init; }
 }
@@ -107,6 +119,7 @@ public sealed class SignPlcOperationResponse
 /// </summary>
 public sealed class SubmitPlcOperationRequest
 {
+    /// <summary>The signed DID PLC operation to submit.</summary>
     [JsonPropertyName("operation")]
     public required Dictionary<string, object> Operation { get; init; }
 }
