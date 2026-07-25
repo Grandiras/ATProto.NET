@@ -1,4 +1,6 @@
 using System.Net.WebSockets;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using ATProtoNet.Serialization;
 using Microsoft.AspNetCore.Builder;
@@ -39,13 +41,16 @@ public static class PdsHostingExtensions
         // leaves an existing registration alone rather than shadowing it.
         services.TryAddSingleton<IAccountStore, InMemoryAccountStore>();
         services.TryAddSingleton<IRepoStore, InMemoryRepoStore>();
+        services.TryAddSingleton<IInviteCodeStore, InMemoryInviteCodeStore>();
 
         AddFederationServices(services, options);
         return services;
     }
 
     /// <summary>
-    /// Register PDS hosting services with custom store implementations.
+    /// Register PDS hosting services with custom account and repository stores.
+    /// Invite codes use the in-memory store; supply your own with
+    /// <see cref="AddAtProtoPdsInviteCodeStore{TInviteCodeStore}"/>.
     /// </summary>
     /// <typeparam name="TAccountStore">The account store implementation.</typeparam>
     /// <typeparam name="TRepoStore">The repository store implementation.</typeparam>
@@ -68,7 +73,32 @@ public static class PdsHostingExtensions
         services.AddSingleton<IAccountStore, TAccountStore>();
         services.AddSingleton<IRepoStore, TRepoStore>();
 
+        // TryAdd, so a store registered by AddAtProtoPdsInviteCodeStore<T>() beforehand survives.
+        services.TryAddSingleton<IInviteCodeStore, InMemoryInviteCodeStore>();
+
         AddFederationServices(services, options);
+        return services;
+    }
+
+    /// <summary>
+    /// Register a persistent <see cref="IInviteCodeStore"/>, replacing the in-memory default.
+    /// </summary>
+    /// <typeparam name="TInviteCodeStore">The invite code store implementation.</typeparam>
+    /// <param name="services">The service collection.</param>
+    /// <remarks>
+    /// Call order does not matter: this removes any previously registered store, and
+    /// <c>AddAtProtoPds()</c> only fills in the in-memory default when nothing else is
+    /// registered. Closed registration (<see cref="PdsOptions.OpenRegistration"/> set to
+    /// <c>false</c>) with the in-memory default loses every issued code on restart.
+    /// </remarks>
+    public static IServiceCollection AddAtProtoPdsInviteCodeStore<TInviteCodeStore>(
+        this IServiceCollection services)
+        where TInviteCodeStore : class, IInviteCodeStore
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.RemoveAll<IInviteCodeStore>();
+        services.AddSingleton<IInviteCodeStore, TInviteCodeStore>();
         return services;
     }
 
@@ -135,7 +165,8 @@ public static class PdsHostingExtensions
             services.GetRequiredService<PdsSessionService>(),
             services.GetRequiredService<PdsOptions>(),
             services.GetRequiredService<PdsRepoManager>(),
-            services.GetRequiredService<PdsIdentityService>());
+            services.GetRequiredService<PdsIdentityService>(),
+            services.GetRequiredService<IInviteCodeStore>());
 
     /// <summary>
     /// Builds the singleton <see cref="PdsSessionService"/>. DI cannot supply the
@@ -279,6 +310,99 @@ public static class PdsHostingExtensions
         {
             var description = pds.DescribeServer();
             return Results.Json(description, jsonOptions);
+        }));
+
+        // ── Invite code endpoints ──
+
+        Map(PdsEndpointNames.CreateInviteCode, route => endpoints.MapPost(route, async (HttpContext ctx, PdsService pds, PdsOptions pdsOptions) =>
+        {
+            if (!IsAdmin(ctx, pdsOptions)) return AdminUnauthorized();
+
+            var body = await ctx.Request.ReadFromJsonAsync<CreateInviteCodeInput>(jsonOptions, ctx.RequestAborted);
+            if (body is null) return Results.BadRequest(new PdsErrorResponse("InvalidRequest", "Missing request body."));
+
+            try
+            {
+                var code = await pds.CreateInviteCodeAsync(body.UseCount, body.ForAccount,
+                    createdBy: pdsOptions.AdminUsername, ctx.RequestAborted);
+                return Results.Json(new { code }, jsonOptions);
+            }
+            catch (PdsException ex)
+            {
+                return Results.Json(new PdsErrorResponse(ex.ErrorCode, ex.Message), statusCode: 400);
+            }
+        }));
+
+        Map(PdsEndpointNames.CreateInviteCodes, route => endpoints.MapPost(route, async (HttpContext ctx, PdsService pds, PdsOptions pdsOptions) =>
+        {
+            if (!IsAdmin(ctx, pdsOptions)) return AdminUnauthorized();
+
+            var body = await ctx.Request.ReadFromJsonAsync<CreateInviteCodesInput>(jsonOptions, ctx.RequestAborted);
+            if (body is null) return Results.BadRequest(new PdsErrorResponse("InvalidRequest", "Missing request body."));
+
+            try
+            {
+                var codes = await pds.CreateInviteCodesAsync(body.CodeCount, body.UseCount, body.ForAccounts,
+                    createdBy: pdsOptions.AdminUsername, ctx.RequestAborted);
+                return Results.Json(new { codes }, jsonOptions);
+            }
+            catch (PdsException ex)
+            {
+                return Results.Json(new PdsErrorResponse(ex.ErrorCode, ex.Message), statusCode: 400);
+            }
+        }));
+
+        Map(PdsEndpointNames.GetAccountInviteCodes, route => endpoints.MapGet(route, async (HttpContext ctx, PdsService pds, PdsSessionService sessions) =>
+        {
+            var did = await ExtractDidFromTokenAsync(ctx, sessions);
+            if (did is null) return Results.Json(new PdsErrorResponse("AuthenticationRequired", "Invalid or missing token."), statusCode: 401);
+
+            var includeUsed = !bool.TryParse(ctx.Request.Query["includeUsed"], out var parsed) || parsed;
+            var codes = await pds.GetAccountInviteCodesAsync(did, includeUsed, ctx.RequestAborted);
+
+            return Results.Json(new { codes = codes.Select(PdsInviteCodeView.FromCode) }, jsonOptions);
+        }));
+
+        Map(PdsEndpointNames.GetInviteCodes, route => endpoints.MapGet(route, async (HttpContext ctx, PdsService pds, PdsOptions pdsOptions) =>
+        {
+            if (!IsAdmin(ctx, pdsOptions)) return AdminUnauthorized();
+
+            int.TryParse(ctx.Request.Query["limit"], out var limit);
+            if (limit <= 0) limit = 100;
+            if (limit > 500) limit = 500;
+
+            var cursor = ctx.Request.Query["cursor"].ToString();
+            var sort = string.Equals(ctx.Request.Query["sort"], "usage", StringComparison.Ordinal)
+                ? InviteCodeSort.Usage
+                : InviteCodeSort.Recent;
+
+            var page = await pds.GetInviteCodesAsync(
+                new InviteCodeQuery
+                {
+                    Limit = limit,
+                    Cursor = string.IsNullOrEmpty(cursor) ? null : cursor,
+                    Sort = sort,
+                },
+                ctx.RequestAborted);
+
+            var response = new
+            {
+                cursor = page.Cursor,
+                codes = page.Codes.Select(PdsInviteCodeView.FromCode),
+            };
+
+            return Results.Json(response, jsonOptions);
+        }));
+
+        Map(PdsEndpointNames.DisableInviteCodes, route => endpoints.MapPost(route, async (HttpContext ctx, PdsService pds, PdsOptions pdsOptions) =>
+        {
+            if (!IsAdmin(ctx, pdsOptions)) return AdminUnauthorized();
+
+            var body = await ctx.Request.ReadFromJsonAsync<DisableInviteCodesInput>(jsonOptions, ctx.RequestAborted);
+            if (body is null) return Results.BadRequest(new PdsErrorResponse("InvalidRequest", "Missing request body."));
+
+            await pds.DisableInviteCodesAsync(body.Codes, body.Accounts, ctx.RequestAborted);
+            return Results.Json(new { }, jsonOptions);
         }));
 
         // ── Repo endpoints ──
@@ -764,6 +888,55 @@ public static class PdsHostingExtensions
         return Task.FromResult<string?>(result.Did);
     }
 
+    /// <summary>
+    /// Validates the HTTP Basic admin credential used by the invite code admin endpoints.
+    /// Fails closed: with no <see cref="PdsOptions.AdminPassword"/> configured, nothing is
+    /// an admin, so an unconfigured deployment cannot have its admin surface reached.
+    /// </summary>
+    private static bool IsAdmin(HttpContext ctx, PdsOptions options)
+    {
+        if (string.IsNullOrEmpty(options.AdminPassword)) return false;
+
+        var header = ctx.Request.Headers.Authorization.ToString();
+        if (string.IsNullOrEmpty(header) || !header.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        string decoded;
+        try
+        {
+            decoded = Encoding.UTF8.GetString(Convert.FromBase64String(header["Basic ".Length..].Trim()));
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+
+        // Only the first colon separates the two halves — a password may contain colons.
+        var separator = decoded.IndexOf(':', StringComparison.Ordinal);
+        if (separator < 0) return false;
+
+        var username = decoded[..separator];
+        var password = decoded[(separator + 1)..];
+
+        // Non-short-circuiting `&`: both halves are compared even when the username is wrong,
+        // so response time carries no signal about which half failed. A deployment that treats
+        // a custom AdminUsername as a second secret gets the same protection as the password.
+        return FixedTimeEquals(username, options.AdminUsername)
+            & FixedTimeEquals(password, options.AdminPassword);
+    }
+
+    /// <summary>
+    /// Ordinal string equality in time independent of where the strings first differ.
+    /// Length is not hidden — <see cref="CryptographicOperations.FixedTimeEquals"/> returns
+    /// immediately when the two spans differ in length.
+    /// </summary>
+    private static bool FixedTimeEquals(string left, string right)
+        => CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(left), Encoding.UTF8.GetBytes(right));
+
+    private static IResult AdminUnauthorized() => Results.Json(
+        new PdsErrorResponse("AuthenticationRequired", "Admin authentication required."), statusCode: 401);
+
     private static bool HasScope(string? tokenScope, string requiredScope)
     {
         if (string.IsNullOrEmpty(tokenScope)) return false;
@@ -784,6 +957,25 @@ public static class PdsHostingExtensions
         public string Password { get; set; } = "";
         public string? Did { get; set; }
         public string? InviteCode { get; set; }
+    }
+
+    internal sealed class CreateInviteCodeInput
+    {
+        public int UseCount { get; set; } = 1;
+        public string? ForAccount { get; set; }
+    }
+
+    internal sealed class CreateInviteCodesInput
+    {
+        public int CodeCount { get; set; } = 1;
+        public int UseCount { get; set; } = 1;
+        public List<string>? ForAccounts { get; set; }
+    }
+
+    internal sealed class DisableInviteCodesInput
+    {
+        public List<string>? Codes { get; set; }
+        public List<string>? Accounts { get; set; }
     }
 
     internal sealed class CreateSessionInput

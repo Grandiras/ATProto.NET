@@ -23,6 +23,21 @@ public static class PdsEndpointNames
     /// <summary><c>com.atproto.server.describeServer</c> (GET).</summary>
     public const string DescribeServer = "com.atproto.server.describeServer";
 
+    /// <summary><c>com.atproto.server.createInviteCode</c> (POST, admin Basic auth).</summary>
+    public const string CreateInviteCode = "com.atproto.server.createInviteCode";
+
+    /// <summary><c>com.atproto.server.createInviteCodes</c> (POST, admin Basic auth).</summary>
+    public const string CreateInviteCodes = "com.atproto.server.createInviteCodes";
+
+    /// <summary><c>com.atproto.server.getAccountInviteCodes</c> (GET, Bearer auth).</summary>
+    public const string GetAccountInviteCodes = "com.atproto.server.getAccountInviteCodes";
+
+    /// <summary><c>com.atproto.admin.getInviteCodes</c> (GET, admin Basic auth).</summary>
+    public const string GetInviteCodes = "com.atproto.admin.getInviteCodes";
+
+    /// <summary><c>com.atproto.admin.disableInviteCodes</c> (POST, admin Basic auth).</summary>
+    public const string DisableInviteCodes = "com.atproto.admin.disableInviteCodes";
+
     /// <summary><c>com.atproto.repo.createRecord</c> (POST).</summary>
     public const string CreateRecord = "com.atproto.repo.createRecord";
 
@@ -81,6 +96,11 @@ public static class PdsEndpointNames
         GetSession,
         RefreshSession,
         DescribeServer,
+        CreateInviteCode,
+        CreateInviteCodes,
+        GetAccountInviteCodes,
+        GetInviteCodes,
+        DisableInviteCodes,
         CreateRecord,
         GetRecord,
         PutRecord,

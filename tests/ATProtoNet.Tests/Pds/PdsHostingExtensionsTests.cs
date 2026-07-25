@@ -148,6 +148,68 @@ public class PdsHostingExtensionsTests
         Assert.False(pds.RepoManager!.IsRepositoryEnumerationUnsupported);
     }
 
+    [Fact]
+    public void AddAtProtoPds_RegistersTheInMemoryInviteCodeStoreByDefault()
+    {
+        var store = BuildProvider(configure: null).GetRequiredService<IInviteCodeStore>();
+
+        Assert.IsType<InMemoryInviteCodeStore>(store);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task AddAtProtoPdsInviteCodeStore_WinsOverTheDefaultInEitherCallOrder(bool storeFirst)
+    {
+        var services = new ServiceCollection();
+        if (storeFirst) services.AddAtProtoPdsInviteCodeStore<TrackingInviteCodeStore>();
+        services.AddAtProtoPds(o => o.Hostname = "test.local");
+        if (!storeFirst) services.AddAtProtoPdsInviteCodeStore<TrackingInviteCodeStore>();
+
+        var provider = services.BuildServiceProvider();
+        var store = Assert.IsType<TrackingInviteCodeStore>(provider.GetRequiredService<IInviteCodeStore>());
+
+        // Resolved, not just registered: the PdsService has to issue codes into this store.
+        var code = await provider.GetRequiredService<PdsService>().CreateInviteCodeAsync();
+
+        Assert.Equal([code], store.Created);
+    }
+
+    /// <summary>Records what was written, delegating everything else to the in-memory store.</summary>
+    private sealed class TrackingInviteCodeStore : IInviteCodeStore
+    {
+        private readonly InMemoryInviteCodeStore _inner = new();
+
+        public List<string> Created { get; } = [];
+
+        public Task CreateAsync(PdsInviteCode code, CancellationToken cancellationToken = default)
+        {
+            Created.Add(code.Code);
+            return _inner.CreateAsync(code, cancellationToken);
+        }
+
+        public Task<PdsInviteCode?> GetAsync(string code, CancellationToken cancellationToken = default)
+            => _inner.GetAsync(code, cancellationToken);
+
+        public Task<bool> TryClaimAsync(string code, CancellationToken cancellationToken = default)
+            => _inner.TryClaimAsync(code, cancellationToken);
+
+        public Task ConfirmClaimAsync(string code, string usedByDid, CancellationToken cancellationToken = default)
+            => _inner.ConfirmClaimAsync(code, usedByDid, cancellationToken);
+
+        public Task ReleaseClaimAsync(string code, CancellationToken cancellationToken = default)
+            => _inner.ReleaseClaimAsync(code, cancellationToken);
+
+        public Task<InviteCodePage> ListAsync(InviteCodeQuery query, CancellationToken cancellationToken = default)
+            => _inner.ListAsync(query, cancellationToken);
+
+        public Task<int> DisableAsync(IEnumerable<string> codes, CancellationToken cancellationToken = default)
+            => _inner.DisableAsync(codes, cancellationToken);
+
+        public Task<int> DisableForAccountsAsync(IEnumerable<string> accountDids, CancellationToken cancellationToken = default)
+            => _inner.DisableForAccountsAsync(accountDids, cancellationToken);
+    }
+
     private static ServiceProvider BuildProvider(
         Action<PdsOptions>? configure,
         ILoggerProvider? loggerProvider = null)

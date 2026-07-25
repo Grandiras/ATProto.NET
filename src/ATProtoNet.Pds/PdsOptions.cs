@@ -139,6 +139,24 @@ public sealed class PdsOptions
     public string? SessionSigningKey { get; set; }
 
     /// <summary>
+    /// Password for the HTTP Basic credential that guards the admin XRPC endpoints
+    /// (<c>com.atproto.server.createInviteCode(s)</c>, <c>com.atproto.admin.getInviteCodes</c>,
+    /// <c>com.atproto.admin.disableInviteCodes</c>).
+    /// </summary>
+    /// <remarks>
+    /// When this is <c>null</c> or empty the admin endpoints are still mapped but reject
+    /// every request with <c>401 AuthenticationRequired</c> — they fail closed rather than
+    /// falling open. Set it from configuration or a secret store, never from source.
+    /// </remarks>
+    public string? AdminPassword { get; set; }
+
+    /// <summary>
+    /// Username for the admin HTTP Basic credential. Default: <c>admin</c>, which is what
+    /// the reference PDS and <c>goat</c>/<c>bsky</c> admin tooling send.
+    /// </summary>
+    public string AdminUsername { get; set; } = "admin";
+
+    /// <summary>
     /// Gets the resolved public URL. Falls back to https://{Hostname}.
     /// </summary>
     internal string ResolvedPublicUrl => (PublicUrl ?? $"https://{Hostname}").TrimEnd('/');

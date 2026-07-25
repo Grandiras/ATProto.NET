@@ -15,6 +15,7 @@ public sealed class PdsService
     private readonly IRepoStore _repos;
     private readonly PdsSessionService _sessions;
     private readonly PdsOptions _options;
+    private readonly IInviteCodeStore _inviteCodes;
     private readonly PdsRepoManager? _repoManager;
     private readonly PdsIdentityService? _identity;
 
@@ -22,6 +23,16 @@ public sealed class PdsService
     /// Creates a new PDS service without federation support: accounts get locally generated
     /// DIDs and writes produce no signed commits or firehose events.
     /// </summary>
+    /// <param name="accounts">Account store.</param>
+    /// <param name="repos">Repository store.</param>
+    /// <param name="sessions">Session/token service.</param>
+    /// <param name="options">PDS configuration.</param>
+    /// <param name="inviteCodes">
+    /// Invite code store consulted when <see cref="PdsOptions.OpenRegistration"/> is
+    /// <c>false</c>. When omitted, an empty <see cref="InMemoryInviteCodeStore"/> is used —
+    /// closed registration then rejects every code until one is issued through
+    /// <see cref="CreateInviteCodeAsync"/>.
+    /// </param>
     /// <remarks>
     /// For hosts that construct the service themselves. <c>AddAtProtoPds()</c> always registers
     /// the federation services and builds the service through the constructor below — see
@@ -31,8 +42,9 @@ public sealed class PdsService
         IAccountStore accounts,
         IRepoStore repos,
         PdsSessionService sessions,
-        PdsOptions options)
-        : this(accounts, repos, sessions, options, repoManager: null, identity: null)
+        PdsOptions options,
+        IInviteCodeStore? inviteCodes = null)
+        : this(accounts, repos, sessions, options, repoManager: null, identity: null, inviteCodes)
     {
     }
 
@@ -56,18 +68,26 @@ public sealed class PdsService
     /// Mints real DIDs for new accounts. When <c>null</c>, a locally derived placeholder DID is
     /// generated instead.
     /// </param>
+    /// <param name="inviteCodes">
+    /// Invite code store consulted when <see cref="PdsOptions.OpenRegistration"/> is
+    /// <c>false</c>. When omitted, an empty <see cref="InMemoryInviteCodeStore"/> is used —
+    /// closed registration then rejects every code until one is issued through
+    /// <see cref="CreateInviteCodeAsync"/>.
+    /// </param>
     public PdsService(
         IAccountStore accounts,
         IRepoStore repos,
         PdsSessionService sessions,
         PdsOptions options,
         PdsRepoManager? repoManager,
-        PdsIdentityService? identity)
+        PdsIdentityService? identity,
+        IInviteCodeStore? inviteCodes = null)
     {
         _accounts = accounts;
         _repos = repos;
         _sessions = sessions;
         _options = options;
+        _inviteCodes = inviteCodes ?? new InMemoryInviteCodeStore();
         _repoManager = repoManager;
         _identity = identity;
     }
@@ -93,55 +113,87 @@ public sealed class PdsService
     /// <param name="email">Email address.</param>
     /// <param name="password">Password (will be hashed).</param>
     /// <param name="did">Optional DID. If null, a placeholder DID is generated.</param>
-    /// <param name="inviteCode">Invite code (required if open registration is disabled).</param>
+    /// <param name="inviteCode">
+    /// Invite code. Required when open registration is disabled, in which case it is
+    /// validated against — and consumed from — the <see cref="IInviteCodeStore"/>.
+    /// Ignored when open registration is enabled.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The session result with tokens.</returns>
+    /// <exception cref="PdsException">
+    /// <c>InvalidInviteCode</c> if the code is missing, unknown, disabled, or exhausted;
+    /// <c>HandleNotAvailable</c> if the handle is taken.
+    /// </exception>
     public async Task<PdsSessionResult> CreateAccountAsync(
         string handle, string? email, string password,
         string? did = null, string? inviteCode = null,
         CancellationToken cancellationToken = default)
     {
-        if (!_options.OpenRegistration && string.IsNullOrEmpty(inviteCode))
-            throw new PdsException("InvalidInviteCode", "An invite code is required to create an account.");
+        // Reserve a use of the code up front so two concurrent sign-ups racing on the last
+        // use of a code can't both win. The reservation is released again if anything below
+        // fails, and only turns into a recorded use once the account actually exists.
+        string? claimedCode = null;
+        if (!_options.OpenRegistration)
+        {
+            if (string.IsNullOrWhiteSpace(inviteCode))
+                throw new PdsException("InvalidInviteCode", "An invite code is required to create an account.");
 
-        if (await _accounts.HandleExistsAsync(handle, cancellationToken))
-            throw new PdsException("HandleNotAvailable", $"The handle '{handle}' is already taken.");
+            if (!await _inviteCodes.TryClaimAsync(inviteCode, cancellationToken))
+                throw new PdsException("InvalidInviteCode", "The invite code is invalid, disabled, or has already been used.");
 
-        // Mint the identity. With federation enabled this derives a real did:plc from a signed
-        // genesis operation (or a did:web from the handle); otherwise it falls back to a locally
-        // generated placeholder that nothing on the network can resolve.
+            claimedCode = inviteCode;
+        }
+
         string accountDid;
-        string signingKey;
-        string? rotationKey = null;
-
-        if (_identity is not null)
+        try
         {
-            var identity = await _identity.CreateIdentityAsync(handle, did, cancellationToken);
-            accountDid = identity.Did;
-            signingKey = identity.SigningKey;
-            rotationKey = identity.RotationKey;
+            if (await _accounts.HandleExistsAsync(handle, cancellationToken))
+                throw new PdsException("HandleNotAvailable", $"The handle '{handle}' is already taken.");
+
+            // Mint the identity. With federation enabled this derives a real did:plc from a signed
+            // genesis operation (or a did:web from the handle); otherwise it falls back to a locally
+            // generated placeholder that nothing on the network can resolve.
+            string signingKey;
+            string? rotationKey = null;
+
+            if (_identity is not null)
+            {
+                var identity = await _identity.CreateIdentityAsync(handle, did, cancellationToken);
+                accountDid = identity.Did;
+                signingKey = identity.SigningKey;
+                rotationKey = identity.RotationKey;
+            }
+            else
+            {
+                accountDid = did ?? $"did:plc:{GenerateRandomTid()}";
+
+                using var ecKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+                signingKey = Convert.ToBase64String(ecKey.ExportECPrivateKey());
+            }
+
+            var passwordHash = HashPassword(password);
+
+            var account = new PdsAccount
+            {
+                Did = accountDid,
+                Handle = handle,
+                Email = email,
+                PasswordHash = passwordHash,
+                SigningKey = signingKey,
+                RotationKey = rotationKey,
+            };
+
+            await _accounts.CreateAsync(account, cancellationToken);
         }
-        else
+        catch
         {
-            accountDid = did ?? $"did:plc:{GenerateRandomTid()}";
-
-            using var ecKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-            signingKey = Convert.ToBase64String(ecKey.ExportECPrivateKey());
+            if (claimedCode is not null)
+                await _inviteCodes.ReleaseClaimAsync(claimedCode, CancellationToken.None);
+            throw;
         }
 
-        var passwordHash = HashPassword(password);
-
-        var account = new PdsAccount
-        {
-            Did = accountDid,
-            Handle = handle,
-            Email = email,
-            PasswordHash = passwordHash,
-            SigningKey = signingKey,
-            RotationKey = rotationKey,
-        };
-
-        await _accounts.CreateAsync(account, cancellationToken);
+        if (claimedCode is not null)
+            await _inviteCodes.ConfirmClaimAsync(claimedCode, accountDid, CancellationToken.None);
 
         if (_repoManager is not null)
         {
@@ -272,6 +324,131 @@ public sealed class PdsService
                 ? new PdsContact { Email = _options.ContactEmail }
                 : null,
         };
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Invite codes
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Issue a single invite code.
+    /// </summary>
+    /// <param name="useCount">How many accounts the code may create. Must be at least 1.</param>
+    /// <param name="forAccount">DID the code is issued to, or <c>null</c> for an admin code.</param>
+    /// <param name="createdBy">Who issued the code. Defaults to <c>"admin"</c>.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The generated code.</returns>
+    public async Task<string> CreateInviteCodeAsync(
+        int useCount = 1, string? forAccount = null, string createdBy = "admin",
+        CancellationToken cancellationToken = default)
+    {
+        if (useCount < 1)
+            throw new PdsException("InvalidRequest", "useCount must be at least 1.");
+
+        var code = GenerateInviteCode();
+        await _inviteCodes.CreateAsync(
+            new PdsInviteCode
+            {
+                Code = code,
+                AvailableUses = useCount,
+                ForAccount = forAccount,
+                CreatedBy = createdBy,
+            },
+            cancellationToken);
+
+        return code;
+    }
+
+    /// <summary>
+    /// Issue several invite codes at once, optionally one batch per account.
+    /// </summary>
+    /// <param name="codeCount">How many codes to issue per account. Must be at least 1.</param>
+    /// <param name="useCount">How many accounts each code may create. Must be at least 1.</param>
+    /// <param name="forAccounts">
+    /// DIDs to issue codes to. When <c>null</c> or empty, one batch of admin codes is issued.
+    /// </param>
+    /// <param name="createdBy">Who issued the codes. Defaults to <c>"admin"</c>.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <remarks>
+    /// <b>Not atomic.</b> Codes are written one at a time through <see cref="IInviteCodeStore"/>,
+    /// which has no transaction seam. Arguments are validated before anything is written, so a
+    /// bad <paramref name="codeCount"/>/<paramref name="useCount"/> creates nothing — but if the
+    /// store fails partway through, the codes already written stay written and this method throws
+    /// without reporting which they were. Recover by listing the affected accounts' codes with
+    /// <see cref="GetAccountInviteCodesAsync"/> and disabling the unwanted ones with
+    /// <see cref="DisableInviteCodesAsync"/> rather than by retrying blindly, which would leave
+    /// the accounts that succeeded the first time holding two batches.
+    /// </remarks>
+    public async Task<IReadOnlyList<PdsAccountInviteCodes>> CreateInviteCodesAsync(
+        int codeCount, int useCount, IReadOnlyList<string>? forAccounts = null,
+        string createdBy = "admin", CancellationToken cancellationToken = default)
+    {
+        if (codeCount < 1)
+            throw new PdsException("InvalidRequest", "codeCount must be at least 1.");
+
+        // Checked here as well as in CreateInviteCodeAsync: rejecting up front means an invalid
+        // useCount cannot leave one account's batch written and the rest not.
+        if (useCount < 1)
+            throw new PdsException("InvalidRequest", "useCount must be at least 1.");
+
+        // A null entry means "not bound to an account" — i.e. one batch of admin codes.
+        IReadOnlyList<string?> accounts = forAccounts is { Count: > 0 } ? [.. forAccounts] : [null];
+        var result = new List<PdsAccountInviteCodes>(accounts.Count);
+
+        foreach (var account in accounts)
+        {
+            var codes = new List<string>(codeCount);
+            for (var i = 0; i < codeCount; i++)
+                codes.Add(await CreateInviteCodeAsync(useCount, account, createdBy, cancellationToken));
+
+            result.Add(new PdsAccountInviteCodes { Account = account ?? createdBy, Codes = codes });
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// List invite codes for the admin <c>com.atproto.admin.getInviteCodes</c> endpoint.
+    /// </summary>
+    public Task<InviteCodePage> GetInviteCodesAsync(
+        InviteCodeQuery query, CancellationToken cancellationToken = default)
+        => _inviteCodes.ListAsync(query, cancellationToken);
+
+    /// <summary>
+    /// List the invite codes belonging to an account.
+    /// </summary>
+    /// <param name="did">The account DID.</param>
+    /// <param name="includeUsed">Whether to include codes with no uses left. Default: true.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<IReadOnlyList<PdsInviteCode>> GetAccountInviteCodesAsync(
+        string did, bool includeUsed = true, CancellationToken cancellationToken = default)
+    {
+        var page = await _inviteCodes.ListAsync(
+            new InviteCodeQuery { ForAccount = did, Limit = int.MaxValue }, cancellationToken);
+
+        return includeUsed
+            ? page.Codes
+            : [.. page.Codes.Where(c => !c.Disabled && c.RemainingUses > 0)];
+    }
+
+    /// <summary>
+    /// Disable invite codes by value and/or by owning account.
+    /// </summary>
+    /// <param name="codes">Codes to disable.</param>
+    /// <param name="accounts">DIDs whose codes should all be disabled.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>How many codes were disabled.</returns>
+    public async Task<int> DisableInviteCodesAsync(
+        IEnumerable<string>? codes, IEnumerable<string>? accounts,
+        CancellationToken cancellationToken = default)
+    {
+        var disabled = 0;
+        if (codes is not null)
+            disabled += await _inviteCodes.DisableAsync(codes, cancellationToken);
+        if (accounts is not null)
+            disabled += await _inviteCodes.DisableForAccountsAsync(accounts, cancellationToken);
+
+        return disabled;
     }
 
     // ──────────────────────────────────────────────────────────
@@ -463,6 +640,28 @@ public sealed class PdsService
             return await _accounts.GetByEmailAsync(identifier, ct);
 
         return await _accounts.GetByHandleAsync(identifier, ct);
+    }
+
+    // Lowercase alphanumerics minus the pairs that are easy to misread aloud or in a
+    // sans-serif font (0/o, 1/l, i, u — which also keeps codes free of accidental words).
+    private const string InviteCodeAlphabet = "abcdefghjkmnpqrstvwxyz23456789";
+
+    /// <summary>
+    /// Generates a code in the reference PDS's shape: the hostname with its dots turned into
+    /// dashes, followed by two random five-character groups (e.g. <c>my-pds-example-com-a2b3c-d4e5f</c>).
+    /// </summary>
+    private string GenerateInviteCode()
+    {
+        var host = _options.Hostname.Replace('.', '-').ToLowerInvariant();
+        return $"{host}-{RandomGroup()}-{RandomGroup()}";
+
+        static string RandomGroup()
+        {
+            Span<char> chars = stackalloc char[5];
+            for (var i = 0; i < chars.Length; i++)
+                chars[i] = InviteCodeAlphabet[RandomNumberGenerator.GetInt32(InviteCodeAlphabet.Length)];
+            return new string(chars);
+        }
     }
 
     private static string GenerateRandomTid()

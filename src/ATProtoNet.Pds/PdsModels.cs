@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -112,6 +113,90 @@ public sealed class PdsContact
 {
     [JsonPropertyName("email")]
     public string? Email { get; init; }
+}
+
+/// <summary>
+/// The invite codes issued to one account, as returned by
+/// <c>com.atproto.server.createInviteCodes</c>.
+/// </summary>
+public sealed class PdsAccountInviteCodes
+{
+    /// <summary>The account the codes belong to.</summary>
+    [JsonPropertyName("account")]
+    public required string Account { get; init; }
+
+    /// <summary>The generated codes.</summary>
+    [JsonPropertyName("codes")]
+    public required IReadOnlyList<string> Codes { get; init; }
+}
+
+/// <summary>
+/// Wire representation of an invite code (<c>com.atproto.server.defs#inviteCode</c>).
+/// </summary>
+public sealed class PdsInviteCodeView
+{
+    /// <summary>The code itself.</summary>
+    [JsonPropertyName("code")]
+    public required string Code { get; init; }
+
+    /// <summary>Total number of uses the code was issued with.</summary>
+    [JsonPropertyName("available")]
+    public required int Available { get; init; }
+
+    /// <summary>Whether the code has been disabled.</summary>
+    [JsonPropertyName("disabled")]
+    public required bool Disabled { get; init; }
+
+    /// <summary>The DID the code belongs to, or the creator for admin codes.</summary>
+    [JsonPropertyName("forAccount")]
+    public required string ForAccount { get; init; }
+
+    /// <summary>Who created the code.</summary>
+    [JsonPropertyName("createdBy")]
+    public required string CreatedBy { get; init; }
+
+    /// <summary>When the code was created (ISO 8601).</summary>
+    [JsonPropertyName("createdAt")]
+    public required string CreatedAt { get; init; }
+
+    /// <summary>Confirmed redemptions of the code.</summary>
+    [JsonPropertyName("uses")]
+    public required IReadOnlyList<PdsInviteCodeUseView> Uses { get; init; }
+
+    /// <summary>Projects a stored code onto its wire shape.</summary>
+    public static PdsInviteCodeView FromCode(PdsInviteCode code)
+    {
+        ArgumentNullException.ThrowIfNull(code);
+        return new PdsInviteCodeView
+        {
+            Code = code.Code,
+            Available = code.AvailableUses,
+            Disabled = code.Disabled,
+            ForAccount = code.ForAccount ?? code.CreatedBy,
+            CreatedBy = code.CreatedBy,
+            CreatedAt = code.CreatedAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture),
+            Uses = [.. code.Uses.Select(u => new PdsInviteCodeUseView
+            {
+                UsedBy = u.UsedBy,
+                UsedAt = u.UsedAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture),
+            })],
+        };
+    }
+}
+
+/// <summary>
+/// Wire representation of a single invite code redemption
+/// (<c>com.atproto.server.defs#inviteCodeUse</c>).
+/// </summary>
+public sealed class PdsInviteCodeUseView
+{
+    /// <summary>The DID of the account that redeemed the code.</summary>
+    [JsonPropertyName("usedBy")]
+    public required string UsedBy { get; init; }
+
+    /// <summary>When the code was redeemed (ISO 8601).</summary>
+    [JsonPropertyName("usedAt")]
+    public required string UsedAt { get; init; }
 }
 
 /// <summary>

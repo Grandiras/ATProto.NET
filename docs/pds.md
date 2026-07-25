@@ -42,6 +42,11 @@ This maps the following XRPC endpoints:
 | `com.atproto.server.getSession` | GET | Get current session info |
 | `com.atproto.server.refreshSession` | POST | Refresh session tokens |
 | `com.atproto.server.describeServer` | GET | Server description |
+| `com.atproto.server.createInviteCode` | POST | Issue one invite code (admin) |
+| `com.atproto.server.createInviteCodes` | POST | Issue invite codes in bulk (admin) |
+| `com.atproto.server.getAccountInviteCodes` | GET | The signed-in account's invite codes |
+| `com.atproto.admin.getInviteCodes` | GET | List all invite codes (admin) |
+| `com.atproto.admin.disableInviteCodes` | POST | Disable invite codes (admin) |
 
 ### Repository Endpoints
 
@@ -252,10 +257,10 @@ app.MapAtProtoPds(options => options.Exclude(PdsEndpointNames.CreateAccount));
 
 // Your implementation now owns the route — a real endpoint, with routing
 // metadata and route-level auth, not terminal middleware.
-app.MapPost("/xrpc/com.atproto.server.createAccount", async (CreateAccountRequest req, IInviteStore invites) =>
+app.MapPost("/xrpc/com.atproto.server.createAccount", async (CreateAccountRequest req, PdsService pds) =>
 {
-    if (!await invites.RedeemAsync(req.InviteCode))
-        return Results.Json(new { error = "InvalidInviteCode", message = "Invalid invite code." }, statusCode: 400);
+    if (!await MyWaitlist.IsApprovedAsync(req.Email))
+        return Results.Json(new { error = "InvalidRequest", message = "Not on the waitlist." }, statusCode: 400);
 
     // ... delegate to PdsService for the rest
 });
@@ -297,6 +302,9 @@ builder.Services.AddAtProtoPds(options =>
     options.AvailableUserDomains = [".my-pds.example.com"];
     options.ContactEmail = "admin@my-pds.example.com";
 
+    // Guards the invite code admin endpoints (HTTP Basic, username "admin").
+    options.AdminPassword = builder.Configuration["Pds:AdminPassword"];
+
     // Federation — see the Federation section above
     options.DidMethod = PdsDidMethod.Plc;
     options.RegisterDidsWithPlc = true;
@@ -333,6 +341,83 @@ If you already hold the key as bytes, you can still register the service yoursel
 ```csharp
 builder.Services.AddSingleton(sp =>
     new PdsSessionService(sp.GetRequiredService<PdsOptions>(), myKeyBytes));
+```
+
+## Invite Codes
+
+With `OpenRegistration = false`, `com.atproto.server.createAccount` requires an invite code, and the code is checked against — and consumed from — an `IInviteCodeStore`. Codes are single-use by default; a code that doesn't exist, has been disabled, or has no uses left is rejected with `InvalidInviteCode`.
+
+### Issuing codes
+
+Over XRPC, using the admin credential:
+
+```bash
+curl -u admin:$ADMIN_PASSWORD -X POST \
+  https://my-pds.example.com/xrpc/com.atproto.server.createInviteCode \
+  -H 'content-type: application/json' -d '{"useCount": 1}'
+# {"code":"my-pds-example-com-a2b3c-d4e5f"}
+```
+
+Or in-process, through `PdsService`:
+
+```csharp
+var code = await pds.CreateInviteCodeAsync(useCount: 1);
+
+// A batch per account — e.g. handing every user five codes to give away.
+var batches = await pds.CreateInviteCodesAsync(
+    codeCount: 5, useCount: 1, forAccounts: ["did:plc:alice", "did:plc:bob"]);
+```
+
+`CreateInviteCodesAsync` is **not atomic**: `IInviteCodeStore` has no transaction seam, so codes are written one at a time. Arguments are validated before anything is written, but a store failure partway through leaves the codes already written in place and throws without naming them. Recover by listing the affected accounts (`GetAccountInviteCodesAsync`) and disabling the unwanted codes (`DisableInviteCodesAsync`) — retrying blindly gives the accounts that succeeded the first time a second batch.
+
+`com.atproto.admin.getInviteCodes` (`?sort=recent|usage&limit=&cursor=`) lists codes with their redemptions, and `com.atproto.admin.disableInviteCodes` disables them by code or by owning account. Both require the admin credential. A signed-in user reads their own codes from `com.atproto.server.getAccountInviteCodes` with their Bearer token.
+
+### Admin authentication
+
+The four admin endpoints are guarded by HTTP Basic auth against `PdsOptions.AdminUsername` (default `admin`) and `PdsOptions.AdminPassword`. They **fail closed**: if `AdminPassword` is null or empty, every request to them is rejected with `401 AuthenticationRequired`. Load the password from configuration or a secret store, and put the PDS behind TLS — Basic auth sends it in clear text.
+
+Both halves of the credential are compared in fixed time, and both are always compared, so response time reveals neither which half was wrong nor how much of it matched. A deployment that treats a custom `AdminUsername` as a second secret gets the same protection as the password.
+
+To take over the admin surface entirely — a different auth scheme, an existing admin console — exclude the endpoints and map your own:
+
+```csharp
+app.MapAtProtoPds(options => options.Exclude(
+    PdsEndpointNames.CreateInviteCode,
+    PdsEndpointNames.CreateInviteCodes,
+    PdsEndpointNames.GetInviteCodes,
+    PdsEndpointNames.DisableInviteCodes));
+```
+
+`PdsService`'s invite methods stay available, so your endpoints can delegate to them.
+
+### Concurrency and persistence
+
+Redemption is a three-step protocol on `IInviteCodeStore` so two simultaneous sign-ups can't both spend the last use of a code:
+
+1. `TryClaimAsync` atomically reserves one use, returning `false` when the code is unknown, disabled, or exhausted.
+2. `ConfirmClaimAsync` records who redeemed it, once the account exists.
+3. `ReleaseClaimAsync` returns the reservation if account creation fails afterwards (a taken handle, a store error) — the code stays usable.
+
+The default `InMemoryInviteCodeStore` is for development: codes are lost on restart. For production, implement `IInviteCodeStore` against your database and make `TryClaimAsync` a **single conditional `UPDATE`**, not a read-then-write:
+
+```csharp
+public async Task<bool> TryClaimAsync(string code, CancellationToken ct = default)
+{
+    var rows = await _db.Database.ExecuteSqlAsync(
+        $"""
+        UPDATE InviteCodes SET ClaimedUses = ClaimedUses + 1
+        WHERE Code = {code} AND Disabled = 0 AND ClaimedUses < AvailableUses
+        """, ct);
+
+    return rows == 1;
+}
+```
+
+Register it alongside your other stores — call order does not matter, `AddAtProtoPds()` only fills in the in-memory default when nothing else is registered:
+
+```csharp
+builder.Services.AddAtProtoPds(options => options.Hostname = "my-pds.example.com");
+builder.Services.AddAtProtoPdsInviteCodeStore<DatabaseInviteCodeStore>();
 ```
 
 ## Persistent Storage (EF Core)
@@ -412,7 +497,7 @@ Each such lookup then streams accounts out of the database and compares them aft
 
 ## Custom Store Implementations
 
-If neither the in-memory nor the EF Core stores fit, implement `IAccountStore` and `IRepoStore` yourself:
+If neither the in-memory nor the EF Core stores fit, implement `IAccountStore`, `IRepoStore`, and — if you require invite codes — `IInviteCodeStore` yourself:
 
 ### Account Store
 
@@ -481,6 +566,8 @@ Clients authenticate by calling `com.atproto.server.createSession` with handle/p
 - Commits are signed with a per-account ECDSA key using low-S normalized signatures
 - Repo ownership is verified on all write operations — users can only write to their own repository
 - Blob uploads require authentication
+- With `OpenRegistration = false`, invite codes are validated against the store and consumed atomically — an unknown, disabled, or exhausted code cannot create an account
+- The admin credential is compared in fixed time and the admin endpoints fail closed when no `AdminPassword` is configured
 - Account signing and rotation keys are stored unencrypted by `PdsAccount`; encrypt them at rest in your store implementation. The rotation key controls the identity itself
 - `com.atproto.sync.*` and the well-known identity endpoints are unauthenticated by design — they serve public repository data. Use `PdsEndpointOptions.Configure` to add rate limiting
 
