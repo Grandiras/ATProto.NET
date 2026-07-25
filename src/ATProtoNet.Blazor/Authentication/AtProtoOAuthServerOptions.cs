@@ -99,4 +99,32 @@ public sealed class AtProtoOAuthServerOptions
     /// Default: true.
     /// </summary>
     public bool IsPersistent { get; set; } = true;
+
+    /// <summary>
+    /// Optional <see cref="System.Net.Http.HttpClient"/> to use for OAuth discovery and
+    /// token requests. When set, the caller owns its lifetime (it is not disposed with
+    /// the service) and its <see cref="System.Net.Http.HttpClient.Timeout"/> is left
+    /// untouched — use this to plug in an <c>IHttpClientFactory</c> client, a proxy, or
+    /// custom handlers. When not set, the SDK creates one and applies
+    /// <see cref="HttpClientTimeout"/>.
+    /// </summary>
+    public HttpClient? HttpClient { get; set; }
+
+    /// <summary>
+    /// Timeout applied to the SDK-created <see cref="System.Net.Http.HttpClient"/> used
+    /// for OAuth requests. Ignored when <see cref="HttpClient"/> is supplied.
+    /// Default: 30 seconds (the <see cref="System.Net.Http.HttpClient"/> default of
+    /// 100 seconds is far longer than any browser or reverse proxy will wait during login).
+    /// </summary>
+    public TimeSpan HttpClientTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Budget for each handle resolution round (HTTPS well-known + DNS TXT raced
+    /// together, then the appview fallback). Prevents a handle whose domain silently
+    /// drops traffic on port 443 from stalling sign-in.
+    /// Default: <see cref="AuthorizationServerDiscovery.DefaultHandleResolutionTimeout"/>
+    /// (5 seconds). Set to <see cref="Timeout.InfiniteTimeSpan"/> to disable.
+    /// </summary>
+    public TimeSpan HandleResolutionTimeout { get; set; } =
+        AuthorizationServerDiscovery.DefaultHandleResolutionTimeout;
 }

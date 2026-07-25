@@ -100,13 +100,24 @@ public sealed class AtProtoOAuthService : IOAuthClientProvider, IDisposable
             {
                 ClientMetadata = clientMetadata,
                 Scope = _serverOptions.Scopes,
+                HandleResolutionTimeout = _serverOptions.HandleResolutionTimeout,
             };
 
-            var httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd(
-                $"ATProtoNet/{typeof(OAuthClient).Assembly.GetName().Version}");
+            // A caller-supplied client is theirs: don't touch its Timeout and don't
+            // dispose it with this service.
+            var httpClient = _serverOptions.HttpClient;
+            if (httpClient is null)
+            {
+                httpClient = new HttpClient { Timeout = _serverOptions.HttpClientTimeout };
+                _httpClient = httpClient;
+            }
 
-            _httpClient = httpClient;
+            if (httpClient.DefaultRequestHeaders.UserAgent.Count == 0)
+            {
+                httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd(
+                    $"ATProtoNet/{typeof(OAuthClient).Assembly.GetName().Version}");
+            }
+
             _oauthClient = new OAuthClient(oauthOptions, httpClient, _oauthClientLogger);
 
             _logger.LogInformation(

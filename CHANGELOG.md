@@ -16,9 +16,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`ATProtoNet.Server.EntityFrameworkCore` and `ATProtoNet.Aspire` NuGet packages** (Issue #33) — Consolidated into `ATProtoNet.Server`, cutting the published set from 8 packages to 6. See **Breaking changes** above for the (reference-only) migration
 
+### Added
+
+- **`AuthorizationServerDiscovery.HandleResolutionTimeout`** (Issue #52) — Per-round budget for handle resolution, enforced by a `CancellationTokenSource` linked to the caller's token. Default 5 s (`AuthorizationServerDiscovery.DefaultHandleResolutionTimeout`); `Timeout.InfiniteTimeSpan` restores the old unbounded behaviour. Configurable through the new `OAuthOptions.HandleResolutionTimeout` and `AtProtoOAuthServerOptions.HandleResolutionTimeout`
+- **`AtProtoOAuthServerOptions.HttpClient`** (Issue #52) — Lets a consuming app supply the `HttpClient` used for OAuth discovery and token requests (e.g. an `IHttpClientFactory` client, a proxy, custom handlers). The supplied client's `Timeout` is left untouched and it is not disposed with the service
+- **`AtProtoOAuthServerOptions.HttpClientTimeout`** (Issue #52) — Timeout applied to the SDK-created OAuth `HttpClient`. Default 30 s
+
 ### Fixed
 
+- **OAuth handle resolution no longer stalls on a dead handle domain** (Issue #52) — Starting the OAuth flow for a handle whose domain silently drops packets on port 443 blocked for the full 100 s `HttpClient` default before the flow continued, so sign-in appeared to hang. `ResolveHandleToDidAsync` now races the HTTPS well-known lookup against the DNS-over-HTTPS TXT lookup (first DID wins) instead of trying them in sequence, and both it and `ResolveHandleAuthoritativeAsync` bound each round with `HandleResolutionTimeout` (5 s by default) so one unresponsive authority cannot dominate the flow. Caller cancellation still propagates; only budget expiry is treated as "no answer". The appview fallback gets its own fresh budget
+- **SDK-created OAuth `HttpClient` no longer inherits the 100 s default timeout** (Issue #52) — `AtProtoOAuthService` now applies `AtProtoOAuthServerOptions.HttpClientTimeout` (30 s) to the client it creates, and only overwrites the `User-Agent` header when one isn't already set. `DidWebResolver`'s parameterless constructor applies a 10 s timeout for the same reason (the target host is embedded in the DID). `AtProtoClient`'s own client is unchanged — it carries blob uploads, where 100 s can be legitimate; pass a pre-configured `HttpClient` to shorten it
+
 - **`Directory.Build.props` `RepositoryUrl` dropped the `.git` suffix** so Forgejo's NuGet registry can match the URL against the canonical repo URL on first upload. Without this, every new packable project published as an *orphan* (resolvable by `dotnet add package` but absent from the repo's Packages tab in the Forgejo UI), requiring a manual `POST /api/v1/packages/Grandiras/nuget/{name}/-/link/ATProto.NET` to relink after each first release. Affects new packages only; the five v0.4.0 packages already orphaned (`Aspire`, `Aspire.Hosting`, `Pds`, `LexiconGenerator`, `Server.EntityFrameworkCore`) were relinked manually post-release
+
+### Security
+
+- **`/.well-known/atproto-did` responses are now capped and redirect-checked** (Issue #52) — The endpoint lives on a host derived from untrusted user input. Responses are read with `HttpCompletionOption.ResponseHeadersRead` and capped at 1 KiB (by `Content-Length` and during the read, so a chunked body can't bypass it) instead of being buffered in full, and a response whose final request URI landed on a different host than the handle is ignored rather than trusted — a hostile handle domain can no longer redirect resolution at an arbitrary host and have that host's DID accepted. Same-host redirects (http→https, trailing slash) still resolve
+- **Handle resolution now queries DNS-over-HTTPS on every attempt** (Issue #52) — Because `ResolveHandleToDidAsync` races the two lookups instead of trying HTTPS first, `dns.google` is contacted for every handle resolution, not only when the HTTPS well-known lookup fails. Deployments that treat the handle being resolved as sensitive should note the additional third-party disclosure. `ResolveHandleAuthoritativeAsync` already queried both on every call
 
 ## [0.4.0] - 2026-05-26
 

@@ -262,6 +262,16 @@ public sealed class OAuthOptions
     /// Default: "https://bsky.social"
     /// </summary>
     public string DefaultPdsUrl { get; set; } = "https://bsky.social";
+
+    /// <summary>
+    /// Budget for each handle resolution round during discovery. Keeps a handle
+    /// domain that silently drops traffic (parked apex, firewall) from stalling the
+    /// login flow for the full <see cref="HttpClient.Timeout"/>.
+    /// Default: <see cref="AuthorizationServerDiscovery.DefaultHandleResolutionTimeout"/>
+    /// (5 seconds). Set to <see cref="Timeout.InfiniteTimeSpan"/> to disable.
+    /// </summary>
+    public TimeSpan HandleResolutionTimeout { get; set; } =
+        AuthorizationServerDiscovery.DefaultHandleResolutionTimeout;
 }
 
 /// <summary>
