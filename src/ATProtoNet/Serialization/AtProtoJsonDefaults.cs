@@ -38,6 +38,10 @@ public static class AtProtoJsonDefaults
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             WriteIndented = false,
             NumberHandling = JsonNumberHandling.AllowReadingFromString,
+            // The Bluesky appview (and real-world record writers) put "$type" anywhere in
+            // the object, not necessarily first — without this, every polymorphic union
+            // payload (embed views, record-internal unions) fails to deserialize (#50).
+            AllowOutOfOrderMetadataProperties = true,
         };
 
         options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
