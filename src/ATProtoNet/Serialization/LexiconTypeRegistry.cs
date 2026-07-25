@@ -126,7 +126,6 @@ public sealed class LexiconTypeRegistry : ILexiconTypeRegistrar
         };
 
         options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
-        options.Converters.Add(new UnionJsonConverterFactory());
 
         _cachedOptions = options;
         return options;

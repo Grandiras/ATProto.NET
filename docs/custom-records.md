@@ -321,6 +321,62 @@ public class PhotoRecord : AtProtoRecord
 }
 ```
 
+## Union Types
+
+Lexicon unions map to a polymorphic base class discriminated by `$type`. Declare the variants
+with the standard `System.Text.Json` attributes — `AtProtoJsonDefaults.Options` (and
+`LexiconTypeRegistry.CreateOptions()`) handle them with no extra registration:
+
+```csharp
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
+[JsonDerivedType(typeof(AuthorAttribution), "com.example.recipe.defs#attributionAuthor")]
+[JsonDerivedType(typeof(SourceAttribution), "com.example.recipe.defs#attributionSource")]
+public abstract class RecipeAttribution;
+
+public sealed class AuthorAttribution : RecipeAttribution
+{
+    [JsonPropertyName("did")]
+    public string Did { get; set; } = "";
+}
+
+public sealed class SourceAttribution : RecipeAttribution
+{
+    [JsonPropertyName("url")]
+    public string Url { get; set; } = "";
+}
+```
+
+Use the discriminator value the Lexicon defines: `<nsid>#<defName>` for a `defs` entry, or the
+bare NSID when the union arm is a whole record type.
+
+Implementing the `IAtProtoUnion` marker interface on the base is **optional** — it documents
+intent and has no effect on serialization.
+
+For an *open* union (one whose Lexicon allows variants you don't know at compile time), extra
+arms can be added at runtime through the registry:
+
+```csharp
+LexiconTypeRegistry.Instance
+    .RegisterUnionVariant<RecipeAttribution, ImportedAttribution>("com.example.recipe.defs#attributionImported");
+
+var options = LexiconTypeRegistry.Instance.CreateOptions();
+var attribution = JsonSerializer.Deserialize<RecipeAttribution>(json, options);
+```
+
+Two things to know before relying on this:
+
+- **The base still needs `[JsonPolymorphic]`.** `RegisterUnionVariant` augments an existing
+  polymorphic type; it does not make a plain abstract class polymorphic. Without the attribute the
+  registration is silently ignored — writes emit `{}` (the derived properties are dropped) and
+  reads throw `NotSupportedException: Deserialization of interface or abstract types is not
+  supported`. Keep `[JsonPolymorphic]` plus a `[JsonDerivedType]` for every arm you know at
+  compile time, and use the registry only for the ones you don't.
+- **`CreateOptions()` is not what `GetCollection<T>` uses.** `RecordCollection<T>` and the XRPC
+  clients serialize with `AtProtoJsonDefaults.Options`, which does not consult the registry.
+  Runtime-registered variants therefore apply to Jetstream's typed record decoding and to your own
+  `JsonSerializer` calls that pass `CreateOptions()` — not to records read or written through
+  `GetCollection<T>`. For those, declare the arms with `[JsonDerivedType]`.
+
 ## Error Handling
 
 ```csharp

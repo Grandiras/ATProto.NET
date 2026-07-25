@@ -45,31 +45,19 @@ public static class AtProtoJsonDefaults
         };
 
         options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
-        options.Converters.Add(new UnionJsonConverterFactory());
 
         return options;
     }
 }
 
 /// <summary>
-/// JSON converter factory for AT Protocol union types (discriminated by $type field).
-/// </summary>
-internal sealed class UnionJsonConverterFactory : JsonConverterFactory
-{
-    public override bool CanConvert(Type typeToConvert)
-    {
-        return typeToConvert.IsAssignableTo(typeof(IAtProtoUnion));
-    }
-
-    public override JsonConverter? CreateConverter(Type typeToConvert, JsonSerializerOptions options)
-    {
-        // For now, return null to let the default serializer handle it
-        // The union type resolution will be handled via [JsonDerivedType] attributes
-        return null;
-    }
-}
-
-/// <summary>
 /// Marker interface for AT Protocol union types.
 /// </summary>
+/// <remarks>
+/// This is a documentation marker only — it carries no serialization behaviour and is not
+/// required for a union to round-trip. Discriminated (de)serialization comes from
+/// <see cref="JsonPolymorphicAttribute"/> / <see cref="JsonDerivedTypeAttribute"/> on the union
+/// base, optionally extended at runtime through
+/// <see cref="LexiconTypeRegistry.RegisterUnionVariant{TBase, TDerived}(string)"/>.
+/// </remarks>
 public interface IAtProtoUnion;
