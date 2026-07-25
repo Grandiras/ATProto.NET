@@ -134,6 +134,15 @@ public static class Program
         var emitter = new CSharpEmitter(namespacePrefix);
         var files = emitter.EmitAll(documents);
 
+        var warnings = emitter.Warnings.Distinct(StringComparer.Ordinal).ToList();
+        if (warnings.Count > 0)
+        {
+            Console.Error.WriteLine();
+            foreach (var warning in warnings)
+                Console.Error.WriteLine($"  WARN  {warning}");
+            Console.Error.WriteLine();
+        }
+
         // Write output files
         Directory.CreateDirectory(outputDir);
         var written = 0;
@@ -277,11 +286,19 @@ public static class Program
                 -o, --output <dir>        Output directory for generated .cs files (required)
                 -n, --namespace <prefix>  C# namespace prefix (default: ATProtoNet.Lexicon)
 
+            Pass every schema your Lexicons reference in one invocation — refs and unions are
+            resolved across the whole input set.
+
             Generated types follow ATProtoNet SDK conventions:
               - sealed classes with init-only properties
               - required keyword for non-optional fields
               - [JsonPropertyName] on all properties
-              - $type expression-body property for record types
+              - record defs subclass AtProtoRecord ($type override, inherited createdAt)
+              - unions of object defs become [JsonPolymorphic] base classes
+              - refs to com.atproto.*/app.bsky.* defs reuse the SDK's own models
+              - token families are grouped into one static class of constants
+
+            Refs that cannot be resolved fall back to JsonElement? and are reported as WARN.
 
             EXAMPLE:
                 atproto-lexgen csharp \

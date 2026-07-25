@@ -14,6 +14,7 @@ public class RecordCollectionTests
 
     private sealed class TodoItem : AtProtoRecord
     {
+        [JsonPropertyName("$type")]
         public override string Type => "com.example.todo.item";
 
         [JsonPropertyName("title")]
@@ -25,6 +26,7 @@ public class RecordCollectionTests
 
     private sealed class BookmarkRecord : AtProtoRecord
     {
+        [JsonPropertyName("$type")]
         public override string Type => "com.example.bookmarks.bookmark";
 
         [JsonPropertyName("url")]
@@ -65,6 +67,19 @@ public class RecordCollectionTests
         Assert.Contains("\"createdAt\":", json);
         // #49: the override must not also emit a camelCased "type" alongside "$type".
         Assert.DoesNotContain("\"type\":", json);
+    }
+
+    [Fact]
+    public void AtProtoRecord_SubclassRepeatingTypeAttribute_WritesOnlyDollarType()
+    {
+        // System.Text.Json does not inherit [JsonPropertyName] onto an override, so a
+        // subclass that omits it emits both "type" and "$type".
+        var todo = new TodoItem { Title = "Buy milk" };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(todo, ATProtoNet.Serialization.AtProtoJsonDefaults.Options);
+
+        Assert.DoesNotContain("\"type\":", json);
+        Assert.Equal(1, json.Split("\"$type\":").Length - 1);
     }
 
     [Fact]

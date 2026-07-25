@@ -16,6 +16,7 @@ namespace ATProtoNet;
 /// <code>
 /// public class TodoItem : AtProtoRecord
 /// {
+///     [JsonPropertyName("$type")]
 ///     public override string Type => "com.example.todo.item";
 ///     
 ///     [JsonPropertyName("title")]
@@ -63,6 +64,7 @@ public abstract class AtProtoRecord
 /// // Define your record type
 /// public class TodoItem : AtProtoRecord
 /// {
+///     [JsonPropertyName("$type")]
 ///     public override string Type => "com.example.todo.item";
 ///     
 ///     [JsonPropertyName("title")]

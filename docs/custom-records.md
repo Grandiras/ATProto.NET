@@ -23,6 +23,7 @@ using ATProtoNet;
 public class TodoItem : AtProtoRecord
 {
     // The Lexicon NSID for this record type
+    [JsonPropertyName("$type")]
     public override string Type => "com.example.todo.item";
 
     [JsonPropertyName("title")]
@@ -276,6 +277,7 @@ Use camelCase for JSON fields (AT Protocol convention):
 ```csharp
 public class MyRecord : AtProtoRecord
 {
+    [JsonPropertyName("$type")]
     public override string Type => "com.example.myapp.record";
 
     [JsonPropertyName("firstName")]
@@ -309,6 +311,7 @@ Use AT URIs to reference other records:
 ```csharp
 public class Comment : AtProtoRecord
 {
+    [JsonPropertyName("$type")]
     public override string Type => "com.example.todo.comment";
 
     [JsonPropertyName("todoUri")]
@@ -332,6 +335,7 @@ var blobResponse = await client.Repo.UploadBlobAsync(
 // Reference it in your record
 public class PhotoRecord : AtProtoRecord
 {
+    [JsonPropertyName("$type")]
     public override string Type => "com.example.photos.photo";
 
     [JsonPropertyName("image")]

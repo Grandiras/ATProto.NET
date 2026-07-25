@@ -9,6 +9,7 @@ namespace ATProtoNet.IntegrationTests;
 /// </summary>
 public class TestNote : AtProtoRecord
 {
+    [JsonPropertyName("$type")]
     public override string Type => "com.atprotonet.test.note";
 
     [JsonPropertyName("title")]
@@ -29,6 +30,7 @@ public class TestNote : AtProtoRecord
 /// </summary>
 public class OtherNote : AtProtoRecord
 {
+    [JsonPropertyName("$type")]
     public override string Type => "com.atprotonet.test.other";
 
     [JsonPropertyName("title")]

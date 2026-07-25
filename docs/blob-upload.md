@@ -48,6 +48,7 @@ After uploading, reference the blob in your record:
 ```csharp
 public class PhotoRecord : AtProtoRecord
 {
+    [JsonPropertyName("$type")]
     public override string Type => "com.example.photos.photo";
 
     [JsonPropertyName("image")]

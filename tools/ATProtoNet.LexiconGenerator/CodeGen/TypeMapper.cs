@@ -28,11 +28,23 @@ public static class TypeMapper
         foreach (var segment in segments)
         {
             sb.Append('.');
-            sb.Append(ToPascalCase(segment));
+            sb.Append(ToNamespaceSegment(segment));
         }
 
         return sb.ToString();
     }
+
+    /// <summary>
+    /// Casing for one NSID segment used as a namespace or folder name. Known acronyms keep
+    /// the SDK's spelling so generated code sits alongside <c>ATProtoNet.Lexicon.Com.AtProto.*</c>.
+    /// </summary>
+    public static string ToNamespaceSegment(string segment)
+        => s_segmentCasing.TryGetValue(segment, out var cased) ? cased : ToPascalCase(segment);
+
+    private static readonly Dictionary<string, string> s_segmentCasing = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["atproto"] = "AtProto",
+    };
 
     /// <summary>
     /// Gets a C# class name from an NSID and definition name.
@@ -102,14 +114,50 @@ public static class TypeMapper
     }
 
     /// <summary>
+    /// Normalizes a Lexicon ref to its canonical <c>nsid#defName</c> form.
+    /// "#image" (in com.example.foo) → "com.example.foo#image";
+    /// "com.atproto.repo.strongRef" → "com.atproto.repo.strongRef#main".
+    /// </summary>
+    public static string NormalizeRef(string refString, string contextNsid)
+    {
+        if (refString.StartsWith('#'))
+            return $"{contextNsid}#{refString[1..]}";
+
+        return refString.Contains('#') ? refString : $"{refString}#main";
+    }
+
+    /// <summary>Splits the NSID off a normalized ref.</summary>
+    public static (string Nsid, string DefName) SplitRef(string normalizedRef)
+    {
+        var hashIdx = normalizedRef.IndexOf('#');
+        return hashIdx >= 0
+            ? (normalizedRef[..hashIdx], normalizedRef[(hashIdx + 1)..])
+            : (normalizedRef, "main");
+    }
+
+    /// <summary>
+    /// The <c>$type</c> discriminator value for a definition — the bare NSID for
+    /// <c>main</c>, otherwise <c>nsid#defName</c>.
+    /// </summary>
+    public static string TypeValue(string nsid, string defName)
+        => defName == "main" ? nsid : $"{nsid}#{defName}";
+
+    /// <summary>
     /// Maps a Lexicon property schema to a C# type string.
     /// </summary>
+    /// <remarks>
+    /// This is the context-free mapping used for simple scalars. The emitter uses its own
+    /// resolution for refs, unions, and inline objects because those need cross-document
+    /// knowledge (see <see cref="EmitPlan"/>).
+    /// </remarks>
     public static string GetCSharpType(LexiconSchema schema, string contextNsid, string namespacePrefix = DefaultNamespacePrefix)
     {
         return schema.Type switch
         {
-            "string" => schema.Enum is { Count: > 0 } ? "string" : "string",
+            "string" => "string",
             "integer" => "long",
+            // Not part of the Lexicon spec, but real-world third-party schemas use it.
+            "number" => "double",
             "boolean" => "bool",
             "unknown" => "JsonElement",
             "cid-link" => "string",
@@ -119,18 +167,111 @@ public static class TypeMapper
             "ref" when schema.Ref is not null =>
                 ResolveRef(schema.Ref, contextNsid, namespacePrefix),
 
-            "union" => schema.Refs is { Count: > 0 }
-                ? "JsonElement" // Unions are complex; default to JsonElement
-                : "JsonElement",
-
             "array" when schema.Items is not null =>
                 $"List<{GetCSharpType(schema.Items, contextNsid, namespacePrefix)}>",
 
-            "object" => "JsonElement", // inline objects — rare, use JsonElement
-
+            // Unions and inline objects need document context to type properly.
             _ => "JsonElement",
         };
     }
+
+    /// <summary>
+    /// Splits an identifier into words on camel-case humps and <c>_</c>/<c>-</c>/<c>.</c> separators.
+    /// "cookingMethodBake" → ["cooking", "Method", "Bake"]
+    /// </summary>
+    public static List<string> SplitWords(string input)
+    {
+        var words = new List<string>();
+        if (string.IsNullOrEmpty(input))
+            return words;
+
+        var current = new StringBuilder();
+
+        foreach (var ch in input)
+        {
+            if (ch is '_' or '-' or '.' or ' ')
+            {
+                if (current.Length > 0) { words.Add(current.ToString()); current.Clear(); }
+                continue;
+            }
+
+            if (char.IsUpper(ch) && current.Length > 0 && !char.IsUpper(current[^1]))
+            {
+                words.Add(current.ToString());
+                current.Clear();
+            }
+
+            current.Append(ch);
+        }
+
+        if (current.Length > 0)
+            words.Add(current.ToString());
+
+        return words;
+    }
+
+    /// <summary>
+    /// Best-effort English singularization, used to name the element type generated for
+    /// an array of inline objects ("ingredients" → "Ingredient").
+    /// </summary>
+    public static string Singularize(string word)
+    {
+        if (word.Length < 4)
+            return word;
+
+        if (word.EndsWith("ies", StringComparison.OrdinalIgnoreCase))
+            return word[..^3] + "y";
+        if (word.EndsWith("sses", StringComparison.OrdinalIgnoreCase)
+            || word.EndsWith("shes", StringComparison.OrdinalIgnoreCase)
+            || word.EndsWith("ches", StringComparison.OrdinalIgnoreCase)
+            || word.EndsWith("xes", StringComparison.OrdinalIgnoreCase))
+            return word[..^2];
+        if (word.EndsWith("ss", StringComparison.OrdinalIgnoreCase) || word.EndsWith("us", StringComparison.OrdinalIgnoreCase))
+            return word;
+        if (word.EndsWith('s') || word.EndsWith('S'))
+            return word[..^1];
+
+        return word;
+    }
+
+    /// <summary>
+    /// Turns an arbitrary Lexicon name into a legal C# identifier: strips characters that
+    /// are not valid, prefixes a leading digit with <c>_</c>, and escapes C# keywords.
+    /// </summary>
+    public static string ToIdentifier(string name, string fallback = "Value")
+    {
+        if (string.IsNullOrEmpty(name))
+            return fallback;
+
+        var sb = new StringBuilder(name.Length);
+        foreach (var ch in name)
+        {
+            if (char.IsLetterOrDigit(ch) || ch == '_')
+                sb.Append(ch);
+        }
+
+        if (sb.Length == 0)
+            return fallback;
+
+        if (char.IsDigit(sb[0]))
+            sb.Insert(0, '_');
+
+        var identifier = sb.ToString();
+        return s_keywords.Contains(identifier) ? "@" + identifier : identifier;
+    }
+
+    private static readonly HashSet<string> s_keywords = new(StringComparer.Ordinal)
+    {
+        "abstract", "as", "base", "bool", "break", "byte", "case", "catch", "char", "checked",
+        "class", "const", "continue", "decimal", "default", "delegate", "do", "double", "else",
+        "enum", "event", "explicit", "extern", "false", "finally", "fixed", "float", "for",
+        "foreach", "goto", "if", "implicit", "in", "int", "interface", "internal", "is", "lock",
+        "long", "namespace", "new", "null", "object", "operator", "out", "override", "params",
+        "private", "protected", "public", "readonly", "ref", "return", "sbyte", "sealed",
+        "short", "sizeof", "stackalloc", "static", "string", "struct", "switch", "this", "throw",
+        "true", "try", "typeof", "uint", "ulong", "unchecked", "unsafe", "ushort", "using",
+        "virtual", "void", "volatile", "while",
+    };
 
     /// <summary>
     /// Maps a C# type name back to a Lexicon type string.
@@ -247,7 +388,7 @@ public static class TypeMapper
         var segments = authority.Split('.');
         var className = DefToClassName(nsid, defName, defType);
 
-        var path = string.Join("/", segments.Select(ToPascalCase));
+        var path = string.Join("/", segments.Select(ToNamespaceSegment));
         return $"{path}/{className}.g.cs";
     }
 

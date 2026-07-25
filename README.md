@@ -42,6 +42,7 @@ using System.Text.Json.Serialization;
 // 1. Define your record type
 public class TodoItem : AtProtoRecord
 {
+    [JsonPropertyName("$type")]
     public override string Type => "com.example.todo.item";
 
     [JsonPropertyName("title")]     public string Title { get; set; } = "";
