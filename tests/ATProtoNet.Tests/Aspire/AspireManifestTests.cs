@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 
 namespace ATProtoNet.Tests.Aspire;
@@ -9,7 +10,10 @@ namespace ATProtoNet.Tests.Aspire;
 /// </summary>
 public sealed class RequiresAspireManifestFactAttribute : FactAttribute
 {
-    public RequiresAspireManifestFactAttribute()
+    public RequiresAspireManifestFactAttribute(
+        [CallerFilePath] string? sourceFilePath = null,
+        [CallerLineNumber] int sourceLineNumber = -1)
+        : base(sourceFilePath, sourceLineNumber)
     {
         Skip = AspireManifestTests.UnavailableReason() is { } reason
             ? IntegrationGate.SkipUnlessRequired(reason)
@@ -22,7 +26,10 @@ public sealed class RequiresAspireManifestFactAttribute : FactAttribute
 /// </summary>
 public sealed class RequiresAspireManifestTheoryAttribute : TheoryAttribute
 {
-    public RequiresAspireManifestTheoryAttribute()
+    public RequiresAspireManifestTheoryAttribute(
+        [CallerFilePath] string? sourceFilePath = null,
+        [CallerLineNumber] int sourceLineNumber = -1)
+        : base(sourceFilePath, sourceLineNumber)
     {
         Skip = AspireManifestTests.UnavailableReason() is { } reason
             ? IntegrationGate.SkipUnlessRequired(reason)

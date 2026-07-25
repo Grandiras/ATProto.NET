@@ -29,9 +29,9 @@
 
   <ItemGroup>
     <!-- EF Core token store (merged from ATProtoNet.Server.EntityFrameworkCore) -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.10" />
     <!-- Aspire client integration: standard resilience handler (merged from ATProtoNet.Aspire) -->
-    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.8.0" />
   </ItemGroup>
 
 </Project>

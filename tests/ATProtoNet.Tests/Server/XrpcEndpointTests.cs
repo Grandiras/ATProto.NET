@@ -110,7 +110,7 @@ public class XrpcEndpointTests : IAsyncLifetime
     private IHost? _host;
     private HttpClient? _client;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _host = new HostBuilder()
             .ConfigureWebHost(webBuilder =>
@@ -136,7 +136,7 @@ public class XrpcEndpointTests : IAsyncLifetime
         _client = _host.GetTestClient();
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         _client?.Dispose();
         if (_host is not null)
@@ -226,7 +226,7 @@ public class XrpcAssemblyScanTests : IAsyncLifetime
     private IHost? _host;
     private HttpClient? _client;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _host = new HostBuilder()
             .ConfigureWebHost(webBuilder =>
@@ -249,7 +249,7 @@ public class XrpcAssemblyScanTests : IAsyncLifetime
         _client = _host.GetTestClient();
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         _client?.Dispose();
         if (_host is not null)

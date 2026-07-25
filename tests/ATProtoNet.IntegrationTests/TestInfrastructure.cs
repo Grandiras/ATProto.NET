@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace ATProtoNet.IntegrationTests;
 
 /// <summary>
@@ -9,7 +11,10 @@ namespace ATProtoNet.IntegrationTests;
 /// </summary>
 public sealed class RequiresPdsFactAttribute : FactAttribute
 {
-    public RequiresPdsFactAttribute()
+    public RequiresPdsFactAttribute(
+        [CallerFilePath] string? sourceFilePath = null,
+        [CallerLineNumber] int sourceLineNumber = -1)
+        : base(sourceFilePath, sourceLineNumber)
     {
         var handle = Environment.GetEnvironmentVariable("ATPROTO_TEST_HANDLE");
         var password = Environment.GetEnvironmentVariable("ATPROTO_TEST_PASSWORD");
@@ -31,7 +36,10 @@ public sealed class RequiresPdsFactAttribute : FactAttribute
 /// </summary>
 public sealed class RequiresBlueskyFactAttribute : FactAttribute
 {
-    public RequiresBlueskyFactAttribute()
+    public RequiresBlueskyFactAttribute(
+        [CallerFilePath] string? sourceFilePath = null,
+        [CallerLineNumber] int sourceLineNumber = -1)
+        : base(sourceFilePath, sourceLineNumber)
     {
         var handle = Environment.GetEnvironmentVariable("ATPROTO_TEST_HANDLE");
         var password = Environment.GetEnvironmentVariable("ATPROTO_TEST_PASSWORD");
@@ -59,7 +67,10 @@ public sealed class RequiresBlueskyFactAttribute : FactAttribute
 /// </remarks>
 public sealed class RequiresPdsAdminFactAttribute : FactAttribute
 {
-    public RequiresPdsAdminFactAttribute()
+    public RequiresPdsAdminFactAttribute(
+        [CallerFilePath] string? sourceFilePath = null,
+        [CallerLineNumber] int sourceLineNumber = -1)
+        : base(sourceFilePath, sourceLineNumber)
     {
         if (string.IsNullOrEmpty(TestConfig.AdminPassword) && !TestConfig.IntegrationRequired)
         {

@@ -12,7 +12,7 @@ public class EfCoreAtProtoTokenStoreTests : IAsyncLifetime
     private EfCoreAtProtoTokenStore<AtProtoTokenDbContext> _store = null!;
     private readonly string _dbName = $"AtProtoTokens_{Guid.NewGuid():N}";
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         var optionsBuilder = new DbContextOptionsBuilder<AtProtoTokenDbContext>()
             .UseInMemoryDatabase(_dbName);
@@ -30,7 +30,7 @@ public class EfCoreAtProtoTokenStoreTests : IAsyncLifetime
             NullLogger<EfCoreAtProtoTokenStore<AtProtoTokenDbContext>>.Instance);
     }
 
-    public Task DisposeAsync() => Task.CompletedTask;
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
     private static AtProtoTokenData CreateTestTokenData(
         string did = "did:plc:abc123",

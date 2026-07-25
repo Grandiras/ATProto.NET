@@ -7,7 +7,7 @@ public class AuthenticatedClientFixture : IAsyncLifetime
 {
     public AtProtoClient Client { get; private set; } = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         Client = new AtProtoClientBuilder()
             .WithInstanceUrl(TestConfig.PdsUrl)
@@ -17,7 +17,7 @@ public class AuthenticatedClientFixture : IAsyncLifetime
         await Client.LoginAsync(TestConfig.Handle, TestConfig.Password);
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         try
         {
