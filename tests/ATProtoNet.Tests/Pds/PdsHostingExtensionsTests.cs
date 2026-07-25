@@ -124,6 +124,30 @@ public class PdsHostingExtensionsTests
         Assert.Single(hostedServices);
     }
 
+    [Fact]
+    public void AddAtProtoPds_ResolvesAFederatingPdsService()
+    {
+        // PdsService has a federating and a non-federating constructor. The registration picks
+        // one explicitly rather than leaving it to the container's greediest-constructor rule,
+        // so this asserts the documented outcome instead of the heuristic's.
+        var pds = BuildProvider(configure: null).GetRequiredService<PdsService>();
+
+        Assert.NotNull(pds.RepoManager);
+        Assert.NotNull(pds.Identity);
+    }
+
+    [Fact]
+    public void AddAtProtoPds_CustomRepoStore_StillResolvesAFederatingPdsService()
+    {
+        var services = new ServiceCollection();
+        services.AddAtProtoPds<InMemoryAccountStore, InMemoryRepoStore>(o => o.Hostname = "test.local");
+
+        var pds = services.BuildServiceProvider().GetRequiredService<PdsService>();
+
+        Assert.NotNull(pds.RepoManager);
+        Assert.False(pds.RepoManager!.IsRepositoryEnumerationUnsupported);
+    }
+
     private static ServiceProvider BuildProvider(
         Action<PdsOptions>? configure,
         ILoggerProvider? loggerProvider = null)

@@ -71,6 +71,34 @@ public sealed class InMemoryRepoStore : IRepoStore
     }
 
     /// <inheritdoc />
+    public Task<IReadOnlyList<RepoRecord>> ListAllRecordsAsync(
+        string did, CancellationToken cancellationToken = default)
+    {
+        var prefix = $"{did}/";
+        IReadOnlyList<RepoRecord> all = _records
+            .Where(kv => kv.Key.StartsWith(prefix, StringComparison.Ordinal))
+            .Select(kv => kv.Value)
+            .OrderBy(r => $"{r.Collection}/{r.Rkey}", StringComparer.Ordinal)
+            .ToList();
+
+        return Task.FromResult(all);
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<string>> ListBlobCidsAsync(
+        string did, CancellationToken cancellationToken = default)
+    {
+        var prefix = $"{did}/";
+        IReadOnlyList<string> cids = _blobs
+            .Where(kv => kv.Key.StartsWith(prefix, StringComparison.Ordinal))
+            .Select(kv => kv.Value.Cid)
+            .OrderBy(c => c, StringComparer.Ordinal)
+            .ToList();
+
+        return Task.FromResult(cids);
+    }
+
+    /// <inheritdoc />
     public Task DeleteAllAsync(string did, CancellationToken cancellationToken = default)
     {
         var keysToRemove = _records.Keys.Where(k => k.StartsWith($"{did}/", StringComparison.Ordinal)).ToList();

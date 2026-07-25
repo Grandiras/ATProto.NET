@@ -44,6 +44,33 @@ public static class PdsEndpointNames
     /// <summary><c>com.atproto.sync.getBlob</c> (GET).</summary>
     public const string GetBlob = "com.atproto.sync.getBlob";
 
+    /// <summary><c>com.atproto.identity.resolveHandle</c> (GET).</summary>
+    public const string ResolveHandle = "com.atproto.identity.resolveHandle";
+
+    /// <summary><c>com.atproto.sync.getRepo</c> (GET) — the repository as a CAR file.</summary>
+    public const string GetRepo = "com.atproto.sync.getRepo";
+
+    /// <summary><c>com.atproto.sync.getLatestCommit</c> (GET).</summary>
+    public const string GetLatestCommit = "com.atproto.sync.getLatestCommit";
+
+    /// <summary><c>com.atproto.sync.getRepoStatus</c> (GET).</summary>
+    public const string GetRepoStatus = "com.atproto.sync.getRepoStatus";
+
+    /// <summary><c>com.atproto.sync.listRepos</c> (GET).</summary>
+    public const string ListRepos = "com.atproto.sync.listRepos";
+
+    /// <summary><c>com.atproto.sync.getRecord</c> (GET) — a record plus its MST inclusion proof.</summary>
+    public const string SyncGetRecord = "com.atproto.sync.getRecord";
+
+    /// <summary><c>com.atproto.sync.getBlocks</c> (GET).</summary>
+    public const string GetBlocks = "com.atproto.sync.getBlocks";
+
+    /// <summary><c>com.atproto.sync.listBlobs</c> (GET).</summary>
+    public const string ListBlobs = "com.atproto.sync.listBlobs";
+
+    /// <summary><c>com.atproto.sync.subscribeRepos</c> (WebSocket) — the firehose.</summary>
+    public const string SubscribeRepos = "com.atproto.sync.subscribeRepos";
+
     /// <summary>
     /// Every endpoint NSID mapped by <c>MapAtProtoPds()</c>, in mapping order.
     /// </summary>
@@ -61,5 +88,14 @@ public static class PdsEndpointNames
         ListRecords,
         UploadBlob,
         GetBlob,
+        ResolveHandle,
+        GetRepo,
+        GetLatestCommit,
+        GetRepoStatus,
+        ListRepos,
+        SyncGetRecord,
+        GetBlocks,
+        ListBlobs,
+        SubscribeRepos,
     ];
 }

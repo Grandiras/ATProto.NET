@@ -93,6 +93,30 @@ public static class CidComputation
     }
 
     /// <summary>
+    /// Decodes a base32-encoded CID string without throwing on malformed input.
+    /// </summary>
+    /// <param name="cidString">The CID string (e.g., "bafyrei...").</param>
+    /// <param name="cidBytes">The raw binary CID bytes on success.</param>
+    /// <returns><c>true</c> if the string decoded successfully.</returns>
+    public static bool TryDecodeCidString(
+        string? cidString, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out byte[]? cidBytes)
+    {
+        cidBytes = null;
+        if (string.IsNullOrWhiteSpace(cidString) || !cidString.StartsWith('b'))
+            return false;
+
+        try
+        {
+            cidBytes = Base32Lower.Decode(cidString.AsSpan(1));
+            return true;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Encodes binary CID bytes to a base32lower string with 'b' prefix.
     /// </summary>
     /// <param name="cidBytes">The raw binary CID bytes.</param>

@@ -175,6 +175,56 @@ public sealed class PlcClient : IDisposable
     }
 
     /// <summary>
+    /// Submits a signed PLC operation to the directory, registering or updating a DID.
+    /// </summary>
+    /// <param name="operation">
+    /// The signed operation, as produced by <see cref="PlcOperationBuilder.Sign"/>. For a
+    /// genesis operation the DID is taken from <see cref="PlcSignedOperation.Did"/>.
+    /// </param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The DID the operation was submitted under.</returns>
+    /// <exception cref="PlcException">Thrown when the directory rejects the operation.</exception>
+    public Task<string> SubmitOperationAsync(
+        PlcSignedOperation operation, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        return SubmitOperationAsync(operation.Did, operation.Operation, cancellationToken);
+    }
+
+    /// <summary>
+    /// Submits a signed PLC operation under an explicit DID. Use this for update operations,
+    /// where the DID is the existing one rather than a hash of the operation.
+    /// </summary>
+    /// <param name="did">The DID to submit under.</param>
+    /// <param name="operation">The signed operation JSON.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The DID the operation was submitted under.</returns>
+    /// <exception cref="PlcException">Thrown when the directory rejects the operation.</exception>
+    public async Task<string> SubmitOperationAsync(
+        string did, System.Text.Json.Nodes.JsonObject operation, CancellationToken cancellationToken = default)
+    {
+        ValidateDid(did);
+        ArgumentNullException.ThrowIfNull(operation);
+
+        using var content = new StringContent(
+            operation.ToJsonString(), System.Text.Encoding.UTF8, "application/json");
+        using var response = await _httpClient.PostAsync("./" + did, content, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            // PLC directories return a JSON body with a human-readable message; surface it
+            // verbatim because the failure is almost always actionable (bad signature,
+            // handle already claimed, rate limited).
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new PlcException(
+                $"PLC directory rejected the operation for {did} ({(int)response.StatusCode}): {body}",
+                PlcErrorKind.InvalidOperation);
+        }
+
+        return did;
+    }
+
+    /// <summary>
     /// Checks whether the PLC directory server is reachable.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -213,6 +263,14 @@ public sealed class PlcClient : IDisposable
 /// <summary>A W3C DID Document as returned by PLC directory resolution.</summary>
 public sealed class DidDocument
 {
+    /// <summary>
+    /// The JSON-LD context. Omitted when serializing unless set — required when *publishing* a
+    /// document (e.g. a <c>did:web</c> <c>/.well-known/did.json</c>), ignorable when consuming one.
+    /// </summary>
+    [JsonPropertyName("@context")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Context { get; set; }
+
     /// <summary>The DID identifier (e.g., <c>did:plc:ewvi7nxzyoun6zhxrhs64oiz</c>).</summary>
     [JsonPropertyName("id")]
     public string Id { get; set; } = "";
@@ -385,6 +443,9 @@ public enum PlcErrorKind
 
     /// <summary>The response could not be parsed.</summary>
     ParseError,
+
+    /// <summary>The directory rejected a submitted operation.</summary>
+    InvalidOperation,
 }
 
 /// <summary>Exception thrown by <see cref="PlcClient"/> operations.</summary>

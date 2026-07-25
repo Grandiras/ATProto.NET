@@ -28,6 +28,16 @@ public sealed class PdsAccount
 
     /// <summary>The signing key for this account's repo (base64-encoded private key).</summary>
     public required string SigningKey { get; init; }
+
+    /// <summary>
+    /// The PLC rotation key for this account (base64-encoded private key), or <c>null</c> for
+    /// accounts whose DID method needs none (<c>did:web</c>) or that predate federation support.
+    /// <para>
+    /// This key controls the identity: whoever holds it can move the account to another PDS.
+    /// It is deliberately kept distinct from <see cref="SigningKey"/>, which only signs commits.
+    /// </para>
+    /// </summary>
+    public string? RotationKey { get; set; }
 }
 
 /// <summary>

@@ -129,6 +129,73 @@ public sealed class MerkleSearchTree
     }
 
     /// <summary>
+    /// Serializes only the nodes needed to prove the inclusion (or absence) of
+    /// <paramref name="keys"/>: the root plus every node on the root→key search path. This is
+    /// the "covering proof" a firehose <c>#commit</c> event carries, and it is logarithmic in
+    /// the repository size rather than linear like <see cref="Serialize"/>.
+    /// </summary>
+    /// <param name="keys">The MST keys to cover. Keys absent from the tree contribute the path walked while looking for them, which is what proves the absence.</param>
+    /// <returns>Tuple of (root CID bytes, block map covering the requested keys).</returns>
+    public (byte[] RootCid, Dictionary<string, byte[]> Blocks) SerializeProof(IEnumerable<string> keys)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+
+        // Serialize once to get every node's CID, then keep only the blocks on the paths. The
+        // CID of a node depends on its whole subtree, so there is no cheaper way round.
+        var allBlocks = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        var nodeCids = new Dictionary<MstMemoryNode, string>(ReferenceEqualityComparer.Instance);
+        var rootCid = SerializeNode(_root, allBlocks, nodeCids);
+
+        var proof = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        // The root is always included: it is what the signed commit points at.
+        CopyBlock(_root, nodeCids, allBlocks, proof);
+
+        foreach (var key in keys)
+            CollectPath(_root, key, 0, nodeCids, allBlocks, proof);
+
+        return (rootCid, proof);
+    }
+
+    private static void CollectPath(
+        MstMemoryNode? node, string key, int depth,
+        Dictionary<MstMemoryNode, string> nodeCids,
+        Dictionary<string, byte[]> allBlocks,
+        Dictionary<string, byte[]> proof)
+    {
+        if (node is null) return;
+        if (depth > MaxTreeDepth) return;
+
+        CopyBlock(node, nodeCids, allBlocks, proof);
+
+        // Mirrors Get(): descend into whichever subtree could hold the key.
+        for (var i = 0; i < node.Entries.Count; i++)
+        {
+            var cmp = string.Compare(key, node.Entries[i].Key, StringComparison.Ordinal);
+            if (cmp == 0) return;
+            if (cmp < 0)
+            {
+                var child = i == 0 ? node.Left : node.Entries[i - 1].Subtree;
+                CollectPath(child, key, depth + 1, nodeCids, allBlocks, proof);
+                return;
+            }
+        }
+
+        CollectPath(
+            node.Entries.Count > 0 ? node.Entries[^1].Subtree : node.Left,
+            key, depth + 1, nodeCids, allBlocks, proof);
+    }
+
+    private static void CopyBlock(
+        MstMemoryNode node,
+        Dictionary<MstMemoryNode, string> nodeCids,
+        Dictionary<string, byte[]> allBlocks,
+        Dictionary<string, byte[]> proof)
+    {
+        if (nodeCids.TryGetValue(node, out var cid) && allBlocks.TryGetValue(cid, out var bytes))
+            proof[cid] = bytes;
+    }
+
+    /// <summary>
     /// Deserializes an MST from a block store (CID → DAG-CBOR bytes mapping) starting from a root CID.
     /// </summary>
     /// <param name="rootCid">The root node CID bytes.</param>
@@ -672,11 +739,20 @@ public sealed class MerkleSearchTree
 
     // ── Serialization ────────────────────────────────────────
 
-    private static byte[] SerializeNode(MstMemoryNode node, Dictionary<string, byte[]> blocks)
+    /// <param name="node">The node to serialize.</param>
+    /// <param name="blocks">Receives every block in the subtree.</param>
+    /// <param name="nodeCids">
+    /// When supplied, receives each visited node's CID string, so a caller can pick a subset of
+    /// <paramref name="blocks"/> out by node identity — see <see cref="SerializeProof"/>.
+    /// </param>
+    private static byte[] SerializeNode(
+        MstMemoryNode node,
+        Dictionary<string, byte[]> blocks,
+        Dictionary<MstMemoryNode, string>? nodeCids = null)
     {
         byte[]? leftCid = null;
         if (node.Left is not null)
-            leftCid = SerializeNode(node.Left, blocks);
+            leftCid = SerializeNode(node.Left, blocks, nodeCids);
 
         var entries = new List<MstTreeEntry>();
         string previousKey = "";
@@ -696,7 +772,7 @@ public sealed class MerkleSearchTree
 
             byte[]? treeCid = null;
             if (entry.Subtree is not null)
-                treeCid = SerializeNode(entry.Subtree, blocks);
+                treeCid = SerializeNode(entry.Subtree, blocks, nodeCids);
 
             entries.Add(new MstTreeEntry(prefixLen, suffix, entry.Value, treeCid));
             previousKey = entry.Key;
@@ -712,6 +788,7 @@ public sealed class MerkleSearchTree
         var cid = CidComputation.ComputeBinaryForDagCbor(cborBytes);
         var cidString = CidComputation.EncodeCidToString(cid);
         blocks[cidString] = cborBytes;
+        if (nodeCids is not null) nodeCids[node] = cidString;
 
         return cid;
     }

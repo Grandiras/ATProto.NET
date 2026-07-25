@@ -353,4 +353,136 @@ public sealed class MerkleSearchTreeTests
         var expected = entries.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList();
         Assert.Equal(expected, entries1);
     }
+
+    // ── Covering proofs ──────────────────────────────────────
+
+    [Fact]
+    public void SerializeProof_ReturnsTheSameRootAsSerialize()
+    {
+        var mst = BuildTree(200);
+
+        var (fullRoot, _) = mst.Serialize();
+        var (proofRoot, _) = mst.SerializeProof(["col/k0100"]);
+
+        Assert.Equal(fullRoot, proofRoot);
+    }
+
+    [Fact]
+    public void SerializeProof_IsASubsetOfTheFullBlockSet()
+    {
+        var mst = BuildTree(200);
+
+        var (_, all) = mst.Serialize();
+        var (_, proof) = mst.SerializeProof(["col/k0100"]);
+
+        Assert.NotEmpty(proof);
+        Assert.True(proof.Count < all.Count, $"proof {proof.Count} should be smaller than {all.Count}");
+        foreach (var (cid, bytes) in proof)
+        {
+            Assert.True(all.ContainsKey(cid));
+            Assert.Equal(all[cid], bytes);
+        }
+    }
+
+    [Fact]
+    public void SerializeProof_AlwaysIncludesTheRoot()
+    {
+        var mst = BuildTree(200);
+
+        var (root, proof) = mst.SerializeProof([]);
+
+        Assert.Single(proof);
+        Assert.True(proof.ContainsKey(CidComputation.EncodeCidToString(root)));
+    }
+
+    [Fact]
+    public void SerializeProof_ProofBlocksRehashToTheirCids()
+    {
+        var mst = BuildTree(200);
+
+        var (_, proof) = mst.SerializeProof(["col/k0000", "col/k0100", "col/k0199"]);
+
+        foreach (var (cid, bytes) in proof)
+            Assert.Equal(cid, CidComputation.EncodeCidToString(CidComputation.ComputeBinaryForDagCbor(bytes)));
+    }
+
+    [Fact]
+    public void SerializeProof_CoversTheKeyItWasAskedFor()
+    {
+        var mst = BuildTree(200);
+        const string key = "col/k0100";
+
+        var (root, proof) = mst.SerializeProof([key]);
+
+        // A consumer holding only the proof can walk root→key and read the value back — which is
+        // the whole point of a covering proof, and what a firehose #commit consumer does.
+        Assert.Equal(mst.Get(key), WalkProof(root, proof, key));
+    }
+
+    [Fact]
+    public void SerializeProof_MoreKeysCoverAtLeastAsMuch()
+    {
+        var mst = BuildTree(200);
+
+        var (_, one) = mst.SerializeProof(["col/k0100"]);
+        var (_, many) = mst.SerializeProof(["col/k0000", "col/k0100", "col/k0199"]);
+
+        Assert.True(many.Count >= one.Count);
+        foreach (var cid in one.Keys)
+            Assert.True(many.ContainsKey(cid));
+    }
+
+    [Fact]
+    public void SerializeProof_UnknownKey_ReturnsTheWalkedPathWithoutThrowing()
+    {
+        var mst = BuildTree(200);
+
+        var (_, proof) = mst.SerializeProof(["col/nosuchkey"]);
+
+        Assert.NotEmpty(proof);
+    }
+
+    /// <summary>
+    /// Descends a partial block set from the root looking for <paramref name="key"/>, decoding
+    /// each node the way a relay would. Returns the value, or null if the key is absent.
+    /// </summary>
+    private static byte[]? WalkProof(byte[] rootCid, Dictionary<string, byte[]> blocks, string key)
+    {
+        var cid = rootCid;
+        while (true)
+        {
+            if (!blocks.TryGetValue(CidComputation.EncodeCidToString(cid), out var bytes))
+                return null;
+
+            var node = MstNodeData.FromBytes(bytes);
+            var child = node.Left;
+            var previousKey = "";
+
+            foreach (var entry in node.Entries)
+            {
+                var entryKey = string.Concat(
+                    previousKey[..entry.PrefixLength],
+                    System.Text.Encoding.UTF8.GetString(entry.KeySuffix));
+                previousKey = entryKey;
+
+                var cmp = string.CompareOrdinal(key, entryKey);
+                if (cmp == 0) return entry.Value;
+                if (cmp < 0) break;
+
+                child = entry.Tree;
+            }
+
+            if (child is null) return null;
+            cid = child;
+        }
+    }
+
+    private static MerkleSearchTree BuildTree(int count)
+    {
+        var entries = new Dictionary<string, byte[]>();
+        for (var i = 0; i < count; i++)
+            entries[$"col/k{i:D4}"] = FakeCid($"v{i}");
+
+        return MerkleSearchTree.CreateFromEntries(entries);
+    }
 }

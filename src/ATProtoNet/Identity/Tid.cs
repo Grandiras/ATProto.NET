@@ -76,6 +76,36 @@ public sealed partial class Tid : IEquatable<Tid>, IComparable<Tid>
     /// </summary>
     public static string NextString() => Next().Value;
 
+    /// <summary>
+    /// Creates a TID from its raw 64-bit value: microseconds since the UNIX epoch in the top
+    /// 53 bits, a clock identifier in the bottom 10.
+    /// </summary>
+    /// <param name="value">The raw TID value. The high bit must be clear.</param>
+    /// <remarks>
+    /// <see cref="Next"/> resolves only to the millisecond and picks a random clock id, so two
+    /// TIDs minted in the same millisecond are ordered arbitrarily. Callers that need a strictly
+    /// increasing sequence — a repository's commit <c>rev</c>, for instance — should track the
+    /// last value themselves and mint the next one through this method.
+    /// </remarks>
+    public static Tid FromInt64(long value)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(value);
+        return new Tid(Encode(value));
+    }
+
+    /// <summary>
+    /// Gets the raw 64-bit value this TID encodes. Ordinal string comparison of two TIDs and
+    /// numeric comparison of their values always agree, since the encoding is base32-sortable.
+    /// </summary>
+    public long ToInt64()
+    {
+        long value = 0;
+        foreach (var c in Value)
+            value = (value << 5) | (uint)Base32SortableChars.IndexOf(c);
+
+        return value;
+    }
+
     private static string Encode(long value)
     {
         Span<char> chars = stackalloc char[TidLength];

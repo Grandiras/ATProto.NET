@@ -85,6 +85,37 @@ public interface IRepoStore
     /// <summary>Delete all records belonging to a DID (for account deletion).</summary>
     Task DeleteAllAsync(string did, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Enumerates every record in a repository, across all collections, in MST key order
+    /// (<c>collection/rkey</c>, ordinal).
+    /// </summary>
+    /// <remarks>
+    /// Required for federation: the Merkle Search Tree and the signed commit are derived from
+    /// the complete record set, so <see cref="PdsRepoManager"/> re-reads it on every commit.
+    /// The default implementation throws — a store written before federation support keeps
+    /// working for plain repo CRUD, and only federation surfaces the gap, with a message that
+    /// says exactly what to implement.
+    /// </remarks>
+    Task<IReadOnlyList<RepoRecord>> ListAllRecordsAsync(
+        string did, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException(
+            $"{GetType().Name} does not implement IRepoStore.ListAllRecordsAsync, which is " +
+            "required to build the Merkle Search Tree for a federating repository. Implement it " +
+            "to return every record for a DID across all collections.");
+
+    /// <summary>
+    /// Enumerates the CIDs of every blob held for a DID. Backs <c>com.atproto.sync.listBlobs</c>.
+    /// </summary>
+    /// <remarks>
+    /// As with <see cref="ListAllRecordsAsync"/>, the default implementation throws so that
+    /// pre-existing stores keep compiling and only fail on the federation surface they don't support.
+    /// </remarks>
+    Task<IReadOnlyList<string>> ListBlobCidsAsync(
+        string did, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException(
+            $"{GetType().Name} does not implement IRepoStore.ListBlobCidsAsync, which is " +
+            "required by com.atproto.sync.listBlobs.");
+
     // ── Blobs ──
 
     /// <summary>Store a blob.</summary>

@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
-using ATProtoNet.Serialization;
+using ATProtoNet.Identity;
+using ATProtoNet.Repo;
 
 namespace ATProtoNet.Pds;
 
@@ -14,21 +15,72 @@ public sealed class PdsService
     private readonly IRepoStore _repos;
     private readonly PdsSessionService _sessions;
     private readonly PdsOptions _options;
+    private readonly PdsRepoManager? _repoManager;
+    private readonly PdsIdentityService? _identity;
 
     /// <summary>
-    /// Creates a new PDS service.
+    /// Creates a new PDS service without federation support: accounts get locally generated
+    /// DIDs and writes produce no signed commits or firehose events.
     /// </summary>
+    /// <remarks>
+    /// For hosts that construct the service themselves. <c>AddAtProtoPds()</c> always registers
+    /// the federation services and builds the service through the constructor below — see
+    /// <c>PdsHostingExtensions.CreatePdsService</c>.
+    /// </remarks>
     public PdsService(
         IAccountStore accounts,
         IRepoStore repos,
         PdsSessionService sessions,
         PdsOptions options)
+        : this(accounts, repos, sessions, options, repoManager: null, identity: null)
+    {
+    }
+
+    /// <summary>
+    /// Creates a new PDS service that maintains a federating repository.
+    /// </summary>
+    /// <param name="accounts">The account store.</param>
+    /// <param name="repos">The record and blob store.</param>
+    /// <param name="sessions">The session/token service.</param>
+    /// <param name="options">PDS configuration.</param>
+    /// <param name="repoManager">
+    /// Signs a commit and publishes a firehose event after every repository write. When
+    /// <c>null</c>, the PDS keeps serving repo CRUD but nothing on the network can follow it.
+    /// A host wired through <c>AddAtProtoPds()</c> always gets one; passing <c>null</c> is for
+    /// hosts that construct the service themselves. Note that a non-null manager is not itself a
+    /// guarantee of federation: if the configured <see cref="IRepoStore"/> cannot enumerate a
+    /// repository, <see cref="PdsRepoManager.CommitAsync"/> degrades to a no-op so that writes
+    /// keep succeeding.
+    /// </param>
+    /// <param name="identity">
+    /// Mints real DIDs for new accounts. When <c>null</c>, a locally derived placeholder DID is
+    /// generated instead.
+    /// </param>
+    public PdsService(
+        IAccountStore accounts,
+        IRepoStore repos,
+        PdsSessionService sessions,
+        PdsOptions options,
+        PdsRepoManager? repoManager,
+        PdsIdentityService? identity)
     {
         _accounts = accounts;
         _repos = repos;
         _sessions = sessions;
         _options = options;
+        _repoManager = repoManager;
+        _identity = identity;
     }
+
+    /// <summary>
+    /// The repository manager backing this PDS, or <c>null</c> when federation is not enabled.
+    /// </summary>
+    public PdsRepoManager? RepoManager => _repoManager;
+
+    /// <summary>
+    /// The identity service backing this PDS, or <c>null</c> when federation is not enabled.
+    /// </summary>
+    public PdsIdentityService? Identity => _identity;
 
     // ──────────────────────────────────────────────────────────
     //  Account management
@@ -55,13 +107,27 @@ public sealed class PdsService
         if (await _accounts.HandleExistsAsync(handle, cancellationToken))
             throw new PdsException("HandleNotAvailable", $"The handle '{handle}' is already taken.");
 
-        // Generate a DID if not provided
-        var accountDid = did ?? $"did:plc:{GenerateRandomTid()}";
+        // Mint the identity. With federation enabled this derives a real did:plc from a signed
+        // genesis operation (or a did:web from the handle); otherwise it falls back to a locally
+        // generated placeholder that nothing on the network can resolve.
+        string accountDid;
+        string signingKey;
+        string? rotationKey = null;
 
-        // Generate a signing key for this account's repo
-        using var ecKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var privateKeyBytes = ecKey.ExportECPrivateKey();
-        var signingKey = Convert.ToBase64String(privateKeyBytes);
+        if (_identity is not null)
+        {
+            var identity = await _identity.CreateIdentityAsync(handle, did, cancellationToken);
+            accountDid = identity.Did;
+            signingKey = identity.SigningKey;
+            rotationKey = identity.RotationKey;
+        }
+        else
+        {
+            accountDid = did ?? $"did:plc:{GenerateRandomTid()}";
+
+            using var ecKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            signingKey = Convert.ToBase64String(ecKey.ExportECPrivateKey());
+        }
 
         var passwordHash = HashPassword(password);
 
@@ -72,9 +138,19 @@ public sealed class PdsService
             Email = email,
             PasswordHash = passwordHash,
             SigningKey = signingKey,
+            RotationKey = rotationKey,
         };
 
         await _accounts.CreateAsync(account, cancellationToken);
+
+        if (_repoManager is not null)
+        {
+            // Announce the account and give it an empty signed commit, so a relay crawling this
+            // PDS finds a valid (if empty) repository rather than a DID with no head.
+            _repoManager.PublishAccount(accountDid, active: true);
+            _repoManager.PublishIdentity(accountDid, handle);
+            await _repoManager.EnsureRepoAsync(accountDid, cancellationToken);
+        }
 
         var accessJwt = _sessions.IssueAccessToken(accountDid, handle);
         var refreshJwt = _sessions.IssueRefreshToken(accountDid);
@@ -178,6 +254,9 @@ public sealed class PdsService
 
         await _repos.DeleteAllAsync(did, cancellationToken);
         await _accounts.DeleteAsync(did, cancellationToken);
+
+        if (_repoManager is not null)
+            await _repoManager.DeleteRepoAsync(did, cancellationToken);
     }
 
     /// <summary>
@@ -212,8 +291,8 @@ public sealed class PdsService
         if (!account.IsActive)
             throw new PdsException("RepoDeactivated", "Account is not active.");
 
-        var actualRkey = rkey ?? GenerateRandomTid();
-        var cid = ComputeCid(record);
+        var actualRkey = rkey ?? Tid.NextString();
+        var (cid, binaryCid) = ComputeRecordCid(record);
 
         var repoRecord = new RepoRecord
         {
@@ -225,6 +304,8 @@ public sealed class PdsService
         };
 
         await _repos.PutRecordAsync(repoRecord, cancellationToken);
+        await CommitAsync(did,
+            [PdsRepoOp.Create($"{collection}/{actualRkey}", binaryCid)], cancellationToken);
 
         return new PdsRecordRef
         {
@@ -264,7 +345,8 @@ public sealed class PdsService
         if (!account.IsActive)
             throw new PdsException("RepoDeactivated", "Account is not active.");
 
-        var cid = ComputeCid(record);
+        var existing = await _repos.GetRecordAsync(did, collection, rkey, cancellationToken);
+        var (cid, binaryCid) = ComputeRecordCid(record);
 
         var repoRecord = new RepoRecord
         {
@@ -276,6 +358,12 @@ public sealed class PdsService
         };
 
         await _repos.PutRecordAsync(repoRecord, cancellationToken);
+
+        var path = $"{collection}/{rkey}";
+        var op = existing is null
+            ? PdsRepoOp.Create(path, binaryCid)
+            : PdsRepoOp.Update(path, binaryCid, ToBinaryCid(existing.Cid));
+        await CommitAsync(did, [op], cancellationToken);
 
         return new PdsRecordRef
         {
@@ -291,7 +379,18 @@ public sealed class PdsService
         string did, string collection, string rkey,
         CancellationToken cancellationToken = default)
     {
-        await _repos.DeleteRecordAsync(did, collection, rkey, cancellationToken);
+        var existing = await _repos.GetRecordAsync(did, collection, rkey, cancellationToken);
+        var deleted = await _repos.DeleteRecordAsync(did, collection, rkey, cancellationToken);
+
+        // Only commit when something actually changed — deleting a record that was never there
+        // must not bump the repo's revision, or every no-op delete would look like a new
+        // version of the repo to anyone following the firehose.
+        if (deleted)
+        {
+            await CommitAsync(did,
+                [PdsRepoOp.Delete($"{collection}/{rkey}", ToBinaryCid(existing?.Cid))],
+                cancellationToken);
+        }
     }
 
     /// <summary>
@@ -374,18 +473,36 @@ public sealed class PdsService
         return Convert.ToHexString(bytes).ToLowerInvariant()[..13];
     }
 
-    private static string ComputeCid(JsonElement element)
+    /// <summary>
+    /// Commits the current repository state, when federation is enabled. A record store that
+    /// cannot enumerate a repository makes this a no-op rather than an error, so repo CRUD keeps
+    /// working on stores written before federation support.
+    /// </summary>
+    private async Task CommitAsync(string did, IReadOnlyList<PdsRepoOp> ops, CancellationToken cancellationToken)
     {
-        var bytes = JsonSerializer.SerializeToUtf8Bytes(element, AtProtoJsonDefaults.Options);
-        var hash = SHA256.HashData(bytes);
-        return "bafyrei" + Convert.ToHexString(hash).ToLowerInvariant()[..32];
+        if (_repoManager is null) return;
+        await _repoManager.CommitAsync(did, ops, cancellationToken);
     }
 
-    private static string ComputeBlobCid(byte[] data)
+    /// <summary>
+    /// Computes a record's real content address: CIDv1 over its DAG-CBOR encoding, with the
+    /// dag-cbor (0x71) codec and a SHA-256 multihash.
+    /// </summary>
+    private static (string Cid, byte[] BinaryCid) ComputeRecordCid(JsonElement element)
     {
-        var hash = SHA256.HashData(data);
-        return "bafkrei" + Convert.ToHexString(hash).ToLowerInvariant()[..32];
+        var (_, binaryCid) = PdsRepoManager.EncodeRecord(element);
+        return (CidComputation.EncodeCidToString(binaryCid), binaryCid);
     }
+
+    /// <summary>
+    /// Computes a blob's content address: CIDv1 with the raw (0x55) codec, as blobs are opaque
+    /// bytes rather than DAG-CBOR.
+    /// </summary>
+    private static string ComputeBlobCid(byte[] data)
+        => CidComputation.ComputeForRaw(data).Value;
+
+    private static byte[]? ToBinaryCid(string? cid)
+        => CidComputation.TryDecodeCidString(cid, out var binary) ? binary : null;
 
     internal static string HashPassword(string password)
     {
