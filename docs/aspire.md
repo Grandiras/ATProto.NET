@@ -182,6 +182,37 @@ builder.AddAtProtoPds("pds", port: 2583, tag: "0.4")
 See [Managed PDS](managed-pds.md) for what these settings mean in run mode versus a published
 manifest, and for administering the running server with `PdsAdminClient`.
 
+#### Tranquil PDS
+
+The same package hosts [Tranquil](https://tangled.org/tranquil.farm/tranquil-pds), a
+community PDS implementation that is a superset of the reference server:
+
+```csharp
+var pds = builder.AddAtProtoTranquilPds("pds");
+
+builder.AddProject<Projects.MyApi>("api")
+    .WithAtProtoTranquilPds(pds);
+```
+
+| Method | Description |
+|--------|-------------|
+| `AddAtProtoTranquilPds(name, port?, tag?)` | Add a Tranquil PDS container, plus the PostgreSQL server it needs |
+| `WithAtProtoTranquilPds(pds)` | *(on a project)* reference the PDS, supply admin configuration, and wait for its health check |
+| `WithDatabase(database)` / `WithDatabaseUrl(url)` | Use an existing PostgreSQL database instead of the generated one |
+| `WithAdminAccount(handle, password?)` | Name the account the server is administered through |
+| `WithDevelopmentMode(enabled?)` | Turn the local-development relaxations on or off |
+| `WithHostname(hostname)` / `WithHandleDomains(domains)` | Public hostname and handle domains |
+| `WithJwtSecret(param)` / `WithDPoPSecret(param)` / `WithMasterKey(param)` | Supply secrets instead of the generated parameters |
+| `WithPlcRecoveryKey(didKey)` | Register an operator-held PLC recovery key (a *public* `did:key`) |
+| `WithBlobVolume(name?)` / `WithBlobBindMount(path)` / `WithS3BlobStorage(bucket, endpoint?)` | Where blobs are stored |
+| `WithPlcUrl(url)` / `WithCrawlers(urls)` / `WithReportService(url, did?)` / `WithBlobUploadLimit(bytes)` / `WithInviteCodeRequired(required?)` / `WithEmail(from, host, port?, user?, password?)` | As above |
+
+Two differences matter. Tranquil needs PostgreSQL, which the resource provisions for you;
+and it has no server-wide admin password — administration goes through an *account* the
+server has flagged as an administrator. `WithAtProtoTranquilPds` configures
+`PdsAdminClient` for that automatically, but the account itself has to be created once by
+your application. See [Managed PDS](managed-pds.md#tranquil-pds).
+
 ### Service Defaults Only
 
 If you already have an external PDS and just want service defaults:

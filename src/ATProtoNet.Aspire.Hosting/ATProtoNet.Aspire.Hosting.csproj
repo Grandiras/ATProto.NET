@@ -8,8 +8,8 @@
     <RootNamespace>ATProtoNet.Aspire.Hosting</RootNamespace>
     <AssemblyName>ATProtoNet.Aspire.Hosting</AssemblyName>
     <PackageId>ATProtoNet.Aspire.Hosting</PackageId>
-    <Description>Aspire hosting integration for ATProto.NET — adds AT Protocol PDS containers to .NET Aspire AppHosts with automatic configuration.</Description>
-    <PackageTags>atproto;bluesky;aspire;hosting;pds;container</PackageTags>
+    <Description>Aspire hosting integration for ATProto.NET — adds AT Protocol PDS containers (the reference Bluesky PDS and Tranquil PDS) to .NET Aspire AppHosts with automatic configuration.</Description>
+    <PackageTags>atproto;bluesky;aspire;hosting;pds;tranquil;container</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- Undocumented public members are a build error, not a warning. -->
     <WarningsAsErrors>$(WarningsAsErrors);CS1591</WarningsAsErrors>
@@ -17,6 +17,9 @@
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting" Version="13.4.6" />
+    <!-- Tranquil PDS stores its repositories in PostgreSQL, so AddAtProtoTranquilPds
+         provisions a server alongside the container. -->
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" Version="13.4.6" />
   </ItemGroup>
 
 </Project>

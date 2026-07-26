@@ -22,7 +22,37 @@ public static class AtProtoPdsHostingExtensions
     /// The environment variable a referencing project receives the PDS admin password under.
     /// Bound by <c>AddAtProtoPdsAdmin()</c> in the <c>ATProtoNet.Server</c> package.
     /// </summary>
+    /// <remarks>
+    /// For the reference PDS this is the server-wide <c>PDS_ADMIN_PASSWORD</c>. For a
+    /// Tranquil PDS — which has no such password — it is the password of the account
+    /// named by <see cref="AdminIdentifierConfigurationKey"/>.
+    /// </remarks>
     public const string AdminPasswordConfigurationKey = "AtProto__Pds__AdminPassword";
+
+    /// <summary>
+    /// The environment variable naming which authentication scheme the admin client
+    /// should use — one of the <c>PdsAdminAuthentication</c> values.
+    /// </summary>
+    /// <remarks>
+    /// Left unset by <see cref="WithAtProtoPds{T}"/>, since HTTP Basic with the server's
+    /// admin password is the default and what the reference PDS expects. Set to
+    /// <see cref="AdminAccountAuthentication"/> by
+    /// <c>WithAtProtoTranquilPds()</c>.
+    /// </remarks>
+    public const string AuthenticationConfigurationKey = "AtProto__Pds__Authentication";
+
+    /// <summary>
+    /// The environment variable a referencing project receives the administrator
+    /// account's handle or DID under, when the PDS authenticates administrators as
+    /// accounts rather than with a shared password.
+    /// </summary>
+    public const string AdminIdentifierConfigurationKey = "AtProto__Pds__AdminIdentifier";
+
+    /// <summary>
+    /// The value written to <see cref="AuthenticationConfigurationKey"/> for a PDS whose
+    /// administrators are accounts, such as Tranquil.
+    /// </summary>
+    public const string AdminAccountAuthentication = "AdminAccount";
 
     /// <summary>
     /// The environment variable that permits the admin client to talk to the PDS over

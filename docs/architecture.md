@@ -40,7 +40,7 @@ ATProto.NET is split into four runtime packages plus one `dotnet tool`. They lay
 | **`ATProtoNet`** | Core SDK, zero ASP.NET dependency. `AtProtoClient` composes per-Lexicon-domain sub-clients (`Server`, `Repo`, `Identity`, `Sync`, `Admin`, `Label`, `Moderation`, `Bsky`, `Chat`, `Ozone`, `Site`) around a shared `XrpcClient`. Custom records flow through `RecordCollection<T>` / `GetCollection<T>(nsid)`; custom XRPC through `QueryAsync<T>` / `ProcedureAsync<T>`. |
 | **`ATProtoNet.Server`** | ASP.NET Core integration: DI extensions (`AddAtProto`, `AddAtProtoServer`), JWT auth handler, `IAtProtoClientFactory`, `IAtProtoTokenStore` (in-memory, file, and EF Core implementations), server-side XRPC handler routing, and .NET Aspire client integration (`AddAtProtoClient` with health checks and resilience). |
 | **`ATProtoNet.Blazor`** | Blazor components (`LoginForm`, etc.) and the OAuth login endpoints registered by `MapAtProtoOAuth()`. |
-| **`ATProtoNet.Aspire.Hosting`** | Aspire `AppHost`-side resource for running the official Bluesky PDS container (`AddAtProtoPds`, `WithAtProtoPds`). Administer the result with `PdsAdminClient` from the core package. |
+| **`ATProtoNet.Aspire.Hosting`** | Aspire `AppHost`-side resources for running a PDS container: the official Bluesky one (`AddAtProtoPds`, `WithAtProtoPds`) or Tranquil (`AddAtProtoTranquilPds`, `WithAtProtoTranquilPds`, which also provisions the PostgreSQL server it needs). Administer either with `PdsAdminClient` from the core package. |
 | **`tools/ATProtoNet.LexiconGenerator`** | `dotnet tool` (binary `atproto-lexgen`) for bidirectional Lexicon JSON ↔ C# generation, schema diffing, and publishing. |
 
 ## Source tree

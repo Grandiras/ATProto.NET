@@ -31,6 +31,13 @@ public static class PdsAdminExtensions
     /// configuration, user secrets, or environment variables.
     /// </para>
     /// <para>
+    /// A PDS that authenticates administrators as accounts rather than with a shared
+    /// password — Tranquil, wired up by <c>WithAtProtoTranquilPds(pds)</c> — also sets
+    /// <c>AtProto:Pds:Authentication</c> to <c>AdminAccount</c> and
+    /// <c>AtProto:Pds:AdminIdentifier</c> to the administrator's handle, and
+    /// <c>AtProto:Pds:AdminPassword</c> then holds that account's password.
+    /// </para>
+    /// <para>
     /// Keep the admin password out of source control — it grants full control over
     /// every account on the server.
     /// </para>
@@ -117,6 +124,15 @@ public static class PdsAdminExtensions
             throw new InvalidOperationException(
                 $"No PDS admin password configured. Set '{DefaultConfigurationSection}:AdminPassword', " +
                 "or pass it explicitly. In an Aspire solution, call WithAtProtoPds(pds) on the project resource.");
+        }
+
+        if (options.Authentication == PdsAdminAuthentication.AdminAccount
+            && string.IsNullOrWhiteSpace(options.AdminIdentifier))
+        {
+            throw new InvalidOperationException(
+                $"'{DefaultConfigurationSection}:Authentication' is 'AdminAccount', which names an " +
+                $"account rather than a shared password, but '{DefaultConfigurationSection}:AdminIdentifier' " +
+                "is not set. In an Aspire solution, call WithAtProtoTranquilPds(pds) on the project resource.");
         }
 
         var baseAddress = new Uri(options.Url.TrimEnd('/') + "/");

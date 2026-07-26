@@ -1,19 +1,29 @@
 # Managed PDS
 
-Run the official Bluesky PDS as a container your application owns, and administer it
-from .NET. This lets your app sign users up on its own server instead of sending them
-to an external provider — more PDSs on the network means more decentralization.
+Run a PDS as a container your application owns, and administer it from .NET. This lets
+your app sign users up on its own server instead of sending them to an external
+provider — more PDSs on the network means more decentralization.
+
+Two implementations are supported:
+
+| | Image | Add it with |
+|---|---|---|
+| **Reference PDS** — Bluesky's own server | `ghcr.io/bluesky-social/pds` | `AddAtProtoPds` |
+| **[Tranquil PDS](https://tangled.org/tranquil.farm/tranquil-pds)** — a community server, a superset of the reference | `atcr.io/tranquil.farm/tranquil-pds` | `AddAtProtoTranquilPds` |
 
 Three packages are involved:
 
 | Package | Role |
 |---|---|
-| `ATProtoNet.Aspire.Hosting` | AppHost-side: adds the `ghcr.io/bluesky-social/pds` container to your Aspire app |
-| `ATProtoNet` (core) | `PdsAdminClient` — programmatic admin access to any PDS you hold the password for |
+| `ATProtoNet.Aspire.Hosting` | AppHost-side: adds either PDS container to your Aspire app |
+| `ATProtoNet` (core) | `PdsAdminClient` — programmatic admin access to any PDS you hold credentials for |
 | `ATProtoNet.Server` | `AddAtProtoPdsAdmin()` — DI registration that binds the Aspire-supplied configuration |
 
-> ATProto.NET does **not** implement a PDS. It orchestrates the reference
-> implementation and gives you a typed client for administering it.
+> ATProto.NET does **not** implement a PDS. It orchestrates other people's servers and
+> gives you a typed client for administering them.
+
+Most of this page describes the reference PDS. [Tranquil PDS](#tranquil-pds) covers
+where the other one differs — chiefly in how administrators authenticate.
 
 ## Add the container
 
@@ -243,6 +253,153 @@ At the lowest level, `XrpcClient` carries the same HTTP Basic admin auth directl
 `HasAdminCredentials`. A session token still takes priority when both are set, so an
 admin-authenticated client that later logs in acts as that account.
 
+## Tranquil PDS
+
+[Tranquil](https://tangled.org/tranquil.farm/tranquil-pds) is a community PDS
+implementation: a single Rust binary rather than the reference server's Node.js runtime,
+and a superset of it — passkeys and 2FA, SSO, `did:web` accounts, granular OAuth scopes
+with a consent UI, app passwords with the same scope system, account delegation, and a
+built-in web UI. It speaks the same `com.atproto.*` API, so ordinary clients do not need
+to know which one they are talking to.
+
+```csharp
+var builder = DistributedApplication.CreateBuilder(args);
+
+var pds = builder.AddAtProtoTranquilPds("pds");
+
+builder.AddProject<Projects.Web>("web")
+       .WithAtProtoTranquilPds(pds);
+
+builder.Build().Run();
+```
+
+The image lives on a registry that requires a login. Run `docker login atcr.io` (or
+`podman login atcr.io`) once before the AppHost first starts it.
+
+### It brings a database
+
+Tranquil stores its repositories in PostgreSQL, so `AddAtProtoTranquilPds` also adds a
+`{name}-postgres` server with a persistent data volume and a `{name}-db` database on it.
+To use one you already have:
+
+```csharp
+var shared = builder.AddPostgres("postgres").AddDatabase("pds-db");
+
+var pds = builder.AddAtProtoTranquilPds("pds").WithDatabase(shared);
+```
+
+`WithDatabaseUrl(...)` points it at a server outside the application model instead,
+taking a `postgres://user:password@host:port/database` URI (or a parameter holding one).
+Either call drops the generated PostgreSQL resources from the model, so nothing starts a
+container the PDS will never connect to.
+
+### Administrators are accounts, not a password
+
+This is the one difference an application has to care about. The reference PDS has a
+single server-wide `PDS_ADMIN_PASSWORD` used with HTTP Basic; Tranquil has no such
+password, and instead flags individual **accounts** as administrators, authenticated with
+an ordinary session token.
+
+`PdsAdminClient` covers both — `PdsAdminOptions.Authentication` selects which:
+
+| | `AdminPassword` (default) | `AdminAccount` |
+|---|---|---|
+| Server | reference PDS | Tranquil |
+| Credential | the server's admin password | an administrator account's password |
+| Sent as | `Authorization: Basic` | `Authorization: Bearer` from `createSession` |
+| Also needs | — | `AdminIdentifier`, the account's handle or DID |
+
+`WithAtProtoTranquilPds(pds)` sets all of it — `AtProto__Pds__Authentication`,
+`AtProto__Pds__AdminIdentifier`, `AtProto__Pds__AdminPassword` — so the consuming project
+still just calls `AddAtProtoPdsAdmin()` and injects `PdsAdminClient` as usual. The client
+signs in lazily on the first admin call and re-authenticates if the server later rejects
+its session.
+
+### Creating the administrator account
+
+**The account is not created for you.** Tranquil flags the *first* account registered on
+an empty instance as an administrator, so your application creates it once — with the
+handle and password the AppHost configured:
+
+```csharp
+app.MapPost("/bootstrap", async (PdsAdminClient pds, IConfiguration config) =>
+{
+    await pds.CreateAccountAsync(new CreatePdsAccountRequest
+    {
+        Handle = config["AtProto:Pds:AdminIdentifier"]!,
+        Password = config["AtProto:Pds:AdminPassword"]!,
+        Email = "admin@example.com",
+    });
+});
+```
+
+Signup is a public endpoint, so this works before the client has any admin authority at
+all. Every later admin call authenticates as that account.
+
+The handle defaults to `pdsadmin.{hostname}` — not `admin`, which Tranquil rejects as a
+reserved subdomain. Override it, and the password, with
+`WithAdminAccount("root.pds.example.com", passwordParameter)`.
+
+### Local development defaults
+
+Two of Tranquil's own defaults make a local container unusable, so
+`AddAtProtoTranquilPds` overrides them when running (never when publishing):
+
+| Setting | Why |
+|---|---|
+| `INVITE_CODE_REQUIRED=false` | An empty instance mints a bootstrap invite code and only writes it to its log, which no program can read |
+| `DISABLE_ACCOUNT_VERIFICATION_GATE=true` | Login is blocked until an account has a verified communication channel, and a container with no mail server can never get one |
+| `PDS_AGE_ASSURANCE_OVERRIDE=true` | Skips the age-assurance birthday prompt |
+| `ALLOW_HTTP_PROXY=true` | Traffic between AppHost containers is plaintext |
+| `DISABLE_RATE_LIMITING=true` | Login is rate limited per IP, and the AppHost network shares one |
+
+`WithDevelopmentMode(false)` turns the whole set off — do that once the AppHost has a
+mail server the PDS can verify addresses through, so accounts pass the gate honestly.
+Individual settings can be overridden on their own; a later `WithInviteCodeRequired()`
+wins over the value above.
+
+### Secrets
+
+| Parameter | Environment variable | |
+|---|---|---|
+| `{name}-jwt-secret` | `JWT_SECRET` | signs session JWTs |
+| `{name}-dpop-secret` | `DPOP_SECRET` | validates OAuth DPoP proofs |
+| `{name}-master-key` | `MASTER_KEY` | encrypts every account's signing key |
+| `{name}-admin-password` | — | the administrator account's password |
+| `{name}-postgres-password` | `POSTGRES_PASSWORD` | the database |
+
+All are generated at 48 alphanumeric characters — over the 32 Tranquil requires outside
+dev mode — and persisted to the AppHost's user secrets when running locally. Unlike the
+reference PDS's hex-parsed secrets, these are opaque strings a manifest `generate` block
+describes exactly, so a published deployment can produce its own rather than being handed
+one the server would reject.
+
+Changing `MASTER_KEY` on a server that already has accounts makes their signing keys
+undecryptable. Override any of them with `WithJwtSecret`, `WithDPoPSecret`,
+`WithMasterKey`, or the second argument to `WithAdminAccount`.
+
+### Configuration
+
+```csharp
+var pds = builder.AddAtProtoTranquilPds("pds", port: 3000)
+    .WithHostname("pds.example.com")            // PDS_HOSTNAME — required when publishing
+    .WithHandleDomains("pds.example.com")       // defaults to the hostname
+    .WithPlcUrl("https://plc.directory")
+    .WithPlcRecoveryKey("did:key:z...")         // a *public* did:key, unlike the reference PDS
+    .WithCrawlers("https://bsky.network")
+    .WithReportService("https://mod.bsky.app")
+    .WithBlobUploadLimit(10 * 1024 * 1024)
+    .WithBlobVolume()                           // or WithBlobBindMount / WithS3BlobStorage
+    .WithEmail("noreply@example.com", "smtp.example.com", userName: "pds", password: smtpPassword)
+    .WithInviteCodeRequired()
+    .WithDevelopmentMode(false);
+```
+
+`WithPlcRecoveryKey` is not the reference PDS's `WithPlcRotationKey`: Tranquil keeps
+signing PLC operations with each account's own key and adds this one to the rotation keys
+purely so the operator can recover an identity, so it takes a public `did:key` rather than
+a hex private key.
+
 ## Without Aspire
 
 `PdsAdminClient` works against any PDS. To run the container by hand:
@@ -262,6 +419,22 @@ podman run -d --name pds -p 3000:3000 \
 
 Keep the JWT secret and rotation key stable across restarts if you reuse the volume.
 
+Tranquil needs a PostgreSQL server alongside it; its repository ships a
+`docker-compose.prod.yaml` that runs both. Point the client at it with:
+
+```csharp
+using var pds = new PdsAdminClient(
+    new PdsAdminOptions
+    {
+        Url = "https://pds.example.com",
+        Authentication = PdsAdminAuthentication.AdminAccount,
+        AdminIdentifier = "pdsadmin.pds.example.com",
+        AdminPassword = adminAccountPassword,
+    },
+    httpClient: null,
+    logger: null);
+```
+
 ## See also
 
 - [.NET Aspire Integration](aspire.md) — client-side health checks and resilience
@@ -269,3 +442,4 @@ Keep the JWT secret and rotation key stable across restarts if you reuse the vol
 - [`samples/ManagedPdsSample`](../samples/ManagedPdsSample) — signup API built on `PdsAdminClient`
 - [`samples/ManagedPdsSample.AppHost`](../samples/ManagedPdsSample.AppHost) — the Aspire AppHost wiring it to a PDS container
 - [PDS deployment docs](https://github.com/bluesky-social/pds) — the upstream reference implementation
+- [Tranquil PDS](https://tangled.org/tranquil.farm/tranquil-pds) — the upstream community implementation

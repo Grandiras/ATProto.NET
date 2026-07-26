@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using ATProtoNet.Http;
 using ATProtoNet.Lexicon.Com.AtProto.Admin;
@@ -14,11 +15,14 @@ namespace ATProtoNet.Admin;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Authenticates with the server's admin password over HTTP Basic, the scheme the
-/// reference Bluesky PDS (<c>ghcr.io/bluesky-social/pds</c>) expects on
-/// <c>com.atproto.admin.*</c>. Pair it with the <c>ATProtoNet.Aspire.Hosting</c>
-/// package to run that container locally, or point it at any PDS you hold the
-/// admin password for.
+/// Authenticates in whichever way the server expects — see
+/// <see cref="PdsAdminAuthentication"/>. By default that is the server's admin password
+/// over HTTP Basic, the scheme the reference Bluesky PDS
+/// (<c>ghcr.io/bluesky-social/pds</c>) uses on <c>com.atproto.admin.*</c>; a
+/// <see href="https://tangled.org/tranquil.farm/tranquil-pds">Tranquil PDS</see> has no
+/// such password and is administered through the session of an account it has flagged as
+/// an administrator. Pair it with the <c>ATProtoNet.Aspire.Hosting</c> package to run
+/// either container locally, or point it at any PDS you hold credentials for.
 /// </para>
 /// <para>
 /// The primary use case is letting your application create accounts on its own
@@ -47,6 +51,10 @@ public sealed class PdsAdminClient : IDisposable
     private readonly XrpcClient _adminXrpc;
     private readonly XrpcClient _publicXrpc;
     private readonly ILogger _logger;
+    private readonly string _adminIdentifier;
+    private readonly string _adminPassword;
+    private readonly SemaphoreSlim _sessionLock = new(1, 1);
+    private bool _hasAdminSession;
     private bool _disposed;
 
     /// <summary>
@@ -71,7 +79,9 @@ public sealed class PdsAdminClient : IDisposable
     /// <exception cref="ArgumentException">
     /// Thrown when the effective base address is neither HTTPS nor a loopback address and
     /// <see cref="PdsAdminOptions.AllowInsecureHttp"/> is not set — sending the admin
-    /// password over plaintext HTTP would expose it.
+    /// credentials over plaintext HTTP would expose them — or when
+    /// <see cref="PdsAdminAuthentication.AdminAccount"/> is selected without an
+    /// <see cref="PdsAdminOptions.AdminIdentifier"/>.
     /// </exception>
     public PdsAdminClient(
         PdsAdminOptions options,
@@ -82,6 +92,19 @@ public sealed class PdsAdminClient : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(options.Url);
         ArgumentException.ThrowIfNullOrWhiteSpace(options.AdminPassword);
 
+        if (options.Authentication == PdsAdminAuthentication.AdminAccount
+            && string.IsNullOrWhiteSpace(options.AdminIdentifier))
+        {
+            throw new ArgumentException(
+                "PdsAdminAuthentication.AdminAccount needs the administrator account's handle " +
+                "or DID. Set PdsAdminOptions.AdminIdentifier (configuration key " +
+                "'AtProto:Pds:AdminIdentifier').",
+                nameof(options));
+        }
+
+        Authentication = options.Authentication;
+        _adminIdentifier = options.AdminIdentifier ?? string.Empty;
+        _adminPassword = options.AdminPassword;
         _logger = logger ?? NullLogger<PdsAdminClient>.Instance;
 
         var baseUri = new Uri(options.Url.TrimEnd('/') + "/");
@@ -122,18 +145,22 @@ public sealed class PdsAdminClient : IDisposable
             && !options.AllowInsecureHttp)
         {
             throw new ArgumentException(
-                $"Refusing to send the PDS admin password in the clear to '{PdsUrl}'. " +
+                $"Refusing to send the PDS admin credentials in the clear to '{PdsUrl}'. " +
                 "Use HTTPS, or set PdsAdminOptions.AllowInsecureHttp " +
                 "(configuration key 'AtProto:Pds:AllowInsecureHttp') if the PDS is only " +
                 "reachable over a private network you trust.",
                 nameof(options));
         }
 
-        // Two XRPC clients over one HttpClient: admin endpoints need the Basic header,
-        // while createAccount is an ordinary unauthenticated signup call.
+        // Two XRPC clients over one HttpClient: admin endpoints carry credentials, while
+        // createAccount is an ordinary unauthenticated signup call.
         _adminXrpc = new XrpcClient(_httpClient, _logger, AtProtoJsonDefaults.Options);
-        _adminXrpc.SetAdminCredentials(options.AdminPassword, options.AdminUser);
         _publicXrpc = new XrpcClient(_httpClient, _logger, AtProtoJsonDefaults.Options);
+
+        if (Authentication == PdsAdminAuthentication.AdminPassword)
+        {
+            _adminXrpc.SetAdminCredentials(options.AdminPassword, options.AdminUser);
+        }
 
         Admin = new AdminClient(_adminXrpc, _logger);
         Server = new ServerClient(_adminXrpc, _logger);
@@ -145,16 +172,134 @@ public sealed class PdsAdminClient : IDisposable
     public Uri PdsUrl { get; }
 
     /// <summary>
-    /// The raw <c>com.atproto.admin.*</c> client, authenticated with the admin password.
+    /// How this client authenticates against the server's admin endpoints.
+    /// </summary>
+    public PdsAdminAuthentication Authentication { get; }
+
+    /// <summary>
+    /// The raw <c>com.atproto.admin.*</c> client, carrying the admin credentials.
     /// Use it for endpoints this class does not wrap.
     /// </summary>
+    /// <remarks>
+    /// Under <see cref="PdsAdminAuthentication.AdminAccount"/> the credentials are a
+    /// session token, which this client obtains on demand — call
+    /// <see cref="EnsureAdminSessionAsync"/> before reaching for this directly. The
+    /// methods on <see cref="PdsAdminClient"/> itself do so for you.
+    /// </remarks>
     public AdminClient Admin { get; }
 
     /// <summary>
-    /// The raw <c>com.atproto.server.*</c> client, authenticated with the admin password.
+    /// The raw <c>com.atproto.server.*</c> client, carrying the admin credentials.
     /// Use it for endpoints this class does not wrap.
     /// </summary>
+    /// <inheritdoc cref="Admin" path="/remarks"/>
     public ServerClient Server { get; }
+
+    // ──────────────────────────────────────────────────────────
+    //  Admin authentication
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Signs in as the administrator account when that is how this PDS authenticates
+    /// administrators, and does nothing otherwise.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every method on this class that calls an admin endpoint does this first, so it
+    /// only needs calling before using <see cref="Admin"/> or <see cref="Server"/>
+    /// directly. The session is established once and reused; if the server later rejects
+    /// it, the call that saw the rejection signs in again and retries once.
+    /// </para>
+    /// <para>
+    /// Sign-in is deferred rather than done in the constructor because the administrator
+    /// account may not exist yet — on a freshly started Tranquil PDS, the application
+    /// registers it with <see cref="CreateAccountAsync"/>, and Tranquil flags the first
+    /// account on an empty instance as an administrator.
+    /// </para>
+    /// </remarks>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    public async Task EnsureAdminSessionAsync(CancellationToken cancellationToken = default)
+    {
+        if (Authentication != PdsAdminAuthentication.AdminAccount || _hasAdminSession)
+        {
+            return;
+        }
+
+        await _sessionLock.WaitAsync(cancellationToken);
+
+        try
+        {
+            if (_hasAdminSession)
+            {
+                return;
+            }
+
+            // Sets the tokens on _adminXrpc, which is the client this one is bound to.
+            var session = await Server.CreateSessionAsync(
+                _adminIdentifier, _adminPassword, cancellationToken: cancellationToken);
+
+            _hasAdminSession = true;
+            _logger.LogDebug("Signed in as PDS administrator {Did}", session.Did);
+        }
+        finally
+        {
+            _sessionLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Runs an admin call with a session in place, signing in again and retrying once if
+    /// the server rejects the one it had.
+    /// </summary>
+    /// <remarks>
+    /// Access tokens expire, and this client is long-lived by design — registered as a
+    /// typed <see cref="HttpClient"/>, it may outlive several of them. Re-authenticating
+    /// on rejection is cheaper than tracking expiry, and is a no-op for a PDS
+    /// authenticated by password, whose credentials never go stale.
+    /// </remarks>
+    private async Task<T> AdminCallAsync<T>(
+        Func<CancellationToken, Task<T>> call,
+        CancellationToken cancellationToken)
+    {
+        await EnsureAdminSessionAsync(cancellationToken);
+
+        try
+        {
+            return await call(cancellationToken);
+        }
+        catch (AtProtoHttpException ex) when (ShouldReauthenticate(ex))
+        {
+            _logger.LogDebug("PDS administrator session rejected; signing in again");
+            InvalidateAdminSession();
+            await EnsureAdminSessionAsync(cancellationToken);
+            return await call(cancellationToken);
+        }
+    }
+
+    /// <inheritdoc cref="AdminCallAsync{T}"/>
+    private async Task AdminCallAsync(
+        Func<CancellationToken, Task> call,
+        CancellationToken cancellationToken)
+    {
+        await AdminCallAsync<object?>(
+            async ct =>
+            {
+                await call(ct);
+                return null;
+            },
+            cancellationToken);
+    }
+
+    private bool ShouldReauthenticate(AtProtoHttpException exception) =>
+        Authentication == PdsAdminAuthentication.AdminAccount
+        && _hasAdminSession
+        && exception.StatusCode == HttpStatusCode.Unauthorized;
+
+    private void InvalidateAdminSession()
+    {
+        _hasAdminSession = false;
+        _adminXrpc.ClearTokens();
+    }
 
     // ──────────────────────────────────────────────────────────
     //  Server
@@ -186,7 +331,9 @@ public sealed class PdsAdminClient : IDisposable
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(useCount, 1);
 
-        var response = await Server.CreateInviteCodeAsync(useCount, forAccount, cancellationToken);
+        var response = await AdminCallAsync(
+            ct => Server.CreateInviteCodeAsync(useCount, forAccount, ct), cancellationToken);
+
         return response.Code;
     }
 
@@ -206,14 +353,15 @@ public sealed class PdsAdminClient : IDisposable
         ArgumentOutOfRangeException.ThrowIfLessThan(codeCount, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(useCount, 1);
 
-        var response = await Server.CreateInviteCodesAsync(
-            new CreateInviteCodesRequest
-            {
-                CodeCount = codeCount,
-                UseCount = useCount,
-                ForAccounts = forAccounts?.ToList(),
-            },
-            cancellationToken);
+        var request = new CreateInviteCodesRequest
+        {
+            CodeCount = codeCount,
+            UseCount = useCount,
+            ForAccounts = forAccounts?.ToList(),
+        };
+
+        var response = await AdminCallAsync(
+            ct => Server.CreateInviteCodesAsync(request, ct), cancellationToken);
 
         return response.Codes.SelectMany(c => c.Codes).ToList();
     }
@@ -226,6 +374,13 @@ public sealed class PdsAdminClient : IDisposable
     /// Create an account on the PDS, minting an invite code first when the server
     /// requires one and the caller did not supply it.
     /// </summary>
+    /// <remarks>
+    /// Signup itself is a public endpoint, so this works before the client has any admin
+    /// authority — which is what makes it usable to register the administrator account
+    /// on a PDS that has none yet. Minting an invite code does need that authority, so a
+    /// server that requires invites has to be given a code explicitly until an
+    /// administrator exists.
+    /// </remarks>
     /// <param name="request">The account to create.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>
@@ -276,7 +431,7 @@ public sealed class PdsAdminClient : IDisposable
     public Task<AccountInfo> GetAccountAsync(string did, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(did);
-        return Admin.GetAccountInfoAsync(did, cancellationToken);
+        return AdminCallAsync(ct => Admin.GetAccountInfoAsync(did, ct), cancellationToken);
     }
 
     /// <summary>
@@ -287,7 +442,7 @@ public sealed class PdsAdminClient : IDisposable
     public Task DeleteAccountAsync(string did, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(did);
-        return Admin.DeleteAccountAsync(did, cancellationToken);
+        return AdminCallAsync(ct => Admin.DeleteAccountAsync(did, ct), cancellationToken);
     }
 
     /// <summary>
@@ -303,13 +458,13 @@ public sealed class PdsAdminClient : IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(did);
 
-        return Admin.UpdateSubjectStatusAsync(
-            new UpdateSubjectStatusRequest
-            {
-                Subject = CreateRepoRef(did),
-                Takedown = new SubjectStatusDetail { Applied = true, Ref = reference },
-            },
-            cancellationToken);
+        var request = new UpdateSubjectStatusRequest
+        {
+            Subject = CreateRepoRef(did),
+            Takedown = new SubjectStatusDetail { Applied = true, Ref = reference },
+        };
+
+        return AdminCallAsync(ct => Admin.UpdateSubjectStatusAsync(request, ct), cancellationToken);
     }
 
     /// <summary>
@@ -321,13 +476,13 @@ public sealed class PdsAdminClient : IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(did);
 
-        return Admin.UpdateSubjectStatusAsync(
-            new UpdateSubjectStatusRequest
-            {
-                Subject = CreateRepoRef(did),
-                Takedown = new SubjectStatusDetail { Applied = false },
-            },
-            cancellationToken);
+        var request = new UpdateSubjectStatusRequest
+        {
+            Subject = CreateRepoRef(did),
+            Takedown = new SubjectStatusDetail { Applied = false },
+        };
+
+        return AdminCallAsync(ct => Admin.UpdateSubjectStatusAsync(request, ct), cancellationToken);
     }
 
     /// <summary>
@@ -343,7 +498,7 @@ public sealed class PdsAdminClient : IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(did);
         ArgumentException.ThrowIfNullOrWhiteSpace(handle);
-        return Admin.UpdateAccountHandleAsync(did, handle, cancellationToken);
+        return AdminCallAsync(ct => Admin.UpdateAccountHandleAsync(did, handle, ct), cancellationToken);
     }
 
     /// <summary>
@@ -359,7 +514,7 @@ public sealed class PdsAdminClient : IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(account);
         ArgumentException.ThrowIfNullOrWhiteSpace(email);
-        return Admin.UpdateAccountEmailAsync(account, email, cancellationToken);
+        return AdminCallAsync(ct => Admin.UpdateAccountEmailAsync(account, email, ct), cancellationToken);
     }
 
     /// <summary>
@@ -375,7 +530,7 @@ public sealed class PdsAdminClient : IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(did);
         ArgumentException.ThrowIfNullOrWhiteSpace(password);
-        return Admin.UpdateAccountPasswordAsync(did, password, cancellationToken);
+        return AdminCallAsync(ct => Admin.UpdateAccountPasswordAsync(did, password, ct), cancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -412,6 +567,7 @@ public sealed class PdsAdminClient : IDisposable
 
         _adminXrpc.Dispose();
         _publicXrpc.Dispose();
+        _sessionLock.Dispose();
 
         if (_ownsHttpClient)
         {

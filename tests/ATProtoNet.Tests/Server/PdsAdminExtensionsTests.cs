@@ -139,4 +139,62 @@ public class PdsAdminExtensionsTests
 
         Assert.Equal("https://pds.example.com/", client.PdsUrl.ToString());
     }
+
+    [Fact]
+    public void AddAtProtoPdsAdmin_BindsAccountAuthentication()
+    {
+        var builder = Host.CreateApplicationBuilder();
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["AtProto:Pds:Url"] = "https://pds.example.com",
+            ["AtProto:Pds:Authentication"] = "AdminAccount",
+            ["AtProto:Pds:AdminIdentifier"] = "pdsadmin.pds.example.com",
+            ["AtProto:Pds:AdminPassword"] = "hunter2",
+        });
+
+        // The shape WithAtProtoTranquilPds() produces: a PDS with no server-wide admin
+        // password, administered through an account's session.
+        builder.AddAtProtoPdsAdmin();
+
+        using var host = builder.Build();
+        var client = host.Services.GetRequiredService<PdsAdminClient>();
+
+        Assert.Equal(PdsAdminAuthentication.AdminAccount, client.Authentication);
+    }
+
+    [Fact]
+    public void AddAtProtoPdsAdmin_DefaultsToAdminPasswordAuthentication()
+    {
+        var builder = Host.CreateApplicationBuilder();
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["AtProto:Pds:Url"] = "https://pds.example.com",
+            ["AtProto:Pds:AdminPassword"] = "hunter2",
+        });
+
+        builder.AddAtProtoPdsAdmin();
+
+        using var host = builder.Build();
+        var client = host.Services.GetRequiredService<PdsAdminClient>();
+
+        Assert.Equal(PdsAdminAuthentication.AdminPassword, client.Authentication);
+    }
+
+    [Fact]
+    public void AddAtProtoPdsAdmin_AccountAuthenticationWithoutIdentifier_ThrowsWhileTheHostIsBuilt()
+    {
+        var builder = Host.CreateApplicationBuilder();
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["AtProto:Pds:Url"] = "https://pds.example.com",
+            ["AtProto:Pds:Authentication"] = "AdminAccount",
+            ["AtProto:Pds:AdminPassword"] = "hunter2",
+        });
+
+        // Naming an account but not saying which one would otherwise surface as an
+        // authentication failure on the first admin call, long after startup.
+        var ex = Assert.Throws<InvalidOperationException>(() => builder.AddAtProtoPdsAdmin());
+
+        Assert.Contains("AtProto:Pds:AdminIdentifier", ex.Message);
+    }
 }

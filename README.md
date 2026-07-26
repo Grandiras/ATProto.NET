@@ -19,7 +19,7 @@ The SDK is in `0.*` because, while it's near feature-complete, it's mostly vibe-
 - **Custom Lexicon support** — `RecordCollection<T>` for typed CRUD on your own record schemas, plus `QueryAsync<T>` / `ProcedureAsync<T>` for custom XRPC methods.
 - **OAuth & identity** — full AT Protocol OAuth (DPoP, PAR, PKCE), `did:plc` / `did:web` resolution, type-safe `Did` / `Handle` / `AtUri` / `Nsid` / `Tid` / `RecordKey` / `Cid`.
 - **Bluesky, Chat, Ozone** — `app.bsky.*` (actors, feeds, graph, notifications, rich text, video), `chat.bsky.*` (conversations, DMs), `tools.ozone.*` (moderation).
-- **Hosting** — ASP.NET Core DI + JWT auth, Blazor components with cookie-based OAuth, .NET Aspire integration, and a **managed PDS** — run the official Bluesky PDS container via `ATProtoNet.Aspire.Hosting` and administer it with `PdsAdminClient`.
+- **Hosting** — ASP.NET Core DI + JWT auth, Blazor components with cookie-based OAuth, .NET Aspire integration, and a **managed PDS** — run the official Bluesky PDS or [Tranquil PDS](https://tangled.org/tranquil.farm/tranquil-pds) container via `ATProtoNet.Aspire.Hosting` and administer it with `PdsAdminClient`.
 - **Streaming** — typed firehose consumer with CID/signature verification, plus a Jetstream consumer with server-side collection/DID filtering; both with reconnect and cursor persistence.
 - **Repository internals** — MST (including covering proofs), CAR v1 read *and* write, DAG-CBOR, signed commit objects, `did:plc` operation building, PLC directory client, P-256/K-256 crypto.
 - **Lexicon tooling** — `atproto-lexgen` `dotnet tool` for bidirectional Lexicon JSON ↔ C#, schema diffing, and publishing.

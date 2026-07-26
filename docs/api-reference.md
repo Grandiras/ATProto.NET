@@ -277,17 +277,20 @@ Creates authenticated `AtProtoClient` instances from stored OAuth tokens. See [s
 
 ## PdsAdminClient
 
-Administers a PDS you operate, authenticating with the server's admin password over
-HTTP Basic. See [managed-pds.md](managed-pds.md).
+Administers a PDS you operate. Authenticates with the server's admin password over HTTP
+Basic (the reference PDS), or as an administrator account (Tranquil PDS). See
+[managed-pds.md](managed-pds.md).
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `PdsUrl` | `Uri` | The PDS being administered |
+| `Authentication` | `PdsAdminAuthentication` | `AdminPassword` (HTTP Basic) or `AdminAccount` (session) |
 | `Admin` | `AdminClient` | Raw `com.atproto.admin.*`, admin-authenticated |
 | `Server` | `ServerClient` | Raw `com.atproto.server.*`, admin-authenticated |
 
 | Method | Description |
 |--------|-------------|
+| `EnsureAdminSessionAsync(ct?)` | Sign in as the administrator account, if that is how the server authenticates them; needed only before using `Admin` / `Server` directly |
 | `DescribeServerAsync(ct?)` | Server DID, handle domains, invite policy |
 | `CreateInviteCodeAsync(useCount?, forAccount?, ct?)` | Mint one invite code |
 | `CreateInviteCodesAsync(codeCount, useCount?, forAccounts?, ct?)` | Mint several invite codes |
