@@ -135,7 +135,7 @@
     /// </summary>
     [Parameter] public string? SubtitleText { get; set; }
 
-    /// <summary>Label for the handle input field. Default: "Handle".</summary>
+    /// <summary>Label for the handle input field. Default: "Username".</summary>
     [Parameter] public string? HandleLabel { get; set; }
 
     /// <summary>Placeholder for the handle input field. Default: "alice.bsky.social".</summary>
@@ -143,7 +143,7 @@
 
     /// <summary>
     /// Hint text below the handle input.
-    /// Default: "Your Atmosphere account handle — your PDS is detected automatically.".
+    /// Default: "Your Atmosphere account username — your PDS is detected automatically.".
     /// </summary>
     [Parameter] public string? HandleHint { get; set; }
 
@@ -161,10 +161,10 @@
 
     private string? EffectiveHeadingText => Resolve(HeadingText, nameof(HeadingText), null);
     private string? EffectiveSubtitleText => Resolve(SubtitleText, nameof(SubtitleText), null);
-    private string EffectiveHandleLabel => Resolve(HandleLabel, nameof(HandleLabel), "Handle")!;
+    private string EffectiveHandleLabel => Resolve(HandleLabel, nameof(HandleLabel), "Username")!;
     private string EffectiveHandlePlaceholder => Resolve(HandlePlaceholder, nameof(HandlePlaceholder), "alice.bsky.social")!;
     private string EffectiveHandleHint => Resolve(HandleHint, nameof(HandleHint),
-        "Your Atmosphere account handle — your PDS is detected automatically.")!;
+        "Your Atmosphere account username — your PDS is detected automatically.")!;
     private string EffectivePdsCheckboxLabel => Resolve(PdsCheckboxLabel, nameof(PdsCheckboxLabel), "Specify PDS manually")!;
     private string EffectivePdsHint => Resolve(PdsHint, nameof(PdsHint),
         "Skip automatic PDS discovery and connect directly.")!;

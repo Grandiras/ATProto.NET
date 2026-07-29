@@ -75,7 +75,7 @@ The `<LoginForm>` component renders a ready-to-use login form that submits to th
 ```
 
 The form includes:
-- **Handle input** — user's AT Protocol handle
+- **Handle input** — the user's AT Protocol handle, labelled "Username" by default
 - **PDS option** — optional checkbox to specify PDS URL manually (skips auto-discovery)
 - **Error display** — automatically shows errors from failed OAuth callbacks
 - **Submit button** — triggers the OAuth flow via the mapped endpoint
@@ -90,16 +90,20 @@ The form includes:
 | `ShowPdsOption` | `bool` | `true` | Show "Specify PDS manually" checkbox |
 | `HeadingText` | `string?` | — | Optional heading rendered above the form |
 | `SubtitleText` | `string?` | — | Optional subtitle rendered above the form |
-| `HandleLabel` | `string?` | `"Handle"` | Label for the handle input |
+| `HandleLabel` | `string?` | `"Username"` | Label for the handle input |
 | `HandlePlaceholder` | `string?` | `"alice.bsky.social"` | Placeholder text |
-| `HandleHint` | `string?` | `"Your Atmosphere account handle — your PDS is detected automatically."` | Hint text below input |
+| `HandleHint` | `string?` | `"Your Atmosphere account username — your PDS is detected automatically."` | Hint text below input |
 | `PdsCheckboxLabel` | `string?` | `"Specify PDS manually"` | PDS checkbox label |
 | `PdsHint` | `string?` | `"Skip automatic PDS discovery and connect directly."` | PDS hint text |
 | `ButtonText` | `string?` | `"Sign in with your Atmosphere account"` | Submit button text |
 
 All labels are customizable — useful for localization. Default copy uses
 "Atmosphere account" terminology (the community-facing umbrella term for the
-AT Protocol ecosystem). Override any parameter to use different wording.
+AT Protocol ecosystem) and calls the identifier field a **username**, the word
+every other sign-in form on the internet uses. The parameters, the `handle`
+query parameter, and the `atproto-handle` input id keep the protocol's
+vocabulary — only the copy a person reads changed. Override any parameter to
+use different wording.
 
 #### Translations
 
