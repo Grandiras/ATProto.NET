@@ -153,28 +153,6 @@ public static class AtProtoPdsHostingExtensions
     }
 
     /// <summary>
-    /// Replaces one of the auto-created parameters with a caller-supplied value, dropping
-    /// the original from the application model.
-    /// </summary>
-    /// <remarks>
-    /// The parameters are created up front, before any <c>With*</c> override can run. Left
-    /// in the model, a superseded one still appears in a published manifest as an input,
-    /// so a deployment would be prompted for a value nothing reads.
-    /// </remarks>
-    private static void Replace(
-        IResourceBuilder<AtProtoPdsContainerResource> builder,
-        object current,
-        Action<AtProtoPdsContainerResource> assign)
-    {
-        if (current is ParameterResource superseded)
-        {
-            builder.ApplicationBuilder.Resources.Remove(superseded);
-        }
-
-        assign(builder.Resource);
-    }
-
-    /// <summary>
     /// Creates the parameter backing one of the PDS's hex-encoded secrets.
     /// </summary>
     /// <remarks>
@@ -274,7 +252,7 @@ public static class AtProtoPdsHostingExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentException.ThrowIfNullOrEmpty(hostname);
 
-        Replace(builder, builder.Resource.Hostname, r => r.Hostname = hostname);
+        PdsParameterOverrides.Replace(builder, builder.Resource.Hostname, r => r.Hostname = hostname);
         return builder;
     }
 
@@ -291,7 +269,7 @@ public static class AtProtoPdsHostingExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(hostname);
 
-        Replace(builder, builder.Resource.Hostname, r => r.Hostname = hostname.Resource);
+        PdsParameterOverrides.Replace(builder, builder.Resource.Hostname, r => r.Hostname = hostname.Resource);
         return builder;
     }
 
@@ -327,7 +305,7 @@ public static class AtProtoPdsHostingExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(adminPassword);
 
-        Replace(builder, builder.Resource.AdminPasswordParameter, r => r.AdminPasswordParameter = adminPassword.Resource);
+        PdsParameterOverrides.Replace(builder, builder.Resource.AdminPasswordParameter, r => r.AdminPasswordParameter = adminPassword.Resource);
         return builder;
     }
 
@@ -344,7 +322,7 @@ public static class AtProtoPdsHostingExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(jwtSecret);
 
-        Replace(builder, builder.Resource.JwtSecretParameter, r => r.JwtSecretParameter = jwtSecret.Resource);
+        PdsParameterOverrides.Replace(builder, builder.Resource.JwtSecretParameter, r => r.JwtSecretParameter = jwtSecret.Resource);
         return builder;
     }
 
@@ -363,7 +341,7 @@ public static class AtProtoPdsHostingExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(plcRotationKey);
 
-        Replace(builder, builder.Resource.PlcRotationKeyParameter, r => r.PlcRotationKeyParameter = plcRotationKey.Resource);
+        PdsParameterOverrides.Replace(builder, builder.Resource.PlcRotationKeyParameter, r => r.PlcRotationKeyParameter = plcRotationKey.Resource);
         return builder;
     }
 

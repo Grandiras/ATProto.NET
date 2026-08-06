@@ -1,5 +1,4 @@
 using ATProtoNet.Http;
-using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Lexicon.Chat.Bsky.Convo;
 
@@ -14,12 +13,10 @@ namespace ATProtoNet.Lexicon.Chat.Bsky.Convo;
 public sealed class ConvoClient
 {
     private readonly XrpcClient _xrpc;
-    private readonly ILogger _logger;
 
-    internal ConvoClient(XrpcClient xrpc, ILogger logger)
+    internal ConvoClient(XrpcClient xrpc)
     {
         _xrpc = xrpc;
-        _logger = logger;
     }
 
     // ──────────────────────────────────────────────────────────
@@ -34,13 +31,11 @@ public sealed class ConvoClient
         string? status = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-            ["readOnly"] = readOnly?.ToString()?.ToLowerInvariant(),
-            ["status"] = status,
-        };
+        var parameters = new XrpcParams()
+            .Add("limit", limit)
+            .Add("cursor", cursor)
+            .Add("readOnly", readOnly)
+            .Add("status", status);
 
         return _xrpc.QueryAsync<ListConvosResponse>(
             "chat.bsky.convo.listConvos", ServiceProxy.BskyChatHeader, parameters, cancellationToken);
@@ -53,10 +48,8 @@ public sealed class ConvoClient
         string convoId,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["convoId"] = convoId,
-        };
+        var parameters = new XrpcParams()
+            .Add("convoId", convoId);
 
         return _xrpc.QueryAsync<GetConvoResponse>(
             "chat.bsky.convo.getConvo", ServiceProxy.BskyChatHeader, parameters, cancellationToken);
@@ -69,10 +62,8 @@ public sealed class ConvoClient
         IReadOnlyList<string> members,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["members"] = string.Join(",", members),
-        };
+        var parameters = new XrpcParams()
+            .AddAll("members", members);
 
         return _xrpc.QueryAsync<GetConvoForMembersResponse>(
             "chat.bsky.convo.getConvoForMembers", ServiceProxy.BskyChatHeader, parameters, cancellationToken);
@@ -85,10 +76,8 @@ public sealed class ConvoClient
         IReadOnlyList<string> members,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["members"] = string.Join(",", members),
-        };
+        var parameters = new XrpcParams()
+            .AddAll("members", members);
 
         return _xrpc.QueryAsync<GetConvoAvailabilityResponse>(
             "chat.bsky.convo.getConvoAvailability", ServiceProxy.BskyChatHeader, parameters, cancellationToken);
@@ -105,12 +94,10 @@ public sealed class ConvoClient
         string convoId, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["convoId"] = convoId,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("convoId", convoId)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetMessagesResponse>(
             "chat.bsky.convo.getMessages", ServiceProxy.BskyChatHeader, parameters, cancellationToken);
@@ -308,10 +295,8 @@ public sealed class ConvoClient
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetLogResponse>(
             "chat.bsky.convo.getLog", ServiceProxy.BskyChatHeader, parameters, cancellationToken);

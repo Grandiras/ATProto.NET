@@ -1,5 +1,4 @@
 using ATProtoNet.Http;
-using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Sync;
 
@@ -10,12 +9,10 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Sync;
 public sealed class SyncClient
 {
     private readonly XrpcClient _xrpc;
-    private readonly ILogger _logger;
 
-    internal SyncClient(XrpcClient xrpc, ILogger logger)
+    internal SyncClient(XrpcClient xrpc)
     {
         _xrpc = xrpc;
-        _logger = logger;
     }
 
     /// <summary>
@@ -26,7 +23,7 @@ public sealed class SyncClient
     public Task<GetLatestCommitResponse> GetLatestCommitAsync(
         string did, CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?> { ["did"] = did };
+        var parameters = new XrpcParams().Add("did", did);
         return _xrpc.QueryAsync<GetLatestCommitResponse>(
             "com.atproto.sync.getLatestCommit", parameters, cancellationToken);
     }
@@ -40,11 +37,9 @@ public sealed class SyncClient
     public async Task<Stream> GetBlobAsync(
         string did, string cid, CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["did"] = did,
-            ["cid"] = cid,
-        };
+        var parameters = new XrpcParams()
+            .Add("did", did)
+            .Add("cid", cid);
 
         var result = await _xrpc.DownloadBlobAsync(
             "com.atproto.sync.getBlob", parameters, cancellationToken);
@@ -60,11 +55,9 @@ public sealed class SyncClient
     public async Task<Stream> GetRepoAsync(
         string did, string? since = null, CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["did"] = did,
-            ["since"] = since,
-        };
+        var parameters = new XrpcParams()
+            .Add("did", did)
+            .Add("since", since);
 
         var result = await _xrpc.DownloadBlobAsync(
             "com.atproto.sync.getRepo", parameters, cancellationToken);
@@ -86,13 +79,11 @@ public sealed class SyncClient
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["did"] = did,
-            ["since"] = since,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("did", did)
+            .Add("since", since)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<ListBlobsResponse>(
             "com.atproto.sync.listBlobs", parameters, cancellationToken);
@@ -109,11 +100,9 @@ public sealed class SyncClient
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<ListReposResponse>(
             "com.atproto.sync.listRepos", parameters, cancellationToken);
@@ -150,7 +139,7 @@ public sealed class SyncClient
     public Task<GetRepoStatusResponse> GetRepoStatusAsync(
         string did, CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?> { ["did"] = did };
+        var parameters = new XrpcParams().Add("did", did);
         return _xrpc.QueryAsync<GetRepoStatusResponse>(
             "com.atproto.sync.getRepoStatus", parameters, cancellationToken);
     }
@@ -167,11 +156,9 @@ public sealed class SyncClient
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<ListHostsResponse>(
             "com.atproto.sync.listHosts", parameters, cancellationToken);
@@ -185,7 +172,7 @@ public sealed class SyncClient
     public Task<GetHostStatusResponse> GetHostStatusAsync(
         string hostname, CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?> { ["hostname"] = hostname };
+        var parameters = new XrpcParams().Add("hostname", hostname);
         return _xrpc.QueryAsync<GetHostStatusResponse>(
             "com.atproto.sync.getHostStatus", parameters, cancellationToken);
     }
@@ -204,12 +191,10 @@ public sealed class SyncClient
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["collection"] = collection,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("collection", collection)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<ListReposByCollectionResponse>(
             "com.atproto.sync.listReposByCollection", parameters, cancellationToken);

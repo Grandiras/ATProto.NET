@@ -21,7 +21,7 @@ public class ConvoClientTests : IDisposable
         };
         _xrpc = new XrpcClient(_httpClient, NullLogger.Instance);
         _xrpc.SetTokens("test-token");
-        _convo = new ConvoClient(_xrpc, NullLogger.Instance);
+        _convo = new ConvoClient(_xrpc);
     }
 
     [Fact]

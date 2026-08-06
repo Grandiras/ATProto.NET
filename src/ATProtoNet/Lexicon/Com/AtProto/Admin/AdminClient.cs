@@ -1,6 +1,5 @@
 using System.Text.Json;
 using ATProtoNet.Http;
-using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Admin;
 
@@ -11,12 +10,10 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Admin;
 public sealed class AdminClient
 {
     private readonly XrpcClient _xrpc;
-    private readonly ILogger _logger;
 
-    internal AdminClient(XrpcClient xrpc, ILogger logger)
+    internal AdminClient(XrpcClient xrpc)
     {
         _xrpc = xrpc;
-        _logger = logger;
     }
 
     /// <summary>
@@ -25,7 +22,7 @@ public sealed class AdminClient
     public Task<AccountInfo> GetAccountInfoAsync(
         string did, CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?> { ["did"] = did };
+        var parameters = new XrpcParams().Add("did", did);
         return _xrpc.QueryAsync<AccountInfo>(
             "com.atproto.admin.getAccountInfo", parameters, cancellationToken);
     }
@@ -36,18 +33,9 @@ public sealed class AdminClient
     public Task<GetAccountInfosResponse> GetAccountInfosAsync(
         IEnumerable<string> dids, CancellationToken cancellationToken = default)
     {
-        var parameters = dids
-            .Select(d => new KeyValuePair<string, string?>("dids", d))
-            .ToList();
-
-        // XRPC supports repeated query params with same key for arrays.
-        // We pass a comma-joined value that the server typically supports.
-
-        // For array parameters in XRPC, pass multiple values for same key
+        var parameters = new XrpcParams().AddAll("dids", dids);
         return _xrpc.QueryAsync<GetAccountInfosResponse>(
-            "com.atproto.admin.getAccountInfos",
-            new Dictionary<string, string?> { ["dids"] = string.Join(",", dids) },
-            cancellationToken);
+            "com.atproto.admin.getAccountInfos", parameters, cancellationToken);
     }
 
     /// <summary>
@@ -57,12 +45,10 @@ public sealed class AdminClient
         string? did = null, string? uri = null, string? blob = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["did"] = did,
-            ["uri"] = uri,
-            ["blob"] = blob,
-        };
+        var parameters = new XrpcParams()
+            .Add("did", did)
+            .Add("uri", uri)
+            .Add("blob", blob);
 
         return _xrpc.QueryAsync<GetSubjectStatusResponse>(
             "com.atproto.admin.getSubjectStatus", parameters, cancellationToken);
@@ -178,12 +164,10 @@ public sealed class AdminClient
         string? sort = null, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["sort"] = sort,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("sort", sort)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetInviteCodesResponse>(
             "com.atproto.admin.getInviteCodes", parameters, cancellationToken);

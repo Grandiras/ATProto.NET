@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using ATProtoNet.Http;
 using ATProtoNet.Lexicon.App.Bsky.Labeler;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -21,7 +22,7 @@ public class LabelerClientTests : IDisposable
         };
         _xrpc = new XrpcClient(_httpClient, NullLogger.Instance);
         _xrpc.SetTokens("test-token");
-        _labeler = new LabelerClient(_xrpc, NullLogger.Instance);
+        _labeler = new LabelerClient(_xrpc);
     }
 
     [Fact]
@@ -39,10 +40,15 @@ public class LabelerClientTests : IDisposable
             detailed: true);
 
         Assert.Contains("/xrpc/app.bsky.labeler.getServices", capturedUrl);
-        Assert.Contains("did%3aplc%3alabeler1", capturedUrl!, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("detailed=true", capturedUrl!);
         Assert.NotNull(result);
         Assert.Empty(result.Views);
+
+        // XRPC arrays travel as repeated keys, never as one comma-joined value.
+        Assert.Equal(2, Regex.Matches(capturedUrl!, "dids=", RegexOptions.IgnoreCase).Count);
+        Assert.Contains("dids=did%3aplc%3alabeler1", capturedUrl!, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("dids=did%3aplc%3alabeler2", capturedUrl!, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("%2C", capturedUrl!, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

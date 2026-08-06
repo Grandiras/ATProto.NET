@@ -1,5 +1,4 @@
 using ATProtoNet.Http;
-using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Moderation;
 
@@ -9,12 +8,10 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Moderation;
 public sealed class ModerationClient
 {
     private readonly XrpcClient _xrpc;
-    private readonly ILogger _logger;
 
-    internal ModerationClient(XrpcClient xrpc, ILogger logger)
+    internal ModerationClient(XrpcClient xrpc)
     {
         _xrpc = xrpc;
-        _logger = logger;
     }
 
     /// <summary>

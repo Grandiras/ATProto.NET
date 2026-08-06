@@ -1,5 +1,4 @@
 using ATProtoNet.Http;
-using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Identity;
 
@@ -10,12 +9,10 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Identity;
 public sealed class IdentityClient
 {
     private readonly XrpcClient _xrpc;
-    private readonly ILogger _logger;
 
-    internal IdentityClient(XrpcClient xrpc, ILogger logger)
+    internal IdentityClient(XrpcClient xrpc)
     {
         _xrpc = xrpc;
-        _logger = logger;
     }
 
     /// <summary>
@@ -26,7 +23,7 @@ public sealed class IdentityClient
     public Task<ResolveHandleResponse> ResolveHandleAsync(
         string handle, CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?> { ["handle"] = handle };
+        var parameters = new XrpcParams().Add("handle", handle);
         return _xrpc.QueryAsync<ResolveHandleResponse>(
             "com.atproto.identity.resolveHandle", parameters, cancellationToken);
     }

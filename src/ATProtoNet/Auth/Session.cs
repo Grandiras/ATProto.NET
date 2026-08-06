@@ -66,6 +66,30 @@ public sealed class Session
     /// </summary>
     [JsonPropertyName("status")]
     public string? Status { get; init; }
+
+    /// <summary>
+    /// Returns a copy of this session with the given fields replaced. Every argument
+    /// left null keeps the current value, so a refresh that only rotates tokens does
+    /// not have to restate the account metadata it is not touching.
+    /// </summary>
+    public Session With(
+        string? handle = null,
+        string? accessJwt = null,
+        string? refreshJwt = null,
+        string? email = null,
+        bool? emailConfirmed = null) => new()
+        {
+            Did = Did,
+            Handle = handle ?? Handle,
+            AccessJwt = accessJwt ?? AccessJwt,
+            RefreshJwt = refreshJwt ?? RefreshJwt,
+            Email = email ?? Email,
+            EmailConfirmed = emailConfirmed ?? EmailConfirmed,
+            EmailAuthFactor = EmailAuthFactor,
+            DidDoc = DidDoc,
+            Active = Active,
+            Status = Status,
+        };
 }
 
 /// <summary>

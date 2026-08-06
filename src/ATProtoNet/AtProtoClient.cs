@@ -72,10 +72,8 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     private OAuthClient? _oauthClient;
     private IAtProtoTokenStore? _oauthTokenStore;
     private Timer? _refreshTimer;
-    // Marked volatile so the timer callback (running on a thread-pool thread)
-    // sees Dispose's _disposed=true write without a memory barrier, and so the
-    // post-lock recheck inside OnRefreshTimerElapsed is reliable on weakly-
-    // ordered CPUs (ARM/Apple Silicon).
+    // Volatile so the thread-pool timer callback observes Dispose's write
+    // without a barrier on weakly-ordered CPUs.
     private volatile bool _disposed;
 
     // ──────────────────────────────────────────────────────────
@@ -122,35 +120,27 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
         _xrpc = new XrpcClient(_httpClient, _logger, AtProtoJsonDefaults.Options);
 
-        // Initialize sub-clients
         Server = new ServerClient(_xrpc, _logger);
-        Repo = new RepoClient(_xrpc, _logger);
-        Identity = new IdentityClient(_xrpc, _logger);
-        Sync = new SyncClient(_xrpc, _logger);
-        Admin = new AdminClient(_xrpc, _logger);
-        Label = new LabelClient(_xrpc, _logger);
-        Moderation = new ModerationClient(_xrpc, _logger);
+        Repo = new RepoClient(_xrpc);
+        Identity = new IdentityClient(_xrpc);
+        Sync = new SyncClient(_xrpc);
+        Admin = new AdminClient(_xrpc);
+        Label = new LabelClient(_xrpc);
+        Moderation = new ModerationClient(_xrpc);
 
-        // Bluesky sub-clients
-        var bskyLogger = _logger;
         Bsky = new BlueskyClients(
-            new ActorClient(_xrpc, bskyLogger),
-            new FeedClient(_xrpc, bskyLogger),
-            new GraphClient(_xrpc, bskyLogger),
-            new LabelerClient(_xrpc, bskyLogger),
-            new NotificationClient(_xrpc, bskyLogger),
-            new VideoClient(_xrpc, bskyLogger));
+            new ActorClient(_xrpc),
+            new FeedClient(_xrpc),
+            new GraphClient(_xrpc),
+            new LabelerClient(_xrpc),
+            new NotificationClient(_xrpc),
+            new VideoClient(_xrpc));
 
         // Chat sub-clients (automatically proxied to chat service)
-        Chat = new ChatClients(
-            new ConvoClient(_xrpc, _logger),
-            new ChatActorClient(_xrpc, _logger));
+        Chat = new ChatClients(new ConvoClient(_xrpc), new ChatActorClient(_xrpc));
 
-        // Ozone moderation service
-        Ozone = new OzoneClient(_xrpc, _logger);
-
-        // Standard.site — long-form publishing
-        Site = new StandardSiteClient(_xrpc, _logger, Repo);
+        Ozone = new OzoneClient(_xrpc);
+        Site = new StandardSiteClient(_xrpc, Repo);
 
         if (options.AutoRefreshSession)
             _refreshTimer = new Timer(OnRefreshTimerElapsed, null, Timeout.Infinite, Timeout.Infinite);
@@ -206,14 +196,8 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <exception cref="InvalidOperationException">
     /// Thrown when no relay URL is configured (set <see cref="AtProtoClientOptions.RelayUrl"/>).
     /// </exception>
-    public Streaming.FirehoseClient CreateFirehoseClient()
-    {
-        if (string.IsNullOrEmpty(_relayUrl))
-            throw new InvalidOperationException(
-                "No relay URL configured. Set AtProtoClientOptions.RelayUrl or use AtProtoClientBuilder.WithRelayUrl().");
-
-        return new Streaming.FirehoseClient(_relayUrl, _logger);
-    }
+    public Streaming.FirehoseClient CreateFirehoseClient() =>
+        new(RequireRelayUrl(), _logger);
 
     /// <summary>
     /// Create a new <see cref="Streaming.FirehoseConsumer"/> using the configured relay URL.
@@ -227,14 +211,14 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// </exception>
     public Streaming.FirehoseConsumer CreateFirehoseConsumer(
         TimeSpan? reconnectDelay = null,
-        int maxReconnectAttempts = 10)
-    {
-        if (string.IsNullOrEmpty(_relayUrl))
-            throw new InvalidOperationException(
-                "No relay URL configured. Set AtProtoClientOptions.RelayUrl or use AtProtoClientBuilder.WithRelayUrl().");
+        int maxReconnectAttempts = 10) =>
+        new(RequireRelayUrl(), _logger, reconnectDelay, maxReconnectAttempts);
 
-        return new Streaming.FirehoseConsumer(_relayUrl, _logger, reconnectDelay, maxReconnectAttempts);
-    }
+    private string RequireRelayUrl() =>
+        string.IsNullOrEmpty(_relayUrl)
+            ? throw new InvalidOperationException(
+                "No relay URL configured. Set AtProtoClientOptions.RelayUrl or use AtProtoClientBuilder.WithRelayUrl().")
+            : _relayUrl;
 
     // ──────────────────────────────────────────────────────────
     //  Custom Lexicon support
@@ -278,8 +262,8 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         object? parameters = null,
         CancellationToken cancellationToken = default)
     {
-        var dict = XrpcQueryBuilder.ToDictionary(parameters);
-        return await _xrpc.QueryAsync<T>(nsid, dict, cancellationToken);
+        return await _xrpc.QueryAsync<T>(
+            nsid, XrpcQueryBuilder.ToQueryParams(parameters), cancellationToken);
     }
 
     /// <summary>
@@ -452,21 +436,10 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             var current = await Server.GetSessionAsync(cancellationToken);
             _logger.LogInformation("Session resumed successfully for {Handle}", current.Handle);
 
-            var updatedSession = new Session
-            {
-                Did = session.Did,
-                Handle = current.Handle,
-                AccessJwt = session.AccessJwt,
-                RefreshJwt = session.RefreshJwt,
-                Email = current.Email,
-                EmailConfirmed = current.EmailConfirmed,
-                EmailAuthFactor = session.EmailAuthFactor,
-                DidDoc = session.DidDoc,
-                Active = session.Active,
-                Status = session.Status,
-            };
-
-            await ApplySessionAsync(updatedSession);
+            await ApplySessionAsync(session.With(
+                handle: current.Handle,
+                email: current.Email,
+                emailConfirmed: current.EmailConfirmed));
         }
         catch (AtProtoHttpException ex) when (ex.StatusCode == System.Net.HttpStatusCode.BadRequest
                                                && ex.ErrorType == "ExpiredToken")
@@ -515,25 +488,17 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             var tokens = await _oauthClient.RefreshTokensAsync(_oauthSession, cancellationToken);
             var refreshedAt = DateTimeOffset.UtcNow;
 
-            // Persist BEFORE mutating in-memory state. The auth server has
-            // already invalidated the old refresh token at this point — if the
-            // store write fails and we'd already mutated memory, the current
-            // process would silently continue with new tokens while the durable
-            // store keeps the dead old ones. A later process or sibling instance
-            // would then reload the dead token and log the user out with no
-            // visible signal that this refresh succeeded server-side.
-            //
-            // Writing the store first makes the failure mode loud: the in-memory
-            // session is still pointing at the (now-dead) old refresh token, so
-            // the next request fails fast with an unmistakable invalid_grant
-            // rather than silently corrupting persistence.
+            // Persist before mutating memory. The auth server has already
+            // invalidated the old refresh token, so a failed store write must
+            // leave the in-memory session on the dead token — the next request
+            // then fails loudly with invalid_grant instead of silently diverging
+            // from what the store holds.
             if (_oauthTokenStore is not null)
             {
                 var updated = BuildRefreshedTokenData(_oauthSession, tokens, refreshedAt);
                 await _oauthTokenStore.StoreAsync(_oauthSession.Did, updated, cancellationToken);
             }
 
-            // Store write succeeded (or no store wired). Safe to update memory.
             _oauthSession.AccessToken = tokens.AccessToken;
             if (tokens.RefreshToken is not null)
                 _oauthSession.RefreshToken = tokens.RefreshToken;
@@ -547,19 +512,9 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
             if (_session is not null)
             {
-                _session = new Session
-                {
-                    Did = _session.Did,
-                    Handle = _session.Handle,
-                    AccessJwt = _oauthSession.AccessToken,
-                    RefreshJwt = _oauthSession.RefreshToken ?? string.Empty,
-                    Email = _session.Email,
-                    EmailConfirmed = _session.EmailConfirmed,
-                    EmailAuthFactor = _session.EmailAuthFactor,
-                    DidDoc = _session.DidDoc,
-                    Active = _session.Active,
-                    Status = _session.Status,
-                };
+                _session = _session.With(
+                    accessJwt: _oauthSession.AccessToken,
+                    refreshJwt: _oauthSession.RefreshToken ?? string.Empty);
                 await _sessionStore.SaveAsync(_session, cancellationToken);
             }
 
@@ -577,21 +532,10 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
         var response = await Server.RefreshSessionAsync(cancellationToken);
 
-        var refreshedSession = new Session
-        {
-            Did = _session.Did,
-            Handle = response.Handle,
-            AccessJwt = response.AccessJwt,
-            RefreshJwt = response.RefreshJwt,
-            Email = _session.Email,
-            EmailConfirmed = _session.EmailConfirmed,
-            EmailAuthFactor = _session.EmailAuthFactor,
-            DidDoc = _session.DidDoc,
-            Active = _session.Active,
-            Status = _session.Status,
-        };
-
-        await ApplySessionAsync(refreshedSession);
+        await ApplySessionAsync(_session.With(
+            handle: response.Handle,
+            accessJwt: response.AccessJwt,
+            refreshJwt: response.RefreshJwt));
         _logger.LogDebug("Session refreshed successfully");
     }
 
@@ -600,13 +544,10 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// </summary>
     public async Task LogoutAsync(CancellationToken cancellationToken = default)
     {
-        // Serialize the entire logout against any concurrent refresh or
-        // ApplyOAuthSessionAsync. Holding _refreshLock across the network call
-        // is intentional — the alternative (drop-the-lock-for-the-network-call)
-        // races a concurrent Apply that completes between DeleteSession and
-        // the post-network re-acquisition, then nulls the new session's state
-        // out from under the user. Callers concerned about a slow PDS pinning
-        // logout should pass a CancellationToken with their preferred timeout.
+        // Held across the network call on purpose: releasing it for the round
+        // trip would let a concurrent ApplyOAuthSessionAsync install a new
+        // session that the teardown below then nulls out. Pass a
+        // CancellationToken to bound a slow PDS.
         await _refreshLock.WaitAsync(cancellationToken);
         try
         {
@@ -625,10 +566,9 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
                 _logger.LogWarning(ex, "Failed to delete session on server");
             }
 
-            // Purge the persisted OAuth record (refresh token + DPoP key) so
-            // the user's credentials don't remain at rest beyond the documented
-            // session lifetime. Best-effort — a store outage shouldn't block
-            // the in-process state teardown that follows.
+            // Purge the persisted refresh token + DPoP key so credentials don't
+            // outlive the session. Best-effort: a store outage must not block
+            // the in-process teardown below.
             if (_oauthTokenStore is not null && loggingOutDid is not null)
             {
                 try
@@ -648,9 +588,8 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             _oauthSession?.Dispose();
             _oauthSession = null;
             _oauthClient = null;
-            // Drop the token-store reference so a subsequent ApplyOAuthSessionAsync
-            // for a different user doesn't inherit it implicitly; the next caller
-            // must pass tokenStore explicitly (or accept no persistent rotation).
+            // Dropped so a later ApplyOAuthSessionAsync for a different user
+            // can't inherit this store implicitly.
             _oauthTokenStore = null;
             StopRefreshTimer();
 
@@ -722,14 +661,10 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         await _refreshLock.WaitAsync(cancellationToken);
         try
         {
-            // Only overwrite when the caller actually supplied a value. A
-            // shorthand re-Apply like `ApplyOAuthSessionAsync(session)` (the
-            // pattern in docs/oauth.md) would otherwise silently null out the
-            // refresh client and token store from a prior full Apply, and the
-            // next timer-driven refresh would throw "no OAuthClient was
-            // registered" — silently logging the user out an hour later.
-            // Callers that truly want to clear these can call LogoutAsync first
-            // (which nulls them deterministically).
+            // Overwrite only when supplied: a shorthand re-Apply
+            // (`ApplyOAuthSessionAsync(session)`, as docs/oauth.md shows) must not
+            // clear the refresh client and store a prior full Apply installed.
+            // Use LogoutAsync to clear them deterministically.
             if (oauthClient is not null) _oauthClient = oauthClient;
             if (tokenStore is not null) _oauthTokenStore = tokenStore;
 
@@ -746,12 +681,9 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
                 oauthSession.DPoP,
                 oauthSession.ResourceServerDpopNonce);
 
-            // Dispose the previous session's DPoP key BEFORE swapping. Without
-            // this, a re-Apply (account switch, factory reuse) leaks the prior
-            // ECDsa instance — only the GC finalizer would release the native
-            // handle. Per-request factory clients are unaffected (Dispose runs
-            // at request end), but long-lived Blazor hosts accumulate handles.
-            // Skip disposing the same instance (idempotent re-Apply).
+            // Dispose the previous DPoP key before swapping, or a re-Apply
+            // (account switch, factory reuse) leaks the ECDsa native handle until
+            // finalization. Skipped when re-applying the same instance.
             if (!ReferenceEquals(_oauthSession, oauthSession))
                 _oauthSession?.Dispose();
 
@@ -891,10 +823,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task UnlikeAsync(string likeUri, CancellationToken cancellationToken = default)
     {
-        EnsureAuthenticated();
-        var parsed = AtUri.Parse(likeUri);
-        await Repo.DeleteRecordAsync(
-            parsed.Repo, parsed.Collection!, parsed.RecordKey!, cancellationToken: cancellationToken);
+        await DeleteByUriAsync(likeUri, cancellationToken);
     }
 
     /// <summary>
@@ -920,10 +849,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// </summary>
     public async Task UndoRepostAsync(string repostUri, CancellationToken cancellationToken = default)
     {
-        EnsureAuthenticated();
-        var parsed = AtUri.Parse(repostUri);
-        await Repo.DeleteRecordAsync(
-            parsed.Repo, parsed.Collection!, parsed.RecordKey!, cancellationToken: cancellationToken);
+        await DeleteByUriAsync(repostUri, cancellationToken);
     }
 
     /// <summary>
@@ -953,10 +879,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task UnfollowAsync(string followUri, CancellationToken cancellationToken = default)
     {
-        EnsureAuthenticated();
-        var parsed = AtUri.Parse(followUri);
-        await Repo.DeleteRecordAsync(
-            parsed.Repo, parsed.Collection!, parsed.RecordKey!, cancellationToken: cancellationToken);
+        await DeleteByUriAsync(followUri, cancellationToken);
     }
 
     /// <summary>
@@ -966,10 +889,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task DeletePostAsync(string postUri, CancellationToken cancellationToken = default)
     {
-        EnsureAuthenticated();
-        var parsed = AtUri.Parse(postUri);
-        await Repo.DeleteRecordAsync(
-            parsed.Repo, parsed.Collection!, parsed.RecordKey!, cancellationToken: cancellationToken);
+        await DeleteByUriAsync(postUri, cancellationToken);
     }
 
     /// <summary>
@@ -1047,13 +967,10 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
     private async void OnRefreshTimerElapsed(object? state)
     {
-        // Cheap pre-check: bail if Dispose has already run. Volatile read so the
-        // result is current across cores. The post-lock recheck below covers
-        // the case where Dispose interleaves between this check and the wait.
         if (_disposed) return;
 
-        // WaitAsync(0) can throw ObjectDisposedException if Dispose ran between
-        // the timer firing and this code; treat that as "client is gone, drop".
+        // WaitAsync(0) throws if Dispose ran between the timer firing and here;
+        // treat that as "client is gone".
         bool acquired;
         try
         {
@@ -1069,14 +986,12 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
         try
         {
-            // Recheck after acquiring the lock — Dispose could have raced
-            // between our pre-check and the wait, and we don't want to refresh
-            // (and persist) tokens for a client whose shutdown has been signaled.
+            // Dispose can race the pre-check above; don't refresh (and persist)
+            // tokens for a client that is shutting down.
             if (_disposed) return;
 
-            // Bound the timer-driven refresh so a slow/unresponsive token endpoint
-            // doesn't pin _refreshLock forever, blocking foreground LogoutAsync /
-            // ApplyOAuthSessionAsync that share the lock.
+            // Bound the refresh so an unresponsive token endpoint can't pin
+            // _refreshLock against foreground LogoutAsync / ApplyOAuthSessionAsync.
             using var cts = new CancellationTokenSource(_refreshTimerDeadline);
             await RefreshSessionUnlockedAsync(cts.Token);
         }
@@ -1099,6 +1014,19 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             throw new InvalidOperationException("Not authenticated. Call LoginAsync first.");
     }
 
+    /// <summary>
+    /// Deletes the record an AT-URI points at. Backs the undo-style convenience
+    /// methods (unlike, unfollow, undo repost, delete post), which differ only in
+    /// which URI the caller hands over.
+    /// </summary>
+    private async Task DeleteByUriAsync(string uri, CancellationToken cancellationToken)
+    {
+        EnsureAuthenticated();
+        var parsed = AtUri.Parse(uri);
+        await Repo.DeleteRecordAsync(
+            parsed.Repo, parsed.Collection!, parsed.RecordKey!, cancellationToken: cancellationToken);
+    }
+
     // ──────────────────────────────────────────────────────────
     //  Disposal
     // ──────────────────────────────────────────────────────────
@@ -1109,21 +1037,18 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         if (_disposed) return;
         _disposed = true;
 
-        // Drain any in-flight timer callbacks BEFORE disposing _refreshLock or
-        // _oauthSession — Timer.Dispose() (no-arg) returns immediately without
-        // waiting for callbacks, leaving a fire-in-progress refresh holding the
-        // lock and dereferencing the session we're about to dispose. The
-        // WaitHandle overload signals when all callbacks have drained.
+        // Drain in-flight timer callbacks before disposing _refreshLock and
+        // _oauthSession: the no-arg Timer.Dispose() returns without waiting,
+        // leaving a running refresh holding the lock. The WaitHandle overload
+        // signals once all callbacks have drained.
         if (_refreshTimer is not null)
         {
             using var waitHandle = new System.Threading.ManualResetEvent(false);
             if (_refreshTimer.Dispose(waitHandle))
             {
-                // Cap the wait at the timer-callback deadline (callback bounds
-                // its own work with the same value), then fall through. The
-                // callback's Release is wrapped in try/catch so even if it lands
-                // after the lock is disposed, it won't escape — but a callback
-                // that exceeds its own deadline is investigation-worthy, so log.
+                // The callback bounds its own work with the same deadline, and
+                // its Release is guarded, so overrunning is safe — but it is
+                // worth investigating, hence the log.
                 if (!waitHandle.WaitOne(_refreshTimerDeadline + TimeSpan.FromSeconds(5)))
                 {
                     _logger.LogWarning(

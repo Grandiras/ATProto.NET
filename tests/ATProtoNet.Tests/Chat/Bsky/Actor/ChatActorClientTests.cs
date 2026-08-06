@@ -21,7 +21,7 @@ public class ChatActorClientTests : IDisposable
         };
         _xrpc = new XrpcClient(_httpClient, NullLogger.Instance);
         _xrpc.SetTokens("test-token");
-        _actor = new ChatActorClient(_xrpc, NullLogger.Instance);
+        _actor = new ChatActorClient(_xrpc);
     }
 
     [Fact]

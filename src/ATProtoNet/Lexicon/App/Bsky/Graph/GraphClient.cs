@@ -1,5 +1,4 @@
 using ATProtoNet.Http;
-using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Graph;
 
@@ -10,12 +9,10 @@ namespace ATProtoNet.Lexicon.App.Bsky.Graph;
 public sealed class GraphClient
 {
     private readonly XrpcClient _xrpc;
-    private readonly ILogger _logger;
 
-    internal GraphClient(XrpcClient xrpc, ILogger logger)
+    internal GraphClient(XrpcClient xrpc)
     {
         _xrpc = xrpc;
-        _logger = logger;
     }
 
     // ──────────────────────────────────────────────────────────
@@ -29,12 +26,10 @@ public sealed class GraphClient
         string actor, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["actor"] = actor,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("actor", actor)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetFollowersResponse>(
             "app.bsky.graph.getFollowers", parameters, cancellationToken);
@@ -47,12 +42,10 @@ public sealed class GraphClient
         string actor, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["actor"] = actor,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("actor", actor)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetFollowsResponse>(
             "app.bsky.graph.getFollows", parameters, cancellationToken);
@@ -64,7 +57,7 @@ public sealed class GraphClient
     public Task<GetSuggestedFollowsByActorResponse> GetSuggestedFollowsByActorAsync(
         string actor, CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?> { ["actor"] = actor };
+        var parameters = new XrpcParams().Add("actor", actor);
         return _xrpc.QueryAsync<GetSuggestedFollowsByActorResponse>(
             "app.bsky.graph.getSuggestedFollowsByActor", parameters, cancellationToken);
     }
@@ -80,11 +73,9 @@ public sealed class GraphClient
         int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetBlocksResponse>(
             "app.bsky.graph.getBlocks", parameters, cancellationToken);
@@ -101,11 +92,9 @@ public sealed class GraphClient
         int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetMutesResponse>(
             "app.bsky.graph.getMutes", parameters, cancellationToken);
@@ -166,12 +155,10 @@ public sealed class GraphClient
         string actor, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["actor"] = actor,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("actor", actor)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetListsResponse>(
             "app.bsky.graph.getLists", parameters, cancellationToken);
@@ -184,12 +171,10 @@ public sealed class GraphClient
         string list, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["list"] = list,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("list", list)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetListResponse>(
             "app.bsky.graph.getList", parameters, cancellationToken);
@@ -202,11 +187,9 @@ public sealed class GraphClient
         int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetListBlocksResponse>(
             "app.bsky.graph.getListBlocks", parameters, cancellationToken);
@@ -219,11 +202,9 @@ public sealed class GraphClient
         int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetListMutesResponse>(
             "app.bsky.graph.getListMutes", parameters, cancellationToken);
@@ -240,13 +221,9 @@ public sealed class GraphClient
         string actor, List<string>? others = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["actor"] = actor,
-        };
-        // others is an array parameter, pass as comma-separated
-        if (others is { Count: > 0 })
-            parameters["others"] = string.Join(",", others);
+        var parameters = new XrpcParams()
+            .Add("actor", actor)
+            .AddAll("others", others);
 
         return _xrpc.QueryAsync<GetRelationshipsResponse>(
             "app.bsky.graph.getRelationships", parameters, cancellationToken);
@@ -259,12 +236,10 @@ public sealed class GraphClient
         string actor, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["actor"] = actor,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("actor", actor)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetKnownFollowersResponse>(
             "app.bsky.graph.getKnownFollowers", parameters, cancellationToken);
@@ -306,7 +281,7 @@ public sealed class GraphClient
     public Task<GetStarterPackResponse> GetStarterPackAsync(
         string starterPack, CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?> { ["starterPack"] = starterPack };
+        var parameters = new XrpcParams().Add("starterPack", starterPack);
         return _xrpc.QueryAsync<GetStarterPackResponse>(
             "app.bsky.graph.getStarterPack", parameters, cancellationToken);
     }
@@ -317,10 +292,8 @@ public sealed class GraphClient
     public Task<GetStarterPacksResponse> GetStarterPacksAsync(
         List<string> uris, CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["uris"] = string.Join(",", uris),
-        };
+        var parameters = new XrpcParams()
+            .AddAll("uris", uris);
         return _xrpc.QueryAsync<GetStarterPacksResponse>(
             "app.bsky.graph.getStarterPacks", parameters, cancellationToken);
     }
@@ -332,12 +305,10 @@ public sealed class GraphClient
         string actor, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["actor"] = actor,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("actor", actor)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
         return _xrpc.QueryAsync<GetActorStarterPacksResponse>(
             "app.bsky.graph.getActorStarterPacks", parameters, cancellationToken);
     }
@@ -349,12 +320,10 @@ public sealed class GraphClient
         string query, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["q"] = query,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("q", query)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
         return _xrpc.QueryAsync<SearchStarterPacksResponse>(
             "app.bsky.graph.searchStarterPacks", parameters, cancellationToken);
     }

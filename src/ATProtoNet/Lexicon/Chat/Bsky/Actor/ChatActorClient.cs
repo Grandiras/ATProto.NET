@@ -1,5 +1,4 @@
 using ATProtoNet.Http;
-using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Lexicon.Chat.Bsky.Actor;
 
@@ -10,12 +9,10 @@ namespace ATProtoNet.Lexicon.Chat.Bsky.Actor;
 public sealed class ChatActorClient
 {
     private readonly XrpcClient _xrpc;
-    private readonly ILogger _logger;
 
-    internal ChatActorClient(XrpcClient xrpc, ILogger logger)
+    internal ChatActorClient(XrpcClient xrpc)
     {
         _xrpc = xrpc;
-        _logger = logger;
     }
 
     /// <summary>

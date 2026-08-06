@@ -4,7 +4,6 @@ using ATProtoNet.Lexicon.App.Bsky.Embed;
 using ATProtoNet.Lexicon.App.Bsky.RichText;
 using ATProtoNet.Lexicon.Com.AtProto.Repo;
 using ATProtoNet.Models;
-using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Feed;
 
@@ -15,12 +14,10 @@ namespace ATProtoNet.Lexicon.App.Bsky.Feed;
 public sealed class FeedClient
 {
     private readonly XrpcClient _xrpc;
-    private readonly ILogger _logger;
 
-    internal FeedClient(XrpcClient xrpc, ILogger logger)
+    internal FeedClient(XrpcClient xrpc)
     {
         _xrpc = xrpc;
-        _logger = logger;
     }
 
     // ──────────────────────────────────────────────────────────
@@ -34,12 +31,10 @@ public sealed class FeedClient
         int? limit = null, string? cursor = null, string? algorithm = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-            ["algorithm"] = algorithm,
-        };
+        var parameters = new XrpcParams()
+            .Add("limit", limit)
+            .Add("cursor", cursor)
+            .Add("algorithm", algorithm);
 
         return _xrpc.QueryAsync<FeedResponse>(
             "app.bsky.feed.getTimeline", parameters, cancellationToken);
@@ -63,14 +58,12 @@ public sealed class FeedClient
         bool? includePins = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["actor"] = actor,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-            ["filter"] = filter,
-            ["includePins"] = includePins?.ToString()?.ToLowerInvariant(),
-        };
+        var parameters = new XrpcParams()
+            .Add("actor", actor)
+            .Add("limit", limit)
+            .Add("cursor", cursor)
+            .Add("filter", filter)
+            .Add("includePins", includePins);
 
         return _xrpc.QueryAsync<FeedResponse>(
             "app.bsky.feed.getAuthorFeed", parameters, cancellationToken);
@@ -89,12 +82,10 @@ public sealed class FeedClient
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["feed"] = feed,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("feed", feed)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<FeedResponse>(
             "app.bsky.feed.getFeed", parameters, cancellationToken);
@@ -109,12 +100,10 @@ public sealed class FeedClient
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["list"] = list,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("list", list)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<FeedResponse>(
             "app.bsky.feed.getListFeed", parameters, cancellationToken);
@@ -129,12 +118,10 @@ public sealed class FeedClient
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["actor"] = actor,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("actor", actor)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<FeedResponse>(
             "app.bsky.feed.getActorLikes", parameters, cancellationToken);
@@ -157,12 +144,10 @@ public sealed class FeedClient
         int? parentHeight = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["uri"] = uri,
-            ["depth"] = depth?.ToString(),
-            ["parentHeight"] = parentHeight?.ToString(),
-        };
+        var parameters = new XrpcParams()
+            .Add("uri", uri)
+            .Add("depth", depth)
+            .Add("parentHeight", parentHeight);
 
         return _xrpc.QueryAsync<GetPostThreadResponse>(
             "app.bsky.feed.getPostThread", parameters, cancellationToken);
@@ -174,10 +159,8 @@ public sealed class FeedClient
     public Task<GetPostsResponse> GetPostsAsync(
         IEnumerable<string> uris, CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["uris"] = string.Join(",", uris),
-        };
+        var parameters = new XrpcParams()
+            .AddAll("uris", uris);
 
         return _xrpc.QueryAsync<GetPostsResponse>(
             "app.bsky.feed.getPosts", parameters, cancellationToken);
@@ -190,13 +173,11 @@ public sealed class FeedClient
         string uri, string? cid = null, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["uri"] = uri,
-            ["cid"] = cid,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("uri", uri)
+            .Add("cid", cid)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetLikesResponse>(
             "app.bsky.feed.getLikes", parameters, cancellationToken);
@@ -209,13 +190,11 @@ public sealed class FeedClient
         string uri, string? cid = null, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["uri"] = uri,
-            ["cid"] = cid,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("uri", uri)
+            .Add("cid", cid)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetRepostedByResponse>(
             "app.bsky.feed.getRepostedBy", parameters, cancellationToken);
@@ -228,13 +207,11 @@ public sealed class FeedClient
         string uri, string? cid = null, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["uri"] = uri,
-            ["cid"] = cid,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("uri", uri)
+            .Add("cid", cid)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetQuotesResponse>(
             "app.bsky.feed.getQuotes", parameters, cancellationToken);
@@ -250,7 +227,7 @@ public sealed class FeedClient
     public Task<GetFeedGeneratorResponse> GetFeedGeneratorAsync(
         string feed, CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?> { ["feed"] = feed };
+        var parameters = new XrpcParams().Add("feed", feed);
         return _xrpc.QueryAsync<GetFeedGeneratorResponse>(
             "app.bsky.feed.getFeedGenerator", parameters, cancellationToken);
     }
@@ -261,10 +238,8 @@ public sealed class FeedClient
     public Task<GetFeedGeneratorsResponse> GetFeedGeneratorsAsync(
         IEnumerable<string> feeds, CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["feeds"] = string.Join(",", feeds),
-        };
+        var parameters = new XrpcParams()
+            .AddAll("feeds", feeds);
 
         return _xrpc.QueryAsync<GetFeedGeneratorsResponse>(
             "app.bsky.feed.getFeedGenerators", parameters, cancellationToken);
@@ -277,12 +252,10 @@ public sealed class FeedClient
         string actor, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["actor"] = actor,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("actor", actor)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetActorFeedsResponse>(
             "app.bsky.feed.getActorFeeds", parameters, cancellationToken);
@@ -295,11 +268,9 @@ public sealed class FeedClient
         int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetSuggestedFeedsResponse>(
             "app.bsky.feed.getSuggestedFeeds", parameters, cancellationToken);
@@ -322,12 +293,10 @@ public sealed class FeedClient
         string feed, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["feed"] = feed,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("feed", feed)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetFeedSkeletonResponse>(
             "app.bsky.feed.getFeedSkeleton", parameters, cancellationToken);
@@ -368,21 +337,19 @@ public sealed class FeedClient
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["q"] = q,
-            ["sort"] = sort,
-            ["since"] = since,
-            ["until"] = until,
-            ["mentions"] = mentions,
-            ["author"] = author,
-            ["lang"] = lang,
-            ["domain"] = domain,
-            ["url"] = url,
-            ["tag"] = tag,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("q", q)
+            .Add("sort", sort)
+            .Add("since", since)
+            .Add("until", until)
+            .Add("mentions", mentions)
+            .Add("author", author)
+            .Add("lang", lang)
+            .Add("domain", domain)
+            .Add("url", url)
+            .Add("tag", tag)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<SearchPostsResponse>(
             "app.bsky.feed.searchPosts", parameters, cancellationToken);

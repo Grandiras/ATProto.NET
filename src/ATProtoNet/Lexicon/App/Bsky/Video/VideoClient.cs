@@ -1,5 +1,4 @@
 using ATProtoNet.Http;
-using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Video;
 
@@ -15,12 +14,10 @@ namespace ATProtoNet.Lexicon.App.Bsky.Video;
 public sealed class VideoClient
 {
     private readonly XrpcClient _xrpc;
-    private readonly ILogger _logger;
 
-    internal VideoClient(XrpcClient xrpc, ILogger logger)
+    internal VideoClient(XrpcClient xrpc)
     {
         _xrpc = xrpc;
-        _logger = logger;
     }
 
     /// <summary>
@@ -46,7 +43,7 @@ public sealed class VideoClient
     public Task<GetJobStatusResponse> GetJobStatusAsync(
         string jobId, CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?> { ["jobId"] = jobId };
+        var parameters = new XrpcParams().Add("jobId", jobId);
         return _xrpc.QueryAsync<GetJobStatusResponse>(
             "app.bsky.video.getJobStatus", parameters, cancellationToken);
     }

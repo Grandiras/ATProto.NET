@@ -125,7 +125,7 @@ public sealed class RecordCollection<T> where T : class
             _client.Did!, _collection, record, rkey, validate,
             cancellationToken: cancellationToken);
 
-        return RecordRef.FromCreateResponse(response);
+        return RecordRef.From(response.Uri, response.Cid);
     }
 
     /// <summary>
@@ -135,26 +135,13 @@ public sealed class RecordCollection<T> where T : class
     /// <param name="cid">Optional CID for a specific version.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The deserialized record with metadata.</returns>
-    public async Task<RecordView<T>> GetAsync(
+    public Task<RecordView<T>> GetAsync(
         string rkey,
         string? cid = null,
         CancellationToken cancellationToken = default)
     {
         _client.EnsureAuthenticated();
-
-        var response = await _client.Repo.GetRecordAsync(
-            _client.Did!, _collection, rkey, cid, cancellationToken);
-
-        var value = response.Value.Deserialize<T>(AtProtoJsonDefaults.Options)
-            ?? throw new InvalidOperationException($"Failed to deserialize record to {typeof(T).Name}");
-
-        return new RecordView<T>
-        {
-            Uri = response.Uri,
-            Cid = response.Cid,
-            Value = value,
-            RecordKey = AtUri.Parse(response.Uri).RecordKey!,
-        };
+        return GetFromAsync(_client.Did!, rkey, cid, cancellationToken);
     }
 
     /// <summary>
@@ -173,16 +160,7 @@ public sealed class RecordCollection<T> where T : class
         var response = await _client.Repo.GetRecordAsync(
             repo, _collection, rkey, cid, cancellationToken);
 
-        var value = response.Value.Deserialize<T>(AtProtoJsonDefaults.Options)
-            ?? throw new InvalidOperationException($"Failed to deserialize record to {typeof(T).Name}");
-
-        return new RecordView<T>
-        {
-            Uri = response.Uri,
-            Cid = response.Cid,
-            Value = value,
-            RecordKey = AtUri.Parse(response.Uri).RecordKey!,
-        };
+        return ToView(response.Uri, response.Cid, response.Value);
     }
 
     /// <summary>
@@ -206,12 +184,7 @@ public sealed class RecordCollection<T> where T : class
             _client.Did!, _collection, rkey, record, validate, swapRecord,
             cancellationToken: cancellationToken);
 
-        return new RecordRef
-        {
-            Uri = response.Uri,
-            Cid = response.Cid,
-            RecordKey = AtUri.Parse(response.Uri).RecordKey!,
-        };
+        return RecordRef.From(response.Uri, response.Cid);
     }
 
     /// <summary>
@@ -239,36 +212,14 @@ public sealed class RecordCollection<T> where T : class
     /// <param name="cursor">Pagination cursor from a previous response.</param>
     /// <param name="reverse">Whether to reverse the sort order.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task<RecordPage<T>> ListAsync(
+    public Task<RecordPage<T>> ListAsync(
         int? limit = null,
         string? cursor = null,
         bool? reverse = null,
         CancellationToken cancellationToken = default)
     {
         _client.EnsureAuthenticated();
-
-        var response = await _client.Repo.ListRecordsAsync(
-            _client.Did!, _collection, limit, cursor, reverse, cancellationToken);
-
-        var records = response.Records
-            .Select(entry =>
-            {
-                var value = entry.Value.Deserialize<T>(AtProtoJsonDefaults.Options);
-                return new RecordView<T>
-                {
-                    Uri = entry.Uri,
-                    Cid = entry.Cid,
-                    Value = value!,
-                    RecordKey = AtUri.Parse(entry.Uri).RecordKey!,
-                };
-            })
-            .ToList();
-
-        return new RecordPage<T>
-        {
-            Records = records,
-            Cursor = response.Cursor,
-        };
+        return ListFromAsync(_client.Did!, limit, cursor, reverse, cancellationToken);
     }
 
     /// <summary>
@@ -284,23 +235,9 @@ public sealed class RecordCollection<T> where T : class
         var response = await _client.Repo.ListRecordsAsync(
             repo, _collection, limit, cursor, reverse, cancellationToken);
 
-        var records = response.Records
-            .Select(entry =>
-            {
-                var value = entry.Value.Deserialize<T>(AtProtoJsonDefaults.Options);
-                return new RecordView<T>
-                {
-                    Uri = entry.Uri,
-                    Cid = entry.Cid,
-                    Value = value!,
-                    RecordKey = AtUri.Parse(entry.Uri).RecordKey!,
-                };
-            })
-            .ToList();
-
         return new RecordPage<T>
         {
-            Records = records,
+            Records = [.. response.Records.Select(e => ToView(e.Uri, e.Cid, e.Value))],
             Cursor = response.Cursor,
         };
     }
@@ -310,19 +247,12 @@ public sealed class RecordCollection<T> where T : class
     /// </summary>
     /// <param name="pageSize">Number of records to fetch per page.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async IAsyncEnumerable<RecordView<T>> EnumerateAsync(
+    public IAsyncEnumerable<RecordView<T>> EnumerateAsync(
         int pageSize = 100,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
-        string? cursor = null;
-        do
-        {
-            var page = await ListAsync(pageSize, cursor, cancellationToken: cancellationToken);
-            foreach (var record in page.Records)
-                yield return record;
-
-            cursor = page.Cursor;
-        } while (cursor is not null);
+        _client.EnsureAuthenticated();
+        return EnumerateFromAsync(_client.Did!, pageSize, cancellationToken);
     }
 
     /// <summary>
@@ -364,6 +294,16 @@ public sealed class RecordCollection<T> where T : class
             return false;
         }
     }
+
+    private static RecordView<T> ToView(string uri, string? cid, JsonElement value) => new()
+    {
+        Uri = uri,
+        Cid = cid,
+        Value = value.Deserialize<T>(AtProtoJsonDefaults.Options)
+            ?? throw new InvalidOperationException(
+                $"Failed to deserialize record {uri} to {typeof(T).Name}"),
+        RecordKey = AtUri.Parse(uri).RecordKey!,
+    };
 }
 
 /// <summary>
@@ -380,11 +320,11 @@ public sealed class RecordRef
     /// <summary>The record key portion of the URI.</summary>
     public required string RecordKey { get; init; }
 
-    internal static RecordRef FromCreateResponse(CreateRecordResponse response) => new()
+    internal static RecordRef From(string uri, string cid) => new()
     {
-        Uri = response.Uri,
-        Cid = response.Cid,
-        RecordKey = AtUri.Parse(response.Uri).RecordKey!,
+        Uri = uri,
+        Cid = cid,
+        RecordKey = AtUri.Parse(uri).RecordKey!,
     };
 }
 

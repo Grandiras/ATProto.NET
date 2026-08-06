@@ -3,7 +3,6 @@ using ATProtoNet.Lexicon.Com.AtProto.Repo;
 using ATProtoNet.Lexicon.Site.Standard.Document;
 using ATProtoNet.Lexicon.Site.Standard.Graph;
 using ATProtoNet.Lexicon.Site.Standard.Publication;
-using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Lexicon.Site.Standard;
 
@@ -15,13 +14,11 @@ namespace ATProtoNet.Lexicon.Site.Standard;
 public sealed class StandardSiteClient
 {
     private readonly XrpcClient _xrpc;
-    private readonly ILogger _logger;
     private readonly RepoClient _repo;
 
-    internal StandardSiteClient(XrpcClient xrpc, ILogger logger, RepoClient repo)
+    internal StandardSiteClient(XrpcClient xrpc, RepoClient repo)
     {
         _xrpc = xrpc;
-        _logger = logger;
         _repo = repo;
     }
 

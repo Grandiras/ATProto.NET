@@ -162,7 +162,7 @@ public sealed class PdsAdminClient : IDisposable
             _adminXrpc.SetAdminCredentials(options.AdminPassword, options.AdminUser);
         }
 
-        Admin = new AdminClient(_adminXrpc, _logger);
+        Admin = new AdminClient(_adminXrpc);
         Server = new ServerClient(_adminXrpc, _logger);
     }
 

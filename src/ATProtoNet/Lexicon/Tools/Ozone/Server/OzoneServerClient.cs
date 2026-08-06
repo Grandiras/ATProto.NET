@@ -1,5 +1,4 @@
 using ATProtoNet.Http;
-using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Server;
 
@@ -9,12 +8,10 @@ namespace ATProtoNet.Lexicon.Tools.Ozone.Server;
 public sealed class OzoneServerClient
 {
     private readonly XrpcClient _xrpc;
-    private readonly ILogger _logger;
 
-    internal OzoneServerClient(XrpcClient xrpc, ILogger logger)
+    internal OzoneServerClient(XrpcClient xrpc)
     {
         _xrpc = xrpc;
-        _logger = logger;
     }
 
     /// <summary>

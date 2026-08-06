@@ -2,7 +2,6 @@ using System.Text.Json;
 using ATProtoNet.Http;
 using ATProtoNet.Models;
 using ATProtoNet.Serialization;
-using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Repo;
 
@@ -13,12 +12,10 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Repo;
 public sealed class RepoClient
 {
     private readonly XrpcClient _xrpc;
-    private readonly ILogger _logger;
 
-    internal RepoClient(XrpcClient xrpc, ILogger logger)
+    internal RepoClient(XrpcClient xrpc)
     {
         _xrpc = xrpc;
-        _logger = logger;
     }
 
     /// <summary>
@@ -69,13 +66,11 @@ public sealed class RepoClient
         string? cid = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["repo"] = repo,
-            ["collection"] = collection,
-            ["rkey"] = rkey,
-            ["cid"] = cid,
-        };
+        var parameters = new XrpcParams()
+            .Add("repo", repo)
+            .Add("collection", collection)
+            .Add("rkey", rkey)
+            .Add("cid", cid);
 
         return _xrpc.QueryAsync<GetRecordResponse>(
             "com.atproto.repo.getRecord", parameters, cancellationToken);
@@ -172,14 +167,12 @@ public sealed class RepoClient
         bool? reverse = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["repo"] = repo,
-            ["collection"] = collection,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-            ["reverse"] = reverse?.ToString()?.ToLowerInvariant(),
-        };
+        var parameters = new XrpcParams()
+            .Add("repo", repo)
+            .Add("collection", collection)
+            .Add("limit", limit)
+            .Add("cursor", cursor)
+            .Add("reverse", reverse);
 
         return _xrpc.QueryAsync<ListRecordsResponse>(
             "com.atproto.repo.listRecords", parameters, cancellationToken);
@@ -211,7 +204,7 @@ public sealed class RepoClient
     public Task<DescribeRepoResponse> DescribeRepoAsync(
         string repo, CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?> { ["repo"] = repo };
+        var parameters = new XrpcParams().Add("repo", repo);
         return _xrpc.QueryAsync<DescribeRepoResponse>(
             "com.atproto.repo.describeRepo", parameters, cancellationToken);
     }
@@ -286,11 +279,9 @@ public sealed class RepoClient
         string? cursor = null, int? limit = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["cursor"] = cursor,
-            ["limit"] = limit?.ToString(),
-        };
+        var parameters = new XrpcParams()
+            .Add("cursor", cursor)
+            .Add("limit", limit);
 
         return _xrpc.QueryAsync<ListMissingBlobsResponse>(
             "com.atproto.repo.listMissingBlobs", parameters, cancellationToken);

@@ -1,5 +1,4 @@
 using ATProtoNet.Http;
-using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Team;
 
@@ -9,12 +8,10 @@ namespace ATProtoNet.Lexicon.Tools.Ozone.Team;
 public sealed class TeamClient
 {
     private readonly XrpcClient _xrpc;
-    private readonly ILogger _logger;
 
-    internal TeamClient(XrpcClient xrpc, ILogger logger)
+    internal TeamClient(XrpcClient xrpc)
     {
         _xrpc = xrpc;
-        _logger = logger;
     }
 
     /// <summary>
@@ -46,11 +43,9 @@ public sealed class TeamClient
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("limit", limit)
+            .Add("cursor", cursor);
         return _xrpc.QueryAsync<ListMembersResponse>(
             "tools.ozone.team.listMembers", parameters, cancellationToken);
     }

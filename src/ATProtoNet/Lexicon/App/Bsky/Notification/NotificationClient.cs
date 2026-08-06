@@ -1,5 +1,4 @@
 using ATProtoNet.Http;
-using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Notification;
 
@@ -9,12 +8,10 @@ namespace ATProtoNet.Lexicon.App.Bsky.Notification;
 public sealed class NotificationClient
 {
     private readonly XrpcClient _xrpc;
-    private readonly ILogger _logger;
 
-    internal NotificationClient(XrpcClient xrpc, ILogger logger)
+    internal NotificationClient(XrpcClient xrpc)
     {
         _xrpc = xrpc;
-        _logger = logger;
     }
 
     /// <summary>
@@ -33,13 +30,11 @@ public sealed class NotificationClient
         string? seenAt = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["limit"] = limit?.ToString(),
-            ["priority"] = priority?.ToString()?.ToLowerInvariant(),
-            ["cursor"] = cursor,
-            ["seenAt"] = seenAt,
-        };
+        var parameters = new XrpcParams()
+            .Add("limit", limit)
+            .Add("priority", priority)
+            .Add("cursor", cursor)
+            .Add("seenAt", seenAt);
 
         return _xrpc.QueryAsync<ListNotificationsResponse>(
             "app.bsky.notification.listNotifications", parameters, cancellationToken);
@@ -56,11 +51,9 @@ public sealed class NotificationClient
         string? seenAt = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["priority"] = priority?.ToString()?.ToLowerInvariant(),
-            ["seenAt"] = seenAt,
-        };
+        var parameters = new XrpcParams()
+            .Add("priority", priority)
+            .Add("seenAt", seenAt);
 
         return _xrpc.QueryAsync<GetUnreadCountResponse>(
             "app.bsky.notification.getUnreadCount", parameters, cancellationToken);

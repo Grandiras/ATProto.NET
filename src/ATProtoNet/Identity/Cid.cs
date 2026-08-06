@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Identity;
@@ -10,12 +9,8 @@ namespace ATProtoNet.Identity;
 /// CIDs are self-describing content-addressed identifiers used in IPLD.
 /// </summary>
 [JsonConverter(typeof(CidJsonConverter))]
-public sealed partial class Cid : IEquatable<Cid>
+public sealed class Cid : IEquatable<Cid>
 {
-    // CIDs in atproto are typically base32 or base58btc encoded
-    [GeneratedRegex(@"^[a-zA-Z0-9+/=]+$", RegexOptions.Compiled)]
-    private static partial Regex CidPattern();
-
     /// <summary>
     /// The CID string value.
     /// </summary>
@@ -27,7 +22,9 @@ public sealed partial class Cid : IEquatable<Cid>
     }
 
     /// <summary>
-    /// Creates a CID from a string value with basic validation.
+    /// Wraps a CID string. Only rejects null/blank input — the multibase prefix,
+    /// codec, and digest length are not checked, so a value that round-trips here
+    /// is not necessarily a well-formed CID.
     /// </summary>
     public static Cid Parse(string value)
     {
@@ -36,7 +33,8 @@ public sealed partial class Cid : IEquatable<Cid>
     }
 
     /// <summary>
-    /// Attempts to create a CID from a string value without throwing.
+    /// Non-throwing counterpart to <see cref="Parse"/>, with the same lenient rules:
+    /// returns <see langword="false"/> only for null or blank input.
     /// </summary>
     public static bool TryParse(string? value, [NotNullWhen(true)] out Cid? cid)
     {
@@ -49,7 +47,7 @@ public sealed partial class Cid : IEquatable<Cid>
     }
 
     /// <summary>
-    /// Creates a CID without validation.
+    /// Creates a CID skipping even the blank check, for values already known good.
     /// </summary>
     internal static Cid UnsafeCreate(string value) => new(value);
 

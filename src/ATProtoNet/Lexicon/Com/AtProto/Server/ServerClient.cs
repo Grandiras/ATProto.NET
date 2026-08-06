@@ -167,12 +167,10 @@ public sealed class ServerClient
     public Task<GetServiceAuthResponse> GetServiceAuthAsync(string aud, string? lxm = null,
         int? exp = null, CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["aud"] = aud,
-            ["lxm"] = lxm,
-            ["exp"] = exp?.ToString(),
-        };
+        var parameters = new XrpcParams()
+            .Add("aud", aud)
+            .Add("lxm", lxm)
+            .Add("exp", exp);
         return _xrpc.QueryAsync<GetServiceAuthResponse>("com.atproto.server.getServiceAuth", parameters, cancellationToken);
     }
 
@@ -200,11 +198,9 @@ public sealed class ServerClient
         bool? includeUsed = null, bool? createAvailable = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["includeUsed"] = includeUsed?.ToString().ToLowerInvariant(),
-            ["createAvailable"] = createAvailable?.ToString().ToLowerInvariant(),
-        };
+        var parameters = new XrpcParams()
+            .Add("includeUsed", includeUsed)
+            .Add("createAvailable", createAvailable);
         return _xrpc.QueryAsync<GetAccountInviteCodesResponse>(
             "com.atproto.server.getAccountInviteCodes", parameters, cancellationToken);
     }

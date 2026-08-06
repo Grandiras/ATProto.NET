@@ -5,7 +5,6 @@ using ATProtoNet.Lexicon.Tools.Ozone.Server;
 using ATProtoNet.Lexicon.Tools.Ozone.Set;
 using ATProtoNet.Lexicon.Tools.Ozone.Signature;
 using ATProtoNet.Lexicon.Tools.Ozone.Team;
-using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone;
 
@@ -14,14 +13,14 @@ namespace ATProtoNet.Lexicon.Tools.Ozone;
 /// </summary>
 public sealed class OzoneClient
 {
-    internal OzoneClient(XrpcClient xrpc, ILogger logger)
+    internal OzoneClient(XrpcClient xrpc)
     {
-        Moderation = new ModerationClient(xrpc, logger);
-        Communication = new CommunicationClient(xrpc, logger);
-        Team = new TeamClient(xrpc, logger);
-        Set = new SetClient(xrpc, logger);
-        Server = new OzoneServerClient(xrpc, logger);
-        Signature = new SignatureClient(xrpc, logger);
+        Moderation = new ModerationClient(xrpc);
+        Communication = new CommunicationClient(xrpc);
+        Team = new TeamClient(xrpc);
+        Set = new SetClient(xrpc);
+        Server = new OzoneServerClient(xrpc);
+        Signature = new SignatureClient(xrpc);
     }
 
     /// <summary>

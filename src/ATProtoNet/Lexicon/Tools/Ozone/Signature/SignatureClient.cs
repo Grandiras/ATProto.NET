@@ -1,5 +1,4 @@
 using ATProtoNet.Http;
-using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Signature;
 
@@ -9,12 +8,10 @@ namespace ATProtoNet.Lexicon.Tools.Ozone.Signature;
 public sealed class SignatureClient
 {
     private readonly XrpcClient _xrpc;
-    private readonly ILogger _logger;
 
-    internal SignatureClient(XrpcClient xrpc, ILogger logger)
+    internal SignatureClient(XrpcClient xrpc)
     {
         _xrpc = xrpc;
-        _logger = logger;
     }
 
     /// <summary>
@@ -24,10 +21,8 @@ public sealed class SignatureClient
         List<string> dids,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["dids"] = string.Join(",", dids),
-        };
+        var parameters = new XrpcParams()
+            .AddAll("dids", dids);
         return _xrpc.QueryAsync<FindCorrelationResponse>(
             "tools.ozone.signature.findCorrelation", parameters, cancellationToken);
     }
@@ -61,12 +56,10 @@ public sealed class SignatureClient
         int? limit = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["did"] = did,
-            ["cursor"] = cursor,
-            ["limit"] = limit?.ToString(),
-        };
+        var parameters = new XrpcParams()
+            .Add("did", did)
+            .Add("cursor", cursor)
+            .Add("limit", limit);
         return _xrpc.QueryAsync<FindRelatedAccountsResponse>(
             "tools.ozone.signature.findRelatedAccounts", parameters, cancellationToken);
     }

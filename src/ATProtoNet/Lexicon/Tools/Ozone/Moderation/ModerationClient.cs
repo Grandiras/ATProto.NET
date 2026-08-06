@@ -1,5 +1,4 @@
 using ATProtoNet.Http;
-using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Moderation;
 
@@ -9,12 +8,10 @@ namespace ATProtoNet.Lexicon.Tools.Ozone.Moderation;
 public sealed class ModerationClient
 {
     private readonly XrpcClient _xrpc;
-    private readonly ILogger _logger;
 
-    internal ModerationClient(XrpcClient xrpc, ILogger logger)
+    internal ModerationClient(XrpcClient xrpc)
     {
         _xrpc = xrpc;
-        _logger = logger;
     }
 
     /// <summary>
@@ -33,7 +30,7 @@ public sealed class ModerationClient
         long id,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?> { ["id"] = id.ToString() };
+        var parameters = new XrpcParams().Add("id", id.ToString());
         return _xrpc.QueryAsync<ModEventViewDetail>(
             "tools.ozone.moderation.getEvent", parameters, cancellationToken);
     }
@@ -46,11 +43,9 @@ public sealed class ModerationClient
         string? cid = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["uri"] = uri,
-            ["cid"] = cid,
-        };
+        var parameters = new XrpcParams()
+            .Add("uri", uri)
+            .Add("cid", cid);
         return _xrpc.QueryAsync<RecordViewDetail>(
             "tools.ozone.moderation.getRecord", parameters, cancellationToken);
     }
@@ -62,7 +57,7 @@ public sealed class ModerationClient
         string did,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?> { ["did"] = did };
+        var parameters = new XrpcParams().Add("did", did);
         return _xrpc.QueryAsync<RepoViewDetail>(
             "tools.ozone.moderation.getRepo", parameters, cancellationToken);
     }
@@ -88,26 +83,22 @@ public sealed class ModerationClient
         List<string>? types = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["subject"] = subject,
-            ["createdBy"] = createdBy,
-            ["sortDirection"] = sortDirection,
-            ["createdAfter"] = createdAfter,
-            ["createdBefore"] = createdBefore,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-            ["hasComment"] = hasComment?.ToString()?.ToLowerInvariant(),
-            ["comment"] = comment,
-        };
-
-        AddListParams(parameters, "addedLabels", addedLabels);
-        AddListParams(parameters, "removedLabels", removedLabels);
-        AddListParams(parameters, "addedTags", addedTags);
-        AddListParams(parameters, "removedTags", removedTags);
-        AddListParams(parameters, "reportTypes", reportTypes);
-        AddListParams(parameters, "types", types);
-
+        var parameters = new XrpcParams()
+            .Add("subject", subject)
+            .Add("createdBy", createdBy)
+            .Add("sortDirection", sortDirection)
+            .Add("createdAfter", createdAfter)
+            .Add("createdBefore", createdBefore)
+            .Add("limit", limit)
+            .Add("cursor", cursor)
+            .Add("hasComment", hasComment)
+            .Add("comment", comment)
+            .AddAll("addedLabels", addedLabels)
+            .AddAll("removedLabels", removedLabels)
+            .AddAll("addedTags", addedTags)
+            .AddAll("removedTags", removedTags)
+            .AddAll("reportTypes", reportTypes)
+            .AddAll("types", types);
         return _xrpc.QueryAsync<QueryEventsResponse>(
             "tools.ozone.moderation.queryEvents", parameters, cancellationToken);
     }
@@ -129,22 +120,18 @@ public sealed class ModerationClient
         List<string>? excludeTags = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["subject"] = subject,
-            ["reviewState"] = reviewState,
-            ["sortDirection"] = sortDirection,
-            ["sortField"] = sortField,
-            ["takendown"] = takendown,
-            ["appealed"] = appealed,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-            ["lastReviewedBy"] = lastReviewedBy,
-        };
-
-        AddListParams(parameters, "tags", tags);
-        AddListParams(parameters, "excludeTags", excludeTags);
-
+        var parameters = new XrpcParams()
+            .Add("subject", subject)
+            .Add("reviewState", reviewState)
+            .Add("sortDirection", sortDirection)
+            .Add("sortField", sortField)
+            .Add("takendown", takendown)
+            .Add("appealed", appealed)
+            .Add("limit", limit)
+            .Add("cursor", cursor)
+            .Add("lastReviewedBy", lastReviewedBy)
+            .AddAll("tags", tags)
+            .AddAll("excludeTags", excludeTags);
         return _xrpc.QueryAsync<QuerySubjectsResponse>(
             "tools.ozone.moderation.querySubjects", parameters, cancellationToken);
     }
@@ -158,24 +145,11 @@ public sealed class ModerationClient
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["q"] = q,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("q", q)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
         return _xrpc.QueryAsync<SearchReposResponse>(
             "tools.ozone.moderation.searchRepos", parameters, cancellationToken);
-    }
-
-    private static void AddListParams(
-        Dictionary<string, string?> parameters,
-        string key,
-        List<string>? values)
-    {
-        if (values is not { Count: > 0 }) return;
-        // XRPC array params use repeated keys: key=val1&key=val2
-        // Most implementations serialize as comma-separated for simplicity
-        parameters[key] = string.Join(",", values);
     }
 }

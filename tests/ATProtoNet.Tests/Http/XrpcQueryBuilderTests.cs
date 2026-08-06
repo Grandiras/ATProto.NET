@@ -1,3 +1,4 @@
+using System.Globalization;
 using ATProtoNet.Http;
 
 namespace ATProtoNet.Tests.Http;
@@ -5,61 +6,22 @@ namespace ATProtoNet.Tests.Http;
 public class XrpcQueryBuilderTests
 {
     [Fact]
-    public void BuildQueryString_Null_ReturnsEmpty()
+    public void ToQueryParams_Null_ReturnsNull()
     {
-        Assert.Equal("", XrpcQueryBuilder.BuildQueryString(null));
+        Assert.Null(XrpcQueryBuilder.ToQueryParams(null));
     }
 
     [Fact]
-    public void BuildQueryString_AnonymousObject_BuildsQueryString()
+    public void ToQueryParams_EmptyObject_ReturnsNull()
     {
-        var result = XrpcQueryBuilder.BuildQueryString(new { limit = 25, cursor = "abc" });
-        Assert.Contains("limit=25", result);
-        Assert.Contains("cursor=abc", result);
-        Assert.StartsWith("?", result);
+        Assert.Null(XrpcQueryBuilder.ToQueryParams(new { }));
     }
 
     [Fact]
-    public void BuildQueryString_Dictionary_BuildsQueryString()
+    public void ToQueryParams_AnonymousObject_ReturnsPairs()
     {
-        var dict = new Dictionary<string, string?> { ["repo"] = "did:plc:abc", ["collection"] = "com.example.test" };
-        var result = XrpcQueryBuilder.BuildQueryString(dict);
-        Assert.Contains("repo=did%3Aplc%3Aabc", result);
-        Assert.Contains("collection=com.example.test", result);
-    }
+        var result = XrpcQueryBuilder.ToQueryParams(new { limit = 10, reverse = true });
 
-    [Fact]
-    public void BuildQueryString_BoolValues_AreLowercase()
-    {
-        var result = XrpcQueryBuilder.BuildQueryString(new { reverse = true });
-        Assert.Contains("reverse=true", result);
-    }
-
-    [Fact]
-    public void BuildQueryString_NullValues_AreExcluded()
-    {
-        var dict = new Dictionary<string, string?> { ["key"] = "value", ["empty"] = null };
-        var result = XrpcQueryBuilder.BuildQueryString(dict);
-        Assert.Contains("key=value", result);
-        Assert.DoesNotContain("empty", result);
-    }
-
-    [Fact]
-    public void BuildQueryString_EmptyObject_ReturnsEmpty()
-    {
-        Assert.Equal("", XrpcQueryBuilder.BuildQueryString(new { }));
-    }
-
-    [Fact]
-    public void ToDictionary_Null_ReturnsNull()
-    {
-        Assert.Null(XrpcQueryBuilder.ToDictionary(null));
-    }
-
-    [Fact]
-    public void ToDictionary_AnonymousObject_ReturnsDictionary()
-    {
-        var result = XrpcQueryBuilder.ToDictionary(new { limit = 10, reverse = true });
         Assert.NotNull(result);
         var pairs = result.ToList();
         Assert.Contains(pairs, kv => kv.Key == "limit" && kv.Value == "10");
@@ -67,27 +29,68 @@ public class XrpcQueryBuilderTests
     }
 
     [Fact]
-    public void ToDictionary_StringDictionary_ReturnsSameInstance()
+    public void ToQueryParams_StringDictionary_ReturnsSameInstance()
     {
         var dict = new Dictionary<string, string?> { ["a"] = "b" };
-        var result = XrpcQueryBuilder.ToDictionary(dict);
-        Assert.Same(dict, result);
+        Assert.Same(dict, XrpcQueryBuilder.ToQueryParams(dict));
     }
 
     [Fact]
-    public void ToDictionary_EnumerableValue_ExpandsToRepeatedKeys()
+    public void ToQueryParams_Dictionary_ReturnsPairs()
     {
-        var result = XrpcQueryBuilder.ToDictionary(new { uris = new[] { "a", "b", "c" } });
-        Assert.NotNull(result);
-        var values = result.Where(kv => kv.Key == "uris").Select(kv => kv.Value).ToList();
+        var dict = new Dictionary<string, object?>
+        {
+            ["repo"] = "did:plc:abc",
+            ["collection"] = "com.example.test",
+        };
+
+        var pairs = XrpcQueryBuilder.ToQueryParams(dict)!.ToList();
+
+        Assert.Contains(pairs, kv => kv.Key == "repo" && kv.Value == "did:plc:abc");
+        Assert.Contains(pairs, kv => kv.Key == "collection" && kv.Value == "com.example.test");
+    }
+
+    [Fact]
+    public void ToQueryParams_NullValues_AreExcluded()
+    {
+        var pairs = XrpcQueryBuilder.ToQueryParams(new { key = "value", empty = (string?)null })!.ToList();
+
+        Assert.Contains(pairs, kv => kv.Key == "key");
+        Assert.DoesNotContain(pairs, kv => kv.Key == "empty");
+    }
+
+    [Fact]
+    public void ToQueryParams_EnumerableValue_ExpandsToRepeatedKeys()
+    {
+        var pairs = XrpcQueryBuilder.ToQueryParams(new { uris = new[] { "a", "b", "c" } })!.ToList();
+
+        var values = pairs.Where(kv => kv.Key == "uris").Select(kv => kv.Value);
         Assert.Equal(new[] { "a", "b", "c" }, values);
     }
 
     [Fact]
-    public void BuildQueryString_EnumerableValue_EmitsRepeatedKeys()
+    public void ToQueryParams_EnumerableOfBools_RendersEachLowercase()
     {
-        var result = XrpcQueryBuilder.BuildQueryString(new { langs = new[] { "en", "fr" } });
-        // repeated keys, not a single comma-joined value
-        Assert.Equal("?langs=en&langs=fr", result);
+        var pairs = XrpcQueryBuilder.ToQueryParams(new { flags = new[] { true, false } })!.ToList();
+
+        Assert.Equal(new[] { "true", "false" }, pairs.Select(kv => kv.Value));
+    }
+
+    [Fact]
+    public void ToQueryParams_NonIntegralNumber_UsesInvariantCulture()
+    {
+        var previous = Thread.CurrentThread.CurrentCulture;
+        Thread.CurrentThread.CurrentCulture = new CultureInfo("de-DE");
+        try
+        {
+            var pairs = XrpcQueryBuilder.ToQueryParams(new { ratio = 1.5 })!.ToList();
+
+            // de-DE would render "1,5", which the server cannot parse.
+            Assert.Equal("1.5", Assert.Single(pairs).Value);
+        }
+        finally
+        {
+            Thread.CurrentThread.CurrentCulture = previous;
+        }
     }
 }

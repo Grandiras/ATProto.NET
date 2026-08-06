@@ -27,8 +27,8 @@ public class StandardSiteClientTests : IDisposable
         };
         _xrpc = new XrpcClient(_httpClient, NullLogger.Instance);
         _xrpc.SetTokens("test-token");
-        _repo = new RepoClient(_xrpc, NullLogger.Instance);
-        _site = new StandardSiteClient(_xrpc, NullLogger.Instance, _repo);
+        _repo = new RepoClient(_xrpc);
+        _site = new StandardSiteClient(_xrpc, _repo);
     }
 
     // ──────────────────────────────────────────────────────────

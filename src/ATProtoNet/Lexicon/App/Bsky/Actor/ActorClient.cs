@@ -1,6 +1,5 @@
 using System.Text.Json;
 using ATProtoNet.Http;
-using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Actor;
 
@@ -11,12 +10,10 @@ namespace ATProtoNet.Lexicon.App.Bsky.Actor;
 public sealed class ActorClient
 {
     private readonly XrpcClient _xrpc;
-    private readonly ILogger _logger;
 
-    internal ActorClient(XrpcClient xrpc, ILogger logger)
+    internal ActorClient(XrpcClient xrpc)
     {
         _xrpc = xrpc;
-        _logger = logger;
     }
 
     /// <summary>
@@ -27,7 +24,7 @@ public sealed class ActorClient
     public Task<ProfileViewDetailed> GetProfileAsync(
         string actor, CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?> { ["actor"] = actor };
+        var parameters = new XrpcParams().Add("actor", actor);
         return _xrpc.QueryAsync<ProfileViewDetailed>(
             "app.bsky.actor.getProfile", parameters, cancellationToken);
     }
@@ -38,10 +35,8 @@ public sealed class ActorClient
     public Task<GetProfilesResponse> GetProfilesAsync(
         IEnumerable<string> actors, CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["actors"] = string.Join(",", actors),
-        };
+        var parameters = new XrpcParams()
+            .AddAll("actors", actors);
 
         return _xrpc.QueryAsync<GetProfilesResponse>(
             "app.bsky.actor.getProfiles", parameters, cancellationToken);
@@ -75,11 +70,9 @@ public sealed class ActorClient
         int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetSuggestionsResponse>(
             "app.bsky.actor.getSuggestions", parameters, cancellationToken);
@@ -98,12 +91,10 @@ public sealed class ActorClient
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["q"] = q,
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
+        var parameters = new XrpcParams()
+            .Add("q", q)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<SearchActorsResponse>(
             "app.bsky.actor.searchActors", parameters, cancellationToken);
@@ -120,11 +111,9 @@ public sealed class ActorClient
         int? limit = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["q"] = q,
-            ["limit"] = limit?.ToString(),
-        };
+        var parameters = new XrpcParams()
+            .Add("q", q)
+            .Add("limit", limit);
 
         return _xrpc.QueryAsync<SearchActorsTypeaheadResponse>(
             "app.bsky.actor.searchActorsTypeahead", parameters, cancellationToken);

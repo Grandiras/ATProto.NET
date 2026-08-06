@@ -1,5 +1,4 @@
 using ATProtoNet.Http;
-using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Label;
 
@@ -9,12 +8,10 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Label;
 public sealed class LabelClient
 {
     private readonly XrpcClient _xrpc;
-    private readonly ILogger _logger;
 
-    internal LabelClient(XrpcClient xrpc, ILogger logger)
+    internal LabelClient(XrpcClient xrpc)
     {
         _xrpc = xrpc;
-        _logger = logger;
     }
 
     /// <summary>
@@ -34,15 +31,11 @@ public sealed class LabelClient
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["uriPatterns"] = string.Join(",", uriPatterns),
-            ["limit"] = limit?.ToString(),
-            ["cursor"] = cursor,
-        };
-
-        if (sources is not null)
-            parameters["sources"] = string.Join(",", sources);
+        var parameters = new XrpcParams()
+            .AddAll("uriPatterns", uriPatterns)
+            .AddAll("sources", sources)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<QueryLabelsResponse>(
             "com.atproto.label.queryLabels", parameters, cancellationToken);

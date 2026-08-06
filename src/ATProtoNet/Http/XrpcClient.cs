@@ -227,41 +227,20 @@ public sealed class XrpcClient : IDisposable
     /// <param name="parameters">Optional query parameters.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The deserialized response.</returns>
-    public async Task<TResponse> QueryAsync<TResponse>(
+    public Task<TResponse> QueryAsync<TResponse>(
         string nsid,
         IEnumerable<KeyValuePair<string, string?>>? parameters = null,
-        CancellationToken cancellationToken = default)
-    {
-        var url = BuildUrl(nsid, parameters);
-
-        _logger.LogDebug("XRPC Query: GET {Url}", url);
-
-        using var response = await SendWithDPoPRetryAsync(
-            () => new HttpRequestMessage(HttpMethod.Get, url),
-            cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-
-        var result = await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions, cancellationToken);
-        return result ?? throw new InvalidOperationException($"Failed to deserialize response from {nsid}");
-    }
+        CancellationToken cancellationToken = default) =>
+        SendAsync<TResponse>(HttpMethod.Get, nsid, parameters, content: null, cancellationToken: cancellationToken);
 
     /// <summary>
     /// Performs an XRPC query (HTTP GET) with no response body.
     /// </summary>
-    public async Task QueryAsync(
+    public Task QueryAsync(
         string nsid,
         IEnumerable<KeyValuePair<string, string?>>? parameters = null,
-        CancellationToken cancellationToken = default)
-    {
-        var url = BuildUrl(nsid, parameters);
-
-        _logger.LogDebug("XRPC Query: GET {Url}", url);
-
-        using var response = await SendWithDPoPRetryAsync(
-            () => new HttpRequestMessage(HttpMethod.Get, url),
-            cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        SendAsync(HttpMethod.Get, nsid, parameters, content: null, cancellationToken: cancellationToken);
 
     /// <summary>
     /// Performs an XRPC procedure (HTTP POST) with a JSON body and deserializes the response.
@@ -273,151 +252,129 @@ public sealed class XrpcClient : IDisposable
     /// <param name="parameters">Optional query parameters.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The deserialized response.</returns>
-    public async Task<TResponse> ProcedureAsync<TRequest, TResponse>(
+    public Task<TResponse> ProcedureAsync<TRequest, TResponse>(
         string nsid,
         TRequest body,
         IEnumerable<KeyValuePair<string, string?>>? parameters = null,
-        CancellationToken cancellationToken = default)
-    {
-        var url = BuildUrl(nsid, parameters);
-
-        _logger.LogDebug("XRPC Procedure: POST {Url}", url);
-
-        using var response = await SendWithDPoPRetryAsync(
-            () => new HttpRequestMessage(HttpMethod.Post, url)
-            {
-                Content = JsonContent.Create(body, options: _jsonOptions),
-            },
-            cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-
-        var result = await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions, cancellationToken);
-        return result ?? throw new InvalidOperationException($"Failed to deserialize response from {nsid}");
-    }
+        CancellationToken cancellationToken = default) =>
+        SendAsync<TResponse>(HttpMethod.Post, nsid, parameters, JsonBody(body), cancellationToken: cancellationToken);
 
     /// <summary>
     /// Performs an XRPC procedure (HTTP POST) with a JSON body and no response.
     /// </summary>
-    public async Task ProcedureAsync<TRequest>(
+    public Task ProcedureAsync<TRequest>(
         string nsid,
         TRequest body,
         IEnumerable<KeyValuePair<string, string?>>? parameters = null,
-        CancellationToken cancellationToken = default)
-    {
-        var url = BuildUrl(nsid, parameters);
-
-        _logger.LogDebug("XRPC Procedure: POST {Url}", url);
-
-        using var response = await SendWithDPoPRetryAsync(
-            () => new HttpRequestMessage(HttpMethod.Post, url)
-            {
-                Content = JsonContent.Create(body, options: _jsonOptions),
-            },
-            cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        SendAsync(HttpMethod.Post, nsid, parameters, JsonBody(body), cancellationToken: cancellationToken);
 
     /// <summary>
     /// Performs an XRPC procedure (HTTP POST) with no body and no response.
     /// </summary>
-    public async Task ProcedureAsync(
+    public Task ProcedureAsync(
         string nsid,
         IEnumerable<KeyValuePair<string, string?>>? parameters = null,
-        CancellationToken cancellationToken = default)
-    {
-        var url = BuildUrl(nsid, parameters);
-
-        _logger.LogDebug("XRPC Procedure: POST {Url}", url);
-
-        using var response = await SendWithDPoPRetryAsync(
-            () => new HttpRequestMessage(HttpMethod.Post, url),
-            cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        SendAsync(HttpMethod.Post, nsid, parameters, content: null, cancellationToken: cancellationToken);
 
     /// <summary>
     /// Performs an XRPC procedure (HTTP POST) with no body but with a response.
     /// </summary>
-    public async Task<TResponse> ProcedureAsync<TResponse>(
+    public Task<TResponse> ProcedureAsync<TResponse>(
         string nsid,
         IEnumerable<KeyValuePair<string, string?>>? parameters = null,
         CancellationToken cancellationToken = default)
-        where TResponse : class
-    {
-        var url = BuildUrl(nsid, parameters);
-
-        _logger.LogDebug("XRPC Procedure: POST {Url}", url);
-
-        using var response = await SendWithDPoPRetryAsync(
-            () => new HttpRequestMessage(HttpMethod.Post, url),
-            cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-
-        var result = await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions, cancellationToken);
-        return result ?? throw new InvalidOperationException($"Failed to deserialize response from {nsid}");
-    }
+        where TResponse : class =>
+        SendAsync<TResponse>(HttpMethod.Post, nsid, parameters, content: null, cancellationToken: cancellationToken);
 
     // ──────────────────────────────────────────────────────────
     //  Internal proxy-aware overloads (for chat sub-clients)
     // ──────────────────────────────────────────────────────────
 
-    internal async Task<TResponse> QueryAsync<TResponse>(
+    internal Task<TResponse> QueryAsync<TResponse>(
         string nsid,
         string proxyHeader,
         IEnumerable<KeyValuePair<string, string?>>? parameters = null,
-        CancellationToken cancellationToken = default)
-    {
-        var url = BuildUrl(nsid, parameters);
+        CancellationToken cancellationToken = default) =>
+        SendAsync<TResponse>(HttpMethod.Get, nsid, parameters, content: null, proxyHeader, cancellationToken);
 
-        _logger.LogDebug("XRPC Query (proxied): GET {Url}", url);
-
-        using var response = await SendWithDPoPRetryAsync(
-            () => new HttpRequestMessage(HttpMethod.Get, url),
-            cancellationToken, proxyOverride: proxyHeader);
-        await EnsureSuccessAsync(response, cancellationToken);
-
-        var result = await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions, cancellationToken);
-        return result ?? throw new InvalidOperationException($"Failed to deserialize response from {nsid}");
-    }
-
-    internal async Task<TResponse> ProcedureAsync<TRequest, TResponse>(
+    internal Task<TResponse> ProcedureAsync<TRequest, TResponse>(
         string nsid,
         TRequest body,
         string proxyHeader,
         IEnumerable<KeyValuePair<string, string?>>? parameters = null,
+        CancellationToken cancellationToken = default) =>
+        SendAsync<TResponse>(HttpMethod.Post, nsid, parameters, JsonBody(body), proxyHeader, cancellationToken);
+
+    internal Task ProcedureAsync(
+        string nsid,
+        string proxyHeader,
+        IEnumerable<KeyValuePair<string, string?>>? parameters = null,
+        CancellationToken cancellationToken = default) =>
+        SendAsync(HttpMethod.Post, nsid, parameters, content: null, proxyHeader, cancellationToken);
+
+    /// <summary>
+    /// Issues a request and discards the response body.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="content"/> is a factory rather than a single instance because
+    /// <see cref="SendWithDPoPRetryAsync"/> may replay the request, and an
+    /// <see cref="HttpContent"/> cannot be sent twice. Null means a bodyless request.
+    /// </remarks>
+    private async Task SendAsync(
+        HttpMethod method,
+        string nsid,
+        IEnumerable<KeyValuePair<string, string?>>? parameters,
+        Func<HttpContent>? content,
+        string? proxyHeader = null,
         CancellationToken cancellationToken = default)
     {
-        var url = BuildUrl(nsid, parameters);
+        using var response = await SendCoreAsync(
+            method, nsid, parameters, content, proxyHeader, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
 
-        _logger.LogDebug("XRPC Procedure (proxied): POST {Url}", url);
-
-        using var response = await SendWithDPoPRetryAsync(
-            () => new HttpRequestMessage(HttpMethod.Post, url)
-            {
-                Content = JsonContent.Create(body, options: _jsonOptions),
-            },
-            cancellationToken, proxyOverride: proxyHeader);
+    /// <summary>
+    /// Issues a request and deserializes the response body.
+    /// </summary>
+    private async Task<TResponse> SendAsync<TResponse>(
+        HttpMethod method,
+        string nsid,
+        IEnumerable<KeyValuePair<string, string?>>? parameters,
+        Func<HttpContent>? content,
+        string? proxyHeader = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await SendCoreAsync(
+            method, nsid, parameters, content, proxyHeader, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
 
         var result = await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions, cancellationToken);
         return result ?? throw new InvalidOperationException($"Failed to deserialize response from {nsid}");
     }
 
-    internal async Task ProcedureAsync(
+    private Task<HttpResponseMessage> SendCoreAsync(
+        HttpMethod method,
         string nsid,
-        string proxyHeader,
-        IEnumerable<KeyValuePair<string, string?>>? parameters = null,
-        CancellationToken cancellationToken = default)
+        IEnumerable<KeyValuePair<string, string?>>? parameters,
+        Func<HttpContent>? content,
+        string? proxyHeader,
+        CancellationToken cancellationToken)
     {
         var url = BuildUrl(nsid, parameters);
 
-        _logger.LogDebug("XRPC Procedure (proxied): POST {Url}", url);
+        _logger.LogDebug("XRPC {Method}{Proxied}: {Url}",
+            method.Method, proxyHeader is null ? "" : " (proxied)", url);
 
-        using var response = await SendWithDPoPRetryAsync(
-            () => new HttpRequestMessage(HttpMethod.Post, url),
-            cancellationToken, proxyOverride: proxyHeader);
-        await EnsureSuccessAsync(response, cancellationToken);
+        return SendWithDPoPRetryAsync(
+            () => new HttpRequestMessage(method, url) { Content = content?.Invoke() },
+            cancellationToken,
+            proxyOverride: proxyHeader);
     }
+
+    private Func<HttpContent> JsonBody<TRequest>(TRequest body) =>
+        () => JsonContent.Create(body, options: _jsonOptions);
 
     /// <summary>
     /// Uploads a blob (binary data) to the server.
@@ -663,43 +620,36 @@ public sealed class XrpcClient : IDisposable
             }
         }
 
-        if (response.IsSuccessStatusCode)
-        {
-            ParseRateLimitHeaders(response);
-            return;
-        }
-
-        // Also parse rate limit headers on error responses (especially 429)
+        // Rate limit headers are informative on errors too, especially on 429.
         ParseRateLimitHeaders(response);
 
+        if (response.IsSuccessStatusCode)
+            return;
+
         string? responseBody = null;
+        XrpcErrorResponse? error = null;
         try
         {
             responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-            var errorResponse = JsonSerializer.Deserialize<XrpcErrorResponse>(responseBody, _jsonOptions);
+            error = JsonSerializer.Deserialize<XrpcErrorResponse>(responseBody, _jsonOptions);
+        }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
+        {
+            // Not an XRPC error envelope; fall through to the generic message below,
+            // which still carries whatever body we managed to read.
+        }
 
-            if (errorResponse is not null)
-            {
-                throw new AtProtoHttpException(
-                    errorResponse.Error,
-                    errorResponse.Message,
-                    response.StatusCode,
-                    responseBody);
-            }
-        }
-        catch (AtProtoHttpException)
+        if (error is not null)
         {
-            throw;
-        }
-        catch (Exception)
-        {
-            // Could not parse error response as JSON
+            throw new AtProtoHttpException(
+                error.Error, error.Message, response.StatusCode, responseBody);
         }
 
         throw new AtProtoHttpException(
             $"XRPC request failed with status {response.StatusCode}",
             response.StatusCode)
         {
+            ResponseBody = responseBody,
         };
     }
 
@@ -767,9 +717,13 @@ public sealed class XrpcClient : IDisposable
         return TimeSpan.FromSeconds(Math.Pow(2, attempt));
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// No-op. The <see cref="HttpClient"/> is owned by whoever constructed it —
+    /// typically <see cref="AtProtoClient"/> or an <c>IHttpClientFactory</c> — and this
+    /// client holds no other unmanaged state. Implemented so callers can safely wrap a
+    /// <see cref="XrpcClient"/> in <c>using</c>.
+    /// </summary>
     public void Dispose()
     {
-        // HttpClient is managed externally (via HttpClientFactory)
     }
 }

@@ -48,19 +48,27 @@ public sealed class FileAtProtoTokenStore : IAtProtoTokenStore
             ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ATProtoNet", "tokens");
 
         Directory.CreateDirectory(_directory);
+        RestrictToOwner(_directory, UnixFileMode.UserExecute);
+    }
 
-        // Set restrictive permissions on Unix (owner-only: rwx------)
-        if (!OperatingSystem.IsWindows())
+    /// <summary>
+    /// Narrows a path to owner-only access on Unix. Data Protection already encrypts the
+    /// contents, but the file also reveals which accounts this host holds tokens for, and
+    /// the default umask would leave it group- and world-readable. No-op on Windows,
+    /// where the directory ACL governs.
+    /// </summary>
+    private void RestrictToOwner(string path, UnixFileMode extra = default)
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+
+        try
         {
-            try
-            {
-                File.SetUnixFileMode(_directory,
-                    UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Could not set restrictive permissions on token store directory");
-            }
+            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | extra);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "Could not set restrictive permissions on {Path}", path);
         }
     }
 
@@ -77,7 +85,15 @@ public sealed class FileAtProtoTokenStore : IAtProtoTokenStore
         {
             var json = JsonSerializer.Serialize(data, JsonOptions);
             var encrypted = _protector.Protect(json);
-            await File.WriteAllTextAsync(filePath, encrypted, cancellationToken);
+
+            // Write to a sibling temp file and move it into place, so a crash or a
+            // concurrent reader never observes a half-written token file — losing the
+            // refresh token that way logs the user out with no way to recover it.
+            var tempPath = filePath + ".tmp";
+            await File.WriteAllTextAsync(tempPath, encrypted, cancellationToken);
+            RestrictToOwner(tempPath);
+            File.Move(tempPath, filePath, overwrite: true);
+
             _logger.LogDebug("Stored tokens for DID {Did}", did);
         }
         finally
@@ -116,14 +132,24 @@ public sealed class FileAtProtoTokenStore : IAtProtoTokenStore
     }
 
     /// <inheritdoc/>
-    public Task RemoveAsync(string did, CancellationToken cancellationToken = default)
+    public async Task RemoveAsync(string did, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(did);
 
         var filePath = GetFilePath(did);
-        TryDeleteFile(filePath);
-        _logger.LogDebug("Removed tokens for DID {Did}", did);
-        return Task.CompletedTask;
+
+        // Under the same lock as StoreAsync: deleting concurrently with a write
+        // otherwise leaves the just-written file behind and the logout ineffective.
+        await _lock.WaitAsync(cancellationToken);
+        try
+        {
+            TryDeleteFile(filePath);
+            _logger.LogDebug("Removed tokens for DID {Did}", did);
+        }
+        finally
+        {
+            _lock.Release();
+        }
     }
 
     private string GetFilePath(string did)

@@ -23,9 +23,11 @@ public sealed class AtProtoHttpException : HttpRequestException
     public new HttpStatusCode? StatusCode { get; }
 
     /// <summary>
-    /// The raw response body, if available.
+    /// The raw response body, if available. Settable at construction so the
+    /// status-code-only constructor can still carry a body that could not be
+    /// parsed as an XRPC error envelope.
     /// </summary>
-    public string? ResponseBody { get; }
+    public string? ResponseBody { get; init; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AtProtoHttpException"/> class.

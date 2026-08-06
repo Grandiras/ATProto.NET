@@ -65,11 +65,13 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
 
         var options = new AtProtoClientOptions
         {
-            InstanceUrl = tokenData.PdsUrl,
-            // Disable auto-refresh timer — per-request clients are short-lived.
-            // Token refresh is handled on-demand by the XRPC client when it receives
-            // an ExpiredToken error.
+            // No refresh timer: these clients live for one request, so a background
+            // timer would rarely fire before disposal. Nothing refreshes them
+            // on-demand either — a caller that sees an ExpiredToken error should call
+            // RefreshSessionAsync and retry, which writes the rotated token back to
+            // the store passed to ApplyOAuthSessionAsync below.
             AutoRefreshSession = false,
+            InstanceUrl = tokenData.PdsUrl,
         };
 
         var client = new AtProtoClient(options, httpClient, new InMemorySessionStore(), logger);
@@ -112,11 +114,23 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
                 tokenData.Did);
         }
 
-        // Pass _tokenStore so the per-request client persists rotated refresh tokens
-        // back to durable storage. Without this, the rotated refresh token only lives
-        // in the per-request InMemorySessionStore — request B then reads the old
-        // (now-invalidated) refresh token and the user is permanently logged out.
-        await client.ApplyOAuthSessionAsync(oauthSession, oauthClient, _tokenStore, cancellationToken);
+        try
+        {
+            // Pass _tokenStore so the per-request client persists rotated refresh tokens
+            // back to durable storage. Without this, the rotated refresh token only lives
+            // in the per-request InMemorySessionStore — request B then reads the old
+            // (now-invalidated) refresh token and the user is permanently logged out.
+            await client.ApplyOAuthSessionAsync(oauthSession, oauthClient, _tokenStore, cancellationToken);
+        }
+        catch
+        {
+            // The client owns oauthSession (and its DPoP key) only once Apply succeeds;
+            // on failure nothing else will ever dispose either, and every failed request
+            // would leak an ECDsa native handle until finalization.
+            oauthSession.Dispose();
+            client.Dispose();
+            throw;
+        }
 
         return client;
     }
