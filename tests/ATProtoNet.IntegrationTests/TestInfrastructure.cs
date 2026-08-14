@@ -80,8 +80,40 @@ public sealed class RequiresPdsAdminFactAttribute : FactAttribute
     }
 }
 
+/// <summary>
+/// Skips a test that talks to Bluesky's public Jetstream instances.
+/// Set ATPROTO_TEST_JETSTREAM=true to enable these tests.
+/// </summary>
+/// <remarks>
+/// Unlike the other integration tests these need no PDS and no credentials — only outbound
+/// internet access to <see cref="ATProtoNet.Streaming.JetstreamEndpoints.UsEast"/> — so they
+/// have their own switch rather than riding on the PDS environment variables.
+/// </remarks>
+public sealed class RequiresJetstreamFactAttribute : FactAttribute
+{
+    public RequiresJetstreamFactAttribute(
+        [CallerFilePath] string? sourceFilePath = null,
+        [CallerLineNumber] int sourceLineNumber = -1)
+        : base(sourceFilePath, sourceLineNumber)
+    {
+        if (!TestConfig.JetstreamEnabled && !TestConfig.IntegrationRequired)
+        {
+            Skip = "Jetstream tests require ATPROTO_TEST_JETSTREAM=true. " +
+                   "They connect to Bluesky's public Jetstream instances over the internet.";
+        }
+    }
+}
+
 public static class TestConfig
 {
+    /// <summary>The Jetstream host the live protocol tests run against.</summary>
+    public static string JetstreamUrl =>
+        Environment.GetEnvironmentVariable("ATPROTO_JETSTREAM_URL")
+        ?? ATProtoNet.Streaming.JetstreamEndpoints.UsEast;
+
+    public static bool JetstreamEnabled =>
+        Environment.GetEnvironmentVariable("ATPROTO_TEST_JETSTREAM") is "1" or "true" or "True";
+
     public static string PdsUrl =>
         Environment.GetEnvironmentVariable("ATPROTO_PDS_URL") ?? "http://localhost:2583";
 

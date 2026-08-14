@@ -433,8 +433,11 @@ See [Firehose](firehose.md) and [Jetstream](jetstream.md).
 | `FirehoseEventParser` | CBOR frame → `CommitEvent` / `SyncEvent` / `IdentityEvent` / `AccountEvent` |
 | `FirehoseVerifier` | `VerifyCid(...)` (local) and `VerifySignatureAsync(...)` (needs DID resolution) |
 | `IFirehoseCursorStore` | `GetCursorAsync` / `StoreCursorAsync`; `InMemoryFirehoseCursorStore` included |
-| `JetstreamClient` / `JetstreamConsumer` | JSON streaming with server-side collection/DID filtering |
-| `JetstreamEventParser`, `IJetstreamDecompressor` | Forward-tolerant parsing; optional zstd seam |
+| `JetstreamClient` / `JetstreamConsumer` | JSON streaming with server-side collection/DID/kind filtering, on either wire protocol (`JetstreamProtocol.V1` / `V2`) |
+| `JetstreamEventParser`, `IJetstreamDecompressor` | Forward-tolerant parsing (`ParseFrame`); optional zstd seam |
+| `JetstreamCommitEvent` / `IdentityEvent` / `AccountEvent` / `SyncEvent` | Typed events; `SyncEvent` is v2 only |
+| `JetstreamEndpoints`, `JetstreamDictionaryClient` | Public instance URLs; v2 zstd dictionary fetch |
+| `JetstreamConnectException` | Subscription rejected pre-upgrade (`CursorTooOld`, …); `IsRetryable` |
 
 ---
 

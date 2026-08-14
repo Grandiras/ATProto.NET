@@ -27,6 +27,7 @@ Integration tests in `tests/ATProtoNet.IntegrationTests/` need a live PDS and ar
 - `ATPROTO_PDS_URL` (default `http://localhost:2583`)
 - `ATPROTO_TEST_HANDLE`, `ATPROTO_TEST_PASSWORD`
 - `ATPROTO_HAS_BLUESKY=true` for app-view tests
+- `ATPROTO_TEST_JETSTREAM=true` for the live Jetstream v2 protocol tests (`[RequiresJetstreamFact]`) — these need outbound internet but no PDS and no credentials; `ATPROTO_JETSTREAM_URL` overrides the host
 
 Without these, the attribute sets `Skip` rather than failing — CI runs unit tests only.
 
