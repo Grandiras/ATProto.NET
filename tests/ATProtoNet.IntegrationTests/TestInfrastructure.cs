@@ -104,12 +104,47 @@ public sealed class RequiresJetstreamFactAttribute : FactAttribute
     }
 }
 
+/// <summary>
+/// Skips a test that talks to the Jetstream v2 archive (the metered HTTP replay endpoints).
+/// </summary>
+/// <remarks>
+/// On top of <see cref="RequiresJetstreamFactAttribute"/>'s outbound internet these need an API
+/// key: the archive endpoints are authenticated and metered in response bytes, unlike the live
+/// WebSocket tail. Set <c>ATPROTO_JETSTREAM_API_KEY</c> to run them.
+/// </remarks>
+public sealed class RequiresJetstreamArchiveFactAttribute : FactAttribute
+{
+    public RequiresJetstreamArchiveFactAttribute(
+        [CallerFilePath] string? sourceFilePath = null,
+        [CallerLineNumber] int sourceLineNumber = -1)
+        : base(sourceFilePath, sourceLineNumber)
+    {
+        if (TestConfig.IntegrationRequired)
+            return;
+
+        if (!TestConfig.JetstreamEnabled)
+        {
+            Skip = "Jetstream tests require ATPROTO_TEST_JETSTREAM=true. " +
+                   "They connect to Bluesky's public Jetstream instances over the internet.";
+        }
+        else if (string.IsNullOrEmpty(TestConfig.JetstreamApiKey))
+        {
+            Skip = "Jetstream archive tests require ATPROTO_JETSTREAM_API_KEY. " +
+                   "The replay endpoints are authenticated and metered in response bytes.";
+        }
+    }
+}
+
 public static class TestConfig
 {
     /// <summary>The Jetstream host the live protocol tests run against.</summary>
     public static string JetstreamUrl =>
         Environment.GetEnvironmentVariable("ATPROTO_JETSTREAM_URL")
         ?? ATProtoNet.Streaming.JetstreamEndpoints.UsEast;
+
+    /// <summary>The API key for the metered archive endpoints, if one was supplied.</summary>
+    public static string JetstreamApiKey =>
+        Environment.GetEnvironmentVariable("ATPROTO_JETSTREAM_API_KEY") ?? "";
 
     public static bool JetstreamEnabled =>
         Environment.GetEnvironmentVariable("ATPROTO_TEST_JETSTREAM") is "1" or "true" or "True";

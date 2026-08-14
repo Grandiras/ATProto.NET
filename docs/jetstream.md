@@ -238,9 +238,124 @@ Setting only one of the two throws `ArgumentException`: a dictionary ID without 
 
 For low-volume filtered streams the bandwidth saving is negligible — skip compression unless you tail high-volume collections like `app.bsky.*`.
 
-## Historical Replay
+## Historical Replay (v2 Archive)
 
-v2 hosts also serve a **replay** API — an archive of the whole network, paged over authenticated HTTP (`planSnapshot`, `listSegments`, `getSegment`, `getBlock`) in a columnar `.jss` segment format, with a seamless cutover to the live tail at the tip. **The SDK does not implement it**; only the live tail described on this page is supported. Consumers needing a full historical backfill should use Bluesky's own [Go or TypeScript SDK](https://bsky.network/docs/jetstream-sdk) for the archive portion, or replay from the PDSes directly with `com.atproto.sync.getRepo`.
+The live tail is only one of three ways to consume Jetstream v2. The v2 hosts also serve a **full-network archive** over HTTP, which the SDK consumes in two modes:
+
+| Mode | Transport | Auth | Type |
+|---|---|---|---|
+| Live | WebSocket (`subscribeEvents`) | none | `JetstreamConsumer` |
+| Replay | HTTP plan + download, then cut over to the live tail | API key on the HTTP calls | `JetstreamReplayConsumer` |
+| Snapshot | HTTP only, no live tail | API key | `JetstreamReplayConsumer` with `SnapshotOnly = true` |
+
+Replay is what an indexer actually needs: *the records that already exist* **and** *every new one*, with no gap at the seam.
+
+```csharp
+var consumer = new JetstreamReplayConsumer(new JetstreamConsumerOptions
+{
+    ServiceUrl = JetstreamEndpoints.UsEast,
+    Protocol = JetstreamProtocol.V2,          // required: v1 has no archive
+    WantedCollections = ["app.bsky.feed.post"],
+    WantedKinds = [JetstreamEventKind.Commit],
+    CursorStore = myCursorStore,              // same IFirehoseCursorStore, same v2 sequence number
+    Archive = new JetstreamArchiveOptions
+    {
+        ApiKey = Environment.GetEnvironmentVariable("JETSTREAM_API_KEY"),
+        BlockDecompressor = new ZstdBlockDecompressor(),   // see below
+        DownloadParallelism = 4,
+    },
+});
+
+await foreach (var evt in consumer.ReplayAsync(cancellationToken: stoppingToken))
+{
+    // History first, then the live tail — one loop, in sequence order.
+    await IndexAsync(evt);
+}
+```
+
+The filters are declared once and used by both phases. `consumer.IsBackfilling` says which phase you are in; `consumer.LastCursor` is the sequence number of the last event delivered.
+
+### How it works
+
+Replay is **stateless on the server** — no registered subscription, no per-consumer cursor:
+
+1. **Plan.** `planSnapshot` is posted with the DID/collection/kind filter and the sequence window. The first response's `sealedTipSeq` is pinned as the ceiling `S` for the whole backfill; each page reports `plannedThroughSeq`, and while that is below `S` the consumer re-plans with `afterSeq = plannedThroughSeq`, `beforeSeq = S`, so the range never floats. Large plans truncate at a whole segment or block-range boundary and always admit at least one work unit, so paging always progresses. If a page ever *does* come back without advancing while `S` is still ahead — the tip reported before the segments carrying it became servable — the consumer waits (exponential from a second, capped by `MaxRetryDelay`) and re-plans, up to `MaxStalledPlanAttempts` times (default 5), then throws a `JetstreamArchiveException`. It does **not** stop below `S` and cut over: the cutover starts at `S`, so the skipped range would never be delivered by either phase.
+2. **Download.** Each planned segment comes back as `mode: "segment"` (fetch the file with `getSegment`) or `mode: "blocks"` (fetch the listed ranges with `getBlock`). `DownloadParallelism` downloads run ahead of the decoder, which still delivers strictly in sequence order. Whole segments are spooled to a temporary file (`SpoolDirectory`, defaulting to the system temp directory) rather than buffered — they run to hundreds of megabytes.
+3. **Cut over.** The live socket is connected *once* at `?cursor=S`. That cursor is inclusive, so events at or below the last one already delivered are dropped, and the server replays the window between the plan and the socket — nothing is lost at the handoff and there is no buffer to drain.
+
+The planner works from bloom filters and per-block summaries: it has **no false negatives, but can return blocks with no matching rows**, so the exact filter is applied again to what was decoded.
+
+`SnapshotOnly = true` stops when the archive is exhausted instead of cutting over. `BeforeSeq` bounds the snapshot above and requires `SnapshotOnly` — there is nothing to cut over into above a fixed ceiling. It caps the pinned ceiling too, so a snapshot stops at `BeforeSeq` even when `sealedTipSeq` runs far past it.
+
+### Auth, metering, and resume
+
+The HTTP endpoints are metered on the Bluesky-hosted instances (the live WebSocket stays unauthenticated and unmetered):
+
+- `ApiKey` is sent as `Authorization: Bearer`. A missing, malformed, or revoked key is a `401` (`invalid bearer credential`), surfaced as a non-retryable `JetstreamArchiveException`.
+- Metering is in **response bytes on the wire**, not requests. Over quota is `429` (`byte limit exceeded`) with a `Retry-After`; the quota refills continuously rather than resetting on a boundary, so the client waits out exactly what the server asked for, up to `MaxRetryAttempts` times.
+- Running out mid-download closes the stream cleanly. `DownloadSegmentAsync` resumes with an HTTP `Range` request from the exact byte offset it stopped at — nothing already downloaded is re-fetched or re-charged.
+
+If a backfill runs long enough that the pinned tip `S` ages out of the live socket's lookback window (36 hours on the Bluesky instances), the cutover connect is refused with a `JetstreamConnectException`. The consumer then re-enters the plan loop from the last sequence number it delivered rather than skipping the gap, up to `MaxCutoverAttempts` times (default 3) before rethrowing.
+
+### Folding, not filtering
+
+Replay delivers **every matching event at least once in sequence order**, including creates that a later delete supersedes. Consumers converge by folding, exactly as on the live tail:
+
+- create adds, update replaces, delete removes — key writes on the record's `at://` URI so they stay idempotent;
+- a `JetstreamAccountEvent` with `Active = false` (`Status = "deleted"`), or a `JetstreamSyncEvent` divergence marker, removes **all** of that account's records;
+- account-level events carry no collection and are delivered even to a collection-filtered consumer.
+
+The cursor persists through the same `IFirehoseCursorStore` the live tail uses, since a replay cursor *is* the v2 sequence number — a restart resumes the backfill where it left off.
+
+### The zstd seam
+
+Segment blocks are plain zstd frames with **no dictionary** — unlike the dictionary-compressed WebSocket frames, so `IJetstreamDecompressor` and `IJetstreamBlockDecompressor` are deliberately separate and a decompressor with the Jetstream dictionary loaded cannot read a block. Using [ZstdSharp.Port](https://www.nuget.org/packages/ZstdSharp.Port):
+
+```csharp
+using ZstdSharp;
+
+public sealed class ZstdBlockDecompressor : IJetstreamBlockDecompressor
+{
+    public byte[] Decompress(ReadOnlySpan<byte> frame)
+    {
+        using var decompressor = new Decompressor();
+        return decompressor.Unwrap(frame).ToArray();
+    }
+}
+```
+
+### Reading the archive directly
+
+`JetstreamArchiveClient` wraps the four endpoints for mirrors and other tooling, and `JetstreamSegmentReader` decodes the `.jss` format on its own:
+
+```csharp
+using var archive = new JetstreamArchiveClient(JetstreamEndpoints.UsEast, apiKey);
+
+await foreach (var segment in archive.ListAllSegmentsAsync())
+{
+    // name, index, sizeBytes, checksum, eventCount, minSeq/maxSeq, minWitnessedAt/maxWitnessedAt
+    if (Mirror.HasCurrent(segment.Name, segment.Checksum))
+        continue;
+
+    await using var file = File.Create(segment.Name);
+    await archive.DownloadSegmentAsync(segment.Name, file);
+}
+
+// Streaming decode: a segment is never held in memory whole.
+await using var stored = File.OpenRead("seg_000000002a.jss");
+await foreach (var row in JetstreamSegmentReader.ReadRowsAsync(stored, decompressor))
+{
+    // row.Payload is the untouched CBOR the network published — the archive keeps records as
+    // CBOR precisely so a mirror stays byte-auditable. row.ToEvent() projects to the live model.
+}
+```
+
+Two behaviours worth designing around:
+
+- **Sealed segments are immutable only between compactions.** The server periodically rewrites them to physically drop deleted records, and a rewritten file gets a new checksum. A mirror re-lists and compares `Checksum` (which is also the `getSegment` ETag) rather than assuming a name never changes content.
+- **`Checksum` is not recomputed locally.** It is an xxh3 metadata checksum, and the SDK ships no xxhash implementation any more than it ships zstd; block frames carry their own zstd content checksums, which the decompressor verifies. Compare the listed checksum against the ETag to detect a stale mirror.
+
+A runnable end-to-end example — the ZstdSharp decompressor, snapshot mode, and the replay cutover — is in [`samples/JetstreamReplaySample`](../samples/JetstreamReplaySample).
 
 ## Jetstream vs. Binary Firehose
 
@@ -251,4 +366,5 @@ v2 hosts also serve a **replay** API — an archive of the whole network, paged 
 | Bandwidth for niche collections | Near zero | Entire network stream |
 | Cryptographic verification | ✗ | ✓ (CIDs + signatures) |
 | Cursor | `Cursor` (seq) on v2, `TimeUs` on v1 | Sequence number |
+| Historical backfill | Full-network archive (`JetstreamReplayConsumer`, v2) | Relay retention window, then `com.atproto.sync.getRepo` per repo |
 | Source | Jetstream instance (trusted) | Relay / PDS |

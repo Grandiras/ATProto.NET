@@ -38,4 +38,9 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Binary conformance fixtures (e.g. Jetstream's own golden segment block). -->
+    <None Include="Streaming/TestData/*.bin" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

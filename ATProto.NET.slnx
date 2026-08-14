@@ -12,6 +12,7 @@
   <Folder Name="/samples/">
     <Project Path="samples/BlazorOAuthSample/BlazorOAuthSample.csproj" />
     <Project Path="samples/FirehoseConsumerSample/FirehoseConsumerSample.csproj" />
+    <Project Path="samples/JetstreamReplaySample/JetstreamReplaySample.csproj" />
     <Project Path="samples/ManagedPdsSample/ManagedPdsSample.csproj" />
     <Project Path="samples/ManagedPdsSample.AppHost/ManagedPdsSample.AppHost.csproj" />
     <Project Path="samples/ServerIntegrationSample/ServerIntegrationSample.csproj" />

@@ -28,6 +28,7 @@ Integration tests in `tests/ATProtoNet.IntegrationTests/` need a live PDS and ar
 - `ATPROTO_TEST_HANDLE`, `ATPROTO_TEST_PASSWORD`
 - `ATPROTO_HAS_BLUESKY=true` for app-view tests
 - `ATPROTO_TEST_JETSTREAM=true` for the live Jetstream v2 protocol tests (`[RequiresJetstreamFact]`) — these need outbound internet but no PDS and no credentials; `ATPROTO_JETSTREAM_URL` overrides the host
+- `ATPROTO_JETSTREAM_API_KEY` additionally enables the Jetstream v2 archive tests (`[RequiresJetstreamArchiveFact]`); the replay HTTP endpoints are authenticated and metered in response bytes, so those tests stay deliberately small
 
 Without these, the attribute sets `Skip` rather than failing — CI runs unit tests only.
 

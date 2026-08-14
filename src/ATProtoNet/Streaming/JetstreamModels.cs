@@ -97,6 +97,18 @@ public sealed class JetstreamConsumerOptions
     /// </remarks>
     public int? ZstdDictionaryId { get; init; }
 
+    /// <summary>
+    /// Configuration for the v2 archive — the HTTP replay endpoints behind
+    /// <see cref="JetstreamReplayConsumer"/>. Required by that consumer and ignored by the
+    /// live-only <see cref="JetstreamClient"/> and <see cref="JetstreamConsumer"/>, so one options
+    /// object configures a backfill and the live tail it cuts over into with a single set of
+    /// filters.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="JetstreamProtocol.V2"/> only: v1 has no archive.
+    /// </remarks>
+    public JetstreamArchiveOptions? Archive { get; init; }
+
     /// <summary>Optional cursor store for persistent resume across restarts.
     /// The stored value is whatever the selected <see cref="Protocol"/> uses as its cursor:
     /// the event's <c>time_us</c> (unix microseconds) on <see cref="JetstreamProtocol.V1"/>,
