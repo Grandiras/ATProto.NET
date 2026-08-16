@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using ATProtoNet.Identity;
@@ -123,7 +124,9 @@ public static class CidComputation
     /// <returns>The base32lower-encoded CID string.</returns>
     public static string EncodeCidToString(ReadOnlySpan<byte> cidBytes)
     {
-        return "b" + Base32Lower.Encode(cidBytes);
+        // Written in one pass: "b" + Base32Lower.Encode(...) built the base32 in a char[],
+        // copied that into a string, then allocated a third string for the concatenation.
+        return Base32Lower.EncodeWithPrefix('b', cidBytes);
     }
 
     /// <summary>
@@ -173,33 +176,61 @@ internal static class Base32Lower
     private const string Alphabet = "abcdefghijklmnopqrstuvwxyz234567";
 
     public static string Encode(ReadOnlySpan<byte> data)
+        => data.IsEmpty ? string.Empty : EncodeWithPrefix(null, data);
+
+    /// <summary>
+    /// Encodes <paramref name="data"/> as base32lower, optionally preceded by a single
+    /// multibase <paramref name="prefix"/> character.
+    /// </summary>
+    /// <remarks>
+    /// A CID encodes to 59 characters including its prefix, so the whole result is built on
+    /// the stack and the returned string is the only allocation. The prefix is folded in here
+    /// rather than concatenated by the caller, which would allocate a second string.
+    /// </remarks>
+    public static string EncodeWithPrefix(char? prefix, ReadOnlySpan<byte> data)
     {
-        if (data.IsEmpty) return string.Empty;
+        var length = (prefix is null ? 0 : 1) + EncodedLength(data.Length);
+        if (length == 0) return string.Empty;
 
-        var result = new char[(data.Length * 8 + 4) / 5];
-        int resultIndex = 0;
-        int buffer = 0;
-        int bitsLeft = 0;
+        char[]? rented = length > MaxStackChars ? ArrayPool<char>.Shared.Rent(length) : null;
+        Span<char> chars = rented ?? stackalloc char[MaxStackChars];
 
-        foreach (var b in data)
+        try
         {
-            buffer = (buffer << 8) | b;
-            bitsLeft += 8;
+            var at = 0;
+            if (prefix is { } p) chars[at++] = p;
 
-            while (bitsLeft >= 5)
+            int buffer = 0;
+            int bitsLeft = 0;
+
+            foreach (var b in data)
             {
-                bitsLeft -= 5;
-                result[resultIndex++] = Alphabet[(buffer >> bitsLeft) & 0x1F];
+                buffer = (buffer << 8) | b;
+                bitsLeft += 8;
+
+                while (bitsLeft >= 5)
+                {
+                    bitsLeft -= 5;
+                    chars[at++] = Alphabet[(buffer >> bitsLeft) & 0x1F];
+                }
             }
-        }
 
-        if (bitsLeft > 0)
+            if (bitsLeft > 0)
+                chars[at++] = Alphabet[(buffer << (5 - bitsLeft)) & 0x1F];
+
+            return new string(chars[..at]);
+        }
+        finally
         {
-            result[resultIndex++] = Alphabet[(buffer << (5 - bitsLeft)) & 0x1F];
+            if (rented is not null) ArrayPool<char>.Shared.Return(rented);
         }
-
-        return new string(result, 0, resultIndex);
     }
+
+    /// <summary>Longest result built on the stack; a prefixed CID needs 59 characters.</summary>
+    private const int MaxStackChars = 128;
+
+    /// <summary>Number of base32 characters <paramref name="byteCount"/> bytes encode to.</summary>
+    private static int EncodedLength(int byteCount) => (byteCount * 8 + 4) / 5;
 
     public static byte[] Decode(ReadOnlySpan<char> encoded)
     {

@@ -27,7 +27,11 @@ public sealed partial class Did : IEquatable<Did>, IComparable<Did>
     /// <summary>
     /// The DID method (e.g., "plc", "web").
     /// </summary>
-    public string Method => Value.Split(':')[1];
+    /// <remarks>
+    /// Sliced rather than split: <c>Split(':')</c> allocated an array plus a string per
+    /// segment (and a <c>did:web</c> identifier can carry several colons) to return one of them.
+    /// </remarks>
+    public string Method => Value[4..Value.IndexOf(':', 4)];
 
     /// <summary>
     /// The method-specific identifier portion of the DID.

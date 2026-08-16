@@ -44,9 +44,30 @@ public static class JetstreamEventParser
     /// </returns>
     public static JetstreamFrame ParseFrame(ReadOnlySpan<byte> json, JetstreamProtocol protocol)
     {
+        // JsonDocument cannot parse a span without copying it to the heap first. Callers on
+        // the hot path (the WebSocket read loop) already hold the frame as an array and
+        // should use the ReadOnlyMemory overload, which skips this copy.
+        return ParseFrame(new ReadOnlyMemory<byte>(json.ToArray()), protocol);
+    }
+
+    /// <summary>
+    /// Parse a single Jetstream frame on the given wire protocol.
+    /// </summary>
+    /// <param name="json">The UTF-8 JSON payload of one WebSocket message.</param>
+    /// <param name="protocol">The wire protocol the frame was received on.</param>
+    /// <returns>
+    /// The frame's event, advisory notice, or terminal error. All three are null when the
+    /// frame is malformed or of a kind this version does not understand — skip it.
+    /// </returns>
+    /// <remarks>
+    /// Preferred over the <see cref="ReadOnlySpan{T}"/> overload when the payload is already
+    /// on the heap: the frame is read in place rather than copied.
+    /// </remarks>
+    public static JetstreamFrame ParseFrame(ReadOnlyMemory<byte> json, JetstreamProtocol protocol)
+    {
         try
         {
-            using var doc = JsonDocument.Parse(json.ToArray());
+            using var doc = JsonDocument.Parse(json);
             return ParseFrameCore(doc.RootElement, protocol);
         }
         catch (JsonException)

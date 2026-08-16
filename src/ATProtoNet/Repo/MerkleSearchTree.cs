@@ -234,25 +234,37 @@ public sealed class MerkleSearchTree
     /// </summary>
     public static MerkleSearchTree CreateFromEntries(IEnumerable<KeyValuePair<string, byte[]>> entries)
     {
-        var sorted = entries.OrderBy(e => e.Key, StringComparer.Ordinal).ToList();
-        if (sorted.Count == 0)
+        var sorted = entries.OrderBy(e => e.Key, StringComparer.Ordinal).ToArray();
+        if (sorted.Length == 0)
             return Create();
 
-        // Find the maximum depth
+        // Each key's depth is a SHA-256 of the key, and the layer recursion below inspects
+        // every key once per layer. Hash each key once here and carry the depths alongside,
+        // so the build costs n hashes rather than n × maxDepth.
+        var depths = new int[sorted.Length];
         var maxDepth = 0;
-        foreach (var entry in sorted)
+        for (var i = 0; i < sorted.Length; i++)
         {
-            var d = MstKeyDepth.ComputeDepth(entry.Key);
-            if (d > maxDepth) maxDepth = d;
+            depths[i] = MstKeyDepth.ComputeDepth(sorted[i].Key);
+            if (depths[i] > maxDepth) maxDepth = depths[i];
         }
 
-        var root = BuildLayerTopDown(sorted, maxDepth);
+        var root = BuildLayerTopDown(sorted, depths, 0, sorted.Length, maxDepth);
         return new MerkleSearchTree(root ?? new MstMemoryNode());
     }
 
-    private static MstMemoryNode? BuildLayerTopDown(List<KeyValuePair<string, byte[]>> entries, int layer)
+    /// <summary>
+    /// Builds the subtree for <c>entries[start..end)</c> rooted at <paramref name="layer"/>.
+    /// </summary>
+    /// <remarks>
+    /// The range is passed as bounds into the shared, already-sorted arrays rather than as
+    /// freshly copied lists: the recursion partitions the input at every layer, so copying
+    /// made the build allocate O(n × maxDepth) entries' worth of temporary lists.
+    /// </remarks>
+    private static MstMemoryNode? BuildLayerTopDown(
+        KeyValuePair<string, byte[]>[] entries, int[] depths, int start, int end, int layer)
     {
-        if (entries.Count == 0)
+        if (start == end)
         {
             return layer == 0 ? new MstMemoryNode() : null;
         }
@@ -261,11 +273,11 @@ public sealed class MerkleSearchTree
             return null;
 
         // Find entries at this layer
-        var atLayer = new List<(int Index, KeyValuePair<string, byte[]> Entry)>();
-        for (var i = 0; i < entries.Count; i++)
+        var atLayer = new List<int>();
+        for (var i = start; i < end; i++)
         {
-            if (MstKeyDepth.ComputeDepth(entries[i].Key) == layer)
-                atLayer.Add((i, entries[i]));
+            if (depths[i] == layer)
+                atLayer.Add(i);
         }
 
         if (atLayer.Count == 0)
@@ -273,25 +285,24 @@ public sealed class MerkleSearchTree
             // No entries at this exact layer. Build the subtree at layer-1 and wrap
             // in one empty parent node so the structural depth of the returned slot
             // matches `layer`. Matches the reference impl's empty-parent chain.
-            var inner = BuildLayerTopDown(entries, layer - 1);
+            var inner = BuildLayerTopDown(entries, depths, start, end, layer - 1);
             return inner is null ? null : new MstMemoryNode { Left = inner };
         }
 
         var node = new MstMemoryNode();
 
         // Build left subtree (entries before the first key at this layer)
-        var leftEntries = entries.Take(atLayer[0].Index).ToList();
-        node.Left = BuildLayerTopDown(leftEntries, layer - 1);
+        node.Left = BuildLayerTopDown(entries, depths, start, atLayer[0], layer - 1);
 
         // Build entries and right subtrees
         for (var i = 0; i < atLayer.Count; i++)
         {
-            var start = atLayer[i].Index + 1;
-            var end = i + 1 < atLayer.Count ? atLayer[i + 1].Index : entries.Count;
-            var rightEntries = entries.GetRange(start, end - start);
-            var rightSubtree = BuildLayerTopDown(rightEntries, layer - 1);
+            var rightStart = atLayer[i] + 1;
+            var rightEnd = i + 1 < atLayer.Count ? atLayer[i + 1] : end;
+            var rightSubtree = BuildLayerTopDown(entries, depths, rightStart, rightEnd, layer - 1);
 
-            node.Entries.Add(new MstMemoryEntry(atLayer[i].Entry.Key, atLayer[i].Entry.Value, rightSubtree));
+            node.Entries.Add(
+                new MstMemoryEntry(entries[atLayer[i]].Key, entries[atLayer[i]].Value, rightSubtree));
         }
 
         return node;
@@ -307,22 +318,18 @@ public sealed class MerkleSearchTree
         if (depth > MaxTreeDepth)
             throw new InvalidOperationException("MST tree depth exceeded maximum.");
 
-        var keyDepth = MstKeyDepth.ComputeDepth(key);
-
-        // Check entries in this node
-        foreach (var entry in node.Entries)
+        // Index the entries rather than calling List.IndexOf on the enumerated entry: that
+        // was a linear rescan per comparison (and a reference search, so it also rescanned
+        // from the front for every candidate), making a single-node probe quadratic.
+        for (var i = 0; i < node.Entries.Count; i++)
         {
-            var cmp = string.Compare(key, entry.Key, StringComparison.Ordinal);
+            var cmp = string.Compare(key, node.Entries[i].Key, StringComparison.Ordinal);
             if (cmp == 0)
-                return entry.Value;
+                return node.Entries[i].Value;
             if (cmp < 0)
             {
-                // Key would be before this entry; check left subtree or entry's subtree
-                if (node.Entries.IndexOf(entry) == 0)
-                    return Get(node.Left, key, depth + 1);
-                // Check the previous entry's subtree
-                var prevIdx = node.Entries.IndexOf(entry) - 1;
-                return Get(node.Entries[prevIdx].Subtree, key, depth + 1);
+                // Key would be before this entry; check left subtree or the previous entry's.
+                return Get(i == 0 ? node.Left : node.Entries[i - 1].Subtree, key, depth + 1);
             }
         }
 
@@ -592,8 +599,6 @@ public sealed class MerkleSearchTree
         if (depth > MaxTreeDepth)
             throw new InvalidOperationException("MST tree depth exceeded maximum.");
 
-        var keyDepth = MstKeyDepth.ComputeDepth(key);
-
         // Find the key in this node
         for (var i = 0; i < node.Entries.Count; i++)
         {
@@ -685,20 +690,20 @@ public sealed class MerkleSearchTree
         if (node is null)
             return false;
 
-        foreach (var entry in node.Entries)
+        for (var i = 0; i < node.Entries.Count; i++)
         {
-            if (entry.Key == key)
+            var entry = node.Entries[i];
+            var cmp = string.Compare(key, entry.Key, StringComparison.Ordinal);
+            if (cmp == 0)
             {
                 entry.Value = value;
                 return true;
             }
 
-            if (string.Compare(key, entry.Key, StringComparison.Ordinal) < 0)
+            if (cmp < 0)
             {
                 // Check left/previous subtree
-                if (node.Entries.IndexOf(entry) == 0)
-                    return TryUpdate(node.Left, key, value);
-                return TryUpdate(node.Entries[node.Entries.IndexOf(entry) - 1].Subtree, key, value);
+                return TryUpdate(i == 0 ? node.Left : node.Entries[i - 1].Subtree, key, value);
             }
         }
 
@@ -754,20 +759,14 @@ public sealed class MerkleSearchTree
         if (node.Left is not null)
             leftCid = SerializeNode(node.Left, blocks, nodeCids);
 
-        var entries = new List<MstTreeEntry>();
-        string previousKey = "";
+        var entries = new List<MstTreeEntry>(node.Entries.Count);
+        byte[] prevBytes = [];
 
         foreach (var entry in node.Entries)
         {
             var keyBytes = Encoding.UTF8.GetBytes(entry.Key);
-            var prevBytes = Encoding.UTF8.GetBytes(previousKey);
 
-            // Compute shared prefix length
-            var prefixLen = 0;
-            var minLen = Math.Min(keyBytes.Length, prevBytes.Length);
-            while (prefixLen < minLen && keyBytes[prefixLen] == prevBytes[prefixLen])
-                prefixLen++;
-
+            var prefixLen = SharedPrefixLength(keyBytes, prevBytes);
             var suffix = keyBytes[prefixLen..];
 
             byte[]? treeCid = null;
@@ -775,7 +774,10 @@ public sealed class MerkleSearchTree
                 treeCid = SerializeNode(entry.Subtree, blocks, nodeCids);
 
             entries.Add(new MstTreeEntry(prefixLen, suffix, entry.Value, treeCid));
-            previousKey = entry.Key;
+
+            // Carry the encoded bytes forward instead of re-encoding this key as the next
+            // iteration's "previous".
+            prevBytes = keyBytes;
         }
 
         var nodeData = new MstNodeData
@@ -793,25 +795,30 @@ public sealed class MerkleSearchTree
         return cid;
     }
 
+    /// <summary>Length of the longest common prefix of two encoded keys, in bytes.</summary>
+    private static int SharedPrefixLength(ReadOnlySpan<byte> key, ReadOnlySpan<byte> previous)
+    {
+        var minLen = Math.Min(key.Length, previous.Length);
+        var prefixLen = 0;
+        while (prefixLen < minLen && key[prefixLen] == previous[prefixLen])
+            prefixLen++;
+        return prefixLen;
+    }
+
     private static byte[] ComputeNodeCid(MstMemoryNode node)
     {
         byte[]? leftCid = null;
         if (node.Left is not null)
             leftCid = ComputeNodeCid(node.Left);
 
-        var entries = new List<MstTreeEntry>();
-        string previousKey = "";
+        var entries = new List<MstTreeEntry>(node.Entries.Count);
+        byte[] prevBytes = [];
 
         foreach (var entry in node.Entries)
         {
             var keyBytes = Encoding.UTF8.GetBytes(entry.Key);
-            var prevBytes = Encoding.UTF8.GetBytes(previousKey);
 
-            var prefixLen = 0;
-            var minLen = Math.Min(keyBytes.Length, prevBytes.Length);
-            while (prefixLen < minLen && keyBytes[prefixLen] == prevBytes[prefixLen])
-                prefixLen++;
-
+            var prefixLen = SharedPrefixLength(keyBytes, prevBytes);
             var suffix = keyBytes[prefixLen..];
 
             byte[]? treeCid = null;
@@ -819,7 +826,7 @@ public sealed class MerkleSearchTree
                 treeCid = ComputeNodeCid(entry.Subtree);
 
             entries.Add(new MstTreeEntry(prefixLen, suffix, entry.Value, treeCid));
-            previousKey = entry.Key;
+            prevBytes = keyBytes;
         }
 
         var nodeData = new MstNodeData

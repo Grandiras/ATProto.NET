@@ -20,6 +20,17 @@ public sealed class CarReader
     private readonly IReadOnlyList<CarBlock> _blocks;
     private readonly CarHeader _header;
 
+    /// <summary>
+    /// CID → block index, built on the first <see cref="FindBlock"/> call.
+    /// </summary>
+    /// <remarks>
+    /// Resolving a repository's MST means one lookup per node, and a repo export runs to tens
+    /// of thousands of blocks — a linear scan per lookup makes the walk quadratic. The index is
+    /// deferred because plenty of callers only enumerate <see cref="Blocks"/> and never look
+    /// one up by CID.
+    /// </remarks>
+    private Dictionary<byte[], CarBlock>? _index;
+
     /// <summary>The CAR header containing the file version and root CIDs.</summary>
     public CarHeader Header => _header;
 
@@ -175,7 +186,10 @@ public sealed class CarReader
     {
         using var ms = new MemoryStream();
         await stream.CopyToAsync(ms, cancellationToken);
-        return FromBytes(ms.ToArray());
+
+        // Parse the stream's own buffer. ToArray() would copy the whole CAR a second time,
+        // and repo exports are large enough for that to land on the large object heap.
+        return FromBytes(ms.GetBuffer().AsSpan(0, (int)ms.Length));
     }
 
     /// <summary>
@@ -185,12 +199,54 @@ public sealed class CarReader
     /// <returns>The matching block, or <c>null</c> if not found.</returns>
     public CarBlock? FindBlock(ReadOnlySpan<byte> cid)
     {
-        foreach (var block in _blocks)
+        var index = _index;
+        if (index is null)
         {
-            if (cid.SequenceEqual(block.Cid))
-                return block;
+            index = new Dictionary<byte[], CarBlock>(_blocks.Count, CidComparer.Instance);
+            // First writer wins, matching the linear scan this replaced: a CAR that repeats a
+            // CID resolves to its earliest block either way.
+            foreach (var block in _blocks)
+                index.TryAdd(block.Cid, block);
+
+            // A racing caller may build its own copy; both are equivalent, so publishing
+            // whichever finishes last is fine and avoids locking on every lookup.
+            _index = index;
         }
-        return null;
+
+        // The span-keyed lookup hashes the caller's bytes in place, so probing costs no
+        // allocation even though the stored keys are arrays.
+        return index.GetAlternateLookup<ReadOnlySpan<byte>>().TryGetValue(cid, out var found)
+            ? found
+            : null;
+    }
+
+    /// <summary>
+    /// Compares CIDs by content rather than by array reference, and accepts a
+    /// <see cref="ReadOnlySpan{T}"/> as an alternate key so lookups need not copy.
+    /// </summary>
+    private sealed class CidComparer
+        : IEqualityComparer<byte[]>, IAlternateEqualityComparer<ReadOnlySpan<byte>, byte[]>
+    {
+        public static readonly CidComparer Instance = new();
+
+        public bool Equals(byte[]? x, byte[]? y) => x.AsSpan().SequenceEqual(y);
+
+        public int GetHashCode(byte[] obj) => Hash(obj);
+
+        public bool Equals(ReadOnlySpan<byte> alternate, byte[] other) => alternate.SequenceEqual(other);
+
+        public int GetHashCode(ReadOnlySpan<byte> alternate) => Hash(alternate);
+
+        public byte[] Create(ReadOnlySpan<byte> alternate) => alternate.ToArray();
+
+        private static int Hash(ReadOnlySpan<byte> cid)
+        {
+            // A CID ends in a SHA-256 digest, so its trailing bytes are already uniformly
+            // distributed — hashing the tail is as good as hashing all of it, and cheaper.
+            var hash = new HashCode();
+            hash.AddBytes(cid.Length <= 8 ? cid : cid[^8..]);
+            return hash.ToHashCode();
+        }
     }
 
     /// <summary>
@@ -424,7 +480,7 @@ public sealed record CarHeader(int Version, IReadOnlyList<byte[]> Roots);
 public sealed record CarBlock(byte[] Cid, byte[] Data)
 {
     /// <summary>Returns the CID as a hex string for debugging.</summary>
-    public string CidHex => Convert.ToHexString(Cid).ToLowerInvariant();
+    public string CidHex => Convert.ToHexStringLower(Cid);
 
     /// <summary>Returns the block data length.</summary>
     public int DataLength => Data.Length;

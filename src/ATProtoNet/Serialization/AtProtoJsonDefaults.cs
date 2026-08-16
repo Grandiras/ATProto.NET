@@ -10,12 +10,21 @@ namespace ATProtoNet.Serialization;
 /// </summary>
 public static class AtProtoJsonDefaults
 {
-    private static JsonSerializerOptions? _options;
-
     /// <summary>
     /// Gets the default JSON serializer options configured for AT Protocol data.
     /// </summary>
-    public static JsonSerializerOptions Options => _options ??= CreateOptions();
+    /// <remarks>
+    /// <para>Initialized by the runtime's type initializer rather than a <c>??=</c> on first read:
+    /// concurrent first calls could otherwise each build their own instance, and every
+    /// <see cref="JsonSerializerOptions"/> carries its own reflection-derived contract cache.</para>
+    /// <para>The instance is deliberately <em>not</em> frozen here.
+    /// <see cref="JsonSerializer"/> calls <see cref="JsonSerializerOptions.MakeReadOnly()"/>
+    /// itself on first use, so pre-freezing would buy nothing but would break the startup-time
+    /// <c>AtProtoJsonDefaults.Options.Converters.Add(...)</c> that consumers can do today. Adding
+    /// to it after the SDK has serialized anything still throws, as it always has — prefer
+    /// passing your own <see cref="JsonSerializerOptions"/> to the client constructors.</para>
+    /// </remarks>
+    public static JsonSerializerOptions Options { get; } = CreateOptions();
 
     /// <summary>
     /// Formats a <see cref="DateTime"/> as an AT Protocol-compliant ISO 8601 timestamp

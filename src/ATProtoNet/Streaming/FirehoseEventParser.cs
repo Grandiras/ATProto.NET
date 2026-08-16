@@ -1,6 +1,6 @@
+using System.Buffers;
 using System.Formats.Cbor;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using ATProtoNet.Repo;
 using ATProtoNet.Serialization;
@@ -14,6 +14,9 @@ namespace ATProtoNet.Streaming;
 /// </summary>
 public static class FirehoseEventParser
 {
+    /// <summary>CBOR tag for CID links (IPLD standard).</summary>
+    private const CborTag CidTag = (CborTag)42;
+
     /// <summary>
     /// Parses a raw firehose frame into a typed <see cref="FirehoseMessage"/>.
     /// </summary>
@@ -45,13 +48,12 @@ public static class FirehoseEventParser
             if (op != 1 || string.IsNullOrEmpty(type))
                 return null; // Error frames or unknown ops
 
-            // Read the body - use remaining bytes after header
+            // Read the body — the remaining bytes after the header.
             int headerBytesConsumed = data.Length - reader.BytesRemaining;
             var bodyData = data[headerBytesConsumed..];
-            var bodyJson = DagCborDecoder.Decode(bodyData);
 
             // Inject $type for polymorphic deserialization
-            return DeserializeEvent(type, bodyJson);
+            return DeserializeEvent(type, bodyData);
         }
         catch
         {
@@ -115,61 +117,163 @@ public static class FirehoseEventParser
         return (op, type);
     }
 
-    private static FirehoseMessage? DeserializeEvent(string type, JsonElement bodyJson)
+    /// <summary>
+    /// Transcodes a DAG-CBOR event body straight into the JSON the models bind from, then
+    /// deserializes it.
+    /// </summary>
+    /// <remarks>
+    /// The obvious route — decode to a <c>JsonNode</c> tree, rewrite the AT Protocol
+    /// wrappers, then hand the tree to the serializer — walks the payload four times and
+    /// materializes every value twice. It is especially costly for <c>#commit</c>, whose
+    /// <c>blocks</c> CAR becomes a base64 <see cref="string"/> (two bytes per character) only to
+    /// be re-encoded and parsed straight back to <see cref="byte"/>[]. Writing the CBOR into a
+    /// <see cref="Utf8JsonWriter"/> in one pass skips the tree entirely, and
+    /// <see cref="Utf8JsonWriter.WriteBase64StringValue"/> puts byte strings on the wire without
+    /// an intermediate string at all.
+    /// </remarks>
+    private static FirehoseMessage? DeserializeEvent(string type, ReadOnlyMemory<byte> bodyCbor)
     {
-        // DagCborDecoder produces AT Protocol JSON with $bytes and $link wrappers.
-        // Convert to standard JSON that System.Text.Json can deserialize into C# models.
-        var node = NormalizeDagCborJson(JsonSerializer.SerializeToNode(bodyJson));
-        if (node is not JsonObject bodyObj)
+        var reader = new CborReader(bodyCbor, CborConformanceMode.Lax, allowMultipleRootLevelValues: false);
+        if (reader.PeekState() != CborReaderState.StartMap)
             return null;
 
-        // Build a new object with $type FIRST — System.Text.Json requires the discriminator
-        // to appear before any other properties for polymorphic deserialization.
-        var obj = new JsonObject { ["$type"] = type };
-        foreach (var prop in bodyObj)
+        // JSON is bulkier than the CBOR it came from — mostly the base64 blow-up on `blocks`
+        // — so start the buffer above the source size to avoid a regrow on the common frame.
+        var buffer = new ArrayBufferWriter<byte>(Math.Max(256, bodyCbor.Length * 2));
+
+        // SkipValidation: the writer's structure comes from this method, not from the frame.
+        using (var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { SkipValidation = true }))
         {
-            obj[prop.Key] = prop.Value?.DeepClone();
+            writer.WriteStartObject();
+            writer.WriteString("$type", type);
+            WriteMapBody(reader, writer);
+            writer.WriteEndObject();
         }
 
-        return obj.Deserialize<FirehoseMessage>(AtProtoJsonDefaults.Options);
+        return JsonSerializer.Deserialize<FirehoseMessage>(buffer.WrittenSpan, AtProtoJsonDefaults.Options);
     }
 
     /// <summary>
-    /// Converts DAG-CBOR JSON conventions to standard JSON:
-    /// - <c>{"$bytes":"base64"}</c> → <c>"base64"</c>
-    /// - <c>{"$link":"cid"}</c> → <c>"cid"</c>
+    /// Writes a CBOR map's entries as JSON properties, without the enclosing braces, so the
+    /// caller can prepend the <c>$type</c> discriminator.
     /// </summary>
-    private static JsonNode? NormalizeDagCborJson(JsonNode? node)
+    private static void WriteMapBody(CborReader reader, Utf8JsonWriter writer)
     {
-        switch (node)
+        reader.ReadStartMap();
+
+        while (reader.PeekState() != CborReaderState.EndMap)
         {
-            case JsonObject obj:
-                // Check for $bytes wrapper → flatten to base64 string
-                if (obj.Count == 1 && obj.TryGetPropertyValue("$bytes", out var bytesVal))
-                    return JsonValue.Create(bytesVal?.GetValue<string>() ?? "");
+            var key = reader.ReadTextString();
 
-                // Check for $link wrapper → flatten to CID string
-                if (obj.Count == 1 && obj.TryGetPropertyValue("$link", out var linkVal))
-                    return JsonValue.Create(linkVal?.GetValue<string>() ?? "");
+            // The discriminator is supplied by the frame header and already written; a body
+            // that carries its own would otherwise emit the property twice.
+            if (key == "$type")
+            {
+                reader.SkipValue();
+                continue;
+            }
 
-                // Recursively normalize all properties
-                var normalized = new JsonObject();
-                foreach (var prop in obj)
-                {
-                    normalized[prop.Key] = NormalizeDagCborJson(prop.Value?.DeepClone());
-                }
-                return normalized;
-
-            case JsonArray arr:
-                var normalizedArr = new JsonArray();
-                foreach (var item in arr)
-                {
-                    normalizedArr.Add(NormalizeDagCborJson(item?.DeepClone()));
-                }
-                return normalizedArr;
-
-            default:
-                return node?.DeepClone();
+            writer.WritePropertyName(key);
+            WriteValue(reader, writer);
         }
+
+        reader.ReadEndMap();
+    }
+
+    /// <summary>
+    /// Writes one DAG-CBOR value as JSON, flattening the AT Protocol wrappers the models expect
+    /// to see unwrapped: a CID (tag 42) becomes its base32 string, and a byte string becomes
+    /// base64.
+    /// </summary>
+    private static void WriteValue(CborReader reader, Utf8JsonWriter writer)
+    {
+        var state = reader.PeekState();
+
+        if (state == CborReaderState.Tag)
+        {
+            if (reader.ReadTag() == CidTag)
+            {
+                writer.WriteStringValue(ReadCidLink(reader));
+                return;
+            }
+
+            // Unknown tag: ignore it and write the value it wraps.
+            WriteValue(reader, writer);
+            return;
+        }
+
+        switch (state)
+        {
+            case CborReaderState.StartMap:
+                WriteMap(reader, writer);
+                break;
+            case CborReaderState.StartArray:
+                WriteArray(reader, writer);
+                break;
+            case CborReaderState.TextString:
+                writer.WriteStringValue(reader.ReadTextString());
+                break;
+            case CborReaderState.ByteString:
+                writer.WriteBase64StringValue(reader.ReadByteString());
+                break;
+            case CborReaderState.UnsignedInteger:
+            case CborReaderState.NegativeInteger:
+                writer.WriteNumberValue(reader.ReadInt64());
+                break;
+            case CborReaderState.Boolean:
+                writer.WriteBooleanValue(reader.ReadBoolean());
+                break;
+            case CborReaderState.Null:
+                reader.ReadNull();
+                writer.WriteNullValue();
+                break;
+            case CborReaderState.HalfPrecisionFloat:
+            case CborReaderState.SinglePrecisionFloat:
+            case CborReaderState.DoublePrecisionFloat:
+                throw new InvalidOperationException(
+                    "Floating point numbers are not allowed in the AT Protocol data model.");
+            default:
+                throw new InvalidOperationException($"Unsupported CBOR state: {state}");
+        }
+    }
+
+    private static void WriteMap(CborReader reader, Utf8JsonWriter writer)
+    {
+        reader.ReadStartMap();
+        writer.WriteStartObject();
+
+        while (reader.PeekState() != CborReaderState.EndMap)
+        {
+            writer.WritePropertyName(reader.ReadTextString());
+            WriteValue(reader, writer);
+        }
+
+        reader.ReadEndMap();
+        writer.WriteEndObject();
+    }
+
+    private static void WriteArray(CborReader reader, Utf8JsonWriter writer)
+    {
+        reader.ReadStartArray();
+        writer.WriteStartArray();
+
+        while (reader.PeekState() != CborReaderState.EndArray)
+            WriteValue(reader, writer);
+
+        reader.ReadEndArray();
+        writer.WriteEndArray();
+    }
+
+    /// <summary>Reads a tag-42 CID and returns its base32 string form.</summary>
+    private static string ReadCidLink(CborReader reader)
+    {
+        var bytes = reader.ReadByteString();
+
+        // First byte is 0x00 (identity multibase prefix)
+        if (bytes.Length < 2 || bytes[0] != 0x00)
+            throw new InvalidOperationException(
+                "Invalid CID encoding: missing identity multibase prefix (0x00).");
+
+        return CidComputation.EncodeCidToString(bytes.AsSpan(1));
     }
 }

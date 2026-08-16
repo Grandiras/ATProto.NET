@@ -102,10 +102,14 @@ public static class DagCborEncoder
         if (TryWriteBytes(writer, element))
             return;
 
-        // Regular object: sort keys by UTF-8 byte value (DRISL requirement)
-        var properties = element.EnumerateObject()
-            .OrderBy(p => p.Name, StringComparer.Ordinal)
-            .ToList();
+        // Regular object: sort keys by UTF-8 byte value (DRISL requirement).
+        // Sorting a list in place avoids the extra buffer and comparer machinery OrderBy
+        // allocates behind the scenes for what is usually a handful of properties.
+        var properties = new List<JsonProperty>();
+        foreach (var property in element.EnumerateObject())
+            properties.Add(property);
+
+        properties.Sort(static (a, b) => string.CompareOrdinal(a.Name, b.Name));
 
         writer.WriteStartMap(properties.Count);
         foreach (var property in properties)
@@ -169,9 +173,10 @@ public static class DagCborEncoder
 
     private static void WriteArray(CborWriter writer, JsonElement element)
     {
-        var items = element.EnumerateArray().ToList();
-        writer.WriteStartArray(items.Count);
-        foreach (var item in items)
+        // GetArrayLength gives the count the definite-length header needs without
+        // materializing the items into a list first.
+        writer.WriteStartArray(element.GetArrayLength());
+        foreach (var item in element.EnumerateArray())
         {
             WriteValue(writer, item);
         }

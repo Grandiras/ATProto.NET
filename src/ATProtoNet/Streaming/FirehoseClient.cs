@@ -152,24 +152,44 @@ public sealed class FirehoseClient : IDisposable
 
     private async Task<FirehoseFrame?> ReadFrameAsync(byte[] buffer, CancellationToken cancellationToken)
     {
-        using var ms = new MemoryStream();
-        WebSocketReceiveResult result;
+        var result = await _ws!.ReceiveAsync(buffer, cancellationToken);
+        if (result.MessageType == WebSocketMessageType.Close)
+            return null;
 
-        do
+        byte[] raw;
+
+        if (result.EndOfMessage)
         {
-            result = await _ws!.ReceiveAsync(buffer, cancellationToken);
-            if (result.MessageType == WebSocketMessageType.Close)
+            // Most commit frames fit the 64 KB buffer in one receive. Copying straight out of
+            // it skips the MemoryStream's own buffer and one of the two copies.
+            if (result.Count == 0)
                 return null;
 
+            raw = buffer[..result.Count];
+        }
+        else
+        {
+            using var ms = new MemoryStream();
             ms.Write(buffer, 0, result.Count);
-        } while (!result.EndOfMessage);
 
-        if (ms.Length == 0)
-            return null;
+            do
+            {
+                result = await _ws.ReceiveAsync(buffer, cancellationToken);
+                if (result.MessageType == WebSocketMessageType.Close)
+                    return null;
+
+                ms.Write(buffer, 0, result.Count);
+            } while (!result.EndOfMessage);
+
+            if (ms.Length == 0)
+                return null;
+
+            raw = ms.ToArray();
+        }
 
         return new FirehoseFrame
         {
-            RawData = ms.ToArray(),
+            RawData = raw,
             MessageType = result.MessageType,
         };
     }

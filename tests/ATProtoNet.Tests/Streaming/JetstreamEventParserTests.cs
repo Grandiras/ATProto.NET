@@ -228,4 +228,50 @@ public class JetstreamEventParserTests
     {
         Assert.Throws<ArgumentNullException>(() => JetstreamEventParser.Parse((string)null!));
     }
+
+    [Fact]
+    public void ParseFrame_MemoryOverload_MatchesSpanOverload()
+    {
+        // The memory overload is the one the WebSocket loop uses, because it parses the
+        // frame in place instead of copying it. It must agree with the span overload.
+        var utf8 = Encoding.UTF8.GetBytes(CreateCommitJson);
+
+        var fromSpan = JetstreamEventParser.ParseFrame(utf8.AsSpan(), JetstreamProtocol.V1);
+        var fromMemory = JetstreamEventParser.ParseFrame(utf8.AsMemory(), JetstreamProtocol.V1);
+
+        var expected = Assert.IsType<JetstreamCommitEvent>(fromSpan.Event);
+        var actual = Assert.IsType<JetstreamCommitEvent>(fromMemory.Event);
+
+        Assert.Equal(expected.Did.Value, actual.Did.Value);
+        Assert.Equal(expected.TimeUs, actual.TimeUs);
+        Assert.Equal(expected.Collection, actual.Collection);
+        Assert.Equal(expected.RKey, actual.RKey);
+        Assert.Equal(expected.Operation, actual.Operation);
+        Assert.Equal(expected.Cid?.Value, actual.Cid?.Value);
+        Assert.Equal(expected.Record?.GetRawText(), actual.Record?.GetRawText());
+    }
+
+    [Fact]
+    public void ParseFrame_MemoryOverload_RecordOutlivesTheBuffer()
+    {
+        // The parsed document reads the caller's buffer directly, so the Record element has
+        // to be detached from it before ParseFrame returns.
+        var utf8 = Encoding.UTF8.GetBytes(CreateCommitJson);
+        var commit = Assert.IsType<JetstreamCommitEvent>(
+            JetstreamEventParser.ParseFrame(utf8.AsMemory(), JetstreamProtocol.V1).Event);
+
+        Array.Clear(utf8);
+
+        Assert.Equal("app.bsky.feed.like", commit.Record!.Value.GetProperty("$type").GetString());
+    }
+
+    [Fact]
+    public void ParseFrame_MemoryOverload_MalformedFrame_ReturnsDefault()
+    {
+        var frame = JetstreamEventParser.ParseFrame("{not json"u8.ToArray().AsMemory(), JetstreamProtocol.V1);
+
+        Assert.Null(frame.Event);
+        Assert.Null(frame.Info);
+        Assert.Null(frame.Error);
+    }
 }

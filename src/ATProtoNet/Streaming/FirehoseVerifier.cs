@@ -254,20 +254,46 @@ public sealed class FirehoseVerifier : IDisposable
             return null;
 
         // Compose the unsigned bytes: new map header (entryCount - 1) + every pair
-        // except the sig pair, preserved byte-for-byte from the original.
+        // except the sig pair, preserved byte-for-byte from the original. The exact size is
+        // known up front, so write it straight into one array rather than growing a
+        // MemoryStream and copying the result back out of it.
         var newCount = entryCount - 1;
-        var unsigned = new System.IO.MemoryStream();
-        WriteMapHeader(unsigned, newCount);
+        var bodyLength = 0;
+        for (var i = 0; i < pairs.Count; i++)
+        {
+            if (i != sigPairIndex) bodyLength += pairs[i].Length;
+        }
+
+        var unsigned = new byte[MapHeaderLength(newCount) + bodyLength];
+        var at = WriteMapHeader(unsigned, newCount);
         for (var i = 0; i < pairs.Count; i++)
         {
             if (i == sigPairIndex) continue;
-            unsigned.Write(commitCbor, pairs[i].Start, pairs[i].Length);
+            commitCbor.AsSpan(pairs[i].Start, pairs[i].Length).CopyTo(unsigned.AsSpan(at));
+            at += pairs[i].Length;
         }
 
-        return (unsigned.ToArray(), sigBytes);
+        return (unsigned, sigBytes);
     }
 
-    internal static void WriteMapHeader(System.IO.MemoryStream stream, int count)
+    /// <summary>The number of bytes <see cref="WriteMapHeader"/> emits for a given entry count.</summary>
+    internal static int MapHeaderLength(int count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        return count switch
+        {
+            < 24 => 1,
+            < 256 => 2,
+            < 65536 => 3,
+            _ => 5,
+        };
+    }
+
+    /// <summary>
+    /// Writes a CBOR map header for <paramref name="count"/> entries into
+    /// <paramref name="destination"/>, and returns the number of bytes written.
+    /// </summary>
+    internal static int WriteMapHeader(Span<byte> destination, int count)
     {
         const int majorType5 = 5 << 5;
         if (count < 0)
@@ -275,32 +301,36 @@ public sealed class FirehoseVerifier : IDisposable
 
         if (count < 24)
         {
-            stream.WriteByte((byte)(majorType5 | count));
+            destination[0] = (byte)(majorType5 | count);
+            return 1;
         }
-        else if (count < 256)
+
+        if (count < 256)
         {
-            stream.WriteByte((byte)(majorType5 | 24));
-            stream.WriteByte((byte)count);
+            destination[0] = (byte)(majorType5 | 24);
+            destination[1] = (byte)count;
+            return 2;
         }
-        else if (count < 65536)
+
+        if (count < 65536)
         {
-            stream.WriteByte((byte)(majorType5 | 25));
-            stream.WriteByte((byte)((count >> 8) & 0xFF));
-            stream.WriteByte((byte)(count & 0xFF));
+            destination[0] = (byte)(majorType5 | 25);
+            destination[1] = (byte)((count >> 8) & 0xFF);
+            destination[2] = (byte)(count & 0xFF);
+            return 3;
         }
-        else
-        {
-            // 4-byte length (CBOR 0x1a). Fail closed at int max — DAG-CBOR maps
-            // larger than this would also push the splice well past anything a
-            // real atproto commit could hold, and silently truncating to 16 bits
-            // (the prior behavior) would produce a malformed header whose count
-            // doesn't match the bytes that follow, hashing to garbage.
-            stream.WriteByte((byte)(majorType5 | 26));
-            stream.WriteByte((byte)((count >> 24) & 0xFF));
-            stream.WriteByte((byte)((count >> 16) & 0xFF));
-            stream.WriteByte((byte)((count >> 8) & 0xFF));
-            stream.WriteByte((byte)(count & 0xFF));
-        }
+
+        // 4-byte length (CBOR 0x1a). Fail closed at int max — DAG-CBOR maps
+        // larger than this would also push the splice well past anything a
+        // real atproto commit could hold, and silently truncating to 16 bits
+        // (the prior behavior) would produce a malformed header whose count
+        // doesn't match the bytes that follow, hashing to garbage.
+        destination[0] = (byte)(majorType5 | 26);
+        destination[1] = (byte)((count >> 24) & 0xFF);
+        destination[2] = (byte)((count >> 16) & 0xFF);
+        destination[3] = (byte)((count >> 8) & 0xFF);
+        destination[4] = (byte)(count & 0xFF);
+        return 5;
     }
 
     /// <summary>

@@ -188,16 +188,19 @@ public class FirehoseVerifierTests
     [InlineData(0x10203040, new byte[] { 0xba, 0x10, 0x20, 0x30, 0x40 })]
     public void WriteMapHeader_EncodesCanonicalLengthForBoundary(int count, byte[] expected)
     {
-        using var ms = new MemoryStream();
-        FirehoseVerifier.WriteMapHeader(ms, count);
-        Assert.Equal(expected, ms.ToArray());
+        var buffer = new byte[8];
+        var written = FirehoseVerifier.WriteMapHeader(buffer, count);
+
+        Assert.Equal(expected.Length, written);
+        Assert.Equal(expected.Length, FirehoseVerifier.MapHeaderLength(count));
+        Assert.Equal(expected, buffer[..written]);
     }
 
     [Fact]
     public void WriteMapHeader_NegativeCount_Throws()
     {
-        using var ms = new MemoryStream();
-        Assert.Throws<ArgumentOutOfRangeException>(() => FirehoseVerifier.WriteMapHeader(ms, -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => FirehoseVerifier.WriteMapHeader(new byte[8], -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => FirehoseVerifier.MapHeaderLength(-1));
     }
 
     // ── ExtractSignedView correctness ─────────────────────────

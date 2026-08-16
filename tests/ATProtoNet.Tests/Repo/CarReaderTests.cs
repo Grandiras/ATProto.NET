@@ -1,3 +1,4 @@
+using System.Text;
 using ATProtoNet.Repo;
 
 namespace ATProtoNet.Tests.Repo;
@@ -192,6 +193,47 @@ public sealed class CarReaderTests
         var result = reader.FindBlock(new byte[] { 0xFF, 0xFF });
 
         Assert.Null(result);
+    }
+
+    [Fact]
+    public void FindBlock_RepeatedLookupsResolveEveryBlock()
+    {
+        // FindBlock builds a CID index on first use; make sure every block is reachable
+        // through it and that the index survives being reused.
+        var blocks = new List<CarBlock>();
+        for (var i = 0; i < 64; i++)
+        {
+            var data = Encoding.UTF8.GetBytes($"block-{i}");
+            blocks.Add(new CarBlock(CidComputation.ComputeBinaryForDagCbor(data), data));
+        }
+
+        var reader = CarReader.FromBytes(CarWriter.Write(blocks[0].Cid, blocks));
+
+        for (var pass = 0; pass < 2; pass++)
+        {
+            foreach (var block in blocks)
+            {
+                var found = reader.FindBlock(block.Cid);
+                Assert.NotNull(found);
+                Assert.Equal(block.Data, found.Data);
+            }
+        }
+
+        Assert.Null(reader.FindBlock(CidComputation.ComputeBinaryForDagCbor("absent"u8)));
+    }
+
+    [Fact]
+    public void FindBlock_DuplicateCid_ReturnsFirstOccurrence()
+    {
+        // A CAR is not required to be duplicate-free. The linear scan FindBlock replaced
+        // returned the earliest match, so the index must too.
+        var data = "duplicated"u8.ToArray();
+        var cid = CidComputation.ComputeBinaryForDagCbor(data);
+        var reader = CarReader.FromBytes(
+            CarWriter.Write(cid, [new CarBlock(cid, data), new CarBlock(cid, "shadowed"u8.ToArray())]));
+
+        Assert.Equal(2, reader.Blocks.Count);
+        Assert.Equal(data, reader.FindBlock(cid)!.Data);
     }
 
     [Fact]

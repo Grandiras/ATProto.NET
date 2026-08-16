@@ -24,7 +24,7 @@ public sealed class XrpcClient : IDisposable
     private string? _latestRepoRev;
     private RateLimitInfo? _latestRateLimitInfo;
     private string? _proxyHeader;
-    private List<string>? _labelerDids;
+    private string? _labelerHeader;
     private string? _adminCredential;
 
     /// <summary>
@@ -203,7 +203,10 @@ public sealed class XrpcClient : IDisposable
     /// </param>
     public void SetLabelers(IEnumerable<string> labelerDids)
     {
-        _labelerDids = labelerDids.ToList();
+        // Join once here rather than on every request: the header value only changes when
+        // the subscription does.
+        var dids = labelerDids.ToList();
+        _labelerHeader = dids.Count > 0 ? string.Join(", ", dids) : null;
     }
 
     /// <summary>
@@ -211,7 +214,7 @@ public sealed class XrpcClient : IDisposable
     /// </summary>
     public void ClearLabelers()
     {
-        _labelerDids = null;
+        _labelerHeader = null;
     }
 
     /// <summary>
@@ -529,10 +532,9 @@ public sealed class XrpcClient : IDisposable
         }
 
         // Apply atproto-accept-labelers header for labeler subscriptions
-        if (_labelerDids is { Count: > 0 })
+        if (_labelerHeader is not null)
         {
-            request.Headers.TryAddWithoutValidation("atproto-accept-labelers",
-                string.Join(", ", _labelerDids));
+            request.Headers.TryAddWithoutValidation("atproto-accept-labelers", _labelerHeader);
         }
     }
 

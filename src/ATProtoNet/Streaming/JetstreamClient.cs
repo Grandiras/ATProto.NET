@@ -126,7 +126,9 @@ public sealed class JetstreamClient : IDisposable
             if (payload is null)
                 break;
 
-            var frame = JetstreamEventParser.ParseFrame(payload, _options.Protocol);
+            // AsMemory, not the span overload: the payload is already an array, so this
+            // parses it where it sits instead of copying every frame.
+            var frame = JetstreamEventParser.ParseFrame(payload.AsMemory(), _options.Protocol);
 
             if (frame.Error is { } error)
             {
@@ -281,22 +283,41 @@ public sealed class JetstreamClient : IDisposable
 
     private async Task<byte[]?> ReadMessageAsync(byte[] buffer, CancellationToken cancellationToken)
     {
-        using var ms = new MemoryStream();
-        WebSocketReceiveResult result;
-
-        do
-        {
-            result = await _ws!.ReceiveAsync(buffer, cancellationToken);
-            if (result.MessageType == WebSocketMessageType.Close)
-                return null;
-
-            ms.Write(buffer, 0, result.Count);
-        } while (!result.EndOfMessage);
-
-        if (ms.Length == 0)
+        var result = await _ws!.ReceiveAsync(buffer, cancellationToken);
+        if (result.MessageType == WebSocketMessageType.Close)
             return null;
 
-        var payload = ms.ToArray();
+        byte[] payload;
+
+        if (result.EndOfMessage)
+        {
+            // Jetstream events are a couple of kilobytes, so all but the rare oversized frame
+            // arrives whole in the 64 KB buffer. Copy it out directly rather than staging it
+            // through a MemoryStream that would allocate its own buffer and copy twice.
+            if (result.Count == 0)
+                return null;
+
+            payload = buffer[..result.Count];
+        }
+        else
+        {
+            using var ms = new MemoryStream();
+            ms.Write(buffer, 0, result.Count);
+
+            do
+            {
+                result = await _ws.ReceiveAsync(buffer, cancellationToken);
+                if (result.MessageType == WebSocketMessageType.Close)
+                    return null;
+
+                ms.Write(buffer, 0, result.Count);
+            } while (!result.EndOfMessage);
+
+            if (ms.Length == 0)
+                return null;
+
+            payload = ms.ToArray();
+        }
 
         if (result.MessageType == WebSocketMessageType.Binary && _options.Decompressor is not null)
             payload = _options.Decompressor.Decompress(payload);
