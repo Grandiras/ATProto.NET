@@ -135,6 +135,43 @@ public sealed class RequiresJetstreamArchiveFactAttribute : FactAttribute
     }
 }
 
+/// <summary>
+/// Skips a test that talks to a PDS serving <c>com.atproto.space.*</c> — the permissioned data
+/// protocol.
+/// </summary>
+/// <remarks>
+/// <para>No PDS release serves these endpoints yet; they live on
+/// <see href="https://github.com/bluesky-social/atproto/pull/5187">bluesky-social/atproto#5187</see>.
+/// Until one does, these tests run against a dev network built from that branch — see
+/// <c>docs/testing-spaces.md</c> for the three commands that stand one up.</para>
+/// <para>They provision their own accounts rather than using <c>ATPROTO_TEST_HANDLE</c>, because
+/// a space needs an authority, a second member to read across the repo boundary, and a
+/// non-member to be refused. That takes the server's admin password, as
+/// <see cref="RequiresPdsAdminFactAttribute"/> does.</para>
+/// </remarks>
+public sealed class RequiresSpacesFactAttribute : FactAttribute
+{
+    public RequiresSpacesFactAttribute(
+        [CallerFilePath] string? sourceFilePath = null,
+        [CallerLineNumber] int sourceLineNumber = -1)
+        : base(sourceFilePath, sourceLineNumber)
+    {
+        if (TestConfig.IntegrationRequired)
+            return;
+
+        if (!TestConfig.SpacesEnabled)
+        {
+            Skip = "Space tests require ATPROTO_TEST_SPACES=true and a PDS that serves " +
+                   "com.atproto.space.* (no release does yet — see docs/testing-spaces.md).";
+        }
+        else if (string.IsNullOrEmpty(TestConfig.AdminPassword))
+        {
+            Skip = "Space tests provision their own accounts and require the " +
+                   "ATPROTO_PDS_ADMIN_PASSWORD environment variable.";
+        }
+    }
+}
+
 public static class TestConfig
 {
     /// <summary>The Jetstream host the live protocol tests run against.</summary>
@@ -154,6 +191,24 @@ public static class TestConfig
 
     public static string AdminPassword =>
         Environment.GetEnvironmentVariable("ATPROTO_PDS_ADMIN_PASSWORD") ?? "";
+
+    public static bool SpacesEnabled =>
+        Environment.GetEnvironmentVariable("ATPROTO_TEST_SPACES") is "1" or "true" or "True";
+
+    /// <summary>The PDS the space tests run against, which is also the space authority's host.</summary>
+    public static string SpacesPdsUrl =>
+        Environment.GetEnvironmentVariable("ATPROTO_SPACES_PDS_URL") ?? PdsUrl;
+
+    /// <summary>
+    /// The PLC directory the space PDS registers its accounts with.
+    /// </summary>
+    /// <remarks>
+    /// Space credentials are exchanged with, and commits verified against, whatever the DID
+    /// document says — so a test network's accounts have to resolve through that network's own
+    /// PLC rather than the public directory.
+    /// </remarks>
+    public static string PlcUrl =>
+        Environment.GetEnvironmentVariable("ATPROTO_PLC_URL") ?? "http://localhost:2582";
 
     /// <summary>
     /// Whether environment-dependent tests must run rather than skip.

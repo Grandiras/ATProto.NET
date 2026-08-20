@@ -460,6 +460,7 @@ it can cut off a reader by declining to issue one.
 
 ## See also
 
+- [Testing Against a Real Space Host](testing-spaces.md) — how to run the space integration tests against a permissioned-data PDS
 - [OAuth Authentication](oauth.md) — the DPoP, PAR, and PKCE flow the credential exchange builds on
 - [Low-Level Repo API](low-level-repo.md) — CAR files and DAG-CBOR, shared with public repositories
 - [Cryptography](crypto.md) — key generation, signing, and `did:key` encoding
