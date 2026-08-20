@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Crypto;
 
 namespace ATProtoNet.Identity;
 
@@ -296,6 +297,38 @@ public sealed class DidDocument
         return atUri?["at://".Length..];
     }
 
+    /// <summary>
+    /// Extracts the account's AT Protocol repo-signing key (<c>#atproto</c>) as a <c>did:key</c>.
+    /// </summary>
+    /// <returns>The signing key, or <c>null</c> when the document publishes none.</returns>
+    /// <exception cref="FormatException">Thrown when the entry's key material is malformed.</exception>
+    public string? GetSigningKey() => GetVerificationKey("#atproto");
+
+    /// <summary>
+    /// Extracts a verification method's public key as a <c>did:key</c>, whichever of the
+    /// verification-method types AT Protocol uses the document publishes it under.
+    /// </summary>
+    /// <param name="fragment">
+    /// The verification method fragment, with or without its leading <c>#</c> (e.g. <c>#atproto</c>).
+    /// Both the bare fragment and the DID-qualified form are matched.
+    /// </param>
+    /// <returns>
+    /// The key as a <c>did:key</c> string, or <c>null</c> when no entry with that id is
+    /// published or its type is not one this SDK understands.
+    /// </returns>
+    /// <exception cref="FormatException">Thrown when the entry's key material is malformed.</exception>
+    public string? GetVerificationKey(string fragment)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fragment);
+
+        if (!fragment.StartsWith('#'))
+            fragment = "#" + fragment;
+
+        return VerificationMethod
+            .FirstOrDefault(vm => vm.Id == fragment || vm.Id == $"{Id}{fragment}")
+            ?.ToDidKey();
+    }
+
     /// <summary>Gets the PDS service endpoint URL.</summary>
     /// <returns>The PDS URL, or <c>null</c> if not found.</returns>
     public string? GetPdsEndpoint()
@@ -324,6 +357,42 @@ public sealed class VerificationMethod
     /// <summary>The public key in multibase encoding (e.g., <c>z...</c> for base58btc).</summary>
     [JsonPropertyName("publicKeyMultibase")]
     public string? PublicKeyMultibase { get; set; }
+
+    /// <summary>
+    /// Converts this method's key material to a <c>did:key</c>.
+    /// </summary>
+    /// <returns>
+    /// The key as a <c>did:key</c> string, or <c>null</c> when the entry carries no key material
+    /// or its <see cref="Type"/> is not one this SDK understands.
+    /// </returns>
+    /// <exception cref="FormatException">Thrown when the key material is malformed for its type.</exception>
+    /// <remarks>
+    /// <para>Three types are accepted, matching the reference implementation. A
+    /// <c>Multikey</c>'s <c>publicKeyMultibase</c> is already the did:key encoding —
+    /// base58btc over multicodec-tagged compressed key bytes — so it passes through
+    /// unchanged. The legacy <c>EcdsaSecp256k1VerificationKey2019</c> and
+    /// <c>EcdsaSecp256r1VerificationKey2019</c> forms instead carry a bare uncompressed
+    /// point (<c>0x04 || X || Y</c>) with no multicodec prefix, so the point is compressed
+    /// and re-tagged with the curve the type names.</para>
+    /// <para>plc.directory serves <c>Multikey</c> today, but older PLC releases and
+    /// hand-written <c>did:web</c> documents may publish the legacy forms.</para>
+    /// </remarks>
+    public string? ToDidKey()
+    {
+        if (string.IsNullOrEmpty(PublicKeyMultibase))
+            return null;
+
+        return Type switch
+        {
+            "Multikey" => $"did:key:{PublicKeyMultibase}",
+            "EcdsaSecp256k1VerificationKey2019" => FormatLegacyDidKey(PublicKeyMultibase, KeyCurve.K256),
+            "EcdsaSecp256r1VerificationKey2019" => FormatLegacyDidKey(PublicKeyMultibase, KeyCurve.P256),
+            _ => null,
+        };
+    }
+
+    private static string FormatLegacyDidKey(string publicKeyMultibase, KeyCurve curve)
+        => AtProtoCrypto.FormatDidKey(AtProtoCrypto.MultibaseToBytes(publicKeyMultibase), curve);
 }
 
 /// <summary>A service endpoint entry in a DID Document.</summary>

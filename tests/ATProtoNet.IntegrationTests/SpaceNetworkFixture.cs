@@ -1,5 +1,4 @@
 using ATProtoNet.Admin;
-using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 using ATProtoNet.Spaces;
@@ -174,59 +173,14 @@ public sealed class SpaceNetworkFixture : IAsyncLifetime
     /// Resolves an account's repo-signing key to a <c>did:key</c>, for verifying its commits.
     /// </summary>
     /// <remarks>
-    /// <see cref="SpaceSyncer.ResolveSigningKeyAsync"/> is what production code uses. It reads a
-    /// <c>Multikey</c> verification method, which is what plc.directory serves — but the PLC
-    /// pinned by the reference dev network is older and still publishes the legacy
-    /// <c>EcdsaSecp256k1VerificationKey2019</c> form, whose <c>publicKeyMultibase</c> is a bare
-    /// uncompressed point rather than a multicodec-tagged one. This accepts either, so a test
-    /// network's key format is not what a commit-verification test ends up asserting.
+    /// This is <see cref="SpaceSyncer.ResolveSigningKeyAsync(DidResolver)"/> — the production
+    /// path — so the tests assert against what an application would actually resolve. The PLC
+    /// pinned by the reference dev network publishes the legacy
+    /// <c>EcdsaSecp256k1VerificationKey2019</c> form rather than the <c>Multikey</c> that
+    /// plc.directory serves; both are read since #98.
     /// </remarks>
-    public async Task<string> ResolveSigningKeyAsync(string did, CancellationToken cancellationToken = default)
-    {
-        var document = await DidResolver.ResolveDidAsync(did, cancellationToken);
-
-        var method = document.VerificationMethod.FirstOrDefault(vm =>
-            vm.Id == "#atproto" || vm.Id == $"{document.Id}#atproto")
-            ?? throw new InvalidOperationException($"'{did}' publishes no #atproto verification method.");
-
-        var multibase = method.PublicKeyMultibase
-            ?? throw new InvalidOperationException($"'{did}' publishes no key material for #atproto.");
-
-        if (method.Type == "Multikey")
-            return $"did:key:{multibase}";
-
-        var bytes = Base58Decode(multibase.TrimStart('z'));
-        if (bytes is not [0x04, ..] || bytes.Length != 65)
-            throw new InvalidOperationException($"Unsupported verification method '{method.Type}' for '{did}'.");
-
-        // An uncompressed secp256k1 point: 0x04 || X || Y. Compress it by parity of Y.
-        var compressed = new byte[33];
-        compressed[0] = (byte)(bytes[64] % 2 == 0 ? 0x02 : 0x03);
-        bytes.AsSpan(1, 32).CopyTo(compressed.AsSpan(1));
-
-        using var key = AtProtoCrypto.ImportCompressedPublicKey(compressed, KeyCurve.K256);
-        return key.ToDidKey();
-    }
-
-    private static byte[] Base58Decode(string encoded)
-    {
-        const string alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-
-        var value = System.Numerics.BigInteger.Zero;
-        foreach (var c in encoded)
-        {
-            var digit = alphabet.IndexOf(c, StringComparison.Ordinal);
-            if (digit < 0)
-                throw new FormatException($"'{c}' is not a base58 character.");
-
-            value = (value * 58) + digit;
-        }
-
-        var bytes = value.ToByteArray(isUnsigned: true, isBigEndian: true);
-        var leadingZeros = encoded.Length - encoded.TrimStart('1').Length;
-
-        return leadingZeros == 0 ? bytes : [.. new byte[leadingZeros], .. bytes];
-    }
+    public Task<string> ResolveSigningKeyAsync(string did, CancellationToken cancellationToken = default)
+        => SpaceSyncer.ResolveSigningKeyAsync(DidResolver)(did, cancellationToken);
 
     public async ValueTask DisposeAsync()
     {

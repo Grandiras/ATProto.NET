@@ -193,6 +193,21 @@ foreach (var method in doc.VerificationMethod)
 }
 ```
 
+To get a key as a `did:key` — ready for `AtProtoCrypto.VerifySignature` — use the document
+helpers rather than reading `PublicKeyMultibase` directly. They accept every verification
+method type AT Protocol uses: `Multikey`, whose value is already the `did:key` encoding, and
+the legacy `EcdsaSecp256k1VerificationKey2019` / `EcdsaSecp256r1VerificationKey2019` forms,
+whose value is a bare uncompressed point that gets compressed and multicodec-tagged first.
+
+```csharp
+string? signingKey = doc.GetSigningKey();            // the #atproto repo-signing key
+string? spaceKey = doc.GetVerificationKey("#atproto_space");
+string? sameKey = doc.VerificationMethod[0].ToDidKey();
+```
+
+`null` means the entry is absent or its type is not one the SDK understands; a `FormatException`
+means the entry is present but its key material is malformed.
+
 ### Service Endpoints
 
 ```csharp

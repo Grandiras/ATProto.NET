@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using ATProtoNet.Crypto;
 
 namespace ATProtoNet.Tests.Crypto;
@@ -238,6 +239,72 @@ public sealed class AtProtoCryptoTests
     public void Base58Decode_RejectsInvalidCharacters()
     {
         Assert.Throws<FormatException>(() => AtProtoCrypto.Base58Decode("invalid0OIl"));
+    }
+
+    // ── Point Compression / did:key Formatting ───────────────
+
+    [Fact]
+    public void CompressPublicKey_PassesThroughAlreadyCompressedPoint()
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var compressed = key.GetCompressedPublicKey();
+
+        Assert.Equal(compressed, AtProtoCrypto.CompressPublicKey(compressed));
+    }
+
+    [Fact]
+    public void CompressPublicKey_RejectsUnknownPointEncoding()
+    {
+        Assert.Throws<FormatException>(() => AtProtoCrypto.CompressPublicKey(new byte[64]));
+        Assert.Throws<FormatException>(() => AtProtoCrypto.CompressPublicKey(new byte[65]));
+        Assert.Throws<FormatException>(() => AtProtoCrypto.CompressPublicKey([]));
+    }
+
+    [Fact]
+    public void FormatDidKey_UncompressedPoint_MatchesTheKeysOwnDidKey()
+    {
+        // Both parities of Y, since compression encodes exactly that bit.
+        var seenParities = new HashSet<int>();
+
+        for (var attempt = 0; attempt < 32 && seenParities.Count < 2; attempt++)
+        {
+            var ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            using var key = new AtProtoKey(ecdsa, KeyCurve.P256);
+
+            var q = ecdsa.ExportParameters(false).Q;
+            seenParities.Add(q.Y![^1] & 1);
+            byte[] uncompressed = [0x04, .. q.X!, .. q.Y!];
+
+            Assert.Equal(key.ToDidKey(), AtProtoCrypto.FormatDidKey(uncompressed, KeyCurve.P256));
+        }
+
+        Assert.Equal(2, seenParities.Count);
+    }
+
+    [Fact]
+    public void FormatDidKey_CompressedPoint_MatchesTheKeysOwnDidKey()
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+
+        Assert.Equal(
+            key.ToDidKey(),
+            AtProtoCrypto.FormatDidKey(key.GetCompressedPublicKey(), KeyCurve.P256));
+    }
+
+    [Fact]
+    public void MultibaseToBytes_DecodesBase58btc()
+    {
+        var bytes = "multibase round trip"u8.ToArray();
+        var encoded = "z" + AtProtoCrypto.Base58Encode(bytes);
+
+        Assert.Equal(bytes, AtProtoCrypto.MultibaseToBytes(encoded));
+    }
+
+    [Fact]
+    public void MultibaseToBytes_RejectsUnsupportedPrefix()
+    {
+        Assert.Throws<FormatException>(() => AtProtoCrypto.MultibaseToBytes("mZm9v"));
+        Assert.Throws<FormatException>(() => AtProtoCrypto.MultibaseToBytes(""));
     }
 
     // ── K-256 (if platform supports it) ──────────────────────

@@ -166,6 +166,74 @@ public static class AtProtoCrypto
     }
 
     /// <summary>
+    /// Formats a raw public key as a <c>did:key</c> identifier.
+    /// </summary>
+    /// <param name="publicKey">
+    /// The public key in SEC1 form — either 33-byte compressed (<c>0x02</c>/<c>0x03</c> prefix)
+    /// or 65-byte uncompressed (<c>0x04 || X || Y</c>), which is compressed first.
+    /// </param>
+    /// <param name="curve">The curve the key belongs to; selects the multicodec prefix.</param>
+    /// <returns>The key as a <c>did:key:z...</c> string.</returns>
+    /// <exception cref="FormatException">Thrown when the point encoding is not recognized.</exception>
+    /// <remarks>
+    /// This encodes only; it does not check that the point lies on <paramref name="curve"/>.
+    /// Use <see cref="ImportCompressedPublicKey"/> (or <see cref="FromDidKey"/> on the result)
+    /// when the key material comes from an untrusted source and must be validated.
+    /// </remarks>
+    public static string FormatDidKey(ReadOnlySpan<byte> publicKey, KeyCurve curve)
+        => $"did:key:{ToMultikey(CompressPublicKey(publicKey), curve)}";
+
+    /// <summary>
+    /// Compresses a public key point to its 33-byte SEC1 compressed form.
+    /// </summary>
+    /// <param name="publicKey">
+    /// A 65-byte uncompressed point (<c>0x04 || X || Y</c>), or an already-compressed 33-byte
+    /// point, which is returned as-is.
+    /// </param>
+    /// <returns>The 33-byte compressed point.</returns>
+    /// <exception cref="FormatException">Thrown when the point encoding is not recognized.</exception>
+    /// <remarks>
+    /// Both curves this SDK supports have 32-byte coordinates, so compression is the same
+    /// operation for either: keep X, and record the parity of Y in the prefix byte.
+    /// </remarks>
+    public static byte[] CompressPublicKey(ReadOnlySpan<byte> publicKey)
+    {
+        if (publicKey.Length == 33 && publicKey[0] is 0x02 or 0x03)
+            return publicKey.ToArray();
+
+        if (publicKey.Length != 65 || publicKey[0] != 0x04)
+        {
+            throw new FormatException(
+                $"Expected a 33-byte compressed or 65-byte uncompressed EC point, got {publicKey.Length} bytes" +
+                (publicKey.Length > 0 ? $" with prefix 0x{publicKey[0]:X2}." : "."));
+        }
+
+        var compressed = new byte[33];
+        compressed[0] = (byte)((publicKey[64] & 1) == 0 ? 0x02 : 0x03);
+        publicKey[1..33].CopyTo(compressed.AsSpan(1));
+        return compressed;
+    }
+
+    /// <summary>
+    /// Decodes a multibase string to its raw bytes.
+    /// </summary>
+    /// <remarks>
+    /// Only <c>z</c> (base58btc) is supported — the encoding every AT Protocol DID document
+    /// uses for <c>publicKeyMultibase</c>, in both the <c>Multikey</c> and the legacy
+    /// <c>Ecdsa...VerificationKey2019</c> forms.
+    /// </remarks>
+    internal static byte[] MultibaseToBytes(string multibase)
+    {
+        if (string.IsNullOrEmpty(multibase))
+            throw new FormatException("Multibase value is empty.");
+
+        if (multibase[0] != 'z')
+            throw new FormatException($"Unsupported multibase prefix '{multibase[0]}'; expected 'z' (base58btc).");
+
+        return Base58Decode(multibase[1..]);
+    }
+
+    /// <summary>
     /// Verifies a signature against message bytes using a <c>did:key</c>.
     /// </summary>
     /// <param name="didKey">The signer's did:key.</param>

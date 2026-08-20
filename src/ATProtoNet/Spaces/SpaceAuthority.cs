@@ -48,12 +48,17 @@ public static class SpaceAuthority
     /// </summary>
     /// <param name="didDocument">The authority's DID document.</param>
     /// <returns>The signing key as a <c>did:key</c> string, or <see langword="null"/> when neither entry exists.</returns>
+    /// <exception cref="FormatException">Thrown when a published entry's key material is malformed.</exception>
+    /// <remarks>
+    /// Both the <c>Multikey</c> and the legacy <c>Ecdsa...VerificationKey2019</c> verification
+    /// method types are read — see <see cref="VerificationMethod.ToDidKey"/>.
+    /// </remarks>
     public static string? GetSigningKey(DidDocument didDocument)
     {
         ArgumentNullException.ThrowIfNull(didDocument);
 
-        return FindMultikey(didDocument, SigningKeyId)
-            ?? FindMultikey(didDocument, "#atproto");
+        return didDocument.GetVerificationKey(SigningKeyId)
+            ?? didDocument.GetSigningKey();
     }
 
     /// <summary>
@@ -116,16 +121,6 @@ public static class SpaceAuthority
         }
 
         return (did, fragment);
-    }
-
-    private static string? FindMultikey(DidDocument didDocument, string fragment)
-    {
-        var method = didDocument.VerificationMethod.FirstOrDefault(vm =>
-            (vm.Id == fragment || vm.Id == $"{didDocument.Id}{fragment}") &&
-            vm.Type == "Multikey" &&
-            !string.IsNullOrEmpty(vm.PublicKeyMultibase));
-
-        return method?.PublicKeyMultibase is { } multikey ? $"did:key:{multikey}" : null;
     }
 
     private static string? FindService(DidDocument didDocument, string fragment)

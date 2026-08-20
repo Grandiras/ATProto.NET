@@ -99,7 +99,7 @@ public sealed class FirehoseVerifier : IDisposable
 
             // Resolve the DID document to get the signing key
             var didDoc = await _didResolver.ResolveDidAsync(commit.Repo, cancellationToken);
-            var signingKey = GetSigningKey(didDoc);
+            var signingKey = didDoc.GetSigningKey();
             if (signingKey is null)
                 return VerificationResult.Failure($"No atproto signing key found for {commit.Repo}");
 
@@ -331,25 +331,6 @@ public sealed class FirehoseVerifier : IDisposable
         destination[3] = (byte)((count >> 8) & 0xFF);
         destination[4] = (byte)(count & 0xFF);
         return 5;
-    }
-
-    /// <summary>
-    /// Extracts the AT Protocol signing key (<c>#atproto</c>) from a DID document.
-    /// </summary>
-    /// <param name="didDoc">The DID document.</param>
-    /// <returns>The signing key as a <c>did:key</c> string, or <c>null</c> if not found.</returns>
-    private static string? GetSigningKey(DidDocument didDoc)
-    {
-        var method = didDoc.VerificationMethod.FirstOrDefault(vm =>
-            (vm.Id == "#atproto" || vm.Id == $"{didDoc.Id}#atproto") &&
-            vm.Type == "Multikey" &&
-            !string.IsNullOrEmpty(vm.PublicKeyMultibase));
-
-        if (method?.PublicKeyMultibase is null)
-            return null;
-
-        // Convert multikey (z-prefixed base58btc) to did:key format
-        return $"did:key:{method.PublicKeyMultibase}";
     }
 
     /// <inheritdoc/>

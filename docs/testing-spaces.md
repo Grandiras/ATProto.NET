@@ -78,5 +78,5 @@ The reference implementation's own suite, `packages/pds/tests/space/`, is a good
 
 ## Two things to know about the dev network
 
-- **Its PLC is older than production's.** It publishes `EcdsaSecp256k1VerificationKey2019` verification methods, whose `publicKeyMultibase` is a bare uncompressed point; plc.directory publishes `Multikey`, whose value is multicodec-tagged. `SpaceSyncer.ResolveSigningKeyAsync` reads the latter, so the fixture supplies its own resolver that accepts both — otherwise a test network's key format would be what the commit-verification tests ended up asserting.
+- **Its PLC is older than production's.** It publishes `EcdsaSecp256k1VerificationKey2019` verification methods, whose `publicKeyMultibase` is a bare uncompressed point; plc.directory publishes `Multikey`, whose value is multicodec-tagged. The SDK reads both (`DidDocument.GetSigningKey()`), so `SpaceSyncer.ResolveSigningKeyAsync` works against either network and the fixture uses it directly.
 - **The writer set is eventually consistent.** `listRepos` is maintained from write notifications the writing PDS sends without awaiting, so a test that has just written polls for its own entry rather than expecting it on the next request.
