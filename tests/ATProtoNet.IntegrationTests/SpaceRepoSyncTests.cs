@@ -226,7 +226,7 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
     }
 
     [RequiresSpacesFact]
-    public async Task SyncRepoAsync_ForAnAccountThatHasWrittenNothing_AppliesNothing()
+    public async Task SyncRepoAsync_ForAnAccountThatHasWrittenNothing_ReportsNoRepo()
     {
         var space = await fixture.CreateSpaceAsync("sync-norepo", members: [fixture.Member]);
         await fixture.WriteAsync(fixture.Authority, space, "only the authority wrote here");
@@ -239,16 +239,20 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
         using var reader = await provider.CreateReaderForRepoAsync(space, fixture.Member.Did);
 
         // A member who has written nothing has no repo to build a commit over, so the oplog
-        // answers with neither operations nor a commit rather than refusing the read.
+        // answers with neither operations nor a commit rather than refusing the read. Nothing
+        // was applied and no continuation was offered, so the pass has nowhere left to go —
+        // reporting `Partial` here would spin a caller that loops on it, since `Partial` is
+        // documented as "sync again to continue".
         var result = await syncer.SyncRepoAsync(reader.Space, cursor);
 
+        Assert.Equal(SpaceSyncOutcome.NoRepo, result.Outcome);
         Assert.Empty(result.Ops);
         Assert.Null(result.Commit);
         Assert.Null(cursor.Rev);
         Assert.Equal(0, store.Count(fixture.Member.Did));
 
-        // Recovering in full is what does report the absence — `getRepo` answers `RepoNotFound`,
-        // and the syncer drops whatever the caller held for that repo.
+        // The full download reports the same absence, and it is the one that is refused outright
+        // — `getRepo` answers `RepoNotFound` and the syncer drops whatever the caller held.
         var recovered = await syncer.RecoverAsync(reader.Space, cursor);
 
         // Deliberately the same answer a caller who may not read the repo gets. Whether an

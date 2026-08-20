@@ -314,6 +314,12 @@ The oplog is a transport optimization, not a committed data structure. A host ma
 it, and it does not survive account migration — a `since` the host can no longer serve is an
 expected condition, not an error, and the syncer recovers in full automatically.
 
+`Partial` means the pass has somewhere left to go, so looping on it terminates. A member who has
+never written to the space has no repo state for the host to build a commit from, and `listRepoOps`
+answers that with an empty page rather than refusing the read — no operations, no commit, and no
+cursor. That is reported as `NoRepo`, the same answer `getRepo` gives by refusing outright, because
+calling again would only produce the same empty page.
+
 `getRepo` returns a CAR with **two roots**: the signed commit, then a DAG-CBOR index mapping
 `{collection}/{rkey}` to each record's CID, with the record blocks following in the same canonical
 order. That layout is what lets `SpaceRepoCar.Verify` validate the whole thing in one pass —

@@ -22,6 +22,12 @@ public enum SpaceSyncOutcome
     /// Operations were applied but the response did not reach the head of the oplog, so the
     /// caller should sync again to continue.
     /// </summary>
+    /// <remarks>
+    /// Only reported when the pass has somewhere left to go — it either applied operations or
+    /// the host offered a continuation cursor. A page carrying neither is
+    /// <see cref="NoRepo"/>, because a caller looping on the documented contract would
+    /// otherwise never leave it.
+    /// </remarks>
     Partial,
 
     /// <summary>
@@ -30,6 +36,12 @@ public enum SpaceSyncOutcome
     Recovered,
 
     /// <summary>The account holds no repo in this space, so there is nothing to sync.</summary>
+    /// <remarks>
+    /// A host may say so either way round: by refusing the read with <c>RepoNotFound</c>, or by
+    /// serving an oplog page with no operations, no commit, and no continuation cursor — the
+    /// shape a member who has never written to the space produces, since the commit is built
+    /// from repo state that account does not have.
+    /// </remarks>
     NoRepo,
 }
 
@@ -216,9 +228,16 @@ public sealed class SpaceSyncer
         }
 
         // A commit arrives only at the head of the log; short of that there is nothing to
-        // compare against and the caller simply syncs again.
+        // compare against and the caller simply syncs again — provided the pass has somewhere
+        // left to go. A page that applied nothing and offered no continuation cursor has
+        // reached the end of what the host will serve, and reporting "call me again" for it
+        // spins a caller following that contract forever.
         if (page.Commit is null)
-            return new SpaceSyncResult(SpaceSyncOutcome.Partial, cursor.Rev, null, applied, null);
+        {
+            return applied.Count == 0 && page.Cursor is null
+                ? await NothingToCommitAsync(client, cursor, cancellationToken)
+                : new SpaceSyncResult(SpaceSyncOutcome.Partial, cursor.Rev, null, applied, null);
+        }
 
         var didKey = await _signingKeyResolver(cursor.Repo, cancellationToken);
         var context = new SpaceCommitContext(_space, cursor.Repo, page.Commit.Rev);
@@ -240,6 +259,36 @@ public sealed class SpaceSyncer
         // same, and detecting it at all is what the set hash is for.
         _logger.LogInformation(
             "Local copy of {Repo} in {Space} diverged from its commit; recovering in full.", cursor.Repo, _space);
+
+        return await RecoverAsync(client, cursor, cancellationToken);
+    }
+
+    /// <summary>
+    /// Answers a pass whose oplog page carried nothing at all — no operations, no commit, and no
+    /// continuation cursor — which means the host holds no repo state to build a commit over.
+    /// </summary>
+    /// <remarks>
+    /// An account that has never written to a space has no repo state, and the host builds the
+    /// commit from that state, so <c>listRepoOps</c> answers with an empty page rather than
+    /// refusing the read: whether an account holds a repo is not something the oplog discloses.
+    /// A syncer walking a member list, rather than the writer set <c>listRepos</c> returns, is
+    /// what reaches this.
+    /// </remarks>
+    private async Task<SpaceSyncResult> NothingToCommitAsync(
+        SpaceClient client, SpaceRepoCursor cursor, CancellationToken cancellationToken)
+    {
+        // A syncer holding nothing for a repo the host has no state for is already correct, and
+        // has the same answer to give as the read that is refused outright.
+        if (cursor.Rev is null)
+            return new SpaceSyncResult(SpaceSyncOutcome.NoRepo, null, null, [], null);
+
+        // Standing at a revision is a different matter: the host is reporting no state for a
+        // repo the caller holds a copy of. `getRepo` is the one call that answers definitively,
+        // and it repairs either way — `RepoNotFound` drops what is held, and a repo that does
+        // exist rebuilds it.
+        _logger.LogInformation(
+            "Oplog for {Repo} in {Space} carries no commit past {Rev}; recovering in full.",
+            cursor.Repo, _space, cursor.Rev);
 
         return await RecoverAsync(client, cursor, cancellationToken);
     }

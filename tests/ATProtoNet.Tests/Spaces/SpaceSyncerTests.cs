@@ -110,6 +110,65 @@ public class SpaceSyncerTests : IDisposable
     }
 
     [Fact]
+    public async Task SyncRepoAsync_WithoutACommitButWithAContinuation_ReportsPartialEvenWithNoOps()
+    {
+        // No operations in a page is not the same as no page left. A cursor is the host saying
+        // there is more to read, and that is what `Partial` is for.
+        _host.Ops = OpsJson(commit: null, cursor: "more");
+
+        var result = await CreateSyncer().SyncRepoAsync(_client, new SpaceRepoCursor(Repo));
+
+        Assert.Equal(SpaceSyncOutcome.Partial, result.Outcome);
+        Assert.Empty(result.Ops);
+    }
+
+    [Fact]
+    public async Task SyncRepoAsync_ForAnAccountThatHasWrittenNothing_ReportsNoRepoRatherThanPartial()
+    {
+        // A member who has never written to the space has no repo state, and the commit is built
+        // from that state — so the oplog answers with an empty page rather than refusing the
+        // read. Nothing was applied and no cursor was offered: a caller looping on `Partial`,
+        // which is documented as "sync again to continue", would spin on this repo forever.
+        _host.Ops = """{"ops":[]}""";
+
+        var cursor = new SpaceRepoCursor(Repo);
+        var result = await CreateSyncer().SyncRepoAsync(_client, cursor);
+
+        Assert.Equal(SpaceSyncOutcome.NoRepo, result.Outcome);
+        Assert.Empty(result.Ops);
+        Assert.Null(result.Commit);
+        Assert.Null(cursor.Rev);
+
+        // The same answer the refused read gives, and reached without a full download: the copy
+        // holds nothing, so there is nothing to repair or drop.
+        Assert.Empty(_store.Applied);
+        Assert.Empty(_store.Replaced);
+        Assert.Empty(_store.Dropped);
+    }
+
+    [Fact]
+    public async Task SyncRepoAsync_WhenAHeldRepoHasNothingToCommit_RecoversRatherThanAssumingItIsGone()
+    {
+        // Standing at a revision is the other case: the host reports no state for a repo the
+        // caller holds a copy of. Only `getRepo` answers that definitively, and here it says the
+        // repo is gone — so the stale copy goes with it instead of being kept forever.
+        _host.Ops = """{"ops":[]}""";
+        _host.CarStatus = HttpStatusCode.BadRequest;
+        _host.CarError = """{"error":"RepoNotFound","message":"no repo in this space"}""";
+
+        var record = Record("com.example.n", "a", "x");
+        var cursor = new SpaceRepoCursor(
+            Repo, "3l6ov1", new SpaceRepoCommit().Add(record.Collection, record.Rkey, record.Cid).SetHash.GetState());
+
+        var result = await CreateSyncer().SyncRepoAsync(_client, cursor);
+
+        Assert.Equal(SpaceSyncOutcome.NoRepo, result.Outcome);
+        Assert.Equal(Repo, Assert.Single(_store.Dropped));
+        Assert.Null(cursor.Rev);
+        Assert.True(cursor.Commit.SetHash.IsEmpty);
+    }
+
+    [Fact]
     public async Task SyncRepoAsync_ResumesFromAPersistedCursorWithoutRefetching()
     {
         // A syncer restarting mid-stream restores its set hash from storage rather than
