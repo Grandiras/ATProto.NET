@@ -64,10 +64,24 @@ public sealed class CSharpEmitter
         public bool NeedsJson { get; set; }
         public bool NeedsSdkModels { get; set; }
         public bool NeedsSdkCore { get; set; }
+        public bool NeedsSdkSpaces { get; set; }
     }
 
     /// <summary>An inline <c>object</c> schema that becomes a nested class.</summary>
     private sealed record PendingNested(string TypeName, LexiconSchema Schema);
+
+    /// <summary>
+    /// Every definition type in the Lexicon vocabulary. Not all of them are emitted as a C#
+    /// type — the ones that are not are still legitimate input, so only a type missing from
+    /// this set earns a warning.
+    /// </summary>
+    private static readonly HashSet<string> s_knownDefTypes = new(StringComparer.Ordinal)
+    {
+        "record", "space", "query", "procedure", "subscription",
+        "object", "array", "ref", "union", "token",
+        "string", "integer", "boolean", "null", "unknown",
+        "blob", "bytes", "cid-link",
+    };
 
     private string? EmitDocument(LexiconDocument doc, EmitPlan plan)
     {
@@ -98,6 +112,11 @@ public sealed class CSharpEmitter
             {
                 case "record":
                     EmitRecordType(body, ctx, defName, def);
+                    hasContent = true;
+                    break;
+
+                case "space":
+                    EmitSpaceType(body, ctx, defName, def);
                     hasContent = true;
                     break;
 
@@ -134,8 +153,16 @@ public sealed class CSharpEmitter
                     break;
 
                 default:
-                    // Other types (string without enum, integer, boolean, etc.)
-                    // are typically used as inline property constraints, not standalone types
+                    // Other Lexicon types (string without enum, integer, boolean, etc.) are
+                    // referenced as property constraints rather than emitted standalone. A type
+                    // outside the vocabulary is a different matter: nothing downstream will ever
+                    // pick it up, so say so instead of silently generating an empty file.
+                    if (!s_knownDefTypes.Contains(def.Type))
+                    {
+                        _warnings.Add(def.Type.Length == 0
+                            ? $"{ctx.Nsid}#{defName}: definition has no 'type' — nothing was emitted for it"
+                            : $"{ctx.Nsid}#{defName}: unsupported definition type '{def.Type}' — nothing was emitted for it");
+                    }
                     break;
             }
         }
@@ -165,6 +192,8 @@ public sealed class CSharpEmitter
             sb.AppendLine("using ATProtoNet;");
         if (ctx.NeedsSdkModels)
             sb.AppendLine("using ATProtoNet.Models;");
+        if (ctx.NeedsSdkSpaces)
+            sb.AppendLine("using ATProtoNet.Spaces;");
         sb.AppendLine();
         sb.AppendLine($"namespace {ctx.Namespace};");
         sb.AppendLine();
@@ -210,6 +239,127 @@ public sealed class CSharpEmitter
 
         sb.AppendLine("}");
         sb.AppendLine();
+    }
+
+    /// <summary>
+    /// Emits a space type declaration (<c>"type": "space"</c>) as a static holder around the
+    /// SDK's <c>SpaceTypeDeclaration</c>. A space type is not a record — nothing is serialized
+    /// against it — so what a consumer needs from it is the NSID it grants on, the consent
+    /// name, and the collection set a bare <c>space:</c> scope resolves to.
+    /// </summary>
+    private void EmitSpaceType(StringBuilder sb, FileContext ctx, string defName, LexiconSchema def)
+    {
+        var className = TypeNameOf(ctx, defName, "space");
+        var typeValue = TypeMapper.TypeValue(ctx.Nsid, defName);
+
+        ctx.NeedsSdkSpaces = true;
+
+        // Key, name, and collections are all required on the declaration. A schema that omits
+        // one still has to produce code that compiles, so substitute and say what was missing.
+        var key = def.Key;
+        if (string.IsNullOrEmpty(key))
+        {
+            _warnings.Add($"{ctx.Nsid}#{defName}: space declaration has no 'key' — emitted as \"any\"");
+            key = "any";
+        }
+
+        var name = def.Name;
+        if (string.IsNullOrEmpty(name))
+        {
+            _warnings.Add(
+                $"{ctx.Nsid}#{defName}: space declaration has no 'name' — emitted as the raw NSID, " +
+                "which is what a consent screen will show");
+            name = typeValue;
+        }
+
+        var collections = def.Collections ?? [];
+        if (collections.Count == 0)
+        {
+            _warnings.Add(
+                $"{ctx.Nsid}#{defName}: space declaration lists no 'collections' — a bare " +
+                $"'space:{typeValue}' grant of this type resolves to no writable collections");
+        }
+
+        EmitXmlDoc(sb, def.Description, 0);
+        sb.AppendLine("/// <remarks>");
+        sb.AppendLine($"/// AT Protocol space type <c>{typeValue}</c> — the consent boundary of a");
+        sb.AppendLine($"/// <c>space:{typeValue}</c> OAuth scope.");
+        sb.AppendLine("/// </remarks>");
+        sb.AppendLine($"public static class {className}");
+        sb.AppendLine("{");
+        sb.AppendLine("    /// <summary>The space type NSID.</summary>");
+        sb.AppendLine($"    public const string Nsid = {Quote(typeValue)};");
+        sb.AppendLine();
+        sb.AppendLine("    /// <summary>The declaration this space type resolves to.</summary>");
+        sb.AppendLine("    public static SpaceTypeDeclaration Declaration { get; } = new()");
+        sb.AppendLine("    {");
+
+        if (!string.IsNullOrWhiteSpace(def.Description))
+            sb.AppendLine($"        Description = {Quote(def.Description)},");
+
+        sb.AppendLine($"        Key = {Quote(key)},");
+        sb.AppendLine($"        Name = {Quote(name)},");
+
+        if (def.LocalizedNames is { Count: > 0 })
+        {
+            sb.AppendLine("        LocalizedNames = new Dictionary<string, string>");
+            sb.AppendLine("        {");
+            foreach (var (language, localized) in def.LocalizedNames)
+                sb.AppendLine($"            [{Quote(language)}] = {Quote(localized)},");
+            sb.AppendLine("        },");
+        }
+
+        if (collections.Count == 0)
+        {
+            sb.AppendLine("        Collections = [],");
+        }
+        else
+        {
+            sb.AppendLine("        Collections =");
+            sb.AppendLine("        [");
+            foreach (var collection in collections)
+                sb.AppendLine($"            {Quote(collection)},");
+            sb.AppendLine("        ],");
+        }
+
+        sb.AppendLine("    };");
+        sb.AppendLine();
+        sb.AppendLine("    /// <summary>The recommended space key type (e.g. <c>tid</c>, <c>any</c>, <c>literal:self</c>).</summary>");
+        sb.AppendLine("    public static string Key => Declaration.Key;");
+        sb.AppendLine();
+        sb.AppendLine("    /// <summary>The human-readable name shown to users on OAuth consent screens.</summary>");
+        sb.AppendLine("    public static string Name => Declaration.Name;");
+        sb.AppendLine();
+        sb.AppendLine("    /// <summary>Localized <see cref=\"Name\"/> values, keyed by language code.</summary>");
+        sb.AppendLine("    public static IReadOnlyDictionary<string, string>? LocalizedNames => Declaration.LocalizedNames;");
+        sb.AppendLine();
+        sb.AppendLine("    /// <summary>The default collection set for a bare <c>space:</c> grant of this type.</summary>");
+        sb.AppendLine("    public static IReadOnlyList<string> Collections => Declaration.Collections;");
+        sb.AppendLine("}");
+        sb.AppendLine();
+    }
+
+    /// <summary>Renders a string as a C# literal. Space names are free text, unlike an NSID.</summary>
+    private static string Quote(string? value)
+    {
+        if (value is null)
+            return "null";
+
+        var sb = new StringBuilder("\"");
+        foreach (var ch in value)
+        {
+            switch (ch)
+            {
+                case '\\': sb.Append("\\\\"); break;
+                case '"': sb.Append("\\\""); break;
+                case '\r': sb.Append("\\r"); break;
+                case '\n': sb.Append("\\n"); break;
+                case '\t': sb.Append("\\t"); break;
+                default: sb.Append(ch); break;
+            }
+        }
+
+        return sb.Append('"').ToString();
     }
 
     private void EmitObjectType(StringBuilder sb, FileContext ctx, string defName, LexiconSchema def)
@@ -387,9 +537,11 @@ public sealed class CSharpEmitter
                     return Shorten(def.QualifiedName, ctx);
 
                 // Tokens and string defs are emitted as static constant holders, so the
-                // member itself is a plain string.
+                // member itself is a plain string. So is a space type: nothing is serialized
+                // against the declaration, so a property pointing at one carries its NSID.
                 case "token":
                 case "string":
+                case "space":
                     return "string";
 
                 case "ref" when def.Schema.Ref is not null && depth < 4:

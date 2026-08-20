@@ -120,6 +120,8 @@ public sealed class EmitPlan
                     case "object":
                         WalkObject(def, doc.Id, defName, sites);
                         break;
+                    // Other definition types carry no property schemas, so they host no union
+                    // sites — a space declaration's fields are all scalars and NSID lists.
                 }
             }
         }

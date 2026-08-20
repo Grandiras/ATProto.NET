@@ -170,6 +170,11 @@ declaration.Collections;      // the default collection set for a bare space: sc
 `Collections` is a recommendation, not a constraint. Any collection may be written to any space; the
 protocol does not restrict it.
 
+If you publish your own space type, `atproto-lexgen` generates the declaration in both directions —
+a static holder from the Lexicon JSON, the Lexicon JSON back from the holder, and a diff that calls
+out a widened collection set. See
+[Space type declarations](lexicon-codegen.md#space-type-declarations).
+
 ## Reading someone else's data: the credential flow
 
 Reading *another member's* repo needs a **space credential** issued by the space authority. Getting

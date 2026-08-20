@@ -31,7 +31,7 @@ public sealed class LexiconDocument
 /// A single schema node in a Lexicon document. The <see cref="Type"/> field determines
 /// which other properties are meaningful (flat union — mirrors the JSON representation).
 /// 
-/// Definition types: record, query, procedure, subscription, object, string, token, boolean, integer, blob, array, ref, union.
+/// Definition types: record, space, query, procedure, subscription, object, string, token, boolean, integer, blob, array, ref, union.
 /// Property types: string, integer, boolean, blob, bytes, array, ref, union, object, unknown, cid-link.
 /// </summary>
 public sealed class LexiconSchema
@@ -42,12 +42,28 @@ public sealed class LexiconSchema
     [JsonPropertyName("description")]
     public string? Description { get; set; }
 
-    // ── record ───────────────────────────────────────────────
+    // ── record / space ───────────────────────────────────────
     [JsonPropertyName("key")]
     public string? Key { get; set; }
 
     [JsonPropertyName("record")]
     public LexiconSchema? Record { get; set; }
+
+    // ── space ────────────────────────────────────────────────
+    /// <summary>The human-readable space type name shown on OAuth consent screens.</summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    /// <summary>Localized <see cref="Name"/> values, keyed by language code.</summary>
+    [JsonPropertyName("name:lang")]
+    public Dictionary<string, string>? LocalizedNames { get; set; }
+
+    /// <summary>
+    /// The collections a space of this type is expected to hold — also the default
+    /// collection set for a bare <c>space:</c> grant of this type.
+    /// </summary>
+    [JsonPropertyName("collections")]
+    public List<string>? Collections { get; set; }
 
     // ── object ───────────────────────────────────────────────
     [JsonPropertyName("required")]

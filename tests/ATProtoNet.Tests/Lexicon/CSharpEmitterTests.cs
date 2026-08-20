@@ -1,6 +1,7 @@
 using System.Text.Json;
 using ATProtoNet.LexiconGenerator.CodeGen;
 using ATProtoNet.LexiconGenerator.Schema;
+using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Tests.Lexicon;
 
@@ -21,10 +22,15 @@ public class CSharpEmitterTests
         => JsonSerializer.Deserialize<LexiconDocument>(json, s_options)!;
 
     private static Dictionary<string, string> EmitAll(params string[] documents)
+        => EmitWithWarnings(documents).Files;
+
+    private static (Dictionary<string, string> Files, IReadOnlyList<string> Warnings) EmitWithWarnings(
+        params string[] documents)
     {
         var emitter = new CSharpEmitter("Mise.Core.Lexicon");
-        return emitter.EmitAll(documents.Select(Parse))
+        var files = emitter.EmitAll(documents.Select(Parse))
             .ToDictionary(f => f.Path, f => f.Content.ReplaceLineEndings("\n"));
+        return (files, emitter.Warnings);
     }
 
     private const string RecipeDefs = """
@@ -366,6 +372,140 @@ public class CSharpEmitterTests
         Assert.Contains("public string? Class { get; init; }", content);
         Assert.Contains("public bool? _2fa { get; init; }", content);
         Assert.Contains("public string? KebabCase { get; init; }", content);
+    }
+
+    // ── Space type declarations ──────────────────────────────
+
+    private const string ForumSpace = """
+        {
+          "lexicon": 1,
+          "id": "com.atmoboards.forum",
+          "defs": {
+            "main": {
+              "type": "space",
+              "key": "any",
+              "name": "AtmoBoards Forum",
+              "name:lang": { "es": "Foro AtmoBoards" },
+              "description": "A private discussion forum.",
+              "collections": ["com.atmoboards.thread", "com.atmoboards.reply"]
+            }
+          }
+        }
+        """;
+
+    [Fact]
+    public void Emit_SpaceDeclaration_GeneratesDeclarationHolder()
+    {
+        var (files, warnings) = EmitWithWarnings(ForumSpace);
+
+        var content = files["Com/Atmoboards/Forum.g.cs"];
+
+        Assert.Empty(warnings);
+        Assert.Contains("using ATProtoNet.Spaces;", content);
+        Assert.Contains("public static class ForumSpace", content);
+        Assert.Contains("public const string Nsid = \"com.atmoboards.forum\";", content);
+        Assert.Contains("public static SpaceTypeDeclaration Declaration { get; } = new()", content);
+        Assert.Contains("Key = \"any\",", content);
+        Assert.Contains("Name = \"AtmoBoards Forum\",", content);
+        Assert.Contains("[\"es\"] = \"Foro AtmoBoards\",", content);
+        Assert.Contains("\"com.atmoboards.thread\",", content);
+        Assert.Contains("/// A private discussion forum.", content);
+        Assert.Equal(content.Count(c => c == '{'), content.Count(c => c == '}'));
+    }
+
+    [Fact]
+    public void Emit_SpaceDeclaration_ExposesTheDeclarationsOwnMembers()
+    {
+        var content = EmitAll(ForumSpace)["Com/Atmoboards/Forum.g.cs"];
+
+        // The forwarders only compile as long as the SDK model still spells them this way.
+        foreach (var member in (string[])["Key", "Name", "LocalizedNames", "Collections"])
+        {
+            Assert.NotNull(typeof(SpaceTypeDeclaration).GetProperty(member));
+            Assert.Contains($"Declaration.{member};", content);
+        }
+    }
+
+    [Fact]
+    public void Emit_SpaceDeclarationWithQuotesInName_EscapesTheLiteral()
+    {
+        var doc = """
+            {
+              "lexicon": 1,
+              "id": "com.example.quoted",
+              "defs": {
+                "main": {
+                  "type": "space",
+                  "key": "any",
+                  "name": "The \"Quoted\" Space\\Type",
+                  "collections": []
+                }
+              }
+            }
+            """;
+
+        var content = EmitAll(doc)["Com/Example/Quoted.g.cs"];
+
+        Assert.Contains("Name = \"The \\\"Quoted\\\" Space\\\\Type\",", content);
+    }
+
+    [Fact]
+    public void Emit_SpaceDeclarationMissingRequiredFields_WarnsAndSubstitutes()
+    {
+        var doc = """
+            {
+              "lexicon": 1,
+              "id": "com.example.bookmarks",
+              "defs": { "main": { "type": "space" } }
+            }
+            """;
+
+        var (files, warnings) = EmitWithWarnings(doc);
+        var content = files["Com/Example/Bookmarks.g.cs"];
+
+        // Key, Name, and Collections are `required` on the SDK model — the file still has to compile.
+        Assert.Contains("Key = \"any\",", content);
+        Assert.Contains("Name = \"com.example.bookmarks\",", content);
+        Assert.Contains("Collections = [],", content);
+
+        Assert.Contains(warnings, w => w.Contains("no 'key'"));
+        Assert.Contains(warnings, w => w.Contains("no 'name'"));
+        Assert.Contains(warnings, w => w.Contains("no 'collections'"));
+    }
+
+    [Fact]
+    public void Emit_UnsupportedDefinitionType_WarnsInsteadOfEmittingNothing()
+    {
+        var doc = """
+            {
+              "lexicon": 1,
+              "id": "com.example.mystery",
+              "defs": { "main": { "type": "permissionSet" } }
+            }
+            """;
+
+        var (files, warnings) = EmitWithWarnings(doc);
+
+        Assert.Empty(files);
+        Assert.Contains(warnings, w => w.Contains("com.example.mystery#main")
+                                    && w.Contains("unsupported definition type 'permissionSet'"));
+    }
+
+    [Fact]
+    public void Emit_QueryDefinition_IsSkippedWithoutWarning()
+    {
+        var doc = """
+            {
+              "lexicon": 1,
+              "id": "com.example.getThing",
+              "defs": { "main": { "type": "query", "output": { "encoding": "application/json" } } }
+            }
+            """;
+
+        var (files, warnings) = EmitWithWarnings(doc);
+
+        Assert.Empty(files);
+        Assert.Empty(warnings);
     }
 
     [Fact]

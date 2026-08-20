@@ -211,10 +211,20 @@ public static class Program
             return Error($"Failed to load assembly: {ex.Message}");
         }
 
+        var lexiconWarnings = emitter.Warnings.Distinct(StringComparer.Ordinal).ToList();
+        if (lexiconWarnings.Count > 0)
+        {
+            Console.Error.WriteLine();
+            foreach (var warning in lexiconWarnings)
+                Console.Error.WriteLine($"  WARN  {warning}");
+            Console.Error.WriteLine();
+        }
+
         if (schemas.Count == 0)
         {
             Console.WriteLine("No AT Protocol types found in the assembly.");
-            Console.WriteLine("Types must have a property with [JsonPropertyName(\"$type\")] to be detected.");
+            Console.WriteLine("Record types must have a property with [JsonPropertyName(\"$type\")] to be detected;");
+            Console.WriteLine("space types must expose a static SpaceTypeDeclaration alongside an Nsid constant.");
             return 0;
         }
 
@@ -297,8 +307,10 @@ public static class Program
               - unions of object defs become [JsonPolymorphic] base classes
               - refs to com.atproto.*/app.bsky.* defs reuse the SDK's own models
               - token families are grouped into one static class of constants
+              - space defs become a static holder for the SDK's SpaceTypeDeclaration
 
-            Refs that cannot be resolved fall back to JsonElement? and are reported as WARN.
+            Refs that cannot be resolved fall back to JsonElement? and are reported as WARN,
+            as is a definition type outside the Lexicon vocabulary.
 
             EXAMPLE:
                 atproto-lexgen csharp \
@@ -320,8 +332,10 @@ public static class Program
                 -a, --assembly <path>  Path to the .NET assembly (.dll) to analyze (required)
                 -o, --output <dir>     Output directory for generated .json files (required)
 
-            The tool detects AT Protocol types by looking for properties annotated with
-            [JsonPropertyName("$type")] and reads their constant value to determine the NSID.
+            The tool detects AT Protocol record types by looking for properties annotated
+            with [JsonPropertyName("$type")] and reads their constant value to determine the
+            NSID. Space types are detected by their declaration: a public static
+            SpaceTypeDeclaration on a type that also carries an Nsid (or SpaceType) constant.
 
             EXAMPLE:
                 atproto-lexgen lexicon \

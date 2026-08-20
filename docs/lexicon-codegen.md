@@ -31,7 +31,11 @@ This generates:
 - `[JsonPropertyName]` attributes for JSON serialization
 - `record` defs as subclasses of `AtProtoRecord`, so they drop straight into `GetCollection<T>()`
 - `$type` expression-body properties
-- Support for all Lexicon types: record, object, string enum, token, ref, union, array, blob
+- Support for all Lexicon types: record, space, object, string enum, token, ref, union, array, blob
+
+A definition type outside the Lexicon vocabulary is reported as a `WARN` line naming the NSID and
+the type, rather than silently producing nothing. `query`, `procedure`, and `subscription` defs are
+skipped without a warning — they are legitimate input that emits no standalone C# type.
 
 Pass every schema that your Lexicons reference to a single invocation — refs are resolved
 across the whole input set, so generating documents one at a time loses type information.
@@ -41,6 +45,7 @@ across the whole input set, so generating documents one at a time loses type inf
 | Lexicon | Generated C# |
 |---------|--------------|
 | `record` def | `sealed class XRecord : AtProtoRecord` (`createdAt` comes from the base class) |
+| `space` def | `static class XSpace` holding the `SpaceTypeDeclaration` (see [Space type declarations](#space-type-declarations)) |
 | ref to a def in the same run | that generated type |
 | ref to a `com.atproto.*` / `app.bsky.*` def the SDK already models | the SDK type (e.g. `app.bsky.embed.defs#aspectRatio` → `ATProtoNet.Lexicon.App.Bsky.Embed.AspectRatio`) |
 | ref that cannot be resolved | `JsonElement?` plus a `WARN` line naming the ref |
@@ -127,6 +132,58 @@ public sealed class ItemRecord : AtProtoRecord
 > record serializes both `"type"` and `"$type"`. Hand-written `AtProtoRecord` subclasses
 > need the same attribute.
 
+### Space type declarations
+
+A [space type](spaces.md#space-type-declarations) is a Lexicon document whose `main` definition is
+`"type": "space"` rather than `"type": "record"`. Nothing is serialized against it — it names a
+modality and supplies the human-readable name a consent screen shows — so it generates a static
+holder around the SDK's `SpaceTypeDeclaration` instead of a class:
+
+```json
+{
+  "lexicon": 1,
+  "id": "com.atmoboards.forum",
+  "defs": {
+    "main": {
+      "type": "space",
+      "key": "any",
+      "name": "AtmoBoards Forum",
+      "name:lang": { "es": "Foro AtmoBoards" },
+      "collections": ["com.atmoboards.thread", "com.atmoboards.reply"]
+    }
+  }
+}
+```
+
+```csharp
+public static class ForumSpace
+{
+    public const string Nsid = "com.atmoboards.forum";
+
+    public static SpaceTypeDeclaration Declaration { get; } = new()
+    {
+        Key = "any",
+        Name = "AtmoBoards Forum",
+        LocalizedNames = new Dictionary<string, string> { ["es"] = "Foro AtmoBoards" },
+        Collections = [ "com.atmoboards.thread", "com.atmoboards.reply" ],
+    };
+
+    public static string Key => Declaration.Key;
+    public static string Name => Declaration.Name;
+    public static IReadOnlyDictionary<string, string>? LocalizedNames => Declaration.LocalizedNames;
+    public static IReadOnlyList<string> Collections => Declaration.Collections;
+}
+```
+
+```csharp
+AtProtoScopes.Space(ForumSpace.Nsid, authority: "*");   // space:com.atmoboards.forum?authority=*
+consentScreen.Title = ForumSpace.Declaration.GetName(userLanguage);
+```
+
+`key`, `name`, and `collections` are `required` on `SpaceTypeDeclaration`, so a declaration that
+omits one still generates code that compiles — `"any"`, the raw NSID, and an empty collection set —
+and a `WARN` line names the field that was substituted for.
+
 ## Generate Lexicons from C# Assemblies
 
 Reverse-generate Lexicon JSON schemas from compiled .NET types:
@@ -134,6 +191,12 @@ Reverse-generate Lexicon JSON schemas from compiled .NET types:
 ```bash
 atproto-lexgen lexicon --assembly ./bin/Debug/net10.0/MyApp.dll --output ./lexicons
 ```
+
+Record types are found by their `[JsonPropertyName("$type")]` discriminator. **Space types** are
+found by their declaration: any public static `SpaceTypeDeclaration` on a type that also carries an
+`Nsid` (or `SpaceType`) string constant — the shape the `csharp` command generates above, so a space
+type round-trips through both directions. A declaration with no NSID constant to attribute it to is
+reported as a `WARN` rather than guessed at.
 
 ## Compare Schemas (Diff)
 
@@ -148,6 +211,13 @@ The diff detects:
 - Type changes
 - Required status changes
 - Constraint tightening (breaking changes per AT Protocol evolution rules)
+- Space type declaration changes — the key, the consent-screen name and its localizations, and the
+  collection set
+
+A space type's collection list is worth watching. A bare `space:` grant resolves its default
+collection set from the declaration *as it stands when the grant is evaluated*, not as it stood when
+the user consented — so adding a collection widens every grant already issued (reported,
+non-breaking), and removing one narrows them (breaking).
 
 ### CI Integration
 

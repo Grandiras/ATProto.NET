@@ -430,6 +430,137 @@ public sealed class LexiconDifferTests
         Assert.Equal(3, revisions["com.example.post"]);
     }
 
+
+    // ── Space Type Declarations ──────────────────────────────
+
+    private static LexiconDocument MakeSpaceDoc(
+        string id,
+        string key = "any",
+        string name = "AtmoBoards Forum",
+        List<string>? collections = null,
+        Dictionary<string, string>? localizedNames = null)
+    {
+        return new LexiconDocument
+        {
+            Id = id,
+            Defs = new Dictionary<string, LexiconSchema>
+            {
+                ["main"] = new LexiconSchema
+                {
+                    Type = "space",
+                    Key = key,
+                    Name = name,
+                    LocalizedNames = localizedNames,
+                    Collections = collections ?? ["com.atmoboards.thread"],
+                }
+            }
+        };
+    }
+
+    [Fact]
+    public void Compare_IdenticalSpaceDeclarations_NoChanges()
+    {
+        var docs = new[] { MakeSpaceDoc("com.atmoboards.forum") };
+
+        var result = _differ.Compare(docs, docs);
+
+        Assert.False(result.HasChanges);
+    }
+
+    [Fact]
+    public void Compare_SpaceCollectionAdded_NonBreakingButReported()
+    {
+        var baseline = new[] { MakeSpaceDoc("com.atmoboards.forum") };
+        var current = new[]
+        {
+            MakeSpaceDoc("com.atmoboards.forum", collections: ["com.atmoboards.thread", "com.atmoboards.reply"])
+        };
+
+        var result = _differ.Compare(baseline, current);
+
+        var change = Assert.Single(result.Changes);
+        Assert.Equal(ChangeKind.SpaceCollectionAdded, change.Kind);
+        Assert.False(change.IsBreaking);
+        // The default collection set is resolved at grant-evaluation time, so this widens
+        // grants the user already consented to — the point of reporting it at all.
+        Assert.Contains("com.atmoboards.reply", change.Description);
+        Assert.Contains("widens", change.Description);
+    }
+
+    [Fact]
+    public void Compare_SpaceCollectionRemoved_Breaking()
+    {
+        var baseline = new[]
+        {
+            MakeSpaceDoc("com.atmoboards.forum", collections: ["com.atmoboards.thread", "com.atmoboards.reply"])
+        };
+        var current = new[] { MakeSpaceDoc("com.atmoboards.forum") };
+
+        var result = _differ.Compare(baseline, current);
+
+        var change = Assert.Single(result.Changes);
+        Assert.Equal(ChangeKind.SpaceCollectionRemoved, change.Kind);
+        Assert.True(change.IsBreaking);
+        Assert.Contains("com.atmoboards.reply", change.Description);
+    }
+
+    [Fact]
+    public void Compare_SpaceKeyChanged_Breaking()
+    {
+        var baseline = new[] { MakeSpaceDoc("com.atmoboards.forum") };
+        var current = new[] { MakeSpaceDoc("com.atmoboards.forum", key: "tid") };
+
+        var result = _differ.Compare(baseline, current);
+
+        var change = Assert.Single(result.Changes);
+        Assert.Equal(ChangeKind.SpaceKeyChanged, change.Kind);
+        Assert.True(change.IsBreaking);
+    }
+
+    [Fact]
+    public void Compare_SpaceNameChanged_NonBreaking()
+    {
+        var baseline = new[] { MakeSpaceDoc("com.atmoboards.forum") };
+        var current = new[] { MakeSpaceDoc("com.atmoboards.forum", name: "AtmoBoards Forums") };
+
+        var result = _differ.Compare(baseline, current);
+
+        var change = Assert.Single(result.Changes);
+        Assert.Equal(ChangeKind.SpaceNameChanged, change.Kind);
+        Assert.False(change.IsBreaking);
+        Assert.Contains("consent", change.Description);
+    }
+
+    [Fact]
+    public void Compare_SpaceLocalizedNameAdded_NonBreaking()
+    {
+        var baseline = new[] { MakeSpaceDoc("com.atmoboards.forum") };
+        var current = new[]
+        {
+            MakeSpaceDoc("com.atmoboards.forum", localizedNames: new Dictionary<string, string> { ["es"] = "Foro" })
+        };
+
+        var result = _differ.Compare(baseline, current);
+
+        var change = Assert.Single(result.Changes);
+        Assert.Equal(ChangeKind.SpaceNameChanged, change.Kind);
+        Assert.False(change.IsBreaking);
+        Assert.Equal("main.name:lang.es", change.Path);
+    }
+
+    [Fact]
+    public void Compare_SpaceReplacedByRecord_Breaking()
+    {
+        var baseline = new[] { MakeSpaceDoc("com.atmoboards.forum") };
+        var current = new[] { MakeDoc("com.atmoboards.forum") };
+
+        var result = _differ.Compare(baseline, current);
+
+        var change = Assert.Single(result.Changes);
+        Assert.Equal(ChangeKind.TypeChanged, change.Kind);
+        Assert.True(change.IsBreaking);
+    }
+
     // ── Counts ───────────────────────────────────────────────
 
     [Fact]

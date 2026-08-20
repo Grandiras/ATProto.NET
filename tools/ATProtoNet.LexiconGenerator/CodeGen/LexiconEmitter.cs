@@ -20,18 +20,37 @@ public sealed class LexiconEmitter
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
+    private readonly List<string> _warnings = [];
+
+    /// <summary>
+    /// Diagnostics collected while emitting — space type declarations that could not be
+    /// attributed to an NSID, and definitions that collided with one another.
+    /// </summary>
+    public IReadOnlyList<string> Warnings => _warnings;
+
     /// <summary>
     /// Loads an assembly and generates Lexicon schema documents for all AT Protocol types found.
     /// </summary>
     /// <param name="assemblyPath">Absolute path to the .NET assembly (.dll).</param>
     /// <returns>A list of (NSID, JSON content) pairs.</returns>
     public List<(string Nsid, string JsonContent)> EmitFromAssembly(string assemblyPath)
+        => EmitFromAssembly(Assembly.LoadFrom(assemblyPath));
+
+    /// <summary>
+    /// Generates Lexicon schema documents for all AT Protocol types in a loaded assembly.
+    /// </summary>
+    /// <param name="assembly">The assembly to inspect.</param>
+    /// <returns>A list of (NSID, JSON content) pairs.</returns>
+    public List<(string Nsid, string JsonContent)> EmitFromAssembly(Assembly assembly)
     {
-        var assembly = Assembly.LoadFrom(assemblyPath);
         var results = new Dictionary<string, LexiconDocument>();
 
         foreach (var type in assembly.GetExportedTypes())
         {
+            // A space type declaration is held by a static class, which is abstract — so this
+            // runs before the instance-type filter below.
+            EmitSpaceDeclarations(type, results);
+
             if (type.IsAbstract || type.IsInterface || type.IsEnum)
                 continue;
 
@@ -41,24 +60,153 @@ public sealed class LexiconEmitter
 
             var (nsid, defName) = TypeMapper.ParseTypeValue(typeValue);
 
-            if (!results.TryGetValue(nsid, out var doc))
-            {
-                doc = new LexiconDocument
-                {
-                    Lexicon = 1,
-                    Id = nsid,
-                };
-                results[nsid] = doc;
-            }
-
+            var doc = DocumentFor(results, nsid);
             var schema = BuildSchemaFromType(type, defName);
-            doc.Defs[defName] = schema;
+            AddDefinition(doc, defName, schema, type);
         }
 
         return results
             .OrderBy(kv => kv.Key)
             .Select(kv => (kv.Key, JsonSerializer.Serialize(kv.Value, s_jsonOptions)))
             .ToList();
+    }
+
+    private static LexiconDocument DocumentFor(Dictionary<string, LexiconDocument> results, string nsid)
+    {
+        if (!results.TryGetValue(nsid, out var doc))
+        {
+            doc = new LexiconDocument
+            {
+                Lexicon = 1,
+                Id = nsid,
+            };
+            results[nsid] = doc;
+        }
+
+        return doc;
+    }
+
+    private void AddDefinition(LexiconDocument doc, string defName, LexiconSchema schema, Type source)
+    {
+        if (doc.Defs.TryGetValue(defName, out var existing))
+        {
+            _warnings.Add(
+                $"{doc.Id}#{defName}: '{source.FullName}' declares a '{schema.Type}' definition where a " +
+                $"'{existing.Type}' one was already emitted — the first one is kept");
+            return;
+        }
+
+        doc.Defs[defName] = schema;
+    }
+
+    /// <summary>
+    /// The SDK type a space type declaration is an instance of. Matched by name because the
+    /// generator does not reference the SDK — the assembly under inspection carries its own.
+    /// </summary>
+    private const string SpaceTypeDeclarationName = "ATProtoNet.Spaces.SpaceTypeDeclaration";
+
+    /// <summary>
+    /// Emits a <c>"type": "space"</c> definition for every <c>SpaceTypeDeclaration</c> a type
+    /// exposes as a static member.
+    /// </summary>
+    /// <remarks>
+    /// A space type has no record shape to reflect over, so it is not discovered the way a
+    /// record is. The declaration itself holds the name and collection set; the NSID it grants
+    /// on comes from a sibling <c>Nsid</c> (or <c>SpaceType</c>) string constant on the same
+    /// type — which is what <c>atproto-lexgen csharp</c> generates for a space Lexicon.
+    /// </remarks>
+    private void EmitSpaceDeclarations(Type type, Dictionary<string, LexiconDocument> results)
+    {
+        foreach (var (memberName, declaration) in GetStaticSpaceDeclarations(type))
+        {
+            var nsid = GetDeclaredNsid(type);
+            if (nsid is null)
+            {
+                _warnings.Add(
+                    $"{type.FullName}.{memberName}: space type declaration has no NSID — add a " +
+                    "'public const string Nsid' (or 'SpaceType') naming the space type it declares");
+                continue;
+            }
+
+            AddDefinition(DocumentFor(results, nsid), "main", BuildSpaceSchema(declaration), type);
+        }
+    }
+
+    /// <summary>Reads every public static <c>SpaceTypeDeclaration</c> a type exposes.</summary>
+    private static IEnumerable<(string MemberName, object Declaration)> GetStaticSpaceDeclarations(Type type)
+    {
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.Static;
+
+        List<(string Name, Type MemberType, Func<object?> Read)> members = [];
+
+        foreach (var property in type.GetProperties(flags))
+        {
+            if (property.CanRead && property.GetIndexParameters().Length == 0)
+                members.Add((property.Name, property.PropertyType, () => property.GetValue(null)));
+        }
+
+        foreach (var field in type.GetFields(flags))
+            members.Add((field.Name, field.FieldType, () => field.GetValue(null)));
+
+        foreach (var (name, memberType, read) in members)
+        {
+            if (memberType.FullName != SpaceTypeDeclarationName)
+                continue;
+
+            object? declaration;
+            try
+            {
+                declaration = read();
+            }
+            catch
+            {
+                // A static initializer that throws is not something to fail the whole run over.
+                continue;
+            }
+
+            if (declaration is not null)
+                yield return (name, declaration);
+        }
+    }
+
+    /// <summary>The space type NSID a declaration holder names, from its own constants.</summary>
+    private static string? GetDeclaredNsid(Type type)
+    {
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.Static;
+
+        foreach (var candidate in new[] { "Nsid", "SpaceType" })
+        {
+            var field = type.GetField(candidate, flags);
+            if (field?.FieldType == typeof(string) && field.GetValue(null) is string fromField && fromField.Contains('.'))
+                return fromField;
+
+            var property = type.GetProperty(candidate, flags);
+            if (property?.PropertyType == typeof(string) && property.GetValue(null) is string fromProperty && fromProperty.Contains('.'))
+                return fromProperty;
+        }
+
+        return null;
+    }
+
+    /// <summary>Maps a <c>SpaceTypeDeclaration</c> instance back to its Lexicon definition.</summary>
+    private static LexiconSchema BuildSpaceSchema(object declaration)
+    {
+        var type = declaration.GetType();
+
+        string? Read(string name) => type.GetProperty(name)?.GetValue(declaration) as string;
+
+        var collections = (type.GetProperty("Collections")?.GetValue(declaration) as IEnumerable<string>)?.ToList();
+        var localized = type.GetProperty("LocalizedNames")?.GetValue(declaration) as IEnumerable<KeyValuePair<string, string>>;
+
+        return new LexiconSchema
+        {
+            Type = "space",
+            Description = Read("Description"),
+            Key = Read("Key"),
+            Name = Read("Name"),
+            LocalizedNames = localized?.ToDictionary(kv => kv.Key, kv => kv.Value) is { Count: > 0 } names ? names : null,
+            Collections = collections ?? [],
+        };
     }
 
     /// <summary>

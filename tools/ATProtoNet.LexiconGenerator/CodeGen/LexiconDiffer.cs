@@ -123,6 +123,13 @@ public sealed class LexiconDiffer
             return;
         }
 
+        // For space types, the collection set is what a diff has to call out
+        if (baseline.Type == "space")
+        {
+            CompareSpaceDeclaration(nsid, path, baseline, current, changes);
+            return;
+        }
+
         // For object types, compare properties
         if (baseline.Type == "object")
         {
@@ -146,6 +153,96 @@ public sealed class LexiconDiffer
         // For string types, compare constraints
         if (baseline.Type == "string")
             CompareStringConstraints(nsid, path, baseline, current, changes);
+    }
+
+    /// <summary>
+    /// Compares two space type declarations.
+    /// </summary>
+    /// <remarks>
+    /// The collection list is the load-bearing part. A bare <c>space:</c> grant defaults to the
+    /// collection set declared by the space type <em>as it stands when the grant is evaluated</em>,
+    /// not as it stood when the user consented — so adding a collection silently widens every
+    /// grant already issued, and removing one narrows them.
+    /// </remarks>
+    private void CompareSpaceDeclaration(
+        string nsid, string path,
+        LexiconSchema baseline, LexiconSchema current,
+        List<SchemaChange> changes)
+    {
+        if (baseline.Key != current.Key)
+        {
+            changes.Add(new SchemaChange(
+                nsid, $"{path}.key", ChangeKind.SpaceKeyChanged,
+                $"Space key type changed from '{baseline.Key ?? "none"}' to '{current.Key ?? "none"}'",
+                IsBreaking: true));
+        }
+
+        if (baseline.Name != current.Name)
+        {
+            changes.Add(new SchemaChange(
+                nsid, $"{path}.name", ChangeKind.SpaceNameChanged,
+                $"Space name changed from '{baseline.Name ?? "none"}' to '{current.Name ?? "none"}' " +
+                "(shown on OAuth consent screens)",
+                IsBreaking: false));
+        }
+
+        CompareLocalizedNames(nsid, path, baseline, current, changes);
+
+        var baseCollections = baseline.Collections ?? [];
+        var curCollections = current.Collections ?? [];
+
+        foreach (var collection in curCollections.Except(baseCollections, StringComparer.Ordinal))
+        {
+            changes.Add(new SchemaChange(
+                nsid, $"{path}.collections", ChangeKind.SpaceCollectionAdded,
+                $"Collection '{collection}' added — widens every bare 'space:{nsid}' grant, " +
+                "including ones already consented to",
+                IsBreaking: false));
+        }
+
+        foreach (var collection in baseCollections.Except(curCollections, StringComparer.Ordinal))
+        {
+            changes.Add(new SchemaChange(
+                nsid, $"{path}.collections", ChangeKind.SpaceCollectionRemoved,
+                $"Collection '{collection}' removed — narrows every bare 'space:{nsid}' grant, " +
+                "so clients already writing it lose access",
+                IsBreaking: true));
+        }
+    }
+
+    private void CompareLocalizedNames(
+        string nsid, string path,
+        LexiconSchema baseline, LexiconSchema current,
+        List<SchemaChange> changes)
+    {
+        var baseNames = baseline.LocalizedNames ?? new();
+        var curNames = current.LocalizedNames ?? new();
+
+        foreach (var (language, name) in curNames)
+        {
+            if (!baseNames.ContainsKey(language))
+            {
+                changes.Add(new SchemaChange(
+                    nsid, $"{path}.name:lang.{language}", ChangeKind.SpaceNameChanged,
+                    $"Localized name added for '{language}': '{name}'",
+                    IsBreaking: false));
+            }
+            else if (baseNames[language] != name)
+            {
+                changes.Add(new SchemaChange(
+                    nsid, $"{path}.name:lang.{language}", ChangeKind.SpaceNameChanged,
+                    $"Localized name for '{language}' changed from '{baseNames[language]}' to '{name}'",
+                    IsBreaking: false));
+            }
+        }
+
+        foreach (var language in baseNames.Keys.Where(l => !curNames.ContainsKey(l)))
+        {
+            changes.Add(new SchemaChange(
+                nsid, $"{path}.name:lang.{language}", ChangeKind.SpaceNameChanged,
+                $"Localized name for '{language}' removed — consent screens fall back to '{current.Name ?? "the raw NSID"}'",
+                IsBreaking: false));
+        }
     }
 
     private void CompareObjectSchema(
@@ -297,6 +394,10 @@ public enum ChangeKind
     PropertyBecameRequired,
     PropertyBecameOptional,
     ConstraintChanged,
+    SpaceKeyChanged,
+    SpaceNameChanged,
+    SpaceCollectionAdded,
+    SpaceCollectionRemoved,
 }
 
 /// <summary>A single schema change with its location, description, and breaking status.</summary>

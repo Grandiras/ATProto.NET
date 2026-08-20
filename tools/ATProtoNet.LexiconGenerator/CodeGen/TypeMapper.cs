@@ -70,11 +70,14 @@ public static class TypeMapper
 
         var pascal = ToPascalCase(baseName);
 
-        // Append a suffix for record types to match existing SDK convention
-        if (defType == "record")
-            return pascal + "Record";
-
-        return pascal;
+        // Append a suffix for record types to match existing SDK convention, and for space
+        // type declarations so the holder does not collide with a same-named object def.
+        return defType switch
+        {
+            "record" => pascal + "Record",
+            "space" => pascal + "Space",
+            _ => pascal,
+        };
     }
 
     /// <summary>
