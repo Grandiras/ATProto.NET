@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking changes
+
+- **`AtProtoScopes.Repo(...)` now throws `ArgumentException` for `RepoAction.None`** (Issue #94) — an omitted `action=` list means the full default set in the scope grammar, so `AtProtoScopes.Repo("app.bsky.feed.post", RepoAction.None)` returned `repo:app.bsky.feed.post` — a create + update + delete grant, the exact opposite of the zero-write one the caller asked for. The grammar has no marker for an empty action list, so the request is inexpressible rather than narrow and both overloads now reject it, matching `AtProtoScopes.Space(...)`. Migration: a caller that passed `RepoAction.None` was silently requesting full write access — either drop the `repo:` scope entirely if no record writes are needed, or name the narrowest action that is (`RepoAction.Create`, `Update`, or `Delete`). `RepoAction.All` and every partial combination are unaffected
+
 ### Added
 
 - **Spaces: the permissioned data protocol** (Issue #89) — AT Protocol is not one protocol but several, and the one everyone knows is only half of it. Public broadcast publishes signed, redistributable records that anyone may crawl. [Permissioned data](https://atproto.com/blog/atproto-spaces-alpha) ([proposal 0016](https://github.com/bluesky-social/proposals/tree/main/0016-permissioned-data)) is the other half: the same shape — DID-based authority, per-user repositories, Lexicon-typed records, applications crawling hosts to build views — with an access perimeter around it, called a **space**. It is what bookmarks, drafts, subscriber-only posts, private forums, and group chats need and public broadcast cannot give them. This is an alpha proposal, not a final specification; it has had no security review and provides **access control, not confidentiality** — the data is not end-to-end encrypted, and every service that handles it can read it, which is what makes server-side search, indexing, and moderation possible at all

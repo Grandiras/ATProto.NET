@@ -97,6 +97,38 @@ public class AtProtoScopesTests
         Assert.Throws<ArgumentException>(() => AtProtoScopes.Repo([]));
     }
 
+    [Fact]
+    public void Repo_NoActions_IsRejectedRatherThanSilentlyWidened()
+    {
+        // An omitted action list means RepoAction.All, so quietly emitting nothing for None
+        // would hand back a create/update/delete grant instead of the zero-write one asked
+        // for. The grammar cannot express it, so the call fails instead.
+        var ex = Assert.Throws<ArgumentException>(
+            () => AtProtoScopes.Repo("app.bsky.feed.post", RepoAction.None));
+
+        Assert.Equal("actions", ex.ParamName);
+    }
+
+    [Fact]
+    public void Repo_MultipleCollections_NoActions_IsRejected()
+    {
+        var ex = Assert.Throws<ArgumentException>(
+            () => AtProtoScopes.Repo(["app.bsky.feed.post", "app.bsky.feed.like"], RepoAction.None));
+
+        Assert.Equal("actions", ex.ParamName);
+    }
+
+    [Fact]
+    public void Repo_SingleCollectionList_NoActions_IsRejected()
+    {
+        // The list overload delegates to the single-collection one for a one-element list, so
+        // the guard has to hold on that path too.
+        var ex = Assert.Throws<ArgumentException>(
+            () => AtProtoScopes.Repo(["app.bsky.feed.post"], RepoAction.None));
+
+        Assert.Equal("actions", ex.ParamName);
+    }
+
     // ─── Rpc scopes ─────────────────────────────────────────────────────
 
     [Fact]

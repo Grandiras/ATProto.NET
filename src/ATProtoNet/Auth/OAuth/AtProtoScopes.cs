@@ -8,7 +8,11 @@ namespace ATProtoNet.Auth.OAuth;
 [Flags]
 public enum RepoAction
 {
-    /// <summary>No specific action.</summary>
+    /// <summary>
+    /// No specific action. Rejected by <see cref="AtProtoScopes.Repo(string, RepoAction)"/> and
+    /// <see cref="AtProtoScopes.Repo(IReadOnlyList{string}, RepoAction)"/> — an omitted action
+    /// list means <see cref="All"/>, so a zero-action grant cannot be expressed.
+    /// </summary>
     None = 0,
 
     /// <summary>Permission to create records.</summary>
@@ -60,7 +64,10 @@ public enum IdentityAction
 [Flags]
 public enum SpaceAction
 {
-    /// <summary>No specific action.</summary>
+    /// <summary>
+    /// No specific action. Rejected by <see cref="AtProtoScopes.Space"/> — an omitted action
+    /// list means <see cref="All"/>, so a zero-action grant cannot be expressed.
+    /// </summary>
     None = 0,
 
     /// <summary>
@@ -198,7 +205,16 @@ public static class AtProtoScopes
     /// → <c>"repo:app.bsky.feed.post?action=create&amp;action=delete"</c></para>
     /// </summary>
     /// <param name="collection">The record collection NSID, or <c>"*"</c> for all record types.</param>
-    /// <param name="actions">The permitted actions. Defaults to all actions (create, update, delete).</param>
+    /// <param name="actions">
+    /// The permitted actions. Defaults to all actions (create, update, delete).
+    /// <see cref="RepoAction.None"/> is rejected — the scope grammar has no way to say "no
+    /// actions", and an omitted action list means the full default set, so a zero-action grant
+    /// cannot be expressed.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="collection"/> is empty, or <paramref name="actions"/> is
+    /// <see cref="RepoAction.None"/>.
+    /// </exception>
     public static string Repo(string collection, RepoAction actions = RepoAction.All)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(collection);
@@ -215,7 +231,16 @@ public static class AtProtoScopes
     /// → <c>"repo?collection=app.bsky.feed.post&amp;collection=app.bsky.feed.like"</c></para>
     /// </summary>
     /// <param name="collections">The record collection NSIDs.</param>
-    /// <param name="actions">The permitted actions. Defaults to all actions (create, update, delete).</param>
+    /// <param name="actions">
+    /// The permitted actions. Defaults to all actions (create, update, delete).
+    /// <see cref="RepoAction.None"/> is rejected — the scope grammar has no way to say "no
+    /// actions", and an omitted action list means the full default set, so a zero-action grant
+    /// cannot be expressed.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="collections"/> is empty, or <paramref name="actions"/> is
+    /// <see cref="RepoAction.None"/>.
+    /// </exception>
     public static string Repo(IReadOnlyList<string> collections, RepoAction actions = RepoAction.All)
     {
         ArgumentNullException.ThrowIfNull(collections);
@@ -584,7 +609,20 @@ public static class AtProtoScopes
 
     private static void AppendRepoActions(StringBuilder sb, RepoAction actions, bool hasExistingParams)
     {
-        if (actions is RepoAction.All or RepoAction.None)
+        // An omitted action list means RepoAction.All, so emitting nothing for None would hand
+        // back a full create/update/delete grant — the opposite of what was asked for. The
+        // grammar has no marker for an empty action list, so the request is inexpressible
+        // rather than narrow.
+        if (actions is RepoAction.None)
+        {
+            throw new ArgumentException(
+                "RepoAction.None cannot be expressed: an omitted action list means RepoAction.All, " +
+                "so a zero-action grant would widen to full create/update/delete. Omit the repo " +
+                "scope entirely, or name the narrowest action the client actually needs.",
+                nameof(actions));
+        }
+
+        if (actions is RepoAction.All)
             return;
 
         var separator = hasExistingParams ? '&' : '?';
