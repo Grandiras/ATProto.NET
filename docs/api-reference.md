@@ -23,6 +23,8 @@ The main entry point. Created via `AtProtoClientBuilder` or direct construction.
 | `Admin` | `AdminClient` | `com.atproto.admin.*` methods |
 | `Label` | `LabelClient` | `com.atproto.label.*` methods |
 | `Moderation` | `ModerationClient` | `com.atproto.moderation.*` methods |
+| `Space` | `SpaceClient` | `com.atproto.space.*` permissioned data |
+| `SimpleSpace` | `SimpleSpaceClient` | `com.atproto.simplespace.*` space management |
 | `Bsky` | `BlueskyClients` | `app.bsky.*` sub-clients |
 | `Chat` | `ChatClients` | `chat.bsky.*` sub-clients |
 | `Ozone` | `OzoneClient` | `tools.ozone.*` sub-clients |
@@ -359,6 +361,72 @@ Type names below live under `ATProtoNet.Lexicon.Tools.Ozone.*`.
 | `Set` | `SetClient` | Named sets of DIDs/URIs |
 | `Signature` | `SignatureClient` | Signature search and correlation |
 | `Server` | `OzoneServerClient` | Server config |
+
+---
+
+## SpaceClient (`com.atproto.space.*`)
+
+Accessed via `client.Space`, or via `SpaceReader.Space` when reading another member's repo with a
+space credential. See [Spaces (Permissioned Data)](spaces.md).
+
+| Method | Role | Description |
+|--------|------|-------------|
+| `GetDelegationTokenAsync(space)` | PDS | Mint a delegation token to exchange for a credential |
+| `GetSpaceCredentialAsync(space, clientAttestation?)` | Host | The raw exchange; prefer `SpaceCredentialProvider` |
+| `ListSpacesAsync(type?, did?, limit?, cursor?)` | PDS | Spaces the caller has **written** data to |
+| `ListReposAsync(space, limit?, cursor?)` / `EnumerateReposAsync` | Host | The writer set, with each repo's `rev` and `hash` |
+| `GetRecordAsync(space, repo, collection, rkey)` | Repo | One record's value |
+| `ListRecordsAsync(...)` / `EnumerateRecordsAsync(...)` | Repo | List records; `excludeValues` for metadata only |
+| `GetLatestCommitAsync(space, repo)` | Repo | The repo's current signed commit |
+| `GetRepoAsync(space, repo, excludeValues?)` | Repo | Whole repo as a two-root CAR |
+| `ListRepoOpsAsync(space, repo, since?, …)` | Repo | The oplog — the primary incremental sync mechanism |
+| `GetBlobAsync(space, repo, cid)` / `ListBlobsAsync(...)` | Repo | Blobs referenced by permissioned records |
+| `CreateRecordAsync` / `PutRecordAsync` / `DeleteRecordAsync` | PDS | Single-record writes (OAuth only) |
+| `ApplyWritesAsync(space, repo, writes, validate?)` | PDS | Atomic batch (`SpaceCreateOp` / `SpaceUpdateOp` / `SpaceDeleteOp`) |
+| `RegisterNotifyAsync` / `UnregisterNotifyAsync` | Host | Subscribe a service to write notifications |
+| `NotifyWriteAsync` / `NotifySpaceDeletedAsync` | Syncer | Deliver a notification (service auth) |
+
+---
+
+## SimpleSpaceClient (`com.atproto.simplespace.*`)
+
+Accessed via `client.SimpleSpace`. The space-management implementation every PDS must support.
+
+| Method | Description |
+|--------|-------------|
+| `CreateSpaceAsync(type, skey?, policy?, appAccess?)` | Create a space owned by the authenticated user |
+| `UpdateSpaceAsync(space, policy?, appAccess?)` | Replace either policy; omitted ones are unchanged |
+| `DeleteSpaceAsync(space)` | Delete a space (idempotent) |
+| `GetSpaceAsync(space)` | Describe a space and its configuration |
+| `AddMemberAsync` / `RemoveMemberAsync` | Maintain the host-internal member list |
+| `ListMembersAsync(...)` / `EnumerateMembersAsync(...)` | List members (OAuth only, on the authority's PDS) |
+| `CheckUserAccessAsync(space, user, clientId?)` | Served by a `ManagingAppPolicy` space's managing app |
+
+Policies: `PublicPolicy`, `MemberListPolicy` *(default)*, `ManagingAppPolicy`;
+app access: `OpenAppAccess` *(default)*, `AllowListAppAccess`.
+
+---
+
+## Spaces (`ATProtoNet.Spaces`)
+
+| Type | Description |
+|------|-------------|
+| `SpaceUri` / `SpaceRecordUri` | `at://{authority}/space/{type}/{skey}[/{author}/{collection}/{rkey}]`; `IsSpaceUri` |
+| `SpaceCredentialProvider` | Runs the delegation → credential exchange, caches credentials, hands out readers |
+| `SpaceCredentialOptions` | `ClientAttestationFactory`, `RenewalWindow`, `HostResolver` |
+| `SpaceCredential` / `SpaceReader` | A DPoP-bound credential, and a client bound to one repo host |
+| `SpaceCredentialException` | Refusal or mismatch; `Error` carries the XRPC name (e.g. `SpaceDeleted`) |
+| `SpaceTokens` / `SpaceToken` / `SpaceTokenType` | Create, parse, and verify delegation tokens, credentials, and client attestations |
+| `SpaceSyncer` / `SpaceSyncResult` / `SpaceSyncOutcome` | Incremental sync with automatic full-state recovery |
+| `SpaceRepoCursor` / `ISpaceRepoStore` | Persisted sync position + running set hash; the caller's copy |
+| `LtHash` | The homomorphic set hash: `Add`, `Remove`, `GetState`, `Digest` |
+| `SpaceRepoCommit` / `SignedSpaceCommit` / `SpaceCommitContext` | Build, sign, and compare a repo's commit |
+| `SpaceCommitVerifier` | `Verify(commit, context, didKey)`, `ComputeMac(...)` |
+| `SpaceRepoCar` / `VerifiedSpaceRepo` / `SpaceRepoRecord` | Serialize and verify the two-root repo CAR |
+| `SpaceAuthority` | `#atproto_space` / `#atproto_space_host` resolution, with `#atproto` / `#atproto_pds` fallbacks |
+| `SpaceTypeDeclaration` | The `"type": "space"` Lexicon definition; `FromLexicon`, `GetName(lang)` |
+| `SpaceErrors` / `SimpleSpaceErrors` | The named XRPC errors these endpoints return |
+| `AtProtoScopes.Space(...)` (`ATProtoNet.Auth.OAuth`) | Build `space:` scopes; `SpaceAction`, `SpaceManage` |
 
 ---
 

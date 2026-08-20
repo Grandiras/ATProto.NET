@@ -95,6 +95,8 @@ Lexicon/<TopDomain>/<SubDomain>/<Service>/
 
 Examples: `Lexicon/Com/AtProto/Repo/{RepoClient.cs, RepoModels.cs}`, `Lexicon/App/Bsky/Feed/{FeedClient.cs, FeedModels.cs}`. The five top-level domains are `Com/AtProto/*`, `App/Bsky/*`, `Chat/Bsky/*`, `Site/Standard/*`, and `Tools/Ozone/*`. New Lexicons should follow this pattern and register as a property on `AtProtoClient`.
 
+The permissioned data protocol follows the same pattern for its two namespaces (`Lexicon/Com/AtProto/Space/*` and `Lexicon/Com/AtProto/SimpleSpace/*`), but its protocol machinery — space URIs, the `LtHash` set hash and commit construction, the DPoP-bound credential exchange, and the syncer — lives outside the Lexicon tree under `Spaces/`, since none of it is a wrapper over an XRPC endpoint. See [Spaces (Permissioned Data)](spaces.md).
+
 JSON property names use `camelCase` (the AT Proto convention) — set `[JsonPropertyName("...")]` explicitly rather than relying on a global naming policy.
 
 ## Shared build config

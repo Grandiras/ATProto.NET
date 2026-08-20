@@ -104,7 +104,7 @@ public sealed class DPoPProofGenerator : IDisposable
         {
             ["jti"] = Guid.NewGuid().ToString("N"),
             ["htm"] = httpMethod.ToUpperInvariant(),
-            ["htu"] = url,
+            ["htu"] = NormalizeHtu(url),
             ["iat"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
         };
 
@@ -115,6 +115,22 @@ public sealed class DPoPProofGenerator : IDisposable
             payload["ath"] = accessTokenHash;
 
         return SignJwt(header, payload);
+    }
+
+    /// <summary>
+    /// Strips the query and fragment from a request URL, per RFC 9449 §4.2.
+    /// </summary>
+    /// <remarks>
+    /// A verifier compares <c>htu</c> against the request URI with its query and fragment
+    /// removed, so a proof that names the full URL does not match — and every XRPC query
+    /// carries a query string. One proof therefore covers any query on a given path.
+    /// </remarks>
+    internal static string NormalizeHtu(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            return url;
+
+        return uri.GetLeftPart(UriPartial.Path);
     }
 
     private string SignJwt(Dictionary<string, object> header, Dictionary<string, object> payload)

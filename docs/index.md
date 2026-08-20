@@ -24,6 +24,7 @@ If you want a map of how the packages compose, see **[Architecture](architecture
 - [Custom Lexicon Records](custom-records.md) — `RecordCollection<T>` for typed CRUD
 - [Custom XRPC Endpoints](custom-xrpc.md) — call your own query / procedure methods
 - [Batch Operations](batch-operations.md) — `ApplyWrites` for atomic multi-record operations
+- [Spaces (Permissioned Data)](spaces.md) — the access-controlled data protocol: spaces, permissioned repos, credentials, sync
 - [Blob Upload](blob-upload.md) — upload images, files, binary data
 
 ### Bluesky Features

@@ -1,5 +1,6 @@
 using System.Formats.Cbor;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using ATProtoNet.Identity;
 
@@ -8,7 +9,7 @@ namespace ATProtoNet.Repo;
 /// <summary>
 /// Deterministic DRISL-CBOR (DAG-CBOR) encoder for the AT Protocol data model.
 /// Produces byte-for-byte reproducible output following AT Protocol rules:
-/// map keys sorted by byte value, no floats, CIDs encoded with tag 42.
+/// map keys sorted length-first then by byte value, no floats, CIDs encoded with tag 42.
 /// </summary>
 public static class DagCborEncoder
 {
@@ -102,14 +103,15 @@ public static class DagCborEncoder
         if (TryWriteBytes(writer, element))
             return;
 
-        // Regular object: sort keys by UTF-8 byte value (DRISL requirement).
-        // Sorting a list in place avoids the extra buffer and comparer machinery OrderBy
-        // allocates behind the scenes for what is usually a handful of properties.
+        // Regular object: sort keys length-first, then by UTF-8 byte value (DRISL
+        // requirement). Sorting a list in place avoids the extra buffer and comparer
+        // machinery OrderBy allocates behind the scenes for what is usually a handful
+        // of properties.
         var properties = new List<JsonProperty>();
         foreach (var property in element.EnumerateObject())
             properties.Add(property);
 
-        properties.Sort(static (a, b) => string.CompareOrdinal(a.Name, b.Name));
+        properties.Sort(static (a, b) => CompareCanonical(a.Name, b.Name));
 
         writer.WriteStartMap(properties.Count);
         foreach (var property in properties)
@@ -118,6 +120,29 @@ public static class DagCborEncoder
             WriteValue(writer, property.Value);
         }
         writer.WriteEndMap();
+    }
+
+    /// <summary>
+    /// Canonical DRISL/DAG-CBOR map key order: the shorter key sorts first, and keys of
+    /// equal length sort by their UTF-8 bytes.
+    /// </summary>
+    /// <remarks>
+    /// Length-first, not plain bytewise. The two agree only when no two keys differ in
+    /// length, so a record carrying (say) both <c>text</c> and <c>langs</c> hashes to a
+    /// different CID under each — and only the length-first ordering matches what the rest
+    /// of the network computes.
+    /// </remarks>
+    internal static int CompareCanonical(string a, string b)
+    {
+        // Keys are compared by their UTF-8 length. For the ASCII keys the AT Protocol data
+        // model uses in practice that equals the string length, but a non-ASCII key would
+        // otherwise be ordered by a length no other implementation agrees on.
+        var lengthA = Encoding.UTF8.GetByteCount(a);
+        var lengthB = Encoding.UTF8.GetByteCount(b);
+        if (lengthA != lengthB)
+            return lengthA - lengthB;
+
+        return string.CompareOrdinal(a, b);
     }
 
     private static bool TryWriteLink(CborWriter writer, JsonElement element)

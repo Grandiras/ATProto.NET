@@ -148,4 +148,39 @@ public class DagCborEncoderTests
         Assert.Equal("app.bsky.feed.post", decoded.GetProperty("$type").GetString());
         Assert.Equal("hello", decoded.GetProperty("text").GetString());
     }
+
+    // ── Canonical map key order ──────────────────────────────────
+
+    [Fact]
+    public void Encode_SortsMapKeysLengthFirst()
+    {
+        // DRISL/DAG-CBOR orders map keys by length first and only then bytewise. Plain
+        // bytewise ordering would put "ab" before "b"; canonical order does the reverse.
+        var element = JsonSerializer.Deserialize<JsonElement>("""{"ab":1,"b":2}""");
+
+        var cbor = DagCborEncoder.Encode(element);
+
+        // a2            map(2)
+        //   61 62 02      "b": 2
+        //   62 61 62 01   "ab": 1
+        Assert.Equal("a2616202626162 01".Replace(" ", ""), Convert.ToHexStringLower(cbor));
+    }
+
+    [Fact]
+    public void ComputeCid_RealNetworkRecord_MatchesTheCidTheNetworkPublished()
+    {
+        // An app.bsky.feed.post as a live PDS served it, alongside the CID that PDS reported.
+        // Its keys run to four different lengths, so an encoder sorting them bytewise rather
+        // than length-first produces a CID no other implementation in the network agrees with.
+        var record = JsonSerializer.Deserialize<JsonElement>(RealNetworkRecord);
+
+        var cid = DagCborEncoder.ComputeCid(DagCborEncoder.Encode(record));
+
+        Assert.Equal("bafyreicnt42y6vo6pfpvyro234ac4o6ijug6adwwrh7awflgrqlt4zibxq", cid.Value);
+    }
+
+    private const string RealNetworkRecord =
+        """
+        {"$type":"app.bsky.feed.post","createdAt":"2024-10-17T07:06:51.491Z","langs":["en"],"text":"👋  Bluesky is an open social network that gives creators independence from platforms, developers the freedom to build, and users a choice in their experience. We're so excited to have you here! \n\nWe share Bluesky updates & news from this account. A quick orientation thread: 🧵✨"}
+        """;
 }

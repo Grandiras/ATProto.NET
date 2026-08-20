@@ -49,6 +49,92 @@ public enum IdentityAction
 }
 
 /// <summary>
+/// Actions a <c>space:</c> permission grants over the <em>records</em> in a space.
+/// </summary>
+/// <remarks>
+/// Read access is all-or-nothing at the space boundary — there is no partial, per-record,
+/// per-collection, or per-author read grant — so <see cref="Read"/> and
+/// <see cref="ReadSelf"/> ignore the collection list, while the write actions are constrained
+/// by it.
+/// </remarks>
+[Flags]
+public enum SpaceAction
+{
+    /// <summary>No specific action.</summary>
+    None = 0,
+
+    /// <summary>
+    /// Read the holder's <b>own</b> repo in the space, and nothing else in it.
+    /// </summary>
+    /// <remarks>
+    /// The narrower read grant. It confers the read and sync methods for the holder's own repo
+    /// but <b>not</b> <c>getDelegationToken</c>, so an application holding only this cannot
+    /// obtain a space credential and cannot reach the rest of the space — suitable for a
+    /// personal export or backup tool that should not see other members' data.
+    /// </remarks>
+    ReadSelf = 1,
+
+    /// <summary>
+    /// Read the whole space.
+    /// </summary>
+    /// <remarks>
+    /// Confers the read and sync methods on the holder's own PDS <em>and</em> access to
+    /// <c>getDelegationToken</c>, which an application exchanges for the space credential that
+    /// reads every member's repo. Implies <see cref="ReadSelf"/>.
+    /// </remarks>
+    Read = 2,
+
+    /// <summary>Create records in the granted collections.</summary>
+    Create = 4,
+
+    /// <summary>Update records in the granted collections.</summary>
+    Update = 8,
+
+    /// <summary>Delete records in the granted collections.</summary>
+    Delete = 16,
+
+    /// <summary>
+    /// The default grant: read the space, and create, update, and delete records in it.
+    /// <see cref="ReadSelf"/> is omitted because <see cref="Read"/> already implies it.
+    /// </summary>
+    All = Read | Create | Update | Delete,
+}
+
+/// <summary>
+/// Operations a <c>space:</c> permission grants over the <em>spaces themselves</em>, as opposed
+/// to the records in them.
+/// </summary>
+/// <remarks>
+/// <para>Omitted by default, so an ordinary record-access grant confers no administrative
+/// capability at all.</para>
+/// <para>The protocol does not enumerate what each verb permits, because space management is
+/// implementation-defined; each implementation maps the verbs onto its own administrative
+/// surface. In <c>com.atproto.simplespace</c>, for instance, <see cref="Update"/> authorizes
+/// <c>updateSpace</c> as well as <c>addMember</c> and <c>removeMember</c>.</para>
+/// </remarks>
+[Flags]
+public enum SpaceManage
+{
+    /// <summary>No management capability.</summary>
+    None = 0,
+
+    /// <summary>
+    /// Create spaces of the granted type under the granted authority.
+    /// </summary>
+    /// <remarks>
+    /// Unlike every other operation this concerns a space that does not yet exist, so scoping it
+    /// to a concrete space key is unusual — it is typically granted with the key left wild.
+    /// </remarks>
+    Create = 1,
+
+    /// <summary>Update the granted spaces' configuration.</summary>
+    Update = 2,
+
+    /// <summary>Delete the granted spaces.</summary>
+    Delete = 4,
+}
+
+/// <summary>
 /// Well-known OAuth scope values and granular permission builders for the AT Protocol.
 /// See <see href="https://atproto.com/specs/oauth#authorization-scopes">AT Protocol OAuth Scopes</see>
 /// and <see href="https://atproto.com/specs/permission">AT Protocol Permissions</see>.
@@ -147,6 +233,148 @@ public static class AtProtoScopes
 
         AppendRepoActions(sb, actions, hasExistingParams: true);
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Constructs a <c>space:</c> permission scope, granting access to a set of permissioned
+    /// spaces and stating what the grant permits within them.
+    /// </summary>
+    /// <param name="spaceType">The space type NSID, or <c>"*"</c> for any type.</param>
+    /// <param name="authority">
+    /// The space authority DID, <c>"self"</c> for the granting user's own DID, or <c>"*"</c> for
+    /// any authority. Defaults to <c>"self"</c>, so a bare grant covers only the user's own
+    /// spaces of that type — reaching a forum or group anchored elsewhere requires naming its
+    /// authority, or <c>"*"</c>.
+    /// </param>
+    /// <param name="skey">The space key, or <c>"*"</c> (the default) for any key.</param>
+    /// <param name="collections">
+    /// The record collections the write actions may target, or <c>"*"</c> for any. Defaults to
+    /// the collections the space type's own declaration lists — the same way a bare
+    /// <c>repo:</c> scope permits the collections it names.
+    /// </param>
+    /// <param name="actions">
+    /// The permitted record actions. Defaults to <see cref="SpaceAction.All"/>: read the space,
+    /// and create, update, and delete records in it. <see cref="SpaceAction.None"/> is rejected —
+    /// the scope grammar has no way to say "no record actions", and an omitted action list means
+    /// the full default set, so a zero-action grant cannot be expressed.
+    /// </param>
+    /// <param name="manage">
+    /// The permitted space-management operations. None by default.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="spaceType"/> is empty, or <paramref name="actions"/> is
+    /// <see cref="SpaceAction.None"/>.
+    /// </exception>
+    /// <remarks>
+    /// <para>The default collection set is resolved from the space type's declaration as it
+    /// stands when the grant is <em>evaluated</em>, not frozen at consent time. If the
+    /// declaration later adds a collection, existing bare grants widen to include it. An
+    /// application that does not want its authorized collections to move with the declaration
+    /// should enumerate them explicitly.</para>
+    /// <para>A scope requesting wildcards on both <paramref name="spaceType"/> and
+    /// <paramref name="authority"/> is a very broad grant, and consent screens are expected to
+    /// warn about it prominently.</para>
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// // The user's own bookmarks — the typical personal-data grant.
+    /// AtProtoScopes.Space("com.example.bookmarks");
+    /// // → "space:com.example.bookmarks"
+    ///
+    /// // Every forum the user is in, under any authority, read-only.
+    /// AtProtoScopes.Space("com.atmoboards.forum", authority: "*", actions: SpaceAction.Read);
+    /// // → "space:com.atmoboards.forum?authority=*&amp;action=read"
+    ///
+    /// // Administer the user's own forums without reading other members' records.
+    /// AtProtoScopes.Space(
+    ///     "com.atmoboards.forum",
+    ///     actions: SpaceAction.ReadSelf,
+    ///     manage: SpaceManage.Update | SpaceManage.Delete);
+    /// // → "space:com.atmoboards.forum?action=read_self&amp;manage=update&amp;manage=delete"
+    /// </code>
+    /// </example>
+    public static string Space(
+        string spaceType,
+        string? authority = null,
+        string? skey = null,
+        IReadOnlyList<string>? collections = null,
+        SpaceAction actions = SpaceAction.All,
+        SpaceManage manage = SpaceManage.None)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(spaceType);
+
+        // An omitted action list means SpaceAction.All, so emitting nothing for None would hand
+        // back a full read/write grant — the opposite of what was asked for. The grammar has no
+        // marker for an empty action list, so the request is inexpressible rather than narrow.
+        if (actions is SpaceAction.None)
+        {
+            throw new ArgumentException(
+                "SpaceAction.None cannot be expressed: an omitted action list means SpaceAction.All, " +
+                "so a zero-action grant would widen to full read/write. Use SpaceAction.ReadSelf for " +
+                "the narrowest record grant.",
+                nameof(actions));
+        }
+
+        var sb = new StringBuilder("space:").Append(spaceType);
+        var hasParams = false;
+
+        // Each parameter is emitted only when it differs from the scope grammar's own default,
+        // so the common grants stay short enough to read on a consent screen.
+        if (authority is not null && authority != "self")
+            AppendParam(sb, ref hasParams, "authority", EncodeScopeValue(authority));
+
+        if (skey is not null && skey != "*")
+            AppendParam(sb, ref hasParams, "skey", skey);
+
+        if (collections is not null)
+        {
+            foreach (var collection in NormalizeCollections(collections))
+                AppendParam(sb, ref hasParams, "collection", collection);
+        }
+
+        if (actions is not SpaceAction.All)
+        {
+            // Declaration order, which is the order the scope grammar normalizes to.
+            if (actions.HasFlag(SpaceAction.ReadSelf))
+                AppendParam(sb, ref hasParams, "action", "read_self");
+            if (actions.HasFlag(SpaceAction.Read))
+                AppendParam(sb, ref hasParams, "action", "read");
+            if (actions.HasFlag(SpaceAction.Create))
+                AppendParam(sb, ref hasParams, "action", "create");
+            if (actions.HasFlag(SpaceAction.Update))
+                AppendParam(sb, ref hasParams, "action", "update");
+            if (actions.HasFlag(SpaceAction.Delete))
+                AppendParam(sb, ref hasParams, "action", "delete");
+        }
+
+        if (manage.HasFlag(SpaceManage.Create))
+            AppendParam(sb, ref hasParams, "manage", "create");
+        if (manage.HasFlag(SpaceManage.Update))
+            AppendParam(sb, ref hasParams, "manage", "update");
+        if (manage.HasFlag(SpaceManage.Delete))
+            AppendParam(sb, ref hasParams, "manage", "delete");
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// A wildcard <c>collection</c> absorbs the rest; otherwise the grammar normalizes the list
+    /// to a sorted, de-duplicated set.
+    /// </summary>
+    private static IEnumerable<string> NormalizeCollections(IReadOnlyList<string> collections)
+    {
+        if (collections.Contains("*"))
+            return ["*"];
+        if (collections.Count <= 1)
+            return collections;
+
+        return [.. new SortedSet<string>(collections, StringComparer.Ordinal)];
+    }
+
+    private static void AppendParam(StringBuilder sb, ref bool hasParams, string name, string value)
+    {
+        sb.Append(hasParams ? '&' : '?').Append(name).Append('=').Append(value);
+        hasParams = true;
     }
 
     /// <summary>

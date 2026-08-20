@@ -21,6 +21,7 @@ The SDK is in `0.*` because, while it's near feature-complete, it's mostly vibe-
 - **Bluesky, Chat, Ozone** — `app.bsky.*` (actors, feeds, graph, notifications, rich text, video), `chat.bsky.*` (conversations, DMs), `tools.ozone.*` (moderation).
 - **Hosting** — ASP.NET Core DI + JWT auth, Blazor components with cookie-based OAuth, .NET Aspire integration, and a **managed PDS** — run the official Bluesky PDS or [Tranquil PDS](https://tangled.org/tranquil.farm/tranquil-pds) container via `ATProtoNet.Aspire.Hosting` and administer it with `PdsAdminClient`.
 - **Streaming** — typed firehose consumer with CID/signature verification, plus a Jetstream consumer (v1 and v2 wire protocols) with server-side collection/DID/kind filtering; both with reconnect and cursor persistence. Jetstream v2 also backfills from the network archive and cuts over into the live tail with no gap.
+- **Spaces (permissioned data, alpha)** — AT Protocol's second data protocol: access-controlled `space:` records with LtHash set-hash commits, DPoP-bound space credentials, incremental sync with full-state recovery, and `simplespace` management. See [Spaces](docs/spaces.md).
 - **Repository internals** — MST (including covering proofs), CAR v1 read *and* write, DAG-CBOR, signed commit objects, `did:plc` operation building, PLC directory client, P-256/K-256 crypto.
 - **Lexicon tooling** — `atproto-lexgen` `dotnet tool` for bidirectional Lexicon JSON ↔ C#, schema diffing, and publishing.
 
@@ -75,6 +76,7 @@ One AT Protocol account can power many such apps — todos, bookmarks, recipes, 
 | Build your own AT Protocol app with custom records | [Custom Lexicon Records](docs/custom-records.md) |
 | Use OAuth (recommended for user-facing apps) | [OAuth Authentication](docs/oauth.md) |
 | Wire AT Proto into an ASP.NET / Blazor backend | [ASP.NET Core](docs/aspnet-core.md), [Blazor](docs/blazor.md) |
+| Store private, gated, or group data | [Spaces (Permissioned Data)](docs/spaces.md) |
 | Consume the firehose with typed events | [Firehose Streaming](docs/firehose.md) |
 | Index a few collections cheaply over JSON | [Jetstream Streaming](docs/jetstream.md) |
 | Backfill history, then keep tailing live | [Jetstream Historical Replay](docs/jetstream.md#historical-replay-v2-archive) |

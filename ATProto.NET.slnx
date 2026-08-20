@@ -16,6 +16,7 @@
     <Project Path="samples/ManagedPdsSample/ManagedPdsSample.csproj" />
     <Project Path="samples/ManagedPdsSample.AppHost/ManagedPdsSample.AppHost.csproj" />
     <Project Path="samples/ServerIntegrationSample/ServerIntegrationSample.csproj" />
+    <Project Path="samples/SpacesSample/SpacesSample.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/ATProtoNet.LexiconGenerator/ATProtoNet.LexiconGenerator.csproj" />

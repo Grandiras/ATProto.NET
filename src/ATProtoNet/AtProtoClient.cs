@@ -19,6 +19,8 @@ using ATProtoNet.Lexicon.Com.AtProto.Label;
 using ATProtoNet.Lexicon.Com.AtProto.Moderation;
 using ATProtoNet.Lexicon.Com.AtProto.Repo;
 using ATProtoNet.Lexicon.Com.AtProto.Server;
+using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
+using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using ATProtoNet.Lexicon.Site.Standard;
 using ATProtoNet.Lexicon.Tools.Ozone;
@@ -127,6 +129,8 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         Admin = new AdminClient(_xrpc);
         Label = new LabelClient(_xrpc);
         Moderation = new ModerationClient(_xrpc);
+        Space = new SpaceClient(_xrpc);
+        SimpleSpace = new SimpleSpaceClient(_xrpc);
 
         Bsky = new BlueskyClients(
             new ActorClient(_xrpc),
@@ -172,6 +176,17 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
     /// <summary>com.atproto.moderation.* — moderation reporting.</summary>
     public ModerationClient Moderation { get; }
+
+    /// <summary>
+    /// com.atproto.space.* — the permissioned data protocol: spaces, permissioned repos,
+    /// and their sync.
+    /// </summary>
+    public SpaceClient Space { get; }
+
+    /// <summary>
+    /// com.atproto.simplespace.* — the space-management implementation every PDS supports.
+    /// </summary>
+    public SimpleSpaceClient SimpleSpace { get; }
 
     /// <summary>app.bsky.* — Bluesky social application APIs.</summary>
     public BlueskyClients Bsky { get; }

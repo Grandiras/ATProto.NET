@@ -220,9 +220,10 @@ public static class DagCborDecoder
         {
             var key = reader.ReadTextString();
 
-            // Verify keys are sorted by byte value
+            // Verify keys are in canonical order: length first, then byte value. Plain
+            // bytewise ordering would reject valid blocks whose keys differ in length.
             if (previousKey is not null &&
-                string.Compare(previousKey, key, StringComparison.Ordinal) >= 0)
+                DagCborEncoder.CompareCanonical(previousKey, key) >= 0)
             {
                 throw new InvalidOperationException(
                     $"DRISL-CBOR map keys must be sorted. Key '{key}' is not sorted after '{previousKey}'.");
