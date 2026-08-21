@@ -257,11 +257,4 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         return document.RootElement.TryGetProperty("error", out var error) ? error.GetString() : null;
     }
-
-    private sealed class StubCallerResolver : ISpaceCallerResolver
-    {
-        public string? Did { get; set; }
-
-        public string? GetCallerDid(Microsoft.AspNetCore.Http.HttpContext context) => Did;
-    }
 }

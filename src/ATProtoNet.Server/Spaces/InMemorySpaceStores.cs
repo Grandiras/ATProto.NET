@@ -25,9 +25,10 @@ public sealed class InMemorySpaceAuthorityStore : ISpaceAuthorityStore
     /// </summary>
     /// <param name="space">The space.</param>
     /// <remarks>
-    /// A store used alongside <see cref="InMemorySimpleSpaceStore"/> does not need this — the
-    /// simplespace store is the one that knows which spaces exist. It is here for a service whose
-    /// spaces are declared elsewhere.
+    /// A service whose spaces are managed through <c>com.atproto.simplespace</c> does not call
+    /// this: <see cref="SimpleSpaceAuthorityStore"/> reads space existence from the
+    /// <see cref="ISimpleSpaceStore"/>, and <c>createSpace</c> is what writes it. This is for a
+    /// service running a bespoke space type, whose spaces nothing else here knows about.
     /// </remarks>
     public void DeclareSpace(SpaceUri space)
     {

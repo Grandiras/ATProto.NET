@@ -58,7 +58,13 @@ internal sealed class InMemorySpaceStoreWarning : IHostedService
 
         // The writer set is only what the authority claims, and the next notifyWrite from any
         // repo host restores an entry, so this one is worth saying and not worth warning about.
-        if (_services.GetService<ISpaceAuthorityStore>() is InMemorySpaceAuthorityStore)
+        // Unwrapped first: alongside simplespace the registered store is the bridge, and what
+        // holds the writer set is the store inside it.
+        var authorityStore = _services.GetService<ISpaceAuthorityStore>();
+        if (authorityStore is SimpleSpaceAuthorityStore bridge)
+            authorityStore = bridge.Inner;
+
+        if (authorityStore is InMemorySpaceAuthorityStore)
         {
             _logger.LogInformation(
                 "Space writer sets are held by {Store} and start empty after a restart, until each repo host's " +

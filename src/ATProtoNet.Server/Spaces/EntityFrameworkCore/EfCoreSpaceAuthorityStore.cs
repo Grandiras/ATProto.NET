@@ -63,9 +63,11 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
     /// <param name="space">The space.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <remarks>
-    /// The durable counterpart of <see cref="InMemorySpaceAuthorityStore.DeclareSpace"/>. A
-    /// service whose spaces are managed through <c>com.atproto.simplespace</c> declares each one
-    /// here when it is created, since the two stores hold separate state.
+    /// The durable counterpart of <see cref="InMemorySpaceAuthorityStore.DeclareSpace"/>, and
+    /// for the same case: a bespoke space type. Spaces managed through
+    /// <c>com.atproto.simplespace</c> need no declaration — <see cref="SimpleSpaceAuthorityStore"/>
+    /// reads their existence from the <see cref="ISimpleSpaceStore"/> that <c>createSpace</c>
+    /// wrote them to.
     /// </remarks>
     public async Task DeclareSpaceAsync(SpaceUri space, CancellationToken cancellationToken = default)
     {

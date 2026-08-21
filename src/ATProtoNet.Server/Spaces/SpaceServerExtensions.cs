@@ -130,9 +130,16 @@ public static class SpaceServerExtensions
     /// </param>
     /// <returns>The service collection for chaining.</returns>
     /// <remarks>
-    /// An access policy must also be registered — <see cref="AddSimpleSpace{TStore}"/> supplies
-    /// the baseline one, or register your own <see cref="ISpaceAccessPolicy"/> before calling
-    /// this.
+    /// <para>An access policy must also be registered — <see cref="AddSimpleSpace{TStore}"/>
+    /// supplies the baseline one, or register your own <see cref="ISpaceAccessPolicy"/> before
+    /// calling this.</para>
+    /// <para>When an <see cref="ISimpleSpaceStore"/> is also registered — in either order — the
+    /// authority store is wrapped in a <see cref="SimpleSpaceAuthorityStore"/>, so a space
+    /// created through <c>com.atproto.simplespace.createSpace</c> is one this authority answers
+    /// <c>listRepos</c>, <c>registerNotify</c>, and <c>notifyWrite</c> for, and one deleted
+    /// through <c>deleteSpace</c> answers <c>SpaceDeleted</c>. A store registered as
+    /// <see cref="ISpaceAuthorityStore"/> before this call is left exactly as registered; wrap it
+    /// yourself if it needs the same bridge.</para>
     /// </remarks>
     public static IServiceCollection AddSpaceAuthority<TStore>(
         this IServiceCollection services, AtProtoKey signingKey)
@@ -141,7 +148,21 @@ public static class SpaceServerExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(signingKey);
 
-        services.TryAddSingleton<ISpaceAuthorityStore, TStore>();
+        services.TryAddSingleton<TStore>();
+
+        // Which spaces exist is space-management state, and when com.atproto.simplespace is the
+        // space management in use it is the one holding it — so the authority reads existence and
+        // deletion from there rather than keeping a second copy that createSpace never writes to.
+        // Resolved rather than decided here, so the two registrations can be made in either order.
+        services.TryAddSingleton<ISpaceAuthorityStore>(sp =>
+        {
+            var store = sp.GetRequiredService<TStore>();
+
+            return sp.GetService<ISimpleSpaceStore>() is { } spaces
+                ? new SimpleSpaceAuthorityStore(store, spaces)
+                : store;
+        });
+
         services.TryAddSingleton<ISpaceCredentialIssuer>(sp =>
             new SpaceCredentialIssuer(signingKey, sp.GetRequiredService<SpaceServerOptions>()));
 

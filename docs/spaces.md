@@ -574,9 +574,22 @@ check is a single insert whose primary key is `(iss, jti, exp)`, so the database
 enforcement is what makes it atomic, and expired rows are swept opportunistically. Redis is the
 lighter hop for something on every authenticated request.
 
-A `simplespace` space also has to be declared to the authority store, which is separate state —
-`EfCoreSpaceAuthorityStore<T>.DeclareSpaceAsync()` and `MarkDeletedAsync()`, the durable
-counterparts of the in-memory store's `DeclareSpace()` and `MarkDeleted()`.
+The two stores answer different questions, and `AddSpaceAuthority<T>()` bridges them: whenever an
+`ISimpleSpaceStore` is registered — in either order — the authority store is wrapped in a
+`SimpleSpaceAuthorityStore`, which reads *whether a space exists and whether it was deleted* from
+the `simplespace` store and keeps only the writer set and the notification registrations of its
+own. So a space created through `createSpace` is one `listRepos`, `registerNotify`, and
+`notifyWrite` answer for straight away, and one deleted through `deleteSpace` answers
+`SpaceDeleted` from the same moment — nothing has to be declared twice, and there is no second
+copy to fall out of step.
+
+A service running a **bespoke space type** has no such store, so it declares its spaces to the
+authority store itself: `InMemorySpaceAuthorityStore.DeclareSpace()` / `MarkDeleted()`, or their
+durable counterparts `EfCoreSpaceAuthorityStore<T>.DeclareSpaceAsync()` / `MarkDeletedAsync()`.
+A space the `simplespace` store has never heard of falls through to those, so the two can be run
+side by side. Registering an `ISpaceAuthorityStore` of your own *before* `AddSpaceAuthority<T>()`
+opts out of the bridge entirely — wrap it in `SimpleSpaceAuthorityStore` yourself if it needs
+one.
 
 ### The authority: deciding who reads
 

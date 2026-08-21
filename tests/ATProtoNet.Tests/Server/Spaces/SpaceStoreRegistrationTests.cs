@@ -65,9 +65,43 @@ public class SpaceStoreRegistrationTests
         using var provider = services.BuildServiceProvider();
 
         Assert.IsType<EfCoreSimpleSpaceStore<SpaceDbContext>>(provider.GetRequiredService<ISimpleSpaceStore>());
-        Assert.IsType<EfCoreSpaceAuthorityStore<SpaceDbContext>>(
-            provider.GetRequiredService<ISpaceAuthorityStore>());
         Assert.IsType<SimpleSpaceAccessPolicy>(provider.GetRequiredService<ISpaceAccessPolicy>());
+
+        // Bridged, so a space created through createSpace is one the authority answers for.
+        var authority = Assert.IsType<SimpleSpaceAuthorityStore>(
+            provider.GetRequiredService<ISpaceAuthorityStore>());
+        Assert.IsType<EfCoreSpaceAuthorityStore<SpaceDbContext>>(authority.Inner);
+    }
+
+    [Fact]
+    public void AddSimpleSpace_BeforeAddSpaceAuthority_StillBridgesTheAuthorityStore()
+    {
+        // The order the two calls appear in is not something a deployment should have to get
+        // right, so which store answers "does this space exist" is decided when it is resolved.
+        var services = Services();
+        services.AddAtProtoSpaces(options => options.ServiceDid = "did:web:pds.example.com");
+        services.AddSimpleSpace<InMemorySimpleSpaceStore>();
+        services.AddSpaceAuthority<InMemorySpaceAuthorityStore>(AtProtoCrypto.GenerateP256Key());
+
+        using var provider = services.BuildServiceProvider();
+
+        var authority = Assert.IsType<SimpleSpaceAuthorityStore>(
+            provider.GetRequiredService<ISpaceAuthorityStore>());
+        Assert.IsType<InMemorySpaceAuthorityStore>(authority.Inner);
+    }
+
+    [Fact]
+    public void AddSpaceAuthority_WithoutSimpleSpace_LeavesTheStoreUnwrapped()
+    {
+        // A service running a bespoke space type declares its spaces to the authority store
+        // itself; there is no second store to read existence from.
+        var services = Services();
+        services.AddAtProtoSpaces(options => options.ServiceDid = "did:web:spaces.example.com");
+        services.AddSpaceAuthority<InMemorySpaceAuthorityStore>(AtProtoCrypto.GenerateP256Key());
+
+        using var provider = services.BuildServiceProvider();
+
+        Assert.IsType<InMemorySpaceAuthorityStore>(provider.GetRequiredService<ISpaceAuthorityStore>());
     }
 
     private static ServiceCollection Services()

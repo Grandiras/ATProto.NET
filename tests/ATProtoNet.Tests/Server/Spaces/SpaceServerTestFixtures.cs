@@ -90,6 +90,18 @@ public sealed class FakeDidDocumentResolver : ISpaceDidDocumentResolver
     }
 }
 
+/// <summary>
+/// Stands in for the authenticated session the <c>simplespace</c> administration endpoints read
+/// their caller from, so a test can act as an account without an auth handler.
+/// </summary>
+public sealed class StubCallerResolver : ISpaceCallerResolver
+{
+    /// <summary>The DID the next request is made as, or <see langword="null"/> for anonymous.</summary>
+    public string? Did { get; set; }
+
+    public string? GetCallerDid(Microsoft.AspNetCore.Http.HttpContext context) => Did;
+}
+
 /// <summary>Resolves a fixed set of JWKs for a client ID.</summary>
 public sealed class FakeClientMetadataResolver : ISpaceClientMetadataResolver
 {

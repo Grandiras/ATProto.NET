@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using ATProtoNet.Auth;
 using ATProtoNet.Crypto;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
@@ -33,6 +34,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     private readonly AtProtoKey _strangerKey = AtProtoCrypto.GenerateP256Key();
     private readonly FakeDidDocumentResolver _resolver = new();
     private readonly InMemorySimpleSpaceStore _simpleSpaceStore = new();
+    private readonly StubCallerResolver _caller = new();
     private readonly StubRepoHost _repoHost = new();
 
     private IHost _host = null!;
@@ -60,6 +62,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
                     services.AddRouting();
                     services.AddSingleton<ISpaceDidDocumentResolver>(_resolver);
                     services.AddSingleton<ISimpleSpaceStore>(_simpleSpaceStore);
+                    services.AddSingleton<ISpaceCallerResolver>(_caller);
                     services.AddSingleton<ISpaceRepoHost>(_repoHost);
 
                     services
@@ -288,7 +291,6 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     public async Task ListRepos_ReflectsWhatNotifyWriteReported()
     {
         var store = _host.Services.GetRequiredService<ISpaceAuthorityStore>();
-        ((InMemorySpaceAuthorityStore)store).DeclareSpace(_space);
         await store.RecordWriteAsync(_space, MemberDid, "3l6oveex3ii2l", [1, 2, 3]);
 
         using var dpop = new TestDPoPKey();
@@ -307,8 +309,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     [Fact]
     public async Task RegisterNotify_WithACredential_ReturnsAnExpiry()
     {
-        var store = (InMemorySpaceAuthorityStore)_host.Services.GetRequiredService<ISpaceAuthorityStore>();
-        store.DeclareSpace(_space);
+        var store = _host.Services.GetRequiredService<ISpaceAuthorityStore>();
 
         using var dpop = new TestDPoPKey();
         var credential = await MintCredentialAsync(dpop);
@@ -354,6 +355,97 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         Assert.Equal("InvalidRequest", await ReadErrorAsync(response));
     }
 
+    // ── The bridge between the two stores ─────────────────────
+
+    [Fact]
+    public async Task ListRepos_ForASpaceCreatedThroughSimpleSpace_ReflectsWhatNotifyWriteReported()
+    {
+        // The space-management store and the authority store hold separate state, and createSpace
+        // writes only the first. An authority that did not read space existence from there would
+        // refuse notifyWrite and listRepos for every space it hosts with SpaceNotFound, leaving a
+        // writer set that can never be populated — and the writer set is the sync boundary.
+        var space = await CreateSpaceThroughSimpleSpaceAsync("bridged");
+
+        using var dpop = new TestDPoPKey();
+        var credential = await MintCredentialAsync(dpop, space);
+
+        using var notified = await NotifyWriteAsync(space, MemberDid, _memberKey, "3l6oveex3ii2l");
+        Assert.Equal(HttpStatusCode.OK, notified.StatusCode);
+
+        var url = $"/xrpc/{SpaceNsids.ListRepos}?space={Uri.EscapeDataString(space.Value)}";
+        using var response = await SendWithCredentialAsync(HttpMethod.Get, url, credential, dpop);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<ListSpaceReposResponse>(AtProtoJsonDefaults.Options);
+        var repo = Assert.Single(body!.Repos);
+        Assert.Equal(MemberDid, repo.Did);
+        Assert.Equal("3l6oveex3ii2l", repo.Rev);
+    }
+
+    [Fact]
+    public async Task RegisterNotify_ForASpaceCreatedThroughSimpleSpace_IsAccepted()
+    {
+        var space = await CreateSpaceThroughSimpleSpaceAsync("bridged-notify");
+
+        using var dpop = new TestDPoPKey();
+        var credential = await MintCredentialAsync(dpop, space);
+
+        using var response = await SendWithCredentialAsync(
+            HttpMethod.Post,
+            $"/xrpc/{SpaceNsids.RegisterNotify}",
+            credential,
+            dpop,
+            new RegisterNotifyRequest
+            {
+                Space = space.Value,
+                Service = "did:web:syncer.example.com#atproto_space_syncer",
+            });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var store = _host.Services.GetRequiredService<ISpaceAuthorityStore>();
+        Assert.Single(await store.ListSubscribersAsync(space));
+    }
+
+    [Fact]
+    public async Task ListRepos_AfterTheSpaceIsDeleted_AnswersSpaceDeleted()
+    {
+        // A credential outlives the space it was issued for, so this is the answer a syncer
+        // holding one actually gets — and SpaceDeleted rather than the writer set is what tells
+        // it to drop its copy.
+        var space = await CreateSpaceThroughSimpleSpaceAsync("bridged-deleted");
+
+        using var dpop = new TestDPoPKey();
+        var credential = await MintCredentialAsync(dpop, space);
+
+        using var notified = await NotifyWriteAsync(space, MemberDid, _memberKey, "3l6oveex3ii2l");
+        Assert.Equal(HttpStatusCode.OK, notified.StatusCode);
+
+        _caller.Did = AuthorityDid;
+        using var deleted = await _client.PostAsync(
+            $"/xrpc/{SpaceNsids.DeleteSimpleSpace}",
+            JsonContent.Create(
+                new DeleteSimpleSpaceRequest { Space = space.Value }, options: AtProtoJsonDefaults.Options));
+        Assert.Equal(HttpStatusCode.OK, deleted.StatusCode);
+
+        var url = $"/xrpc/{SpaceNsids.ListRepos}?space={Uri.EscapeDataString(space.Value)}";
+        using var response = await SendWithCredentialAsync(HttpMethod.Get, url, credential, dpop);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(SpaceErrors.SpaceDeleted, await ReadErrorAsync(response));
+    }
+
+    [Fact]
+    public async Task NotifyWrite_ForASpaceNoStoreKnows_AnswersSpaceNotFound()
+    {
+        var unknown = SpaceUri.Parse($"at://{AuthorityDid}/space/com.atmoboards.forum/never-created");
+
+        using var response = await NotifyWriteAsync(unknown, MemberDid, _memberKey, "3l6oveex3ii2l");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(SpaceErrors.SpaceNotFound, await ReadErrorAsync(response));
+    }
+
     // ── Helpers ───────────────────────────────────────────────
 
     private string MintDelegation(string userDid, AtProtoKey userKey, SpaceUri? space = null)
@@ -388,9 +480,9 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         return await _client.SendAsync(request);
     }
 
-    private async Task<string> MintCredentialAsync(TestDPoPKey dpop)
+    private async Task<string> MintCredentialAsync(TestDPoPKey dpop, SpaceUri? space = null)
     {
-        using var response = await ExchangeAsync(MemberDid, _memberKey, dpop);
+        using var response = await ExchangeAsync(MintDelegation(MemberDid, _memberKey, space), dpop, space);
         response.EnsureSuccessStatusCode();
 
         var body = await response.Content.ReadFromJsonAsync<GetSpaceCredentialResponse>(AtProtoJsonDefaults.Options);
@@ -410,6 +502,52 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         request.Headers.Authorization = new AuthenticationHeaderValue("DPoP", credential);
         request.Headers.TryAddWithoutValidation(
             "DPoP", dpop.Proof(method.Method, BaseUrl + path, credential));
+
+        return await _client.SendAsync(request);
+    }
+
+    /// <summary>Creates a space the way an application does: over the owner's own session.</summary>
+    private async Task<SpaceUri> CreateSpaceThroughSimpleSpaceAsync(string skey)
+    {
+        _caller.Did = AuthorityDid;
+
+        using var response = await _client.PostAsync(
+            $"/xrpc/{SpaceNsids.CreateSimpleSpace}",
+            JsonContent.Create(
+                new CreateSimpleSpaceRequest
+                {
+                    Type = "com.atmoboards.forum",
+                    Skey = skey,
+                    // Public, so the exchange turns on the space existing rather than on membership.
+                    Policy = new PublicPolicy(),
+                    AppAccess = new OpenAppAccess(),
+                },
+                options: AtProtoJsonDefaults.Options));
+
+        response.EnsureSuccessStatusCode();
+
+        var body = await response.Content.ReadFromJsonAsync<CreateSimpleSpaceResponse>(AtProtoJsonDefaults.Options);
+        return body!.ToSpaceUri();
+    }
+
+    /// <summary>
+    /// Sends a write notification as the account itself, which is the shape a PDS signing with
+    /// its account's key produces.
+    /// </summary>
+    private async Task<HttpResponseMessage> NotifyWriteAsync(
+        SpaceUri space, string repoDid, AtProtoKey repoKey, string rev)
+    {
+        using var generator = new ServiceAuthGenerator(repoDid, repoKey);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/xrpc/{SpaceNsids.NotifyWrite}")
+        {
+            Content = JsonContent.Create(
+                new NotifyWriteRequest { Space = space.Value, Repo = repoDid, Rev = rev, Hash = [1, 2, 3] },
+                options: AtProtoJsonDefaults.Options),
+        };
+
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer", generator.CreateToken(AuthorityDid, SpaceNsids.NotifyWrite));
 
         return await _client.SendAsync(request);
     }
