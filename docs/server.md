@@ -231,6 +231,10 @@ public class AppDbContext : DbContext
 
 The `EfCoreAtProtoTokenStore` handles encryption via ASP.NET Core Data Protection before persisting DPoP keys.
 
+The same namespace also carries EF Core stores for the space server — the writer set, the
+`com.atproto.simplespace` member lists, and the single-use-token replay table — alongside a Redis
+replay store. See [Permissioned Data (Spaces)](spaces.md#the-stores).
+
 ## Standalone Client (Server-to-Server)
 
 For bot or service scenarios where you authenticate with app passwords (not user OAuth):

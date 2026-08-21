@@ -102,6 +102,21 @@ public sealed class SpaceServerOptions
     public int MaxClientMetadataBytes { get; set; } = 256 * 1024;
 
     /// <summary>
+    /// Whether to log at startup that the space server is still using the in-process default
+    /// stores. Defaults to <see langword="true"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>The defaults are per-process, which is a correctness gap rather than a performance
+    /// one once a second instance exists: <see cref="InMemorySpaceReplayStore"/> catches a
+    /// replayed single-use token only on the instance that saw the original, and
+    /// <see cref="InMemorySimpleSpaceStore"/> loses a member list — which nothing on the network
+    /// republishes — on every restart.</para>
+    /// <para>Set this to <see langword="false"/> where the defaults are the intended choice, as
+    /// in a test host or a development server.</para>
+    /// </remarks>
+    public bool WarnOnInMemoryStores { get; set; } = true;
+
+    /// <summary>
     /// Reports whether a single-use token expiring at <paramref name="expiresAt"/> sits inside
     /// <see cref="MaxSingleUseTokenLifetime"/>, allowing for <see cref="ClockSkew"/>.
     /// </summary>

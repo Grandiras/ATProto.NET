@@ -3,6 +3,7 @@ using ATProtoNet.Crypto;
 using ATProtoNet.Server.Xrpc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 
 namespace ATProtoNet.Server.Spaces;
 
@@ -69,6 +70,13 @@ public static class SpaceServerExtensions
         });
 
         services.TryAddSingleton<ISpaceReplayStore, InMemorySpaceReplayStore>();
+
+        // The in-process defaults are the right choice for a single instance and the wrong one
+        // for two, and nothing about a deployment says which it is — so the service says at
+        // startup which stores it ended up with.
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IHostedService, InMemorySpaceStoreWarning>());
+
         services.TryAddSingleton<ISpaceDidDocumentResolver>(sp =>
             new CachingSpaceDidDocumentResolver(sp.GetRequiredService<SpaceServerOptions>()));
         services.TryAddSingleton<ISpaceCallerResolver, ClaimsSpaceCallerResolver>();

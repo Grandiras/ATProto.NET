@@ -502,8 +502,10 @@ proof to the credential presented, `htm` and `htu` pin it to this request, `iat`
 captured proof is useful, and `jti` is spent once.
 
 That last "spent once" is `ISpaceReplayStore`, keyed on `(iss, jti, exp)`. The default is
-per-process: **replace it with a shared store** (Redis, a table) if more than one instance answers
-for the same DID, or a replay is only caught by the instance that saw the original.
+per-process: **replace it with a shared store** if more than one instance answers for the same DID,
+or a replay is only caught by the instance that saw the original. Two shared implementations ship
+in `ATProtoNet.Server` — see [The stores](#the-stores) below — and the service logs a warning at
+startup while the in-process default is still registered.
 
 Single-use tokens are also bounded in how long they may claim to live. A delegation token, a
 client attestation, and a service auth token are all minted to live 60 seconds, but the `exp` on
@@ -516,6 +518,65 @@ an entry only once the token it guards has expired anyway.
 > and the verifier compares it against the request *as received*, which behind a proxy is an
 > internal `http://` name that no client could have named. Set it to the URL clients actually
 > address, or apply `UseForwardedHeaders` before the endpoints run.
+
+### The stores
+
+The space server keeps state in three places, and each has an in-process default that a real
+deployment should replace:
+
+| Seam | Default | Durable implementations |
+| --- | --- | --- |
+| `ISpaceReplayStore` | `InMemorySpaceReplayStore` | `RedisSpaceReplayStore`, `EfCoreSpaceReplayStore<T>` |
+| `ISimpleSpaceStore` | `InMemorySimpleSpaceStore` | `EfCoreSimpleSpaceStore<T>` |
+| `ISpaceAuthorityStore` | `InMemorySpaceAuthorityStore` | `EfCoreSpaceAuthorityStore<T>` |
+
+Two of those defaults are more than an inconvenience.
+
+**The replay store is a correctness gap across instances.** It is what makes a delegation token, a
+client attestation, and a DPoP proof single-use, and being per-process means a replay is caught
+only by the instance that saw the original — two replicas behind a load balancer accept the same
+delegation token twice.
+
+**A `simplespace` member list cannot be rebuilt.** The writer set is only what an authority claims,
+and any repo host's next `notifyWrite` restores it; a member list is never published to the network
+at all, so losing it on a restart loses the space's access control while the space itself carries
+on existing.
+
+`AddAtProtoSpaces()` says so at startup — a warning for each of those two, an informational line
+for the writer set — until a durable store is registered. Set
+`SpaceServerOptions.WarnOnInMemoryStores = false` where the defaults are the intended choice, as in
+a test host.
+
+```csharp
+// Redis for the replay store: SET NX is one round trip and expires with the token's own exp.
+builder.Services.AddSingleton<IConnectionMultiplexer>(
+    _ => ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("redis")!));
+
+// A relational database for the state that has to outlive the process.
+builder.Services.AddDbContextFactory<SpaceDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("spaces")));
+
+builder.Services
+    .AddAtProtoSpaces(options => { /* … */ })
+    .AddAtProtoRedisSpaceReplayStore()
+    .AddAtProtoEfCoreSpaceAuthority<SpaceDbContext>(credentialSigningKey)
+    .AddAtProtoEfCoreSimpleSpace<SpaceDbContext>();
+```
+
+The EF Core stores take an `IDbContextFactory<T>` — they open a context per operation — and use
+`SpaceDbContext` or any context of your own that calls `SpaceDbContext.ConfigureSpaceModel()` (or
+one of `ConfigureSpaceAuthorityModel`, `ConfigureSimpleSpaceModel`, `ConfigureSpaceReplayModel`)
+from its `OnModelCreating`. Pagination is by DID, as in the in-memory stores, so a cursor names a
+position rather than an offset into a set that reorders as writes arrive.
+
+`AddAtProtoEfCoreSpaceReplayStore<T>()` is the option for a deployment with no Redis: the replay
+check is a single insert whose primary key is `(iss, jti, exp)`, so the database's own uniqueness
+enforcement is what makes it atomic, and expired rows are swept opportunistically. Redis is the
+lighter hop for something on every authenticated request.
+
+A `simplespace` space also has to be declared to the authority store, which is separate state —
+`EfCoreSpaceAuthorityStore<T>.DeclareSpaceAsync()` and `MarkDeletedAsync()`, the durable
+counterparts of the in-memory store's `DeclareSpace()` and `MarkDeleted()`.
 
 ### The authority: deciding who reads
 
@@ -617,6 +678,7 @@ PDS already has.
 | `AddAtProtoSpaces` / `AddSpaceAuthority` / `AddSpaceRepoHost` / `AddSimpleSpace` | Register the server halves (`ATProtoNet.Server`) |
 | `SpaceRequestAuthenticator`, `DPoPProofValidator`, `SpaceDelegationTokenVerifier`, `SpaceCredentialVerifier`, `SpaceClientAttestationVerifier` | Verify what a caller presents |
 | `ISpaceAccessPolicy`, `ISpaceCredentialIssuer`, `ISpaceAuthorityStore`, `ISpaceRepoHost`, `ISimpleSpaceStore` | The seams a server implements |
+| `RedisSpaceReplayStore`, `EfCoreSpaceReplayStore`, `EfCoreSpaceAuthorityStore`, `EfCoreSimpleSpaceStore` | Durable, multi-instance implementations of those stores |
 | `SpaceWriteNotifier` | Deliver write and deletion notifications |
 
 ## See also

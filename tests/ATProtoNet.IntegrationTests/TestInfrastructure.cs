@@ -172,8 +172,38 @@ public sealed class RequiresSpacesFactAttribute : FactAttribute
     }
 }
 
+/// <summary>
+/// Skips a test that needs a live Redis, set with <c>ATPROTO_REDIS_URL</c>.
+/// </summary>
+/// <remarks>
+/// The Redis replay store's whole claim — that a single-use token is spent once across every
+/// instance — is a property of Redis executing <c>SET … NX</c> atomically, which no substitute
+/// can demonstrate. These tests need nothing else: no PDS, no credentials, no internet.
+/// </remarks>
+public sealed class RequiresRedisFactAttribute : FactAttribute
+{
+    public RequiresRedisFactAttribute(
+        [CallerFilePath] string? sourceFilePath = null,
+        [CallerLineNumber] int sourceLineNumber = -1)
+        : base(sourceFilePath, sourceLineNumber)
+    {
+        if (TestConfig.IntegrationRequired)
+            return;
+
+        if (string.IsNullOrEmpty(TestConfig.RedisUrl))
+        {
+            Skip = "Redis tests require ATPROTO_REDIS_URL (e.g. localhost:6379). " +
+                   "They need a Redis server and nothing else.";
+        }
+    }
+}
+
 public static class TestConfig
 {
+    /// <summary>The Redis server the replay store tests run against, if one was supplied.</summary>
+    public static string RedisUrl =>
+        Environment.GetEnvironmentVariable("ATPROTO_REDIS_URL") ?? "";
+
     /// <summary>The Jetstream host the live protocol tests run against.</summary>
     public static string JetstreamUrl =>
         Environment.GetEnvironmentVariable("ATPROTO_JETSTREAM_URL")

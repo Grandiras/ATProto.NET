@@ -16,6 +16,12 @@
     <PackageReference Include="coverlet.collector" Version="10.0.1" />
     <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.10" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.10" />
+    <!-- The space stores lean on relational behaviour the in-memory provider does not model:
+         composite keys, and a key violation being how a replayed token is detected. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
+    <!-- Pinned ahead of what the Sqlite provider asks for: its 2.1.11 native bundle carries
+         GHSA-2m69-gcr7-jv3q, which NuGet reports as a restore warning on every build. -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageReference Include="NSubstitute" Version="6.0.0" />
     <PackageReference Include="xunit.v3" Version="3.2.2" />

@@ -14,9 +14,11 @@ namespace ATProtoNet.Server.Spaces;
 /// Two issuers picking the same nonce is not a collision, and including the expiry is what lets
 /// an implementation evict an entry once the token it guards would be rejected on its own
 /// expiry anyway, so the store never has to grow without bound.</para>
-/// <para>An implementation backing a multi-instance deployment must be shared across instances
-/// (Redis, a database table). <see cref="InMemorySpaceReplayStore"/> is per-process, so a replay
-/// is caught only by the instance that saw the original.</para>
+/// <para>An implementation backing a multi-instance deployment must be shared across instances.
+/// <see cref="InMemorySpaceReplayStore"/> is per-process, so a replay is caught only by the
+/// instance that saw the original; <see cref="ATProtoNet.Server.Redis.RedisSpaceReplayStore"/>
+/// and <see cref="ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceReplayStore{TContext}"/> are
+/// the two shipped implementations that are not.</para>
 /// </remarks>
 public interface ISpaceReplayStore
 {
@@ -50,7 +52,8 @@ public interface ISpaceReplayStore
 /// the number of tokens in flight rather than the number ever seen. It holds no state across a
 /// restart: a token accepted before one can be replayed after it, within its own (short)
 /// lifetime. Use a shared store where that matters, or where more than one instance serves the
-/// same DID.
+/// same DID — <c>AddAtProtoRedisSpaceReplayStore()</c> or
+/// <c>AddAtProtoEfCoreSpaceReplayStore&lt;TContext&gt;()</c>.
 /// </remarks>
 public sealed class InMemorySpaceReplayStore : ISpaceReplayStore
 {

@@ -26,6 +26,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ATProtoNet\ATProtoNet.csproj" />
+    <!-- The Redis replay store lives in the server package; StackExchange.Redis comes with it. -->
+    <ProjectReference Include="..\..\src\ATProtoNet.Server\ATProtoNet.Server.csproj" />
   </ItemGroup>
 
 </Project>

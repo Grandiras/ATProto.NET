@@ -13,7 +13,8 @@ namespace ATProtoNet.Server.Spaces;
 /// Intended for tests, samples, and single-instance development. Losing the writer set on a
 /// restart is not catastrophic — it is only what the authority <em>claims</em>, and a
 /// notification from any repo host rebuilds an entry — but losing it means syncers see an empty
-/// space until then, so back a real authority with durable storage.
+/// space until then, so back a real authority with durable storage
+/// (<see cref="ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore{TContext}"/>).
 /// </remarks>
 public sealed class InMemorySpaceAuthorityStore : ISpaceAuthorityStore
 {
@@ -161,7 +162,8 @@ public sealed class InMemorySpaceAuthorityStore : ISpaceAuthorityStore
 /// <remarks>
 /// Intended for tests, samples, and single-instance development. Unlike the writer set, a member
 /// list cannot be rebuilt from anything on the network — it is never published — so a real
-/// authority must persist it.
+/// authority must persist it
+/// (<see cref="ATProtoNet.Server.EntityFrameworkCore.EfCoreSimpleSpaceStore{TContext}"/>).
 /// </remarks>
 public sealed class InMemorySimpleSpaceStore : ISimpleSpaceStore
 {
