@@ -24,7 +24,7 @@ If you want a map of how the packages compose, see **[Architecture](architecture
 - [Custom Lexicon Records](custom-records.md) — `RecordCollection<T>` for typed CRUD
 - [Custom XRPC Endpoints](custom-xrpc.md) — call your own query / procedure methods
 - [Batch Operations](batch-operations.md) — `ApplyWrites` for atomic multi-record operations
-- [Spaces (Permissioned Data)](spaces.md) — the access-controlled data protocol: spaces, permissioned repos, credentials, sync
+- [Spaces (Permissioned Data)](spaces.md) — the access-controlled data protocol: spaces, permissioned repos, credentials, sync, and [serving a space](spaces.md#serving-a-space)
 - [Testing Against a Real Space Host](testing-spaces.md) — standing up a permissioned-data PDS for the space integration tests
 - [Blob Upload](blob-upload.md) — upload images, files, binary data
 

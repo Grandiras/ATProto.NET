@@ -448,6 +448,157 @@ within the space.
 An authority has one lever with no public analogue: because reading requires a credential it issues,
 it can cut off a reader by declining to issue one.
 
+## Serving a space
+
+Everything above reads a space. `ATProtoNet.Server` serves one — as a **space authority**, as a
+**repo host**, or as both, which is what a PDS is. The endpoints are ordinary XRPC handlers, so
+`MapXrpcEndpoints()` maps them alongside an application's own.
+
+```csharp
+builder.Services
+    .AddAtProtoSpaces(options =>
+    {
+        options.ServiceDid = "did:web:pds.example.com";
+        options.PublicBaseUrl = "https://pds.example.com";   // what a DPoP proof's htu names
+    })
+    .AddSpaceAuthority<MyAuthorityStore>(credentialSigningKey)  // getSpaceCredential, listRepos, …
+    .AddSimpleSpace<MySimpleSpaceStore>()                       // com.atproto.simplespace.*
+    .AddSpaceRepoHost<MyRepoHost>();                            // getRecord, getRepo, listRepoOps, …
+
+app.MapXrpcEndpoints();
+```
+
+Register only the half a service implements: a route that answers is a route that has to be
+secured. `AddAtProtoSpaces()` on its own registers just the verifiers, which is all a moderation
+service or a proxy needs.
+
+### The verifiers
+
+Four credential classes reach a space server, and each is verified by a type that can be used
+directly:
+
+| Type | Verifies |
+| --- | --- |
+| `SpaceDelegationTokenVerifier` | The delegation token on `getSpaceCredential` |
+| `DPoPProofValidator` | The DPoP proof on every authenticated request |
+| `SpaceCredentialVerifier` | A space credential together with its proof |
+| `SpaceClientAttestationVerifier` | A client attestation, against the client's published JWKS |
+
+Three checks in there are the ones the protocol's guarantees rest on.
+
+**A delegation token is confined to one authority.** Its `aud` must equal
+`{authority}#atproto_space_host` for the authority named in the token's *own* `sub` — derived from
+the token, never taken from the request. An authority handed a token minted for a different
+authority therefore cannot present it there.
+
+**A credential's signer comes from the space URI, not from the credential.** `iss` is checked
+against the space's authority and the key is resolved from that authority's DID document, so
+nobody but a space's own authority can mint credentials for it.
+
+**A proof binds a credential to its holder.** The signature is verified against the proof's own
+embedded `jwk`, which proves nothing on its own — anyone can embed any key — so the thumbprint is
+matched against the credential's `cnf.jkt`, which is what makes it mean something. `ath` pins the
+proof to the credential presented, `htm` and `htu` pin it to this request, `iat` bounds how long a
+captured proof is useful, and `jti` is spent once.
+
+That last "spent once" is `ISpaceReplayStore`, keyed on `(iss, jti, exp)`. The default is
+per-process: **replace it with a shared store** (Redis, a table) if more than one instance answers
+for the same DID, or a replay is only caught by the instance that saw the original.
+
+Single-use tokens are also bounded in how long they may claim to live. A delegation token, a
+client attestation, and a service auth token are all minted to live 60 seconds, but the `exp` on
+one arriving here is whatever its signer chose, so `MaxSingleUseTokenLifetime` (five minutes by
+default) is the ceiling this service will accept. It bounds two things at once: how long a
+captured token stays replayable, and how long its `jti` occupies the replay store — which drops
+an entry only once the token it guards has expired anyway.
+
+> `PublicBaseUrl` is not optional behind a reverse proxy. A proof names the URL it was minted for
+> and the verifier compares it against the request *as received*, which behind a proxy is an
+> internal `http://` name that no client could have named. Set it to the URL clients actually
+> address, or apply `UseForwardedHeaders` before the endpoints run.
+
+### The authority: deciding who reads
+
+An authority's whole access-control decision happens once, at `getSpaceCredential`; every repo
+host in the space trusts it afterwards and has no state with which to revisit it.
+
+```csharp
+public sealed class ForumPolicy : ISpaceAccessPolicy
+{
+    public async Task<SpaceAccessDecision> EvaluateAsync(SpaceAccessRequest request, CancellationToken ct)
+        => await IsSubscriberAsync(request.UserDid, ct)
+            ? SpaceAccessDecision.Granted
+            : SpaceAccessDecision.Refuse(SpaceAccessOutcome.UserNotAuthorized);
+}
+```
+
+`AddSimpleSpace<T>()` supplies the baseline policy instead, evaluating both perimeters — the user
+policy (`MemberListPolicy`, `PublicPolicy`, `ManagingAppPolicy`) and the app access policy
+(`OpenAppAccess`, `AllowListAppAccess`) — over an `ISimpleSpaceStore` you implement.
+
+Two behaviours there are deliberate and worth keeping in a bespoke policy. Refusing an unattested
+request with `AppNotAuthorized` is what tells a client holding an attestation to retry with it,
+since nothing else advertises that a space gates on app identity. And a `ManagingAppPolicy` whose
+app is unreachable **refuses**: failing open would turn every outage of the app into an open space.
+
+### The repo host: serving reads
+
+`ISpaceRepoHost` is seven methods over whatever store already holds the records. The handlers do
+the verification, the addressing, and the error names; the implementation only reads.
+
+```csharp
+public sealed class MyRepoHost : ISpaceRepoHost
+{
+    public async Task<Stream?> GetRepoAsync(SpaceUri space, string repo, bool excludeValues, CancellationToken ct)
+    {
+        var records = await LoadAsync(space, repo, ct);
+        var commit = SpaceRepoCommit.FromRecords(...).Sign(new SpaceCommitContext(space, repo, rev), signingKey);
+
+        return new MemoryStream(SpaceRepoCar.Serialize(commit, records, excludeValues));
+    }
+    // getRecord, listRecords, getLatestCommit, listRepoOps, listBlobs, getBlob
+}
+```
+
+Two of them answer with bytes rather than JSON, through the new `IXrpcBlobQuery<TParams>`, so the
+CAR is streamed rather than buffered.
+
+Returning `null` from `GetRepoAsync`, `GetLatestCommitAsync`, or `ListRepoOpsAsync` produces
+`RepoNotFound`, which deliberately does not distinguish *a member who has never written* from *not
+a member at all* — the protocol carries no reader set, and saying more would leak membership. The
+same applies to `GetBlobAsync`: the reference check **is** the access check, because serving a blob
+on the basis of its CID alone would hand out any blob the account holds to anyone with a credential
+for any of its spaces.
+
+### Write notifications
+
+`SpaceWriteNotifier` fans `notifyWrite` out to the services registered for a space, authenticated
+with service auth issued by this service. Delivery is best-effort by design: a failure is logged
+and dropped, because the syncer's periodic sweep over `listRepos` is the correctness guarantee and
+the notification is only the latency optimization.
+
+```csharp
+// On a repo host, after a write into a space anchored on someone else's DID.
+await notifier.EnsureAuthoritySubscribedAsync(space, repoDid, ct);
+await notifier.NotifyWriteAsync(space, repoDid, rev, hash, ct);
+```
+
+`EnsureAuthoritySubscribedAsync` is what puts an account into a space's writer set at all: an
+authority learns who holds data in its spaces only from the notifications it receives, and it
+receives them only because it is registered to. It is a no-op for a personal-data space, where the
+authority and the repo host are the same service.
+
+Inbound, `NotifyWriteEndpoint` accepts a notification only from the host that actually answers for
+the named repo — otherwise any service could advance any account's revision in the writer set,
+which is what a syncer decides from whether to re-read a repo.
+
+### What is not here
+
+The **write** path — `createRecord`, `putRecord`, `deleteRecord`, `applyWrites`,
+`getDelegationToken`, and `listSpaces` — is served by a user's PDS over its own OAuth session, and
+is not part of this layer. It needs the record store, the oplog, and the OAuth scope evaluation a
+PDS already has.
+
 ## API surface
 
 | Type | Purpose |
@@ -463,6 +614,10 @@ it can cut off a reader by declining to issue one.
 | `SpaceAuthority` | Resolve `#atproto_space` / `#atproto_space_host` from a DID document |
 | `SpaceTypeDeclaration` | The `"type": "space"` Lexicon definition |
 | `AtProtoScopes.Space` | Build `space:` OAuth scopes |
+| `AddAtProtoSpaces` / `AddSpaceAuthority` / `AddSpaceRepoHost` / `AddSimpleSpace` | Register the server halves (`ATProtoNet.Server`) |
+| `SpaceRequestAuthenticator`, `DPoPProofValidator`, `SpaceDelegationTokenVerifier`, `SpaceCredentialVerifier`, `SpaceClientAttestationVerifier` | Verify what a caller presents |
+| `ISpaceAccessPolicy`, `ISpaceCredentialIssuer`, `ISpaceAuthorityStore`, `ISpaceRepoHost`, `ISimpleSpaceStore` | The seams a server implements |
+| `SpaceWriteNotifier` | Deliver write and deletion notifications |
 
 ## See also
 

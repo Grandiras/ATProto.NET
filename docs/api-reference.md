@@ -430,6 +430,46 @@ app access: `OpenAppAccess` *(default)*, `AllowListAppAccess`.
 
 ---
 
+## Space server (`ATProtoNet.Server.Spaces`)
+
+The other half of the protocol: serving a space rather than reading one. See
+[Serving a space](spaces.md#serving-a-space). Registered with `AddAtProtoSpaces()` plus
+`AddSpaceAuthority<T>(key)`, `AddSimpleSpace<T>()`, and/or `AddSpaceRepoHost<T>()`, and mapped by
+the ordinary `MapXrpcEndpoints()`.
+
+| Type | Description |
+|------|-------------|
+| `SpaceServerOptions` | `ServiceDid`, `PublicBaseUrl`, `ProofLifetime`, `MaxSingleUseTokenLifetime`, `CredentialLifetime`, `CredentialKeyId`, … |
+| `SpaceRequestAuthenticator` | Pulls the credentials off an `HttpContext` and verifies them |
+| `DPoPProofValidator` / `DPoPProof` | RFC 9449 proof verification: signature, thumbprint, `ath`, `htm`/`htu`, `iat`, replay |
+| `SpaceDelegationTokenVerifier` / `VerifiedDelegationToken` | Audience pinned to `spaceHostAud(sub)`, issuer key from the DID document, single use |
+| `SpaceCredentialVerifier` / `VerifiedSpaceCredential` | Signer resolved from the space URI, plus the DPoP binding |
+| `SpaceClientAttestationVerifier` / `VerifiedClientAttestation` | Verified against the key the attestation's `kid` names in the client's published JWKS |
+| `ISpaceClientMetadataResolver` / `HttpSpaceClientMetadataResolver` | `client_id` → `client-metadata.json` → `jwks` / `jwks_uri` |
+| `ISpaceServiceAuthVerifier` / `SpaceServiceAuthVerifier` | Service auth on the notification endpoints, and the "does this service host that repo" check |
+| `ISpaceReplayStore` / `InMemorySpaceReplayStore` | Single-use enforcement, keyed on `(iss, jti, exp)` |
+| `ISpaceDidDocumentResolver` / `CachingSpaceDidDocumentResolver` | DID document resolution, with `#atproto` / `#atproto_space` key selection |
+| `SpaceVerificationException` | An `XrpcException` carrying `InvalidDelegationToken`, `InvalidClientAttestation`, or `NotAuthorized` |
+| `ISpaceAccessPolicy` / `SpaceAccessRequest` / `SpaceAccessDecision` | The authority's mint-time decision |
+| `ISpaceCredentialIssuer` / `SpaceCredentialIssuer` | Mints credentials bound to the requester's key |
+| `ISpaceAuthorityStore` / `InMemorySpaceAuthorityStore` | Writer set and notification registrations |
+| `ISpaceRepoHost` / `SpaceBlobContent` | The reads a repo host serves |
+| `ISimpleSpaceStore` / `InMemorySimpleSpaceStore` / `SimpleSpaceRecord` | `simplespace` spaces and member lists |
+| `SimpleSpaceAccessPolicy` | The baseline policy: member list / public / managing app, and open / allow-list app access |
+| `ISimpleSpaceManagingAppClient` / `SimpleSpaceManagingAppClient` | The `checkUserAccess` call out to a managing app |
+| `SpaceWriteNotifier` | Best-effort `notifyWrite` / `notifySpaceDeleted` fan-out, and first-write auto-registration |
+| `ISpaceCallerResolver` / `ClaimsSpaceCallerResolver` | The DID behind a `simplespace` administration request |
+| `SpaceNsids` | The NSID constants the endpoints are registered under |
+
+Endpoint handlers (all `IXrpcEndpoint`, registered by the `Add…` extensions above):
+`GetSpaceCredentialEndpoint`, `ListSpaceReposEndpoint`, `RegisterNotifyEndpoint`,
+`UnregisterNotifyEndpoint`, `NotifyWriteEndpoint`; `GetSpaceRecordEndpoint`,
+`ListSpaceRecordsEndpoint`, `GetSpaceLatestCommitEndpoint`, `GetSpaceRepoEndpoint`,
+`ListSpaceRepoOpsEndpoint`, `GetSpaceBlobEndpoint`, `ListSpaceBlobsEndpoint`; and the seven
+`com.atproto.simplespace` handlers.
+
+---
+
 ## StandardSiteClient (`site.standard.*`)
 
 Accessed via `client.Site`. See [Standard.site](standard-site.md). A flat client over

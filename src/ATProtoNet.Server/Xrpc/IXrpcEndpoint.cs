@@ -78,3 +78,34 @@ public interface IXrpcProcedureVoid<TInput> : IXrpcEndpoint
     /// </summary>
     Task HandleAsync(TInput input, HttpContext context, CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// The body of a binary XRPC response: the bytes, and what they are.
+/// </summary>
+/// <param name="Content">The response body. The routing disposes it after writing.</param>
+/// <param name="ContentType">The MIME type, e.g. <c>application/vnd.ipld.car</c>.</param>
+/// <param name="ContentLength">The body length when known, so the response can be sized.</param>
+public sealed record XrpcBlobResult(Stream Content, string ContentType, long? ContentLength = null);
+
+/// <summary>
+/// An XRPC query endpoint that answers with bytes rather than JSON (HTTP GET at /xrpc/{nsid}).
+/// </summary>
+/// <remarks>
+/// Lexicon methods whose output is an <c>encoding</c> other than <c>application/json</c> —
+/// <c>getBlob</c>, <c>getRepo</c>, and the CAR-serving sync methods — implement this instead of
+/// <see cref="IXrpcQuery{TParams, TOutput}"/>. Errors are still JSON: throw
+/// <see cref="XrpcException"/> and the routing writes the usual error body.
+/// </remarks>
+/// <typeparam name="TParams">The query parameters type (deserialized from query string).</typeparam>
+public interface IXrpcBlobQuery<TParams> : IXrpcEndpoint
+    where TParams : class
+{
+    /// <summary>
+    /// Handle the query request.
+    /// </summary>
+    /// <param name="parameters">The deserialized query parameters.</param>
+    /// <param name="context">The HTTP context for accessing auth, headers, etc.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The response body and its content type.</returns>
+    Task<XrpcBlobResult> HandleAsync(TParams parameters, HttpContext context, CancellationToken cancellationToken = default);
+}

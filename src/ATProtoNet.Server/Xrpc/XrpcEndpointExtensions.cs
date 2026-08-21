@@ -130,6 +130,17 @@ public static class XrpcEndpointExtensions
                     MapDelegate = MapQuery,
                 });
             }
+            else if (genericDef == typeof(IXrpcBlobQuery<>))
+            {
+                var typeArgs = iface.GetGenericArguments();
+                registry.Registrations.Add(new XrpcEndpointRegistration
+                {
+                    HandlerType = handlerType,
+                    ParamsType = typeArgs[0],
+                    Kind = XrpcEndpointKind.BlobQuery,
+                    MapDelegate = MapBlobQuery,
+                });
+            }
             else if (genericDef == typeof(IXrpcProcedure<,>))
             {
                 var typeArgs = iface.GetGenericArguments();
@@ -174,9 +185,16 @@ public static class XrpcEndpointExtensions
 
         endpoints.MapGet($"/xrpc/{nsid}", async (HttpContext context, THandler handler, CancellationToken ct) =>
         {
-            var parameters = BindQueryParameters<TParams>(context.Request.Query);
-            var result = await handler.HandleAsync(parameters, context, ct);
-            return Results.Json(result, AtProtoJsonDefaults.Options);
+            try
+            {
+                var parameters = BindQueryParameters<TParams>(context.Request.Query);
+                var result = await handler.HandleAsync(parameters, context, ct);
+                return Results.Json(result, AtProtoJsonDefaults.Options);
+            }
+            catch (XrpcException ex)
+            {
+                return WriteError(context, ex);
+            }
         });
     }
 
@@ -197,8 +215,15 @@ public static class XrpcEndpointExtensions
 
         endpoints.MapGet($"/xrpc/{nsid}", async (HttpContext context, THandler handler, CancellationToken ct) =>
         {
-            var result = await handler.HandleAsync(context, ct);
-            return Results.Json(result, AtProtoJsonDefaults.Options);
+            try
+            {
+                var result = await handler.HandleAsync(context, ct);
+                return Results.Json(result, AtProtoJsonDefaults.Options);
+            }
+            catch (XrpcException ex)
+            {
+                return WriteError(context, ex);
+            }
         });
     }
 
@@ -233,8 +258,15 @@ public static class XrpcEndpointExtensions
             if (input is null)
                 return Results.BadRequest(new { error = "InvalidRequest", message = "Request body is required" });
 
-            var result = await handler.HandleAsync(input, context, ct);
-            return Results.Json(result, AtProtoJsonDefaults.Options);
+            try
+            {
+                var result = await handler.HandleAsync(input, context, ct);
+                return Results.Json(result, AtProtoJsonDefaults.Options);
+            }
+            catch (XrpcException ex)
+            {
+                return WriteError(context, ex);
+            }
         });
     }
 
@@ -268,9 +300,68 @@ public static class XrpcEndpointExtensions
             if (input is null)
                 return Results.BadRequest(new { error = "InvalidRequest", message = "Request body is required" });
 
-            await handler.HandleAsync(input, context, ct);
-            return Results.Ok();
+            try
+            {
+                await handler.HandleAsync(input, context, ct);
+                return Results.Ok();
+            }
+            catch (XrpcException ex)
+            {
+                return WriteError(context, ex);
+            }
         });
+    }
+
+    private static void MapBlobQuery(IEndpointRouteBuilder endpoints, XrpcEndpointRegistration reg)
+    {
+        var method = typeof(XrpcEndpointExtensions)
+            .GetMethod(nameof(MapBlobQueryGeneric), BindingFlags.NonPublic | BindingFlags.Static)!
+            .MakeGenericMethod(reg.HandlerType, reg.ParamsType!);
+
+        method.Invoke(null, [endpoints]);
+    }
+
+    private static void MapBlobQueryGeneric<THandler, TParams>(IEndpointRouteBuilder endpoints)
+        where THandler : class, IXrpcBlobQuery<TParams>
+        where TParams : class
+    {
+        var nsid = GetNsidFromType<THandler>();
+
+        endpoints.MapGet($"/xrpc/{nsid}", async (HttpContext context, THandler handler, CancellationToken ct) =>
+        {
+            XrpcBlobResult blob;
+            try
+            {
+                var parameters = BindQueryParameters<TParams>(context.Request.Query);
+                blob = await handler.HandleAsync(parameters, context, ct);
+            }
+            catch (XrpcException ex)
+            {
+                return WriteError(context, ex);
+            }
+
+            // The body is streamed rather than buffered — a repo CAR is arbitrarily large — so
+            // the handler's stream is handed to Results.Stream, which disposes it after writing.
+            if (blob.ContentLength is { } length)
+                context.Response.ContentLength = length;
+
+            return Results.Stream(blob.Content, blob.ContentType);
+        });
+    }
+
+    /// <summary>
+    /// Writes an <see cref="XrpcException"/> as the <c>{"error", "message"}</c> body XRPC
+    /// clients branch on, plus any headers the error carries.
+    /// </summary>
+    private static IResult WriteError(HttpContext context, XrpcException exception)
+    {
+        foreach (var (name, value) in exception.Headers)
+            context.Response.Headers[name] = value;
+
+        return Results.Json(
+            new XrpcErrorBody { Error = exception.Error, Message = exception.Message },
+            AtProtoJsonDefaults.Options,
+            statusCode: exception.StatusCode);
     }
 
     private static string GetNsidFromType<THandler>() where THandler : IXrpcEndpoint
@@ -309,8 +400,15 @@ public static class XrpcEndpointExtensions
         }
 
         var json = JsonSerializer.Serialize(dict);
-        return JsonSerializer.Deserialize<TParams>(json, AtProtoJsonDefaults.Options)
-               ?? throw new InvalidOperationException("Failed to bind query parameters");
+        try
+        {
+            return JsonSerializer.Deserialize<TParams>(json, AtProtoJsonDefaults.Options)
+                   ?? throw new XrpcException("InvalidRequest", "Could not bind query parameters.");
+        }
+        catch (JsonException ex)
+        {
+            throw new XrpcException("InvalidRequest", $"Could not bind query parameters: {ex.Message}");
+        }
     }
 }
 
@@ -336,6 +434,17 @@ internal enum XrpcEndpointKind
 {
     Query,
     QueryWithParams,
+    BlobQuery,
     ProcedureWithOutput,
     ProcedureVoid,
+}
+
+/// <summary>The XRPC error wire body: a name clients branch on, and a description for humans.</summary>
+internal sealed class XrpcErrorBody
+{
+    [System.Text.Json.Serialization.JsonPropertyName("error")]
+    public required string Error { get; init; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("message")]
+    public required string Message { get; init; }
 }
