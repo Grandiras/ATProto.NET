@@ -93,7 +93,7 @@ else if (_posts is not null)
                     LikeCount = item.Post.LikeCount ?? 0,
                     RepostCount = item.Post.RepostCount ?? 0,
                     ReplyCount = item.Post.ReplyCount ?? 0,
-                    IndexedAt = item.Post.IndexedAt,
+                    IndexedAt = item.Post.IndexedAt.ToString(),
                 };
             }).ToList();
         }

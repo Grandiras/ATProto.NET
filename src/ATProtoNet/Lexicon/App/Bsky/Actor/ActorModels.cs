@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Feed;
 using ATProtoNet.Models;
 
@@ -16,11 +17,11 @@ public sealed class ProfileViewDetailed : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 
     /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
     [JsonPropertyName("handle")]
-    public required string Handle { get; init; }
+    public required Handle Handle { get; init; }
 
     /// <summary>The human-readable display name.</summary>
     [JsonPropertyName("displayName")]
@@ -54,13 +55,13 @@ public sealed class ProfileViewDetailed : LexObject
     [JsonPropertyName("associatedChat")]
     public JsonElement? AssociatedChat { get; init; }
 
-    /// <summary>Timestamp at which the app view indexed this data (ISO 8601).</summary>
+    /// <summary>Timestamp at which the app view indexed this data.</summary>
     [JsonPropertyName("indexedAt")]
-    public string? IndexedAt { get; init; }
+    public AtDatetime? IndexedAt { get; init; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>Timestamp of creation.</summary>
     [JsonPropertyName("createdAt")]
-    public string? CreatedAt { get; init; }
+    public AtDatetime? CreatedAt { get; init; }
 
     /// <summary>The requesting account's relationship to this subject.</summary>
     [JsonPropertyName("viewer")]
@@ -68,7 +69,7 @@ public sealed class ProfileViewDetailed : LexObject
 
     /// <summary>The labels applied to this subject.</summary>
     [JsonPropertyName("labels")]
-    public List<Label>? Labels { get; init; }
+    public IReadOnlyList<Label>? Labels { get; init; }
 
     /// <summary>A reference to the post pinned to the profile.</summary>
     [JsonPropertyName("pinnedPost")]
@@ -82,11 +83,11 @@ public sealed class ProfileView : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 
     /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
     [JsonPropertyName("handle")]
-    public required string Handle { get; init; }
+    public required Handle Handle { get; init; }
 
     /// <summary>The human-readable display name.</summary>
     [JsonPropertyName("displayName")]
@@ -100,13 +101,13 @@ public sealed class ProfileView : LexObject
     [JsonPropertyName("avatar")]
     public string? Avatar { get; init; }
 
-    /// <summary>Timestamp at which the app view indexed this data (ISO 8601).</summary>
+    /// <summary>Timestamp at which the app view indexed this data.</summary>
     [JsonPropertyName("indexedAt")]
-    public string? IndexedAt { get; init; }
+    public AtDatetime? IndexedAt { get; init; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>Timestamp of creation.</summary>
     [JsonPropertyName("createdAt")]
-    public string? CreatedAt { get; init; }
+    public AtDatetime? CreatedAt { get; init; }
 
     /// <summary>The requesting account's relationship to this subject.</summary>
     [JsonPropertyName("viewer")]
@@ -114,7 +115,7 @@ public sealed class ProfileView : LexObject
 
     /// <summary>The labels applied to this subject.</summary>
     [JsonPropertyName("labels")]
-    public List<Label>? Labels { get; init; }
+    public IReadOnlyList<Label>? Labels { get; init; }
 }
 
 /// <summary>
@@ -124,11 +125,11 @@ public sealed class ProfileViewBasic : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 
     /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
     [JsonPropertyName("handle")]
-    public required string Handle { get; init; }
+    public required Handle Handle { get; init; }
 
     /// <summary>The human-readable display name.</summary>
     [JsonPropertyName("displayName")]
@@ -144,11 +145,11 @@ public sealed class ProfileViewBasic : LexObject
 
     /// <summary>The labels applied to this subject.</summary>
     [JsonPropertyName("labels")]
-    public List<Label>? Labels { get; init; }
+    public IReadOnlyList<Label>? Labels { get; init; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>Timestamp of creation.</summary>
     [JsonPropertyName("createdAt")]
-    public string? CreatedAt { get; init; }
+    public AtDatetime? CreatedAt { get; init; }
 }
 
 /// <summary>
@@ -170,7 +171,7 @@ public sealed class ViewerState : LexObject
 
     /// <summary>The AT-URI of the viewer's block record, if the viewer blocks this actor.</summary>
     [JsonPropertyName("blocking")]
-    public string? Blocking { get; init; }
+    public AtUri? Blocking { get; init; }
 
     /// <summary>The block list responsible for blocking this actor, if blocked by a list.</summary>
     [JsonPropertyName("blockingByList")]
@@ -180,13 +181,13 @@ public sealed class ViewerState : LexObject
     /// The AT-URI of the viewer's follow record, if the viewer follows this actor.
     /// </summary>
     [JsonPropertyName("following")]
-    public string? Following { get; init; }
+    public AtUri? Following { get; init; }
 
     /// <summary>
     /// The AT-URI of the subject's follow record, if the subject follows the viewer.
     /// </summary>
     [JsonPropertyName("followedBy")]
-    public string? FollowedBy { get; init; }
+    public AtUri? FollowedBy { get; init; }
 
     /// <summary>A sample of followers the viewer also follows.</summary>
     [JsonPropertyName("knownFollowers")]
@@ -204,7 +205,7 @@ public sealed class KnownFollowers : LexObject
 
     /// <summary>The follower profiles.</summary>
     [JsonPropertyName("followers")]
-    public required List<ProfileViewBasic> Followers { get; init; }
+    public required IReadOnlyList<ProfileViewBasic> Followers { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -218,7 +219,7 @@ public sealed class GetProfilesResponse
 {
     /// <summary>The detailed profile views.</summary>
     [JsonPropertyName("profiles")]
-    public required List<ProfileViewDetailed> Profiles { get; init; }
+    public required IReadOnlyList<ProfileViewDetailed> Profiles { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -232,17 +233,17 @@ public sealed class GetPreferencesResponse
 {
     /// <summary>The actor preference objects.</summary>
     [JsonPropertyName("preferences")]
-    public required List<JsonElement> Preferences { get; init; }
+    public required IReadOnlyList<JsonElement> Preferences { get; init; }
 }
 
 /// <summary>
 /// Request for putPreferences.
 /// </summary>
-public sealed class PutPreferencesRequest
+internal sealed class PutPreferencesRequest
 {
     /// <summary>The actor preference objects.</summary>
     [JsonPropertyName("preferences")]
-    public required List<JsonElement> Preferences { get; init; }
+    public required IReadOnlyList<JsonElement> Preferences { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -252,7 +253,7 @@ public sealed class PutPreferencesRequest
 /// <summary>
 /// Response from getSuggestions.
 /// </summary>
-public sealed class GetSuggestionsResponse
+public sealed class GetSuggestionsResponse : ICursorPage<ProfileView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -263,13 +264,15 @@ public sealed class GetSuggestionsResponse
 
     /// <summary>The actors.</summary>
     [JsonPropertyName("actors")]
-    public required List<ProfileView> Actors { get; init; }
+    public required IReadOnlyList<ProfileView> Actors { get; init; }
+
+    IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Actors;
 }
 
 /// <summary>
 /// Response from searchActors.
 /// </summary>
-public sealed class SearchActorsResponse
+public sealed class SearchActorsResponse : ICursorPage<ProfileView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -280,7 +283,9 @@ public sealed class SearchActorsResponse
 
     /// <summary>The actors.</summary>
     [JsonPropertyName("actors")]
-    public required List<ProfileView> Actors { get; init; }
+    public required IReadOnlyList<ProfileView> Actors { get; init; }
+
+    IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Actors;
 }
 
 /// <summary>
@@ -290,7 +295,7 @@ public sealed class SearchActorsTypeaheadResponse
 {
     /// <summary>The actors.</summary>
     [JsonPropertyName("actors")]
-    public required List<ProfileViewBasic> Actors { get; init; }
+    public required IReadOnlyList<ProfileViewBasic> Actors { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -347,7 +352,7 @@ public sealed class ProfileRecord : LexObject
     [JsonPropertyName("pinnedPost")]
     public StrongRef? PinnedPost { get; set; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>Timestamp of creation.</summary>
     [JsonPropertyName("createdAt")]
-    public string? CreatedAt { get; set; }
+    public AtDatetime? CreatedAt { get; set; }
 }

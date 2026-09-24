@@ -115,23 +115,23 @@ public class EmptyResponseBodyTests : IDisposable
         "app.bsky.actor.putPreferences" =>
             _client.Bsky.Actor.PutPreferencesAsync([]),
         "app.bsky.graph.muteActor" =>
-            _client.Bsky.Graph.MuteActorAsync("did:plc:alice"),
+            _client.Bsky.Graph.MuteActorAsync(Did.Parse("did:plc:alice")),
         "app.bsky.graph.unmuteActor" =>
-            _client.Bsky.Graph.UnmuteActorAsync("did:plc:alice"),
+            _client.Bsky.Graph.UnmuteActorAsync(Did.Parse("did:plc:alice")),
         "app.bsky.graph.muteActorList" =>
-            _client.Bsky.Graph.MuteActorListAsync("at://did:plc:alice/app.bsky.graph.list/1"),
+            _client.Bsky.Graph.MuteActorListAsync(AtUri.Parse("at://did:plc:alice/app.bsky.graph.list/1")),
         "app.bsky.graph.unmuteActorList" =>
-            _client.Bsky.Graph.UnmuteActorListAsync("at://did:plc:alice/app.bsky.graph.list/1"),
+            _client.Bsky.Graph.UnmuteActorListAsync(AtUri.Parse("at://did:plc:alice/app.bsky.graph.list/1")),
         "app.bsky.graph.muteThread" =>
-            _client.Bsky.Graph.MuteThreadAsync("at://did:plc:alice/app.bsky.feed.post/1"),
+            _client.Bsky.Graph.MuteThreadAsync(AtUri.Parse("at://did:plc:alice/app.bsky.feed.post/1")),
         "app.bsky.graph.unmuteThread" =>
-            _client.Bsky.Graph.UnmuteThreadAsync("at://did:plc:alice/app.bsky.feed.post/1"),
+            _client.Bsky.Graph.UnmuteThreadAsync(AtUri.Parse("at://did:plc:alice/app.bsky.feed.post/1")),
         "app.bsky.notification.updateSeen" =>
-            _client.Bsky.Notification.UpdateSeenAsync("2026-07-25T00:00:00.000Z"),
+            _client.Bsky.Notification.UpdateSeenAsync(AtDatetime.Parse("2026-07-25T00:00:00.000Z")),
         "app.bsky.notification.registerPush" =>
             _client.Bsky.Notification.RegisterPushAsync(new RegisterPushRequest
             {
-                ServiceDid = "did:web:push.example.com",
+                ServiceDid = Did.Parse("did:web:push.example.com"),
                 Token = "token",
                 Platform = "web",
                 AppId = "com.example.app",

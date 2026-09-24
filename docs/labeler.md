@@ -4,15 +4,16 @@ ATProto.NET supports labeler service information, custom label definitions, and 
 
 ## Fetching Labeler Services
 
-`GetLabelerServicesResponse.Views` is a `List<JsonElement>` — the Lexicon returns a union of
+`GetLabelerServicesResponse.Views` is an `IReadOnlyList<JsonElement>` — the Lexicon returns a union of
 `labelerView` and `labelerViewDetailed`, so deserialize each entry into the shape you asked for:
 
 ```csharp
 using System.Text.Json;
+using ATProtoNet.Identity;
 using ATProtoNet.Serialization;
 
 var response = await client.Bsky.Labeler.GetServicesAsync(
-    dids: ["did:plc:labeler1", "did:plc:labeler2"],
+    dids: [Did.Parse("did:plc:labeler1"), Did.Parse("did:plc:labeler2")],
     detailed: true);
 
 foreach (var view in response.Views)

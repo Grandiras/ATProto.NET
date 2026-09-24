@@ -1,4 +1,6 @@
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
+using ATProtoNet.Lexicon.App.Bsky.Actor;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Graph;
 
@@ -20,10 +22,14 @@ public sealed class GraphClient
     // ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Get followers of an actor.
+    /// Get one page of the accounts following an actor.
     /// </summary>
+    /// <param name="actor">Handle or DID of the actor.</param>
+    /// <param name="limit">Max results per page (1-100, default 50).</param>
+    /// <param name="cursor">Pagination cursor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetFollowersResponse> GetFollowersAsync(
-        string actor, int? limit = null, string? cursor = null,
+        AtIdentifier actor, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
@@ -36,10 +42,27 @@ public sealed class GraphClient
     }
 
     /// <summary>
-    /// Get accounts that an actor follows.
+    /// Enumerate the accounts following an actor, fetching pages as needed.
     /// </summary>
+    /// <param name="actor">Handle or DID of the actor.</param>
+    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<ProfileView> EnumerateFollowersAsync(
+        AtIdentifier actor, int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<GetFollowersResponse, ProfileView>(
+            (cursor, ct) => GetFollowersAsync(actor, pageSize, cursor, ct),
+            cancellationToken);
+
+    /// <summary>
+    /// Get one page of the accounts an actor follows.
+    /// </summary>
+    /// <param name="actor">Handle or DID of the actor.</param>
+    /// <param name="limit">Max results per page (1-100, default 50).</param>
+    /// <param name="cursor">Pagination cursor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetFollowsResponse> GetFollowsAsync(
-        string actor, int? limit = null, string? cursor = null,
+        AtIdentifier actor, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
@@ -52,10 +75,25 @@ public sealed class GraphClient
     }
 
     /// <summary>
+    /// Enumerate the accounts an actor follows, fetching pages as needed.
+    /// </summary>
+    /// <param name="actor">Handle or DID of the actor.</param>
+    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<ProfileView> EnumerateFollowsAsync(
+        AtIdentifier actor, int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<GetFollowsResponse, ProfileView>(
+            (cursor, ct) => GetFollowsAsync(actor, pageSize, cursor, ct),
+            cancellationToken);
+
+    /// <summary>
     /// Get suggested follows based on a given actor.
     /// </summary>
+    /// <param name="actor">Handle or DID of the actor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetSuggestedFollowsByActorResponse> GetSuggestedFollowsByActorAsync(
-        string actor, CancellationToken cancellationToken = default)
+        AtIdentifier actor, CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams().Add("actor", actor);
         return _xrpc.QueryAsync<GetSuggestedFollowsByActorResponse>(
@@ -67,8 +105,11 @@ public sealed class GraphClient
     // ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Get the authenticated user's blocked accounts.
+    /// Get one page of the accounts the authenticated user blocks.
     /// </summary>
+    /// <param name="limit">Max results per page (1-100, default 50).</param>
+    /// <param name="cursor">Pagination cursor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetBlocksResponse> GetBlocksAsync(
         int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
@@ -81,13 +122,27 @@ public sealed class GraphClient
             "app.bsky.graph.getBlocks", parameters, cancellationToken: cancellationToken);
     }
 
+    /// <summary>
+    /// Enumerate the accounts the authenticated user blocks, fetching pages as needed.
+    /// </summary>
+    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<ProfileView> EnumerateBlocksAsync(
+        int? pageSize = null, CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<GetBlocksResponse, ProfileView>(
+            (cursor, ct) => GetBlocksAsync(pageSize, cursor, ct),
+            cancellationToken);
+
     // ──────────────────────────────────────────────────────────
     //  Mutes
     // ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Get the authenticated user's muted accounts.
+    /// Get one page of the accounts the authenticated user mutes.
     /// </summary>
+    /// <param name="limit">Max results per page (1-100, default 50).</param>
+    /// <param name="cursor">Pagination cursor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetMutesResponse> GetMutesAsync(
         int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
@@ -101,10 +156,23 @@ public sealed class GraphClient
     }
 
     /// <summary>
+    /// Enumerate the accounts the authenticated user mutes, fetching pages as needed.
+    /// </summary>
+    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<ProfileView> EnumerateMutesAsync(
+        int? pageSize = null, CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<GetMutesResponse, ProfileView>(
+            (cursor, ct) => GetMutesAsync(pageSize, cursor, ct),
+            cancellationToken);
+
+    /// <summary>
     /// Mute an actor.
     /// </summary>
+    /// <param name="actor">Handle or DID of the actor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task MuteActorAsync(
-        string actor, CancellationToken cancellationToken = default)
+        AtIdentifier actor, CancellationToken cancellationToken = default)
     {
         var request = new MuteActorRequest { Actor = actor };
         await _xrpc.ProcedureAsync(
@@ -114,8 +182,10 @@ public sealed class GraphClient
     /// <summary>
     /// Unmute an actor.
     /// </summary>
+    /// <param name="actor">Handle or DID of the actor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task UnmuteActorAsync(
-        string actor, CancellationToken cancellationToken = default)
+        AtIdentifier actor, CancellationToken cancellationToken = default)
     {
         var request = new MuteActorRequest { Actor = actor };
         await _xrpc.ProcedureAsync(
@@ -125,8 +195,10 @@ public sealed class GraphClient
     /// <summary>
     /// Mute all members of a list.
     /// </summary>
+    /// <param name="list">The AT-URI of the list.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task MuteActorListAsync(
-        string list, CancellationToken cancellationToken = default)
+        AtUri list, CancellationToken cancellationToken = default)
     {
         var request = new MuteActorListRequest { List = list };
         await _xrpc.ProcedureAsync(
@@ -136,8 +208,10 @@ public sealed class GraphClient
     /// <summary>
     /// Unmute a list.
     /// </summary>
+    /// <param name="list">The AT-URI of the list.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task UnmuteActorListAsync(
-        string list, CancellationToken cancellationToken = default)
+        AtUri list, CancellationToken cancellationToken = default)
     {
         var request = new MuteActorListRequest { List = list };
         await _xrpc.ProcedureAsync(
@@ -149,10 +223,14 @@ public sealed class GraphClient
     // ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Get lists created by an actor.
+    /// Get one page of the lists an actor created.
     /// </summary>
+    /// <param name="actor">Handle or DID of the actor.</param>
+    /// <param name="limit">Max results per page (1-100, default 50).</param>
+    /// <param name="cursor">Pagination cursor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetListsResponse> GetListsAsync(
-        string actor, int? limit = null, string? cursor = null,
+        AtIdentifier actor, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
@@ -165,10 +243,27 @@ public sealed class GraphClient
     }
 
     /// <summary>
-    /// Get a list and its items.
+    /// Enumerate the lists an actor created, fetching pages as needed.
     /// </summary>
+    /// <param name="actor">Handle or DID of the actor.</param>
+    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<ListView> EnumerateListsAsync(
+        AtIdentifier actor, int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<GetListsResponse, ListView>(
+            (cursor, ct) => GetListsAsync(actor, pageSize, cursor, ct),
+            cancellationToken);
+
+    /// <summary>
+    /// Get a list and one page of its members.
+    /// </summary>
+    /// <param name="list">The AT-URI of the list.</param>
+    /// <param name="limit">Max members per page (1-100, default 50).</param>
+    /// <param name="cursor">Pagination cursor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetListResponse> GetListAsync(
-        string list, int? limit = null, string? cursor = null,
+        AtUri list, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
@@ -181,8 +276,24 @@ public sealed class GraphClient
     }
 
     /// <summary>
-    /// Get lists that the authenticated user has blocked.
+    /// Enumerate every member of a list, fetching pages as needed.
     /// </summary>
+    /// <param name="list">The AT-URI of the list.</param>
+    /// <param name="pageSize">Members per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<ListItemView> EnumerateListMembersAsync(
+        AtUri list, int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<GetListResponse, ListItemView>(
+            (cursor, ct) => GetListAsync(list, pageSize, cursor, ct),
+            cancellationToken);
+
+    /// <summary>
+    /// Get one page of the lists the authenticated user blocks.
+    /// </summary>
+    /// <param name="limit">Max results per page (1-100, default 50).</param>
+    /// <param name="cursor">Pagination cursor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetListBlocksResponse> GetListBlocksAsync(
         int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
@@ -196,8 +307,22 @@ public sealed class GraphClient
     }
 
     /// <summary>
-    /// Get lists that the authenticated user has muted.
+    /// Enumerate the lists the authenticated user blocks, fetching pages as needed.
     /// </summary>
+    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<ListView> EnumerateListBlocksAsync(
+        int? pageSize = null, CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<GetListBlocksResponse, ListView>(
+            (cursor, ct) => GetListBlocksAsync(pageSize, cursor, ct),
+            cancellationToken);
+
+    /// <summary>
+    /// Get one page of the lists the authenticated user mutes.
+    /// </summary>
+    /// <param name="limit">Max results per page (1-100, default 50).</param>
+    /// <param name="cursor">Pagination cursor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetListMutesResponse> GetListMutesAsync(
         int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
@@ -210,30 +335,48 @@ public sealed class GraphClient
             "app.bsky.graph.getListMutes", parameters, cancellationToken: cancellationToken);
     }
 
+    /// <summary>
+    /// Enumerate the lists the authenticated user mutes, fetching pages as needed.
+    /// </summary>
+    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<ListView> EnumerateListMutesAsync(
+        int? pageSize = null, CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<GetListMutesResponse, ListView>(
+            (cursor, ct) => GetListMutesAsync(pageSize, cursor, ct),
+            cancellationToken);
+
     // ──────────────────────────────────────────────────────────
     //  Relationships
     // ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Get relationships between the authenticated user and other actors.
+    /// Get the relationships between an actor and other accounts.
     /// </summary>
+    /// <param name="actor">Handle or DID of the account the relationships are relative to.</param>
+    /// <param name="others">Handles or DIDs of the other accounts.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetRelationshipsResponse> GetRelationshipsAsync(
-        string actor, List<string>? others = null,
+        AtIdentifier actor, IEnumerable<AtIdentifier>? others = null,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
             .Add("actor", actor)
-            .AddAll("others", others);
+            .AddAll("others", others?.Select(other => other.Value));
 
         return _xrpc.QueryAsync<GetRelationshipsResponse>(
             "app.bsky.graph.getRelationships", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
-    /// Get followers of an actor that are known (followed by) the authenticated user.
+    /// Get one page of an actor's followers that the authenticated user also follows.
     /// </summary>
+    /// <param name="actor">Handle or DID of the actor.</param>
+    /// <param name="limit">Max results per page (1-100, default 50).</param>
+    /// <param name="cursor">Pagination cursor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetKnownFollowersResponse> GetKnownFollowersAsync(
-        string actor, int? limit = null, string? cursor = null,
+        AtIdentifier actor, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
@@ -245,6 +388,20 @@ public sealed class GraphClient
             "app.bsky.graph.getKnownFollowers", parameters, cancellationToken: cancellationToken);
     }
 
+    /// <summary>
+    /// Enumerate an actor's followers that the authenticated user also follows, fetching pages as
+    /// needed.
+    /// </summary>
+    /// <param name="actor">Handle or DID of the actor.</param>
+    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<ProfileView> EnumerateKnownFollowersAsync(
+        AtIdentifier actor, int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<GetKnownFollowersResponse, ProfileView>(
+            (cursor, ct) => GetKnownFollowersAsync(actor, pageSize, cursor, ct),
+            cancellationToken);
+
     // ──────────────────────────────────────────────────────────
     //  Thread mutes
     // ──────────────────────────────────────────────────────────
@@ -252,8 +409,10 @@ public sealed class GraphClient
     /// <summary>
     /// Mute a thread (stop receiving notifications).
     /// </summary>
+    /// <param name="root">The AT-URI of the thread's root post.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task MuteThreadAsync(
-        string root, CancellationToken cancellationToken = default)
+        AtUri root, CancellationToken cancellationToken = default)
     {
         var request = new MuteThreadRequest { Root = root };
         await _xrpc.ProcedureAsync(
@@ -263,8 +422,10 @@ public sealed class GraphClient
     /// <summary>
     /// Unmute a thread.
     /// </summary>
+    /// <param name="root">The AT-URI of the thread's root post.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task UnmuteThreadAsync(
-        string root, CancellationToken cancellationToken = default)
+        AtUri root, CancellationToken cancellationToken = default)
     {
         var request = new MuteThreadRequest { Root = root };
         await _xrpc.ProcedureAsync(
@@ -278,8 +439,10 @@ public sealed class GraphClient
     /// <summary>
     /// Get a starter pack by its AT-URI.
     /// </summary>
+    /// <param name="starterPack">The AT-URI of the starter pack record.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetStarterPackResponse> GetStarterPackAsync(
-        string starterPack, CancellationToken cancellationToken = default)
+        AtUri starterPack, CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams().Add("starterPack", starterPack);
         return _xrpc.QueryAsync<GetStarterPackResponse>(
@@ -289,20 +452,26 @@ public sealed class GraphClient
     /// <summary>
     /// Get multiple starter packs by their AT-URIs.
     /// </summary>
+    /// <param name="uris">The AT-URIs of the starter pack records.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetStarterPacksResponse> GetStarterPacksAsync(
-        List<string> uris, CancellationToken cancellationToken = default)
+        IEnumerable<AtUri> uris, CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
-            .AddAll("uris", uris);
+            .AddAll("uris", uris.Select(uri => uri.Value));
         return _xrpc.QueryAsync<GetStarterPacksResponse>(
             "app.bsky.graph.getStarterPacks", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
-    /// Get starter packs created by an actor.
+    /// Get one page of the starter packs an actor created.
     /// </summary>
+    /// <param name="actor">Handle or DID of the actor.</param>
+    /// <param name="limit">Max results per page (1-100, default 50).</param>
+    /// <param name="cursor">Pagination cursor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetActorStarterPacksResponse> GetActorStarterPacksAsync(
-        string actor, int? limit = null, string? cursor = null,
+        AtIdentifier actor, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
@@ -314,8 +483,25 @@ public sealed class GraphClient
     }
 
     /// <summary>
-    /// Search for starter packs.
+    /// Enumerate the starter packs an actor created, fetching pages as needed.
     /// </summary>
+    /// <param name="actor">Handle or DID of the actor.</param>
+    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<StarterPackViewBasic> EnumerateActorStarterPacksAsync(
+        AtIdentifier actor, int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<GetActorStarterPacksResponse, StarterPackViewBasic>(
+            (cursor, ct) => GetActorStarterPacksAsync(actor, pageSize, cursor, ct),
+            cancellationToken);
+
+    /// <summary>
+    /// Search for starter packs, one page at a time.
+    /// </summary>
+    /// <param name="query">Search query.</param>
+    /// <param name="limit">Max results per page (1-100, default 25).</param>
+    /// <param name="cursor">Pagination cursor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<SearchStarterPacksResponse> SearchStarterPacksAsync(
         string query, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
@@ -327,4 +513,17 @@ public sealed class GraphClient
         return _xrpc.QueryAsync<SearchStarterPacksResponse>(
             "app.bsky.graph.searchStarterPacks", parameters, cancellationToken: cancellationToken);
     }
+
+    /// <summary>
+    /// Enumerate every starter pack matching a search, fetching pages as needed.
+    /// </summary>
+    /// <param name="query">Search query.</param>
+    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<StarterPackViewBasic> EnumerateSearchStarterPacksAsync(
+        string query, int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<SearchStarterPacksResponse, StarterPackViewBasic>(
+            (cursor, ct) => SearchStarterPacksAsync(query, pageSize, cursor, ct),
+            cancellationToken);
 }

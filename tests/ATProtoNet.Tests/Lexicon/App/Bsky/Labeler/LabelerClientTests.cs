@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Labeler;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -36,7 +37,7 @@ public class LabelerClientTests : IDisposable
         };
 
         var result = await _labeler.GetServicesAsync(
-            ["did:plc:labeler1", "did:plc:labeler2"],
+            [Did.Parse("did:plc:labeler1"), Did.Parse("did:plc:labeler2")],
             detailed: true);
 
         Assert.Contains("/xrpc/app.bsky.labeler.getServices", capturedUrl);
@@ -61,7 +62,7 @@ public class LabelerClientTests : IDisposable
             return JsonResponse(new { views = Array.Empty<object>() });
         };
 
-        await _labeler.GetServicesAsync(["did:plc:labeler1"]);
+        await _labeler.GetServicesAsync([Did.Parse("did:plc:labeler1")]);
 
         Assert.DoesNotContain("detailed", capturedUrl!);
     }

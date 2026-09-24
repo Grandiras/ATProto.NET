@@ -166,7 +166,7 @@ var client = new AtProtoClient(new AtProtoClientOptions
 await client.ApplyOAuthSessionAsync(session);
 
 // Now use the client normally
-var profile = await client.Bsky.Actor.GetProfileAsync(session.Did);
+var profile = await client.Bsky.Actor.GetProfileAsync(client.Did!);
 await client.PostAsync("Hello from OAuth!");
 ```
 

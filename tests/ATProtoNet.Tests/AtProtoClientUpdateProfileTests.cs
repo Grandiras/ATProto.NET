@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.Tests;
 
@@ -177,5 +178,5 @@ public sealed class AtProtoClientUpdateProfileTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => client.UpdateProfileAsync(p => p.DisplayName = "x"));
     }
 
-    private sealed record ProfileSeen(string? DisplayName, string? CreatedAt, IDictionary<string, JsonElement>? ExtensionData);
+    private sealed record ProfileSeen(string? DisplayName, AtDatetime? CreatedAt, IDictionary<string, JsonElement>? ExtensionData);
 }

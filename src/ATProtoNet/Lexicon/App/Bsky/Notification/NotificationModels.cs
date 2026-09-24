@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Actor;
 using ATProtoNet.Models;
 
@@ -16,11 +17,11 @@ public sealed class NotificationView : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public required string Cid { get; init; }
+    public required Cid Cid { get; init; }
 
     /// <summary>The account that authored the post.</summary>
     [JsonPropertyName("author")]
@@ -35,7 +36,7 @@ public sealed class NotificationView : LexObject
 
     /// <summary>Subject URI, if applicable (e.g., the post that was liked).</summary>
     [JsonPropertyName("reasonSubject")]
-    public string? ReasonSubject { get; init; }
+    public AtUri? ReasonSubject { get; init; }
 
     /// <summary>The record that triggered the notification.</summary>
     [JsonPropertyName("record")]
@@ -45,19 +46,19 @@ public sealed class NotificationView : LexObject
     [JsonPropertyName("isRead")]
     public bool IsRead { get; init; }
 
-    /// <summary>Timestamp at which the app view indexed this data (ISO 8601).</summary>
+    /// <summary>Timestamp at which the app view indexed this data.</summary>
     [JsonPropertyName("indexedAt")]
-    public required string IndexedAt { get; init; }
+    public required AtDatetime IndexedAt { get; init; }
 
     /// <summary>The labels applied to this subject.</summary>
     [JsonPropertyName("labels")]
-    public List<Label>? Labels { get; init; }
+    public IReadOnlyList<Label>? Labels { get; init; }
 }
 
 /// <summary>
 /// Response from listNotifications.
 /// </summary>
-public sealed class ListNotificationsResponse
+public sealed class ListNotificationsResponse : ICursorPage<NotificationView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -68,15 +69,17 @@ public sealed class ListNotificationsResponse
 
     /// <summary>The notifications.</summary>
     [JsonPropertyName("notifications")]
-    public required List<NotificationView> Notifications { get; init; }
+    public required IReadOnlyList<NotificationView> Notifications { get; init; }
 
     /// <summary>Whether only priority notifications were returned.</summary>
     [JsonPropertyName("priority")]
     public bool? Priority { get; init; }
 
-    /// <summary>The timestamp notifications were last marked seen at (ISO 8601).</summary>
+    /// <summary>The timestamp notifications were last marked seen at.</summary>
     [JsonPropertyName("seenAt")]
-    public string? SeenAt { get; init; }
+    public AtDatetime? SeenAt { get; init; }
+
+    IReadOnlyList<NotificationView> ICursorPage<NotificationView>.Items => Notifications;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -100,11 +103,11 @@ public sealed class GetUnreadCountResponse
 /// <summary>
 /// Request body for updateSeen.
 /// </summary>
-public sealed class UpdateSeenRequest
+internal sealed class UpdateSeenRequest
 {
-    /// <summary>The timestamp to mark notifications seen up to (ISO 8601).</summary>
+    /// <summary>The timestamp to mark notifications seen up to.</summary>
     [JsonPropertyName("seenAt")]
-    public required string SeenAt { get; init; }
+    public required AtDatetime SeenAt { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -118,7 +121,7 @@ public sealed class RegisterPushRequest
 {
     /// <summary>The DID of the service.</summary>
     [JsonPropertyName("serviceDid")]
-    public required string ServiceDid { get; init; }
+    public required Did ServiceDid { get; init; }
 
     /// <summary>The push notification token.</summary>
     [JsonPropertyName("token")]

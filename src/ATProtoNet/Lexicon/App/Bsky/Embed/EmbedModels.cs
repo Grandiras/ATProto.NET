@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 using ATProtoNet.Models;
 using ATProtoNet.Serialization;
 
@@ -56,7 +57,7 @@ public sealed class ImagesEmbed : EmbedBase
 {
     /// <summary>The images to embed (up to four).</summary>
     [JsonPropertyName("images")]
-    public required List<EmbedImage> Images { get; init; }
+    public required IReadOnlyList<EmbedImage> Images { get; init; }
 }
 
 /// <summary>
@@ -187,7 +188,7 @@ public sealed class VideoEmbed : EmbedBase
 
     /// <summary>The caption tracks for the video.</summary>
     [JsonPropertyName("captions")]
-    public List<VideoCaption>? Captions { get; init; }
+    public IReadOnlyList<VideoCaption>? Captions { get; init; }
 }
 
 /// <summary>
@@ -216,7 +217,7 @@ public sealed class GalleryEmbed : EmbedBase
 {
     /// <summary>The media items, each of which may be of a different type.</summary>
     [JsonPropertyName("items")]
-    public required List<GalleryItem> Items { get; init; }
+    public required IReadOnlyList<GalleryItem> Items { get; init; }
 }
 
 /// <summary>
@@ -316,7 +317,7 @@ public sealed class ImagesView : EmbedView
 {
     /// <summary>The embedded image views.</summary>
     [JsonPropertyName("images")]
-    public required List<ImageViewItem> Images { get; init; }
+    public required IReadOnlyList<ImageViewItem> Images { get; init; }
 }
 
 /// <summary>
@@ -404,9 +405,9 @@ public sealed class RecordWithMediaView : EmbedView
 /// </summary>
 public sealed class VideoView : EmbedView
 {
-    /// <summary>The CID (content identifier) of the record version.</summary>
+    /// <summary>The CID of the video blob.</summary>
     [JsonPropertyName("cid")]
-    public required string Cid { get; init; }
+    public required Cid Cid { get; init; }
 
     /// <summary>URL of the HLS playlist for the video.</summary>
     [JsonPropertyName("playlist")]
@@ -434,7 +435,7 @@ public sealed class GalleryView : EmbedView
 {
     /// <summary>The media item views.</summary>
     [JsonPropertyName("items")]
-    public required List<GalleryViewItem> Items { get; init; }
+    public required IReadOnlyList<GalleryViewItem> Items { get; init; }
 }
 
 /// <summary>

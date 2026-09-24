@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 using ATProtoNet.Models;
 using ATProtoNet.Serialization;
 
@@ -16,7 +17,7 @@ public sealed class Facet : LexObject
 
     /// <summary>The features (annotations) applied to this range.</summary>
     [JsonPropertyName("features")]
-    public required List<FacetFeature> Features { get; init; }
+    public required IReadOnlyList<FacetFeature> Features { get; init; }
 }
 
 /// <summary>
@@ -73,7 +74,7 @@ public sealed class MentionFeature : FacetFeature
 {
     /// <summary>The DID of the mentioned user.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 }
 
 /// <summary>

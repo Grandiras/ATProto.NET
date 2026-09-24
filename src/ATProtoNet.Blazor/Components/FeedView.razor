@@ -122,22 +122,22 @@ else
     {
         if (FeedSource.StartsWith("author:"))
         {
-            var actor = FeedSource["author:".Length..];
-            return Client.Bsky.Feed.GetAuthorFeedAsync(actor, PageSize, cursor);
+            var actor = AtIdentifier.Parse(FeedSource["author:".Length..]);
+            return Client.Bsky.Feed.GetAuthorFeedAsync(actor, limit: PageSize, cursor: cursor);
         }
         else if (FeedSource.StartsWith("feed:"))
         {
-            var feedUri = FeedSource["feed:".Length..];
+            var feedUri = AtUri.Parse(FeedSource["feed:".Length..]);
             return Client.Bsky.Feed.GetFeedAsync(feedUri, PageSize, cursor);
         }
         else if (FeedSource.StartsWith("list:"))
         {
-            var listUri = FeedSource["list:".Length..];
+            var listUri = AtUri.Parse(FeedSource["list:".Length..]);
             return Client.Bsky.Feed.GetListFeedAsync(listUri, PageSize, cursor);
         }
         else
         {
-            return Client.Bsky.Feed.GetTimelineAsync(PageSize, cursor);
+            return Client.Bsky.Feed.GetTimelineAsync(limit: PageSize, cursor: cursor);
         }
     }
 }

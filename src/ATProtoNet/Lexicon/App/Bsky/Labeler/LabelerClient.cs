@@ -1,4 +1,5 @@
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Labeler;
 
@@ -18,17 +19,17 @@ public sealed class LabelerClient
     /// <summary>
     /// Fetches information about labeler services.
     /// </summary>
-    /// <param name="dids">Array of labeler service DIDs to query.</param>
+    /// <param name="dids">The DIDs of the labeler services to query.</param>
     /// <param name="detailed">Whether to return detailed views (includes policies).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Service views for the requested labelers.</returns>
     public Task<GetLabelerServicesResponse> GetServicesAsync(
-        IReadOnlyList<string> dids,
+        IEnumerable<Did> dids,
         bool? detailed = null,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
-            .AddAll("dids", dids)
+            .AddAll("dids", dids.Select(did => did.Value))
             .Add("detailed", detailed);
 
         return _xrpc.QueryAsync<GetLabelerServicesResponse>(

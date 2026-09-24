@@ -250,11 +250,12 @@ parsed.ToString()               // "1985-04-12T23:20:50.123-07:00"
 
 ## In Models and Clients
 
-The `com.atproto.*` models and clients, `RecordCollection<T>` and `AtProtoClient` take and return
-these types wherever the Lexicon field or parameter has an identifier or `datetime` format:
-`repo` is an `AtIdentifier`, `collection` an `Nsid`, `rkey` a `RecordKey`, `cid`/`swapRecord`/
-`swapCommit` a `Cid`, `uri` an `AtUri`, and `createdAt`/`indexedAt` an `AtDatetime`. The
-`app.bsky.*`, `chat.bsky.*`, `tools.ozone.*`, `site.standard.*`, spaces and streaming surfaces follow.
+The `com.atproto.*` and `app.bsky.*` models and clients, `RecordCollection<T>` and `AtProtoClient`
+take and return these types wherever the Lexicon field or parameter has an identifier or `datetime`
+format: `repo`/`actor` is an `AtIdentifier`, `collection` an `Nsid`, `rkey` a `RecordKey`,
+`cid`/`swapRecord`/`swapCommit` a `Cid`, `uri` an `AtUri`, and `createdAt`/`indexedAt` an
+`AtDatetime`. The `chat.bsky.*`, `tools.ozone.*`, `site.standard.*`, spaces and streaming surfaces
+follow.
 
 - Values from the API are already typed, so passing them on needs no conversion.
 - Parse string literals at the edge, once: `Did.Parse("did:plc:…")`, `Nsid.Parse("com.example.todo.item")`.

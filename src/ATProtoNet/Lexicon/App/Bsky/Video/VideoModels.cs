@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Video;
@@ -19,7 +20,7 @@ public sealed class JobStatus : LexObject
 
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 
     /// <summary>Job processing state (e.g., JOB_STATE_CREATED, JOB_STATE_ENCODING, JOB_STATE_COMPLETED, JOB_STATE_FAILED).</summary>
     [JsonPropertyName("state")]

@@ -12,13 +12,13 @@
             @if (Profile.Avatar is not null)
             {
                 <img class="atproto-profile-avatar" src="@Profile.Avatar"
-                     alt="@(Profile.DisplayName ?? Profile.Handle)"
+                     alt="@(Profile.DisplayName ?? Profile.Handle.Value)"
                      loading="lazy" />
             }
             else
             {
                 <div class="atproto-profile-avatar-placeholder">
-                    @(Profile.Handle.FirstOrDefault())
+                    @(Profile.Handle.Value.FirstOrDefault())
                 </div>
             }
 

@@ -48,9 +48,6 @@ public class TypedIdentifierGuardTests
     /// </summary>
     private static readonly string[] PendingConversions =
     [
-        // PR 2: app.bsky.*
-        "ATProtoNet.Lexicon.App.Bsky.",
-
         // PR 3: chat.bsky.*, tools.ozone.*, site.standard.*
         "ATProtoNet.Lexicon.Chat.",
         "ATProtoNet.Lexicon.Tools.Ozone.",
@@ -83,6 +80,22 @@ public class TypedIdentifierGuardTests
     {
         ["ATProtoNet.Models.Label.Uri"] =
             "Lexicon format `uri`: a record label's subject is an AT URI, an account label's a bare DID.",
+        ["ATProtoNet.Lexicon.App.Bsky.Embed.ExternalInfo.Uri"] =
+            "Lexicon format `uri`: the linked web page's URL.",
+        ["ATProtoNet.Lexicon.App.Bsky.Embed.ExternalViewInfo.Uri"] =
+            "Lexicon format `uri`: the linked web page's URL.",
+        ["ATProtoNet.Lexicon.App.Bsky.RichText.LinkFeature.Uri"] =
+            "Lexicon format `uri`: the link facet's target URL.",
+        ["ATProtoNet.Lexicon.App.Bsky.RichText.RichTextBuilder.Link(uri)"] =
+            "Lexicon format `uri`: the link facet's target URL.",
+        ["ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.SearchPostsAsync(since)"] =
+            "No Lexicon format: a datetime or a bare ISO date (YYYY-MM-DD).",
+        ["ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.SearchPostsAsync(until)"] =
+            "No Lexicon format: a datetime or a bare ISO date (YYYY-MM-DD).",
+        ["ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.EnumerateSearchPostsAsync(since)"] =
+            "No Lexicon format: a datetime or a bare ISO date (YYYY-MM-DD).",
+        ["ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.EnumerateSearchPostsAsync(until)"] =
+            "No Lexicon format: a datetime or a bare ISO date (YYYY-MM-DD).",
         ["ATProtoNet.Lexicon.Com.AtProto.Admin.SendEmailRequest.Subject"] =
             "The email's subject line.",
         ["ATProtoNet.Lexicon.Com.AtProto.Server.InviteCode.ForAccount"] =

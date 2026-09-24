@@ -1,9 +1,13 @@
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.RichText;
 
 namespace ATProtoNet.Tests.RichText;
 
 public class RichTextBuilderTests
 {
+    private static readonly Handle Alice = Handle.Parse("alice.test");
+    private static readonly Did AliceDid = Did.Parse("did:plc:alice");
+
     [Fact]
     public void Text_BuildsPlainText()
     {
@@ -20,7 +24,7 @@ public class RichTextBuilderTests
     {
         var (text, facets) = new RichTextBuilder()
             .Text("Hello ")
-            .Mention("alice.bsky.social", "did:plc:abc123")
+            .Mention(Handle.Parse("alice.bsky.social"), Did.Parse("did:plc:abc123"))
             .Build();
 
         Assert.Equal("Hello @alice.bsky.social", text);
@@ -82,28 +86,28 @@ public class RichTextBuilderTests
     {
         var (text, facets) = new RichTextBuilder()
             .Text("Hello ")
-            .Mention("alice", "did:plc:alice")
+            .Mention(Alice, AliceDid)
             .Text(" check ")
             .Link("this", "https://example.com")
             .Text(" ")
             .Tag("dev")
             .Build();
 
-        Assert.Equal("Hello @alice check this #dev", text);
+        Assert.Equal("Hello @alice.test check this #dev", text);
         Assert.NotNull(facets);
         Assert.Equal(3, facets.Count);
 
-        // Mention: starts at 6 ("Hello "), "@alice" = 6 bytes
+        // Mention: starts at 6 ("Hello "), "@alice.test" = 11 bytes
         Assert.Equal(6, facets[0].Index!.ByteStart);
-        Assert.Equal(12, facets[0].Index.ByteEnd);
+        Assert.Equal(17, facets[0].Index.ByteEnd);
 
-        // Link: starts after "Hello @alice check " = 19 bytes
-        Assert.Equal(19, facets[1].Index!.ByteStart);
-        Assert.Equal(23, facets[1].Index.ByteEnd); // "this" = 4 bytes
+        // Link: starts after "Hello @alice.test check " = 24 bytes
+        Assert.Equal(24, facets[1].Index!.ByteStart);
+        Assert.Equal(28, facets[1].Index.ByteEnd); // "this" = 4 bytes
 
-        // Tag: starts after "Hello @alice check this " = 24 bytes
-        Assert.Equal(24, facets[2].Index!.ByteStart);
-        Assert.Equal(28, facets[2].Index.ByteEnd); // "#dev" = 4 bytes
+        // Tag: starts after "Hello @alice.test check this " = 29 bytes
+        Assert.Equal(29, facets[2].Index!.ByteStart);
+        Assert.Equal(33, facets[2].Index.ByteEnd); // "#dev" = 4 bytes
     }
 
     [Fact]
@@ -125,15 +129,27 @@ public class RichTextBuilderTests
         // Emoji and multi-byte characters
         var (text, facets) = new RichTextBuilder()
             .Text("🦋 ")       // U+1F98B = 4 bytes + space = 5 bytes
-            .Mention("alice", "did:plc:alice")
+            .Mention(Alice, AliceDid)
             .Build();
 
-        Assert.Equal("🦋 @alice", text);
+        Assert.Equal("🦋 @alice.test", text);
         Assert.NotNull(facets);
 
         // 🦋 is 4 UTF-8 bytes + 1 space = 5 bytes start
         Assert.Equal(5, facets[0].Index!.ByteStart);
-        Assert.Equal(11, facets[0].Index.ByteEnd); // "@alice" = 6 bytes, 5+6=11
+        Assert.Equal(16, facets[0].Index.ByteEnd); // "@alice.test" = 11 bytes, 5+11=16
+    }
+
+    [Fact]
+    public void Build_ThenAppend_LeavesTheBuiltFacetsUnchanged()
+    {
+        var builder = new RichTextBuilder().Mention(Alice, AliceDid);
+        var (_, facets) = builder.Build();
+
+        builder.Text(" ").Tag("later");
+
+        Assert.Single(facets!);
+        Assert.Equal(2, builder.Build().Facets!.Count);
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Notification;
 
@@ -15,30 +16,47 @@ public sealed class NotificationClient
     }
 
     /// <summary>
-    /// List notifications for the authenticated user.
+    /// List one page of notifications for the authenticated user.
     /// </summary>
-    /// <param name="limit">Max notifications per page (1-100, default 50).</param>
     /// <param name="priority">Filter for priority notifications only.</param>
-    /// <param name="cursor">Pagination cursor.</param>
     /// <param name="seenAt">Timestamp to filter new notifications since
     /// (only return notifications after this time).</param>
+    /// <param name="limit">Max notifications per page (1-100, default 50).</param>
+    /// <param name="cursor">Pagination cursor.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ListNotificationsResponse> ListNotificationsAsync(
-        int? limit = null,
         bool? priority = null,
+        AtDatetime? seenAt = null,
+        int? limit = null,
         string? cursor = null,
-        string? seenAt = null,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
-            .Add("limit", limit)
             .Add("priority", priority)
-            .Add("cursor", cursor)
-            .Add("seenAt", seenAt);
+            .Add("seenAt", seenAt?.ToString())
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<ListNotificationsResponse>(
             "app.bsky.notification.listNotifications", parameters, cancellationToken: cancellationToken);
     }
+
+    /// <summary>
+    /// Enumerate the authenticated user's notifications, fetching pages as needed.
+    /// </summary>
+    /// <param name="priority">Filter for priority notifications only.</param>
+    /// <param name="seenAt">Timestamp to filter new notifications since
+    /// (only return notifications after this time).</param>
+    /// <param name="pageSize">Notifications per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<NotificationView> EnumerateNotificationsAsync(
+        bool? priority = null,
+        AtDatetime? seenAt = null,
+        int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<ListNotificationsResponse, NotificationView>(
+            (cursor, ct) => ListNotificationsAsync(priority, seenAt, pageSize, cursor, ct),
+            cancellationToken);
 
     /// <summary>
     /// Get the count of unread notifications.
@@ -48,12 +66,12 @@ public sealed class NotificationClient
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetUnreadCountResponse> GetUnreadCountAsync(
         bool? priority = null,
-        string? seenAt = null,
+        AtDatetime? seenAt = null,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
             .Add("priority", priority)
-            .Add("seenAt", seenAt);
+            .Add("seenAt", seenAt?.ToString());
 
         return _xrpc.QueryAsync<GetUnreadCountResponse>(
             "app.bsky.notification.getUnreadCount", parameters, cancellationToken: cancellationToken);
@@ -62,11 +80,11 @@ public sealed class NotificationClient
     /// <summary>
     /// Mark notifications as seen up to the given timestamp.
     /// </summary>
-    /// <param name="seenAt">ISO 8601 timestamp of when the user last viewed notifications.
-    /// Pass <c>AtProtoJsonDefaults.NowTimestamp()</c> to mark all as read.</param>
+    /// <param name="seenAt">When the user last viewed notifications. Pass
+    /// <see cref="AtDatetime.Now"/> to mark all as read.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task UpdateSeenAsync(
-        string seenAt, CancellationToken cancellationToken = default)
+        AtDatetime seenAt, CancellationToken cancellationToken = default)
     {
         var request = new UpdateSeenRequest { SeenAt = seenAt };
         await _xrpc.ProcedureAsync(
@@ -78,7 +96,7 @@ public sealed class NotificationClient
     /// </summary>
     public Task MarkAllReadAsync(CancellationToken cancellationToken = default)
     {
-        return UpdateSeenAsync(Serialization.AtProtoJsonDefaults.NowTimestamp(), cancellationToken);
+        return UpdateSeenAsync(AtDatetime.Now(), cancellationToken);
     }
 
     /// <summary>

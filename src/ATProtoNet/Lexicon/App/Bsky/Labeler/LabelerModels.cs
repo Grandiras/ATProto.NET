@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Labeler;
@@ -21,9 +22,9 @@ public sealed class LabelerServiceRecord : LexObject
     [JsonPropertyName("policies")]
     public required LabelerPolicies Policies { get; init; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>Timestamp of creation.</summary>
     [JsonPropertyName("createdAt")]
-    public required string CreatedAt { get; init; }
+    public required AtDatetime CreatedAt { get; init; }
 }
 
 /// <summary>
@@ -33,11 +34,11 @@ public sealed class LabelerPolicies : LexObject
 {
     /// <summary>The label values this labeler may publish.</summary>
     [JsonPropertyName("labelValues")]
-    public List<string>? LabelValues { get; init; }
+    public IReadOnlyList<string>? LabelValues { get; init; }
 
     /// <summary>The labeler's definitions for its custom label values.</summary>
     [JsonPropertyName("labelValueDefinitions")]
-    public List<LabelValueDefinition>? LabelValueDefinitions { get; init; }
+    public IReadOnlyList<LabelValueDefinition>? LabelValueDefinitions { get; init; }
 }
 
 /// <summary>
@@ -71,7 +72,7 @@ public sealed class LabelValueDefinition : LexObject
 
     /// <summary>The localised name and description strings for the label.</summary>
     [JsonPropertyName("locales")]
-    public required List<LabelValueDefinitionStrings> Locales { get; init; }
+    public required IReadOnlyList<LabelValueDefinitionStrings> Locales { get; init; }
 }
 
 /// <summary>
@@ -103,11 +104,11 @@ public sealed class LabelerViewDetailed : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public required string Cid { get; init; }
+    public required Cid Cid { get; init; }
 
     /// <summary>The account that created this.</summary>
     [JsonPropertyName("creator")]
@@ -121,13 +122,13 @@ public sealed class LabelerViewDetailed : LexObject
     [JsonPropertyName("viewer")]
     public LabelerViewerState? Viewer { get; init; }
 
-    /// <summary>Timestamp at which the app view indexed this data (ISO 8601).</summary>
+    /// <summary>Timestamp at which the app view indexed this data.</summary>
     [JsonPropertyName("indexedAt")]
-    public required string IndexedAt { get; init; }
+    public required AtDatetime IndexedAt { get; init; }
 
     /// <summary>The labels applied to this subject.</summary>
     [JsonPropertyName("labels")]
-    public List<Label>? Labels { get; init; }
+    public IReadOnlyList<Label>? Labels { get; init; }
 
     /// <summary>The labeler's declared labelling policies.</summary>
     [JsonPropertyName("policies")]
@@ -141,11 +142,11 @@ public sealed class LabelerView : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public required string Cid { get; init; }
+    public required Cid Cid { get; init; }
 
     /// <summary>The account that created this.</summary>
     [JsonPropertyName("creator")]
@@ -159,13 +160,13 @@ public sealed class LabelerView : LexObject
     [JsonPropertyName("viewer")]
     public LabelerViewerState? Viewer { get; init; }
 
-    /// <summary>Timestamp at which the app view indexed this data (ISO 8601).</summary>
+    /// <summary>Timestamp at which the app view indexed this data.</summary>
     [JsonPropertyName("indexedAt")]
-    public required string IndexedAt { get; init; }
+    public required AtDatetime IndexedAt { get; init; }
 
     /// <summary>The labels applied to this subject.</summary>
     [JsonPropertyName("labels")]
-    public List<Label>? Labels { get; init; }
+    public IReadOnlyList<Label>? Labels { get; init; }
 }
 
 /// <summary>
@@ -175,7 +176,7 @@ public sealed class LabelerViewerState : LexObject
 {
     /// <summary>The AT-URI of the viewer's like record, if they have liked this.</summary>
     [JsonPropertyName("like")]
-    public string? Like { get; init; }
+    public AtUri? Like { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────
@@ -189,7 +190,7 @@ public sealed class GetLabelerServicesResponse
 {
     /// <summary>The labeler service views.</summary>
     [JsonPropertyName("views")]
-    public required List<JsonElement> Views { get; init; }
+    public required IReadOnlyList<JsonElement> Views { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────

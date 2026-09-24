@@ -25,7 +25,6 @@ using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using ATProtoNet.Lexicon.Site.Standard;
 using ATProtoNet.Lexicon.Tools.Ozone;
 using ATProtoNet.Models;
-using ATProtoNet.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -855,7 +854,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             Reply = reply,
             Langs = langs?.ToList(),
             Labels = labels,
-            CreatedAt = AtProtoJsonDefaults.NowTimestamp(),
+            CreatedAt = AtDatetime.Now(),
         };
 
         return await Repo.CreateRecordAsync(
@@ -876,7 +875,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         var like = new LikeRecord
         {
             Subject = new StrongRef { Uri = uri, Cid = cid },
-            CreatedAt = AtProtoJsonDefaults.NowTimestamp(),
+            CreatedAt = AtDatetime.Now(),
         };
 
         return await Repo.CreateRecordAsync(
@@ -907,7 +906,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         var repost = new RepostRecord
         {
             Subject = new StrongRef { Uri = uri, Cid = cid },
-            CreatedAt = AtProtoJsonDefaults.NowTimestamp(),
+            CreatedAt = AtDatetime.Now(),
         };
 
         return await Repo.CreateRecordAsync(
@@ -937,7 +936,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         var follow = new FollowRecord
         {
             Subject = did,
-            CreatedAt = AtProtoJsonDefaults.NowTimestamp(),
+            CreatedAt = AtDatetime.Now(),
         };
 
         return await Repo.CreateRecordAsync(
@@ -1044,7 +1043,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         }
         catch (XrpcException ex) when (ex.Is(XrpcErrors.RecordNotFound))
         {
-            return (new ProfileRecord { CreatedAt = AtProtoJsonDefaults.NowTimestamp() }, null);
+            return (new ProfileRecord { CreatedAt = AtDatetime.Now() }, null);
         }
     }
 

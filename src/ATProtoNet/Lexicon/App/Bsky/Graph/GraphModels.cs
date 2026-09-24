@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Actor;
 using ATProtoNet.Lexicon.App.Bsky.RichText;
 using ATProtoNet.Models;
@@ -21,11 +22,11 @@ public sealed class FollowRecord : LexObject
 
     /// <summary>The DID of the account being followed.</summary>
     [JsonPropertyName("subject")]
-    public required string Subject { get; init; }
+    public required Did Subject { get; init; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>Timestamp of creation.</summary>
     [JsonPropertyName("createdAt")]
-    public required string CreatedAt { get; init; }
+    public required AtDatetime CreatedAt { get; init; }
 }
 
 /// <summary>
@@ -39,11 +40,11 @@ public sealed class BlockRecord : LexObject
 
     /// <summary>The DID of the account being blocked.</summary>
     [JsonPropertyName("subject")]
-    public required string Subject { get; init; }
+    public required Did Subject { get; init; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>Timestamp of creation.</summary>
     [JsonPropertyName("createdAt")]
-    public required string CreatedAt { get; init; }
+    public required AtDatetime CreatedAt { get; init; }
 }
 
 /// <summary>
@@ -69,7 +70,7 @@ public sealed class ListRecord : LexObject
 
     /// <summary>Rich-text facets (mentions, links, tags) applied to the description.</summary>
     [JsonPropertyName("descriptionFacets")]
-    public List<Facet>? DescriptionFacets { get; init; }
+    public IReadOnlyList<Facet>? DescriptionFacets { get; init; }
 
     /// <summary>The avatar image.</summary>
     [JsonPropertyName("avatar")]
@@ -79,9 +80,9 @@ public sealed class ListRecord : LexObject
     [JsonPropertyName("labels")]
     public JsonElement? Labels { get; init; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>Timestamp of creation.</summary>
     [JsonPropertyName("createdAt")]
-    public required string CreatedAt { get; init; }
+    public required AtDatetime CreatedAt { get; init; }
 }
 
 /// <summary>
@@ -95,15 +96,15 @@ public sealed class ListItemRecord : LexObject
 
     /// <summary>The DID of the account included in the list.</summary>
     [JsonPropertyName("subject")]
-    public required string Subject { get; init; }
+    public required Did Subject { get; init; }
 
     /// <summary>The AT-URI of the list this membership belongs to.</summary>
     [JsonPropertyName("list")]
-    public required string List { get; init; }
+    public required AtUri List { get; init; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>Timestamp of creation.</summary>
     [JsonPropertyName("createdAt")]
-    public required string CreatedAt { get; init; }
+    public required AtDatetime CreatedAt { get; init; }
 }
 
 /// <summary>
@@ -117,11 +118,11 @@ public sealed class ListBlockRecord : LexObject
 
     /// <summary>The AT-URI of the list being blocked.</summary>
     [JsonPropertyName("subject")]
-    public required string Subject { get; init; }
+    public required AtUri Subject { get; init; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>Timestamp of creation.</summary>
     [JsonPropertyName("createdAt")]
-    public required string CreatedAt { get; init; }
+    public required AtDatetime CreatedAt { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -154,11 +155,11 @@ public sealed class ListView : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public required string Cid { get; init; }
+    public required Cid Cid { get; init; }
 
     /// <summary>The account that created this.</summary>
     [JsonPropertyName("creator")]
@@ -178,7 +179,7 @@ public sealed class ListView : LexObject
 
     /// <summary>Rich-text facets (mentions, links, tags) applied to the description.</summary>
     [JsonPropertyName("descriptionFacets")]
-    public List<Facet>? DescriptionFacets { get; init; }
+    public IReadOnlyList<Facet>? DescriptionFacets { get; init; }
 
     /// <summary>The avatar image.</summary>
     [JsonPropertyName("avatar")]
@@ -190,15 +191,15 @@ public sealed class ListView : LexObject
 
     /// <summary>The labels applied to this subject.</summary>
     [JsonPropertyName("labels")]
-    public List<Label>? Labels { get; init; }
+    public IReadOnlyList<Label>? Labels { get; init; }
 
     /// <summary>The requesting account's relationship to this subject.</summary>
     [JsonPropertyName("viewer")]
     public ListViewerState? Viewer { get; init; }
 
-    /// <summary>Timestamp at which the app view indexed this data (ISO 8601).</summary>
+    /// <summary>Timestamp at which the app view indexed this data.</summary>
     [JsonPropertyName("indexedAt")]
-    public required string IndexedAt { get; init; }
+    public required AtDatetime IndexedAt { get; init; }
 }
 
 /// <summary>
@@ -212,7 +213,7 @@ public sealed class ListViewerState : LexObject
 
     /// <summary>The AT-URI of the viewer's list-block record, if the viewer blocks this list.</summary>
     [JsonPropertyName("blocked")]
-    public string? Blocked { get; init; }
+    public AtUri? Blocked { get; init; }
 }
 
 /// <summary>
@@ -222,11 +223,11 @@ public sealed class ListViewBasic : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public required string Cid { get; init; }
+    public required Cid Cid { get; init; }
 
     /// <summary>The name.</summary>
     [JsonPropertyName("name")]
@@ -246,15 +247,15 @@ public sealed class ListViewBasic : LexObject
 
     /// <summary>The labels applied to this subject.</summary>
     [JsonPropertyName("labels")]
-    public List<Label>? Labels { get; init; }
+    public IReadOnlyList<Label>? Labels { get; init; }
 
     /// <summary>The requesting account's relationship to this subject.</summary>
     [JsonPropertyName("viewer")]
     public ListViewerState? Viewer { get; init; }
 
-    /// <summary>Timestamp at which the app view indexed this data (ISO 8601).</summary>
+    /// <summary>Timestamp at which the app view indexed this data.</summary>
     [JsonPropertyName("indexedAt")]
-    public string? IndexedAt { get; init; }
+    public AtDatetime? IndexedAt { get; init; }
 }
 
 /// <summary>
@@ -264,7 +265,7 @@ public sealed class ListItemView : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 
     /// <summary>The profile of the listed account.</summary>
     [JsonPropertyName("subject")]
@@ -278,7 +279,7 @@ public sealed class ListItemView : LexObject
 /// <summary>
 /// Response from getFollowers.
 /// </summary>
-public sealed class GetFollowersResponse
+public sealed class GetFollowersResponse : ICursorPage<ProfileView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -293,13 +294,15 @@ public sealed class GetFollowersResponse
 
     /// <summary>The follower profiles.</summary>
     [JsonPropertyName("followers")]
-    public required List<ProfileView> Followers { get; init; }
+    public required IReadOnlyList<ProfileView> Followers { get; init; }
+
+    IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Followers;
 }
 
 /// <summary>
 /// Response from getFollows.
 /// </summary>
-public sealed class GetFollowsResponse
+public sealed class GetFollowsResponse : ICursorPage<ProfileView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -314,13 +317,15 @@ public sealed class GetFollowsResponse
 
     /// <summary>The profiles this actor follows.</summary>
     [JsonPropertyName("follows")]
-    public required List<ProfileView> Follows { get; init; }
+    public required IReadOnlyList<ProfileView> Follows { get; init; }
+
+    IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Follows;
 }
 
 /// <summary>
 /// Response from getBlocks.
 /// </summary>
-public sealed class GetBlocksResponse
+public sealed class GetBlocksResponse : ICursorPage<ProfileView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -331,13 +336,15 @@ public sealed class GetBlocksResponse
 
     /// <summary>The blocked profiles.</summary>
     [JsonPropertyName("blocks")]
-    public required List<ProfileView> Blocks { get; init; }
+    public required IReadOnlyList<ProfileView> Blocks { get; init; }
+
+    IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Blocks;
 }
 
 /// <summary>
 /// Response from getLists.
 /// </summary>
-public sealed class GetListsResponse
+public sealed class GetListsResponse : ICursorPage<ListView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -348,13 +355,15 @@ public sealed class GetListsResponse
 
     /// <summary>The lists.</summary>
     [JsonPropertyName("lists")]
-    public required List<ListView> Lists { get; init; }
+    public required IReadOnlyList<ListView> Lists { get; init; }
+
+    IReadOnlyList<ListView> ICursorPage<ListView>.Items => Lists;
 }
 
 /// <summary>
 /// Response from getList.
 /// </summary>
-public sealed class GetListResponse
+public sealed class GetListResponse : ICursorPage<ListItemView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -369,13 +378,15 @@ public sealed class GetListResponse
 
     /// <summary>The members of the list.</summary>
     [JsonPropertyName("items")]
-    public required List<ListItemView> Items { get; init; }
+    public required IReadOnlyList<ListItemView> Items { get; init; }
+
+    IReadOnlyList<ListItemView> ICursorPage<ListItemView>.Items => Items;
 }
 
 /// <summary>
 /// Response from getMutes.
 /// </summary>
-public sealed class GetMutesResponse
+public sealed class GetMutesResponse : ICursorPage<ProfileView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -386,13 +397,15 @@ public sealed class GetMutesResponse
 
     /// <summary>The muted profiles.</summary>
     [JsonPropertyName("mutes")]
-    public required List<ProfileView> Mutes { get; init; }
+    public required IReadOnlyList<ProfileView> Mutes { get; init; }
+
+    IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Mutes;
 }
 
 /// <summary>
 /// Response from getListMutes.
 /// </summary>
-public sealed class GetListMutesResponse
+public sealed class GetListMutesResponse : ICursorPage<ListView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -403,13 +416,15 @@ public sealed class GetListMutesResponse
 
     /// <summary>The lists.</summary>
     [JsonPropertyName("lists")]
-    public required List<ListView> Lists { get; init; }
+    public required IReadOnlyList<ListView> Lists { get; init; }
+
+    IReadOnlyList<ListView> ICursorPage<ListView>.Items => Lists;
 }
 
 /// <summary>
 /// Response from getListBlocks.
 /// </summary>
-public sealed class GetListBlocksResponse
+public sealed class GetListBlocksResponse : ICursorPage<ListView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -420,7 +435,9 @@ public sealed class GetListBlocksResponse
 
     /// <summary>The lists.</summary>
     [JsonPropertyName("lists")]
-    public required List<ListView> Lists { get; init; }
+    public required IReadOnlyList<ListView> Lists { get; init; }
+
+    IReadOnlyList<ListView> ICursorPage<ListView>.Items => Lists;
 }
 
 /// <summary>
@@ -430,7 +447,7 @@ public sealed class GetSuggestedFollowsByActorResponse
 {
     /// <summary>The suggested profiles.</summary>
     [JsonPropertyName("suggestions")]
-    public required List<ProfileView> Suggestions { get; init; }
+    public required IReadOnlyList<ProfileView> Suggestions { get; init; }
 
     /// <summary>
     /// Whether these are generic fallback suggestions rather than personalised ones.
@@ -442,21 +459,21 @@ public sealed class GetSuggestedFollowsByActorResponse
 /// <summary>
 /// Request body for muteActor / unmuteActor.
 /// </summary>
-public sealed class MuteActorRequest
+internal sealed class MuteActorRequest
 {
     /// <summary>The DID or handle of the actor to mute.</summary>
     [JsonPropertyName("actor")]
-    public required string Actor { get; init; }
+    public required AtIdentifier Actor { get; init; }
 }
 
 /// <summary>
 /// Request body for muteActorList / unmuteActorList.
 /// </summary>
-public sealed class MuteActorListRequest
+internal sealed class MuteActorListRequest
 {
     /// <summary>The AT-URI of the list to mute.</summary>
     [JsonPropertyName("list")]
-    public required string List { get; init; }
+    public required AtUri List { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -482,19 +499,19 @@ public sealed class StarterPackRecord : LexObject
 
     /// <summary>Rich-text facets (mentions, links, tags) applied to the description.</summary>
     [JsonPropertyName("descriptionFacets")]
-    public List<Facet>? DescriptionFacets { get; init; }
+    public IReadOnlyList<Facet>? DescriptionFacets { get; init; }
 
     /// <summary>The AT-URI of the list of accounts in the pack.</summary>
     [JsonPropertyName("list")]
-    public required string List { get; init; }
+    public required AtUri List { get; init; }
 
     /// <summary>The AT-URIs of feeds included in the pack.</summary>
     [JsonPropertyName("feeds")]
-    public List<StarterPackFeedItem>? Feeds { get; init; }
+    public IReadOnlyList<StarterPackFeedItem>? Feeds { get; init; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>Timestamp of creation.</summary>
     [JsonPropertyName("createdAt")]
-    public required string CreatedAt { get; init; }
+    public required AtDatetime CreatedAt { get; init; }
 }
 
 /// <summary>
@@ -504,7 +521,7 @@ public sealed class StarterPackFeedItem : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 }
 
 /// <summary>
@@ -514,11 +531,11 @@ public sealed class StarterPackViewBasic : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public required string Cid { get; init; }
+    public required Cid Cid { get; init; }
 
     /// <summary>The record value.</summary>
     [JsonPropertyName("record")]
@@ -544,11 +561,11 @@ public sealed class StarterPackViewBasic : LexObject
 
     /// <summary>The labels applied to this subject.</summary>
     [JsonPropertyName("labels")]
-    public List<Label>? Labels { get; init; }
+    public IReadOnlyList<Label>? Labels { get; init; }
 
-    /// <summary>Timestamp at which the app view indexed this data (ISO 8601).</summary>
+    /// <summary>Timestamp at which the app view indexed this data.</summary>
     [JsonPropertyName("indexedAt")]
-    public required string IndexedAt { get; init; }
+    public required AtDatetime IndexedAt { get; init; }
 }
 
 /// <summary>
@@ -558,11 +575,11 @@ public sealed class StarterPackView : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public required string Cid { get; init; }
+    public required Cid Cid { get; init; }
 
     /// <summary>The record value.</summary>
     [JsonPropertyName("record")]
@@ -578,11 +595,11 @@ public sealed class StarterPackView : LexObject
 
     /// <summary>A sample of the list's members.</summary>
     [JsonPropertyName("listItemsSample")]
-    public List<ListItemView>? ListItemsSample { get; init; }
+    public IReadOnlyList<ListItemView>? ListItemsSample { get; init; }
 
     /// <summary>The feed generators included in the pack.</summary>
     [JsonPropertyName("feeds")]
-    public List<JsonElement>? Feeds { get; init; }
+    public IReadOnlyList<JsonElement>? Feeds { get; init; }
 
     /// <summary>
     /// The number of accounts that joined via this starter pack in the last week.
@@ -596,11 +613,11 @@ public sealed class StarterPackView : LexObject
 
     /// <summary>The labels applied to this subject.</summary>
     [JsonPropertyName("labels")]
-    public List<Label>? Labels { get; init; }
+    public IReadOnlyList<Label>? Labels { get; init; }
 
-    /// <summary>Timestamp at which the app view indexed this data (ISO 8601).</summary>
+    /// <summary>Timestamp at which the app view indexed this data.</summary>
     [JsonPropertyName("indexedAt")]
-    public required string IndexedAt { get; init; }
+    public required AtDatetime IndexedAt { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -618,19 +635,19 @@ public sealed class Relationship : LexObject
 
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 
     /// <summary>
     /// The AT-URI of the viewer's follow record, if the viewer follows this actor.
     /// </summary>
     [JsonPropertyName("following")]
-    public string? Following { get; init; }
+    public AtUri? Following { get; init; }
 
     /// <summary>
     /// The AT-URI of the subject's follow record, if the subject follows the viewer.
     /// </summary>
     [JsonPropertyName("followedBy")]
-    public string? FollowedBy { get; init; }
+    public AtUri? FollowedBy { get; init; }
 }
 
 /// <summary>
@@ -644,7 +661,7 @@ public sealed class NotFoundActor : LexObject
 
     /// <summary>The DID or handle that could not be resolved.</summary>
     [JsonPropertyName("actor")]
-    public required string Actor { get; init; }
+    public required AtIdentifier Actor { get; init; }
 
     /// <summary>
     /// Always <see langword="true"/>; marks the referenced subject as unavailable.
@@ -664,17 +681,17 @@ public sealed class GetRelationshipsResponse
 {
     /// <summary>The DID of the actor the relationships are relative to.</summary>
     [JsonPropertyName("actor")]
-    public string? Actor { get; init; }
+    public Did? Actor { get; init; }
 
     /// <summary>The relationships between the actor and each of the requested accounts.</summary>
     [JsonPropertyName("relationships")]
-    public required List<JsonElement> Relationships { get; init; }
+    public required IReadOnlyList<JsonElement> Relationships { get; init; }
 }
 
 /// <summary>
 /// Response from getKnownFollowers.
 /// </summary>
-public sealed class GetKnownFollowersResponse
+public sealed class GetKnownFollowersResponse : ICursorPage<ProfileView>
 {
     /// <summary>The profile of the account whose known followers these are.</summary>
     [JsonPropertyName("subject")]
@@ -689,7 +706,9 @@ public sealed class GetKnownFollowersResponse
 
     /// <summary>The follower profiles.</summary>
     [JsonPropertyName("followers")]
-    public required List<ProfileView> Followers { get; init; }
+    public required IReadOnlyList<ProfileView> Followers { get; init; }
+
+    IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Followers;
 }
 
 /// <summary>
@@ -709,13 +728,13 @@ public sealed class GetStarterPacksResponse
 {
     /// <summary>The starter packs.</summary>
     [JsonPropertyName("starterPacks")]
-    public required List<StarterPackViewBasic> StarterPacks { get; init; }
+    public required IReadOnlyList<StarterPackViewBasic> StarterPacks { get; init; }
 }
 
 /// <summary>
 /// Response from getActorStarterPacks.
 /// </summary>
-public sealed class GetActorStarterPacksResponse
+public sealed class GetActorStarterPacksResponse : ICursorPage<StarterPackViewBasic>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -726,13 +745,15 @@ public sealed class GetActorStarterPacksResponse
 
     /// <summary>The starter packs.</summary>
     [JsonPropertyName("starterPacks")]
-    public required List<StarterPackViewBasic> StarterPacks { get; init; }
+    public required IReadOnlyList<StarterPackViewBasic> StarterPacks { get; init; }
+
+    IReadOnlyList<StarterPackViewBasic> ICursorPage<StarterPackViewBasic>.Items => StarterPacks;
 }
 
 /// <summary>
 /// Response from searchStarterPacks.
 /// </summary>
-public sealed class SearchStarterPacksResponse
+public sealed class SearchStarterPacksResponse : ICursorPage<StarterPackViewBasic>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -743,15 +764,17 @@ public sealed class SearchStarterPacksResponse
 
     /// <summary>The starter packs.</summary>
     [JsonPropertyName("starterPacks")]
-    public required List<StarterPackViewBasic> StarterPacks { get; init; }
+    public required IReadOnlyList<StarterPackViewBasic> StarterPacks { get; init; }
+
+    IReadOnlyList<StarterPackViewBasic> ICursorPage<StarterPackViewBasic>.Items => StarterPacks;
 }
 
 /// <summary>
 /// Request body for muteThread / unmuteThread.
 /// </summary>
-public sealed class MuteThreadRequest
+internal sealed class MuteThreadRequest
 {
     /// <summary>The AT-URI of the root post of the thread to mute.</summary>
     [JsonPropertyName("root")]
-    public required string Root { get; init; }
+    public required AtUri Root { get; init; }
 }

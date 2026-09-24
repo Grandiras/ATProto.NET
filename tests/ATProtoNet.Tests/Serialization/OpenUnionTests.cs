@@ -75,8 +75,8 @@ public class OpenUnionTests
         var json =
             $$$"""
             {"feed":[
-              {"post":{"uri":"at://did:plc:a/app.bsky.feed.post/1","cid":"bafy1","author":{"did":"did:plc:a","handle":"a.test"},"record":{},"embed":{{{embed}}},"likeCount":3,"indexedAt":"2026-01-01T00:00:00Z"}},
-              {"post":{"uri":"at://did:plc:b/app.bsky.feed.post/2","cid":"bafy2","author":{"did":"did:plc:b","handle":"b.test"},"record":{},"indexedAt":"2026-01-01T00:00:00Z"}}
+              {"post":{"uri":"at://did:plc:a/app.bsky.feed.post/1","cid":"bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm","author":{"did":"did:plc:a","handle":"a.test"},"record":{},"embed":{{{embed}}},"likeCount":3,"indexedAt":"2026-01-01T00:00:00Z"}},
+              {"post":{"uri":"at://did:plc:b/app.bsky.feed.post/2","cid":"bafyreibfvbgr6icdhm4nd7xcqyjqgkmbro2za6tvtm7krghw5wm5lecwq4","author":{"did":"did:plc:b","handle":"b.test"},"record":{},"indexedAt":"2026-01-01T00:00:00Z"}}
             ]}
             """;
 
@@ -95,7 +95,7 @@ public class OpenUnionTests
         const string json =
             """
             {"thread":{"$type":"app.bsky.feed.defs#threadViewPost",
-              "post":{"uri":"at://did:plc:a/app.bsky.feed.post/1","cid":"bafy1","author":{"did":"did:plc:a","handle":"a.test"},"record":{},"indexedAt":"2026-01-01T00:00:00Z"},
+              "post":{"uri":"at://did:plc:a/app.bsky.feed.post/1","cid":"bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm","author":{"did":"did:plc:a","handle":"a.test"},"record":{},"indexedAt":"2026-01-01T00:00:00Z"},
               "replies":[
                 {"$type":"app.bsky.feed.defs#threadFuture","uri":"at://did:plc:b/app.bsky.feed.post/2"},
                 {"uri":"at://did:plc:c/app.bsky.feed.post/3","notFound":true,"$type":"app.bsky.feed.defs#notFoundPost"}

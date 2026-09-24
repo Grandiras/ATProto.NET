@@ -5,7 +5,7 @@
         @if (Post.Author.Avatar is not null)
         {
             <img class="atproto-post-avatar" src="@Post.Author.Avatar"
-                 alt="@(Post.Author.DisplayName ?? Post.Author.Handle)"
+                 alt="@(Post.Author.DisplayName ?? Post.Author.Handle.Value)"
                  loading="lazy" />
         }
 
@@ -120,9 +120,9 @@
         _ => null,
     };
 
-    private static string FormatTime(string indexedAt)
+    private static string FormatTime(AtDatetime indexedAt)
     {
-        if (DateTimeOffset.TryParse(indexedAt, out var dt))
+        if (indexedAt.TryGetValue(out var dt))
         {
             var elapsed = DateTimeOffset.UtcNow - dt;
             return elapsed.TotalMinutes < 1 ? "just now"
@@ -131,7 +131,7 @@
                 : elapsed.TotalDays < 7 ? $"{(int)elapsed.TotalDays}d"
                 : dt.ToString("MMM d");
         }
-        return indexedAt;
+        return indexedAt.ToString();
     }
 
     private Task HandleReply() => OnReply.InvokeAsync(Post);

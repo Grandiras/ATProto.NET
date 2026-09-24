@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Labeler;
 
 namespace ATProtoNet.Tests.Lexicon.App.Bsky.Labeler;
@@ -34,7 +35,7 @@ public class LabelerModelsTests
                     }
                 ]
             },
-            CreatedAt = "2024-01-01T00:00:00Z",
+            CreatedAt = AtDatetime.Parse("2024-01-01T00:00:00Z"),
         };
 
         var json = JsonSerializer.Serialize(record);
@@ -61,7 +62,7 @@ public class LabelerModelsTests
         var json = """
         {
             "uri": "at://did:plc:labeler1/app.bsky.labeler.service/self",
-            "cid": "bafyreia123",
+            "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm",
             "creator": { "did": "did:plc:labeler1", "handle": "mod.bsky.social" },
             "likeCount": 42,
             "indexedAt": "2024-01-01T00:00:00Z",
@@ -86,7 +87,7 @@ public class LabelerModelsTests
 
         Assert.NotNull(view);
         Assert.Equal("at://did:plc:labeler1/app.bsky.labeler.service/self", view.Uri);
-        Assert.Equal("bafyreia123", view.Cid);
+        Assert.Equal("bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", view.Cid);
         Assert.Equal(42, view.LikeCount);
         Assert.NotNull(view.Policies);
         Assert.Equal(2, view.Policies.LabelValues!.Count);
@@ -101,7 +102,7 @@ public class LabelerModelsTests
         var json = """
         {
             "uri": "at://did:plc:labeler1/app.bsky.labeler.service/self",
-            "cid": "bafyreia456",
+            "cid": "bafyreibfvbgr6icdhm4nd7xcqyjqgkmbro2za6tvtm7krghw5wm5lecwq4",
             "creator": { "did": "did:plc:labeler1" },
             "indexedAt": "2024-06-01T00:00:00Z"
         }

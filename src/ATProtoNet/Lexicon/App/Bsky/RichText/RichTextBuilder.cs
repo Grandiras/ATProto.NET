@@ -1,4 +1,5 @@
 using System.Text;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.App.Bsky.RichText;
 
@@ -27,8 +28,11 @@ public sealed class RichTextBuilder
     /// </summary>
     /// <param name="handle">The handle to display (without @).</param>
     /// <param name="did">The DID of the mentioned user.</param>
-    public RichTextBuilder Mention(string handle, string did)
+    public RichTextBuilder Mention(Handle handle, Did did)
     {
+        ArgumentNullException.ThrowIfNull(handle);
+        ArgumentNullException.ThrowIfNull(did);
+
         var displayText = $"@{handle}";
         var byteCount = Encoding.UTF8.GetByteCount(displayText);
 
@@ -106,8 +110,12 @@ public sealed class RichTextBuilder
     /// <summary>
     /// Build the rich text result.
     /// </summary>
-    public (string Text, List<Facet>? Facets) Build()
+    /// <returns>
+    /// The text and its facets, or <see langword="null"/> facets when there are none. The facets
+    /// are a snapshot: appending to the builder afterwards does not change them.
+    /// </returns>
+    public (string Text, IReadOnlyList<Facet>? Facets) Build()
     {
-        return (_text.ToString(), _facets.Count > 0 ? _facets : null);
+        return (_text.ToString(), _facets.Count > 0 ? [.. _facets] : null);
     }
 }

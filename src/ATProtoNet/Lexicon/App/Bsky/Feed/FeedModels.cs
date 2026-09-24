@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Actor;
 using ATProtoNet.Lexicon.App.Bsky.Embed;
 using ATProtoNet.Lexicon.App.Bsky.RichText;
@@ -28,7 +29,7 @@ public sealed class PostRecord : LexObject
 
     /// <summary>Rich-text facets (mentions, links, hashtags).</summary>
     [JsonPropertyName("facets")]
-    public List<Facet>? Facets { get; init; }
+    public IReadOnlyList<Facet>? Facets { get; init; }
 
     /// <summary>Reply reference (parent and root post).</summary>
     [JsonPropertyName("reply")]
@@ -40,7 +41,7 @@ public sealed class PostRecord : LexObject
 
     /// <summary>Language tags for the post (BCP-47).</summary>
     [JsonPropertyName("langs")]
-    public List<string>? Langs { get; init; }
+    public IReadOnlyList<string>? Langs { get; init; }
 
     /// <summary>Self-applied labels for content warnings.</summary>
     [JsonPropertyName("labels")]
@@ -48,11 +49,11 @@ public sealed class PostRecord : LexObject
 
     /// <summary>Additional tags (up to 8, max 640 chars each).</summary>
     [JsonPropertyName("tags")]
-    public List<string>? Tags { get; init; }
+    public IReadOnlyList<string>? Tags { get; init; }
 
-    /// <summary>Timestamp of post creation (ISO 8601).</summary>
+    /// <summary>Timestamp of post creation.</summary>
     [JsonPropertyName("createdAt")]
-    public required string CreatedAt { get; init; }
+    public required AtDatetime CreatedAt { get; init; }
 }
 
 /// <summary>
@@ -82,7 +83,7 @@ public sealed class SelfLabels : LexObject
 
     /// <summary>The self-applied labels.</summary>
     [JsonPropertyName("values")]
-    public required List<SelfLabelValue> Values { get; init; }
+    public required IReadOnlyList<SelfLabelValue> Values { get; init; }
 }
 
 /// <summary>
@@ -112,9 +113,9 @@ public sealed class LikeRecord : LexObject
     [JsonPropertyName("subject")]
     public required StrongRef Subject { get; init; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>Timestamp of creation.</summary>
     [JsonPropertyName("createdAt")]
-    public required string CreatedAt { get; init; }
+    public required AtDatetime CreatedAt { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -134,9 +135,9 @@ public sealed class RepostRecord : LexObject
     [JsonPropertyName("subject")]
     public required StrongRef Subject { get; init; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>Timestamp of creation.</summary>
     [JsonPropertyName("createdAt")]
-    public required string CreatedAt { get; init; }
+    public required AtDatetime CreatedAt { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -155,22 +156,22 @@ public sealed class ThreadgateRecord : LexObject
 
     /// <summary>The AT-URI of the post this threadgate applies to.</summary>
     [JsonPropertyName("post")]
-    public required string Post { get; init; }
+    public required AtUri Post { get; init; }
 
     /// <summary>
     /// The rules controlling who may reply. An empty list disables replies entirely; <see
     /// langword="null"/> allows everyone.
     /// </summary>
     [JsonPropertyName("allow")]
-    public List<JsonElement>? Allow { get; init; }
+    public IReadOnlyList<JsonElement>? Allow { get; init; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>Timestamp of creation.</summary>
     [JsonPropertyName("createdAt")]
-    public required string CreatedAt { get; init; }
+    public required AtDatetime CreatedAt { get; init; }
 
     /// <summary>The AT-URIs of replies hidden by the thread author.</summary>
     [JsonPropertyName("hiddenReplies")]
-    public List<string>? HiddenReplies { get; init; }
+    public IReadOnlyList<AtUri>? HiddenReplies { get; init; }
 }
 
 /// <summary>
@@ -185,19 +186,19 @@ public sealed class PostgateRecord : LexObject
 
     /// <summary>The AT-URI of the post this postgate applies to.</summary>
     [JsonPropertyName("post")]
-    public required string Post { get; init; }
+    public required AtUri Post { get; init; }
 
     /// <summary>The AT-URIs of quote posts the author has detached.</summary>
     [JsonPropertyName("detachedEmbeddingUris")]
-    public List<string>? DetachedEmbeddingUris { get; init; }
+    public IReadOnlyList<AtUri>? DetachedEmbeddingUris { get; init; }
 
     /// <summary>The rules controlling who may quote this post.</summary>
     [JsonPropertyName("embeddingRules")]
-    public List<JsonElement>? EmbeddingRules { get; init; }
+    public IReadOnlyList<JsonElement>? EmbeddingRules { get; init; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>Timestamp of creation.</summary>
     [JsonPropertyName("createdAt")]
-    public required string CreatedAt { get; init; }
+    public required AtDatetime CreatedAt { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -215,7 +216,7 @@ public sealed class GeneratorRecord : LexObject
 
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 
     /// <summary>The human-readable display name.</summary>
     [JsonPropertyName("displayName")]
@@ -227,7 +228,7 @@ public sealed class GeneratorRecord : LexObject
 
     /// <summary>Rich-text facets (mentions, links, tags) applied to the description.</summary>
     [JsonPropertyName("descriptionFacets")]
-    public List<Facet>? DescriptionFacets { get; init; }
+    public IReadOnlyList<Facet>? DescriptionFacets { get; init; }
 
     /// <summary>The avatar image.</summary>
     [JsonPropertyName("avatar")]
@@ -241,9 +242,9 @@ public sealed class GeneratorRecord : LexObject
     [JsonPropertyName("labels")]
     public SelfLabels? Labels { get; init; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>Timestamp of creation.</summary>
     [JsonPropertyName("createdAt")]
-    public required string CreatedAt { get; init; }
+    public required AtDatetime CreatedAt { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -257,11 +258,11 @@ public sealed class PostView : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public required string Cid { get; init; }
+    public required Cid Cid { get; init; }
 
     /// <summary>The account that authored the post.</summary>
     [JsonPropertyName("author")]
@@ -291,9 +292,9 @@ public sealed class PostView : LexObject
     [JsonPropertyName("quoteCount")]
     public int? QuoteCount { get; init; }
 
-    /// <summary>Timestamp at which the app view indexed this data (ISO 8601).</summary>
+    /// <summary>Timestamp at which the app view indexed this data.</summary>
     [JsonPropertyName("indexedAt")]
-    public required string IndexedAt { get; init; }
+    public required AtDatetime IndexedAt { get; init; }
 
     /// <summary>The requesting account's relationship to this subject.</summary>
     [JsonPropertyName("viewer")]
@@ -301,7 +302,7 @@ public sealed class PostView : LexObject
 
     /// <summary>The labels applied to this subject.</summary>
     [JsonPropertyName("labels")]
-    public List<Label>? Labels { get; init; }
+    public IReadOnlyList<Label>? Labels { get; init; }
 
     /// <summary>The threadgate record controlling who may reply.</summary>
     [JsonPropertyName("threadgate")]
@@ -315,11 +316,11 @@ public sealed class PostViewerState : LexObject
 {
     /// <summary>AT-URI of the viewer's like record, if liked.</summary>
     [JsonPropertyName("like")]
-    public string? Like { get; init; }
+    public AtUri? Like { get; init; }
 
     /// <summary>AT-URI of the viewer's repost record, if reposted.</summary>
     [JsonPropertyName("repost")]
-    public string? Repost { get; init; }
+    public AtUri? Repost { get; init; }
 
     /// <summary>Whether the viewer has muted this thread.</summary>
     [JsonPropertyName("threadMuted")]
@@ -433,7 +434,7 @@ public sealed class ThreadViewPost : ThreadNode
 
     /// <summary>The replies to this post.</summary>
     [JsonPropertyName("replies")]
-    public List<ThreadNode>? Replies { get; init; }
+    public IReadOnlyList<ThreadNode>? Replies { get; init; }
 }
 
 /// <summary>
@@ -443,7 +444,7 @@ public sealed class NotFoundPost : ThreadNode
 {
     /// <summary>The AT-URI of the post that could not be found.</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 
     /// <summary>
     /// Always <see langword="true"/>; marks the referenced subject as unavailable.
@@ -459,7 +460,7 @@ public sealed class BlockedPost : ThreadNode
 {
     /// <summary>The AT-URI of the blocked post.</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 
     /// <summary>Whether the subject is blocked.</summary>
     [JsonPropertyName("blocked")]
@@ -481,15 +482,15 @@ public sealed class GeneratorView : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public required string Cid { get; init; }
+    public required Cid Cid { get; init; }
 
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 
     /// <summary>The account that created this.</summary>
     [JsonPropertyName("creator")]
@@ -505,7 +506,7 @@ public sealed class GeneratorView : LexObject
 
     /// <summary>Rich-text facets (mentions, links, tags) applied to the description.</summary>
     [JsonPropertyName("descriptionFacets")]
-    public List<Facet>? DescriptionFacets { get; init; }
+    public IReadOnlyList<Facet>? DescriptionFacets { get; init; }
 
     /// <summary>The avatar image.</summary>
     [JsonPropertyName("avatar")]
@@ -521,15 +522,15 @@ public sealed class GeneratorView : LexObject
 
     /// <summary>The labels applied to this subject.</summary>
     [JsonPropertyName("labels")]
-    public List<Label>? Labels { get; init; }
+    public IReadOnlyList<Label>? Labels { get; init; }
 
     /// <summary>The requesting account's relationship to this subject.</summary>
     [JsonPropertyName("viewer")]
     public GeneratorViewerState? Viewer { get; init; }
 
-    /// <summary>Timestamp at which the app view indexed this data (ISO 8601).</summary>
+    /// <summary>Timestamp at which the app view indexed this data.</summary>
     [JsonPropertyName("indexedAt")]
-    public required string IndexedAt { get; init; }
+    public required AtDatetime IndexedAt { get; init; }
 }
 
 /// <summary>
@@ -539,7 +540,7 @@ public sealed class GeneratorViewerState : LexObject
 {
     /// <summary>The AT-URI of the viewer's like record, if they have liked this.</summary>
     [JsonPropertyName("like")]
-    public string? Like { get; init; }
+    public AtUri? Like { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -549,7 +550,7 @@ public sealed class GeneratorViewerState : LexObject
 /// <summary>
 /// Response from getTimeline / getAuthorFeed / getFeed / getListFeed.
 /// </summary>
-public sealed class FeedResponse
+public sealed class FeedResponse : ICursorPage<FeedViewPost>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -560,7 +561,9 @@ public sealed class FeedResponse
 
     /// <summary>The feed items.</summary>
     [JsonPropertyName("feed")]
-    public required List<FeedViewPost> Feed { get; init; }
+    public required IReadOnlyList<FeedViewPost> Feed { get; init; }
+
+    IReadOnlyList<FeedViewPost> ICursorPage<FeedViewPost>.Items => Feed;
 }
 
 /// <summary>
@@ -584,13 +587,13 @@ public sealed class GetPostsResponse
 {
     /// <summary>The posts.</summary>
     [JsonPropertyName("posts")]
-    public required List<PostView> Posts { get; init; }
+    public required IReadOnlyList<PostView> Posts { get; init; }
 }
 
 /// <summary>
 /// Response from getLikes.
 /// </summary>
-public sealed class GetLikesResponse
+public sealed class GetLikesResponse : ICursorPage<LikeInfo>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -601,15 +604,17 @@ public sealed class GetLikesResponse
 
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public string? Cid { get; init; }
+    public Cid? Cid { get; init; }
 
     /// <summary>The likes.</summary>
     [JsonPropertyName("likes")]
-    public required List<LikeInfo> Likes { get; init; }
+    public required IReadOnlyList<LikeInfo> Likes { get; init; }
+
+    IReadOnlyList<LikeInfo> ICursorPage<LikeInfo>.Items => Likes;
 }
 
 /// <summary>
@@ -617,13 +622,13 @@ public sealed class GetLikesResponse
 /// </summary>
 public sealed class LikeInfo : LexObject
 {
-    /// <summary>Timestamp at which the app view indexed this data (ISO 8601).</summary>
+    /// <summary>Timestamp at which the app view indexed this data.</summary>
     [JsonPropertyName("indexedAt")]
-    public required string IndexedAt { get; init; }
+    public required AtDatetime IndexedAt { get; init; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>Timestamp of creation.</summary>
     [JsonPropertyName("createdAt")]
-    public required string CreatedAt { get; init; }
+    public required AtDatetime CreatedAt { get; init; }
 
     /// <summary>The account that liked the subject.</summary>
     [JsonPropertyName("actor")]
@@ -633,7 +638,7 @@ public sealed class LikeInfo : LexObject
 /// <summary>
 /// Response from getRepostedBy.
 /// </summary>
-public sealed class GetRepostedByResponse
+public sealed class GetRepostedByResponse : ICursorPage<ProfileView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -644,21 +649,23 @@ public sealed class GetRepostedByResponse
 
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public string? Cid { get; init; }
+    public Cid? Cid { get; init; }
 
     /// <summary>The profiles that reposted the post.</summary>
     [JsonPropertyName("repostedBy")]
-    public required List<ProfileView> RepostedBy { get; init; }
+    public required IReadOnlyList<ProfileView> RepostedBy { get; init; }
+
+    IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => RepostedBy;
 }
 
 /// <summary>
 /// Response from getQuotes.
 /// </summary>
-public sealed class GetQuotesResponse
+public sealed class GetQuotesResponse : ICursorPage<PostView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -669,15 +676,17 @@ public sealed class GetQuotesResponse
 
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public string? Cid { get; init; }
+    public Cid? Cid { get; init; }
 
     /// <summary>The posts.</summary>
     [JsonPropertyName("posts")]
-    public required List<PostView> Posts { get; init; }
+    public required IReadOnlyList<PostView> Posts { get; init; }
+
+    IReadOnlyList<PostView> ICursorPage<PostView>.Items => Posts;
 }
 
 /// <summary>
@@ -705,13 +714,13 @@ public sealed class GetFeedGeneratorsResponse
 {
     /// <summary>The feed generators.</summary>
     [JsonPropertyName("feeds")]
-    public required List<GeneratorView> Feeds { get; init; }
+    public required IReadOnlyList<GeneratorView> Feeds { get; init; }
 }
 
 /// <summary>
 /// Response from getActorFeeds.
 /// </summary>
-public sealed class GetActorFeedsResponse
+public sealed class GetActorFeedsResponse : ICursorPage<GeneratorView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -722,13 +731,15 @@ public sealed class GetActorFeedsResponse
 
     /// <summary>The feed generators.</summary>
     [JsonPropertyName("feeds")]
-    public required List<GeneratorView> Feeds { get; init; }
+    public required IReadOnlyList<GeneratorView> Feeds { get; init; }
+
+    IReadOnlyList<GeneratorView> ICursorPage<GeneratorView>.Items => Feeds;
 }
 
 /// <summary>
 /// Response from getSuggestedFeeds.
 /// </summary>
-public sealed class GetSuggestedFeedsResponse
+public sealed class GetSuggestedFeedsResponse : ICursorPage<GeneratorView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -739,13 +750,15 @@ public sealed class GetSuggestedFeedsResponse
 
     /// <summary>The feed generators.</summary>
     [JsonPropertyName("feeds")]
-    public required List<GeneratorView> Feeds { get; init; }
+    public required IReadOnlyList<GeneratorView> Feeds { get; init; }
+
+    IReadOnlyList<GeneratorView> ICursorPage<GeneratorView>.Items => Feeds;
 }
 
 /// <summary>
 /// Response from searchPosts.
 /// </summary>
-public sealed class SearchPostsResponse
+public sealed class SearchPostsResponse : ICursorPage<PostView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -760,7 +773,9 @@ public sealed class SearchPostsResponse
 
     /// <summary>The posts.</summary>
     [JsonPropertyName("posts")]
-    public required List<PostView> Posts { get; init; }
+    public required IReadOnlyList<PostView> Posts { get; init; }
+
+    IReadOnlyList<PostView> ICursorPage<PostView>.Items => Posts;
 }
 
 /// <summary>
@@ -770,11 +785,11 @@ public sealed class DescribeFeedGeneratorResponse
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 
     /// <summary>The feed generators.</summary>
     [JsonPropertyName("feeds")]
-    public required List<DescribeFeedGeneratorFeed> Feeds { get; init; }
+    public required IReadOnlyList<DescribeFeedGeneratorFeed> Feeds { get; init; }
 
     /// <summary>Links to the server's policy documents.</summary>
     [JsonPropertyName("links")]
@@ -788,13 +803,13 @@ public sealed class DescribeFeedGeneratorFeed : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 }
 
 /// <summary>
 /// Response from getFeedSkeleton (for feed generators).
 /// </summary>
-public sealed class GetFeedSkeletonResponse
+public sealed class GetFeedSkeletonResponse : ICursorPage<SkeletonFeedPost>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -805,7 +820,9 @@ public sealed class GetFeedSkeletonResponse
 
     /// <summary>The feed items.</summary>
     [JsonPropertyName("feed")]
-    public required List<SkeletonFeedPost> Feed { get; init; }
+    public required IReadOnlyList<SkeletonFeedPost> Feed { get; init; }
+
+    IReadOnlyList<SkeletonFeedPost> ICursorPage<SkeletonFeedPost>.Items => Feed;
 }
 
 /// <summary>
@@ -815,7 +832,7 @@ public sealed class SkeletonFeedPost : LexObject
 {
     /// <summary>The AT-URI of the post.</summary>
     [JsonPropertyName("post")]
-    public required string Post { get; init; }
+    public required AtUri Post { get; init; }
 
     /// <summary>The reason this item appears in the feed (for example a repost).</summary>
     [JsonPropertyName("reason")]

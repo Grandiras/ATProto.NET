@@ -191,8 +191,8 @@ All are `sealed record`s supporting `Parse()`, `TryParse()`, `IParsable<T>`/`ISp
 read with, reads leniently (`IsValid`, `TryGetValue`, `Value`), and creates the canonical
 `yyyy-MM-ddTHH:mm:ss.fffZ` form from `Now()`, `FromDateTimeOffset` and `FromDateTime`.
 
-Every model and client in `ATProtoNet.Lexicon.Com.AtProto.*` uses these types for identifier and
-`datetime` fields.
+Every model and client in `ATProtoNet.Lexicon.Com.AtProto.*` and `ATProtoNet.Lexicon.App.Bsky.*` uses
+these types for identifier and `datetime` fields.
 
 ## Pagination
 
@@ -211,6 +211,29 @@ returns no cursor, an empty one, or one it already returned.
 | `Sync.EnumerateHostsAsync(pageSize?)` | `com.atproto.sync.listHosts` |
 | `Label.EnumerateLabelsAsync(uriPatterns, sources?, pageSize?)` | `com.atproto.label.queryLabels` |
 | `Admin.EnumerateInviteCodesAsync(sort?, pageSize?)` | `com.atproto.admin.getInviteCodes` |
+| `Bsky.Actor.EnumerateSuggestionsAsync(pageSize?)` | `app.bsky.actor.getSuggestions` |
+| `Bsky.Actor.EnumerateSearchActorsAsync(q, pageSize?)` | `app.bsky.actor.searchActors` |
+| `Bsky.Feed.EnumerateTimelineAsync(algorithm?, pageSize?)` | `app.bsky.feed.getTimeline` |
+| `Bsky.Feed.EnumerateAuthorFeedAsync(actor, filter?, includePins?, pageSize?)` | `app.bsky.feed.getAuthorFeed` |
+| `Bsky.Feed.EnumerateFeedAsync(feed, pageSize?)` | `app.bsky.feed.getFeed` |
+| `Bsky.Feed.EnumerateListFeedAsync(list, pageSize?)` | `app.bsky.feed.getListFeed` |
+| `Bsky.Feed.EnumerateActorLikesAsync(actor, pageSize?)` | `app.bsky.feed.getActorLikes` |
+| `Bsky.Feed.EnumerateLikesAsync(uri, cid?, pageSize?)` | `app.bsky.feed.getLikes` |
+| `Bsky.Feed.EnumerateRepostedByAsync(uri, cid?, pageSize?)` | `app.bsky.feed.getRepostedBy` |
+| `Bsky.Feed.EnumerateQuotesAsync(uri, cid?, pageSize?)` | `app.bsky.feed.getQuotes` |
+| `Bsky.Feed.EnumerateActorFeedsAsync(actor, pageSize?)` | `app.bsky.feed.getActorFeeds` |
+| `Bsky.Feed.EnumerateSuggestedFeedsAsync(pageSize?)` | `app.bsky.feed.getSuggestedFeeds` |
+| `Bsky.Feed.EnumerateSearchPostsAsync(q, sort?, since?, until?, …, pageSize?)` | `app.bsky.feed.searchPosts` |
+| `Bsky.Graph.EnumerateFollowersAsync(actor, pageSize?)` | `app.bsky.graph.getFollowers` |
+| `Bsky.Graph.EnumerateFollowsAsync(actor, pageSize?)` | `app.bsky.graph.getFollows` |
+| `Bsky.Graph.EnumerateKnownFollowersAsync(actor, pageSize?)` | `app.bsky.graph.getKnownFollowers` |
+| `Bsky.Graph.EnumerateBlocksAsync(pageSize?)` / `EnumerateMutesAsync(pageSize?)` | `app.bsky.graph.getBlocks` / `getMutes` |
+| `Bsky.Graph.EnumerateListsAsync(actor, pageSize?)` | `app.bsky.graph.getLists` |
+| `Bsky.Graph.EnumerateListMembersAsync(list, pageSize?)` | `app.bsky.graph.getList` (its `items`) |
+| `Bsky.Graph.EnumerateListBlocksAsync(pageSize?)` / `EnumerateListMutesAsync(pageSize?)` | `app.bsky.graph.getListBlocks` / `getListMutes` |
+| `Bsky.Graph.EnumerateActorStarterPacksAsync(actor, pageSize?)` | `app.bsky.graph.getActorStarterPacks` |
+| `Bsky.Graph.EnumerateSearchStarterPacksAsync(query, pageSize?)` | `app.bsky.graph.searchStarterPacks` |
+| `Bsky.Notification.EnumerateNotificationsAsync(priority?, seenAt?, pageSize?)` | `app.bsky.notification.listNotifications` |
 | `RecordCollection<T>.EnumerateAsync` / `EnumerateFromAsync` | `com.atproto.repo.listRecords`, deserialized |
 
 ---
@@ -382,7 +405,10 @@ method; `InnerException` is the `JsonException`.
 
 ## BlueskyClients (`app.bsky.*`)
 
-Accessed via `client.Bsky`.
+Accessed via `client.Bsky`. Actor parameters take an `AtIdentifier` (a `Did` or `Handle` converts
+implicitly), post, feed and list parameters an `AtUri`, and `seenAt` an `AtDatetime`; the view models
+carry the same types (`PostView.Uri` is an `AtUri`, `ProfileView.Did` a `Did`, `IndexedAt` an
+`AtDatetime`).
 
 | Property | Type | Description |
 |----------|------|-------------|
