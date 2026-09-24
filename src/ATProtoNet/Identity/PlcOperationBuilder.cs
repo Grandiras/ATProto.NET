@@ -1,3 +1,4 @@
+using System.Buffers.Text;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -106,7 +107,8 @@ public static class PlcOperationBuilder
         var signature = rotationKey.Sign(unsignedCbor);
 
         var signed = unsignedOperation.DeepClone().AsObject();
-        signed["sig"] = Base64Url.Encode(signature);
+        // The PLC spec carries the signature as unpadded base64url.
+        signed["sig"] = Base64Url.EncodeToString(signature);
 
         var signedCbor = DagCborEncoder.Encode(ToJsonElement(signed));
         return new PlcSignedOperation(DeriveDid(signedCbor), signed, signedCbor);
@@ -139,13 +141,4 @@ public sealed record PlcSignedOperation(string Did, JsonObject Operation, byte[]
 {
     /// <summary>Renders the operation as the JSON body a PLC directory expects.</summary>
     public string ToJson() => Operation.ToJsonString();
-}
-
-/// <summary>
-/// Unpadded base64url encoding, as used for PLC operation signatures.
-/// </summary>
-internal static class Base64Url
-{
-    public static string Encode(ReadOnlySpan<byte> data)
-        => Convert.ToBase64String(data).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }

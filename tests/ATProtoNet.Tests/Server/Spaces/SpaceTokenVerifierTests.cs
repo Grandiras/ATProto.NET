@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 using ATProtoNet.Auth;
 using ATProtoNet.Crypto;
 using ATProtoNet.Server.Spaces;
@@ -433,6 +432,38 @@ public class SpaceClientAttestationVerifierTests
     }
 
     [Fact]
+    public async Task VerifyAsync_PublishedKeyWithPaddedCoordinates_Verifies()
+    {
+        using var key = new TestDPoPKey();
+        var jwk = key.ToJsonWebKey("key-1");
+        jwk.X += "=";
+        jwk.Y += "=";
+        var resolver = new FakeClientMetadataResolver().Publish(ClientId, jwk);
+        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemorySpaceReplayStore());
+
+        var verified = await verifier.VerifyAsync(Attestation(key), Audience);
+
+        Assert.Equal(ClientId, verified.ClientId);
+    }
+
+    [Theory]
+    [InlineData("!!!!")]
+    [InlineData("AAAAA")]
+    public async Task VerifyAsync_PublishedKeyWithUndecodableCoordinates_IsRejected(string x)
+    {
+        using var key = new TestDPoPKey();
+        var jwk = key.ToJsonWebKey("key-1");
+        jwk.X = x;
+        var resolver = new FakeClientMetadataResolver().Publish(ClientId, jwk);
+        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemorySpaceReplayStore());
+
+        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
+            () => verifier.VerifyAsync(Attestation(key), Audience));
+
+        Assert.Equal("InvalidClientAttestation", ex.Error);
+    }
+
+    [Fact]
     public async Task VerifyAsync_SignedByAKeyTheClientDoesNotPublish_IsRejected()
     {
         // This is what makes an allow list of client IDs enforceable rather than advisory.
@@ -545,25 +576,26 @@ public class SpaceServiceAuthVerifierTests
     /// <see cref="ServiceAuthGenerator"/> would refuse to produce.
     /// </summary>
     private static string ServiceAuth(
-        AtProtoKey key, TimeSpan? lifetime = null, TimeSpan? issuedOffset = null, string? jti = null)
+        AtProtoKey key,
+        TimeSpan? lifetime = null,
+        TimeSpan? issuedOffset = null,
+        string? jti = null,
+        string audience = AuthorityDid,
+        JwsSegments padded = JwsSegments.None)
     {
         var now = DateTimeOffset.UtcNow;
         var header = new Dictionary<string, object> { ["typ"] = "JWT", ["alg"] = "ES256" };
         var payload = new Dictionary<string, object>
         {
             ["iss"] = HostDid,
-            ["aud"] = AuthorityDid,
+            ["aud"] = audience,
             ["lxm"] = SpaceNsids.NotifyWrite,
             ["iat"] = now.Add(issuedOffset ?? TimeSpan.Zero).ToUnixTimeSeconds(),
             ["exp"] = now.Add(lifetime ?? TimeSpan.FromSeconds(60)).ToUnixTimeSeconds(),
             ["jti"] = jti ?? Guid.NewGuid().ToString("N"),
         };
 
-        var headerB64 = TestDPoPKey.Base64Url(JsonSerializer.SerializeToUtf8Bytes(header));
-        var payloadB64 = TestDPoPKey.Base64Url(JsonSerializer.SerializeToUtf8Bytes(payload));
-        var signature = key.Sign(Encoding.UTF8.GetBytes($"{headerB64}.{payloadB64}"));
-
-        return $"{headerB64}.{payloadB64}.{TestDPoPKey.Base64Url(signature)}";
+        return TestJws.Mint(header, payload, input => key.Sign(input), padded);
     }
 
     private static SpaceServiceAuthVerifier CreateVerifier(AtProtoKey hostKey) =>
@@ -637,5 +669,99 @@ public class SpaceServiceAuthVerifierTests
 
         await Assert.ThrowsAsync<SpaceVerificationException>(
             () => verifier.VerifyAsync(ContextWith(jwt), AuthorityDid, SpaceNsids.NotifyWrite));
+    }
+
+    [Fact]
+    public async Task VerifyAsync_TokenForAnotherAudience_IsRejected()
+    {
+        using var hostKey = AtProtoCrypto.GenerateP256Key();
+
+        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
+            () => CreateVerifier(hostKey).VerifyAsync(
+                ContextWith(ServiceAuth(hostKey, audience: "did:plc:cccccccccccccccccccccccc")),
+                AuthorityDid,
+                SpaceNsids.NotifyWrite));
+
+        Assert.Contains("addressed to", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_TokenSignedByAnotherKey_IsRejected()
+    {
+        using var hostKey = AtProtoCrypto.GenerateP256Key();
+        using var otherKey = AtProtoCrypto.GenerateP256Key();
+
+        await Assert.ThrowsAsync<SpaceVerificationException>(
+            () => CreateVerifier(hostKey).VerifyAsync(
+                ContextWith(ServiceAuth(otherKey)), AuthorityDid, SpaceNsids.NotifyWrite));
+    }
+
+    [Theory]
+    [InlineData("a.b")]
+    [InlineData("a.b.c.d")]
+    [InlineData("not-a-jwt")]
+    public async Task VerifyAsync_NotThreeSegments_IsRejected(string jwt)
+    {
+        using var hostKey = AtProtoCrypto.GenerateP256Key();
+
+        await Assert.ThrowsAsync<SpaceVerificationException>(
+            () => CreateVerifier(hostKey).VerifyAsync(ContextWith(jwt), AuthorityDid, SpaceNsids.NotifyWrite));
+    }
+
+    [Fact]
+    public async Task VerifyAsync_NoBearerToken_IsRejected()
+    {
+        using var hostKey = AtProtoCrypto.GenerateP256Key();
+        var context = new DefaultHttpContext();
+        context.Request.Headers.Authorization = $"DPoP {ServiceAuth(hostKey)}";
+
+        await Assert.ThrowsAsync<SpaceVerificationException>(
+            () => CreateVerifier(hostKey).VerifyAsync(context, AuthorityDid, SpaceNsids.NotifyWrite));
+    }
+
+    [Theory]
+    [InlineData("not json")]
+    [InlineData("[1,2]")]
+    [InlineData("{\"iss\":")]
+    public async Task VerifyAsync_PayloadThatIsNotAJsonObject_IsRejected(string json)
+    {
+        using var hostKey = AtProtoCrypto.GenerateP256Key();
+        var jwt = TestJws.WithSegment(ServiceAuth(hostKey), 1, TestJws.Encode(Encoding.UTF8.GetBytes(json)));
+
+        await Assert.ThrowsAsync<SpaceVerificationException>(
+            () => CreateVerifier(hostKey).VerifyAsync(ContextWith(jwt), AuthorityDid, SpaceNsids.NotifyWrite));
+    }
+
+    [Theory]
+    [InlineData(JwsSegments.Header)]
+    [InlineData(JwsSegments.Payload)]
+    [InlineData(JwsSegments.Signature)]
+    [InlineData(JwsSegments.All)]
+    public async Task VerifyAsync_SegmentsWithBase64Padding_AreAccepted(JwsSegments padded)
+    {
+        using var hostKey = AtProtoCrypto.GenerateP256Key();
+
+        var verified = await CreateVerifier(hostKey).VerifyAsync(
+            ContextWith(ServiceAuth(hostKey, padded: padded)), AuthorityDid, SpaceNsids.NotifyWrite);
+
+        Assert.Equal(HostDid, verified.Issuer);
+    }
+
+    [Theory]
+    [InlineData(0, "!!!!")]
+    [InlineData(1, "!!!!")]
+    [InlineData(2, "!!!!")]
+    [InlineData(0, "AAAAA")]
+    [InlineData(1, "AAAAA")]
+    [InlineData(2, "AAAAA")]
+    public async Task VerifyAsync_SegmentThatIsNotBase64Url_IsRejected(int index, string segment)
+    {
+        using var hostKey = AtProtoCrypto.GenerateP256Key();
+        var jwt = TestJws.WithSegment(ServiceAuth(hostKey), index, segment);
+
+        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
+            () => CreateVerifier(hostKey).VerifyAsync(ContextWith(jwt), AuthorityDid, SpaceNsids.NotifyWrite));
+
+        Assert.Equal("NotAuthorized", ex.Error);
     }
 }

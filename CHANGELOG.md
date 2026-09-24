@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Open unions and unknown-field round-tripping for your own Lexicons** (#115) — mark a union base `[AtProtoUnion(typeof(UnknownX))]` to get the same forward compatibility as the SDK's unions, and derive models from `LexObject` to keep fields they do not declare. See "Unions and unknown fields" in `docs/custom-records.md`.
 - **`app.bsky.embed.gallery`** (#115) — `GalleryEmbed` / `GalleryImage` and `GalleryView` / `GalleryViewImage`, registered as post embeds, post-view embeds, and `recordWithMedia` media.
 - **`ProfileRecord.Pronouns`, `Website`, `Labels` and `JoinedViaStarterPack`** (#115).
+- **`SpaceTokens.Verify(SpaceToken, …)`** — verifies a token already returned by `SpaceTokens.Parse`, for a verifier that has to read the token's `iss` and `kid` before it knows which key to check. The space server's delegation-token and credential verifiers now use it, so each token is parsed once instead of twice (#118)
 
 
 ### Changed
@@ -54,6 +55,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A union variant always writes its `$type`** (#115) — also where it is not in union position, such as `RecordWithMediaEmbed.Record`, which the data model allows on any object. A `$type` read there is therefore written back rather than dropped, and one is added where it was absent.
 - **Faster BLAKE3 and `LtHash`** — BLAKE3 now compresses XOF output blocks 8 (or 4) at a time with hardware vectors and allocates nothing, and `LtHash` adds and subtracts its lanes with vectors. `LtHash.Add`/`Remove` are about 16× faster and allocation-free, which makes verifying a space repo's index (`SpaceRepoCommit.FromIndex`, `SpaceRepoCar.Verify`) about 12× faster. The output is bit-identical, and hosts without vector hardware or with big-endian byte order take a scalar path (#112)
 - **`AtProtoCrypto.VerifySignature` caches parsed `did:key`s** — up to 1,024 keys, least recently used evicted first, so repeated verification against the same signer skips base58 decoding, point decompression and key import. P-256 verification against a known key is about twice as fast; every verifier built on it (space tokens and commits, service auth, `FirehoseVerifier`) benefits without code changes (#112)
+- **Minting JWTs allocates far less** — a DPoP proof encodes its header once per key, hashes the access token once per token rather than on every request, and writes its claims straight to UTF-8 instead of through dictionaries and reflection. A proof now allocates about 2.5 KB instead of 11 KB and is about 15% faster; `ServiceAuthGenerator.CreateToken` and `SpaceTokens.Create` are built the same way and allocate 30–50% of what they did (#118)
+- **One `jti` format for every token the SDK mints** — DPoP proofs, service-auth tokens and space tokens all carry 128 bits from the system CSPRNG as 32 lower-case hex characters; DPoP and service auth used a GUID, which has the same shape (#118)
 
 
 
@@ -84,6 +87,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Registered union variants take effect** (#115) — `LexiconTypeRegistry.RegisterUnionVariant` only affected `CreateOptions()`, which no client used; `AtProtoJsonDefaults.Options` now consults the registry.
 - **Jetstream `sync` events accept unpadded `$bytes`** (#115) — the parser and the archive segment reader rejected unpadded base64, which the data model specifies, and delivered the event with `Blocks` set to `null`.
 - **Malformed keys fail consistently** — a `did:key` or multikey whose key is not a 33-byte compressed point now throws `FormatException`, as documented, instead of `ArgumentException`. An undefined `KeyCurve` value now throws `ArgumentOutOfRangeException` instead of being treated as K-256 (#112)
+- **A K-256 key no longer signs DPoP proofs labelled ES256** — `new DPoPProofGenerator(byte[])` imported any EC key, so a stored secp256k1 key produced proofs whose header claimed `ES256` and `P-256`, which every server rejects. It now throws `ArgumentException` for a key that is not P-256, since AT Protocol DPoP is ES256 only (#118)
+- **DPoP proofs no longer put userinfo in `htu`** — a proof for `https://user:pw@host/path` named `user:pw@` in its `htu`, which RFC 9110 keeps out of a target URI and the SDK's own validator strips, and which carried the credentials to the server. The generator and `DPoPProofValidator` now share one normalization, `scheme://host[:port]/path` with the scheme and host lower-cased and no default port, query, fragment or userinfo, and the RFC 7638 thumbprint and `ath` are likewise computed by one implementation. `GenerateProof` throws `ArgumentException` for a URL that is not absolute with a host, instead of sending it verbatim in a proof no server accepts (#118)
 
 
 
@@ -103,6 +108,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **MST prefix lengths are range-checked when decoding** (#111) — an entry's `p` must lie within the previous key, or the node is rejected with `FormatException` (the bug class indigo fixed as SEC-4). A crafted node used to drive a ~2 GB allocation before any check
 - **`CarReader` validates every length and CID it reads** (#111) — header, block and digest lengths beyond the input throw `FormatException` rather than overflowing into a bad slice, varints must be minimal and at most 9 bytes, the header must carry a `version` and CID-link roots, and CIDv0 blocks are rejected: they used to bypass the unknown-codec rule in `VerifyBlockCid`
 - **`MerkleSearchTree.Deserialize` rejects malformed trees** (#111) — invalid or out-of-order keys, a subtree linked more than once, and empty inner nodes throw `FormatException`, so a hostile tree can neither smuggle in keys nor make the walk revisit shared nodes
+- **JWT and JWK base64url decoding is strict** — every decoder for space tokens, DPoP proofs, service-auth tokens, JWK coordinates and the bearer handler's pre-check now accepts only the URL-safe alphabet, unpadded or correctly padded, and rejects the standard alphabet's `+` and `/`, embedded whitespace and non-zero trailing bits, so a token has one spelling. A token's header and claims must be JSON objects, and the service-auth verifier now decodes the header as well (#118)
 
 ## [0.6.0] - 2026-08-21
 

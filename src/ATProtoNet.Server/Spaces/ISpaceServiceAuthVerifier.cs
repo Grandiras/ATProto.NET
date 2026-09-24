@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
+using ATProtoNet.Auth;
 using ATProtoNet.Crypto;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Spaces;
@@ -130,14 +129,13 @@ public sealed class SpaceServiceAuthVerifier : ISpaceServiceAuthVerifier
             throw Invalid("A write notification is authenticated with a Bearer service auth token.");
 
         var jwt = header["Bearer ".Length..].Trim();
-        var parts = jwt.Split('.');
-        if (parts.Length != 3)
-            throw Invalid("Malformed service auth token: expected three parts.");
+        if (!Jwt.TryDecode(jwt, out var decoded, out var error))
+            throw Invalid($"Malformed service auth token: {error}.");
 
-        var payload = DecodeJson(parts[1]);
+        var payload = decoded.Payload;
 
-        var issuer = GetString(payload, "iss") ?? throw Invalid("The service auth token is missing its \"iss\".");
-        var audience = GetString(payload, "aud") ?? throw Invalid("The service auth token is missing its \"aud\".");
+        var issuer = payload.GetStringOrNull("iss") ?? throw Invalid("The service auth token is missing its \"iss\".");
+        var audience = payload.GetStringOrNull("aud") ?? throw Invalid("The service auth token is missing its \"aud\".");
 
         if (!acceptedAudiences.Contains(audience, StringComparer.Ordinal))
         {
@@ -145,7 +143,7 @@ public sealed class SpaceServiceAuthVerifier : ISpaceServiceAuthVerifier
                 $"The service auth token is addressed to '{audience}', not to {string.Join(" or ", acceptedAudiences.Select(a => $"'{a}'"))}.");
         }
 
-        var method = GetString(payload, "lxm");
+        var method = payload.GetStringOrNull("lxm");
         if (method is not null && !string.Equals(method, expectedMethod, StringComparison.Ordinal))
             throw Invalid($"The service auth token is scoped to '{method}', not to '{expectedMethod}'.");
 
@@ -178,13 +176,10 @@ public sealed class SpaceServiceAuthVerifier : ISpaceServiceAuthVerifier
         var signerKey = await _resolver.ResolveAccountKeyAsync(
             issuer, keyId: null, SpaceErrors.NotAuthorized, cancellationToken);
 
-        var signingInput = Encoding.UTF8.GetBytes($"{parts[0]}.{parts[1]}");
-        var signature = DecodeBase64Url(parts[2]);
-
         bool valid;
         try
         {
-            valid = AtProtoCrypto.VerifySignature(signerKey, signingInput, signature);
+            valid = AtProtoCrypto.VerifySignature(signerKey, decoded.SigningInput, decoded.Signature);
         }
         catch (Exception ex) when (ex is ArgumentException or FormatException or CryptographicException)
         {
@@ -197,7 +192,7 @@ public sealed class SpaceServiceAuthVerifier : ISpaceServiceAuthVerifier
 
         // A jti is optional in the AT Protocol service auth spec, so its absence is not an error
         // — but when one is present it is spent, so a captured token cannot be re-delivered.
-        if (GetString(payload, "jti") is { } tokenId &&
+        if (payload.GetStringOrNull("jti") is { } tokenId &&
             !await _replayStore.TryConsumeAsync(issuer, tokenId, expiresAt, cancellationToken))
         {
             throw Invalid("The service auth token has already been used.");
@@ -239,39 +234,4 @@ public sealed class SpaceServiceAuthVerifier : ISpaceServiceAuthVerifier
 
     private static SpaceVerificationException Invalid(string message) =>
         new(SpaceErrors.NotAuthorized, message);
-
-    private static JsonElement DecodeJson(string part)
-    {
-        try
-        {
-            return JsonSerializer.Deserialize<JsonElement>(DecodeBase64Url(part));
-        }
-        catch (JsonException ex)
-        {
-            throw new SpaceVerificationException(
-                SpaceErrors.NotAuthorized, $"Could not parse the service auth token: {ex.Message}", ex);
-        }
-    }
-
-    private static byte[] DecodeBase64Url(string value)
-    {
-        try
-        {
-            var padded = value.Replace('-', '+').Replace('_', '/');
-            var padding = (4 - (padded.Length % 4)) % 4;
-            return Convert.FromBase64String(padding == 0 ? padded : padded + new string('=', padding));
-        }
-        catch (FormatException ex)
-        {
-            throw new SpaceVerificationException(
-                SpaceErrors.NotAuthorized, $"Could not decode the service auth token: {ex.Message}", ex);
-        }
-    }
-
-    private static string? GetString(JsonElement element, string name) =>
-        element.ValueKind == JsonValueKind.Object &&
-        element.TryGetProperty(name, out var value) &&
-        value.ValueKind == JsonValueKind.String
-            ? value.GetString()
-            : null;
 }

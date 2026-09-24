@@ -343,6 +343,8 @@ byte[] keyBytes = session.DPoP.ExportPrivateKey();
 var dpop = new DPoPProofGenerator(keyBytes);
 ```
 
+AT Protocol DPoP proofs are ES256 only, so importing a key on any other curve (a K-256 repo signing key, for example) throws `ArgumentException`.
+
 > **Warning:** The exported key is unencrypted PKCS#8. Store it in a secure location such as an OS keychain, encrypted database, or DPAPI-protected storage.
 
 ## Error Handling

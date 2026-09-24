@@ -107,8 +107,7 @@ public sealed class SpaceCredentialVerifier
         try
         {
             verified = SpaceTokens.Verify(
-                SpaceTokenType.Credential,
-                credentialJwt,
+                parsed,
                 authorityKey,
                 expectedAudience: null,
                 expectedSubject: space.Value,

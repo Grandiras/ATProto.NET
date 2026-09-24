@@ -1,6 +1,8 @@
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using ATProtoNet.Auth.OAuth;
+using ATProtoNet.Crypto;
 
 namespace ATProtoNet.Tests.Auth.OAuth;
 
@@ -169,52 +171,99 @@ public class DPoPProofGeneratorTests : IDisposable
     }
 
     [Fact]
-    public void Base64UrlEncode_ProducesValidOutput()
+    public void Constructor_WithAK256Key_Throws()
     {
-        var data = new byte[] { 0xFF, 0xFE, 0xFD };
-        var result = DPoPProofGenerator.Base64UrlEncode(data);
+        // A stored secp256k1 key used to sign proofs whose header still claimed ES256 and P-256,
+        // which every verifier rejects. AT Protocol DPoP is ES256 only.
+        using var k256 = AtProtoCrypto.GenerateK256Key();
 
-        Assert.DoesNotContain("+", result);
-        Assert.DoesNotContain("/", result);
-        Assert.DoesNotContain("=", result);
+        var ex = Assert.Throws<ArgumentException>(() => new DPoPProofGenerator(k256.ExportPrivateKey()));
+
+        Assert.Contains("P-256", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ComputeS256Hash_IsConsistent()
+    public void Constructor_WithBytesThatAreNotAKey_Throws()
     {
-        var hash1 = DPoPProofGenerator.ComputeS256Hash("test-value");
-        var hash2 = DPoPProofGenerator.ComputeS256Hash("test-value");
-        Assert.Equal(hash1, hash2);
+        Assert.ThrowsAny<CryptographicException>(() => new DPoPProofGenerator([1, 2, 3]));
     }
 
     [Fact]
-    public void ComputeS256Hash_DifferentInputsDifferentHashes()
+    public void Constructor_WithAnImportedP256Key_UsesThatKey()
     {
-        var hash1 = DPoPProofGenerator.ComputeS256Hash("value1");
-        var hash2 = DPoPProofGenerator.ComputeS256Hash("value2");
-        Assert.NotEqual(hash1, hash2);
+        using var key = AtProtoCrypto.GenerateP256Key();
+        using var generator = new DPoPProofGenerator(key.ExportPrivateKey());
+
+        var parts = generator.GenerateProof("POST", "https://example.com/token").Split('.');
+
+        Assert.True(key.Verify(Encoding.ASCII.GetBytes($"{parts[0]}.{parts[1]}"), TestJws.Decode(parts[2])));
     }
 
-    private static string ExtractClaim(string jwt, string claimName)
+    [Fact]
+    public void GenerateProof_HeaderJwk_IsExactlyThePublicKeyAndHashesToKeyThumbprint()
     {
-        var parts = jwt.Split('.');
-        var payloadJson = Encoding.UTF8.GetString(Base64UrlDecode(parts[1]));
-        var payload = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(payloadJson)!;
-        return payload[claimName].GetString()!;
+        var header = TestJws.DecodeJson(_generator.GenerateProof("POST", "https://example.com/token"), 0);
+        var jwk = header.GetProperty("jwk");
+
+        Assert.Equal(new[] { "kty", "crv", "x", "y" }, jwk.EnumerateObject().Select(p => p.Name));
+        Assert.Equal(_generator.KeyThumbprint, DPoP.Thumbprint(jwk.Deserialize<JsonWebKey>()!));
     }
 
-    private static byte[] Base64UrlDecode(string input)
+    [Theory]
+    [InlineData("https://user:pw@pds.example.com/xrpc/a", "https://pds.example.com/xrpc/a")]
+    [InlineData("https://user@pds.example.com:8443/xrpc/a?b=c", "https://pds.example.com:8443/xrpc/a")]
+    [InlineData("https://pds.example.com/xrpc/a?b=c#d", "https://pds.example.com/xrpc/a")]
+    [InlineData("HTTPS://PDS.Example.COM:443/xrpc/a", "https://pds.example.com/xrpc/a")]
+    public void GenerateProof_Htu_IsTheTargetUriWithoutUserinfoQueryOrFragment(string url, string htu)
     {
-        var padded = input
-            .Replace('-', '+')
-            .Replace('_', '/');
-
-        switch (padded.Length % 4)
-        {
-            case 2: padded += "=="; break;
-            case 3: padded += "="; break;
-        }
-
-        return Convert.FromBase64String(padded);
+        // RFC 9449 section 4.2: htu is the target URI without query and fragment, and RFC 9110
+        // section 4.2.4 keeps userinfo out of an http(s) target URI altogether.
+        Assert.Equal(htu, ExtractClaim(_generator.GenerateProof("GET", url), "htu"));
     }
+
+    [Theory]
+    [InlineData("/xrpc/a")]
+    [InlineData("pds.example.com/xrpc/a")]
+    [InlineData("file:///xrpc/a")]
+    public void GenerateProof_UrlThatIsNotAbsoluteWithAHost_Throws(string url)
+    {
+        Assert.Throws<ArgumentException>(() => _generator.GenerateProof("GET", url));
+    }
+
+    [Fact]
+    public void GenerateProof_Jti_Is128BitsOfHex()
+    {
+        var jti = ExtractClaim(_generator.GenerateProof("POST", "https://example.com/token"), "jti");
+
+        Assert.Matches("^[0-9a-f]{32}$", jti);
+    }
+
+    [Fact]
+    public void GenerateProofWithAccessToken_Ath_IsTheRfc9449Hash()
+    {
+        // RFC 9449 section 7.1: this access token's ath.
+        var proof = _generator.GenerateProofWithAccessToken(
+            "GET", "https://resource.example.org/protectedresource", null, "Kz~8mXK1EalYznwH-LC-1fBAo.4Ljp~zsPE_NeO.gxU");
+
+        Assert.Equal("fUHyO2r2Z3DZ53EsNrWBb0xWXoaNy59IiKCAqksmQEo", ExtractClaim(proof, "ath"));
+    }
+
+    [Fact]
+    public void GenerateProofWithAccessToken_AfterTheTokenChanges_HashesTheNewToken()
+    {
+        const string url = "https://example.com/api";
+
+        var first = ExtractClaim(_generator.GenerateProofWithAccessToken("GET", url, null, "token-one"), "ath");
+        var second = ExtractClaim(_generator.GenerateProofWithAccessToken("GET", url, null, "token-two"), "ath");
+        var again = ExtractClaim(_generator.GenerateProofWithAccessToken("GET", url, null, "token-one"), "ath");
+
+        Assert.Equal(DPoP.AccessTokenHash("token-one"), first);
+        Assert.Equal(DPoP.AccessTokenHash("token-two"), second);
+        Assert.Equal(first, again);
+    }
+
+    private static string ExtractClaim(string jwt, string claimName) =>
+        TestJws.DecodeJson(jwt, 1).GetProperty(claimName).GetString()!;
+
+    private static byte[] Base64UrlDecode(string input) => TestJws.Decode(input);
 }

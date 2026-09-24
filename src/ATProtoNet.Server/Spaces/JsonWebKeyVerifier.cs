@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
+using ATProtoNet.Auth;
 using ATProtoNet.Auth.OAuth;
 
 namespace ATProtoNet.Server.Spaces;
@@ -23,33 +22,11 @@ namespace ATProtoNet.Server.Spaces;
 internal static class JsonWebKeyVerifier
 {
     /// <summary>
-    /// Verifies a JWS signature against a JWK given as a JSON object.
-    /// </summary>
-    /// <param name="jwk">The JWK.</param>
-    /// <param name="algorithm">The JWS <c>alg</c>, which must agree with the key's curve.</param>
-    /// <param name="signingInput">The bytes the signature covers: <c>{header}.{payload}</c>.</param>
-    /// <param name="signature">The signature in IEEE P1363 (r || s) form, as JWS carries it.</param>
-    /// <param name="fail">Builds the exception thrown when the key itself is unusable.</param>
-    public static bool Verify(
-        JsonElement jwk,
-        string algorithm,
-        ReadOnlySpan<byte> signingInput,
-        ReadOnlySpan<byte> signature,
-        Func<string, SpaceVerificationException> fail)
-    {
-        using var ecdsa = Import(
-            GetString(jwk, "kty"), GetString(jwk, "crv"), GetString(jwk, "x"), GetString(jwk, "y"),
-            algorithm, fail);
-
-        return VerifyData(ecdsa, signingInput, signature);
-    }
-
-    /// <summary>
-    /// Verifies a JWS signature against a typed <see cref="JsonWebKey"/>, as published in a
-    /// client's JWKS.
+    /// Verifies a JWS signature against a JWK: one embedded in a DPoP proof, or one published in
+    /// a client's JWKS.
     /// </summary>
     /// <param name="key">The key.</param>
-    /// <param name="algorithm">The JWS <c>alg</c>.</param>
+    /// <param name="algorithm">The JWS <c>alg</c>, which must agree with the key's curve.</param>
     /// <param name="signingInput">The bytes the signature covers.</param>
     /// <param name="signature">The signature in IEEE P1363 form.</param>
     /// <param name="fail">Builds the exception thrown when the key itself is unusable.</param>
@@ -101,28 +78,25 @@ internal static class JsonWebKeyVerifier
     /// <remarks>
     /// For an EC key the required members are exactly <c>crv</c>, <c>kty</c>, <c>x</c>, and
     /// <c>y</c>, so any other member a proof carries — <c>kid</c>, <c>use</c>, <c>alg</c> — is
-    /// excluded and cannot be used to make one key present two thumbprints.
+    /// excluded and cannot be used to make one key present two thumbprints. The computation is
+    /// the one the SDK's own proof generator uses, so a client and this server always agree.
     /// </remarks>
-    public static string ComputeThumbprint(JsonElement jwk, Func<string, SpaceVerificationException> fail)
+    public static string ComputeThumbprint(JsonWebKey jwk, Func<string, SpaceVerificationException> fail)
     {
-        var kty = GetString(jwk, "kty");
-        if (kty != "EC")
-            throw fail($"Unsupported JWK key type '{kty ?? "(none)"}'; only EC keys are supported.");
-
-        var crv = GetString(jwk, "crv") ?? throw fail("The JWK is missing its \"crv\" member.");
-        var x = GetString(jwk, "x") ?? throw fail("The JWK is missing its \"x\" member.");
-        var y = GetString(jwk, "y") ?? throw fail("The JWK is missing its \"y\" member.");
-
-        var canonical = JsonSerializer.Serialize(new SortedDictionary<string, string>(StringComparer.Ordinal)
+        if (jwk.Kty != "EC")
         {
-            ["crv"] = crv,
-            ["kty"] = kty,
-            ["x"] = x,
-            ["y"] = y,
-        });
+            var kty = string.IsNullOrEmpty(jwk.Kty) ? "(none)" : jwk.Kty;
+            throw fail($"Unsupported JWK key type '{kty}'; only EC keys are supported.");
+        }
 
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(canonical));
-        return Convert.ToBase64String(hash).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        if (jwk.Crv is null)
+            throw fail("The JWK is missing its \"crv\" member.");
+        if (jwk.X is null)
+            throw fail("The JWK is missing its \"x\" member.");
+        if (jwk.Y is null)
+            throw fail("The JWK is missing its \"y\" member.");
+
+        return DPoP.Thumbprint(jwk);
     }
 
     private static ECDsa Import(
@@ -166,9 +140,8 @@ internal static class JsonWebKeyVerifier
 
     private static byte[] DecodeCoordinate(string value)
     {
-        var padded = value.Replace('-', '+').Replace('_', '/');
-        var padding = (4 - (padded.Length % 4)) % 4;
-        var bytes = Convert.FromBase64String(padding == 0 ? padded : padded + new string('=', padding));
+        if (!Jwt.TryDecodeBase64Url(value, out var bytes))
+            throw new FormatException("EC coordinate is not base64url.");
 
         // Both supported curves are 256-bit, so a coordinate is 32 bytes. A JWK that trimmed a
         // leading zero is still valid and has to be left-padded rather than rejected.
@@ -181,11 +154,4 @@ internal static class JsonWebKeyVerifier
         bytes.CopyTo(padded32, 32 - bytes.Length);
         return padded32;
     }
-
-    private static string? GetString(JsonElement element, string name) =>
-        element.ValueKind == JsonValueKind.Object &&
-        element.TryGetProperty(name, out var value) &&
-        value.ValueKind == JsonValueKind.String
-            ? value.GetString()
-            : null;
 }

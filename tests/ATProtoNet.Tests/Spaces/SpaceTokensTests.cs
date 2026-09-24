@@ -14,12 +14,33 @@ public class SpaceTokensTests
     private const string ClientId = "https://app.example.com/client-metadata.json";
     private const string Thumbprint = "0ZcOCORZNYy-DWpqq30jZyJGHTN0d2HglBV3uiguA4I";
 
-    private static JsonElement DecodePart(string jwt, int index)
+    private static JsonElement DecodePart(string jwt, int index) => TestJws.DecodeJson(jwt, index);
+
+    /// <summary>
+    /// Mints a delegation token without <see cref="SpaceTokens.Create"/>, so its encoding is
+    /// independent of the code under test.
+    /// </summary>
+    private static string MintDelegation(AtProtoKey key, JwsSegments padded = JwsSegments.None)
     {
-        var part = jwt.Split('.')[index].Replace('-', '+').Replace('_', '/');
-        var padding = (4 - (part.Length % 4)) % 4;
-        var bytes = Convert.FromBase64String(part + new string('=', padding));
-        return JsonSerializer.Deserialize<JsonElement>(bytes);
+        var now = DateTimeOffset.UtcNow;
+        return TestJws.Mint(
+            new Dictionary<string, object>
+            {
+                ["typ"] = SpaceTokens.DelegationType,
+                ["alg"] = "ES256",
+                ["kid"] = "#atproto",
+            },
+            new Dictionary<string, object>
+            {
+                ["iss"] = UserDid,
+                ["sub"] = Space,
+                ["aud"] = HostAudience,
+                ["iat"] = now.ToUnixTimeSeconds(),
+                ["exp"] = now.AddSeconds(60).ToUnixTimeSeconds(),
+                ["jti"] = "a-token-id",
+            },
+            input => key.Sign(input),
+            padded);
     }
 
     // ── Delegation tokens ────────────────────────────────────────
@@ -176,6 +197,135 @@ public class SpaceTokensTests
     public void TryParse_Malformed_ReturnsFalse(string jwt)
     {
         Assert.False(SpaceTokens.TryParse(SpaceTokenType.Delegation, jwt, out _));
+    }
+
+    [Theory]
+    [InlineData("a.b")]
+    [InlineData("a.b.c.d")]
+    public void Parse_NotThreeSegments_Throws(string jwt)
+    {
+        Assert.Throws<SpaceTokenException>(() => SpaceTokens.Parse(SpaceTokenType.Delegation, jwt));
+    }
+
+    [Theory]
+    [InlineData(0, "not json")]
+    [InlineData(0, "[1,2]")]
+    [InlineData(1, "{\"iss\":")]
+    [InlineData(1, "[\"iss\"]")]
+    [InlineData(1, "\"a string\"")]
+    public void Parse_SegmentThatIsNotAJsonObject_Throws(int index, string json)
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var jwt = TestJws.WithSegment(
+            MintDelegation(key), index, TestJws.Encode(Encoding.UTF8.GetBytes(json)));
+
+        Assert.Throws<SpaceTokenException>(() => SpaceTokens.Parse(SpaceTokenType.Delegation, jwt));
+    }
+
+    [Theory]
+    [InlineData(JwsSegments.Header)]
+    [InlineData(JwsSegments.Payload)]
+    [InlineData(JwsSegments.Signature)]
+    [InlineData(JwsSegments.All)]
+    public void Verify_SegmentsWithBase64Padding_AreAccepted(JwsSegments padded)
+    {
+        // RFC 7515 omits the padding, but a correctly padded segment decodes to the same bytes,
+        // and the signature covers the header and payload exactly as they were sent.
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var jwt = MintDelegation(key, padded);
+
+        var token = SpaceTokens.Verify(
+            SpaceTokenType.Delegation, jwt, key.ToDidKey(), HostAudience, Space);
+
+        Assert.Equal(UserDid, token.Issuer);
+        Assert.Equal("a-token-id", token.TokenId);
+    }
+
+    [Theory]
+    [InlineData(0, "!!!!")]
+    [InlineData(1, "!!!!")]
+    [InlineData(2, "!!!!")]
+    [InlineData(0, "AAAAA")]
+    [InlineData(1, "AAAAA")]
+    [InlineData(2, "AAAAA")]
+    public void Parse_SegmentThatIsNotBase64Url_Throws(int index, string segment)
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var jwt = TestJws.WithSegment(MintDelegation(key), index, segment);
+
+        Assert.Throws<SpaceTokenException>(() => SpaceTokens.Parse(SpaceTokenType.Delegation, jwt));
+        Assert.False(SpaceTokens.TryParse(SpaceTokenType.Delegation, jwt, out _));
+    }
+
+    [Fact]
+    public void Parse_SignatureInTheStandardBase64Alphabet_Throws()
+    {
+        // Base64url has one alphabet; '+' and '/' belong to the standard one.
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var jwt = MintDelegation(key);
+        var signature = jwt.Split('.')[2];
+
+        Assert.Throws<SpaceTokenException>(() => SpaceTokens.Parse(
+            SpaceTokenType.Delegation, TestJws.WithSegment(jwt, 2, "+" + signature[1..])));
+        Assert.Throws<SpaceTokenException>(() => SpaceTokens.Parse(
+            SpaceTokenType.Delegation, TestJws.WithSegment(jwt, 2, "/" + signature[1..])));
+    }
+
+    [Fact]
+    public void Create_EveryToken_CarriesA128BitHexJti()
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+
+        var first = SpaceTokens.Parse(
+            SpaceTokenType.Delegation,
+            SpaceTokens.Create(SpaceTokenType.Delegation, UserDid, Space, key, audience: HostAudience));
+        var second = SpaceTokens.Parse(
+            SpaceTokenType.Delegation,
+            SpaceTokens.Create(SpaceTokenType.Delegation, UserDid, Space, key, audience: HostAudience));
+
+        Assert.Matches("^[0-9a-f]{32}$", first.TokenId!);
+        Assert.NotEqual(first.TokenId, second.TokenId);
+    }
+
+    [Fact]
+    public void Verify_AnAlreadyParsedToken_ChecksItWithoutParsingAgain()
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var parsed = SpaceTokens.Parse(SpaceTokenType.Delegation, MintDelegation(key));
+
+        var verified = SpaceTokens.Verify(parsed, key.ToDidKey(), HostAudience, Space);
+
+        Assert.Same(parsed, verified);
+    }
+
+    [Fact]
+    public void Verify_AnAlreadyParsedTokenAgainstTheWrongKey_Throws()
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        using var other = AtProtoCrypto.GenerateP256Key();
+        var parsed = SpaceTokens.Parse(SpaceTokenType.Delegation, MintDelegation(key));
+
+        Assert.Throws<SpaceTokenException>(() => SpaceTokens.Verify(parsed, other.ToDidKey()));
+    }
+
+    [Fact]
+    public void Verify_AnAlreadyParsedTokenThatHasExpired_Throws()
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var parsed = SpaceTokens.Parse(SpaceTokenType.Delegation, MintDelegation(key));
+
+        Assert.Throws<SpaceTokenException>(
+            () => SpaceTokens.Verify(parsed, key.ToDidKey(), now: parsed.ExpiresAt.AddMinutes(1)));
+    }
+
+    [Fact]
+    public void Verify_AnAlreadyParsedTokenForAnotherAudience_Throws()
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var parsed = SpaceTokens.Parse(SpaceTokenType.Delegation, MintDelegation(key));
+
+        Assert.Throws<SpaceTokenException>(
+            () => SpaceTokens.Verify(parsed, key.ToDidKey(), expectedAudience: $"{UserDid}#atproto_space_host"));
     }
 
     [Fact]

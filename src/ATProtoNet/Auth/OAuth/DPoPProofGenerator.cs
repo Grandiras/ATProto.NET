@@ -1,6 +1,8 @@
+using System.Buffers;
+using System.Buffers.Text;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
+using ATProtoNet.Crypto;
 
 namespace ATProtoNet.Auth.OAuth;
 
@@ -14,9 +16,14 @@ namespace ATProtoNet.Auth.OAuth;
 /// </remarks>
 public sealed class DPoPProofGenerator : IDisposable
 {
-    private readonly ECDsa _key;
-    private readonly string _publicJwkJson;
+    private readonly AtProtoKey _key;
+    private readonly byte[] _encodedHeader;
     private readonly string _thumbprint;
+
+    // The ath of the access token most recently proved for. A session presents the same token on
+    // every request until it refreshes, so hashing it once per token rather than per request is
+    // enough; the pair is swapped as one reference, so concurrent requests never mix them.
+    private CachedAth? _lastAccessToken;
     private bool _disposed;
 
     /// <summary>
@@ -29,24 +36,35 @@ public sealed class DPoPProofGenerator : IDisposable
     /// Creates a new DPoP proof generator with a freshly generated ES256 (P-256) keypair.
     /// </summary>
     public DPoPProofGenerator()
+        : this(ECDsa.Create(ECCurve.NamedCurves.nistP256))
     {
-        _key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var parameters = _key.ExportParameters(includePrivateParameters: false);
-        _publicJwkJson = BuildPublicJwkJson(parameters);
-        _thumbprint = ComputeJwkThumbprint(parameters);
     }
 
     /// <summary>
     /// Creates a DPoP proof generator from an existing exported key (for session resumption).
     /// </summary>
     /// <param name="exportedKey">The PKCS#8 private key bytes.</param>
+    /// <exception cref="ArgumentException">The key is not a P-256 key.</exception>
+    /// <exception cref="CryptographicException">The bytes are not a PKCS#8 private key.</exception>
     public DPoPProofGenerator(byte[] exportedKey)
+        : this(ImportP256(exportedKey))
     {
-        _key = ECDsa.Create();
-        _key.ImportPkcs8PrivateKey(exportedKey, out _);
-        var parameters = _key.ExportParameters(includePrivateParameters: false);
-        _publicJwkJson = BuildPublicJwkJson(parameters);
-        _thumbprint = ComputeJwkThumbprint(parameters);
+    }
+
+    private DPoPProofGenerator(ECDsa ecdsa)
+    {
+        var point = ecdsa.ExportParameters(includePrivateParameters: false).Q;
+        var jwk = new JsonWebKey
+        {
+            Kty = "EC",
+            Crv = "P-256",
+            X = Base64Url.EncodeToString(point.X),
+            Y = Base64Url.EncodeToString(point.Y),
+        };
+
+        _key = new AtProtoKey(ecdsa, KeyCurve.P256);
+        _thumbprint = DPoP.Thumbprint(jwk);
+        _encodedHeader = Jwt.EncodeHeader(DPoP.TokenType, KeyCurve.P256, jwk: jwk);
     }
 
     /// <summary>
@@ -58,15 +76,20 @@ public sealed class DPoPProofGenerator : IDisposable
     /// Never log, transmit over unencrypted channels, or store in plain text.
     /// Compromise of this key allows an attacker to use the DPoP-bound tokens.
     /// </remarks>
-    public byte[] ExportPrivateKey() => _key.ExportPkcs8PrivateKey();
+    public byte[] ExportPrivateKey()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _key.ExportPrivateKey();
+    }
 
     /// <summary>
     /// Generates a DPoP proof JWT for a token request to the Authorization Server.
     /// </summary>
     /// <param name="httpMethod">The HTTP method (e.g., "POST").</param>
-    /// <param name="url">The full request URL.</param>
+    /// <param name="url">The full request URL. Its query, fragment and userinfo are left out of the proof.</param>
     /// <param name="nonce">The server-provided DPoP nonce, or null if not yet known.</param>
     /// <returns>The signed DPoP proof JWT string.</returns>
+    /// <exception cref="ArgumentException"><paramref name="url"/> is not an absolute URL naming a host.</exception>
     public string GenerateProof(string httpMethod, string url, string? nonce = null)
     {
         return GenerateProof(httpMethod, url, nonce, accessTokenHash: null);
@@ -77,131 +100,81 @@ public sealed class DPoPProofGenerator : IDisposable
     /// Includes the access token hash (<c>ath</c>) field.
     /// </summary>
     /// <param name="httpMethod">The HTTP method (e.g., "GET", "POST").</param>
-    /// <param name="url">The full request URL.</param>
+    /// <param name="url">The full request URL. Its query, fragment and userinfo are left out of the proof.</param>
     /// <param name="nonce">The server-provided DPoP nonce.</param>
     /// <param name="accessToken">The access token to include a hash of.</param>
     /// <returns>The signed DPoP proof JWT string.</returns>
+    /// <exception cref="ArgumentException"><paramref name="url"/> is not an absolute URL naming a host.</exception>
     public string GenerateProofWithAccessToken(string httpMethod, string url, string? nonce, string accessToken)
     {
-        var ath = ComputeS256Hash(accessToken);
-        return GenerateProof(httpMethod, url, nonce, ath);
+        ArgumentNullException.ThrowIfNull(accessToken);
+
+        var cached = _lastAccessToken;
+        if (cached is null || !string.Equals(cached.Token, accessToken, StringComparison.Ordinal))
+            _lastAccessToken = cached = new CachedAth(accessToken, DPoP.AccessTokenHash(accessToken));
+
+        return GenerateProof(httpMethod, url, nonce, cached.Hash);
     }
 
     private string GenerateProof(string httpMethod, string url, string? nonce, string? accessTokenHash)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(httpMethod);
+        ArgumentNullException.ThrowIfNull(url);
 
-        // JWT Header
-        var header = new Dictionary<string, object>
+        // A proof naming anything but an absolute URL matches no request, so it is refused here
+        // rather than sent to fail at the server.
+        var htu = DPoP.NormalizeHtu(url)
+            ?? throw new ArgumentException($"'{url}' is not an absolute URL naming a host.", nameof(url));
+
+        var payload = new ArrayBufferWriter<byte>(384);
+        using (var writer = new Utf8JsonWriter(payload))
         {
-            ["typ"] = "dpop+jwt",
-            ["alg"] = "ES256",
-            ["jwk"] = JsonSerializer.Deserialize<Dictionary<string, object>>(_publicJwkJson)!,
-        };
+            writer.WriteStartObject();
+            Jwt.WriteTokenId(writer);
+            writer.WriteString("htm"u8, httpMethod.ToUpperInvariant());
+            writer.WriteString("htu"u8, htu);
+            writer.WriteNumber("iat"u8, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
 
-        // JWT Payload
-        var payload = new Dictionary<string, object>
+            if (nonce is not null)
+                writer.WriteString("nonce"u8, nonce);
+
+            if (accessTokenHash is not null)
+                writer.WriteString("ath"u8, accessTokenHash);
+
+            writer.WriteEndObject();
+        }
+
+        return Jwt.Sign(_encodedHeader, payload.WrittenSpan, _key);
+    }
+
+    private static ECDsa ImportP256(byte[] exportedKey)
+    {
+        ArgumentNullException.ThrowIfNull(exportedKey);
+
+        var ecdsa = ECDsa.Create();
+        try
         {
-            ["jti"] = Guid.NewGuid().ToString("N"),
-            ["htm"] = httpMethod.ToUpperInvariant(),
-            ["htu"] = NormalizeHtu(url),
-            ["iat"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-        };
+            ecdsa.ImportPkcs8PrivateKey(exportedKey, out _);
 
-        if (nonce is not null)
-            payload["nonce"] = nonce;
+            // AT Protocol OAuth signs DPoP proofs with ES256 only. A key on another curve (a stored
+            // K-256 repo key, say) would otherwise sign proofs whose header claims ES256 and P-256,
+            // which no authorization server accepts.
+            var curve = ecdsa.ExportParameters(includePrivateParameters: false).Curve.Oid?.Value;
+            if (curve != ECCurve.NamedCurves.nistP256.Oid.Value)
+            {
+                throw new ArgumentException(
+                    $"A DPoP key must be a P-256 key for ES256; this key's curve is {curve ?? "(unnamed)"}.",
+                    nameof(exportedKey));
+            }
 
-        if (accessTokenHash is not null)
-            payload["ath"] = accessTokenHash;
-
-        return SignJwt(header, payload);
-    }
-
-    /// <summary>
-    /// Strips the query and fragment from a request URL, per RFC 9449 §4.2.
-    /// </summary>
-    /// <remarks>
-    /// A verifier compares <c>htu</c> against the request URI with its query and fragment
-    /// removed, so a proof that names the full URL does not match — and every XRPC query
-    /// carries a query string. One proof therefore covers any query on a given path.
-    /// </remarks>
-    internal static string NormalizeHtu(string url)
-    {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
-            return url;
-
-        return uri.GetLeftPart(UriPartial.Path);
-    }
-
-    private string SignJwt(Dictionary<string, object> header, Dictionary<string, object> payload)
-    {
-        var headerJson = JsonSerializer.Serialize(header);
-        var payloadJson = JsonSerializer.Serialize(payload);
-
-        var headerB64 = Base64UrlEncode(Encoding.UTF8.GetBytes(headerJson));
-        var payloadB64 = Base64UrlEncode(Encoding.UTF8.GetBytes(payloadJson));
-
-        var signingInput = $"{headerB64}.{payloadB64}";
-        var signatureBytes = _key.SignData(
-            Encoding.UTF8.GetBytes(signingInput),
-            HashAlgorithmName.SHA256,
-            DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
-
-        var signatureB64 = Base64UrlEncode(signatureBytes);
-
-        return $"{headerB64}.{payloadB64}.{signatureB64}";
-    }
-
-    private static string BuildPublicJwkJson(ECParameters parameters)
-    {
-        var jwk = new Dictionary<string, string>
+            return ecdsa;
+        }
+        catch
         {
-            ["kty"] = "EC",
-            ["crv"] = "P-256",
-            ["x"] = Base64UrlEncode(parameters.Q.X!),
-            ["y"] = Base64UrlEncode(parameters.Q.Y!),
-        };
-        return JsonSerializer.Serialize(jwk);
-    }
-
-    /// <summary>
-    /// Computes the JWK Thumbprint per RFC 7638 using SHA-256.
-    /// For EC keys, the thumbprint input is: {"crv":"P-256","kty":"EC","x":"...","y":"..."}
-    /// (members sorted lexicographically).
-    /// </summary>
-    private static string ComputeJwkThumbprint(ECParameters parameters)
-    {
-        // RFC 7638: members must be sorted lexicographically
-        var thumbprintInput = JsonSerializer.Serialize(new Dictionary<string, string>
-        {
-            ["crv"] = "P-256",
-            ["kty"] = "EC",
-            ["x"] = Base64UrlEncode(parameters.Q.X!),
-            ["y"] = Base64UrlEncode(parameters.Q.Y!),
-        });
-
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(thumbprintInput));
-        return Base64UrlEncode(hash);
-    }
-
-    /// <summary>
-    /// Computes the S256 hash of a string (used for PKCE and access token hashing).
-    /// </summary>
-    internal static string ComputeS256Hash(string input)
-    {
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(input));
-        return Base64UrlEncode(hash);
-    }
-
-    /// <summary>
-    /// Base64url-encodes a byte array (no padding).
-    /// </summary>
-    internal static string Base64UrlEncode(byte[] data)
-    {
-        return Convert.ToBase64String(data)
-            .TrimEnd('=')
-            .Replace('+', '-')
-            .Replace('/', '_');
+            ecdsa.Dispose();
+            throw;
+        }
     }
 
     /// <inheritdoc/>
@@ -213,4 +186,6 @@ public sealed class DPoPProofGenerator : IDisposable
             _key.Dispose();
         }
     }
+
+    private sealed record CachedAth(string Token, string Hash);
 }

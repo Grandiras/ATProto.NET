@@ -97,9 +97,23 @@ public sealed class ServiceAuthGeneratorTests
         using var gen = new ServiceAuthGenerator("did:plc:test", key);
 
         var token = gen.CreateToken("did:web:target");
-        var payload = DecodePayload(token);
 
-        Assert.Contains("\"jti\":", payload);
+        Assert.Matches("^[0-9a-f]{32}$", TestJws.DecodeJson(token, 1).GetProperty("jti").GetString());
+    }
+
+    [Fact]
+    public void CreateToken_K256Key_SignsAnEs256KTokenTheDidKeyVerifies()
+    {
+        using var key = AtProtoCrypto.GenerateK256Key();
+        var didKey = key.ToDidKey();
+        using var gen = new ServiceAuthGenerator("did:plc:test", key);
+
+        var token = gen.CreateToken("did:web:target", lxm: "com.atproto.repo.getRecord");
+        var parts = token.Split('.');
+
+        Assert.Equal("ES256K", TestJws.DecodeJson(token, 0).GetProperty("alg").GetString());
+        Assert.True(AtProtoCrypto.VerifySignature(
+            didKey, System.Text.Encoding.ASCII.GetBytes($"{parts[0]}.{parts[1]}"), TestJws.Decode(parts[2])));
     }
 
     [Fact]

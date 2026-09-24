@@ -226,6 +226,45 @@ public class HandleResolutionTests
         Assert.Equal("handle_resolution_failed", ex.ErrorCode);
     }
 
+    [Theory]
+    [InlineData(1024, true)]
+    [InlineData(1025, false)]
+    public async Task ResolveHandleToDid_UnsizedWellKnownBodyAtTheCap_IsReadUpToExactlyTheCap(
+        int bodyBytes, bool resolves)
+    {
+        const string did = "did:plc:fromhttps";
+
+        using var handler = new ScriptedHandler((request, _) =>
+        {
+            if (request.RequestUri!.ToString().Contains(WellKnownPath, StringComparison.Ordinal))
+            {
+                // Trailing whitespace is trimmed from the answer, so only the length differs.
+                var body = Encoding.UTF8.GetBytes(did + new string(' ', bodyBytes - did.Length));
+                var content = new StreamContent(new MemoryStream(body));
+                content.Headers.ContentLength = null;
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = content,
+                    RequestMessage = request,
+                });
+            }
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        });
+
+        var discovery = CreateDiscovery(handler, TimeSpan.FromSeconds(5));
+
+        if (resolves)
+        {
+            Assert.Equal(did, await discovery.ResolveHandleToDidAsync(Handle));
+        }
+        else
+        {
+            var ex = await Assert.ThrowsAsync<OAuthException>(() => discovery.ResolveHandleToDidAsync(Handle));
+            Assert.Equal("handle_resolution_failed", ex.ErrorCode);
+        }
+    }
+
     // ──────────────────────────────────────────────────────────
     //  Helpers
     // ──────────────────────────────────────────────────────────

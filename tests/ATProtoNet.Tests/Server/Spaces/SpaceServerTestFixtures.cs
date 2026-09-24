@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
 using ATProtoNet.Server.Spaces;
@@ -151,6 +150,15 @@ public sealed class TestDPoPKey : IDisposable
     public string Thumbprint { get; }
 
     /// <summary>Mints a proof.</summary>
+    /// <param name="method">The <c>htm</c>.</param>
+    /// <param name="url">The <c>htu</c>, used verbatim.</param>
+    /// <param name="accessToken">The credential to bind the proof to through <c>ath</c>.</param>
+    /// <param name="issuedAt">The <c>iat</c>. Defaults to now.</param>
+    /// <param name="jti">The <c>jti</c>. Defaults to a fresh one.</param>
+    /// <param name="includePrivateKey">Leaks the private key into the embedded JWK as <c>d</c>.</param>
+    /// <param name="algorithm">The <c>alg</c> header.</param>
+    /// <param name="padded">Which segments carry base64 padding.</param>
+    /// <param name="editJwk">Rewrites the embedded JWK before it is signed over.</param>
     public string Proof(
         string method,
         string url,
@@ -158,7 +166,9 @@ public sealed class TestDPoPKey : IDisposable
         DateTimeOffset? issuedAt = null,
         string? jti = null,
         bool includePrivateKey = false,
-        string algorithm = "ES256")
+        string algorithm = "ES256",
+        JwsSegments padded = JwsSegments.None,
+        Action<Dictionary<string, string>>? editJwk = null)
     {
         var jwk = new Dictionary<string, string>
         {
@@ -170,6 +180,8 @@ public sealed class TestDPoPKey : IDisposable
 
         if (includePrivateKey)
             jwk["d"] = Base64Url(_key.ExportParameters(includePrivateParameters: true).D!);
+
+        editJwk?.Invoke(jwk);
 
         var header = new Dictionary<string, object>
         {
@@ -189,15 +201,12 @@ public sealed class TestDPoPKey : IDisposable
         if (accessToken is not null)
             payload["ath"] = Base64Url(SHA256.HashData(Encoding.UTF8.GetBytes(accessToken)));
 
-        var headerB64 = Base64Url(JsonSerializer.SerializeToUtf8Bytes(header));
-        var payloadB64 = Base64Url(JsonSerializer.SerializeToUtf8Bytes(payload));
-        var signingInput = Encoding.UTF8.GetBytes($"{headerB64}.{payloadB64}");
-
-        var signature = _key.SignData(
-            signingInput, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
-
-        return $"{headerB64}.{payloadB64}.{Base64Url(signature)}";
+        return TestJws.Mint(header, payload, Sign, padded);
     }
+
+    /// <summary>Signs raw bytes with this key, producing a JWS <c>r || s</c> signature.</summary>
+    public byte[] Sign(byte[] signingInput) =>
+        _key.SignData(signingInput, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
 
     /// <summary>This key as a published JWK, for a client's JWKS.</summary>
     public ATProtoNet.Auth.OAuth.JsonWebKey ToJsonWebKey(string? kid = null) => new()
@@ -211,20 +220,10 @@ public sealed class TestDPoPKey : IDisposable
     };
 
     /// <summary>Signs a JWS with this key, for a client attestation.</summary>
-    public string SignJws(IDictionary<string, object> header, IDictionary<string, object> payload)
-    {
-        var headerB64 = Base64Url(JsonSerializer.SerializeToUtf8Bytes(header));
-        var payloadB64 = Base64Url(JsonSerializer.SerializeToUtf8Bytes(payload));
-        var signingInput = Encoding.UTF8.GetBytes($"{headerB64}.{payloadB64}");
-
-        var signature = _key.SignData(
-            signingInput, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
-
-        return $"{headerB64}.{payloadB64}.{Base64Url(signature)}";
-    }
+    public string SignJws(IDictionary<string, object> header, IDictionary<string, object> payload) =>
+        TestJws.Mint(header, payload, Sign);
 
     public void Dispose() => _key.Dispose();
 
-    internal static string Base64Url(ReadOnlySpan<byte> data) =>
-        Convert.ToBase64String(data).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+    internal static string Base64Url(ReadOnlySpan<byte> data) => TestJws.Encode(data);
 }

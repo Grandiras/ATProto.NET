@@ -243,16 +243,7 @@ public sealed class AuthorizationServerDiscovery
                 return null;
             }
 
-            if (response.Content.Headers.ContentLength > MaxWellKnownResponseBytes)
-            {
-                _logger.LogDebug(
-                    "Ignoring atproto-did response for {Handle}: body exceeds {MaxBytes} bytes.",
-                    handle, MaxWellKnownResponseBytes);
-                return null;
-            }
-
-            var body = await ReadCappedStringAsync(
-                response.Content, MaxWellKnownResponseBytes, attemptToken);
+            var body = await response.Content.ReadBoundedAsync(MaxWellKnownResponseBytes, attemptToken);
             if (body is null)
             {
                 _logger.LogDebug(
@@ -261,7 +252,7 @@ public sealed class AuthorizationServerDiscovery
                 return null;
             }
 
-            var did = body.Trim();
+            var did = System.Text.Encoding.UTF8.GetString(body.Value.Span).Trim();
             return did.StartsWith("did:", StringComparison.OrdinalIgnoreCase) ? did : null;
         }
         catch (OperationCanceledException) when (callerToken.IsCancellationRequested)
@@ -360,29 +351,6 @@ public sealed class AuthorizationServerDiscovery
         var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cts.CancelAfter(_handleResolutionTimeout);
         return cts;
-    }
-
-    /// <summary>
-    /// Reads a response body as UTF-8 text, returning <c>null</c> when it exceeds
-    /// <paramref name="maxBytes"/> rather than buffering the whole thing.
-    /// </summary>
-    private static async Task<string?> ReadCappedStringAsync(
-        HttpContent content, int maxBytes, CancellationToken cancellationToken)
-    {
-        using var stream = await content.ReadAsStreamAsync(cancellationToken);
-
-        // One byte of headroom: filling the buffer means the body is over the cap.
-        var buffer = new byte[maxBytes + 1];
-        var read = 0;
-        while (read < buffer.Length)
-        {
-            var n = await stream.ReadAsync(buffer.AsMemory(read), cancellationToken);
-            if (n == 0)
-                break;
-            read += n;
-        }
-
-        return read > maxBytes ? null : System.Text.Encoding.UTF8.GetString(buffer, 0, read);
     }
 
     /// <summary>

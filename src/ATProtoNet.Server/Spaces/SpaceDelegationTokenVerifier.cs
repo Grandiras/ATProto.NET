@@ -109,8 +109,7 @@ public sealed class SpaceDelegationTokenVerifier
         try
         {
             verified = SpaceTokens.Verify(
-                SpaceTokenType.Delegation,
-                jwt,
+                parsed,
                 issuerKey,
                 expectedAudience,
                 space.Value,

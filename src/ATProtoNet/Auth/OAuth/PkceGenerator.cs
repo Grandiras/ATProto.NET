@@ -1,3 +1,4 @@
+using System.Buffers.Text;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -16,7 +17,7 @@ public static class PkceGenerator
     {
         // Generate 32 random bytes → 43 base64url characters
         var bytes = RandomNumberGenerator.GetBytes(32);
-        return DPoPProofGenerator.Base64UrlEncode(bytes);
+        return Base64Url.EncodeToString(bytes);
     }
 
     /// <summary>
@@ -28,7 +29,7 @@ public static class PkceGenerator
     public static string ComputeCodeChallenge(string codeVerifier)
     {
         var hash = SHA256.HashData(Encoding.ASCII.GetBytes(codeVerifier));
-        return DPoPProofGenerator.Base64UrlEncode(hash);
+        return Base64Url.EncodeToString(hash);
     }
 
     /// <summary>
@@ -37,6 +38,6 @@ public static class PkceGenerator
     public static string GenerateState()
     {
         var bytes = RandomNumberGenerator.GetBytes(32);
-        return DPoPProofGenerator.Base64UrlEncode(bytes);
+        return Base64Url.EncodeToString(bytes);
     }
 }

@@ -115,16 +115,13 @@ public sealed class HttpSpaceClientMetadataResolver : ISpaceClientMetadataResolv
 
             // The fetch is directed by the attestation, so it needs a ceiling whether or not the
             // server declares a length.
-            if (response.Content.Headers.ContentLength > _options.MaxClientMetadataBytes)
-                throw Invalid($"The {what} at '{uri}' exceeds {_options.MaxClientMetadataBytes} bytes.");
+            var body = await response.Content.ReadBoundedAsync(_options.MaxClientMetadataBytes, cancellationToken)
+                ?? throw Invalid($"The {what} at '{uri}' exceeds {_options.MaxClientMetadataBytes} bytes.");
 
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            await using var limited = new LengthLimitedStream(stream, _options.MaxClientMetadataBytes);
-
-            return await JsonSerializer.DeserializeAsync<T>(limited, JsonOptions, cancellationToken)
+            return JsonSerializer.Deserialize<T>(body.Span, JsonOptions)
                    ?? throw Invalid($"The {what} at '{uri}' is empty.");
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or InvalidDataException)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             throw new SpaceVerificationException(
                 SpaceErrors.InvalidClientAttestation, $"Could not fetch {what} from '{uri}': {ex.Message}", ex);
@@ -135,55 +132,6 @@ public sealed class HttpSpaceClientMetadataResolver : ISpaceClientMetadataResolv
 
     private static SpaceVerificationException Invalid(string message) =>
         new(SpaceErrors.InvalidClientAttestation, message);
-
-    /// <summary>A read-only stream that fails rather than reading past a byte ceiling.</summary>
-    private sealed class LengthLimitedStream(Stream inner, long limit) : Stream
-    {
-        private long _read;
-
-        public override bool CanRead => true;
-        public override bool CanSeek => false;
-        public override bool CanWrite => false;
-        public override long Length => throw new NotSupportedException();
-        public override long Position
-        {
-            get => _read;
-            set => throw new NotSupportedException();
-        }
-
-        public override int Read(byte[] buffer, int offset, int count) =>
-            Read(buffer.AsSpan(offset, count));
-
-        public override int Read(Span<byte> buffer)
-        {
-            var n = inner.Read(buffer);
-            Count(n);
-            return n;
-        }
-
-        public override async ValueTask<int> ReadAsync(
-            Memory<byte> buffer, CancellationToken cancellationToken = default)
-        {
-            var n = await inner.ReadAsync(buffer, cancellationToken);
-            Count(n);
-            return n;
-        }
-
-        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
-            ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
-
-        private void Count(int n)
-        {
-            _read += n;
-            if (_read > limit)
-                throw new InvalidDataException($"Response exceeded the {limit}-byte ceiling.");
-        }
-
-        public override void Flush() => throw new NotSupportedException();
-        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
-        public override void SetLength(long value) => throw new NotSupportedException();
-        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
-    }
 }
 
 /// <summary>

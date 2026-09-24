@@ -1,7 +1,8 @@
+using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
+using ATProtoNet.Auth;
 using ATProtoNet.Crypto;
 
 namespace ATProtoNet.Spaces;
@@ -225,37 +226,34 @@ public static class SpaceTokens
             ? DefaultCredentialLifetime
             : DefaultShortLifetime);
 
-        var header = new Dictionary<string, object>
-        {
-            ["typ"] = TypeHeader(type),
-            ["alg"] = signingKey.Curve.JwsAlgorithm(),
-        };
-
         // A client attestation's key comes from the client's own JWKS, so it has no default kid.
         var kid = keyId ?? (type == SpaceTokenType.ClientAttestation ? null : "#atproto");
-        if (kid is not null)
-            header["kid"] = kid;
+        var header = Jwt.EncodeHeader(TypeHeader(type), signingKey.Curve, kid);
 
-        var payload = new Dictionary<string, object>
+        var payload = new ArrayBufferWriter<byte>(512);
+        using (var writer = new Utf8JsonWriter(payload))
         {
-            ["iss"] = issuer,
-            ["sub"] = subject,
-        };
+            writer.WriteStartObject();
+            writer.WriteString("iss"u8, issuer);
+            writer.WriteString("sub"u8, subject);
 
-        if (!string.IsNullOrEmpty(audience))
-            payload["aud"] = audience;
-        if (!string.IsNullOrEmpty(dpopThumbprint))
-            payload["cnf"] = new Dictionary<string, string> { ["jkt"] = dpopThumbprint };
+            if (!string.IsNullOrEmpty(audience))
+                writer.WriteString("aud"u8, audience);
 
-        payload["iat"] = now.ToUnixTimeSeconds();
-        payload["exp"] = now.Add(expiry).ToUnixTimeSeconds();
-        payload["jti"] = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
+            if (!string.IsNullOrEmpty(dpopThumbprint))
+            {
+                writer.WriteStartObject("cnf"u8);
+                writer.WriteString("jkt"u8, dpopThumbprint);
+                writer.WriteEndObject();
+            }
 
-        var headerB64 = Base64UrlEncode(JsonSerializer.SerializeToUtf8Bytes(header));
-        var payloadB64 = Base64UrlEncode(JsonSerializer.SerializeToUtf8Bytes(payload));
-        var signingInput = Encoding.UTF8.GetBytes($"{headerB64}.{payloadB64}");
+            writer.WriteNumber("iat"u8, now.ToUnixTimeSeconds());
+            writer.WriteNumber("exp"u8, now.Add(expiry).ToUnixTimeSeconds());
+            Jwt.WriteTokenId(writer);
+            writer.WriteEndObject();
+        }
 
-        return $"{headerB64}.{payloadB64}.{Base64UrlEncode(signingKey.Sign(signingInput))}";
+        return Jwt.Sign(header, payload.WrittenSpan, signingKey);
     }
 
     /// <summary>
@@ -272,43 +270,41 @@ public static class SpaceTokens
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(jwt);
 
-        var parts = jwt.Split('.');
-        if (parts.Length != 3)
-            throw new SpaceTokenException("Malformed token: expected three parts.");
+        if (!Jwt.TryDecode(jwt, out var decoded, out var error))
+            throw new SpaceTokenException($"Malformed token: {error}.");
 
-        var header = DecodeJsonPart(parts[0], "header");
-        var payload = DecodeJsonPart(parts[1], "payload");
+        var (header, payload, signingInput, signature) = decoded;
 
         var expectedType = TypeHeader(type);
-        var actualType = GetString(header, "typ");
+        var actualType = header.GetStringOrNull("typ");
         if (!string.Equals(actualType, expectedType, StringComparison.Ordinal))
         {
             throw new SpaceTokenException(
                 $"Wrong token type: expected \"{expectedType}\", got \"{actualType ?? "(none)"}\".");
         }
 
-        var algorithm = GetString(header, "alg")
+        var algorithm = header.GetStringOrNull("alg")
             ?? throw new SpaceTokenException("Token is missing its \"alg\" header.");
-        var issuer = GetString(payload, "iss")
+        var issuer = payload.GetStringOrNull("iss")
             ?? throw new SpaceTokenException("Token is missing its \"iss\" claim.");
-        var subject = GetString(payload, "sub")
+        var subject = payload.GetStringOrNull("sub")
             ?? throw new SpaceTokenException("Token is missing its \"sub\" claim.");
 
         if (!payload.TryGetProperty("exp", out var exp) || !exp.TryGetInt64(out var expSeconds))
             throw new SpaceTokenException("Token is missing its \"exp\" claim.");
 
-        var audience = GetString(payload, "aud");
+        var audience = payload.GetStringOrNull("aud");
         if (type is SpaceTokenType.Delegation or SpaceTokenType.ClientAttestation && audience is null)
             throw new SpaceTokenException("Token is missing its \"aud\" claim.");
 
         string? thumbprint = null;
         if (payload.TryGetProperty("cnf", out var cnf) && cnf.ValueKind == JsonValueKind.Object)
-            thumbprint = GetString(cnf, "jkt");
+            thumbprint = cnf.GetStringOrNull("jkt");
 
         if (type == SpaceTokenType.Credential && string.IsNullOrEmpty(thumbprint))
             throw new SpaceTokenException("A space credential must carry a \"cnf.jkt\" claim.");
 
-        var tokenId = GetString(payload, "jti");
+        var tokenId = payload.GetStringOrNull("jti");
         if (type != SpaceTokenType.Credential && string.IsNullOrEmpty(tokenId))
             throw new SpaceTokenException($"A {type} token requires a \"jti\" to be consumed by.");
 
@@ -323,7 +319,7 @@ public static class SpaceTokens
             type,
             jwt,
             algorithm,
-            GetString(header, "kid"),
+            header.GetStringOrNull("kid"),
             issuer,
             subject,
             audience,
@@ -331,8 +327,8 @@ public static class SpaceTokens
             issuedAt,
             DateTimeOffset.FromUnixTimeSeconds(expSeconds),
             tokenId,
-            Encoding.UTF8.GetBytes($"{parts[0]}.{parts[1]}"),
-            DecodeBase64Url(parts[2], "signature"));
+            signingInput,
+            signature);
     }
 
     /// <summary>
@@ -376,7 +372,34 @@ public static class SpaceTokens
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(issuerDidKey);
 
-        var token = Parse(type, jwt);
+        return Verify(Parse(type, jwt), issuerDidKey, expectedAudience, expectedSubject, now);
+    }
+
+    /// <summary>
+    /// Checks an already parsed token's expiry and the claims the caller pins, and verifies its
+    /// signature against the issuer's key.
+    /// </summary>
+    /// <param name="token">A token from <see cref="Parse"/>.</param>
+    /// <param name="issuerDidKey">The issuer's signing key as a <c>did:key</c> string.</param>
+    /// <param name="expectedAudience">The audience this service answers to, or <see langword="null"/> to skip the check.</param>
+    /// <param name="expectedSubject">The space the token must name, or <see langword="null"/> to skip the check.</param>
+    /// <param name="now">The instant to evaluate expiry against. Defaults to the current time.</param>
+    /// <returns><paramref name="token"/>, once every check has passed.</returns>
+    /// <exception cref="SpaceTokenException">Thrown when any check fails.</exception>
+    /// <remarks>
+    /// For a verifier that has to read the token before it knows which key to check it against,
+    /// such as one resolving the key from the token's <c>iss</c> and <c>kid</c>, so the token is
+    /// parsed once.
+    /// </remarks>
+    public static SpaceToken Verify(
+        SpaceToken token,
+        string issuerDidKey,
+        string? expectedAudience = null,
+        string? expectedSubject = null,
+        DateTimeOffset? now = null)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+        ArgumentException.ThrowIfNullOrWhiteSpace(issuerDidKey);
 
         if (token.IsExpired(now))
             throw new SpaceTokenException("Token is expired.");
@@ -405,42 +428,6 @@ public static class SpaceTokens
 
         return valid ? token : throw new SpaceTokenException("Invalid token signature.");
     }
-
-    private static JsonElement DecodeJsonPart(string part, string name)
-    {
-        try
-        {
-            return JsonSerializer.Deserialize<JsonElement>(DecodeBase64Url(part, name));
-        }
-        catch (JsonException ex)
-        {
-            throw new SpaceTokenException($"Could not parse token {name}: {ex.Message}", ex);
-        }
-    }
-
-    private static byte[] DecodeBase64Url(string value, string name)
-    {
-        try
-        {
-            var padded = value.Replace('-', '+').Replace('_', '/');
-            var padding = (4 - (padded.Length % 4)) % 4;
-            return Convert.FromBase64String(padding == 0 ? padded : padded + new string('=', padding));
-        }
-        catch (FormatException ex)
-        {
-            throw new SpaceTokenException($"Could not decode token {name}: {ex.Message}", ex);
-        }
-    }
-
-    private static string? GetString(JsonElement element, string name) =>
-        element.ValueKind == JsonValueKind.Object &&
-        element.TryGetProperty(name, out var value) &&
-        value.ValueKind == JsonValueKind.String
-            ? value.GetString()
-            : null;
-
-    private static string Base64UrlEncode(ReadOnlySpan<byte> data) =>
-        Convert.ToBase64String(data).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }
 
 /// <summary>Thrown when a space token is malformed, expired, or fails verification.</summary>

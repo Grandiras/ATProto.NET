@@ -1,4 +1,4 @@
-using System.Text;
+using System.Buffers;
 using System.Text.Json;
 using ATProtoNet.Crypto;
 
@@ -19,7 +19,7 @@ public sealed class ServiceAuthGenerator : IDisposable
 {
     private readonly AtProtoKey _signingKey;
     private readonly string _serviceDid;
-    private readonly string _algorithm;
+    private readonly byte[] _encodedHeader;
     private bool _disposed;
 
     /// <summary>The DID of the service generating tokens.</summary>
@@ -34,7 +34,7 @@ public sealed class ServiceAuthGenerator : IDisposable
     {
         _serviceDid = serviceDid ?? throw new ArgumentNullException(nameof(serviceDid));
         _signingKey = signingKey ?? throw new ArgumentNullException(nameof(signingKey));
-        _algorithm = signingKey.Curve.JwsAlgorithm();
+        _encodedHeader = Jwt.EncodeHeader("JWT", signingKey.Curve);
     }
 
     /// <summary>
@@ -56,50 +56,23 @@ public sealed class ServiceAuthGenerator : IDisposable
 
         var now = DateTimeOffset.UtcNow;
 
-        // JWT Header
-        var header = new Dictionary<string, object>
+        var payload = new ArrayBufferWriter<byte>(256);
+        using (var writer = new Utf8JsonWriter(payload))
         {
-            ["typ"] = "JWT",
-            ["alg"] = _algorithm,
-        };
+            writer.WriteStartObject();
+            writer.WriteString("iss"u8, _serviceDid);
+            writer.WriteString("aud"u8, audience);
+            writer.WriteNumber("exp"u8, now.Add(exp).ToUnixTimeSeconds());
+            writer.WriteNumber("iat"u8, now.ToUnixTimeSeconds());
+            Jwt.WriteTokenId(writer);
 
-        // JWT Payload
-        var payload = new Dictionary<string, object>
-        {
-            ["iss"] = _serviceDid,
-            ["aud"] = audience,
-            ["exp"] = now.Add(exp).ToUnixTimeSeconds(),
-            ["iat"] = now.ToUnixTimeSeconds(),
-            ["jti"] = Guid.NewGuid().ToString("N"),
-        };
+            if (lxm is not null)
+                writer.WriteString("lxm"u8, lxm);
 
-        if (lxm is not null)
-            payload["lxm"] = lxm;
+            writer.WriteEndObject();
+        }
 
-        return SignJwt(header, payload);
-    }
-
-    private string SignJwt(Dictionary<string, object> header, Dictionary<string, object> payload)
-    {
-        var headerJson = JsonSerializer.Serialize(header);
-        var payloadJson = JsonSerializer.Serialize(payload);
-
-        var headerB64 = Base64UrlEncode(Encoding.UTF8.GetBytes(headerJson));
-        var payloadB64 = Base64UrlEncode(Encoding.UTF8.GetBytes(payloadJson));
-
-        var signingInput = Encoding.UTF8.GetBytes($"{headerB64}.{payloadB64}");
-        var signature = _signingKey.Sign(signingInput);
-        var signatureB64 = Base64UrlEncode(signature);
-
-        return $"{headerB64}.{payloadB64}.{signatureB64}";
-    }
-
-    private static string Base64UrlEncode(byte[] data)
-    {
-        return Convert.ToBase64String(data)
-            .TrimEnd('=')
-            .Replace('+', '-')
-            .Replace('/', '_');
+        return Jwt.Sign(_encodedHeader, payload.WrittenSpan, _signingKey);
     }
 
     /// <inheritdoc/>

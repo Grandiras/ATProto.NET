@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using ATProtoNet.Auth;
+using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 
 namespace ATProtoNet.Server.Spaces;
@@ -98,7 +100,7 @@ public sealed class DPoPProof
 public sealed class DPoPProofValidator
 {
     /// <summary>The <c>typ</c> header every DPoP proof carries.</summary>
-    public const string ProofType = "dpop+jwt";
+    public const string ProofType = DPoP.TokenType;
 
     private readonly ISpaceReplayStore _replayStore;
     private readonly SpaceServerOptions _options;
@@ -130,7 +132,8 @@ public sealed class DPoPProofValidator
     /// <param name="requestUri">
     /// The request URL as received. Query and fragment are stripped before comparison, per
     /// RFC 9449 section 4.3 — one proof therefore covers any query on a given path, which is
-    /// what lets a client mint a proof before it has built the query string.
+    /// what lets a client mint a proof before it has built the query string. Userinfo, which
+    /// never belongs in an <c>htu</c>, is stripped too.
     /// </param>
     /// <param name="boundThumbprint">
     /// The <c>cnf.jkt</c> of the credential this proof accompanies, or <see langword="null"/> on
@@ -157,7 +160,7 @@ public sealed class DPoPProofValidator
         // The trusted side of the comparison. A request URI that does not normalize is a
         // misconfiguration of this service rather than anything the caller did — most likely a
         // PublicBaseUrl with no scheme — so it is a fault here, not a failed verification.
-        var normalizedRequestUri = NormalizeUri(requestUri)
+        var normalizedRequestUri = DPoP.NormalizeHtu(requestUri)
             ?? throw new ArgumentException(
                 $"'{requestUri}' is not an absolute URL; check SpaceServerOptions.PublicBaseUrl.",
                 nameof(requestUri));
@@ -165,26 +168,35 @@ public sealed class DPoPProofValidator
         if (string.IsNullOrWhiteSpace(proofJwt))
             throw Invalid("The request carries no DPoP proof.");
 
-        var parts = proofJwt.Split('.');
-        if (parts.Length != 3)
-            throw Invalid("Malformed DPoP proof: expected three parts.");
+        if (!Jwt.TryDecode(proofJwt, out var decoded, out var error))
+            throw Invalid($"Malformed DPoP proof: {error}.");
 
-        var header = DecodeJson(parts[0], "header");
-        var payload = DecodeJson(parts[1], "payload");
+        var (header, payload, signingInput, signature) = decoded;
 
-        if (GetString(header, "typ") != ProofType)
+        if (header.GetStringOrNull("typ") != ProofType)
             throw Invalid($"A DPoP proof must carry a \"{ProofType}\" typ header.");
 
-        var algorithm = GetString(header, "alg")
+        var algorithm = header.GetStringOrNull("alg")
             ?? throw Invalid("The DPoP proof is missing its \"alg\" header.");
 
-        if (!header.TryGetProperty("jwk", out var jwk) || jwk.ValueKind != JsonValueKind.Object)
+        if (!header.TryGetProperty("jwk", out var jwkElement) || jwkElement.ValueKind != JsonValueKind.Object)
             throw Invalid("The DPoP proof is missing its \"jwk\" header.");
 
         // A proof carrying a private key is not a proof of anything; it is a client leaking its
         // own secret. Reject it rather than helpfully verifying against the public half.
-        if (jwk.TryGetProperty("d", out _))
+        if (jwkElement.TryGetProperty("d", out _))
             throw Invalid("The DPoP proof's embedded JWK carries private key material.");
+
+        JsonWebKey jwk;
+        try
+        {
+            jwk = jwkElement.Deserialize<JsonWebKey>()!;
+        }
+        catch (JsonException ex)
+        {
+            throw new SpaceVerificationException(
+                SpaceErrors.NotAuthorized, $"The DPoP proof's embedded JWK is malformed: {ex.Message}", ex);
+        }
 
         var thumbprint = JsonWebKeyVerifier.ComputeThumbprint(jwk, Invalid);
 
@@ -197,17 +209,14 @@ public sealed class DPoPProofValidator
             throw Invalid("The DPoP proof is signed by a key the credential is not bound to.");
         }
 
-        var signingInput = Encoding.UTF8.GetBytes($"{parts[0]}.{parts[1]}");
-        var signature = DecodeBase64Url(parts[2], "signature");
-
         if (!JsonWebKeyVerifier.Verify(jwk, algorithm, signingInput, signature, Invalid))
             throw Invalid("The DPoP proof's signature does not verify against its embedded key.");
 
-        var tokenId = GetString(payload, "jti")
+        var tokenId = payload.GetStringOrNull("jti")
             ?? throw Invalid("The DPoP proof is missing its \"jti\" claim.");
-        var method = GetString(payload, "htm")
+        var method = payload.GetStringOrNull("htm")
             ?? throw Invalid("The DPoP proof is missing its \"htm\" claim.");
-        var uri = GetString(payload, "htu")
+        var uri = payload.GetStringOrNull("htu")
             ?? throw Invalid("The DPoP proof is missing its \"htu\" claim.");
 
         if (!string.Equals(method, httpMethod, StringComparison.OrdinalIgnoreCase))
@@ -216,7 +225,7 @@ public sealed class DPoPProofValidator
         // A relative or otherwise unparseable htu is rejected outright rather than compared
         // verbatim: normalization is what makes the comparison below meaningful, and a value
         // that skips it has not been checked against anything.
-        var normalizedProofUri = NormalizeUri(uri)
+        var normalizedProofUri = DPoP.NormalizeHtu(uri)
             ?? throw Invalid("The DPoP proof's \"htu\" is not an absolute URL.");
 
         if (!string.Equals(normalizedProofUri, normalizedRequestUri, StringComparison.Ordinal))
@@ -232,10 +241,10 @@ public sealed class DPoPProofValidator
         if (issuedAt + _options.ProofLifetime < now)
             throw Invalid("The DPoP proof has aged out.");
 
-        var accessTokenHash = GetString(payload, "ath");
+        var accessTokenHash = payload.GetStringOrNull("ath");
         if (accessToken is not null)
         {
-            var expected = Base64UrlEncode(SHA256.HashData(Encoding.UTF8.GetBytes(accessToken)));
+            var expected = DPoP.AccessTokenHash(accessToken);
             if (accessTokenHash is null)
                 throw Invalid("The DPoP proof is missing the \"ath\" hash of the credential it accompanies.");
             if (!CryptographicOperations.FixedTimeEquals(
@@ -252,61 +261,9 @@ public sealed class DPoPProofValidator
 
         return new DPoPProof(
             proofJwt, algorithm, thumbprint, tokenId, method, uri, issuedAt,
-            accessTokenHash, GetString(payload, "nonce"));
-    }
-
-    /// <summary>
-    /// Strips the query and fragment from a URL, per RFC 9449 section 4.3, and normalizes the
-    /// scheme, host, and default port so a proof is not rejected over casing. Returns
-    /// <see langword="null"/> for anything that is not an absolute URL naming a host.
-    /// </summary>
-    internal static string? NormalizeUri(string url)
-    {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || string.IsNullOrEmpty(uri.Host))
-            return null;
-
-        var port = uri.IsDefaultPort ? string.Empty : $":{uri.Port}";
-        return $"{uri.Scheme.ToLowerInvariant()}://{uri.Host.ToLowerInvariant()}{port}{uri.AbsolutePath}";
+            accessTokenHash, payload.GetStringOrNull("nonce"));
     }
 
     private static SpaceVerificationException Invalid(string message) =>
         new(SpaceErrors.NotAuthorized, message);
-
-    private static JsonElement DecodeJson(string part, string name)
-    {
-        try
-        {
-            return JsonSerializer.Deserialize<JsonElement>(DecodeBase64Url(part, name));
-        }
-        catch (JsonException ex)
-        {
-            throw new SpaceVerificationException(
-                SpaceErrors.NotAuthorized, $"Could not parse the DPoP proof {name}: {ex.Message}", ex);
-        }
-    }
-
-    private static byte[] DecodeBase64Url(string value, string name)
-    {
-        try
-        {
-            var padded = value.Replace('-', '+').Replace('_', '/');
-            var padding = (4 - (padded.Length % 4)) % 4;
-            return Convert.FromBase64String(padding == 0 ? padded : padded + new string('=', padding));
-        }
-        catch (FormatException ex)
-        {
-            throw new SpaceVerificationException(
-                SpaceErrors.NotAuthorized, $"Could not decode the DPoP proof {name}: {ex.Message}", ex);
-        }
-    }
-
-    private static string? GetString(JsonElement element, string name) =>
-        element.ValueKind == JsonValueKind.Object &&
-        element.TryGetProperty(name, out var value) &&
-        value.ValueKind == JsonValueKind.String
-            ? value.GetString()
-            : null;
-
-    private static string Base64UrlEncode(ReadOnlySpan<byte> data) =>
-        Convert.ToBase64String(data).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }

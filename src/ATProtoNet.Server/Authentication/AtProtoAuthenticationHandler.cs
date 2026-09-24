@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using ATProtoNet.Auth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -218,16 +219,8 @@ public class AtProtoAuthenticationHandler : AuthenticationHandler<AtProtoAuthent
         return false;
     }
 
-    private static byte[] DecodeBase64Url(string input)
-    {
-        var padded = input.Replace('-', '+').Replace('_', '/');
-        switch (padded.Length % 4)
-        {
-            case 2: padded += "=="; break;
-            case 3: padded += "="; break;
-        }
-        return Convert.FromBase64String(padded);
-    }
+    private static byte[] DecodeBase64Url(string input) =>
+        Jwt.TryDecodeBase64Url(input, out var bytes) ? bytes : throw new FormatException("Not base64url.");
 }
 
 /// <summary>
