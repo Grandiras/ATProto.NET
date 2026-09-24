@@ -1,4 +1,3 @@
-using System.Net;
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Http;
 

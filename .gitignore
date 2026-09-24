@@ -11,6 +11,7 @@ bld/
 # NuGet
 *.nupkg
 *.snupkg
+nupkg/
 nupkgs/
 packages/
 *.nuget.props
@@ -29,9 +30,6 @@ project.fragment.lock.json
 .idea/
 *.swp
 *~
-
-# Rider
-.idea/
 
 # Test results
 TestResults/

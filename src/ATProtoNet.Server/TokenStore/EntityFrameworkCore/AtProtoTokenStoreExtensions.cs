@@ -1,8 +1,6 @@
 using ATProtoNet.Auth.OAuth;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace ATProtoNet.Server.EntityFrameworkCore;
 

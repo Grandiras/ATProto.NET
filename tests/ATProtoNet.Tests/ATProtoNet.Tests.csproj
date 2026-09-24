@@ -1,17 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <IsPackable>false</IsPackable>
-    <RootNamespace>ATProtoNet.Tests</RootNamespace>
-    <!-- xUnit1051 asks every cancellable call to thread TestContext.Current.CancellationToken.
-         It is new in xunit.v3 and fires at ~260 existing call sites; threading the token
-         through is worthwhile but is its own change, not part of the framework upgrade. -->
-    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
-  </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="10.0.1" />
     <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.10" />
@@ -38,10 +26,6 @@
     <ProjectReference Include="..\..\src\ATProtoNet.Server\ATProtoNet.Server.csproj" />
     <ProjectReference Include="..\..\src\ATProtoNet.Blazor\ATProtoNet.Blazor.csproj" />
     <ProjectReference Include="..\..\tools\ATProtoNet.LexiconGenerator\ATProtoNet.LexiconGenerator.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Using Include="Xunit" />
   </ItemGroup>
 
   <ItemGroup>

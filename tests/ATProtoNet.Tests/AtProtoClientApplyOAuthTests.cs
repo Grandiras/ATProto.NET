@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using ATProtoNet.Auth.OAuth;
 using NSubstitute;

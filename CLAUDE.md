@@ -45,7 +45,7 @@ The **canonical remote is Forgejo** at `git.grandiras.net` (origin), with GitHub
 
 ## Solution structure
 
-Shared package metadata (`Version`, `Authors`, SourceLink, deterministic build flags) lives in `Directory.Build.props` — do not duplicate it in individual `.csproj` files. Set `<IsPackable>false</IsPackable>` on non-packable projects (tests, samples).
+Shared settings live in the root `Directory.Build.props`: `TargetFramework`, `Nullable`, `ImplicitUsings`, and the package metadata (`Version`, `Authors`, license, URLs, readme, SourceLink, deterministic build flags). Do not duplicate them in individual `.csproj` files; a project sets only `Description`, `PackageTags` and what else differs. `src/Directory.Build.props` turns on `GenerateDocumentationFile` with CS1591 as an error; `tests/Directory.Build.props` and `samples/Directory.Build.props` set `<IsPackable>false</IsPackable>` (tests also get the global `using Xunit;` and the `xUnit1051` suppression). Each imports the root file.
 
 The four `src/` projects layer onto each other:
 
@@ -72,8 +72,8 @@ JSON property names use `camelCase` (AT Proto convention) — set `[JsonProperty
 
 ## Conventions worth knowing
 
-- **Nullable reference types are enabled everywhere**; `<TreatWarningsAsErrors>` is intentionally `false` on the core project, but new warnings on touched files should be addressed.
-- **Public APIs are XML-documented**; `GenerateDocumentationFile` is on for the core project.
+- **Nullable reference types are enabled everywhere**; `<TreatWarningsAsErrors>` stays at its default of `false`, but new warnings on touched files should be addressed.
+- **Public APIs are XML-documented**; `GenerateDocumentationFile` is on for every `src/` project, and a missing XML comment (CS1591) is a build error.
 - Tests use **xUnit + NSubstitute**. Naming: `MethodName_Scenario_ExpectedResult`.
 - Commit messages follow **conventional commits** (`feat:`, `fix:`, `docs:`, `test:`).
 - Indent: 4 spaces for C#, 2 for csproj/props/yml/json (`.editorconfig`).

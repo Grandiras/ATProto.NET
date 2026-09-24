@@ -1,10 +1,8 @@
 using System.Collections.Concurrent;
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Web;
-using ATProtoNet.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Auth.OAuth;
@@ -406,7 +404,7 @@ public sealed class OAuthClient : IDisposable
         request.Headers.TryAddWithoutValidation("DPoP", dpopProof);
 
         var response = await SendWithDpopRetryAsync(request, session.DPoP, session.TokenEndpoint, "POST",
-            nonce => session.AuthServerDpopNonce = nonce, session.AuthServerDpopNonce, cancellationToken);
+            nonce => session.AuthServerDpopNonce = nonce, cancellationToken);
 
         var tokenResponse = await response.Content.ReadFromJsonAsync<OAuthTokenResponse>(cancellationToken)
             ?? throw new OAuthException("Failed to deserialize token refresh response.", "token_error");
@@ -660,7 +658,6 @@ public sealed class OAuthClient : IDisposable
         string url,
         string method,
         Action<string> updateNonce,
-        string? currentNonce,
         CancellationToken cancellationToken)
     {
         var response = await _httpClient.SendAsync(request, cancellationToken);

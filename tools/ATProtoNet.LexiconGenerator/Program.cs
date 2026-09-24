@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using ATProtoNet.LexiconGenerator.CodeGen;
@@ -12,7 +13,9 @@ namespace ATProtoNet.LexiconGenerator;
 /// </summary>
 public static class Program
 {
-    private const string Version = "1.0.0";
+    private static readonly string Version =
+        typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+        ?? "unknown";
 
     private static readonly JsonSerializerOptions s_parseOptions = new()
     {

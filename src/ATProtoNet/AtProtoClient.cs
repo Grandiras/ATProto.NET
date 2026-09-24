@@ -144,7 +144,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         Chat = new ChatClients(new ConvoClient(_xrpc), new ChatActorClient(_xrpc));
 
         Ozone = new OzoneClient(_xrpc);
-        Site = new StandardSiteClient(_xrpc, Repo);
+        Site = new StandardSiteClient(Repo);
 
         if (options.AutoRefreshSession)
             _refreshTimer = new Timer(OnRefreshTimerElapsed, null, Timeout.Infinite, Timeout.Infinite);

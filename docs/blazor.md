@@ -302,5 +302,4 @@ See [server.md](server.md) for full documentation.
 
 ## Examples
 
-- [`samples/BlazorOAuthSample`](../samples/BlazorOAuthSample/) — Minimal OAuth login example
-- [`samples/ServerIntegrationSample`](../samples/ServerIntegrationSample/) — Blazor + backend AT Proto access
+- [`samples/ServerIntegrationSample`](../samples/ServerIntegrationSample/) — OAuth login with `LoginForm`, plus backend AT Proto access

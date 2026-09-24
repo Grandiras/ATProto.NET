@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking changes
+
+- **`ATProtoNet` no longer depends on `Microsoft.Extensions.Http` or `Microsoft.Extensions.Options`** — the core package used neither, so its dependency closure shrinks from 14 packages to 3. ASP.NET Core apps are unaffected, since the shared framework carries both. Migration: an app outside ASP.NET Core that used `IHttpClientFactory`, `IOptions<T>` or `LoggerFactory` only through this transitive dependency adds `Microsoft.Extensions.Http`, `Microsoft.Extensions.Options` or `Microsoft.Extensions.Logging` itself (#110)
+
+### Changed
+
+- **Shared build settings are set once** — the target framework, nullable reference types, implicit usings and the package metadata now come from `Directory.Build.props`, with `src/`, `tests/` and `samples/` layers for documentation files and `IsPackable`, instead of being repeated in every project file. The published package metadata is unchanged apart from the two dependencies above (#110)
+
+### Fixed
+
+- **`atproto-lexgen --version` reports the tool's real version** — it printed a hard-coded `1.0.0`; it now prints the assembly's informational version, and so does the `--help` banner (#110)
+
+### Removed
+
+- **`samples/BlazorOAuthSample`** — folded into `samples/ServerIntegrationSample`, which already ran the same OAuth login and adds server-side AT Proto access on top. The remaining sample keeps only `bootstrap.min.css` from the vendored Bootstrap tree (87 files and 17 MB fewer in a checkout), uses Blazor's built-in reconnect UI instead of the template's copy, and drops unused template CSS and imports (#110)
+
 ### Security
 
 - **GitHub → Forgejo sync workflows no longer paste event fields into shell scripts** — `sync-issues.yml`, `sync-comments.yml` and `sync-prs.yml` interpolated issue/PR titles, bodies, comment bodies, file paths and branch names into `run:` scripts with `${{ }}`, which is expanded into the script text before bash parses it. Anyone able to open an issue, PR or comment on the public GitHub mirror could therefore run commands with `FORGEJO_TOKEN` in the environment; wrapping a body in a quoted heredoc did not help, since the body could contain the delimiter. Every event field now reaches the script only through `env:` and a quoted variable, and each workflow sets `permissions: {}`. **Rotate `FORGEJO_TOKEN`** (it has write access to the canonical repository) as well as `GH_MIRROR_TOKEN` (see the next entry)

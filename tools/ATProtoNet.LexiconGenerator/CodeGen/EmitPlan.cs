@@ -62,7 +62,7 @@ public sealed class EmitPlan
             }
         }
 
-        PlanUnions(documents, namespacePrefix, warnings);
+        PlanUnions(documents, warnings);
     }
 
     /// <summary>A definition that this generation run emits a C# type for.</summary>
@@ -103,22 +103,22 @@ public sealed class EmitPlan
     private static string Signature(IEnumerable<string> normalizedRefs)
         => string.Join("|", normalizedRefs.Distinct(StringComparer.Ordinal).OrderBy(r => r, StringComparer.Ordinal));
 
-    private void PlanUnions(IReadOnlyList<LexiconDocument> documents, string namespacePrefix, IList<string> warnings)
+    private void PlanUnions(IReadOnlyList<LexiconDocument> documents, IList<string> warnings)
     {
         // Collect union sites in a deterministic order: document order, then definition
         // order, then property order (System.Text.Json preserves JSON member order).
         var sites = new List<UnionSite>();
         foreach (var doc in documents)
         {
-            foreach (var (defName, def) in doc.Defs)
+            foreach (var def in doc.Defs.Values)
             {
                 switch (def.Type)
                 {
                     case "record":
-                        WalkObject(def.Record, doc.Id, defName, sites);
+                        WalkObject(def.Record, doc.Id, sites);
                         break;
                     case "object":
-                        WalkObject(def, doc.Id, defName, sites);
+                        WalkObject(def, doc.Id, sites);
                         break;
                     // Other definition types carry no property schemas, so they host no union
                     // sites — a space declaration's fields are all scalars and NSID lists.
@@ -201,7 +201,7 @@ public sealed class EmitPlan
         }
     }
 
-    private static void WalkObject(LexiconSchema? obj, string nsid, string hint, List<UnionSite> sites)
+    private static void WalkObject(LexiconSchema? obj, string nsid, List<UnionSite> sites)
     {
         if (obj?.Properties is null)
             return;
@@ -223,7 +223,7 @@ public sealed class EmitPlan
                 break;
 
             case "object":
-                WalkObject(schema, nsid, hint, sites);
+                WalkObject(schema, nsid, sites);
                 break;
         }
     }

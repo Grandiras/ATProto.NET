@@ -2,16 +2,10 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <RootNamespace>ATProtoNet.LexiconGenerator</RootNamespace>
-    <AssemblyName>ATProtoNet.LexiconGenerator</AssemblyName>
 
     <!-- dotnet tool packaging -->
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>atproto-lexgen</ToolCommandName>
-    <PackageId>ATProtoNet.LexiconGenerator</PackageId>
     <Description>Bidirectional code generator for AT Protocol Lexicon schemas: Lexicon JSON ↔ C# classes. Generate C# from Lexicon, Lexicon from C#, and diff schemas for breaking changes.</Description>
     <PackageTags>atproto;lexicon;codegen;schema;at-protocol;dotnet-tool</PackageTags>
   </PropertyGroup>

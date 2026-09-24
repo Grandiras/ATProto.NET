@@ -218,11 +218,6 @@ public sealed class XrpcClient : IDisposable
     }
 
     /// <summary>
-    /// Gets the current refresh token, if available.
-    /// </summary>
-    internal string? RefreshToken => _refreshToken;
-
-    /// <summary>
     /// Performs an XRPC query (HTTP GET) and deserializes the response.
     /// </summary>
     /// <typeparam name="TResponse">The type to deserialize the response body into.</typeparam>

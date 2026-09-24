@@ -1,7 +1,14 @@
 <Project>
 
   <PropertyGroup>
-    <!-- Shared package metadata for all packable projects -->
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Shared package metadata for all packable projects. Description and PackageTags
+         are set per project. -->
     <Version>0.6.0</Version>
     <Authors>Grandiras</Authors>
     <Company>Grandiras</Company>
@@ -11,7 +18,6 @@
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>atproto;at-protocol;bluesky;decentralized;lexicon;sdk</PackageTags>
 
     <!-- SourceLink / deterministic builds -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

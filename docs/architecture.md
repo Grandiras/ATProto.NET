@@ -73,11 +73,10 @@ ATProto.NET/
 ├── tools/
 │   └── ATProtoNet.LexiconGenerator/           # `atproto-lexgen` dotnet tool
 ├── samples/
-│   ├── BlazorOAuthSample/                     # Blazor Server OAuth example
 │   ├── FirehoseConsumerSample/                # Typed firehose with filtering
 │   ├── ManagedPdsSample/                      # Account provisioning via PdsAdminClient
 │   ├── ManagedPdsSample.AppHost/              # Aspire AppHost running the PDS container
-│   └── ServerIntegrationSample/               # Blazor + server-side AT Proto access
+│   └── ServerIntegrationSample/               # Blazor OAuth login + server-side AT Proto access
 └── tests/
     ├── ATProtoNet.Tests/                      # Unit tests
     └── ATProtoNet.IntegrationTests/           # Integration tests (requires PDS)
@@ -101,8 +100,8 @@ JSON property names use `camelCase` (the AT Proto convention) — set `[JsonProp
 
 ## Shared build config
 
-Shared package metadata (`Version`, `Authors`, SourceLink, deterministic build flags) lives in `Directory.Build.props` — do not duplicate it in individual `.csproj` files. Set `<IsPackable>false</IsPackable>` on non-packable projects (tests, samples).
+The root `Directory.Build.props` holds what every project shares: the target framework, nullable reference types and implicit usings, and the package metadata (`Version`, `Authors`, license, URLs, readme, SourceLink, deterministic build flags). Don't duplicate any of it in a `.csproj`; a project file sets only what differs, such as `Description`, `PackageTags` and its references. `src/`, `tests/` and `samples/` each add a `Directory.Build.props` that imports the root one: `src/` turns on the documentation file, and `tests/` and `samples/` set `<IsPackable>false</IsPackable>`.
 
-Nullable reference types are enabled everywhere. `<TreatWarningsAsErrors>` is intentionally `false`, but the solution builds warning-free and new warnings on touched files should be addressed.
+Nullable reference types are enabled everywhere. `<TreatWarningsAsErrors>` stays at its default of `false`, but the solution builds warning-free and new warnings on touched files should be addressed.
 
-Public APIs are XML-documented: `ATProtoNet`, `ATProtoNet.Server`, `ATProtoNet.Blazor`, and `ATProtoNet.Aspire.Hosting` all set `GenerateDocumentationFile` and promote **CS1591 to an error**, so a new public member without an XML comment fails the build.
+Public APIs are XML-documented: every `src/` project sets `GenerateDocumentationFile` and promotes **CS1591 to an error**, so a new public member without an XML comment fails the build.

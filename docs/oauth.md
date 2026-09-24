@@ -109,7 +109,7 @@ var oauthOptions = new OAuthOptions
 
 > **Note:** The redirect URI uses `127.0.0.1` (not `localhost`) per [RFC 8252](https://datatracker.ietf.org/doc/html/rfc8252). Port numbers are not matched by the Authorization Server, so you can use any available port.
 
-See the [`samples/BlazorOAuthSample`](../samples/BlazorOAuthSample/) project for a complete working example.
+See the [`samples/ServerIntegrationSample`](../samples/ServerIntegrationSample/) project for a complete working example.
 
 ## Authorization Flow
 

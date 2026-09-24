@@ -1,4 +1,3 @@
-using System.Text.Json;
 using ATProtoNet.Repo;
 using ATProtoNet.Streaming;
 using static ATProtoNet.Tests.Streaming.JetstreamSegmentFixture;

@@ -1,4 +1,3 @@
-using ATProtoNet.Http;
 using ATProtoNet.Lexicon.Com.AtProto.Repo;
 using ATProtoNet.Lexicon.Site.Standard.Document;
 using ATProtoNet.Lexicon.Site.Standard.Graph;
@@ -13,12 +12,10 @@ namespace ATProtoNet.Lexicon.Site.Standard;
 /// </summary>
 public sealed class StandardSiteClient
 {
-    private readonly XrpcClient _xrpc;
     private readonly RepoClient _repo;
 
-    internal StandardSiteClient(XrpcClient xrpc, RepoClient repo)
+    internal StandardSiteClient(RepoClient repo)
     {
-        _xrpc = xrpc;
         _repo = repo;
     }
 

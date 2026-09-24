@@ -3,7 +3,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
-using ATProtoNet.Lexicon.Com.AtProto.Repo;
 using ATProtoNet.Serialization;
 
 namespace ATProtoNet;

@@ -5,7 +5,6 @@ using ATProtoNet.Lexicon.Site.Standard.Document;
 using ATProtoNet.Lexicon.Site.Standard.Graph;
 using ATProtoNet.Lexicon.Site.Standard.Publication;
 using ATProtoNet.Lexicon.Com.AtProto.Repo;
-using ATProtoNet.Models;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Tests.Lexicon.Site.Standard;
@@ -28,7 +27,7 @@ public class StandardSiteClientTests : IDisposable
         _xrpc = new XrpcClient(_httpClient, NullLogger.Instance);
         _xrpc.SetTokens("test-token");
         _repo = new RepoClient(_xrpc);
-        _site = new StandardSiteClient(_xrpc, _repo);
+        _site = new StandardSiteClient(_repo);
     }
 
     // ──────────────────────────────────────────────────────────

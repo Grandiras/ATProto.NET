@@ -1,9 +1,4 @@
-using System.Text.Json;
 using ATProtoNet.Http;
-using ATProtoNet.Lexicon.App.Bsky.Embed;
-using ATProtoNet.Lexicon.App.Bsky.RichText;
-using ATProtoNet.Lexicon.Com.AtProto.Repo;
-using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Feed;
 

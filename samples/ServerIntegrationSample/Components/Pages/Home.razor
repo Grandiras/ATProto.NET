@@ -29,6 +29,10 @@
                             <th scope="row">PDS</th>
                             <td><code>@context.User.FindFirst("pds_url")?.Value</code></td>
                         </tr>
+                        <tr>
+                            <th scope="row">Auth Method</th>
+                            <td><code>@context.User.FindFirst("auth_method")?.Value</code></td>
+                        </tr>
                     </tbody>
                 </table>
                 <p class="text-muted small mb-3">

@@ -61,7 +61,7 @@ public sealed class LexiconEmitter
             var (nsid, defName) = TypeMapper.ParseTypeValue(typeValue);
 
             var doc = DocumentFor(results, nsid);
-            var schema = BuildSchemaFromType(type, defName);
+            var schema = BuildSchemaFromType(type);
             AddDefinition(doc, defName, schema, type);
         }
 
@@ -249,7 +249,7 @@ public sealed class LexiconEmitter
     /// <summary>
     /// Builds a Lexicon schema definition from a C# type's properties.
     /// </summary>
-    private static LexiconSchema BuildSchemaFromType(Type type, string defName)
+    private static LexiconSchema BuildSchemaFromType(Type type)
     {
         var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
         var schemaProperties = new Dictionary<string, LexiconSchema>();

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using ATProtoNet.Http;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Admin;

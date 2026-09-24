@@ -20,7 +20,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.ExpireTimeSpan = TimeSpan.FromDays(7);
     });
 
-// 2. Register AT Proto OAuth (Blazor login)
+// 2. Register AT Proto OAuth for the Blazor login (auto-generates a loopback client_id for development)
 builder.Services.AddAtProtoAuthentication(options =>
 {
     options.ClientName = "ATProto.NET Server Integration Sample";
@@ -42,6 +42,7 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
 }
+app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -51,7 +52,7 @@ app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-// 4. Map AT Proto OAuth endpoints
+// 4. Map AT Proto OAuth endpoints: /atproto/login, /atproto/callback, /atproto/logout
 app.MapAtProtoOAuth();
 
 // ─────────────────────────────────────────────

@@ -1,6 +1,5 @@
 using ATProtoNet.Auth;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet;
 
