@@ -111,8 +111,8 @@ For typed listing and automatic pagination, use a `RecordCollection<T>` instead 
 [Custom Lexicon Records](custom-records.md):
 
 ```csharp
-var documents = client.GetCollection<DocumentRecord>("site.standard.document");
-await foreach (var record in documents.EnumerateFromAsync("did:plc:abc123"))
+var documents = client.GetCollection<DocumentRecord>(Nsid.Parse("site.standard.document"));
+await foreach (var record in documents.EnumerateFromAsync(Did.Parse("did:plc:abc123")))
     Console.WriteLine(record.Value.Title);
 ```
 

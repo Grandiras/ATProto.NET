@@ -1,7 +1,9 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using ATProtoNet.Auth;
+using ATProtoNet.Identity;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -49,7 +51,7 @@ public class AtProtoAuthenticationHandler : AuthenticationHandler<AtProtoAuthent
         // are expired or not-yet-valid before paying for a network round-trip to
         // the PDS. Cryptographic signature verification still happens at the PDS
         // (it owns the signing key), but we refuse to forward obviously bad tokens.
-        if (!TryPreValidateJwt(token, out var failureReason))
+        if (!TryPreValidateJwt(token, out var subject, out var failureReason))
         {
             Logger.LogDebug("JWT pre-validation failed: {Reason}", failureReason);
             return AuthenticateResult.Fail(failureReason);
@@ -63,11 +65,12 @@ public class AtProtoAuthenticationHandler : AuthenticationHandler<AtProtoAuthent
                 .WithAutoRefreshSession(false)
                 .Build();
 
-            // Manually set the access token for validation
+            // Manually set the access token for validation. getSession replaces the placeholder
+            // handle; the DID is the token's subject, which the PDS vouches for by accepting it.
             var session = new Auth.Session
             {
-                Did = string.Empty,
-                Handle = string.Empty,
+                Did = subject,
+                Handle = PlaceholderHandle,
                 AccessJwt = token,
                 RefreshJwt = string.Empty,
             };
@@ -100,13 +103,16 @@ public class AtProtoAuthenticationHandler : AuthenticationHandler<AtProtoAuthent
         }
     }
 
+    private static readonly Handle PlaceholderHandle = Handle.Parse("handle.invalid");
+
     /// <summary>
     /// Cheap local pre-checks on a JWT structure: three base64url-encoded segments,
-    /// `alg` is not <c>none</c>, and the `exp`/`nbf` window (if present) covers now.
-    /// Does NOT verify the signature — that's owned by the PDS in this delegated flow.
+    /// `alg` is not <c>none</c>, the subject is a DID, and the `exp`/`nbf` window (if present)
+    /// covers now. Does NOT verify the signature — that's owned by the PDS in this delegated flow.
     /// </summary>
-    private static bool TryPreValidateJwt(string token, out string failureReason)
+    private static bool TryPreValidateJwt(string token, [NotNullWhen(true)] out Did? subject, out string failureReason)
     {
+        subject = null;
         failureReason = "";
         var parts = token.Split('.');
         if (parts.Length != 3)
@@ -159,6 +165,15 @@ public class AtProtoAuthenticationHandler : AuthenticationHandler<AtProtoAuthent
                 TryGetUnixTime(nbf, out var nbfValue) && now + 60 < nbfValue)
             {
                 failureReason = "Token is not yet valid.";
+                return false;
+            }
+
+            // An atproto access token's subject is the account DID.
+            if (!payload.RootElement.TryGetProperty("sub", out var sub)
+                || sub.ValueKind != JsonValueKind.String
+                || !Did.TryParse(sub.GetString(), out subject))
+            {
+                failureReason = "Token subject ('sub') is not a DID.";
                 return false;
             }
         }

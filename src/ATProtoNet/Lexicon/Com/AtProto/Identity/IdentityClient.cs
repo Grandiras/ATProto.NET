@@ -1,4 +1,5 @@
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Identity;
 
@@ -21,7 +22,7 @@ public sealed class IdentityClient
     /// <param name="handle">The handle to resolve.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ResolveHandleResponse> ResolveHandleAsync(
-        string handle, CancellationToken cancellationToken = default)
+        Handle handle, CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams().Add("handle", handle);
         return _xrpc.QueryAsync<ResolveHandleResponse>(
@@ -34,7 +35,7 @@ public sealed class IdentityClient
     /// <param name="handle">The new handle.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task UpdateHandleAsync(
-        string handle, CancellationToken cancellationToken = default)
+        Handle handle, CancellationToken cancellationToken = default)
     {
         var request = new UpdateHandleRequest { Handle = handle };
         await _xrpc.ProcedureAsync(

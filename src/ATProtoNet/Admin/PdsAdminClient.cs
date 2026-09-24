@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Admin;
 using ATProtoNet.Lexicon.Com.AtProto.Server;
 using ATProtoNet.Serialization;
@@ -35,7 +36,7 @@ namespace ATProtoNet.Admin;
 ///
 /// var account = await admin.CreateAccountAsync(new CreatePdsAccountRequest
 /// {
-///     Handle = "alice.pds.example.com",
+///     Handle = Handle.Parse("alice.pds.example.com"),
 ///     Email = "alice@example.com",
 ///     Password = signupPassword,
 /// });
@@ -302,7 +303,7 @@ public sealed class PdsAdminClient : IDisposable
     /// <returns>The generated invite code.</returns>
     public async Task<string> CreateInviteCodeAsync(
         int useCount = 1,
-        string? forAccount = null,
+        Did? forAccount = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(useCount, 1);
@@ -323,7 +324,7 @@ public sealed class PdsAdminClient : IDisposable
     public async Task<IReadOnlyList<string>> CreateInviteCodesAsync(
         int codeCount,
         int useCount = 1,
-        IEnumerable<string>? forAccounts = null,
+        IEnumerable<Did>? forAccounts = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(codeCount, 1);
@@ -368,7 +369,7 @@ public sealed class PdsAdminClient : IDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.Handle);
+        ArgumentNullException.ThrowIfNull(request.Handle);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Password);
 
         var inviteCode = request.InviteCode;
@@ -404,9 +405,9 @@ public sealed class PdsAdminClient : IDisposable
     /// </summary>
     /// <param name="did">The account DID.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    public Task<AccountInfo> GetAccountAsync(string did, CancellationToken cancellationToken = default)
+    public Task<AccountInfo> GetAccountAsync(Did did, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(did);
+        ArgumentNullException.ThrowIfNull(did);
         return AdminCallAsync(ct => Admin.GetAccountInfoAsync(did, ct), cancellationToken);
     }
 
@@ -415,9 +416,9 @@ public sealed class PdsAdminClient : IDisposable
     /// </summary>
     /// <param name="did">The account DID.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    public Task DeleteAccountAsync(string did, CancellationToken cancellationToken = default)
+    public Task DeleteAccountAsync(Did did, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(did);
+        ArgumentNullException.ThrowIfNull(did);
         return AdminCallAsync(ct => Admin.DeleteAccountAsync(did, ct), cancellationToken);
     }
 
@@ -428,11 +429,11 @@ public sealed class PdsAdminClient : IDisposable
     /// <param name="reference">An optional moderation reference recorded with the takedown.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     public Task TakedownAccountAsync(
-        string did,
+        Did did,
         string? reference = null,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(did);
+        ArgumentNullException.ThrowIfNull(did);
 
         var request = new UpdateSubjectStatusRequest
         {
@@ -448,9 +449,9 @@ public sealed class PdsAdminClient : IDisposable
     /// </summary>
     /// <param name="did">The account DID.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    public Task RestoreAccountAsync(string did, CancellationToken cancellationToken = default)
+    public Task RestoreAccountAsync(Did did, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(did);
+        ArgumentNullException.ThrowIfNull(did);
 
         var request = new UpdateSubjectStatusRequest
         {
@@ -468,12 +469,12 @@ public sealed class PdsAdminClient : IDisposable
     /// <param name="handle">The new handle.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     public Task UpdateAccountHandleAsync(
-        string did,
-        string handle,
+        Did did,
+        Handle handle,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(did);
-        ArgumentException.ThrowIfNullOrWhiteSpace(handle);
+        ArgumentNullException.ThrowIfNull(did);
+        ArgumentNullException.ThrowIfNull(handle);
         return AdminCallAsync(ct => Admin.UpdateAccountHandleAsync(did, handle, ct), cancellationToken);
     }
 
@@ -484,11 +485,11 @@ public sealed class PdsAdminClient : IDisposable
     /// <param name="email">The new email address.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     public Task UpdateAccountEmailAsync(
-        string account,
+        AtIdentifier account,
         string email,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(account);
+        ArgumentNullException.ThrowIfNull(account);
         ArgumentException.ThrowIfNullOrWhiteSpace(email);
         return AdminCallAsync(ct => Admin.UpdateAccountEmailAsync(account, email, ct), cancellationToken);
     }
@@ -500,11 +501,11 @@ public sealed class PdsAdminClient : IDisposable
     /// <param name="password">The new password.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     public Task UpdateAccountPasswordAsync(
-        string did,
+        Did did,
         string password,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(did);
+        ArgumentNullException.ThrowIfNull(did);
         ArgumentException.ThrowIfNullOrWhiteSpace(password);
         return AdminCallAsync(ct => Admin.UpdateAccountPasswordAsync(did, password, ct), cancellationToken);
     }
@@ -526,12 +527,12 @@ public sealed class PdsAdminClient : IDisposable
     public AtProtoClient CreateClient() =>
         new(new AtProtoClientOptions { InstanceUrl = PdsUrl.ToString().TrimEnd('/') });
 
-    private static JsonElement CreateRepoRef(string did) =>
+    private static JsonElement CreateRepoRef(Did did) =>
         JsonSerializer.SerializeToElement(
             new Dictionary<string, string>
             {
                 ["$type"] = "com.atproto.admin.defs#repoRef",
-                ["did"] = did,
+                ["did"] = did.Value,
             },
             AtProtoJsonDefaults.Options);
 

@@ -10,7 +10,7 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Label;
 /// <summary>
 /// Response from queryLabels.
 /// </summary>
-public sealed class QueryLabelsResponse
+public sealed class QueryLabelsResponse : ICursorPage<Models.Label>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -21,7 +21,9 @@ public sealed class QueryLabelsResponse
 
     /// <summary>The labels applied to this subject.</summary>
     [JsonPropertyName("labels")]
-    public required List<Models.Label> Labels { get; init; }
+    public required IReadOnlyList<Models.Label> Labels { get; init; }
+
+    IReadOnlyList<Models.Label> ICursorPage<Models.Label>.Items => Labels;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -39,5 +41,5 @@ public sealed class LabelsEvent : LexObject
 
     /// <summary>The labels emitted in this event.</summary>
     [JsonPropertyName("labels")]
-    public required List<Models.Label> Labels { get; init; }
+    public required IReadOnlyList<Models.Label> Labels { get; init; }
 }

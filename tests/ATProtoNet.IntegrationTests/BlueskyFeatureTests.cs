@@ -1,3 +1,4 @@
+using ATProtoNet.Identity;
 namespace ATProtoNet.IntegrationTests;
 
 /// <summary>
@@ -21,12 +22,12 @@ public class BlueskyFeatureTests
         var postRef = await client.PostAsync($"Hello from ATProtoNet integration test! {Guid.NewGuid():N}");
 
         Assert.NotNull(postRef);
-        Assert.NotEmpty(postRef.Uri);
-        Assert.NotEmpty(postRef.Cid);
+        Assert.NotNull(postRef.Uri);
+        Assert.NotNull(postRef.Cid);
 
         // Clean up
         var uri = Identity.AtUri.Parse(postRef.Uri);
-        await client.Repo.DeleteRecordAsync(client.Did!, "app.bsky.feed.post", uri.RecordKey!);
+        await client.Repo.DeleteRecordAsync(client.Did!, Nsid.Parse("app.bsky.feed.post"), uri.RecordKey!);
     }
 
     [RequiresBlueskyFact]
@@ -78,10 +79,10 @@ public class BlueskyFeatureTests
         var postRef = await client.PostAsync(text, facets: facets);
 
         Assert.NotNull(postRef);
-        Assert.NotEmpty(postRef.Uri);
+        Assert.NotNull(postRef.Uri);
 
         // Clean up
         var uri = Identity.AtUri.Parse(postRef.Uri);
-        await client.Repo.DeleteRecordAsync(client.Did!, "app.bsky.feed.post", uri.RecordKey!);
+        await client.Repo.DeleteRecordAsync(client.Did!, Nsid.Parse("app.bsky.feed.post"), uri.RecordKey!);
     }
 }

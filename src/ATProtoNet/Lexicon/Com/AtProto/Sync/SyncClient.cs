@@ -1,4 +1,5 @@
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Sync;
 
@@ -21,7 +22,7 @@ public sealed class SyncClient
     /// <param name="did">The DID of the repository.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetLatestCommitResponse> GetLatestCommitAsync(
-        string did, CancellationToken cancellationToken = default)
+        Did did, CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams().Add("did", did);
         return _xrpc.QueryAsync<GetLatestCommitResponse>(
@@ -36,7 +37,7 @@ public sealed class SyncClient
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The blob's bytes and declared media type. Dispose it once read.</returns>
     public Task<XrpcStreamResponse> GetBlobAsync(
-        string did, string cid, CancellationToken cancellationToken = default)
+        Did did, Cid cid, CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
             .Add("did", did)
@@ -50,11 +51,11 @@ public sealed class SyncClient
     /// Download an entire repository as a CAR file.
     /// </summary>
     /// <param name="did">The DID of the repository.</param>
-    /// <param name="since">Optional cursor for incremental sync (rev of last seen commit).</param>
+    /// <param name="since">Optional revision of the last seen commit, for an incremental export.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The CAR stream. Dispose it once read.</returns>
     public Task<XrpcStreamResponse> GetRepoAsync(
-        string did, string? since = null, CancellationToken cancellationToken = default)
+        Did did, Tid? since = null, CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
             .Add("did", did)
@@ -65,16 +66,16 @@ public sealed class SyncClient
     }
 
     /// <summary>
-    /// List blob CIDs held by a repository.
+    /// List one page of the blob CIDs held by a repository.
     /// </summary>
     /// <param name="did">The DID of the repository.</param>
-    /// <param name="since">Optional cursor for revision-based listing.</param>
-    /// <param name="limit">Maximum number of results (default 500).</param>
+    /// <param name="since">Optional revision: list only blobs added since it.</param>
+    /// <param name="limit">Maximum number of results (1-1000, default 500).</param>
     /// <param name="cursor">Pagination cursor.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ListBlobsResponse> ListBlobsAsync(
-        string did,
-        string? since = null,
+        Did did,
+        Tid? since = null,
         int? limit = null,
         string? cursor = null,
         CancellationToken cancellationToken = default)
@@ -90,9 +91,25 @@ public sealed class SyncClient
     }
 
     /// <summary>
-    /// Enumerate all repository DIDs hosted on a PDS.
+    /// Enumerate every blob CID held by a repository, fetching pages as needed.
     /// </summary>
-    /// <param name="limit">Maximum number of results per page.</param>
+    /// <param name="did">The DID of the repository.</param>
+    /// <param name="since">Optional revision: list only blobs added since it.</param>
+    /// <param name="pageSize">CIDs per request (1-1000); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<Cid> EnumerateBlobsAsync(
+        Did did,
+        Tid? since = null,
+        int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<ListBlobsResponse, Cid>(
+            (cursor, ct) => ListBlobsAsync(did, since, pageSize, cursor, ct),
+            cancellationToken);
+
+    /// <summary>
+    /// List one page of the repositories hosted on a PDS.
+    /// </summary>
+    /// <param name="limit">Maximum number of results per page (1-1000, default 500).</param>
     /// <param name="cursor">Pagination cursor.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ListReposResponse> ListReposAsync(
@@ -107,6 +124,18 @@ public sealed class SyncClient
         return _xrpc.QueryAsync<ListReposResponse>(
             "com.atproto.sync.listRepos", parameters, cancellationToken: cancellationToken);
     }
+
+    /// <summary>
+    /// Enumerate every repository hosted on a PDS, fetching pages as needed.
+    /// </summary>
+    /// <param name="pageSize">Repositories per request (1-1000); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<RepoInfo> EnumerateReposAsync(
+        int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<ListReposResponse, RepoInfo>(
+            (cursor, ct) => ListReposAsync(pageSize, cursor, ct),
+            cancellationToken);
 
     /// <summary>
     /// Notify a relay/crawler that this PDS has new data.
@@ -137,7 +166,7 @@ public sealed class SyncClient
     /// <param name="did">The DID of the repo.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetRepoStatusResponse> GetRepoStatusAsync(
-        string did, CancellationToken cancellationToken = default)
+        Did did, CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams().Add("did", did);
         return _xrpc.QueryAsync<GetRepoStatusResponse>(
@@ -145,8 +174,8 @@ public sealed class SyncClient
     }
 
     /// <summary>
-    /// Enumerate upstream hosts (PDS or relay instances) that this service consumes from.
-    /// Implemented by relays.
+    /// List one page of the upstream hosts (PDS or relay instances) that this service consumes
+    /// from. Implemented by relays.
     /// </summary>
     /// <param name="limit">Maximum number of results per page (default 200, max 1000).</param>
     /// <param name="cursor">Pagination cursor.</param>
@@ -165,6 +194,19 @@ public sealed class SyncClient
     }
 
     /// <summary>
+    /// Enumerate every upstream host this service consumes from, fetching pages as needed.
+    /// Implemented by relays.
+    /// </summary>
+    /// <param name="pageSize">Hosts per request (1-1000); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<HostInfo> EnumerateHostsAsync(
+        int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<ListHostsResponse, HostInfo>(
+            (cursor, ct) => ListHostsAsync(pageSize, cursor, ct),
+            cancellationToken);
+
+    /// <summary>
     /// Get information about a specified upstream host. Implemented by relays.
     /// </summary>
     /// <param name="hostname">Hostname of the host (e.g., PDS or relay) being queried.</param>
@@ -178,7 +220,7 @@ public sealed class SyncClient
     }
 
     /// <summary>
-    /// Enumerate all DIDs which have records with the given collection NSID.
+    /// List one page of the DIDs which have records in the given collection.
     /// Useful for efficient backfill of specific record types. New in Sync v1.1.
     /// </summary>
     /// <param name="collection">The collection NSID to filter by.</param>
@@ -186,7 +228,7 @@ public sealed class SyncClient
     /// <param name="cursor">Pagination cursor.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ListReposByCollectionResponse> ListReposByCollectionAsync(
-        string collection,
+        Nsid collection,
         int? limit = null,
         string? cursor = null,
         CancellationToken cancellationToken = default)
@@ -199,4 +241,18 @@ public sealed class SyncClient
         return _xrpc.QueryAsync<ListReposByCollectionResponse>(
             "com.atproto.sync.listReposByCollection", parameters, cancellationToken: cancellationToken);
     }
+
+    /// <summary>
+    /// Enumerate every DID which has records in the given collection, fetching pages as needed.
+    /// </summary>
+    /// <param name="collection">The collection NSID to filter by.</param>
+    /// <param name="pageSize">Repositories per request (1-2000); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<CollectionRepoInfo> EnumerateReposByCollectionAsync(
+        Nsid collection,
+        int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<ListReposByCollectionResponse, CollectionRepoInfo>(
+            (cursor, ct) => ListReposByCollectionAsync(collection, pageSize, cursor, ct),
+            cancellationToken);
 }

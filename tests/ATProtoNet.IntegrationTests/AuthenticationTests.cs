@@ -19,8 +19,8 @@ public class AuthenticationTests
         Assert.True(client.IsAuthenticated);
         Assert.NotNull(client.Did);
         Assert.NotNull(client.Handle);
-        Assert.NotEmpty(session.Did);
-        Assert.NotEmpty(session.Handle);
+        Assert.NotNull(session.Did);
+        Assert.NotNull(session.Handle);
         Assert.NotEmpty(session.AccessJwt);
         Assert.NotEmpty(session.RefreshJwt);
     }
@@ -49,8 +49,8 @@ public class AuthenticationTests
 
         var sessionResponse = await client.Server.GetSessionAsync();
 
-        Assert.NotEmpty(sessionResponse.Did);
-        Assert.NotEmpty(sessionResponse.Handle);
+        Assert.NotNull(sessionResponse.Did);
+        Assert.NotNull(sessionResponse.Handle);
     }
 
     [RequiresPdsFact]

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Embed;
 using ATProtoNet.Lexicon.App.Bsky.Feed;
 using ATProtoNet.Models;
@@ -92,7 +93,7 @@ public class CustomUnionTests
         var recipe = new Recipe
         {
             Title = "Carrot soup",
-            CreatedAt = "2026-01-01T00:00:00.000Z",
+            CreatedAt = AtDatetime.Parse("2026-01-01T00:00:00.000Z"),
             Attribution = new SourceAttribution { Url = "https://recipe.exchange/r/1" },
         };
 

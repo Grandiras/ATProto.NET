@@ -124,7 +124,7 @@ public class RecordTypeDiscriminatorTests
 
         Assert.NotNull(todo);
         Assert.Equal("Buy milk", todo.Title);
-        Assert.Equal("2024-01-15T12:00:00.000Z", todo.CreatedAt);
+        Assert.Equal("2024-01-15T12:00:00.000Z", todo.CreatedAt.ToString());
         Assert.Equal("com.example.todo.item", todo.Type);
     }
 

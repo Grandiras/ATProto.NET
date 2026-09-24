@@ -91,7 +91,7 @@ public sealed class SpaceNetworkFixture : IAsyncLifetime
 
         var account = await _admin.CreateAccountAsync(new CreatePdsAccountRequest
         {
-            Handle = handle,
+            Handle = Handle.Parse(handle),
             Email = $"{Guid.NewGuid():N}@example.com",
             Password = AccountPassword,
         });
@@ -205,7 +205,7 @@ public sealed class SpaceNetworkFixture : IAsyncLifetime
         {
             try
             {
-                await _admin.DeleteAccountAsync(actor.Did);
+                await _admin.DeleteAccountAsync(Did.Parse(actor.Did));
             }
             catch
             {

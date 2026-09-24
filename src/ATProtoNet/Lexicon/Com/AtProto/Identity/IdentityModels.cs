@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Identity;
 
@@ -13,7 +14,7 @@ public sealed class ResolveHandleResponse
 {
     /// <summary>The resolved DID.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -23,11 +24,11 @@ public sealed class ResolveHandleResponse
 /// <summary>
 /// Request body for updateHandle.
 /// </summary>
-public sealed class UpdateHandleRequest
+internal sealed class UpdateHandleRequest
 {
     /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
     [JsonPropertyName("handle")]
-    public required string Handle { get; init; }
+    public required Handle Handle { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────

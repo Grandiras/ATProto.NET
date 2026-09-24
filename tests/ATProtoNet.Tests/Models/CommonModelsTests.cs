@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Label;
 using ATProtoNet.Models;
 using ATProtoNet.Serialization;
@@ -14,7 +15,7 @@ public class CommonModelsTests
     {
         var blob = new BlobRef
         {
-            Ref = new BlobLink { Link = "bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy" },
+            Ref = new BlobLink { Link = Cid.Parse("bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy") },
             MimeType = "image/jpeg",
             Size = 12345,
         };
@@ -55,15 +56,15 @@ public class CommonModelsTests
     {
         var strongRef = new StrongRef
         {
-            Uri = "at://did:plc:abc/app.bsky.feed.post/3k2la",
-            Cid = "bafyreibabaqu374rfnqs5fmd5txi345nhut3pupavzkwx752whmqwpsjhie",
+            Uri = AtUri.Parse("at://did:plc:abc/app.bsky.feed.post/3k2la"),
+            Cid = Cid.Parse("bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"),
         };
 
         var json = JsonSerializer.Serialize(strongRef, _options);
         var doc = JsonDocument.Parse(json);
 
         Assert.Equal("at://did:plc:abc/app.bsky.feed.post/3k2la", doc.RootElement.GetProperty("uri").GetString());
-        Assert.Equal("bafyreibabaqu374rfnqs5fmd5txi345nhut3pupavzkwx752whmqwpsjhie", doc.RootElement.GetProperty("cid").GetString());
+        Assert.Equal("bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", doc.RootElement.GetProperty("cid").GetString());
     }
 
     [Fact]
@@ -72,7 +73,7 @@ public class CommonModelsTests
         var json = """
         {
             "uri": "at://did:plc:abc/app.bsky.feed.post/3k2la",
-            "cid": "bafyreibabaqu374rfnqs5fmd5txi345nhut3pupavzkwx752whmqwpsjhie"
+            "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"
         }
         """;
 
@@ -88,10 +89,10 @@ public class CommonModelsTests
         var label = new Label
         {
             Version = 1,
-            Src = "did:plc:labeler",
+            Src = Did.Parse("did:plc:labeler"),
             Uri = "at://did:plc:abc/app.bsky.feed.post/xyz",
             Val = "nsfw",
-            Cts = "2024-01-01T00:00:00.000Z",
+            Cts = AtDatetime.Parse("2024-01-01T00:00:00.000Z"),
         };
 
         var json = JsonSerializer.Serialize(label, _options);
@@ -106,11 +107,11 @@ public class CommonModelsTests
     {
         var label = new Label
         {
-            Src = "did:plc:labeler",
+            Src = Did.Parse("did:plc:labeler"),
             Uri = "at://did:plc:abc/app.bsky.feed.post/xyz",
             Val = "nsfw",
             Neg = true,
-            Cts = "2024-01-01T00:00:00.000Z",
+            Cts = AtDatetime.Parse("2024-01-01T00:00:00.000Z"),
         };
 
         var json = JsonSerializer.Serialize(label, _options);
@@ -122,10 +123,10 @@ public class CommonModelsTests
     {
         var label = new Label
         {
-            Src = "did:plc:labeler",
+            Src = Did.Parse("did:plc:labeler"),
             Uri = "at://did:plc:abc",
             Val = "spam",
-            Cts = "2024-01-01T00:00:00.000Z",
+            Cts = AtDatetime.Parse("2024-01-01T00:00:00.000Z"),
         };
 
         var json = JsonSerializer.Serialize(label, _options);
@@ -158,10 +159,10 @@ public class CommonModelsTests
     {
         var label = new Label
         {
-            Src = "did:plc:labeler",
+            Src = Did.Parse("did:plc:labeler"),
             Uri = "at://did:plc:abc",
             Val = "spam",
-            Cts = "2024-01-01T00:00:00.000Z",
+            Cts = AtDatetime.Parse("2024-01-01T00:00:00.000Z"),
             Sig = [0xde, 0xad, 0xbe, 0xef],
         };
 

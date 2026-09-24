@@ -1,4 +1,5 @@
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Moderation;
 
@@ -17,13 +18,13 @@ public sealed class ModerationClient
     /// <summary>
     /// Submit a moderation report for a repo (account) or record.
     /// </summary>
-    /// <param name="reasonType">The reason type. Use constants from <see cref="ReportReasons"/>.</param>
     /// <param name="subject">The subject being reported.</param>
+    /// <param name="reasonType">The reason type. Use constants from <see cref="ReportReasons"/>.</param>
     /// <param name="reason">Optional free-text description of the report.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<CreateReportResponse> CreateReportAsync(
-        string reasonType,
         ReportSubject subject,
+        string reasonType,
         string? reason = null,
         CancellationToken cancellationToken = default)
     {
@@ -41,15 +42,19 @@ public sealed class ModerationClient
     /// <summary>
     /// Report a repo (account) for moderation.
     /// </summary>
+    /// <param name="did">The DID of the account being reported.</param>
+    /// <param name="reasonType">The reason type. Use constants from <see cref="ReportReasons"/>.</param>
+    /// <param name="reason">Optional free-text description of the report.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<CreateReportResponse> ReportAccountAsync(
-        string did,
+        Did did,
         string reasonType,
         string? reason = null,
         CancellationToken cancellationToken = default)
     {
         return CreateReportAsync(
-            reasonType,
             new RepoSubject { Did = did },
+            reasonType,
             reason,
             cancellationToken);
     }
@@ -57,16 +62,21 @@ public sealed class ModerationClient
     /// <summary>
     /// Report a specific record for moderation.
     /// </summary>
+    /// <param name="uri">The AT URI of the record being reported.</param>
+    /// <param name="cid">The CID of the record version being reported.</param>
+    /// <param name="reasonType">The reason type. Use constants from <see cref="ReportReasons"/>.</param>
+    /// <param name="reason">Optional free-text description of the report.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<CreateReportResponse> ReportRecordAsync(
-        string uri,
-        string cid,
+        AtUri uri,
+        Cid cid,
         string reasonType,
         string? reason = null,
         CancellationToken cancellationToken = default)
     {
         return CreateReportAsync(
-            reasonType,
             new RecordSubject { Uri = uri, Cid = cid },
+            reasonType,
             reason,
             cancellationToken);
     }

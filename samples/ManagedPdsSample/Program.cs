@@ -1,4 +1,5 @@
 using ATProtoNet.Admin;
+using ATProtoNet.Identity;
 using ATProtoNet.Server;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -32,7 +33,7 @@ app.MapPost("/accounts", async (SignupRequest signup, PdsAdminClient pds, Cancel
     var account = await pds.CreateAccountAsync(
         new CreatePdsAccountRequest
         {
-            Handle = signup.Handle,
+            Handle = Handle.Parse(signup.Handle),
             Email = signup.Email,
             Password = signup.Password,
         },
@@ -45,14 +46,14 @@ app.MapPost("/accounts", async (SignupRequest signup, PdsAdminClient pds, Cancel
 
 app.MapGet("/accounts/{did}", async (string did, PdsAdminClient pds, CancellationToken ct) =>
 {
-    var account = await pds.GetAccountAsync(did, ct);
+    var account = await pds.GetAccountAsync(Did.Parse(did), ct);
 
     return Results.Ok(new { account.Did, account.Handle, account.Email, account.IndexedAt });
 });
 
 app.MapDelete("/accounts/{did}", async (string did, PdsAdminClient pds, CancellationToken ct) =>
 {
-    await pds.DeleteAccountAsync(did, ct);
+    await pds.DeleteAccountAsync(Did.Parse(did), ct);
     return Results.NoContent();
 });
 

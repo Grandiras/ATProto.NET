@@ -40,7 +40,7 @@ public class UnknownFieldTests
              "futureTopLevel":{"nested":[1,"two",null]},
              "facets":[{"index":{"byteStart":0,"byteEnd":5,"futureIndexField":true},"features":[{"$type":"app.bsky.richtext.facet#tag","tag":"hi","futureFeatureField":1}]}],
              "embed":{"$type":"app.bsky.embed.images","futureEmbedField":"x","images":[{"alt":"a","futureImageField":2,"image":{"$type":"blob","ref":{"$link":"bafkreihbqg3ubrh6dzs2egfd3fxptl4cpn7fjrtxvutzsvtz7z4ixyzqbe"},"mimeType":"image/jpeg","size":1},"aspectRatio":{"width":1,"height":1}}]},
-             "reply":{"root":{"uri":"at://did:plc:a/app.bsky.feed.post/1","cid":"bafy1","futureRefField":"r"},"parent":{"uri":"at://did:plc:a/app.bsky.feed.post/1","cid":"bafy1"}}}
+             "reply":{"root":{"uri":"at://did:plc:a/app.bsky.feed.post/1","cid":"bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm","futureRefField":"r"},"parent":{"uri":"at://did:plc:a/app.bsky.feed.post/1","cid":"bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"}}}
             """;
 
         var post = JsonSerializer.Deserialize<PostRecord>(json, Options)!;
@@ -104,8 +104,8 @@ public class UnknownFieldTests
             {"$type":"app.bsky.actor.profile","displayName":"Alice","description":"hi","pronouns":"she/her","website":"https://alice.example.com",
              "avatar":{"$type":"blob","ref":{"$link":"bafkreihbqg3ubrh6dzs2egfd3fxptl4cpn7fjrtxvutzsvtz7z4ixyzqbe"},"mimeType":"image/jpeg","size":1},
              "labels":{"$type":"com.atproto.label.defs#selfLabels","values":[{"val":"!no-unauthenticated"}]},
-             "joinedViaStarterPack":{"uri":"at://did:plc:b/app.bsky.graph.starterpack/1","cid":"bafy2"},
-             "pinnedPost":{"uri":"at://did:plc:a/app.bsky.feed.post/1","cid":"bafy1"},
+             "joinedViaStarterPack":{"uri":"at://did:plc:b/app.bsky.graph.starterpack/1","cid":"bafyreibfvbgr6icdhm4nd7xcqyjqgkmbro2za6tvtm7krghw5wm5lecwq4"},
+             "pinnedPost":{"uri":"at://did:plc:a/app.bsky.feed.post/1","cid":"bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"},
              "createdAt":"2024-01-01T00:00:00.000Z","futureField":{"x":1}}
             """;
 
@@ -114,7 +114,7 @@ public class UnknownFieldTests
         Assert.Equal("she/her", profile.Pronouns);
         Assert.Equal("https://alice.example.com", profile.Website);
         Assert.Equal("!no-unauthenticated", profile.Labels!.Values[0].Val);
-        Assert.Equal("bafy2", profile.JoinedViaStarterPack!.Cid);
+        Assert.Equal("bafyreibfvbgr6icdhm4nd7xcqyjqgkmbro2za6tvtm7krghw5wm5lecwq4", profile.JoinedViaStarterPack!.Cid);
         Assert.Equal(["futureField"], profile.ExtensionData!.Keys);
         AssertSameJson(json, JsonSerializer.Serialize(profile, Options));
     }

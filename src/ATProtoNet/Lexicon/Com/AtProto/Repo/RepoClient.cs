@@ -1,5 +1,6 @@
 using System.Text.Json;
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 using ATProtoNet.Models;
 using ATProtoNet.Serialization;
 
@@ -26,15 +27,15 @@ public sealed class RepoClient
     /// <param name="record">The record data object. Must include $type field.</param>
     /// <param name="rkey">Optional record key. Server will generate one (TID) if not provided.</param>
     /// <param name="validate">Whether to validate against the Lexicon schema.</param>
-    /// <param name="swapCommit">Optional CAS commit rev for optimistic concurrency.</param>
+    /// <param name="swapCommit">Optional compare-and-swap guard: the commit CID the repository must be at.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<CreateRecordResponse> CreateRecordAsync(
-        string repo,
-        string collection,
+        AtIdentifier repo,
+        Nsid collection,
         object record,
-        string? rkey = null,
+        RecordKey? rkey = null,
         bool? validate = null,
-        string? swapCommit = null,
+        Cid? swapCommit = null,
         CancellationToken cancellationToken = default)
     {
         var request = new CreateRecordRequest
@@ -60,10 +61,10 @@ public sealed class RepoClient
     /// <param name="cid">Optional specific version CID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetRecordResponse> GetRecordAsync(
-        string repo,
-        string collection,
-        string rkey,
-        string? cid = null,
+        AtIdentifier repo,
+        Nsid collection,
+        RecordKey rkey,
+        Cid? cid = null,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
@@ -77,13 +78,35 @@ public sealed class RepoClient
     }
 
     /// <summary>
+    /// Get the record an AT URI names.
+    /// </summary>
+    /// <param name="uri">The record's AT URI: it must name a collection and a record key.</param>
+    /// <param name="cid">Optional specific version CID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentException"><paramref name="uri"/> does not name a record.</exception>
+    public Task<GetRecordResponse> GetRecordAsync(
+        AtUri uri,
+        Cid? cid = null,
+        CancellationToken cancellationToken = default)
+    {
+        var (collection, rkey) = RecordPath(uri);
+        return GetRecordAsync(uri.Repo, collection, rkey, cid, cancellationToken);
+    }
+
+    /// <summary>
     /// Get a single record and deserialize the value to a typed object.
     /// </summary>
+    /// <typeparam name="T">The record type.</typeparam>
+    /// <param name="repo">The DID or handle of the repo owner.</param>
+    /// <param name="collection">The NSID of the collection.</param>
+    /// <param name="rkey">The record key.</param>
+    /// <param name="cid">Optional specific version CID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<GetRecordResponse<T>> GetRecordAsync<T>(
-        string repo,
-        string collection,
-        string rkey,
-        string? cid = null,
+        AtIdentifier repo,
+        Nsid collection,
+        RecordKey rkey,
+        Cid? cid = null,
         CancellationToken cancellationToken = default)
     {
         const string nsid = "com.atproto.repo.getRecord";
@@ -111,16 +134,41 @@ public sealed class RepoClient
     }
 
     /// <summary>
+    /// Get the record an AT URI names and deserialize the value to a typed object.
+    /// </summary>
+    /// <typeparam name="T">The record type.</typeparam>
+    /// <param name="uri">The record's AT URI: it must name a collection and a record key.</param>
+    /// <param name="cid">Optional specific version CID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentException"><paramref name="uri"/> does not name a record.</exception>
+    public Task<GetRecordResponse<T>> GetRecordAsync<T>(
+        AtUri uri,
+        Cid? cid = null,
+        CancellationToken cancellationToken = default)
+    {
+        var (collection, rkey) = RecordPath(uri);
+        return GetRecordAsync<T>(uri.Repo, collection, rkey, cid, cancellationToken);
+    }
+
+    /// <summary>
     /// Write a record to a repository, creating or updating as needed.
     /// </summary>
+    /// <param name="repo">The DID or handle of the repo owner.</param>
+    /// <param name="collection">The NSID of the collection.</param>
+    /// <param name="rkey">The record key.</param>
+    /// <param name="record">The record data object.</param>
+    /// <param name="validate">Whether to validate against the Lexicon schema.</param>
+    /// <param name="swapRecord">Optional compare-and-swap guard: the CID the record must be at.</param>
+    /// <param name="swapCommit">Optional compare-and-swap guard: the commit CID the repository must be at.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<PutRecordResponse> PutRecordAsync(
-        string repo,
-        string collection,
-        string rkey,
+        AtIdentifier repo,
+        Nsid collection,
+        RecordKey rkey,
         object record,
         bool? validate = null,
-        string? swapRecord = null,
-        string? swapCommit = null,
+        Cid? swapRecord = null,
+        Cid? swapCommit = null,
         CancellationToken cancellationToken = default)
     {
         var request = new PutRecordRequest
@@ -141,12 +189,18 @@ public sealed class RepoClient
     /// <summary>
     /// Delete a record from a repository.
     /// </summary>
+    /// <param name="repo">The DID or handle of the repo owner.</param>
+    /// <param name="collection">The NSID of the collection.</param>
+    /// <param name="rkey">The record key.</param>
+    /// <param name="swapRecord">Optional compare-and-swap guard: the CID the record must be at.</param>
+    /// <param name="swapCommit">Optional compare-and-swap guard: the commit CID the repository must be at.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<DeleteRecordResponse> DeleteRecordAsync(
-        string repo,
-        string collection,
-        string rkey,
-        string? swapRecord = null,
-        string? swapCommit = null,
+        AtIdentifier repo,
+        Nsid collection,
+        RecordKey rkey,
+        Cid? swapRecord = null,
+        Cid? swapCommit = null,
         CancellationToken cancellationToken = default)
     {
         var request = new DeleteRecordRequest
@@ -163,20 +217,38 @@ public sealed class RepoClient
     }
 
     /// <summary>
-    /// List records in a collection, with optional pagination.
+    /// Delete the record an AT URI names.
+    /// </summary>
+    /// <param name="uri">The record's AT URI: it must name a collection and a record key.</param>
+    /// <param name="swapRecord">Optional compare-and-swap guard: the CID the record must be at.</param>
+    /// <param name="swapCommit">Optional compare-and-swap guard: the commit CID the repository must be at.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentException"><paramref name="uri"/> does not name a record.</exception>
+    public Task<DeleteRecordResponse> DeleteRecordAsync(
+        AtUri uri,
+        Cid? swapRecord = null,
+        Cid? swapCommit = null,
+        CancellationToken cancellationToken = default)
+    {
+        var (collection, rkey) = RecordPath(uri);
+        return DeleteRecordAsync(uri.Repo, collection, rkey, swapRecord, swapCommit, cancellationToken);
+    }
+
+    /// <summary>
+    /// List one page of records in a collection.
     /// </summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
     /// <param name="collection">The NSID of the collection.</param>
+    /// <param name="reverse">Reverse the order of results.</param>
     /// <param name="limit">Max number of records per page (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="reverse">Reverse the order of results.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ListRecordsResponse> ListRecordsAsync(
-        string repo,
-        string collection,
+        AtIdentifier repo,
+        Nsid collection,
+        bool? reverse = null,
         int? limit = null,
         string? cursor = null,
-        bool? reverse = null,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
@@ -191,30 +263,30 @@ public sealed class RepoClient
     }
 
     /// <summary>
-    /// Enumerate all records in a collection using automatic pagination.
+    /// Enumerate every record in a collection, fetching pages as needed.
     /// </summary>
-    public async IAsyncEnumerable<RecordEntry> ListAllRecordsAsync(
-        string repo,
-        string collection,
-        int pageSize = 100,
-        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        string? cursor = null;
-        do
-        {
-            var response = await ListRecordsAsync(repo, collection, pageSize, cursor, cancellationToken: cancellationToken);
-            foreach (var record in response.Records)
-                yield return record;
-
-            cursor = response.Cursor;
-        } while (cursor is not null);
-    }
+    /// <param name="repo">The DID or handle of the repo owner.</param>
+    /// <param name="collection">The NSID of the collection.</param>
+    /// <param name="reverse">Reverse the order of results.</param>
+    /// <param name="pageSize">Records per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<RecordEntry> EnumerateRecordsAsync(
+        AtIdentifier repo,
+        Nsid collection,
+        bool? reverse = null,
+        int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<ListRecordsResponse, RecordEntry>(
+            (cursor, ct) => ListRecordsAsync(repo, collection, reverse, pageSize, cursor, ct),
+            cancellationToken);
 
     /// <summary>
     /// Get information about a repository.
     /// </summary>
+    /// <param name="repo">The DID or handle of the repo owner.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<DescribeRepoResponse> DescribeRepoAsync(
-        string repo, CancellationToken cancellationToken = default)
+        AtIdentifier repo, CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams().Add("repo", repo);
         return _xrpc.QueryAsync<DescribeRepoResponse>(
@@ -265,17 +337,22 @@ public sealed class RepoClient
     /// <summary>
     /// Apply a batch of record writes in a single transaction.
     /// </summary>
+    /// <param name="repo">The DID or handle of the repo owner.</param>
+    /// <param name="writes">The creates, updates and deletes to apply, in order.</param>
+    /// <param name="validate">Whether to validate against the Lexicon schemas.</param>
+    /// <param name="swapCommit">Optional compare-and-swap guard: the commit CID the repository must be at.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ApplyWritesResponse> ApplyWritesAsync(
-        string repo,
-        List<ApplyWriteOperation> writes,
+        AtIdentifier repo,
+        IEnumerable<ApplyWriteOperation> writes,
         bool? validate = null,
-        string? swapCommit = null,
+        Cid? swapCommit = null,
         CancellationToken cancellationToken = default)
     {
         var request = new ApplyWritesRequest
         {
             Repo = repo,
-            Writes = writes,
+            Writes = [.. writes],
             Validate = validate,
             SwapCommit = swapCommit,
         };
@@ -285,17 +362,43 @@ public sealed class RepoClient
     }
 
     /// <summary>
-    /// List blobs that are missing from the repository.
+    /// List one page of the blobs the account's records reference but that were never uploaded,
+    /// for example after a repository import.
     /// </summary>
+    /// <param name="limit">Maximum number of results (1-1000, default 500).</param>
+    /// <param name="cursor">Pagination cursor from a previous response.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ListMissingBlobsResponse> ListMissingBlobsAsync(
-        string? cursor = null, int? limit = null,
+        int? limit = null,
+        string? cursor = null,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
-            .Add("cursor", cursor)
-            .Add("limit", limit);
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<ListMissingBlobsResponse>(
             "com.atproto.repo.listMissingBlobs", parameters, cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Enumerate every missing blob, fetching pages as needed.
+    /// </summary>
+    /// <param name="pageSize">Blobs per request (1-1000); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<MissingBlob> EnumerateMissingBlobsAsync(
+        int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<ListMissingBlobsResponse, MissingBlob>(
+            (cursor, ct) => ListMissingBlobsAsync(pageSize, cursor, ct),
+            cancellationToken);
+
+    private static (Nsid Collection, RecordKey Rkey) RecordPath(AtUri uri)
+    {
+        ArgumentNullException.ThrowIfNull(uri);
+        return uri is { Collection: { } collection, RecordKey: { } rkey }
+            ? (collection, rkey)
+            : throw new ArgumentException(
+                $"'{uri}' does not name a record: it needs a collection and a record key.", nameof(uri));
     }
 }

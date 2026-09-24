@@ -4,14 +4,24 @@ For advanced scenarios, you can use the `RepoClient` directly instead of the hig
 
 ## Direct Record Operations
 
+Every identifier is typed (`AtIdentifier`, `Nsid`, `RecordKey`, `Cid`, `AtUri`; see
+[Identity Types](identity-types.md)). Parse literals once, where they enter your code:
+
+```csharp
+using ATProtoNet.Identity;
+
+var collection = Nsid.Parse("com.example.myapp.record");
+var alice = Did.Parse("did:plc:abc123");
+```
+
 ### Create Record
 
 ```csharp
 var response = await client.Repo.CreateRecordAsync(
     repo: client.Did!,
-    collection: "com.example.myapp.record",
-    record: new { 
-        foo = "bar", 
+    collection: collection,
+    record: new {
+        foo = "bar",
         count = 42,
     },
     rkey: null,         // Server generates TID
@@ -19,29 +29,34 @@ var response = await client.Repo.CreateRecordAsync(
     swapCommit: null     // Optional CAS
 );
 
-Console.WriteLine($"URI: {response.Uri}");
-Console.WriteLine($"CID: {response.Cid}");
+Console.WriteLine($"URI: {response.Uri}");               // AtUri
+Console.WriteLine($"Key: {response.Uri.RecordKey}");     // RecordKey
+Console.WriteLine($"CID: {response.Cid}");               // Cid
 ```
 
 ### Get Record (Untyped)
 
 ```csharp
 var response = await client.Repo.GetRecordAsync(
-    repo: "did:plc:abc123",
-    collection: "com.example.myapp.record",
-    rkey: "3k2la7rxjgs2t");
+    repo: alice,
+    collection: collection,
+    rkey: RecordKey.Parse("3k2la7rxjgs2t"));
 
 // response.Value is a JsonElement
 Console.WriteLine(response.Value.GetProperty("foo").GetString());
+
+// Or address the record by its AT URI
+var same = await client.Repo.GetRecordAsync(
+    AtUri.Parse("at://did:plc:abc123/com.example.myapp.record/3k2la7rxjgs2t"));
 ```
 
 ### Get Record (Typed)
 
 ```csharp
 var response = await client.Repo.GetRecordAsync<TodoItem>(
-    repo: "did:plc:abc123",
-    collection: "com.example.todo.item",
-    rkey: "3k2la7rxjgs2t");
+    repo: alice,
+    collection: Nsid.Parse("com.example.todo.item"),
+    rkey: RecordKey.Parse("3k2la7rxjgs2t"));
 
 Console.WriteLine(response.Value.Title);
 ```
@@ -51,8 +66,8 @@ Console.WriteLine(response.Value.Title);
 ```csharp
 var response = await client.Repo.PutRecordAsync(
     repo: client.Did!,
-    collection: "com.example.myapp.record",
-    rkey: "my-key",
+    collection: collection,
+    rkey: RecordKey.Parse("my-key"),
     record: new TodoItem { Title = "Updated" },
     validate: true,
     swapRecord: existingCid,  // CAS: fail if record changed
@@ -64,21 +79,26 @@ var response = await client.Repo.PutRecordAsync(
 ```csharp
 var response = await client.Repo.DeleteRecordAsync(
     repo: client.Did!,
-    collection: "com.example.myapp.record",
-    rkey: "3k2la7rxjgs2t",
+    collection: collection,
+    rkey: RecordKey.Parse("3k2la7rxjgs2t"),
     swapRecord: null,
     swapCommit: null);
+
+// Or by AT URI
+await client.Repo.DeleteRecordAsync(recordUri);
 ```
 
 ### List Records
 
+One page at a time. Filters come before `limit` and `cursor`:
+
 ```csharp
 var response = await client.Repo.ListRecordsAsync(
-    repo: "did:plc:abc123",
-    collection: "com.example.myapp.record",
+    repo: alice,
+    collection: collection,
+    reverse: false,
     limit: 100,
-    cursor: null,
-    reverse: false);
+    cursor: null);
 
 foreach (var entry in response.Records)
 {
@@ -88,9 +108,11 @@ foreach (var entry in response.Records)
 
 ### Enumerate All Records
 
+`Enumerate*` methods fetch the pages for you. They stop when the server returns no cursor, an
+empty one, or one it already returned:
+
 ```csharp
-await foreach (var entry in client.Repo.ListAllRecordsAsync(
-    client.Did!, "com.example.myapp.record"))
+await foreach (var entry in client.Repo.EnumerateRecordsAsync(client.Did!, collection))
 {
     Console.WriteLine(entry.Uri);
 }
@@ -99,11 +121,11 @@ await foreach (var entry in client.Repo.ListAllRecordsAsync(
 ## Repository Info
 
 ```csharp
-var info = await client.Repo.DescribeRepoAsync("did:plc:abc123");
+var info = await client.Repo.DescribeRepoAsync(alice);
 
 Console.WriteLine($"Handle: {info.Handle}");
 Console.WriteLine($"DID: {info.Did}");
-Console.WriteLine($"Collections: {string.Join(", ", info.Collections ?? [])}");
+Console.WriteLine($"Collections: {string.Join(", ", info.Collections)}");
 ```
 
 ## Blob Operations
@@ -125,32 +147,37 @@ var result = await client.Repo.UploadBlobAsync(bytes, "application/pdf");
 
 ```csharp
 var missing = await client.Repo.ListMissingBlobsAsync(limit: 100);
+
+// Or every page
+await foreach (var blob in client.Repo.EnumerateMissingBlobsAsync())
+    Console.WriteLine(blob.Cid);
 ```
 
 ## Batch Operations
 
 ```csharp
+var todos = Nsid.Parse("com.example.todo.item");
+
 var response = await client.Repo.ApplyWritesAsync(
     client.Did!,
-    new List<ApplyWriteOperation>
-    {
+    [
         new ApplyWriteCreate
         {
-            Collection = "com.example.todo.item",
+            Collection = todos,
             Value = new TodoItem { Title = "Task 1" },
         },
         new ApplyWriteUpdate
         {
-            Collection = "com.example.todo.item",
-            Rkey = "existing-key",
+            Collection = todos,
+            Rkey = RecordKey.Parse("existing-key"),
             Value = new TodoItem { Title = "Updated" },
         },
         new ApplyWriteDelete
         {
-            Collection = "com.example.todo.item",
-            Rkey = "old-key",
+            Collection = todos,
+            Rkey = RecordKey.Parse("old-key"),
         },
-    },
+    ],
     validate: true,
     swapCommit: null);
 ```

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 using ATProtoNet.Models;
 using ATProtoNet.Serialization;
 
@@ -8,25 +9,25 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Repo;
 /// <summary>
 /// Request body for com.atproto.repo.createRecord.
 /// </summary>
-public sealed class CreateRecordRequest
+internal sealed class CreateRecordRequest
 {
     /// <summary>
     /// The handle or DID of the repo (account).
     /// </summary>
     [JsonPropertyName("repo")]
-    public required string Repo { get; init; }
+    public required AtIdentifier Repo { get; init; }
 
     /// <summary>
     /// The NSID of the record collection.
     /// </summary>
     [JsonPropertyName("collection")]
-    public required string Collection { get; init; }
+    public required Nsid Collection { get; init; }
 
     /// <summary>
     /// The record key. If not specified, the server will generate one.
     /// </summary>
     [JsonPropertyName("rkey")]
-    public string? Rkey { get; init; }
+    public RecordKey? Rkey { get; init; }
 
     /// <summary>
     /// Flag for opt-in/out of Lexicon schema validation.
@@ -44,7 +45,7 @@ public sealed class CreateRecordRequest
     /// Compare and swap with the previous commit rev.
     /// </summary>
     [JsonPropertyName("swapCommit")]
-    public string? SwapCommit { get; init; }
+    public Cid? SwapCommit { get; init; }
 }
 
 /// <summary>
@@ -54,11 +55,11 @@ public sealed class CreateRecordResponse
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public string Uri { get; init; } = string.Empty;
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public string Cid { get; init; } = string.Empty;
+    public required Cid Cid { get; init; }
 
     /// <summary>The commit the write was applied in.</summary>
     [JsonPropertyName("commit")]
@@ -79,11 +80,11 @@ public sealed class GetRecordResponse
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public string Uri { get; init; } = string.Empty;
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public string? Cid { get; init; }
+    public Cid? Cid { get; init; }
 
     /// <summary>The record value.</summary>
     [JsonPropertyName("value")]
@@ -97,11 +98,11 @@ public sealed class GetRecordResponse<T>
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public string Uri { get; init; } = string.Empty;
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public string? Cid { get; init; }
+    public Cid? Cid { get; init; }
 
     /// <summary>The deserialised record value.</summary>
     [JsonPropertyName("value")]
@@ -111,21 +112,21 @@ public sealed class GetRecordResponse<T>
 /// <summary>
 /// Request body for com.atproto.repo.putRecord.
 /// </summary>
-public sealed class PutRecordRequest
+internal sealed class PutRecordRequest
 {
     /// <summary>The handle or DID of the repository.</summary>
     [JsonPropertyName("repo")]
-    public required string Repo { get; init; }
+    public required AtIdentifier Repo { get; init; }
 
     /// <summary>
     /// The NSID of the collection the record belongs to (e.g. <c>app.bsky.feed.post</c>).
     /// </summary>
     [JsonPropertyName("collection")]
-    public required string Collection { get; init; }
+    public required Nsid Collection { get; init; }
 
     /// <summary>The record key identifying the record within its collection.</summary>
     [JsonPropertyName("rkey")]
-    public required string Rkey { get; init; }
+    public required RecordKey Rkey { get; init; }
 
     /// <summary>Whether the server should validate the record against its Lexicon schema.</summary>
     [JsonPropertyName("validate")]
@@ -140,14 +141,14 @@ public sealed class PutRecordRequest
     /// Pass <see langword="null"/> to require that the record does not exist.
     /// </summary>
     [JsonPropertyName("swapRecord")]
-    public string? SwapRecord { get; init; }
+    public Cid? SwapRecord { get; init; }
 
     /// <summary>
     /// Compare-and-swap guard: the commit CID the repository must currently be at for the write to
     /// succeed.
     /// </summary>
     [JsonPropertyName("swapCommit")]
-    public string? SwapCommit { get; init; }
+    public Cid? SwapCommit { get; init; }
 }
 
 /// <summary>
@@ -157,11 +158,11 @@ public sealed class PutRecordResponse
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public string Uri { get; init; } = string.Empty;
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public string Cid { get; init; } = string.Empty;
+    public required Cid Cid { get; init; }
 
     /// <summary>The commit the write was applied in.</summary>
     [JsonPropertyName("commit")]
@@ -178,35 +179,35 @@ public sealed class PutRecordResponse
 /// <summary>
 /// Request body for com.atproto.repo.deleteRecord.
 /// </summary>
-public sealed class DeleteRecordRequest
+internal sealed class DeleteRecordRequest
 {
     /// <summary>The handle or DID of the repository.</summary>
     [JsonPropertyName("repo")]
-    public required string Repo { get; init; }
+    public required AtIdentifier Repo { get; init; }
 
     /// <summary>
     /// The NSID of the collection the record belongs to (e.g. <c>app.bsky.feed.post</c>).
     /// </summary>
     [JsonPropertyName("collection")]
-    public required string Collection { get; init; }
+    public required Nsid Collection { get; init; }
 
     /// <summary>The record key identifying the record within its collection.</summary>
     [JsonPropertyName("rkey")]
-    public required string Rkey { get; init; }
+    public required RecordKey Rkey { get; init; }
 
     /// <summary>
     /// Compare-and-swap guard: the CID the record must currently be at for the write to succeed.
     /// Pass <see langword="null"/> to require that the record does not exist.
     /// </summary>
     [JsonPropertyName("swapRecord")]
-    public string? SwapRecord { get; init; }
+    public Cid? SwapRecord { get; init; }
 
     /// <summary>
     /// Compare-and-swap guard: the commit CID the repository must currently be at for the write to
     /// succeed.
     /// </summary>
     [JsonPropertyName("swapCommit")]
-    public string? SwapCommit { get; init; }
+    public Cid? SwapCommit { get; init; }
 }
 
 /// <summary>
@@ -222,7 +223,7 @@ public sealed class DeleteRecordResponse
 /// <summary>
 /// Response from com.atproto.repo.listRecords.
 /// </summary>
-public sealed class ListRecordsResponse : ICursoredResponse
+public sealed class ListRecordsResponse : ICursorPage<RecordEntry>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -233,7 +234,9 @@ public sealed class ListRecordsResponse : ICursoredResponse
 
     /// <summary>The records in this page of results.</summary>
     [JsonPropertyName("records")]
-    public List<RecordEntry> Records { get; init; } = [];
+    public IReadOnlyList<RecordEntry> Records { get; init; } = [];
+
+    IReadOnlyList<RecordEntry> ICursorPage<RecordEntry>.Items => Records;
 }
 
 /// <summary>
@@ -243,11 +246,11 @@ public sealed class RecordEntry : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public string Uri { get; init; } = string.Empty;
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public string Cid { get; init; } = string.Empty;
+    public required Cid Cid { get; init; }
 
     /// <summary>The record value.</summary>
     [JsonPropertyName("value")]
@@ -261,11 +264,11 @@ public sealed class DescribeRepoResponse
 {
     /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
     [JsonPropertyName("handle")]
-    public string Handle { get; init; } = string.Empty;
+    public required Handle Handle { get; init; }
 
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public string Did { get; init; } = string.Empty;
+    public required Did Did { get; init; }
 
     /// <summary>The DID document for the account, as returned by the PDS.</summary>
     [JsonPropertyName("didDoc")]
@@ -273,7 +276,7 @@ public sealed class DescribeRepoResponse
 
     /// <summary>The NSIDs of the collections present in the repository.</summary>
     [JsonPropertyName("collections")]
-    public List<string> Collections { get; init; } = [];
+    public IReadOnlyList<Nsid> Collections { get; init; } = [];
 
     /// <summary>Whether the handle currently resolves back to this DID.</summary>
     [JsonPropertyName("handleIsCorrect")]
@@ -293,11 +296,11 @@ public sealed class UploadBlobResponse
 /// <summary>
 /// Request body for com.atproto.repo.applyWrites.
 /// </summary>
-public sealed class ApplyWritesRequest
+internal sealed class ApplyWritesRequest
 {
     /// <summary>The handle or DID of the repository.</summary>
     [JsonPropertyName("repo")]
-    public required string Repo { get; init; }
+    public required AtIdentifier Repo { get; init; }
 
     /// <summary>Whether the server should validate the record against its Lexicon schema.</summary>
     [JsonPropertyName("validate")]
@@ -305,14 +308,14 @@ public sealed class ApplyWritesRequest
 
     /// <summary>The write operations to apply atomically.</summary>
     [JsonPropertyName("writes")]
-    public required List<ApplyWriteOperation> Writes { get; init; }
+    public required IReadOnlyList<ApplyWriteOperation> Writes { get; init; }
 
     /// <summary>
     /// Compare-and-swap guard: the commit CID the repository must currently be at for the write to
     /// succeed.
     /// </summary>
     [JsonPropertyName("swapCommit")]
-    public string? SwapCommit { get; init; }
+    public Cid? SwapCommit { get; init; }
 }
 
 /// <summary>
@@ -332,11 +335,11 @@ public sealed class ApplyWriteCreate : ApplyWriteOperation
     /// The NSID of the collection the record belongs to (e.g. <c>app.bsky.feed.post</c>).
     /// </summary>
     [JsonPropertyName("collection")]
-    public required string Collection { get; init; }
+    public required Nsid Collection { get; init; }
 
     /// <summary>The record key identifying the record within its collection.</summary>
     [JsonPropertyName("rkey")]
-    public string? Rkey { get; init; }
+    public RecordKey? Rkey { get; init; }
 
     /// <summary>The record value to create.</summary>
     [JsonPropertyName("value")]
@@ -350,11 +353,11 @@ public sealed class ApplyWriteUpdate : ApplyWriteOperation
     /// The NSID of the collection the record belongs to (e.g. <c>app.bsky.feed.post</c>).
     /// </summary>
     [JsonPropertyName("collection")]
-    public required string Collection { get; init; }
+    public required Nsid Collection { get; init; }
 
     /// <summary>The record key identifying the record within its collection.</summary>
     [JsonPropertyName("rkey")]
-    public required string Rkey { get; init; }
+    public required RecordKey Rkey { get; init; }
 
     /// <summary>The record value to write.</summary>
     [JsonPropertyName("value")]
@@ -368,11 +371,11 @@ public sealed class ApplyWriteDelete : ApplyWriteOperation
     /// The NSID of the collection the record belongs to (e.g. <c>app.bsky.feed.post</c>).
     /// </summary>
     [JsonPropertyName("collection")]
-    public required string Collection { get; init; }
+    public required Nsid Collection { get; init; }
 
     /// <summary>The record key identifying the record within its collection.</summary>
     [JsonPropertyName("rkey")]
-    public required string Rkey { get; init; }
+    public required RecordKey Rkey { get; init; }
 }
 
 /// <summary>
@@ -386,7 +389,7 @@ public sealed class ApplyWritesResponse
 
     /// <summary>The per-write results, in the same order as the request.</summary>
     [JsonPropertyName("results")]
-    public List<ApplyWriteResult>? Results { get; init; }
+    public IReadOnlyList<ApplyWriteResult>? Results { get; init; }
 }
 
 /// <summary>The result of a single write within an <c>applyWrites</c> batch.</summary>
@@ -394,11 +397,11 @@ public sealed class ApplyWriteResult : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public string? Uri { get; init; }
+    public AtUri? Uri { get; init; }
 
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public string? Cid { get; init; }
+    public Cid? Cid { get; init; }
 
     /// <summary>
     /// Whether the server validated the record against a known Lexicon (<c>valid</c> or
@@ -411,7 +414,7 @@ public sealed class ApplyWriteResult : LexObject
 /// <summary>
 /// Response from com.atproto.repo.listMissingBlobs.
 /// </summary>
-public sealed class ListMissingBlobsResponse : ICursoredResponse
+public sealed class ListMissingBlobsResponse : ICursorPage<MissingBlob>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -422,7 +425,9 @@ public sealed class ListMissingBlobsResponse : ICursoredResponse
 
     /// <summary>The blob references.</summary>
     [JsonPropertyName("blobs")]
-    public List<MissingBlob> Blobs { get; init; } = [];
+    public IReadOnlyList<MissingBlob> Blobs { get; init; } = [];
+
+    IReadOnlyList<MissingBlob> ICursorPage<MissingBlob>.Items => Blobs;
 }
 
 /// <summary>A blob referenced by a record that has not been uploaded yet.</summary>
@@ -430,7 +435,7 @@ public sealed class MissingBlob : LexObject
 {
     /// <summary>The CID of the missing blob.</summary>
     [JsonPropertyName("cid")]
-    public string Cid { get; init; } = string.Empty;
+    public required Cid Cid { get; init; }
 }
 
 /// <summary>
@@ -440,9 +445,9 @@ public sealed class CommitMeta : LexObject
 {
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public string Cid { get; init; } = string.Empty;
+    public required Cid Cid { get; init; }
 
     /// <summary>The repository revision (a TID) this data was read at.</summary>
     [JsonPropertyName("rev")]
-    public string Rev { get; init; } = string.Empty;
+    public required Tid Rev { get; init; }
 }

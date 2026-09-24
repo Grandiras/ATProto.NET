@@ -1,4 +1,5 @@
 using ATProtoNet.Admin;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.IntegrationTests;
 
@@ -35,7 +36,7 @@ public class PdsAdminTests : IDisposable
     {
         var server = await _admin.DescribeServerAsync();
 
-        Assert.NotEmpty(server.Did);
+        Assert.NotNull(server.Did);
         Assert.NotEmpty(server.AvailableUserDomains);
     }
 
@@ -57,7 +58,7 @@ public class PdsAdminTests : IDisposable
 
         var account = await _admin.CreateAccountAsync(new CreatePdsAccountRequest
         {
-            Handle = handle,
+            Handle = Handle.Parse(handle),
             Email = $"{Guid.NewGuid():N}@example.com",
             Password = "correct-horse-battery-staple",
         });
@@ -84,7 +85,7 @@ public class PdsAdminTests : IDisposable
         // No InviteCode supplied — the client has to mint one with the admin credentials.
         var account = await _admin.CreateAccountAsync(new CreatePdsAccountRequest
         {
-            Handle = await NextHandleAsync(),
+            Handle = Handle.Parse(await NextHandleAsync()),
             Email = $"{Guid.NewGuid():N}@example.com",
             Password = "correct-horse-battery-staple",
         });
@@ -102,7 +103,7 @@ public class PdsAdminTests : IDisposable
 
         var created = await _admin.CreateAccountAsync(new CreatePdsAccountRequest
         {
-            Handle = handle,
+            Handle = Handle.Parse(handle),
             Email = email,
             Password = "correct-horse-battery-staple",
         });
@@ -121,7 +122,7 @@ public class PdsAdminTests : IDisposable
     {
         var created = await _admin.CreateAccountAsync(new CreatePdsAccountRequest
         {
-            Handle = await NextHandleAsync(),
+            Handle = Handle.Parse(await NextHandleAsync()),
             Email = $"{Guid.NewGuid():N}@example.com",
             Password = "correct-horse-battery-staple",
         });
@@ -129,7 +130,7 @@ public class PdsAdminTests : IDisposable
         Track(created.Did);
 
         var newHandle = await NextHandleAsync();
-        await _admin.UpdateAccountHandleAsync(created.Did, newHandle);
+        await _admin.UpdateAccountHandleAsync(created.Did, Handle.Parse(newHandle));
 
         var account = await _admin.GetAccountAsync(created.Did);
         Assert.Equal(newHandle, account.Handle);
@@ -140,7 +141,7 @@ public class PdsAdminTests : IDisposable
     {
         var created = await _admin.CreateAccountAsync(new CreatePdsAccountRequest
         {
-            Handle = await NextHandleAsync(),
+            Handle = Handle.Parse(await NextHandleAsync()),
             Email = $"{Guid.NewGuid():N}@example.com",
             Password = "correct-horse-battery-staple",
         });
@@ -165,7 +166,7 @@ public class PdsAdminTests : IDisposable
 
         var created = await _admin.CreateAccountAsync(new CreatePdsAccountRequest
         {
-            Handle = await NextHandleAsync(),
+            Handle = Handle.Parse(await NextHandleAsync()),
             Email = $"{Guid.NewGuid():N}@example.com",
             Password = password,
         });
@@ -185,7 +186,7 @@ public class PdsAdminTests : IDisposable
     {
         var created = await _admin.CreateAccountAsync(new CreatePdsAccountRequest
         {
-            Handle = await NextHandleAsync(),
+            Handle = Handle.Parse(await NextHandleAsync()),
             Email = $"{Guid.NewGuid():N}@example.com",
             Password = "correct-horse-battery-staple",
         });
@@ -216,7 +217,7 @@ public class PdsAdminTests : IDisposable
         {
             try
             {
-                _admin.DeleteAccountAsync(did).GetAwaiter().GetResult();
+                _admin.DeleteAccountAsync(Did.Parse(did)).GetAwaiter().GetResult();
             }
             catch
             {

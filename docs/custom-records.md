@@ -36,7 +36,7 @@ public class TodoItem : AtProtoRecord
     public int Priority { get; set; } = 0;
 
     [JsonPropertyName("dueDate")]
-    public string? DueDate { get; set; }
+    public AtDatetime? DueDate { get; set; }
 
     [JsonPropertyName("tags")]
     public List<string>? Tags { get; set; }
@@ -101,10 +101,16 @@ public class Bookmark
 ## Getting a Collection
 
 ```csharp
-var todos = client.GetCollection<TodoItem>("com.example.todo.item");
+using ATProtoNet.Identity;
+
+var todos = client.GetCollection<TodoItem>(Nsid.Parse("com.example.todo.item"));
 ```
 
 The collection NSID should match your Lexicon definition. By convention, it follows reverse-domain notation: `com.yourcompany.appname.recordtype`.
+
+Collections, record keys, CIDs and AT URIs are typed (`Nsid`, `RecordKey`, `Cid`, `AtUri`; see
+[Identity Types](identity-types.md)). A value the API hands you, like `created.RecordKey` below, is
+already typed; parse a literal with `RecordKey.Parse("…")`.
 
 ## CRUD Operations
 
@@ -128,7 +134,7 @@ The server generates a TID-based record key. You can also specify one:
 ```csharp
 var created = await todos.CreateAsync(
     new TodoItem { Title = "Custom key" },
-    rkey: "my-custom-key");
+    rkey: RecordKey.Parse("my-custom-key"));
 ```
 
 ### Read
@@ -173,7 +179,7 @@ await todos.DeleteAsync(created.RecordKey);
 ### Check Existence
 
 ```csharp
-bool exists = await todos.ExistsAsync("some-record-key");
+bool exists = await todos.ExistsAsync(RecordKey.Parse("some-record-key"));
 ```
 
 ## Listing Records
@@ -205,12 +211,14 @@ await foreach (var record in todos.EnumerateAsync())
     Console.WriteLine($"{record.RecordKey}: {record.Value.Title}");
 }
 
-// With custom page size
+// With custom page size (the server's default when omitted)
 await foreach (var record in todos.EnumerateAsync(pageSize: 50))
 {
     // Process each record
 }
 ```
+
+Enumeration stops when the server returns no cursor, an empty one, or one it already returned.
 
 ### Reverse Order
 
@@ -223,14 +231,16 @@ var page = await todos.ListAsync(limit: 25, reverse: true);
 One of the key features of AT Protocol is that records are public by default. You can read records from any user's repository:
 
 ```csharp
+var other = Did.Parse("did:plc:otherperson");
+
 // Read a specific record from another user
-var item = await todos.GetFromAsync("did:plc:otherperson", "record-key");
+var item = await todos.GetFromAsync(other, RecordKey.Parse("record-key"));
 
 // List records from another user
-var page = await todos.ListFromAsync("did:plc:otherperson", limit: 50);
+var page = await todos.ListFromAsync(other, limit: 50);
 
 // Enumerate all of their records
-await foreach (var record in todos.EnumerateFromAsync("did:plc:otherperson"))
+await foreach (var record in todos.EnumerateFromAsync(other))
 {
     Console.WriteLine(record.Value.Title);
 }
@@ -244,10 +254,10 @@ A single AT Protocol account supports data from many applications by using diffe
 await client.LoginAsync("alice.example.com", "app-password");
 
 // Different apps, same account, different collections
-var todos = client.GetCollection<TodoItem>("com.example.todo.item");
-var bookmarks = client.GetCollection<Bookmark>("com.example.bookmarks.bookmark");
-var notes = client.GetCollection<Note>("com.example.notes.note");
-var recipes = client.GetCollection<Recipe>("com.example.recipes.recipe");
+var todos = client.GetCollection<TodoItem>(Nsid.Parse("com.example.todo.item"));
+var bookmarks = client.GetCollection<Bookmark>(Nsid.Parse("com.example.bookmarks.bookmark"));
+var notes = client.GetCollection<Note>(Nsid.Parse("com.example.notes.note"));
+var recipes = client.GetCollection<Recipe>(Nsid.Parse("com.example.recipes.recipe"));
 
 // Each collection is independent
 await todos.CreateAsync(new TodoItem { Title = "Cook dinner" });
@@ -285,7 +295,7 @@ public class MyRecord : AtProtoRecord
     public string FirstName { get; set; } = "";
 
     [JsonPropertyName("lastModified")]
-    public string? LastModified { get; set; }
+    public AtDatetime? LastModified { get; set; }
 
     [JsonPropertyName("itemCount")]
     public int ItemCount { get; set; }
@@ -294,16 +304,27 @@ public class MyRecord : AtProtoRecord
 
 ### Timestamps
 
-Use ISO 8601 format for date/time fields:
+Type Lexicon `datetime` fields as `AtDatetime`. It keeps the exact text it was read with, so a
+record you read and write back keeps its CID, and it writes the canonical form
+(`yyyy-MM-ddTHH:mm:ss.fffZ`) for values you create:
 
 ```csharp
 [JsonPropertyName("dueDate")]
-public string? DueDate { get; set; }
+public AtDatetime? DueDate { get; set; }
 
 // Set like this:
-record.DueDate = DateTime.UtcNow.ToString("o");
-record.DueDate = "2024-06-15T14:30:00.000Z";
+record.DueDate = AtDatetime.Now();
+record.DueDate = AtDatetime.FromDateTimeOffset(DateTimeOffset.UtcNow.AddDays(3));
+record.DueDate = AtDatetime.Parse("2024-06-15T14:30:00.000Z");
+
+// Read it back:
+if (record.DueDate?.TryGetValue(out var due) == true)
+    Console.WriteLine(due.LocalDateTime);
 ```
+
+Reading is lenient: a value that isn't a valid atproto datetime is kept verbatim with
+`IsValid == false` rather than failing the whole record. `AtProtoRecord.CreatedAt` is an
+`AtDatetime?` set to the current time when you create the object.
 
 ### References Between Records
 
@@ -316,7 +337,7 @@ public class Comment : AtProtoRecord
     public override string Type => "com.example.todo.comment";
 
     [JsonPropertyName("todoUri")]
-    public string TodoUri { get; set; } = "";  // AT URI to the todo item
+    public required AtUri TodoUri { get; set; }  // AT URI to the todo item
 
     [JsonPropertyName("text")]
     public string Text { get; set; } = "";
@@ -480,7 +501,7 @@ using ATProtoNet.Http;
 
 try
 {
-    var item = await todos.GetAsync("nonexistent-key");
+    var item = await todos.GetAsync(RecordKey.Parse("nonexistent-key"));
 }
 catch (XrpcException ex) when (ex.Is(XrpcErrors.RecordNotFound))
 {

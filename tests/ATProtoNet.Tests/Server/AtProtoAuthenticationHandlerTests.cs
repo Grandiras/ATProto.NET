@@ -64,6 +64,24 @@ public class AtProtoAuthenticationHandlerTests
         Assert.StartsWith("Token segments are not valid base64url JSON", result.Failure?.Message, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("alice.test")]
+    [InlineData(42)]
+    public async Task AuthenticateAsync_SubjectThatIsNotADid_IsRejected(object? subject)
+    {
+        // The session the handler validates is keyed by the token's subject, so a token without
+        // a DID there cannot produce the account claims.
+        var claims = new Dictionary<string, object> { ["exp"] = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds() };
+        if (subject is not null)
+            claims["sub"] = subject;
+
+        var result = await AuthenticateAsync(TestJws.Mint(Header, claims, _ => new byte[64]));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("Token subject ('sub') is not a DID.", result.Failure?.Message);
+    }
+
     [Fact]
     public async Task AuthenticateAsync_HeaderThatIsNotJson_IsRejected()
     {

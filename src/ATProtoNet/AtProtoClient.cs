@@ -252,13 +252,13 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <returns>A typed collection providing Create, Get, Put, Delete, List, and Enumerate operations.</returns>
     /// <example>
     /// <code>
-    /// var todos = client.GetCollection&lt;TodoItem&gt;("com.example.todo.item");
+    /// var todos = client.GetCollection&lt;TodoItem&gt;(Nsid.Parse("com.example.todo.item"));
     /// await todos.CreateAsync(new TodoItem { Title = "Example" });
     /// </code>
     /// </example>
-    public RecordCollection<T> GetCollection<T>(string collection) where T : class
+    public RecordCollection<T> GetCollection<T>(Nsid collection) where T : class
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(collection);
+        ArgumentNullException.ThrowIfNull(collection);
         return new RecordCollection<T>(this, collection);
     }
 
@@ -278,16 +278,19 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <example>
     /// <code>
     /// var result = await client.QueryAsync&lt;ListResult&gt;(
-    ///     "com.example.todo.listItems",
+    ///     Nsid.Parse("com.example.todo.listItems"),
     ///     new { limit = 25, cursor = "abc" });
     /// </code>
     /// </example>
     public Task<T> QueryAsync<T>(
-        string nsid,
+        Nsid nsid,
         object? parameters = null,
         XrpcCallOptions? options = null,
-        CancellationToken cancellationToken = default) =>
-        _xrpc.QueryAsync<T>(nsid, XrpcParams.From(parameters), options, cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(nsid);
+        return _xrpc.QueryAsync<T>(nsid.Value, XrpcParams.From(parameters), options, cancellationToken);
+    }
 
     /// <summary>
     /// Call a custom XRPC procedure (HTTP POST) endpoint defined by your Lexicon.
@@ -302,16 +305,19 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <example>
     /// <code>
     /// var result = await client.ProcedureAsync&lt;StatusResult&gt;(
-    ///     "com.example.todo.updateStatus",
+    ///     Nsid.Parse("com.example.todo.updateStatus"),
     ///     new { rkey = "abc", status = "done" });
     /// </code>
     /// </example>
     public Task<T> ProcedureAsync<T>(
-        string nsid,
+        Nsid nsid,
         object? body = null,
         XrpcCallOptions? options = null,
-        CancellationToken cancellationToken = default) where T : class =>
-        _xrpc.ProcedureAsync<T>(nsid, body, parameters: null, options, cancellationToken);
+        CancellationToken cancellationToken = default) where T : class
+    {
+        ArgumentNullException.ThrowIfNull(nsid);
+        return _xrpc.ProcedureAsync<T>(nsid.Value, body, parameters: null, options, cancellationToken);
+    }
 
     /// <summary>
     /// Call a custom XRPC procedure (HTTP POST) that returns no response body.
@@ -322,11 +328,14 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcException">The service answered with an XRPC error.</exception>
     public Task ProcedureAsync(
-        string nsid,
+        Nsid nsid,
         object? body = null,
         XrpcCallOptions? options = null,
-        CancellationToken cancellationToken = default) =>
-        _xrpc.ProcedureAsync(nsid, body, parameters: null, options, cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(nsid);
+        return _xrpc.ProcedureAsync(nsid.Value, body, parameters: null, options, cancellationToken);
+    }
 
     // ──────────────────────────────────────────────────────────
     //  Session state
@@ -339,17 +348,18 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     public bool IsAuthenticated => _session is not null;
 
     /// <summary>The DID of the authenticated user, or null.</summary>
-    public string? Did => _session?.Did;
+    public Did? Did => _session?.Did;
 
     /// <summary>The handle of the authenticated user, or null.</summary>
-    public string? Handle => _session?.Handle;
+    public Handle? Handle => _session?.Handle;
 
     /// <summary>
     /// The latest repository revision (TID) received from the service via the
     /// <c>Atproto-Repo-Rev</c> response header. Indicates how up-to-date
-    /// the service is with the authenticated account's repository.
+    /// the service is with the authenticated account's repository. A header value that is not a
+    /// TID reads as <see langword="null"/>.
     /// </summary>
-    public string? LatestRepoRev => _xrpc.LatestRepoRev;
+    public Tid? LatestRepoRev => Tid.TryParse(_xrpc.LatestRepoRev, out var rev) ? rev : null;
 
     /// <summary>
     /// The latest rate limit information parsed from HTTP response headers.
@@ -391,13 +401,19 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// A client-wide default, sent with or without a session. To vary it per call, pass
     /// <see cref="XrpcCallOptions.AcceptLabelers"/> instead.
     /// </remarks>
-    /// <param name="labelerDids">The DIDs of labeler services to subscribe to.</param>
+    /// <param name="labelerDids">
+    /// The DIDs of labeler services to subscribe to, each optionally followed by the
+    /// <c>;redact</c> parameter, as the header carries them.
+    /// </param>
     public void SetLabelers(IEnumerable<string> labelerDids) => _xrpc.SetLabelers(labelerDids);
 
     /// <summary>
     /// Sets the subscribed labeler DIDs from string parameters.
     /// </summary>
-    /// <param name="labelerDids">The DIDs of labeler services to subscribe to.</param>
+    /// <param name="labelerDids">
+    /// The DIDs of labeler services to subscribe to, each optionally followed by the
+    /// <c>;redact</c> parameter, as the header carries them.
+    /// </param>
     public void SetLabelers(params string[] labelerDids) => _xrpc.SetLabelers(labelerDids);
 
     /// <summary>
@@ -694,6 +710,17 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(oauthSession);
 
+        // Typed before anything is swapped, so a malformed session leaves the client untouched.
+        // An unverified handle is no handle (OAuthClient reports the DID in its place), which
+        // the typed session records the atproto way; a verified one that does not parse is a
+        // broken session, not something to downgrade quietly.
+        var did = Did.Parse(oauthSession.Did);
+        var handle = !oauthSession.IsHandleVerified ? InvalidHandle
+            : Handle.TryParse(oauthSession.Handle, out var verified) ? verified
+            : throw new ArgumentException(
+                $"The session's handle is marked verified but '{oauthSession.Handle}' is not a valid handle.",
+                nameof(oauthSession));
+
         // Serialize against any in-flight refresh — without this lock the timer
         // callback can dereference _oauthSession/_oauthClient/_xrpc tokens while
         // Apply swaps them out, producing torn state or writing refresh results
@@ -732,8 +759,8 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             // Create a session object for backward compatibility
             _session = new Session
             {
-                Did = oauthSession.Did,
-                Handle = oauthSession.Handle,
+                Did = did,
+                Handle = handle,
                 AccessJwt = oauthSession.AccessToken,
                 RefreshJwt = oauthSession.RefreshToken ?? string.Empty,
             };
@@ -811,10 +838,10 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <returns>The URI and CID of the created post.</returns>
     public async Task<CreateRecordResponse> PostAsync(
         string text,
-        List<Facet>? facets = null,
+        IEnumerable<Facet>? facets = null,
         EmbedBase? embed = null,
         ReplyRef? reply = null,
-        List<string>? langs = null,
+        IEnumerable<string>? langs = null,
         SelfLabels? labels = null,
         CancellationToken cancellationToken = default)
     {
@@ -823,16 +850,16 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         var post = new PostRecord
         {
             Text = text,
-            Facets = facets,
+            Facets = facets?.ToList(),
             Embed = embed,
             Reply = reply,
-            Langs = langs,
+            Langs = langs?.ToList(),
             Labels = labels,
             CreatedAt = AtProtoJsonDefaults.NowTimestamp(),
         };
 
         return await Repo.CreateRecordAsync(
-            _session!.Did, "app.bsky.feed.post", post, cancellationToken: cancellationToken);
+            _session!.Did, PostCollection, post, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -842,7 +869,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <param name="cid">The CID of the post.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<CreateRecordResponse> LikeAsync(
-        string uri, string cid, CancellationToken cancellationToken = default)
+        AtUri uri, Cid cid, CancellationToken cancellationToken = default)
     {
         EnsureAuthenticated();
 
@@ -853,7 +880,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         };
 
         return await Repo.CreateRecordAsync(
-            _session!.Did, "app.bsky.feed.like", like, cancellationToken: cancellationToken);
+            _session!.Did, LikeCollection, like, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -861,7 +888,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// </summary>
     /// <param name="likeUri">The AT-URI of the like record (from PostViewerState.Like).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task UnlikeAsync(string likeUri, CancellationToken cancellationToken = default)
+    public async Task UnlikeAsync(AtUri likeUri, CancellationToken cancellationToken = default)
     {
         await DeleteByUriAsync(likeUri, cancellationToken);
     }
@@ -869,8 +896,11 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <summary>
     /// Repost a post.
     /// </summary>
+    /// <param name="uri">The AT-URI of the post.</param>
+    /// <param name="cid">The CID of the post.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<CreateRecordResponse> RepostAsync(
-        string uri, string cid, CancellationToken cancellationToken = default)
+        AtUri uri, Cid cid, CancellationToken cancellationToken = default)
     {
         EnsureAuthenticated();
 
@@ -881,13 +911,15 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         };
 
         return await Repo.CreateRecordAsync(
-            _session!.Did, "app.bsky.feed.repost", repost, cancellationToken: cancellationToken);
+            _session!.Did, RepostCollection, repost, cancellationToken: cancellationToken);
     }
 
     /// <summary>
     /// Undo a repost.
     /// </summary>
-    public async Task UndoRepostAsync(string repostUri, CancellationToken cancellationToken = default)
+    /// <param name="repostUri">The AT-URI of the repost record (from PostViewerState.Repost).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task UndoRepostAsync(AtUri repostUri, CancellationToken cancellationToken = default)
     {
         await DeleteByUriAsync(repostUri, cancellationToken);
     }
@@ -898,7 +930,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <param name="did">The DID of the actor to follow.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<CreateRecordResponse> FollowAsync(
-        string did, CancellationToken cancellationToken = default)
+        Did did, CancellationToken cancellationToken = default)
     {
         EnsureAuthenticated();
 
@@ -909,7 +941,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         };
 
         return await Repo.CreateRecordAsync(
-            _session!.Did, "app.bsky.graph.follow", follow, cancellationToken: cancellationToken);
+            _session!.Did, FollowCollection, follow, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -917,7 +949,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// </summary>
     /// <param name="followUri">The AT-URI of the follow record (from ViewerState.Following).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task UnfollowAsync(string followUri, CancellationToken cancellationToken = default)
+    public async Task UnfollowAsync(AtUri followUri, CancellationToken cancellationToken = default)
     {
         await DeleteByUriAsync(followUri, cancellationToken);
     }
@@ -927,7 +959,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// </summary>
     /// <param name="postUri">The AT-URI of the post to delete.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task DeletePostAsync(string postUri, CancellationToken cancellationToken = default)
+    public async Task DeletePostAsync(AtUri postUri, CancellationToken cancellationToken = default)
     {
         await DeleteByUriAsync(postUri, cancellationToken);
     }
@@ -972,11 +1004,11 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             try
             {
                 var written = await Repo.PutRecordAsync(
-                    did, ProfileCollection, ProfileRecordKey, profile,
+                    did, ProfileCollection, RecordKey.Self, profile,
                     swapRecord: cid,
                     cancellationToken: cancellationToken);
 
-                return RecordRef.From(written.Uri, written.Cid);
+                return RecordRef.From("com.atproto.repo.putRecord", written.Uri, written.Cid);
             }
             catch (XrpcException ex) when (ex.Is(XrpcErrors.InvalidSwap)
                                            && attempt < MaxProfileUpdateAttempts)
@@ -988,21 +1020,25 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         }
     }
 
-    private const string ProfileCollection = "app.bsky.actor.profile";
-    private const string ProfileRecordKey = "self";
+    private static readonly Nsid PostCollection = Nsid.Parse("app.bsky.feed.post");
+    private static readonly Nsid LikeCollection = Nsid.Parse("app.bsky.feed.like");
+    private static readonly Nsid RepostCollection = Nsid.Parse("app.bsky.feed.repost");
+    private static readonly Nsid FollowCollection = Nsid.Parse("app.bsky.graph.follow");
+    private static readonly Nsid ProfileCollection = Nsid.Parse("app.bsky.actor.profile");
+    private static readonly Handle InvalidHandle = Handle.Parse("handle.invalid");
     private const int MaxProfileUpdateAttempts = 3;
 
     /// <summary>
     /// Reads the account's profile record and the CID to swap against, or a fresh record and
     /// <see langword="null"/> when there is none.
     /// </summary>
-    private async Task<(ProfileRecord Profile, string? Cid)> GetProfileRecordAsync(
-        string did, CancellationToken cancellationToken)
+    private async Task<(ProfileRecord Profile, Cid? Cid)> GetProfileRecordAsync(
+        Did did, CancellationToken cancellationToken)
     {
         try
         {
             var existing = await Repo.GetRecordAsync<ProfileRecord>(
-                did, ProfileCollection, ProfileRecordKey, cancellationToken: cancellationToken);
+                did, ProfileCollection, RecordKey.Self, cancellationToken: cancellationToken);
 
             return (existing.Value, existing.Cid);
         }
@@ -1091,12 +1127,10 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// methods (unlike, unfollow, undo repost, delete post), which differ only in
     /// which URI the caller hands over.
     /// </summary>
-    private async Task DeleteByUriAsync(string uri, CancellationToken cancellationToken)
+    private async Task DeleteByUriAsync(AtUri uri, CancellationToken cancellationToken)
     {
         EnsureAuthenticated();
-        var parsed = AtUri.Parse(uri);
-        await Repo.DeleteRecordAsync(
-            parsed.Repo, parsed.Collection!, parsed.RecordKey!, cancellationToken: cancellationToken);
+        await Repo.DeleteRecordAsync(uri, cancellationToken: cancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────

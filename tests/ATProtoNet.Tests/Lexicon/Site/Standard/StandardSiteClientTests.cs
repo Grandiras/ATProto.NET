@@ -41,7 +41,7 @@ public class StandardSiteClientTests : IDisposable
         _handler.ResponseFactory = request =>
         {
             capturedBody = request.Content?.ReadAsStringAsync().Result;
-            return JsonResponse(new { uri = "at://did:plc:test/site.standard.publication/abc", cid = "bafytest" });
+            return JsonResponse(new { uri = "at://did:plc:test/site.standard.publication/abc", cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm" });
         };
 
         var record = new PublicationRecord
@@ -66,7 +66,7 @@ public class StandardSiteClientTests : IDisposable
             return JsonResponse(new
             {
                 uri = "at://did:plc:test/site.standard.publication/abc",
-                cid = "bafytest",
+                cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm",
                 value = new
                 {
                     url = "https://myblog.example.com",
@@ -90,7 +90,7 @@ public class StandardSiteClientTests : IDisposable
         _handler.ResponseFactory = request =>
         {
             capturedBody = request.Content?.ReadAsStringAsync().Result;
-            return JsonResponse(new { uri = "at://did:plc:test/site.standard.publication/abc", cid = "bafytest" });
+            return JsonResponse(new { uri = "at://did:plc:test/site.standard.publication/abc", cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm" });
         };
 
         var record = new PublicationRecord
@@ -112,7 +112,7 @@ public class StandardSiteClientTests : IDisposable
         _handler.ResponseFactory = request =>
         {
             capturedBody = request.Content?.ReadAsStringAsync().Result;
-            return JsonResponse(new { commit = new { cid = "bafytest", rev = "rev1" } });
+            return JsonResponse(new { commit = new { cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", rev = "3jzfcijpj2z2a" } });
         };
 
         await _site.DeletePublicationAsync("did:plc:test", "abc");
@@ -147,7 +147,7 @@ public class StandardSiteClientTests : IDisposable
         _handler.ResponseFactory = request =>
         {
             capturedBody = request.Content?.ReadAsStringAsync().Result;
-            return JsonResponse(new { uri = "at://did:plc:test/site.standard.document/doc1", cid = "bafytest" });
+            return JsonResponse(new { uri = "at://did:plc:test/site.standard.document/doc1", cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm" });
         };
 
         var record = new DocumentRecord
@@ -175,7 +175,7 @@ public class StandardSiteClientTests : IDisposable
             return JsonResponse(new
             {
                 uri = "at://did:plc:test/site.standard.document/doc1",
-                cid = "bafytest",
+                cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm",
                 value = new
                 {
                     site = "at://did:plc:test/site.standard.publication/abc",
@@ -202,7 +202,7 @@ public class StandardSiteClientTests : IDisposable
         _handler.ResponseFactory = request =>
         {
             capturedBody = request.Content?.ReadAsStringAsync().Result;
-            return JsonResponse(new { uri = "at://did:plc:test/site.standard.document/doc1", cid = "bafytest" });
+            return JsonResponse(new { uri = "at://did:plc:test/site.standard.document/doc1", cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm" });
         };
 
         var record = new DocumentRecord
@@ -226,7 +226,7 @@ public class StandardSiteClientTests : IDisposable
         _handler.ResponseFactory = request =>
         {
             capturedBody = request.Content?.ReadAsStringAsync().Result;
-            return JsonResponse(new { commit = new { cid = "bafytest", rev = "rev1" } });
+            return JsonResponse(new { commit = new { cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", rev = "3jzfcijpj2z2a" } });
         };
 
         await _site.DeleteDocumentAsync("did:plc:test", "doc1");
@@ -260,7 +260,7 @@ public class StandardSiteClientTests : IDisposable
         _handler.ResponseFactory = request =>
         {
             capturedBody = request.Content?.ReadAsStringAsync().Result;
-            return JsonResponse(new { uri = "at://did:plc:sub/site.standard.graph.subscription/s1", cid = "bafytest" });
+            return JsonResponse(new { uri = "at://did:plc:sub/site.standard.graph.subscription/s1", cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm" });
         };
 
         var record = new SubscriptionRecord
@@ -284,7 +284,7 @@ public class StandardSiteClientTests : IDisposable
             return JsonResponse(new
             {
                 uri = "at://did:plc:sub/site.standard.graph.subscription/s1",
-                cid = "bafytest",
+                cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm",
                 value = new
                 {
                     publication = "at://did:plc:author/site.standard.publication/abc"
@@ -305,7 +305,7 @@ public class StandardSiteClientTests : IDisposable
         _handler.ResponseFactory = request =>
         {
             capturedBody = request.Content?.ReadAsStringAsync().Result;
-            return JsonResponse(new { commit = new { cid = "bafytest", rev = "rev1" } });
+            return JsonResponse(new { commit = new { cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", rev = "3jzfcijpj2z2a" } });
         };
 
         await _site.DeleteSubscriptionAsync("did:plc:sub", "s1");

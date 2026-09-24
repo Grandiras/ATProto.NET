@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ATProtoNet.Http;
@@ -25,15 +24,15 @@ namespace ATProtoNet;
 /// {
 ///     [JsonPropertyName("$type")]
 ///     public override string Type => "com.example.todo.item";
-///     
+///
 ///     [JsonPropertyName("title")]
 ///     public string Title { get; set; } = "";
-///     
+///
 ///     [JsonPropertyName("completed")]
 ///     public bool Completed { get; set; }
-///     
+///
 ///     [JsonPropertyName("dueDate")]
-///     public string? DueDate { get; set; }
+///     public AtDatetime? DueDate { get; set; }
 /// }
 /// </code>
 /// </example>
@@ -47,11 +46,11 @@ public abstract class AtProtoRecord : LexObject
     public abstract string Type { get; }
 
     /// <summary>
-    /// Timestamp when the record was created (ISO 8601).
-    /// Automatically set to UTC now when not provided.
+    /// Timestamp when the record was created. Set to the current time when the record object is
+    /// created; a record read from the wire keeps the text it was written with.
     /// </summary>
     [JsonPropertyName("createdAt")]
-    public string CreatedAt { get; set; } = Serialization.AtProtoJsonDefaults.NowTimestamp();
+    public AtDatetime? CreatedAt { get; set; } = AtDatetime.Now();
 }
 
 /// <summary>
@@ -73,16 +72,16 @@ public abstract class AtProtoRecord : LexObject
 /// {
 ///     [JsonPropertyName("$type")]
 ///     public override string Type => "com.example.todo.item";
-///     
+///
 ///     [JsonPropertyName("title")]
 ///     public string Title { get; set; } = "";
-///     
+///
 ///     [JsonPropertyName("completed")]
 ///     public bool Completed { get; set; }
 /// }
 ///
 /// // Get a typed collection
-/// var todos = client.GetCollection&lt;TodoItem&gt;("com.example.todo.item");
+/// var todos = client.GetCollection&lt;TodoItem&gt;(Nsid.Parse("com.example.todo.item"));
 ///
 /// // CRUD operations
 /// var created = await todos.CreateAsync(new TodoItem { Title = "Buy milk" });
@@ -99,18 +98,17 @@ public abstract class AtProtoRecord : LexObject
 public sealed class RecordCollection<T> where T : class
 {
     private readonly AtProtoClient _client;
-    private readonly string _collection;
 
-    internal RecordCollection(AtProtoClient client, string collection)
+    internal RecordCollection(AtProtoClient client, Nsid collection)
     {
         _client = client;
-        _collection = collection;
+        Collection = collection;
     }
 
     /// <summary>
     /// The NSID of the collection (e.g., "com.example.todo.item").
     /// </summary>
-    public string Collection => _collection;
+    public Nsid Collection { get; }
 
     /// <summary>
     /// Create a new record in this collection.
@@ -122,17 +120,17 @@ public sealed class RecordCollection<T> where T : class
     /// <returns>A reference containing the AT URI, CID, and parsed record key.</returns>
     public async Task<RecordRef> CreateAsync(
         T record,
-        string? rkey = null,
+        RecordKey? rkey = null,
         bool? validate = null,
         CancellationToken cancellationToken = default)
     {
         _client.EnsureAuthenticated();
 
         var response = await _client.Repo.CreateRecordAsync(
-            _client.Did!, _collection, record, rkey, validate,
+            _client.Did!, Collection, record, rkey, validate,
             cancellationToken: cancellationToken);
 
-        return RecordRef.From(response.Uri, response.Cid);
+        return RecordRef.From("com.atproto.repo.createRecord", response.Uri, response.Cid);
     }
 
     /// <summary>
@@ -143,8 +141,8 @@ public sealed class RecordCollection<T> where T : class
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The deserialized record with metadata.</returns>
     public Task<RecordView<T>> GetAsync(
-        string rkey,
-        string? cid = null,
+        RecordKey rkey,
+        Cid? cid = null,
         CancellationToken cancellationToken = default)
     {
         _client.EnsureAuthenticated();
@@ -159,13 +157,13 @@ public sealed class RecordCollection<T> where T : class
     /// <param name="cid">Optional CID for a specific version.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<RecordView<T>> GetFromAsync(
-        string repo,
-        string rkey,
-        string? cid = null,
+        AtIdentifier repo,
+        RecordKey rkey,
+        Cid? cid = null,
         CancellationToken cancellationToken = default)
     {
         var response = await _client.Repo.GetRecordAsync(
-            repo, _collection, rkey, cid, cancellationToken);
+            repo, Collection, rkey, cid, cancellationToken);
 
         return ToView("com.atproto.repo.getRecord", response.Uri, response.Cid, response.Value);
     }
@@ -179,19 +177,19 @@ public sealed class RecordCollection<T> where T : class
     /// <param name="swapRecord">Optional CAS: the CID of the existing record to swap.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<RecordRef> PutAsync(
-        string rkey,
+        RecordKey rkey,
         T record,
         bool? validate = null,
-        string? swapRecord = null,
+        Cid? swapRecord = null,
         CancellationToken cancellationToken = default)
     {
         _client.EnsureAuthenticated();
 
         var response = await _client.Repo.PutRecordAsync(
-            _client.Did!, _collection, rkey, record, validate, swapRecord,
+            _client.Did!, Collection, rkey, record, validate, swapRecord,
             cancellationToken: cancellationToken);
 
-        return RecordRef.From(response.Uri, response.Cid);
+        return RecordRef.From("com.atproto.repo.putRecord", response.Uri, response.Cid);
     }
 
     /// <summary>
@@ -201,46 +199,51 @@ public sealed class RecordCollection<T> where T : class
     /// <param name="swapRecord">Optional CAS: the CID of the record version to delete.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task DeleteAsync(
-        string rkey,
-        string? swapRecord = null,
+        RecordKey rkey,
+        Cid? swapRecord = null,
         CancellationToken cancellationToken = default)
     {
         _client.EnsureAuthenticated();
 
         await _client.Repo.DeleteRecordAsync(
-            _client.Did!, _collection, rkey, swapRecord,
+            _client.Did!, Collection, rkey, swapRecord,
             cancellationToken: cancellationToken);
     }
 
     /// <summary>
-    /// List records in this collection, with pagination.
+    /// List one page of records in this collection.
     /// </summary>
+    /// <param name="reverse">Whether to reverse the sort order.</param>
     /// <param name="limit">Maximum number of records per page (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="reverse">Whether to reverse the sort order.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<RecordPage<T>> ListAsync(
+        bool? reverse = null,
         int? limit = null,
         string? cursor = null,
-        bool? reverse = null,
         CancellationToken cancellationToken = default)
     {
         _client.EnsureAuthenticated();
-        return ListFromAsync(_client.Did!, limit, cursor, reverse, cancellationToken);
+        return ListFromAsync(_client.Did!, reverse, limit, cursor, cancellationToken);
     }
 
     /// <summary>
-    /// List records from any user's repository.
+    /// List one page of records from any user's repository.
     /// </summary>
+    /// <param name="repo">The DID or handle of the repo owner.</param>
+    /// <param name="reverse">Whether to reverse the sort order.</param>
+    /// <param name="limit">Maximum number of records per page (1-100, default 50).</param>
+    /// <param name="cursor">Pagination cursor from a previous response.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<RecordPage<T>> ListFromAsync(
-        string repo,
+        AtIdentifier repo,
+        bool? reverse = null,
         int? limit = null,
         string? cursor = null,
-        bool? reverse = null,
         CancellationToken cancellationToken = default)
     {
         var response = await _client.Repo.ListRecordsAsync(
-            repo, _collection, limit, cursor, reverse, cancellationToken);
+            repo, Collection, reverse, limit, cursor, cancellationToken);
 
         return new RecordPage<T>
         {
@@ -250,12 +253,12 @@ public sealed class RecordCollection<T> where T : class
     }
 
     /// <summary>
-    /// Enumerate all records in this collection using automatic pagination.
+    /// Enumerate every record in this collection, fetching pages as needed.
     /// </summary>
-    /// <param name="pageSize">Number of records to fetch per page.</param>
+    /// <param name="pageSize">Records per request (1-100); <see langword="null"/> for the server default.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<RecordView<T>> EnumerateAsync(
-        int pageSize = 100,
+        int? pageSize = null,
         CancellationToken cancellationToken = default)
     {
         _client.EnsureAuthenticated();
@@ -263,23 +266,19 @@ public sealed class RecordCollection<T> where T : class
     }
 
     /// <summary>
-    /// Enumerate all records in any user's repository collection.
+    /// Enumerate every record in this collection of any user's repository, fetching pages as
+    /// needed.
     /// </summary>
-    public async IAsyncEnumerable<RecordView<T>> EnumerateFromAsync(
-        string repo,
-        int pageSize = 100,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        string? cursor = null;
-        do
-        {
-            var page = await ListFromAsync(repo, pageSize, cursor, cancellationToken: cancellationToken);
-            foreach (var record in page.Records)
-                yield return record;
-
-            cursor = page.Cursor;
-        } while (cursor is not null);
-    }
+    /// <param name="repo">The DID or handle of the repo owner.</param>
+    /// <param name="pageSize">Records per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<RecordView<T>> EnumerateFromAsync(
+        AtIdentifier repo,
+        int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<RecordPage<T>, RecordView<T>>(
+            (cursor, ct) => ListFromAsync(repo, limit: pageSize, cursor: cursor, cancellationToken: ct),
+            cancellationToken);
 
     /// <summary>
     /// Check if a record exists at the given record key.
@@ -287,7 +286,7 @@ public sealed class RecordCollection<T> where T : class
     /// <param name="rkey">The record key.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<bool> ExistsAsync(
-        string rkey, CancellationToken cancellationToken = default)
+        RecordKey rkey, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -302,15 +301,16 @@ public sealed class RecordCollection<T> where T : class
         }
     }
 
-    private static RecordView<T> ToView(string nsid, string uri, string? cid, JsonElement value) => new()
+    private static RecordView<T> ToView(string nsid, AtUri uri, Cid? cid, JsonElement value) => new()
     {
         Uri = uri,
         Cid = cid,
         Value = Deserialize(nsid, uri, value),
-        RecordKey = AtUri.Parse(uri).RecordKey!,
+        RecordKey = uri.RecordKey
+            ?? throw new XrpcResponseFormatException(nsid, $"Record URI {uri} has no record key."),
     };
 
-    private static T Deserialize(string nsid, string uri, JsonElement value)
+    private static T Deserialize(string nsid, AtUri uri, JsonElement value)
     {
         try
         {
@@ -331,19 +331,20 @@ public sealed class RecordCollection<T> where T : class
 public sealed class RecordRef
 {
     /// <summary>The AT URI of the record.</summary>
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content hash) of the record.</summary>
-    public required string Cid { get; init; }
+    public required Cid Cid { get; init; }
 
     /// <summary>The record key portion of the URI.</summary>
-    public required string RecordKey { get; init; }
+    public required RecordKey RecordKey { get; init; }
 
-    internal static RecordRef From(string uri, string cid) => new()
+    internal static RecordRef From(string nsid, AtUri uri, Cid cid) => new()
     {
         Uri = uri,
         Cid = cid,
-        RecordKey = AtUri.Parse(uri).RecordKey!,
+        RecordKey = uri.RecordKey
+            ?? throw new XrpcResponseFormatException(nsid, $"Record URI {uri} has no record key."),
     };
 }
 
@@ -354,30 +355,32 @@ public sealed class RecordRef
 public sealed class RecordView<T>
 {
     /// <summary>The AT URI of the record.</summary>
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content hash) of the record.</summary>
-    public string? Cid { get; init; }
+    public Cid? Cid { get; init; }
 
     /// <summary>The deserialized record value.</summary>
     public required T Value { get; init; }
 
     /// <summary>The record key portion of the URI.</summary>
-    public required string RecordKey { get; init; }
+    public required RecordKey RecordKey { get; init; }
 }
 
 /// <summary>
 /// A paginated page of records.
 /// </summary>
 /// <typeparam name="T">The deserialized record type.</typeparam>
-public sealed class RecordPage<T>
+public sealed class RecordPage<T> : ICursorPage<RecordView<T>>
 {
     /// <summary>The records in this page.</summary>
-    public required List<RecordView<T>> Records { get; init; }
+    public required IReadOnlyList<RecordView<T>> Records { get; init; }
 
     /// <summary>Cursor for the next page. Null when no more results.</summary>
     public string? Cursor { get; init; }
 
     /// <summary>Whether there are more pages available.</summary>
     public bool HasMore => Cursor is not null;
+
+    IReadOnlyList<RecordView<T>> ICursorPage<RecordView<T>>.Items => Records;
 }

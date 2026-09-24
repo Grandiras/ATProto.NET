@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using ATProtoNet.Admin;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.Tests.Admin;
 
@@ -158,7 +159,7 @@ public class PdsAdminClientTests : IDisposable
 
         var account = await _client.CreateAccountAsync(new CreatePdsAccountRequest
         {
-            Handle = "alice.example.com",
+            Handle = Handle.Parse("alice.example.com"),
             Email = "alice@example.com",
             Password = "correct-horse",
         });
@@ -185,7 +186,7 @@ public class PdsAdminClientTests : IDisposable
 
         await _client.CreateAccountAsync(new CreatePdsAccountRequest
         {
-            Handle = "alice.example.com",
+            Handle = Handle.Parse("alice.example.com"),
             Password = "correct-horse",
         });
 
@@ -202,7 +203,7 @@ public class PdsAdminClientTests : IDisposable
 
         await _client.CreateAccountAsync(new CreatePdsAccountRequest
         {
-            Handle = "alice.example.com",
+            Handle = Handle.Parse("alice.example.com"),
             Password = "correct-horse",
         });
 
@@ -216,7 +217,7 @@ public class PdsAdminClientTests : IDisposable
 
         await _client.CreateAccountAsync(new CreatePdsAccountRequest
         {
-            Handle = "alice.example.com",
+            Handle = Handle.Parse("alice.example.com"),
             Password = "correct-horse",
             InviteCode = "supplied-code",
         });
@@ -234,7 +235,7 @@ public class PdsAdminClientTests : IDisposable
         await Assert.ThrowsAsync<ArgumentException>(() =>
             _client.CreateAccountAsync(new CreatePdsAccountRequest
             {
-                Handle = "",
+                Handle = Handle.Parse(""),
                 Password = "correct-horse",
             }));
     }
@@ -250,7 +251,7 @@ public class PdsAdminClientTests : IDisposable
             {"did":"did:plc:alice","handle":"alice.example.com","indexedAt":"2026-07-25T00:00:00.000Z"}
             """);
 
-        var account = await _client.GetAccountAsync("did:plc:alice");
+        var account = await _client.GetAccountAsync(Did.Parse("did:plc:alice"));
 
         Assert.Equal("alice.example.com", account.Handle);
         Assert.Contains("com.atproto.admin.getAccountInfo", _handler.Requests[0].Path);
@@ -262,7 +263,7 @@ public class PdsAdminClientTests : IDisposable
     {
         _handler.Enqueue("""{"subject":{"did":"did:plc:alice"}}""");
 
-        await _client.TakedownAccountAsync("did:plc:alice", reference: "report-42");
+        await _client.TakedownAccountAsync(Did.Parse("did:plc:alice"), reference: "report-42");
 
         var body = JsonDocument.Parse(_handler.Requests[0].Body!).RootElement;
         Assert.Equal("com.atproto.admin.defs#repoRef", body.GetProperty("subject").GetProperty("$type").GetString());
@@ -276,7 +277,7 @@ public class PdsAdminClientTests : IDisposable
     {
         _handler.Enqueue("""{"subject":{"did":"did:plc:alice"}}""");
 
-        await _client.RestoreAccountAsync("did:plc:alice");
+        await _client.RestoreAccountAsync(Did.Parse("did:plc:alice"));
 
         var body = JsonDocument.Parse(_handler.Requests[0].Body!).RootElement;
         Assert.False(body.GetProperty("takedown").GetProperty("applied").GetBoolean());
@@ -287,7 +288,7 @@ public class PdsAdminClientTests : IDisposable
     {
         _handler.Enqueue("{}");
 
-        await _client.UpdateAccountHandleAsync("did:plc:alice", "alice2.example.com");
+        await _client.UpdateAccountHandleAsync(Did.Parse("did:plc:alice"), Handle.Parse("alice2.example.com"));
 
         var request = Assert.Single(_handler.Requests);
         Assert.Contains("com.atproto.admin.updateAccountHandle", request.Path);
@@ -301,7 +302,7 @@ public class PdsAdminClientTests : IDisposable
     {
         _handler.Enqueue("{}");
 
-        await _client.DeleteAccountAsync("did:plc:alice");
+        await _client.DeleteAccountAsync(Did.Parse("did:plc:alice"));
 
         var request = Assert.Single(_handler.Requests);
         Assert.Contains("com.atproto.admin.deleteAccount", request.Path);
@@ -316,12 +317,12 @@ public class PdsAdminClientTests : IDisposable
         // every one of them against a real server.
         var calls = new List<Func<Task>>
         {
-            () => _client.DeleteAccountAsync("did:plc:alice"),
-            () => _client.UpdateAccountHandleAsync("did:plc:alice", "alice2.example.com"),
-            () => _client.UpdateAccountEmailAsync("did:plc:alice", "new@example.com"),
-            () => _client.UpdateAccountPasswordAsync("did:plc:alice", "new-password"),
-            () => _client.Admin.DisableAccountInvitesAsync("did:plc:alice"),
-            () => _client.Admin.EnableAccountInvitesAsync("did:plc:alice"),
+            () => _client.DeleteAccountAsync(Did.Parse("did:plc:alice")),
+            () => _client.UpdateAccountHandleAsync(Did.Parse("did:plc:alice"), Handle.Parse("alice2.example.com")),
+            () => _client.UpdateAccountEmailAsync(AtIdentifier.Parse("did:plc:alice"), "new@example.com"),
+            () => _client.UpdateAccountPasswordAsync(Did.Parse("did:plc:alice"), "new-password"),
+            () => _client.Admin.DisableAccountInvitesAsync(Did.Parse("did:plc:alice")),
+            () => _client.Admin.EnableAccountInvitesAsync(Did.Parse("did:plc:alice")),
             () => _client.Admin.DisableInviteCodesAsync(["code-1"]),
         };
 

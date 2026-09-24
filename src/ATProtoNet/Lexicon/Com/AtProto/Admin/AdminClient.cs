@@ -1,4 +1,6 @@
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
+using ATProtoNet.Lexicon.Com.AtProto.Server;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Admin;
 
@@ -18,8 +20,10 @@ public sealed class AdminClient
     /// <summary>
     /// Get detailed info about an account by DID.
     /// </summary>
+    /// <param name="did">The account DID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<AccountInfo> GetAccountInfoAsync(
-        string did, CancellationToken cancellationToken = default)
+        Did did, CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams().Add("did", did);
         return _xrpc.QueryAsync<AccountInfo>(
@@ -29,10 +33,13 @@ public sealed class AdminClient
     /// <summary>
     /// Get info about multiple accounts by DIDs.
     /// </summary>
+    /// <param name="dids">The account DIDs.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetAccountInfosResponse> GetAccountInfosAsync(
-        IEnumerable<string> dids, CancellationToken cancellationToken = default)
+        IEnumerable<Did> dids, CancellationToken cancellationToken = default)
     {
-        var parameters = new XrpcParams().AddAll("dids", dids);
+        ArgumentNullException.ThrowIfNull(dids);
+        var parameters = new XrpcParams().AddAll("dids", dids.Select(did => did.Value));
         return _xrpc.QueryAsync<GetAccountInfosResponse>(
             "com.atproto.admin.getAccountInfos", parameters, cancellationToken: cancellationToken);
     }
@@ -40,8 +47,12 @@ public sealed class AdminClient
     /// <summary>
     /// Get the status of a subject (account, record, or blob).
     /// </summary>
+    /// <param name="did">The account DID, for an account subject (or a blob's owner).</param>
+    /// <param name="uri">The record's AT URI, for a record subject.</param>
+    /// <param name="blob">The blob's CID, for a blob subject.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetSubjectStatusResponse> GetSubjectStatusAsync(
-        string? did = null, string? uri = null, string? blob = null,
+        Did? did = null, AtUri? uri = null, Cid? blob = null,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
@@ -76,8 +87,10 @@ public sealed class AdminClient
     /// <summary>
     /// Delete an account (admin action).
     /// </summary>
+    /// <param name="did">The account DID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task DeleteAccountAsync(
-        string did, CancellationToken cancellationToken = default)
+        Did did, CancellationToken cancellationToken = default)
     {
         var request = new AdminDeleteAccountRequest { Did = did };
         await _xrpc.ProcedureAsync(
@@ -87,8 +100,11 @@ public sealed class AdminClient
     /// <summary>
     /// Disable invite code creation for an account.
     /// </summary>
+    /// <param name="account">The account DID.</param>
+    /// <param name="note">An optional note recorded with the action.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task DisableAccountInvitesAsync(
-        string account, string? note = null,
+        Did account, string? note = null,
         CancellationToken cancellationToken = default)
     {
         var request = new DisableAccountInvitesRequest { Account = account, Note = note };
@@ -99,8 +115,11 @@ public sealed class AdminClient
     /// <summary>
     /// Enable invite code creation for an account.
     /// </summary>
+    /// <param name="account">The account DID.</param>
+    /// <param name="note">An optional note recorded with the action.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task EnableAccountInvitesAsync(
-        string account, string? note = null,
+        Did account, string? note = null,
         CancellationToken cancellationToken = default)
     {
         var request = new EnableAccountInvitesRequest { Account = account, Note = note };
@@ -111,8 +130,11 @@ public sealed class AdminClient
     /// <summary>
     /// Update an account's email (admin action).
     /// </summary>
+    /// <param name="account">The account DID or handle.</param>
+    /// <param name="email">The new email address.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task UpdateAccountEmailAsync(
-        string account, string email,
+        AtIdentifier account, string email,
         CancellationToken cancellationToken = default)
     {
         var request = new UpdateAccountEmailRequest { Account = account, Email = email };
@@ -123,8 +145,11 @@ public sealed class AdminClient
     /// <summary>
     /// Update an account's handle (admin action).
     /// </summary>
+    /// <param name="did">The account DID.</param>
+    /// <param name="handle">The new handle.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task UpdateAccountHandleAsync(
-        string did, string handle,
+        Did did, Handle handle,
         CancellationToken cancellationToken = default)
     {
         var request = new UpdateAccountHandleRequest { Did = did, Handle = handle };
@@ -135,8 +160,11 @@ public sealed class AdminClient
     /// <summary>
     /// Update an account's password (admin action).
     /// </summary>
+    /// <param name="did">The account DID.</param>
+    /// <param name="password">The new password.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task UpdateAccountPasswordAsync(
-        string did, string password,
+        Did did, string password,
         CancellationToken cancellationToken = default)
     {
         var request = new UpdateAccountPasswordRequest { Did = did, Password = password };
@@ -147,18 +175,25 @@ public sealed class AdminClient
     /// <summary>
     /// Disable invite codes.
     /// </summary>
+    /// <param name="codes">The codes to disable.</param>
+    /// <param name="accounts">The accounts whose codes to disable.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task DisableInviteCodesAsync(
-        List<string>? codes = null, List<string>? accounts = null,
+        IEnumerable<string>? codes = null, IEnumerable<string>? accounts = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new DisableInviteCodesRequest { Codes = codes, Accounts = accounts };
+        var request = new DisableInviteCodesRequest { Codes = codes?.ToList(), Accounts = accounts?.ToList() };
         await _xrpc.ProcedureAsync(
             "com.atproto.admin.disableInviteCodes", request, cancellationToken: cancellationToken);
     }
 
     /// <summary>
-    /// Get invite codes.
+    /// Get one page of the server's invite codes.
     /// </summary>
+    /// <param name="sort">The order: <c>recent</c> (the default) or <c>usage</c>.</param>
+    /// <param name="limit">Maximum number of results (1-500, default 100).</param>
+    /// <param name="cursor">Pagination cursor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetInviteCodesResponse> GetInviteCodesAsync(
         string? sort = null, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
@@ -171,4 +206,18 @@ public sealed class AdminClient
         return _xrpc.QueryAsync<GetInviteCodesResponse>(
             "com.atproto.admin.getInviteCodes", parameters, cancellationToken: cancellationToken);
     }
+
+    /// <summary>
+    /// Enumerate every invite code on the server, fetching pages as needed.
+    /// </summary>
+    /// <param name="sort">The order: <c>recent</c> (the default) or <c>usage</c>.</param>
+    /// <param name="pageSize">Codes per request (1-500); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<InviteCode> EnumerateInviteCodesAsync(
+        string? sort = null,
+        int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<GetInviteCodesResponse, InviteCode>(
+            (cursor, ct) => GetInviteCodesAsync(sort, pageSize, cursor, ct),
+            cancellationToken);
 }

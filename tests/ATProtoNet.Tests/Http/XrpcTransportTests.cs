@@ -4,6 +4,7 @@ using System.Text.Json;
 using ATProtoNet.Auth;
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.Tests.Http;
 
@@ -51,7 +52,7 @@ public class XrpcTransportTests : IDisposable
             new AtProtoClientOptions { InstanceUrl = "https://pds.example.com", AutoRefreshSession = false },
             httpClient, null, null);
 
-        await client.QueryAsync<JsonElement>("com.example.ping");
+        await client.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping"));
 
         Assert.Equal("https://pds.example.com/xrpc/com.example.ping", _handler.Single().Uri);
         Assert.Equal(new Uri("https://elsewhere.example.com/"), httpClient.BaseAddress);
@@ -65,10 +66,10 @@ public class XrpcTransportTests : IDisposable
         using var first = CreateClient();
         using var second = CreateClient("https://other.example.com");
 
-        await first.QueryAsync<JsonElement>("com.example.ping");
+        await first.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping"));
         first.SetServiceUrl(new Uri("https://pds2.example.com"));
-        await first.QueryAsync<JsonElement>("com.example.ping");
-        await second.QueryAsync<JsonElement>("com.example.ping");
+        await first.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping"));
+        await second.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping"));
 
         Assert.Equal(
             new[]
@@ -85,7 +86,7 @@ public class XrpcTransportTests : IDisposable
     public async Task ApplyOAuthSessionAsync_AfterARequest_PointsAtTheSessionsPds()
     {
         using var client = CreateClient("https://entryway.example.com");
-        await client.QueryAsync<JsonElement>("com.example.ping");
+        await client.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping"));
 
         await client.ApplyOAuthSessionAsync(new OAuthSessionResult
         {
@@ -99,7 +100,7 @@ public class XrpcTransportTests : IDisposable
             TokenEndpoint = "https://entryway.example.com/oauth/token",
             DPoP = new DPoPProofGenerator(),
         });
-        await client.QueryAsync<JsonElement>("com.example.ping");
+        await client.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping"));
 
         Assert.Equal(new Uri("https://pds.alice.example.com/"), client.ServiceUrl);
         Assert.Equal("https://pds.alice.example.com/xrpc/com.example.ping", _handler.Requests[^1].Uri);
@@ -148,7 +149,7 @@ public class XrpcTransportTests : IDisposable
         var clients = Enumerable.Range(0, 100).Select(_ => CreateClient()).ToList();
         try
         {
-            await clients[^1].QueryAsync<JsonElement>("com.example.ping");
+            await clients[^1].QueryAsync<JsonElement>(Nsid.Parse("com.example.ping"));
 
             // Before: 100 product tokens accumulated here, a 1,899-character header.
             Assert.Empty(_httpClient.DefaultRequestHeaders.UserAgent);
@@ -167,8 +168,8 @@ public class XrpcTransportTests : IDisposable
         using var mine = CreateClient(configure: o => o.UserAgent = "MyApp/2.1 (+https://myapp.example)");
         using var theirs = CreateClient(configure: o => o.UserAgent = "OtherApp/1.0");
 
-        await mine.QueryAsync<JsonElement>("com.example.ping");
-        await theirs.QueryAsync<JsonElement>("com.example.ping");
+        await mine.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping"));
+        await theirs.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping"));
 
         Assert.Equal(
             new[] { "MyApp/2.1 (+https://myapp.example)", "OtherApp/1.0" },
@@ -183,7 +184,7 @@ public class XrpcTransportTests : IDisposable
         using var client = new AtProtoClient(
             new AtProtoClientOptions { UserAgent = null, AutoRefreshSession = false }, httpClient, null, null);
 
-        await client.QueryAsync<JsonElement>("com.example.ping");
+        await client.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping"));
 
         Assert.Equal("Host/1.0", _handler.Single().UserAgent);
     }
@@ -199,7 +200,7 @@ public class XrpcTransportTests : IDisposable
         client.SetProxy(ServiceProxy.BskyAppViewHeader);
         client.SetLabelers("did:plc:labeler1", "did:plc:labeler2;redact");
 
-        await client.QueryAsync<JsonElement>("app.bsky.feed.getPostThread");
+        await client.QueryAsync<JsonElement>(Nsid.Parse("app.bsky.feed.getPostThread"));
 
         var request = _handler.Single();
         Assert.Null(request.Authorization);
@@ -215,9 +216,9 @@ public class XrpcTransportTests : IDisposable
         client.SetLabelers("did:plc:default");
 
         await client.QueryAsync<JsonElement>(
-            "com.atproto.label.queryLabels",
+            Nsid.Parse("com.atproto.label.queryLabels"),
             options: new XrpcCallOptions { Proxy = "did:plc:labeler#atproto_labeler", AcceptLabelers = [] });
-        await client.QueryAsync<JsonElement>("app.bsky.feed.getTimeline");
+        await client.QueryAsync<JsonElement>(Nsid.Parse("app.bsky.feed.getTimeline"));
 
         Assert.Equal("did:plc:labeler#atproto_labeler", _handler.Requests[0].Header("atproto-proxy"));
         Assert.Null(_handler.Requests[0].Header("atproto-accept-labelers"));
@@ -231,7 +232,7 @@ public class XrpcTransportTests : IDisposable
         using var client = CreateClient();
 
         await Task.WhenAll(Enumerable.Range(0, 50).Select(i => client.QueryAsync<JsonElement>(
-            "com.example.ping",
+            Nsid.Parse("com.example.ping"),
             new { i },
             new XrpcCallOptions { Proxy = $"did:web:svc{i}.example#svc" })));
 
@@ -255,8 +256,8 @@ public class XrpcTransportTests : IDisposable
         await client.LoginAsync("alice.test", "password");                     // createSession
         await client.RefreshSessionAsync();                                    // refreshSession
         await client.ResumeSessionAsync(client.Session!);                      // getSession
-        await client.Server.CreateAccountAsync(new() { Handle = "bob.test" }); // createAccount
-        await client.QueryAsync<JsonElement>("app.bsky.feed.getTimeline");     // an ordinary call
+        await client.Server.CreateAccountAsync(new() { Handle = Handle.Parse("bob.test") }); // createAccount
+        await client.QueryAsync<JsonElement>(Nsid.Parse("app.bsky.feed.getTimeline"));     // an ordinary call
         await client.LogoutAsync();                                            // deleteSession
 
         var sessionCalls = new[]
@@ -302,7 +303,7 @@ public class XrpcTransportTests : IDisposable
         using var client = CreateClient();
 
         await client.QueryAsync<JsonElement>(
-            "com.example.ping",
+            Nsid.Parse("com.example.ping"),
             options: new XrpcCallOptions
             {
                 Headers = new Dictionary<string, string> { ["X-Trace"] = "abc", ["User-Agent"] = "Probe/1" },
@@ -320,7 +321,7 @@ public class XrpcTransportTests : IDisposable
         using var client = CreateClient();
 
         await Assert.ThrowsAsync<ArgumentException>(() => client.QueryAsync<JsonElement>(
-            "com.example.ping",
+            Nsid.Parse("com.example.ping"),
             options: new XrpcCallOptions { Headers = new Dictionary<string, string> { [header] = "x" } }));
         Assert.Empty(_handler.Requests);
     }
@@ -332,7 +333,7 @@ public class XrpcTransportTests : IDisposable
         _handler.Delay = TimeSpan.FromSeconds(30);
 
         var ex = await Assert.ThrowsAsync<TimeoutException>(() => client.QueryAsync<JsonElement>(
-            "com.example.slow", options: new XrpcCallOptions { Timeout = TimeSpan.FromMilliseconds(50) }));
+            Nsid.Parse("com.example.slow"), options: new XrpcCallOptions { Timeout = TimeSpan.FromMilliseconds(50) }));
 
         Assert.Contains("com.example.slow", ex.Message);
     }
@@ -345,7 +346,7 @@ public class XrpcTransportTests : IDisposable
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.QueryAsync<JsonElement>(
-            "com.example.slow",
+            Nsid.Parse("com.example.slow"),
             options: new XrpcCallOptions { Timeout = TimeSpan.FromSeconds(20) },
             cancellationToken: cts.Token));
     }
@@ -363,7 +364,7 @@ public class XrpcTransportTests : IDisposable
         _handler.Respond(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = body });
         using var client = CreateClient();
 
-        var result = await client.QueryAsync<JsonElement>("app.bsky.feed.getTimeline");
+        var result = await client.QueryAsync<JsonElement>(Nsid.Parse("app.bsky.feed.getTimeline"));
 
         Assert.Equal("c", result.GetProperty("cursor").GetString());
         Assert.True(body.StreamRead);
@@ -377,7 +378,7 @@ public class XrpcTransportTests : IDisposable
         using var client = CreateClient();
 
         var ex = await Assert.ThrowsAsync<XrpcResponseFormatException>(
-            () => client.QueryAsync<ATProtoNet.Lexicon.App.Bsky.Feed.FeedResponse>("app.bsky.feed.getTimeline"));
+            () => client.QueryAsync<ATProtoNet.Lexicon.App.Bsky.Feed.FeedResponse>(Nsid.Parse("app.bsky.feed.getTimeline")));
 
         Assert.Equal("app.bsky.feed.getTimeline", ex.Nsid);
         Assert.IsType<JsonException>(ex.InnerException);
@@ -390,7 +391,7 @@ public class XrpcTransportTests : IDisposable
         using var client = CreateClient();
 
         await Assert.ThrowsAsync<XrpcResponseFormatException>(
-            () => client.QueryAsync<JsonElement>("com.example.ping"));
+            () => client.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping")));
     }
 
     [Fact]
@@ -400,7 +401,7 @@ public class XrpcTransportTests : IDisposable
         using var client = CreateClient();
 
         var ex = await Assert.ThrowsAsync<XrpcException>(
-            () => client.QueryAsync<JsonElement>("com.atproto.repo.getRecord"));
+            () => client.QueryAsync<JsonElement>(Nsid.Parse("com.atproto.repo.getRecord")));
 
         Assert.True(ex.Is(XrpcErrors.RecordNotFound));
         Assert.Equal("com.atproto.repo.getRecord", ex.Nsid);
@@ -415,7 +416,7 @@ public class XrpcTransportTests : IDisposable
         _handler.Respond(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
         using var client = CreateClient();
 
-        await using (var blob = await client.Sync.GetBlobAsync("did:plc:alice", "bafkreiblob"))
+        await using (var blob = await client.Sync.GetBlobAsync(Did.Parse("did:plc:alice"), Cid.Parse("bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy")))
         {
             Assert.Equal("image/png", blob.ContentType);
             Assert.Equal(4, blob.ContentLength);
@@ -427,7 +428,7 @@ public class XrpcTransportTests : IDisposable
 
         Assert.True(content.Disposed);
         Assert.Equal(
-            "https://pds.example.com/xrpc/com.atproto.sync.getBlob?did=did%3Aplc%3Aalice&cid=bafkreiblob",
+            "https://pds.example.com/xrpc/com.atproto.sync.getBlob?did=did%3Aplc%3Aalice&cid=bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy",
             _handler.Single().Uri);
     }
 
@@ -438,7 +439,7 @@ public class XrpcTransportTests : IDisposable
         _handler.Respond(_ => new HttpResponseMessage(HttpStatusCode.BadRequest) { Content = content });
         using var client = CreateClient();
 
-        var ex = await Assert.ThrowsAsync<XrpcException>(() => client.Sync.GetBlobAsync("did:plc:alice", "bafkrei"));
+        var ex = await Assert.ThrowsAsync<XrpcException>(() => client.Sync.GetBlobAsync(Did.Parse("did:plc:alice"), Cid.Parse("bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy")));
 
         Assert.True(ex.Is(XrpcErrors.BlobNotFound));
         Assert.True(content.Disposed);
@@ -451,7 +452,7 @@ public class XrpcTransportTests : IDisposable
     [Fact]
     public async Task Upload_SendsFromTheCallersPositionAndLeavesTheStreamOpen()
     {
-        _handler.Respond(_ => Json("""{"blob":{"$type":"blob","ref":{"$link":"bafkrei"},"mimeType":"image/png","size":3}}"""));
+        _handler.Respond(_ => Json("""{"blob":{"$type":"blob","ref":{"$link":"bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy"},"mimeType":"image/png","size":3}}"""));
         using var client = CreateClient();
         using var stream = new MemoryStream("HEADERbody"u8.ToArray());
         stream.Position = 6;
@@ -469,7 +470,7 @@ public class XrpcTransportTests : IDisposable
         var calls = 0;
         _handler.Respond(_ => ++calls == 1
             ? RateLimited()
-            : Json("""{"blob":{"$type":"blob","ref":{"$link":"bafkrei"},"mimeType":"image/png","size":4}}"""));
+            : Json("""{"blob":{"$type":"blob","ref":{"$link":"bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy"},"mimeType":"image/png","size":4}}"""));
         using var client = CreateClient();
         using var stream = new MemoryStream("HEADERbody"u8.ToArray());
         stream.Position = 6;
@@ -497,7 +498,7 @@ public class XrpcTransportTests : IDisposable
     [Fact]
     public async Task Upload_OfANonSeekableStream_SucceedsWithoutARetry()
     {
-        _handler.Respond(_ => Json("""{"blob":{"$type":"blob","ref":{"$link":"bafkrei"},"mimeType":"image/png","size":4}}"""));
+        _handler.Respond(_ => Json("""{"blob":{"$type":"blob","ref":{"$link":"bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy"},"mimeType":"image/png","size":4}}"""));
         using var client = CreateClient();
         await using var stream = new NonSeekableStream("body"u8.ToArray());
 

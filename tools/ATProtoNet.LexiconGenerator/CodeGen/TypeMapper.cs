@@ -157,7 +157,7 @@ public static class TypeMapper
     {
         return schema.Type switch
         {
-            "string" => "string",
+            "string" => StringType(schema.Format),
             "integer" => "long",
             // Not part of the Lexicon spec, but real-world third-party schemas use it.
             "number" => "double",
@@ -171,11 +171,45 @@ public static class TypeMapper
                 ResolveRef(schema.Ref, contextNsid, namespacePrefix),
 
             "array" when schema.Items is not null =>
-                $"List<{GetCSharpType(schema.Items, contextNsid, namespacePrefix)}>",
+                $"IReadOnlyList<{GetCSharpType(schema.Items, contextNsid, namespacePrefix)}>",
 
             // Unions and inline objects need document context to type properly.
             _ => "JsonElement",
         };
+    }
+
+    /// <summary>
+    /// The C# type for a Lexicon <c>string</c> of the given format: the SDK's identifier type
+    /// (<c>ATProtoNet.Identity</c>) for the formats that have one, <c>string</c> otherwise.
+    /// </summary>
+    /// <param name="format">The Lexicon <c>format</c>, or <see langword="null"/>.</param>
+    public static string StringType(string? format) => format switch
+    {
+        "did" => "Did",
+        "handle" => "Handle",
+        "at-identifier" => "AtIdentifier",
+        "at-uri" => "AtUri",
+        "nsid" => "Nsid",
+        "cid" => "Cid",
+        "record-key" => "RecordKey",
+        "tid" => "Tid",
+        "datetime" => "AtDatetime",
+        _ => "string",
+    };
+
+    /// <summary>
+    /// Whether a C# type from <see cref="StringType"/>, or a list of one, lives in
+    /// <c>ATProtoNet.Identity</c>, so the generated file needs that namespace.
+    /// </summary>
+    public static bool IsIdentityType(string csharpType)
+    {
+        const string List = "IReadOnlyList<";
+        var type = csharpType.TrimEnd('?');
+        while (type.StartsWith(List, StringComparison.Ordinal) && type.EndsWith('>'))
+            type = type[List.Length..^1].TrimEnd('?');
+
+        return type is "Did" or "Handle" or "AtIdentifier" or "AtUri" or "Nsid"
+            or "Cid" or "RecordKey" or "Tid" or "AtDatetime";
     }
 
     /// <summary>
@@ -285,13 +319,15 @@ public static class TypeMapper
         if (csharpType.EndsWith('?'))
             csharpType = csharpType[..^1];
 
-        // Handle generic List<T>
-        if (csharpType.StartsWith("List<") && csharpType.EndsWith('>'))
+        // Collections: List<T>, IReadOnlyList<T>
+        if ((csharpType.StartsWith("List<") || csharpType.StartsWith("IReadOnlyList<")) && csharpType.EndsWith('>'))
             return "array";
 
         return csharpType switch
         {
             "string" or "String" => "string",
+            "Did" or "Handle" or "AtIdentifier" or "AtUri" or "Nsid" or "Cid" or "RecordKey" or "Tid"
+                or "AtDatetime" => "string", // with the matching format
             "long" or "Int64" => "integer",
             "int" or "Int32" => "integer",
             "bool" or "Boolean" => "boolean",

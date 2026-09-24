@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Server;
@@ -6,7 +7,7 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Server;
 /// <summary>
 /// Request body for com.atproto.server.createSession.
 /// </summary>
-public sealed class CreateSessionRequest
+internal sealed class CreateSessionRequest
 {
     /// <summary>
     /// Handle or other identifier supported by the server for the authenticating user.
@@ -42,11 +43,11 @@ public sealed class SessionResponse
 
     /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
     [JsonPropertyName("handle")]
-    public string Handle { get; init; } = string.Empty;
+    public required Handle Handle { get; init; }
 
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public string Did { get; init; } = string.Empty;
+    public required Did Did { get; init; }
 
     /// <summary>The DID document for the account, as returned by the PDS.</summary>
     [JsonPropertyName("didDoc")]
@@ -82,11 +83,11 @@ public sealed class GetSessionResponse
 {
     /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
     [JsonPropertyName("handle")]
-    public string Handle { get; init; } = string.Empty;
+    public required Handle Handle { get; init; }
 
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public string Did { get; init; } = string.Empty;
+    public required Did Did { get; init; }
 
     /// <summary>The email address of the account.</summary>
     [JsonPropertyName("email")]
@@ -126,11 +127,11 @@ public sealed class CreateAccountRequest
 
     /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
     [JsonPropertyName("handle")]
-    public required string Handle { get; init; }
+    public required Handle Handle { get; init; }
 
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public string? Did { get; init; }
+    public Did? Did { get; init; }
 
     /// <summary>The invite code to consume when creating the account.</summary>
     [JsonPropertyName("inviteCode")]
@@ -172,11 +173,11 @@ public sealed class CreateAccountResponse
 
     /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
     [JsonPropertyName("handle")]
-    public string Handle { get; init; } = string.Empty;
+    public required Handle Handle { get; init; }
 
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public string Did { get; init; } = string.Empty;
+    public required Did Did { get; init; }
 
     /// <summary>The DID document for the account, as returned by the PDS.</summary>
     [JsonPropertyName("didDoc")]
@@ -190,7 +191,7 @@ public sealed class DeleteAccountRequest
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 
     /// <summary>The account password.</summary>
     [JsonPropertyName("password")]
@@ -216,7 +217,7 @@ public sealed class DescribeServerResponse
 
     /// <summary>The handle domains this server will issue handles under.</summary>
     [JsonPropertyName("availableUserDomains")]
-    public List<string> AvailableUserDomains { get; init; } = [];
+    public IReadOnlyList<string> AvailableUserDomains { get; init; } = [];
 
     /// <summary>Links to the server's policy documents.</summary>
     [JsonPropertyName("links")]
@@ -226,9 +227,9 @@ public sealed class DescribeServerResponse
     [JsonPropertyName("contact")]
     public ServerContact? Contact { get; init; }
 
-    /// <summary>The DID (decentralized identifier) of the account.</summary>
+    /// <summary>The DID of the server.</summary>
     [JsonPropertyName("did")]
-    public string Did { get; init; } = string.Empty;
+    public required Did Did { get; init; }
 }
 
 /// <summary>Links to a server's policy documents.</summary>
@@ -254,7 +255,7 @@ public sealed class ServerContact : LexObject
 /// <summary>
 /// Request body for com.atproto.server.createAppPassword.
 /// </summary>
-public sealed class CreateAppPasswordRequest
+internal sealed class CreateAppPasswordRequest
 {
     /// <summary>A name identifying what the app password is used for.</summary>
     [JsonPropertyName("name")]
@@ -282,7 +283,7 @@ public sealed class AppPassword : LexObject
 
     /// <summary>Timestamp of creation (ISO 8601).</summary>
     [JsonPropertyName("createdAt")]
-    public string CreatedAt { get; init; } = string.Empty;
+    public required AtDatetime CreatedAt { get; init; }
 
     /// <summary>
     /// Whether the app password is privileged (may access chat and other restricted endpoints).
@@ -298,7 +299,7 @@ public sealed class ListAppPasswordsResponse
 {
     /// <summary>The app passwords on the account.</summary>
     [JsonPropertyName("passwords")]
-    public List<AppPasswordInfo> Passwords { get; init; } = [];
+    public IReadOnlyList<AppPasswordInfo> Passwords { get; init; } = [];
 }
 
 /// <summary>Metadata about an app password, without the password itself.</summary>
@@ -310,7 +311,7 @@ public sealed class AppPasswordInfo : LexObject
 
     /// <summary>Timestamp of creation (ISO 8601).</summary>
     [JsonPropertyName("createdAt")]
-    public string CreatedAt { get; init; } = string.Empty;
+    public required AtDatetime CreatedAt { get; init; }
 
     /// <summary>
     /// Whether the app password is privileged (may access chat and other restricted endpoints).
@@ -322,7 +323,7 @@ public sealed class AppPasswordInfo : LexObject
 /// <summary>
 /// Request body for com.atproto.server.requestPasswordReset.
 /// </summary>
-public sealed class RequestPasswordResetRequest
+internal sealed class RequestPasswordResetRequest
 {
     /// <summary>The email address of the account.</summary>
     [JsonPropertyName("email")]
@@ -332,7 +333,7 @@ public sealed class RequestPasswordResetRequest
 /// <summary>
 /// Request body for com.atproto.server.resetPassword.
 /// </summary>
-public sealed class ResetPasswordRequest
+internal sealed class ResetPasswordRequest
 {
     /// <summary>The reset token emailed to the account holder.</summary>
     [JsonPropertyName("token")]
@@ -346,7 +347,7 @@ public sealed class ResetPasswordRequest
 /// <summary>
 /// Request body for com.atproto.server.confirmEmail.
 /// </summary>
-public sealed class ConfirmEmailRequest
+internal sealed class ConfirmEmailRequest
 {
     /// <summary>The email address of the account.</summary>
     [JsonPropertyName("email")]
@@ -386,7 +387,7 @@ public sealed class RequestEmailUpdateResponse
 }
 
 /// <summary>
-/// Request body for com.atproto.server.getServiceAuth.
+/// Response from com.atproto.server.getServiceAuth.
 /// </summary>
 public sealed class GetServiceAuthResponse
 {
@@ -396,9 +397,9 @@ public sealed class GetServiceAuthResponse
 }
 
 /// <summary>
-/// Response from com.atproto.server.createInviteCode.
+/// Request body for com.atproto.server.createInviteCode.
 /// </summary>
-public sealed class CreateInviteCodeRequest
+internal sealed class CreateInviteCodeRequest
 {
     /// <summary>The number of times each code may be used.</summary>
     [JsonPropertyName("useCount")]
@@ -406,7 +407,7 @@ public sealed class CreateInviteCodeRequest
 
     /// <summary>The DID of the account the code is issued to.</summary>
     [JsonPropertyName("forAccount")]
-    public string? ForAccount { get; init; }
+    public Did? ForAccount { get; init; }
 }
 
 /// <summary>The response from creating a single invite code.</summary>
@@ -432,7 +433,7 @@ public sealed class CreateInviteCodesRequest
 
     /// <summary>The DIDs of the accounts the codes are issued to.</summary>
     [JsonPropertyName("forAccounts")]
-    public List<string>? ForAccounts { get; init; }
+    public IReadOnlyList<Did>? ForAccounts { get; init; }
 }
 
 /// <summary>The response from creating invite codes in bulk.</summary>
@@ -440,19 +441,22 @@ public sealed class CreateInviteCodesResponse
 {
     /// <summary>The invite codes.</summary>
     [JsonPropertyName("codes")]
-    public List<AccountCodes> Codes { get; init; } = [];
+    public IReadOnlyList<AccountCodes> Codes { get; init; } = [];
 }
 
 /// <summary>The invite codes issued to one account.</summary>
 public sealed class AccountCodes : LexObject
 {
-    /// <summary>The DID of the account the codes belong to.</summary>
+    /// <summary>
+    /// The DID of the account the codes belong to, or <c>admin</c> for codes minted by the
+    /// server administrator.
+    /// </summary>
     [JsonPropertyName("account")]
     public string Account { get; init; } = string.Empty;
 
     /// <summary>The invite codes.</summary>
     [JsonPropertyName("codes")]
-    public List<string> Codes { get; init; } = [];
+    public IReadOnlyList<string> Codes { get; init; } = [];
 }
 
 /// <summary>
@@ -462,7 +466,7 @@ public sealed class GetAccountInviteCodesResponse
 {
     /// <summary>The invite codes.</summary>
     [JsonPropertyName("codes")]
-    public List<InviteCode> Codes { get; init; } = [];
+    public IReadOnlyList<InviteCode> Codes { get; init; } = [];
 }
 
 /// <summary>An invite code and its usage history.</summary>
@@ -480,21 +484,27 @@ public sealed class InviteCode : LexObject
     [JsonPropertyName("disabled")]
     public bool Disabled { get; init; }
 
-    /// <summary>The DID of the account the code is issued to.</summary>
+    /// <summary>
+    /// The DID of the account the code is issued to, or <c>admin</c> for a code minted by the
+    /// server administrator.
+    /// </summary>
     [JsonPropertyName("forAccount")]
     public string ForAccount { get; init; } = string.Empty;
 
-    /// <summary>The DID of the account that created this.</summary>
+    /// <summary>
+    /// The DID of the account that created the code, or <c>admin</c> for the server
+    /// administrator.
+    /// </summary>
     [JsonPropertyName("createdBy")]
     public string CreatedBy { get; init; } = string.Empty;
 
     /// <summary>Timestamp of creation (ISO 8601).</summary>
     [JsonPropertyName("createdAt")]
-    public string CreatedAt { get; init; } = string.Empty;
+    public required AtDatetime CreatedAt { get; init; }
 
     /// <summary>The recorded uses of the code.</summary>
     [JsonPropertyName("uses")]
-    public List<InviteCodeUse> Uses { get; init; } = [];
+    public IReadOnlyList<InviteCodeUse> Uses { get; init; } = [];
 }
 
 /// <summary>A single use of an invite code.</summary>
@@ -502,17 +512,17 @@ public sealed class InviteCodeUse : LexObject
 {
     /// <summary>The DID of the account that used the code.</summary>
     [JsonPropertyName("usedBy")]
-    public string UsedBy { get; init; } = string.Empty;
+    public required Did UsedBy { get; init; }
 
-    /// <summary>Timestamp at which the code was used (ISO 8601).</summary>
+    /// <summary>Timestamp at which the code was used.</summary>
     [JsonPropertyName("usedAt")]
-    public string UsedAt { get; init; } = string.Empty;
+    public required AtDatetime UsedAt { get; init; }
 }
 
 /// <summary>
 /// Request body for com.atproto.server.revokeAppPassword.
 /// </summary>
-public sealed class RevokeAppPasswordRequest
+internal sealed class RevokeAppPasswordRequest
 {
     /// <summary>The name.</summary>
     [JsonPropertyName("name")]
@@ -522,11 +532,11 @@ public sealed class RevokeAppPasswordRequest
 /// <summary>
 /// Request body for com.atproto.server.reserveSigningKey.
 /// </summary>
-public sealed class ReserveSigningKeyRequest
+internal sealed class ReserveSigningKeyRequest
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public string? Did { get; init; }
+    public Did? Did { get; init; }
 }
 
 /// <summary>The response from reserving a repository signing key.</summary>
@@ -552,11 +562,11 @@ public sealed class CheckAccountStatusResponse
 
     /// <summary>The CID of the current repository commit.</summary>
     [JsonPropertyName("repoCommit")]
-    public string RepoCommit { get; init; } = string.Empty;
+    public required Cid RepoCommit { get; init; }
 
     /// <summary>The current repository revision.</summary>
     [JsonPropertyName("repoRev")]
-    public string RepoRev { get; init; } = string.Empty;
+    public required Tid RepoRev { get; init; }
 
     /// <summary>The number of blocks in the repository.</summary>
     [JsonPropertyName("repoBlocks")]

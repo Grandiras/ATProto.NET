@@ -39,6 +39,7 @@ The headline feature is `RecordCollection<T>` — strongly-typed CRUD on your ow
 
 ```csharp
 using ATProtoNet;
+using ATProtoNet.Identity;
 using System.Text.Json.Serialization;
 
 // 1. Define your record type
@@ -58,7 +59,7 @@ var client = new AtProtoClientBuilder()
 await client.LoginAsync("alice.bsky.social", "app-password");
 
 // 3. Get a typed collection and do CRUD
-var todos = client.GetCollection<TodoItem>("com.example.todo.item");
+var todos = client.GetCollection<TodoItem>(Nsid.Parse("com.example.todo.item"));
 
 var created = await todos.CreateAsync(new TodoItem { Title = "Buy groceries" });
 

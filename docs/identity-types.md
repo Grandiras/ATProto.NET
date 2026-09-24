@@ -217,6 +217,53 @@ Only the CID form the atproto data model allows is accepted: CIDv1, codec DRISL/
 or raw (`0x55`), a SHA-256 digest, written as lower-case base32 with the `b` prefix
 (`bafyrei…` or `bafkrei…`). Legacy CIDv0 (`Qm…`) and other encodings fail to parse.
 
+## AtDatetime
+
+A Lexicon `datetime`: an RFC 3339 timestamp. Unlike the identifiers it is a `readonly record
+struct`, and it keeps the exact text it was read with, so a record you read and write back
+re-serializes byte for byte and keeps its CID.
+
+```csharp
+var now = AtDatetime.Now();                                   // "2026-09-24T12:30:45.123Z"
+var fromDto = AtDatetime.FromDateTimeOffset(DateTimeOffset.UtcNow);
+var fromDt = AtDatetime.FromDateTime(DateTime.UtcNow);        // Unspecified is taken as UTC
+var parsed = AtDatetime.Parse("1985-04-12T23:20:50.123-07:00"); // kept exactly as written
+
+parsed.IsValid                  // true: a valid atproto datetime
+parsed.Value                    // DateTimeOffset, in the offset it was written with
+parsed.TryGetValue(out var dto) // false when there is no instant to read
+parsed.ToString()               // "1985-04-12T23:20:50.123-07:00"
+```
+
+- **Strict construction.** `Parse`/`TryParse` accept only valid atproto datetimes (checked against
+  the interop fixtures). `Now`, `FromDateTimeOffset` and `FromDateTime` always write the canonical
+  `yyyy-MM-ddTHH:mm:ss.fffZ` in the invariant culture, truncated to milliseconds.
+- **Lenient reading.** JSON never fails on a string: records in the wild carry timestamps without
+  a time zone or with a lower-case `z`. Such a value is kept verbatim with `IsValid == false`;
+  `TryGetValue` still recovers the instant from a near-miss ISO 8601 form (no time zone reads as
+  UTC) and returns `false` for anything else.
+- **Equality** is ordinal on the text (`…50Z` and `…50.000Z` are different values), and
+  **ordering** is by instant, with the text breaking ties. `<`, `>`, `<=` and `>=` are defined.
+- `default(AtDatetime)` has no text; serializing it throws. Use `AtDatetime?` for optional fields.
+- `FromDateTimeOffset(someDateTime)` compiles through `DateTime`'s implicit conversion, which reads
+  `DateTimeKind.Unspecified` as local time. Call `FromDateTime` to read it as UTC.
+
+## In Models and Clients
+
+The `com.atproto.*` models and clients, `RecordCollection<T>` and `AtProtoClient` take and return
+these types wherever the Lexicon field or parameter has an identifier or `datetime` format:
+`repo` is an `AtIdentifier`, `collection` an `Nsid`, `rkey` a `RecordKey`, `cid`/`swapRecord`/
+`swapCommit` a `Cid`, `uri` an `AtUri`, and `createdAt`/`indexedAt` an `AtDatetime`. The
+`app.bsky.*`, `chat.bsky.*`, `tools.ozone.*`, `site.standard.*`, spaces and streaming surfaces follow.
+
+- Values from the API are already typed, so passing them on needs no conversion.
+- Parse string literals at the edge, once: `Did.Parse("did:plc:…")`, `Nsid.Parse("com.example.todo.item")`.
+  Keep constants in `static readonly` fields.
+- A `Did` or `Handle` converts implicitly to `AtIdentifier`, and every type converts implicitly to
+  `string`.
+- A response carrying an invalid identifier fails to deserialize: the client throws
+  `XrpcResponseFormatException` with the `JsonException` (and its JSON path) inside.
+
 ## JSON Serialization
 
 All identity types serialize/deserialize automatically with `System.Text.Json`:

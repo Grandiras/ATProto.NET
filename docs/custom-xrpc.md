@@ -4,7 +4,8 @@ Beyond record CRUD, the AT Protocol supports custom **query** (GET) and **proced
 
 ## Queries (HTTP GET)
 
-Use `QueryAsync<T>` for Lexicon query methods:
+Use `QueryAsync<T>` for Lexicon query methods. The method name is an `Nsid` (from
+`ATProtoNet.Identity`; parse a literal with `Nsid.Parse`, or keep it in a `static readonly` field):
 
 ```csharp
 // Define your response type
@@ -31,7 +32,7 @@ public class SearchItem
 
 // Call it
 var result = await client.QueryAsync<SearchResult>(
-    "com.example.todo.search",
+    Nsid.Parse("com.example.todo.search"),
     new { q = "groceries", limit = 10 });
 
 foreach (var item in result.Items)
@@ -45,23 +46,23 @@ Parameters can be passed as:
 **Anonymous objects** (most convenient):
 ```csharp
 var result = await client.QueryAsync<MyResult>(
-    "com.example.mymethod",
+    Nsid.Parse("com.example.mymethod"),
     new { limit = 25, cursor = "abc", includeArchived = true });
 ```
 
 **Dictionaries**:
 ```csharp
 var result = await client.QueryAsync<MyResult>(
-    "com.example.mymethod",
+    Nsid.Parse("com.example.mymethod"),
     new Dictionary<string, string?> { ["limit"] = "25", ["cursor"] = "abc" });
 ```
 
 **No parameters**:
 ```csharp
-var result = await client.QueryAsync<MyResult>("com.example.mymethod");
+var result = await client.QueryAsync<MyResult>(Nsid.Parse("com.example.mymethod"));
 ```
 
-Values are formatted for the wire: a sequence becomes a repeated key (`uris=a&uris=b`), `DateTime`/`DateTimeOffset` go out as ISO 8601 UTC (`2026-09-24T12:00:00.000Z`), enums by their JSON names, numbers in the invariant culture, and identifier types (`Did`, `AtUri`, `Nsid`, …) as their string value.
+Values are formatted for the wire: a sequence becomes a repeated key (`uris=a&uris=b`), `DateTime`/`DateTimeOffset` go out as ISO 8601 UTC (`2026-09-24T12:00:00.000Z`), enums by their JSON names, numbers in the invariant culture, identifier types (`Did`, `AtUri`, `Nsid`, …) as their string value, and an `AtDatetime` as its text.
 
 ### Per-call options
 
@@ -69,7 +70,7 @@ Every custom call takes an optional `XrpcCallOptions`, which applies to that one
 
 ```csharp
 var labels = await client.QueryAsync<QueryLabelsResult>(
-    "com.atproto.label.queryLabels",
+    Nsid.Parse("com.atproto.label.queryLabels"),
     new { uriPatterns = new[] { "at://did:plc:alice/*" } },
     new XrpcCallOptions
     {
@@ -95,7 +96,7 @@ public class BatchResult
 }
 
 var result = await client.ProcedureAsync<BatchResult>(
-    "com.example.todo.markAllComplete",
+    Nsid.Parse("com.example.todo.markAllComplete"),
     new { before = "2024-01-01", category = "shopping" });
 
 Console.WriteLine($"Processed {result.Processed} items");
@@ -107,11 +108,11 @@ For procedures with no return value:
 
 ```csharp
 await client.ProcedureAsync(
-    "com.example.todo.cleanup",
+    Nsid.Parse("com.example.todo.cleanup"),
     new { daysOld = 30 });
 
 // No body needed
-await client.ProcedureAsync("com.example.todo.resetAll");
+await client.ProcedureAsync(Nsid.Parse("com.example.todo.resetAll"));
 ```
 
 ## Combining with RecordCollection
@@ -120,18 +121,18 @@ A typical custom AT Protocol app uses both records and custom methods:
 
 ```csharp
 // Record CRUD via collections
-var todos = client.GetCollection<TodoItem>("com.example.todo.item");
-var projects = client.GetCollection<Project>("com.example.todo.project");
+var todos = client.GetCollection<TodoItem>(Nsid.Parse("com.example.todo.item"));
+var projects = client.GetCollection<Project>(Nsid.Parse("com.example.todo.project"));
 
 // Custom methods for app-specific logic
 var searchResults = await client.QueryAsync<SearchResult>(
-    "com.example.todo.search", new { q = "urgent" });
+    Nsid.Parse("com.example.todo.search"), new { q = "urgent" });
 
 var stats = await client.QueryAsync<TodoStats>(
-    "com.example.todo.getStats");
+    Nsid.Parse("com.example.todo.getStats"));
 
 await client.ProcedureAsync(
-    "com.example.todo.archiveCompleted");
+    Nsid.Parse("com.example.todo.archiveCompleted"));
 ```
 
 ## Low-Level XRPC Client
@@ -142,7 +143,7 @@ For advanced scenarios, you can access the underlying `RepoClient` or `ServerCli
 // Direct repo operations
 var response = await client.Repo.CreateRecordAsync(
     repo: client.Did!,
-    collection: "com.example.myapp.record",
+    collection: Nsid.Parse("com.example.myapp.record"),
     record: new { foo = "bar", count = 42 });
 
 // Direct server operations
@@ -155,7 +156,7 @@ var session = await client.Server.GetSessionAsync();
 try
 {
     var result = await client.QueryAsync<MyResult>(
-        "com.example.mymethod", new { limit = 10 });
+        Nsid.Parse("com.example.mymethod"), new { limit = 10 });
 }
 catch (XrpcException ex) when (ex.Is("TodoListFull"))
 {

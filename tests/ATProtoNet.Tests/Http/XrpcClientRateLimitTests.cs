@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Tests.Http;
@@ -239,7 +240,7 @@ public class XrpcClientRateLimitTests : IDisposable
             null,
             null);
 
-        await Assert.ThrowsAsync<XrpcRateLimitException>(() => client.QueryAsync<JsonElement>("com.example.ping"));
+        await Assert.ThrowsAsync<XrpcRateLimitException>(() => client.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping")));
         Assert.Equal(2, callCount);
     }
 

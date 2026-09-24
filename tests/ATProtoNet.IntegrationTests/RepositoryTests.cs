@@ -1,3 +1,4 @@
+using ATProtoNet.Identity;
 namespace ATProtoNet.IntegrationTests;
 
 /// <summary>
@@ -27,11 +28,11 @@ public class RepositoryTests
         };
 
         var createResult = await client.Repo.CreateRecordAsync(
-            client.Did!, "app.bsky.feed.post", record);
+            client.Did!, Nsid.Parse("app.bsky.feed.post"), record);
 
         Assert.NotNull(createResult);
-        Assert.NotEmpty(createResult.Uri);
-        Assert.NotEmpty(createResult.Cid);
+        Assert.NotNull(createResult.Uri);
+        Assert.NotNull(createResult.Cid);
 
         // Extract record key from URI
         var uri = Identity.AtUri.Parse(createResult.Uri);
@@ -39,14 +40,14 @@ public class RepositoryTests
 
         // Get the record back
         var getResult = await client.Repo.GetRecordAsync(
-            client.Did!, "app.bsky.feed.post", rkey);
+            client.Did!, Nsid.Parse("app.bsky.feed.post"), rkey);
 
         Assert.NotNull(getResult);
         Assert.Equal(createResult.Uri, getResult.Uri);
 
         // Clean up - delete the record
         await client.Repo.DeleteRecordAsync(
-            client.Did!, "app.bsky.feed.post", rkey);
+            client.Did!, Nsid.Parse("app.bsky.feed.post"), rkey);
     }
 
     [RequiresPdsFact]

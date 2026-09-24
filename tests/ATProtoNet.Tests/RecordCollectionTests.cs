@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.Tests;
 
@@ -49,8 +50,9 @@ public class RecordCollectionTests
         var todo = new TodoItem();
         var after = DateTimeOffset.UtcNow;
 
-        var createdAt = DateTimeOffset.Parse(todo.CreatedAt);
-        Assert.InRange(createdAt, before.AddSeconds(-1), after.AddSeconds(1));
+        var createdAt = Assert.NotNull(todo.CreatedAt);
+        Assert.True(createdAt.IsValid);
+        Assert.InRange(createdAt.Value, before.AddSeconds(-1), after.AddSeconds(1));
     }
 
     [Fact]
@@ -95,9 +97,9 @@ public class RecordCollectionTests
     {
         var todo = new TodoItem
         {
-            CreatedAt = "2024-01-15T12:00:00.000Z"
+            CreatedAt = AtDatetime.Parse("2024-01-15T12:00:00.000Z")
         };
-        Assert.Equal("2024-01-15T12:00:00.000Z", todo.CreatedAt);
+        Assert.Equal("2024-01-15T12:00:00.000Z", todo.CreatedAt.ToString());
     }
 
     // ──────────────────────────────────────────────────────────
@@ -109,13 +111,13 @@ public class RecordCollectionTests
     {
         var recordRef = new RecordRef
         {
-            Uri = "at://did:plc:abc123/com.example.todo.item/3abc",
-            Cid = "bafyreia...",
-            RecordKey = "3abc",
+            Uri = AtUri.Parse("at://did:plc:abc123/com.example.todo.item/3abc"),
+            Cid = Cid.Parse("bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"),
+            RecordKey = RecordKey.Parse("3abc"),
         };
 
         Assert.Equal("at://did:plc:abc123/com.example.todo.item/3abc", recordRef.Uri);
-        Assert.Equal("bafyreia...", recordRef.Cid);
+        Assert.Equal("bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", recordRef.Cid);
         Assert.Equal("3abc", recordRef.RecordKey);
     }
 
@@ -128,10 +130,10 @@ public class RecordCollectionTests
     {
         var view = new RecordView<TodoItem>
         {
-            Uri = "at://did:plc:abc123/com.example.todo.item/3abc",
-            Cid = "bafyreia...",
+            Uri = AtUri.Parse("at://did:plc:abc123/com.example.todo.item/3abc"),
+            Cid = Cid.Parse("bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"),
             Value = new TodoItem { Title = "Test" },
-            RecordKey = "3abc",
+            RecordKey = RecordKey.Parse("3abc"),
         };
 
         Assert.Equal("Test", view.Value.Title);
@@ -173,9 +175,9 @@ public class RecordCollectionTests
         {
             Records = new List<RecordView<TodoItem>>
             {
-                new() { Uri = "at://did:plc:abc/col/1", Value = new TodoItem { Title = "a" }, RecordKey = "1" },
-                new() { Uri = "at://did:plc:abc/col/2", Value = new TodoItem { Title = "b" }, RecordKey = "2" },
-                new() { Uri = "at://did:plc:abc/col/3", Value = new TodoItem { Title = "c" }, RecordKey = "3" },
+                new() { Uri = AtUri.Parse("at://did:plc:abc/com.example.col/1"), Value = new TodoItem { Title = "a" }, RecordKey = RecordKey.Parse("1") },
+                new() { Uri = AtUri.Parse("at://did:plc:abc/com.example.col/2"), Value = new TodoItem { Title = "b" }, RecordKey = RecordKey.Parse("2") },
+                new() { Uri = AtUri.Parse("at://did:plc:abc/com.example.col/3"), Value = new TodoItem { Title = "c" }, RecordKey = RecordKey.Parse("3") },
             },
         };
 

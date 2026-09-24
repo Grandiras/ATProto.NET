@@ -1,8 +1,8 @@
-using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.Serialization;
 
@@ -33,19 +33,20 @@ public static class AtProtoJsonDefaults
     /// Formats a <see cref="DateTime"/> as an AT Protocol-compliant ISO 8601 timestamp
     /// with millisecond precision and UTC "Z" suffix (e.g. "2024-01-15T12:30:45.123Z").
     /// </summary>
-    /// <param name="dateTime">The date/time value. Will be treated as UTC.</param>
+    /// <param name="dateTime">
+    /// The date/time value. <see cref="DateTimeKind.Local"/> is converted to UTC;
+    /// <see cref="DateTimeKind.Unspecified"/> is taken to be UTC already.
+    /// </param>
     /// <returns>An AT Protocol-compliant timestamp string.</returns>
     /// <remarks>
-    /// Formatted in the invariant culture: under the current one, a Thai or Japanese-era
-    /// locale would write its own calendar's year, and some locales a different time separator.
+    /// The same text as <see cref="AtDatetime.FromDateTime"/>, which model properties use.
     /// </remarks>
-    public static string FormatTimestamp(DateTime dateTime)
-        => dateTime.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
+    public static string FormatTimestamp(DateTime dateTime) => AtDatetime.FromDateTime(dateTime).ToString();
 
     /// <summary>
     /// Gets the current UTC time formatted as an AT Protocol-compliant timestamp.
     /// </summary>
-    public static string NowTimestamp() => FormatTimestamp(DateTime.UtcNow);
+    public static string NowTimestamp() => AtDatetime.Now().ToString();
 
     /// <summary>
     /// Contract modifier that guarantees every <see cref="AtProtoRecord"/>-derived type

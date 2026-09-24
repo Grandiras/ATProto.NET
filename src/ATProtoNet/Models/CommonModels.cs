@@ -41,10 +41,10 @@ public sealed class BlobRef
 public sealed class BlobLink
 {
     /// <summary>
-    /// The CID link string.
+    /// The CID of the blob.
     /// </summary>
     [JsonPropertyName("$link")]
-    public string Link { get; init; } = string.Empty;
+    public required Cid Link { get; init; }
 }
 
 /// <summary>
@@ -54,15 +54,15 @@ public sealed class BlobLink
 public sealed class CidLink
 {
     /// <summary>
-    /// The CID link string.
+    /// The linked CID.
     /// </summary>
     [JsonPropertyName("$link")]
-    public string Link { get; init; } = string.Empty;
+    public required Cid Link { get; init; }
 
     /// <summary>
     /// Creates a CidLink from a CID.
     /// </summary>
-    public static CidLink FromCid(Cid cid) => new() { Link = cid.Value };
+    public static CidLink FromCid(Cid cid) => new() { Link = cid };
 }
 
 /// <summary>
@@ -75,13 +75,13 @@ public sealed class StrongRef : LexObject
     /// The AT URI of the record.
     /// </summary>
     [JsonPropertyName("uri")]
-    public string Uri { get; init; } = string.Empty;
+    public required AtUri Uri { get; init; }
 
     /// <summary>
     /// The CID of the specific version of the record.
     /// </summary>
     [JsonPropertyName("cid")]
-    public string Cid { get; init; } = string.Empty;
+    public required Cid Cid { get; init; }
 }
 
 /// <summary>
@@ -99,25 +99,29 @@ public sealed class Label : LexObject
     /// DID of the labeler who created this label.
     /// </summary>
     [JsonPropertyName("src")]
-    public string Src { get; init; } = string.Empty;
+    public required Did Src { get; init; }
 
     /// <summary>
-    /// AT URI of the subject being labeled.
+    /// The subject being labeled: an AT URI for a record, or a DID for an account.
     /// </summary>
+    /// <remarks>
+    /// The Lexicon format is the generic <c>uri</c>, not <c>at-uri</c>, because an account
+    /// label's subject is a bare DID; the property stays a <see cref="string"/>.
+    /// </remarks>
     [JsonPropertyName("uri")]
-    public string Uri { get; init; } = string.Empty;
+    public required string Uri { get; init; }
 
     /// <summary>
     /// CID of the version of the subject, if applicable.
     /// </summary>
     [JsonPropertyName("cid")]
-    public string? Cid { get; init; }
+    public Cid? Cid { get; init; }
 
     /// <summary>
     /// The label value/name (e.g., "nsfw", "spam").
     /// </summary>
     [JsonPropertyName("val")]
-    public string Val { get; init; } = string.Empty;
+    public required string Val { get; init; }
 
     /// <summary>
     /// Whether this is a negation label (removes a previous label).
@@ -129,13 +133,13 @@ public sealed class Label : LexObject
     /// Timestamp when the label was created.
     /// </summary>
     [JsonPropertyName("cts")]
-    public string Cts { get; init; } = string.Empty;
+    public required AtDatetime Cts { get; init; }
 
     /// <summary>
     /// Timestamp when the label expires, if applicable.
     /// </summary>
     [JsonPropertyName("exp")]
-    public string? Exp { get; init; }
+    public AtDatetime? Exp { get; init; }
 
     /// <summary>
     /// Signature of the label, as bytes. On the wire it is a Lexicon <c>bytes</c> value,
@@ -147,12 +151,23 @@ public sealed class Label : LexObject
 }
 
 /// <summary>
-/// Represents pagination cursor for XRPC responses.
+/// One page of a cursor-paginated XRPC response.
 /// </summary>
-public interface ICursoredResponse
+/// <typeparam name="T">The type of the page's items.</typeparam>
+/// <remarks>
+/// Every cursored response model implements this, with <see cref="Items"/> implemented
+/// explicitly over its Lexicon-named list (<c>records</c>, <c>repos</c>, <c>cids</c>, …) so the
+/// wire shape is unchanged. The <c>Enumerate*</c> methods walk the pages for you.
+/// </remarks>
+public interface ICursorPage<out T>
 {
     /// <summary>
-    /// Cursor for the next page of results. Null when no more results.
+    /// The items on this page.
+    /// </summary>
+    IReadOnlyList<T> Items { get; }
+
+    /// <summary>
+    /// The cursor for the next page, or <see langword="null"/> when this is the last page.
     /// </summary>
     string? Cursor { get; }
 }

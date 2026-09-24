@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Embed;
 using ATProtoNet.Lexicon.App.Bsky.Feed;
 using ATProtoNet.Serialization;
@@ -103,7 +104,7 @@ public class GalleryEmbedTests
             [
                 new GalleryImage
                 {
-                    Image = new() { Ref = new() { Link = "bafkreihbqg3ubrh6dzs2egfd3fxptl4cpn7fjrtxvutzsvtz7z4ixyzqbe" }, MimeType = "image/png", Size = 10 },
+                    Image = new() { Ref = new() { Link = Cid.Parse("bafkreihbqg3ubrh6dzs2egfd3fxptl4cpn7fjrtxvutzsvtz7z4ixyzqbe") }, MimeType = "image/png", Size = 10 },
                     Alt = "a chart",
                     AspectRatio = new() { Width = 16, Height = 9 },
                 },

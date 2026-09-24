@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 using ATProtoNet.Models;
 using ATProtoNet.Serialization;
 
@@ -48,7 +49,7 @@ public sealed class RepoSubject : ReportSubject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 }
 
 /// <summary>
@@ -58,17 +59,17 @@ public sealed class RecordSubject : ReportSubject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public required string Cid { get; init; }
+    public required Cid Cid { get; init; }
 }
 
 /// <summary>
 /// Request body for creating a moderation report.
 /// </summary>
-public sealed class CreateReportRequest
+internal sealed class CreateReportRequest
 {
     /// <summary>
     /// The reason type for the report. Common values:
@@ -115,11 +116,11 @@ public sealed class CreateReportResponse
 
     /// <summary>The DID of the account that filed the report.</summary>
     [JsonPropertyName("reportedBy")]
-    public required string ReportedBy { get; init; }
+    public required Did ReportedBy { get; init; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>Timestamp of creation.</summary>
     [JsonPropertyName("createdAt")]
-    public required string CreatedAt { get; init; }
+    public required AtDatetime CreatedAt { get; init; }
 }
 
 /// <summary>

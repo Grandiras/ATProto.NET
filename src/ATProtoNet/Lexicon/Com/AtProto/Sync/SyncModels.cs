@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Sync;
@@ -64,13 +65,13 @@ public static class HostStatus
 /// </summary>
 public sealed class GetLatestCommitResponse
 {
-    /// <summary>The CID (content identifier) of the record version.</summary>
+    /// <summary>The CID of the latest commit.</summary>
     [JsonPropertyName("cid")]
-    public required string Cid { get; init; }
+    public required Cid Cid { get; init; }
 
-    /// <summary>The repository revision (a TID) this data was read at.</summary>
+    /// <summary>The revision (a TID) of the latest commit.</summary>
     [JsonPropertyName("rev")]
-    public required string Rev { get; init; }
+    public required Tid Rev { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -80,7 +81,7 @@ public sealed class GetLatestCommitResponse
 /// <summary>
 /// Response from listBlobs.
 /// </summary>
-public sealed class ListBlobsResponse
+public sealed class ListBlobsResponse : ICursorPage<Cid>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -91,7 +92,9 @@ public sealed class ListBlobsResponse
 
     /// <summary>The CIDs.</summary>
     [JsonPropertyName("cids")]
-    public required List<string> Cids { get; init; }
+    public required IReadOnlyList<Cid> Cids { get; init; }
+
+    IReadOnlyList<Cid> ICursorPage<Cid>.Items => Cids;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -105,15 +108,15 @@ public sealed class RepoInfo : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 
     /// <summary>The CID of the current repository head commit.</summary>
     [JsonPropertyName("head")]
-    public required string Head { get; init; }
+    public required Cid Head { get; init; }
 
-    /// <summary>The repository revision (a TID) this data was read at.</summary>
+    /// <summary>The revision (a TID) of the current repository head commit.</summary>
     [JsonPropertyName("rev")]
-    public required string Rev { get; init; }
+    public required Tid Rev { get; init; }
 
     /// <summary>
     /// Whether the account is active (not deactivated, suspended, or taken down).
@@ -129,7 +132,7 @@ public sealed class RepoInfo : LexObject
 /// <summary>
 /// Response from listRepos.
 /// </summary>
-public sealed class ListReposResponse
+public sealed class ListReposResponse : ICursorPage<RepoInfo>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -140,7 +143,9 @@ public sealed class ListReposResponse
 
     /// <summary>The repositories.</summary>
     [JsonPropertyName("repos")]
-    public required List<RepoInfo> Repos { get; init; }
+    public required IReadOnlyList<RepoInfo> Repos { get; init; }
+
+    IReadOnlyList<RepoInfo> ICursorPage<RepoInfo>.Items => Repos;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -150,7 +155,7 @@ public sealed class ListReposResponse
 /// <summary>
 /// Request body for notifyOfUpdate.
 /// </summary>
-public sealed class NotifyOfUpdateRequest
+internal sealed class NotifyOfUpdateRequest
 {
     /// <summary>The hostname of the host to crawl or that was updated.</summary>
     [JsonPropertyName("hostname")]
@@ -160,7 +165,7 @@ public sealed class NotifyOfUpdateRequest
 /// <summary>
 /// Request body for requestCrawl.
 /// </summary>
-public sealed class RequestCrawlRequest
+internal sealed class RequestCrawlRequest
 {
     /// <summary>The hostname of the host to crawl or that was updated.</summary>
     [JsonPropertyName("hostname")]
@@ -178,7 +183,7 @@ public sealed class GetRepoStatusResponse
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 
     /// <summary>
     /// Whether the account is active (not deactivated, suspended, or taken down).
@@ -197,7 +202,7 @@ public sealed class GetRepoStatusResponse
     /// The current rev of the repo, if active=true.
     /// </summary>
     [JsonPropertyName("rev")]
-    public string? Rev { get; init; }
+    public Tid? Rev { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -237,7 +242,7 @@ public sealed class HostInfo : LexObject
 /// <summary>
 /// Response from listHosts. Enumerates upstream hosts consumed by a relay.
 /// </summary>
-public sealed class ListHostsResponse
+public sealed class ListHostsResponse : ICursorPage<HostInfo>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -248,7 +253,9 @@ public sealed class ListHostsResponse
 
     /// <summary>The upstream hosts known to this relay.</summary>
     [JsonPropertyName("hosts")]
-    public required List<HostInfo> Hosts { get; init; }
+    public required IReadOnlyList<HostInfo> Hosts { get; init; }
+
+    IReadOnlyList<HostInfo> ICursorPage<HostInfo>.Items => Hosts;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -294,14 +301,14 @@ public sealed class CollectionRepoInfo : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 }
 
 /// <summary>
 /// Response from listReposByCollection. Enumerates DIDs that have records
 /// with a given collection NSID.
 /// </summary>
-public sealed class ListReposByCollectionResponse
+public sealed class ListReposByCollectionResponse : ICursorPage<CollectionRepoInfo>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -312,7 +319,9 @@ public sealed class ListReposByCollectionResponse
 
     /// <summary>The repositories.</summary>
     [JsonPropertyName("repos")]
-    public required List<CollectionRepoInfo> Repos { get; init; }
+    public required IReadOnlyList<CollectionRepoInfo> Repos { get; init; }
+
+    IReadOnlyList<CollectionRepoInfo> ICursorPage<CollectionRepoInfo>.Items => Repos;
 }
 
 // ──────────────────────────────────────────────────────────────

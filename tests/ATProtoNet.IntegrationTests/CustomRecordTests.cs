@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.IntegrationTests;
 
@@ -55,7 +56,7 @@ public class CustomRecordTests
     public async Task CreateRecord_ReturnsRecordRef()
     {
         var client = _fixture.Client;
-        var notes = client.GetCollection<TestNote>(Collection);
+        var notes = client.GetCollection<TestNote>(Nsid.Parse(Collection));
 
         var created = await notes.CreateAsync(new TestNote
         {
@@ -65,9 +66,9 @@ public class CustomRecordTests
         });
 
         Assert.NotNull(created);
-        Assert.NotEmpty(created.Uri);
-        Assert.NotEmpty(created.Cid);
-        Assert.NotEmpty(created.RecordKey);
+        Assert.NotNull(created.Uri);
+        Assert.NotNull(created.Cid);
+        Assert.NotNull(created.RecordKey);
         Assert.Contains(Collection, created.Uri);
 
         // Cleanup
@@ -78,7 +79,7 @@ public class CustomRecordTests
     public async Task CreateAndGet_RoundTrips()
     {
         var client = _fixture.Client;
-        var notes = client.GetCollection<TestNote>(Collection);
+        var notes = client.GetCollection<TestNote>(Nsid.Parse(Collection));
 
         var created = await notes.CreateAsync(new TestNote
         {
@@ -107,44 +108,44 @@ public class CustomRecordTests
     public async Task PutRecord_CreatesOrUpdates()
     {
         var client = _fixture.Client;
-        var notes = client.GetCollection<TestNote>(Collection);
+        var notes = client.GetCollection<TestNote>(Nsid.Parse(Collection));
 
         // Create using Put (upsert)
         var rkey = Identity.Tid.Next().Value;
-        var putResult = await notes.PutAsync(rkey, new TestNote
+        var putResult = await notes.PutAsync(RecordKey.Parse(rkey), new TestNote
         {
             Title = "Put Test",
             Body = "Created via put",
             Priority = 3,
         });
 
-        Assert.NotEmpty(putResult.Uri);
+        Assert.NotNull(putResult.Uri);
         Assert.Equal(rkey, putResult.RecordKey);
 
         // Update using Put
-        var updateResult = await notes.PutAsync(rkey, new TestNote
+        var updateResult = await notes.PutAsync(RecordKey.Parse(rkey), new TestNote
         {
             Title = "Put Test Updated",
             Body = "Updated via put",
             Priority = 10,
         });
 
-        Assert.NotEmpty(updateResult.Uri);
+        Assert.NotNull(updateResult.Uri);
 
         // Verify update
-        var fetched = await notes.GetAsync(rkey);
+        var fetched = await notes.GetAsync(RecordKey.Parse(rkey));
         Assert.Equal("Put Test Updated", fetched.Value.Title);
         Assert.Equal(10, fetched.Value.Priority);
 
         // Cleanup
-        await notes.DeleteAsync(rkey);
+        await notes.DeleteAsync(RecordKey.Parse(rkey));
     }
 
     [RequiresPdsFact]
     public async Task DeleteRecord_RemovesRecord()
     {
         var client = _fixture.Client;
-        var notes = client.GetCollection<TestNote>(Collection);
+        var notes = client.GetCollection<TestNote>(Nsid.Parse(Collection));
 
         var created = await notes.CreateAsync(new TestNote
         {
@@ -164,7 +165,7 @@ public class CustomRecordTests
     public async Task ExistsAsync_ReturnsTrueForExistingRecord()
     {
         var client = _fixture.Client;
-        var notes = client.GetCollection<TestNote>(Collection);
+        var notes = client.GetCollection<TestNote>(Nsid.Parse(Collection));
 
         var created = await notes.CreateAsync(new TestNote
         {
@@ -182,16 +183,16 @@ public class CustomRecordTests
     public async Task ExistsAsync_ReturnsFalseForMissingRecord()
     {
         var client = _fixture.Client;
-        var notes = client.GetCollection<TestNote>(Collection);
+        var notes = client.GetCollection<TestNote>(Nsid.Parse(Collection));
 
-        Assert.False(await notes.ExistsAsync("nonexistent-key-12345"));
+        Assert.False(await notes.ExistsAsync(RecordKey.Parse("nonexistent-key-12345")));
     }
 
     [RequiresPdsFact]
     public async Task ListRecords_ReturnsPage()
     {
         var client = _fixture.Client;
-        var notes = client.GetCollection<TestNote>(Collection);
+        var notes = client.GetCollection<TestNote>(Nsid.Parse(Collection));
 
         // Create a few records
         var keys = new List<string>();
@@ -214,8 +215,8 @@ public class CustomRecordTests
             Assert.True(page.Records.Count >= 3);
             Assert.All(page.Records, r =>
             {
-                Assert.NotEmpty(r.Uri);
-                Assert.NotEmpty(r.RecordKey);
+                Assert.NotNull(r.Uri);
+                Assert.NotNull(r.RecordKey);
                 Assert.NotNull(r.Value);
                 Assert.NotEmpty(r.Value.Title);
             });
@@ -224,7 +225,7 @@ public class CustomRecordTests
         {
             // Cleanup
             foreach (var key in keys)
-                await notes.DeleteAsync(key);
+                await notes.DeleteAsync(RecordKey.Parse(key));
         }
     }
 
@@ -232,7 +233,7 @@ public class CustomRecordTests
     public async Task EnumerateAsync_IteratesAllRecords()
     {
         var client = _fixture.Client;
-        var notes = client.GetCollection<TestNote>(Collection);
+        var notes = client.GetCollection<TestNote>(Nsid.Parse(Collection));
 
         // Create some records
         var keys = new List<string>();
@@ -259,7 +260,7 @@ public class CustomRecordTests
         finally
         {
             foreach (var key in keys)
-                await notes.DeleteAsync(key);
+                await notes.DeleteAsync(RecordKey.Parse(key));
         }
     }
 
@@ -267,7 +268,7 @@ public class CustomRecordTests
     public async Task GetFromOtherUser_WorksWithOwnDid()
     {
         var client = _fixture.Client;
-        var notes = client.GetCollection<TestNote>(Collection);
+        var notes = client.GetCollection<TestNote>(Nsid.Parse(Collection));
 
         var created = await notes.CreateAsync(new TestNote
         {
@@ -291,8 +292,8 @@ public class CustomRecordTests
     public async Task MultipleCollections_WorkIndependently()
     {
         var client = _fixture.Client;
-        var notes = client.GetCollection<TestNote>(Collection);
-        var otherCollection = client.GetCollection<OtherNote>("com.atprotonet.test.other");
+        var notes = client.GetCollection<TestNote>(Nsid.Parse(Collection));
+        var otherCollection = client.GetCollection<OtherNote>(Nsid.Parse("com.atprotonet.test.other"));
 
         var noteRef = await notes.CreateAsync(new TestNote { Title = "In notes" });
         var otherRef = await otherCollection.CreateAsync(new OtherNote { Title = "In other" });

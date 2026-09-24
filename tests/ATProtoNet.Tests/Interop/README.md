@@ -31,12 +31,12 @@ project change.
 | `recordkey_syntax_*` | `RecordKey` |
 | `atidentifier_syntax_*` | `AtIdentifier` |
 | `cid_syntax_invalid.txt` | `Cid` |
+| `datetime_*` | `AtDatetime` (in `Identity/AtDatetimeTests.cs`) |
 
 Not asserted:
 
 - `cid_syntax_valid.txt` lists generic multiformats CIDs (base58, base16, dag-pb and others).
   `Cid` accepts only the CIDv1 subset the atproto data model blesses, which none of those
   lines is in.
-- `datetime_*`, `language_*` and `uri_*` cover the Lexicon `datetime`, `language` and `uri`
-  string formats. The SDK has no types for these yet; the files are kept so that such types can
-  be tested against them.
+- `language_*` and `uri_*` cover the Lexicon `language` and `uri` string formats. The SDK has no
+  types for these yet; the files are kept so that such types can be tested against them.

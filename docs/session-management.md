@@ -38,8 +38,8 @@ var session = await client.LoginAsync(
 
 ```csharp
 client.IsAuthenticated  // bool
-client.Did              // string? — authenticated user's DID
-client.Handle           // string? — authenticated user's handle
+client.Did              // Did? — authenticated user's DID
+client.Handle           // Handle? — authenticated user's handle
 client.Session          // Session? — full session object
 ```
 
@@ -145,8 +145,8 @@ The `Session` object contains:
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Did` | `string` | User's DID |
-| `Handle` | `string` | User's handle |
+| `Did` | `Did` | User's DID |
+| `Handle` | `Handle` | User's handle; `handle.invalid` when it could not be verified |
 | `AccessJwt` | `string` | Access token (short-lived) |
 | `RefreshJwt` | `string` | Refresh token (longer-lived) |
 | `Email` | `string?` | User's email address |

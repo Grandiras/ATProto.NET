@@ -1,5 +1,6 @@
 using System.Text.Json;
 using ATProtoNet.Auth;
+using ATProtoNet.Identity;
 using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Tests.Auth;
@@ -11,10 +12,8 @@ public class SessionTests
     [Fact]
     public void Session_DefaultValues()
     {
-        var session = new Session();
+        var session = new Session { Did = Did.Parse("did:plc:abc123"), Handle = Handle.Parse("alice.test") };
 
-        Assert.Equal(string.Empty, session.Did);
-        Assert.Equal(string.Empty, session.Handle);
         Assert.Equal(string.Empty, session.AccessJwt);
         Assert.Equal(string.Empty, session.RefreshJwt);
         Assert.Null(session.Email);
@@ -30,8 +29,8 @@ public class SessionTests
     {
         var session = new Session
         {
-            Did = "did:plc:abc123",
-            Handle = "alice.bsky.social",
+            Did = Did.Parse("did:plc:abc123"),
+            Handle = Handle.Parse("alice.bsky.social"),
             AccessJwt = "access-token",
             RefreshJwt = "refresh-token",
             Email = "alice@example.com",
@@ -53,8 +52,8 @@ public class SessionTests
     {
         var session = new Session
         {
-            Did = "did:plc:abc123",
-            Handle = "alice.bsky.social",
+            Did = Did.Parse("did:plc:abc123"),
+            Handle = Handle.Parse("alice.bsky.social"),
             AccessJwt = "access",
             RefreshJwt = "refresh",
         };
@@ -99,8 +98,8 @@ public class SessionTests
     {
         var original = new Session
         {
-            Did = "did:plc:abc123",
-            Handle = "alice.bsky.social",
+            Did = Did.Parse("did:plc:abc123"),
+            Handle = Handle.Parse("alice.bsky.social"),
             AccessJwt = "access",
             RefreshJwt = "refresh",
             Email = "test@example.com",
@@ -126,8 +125,8 @@ public class SessionTests
     {
         var session = new Session
         {
-            Did = "did:plc:abc123",
-            Handle = "alice.bsky.social",
+            Did = Did.Parse("did:plc:abc123"),
+            Handle = Handle.Parse("alice.bsky.social"),
             AccessJwt = "access",
             RefreshJwt = "refresh",
         };
@@ -148,8 +147,8 @@ public class InMemorySessionStoreTests
         var store = new InMemorySessionStore();
         var session = new Session
         {
-            Did = "did:plc:abc123",
-            Handle = "alice.bsky.social",
+            Did = Did.Parse("did:plc:abc123"),
+            Handle = Handle.Parse("alice.bsky.social"),
             AccessJwt = "access",
             RefreshJwt = "refresh",
         };
@@ -177,8 +176,8 @@ public class InMemorySessionStoreTests
         var store = new InMemorySessionStore();
         var session = new Session
         {
-            Did = "did:plc:abc123",
-            Handle = "alice.bsky.social",
+            Did = Did.Parse("did:plc:abc123"),
+            Handle = Handle.Parse("alice.bsky.social"),
             AccessJwt = "access",
             RefreshJwt = "refresh",
         };
@@ -197,16 +196,16 @@ public class InMemorySessionStoreTests
 
         await store.SaveAsync(new Session
         {
-            Did = "did:plc:first",
-            Handle = "first.bsky.social",
+            Did = Did.Parse("did:plc:first"),
+            Handle = Handle.Parse("first.bsky.social"),
             AccessJwt = "a",
             RefreshJwt = "b",
         });
 
         await store.SaveAsync(new Session
         {
-            Did = "did:plc:second",
-            Handle = "second.bsky.social",
+            Did = Did.Parse("did:plc:second"),
+            Handle = Handle.Parse("second.bsky.social"),
             AccessJwt = "c",
             RefreshJwt = "d",
         });

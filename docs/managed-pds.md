@@ -189,7 +189,7 @@ app.MapPost("/signup", async (SignupForm form, PdsAdminClient pds) =>
 {
     var account = await pds.CreateAccountAsync(new CreatePdsAccountRequest
     {
-        Handle = $"{form.Username}.pds.example.com",
+        Handle = Handle.Parse($"{form.Username}.pds.example.com"),
         Email = form.Email,
         Password = form.Password,
     });
@@ -227,16 +227,17 @@ var server = await pds.DescribeServerAsync();     // DID, handle domains, invite
 var code = await pds.CreateInviteCodeAsync();     // hand to a user to self-serve
 var codes = await pds.CreateInviteCodesAsync(codeCount: 10);
 
-var account = await pds.GetAccountAsync("did:plc:...");
+var did = Did.Parse("did:plc:...");               // or account.Did from CreateAccountAsync
+var account = await pds.GetAccountAsync(did);
 
-await pds.UpdateAccountHandleAsync("did:plc:...", "newhandle.pds.example.com");
-await pds.UpdateAccountEmailAsync("did:plc:...", "new@example.com");
-await pds.UpdateAccountPasswordAsync("did:plc:...", newPassword);
+await pds.UpdateAccountHandleAsync(did, Handle.Parse("newhandle.pds.example.com"));
+await pds.UpdateAccountEmailAsync(did, "new@example.com");
+await pds.UpdateAccountPasswordAsync(did, newPassword);
 
-await pds.TakedownAccountAsync("did:plc:...", reference: "report-42");
-await pds.RestoreAccountAsync("did:plc:...");
+await pds.TakedownAccountAsync(did, reference: "report-42");
+await pds.RestoreAccountAsync(did);
 
-await pds.DeleteAccountAsync("did:plc:...");      // permanent
+await pds.DeleteAccountAsync(did);                // permanent
 ```
 
 For endpoints these wrappers do not cover, `pds.Admin` and `pds.Server` expose the raw
@@ -245,7 +246,10 @@ already applied:
 
 ```csharp
 var invites = await pds.Admin.GetInviteCodesAsync(sort: "recent", limit: 50);
-await pds.Admin.DisableAccountInvitesAsync("did:plc:...");
+await pds.Admin.DisableAccountInvitesAsync(Did.Parse("did:plc:..."));
+
+await foreach (var code in pds.Admin.EnumerateInviteCodesAsync())
+    Console.WriteLine($"{code.Code}: {code.Available} uses left");
 ```
 
 Under the hood the admin client carries HTTP Basic admin auth on its own XRPC transport, separate
@@ -324,7 +328,7 @@ app.MapPost("/bootstrap", async (PdsAdminClient pds, IConfiguration config) =>
 {
     await pds.CreateAccountAsync(new CreatePdsAccountRequest
     {
-        Handle = config["AtProto:Pds:AdminIdentifier"]!,
+        Handle = Handle.Parse(config["AtProto:Pds:AdminIdentifier"]!),
         Password = config["AtProto:Pds:AdminPassword"]!,
         Email = "admin@example.com",
     });

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Notification;
 using ATProtoNet.Lexicon.Com.AtProto.Identity;
 
@@ -101,7 +102,7 @@ public class EmptyResponseBodyTests : IDisposable
     private Task Invoke(string nsid) => nsid switch
     {
         "com.atproto.identity.updateHandle" =>
-            _client.Identity.UpdateHandleAsync("alice.example.com"),
+            _client.Identity.UpdateHandleAsync(Handle.Parse("alice.example.com")),
         "com.atproto.identity.requestPlcOperationSignature" =>
             _client.Identity.RequestPlcOperationSignatureAsync(),
         "com.atproto.identity.submitPlcOperation" =>

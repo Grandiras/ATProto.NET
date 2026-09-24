@@ -99,6 +99,7 @@ public class AtProtoClientFactoryTests
         {
             Did = "did:plc:abc123",
             Handle = "alice.bsky.social",
+            IsHandleVerified = true,
             AccessToken = "access-token",
             RefreshToken = "refresh-token",
             PdsUrl = "https://bsky.social",

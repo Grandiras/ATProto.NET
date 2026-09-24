@@ -224,7 +224,7 @@ public class CSharpEmitterTests
         Assert.Contains("public double? FatContent { get; init; }", recipe);
 
         // An array of inline objects names its element type in the singular.
-        Assert.Contains("public List<Ingredient>? Ingredients { get; init; }", recipe);
+        Assert.Contains("public IReadOnlyList<Ingredient>? Ingredients { get; init; }", recipe);
         Assert.Contains("public sealed class Ingredient", recipe);
     }
 
@@ -506,6 +506,85 @@ public class CSharpEmitterTests
 
         Assert.Empty(files);
         Assert.Empty(warnings);
+    }
+
+    [Fact]
+    public void Emit_IdentifierFormats_UseTheSdkIdentifierTypes()
+    {
+        var doc = """
+            {
+              "lexicon": 1,
+              "id": "com.example.bookmark",
+              "defs": {
+                "main": {
+                  "type": "object",
+                  "required": ["subject", "author", "savedAt"],
+                  "properties": {
+                    "subject": { "type": "string", "format": "at-uri" },
+                    "author": { "type": "string", "format": "did" },
+                    "handle": { "type": "string", "format": "handle" },
+                    "actor": { "type": "string", "format": "at-identifier" },
+                    "collection": { "type": "string", "format": "nsid" },
+                    "cid": { "type": "string", "format": "cid" },
+                    "rkey": { "type": "string", "format": "record-key" },
+                    "rev": { "type": "string", "format": "tid" },
+                    "savedAt": { "type": "string", "format": "datetime" },
+                    "editedAt": { "type": "string", "format": "datetime" },
+                    "tags": { "type": "array", "items": { "type": "string" } },
+                    "mentions": { "type": "array", "items": { "type": "string", "format": "did" } },
+                    "homepage": { "type": "string", "format": "uri" }
+                  }
+                }
+              }
+            }
+            """;
+
+        var content = EmitAll(doc)["Com/Example/Bookmark.g.cs"];
+
+        Assert.Contains("using ATProtoNet.Identity;", content);
+        Assert.Contains("public required AtUri Subject { get; init; }", content);
+        Assert.Contains("public required Did Author { get; init; }", content);
+        Assert.Contains("public Handle? Handle { get; init; }", content);
+        Assert.Contains("public AtIdentifier? Actor { get; init; }", content);
+        Assert.Contains("public Nsid? Collection { get; init; }", content);
+        Assert.Contains("public Cid? Cid { get; init; }", content);
+        Assert.Contains("public RecordKey? Rkey { get; init; }", content);
+        Assert.Contains("public Tid? Rev { get; init; }", content);
+        Assert.Contains("public required AtDatetime SavedAt { get; init; }", content);
+        Assert.Contains("public AtDatetime? EditedAt { get; init; }", content);
+        Assert.Contains("public IReadOnlyList<string>? Tags { get; init; }", content);
+        Assert.Contains("public IReadOnlyList<Did>? Mentions { get; init; }", content);
+        Assert.Contains("public string? Homepage { get; init; }", content);
+    }
+
+    [Fact]
+    public void Emit_NoIdentifierFormats_OmitsTheIdentityUsing()
+    {
+        var content = EmitAll(RecipeDefs, RecipeRecord)["Exchange/Recipe/Defs.g.cs"];
+
+        Assert.DoesNotContain("using ATProtoNet.Identity;", content);
+    }
+
+    [Theory]
+    [InlineData("did", "Did")]
+    [InlineData("handle", "Handle")]
+    [InlineData("at-identifier", "AtIdentifier")]
+    [InlineData("at-uri", "AtUri")]
+    [InlineData("nsid", "Nsid")]
+    [InlineData("cid", "Cid")]
+    [InlineData("record-key", "RecordKey")]
+    [InlineData("tid", "Tid")]
+    [InlineData("datetime", "AtDatetime")]
+    [InlineData("uri", "string")]
+    [InlineData("language", "string")]
+    [InlineData(null, "string")]
+    public void StringType_MapsEachFormat(string? format, string expected)
+    {
+        Assert.Equal(expected, TypeMapper.StringType(format));
+
+        // Every identifier type named here must exist in the SDK, where generated code finds it.
+        if (expected != "string")
+            Assert.NotNull(typeof(AtProtoClient).Assembly.GetType($"ATProtoNet.Identity.{expected}"));
     }
 
     [Fact]

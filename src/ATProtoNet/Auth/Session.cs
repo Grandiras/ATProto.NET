@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.Auth;
 
@@ -11,13 +12,14 @@ public sealed class Session
     /// The DID of the authenticated account.
     /// </summary>
     [JsonPropertyName("did")]
-    public string Did { get; init; } = string.Empty;
+    public required Did Did { get; init; }
 
     /// <summary>
-    /// The handle of the authenticated account.
+    /// The handle of the authenticated account; <c>handle.invalid</c> when it could not be
+    /// verified.
     /// </summary>
     [JsonPropertyName("handle")]
-    public string Handle { get; init; } = string.Empty;
+    public required Handle Handle { get; init; }
 
     /// <summary>
     /// The access JWT token for authentication.
@@ -73,7 +75,7 @@ public sealed class Session
     /// not have to restate the account metadata it is not touching.
     /// </summary>
     public Session With(
-        string? handle = null,
+        Handle? handle = null,
         string? accessJwt = null,
         string? refreshJwt = null,
         string? email = null,

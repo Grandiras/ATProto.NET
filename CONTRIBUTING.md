@@ -113,6 +113,93 @@ dotnet test tests/ATProtoNet.IntegrationTests/
 - Prefix interfaces with `I`
 - Use `camelCase` for JSON serialization (matches AT Proto convention)
 
+### Lexicon models and clients
+
+These rules apply to every model and client method generated from, or written against, a Lexicon.
+`tests/ATProtoNet.Tests/Conventions/TypedIdentifierGuardTests.cs` enforces the first one.
+
+**Types in public signatures**
+
+- A property or parameter carrying a Lexicon identifier format is typed, never `string`:
+  `did` → `Did`, `handle` → `Handle`, `at-identifier` → `AtIdentifier`, `at-uri` → `AtUri`,
+  `nsid` → `Nsid`, `cid` → `Cid`, `record-key` → `RecordKey`, `tid` → `Tid`, and `datetime` →
+  `AtDatetime` (all in `ATProtoNet.Identity`). The generic `uri` and `language` formats stay
+  `string`. A value that matches a name the guard watches but genuinely is not one format (an
+  email subject, a header entry with parameters, a field the PDS fills with `admin`) goes in the
+  guard's commented `Exceptions` list.
+- Lexicon-required fields are `required`; optional ones are nullable (`Cid?`, `AtDatetime?`).
+- Collections in models are `IReadOnlyList<T>`. Method parameters take `IEnumerable<T>` (or
+  `IReadOnlyCollection<T>` when the method needs the count).
+- A request body that only one client method builds is `internal`; the method takes its fields as
+  parameters. A request type stays public only when a public method accepts it.
+
+**Parameter order**
+
+1. Subject identifiers: `repo`/`actor`/`did`, then `collection`, then `rkey` (or the whole `AtUri`).
+2. Required inputs.
+3. Optional filters.
+4. `limit`, then `cursor` (one-page methods), or `pageSize` (enumerators).
+5. `CancellationToken cancellationToken = default`.
+
+**Pagination**
+
+- Every cursored response implements `ICursorPage<T>`, with `Items` implemented explicitly over the
+  Lexicon-named list so the wire shape does not change.
+- `List*` / `Get*` / `Search*` return one page. `Enumerate*` returns `IAsyncEnumerable<T>`, takes
+  `int? pageSize = null` (`null` is the server default), and goes through the internal
+  `Http/Pagination.EnumerateAsync`, which stops on a `null`, empty or repeated cursor. Do not write
+  another cursor loop.
+
+**Before and after**
+
+```csharp
+// Before: strings, and a filter after the paging parameters
+Task<ListRecordsResponse> ListRecordsAsync(
+    string repo, string collection, int? limit = null, string? cursor = null, bool? reverse = null,
+    CancellationToken cancellationToken = default);
+IAsyncEnumerable<RecordEntry> ListAllRecordsAsync(
+    string repo, string collection, int pageSize = 100, CancellationToken cancellationToken = default);
+
+// After
+Task<ListRecordsResponse> ListRecordsAsync(
+    AtIdentifier repo, Nsid collection, bool? reverse = null, int? limit = null, string? cursor = null,
+    CancellationToken cancellationToken = default);
+IAsyncEnumerable<RecordEntry> EnumerateRecordsAsync(
+    AtIdentifier repo, Nsid collection, bool? reverse = null, int? pageSize = null,
+    CancellationToken cancellationToken = default) =>
+    Pagination.EnumerateAsync<ListRecordsResponse, RecordEntry>(
+        (cursor, ct) => ListRecordsAsync(repo, collection, reverse, pageSize, cursor, ct),
+        cancellationToken);
+```
+
+```csharp
+// Before: the subject after the reason
+Task<CreateReportResponse> CreateReportAsync(
+    string reasonType, ReportSubject subject, string? reason = null, CancellationToken ct = default);
+
+// After: subject first
+Task<CreateReportResponse> CreateReportAsync(
+    ReportSubject subject, string reasonType, string? reason = null, CancellationToken ct = default);
+```
+
+```csharp
+// Before
+public sealed class ListBlobsResponse
+{
+    [JsonPropertyName("cursor")] public string? Cursor { get; init; }
+    [JsonPropertyName("cids")] public required List<string> Cids { get; init; }
+}
+
+// After
+public sealed class ListBlobsResponse : ICursorPage<Cid>
+{
+    [JsonPropertyName("cursor")] public string? Cursor { get; init; }
+    [JsonPropertyName("cids")] public required IReadOnlyList<Cid> Cids { get; init; }
+
+    IReadOnlyList<Cid> ICursorPage<Cid>.Items => Cids;
+}
+```
+
 ### Architecture
 
 - **ATProtoNet** — Core SDK, zero ASP.NET dependency

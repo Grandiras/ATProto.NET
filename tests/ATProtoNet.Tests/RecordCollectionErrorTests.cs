@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json.Serialization;
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.Tests;
 
@@ -36,16 +37,16 @@ public class RecordCollectionErrorTests : IDisposable
     {
         _handler.Next = (HttpStatusCode.OK, $$"""{"did":"{{Did}}","handle":"alice.test","accessJwt":"a","refreshJwt":"r"}""");
         await _client.LoginAsync("alice.test", "password");
-        return _client.GetCollection<Note>("com.example.note");
+        return _client.GetCollection<Note>(Nsid.Parse("com.example.note"));
     }
 
     [Fact]
     public async Task ExistsAsync_WhenTheRecordExists_IsTrue()
     {
         var notes = await LoginAsync();
-        _handler.Next = (HttpStatusCode.OK, $$$"""{"uri":"at://{{{Did}}}/com.example.note/n1","cid":"bafyrei","value":{"text":"hi"}}""");
+        _handler.Next = (HttpStatusCode.OK, $$$"""{"uri":"at://{{{Did}}}/com.example.note/n1","cid":"bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm","value":{"text":"hi"}}""");
 
-        Assert.True(await notes.ExistsAsync("n1"));
+        Assert.True(await notes.ExistsAsync(RecordKey.Parse("n1")));
     }
 
     [Fact]
@@ -54,7 +55,7 @@ public class RecordCollectionErrorTests : IDisposable
         var notes = await LoginAsync();
         _handler.Next = (HttpStatusCode.BadRequest, """{"error":"RecordNotFound","message":"Could not locate record"}""");
 
-        Assert.False(await notes.ExistsAsync("missing"));
+        Assert.False(await notes.ExistsAsync(RecordKey.Parse("missing")));
     }
 
     [Fact]
@@ -65,7 +66,7 @@ public class RecordCollectionErrorTests : IDisposable
         var notes = await LoginAsync();
         _handler.Next = (HttpStatusCode.BadRequest, """{"error":"InvalidRequest","message":"Could not find repo"}""");
 
-        var ex = await Assert.ThrowsAsync<XrpcException>(() => notes.ExistsAsync("n1"));
+        var ex = await Assert.ThrowsAsync<XrpcException>(() => notes.ExistsAsync(RecordKey.Parse("n1")));
 
         Assert.True(ex.Is(XrpcErrors.InvalidRequest));
     }
@@ -74,9 +75,9 @@ public class RecordCollectionErrorTests : IDisposable
     public async Task GetAsync_WhenTheValueIsNotTheRecordType_ThrowsResponseFormatException()
     {
         var notes = await LoginAsync();
-        _handler.Next = (HttpStatusCode.OK, $$$"""{"uri":"at://{{{Did}}}/com.example.note/n1","cid":"bafyrei","value":{"text":42}}""");
+        _handler.Next = (HttpStatusCode.OK, $$$"""{"uri":"at://{{{Did}}}/com.example.note/n1","cid":"bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm","value":{"text":42}}""");
 
-        var ex = await Assert.ThrowsAsync<XrpcResponseFormatException>(() => notes.GetAsync("n1"));
+        var ex = await Assert.ThrowsAsync<XrpcResponseFormatException>(() => notes.GetAsync(RecordKey.Parse("n1")));
 
         Assert.Equal("com.atproto.repo.getRecord", ex.Nsid);
         Assert.Contains($"at://{Did}/com.example.note/n1", ex.Message);
@@ -85,10 +86,10 @@ public class RecordCollectionErrorTests : IDisposable
     [Fact]
     public async Task RepoGetRecordAsyncOfT_WhenTheValueIsNotTheRecordType_ThrowsResponseFormatException()
     {
-        _handler.Next = (HttpStatusCode.OK, $$$"""{"uri":"at://{{{Did}}}/com.example.note/n1","cid":"bafyrei","value":{"text":[1]}}""");
+        _handler.Next = (HttpStatusCode.OK, $$$"""{"uri":"at://{{{Did}}}/com.example.note/n1","cid":"bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm","value":{"text":[1]}}""");
 
         var ex = await Assert.ThrowsAsync<XrpcResponseFormatException>(
-            () => _client.Repo.GetRecordAsync<Note>(Did, "com.example.note", "n1"));
+            () => _client.Repo.GetRecordAsync<Note>(AtIdentifier.Parse(Did), Nsid.Parse("com.example.note"), RecordKey.Parse("n1")));
 
         Assert.Equal("com.atproto.repo.getRecord", ex.Nsid);
     }

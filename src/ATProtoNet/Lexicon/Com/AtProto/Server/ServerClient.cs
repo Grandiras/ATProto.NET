@@ -1,4 +1,5 @@
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Server;
@@ -168,7 +169,13 @@ public sealed class ServerClient
     /// <summary>
     /// Get a service auth token for inter-service authentication.
     /// </summary>
-    public Task<GetServiceAuthResponse> GetServiceAuthAsync(string aud, string? lxm = null,
+    /// <param name="aud">
+    /// The DID of the service the token is for, optionally with a <c>#serviceId</c> fragment.
+    /// </param>
+    /// <param name="lxm">The XRPC method to bind the token to, if any.</param>
+    /// <param name="exp">When the token expires, in Unix epoch seconds.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<GetServiceAuthResponse> GetServiceAuthAsync(string aud, Nsid? lxm = null,
         int? exp = null, CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
@@ -181,7 +188,10 @@ public sealed class ServerClient
     /// <summary>
     /// Create an invite code.
     /// </summary>
-    public Task<CreateInviteCodeResponse> CreateInviteCodeAsync(int useCount, string? forAccount = null,
+    /// <param name="useCount">How many accounts the code may create.</param>
+    /// <param name="forAccount">The DID of the account to issue the code to, if any.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<CreateInviteCodeResponse> CreateInviteCodeAsync(int useCount, Did? forAccount = null,
         CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync<CreateInviteCodeResponse>(
             "com.atproto.server.createInviteCode",
@@ -218,7 +228,9 @@ public sealed class ServerClient
     /// <summary>
     /// Reserve a signing key for account creation.
     /// </summary>
-    public Task<ReserveSigningKeyResponse> ReserveSigningKeyAsync(string? did = null, CancellationToken cancellationToken = default) =>
+    /// <param name="did">The DID to reserve the key for, if it already exists.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<ReserveSigningKeyResponse> ReserveSigningKeyAsync(Did? did = null, CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync<ReserveSigningKeyResponse>(
             "com.atproto.server.reserveSigningKey",
             new ReserveSigningKeyRequest { Did = did },

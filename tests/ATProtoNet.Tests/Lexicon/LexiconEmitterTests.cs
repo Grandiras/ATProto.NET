@@ -80,6 +80,18 @@ public sealed class LexiconEmitterTests
         Assert.Equal("record", doc.Defs["main"].Type);
         Assert.NotNull(doc.Defs["main"].Record);
     }
+
+    [Fact]
+    public void EmitFromAssembly_TypedIdentifiers_BecomeFormattedStrings()
+    {
+        var properties = Emit("com.atmoboards.test.reply", out _)!.Defs["main"].Record!.Properties!;
+
+        Assert.Equal(("string", "at-uri"), (properties["parent"].Type, properties["parent"].Format));
+        Assert.Equal(("string", "did"), (properties["author"].Type, properties["author"].Format));
+        Assert.Equal(("string", "datetime"), (properties["createdAt"].Type, properties["createdAt"].Format));
+        Assert.Equal("array", properties["mentions"].Type);
+        Assert.Equal(("string", "did"), (properties["mentions"].Items!.Type, properties["mentions"].Items!.Format));
+    }
 }
 
 /// <summary>Shaped like the output of <c>atproto-lexgen csharp</c> for a space Lexicon.</summary>
@@ -116,4 +128,20 @@ public sealed class TestThreadRecord
 
     [System.Text.Json.Serialization.JsonPropertyName("title")]
     public required string Title { get; init; }
+}
+
+/// <summary>A record written against the typed SDK surface.</summary>
+public sealed class TestReplyRecord : AtProtoRecord
+{
+    [System.Text.Json.Serialization.JsonPropertyName("$type")]
+    public override string Type => "com.atmoboards.test.reply";
+
+    [System.Text.Json.Serialization.JsonPropertyName("parent")]
+    public required ATProtoNet.Identity.AtUri Parent { get; init; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("author")]
+    public ATProtoNet.Identity.Did? Author { get; init; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("mentions")]
+    public IReadOnlyList<ATProtoNet.Identity.Did>? Mentions { get; init; }
 }

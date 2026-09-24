@@ -12,9 +12,9 @@ The main entry point. Created via `AtProtoClientBuilder` or direct construction.
 |----------|------|-------------|
 | `Session` | `Session?` | Current session (null if not authenticated) |
 | `IsAuthenticated` | `bool` | Whether the client has an active session |
-| `Did` | `string?` | Authenticated user's DID |
-| `Handle` | `string?` | Authenticated user's handle |
-| `LatestRepoRev` | `string?` | Latest repo revision from server responses |
+| `Did` | `Did?` | Authenticated user's DID |
+| `Handle` | `Handle?` | Authenticated user's handle |
+| `LatestRepoRev` | `Tid?` | Latest repo revision from server responses |
 | `LatestRateLimitInfo` | `RateLimitInfo?` | Most recent rate limit info |
 | `Server` | `ServerClient` | `com.atproto.server.*` methods |
 | `Repo` | `RepoClient` | `com.atproto.repo.*` methods |
@@ -36,13 +36,13 @@ The main entry point. Created via `AtProtoClientBuilder` or direct construction.
 
 | Method | Description |
 |--------|-------------|
-| `GetCollection<T>(collection)` | Get a typed `RecordCollection<T>` for CRUD |
+| `GetCollection<T>(collection)` | Get a typed `RecordCollection<T>` for CRUD (`collection` is an `Nsid`) |
 | `QueryAsync<T>(nsid, parameters?, options?)` | Call a custom XRPC query (GET) |
 | `ProcedureAsync<T>(nsid, body?, options?)` | Call a custom XRPC procedure (POST) with response |
 | `ProcedureAsync(nsid, body?, options?)` | Call a custom XRPC procedure (POST) without response |
 
-`options` is an `XrpcCallOptions` (`Proxy`, `AcceptLabelers`, `Headers`, `Timeout`) that applies to
-that one call only.
+`nsid` is an `Nsid`. `options` is an `XrpcCallOptions` (`Proxy`, `AcceptLabelers`, `Headers`,
+`Timeout`) that applies to that one call only.
 
 ### Authentication Methods
 
@@ -62,7 +62,7 @@ that one call only.
 | `CreateFirehoseClient()` | Low-level `FirehoseClient` bound to the configured relay |
 | `CreateFirehoseConsumer(...)` | Reconnecting `FirehoseConsumer` |
 | `SetProxy(header)` / `ClearProxy()` | Client-wide default `atproto-proxy` header (not applied to session calls) |
-| `SetLabelers(dids)` / `ClearLabelers()` | Client-wide default `atproto-accept-labelers` header |
+| `SetLabelers(dids)` / `ClearLabelers()` | Client-wide default `atproto-accept-labelers` header (strings: a DID, optionally with `;redact`) |
 
 Both defaults are sent with or without a session. To vary them per call on a shared client, pass
 `XrpcCallOptions` instead.
@@ -72,20 +72,22 @@ Both defaults are sent with or without a session. To vary them per call on a sha
 | Method | Description |
 |--------|-------------|
 | `PostAsync(text, facets?, embed?, reply?, langs?, labels?)` | Create a text post (returns `CreateRecordResponse`) |
-| `LikeAsync(uri, cid)` | Like a post |
-| `UnlikeAsync(likeUri)` | Unlike a post |
-| `RepostAsync(uri, cid)` | Repost a post |
-| `UndoRepostAsync(repostUri)` | Undo a repost |
-| `FollowAsync(did)` | Follow an actor |
-| `UnfollowAsync(followUri)` | Unfollow an actor |
-| `DeletePostAsync(postUri)` | Delete a post |
+| `LikeAsync(uri, cid)` | Like a post (`AtUri`, `Cid`) |
+| `UnlikeAsync(likeUri)` | Unlike a post (`AtUri`) |
+| `RepostAsync(uri, cid)` | Repost a post (`AtUri`, `Cid`) |
+| `UndoRepostAsync(repostUri)` | Undo a repost (`AtUri`) |
+| `FollowAsync(did)` | Follow an actor (`Did`) |
+| `UnfollowAsync(followUri)` | Unfollow an actor (`AtUri`) |
+| `DeletePostAsync(postUri)` | Delete a post (`AtUri`) |
 | `UpdateProfileAsync(update)` | Read-modify-write the profile record (`p => p.DisplayName = "x"`); keeps every other field and retries on a concurrent edit |
 
 ---
 
 ## RecordCollection\<T\>
 
-Typed CRUD interface for a specific Lexicon collection. `Collection` exposes the NSID it is bound to.
+Typed CRUD interface for a specific Lexicon collection. `Collection` exposes the `Nsid` it is bound
+to. Record keys are `RecordKey`, CIDs `Cid`, and `repo` an `AtIdentifier` (a `Did` or `Handle`
+converts implicitly).
 
 | Method | Description |
 |--------|-------------|
@@ -94,8 +96,8 @@ Typed CRUD interface for a specific Lexicon collection. `Collection` exposes the
 | `GetFromAsync(repo, rkey, cid?)` | Get a record from another user |
 | `PutAsync(rkey, record, validate?, swapRecord?)` | Create or update a record |
 | `DeleteAsync(rkey, swapRecord?)` | Delete a record |
-| `ListAsync(limit?, cursor?, reverse?)` | List records with pagination |
-| `ListFromAsync(repo, limit?, cursor?, reverse?)` | List records from another user |
+| `ListAsync(reverse?, limit?, cursor?)` | List one page of records |
+| `ListFromAsync(repo, reverse?, limit?, cursor?)` | List records from another user |
 | `EnumerateAsync(pageSize?)` | Enumerate all records (auto-pagination) |
 | `EnumerateFromAsync(repo, pageSize?)` | Enumerate from another user |
 | `ExistsAsync(rkey)` | Check if a record exists |
@@ -109,7 +111,7 @@ Base class for custom record types.
 | Property | Type | Description |
 |----------|------|-------------|
 | `Type` | `string` (abstract) | Lexicon NSID (`$type` field) |
-| `CreatedAt` | `string` | ISO 8601 timestamp (auto-populated) |
+| `CreatedAt` | `AtDatetime?` | Creation timestamp (set to now on construction; read values keep their text) |
 
 ---
 
@@ -119,9 +121,9 @@ Reference to a created/updated record.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Uri` | `string` | AT URI of the record |
-| `Cid` | `string` | Content hash |
-| `RecordKey` | `string` | Record key portion of the URI |
+| `Uri` | `AtUri` | AT URI of the record |
+| `Cid` | `Cid` | Content hash |
+| `RecordKey` | `RecordKey` | Record key portion of the URI |
 
 Returned by `RecordCollection<T>.CreateAsync` / `PutAsync`. The `RepoClient` methods return the raw
 `CreateRecordResponse` / `PutRecordResponse` instead, which also carry `Commit` (`CommitMeta` with
@@ -135,20 +137,20 @@ A record fetched from the repository.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Uri` | `string` | AT URI |
-| `Cid` | `string?` | Content hash |
+| `Uri` | `AtUri` | AT URI |
+| `Cid` | `Cid?` | Content hash |
 | `Value` | `T` | Deserialized record value |
-| `RecordKey` | `string` | Record key |
+| `RecordKey` | `RecordKey` | Record key |
 
 ---
 
 ## RecordPage\<T\>
 
-Paginated list of records.
+Paginated list of records; an `ICursorPage<RecordView<T>>`.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Records` | `List<RecordView<T>>` | Records in this page |
+| `Records` | `IReadOnlyList<RecordView<T>>` | Records in this page |
 | `Cursor` | `string?` | Cursor for next page |
 | `HasMore` | `bool` | Whether more pages exist |
 
@@ -185,6 +187,32 @@ Fluent builder for `AtProtoClient`.
 
 All are `sealed record`s supporting `Parse()`, `TryParse()`, `IParsable<T>`/`ISpanParsable<T>`, `IComparable<T>`, ordinal equality, implicit conversion to `string` and explicit conversion from it. `TidGenerator` mints strictly increasing TIDs; see [Identity Types](identity-types.md).
 
+`AtDatetime` (a `readonly record struct`) is the Lexicon `datetime`: it keeps the exact text it was
+read with, reads leniently (`IsValid`, `TryGetValue`, `Value`), and creates the canonical
+`yyyy-MM-ddTHH:mm:ss.fffZ` form from `Now()`, `FromDateTimeOffset` and `FromDateTime`.
+
+Every model and client in `ATProtoNet.Lexicon.Com.AtProto.*` uses these types for identifier and
+`datetime` fields.
+
+## Pagination
+
+Every cursored response implements `ICursorPage<T>` (`IReadOnlyList<T> Items`, `string? Cursor`).
+`List*` / `Get*` methods return one page and take `limit` then `cursor`; `Enumerate*` methods return
+an `IAsyncEnumerable<T>` over every page, take `int? pageSize = null`, and stop when the server
+returns no cursor, an empty one, or one it already returned.
+
+| Enumerator | Pages of |
+|------------|----------|
+| `Repo.EnumerateRecordsAsync(repo, collection, reverse?, pageSize?)` | `com.atproto.repo.listRecords` |
+| `Repo.EnumerateMissingBlobsAsync(pageSize?)` | `com.atproto.repo.listMissingBlobs` |
+| `Sync.EnumerateBlobsAsync(did, since?, pageSize?)` | `com.atproto.sync.listBlobs` |
+| `Sync.EnumerateReposAsync(pageSize?)` | `com.atproto.sync.listRepos` |
+| `Sync.EnumerateReposByCollectionAsync(collection, pageSize?)` | `com.atproto.sync.listReposByCollection` |
+| `Sync.EnumerateHostsAsync(pageSize?)` | `com.atproto.sync.listHosts` |
+| `Label.EnumerateLabelsAsync(uriPatterns, sources?, pageSize?)` | `com.atproto.label.queryLabels` |
+| `Admin.EnumerateInviteCodesAsync(sort?, pageSize?)` | `com.atproto.admin.getInviteCodes` |
+| `RecordCollection<T>.EnumerateAsync` / `EnumerateFromAsync` | `com.atproto.repo.listRecords`, deserialized |
+
 ---
 
 ## ServerClient (`com.atproto.server.*`)
@@ -199,7 +227,7 @@ All are `sealed record`s supporting `Parse()`, `TryParse()`, `IParsable<T>`/`ISp
 | `CreateAppPasswordAsync(name)` | Create an app password |
 | `ListAppPasswordsAsync()` | List app passwords |
 | `RevokeAppPasswordAsync(name)` | Revoke an app password |
-| `CreateInviteCodeAsync(useCount)` | Generate invite code |
+| `CreateInviteCodeAsync(useCount, forAccount?)` | Generate invite code |
 | `CreateInviteCodesAsync(codeCount, useCount)` | Generate multiple invite codes |
 | `GetAccountInviteCodesAsync()` | List account's invite codes |
 | `RequestPasswordResetAsync(email)` | Request password reset |
@@ -210,7 +238,7 @@ All are `sealed record`s supporting `Parse()`, `TryParse()`, `IParsable<T>`/`ISp
 | `UpdateEmailAsync(email, emailAuthFactor?, token?)` | Update email |
 | `ReserveSigningKeyAsync(did?)` | Reserve a signing key |
 | `DescribeServerAsync()` | Get server description |
-| `GetServiceAuthAsync(aud, exp?)` | Get service auth token |
+| `GetServiceAuthAsync(aud, lxm?, exp?)` | Get service auth token (`lxm` is an `Nsid`) |
 | `ActivateAccountAsync()` | Activate a deactivated account |
 | `DeactivateAccountAsync(deleteAfter?)` | Deactivate account |
 | `DeleteAccountAsync(did, password, token)` | Delete account permanently |
@@ -227,14 +255,20 @@ All are `sealed record`s supporting `Parse()`, `TryParse()`, `IParsable<T>`/`ISp
 | `GetRecordAsync<T>(repo, collection, rkey, cid?)` | Get record (typed) |
 | `PutRecordAsync(repo, collection, rkey, record, validate?, swapRecord?, swapCommit?)` | Put record |
 | `DeleteRecordAsync(repo, collection, rkey, swapRecord?, swapCommit?)` | Delete record |
-| `ListRecordsAsync(repo, collection, limit?, cursor?, reverse?)` | List records |
-| `ListAllRecordsAsync(repo, collection, pageSize?)` | Enumerate all records |
+| `GetRecordAsync(uri, cid?)` / `GetRecordAsync<T>(uri, cid?)` | Get the record an `AtUri` names |
+| `DeleteRecordAsync(uri, swapRecord?, swapCommit?)` | Delete the record an `AtUri` names |
+| `ListRecordsAsync(repo, collection, reverse?, limit?, cursor?)` | List one page of records |
+| `EnumerateRecordsAsync(repo, collection, reverse?, pageSize?)` | Enumerate all records |
 | `DescribeRepoAsync(repo)` | Get repo info |
 | `UploadBlobAsync(stream, mimeType)` | Upload blob from stream |
 | `UploadBlobAsync(filePath, mimeType)` | Upload blob from file |
 | `UploadBlobAsync(data, mimeType)` | Upload blob from bytes |
 | `ApplyWritesAsync(repo, writes, validate?, swapCommit?)` | Batch write operations |
-| `ListMissingBlobsAsync(limit?, cursor?)` | List missing blobs |
+| `ListMissingBlobsAsync(limit?, cursor?)` | List one page of missing blobs |
+| `EnumerateMissingBlobsAsync(pageSize?)` | Enumerate all missing blobs |
+
+`repo` is an `AtIdentifier`, `collection` an `Nsid`, `rkey` a `RecordKey`, and `cid` / `swapRecord` /
+`swapCommit` a `Cid`.
 
 ---
 
@@ -244,8 +278,8 @@ All are `sealed record`s supporting `Parse()`, `TryParse()`, `IParsable<T>`/`ISp
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Did` | `string` | User's DID |
-| `Handle` | `string` | User's handle |
+| `Did` | `Did` | User's DID |
+| `Handle` | `Handle` | User's handle (`handle.invalid` when it did not verify) |
 | `AccessJwt` | `string` | Access token |
 | `RefreshJwt` | `string` | Refresh token |
 | `Email` | `string?` | Email |
@@ -300,7 +334,7 @@ Basic (the reference PDS), or as an administrator account (Tranquil PDS). See
 |--------|-------------|
 | `EnsureAdminSessionAsync(ct?)` | Sign in as the administrator account, if that is how the server authenticates them; needed only before using `Admin` / `Server` directly |
 | `DescribeServerAsync(ct?)` | Server DID, handle domains, invite policy |
-| `CreateInviteCodeAsync(useCount?, forAccount?, ct?)` | Mint one invite code |
+| `CreateInviteCodeAsync(useCount?, forAccount?, ct?)` | Mint one invite code (`forAccount` is a `Did`) |
 | `CreateInviteCodesAsync(codeCount, useCount?, forAccounts?, ct?)` | Mint several invite codes |
 | `CreateAccountAsync(request, ct?)` | Create an account, minting an invite code if required |
 | `GetAccountAsync(did, ct?)` | Account details |
@@ -308,7 +342,7 @@ Basic (the reference PDS), or as an administrator account (Tranquil PDS). See
 | `TakedownAccountAsync(did, reference?, ct?)` | Take an account down |
 | `RestoreAccountAsync(did, ct?)` | Reverse a takedown |
 | `UpdateAccountHandleAsync(did, handle, ct?)` | Change an account's handle |
-| `UpdateAccountEmailAsync(account, email, ct?)` | Change an account's email |
+| `UpdateAccountEmailAsync(account, email, ct?)` | Change an account's email (`account` is an `AtIdentifier`) |
 | `UpdateAccountPasswordAsync(did, password, ct?)` | Reset an account's password |
 | `CreateClient()` | An `AtProtoClient` pointed at the same PDS |
 

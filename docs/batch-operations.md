@@ -7,29 +7,33 @@ ATProto.NET supports atomic batch operations using `ApplyWrites`, which lets you
 `ApplyWrites` executes multiple write operations atomically — either all succeed or all fail.
 
 ```csharp
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Repo;
+
+var todos = Nsid.Parse("com.example.todo.item");
 
 await client.Repo.ApplyWritesAsync(
     client.Did!,
-    new List<ApplyWriteOperation>
-    {
+    [
         new ApplyWriteCreate
         {
-            Collection = "com.example.todo.item",
+            Collection = todos,
             Value = new TodoItem { Title = "Task 1" },
         },
         new ApplyWriteCreate
         {
-            Collection = "com.example.todo.item",
+            Collection = todos,
             Value = new TodoItem { Title = "Task 2" },
         },
         new ApplyWriteDelete
         {
-            Collection = "com.example.todo.item",
-            Rkey = "old-task-key",
+            Collection = todos,
+            Rkey = RecordKey.Parse("old-task-key"),
         },
-    });
+    ]);
 ```
+
+`writes` takes any `IEnumerable<ApplyWriteOperation>`: a list, an array or a collection expression.
 
 ## Operation Types
 
@@ -38,8 +42,8 @@ await client.Repo.ApplyWritesAsync(
 ```csharp
 new ApplyWriteCreate
 {
-    Collection = "com.example.todo.item",
-    Rkey = "optional-custom-key",  // Optional: server generates TID if omitted
+    Collection = todos,
+    Rkey = RecordKey.Parse("optional-custom-key"),  // Optional: server generates TID if omitted
     Value = new TodoItem { Title = "New task" },
 }
 ```
@@ -49,8 +53,8 @@ new ApplyWriteCreate
 ```csharp
 new ApplyWriteUpdate
 {
-    Collection = "com.example.todo.item",
-    Rkey = "existing-key",
+    Collection = todos,
+    Rkey = RecordKey.Parse("existing-key"),
     Value = new TodoItem { Title = "Updated task", Completed = true },
 }
 ```
@@ -60,8 +64,8 @@ new ApplyWriteUpdate
 ```csharp
 new ApplyWriteDelete
 {
-    Collection = "com.example.todo.item",
-    Rkey = "key-to-delete",
+    Collection = todos,
+    Rkey = RecordKey.Parse("key-to-delete"),
 }
 ```
 
@@ -70,27 +74,27 @@ new ApplyWriteDelete
 You can mix operations across different collections in the same atomic commit:
 
 ```csharp
-await client.Repo.ApplyWritesAsync(client.Did!, new List<ApplyWriteOperation>
-{
+await client.Repo.ApplyWritesAsync(client.Did!,
+[
     // Create a project
     new ApplyWriteCreate
     {
-        Collection = "com.example.todo.project",
-        Rkey = "project-1",
+        Collection = Nsid.Parse("com.example.todo.project"),
+        Rkey = RecordKey.Parse("project-1"),
         Value = new Project { Name = "My Project" },
     },
     // Create related tasks
     new ApplyWriteCreate
     {
-        Collection = "com.example.todo.item",
+        Collection = todos,
         Value = new TodoItem { Title = "Task in project", ProjectId = "project-1" },
     },
     new ApplyWriteCreate
     {
-        Collection = "com.example.todo.item",
+        Collection = todos,
         Value = new TodoItem { Title = "Another task", ProjectId = "project-1" },
     },
-});
+]);
 ```
 
 ## Optimistic Concurrency
@@ -103,7 +107,7 @@ new `Cid` and `Rev`:
 
 ```csharp
 var created = await client.Repo.CreateRecordAsync(
-    client.Did!, "com.example.todo.item", new TodoItem { Title = "First" });
+    client.Did!, todos, new TodoItem { Title = "First" });
 
 await client.Repo.ApplyWritesAsync(
     client.Did!,

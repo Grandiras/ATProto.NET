@@ -42,7 +42,7 @@ using ATProtoNet.Http;
 
 try
 {
-    var item = await todos.GetAsync("nonexistent-key");
+    var item = await todos.GetAsync(RecordKey.Parse("nonexistent-key"));
 }
 catch (XrpcException ex)
 {
@@ -66,7 +66,7 @@ Branch on the error name, not the status code — a Lexicon declares the names i
 ```csharp
 try
 {
-    await todos.PutAsync("key", updatedItem, swapRecord: item.Cid);
+    await todos.PutAsync(RecordKey.Parse("key"), updatedItem, swapRecord: item.Cid);
 }
 catch (XrpcException ex) when (ex.Is(XrpcErrors.InvalidSwap))
 {
@@ -153,7 +153,7 @@ A success status with a body that does not deserialize into the method's respons
 try
 {
     var feed = await client.QueryAsync<FeedResponse>(
-        "app.bsky.feed.getTimeline",
+        Nsid.Parse("app.bsky.feed.getTimeline"),
         new { limit = 50 },
         new XrpcCallOptions { Timeout = TimeSpan.FromSeconds(5) });
 }
@@ -171,7 +171,7 @@ Operations that need a session throw `InvalidOperationException` when the client
 ```csharp
 try
 {
-    var todos = client.GetCollection<TodoItem>("com.example.todo.item");
+    var todos = client.GetCollection<TodoItem>(Nsid.Parse("com.example.todo.item"));
     await todos.CreateAsync(new TodoItem { Title = "Test" });
 }
 catch (InvalidOperationException ex) when (ex.Message.Contains("Not authenticated"))
@@ -185,7 +185,7 @@ catch (InvalidOperationException ex) when (ex.Message.Contains("Not authenticate
 Use `ExistsAsync` to check for a record without a try/catch. It returns `false` only for `RecordNotFound`; any other error (a malformed key, an unavailable repo) still throws.
 
 ```csharp
-bool exists = await todos.ExistsAsync("some-key");
+bool exists = await todos.ExistsAsync(RecordKey.Parse("some-key"));
 ```
 
 ## Retry pattern

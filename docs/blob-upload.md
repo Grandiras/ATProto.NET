@@ -68,7 +68,7 @@ BlobRef uploaded = await client.Repo.UploadBlobAsync(
     "/path/to/vacation.jpg",
     "image/jpeg");
 
-var photos = client.GetCollection<PhotoRecord>("com.example.photos.photo");
+var photos = client.GetCollection<PhotoRecord>(Nsid.Parse("com.example.photos.photo"));
 await photos.CreateAsync(new PhotoRecord
 {
     Image = uploaded,
@@ -81,8 +81,8 @@ await photos.CreateAsync(new PhotoRecord
 
 ```csharp
 await using var blob = await client.Sync.GetBlobAsync(
-    "did:plc:abc123",
-    "bafyreib...");
+    Did.Parse("did:plc:abc123"),
+    uploaded.Ref!.Link);   // a BlobRef's CID, or Cid.Parse("bafkrei…")
 
 Console.WriteLine($"{blob.ContentType}, {blob.ContentLength} bytes");
 

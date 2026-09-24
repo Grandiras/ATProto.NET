@@ -17,8 +17,8 @@ public sealed class AtProtoClientUpdateProfileTests
         """
         {"$type":"app.bsky.actor.profile","displayName":"Alice","description":"old bio","pronouns":"she/her","website":"https://alice.example.com",
          "labels":{"$type":"com.atproto.label.defs#selfLabels","values":[{"val":"!no-unauthenticated"}]},
-         "joinedViaStarterPack":{"uri":"at://did:plc:b/app.bsky.graph.starterpack/1","cid":"bafy2"},
-         "pinnedPost":{"uri":"at://did:plc:ragtjsm2j2vknwkz3zp4oxrd/app.bsky.feed.post/1","cid":"bafy1"},
+         "joinedViaStarterPack":{"uri":"at://did:plc:b/app.bsky.graph.starterpack/1","cid":"bafyreibfvbgr6icdhm4nd7xcqyjqgkmbro2za6tvtm7krghw5wm5lecwq4"},
+         "pinnedPost":{"uri":"at://did:plc:ragtjsm2j2vknwkz3zp4oxrd/app.bsky.feed.post/1","cid":"bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"},
          "createdAt":"2024-01-01T00:00:00.000Z","futureField":{"x":1}}
         """;
 
@@ -26,7 +26,7 @@ public sealed class AtProtoClientUpdateProfileTests
     {
         public string? Profile { get; set; }
 
-        public string ProfileCid { get; set; } = "bafyprofile1";
+        public string ProfileCid { get; set; } = "bafyreid6erjndi5bsjevws6dtsmi76ag5mmcerfo6cfhb2vpv6wuygrvve";
 
         public Queue<HttpStatusCode> PutOutcomes { get; } = new();
 
@@ -54,9 +54,9 @@ public sealed class AtProtoClientUpdateProfileTests
                 Puts.Add(body.RootElement.Clone());
 
                 if (PutOutcomes.TryDequeue(out var outcome) && outcome != HttpStatusCode.OK)
-                    return Json(outcome, """{"error":"InvalidSwap","message":"Record was at bafyother"}""");
+                    return Json(outcome, """{"error":"InvalidSwap","message":"Record was at bafyreidhormwlyipxyuuzqc6mspskhovsiybzk76rtn5fnr264hhotls3u"}""");
 
-                return Json(HttpStatusCode.OK, $$"""{"uri":"at://{{Did}}/app.bsky.actor.profile/self","cid":"bafyprofile2"}""");
+                return Json(HttpStatusCode.OK, $$"""{"uri":"at://{{Did}}/app.bsky.actor.profile/self","cid":"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi"}""");
             }
 
             return Json(HttpStatusCode.NotFound, """{"error":"MethodNotImplemented"}""");
@@ -85,14 +85,14 @@ public sealed class AtProtoClientUpdateProfileTests
 
         var written = await client.UpdateProfileAsync(p => p.Description = "new bio");
 
-        Assert.Equal("bafyprofile2", written.Cid);
+        Assert.Equal("bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi", written.Cid);
         Assert.Equal("self", written.RecordKey);
 
         var put = Assert.Single(pds.Puts);
         var record = put.GetProperty("record");
         using var expected = JsonDocument.Parse(StoredProfile.Replace("old bio", "new bio"));
         Assert.True(JsonElement.DeepEquals(expected.RootElement, record), record.GetRawText());
-        Assert.Equal("bafyprofile1", put.GetProperty("swapRecord").GetString());
+        Assert.Equal("bafyreid6erjndi5bsjevws6dtsmi76ag5mmcerfo6cfhb2vpv6wuygrvve", put.GetProperty("swapRecord").GetString());
     }
 
     [Fact]

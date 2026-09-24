@@ -90,8 +90,8 @@ if (client.IsAuthenticated)
 After login, you can access:
 
 ```csharp
-client.Did       // "did:plc:abc123..."
-client.Handle    // "alice.example.com"
+client.Did       // Did: did:plc:abc123...
+client.Handle    // Handle: alice.example.com
 client.Session   // Full Session object with tokens, email, etc.
 ```
 

@@ -62,6 +62,58 @@ public sealed class AtProtoClientApplyOAuthTests
             "Currently installed session's DPoP key must remain usable.");
     }
 
+    private static OAuthSessionResult WithHandle(OAuthSessionResult session, string handle, bool verified) => new()
+    {
+        Did = session.Did,
+        Handle = handle,
+        IsHandleVerified = verified,
+        AccessToken = session.AccessToken,
+        RefreshToken = session.RefreshToken,
+        TokenType = session.TokenType,
+        PdsUrl = session.PdsUrl,
+        Issuer = session.Issuer,
+        TokenEndpoint = session.TokenEndpoint,
+        DPoP = session.DPoP,
+        DpopKeyId = session.DpopKeyId,
+    };
+
+    [Fact]
+    public async Task ApplyOAuthSessionAsync_VerifiedHandle_IsTheSessionsHandle()
+    {
+        using var client = new AtProtoClientBuilder().WithAutoRefreshSession(false).Build();
+
+        await client.ApplyOAuthSessionAsync(WithHandle(NewSession("did:plc:alice"), "alice.example.com", verified: true));
+
+        Assert.Equal(ATProtoNet.Identity.Did.Parse("did:plc:alice"), client.Did);
+        Assert.Equal("alice.example.com", client.Handle?.Value);
+    }
+
+    [Theory]
+    [InlineData("alice.example.com")] // a well-formed handle that did not verify
+    [InlineData("did:plc:alice")]     // OAuthClient's DID fallback
+    public async Task ApplyOAuthSessionAsync_UnverifiedHandle_IsHandleInvalid(string handle)
+    {
+        using var client = new AtProtoClientBuilder().WithAutoRefreshSession(false).Build();
+
+        await client.ApplyOAuthSessionAsync(WithHandle(NewSession("did:plc:alice"), handle, verified: false));
+
+        Assert.Equal("handle.invalid", client.Handle?.Value);
+        Assert.Equal("did:plc:alice", client.Did?.Value);
+    }
+
+    [Fact]
+    public async Task ApplyOAuthSessionAsync_VerifiedHandleThatDoesNotParse_ThrowsAndLeavesTheClientUntouched()
+    {
+        using var client = new AtProtoClientBuilder().WithAutoRefreshSession(false).Build();
+        var session = WithHandle(NewSession("did:plc:alice"), "did:plc:alice", verified: true);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => client.ApplyOAuthSessionAsync(session));
+
+        Assert.False(client.IsAuthenticated);
+        Assert.Null(client.OAuthSession);
+        Assert.False(IsDpopDisposed(session.DPoP));
+    }
+
     [Fact]
     public async Task ApplyOAuthSessionAsync_ReApplyWithSameSession_DoesNotDisposeIt()
     {

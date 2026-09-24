@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
+using ATProtoNet.Identity;
 using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Http;
@@ -153,9 +154,7 @@ internal sealed class XrpcParams : IEnumerable<KeyValuePair<string, string>>
     {
         bool b => FormatBoolean(b),
         DateTimeOffset dto => FormatTimestamp(dto),
-        DateTime dt => FormatTimestamp(dt.Kind == DateTimeKind.Unspecified
-            ? new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc))
-            : new DateTimeOffset(dt)),
+        DateTime dt => AtDatetime.FromDateTime(dt).ToString(),
         Enum e => EnumNames.GetOrAdd(e, FormatEnum),
         IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
         _ => value.ToString(),
@@ -164,7 +163,7 @@ internal sealed class XrpcParams : IEnumerable<KeyValuePair<string, string>>
     private static string FormatBoolean(bool value) => value ? "true" : "false";
 
     private static string FormatTimestamp(DateTimeOffset value) =>
-        AtProtoJsonDefaults.FormatTimestamp(value.UtcDateTime);
+        AtDatetime.FromDateTimeOffset(value).ToString();
 
     /// <summary>
     /// An enum's name as the SDK's JSON serializer writes it, so a query parameter and a body

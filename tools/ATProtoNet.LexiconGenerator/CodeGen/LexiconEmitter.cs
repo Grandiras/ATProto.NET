@@ -303,8 +303,10 @@ public sealed class LexiconEmitter
         if (underlyingType is not null)
             propType = underlyingType;
 
-        // List<T> → array
-        if (propType.IsGenericType && propType.GetGenericTypeDefinition() == typeof(List<>))
+        // List<T>, IReadOnlyList<T> → array
+        if (propType.IsGenericType
+            && (propType.GetGenericTypeDefinition() == typeof(List<>)
+                || propType.GetGenericTypeDefinition() == typeof(IReadOnlyList<>)))
         {
             var itemType = propType.GetGenericArguments()[0];
             return new LexiconSchema
@@ -342,6 +344,11 @@ public sealed class LexiconEmitter
         if (type == typeof(DateTime) || type == typeof(DateTimeOffset))
             return new LexiconSchema { Type = "string", Format = "datetime" };
 
+        // The SDK's identifier types → string with their format. Matched by name: the tool does
+        // not reference the SDK assembly it reflects over.
+        if (type.Namespace == "ATProtoNet.Identity" && IdentityFormat(type.Name) is { } format)
+            return new LexiconSchema { Type = "string", Format = format };
+
         // For complex types, emit a ref to their $type if they have one,
         // otherwise use "unknown"
         var typeValue = GetTypeDiscriminator(type);
@@ -355,6 +362,24 @@ public sealed class LexiconEmitter
 
         return new LexiconSchema { Type = "unknown" };
     }
+
+    /// <summary>
+    /// The Lexicon string format of an <c>ATProtoNet.Identity</c> type, the inverse of
+    /// <see cref="TypeMapper.StringType"/>.
+    /// </summary>
+    private static string? IdentityFormat(string typeName) => typeName switch
+    {
+        "Did" => "did",
+        "Handle" => "handle",
+        "AtIdentifier" => "at-identifier",
+        "AtUri" => "at-uri",
+        "Nsid" => "nsid",
+        "Cid" => "cid",
+        "RecordKey" => "record-key",
+        "Tid" => "tid",
+        "AtDatetime" => "datetime",
+        _ => null,
+    };
 
     /// <summary>
     /// Detects whether a property is required (uses the C# <c>required</c> modifier).

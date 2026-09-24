@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using ATProtoNet.Admin;
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.Tests.Admin;
 
@@ -105,8 +106,8 @@ public class PdsAdminClientAccountAuthTests : IDisposable
         _handler.Enqueue("{}");
         _handler.Enqueue("{}");
 
-        await _client.DeleteAccountAsync("did:plc:alice");
-        await _client.UpdateAccountHandleAsync("did:plc:bob", "bob2.example.com");
+        await _client.DeleteAccountAsync(Did.Parse("did:plc:alice"));
+        await _client.UpdateAccountHandleAsync(Did.Parse("did:plc:bob"), Handle.Parse("bob2.example.com"));
 
         Assert.Equal(1, _handler.Requests.Count(r => r.Path.Contains("createSession")));
     }
@@ -118,7 +119,7 @@ public class PdsAdminClientAccountAuthTests : IDisposable
         _handler.Enqueue("""{"did":"did:plc:alice","handle":"alice.example.com","indexedAt":"2026-07-25T00:00:00.000Z"}""");
 
         await _client.EnsureAdminSessionAsync();
-        await _client.Admin.GetAccountInfoAsync("did:plc:alice");
+        await _client.Admin.GetAccountInfoAsync(Did.Parse("did:plc:alice"));
 
         Assert.Equal("Bearer", _handler.Requests[1].AuthScheme);
     }
@@ -134,7 +135,7 @@ public class PdsAdminClientAccountAuthTests : IDisposable
         }
 
         await Task.WhenAll(Enumerable.Range(0, 8)
-            .Select(_ => _client.DeleteAccountAsync("did:plc:alice")));
+            .Select(_ => _client.DeleteAccountAsync(Did.Parse("did:plc:alice"))));
 
         Assert.Equal(1, _handler.Requests.Count(r => r.Path.Contains("createSession")));
     }
@@ -153,7 +154,7 @@ public class PdsAdminClientAccountAuthTests : IDisposable
 
         // The client is registered as a typed HttpClient and outlives its access tokens,
         // so an expired one has to be recoverable rather than fatal.
-        await _client.DeleteAccountAsync("did:plc:alice");
+        await _client.DeleteAccountAsync(Did.Parse("did:plc:alice"));
 
         Assert.Equal(4, _handler.Requests.Count);
         Assert.Equal(2, _handler.Requests.Count(r => r.Path.Contains("createSession")));
@@ -169,7 +170,7 @@ public class PdsAdminClientAccountAuthTests : IDisposable
         _handler.Enqueue("""{"error":"ExpiredToken"}""", HttpStatusCode.Unauthorized);
 
         var ex = await Assert.ThrowsAsync<XrpcAuthenticationException>(
-            () => _client.DeleteAccountAsync("did:plc:alice"));
+            () => _client.DeleteAccountAsync(Did.Parse("did:plc:alice")));
 
         // One retry, not a loop: a password that has stopped working must surface.
         Assert.Equal(HttpStatusCode.Unauthorized, ex.StatusCode);
@@ -183,7 +184,7 @@ public class PdsAdminClientAccountAuthTests : IDisposable
         _handler.Enqueue("""{"error":"InvalidRequest","message":"nope"}""", HttpStatusCode.BadRequest);
 
         await Assert.ThrowsAsync<XrpcException>(
-            () => _client.DeleteAccountAsync("did:plc:alice"));
+            () => _client.DeleteAccountAsync(Did.Parse("did:plc:alice")));
 
         Assert.Equal(2, _handler.Requests.Count);
     }
@@ -203,7 +204,7 @@ public class PdsAdminClientAccountAuthTests : IDisposable
         // so it has to work before the client has any admin authority at all.
         var account = await _client.CreateAccountAsync(new CreatePdsAccountRequest
         {
-            Handle = AdminHandle,
+            Handle = Handle.Parse(AdminHandle),
             Email = "admin@example.com",
             Password = AdminPassword,
         });

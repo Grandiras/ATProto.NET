@@ -1,3 +1,5 @@
+using ATProtoNet.Identity;
+
 namespace ATProtoNet.Admin;
 
 /// <summary>
@@ -97,7 +99,7 @@ public sealed class CreatePdsAccountRequest
     /// It must fall under one of the PDS's available user domains — see
     /// <see cref="PdsAdminClient.DescribeServerAsync"/>.
     /// </summary>
-    public required string Handle { get; init; }
+    public required Handle Handle { get; init; }
 
     /// <summary>
     /// The account password.
@@ -120,7 +122,7 @@ public sealed class CreatePdsAccountRequest
     /// A pre-existing DID to bind the account to. When <c>null</c>, the PDS
     /// creates a new <c>did:plc</c> identity.
     /// </summary>
-    public string? Did { get; init; }
+    public Did? Did { get; init; }
 
     /// <summary>
     /// An optional <c>did:key</c> to register as a PLC rotation key, letting the

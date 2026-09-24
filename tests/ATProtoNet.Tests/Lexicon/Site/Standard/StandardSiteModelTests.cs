@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Site.Standard.Document;
 using ATProtoNet.Lexicon.Site.Standard.Graph;
 using ATProtoNet.Lexicon.Site.Standard.Publication;
@@ -196,7 +197,7 @@ public class StandardSiteModelTests
             Site = "https://example.com",
             Title = "Post with comments",
             PublishedAt = "2024-01-20T14:30:00.000Z",
-            BskyPostRef = new StrongRef { Uri = "at://did:plc:abc/app.bsky.feed.post/xyz", Cid = "bafytest" }
+            BskyPostRef = new StrongRef { Uri = AtUri.Parse("at://did:plc:abc/app.bsky.feed.post/xyz"), Cid = Cid.Parse("bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm") }
         };
 
         var json = JsonSerializer.Serialize(record);
@@ -204,7 +205,7 @@ public class StandardSiteModelTests
 
         var bskyRef = doc.RootElement.GetProperty("bskyPostRef");
         Assert.Equal("at://did:plc:abc/app.bsky.feed.post/xyz", bskyRef.GetProperty("uri").GetString());
-        Assert.Equal("bafytest", bskyRef.GetProperty("cid").GetString());
+        Assert.Equal("bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", bskyRef.GetProperty("cid").GetString());
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Repo;
 using ATProtoNet.Lexicon.Site.Standard.Document;
 using ATProtoNet.Lexicon.Site.Standard.Graph;
@@ -36,7 +37,7 @@ public sealed class StandardSiteClient
         string? rkey = null,
         CancellationToken cancellationToken = default)
     {
-        return _repo.CreateRecordAsync(repo, "site.standard.publication", record, rkey,
+        return _repo.CreateRecordAsync(AtIdentifier.Parse(repo), Nsid.Parse("site.standard.publication"), record, rkey is null ? null : RecordKey.Parse(rkey),
             cancellationToken: cancellationToken);
     }
 
@@ -48,7 +49,7 @@ public sealed class StandardSiteClient
         string rkey,
         CancellationToken cancellationToken = default)
     {
-        return _repo.GetRecordAsync<PublicationRecord>(repo, "site.standard.publication", rkey,
+        return _repo.GetRecordAsync<PublicationRecord>(AtIdentifier.Parse(repo), Nsid.Parse("site.standard.publication"), RecordKey.Parse(rkey),
             cancellationToken: cancellationToken);
     }
 
@@ -62,8 +63,8 @@ public sealed class StandardSiteClient
         string? swapRecord = null,
         CancellationToken cancellationToken = default)
     {
-        return _repo.PutRecordAsync(repo, "site.standard.publication", rkey, record,
-            swapRecord: swapRecord, cancellationToken: cancellationToken);
+        return _repo.PutRecordAsync(AtIdentifier.Parse(repo), Nsid.Parse("site.standard.publication"), RecordKey.Parse(rkey), record,
+            swapRecord: swapRecord is null ? null : Cid.Parse(swapRecord), cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -74,7 +75,7 @@ public sealed class StandardSiteClient
         string rkey,
         CancellationToken cancellationToken = default)
     {
-        return _repo.DeleteRecordAsync(repo, "site.standard.publication", rkey,
+        return _repo.DeleteRecordAsync(AtIdentifier.Parse(repo), Nsid.Parse("site.standard.publication"), RecordKey.Parse(rkey),
             cancellationToken: cancellationToken);
     }
 
@@ -87,7 +88,7 @@ public sealed class StandardSiteClient
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        return _repo.ListRecordsAsync(repo, "site.standard.publication", limit, cursor,
+        return _repo.ListRecordsAsync(AtIdentifier.Parse(repo), Nsid.Parse("site.standard.publication"), limit: limit, cursor: cursor,
             cancellationToken: cancellationToken);
     }
 
@@ -108,7 +109,7 @@ public sealed class StandardSiteClient
         string? rkey = null,
         CancellationToken cancellationToken = default)
     {
-        return _repo.CreateRecordAsync(repo, "site.standard.document", record, rkey,
+        return _repo.CreateRecordAsync(AtIdentifier.Parse(repo), Nsid.Parse("site.standard.document"), record, rkey is null ? null : RecordKey.Parse(rkey),
             cancellationToken: cancellationToken);
     }
 
@@ -120,7 +121,7 @@ public sealed class StandardSiteClient
         string rkey,
         CancellationToken cancellationToken = default)
     {
-        return _repo.GetRecordAsync<DocumentRecord>(repo, "site.standard.document", rkey,
+        return _repo.GetRecordAsync<DocumentRecord>(AtIdentifier.Parse(repo), Nsid.Parse("site.standard.document"), RecordKey.Parse(rkey),
             cancellationToken: cancellationToken);
     }
 
@@ -134,8 +135,8 @@ public sealed class StandardSiteClient
         string? swapRecord = null,
         CancellationToken cancellationToken = default)
     {
-        return _repo.PutRecordAsync(repo, "site.standard.document", rkey, record,
-            swapRecord: swapRecord, cancellationToken: cancellationToken);
+        return _repo.PutRecordAsync(AtIdentifier.Parse(repo), Nsid.Parse("site.standard.document"), RecordKey.Parse(rkey), record,
+            swapRecord: swapRecord is null ? null : Cid.Parse(swapRecord), cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -146,7 +147,7 @@ public sealed class StandardSiteClient
         string rkey,
         CancellationToken cancellationToken = default)
     {
-        return _repo.DeleteRecordAsync(repo, "site.standard.document", rkey,
+        return _repo.DeleteRecordAsync(AtIdentifier.Parse(repo), Nsid.Parse("site.standard.document"), RecordKey.Parse(rkey),
             cancellationToken: cancellationToken);
     }
 
@@ -159,7 +160,7 @@ public sealed class StandardSiteClient
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        return _repo.ListRecordsAsync(repo, "site.standard.document", limit, cursor,
+        return _repo.ListRecordsAsync(AtIdentifier.Parse(repo), Nsid.Parse("site.standard.document"), limit: limit, cursor: cursor,
             cancellationToken: cancellationToken);
     }
 
@@ -180,7 +181,7 @@ public sealed class StandardSiteClient
         string? rkey = null,
         CancellationToken cancellationToken = default)
     {
-        return _repo.CreateRecordAsync(repo, "site.standard.graph.subscription", record, rkey,
+        return _repo.CreateRecordAsync(AtIdentifier.Parse(repo), Nsid.Parse("site.standard.graph.subscription"), record, rkey is null ? null : RecordKey.Parse(rkey),
             cancellationToken: cancellationToken);
     }
 
@@ -192,7 +193,7 @@ public sealed class StandardSiteClient
         string rkey,
         CancellationToken cancellationToken = default)
     {
-        return _repo.GetRecordAsync<SubscriptionRecord>(repo, "site.standard.graph.subscription", rkey,
+        return _repo.GetRecordAsync<SubscriptionRecord>(AtIdentifier.Parse(repo), Nsid.Parse("site.standard.graph.subscription"), RecordKey.Parse(rkey),
             cancellationToken: cancellationToken);
     }
 
@@ -204,7 +205,7 @@ public sealed class StandardSiteClient
         string rkey,
         CancellationToken cancellationToken = default)
     {
-        return _repo.DeleteRecordAsync(repo, "site.standard.graph.subscription", rkey,
+        return _repo.DeleteRecordAsync(AtIdentifier.Parse(repo), Nsid.Parse("site.standard.graph.subscription"), RecordKey.Parse(rkey),
             cancellationToken: cancellationToken);
     }
 
@@ -217,7 +218,7 @@ public sealed class StandardSiteClient
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        return _repo.ListRecordsAsync(repo, "site.standard.graph.subscription", limit, cursor,
+        return _repo.ListRecordsAsync(AtIdentifier.Parse(repo), Nsid.Parse("site.standard.graph.subscription"), limit: limit, cursor: cursor,
             cancellationToken: cancellationToken);
     }
 }

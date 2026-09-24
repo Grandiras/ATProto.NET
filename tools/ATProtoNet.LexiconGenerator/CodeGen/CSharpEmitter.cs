@@ -63,6 +63,7 @@ public sealed class CSharpEmitter
 
         public bool NeedsJson { get; set; }
         public bool NeedsSdkModels { get; set; }
+        public bool NeedsSdkIdentity { get; set; }
         public bool NeedsSdkCore { get; set; }
         public bool NeedsSdkSpaces { get; set; }
     }
@@ -190,6 +191,8 @@ public sealed class CSharpEmitter
         sb.AppendLine("using System.Text.Json.Serialization;");
         if (ctx.NeedsSdkCore)
             sb.AppendLine("using ATProtoNet;");
+        if (ctx.NeedsSdkIdentity)
+            sb.AppendLine("using ATProtoNet.Identity;");
         if (ctx.NeedsSdkModels)
             sb.AppendLine("using ATProtoNet.Models;");
         if (ctx.NeedsSdkSpaces)
@@ -493,7 +496,7 @@ public sealed class CSharpEmitter
                 var itemType = schema.Items is null
                     ? Fallback(ctx)
                     : ResolveType(schema.Items, ctx, TypeMapper.Singularize(hint), used, nested);
-                return $"List<{itemType}>";
+                return $"IReadOnlyList<{itemType}>";
             }
 
             case "object" when schema.Properties is { Count: > 0 }:
@@ -513,6 +516,8 @@ public sealed class CSharpEmitter
                 var mapped = TypeMapper.GetCSharpType(schema, ctx.Nsid, _namespacePrefix);
                 if (mapped.Contains("JsonElement", StringComparison.Ordinal))
                     ctx.NeedsJson = true;
+                if (TypeMapper.IsIdentityType(mapped))
+                    ctx.NeedsSdkIdentity = true;
                 return mapped;
             }
         }
@@ -554,6 +559,8 @@ public sealed class CSharpEmitter
                         ctx.NeedsJson = true;
                     if (mapped.Contains("BlobRef", StringComparison.Ordinal))
                         ctx.NeedsSdkModels = true;
+                    if (TypeMapper.IsIdentityType(mapped))
+                        ctx.NeedsSdkIdentity = true;
                     return mapped;
                 }
             }
