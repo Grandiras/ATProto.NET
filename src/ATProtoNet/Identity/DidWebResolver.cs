@@ -34,7 +34,7 @@ public sealed partial class DidWebResolver : IDisposable
         // did:web resolution targets a host embedded in the identifier, which may be
         // parked or firewalled; the 100 s HttpClient default is far too long to wait
         // on a DID document. Pass your own HttpClient to override.
-        _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        _httpClient = Http.AtProtoHttp.CreateClient(timeout: TimeSpan.FromSeconds(10));
         _ownsHttpClient = true;
         _jsonOptions = new JsonSerializerOptions
         {

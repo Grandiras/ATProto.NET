@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -125,7 +126,7 @@ public sealed class JetstreamArchiveClient : IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(serviceUrl);
         _baseUri = new Uri(ToHttpUrl(serviceUrl), UriKind.Absolute);
-        _http = httpClient ?? new HttpClient();
+        _http = httpClient ?? AtProtoHttp.CreateClient();
         _ownsHttpClient = httpClient is null;
         _apiKey = apiKey;
         _logger = logger ?? NullLogger.Instance;
@@ -399,16 +400,8 @@ public sealed class JetstreamArchiveClient : IDisposable
         CancellationToken cancellationToken)
     {
         var status = (int)response.StatusCode;
-        var (error, message) = await ReadErrorAsync(response, cancellationToken);
-
-        TimeSpan? retryAfter = null;
-        if (response.Headers.RetryAfter is { } header)
-        {
-            retryAfter = header.Delta
-                ?? (header.Date is { } date ? date - DateTimeOffset.UtcNow : null);
-            if (retryAfter is { Ticks: < 0 })
-                retryAfter = TimeSpan.Zero;
-        }
+        var (error, message, _) = await XrpcResponseReader.ReadErrorAsync(response, cancellationToken);
+        var retryAfter = XrpcResponseReader.GetRequestedDelay(response, DateTimeOffset.UtcNow);
 
         var description = status switch
         {
@@ -464,32 +457,6 @@ public sealed class JetstreamArchiveClient : IDisposable
                 $"Jetstream returned a body that is not a {typeof(T).Name}: {ex.Message}",
                 (int)response.StatusCode,
                 innerException: ex);
-        }
-    }
-
-    /// <summary>Read the XRPC error name and message out of a failed response, if it carried them.</summary>
-    private static async Task<(string? Error, string? Message)> ReadErrorAsync(
-        HttpResponseMessage response,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
-            if (body.ValueKind != JsonValueKind.Object)
-                return (null, null);
-
-            return (
-                body.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.String
-                    ? error.GetString()
-                    : null,
-                body.TryGetProperty("message", out var message) && message.ValueKind == JsonValueKind.String
-                    ? message.GetString()
-                    : null);
-        }
-        catch (Exception ex) when (ex is JsonException or HttpRequestException or NotSupportedException)
-        {
-            // A proxy error page rather than an XRPC envelope; the status code is the whole story.
-            return (null, null);
         }
     }
 

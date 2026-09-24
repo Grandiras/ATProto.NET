@@ -25,43 +25,43 @@ public sealed class SyncClient
     {
         var parameters = new XrpcParams().Add("did", did);
         return _xrpc.QueryAsync<GetLatestCommitResponse>(
-            "com.atproto.sync.getLatestCommit", parameters, cancellationToken);
+            "com.atproto.sync.getLatestCommit", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
-    /// Download a blob by DID and CID. Returns the raw byte stream.
+    /// Download a blob by DID and CID.
     /// </summary>
     /// <param name="did">The DID of the repository containing the blob.</param>
     /// <param name="cid">The CID of the blob to download.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task<Stream> GetBlobAsync(
+    /// <returns>The blob's bytes and declared media type. Dispose it once read.</returns>
+    public Task<XrpcStreamResponse> GetBlobAsync(
         string did, string cid, CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
             .Add("did", did)
             .Add("cid", cid);
 
-        var result = await _xrpc.DownloadBlobAsync(
-            "com.atproto.sync.getBlob", parameters, cancellationToken);
-        return result.Stream;
+        return _xrpc.DownloadAsync(
+            "com.atproto.sync.getBlob", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
-    /// Download an entire repository as a CAR file stream.
+    /// Download an entire repository as a CAR file.
     /// </summary>
     /// <param name="did">The DID of the repository.</param>
     /// <param name="since">Optional cursor for incremental sync (rev of last seen commit).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task<Stream> GetRepoAsync(
+    /// <returns>The CAR stream. Dispose it once read.</returns>
+    public Task<XrpcStreamResponse> GetRepoAsync(
         string did, string? since = null, CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
             .Add("did", did)
             .Add("since", since);
 
-        var result = await _xrpc.DownloadBlobAsync(
-            "com.atproto.sync.getRepo", parameters, cancellationToken);
-        return result.Stream;
+        return _xrpc.DownloadAsync(
+            "com.atproto.sync.getRepo", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -86,7 +86,7 @@ public sealed class SyncClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<ListBlobsResponse>(
-            "com.atproto.sync.listBlobs", parameters, cancellationToken);
+            "com.atproto.sync.listBlobs", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -105,7 +105,7 @@ public sealed class SyncClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<ListReposResponse>(
-            "com.atproto.sync.listRepos", parameters, cancellationToken);
+            "com.atproto.sync.listRepos", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -115,7 +115,7 @@ public sealed class SyncClient
         string hostname, CancellationToken cancellationToken = default)
     {
         var request = new NotifyOfUpdateRequest { Hostname = hostname };
-        await _xrpc.ProcedureAsync<NotifyOfUpdateRequest>(
+        await _xrpc.ProcedureAsync(
             "com.atproto.sync.notifyOfUpdate", request, cancellationToken: cancellationToken);
     }
 
@@ -126,7 +126,7 @@ public sealed class SyncClient
         string hostname, CancellationToken cancellationToken = default)
     {
         var request = new RequestCrawlRequest { Hostname = hostname };
-        await _xrpc.ProcedureAsync<RequestCrawlRequest>(
+        await _xrpc.ProcedureAsync(
             "com.atproto.sync.requestCrawl", request, cancellationToken: cancellationToken);
     }
 
@@ -141,7 +141,7 @@ public sealed class SyncClient
     {
         var parameters = new XrpcParams().Add("did", did);
         return _xrpc.QueryAsync<GetRepoStatusResponse>(
-            "com.atproto.sync.getRepoStatus", parameters, cancellationToken);
+            "com.atproto.sync.getRepoStatus", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -161,7 +161,7 @@ public sealed class SyncClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<ListHostsResponse>(
-            "com.atproto.sync.listHosts", parameters, cancellationToken);
+            "com.atproto.sync.listHosts", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -174,7 +174,7 @@ public sealed class SyncClient
     {
         var parameters = new XrpcParams().Add("hostname", hostname);
         return _xrpc.QueryAsync<GetHostStatusResponse>(
-            "com.atproto.sync.getHostStatus", parameters, cancellationToken);
+            "com.atproto.sync.getHostStatus", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -197,6 +197,6 @@ public sealed class SyncClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<ListReposByCollectionResponse>(
-            "com.atproto.sync.listReposByCollection", parameters, cancellationToken);
+            "com.atproto.sync.listReposByCollection", parameters, cancellationToken: cancellationToken);
     }
 }

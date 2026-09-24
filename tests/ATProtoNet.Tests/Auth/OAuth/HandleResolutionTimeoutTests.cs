@@ -55,7 +55,7 @@ public class HandleResolutionTimeoutTests
         var ex = await Assert.ThrowsAsync<OAuthException>(
             () => discovery.ResolveHandleAuthoritativeAsync(Handle));
 
-        Assert.Equal("handle_resolution_failed", ex.ErrorCode);
+        Assert.Equal("handle_resolution_failed", ex.Error);
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public class HandleResolutionTimeoutTests
         var ex = await Assert.ThrowsAsync<OAuthException>(
             () => discovery.ResolveHandleAuthoritativeAsync(Handle));
 
-        Assert.Equal("handle_resolution_conflict", ex.ErrorCode);
+        Assert.Equal("handle_resolution_conflict", ex.Error);
     }
 
     [Fact]

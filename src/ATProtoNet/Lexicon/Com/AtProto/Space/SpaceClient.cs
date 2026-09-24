@@ -63,7 +63,7 @@ public sealed class SpaceClient
 
         var parameters = new XrpcParams().Add("space", space);
         return _xrpc.QueryAsync<GetDelegationTokenResponse>(
-            "com.atproto.space.getDelegationToken", parameters, cancellationToken);
+            "com.atproto.space.getDelegationToken", parameters, cancellationToken: cancellationToken);
     }
 
     /// <inheritdoc cref="GetDelegationTokenAsync(string, CancellationToken)"/>
@@ -101,7 +101,7 @@ public sealed class SpaceClient
         ArgumentException.ThrowIfNullOrWhiteSpace(space);
 
         var request = new GetSpaceCredentialRequest { Space = space, ClientAttestation = clientAttestation };
-        return _xrpc.ProcedureAsync<GetSpaceCredentialRequest, GetSpaceCredentialResponse>(
+        return _xrpc.ProcedureAsync<GetSpaceCredentialResponse>(
             "com.atproto.space.getSpaceCredential", request, cancellationToken: cancellationToken);
     }
 
@@ -137,7 +137,7 @@ public sealed class SpaceClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<ListSpacesResponse>(
-            "com.atproto.space.listSpaces", parameters, cancellationToken);
+            "com.atproto.space.listSpaces", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -171,7 +171,7 @@ public sealed class SpaceClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<ListSpaceReposResponse>(
-            "com.atproto.space.listRepos", parameters, cancellationToken);
+            "com.atproto.space.listRepos", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -228,7 +228,7 @@ public sealed class SpaceClient
             .Add("rkey", rkey);
 
         return _xrpc.QueryAsync<GetSpaceRecordResponse>(
-            "com.atproto.space.getRecord", parameters, cancellationToken);
+            "com.atproto.space.getRecord", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -269,7 +269,7 @@ public sealed class SpaceClient
             .Add("excludeValues", excludeValues);
 
         return _xrpc.QueryAsync<ListSpaceRecordsResponse>(
-            "com.atproto.space.listRecords", parameters, cancellationToken);
+            "com.atproto.space.listRecords", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -324,7 +324,7 @@ public sealed class SpaceClient
             .Add("repo", repo);
 
         return _xrpc.QueryAsync<GetSpaceLatestCommitResponse>(
-            "com.atproto.space.getLatestCommit", parameters, cancellationToken);
+            "com.atproto.space.getLatestCommit", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -337,8 +337,8 @@ public sealed class SpaceClient
     /// authenticates against the commit.
     /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The CAR stream. Verify it with <see cref="SpaceRepoCar.Verify"/>.</returns>
-    public async Task<Stream> GetRepoAsync(
+    /// <returns>The CAR stream, which the caller disposes. Verify it with <see cref="SpaceRepoCar.Verify"/>.</returns>
+    public Task<XrpcStreamResponse> GetRepoAsync(
         string space,
         string repo,
         bool? excludeValues = null,
@@ -352,9 +352,8 @@ public sealed class SpaceClient
             .Add("repo", repo)
             .Add("excludeValues", excludeValues);
 
-        var result = await _xrpc.DownloadBlobAsync(
-            "com.atproto.space.getRepo", parameters, cancellationToken);
-        return result.Stream;
+        return _xrpc.DownloadAsync(
+            "com.atproto.space.getRepo", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -397,7 +396,7 @@ public sealed class SpaceClient
             .Add("excludeValues", excludeValues);
 
         return _xrpc.QueryAsync<ListSpaceRepoOpsResponse>(
-            "com.atproto.space.listRepoOps", parameters, cancellationToken);
+            "com.atproto.space.listRepoOps", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -412,7 +411,8 @@ public sealed class SpaceClient
     /// with <c>com.atproto.repo.uploadBlob</c>, so a client writing blob-bearing records into a
     /// space needs a <c>blob:</c> permission alongside its <c>space:</c> one.
     /// </remarks>
-    public async Task<Stream> GetBlobAsync(
+    /// <returns>The blob's bytes and declared media type, which the caller disposes.</returns>
+    public Task<XrpcStreamResponse> GetBlobAsync(
         string space, string repo, string cid, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(space);
@@ -424,9 +424,8 @@ public sealed class SpaceClient
             .Add("repo", repo)
             .Add("cid", cid);
 
-        var result = await _xrpc.DownloadBlobAsync(
-            "com.atproto.space.getBlob", parameters, cancellationToken);
-        return result.Stream;
+        return _xrpc.DownloadAsync(
+            "com.atproto.space.getBlob", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -461,7 +460,7 @@ public sealed class SpaceClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<ListSpaceBlobsResponse>(
-            "com.atproto.space.listBlobs", parameters, cancellationToken);
+            "com.atproto.space.listBlobs", parameters, cancellationToken: cancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -503,7 +502,7 @@ public sealed class SpaceClient
             Record = record,
         };
 
-        return _xrpc.ProcedureAsync<CreateSpaceRecordRequest, SpaceWriteResult>(
+        return _xrpc.ProcedureAsync<SpaceWriteResult>(
             "com.atproto.space.createRecord", request, cancellationToken: cancellationToken);
     }
 
@@ -542,7 +541,7 @@ public sealed class SpaceClient
             Record = record,
         };
 
-        return _xrpc.ProcedureAsync<PutSpaceRecordRequest, SpaceWriteResult>(
+        return _xrpc.ProcedureAsync<SpaceWriteResult>(
             "com.atproto.space.putRecord", request, cancellationToken: cancellationToken);
     }
 
@@ -575,7 +574,7 @@ public sealed class SpaceClient
             Rkey = rkey,
         };
 
-        await _xrpc.ProcedureAsync<DeleteSpaceRecordRequest>(
+        await _xrpc.ProcedureAsync(
             "com.atproto.space.deleteRecord", request, cancellationToken: cancellationToken);
     }
 
@@ -610,7 +609,7 @@ public sealed class SpaceClient
             Writes = [.. writes],
         };
 
-        return _xrpc.ProcedureAsync<ApplySpaceWritesRequest, ApplySpaceWritesResponse>(
+        return _xrpc.ProcedureAsync<ApplySpaceWritesResponse>(
             "com.atproto.space.applyWrites", request, cancellationToken: cancellationToken);
     }
 
@@ -644,7 +643,7 @@ public sealed class SpaceClient
         ArgumentException.ThrowIfNullOrWhiteSpace(service);
 
         var request = new RegisterNotifyRequest { Space = space, Service = service };
-        return _xrpc.ProcedureAsync<RegisterNotifyRequest, RegisterNotifyResponse>(
+        return _xrpc.ProcedureAsync<RegisterNotifyResponse>(
             "com.atproto.space.registerNotify", request, cancellationToken: cancellationToken);
     }
 
@@ -661,7 +660,7 @@ public sealed class SpaceClient
         ArgumentException.ThrowIfNullOrWhiteSpace(service);
 
         var request = new UnregisterNotifyRequest { Space = space, Service = service };
-        await _xrpc.ProcedureAsync<UnregisterNotifyRequest>(
+        await _xrpc.ProcedureAsync(
             "com.atproto.space.unregisterNotify", request, cancellationToken: cancellationToken);
     }
 
@@ -690,7 +689,7 @@ public sealed class SpaceClient
         ArgumentNullException.ThrowIfNull(hash);
 
         var request = new NotifyWriteRequest { Space = space, Repo = repo, Rev = rev, Hash = hash };
-        await _xrpc.ProcedureAsync<NotifyWriteRequest>(
+        await _xrpc.ProcedureAsync(
             "com.atproto.space.notifyWrite", request, cancellationToken: cancellationToken);
     }
 
@@ -710,7 +709,7 @@ public sealed class SpaceClient
         ArgumentException.ThrowIfNullOrWhiteSpace(space);
 
         var request = new NotifySpaceDeletedRequest { Space = space };
-        await _xrpc.ProcedureAsync<NotifySpaceDeletedRequest>(
+        await _xrpc.ProcedureAsync(
             "com.atproto.space.notifySpaceDeleted", request, cancellationToken: cancellationToken);
     }
 }

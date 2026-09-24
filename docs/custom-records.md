@@ -482,13 +482,13 @@ try
 {
     var item = await todos.GetAsync("nonexistent-key");
 }
-catch (AtProtoHttpException ex) when (ex.ErrorType == "RecordNotFound")
+catch (XrpcException ex) when (ex.Is(XrpcErrors.RecordNotFound))
 {
     Console.WriteLine("Record does not exist");
 }
-catch (AtProtoHttpException ex)
+catch (XrpcException ex)
 {
-    Console.WriteLine($"XRPC Error: {ex.ErrorType} — {ex.ErrorMessage}");
+    Console.WriteLine($"XRPC Error: {ex.Error} — {ex.ErrorMessage}");
     Console.WriteLine($"Status: {ex.StatusCode}");
 }
 ```

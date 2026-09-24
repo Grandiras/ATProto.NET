@@ -83,21 +83,26 @@ public class PdsAdminClientTests : IDisposable
     }
 
     [Fact]
-    public void Constructor_ValidatesSuppliedHttpClientBaseAddress_NotJustTheOptionsUrl()
+    public async Task Constructor_SendsToTheOptionsUrl_NotASuppliedClientsBaseAddress()
     {
         using var handler = new MockHttpMessageHandler();
         using var httpClient = new HttpClient(handler)
         {
-            // Where the Authorization header would actually be sent.
             BaseAddress = new Uri("http://pds:3000/"),
         };
-
-        var ex = Assert.Throws<ArgumentException>(() => new PdsAdminClient(
+        using var client = new PdsAdminClient(
             new PdsAdminOptions { Url = "https://pds.example.com", AdminPassword = AdminPassword },
             httpClient,
-            null));
+            null);
+        handler.Enqueue("""{"code":"pds-example-com-abc123"}""");
 
-        Assert.Contains("http://pds:3000/", ex.Message);
+        await client.CreateInviteCodeAsync();
+
+        // The Authorization header goes where the validated options URL points, and the
+        // supplied client is left as it was.
+        Assert.Equal(new Uri("https://pds.example.com/"), client.PdsUrl);
+        Assert.Equal("pds.example.com", Assert.Single(handler.Requests).Host);
+        Assert.Equal(new Uri("http://pds:3000/"), httpClient.BaseAddress);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -334,7 +339,7 @@ public class PdsAdminClientTests : IDisposable
     {
         using var client = _client.CreateClient();
 
-        Assert.Equal("https://pds.example.com", client.PdsUrl);
+        Assert.Equal(new Uri("https://pds.example.com/"), client.ServiceUrl);
     }
 
     public void Dispose()
@@ -346,7 +351,7 @@ public class PdsAdminClientTests : IDisposable
     }
 
     private sealed record CapturedRequest(
-        string Path, string? AuthScheme, string? AuthParameter, string? Body);
+        string Path, string? AuthScheme, string? AuthParameter, string? Body, string Host = "");
 
     private sealed class MockHttpMessageHandler : HttpMessageHandler
     {
@@ -367,7 +372,8 @@ public class PdsAdminClientTests : IDisposable
                 request.RequestUri!.PathAndQuery,
                 request.Headers.Authorization?.Scheme,
                 request.Headers.Authorization?.Parameter,
-                body));
+                body,
+                request.RequestUri.Host));
 
             var json = _responses.Count > 0 ? _responses.Dequeue() : "{}";
 

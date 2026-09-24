@@ -277,7 +277,7 @@ public sealed class SpaceWriteNotifier
                 return false;
             }
 
-            var url = new Uri(new Uri(endpoint.TrimEnd('/') + "/"), $"xrpc/{nsid}");
+            var url = new Uri(Http.AtProtoHttp.NormalizeBaseUrl(endpoint), $"xrpc/{nsid}");
 
             using var request = new HttpRequestMessage(HttpMethod.Post, url)
             {

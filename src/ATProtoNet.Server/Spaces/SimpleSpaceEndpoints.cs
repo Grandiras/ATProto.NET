@@ -1,3 +1,5 @@
+using System.Net;
+using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
@@ -65,7 +67,7 @@ public abstract class SimpleSpaceEndpointBase
     /// <summary>The error a <c>simplespace</c> method answers with for a space the caller may not see.</summary>
     /// <param name="space">The space that was addressed.</param>
     protected static XrpcException NotFound(SpaceUri space) =>
-        new(SimpleSpaceErrors.SpaceNotFound, $"No such space: {space}.", StatusCodes.Status404NotFound);
+        new(SimpleSpaceErrors.SpaceNotFound, $"No such space: {space}.", HttpStatusCode.NotFound);
 }
 
 /// <summary>Serves <c>com.atproto.simplespace.createSpace</c>.</summary>
@@ -96,7 +98,7 @@ public sealed class CreateSimpleSpaceEndpoint
         // A TID when the caller names no key, so repeated creates do not collide.
         var skey = string.IsNullOrEmpty(input.Skey) ? Tid.NextString() : input.Skey;
         if (!SpaceUri.TryParse($"at://{caller}/space/{type}/{skey}", out var uri))
-            throw new XrpcException("InvalidRequest", $"'{skey}' is not a valid space key.");
+            throw new XrpcException(XrpcErrors.InvalidRequest, $"'{skey}' is not a valid space key.");
 
         // Required on the wire; a JSON null gets past deserialization, so it is caught here rather
         // than stored as a space with no policy to enforce.
@@ -112,11 +114,11 @@ public sealed class CreateSimpleSpaceEndpoint
         return created
             ? new CreateSimpleSpaceResponse { Uri = uri.Value }
             : throw new XrpcException(
-                SimpleSpaceErrors.SpaceAlreadyExists, $"{uri} already exists.", StatusCodes.Status409Conflict);
+                SimpleSpaceErrors.SpaceAlreadyExists, $"{uri} already exists.", HttpStatusCode.Conflict);
     }
 
     private static XrpcException Missing(string name) =>
-        new("InvalidRequest", $"The \"{name}\" field is required.");
+        new(XrpcErrors.InvalidRequest, $"The \"{name}\" field is required.");
 
     /// <summary>
     /// Rejects a policy variant this host does not implement, rather than storing one it could

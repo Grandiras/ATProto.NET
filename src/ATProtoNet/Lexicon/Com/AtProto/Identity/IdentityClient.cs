@@ -25,7 +25,7 @@ public sealed class IdentityClient
     {
         var parameters = new XrpcParams().Add("handle", handle);
         return _xrpc.QueryAsync<ResolveHandleResponse>(
-            "com.atproto.identity.resolveHandle", parameters, cancellationToken);
+            "com.atproto.identity.resolveHandle", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -37,7 +37,7 @@ public sealed class IdentityClient
         string handle, CancellationToken cancellationToken = default)
     {
         var request = new UpdateHandleRequest { Handle = handle };
-        await _xrpc.ProcedureAsync<UpdateHandleRequest>(
+        await _xrpc.ProcedureAsync(
             "com.atproto.identity.updateHandle", request, cancellationToken: cancellationToken);
     }
 
@@ -58,7 +58,7 @@ public sealed class IdentityClient
     public async Task RequestPlcOperationSignatureAsync(
         CancellationToken cancellationToken = default)
     {
-        await _xrpc.ProcedureAsync<object>(
+        await _xrpc.ProcedureAsync(
             "com.atproto.identity.requestPlcOperationSignature",
             new { }, cancellationToken: cancellationToken);
     }
@@ -69,7 +69,7 @@ public sealed class IdentityClient
     public Task<SignPlcOperationResponse> SignPlcOperationAsync(
         SignPlcOperationRequest request, CancellationToken cancellationToken = default)
     {
-        return _xrpc.ProcedureAsync<SignPlcOperationRequest, SignPlcOperationResponse>(
+        return _xrpc.ProcedureAsync<SignPlcOperationResponse>(
             "com.atproto.identity.signPlcOperation", request, cancellationToken: cancellationToken);
     }
 
@@ -79,7 +79,7 @@ public sealed class IdentityClient
     public async Task SubmitPlcOperationAsync(
         SubmitPlcOperationRequest request, CancellationToken cancellationToken = default)
     {
-        await _xrpc.ProcedureAsync<SubmitPlcOperationRequest>(
+        await _xrpc.ProcedureAsync(
             "com.atproto.identity.submitPlcOperation", request, cancellationToken: cancellationToken);
     }
 }

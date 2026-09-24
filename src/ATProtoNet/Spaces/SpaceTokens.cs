@@ -431,7 +431,7 @@ public static class SpaceTokens
 }
 
 /// <summary>Thrown when a space token is malformed, expired, or fails verification.</summary>
-public sealed class SpaceTokenException : Exception
+public sealed class SpaceTokenException : AtProtoException
 {
     /// <summary>Creates a new exception with the given message.</summary>
     /// <param name="message">A description of what went wrong.</param>

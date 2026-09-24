@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -34,8 +35,12 @@ public static class AtProtoJsonDefaults
     /// </summary>
     /// <param name="dateTime">The date/time value. Will be treated as UTC.</param>
     /// <returns>An AT Protocol-compliant timestamp string.</returns>
+    /// <remarks>
+    /// Formatted in the invariant culture: under the current one, a Thai or Japanese-era
+    /// locale would write its own calendar's year, and some locales a different time separator.
+    /// </remarks>
     public static string FormatTimestamp(DateTime dateTime)
-        => dateTime.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'");
+        => dateTime.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
 
     /// <summary>
     /// Gets the current UTC time formatted as an AT Protocol-compliant timestamp.

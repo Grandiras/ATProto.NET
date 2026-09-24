@@ -187,7 +187,7 @@ Users on the AT Protocol can use any PDS. Rather than hardcoding a PDS URL, reso
 
 ```csharp
 // Set PDS URL at runtime
-client.SetPdsUrl("https://custom-pds.example.com");
+client.SetServiceUrl(new Uri("https://custom-pds.example.com"));
 
 // Or let OAuth do it — StartAuthorizationAsync resolves the PDS automatically
 var (url, state) = await oauthClient.StartAuthorizationAsync(
@@ -356,21 +356,21 @@ try
 {
     var session = await oauthClient.CompleteAuthorizationAsync(code, state, issuer);
 }
-catch (OAuthException ex) when (ex.ErrorCode == "invalid_state")
+catch (OAuthException ex) when (ex.Error == "invalid_state")
 {
     // Unknown or expired state parameter
 }
-catch (OAuthException ex) when (ex.ErrorCode == "issuer_mismatch")
+catch (OAuthException ex) when (ex.Error == "issuer_mismatch")
 {
     // Authorization server issuer doesn't match
 }
-catch (OAuthException ex) when (ex.ErrorCode == "did_mismatch")
+catch (OAuthException ex) when (ex.Error == "did_mismatch")
 {
     // Token DID doesn't match expected identity
 }
 catch (OAuthException ex)
 {
-    Console.WriteLine($"OAuth error ({ex.ErrorCode}): {ex.Message}");
+    Console.WriteLine($"OAuth error ({ex.Error}): {ex.Message}");
 }
 ```
 

@@ -203,11 +203,11 @@ public sealed class SpaceSyncer
                 _space.Value, cursor.Repo, cursor.Rev, pageSize, cursor: null,
                 excludeValues: false, cancellationToken);
         }
-        catch (AtProtoHttpException ex) when (IsMissingRepo(ex))
+        catch (XrpcException ex) when (IsMissingRepo(ex))
         {
             return new SpaceSyncResult(SpaceSyncOutcome.NoRepo, cursor.Rev, null, [], null);
         }
-        catch (AtProtoHttpException ex) when (IsUnusableOplog(ex))
+        catch (XrpcException ex) when (IsUnusableOplog(ex))
         {
             // A `since` the host can no longer serve is not an error condition — the oplog is a
             // transport optimization with no history guarantee, and it is reset by migration.
@@ -311,14 +311,14 @@ public sealed class SpaceSyncer
         byte[] car;
         try
         {
-            await using var stream = await client.GetRepoAsync(
+            await using var response = await client.GetRepoAsync(
                 _space.Value, cursor.Repo, excludeValues: null, cancellationToken);
 
             using var buffer = new MemoryStream();
-            await stream.CopyToAsync(buffer, cancellationToken);
+            await response.Content.CopyToAsync(buffer, cancellationToken);
             car = buffer.ToArray();
         }
-        catch (AtProtoHttpException ex) when (IsMissingRepo(ex))
+        catch (XrpcException ex) when (IsMissingRepo(ex))
         {
             await _store.DropAsync(_space, cursor.Repo, cancellationToken);
             cursor.Reset(new SpaceRepoCommit(), rev: null);
@@ -362,15 +362,14 @@ public sealed class SpaceSyncer
     /// will not honour — as opposed to failing to serve it. Only the former is repaired by a full
     /// download; a 429 or a 5xx is transient and belongs to the caller's retry policy.
     /// </summary>
-    private static bool IsUnusableOplog(AtProtoHttpException exception) =>
-        exception.StatusCode is { } status &&
-        (int)status is >= 400 and < 500 &&
-        status is not HttpStatusCode.TooManyRequests
+    private static bool IsUnusableOplog(XrpcException exception) =>
+        (int)exception.StatusCode is >= 400 and < 500 &&
+        exception.StatusCode is not HttpStatusCode.TooManyRequests
             and not HttpStatusCode.Unauthorized
             and not HttpStatusCode.Forbidden;
 
-    private static bool IsMissingRepo(AtProtoHttpException exception) =>
-        exception.ErrorType is SpaceErrors.RepoNotFound
+    private static bool IsMissingRepo(XrpcException exception) =>
+        exception.Error is SpaceErrors.RepoNotFound
             or SpaceErrors.RepoDeactivated
             or SpaceErrors.RepoSuspended
             or SpaceErrors.RepoTakendown;

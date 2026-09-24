@@ -118,13 +118,13 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
         // The outsider is on the same PDS as the authority, so the host holds the records it is
         // being asked for and has to refuse them on its own — the membership gate lives in the
         // credential mint, and an unauthorized caller must not be assumed never to get this far.
-        var refusal = await Assert.ThrowsAsync<AtProtoHttpException>(
+        var refusal = await Assert.ThrowsAnyAsync<XrpcException>(
             () => fixture.Outsider.Client.Space.GetRecordAsync(
                 space.Value, fixture.Authority.Did, SpaceNetworkFixture.Collection, "private"));
 
         // Deliberately the same error an absent repo gets: whether an account holds a repo in a
         // space the caller may not read is not the caller's business.
-        Assert.Equal(SpaceErrors.RepoNotFound, refusal.ErrorType);
+        Assert.Equal(SpaceErrors.RepoNotFound, refusal.Error);
     }
 
     [RequiresSpacesFact]

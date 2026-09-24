@@ -326,7 +326,7 @@ public sealed class JetstreamSegmentPage
 /// <see cref="IsRetryable"/> distinguishes them, and <see cref="JetstreamArchiveClient"/>
 /// already waits out a <c>429</c> before it gives up.
 /// </remarks>
-public sealed class JetstreamArchiveException : Exception
+public sealed class JetstreamArchiveException : AtProtoException
 {
     /// <summary>Create an archive exception.</summary>
     /// <param name="message">The error description.</param>

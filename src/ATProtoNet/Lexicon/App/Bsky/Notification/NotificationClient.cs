@@ -37,7 +37,7 @@ public sealed class NotificationClient
             .Add("seenAt", seenAt);
 
         return _xrpc.QueryAsync<ListNotificationsResponse>(
-            "app.bsky.notification.listNotifications", parameters, cancellationToken);
+            "app.bsky.notification.listNotifications", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -56,7 +56,7 @@ public sealed class NotificationClient
             .Add("seenAt", seenAt);
 
         return _xrpc.QueryAsync<GetUnreadCountResponse>(
-            "app.bsky.notification.getUnreadCount", parameters, cancellationToken);
+            "app.bsky.notification.getUnreadCount", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -69,7 +69,7 @@ public sealed class NotificationClient
         string seenAt, CancellationToken cancellationToken = default)
     {
         var request = new UpdateSeenRequest { SeenAt = seenAt };
-        await _xrpc.ProcedureAsync<UpdateSeenRequest>(
+        await _xrpc.ProcedureAsync(
             "app.bsky.notification.updateSeen", request, cancellationToken: cancellationToken);
     }
 
@@ -87,7 +87,7 @@ public sealed class NotificationClient
     public async Task RegisterPushAsync(
         RegisterPushRequest request, CancellationToken cancellationToken = default)
     {
-        await _xrpc.ProcedureAsync<RegisterPushRequest>(
+        await _xrpc.ProcedureAsync(
             "app.bsky.notification.registerPush", request, cancellationToken: cancellationToken);
     }
 }

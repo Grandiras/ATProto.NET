@@ -31,8 +31,8 @@ public sealed class VideoClient
         Stream data, string mimeType = "video/mp4",
         CancellationToken cancellationToken = default)
     {
-        return _xrpc.UploadBlobAsync<UploadVideoResponse>(
-            "app.bsky.video.uploadVideo", data, mimeType, cancellationToken);
+        return _xrpc.UploadAsync<UploadVideoResponse>(
+            "app.bsky.video.uploadVideo", data, mimeType, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -45,7 +45,7 @@ public sealed class VideoClient
     {
         var parameters = new XrpcParams().Add("jobId", jobId);
         return _xrpc.QueryAsync<GetJobStatusResponse>(
-            "app.bsky.video.getJobStatus", parameters, cancellationToken);
+            "app.bsky.video.getJobStatus", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -55,6 +55,6 @@ public sealed class VideoClient
         CancellationToken cancellationToken = default)
     {
         return _xrpc.QueryAsync<GetUploadLimitsResponse>(
-            "app.bsky.video.getUploadLimits", null, cancellationToken);
+            "app.bsky.video.getUploadLimits", null, cancellationToken: cancellationToken);
     }
 }

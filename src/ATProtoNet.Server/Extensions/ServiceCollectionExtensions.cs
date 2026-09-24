@@ -47,7 +47,8 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAtProtoServer(this IServiceCollection services)
     {
         services.AddDataProtection();
-        services.AddHttpClient("AtProtoClient");
+        services.AddHttpClient("AtProtoClient")
+            .ConfigurePrimaryHttpMessageHandler(Http.AtProtoHttp.CreateHandler);
 
         services.TryAddSingleton<IAtProtoTokenStore, FileAtProtoTokenStore>();
         services.TryAddSingleton<IAtProtoClientFactory, AtProtoClientFactory>();
@@ -83,7 +84,8 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAtProtoServer<TTokenStore>(this IServiceCollection services)
         where TTokenStore : class, IAtProtoTokenStore
     {
-        services.AddHttpClient("AtProtoClient");
+        services.AddHttpClient("AtProtoClient")
+            .ConfigurePrimaryHttpMessageHandler(Http.AtProtoHttp.CreateHandler);
 
         services.AddSingleton<IAtProtoTokenStore, TTokenStore>();
         services.TryAddSingleton<IAtProtoClientFactory, AtProtoClientFactory>();
@@ -113,7 +115,8 @@ public static class ServiceCollectionExtensions
     {
         services.TryAddSingleton<ISessionStore, InMemorySessionStore>();
 
-        services.AddHttpClient<AtProtoClient>();
+        services.AddHttpClient<AtProtoClient>()
+            .ConfigurePrimaryHttpMessageHandler(Http.AtProtoHttp.CreateHandler);
 
         if (configure is not null)
             services.Configure(configure);
@@ -157,7 +160,8 @@ public static class ServiceCollectionExtensions
     {
         services.TryAddScoped<ISessionStore, InMemorySessionStore>();
 
-        services.AddHttpClient<AtProtoClient>();
+        services.AddHttpClient<AtProtoClient>()
+            .ConfigurePrimaryHttpMessageHandler(Http.AtProtoHttp.CreateHandler);
 
         services.AddScoped(sp =>
         {

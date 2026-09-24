@@ -310,7 +310,7 @@ public class OAuthModelsTests
         var ex = new OAuthException("Test error", "test_error");
 
         Assert.Equal("Test error", ex.Message);
-        Assert.Equal("test_error", ex.ErrorCode);
+        Assert.Equal("test_error", ex.Error);
     }
 
     [Fact]
@@ -320,7 +320,7 @@ public class OAuthModelsTests
         var ex = new OAuthException("Test error", "test_error", inner);
 
         Assert.Equal("Test error", ex.Message);
-        Assert.Equal("test_error", ex.ErrorCode);
+        Assert.Equal("test_error", ex.Error);
         Assert.Same(inner, ex.InnerException);
     }
 

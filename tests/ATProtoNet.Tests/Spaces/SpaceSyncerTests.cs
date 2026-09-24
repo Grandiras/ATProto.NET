@@ -27,7 +27,7 @@ public class SpaceSyncerTests : IDisposable
     public SpaceSyncerTests()
     {
         _httpClient = new HttpClient(_host) { BaseAddress = new Uri("https://repo.example.com/") };
-        _xrpc = new XrpcClient(_httpClient, NullLogger.Instance, AtProtoJsonDefaults.Options);
+        _xrpc = new XrpcClient(_httpClient, _httpClient.BaseAddress!, NullLogger.Instance);
         _xrpc.SetTokens("credential");
         _client = new SpaceClient(_xrpc);
     }
@@ -253,7 +253,7 @@ public class SpaceSyncerTests : IDisposable
         _host.Ops = """{"error":"UpstreamFailure","message":"try again"}""";
         _host.Car = [];
 
-        await Assert.ThrowsAsync<AtProtoHttpException>(
+        await Assert.ThrowsAnyAsync<XrpcException>(
             () => CreateSyncer().SyncRepoAsync(_client, new SpaceRepoCursor(Repo, "3l6ov0", default)));
     }
 
@@ -339,7 +339,6 @@ public class SpaceSyncerTests : IDisposable
     public void Dispose()
     {
         _key.Dispose();
-        _xrpc.Dispose();
         _httpClient.Dispose();
         _host.Dispose();
         GC.SuppressFinalize(this);

@@ -12,6 +12,8 @@ namespace ATProtoNet.Lexicon.Chat.Bsky.Convo;
 /// </summary>
 public sealed class ConvoClient
 {
+    private static readonly XrpcCallOptions ChatProxy = new() { Proxy = ServiceProxy.BskyChatHeader };
+
     private readonly XrpcClient _xrpc;
 
     internal ConvoClient(XrpcClient xrpc)
@@ -38,7 +40,7 @@ public sealed class ConvoClient
             .Add("status", status);
 
         return _xrpc.QueryAsync<ListConvosResponse>(
-            "chat.bsky.convo.listConvos", ServiceProxy.BskyChatHeader, parameters, cancellationToken);
+            "chat.bsky.convo.listConvos", parameters, options: ChatProxy, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -52,7 +54,7 @@ public sealed class ConvoClient
             .Add("convoId", convoId);
 
         return _xrpc.QueryAsync<GetConvoResponse>(
-            "chat.bsky.convo.getConvo", ServiceProxy.BskyChatHeader, parameters, cancellationToken);
+            "chat.bsky.convo.getConvo", parameters, options: ChatProxy, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -66,7 +68,7 @@ public sealed class ConvoClient
             .AddAll("members", members);
 
         return _xrpc.QueryAsync<GetConvoForMembersResponse>(
-            "chat.bsky.convo.getConvoForMembers", ServiceProxy.BskyChatHeader, parameters, cancellationToken);
+            "chat.bsky.convo.getConvoForMembers", parameters, options: ChatProxy, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -80,7 +82,7 @@ public sealed class ConvoClient
             .AddAll("members", members);
 
         return _xrpc.QueryAsync<GetConvoAvailabilityResponse>(
-            "chat.bsky.convo.getConvoAvailability", ServiceProxy.BskyChatHeader, parameters, cancellationToken);
+            "chat.bsky.convo.getConvoAvailability", parameters, options: ChatProxy, cancellationToken: cancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -100,7 +102,7 @@ public sealed class ConvoClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetMessagesResponse>(
-            "chat.bsky.convo.getMessages", ServiceProxy.BskyChatHeader, parameters, cancellationToken);
+            "chat.bsky.convo.getMessages", parameters, options: ChatProxy, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -116,8 +118,8 @@ public sealed class ConvoClient
             Message = message,
         };
 
-        return _xrpc.ProcedureAsync<SendMessageRequest, MessageView>(
-            "chat.bsky.convo.sendMessage", request, ServiceProxy.BskyChatHeader,
+        return _xrpc.ProcedureAsync<MessageView>(
+            "chat.bsky.convo.sendMessage", request, options: ChatProxy,
             cancellationToken: cancellationToken);
     }
 
@@ -130,8 +132,8 @@ public sealed class ConvoClient
     {
         var request = new SendMessageBatchRequest { Items = items };
 
-        return _xrpc.ProcedureAsync<SendMessageBatchRequest, SendMessageBatchResponse>(
-            "chat.bsky.convo.sendMessageBatch", request, ServiceProxy.BskyChatHeader,
+        return _xrpc.ProcedureAsync<SendMessageBatchResponse>(
+            "chat.bsky.convo.sendMessageBatch", request, options: ChatProxy,
             cancellationToken: cancellationToken);
     }
 
@@ -148,8 +150,8 @@ public sealed class ConvoClient
             MessageId = messageId,
         };
 
-        return _xrpc.ProcedureAsync<DeleteMessageForSelfRequest, DeletedMessageView>(
-            "chat.bsky.convo.deleteMessageForSelf", request, ServiceProxy.BskyChatHeader,
+        return _xrpc.ProcedureAsync<DeletedMessageView>(
+            "chat.bsky.convo.deleteMessageForSelf", request, options: ChatProxy,
             cancellationToken: cancellationToken);
     }
 
@@ -166,8 +168,8 @@ public sealed class ConvoClient
     {
         var request = new LeaveConvoRequest { ConvoId = convoId };
 
-        return _xrpc.ProcedureAsync<LeaveConvoRequest, LeaveConvoResponse>(
-            "chat.bsky.convo.leaveConvo", request, ServiceProxy.BskyChatHeader,
+        return _xrpc.ProcedureAsync<LeaveConvoResponse>(
+            "chat.bsky.convo.leaveConvo", request, options: ChatProxy,
             cancellationToken: cancellationToken);
     }
 
@@ -180,8 +182,8 @@ public sealed class ConvoClient
     {
         var request = new MuteConvoRequest { ConvoId = convoId };
 
-        return _xrpc.ProcedureAsync<MuteConvoRequest, ConvoView>(
-            "chat.bsky.convo.muteConvo", request, ServiceProxy.BskyChatHeader,
+        return _xrpc.ProcedureAsync<ConvoView>(
+            "chat.bsky.convo.muteConvo", request, options: ChatProxy,
             cancellationToken: cancellationToken);
     }
 
@@ -194,8 +196,8 @@ public sealed class ConvoClient
     {
         var request = new UnmuteConvoRequest { ConvoId = convoId };
 
-        return _xrpc.ProcedureAsync<UnmuteConvoRequest, ConvoView>(
-            "chat.bsky.convo.unmuteConvo", request, ServiceProxy.BskyChatHeader,
+        return _xrpc.ProcedureAsync<ConvoView>(
+            "chat.bsky.convo.unmuteConvo", request, options: ChatProxy,
             cancellationToken: cancellationToken);
     }
 
@@ -212,8 +214,8 @@ public sealed class ConvoClient
             MessageId = messageId,
         };
 
-        return _xrpc.ProcedureAsync<UpdateReadRequest, ConvoView>(
-            "chat.bsky.convo.updateRead", request, ServiceProxy.BskyChatHeader,
+        return _xrpc.ProcedureAsync<ConvoView>(
+            "chat.bsky.convo.updateRead", request, options: ChatProxy,
             cancellationToken: cancellationToken);
     }
 
@@ -224,7 +226,7 @@ public sealed class ConvoClient
         CancellationToken cancellationToken = default)
     {
         await _xrpc.ProcedureAsync(
-            "chat.bsky.convo.updateAllRead", ServiceProxy.BskyChatHeader,
+            "chat.bsky.convo.updateAllRead", options: ChatProxy,
             cancellationToken: cancellationToken);
     }
 
@@ -237,8 +239,8 @@ public sealed class ConvoClient
     {
         var request = new AcceptConvoRequest { ConvoId = convoId };
 
-        return _xrpc.ProcedureAsync<AcceptConvoRequest, AcceptConvoResponse>(
-            "chat.bsky.convo.acceptConvo", request, ServiceProxy.BskyChatHeader,
+        return _xrpc.ProcedureAsync<AcceptConvoResponse>(
+            "chat.bsky.convo.acceptConvo", request, options: ChatProxy,
             cancellationToken: cancellationToken);
     }
 
@@ -260,8 +262,8 @@ public sealed class ConvoClient
             Value = value,
         };
 
-        return _xrpc.ProcedureAsync<AddReactionRequest, MessageView>(
-            "chat.bsky.convo.addReaction", request, ServiceProxy.BskyChatHeader,
+        return _xrpc.ProcedureAsync<MessageView>(
+            "chat.bsky.convo.addReaction", request, options: ChatProxy,
             cancellationToken: cancellationToken);
     }
 
@@ -279,8 +281,8 @@ public sealed class ConvoClient
             Value = value,
         };
 
-        return _xrpc.ProcedureAsync<RemoveReactionRequest, MessageView>(
-            "chat.bsky.convo.removeReaction", request, ServiceProxy.BskyChatHeader,
+        return _xrpc.ProcedureAsync<MessageView>(
+            "chat.bsky.convo.removeReaction", request, options: ChatProxy,
             cancellationToken: cancellationToken);
     }
 
@@ -299,6 +301,6 @@ public sealed class ConvoClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetLogResponse>(
-            "chat.bsky.convo.getLog", ServiceProxy.BskyChatHeader, parameters, cancellationToken);
+            "chat.bsky.convo.getLog", parameters, options: ChatProxy, cancellationToken: cancellationToken);
     }
 }

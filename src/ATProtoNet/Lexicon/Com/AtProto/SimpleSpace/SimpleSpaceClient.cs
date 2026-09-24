@@ -74,7 +74,7 @@ public sealed class SimpleSpaceClient
             AppAccess = appAccess ?? new OpenAppAccess(),
         };
 
-        return await _xrpc.ProcedureAsync<CreateSimpleSpaceRequest, CreateSimpleSpaceResponse>(
+        return await _xrpc.ProcedureAsync<CreateSimpleSpaceResponse>(
             "com.atproto.simplespace.createSpace", request, cancellationToken: cancellationToken);
     }
 
@@ -104,7 +104,7 @@ public sealed class SimpleSpaceClient
             AppAccess = appAccess,
         };
 
-        await _xrpc.ProcedureAsync<UpdateSimpleSpaceRequest>(
+        await _xrpc.ProcedureAsync(
             "com.atproto.simplespace.updateSpace", request, cancellationToken: cancellationToken);
     }
 
@@ -128,7 +128,7 @@ public sealed class SimpleSpaceClient
         ArgumentException.ThrowIfNullOrWhiteSpace(space);
 
         var request = new DeleteSimpleSpaceRequest { Space = space };
-        await _xrpc.ProcedureAsync<DeleteSimpleSpaceRequest>(
+        await _xrpc.ProcedureAsync(
             "com.atproto.simplespace.deleteSpace", request, cancellationToken: cancellationToken);
     }
 
@@ -144,7 +144,7 @@ public sealed class SimpleSpaceClient
 
         var parameters = new XrpcParams().Add("space", space);
         return _xrpc.QueryAsync<GetSimpleSpaceResponse>(
-            "com.atproto.simplespace.getSpace", parameters, cancellationToken);
+            "com.atproto.simplespace.getSpace", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -172,7 +172,7 @@ public sealed class SimpleSpaceClient
         ArgumentException.ThrowIfNullOrWhiteSpace(did);
 
         var request = new PutSimpleSpaceMemberRequest { Space = space, Did = did, Read = read, Write = write };
-        await _xrpc.ProcedureAsync<PutSimpleSpaceMemberRequest>(
+        await _xrpc.ProcedureAsync(
             "com.atproto.simplespace.putMember", request, cancellationToken: cancellationToken);
     }
 
@@ -194,7 +194,7 @@ public sealed class SimpleSpaceClient
         ArgumentException.ThrowIfNullOrWhiteSpace(did);
 
         var request = new RemoveSimpleSpaceMemberRequest { Space = space, Did = did };
-        await _xrpc.ProcedureAsync<RemoveSimpleSpaceMemberRequest>(
+        await _xrpc.ProcedureAsync(
             "com.atproto.simplespace.removeMember", request, cancellationToken: cancellationToken);
     }
 
@@ -225,7 +225,7 @@ public sealed class SimpleSpaceClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<ListSimpleSpaceMembersResponse>(
-            "com.atproto.simplespace.listMembers", parameters, cancellationToken);
+            "com.atproto.simplespace.listMembers", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -292,7 +292,7 @@ public sealed class SimpleSpaceClient
             .Add("clientId", clientId);
 
         return _xrpc.QueryAsync<CheckUserAccessResponse>(
-            "com.atproto.simplespace.checkUserAccess", parameters, cancellationToken);
+            "com.atproto.simplespace.checkUserAccess", parameters, cancellationToken: cancellationToken);
     }
 
     // ── SpaceUri overloads ───────────────────────────────────────

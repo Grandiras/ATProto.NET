@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using ATProtoNet.Auth.OAuth;
+using ATProtoNet.Http;
 using ATProtoNet.Server.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -103,19 +104,15 @@ public sealed class AtProtoOAuthService : IOAuthClientProvider, IDisposable
                 HandleResolutionTimeout = _serverOptions.HandleResolutionTimeout,
             };
 
-            // A caller-supplied client is theirs: don't touch its Timeout and don't
-            // dispose it with this service.
+            // A caller-supplied client is theirs: don't touch its Timeout or headers, and
+            // don't dispose it with this service. An owned one is this service's alone, so
+            // its default headers are safe to set before first use.
             var httpClient = _serverOptions.HttpClient;
             if (httpClient is null)
             {
-                httpClient = new HttpClient { Timeout = _serverOptions.HttpClientTimeout };
+                httpClient = AtProtoHttp.CreateClient(_serverOptions.HttpClientTimeout);
+                httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd(AtProtoHttp.DefaultUserAgent);
                 _httpClient = httpClient;
-            }
-
-            if (httpClient.DefaultRequestHeaders.UserAgent.Count == 0)
-            {
-                httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd(
-                    $"ATProtoNet/{typeof(OAuthClient).Assembly.GetName().Version}");
             }
 
             _oauthClient = new OAuthClient(oauthOptions, httpClient, _oauthClientLogger);

@@ -20,7 +20,7 @@ public sealed class CommunicationClient
     public Task<CommunicationTemplateView> CreateTemplateAsync(
         CreateTemplateRequest request,
         CancellationToken cancellationToken = default) =>
-        _xrpc.ProcedureAsync<CreateTemplateRequest, CommunicationTemplateView>(
+        _xrpc.ProcedureAsync<CommunicationTemplateView>(
             "tools.ozone.communication.createTemplate", request, cancellationToken: cancellationToken);
 
     /// <summary>
@@ -31,7 +31,7 @@ public sealed class CommunicationClient
         CancellationToken cancellationToken = default)
     {
         var request = new DeleteTemplateRequest { Id = id };
-        await _xrpc.ProcedureAsync<DeleteTemplateRequest>(
+        await _xrpc.ProcedureAsync(
             "tools.ozone.communication.deleteTemplate", request, cancellationToken: cancellationToken);
     }
 
@@ -49,6 +49,6 @@ public sealed class CommunicationClient
     public Task<CommunicationTemplateView> UpdateTemplateAsync(
         UpdateTemplateRequest request,
         CancellationToken cancellationToken = default) =>
-        _xrpc.ProcedureAsync<UpdateTemplateRequest, CommunicationTemplateView>(
+        _xrpc.ProcedureAsync<CommunicationTemplateView>(
             "tools.ozone.communication.updateTemplate", request, cancellationToken: cancellationToken);
 }

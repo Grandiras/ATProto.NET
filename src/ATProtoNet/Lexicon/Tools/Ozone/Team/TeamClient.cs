@@ -20,7 +20,7 @@ public sealed class TeamClient
     public Task<TeamMember> AddMemberAsync(
         AddMemberRequest request,
         CancellationToken cancellationToken = default) =>
-        _xrpc.ProcedureAsync<AddMemberRequest, TeamMember>(
+        _xrpc.ProcedureAsync<TeamMember>(
             "tools.ozone.team.addMember", request, cancellationToken: cancellationToken);
 
     /// <summary>
@@ -31,7 +31,7 @@ public sealed class TeamClient
         CancellationToken cancellationToken = default)
     {
         var request = new DeleteMemberRequest { Did = did };
-        await _xrpc.ProcedureAsync<DeleteMemberRequest>(
+        await _xrpc.ProcedureAsync(
             "tools.ozone.team.deleteMember", request, cancellationToken: cancellationToken);
     }
 
@@ -47,7 +47,7 @@ public sealed class TeamClient
             .Add("limit", limit)
             .Add("cursor", cursor);
         return _xrpc.QueryAsync<ListMembersResponse>(
-            "tools.ozone.team.listMembers", parameters, cancellationToken);
+            "tools.ozone.team.listMembers", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -56,6 +56,6 @@ public sealed class TeamClient
     public Task<TeamMember> UpdateMemberAsync(
         UpdateMemberRequest request,
         CancellationToken cancellationToken = default) =>
-        _xrpc.ProcedureAsync<UpdateMemberRequest, TeamMember>(
+        _xrpc.ProcedureAsync<TeamMember>(
             "tools.ozone.team.updateMember", request, cancellationToken: cancellationToken);
 }

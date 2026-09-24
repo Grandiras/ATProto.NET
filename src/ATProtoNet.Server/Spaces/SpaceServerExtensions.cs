@@ -67,7 +67,8 @@ public static class SpaceServerExtensions
             // sit on the critical path of a credential request, so they fail fast rather than
             // holding the exchange open.
             client.Timeout = TimeSpan.FromSeconds(10);
-        });
+        })
+            .ConfigurePrimaryHttpMessageHandler(Http.AtProtoHttp.CreateHandler);
 
         services.TryAddSingleton<ISpaceReplayStore, InMemorySpaceReplayStore>();
 

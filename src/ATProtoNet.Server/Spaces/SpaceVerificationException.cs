@@ -1,5 +1,5 @@
-using ATProtoNet.Server.Xrpc;
-using Microsoft.AspNetCore.Http;
+using System.Net;
+using ATProtoNet.Http;
 
 namespace ATProtoNet.Server.Spaces;
 
@@ -23,7 +23,7 @@ public sealed class SpaceVerificationException : XrpcException
     /// <param name="message">A description of what failed.</param>
     /// <param name="statusCode">The HTTP status. Defaults to 401.</param>
     public SpaceVerificationException(
-        string error, string message, int statusCode = StatusCodes.Status401Unauthorized)
+        string error, string message, HttpStatusCode statusCode = HttpStatusCode.Unauthorized)
         : base(error, message, statusCode)
     {
     }
@@ -39,7 +39,7 @@ public sealed class SpaceVerificationException : XrpcException
         string error,
         string message,
         Exception innerException,
-        int statusCode = StatusCodes.Status401Unauthorized)
+        HttpStatusCode statusCode = HttpStatusCode.Unauthorized)
         : base(error, message, innerException, statusCode)
     {
     }

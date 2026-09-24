@@ -32,6 +32,6 @@ public sealed class LabelerClient
             .Add("detailed", detailed);
 
         return _xrpc.QueryAsync<GetLabelerServicesResponse>(
-            "app.bsky.labeler.getServices", parameters, cancellationToken);
+            "app.bsky.labeler.getServices", parameters, cancellationToken: cancellationToken);
     }
 }

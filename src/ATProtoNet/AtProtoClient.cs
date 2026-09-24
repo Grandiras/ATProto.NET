@@ -101,26 +101,30 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         ILogger<AtProtoClient>? logger)
     {
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentException.ThrowIfNullOrWhiteSpace(options.InstanceUrl);
+        ArgumentNullException.ThrowIfNull(options.RateLimit);
+
+        if (!Uri.TryCreate(options.InstanceUrl, UriKind.Absolute, out var instanceUrl))
+            throw new ArgumentException($"'{options.InstanceUrl}' is not an absolute URL.", nameof(options));
 
         _logger = logger ?? NullLogger<AtProtoClient>.Instance;
         _sessionStore = sessionStore ?? new InMemorySessionStore();
 
-        if (httpClient is not null)
-        {
-            _httpClient = httpClient;
-            _ownsHttpClient = false;
-        }
-        else
-        {
-            _httpClient = new HttpClient();
-            _ownsHttpClient = true;
-        }
+        // A supplied HttpClient is only sent through: its BaseAddress and default headers are
+        // neither read nor written, so one client can serve any number of AtProtoClients.
+        _ownsHttpClient = httpClient is null;
+        _httpClient = httpClient ?? AtProtoHttp.CreateClient();
 
-        _httpClient.BaseAddress ??= new Uri(options.InstanceUrl.TrimEnd('/') + "/");
-        _httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd(
-            $"ATProtoNet/{typeof(AtProtoClient).Assembly.GetName().Version}");
-
-        _xrpc = new XrpcClient(_httpClient, _logger, AtProtoJsonDefaults.Options);
+        // The configured URL is trusted as given (plain HTTP to a private host included);
+        // SetServiceUrl, fed at runtime from DID documents and OAuth sessions, is stricter.
+        _xrpc = new XrpcClient(
+            _httpClient,
+            AtProtoHttp.ValidateServiceUrl(instanceUrl, nameof(options), allowInsecure: true),
+            _logger)
+        {
+            UserAgent = options.UserAgent,
+            RateLimit = options.RateLimit,
+        };
 
         Server = new ServerClient(_xrpc, _logger);
         Repo = new RepoClient(_xrpc);
@@ -263,8 +267,14 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// </summary>
     /// <typeparam name="T">The expected response type.</typeparam>
     /// <param name="nsid">The method NSID (e.g., "com.example.todo.listItems").</param>
-    /// <param name="parameters">Optional query parameters as an anonymous object, Dictionary, or IDictionary&lt;string, string?&gt;.</param>
+    /// <param name="parameters">
+    /// Optional query parameters as an anonymous object or a dictionary. A sequence value is
+    /// sent as a repeated key; timestamps go out as ISO 8601 UTC and enums by their JSON names.
+    /// </param>
+    /// <param name="options">Optional per-call settings: proxy, labelers, headers, timeout.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="XrpcException">The service answered with an XRPC error.</exception>
+    /// <exception cref="XrpcResponseFormatException">The response is not a <typeparamref name="T"/>.</exception>
     /// <example>
     /// <code>
     /// var result = await client.QueryAsync&lt;ListResult&gt;(
@@ -272,22 +282,23 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     ///     new { limit = 25, cursor = "abc" });
     /// </code>
     /// </example>
-    public async Task<T> QueryAsync<T>(
+    public Task<T> QueryAsync<T>(
         string nsid,
         object? parameters = null,
-        CancellationToken cancellationToken = default)
-    {
-        return await _xrpc.QueryAsync<T>(
-            nsid, XrpcQueryBuilder.ToQueryParams(parameters), cancellationToken);
-    }
+        XrpcCallOptions? options = null,
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<T>(nsid, XrpcParams.From(parameters), options, cancellationToken);
 
     /// <summary>
     /// Call a custom XRPC procedure (HTTP POST) endpoint defined by your Lexicon.
     /// </summary>
     /// <typeparam name="T">The expected response type.</typeparam>
     /// <param name="nsid">The method NSID (e.g., "com.example.todo.updateStatus").</param>
-    /// <param name="body">The request body, serialized as JSON.</param>
+    /// <param name="body">The request body, serialized as JSON; <see langword="null"/> sends none.</param>
+    /// <param name="options">Optional per-call settings: proxy, labelers, headers, timeout.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="XrpcException">The service answered with an XRPC error.</exception>
+    /// <exception cref="XrpcResponseFormatException">The response is not a <typeparamref name="T"/>.</exception>
     /// <example>
     /// <code>
     /// var result = await client.ProcedureAsync&lt;StatusResult&gt;(
@@ -295,32 +306,27 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     ///     new { rkey = "abc", status = "done" });
     /// </code>
     /// </example>
-    public async Task<T> ProcedureAsync<T>(
+    public Task<T> ProcedureAsync<T>(
         string nsid,
         object? body = null,
-        CancellationToken cancellationToken = default) where T : class
-    {
-        if (body is not null)
-            return await _xrpc.ProcedureAsync<object, T>(nsid, body, cancellationToken: cancellationToken);
-        return await _xrpc.ProcedureAsync<T>(nsid, cancellationToken: cancellationToken);
-    }
+        XrpcCallOptions? options = null,
+        CancellationToken cancellationToken = default) where T : class =>
+        _xrpc.ProcedureAsync<T>(nsid, body, parameters: null, options, cancellationToken);
 
     /// <summary>
     /// Call a custom XRPC procedure (HTTP POST) that returns no response body.
     /// </summary>
     /// <param name="nsid">The method NSID.</param>
-    /// <param name="body">The request body, serialized as JSON.</param>
+    /// <param name="body">The request body, serialized as JSON; <see langword="null"/> sends none.</param>
+    /// <param name="options">Optional per-call settings: proxy, labelers, headers, timeout.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task ProcedureAsync(
+    /// <exception cref="XrpcException">The service answered with an XRPC error.</exception>
+    public Task ProcedureAsync(
         string nsid,
         object? body = null,
-        CancellationToken cancellationToken = default)
-    {
-        if (body is not null)
-            await _xrpc.ProcedureAsync<object>(nsid, body, cancellationToken: cancellationToken);
-        else
-            await _xrpc.ProcedureAsync(nsid, cancellationToken: cancellationToken);
-    }
+        XrpcCallOptions? options = null,
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync(nsid, body, parameters: null, options, cancellationToken);
 
     // ──────────────────────────────────────────────────────────
     //  Session state
@@ -359,6 +365,12 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// Sets the default <c>atproto-proxy</c> header for all subsequent XRPC requests.
     /// When set, the PDS will proxy requests to the specified service.
     /// </summary>
+    /// <remarks>
+    /// This is a client-wide default, applied to authenticated and unauthenticated calls alike
+    /// (but not to the session calls — sign-in, refresh, sign-out — which address the PDS
+    /// itself). To vary it per call on a client shared between callers, pass
+    /// <see cref="XrpcCallOptions.Proxy"/> instead of changing the default.
+    /// </remarks>
     /// <param name="proxyHeader">
     /// The proxy header value: a DID with a service endpoint fragment
     /// (e.g., <c>did:web:api.bsky.app#bsky_appview</c>).
@@ -375,6 +387,10 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// Sets the subscribed labeler DIDs. When set, all XRPC requests include the
     /// <c>atproto-accept-labelers</c> header so the server returns labels from these labelers.
     /// </summary>
+    /// <remarks>
+    /// A client-wide default, sent with or without a session. To vary it per call, pass
+    /// <see cref="XrpcCallOptions.AcceptLabelers"/> instead.
+    /// </remarks>
     /// <param name="labelerDids">The DIDs of labeler services to subscribe to.</param>
     public void SetLabelers(IEnumerable<string> labelerDids) => _xrpc.SetLabelers(labelerDids);
 
@@ -456,8 +472,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
                 email: current.Email,
                 emailConfirmed: current.EmailConfirmed));
         }
-        catch (AtProtoHttpException ex) when (ex.StatusCode == System.Net.HttpStatusCode.BadRequest
-                                               && ex.ErrorType == "ExpiredToken")
+        catch (XrpcException ex) when (ex.Is(XrpcErrors.ExpiredToken))
         {
             _logger.LogInformation("Access token expired, attempting refresh");
             await RefreshSessionAsync(cancellationToken);
@@ -621,21 +636,31 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     // ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Changes the target PDS URL at runtime. Call this before <see cref="LoginAsync"/> or
-    /// <see cref="ApplyOAuthSessionAsync"/> when the user selects a different PDS.
+    /// Points the client at another service — typically the user's PDS — at runtime. Call this
+    /// before <see cref="LoginAsync"/> when the user selects a different PDS;
+    /// <see cref="ApplyOAuthSessionAsync"/> does it for you.
     /// </summary>
-    /// <param name="pdsUrl">The new PDS URL (e.g., "https://pds.example.com").</param>
-    public void SetPdsUrl(string pdsUrl)
+    /// <remarks>
+    /// Safe on a client that has already sent requests, and on an <see cref="HttpClient"/> shared
+    /// with other clients: the URL is held by this client, not written to the HttpClient.
+    /// </remarks>
+    /// <param name="serviceUrl">The new service URL (e.g., <c>https://pds.example.com</c>).</param>
+    /// <exception cref="ArgumentException">
+    /// The URL is not HTTPS and not a loopback address: the session's tokens are sent wherever
+    /// it points.
+    /// </exception>
+    public void SetServiceUrl(Uri serviceUrl)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(pdsUrl);
-        _logger.LogInformation("Switching PDS to {PdsUrl}", pdsUrl);
-        _xrpc.SetBaseUrl(pdsUrl);
+        ArgumentNullException.ThrowIfNull(serviceUrl);
+        _xrpc.SetServiceUrl(serviceUrl);
+        _logger.LogInformation("Switched service to {ServiceUrl}", _xrpc.ServiceUrl);
     }
 
     /// <summary>
-    /// Gets the current PDS base URL.
+    /// The service this client sends requests to: <see cref="AtProtoClientOptions.InstanceUrl"/>
+    /// until <see cref="SetServiceUrl"/> or <see cref="ApplyOAuthSessionAsync"/> changes it.
     /// </summary>
-    public string PdsUrl => _httpClient.BaseAddress?.ToString().TrimEnd('/') ?? "https://bsky.social";
+    public Uri ServiceUrl => _xrpc.ServiceUrl;
 
     // ──────────────────────────────────────────────────────────
     //  OAuth Authentication
@@ -687,7 +712,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
                 oauthSession.Did, oauthSession.PdsUrl);
 
             // Point the XRPC client at the user's PDS
-            _xrpc.SetBaseUrl(oauthSession.PdsUrl);
+            _xrpc.SetServiceUrl(new Uri(oauthSession.PdsUrl, UriKind.Absolute));
 
             // Set DPoP-bound tokens
             _xrpc.SetOAuthTokens(
@@ -925,11 +950,12 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <para>The write is guarded by <c>swapRecord</c>, so a concurrent edit from another client is
     /// never silently overwritten. If one lands between the read and the write, the whole
     /// read-edit-write is retried, up to three attempts in total, after which the
-    /// <c>InvalidSwap</c> <see cref="AtProtoHttpException"/> is rethrown. When the account has no
+    /// <see cref="XrpcErrors.InvalidSwap"/> <see cref="XrpcException"/> is rethrown. When the account has no
     /// profile yet, <paramref name="update"/> receives an empty record with <c>createdAt</c> set,
     /// and the write carries no swap guard.</para>
     /// </remarks>
     /// <exception cref="InvalidOperationException">The client is not authenticated.</exception>
+    /// <exception cref="XrpcResponseFormatException">The stored profile is not a valid profile record.</exception>
     public async Task<RecordRef> UpdateProfileAsync(
         Action<ProfileRecord> update,
         CancellationToken cancellationToken = default)
@@ -952,8 +978,8 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
                 return RecordRef.From(written.Uri, written.Cid);
             }
-            catch (AtProtoHttpException ex) when (ex.ErrorType == "InvalidSwap"
-                                                   && attempt < MaxProfileUpdateAttempts)
+            catch (XrpcException ex) when (ex.Is(XrpcErrors.InvalidSwap)
+                                           && attempt < MaxProfileUpdateAttempts)
             {
                 _logger.LogDebug(
                     "Profile changed concurrently (attempt {Attempt} of {Max}); re-reading",
@@ -975,15 +1001,12 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     {
         try
         {
-            var existing = await Repo.GetRecordAsync(
+            var existing = await Repo.GetRecordAsync<ProfileRecord>(
                 did, ProfileCollection, ProfileRecordKey, cancellationToken: cancellationToken);
 
-            var profile = existing.Value.Deserialize<ProfileRecord>(AtProtoJsonDefaults.Options)
-                ?? throw new InvalidOperationException($"The profile record of {did} is null.");
-            return (profile, existing.Cid);
+            return (existing.Value, existing.Cid);
         }
-        catch (AtProtoHttpException ex) when (ex.StatusCode == System.Net.HttpStatusCode.BadRequest
-                                               && ex.ErrorType == "RecordNotFound")
+        catch (XrpcException ex) when (ex.Is(XrpcErrors.RecordNotFound))
         {
             return (new ProfileRecord { CreatedAt = AtProtoJsonDefaults.NowTimestamp() }, null);
         }
@@ -1202,10 +1225,31 @@ public sealed class AtProtoClientOptions
     /// Default: "https://bsky.social"
     /// </summary>
     /// <remarks>
-    /// With OAuth, this can be overridden dynamically via <see cref="AtProtoClient.SetPdsUrl"/>
-    /// or automatically when applying an OAuth session.
+    /// <para>This is always the service the client starts with, even when it is given an
+    /// <see cref="HttpClient"/> that has a <see cref="HttpClient.BaseAddress"/>: the SDK
+    /// ignores that property.</para>
+    /// <para>It can be changed at runtime with <see cref="AtProtoClient.SetServiceUrl"/>, and is
+    /// changed automatically when applying an OAuth session.</para>
     /// </remarks>
     public string InstanceUrl { get; set; } = "https://bsky.social";
+
+    /// <summary>
+    /// The <c>User-Agent</c> header sent with every request. Default:
+    /// <c>ATProtoNet/&lt;version&gt;</c>. Set it to identify your application; set it to
+    /// <see langword="null"/> to send none of the SDK's own, leaving any default of the
+    /// <see cref="HttpClient"/> in place.
+    /// </summary>
+    /// <remarks>
+    /// The header is set on each request rather than on the <see cref="HttpClient"/>, so
+    /// clients sharing one <see cref="HttpClient"/> can each send their own.
+    /// </remarks>
+    public string? UserAgent { get; set; } = AtProtoHttp.DefaultUserAgent;
+
+    /// <summary>
+    /// How HTTP 429 (Too Many Requests) is retried: how many times, and the longest wait
+    /// accepted before the call throws <see cref="XrpcRateLimitException"/> instead.
+    /// </summary>
+    public XrpcRateLimitOptions RateLimit { get; set; } = new();
 
     /// <summary>
     /// Whether to automatically refresh the session before the access token expires.

@@ -142,11 +142,6 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
     private readonly Dictionary<string, SpaceCredential> _credentials = new(StringComparer.Ordinal);
     private readonly List<SpaceCredential> _superseded = [];
     private readonly SemaphoreSlim _lock = new(1, 1);
-
-    // One connection pool across every repo host a syncer talks to. Each SpaceReader needs its
-    // own HttpClient, because XrpcClient addresses a host through BaseAddress, but a syncer
-    // walking a large space would otherwise open a fresh pool per member.
-    private readonly SocketsHttpHandler _readerHandler = new();
     private bool _disposed;
 
     /// <summary>
@@ -159,9 +154,9 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
     /// </param>
     /// <param name="options">Optional configuration.</param>
     /// <param name="httpClient">
-    /// An <see cref="HttpClient"/> for talking to space authorities and repo hosts. One is
-    /// created and owned when omitted. Requests are sent to absolute URLs, so any
-    /// <see cref="HttpClient.BaseAddress"/> is ignored.
+    /// An <see cref="HttpClient"/> for talking to space authorities and repo hosts, shared by
+    /// every reader this provider creates. One is created and owned when omitted. Requests are
+    /// sent to absolute URLs, so any <see cref="HttpClient.BaseAddress"/> is ignored.
     /// </param>
     /// <param name="didResolver">A DID resolver. One is created and owned when omitted.</param>
     /// <param name="logger">Optional logger.</param>
@@ -177,7 +172,7 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
         _client = client;
         _options = options ?? new SpaceCredentialOptions();
         _ownsHttpClient = httpClient is null;
-        _httpClient = httpClient ?? new HttpClient();
+        _httpClient = httpClient ?? AtProtoHttp.CreateClient();
         _ownsDidResolver = didResolver is null;
         _didResolver = didResolver ?? new DidResolver();
         _logger = logger ?? NullLogger.Instance;
@@ -233,13 +228,19 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
     /// <param name="hostUrl">The repo host's base URL.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A reader the caller is responsible for disposing.</returns>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="hostUrl"/> is not an absolute http(s) URL, or has a query or fragment.
+    /// </exception>
     public async Task<SpaceReader> CreateReaderAsync(
         SpaceUri space, string hostUrl, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(hostUrl);
 
+        if (!AtProtoHttp.TryNormalizeBaseUrl(hostUrl, out _))
+            throw new ArgumentException($"'{hostUrl}' is not an absolute http(s) URL without a query or fragment.", nameof(hostUrl));
+
         var credential = await GetCredentialAsync(space, cancellationToken: cancellationToken);
-        return new SpaceReader(hostUrl, credential, _readerHandler, _logger);
+        return new SpaceReader(hostUrl, credential, _httpClient, _logger);
     }
 
     /// <summary>
@@ -264,7 +265,10 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
     /// </summary>
     /// <param name="did">The DID to resolve.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <exception cref="SpaceCredentialException">Thrown when the DID publishes no usable endpoint.</exception>
+    /// <exception cref="SpaceCredentialException">
+    /// Thrown when the DID publishes no endpoint, or one that is not an absolute http(s) URL free
+    /// of a query and fragment.
+    /// </exception>
     public async Task<string> ResolveHostAsync(string did, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(did);
@@ -282,16 +286,20 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
             throw new SpaceCredentialException($"Could not resolve '{did}': {ex.Message}", ex);
         }
 
-        return SpaceAuthority.GetHostEndpoint(document)
+        var endpoint = SpaceAuthority.GetHostEndpoint(document)
             ?? throw new SpaceCredentialException(
                 $"'{did}' publishes neither an {SpaceAuthority.HostServiceId} service entry nor a PDS endpoint.");
+
+        return AtProtoHttp.TryNormalizeBaseUrl(endpoint, out _)
+            ? endpoint
+            : throw new SpaceCredentialException($"'{did}' publishes an unusable endpoint '{endpoint}'.");
     }
 
     private async Task<SpaceCredential> MintAsync(SpaceUri space, CancellationToken cancellationToken)
     {
         var authorityHost = await ResolveHostAsync(space.Authority, cancellationToken);
         var endpoint = new Uri(
-            new Uri(authorityHost.TrimEnd('/') + "/"),
+            AtProtoHttp.NormalizeBaseUrl(authorityHost),
             "xrpc/com.atproto.space.getSpaceCredential");
 
         // A fresh keypair per credential, discarded when the credential expires.
@@ -374,7 +382,7 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
                 ?? throw new SpaceCredentialException("The authority returned an empty credential response.");
         }
 
-        var error = await ReadErrorAsync(response, cancellationToken);
+        var error = (await XrpcResponseReader.ReadErrorAsync(response, cancellationToken)).Error;
 
         if (string.Equals(error, SpaceErrors.AppNotAuthorized, StringComparison.Ordinal) &&
             clientAttestation is null)
@@ -385,25 +393,6 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
         throw new SpaceCredentialException(
             $"The authority for {space} refused a credential: {error ?? response.StatusCode.ToString()}.",
             error);
-    }
-
-    private static async Task<string?> ReadErrorAsync(HttpResponseMessage response, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var body = await response.Content.ReadFromJsonAsync<XrpcErrorBody>(cancellationToken);
-            return body?.Error;
-        }
-        catch (Exception ex) when (ex is System.Text.Json.JsonException or HttpRequestException or NotSupportedException)
-        {
-            return null;
-        }
-    }
-
-    private sealed class XrpcErrorBody
-    {
-        [System.Text.Json.Serialization.JsonPropertyName("error")]
-        public string? Error { get; init; }
     }
 
     /// <inheritdoc/>
@@ -422,7 +411,6 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
             credential.Dispose();
         _superseded.Clear();
 
-        _readerHandler.Dispose();
         _lock.Dispose();
         if (_ownsDidResolver)
             _didResolver.Dispose();
@@ -451,27 +439,17 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
 /// </remarks>
 public sealed class SpaceReader : IDisposable
 {
-    private readonly HttpClient _httpClient;
     private readonly XrpcClient _xrpc;
-    private bool _disposed;
 
     internal SpaceReader(
-        string hostUrl, SpaceCredential credential, HttpMessageHandler handler, ILogger logger)
+        string hostUrl, SpaceCredential credential, HttpClient httpClient, ILogger logger)
     {
         Credential = credential;
         HostUrl = hostUrl.TrimEnd('/');
 
-        // XrpcClient addresses one host through its BaseAddress and a syncer talks to many, so
-        // each reader gets its own HttpClient — but over the provider's shared handler, so they
-        // share one connection pool rather than opening one per member.
-        _httpClient = new HttpClient(handler, disposeHandler: false)
-        {
-            BaseAddress = new Uri(HostUrl + "/"),
-        };
-        _httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd(
-            $"ATProtoNet/{typeof(SpaceReader).Assembly.GetName().Version}");
-
-        _xrpc = new XrpcClient(_httpClient, logger, AtProtoJsonDefaults.Options);
+        // The transport addresses its host with absolute URIs, so every reader shares the
+        // provider's HttpClient and connection pool, however many hosts a syncer walks.
+        _xrpc = new XrpcClient(httpClient, AtProtoHttp.NormalizeBaseUrl(HostUrl), logger);
         _xrpc.SetOAuthTokens(credential.Raw, refreshToken: null, credential.Key);
 
         Space = new SpaceClient(_xrpc);
@@ -490,15 +468,13 @@ public sealed class SpaceReader : IDisposable
     /// <summary>The <c>com.atproto.simplespace.*</c> endpoints on this host.</summary>
     public Lexicon.Com.AtProto.SimpleSpace.SimpleSpaceClient SimpleSpace { get; }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Releases nothing: the reader borrows its provider's <see cref="HttpClient"/> and
+    /// credential, which the provider disposes. Kept so a reader can be scoped with
+    /// <c>using</c> as the provider's examples do.
+    /// </summary>
     public void Dispose()
     {
-        if (_disposed)
-            return;
-
-        _disposed = true;
-        _xrpc.Dispose();
-        _httpClient.Dispose();
     }
 }
 
@@ -506,7 +482,7 @@ public sealed class SpaceReader : IDisposable
 /// Thrown when a space credential cannot be obtained, or the authority issues one that does not
 /// match what was asked for.
 /// </summary>
-public sealed class SpaceCredentialException : Exception
+public sealed class SpaceCredentialException : AtProtoException
 {
     /// <summary>Creates a new exception with the given message and optional XRPC error name.</summary>
     /// <param name="message">A description of what went wrong.</param>

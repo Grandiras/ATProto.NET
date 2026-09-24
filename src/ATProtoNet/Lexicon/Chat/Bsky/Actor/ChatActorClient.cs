@@ -8,6 +8,8 @@ namespace ATProtoNet.Lexicon.Chat.Bsky.Actor;
 /// </summary>
 public sealed class ChatActorClient
 {
+    private static readonly XrpcCallOptions ChatProxy = new() { Proxy = ServiceProxy.BskyChatHeader };
+
     private readonly XrpcClient _xrpc;
 
     internal ChatActorClient(XrpcClient xrpc)
@@ -21,7 +23,7 @@ public sealed class ChatActorClient
     public async Task DeleteAccountAsync(CancellationToken cancellationToken = default)
     {
         await _xrpc.ProcedureAsync(
-            "chat.bsky.actor.deleteAccount", ServiceProxy.BskyChatHeader, cancellationToken: cancellationToken);
+            "chat.bsky.actor.deleteAccount", options: ChatProxy, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -31,6 +33,6 @@ public sealed class ChatActorClient
     public Task<byte[]> ExportAccountDataAsync(CancellationToken cancellationToken = default)
     {
         return _xrpc.QueryAsync<byte[]>(
-            "chat.bsky.actor.exportAccountData", ServiceProxy.BskyChatHeader, cancellationToken: cancellationToken);
+            "chat.bsky.actor.exportAccountData", options: ChatProxy, cancellationToken: cancellationToken);
     }
 }

@@ -8,6 +8,8 @@
   <ItemGroup>
     <InternalsVisibleTo Include="ATProtoNet.Tests" />
     <InternalsVisibleTo Include="ATProtoNet.Server" />
+    <!-- The shared HTTP handler behind the OAuth service's own HttpClient. -->
+    <InternalsVisibleTo Include="ATProtoNet.Blazor" />
   </ItemGroup>
 
   <ItemGroup>

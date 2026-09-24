@@ -23,7 +23,7 @@ public sealed class AdminClient
     {
         var parameters = new XrpcParams().Add("did", did);
         return _xrpc.QueryAsync<AccountInfo>(
-            "com.atproto.admin.getAccountInfo", parameters, cancellationToken);
+            "com.atproto.admin.getAccountInfo", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -34,7 +34,7 @@ public sealed class AdminClient
     {
         var parameters = new XrpcParams().AddAll("dids", dids);
         return _xrpc.QueryAsync<GetAccountInfosResponse>(
-            "com.atproto.admin.getAccountInfos", parameters, cancellationToken);
+            "com.atproto.admin.getAccountInfos", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -50,7 +50,7 @@ public sealed class AdminClient
             .Add("blob", blob);
 
         return _xrpc.QueryAsync<GetSubjectStatusResponse>(
-            "com.atproto.admin.getSubjectStatus", parameters, cancellationToken);
+            "com.atproto.admin.getSubjectStatus", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -59,7 +59,7 @@ public sealed class AdminClient
     public Task<UpdateSubjectStatusResponse> UpdateSubjectStatusAsync(
         UpdateSubjectStatusRequest request, CancellationToken cancellationToken = default)
     {
-        return _xrpc.ProcedureAsync<UpdateSubjectStatusRequest, UpdateSubjectStatusResponse>(
+        return _xrpc.ProcedureAsync<UpdateSubjectStatusResponse>(
             "com.atproto.admin.updateSubjectStatus", request, cancellationToken: cancellationToken);
     }
 
@@ -69,7 +69,7 @@ public sealed class AdminClient
     public Task<SendEmailResponse> SendEmailAsync(
         SendEmailRequest request, CancellationToken cancellationToken = default)
     {
-        return _xrpc.ProcedureAsync<SendEmailRequest, SendEmailResponse>(
+        return _xrpc.ProcedureAsync<SendEmailResponse>(
             "com.atproto.admin.sendEmail", request, cancellationToken: cancellationToken);
     }
 
@@ -80,7 +80,7 @@ public sealed class AdminClient
         string did, CancellationToken cancellationToken = default)
     {
         var request = new AdminDeleteAccountRequest { Did = did };
-        await _xrpc.ProcedureAsync<AdminDeleteAccountRequest>(
+        await _xrpc.ProcedureAsync(
             "com.atproto.admin.deleteAccount", request, cancellationToken: cancellationToken);
     }
 
@@ -92,7 +92,7 @@ public sealed class AdminClient
         CancellationToken cancellationToken = default)
     {
         var request = new DisableAccountInvitesRequest { Account = account, Note = note };
-        await _xrpc.ProcedureAsync<DisableAccountInvitesRequest>(
+        await _xrpc.ProcedureAsync(
             "com.atproto.admin.disableAccountInvites", request, cancellationToken: cancellationToken);
     }
 
@@ -104,7 +104,7 @@ public sealed class AdminClient
         CancellationToken cancellationToken = default)
     {
         var request = new EnableAccountInvitesRequest { Account = account, Note = note };
-        await _xrpc.ProcedureAsync<EnableAccountInvitesRequest>(
+        await _xrpc.ProcedureAsync(
             "com.atproto.admin.enableAccountInvites", request, cancellationToken: cancellationToken);
     }
 
@@ -116,7 +116,7 @@ public sealed class AdminClient
         CancellationToken cancellationToken = default)
     {
         var request = new UpdateAccountEmailRequest { Account = account, Email = email };
-        await _xrpc.ProcedureAsync<UpdateAccountEmailRequest>(
+        await _xrpc.ProcedureAsync(
             "com.atproto.admin.updateAccountEmail", request, cancellationToken: cancellationToken);
     }
 
@@ -128,7 +128,7 @@ public sealed class AdminClient
         CancellationToken cancellationToken = default)
     {
         var request = new UpdateAccountHandleRequest { Did = did, Handle = handle };
-        await _xrpc.ProcedureAsync<UpdateAccountHandleRequest>(
+        await _xrpc.ProcedureAsync(
             "com.atproto.admin.updateAccountHandle", request, cancellationToken: cancellationToken);
     }
 
@@ -140,7 +140,7 @@ public sealed class AdminClient
         CancellationToken cancellationToken = default)
     {
         var request = new UpdateAccountPasswordRequest { Did = did, Password = password };
-        await _xrpc.ProcedureAsync<UpdateAccountPasswordRequest>(
+        await _xrpc.ProcedureAsync(
             "com.atproto.admin.updateAccountPassword", request, cancellationToken: cancellationToken);
     }
 
@@ -152,7 +152,7 @@ public sealed class AdminClient
         CancellationToken cancellationToken = default)
     {
         var request = new DisableInviteCodesRequest { Codes = codes, Accounts = accounts };
-        await _xrpc.ProcedureAsync<DisableInviteCodesRequest>(
+        await _xrpc.ProcedureAsync(
             "com.atproto.admin.disableInviteCodes", request, cancellationToken: cancellationToken);
     }
 
@@ -169,6 +169,6 @@ public sealed class AdminClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetInviteCodesResponse>(
-            "com.atproto.admin.getInviteCodes", parameters, cancellationToken);
+            "com.atproto.admin.getInviteCodes", parameters, cancellationToken: cancellationToken);
     }
 }

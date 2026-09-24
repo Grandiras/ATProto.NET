@@ -24,7 +24,7 @@ public sealed class SignatureClient
         var parameters = new XrpcParams()
             .AddAll("dids", dids);
         return _xrpc.QueryAsync<FindCorrelationResponse>(
-            "tools.ozone.signature.findCorrelation", parameters, cancellationToken);
+            "tools.ozone.signature.findCorrelation", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -43,7 +43,7 @@ public sealed class SignatureClient
             Cursor = cursor,
             Limit = limit,
         };
-        return _xrpc.ProcedureAsync<SearchAccountsRequest, SearchAccountsResponse>(
+        return _xrpc.ProcedureAsync<SearchAccountsResponse>(
             "tools.ozone.signature.searchAccounts", request, cancellationToken: cancellationToken);
     }
 
@@ -61,7 +61,7 @@ public sealed class SignatureClient
             .Add("cursor", cursor)
             .Add("limit", limit);
         return _xrpc.QueryAsync<FindRelatedAccountsResponse>(
-            "tools.ozone.signature.findRelatedAccounts", parameters, cancellationToken);
+            "tools.ozone.signature.findRelatedAccounts", parameters, cancellationToken: cancellationToken);
     }
 }
 

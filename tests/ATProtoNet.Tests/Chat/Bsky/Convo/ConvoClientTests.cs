@@ -19,7 +19,7 @@ public class ConvoClientTests : IDisposable
         {
             BaseAddress = new Uri("https://pds.example.com/")
         };
-        _xrpc = new XrpcClient(_httpClient, NullLogger.Instance);
+        _xrpc = new XrpcClient(_httpClient, _httpClient.BaseAddress!, NullLogger.Instance);
         _xrpc.SetTokens("test-token");
         _convo = new ConvoClient(_xrpc);
     }
@@ -236,7 +236,6 @@ public class ConvoClientTests : IDisposable
 
     public void Dispose()
     {
-        _xrpc.Dispose();
         _httpClient.Dispose();
     }
 

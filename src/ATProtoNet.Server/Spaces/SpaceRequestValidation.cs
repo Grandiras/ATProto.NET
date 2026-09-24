@@ -1,3 +1,4 @@
+using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Server.Xrpc;
 using ATProtoNet.Spaces;
@@ -22,35 +23,35 @@ internal static class SpaceRequestValidation
     public static SpaceUri RequireSpace(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
-            throw new XrpcException("InvalidRequest", "The \"space\" parameter is required.");
+            throw new XrpcException(XrpcErrors.InvalidRequest, "The \"space\" parameter is required.");
 
         return SpaceUri.TryParse(value, out var space)
             ? space
-            : throw new XrpcException("InvalidRequest", $"'{value}' is not a valid space URI.");
+            : throw new XrpcException(XrpcErrors.InvalidRequest, $"'{value}' is not a valid space URI.");
     }
 
     /// <summary>Parses a required DID parameter.</summary>
     public static string RequireDid(string? value, string name)
     {
         if (string.IsNullOrWhiteSpace(value))
-            throw new XrpcException("InvalidRequest", $"The \"{name}\" parameter is required.");
+            throw new XrpcException(XrpcErrors.InvalidRequest, $"The \"{name}\" parameter is required.");
 
         // A space's participants are keyed on DIDs, never handles — a handle can be reassigned
         // and would silently move a repo's contents to a different account.
         return Did.TryParse(value, out _)
             ? value
-            : throw new XrpcException("InvalidRequest", $"The \"{name}\" parameter must be a DID; got '{value}'.");
+            : throw new XrpcException(XrpcErrors.InvalidRequest, $"The \"{name}\" parameter must be a DID; got '{value}'.");
     }
 
     /// <summary>Parses a required NSID parameter.</summary>
     public static string RequireNsid(string? value, string name)
     {
         if (string.IsNullOrWhiteSpace(value))
-            throw new XrpcException("InvalidRequest", $"The \"{name}\" parameter is required.");
+            throw new XrpcException(XrpcErrors.InvalidRequest, $"The \"{name}\" parameter is required.");
 
         return Nsid.TryParse(value, out _)
             ? value
-            : throw new XrpcException("InvalidRequest", $"The \"{name}\" parameter must be an NSID; got '{value}'.");
+            : throw new XrpcException(XrpcErrors.InvalidRequest, $"The \"{name}\" parameter must be an NSID; got '{value}'.");
     }
 
     /// <summary>Parses an optional NSID parameter.</summary>
@@ -61,28 +62,28 @@ internal static class SpaceRequestValidation
     public static string RequireRkey(string? value, string name)
     {
         if (string.IsNullOrWhiteSpace(value))
-            throw new XrpcException("InvalidRequest", $"The \"{name}\" parameter is required.");
+            throw new XrpcException(XrpcErrors.InvalidRequest, $"The \"{name}\" parameter is required.");
 
         return RecordKey.TryParse(value, out _)
             ? value
-            : throw new XrpcException("InvalidRequest", $"The \"{name}\" parameter must be a record key; got '{value}'.");
+            : throw new XrpcException(XrpcErrors.InvalidRequest, $"The \"{name}\" parameter must be a record key; got '{value}'.");
     }
 
     /// <summary>Parses a required TID parameter, such as a repo revision.</summary>
     public static string RequireTid(string? value, string name)
     {
         if (string.IsNullOrWhiteSpace(value))
-            throw new XrpcException("InvalidRequest", $"The \"{name}\" parameter is required.");
+            throw new XrpcException(XrpcErrors.InvalidRequest, $"The \"{name}\" parameter is required.");
 
         return Tid.TryParse(value, out _)
             ? value
-            : throw new XrpcException("InvalidRequest", $"The \"{name}\" parameter must be a TID; got '{value}'.");
+            : throw new XrpcException(XrpcErrors.InvalidRequest, $"The \"{name}\" parameter must be a TID; got '{value}'.");
     }
 
     /// <summary>Requires a non-empty string parameter.</summary>
     public static string RequireString(string? value, string name) =>
         string.IsNullOrWhiteSpace(value)
-            ? throw new XrpcException("InvalidRequest", $"The \"{name}\" parameter is required.")
+            ? throw new XrpcException(XrpcErrors.InvalidRequest, $"The \"{name}\" parameter is required.")
             : value;
 
     /// <summary>
@@ -97,7 +98,7 @@ internal static class SpaceRequestValidation
             return defaultLimit;
 
         return value < 1
-            ? throw new XrpcException("InvalidRequest", "The \"limit\" parameter must be at least 1.")
+            ? throw new XrpcException(XrpcErrors.InvalidRequest, "The \"limit\" parameter must be at least 1.")
             : Math.Min(value.Value, maxLimit);
     }
 
@@ -116,7 +117,7 @@ internal static class SpaceRequestValidation
         }
         catch (ArgumentException ex)
         {
-            throw new XrpcException("InvalidRequest", ex.Message, ex);
+            throw new XrpcException(XrpcErrors.InvalidRequest, ex.Message, ex);
         }
     }
 }

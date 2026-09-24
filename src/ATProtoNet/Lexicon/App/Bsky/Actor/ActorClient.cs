@@ -26,7 +26,7 @@ public sealed class ActorClient
     {
         var parameters = new XrpcParams().Add("actor", actor);
         return _xrpc.QueryAsync<ProfileViewDetailed>(
-            "app.bsky.actor.getProfile", parameters, cancellationToken);
+            "app.bsky.actor.getProfile", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -39,7 +39,7 @@ public sealed class ActorClient
             .AddAll("actors", actors);
 
         return _xrpc.QueryAsync<GetProfilesResponse>(
-            "app.bsky.actor.getProfiles", parameters, cancellationToken);
+            "app.bsky.actor.getProfiles", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -59,7 +59,7 @@ public sealed class ActorClient
         List<JsonElement> preferences, CancellationToken cancellationToken = default)
     {
         var request = new PutPreferencesRequest { Preferences = preferences };
-        await _xrpc.ProcedureAsync<PutPreferencesRequest>(
+        await _xrpc.ProcedureAsync(
             "app.bsky.actor.putPreferences", request, cancellationToken: cancellationToken);
     }
 
@@ -75,7 +75,7 @@ public sealed class ActorClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetSuggestionsResponse>(
-            "app.bsky.actor.getSuggestions", parameters, cancellationToken);
+            "app.bsky.actor.getSuggestions", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -97,7 +97,7 @@ public sealed class ActorClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<SearchActorsResponse>(
-            "app.bsky.actor.searchActors", parameters, cancellationToken);
+            "app.bsky.actor.searchActors", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -116,6 +116,6 @@ public sealed class ActorClient
             .Add("limit", limit);
 
         return _xrpc.QueryAsync<SearchActorsTypeaheadResponse>(
-            "app.bsky.actor.searchActorsTypeahead", parameters, cancellationToken);
+            "app.bsky.actor.searchActorsTypeahead", parameters, cancellationToken: cancellationToken);
     }
 }

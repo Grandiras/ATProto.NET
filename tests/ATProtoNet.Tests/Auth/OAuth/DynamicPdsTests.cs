@@ -5,47 +5,43 @@ namespace ATProtoNet.Tests.Auth.OAuth;
 public class DynamicPdsTests
 {
     [Fact]
-    public void SetPdsUrl_ChangesBaseUrl()
+    public void SetServiceUrl_ChangesServiceUrl()
     {
-        var client = new AtProtoClient(new AtProtoClientOptions
+        using var client = new AtProtoClient(new AtProtoClientOptions
         {
             InstanceUrl = "https://bsky.social"
         });
 
-        Assert.Contains("bsky.social", client.PdsUrl);
+        Assert.Equal(new Uri("https://bsky.social/"), client.ServiceUrl);
 
-        client.SetPdsUrl("https://pds.example.com");
+        client.SetServiceUrl(new Uri("https://pds.example.com"));
 
-        Assert.Contains("pds.example.com", client.PdsUrl);
+        Assert.Equal(new Uri("https://pds.example.com/"), client.ServiceUrl);
     }
 
     [Fact]
-    public void SetPdsUrl_ThrowsOnNull()
+    public void SetServiceUrl_ThrowsOnNull()
     {
-        var client = new AtProtoClient(new AtProtoClientOptions());
+        using var client = new AtProtoClient(new AtProtoClientOptions());
 
-        Assert.ThrowsAny<ArgumentException>(() =>
-            client.SetPdsUrl(null!));
+        Assert.Throws<ArgumentNullException>(() => client.SetServiceUrl(null!));
     }
 
     [Fact]
-    public void SetPdsUrl_ThrowsOnEmpty()
+    public void SetServiceUrl_RejectsPlainHttpToAPublicHost()
     {
-        var client = new AtProtoClient(new AtProtoClientOptions());
+        using var client = new AtProtoClient(new AtProtoClientOptions());
 
-        Assert.Throws<ArgumentException>(() =>
-            client.SetPdsUrl(string.Empty));
+        Assert.Throws<ArgumentException>(() => client.SetServiceUrl(new Uri("http://pds.example.com")));
+        Assert.Equal(new Uri("https://bsky.social/"), client.ServiceUrl);
     }
 
     [Fact]
-    public void PdsUrl_DefaultValue()
+    public void ServiceUrl_DefaultValue()
     {
-        var client = new AtProtoClient(new AtProtoClientOptions
-        {
-            InstanceUrl = "https://bsky.social"
-        });
+        using var client = new AtProtoClient(new AtProtoClientOptions());
 
-        Assert.Contains("bsky.social", client.PdsUrl);
+        Assert.Equal(new Uri("https://bsky.social/"), client.ServiceUrl);
     }
 
     [Fact]
@@ -69,24 +65,24 @@ public class DynamicPdsTests
     }
 
     [Fact]
-    public void SetPdsUrl_CanChangePdsMultipleTimes()
+    public void SetServiceUrl_CanChangeServiceMultipleTimes()
     {
-        var client = new AtProtoClient(new AtProtoClientOptions());
+        using var client = new AtProtoClient(new AtProtoClientOptions());
 
-        client.SetPdsUrl("https://pds1.example.com");
-        Assert.Contains("pds1.example.com", client.PdsUrl);
+        client.SetServiceUrl(new Uri("https://pds1.example.com"));
+        Assert.Equal("pds1.example.com", client.ServiceUrl.Host);
 
-        client.SetPdsUrl("https://pds2.example.com");
-        Assert.Contains("pds2.example.com", client.PdsUrl);
+        client.SetServiceUrl(new Uri("https://pds2.example.com"));
+        Assert.Equal("pds2.example.com", client.ServiceUrl.Host);
 
-        client.SetPdsUrl("https://bsky.social");
-        Assert.Contains("bsky.social", client.PdsUrl);
+        client.SetServiceUrl(new Uri("https://bsky.social"));
+        Assert.Equal("bsky.social", client.ServiceUrl.Host);
     }
 
     [Fact]
     public void OAuthSession_NullByDefault()
     {
-        var client = new AtProtoClient(new AtProtoClientOptions());
+        using var client = new AtProtoClient(new AtProtoClientOptions());
 
         Assert.Null(client.OAuthSession);
     }

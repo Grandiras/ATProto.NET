@@ -20,7 +20,7 @@ public sealed class ModerationClient
     public Task<ModEventView> EmitEventAsync(
         EmitEventRequest request,
         CancellationToken cancellationToken = default) =>
-        _xrpc.ProcedureAsync<EmitEventRequest, ModEventView>(
+        _xrpc.ProcedureAsync<ModEventView>(
             "tools.ozone.moderation.emitEvent", request, cancellationToken: cancellationToken);
 
     /// <summary>
@@ -32,7 +32,7 @@ public sealed class ModerationClient
     {
         var parameters = new XrpcParams().Add("id", id.ToString());
         return _xrpc.QueryAsync<ModEventViewDetail>(
-            "tools.ozone.moderation.getEvent", parameters, cancellationToken);
+            "tools.ozone.moderation.getEvent", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -47,7 +47,7 @@ public sealed class ModerationClient
             .Add("uri", uri)
             .Add("cid", cid);
         return _xrpc.QueryAsync<RecordViewDetail>(
-            "tools.ozone.moderation.getRecord", parameters, cancellationToken);
+            "tools.ozone.moderation.getRecord", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -59,7 +59,7 @@ public sealed class ModerationClient
     {
         var parameters = new XrpcParams().Add("did", did);
         return _xrpc.QueryAsync<RepoViewDetail>(
-            "tools.ozone.moderation.getRepo", parameters, cancellationToken);
+            "tools.ozone.moderation.getRepo", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -100,7 +100,7 @@ public sealed class ModerationClient
             .AddAll("reportTypes", reportTypes)
             .AddAll("types", types);
         return _xrpc.QueryAsync<QueryEventsResponse>(
-            "tools.ozone.moderation.queryEvents", parameters, cancellationToken);
+            "tools.ozone.moderation.queryEvents", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -133,7 +133,7 @@ public sealed class ModerationClient
             .AddAll("tags", tags)
             .AddAll("excludeTags", excludeTags);
         return _xrpc.QueryAsync<QuerySubjectsResponse>(
-            "tools.ozone.moderation.querySubjects", parameters, cancellationToken);
+            "tools.ozone.moderation.querySubjects", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -150,6 +150,6 @@ public sealed class ModerationClient
             .Add("limit", limit)
             .Add("cursor", cursor);
         return _xrpc.QueryAsync<SearchReposResponse>(
-            "tools.ozone.moderation.searchRepos", parameters, cancellationToken);
+            "tools.ozone.moderation.searchRepos", parameters, cancellationToken: cancellationToken);
     }
 }

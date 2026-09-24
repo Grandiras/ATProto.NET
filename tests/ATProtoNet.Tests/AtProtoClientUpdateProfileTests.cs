@@ -139,10 +139,10 @@ public sealed class AtProtoClientUpdateProfileTests
         for (var i = 0; i < 5; i++)
             pds.PutOutcomes.Enqueue(HttpStatusCode.BadRequest);
 
-        var ex = await Assert.ThrowsAsync<AtProtoHttpException>(
+        var ex = await Assert.ThrowsAsync<XrpcException>(
             () => client.UpdateProfileAsync(p => p.DisplayName = "x"));
 
-        Assert.Equal("InvalidSwap", ex.ErrorType);
+        Assert.True(ex.Is(XrpcErrors.InvalidSwap));
         Assert.Equal(3, pds.Puts.Count);
     }
 

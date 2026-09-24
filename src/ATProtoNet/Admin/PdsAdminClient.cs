@@ -73,14 +73,16 @@ public sealed class PdsAdminClient : IDisposable
     /// <param name="options">Connection and credential options.</param>
     /// <param name="httpClient">
     /// An externally managed <see cref="HttpClient"/> (e.g. from <c>IHttpClientFactory</c>).
-    /// When <c>null</c>, the client creates and owns one.
+    /// When <c>null</c>, the client creates and owns one. Requests go to
+    /// <see cref="PdsAdminOptions.Url"/> whatever the client's
+    /// <see cref="HttpClient.BaseAddress"/>, and the client is not mutated.
     /// </param>
     /// <param name="logger">An optional logger.</param>
     /// <exception cref="ArgumentException">
-    /// Thrown when the effective base address is neither HTTPS nor a loopback address and
+    /// Thrown when <see cref="PdsAdminOptions.Url"/> is neither HTTPS nor a loopback address and
     /// <see cref="PdsAdminOptions.AllowInsecureHttp"/> is not set — sending the admin
-    /// credentials over plaintext HTTP would expose them — or when
-    /// <see cref="PdsAdminAuthentication.AdminAccount"/> is selected without an
+    /// credentials over plaintext HTTP would expose them — when it has a query or fragment, or
+    /// when <see cref="PdsAdminAuthentication.AdminAccount"/> is selected without an
     /// <see cref="PdsAdminOptions.AdminIdentifier"/>.
     /// </exception>
     public PdsAdminClient(
@@ -107,39 +109,10 @@ public sealed class PdsAdminClient : IDisposable
         _adminPassword = options.AdminPassword;
         _logger = logger ?? NullLogger<PdsAdminClient>.Instance;
 
-        var baseUri = new Uri(options.Url.TrimEnd('/') + "/");
+        PdsUrl = AtProtoHttp.NormalizeBaseUrl(options.Url);
 
-        if (httpClient is not null)
-        {
-            _httpClient = httpClient;
-            _ownsHttpClient = false;
-        }
-        else
-        {
-            _httpClient = new HttpClient();
-            _ownsHttpClient = true;
-        }
-
-        _httpClient.BaseAddress ??= baseUri;
-        _httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd(
-            $"ATProtoNet/{typeof(PdsAdminClient).Assembly.GetName().Version}");
-
-        PdsUrl = _httpClient.BaseAddress!;
-
-        if (PdsUrl != baseUri)
-        {
-            // A supplied HttpClient's own address wins, so the client would administer a
-            // different server than the configuration names.
-            _logger.LogWarning(
-                "PDS admin client is using the supplied HttpClient's base address {ActualUrl}, " +
-                "not the configured {ConfiguredUrl}",
-                PdsUrl,
-                baseUri);
-        }
-
-        // Validate the address requests actually go to, not the configured one: a supplied
-        // HttpClient may already carry a different BaseAddress, and that is where the
-        // Authorization header would be sent.
+        // The Authorization header goes wherever PdsUrl points, so it is validated here —
+        // requests are sent to it as absolute URIs, whatever a supplied client's BaseAddress.
         if (!string.Equals(PdsUrl.Scheme, "https", StringComparison.OrdinalIgnoreCase)
             && !PdsUrl.IsLoopback
             && !options.AllowInsecureHttp)
@@ -152,10 +125,13 @@ public sealed class PdsAdminClient : IDisposable
                 nameof(options));
         }
 
+        _ownsHttpClient = httpClient is null;
+        _httpClient = httpClient ?? AtProtoHttp.CreateClient();
+
         // Two XRPC clients over one HttpClient: admin endpoints carry credentials, while
         // createAccount is an ordinary unauthenticated signup call.
-        _adminXrpc = new XrpcClient(_httpClient, _logger, AtProtoJsonDefaults.Options);
-        _publicXrpc = new XrpcClient(_httpClient, _logger, AtProtoJsonDefaults.Options);
+        _adminXrpc = new XrpcClient(_httpClient, PdsUrl, _logger);
+        _publicXrpc = new XrpcClient(_httpClient, PdsUrl, _logger);
 
         if (Authentication == PdsAdminAuthentication.AdminPassword)
         {
@@ -267,7 +243,7 @@ public sealed class PdsAdminClient : IDisposable
         {
             return await call(cancellationToken);
         }
-        catch (AtProtoHttpException ex) when (ShouldReauthenticate(ex))
+        catch (XrpcException ex) when (ShouldReauthenticate(ex))
         {
             _logger.LogDebug("PDS administrator session rejected; signing in again");
             InvalidateAdminSession();
@@ -290,7 +266,7 @@ public sealed class PdsAdminClient : IDisposable
             cancellationToken);
     }
 
-    private bool ShouldReauthenticate(AtProtoHttpException exception) =>
+    private bool ShouldReauthenticate(XrpcException exception) =>
         Authentication == PdsAdminAuthentication.AdminAccount
         && _hasAdminSession
         && exception.StatusCode == HttpStatusCode.Unauthorized;
@@ -311,7 +287,7 @@ public sealed class PdsAdminClient : IDisposable
     /// </summary>
     public Task<DescribeServerResponse> DescribeServerAsync(CancellationToken cancellationToken = default) =>
         _publicXrpc.QueryAsync<DescribeServerResponse>(
-            "com.atproto.server.describeServer", null, cancellationToken);
+            "com.atproto.server.describeServer", cancellationToken: cancellationToken);
 
     // ──────────────────────────────────────────────────────────
     //  Invite codes
@@ -409,7 +385,7 @@ public sealed class PdsAdminClient : IDisposable
         }
 
         // Signup is an ordinary public endpoint — send it without the admin header.
-        return await _publicXrpc.ProcedureAsync<CreateAccountRequest, CreateAccountResponse>(
+        return await _publicXrpc.ProcedureAsync<CreateAccountResponse>(
             "com.atproto.server.createAccount",
             new CreateAccountRequest
             {
@@ -565,8 +541,6 @@ public sealed class PdsAdminClient : IDisposable
         if (_disposed) return;
         _disposed = true;
 
-        _adminXrpc.Dispose();
-        _publicXrpc.Dispose();
         _sessionLock.Dispose();
 
         if (_ownsHttpClient)

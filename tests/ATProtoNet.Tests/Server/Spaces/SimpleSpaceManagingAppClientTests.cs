@@ -25,14 +25,14 @@ public class SimpleSpaceManagingAppClientTests
 
     private readonly RecordingHandler _handler = new();
 
-    private SimpleSpaceManagingAppClient CreateClient()
+    private SimpleSpaceManagingAppClient CreateClient(string endpoint = "https://app.example.com")
     {
         var resolver = new FakeDidDocumentResolver().Publish(AppDid, new DidDocument
         {
             Id = AppDid,
             Service =
             [
-                new ServiceEndpoint { Id = "#forum", Type = "BulletinManagingApp", Endpoint = "https://app.example.com" },
+                new ServiceEndpoint { Id = "#forum", Type = "BulletinManagingApp", Endpoint = endpoint },
             ],
         });
 
@@ -58,6 +58,20 @@ public class SimpleSpaceManagingAppClientTests
         Assert.Equal("read", query["access"]);
         Assert.Equal(ClientId, query["clientId"]);
         Assert.False(query.ContainsKey("did"));
+    }
+
+    [Theory]
+    [InlineData("https://app.example.com/?tenant=1")]
+    [InlineData("https://app.example.com/#frag")]
+    [InlineData("app.example.com")]
+    public async Task CheckUserAccessAsync_WithAnUnusableEndpoint_FailsAsTheResolutionFailureThePolicyRefusesOn(
+        string endpoint)
+    {
+        // The policy treats InvalidOperationException as "unreachable", which is a refusal.
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CreateClient(endpoint).CheckUserAccessAsync(
+            ManagingApp, Space, UserDid, SpaceAccessKind.Read, ClientId));
+
+        Assert.Null(_handler.LastRequest);
     }
 
     [Fact]

@@ -30,7 +30,7 @@ public sealed class AtProtoPdsHealthCheck : IHealthCheck
 
             if (description is not null)
             {
-                return HealthCheckResult.Healthy($"PDS reachable at {_client.PdsUrl}");
+                return HealthCheckResult.Healthy($"PDS reachable at {_client.ServiceUrl}");
             }
 
             return HealthCheckResult.Degraded("PDS returned empty response");
@@ -38,7 +38,7 @@ public sealed class AtProtoPdsHealthCheck : IHealthCheck
         catch (Exception ex)
         {
             return HealthCheckResult.Unhealthy(
-                $"PDS unreachable at {_client.PdsUrl}",
+                $"PDS unreachable at {_client.ServiceUrl}",
                 exception: ex);
         }
     }

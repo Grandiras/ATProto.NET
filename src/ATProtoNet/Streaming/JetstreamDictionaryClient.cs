@@ -1,7 +1,6 @@
 using System.Buffers.Binary;
 using System.Globalization;
-using System.Net.Http.Json;
-using System.Text.Json;
+using ATProtoNet.Http;
 
 namespace ATProtoNet.Streaming;
 
@@ -63,7 +62,7 @@ public sealed class JetstreamDictionaryClient : IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(serviceUrl);
         _baseUri = new Uri(ToHttpUrl(serviceUrl), UriKind.Absolute);
-        _http = httpClient ?? new HttpClient();
+        _http = httpClient ?? AtProtoHttp.CreateClient();
         _ownsHttpClient = httpClient is null;
     }
 
@@ -86,10 +85,17 @@ public sealed class JetstreamDictionaryClient : IDisposable
         using var response = await _http.GetAsync(new Uri(_baseUri, path), cancellationToken);
 
         if (!response.IsSuccessStatusCode)
+        {
+            // A proxy error page rather than an XRPC envelope leaves the status as the whole story.
+            var error = (await XrpcResponseReader.ReadErrorAsync(response, cancellationToken)).Error;
             throw new JetstreamConnectException(
                 $"Jetstream refused the zstd dictionary request with HTTP {(int)response.StatusCode}" +
-                $"{await ReadErrorNameAsync(response, cancellationToken)}.",
-                (int)response.StatusCode);
+                (error is null ? "." : $" ({error})."),
+                (int)response.StatusCode)
+            {
+                Error = error,
+            };
+        }
 
         var data = await response.Content.ReadAsByteArrayAsync(cancellationToken);
 
@@ -104,27 +110,6 @@ public sealed class JetstreamDictionaryClient : IDisposable
         return new JetstreamZstdDictionary(
             (int)BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(4)),
             data);
-    }
-
-    /// <summary>Read the XRPC error name out of a failed response, if it carried one.</summary>
-    private static async Task<string> ReadErrorNameAsync(
-        HttpResponseMessage response,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var error = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
-            if (error.ValueKind == JsonValueKind.Object
-                && error.TryGetProperty("error", out var name)
-                && name.ValueKind == JsonValueKind.String)
-                return $" ({name.GetString()})";
-        }
-        catch (Exception ex) when (ex is JsonException or HttpRequestException or NotSupportedException)
-        {
-            // A proxy error page rather than an XRPC envelope; the status code is the whole story.
-        }
-
-        return string.Empty;
     }
 
     private static string ToHttpUrl(string serviceUrl)

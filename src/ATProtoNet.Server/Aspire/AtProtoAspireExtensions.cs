@@ -73,10 +73,9 @@ public static class AtProtoAspireExtensions
         configureSettings?.Invoke(settings);
 
         // Register the HTTP client with optional resilience
-        var httpClientBuilder = builder.Services.AddHttpClient("ATProtoNet", client =>
-        {
-            client.DefaultRequestHeaders.Add("User-Agent", "ATProtoNet.Aspire/1.0");
-        });
+        // No default User-Agent: AtProtoClient sets one on every request (AtProtoClientOptions.UserAgent).
+        var httpClientBuilder = builder.Services.AddHttpClient("ATProtoNet")
+            .ConfigurePrimaryHttpMessageHandler(Http.AtProtoHttp.CreateHandler);
 
         if (!settings.DisableResilience)
         {

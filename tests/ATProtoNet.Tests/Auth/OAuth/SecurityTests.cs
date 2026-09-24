@@ -134,19 +134,20 @@ public class SecurityTests
     }
 
     // ──────────────────────────────────────────────────────────
-    //  TLS enforcement in XrpcClient.SetBaseUrl
+    //  TLS enforcement in XrpcClient.SetServiceUrl
     // ──────────────────────────────────────────────────────────
 
     [Theory]
     [InlineData("http://evil.example.com")]
     [InlineData("http://192.168.1.1:8080")]
-    public void SetBaseUrl_RejectsNonTlsPublicUrls(string url)
+    [InlineData("ftp://example.com")]
+    public void SetServiceUrl_RejectsNonTlsPublicUrls(string url)
     {
-        var httpClient = new HttpClient { BaseAddress = new Uri("https://example.com/") };
-        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
-        var xrpc = new XrpcClient(httpClient, logger);
+        using var httpClient = new HttpClient();
+        var xrpc = new XrpcClient(httpClient, new Uri("https://example.com/"));
 
-        Assert.Throws<ArgumentException>(() => xrpc.SetBaseUrl(url));
+        Assert.Throws<ArgumentException>(() => xrpc.SetServiceUrl(new Uri(url)));
+        Assert.Equal(new Uri("https://example.com/"), xrpc.ServiceUrl);
     }
 
     [Theory]
@@ -155,14 +156,14 @@ public class SecurityTests
     [InlineData("http://localhost:8080")]
     [InlineData("http://127.0.0.1:3000")]
     [InlineData("http://[::1]:5000")]
-    public void SetBaseUrl_AcceptsValidUrls(string url)
+    public void SetServiceUrl_AcceptsValidUrls(string url)
     {
-        var httpClient = new HttpClient { BaseAddress = new Uri("https://example.com/") };
-        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
-        var xrpc = new XrpcClient(httpClient, logger);
+        using var httpClient = new HttpClient();
+        var xrpc = new XrpcClient(httpClient, new Uri("https://example.com/"));
 
-        // Should not throw
-        xrpc.SetBaseUrl(url);
+        xrpc.SetServiceUrl(new Uri(url));
+
+        Assert.Equal(new Uri(url.TrimEnd('/') + "/"), xrpc.ServiceUrl);
     }
 
     // ──────────────────────────────────────────────────────────

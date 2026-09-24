@@ -31,7 +31,9 @@ public sealed class PlcClient : IDisposable
     /// <param name="directoryUrl">The PLC directory base URL (defaults to <c>https://plc.directory</c>).</param>
     public PlcClient(string directoryUrl = DefaultDirectoryUrl)
     {
-        _httpClient = new HttpClient { BaseAddress = new Uri(directoryUrl.TrimEnd('/') + "/") };
+        // Owned, so setting its BaseAddress mutates nothing shared.
+        _httpClient = Http.AtProtoHttp.CreateClient();
+        _httpClient.BaseAddress = Http.AtProtoHttp.NormalizeBaseUrl(directoryUrl);
         _ownsHttpClient = true;
         _jsonOptions = new JsonSerializerOptions
         {

@@ -113,6 +113,10 @@ AT Protocol uses the `atproto-accept-labelers` header to declare which labeler s
 client.SetLabelers(["did:plc:labeler1", "did:plc:labeler2"]);
 ```
 
+The header goes out on every call, authenticated or not, so public AppView reads get the labels
+too. To choose labelers for a single call on a shared client instead, pass
+`new XrpcCallOptions { AcceptLabelers = [...] }` to `QueryAsync`.
+
 ### Clear Labelers
 
 ```csharp

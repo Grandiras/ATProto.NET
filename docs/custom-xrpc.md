@@ -61,6 +61,25 @@ var result = await client.QueryAsync<MyResult>(
 var result = await client.QueryAsync<MyResult>("com.example.mymethod");
 ```
 
+Values are formatted for the wire: a sequence becomes a repeated key (`uris=a&uris=b`), `DateTime`/`DateTimeOffset` go out as ISO 8601 UTC (`2026-09-24T12:00:00.000Z`), enums by their JSON names, numbers in the invariant culture, and identifier types (`Did`, `AtUri`, `Nsid`, …) as their string value.
+
+### Per-call options
+
+Every custom call takes an optional `XrpcCallOptions`, which applies to that one call and overrides the client's defaults for it — safe on a client shared between concurrent callers:
+
+```csharp
+var labels = await client.QueryAsync<QueryLabelsResult>(
+    "com.atproto.label.queryLabels",
+    new { uriPatterns = new[] { "at://did:plc:alice/*" } },
+    new XrpcCallOptions
+    {
+        Proxy = "did:plc:labeler#atproto_labeler",        // atproto-proxy
+        AcceptLabelers = ["did:plc:labeler;redact"],      // atproto-accept-labelers
+        Headers = new Dictionary<string, string> { ["X-Trace-Id"] = traceId },
+        Timeout = TimeSpan.FromSeconds(5),                // throws TimeoutException on expiry
+    });
+```
+
 ## Procedures (HTTP POST)
 
 Use `ProcedureAsync<T>` for Lexicon procedure methods that return a response:
@@ -138,12 +157,21 @@ try
     var result = await client.QueryAsync<MyResult>(
         "com.example.mymethod", new { limit = 10 });
 }
-catch (AtProtoHttpException ex)
+catch (XrpcException ex) when (ex.Is("TodoListFull"))
 {
-    // XRPC error response
-    Console.WriteLine($"Error: {ex.ErrorType}");
+    // An error name your Lexicon declares
+}
+catch (XrpcException ex)
+{
+    // Any other XRPC error response
+    Console.WriteLine($"Error: {ex.Error}");
     Console.WriteLine($"Message: {ex.ErrorMessage}");
     Console.WriteLine($"Status: {ex.StatusCode}");
+}
+catch (XrpcResponseFormatException ex)
+{
+    // The service answered 2xx with a body that is not a MyResult
+    Console.WriteLine($"{ex.Nsid}: {ex.Message}");
 }
 ```
 

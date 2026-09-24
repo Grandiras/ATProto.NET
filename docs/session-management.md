@@ -199,7 +199,7 @@ if (newTokens.RefreshToken is not null)
 Change the PDS URL at runtime:
 
 ```csharp
-client.SetPdsUrl("https://different-pds.example.com");
+client.SetServiceUrl(new Uri("https://different-pds.example.com"));
 ```
 
 For full OAuth documentation, see [OAuth Authentication](oauth.md).

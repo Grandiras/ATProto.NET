@@ -59,7 +59,7 @@ public class AtProtoAspireExtensionsTests
         using var host = builder.Build();
         var client = host.Services.GetRequiredService<AtProtoClient>();
 
-        Assert.Equal("https://my-pds.example.com", client.PdsUrl);
+        Assert.Equal(new Uri("https://my-pds.example.com/"), client.ServiceUrl);
     }
 
     [Fact]
@@ -76,7 +76,7 @@ public class AtProtoAspireExtensionsTests
         using var host = builder.Build();
         var client = host.Services.GetRequiredService<AtProtoClient>();
 
-        Assert.Equal("https://custom-pds.example.com", client.PdsUrl);
+        Assert.Equal(new Uri("https://custom-pds.example.com/"), client.ServiceUrl);
     }
 
     [Fact]
@@ -96,7 +96,7 @@ public class AtProtoAspireExtensionsTests
         using var host = builder.Build();
         var client = host.Services.GetRequiredService<AtProtoClient>();
 
-        Assert.Equal("https://from-callback.example.com", client.PdsUrl);
+        Assert.Equal(new Uri("https://from-callback.example.com/"), client.ServiceUrl);
     }
 
     [Fact]
@@ -143,7 +143,7 @@ public class AtProtoAspireExtensionsTests
         using var host = builder.Build();
         var client = host.Services.GetRequiredService<AtProtoClient>();
 
-        Assert.Equal("https://bsky.social", client.PdsUrl);
+        Assert.Equal(new Uri("https://bsky.social/"), client.ServiceUrl);
     }
 
     [Fact]

@@ -32,8 +32,9 @@ public sealed class ServerClient
             AuthFactorToken = authFactorToken,
         };
 
-        var response = await _xrpc.ProcedureAsync<CreateSessionRequest, SessionResponse>(
-            "com.atproto.server.createSession", request, cancellationToken: cancellationToken);
+        var response = await _xrpc.ProcedureAsync<SessionResponse>(
+            "com.atproto.server.createSession", request, options: XrpcClient.Direct,
+            cancellationToken: cancellationToken);
 
         _xrpc.SetTokens(response.AccessJwt, response.RefreshJwt);
         _logger.LogInformation("Session created for {Handle} ({Did})", response.Handle, response.Did);
@@ -59,14 +60,16 @@ public sealed class ServerClient
     /// Get information about the current session.
     /// </summary>
     public Task<GetSessionResponse> GetSessionAsync(CancellationToken cancellationToken = default) =>
-        _xrpc.QueryAsync<GetSessionResponse>("com.atproto.server.getSession", cancellationToken: cancellationToken);
+        _xrpc.QueryAsync<GetSessionResponse>(
+            "com.atproto.server.getSession", options: XrpcClient.Direct, cancellationToken: cancellationToken);
 
     /// <summary>
     /// Delete the current session (logout).
     /// </summary>
     public async Task DeleteSessionAsync(CancellationToken cancellationToken = default)
     {
-        await _xrpc.ProcedureAsync("com.atproto.server.deleteSession", cancellationToken: cancellationToken);
+        await _xrpc.ProcedureAsync(
+            "com.atproto.server.deleteSession", options: XrpcClient.Direct, cancellationToken: cancellationToken);
         _xrpc.ClearTokens();
         _logger.LogInformation("Session deleted");
     }
@@ -78,8 +81,9 @@ public sealed class ServerClient
         CreateAccountRequest request,
         CancellationToken cancellationToken = default)
     {
-        var response = await _xrpc.ProcedureAsync<CreateAccountRequest, CreateAccountResponse>(
-            "com.atproto.server.createAccount", request, cancellationToken: cancellationToken);
+        var response = await _xrpc.ProcedureAsync<CreateAccountResponse>(
+            "com.atproto.server.createAccount", request, options: XrpcClient.Direct,
+            cancellationToken: cancellationToken);
 
         _xrpc.SetTokens(response.AccessJwt, response.RefreshJwt);
         _logger.LogInformation("Account created: {Handle} ({Did})", response.Handle, response.Did);
@@ -104,7 +108,7 @@ public sealed class ServerClient
     /// </summary>
     public Task<AppPassword> CreateAppPasswordAsync(string name, bool? privileged = null,
         CancellationToken cancellationToken = default) =>
-        _xrpc.ProcedureAsync<CreateAppPasswordRequest, AppPassword>(
+        _xrpc.ProcedureAsync<AppPassword>(
             "com.atproto.server.createAppPassword",
             new CreateAppPasswordRequest { Name = name, Privileged = privileged },
             cancellationToken: cancellationToken);
@@ -171,7 +175,7 @@ public sealed class ServerClient
             .Add("aud", aud)
             .Add("lxm", lxm)
             .Add("exp", exp);
-        return _xrpc.QueryAsync<GetServiceAuthResponse>("com.atproto.server.getServiceAuth", parameters, cancellationToken);
+        return _xrpc.QueryAsync<GetServiceAuthResponse>("com.atproto.server.getServiceAuth", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -179,7 +183,7 @@ public sealed class ServerClient
     /// </summary>
     public Task<CreateInviteCodeResponse> CreateInviteCodeAsync(int useCount, string? forAccount = null,
         CancellationToken cancellationToken = default) =>
-        _xrpc.ProcedureAsync<CreateInviteCodeRequest, CreateInviteCodeResponse>(
+        _xrpc.ProcedureAsync<CreateInviteCodeResponse>(
             "com.atproto.server.createInviteCode",
             new CreateInviteCodeRequest { UseCount = useCount, ForAccount = forAccount },
             cancellationToken: cancellationToken);
@@ -188,7 +192,7 @@ public sealed class ServerClient
     /// Create multiple invite codes.
     /// </summary>
     public Task<CreateInviteCodesResponse> CreateInviteCodesAsync(CreateInviteCodesRequest request, CancellationToken cancellationToken = default) =>
-        _xrpc.ProcedureAsync<CreateInviteCodesRequest, CreateInviteCodesResponse>(
+        _xrpc.ProcedureAsync<CreateInviteCodesResponse>(
             "com.atproto.server.createInviteCodes", request, cancellationToken: cancellationToken);
 
     /// <summary>
@@ -202,7 +206,7 @@ public sealed class ServerClient
             .Add("includeUsed", includeUsed)
             .Add("createAvailable", createAvailable);
         return _xrpc.QueryAsync<GetAccountInviteCodesResponse>(
-            "com.atproto.server.getAccountInviteCodes", parameters, cancellationToken);
+            "com.atproto.server.getAccountInviteCodes", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -215,7 +219,7 @@ public sealed class ServerClient
     /// Reserve a signing key for account creation.
     /// </summary>
     public Task<ReserveSigningKeyResponse> ReserveSigningKeyAsync(string? did = null, CancellationToken cancellationToken = default) =>
-        _xrpc.ProcedureAsync<ReserveSigningKeyRequest, ReserveSigningKeyResponse>(
+        _xrpc.ProcedureAsync<ReserveSigningKeyResponse>(
             "com.atproto.server.reserveSigningKey",
             new ReserveSigningKeyRequest { Did = did },
             cancellationToken: cancellationToken);

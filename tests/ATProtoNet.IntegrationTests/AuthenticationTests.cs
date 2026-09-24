@@ -33,7 +33,7 @@ public class AuthenticationTests
             .WithAutoRefreshSession(false)
             .Build();
 
-        await Assert.ThrowsAsync<Http.AtProtoHttpException>(
+        await Assert.ThrowsAnyAsync<Http.XrpcException>(
             () => client.LoginAsync("invalid.handle", "wrong-password"));
     }
 

@@ -168,7 +168,7 @@ public class PdsAdminClientAccountAuthTests : IDisposable
         _handler.Enqueue(SessionJson);
         _handler.Enqueue("""{"error":"ExpiredToken"}""", HttpStatusCode.Unauthorized);
 
-        var ex = await Assert.ThrowsAsync<AtProtoHttpException>(
+        var ex = await Assert.ThrowsAsync<XrpcAuthenticationException>(
             () => _client.DeleteAccountAsync("did:plc:alice"));
 
         // One retry, not a loop: a password that has stopped working must surface.
@@ -182,7 +182,7 @@ public class PdsAdminClientAccountAuthTests : IDisposable
         _handler.Enqueue(SessionJson);
         _handler.Enqueue("""{"error":"InvalidRequest","message":"nope"}""", HttpStatusCode.BadRequest);
 
-        await Assert.ThrowsAsync<AtProtoHttpException>(
+        await Assert.ThrowsAsync<XrpcException>(
             () => _client.DeleteAccountAsync("did:plc:alice"));
 
         Assert.Equal(2, _handler.Requests.Count);

@@ -94,7 +94,7 @@ public sealed record XrpcBlobResult(Stream Content, string ContentType, long? Co
 /// Lexicon methods whose output is an <c>encoding</c> other than <c>application/json</c> —
 /// <c>getBlob</c>, <c>getRepo</c>, and the CAR-serving sync methods — implement this instead of
 /// <see cref="IXrpcQuery{TParams, TOutput}"/>. Errors are still JSON: throw
-/// <see cref="XrpcException"/> and the routing writes the usual error body.
+/// <see cref="ATProtoNet.Http.XrpcException"/> and the routing writes the usual error body.
 /// </remarks>
 /// <typeparam name="TParams">The query parameters type (deserialized from query string).</typeparam>
 public interface IXrpcBlobQuery<TParams> : IXrpcEndpoint

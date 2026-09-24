@@ -32,7 +32,7 @@ public sealed class FeedClient
             .Add("algorithm", algorithm);
 
         return _xrpc.QueryAsync<FeedResponse>(
-            "app.bsky.feed.getTimeline", parameters, cancellationToken);
+            "app.bsky.feed.getTimeline", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -61,7 +61,7 @@ public sealed class FeedClient
             .Add("includePins", includePins);
 
         return _xrpc.QueryAsync<FeedResponse>(
-            "app.bsky.feed.getAuthorFeed", parameters, cancellationToken);
+            "app.bsky.feed.getAuthorFeed", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -83,7 +83,7 @@ public sealed class FeedClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<FeedResponse>(
-            "app.bsky.feed.getFeed", parameters, cancellationToken);
+            "app.bsky.feed.getFeed", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -101,7 +101,7 @@ public sealed class FeedClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<FeedResponse>(
-            "app.bsky.feed.getListFeed", parameters, cancellationToken);
+            "app.bsky.feed.getListFeed", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -119,7 +119,7 @@ public sealed class FeedClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<FeedResponse>(
-            "app.bsky.feed.getActorLikes", parameters, cancellationToken);
+            "app.bsky.feed.getActorLikes", parameters, cancellationToken: cancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -145,7 +145,7 @@ public sealed class FeedClient
             .Add("parentHeight", parentHeight);
 
         return _xrpc.QueryAsync<GetPostThreadResponse>(
-            "app.bsky.feed.getPostThread", parameters, cancellationToken);
+            "app.bsky.feed.getPostThread", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -158,7 +158,7 @@ public sealed class FeedClient
             .AddAll("uris", uris);
 
         return _xrpc.QueryAsync<GetPostsResponse>(
-            "app.bsky.feed.getPosts", parameters, cancellationToken);
+            "app.bsky.feed.getPosts", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -175,7 +175,7 @@ public sealed class FeedClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetLikesResponse>(
-            "app.bsky.feed.getLikes", parameters, cancellationToken);
+            "app.bsky.feed.getLikes", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -192,7 +192,7 @@ public sealed class FeedClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetRepostedByResponse>(
-            "app.bsky.feed.getRepostedBy", parameters, cancellationToken);
+            "app.bsky.feed.getRepostedBy", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -209,7 +209,7 @@ public sealed class FeedClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetQuotesResponse>(
-            "app.bsky.feed.getQuotes", parameters, cancellationToken);
+            "app.bsky.feed.getQuotes", parameters, cancellationToken: cancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -224,7 +224,7 @@ public sealed class FeedClient
     {
         var parameters = new XrpcParams().Add("feed", feed);
         return _xrpc.QueryAsync<GetFeedGeneratorResponse>(
-            "app.bsky.feed.getFeedGenerator", parameters, cancellationToken);
+            "app.bsky.feed.getFeedGenerator", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -237,7 +237,7 @@ public sealed class FeedClient
             .AddAll("feeds", feeds);
 
         return _xrpc.QueryAsync<GetFeedGeneratorsResponse>(
-            "app.bsky.feed.getFeedGenerators", parameters, cancellationToken);
+            "app.bsky.feed.getFeedGenerators", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -253,7 +253,7 @@ public sealed class FeedClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetActorFeedsResponse>(
-            "app.bsky.feed.getActorFeeds", parameters, cancellationToken);
+            "app.bsky.feed.getActorFeeds", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -268,7 +268,7 @@ public sealed class FeedClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetSuggestedFeedsResponse>(
-            "app.bsky.feed.getSuggestedFeeds", parameters, cancellationToken);
+            "app.bsky.feed.getSuggestedFeeds", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -294,7 +294,7 @@ public sealed class FeedClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetFeedSkeletonResponse>(
-            "app.bsky.feed.getFeedSkeleton", parameters, cancellationToken);
+            "app.bsky.feed.getFeedSkeleton", parameters, cancellationToken: cancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -347,6 +347,6 @@ public sealed class FeedClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<SearchPostsResponse>(
-            "app.bsky.feed.searchPosts", parameters, cancellationToken);
+            "app.bsky.feed.searchPosts", parameters, cancellationToken: cancellationToken);
     }
 }

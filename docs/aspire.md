@@ -94,7 +94,7 @@ builder.AddAtProtoClient(configureSettings: s => s.DisableResilience = true);
 
 `AddAtProtoClient()` registers:
 
-1. **Named HttpClient** (`"ATProtoNet"`) with a `User-Agent` header and optional resilience handler
+1. **Named HttpClient** (`"ATProtoNet"`) with the SDK's connection settings (response decompression, a 5-minute connection lifetime) and optional resilience handler
 2. **`AtProtoClient`** as a singleton, configured from `IConfiguration` and `IHttpClientFactory`
 3. **Health check** (`atproto-pds`) verifying PDS connectivity
 

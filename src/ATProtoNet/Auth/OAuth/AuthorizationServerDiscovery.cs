@@ -764,28 +764,35 @@ public sealed class AuthorizationServerDiscovery
 /// <summary>
 /// Exception thrown for OAuth-specific errors.
 /// </summary>
-public sealed class OAuthException : Exception
+public sealed class OAuthException : AtProtoException
 {
     /// <summary>
-    /// The OAuth error code.
+    /// The error code: an OAuth <c>error</c> value the authorization server returned (such as
+    /// <c>invalid_grant</c>), or one the SDK assigns to a client-side failure (such as
+    /// <c>invalid_state</c> or <c>issuer_mismatch</c>).
     /// </summary>
-    public string ErrorCode { get; }
+    public string Error { get; }
 
     /// <summary>
     /// Creates a new OAuth exception.
     /// </summary>
-    public OAuthException(string message, string errorCode)
+    /// <param name="message">A description of what went wrong.</param>
+    /// <param name="error">The error code.</param>
+    public OAuthException(string message, string error)
         : base(message)
     {
-        ErrorCode = errorCode;
+        Error = error;
     }
 
     /// <summary>
     /// Creates a new OAuth exception with an inner exception.
     /// </summary>
-    public OAuthException(string message, string errorCode, Exception innerException)
+    /// <param name="message">A description of what went wrong.</param>
+    /// <param name="error">The error code.</param>
+    /// <param name="innerException">The underlying cause.</param>
+    public OAuthException(string message, string error, Exception innerException)
         : base(message, innerException)
     {
-        ErrorCode = errorCode;
+        Error = error;
     }
 }

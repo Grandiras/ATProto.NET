@@ -119,12 +119,12 @@ try
 {
     await client.Repo.ApplyWritesAsync(client.Did!, operations);
 }
-catch (AtProtoHttpException ex) when (ex.ErrorType == "InvalidSwap")
+catch (XrpcException ex) when (ex.Is(XrpcErrors.InvalidSwap))
 {
     // Repository was modified concurrently
 }
-catch (AtProtoHttpException ex)
+catch (XrpcException ex)
 {
-    Console.WriteLine($"Batch failed: {ex.ErrorType} — {ex.ErrorMessage}");
+    Console.WriteLine($"Batch failed: {ex.Error} — {ex.ErrorMessage}");
 }
 ```

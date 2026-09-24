@@ -113,7 +113,7 @@ public class TodoController : ControllerBase
             var item = await todos.GetAsync(key);
             return Ok(item.Value);
         }
-        catch (AtProtoHttpException ex) when (ex.ErrorType is "RecordNotFound")
+        catch (XrpcException ex) when (ex.Is(XrpcErrors.RecordNotFound))
         {
             return NotFound();
         }

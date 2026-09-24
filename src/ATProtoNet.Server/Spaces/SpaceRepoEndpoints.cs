@@ -1,3 +1,5 @@
+using System.Net;
+using ATProtoNet.Http;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Server.Xrpc;
 using ATProtoNet.Spaces;
@@ -67,7 +69,7 @@ public abstract class SpaceRepoEndpointBase<TParams>
     /// the protocol carries no reader set, and saying more would leak membership.
     /// </remarks>
     protected static XrpcException RepoNotFound(SpaceUri space, string repo) =>
-        new(SpaceErrors.RepoNotFound, $"'{repo}' holds no repo in {space}.", StatusCodes.Status404NotFound);
+        new(SpaceErrors.RepoNotFound, $"'{repo}' holds no repo in {space}.", HttpStatusCode.NotFound);
 }
 
 /// <summary>Serves <c>com.atproto.space.getRecord</c>.</summary>
@@ -98,7 +100,7 @@ public sealed class GetSpaceRecordEndpoint
                ?? throw new XrpcException(
                    SpaceErrors.RecordNotFound,
                    $"No record at {collection}/{rkey}.",
-                   StatusCodes.Status404NotFound);
+                   HttpStatusCode.NotFound);
     }
 }
 
@@ -301,7 +303,7 @@ public sealed class GetSpaceBlobEndpoint
                    ?? throw new XrpcException(
                        SpaceErrors.BlobNotFound,
                        $"'{repo}' references no blob {cid} in {space}.",
-                       StatusCodes.Status404NotFound);
+                       HttpStatusCode.NotFound);
 
         return new XrpcBlobResult(blob.Content, blob.MimeType, blob.Length);
     }

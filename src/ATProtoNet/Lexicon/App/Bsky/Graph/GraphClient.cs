@@ -32,7 +32,7 @@ public sealed class GraphClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetFollowersResponse>(
-            "app.bsky.graph.getFollowers", parameters, cancellationToken);
+            "app.bsky.graph.getFollowers", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -48,7 +48,7 @@ public sealed class GraphClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetFollowsResponse>(
-            "app.bsky.graph.getFollows", parameters, cancellationToken);
+            "app.bsky.graph.getFollows", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -59,7 +59,7 @@ public sealed class GraphClient
     {
         var parameters = new XrpcParams().Add("actor", actor);
         return _xrpc.QueryAsync<GetSuggestedFollowsByActorResponse>(
-            "app.bsky.graph.getSuggestedFollowsByActor", parameters, cancellationToken);
+            "app.bsky.graph.getSuggestedFollowsByActor", parameters, cancellationToken: cancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -78,7 +78,7 @@ public sealed class GraphClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetBlocksResponse>(
-            "app.bsky.graph.getBlocks", parameters, cancellationToken);
+            "app.bsky.graph.getBlocks", parameters, cancellationToken: cancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -97,7 +97,7 @@ public sealed class GraphClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetMutesResponse>(
-            "app.bsky.graph.getMutes", parameters, cancellationToken);
+            "app.bsky.graph.getMutes", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -107,7 +107,7 @@ public sealed class GraphClient
         string actor, CancellationToken cancellationToken = default)
     {
         var request = new MuteActorRequest { Actor = actor };
-        await _xrpc.ProcedureAsync<MuteActorRequest>(
+        await _xrpc.ProcedureAsync(
             "app.bsky.graph.muteActor", request, cancellationToken: cancellationToken);
     }
 
@@ -118,7 +118,7 @@ public sealed class GraphClient
         string actor, CancellationToken cancellationToken = default)
     {
         var request = new MuteActorRequest { Actor = actor };
-        await _xrpc.ProcedureAsync<MuteActorRequest>(
+        await _xrpc.ProcedureAsync(
             "app.bsky.graph.unmuteActor", request, cancellationToken: cancellationToken);
     }
 
@@ -129,7 +129,7 @@ public sealed class GraphClient
         string list, CancellationToken cancellationToken = default)
     {
         var request = new MuteActorListRequest { List = list };
-        await _xrpc.ProcedureAsync<MuteActorListRequest>(
+        await _xrpc.ProcedureAsync(
             "app.bsky.graph.muteActorList", request, cancellationToken: cancellationToken);
     }
 
@@ -140,7 +140,7 @@ public sealed class GraphClient
         string list, CancellationToken cancellationToken = default)
     {
         var request = new MuteActorListRequest { List = list };
-        await _xrpc.ProcedureAsync<MuteActorListRequest>(
+        await _xrpc.ProcedureAsync(
             "app.bsky.graph.unmuteActorList", request, cancellationToken: cancellationToken);
     }
 
@@ -161,7 +161,7 @@ public sealed class GraphClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetListsResponse>(
-            "app.bsky.graph.getLists", parameters, cancellationToken);
+            "app.bsky.graph.getLists", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -177,7 +177,7 @@ public sealed class GraphClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetListResponse>(
-            "app.bsky.graph.getList", parameters, cancellationToken);
+            "app.bsky.graph.getList", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -192,7 +192,7 @@ public sealed class GraphClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetListBlocksResponse>(
-            "app.bsky.graph.getListBlocks", parameters, cancellationToken);
+            "app.bsky.graph.getListBlocks", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -207,7 +207,7 @@ public sealed class GraphClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetListMutesResponse>(
-            "app.bsky.graph.getListMutes", parameters, cancellationToken);
+            "app.bsky.graph.getListMutes", parameters, cancellationToken: cancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -226,7 +226,7 @@ public sealed class GraphClient
             .AddAll("others", others);
 
         return _xrpc.QueryAsync<GetRelationshipsResponse>(
-            "app.bsky.graph.getRelationships", parameters, cancellationToken);
+            "app.bsky.graph.getRelationships", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -242,7 +242,7 @@ public sealed class GraphClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<GetKnownFollowersResponse>(
-            "app.bsky.graph.getKnownFollowers", parameters, cancellationToken);
+            "app.bsky.graph.getKnownFollowers", parameters, cancellationToken: cancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -256,7 +256,7 @@ public sealed class GraphClient
         string root, CancellationToken cancellationToken = default)
     {
         var request = new MuteThreadRequest { Root = root };
-        await _xrpc.ProcedureAsync<MuteThreadRequest>(
+        await _xrpc.ProcedureAsync(
             "app.bsky.graph.muteThread", request, cancellationToken: cancellationToken);
     }
 
@@ -267,7 +267,7 @@ public sealed class GraphClient
         string root, CancellationToken cancellationToken = default)
     {
         var request = new MuteThreadRequest { Root = root };
-        await _xrpc.ProcedureAsync<MuteThreadRequest>(
+        await _xrpc.ProcedureAsync(
             "app.bsky.graph.unmuteThread", request, cancellationToken: cancellationToken);
     }
 
@@ -283,7 +283,7 @@ public sealed class GraphClient
     {
         var parameters = new XrpcParams().Add("starterPack", starterPack);
         return _xrpc.QueryAsync<GetStarterPackResponse>(
-            "app.bsky.graph.getStarterPack", parameters, cancellationToken);
+            "app.bsky.graph.getStarterPack", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -295,7 +295,7 @@ public sealed class GraphClient
         var parameters = new XrpcParams()
             .AddAll("uris", uris);
         return _xrpc.QueryAsync<GetStarterPacksResponse>(
-            "app.bsky.graph.getStarterPacks", parameters, cancellationToken);
+            "app.bsky.graph.getStarterPacks", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -310,7 +310,7 @@ public sealed class GraphClient
             .Add("limit", limit)
             .Add("cursor", cursor);
         return _xrpc.QueryAsync<GetActorStarterPacksResponse>(
-            "app.bsky.graph.getActorStarterPacks", parameters, cancellationToken);
+            "app.bsky.graph.getActorStarterPacks", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -325,6 +325,6 @@ public sealed class GraphClient
             .Add("limit", limit)
             .Add("cursor", cursor);
         return _xrpc.QueryAsync<SearchStarterPacksResponse>(
-            "app.bsky.graph.searchStarterPacks", parameters, cancellationToken);
+            "app.bsky.graph.searchStarterPacks", parameters, cancellationToken: cancellationToken);
     }
 }

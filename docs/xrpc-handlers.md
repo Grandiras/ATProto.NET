@@ -149,6 +149,17 @@ Invalid or missing request bodies return a `400 Bad Request` with an XRPC-style 
 }
 ```
 
+To answer with a named error of your own, throw `XrpcException` (from `ATProtoNet.Http`, the same type
+the client throws for a failed call). The routing writes the error body, the status, and any
+`Headers` you add:
+
+```csharp
+using System.Net;
+using ATProtoNet.Http;
+
+throw new XrpcException(XrpcErrors.RecordNotFound, $"No profile for {parameters.Actor}.", HttpStatusCode.NotFound);
+```
+
 ## Dependency Injection
 
 Endpoint handlers are resolved from DI, so you can inject services:

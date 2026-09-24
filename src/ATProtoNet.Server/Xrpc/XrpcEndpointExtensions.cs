@@ -1,11 +1,12 @@
 using System.Reflection;
 using System.Text.Json;
+using ATProtoNet.Http;
 using ATProtoNet.Serialization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ATProtoNet.Server.Xrpc;
 
@@ -252,11 +253,11 @@ public static class XrpcEndpointExtensions
             }
             catch (Exception ex) when (ex is JsonException or InvalidOperationException)
             {
-                return Results.BadRequest(new { error = "InvalidRequest", message = "Invalid or missing request body" });
+                return WriteError(context, new XrpcException(XrpcErrors.InvalidRequest, "Invalid or missing request body"));
             }
 
             if (input is null)
-                return Results.BadRequest(new { error = "InvalidRequest", message = "Request body is required" });
+                return WriteError(context, new XrpcException(XrpcErrors.InvalidRequest, "Request body is required"));
 
             try
             {
@@ -294,11 +295,11 @@ public static class XrpcEndpointExtensions
             }
             catch (Exception ex) when (ex is JsonException or InvalidOperationException)
             {
-                return Results.BadRequest(new { error = "InvalidRequest", message = "Invalid or missing request body" });
+                return WriteError(context, new XrpcException(XrpcErrors.InvalidRequest, "Invalid or missing request body"));
             }
 
             if (input is null)
-                return Results.BadRequest(new { error = "InvalidRequest", message = "Request body is required" });
+                return WriteError(context, new XrpcException(XrpcErrors.InvalidRequest, "Request body is required"));
 
             try
             {
@@ -359,9 +360,9 @@ public static class XrpcEndpointExtensions
             context.Response.Headers[name] = value;
 
         return Results.Json(
-            new XrpcErrorBody { Error = exception.Error, Message = exception.Message },
+            new XrpcErrorBody { Error = exception.Error, Message = exception.ErrorMessage ?? exception.Error },
             AtProtoJsonDefaults.Options,
-            statusCode: exception.StatusCode);
+            statusCode: (int)exception.StatusCode);
     }
 
     private static string GetNsidFromType<THandler>() where THandler : IXrpcEndpoint
@@ -403,11 +404,11 @@ public static class XrpcEndpointExtensions
         try
         {
             return JsonSerializer.Deserialize<TParams>(json, AtProtoJsonDefaults.Options)
-                   ?? throw new XrpcException("InvalidRequest", "Could not bind query parameters.");
+                   ?? throw new XrpcException(XrpcErrors.InvalidRequest, "Could not bind query parameters.");
         }
         catch (JsonException ex)
         {
-            throw new XrpcException("InvalidRequest", $"Could not bind query parameters: {ex.Message}");
+            throw new XrpcException(XrpcErrors.InvalidRequest, $"Could not bind query parameters: {ex.Message}");
         }
     }
 }

@@ -269,6 +269,10 @@ public sealed class SimpleSpaceManagingAppClient : ISimpleSpaceManagingAppClient
         var endpoint = SpaceAuthority.GetServiceEndpoint(document, fragment)
             ?? throw new InvalidOperationException($"Managing app '{managingApp}' resolves to no endpoint.");
 
+        // The same failure as a missing endpoint, which the policy treats as a refusal.
+        if (!Http.AtProtoHttp.TryNormalizeBaseUrl(endpoint, out var baseUrl))
+            throw new InvalidOperationException($"Managing app '{managingApp}' resolves to an unusable endpoint '{endpoint}'.");
+
         // The Lexicon omits clientId for write checks, which have no app behind them.
         var query = $"?space={Uri.EscapeDataString(space.Value)}" +
                     $"&user={Uri.EscapeDataString(userDid)}" +
@@ -276,7 +280,7 @@ public sealed class SimpleSpaceManagingAppClient : ISimpleSpaceManagingAppClient
                     (clientId is null || access == SpaceAccessKind.Write
                         ? string.Empty
                         : $"&clientId={Uri.EscapeDataString(clientId)}");
-        var url = new Uri(new Uri(endpoint.TrimEnd('/') + "/"), $"xrpc/{SpaceNsids.CheckUserAccess}{query}");
+        var url = new Uri(baseUrl, $"xrpc/{SpaceNsids.CheckUserAccess}{query}");
 
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(

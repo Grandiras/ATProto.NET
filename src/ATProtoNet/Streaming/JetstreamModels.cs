@@ -279,7 +279,7 @@ public readonly record struct JetstreamFrame(
 /// <see cref="JetstreamConsumer"/> rethrows rather than reconnecting — a backfilling consumer
 /// is meant to re-enter its backfill from the last sequence number it durably processed.
 /// </remarks>
-public sealed class JetstreamConnectException : Exception
+public sealed class JetstreamConnectException : AtProtoException
 {
     /// <summary>Create a connect exception.</summary>
     /// <param name="message">The error description.</param>
@@ -291,6 +291,13 @@ public sealed class JetstreamConnectException : Exception
 
     /// <summary>The HTTP status code the upgrade request was answered with, if the transport reported one.</summary>
     public int? StatusCode { get; }
+
+    /// <summary>
+    /// The XRPC error name the server answered with (e.g. <c>DictionaryNotFound</c>), when the
+    /// failure came from a response whose body could be read. A refused WebSocket upgrade does
+    /// not expose its body, so this is <see langword="null"/> there.
+    /// </summary>
+    public string? Error { get; init; }
 
     /// <summary>
     /// Whether reconnecting with the same request could succeed. False for 4xx statuses other

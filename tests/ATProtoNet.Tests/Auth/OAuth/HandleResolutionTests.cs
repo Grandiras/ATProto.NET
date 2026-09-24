@@ -70,7 +70,7 @@ public class HandleResolutionTests
             () => discovery.ResolveHandleToDidAsync(Handle));
         stopwatch.Stop();
 
-        Assert.Equal("handle_resolution_failed", ex.ErrorCode);
+        Assert.Equal("handle_resolution_failed", ex.Error);
 
         // Two rounds of 500 ms (raced HTTPS + DNS, then the appview fallback).
         Assert.True(
@@ -176,7 +176,7 @@ public class HandleResolutionTests
 
         var ex = await Assert.ThrowsAsync<OAuthException>(
             () => discovery.ResolveHandleToDidAsync(Handle));
-        Assert.Equal("handle_resolution_failed", ex.ErrorCode);
+        Assert.Equal("handle_resolution_failed", ex.Error);
     }
 
     [Fact]
@@ -195,7 +195,7 @@ public class HandleResolutionTests
 
         var ex = await Assert.ThrowsAsync<OAuthException>(
             () => discovery.ResolveHandleToDidAsync(Handle));
-        Assert.Equal("handle_resolution_failed", ex.ErrorCode);
+        Assert.Equal("handle_resolution_failed", ex.Error);
     }
 
     [Fact]
@@ -223,7 +223,7 @@ public class HandleResolutionTests
 
         var ex = await Assert.ThrowsAsync<OAuthException>(
             () => discovery.ResolveHandleToDidAsync(Handle));
-        Assert.Equal("handle_resolution_failed", ex.ErrorCode);
+        Assert.Equal("handle_resolution_failed", ex.Error);
     }
 
     [Theory]
@@ -261,7 +261,7 @@ public class HandleResolutionTests
         else
         {
             var ex = await Assert.ThrowsAsync<OAuthException>(() => discovery.ResolveHandleToDidAsync(Handle));
-            Assert.Equal("handle_resolution_failed", ex.ErrorCode);
+            Assert.Equal("handle_resolution_failed", ex.Error);
         }
     }
 

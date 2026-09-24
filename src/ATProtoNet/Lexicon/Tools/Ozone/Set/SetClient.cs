@@ -20,7 +20,7 @@ public sealed class SetClient
     public Task<OzoneSetView> UpsertSetAsync(
         UpsertSetRequest request,
         CancellationToken cancellationToken = default) =>
-        _xrpc.ProcedureAsync<UpsertSetRequest, OzoneSetView>(
+        _xrpc.ProcedureAsync<OzoneSetView>(
             "tools.ozone.set.upsertSet", request, cancellationToken: cancellationToken);
 
     /// <summary>
@@ -31,7 +31,7 @@ public sealed class SetClient
         CancellationToken cancellationToken = default)
     {
         var request = new DeleteSetRequest { Name = name };
-        await _xrpc.ProcedureAsync<DeleteSetRequest>(
+        await _xrpc.ProcedureAsync(
             "tools.ozone.set.deleteSet", request, cancellationToken: cancellationToken);
     }
 
@@ -44,7 +44,7 @@ public sealed class SetClient
         CancellationToken cancellationToken = default)
     {
         var request = new AddValuesRequest { Name = name, Values = values };
-        await _xrpc.ProcedureAsync<AddValuesRequest>(
+        await _xrpc.ProcedureAsync(
             "tools.ozone.set.addValues", request, cancellationToken: cancellationToken);
     }
 
@@ -57,7 +57,7 @@ public sealed class SetClient
         CancellationToken cancellationToken = default)
     {
         var request = new DeleteValuesRequest { Name = name, Values = values };
-        await _xrpc.ProcedureAsync<DeleteValuesRequest>(
+        await _xrpc.ProcedureAsync(
             "tools.ozone.set.deleteValues", request, cancellationToken: cancellationToken);
     }
 
@@ -75,7 +75,7 @@ public sealed class SetClient
             .Add("limit", limit)
             .Add("cursor", cursor);
         return _xrpc.QueryAsync<GetValuesResponse>(
-            "tools.ozone.set.getValues", parameters, cancellationToken);
+            "tools.ozone.set.getValues", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -90,6 +90,6 @@ public sealed class SetClient
             .Add("limit", limit)
             .Add("cursor", cursor);
         return _xrpc.QueryAsync<QuerySetsResponse>(
-            "tools.ozone.set.querySets", parameters, cancellationToken);
+            "tools.ozone.set.querySets", parameters, cancellationToken: cancellationToken);
     }
 }

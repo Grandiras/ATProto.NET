@@ -30,16 +30,19 @@ The main entry point. Created via `AtProtoClientBuilder` or direct construction.
 | `Ozone` | `OzoneClient` | `tools.ozone.*` sub-clients |
 | `Site` | `StandardSiteClient` | `site.standard.*` records |
 | `OAuthSession` | `OAuthSessionResult?` | The applied OAuth session, if any |
-| `PdsUrl` | `string` | The service URL requests currently go to |
+| `ServiceUrl` | `Uri` | The service URL requests currently go to |
 
 ### Custom Lexicon Methods
 
 | Method | Description |
 |--------|-------------|
 | `GetCollection<T>(collection)` | Get a typed `RecordCollection<T>` for CRUD |
-| `QueryAsync<T>(nsid, parameters?)` | Call a custom XRPC query (GET) |
-| `ProcedureAsync<T>(nsid, body?)` | Call a custom XRPC procedure (POST) with response |
-| `ProcedureAsync(nsid, body?)` | Call a custom XRPC procedure (POST) without response |
+| `QueryAsync<T>(nsid, parameters?, options?)` | Call a custom XRPC query (GET) |
+| `ProcedureAsync<T>(nsid, body?, options?)` | Call a custom XRPC procedure (POST) with response |
+| `ProcedureAsync(nsid, body?, options?)` | Call a custom XRPC procedure (POST) without response |
+
+`options` is an `XrpcCallOptions` (`Proxy`, `AcceptLabelers`, `Headers`, `Timeout`) that applies to
+that one call only.
 
 ### Authentication Methods
 
@@ -50,7 +53,7 @@ The main entry point. Created via `AtProtoClientBuilder` or direct construction.
 | `RefreshSessionAsync()` | Manually refresh session tokens |
 | `LogoutAsync()` | Destroy the session |
 | `ApplyOAuthSessionAsync(oauthSession)` | Adopt an `OAuthSessionResult` (sets PDS URL, DPoP, session) |
-| `SetPdsUrl(url)` | Point the client at a different PDS at runtime |
+| `SetServiceUrl(uri)` | Point the client at a different PDS at runtime (HTTPS unless loopback) |
 
 ### Streaming, Proxying & Labelers
 
@@ -58,8 +61,11 @@ The main entry point. Created via `AtProtoClientBuilder` or direct construction.
 |--------|-------------|
 | `CreateFirehoseClient()` | Low-level `FirehoseClient` bound to the configured relay |
 | `CreateFirehoseConsumer(...)` | Reconnecting `FirehoseConsumer` |
-| `SetProxy(header)` / `ClearProxy()` | Set the `atproto-proxy` header for subsequent calls |
-| `SetLabelers(dids)` / `ClearLabelers()` | Set the `atproto-accept-labelers` header |
+| `SetProxy(header)` / `ClearProxy()` | Client-wide default `atproto-proxy` header (not applied to session calls) |
+| `SetLabelers(dids)` / `ClearLabelers()` | Client-wide default `atproto-accept-labelers` header |
+
+Both defaults are sent with or without a session. To vary them per call on a shared client, pass
+`XrpcCallOptions` instead.
 
 ### Bluesky Convenience Methods
 
@@ -310,14 +316,33 @@ Basic (the reference PDS), or as an administrator account (Tranquil PDS). See
 
 ## Exceptions
 
-### AtProtoHttpException
+Every SDK exception derives from `AtProtoException`. See [Error Handling](error-handling.md) for
+the full hierarchy.
+
+### XrpcException
+
+Thrown for every non-success XRPC response, and thrown by hosted XRPC endpoints to answer with a
+named error.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `ErrorType` | `string?` | XRPC error type (e.g., "RecordNotFound") |
+| `Nsid` | `string?` | The method that failed (client side) |
+| `Error` | `string` | XRPC error name (e.g., `RecordNotFound`); the status's generic name when the body had none |
 | `ErrorMessage` | `string?` | Human-readable error message |
-| `StatusCode` | `HttpStatusCode?` | HTTP status code (shadows `HttpRequestException.StatusCode`) |
+| `StatusCode` | `HttpStatusCode` | HTTP status code |
 | `ResponseBody` | `string?` | Raw response body |
+| `Headers` | `IDictionary<string, string>` | Response headers (client); headers to write (server) |
+| `Is(error)` | `bool` | Whether `Error` equals the given name; use with `XrpcErrors` constants |
+
+| Subtype | When |
+|---------|------|
+| `XrpcRateLimitException` | A 429 whose wait exceeds `XrpcRateLimitOptions.MaxDelay`, or retries ran out. Adds `RetryAfter` and `RateLimit` |
+| `XrpcAuthenticationException` | A 401, or `ExpiredToken` / `InvalidToken` |
+
+### XrpcResponseFormatException
+
+A success response whose body does not deserialize into the expected type. `Nsid` names the
+method; `InnerException` is the `JsonException`.
 
 ---
 
@@ -378,9 +403,9 @@ space credential. See [Spaces (Permissioned Data)](spaces.md).
 | `GetRecordAsync(space, repo, collection, rkey)` | Repo | One record's value |
 | `ListRecordsAsync(...)` / `EnumerateRecordsAsync(...)` | Repo | List records; `excludeValues` for metadata only |
 | `GetLatestCommitAsync(space, repo)` | Repo | The repo's current signed commit |
-| `GetRepoAsync(space, repo, excludeValues?)` | Repo | Whole repo as a two-root CAR |
+| `GetRepoAsync(space, repo, excludeValues?)` | Repo | Whole repo as a two-root CAR (`XrpcStreamResponse`; dispose it) |
 | `ListRepoOpsAsync(space, repo, since?, …)` | Repo | The oplog — the primary incremental sync mechanism |
-| `GetBlobAsync(space, repo, cid)` / `ListBlobsAsync(...)` | Repo | Blobs referenced by permissioned records |
+| `GetBlobAsync(space, repo, cid)` / `ListBlobsAsync(...)` | Repo | Blobs referenced by permissioned records (`GetBlobAsync` returns an `XrpcStreamResponse`) |
 | `CreateRecordAsync` / `PutRecordAsync` / `DeleteRecordAsync` | PDS | Single-record writes (OAuth only) |
 | `ApplyWritesAsync(space, repo, writes, validate?)` | PDS | Atomic batch (`SpaceCreateOp` / `SpaceUpdateOp` / `SpaceDeleteOp`) |
 | `RegisterNotifyAsync` / `UnregisterNotifyAsync` | Host | Subscribe a service to write notifications |
@@ -489,7 +514,9 @@ Accessed via `client.Site`. See [Standard.site](standard-site.md). A flat client
 
 ## RateLimitInfo
 
-Tracked automatically on every XRPC response. Available via `client.LatestRateLimitInfo`.
+Tracked automatically on every XRPC response. Available via `client.LatestRateLimitInfo`, and on
+`XrpcRateLimitException.RateLimit`. How 429s are retried is set with `AtProtoClientOptions.RateLimit`
+(`MaxRetries`, default 3; `MaxDelay`, default 30 s).
 
 | Property | Type | Description |
 |----------|------|-------------|

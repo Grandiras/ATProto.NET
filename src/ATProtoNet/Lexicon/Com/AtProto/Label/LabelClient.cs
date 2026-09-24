@@ -38,6 +38,6 @@ public sealed class LabelClient
             .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<QueryLabelsResponse>(
-            "com.atproto.label.queryLabels", parameters, cancellationToken);
+            "com.atproto.label.queryLabels", parameters, cancellationToken: cancellationToken);
     }
 }

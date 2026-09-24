@@ -23,7 +23,7 @@ public class SpaceClientTests : IDisposable
     public SpaceClientTests()
     {
         _httpClient = new HttpClient(_handler) { BaseAddress = new Uri("https://pds.example.com/") };
-        _xrpc = new XrpcClient(_httpClient, NullLogger.Instance, AtProtoJsonDefaults.Options);
+        _xrpc = new XrpcClient(_httpClient, _httpClient.BaseAddress!, NullLogger.Instance);
         _xrpc.SetTokens("test-token");
         _space = new SpaceClient(_xrpc);
         _simpleSpace = new SimpleSpaceClient(_xrpc);
@@ -344,7 +344,6 @@ public class SpaceClientTests : IDisposable
 
     public void Dispose()
     {
-        _xrpc.Dispose();
         _httpClient.Dispose();
         _handler.Dispose();
         GC.SuppressFinalize(this);

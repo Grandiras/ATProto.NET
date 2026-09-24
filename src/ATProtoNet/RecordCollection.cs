@@ -167,7 +167,7 @@ public sealed class RecordCollection<T> where T : class
         var response = await _client.Repo.GetRecordAsync(
             repo, _collection, rkey, cid, cancellationToken);
 
-        return ToView(response.Uri, response.Cid, response.Value);
+        return ToView("com.atproto.repo.getRecord", response.Uri, response.Cid, response.Value);
     }
 
     /// <summary>
@@ -244,7 +244,7 @@ public sealed class RecordCollection<T> where T : class
 
         return new RecordPage<T>
         {
-            Records = [.. response.Records.Select(e => ToView(e.Uri, e.Cid, e.Value))],
+            Records = [.. response.Records.Select(e => ToView("com.atproto.repo.listRecords", e.Uri, e.Cid, e.Value))],
             Cursor = response.Cursor,
         };
     }
@@ -294,23 +294,35 @@ public sealed class RecordCollection<T> where T : class
             await GetAsync(rkey, cancellationToken: cancellationToken);
             return true;
         }
-        catch (AtProtoHttpException ex) when (
-            ex.StatusCode == System.Net.HttpStatusCode.BadRequest
-            && ex.ErrorType is "RecordNotFound" or "InvalidRequest")
+        catch (XrpcException ex) when (ex.Is(XrpcErrors.RecordNotFound))
         {
+            // Only the named error means absence. A malformed key or a missing repo is an
+            // InvalidRequest too, and answering "false" for those would hide the real problem.
             return false;
         }
     }
 
-    private static RecordView<T> ToView(string uri, string? cid, JsonElement value) => new()
+    private static RecordView<T> ToView(string nsid, string uri, string? cid, JsonElement value) => new()
     {
         Uri = uri,
         Cid = cid,
-        Value = value.Deserialize<T>(AtProtoJsonDefaults.Options)
-            ?? throw new InvalidOperationException(
-                $"Failed to deserialize record {uri} to {typeof(T).Name}"),
+        Value = Deserialize(nsid, uri, value),
         RecordKey = AtUri.Parse(uri).RecordKey!,
     };
+
+    private static T Deserialize(string nsid, string uri, JsonElement value)
+    {
+        try
+        {
+            return value.Deserialize<T>(AtProtoJsonDefaults.Options)
+                ?? throw new XrpcResponseFormatException(nsid, $"Record {uri} is null.");
+        }
+        catch (JsonException ex)
+        {
+            throw new XrpcResponseFormatException(
+                nsid, $"Record {uri} is not a valid {typeof(T).Name}: {ex.Message}", ex);
+        }
+    }
 }
 
 /// <summary>

@@ -16,7 +16,7 @@ public class XrpcClientLabelerHeaderTests : IDisposable
         {
             BaseAddress = new Uri("https://pds.example.com/")
         };
-        _xrpc = new XrpcClient(_httpClient, NullLogger.Instance);
+        _xrpc = new XrpcClient(_httpClient, _httpClient.BaseAddress!, NullLogger.Instance);
         _xrpc.SetTokens("test-token");
     }
 
@@ -104,7 +104,6 @@ public class XrpcClientLabelerHeaderTests : IDisposable
 
     public void Dispose()
     {
-        _xrpc.Dispose();
         _httpClient.Dispose();
     }
 

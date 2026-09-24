@@ -15,7 +15,7 @@ public class XrpcClientRepoRevTests : IDisposable
     {
         _handler = new MockHttpMessageHandler();
         _httpClient = new HttpClient(_handler) { BaseAddress = new Uri("https://pds.example.com/") };
-        _xrpc = new XrpcClient(_httpClient, NullLogger.Instance);
+        _xrpc = new XrpcClient(_httpClient, _httpClient.BaseAddress!, NullLogger.Instance);
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public class XrpcClientRepoRevTests : IDisposable
             return response;
         };
 
-        await _xrpc.ProcedureAsync<object, JsonElement>("com.atproto.repo.createRecord", new { });
+        await _xrpc.ProcedureAsync<JsonElement>("com.atproto.repo.createRecord", new { });
 
         Assert.Equal("3jzhpt2dsby2x", _xrpc.LatestRepoRev);
     }
@@ -115,7 +115,6 @@ public class XrpcClientRepoRevTests : IDisposable
 
     public void Dispose()
     {
-        _xrpc.Dispose();
         _httpClient.Dispose();
         _handler.Dispose();
     }

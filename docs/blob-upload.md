@@ -80,13 +80,18 @@ await photos.CreateAsync(new PhotoRecord
 ## Download Blobs
 
 ```csharp
-await using var stream = await client.Sync.GetBlobAsync(
+await using var blob = await client.Sync.GetBlobAsync(
     "did:plc:abc123",
     "bafyreib...");
 
+Console.WriteLine($"{blob.ContentType}, {blob.ContentLength} bytes");
+
 await using var file = File.Create("downloaded.jpg");
-await stream.CopyToAsync(file);
+await blob.Content.CopyToAsync(file);
 ```
+
+The `XrpcStreamResponse` holds the HTTP response open while you read `Content`; disposing it
+releases the connection. `client.Sync.GetRepoAsync` returns the same type for a repository CAR.
 
 ## Size Limits
 

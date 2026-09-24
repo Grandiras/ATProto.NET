@@ -293,9 +293,9 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
     private static async Task<byte[]> DownloadRepoAsync(
         SpaceReader reader, SpaceUri space, string repo, bool? excludeValues = null)
     {
-        await using var stream = await reader.Space.GetRepoAsync(space.Value, repo, excludeValues);
+        await using var response = await reader.Space.GetRepoAsync(space.Value, repo, excludeValues);
         using var buffer = new MemoryStream();
-        await stream.CopyToAsync(buffer);
+        await response.Content.CopyToAsync(buffer);
         return buffer.ToArray();
     }
 

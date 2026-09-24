@@ -34,7 +34,7 @@ public sealed class ModerationClient
             Reason = reason,
         };
 
-        return _xrpc.ProcedureAsync<CreateReportRequest, CreateReportResponse>(
+        return _xrpc.ProcedureAsync<CreateReportResponse>(
             "com.atproto.moderation.createReport", request, cancellationToken: cancellationToken);
     }
 

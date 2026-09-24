@@ -47,7 +47,7 @@ public sealed class RepoClient
             SwapCommit = swapCommit,
         };
 
-        return _xrpc.ProcedureAsync<CreateRecordRequest, CreateRecordResponse>(
+        return _xrpc.ProcedureAsync<CreateRecordResponse>(
             "com.atproto.repo.createRecord", request, cancellationToken: cancellationToken);
     }
 
@@ -73,7 +73,7 @@ public sealed class RepoClient
             .Add("cid", cid);
 
         return _xrpc.QueryAsync<GetRecordResponse>(
-            "com.atproto.repo.getRecord", parameters, cancellationToken);
+            "com.atproto.repo.getRecord", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -86,9 +86,21 @@ public sealed class RepoClient
         string? cid = null,
         CancellationToken cancellationToken = default)
     {
+        const string nsid = "com.atproto.repo.getRecord";
+
         var response = await GetRecordAsync(repo, collection, rkey, cid, cancellationToken);
-        var typedValue = response.Value.Deserialize<T>(AtProtoJsonDefaults.Options)
-            ?? throw new InvalidOperationException($"Failed to deserialize record value to {typeof(T).Name}");
+
+        T typedValue;
+        try
+        {
+            typedValue = response.Value.Deserialize<T>(AtProtoJsonDefaults.Options)
+                ?? throw new XrpcResponseFormatException(nsid, $"Record {response.Uri} is null.");
+        }
+        catch (JsonException ex)
+        {
+            throw new XrpcResponseFormatException(
+                nsid, $"Record {response.Uri} is not a valid {typeof(T).Name}: {ex.Message}", ex);
+        }
 
         return new GetRecordResponse<T>
         {
@@ -122,7 +134,7 @@ public sealed class RepoClient
             SwapCommit = swapCommit,
         };
 
-        return _xrpc.ProcedureAsync<PutRecordRequest, PutRecordResponse>(
+        return _xrpc.ProcedureAsync<PutRecordResponse>(
             "com.atproto.repo.putRecord", request, cancellationToken: cancellationToken);
     }
 
@@ -146,7 +158,7 @@ public sealed class RepoClient
             SwapCommit = swapCommit,
         };
 
-        return _xrpc.ProcedureAsync<DeleteRecordRequest, DeleteRecordResponse>(
+        return _xrpc.ProcedureAsync<DeleteRecordResponse>(
             "com.atproto.repo.deleteRecord", request, cancellationToken: cancellationToken);
     }
 
@@ -175,7 +187,7 @@ public sealed class RepoClient
             .Add("reverse", reverse);
 
         return _xrpc.QueryAsync<ListRecordsResponse>(
-            "com.atproto.repo.listRecords", parameters, cancellationToken);
+            "com.atproto.repo.listRecords", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -206,7 +218,7 @@ public sealed class RepoClient
     {
         var parameters = new XrpcParams().Add("repo", repo);
         return _xrpc.QueryAsync<DescribeRepoResponse>(
-            "com.atproto.repo.describeRepo", parameters, cancellationToken);
+            "com.atproto.repo.describeRepo", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -221,8 +233,8 @@ public sealed class RepoClient
         string mimeType,
         CancellationToken cancellationToken = default)
     {
-        var response = await _xrpc.UploadBlobAsync<UploadBlobResponse>(
-            "com.atproto.repo.uploadBlob", data, mimeType, cancellationToken);
+        var response = await _xrpc.UploadAsync<UploadBlobResponse>(
+            "com.atproto.repo.uploadBlob", data, mimeType, cancellationToken: cancellationToken);
         return response.Blob;
     }
 
@@ -268,7 +280,7 @@ public sealed class RepoClient
             SwapCommit = swapCommit,
         };
 
-        return _xrpc.ProcedureAsync<ApplyWritesRequest, ApplyWritesResponse>(
+        return _xrpc.ProcedureAsync<ApplyWritesResponse>(
             "com.atproto.repo.applyWrites", request, cancellationToken: cancellationToken);
     }
 
@@ -284,6 +296,6 @@ public sealed class RepoClient
             .Add("limit", limit);
 
         return _xrpc.QueryAsync<ListMissingBlobsResponse>(
-            "com.atproto.repo.listMissingBlobs", parameters, cancellationToken);
+            "com.atproto.repo.listMissingBlobs", parameters, cancellationToken: cancellationToken);
     }
 }

@@ -135,13 +135,12 @@ public static class PdsAdminExtensions
                 "is not set. In an Aspire solution, call WithAtProtoTranquilPds(pds) on the project resource.");
         }
 
-        var baseAddress = new Uri(options.Url.TrimEnd('/') + "/");
-
         // Registered as a typed client rather than a singleton over one captured
         // HttpClient: the factory rotates the underlying handler, so a long-running
         // deployment picks up DNS changes behind the PDS URL.
         services
-            .AddHttpClient(nameof(PdsAdminClient), httpClient => httpClient.BaseAddress = baseAddress)
+            .AddHttpClient(nameof(PdsAdminClient))
+            .ConfigurePrimaryHttpMessageHandler(Http.AtProtoHttp.CreateHandler)
             .AddTypedClient((httpClient, sp) => new PdsAdminClient(
                 options,
                 httpClient,

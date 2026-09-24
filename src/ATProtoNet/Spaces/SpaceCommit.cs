@@ -415,7 +415,7 @@ public static class SpaceCommitVerifier
 /// <summary>
 /// Thrown when a serialized permissioned repo, or a commit within it, fails verification.
 /// </summary>
-public sealed class SpaceRepoVerificationException : Exception
+public sealed class SpaceRepoVerificationException : AtProtoException
 {
     /// <summary>Creates a new exception with the given message.</summary>
     /// <param name="message">A description of what failed to verify.</param>

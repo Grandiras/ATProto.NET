@@ -160,9 +160,9 @@ using var pds = new PdsAdminClient("https://pds.example.com", adminPassword);
 ### Plaintext HTTP
 
 The admin password grants full control of every account on the server, so the client
-refuses to send it in the clear: the address must be HTTPS or a loopback host. It
-validates the address requests actually go to, so supplying your own `HttpClient` with a
-different `BaseAddress` does not slip past the check.
+refuses to send it in the clear: the address must be HTTPS or a loopback host. Requests
+always go to that validated address — the `BaseAddress` of an `HttpClient` you supply is
+ignored — so a client pointed elsewhere cannot slip past the check.
 
 The PDS container itself serves plaintext HTTP, and a *containerized* consumer reaches it
 over the container network rather than at a loopback address. `WithAtProtoPds` therefore
@@ -248,10 +248,8 @@ var invites = await pds.Admin.GetInviteCodesAsync(sort: "recent", limit: 50);
 await pds.Admin.DisableAccountInvitesAsync("did:plc:...");
 ```
 
-At the lowest level, `XrpcClient` carries the same HTTP Basic admin auth directly —
-`SetAdminCredentials(password, user = "admin")`, `ClearAdminCredentials()`, and
-`HasAdminCredentials`. A session token still takes priority when both are set, so an
-admin-authenticated client that later logs in acts as that account.
+Under the hood the admin client carries HTTP Basic admin auth on its own XRPC transport, separate
+from the one it signs up accounts with, so signup never carries the admin password.
 
 ## Tranquil PDS
 

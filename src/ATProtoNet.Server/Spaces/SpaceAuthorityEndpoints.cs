@@ -1,10 +1,12 @@
+using System.Net;
+using ATProtoNet.Http;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Serialization;
 using ATProtoNet.Server.Xrpc;
 using ATProtoNet.Spaces;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Server.Spaces;
 
@@ -78,7 +80,7 @@ public sealed class GetSpaceCredentialEndpoint
             throw new XrpcException(
                 SpaceErrors.SpaceNotFound,
                 $"This service is not the authority for {space}.",
-                StatusCodes.Status404NotFound);
+                HttpStatusCode.NotFound);
         }
 
         var auth = await _authenticator.AuthenticateCredentialRequestAsync(
@@ -98,7 +100,7 @@ public sealed class GetSpaceCredentialEndpoint
             throw new XrpcException(
                 decision.ErrorName,
                 "The authority refused a credential for this space.",
-                StatusCodes.Status403Forbidden);
+                HttpStatusCode.Forbidden);
         }
 
         var credential = await _issuer.IssueAsync(space, auth.Proof.KeyThumbprint, cancellationToken);
@@ -165,9 +167,9 @@ public sealed class ListSpaceReposEndpoint : IXrpcQuery<ListSpaceReposParameters
     internal static XrpcException SpaceStateError(SpaceUri space, SpaceAccessOutcome state) => state switch
     {
         SpaceAccessOutcome.SpaceDeleted => new XrpcException(
-            SpaceErrors.SpaceDeleted, $"{space} was deleted.", StatusCodes.Status404NotFound),
+            SpaceErrors.SpaceDeleted, $"{space} was deleted.", HttpStatusCode.NotFound),
         _ => new XrpcException(
-            SpaceErrors.SpaceNotFound, $"{space} does not exist.", StatusCodes.Status404NotFound),
+            SpaceErrors.SpaceNotFound, $"{space} does not exist.", HttpStatusCode.NotFound),
     };
 }
 
@@ -358,7 +360,7 @@ public sealed class NotifyWriteEndpoint : IXrpcProcedureVoid<NotifyWriteRequest>
         var space = SpaceRequestValidation.RequireSpace(input.Space);
         var repo = SpaceRequestValidation.RequireDid(input.Repo, "repo");
         var rev = SpaceRequestValidation.RequireTid(input.Rev, "rev");
-        var hash = input.Hash ?? throw new XrpcException("InvalidRequest", "The \"hash\" field is required.");
+        var hash = input.Hash ?? throw new XrpcException(XrpcErrors.InvalidRequest, "The \"hash\" field is required.");
 
         var caller = await _serviceAuth.VerifyAsync(context, AcceptedAudiences(space), Nsid, cancellationToken);
 
@@ -370,7 +372,7 @@ public sealed class NotifyWriteEndpoint : IXrpcProcedureVoid<NotifyWriteRequest>
             throw new SpaceVerificationException(
                 SpaceErrors.NotAuthorized,
                 $"'{caller.Issuer}' does not host the repo for '{repo}'.",
-                StatusCodes.Status403Forbidden);
+                HttpStatusCode.Forbidden);
         }
 
         var state = await _store.GetSpaceStateAsync(space, cancellationToken);
@@ -393,7 +395,7 @@ public sealed class NotifyWriteEndpoint : IXrpcProcedureVoid<NotifyWriteRequest>
             throw new XrpcException(
                 SpaceErrors.NotAuthorized,
                 "The writer is not authorized for this space.",
-                StatusCodes.Status403Forbidden);
+                HttpStatusCode.Forbidden);
         }
 
         await _store.RecordWriteAsync(space, repo, rev, hash, cancellationToken);

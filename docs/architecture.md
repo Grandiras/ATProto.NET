@@ -53,7 +53,7 @@ ATProto.NET/
 │   │   ├── Auth/                              # Session, ISessionStore, ServiceAuthGenerator
 │   │   │   └── OAuth/                         # OAuth client, DPoP, PKCE, discovery
 │   │   ├── Crypto/                            # AtProtoCrypto, AtProtoKey (P-256 / K-256)
-│   │   ├── Http/                              # XrpcClient, AtProtoHttpException
+│   │   ├── Http/                              # XRPC transport (internal), XrpcException family
 │   │   ├── Models/                            # BlobRef, StrongRef, Label, …
 │   │   ├── Repo/                              # CarReader/CarWriter, MerkleSearchTree, RepoCommit, DAG-CBOR, CID
 │   │   ├── Serialization/                     # JSON converters, defaults
