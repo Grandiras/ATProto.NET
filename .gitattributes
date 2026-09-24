@@ -1,3 +1,0 @@
-# Every PR adds bullets at the top of [Unreleased], so parallel PRs always "conflict" there.
-# The union driver keeps both sides; the release commit tidies the section.
-CHANGELOG.md merge=union
