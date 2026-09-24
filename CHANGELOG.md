@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **GitHub → Forgejo sync workflows no longer paste event fields into shell scripts** — `sync-issues.yml`, `sync-comments.yml` and `sync-prs.yml` interpolated issue/PR titles, bodies, comment bodies, file paths and branch names into `run:` scripts with `${{ }}`, which is expanded into the script text before bash parses it. Anyone able to open an issue, PR or comment on the public GitHub mirror could therefore run commands with `FORGEJO_TOKEN` in the environment; wrapping a body in a quoted heredoc did not help, since the body could contain the delimiter. Every event field now reaches the script only through `env:` and a quoted variable, and each workflow sets `permissions: {}`. **Rotate `FORGEJO_TOKEN`** (it has write access to the canonical repository) as well as `GH_MIRROR_TOKEN` (see the next entry)
+- **`sync-to-github.yml` (Forgejo) had the same injection through issue and PR titles** — and a GitHub issue title reaches it verbatim through the mirror, so a hostile title opened on GitHub ran with `GH_MIRROR_TOKEN` as soon as the mirrored issue was closed. Fixed the same way
+- **`sync-prs.yml` never checks out the PR anymore** — it ran on `pull_request_target` (secrets available regardless of who opened the PR) and checked out the PR head with `actions/checkout`, which also persisted a GitHub token in `.git/config`. The PR's commits are now fetched into a bare repository with no working tree and only handed to `git push`; the Forgejo token is passed to that push rather than saved as a remote, and the Forgejo branch name is reduced to `[A-Za-z0-9._/-]`
+- **PRs that change `.forgejo/` or `.gitea/` are no longer mirrored to Forgejo** — a mirrored PR is pushed as a branch of the canonical repository rather than a fork, and Forgejo runs a pushed commit's own workflow files with that repository's secrets (`NUGET_ORG_API_KEY` among them). The sync now refuses, with an error on the GitHub PR, when the PR's CI configuration differs from its base branch; such a PR has to be reviewed and pulled by hand
+
 ## [0.6.0] - 2026-08-21
 
 ### Breaking changes

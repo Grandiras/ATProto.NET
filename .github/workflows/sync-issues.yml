@@ -4,33 +4,35 @@ on:
   issues:
     types: [opened, edited, closed, reopened, labeled, unlabeled]
 
+# All writes go to Forgejo with FORGEJO_TOKEN; the GitHub token is never used.
+permissions: {}
+
 jobs:
   sync-issue:
     runs-on: ubuntu-latest
     steps:
       - name: Sync issue to Forgejo
+        # Anyone can open an issue on the mirror, so every event field is untrusted and
+        # reaches the script only through env: and a quoted variable. A ${{ }} inside run:
+        # is pasted into the script text before bash parses it, which lets a title or body
+        # run commands with FORGEJO_TOKEN in the environment.
         env:
           FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
           FORGEJO_API: https://git.grandiras.net/api/v1
           FORGEJO_REPO: Grandiras/ATProto.NET
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_ACTION: ${{ github.event.action }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
           set -euo pipefail
 
-          ISSUE_NUMBER="${{ github.event.issue.number }}"
-          ACTION="${{ github.event.action }}"
-          TITLE="${{ github.event.issue.title }}"
-          STATE="${{ github.event.issue.state }}"
-          AUTHOR="${{ github.event.issue.user.login }}"
-          GITHUB_URL="${{ github.event.issue.html_url }}"
-
           # Build body with attribution
-          BODY=$(cat <<'BODYEOF'
-          ${{ github.event.issue.body }}
-          BODYEOF
-          )
-          ATTRIBUTED_BODY=$(printf "> Mirrored from GitHub issue %s by @%s\n> %s\n\n%s" "#${ISSUE_NUMBER}" "$AUTHOR" "$GITHUB_URL" "$BODY")
+          ATTRIBUTED_BODY=$(printf "> Mirrored from GitHub issue %s by @%s\n> %s\n\n%s" "#${ISSUE_NUMBER}" "$ISSUE_AUTHOR" "$ISSUE_URL" "$ISSUE_BODY")
 
-          PREFIXED_TITLE="[GH-#${ISSUE_NUMBER}] ${TITLE}"
+          PREFIXED_TITLE="[GH-#${ISSUE_NUMBER}] ${ISSUE_TITLE}"
 
           # Check if a mirrored issue already exists (search by title prefix)
           EXISTING=$(curl -sf -H "Authorization: token ${FORGEJO_TOKEN}" \
@@ -41,7 +43,7 @@ jobs:
           if [ -n "$EXISTING" ]; then
             FORGEJO_ISSUE_NUMBER=$(echo "$EXISTING" | jq -r '.number')
 
-            if [ "$ACTION" = "closed" ]; then
+            if [ "$ISSUE_ACTION" = "closed" ]; then
               # Close the issue
               curl -sf -X PATCH \
                 -H "Authorization: token ${FORGEJO_TOKEN}" \
@@ -50,7 +52,7 @@ jobs:
                 "${FORGEJO_API}/repos/${FORGEJO_REPO}/issues/${FORGEJO_ISSUE_NUMBER}" > /dev/null
               echo "Closed Forgejo issue #${FORGEJO_ISSUE_NUMBER}"
 
-            elif [ "$ACTION" = "reopened" ]; then
+            elif [ "$ISSUE_ACTION" = "reopened" ]; then
               curl -sf -X PATCH \
                 -H "Authorization: token ${FORGEJO_TOKEN}" \
                 -H "Content-Type: application/json" \
@@ -58,7 +60,7 @@ jobs:
                 "${FORGEJO_API}/repos/${FORGEJO_REPO}/issues/${FORGEJO_ISSUE_NUMBER}" > /dev/null
               echo "Reopened Forgejo issue #${FORGEJO_ISSUE_NUMBER}"
 
-            elif [ "$ACTION" = "edited" ]; then
+            elif [ "$ISSUE_ACTION" = "edited" ]; then
               # Update title and body
               PAYLOAD=$(jq -n \
                 --arg title "$PREFIXED_TITLE" \
@@ -72,7 +74,7 @@ jobs:
               echo "Updated Forgejo issue #${FORGEJO_ISSUE_NUMBER}"
             fi
           else
-            if [ "$ACTION" = "opened" ]; then
+            if [ "$ISSUE_ACTION" = "opened" ]; then
               # Create new issue
               PAYLOAD=$(jq -n \
                 --arg title "$PREFIXED_TITLE" \

@@ -4,43 +4,58 @@ on:
   pull_request_target:
     types: [opened, edited, synchronize, closed]
 
+# All writes go to Forgejo with FORGEJO_TOKEN, and this repository is public, so the
+# GitHub token is never used — not even to fetch.
+permissions: {}
+
 jobs:
   sync-pr:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout PR
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
-
+      # pull_request_target runs in this repository's context, secrets included, whoever
+      # opened the PR. So nothing from the PR is ever executed or even checked out: its
+      # commits are fetched into a bare repository (no working tree, no persisted
+      # credentials) and only handed to `git push`. Every event field is untrusted too and
+      # reaches the script only through env: and a quoted variable — a ${{ }} inside run:
+      # is pasted into the script text before bash parses it.
       - name: Sync PR to Forgejo
         env:
           FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
           FORGEJO_API: https://git.grandiras.net/api/v1
           FORGEJO_REPO: Grandiras/ATProto.NET
           FORGEJO_GIT: https://Grandiras:${{ secrets.FORGEJO_TOKEN }}@git.grandiras.net/Grandiras/ATProto.NET.git
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_ACTION: ${{ github.event.action }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_MERGED: ${{ github.event.pull_request.merged }}
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           set -euo pipefail
 
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          ACTION="${{ github.event.action }}"
-          TITLE="${{ github.event.pull_request.title }}"
-          AUTHOR="${{ github.event.pull_request.user.login }}"
-          HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
-          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
-          GITHUB_URL="${{ github.event.pull_request.html_url }}"
-          MERGED="${{ github.event.pull_request.merged }}"
-
-          FORGEJO_BRANCH="gh-pr-${PR_NUMBER}/${HEAD_BRANCH}"
-          PREFIXED_TITLE="[GH-PR-#${PR_NUMBER}] ${TITLE}"
+          # The Forgejo branch name is ours to choose, so reduce the PR's branch name to
+          # characters that are inert in both a refspec and a URL path.
+          SAFE_HEAD_REF=$(printf '%s' "$PR_HEAD_REF" | tr -c 'A-Za-z0-9._/-' '_')
+          FORGEJO_BRANCH="gh-pr-${PR_NUMBER}/${SAFE_HEAD_REF}"
+          if ! git check-ref-format "refs/heads/${FORGEJO_BRANCH}"; then
+            echo "::error::Cannot derive a valid Forgejo branch name from this PR's branch"
+            exit 1
+          fi
+          PREFIXED_TITLE="[GH-PR-#${PR_NUMBER}] ${PR_TITLE}"
 
           # Build body with attribution
-          BODY=$(cat <<'BODYEOF'
-          ${{ github.event.pull_request.body }}
-          BODYEOF
-          )
-          ATTRIBUTED_BODY=$(printf "> Mirrored from GitHub PR %s by @%s\n> %s\n\n%s" "#${PR_NUMBER}" "$AUTHOR" "$GITHUB_URL" "$BODY")
+          ATTRIBUTED_BODY=$(printf "> Mirrored from GitHub PR %s by @%s\n> %s\n\n%s" "#${PR_NUMBER}" "$PR_AUTHOR" "$PR_URL" "$PR_BODY")
+
+          # Fetch the PR's commits, plus this repository's branches so the push to Forgejo
+          # only sends what it is missing.
+          git init --quiet --bare "$RUNNER_TEMP/pr.git"
+          export GIT_DIR="$RUNNER_TEMP/pr.git"
+          git fetch --quiet --no-tags "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" \
+            '+refs/heads/*:refs/heads/*' "+${PR_HEAD_SHA}:refs/pr/head"
 
           # Find existing Forgejo PR
           EXISTING=$(curl -sf -H "Authorization: token ${FORGEJO_TOKEN}" \
@@ -48,14 +63,13 @@ jobs:
             | jq -r --arg prefix "[GH-PR-#${PR_NUMBER}]" \
             '[.[] | select(.title | startswith($prefix))][0] // empty')
 
-          if [ "$ACTION" = "closed" ]; then
+          if [ "$PR_ACTION" = "closed" ]; then
             if [ -n "$EXISTING" ]; then
               FORGEJO_PR_NUMBER=$(echo "$EXISTING" | jq -r '.number')
 
-              if [ "$MERGED" = "true" ]; then
+              if [ "$PR_MERGED" = "true" ]; then
                 # PR was merged on GitHub — push the merge to Forgejo main and close the PR
-                git remote add forgejo "$FORGEJO_GIT"
-                git push forgejo "HEAD:${BASE_BRANCH}" || true
+                git push "$FORGEJO_GIT" "refs/pr/head:refs/heads/${PR_BASE_REF}" || true
 
                 # Close the Forgejo PR
                 curl -sf -X PATCH \
@@ -65,7 +79,7 @@ jobs:
                   "${FORGEJO_API}/repos/${FORGEJO_REPO}/pulls/${FORGEJO_PR_NUMBER}" > /dev/null
 
                 # Add a comment noting it was merged on GitHub
-                PAYLOAD=$(jq -n --arg body "This PR was merged on GitHub. The changes have been synced to \`${BASE_BRANCH}\`." '{body: $body}')
+                PAYLOAD=$(jq -n --arg body "This PR was merged on GitHub. The changes have been synced to \`${PR_BASE_REF}\`." '{body: $body}')
                 curl -sf -X POST \
                   -H "Authorization: token ${FORGEJO_TOKEN}" \
                   -H "Content-Type: application/json" \
@@ -91,15 +105,28 @@ jobs:
             exit 0
           fi
 
+          # Forgejo runs the workflow files of whatever commit is pushed to it, and this
+          # branch lands in the canonical repository rather than a fork, so those runs get
+          # the repository's secrets. Only mirror a PR whose CI configuration is exactly
+          # what its base branch already has; one that changes it has to be reviewed and
+          # pulled by a maintainer by hand.
+          for dir in .forgejo .gitea; do
+            PR_TREE=$(git rev-parse -q --verify "refs/pr/head:${dir}" || true)
+            BASE_TREE=$(git rev-parse -q --verify "refs/heads/${PR_BASE_REF}:${dir}" || true)
+            if [ "$PR_TREE" != "$BASE_TREE" ]; then
+              echo "::error::This PR's ${dir}/ differs from its base branch. Forgejo would run it with repository secrets, so it is not mirrored automatically; a maintainer has to review and pull it by hand."
+              exit 1
+            fi
+          done
+
           # Push the PR branch to Forgejo
-          git remote add forgejo "$FORGEJO_GIT" 2>/dev/null || true
-          git push forgejo "HEAD:refs/heads/${FORGEJO_BRANCH}" --force
+          git push --force "$FORGEJO_GIT" "refs/pr/head:refs/heads/${FORGEJO_BRANCH}"
           echo "Pushed branch ${FORGEJO_BRANCH} to Forgejo"
 
           if [ -n "$EXISTING" ]; then
             FORGEJO_PR_NUMBER=$(echo "$EXISTING" | jq -r '.number')
 
-            if [ "$ACTION" = "edited" ]; then
+            if [ "$PR_ACTION" = "edited" ]; then
               PAYLOAD=$(jq -n \
                 --arg title "$PREFIXED_TITLE" \
                 --arg body "$ATTRIBUTED_BODY" \
@@ -119,7 +146,7 @@ jobs:
               --arg title "$PREFIXED_TITLE" \
               --arg body "$ATTRIBUTED_BODY" \
               --arg head "$FORGEJO_BRANCH" \
-              --arg base "$BASE_BRANCH" \
+              --arg base "$PR_BASE_REF" \
               '{title: $title, body: $body, head: $head, base: $base}')
             RESULT=$(curl -sf -X POST \
               -H "Authorization: token ${FORGEJO_TOKEN}" \

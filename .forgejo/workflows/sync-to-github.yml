@@ -13,33 +13,39 @@ jobs:
       image: mcr.microsoft.com/dotnet/sdk:10.0
     steps:
       - name: Sync state to GitHub
+        # Titles are untrusted — a GitHub issue's title arrives here verbatim through
+        # .github/workflows/sync-issues.yml — so event fields reach the script only through
+        # env: and a quoted variable. A ${{ }} inside run: is pasted into the script text
+        # before bash parses it, which lets a title run commands with GH_MIRROR_TOKEN.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_MIRROR_TOKEN }}
           GITHUB_API: https://api.github.com
           GITHUB_REPO: Grandiras/ATProto.NET
+          EVENT_ACTION: ${{ github.event.action }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_MERGED: ${{ github.event.pull_request.merged }}
         run: |
           set -euo pipefail
 
           # Install jq (not in dotnet SDK image)
           apt-get update -qq && apt-get install -y -qq jq curl > /dev/null 2>&1
 
-          EVENT_ACTION="${{ github.event.action }}"
-
           # Determine if this is an issue or PR
-          if [ -n "${{ github.event.issue.title }}" ] && [ -z "${{ github.event.pull_request.title }}" ]; then
+          if [ -n "$ISSUE_TITLE" ] && [ -z "$PR_TITLE" ]; then
             TYPE="issue"
-            TITLE="${{ github.event.issue.title }}"
+            TITLE="$ISSUE_TITLE"
           else
             TYPE="pr"
-            TITLE="${{ github.event.pull_request.title }}"
-            MERGED="${{ github.event.pull_request.merged }}"
+            TITLE="$PR_TITLE"
+            MERGED="$PR_MERGED"
           fi
 
           # Extract the GitHub number from the title prefix [GH-#N] or [GH-PR-#N]
           if [ "$TYPE" = "issue" ]; then
-            GH_NUMBER=$(echo "$TITLE" | grep -oP '^\[GH-#\K[0-9]+' || true)
+            GH_NUMBER=$(printf '%s\n' "$TITLE" | grep -oP '^\[GH-#\K[0-9]+' || true)
           else
-            GH_NUMBER=$(echo "$TITLE" | grep -oP '^\[GH-PR-#\K[0-9]+' || true)
+            GH_NUMBER=$(printf '%s\n' "$TITLE" | grep -oP '^\[GH-PR-#\K[0-9]+' || true)
           fi
 
           if [ -z "$GH_NUMBER" ]; then

@@ -8,6 +8,9 @@ on:
   pull_request_review:
     types: [submitted]
 
+# All writes go to Forgejo with FORGEJO_TOKEN; the GitHub token is never used.
+permissions: {}
+
 jobs:
   sync-comment:
     runs-on: ubuntu-latest
@@ -15,56 +18,48 @@ jobs:
     if: github.event.sender.type != 'Bot'
     steps:
       - name: Sync comment to Forgejo
+        # Anyone can comment on the mirror, so every event field is untrusted and reaches
+        # the script only through env: and a quoted variable. A ${{ }} inside run: is pasted
+        # into the script text before bash parses it — a heredoc does not contain it, since
+        # the body can simply contain the delimiter.
         env:
           FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
           FORGEJO_API: https://git.grandiras.net/api/v1
           FORGEJO_REPO: Grandiras/ATProto.NET
+          EVENT_ACTION: ${{ github.event.action }}
+          EVENT_AUTHOR: ${{ github.event.sender.login }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_IS_PR: ${{ github.event.issue.pull_request && 'true' || 'false' }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          COMMENT_BODY_RAW: ${{ github.event.comment.body }}
+          COMMENT_PATH: ${{ github.event.comment.path }}
+          COMMENT_URL_RAW: ${{ github.event.comment.html_url }}
+          REVIEW_STATE: ${{ github.event.review.state }}
+          REVIEW_BODY: ${{ github.event.review.body }}
+          REVIEW_URL: ${{ github.event.review.html_url }}
         run: |
           set -euo pipefail
 
-          ACTION="${{ github.event.action }}"
-          AUTHOR="${{ github.event.sender.login }}"
-          EVENT_NAME="${{ github.event_name }}"
-
           # Determine the GitHub issue/PR number and the comment body
-          if [ "$EVENT_NAME" = "issue_comment" ]; then
-            GH_NUMBER="${{ github.event.issue.number }}"
-            IS_PR="${{ github.event.issue.pull_request && 'true' || 'false' }}"
+          if [ "$GITHUB_EVENT_NAME" = "issue_comment" ]; then
+            GH_NUMBER="$ISSUE_NUMBER"
+            IS_PR="$ISSUE_IS_PR"
+            COMMENT_BODY="$COMMENT_BODY_RAW"
+            COMMENT_URL="$COMMENT_URL_RAW"
 
-            COMMENT_BODY=$(cat <<'BODYEOF'
-          ${{ github.event.comment.body }}
-          BODYEOF
-            )
-            COMMENT_ID="${{ github.event.comment.id }}"
-            COMMENT_URL="${{ github.event.comment.html_url }}"
-
-          elif [ "$EVENT_NAME" = "pull_request_review_comment" ]; then
-            GH_NUMBER="${{ github.event.pull_request.number }}"
+          elif [ "$GITHUB_EVENT_NAME" = "pull_request_review_comment" ]; then
+            GH_NUMBER="$PR_NUMBER"
             IS_PR="true"
+            COMMENT_URL="$COMMENT_URL_RAW"
+            COMMENT_BODY=$(printf "**Review comment on \`%s\`:**\n\n%s" "$COMMENT_PATH" "$COMMENT_BODY_RAW")
 
-            COMMENT_BODY=$(cat <<'BODYEOF'
-          ${{ github.event.comment.body }}
-          BODYEOF
-            )
-            FILE_PATH="${{ github.event.comment.path }}"
-            COMMENT_ID="${{ github.event.comment.id }}"
-            COMMENT_URL="${{ github.event.comment.html_url }}"
-            COMMENT_BODY=$(printf "**Review comment on \`%s\`:**\n\n%s" "$FILE_PATH" "$COMMENT_BODY")
-
-          elif [ "$EVENT_NAME" = "pull_request_review" ]; then
-            GH_NUMBER="${{ github.event.pull_request.number }}"
+          elif [ "$GITHUB_EVENT_NAME" = "pull_request_review" ]; then
+            GH_NUMBER="$PR_NUMBER"
             IS_PR="true"
-
-            REVIEW_STATE="${{ github.event.review.state }}"
-            COMMENT_BODY=$(cat <<'BODYEOF'
-          ${{ github.event.review.body }}
-          BODYEOF
-            )
-            COMMENT_ID="${{ github.event.review.id }}"
-            COMMENT_URL="${{ github.event.review.html_url }}"
+            COMMENT_URL="$REVIEW_URL"
 
             # Skip reviews with no body (approval-only)
-            if [ -z "$COMMENT_BODY" ] || [ "$COMMENT_BODY" = "null" ]; then
+            if [ -z "$REVIEW_BODY" ] || [ "$REVIEW_BODY" = "null" ]; then
               echo "Skipping review with no body"
               exit 0
             fi
@@ -76,11 +71,11 @@ jobs:
               commented) STATE_LABEL="💬 Review" ;;
               *) STATE_LABEL="Review ($REVIEW_STATE)" ;;
             esac
-            COMMENT_BODY=$(printf "**%s:**\n\n%s" "$STATE_LABEL" "$COMMENT_BODY")
+            COMMENT_BODY=$(printf "**%s:**\n\n%s" "$STATE_LABEL" "$REVIEW_BODY")
           fi
 
           # Attribute the comment
-          ATTRIBUTED_BODY=$(printf "> Comment by @%s on GitHub ([link](%s))\n\n%s" "$AUTHOR" "$COMMENT_URL" "$COMMENT_BODY")
+          ATTRIBUTED_BODY=$(printf "> Comment by @%s on GitHub ([link](%s))\n\n%s" "$EVENT_AUTHOR" "$COMMENT_URL" "$COMMENT_BODY")
 
           # Find the corresponding Forgejo issue/PR
           if [ "$IS_PR" = "true" ]; then
@@ -102,7 +97,7 @@ jobs:
 
           FORGEJO_NUMBER=$(echo "$EXISTING" | jq -r '.number')
 
-          if [ "$ACTION" = "created" ] || [ "$ACTION" = "submitted" ]; then
+          if [ "$EVENT_ACTION" = "created" ] || [ "$EVENT_ACTION" = "submitted" ]; then
             PAYLOAD=$(jq -n --arg body "$ATTRIBUTED_BODY" '{body: $body}')
             curl -sf -X POST \
               -H "Authorization: token ${FORGEJO_TOKEN}" \
@@ -111,7 +106,7 @@ jobs:
               "${FORGEJO_API}/repos/${FORGEJO_REPO}/issues/${FORGEJO_NUMBER}/comments" > /dev/null
             echo "Synced comment to Forgejo issue/PR #${FORGEJO_NUMBER}"
 
-          elif [ "$ACTION" = "edited" ]; then
+          elif [ "$EVENT_ACTION" = "edited" ]; then
             # For edits, add a new comment with the updated content
             EDIT_BODY=$(printf "**[Edited comment]**\n\n%s" "$ATTRIBUTED_BODY")
             PAYLOAD=$(jq -n --arg body "$EDIT_BODY" '{body: $body}')
