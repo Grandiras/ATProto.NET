@@ -174,7 +174,7 @@ public class DagCborEncoderTests
         // than length-first produces a CID no other implementation in the network agrees with.
         var record = JsonSerializer.Deserialize<JsonElement>(RealNetworkRecord);
 
-        var cid = DagCborEncoder.ComputeCid(DagCborEncoder.Encode(record));
+        var cid = CidComputation.ComputeForDagCbor(DagCborEncoder.Encode(record));
 
         Assert.Equal("bafyreicnt42y6vo6pfpvyro234ac4o6ijug6adwwrh7awflgrqlt4zibxq", cid.Value);
     }

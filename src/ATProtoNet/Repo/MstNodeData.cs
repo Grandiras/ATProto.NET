@@ -9,13 +9,20 @@ namespace ATProtoNet.Repo;
 /// <param name="KeySuffix">Remainder of the key after removing the shared prefix.</param>
 /// <param name="Value">CID link (binary) to the record data.</param>
 /// <param name="Tree">Optional CID link to a right sub-tree node.</param>
-public sealed record MstTreeEntry(int PrefixLength, byte[] KeySuffix, byte[] Value, byte[]? Tree);
+internal sealed record MstTreeEntry(int PrefixLength, byte[] KeySuffix, byte[] Value, byte[]? Tree);
 
 /// <summary>
 /// Represents a serialized MST node as stored in DAG-CBOR, with fields
 /// <c>l</c> (left subtree link) and <c>e</c> (entries array).
 /// </summary>
-public sealed class MstNodeData
+/// <remarks>
+/// The wire schema is <c>{e: [{k, p, t, v}], l}</c>, with <c>l</c> and every <c>t</c> always
+/// present and written as CBOR <c>null</c> when there is no subtree. Omitting them instead
+/// changes every node's CID, so the tree no longer matches the one any other implementation
+/// computes for the same records.
+/// See: https://atproto.com/specs/repository#mst-structure
+/// </remarks>
+internal sealed class MstNodeData
 {
     /// <summary>Link to the left sub-tree node (nullable).</summary>
     public byte[]? Left { get; init; }
@@ -28,58 +35,56 @@ public sealed class MstNodeData
     /// </summary>
     public byte[] ToBytes()
     {
-        var writer = new CborWriter(CborConformanceMode.Canonical);
-        var entryCount = Entries.Count;
-        var fieldCount = Left is not null ? 2 : 1;
+        // Every map is written in canonical key order by hand ("e" < "l"; "k" < "p" < "t" < "v"),
+        // so the writer need not buffer and re-sort it.
+        var writer = new CborWriter(CborConformanceMode.Lax);
 
-        writer.WriteStartMap(fieldCount);
-
-        // Fields must be sorted by key byte value: "e" < "l"
-        // "e" (0x65) comes before "l" (0x6C) in UTF-8
+        writer.WriteStartMap(2);
         writer.WriteTextString("e");
-        writer.WriteStartArray(entryCount);
+        writer.WriteStartArray(Entries.Count);
         foreach (var entry in Entries)
         {
-            var innerFieldCount = entry.Tree is not null ? 4 : 3;
-            writer.WriteStartMap(innerFieldCount);
-
-            // Fields sorted: "k" < "p" < "t" < "v"
+            writer.WriteStartMap(4);
             writer.WriteTextString("k");
             writer.WriteByteString(entry.KeySuffix);
-
             writer.WriteTextString("p");
             writer.WriteInt32(entry.PrefixLength);
-
-            if (entry.Tree is not null)
-            {
-                writer.WriteTextString("t");
-                WriteCidLink(writer, entry.Tree);
-            }
-
+            writer.WriteTextString("t");
+            DagCborLink.WriteNullable(writer, entry.Tree);
             writer.WriteTextString("v");
-            WriteCidLink(writer, entry.Value);
-
+            DagCborLink.Write(writer, entry.Value);
             writer.WriteEndMap();
         }
         writer.WriteEndArray();
 
-        if (Left is not null)
-        {
-            writer.WriteTextString("l");
-            WriteCidLink(writer, Left);
-        }
-
+        writer.WriteTextString("l");
+        DagCborLink.WriteNullable(writer, Left);
         writer.WriteEndMap();
+
         return writer.Encode();
     }
 
     /// <summary>
     /// Deserializes an MST node from DAG-CBOR bytes.
     /// </summary>
+    /// <exception cref="FormatException">
+    /// The bytes are not a well-formed MST node, including an entry whose prefix length is
+    /// negative or longer than the key before it.
+    /// </exception>
     public static MstNodeData FromBytes(ReadOnlyMemory<byte> data)
     {
-        var reader = new CborReader(data, CborConformanceMode.Lax);
+        try
+        {
+            return Read(new CborReader(data, CborConformanceMode.Lax));
+        }
+        catch (Exception ex) when (ex is CborContentException or InvalidOperationException or OverflowException)
+        {
+            throw new FormatException($"Invalid MST node: {ex.Message}", ex);
+        }
+    }
 
+    private static MstNodeData Read(CborReader reader)
+    {
         byte[]? left = null;
         List<MstTreeEntry>? entries = null;
 
@@ -95,7 +100,7 @@ public sealed class MstNodeData
                     entries = ReadEntries(reader);
                     break;
                 case "l":
-                    left = ReadCidLink(reader);
+                    left = DagCborLink.ReadNullable(reader);
                     break;
                 default:
                     // Skip unknown fields
@@ -115,14 +120,19 @@ public sealed class MstNodeData
 
     private static List<MstTreeEntry> ReadEntries(CborReader reader)
     {
+        // CborReader rejects a declared length longer than the remaining input, so the
+        // capacity below is bounded by the size of the block.
         var arrLen = reader.ReadStartArray()
                     ?? throw new FormatException("MST entries must be a definite-length array.");
 
-        var entries = new List<MstTreeEntry>((int)arrLen);
+        var entries = new List<MstTreeEntry>(arrLen);
+
+        // Length of the key the previous entry reconstructs to: the only bytes a prefix can share.
+        var previousKeyLength = 0;
 
         for (var i = 0; i < arrLen; i++)
         {
-            int prefixLen = 0;
+            long prefixLen = 0;
             byte[]? keySuffix = null;
             byte[]? value = null;
             byte[]? tree = null;
@@ -136,16 +146,16 @@ public sealed class MstNodeData
                 switch (field)
                 {
                     case "p":
-                        prefixLen = reader.ReadInt32();
+                        prefixLen = reader.ReadInt64();
                         break;
                     case "k":
                         keySuffix = reader.ReadByteString();
                         break;
                     case "v":
-                        value = ReadCidLink(reader);
+                        value = DagCborLink.Read(reader);
                         break;
                     case "t":
-                        tree = ReadCidLink(reader);
+                        tree = DagCborLink.ReadNullable(reader);
                         break;
                     default:
                         reader.SkipValue();
@@ -158,34 +168,19 @@ public sealed class MstNodeData
             if (keySuffix is null || value is null)
                 throw new FormatException("MST entry missing required field 'k' or 'v'.");
 
-            entries.Add(new MstTreeEntry(prefixLen, keySuffix, value, tree));
+            // The prefix is sliced off the previous key before anything else touches it, so an
+            // out-of-range value from an untrusted node must be refused here (indigo SEC-4).
+            if (prefixLen < 0 || prefixLen > previousKeyLength)
+            {
+                throw new FormatException(
+                    $"MST entry prefix length {prefixLen} is outside the previous key's length {previousKeyLength}.");
+            }
+
+            entries.Add(new MstTreeEntry((int)prefixLen, keySuffix, value, tree));
+            previousKeyLength = (int)prefixLen + keySuffix.Length;
         }
 
         reader.ReadEndArray();
         return entries;
-    }
-
-    private static void WriteCidLink(CborWriter writer, byte[] cidBytes)
-    {
-        writer.WriteTag((CborTag)42);
-        // Prepend 0x00 identity multibase prefix
-        var tagged = new byte[cidBytes.Length + 1];
-        tagged[0] = 0x00;
-        cidBytes.CopyTo(tagged.AsSpan(1));
-        writer.WriteByteString(tagged);
-    }
-
-    private static byte[] ReadCidLink(CborReader reader)
-    {
-        var tag = reader.ReadTag();
-        if ((int)tag != 42)
-            throw new FormatException($"Expected CID tag 42, got {(int)tag}.");
-
-        var bytes = reader.ReadByteString();
-        // Strip 0x00 identity multibase prefix
-        if (bytes.Length < 2 || bytes[0] != 0x00)
-            throw new FormatException("Invalid CID encoding: missing identity multibase prefix.");
-
-        return bytes[1..];
     }
 }

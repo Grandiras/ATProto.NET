@@ -126,7 +126,7 @@ public static class CarWriter
         writer.WriteTextString("roots");
         writer.WriteStartArray(roots.Count);
         foreach (var root in roots)
-            WriteCidLink(writer, root);
+            DagCborLink.Write(writer, root);
         writer.WriteEndArray();
 
         writer.WriteTextString("version");
@@ -134,15 +134,6 @@ public static class CarWriter
 
         writer.WriteEndMap();
         return writer.Encode();
-    }
-
-    private static void WriteCidLink(CborWriter writer, byte[] cidBytes)
-    {
-        writer.WriteTag((CborTag)42);
-        // Identity multibase prefix (0x00), as required for CID links in DAG-CBOR.
-        var tagged = new byte[cidBytes.Length + 1];
-        cidBytes.CopyTo(tagged.AsSpan(1));
-        writer.WriteByteString(tagged);
     }
 
     private static void WriteUvarint(Stream destination, ulong value)

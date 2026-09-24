@@ -1,6 +1,6 @@
+using System.Buffers;
 using System.Formats.Cbor;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 
 namespace ATProtoNet.Repo;
 
@@ -11,30 +11,36 @@ namespace ATProtoNet.Repo;
 /// </summary>
 public static class DagCborDecoder
 {
-    /// <summary>CBOR tag for CID links (IPLD standard).</summary>
-    private const CborTag CidTag = (CborTag)42;
-
     /// <summary>
     /// Decodes DRISL-CBOR bytes into a <see cref="JsonElement"/>.
     /// </summary>
     /// <param name="data">The CBOR-encoded bytes.</param>
     /// <returns>The decoded JSON element using AT Protocol conventions.</returns>
+    /// <exception cref="FormatException">
+    /// The data is not well-formed CBOR, falls outside the AT Protocol data model (a float, a
+    /// non-string map key, a malformed CID link), or nests deeper than 64 levels.
+    /// </exception>
     public static JsonElement Decode(ReadOnlyMemory<byte> data)
     {
-        var reader = new CborReader(data, CborConformanceMode.Lax, allowMultipleRootLevelValues: false);
-        var node = ReadValue(reader);
-        return JsonSerializer.SerializeToElement(node);
-    }
+        // JSON is bulkier than the CBOR it came from (base64, quoting, `$link` wrappers).
+        var buffer = new ArrayBufferWriter<byte>(Math.Max(256, data.Length * 2));
 
-    /// <summary>
-    /// Decodes DRISL-CBOR bytes into a <see cref="JsonNode"/>.
-    /// </summary>
-    /// <param name="data">The CBOR-encoded bytes.</param>
-    /// <returns>The decoded JSON node using AT Protocol conventions.</returns>
-    public static JsonNode? DecodeToNode(ReadOnlyMemory<byte> data)
-    {
-        var reader = new CborReader(data, CborConformanceMode.Lax, allowMultipleRootLevelValues: false);
-        return ReadValue(reader);
+        try
+        {
+            var reader = new CborReader(data, CborConformanceMode.Lax, allowMultipleRootLevelValues: false);
+
+            // SkipValidation: the JSON structure comes from the transcoder, not from the input.
+            using var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { SkipValidation = true });
+            DagCborJson.WriteValue(reader, writer, DagCborJsonForm.Wrapped, depth: 0);
+        }
+        catch (Exception ex) when (ex is CborContentException or InvalidOperationException or OverflowException)
+        {
+            throw new FormatException($"Invalid DAG-CBOR: {ex.Message}", ex);
+        }
+
+        // ParseValue copies into an element that owns its memory, so nothing needs disposing.
+        var jsonReader = new Utf8JsonReader(buffer.WrittenSpan, new JsonReaderOptions { MaxDepth = DagCborJson.MaxDepth });
+        return JsonElement.ParseValue(ref jsonReader);
     }
 
     /// <summary>
@@ -48,7 +54,7 @@ public static class DagCborDecoder
         try
         {
             var reader = new CborReader(data, CborConformanceMode.Lax, allowMultipleRootLevelValues: false);
-            ValidateValue(reader);
+            ValidateValue(reader, depth: 0);
 
             if (reader.BytesRemaining > 0)
             {
@@ -66,125 +72,24 @@ public static class DagCborDecoder
         }
     }
 
-    private static JsonNode? ReadValue(CborReader reader)
+    private static void ValidateValue(CborReader reader, int depth)
     {
         var state = reader.PeekState();
 
-        // Handle tags before other types
-        if (state == CborReaderState.Tag)
-        {
-            var tag = reader.ReadTag();
-            if (tag == CidTag)
-            {
-                return ReadCidLink(reader);
-            }
-
-            // Unknown tag: skip tag and read the inner value
-            return ReadValue(reader);
-        }
-
-        return state switch
-        {
-            CborReaderState.StartMap => ReadMap(reader),
-            CborReaderState.StartArray => ReadArray(reader),
-            CborReaderState.TextString => JsonValue.Create(reader.ReadTextString()),
-            CborReaderState.ByteString => ReadByteString(reader),
-            CborReaderState.UnsignedInteger => JsonValue.Create(reader.ReadInt64()),
-            CborReaderState.NegativeInteger => JsonValue.Create(reader.ReadInt64()),
-            CborReaderState.Boolean => JsonValue.Create(reader.ReadBoolean()),
-            CborReaderState.Null => ReadNull(reader),
-            CborReaderState.HalfPrecisionFloat or
-            CborReaderState.SinglePrecisionFloat or
-            CborReaderState.DoublePrecisionFloat =>
-                throw new InvalidOperationException("Floating point numbers are not allowed in the AT Protocol data model."),
-            _ => throw new InvalidOperationException($"Unsupported CBOR state: {state}"),
-        };
-    }
-
-    private static JsonNode? ReadNull(CborReader reader)
-    {
-        reader.ReadNull();
-        return null;
-    }
-
-    private static JsonObject ReadCidLink(CborReader reader)
-    {
-        var bytes = reader.ReadByteString();
-
-        // First byte is 0x00 (identity multibase prefix)
-        if (bytes.Length < 2 || bytes[0] != 0x00)
-            throw new InvalidOperationException("Invalid CID encoding: missing identity multibase prefix (0x00).");
-
-        var cidBytes = bytes.AsSpan(1);
-        var cidString = CidComputation.EncodeCidToString(cidBytes);
-
-        var obj = new JsonObject
-        {
-            ["$link"] = cidString,
-        };
-        return obj;
-    }
-
-    private static JsonObject ReadByteString(CborReader reader)
-    {
-        var bytes = reader.ReadByteString();
-        var base64 = Convert.ToBase64String(bytes);
-
-        var obj = new JsonObject
-        {
-            ["$bytes"] = base64,
-        };
-        return obj;
-    }
-
-    private static JsonObject ReadMap(CborReader reader)
-    {
-        reader.ReadStartMap();
-        var obj = new JsonObject();
-
-        while (reader.PeekState() != CborReaderState.EndMap)
-        {
-            var key = reader.ReadTextString();
-            var value = ReadValue(reader);
-            obj[key] = value;
-        }
-
-        reader.ReadEndMap();
-        return obj;
-    }
-
-    private static JsonArray ReadArray(CborReader reader)
-    {
-        reader.ReadStartArray();
-        var array = new JsonArray();
-
-        while (reader.PeekState() != CborReaderState.EndArray)
-        {
-            array.Add(ReadValue(reader));
-        }
-
-        reader.ReadEndArray();
-        return array;
-    }
-
-    private static void ValidateValue(CborReader reader)
-    {
-        var state = reader.PeekState();
-
-        if (state == CborReaderState.Tag)
+        // Iterate, not recurse, over a chain of tags: each costs one byte of input.
+        while (state == CborReaderState.Tag)
         {
             reader.ReadTag();
-            ValidateValue(reader);
-            return;
+            state = reader.PeekState();
         }
 
         switch (state)
         {
             case CborReaderState.StartMap:
-                ValidateMap(reader);
+                ValidateMap(reader, depth + 1);
                 break;
             case CborReaderState.StartArray:
-                ValidateArray(reader);
+                ValidateArray(reader, depth + 1);
                 break;
             case CborReaderState.TextString:
                 reader.ReadTextString();
@@ -211,8 +116,9 @@ public static class DagCborDecoder
         }
     }
 
-    private static void ValidateMap(CborReader reader)
+    private static void ValidateMap(CborReader reader, int depth)
     {
+        EnsureDepth(depth);
         reader.ReadStartMap();
         string? previousKey = null;
 
@@ -230,21 +136,28 @@ public static class DagCborDecoder
             }
 
             previousKey = key;
-            ValidateValue(reader);
+            ValidateValue(reader, depth);
         }
 
         reader.ReadEndMap();
     }
 
-    private static void ValidateArray(CborReader reader)
+    private static void ValidateArray(CborReader reader, int depth)
     {
+        EnsureDepth(depth);
         reader.ReadStartArray();
 
         while (reader.PeekState() != CborReaderState.EndArray)
         {
-            ValidateValue(reader);
+            ValidateValue(reader, depth);
         }
 
         reader.ReadEndArray();
+    }
+
+    private static void EnsureDepth(int depth)
+    {
+        if (depth > DagCborJson.MaxDepth)
+            throw new InvalidOperationException($"DRISL-CBOR value nests deeper than the maximum of {DagCborJson.MaxDepth} levels.");
     }
 }

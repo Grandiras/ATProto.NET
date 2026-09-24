@@ -251,4 +251,49 @@ public class SpaceRepoCarTests
         Assert.Single(verified.Records);
         Assert.Equal(current.Cid, verified.Records[0].Cid);
     }
+
+    [Fact]
+    public void Serialize_IndexBlock_IsByteIdenticalToTheEncodedJsonIndex()
+    {
+        // The index is written straight to CBOR; it must match what encoding the equivalent
+        // {path: {"$link": cid}} object through DagCborEncoder produces, byte for byte.
+        var (car, key, records) = BuildRepo(
+            ("com.example.n", "z", "short path"),
+            ("com.example.note", "aaa", "long path"),
+            ("com.example.n", "a", "shortest path"),
+            ("com.example.n", "\u00e9t\u00e9", "non-ASCII rkey"),
+            ("com.example.n", "\uE000a", "private use"),
+            ("com.example.n", "\U00010000", "supplementary"));
+        using var _k = key;
+
+        var index = new System.Text.Json.Nodes.JsonObject();
+        foreach (var record in records)
+            index[record.Path] = new System.Text.Json.Nodes.JsonObject { ["$link"] = record.Cid };
+
+        var reader = CarReader.FromBytes(car);
+
+        Assert.Equal(DagCborEncoder.Encode(JsonSerializer.SerializeToElement(index)), reader.Blocks[1].Data);
+        Assert.Equal(
+            reader.Blocks.Skip(2).Select(b => CidComputation.EncodeCidToString(b.Cid)),
+            SpaceRepoCar.Verify(car, _space, Author, key.ToDidKey()).Index.Select(e => e.Value));
+    }
+
+    [Fact]
+    public void Verify_MalformedIndexBlock_ThrowsVerificationExceptionRatherThanLeakingTheDecoder()
+    {
+        var key = AtProtoCrypto.GenerateP256Key();
+        using var _k = key;
+        var commit = new SpaceRepoCommit().Sign(new SpaceCommitContext(_space, Author, Rev), key);
+        var commitBytes = commit.ToDagCbor();
+        var commitCid = CidComputation.ComputeBinaryForDagCbor(commitBytes);
+
+        // A truncated array: CborReader reports it as CborContentException, which used to escape.
+        byte[] index = [0x82, 0x01];
+        var indexCid = CidComputation.ComputeBinaryForDagCbor(index);
+
+        var car = CarWriter.Write([commitCid, indexCid], [new CarBlock(commitCid, commitBytes), new CarBlock(indexCid, index)]);
+
+        Assert.Throws<SpaceRepoVerificationException>(
+            () => SpaceRepoCar.Verify(car, _space, Author, key.ToDidKey()));
+    }
 }

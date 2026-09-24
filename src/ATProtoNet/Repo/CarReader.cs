@@ -1,6 +1,4 @@
-using System.Buffers.Binary;
-using System.Security.Cryptography;
-using System.Text;
+using System.Formats.Cbor;
 
 namespace ATProtoNet.Repo;
 
@@ -56,26 +54,26 @@ public sealed class CarReader
     /// Pass <c>true</c> for any CAR coming from untrusted input.
     /// </param>
     /// <returns>A <see cref="CarReader"/> containing the parsed header and blocks.</returns>
-    /// <exception cref="FormatException">Thrown when the CAR file is malformed or a block CID does not match its data.</exception>
+    /// <exception cref="FormatException">
+    /// Thrown when the CAR file is malformed, a block is addressed by a CIDv0, or a block CID does
+    /// not match its data.
+    /// </exception>
     public static CarReader FromBytes(ReadOnlySpan<byte> data, bool verifyBlockCids = false)
     {
         var offset = 0;
 
-        // Parse header length (unsigned varint)
+        // Every length below comes from the input, so each is checked against the bytes actually
+        // left before it is narrowed to an int or used to slice.
         var headerLen = ReadUvarint(data, ref offset);
-        if (headerLen == 0 || offset + (int)headerLen > data.Length)
+        if (headerLen == 0 || headerLen > (ulong)(data.Length - offset))
             throw new FormatException("Invalid CAR header length.");
 
-        // Parse header (DAG-CBOR encoded)
-        var headerBytes = data.Slice(offset, (int)headerLen);
+        var header = ParseHeader(data.Slice(offset, (int)headerLen).ToArray());
         offset += (int)headerLen;
-
-        var header = ParseHeader(headerBytes);
 
         if (header.Version != 1)
             throw new FormatException($"Unsupported CAR version: {header.Version}. Only v1 is supported.");
 
-        // Parse blocks
         var blocks = new List<CarBlock>();
 
         while (offset < data.Length)
@@ -85,22 +83,15 @@ public sealed class CarReader
             if (blockLen == 0)
                 break;
 
-            var blockStart = offset;
-            var blockEnd = offset + (int)blockLen;
-
-            if (blockEnd > data.Length)
+            if (blockLen > (ulong)(data.Length - offset))
                 throw new FormatException("CAR block extends past end of file.");
 
-            // Parse CID from the block
-            var cidStart = offset;
-            var cid = ParseCid(data, ref offset);
+            var blockEnd = offset + (int)blockLen;
+            var cid = ParseCid(data[..blockEnd], ref offset);
 
             // Remaining bytes are the block data
-            var dataLen = blockEnd - offset;
-            var blockData = data.Slice(offset, dataLen).ToArray();
+            blocks.Add(new CarBlock(cid, data[offset..blockEnd].ToArray()));
             offset = blockEnd;
-
-            blocks.Add(new CarBlock(cid, blockData));
         }
 
         var reader = new CarReader(header, blocks);
@@ -147,17 +138,9 @@ public sealed class CarReader
     /// </summary>
     public static BlockCidVerification VerifyBlockCid(CarBlock block)
     {
-        // CIDv0 form: 0x12 0x20 + 32 bytes — multihash-only, implies dag-pb (not used in atproto).
-        if (block.Cid.Length == 34 && block.Cid[0] == 0x12 && block.Cid[1] == 0x20)
-        {
-            Span<byte> hash = stackalloc byte[32];
-            System.Security.Cryptography.SHA256.HashData(block.Data, hash);
-            return hash.SequenceEqual(block.Cid.AsSpan(2))
-                ? BlockCidVerification.Match
-                : BlockCidVerification.Mismatch;
-        }
-
-        // CIDv1: version(0x01) + codec + 0x12 + 0x20 + 32-byte SHA-256 digest.
+        // CIDv1: version(0x01) + codec + 0x12 + 0x20 + 32-byte SHA-256 digest. Anything else,
+        // CIDv0 (a bare multihash, which implies dag-pb) included, is a format AT Protocol does
+        // not use and this cannot recompute.
         if (block.Cid.Length < 4 || block.Cid[0] != 0x01)
             return BlockCidVerification.UnknownCodec;
 
@@ -261,211 +244,129 @@ public sealed class CarReader
         return FindBlock(_header.Roots[0]);
     }
 
-    // ── Header parsing (simplified DAG-CBOR) ─────────────────
+    // ── Header parsing ───────────────────────────────────────
 
-    private static CarHeader ParseHeader(ReadOnlySpan<byte> cbor)
+    /// <summary>
+    /// Parses the DAG-CBOR header, <c>{"roots": [&lt;CID link&gt;, …], "version": 1}</c>.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="CborReader"/> walks nested values iteratively, so a hostile header of deeply
+    /// nested arrays under an unknown key is skipped rather than overflowing the stack.
+    /// </remarks>
+    private static CarHeader ParseHeader(byte[] cbor)
     {
-        // A minimal CBOR map parser for the CAR v1 header:
-        // { "version": 1, "roots": [ CID, ... ] }
-        var offset = 0;
-        int version = 1;
-        var roots = new List<byte[]>();
-
-        if (cbor.Length == 0)
-            throw new FormatException("Empty CAR header.");
-
-        var mapInfo = ReadCborInfo(cbor, ref offset);
-        if (mapInfo.MajorType != 5) // Major type 5 = map
-            throw new FormatException("CAR header must be a CBOR map.");
-
-        var mapLen = (int)mapInfo.Value;
-
-        for (var i = 0; i < mapLen; i++)
+        try
         {
-            // Read key (expected: text string)
-            var keyInfo = ReadCborInfo(cbor, ref offset);
-            if (keyInfo.MajorType != 3) // text string
-                throw new FormatException("CAR header map key must be a text string.");
+            var reader = new CborReader(cbor, CborConformanceMode.Lax);
+            int? version = null;
+            var roots = new List<byte[]>();
 
-            var key = Encoding.UTF8.GetString(cbor.Slice(offset, (int)keyInfo.Value));
-            offset += (int)keyInfo.Value;
+            if (reader.PeekState() != CborReaderState.StartMap)
+                throw new FormatException("CAR header must be a CBOR map.");
 
-            switch (key)
+            reader.ReadStartMap();
+            while (reader.PeekState() != CborReaderState.EndMap)
             {
-                case "version":
-                    var verInfo = ReadCborInfo(cbor, ref offset);
-                    version = (int)verInfo.Value;
-                    break;
+                if (reader.PeekState() != CborReaderState.TextString)
+                    throw new FormatException("CAR header map key must be a text string.");
 
-                case "roots":
-                    var arrInfo = ReadCborInfo(cbor, ref offset);
-                    if (arrInfo.MajorType != 4) // array
-                        throw new FormatException("CAR header 'roots' must be a CBOR array.");
+                switch (reader.ReadTextString())
+                {
+                    case "version":
+                        version = reader.ReadInt32();
+                        break;
 
-                    for (var j = 0; j < (int)arrInfo.Value; j++)
-                    {
-                        // CID in CBOR is tagged (tag 42) byte string
-                        var rootInfo = ReadCborInfo(cbor, ref offset);
+                    case "roots":
+                        if (reader.PeekState() != CborReaderState.StartArray)
+                            throw new FormatException("CAR header 'roots' must be a CBOR array.");
 
-                        if (rootInfo.MajorType == 6) // tag
-                        {
-                            // Read the tagged value (byte string)
-                            rootInfo = ReadCborInfo(cbor, ref offset);
-                        }
+                        reader.ReadStartArray();
+                        while (reader.PeekState() != CborReaderState.EndArray)
+                            roots.Add(DagCborLink.Read(reader));
+                        reader.ReadEndArray();
+                        break;
 
-                        if (rootInfo.MajorType != 2) // byte string
-                            throw new FormatException("CAR header root must be a CBOR byte string.");
-
-                        // The byte string may include an identity multibase prefix (0x00)
-                        var rootBytes = cbor.Slice(offset, (int)rootInfo.Value).ToArray();
-                        offset += (int)rootInfo.Value;
-
-                        // Strip identity multibase prefix if present
-                        if (rootBytes.Length > 0 && rootBytes[0] == 0x00)
-                            rootBytes = rootBytes[1..];
-
-                        roots.Add(rootBytes);
-                    }
-                    break;
-
-                default:
-                    // Skip unknown values
-                    SkipCborValue(cbor, ref offset);
-                    break;
+                    default:
+                        reader.SkipValue();
+                        break;
+                }
             }
-        }
 
-        return new CarHeader(version, roots);
+            reader.ReadEndMap();
+
+            if (reader.BytesRemaining != 0)
+                throw new FormatException("CAR header has trailing bytes after its map.");
+
+            return new CarHeader(
+                version ?? throw new FormatException("CAR header has no 'version'."),
+                roots);
+        }
+        catch (Exception ex) when (ex is CborContentException or InvalidOperationException or OverflowException)
+        {
+            throw new FormatException($"Invalid CAR header: {ex.Message}", ex);
+        }
     }
 
     // ── CID parsing ──────────────────────────────────────────
 
+    /// <summary>
+    /// Reads the CID at the start of a block section. <paramref name="data"/> ends where the
+    /// section does, so a CID claiming more bytes than the section holds is caught here.
+    /// </summary>
     private static byte[] ParseCid(ReadOnlySpan<byte> data, ref int offset)
     {
         var cidStart = offset;
 
-        // Check for CIDv0 (starts with 0x12 0x20 — SHA2-256 with 32-byte digest)
-        if (offset + 2 <= data.Length && data[offset] == 0x12 && data[offset + 1] == 0x20)
-        {
-            // CIDv0: multihash only (sha2-256, 32 bytes)
-            offset += 2 + 32; // 0x12 0x20 + 32 bytes digest
-            return data[cidStart..offset].ToArray();
-        }
-
-        // CIDv1: version + codec + multihash
+        // CIDv1: version + codec + multihash. A CIDv0 is a bare multihash, so it starts with the
+        // SHA-256 code (0x12) where the version belongs.
         var version = ReadUvarint(data, ref offset);
+        if (version == 0x12)
+            throw new FormatException("CIDv0 blocks are not supported; AT Protocol uses CIDv1 only.");
         if (version != 1)
             throw new FormatException($"Unsupported CID version: {version}");
 
-        var codec = ReadUvarint(data, ref offset); // codec (e.g., 0x71 = dag-cbor)
+        ReadUvarint(data, ref offset); // codec (e.g., 0x71 = dag-cbor)
 
         // Multihash: hash function code + digest size + digest
-        var hashFunc = ReadUvarint(data, ref offset);
+        ReadUvarint(data, ref offset); // hash function (e.g., 0x12 = sha2-256)
         var digestSize = ReadUvarint(data, ref offset);
+        if (digestSize > (ulong)(data.Length - offset))
+            throw new FormatException("CID digest extends past the end of its CAR block.");
+
         offset += (int)digestSize;
-
         return data[cidStart..offset].ToArray();
-    }
-
-    // ── CBOR utilities ───────────────────────────────────────
-
-    private readonly record struct CborInfo(byte MajorType, ulong Value);
-
-    private static CborInfo ReadCborInfo(ReadOnlySpan<byte> data, ref int offset)
-    {
-        if (offset >= data.Length)
-            throw new FormatException("Unexpected end of CBOR data.");
-
-        var initial = data[offset++];
-        var majorType = (byte)(initial >> 5);
-        var additionalInfo = initial & 0x1F;
-
-        ulong value = additionalInfo switch
-        {
-            < 24 => (ulong)additionalInfo,
-            24 when offset < data.Length => data[offset++],
-            25 when offset + 2 <= data.Length => ReadUInt16(data, ref offset),
-            26 when offset + 4 <= data.Length => ReadUInt32(data, ref offset),
-            27 when offset + 8 <= data.Length => ReadUInt64(data, ref offset),
-            _ => throw new FormatException("Invalid CBOR additional info."),
-        };
-
-        return new CborInfo(majorType, value);
-    }
-
-    private static void SkipCborValue(ReadOnlySpan<byte> data, ref int offset)
-    {
-        var info = ReadCborInfo(data, ref offset);
-
-        switch (info.MajorType)
-        {
-            case 0: // unsigned int — already consumed
-            case 1: // negative int — already consumed
-            case 7: // simple value / float — already consumed (for small values)
-                break;
-            case 2: // byte string
-            case 3: // text string
-                offset += (int)info.Value;
-                break;
-            case 4: // array
-                for (var i = 0; i < (int)info.Value; i++)
-                    SkipCborValue(data, ref offset);
-                break;
-            case 5: // map
-                for (var i = 0; i < (int)info.Value; i++)
-                {
-                    SkipCborValue(data, ref offset); // key
-                    SkipCborValue(data, ref offset); // value
-                }
-                break;
-            case 6: // tag
-                SkipCborValue(data, ref offset); // tagged value
-                break;
-        }
     }
 
     // ── Unsigned varint (LEB128) ─────────────────────────────
 
-    private static ulong ReadUvarint(ReadOnlySpan<byte> data, ref int offset)
+    /// <summary>
+    /// Reads a multiformats unsigned varint: at most 9 bytes (63 bits), minimally encoded.
+    /// </summary>
+    /// <exception cref="FormatException">The varint is truncated, too long, or not minimal.</exception>
+    internal static ulong ReadUvarint(ReadOnlySpan<byte> data, ref int offset)
     {
-        ulong result = 0;
-        var shift = 0;
+        const int MaxBytes = 9;
 
-        while (offset < data.Length)
+        ulong result = 0;
+        for (var i = 0; i < MaxBytes; i++)
         {
+            if (offset >= data.Length)
+                throw new FormatException("Unexpected end of varint.");
+
             var b = data[offset++];
-            result |= (ulong)(b & 0x7F) << shift;
+            result |= (ulong)(b & 0x7F) << (7 * i);
 
             if ((b & 0x80) == 0)
+            {
+                // A zero final byte after the first adds nothing but length, so the same value
+                // has a shorter encoding.
+                if (b == 0 && i > 0)
+                    throw new FormatException("Varint is not minimally encoded.");
                 return result;
-
-            shift += 7;
-            if (shift > 63)
-                throw new FormatException("Varint overflow.");
+            }
         }
 
-        throw new FormatException("Unexpected end of varint.");
-    }
-
-    private static ushort ReadUInt16(ReadOnlySpan<byte> data, ref int offset)
-    {
-        var value = BinaryPrimitives.ReadUInt16BigEndian(data[offset..]);
-        offset += 2;
-        return value;
-    }
-
-    private static uint ReadUInt32(ReadOnlySpan<byte> data, ref int offset)
-    {
-        var value = BinaryPrimitives.ReadUInt32BigEndian(data[offset..]);
-        offset += 4;
-        return value;
-    }
-
-    private static ulong ReadUInt64(ReadOnlySpan<byte> data, ref int offset)
-    {
-        var value = BinaryPrimitives.ReadUInt64BigEndian(data[offset..]);
-        offset += 8;
-        return value;
+        throw new FormatException($"Varint overflow: longer than {MaxBytes} bytes.");
     }
 }
 
@@ -481,9 +382,6 @@ public sealed record CarBlock(byte[] Cid, byte[] Data)
 {
     /// <summary>Returns the CID as a hex string for debugging.</summary>
     public string CidHex => Convert.ToHexStringLower(Cid);
-
-    /// <summary>Returns the block data length.</summary>
-    public int DataLength => Data.Length;
 }
 
 /// <summary>Tri-state outcome of recomputing a CAR block's CID from its bytes.</summary>

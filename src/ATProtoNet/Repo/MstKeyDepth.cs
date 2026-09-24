@@ -10,7 +10,7 @@ namespace ATProtoNet.Repo;
 /// repository specification.
 /// </para>
 /// </summary>
-public static class MstKeyDepth
+internal static class MstKeyDepth
 {
     /// <summary>
     /// Computes the MST depth for a key (byte array).

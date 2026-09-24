@@ -58,13 +58,89 @@ public class DagCborDecoderTests
     }
 
     [Fact]
-    public void Decode_FloatValue_Throws()
+    public void Decode_FloatValue_ThrowsFormatException()
     {
         var writer = new CborWriter(CborConformanceMode.Lax);
         writer.WriteDouble(3.14);
         var bytes = writer.Encode();
 
-        Assert.Throws<InvalidOperationException>(() => DagCborDecoder.Decode(bytes));
+        Assert.Throws<FormatException>(() => DagCborDecoder.Decode(bytes));
+    }
+
+    // ── Untrusted input ──────────────────────────────────────
+
+    /// <summary><paramref name="depth"/> nested one-element arrays around <paramref name="inner"/>.</summary>
+    private static byte[] NestedArrays(int depth, params byte[] inner) =>
+        [.. Enumerable.Repeat((byte)0x81, depth), .. inner];
+
+    [Fact]
+    public void Decode_NestingAtTheLimit_Succeeds()
+    {
+        var decoded = DagCborDecoder.Decode(NestedArrays(64, 0x01));
+
+        var element = decoded;
+        for (var i = 0; i < 64; i++)
+            element = element[0];
+        Assert.Equal(1, element.GetInt32());
+    }
+
+    [Theory]
+    [InlineData(65)]
+    [InlineData(100_000)] // overflowed the stack before the limit existed
+    public void Decode_NestingBeyondTheLimit_ThrowsFormatException(int depth)
+    {
+        Assert.Throws<FormatException>(() => DagCborDecoder.Decode(NestedArrays(depth, 0x01)));
+    }
+
+    [Fact]
+    public void Decode_DeeplyNestedMaps_ThrowsFormatException()
+    {
+        // {"a": {"a": … }} 100,000 levels deep.
+        var bytes = Enumerable.Range(0, 100_000).SelectMany(_ => new byte[] { 0xA1, 0x61, 0x61 }).Append((byte)0x01).ToArray();
+
+        Assert.Throws<FormatException>(() => DagCborDecoder.Decode(bytes));
+    }
+
+    [Fact]
+    public void Decode_LinkWrapperCountsTowardsTheLimit()
+    {
+        // A CID at array depth 64 renders as {"$link": …} one level further in.
+        byte[] link = [0xD8, 0x2A, 0x58, 0x25, 0x00, .. CidComputation.ComputeBinaryForDagCbor([0xA0])];
+
+        Assert.Equal(JsonValueKind.Array, DagCborDecoder.Decode(NestedArrays(63, link)).ValueKind);
+        Assert.Throws<FormatException>(() => DagCborDecoder.Decode(NestedArrays(64, link)));
+    }
+
+    [Fact]
+    public void Decode_LongChainOfUnknownTags_DecodesTheInnerValue()
+    {
+        // Unknown tags are skipped; a chain of them must not cost a stack frame each.
+        var bytes = Enumerable.Repeat((byte)0xC1, 100_000).Append((byte)0x07).ToArray();
+
+        Assert.Equal(7, DagCborDecoder.Decode(bytes).GetInt32());
+    }
+
+    [Theory]
+    [InlineData("d82a4101")]            // CID link without the 0x00 prefix
+    [InlineData("d82a4100")]            // CID link that is only the prefix
+    [InlineData("d82a6161")]            // tag 42 around a text string
+    [InlineData("a10101")]              // integer map key
+    [InlineData("62")]                  // truncated text string
+    [InlineData("82")]                  // truncated array
+    [InlineData("")]                    // nothing at all
+    [InlineData("1bffffffffffffffff")]  // unsigned integer beyond Int64
+    [InlineData("f7")]                  // undefined
+    [InlineData("ff")]                  // a lone break
+    public void Decode_MalformedInput_ThrowsFormatException(string hex)
+    {
+        Assert.Throws<FormatException>(() => DagCborDecoder.Decode(Convert.FromHexString(hex)));
+    }
+
+    [Fact]
+    public void TryValidate_DeepNesting_ReturnsFalseRatherThanOverflowing()
+    {
+        Assert.False(DagCborDecoder.TryValidate(NestedArrays(100_000, 0x01), out var error));
+        Assert.NotNull(error);
     }
 
     [Fact]

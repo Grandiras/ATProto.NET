@@ -563,7 +563,6 @@ See [Low-Level Repo API](low-level-repo.md) and [Cryptography](crypto.md).
 |------|-------------|
 | `CarReader` / `CarWriter` | Parse and produce CAR v1 files |
 | `MerkleSearchTree` | In-memory MST; `Serialize()`, `SerializeProof(keys)`, `Deserialize(root, blocks)` |
-| `MstKeyDepth` | `ComputeDepth(key)` |
 | `DagCborEncoder` / `DagCborDecoder` | Deterministic CBOR encode/decode |
 | `CidComputation` | `ComputeForDagCbor`, `ComputeForRaw`, `Verify`, `DecodeCidString`, `TryDecodeCidString` |
 | `RepoCommit` / `SignedRepoCommit` | Build, sign, and verify repository commit objects |

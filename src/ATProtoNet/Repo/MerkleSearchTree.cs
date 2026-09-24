@@ -6,51 +6,66 @@ namespace ATProtoNet.Repo;
 /// In-memory Merkle Search Tree (MST) for AT Protocol repositories.
 /// <para>
 /// The MST is a deterministic, content-addressed key/value mapping where keys are
-/// byte arrays (repo paths like <c>collection/rkey</c>) and values are CID links
-/// to record data. The tree structure is fully reproducible from the set of key/value
-/// pairs, regardless of insertion order.
+/// repo paths (<c>collection/rkey</c>) and values are CID links to record data. The tree
+/// structure is fully reproducible from the set of key/value pairs, regardless of insertion
+/// order.
 /// </para>
 /// </summary>
 /// <remarks>
-/// See: https://atproto.com/specs/repository#mst-structure
+/// <para>The tree holds its entries as a sorted set and derives the node structure from it
+/// whenever a CID or a block is asked for. Because the structure is a pure function of the
+/// entries, any sequence of <see cref="Add"/>, <see cref="Update"/> and <see cref="Delete"/>
+/// calls lands on exactly the root a bulk build of the final entries produces — which is what
+/// the specification requires and what other implementations compute.</para>
+/// <para>Keys must be valid MST keys: one <c>/</c> separating two non-empty segments of
+/// <c>A-Z a-z 0-9 _ ~ - : .</c>, at most 1024 characters in all.</para>
+/// <para>See: https://atproto.com/specs/repository#mst-structure</para>
 /// </remarks>
 public sealed class MerkleSearchTree
 {
-    /// <summary>Maximum allowed entries per node (DoS protection).</summary>
-    private const int MaxNodeEntries = 256;
-
-    /// <summary>Maximum allowed tree depth (DoS protection).</summary>
+    /// <summary>
+    /// Deepest node chain <see cref="Deserialize"/> follows. A layer is two bits of a SHA-256
+    /// leading-zero count, so a real tree of any size is a dozen layers deep at most.
+    /// </summary>
     private const int MaxTreeDepth = 64;
 
-    private MstMemoryNode _root;
+    /// <summary>Longest valid MST key, in characters.</summary>
+    private const int MaxKeyLength = 1024;
 
-    private MerkleSearchTree(MstMemoryNode root)
+    /// <summary>Every entry, in key order. For valid (ASCII) keys ordinal order is byte order.</summary>
+    private readonly SortedDictionary<string, Leaf> _entries = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The root CID the tree was loaded from, kept until the first edit so that
+    /// <see cref="Validate"/> can compare the canonical rebuild against it.
+    /// </summary>
+    private byte[]? _loadedRoot;
+
+    private MerkleSearchTree()
     {
-        _root = root;
     }
 
     /// <summary>
     /// Creates an empty MST.
     /// </summary>
-    public static MerkleSearchTree Create()
-    {
-        return new MerkleSearchTree(new MstMemoryNode());
-    }
+    public static MerkleSearchTree Create() => new();
 
     /// <summary>
     /// Creates an MST from a set of key/value pairs. Keys must be unique.
     /// Values are binary CID bytes referencing record data.
     /// </summary>
-    /// <param name="entries">The key/value pairs. Keys are UTF-8 repo paths, values are CID bytes.</param>
+    /// <param name="entries">The key/value pairs. Keys are repo paths, values are CID bytes.</param>
     /// <returns>A new MST containing all entries.</returns>
-    /// <remarks>
-    /// Delegates to <see cref="CreateFromEntries"/> so both factories produce
-    /// the same spec-conformant shape. The earlier <c>BuildLayer</c> recursion
-    /// did not materialize empty parent layers and could diverge from the
-    /// atproto/ts reference for key sets spanning non-contiguous depths.
-    /// </remarks>
+    /// <exception cref="ArgumentException">A key is not a valid MST key, or appears twice.</exception>
     public static MerkleSearchTree Create(IEnumerable<KeyValuePair<string, byte[]>> entries)
-        => CreateFromEntries(entries);
+    {
+        ArgumentNullException.ThrowIfNull(entries);
+
+        var tree = new MerkleSearchTree();
+        foreach (var (key, value) in entries)
+            tree.Add(key, value);
+        return tree;
+    }
 
     /// <summary>
     /// Gets the record CID for a given key, or <c>null</c> if not found.
@@ -59,7 +74,8 @@ public sealed class MerkleSearchTree
     /// <returns>The record CID bytes, or <c>null</c>.</returns>
     public byte[]? Get(string key)
     {
-        return Get(_root, key, 0);
+        ArgumentNullException.ThrowIfNull(key);
+        return _entries.TryGetValue(key, out var leaf) ? leaf.Value : null;
     }
 
     /// <summary>
@@ -67,7 +83,8 @@ public sealed class MerkleSearchTree
     /// </summary>
     public IEnumerable<KeyValuePair<string, byte[]>> GetEntries()
     {
-        return EnumerateNode(_root);
+        foreach (var (key, leaf) in _entries)
+            yield return new KeyValuePair<string, byte[]>(key, leaf.Value);
     }
 
     /// <summary>
@@ -75,10 +92,19 @@ public sealed class MerkleSearchTree
     /// </summary>
     /// <param name="key">The repo path.</param>
     /// <param name="value">The record CID bytes.</param>
-    /// <exception cref="ArgumentException">Key already exists.</exception>
+    /// <exception cref="ArgumentException">The key is not a valid MST key, or already exists.</exception>
     public void Add(string key, byte[] value)
     {
-        _root = Insert(_root, key, value, 0);
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(value);
+
+        if (!IsValidKey(key))
+            throw new ArgumentException($"Not a valid MST key: '{key}'.", nameof(key));
+        if (_entries.ContainsKey(key))
+            throw new ArgumentException($"Key already exists in MST: {key}", nameof(key));
+
+        _entries.Add(key, new Leaf(value, MstKeyDepth.ComputeDepth(key)));
+        _loadedRoot = null;
     }
 
     /// <summary>
@@ -89,8 +115,14 @@ public sealed class MerkleSearchTree
     /// <exception cref="KeyNotFoundException">Key not found.</exception>
     public void Update(string key, byte[] value)
     {
-        if (!TryUpdate(_root, key, value))
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(value);
+
+        if (!_entries.TryGetValue(key, out var leaf))
             throw new KeyNotFoundException($"Key not found in MST: {key}");
+
+        _entries[key] = leaf with { Value = value };
+        _loadedRoot = null;
     }
 
     /// <summary>
@@ -100,10 +132,12 @@ public sealed class MerkleSearchTree
     /// <exception cref="KeyNotFoundException">Key not found.</exception>
     public void Delete(string key)
     {
-        var (newRoot, found) = Remove(_root, key, 0);
-        if (!found)
+        ArgumentNullException.ThrowIfNull(key);
+
+        if (!_entries.Remove(key))
             throw new KeyNotFoundException($"Key not found in MST: {key}");
-        _root = newRoot ?? new MstMemoryNode();
+
+        _loadedRoot = null;
     }
 
     /// <summary>
@@ -114,7 +148,7 @@ public sealed class MerkleSearchTree
     /// <summary>
     /// Gets the total number of entries in the tree.
     /// </summary>
-    public int Count => CountEntries(_root);
+    public int Count => _entries.Count;
 
     /// <summary>
     /// Serializes the entire MST to a block store (dictionary of CID → DAG-CBOR bytes),
@@ -123,76 +157,44 @@ public sealed class MerkleSearchTree
     /// <returns>Tuple of (root CID bytes, block map).</returns>
     public (byte[] RootCid, Dictionary<string, byte[]> Blocks) Serialize()
     {
-        var blocks = new Dictionary<string, byte[]>();
-        var rootCid = SerializeNode(_root, blocks);
-        return (rootCid, blocks);
+        var root = Build();
+        var blocks = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        CollectAll(root, blocks);
+        return (root.Cid, blocks);
     }
 
     /// <summary>
-    /// Serializes only the nodes needed to prove the inclusion (or absence) of
-    /// <paramref name="keys"/>: the root plus every node on the root→key search path. This is
-    /// the "covering proof" a firehose <c>#commit</c> event carries, and it is logarithmic in
-    /// the repository size rather than linear like <see cref="Serialize"/>.
+    /// Serializes only the nodes a firehose <c>#commit</c> needs to prove the operations on
+    /// <paramref name="keys"/>: for each key, the covering proof the reference implementation
+    /// computes — the nodes on the path to the key and on the paths to its immediate left and
+    /// right neighbours — plus the root. A relay replays the operations in reverse against these
+    /// blocks to check the commit, so the set is logarithmic in the repository size rather than
+    /// linear like <see cref="Serialize"/>.
     /// </summary>
-    /// <param name="keys">The MST keys to cover. Keys absent from the tree contribute the path walked while looking for them, which is what proves the absence.</param>
+    /// <param name="keys">
+    /// The MST keys the commit touched. Keys absent from the tree (deletions) contribute the
+    /// nodes around where they were, which is what proves the absence.
+    /// </param>
     /// <returns>Tuple of (root CID bytes, block map covering the requested keys).</returns>
     public (byte[] RootCid, Dictionary<string, byte[]> Blocks) SerializeProof(IEnumerable<string> keys)
     {
         ArgumentNullException.ThrowIfNull(keys);
 
-        // Serialize once to get every node's CID, then keep only the blocks on the paths. The
-        // CID of a node depends on its whole subtree, so there is no cheaper way round.
-        var allBlocks = new Dictionary<string, byte[]>(StringComparer.Ordinal);
-        var nodeCids = new Dictionary<MstMemoryNode, string>(ReferenceEqualityComparer.Instance);
-        var rootCid = SerializeNode(_root, allBlocks, nodeCids);
-
+        var root = Build();
         var proof = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+
         // The root is always included: it is what the signed commit points at.
-        CopyBlock(_root, nodeCids, allBlocks, proof);
+        AddBlock(root, proof);
 
         foreach (var key in keys)
-            CollectPath(_root, key, 0, nodeCids, allBlocks, proof);
-
-        return (rootCid, proof);
-    }
-
-    private static void CollectPath(
-        MstMemoryNode? node, string key, int depth,
-        Dictionary<MstMemoryNode, string> nodeCids,
-        Dictionary<string, byte[]> allBlocks,
-        Dictionary<string, byte[]> proof)
-    {
-        if (node is null) return;
-        if (depth > MaxTreeDepth) return;
-
-        CopyBlock(node, nodeCids, allBlocks, proof);
-
-        // Mirrors Get(): descend into whichever subtree could hold the key.
-        for (var i = 0; i < node.Entries.Count; i++)
         {
-            var cmp = string.Compare(key, node.Entries[i].Key, StringComparison.Ordinal);
-            if (cmp == 0) return;
-            if (cmp < 0)
-            {
-                var child = i == 0 ? node.Left : node.Entries[i - 1].Subtree;
-                CollectPath(child, key, depth + 1, nodeCids, allBlocks, proof);
-                return;
-            }
+            ArgumentNullException.ThrowIfNull(key);
+            ProofForKey(root, key, proof);
+            ProofForLeftSibling(root, key, proof);
+            ProofForRightSibling(root, key, proof);
         }
 
-        CollectPath(
-            node.Entries.Count > 0 ? node.Entries[^1].Subtree : node.Left,
-            key, depth + 1, nodeCids, allBlocks, proof);
-    }
-
-    private static void CopyBlock(
-        MstMemoryNode node,
-        Dictionary<MstMemoryNode, string> nodeCids,
-        Dictionary<string, byte[]> allBlocks,
-        Dictionary<string, byte[]> proof)
-    {
-        if (nodeCids.TryGetValue(node, out var cid) && allBlocks.TryGetValue(cid, out var bytes))
-            proof[cid] = bytes;
+        return (root.Cid, proof);
     }
 
     /// <summary>
@@ -201,754 +203,371 @@ public sealed class MerkleSearchTree
     /// <param name="rootCid">The root node CID bytes.</param>
     /// <param name="blocks">Block lookup function (CID string → DAG-CBOR bytes).</param>
     /// <returns>The deserialized MST.</returns>
+    /// <exception cref="FormatException">
+    /// A block is missing or is not a well-formed MST node, a key is not a valid MST key, keys are
+    /// out of order, or the tree is deeper than any real tree can be.
+    /// </exception>
+    /// <remarks>
+    /// This reads the entries without re-hashing the blocks. Pass blocks whose CIDs were already
+    /// checked (for example <see cref="CarReader.FromBytes"/> with <c>verifyBlockCids</c>), and call
+    /// <see cref="Validate"/> to confirm the blocks are the canonical tree for
+    /// <paramref name="rootCid"/>.
+    /// </remarks>
     public static MerkleSearchTree Deserialize(byte[] rootCid, Func<string, byte[]?> blocks)
     {
-        var root = DeserializeNode(rootCid, blocks, 0);
-        return new MerkleSearchTree(root);
+        ArgumentNullException.ThrowIfNull(rootCid);
+        ArgumentNullException.ThrowIfNull(blocks);
+
+        var tree = new MerkleSearchTree();
+        string? lastKey = null;
+        tree.Load(rootCid, blocks, 0, ref lastKey);
+        tree._loadedRoot = rootCid.ToArray();
+        return tree;
     }
 
     /// <summary>
     /// Computes the root CID of the tree without materializing all blocks.
     /// </summary>
-    public byte[] ComputeRootCid()
-    {
-        return ComputeNodeCid(_root);
-    }
+    public byte[] ComputeRootCid() => Build().Cid;
 
     /// <summary>
-    /// Validates the MST structure (key ordering, depth correctness, prefix compression).
+    /// Validates that the tree is the canonical MST for its entries: rebuilds it from the entries
+    /// and compares the root CID with the one it was loaded from by <see cref="Deserialize"/>.
     /// </summary>
+    /// <remarks>
+    /// A tree built or edited in memory is canonical by construction, so this only has something
+    /// to check between <see cref="Deserialize"/> and the first edit.
+    /// </remarks>
     /// <returns><c>true</c> if valid; otherwise throws with details.</returns>
     /// <exception cref="InvalidOperationException">If the tree structure is invalid.</exception>
     public bool Validate()
     {
-        ValidateNode(_root, null, null, 0);
+        if (_loadedRoot is null)
+            return true;
+
+        var rebuilt = Build().Cid;
+        if (!rebuilt.AsSpan().SequenceEqual(_loadedRoot))
+        {
+            throw new InvalidOperationException(
+                $"MST loaded from {CidComputation.EncodeCidToString(_loadedRoot)} is not the canonical tree " +
+                $"for its entries, which is {CidComputation.EncodeCidToString(rebuilt)}.");
+        }
+
         return true;
     }
 
-    // ── Build from sorted entries ────────────────────────────
-
     /// <summary>
-    /// Creates an MST from a set of key/value pairs by finding the max depth
-    /// and using the layer-based build algorithm.
+    /// Whether <paramref name="key"/> is a valid MST key: <c>collection/rkey</c>, both non-empty,
+    /// drawn from <c>A-Z a-z 0-9 _ ~ - : .</c>, at most 1024 characters in all.
     /// </summary>
-    public static MerkleSearchTree CreateFromEntries(IEnumerable<KeyValuePair<string, byte[]>> entries)
+    /// <remarks>Mirrors <c>isValidMstKey</c> in the reference implementation.</remarks>
+    internal static bool IsValidKey(string key)
     {
-        var sorted = entries.OrderBy(e => e.Key, StringComparer.Ordinal).ToArray();
-        if (sorted.Length == 0)
-            return Create();
-
-        // Each key's depth is a SHA-256 of the key, and the layer recursion below inspects
-        // every key once per layer. Hash each key once here and carry the depths alongside,
-        // so the build costs n hashes rather than n × maxDepth.
-        var depths = new int[sorted.Length];
-        var maxDepth = 0;
-        for (var i = 0; i < sorted.Length; i++)
-        {
-            depths[i] = MstKeyDepth.ComputeDepth(sorted[i].Key);
-            if (depths[i] > maxDepth) maxDepth = depths[i];
-        }
-
-        var root = BuildLayerTopDown(sorted, depths, 0, sorted.Length, maxDepth);
-        return new MerkleSearchTree(root ?? new MstMemoryNode());
-    }
-
-    /// <summary>
-    /// Builds the subtree for <c>entries[start..end)</c> rooted at <paramref name="layer"/>.
-    /// </summary>
-    /// <remarks>
-    /// The range is passed as bounds into the shared, already-sorted arrays rather than as
-    /// freshly copied lists: the recursion partitions the input at every layer, so copying
-    /// made the build allocate O(n × maxDepth) entries' worth of temporary lists.
-    /// </remarks>
-    private static MstMemoryNode? BuildLayerTopDown(
-        KeyValuePair<string, byte[]>[] entries, int[] depths, int start, int end, int layer)
-    {
-        if (start == end)
-        {
-            return layer == 0 ? new MstMemoryNode() : null;
-        }
-
-        if (layer < 0)
-            return null;
-
-        // Find entries at this layer
-        var atLayer = new List<int>();
-        for (var i = start; i < end; i++)
-        {
-            if (depths[i] == layer)
-                atLayer.Add(i);
-        }
-
-        if (atLayer.Count == 0)
-        {
-            // No entries at this exact layer. Build the subtree at layer-1 and wrap
-            // in one empty parent node so the structural depth of the returned slot
-            // matches `layer`. Matches the reference impl's empty-parent chain.
-            var inner = BuildLayerTopDown(entries, depths, start, end, layer - 1);
-            return inner is null ? null : new MstMemoryNode { Left = inner };
-        }
-
-        var node = new MstMemoryNode();
-
-        // Build left subtree (entries before the first key at this layer)
-        node.Left = BuildLayerTopDown(entries, depths, start, atLayer[0], layer - 1);
-
-        // Build entries and right subtrees
-        for (var i = 0; i < atLayer.Count; i++)
-        {
-            var rightStart = atLayer[i] + 1;
-            var rightEnd = i + 1 < atLayer.Count ? atLayer[i + 1] : end;
-            var rightSubtree = BuildLayerTopDown(entries, depths, rightStart, rightEnd, layer - 1);
-
-            node.Entries.Add(
-                new MstMemoryEntry(entries[atLayer[i]].Key, entries[atLayer[i]].Value, rightSubtree));
-        }
-
-        return node;
-    }
-
-    // ── Lookup ───────────────────────────────────────────────
-
-    private static byte[]? Get(MstMemoryNode? node, string key, int depth)
-    {
-        if (node is null)
-            return null;
-
-        if (depth > MaxTreeDepth)
-            throw new InvalidOperationException("MST tree depth exceeded maximum.");
-
-        // Index the entries rather than calling List.IndexOf on the enumerated entry: that
-        // was a linear rescan per comparison (and a reference search, so it also rescanned
-        // from the front for every candidate), making a single-node probe quadratic.
-        for (var i = 0; i < node.Entries.Count; i++)
-        {
-            var cmp = string.Compare(key, node.Entries[i].Key, StringComparison.Ordinal);
-            if (cmp == 0)
-                return node.Entries[i].Value;
-            if (cmp < 0)
-            {
-                // Key would be before this entry; check left subtree or the previous entry's.
-                return Get(i == 0 ? node.Left : node.Entries[i - 1].Subtree, key, depth + 1);
-            }
-        }
-
-        // Key is after all entries; check the last entry's subtree
-        if (node.Entries.Count > 0)
-            return Get(node.Entries[^1].Subtree, key, depth + 1);
-
-        return Get(node.Left, key, depth + 1);
-    }
-
-    // ── Insertion ────────────────────────────────────────────
-
-    private static MstMemoryNode Insert(MstMemoryNode? node, string key, byte[] value, int depth)
-    {
-        if (depth > MaxTreeDepth)
-            throw new InvalidOperationException("MST tree depth exceeded maximum.");
-
-        node ??= new MstMemoryNode();
-
-        var keyDepth = MstKeyDepth.ComputeDepth(key);
-
-        if (keyDepth > depth)
-        {
-            // This key belongs at a higher layer; we need to split this node
-            // and create a new parent
-            return SplitAndInsert(node, key, value, depth, keyDepth);
-        }
-
-        if (keyDepth == depth)
-        {
-            // This key belongs at this layer
-            return InsertAtLevel(node, key, value, depth);
-        }
-
-        // keyDepth < depth: this key belongs at a lower layer, recurse into subtree
-        return InsertIntoSubtree(node, key, value, depth);
-    }
-
-    private static MstMemoryNode InsertAtLevel(MstMemoryNode node, string key, byte[] value, int depth)
-    {
-        // Find the insertion position
-        var insertIdx = 0;
-        foreach (var entry in node.Entries)
-        {
-            var cmp = string.Compare(key, entry.Key, StringComparison.Ordinal);
-            if (cmp == 0)
-                throw new ArgumentException($"Key already exists in MST: {key}");
-            if (cmp < 0)
-                break;
-            insertIdx++;
-        }
-
-        // The new entry needs to take over the right subtree of the previous entry
-        // (or the left pointer if inserting at position 0)
-        MstMemoryNode? leftOfNewKey;
-        MstMemoryNode? rightOfNewKey;
-
-        if (insertIdx == 0)
-        {
-            // Split the left subtree
-            (leftOfNewKey, rightOfNewKey) = SplitSubtree(node.Left, key);
-            node.Left = leftOfNewKey;
-        }
-        else
-        {
-            var prev = node.Entries[insertIdx - 1];
-            (leftOfNewKey, rightOfNewKey) = SplitSubtree(prev.Subtree, key);
-            node.Entries[insertIdx - 1] = prev with { Subtree = leftOfNewKey };
-        }
-
-        var newEntry = new MstMemoryEntry(key, value, rightOfNewKey);
-        node.Entries.Insert(insertIdx, newEntry);
-
-        return node;
-    }
-
-    private static MstMemoryNode InsertIntoSubtree(MstMemoryNode node, string key, byte[] value, int depth)
-    {
-        // Find which subtree to descend into
-        for (var i = 0; i < node.Entries.Count; i++)
-        {
-            var cmp = string.Compare(key, node.Entries[i].Key, StringComparison.Ordinal);
-            if (cmp < 0)
-            {
-                if (i == 0)
-                {
-                    node.Left = Insert(node.Left, key, value, depth - 1);
-                }
-                else
-                {
-                    var prev = node.Entries[i - 1];
-                    node.Entries[i - 1] = prev with { Subtree = Insert(prev.Subtree, key, value, depth - 1) };
-                }
-                return node;
-            }
-            if (cmp == 0)
-                throw new ArgumentException($"Key already exists in MST: {key}");
-        }
-
-        // After all entries
-        if (node.Entries.Count > 0)
-        {
-            var last = node.Entries[^1];
-            node.Entries[^1] = last with { Subtree = Insert(last.Subtree, key, value, depth - 1) };
-        }
-        else
-        {
-            node.Left = Insert(node.Left, key, value, depth - 1);
-        }
-
-        return node;
-    }
-
-    private static MstMemoryNode SplitAndInsert(MstMemoryNode node, string key, byte[] value, int currentDepth, int targetDepth)
-    {
-        // Split the existing node around `key`. The two halves sit at `currentDepth`;
-        // the new entry sits at `targetDepth`. When `targetDepth - currentDepth > 1`
-        // we must wrap each half in (targetDepth - currentDepth - 1) empty parent
-        // nodes so the structural depth between the new entry and the split halves
-        // matches the spec. The reference atproto/ts MST (`createParent()` loop in
-        // packages/repo/src/mst/mst.ts `add`) does exactly this; without it, the
-        // root CID diverges from spec-conformant peers.
-        var (leftNode, rightNode) = SplitNodeAtKey(node, key, currentDepth);
-
-        var extraLayers = targetDepth - currentDepth - 1;
-        if (extraLayers > 0)
-        {
-            leftNode = WrapInEmptyLayers(leftNode, extraLayers);
-            rightNode = WrapInEmptyLayers(rightNode, extraLayers);
-        }
-
-        var newNode = new MstMemoryNode { Left = leftNode };
-        newNode.Entries.Add(new MstMemoryEntry(key, value, rightNode));
-        return newNode;
-    }
-
-    /// <summary>
-    /// Wraps <paramref name="node"/> in <paramref name="count"/> empty parent
-    /// layers, with the inner node as each parent's <c>Left</c> pointer. Matches
-    /// the reference impl's <c>createParent()</c> chain.
-    /// </summary>
-    private static MstMemoryNode? WrapInEmptyLayers(MstMemoryNode? node, int count)
-    {
-        if (node is null) return null;
-        for (var i = 0; i < count; i++)
-            node = new MstMemoryNode { Left = node };
-        return node;
-    }
-
-    private static (MstMemoryNode? Left, MstMemoryNode? Right) SplitSubtree(MstMemoryNode? subtree, string splitKey)
-    {
-        if (subtree is null)
-            return (null, null);
-
-        var leftEntries = new List<MstMemoryEntry>();
-        var rightEntries = new List<MstMemoryEntry>();
-        MstMemoryNode? left = subtree.Left;
-        MstMemoryNode? rightLeft = null;
-
-        var foundSplit = false;
-        foreach (var entry in subtree.Entries)
-        {
-            var cmp = string.Compare(entry.Key, splitKey, StringComparison.Ordinal);
-            if (cmp < 0)
-            {
-                leftEntries.Add(entry);
-            }
-            else
-            {
-                if (!foundSplit)
-                {
-                    // The previous entry's subtree (or left pointer) needs to be split
-                    if (leftEntries.Count > 0)
-                    {
-                        rightLeft = null;
-                        // Subtree of previous entry stays with left
-                    }
-                    else
-                    {
-                        rightLeft = null;
-                    }
-                    foundSplit = true;
-                }
-                rightEntries.Add(entry);
-            }
-        }
-
-        MstMemoryNode? leftNode = null;
-        if (leftEntries.Count > 0 || left is not null)
-        {
-            leftNode = new MstMemoryNode { Left = left };
-            leftNode.Entries.AddRange(leftEntries);
-        }
-
-        MstMemoryNode? rightNode = null;
-        if (rightEntries.Count > 0)
-        {
-            rightNode = new MstMemoryNode { Left = rightLeft };
-            rightNode.Entries.AddRange(rightEntries);
-        }
-
-        return (leftNode, rightNode);
-    }
-
-    private static (MstMemoryNode? Left, MstMemoryNode? Right) SplitNodeAtKey(MstMemoryNode node, string key, int depth)
-    {
-        var leftEntries = new List<MstMemoryEntry>();
-        var rightEntries = new List<MstMemoryEntry>();
-        MstMemoryNode? origLeft = node.Left;
-        MstMemoryNode? newRightLeft = null;
-
-        foreach (var entry in node.Entries)
-        {
-            var cmp = string.Compare(entry.Key, key, StringComparison.Ordinal);
-            if (cmp < 0)
-            {
-                leftEntries.Add(entry);
-            }
-            else
-            {
-                if (rightEntries.Count == 0 && leftEntries.Count > 0)
-                {
-                    // The split point is between the last left entry and this right entry
-                    var lastLeft = leftEntries[^1];
-                    var (subLeft, subRight) = SplitSubtree(lastLeft.Subtree, key);
-                    leftEntries[^1] = lastLeft with { Subtree = subLeft };
-                    newRightLeft = subRight;
-                }
-                else if (rightEntries.Count == 0 && leftEntries.Count == 0)
-                {
-                    // Split the left pointer
-                    var (subLeft, subRight) = SplitSubtree(origLeft, key);
-                    origLeft = subLeft;
-                    newRightLeft = subRight;
-                }
-                rightEntries.Add(entry);
-            }
-        }
-
-        // Handle case where all entries go to left
-        if (rightEntries.Count == 0 && leftEntries.Count > 0)
-        {
-            var lastLeft = leftEntries[^1];
-            var (subLeft, subRight) = SplitSubtree(lastLeft.Subtree, key);
-            leftEntries[^1] = lastLeft with { Subtree = subLeft };
-            newRightLeft = subRight;
-        }
-
-        MstMemoryNode? leftNode = (leftEntries.Count > 0 || origLeft is not null)
-            ? new MstMemoryNode { Left = origLeft, Entries = leftEntries }
-            : null;
-
-        MstMemoryNode? rightNode = (rightEntries.Count > 0 || newRightLeft is not null)
-            ? new MstMemoryNode { Left = newRightLeft, Entries = rightEntries }
-            : null;
-
-        return (leftNode, rightNode);
-    }
-
-    // ── Deletion ─────────────────────────────────────────────
-
-    private static (MstMemoryNode? Node, bool Found) Remove(MstMemoryNode? node, string key, int depth)
-    {
-        if (node is null)
-            return (null, false);
-
-        if (depth > MaxTreeDepth)
-            throw new InvalidOperationException("MST tree depth exceeded maximum.");
-
-        // Find the key in this node
-        for (var i = 0; i < node.Entries.Count; i++)
-        {
-            var cmp = string.Compare(key, node.Entries[i].Key, StringComparison.Ordinal);
-            if (cmp == 0)
-            {
-                // Found it; remove and merge subtrees
-                var entry = node.Entries[i];
-                node.Entries.RemoveAt(i);
-
-                // Merge the entry's right subtree with the next entry's left context
-                if (entry.Subtree is not null)
-                {
-                    if (i == 0)
-                    {
-                        node.Left = MergeSubtrees(node.Left, entry.Subtree);
-                    }
-                    else
-                    {
-                        var prev = node.Entries[i - 1];
-                        node.Entries[i - 1] = prev with { Subtree = MergeSubtrees(prev.Subtree, entry.Subtree) };
-                    }
-                }
-
-                // If node is now empty, return the left subtree
-                if (node.Entries.Count == 0)
-                    return (node.Left, true);
-
-                return (node, true);
-            }
-
-            if (cmp < 0)
-            {
-                // Key is before this entry; recurse into appropriate subtree
-                if (i == 0)
-                {
-                    var (newLeft, found) = Remove(node.Left, key, depth - 1);
-                    node.Left = newLeft;
-                    return (node, found);
-                }
-                else
-                {
-                    var prev = node.Entries[i - 1];
-                    var (newSub, found) = Remove(prev.Subtree, key, depth - 1);
-                    node.Entries[i - 1] = prev with { Subtree = newSub };
-                    return (node, found);
-                }
-            }
-        }
-
-        // Key is after all entries; recurse into last subtree
-        if (node.Entries.Count > 0)
-        {
-            var last = node.Entries[^1];
-            var (newSub, found) = Remove(last.Subtree, key, depth - 1);
-            node.Entries[^1] = last with { Subtree = newSub };
-            return (node, found);
-        }
-
-        var (newLeft2, found2) = Remove(node.Left, key, depth - 1);
-        node.Left = newLeft2;
-        return (node, found2);
-    }
-
-    private static MstMemoryNode? MergeSubtrees(MstMemoryNode? left, MstMemoryNode? right)
-    {
-        if (left is null) return right;
-        if (right is null) return left;
-
-        // Append right's entries to left, merging the junction
-        if (left.Entries.Count > 0)
-        {
-            var lastLeft = left.Entries[^1];
-            left.Entries[^1] = lastLeft with { Subtree = MergeSubtrees(lastLeft.Subtree, right.Left) };
-        }
-        else
-        {
-            left.Left = MergeSubtrees(left.Left, right.Left);
-        }
-
-        left.Entries.AddRange(right.Entries);
-        return left;
-    }
-
-    // ── Update ───────────────────────────────────────────────
-
-    private static bool TryUpdate(MstMemoryNode? node, string key, byte[] value)
-    {
-        if (node is null)
+        if (key.Length == 0 || key.Length > MaxKeyLength)
             return false;
 
-        for (var i = 0; i < node.Entries.Count; i++)
+        var separator = -1;
+        for (var i = 0; i < key.Length; i++)
         {
-            var entry = node.Entries[i];
-            var cmp = string.Compare(key, entry.Key, StringComparison.Ordinal);
-            if (cmp == 0)
+            var c = key[i];
+            if (c == '/')
             {
-                entry.Value = value;
-                return true;
+                if (separator >= 0)
+                    return false;
+                separator = i;
             }
-
-            if (cmp < 0)
+            else if (!(c is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9')
+                       or '_' or '~' or '-' or ':' or '.'))
             {
-                // Check left/previous subtree
-                return TryUpdate(i == 0 ? node.Left : node.Entries[i - 1].Subtree, key, value);
+                return false;
             }
         }
 
-        if (node.Entries.Count > 0)
-            return TryUpdate(node.Entries[^1].Subtree, key, value);
-        return TryUpdate(node.Left, key, value);
+        return separator > 0 && separator < key.Length - 1;
     }
 
-    // ── Enumeration ──────────────────────────────────────────
+    // ── Building ─────────────────────────────────────────────
 
-    private static IEnumerable<KeyValuePair<string, byte[]>> EnumerateNode(MstMemoryNode? node)
+    /// <summary>
+    /// Builds the canonical node structure for the current entries, with every node's bytes and
+    /// CID computed.
+    /// </summary>
+    /// <remarks>
+    /// Each key sits at the layer given by its hash (<see cref="MstKeyDepth"/>); the root is at the
+    /// highest layer present. A node holds the keys of its layer within its range, and the gaps
+    /// between them become subtrees one layer down. An empty gap is a null link rather than an
+    /// empty node, and a gap whose keys all sit further down is wrapped in an entry-less node per
+    /// skipped layer. The only empty node is the root of an empty tree.
+    /// </remarks>
+    private Node Build()
     {
-        if (node is null)
-            yield break;
+        var count = _entries.Count;
+        var keys = new string[count];
+        var values = new byte[count][];
+        var heights = new int[count];
+        var maxHeight = 0;
 
-        // Left subtree
-        foreach (var entry in EnumerateNode(node.Left))
-            yield return entry;
-
-        // Entries with their right subtrees
-        foreach (var entry in node.Entries)
+        var i = 0;
+        foreach (var (key, leaf) in _entries)
         {
-            yield return new KeyValuePair<string, byte[]>(entry.Key, entry.Value);
-            foreach (var sub in EnumerateNode(entry.Subtree))
-                yield return sub;
+            keys[i] = key;
+            values[i] = leaf.Value;
+            heights[i] = leaf.Height;
+            maxHeight = Math.Max(maxHeight, leaf.Height);
+            i++;
         }
+
+        return BuildRange(keys, values, heights, 0, count, maxHeight) ?? Seal(new Node());
     }
 
-    private static int CountEntries(MstMemoryNode? node)
+    /// <summary>
+    /// Builds the node for <c>[start, end)</c> at <paramref name="layer"/>, or <c>null</c> for an
+    /// empty range. Every key in the range sits at <paramref name="layer"/> or below.
+    /// </summary>
+    private static Node? BuildRange(string[] keys, byte[][] values, int[] heights, int start, int end, int layer)
     {
-        if (node is null) return 0;
-        var count = node.Entries.Count;
-        count += CountEntries(node.Left);
-        foreach (var entry in node.Entries)
-            count += CountEntries(entry.Subtree);
-        return count;
+        if (start == end)
+            return null;
+
+        var node = new Node();
+        var gapStart = start;
+        for (var i = start; i < end; i++)
+        {
+            if (heights[i] != layer)
+                continue;
+
+            node.Attach(BuildRange(keys, values, heights, gapStart, i, layer - 1));
+            node.Entries.Add(new NodeEntry(keys[i], values[i]));
+            gapStart = i + 1;
+        }
+
+        node.Attach(BuildRange(keys, values, heights, gapStart, end, layer - 1));
+        return Seal(node);
     }
 
-    // ── Serialization ────────────────────────────────────────
-
-    /// <param name="node">The node to serialize.</param>
-    /// <param name="blocks">Receives every block in the subtree.</param>
-    /// <param name="nodeCids">
-    /// When supplied, receives each visited node's CID string, so a caller can pick a subset of
-    /// <paramref name="blocks"/> out by node identity — see <see cref="SerializeProof"/>.
-    /// </param>
-    private static byte[] SerializeNode(
-        MstMemoryNode node,
-        Dictionary<string, byte[]> blocks,
-        Dictionary<MstMemoryNode, string>? nodeCids = null)
+    /// <summary>Encodes <paramref name="node"/>, whose children are already sealed, and records its CID.</summary>
+    private static Node Seal(Node node)
     {
-        byte[]? leftCid = null;
-        if (node.Left is not null)
-            leftCid = SerializeNode(node.Left, blocks, nodeCids);
-
         var entries = new List<MstTreeEntry>(node.Entries.Count);
-        byte[] prevBytes = [];
+        var previous = string.Empty;
 
         foreach (var entry in node.Entries)
         {
-            var keyBytes = Encoding.UTF8.GetBytes(entry.Key);
-
-            var prefixLen = SharedPrefixLength(keyBytes, prevBytes);
-            var suffix = keyBytes[prefixLen..];
-
-            byte[]? treeCid = null;
-            if (entry.Subtree is not null)
-                treeCid = SerializeNode(entry.Subtree, blocks, nodeCids);
-
-            entries.Add(new MstTreeEntry(prefixLen, suffix, entry.Value, treeCid));
-
-            // Carry the encoded bytes forward instead of re-encoding this key as the next
-            // iteration's "previous".
-            prevBytes = keyBytes;
+            // Keys are ASCII, so a character offset is a byte offset.
+            var prefix = SharedPrefixLength(previous, entry.Key);
+            var suffix = Encoding.ASCII.GetBytes(entry.Key, prefix, entry.Key.Length - prefix);
+            entries.Add(new MstTreeEntry(prefix, suffix, entry.Value, entry.Right?.Cid));
+            previous = entry.Key;
         }
 
-        var nodeData = new MstNodeData
-        {
-            Left = leftCid,
-            Entries = entries,
-        };
-
-        var cborBytes = nodeData.ToBytes();
-        var cid = CidComputation.ComputeBinaryForDagCbor(cborBytes);
-        var cidString = CidComputation.EncodeCidToString(cid);
-        blocks[cidString] = cborBytes;
-        if (nodeCids is not null) nodeCids[node] = cidString;
-
-        return cid;
-    }
-
-    /// <summary>Length of the longest common prefix of two encoded keys, in bytes.</summary>
-    private static int SharedPrefixLength(ReadOnlySpan<byte> key, ReadOnlySpan<byte> previous)
-    {
-        var minLen = Math.Min(key.Length, previous.Length);
-        var prefixLen = 0;
-        while (prefixLen < minLen && key[prefixLen] == previous[prefixLen])
-            prefixLen++;
-        return prefixLen;
-    }
-
-    private static byte[] ComputeNodeCid(MstMemoryNode node)
-    {
-        byte[]? leftCid = null;
-        if (node.Left is not null)
-            leftCid = ComputeNodeCid(node.Left);
-
-        var entries = new List<MstTreeEntry>(node.Entries.Count);
-        byte[] prevBytes = [];
-
-        foreach (var entry in node.Entries)
-        {
-            var keyBytes = Encoding.UTF8.GetBytes(entry.Key);
-
-            var prefixLen = SharedPrefixLength(keyBytes, prevBytes);
-            var suffix = keyBytes[prefixLen..];
-
-            byte[]? treeCid = null;
-            if (entry.Subtree is not null)
-                treeCid = ComputeNodeCid(entry.Subtree);
-
-            entries.Add(new MstTreeEntry(prefixLen, suffix, entry.Value, treeCid));
-            prevBytes = keyBytes;
-        }
-
-        var nodeData = new MstNodeData
-        {
-            Left = leftCid,
-            Entries = entries,
-        };
-
-        var cborBytes = nodeData.ToBytes();
-        return CidComputation.ComputeBinaryForDagCbor(cborBytes);
-    }
-
-    // ── Deserialization ──────────────────────────────────────
-
-    private static MstMemoryNode DeserializeNode(byte[] cid, Func<string, byte[]?> blockLookup, int depth)
-    {
-        if (depth > MaxTreeDepth)
-            throw new InvalidOperationException("MST tree depth exceeded maximum during deserialization.");
-
-        var cidString = CidComputation.EncodeCidToString(cid);
-        var data = blockLookup(cidString)
-                   ?? throw new FormatException($"Block not found for CID: {cidString}");
-
-        var nodeData = MstNodeData.FromBytes(data);
-        var node = new MstMemoryNode();
-
-        if (nodeData.Left is not null)
-            node.Left = DeserializeNode(nodeData.Left, blockLookup, depth + 1);
-
-        string previousKey = "";
-        foreach (var entry in nodeData.Entries)
-        {
-            // Reconstruct full key from prefix compression
-            var prefixBytes = Encoding.UTF8.GetBytes(previousKey);
-            var fullKey = new byte[entry.PrefixLength + entry.KeySuffix.Length];
-            if (entry.PrefixLength > 0)
-                prefixBytes.AsSpan(0, entry.PrefixLength).CopyTo(fullKey);
-            entry.KeySuffix.CopyTo(fullKey.AsSpan(entry.PrefixLength));
-            var key = Encoding.UTF8.GetString(fullKey);
-
-            MstMemoryNode? subtree = null;
-            if (entry.Tree is not null)
-                subtree = DeserializeNode(entry.Tree, blockLookup, depth + 1);
-
-            node.Entries.Add(new MstMemoryEntry(key, entry.Value, subtree));
-            previousKey = key;
-        }
-
+        node.Bytes = new MstNodeData { Left = node.Left?.Cid, Entries = entries }.ToBytes();
+        node.Cid = CidComputation.ComputeBinaryForDagCbor(node.Bytes);
         return node;
     }
 
-    // ── Validation ───────────────────────────────────────────
-
-    private static void ValidateNode(MstMemoryNode? node, string? minKey, string? maxKey, int depth)
+    internal static int SharedPrefixLength(string a, string b)
     {
-        if (node is null)
-            return;
+        var max = Math.Min(a.Length, b.Length);
+        var length = 0;
+        while (length < max && a[length] == b[length])
+            length++;
+        return length;
+    }
 
-        if (depth > MaxTreeDepth)
-            throw new InvalidOperationException("MST tree depth exceeded maximum.");
+    private static void CollectAll(Node node, Dictionary<string, byte[]> blocks)
+    {
+        if (node.Left is not null)
+            CollectAll(node.Left, blocks);
 
-        if (node.Entries.Count > MaxNodeEntries)
-            throw new InvalidOperationException(
-                $"MST node has {node.Entries.Count} entries, exceeding maximum of {MaxNodeEntries}.");
-
-        string? prevKey = null;
         foreach (var entry in node.Entries)
         {
-            // Verify key ordering
-            if (prevKey is not null && string.Compare(entry.Key, prevKey, StringComparison.Ordinal) <= 0)
-                throw new InvalidOperationException(
-                    $"MST keys are not properly sorted: '{entry.Key}' after '{prevKey}'.");
-
-            // Verify key is within range
-            if (minKey is not null && string.Compare(entry.Key, minKey, StringComparison.Ordinal) <= 0)
-                throw new InvalidOperationException(
-                    $"MST key '{entry.Key}' is not greater than minimum '{minKey}'.");
-
-            if (maxKey is not null && string.Compare(entry.Key, maxKey, StringComparison.Ordinal) >= 0)
-                throw new InvalidOperationException(
-                    $"MST key '{entry.Key}' is not less than maximum '{maxKey}'.");
-
-            prevKey = entry.Key;
+            if (entry.Right is not null)
+                CollectAll(entry.Right, blocks);
         }
 
-        // Validate subtrees
-        ValidateNode(node.Left, minKey,
-            node.Entries.Count > 0 ? node.Entries[0].Key : maxKey, depth + 1);
+        AddBlock(node, blocks);
+    }
 
-        for (var i = 0; i < node.Entries.Count; i++)
+    private static void AddBlock(Node node, Dictionary<string, byte[]> blocks)
+        => blocks[CidComputation.EncodeCidToString(node.Cid)] = node.Bytes;
+
+    // ── Covering proofs ──────────────────────────────────────
+    //
+    // These mirror getCoveringProof in the reference implementation (packages/repo/src/mst/mst.ts)
+    // step for step, over the same view of a node: its children in key order, a subtree before
+    // each entry and after the last, with absent subtrees left out.
+
+    private static void ProofForKey(Node node, string key, Dictionary<string, byte[]> proof)
+    {
+        var children = node.Children();
+        var index = FindGreaterOrEqualEntry(children, key);
+
+        if (index < children.Count && children[index].Key == key)
         {
-            var entryMaxKey = i + 1 < node.Entries.Count ? node.Entries[i + 1].Key : maxKey;
-            ValidateNode(node.Entries[i].Subtree, node.Entries[i].Key, entryMaxKey, depth + 1);
+            AddBlock(node, proof);
+            return;
+        }
+
+        // A search that ends in a node with nowhere further to look contributes nothing itself;
+        // the neighbour proofs cover that node.
+        if (index == 0 || children[index - 1].Tree is not { } subtree)
+            return;
+
+        ProofForKey(subtree, key, proof);
+        AddBlock(node, proof);
+    }
+
+    private static void ProofForLeftSibling(Node node, string key, Dictionary<string, byte[]> proof)
+    {
+        var children = node.Children();
+        var index = FindGreaterOrEqualEntry(children, key);
+
+        if (index > 0 && children[index - 1].Tree is { } subtree)
+            ProofForLeftSibling(subtree, key, proof);
+
+        AddBlock(node, proof);
+    }
+
+    private static void ProofForRightSibling(Node node, string key, Dictionary<string, byte[]> proof)
+    {
+        var children = node.Children();
+        var index = FindGreaterOrEqualEntry(children, key);
+
+        Child? found = index < children.Count ? children[index]
+            : index > 0 ? children[index - 1]
+            : null;
+
+        if (found is { Tree: { } foundTree })
+        {
+            ProofForRightSibling(foundTree, key, proof);
+        }
+        else if (found is { Key: { } foundKey })
+        {
+            var next = foundKey == key ? index + 1 : index - 1;
+            if (next >= 0 && next < children.Count && children[next].Tree is { } subtree)
+                ProofForRightSibling(subtree, key, proof);
+        }
+
+        AddBlock(node, proof);
+    }
+
+    /// <summary>Index of the first entry whose key is ≥ <paramref name="key"/>, or the child count.</summary>
+    private static int FindGreaterOrEqualEntry(List<Child> children, string key)
+    {
+        for (var i = 0; i < children.Count; i++)
+        {
+            if (children[i].Key is { } entryKey && string.CompareOrdinal(entryKey, key) >= 0)
+                return i;
+        }
+
+        return children.Count;
+    }
+
+    // ── Loading ──────────────────────────────────────────────
+
+    private void Load(byte[] cid, Func<string, byte[]?> blocks, int depth, ref string? lastKey)
+    {
+        if (depth > MaxTreeDepth)
+            throw new FormatException($"MST is deeper than the maximum of {MaxTreeDepth} layers.");
+
+        var cidString = CidComputation.EncodeCidToString(cid);
+        var data = blocks(cidString)
+                   ?? throw new FormatException($"Block not found for CID: {cidString}");
+
+        var node = MstNodeData.FromBytes(data);
+
+        // Only the root of an empty tree has neither entries nor a left link. Refusing any other
+        // such node means every subtree holds at least one key, so the ordering check below also
+        // stops a crafted tree from linking one subtree many times over.
+        if (depth > 0 && node.Entries.Count == 0 && node.Left is null)
+            throw new FormatException($"MST node {cidString} is empty.");
+
+        if (node.Left is not null)
+            Load(node.Left, blocks, depth + 1, ref lastKey);
+
+        byte[] previous = [];
+        foreach (var entry in node.Entries)
+        {
+            // MstNodeData has already bounded the prefix by the previous key's length.
+            var keyBytes = new byte[entry.PrefixLength + entry.KeySuffix.Length];
+            previous.AsSpan(0, entry.PrefixLength).CopyTo(keyBytes);
+            entry.KeySuffix.CopyTo(keyBytes.AsSpan(entry.PrefixLength));
+
+            // Latin-1 maps each byte to one char, so anything outside the ASCII key alphabet
+            // survives decoding and is refused by the key check rather than silently replaced.
+            var key = Encoding.Latin1.GetString(keyBytes);
+            if (!IsValidKey(key))
+                throw new FormatException($"MST node {cidString} holds an invalid key: '{key}'.");
+
+            // An in-order walk must see strictly increasing keys. Checking that here also means a
+            // subtree linked twice fails on its first repeated key rather than being walked again.
+            // Ordinal order is byte order for the ASCII keys the check above lets through.
+            if (lastKey is not null && string.CompareOrdinal(key, lastKey) <= 0)
+                throw new FormatException($"MST keys are out of order: '{key}' follows '{lastKey}'.");
+
+            _entries.Add(key, new Leaf(entry.Value, MstKeyDepth.ComputeDepth(key)));
+            lastKey = key;
+            previous = keyBytes;
+
+            if (entry.Tree is not null)
+                Load(entry.Tree, blocks, depth + 1, ref lastKey);
         }
     }
-}
 
-/// <summary>
-/// In-memory representation of an MST node during tree manipulation.
-/// </summary>
-internal sealed class MstMemoryNode
-{
-    /// <summary>Left subtree (keys before all entries in this node).</summary>
-    public MstMemoryNode? Left { get; set; }
+    // ── Types ────────────────────────────────────────────────
 
-    /// <summary>Entries with their right subtrees.</summary>
-    public List<MstMemoryEntry> Entries { get; set; } = [];
-}
+    /// <summary>A record CID and the layer its key hashes to.</summary>
+    private readonly record struct Leaf(byte[] Value, int Height);
 
-/// <summary>
-/// In-memory representation of an MST entry during tree manipulation.
-/// </summary>
-internal sealed record MstMemoryEntry
-{
-    public string Key { get; set; }
-    public byte[] Value { get; set; }
-    public MstMemoryNode? Subtree { get; set; }
-
-    public MstMemoryEntry(string key, byte[] value, MstMemoryNode? subtree)
+    /// <summary>An entry of a built node.</summary>
+    private sealed class NodeEntry(string key, byte[] value)
     {
-        Key = key;
-        Value = value;
-        Subtree = subtree;
+        public string Key { get; } = key;
+
+        public byte[] Value { get; } = value;
+
+        /// <summary>The subtree between this entry and the next one.</summary>
+        public Node? Right { get; set; }
+    }
+
+    /// <summary>A node's child in key order: either an entry or a subtree.</summary>
+    private readonly record struct Child(string? Key, Node? Tree);
+
+    /// <summary>A node of the built tree, with its encoding.</summary>
+    private sealed class Node
+    {
+        /// <summary>The subtree before the first entry.</summary>
+        public Node? Left { get; private set; }
+
+        public List<NodeEntry> Entries { get; } = [];
+
+        public byte[] Bytes { get; set; } = [];
+
+        public byte[] Cid { get; set; } = [];
+
+        /// <summary>Links <paramref name="subtree"/> after the last entry so far (or as the left subtree).</summary>
+        public void Attach(Node? subtree)
+        {
+            if (Entries.Count == 0)
+                Left = subtree;
+            else
+                Entries[^1].Right = subtree;
+        }
+
+        public List<Child> Children()
+        {
+            var children = new List<Child>(Entries.Count * 2 + 1);
+            if (Left is not null)
+                children.Add(new Child(null, Left));
+
+            foreach (var entry in Entries)
+            {
+                children.Add(new Child(entry.Key, null));
+                if (entry.Right is not null)
+                    children.Add(new Child(null, entry.Right));
+            }
+
+            return children;
+        }
     }
 }

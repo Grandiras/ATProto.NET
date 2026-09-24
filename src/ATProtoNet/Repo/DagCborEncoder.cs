@@ -1,5 +1,4 @@
 using System.Formats.Cbor;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using ATProtoNet.Identity;
@@ -13,9 +12,6 @@ namespace ATProtoNet.Repo;
 /// </summary>
 public static class DagCborEncoder
 {
-    /// <summary>CBOR tag for CID links (IPLD standard).</summary>
-    private const CborTag CidTag = (CborTag)42;
-
     /// <summary>
     /// Encodes a JSON element into DRISL-CBOR bytes.
     /// Handles AT Protocol JSON conventions: <c>$link</c> objects become CID tag 42,
@@ -23,9 +19,14 @@ public static class DagCborEncoder
     /// </summary>
     /// <param name="element">The JSON element to encode.</param>
     /// <returns>The deterministic CBOR-encoded bytes.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// The element holds a floating point number, or an object repeats a property name.
+    /// </exception>
     public static byte[] Encode(JsonElement element)
     {
-        var writer = new CborWriter(CborConformanceMode.Canonical, allowMultipleRootLevelValues: false);
+        // Lax, not Canonical: WriteObject already emits every map in canonical key order, and
+        // Canonical mode would buffer and re-sort each map on WriteEndMap to reach the same bytes.
+        var writer = new CborWriter(CborConformanceMode.Lax, allowMultipleRootLevelValues: false);
         WriteValue(writer, element);
         return writer.Encode();
     }
@@ -43,16 +44,6 @@ public static class DagCborEncoder
     }
 
     /// <summary>
-    /// Computes the CID for DRISL-CBOR encoded data (CIDv1, SHA-256, dag-cbor codec).
-    /// </summary>
-    /// <param name="cborBytes">The DRISL-CBOR encoded bytes.</param>
-    /// <returns>The CID as a base32-encoded string with 'b' prefix.</returns>
-    public static Cid ComputeCid(byte[] cborBytes)
-    {
-        return CidComputation.ComputeForDagCbor(cborBytes);
-    }
-
-    /// <summary>
     /// Encodes a value to DRISL-CBOR and computes its CID in one step.
     /// </summary>
     /// <param name="element">The JSON element to encode.</param>
@@ -60,8 +51,7 @@ public static class DagCborEncoder
     public static (byte[] Bytes, Cid Cid) EncodeWithCid(JsonElement element)
     {
         var bytes = Encode(element);
-        var cid = ComputeCid(bytes);
-        return (bytes, cid);
+        return (bytes, CidComputation.ComputeForDagCbor(bytes));
     }
 
     private static void WriteValue(CborWriter writer, JsonElement element)
@@ -113,6 +103,14 @@ public static class DagCborEncoder
 
         properties.Sort(static (a, b) => CompareCanonical(a.Name, b.Name));
 
+        // Sorted, a repeated name sits next to its twin. DAG-CBOR maps have unique keys.
+        for (var i = 1; i < properties.Count; i++)
+        {
+            if (properties[i].Name == properties[i - 1].Name)
+                throw new InvalidOperationException(
+                    $"DRISL-CBOR maps cannot repeat a key; '{properties[i].Name}' appears more than once.");
+        }
+
         writer.WriteStartMap(properties.Count);
         foreach (var property in properties)
         {
@@ -142,7 +140,24 @@ public static class DagCborEncoder
         if (lengthA != lengthB)
             return lengthA - lengthB;
 
-        return string.CompareOrdinal(a, b);
+        // Equal lengths compare by UTF-8 bytes, which is code point order. UTF-16 ordinal order
+        // differs from it only where a surrogate pair (U+10000 and up) meets U+E000–U+FFFF, so
+        // lift the surrogates above that range before comparing.
+        var shared = Math.Min(a.Length, b.Length);
+        for (var i = 0; i < shared; i++)
+        {
+            if (a[i] != b[i])
+                return CodePointOrder(a[i]) - CodePointOrder(b[i]);
+        }
+
+        return a.Length - b.Length;
+
+        static int CodePointOrder(char c) => c switch
+        {
+            >= '\uE000' => c - 0x800,
+            >= '\uD800' => c + 0x2000,
+            _ => c,
+        };
     }
 
     private static bool TryWriteLink(CborWriter writer, JsonElement element)
@@ -160,16 +175,7 @@ public static class DagCborEncoder
             if (propertyCount > 1) return false;
         }
 
-        var cidString = linkValue.GetString()!;
-        var cidBytes = CidComputation.DecodeCidString(cidString);
-
-        writer.WriteTag(CidTag);
-        // Prepend 0x00 identity multibase prefix for binary CID encoding
-        var taggedBytes = new byte[cidBytes.Length + 1];
-        taggedBytes[0] = 0x00;
-        cidBytes.CopyTo(taggedBytes.AsSpan(1));
-        writer.WriteByteString(taggedBytes);
-
+        DagCborLink.Write(writer, CidComputation.DecodeCidString(linkValue.GetString()!));
         return true;
     }
 

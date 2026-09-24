@@ -2,6 +2,7 @@ using System.Formats.Cbor;
 using System.Net.WebSockets;
 using System.Text.Json;
 using ATProtoNet.Lexicon.Com.AtProto.Sync;
+using ATProtoNet.Repo;
 using ATProtoNet.Streaming;
 
 namespace ATProtoNet.Tests.Streaming;
@@ -359,5 +360,65 @@ public class FirehoseEventParserTests
 
         // Should return null since the type discriminator won't match
         Assert.Null(result);
+    }
+
+    // ── The shared DAG-CBOR transcoder ───────────────────────
+
+    private static byte[] Header(string type)
+    {
+        var writer = new CborWriter(CborConformanceMode.Lax);
+        writer.WriteStartMap(2);
+        writer.WriteTextString("op");
+        writer.WriteInt32(1);
+        writer.WriteTextString("t");
+        writer.WriteTextString(type);
+        writer.WriteEndMap();
+        return writer.Encode();
+    }
+
+    [Fact]
+    public void Parse_CidLinksAndByteStrings_AreFlattenedForTheModels()
+    {
+        var commitCid = CidComputation.ComputeBinaryForDagCbor([0xA0]);
+        byte[] blocks = [1, 2, 3, 250];
+
+        var body = new CborWriter(CborConformanceMode.Lax);
+        body.WriteStartMap(5);
+        body.WriteTextString("repo");
+        body.WriteTextString("did:plc:test123");
+        body.WriteTextString("commit");
+        body.WriteTag((CborTag)42);
+        body.WriteByteString([0x00, .. commitCid]);
+        body.WriteTextString("rev");
+        body.WriteTextString("abc123");
+        body.WriteTextString("blocks");
+        body.WriteByteString(blocks);
+        body.WriteTextString("seq");
+        body.WriteInt64(7);
+        body.WriteEndMap();
+
+        var result = FirehoseEventParser.Parse(MakeFrame([.. Header("#commit"), .. body.Encode()]));
+
+        var commit = Assert.IsType<CommitEvent>(result);
+        Assert.Equal(CidComputation.EncodeCidToString(commitCid), commit.Commit);
+        Assert.Equal(blocks, commit.Blocks);
+    }
+
+    [Fact]
+    public void Parse_DeeplyNestedBody_ReturnsNullRatherThanOverflowingTheStack()
+    {
+        // {"junk": [[[… 100,000 levels …]]]}: a relay-supplied frame that used to crash the process.
+        byte[] body = [0xA1, 0x64, .. "junk"u8, .. Enumerable.Repeat((byte)0x81, 100_000), 0x01];
+
+        Assert.Null(FirehoseEventParser.Parse(MakeFrame([.. Header("#identity"), .. body])));
+    }
+
+    [Fact]
+    public void Parse_MalformedCidLink_ReturnsNull()
+    {
+        // tag 42 around a byte string without the 0x00 multibase prefix.
+        byte[] body = [0xA1, 0x66, .. "commit"u8, 0xD8, 0x2A, 0x42, 0x01, 0x71];
+
+        Assert.Null(FirehoseEventParser.Parse(MakeFrame([.. Header("#commit"), .. body])));
     }
 }

@@ -1,5 +1,5 @@
+using System.Formats.Cbor;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using ATProtoNet.Repo;
 
 namespace ATProtoNet.Spaces;
@@ -91,12 +91,21 @@ public static class SpaceRepoCar
         var paths = byPath.Keys.ToList();
         paths.Sort(DagCborEncoder.CompareCanonical);
 
-        var index = new JsonObject();
-        foreach (var path in paths)
-            index[path] = new JsonObject { ["$link"] = byPath[path].Cid };
+        // The index is a DAG-CBOR map of path → CID link, written directly: the keys are already
+        // in canonical order and unique, so the writer need not re-sort or de-duplicate them.
+        var recordCids = new byte[paths.Count][];
+        var indexWriter = new CborWriter(CborConformanceMode.Lax);
+        indexWriter.WriteStartMap(paths.Count);
+        for (var i = 0; i < paths.Count; i++)
+        {
+            recordCids[i] = CidComputation.DecodeCidString(byPath[paths[i]].Cid);
+            indexWriter.WriteTextString(paths[i]);
+            DagCborLink.Write(indexWriter, recordCids[i]);
+        }
+        indexWriter.WriteEndMap();
 
         var commitBytes = commit.ToDagCbor();
-        var indexBytes = DagCborEncoder.Encode(JsonSerializer.SerializeToElement(index));
+        var indexBytes = indexWriter.Encode();
 
         var commitCid = CidComputation.ComputeBinaryForDagCbor(commitBytes);
         var indexCid = CidComputation.ComputeBinaryForDagCbor(indexBytes);
@@ -109,11 +118,8 @@ public static class SpaceRepoCar
 
         if (!excludeValues)
         {
-            foreach (var path in paths)
-            {
-                var record = byPath[path];
-                blocks.Add(new CarBlock(CidComputation.DecodeCidString(record.Cid), record.Bytes));
-            }
+            for (var i = 0; i < paths.Count; i++)
+                blocks.Add(new CarBlock(recordCids[i], byPath[paths[i]].Bytes));
         }
 
         return CarWriter.Write([commitCid, indexCid], blocks);

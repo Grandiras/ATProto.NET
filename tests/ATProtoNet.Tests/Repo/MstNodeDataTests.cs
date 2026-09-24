@@ -1,3 +1,4 @@
+using System.Formats.Cbor;
 using ATProtoNet.Repo;
 
 namespace ATProtoNet.Tests.Repo;
@@ -113,5 +114,76 @@ public sealed class MstNodeDataTests
         var bytes1 = node.ToBytes();
         var bytes2 = node.ToBytes();
         Assert.Equal(bytes1, bytes2);
+    }
+
+    [Fact]
+    public void ToBytes_AbsentLinks_AreWrittenAsNull()
+    {
+        // {"e": [{"k": h'61', "p": 0, "t": null, "v": <cid>}], "l": null}: the spec schema always
+        // carries l and t. Leaving them out hashes to a CID no other implementation produces.
+        var valueCid = CidComputation.ComputeBinaryForDagCbor([0xA0]);
+        var node = new MstNodeData { Entries = [new MstTreeEntry(0, "a"u8.ToArray(), valueCid, null)] };
+
+        var expected = "a26165" + "81" + "a4616b4161" + "617000" + "6174f6" + "6176d82a582500" +
+                       Convert.ToHexStringLower(valueCid) + "616cf6";
+
+        Assert.Equal(expected, Convert.ToHexStringLower(node.ToBytes()));
+    }
+
+    [Fact]
+    public void FromBytes_OmittedLinks_ReadAsNull()
+    {
+        // Nodes written without l/t (as this SDK used to) still decode.
+        var valueCid = CidComputation.ComputeBinaryForDagCbor([0xA0]);
+        var writer = new CborWriter(CborConformanceMode.Lax);
+        writer.WriteStartMap(1);
+        writer.WriteTextString("e");
+        writer.WriteStartArray(1);
+        writer.WriteStartMap(3);
+        writer.WriteTextString("k");
+        writer.WriteByteString("a/b"u8);
+        writer.WriteTextString("p");
+        writer.WriteInt32(0);
+        writer.WriteTextString("v");
+        writer.WriteTag((CborTag)42);
+        writer.WriteByteString([0x00, .. valueCid]);
+        writer.WriteEndMap();
+        writer.WriteEndArray();
+        writer.WriteEndMap();
+
+        var decoded = MstNodeData.FromBytes(writer.Encode());
+
+        Assert.Null(decoded.Left);
+        Assert.Null(Assert.Single(decoded.Entries).Tree);
+    }
+
+    [Theory]
+    [InlineData(-1, 0)]
+    [InlineData(1, 0)]       // the first entry has no previous key
+    [InlineData(4, 3)]       // one past the previous key
+    [InlineData(int.MaxValue, 3)]
+    public void FromBytes_PrefixOutsideThePreviousKey_ThrowsFormatException(int secondPrefix, int firstKeyLength)
+    {
+        var valueCid = CidComputation.ComputeBinaryForDagCbor([0xA0]);
+        var entries = new List<MstTreeEntry>();
+        if (firstKeyLength > 0)
+            entries.Add(new MstTreeEntry(0, new byte[firstKeyLength], valueCid, null));
+        entries.Add(new MstTreeEntry(secondPrefix, "x"u8.ToArray(), valueCid, null));
+
+        var bytes = new MstNodeData { Entries = entries }.ToBytes();
+
+        Assert.Throws<FormatException>(() => MstNodeData.FromBytes(bytes));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("80")]                     // an array, not a map
+    [InlineData("a1616581a1616b4161")]     // an entry without v
+    [InlineData("a1616581a2616b416161760a")] // v is not a link
+    [InlineData("a161658161")]             // truncated
+    [InlineData("bf6165806161f6ff")]       // indefinite-length map
+    public void FromBytes_Malformed_ThrowsFormatException(string hex)
+    {
+        Assert.Throws<FormatException>(() => MstNodeData.FromBytes(Convert.FromHexString(hex)));
     }
 }

@@ -87,24 +87,13 @@ public sealed class RepoCommit
         writer.WriteTextString(Rev);
 
         writer.WriteTextString("data");
-        WriteCidLink(writer, Data);
+        DagCborLink.Write(writer, Data);
 
         writer.WriteTextString("prev");
-        if (Prev is not null)
-            WriteCidLink(writer, Prev);
-        else
-            writer.WriteNull();
+        DagCborLink.WriteNullable(writer, Prev);
 
         writer.WriteTextString("version");
         writer.WriteInt32(Version);
-    }
-
-    private static void WriteCidLink(CborWriter writer, byte[] cidBytes)
-    {
-        writer.WriteTag((CborTag)42);
-        var tagged = new byte[cidBytes.Length + 1];
-        cidBytes.CopyTo(tagged.AsSpan(1));
-        writer.WriteByteString(tagged);
     }
 }
 
