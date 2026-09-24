@@ -1,74 +1,19 @@
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
 using ATProtoNet.Aspire.Hosting;
+using static ATProtoNet.Tests.Aspire.AspireTestHost;
 
 namespace ATProtoNet.Tests.Aspire;
 
+/// <summary>
+/// What only Tranquil does. Behaviour it shares with the reference PDS is in
+/// <see cref="PdsContainerResourceTests"/>.
+/// </summary>
 public class AtProtoTranquilPdsHostingExtensionsTests
 {
     // ──────────────────────────────────────────────────────────
     //  The container and its database
     // ──────────────────────────────────────────────────────────
-
-    [Fact]
-    public void AddAtProtoTranquilPds_AddsContainerResource()
-    {
-        var builder = DistributedApplication.CreateBuilder();
-
-        builder.AddAtProtoTranquilPds("pds");
-
-        var resource = Resource(builder);
-        Assert.Equal("pds", resource.Name);
-    }
-
-    [Fact]
-    public void AddAtProtoTranquilPds_ConfiguresContainerImage()
-    {
-        var builder = DistributedApplication.CreateBuilder();
-
-        builder.AddAtProtoTranquilPds("pds");
-
-        var image = Assert.Single(Resource(builder).Annotations.OfType<ContainerImageAnnotation>());
-
-        Assert.Equal("atcr.io/tranquil.farm/tranquil-pds", image.Image);
-        Assert.Equal("latest", image.Tag);
-    }
-
-    [Fact]
-    public void AddAtProtoTranquilPds_WithCustomTag_SetsTag()
-    {
-        var builder = DistributedApplication.CreateBuilder();
-
-        builder.AddAtProtoTranquilPds("pds", tag: "0.1.0");
-
-        var image = Assert.Single(Resource(builder).Annotations.OfType<ContainerImageAnnotation>());
-        Assert.Equal("0.1.0", image.Tag);
-    }
-
-    [Fact]
-    public void AddAtProtoTranquilPds_ConfiguresHttpEndpoint()
-    {
-        var builder = DistributedApplication.CreateBuilder();
-
-        builder.AddAtProtoTranquilPds("pds", port: 3001);
-
-        var endpoint = Assert.Single(
-            Resource(builder).Annotations.OfType<EndpointAnnotation>(),
-            e => e.Name == AtProtoTranquilPdsContainerResource.HttpEndpointName);
-
-        Assert.Equal(3001, endpoint.Port);
-        Assert.Equal(3000, endpoint.TargetPort);
-    }
-
-    [Fact]
-    public void AddAtProtoTranquilPds_AddsHealthCheck()
-    {
-        var builder = DistributedApplication.CreateBuilder();
-
-        builder.AddAtProtoTranquilPds("pds");
-
-        Assert.NotEmpty(Resource(builder).Annotations.OfType<HealthCheckAnnotation>());
-    }
 
     [Fact]
     public void AddAtProtoTranquilPds_AddsPostgresServerAndDatabase()
@@ -132,46 +77,6 @@ public class AtProtoTranquilPdsHostingExtensionsTests
         // from outside it: the published port would connect to a closed socket.
         Assert.Equal("[::]", env["SERVER_HOST"]);
         Assert.Equal("3000", env["SERVER_PORT"]);
-    }
-
-    [Fact]
-    public void AddAtProtoTranquilPds_ConfiguresBlobVolume()
-    {
-        var builder = DistributedApplication.CreateBuilder();
-
-        builder.AddAtProtoTranquilPds("pds");
-
-        var mount = Assert.Single(
-            Resource(builder).Annotations.OfType<ContainerMountAnnotation>(),
-            m => m.Target == "/var/lib/tranquil-pds/blobs");
-
-        Assert.Equal(ContainerMountType.Volume, mount.Type);
-    }
-
-    [Fact]
-    public void AddAtProtoTranquilPds_ImplementsIResourceWithConnectionString()
-    {
-        var builder = DistributedApplication.CreateBuilder();
-
-        builder.AddAtProtoTranquilPds("pds");
-
-        Assert.IsAssignableFrom<IResourceWithConnectionString>(Resource(builder));
-    }
-
-    [Fact]
-    public void AddAtProtoTranquilPds_ThrowsOnNullBuilder()
-    {
-        IDistributedApplicationBuilder builder = null!;
-
-        Assert.Throws<ArgumentNullException>(() => builder.AddAtProtoTranquilPds("pds"));
-    }
-
-    [Fact]
-    public void AddAtProtoTranquilPds_ThrowsOnEmptyName()
-    {
-        var builder = DistributedApplication.CreateBuilder();
-
-        Assert.Throws<ArgumentException>(() => builder.AddAtProtoTranquilPds(""));
     }
 
     // ──────────────────────────────────────────────────────────
@@ -241,76 +146,46 @@ public class AtProtoTranquilPdsHostingExtensionsTests
     }
 
     [Fact]
-    public void WithMasterKey_OverridesGeneratedParameterAndDropsIt()
+    public async Task WithDPoPSecretAndMasterKey_OverrideGeneratedParameters()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var dpop = builder.AddParameter("custom-dpop", new string('b', 48), secret: true);
+        var masterKey = builder.AddParameter("custom-master-key", new string('c', 48), secret: true);
+
+        var pds = builder.AddAtProtoTranquilPds("pds")
+            .WithDPoPSecret(dpop)
+            .WithMasterKey(masterKey);
+
+        var env = await GetEnvironmentAsync(pds.Resource);
+
+        Assert.Same(dpop.Resource, pds.Resource.DPoPSecretParameter);
+        Assert.Same(masterKey.Resource, pds.Resource.MasterKeyParameter);
+        Assert.Same(dpop.Resource, env["DPOP_SECRET"]);
+        Assert.Same(masterKey.Resource, env["MASTER_KEY"]);
+    }
+
+    [Theory]
+    [InlineData("pds-dpop-secret")]
+    [InlineData("pds-master-key")]
+    public void PublishMode_OverriddenSecretIsDroppedFromTheModel(string parameterName)
     {
         var builder = PublishModeBuilder();
-        var custom = builder.AddParameter("custom-master-key", new string('a', 48), secret: true);
+        var custom = builder.AddParameter("custom-value", new string('a', 48), secret: true);
 
         var pds = builder.AddAtProtoTranquilPds("pds");
-        Assert.Contains(builder.Resources.OfType<ParameterResource>(), p => p.Name == "pds-master-key");
 
-        pds.WithMasterKey(custom);
+        Assert.Contains(builder.Resources.OfType<ParameterResource>(), p => p.Name == parameterName);
 
-        Assert.Same(custom.Resource, pds.Resource.MasterKeyParameter);
+        _ = parameterName == "pds-dpop-secret" ? pds.WithDPoPSecret(custom) : pds.WithMasterKey(custom);
 
         // Left in the model it would still appear as a manifest input, so a deployment
         // would be prompted for a value nothing reads.
-        Assert.DoesNotContain(builder.Resources.OfType<ParameterResource>(), p => p.Name == "pds-master-key");
-    }
-
-    [Fact]
-    public void WithJwtSecretAndDPoPSecret_OverrideGeneratedParameters()
-    {
-        var builder = DistributedApplication.CreateBuilder();
-        var jwt = builder.AddParameter("custom-jwt", new string('a', 48), secret: true);
-        var dpop = builder.AddParameter("custom-dpop", new string('b', 48), secret: true);
-
-        var pds = builder.AddAtProtoTranquilPds("pds")
-            .WithJwtSecret(jwt)
-            .WithDPoPSecret(dpop);
-
-        Assert.Same(jwt.Resource, pds.Resource.JwtSecretParameter);
-        Assert.Same(dpop.Resource, pds.Resource.DPoPSecretParameter);
+        Assert.DoesNotContain(builder.Resources.OfType<ParameterResource>(), p => p.Name == parameterName);
     }
 
     // ──────────────────────────────────────────────────────────
     //  Hostname and the administrator account
     // ──────────────────────────────────────────────────────────
-
-    [Fact]
-    public async Task AddAtProtoTranquilPds_InRunMode_DefaultsHostnameToLocalhost()
-    {
-        var builder = DistributedApplication.CreateBuilder();
-
-        builder.AddAtProtoTranquilPds("pds");
-
-        var env = await GetEnvironmentAsync(Resource(builder));
-        Assert.Equal("localhost", env["PDS_HOSTNAME"]);
-    }
-
-    [Fact]
-    public async Task AddAtProtoTranquilPds_InPublishMode_AsksForTheHostname()
-    {
-        var builder = PublishModeBuilder();
-
-        builder.AddAtProtoTranquilPds("pds");
-
-        var env = await GetEnvironmentAsync(Resource(builder));
-
-        // "localhost" would give a deployed PDS a handle domain nothing can resolve.
-        Assert.IsType<ParameterResource>(env["PDS_HOSTNAME"]);
-    }
-
-    [Fact]
-    public async Task WithHostname_OverridesTheDefault()
-    {
-        var builder = DistributedApplication.CreateBuilder();
-
-        builder.AddAtProtoTranquilPds("pds").WithHostname("pds.example.com");
-
-        var env = await GetEnvironmentAsync(Resource(builder));
-        Assert.Equal("pds.example.com", env["PDS_HOSTNAME"]);
-    }
 
     [Fact]
     public async Task WithHostname_MovesTheDerivedAdminHandleWithIt()
@@ -495,38 +370,8 @@ public class AtProtoTranquilPdsHostingExtensionsTests
     }
 
     // ──────────────────────────────────────────────────────────
-    //  Storage overrides
+    //  Blob storage
     // ──────────────────────────────────────────────────────────
-
-    [Fact]
-    public void WithBlobBindMount_ReplacesTheDefaultVolume()
-    {
-        var builder = DistributedApplication.CreateBuilder();
-
-        builder.AddAtProtoTranquilPds("pds").WithBlobBindMount("./pds-blobs");
-
-        // Two mounts on one destination is rejected by the container runtime
-        // ("duplicate mount destination"), so the container would never start.
-        var mount = Assert.Single(
-            Resource(builder).Annotations.OfType<ContainerMountAnnotation>(),
-            m => m.Target == "/var/lib/tranquil-pds/blobs");
-
-        Assert.Equal(ContainerMountType.BindMount, mount.Type);
-    }
-
-    [Fact]
-    public void WithBlobVolume_ReplacesTheDefaultVolume()
-    {
-        var builder = DistributedApplication.CreateBuilder();
-
-        builder.AddAtProtoTranquilPds("pds").WithBlobVolume("custom-blobs");
-
-        var mount = Assert.Single(
-            Resource(builder).Annotations.OfType<ContainerMountAnnotation>(),
-            m => m.Target == "/var/lib/tranquil-pds/blobs");
-
-        Assert.Equal("custom-blobs", mount.Source);
-    }
 
     [Fact]
     public async Task WithS3BlobStorage_SwitchesTheBackend()
@@ -560,71 +405,6 @@ public class AtProtoTranquilPdsHostingExtensionsTests
         // HTTP Basic scheme would be rejected by every admin endpoint.
         Assert.Equal("AdminAccount", env[AtProtoPdsHostingExtensions.AuthenticationConfigurationKey]);
         Assert.Equal("pdsadmin.localhost", env[AtProtoPdsHostingExtensions.AdminIdentifierConfigurationKey]);
-        Assert.Same(
-            pds.Resource.AdminAccountPasswordParameter,
-            env[AtProtoPdsHostingExtensions.AdminPasswordConfigurationKey]);
-        Assert.True(env.ContainsKey(AtProtoPdsHostingExtensions.PdsUrlConfigurationKey));
-    }
-
-    [Fact]
-    public async Task WithAtProtoTranquilPds_InRunMode_AllowsPlaintextHttp()
-    {
-        var builder = DistributedApplication.CreateBuilder();
-        var pds = builder.AddAtProtoTranquilPds("pds");
-
-        var consumer = builder.AddContainer("web", "nginx").WithAtProtoTranquilPds(pds);
-        var env = await GetEnvironmentAsync(consumer.Resource);
-
-        // A containerized consumer resolves the PDS over the container network, not as a
-        // loopback address, so the admin client's HTTPS guard would otherwise reject the
-        // URL this very method supplies.
-        Assert.Equal("true", env[AtProtoPdsHostingExtensions.AllowInsecureHttpConfigurationKey]);
-    }
-
-    [Fact]
-    public async Task WithAtProtoTranquilPds_InPublishMode_DoesNotAllowPlaintextHttp()
-    {
-        var builder = PublishModeBuilder();
-        var pds = builder.AddAtProtoTranquilPds("pds");
-
-        var consumer = builder.AddContainer("web", "nginx").WithAtProtoTranquilPds(pds);
-        var env = await GetEnvironmentAsync(consumer.Resource);
-
-        // Sending administrator credentials unencrypted across a deployed network should
-        // be the operator's explicit decision.
-        Assert.False(env.ContainsKey(AtProtoPdsHostingExtensions.AllowInsecureHttpConfigurationKey));
-    }
-
-    [Fact]
-    public void WithAtProtoTranquilPds_AddsWaitAnnotationByDefault()
-    {
-        var builder = DistributedApplication.CreateBuilder();
-        var pds = builder.AddAtProtoTranquilPds("pds");
-
-        var consumer = builder.AddContainer("web", "nginx").WithAtProtoTranquilPds(pds);
-
-        Assert.NotEmpty(consumer.Resource.Annotations.OfType<WaitAnnotation>());
-    }
-
-    [Fact]
-    public void WithAtProtoTranquilPds_WithWaitDisabled_AddsNoWaitAnnotation()
-    {
-        var builder = DistributedApplication.CreateBuilder();
-        var pds = builder.AddAtProtoTranquilPds("pds");
-
-        var consumer = builder.AddContainer("web", "nginx")
-            .WithAtProtoTranquilPds(pds, waitForHealthy: false);
-
-        Assert.Empty(consumer.Resource.Annotations.OfType<WaitAnnotation>());
-    }
-
-    [Fact]
-    public void WithAtProtoTranquilPds_ThrowsOnNullPds()
-    {
-        var builder = DistributedApplication.CreateBuilder();
-        var consumer = builder.AddContainer("web", "nginx");
-
-        Assert.Throws<ArgumentNullException>(() => consumer.WithAtProtoTranquilPds(null!));
     }
 
     [Fact]
@@ -658,31 +438,5 @@ public class AtProtoTranquilPdsHostingExtensionsTests
     }
 
     private static AtProtoTranquilPdsContainerResource Resource(IDistributedApplicationBuilder builder) =>
-        builder.Resources.OfType<AtProtoTranquilPdsContainerResource>().Single();
-
-    private static IDistributedApplicationBuilder PublishModeBuilder()
-    {
-        var builder = DistributedApplication.CreateBuilder(
-            new DistributedApplicationOptions { Args = ["--publisher", "manifest", "--output-path", "manifest.json"] });
-
-        Assert.True(builder.ExecutionContext.IsPublishMode, "expected a publish-mode builder");
-        return builder;
-    }
-
-    private static async Task<Dictionary<string, object>> GetEnvironmentAsync(IResource resource)
-    {
-        var env = new Dictionary<string, object>();
-        var context = new EnvironmentCallbackContext(
-            new DistributedApplicationExecutionContext(DistributedApplicationOperation.Run),
-            resource,
-            env,
-            CancellationToken.None);
-
-        foreach (var annotation in resource.Annotations.OfType<EnvironmentCallbackAnnotation>())
-        {
-            await annotation.Callback(context);
-        }
-
-        return env;
-    }
+        builder.SingleResource<AtProtoTranquilPdsContainerResource>();
 }

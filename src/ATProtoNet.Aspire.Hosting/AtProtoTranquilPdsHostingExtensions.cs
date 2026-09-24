@@ -11,7 +11,8 @@ namespace ATProtoNet.Aspire.Hosting;
 /// The counterpart to <see cref="AtProtoPdsHostingExtensions"/>, which hosts the
 /// reference Bluesky PDS. Both produce a server that speaks AT Protocol and both feed
 /// the same <c>AtProto:Pds</c> configuration section, so an application built against
-/// <c>PdsAdminClient</c> works with either.
+/// <c>PdsAdminClient</c> works with either. The methods both servers share,
+/// <c>WithHostname</c> and <c>WithJwtSecret</c>, are declared there.
 /// </remarks>
 public static class AtProtoTranquilPdsHostingExtensions
 {
@@ -42,7 +43,8 @@ public static class AtProtoTranquilPdsHostingExtensions
     /// <para>
     /// The JWT secret, DPoP secret, master key, and administrator password are Aspire
     /// parameters persisted to the AppHost's user secrets, so accounts created on one run
-    /// remain usable on the next. Override any of them with <see cref="WithJwtSecret"/>,
+    /// remain usable on the next. Override any of them with
+    /// <see cref="AtProtoPdsHostingExtensions.WithJwtSecret{T}"/>,
     /// <see cref="WithDPoPSecret"/>, <see cref="WithMasterKey"/>, or
     /// <see cref="WithAdminAccount"/>.
     /// </para>
@@ -254,72 +256,17 @@ public static class AtProtoTranquilPdsHostingExtensions
         bool waitForHealthy = true)
         where T : IResourceWithEnvironment, IResourceWithWaitSupport
     {
-        ArgumentNullException.ThrowIfNull(builder);
-        ArgumentNullException.ThrowIfNull(pds);
-
-        builder = builder
-            .WithReference(pds)
-            .WithEnvironment(
-                AtProtoPdsHostingExtensions.PdsUrlConfigurationKey,
-                pds.GetEndpoint(AtProtoTranquilPdsContainerResource.HttpEndpointName))
-            .WithEnvironment(context =>
-            {
-                // Tranquil has no shared admin password: administration goes through a
-                // session belonging to an account flagged as an administrator.
-                context.EnvironmentVariables[AtProtoPdsHostingExtensions.AuthenticationConfigurationKey] =
-                    AtProtoPdsHostingExtensions.AdminAccountAuthentication;
-                context.EnvironmentVariables[AtProtoPdsHostingExtensions.AdminIdentifierConfigurationKey] =
-                    pds.Resource.ResolveAdminHandle();
-                context.EnvironmentVariables[AtProtoPdsHostingExtensions.AdminPasswordConfigurationKey] =
-                    pds.Resource.AdminAccountPasswordParameter;
-            });
-
-        if (builder.ApplicationBuilder.ExecutionContext.IsRunMode)
+        return AtProtoPdsHostingExtensions.WithPdsConfiguration(builder, pds, waitForHealthy, static (resource, environment) =>
         {
-            builder = builder.WithEnvironment(
-                AtProtoPdsHostingExtensions.AllowInsecureHttpConfigurationKey, "true");
-        }
-
-        return waitForHealthy ? builder.WaitFor(pds) : builder;
-    }
-
-    /// <summary>
-    /// Sets the public hostname for the PDS container.
-    /// </summary>
-    /// <remarks>
-    /// Unless <see cref="WithHandleDomains"/> says otherwise, the hostname is the domain
-    /// new handles are created under — including the administrator's, which is derived
-    /// from it when <see cref="WithAdminAccount"/> does not name one.
-    /// </remarks>
-    /// <param name="builder">The PDS resource builder.</param>
-    /// <param name="hostname">The public hostname.</param>
-    /// <returns>The resource builder for chaining.</returns>
-    public static IResourceBuilder<AtProtoTranquilPdsContainerResource> WithHostname(
-        this IResourceBuilder<AtProtoTranquilPdsContainerResource> builder,
-        string hostname)
-    {
-        ArgumentNullException.ThrowIfNull(builder);
-        ArgumentException.ThrowIfNullOrEmpty(hostname);
-
-        PdsParameterOverrides.Replace(builder, builder.Resource.Hostname, r => r.Hostname = hostname);
-        return builder;
-    }
-
-    /// <summary>
-    /// Sets the public hostname for the PDS container from a parameter.
-    /// </summary>
-    /// <param name="builder">The PDS resource builder.</param>
-    /// <param name="hostname">The parameter holding the public hostname.</param>
-    /// <returns>The resource builder for chaining.</returns>
-    public static IResourceBuilder<AtProtoTranquilPdsContainerResource> WithHostname(
-        this IResourceBuilder<AtProtoTranquilPdsContainerResource> builder,
-        IResourceBuilder<ParameterResource> hostname)
-    {
-        ArgumentNullException.ThrowIfNull(builder);
-        ArgumentNullException.ThrowIfNull(hostname);
-
-        PdsParameterOverrides.Replace(builder, builder.Resource.Hostname, r => r.Hostname = hostname.Resource);
-        return builder;
+            // Tranquil has no shared admin password: administration goes through a
+            // session belonging to an account flagged as an administrator.
+            environment[AtProtoPdsHostingExtensions.AuthenticationConfigurationKey] =
+                AtProtoPdsHostingExtensions.AdminAccountAuthentication;
+            environment[AtProtoPdsHostingExtensions.AdminIdentifierConfigurationKey] =
+                resource.ResolveAdminHandle();
+            environment[AtProtoPdsHostingExtensions.AdminPasswordConfigurationKey] =
+                resource.AdminAccountPasswordParameter;
+        });
     }
 
     /// <summary>
@@ -490,23 +437,6 @@ public static class AtProtoTranquilPdsHostingExtensions
     }
 
     /// <summary>
-    /// Uses a specific JWT signing secret instead of the generated one.
-    /// </summary>
-    /// <param name="builder">The PDS resource builder.</param>
-    /// <param name="jwtSecret">The parameter holding the JWT secret (at least 32 characters).</param>
-    /// <returns>The resource builder for chaining.</returns>
-    public static IResourceBuilder<AtProtoTranquilPdsContainerResource> WithJwtSecret(
-        this IResourceBuilder<AtProtoTranquilPdsContainerResource> builder,
-        IResourceBuilder<ParameterResource> jwtSecret)
-    {
-        ArgumentNullException.ThrowIfNull(builder);
-        ArgumentNullException.ThrowIfNull(jwtSecret);
-
-        PdsParameterOverrides.Replace(builder, builder.Resource.JwtSecretParameter, r => r.JwtSecretParameter = jwtSecret.Resource);
-        return builder;
-    }
-
-    /// <summary>
     /// Uses a specific DPoP proof validation secret instead of the generated one.
     /// </summary>
     /// <param name="builder">The PDS resource builder.</param>
@@ -584,8 +514,7 @@ public static class AtProtoTranquilPdsHostingExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentException.ThrowIfNullOrEmpty(path);
 
-        ClearBlobMounts(builder);
-        return builder.WithBindMount(path, BlobTarget);
+        return AtProtoPdsHostingExtensions.ReplaceStorageMount(builder, path, BlobTarget, isBindMount: true);
     }
 
     /// <summary>
@@ -600,31 +529,8 @@ public static class AtProtoTranquilPdsHostingExtensions
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        ClearBlobMounts(builder);
-        return builder.WithVolume(name ?? $"{builder.Resource.Name}-blobs", BlobTarget);
-    }
-
-    /// <summary>
-    /// Removes any mount already targeting the blob directory.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="AddAtProtoTranquilPds"/> always mounts a named volume there, so adding
-    /// a second mount on the same destination would leave both annotations in the
-    /// container spec. Docker and Podman reject that outright — Podman with
-    /// <c>duplicate mount destination</c> — so the container never starts.
-    /// </remarks>
-    private static void ClearBlobMounts(
-        IResourceBuilder<AtProtoTranquilPdsContainerResource> builder)
-    {
-        var existing = builder.Resource.Annotations
-            .OfType<ContainerMountAnnotation>()
-            .Where(m => m.Target == BlobTarget)
-            .ToList();
-
-        foreach (var mount in existing)
-        {
-            builder.Resource.Annotations.Remove(mount);
-        }
+        return AtProtoPdsHostingExtensions.ReplaceStorageMount(
+            builder, name ?? $"{builder.Resource.Name}-blobs", BlobTarget, isBindMount: false);
     }
 
     /// <summary>

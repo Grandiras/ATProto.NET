@@ -207,6 +207,11 @@ builder.AddProject<Projects.MyApi>("api")
 | `WithBlobVolume(name?)` / `WithBlobBindMount(path)` / `WithS3BlobStorage(bucket, endpoint?)` | Where blobs are stored |
 | `WithPlcUrl(url)` / `WithCrawlers(urls)` / `WithReportService(url, did?)` / `WithBlobUploadLimit(bytes)` / `WithInviteCodeRequired(required?)` / `WithEmail(from, host, port?, user?, password?)` | As above |
 
+Both resources derive from `AtProtoPdsContainerResourceBase`. `WithHostname` and
+`WithJwtSecret` are the same generic methods for either server and return the concrete
+builder, so they chain into the server-specific ones. Write your own AppHost helpers
+against the base type (`where T : AtProtoPdsContainerResourceBase`) to cover both.
+
 Two differences matter. Tranquil needs PostgreSQL, which the resource provisions for you;
 and it has no server-wide admin password — administration goes through an *account* the
 server has flagged as an administrator. `WithAtProtoTranquilPds` configures

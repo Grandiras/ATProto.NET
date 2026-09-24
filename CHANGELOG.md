@@ -10,10 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking changes
 
 - **`ATProtoNet` no longer depends on `Microsoft.Extensions.Http` or `Microsoft.Extensions.Options`** — the core package used neither, so its dependency closure shrinks from 14 packages to 3. ASP.NET Core apps are unaffected, since the shared framework carries both. Migration: an app outside ASP.NET Core that used `IHttpClientFactory`, `IOptions<T>` or `LoggerFactory` only through this transitive dependency adds `Microsoft.Extensions.Http`, `Microsoft.Extensions.Options` or `Microsoft.Extensions.Logging` itself (#110)
+- **Aspire hosting: `WithHostname` and `WithJwtSecret` are generic over the PDS resource type.** The reference-PDS and Tranquil overloads are replaced by one generic method each on `AtProtoPdsHostingExtensions`, constrained to the new `AtProtoPdsContainerResourceBase`; extension-method calls compile unchanged and still return the concrete builder. Migration: recompile against this release, and rewrite an explicit static call such as `AtProtoTranquilPdsHostingExtensions.WithHostname(pds, …)` as `pds.WithHostname(…)`. (#116)
 
 ### Changed
 
 - **Shared build settings are set once** — the target framework, nullable reference types, implicit usings and the package metadata now come from `Directory.Build.props`, with `src/`, `tests/` and `samples/` layers for documentation files and `IsPackable`, instead of being repeated in every project file. The published package metadata is unchanged apart from the two dependencies above (#110)
+- **Aspire hosting: one shared base for the two PDS container resources.** `AtProtoPdsContainerResource` and `AtProtoTranquilPdsContainerResource` now derive from `AtProtoPdsContainerResourceBase` (`HttpEndpointName`, `HealthCheckPath`, `JwtSecretParameter`, `ConnectionStringExpression`), so one AppHost helper constrained to the base covers either server. Every `With*` method and all Tranquil support are kept, and both servers produce the same environment, mounts, endpoints and publish manifest as before. (#116)
 
 ### Fixed
 

@@ -6,6 +6,12 @@ namespace ATProtoNet.Aspire.Hosting;
 /// <summary>
 /// Extension methods for adding an AT Protocol PDS container to a .NET Aspire application.
 /// </summary>
+/// <remarks>
+/// Hosts the reference Bluesky PDS, plus the configuration shared with
+/// <see cref="AtProtoTranquilPdsHostingExtensions"/>: the <c>AtProto__Pds__*</c> keys a
+/// consuming project receives, and the <c>With*</c> methods generic over
+/// <see cref="AtProtoPdsContainerResourceBase"/> that configure either server.
+/// </remarks>
 public static class AtProtoPdsHostingExtensions
 {
     private const string DefaultTag = "latest";
@@ -69,7 +75,7 @@ public static class AtProtoPdsHostingExtensions
     /// secrets. The admin password, JWT secret, and PLC rotation key are Aspire
     /// parameters persisted to the AppHost's user secrets, so accounts created on one
     /// run remain usable on the next. Override any of them with
-    /// <see cref="WithAdminPassword"/>, <see cref="WithJwtSecret"/>, or
+    /// <see cref="WithAdminPassword"/>, <see cref="WithJwtSecret{T}"/>, or
     /// <see cref="WithPlcRotationKey"/> — for anything beyond local development you
     /// should supply your own.
     /// </para>
@@ -160,7 +166,7 @@ public static class AtProtoPdsHostingExtensions
     /// user secrets, so it stays stable across runs alongside the data volume. In publish
     /// mode no default is attached: Aspire's manifest can only ask a deployment to generate
     /// an alphanumeric string, and the PDS would reject one, so the value must be supplied
-    /// at deploy time (or through <see cref="WithJwtSecret"/> /
+    /// at deploy time (or through <see cref="WithJwtSecret{T}"/> /
     /// <see cref="WithPlcRotationKey"/>) instead of being generated wrongly.
     /// </remarks>
     private static ParameterResource CreateHexSecretParameter(
@@ -213,16 +219,33 @@ public static class AtProtoPdsHostingExtensions
         bool waitForHealthy = true)
         where T : IResourceWithEnvironment, IResourceWithWaitSupport
     {
+        return WithPdsConfiguration(builder, pds, waitForHealthy, static (resource, environment) =>
+        {
+            environment[AdminPasswordConfigurationKey] = resource.AdminPasswordParameter;
+        });
+    }
+
+    /// <summary>
+    /// The wiring <see cref="WithAtProtoPds{T}"/> and
+    /// <see cref="AtProtoTranquilPdsHostingExtensions.WithAtProtoTranquilPds{T}"/> share:
+    /// the PDS URL, the server-specific admin configuration, the run-mode plaintext
+    /// opt-in, and the wait on the PDS's health check.
+    /// </summary>
+    internal static IResourceBuilder<T> WithPdsConfiguration<T, TPds>(
+        IResourceBuilder<T> builder,
+        IResourceBuilder<TPds> pds,
+        bool waitForHealthy,
+        Action<TPds, IDictionary<string, object>> writeAdminConfiguration)
+        where T : IResourceWithEnvironment, IResourceWithWaitSupport
+        where TPds : AtProtoPdsContainerResourceBase
+    {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(pds);
 
         builder = builder
             .WithReference(pds)
-            .WithEnvironment(PdsUrlConfigurationKey, pds.GetEndpoint(AtProtoPdsContainerResource.HttpEndpointName))
-            .WithEnvironment(context =>
-            {
-                context.EnvironmentVariables[AdminPasswordConfigurationKey] = pds.Resource.AdminPasswordParameter;
-            });
+            .WithEnvironment(PdsUrlConfigurationKey, pds.GetEndpoint(AtProtoPdsContainerResourceBase.HttpEndpointName))
+            .WithEnvironment(context => writeAdminConfiguration(pds.Resource, context.EnvironmentVariables));
 
         if (builder.ApplicationBuilder.ExecutionContext.IsRunMode)
         {
@@ -233,21 +256,29 @@ public static class AtProtoPdsHostingExtensions
     }
 
     /// <summary>
-    /// Sets the public hostname for the PDS container.
+    /// Sets the public hostname for the PDS container (<c>PDS_HOSTNAME</c>).
     /// </summary>
     /// <remarks>
-    /// The hostname determines the server's <c>did:web</c> identity and, unless
-    /// <see cref="WithHandleDomains"/> says otherwise, the domain new handles are
-    /// created under. It defaults to <c>localhost</c> when running locally; when
-    /// publishing there is no sensible default, so the deployment is asked for one
-    /// unless this method supplies it.
+    /// <para>
+    /// Unless the server's handle domains say otherwise, the hostname is the domain new
+    /// handles are created under. On the reference PDS it also determines the server's
+    /// <c>did:web</c> identity; on Tranquil it also moves the administrator's handle, which
+    /// is derived from it when
+    /// <see cref="AtProtoTranquilPdsHostingExtensions.WithAdminAccount"/> does not name one.
+    /// </para>
+    /// <para>
+    /// It defaults to <c>localhost</c> when running locally; when publishing there is no
+    /// sensible default, so the deployment is asked for one unless this method supplies it.
+    /// </para>
     /// </remarks>
+    /// <typeparam name="T">The PDS resource type.</typeparam>
     /// <param name="builder">The PDS resource builder.</param>
     /// <param name="hostname">The public hostname.</param>
     /// <returns>The resource builder for chaining.</returns>
-    public static IResourceBuilder<AtProtoPdsContainerResource> WithHostname(
-        this IResourceBuilder<AtProtoPdsContainerResource> builder,
+    public static IResourceBuilder<T> WithHostname<T>(
+        this IResourceBuilder<T> builder,
         string hostname)
+        where T : AtProtoPdsContainerResourceBase
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentException.ThrowIfNullOrEmpty(hostname);
@@ -259,18 +290,74 @@ public static class AtProtoPdsHostingExtensions
     /// <summary>
     /// Sets the public hostname for the PDS container from a parameter.
     /// </summary>
+    /// <typeparam name="T">The PDS resource type.</typeparam>
     /// <param name="builder">The PDS resource builder.</param>
     /// <param name="hostname">The parameter holding the public hostname.</param>
     /// <returns>The resource builder for chaining.</returns>
-    public static IResourceBuilder<AtProtoPdsContainerResource> WithHostname(
-        this IResourceBuilder<AtProtoPdsContainerResource> builder,
+    public static IResourceBuilder<T> WithHostname<T>(
+        this IResourceBuilder<T> builder,
         IResourceBuilder<ParameterResource> hostname)
+        where T : AtProtoPdsContainerResourceBase
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(hostname);
 
         PdsParameterOverrides.Replace(builder, builder.Resource.Hostname, r => r.Hostname = hostname.Resource);
         return builder;
+    }
+
+    /// <summary>
+    /// Uses a specific JWT signing secret instead of the generated one.
+    /// </summary>
+    /// <remarks>
+    /// The reference PDS reads the secret as hex; Tranquil takes an opaque string of at
+    /// least 32 characters.
+    /// </remarks>
+    /// <typeparam name="T">The PDS resource type.</typeparam>
+    /// <param name="builder">The PDS resource builder.</param>
+    /// <param name="jwtSecret">The parameter holding the JWT secret.</param>
+    /// <returns>The resource builder for chaining.</returns>
+    public static IResourceBuilder<T> WithJwtSecret<T>(
+        this IResourceBuilder<T> builder,
+        IResourceBuilder<ParameterResource> jwtSecret)
+        where T : AtProtoPdsContainerResourceBase
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(jwtSecret);
+
+        PdsParameterOverrides.Replace(builder, builder.Resource.JwtSecretParameter, r => r.JwtSecretParameter = jwtSecret.Resource);
+        return builder;
+    }
+
+    /// <summary>
+    /// Mounts <paramref name="source"/> at <paramref name="target"/>, replacing whatever
+    /// was mounted there before.
+    /// </summary>
+    /// <remarks>
+    /// Both <c>Add*</c> methods always mount a named volume at the server's storage
+    /// directory, so adding a second mount on the same destination would leave both
+    /// annotations in the container spec. Docker and Podman reject that outright
+    /// (Podman with <c>duplicate mount destination</c>), so the container
+    /// never starts.
+    /// </remarks>
+    internal static IResourceBuilder<T> ReplaceStorageMount<T>(
+        IResourceBuilder<T> builder,
+        string source,
+        string target,
+        bool isBindMount)
+        where T : AtProtoPdsContainerResourceBase
+    {
+        var existing = builder.Resource.Annotations
+            .OfType<ContainerMountAnnotation>()
+            .Where(m => m.Target == target)
+            .ToList();
+
+        foreach (var mount in existing)
+        {
+            builder.Resource.Annotations.Remove(mount);
+        }
+
+        return isBindMount ? builder.WithBindMount(source, target) : builder.WithVolume(source, target);
     }
 
     /// <summary>
@@ -306,23 +393,6 @@ public static class AtProtoPdsHostingExtensions
         ArgumentNullException.ThrowIfNull(adminPassword);
 
         PdsParameterOverrides.Replace(builder, builder.Resource.AdminPasswordParameter, r => r.AdminPasswordParameter = adminPassword.Resource);
-        return builder;
-    }
-
-    /// <summary>
-    /// Uses a specific JWT signing secret instead of the generated one.
-    /// </summary>
-    /// <param name="builder">The PDS resource builder.</param>
-    /// <param name="jwtSecret">The parameter holding the JWT secret.</param>
-    /// <returns>The resource builder for chaining.</returns>
-    public static IResourceBuilder<AtProtoPdsContainerResource> WithJwtSecret(
-        this IResourceBuilder<AtProtoPdsContainerResource> builder,
-        IResourceBuilder<ParameterResource> jwtSecret)
-    {
-        ArgumentNullException.ThrowIfNull(builder);
-        ArgumentNullException.ThrowIfNull(jwtSecret);
-
-        PdsParameterOverrides.Replace(builder, builder.Resource.JwtSecretParameter, r => r.JwtSecretParameter = jwtSecret.Resource);
         return builder;
     }
 
@@ -365,8 +435,7 @@ public static class AtProtoPdsHostingExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentException.ThrowIfNullOrEmpty(path);
 
-        ClearDataMounts(builder);
-        return builder.WithBindMount(path, DataTarget);
+        return ReplaceStorageMount(builder, path, DataTarget, isBindMount: true);
     }
 
     /// <summary>
@@ -381,30 +450,7 @@ public static class AtProtoPdsHostingExtensions
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        ClearDataMounts(builder);
-        return builder.WithVolume(name ?? $"{builder.Resource.Name}-data", DataTarget);
-    }
-
-    /// <summary>
-    /// Removes any mount already targeting the data directory.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="AddAtProtoPds"/> always mounts a named volume at <c>/pds</c>, so adding
-    /// a second mount on the same destination would leave both annotations in the
-    /// container spec. Docker and Podman reject that outright — Podman with
-    /// <c>Error: /pds: duplicate mount destination</c> — so the container never starts.
-    /// </remarks>
-    private static void ClearDataMounts(IResourceBuilder<AtProtoPdsContainerResource> builder)
-    {
-        var existing = builder.Resource.Annotations
-            .OfType<ContainerMountAnnotation>()
-            .Where(m => m.Target == DataTarget)
-            .ToList();
-
-        foreach (var mount in existing)
-        {
-            builder.Resource.Annotations.Remove(mount);
-        }
+        return ReplaceStorageMount(builder, name ?? $"{builder.Resource.Name}-data", DataTarget, isBindMount: false);
     }
 
     /// <summary>

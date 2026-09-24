@@ -35,19 +35,8 @@ public sealed class AtProtoTranquilPdsContainerResource(
     ParameterResource jwtSecret,
     ParameterResource dpopSecret,
     ParameterResource masterKey)
-    : ContainerResource(name), IResourceWithConnectionString
+    : AtProtoPdsContainerResourceBase(name, jwtSecret)
 {
-    /// <summary>
-    /// The name of the HTTP endpoint exposed by this Tranquil PDS container.
-    /// </summary>
-    public const string HttpEndpointName = "http";
-
-    /// <summary>
-    /// The path the PDS serves its health endpoint from. Tranquil answers the same
-    /// <c>com.atproto</c> health route as the reference server.
-    /// </summary>
-    public const string HealthCheckPath = "/xrpc/_health";
-
     /// <summary>
     /// The local part prepended to the hostname when no administrator handle is set.
     /// </summary>
@@ -70,11 +59,6 @@ public sealed class AtProtoTranquilPdsContainerResource(
     public ParameterResource AdminAccountPasswordParameter { get; internal set; } = adminAccountPassword;
 
     /// <summary>
-    /// The secret this PDS signs its session JWTs with (<c>JWT_SECRET</c>).
-    /// </summary>
-    public ParameterResource JwtSecretParameter { get; internal set; } = jwtSecret;
-
-    /// <summary>
     /// The secret this PDS validates OAuth DPoP proofs with (<c>DPOP_SECRET</c>).
     /// </summary>
     public ParameterResource DPoPSecretParameter { get; internal set; } = dpopSecret;
@@ -90,19 +74,8 @@ public sealed class AtProtoTranquilPdsContainerResource(
     public ParameterResource MasterKeyParameter { get; internal set; } = masterKey;
 
     /// <summary>
-    /// The public hostname the PDS advertises — a literal string, or a
-    /// <see cref="ParameterResource"/> the deployment supplies.
-    /// </summary>
-    /// <remarks>
-    /// The hostname is required by Tranquil and, unless
-    /// <see cref="AtProtoTranquilPdsHostingExtensions.WithHandleDomains"/> says otherwise,
-    /// is the domain new handles are created under.
-    /// </remarks>
-    internal object Hostname { get; set; } = "localhost";
-
-    /// <summary>
     /// The handle of the administrator account, or <c>null</c> to derive it from
-    /// <see cref="Hostname"/>.
+    /// <see cref="AtProtoPdsContainerResourceBase.Hostname"/>.
     /// </summary>
     internal object? AdminHandle { get; set; }
 
@@ -122,7 +95,7 @@ public sealed class AtProtoTranquilPdsContainerResource(
     /// </summary>
     /// <remarks>
     /// Derived rather than defaulted to a literal so that
-    /// <see cref="AtProtoTranquilPdsHostingExtensions.WithHostname(IResourceBuilder{AtProtoTranquilPdsContainerResource}, string)"/>
+    /// <see cref="AtProtoPdsHostingExtensions.WithHostname{T}(IResourceBuilder{T}, string)"/>
     /// alone leaves a usable handle: one under a domain the server actually issues
     /// handles for.
     /// </remarks>
@@ -135,12 +108,4 @@ public sealed class AtProtoTranquilPdsContainerResource(
         _ => throw new InvalidOperationException(
             $"Cannot derive an administrator handle from a hostname of type {Hostname.GetType()}."),
     };
-
-    /// <summary>
-    /// Gets the connection string expression for this PDS instance,
-    /// formatted as <c>http://{host}:{port}</c>.
-    /// </summary>
-    public ReferenceExpression ConnectionStringExpression =>
-        ReferenceExpression.Create(
-            $"http://{this.GetEndpoint(HttpEndpointName).Property(EndpointProperty.Host)}:{this.GetEndpoint(HttpEndpointName).Property(EndpointProperty.Port)}");
 }
