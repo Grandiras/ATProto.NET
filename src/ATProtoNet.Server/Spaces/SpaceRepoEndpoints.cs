@@ -1,5 +1,6 @@
 using System.Net;
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Server.Xrpc;
 using ATProtoNet.Spaces;
@@ -73,7 +74,6 @@ public abstract class SpaceRepoEndpointBase<TParams>
 }
 
 /// <summary>Serves <c>com.atproto.space.getRecord</c>.</summary>
-[XrpcEndpoint(Nsid = SpaceNsids.GetRecord)]
 public sealed class GetSpaceRecordEndpoint
     : SpaceRepoEndpointBase<GetSpaceRecordParameters>, IXrpcQuery<GetSpaceRecordParameters, GetSpaceRecordResponse>
 {
@@ -86,7 +86,7 @@ public sealed class GetSpaceRecordEndpoint
     }
 
     /// <inheritdoc/>
-    public string Nsid => SpaceNsids.GetRecord;
+    public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.GetRecord);
 
     /// <inheritdoc/>
     public async Task<GetSpaceRecordResponse> HandleAsync(
@@ -105,7 +105,6 @@ public sealed class GetSpaceRecordEndpoint
 }
 
 /// <summary>Serves <c>com.atproto.space.listRecords</c>.</summary>
-[XrpcEndpoint(Nsid = SpaceNsids.ListRecords)]
 public sealed class ListSpaceRecordsEndpoint
     : SpaceRepoEndpointBase<ListSpaceRecordsParameters>,
       IXrpcQuery<ListSpaceRecordsParameters, ListSpaceRecordsResponse>
@@ -119,7 +118,7 @@ public sealed class ListSpaceRecordsEndpoint
     }
 
     /// <inheritdoc/>
-    public string Nsid => SpaceNsids.ListRecords;
+    public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.ListRecords);
 
     /// <inheritdoc/>
     public async Task<ListSpaceRecordsResponse> HandleAsync(
@@ -140,7 +139,6 @@ public sealed class ListSpaceRecordsEndpoint
 }
 
 /// <summary>Serves <c>com.atproto.space.getLatestCommit</c>.</summary>
-[XrpcEndpoint(Nsid = SpaceNsids.GetLatestCommit)]
 public sealed class GetSpaceLatestCommitEndpoint
     : SpaceRepoEndpointBase<GetSpaceLatestCommitParameters>,
       IXrpcQuery<GetSpaceLatestCommitParameters, GetSpaceLatestCommitResponse>
@@ -154,7 +152,7 @@ public sealed class GetSpaceLatestCommitEndpoint
     }
 
     /// <inheritdoc/>
-    public string Nsid => SpaceNsids.GetLatestCommit;
+    public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.GetLatestCommit);
 
     /// <inheritdoc/>
     public async Task<GetSpaceLatestCommitResponse> HandleAsync(
@@ -170,7 +168,6 @@ public sealed class GetSpaceLatestCommitEndpoint
 }
 
 /// <summary>Serves <c>com.atproto.space.listRepoOps</c>.</summary>
-[XrpcEndpoint(Nsid = SpaceNsids.ListRepoOps)]
 public sealed class ListSpaceRepoOpsEndpoint
     : SpaceRepoEndpointBase<ListSpaceRepoOpsParameters>,
       IXrpcQuery<ListSpaceRepoOpsParameters, ListSpaceRepoOpsResponse>
@@ -184,7 +181,7 @@ public sealed class ListSpaceRepoOpsEndpoint
     }
 
     /// <inheritdoc/>
-    public string Nsid => SpaceNsids.ListRepoOps;
+    public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.ListRepoOps);
 
     /// <inheritdoc/>
     public async Task<ListSpaceRepoOpsResponse> HandleAsync(
@@ -205,7 +202,6 @@ public sealed class ListSpaceRepoOpsEndpoint
 }
 
 /// <summary>Serves <c>com.atproto.space.listBlobs</c>.</summary>
-[XrpcEndpoint(Nsid = SpaceNsids.ListBlobs)]
 public sealed class ListSpaceBlobsEndpoint
     : SpaceRepoEndpointBase<ListSpaceBlobsParameters>,
       IXrpcQuery<ListSpaceBlobsParameters, ListSpaceBlobsResponse>
@@ -219,7 +215,7 @@ public sealed class ListSpaceBlobsEndpoint
     }
 
     /// <inheritdoc/>
-    public string Nsid => SpaceNsids.ListBlobs;
+    public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.ListBlobs);
 
     /// <inheritdoc/>
     public async Task<ListSpaceBlobsResponse> HandleAsync(
@@ -240,7 +236,6 @@ public sealed class ListSpaceBlobsEndpoint
 /// <summary>
 /// Serves <c>com.atproto.space.getRepo</c>: an account's whole permissioned repo as a CAR.
 /// </summary>
-[XrpcEndpoint(Nsid = SpaceNsids.GetRepo)]
 public sealed class GetSpaceRepoEndpoint
     : SpaceRepoEndpointBase<GetSpaceRepoParameters>, IXrpcBlobQuery<GetSpaceRepoParameters>
 {
@@ -256,7 +251,7 @@ public sealed class GetSpaceRepoEndpoint
     }
 
     /// <inheritdoc/>
-    public string Nsid => SpaceNsids.GetRepo;
+    public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.GetRepo);
 
     /// <inheritdoc/>
     public async Task<XrpcBlobResult> HandleAsync(
@@ -277,7 +272,6 @@ public sealed class GetSpaceRepoEndpoint
 /// <summary>
 /// Serves <c>com.atproto.space.getBlob</c>: a blob referenced from a permissioned record.
 /// </summary>
-[XrpcEndpoint(Nsid = SpaceNsids.GetBlob)]
 public sealed class GetSpaceBlobEndpoint
     : SpaceRepoEndpointBase<GetSpaceBlobParameters>, IXrpcBlobQuery<GetSpaceBlobParameters>
 {
@@ -290,7 +284,7 @@ public sealed class GetSpaceBlobEndpoint
     }
 
     /// <inheritdoc/>
-    public string Nsid => SpaceNsids.GetBlob;
+    public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.GetBlob);
 
     /// <inheritdoc/>
     public async Task<XrpcBlobResult> HandleAsync(

@@ -7,10 +7,9 @@ namespace ATProtoNet.Server.Xrpc;
 /// Reads a boolean from either a JSON boolean or the string a query string carries.
 /// </summary>
 /// <remarks>
-/// Query parameters arrive as text, and the routing binds them by round-tripping through JSON.
-/// Numbers survive that because the SDK's serializer options allow reading a number from a
-/// string; booleans have no equivalent switch, so a Lexicon parameter declared
-/// <c>"type": "boolean"</c> needs this to bind from <c>?excludeValues=true</c>.
+/// The XRPC routing binds a <see cref="bool"/> query parameter from <c>?excludeValues=true</c>
+/// without it. It is for a model that is also read from JSON where a boolean may arrive as text,
+/// which the serializer, unlike for numbers, has no switch to accept.
 /// </remarks>
 public sealed class XrpcBooleanConverter : JsonConverter<bool>
 {

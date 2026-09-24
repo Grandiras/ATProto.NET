@@ -274,11 +274,15 @@ ATProtoNet.Server supports defining server-side XRPC endpoint handlers using a D
 
 ### Defining a Query Endpoint
 
+Each handler declares the NSID it serves once, as a static property:
+
 ```csharp
-[XrpcEndpoint(Nsid = "com.example.getStatus")]
+using ATProtoNet.Identity;
+using ATProtoNet.Server.Xrpc;
+
 public class GetStatusEndpoint : IXrpcQuery<StatusOutput>
 {
-    public string Nsid => "com.example.getStatus";
+    public static Nsid Nsid { get; } = Nsid.Parse("com.example.getStatus");
 
     public Task<StatusOutput> HandleAsync(HttpContext context, CancellationToken ct)
     {
@@ -290,14 +294,15 @@ public class GetStatusEndpoint : IXrpcQuery<StatusOutput>
 For queries with parameters:
 
 ```csharp
-[XrpcEndpoint(Nsid = "app.bsky.feed.getTimeline")]
 public class GetTimelineEndpoint : IXrpcQuery<TimelineParams, TimelineOutput>
 {
-    public string Nsid => "app.bsky.feed.getTimeline";
+    public static Nsid Nsid { get; } = Nsid.Parse("app.bsky.feed.getTimeline");
 
     public Task<TimelineOutput> HandleAsync(TimelineParams parameters, HttpContext context, CancellationToken ct)
     {
-        // parameters are bound from ?key=value query string
+        // parameters are bound from the query string by each property's type: a list takes
+        // every value of a repeated key (or its single one), and a Did or AtUri is validated
+        // by its parser
         // ...
     }
 }
@@ -306,10 +311,9 @@ public class GetTimelineEndpoint : IXrpcQuery<TimelineParams, TimelineOutput>
 ### Defining a Procedure Endpoint
 
 ```csharp
-[XrpcEndpoint(Nsid = "com.atproto.repo.createRecord")]
 public class CreateRecordEndpoint : IXrpcProcedure<CreateRecordInput, CreateRecordOutput>
 {
-    public string Nsid => "com.atproto.repo.createRecord";
+    public static Nsid Nsid { get; } = Nsid.Parse("com.atproto.repo.createRecord");
 
     public Task<CreateRecordOutput> HandleAsync(CreateRecordInput input, HttpContext context, CancellationToken ct)
     {
@@ -322,10 +326,9 @@ public class CreateRecordEndpoint : IXrpcProcedure<CreateRecordInput, CreateReco
 For procedures that return no output:
 
 ```csharp
-[XrpcEndpoint(Nsid = "com.example.ping")]
 public class PingEndpoint : IXrpcProcedureVoid<PingInput>
 {
-    public string Nsid => "com.example.ping";
+    public static Nsid Nsid { get; } = Nsid.Parse("com.example.ping");
 
     public Task HandleAsync(PingInput input, HttpContext context, CancellationToken ct)
     {
@@ -335,6 +338,10 @@ public class PingEndpoint : IXrpcProcedureVoid<PingInput>
 }
 ```
 
+Procedures with no input implement `IXrpcProcedure<TOutput>` or `IXrpcProcedureVoid`; a procedure
+taking bytes (a blob upload) implements `IXrpcBlobProcedure<TOutput>`, and a query answering with
+bytes implements `IXrpcBlobQuery<TParams>`.
+
 ### Registering Endpoints
 
 Register individual endpoints or scan an entire assembly:
@@ -343,15 +350,22 @@ Register individual endpoints or scan an entire assembly:
 // Individual registration
 builder.Services.AddXrpcEndpoint<GetStatusEndpoint>();
 
-// Assembly scanning (finds all [XrpcEndpoint]-attributed handlers)
+// Assembly scanning (finds every class implementing IXrpcEndpoint)
 builder.Services.AddXrpcEndpointsFromAssembly(typeof(Program).Assembly);
 
 var app = builder.Build();
 
-// Map all registered endpoints as /xrpc/{nsid} routes
-app.MapXrpcEndpoints();
+// Map all registered endpoints as /xrpc/{nsid} routes. The result is the /xrpc route group,
+// so conventions apply to every XRPC endpoint.
+app.MapXrpcEndpoints()
+    .RequireAuthorization();
 ```
 
-Query endpoints map as `GET /xrpc/{nsid}`, procedures map as `POST /xrpc/{nsid}`. Invalid or missing request bodies return a `400 Bad Request` with an XRPC-style error response.
+Query endpoints map as `GET /xrpc/{nsid}`, procedures map as `POST /xrpc/{nsid}`. `[Authorize]`,
+`[AllowAnonymous]` and `[EnableRateLimiting]` on a handler class apply to that endpoint. Every
+failure is answered with an XRPC error body: an `XrpcException` with its own status and error
+name, a request that does not bind with `400 InvalidRequest`, and any other exception with
+`500 InternalServerError`, logged and without its message. An NSID no handler serves answers
+`501 MethodNotImplemented`, and a registered one called with the wrong HTTP method answers `405`.
 
 For a comprehensive guide covering dependency injection, combining with PDS hosting, and more examples, see [XRPC Endpoint Handlers](xrpc-handlers.md).

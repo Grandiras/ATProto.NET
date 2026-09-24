@@ -1,5 +1,6 @@
 using System.Net;
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Serialization;
 using ATProtoNet.Server.Xrpc;
@@ -24,7 +25,6 @@ namespace ATProtoNet.Server.Spaces;
 /// advertised anywhere; a space that does not wish to disclose which perimeter failed answers
 /// <c>NotAuthorized</c> instead, which a client does not retry.</para>
 /// </remarks>
-[XrpcEndpoint(Nsid = SpaceNsids.GetSpaceCredential)]
 public sealed class GetSpaceCredentialEndpoint
     : IXrpcProcedure<GetSpaceCredentialRequest, GetSpaceCredentialResponse>
 {
@@ -62,7 +62,7 @@ public sealed class GetSpaceCredentialEndpoint
     }
 
     /// <inheritdoc/>
-    public string Nsid => SpaceNsids.GetSpaceCredential;
+    public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.GetSpaceCredential);
 
     /// <inheritdoc/>
     public async Task<GetSpaceCredentialResponse> HandleAsync(
@@ -124,7 +124,6 @@ public sealed class GetSpaceCredentialEndpoint
 /// notifications it has accepted; a listed account's repo host is the source of truth, which is
 /// what the per-entry revision is for.
 /// </remarks>
-[XrpcEndpoint(Nsid = SpaceNsids.ListRepos)]
 public sealed class ListSpaceReposEndpoint : IXrpcQuery<ListSpaceReposParameters, ListSpaceReposResponse>
 {
     private readonly SpaceRequestAuthenticator _authenticator;
@@ -145,7 +144,7 @@ public sealed class ListSpaceReposEndpoint : IXrpcQuery<ListSpaceReposParameters
     }
 
     /// <inheritdoc/>
-    public string Nsid => SpaceNsids.ListRepos;
+    public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.ListRepos);
 
     /// <inheritdoc/>
     public async Task<ListSpaceReposResponse> HandleAsync(
@@ -183,7 +182,6 @@ public sealed class ListSpaceReposEndpoint : IXrpcQuery<ListSpaceReposParameters
 /// <c>listRepos</c> catches it. That is why the registration merely has to be recorded, and why
 /// letting one lapse is not an error.
 /// </remarks>
-[XrpcEndpoint(Nsid = SpaceNsids.RegisterNotify)]
 public sealed class RegisterNotifyEndpoint : IXrpcProcedure<RegisterNotifyRequest, RegisterNotifyResponse>
 {
     private readonly SpaceRequestAuthenticator _authenticator;
@@ -215,7 +213,7 @@ public sealed class RegisterNotifyEndpoint : IXrpcProcedure<RegisterNotifyReques
     }
 
     /// <inheritdoc/>
-    public string Nsid => SpaceNsids.RegisterNotify;
+    public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.RegisterNotify);
 
     /// <inheritdoc/>
     public async Task<RegisterNotifyResponse> HandleAsync(
@@ -243,7 +241,6 @@ public sealed class RegisterNotifyEndpoint : IXrpcProcedure<RegisterNotifyReques
 }
 
 /// <summary>Serves <c>com.atproto.space.unregisterNotify</c>.</summary>
-[XrpcEndpoint(Nsid = SpaceNsids.UnregisterNotify)]
 public sealed class UnregisterNotifyEndpoint : IXrpcProcedureVoid<UnregisterNotifyRequest>
 {
     private readonly SpaceRequestAuthenticator _authenticator;
@@ -264,7 +261,7 @@ public sealed class UnregisterNotifyEndpoint : IXrpcProcedureVoid<UnregisterNoti
     }
 
     /// <inheritdoc/>
-    public string Nsid => SpaceNsids.UnregisterNotify;
+    public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.UnregisterNotify);
 
     /// <inheritdoc/>
     public async Task HandleAsync(
@@ -304,7 +301,6 @@ public sealed class UnregisterNotifyEndpoint : IXrpcProcedureVoid<UnregisterNoti
 /// relaying it. One it admits is recorded, and forwarded in the background to every service
 /// registered for the space.</para>
 /// </remarks>
-[XrpcEndpoint(Nsid = SpaceNsids.NotifyWrite)]
 public sealed class NotifyWriteEndpoint : IXrpcProcedureVoid<NotifyWriteRequest>
 {
     private readonly ISpaceServiceAuthVerifier _serviceAuth;
@@ -348,7 +344,7 @@ public sealed class NotifyWriteEndpoint : IXrpcProcedureVoid<NotifyWriteRequest>
     }
 
     /// <inheritdoc/>
-    public string Nsid => SpaceNsids.NotifyWrite;
+    public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.NotifyWrite);
 
     /// <inheritdoc/>
     public async Task HandleAsync(
@@ -362,7 +358,7 @@ public sealed class NotifyWriteEndpoint : IXrpcProcedureVoid<NotifyWriteRequest>
         var rev = SpaceRequestValidation.RequireTid(input.Rev, "rev");
         var hash = input.Hash ?? throw new XrpcException(XrpcErrors.InvalidRequest, "The \"hash\" field is required.");
 
-        var caller = await _serviceAuth.VerifyAsync(context, AcceptedAudiences(space), Nsid, cancellationToken);
+        var caller = await _serviceAuth.VerifyAsync(context, AcceptedAudiences(space), SpaceNsids.NotifyWrite, cancellationToken);
 
         // The account itself, or the service that hosts its repo. Anything else is a stranger
         // claiming another account's repo advanced.

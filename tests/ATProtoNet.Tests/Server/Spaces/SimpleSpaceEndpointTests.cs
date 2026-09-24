@@ -257,7 +257,8 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
         using var response = await PostRawAsync(
             "com.atproto.simplespace.addMember", JsonSerializer.Serialize(new { space = space.Value, did = Other }));
 
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotImplemented, response.StatusCode);
+        Assert.Contains("\"MethodNotImplemented\"", await response.Content.ReadAsStringAsync());
     }
 
     [Fact]

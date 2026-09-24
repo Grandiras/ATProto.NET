@@ -3,10 +3,6 @@ namespace ATProtoNet.Server.Spaces;
 /// <summary>
 /// The Lexicon NSIDs the space server implements, grouped by who serves them.
 /// </summary>
-/// <remarks>
-/// They are constants rather than literals because the routing needs them at attribute position,
-/// where only a constant is allowed.
-/// </remarks>
 public static class SpaceNsids
 {
     // ── Served by a repo host ─────────────────────────────────

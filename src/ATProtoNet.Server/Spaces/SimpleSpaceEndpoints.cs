@@ -71,7 +71,6 @@ public abstract class SimpleSpaceEndpointBase
 }
 
 /// <summary>Serves <c>com.atproto.simplespace.createSpace</c>.</summary>
-[XrpcEndpoint(Nsid = SpaceNsids.CreateSimpleSpace)]
 public sealed class CreateSimpleSpaceEndpoint
     : SimpleSpaceEndpointBase, IXrpcProcedure<CreateSimpleSpaceRequest, CreateSimpleSpaceResponse>
 {
@@ -84,7 +83,7 @@ public sealed class CreateSimpleSpaceEndpoint
     }
 
     /// <inheritdoc/>
-    public string Nsid => SpaceNsids.CreateSimpleSpace;
+    public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.CreateSimpleSpace);
 
     /// <inheritdoc/>
     public async Task<CreateSimpleSpaceResponse> HandleAsync(
@@ -153,7 +152,6 @@ public sealed class CreateSimpleSpaceEndpoint
 }
 
 /// <summary>Serves <c>com.atproto.simplespace.updateSpace</c>.</summary>
-[XrpcEndpoint(Nsid = SpaceNsids.UpdateSimpleSpace)]
 public sealed class UpdateSimpleSpaceEndpoint
     : SimpleSpaceEndpointBase, IXrpcProcedureVoid<UpdateSimpleSpaceRequest>
 {
@@ -166,7 +164,7 @@ public sealed class UpdateSimpleSpaceEndpoint
     }
 
     /// <inheritdoc/>
-    public string Nsid => SpaceNsids.UpdateSimpleSpace;
+    public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.UpdateSimpleSpace);
 
     /// <inheritdoc/>
     public async Task HandleAsync(
@@ -196,7 +194,6 @@ public sealed class UpdateSimpleSpaceEndpoint
 /// member's own data, and deleting the space does not entitle the authority to destroy them —
 /// they simply become unreadable to everyone but the member's own account.
 /// </remarks>
-[XrpcEndpoint(Nsid = SpaceNsids.DeleteSimpleSpace)]
 public sealed class DeleteSimpleSpaceEndpoint
     : SimpleSpaceEndpointBase, IXrpcProcedureVoid<DeleteSimpleSpaceRequest>
 {
@@ -218,7 +215,7 @@ public sealed class DeleteSimpleSpaceEndpoint
     }
 
     /// <inheritdoc/>
-    public string Nsid => SpaceNsids.DeleteSimpleSpace;
+    public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.DeleteSimpleSpace);
 
     /// <inheritdoc/>
     public async Task HandleAsync(
@@ -247,7 +244,6 @@ public sealed class DeleteSimpleSpaceEndpoint
 }
 
 /// <summary>Serves <c>com.atproto.simplespace.getSpace</c>.</summary>
-[XrpcEndpoint(Nsid = SpaceNsids.GetSimpleSpace)]
 public sealed class GetSimpleSpaceEndpoint
     : SimpleSpaceEndpointBase, IXrpcQuery<GetSimpleSpaceParameters, GetSimpleSpaceResponse>
 {
@@ -266,7 +262,7 @@ public sealed class GetSimpleSpaceEndpoint
     }
 
     /// <inheritdoc/>
-    public string Nsid => SpaceNsids.GetSimpleSpace;
+    public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.GetSimpleSpace);
 
     /// <inheritdoc/>
     public async Task<GetSimpleSpaceResponse> HandleAsync(
@@ -302,7 +298,6 @@ public sealed class GetSimpleSpaceEndpoint
 /// authority minting <em>new</em> credentials for them, as removal does; clearing the write flag
 /// stops it recording their writes and forwarding their notifications from the next one on.
 /// </remarks>
-[XrpcEndpoint(Nsid = SpaceNsids.PutSimpleSpaceMember)]
 public sealed class PutSimpleSpaceMemberEndpoint
     : SimpleSpaceEndpointBase, IXrpcProcedureVoid<PutSimpleSpaceMemberRequest>
 {
@@ -315,7 +310,7 @@ public sealed class PutSimpleSpaceMemberEndpoint
     }
 
     /// <inheritdoc/>
-    public string Nsid => SpaceNsids.PutSimpleSpaceMember;
+    public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.PutSimpleSpaceMember);
 
     /// <inheritdoc/>
     public async Task HandleAsync(
@@ -336,7 +331,6 @@ public sealed class PutSimpleSpaceMemberEndpoint
 /// issued stays valid until it expires, and records they wrote remain their own data in their
 /// own repo.
 /// </remarks>
-[XrpcEndpoint(Nsid = SpaceNsids.RemoveSimpleSpaceMember)]
 public sealed class RemoveSimpleSpaceMemberEndpoint
     : SimpleSpaceEndpointBase, IXrpcProcedureVoid<RemoveSimpleSpaceMemberRequest>
 {
@@ -349,7 +343,7 @@ public sealed class RemoveSimpleSpaceMemberEndpoint
     }
 
     /// <inheritdoc/>
-    public string Nsid => SpaceNsids.RemoveSimpleSpaceMember;
+    public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.RemoveSimpleSpaceMember);
 
     /// <inheritdoc/>
     public async Task HandleAsync(
@@ -370,7 +364,6 @@ public sealed class RemoveSimpleSpaceMemberEndpoint
 /// access — to the space's owner and to nobody else. It is never enumerated to the network —
 /// <c>listRepos</c> returns the writers the write policy admitted, not the member list.
 /// </remarks>
-[XrpcEndpoint(Nsid = SpaceNsids.ListSimpleSpaceMembers)]
 public sealed class ListSimpleSpaceMembersEndpoint
     : SimpleSpaceEndpointBase, IXrpcQuery<ListSimpleSpaceMembersParameters, ListSimpleSpaceMembersResponse>
 {
@@ -383,7 +376,7 @@ public sealed class ListSimpleSpaceMembersEndpoint
     }
 
     /// <inheritdoc/>
-    public string Nsid => SpaceNsids.ListSimpleSpaceMembers;
+    public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.ListSimpleSpaceMembers);
 
     /// <inheritdoc/>
     public async Task<ListSimpleSpaceMembersResponse> HandleAsync(

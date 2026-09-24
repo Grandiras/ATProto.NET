@@ -1,12 +1,11 @@
 using System.Reflection;
-using System.Text.Json;
-using ATProtoNet.Http;
-using ATProtoNet.Serialization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Server.Xrpc;
 
@@ -15,437 +14,131 @@ namespace ATProtoNet.Server.Xrpc;
 /// </summary>
 public static class XrpcEndpointExtensions
 {
+    private static readonly MethodInfo AddEndpointMethod =
+        typeof(XrpcEndpointExtensions).GetMethod(nameof(AddXrpcEndpoint))!;
+
     /// <summary>
     /// Registers a single XRPC endpoint handler in the DI container.
     /// </summary>
-    /// <typeparam name="THandler">The endpoint handler type implementing one of the XRPC interfaces.</typeparam>
+    /// <typeparam name="THandler">
+    /// The handler: a class implementing exactly one of the XRPC endpoint interfaces
+    /// (<see cref="IXrpcQuery{TParams, TOutput}"/>, <see cref="IXrpcProcedure{TInput, TOutput}"/>, …).
+    /// It is registered as a scoped service and constructed per request.
+    /// </typeparam>
     /// <param name="services">The service collection.</param>
     /// <returns>The service collection for chaining.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// The handler implements no endpoint interface or more than one, its
+    /// <see cref="IXrpcEndpoint.Nsid"/> is null, or another handler already serves its NSID.
+    /// Registering the same handler twice is not an error.
+    /// </exception>
     public static IServiceCollection AddXrpcEndpoint<THandler>(this IServiceCollection services)
         where THandler : class, IXrpcEndpoint
     {
-        EnsureRegistry(services);
-        services.AddScoped<THandler>();
-        var registry = GetOrCreateRegistry(services);
-        RegisterEndpointType(registry, typeof(THandler));
+        ArgumentNullException.ThrowIfNull(services);
+
+        GetOrCreateRegistry(services).Add(XrpcEndpointRegistration.Create<THandler>());
+        services.TryAddScoped<THandler>();
         return services;
     }
 
     /// <summary>
-    /// Scans the specified assembly for classes decorated with <see cref="XrpcEndpointAttribute"/>
-    /// and registers them as XRPC endpoint handlers.
+    /// Registers every XRPC endpoint handler in <paramref name="assembly"/>: each non-abstract,
+    /// non-generic class implementing <see cref="IXrpcEndpoint"/>, exactly as
+    /// <see cref="AddXrpcEndpoint{THandler}"/> registers one.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="assembly">The assembly to scan.</param>
     /// <returns>The service collection for chaining.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// A handler in the assembly is invalid; see <see cref="AddXrpcEndpoint{THandler}"/>.
+    /// </exception>
     public static IServiceCollection AddXrpcEndpointsFromAssembly(this IServiceCollection services, Assembly assembly)
     {
+        ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(assembly);
-        EnsureRegistry(services);
 
-        var registry = GetOrCreateRegistry(services);
-        var endpointTypes = assembly.GetTypes()
-            .Where(t => t is { IsAbstract: false, IsInterface: false }
-                        && t.GetCustomAttribute<XrpcEndpointAttribute>() is not null
-                        && t.IsAssignableTo(typeof(IXrpcEndpoint)));
-
-        foreach (var type in endpointTypes)
+        foreach (var type in assembly.GetTypes())
         {
-            services.AddScoped(type);
-            RegisterEndpointType(registry, type);
+            if (type is not { IsClass: true, IsAbstract: false, ContainsGenericParameters: false }
+                || !type.IsAssignableTo(typeof(IXrpcEndpoint)))
+            {
+                continue;
+            }
+
+            AddEndpointMethod.MakeGenericMethod(type)
+                .Invoke(null, BindingFlags.DoNotWrapExceptions, binder: null, [services], culture: null);
         }
 
         return services;
     }
 
     /// <summary>
-    /// Maps all registered XRPC endpoints as ASP.NET Core minimal API routes
-    /// at <c>/xrpc/{nsid}</c>.
+    /// Maps every registered XRPC endpoint at <c>/xrpc/{nsid}</c>: a query as <c>GET</c>, a
+    /// procedure as <c>POST</c>.
     /// </summary>
     /// <param name="endpoints">The endpoint route builder.</param>
-    /// <returns>The endpoint route builder for chaining.</returns>
-    public static IEndpointRouteBuilder MapXrpcEndpoints(this IEndpointRouteBuilder endpoints)
+    /// <returns>
+    /// The <c>/xrpc</c> route group, so conventions apply to every XRPC endpoint at once:
+    /// <c>.RequireAuthorization()</c>, <c>.RequireRateLimiting(…)</c>, <c>.RequireCors(…)</c>,
+    /// <c>.WithMetadata(…)</c>.
+    /// </returns>
+    /// <remarks>
+    /// <para>Each endpoint also carries its handler class's attributes as metadata, so
+    /// <c>[Authorize]</c>, <c>[AllowAnonymous]</c>, <c>[EnableRateLimiting]</c> and
+    /// <c>[RequestSizeLimit]</c> on a handler apply to that endpoint alone.</para>
+    /// <para>Every failure is answered with the XRPC error envelope: an
+    /// <see cref="ATProtoNet.Http.XrpcException"/> with its own status, error name and headers,
+    /// and anything else with <c>500 InternalServerError</c>, logged under
+    /// <c>ATProtoNet.Server.Xrpc</c> and without the exception's message.</para>
+    /// <para>The group also holds a fallback for <c>/xrpc/{nsid}</c> that no endpoint matched:
+    /// <c>501 MethodNotImplemented</c> for an NSID nothing serves, <c>405</c> (error
+    /// <c>InvalidRequest</c>, with <c>Allow</c>) for a registered NSID called with the wrong HTTP
+    /// method, and <c>400 InvalidRequest</c> for a path segment that is not an NSID. Group
+    /// conventions apply to it as well, so an unauthenticated caller of a group that requires
+    /// authorization gets the scheme's challenge rather than a list of what is served.</para>
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">No XRPC endpoint was registered.</exception>
+    public static RouteGroupBuilder MapXrpcEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var registry = endpoints.ServiceProvider.GetRequiredService<XrpcEndpointRegistry>();
+        ArgumentNullException.ThrowIfNull(endpoints);
+
+        var registry = endpoints.ServiceProvider.GetService<XrpcEndpointRegistry>()
+                       ?? throw new InvalidOperationException(
+                           $"No XRPC endpoints are registered. Call {nameof(AddXrpcEndpoint)}<THandler>() " +
+                           $"or {nameof(AddXrpcEndpointsFromAssembly)}() on the service collection first.");
+
+        var logger = endpoints.ServiceProvider.GetService<ILoggerFactory>()?.CreateLogger(XrpcErrorResponse.LoggerCategory)
+                     ?? NullLogger.Instance;
+
+        var group = endpoints.MapGroup("/xrpc");
 
         foreach (var registration in registry.Registrations)
         {
-            registration.MapDelegate(endpoints, registration);
+            group.MapMethods($"/{registration.Nsid}", [registration.HttpMethod], XrpcErrorResponse.Handle(registration.Invoke, logger))
+                .WithMetadata(registration.Metadata);
         }
 
-        return endpoints;
-    }
+        // Ordered after every other endpoint, so it answers only what nothing else matched —
+        // including routes an application maps under /xrpc itself.
+        group.MapFallback("/{nsid}", XrpcErrorResponse.Handle(XrpcErrorResponse.Unmatched(registry.Registrations), logger));
 
-    private static void EnsureRegistry(IServiceCollection services)
-    {
-        services.TryAddSingleton<XrpcEndpointRegistry>();
+        return group;
     }
 
     private static XrpcEndpointRegistry GetOrCreateRegistry(IServiceCollection services)
     {
-        // Look for existing registry in singleton descriptors
-        var descriptor = services.FirstOrDefault(d =>
-            d.ServiceType == typeof(XrpcEndpointRegistry) &&
-            d.ImplementationInstance is not null);
+        foreach (var descriptor in services)
+        {
+            if (descriptor.ServiceType == typeof(XrpcEndpointRegistry)
+                && descriptor.ImplementationInstance is XrpcEndpointRegistry existing)
+            {
+                return existing;
+            }
+        }
 
-        if (descriptor?.ImplementationInstance is XrpcEndpointRegistry existing)
-            return existing;
-
-        // Create and register as instance
         var registry = new XrpcEndpointRegistry();
-        services.Replace(ServiceDescriptor.Singleton(registry));
+        services.AddSingleton(registry);
         return registry;
     }
-
-    private static void RegisterEndpointType(XrpcEndpointRegistry registry, Type handlerType)
-    {
-        var interfaces = handlerType.GetInterfaces();
-
-        foreach (var iface in interfaces)
-        {
-            if (!iface.IsGenericType)
-                continue;
-
-            var genericDef = iface.GetGenericTypeDefinition();
-
-            if (genericDef == typeof(IXrpcQuery<,>))
-            {
-                var typeArgs = iface.GetGenericArguments();
-                registry.Registrations.Add(new XrpcEndpointRegistration
-                {
-                    HandlerType = handlerType,
-                    ParamsType = typeArgs[0],
-                    OutputType = typeArgs[1],
-                    Kind = XrpcEndpointKind.QueryWithParams,
-                    MapDelegate = MapQueryWithParams,
-                });
-            }
-            else if (genericDef == typeof(IXrpcQuery<>))
-            {
-                var typeArgs = iface.GetGenericArguments();
-                registry.Registrations.Add(new XrpcEndpointRegistration
-                {
-                    HandlerType = handlerType,
-                    OutputType = typeArgs[0],
-                    Kind = XrpcEndpointKind.Query,
-                    MapDelegate = MapQuery,
-                });
-            }
-            else if (genericDef == typeof(IXrpcBlobQuery<>))
-            {
-                var typeArgs = iface.GetGenericArguments();
-                registry.Registrations.Add(new XrpcEndpointRegistration
-                {
-                    HandlerType = handlerType,
-                    ParamsType = typeArgs[0],
-                    Kind = XrpcEndpointKind.BlobQuery,
-                    MapDelegate = MapBlobQuery,
-                });
-            }
-            else if (genericDef == typeof(IXrpcProcedure<,>))
-            {
-                var typeArgs = iface.GetGenericArguments();
-                registry.Registrations.Add(new XrpcEndpointRegistration
-                {
-                    HandlerType = handlerType,
-                    InputType = typeArgs[0],
-                    OutputType = typeArgs[1],
-                    Kind = XrpcEndpointKind.ProcedureWithOutput,
-                    MapDelegate = MapProcedureWithOutput,
-                });
-            }
-            else if (genericDef == typeof(IXrpcProcedureVoid<>))
-            {
-                var typeArgs = iface.GetGenericArguments();
-                registry.Registrations.Add(new XrpcEndpointRegistration
-                {
-                    HandlerType = handlerType,
-                    InputType = typeArgs[0],
-                    Kind = XrpcEndpointKind.ProcedureVoid,
-                    MapDelegate = MapProcedureVoid,
-                });
-            }
-        }
-    }
-
-    private static void MapQueryWithParams(IEndpointRouteBuilder endpoints, XrpcEndpointRegistration reg)
-    {
-        var method = typeof(XrpcEndpointExtensions)
-            .GetMethod(nameof(MapQueryWithParamsGeneric), BindingFlags.NonPublic | BindingFlags.Static)!
-            .MakeGenericMethod(reg.HandlerType, reg.ParamsType!, reg.OutputType!);
-
-        method.Invoke(null, [endpoints]);
-    }
-
-    private static void MapQueryWithParamsGeneric<THandler, TParams, TOutput>(IEndpointRouteBuilder endpoints)
-        where THandler : class, IXrpcQuery<TParams, TOutput>
-        where TParams : class
-        where TOutput : class
-    {
-        var nsid = GetNsidFromType<THandler>();
-
-        endpoints.MapGet($"/xrpc/{nsid}", async (HttpContext context, THandler handler, CancellationToken ct) =>
-        {
-            try
-            {
-                var parameters = BindQueryParameters<TParams>(context.Request.Query);
-                var result = await handler.HandleAsync(parameters, context, ct);
-                return Results.Json(result, AtProtoJsonDefaults.Options);
-            }
-            catch (XrpcException ex)
-            {
-                return WriteError(context, ex);
-            }
-        });
-    }
-
-    private static void MapQuery(IEndpointRouteBuilder endpoints, XrpcEndpointRegistration reg)
-    {
-        var method = typeof(XrpcEndpointExtensions)
-            .GetMethod(nameof(MapQueryGeneric), BindingFlags.NonPublic | BindingFlags.Static)!
-            .MakeGenericMethod(reg.HandlerType, reg.OutputType!);
-
-        method.Invoke(null, [endpoints]);
-    }
-
-    private static void MapQueryGeneric<THandler, TOutput>(IEndpointRouteBuilder endpoints)
-        where THandler : class, IXrpcQuery<TOutput>
-        where TOutput : class
-    {
-        var nsid = GetNsidFromType<THandler>();
-
-        endpoints.MapGet($"/xrpc/{nsid}", async (HttpContext context, THandler handler, CancellationToken ct) =>
-        {
-            try
-            {
-                var result = await handler.HandleAsync(context, ct);
-                return Results.Json(result, AtProtoJsonDefaults.Options);
-            }
-            catch (XrpcException ex)
-            {
-                return WriteError(context, ex);
-            }
-        });
-    }
-
-    private static void MapProcedureWithOutput(IEndpointRouteBuilder endpoints, XrpcEndpointRegistration reg)
-    {
-        var method = typeof(XrpcEndpointExtensions)
-            .GetMethod(nameof(MapProcedureWithOutputGeneric), BindingFlags.NonPublic | BindingFlags.Static)!
-            .MakeGenericMethod(reg.HandlerType, reg.InputType!, reg.OutputType!);
-
-        method.Invoke(null, [endpoints]);
-    }
-
-    private static void MapProcedureWithOutputGeneric<THandler, TInput, TOutput>(IEndpointRouteBuilder endpoints)
-        where THandler : class, IXrpcProcedure<TInput, TOutput>
-        where TInput : class
-        where TOutput : class
-    {
-        var nsid = GetNsidFromType<THandler>();
-
-        endpoints.MapPost($"/xrpc/{nsid}", async (HttpContext context, THandler handler, CancellationToken ct) =>
-        {
-            TInput? input;
-            try
-            {
-                input = await context.Request.ReadFromJsonAsync<TInput>(AtProtoJsonDefaults.Options, ct);
-            }
-            catch (Exception ex) when (ex is JsonException or InvalidOperationException)
-            {
-                return WriteError(context, new XrpcException(XrpcErrors.InvalidRequest, "Invalid or missing request body"));
-            }
-
-            if (input is null)
-                return WriteError(context, new XrpcException(XrpcErrors.InvalidRequest, "Request body is required"));
-
-            try
-            {
-                var result = await handler.HandleAsync(input, context, ct);
-                return Results.Json(result, AtProtoJsonDefaults.Options);
-            }
-            catch (XrpcException ex)
-            {
-                return WriteError(context, ex);
-            }
-        });
-    }
-
-    private static void MapProcedureVoid(IEndpointRouteBuilder endpoints, XrpcEndpointRegistration reg)
-    {
-        var method = typeof(XrpcEndpointExtensions)
-            .GetMethod(nameof(MapProcedureVoidGeneric), BindingFlags.NonPublic | BindingFlags.Static)!
-            .MakeGenericMethod(reg.HandlerType, reg.InputType!);
-
-        method.Invoke(null, [endpoints]);
-    }
-
-    private static void MapProcedureVoidGeneric<THandler, TInput>(IEndpointRouteBuilder endpoints)
-        where THandler : class, IXrpcProcedureVoid<TInput>
-        where TInput : class
-    {
-        var nsid = GetNsidFromType<THandler>();
-
-        endpoints.MapPost($"/xrpc/{nsid}", async (HttpContext context, THandler handler, CancellationToken ct) =>
-        {
-            TInput? input;
-            try
-            {
-                input = await context.Request.ReadFromJsonAsync<TInput>(AtProtoJsonDefaults.Options, ct);
-            }
-            catch (Exception ex) when (ex is JsonException or InvalidOperationException)
-            {
-                return WriteError(context, new XrpcException(XrpcErrors.InvalidRequest, "Invalid or missing request body"));
-            }
-
-            if (input is null)
-                return WriteError(context, new XrpcException(XrpcErrors.InvalidRequest, "Request body is required"));
-
-            try
-            {
-                await handler.HandleAsync(input, context, ct);
-                return Results.Ok();
-            }
-            catch (XrpcException ex)
-            {
-                return WriteError(context, ex);
-            }
-        });
-    }
-
-    private static void MapBlobQuery(IEndpointRouteBuilder endpoints, XrpcEndpointRegistration reg)
-    {
-        var method = typeof(XrpcEndpointExtensions)
-            .GetMethod(nameof(MapBlobQueryGeneric), BindingFlags.NonPublic | BindingFlags.Static)!
-            .MakeGenericMethod(reg.HandlerType, reg.ParamsType!);
-
-        method.Invoke(null, [endpoints]);
-    }
-
-    private static void MapBlobQueryGeneric<THandler, TParams>(IEndpointRouteBuilder endpoints)
-        where THandler : class, IXrpcBlobQuery<TParams>
-        where TParams : class
-    {
-        var nsid = GetNsidFromType<THandler>();
-
-        endpoints.MapGet($"/xrpc/{nsid}", async (HttpContext context, THandler handler, CancellationToken ct) =>
-        {
-            XrpcBlobResult blob;
-            try
-            {
-                var parameters = BindQueryParameters<TParams>(context.Request.Query);
-                blob = await handler.HandleAsync(parameters, context, ct);
-            }
-            catch (XrpcException ex)
-            {
-                return WriteError(context, ex);
-            }
-
-            // The body is streamed rather than buffered — a repo CAR is arbitrarily large — so
-            // the handler's stream is handed to Results.Stream, which disposes it after writing.
-            if (blob.ContentLength is { } length)
-                context.Response.ContentLength = length;
-
-            return Results.Stream(blob.Content, blob.ContentType);
-        });
-    }
-
-    /// <summary>
-    /// Writes an <see cref="XrpcException"/> as the <c>{"error", "message"}</c> body XRPC
-    /// clients branch on, plus any headers the error carries.
-    /// </summary>
-    private static IResult WriteError(HttpContext context, XrpcException exception)
-    {
-        foreach (var (name, value) in exception.Headers)
-            context.Response.Headers[name] = value;
-
-        return Results.Json(
-            new XrpcErrorBody { Error = exception.Error, Message = exception.ErrorMessage ?? exception.Error },
-            AtProtoJsonDefaults.Options,
-            statusCode: (int)exception.StatusCode);
-    }
-
-    private static string GetNsidFromType<THandler>() where THandler : IXrpcEndpoint
-    {
-        // Try to get NSID from attribute first
-        var attr = typeof(THandler).GetCustomAttribute<XrpcEndpointAttribute>();
-        if (!string.IsNullOrEmpty(attr?.Nsid))
-            return attr.Nsid;
-
-        // Use RuntimeHelpers to get the NSID from an uninitialized instance
-        var uninitObj = System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(THandler));
-        if (uninitObj is IXrpcEndpoint endpoint)
-        {
-            var nsid = endpoint.Nsid;
-            if (!string.IsNullOrEmpty(nsid))
-                return nsid;
-        }
-
-        throw new InvalidOperationException(
-            $"Could not determine NSID for XRPC endpoint handler '{typeof(THandler).Name}'. " +
-            $"Set the Nsid property on the [XrpcEndpoint] attribute or implement {nameof(IXrpcEndpoint)}.{nameof(IXrpcEndpoint.Nsid)}.");
-    }
-
-    /// <summary>
-    /// Binds query string parameters to a typed object using System.Text.Json conventions.
-    /// </summary>
-    private static TParams BindQueryParameters<TParams>(IQueryCollection query) where TParams : class
-    {
-        var dict = new Dictionary<string, object?>();
-        foreach (var kvp in query)
-        {
-            if (kvp.Value.Count > 1)
-                dict[kvp.Key] = kvp.Value.ToArray();
-            else
-                dict[kvp.Key] = kvp.Value.ToString();
-        }
-
-        var json = JsonSerializer.Serialize(dict);
-        try
-        {
-            return JsonSerializer.Deserialize<TParams>(json, AtProtoJsonDefaults.Options)
-                   ?? throw new XrpcException(XrpcErrors.InvalidRequest, "Could not bind query parameters.");
-        }
-        catch (JsonException ex)
-        {
-            throw new XrpcException(XrpcErrors.InvalidRequest, $"Could not bind query parameters: {ex.Message}");
-        }
-    }
-}
-
-/// <summary>
-/// Internal registry for XRPC endpoint registrations.
-/// </summary>
-internal sealed class XrpcEndpointRegistry
-{
-    public List<XrpcEndpointRegistration> Registrations { get; } = [];
-}
-
-internal sealed class XrpcEndpointRegistration
-{
-    public required Type HandlerType { get; init; }
-    public Type? ParamsType { get; init; }
-    public Type? InputType { get; init; }
-    public Type? OutputType { get; init; }
-    public required XrpcEndpointKind Kind { get; init; }
-    public required Action<IEndpointRouteBuilder, XrpcEndpointRegistration> MapDelegate { get; init; }
-}
-
-internal enum XrpcEndpointKind
-{
-    Query,
-    QueryWithParams,
-    BlobQuery,
-    ProcedureWithOutput,
-    ProcedureVoid,
-}
-
-/// <summary>The XRPC error wire body: a name clients branch on, and a description for humans.</summary>
-internal sealed class XrpcErrorBody
-{
-    [System.Text.Json.Serialization.JsonPropertyName("error")]
-    public required string Error { get; init; }
-
-    [System.Text.Json.Serialization.JsonPropertyName("message")]
-    public required string Message { get; init; }
 }
