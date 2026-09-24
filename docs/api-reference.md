@@ -172,12 +172,12 @@ Fluent builder for `AtProtoClient`.
 | `Handle` | Domain-name identifier | `alice.bsky.social` |
 | `AtIdentifier` | DID or Handle union | Either of the above |
 | `Nsid` | Namespaced Identifier | `com.example.todo.item` |
-| `AtUri` | AT Protocol URI | `at://did:plc:abc/col/rkey` |
+| `AtUri` | AT Protocol URI | `at://did:plc:abc/app.bsky.feed.post/3k2la` |
 | `Tid` | Timestamp Identifier | `3k2la7rxjgs2t` |
 | `RecordKey` | Record key | `self`, `3k2la7rxjgs2t` |
 | `Cid` | Content Identifier | `bafyrei...` |
 
-All support: `Parse()`, `TryParse()`, equality, implicit string conversion.
+All are `sealed record`s supporting `Parse()`, `TryParse()`, `IParsable<T>`/`ISpanParsable<T>`, `IComparable<T>`, ordinal equality, implicit conversion to `string` and explicit conversion from it. `TidGenerator` mints strictly increasing TIDs; see [Identity Types](identity-types.md).
 
 ---
 

@@ -1,0 +1,4 @@
+# Vendored fixtures: leading and trailing whitespace is test data, so editors must keep it.
+[*.txt]
+trim_trailing_whitespace = false
+insert_final_newline = unset

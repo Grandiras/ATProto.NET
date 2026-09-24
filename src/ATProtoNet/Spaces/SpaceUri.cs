@@ -1,5 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Serialization;
 using ATProtoNet.Identity;
+using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Spaces;
 
@@ -18,6 +20,7 @@ namespace ATProtoNet.Spaces;
 /// identity and membership are keyed on DIDs.</para>
 /// <para>This is the space-ref form only. Use <see cref="SpaceRecordUri"/> for a URI naming a
 /// record within a space.</para>
+/// <para>Equality and ordering are ordinal on <see cref="Value"/>.</para>
 /// </remarks>
 /// <example>
 /// <code>
@@ -25,7 +28,8 @@ namespace ATProtoNet.Spaces;
 /// Console.WriteLine(space.SpaceType); // com.atmoboards.forum
 /// </code>
 /// </example>
-public sealed class SpaceUri : IEquatable<SpaceUri>
+[JsonConverter(typeof(IdentifierJsonConverter<SpaceUri>))]
+public sealed record SpaceUri : IIdentifier<SpaceUri>
 {
     /// <summary>The fixed path segment marking an AT-URI as addressing permissioned space data.</summary>
     public const string Marker = "space";
@@ -86,20 +90,15 @@ public sealed class SpaceUri : IEquatable<SpaceUri>
     /// Thrown when <paramref name="value"/> is not a valid space URI. A URI naming a record
     /// within a space is rejected — parse it with <see cref="SpaceRecordUri"/>.
     /// </exception>
-    public static SpaceUri Parse(string value)
-    {
-        ArgumentNullException.ThrowIfNull(value);
-        return TryParse(value, out var uri)
-            ? uri
-            : throw new ArgumentException($"Invalid space URI: '{value}'.", nameof(value));
-    }
+    public static SpaceUri Parse(string value) =>
+        TryParse(value, out var uri) ? uri : throw IIdentifier<SpaceUri>.InvalidValue(value, "space URI");
 
     /// <summary>
     /// Attempts to parse a space URI, returning <see langword="false"/> rather than throwing.
     /// </summary>
     /// <param name="value">The URI string.</param>
     /// <param name="spaceUri">The parsed URI on success.</param>
-    public static bool TryParse(string? value, [NotNullWhen(true)] out SpaceUri? spaceUri)
+    public static bool TryParse([NotNullWhen(true)] string? value, [NotNullWhen(true)] out SpaceUri? spaceUri)
     {
         spaceUri = null;
 
@@ -108,9 +107,12 @@ public sealed class SpaceUri : IEquatable<SpaceUri>
         if (rest is not null)
             return false;
 
-        spaceUri = new SpaceUri(value!, authority, spaceType, skey);
+        spaceUri = new SpaceUri(value, authority, spaceType, skey);
         return true;
     }
+
+    static bool IIdentifier<SpaceUri>.TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out SpaceUri? result) =>
+        TryParse(text ?? span.ToString(), out result);
 
     /// <summary>
     /// Whether a string carries the <c>space</c> marker, and so addresses permissioned data
@@ -156,27 +158,25 @@ public sealed class SpaceUri : IEquatable<SpaceUri>
         other is not null && string.Equals(Value, other.Value, StringComparison.Ordinal);
 
     /// <inheritdoc/>
-    public override bool Equals(object? obj) => obj is SpaceUri other && Equals(other);
+    public override int GetHashCode() => Value.GetHashCode(StringComparison.Ordinal);
 
     /// <inheritdoc/>
-    public override int GetHashCode() => Value.GetHashCode(StringComparison.Ordinal);
+    public int CompareTo(SpaceUri? other) => string.CompareOrdinal(Value, other?.Value);
 
     /// <inheritdoc/>
     public override string ToString() => Value;
 
     /// <summary>Implicitly converts a space URI to its string form.</summary>
     /// <param name="spaceUri">The space URI.</param>
-    public static implicit operator string(SpaceUri spaceUri) => spaceUri.Value;
+    /// <returns>The URI string, or <see langword="null"/> for a <see langword="null"/> space URI.</returns>
+    [return: NotNullIfNotNull(nameof(spaceUri))]
+    public static implicit operator string?(SpaceUri? spaceUri) => spaceUri?.Value;
 
-    /// <summary>Compares two space URIs for equality.</summary>
-    /// <param name="left">The first URI.</param>
-    /// <param name="right">The second URI.</param>
-    public static bool operator ==(SpaceUri? left, SpaceUri? right) => Equals(left, right);
-
-    /// <summary>Compares two space URIs for inequality.</summary>
-    /// <param name="left">The first URI.</param>
-    /// <param name="right">The second URI.</param>
-    public static bool operator !=(SpaceUri? left, SpaceUri? right) => !Equals(left, right);
+    /// <summary>Explicitly converts a string to a space URI.</summary>
+    /// <param name="value">The URI string.</param>
+    /// <returns>The parsed space URI.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="value"/> is not a valid space URI.</exception>
+    public static explicit operator SpaceUri(string value) => Parse(value);
 
     // A space key carries the same syntax requirements as a record key.
     internal static bool IsValidSkey(string? value) =>
@@ -188,7 +188,7 @@ public sealed class SpaceUri : IEquatable<SpaceUri>
     /// stated once.
     /// </summary>
     internal static bool TrySplit(
-        string? value,
+        [NotNullWhen(true)] string? value,
         [NotNullWhen(true)] out string authority,
         [NotNullWhen(true)] out string spaceType,
         [NotNullWhen(true)] out string skey,
@@ -238,8 +238,10 @@ public sealed class SpaceUri : IEquatable<SpaceUri>
 /// the DID that gates access — while the record's authority remains the
 /// <see cref="Author"/> DID that wrote and signed it. That is the one structural difference
 /// from a public AT-URI, where the two are the same DID.
+/// <para>Equality and ordering are ordinal on <see cref="Value"/>.</para>
 /// </remarks>
-public sealed class SpaceRecordUri : IEquatable<SpaceRecordUri>
+[JsonConverter(typeof(IdentifierJsonConverter<SpaceRecordUri>))]
+public sealed record SpaceRecordUri : IIdentifier<SpaceRecordUri>
 {
     /// <summary>The full URI string.</summary>
     public string Value { get; }
@@ -298,20 +300,15 @@ public sealed class SpaceRecordUri : IEquatable<SpaceRecordUri>
     /// Thrown when <paramref name="value"/> is not a valid space record URI. A bare space ref is
     /// rejected — parse it with <see cref="SpaceUri"/>.
     /// </exception>
-    public static SpaceRecordUri Parse(string value)
-    {
-        ArgumentNullException.ThrowIfNull(value);
-        return TryParse(value, out var uri)
-            ? uri
-            : throw new ArgumentException($"Invalid space record URI: '{value}'.", nameof(value));
-    }
+    public static SpaceRecordUri Parse(string value) =>
+        TryParse(value, out var uri) ? uri : throw IIdentifier<SpaceRecordUri>.InvalidValue(value, "space record URI");
 
     /// <summary>
     /// Attempts to parse a space record URI, returning <see langword="false"/> rather than throwing.
     /// </summary>
     /// <param name="value">The URI string.</param>
     /// <param name="recordUri">The parsed URI on success.</param>
-    public static bool TryParse(string? value, [NotNullWhen(true)] out SpaceRecordUri? recordUri)
+    public static bool TryParse([NotNullWhen(true)] string? value, [NotNullWhen(true)] out SpaceRecordUri? recordUri)
     {
         recordUri = null;
 
@@ -331,9 +328,12 @@ public sealed class SpaceRecordUri : IEquatable<SpaceRecordUri>
             return false;
 
         var space = SpaceUri.Create(authority, spaceType, skey);
-        recordUri = new SpaceRecordUri(value!, space, tail[0], tail[1], tail[2]);
+        recordUri = new SpaceRecordUri(value, space, tail[0], tail[1], tail[2]);
         return true;
     }
+
+    static bool IIdentifier<SpaceRecordUri>.TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out SpaceRecordUri? result) =>
+        TryParse(text ?? span.ToString(), out result);
 
     /// <summary>
     /// The record's path within its repo, <c>{collection}/{rkey}</c> — the key side of a
@@ -346,25 +346,23 @@ public sealed class SpaceRecordUri : IEquatable<SpaceRecordUri>
         other is not null && string.Equals(Value, other.Value, StringComparison.Ordinal);
 
     /// <inheritdoc/>
-    public override bool Equals(object? obj) => obj is SpaceRecordUri other && Equals(other);
+    public override int GetHashCode() => Value.GetHashCode(StringComparison.Ordinal);
 
     /// <inheritdoc/>
-    public override int GetHashCode() => Value.GetHashCode(StringComparison.Ordinal);
+    public int CompareTo(SpaceRecordUri? other) => string.CompareOrdinal(Value, other?.Value);
 
     /// <inheritdoc/>
     public override string ToString() => Value;
 
     /// <summary>Implicitly converts a space record URI to its string form.</summary>
     /// <param name="recordUri">The record URI.</param>
-    public static implicit operator string(SpaceRecordUri recordUri) => recordUri.Value;
+    /// <returns>The URI string, or <see langword="null"/> for a <see langword="null"/> record URI.</returns>
+    [return: NotNullIfNotNull(nameof(recordUri))]
+    public static implicit operator string?(SpaceRecordUri? recordUri) => recordUri?.Value;
 
-    /// <summary>Compares two record URIs for equality.</summary>
-    /// <param name="left">The first URI.</param>
-    /// <param name="right">The second URI.</param>
-    public static bool operator ==(SpaceRecordUri? left, SpaceRecordUri? right) => Equals(left, right);
-
-    /// <summary>Compares two record URIs for inequality.</summary>
-    /// <param name="left">The first URI.</param>
-    /// <param name="right">The second URI.</param>
-    public static bool operator !=(SpaceRecordUri? left, SpaceRecordUri? right) => !Equals(left, right);
+    /// <summary>Explicitly converts a string to a space record URI.</summary>
+    /// <param name="value">The URI string.</param>
+    /// <returns>The parsed space record URI.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="value"/> is not a valid space record URI.</exception>
+    public static explicit operator SpaceRecordUri(string value) => Parse(value);
 }

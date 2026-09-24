@@ -10,12 +10,13 @@ namespace ATProtoNet.Identity;
 /// Record keys have specific restrictions on allowed characters and patterns.
 /// Common patterns: "self" (singleton), TID (timestamp-based), or custom strings.
 /// </summary>
-[JsonConverter(typeof(RecordKeyJsonConverter))]
-public sealed partial class RecordKey : IEquatable<RecordKey>
+/// <remarks>Record keys are case-sensitive; equality and ordering are ordinal on <see cref="Value"/>.</remarks>
+[JsonConverter(typeof(IdentifierJsonConverter<RecordKey>))]
+public sealed partial record RecordKey : IIdentifier<RecordKey>
 {
-    // Record key: 1-512 chars, alphanumeric + . - _ ~ : % (no slashes)
-    // Must not be "." or ".."
-    [GeneratedRegex(@"^[a-zA-Z0-9._~:@!$&')(*+,;=-]{1,512}$", RegexOptions.Compiled)]
+    // 1-512 characters from A-Z a-z 0-9 . - _ : ~ (the URI "unreserved" set plus ':'),
+    // excluding the relative-path segments "." and "..".
+    [GeneratedRegex("^[A-Za-z0-9._:~-]{1,512}$")]
     private static partial Regex RecordKeyPattern();
 
     /// <summary>
@@ -36,78 +37,57 @@ public sealed partial class RecordKey : IEquatable<RecordKey>
     /// <summary>
     /// Creates a RecordKey from a string value with validation.
     /// </summary>
-    public static RecordKey Parse(string value)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(value);
-
-        if (value is "." or "..")
-            throw new ArgumentException("Record key must not be '.' or '..'", nameof(value));
-
-        if (!RecordKeyPattern().IsMatch(value))
-            throw new ArgumentException($"Invalid record key format: '{value}'", nameof(value));
-
-        return new RecordKey(value);
-    }
+    /// <param name="value">The record key string.</param>
+    /// <returns>A validated record key.</returns>
+    /// <exception cref="ArgumentException">Thrown if the value is not a valid record key.</exception>
+    public static RecordKey Parse(string value) =>
+        TryParse(value, out var key) ? key : throw IIdentifier<RecordKey>.InvalidValue(value, "record key");
 
     /// <summary>
     /// Attempts to create a RecordKey from a string value without throwing.
     /// </summary>
-    public static bool TryParse(string? value, [NotNullWhen(true)] out RecordKey? recordKey)
+    /// <param name="value">The record key string.</param>
+    /// <param name="recordKey">The parsed record key on success.</param>
+    /// <returns><see langword="true"/> if <paramref name="value"/> is a valid record key.</returns>
+    public static bool TryParse([NotNullWhen(true)] string? value, [NotNullWhen(true)] out RecordKey? recordKey) =>
+        TryCreate(value, value, out recordKey);
+
+    static bool IIdentifier<RecordKey>.TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out RecordKey? result) =>
+        TryCreate(span, text, out result);
+
+    internal static bool TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out RecordKey? result)
     {
-        recordKey = null;
-        if (string.IsNullOrWhiteSpace(value) || value is "." or "..")
-            return false;
-
-        if (!RecordKeyPattern().IsMatch(value))
-            return false;
-
-        recordKey = new RecordKey(value);
-        return true;
+        result = span is not "." and not ".." && RecordKeyPattern().IsMatch(span)
+            ? new RecordKey(text ?? span.ToString())
+            : null;
+        return result is not null;
     }
 
     /// <summary>
-    /// Creates a new TID-based record key.
+    /// Creates a new TID-based record key from the process-wide <see cref="TidGenerator"/>.
     /// </summary>
-    public static RecordKey NewTid() => new(Tid.NextString());
-
-    /// <summary>
-    /// Creates a RecordKey without validation.
-    /// </summary>
-    internal static RecordKey UnsafeCreate(string value) => new(value);
+    /// <returns>A TID record key; successive calls return increasing keys.</returns>
+    public static RecordKey NewTid() => new(Tid.Next().Value);
 
     /// <summary>
     /// Implicitly converts a <see cref="RecordKey"/> to its <see cref="string"/> representation.
     /// </summary>
     /// <param name="key">The value to convert.</param>
-    /// <returns>The converted value.</returns>
-    public static implicit operator string(RecordKey key) => key.Value;
+    /// <returns>The converted value, or <see langword="null"/> for a <see langword="null"/> key.</returns>
+    [return: NotNullIfNotNull(nameof(key))]
+    public static implicit operator string?(RecordKey? key) => key?.Value;
 
     /// <summary>
-    /// Determines whether this instance and another <see cref="RecordKey"/> represent the same
-    /// value.
+    /// Explicitly converts a <see cref="string"/> to its <see cref="RecordKey"/> representation.
     /// </summary>
-    /// <param name="other">The value to compare with.</param>
-    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
-    public bool Equals(RecordKey? other) => other is not null && Value == other.Value;
+    /// <param name="value">The value to convert.</param>
+    /// <returns>The converted value.</returns>
+    /// <exception cref="ArgumentException">Thrown if the value is not a valid <see cref="RecordKey"/>.</exception>
+    public static explicit operator RecordKey(string value) => Parse(value);
 
     /// <inheritdoc />
-    public override bool Equals(object? obj) => obj is RecordKey other && Equals(other);
-
-    /// <inheritdoc />
-    public override int GetHashCode() => Value.GetHashCode(StringComparison.Ordinal);
+    public int CompareTo(RecordKey? other) => string.CompareOrdinal(Value, other?.Value);
 
     /// <inheritdoc />
     public override string ToString() => Value;
-
-    /// <summary>Determines whether two <see cref="RecordKey"/> instances are equal.</summary>
-    /// <param name="left">The first value to compare.</param>
-    /// <param name="right">The second value to compare.</param>
-    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
-    public static bool operator ==(RecordKey? left, RecordKey? right) => Equals(left, right);
-
-    /// <summary>Determines whether two <see cref="RecordKey"/> instances are not equal.</summary>
-    /// <param name="left">The first value to compare.</param>
-    /// <param name="right">The second value to compare.</param>
-    /// <returns><see langword="true"/> if the values differ; otherwise <see langword="false"/>.</returns>
-    public static bool operator !=(RecordKey? left, RecordKey? right) => !Equals(left, right);
 }

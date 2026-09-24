@@ -194,15 +194,16 @@ public class JetstreamEventParserTests
     }
 
     [Fact]
-    public void Parse_LooseCidString_DoesNotDropEvent()
+    public void Parse_InvalidCidString_DeliversEventWithoutCid()
     {
-        // Cid.Parse is lenient about the string form; whatever it accepts must not
-        // prevent the commit event (and its record) from being delivered.
+        // An unparseable CID must not prevent the commit event (and its record) from being
+        // delivered; the event just carries no Cid.
         var json = CreateCommitJson.Replace(
             "bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi", "!!!");
 
         var commit = Assert.IsType<JetstreamCommitEvent>(JetstreamEventParser.Parse(json));
         Assert.NotNull(commit.Record);
+        Assert.Null(commit.Cid);
     }
 
     [Fact]

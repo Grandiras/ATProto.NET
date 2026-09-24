@@ -2,6 +2,19 @@
 
 ATProto.NET provides strongly-typed wrappers for all AT Protocol identifiers. These types validate input, normalize values, and prevent common mistakes at compile time.
 
+Validation follows the atproto specs and is checked against the official
+[`atproto-interop-tests`](https://github.com/bluesky-social/atproto-interop-tests) syntax fixtures.
+Parsing is strict: data from other implementations or older records that may not conform should go
+through `TryParse` rather than `Parse`.
+
+Every identifier type is an immutable `sealed record` with the same shape:
+
+- `Parse(string)` throws `ArgumentException` (`ArgumentNullException` for `null`); `TryParse(string?, out T?)` returns `false` instead.
+- It implements `IParsable<T>`, `ISpanParsable<T>` and `IComparable<T>`, so generic code and minimal-API parameter binding can parse it. The interface `Parse` members throw `FormatException`, as that contract expects.
+- Equality and ordering are ordinal on the string value.
+- `string s = id;` converts implicitly (a `null` identifier gives `null`); `(T)"…"` converts explicitly and throws like `Parse`.
+- It serializes to and from a JSON string. An invalid value fails deserialization with a `JsonException` carrying the JSON path.
+
 ## DID
 
 A Decentralized Identifier — the persistent, unique identifier for every AT Protocol account.
@@ -31,7 +44,7 @@ did == Did.Parse("did:plc:z72i7hdynmk6r22z27h6tvur")  // true
 ### Validation Rules
 - Must start with `did:`
 - Second segment is the method (lowercase letters only)
-- Third segment is the method-specific ID
+- Third segment is the method-specific ID: letters, digits, `.`, `_`, `-`, `:` and `%`, but it may not end in `:` or `%`
 - Maximum length: 2048 characters
 
 ## Handle
@@ -74,9 +87,9 @@ else if (id1.IsHandle)
 // Get the underlying value
 string value = id1.Value;  // Works for both
 
-// Factory methods
+// Factory methods, or the implicit conversions from Did and Handle
 var fromDid = AtIdentifier.FromDid(Did.Parse("did:plc:abc"));
-var fromHandle = AtIdentifier.FromHandle(Handle.Parse("alice.bsky.social"));
+AtIdentifier fromHandle = Handle.Parse("alice.bsky.social");
 ```
 
 ## NSID (Namespaced Identifier)
@@ -86,7 +99,7 @@ Identifies a Lexicon type or method.
 ```csharp
 var nsid = Nsid.Parse("com.example.todo.item");
 
-nsid.Authority    // "example.com" (reversed domain)
+nsid.Authority    // "com.example.todo" (reversed domain)
 nsid.Name         // "item"
 nsid.Segments     // ["com", "example", "todo", "item"]
 nsid.Value        // "com.example.todo.item"
@@ -95,7 +108,8 @@ nsid.Value        // "com.example.todo.item"
 ### Validation Rules
 - At least 3 dot-separated segments
 - Maximum length: 317 characters
-- Each segment follows specific character rules
+- Domain segments: 1-63 letters, digits or hyphens, not starting or ending with a hyphen; the first may not start with a digit
+- Name (last segment): 1-63 letters or digits, starting with a letter
 
 ## AtUri
 
@@ -104,23 +118,28 @@ An AT Protocol URI, referencing a specific record or collection.
 ```csharp
 var uri = AtUri.Parse("at://did:plc:abc/com.example.todo.item/3k2la");
 
-uri.Authority    // "did:plc:abc"
-uri.Collection   // "com.example.todo.item"
-uri.RecordKey    // "3k2la"
-uri.Repo         // "did:plc:abc" (alias for Authority)
+uri.Authority    // "did:plc:abc" (string, as written)
+uri.Repo         // AtIdentifier: the authority as a DID or (lower-cased) handle
+uri.Collection   // Nsid? "com.example.todo.item"
+uri.RecordKey    // RecordKey? "3k2la"
 
 // Collection-level URI (no record key)
 var collUri = AtUri.Parse("at://did:plc:abc/com.example.todo.item");
 collUri.RecordKey  // null
 
-// Create from components — the repo is an AtIdentifier (DID or handle)
-var created = AtUri.Create(AtIdentifier.Parse("did:plc:abc"), "com.example.todo.item", "3k2la");
+// Create from components: an AtIdentifier (DID or handle), then an optional Nsid and RecordKey
+var created = AtUri.Create(
+    Did.Parse("did:plc:abc"), Nsid.Parse("com.example.todo.item"), RecordKey.Parse("3k2la"));
 ```
 
 ### Format
 ```
-at://authority/collection/recordKey
+at://authority[/collection[/recordKey]]
 ```
+
+This is the restricted syntax Lexicon `at-uri` fields use. The authority must be a DID or a handle
+(without `@`), the collection an NSID and the record key a valid record key. Query strings (`?`),
+fragments (`#`), trailing slashes and extra path segments are rejected. Maximum length: 8 KiB.
 
 ## TID (Timestamp Identifier)
 
@@ -135,22 +154,33 @@ tid.Value      // "3k2la7rxjgs2t" (13 chars)
 // Parse
 var parsed = Tid.Parse("3k2la7rxjgs2t");
 
-// Raw 64-bit value — for minting a strictly increasing sequence yourself
+// Raw 64-bit value
 long raw = tid.ToInt64();
-var next = Tid.FromInt64(raw + 1);
+var same = Tid.FromInt64(raw);
 
-// TIDs sort chronologically
+// Successive TIDs are strictly increasing, even within one microsecond or across threads
 var a = Tid.Next();
-Thread.Sleep(1);
 var b = Tid.Next();
-// b > a is true (string comparison works for sorting)
+// b.CompareTo(a) > 0
 ```
 
+`Tid.Next()` and `RecordKey.NewTid()` draw from one process-wide `TidGenerator`. Create your own
+generator to fix the clock identifier (for example, one per worker in a cluster) or to inject a
+`TimeProvider` in tests:
+
+```csharp
+var generator = new TidGenerator(clockId: 7, timeProvider: TimeProvider.System);
+Tid rev = generator.Next();
+```
+
+A generator never repeats a TID and never goes backwards: when the clock has not advanced (or has
+stepped back) since the previous TID, it uses the previous timestamp plus one microsecond.
+
 ### Properties
-- Exactly 13 characters
-- Base32-sortable encoding
-- Encodes microsecond timestamp + 10-bit random clock ID
-- Chronologically ordered
+- Exactly 13 characters from `234567abcdefghijklmnopqrstuvwxyz`
+- The first character is one of `234567abcdefghij` (the top bit is always zero)
+- Encodes a microsecond timestamp + a 10-bit clock ID
+- Ordinal string order equals numeric order
 
 ## RecordKey
 
@@ -169,16 +199,23 @@ var generated = RecordKey.NewTid();
 ### Validation Rules
 - 1-512 characters
 - Cannot be `.` or `..`
-- Valid characters: alphanumeric, `.`, `-`, `_`, `~`, `:`, `%`
+- Valid characters: alphanumeric, `.`, `-`, `_`, `~`, `:`
 
 ## CID (Content Identifier)
 
-A content-addressed hash identifier for a specific record version.
+A content-addressed hash identifier for a specific record version or blob.
 
 ```csharp
-var cid = Cid.Parse("bafyreidfayvfkicgmdl3ebhqhvvd3oevkmpoh5eoyltcy73c6aaoqc7srca");
-cid.Value  // The full CID string
+var cid = Cid.Parse("bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm");
+cid.Value    // The full CID string
+cid.Codec    // CidCodec.DagCbor (records, commits, MST nodes) or CidCodec.Raw (blobs)
+cid.Digest   // ReadOnlyMemory<byte>: the 32-byte SHA-256 digest
+cid.ToBytes() // The 36-byte binary CID
 ```
+
+Only the CID form the atproto data model allows is accepted: CIDv1, codec DRISL/DAG-CBOR (`0x71`)
+or raw (`0x55`), a SHA-256 digest, written as lower-case base32 with the `b` prefix
+(`bafyrei…` or `bafkrei…`). Legacy CIDv0 (`Qm…`) and other encodings fail to parse.
 
 ## JSON Serialization
 
@@ -199,4 +236,5 @@ JsonSerializer.Serialize(nsid, options);     // "com.example.todo.item"
 JsonSerializer.Serialize(uri, options);      // "at://did:plc:abc/col/rkey"
 ```
 
-Custom JSON converters are registered in `AtProtoJsonDefaults.Options` for all identity types.
+The converters are attached to the types themselves, so any `JsonSerializerOptions` picks them up.
+`SpaceUri` and `SpaceRecordUri` serialize the same way.

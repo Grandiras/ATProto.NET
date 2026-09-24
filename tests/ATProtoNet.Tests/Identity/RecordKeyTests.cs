@@ -20,6 +20,11 @@ public class RecordKeyTests
     [InlineData("..")]    // Double dot not allowed
     [InlineData("")]
     [InlineData(" ")]
+    [InlineData("@handle")]   // Only A-Z a-z 0-9 . - _ : ~ are allowed (regression: these were accepted)
+    [InlineData("any+space")]
+    [InlineData("number(3)")]
+    [InlineData("dHJ1ZQ==")]
+    [InlineData("a$b")]
     public void Parse_InvalidRecordKey_Throws(string value)
     {
         Assert.ThrowsAny<ArgumentException>(() => RecordKey.Parse(value));
@@ -38,6 +43,16 @@ public class RecordKeyTests
 
         Assert.Equal(13, rkey.Value.Length);
         Assert.True(RecordKey.TryParse(rkey.Value, out _));
+        Assert.True(Tid.TryParse(rkey.Value, out _));
+    }
+
+    [Fact]
+    public void NewTid_SuccessiveCalls_StrictlyIncreasing()
+    {
+        var keys = Enumerable.Range(0, 1_000).Select(_ => RecordKey.NewTid()).ToList();
+
+        for (var i = 1; i < keys.Count; i++)
+            Assert.True(keys[i].CompareTo(keys[i - 1]) > 0);
     }
 
     [Theory]

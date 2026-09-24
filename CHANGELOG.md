@@ -23,8 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`MstNodeData`, `MstTreeEntry` and `MstKeyDepth` are now internal** (#111) — they are the MST's wire codec and key-height helper, with no use outside the tree. Migration: build, read and serialize trees through `MerkleSearchTree`
 - **`DagCborDecoder.Decode` throws `FormatException` for all malformed input** (#111) — it used to throw `InvalidOperationException` (floats, malformed CID links, non-string keys) or leak `CborContentException` (malformed CBOR). `MerkleSearchTree.Deserialize` likewise throws `FormatException`, not `InvalidOperationException`, for a tree that is too deep. Migration: catch `FormatException`
 - **`DagCborDecoder.DecodeToNode`, `DagCborEncoder.ComputeCid` and `CarBlock.DataLength` removed** (#111) — unused duplicates. Migration: `JsonSerializer.SerializeToNode(DagCborDecoder.Decode(bytes))`, `CidComputation.ComputeForDagCbor(bytes)`, and `block.Data.Length`
+- **Identifier parsing is strict** — `Parse` now throws, and `TryParse` returns `false`, for every value the atproto specs and the official `atproto-interop-tests` syntax fixtures reject (see *Fixed*), including any `Cid` that is not a base32 CIDv1 with the DRISL/DAG-CBOR or raw codec and a SHA-256 digest. JSON deserialization of such values fails the same way. Migration: read legacy or foreign data with `TryParse` and handle `false`. (#114)
+- **Identifier types are `sealed record`s** — `Did`, `Handle`, `AtIdentifier`, `Nsid`, `Tid`, `RecordKey`, `Cid`, `AtUri`, `SpaceUri` and `SpaceRecordUri` changed from hand-written classes to sealed records. `Parse`/`TryParse`, `==`, `Equals`, `ToString` and the string conversions keep their source shape, so this is a binary break only; `Handle` equality is now ordinal, which is equivalent because handles are always lower-cased. Migration: recompile. (#114)
+- **`AtUri` components are typed** — `Collection` is now `Nsid?` and `RecordKey` is `RecordKey?` (both convert implicitly to `string`), and `Repo` is parsed once instead of on every access. `AtUri.Create(AtIdentifier, string?, string?)` is replaced by `Create(AtIdentifier repo, Nsid? collection = null, RecordKey? rkey = null)`, which throws when a record key is given without a collection. Migration: `AtUri.Create(repo, Nsid.Parse(collection), RecordKey.Parse(rkey))`, and `uri.Collection?.Value` where a `string` member was used. (#114)
 
+### Added
 
+- **`TidGenerator`** — mints TIDs that strictly increase and never repeat, per the TID spec: one clock identifier per generator (random unless given) and a microsecond timestamp that advances by one when the clock has not moved or steps back. It is thread-safe and takes a `TimeProvider` for tests; `Tid.Next()` and `RecordKey.NewTid()` use a process-wide instance. (#114)
+- **Generic parsing for identifiers** — all identifier types, including `SpaceUri` and `SpaceRecordUri`, implement `IParsable<T>`, `ISpanParsable<T>` and `IComparable<T>` (ordinal) and convert explicitly from `string`, so minimal-API parameter binding and generic `T.Parse` code accept them. The interface `Parse` members throw `FormatException`; the types' own `Parse` methods keep throwing `ArgumentException`. (#114)
+- **`Cid.Codec`, `Cid.Digest` and `Cid.ToBytes()`** — the codec (`CidCodec.DagCbor` or `CidCodec.Raw`), the 32-byte SHA-256 digest, and the 36-byte binary CID. (#114)
 
 ### Changed
 
@@ -33,6 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`MerkleSearchTree.SerializeProof` returns the reference covering proof** (#111) — besides the path to each key it now includes the nodes on the paths to the key's immediate neighbours, exactly as `getCoveringProof` in the reference implementation does. Relays need those nodes to replay a `#commit` in reverse; the result is a superset of the previous path-only proof
 - **`MerkleSearchTree.Validate` checks the loaded tree is canonical** (#111) — after `Deserialize` it rebuilds the tree from its entries and throws `InvalidOperationException` if the root differs from the one it was loaded from. A tree built in memory is canonical by construction
 - **Faster DAG-CBOR decoding and encoding** (#111) — `DagCborDecoder.Decode` and the firehose parser share one transcoder that writes JSON directly instead of building a `JsonNode` tree first, and the encoder no longer sorts every map twice. Encoder output is byte-for-byte unchanged
+- **Null-safe identifier conversions** — implicit conversions from an identifier to `string`, and from `Did`/`Handle` to `AtIdentifier`, return `null` for a `null` input instead of throwing or building an empty `AtIdentifier`. (#114)
+- **`SpaceUri` and `SpaceRecordUri` serialize to JSON as their URI string**, like every other identifier, instead of as an object that could not be read back. (#114)
+
+
 
 ### Fixed
 
@@ -49,6 +60,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`MerkleSearchTree.Deserialize` reads real repositories** (#111) — the `null` links every other implementation writes threw, so no tree served by `com.atproto.sync.getRepo` could be loaded
 - **DAG-CBOR key order for non-ASCII keys** (#111) — keys of equal UTF-8 length were compared in UTF-16 order, which differs from byte order where a character above U+FFFF meets one in U+E000–U+FFFF. This affected `SpaceRepoCar`'s record order and `DagCborDecoder.TryValidate`
 - **`SpaceRepoCar.Verify` reports a malformed index block as `SpaceRepoVerificationException`** (#111) — a truncated index used to escape as `CborContentException`
+- **`Tid.Next()` was neither monotonic nor unique** — it added a random clock id to a millisecond timestamp on every call, so values minted in the same millisecond came out of order and could collide (9,992 of 20,000 out of order, 22 duplicates). It is now strictly increasing, including across threads, and `RecordKey.NewTid()` inherits the fix. (#114)
+- **Identifier types accepted invalid values** — AT URIs with an invalid authority, collection or record key, a trailing slash, a query or a fragment, record keys containing `@!$&'()*+,;=`, TIDs whose first character sets the high bit, DIDs ending in `%`, NSID names over 63 characters, and any string at all as a `Cid`. Every line of the interop syntax fixtures for TIDs, AT URIs, DIDs, NSIDs, handles, record keys and AT identifiers now parses or fails as specified; the fixtures are vendored in the test project. (#114)
+- **Invalid identifiers in JSON escaped as `ArgumentException`** — they now fail as a `JsonException` carrying the JSON path, with the reason in its inner `FormatException`. (#114)
 
 
 

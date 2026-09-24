@@ -1,6 +1,7 @@
 using System.Text.Json;
 using ATProtoNet.Identity;
 using ATProtoNet.Serialization;
+using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Tests.Serialization;
 
@@ -167,6 +168,76 @@ public class IdentitySerializationTests
         var deserialized = JsonSerializer.Deserialize<RecordKey>(json, _options);
 
         Assert.Equal(original, deserialized);
+    }
+
+    // ── Cid ──
+
+    [Fact]
+    public void Cid_RoundTrips()
+    {
+        var original = Cid.Parse("bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm");
+        var json = JsonSerializer.Serialize(original, _options);
+        var deserialized = JsonSerializer.Deserialize<Cid>(json, _options);
+
+        Assert.Equal("\"bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm\"", json);
+        Assert.Equal(original, deserialized);
+    }
+
+    // ── Space URIs ──
+
+    [Fact]
+    public void SpaceUris_SerializeAsStrings()
+    {
+        var space = SpaceUri.Parse("at://did:plc:abc123/space/com.example.forum/a");
+        var record = space.Record("did:plc:def456", "com.example.post", "1");
+
+        var spaceJson = JsonSerializer.Serialize(space, _options);
+        var recordJson = JsonSerializer.Serialize(record, _options);
+
+        Assert.Equal("\"at://did:plc:abc123/space/com.example.forum/a\"", spaceJson);
+        Assert.Equal(space, JsonSerializer.Deserialize<SpaceUri>(spaceJson, _options));
+        Assert.Equal(record, JsonSerializer.Deserialize<SpaceRecordUri>(recordJson, _options));
+    }
+
+    // ── Invalid values ──
+
+    [Fact]
+    public void InvalidValue_ThrowsJsonExceptionWithPath()
+    {
+        // Regression: an invalid identifier escaped as an ArgumentException with no JSON path.
+        var json = """{"Did":"did:plc:abc123","Uri":"at://did:plc:abc123/"}""";
+
+        var ex = Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<TestModel>(json, _options));
+
+        Assert.Equal("$.Uri", ex.Path);
+        Assert.Contains("$.Uri", ex.Message);
+        var inner = Assert.IsType<FormatException>(ex.InnerException);
+        Assert.Contains("at://did:plc:abc123/", inner.Message);
+    }
+
+    [Theory]
+    [InlineData("\"not-a-did\"")]
+    [InlineData("\"\"")]
+    [InlineData("42")]
+    public void Did_InvalidJson_ThrowsJsonException(string json)
+    {
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<Did>(json, _options));
+    }
+
+    [Fact]
+    public void Cid_InvalidString_ThrowsJsonException()
+    {
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<Cid>("\"hello\"", _options));
+    }
+
+    [Fact]
+    public void NullValue_DeserializesAsNull()
+    {
+        var model = JsonSerializer.Deserialize<TestModel>("""{"Did":null,"Uri":null}""", _options);
+
+        Assert.NotNull(model);
+        Assert.Null(model.Did);
+        Assert.Null(model.Uri);
     }
 
     // ── Embedded in objects ──

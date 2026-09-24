@@ -220,12 +220,14 @@ A directory rejection surfaces as `PlcException` with `Kind == PlcErrorKind.Inva
 
 ### Record keys from a sequence
 
-`Tid.FromInt64` / `Tid.ToInt64` convert between a TID and its raw 64-bit value, for callers that need
-to mint a strictly increasing sequence themselves:
+`Tid.Next()` is already strictly increasing within a process. For an independent sequence with its
+own clock identifier or clock, use a `TidGenerator`; `Tid.FromInt64` / `Tid.ToInt64` convert between a
+TID and its raw 64-bit value:
 
 ```csharp
-long raw = Tid.Next().ToInt64();
-var next = Tid.FromInt64(raw + 1);
+var generator = new TidGenerator(clockId: 7);
+var rev = generator.Next();
+long raw = rev.ToInt64();   // microseconds << 10 | clock id
 ```
 
 ## When to Use Low-Level API

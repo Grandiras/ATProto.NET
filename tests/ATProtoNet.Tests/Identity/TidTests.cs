@@ -6,7 +6,7 @@ public class TidTests
 {
     [Theory]
     [InlineData("2222222222222")]
-    [InlineData("zzzzzzzzzzzzz")]
+    [InlineData("jzzzzzzzzzzzz")]        // Largest TID: the high bit stays clear
     [InlineData("abcdefghijklm")]
     public void Parse_ValidTid_Succeeds(string value)
     {
@@ -22,6 +22,8 @@ public class TidTests
     [InlineData("0000000000000")]        // '0' not in base32-sortable
     [InlineData("1111111111111")]        // '1' not in base32-sortable
     [InlineData("AAAAAAAAAAAAA")]        // Uppercase not allowed
+    [InlineData("kjzfcijpj2z2a")]        // First character sets the high bit
+    [InlineData("zzzzzzzzzzzzz")]
     public void Parse_InvalidTid_Throws(string value)
     {
         Assert.ThrowsAny<ArgumentException>(() => Tid.Parse(value));
@@ -37,27 +39,14 @@ public class TidTests
     }
 
     [Fact]
-    public void Next_GeneratesUniqueValues()
+    public void Next_RapidCalls_StrictlyIncreasing()
     {
-        var tids = Enumerable.Range(0, 100).Select(_ => Tid.Next().Value).ToHashSet();
+        // Regression: Next() used to add a random clock id to a millisecond timestamp per call,
+        // so values minted within one millisecond came out of order and could repeat.
+        var tids = Enumerable.Range(0, 20_000).Select(_ => Tid.Next()).ToList();
 
-        // With random clock ID (1024 possibilities), some collisions are expected
-        // when timestamps land on the same microsecond bucket.
-        // We should still get a reasonable number of unique values.
-        Assert.True(tids.Count >= 50, $"Expected at least 50 unique TIDs but got {tids.Count}");
-    }
-
-    [Fact]
-    public void Next_GeneratesMonotonicallyIncreasingValues()
-    {
-        // Generate a batch quickly and verify ordering
-        var tid1 = Tid.Next();
-        // Need a small delay to ensure increasing timestamps
-        Thread.Sleep(1);
-        var tid2 = Tid.Next();
-
-        // String comparison of base32-sortable should reflect time ordering
-        Assert.True(string.Compare(tid1.Value, tid2.Value, StringComparison.Ordinal) <= 0);
+        for (var i = 1; i < tids.Count; i++)
+            Assert.True(tids[i].CompareTo(tids[i - 1]) > 0, $"{tids[i]} did not follow {tids[i - 1]}");
     }
 
     [Fact]
@@ -99,8 +88,26 @@ public class TidTests
     public void CompareTo_OrdersCorrectly()
     {
         var a = Tid.Parse("2222222222222");
-        var b = Tid.Parse("zzzzzzzzzzzzz");
+        var b = Tid.Parse("jzzzzzzzzzzzz");
 
         Assert.True(a.CompareTo(b) < 0);
+        Assert.True(b.CompareTo(a) > 0);
+        Assert.True(a.CompareTo(null) > 0);
+    }
+
+    [Fact]
+    public void FromInt64_ToInt64_RoundTrip()
+    {
+        var tid = Tid.Parse("3jzfcijpj2z2a");
+
+        Assert.Equal(1_728_652_679_052_295_174, tid.ToInt64());
+        Assert.Equal(tid, Tid.FromInt64(tid.ToInt64()));
+    }
+
+    [Fact]
+    public void ExplicitConversion_FromString_Parses()
+    {
+        Assert.Equal(Tid.Parse("3jzfcijpj2z2a"), (Tid)"3jzfcijpj2z2a");
+        Assert.ThrowsAny<ArgumentException>(() => (Tid)"zzzzzzzzzzzzz");
     }
 }

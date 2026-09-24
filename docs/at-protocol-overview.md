@@ -87,7 +87,7 @@ com.example.todo.item            ← Your custom record type
 
 ```csharp
 var nsid = Nsid.Parse("com.example.todo.item");
-Console.WriteLine(nsid.Authority);  // "example.com"
+Console.WriteLine(nsid.Authority);  // "com.example.todo"
 Console.WriteLine(nsid.Name);       // "item"
 ```
 
@@ -116,7 +116,7 @@ A 13-character, base32-sortable identifier used as the default record key:
 3k2la7rxjgs2t
 ```
 
-TIDs encode a microsecond timestamp and a random clock ID, ensuring uniqueness and chronological sorting.
+TIDs encode a microsecond timestamp and a clock ID. `Tid.Next()` returns strictly increasing values, so TIDs from one process never repeat and sort chronologically.
 
 ```csharp
 var tid = Tid.Next();  // Generate a new TID
@@ -141,7 +141,7 @@ var rkey2 = RecordKey.NewTid();  // Generate a TID-based key
 A hash-based content identifier for a specific version of a record:
 
 ```
-bafyreidfayvfkicgmdl3ebhqhvvd3oevkmpoh5eoyltcy73c6aaoqc7srca
+bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm
 ```
 
 Used for content addressing and optimistic concurrency (CAS operations).

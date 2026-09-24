@@ -41,6 +41,7 @@ public class DidTests
     [InlineData("did:plc:")]    // Trailing colon makes method-specific-id empty
     [InlineData("DID:plc:abc")] // Must start lowercase
     [InlineData("did:PLC:abc")] // Method must be lowercase
+    [InlineData("did:method:val%")] // May not end in '%' (regression: accepted before)
     public void Parse_InvalidDid_Throws(string value)
     {
         Assert.ThrowsAny<ArgumentException>(() => Did.Parse(value));

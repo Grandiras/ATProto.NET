@@ -6,18 +6,24 @@ using ATProtoNet.Serialization;
 namespace ATProtoNet.Identity;
 
 /// <summary>
-/// Represents a Timestamp Identifier (TID) used as record keys in AT Protocol.
-/// TIDs are base32-sortable, monotonically increasing identifiers based on timestamps.
-/// Format: 13 characters of base32-sortable encoding.
+/// Represents a Timestamp Identifier (TID) used as record keys and repository revisions in
+/// AT Protocol. A TID encodes a 64-bit integer — microseconds since the UNIX epoch in the top
+/// 53 bits (below a zero high bit) and a clock identifier in the bottom 10 — as 13
+/// base32-sortable characters.
 /// </summary>
-[JsonConverter(typeof(TidJsonConverter))]
-public sealed partial class Tid : IEquatable<Tid>, IComparable<Tid>
+/// <remarks>
+/// Equality and ordering are ordinal on <see cref="Value"/>, which agrees with the numeric
+/// order of <see cref="ToInt64"/>.
+/// </remarks>
+[JsonConverter(typeof(IdentifierJsonConverter<Tid>))]
+public sealed partial record Tid : IIdentifier<Tid>
 {
-    // TID is a 13-character base32-sortable string
     private const string Base32SortableChars = "234567abcdefghijklmnopqrstuvwxyz";
     private const int TidLength = 13;
 
-    [GeneratedRegex(@"^[2-7a-z]{13}$", RegexOptions.Compiled)]
+    // The first character carries the high bit, which must be zero, so it is limited to the
+    // lower half of the alphabet.
+    [GeneratedRegex("^[234567abcdefghij][234567abcdefghijklmnopqrstuvwxyz]{12}$")]
     private static partial Regex TidPattern();
 
     /// <summary>
@@ -33,47 +39,41 @@ public sealed partial class Tid : IEquatable<Tid>, IComparable<Tid>
     /// <summary>
     /// Creates a TID from a string value with validation.
     /// </summary>
-    public static Tid Parse(string value)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(value);
-
-        if (!TidPattern().IsMatch(value))
-            throw new ArgumentException($"Invalid TID format: '{value}'", nameof(value));
-
-        return new Tid(value);
-    }
+    /// <param name="value">The TID string.</param>
+    /// <returns>A validated TID.</returns>
+    /// <exception cref="ArgumentException">Thrown if the value is not a valid TID.</exception>
+    public static Tid Parse(string value) =>
+        TryParse(value, out var tid) ? tid : throw IIdentifier<Tid>.InvalidValue(value, "TID");
 
     /// <summary>
     /// Attempts to create a TID from a string value without throwing.
     /// </summary>
-    public static bool TryParse(string? value, [NotNullWhen(true)] out Tid? tid)
-    {
-        tid = null;
-        if (string.IsNullOrWhiteSpace(value) || !TidPattern().IsMatch(value))
-            return false;
+    /// <param name="value">The TID string.</param>
+    /// <param name="tid">The parsed TID on success.</param>
+    /// <returns><see langword="true"/> if <paramref name="value"/> is a valid TID.</returns>
+    public static bool TryParse([NotNullWhen(true)] string? value, [NotNullWhen(true)] out Tid? tid) =>
+        TryCreate(value, value, out tid);
 
-        tid = new Tid(value);
-        return true;
+    static bool IIdentifier<Tid>.TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out Tid? result) =>
+        TryCreate(span, text, out result);
+
+    internal static bool TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out Tid? result)
+    {
+        result = TidPattern().IsMatch(span) ? new Tid(text ?? span.ToString()) : null;
+        return result is not null;
     }
 
     /// <summary>
-    /// Generates a new TID based on the current timestamp and a random clock ID.
+    /// Generates a new TID from the process-wide <see cref="TidGenerator"/>. Successive calls
+    /// return strictly increasing values, including across threads.
     /// </summary>
-    public static Tid Next()
-    {
-        // TID is a 64-bit integer encoded as base32-sortable
-        // Top 53 bits: microseconds since UNIX epoch
-        // Bottom 10 bits: clock ID (random)
-        var microseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() * 1000;
-        var clockId = Random.Shared.Next(0, 1024);
-        var tidValue = (microseconds << 10) | (long)clockId;
-
-        return new Tid(Encode(tidValue));
-    }
+    /// <returns>A new TID.</returns>
+    public static Tid Next() => TidGenerator.Shared.Next();
 
     /// <summary>
     /// Gets the string value of the next TID, useful for record keys.
     /// </summary>
+    /// <returns>The value of <see cref="Next"/>.</returns>
     public static string NextString() => Next().Value;
 
     /// <summary>
@@ -81,12 +81,8 @@ public sealed partial class Tid : IEquatable<Tid>, IComparable<Tid>
     /// 53 bits, a clock identifier in the bottom 10.
     /// </summary>
     /// <param name="value">The raw TID value. The high bit must be clear.</param>
-    /// <remarks>
-    /// <see cref="Next"/> resolves only to the millisecond and picks a random clock id, so two
-    /// TIDs minted in the same millisecond are ordered arbitrarily. Callers that need a strictly
-    /// increasing sequence — a repository's commit <c>rev</c>, for instance — should track the
-    /// last value themselves and mint the next one through this method.
-    /// </remarks>
+    /// <returns>The TID encoding <paramref name="value"/>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="value"/> is negative.</exception>
     public static Tid FromInt64(long value)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(value);
@@ -97,6 +93,7 @@ public sealed partial class Tid : IEquatable<Tid>, IComparable<Tid>
     /// Gets the raw 64-bit value this TID encodes. Ordinal string comparison of two TIDs and
     /// numeric comparison of their values always agree, since the encoding is base32-sortable.
     /// </summary>
+    /// <returns>The raw TID value.</returns>
     public long ToInt64()
     {
         long value = 0;
@@ -118,45 +115,24 @@ public sealed partial class Tid : IEquatable<Tid>, IComparable<Tid>
     }
 
     /// <summary>
-    /// Creates a TID without validation.
-    /// </summary>
-    internal static Tid UnsafeCreate(string value) => new(value);
-
-    /// <summary>
     /// Implicitly converts a <see cref="Tid"/> to its <see cref="string"/> representation.
     /// </summary>
     /// <param name="tid">The value to convert.</param>
-    /// <returns>The converted value.</returns>
-    public static implicit operator string(Tid tid) => tid.Value;
+    /// <returns>The converted value, or <see langword="null"/> for a <see langword="null"/> TID.</returns>
+    [return: NotNullIfNotNull(nameof(tid))]
+    public static implicit operator string?(Tid? tid) => tid?.Value;
 
     /// <summary>
-    /// Determines whether this instance and another <see cref="Tid"/> represent the same value.
+    /// Explicitly converts a <see cref="string"/> to its <see cref="Tid"/> representation.
     /// </summary>
-    /// <param name="other">The value to compare with.</param>
-    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
-    public bool Equals(Tid? other) => other is not null && Value == other.Value;
+    /// <param name="value">The value to convert.</param>
+    /// <returns>The converted value.</returns>
+    /// <exception cref="ArgumentException">Thrown if the value is not a valid <see cref="Tid"/>.</exception>
+    public static explicit operator Tid(string value) => Parse(value);
 
     /// <inheritdoc />
-    public override bool Equals(object? obj) => obj is Tid other && Equals(other);
-
-    /// <inheritdoc />
-    public override int GetHashCode() => Value.GetHashCode(StringComparison.Ordinal);
+    public int CompareTo(Tid? other) => string.CompareOrdinal(Value, other?.Value);
 
     /// <inheritdoc />
     public override string ToString() => Value;
-
-    /// <inheritdoc />
-    public int CompareTo(Tid? other) => string.Compare(Value, other?.Value, StringComparison.Ordinal);
-
-    /// <summary>Determines whether two <see cref="Tid"/> instances are equal.</summary>
-    /// <param name="left">The first value to compare.</param>
-    /// <param name="right">The second value to compare.</param>
-    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
-    public static bool operator ==(Tid? left, Tid? right) => Equals(left, right);
-
-    /// <summary>Determines whether two <see cref="Tid"/> instances are not equal.</summary>
-    /// <param name="left">The first value to compare.</param>
-    /// <param name="right">The second value to compare.</param>
-    /// <returns><see langword="true"/> if the values differ; otherwise <see langword="false"/>.</returns>
-    public static bool operator !=(Tid? left, Tid? right) => !Equals(left, right);
 }

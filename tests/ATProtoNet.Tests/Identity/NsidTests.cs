@@ -42,6 +42,14 @@ public class NsidTests
     }
 
     [Fact]
+    public void Parse_NameLengthLimit_IsSixtyThreeCharacters()
+    {
+        // Regression: the name segment had no length limit.
+        Assert.True(Nsid.TryParse("com.example." + new string('o', 63), out _));
+        Assert.False(Nsid.TryParse("com.example." + new string('o', 64), out _));
+    }
+
+    [Fact]
     public void Parse_NullValue_Throws()
     {
         Assert.ThrowsAny<ArgumentException>(() => Nsid.Parse(null!));

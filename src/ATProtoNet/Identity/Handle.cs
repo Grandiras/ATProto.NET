@@ -10,13 +10,19 @@ namespace ATProtoNet.Identity;
 /// Handles are human-readable identifiers that map to DIDs.
 /// Examples: alice.bsky.social, bob.example.com
 /// </summary>
-[JsonConverter(typeof(HandleJsonConverter))]
-public sealed partial class Handle : IEquatable<Handle>, IComparable<Handle>
+/// <remarks>
+/// Parsing strips one leading <c>@</c> (common user input) and lower-cases the handle, so
+/// <see cref="Value"/> is always normalized and equality and ordering are ordinal on it.
+/// </remarks>
+[JsonConverter(typeof(IdentifierJsonConverter<Handle>))]
+public sealed partial record Handle : IIdentifier<Handle>
 {
+    private const int MaxLength = 253;
+
     // Handle must be a valid domain name
     // Each label: 1-63 chars, alphanumeric + hyphens, no leading/trailing hyphens
-    // Total max: 253 chars
-    [GeneratedRegex(@"^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$", RegexOptions.Compiled)]
+    // The top-level label may not start with a digit
+    [GeneratedRegex(@"^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$")]
     private static partial Regex HandlePattern();
 
     /// <summary>
@@ -32,57 +38,57 @@ public sealed partial class Handle : IEquatable<Handle>, IComparable<Handle>
     /// <summary>
     /// Creates a Handle from a string value with validation.
     /// </summary>
-    public static Handle Parse(string value)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(value);
-
-        // Strip leading @ if present (common user input)
-        if (value.StartsWith('@'))
-            value = value[1..];
-
-        var normalized = value.ToLowerInvariant();
-
-        if (normalized.Length > 253)
-            throw new ArgumentException("Handle must not exceed 253 characters", nameof(value));
-
-        if (!HandlePattern().IsMatch(normalized))
-            throw new ArgumentException($"Invalid handle format: '{value}'", nameof(value));
-
-        return new Handle(normalized);
-    }
+    /// <param name="value">The handle, optionally prefixed with <c>@</c>.</param>
+    /// <returns>A validated, lower-cased handle.</returns>
+    /// <exception cref="ArgumentException">Thrown if the value is not a valid handle.</exception>
+    public static Handle Parse(string value) =>
+        TryParse(value, out var handle) ? handle : throw IIdentifier<Handle>.InvalidValue(value, "handle");
 
     /// <summary>
     /// Attempts to create a Handle from a string value without throwing.
     /// </summary>
-    public static bool TryParse(string? value, [NotNullWhen(true)] out Handle? handle)
-    {
-        handle = null;
-        if (string.IsNullOrWhiteSpace(value))
-            return false;
+    /// <param name="value">The handle, optionally prefixed with <c>@</c>.</param>
+    /// <param name="handle">The parsed, lower-cased handle on success.</param>
+    /// <returns><see langword="true"/> if <paramref name="value"/> is a valid handle.</returns>
+    public static bool TryParse([NotNullWhen(true)] string? value, [NotNullWhen(true)] out Handle? handle) =>
+        TryCreate(value, value, out handle);
 
-        if (value.StartsWith('@'))
-            value = value[1..];
-
-        var normalized = value.ToLowerInvariant();
-
-        if (normalized.Length > 253 || !HandlePattern().IsMatch(normalized))
-            return false;
-
-        handle = new Handle(normalized);
-        return true;
-    }
+    static bool IIdentifier<Handle>.TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out Handle? result) =>
+        TryCreate(span, text, out result);
 
     /// <summary>
-    /// Creates a Handle without validation.
+    /// Whether <paramref name="span"/> is a handle exactly as written: no <c>@</c> prefix is
+    /// stripped. Case is not significant.
     /// </summary>
-    internal static Handle UnsafeCreate(string value) => new(value);
+    internal static bool IsValidSyntax(ReadOnlySpan<char> span) =>
+        span.Length <= MaxLength && HandlePattern().IsMatch(span);
+
+    internal static bool TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out Handle? result)
+    {
+        result = null;
+
+        if (span.StartsWith('@'))
+        {
+            span = span[1..];
+            text = null;
+        }
+
+        if (!IsValidSyntax(span))
+            return false;
+
+        // The pattern admits ASCII only, so invariant lower-casing is the whole normalization.
+        // ToLowerInvariant returns the same instance when nothing changes.
+        result = new Handle((text ?? span.ToString()).ToLowerInvariant());
+        return true;
+    }
 
     /// <summary>
     /// Implicitly converts a <see cref="Handle"/> to its <see cref="string"/> representation.
     /// </summary>
     /// <param name="handle">The value to convert.</param>
-    /// <returns>The converted value.</returns>
-    public static implicit operator string(Handle handle) => handle.Value;
+    /// <returns>The converted value, or <see langword="null"/> for a <see langword="null"/> handle.</returns>
+    [return: NotNullIfNotNull(nameof(handle))]
+    public static implicit operator string?(Handle? handle) => handle?.Value;
 
     /// <summary>
     /// Explicitly converts a <see cref="string"/> to its <see cref="Handle"/> representation.
@@ -92,36 +98,9 @@ public sealed partial class Handle : IEquatable<Handle>, IComparable<Handle>
     /// <exception cref="ArgumentException">Thrown if the value is not a valid <see cref="Handle"/>.</exception>
     public static explicit operator Handle(string value) => Parse(value);
 
-    /// <summary>
-    /// Determines whether this instance and another <see cref="Handle"/> represent the same value.
-    /// </summary>
-    /// <param name="other">The value to compare with.</param>
-    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
-    public bool Equals(Handle? other) => other is not null
-        && string.Equals(Value, other.Value, StringComparison.OrdinalIgnoreCase);
-
     /// <inheritdoc />
-    public override bool Equals(object? obj) => obj is Handle other && Equals(other);
-
-    /// <inheritdoc />
-    public override int GetHashCode() => Value.GetHashCode(StringComparison.OrdinalIgnoreCase);
+    public int CompareTo(Handle? other) => string.CompareOrdinal(Value, other?.Value);
 
     /// <inheritdoc />
     public override string ToString() => Value;
-
-    /// <inheritdoc />
-    public int CompareTo(Handle? other) =>
-        string.Compare(Value, other?.Value, StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>Determines whether two <see cref="Handle"/> instances are equal.</summary>
-    /// <param name="left">The first value to compare.</param>
-    /// <param name="right">The second value to compare.</param>
-    /// <returns><see langword="true"/> if the values are equal; otherwise <see langword="false"/>.</returns>
-    public static bool operator ==(Handle? left, Handle? right) => Equals(left, right);
-
-    /// <summary>Determines whether two <see cref="Handle"/> instances are not equal.</summary>
-    /// <param name="left">The first value to compare.</param>
-    /// <param name="right">The second value to compare.</param>
-    /// <returns><see langword="true"/> if the values differ; otherwise <see langword="false"/>.</returns>
-    public static bool operator !=(Handle? left, Handle? right) => !Equals(left, right);
 }
