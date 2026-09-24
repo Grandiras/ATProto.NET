@@ -25,7 +25,7 @@ namespace ATProtoNet.Server.Spaces;
 /// builder.Services
 ///     .AddAtProtoSpaces(options =>
 ///     {
-///         options.ServiceDid = "did:web:pds.example.com";
+///         options.ServiceDid = Did.Parse("did:web:pds.example.com");
 ///         options.PublicBaseUrl = "https://pds.example.com";
 ///     })
 ///     .AddSpaceAuthority&lt;MyAuthorityStore&gt;(signingKey)
@@ -170,7 +170,7 @@ public static class SpaceServerExtensions
         services.TryAddSingleton(sp =>
         {
             var options = sp.GetRequiredService<SpaceServerOptions>();
-            if (string.IsNullOrWhiteSpace(options.ServiceDid))
+            if (options.ServiceDid is null)
             {
                 throw new InvalidOperationException(
                     $"A space authority must know its own DID; set {nameof(SpaceServerOptions)}.{nameof(SpaceServerOptions.ServiceDid)}.");

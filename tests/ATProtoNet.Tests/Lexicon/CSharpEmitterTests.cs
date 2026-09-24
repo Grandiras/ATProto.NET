@@ -408,7 +408,7 @@ public class CSharpEmitterTests
         Assert.Contains("Key = \"any\",", content);
         Assert.Contains("Name = \"AtmoBoards Forum\",", content);
         Assert.Contains("[\"es\"] = \"Foro AtmoBoards\",", content);
-        Assert.Contains("\"com.atmoboards.thread\",", content);
+        Assert.Contains("ATProtoNet.Identity.Nsid.Parse(\"com.atmoboards.thread\"),", content);
         Assert.Contains("/// A private discussion forum.", content);
         Assert.Equal(content.Count(c => c == '{'), content.Count(c => c == '}'));
     }

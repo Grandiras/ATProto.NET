@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ATProtoNet.Crypto;
+using ATProtoNet.Identity;
 using ATProtoNet.Repo;
 using ATProtoNet.Serialization;
 
@@ -68,7 +69,7 @@ public sealed class SignedSpaceCommit
 
     /// <summary>The commit revision (a TID), also bound into the context.</summary>
     [JsonPropertyName("rev")]
-    public required string Rev { get; init; }
+    public required Tid Rev { get; init; }
 
     /// <summary>
     /// Encodes the commit as a DAG-CBOR block, the form it takes as the first root of a
@@ -103,20 +104,11 @@ public sealed class SignedSpaceCommit
 /// The context a commit's signature and MAC are both domain-separated by:
 /// the space, the author, and the revision.
 /// </summary>
-/// <param name="Space">The space URI the repo belongs to.</param>
+/// <param name="Space">The space the repo belongs to.</param>
 /// <param name="Author">The DID of the account whose repo it is.</param>
-/// <param name="Rev">The commit revision (a TID).</param>
-public readonly record struct SpaceCommitContext(string Space, string Author, string Rev)
+/// <param name="Rev">The commit revision.</param>
+public readonly record struct SpaceCommitContext(SpaceUri Space, Did Author, Tid Rev)
 {
-    /// <summary>Builds a context from a typed space URI.</summary>
-    /// <param name="space">The space.</param>
-    /// <param name="author">The DID of the repo's account.</param>
-    /// <param name="rev">The commit revision.</param>
-    public SpaceCommitContext(SpaceUri space, string author, string rev)
-        : this(space?.Value ?? throw new ArgumentNullException(nameof(space)), author, rev)
-    {
-    }
-
     /// <summary>The fixed protocol tag that opens every encoded context.</summary>
     public const string ProtocolTag = "atproto-space-v1";
 
@@ -142,9 +134,9 @@ public readonly record struct SpaceCommitContext(string Space, string Author, st
     /// <exception cref="ArgumentException">Thrown when a field is longer than a <see cref="ushort"/> can prefix.</exception>
     public byte[] Encode(ReadOnlySpan<byte> ikm)
     {
-        var spaceBytes = Encoding.UTF8.GetBytes(Space ?? string.Empty);
-        var authorBytes = Encoding.UTF8.GetBytes(Author ?? string.Empty);
-        var revBytes = Encoding.UTF8.GetBytes(Rev ?? string.Empty);
+        var spaceBytes = Encoding.UTF8.GetBytes(Space?.Value ?? string.Empty);
+        var authorBytes = Encoding.UTF8.GetBytes(Author?.Value ?? string.Empty);
+        var revBytes = Encoding.UTF8.GetBytes(Rev?.Value ?? string.Empty);
 
         var tag = Encoding.UTF8.GetBytes(ProtocolTag);
         var size = tag.Length + 8 + spaceBytes.Length + authorBytes.Length + revBytes.Length + ikm.Length;
@@ -182,7 +174,7 @@ public readonly record struct SpaceCommitContext(string Space, string Author, st
 /// <param name="Rkey">The record key.</param>
 /// <param name="Cid">The record's new CID, or <see langword="null"/> for a delete.</param>
 /// <param name="Prev">The record's previous CID, or <see langword="null"/> for a create.</param>
-public readonly record struct SpaceRepoOp(string Collection, string Rkey, string? Cid, string? Prev);
+public readonly record struct SpaceRepoOp(Nsid Collection, RecordKey Rkey, Cid? Cid, Cid? Prev);
 
 /// <summary>
 /// The running <see cref="LtHash"/> over a permissioned repo's records, and the commit that
@@ -219,7 +211,7 @@ public sealed class SpaceRepoCommit
 
     /// <summary>Folds a set of records into a fresh commit.</summary>
     /// <param name="records">The records currently in the repo.</param>
-    public static SpaceRepoCommit FromRecords(IEnumerable<(string Collection, string Rkey, string Cid)> records)
+    public static SpaceRepoCommit FromRecords(IEnumerable<(Nsid Collection, RecordKey Rkey, Cid Cid)> records)
     {
         ArgumentNullException.ThrowIfNull(records);
 
@@ -234,7 +226,7 @@ public sealed class SpaceRepoCommit
     /// the index can be checked against a signed commit without reading a single record.
     /// </summary>
     /// <param name="index">The index, as carried by the second root of a serialized repo.</param>
-    public static SpaceRepoCommit FromIndex(IEnumerable<KeyValuePair<string, string>> index)
+    public static SpaceRepoCommit FromIndex(IEnumerable<KeyValuePair<string, Cid>> index)
     {
         ArgumentNullException.ThrowIfNull(index);
 
@@ -248,7 +240,7 @@ public sealed class SpaceRepoCommit
     /// <param name="collection">The record collection NSID.</param>
     /// <param name="rkey">The record key.</param>
     /// <param name="cid">The record's CID.</param>
-    public static string SetHashElement(string collection, string rkey, string cid) =>
+    public static string SetHashElement(Nsid collection, RecordKey rkey, Cid cid) =>
         $"{collection}/{rkey}/{cid}";
 
     /// <summary>Adds a record to the repo's contents.</summary>
@@ -256,7 +248,7 @@ public sealed class SpaceRepoCommit
     /// <param name="rkey">The record key.</param>
     /// <param name="cid">The record's CID.</param>
     /// <returns>This instance, for chaining.</returns>
-    public SpaceRepoCommit Add(string collection, string rkey, string cid)
+    public SpaceRepoCommit Add(Nsid collection, RecordKey rkey, Cid cid)
     {
         SetHash.Add(SetHashElement(collection, rkey, cid));
         return this;
@@ -267,7 +259,7 @@ public sealed class SpaceRepoCommit
     /// <param name="rkey">The record key.</param>
     /// <param name="cid">The CID the record had.</param>
     /// <returns>This instance, for chaining.</returns>
-    public SpaceRepoCommit Remove(string collection, string rkey, string cid)
+    public SpaceRepoCommit Remove(Nsid collection, RecordKey rkey, Cid cid)
     {
         SetHash.Remove(SetHashElement(collection, rkey, cid));
         return this;
@@ -373,7 +365,7 @@ public static class SpaceCommitVerifier
 
         if (commit.Ver != SignedSpaceCommit.CurrentVersion)
             return false;
-        if (!string.Equals(commit.Rev, context.Rev, StringComparison.Ordinal))
+        if (commit.Rev != context.Rev)
             return false;
 
         var encodedContext = context.Encode(commit.Ikm);

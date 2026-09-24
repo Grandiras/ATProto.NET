@@ -1,14 +1,19 @@
 using System.Text.Json;
 using ATProtoNet.Crypto;
+using ATProtoNet.Identity;
 using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Tests.Spaces;
 
 public class SpaceCommitTests
 {
-    private const string Space = "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default";
-    private const string Author = "did:plc:z72i7hdynmk6r22z27h6tvur";
-    private const string Rev = "3l6oveex3ii2l";
+    private static readonly SpaceUri Space = SpaceUri.Parse("at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default");
+    private static readonly Did Author = Did.Parse("did:plc:z72i7hdynmk6r22z27h6tvur");
+    private static readonly Tid Rev = Tid.Parse("3l6oveex3ii2l");
+
+    private static Nsid N(string collection) => Nsid.Parse(collection);
+
+    private static RecordKey K(string rkey) => RecordKey.Parse(rkey);
 
     private static byte[] CountingIkm()
     {
@@ -39,13 +44,13 @@ public class SpaceCommitTests
     {
         // The opposite byte order from the LtHash lanes, and the one thing most likely to be
         // silently "fixed" to little-endian by someone matching the surrounding code.
-        var context = new SpaceCommitContext("at://did:plc:aaaaaaaaaaaaaaaaaaaaaaaa/space/a.b.c/x", Author, Rev);
+        var context = new SpaceCommitContext(SpaceUri.Parse("at://did:plc:aaaaaaaaaaaaaaaaaaaaaaaa/space/a.b.c/x"), Author, Rev);
 
         var encoded = context.Encode(CountingIkm());
         var tagLength = "atproto-space-v1".Length;
 
         Assert.Equal(0x00, encoded[tagLength]);
-        Assert.Equal(context.Space.Length, encoded[tagLength + 1]);
+        Assert.Equal(context.Space.Value.Length, encoded[tagLength + 1]);
     }
 
     [Fact]
@@ -54,20 +59,23 @@ public class SpaceCommitTests
         var ikm = CountingIkm();
         var baseline = new SpaceCommitContext(Space, Author, Rev).Encode(ikm);
 
-        Assert.NotEqual(baseline, new SpaceCommitContext(Space + "2", Author, Rev).Encode(ikm));
-        Assert.NotEqual(baseline, new SpaceCommitContext(Space, Author + "2", Rev).Encode(ikm));
-        Assert.NotEqual(baseline, new SpaceCommitContext(Space, Author, Rev + "2").Encode(ikm));
+        Assert.NotEqual(baseline, new SpaceCommitContext(SpaceUri.Parse(Space.Value + "2"), Author, Rev).Encode(ikm));
+        Assert.NotEqual(baseline, new SpaceCommitContext(Space, Did.Parse(Author.Value + "2"), Rev).Encode(ikm));
+        Assert.NotEqual(baseline, new SpaceCommitContext(Space, Author, Tid.Parse("3l6oveex3ii2m")).Encode(ikm));
         Assert.NotEqual(baseline, new SpaceCommitContext(Space, Author, Rev).Encode(new byte[32]));
     }
 
     [Fact]
     public void Encode_IsUnambiguousAcrossFieldBoundaries()
     {
-        // Without length prefixes, moving a character from one field to the next would produce
-        // the same bytes. It must not.
+        // Without length prefixes, moving text from one field to the next would produce the
+        // same bytes. A space key and a DID may both contain colons, so the two contexts below
+        // concatenate to the same string. They must not encode the same.
         var ikm = CountingIkm();
-        var left = new SpaceCommitContext("at://did:plc:aaaaaaaaaaaaaaaaaaaaaaaa/space/a.b.c/xy", Author, Rev);
-        var right = new SpaceCommitContext("at://did:plc:aaaaaaaaaaaaaaaaaaaaaaaa/space/a.b.c/x", "y" + Author, Rev);
+        var left = new SpaceCommitContext(
+            SpaceUri.Parse("at://did:plc:aaaaaaaaaaaaaaaaaaaaaaaa/space/a.b.c/xdid:plc:b"), Did.Parse("did:plc:c"), Rev);
+        var right = new SpaceCommitContext(
+            SpaceUri.Parse("at://did:plc:aaaaaaaaaaaaaaaaaaaaaaaa/space/a.b.c/x"), Did.Parse("did:plc:bdid:plc:c"), Rev);
 
         Assert.NotEqual(left.Encode(ikm), right.Encode(ikm));
     }
@@ -96,7 +104,7 @@ public class SpaceCommitTests
     public void Sign_ThenVerify_Succeeds(KeyCurve curve)
     {
         using var key = curve == KeyCurve.P256 ? AtProtoCrypto.GenerateP256Key() : AtProtoCrypto.GenerateK256Key();
-        var repo = new SpaceRepoCommit().Add("com.example.note", "abc", TestCid);
+        var repo = new SpaceRepoCommit().Add(N("com.example.note"), K("abc"), TestCid);
         var context = new SpaceCommitContext(Space, Author, Rev);
 
         var commit = repo.Sign(context, key);
@@ -116,7 +124,7 @@ public class SpaceCommitTests
         // A fresh ikm per commit is what makes a leaked commit deniable; reusing one would
         // turn every commit into a stable fingerprint of the repo's state.
         using var key = AtProtoCrypto.GenerateP256Key();
-        var repo = new SpaceRepoCommit().Add("com.example.note", "abc", TestCid);
+        var repo = new SpaceRepoCommit().Add(N("com.example.note"), K("abc"), TestCid);
         var context = new SpaceCommitContext(Space, Author, Rev);
 
         var first = repo.Sign(context, key);
@@ -136,7 +144,7 @@ public class SpaceCommitTests
         var context = new SpaceCommitContext(Space, Author, Rev);
         var commit = new SpaceRepoCommit().Sign(context, key);
 
-        var otherSpace = context with { Space = Space.Replace("default", "other") };
+        var otherSpace = context with { Space = SpaceUri.Parse(Space.Value.Replace("default", "other")) };
 
         Assert.False(SpaceCommitVerifier.Verify(commit, otherSpace, key.ToDidKey()));
     }
@@ -149,7 +157,7 @@ public class SpaceCommitTests
         var commit = new SpaceRepoCommit().Sign(context, key);
 
         Assert.False(SpaceCommitVerifier.Verify(
-            commit, context with { Author = "did:plc:ewvi7nxzyoun6zhxrhs64oiz" }, key.ToDidKey()));
+            commit, context with { Author = Did.Parse("did:plc:ewvi7nxzyoun6zhxrhs64oiz") }, key.ToDidKey()));
     }
 
     [Fact]
@@ -170,7 +178,7 @@ public class SpaceCommitTests
         // whole point of the construction.
         using var key = AtProtoCrypto.GenerateP256Key();
         var context = new SpaceCommitContext(Space, Author, Rev);
-        var commit = new SpaceRepoCommit().Add("com.example.note", "abc", TestCid).Sign(context, key);
+        var commit = new SpaceRepoCommit().Add(N("com.example.note"), K("abc"), TestCid).Sign(context, key);
 
         var tampered = new SignedSpaceCommit
         {
@@ -192,7 +200,7 @@ public class SpaceCommitTests
         var context = new SpaceCommitContext(Space, Author, Rev);
         var commit = new SpaceRepoCommit().Sign(context, key);
 
-        Assert.False(SpaceCommitVerifier.Verify(commit, context with { Rev = "3l6oveex3ii2m" }, key.ToDidKey()));
+        Assert.False(SpaceCommitVerifier.Verify(commit, context with { Rev = Tid.Parse("3l6oveex3ii2m") }, key.ToDidKey()));
     }
 
     [Fact]
@@ -232,27 +240,27 @@ public class SpaceCommitTests
     {
         var repo = new SpaceRepoCommit();
 
-        repo.ApplyOp(new SpaceRepoOp("com.example.note", "abc", TestCid, Prev: null));
+        repo.ApplyOp(new SpaceRepoOp(N("com.example.note"), K("abc"), TestCid, Prev: null));
 
-        Assert.Equal(new SpaceRepoCommit().Add("com.example.note", "abc", TestCid).Digest(), repo.Digest());
+        Assert.Equal(new SpaceRepoCommit().Add(N("com.example.note"), K("abc"), TestCid).Digest(), repo.Digest());
     }
 
     [Fact]
     public void ApplyOp_Update_ReplacesTheRecord()
     {
-        var repo = new SpaceRepoCommit().Add("com.example.note", "abc", TestCid);
+        var repo = new SpaceRepoCommit().Add(N("com.example.note"), K("abc"), TestCid);
 
-        repo.ApplyOp(new SpaceRepoOp("com.example.note", "abc", OtherCid, Prev: TestCid));
+        repo.ApplyOp(new SpaceRepoOp(N("com.example.note"), K("abc"), OtherCid, Prev: TestCid));
 
-        Assert.Equal(new SpaceRepoCommit().Add("com.example.note", "abc", OtherCid).Digest(), repo.Digest());
+        Assert.Equal(new SpaceRepoCommit().Add(N("com.example.note"), K("abc"), OtherCid).Digest(), repo.Digest());
     }
 
     [Fact]
     public void ApplyOp_Delete_RemovesTheRecord()
     {
-        var repo = new SpaceRepoCommit().Add("com.example.note", "abc", TestCid);
+        var repo = new SpaceRepoCommit().Add(N("com.example.note"), K("abc"), TestCid);
 
-        repo.ApplyOp(new SpaceRepoOp("com.example.note", "abc", Cid: null, Prev: TestCid));
+        repo.ApplyOp(new SpaceRepoOp(N("com.example.note"), K("abc"), Cid: null, Prev: TestCid));
 
         Assert.True(repo.SetHash.IsEmpty);
     }
@@ -264,9 +272,9 @@ public class SpaceCommitTests
         // replays one it already applied the inverse of, still lands on the right digest.
         var ops = new[]
         {
-            new SpaceRepoOp("com.example.note", "a", TestCid, null),
-            new SpaceRepoOp("com.example.note", "b", OtherCid, null),
-            new SpaceRepoOp("com.example.note", "a", OtherCid, TestCid),
+            new SpaceRepoOp(N("com.example.note"), K("a"), TestCid, null),
+            new SpaceRepoOp(N("com.example.note"), K("b"), OtherCid, null),
+            new SpaceRepoOp(N("com.example.note"), K("a"), OtherCid, TestCid),
         };
 
         var forwards = new SpaceRepoCommit().ApplyOps(ops);
@@ -280,11 +288,11 @@ public class SpaceCommitTests
     {
         var records = new[]
         {
-            ("com.example.note", "a", TestCid),
-            ("com.example.other", "b", OtherCid),
+            (N("com.example.note"), K("a"), TestCid),
+            (N("com.example.other"), K("b"), OtherCid),
         };
         var index = records.Select(r =>
-            new KeyValuePair<string, string>($"{r.Item1}/{r.Item2}", r.Item3));
+            new KeyValuePair<string, Cid>($"{r.Item1}/{r.Item2}", r.Item3));
 
         Assert.Equal(
             SpaceRepoCommit.FromRecords(records).Digest(),
@@ -294,7 +302,7 @@ public class SpaceCommitTests
     [Fact]
     public void FromState_RestoresAPersistedRepo()
     {
-        var original = new SpaceRepoCommit().Add("com.example.note", "abc", TestCid);
+        var original = new SpaceRepoCommit().Add(N("com.example.note"), K("abc"), TestCid);
 
         var restored = SpaceRepoCommit.FromState(original.SetHash.GetState());
 
@@ -308,7 +316,7 @@ public class SpaceCommitTests
     {
         using var key = AtProtoCrypto.GenerateP256Key();
         var context = new SpaceCommitContext(Space, Author, Rev);
-        var commit = new SpaceRepoCommit().Add("com.example.note", "abc", TestCid).Sign(context, key);
+        var commit = new SpaceRepoCommit().Add(N("com.example.note"), K("abc"), TestCid).Sign(context, key);
 
         var decoded = SignedSpaceCommit.FromDagCbor(commit.ToDagCbor());
 
@@ -355,6 +363,6 @@ public class SpaceCommitTests
         Assert.Equal(commit.Sig, decoded.Sig);
     }
 
-    private const string TestCid = "bafyreicnt42y6vo6pfpvyro234ac4o6ijug6adwwrh7awflgrqlt4zibxq";
-    private const string OtherCid = "bafyreihrjacrc7vmmyiuxka7uio7ximst76ippf6xuqa6c256olh3mxojq";
+    private static readonly Cid TestCid = Cid.Parse("bafyreicnt42y6vo6pfpvyro234ac4o6ijug6adwwrh7awflgrqlt4zibxq");
+    private static readonly Cid OtherCid = Cid.Parse("bafyreihrjacrc7vmmyiuxka7uio7ximst76ippf6xuqa6c256olh3mxojq");
 }

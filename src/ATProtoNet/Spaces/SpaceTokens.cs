@@ -367,7 +367,7 @@ public static class SpaceTokens
         string jwt,
         string issuerDidKey,
         string? expectedAudience = null,
-        string? expectedSubject = null,
+        SpaceUri? expectedSubject = null,
         DateTimeOffset? now = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(issuerDidKey);
@@ -395,7 +395,7 @@ public static class SpaceTokens
         SpaceToken token,
         string issuerDidKey,
         string? expectedAudience = null,
-        string? expectedSubject = null,
+        SpaceUri? expectedSubject = null,
         DateTimeOffset? now = null)
     {
         ArgumentNullException.ThrowIfNull(token);
@@ -411,7 +411,7 @@ public static class SpaceTokens
         }
 
         if (expectedSubject is not null &&
-            !string.Equals(token.Subject, expectedSubject, StringComparison.Ordinal))
+            !string.Equals(token.Subject, expectedSubject.Value, StringComparison.Ordinal))
         {
             throw new SpaceTokenException("Token subject does not match the requested space.");
         }

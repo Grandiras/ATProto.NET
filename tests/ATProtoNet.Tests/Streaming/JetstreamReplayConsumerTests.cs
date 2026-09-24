@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using ATProtoNet.Identity;
 using ATProtoNet.Streaming;
 using static ATProtoNet.Tests.Streaming.JetstreamSegmentFixture;
 
@@ -109,7 +110,7 @@ public class JetstreamReplayConsumerTests
             ServiceUrl = JetstreamEndpoints.UsEast,
             Protocol = JetstreamProtocol.V2,
             WantedCollections = collections,
-            WantedDids = dids,
+            WantedDids = dids?.Select(Did.Parse).ToList(),
             WantedKinds = kinds,
             CursorStore = cursorStore,
             CursorPersistInterval = 1,

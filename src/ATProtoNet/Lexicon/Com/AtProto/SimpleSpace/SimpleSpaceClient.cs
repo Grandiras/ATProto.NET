@@ -1,4 +1,5 @@
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
@@ -21,9 +22,8 @@ namespace ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 /// may define their own management implementations and are full protocol participants; they are
 /// simply hosted on their own space services rather than on a PDS.</para>
 /// <para>The procedures require an OAuth credential with the relevant <c>manage</c> scope. The
-/// read queries need only read access — <see cref="GetSpaceAsync(string, CancellationToken)"/> accepts a
-/// <c>read_self</c> grant or a space credential, and <see cref="ListMembersAsync(string, int?, string, CancellationToken)"/> a
-/// <c>read_self</c> grant.</para>
+/// read queries need only read access — <see cref="GetSpaceAsync"/> accepts a <c>read_self</c>
+/// grant or a space credential, and <see cref="ListMembersAsync"/> a <c>read_self</c> grant.</para>
 /// </remarks>
 public sealed class SimpleSpaceClient
 {
@@ -37,7 +37,7 @@ public sealed class SimpleSpaceClient
     /// <summary>
     /// Creates a space anchored on the authenticated user's DID, who becomes its owner.
     /// </summary>
-    /// <param name="type">The space type NSID.</param>
+    /// <param name="type">The space type.</param>
     /// <param name="skey">The space key. A TID is generated when omitted.</param>
     /// <param name="readPolicy">
     /// How to authorize users to read the space. Defaults to <see cref="MemberListPolicy"/>.
@@ -56,14 +56,14 @@ public sealed class SimpleSpaceClient
     /// lists them in the writer set and forwards their write notifications to syncers.
     /// </remarks>
     public async Task<CreateSimpleSpaceResponse> CreateSpaceAsync(
-        string type,
-        string? skey = null,
+        Nsid type,
+        RecordKey? skey = null,
         SimpleSpaceUserPolicy? readPolicy = null,
         SimpleSpaceUserPolicy? writePolicy = null,
         SimpleSpaceAppAccess? appAccess = null,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(type);
+        ArgumentNullException.ThrowIfNull(type);
 
         var request = new CreateSimpleSpaceRequest
         {
@@ -88,13 +88,13 @@ public sealed class SimpleSpaceClient
     /// <param name="appAccess">The new app access policy, or <see langword="null"/> to leave it.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task UpdateSpaceAsync(
-        string space,
+        SpaceUri space,
         SimpleSpaceUserPolicy? readPolicy = null,
         SimpleSpaceUserPolicy? writePolicy = null,
         SimpleSpaceAppAccess? appAccess = null,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
+        ArgumentNullException.ThrowIfNull(space);
 
         var request = new UpdateSimpleSpaceRequest
         {
@@ -123,9 +123,9 @@ public sealed class SimpleSpaceClient
     /// entitle the authority to destroy them — they simply become unreadable to everyone but
     /// the member's own account.</para>
     /// </remarks>
-    public async Task DeleteSpaceAsync(string space, CancellationToken cancellationToken = default)
+    public async Task DeleteSpaceAsync(SpaceUri space, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
+        ArgumentNullException.ThrowIfNull(space);
 
         var request = new DeleteSimpleSpaceRequest { Space = space };
         await _xrpc.ProcedureAsync(
@@ -138,9 +138,9 @@ public sealed class SimpleSpaceClient
     /// <param name="space">The space.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetSimpleSpaceResponse> GetSpaceAsync(
-        string space, CancellationToken cancellationToken = default)
+        SpaceUri space, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
+        ArgumentNullException.ThrowIfNull(space);
 
         var parameters = new XrpcParams().Add("space", space);
         return _xrpc.QueryAsync<GetSimpleSpaceResponse>(
@@ -160,16 +160,15 @@ public sealed class SimpleSpaceClient
     /// <remarks>
     /// <para>An upsert: both flags are replaced every time, so to change one pass the other's
     /// current value too. A member with neither flag stays on the list but is admitted to
-    /// nothing; <see cref="RemoveMemberAsync(string, string, CancellationToken)"/> takes them off
-    /// it.</para>
+    /// nothing; <see cref="RemoveMemberAsync"/> takes them off it.</para>
     /// <para>The member list is host-internal state. It is not a synced protocol structure and
     /// is never enumerated to the network.</para>
     /// </remarks>
     public async Task PutMemberAsync(
-        string space, string did, bool read, bool write, CancellationToken cancellationToken = default)
+        SpaceUri space, Did did, bool read, bool write, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(did);
+        ArgumentNullException.ThrowIfNull(space);
+        ArgumentNullException.ThrowIfNull(did);
 
         var request = new PutSimpleSpaceMemberRequest { Space = space, Did = did, Read = read, Write = write };
         await _xrpc.ProcedureAsync(
@@ -188,10 +187,10 @@ public sealed class SimpleSpaceClient
     /// remain their own data in their own repo.
     /// </remarks>
     public async Task RemoveMemberAsync(
-        string space, string did, CancellationToken cancellationToken = default)
+        SpaceUri space, Did did, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(did);
+        ArgumentNullException.ThrowIfNull(space);
+        ArgumentNullException.ThrowIfNull(did);
 
         var request = new RemoveSimpleSpaceMemberRequest { Space = space, Did = did };
         await _xrpc.ProcedureAsync(
@@ -199,8 +198,8 @@ public sealed class SimpleSpaceClient
     }
 
     /// <summary>
-    /// Lists a space's member list, with each member's read and write access. Must be called on
-    /// the space authority's PDS.
+    /// Lists one page of a space's member list, with each member's read and write access. Must
+    /// be called on the space authority's PDS.
     /// </summary>
     /// <param name="space">The space.</param>
     /// <param name="limit">Maximum number of results per page (1–1000, default 100).</param>
@@ -212,12 +211,12 @@ public sealed class SimpleSpaceClient
     /// <c>simplespace</c> member list, not a protocol-level reader set — the protocol has none.
     /// </remarks>
     public Task<ListSimpleSpaceMembersResponse> ListMembersAsync(
-        string space,
+        SpaceUri space,
         int? limit = null,
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
+        ArgumentNullException.ThrowIfNull(space);
 
         var parameters = new XrpcParams()
             .Add("space", space)
@@ -229,26 +228,21 @@ public sealed class SimpleSpaceClient
     }
 
     /// <summary>
-    /// Enumerates a space's whole member list, following pagination.
+    /// Enumerates a space's whole member list, fetching pages as needed.
     /// </summary>
     /// <param name="space">The space.</param>
-    /// <param name="pageSize">Results per request.</param>
+    /// <param name="pageSize">Members per request (1–1000); <see langword="null"/> for the server default.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async IAsyncEnumerable<SimpleSpaceMember> EnumerateMembersAsync(
-        string space,
+    public IAsyncEnumerable<SimpleSpaceMember> EnumerateMembersAsync(
+        SpaceUri space,
         int? pageSize = null,
-        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
-        string? cursor = null;
-        do
-        {
-            var page = await ListMembersAsync(space, pageSize, cursor, cancellationToken);
-            foreach (var member in page.Members)
-                yield return member;
+        ArgumentNullException.ThrowIfNull(space);
 
-            cursor = page.Members.Count == 0 ? null : page.Cursor;
-        }
-        while (!string.IsNullOrEmpty(cursor));
+        return Pagination.EnumerateAsync<ListSimpleSpaceMembersResponse, SimpleSpaceMember>(
+            (cursor, ct) => ListMembersAsync(space, pageSize, cursor, ct),
+            cancellationToken);
     }
 
     /// <summary>
@@ -275,14 +269,14 @@ public sealed class SimpleSpaceClient
     /// implementing the managing-app side, and for authorities written against this SDK.
     /// </remarks>
     public Task<CheckUserAccessResponse> CheckUserAccessAsync(
-        string space,
-        string user,
+        SpaceUri space,
+        Did user,
         string access,
         string? clientId = null,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(user);
+        ArgumentNullException.ThrowIfNull(space);
+        ArgumentNullException.ThrowIfNull(user);
         ArgumentException.ThrowIfNullOrWhiteSpace(access);
 
         var parameters = new XrpcParams()
@@ -293,42 +287,5 @@ public sealed class SimpleSpaceClient
 
         return _xrpc.QueryAsync<CheckUserAccessResponse>(
             "com.atproto.simplespace.checkUserAccess", parameters, cancellationToken: cancellationToken);
-    }
-
-    // ── SpaceUri overloads ───────────────────────────────────────
-
-    /// <inheritdoc cref="GetSpaceAsync(string, CancellationToken)"/>
-    /// <param name="space">The space.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<GetSimpleSpaceResponse> GetSpaceAsync(
-        SpaceUri space, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(space);
-        return GetSpaceAsync(space.Value, cancellationToken);
-    }
-
-    /// <inheritdoc cref="PutMemberAsync(string, string, bool, bool, CancellationToken)"/>
-    /// <param name="space">The space.</param>
-    /// <param name="did">The DID of the member.</param>
-    /// <param name="read">Whether the member may read under a member-list read policy.</param>
-    /// <param name="write">
-    /// Whether the member's writes are tracked under a member-list write policy.
-    /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    public Task PutMemberAsync(
-        SpaceUri space, string did, bool read, bool write, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(space);
-        return PutMemberAsync(space.Value, did, read, write, cancellationToken);
-    }
-
-    /// <inheritdoc cref="RemoveMemberAsync(string, string, CancellationToken)"/>
-    /// <param name="space">The space.</param>
-    /// <param name="did">The DID of the member to remove.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    public Task RemoveMemberAsync(SpaceUri space, string did, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(space);
-        return RemoveMemberAsync(space.Value, did, cancellationToken);
     }
 }

@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
+using ATProtoNet.Models;
 using ATProtoNet.Serialization;
 using ATProtoNet.Spaces;
 
@@ -29,7 +31,7 @@ public sealed class GetSpaceCredentialRequest
 {
     /// <summary>Reference to the space.</summary>
     [JsonPropertyName("space")]
-    public required string Space { get; init; }
+    public required SpaceUri Space { get; init; }
 
     /// <summary>
     /// Optional client attestation JWT establishing the app's identity. Required only when the
@@ -60,14 +62,11 @@ public sealed class SpaceView
 {
     /// <summary>URI of the space.</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
-
-    /// <summary>Parses <see cref="Uri"/> into its authority, type, and key components.</summary>
-    public SpaceUri ToSpaceUri() => SpaceUri.Parse(Uri);
+    public required SpaceUri Uri { get; init; }
 }
 
 /// <summary>Response from <c>listSpaces</c>.</summary>
-public sealed class ListSpacesResponse
+public sealed class ListSpacesResponse : ICursorPage<SpaceView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -78,7 +77,9 @@ public sealed class ListSpacesResponse
 
     /// <summary>The spaces.</summary>
     [JsonPropertyName("spaces")]
-    public required List<SpaceView> Spaces { get; init; }
+    public required IReadOnlyList<SpaceView> Spaces { get; init; }
+
+    IReadOnlyList<SpaceView> ICursorPage<SpaceView>.Items => Spaces;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -90,14 +91,14 @@ public sealed class SpaceRepoView
 {
     /// <summary>The DID of a repo that holds data in the space.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 
     /// <summary>
-    /// The repo's current revision (a TID), as last reported to the authority. May lag the repo
-    /// host, which is the source of truth.
+    /// The repo's current revision, as last reported to the authority. May lag the repo host,
+    /// which is the source of truth.
     /// </summary>
     [JsonPropertyName("rev")]
-    public required string Rev { get; init; }
+    public required Tid Rev { get; init; }
 
     /// <summary>
     /// The repo's current commit hash (<c>sha256</c> of the LtHash state), as last reported to
@@ -109,7 +110,7 @@ public sealed class SpaceRepoView
 }
 
 /// <summary>Response from <c>listRepos</c>: a space's writer set.</summary>
-public sealed class ListSpaceReposResponse
+public sealed class ListSpaceReposResponse : ICursorPage<SpaceRepoView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -120,7 +121,9 @@ public sealed class ListSpaceReposResponse
 
     /// <summary>The repos that hold data in the space.</summary>
     [JsonPropertyName("repos")]
-    public required List<SpaceRepoView> Repos { get; init; }
+    public required IReadOnlyList<SpaceRepoView> Repos { get; init; }
+
+    IReadOnlyList<SpaceRepoView> ICursorPage<SpaceRepoView>.Items => Repos;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -132,11 +135,11 @@ public sealed class GetSpaceRecordResponse
 {
     /// <summary>The record's space URI.</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required SpaceRecordUri Uri { get; init; }
 
     /// <summary>The record's CID.</summary>
     [JsonPropertyName("cid")]
-    public required string Cid { get; init; }
+    public required Cid Cid { get; init; }
 
     /// <summary>The record's value.</summary>
     [JsonPropertyName("value")]
@@ -148,15 +151,15 @@ public sealed class SpaceRecordView
 {
     /// <summary>The record collection NSID.</summary>
     [JsonPropertyName("collection")]
-    public required string Collection { get; init; }
+    public required Nsid Collection { get; init; }
 
     /// <summary>The record key.</summary>
     [JsonPropertyName("rkey")]
-    public required string Rkey { get; init; }
+    public required RecordKey Rkey { get; init; }
 
     /// <summary>The record's CID.</summary>
     [JsonPropertyName("cid")]
-    public required string Cid { get; init; }
+    public required Cid Cid { get; init; }
 
     /// <summary>
     /// The record's value. Inlined by default; omitted when <c>excludeValues</c> was set.
@@ -169,7 +172,7 @@ public sealed class SpaceRecordView
 }
 
 /// <summary>Response from <c>listRecords</c>.</summary>
-public sealed class ListSpaceRecordsResponse
+public sealed class ListSpaceRecordsResponse : ICursorPage<SpaceRecordView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -180,7 +183,9 @@ public sealed class ListSpaceRecordsResponse
 
     /// <summary>The records.</summary>
     [JsonPropertyName("records")]
-    public required List<SpaceRecordView> Records { get; init; }
+    public required IReadOnlyList<SpaceRecordView> Records { get; init; }
+
+    IReadOnlyList<SpaceRecordView> ICursorPage<SpaceRecordView>.Items => Records;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -188,7 +193,7 @@ public sealed class ListSpaceRecordsResponse
 // ──────────────────────────────────────────────────────────────
 
 /// <summary>Response from <c>listBlobs</c>.</summary>
-public sealed class ListSpaceBlobsResponse
+public sealed class ListSpaceBlobsResponse : ICursorPage<Cid>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -199,7 +204,9 @@ public sealed class ListSpaceBlobsResponse
 
     /// <summary>The CIDs of the blobs referenced by the repo's records in this space.</summary>
     [JsonPropertyName("cids")]
-    public required List<string> Cids { get; init; }
+    public required IReadOnlyList<Cid> Cids { get; init; }
+
+    IReadOnlyList<Cid> ICursorPage<Cid>.Items => Cids;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -228,25 +235,25 @@ public sealed class GetSpaceLatestCommitResponse
 /// </remarks>
 public sealed class SpaceRepoOpEntry
 {
-    /// <summary>The revision (a TID) this operation was written at.</summary>
+    /// <summary>The revision this operation was written at.</summary>
     [JsonPropertyName("rev")]
-    public required string Rev { get; init; }
+    public required Tid Rev { get; init; }
 
     /// <summary>The record collection NSID.</summary>
     [JsonPropertyName("collection")]
-    public required string Collection { get; init; }
+    public required Nsid Collection { get; init; }
 
     /// <summary>The record key.</summary>
     [JsonPropertyName("rkey")]
-    public required string Rkey { get; init; }
+    public required RecordKey Rkey { get; init; }
 
     /// <summary>The record's new CID, or <see langword="null"/> for a delete.</summary>
     [JsonPropertyName("cid")]
-    public string? Cid { get; init; }
+    public Cid? Cid { get; init; }
 
     /// <summary>The record's previous CID, or <see langword="null"/> for a create.</summary>
     [JsonPropertyName("prev")]
-    public string? Prev { get; init; }
+    public Cid? Prev { get; init; }
 
     /// <summary>
     /// The record's current value, inlined for create and update operations. Omitted when
@@ -260,11 +267,11 @@ public sealed class SpaceRepoOpEntry
 }
 
 /// <summary>Response from <c>listRepoOps</c>.</summary>
-public sealed class ListSpaceRepoOpsResponse
+public sealed class ListSpaceRepoOpsResponse : ICursorPage<SpaceRepoOpEntry>
 {
     /// <summary>The operations after the requested revision, in order.</summary>
     [JsonPropertyName("ops")]
-    public required List<SpaceRepoOpEntry> Ops { get; init; }
+    public required IReadOnlyList<SpaceRepoOpEntry> Ops { get; init; }
 
     /// <summary>
     /// The account's current signed commit. Included when the response reaches the head of the
@@ -279,6 +286,8 @@ public sealed class ListSpaceRepoOpsResponse
     /// </summary>
     [JsonPropertyName("cursor")]
     public string? Cursor { get; init; }
+
+    IReadOnlyList<SpaceRepoOpEntry> ICursorPage<SpaceRepoOpEntry>.Items => Ops;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -296,24 +305,24 @@ public static class SpaceValidationStatus
 }
 
 /// <summary>Request body for <c>createRecord</c>.</summary>
-public sealed class CreateSpaceRecordRequest
+internal sealed class CreateSpaceRecordRequest
 {
     /// <summary>Reference to the space.</summary>
     [JsonPropertyName("space")]
-    public required string Space { get; init; }
+    public required SpaceUri Space { get; init; }
 
     /// <summary>The DID of the repo to write to (the authenticated member).</summary>
     [JsonPropertyName("repo")]
-    public required string Repo { get; init; }
+    public required Did Repo { get; init; }
 
     /// <summary>The NSID of the record collection.</summary>
     [JsonPropertyName("collection")]
-    public required string Collection { get; init; }
+    public required Nsid Collection { get; init; }
 
     /// <summary>The record key. Generated by the host when omitted.</summary>
     [JsonPropertyName("rkey")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Rkey { get; init; }
+    public RecordKey? Rkey { get; init; }
 
     /// <summary>
     /// <see langword="false"/> to skip Lexicon schema validation, <see langword="true"/> to
@@ -329,23 +338,23 @@ public sealed class CreateSpaceRecordRequest
 }
 
 /// <summary>Request body for <c>putRecord</c>.</summary>
-public sealed class PutSpaceRecordRequest
+internal sealed class PutSpaceRecordRequest
 {
     /// <summary>Reference to the space.</summary>
     [JsonPropertyName("space")]
-    public required string Space { get; init; }
+    public required SpaceUri Space { get; init; }
 
     /// <summary>The DID of the repo to write to (the authenticated member).</summary>
     [JsonPropertyName("repo")]
-    public required string Repo { get; init; }
+    public required Did Repo { get; init; }
 
     /// <summary>The NSID of the record collection.</summary>
     [JsonPropertyName("collection")]
-    public required string Collection { get; init; }
+    public required Nsid Collection { get; init; }
 
     /// <summary>The record key.</summary>
     [JsonPropertyName("rkey")]
-    public required string Rkey { get; init; }
+    public required RecordKey Rkey { get; init; }
 
     /// <summary>
     /// <see langword="false"/> to skip Lexicon schema validation, <see langword="true"/> to
@@ -361,23 +370,23 @@ public sealed class PutSpaceRecordRequest
 }
 
 /// <summary>Request body for <c>deleteRecord</c>.</summary>
-public sealed class DeleteSpaceRecordRequest
+internal sealed class DeleteSpaceRecordRequest
 {
     /// <summary>Reference to the space.</summary>
     [JsonPropertyName("space")]
-    public required string Space { get; init; }
+    public required SpaceUri Space { get; init; }
 
     /// <summary>The DID of the repo to delete from (the authenticated member).</summary>
     [JsonPropertyName("repo")]
-    public required string Repo { get; init; }
+    public required Did Repo { get; init; }
 
     /// <summary>The NSID of the record collection.</summary>
     [JsonPropertyName("collection")]
-    public required string Collection { get; init; }
+    public required Nsid Collection { get; init; }
 
     /// <summary>The record key.</summary>
     [JsonPropertyName("rkey")]
-    public required string Rkey { get; init; }
+    public required RecordKey Rkey { get; init; }
 }
 
 /// <summary>Result of a single-record write into a space.</summary>
@@ -385,18 +394,15 @@ public sealed class SpaceWriteResult
 {
     /// <summary>URI of the written record.</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required SpaceRecordUri Uri { get; init; }
 
     /// <summary>The record's CID.</summary>
     [JsonPropertyName("cid")]
-    public required string Cid { get; init; }
+    public required Cid Cid { get; init; }
 
     /// <summary>Whether the record validated against a known Lexicon. See <see cref="SpaceValidationStatus"/>.</summary>
     [JsonPropertyName("validationStatus")]
     public string? ValidationStatus { get; init; }
-
-    /// <summary>Parses <see cref="Uri"/> into its space, author, collection, and record key.</summary>
-    public SpaceRecordUri ToRecordUri() => SpaceRecordUri.Parse(Uri);
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -412,7 +418,7 @@ public abstract class SpaceWriteOp
 {
     /// <summary>The NSID of the record collection.</summary>
     [JsonPropertyName("collection")]
-    public required string Collection { get; init; }
+    public required Nsid Collection { get; init; }
 }
 
 /// <summary>Creates a new record in the batch.</summary>
@@ -421,7 +427,7 @@ public sealed class SpaceCreateOp : SpaceWriteOp
     /// <summary>The record key. Generated by the host when omitted.</summary>
     [JsonPropertyName("rkey")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Rkey { get; init; }
+    public RecordKey? Rkey { get; init; }
 
     /// <summary>The record value.</summary>
     [JsonPropertyName("value")]
@@ -433,7 +439,7 @@ public sealed class SpaceUpdateOp : SpaceWriteOp
 {
     /// <summary>The record key.</summary>
     [JsonPropertyName("rkey")]
-    public required string Rkey { get; init; }
+    public required RecordKey Rkey { get; init; }
 
     /// <summary>The record value.</summary>
     [JsonPropertyName("value")]
@@ -445,19 +451,19 @@ public sealed class SpaceDeleteOp : SpaceWriteOp
 {
     /// <summary>The record key.</summary>
     [JsonPropertyName("rkey")]
-    public required string Rkey { get; init; }
+    public required RecordKey Rkey { get; init; }
 }
 
 /// <summary>Request body for <c>applyWrites</c>.</summary>
-public sealed class ApplySpaceWritesRequest
+internal sealed class ApplySpaceWritesRequest
 {
     /// <summary>Reference to the space.</summary>
     [JsonPropertyName("space")]
-    public required string Space { get; init; }
+    public required SpaceUri Space { get; init; }
 
     /// <summary>The DID of the repo to write to (the authenticated member).</summary>
     [JsonPropertyName("repo")]
-    public required string Repo { get; init; }
+    public required Did Repo { get; init; }
 
     /// <summary>
     /// <see langword="false"/> to skip Lexicon schema validation across all operations,
@@ -470,7 +476,7 @@ public sealed class ApplySpaceWritesRequest
 
     /// <summary>The operations, applied atomically.</summary>
     [JsonPropertyName("writes")]
-    public required List<SpaceWriteOp> Writes { get; init; }
+    public required IReadOnlyList<SpaceWriteOp> Writes { get; init; }
 }
 
 /// <summary>One entry in an <c>applyWrites</c> result, in the order the writes were given.</summary>
@@ -482,11 +488,11 @@ public sealed class SpaceWriteOpResult
 
     /// <summary>URI of the written record. Absent for a delete.</summary>
     [JsonPropertyName("uri")]
-    public string? Uri { get; init; }
+    public SpaceRecordUri? Uri { get; init; }
 
     /// <summary>The record's CID. Absent for a delete.</summary>
     [JsonPropertyName("cid")]
-    public string? Cid { get; init; }
+    public Cid? Cid { get; init; }
 
     /// <summary>Whether the record validated against a known Lexicon. See <see cref="SpaceValidationStatus"/>.</summary>
     [JsonPropertyName("validationStatus")]
@@ -498,7 +504,7 @@ public sealed class ApplySpaceWritesResponse
 {
     /// <summary>The per-operation results, or <see langword="null"/> when the host returned none.</summary>
     [JsonPropertyName("results")]
-    public List<SpaceWriteOpResult>? Results { get; init; }
+    public IReadOnlyList<SpaceWriteOpResult>? Results { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -510,7 +516,7 @@ public sealed class RegisterNotifyRequest
 {
     /// <summary>Reference to the space.</summary>
     [JsonPropertyName("space")]
-    public required string Space { get; init; }
+    public required SpaceUri Space { get; init; }
 
     /// <summary>
     /// Service identifier of the subscriber: a DID with an optional service fragment naming the
@@ -529,7 +535,7 @@ public sealed class RegisterNotifyResponse
     /// request was authenticated with; renew before this time to stay subscribed.
     /// </summary>
     [JsonPropertyName("expiresAt")]
-    public required string ExpiresAt { get; init; }
+    public required AtDatetime ExpiresAt { get; init; }
 }
 
 /// <summary>Request body for <c>unregisterNotify</c>.</summary>
@@ -537,7 +543,7 @@ public sealed class UnregisterNotifyRequest
 {
     /// <summary>Reference to the space.</summary>
     [JsonPropertyName("space")]
-    public required string Space { get; init; }
+    public required SpaceUri Space { get; init; }
 
     /// <summary>Service identifier of the subscriber to remove, as passed to <c>registerNotify</c>.</summary>
     [JsonPropertyName("service")]
@@ -553,15 +559,15 @@ public sealed class NotifyWriteRequest
 {
     /// <summary>Reference to the space.</summary>
     [JsonPropertyName("space")]
-    public required string Space { get; init; }
+    public required SpaceUri Space { get; init; }
 
     /// <summary>The DID of the account whose repo advanced.</summary>
     [JsonPropertyName("repo")]
-    public required string Repo { get; init; }
+    public required Did Repo { get; init; }
 
-    /// <summary>The revision (a TID) of the write.</summary>
+    /// <summary>The revision of the write.</summary>
     [JsonPropertyName("rev")]
-    public required string Rev { get; init; }
+    public required Tid Rev { get; init; }
 
     /// <summary>
     /// The repo's current commit hash (<c>sha256</c> of the LtHash state) after the write.
@@ -573,11 +579,11 @@ public sealed class NotifyWriteRequest
 }
 
 /// <summary>Request body for <c>notifySpaceDeleted</c>.</summary>
-public sealed class NotifySpaceDeletedRequest
+internal sealed class NotifySpaceDeletedRequest
 {
     /// <summary>Reference to the deleted space.</summary>
     [JsonPropertyName("space")]
-    public required string Space { get; init; }
+    public required SpaceUri Space { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────

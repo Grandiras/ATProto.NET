@@ -9,11 +9,10 @@ using ATProtoNet.Streaming;
 
 var firehose = new FirehoseClient("wss://bsky.network");
 
-await foreach (var message in firehose.SubscribeAsync())
+await foreach (var frame in firehose.SubscribeAsync())
 {
-    Console.WriteLine($"Seq: {message.Seq}");
-    Console.WriteLine($"Repo: {message.Repo}");
-    Console.WriteLine($"Time: {message.Time}");
+    if (FirehoseEventParser.Parse(frame) is CommitEvent commit)
+        Console.WriteLine($"{commit.Seq}: {commit.Repo} at {commit.Time}");
 }
 ```
 
@@ -188,26 +187,32 @@ The message types live in `ATProtoNet.Lexicon.Com.AtProto.Sync`:
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Repo` | `string` | DID of the repository |
-| `Commit` | `string` | CID of the commit block |
-| `Rev` | `string` | Revision string (a TID) |
-| `Since` | `string?` | Revision the diff is relative to, for a partial commit |
+| `Repo` | `Did` | DID of the repository |
+| `Commit` | `Cid` | CID of the commit block |
+| `Rev` | `Tid` | Revision of the commit |
+| `Since` | `Tid?` | Revision the diff is relative to, for a partial commit |
 | `Seq` | `long` | Sequence number (from `FirehoseMessage`) |
-| `Time` | `string?` | ISO 8601 timestamp (from `FirehoseMessage`) |
-| `Ops` | `List<RepoOp>?` | Record operations |
+| `Time` | `AtDatetime?` | When the upstream host emitted the event (from `FirehoseMessage`) |
+| `Ops` | `IReadOnlyList<RepoOp>?` | Record operations |
 | `Blocks` | `byte[]?` | CAR-encoded block data |
 | `TooBig` | `bool` | Commit was too large to inline — fetch the repo separately |
-| `PrevData` | `string?` | Previous data CID (Sync v1.1) |
-| `Blobs` | `List<string>?` | Referenced blobs (deprecated — soon always empty) |
+| `PrevData` | `Cid?` | Previous data CID (Sync v1.1) |
+| `Blobs` | `IReadOnlyList<Cid>?` | Referenced blobs (deprecated — soon always empty) |
+
+`SyncEvent`, `IdentityEvent`, `AccountEvent` and the legacy `HandleEvent` and `TombstoneEvent` carry
+their account as a `Did`, and a handle as a `Handle`.
+
+A frame whose identifiers do not parse — a `repo` that is not a DID, a `commit` that is not a CID —
+is dropped like any other malformed frame: `FirehoseEventParser.Parse` returns `null`.
 
 ### RepoOp
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Action` | `string` | `"create"`, `"update"`, `"delete"` |
+| `Action` | `RepoOpAction` | `Create`, `Update` or `Delete` — the same three as Jetstream's `JetstreamOperation` |
 | `Path` | `string` | `collection/rkey` path |
-| `Cid` | `string?` | CID of the record |
-| `Prev` | `string?` | Previous CID for inductive verification |
+| `Cid` | `Cid?` | CID of the record |
+| `Prev` | `Cid?` | Previous CID for inductive verification |
 
 ## Commit Verification
 

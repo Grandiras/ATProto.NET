@@ -1,3 +1,4 @@
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Spaces;
 
@@ -44,7 +45,7 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
         Assert.Equal(4, repo.Index.Count);
         Assert.True(SpaceRepoCommit.FromIndex(repo.Index).Matches(repo.Commit));
 
-        var latest = await reader.Space.GetLatestCommitAsync(space.Value, fixture.Member.Did);
+        var latest = await reader.Space.GetLatestCommitAsync(space, fixture.Member.Did);
         Assert.Equal(latest.Commit.Rev, repo.Commit.Rev);
         Assert.Equal(latest.Commit.Hash, repo.Commit.Hash);
 
@@ -92,7 +93,7 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
         await fixture.WriteAsync(fixture.Member, space, "drop", "drop");
 
         await fixture.Member.Client.Space.DeleteRecordAsync(
-            space.Value, fixture.Member.Did, SpaceNetworkFixture.Collection, "drop");
+            space, fixture.Member.Did, SpaceNetworkFixture.Collection, RecordKey.Parse("drop"));
 
         await using var provider = fixture.CreateProvider(fixture.Authority);
         using var reader = await provider.CreateReaderForRepoAsync(space, fixture.Member.Did);
@@ -152,7 +153,7 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
 
         await fixture.WriteAsync(fixture.Member, space, "second", "second");
         await fixture.Member.Client.Space.DeleteRecordAsync(
-            space.Value, fixture.Member.Did, SpaceNetworkFixture.Collection, "first");
+            space, fixture.Member.Did, SpaceNetworkFixture.Collection, RecordKey.Parse("first"));
 
         var caught = await syncer.SyncRepoAsync(reader.Space, cursor);
 
@@ -214,9 +215,11 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
 
         // The oplog is a transport optimization with no history guarantee — a host may compact
         // it, and it does not survive migration. Pruning it is not reachable over the wire, but
-        // a `since` the host refuses drives the same fallback, which is the branch that matters:
-        // an unserviceable cursor must end in a full download rather than an exception.
-        var stale = new SpaceRepoCursor(fixture.Member.Did, "not-a-revision", state: default);
+        // a `since` the host cannot serve drives the same fallback, which is the branch that
+        // matters: one from the future is either refused or answered with a head commit the
+        // empty copy cannot match, and either way the cursor must end in a full download rather
+        // than an exception.
+        var stale = new SpaceRepoCursor(fixture.Member.Did, Tid.Parse("7777777777777"), state: default);
         var result = await syncer.SyncRepoAsync(reader.Space, stale);
 
         Assert.Equal(SpaceSyncOutcome.Recovered, result.Outcome);
@@ -275,25 +278,25 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
         var writers = await Poll(
             async () =>
             {
-                var page = await host.Space.ListReposAsync(space.Value);
+                var page = await host.Space.ListReposAsync(space);
                 return page.Repos;
             },
             repos => repos.Any(repo => repo.Did == fixture.Member.Did));
 
         var writer = Assert.Single(writers, repo => repo.Did == fixture.Member.Did);
-        Assert.NotEmpty(writer.Rev);
+        Assert.NotNull(writer.Rev);
         Assert.NotEmpty(writer.Hash);
 
         // Each entry carries the repo's current rev, which is what lets a sweep re-sync only the
         // repos that advanced instead of polling every one of them.
-        var commit = await host.Space.GetLatestCommitAsync(space.Value, fixture.Member.Did);
+        var commit = await host.Space.GetLatestCommitAsync(space, fixture.Member.Did);
         Assert.Equal(commit.Commit.Rev, writer.Rev);
     }
 
     private static async Task<byte[]> DownloadRepoAsync(
-        SpaceReader reader, SpaceUri space, string repo, bool? excludeValues = null)
+        SpaceReader reader, SpaceUri space, Did repo, bool? excludeValues = null)
     {
-        await using var response = await reader.Space.GetRepoAsync(space.Value, repo, excludeValues);
+        await using var response = await reader.Space.GetRepoAsync(space, repo, excludeValues);
         using var buffer = new MemoryStream();
         await response.Content.CopyToAsync(buffer);
         return buffer.ToArray();
@@ -319,17 +322,17 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
 /// </summary>
 internal sealed class InMemorySpaceRepoStore : ISpaceRepoStore
 {
-    private readonly Dictionary<string, Dictionary<string, string>> _repos = [];
+    private readonly Dictionary<Did, Dictionary<string, Cid>> _repos = [];
 
-    public int Count(string repo) => _repos.TryGetValue(repo, out var records) ? records.Count : 0;
+    public int Count(Did repo) => _repos.TryGetValue(repo, out var records) ? records.Count : 0;
 
-    public IReadOnlyDictionary<string, string> Records(string repo) =>
-        _repos.TryGetValue(repo, out var records) ? records : new Dictionary<string, string>();
+    public IReadOnlyDictionary<string, Cid> Records(Did repo) =>
+        _repos.TryGetValue(repo, out var records) ? records : new Dictionary<string, Cid>();
 
-    public Task ApplyAsync(SpaceUri space, string repo, SpaceRepoOpEntry op, CancellationToken cancellationToken)
+    public Task ApplyAsync(SpaceUri space, Did repo, SpaceRepoOpEntry op, CancellationToken cancellationToken)
     {
         if (!_repos.TryGetValue(repo, out var records))
-            _repos[repo] = records = new Dictionary<string, string>(StringComparer.Ordinal);
+            _repos[repo] = records = new Dictionary<string, Cid>(StringComparer.Ordinal);
 
         var path = $"{op.Collection}/{op.Rkey}";
         if (op.Cid is null)
@@ -341,13 +344,13 @@ internal sealed class InMemorySpaceRepoStore : ISpaceRepoStore
     }
 
     public Task ReplaceAsync(
-        SpaceUri space, string repo, VerifiedSpaceRepo contents, CancellationToken cancellationToken)
+        SpaceUri space, Did repo, VerifiedSpaceRepo contents, CancellationToken cancellationToken)
     {
         _repos[repo] = contents.Index.ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.Ordinal);
         return Task.CompletedTask;
     }
 
-    public Task DropAsync(SpaceUri space, string repo, CancellationToken cancellationToken)
+    public Task DropAsync(SpaceUri space, Did repo, CancellationToken cancellationToken)
     {
         _repos.Remove(repo);
         return Task.CompletedTask;

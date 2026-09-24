@@ -35,7 +35,8 @@ public sealed class JetstreamConsumerOptions
 
     /// <summary>
     /// Collections to receive commit events for. Supports full NSIDs
-    /// (e.g., "app.bsky.feed.post") and prefix wildcards (e.g., "app.bsky.graph.*").
+    /// (e.g., "app.bsky.feed.post") and prefix wildcards (e.g., "app.bsky.graph.*"), which is
+    /// why the entries are strings rather than <see cref="Nsid"/>s.
     /// Maximum 100 entries. If null or empty, commit events for all collections are delivered.
     /// </summary>
     public IReadOnlyList<string>? WantedCollections { get; init; }
@@ -44,7 +45,7 @@ public sealed class JetstreamConsumerOptions
     /// DIDs to receive events for. Maximum 10,000 entries.
     /// If null or empty, events for all repos are delivered.
     /// </summary>
-    public IReadOnlyList<string>? WantedDids { get; init; }
+    public IReadOnlyList<Did>? WantedDids { get; init; }
 
     /// <summary>
     /// Event kinds to receive. <see cref="JetstreamProtocol.V2"/> only — v1 has no
@@ -319,6 +320,10 @@ public interface IJetstreamDecompressor
 }
 
 /// <summary>The repository operation carried by a Jetstream commit event.</summary>
+/// <remarks>
+/// The same three operations as the firehose's
+/// <see cref="Lexicon.Com.AtProto.Sync.RepoOpAction"/>.
+/// </remarks>
 public enum JetstreamOperation
 {
     /// <summary>A record was created.</summary>
@@ -375,16 +380,16 @@ public sealed class JetstreamCommitEvent : JetstreamEvent
     private AtUri? _uri;
 
     /// <summary>The collection NSID (e.g., "app.bsky.feed.post").</summary>
-    public required string Collection { get; init; }
+    public required Nsid Collection { get; init; }
 
     /// <summary>The record key within the collection.</summary>
-    public required string RKey { get; init; }
+    public required RecordKey Rkey { get; init; }
 
     /// <summary>The repository operation.</summary>
     public required JetstreamOperation Operation { get; init; }
 
-    /// <summary>The repo revision (TID) of the commit, if present.</summary>
-    public string? Rev { get; init; }
+    /// <summary>The repo revision of the commit, if present.</summary>
+    public Tid? Rev { get; init; }
 
     /// <summary>The record CID. Null for delete operations.</summary>
     public Cid? Cid { get; init; }
@@ -396,7 +401,7 @@ public sealed class JetstreamCommitEvent : JetstreamEvent
     public JsonElement? Record { get; init; }
 
     /// <summary>The <c>at://</c> URI of the affected record.</summary>
-    public AtUri Uri => _uri ??= AtUri.Parse($"at://{Did}/{Collection}/{RKey}");
+    public AtUri Uri => _uri ??= AtUri.Create(AtIdentifier.FromDid(Did), Collection, Rkey);
 
     /// <summary>
     /// Deserialize the record body as <typeparamref name="T"/> using
@@ -413,13 +418,13 @@ public sealed class JetstreamCommitEvent : JetstreamEvent
 public sealed class JetstreamIdentityEvent : JetstreamEvent
 {
     /// <summary>The new handle, if provided.</summary>
-    public string? Handle { get; init; }
+    public Handle? Handle { get; init; }
 
     /// <summary>The firehose sequence number of the underlying identity event, if present.</summary>
     public long? Seq { get; init; }
 
-    /// <summary>The identity event timestamp (ISO 8601), if present.</summary>
-    public string? Time { get; init; }
+    /// <summary>The identity event timestamp, if present.</summary>
+    public AtDatetime? Time { get; init; }
 }
 
 /// <summary>An account status change (activation, takedown, deactivation) for a repo.</summary>
@@ -434,8 +439,8 @@ public sealed class JetstreamAccountEvent : JetstreamEvent
     /// <summary>The firehose sequence number of the underlying account event, if present.</summary>
     public long? Seq { get; init; }
 
-    /// <summary>The account event timestamp (ISO 8601), if present.</summary>
-    public string? Time { get; init; }
+    /// <summary>The account event timestamp, if present.</summary>
+    public AtDatetime? Time { get; init; }
 }
 
 /// <summary>
@@ -449,8 +454,8 @@ public sealed class JetstreamAccountEvent : JetstreamEvent
 /// </remarks>
 public sealed class JetstreamSyncEvent : JetstreamEvent
 {
-    /// <summary>The repo revision (TID) the account is being resynchronized to, if present.</summary>
-    public string? Rev { get; init; }
+    /// <summary>The repo revision the account is being resynchronized to, if present.</summary>
+    public Tid? Rev { get; init; }
 
     /// <summary>
     /// The CAR file carrying the commit block, if present. Decoded from the frame's
@@ -461,6 +466,6 @@ public sealed class JetstreamSyncEvent : JetstreamEvent
     /// <summary>The firehose sequence number of the underlying sync event, if present.</summary>
     public long? Seq { get; init; }
 
-    /// <summary>The sync event timestamp (ISO 8601), if present.</summary>
-    public string? Time { get; init; }
+    /// <summary>The sync event timestamp, if present.</summary>
+    public AtDatetime? Time { get; init; }
 }

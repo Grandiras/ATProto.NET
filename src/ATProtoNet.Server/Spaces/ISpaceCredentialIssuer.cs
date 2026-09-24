@@ -62,7 +62,7 @@ public sealed class SpaceCredentialIssuer : ISpaceCredentialIssuer, IDisposable
         ArgumentNullException.ThrowIfNull(signingKey);
         ArgumentNullException.ThrowIfNull(options);
 
-        if (string.IsNullOrWhiteSpace(options.ServiceDid))
+        if (options.ServiceDid is null)
         {
             throw new ArgumentException(
                 $"A space authority must know its own DID; set {nameof(SpaceServerOptions)}.{nameof(SpaceServerOptions.ServiceDid)}.",
@@ -84,7 +84,7 @@ public sealed class SpaceCredentialIssuer : ISpaceCredentialIssuer, IDisposable
         // An authority mints credentials only for the spaces it gates. Minting one whose subject
         // names another authority would produce a token no reader will accept, because a reader
         // resolves the signer from the space URI rather than from the credential's issuer.
-        if (!string.Equals(space.Authority, _options.ServiceDid, StringComparison.Ordinal))
+        if (space.Authority != _options.ServiceDid)
         {
             throw new InvalidOperationException(
                 $"This service ({_options.ServiceDid}) is not the authority for {space}.");
@@ -92,7 +92,7 @@ public sealed class SpaceCredentialIssuer : ISpaceCredentialIssuer, IDisposable
 
         var credential = SpaceTokens.Create(
             SpaceTokenType.Credential,
-            issuer: _options.ServiceDid!,
+            issuer: _options.ServiceDid!.Value,
             subject: space.Value,
             signingKey: _signingKey,
             dpopThumbprint: dpopThumbprint,

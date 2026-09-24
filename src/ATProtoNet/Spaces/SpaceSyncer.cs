@@ -64,7 +64,7 @@ public enum SpaceSyncOutcome
 /// <param name="RecoveredRepo">The rebuilt repo, when <see cref="Outcome"/> is <see cref="SpaceSyncOutcome.Recovered"/>.</param>
 public sealed record SpaceSyncResult(
     SpaceSyncOutcome Outcome,
-    string? Rev,
+    Tid? Rev,
     SignedSpaceCommit? Commit,
     IReadOnlyList<SpaceRepoOpEntry> Ops,
     VerifiedSpaceRepo? RecoveredRepo);
@@ -84,7 +84,7 @@ public sealed class SpaceRepoCursor
 {
     /// <summary>Creates a cursor for a repo the syncer has never read.</summary>
     /// <param name="repo">The DID of the account whose repo this tracks.</param>
-    public SpaceRepoCursor(string repo) : this(repo, rev: null, state: default)
+    public SpaceRepoCursor(Did repo) : this(repo, rev: null, state: default)
     {
     }
 
@@ -95,9 +95,9 @@ public sealed class SpaceRepoCursor
     /// The persisted <see cref="LtHash"/> state of the local copy, or an empty span for a repo
     /// the syncer holds nothing of.
     /// </param>
-    public SpaceRepoCursor(string repo, string? rev, ReadOnlySpan<byte> state)
+    public SpaceRepoCursor(Did repo, Tid? rev, ReadOnlySpan<byte> state)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(repo);
+        ArgumentNullException.ThrowIfNull(repo);
 
         Repo = repo;
         Rev = rev;
@@ -105,10 +105,10 @@ public sealed class SpaceRepoCursor
     }
 
     /// <summary>The DID of the account whose repo this tracks.</summary>
-    public string Repo { get; }
+    public Did Repo { get; }
 
     /// <summary>The revision the local copy stands at, or <see langword="null"/> if it holds nothing.</summary>
-    public string? Rev { get; internal set; }
+    public Tid? Rev { get; internal set; }
 
     /// <summary>The running set hash over the local copy.</summary>
     public SpaceRepoCommit Commit { get; private set; }
@@ -116,7 +116,7 @@ public sealed class SpaceRepoCursor
     /// <summary>Serializes the running set hash for persistence alongside <see cref="Rev"/>.</summary>
     public byte[] GetState() => Commit.SetHash.GetState();
 
-    internal void Reset(SpaceRepoCommit commit, string? rev)
+    internal void Reset(SpaceRepoCommit commit, Tid? rev)
     {
         Commit = commit;
         Rev = rev;
@@ -149,7 +149,7 @@ public sealed class SpaceSyncer
 {
     private readonly SpaceUri _space;
     private readonly ISpaceRepoStore _store;
-    private readonly Func<string, CancellationToken, Task<string>> _signingKeyResolver;
+    private readonly Func<Did, CancellationToken, Task<string>> _signingKeyResolver;
     private readonly ILogger _logger;
 
     /// <summary>
@@ -166,7 +166,7 @@ public sealed class SpaceSyncer
     public SpaceSyncer(
         SpaceUri space,
         ISpaceRepoStore store,
-        Func<string, CancellationToken, Task<string>> signingKeyResolver,
+        Func<Did, CancellationToken, Task<string>> signingKeyResolver,
         ILogger? logger = null)
     {
         ArgumentNullException.ThrowIfNull(space);
@@ -200,8 +200,8 @@ public sealed class SpaceSyncer
         try
         {
             page = await client.ListRepoOpsAsync(
-                _space.Value, cursor.Repo, cursor.Rev, pageSize, cursor: null,
-                excludeValues: false, cancellationToken);
+                _space, cursor.Repo, cursor.Rev, excludeValues: false, pageSize, cursor: null,
+                cancellationToken);
         }
         catch (XrpcException ex) when (IsMissingRepo(ex))
         {
@@ -312,7 +312,7 @@ public sealed class SpaceSyncer
         try
         {
             await using var response = await client.GetRepoAsync(
-                _space.Value, cursor.Repo, excludeValues: null, cancellationToken);
+                _space, cursor.Repo, excludeValues: null, cancellationToken);
 
             using var buffer = new MemoryStream();
             await response.Content.CopyToAsync(buffer, cancellationToken);
@@ -345,7 +345,7 @@ public sealed class SpaceSyncer
     /// announce a key rotation — those apply to permissioned repos exactly as they do to public
     /// ones, so an application syncing only permissioned data still needs that stream.
     /// </remarks>
-    public static Func<string, CancellationToken, Task<string>> ResolveSigningKeyAsync(DidResolver resolver)
+    public static Func<Did, CancellationToken, Task<string>> ResolveSigningKeyAsync(DidResolver resolver)
     {
         ArgumentNullException.ThrowIfNull(resolver);
 
@@ -396,7 +396,7 @@ public interface ISpaceRepoStore
     /// the same response superseded it.
     /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task ApplyAsync(SpaceUri space, string repo, SpaceRepoOpEntry op, CancellationToken cancellationToken);
+    Task ApplyAsync(SpaceUri space, Did repo, SpaceRepoOpEntry op, CancellationToken cancellationToken);
 
     /// <summary>
     /// Replaces everything held for one repo with a verified full download.
@@ -409,7 +409,7 @@ public interface ISpaceRepoStore
     /// An implementation replacing an existing copy may diff <paramref name="contents"/> against
     /// what it holds and keep only what it is missing, rather than rewriting everything.
     /// </remarks>
-    Task ReplaceAsync(SpaceUri space, string repo, VerifiedSpaceRepo contents, CancellationToken cancellationToken);
+    Task ReplaceAsync(SpaceUri space, Did repo, VerifiedSpaceRepo contents, CancellationToken cancellationToken);
 
     /// <summary>
     /// Drops everything held for one repo, because the account no longer holds one in this space
@@ -418,5 +418,5 @@ public interface ISpaceRepoStore
     /// <param name="space">The space.</param>
     /// <param name="repo">The DID of the account.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task DropAsync(SpaceUri space, string repo, CancellationToken cancellationToken);
+    Task DropAsync(SpaceUri space, Did repo, CancellationToken cancellationToken);
 }

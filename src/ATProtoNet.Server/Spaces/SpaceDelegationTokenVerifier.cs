@@ -1,3 +1,4 @@
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Spaces;
 
@@ -16,7 +17,7 @@ namespace ATProtoNet.Server.Spaces;
 /// read the space is the authority's own determination, made against its policy after this;
 /// the token says nothing about it.
 /// </remarks>
-public sealed record VerifiedDelegationToken(SpaceToken Token, SpaceUri Space, string UserDid);
+public sealed record VerifiedDelegationToken(SpaceToken Token, SpaceUri Space, Did UserDid);
 
 /// <summary>
 /// Verifies the delegation tokens presented to a space authority at credential-mint time.
@@ -102,8 +103,13 @@ public sealed class SpaceDelegationTokenVerifier
                 $"The delegation token is addressed to '{parsed.Audience}', not to '{expectedAudience}'.");
         }
 
+        // A delegation token is minted by the user's PDS in the user's name, so its issuer is the
+        // user's DID and nothing else.
+        if (!Did.TryParse(parsed.Issuer, out var userDid))
+            throw Invalid($"A delegation token's issuer must be a DID; got '{parsed.Issuer}'.");
+
         var issuerKey = await _resolver.ResolveAccountKeyAsync(
-            parsed.Issuer, parsed.KeyId, SpaceErrors.InvalidDelegationToken, cancellationToken);
+            userDid, parsed.KeyId, SpaceErrors.InvalidDelegationToken, cancellationToken);
 
         SpaceToken verified;
         try
@@ -112,7 +118,7 @@ public sealed class SpaceDelegationTokenVerifier
                 parsed,
                 issuerKey,
                 expectedAudience,
-                space.Value,
+                space,
                 _timeProvider.GetUtcNow());
         }
         catch (SpaceTokenException ex)
@@ -137,7 +143,7 @@ public sealed class SpaceDelegationTokenVerifier
             throw Invalid("The delegation token has already been used; delegation tokens are single-use.");
         }
 
-        return new VerifiedDelegationToken(verified, space, verified.Issuer);
+        return new VerifiedDelegationToken(verified, space, userDid);
     }
 
     private static SpaceVerificationException Invalid(string message) =>

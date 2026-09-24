@@ -1,3 +1,4 @@
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Spaces;
 
@@ -11,7 +12,7 @@ namespace ATProtoNet.Server.Spaces;
 /// <param name="AuthorityDid">The space authority that issued it.</param>
 /// <param name="Proof">The DPoP proof presented with it, already verified against the request.</param>
 public sealed record VerifiedSpaceCredential(
-    SpaceToken Token, SpaceUri Space, string AuthorityDid, DPoPProof Proof);
+    SpaceToken Token, SpaceUri Space, Did AuthorityDid, DPoPProof Proof);
 
 /// <summary>
 /// Verifies the space credentials presented to a repo host.
@@ -94,7 +95,7 @@ public sealed class SpaceCredentialVerifier
         // A space's credentials are minted by its own authority and by nobody else. Taking the
         // signer from the space URI rather than from the credential's iss is what stops an
         // authority minting credentials for a space it does not gate.
-        if (!string.Equals(parsed.Issuer, space.Authority, StringComparison.Ordinal))
+        if (!string.Equals(parsed.Issuer, space.Authority.Value, StringComparison.Ordinal))
         {
             throw Invalid(
                 $"The credential for {space} was issued by '{parsed.Issuer}', not by the space's authority.");
@@ -110,7 +111,7 @@ public sealed class SpaceCredentialVerifier
                 parsed,
                 authorityKey,
                 expectedAudience: null,
-                expectedSubject: space.Value,
+                expectedSubject: space,
                 _timeProvider.GetUtcNow());
         }
         catch (SpaceTokenException ex)

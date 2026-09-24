@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
+using ATProtoNet.Models;
 
 namespace ATProtoNet.Streaming;
 
@@ -242,11 +244,12 @@ public sealed class JetstreamSnapshotRequest
 
     /// <summary>DIDs to include. Null or empty includes every DID. Maximum 10,000 entries.</summary>
     [JsonPropertyName("dids")]
-    public IReadOnlyList<string>? Dids { get; init; }
+    public IReadOnlyList<Did>? Dids { get; init; }
 
     /// <summary>
-    /// Collection NSIDs or namespace wildcards such as <c>app.bsky.feed.*</c>. Constrains commit
-    /// events only. Null or empty includes every collection. Maximum 100 entries.
+    /// Collection NSIDs or namespace wildcards such as <c>app.bsky.feed.*</c>, which is why the
+    /// entries are strings. Constrains commit events only. Null or empty includes every
+    /// collection. Maximum 100 entries.
     /// </summary>
     [JsonPropertyName("collections")]
     public IReadOnlyList<string>? Collections { get; init; }
@@ -305,7 +308,7 @@ public sealed class JetstreamSegmentInfo
 }
 
 /// <summary>One page of a <c>network.bsky.jetstream.listSegments</c> response.</summary>
-public sealed class JetstreamSegmentPage
+public sealed class JetstreamSegmentPage : ICursorPage<JetstreamSegmentInfo>
 {
     /// <summary>The pagination cursor for the next page, or null at the end of the list.</summary>
     [JsonPropertyName("cursor")]
@@ -314,6 +317,8 @@ public sealed class JetstreamSegmentPage
     /// <summary>The segments in this page, in ascending index order.</summary>
     [JsonPropertyName("segments")]
     public IReadOnlyList<JetstreamSegmentInfo> Segments { get; init; } = [];
+
+    IReadOnlyList<JetstreamSegmentInfo> ICursorPage<JetstreamSegmentInfo>.Items => Segments;
 }
 
 /// <summary>

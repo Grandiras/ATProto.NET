@@ -1,4 +1,5 @@
 using ATProtoNet.Crypto;
+using ATProtoNet.Identity;
 using ATProtoNet.Server.EntityFrameworkCore;
 using ATProtoNet.Server.Redis;
 using ATProtoNet.Server.Spaces;
@@ -58,7 +59,7 @@ public class SpaceStoreRegistrationTests
     public void AddAtProtoEfCoreSimpleSpace_RegistersTheStoreAndTheBaselinePolicy()
     {
         var services = Services();
-        services.AddAtProtoSpaces(options => options.ServiceDid = "did:web:pds.example.com");
+        services.AddAtProtoSpaces(options => options.ServiceDid = Did.Parse("did:web:pds.example.com"));
         services.AddAtProtoEfCoreSpaceAuthority<SpaceDbContext>(AtProtoCrypto.GenerateP256Key());
         services.AddAtProtoEfCoreSimpleSpace<SpaceDbContext>();
 
@@ -79,7 +80,7 @@ public class SpaceStoreRegistrationTests
         // The order the two calls appear in is not something a deployment should have to get
         // right, so which store answers "does this space exist" is decided when it is resolved.
         var services = Services();
-        services.AddAtProtoSpaces(options => options.ServiceDid = "did:web:pds.example.com");
+        services.AddAtProtoSpaces(options => options.ServiceDid = Did.Parse("did:web:pds.example.com"));
         services.AddSimpleSpace<InMemorySimpleSpaceStore>();
         services.AddSpaceAuthority<InMemorySpaceAuthorityStore>(AtProtoCrypto.GenerateP256Key());
 
@@ -96,7 +97,7 @@ public class SpaceStoreRegistrationTests
         // A service running a bespoke space type declares its spaces to the authority store
         // itself; there is no second store to read existence from.
         var services = Services();
-        services.AddAtProtoSpaces(options => options.ServiceDid = "did:web:spaces.example.com");
+        services.AddAtProtoSpaces(options => options.ServiceDid = Did.Parse("did:web:spaces.example.com"));
         services.AddSpaceAuthority<InMemorySpaceAuthorityStore>(AtProtoCrypto.GenerateP256Key());
 
         using var provider = services.BuildServiceProvider();

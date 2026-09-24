@@ -91,7 +91,7 @@ public class SyncModelsTests
     {
         var json = """
         {
-            "cursor": "abc123",
+            "cursor": "3jzfcijpj2z2a",
             "hosts": [
                 {
                     "hostname": "pds1.example.com",
@@ -110,7 +110,7 @@ public class SyncModelsTests
         var response = JsonSerializer.Deserialize<ListHostsResponse>(json, _options);
 
         Assert.NotNull(response);
-        Assert.Equal("abc123", response.Cursor);
+        Assert.Equal("3jzfcijpj2z2a", response.Cursor);
         Assert.Equal(2, response.Hosts.Count);
 
         Assert.Equal("pds1.example.com", response.Hosts[0].Hostname);
@@ -227,30 +227,30 @@ public class SyncModelsTests
             "$type": "#commit",
             "seq": 500,
             "repo": "did:plc:test",
-            "commit": "bafyreiabc",
+            "commit": "bafyreievaxfmw7drb3ixcjp4y3ftm2pi3xfgzdgyv5vdd5vtzvsgatbqta",
             "rev": "3k2la7qbx5c2a",
-            "since": "3k2la7qbx5c29",
+            "since": "3k2la7qbx5c27",
             "tooBig": false,
             "rebase": false,
-            "prevData": "bafyreiprevdata",
+            "prevData": "bafyreihlzn2lwoicy7x46zrj4ysc3eqhmpvghca5vbhcwtubpytilc6xsi",
             "blobs": [],
             "ops": [
                 {
                     "action": "create",
                     "path": "app.bsky.feed.post/3k2la",
-                    "cid": "bafyreicid"
+                    "cid": "bafyreicuerrgxezkf745depqtasepklz7xoyws7ckhusinymwzuqbxybry"
                 },
                 {
                     "action": "update",
                     "path": "app.bsky.feed.post/3k2lb",
-                    "cid": "bafyreinewcid",
-                    "prev": "bafyreioldcid"
+                    "cid": "bafyreif5xp2wdd3kcu54tgzu4zjp2iazrs2zabrfkpz6gklpco7cfhfopa",
+                    "prev": "bafyreidlviq64injlkcffzcrpomojfo5wrbhwn4niudum4kgilgu754laa"
                 },
                 {
                     "action": "delete",
                     "path": "app.bsky.feed.post/3k2lc",
                     "cid": null,
-                    "prev": "bafyreidelcid"
+                    "prev": "bafyreiem2r3qkjputcvajc5j4gbodhjwchw6wkcnac4cx3nqme5cw4t6sy"
                 }
             ]
         }
@@ -260,25 +260,25 @@ public class SyncModelsTests
 
         Assert.IsType<CommitEvent>(msg);
         var commit = (CommitEvent)msg;
-        Assert.Equal("bafyreiprevdata", commit.PrevData);
+        Assert.Equal("bafyreihlzn2lwoicy7x46zrj4ysc3eqhmpvghca5vbhcwtubpytilc6xsi", commit.PrevData);
         Assert.NotNull(commit.Blobs);
         Assert.Empty(commit.Blobs);
         Assert.Equal(3, commit.Ops!.Count);
 
         // create — no prev
-        Assert.Equal("create", commit.Ops[0].Action);
-        Assert.Equal("bafyreicid", commit.Ops[0].Cid);
+        Assert.Equal(RepoOpAction.Create, commit.Ops[0].Action);
+        Assert.Equal("bafyreicuerrgxezkf745depqtasepklz7xoyws7ckhusinymwzuqbxybry", commit.Ops[0].Cid);
         Assert.Null(commit.Ops[0].Prev);
 
         // update — has prev
-        Assert.Equal("update", commit.Ops[1].Action);
-        Assert.Equal("bafyreinewcid", commit.Ops[1].Cid);
-        Assert.Equal("bafyreioldcid", commit.Ops[1].Prev);
+        Assert.Equal(RepoOpAction.Update, commit.Ops[1].Action);
+        Assert.Equal("bafyreif5xp2wdd3kcu54tgzu4zjp2iazrs2zabrfkpz6gklpco7cfhfopa", commit.Ops[1].Cid);
+        Assert.Equal("bafyreidlviq64injlkcffzcrpomojfo5wrbhwn4niudum4kgilgu754laa", commit.Ops[1].Prev);
 
         // delete — has prev, null cid
-        Assert.Equal("delete", commit.Ops[2].Action);
+        Assert.Equal(RepoOpAction.Delete, commit.Ops[2].Action);
         Assert.Null(commit.Ops[2].Cid);
-        Assert.Equal("bafyreidelcid", commit.Ops[2].Prev);
+        Assert.Equal("bafyreiem2r3qkjputcvajc5j4gbodhjwchw6wkcnac4cx3nqme5cw4t6sy", commit.Ops[2].Prev);
     }
 
     // ──────────────────────────────────────────────────────────

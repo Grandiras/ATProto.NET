@@ -48,9 +48,15 @@ space.Authority;   // did:plc:abc123 — the DID that gates access
 space.SpaceType;   // com.atmoboards.forum — the modality
 space.Skey;        // default
 
-var record = space.Record(authorDid, "com.atmoboards.thread", "3l6oveex3ii2l");
+var record = space.Record(authorDid, Nsid.Parse("com.atmoboards.thread"), RecordKey.Parse("3l6oveex3ii2l"));
 record.Path;       // com.atmoboards.thread/3l6oveex3ii2l
 ```
+
+The components are typed — `Authority` and a record's `Author` are `Did`s, `SpaceType` and
+`Collection` are `Nsid`s, and `Skey` and `Rkey` are `RecordKey`s — and so is every space
+identifier across the API: a space is a `SpaceUri`, a record in one a `SpaceRecordUri`, a
+participant a `Did`, and revisions and CIDs `Tid` and `Cid`. A string from the outside world goes
+through the type's `Parse` or `TryParse` once, at the edge.
 
 Permissioned data reuses the `at://` scheme rather than defining its own. The literal `space`
 segment sits where a collection NSID appears in a public AT-URI, and the two can never be
@@ -71,29 +77,33 @@ user's own DID, so their PDS is both the space host and the repo host, and OAuth
 ```csharp
 // Create a space on the user's own PDS. simplespace is the space-management
 // implementation every PDS is required to support.
-var created = await client.SimpleSpace.CreateSpaceAsync("com.example.bookmarks", skey: "self");
-var space = created.ToSpaceUri();
+var created = await client.SimpleSpace.CreateSpaceAsync(
+    Nsid.Parse("com.example.bookmarks"), skey: RecordKey.Parse("self"));
+var space = created.Uri;
 
 await client.Space.CreateRecordAsync(
-    space, client.Did!, "com.example.bookmark",
-    new { @type = "com.example.bookmark", url = "https://atproto.com", createdAt = DateTime.UtcNow });
+    space, client.Did!, Nsid.Parse("com.example.bookmark"),
+    new { @type = "com.example.bookmark", url = "https://atproto.com", createdAt = AtDatetime.Now() });
 
 await foreach (var record in client.Space.EnumerateRecordsAsync(space, client.Did!))
     Console.WriteLine(record.Path);
 
 // Spaces the user has written data to — note: written to, not "is a member of".
-var spaces = await client.Space.ListSpacesAsync(type: "com.example.bookmarks");
+await foreach (var view in client.Space.EnumerateSpacesAsync(type: Nsid.Parse("com.example.bookmarks")))
+    Console.WriteLine(view.Uri);
 ```
 
 Batch writes land under a single revision, which is how a syncer recognises them as one atomic
 change:
 
 ```csharp
+var bookmark = Nsid.Parse("com.example.bookmark");
+
 await client.Space.ApplyWritesAsync(space, client.Did!,
 [
-    new SpaceCreateOp { Collection = "com.example.bookmark", Value = first },
-    new SpaceUpdateOp { Collection = "com.example.bookmark", Rkey = "abc", Value = second },
-    new SpaceDeleteOp { Collection = "com.example.bookmark", Rkey = "def" },
+    new SpaceCreateOp { Collection = bookmark, Value = first },
+    new SpaceUpdateOp { Collection = bookmark, Rkey = RecordKey.Parse("abc"), Value = second },
+    new SpaceDeleteOp { Collection = bookmark, Rkey = RecordKey.Parse("def") },
 ]);
 ```
 
@@ -371,15 +381,15 @@ against it without standing up a bespoke space service.
 
 ```csharp
 var created = await client.SimpleSpace.CreateSpaceAsync(
-    "com.atmoboards.forum",
-    skey: "default",
+    Nsid.Parse("com.atmoboards.forum"),
+    skey: RecordKey.Parse("default"),
     readPolicy: new MemberListPolicy(),
     writePolicy: new MemberListPolicy(),
     appAccess: new OpenAppAccess());
 
 // An upsert: both flags are replaced every time.
-await client.SimpleSpace.PutMemberAsync(created.Uri, "did:plc:member", read: true, write: true);
-await client.SimpleSpace.PutMemberAsync(created.Uri, "did:plc:lurker", read: true, write: false);
+await client.SimpleSpace.PutMemberAsync(created.Uri, Did.Parse("did:plc:member"), read: true, write: true);
+await client.SimpleSpace.PutMemberAsync(created.Uri, Did.Parse("did:plc:lurker"), read: true, write: false);
 
 await foreach (var member in client.SimpleSpace.EnumerateMembersAsync(created.Uri))
     Console.WriteLine($"{member.Did} read={member.Read} write={member.Write}");
@@ -484,7 +494,7 @@ Everything above reads a space. `ATProtoNet.Server` serves one — as a **space 
 builder.Services
     .AddAtProtoSpaces(options =>
     {
-        options.ServiceDid = "did:web:pds.example.com";
+        options.ServiceDid = Did.Parse("did:web:pds.example.com");
         options.PublicBaseUrl = "https://pds.example.com";   // what a DPoP proof's htu names
     })
     .AddSpaceAuthority<MyAuthorityStore>(credentialSigningKey)  // getSpaceCredential, listRepos, …
@@ -698,7 +708,7 @@ the verification, the addressing, and the error names; the implementation only r
 ```csharp
 public sealed class MyRepoHost : ISpaceRepoHost
 {
-    public async Task<Stream?> GetRepoAsync(SpaceUri space, string repo, bool excludeValues, CancellationToken ct)
+    public async Task<Stream?> GetRepoAsync(SpaceUri space, Did repo, bool excludeValues, CancellationToken ct)
     {
         var records = await LoadAsync(space, repo, ct);
         var commit = SpaceRepoCommit.FromRecords(...).Sign(new SpaceCommitContext(space, repo, rev), signingKey);

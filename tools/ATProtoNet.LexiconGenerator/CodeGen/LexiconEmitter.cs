@@ -195,7 +195,11 @@ public sealed class LexiconEmitter
 
         string? Read(string name) => type.GetProperty(name)?.GetValue(declaration) as string;
 
-        var collections = (type.GetProperty("Collections")?.GetValue(declaration) as IEnumerable<string>)?.ToList();
+        // The SDK types these as Nsid; its string form is the Lexicon value.
+        var collections = (type.GetProperty("Collections")?.GetValue(declaration) as System.Collections.IEnumerable)?
+            .Cast<object>()
+            .Select(collection => collection.ToString()!)
+            .ToList();
         var localized = type.GetProperty("LocalizedNames")?.GetValue(declaration) as IEnumerable<KeyValuePair<string, string>>;
 
         return new LexiconSchema

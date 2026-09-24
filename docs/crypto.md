@@ -91,16 +91,18 @@ Generate inter-service authentication JWTs for Feed Generators, Labelers, and re
 ```csharp
 using ATProtoNet.Auth;
 using ATProtoNet.Crypto;
+using ATProtoNet.Identity;
 
 using var key = AtProtoCrypto.GenerateP256Key();
 
 using var generator = new ServiceAuthGenerator(
-    serviceDid: "did:web:my-service.example.com",
+    serviceDid: Did.Parse("did:web:my-service.example.com"),
     signingKey: key);
 
+// The audience is the target's DID, optionally with a `#fragment` naming one of its services.
 var token = generator.CreateToken(
     audience: "did:plc:target-service",
-    lxm: "app.bsky.feed.getFeedSkeleton");  // Optional: Lexicon method
+    lxm: Nsid.Parse("app.bsky.feed.getFeedSkeleton"));  // Optional: Lexicon method
 
 Console.WriteLine($"JWT: {token}");
 ```

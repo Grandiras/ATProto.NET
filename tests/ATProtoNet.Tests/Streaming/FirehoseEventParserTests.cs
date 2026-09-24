@@ -94,8 +94,8 @@ public class FirehoseEventParserTests
         var body = new Dictionary<string, object?>
         {
             ["repo"] = "did:plc:test123",
-            ["commit"] = "bafyreiabc123",
-            ["rev"] = "abc123",
+            ["commit"] = "bafyreievaxfmw7drb3ixcjp4y3ftm2pi3xfgzdgyv5vdd5vtzvsgatbqta",
+            ["rev"] = "3jzfcijpj2z2a",
             ["since"] = null,
             ["tooBig"] = false,
             ["rebase"] = false,
@@ -111,11 +111,30 @@ public class FirehoseEventParserTests
         Assert.NotNull(result);
         var commit = Assert.IsType<CommitEvent>(result);
         Assert.Equal("did:plc:test123", commit.Repo);
-        Assert.Equal("bafyreiabc123", commit.Commit);
-        Assert.Equal("abc123", commit.Rev);
+        Assert.Equal("bafyreievaxfmw7drb3ixcjp4y3ftm2pi3xfgzdgyv5vdd5vtzvsgatbqta", commit.Commit);
+        Assert.Equal("3jzfcijpj2z2a", commit.Rev);
         Assert.Equal(42, commit.Seq);
         Assert.False(commit.TooBig);
         Assert.False(commit.Rebase);
+        Assert.Equal("2024-01-15T12:00:00.000Z", commit.Time?.ToString());
+    }
+
+    [Theory]
+    [InlineData("repo", "not-a-did")]
+    [InlineData("commit", "bafyreinotacid")]
+    [InlineData("rev", "not-a-tid")]
+    public void Parse_CommitWithAMalformedIdentifier_IsDroppedLikeAnyMalformedFrame(string field, string value)
+    {
+        var body = new Dictionary<string, object?>
+        {
+            ["repo"] = "did:plc:test123",
+            ["commit"] = "bafyreievaxfmw7drb3ixcjp4y3ftm2pi3xfgzdgyv5vdd5vtzvsgatbqta",
+            ["rev"] = "3jzfcijpj2z2a",
+            ["seq"] = 42L,
+        };
+        body[field] = value;
+
+        Assert.Null(FirehoseEventParser.Parse(MakeFrame(EncodeCborFrame(1, "#commit", body))));
     }
 
     [Fact]
@@ -166,7 +185,7 @@ public class FirehoseEventParserTests
         var body = new Dictionary<string, object?>
         {
             ["did"] = "did:plc:sync456",
-            ["rev"] = "rev123",
+            ["rev"] = "3jzfcijpj2z2b",
             ["blocks"] = new byte[] { 1, 2, 3 },
             ["seq"] = 300L,
             ["time"] = "2024-01-15T12:00:00.000Z",
@@ -178,7 +197,7 @@ public class FirehoseEventParserTests
         Assert.NotNull(result);
         var sync = Assert.IsType<SyncEvent>(result);
         Assert.Equal("did:plc:sync456", sync.Did);
-        Assert.Equal("rev123", sync.Rev);
+        Assert.Equal("3jzfcijpj2z2b", sync.Rev);
         Assert.Equal(300, sync.Seq);
     }
 
@@ -221,7 +240,7 @@ public class FirehoseEventParserTests
             {
                 ["action"] = "create",
                 ["path"] = "app.bsky.feed.post/abc123",
-                ["cid"] = "bafyreicid123",
+                ["cid"] = "bafyreicuerrgxezkf745depqtasepklz7xoyws7ckhusinymwzuqbxybry",
             },
             new Dictionary<string, object?>
             {
@@ -234,8 +253,8 @@ public class FirehoseEventParserTests
         var body = new Dictionary<string, object?>
         {
             ["repo"] = "did:plc:test123",
-            ["commit"] = "bafyreiabc123",
-            ["rev"] = "abc123",
+            ["commit"] = "bafyreievaxfmw7drb3ixcjp4y3ftm2pi3xfgzdgyv5vdd5vtzvsgatbqta",
+            ["rev"] = "3jzfcijpj2z2a",
             ["since"] = null,
             ["tooBig"] = false,
             ["rebase"] = false,
@@ -252,10 +271,10 @@ public class FirehoseEventParserTests
         var commit = Assert.IsType<CommitEvent>(result);
         Assert.NotNull(commit.Ops);
         Assert.Equal(2, commit.Ops.Count);
-        Assert.Equal("create", commit.Ops[0].Action);
+        Assert.Equal(RepoOpAction.Create, commit.Ops[0].Action);
         Assert.Equal("app.bsky.feed.post/abc123", commit.Ops[0].Path);
-        Assert.Equal("bafyreicid123", commit.Ops[0].Cid);
-        Assert.Equal("delete", commit.Ops[1].Action);
+        Assert.Equal("bafyreicuerrgxezkf745depqtasepklz7xoyws7ckhusinymwzuqbxybry", commit.Ops[0].Cid);
+        Assert.Equal(RepoOpAction.Delete, commit.Ops[1].Action);
     }
 
     [Fact]
@@ -264,15 +283,15 @@ public class FirehoseEventParserTests
         var body = new Dictionary<string, object?>
         {
             ["repo"] = "did:plc:test123",
-            ["commit"] = "bafyreiabc123",
-            ["rev"] = "abc123",
-            ["since"] = "prevrev",
+            ["commit"] = "bafyreievaxfmw7drb3ixcjp4y3ftm2pi3xfgzdgyv5vdd5vtzvsgatbqta",
+            ["rev"] = "3jzfcijpj2z2a",
+            ["since"] = "3jzfcijpj2z22",
             ["tooBig"] = false,
             ["rebase"] = false,
             ["blocks"] = Array.Empty<byte>(),
             ["ops"] = new List<object?>(),
-            ["prevData"] = "bafyreiprevdata",
-            ["blobs"] = new List<object?> { "bafyreiblob1" },
+            ["prevData"] = "bafyreihlzn2lwoicy7x46zrj4ysc3eqhmpvghca5vbhcwtubpytilc6xsi",
+            ["blobs"] = new List<object?> { "bafyreieludigxrnirftld5ub3hflfbyjpannprcqqawq4r3rglmjdhqmx4" },
             ["seq"] = 42L,
             ["time"] = "2024-01-15T12:00:00.000Z",
         };
@@ -282,7 +301,7 @@ public class FirehoseEventParserTests
 
         Assert.NotNull(result);
         var commit = Assert.IsType<CommitEvent>(result);
-        Assert.Equal("bafyreiprevdata", commit.PrevData);
+        Assert.Equal("bafyreihlzn2lwoicy7x46zrj4ysc3eqhmpvghca5vbhcwtubpytilc6xsi", commit.PrevData);
         Assert.NotNull(commit.Blobs);
         Assert.Single(commit.Blobs);
     }
@@ -390,7 +409,7 @@ public class FirehoseEventParserTests
         body.WriteTag((CborTag)42);
         body.WriteByteString([0x00, .. commitCid]);
         body.WriteTextString("rev");
-        body.WriteTextString("abc123");
+        body.WriteTextString("3jzfcijpj2z2a");
         body.WriteTextString("blocks");
         body.WriteByteString(blocks);
         body.WriteTextString("seq");

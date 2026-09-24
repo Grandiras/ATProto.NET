@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using ATProtoNet.Crypto;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 using ATProtoNet.Serialization;
 using ATProtoNet.Server.Spaces;
@@ -21,8 +22,8 @@ namespace ATProtoNet.Tests.Server.Spaces;
 /// </summary>
 public class SimpleSpaceEndpointTests : IAsyncLifetime
 {
-    private const string Owner = "did:plc:bbbbbbbbbbbbbbbbbbbbbbbb";
-    private const string Other = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa";
+    private static readonly Did Owner = Did.Parse("did:plc:bbbbbbbbbbbbbbbbbbbbbbbb");
+    private static readonly Did Other = Did.Parse("did:plc:aaaaaaaaaaaaaaaaaaaaaaaa");
     private const string BaseUrl = "http://localhost";
 
     private readonly AtProtoKey _authorityKey = AtProtoCrypto.GenerateP256Key();
@@ -81,8 +82,8 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
 
         using var response = await PostAsync(SpaceNsids.CreateSimpleSpace, new CreateSimpleSpaceRequest
         {
-            Type = "com.atmoboards.forum",
-            Skey = "default",
+            Type = Nsid.Parse("com.atmoboards.forum"),
+            Skey = RecordKey.Parse("default"),
             ReadPolicy = new MemberListPolicy(),
             WritePolicy = new MemberListPolicy(),
             AppAccess = new OpenAppAccess(),
@@ -101,14 +102,14 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
 
         using var response = await PostAsync(SpaceNsids.CreateSimpleSpace, new CreateSimpleSpaceRequest
         {
-            Type = "com.atmoboards.forum",
+            Type = Nsid.Parse("com.atmoboards.forum"),
             ReadPolicy = new PublicPolicy(),
             WritePolicy = new PublicPolicy(),
             AppAccess = new OpenAppAccess(),
         });
 
         var body = await response.Content.ReadFromJsonAsync<CreateSimpleSpaceResponse>(AtProtoJsonDefaults.Options);
-        Assert.NotEmpty(body!.ToSpaceUri().Skey);
+        Assert.NotEmpty(body!.Uri.Skey.Value);
     }
 
     [Fact]
@@ -117,8 +118,8 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
         _caller.Did = Owner;
         var request = new CreateSimpleSpaceRequest
         {
-            Type = "com.atmoboards.forum",
-            Skey = "default",
+            Type = Nsid.Parse("com.atmoboards.forum"),
+            Skey = RecordKey.Parse("default"),
             ReadPolicy = new MemberListPolicy(),
             WritePolicy = new MemberListPolicy(),
             AppAccess = new OpenAppAccess(),
@@ -139,7 +140,7 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
 
         using var response = await PostAsync(SpaceNsids.CreateSimpleSpace, new CreateSimpleSpaceRequest
         {
-            Type = "com.atmoboards.forum",
+            Type = Nsid.Parse("com.atmoboards.forum"),
             ReadPolicy = new PublicPolicy(),
             WritePolicy = new PublicPolicy(),
             AppAccess = new OpenAppAccess(),
@@ -155,8 +156,8 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
 
         using var response = await PostAsync(SpaceNsids.CreateSimpleSpace, new CreateSimpleSpaceRequest
         {
-            Type = "com.atmoboards.forum",
-            Skey = "split",
+            Type = Nsid.Parse("com.atmoboards.forum"),
+            Skey = RecordKey.Parse("split"),
             ReadPolicy = new MemberListPolicy(),
             WritePolicy = new PublicPolicy(),
             AppAccess = new OpenAppAccess(),
@@ -202,7 +203,7 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
 
         using var response = await PostAsync(
             SpaceNsids.PutSimpleSpaceMember,
-            new PutSimpleSpaceMemberRequest { Space = space.Value, Did = Other, Read = true, Write = true });
+            new PutSimpleSpaceMemberRequest { Space = space, Did = Other, Read = true, Write = true });
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal(SimpleSpaceErrors.SpaceNotFound, await ReadErrorAsync(response));
@@ -216,12 +217,12 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
 
         using var first = await PostAsync(
             SpaceNsids.PutSimpleSpaceMember,
-            new PutSimpleSpaceMemberRequest { Space = space.Value, Did = Other, Read = true, Write = false });
+            new PutSimpleSpaceMemberRequest { Space = space, Did = Other, Read = true, Write = false });
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
 
         using var second = await PostAsync(
             SpaceNsids.PutSimpleSpaceMember,
-            new PutSimpleSpaceMemberRequest { Space = space.Value, Did = Other, Read = false, Write = true });
+            new PutSimpleSpaceMemberRequest { Space = space, Did = Other, Read = false, Write = true });
         Assert.Equal(HttpStatusCode.OK, second.StatusCode);
 
         using var listed = await _client.GetAsync(
@@ -283,7 +284,7 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
 
         using var response = await PostAsync(
             SpaceNsids.UpdateSimpleSpace,
-            new UpdateSimpleSpaceRequest { Space = space.Value, WritePolicy = new PublicPolicy() });
+            new UpdateSimpleSpaceRequest { Space = space, WritePolicy = new PublicPolicy() });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -319,7 +320,7 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
         _caller.Did = Owner;
 
         using var response = await PostAsync(
-            SpaceNsids.DeleteSimpleSpace, new DeleteSimpleSpaceRequest { Space = space.Value });
+            SpaceNsids.DeleteSimpleSpace, new DeleteSimpleSpaceRequest { Space = space });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var stored = await _store.GetSpaceAsync(space);
@@ -333,9 +334,9 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
         _caller.Did = Owner;
 
         using var first = await PostAsync(
-            SpaceNsids.DeleteSimpleSpace, new DeleteSimpleSpaceRequest { Space = space.Value });
+            SpaceNsids.DeleteSimpleSpace, new DeleteSimpleSpaceRequest { Space = space });
         using var second = await PostAsync(
-            SpaceNsids.DeleteSimpleSpace, new DeleteSimpleSpaceRequest { Space = space.Value });
+            SpaceNsids.DeleteSimpleSpace, new DeleteSimpleSpaceRequest { Space = space });
 
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
         Assert.Equal(HttpStatusCode.OK, second.StatusCode);

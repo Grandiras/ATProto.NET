@@ -2,17 +2,23 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Serialization;
+using ATProtoNet.Spaces;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Tests.Spaces;
 
 public class SpaceClientTests : IDisposable
 {
-    private const string Space = "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default";
-    private const string Repo = "did:plc:z72i7hdynmk6r22z27h6tvur";
+    private static readonly SpaceUri Space = SpaceUri.Parse("at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default");
+    private static readonly Did Repo = Did.Parse("did:plc:z72i7hdynmk6r22z27h6tvur");
+
+    // Distinct, well-formed CIDs for the payloads below.
+    private const string Cid1 = "bafyreicuerrgxezkf745depqtasepklz7xoyws7ckhusinymwzuqbxybry";
+    private const string Cid2 = "bafyreif5xp2wdd3kcu54tgzu4zjp2iazrs2zabrfkpz6gklpco7cfhfopa";
 
     private readonly MockHttpMessageHandler _handler = new();
     private readonly HttpClient _httpClient;
@@ -44,12 +50,13 @@ public class SpaceClientTests : IDisposable
     {
         RespondWith("""{"ops":[]}""");
 
-        await _space.ListRepoOpsAsync(Space, Repo, since: "3l6ov", limit: 25, cursor: "c", excludeValues: true);
+        await _space.ListRepoOpsAsync(
+            Space, Repo, since: Tid.Parse("3l6oveex3ii2l"), excludeValues: true, limit: 25, cursor: "c");
 
         var query = _handler.LastRequest!.RequestUri!.Query;
-        Assert.Contains($"space={Uri.EscapeDataString(Space)}", query, StringComparison.Ordinal);
-        Assert.Contains($"repo={Uri.EscapeDataString(Repo)}", query, StringComparison.Ordinal);
-        Assert.Contains("since=3l6ov", query, StringComparison.Ordinal);
+        Assert.Contains($"space={Uri.EscapeDataString(Space.Value)}", query, StringComparison.Ordinal);
+        Assert.Contains($"repo={Uri.EscapeDataString(Repo.Value)}", query, StringComparison.Ordinal);
+        Assert.Contains("since=3l6oveex3ii2l", query, StringComparison.Ordinal);
         Assert.Contains("limit=25", query, StringComparison.Ordinal);
         Assert.Contains("cursor=c", query, StringComparison.Ordinal);
         Assert.Contains("excludeValues=true", query, StringComparison.Ordinal);
@@ -122,26 +129,26 @@ public class SpaceClientTests : IDisposable
     [Fact]
     public async Task ListRepoOpsAsync_DistinguishesCreatesUpdatesAndDeletes()
     {
-        RespondWith("""
+        RespondWith($$"""
         {"ops":[
-          {"rev":"1","collection":"com.example.n","rkey":"a","cid":"bafy1","prev":null,"value":{"text":"hi"}},
-          {"rev":"2","collection":"com.example.n","rkey":"a","cid":"bafy2","prev":"bafy1"},
-          {"rev":"3","collection":"com.example.n","rkey":"a","cid":null,"prev":"bafy2"}]}
+          {"rev":"3l6oveex3ii2a","collection":"com.example.n","rkey":"a","cid":"{{Cid1}}","prev":null,"value":{"text":"hi"} },
+          {"rev":"3l6oveex3ii2b","collection":"com.example.n","rkey":"a","cid":"{{Cid2}}","prev":"{{Cid1}}"},
+          {"rev":"3l6oveex3ii2c","collection":"com.example.n","rkey":"a","cid":null,"prev":"{{Cid2}}"}]}
         """);
 
         var response = await _space.ListRepoOpsAsync(Space, Repo);
 
         var create = response.Ops[0].ToRepoOp();
         Assert.Null(create.Prev);
-        Assert.Equal("bafy1", create.Cid);
+        Assert.Equal(Cid1, create.Cid);
         Assert.Equal("hi", response.Ops[0].Value!.Value.GetProperty("text").GetString());
 
         var update = response.Ops[1].ToRepoOp();
-        Assert.Equal("bafy1", update.Prev);
-        Assert.Equal("bafy2", update.Cid);
+        Assert.Equal(Cid1, update.Prev);
+        Assert.Equal(Cid2, update.Cid);
 
         var delete = response.Ops[2].ToRepoOp();
-        Assert.Equal("bafy2", delete.Prev);
+        Assert.Equal(Cid2, delete.Prev);
         Assert.Null(delete.Cid);
     }
 
@@ -165,8 +172,8 @@ public class SpaceClientTests : IDisposable
         _handler.ResponseFactory = _ =>
         {
             var json = page++ == 0
-                ? """{"records":[{"collection":"com.example.n","rkey":"a","cid":"bafy1"}],"cursor":"next"}"""
-                : """{"records":[{"collection":"com.example.n","rkey":"b","cid":"bafy2"}]}""";
+                ? $$"""{"records":[{"collection":"com.example.n","rkey":"a","cid":"{{Cid1}}"}],"cursor":"next"}"""
+                : $$"""{"records":[{"collection":"com.example.n","rkey":"b","cid":"{{Cid2}}"}]}""";
 
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
@@ -181,23 +188,71 @@ public class SpaceClientTests : IDisposable
         Assert.Equal(["com.example.n/a", "com.example.n/b"], records.Select(r => r.Path));
     }
 
+    [Fact]
+    public async Task Enumerators_HostRepeatingItsCursor_StopAfterTheRepeat()
+    {
+        // Every page carries items and the same cursor. The loops these enumerators used to run
+        // stopped only on an empty page, so such a host was asked for the same page forever.
+        Assert.Equal(2, await CountRequestsAsync(
+            $$"""{"spaces":[{"uri":"{{Space}}"}],"cursor":"same"}""",
+            () => _space.EnumerateSpacesAsync()));
+        Assert.Equal(2, await CountRequestsAsync(
+            $$"""{"repos":[{"did":"{{Repo}}","rev":"3l6oveex3ii2l","hash":{"$bytes":"AQID"} }],"cursor":"same"}""",
+            () => _space.EnumerateReposAsync(Space)));
+        Assert.Equal(2, await CountRequestsAsync(
+            $$"""{"records":[{"collection":"com.example.n","rkey":"a","cid":"{{Cid1}}"}],"cursor":"same"}""",
+            () => _space.EnumerateRecordsAsync(Space, Repo)));
+        Assert.Equal(2, await CountRequestsAsync(
+            $$"""{"cids":["{{Cid1}}"],"cursor":"same"}""",
+            () => _space.EnumerateBlobsAsync(Space, Repo)));
+        Assert.Equal(2, await CountRequestsAsync(
+            $$"""{"members":[{"did":"{{Repo}}","read":true,"write":true}],"cursor":"same"}""",
+            () => _simpleSpace.EnumerateMembersAsync(Space)));
+    }
+
+    /// <summary>
+    /// Serves <paramref name="page"/> to every request and counts the requests an enumeration
+    /// makes, giving up after a few pages so a regression fails rather than hangs.
+    /// </summary>
+    private async Task<int> CountRequestsAsync<T>(string page, Func<IAsyncEnumerable<T>> enumerate)
+    {
+        var requests = 0;
+        _handler.ResponseFactory = _ =>
+        {
+            requests++;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(page, Encoding.UTF8, "application/json"),
+            };
+        };
+
+        var items = 0;
+        await foreach (var _ in enumerate())
+        {
+            if (++items > 10)
+                break;
+        }
+
+        return requests;
+    }
+
     // ── Writes ───────────────────────────────────────────────────
 
     [Fact]
     public async Task CreateRecordAsync_PostsTheRecordAndOmitsUnsetOptions()
     {
-        RespondWith("""{"uri":"at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default/did:plc:z72i7hdynmk6r22z27h6tvur/com.example.n/a","cid":"bafy1"}""");
+        RespondWith($$"""{"uri":"at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default/did:plc:z72i7hdynmk6r22z27h6tvur/com.example.n/a","cid":"{{Cid1}}"}""");
 
         var result = await _space.CreateRecordAsync(
-            Space, Repo, "com.example.n", new { text = "hi" });
+            Space, Repo, Nsid.Parse("com.example.n"), new { text = "hi" });
 
         var body = JsonSerializer.Deserialize<JsonElement>(_handler.LastBody!);
-        Assert.Equal(Space, body.GetProperty("space").GetString());
+        Assert.Equal(Space.Value, body.GetProperty("space").GetString());
         Assert.Equal("hi", body.GetProperty("record").GetProperty("text").GetString());
         Assert.False(body.TryGetProperty("rkey", out _));
         Assert.False(body.TryGetProperty("validate", out _));
 
-        Assert.Equal("com.example.n", result.ToRecordUri().Collection);
+        Assert.Equal("com.example.n", result.Uri.Collection.Value);
     }
 
     [Fact]
@@ -207,9 +262,9 @@ public class SpaceClientTests : IDisposable
 
         await _space.ApplyWritesAsync(Space, Repo,
         [
-            new SpaceCreateOp { Collection = "com.example.n", Value = new { text = "a" } },
-            new SpaceUpdateOp { Collection = "com.example.n", Rkey = "b", Value = new { text = "b" } },
-            new SpaceDeleteOp { Collection = "com.example.n", Rkey = "c" },
+            new SpaceCreateOp { Collection = Nsid.Parse("com.example.n"), Value = new { text = "a" } },
+            new SpaceUpdateOp { Collection = Nsid.Parse("com.example.n"), Rkey = RecordKey.Parse("b"), Value = new { text = "b" } },
+            new SpaceDeleteOp { Collection = Nsid.Parse("com.example.n"), Rkey = RecordKey.Parse("c") },
         ]);
 
         var writes = JsonSerializer.Deserialize<JsonElement>(_handler.LastBody!).GetProperty("writes");
@@ -228,7 +283,7 @@ public class SpaceClientTests : IDisposable
         // always sent rather than left for the server to assume.
         RespondWith($$"""{"uri":"{{Space}}"}""");
 
-        await _simpleSpace.CreateSpaceAsync("com.atmoboards.forum");
+        await _simpleSpace.CreateSpaceAsync(Nsid.Parse("com.atmoboards.forum"));
 
         var body = JsonSerializer.Deserialize<JsonElement>(_handler.LastBody!);
         Assert.Equal(
@@ -247,8 +302,8 @@ public class SpaceClientTests : IDisposable
         RespondWith($$"""{"uri":"{{Space}}"}""");
 
         await _simpleSpace.CreateSpaceAsync(
-            "com.atmoboards.forum",
-            skey: "default",
+            Nsid.Parse("com.atmoboards.forum"),
+            skey: RecordKey.Parse("default"),
             readPolicy: new ManagingAppPolicy { ManagingApp = "did:web:example.com#forum" },
             writePolicy: new PublicPolicy(),
             appAccess: new AllowListAppAccess { Allowed = ["https://app.example.com/client-metadata.json"] });
@@ -311,8 +366,8 @@ public class SpaceClientTests : IDisposable
 
         Assert.EndsWith("/xrpc/com.atproto.simplespace.putMember", _handler.LastRequest!.RequestUri!.AbsolutePath);
         var body = JsonSerializer.Deserialize<JsonElement>(_handler.LastBody!);
-        Assert.Equal(Space, body.GetProperty("space").GetString());
-        Assert.Equal(Repo, body.GetProperty("did").GetString());
+        Assert.Equal(Space.Value, body.GetProperty("space").GetString());
+        Assert.Equal(Repo.Value, body.GetProperty("did").GetString());
         Assert.True(body.GetProperty("read").GetBoolean());
         Assert.False(body.GetProperty("write").GetBoolean());
     }
@@ -337,7 +392,7 @@ public class SpaceClientTests : IDisposable
         await _simpleSpace.CheckUserAccessAsync(Space, Repo, SimpleSpaceAccess.Write);
 
         var query = _handler.LastRequest!.RequestUri!.Query;
-        Assert.Contains($"user={Uri.EscapeDataString(Repo)}", query, StringComparison.Ordinal);
+        Assert.Contains($"user={Uri.EscapeDataString(Repo.Value)}", query, StringComparison.Ordinal);
         Assert.Contains("access=write", query, StringComparison.Ordinal);
         Assert.DoesNotContain("clientId", query, StringComparison.Ordinal);
     }

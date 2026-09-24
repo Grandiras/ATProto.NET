@@ -44,11 +44,11 @@ public abstract class SimpleSpaceEndpointBase
     /// <summary>
     /// Loads a space the caller owns, or throws.
     /// </summary>
-    /// <param name="spaceValue">The space URI from the request.</param>
+    /// <param name="spaceValue">The space from the request.</param>
     /// <param name="context">The HTTP context.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     protected async Task<SimpleSpaceRecord> RequireOwnedSpaceAsync(
-        string? spaceValue, HttpContext context, CancellationToken cancellationToken)
+        SpaceUri? spaceValue, HttpContext context, CancellationToken cancellationToken)
     {
         var uri = SpaceRequestValidation.RequireSpace(spaceValue);
         var caller = CallerResolver.RequireCallerDid(context);
@@ -59,7 +59,7 @@ public abstract class SimpleSpaceEndpointBase
 
         // Answering NotSpaceOwner only to the owner would confirm a space exists to anyone who
         // guessed its URI, so a non-owner gets the same answer as for a space that is not there.
-        return string.Equals(space.Owner, caller, StringComparison.Ordinal)
+        return space.Owner == caller
             ? space
             : throw NotFound(uri);
     }
@@ -92,12 +92,10 @@ public sealed class CreateSimpleSpaceEndpoint
         ArgumentNullException.ThrowIfNull(input);
 
         var caller = CallerResolver.RequireCallerDid(context);
-        var type = SpaceRequestValidation.RequireNsid(input.Type, "type");
+        var type = SpaceRequestValidation.Require(input.Type, "type");
 
         // A TID when the caller names no key, so repeated creates do not collide.
-        var skey = string.IsNullOrEmpty(input.Skey) ? Tid.NextString() : input.Skey;
-        if (!SpaceUri.TryParse($"at://{caller}/space/{type}/{skey}", out var uri))
-            throw new XrpcException(XrpcErrors.InvalidRequest, $"'{skey}' is not a valid space key.");
+        var uri = SpaceUri.Create(caller, type, input.Skey ?? RecordKey.NewTid());
 
         // Required on the wire; a JSON null gets past deserialization, so it is caught here rather
         // than stored as a space with no policy to enforce.
@@ -111,7 +109,7 @@ public sealed class CreateSimpleSpaceEndpoint
             new SimpleSpaceRecord(uri, caller, readPolicy, writePolicy, appAccess), cancellationToken);
 
         return created
-            ? new CreateSimpleSpaceResponse { Uri = uri.Value }
+            ? new CreateSimpleSpaceResponse { Uri = uri }
             : throw new XrpcException(
                 SimpleSpaceErrors.SpaceAlreadyExists, $"{uri} already exists.", HttpStatusCode.Conflict);
     }
@@ -232,7 +230,7 @@ public sealed class DeleteSimpleSpaceEndpoint
         if (space is null || space.Deleted)
             return;
 
-        if (!string.Equals(space.Owner, caller, StringComparison.Ordinal))
+        if (space.Owner != caller)
             throw NotFound(uri);
 
         // Notify before deleting, so the subscriber list is still readable.
@@ -279,12 +277,12 @@ public sealed class GetSimpleSpaceEndpoint
         // this space — a reader that holds one has already been admitted, so describing the
         // space to it discloses nothing new.
         var caller = CallerResolver.GetCallerDid(context);
-        if (!string.Equals(space.Owner, caller, StringComparison.Ordinal))
+        if (space.Owner != caller)
             await _authenticator.AuthenticateCredentialAsync(context, uri, cancellationToken);
 
         return new GetSimpleSpaceResponse
         {
-            Uri = space.Uri.Value,
+            Uri = space.Uri,
             ReadPolicy = space.ReadPolicy,
             WritePolicy = space.WritePolicy,
             AppAccess = space.AppAccess,
@@ -319,7 +317,7 @@ public sealed class PutSimpleSpaceMemberEndpoint
         ArgumentNullException.ThrowIfNull(input);
 
         var space = await RequireOwnedSpaceAsync(input.Space, context, cancellationToken);
-        var did = SpaceRequestValidation.RequireDid(input.Did, "did");
+        var did = SpaceRequestValidation.Require(input.Did, "did");
 
         await Store.PutMemberAsync(space.Uri, did, input.Read, input.Write, cancellationToken);
     }
@@ -352,7 +350,7 @@ public sealed class RemoveSimpleSpaceMemberEndpoint
         ArgumentNullException.ThrowIfNull(input);
 
         var space = await RequireOwnedSpaceAsync(input.Space, context, cancellationToken);
-        var did = SpaceRequestValidation.RequireDid(input.Did, "did");
+        var did = SpaceRequestValidation.Require(input.Did, "did");
 
         await Store.RemoveMemberAsync(space.Uri, did, cancellationToken);
     }

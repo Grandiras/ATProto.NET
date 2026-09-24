@@ -36,9 +36,9 @@ public static class SpaceAuthority
     /// <c>#atproto_space_host</c> entry is still addressed by this identifier while being
     /// reached at its <c>#atproto_pds</c> endpoint.
     /// </remarks>
-    public static string HostAudience(string authorityDid)
+    public static string HostAudience(Did authorityDid)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(authorityDid);
+        ArgumentNullException.ThrowIfNull(authorityDid);
         return $"{authorityDid}{HostServiceId}";
     }
 
@@ -114,15 +114,14 @@ public static class SpaceAuthority
     /// </param>
     /// <returns>The DID and the fragment (including its leading <c>#</c>), or a null fragment when bare.</returns>
     /// <exception cref="ArgumentException">Thrown when the DID part is not a valid DID.</exception>
-    public static (string Did, string? Fragment) ParseServiceIdentifier(string serviceIdentifier)
+    public static (Did Did, string? Fragment) ParseServiceIdentifier(string serviceIdentifier)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(serviceIdentifier);
 
         var hash = serviceIdentifier.IndexOf('#');
-        var did = hash < 0 ? serviceIdentifier : serviceIdentifier[..hash];
         var fragment = hash < 0 ? null : serviceIdentifier[hash..];
 
-        if (!Did.TryParse(did, out _))
+        if (!Did.TryParse(hash < 0 ? serviceIdentifier : serviceIdentifier[..hash], out var did))
         {
             throw new ArgumentException(
                 $"Service identifier must begin with a DID: '{serviceIdentifier}'.", nameof(serviceIdentifier));

@@ -34,7 +34,7 @@ public class JetstreamGoldenBlockTests
         Assert.Equal(JetstreamArchiveRowKind.Create, rows[0].Kind);
         Assert.Equal("did:plc:abcdefghijklmnopqrstuvwx", rows[0].Did);
         Assert.Equal("app.bsky.feed.post", rows[0].Collection);
-        Assert.Equal("3l3qo2vuowo2b", rows[0].RKey);
+        Assert.Equal("3l3qo2vuowo2b", rows[0].Rkey);
         Assert.Equal("3l3qo2vutsw2b", rows[0].Rev);
         // CBOR {"hello": 5}
         Assert.Equal([0xA1, 0x65, 0x68, 0x65, 0x6C, 0x6C, 0x6F, 0x05], rows[0].Payload.ToArray());
@@ -53,7 +53,7 @@ public class JetstreamGoldenBlockTests
         Assert.Equal(JetstreamArchiveRowKind.Delete, rows[2].Kind);
         Assert.Equal("did:plc:zzzzzzzzzzzzzzzzzzzzzzzz", rows[2].Did);
         Assert.Equal("app.bsky.feed.like", rows[2].Collection);
-        Assert.Equal("3l3qo2vuowo2c", rows[2].RKey);
+        Assert.Equal("3l3qo2vuowo2c", rows[2].Rkey);
         Assert.True(rows[2].Payload.IsEmpty);
     }
 

@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using ATProtoNet.Auth;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 using ATProtoNet.Spaces;
 using Microsoft.Extensions.Logging;
@@ -124,7 +125,7 @@ public sealed class SimpleSpaceAccessPolicy : ISpaceAccessPolicy
         CancellationToken cancellationToken)
     {
         // The owner is the only party who can reconfigure the space, so no policy may lock it out.
-        if (string.Equals(space.Owner, request.UserDid, StringComparison.Ordinal))
+        if (space.Owner == request.UserDid)
             return SpaceAccessDecision.Granted;
 
         var write = request.Access == SpaceAccessKind.Write;
@@ -204,7 +205,7 @@ public interface ISimpleSpaceManagingAppClient
     /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<bool> CheckUserAccessAsync(
-        string managingApp, SpaceUri space, string userDid, SpaceAccessKind access, string? clientId,
+        string managingApp, SpaceUri space, Did userDid, SpaceAccessKind access, string? clientId,
         CancellationToken cancellationToken = default);
 }
 
@@ -222,6 +223,8 @@ public interface ISimpleSpaceManagingAppClient
 /// </remarks>
 public sealed class SimpleSpaceManagingAppClient : ISimpleSpaceManagingAppClient
 {
+    private static readonly Nsid CheckUserAccessNsid = Nsid.Parse(SpaceNsids.CheckUserAccess);
+
     private readonly ISpaceDidDocumentResolver _resolver;
     private readonly ServiceAuthGenerator _serviceAuth;
     private readonly HttpClient _httpClient;
@@ -248,14 +251,14 @@ public sealed class SimpleSpaceManagingAppClient : ISimpleSpaceManagingAppClient
     public async Task<bool> CheckUserAccessAsync(
         string managingApp,
         SpaceUri space,
-        string userDid,
+        Did userDid,
         SpaceAccessKind access,
         string? clientId,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(managingApp);
         ArgumentNullException.ThrowIfNull(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(userDid);
+        ArgumentNullException.ThrowIfNull(userDid);
 
         var accessValue = access switch
         {
@@ -275,7 +278,7 @@ public sealed class SimpleSpaceManagingAppClient : ISimpleSpaceManagingAppClient
 
         // The Lexicon omits clientId for write checks, which have no app behind them.
         var query = $"?space={Uri.EscapeDataString(space.Value)}" +
-                    $"&user={Uri.EscapeDataString(userDid)}" +
+                    $"&user={Uri.EscapeDataString(userDid.Value)}" +
                     $"&access={accessValue}" +
                     (clientId is null || access == SpaceAccessKind.Write
                         ? string.Empty
@@ -284,7 +287,7 @@ public sealed class SimpleSpaceManagingAppClient : ISimpleSpaceManagingAppClient
 
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
-            "Bearer", _serviceAuth.CreateToken(managingApp, SpaceNsids.CheckUserAccess));
+            "Bearer", _serviceAuth.CreateToken(managingApp, CheckUserAccessNsid));
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)

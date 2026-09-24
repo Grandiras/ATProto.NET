@@ -345,9 +345,9 @@ public abstract class FirehoseMessage
     [JsonPropertyName("seq")]
     public long Seq { get; init; }
 
-    /// <summary>Timestamp of the event.</summary>
+    /// <summary>When the upstream host emitted the event.</summary>
     [JsonPropertyName("time")]
-    public string? Time { get; init; }
+    public AtDatetime? Time { get; init; }
 }
 
 /// <summary>
@@ -357,19 +357,19 @@ public sealed class CommitEvent : FirehoseMessage
 {
     /// <summary>The DID of the repository the commit belongs to.</summary>
     [JsonPropertyName("repo")]
-    public required string Repo { get; init; }
+    public required Did Repo { get; init; }
 
-    /// <summary>The commit the write was applied in.</summary>
+    /// <summary>The CID of the commit block.</summary>
     [JsonPropertyName("commit")]
-    public required string Commit { get; init; }
+    public required Cid Commit { get; init; }
 
-    /// <summary>The repository revision (a TID) this data was read at.</summary>
+    /// <summary>The revision of the commit.</summary>
     [JsonPropertyName("rev")]
-    public required string Rev { get; init; }
+    public required Tid Rev { get; init; }
 
     /// <summary>The revision the diff is relative to, if this is a partial commit.</summary>
     [JsonPropertyName("since")]
-    public string? Since { get; init; }
+    public Tid? Since { get; init; }
 
     /// <summary>
     /// Whether the commit was too large to include inline; the repository must be fetched
@@ -390,7 +390,7 @@ public sealed class CommitEvent : FirehoseMessage
 
     /// <summary>Operations included in this commit.</summary>
     [JsonPropertyName("ops")]
-    public List<RepoOp>? Ops { get; init; }
+    public IReadOnlyList<RepoOp>? Ops { get; init; }
 
     /// <summary>
     /// The root CID of the MST tree for the previous commit (indicated by the 'since'
@@ -398,11 +398,31 @@ public sealed class CommitEvent : FirehoseMessage
     /// Required for the 'inductive' version of firehose (Sync v1.1).
     /// </summary>
     [JsonPropertyName("prevData")]
-    public string? PrevData { get; init; }
+    public Cid? PrevData { get; init; }
 
     /// <summary>DEPRECATED — will soon always be empty. List of new blobs referenced by records in this commit.</summary>
     [JsonPropertyName("blobs")]
-    public List<string>? Blobs { get; init; }
+    public IReadOnlyList<Cid>? Blobs { get; init; }
+}
+
+/// <summary>
+/// What a <see cref="RepoOp"/> did to its record: the known values of
+/// <c>com.atproto.sync.subscribeRepos#repoOp.action</c>.
+/// </summary>
+/// <remarks>
+/// The same three operations as <see cref="Streaming.JetstreamOperation"/>, which carries them
+/// for Jetstream's commit events.
+/// </remarks>
+public enum RepoOpAction
+{
+    /// <summary>A record was created.</summary>
+    Create,
+
+    /// <summary>A record was updated.</summary>
+    Update,
+
+    /// <summary>A record was deleted.</summary>
+    Delete,
 }
 
 /// <summary>
@@ -410,24 +430,24 @@ public sealed class CommitEvent : FirehoseMessage
 /// </summary>
 public sealed class RepoOp
 {
-    /// <summary>The operation action: "create", "update", or "delete".</summary>
+    /// <summary>What the operation did to the record.</summary>
     [JsonPropertyName("action")]
-    public required string Action { get; init; }
+    public required RepoOpAction Action { get; init; }
 
-    /// <summary>The AT-URI path (collection/rkey) of the record.</summary>
+    /// <summary>The record's path within the repository: <c>{collection}/{rkey}</c>.</summary>
     [JsonPropertyName("path")]
     public required string Path { get; init; }
 
     /// <summary>The CID of the record after this operation (null for deletes).</summary>
     [JsonPropertyName("cid")]
-    public string? Cid { get; init; }
+    public Cid? Cid { get; init; }
 
     /// <summary>
     /// For updates and deletes, the previous record CID (required for inductive firehose).
     /// For creations, this field should not be defined.
     /// </summary>
     [JsonPropertyName("prev")]
-    public string? Prev { get; init; }
+    public Cid? Prev { get; init; }
 }
 
 /// <summary>
@@ -440,7 +460,7 @@ public sealed class SyncEvent : FirehoseMessage
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 
     /// <summary>CAR file containing the commit block. The CAR header must indicate the commit block as the first root.</summary>
     [JsonPropertyName("blocks")]
@@ -448,7 +468,7 @@ public sealed class SyncEvent : FirehoseMessage
 
     /// <summary>The rev of the commit. Must match the rev in the commit object.</summary>
     [JsonPropertyName("rev")]
-    public required string Rev { get; init; }
+    public required Tid Rev { get; init; }
 }
 
 /// <summary>
@@ -458,11 +478,11 @@ public sealed class IdentityEvent : FirehoseMessage
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 
     /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
     [JsonPropertyName("handle")]
-    public string? Handle { get; init; }
+    public Handle? Handle { get; init; }
 }
 
 /// <summary>
@@ -472,7 +492,7 @@ public sealed class AccountEvent : FirehoseMessage
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 
     /// <summary>
     /// Whether the account is active (not deactivated, suspended, or taken down).
@@ -492,11 +512,11 @@ public sealed class HandleEvent : FirehoseMessage
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 
     /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
     [JsonPropertyName("handle")]
-    public required string Handle { get; init; }
+    public required Handle Handle { get; init; }
 }
 
 /// <summary>
@@ -506,7 +526,7 @@ public sealed class TombstoneEvent : FirehoseMessage
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 }
 
 /// <summary>

@@ -22,7 +22,7 @@ public interface ISpaceCallerResolver
     /// carries no session.
     /// </summary>
     /// <param name="context">The HTTP context.</param>
-    string? GetCallerDid(HttpContext context);
+    Did? GetCallerDid(HttpContext context);
 }
 
 /// <summary>
@@ -42,7 +42,7 @@ public sealed class ClaimsSpaceCallerResolver : ISpaceCallerResolver
     public const string DidClaimType = "did";
 
     /// <inheritdoc/>
-    public string? GetCallerDid(HttpContext context)
+    public Did? GetCallerDid(HttpContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
@@ -52,7 +52,7 @@ public sealed class ClaimsSpaceCallerResolver : ISpaceCallerResolver
 
         var value = user.FindFirstValue(DidClaimType) ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
 
-        return Did.TryParse(value, out _) ? value : null;
+        return Did.TryParse(value, out var did) ? did : null;
     }
 }
 
@@ -60,7 +60,7 @@ public sealed class ClaimsSpaceCallerResolver : ISpaceCallerResolver
 internal static class SpaceCallerResolverExtensions
 {
     /// <summary>Returns the caller's DID, or throws an authentication failure.</summary>
-    public static string RequireCallerDid(this ISpaceCallerResolver resolver, HttpContext context) =>
+    public static Did RequireCallerDid(this ISpaceCallerResolver resolver, HttpContext context) =>
         resolver.GetCallerDid(context)
         ?? throw new SpaceVerificationException(
             SpaceErrors.NotAuthorized, "This method requires an authenticated AT Protocol session.");

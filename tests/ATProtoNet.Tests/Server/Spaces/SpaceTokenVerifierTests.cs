@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using ATProtoNet.Auth;
 using ATProtoNet.Crypto;
+using ATProtoNet.Identity;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Spaces;
 using Microsoft.AspNetCore.Http;
@@ -10,12 +11,12 @@ namespace ATProtoNet.Tests.Server.Spaces;
 
 public class SpaceDelegationTokenVerifierTests
 {
-    private const string UserDid = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa";
-    private const string AuthorityDid = "did:plc:bbbbbbbbbbbbbbbbbbbbbbbb";
-    private const string OtherAuthorityDid = "did:plc:cccccccccccccccccccccccc";
+    private static readonly Did UserDid = Did.Parse("did:plc:aaaaaaaaaaaaaaaaaaaaaaaa");
+    private static readonly Did AuthorityDid = Did.Parse("did:plc:bbbbbbbbbbbbbbbbbbbbbbbb");
+    private static readonly Did OtherAuthorityDid = Did.Parse("did:plc:cccccccccccccccccccccccc");
 
-    private static SpaceUri Space(string authority = AuthorityDid) =>
-        SpaceUri.Parse($"at://{authority}/space/com.atmoboards.forum/default");
+    private static SpaceUri Space(Did? authority = null) =>
+        SpaceUri.Parse($"at://{authority ?? AuthorityDid}/space/com.atmoboards.forum/default");
 
     [Fact]
     public async Task VerifyAsync_ValidToken_ReturnsTheDelegatingUser()
@@ -32,6 +33,23 @@ public class SpaceDelegationTokenVerifierTests
 
         Assert.Equal(UserDid, verified.UserDid);
         Assert.Equal(space, verified.Space);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_IssuerThatIsNotADid_IsRejected()
+    {
+        // A delegation token is minted in the user's name, and a space's participants are DIDs.
+        using var userKey = AtProtoCrypto.GenerateP256Key();
+        var verifier = new SpaceDelegationTokenVerifier(new FakeDidDocumentResolver(), new InMemorySpaceReplayStore());
+
+        var space = Space();
+        var jwt = SpaceTokens.Create(
+            SpaceTokenType.Delegation, "alice.example.com", space.Value, userKey, audience: space.HostAudience);
+
+        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(() => verifier.VerifyAsync(jwt, space));
+
+        Assert.Equal("InvalidDelegationToken", ex.Error);
+        Assert.Contains("must be a DID", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -219,12 +237,12 @@ public class SpaceDelegationTokenVerifierTests
 
 public class SpaceCredentialVerifierTests
 {
-    private const string AuthorityDid = "did:plc:bbbbbbbbbbbbbbbbbbbbbbbb";
-    private const string ImpostorDid = "did:plc:dddddddddddddddddddddddd";
+    private static readonly Did AuthorityDid = Did.Parse("did:plc:bbbbbbbbbbbbbbbbbbbbbbbb");
+    private static readonly Did ImpostorDid = Did.Parse("did:plc:dddddddddddddddddddddddd");
     private const string Url = "https://pds.example.com/xrpc/com.atproto.space.getRecord";
 
-    private static SpaceUri Space(string authority = AuthorityDid) =>
-        SpaceUri.Parse($"at://{authority}/space/com.atmoboards.forum/default");
+    private static SpaceUri Space(Did? authority = null) =>
+        SpaceUri.Parse($"at://{authority ?? AuthorityDid}/space/com.atmoboards.forum/default");
 
     private static SpaceCredentialVerifier CreateVerifier(ISpaceDidDocumentResolver resolver)
     {
@@ -389,7 +407,7 @@ public class SpaceCredentialVerifierTests
 public class SpaceClientAttestationVerifierTests
 {
     private const string ClientId = "https://app.example.com/client-metadata.json";
-    private const string AuthorityDid = "did:plc:bbbbbbbbbbbbbbbbbbbbbbbb";
+    private static readonly Did AuthorityDid = Did.Parse("did:plc:bbbbbbbbbbbbbbbbbbbbbbbb");
 
     private static string Audience => SpaceAuthority.HostAudience(AuthorityDid);
 
@@ -525,7 +543,7 @@ public class SpaceClientAttestationVerifierTests
         var resolver = new FakeClientMetadataResolver().Publish(ClientId, key.ToJsonWebKey("key-1"));
         var verifier = new SpaceClientAttestationVerifier(resolver, new InMemorySpaceReplayStore());
 
-        var other = SpaceAuthority.HostAudience("did:plc:cccccccccccccccccccccccc");
+        var other = SpaceAuthority.HostAudience(Did.Parse("did:plc:cccccccccccccccccccccccc"));
 
         await Assert.ThrowsAsync<SpaceVerificationException>(
             () => verifier.VerifyAsync(Attestation(key, audience: other), Audience));
@@ -563,6 +581,7 @@ public class SpaceServiceAuthVerifierTests
 {
     private const string HostDid = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa";
     private const string AuthorityDid = "did:plc:bbbbbbbbbbbbbbbbbbbbbbbb";
+    private static readonly Nsid NotifyWrite = Nsid.Parse(SpaceNsids.NotifyWrite);
 
     private static HttpContext ContextWith(string jwt)
     {
@@ -581,13 +600,14 @@ public class SpaceServiceAuthVerifierTests
         TimeSpan? issuedOffset = null,
         string? jti = null,
         string audience = AuthorityDid,
-        JwsSegments padded = JwsSegments.None)
+        JwsSegments padded = JwsSegments.None,
+        string issuer = HostDid)
     {
         var now = DateTimeOffset.UtcNow;
         var header = new Dictionary<string, object> { ["typ"] = "JWT", ["alg"] = "ES256" };
         var payload = new Dictionary<string, object>
         {
-            ["iss"] = HostDid,
+            ["iss"] = issuer,
             ["aud"] = audience,
             ["lxm"] = SpaceNsids.NotifyWrite,
             ["iat"] = now.Add(issuedOffset ?? TimeSpan.Zero).ToUnixTimeSeconds(),
@@ -607,7 +627,7 @@ public class SpaceServiceAuthVerifierTests
         using var hostKey = AtProtoCrypto.GenerateP256Key();
 
         var verified = await CreateVerifier(hostKey).VerifyAsync(
-            ContextWith(ServiceAuth(hostKey)), AuthorityDid, SpaceNsids.NotifyWrite);
+            ContextWith(ServiceAuth(hostKey)), AuthorityDid, NotifyWrite);
 
         Assert.Equal(HostDid, verified.Issuer);
         Assert.Equal(SpaceNsids.NotifyWrite, verified.Method);
@@ -625,7 +645,7 @@ public class SpaceServiceAuthVerifierTests
             () => CreateVerifier(hostKey).VerifyAsync(
                 ContextWith(ServiceAuth(hostKey, lifetime: TimeSpan.FromDays(365))),
                 AuthorityDid,
-                SpaceNsids.NotifyWrite));
+                NotifyWrite));
 
         Assert.Contains("longer than", ex.Message, StringComparison.Ordinal);
     }
@@ -639,7 +659,7 @@ public class SpaceServiceAuthVerifierTests
             () => CreateVerifier(hostKey).VerifyAsync(
                 ContextWith(ServiceAuth(hostKey, issuedOffset: TimeSpan.FromMinutes(2))),
                 AuthorityDid,
-                SpaceNsids.NotifyWrite));
+                NotifyWrite));
 
         Assert.Contains("future", ex.Message, StringComparison.Ordinal);
     }
@@ -653,7 +673,7 @@ public class SpaceServiceAuthVerifierTests
             () => CreateVerifier(hostKey).VerifyAsync(
                 ContextWith(ServiceAuth(hostKey, lifetime: TimeSpan.FromMinutes(-2))),
                 AuthorityDid,
-                SpaceNsids.NotifyWrite));
+                NotifyWrite));
 
         Assert.Contains("expired", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -665,10 +685,10 @@ public class SpaceServiceAuthVerifierTests
         var verifier = CreateVerifier(hostKey);
         var jwt = ServiceAuth(hostKey);
 
-        await verifier.VerifyAsync(ContextWith(jwt), AuthorityDid, SpaceNsids.NotifyWrite);
+        await verifier.VerifyAsync(ContextWith(jwt), AuthorityDid, NotifyWrite);
 
         await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => verifier.VerifyAsync(ContextWith(jwt), AuthorityDid, SpaceNsids.NotifyWrite));
+            () => verifier.VerifyAsync(ContextWith(jwt), AuthorityDid, NotifyWrite));
     }
 
     [Fact]
@@ -680,7 +700,7 @@ public class SpaceServiceAuthVerifierTests
             () => CreateVerifier(hostKey).VerifyAsync(
                 ContextWith(ServiceAuth(hostKey, audience: "did:plc:cccccccccccccccccccccccc")),
                 AuthorityDid,
-                SpaceNsids.NotifyWrite));
+                NotifyWrite));
 
         Assert.Contains("addressed to", ex.Message, StringComparison.Ordinal);
     }
@@ -693,7 +713,19 @@ public class SpaceServiceAuthVerifierTests
 
         await Assert.ThrowsAsync<SpaceVerificationException>(
             () => CreateVerifier(hostKey).VerifyAsync(
-                ContextWith(ServiceAuth(otherKey)), AuthorityDid, SpaceNsids.NotifyWrite));
+                ContextWith(ServiceAuth(otherKey)), AuthorityDid, NotifyWrite));
+    }
+
+    [Fact]
+    public async Task VerifyAsync_IssuerThatIsNotADid_IsRejected()
+    {
+        using var hostKey = AtProtoCrypto.GenerateP256Key();
+
+        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
+            () => CreateVerifier(hostKey).VerifyAsync(
+                ContextWith(ServiceAuth(hostKey, issuer: "host.example.com")), AuthorityDid, NotifyWrite));
+
+        Assert.Contains("must be a DID", ex.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -705,7 +737,7 @@ public class SpaceServiceAuthVerifierTests
         using var hostKey = AtProtoCrypto.GenerateP256Key();
 
         await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => CreateVerifier(hostKey).VerifyAsync(ContextWith(jwt), AuthorityDid, SpaceNsids.NotifyWrite));
+            () => CreateVerifier(hostKey).VerifyAsync(ContextWith(jwt), AuthorityDid, NotifyWrite));
     }
 
     [Fact]
@@ -716,7 +748,7 @@ public class SpaceServiceAuthVerifierTests
         context.Request.Headers.Authorization = $"DPoP {ServiceAuth(hostKey)}";
 
         await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => CreateVerifier(hostKey).VerifyAsync(context, AuthorityDid, SpaceNsids.NotifyWrite));
+            () => CreateVerifier(hostKey).VerifyAsync(context, AuthorityDid, NotifyWrite));
     }
 
     [Theory]
@@ -729,7 +761,7 @@ public class SpaceServiceAuthVerifierTests
         var jwt = TestJws.WithSegment(ServiceAuth(hostKey), 1, TestJws.Encode(Encoding.UTF8.GetBytes(json)));
 
         await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => CreateVerifier(hostKey).VerifyAsync(ContextWith(jwt), AuthorityDid, SpaceNsids.NotifyWrite));
+            () => CreateVerifier(hostKey).VerifyAsync(ContextWith(jwt), AuthorityDid, NotifyWrite));
     }
 
     [Theory]
@@ -742,7 +774,7 @@ public class SpaceServiceAuthVerifierTests
         using var hostKey = AtProtoCrypto.GenerateP256Key();
 
         var verified = await CreateVerifier(hostKey).VerifyAsync(
-            ContextWith(ServiceAuth(hostKey, padded: padded)), AuthorityDid, SpaceNsids.NotifyWrite);
+            ContextWith(ServiceAuth(hostKey, padded: padded)), AuthorityDid, NotifyWrite);
 
         Assert.Equal(HostDid, verified.Issuer);
     }
@@ -760,7 +792,7 @@ public class SpaceServiceAuthVerifierTests
         var jwt = TestJws.WithSegment(ServiceAuth(hostKey), index, segment);
 
         var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => CreateVerifier(hostKey).VerifyAsync(ContextWith(jwt), AuthorityDid, SpaceNsids.NotifyWrite));
+            () => CreateVerifier(hostKey).VerifyAsync(ContextWith(jwt), AuthorityDid, NotifyWrite));
 
         Assert.Equal("NotAuthorized", ex.Error);
     }

@@ -1,3 +1,4 @@
+using ATProtoNet.Identity;
 using ATProtoNet.Server.Spaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -88,7 +89,7 @@ public class InMemorySpaceStoreWarningTests
         services.AddLogging(builder => builder.SetMinimumLevel(LogLevel.Trace).AddProvider(logs));
         services.AddAtProtoSpaces(o =>
         {
-            o.ServiceDid = "did:web:pds.example.com";
+            o.ServiceDid = Did.Parse("did:web:pds.example.com");
             options?.Invoke(o);
         });
         configure?.Invoke(services);

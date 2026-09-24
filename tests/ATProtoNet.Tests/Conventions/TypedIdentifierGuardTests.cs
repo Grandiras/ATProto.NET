@@ -42,32 +42,6 @@ public class TypedIdentifierGuardTests
     ];
 
     /// <summary>
-    /// Areas #119 converts in its later PRs. Each PR removes its entries; the list must end
-    /// empty. An entry that no longer matches any violation fails
-    /// <see cref="PendingConversions_AllStillHaveViolations"/>, so it cannot linger.
-    /// </summary>
-    private static readonly string[] PendingConversions =
-    [
-        // PR 4: spaces and streaming, including the com.atproto.sync.subscribeRepos event
-        // models the firehose reads.
-        "ATProtoNet.Lexicon.Com.AtProto.Space.",
-        "ATProtoNet.Lexicon.Com.AtProto.SimpleSpace.",
-        "ATProtoNet.Spaces.",
-        "ATProtoNet.Streaming.",
-        "ATProtoNet.Server.Spaces.",
-        "ATProtoNet.Lexicon.Com.AtProto.Sync.FirehoseMessage.",
-        "ATProtoNet.Lexicon.Com.AtProto.Sync.CommitEvent.",
-        "ATProtoNet.Lexicon.Com.AtProto.Sync.RepoOp.",
-        "ATProtoNet.Lexicon.Com.AtProto.Sync.SyncEvent.",
-        "ATProtoNet.Lexicon.Com.AtProto.Sync.IdentityEvent.",
-        "ATProtoNet.Lexicon.Com.AtProto.Sync.AccountEvent.",
-        "ATProtoNet.Lexicon.Com.AtProto.Sync.HandleEvent.",
-        "ATProtoNet.Lexicon.Com.AtProto.Sync.TombstoneEvent.",
-        // Mints the service-auth JWTs the spaces server sends; typed with its consumers.
-        "ATProtoNet.Auth.ServiceAuthGenerator.",
-    ];
-
-    /// <summary>
     /// Members whose name matches but whose value is genuinely not one identifier format.
     /// Keyed <c>Namespace.Type.Property</c> or <c>Namespace.Type.Method(parameter)</c>.
     /// </summary>
@@ -123,6 +97,31 @@ public class TypedIdentifierGuardTests
             "The email's subject line.",
         ["ATProtoNet.Lexicon.Tools.Ozone.Team.TeamMember.LastUpdatedBy"] =
             "No Lexicon format: Ozone writes `admin_token` when an admin token made the change.",
+
+        // Space tokens are one JWT shape for three token types: `iss` is a DID, or a client ID (a
+        // URL) on a client attestation, and `sub` is a space URI or, again, that client ID.
+        ["ATProtoNet.Spaces.SpaceToken.Issuer"] = "JWT `iss`: a DID, or an OAuth client ID on a client attestation.",
+        ["ATProtoNet.Spaces.SpaceToken.Subject"] = "JWT `sub`: a space URI, or an OAuth client ID on a client attestation.",
+        ["ATProtoNet.Spaces.SpaceTokens.Create(issuer)"] = "JWT `iss`: a DID, or an OAuth client ID on a client attestation.",
+        ["ATProtoNet.Spaces.SpaceTokens.Create(subject)"] = "JWT `sub`: a space URI, or an OAuth client ID on a client attestation.",
+        ["ATProtoNet.Server.Spaces.ISpaceReplayStore.TryConsumeAsync(issuer)"] =
+            "Scopes a `jti`: a token's `iss` (a DID or a client ID) or a DPoP key's thumbprint.",
+        ["ATProtoNet.Server.Spaces.InMemorySpaceReplayStore.TryConsumeAsync(issuer)"] =
+            "Scopes a `jti`: a token's `iss` (a DID or a client ID) or a DPoP key's thumbprint.",
+        ["ATProtoNet.Server.Spaces.DPoPProof.Uri"] = "The DPoP `htu`: an HTTP URL, not an AT URI.",
+        ["ATProtoNet.Server.Spaces.DPoPProofValidator.ValidateAsync(requestUri)"] = "An HTTP request URL, not an AT URI.",
+        ["ATProtoNet.Server.Spaces.SpaceCredentialVerifier.VerifyAsync(requestUri)"] = "An HTTP request URL, not an AT URI.",
+
+        // Jetstream collection filters accept NSID prefix wildcards (`app.bsky.graph.*`).
+        ["ATProtoNet.Streaming.JetstreamConsumerOptions.WantedCollections"] = "NSIDs or NSID prefix wildcards.",
+        ["ATProtoNet.Streaming.JetstreamSnapshotRequest.Collections"] = "NSIDs or NSID prefix wildcards.",
+
+        // An archive row is the segment's raw columns, for mirrors and auditors; ToEvent() parses
+        // them into the typed event, and a row is often filtered out before that.
+        ["ATProtoNet.Streaming.JetstreamArchiveRow.Did"] = "Raw archive column, unvalidated; ToEvent() types it.",
+        ["ATProtoNet.Streaming.JetstreamArchiveRow.Collection"] = "Raw archive column, empty on non-commit rows; ToEvent() types it.",
+        ["ATProtoNet.Streaming.JetstreamArchiveRow.Rkey"] = "Raw archive column, empty on non-commit rows; ToEvent() types it.",
+        ["ATProtoNet.Streaming.JetstreamArchiveRow.Rev"] = "Raw archive column, empty when absent; ToEvent() types it.",
     };
 
     private const string ChatRev = "No Lexicon format: an opaque revision string of the chat service.";
@@ -153,7 +152,7 @@ public class TypedIdentifierGuardTests
     public void PublicSurface_IdentifierMembers_AreTyped()
     {
         var violations = FindViolations()
-            .Where(v => !Exceptions.ContainsKey(v) && !IsPending(v))
+            .Where(v => !Exceptions.ContainsKey(v))
             .ToList();
 
         Assert.True(
@@ -173,20 +172,6 @@ public class TypedIdentifierGuardTests
         Assert.True(stale.Count == 0, "Remove these stale exceptions:\n  " + string.Join("\n  ", stale));
     }
 
-    [Fact]
-    public void PendingConversions_AllStillHaveViolations()
-    {
-        var violations = FindViolations().ToList();
-        var done = PendingConversions
-            .Where(prefix => !violations.Any(v => v.StartsWith(prefix, StringComparison.Ordinal)))
-            .ToList();
-
-        Assert.True(
-            done.Count == 0,
-            "These areas have no string identifiers left; remove them from PendingConversions:\n  " +
-            string.Join("\n  ", done));
-    }
-
     [Theory]
     [InlineData("did", true)]
     [InlineData("labelerDids", true)]
@@ -199,9 +184,6 @@ public class TypedIdentifierGuardTests
     [InlineData("Chat", false)]
     public void IsIdentifierName_ClassifiesByLastWord(string name, bool expected) =>
         Assert.Equal(expected, IsIdentifierName(name));
-
-    private static bool IsPending(string member) =>
-        PendingConversions.Any(prefix => member.StartsWith(prefix, StringComparison.Ordinal));
 
     private static IEnumerable<string> FindViolations()
     {

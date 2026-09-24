@@ -2,7 +2,6 @@ using System.Net;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
-using ATProtoNet.Serialization;
 using ATProtoNet.Server.Xrpc;
 using ATProtoNet.Spaces;
 using Microsoft.AspNetCore.Http;
@@ -72,8 +71,7 @@ public sealed class GetSpaceCredentialEndpoint
 
         var space = SpaceRequestValidation.RequireSpace(input.Space);
 
-        if (_options.ServiceDid is { } serviceDid &&
-            !string.Equals(space.Authority, serviceDid, StringComparison.Ordinal))
+        if (_options.ServiceDid is { } serviceDid && space.Authority != serviceDid)
         {
             // Another authority's space. Answering SpaceNotFound rather than a routing error is
             // the same answer this service gives for a space it does gate but will not disclose.
@@ -236,7 +234,7 @@ public sealed class RegisterNotifyEndpoint : IXrpcProcedure<RegisterNotifyReques
         var expiresAt = _timeProvider.GetUtcNow().Add(_options.NotifyRegistrationLifetime);
         await _store.RegisterNotifyAsync(space, service, expiresAt, cancellationToken);
 
-        return new RegisterNotifyResponse { ExpiresAt = AtProtoJsonDefaults.FormatTimestamp(expiresAt.UtcDateTime) };
+        return new RegisterNotifyResponse { ExpiresAt = AtDatetime.FromDateTimeOffset(expiresAt) };
     }
 }
 
@@ -354,15 +352,15 @@ public sealed class NotifyWriteEndpoint : IXrpcProcedureVoid<NotifyWriteRequest>
 
         // Malformed input is refused before any auth check, as the Lexicon's own types would be.
         var space = SpaceRequestValidation.RequireSpace(input.Space);
-        var repo = SpaceRequestValidation.RequireDid(input.Repo, "repo");
-        var rev = SpaceRequestValidation.RequireTid(input.Rev, "rev");
+        var repo = SpaceRequestValidation.Require(input.Repo, "repo");
+        var rev = SpaceRequestValidation.Require(input.Rev, "rev");
         var hash = input.Hash ?? throw new XrpcException(XrpcErrors.InvalidRequest, "The \"hash\" field is required.");
 
-        var caller = await _serviceAuth.VerifyAsync(context, AcceptedAudiences(space), SpaceNsids.NotifyWrite, cancellationToken);
+        var caller = await _serviceAuth.VerifyAsync(context, AcceptedAudiences(space), Nsid, cancellationToken);
 
         // The account itself, or the service that hosts its repo. Anything else is a stranger
         // claiming another account's repo advanced.
-        if (!string.Equals(caller.Issuer, repo, StringComparison.Ordinal) &&
+        if (caller.Issuer != repo &&
             !await _serviceAuth.IsRepoHostAsync(caller.Issuer, repo, cancellationToken))
         {
             throw new SpaceVerificationException(
@@ -402,8 +400,7 @@ public sealed class NotifyWriteEndpoint : IXrpcProcedureVoid<NotifyWriteRequest>
     }
 
     private string[] AcceptedAudiences(SpaceUri space) =>
-        _options.ServiceDid is { } serviceDid &&
-        !string.Equals(serviceDid, space.Authority, StringComparison.Ordinal)
-            ? [space.Authority, SpaceAuthority.HostAudience(space.Authority), serviceDid]
-            : [space.Authority, SpaceAuthority.HostAudience(space.Authority)];
+        _options.ServiceDid is { } serviceDid && serviceDid != space.Authority
+            ? [space.Authority.Value, SpaceAuthority.HostAudience(space.Authority), serviceDid.Value]
+            : [space.Authority.Value, SpaceAuthority.HostAudience(space.Authority)];
 }

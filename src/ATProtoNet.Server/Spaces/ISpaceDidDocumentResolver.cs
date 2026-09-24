@@ -24,7 +24,7 @@ public interface ISpaceDidDocumentResolver
     /// <param name="did">The DID to resolve.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="SpaceVerificationException">Thrown when the DID cannot be resolved.</exception>
-    Task<DidDocument> ResolveAsync(string did, CancellationToken cancellationToken = default);
+    Task<DidDocument> ResolveAsync(Did did, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -40,7 +40,7 @@ public interface ISpaceDidDocumentResolver
 /// </remarks>
 public sealed class CachingSpaceDidDocumentResolver : ISpaceDidDocumentResolver, IDisposable
 {
-    private readonly ConcurrentDictionary<string, CacheEntry> _cache = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<Did, CacheEntry> _cache = new();
     private readonly DidResolver _resolver;
     private readonly bool _ownsResolver;
     private readonly SpaceServerOptions _options;
@@ -64,9 +64,9 @@ public sealed class CachingSpaceDidDocumentResolver : ISpaceDidDocumentResolver,
     }
 
     /// <inheritdoc/>
-    public async Task<DidDocument> ResolveAsync(string did, CancellationToken cancellationToken = default)
+    public async Task<DidDocument> ResolveAsync(Did did, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(did);
+        ArgumentNullException.ThrowIfNull(did);
 
         var now = _timeProvider.GetUtcNow();
         if (_cache.TryGetValue(did, out var cached) && cached.ExpiresAt > now)
@@ -89,7 +89,7 @@ public sealed class CachingSpaceDidDocumentResolver : ISpaceDidDocumentResolver,
 
     /// <summary>Drops any cached document for a DID, e.g. on an <c>#identity</c> firehose event.</summary>
     /// <param name="did">The DID whose document should be re-fetched next time.</param>
-    public void Invalidate(string did) => _cache.TryRemove(did, out _);
+    public void Invalidate(Did did) => _cache.TryRemove(did, out _);
 
     /// <inheritdoc/>
     public void Dispose()
@@ -125,7 +125,7 @@ public static class SpaceDidDocumentResolverExtensions
     /// </exception>
     public static async Task<string> ResolveAccountKeyAsync(
         this ISpaceDidDocumentResolver resolver,
-        string did,
+        Did did,
         string? keyId,
         string error,
         CancellationToken cancellationToken = default)
@@ -158,7 +158,7 @@ public static class SpaceDidDocumentResolverExtensions
     /// </exception>
     public static async Task<string> ResolveAuthorityKeyAsync(
         this ISpaceDidDocumentResolver resolver,
-        string authorityDid,
+        Did authorityDid,
         string? keyId,
         CancellationToken cancellationToken = default)
     {
@@ -186,7 +186,7 @@ public static class SpaceDidDocumentResolverExtensions
         return hash < 0 ? "#" + keyId : keyId[hash..];
     }
 
-    private static string? FindKey(DidDocument document, string fragment, string did, string error)
+    private static string? FindKey(DidDocument document, string fragment, Did did, string error)
     {
         try
         {
@@ -202,7 +202,7 @@ public static class SpaceDidDocumentResolverExtensions
         }
     }
 
-    private static string? FindAuthorityKey(DidDocument document, string authorityDid)
+    private static string? FindAuthorityKey(DidDocument document, Did authorityDid)
     {
         try
         {

@@ -11,8 +11,8 @@ public class JetstreamConsumerTests
     {
         Did = Did.Parse(TestDid),
         TimeUs = timeUs,
-        Collection = "exchange.recipe.recipe",
-        RKey = rkey,
+        Collection = Nsid.Parse("exchange.recipe.recipe"),
+        Rkey = RecordKey.Parse(rkey),
         Operation = JetstreamOperation.Create,
     };
 

@@ -1,6 +1,4 @@
 using ATProtoNet.Http;
-using ATProtoNet.Identity;
-using ATProtoNet.Server.Xrpc;
 using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Server.Spaces;
@@ -9,76 +7,31 @@ namespace ATProtoNet.Server.Spaces;
 /// Parameter validation shared by the space endpoint handlers.
 /// </summary>
 /// <remarks>
-/// Every failure here is an <c>InvalidRequest</c> — the request is malformed, and saying so
+/// <para>Every failure here is an <c>InvalidRequest</c> — the request is malformed, and saying so
 /// discloses nothing, because none of these checks consult any state. Anything that <em>would</em>
 /// require a lookup answers <c>RepoNotFound</c> or <c>SpaceNotFound</c> instead, which the
-/// protocol keeps deliberately uninformative.
+/// protocol keeps deliberately uninformative.</para>
+/// <para>Identifier syntax is already checked by then: parameters and bodies bind through the
+/// identifier types' own parsers, which refuse a malformed value with <c>InvalidRequest</c>. A
+/// participant is a <see cref="Identity.Did"/> rather than an <see cref="Identity.AtIdentifier"/>,
+/// so a handle — which can be reassigned, and would silently move a repo's contents to a
+/// different account — never binds in its place. What is left here is presence.</para>
 /// </remarks>
 internal static class SpaceRequestValidation
 {
     /// <summary>The default page size when a request names none.</summary>
     public const int DefaultLimit = 50;
 
-    /// <summary>Parses a required space URI parameter.</summary>
-    public static SpaceUri RequireSpace(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            throw new XrpcException(XrpcErrors.InvalidRequest, "The \"space\" parameter is required.");
+    /// <summary>Requires the space parameter.</summary>
+    public static SpaceUri RequireSpace(SpaceUri? value) => Require(value, "space");
 
-        return SpaceUri.TryParse(value, out var space)
-            ? space
-            : throw new XrpcException(XrpcErrors.InvalidRequest, $"'{value}' is not a valid space URI.");
-    }
-
-    /// <summary>Parses a required DID parameter.</summary>
-    public static string RequireDid(string? value, string name)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            throw new XrpcException(XrpcErrors.InvalidRequest, $"The \"{name}\" parameter is required.");
-
-        // A space's participants are keyed on DIDs, never handles — a handle can be reassigned
-        // and would silently move a repo's contents to a different account.
-        return Did.TryParse(value, out _)
-            ? value
-            : throw new XrpcException(XrpcErrors.InvalidRequest, $"The \"{name}\" parameter must be a DID; got '{value}'.");
-    }
-
-    /// <summary>Parses a required NSID parameter.</summary>
-    public static string RequireNsid(string? value, string name)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            throw new XrpcException(XrpcErrors.InvalidRequest, $"The \"{name}\" parameter is required.");
-
-        return Nsid.TryParse(value, out _)
-            ? value
-            : throw new XrpcException(XrpcErrors.InvalidRequest, $"The \"{name}\" parameter must be an NSID; got '{value}'.");
-    }
-
-    /// <summary>Parses an optional NSID parameter.</summary>
-    public static string? OptionalNsid(string? value, string name) =>
-        string.IsNullOrWhiteSpace(value) ? null : RequireNsid(value, name);
-
-    /// <summary>Parses a required record key parameter.</summary>
-    public static string RequireRkey(string? value, string name)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            throw new XrpcException(XrpcErrors.InvalidRequest, $"The \"{name}\" parameter is required.");
-
-        return RecordKey.TryParse(value, out _)
-            ? value
-            : throw new XrpcException(XrpcErrors.InvalidRequest, $"The \"{name}\" parameter must be a record key; got '{value}'.");
-    }
-
-    /// <summary>Parses a required TID parameter, such as a repo revision.</summary>
-    public static string RequireTid(string? value, string name)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            throw new XrpcException(XrpcErrors.InvalidRequest, $"The \"{name}\" parameter is required.");
-
-        return Tid.TryParse(value, out _)
-            ? value
-            : throw new XrpcException(XrpcErrors.InvalidRequest, $"The \"{name}\" parameter must be a TID; got '{value}'.");
-    }
+    /// <summary>
+    /// Requires a parameter or body field. A body can carry an explicit JSON <c>null</c> for a
+    /// field the Lexicon requires, which deserializes without complaint.
+    /// </summary>
+    public static T Require<T>(T? value, string name)
+        where T : class =>
+        value ?? throw new XrpcException(XrpcErrors.InvalidRequest, $"The \"{name}\" parameter is required.");
 
     /// <summary>Requires a non-empty string parameter.</summary>
     public static string RequireString(string? value, string name) =>

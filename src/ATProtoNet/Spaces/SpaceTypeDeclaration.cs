@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.Spaces;
 
@@ -74,7 +75,7 @@ public sealed class SpaceTypeDeclaration
     /// does not restrict it.
     /// </remarks>
     [JsonPropertyName("collections")]
-    public required List<string> Collections { get; init; }
+    public required IReadOnlyList<Nsid> Collections { get; init; }
 
     /// <summary>
     /// Returns the localized name for a language, falling back to <see cref="Name"/>.
@@ -92,6 +93,9 @@ public sealed class SpaceTypeDeclaration
     /// </summary>
     /// <param name="lexicon">The parsed Lexicon document.</param>
     /// <returns>The declaration, or <see langword="null"/> when the document does not declare a space type.</returns>
+    /// <exception cref="JsonException">
+    /// The declaration is malformed, for example a <c>collections</c> entry that is not an NSID.
+    /// </exception>
     public static SpaceTypeDeclaration? FromLexicon(JsonElement lexicon)
     {
         if (lexicon.ValueKind != JsonValueKind.Object ||

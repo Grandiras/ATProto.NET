@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 using ATProtoNet.Serialization;
 using ATProtoNet.Server.Spaces;
@@ -87,7 +88,7 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
         spaces.Add(new SimpleSpaceEntity
         {
             Space = space.Uri.Value,
-            Owner = space.Owner,
+            Owner = space.Owner.Value,
             ReadPolicy = JsonSerializer.Serialize(space.ReadPolicy, _jsonOptions),
             WritePolicy = JsonSerializer.Serialize(space.WritePolicy, _jsonOptions),
             AppAccess = JsonSerializer.Serialize(space.AppAccess, _jsonOptions),
@@ -120,7 +121,7 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
         if (entity is null)
             return;
 
-        entity.Owner = space.Owner;
+        entity.Owner = space.Owner.Value;
         entity.ReadPolicy = JsonSerializer.Serialize(space.ReadPolicy, _jsonOptions);
         entity.WritePolicy = JsonSerializer.Serialize(space.WritePolicy, _jsonOptions);
         entity.AppAccess = JsonSerializer.Serialize(space.AppAccess, _jsonOptions);
@@ -148,18 +149,18 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
 
     /// <inheritdoc/>
     public async Task PutMemberAsync(
-        SpaceUri space, string did, bool read, bool write, CancellationToken cancellationToken = default)
+        SpaceUri space, Did did, bool read, bool write, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(did);
+        ArgumentNullException.ThrowIfNull(did);
 
-        if (await TryPutMemberAsync(space, did, read, write, cancellationToken))
+        if (await TryPutMemberAsync(space, did.Value, read, write, cancellationToken))
             return;
 
         // The row did not exist when this put looked, and a racing put inserted it first. Both
         // flags are replaced wholesale, so the answer is to overwrite that row: whichever put
         // saves last wins, exactly as it would have with no race.
-        await TryPutMemberAsync(space, did, read, write, cancellationToken);
+        await TryPutMemberAsync(space, did.Value, read, write, cancellationToken);
     }
 
     /// <summary>
@@ -201,14 +202,14 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
     }
 
     /// <inheritdoc/>
-    public async Task RemoveMemberAsync(SpaceUri space, string did, CancellationToken cancellationToken = default)
+    public async Task RemoveMemberAsync(SpaceUri space, Did did, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(did);
+        ArgumentNullException.ThrowIfNull(did);
 
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
         var members = context.Set<SimpleSpaceMemberEntity>();
-        var entity = await members.FindAsync([space.Value, did], cancellationToken);
+        var entity = await members.FindAsync([space.Value, did.Value], cancellationToken);
 
         if (entity is null)
             return;
@@ -219,15 +220,18 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
 
     /// <inheritdoc/>
     public async Task<SimpleSpaceMember?> GetMemberAsync(
-        SpaceUri space, string did, CancellationToken cancellationToken = default)
+        SpaceUri space, Did did, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(did);
+        ArgumentNullException.ThrowIfNull(did);
+
+        var spaceValue = space.Value;
+        var member = did.Value;
 
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
         var entity = await context.Set<SimpleSpaceMemberEntity>()
             .AsNoTracking()
-            .FirstOrDefaultAsync(e => e.Space == space.Value && e.Did == did, cancellationToken);
+            .FirstOrDefaultAsync(e => e.Space == spaceValue && e.Did == member, cancellationToken);
 
         return entity is null ? null : ToMember(entity);
     }
@@ -259,7 +263,7 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
         return new ListSimpleSpaceMembersResponse
         {
             Members = members,
-            Cursor = hasMore && members.Count > 0 ? members[^1].Did : null,
+            Cursor = hasMore && members.Count > 0 ? members[^1].Did.Value : null,
         };
     }
 
@@ -276,9 +280,9 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
                 $"The stored app access policy for '{entity.Space}' could not be read.");
 
         return new SimpleSpaceRecord(
-            SpaceUri.Parse(entity.Space), entity.Owner, readPolicy, writePolicy, appAccess, entity.Deleted);
+            SpaceUri.Parse(entity.Space), Did.Parse(entity.Owner), readPolicy, writePolicy, appAccess, entity.Deleted);
     }
 
     private static SimpleSpaceMember ToMember(SimpleSpaceMemberEntity entity) =>
-        new() { Did = entity.Did, Read = entity.Read, Write = entity.Write };
+        new() { Did = Did.Parse(entity.Did), Read = entity.Read, Write = entity.Write };
 }

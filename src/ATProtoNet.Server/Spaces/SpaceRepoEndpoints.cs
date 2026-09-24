@@ -49,13 +49,13 @@ public abstract class SpaceRepoEndpointBase<TParams>
     /// <param name="context">The HTTP context.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The space and repo the request addresses.</returns>
-    protected async Task<(SpaceUri Space, string Repo)> AuthenticateAsync(
+    protected async Task<(SpaceUri Space, Did Repo)> AuthenticateAsync(
         TParams parameters, HttpContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(parameters);
 
         var space = SpaceRequestValidation.RequireSpace(parameters.Space);
-        var repo = SpaceRequestValidation.RequireDid(parameters.Repo, "repo");
+        var repo = SpaceRequestValidation.Require(parameters.Repo, "repo");
 
         await Authenticator.AuthenticateCredentialAsync(context, space, cancellationToken);
 
@@ -69,7 +69,7 @@ public abstract class SpaceRepoEndpointBase<TParams>
     /// It deliberately does not distinguish "member who has never written" from "not a member":
     /// the protocol carries no reader set, and saying more would leak membership.
     /// </remarks>
-    protected static XrpcException RepoNotFound(SpaceUri space, string repo) =>
+    protected static XrpcException RepoNotFound(SpaceUri space, Did repo) =>
         new(SpaceErrors.RepoNotFound, $"'{repo}' holds no repo in {space}.", HttpStatusCode.NotFound);
 }
 
@@ -93,8 +93,8 @@ public sealed class GetSpaceRecordEndpoint
         GetSpaceRecordParameters parameters, HttpContext context, CancellationToken cancellationToken = default)
     {
         var (space, repo) = await AuthenticateAsync(parameters, context, cancellationToken);
-        var collection = SpaceRequestValidation.RequireNsid(parameters.Collection, "collection");
-        var rkey = SpaceRequestValidation.RequireRkey(parameters.Rkey, "rkey");
+        var collection = SpaceRequestValidation.Require(parameters.Collection, "collection");
+        var rkey = SpaceRequestValidation.Require(parameters.Rkey, "rkey");
 
         return await RepoHost.GetRecordAsync(space, repo, collection, rkey, cancellationToken)
                ?? throw new XrpcException(
@@ -129,11 +129,11 @@ public sealed class ListSpaceRecordsEndpoint
         return await RepoHost.ListRecordsAsync(
             space,
             repo,
-            SpaceRequestValidation.OptionalNsid(parameters.Collection, "collection"),
-            SpaceRequestValidation.Limit(parameters.Limit),
-            parameters.Cursor,
+            parameters.Collection,
             parameters.Reverse ?? false,
             parameters.ExcludeValues ?? false,
+            SpaceRequestValidation.Limit(parameters.Limit),
+            parameters.Cursor,
             cancellationToken);
     }
 }
@@ -193,9 +193,9 @@ public sealed class ListSpaceRepoOpsEndpoint
                    space,
                    repo,
                    parameters.Since,
+                   parameters.ExcludeValues ?? false,
                    SpaceRequestValidation.Limit(parameters.Limit, defaultLimit: 100),
                    parameters.Cursor,
-                   parameters.ExcludeValues ?? false,
                    cancellationToken)
                ?? throw RepoNotFound(space, repo);
     }
@@ -291,7 +291,7 @@ public sealed class GetSpaceBlobEndpoint
         GetSpaceBlobParameters parameters, HttpContext context, CancellationToken cancellationToken = default)
     {
         var (space, repo) = await AuthenticateAsync(parameters, context, cancellationToken);
-        var cid = SpaceRequestValidation.RequireString(parameters.Cid, "cid");
+        var cid = SpaceRequestValidation.Require(parameters.Cid, "cid");
 
         var blob = await RepoHost.GetBlobAsync(space, repo, cid, cancellationToken)
                    ?? throw new XrpcException(

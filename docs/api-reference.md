@@ -452,21 +452,22 @@ Type names below live under `ATProtoNet.Lexicon.Tools.Ozone.*`.
 ## SpaceClient (`com.atproto.space.*`)
 
 Accessed via `client.Space`, or via `SpaceReader.Space` when reading another member's repo with a
-space credential. See [Spaces (Permissioned Data)](spaces.md).
+space credential. See [Spaces (Permissioned Data)](spaces.md). A space is a `SpaceUri`, a repo a
+`Did`, and collections, record keys, revisions and CIDs are `Nsid`, `RecordKey`, `Tid` and `Cid`.
 
 | Method | Role | Description |
 |--------|------|-------------|
 | `GetDelegationTokenAsync(space)` | PDS | Mint a delegation token to exchange for a credential |
 | `GetSpaceCredentialAsync(space, clientAttestation?)` | Host | The raw exchange; prefer `SpaceCredentialProvider` |
-| `ListSpacesAsync(type?, did?, limit?, cursor?)` | PDS | Spaces the caller has **written** data to |
+| `ListSpacesAsync(type?, did?, limit?, cursor?)` / `EnumerateSpacesAsync` | PDS | Spaces the caller has **written** data to |
 | `ListReposAsync(space, limit?, cursor?)` / `EnumerateReposAsync` | Host | The writer set, with each repo's `rev` and `hash` |
-| `GetRecordAsync(space, repo, collection, rkey)` | Repo | One record's value |
-| `ListRecordsAsync(...)` / `EnumerateRecordsAsync(...)` | Repo | List records; `excludeValues` for metadata only |
+| `GetRecordAsync(space, repo, collection, rkey)` / `GetRecordAsync(uri)` | Repo | One record's value |
+| `ListRecordsAsync(space, repo, collection?, reverse?, excludeValues?, limit?, cursor?)` / `EnumerateRecordsAsync(...)` | Repo | List records; `excludeValues` for metadata only |
 | `GetLatestCommitAsync(space, repo)` | Repo | The repo's current signed commit |
 | `GetRepoAsync(space, repo, excludeValues?)` | Repo | Whole repo as a two-root CAR (`XrpcStreamResponse`; dispose it) |
-| `ListRepoOpsAsync(space, repo, since?, …)` | Repo | The oplog — the primary incremental sync mechanism |
-| `GetBlobAsync(space, repo, cid)` / `ListBlobsAsync(...)` | Repo | Blobs referenced by permissioned records (`GetBlobAsync` returns an `XrpcStreamResponse`) |
-| `CreateRecordAsync` / `PutRecordAsync` / `DeleteRecordAsync` | PDS | Single-record writes (OAuth only) |
+| `ListRepoOpsAsync(space, repo, since?, excludeValues?, limit?, cursor?)` | Repo | The oplog — the primary incremental sync mechanism |
+| `GetBlobAsync(space, repo, cid)` / `ListBlobsAsync(...)` / `EnumerateBlobsAsync(...)` | Repo | Blobs referenced by permissioned records (`GetBlobAsync` returns an `XrpcStreamResponse`) |
+| `CreateRecordAsync` / `PutRecordAsync` / `DeleteRecordAsync` (also by `SpaceRecordUri`) | PDS | Single-record writes (OAuth only) |
 | `ApplyWritesAsync(space, repo, writes, validate?)` | PDS | Atomic batch (`SpaceCreateOp` / `SpaceUpdateOp` / `SpaceDeleteOp`) |
 | `RegisterNotifyAsync` / `UnregisterNotifyAsync` | Host | Subscribe a service to write notifications |
 | `NotifyWriteAsync` / `NotifySpaceDeletedAsync` | Syncer | Deliver a notification (service auth) |
@@ -635,7 +636,7 @@ See [Firehose](firehose.md) and [Jetstream](jetstream.md).
 | `JetstreamEndpoints`, `JetstreamDictionaryClient` | Public instance URLs; v2 zstd dictionary fetch |
 | `JetstreamConnectException` | Subscription rejected pre-upgrade (`CursorTooOld`, …); `IsRetryable` |
 | `JetstreamReplayConsumer` | v2 archive backfill (`ReplayAsync`) with an inclusive, dedup'd cutover into the live tail; snapshot mode with `SnapshotOnly` |
-| `JetstreamArchiveClient` | `PlanSnapshotAsync` / `ListSegmentsAsync` / `GetSegmentAsync` / `GetBlockAsync`, with bearer auth, `Range` resume, and `Retry-After`-aware 429 handling |
+| `JetstreamArchiveClient` | `PlanSnapshotAsync` / `ListSegmentsAsync` / `EnumerateSegmentsAsync` / `GetSegmentAsync` / `GetBlockAsync`, with bearer auth, `Range` resume, and `Retry-After`-aware 429 handling |
 | `JetstreamArchiveOptions`, `IJetstreamBlockDecompressor` | Replay configuration on `JetstreamConsumerOptions.Archive`; zstd seam for `.jss` blocks |
 | `JetstreamSegmentReader`, `JetstreamArchiveRow` | Streaming `.jss` decoder (`ReadRowsAsync` / `ReadEventsAsync` / `DecodeBlockFrame`) and the raw columnar row, including untouched CBOR payloads |
 | `JetstreamSegmentHeader`, `JetstreamSegmentInfo`, `JetstreamSnapshotPlan` | Segment metadata for mirrors: checksums, sequence and witnessed-at bounds, plan pages |

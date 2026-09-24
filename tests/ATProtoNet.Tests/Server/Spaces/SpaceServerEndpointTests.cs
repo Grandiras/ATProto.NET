@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using ATProtoNet.Auth;
 using ATProtoNet.Crypto;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Serialization;
@@ -51,8 +52,8 @@ public class SpaceServerEndpointTests : IAsyncLifetime
 
         _space = SpaceUri.Parse($"at://{AuthorityDid}/space/com.atmoboards.forum/default");
         await _simpleSpaceStore.CreateSpaceAsync(
-            new SimpleSpaceRecord(_space, AuthorityDid, new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess()));
-        await _simpleSpaceStore.PutMemberAsync(_space, MemberDid, read: true, write: true);
+            new SimpleSpaceRecord(_space, Did.Parse(AuthorityDid), new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess()));
+        await _simpleSpaceStore.PutMemberAsync(_space, Did.Parse(MemberDid), read: true, write: true);
 
         _host = await new HostBuilder()
             .ConfigureWebHost(web =>
@@ -69,7 +70,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
                     services
                         .AddAtProtoSpaces(options =>
                         {
-                            options.ServiceDid = AuthorityDid;
+                            options.ServiceDid = Did.Parse(AuthorityDid);
                             options.PublicBaseUrl = BaseUrl;
                         })
                         .AddSpaceAuthority<InMemorySpaceAuthorityStore>(_authorityKey)
@@ -139,7 +140,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         using var request = new HttpRequestMessage(HttpMethod.Post, $"/xrpc/{SpaceNsids.GetSpaceCredential}")
         {
             Content = JsonContent.Create(
-                new GetSpaceCredentialRequest { Space = _space.Value }, options: AtProtoJsonDefaults.Options),
+                new GetSpaceCredentialRequest { Space = _space }, options: AtProtoJsonDefaults.Options),
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", delegation);
 
@@ -171,7 +172,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         var gated = SpaceUri.Parse($"at://{AuthorityDid}/space/com.atmoboards.forum/gated");
         await _simpleSpaceStore.CreateSpaceAsync(new SimpleSpaceRecord(
             gated,
-            AuthorityDid,
+            Did.Parse(AuthorityDid),
             new PublicPolicy(),
             new PublicPolicy(),
             new AllowListAppAccess { Allowed = ["https://app.example.com/client-metadata.json"] }));
@@ -210,7 +211,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var record = await response.Content.ReadFromJsonAsync<GetSpaceRecordResponse>(AtProtoJsonDefaults.Options);
-        Assert.Equal("bafyreiexample", record!.Cid);
+        Assert.Equal("bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", record!.Cid);
     }
 
     [Fact]
@@ -297,7 +298,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     public async Task ListRepos_ReflectsWhatNotifyWriteReported()
     {
         var store = _host.Services.GetRequiredService<ISpaceAuthorityStore>();
-        await store.RecordWriteAsync(_space, MemberDid, "3l6oveex3ii2l", [1, 2, 3]);
+        await store.RecordWriteAsync(_space, Did.Parse(MemberDid), Tid.Parse("3l6oveex3ii2l"), [1, 2, 3]);
 
         using var dpop = new TestDPoPKey();
         var credential = await MintCredentialAsync(dpop);
@@ -327,14 +328,14 @@ public class SpaceServerEndpointTests : IAsyncLifetime
             dpop,
             new RegisterNotifyRequest
             {
-                Space = _space.Value,
+                Space = _space,
                 Service = "did:web:syncer.example.com#atproto_space_syncer",
             });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = await response.Content.ReadFromJsonAsync<RegisterNotifyResponse>(AtProtoJsonDefaults.Options);
-        Assert.True(DateTimeOffset.Parse(body!.ExpiresAt, System.Globalization.CultureInfo.InvariantCulture) > DateTimeOffset.UtcNow);
+        Assert.True(body!.ExpiresAt.Value > DateTimeOffset.UtcNow);
 
         var subscribers = await store.ListSubscribersAsync(_space);
         Assert.Single(subscribers);
@@ -403,7 +404,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
             dpop,
             new RegisterNotifyRequest
             {
-                Space = space.Value,
+                Space = space,
                 Service = "did:web:syncer.example.com#atproto_space_syncer",
             });
 
@@ -431,7 +432,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         using var deleted = await _client.PostAsync(
             $"/xrpc/{SpaceNsids.DeleteSimpleSpace}",
             JsonContent.Create(
-                new DeleteSimpleSpaceRequest { Space = space.Value }, options: AtProtoJsonDefaults.Options));
+                new DeleteSimpleSpaceRequest { Space = space }, options: AtProtoJsonDefaults.Options));
         Assert.Equal(HttpStatusCode.OK, deleted.StatusCode);
 
         var url = $"/xrpc/{SpaceNsids.ListRepos}?space={Uri.EscapeDataString(space.Value)}";
@@ -467,7 +468,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     public async Task NotifyWrite_MemberWithoutWriteAccess_IsRefusedAndNotRecorded()
     {
         // The reference authority refuses "a member without write access" the same way.
-        await _simpleSpaceStore.PutMemberAsync(_space, MemberDid, read: true, write: false);
+        await _simpleSpaceStore.PutMemberAsync(_space, Did.Parse(MemberDid), read: true, write: false);
 
         using var response = await NotifyWriteAsync(_space, MemberDid, _memberKey, "3l6oveex3ii2l");
 
@@ -502,9 +503,11 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         // No Authorization header at all: the malformed rev is what gets refused.
         using var request = new HttpRequestMessage(HttpMethod.Post, $"/xrpc/{SpaceNsids.NotifyWrite}")
         {
-            Content = JsonContent.Create(
-                new NotifyWriteRequest { Space = _space.Value, Repo = MemberDid, Rev = "not-a-tid", Hash = [1] },
-                options: AtProtoJsonDefaults.Options),
+            // Written by hand: the request model cannot carry a malformed rev.
+            Content = new StringContent(
+                $$"""{"space":"{{_space}}","repo":"{{MemberDid}}","rev":"not-a-tid","hash":{"$bytes":"AQ"} }""",
+                System.Text.Encoding.UTF8,
+                "application/json"),
         };
 
         using var response = await _client.SendAsync(request);
@@ -602,7 +605,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
             Content = JsonContent.Create(
                 new GetSpaceCredentialRequest
                 {
-                    Space = (space ?? _space).Value,
+                    Space = space ?? _space,
                     ClientAttestation = attestation,
                 },
                 options: AtProtoJsonDefaults.Options),
@@ -651,8 +654,8 @@ public class SpaceServerEndpointTests : IAsyncLifetime
             JsonContent.Create(
                 new CreateSimpleSpaceRequest
                 {
-                    Type = "com.atmoboards.forum",
-                    Skey = skey,
+                    Type = Nsid.Parse("com.atmoboards.forum"),
+                    Skey = RecordKey.Parse(skey),
                     // Public, so the exchange turns on the space existing rather than on membership.
                     ReadPolicy = new PublicPolicy(),
                     WritePolicy = writePolicy ?? new PublicPolicy(),
@@ -663,7 +666,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         response.EnsureSuccessStatusCode();
 
         var body = await response.Content.ReadFromJsonAsync<CreateSimpleSpaceResponse>(AtProtoJsonDefaults.Options);
-        return body!.ToSpaceUri();
+        return body!.Uri;
     }
 
     /// <summary>
@@ -673,17 +676,17 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     private async Task<HttpResponseMessage> NotifyWriteAsync(
         SpaceUri space, string repoDid, AtProtoKey repoKey, string rev, string audience = AuthorityDid)
     {
-        using var generator = new ServiceAuthGenerator(repoDid, repoKey);
+        using var generator = new ServiceAuthGenerator(Did.Parse(repoDid), repoKey);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, $"/xrpc/{SpaceNsids.NotifyWrite}")
         {
             Content = JsonContent.Create(
-                new NotifyWriteRequest { Space = space.Value, Repo = repoDid, Rev = rev, Hash = [1, 2, 3] },
+                new NotifyWriteRequest { Space = space, Repo = Did.Parse(repoDid), Rev = Tid.Parse(rev), Hash = [1, 2, 3] },
                 options: AtProtoJsonDefaults.Options),
         };
 
         request.Headers.Authorization = new AuthenticationHeaderValue(
-            "Bearer", generator.CreateToken(audience, SpaceNsids.NotifyWrite));
+            "Bearer", generator.CreateToken(audience, Nsid.Parse(SpaceNsids.NotifyWrite)));
 
         return await _client.SendAsync(request);
     }
@@ -692,7 +695,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     {
         var store = _host.Services.GetRequiredService<ISpaceAuthorityStore>();
         var page = await store.ListReposAsync(space, 100, null);
-        return page.Repos.Select(repo => repo.Did).ToList();
+        return page.Repos.Select(repo => repo.Did.Value).ToList();
     }
 
     /// <summary>
@@ -732,23 +735,23 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         public int LastLimit { get; private set; }
 
         public Task<GetSpaceRecordResponse?> GetRecordAsync(
-            SpaceUri space, string repoDid, string collection, string rkey,
+            SpaceUri space, Did repoDid, Nsid collection, RecordKey rkey,
             CancellationToken cancellationToken = default)
         {
-            if (rkey != "3l6oveex3ii2l")
+            if (rkey.Value != "3l6oveex3ii2l")
                 return Task.FromResult<GetSpaceRecordResponse?>(null);
 
             return Task.FromResult<GetSpaceRecordResponse?>(new GetSpaceRecordResponse
             {
-                Uri = space.Record(repoDid, collection, rkey).Value,
-                Cid = "bafyreiexample",
+                Uri = space.Record(repoDid, collection, rkey),
+                Cid = Cid.Parse("bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"),
                 Value = JsonDocument.Parse("""{"$type":"com.atmoboards.thread"}""").RootElement,
             });
         }
 
         public Task<ListSpaceRecordsResponse> ListRecordsAsync(
-            SpaceUri space, string repoDid, string? collection, int limit, string? cursor,
-            bool reverse, bool excludeValues, CancellationToken cancellationToken = default)
+            SpaceUri space, Did repoDid, Nsid? collection, bool reverse, bool excludeValues, int limit,
+            string? cursor, CancellationToken cancellationToken = default)
         {
             LastExcludeValues = excludeValues;
             LastLimit = limit;
@@ -757,25 +760,25 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         }
 
         public Task<SignedSpaceCommit?> GetLatestCommitAsync(
-            SpaceUri space, string repoDid, CancellationToken cancellationToken = default) =>
+            SpaceUri space, Did repoDid, CancellationToken cancellationToken = default) =>
             Task.FromResult<SignedSpaceCommit?>(null);
 
         public Task<Stream?> GetRepoAsync(
-            SpaceUri space, string repoDid, bool excludeValues, CancellationToken cancellationToken = default) =>
+            SpaceUri space, Did repoDid, bool excludeValues, CancellationToken cancellationToken = default) =>
             Task.FromResult<Stream?>(new MemoryStream(CarBytes, writable: false));
 
         public Task<ListSpaceRepoOpsResponse?> ListRepoOpsAsync(
-            SpaceUri space, string repoDid, string? since, int limit, string? cursor,
-            bool excludeValues, CancellationToken cancellationToken = default) =>
+            SpaceUri space, Did repoDid, Tid? since, bool excludeValues, int limit, string? cursor,
+            CancellationToken cancellationToken = default) =>
             Task.FromResult<ListSpaceRepoOpsResponse?>(new ListSpaceRepoOpsResponse { Ops = [] });
 
         public Task<ListSpaceBlobsResponse> ListBlobsAsync(
-            SpaceUri space, string repoDid, string? since, int limit, string? cursor,
+            SpaceUri space, Did repoDid, Tid? since, int limit, string? cursor,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new ListSpaceBlobsResponse { Cids = [] });
 
         public Task<SpaceBlobContent?> GetBlobAsync(
-            SpaceUri space, string repoDid, string cid, CancellationToken cancellationToken = default) =>
+            SpaceUri space, Did repoDid, Cid cid, CancellationToken cancellationToken = default) =>
             Task.FromResult<SpaceBlobContent?>(null);
     }
 }

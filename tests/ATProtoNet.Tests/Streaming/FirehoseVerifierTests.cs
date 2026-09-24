@@ -1,4 +1,5 @@
 using System.Formats.Cbor;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using ATProtoNet.Streaming;
 
@@ -6,14 +7,18 @@ namespace ATProtoNet.Tests.Streaming;
 
 public class FirehoseVerifierTests
 {
+    private static readonly Did TestRepo = Did.Parse("did:plc:test");
+    private static readonly Cid TestCommit = Cid.Parse("bafyreievaxfmw7drb3ixcjp4y3ftm2pi3xfgzdgyv5vdd5vtzvsgatbqta");
+    private static readonly Tid TestRev = Tid.Parse("3jzfcijpj2z2a");
+
     [Fact]
     public void VerifyCid_CommitWithNullBlocks_ReturnsFailure()
     {
         var commit = new CommitEvent
         {
-            Repo = "did:plc:test",
-            Commit = "bafyreiabc",
-            Rev = "abc123",
+            Repo = TestRepo,
+            Commit = TestCommit,
+            Rev = TestRev,
             Blocks = null,
         };
 
@@ -27,9 +32,9 @@ public class FirehoseVerifierTests
     {
         var commit = new CommitEvent
         {
-            Repo = "did:plc:test",
-            Commit = "bafyreiabc",
-            Rev = "abc123",
+            Repo = TestRepo,
+            Commit = TestCommit,
+            Rev = TestRev,
             Blocks = Array.Empty<byte>(),
         };
 
@@ -43,8 +48,8 @@ public class FirehoseVerifierTests
     {
         var syncEvent = new SyncEvent
         {
-            Did = "did:plc:test",
-            Rev = "abc123",
+            Did = TestRepo,
+            Rev = TestRev,
             Blocks = null,
         };
 
@@ -58,9 +63,9 @@ public class FirehoseVerifierTests
     {
         var commit = new CommitEvent
         {
-            Repo = "did:plc:test",
-            Commit = "bafyreiabc",
-            Rev = "abc123",
+            Repo = TestRepo,
+            Commit = TestCommit,
+            Rev = TestRev,
             Blocks = new byte[] { 0xFF, 0xFF, 0xFF },
         };
 
@@ -88,9 +93,9 @@ public class FirehoseVerifierTests
         // Just verify the ToString behavior on failure results
         var commit = new CommitEvent
         {
-            Repo = "did:plc:test",
-            Commit = "bafyreiabc",
-            Rev = "abc123",
+            Repo = TestRepo,
+            Commit = TestCommit,
+            Rev = TestRev,
             Blocks = null,
         };
 
@@ -112,9 +117,9 @@ public class FirehoseVerifierTests
         using var verifier = new FirehoseVerifier();
         var commit = new CommitEvent
         {
-            Repo = "did:plc:test",
-            Commit = "bafyreiabc",
-            Rev = "abc123",
+            Repo = TestRepo,
+            Commit = TestCommit,
+            Rev = TestRev,
             Blocks = null,
         };
 
@@ -129,9 +134,9 @@ public class FirehoseVerifierTests
         using var verifier = new FirehoseVerifier();
         var commit = new CommitEvent
         {
-            Repo = "did:plc:test",
-            Commit = "bafyreiabc",
-            Rev = "abc123",
+            Repo = TestRepo,
+            Commit = TestCommit,
+            Rev = TestRev,
             Blocks = Array.Empty<byte>(),
         };
 
@@ -146,9 +151,9 @@ public class FirehoseVerifierTests
         using var verifier = new FirehoseVerifier();
         var commit = new CommitEvent
         {
-            Repo = "did:plc:test",
-            Commit = "bafyreiabc",
-            Rev = "abc123",
+            Repo = TestRepo,
+            Commit = TestCommit,
+            Rev = TestRev,
             Blocks = new byte[] { 0xFF, 0xFF, 0xFF },
         };
 

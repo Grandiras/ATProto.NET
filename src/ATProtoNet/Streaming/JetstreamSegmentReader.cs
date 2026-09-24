@@ -48,8 +48,10 @@ public enum JetstreamArchiveRowKind : byte
 /// This is the archive's own shape: the raw column values, including the untouched
 /// <see cref="Payload"/> CBOR. It is exposed for mirrors and auditors that want the bytes the
 /// network published rather than the JSON projection — the archive keeps records as CBOR
-/// precisely so a mirror stays byte-auditable. Consumers that just want events can use
-/// <see cref="ToEvent"/>, or the event-level readers on <see cref="JetstreamSegmentReader"/>.
+/// precisely so a mirror stays byte-auditable. The identifier columns are therefore kept as the
+/// text the archive stored, unvalidated; <see cref="ToEvent"/> parses them into the typed event
+/// the live tail delivers, and consumers that just want events can use it or the event-level
+/// readers on <see cref="JetstreamSegmentReader"/>.
 /// </remarks>
 public sealed class JetstreamArchiveRow
 {
@@ -75,7 +77,7 @@ public sealed class JetstreamArchiveRow
     public required string Collection { get; init; }
 
     /// <summary>The record key; empty for non-commit rows.</summary>
-    public required string RKey { get; init; }
+    public required string Rkey { get; init; }
 
     /// <summary>The repo revision (TID); empty when the row carries none.</summary>
     public required string Rev { get; init; }
@@ -97,8 +99,9 @@ public sealed class JetstreamArchiveRow
     /// Project this row to the same event model the live tail delivers.
     /// </summary>
     /// <returns>The event, or null when the row cannot be projected — an unknown kind, an
-    /// unparseable DID, or a payload that is not the CBOR the kind requires. Malformed rows are
-    /// skipped rather than thrown on, matching the live parser's forward tolerance.</returns>
+    /// unparseable DID, collection or record key, or a payload that is not the CBOR the kind
+    /// requires. Malformed rows are skipped rather than thrown on, matching the live parser's
+    /// forward tolerance.</returns>
     public JetstreamEvent? ToEvent()
     {
         DidValue did;
@@ -124,8 +127,11 @@ public sealed class JetstreamArchiveRow
         };
     }
 
-    private JetstreamCommitEvent Commit(DidValue did, JetstreamOperation operation)
+    private JetstreamCommitEvent? Commit(DidValue did, JetstreamOperation operation)
     {
+        if (!Nsid.TryParse(Collection, out var collection) || !RecordKey.TryParse(Rkey, out var rkey))
+            return null;
+
         JsonElement? record = null;
         Cid? cid = null;
 
@@ -151,10 +157,10 @@ public sealed class JetstreamArchiveRow
             Did = did,
             TimeUs = TimeUs,
             Cursor = Seq,
-            Collection = Collection,
-            RKey = RKey,
+            Collection = collection,
+            Rkey = rkey,
             Operation = operation,
-            Rev = string.IsNullOrEmpty(Rev) ? null : Rev,
+            Rev = Tid.TryParse(Rev, out var rev) ? rev : null,
             Cid = cid,
             Record = record,
         };
@@ -168,9 +174,9 @@ public sealed class JetstreamArchiveRow
             Did = did,
             TimeUs = TimeUs,
             Cursor = Seq,
-            Handle = GetString(frame, "handle"),
+            Handle = Handle.TryParse(GetString(frame, "handle"), out var handle) ? handle : null,
             Seq = GetInt64(frame, "seq"),
-            Time = GetString(frame, "time"),
+            Time = GetDatetime(frame, "time"),
         };
     }
 
@@ -190,7 +196,7 @@ public sealed class JetstreamArchiveRow
             Active = active.GetBoolean(),
             Status = GetString(frame, "status"),
             Seq = GetInt64(frame, "seq"),
-            Time = GetString(frame, "time"),
+            Time = GetDatetime(frame, "time"),
         };
     }
 
@@ -221,10 +227,10 @@ public sealed class JetstreamArchiveRow
             Did = did,
             TimeUs = TimeUs,
             Cursor = Seq,
-            Rev = GetString(frame, "rev") ?? (string.IsNullOrEmpty(Rev) ? null : Rev),
+            Rev = Tid.TryParse(GetString(frame, "rev") ?? Rev, out var rev) ? rev : null,
             Blocks = blocks,
             Seq = GetInt64(frame, "seq"),
-            Time = GetString(frame, "time"),
+            Time = GetDatetime(frame, "time"),
         };
     }
 
@@ -251,6 +257,9 @@ public sealed class JetstreamArchiveRow
             && prop.ValueKind == JsonValueKind.String
             ? prop.GetString()
             : null;
+
+    private static AtDatetime? GetDatetime(JsonElement? element, string name)
+        => GetString(element, name) is { } text ? AtDatetime.FromWire(text) : null;
 
     private static long? GetInt64(JsonElement? element, string name)
         => element is { } value && value.TryGetProperty(name, out var prop)
@@ -517,7 +526,7 @@ public static class JetstreamSegmentReader
                 Kind = (JetstreamArchiveRowKind)block[kind + i],
                 Collection = Utf8(block.Slice(collectionAt, collectionSize)),
                 Did = Utf8(block.Slice(didAt, didSize)),
-                RKey = Utf8(block.Slice(rkeyAt, rkeySize)),
+                Rkey = Utf8(block.Slice(rkeyAt, rkeySize)),
                 Rev = Utf8(block.Slice(revAt, revSize)),
                 // Copied, not aliased: the caller outlives the decompression buffer.
                 Payload = block.Slice(payloadAt, payloadSize).ToArray(),

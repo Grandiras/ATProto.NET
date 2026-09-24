@@ -237,7 +237,7 @@ public sealed class JetstreamClient : IDisposable
         if (options.WantedDids is not null)
         {
             foreach (var did in options.WantedDids)
-                Append(query, v2 ? "dids" : "wantedDids", did);
+                Append(query, v2 ? "dids" : "wantedDids", did.Value);
         }
 
         if (v2 && options.WantedKinds is not null)

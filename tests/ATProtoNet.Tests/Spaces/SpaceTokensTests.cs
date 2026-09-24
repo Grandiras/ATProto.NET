@@ -235,7 +235,7 @@ public class SpaceTokensTests
         var jwt = MintDelegation(key, padded);
 
         var token = SpaceTokens.Verify(
-            SpaceTokenType.Delegation, jwt, key.ToDidKey(), HostAudience, Space);
+            SpaceTokenType.Delegation, jwt, key.ToDidKey(), HostAudience, SpaceUri.Parse(Space));
 
         Assert.Equal(UserDid, token.Issuer);
         Assert.Equal("a-token-id", token.TokenId);
@@ -293,7 +293,7 @@ public class SpaceTokensTests
         using var key = AtProtoCrypto.GenerateP256Key();
         var parsed = SpaceTokens.Parse(SpaceTokenType.Delegation, MintDelegation(key));
 
-        var verified = SpaceTokens.Verify(parsed, key.ToDidKey(), HostAudience, Space);
+        var verified = SpaceTokens.Verify(parsed, key.ToDidKey(), HostAudience, SpaceUri.Parse(Space));
 
         Assert.Same(parsed, verified);
     }
@@ -363,7 +363,7 @@ public class SpaceTokensTests
             SpaceTokenType.Delegation, UserDid, Space, key, audience: HostAudience);
 
         var token = SpaceTokens.Verify(
-            SpaceTokenType.Delegation, jwt, key.ToDidKey(), HostAudience, Space);
+            SpaceTokenType.Delegation, jwt, key.ToDidKey(), HostAudience, SpaceUri.Parse(Space));
 
         Assert.Equal(UserDid, token.Issuer);
     }
@@ -403,7 +403,7 @@ public class SpaceTokensTests
 
         Assert.Throws<SpaceTokenException>(() => SpaceTokens.Verify(
             SpaceTokenType.Delegation, jwt, key.ToDidKey(),
-            expectedSubject: $"at://{AuthorityDid}/space/com.atmoboards.forum/other"));
+            expectedSubject: SpaceUri.Parse($"at://{AuthorityDid}/space/com.atmoboards.forum/other")));
     }
 
     [Fact]

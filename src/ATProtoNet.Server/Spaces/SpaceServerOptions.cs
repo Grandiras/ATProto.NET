@@ -1,3 +1,4 @@
+using ATProtoNet.Identity;
 using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Server.Spaces;
@@ -18,7 +19,7 @@ public sealed class SpaceServerOptions
     /// The DID of this service — the space authority DID when acting as one, and the issuer of
     /// the service auth on outbound write notifications.
     /// </summary>
-    public string? ServiceDid { get; set; }
+    public Did? ServiceDid { get; set; }
 
     /// <summary>
     /// The externally reachable base URL of this service, e.g. <c>https://pds.example.com</c>.

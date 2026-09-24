@@ -105,7 +105,7 @@ public static class TestForumSpace
         Key = "any",
         Name = "AtmoBoards Forum",
         LocalizedNames = new Dictionary<string, string> { ["es"] = "Foro AtmoBoards" },
-        Collections = ["com.atmoboards.test.thread", "com.atmoboards.test.reply"],
+        Collections = [ATProtoNet.Identity.Nsid.Parse("com.atmoboards.test.thread"), ATProtoNet.Identity.Nsid.Parse("com.atmoboards.test.reply")],
     };
 }
 

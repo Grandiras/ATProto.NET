@@ -189,7 +189,7 @@ public class IdentitySerializationTests
     public void SpaceUris_SerializeAsStrings()
     {
         var space = SpaceUri.Parse("at://did:plc:abc123/space/com.example.forum/a");
-        var record = space.Record("did:plc:def456", "com.example.post", "1");
+        var record = space.Record(Did.Parse("did:plc:def456"), Nsid.Parse("com.example.post"), RecordKey.Parse("1"));
 
         var spaceJson = JsonSerializer.Serialize(space, _options);
         var recordJson = JsonSerializer.Serialize(record, _options);

@@ -1,3 +1,4 @@
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Spaces;
 
@@ -34,7 +35,7 @@ public enum SpaceAccessKind
 /// <param name="Access">Whether this is a credential request or a write notification.</param>
 public sealed record SpaceAccessRequest(
     SpaceUri Space,
-    string UserDid,
+    Did UserDid,
     string? AttestedClientId,
     SpaceAccessKind Access = SpaceAccessKind.Read);
 

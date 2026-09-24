@@ -58,7 +58,7 @@ Only the two v2 hosts serve v2; the legacy hosts answer `/xrpc/…` with a 404. 
 
 | Type | Meaning |
 |---|---|
-| `JetstreamCommitEvent` | Record create/update/delete. Exposes `Collection`, `RKey`, `Operation`, `Rev`, `Cid`, raw `Record` JSON, computed `Uri`, and typed `GetRecord<T>()`. |
+| `JetstreamCommitEvent` | Record create/update/delete. Exposes `Collection` (`Nsid`), `Rkey` (`RecordKey`), `Operation`, `Rev` (`Tid?`), `Cid`, raw `Record` JSON, computed `Uri`, and typed `GetRecord<T>()`. |
 | `JetstreamIdentityEvent` | Identity change (e.g. handle update). |
 | `JetstreamAccountEvent` | Account status change (`Active`, `Status` like `"takendown"`). |
 | `JetstreamSyncEvent` | **v2 only.** The account's commit chain could not be followed — drop its derived state and re-read the repo. Carries `Rev` and the commit CAR in `Blocks`. |
@@ -70,7 +70,7 @@ All events carry:
 - `Timestamp` — the same instant as a `DateTimeOffset`.
 - `Cursor` — Jetstream's monotonic sequence number, and the v2 cursor. Populated on every v2 event; on v1 it comes from the `cursor` field that only the v2 hosts emit, and is `null` against a legacy instance.
 
-`JetstreamIdentityEvent`, `JetstreamAccountEvent`, and `JetstreamSyncEvent` also expose the *upstream* relay's `Seq` and `Time`, which are distinct from Jetstream's own `Cursor` and `TimeUs`.
+`JetstreamIdentityEvent`, `JetstreamAccountEvent`, and `JetstreamSyncEvent` also expose the *upstream* relay's `Seq` and `Time` (an `AtDatetime?`), which are distinct from Jetstream's own `Cursor` and `TimeUs`. An identity event's `Handle` is a `Handle?`, and a sync event's `Rev` a `Tid?`.
 
 Typed record access uses the SDK's serialization defaults (`AtProtoJsonDefaults.Options`), including union variants registered in `LexiconTypeRegistry`:
 
@@ -81,7 +81,7 @@ if (evt is JetstreamCommitEvent { Operation: not JetstreamOperation.Delete } com
 }
 ```
 
-The parser is forward-tolerant: unknown event kinds, operations, and fields are skipped rather than throwing, so consumers keep working as the Jetstream protocol evolves.
+The parser is forward-tolerant: unknown event kinds, operations, and fields are skipped rather than throwing, so consumers keep working as the Jetstream protocol evolves. A commit whose `collection` or `rkey` does not parse is skipped the same way, since it names no record; optional metadata that does not parse (a `rev`, a `handle`) is left `null` rather than costing the event.
 
 ## Filtering
 
@@ -93,7 +93,7 @@ var options = new JetstreamConsumerOptions
     // Full NSIDs or prefix wildcards; max 100 entries.
     WantedCollections = ["exchange.recipe.recipe", "app.bsky.graph.*"],
     // Optional DID filter; max 10,000 entries.
-    WantedDids = ["did:plc:q6gjnaw2blty4crticxkmujt"],
+    WantedDids = [Did.Parse("did:plc:q6gjnaw2blty4crticxkmujt")],
     // v2 only. Omitted, every kind is delivered.
     WantedKinds = [JetstreamEventKind.Commit, JetstreamEventKind.Account],
     // Optional: drop records larger than this server-side.
@@ -331,7 +331,7 @@ public sealed class ZstdBlockDecompressor : IJetstreamBlockDecompressor
 ```csharp
 using var archive = new JetstreamArchiveClient(JetstreamEndpoints.UsEast, apiKey);
 
-await foreach (var segment in archive.ListAllSegmentsAsync())
+await foreach (var segment in archive.EnumerateSegmentsAsync())
 {
     // name, index, sizeBytes, checksum, eventCount, minSeq/maxSeq, minWitnessedAt/maxWitnessedAt
     if (Mirror.HasCurrent(segment.Name, segment.Checksum))

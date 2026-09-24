@@ -79,11 +79,11 @@ public sealed class FakeDidDocumentResolver : ISpaceDidDocumentResolver
         });
     }
 
-    public Task<DidDocument> ResolveAsync(string did, CancellationToken cancellationToken = default)
+    public Task<DidDocument> ResolveAsync(Did did, CancellationToken cancellationToken = default)
     {
         ResolveCount++;
 
-        return _documents.TryGetValue(did, out var document)
+        return _documents.TryGetValue(did.Value, out var document)
             ? Task.FromResult(document)
             : throw new SpaceVerificationException("NotAuthorized", $"No fixture for '{did}'.");
     }
@@ -98,7 +98,8 @@ public sealed class StubCallerResolver : ISpaceCallerResolver
     /// <summary>The DID the next request is made as, or <see langword="null"/> for anonymous.</summary>
     public string? Did { get; set; }
 
-    public string? GetCallerDid(Microsoft.AspNetCore.Http.HttpContext context) => Did;
+    public Did? GetCallerDid(Microsoft.AspNetCore.Http.HttpContext context) =>
+        Did is null ? null : ATProtoNet.Identity.Did.Parse(Did);
 }
 
 /// <summary>Resolves a fixed set of JWKs for a client ID.</summary>

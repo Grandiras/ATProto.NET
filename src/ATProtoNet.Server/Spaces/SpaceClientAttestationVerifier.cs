@@ -185,7 +185,7 @@ public sealed class SpaceClientAttestationVerifier
     /// <param name="jwt">The attestation, from the <c>clientAttestation</c> request field.</param>
     /// <param name="expectedAudience">
     /// The audience this authority answers to:
-    /// <see cref="SpaceAuthority.HostAudience(string)"/> for its own DID.
+    /// <see cref="SpaceAuthority.HostAudience"/> for its own DID.
     /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="SpaceVerificationException">Thrown when any check fails.</exception>

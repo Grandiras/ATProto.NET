@@ -40,7 +40,7 @@ try
             foreach (var op in commit.Ops ?? [])
             {
                 count++;
-                var action = op.Action?.ToUpperInvariant() ?? "UNKNOWN";
+                var action = op.Action.ToString().ToUpperInvariant();
                 Console.WriteLine($"[{count}] {action} {op.Path} from {commit.Repo} (seq: {commit.Seq})");
             }
         }

@@ -15,6 +15,7 @@
 
 using System.Text.Json;
 using ATProtoNet;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Spaces;
@@ -50,30 +51,30 @@ Console.WriteLine("── Creating a personal space ──");
 // credentials for, the write policy whose writes it tracks and forwards to syncers. A personal
 // space keeps both to the (empty) member list — the owner is always admitted.
 var created = await client.SimpleSpace.CreateSpaceAsync(
-    "com.example.bookmarks",
-    skey: "self",
+    Nsid.Parse("com.example.bookmarks"),
+    skey: RecordKey.Parse("self"),
     readPolicy: new MemberListPolicy(),
     writePolicy: new MemberListPolicy(),
     appAccess: new OpenAppAccess());
 
-var space = created.ToSpaceUri();
+var space = created.Uri;
 Console.WriteLine($"space:     {space}");
 Console.WriteLine($"authority: {space.Authority}");
 Console.WriteLine($"type:      {space.SpaceType}");
 Console.WriteLine($"skey:      {space.Skey}\n");
 
 var write = await client.Space.CreateRecordAsync(
-    space, did, "com.example.bookmark",
+    space, did, Nsid.Parse("com.example.bookmark"),
     new
     {
         // Records in a space are ordinary Lexicon-typed records; only the perimeter differs.
         type = "com.example.bookmark",
         url = "https://atproto.com/blog/atproto-spaces-alpha",
         title = "AT Protocol Spaces",
-        createdAt = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'"),
+        createdAt = AtDatetime.Now(),
     });
 
-Console.WriteLine($"wrote {write.ToRecordUri().Path}  ({write.Cid})\n");
+Console.WriteLine($"wrote {write.Uri.Path}  ({write.Cid})\n");
 
 Console.WriteLine("── Reading it back ──");
 await foreach (var record in client.Space.EnumerateRecordsAsync(space, did))
@@ -81,7 +82,7 @@ await foreach (var record in client.Space.EnumerateRecordsAsync(space, did))
 
 // listSpaces is "spaces I have written to", not "spaces I am a member of" — a PDS only tracks
 // the former, since membership is the authority's business.
-var spaces = await client.Space.ListSpacesAsync(type: "com.example.bookmarks");
+var spaces = await client.Space.ListSpacesAsync(type: Nsid.Parse("com.example.bookmarks"));
 Console.WriteLine($"\n{spaces.Spaces.Count} space(s) of this type hold data for this account.\n");
 
 // ── 2. Sync ───────────────────────────────────────────────────────────────
@@ -93,7 +94,7 @@ Console.WriteLine($"\n{spaces.Spaces.Count} space(s) of this type hold data for 
 Console.WriteLine("── Syncing ──");
 
 var store = new ConsoleStore();
-var syncer = new SpaceSyncer(space, store, SpaceSyncer.ResolveSigningKeyAsync(new ATProtoNet.Identity.DidResolver()));
+var syncer = new SpaceSyncer(space, store, SpaceSyncer.ResolveSigningKeyAsync(new DidResolver()));
 var cursor = new SpaceRepoCursor(did);
 
 var result = await syncer.SyncRepoAsync(client.Space, cursor);
@@ -170,7 +171,7 @@ return 0;
 /// </summary>
 internal sealed class ConsoleStore : ISpaceRepoStore
 {
-    public Task ApplyAsync(SpaceUri space, string repo, SpaceRepoOpEntry op, CancellationToken cancellationToken)
+    public Task ApplyAsync(SpaceUri space, Did repo, SpaceRepoOpEntry op, CancellationToken cancellationToken)
     {
         var kind = (op.Prev, op.Cid) switch
         {
@@ -183,7 +184,7 @@ internal sealed class ConsoleStore : ISpaceRepoStore
         return Task.CompletedTask;
     }
 
-    public Task ReplaceAsync(SpaceUri space, string repo, VerifiedSpaceRepo contents, CancellationToken cancellationToken)
+    public Task ReplaceAsync(SpaceUri space, Did repo, VerifiedSpaceRepo contents, CancellationToken cancellationToken)
     {
         // Reached when the oplog could not carry the copy forward — a dropped write, a compacted
         // oplog, or local corruption all land here, and all are repaired the same way.
@@ -191,7 +192,7 @@ internal sealed class ConsoleStore : ISpaceRepoStore
         return Task.CompletedTask;
     }
 
-    public Task DropAsync(SpaceUri space, string repo, CancellationToken cancellationToken)
+    public Task DropAsync(SpaceUri space, Did repo, CancellationToken cancellationToken)
     {
         Console.WriteLine($"  [drop] {repo}");
         return Task.CompletedTask;

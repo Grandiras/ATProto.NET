@@ -1,4 +1,5 @@
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 using ATProtoNet.Spaces;
@@ -55,7 +56,7 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
         await using var provider = fixture.CreateProvider(fixture.Member);
         await provider.GetCredentialAsync(space);
 
-        await fixture.Authority.Client.SimpleSpace.RemoveMemberAsync(space.Value, fixture.Member.Did);
+        await fixture.Authority.Client.SimpleSpace.RemoveMemberAsync(space, fixture.Member.Did);
 
         // Membership is checked when a credential is minted, so revocation takes effect at the
         // next renewal rather than mid-credential. A syncer learns it there.
@@ -120,7 +121,7 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
         // credential mint, and an unauthorized caller must not be assumed never to get this far.
         var refusal = await Assert.ThrowsAnyAsync<XrpcException>(
             () => fixture.Outsider.Client.Space.GetRecordAsync(
-                space.Value, fixture.Authority.Did, SpaceNetworkFixture.Collection, "private"));
+                space, fixture.Authority.Did, SpaceNetworkFixture.Collection, RecordKey.Parse("private")));
 
         // Deliberately the same error an absent repo gets: whether an account holds a repo in a
         // space the caller may not read is not the caller's business.
@@ -140,7 +141,7 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
         await using var provider = fixture.CreateProvider(fixture.Member);
         using var host = await provider.CreateReaderAsync(space, fixture.PdsUrl);
 
-        var configuration = await host.SimpleSpace.GetSpaceAsync(space.Value);
+        var configuration = await host.SimpleSpace.GetSpaceAsync(space);
 
         Assert.Equal(space.Value, configuration.Uri);
         Assert.IsType<MemberListPolicy>(configuration.ReadPolicy);
@@ -153,7 +154,7 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
     {
         var space = await fixture.CreateSpaceAsync("policy-update");
 
-        await fixture.Authority.Client.SimpleSpace.UpdateSpaceAsync(space.Value, writePolicy: new PublicPolicy());
+        await fixture.Authority.Client.SimpleSpace.UpdateSpaceAsync(space, writePolicy: new PublicPolicy());
 
         var configuration = await fixture.Authority.Client.SimpleSpace.GetSpaceAsync(space);
         Assert.IsType<MemberListPolicy>(configuration.ReadPolicy);
@@ -171,7 +172,7 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
         await simpleSpace.PutMemberAsync(space, fixture.Member.Did, read: false, write: true);
 
         // An upsert that replaces both flags, not a second row and not a merge.
-        var member = Assert.Single((await simpleSpace.ListMembersAsync(space.Value)).Members);
+        var member = Assert.Single((await simpleSpace.ListMembersAsync(space)).Members);
         Assert.Equal(fixture.Member.Did, member.Did);
         Assert.False(member.Read);
         Assert.True(member.Write);
@@ -240,8 +241,8 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
         IReadOnlyList<string> writers = [];
         for (var attempt = 0; attempt < 50; attempt++)
         {
-            var page = await host.Space.ListReposAsync(space.Value);
-            writers = page.Repos.Select(repo => repo.Did).ToList();
+            var page = await host.Space.ListReposAsync(space);
+            writers = page.Repos.Select(repo => repo.Did.Value).ToList();
             if (writers.Contains(expected))
                 break;
 

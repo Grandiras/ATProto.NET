@@ -11,7 +11,7 @@ namespace ATProtoNet.IntegrationTests;
 /// <param name="Client">A client authenticated as this account.</param>
 /// <param name="Did">The account's DID.</param>
 /// <param name="Handle">The account's handle.</param>
-public sealed record SpaceActor(AtProtoClient Client, string Did, string Handle)
+public sealed record SpaceActor(AtProtoClient Client, Did Did, string Handle)
 {
     public override string ToString() => Handle;
 }
@@ -32,13 +32,13 @@ public sealed record SpaceActor(AtProtoClient Client, string Did, string Handle)
 public sealed class SpaceNetworkFixture : IAsyncLifetime
 {
     /// <summary>The space type these tests use. Any NSID works; nothing resolves it.</summary>
-    public const string SpaceType = "com.atprotonet.test.group";
+    public static readonly Nsid SpaceType = Nsid.Parse("com.atprotonet.test.group");
 
     /// <summary>The record collection these tests write. Third-party, so the PDS reports <c>unknown</c> validation.</summary>
-    public const string Collection = "com.atprotonet.test.spaceRecord";
+    public static readonly Nsid Collection = Nsid.Parse("com.atprotonet.test.spaceRecord");
 
     /// <summary>A second collection, so index ordering is exercised across more than one.</summary>
-    public const string CollectionAlt = "com.atprotonet.test.spaceNote";
+    public static readonly Nsid CollectionAlt = Nsid.Parse("com.atprotonet.test.spaceNote");
 
     private const string AccountPassword = "correct-horse-battery-staple";
 
@@ -127,13 +127,13 @@ public sealed class SpaceNetworkFixture : IAsyncLifetime
         SpaceActor[]? members = null)
     {
         var created = await Authority.Client.SimpleSpace.CreateSpaceAsync(
-            SpaceType, skey, readPolicy, writePolicy, appAccess);
+            SpaceType, RecordKey.Parse(skey), readPolicy, writePolicy, appAccess);
 
-        var space = SpaceUri.Parse(created.Uri);
+        var space = created.Uri;
         _spaces.Add((Authority, space));
 
         foreach (var member in members ?? [])
-            await Authority.Client.SimpleSpace.PutMemberAsync(space.Value, member.Did, read: true, write: true);
+            await Authority.Client.SimpleSpace.PutMemberAsync(space, member.Did, read: true, write: true);
 
         return space;
     }
@@ -144,18 +144,18 @@ public sealed class SpaceNetworkFixture : IAsyncLifetime
         SpaceUri space,
         string text,
         string? rkey = null,
-        string collection = Collection)
+        Nsid? collection = null)
         => actor.Client.Space.CreateRecordAsync(
-            space.Value,
+            space,
             actor.Did,
-            collection,
+            collection ?? Collection,
             new Dictionary<string, object>
             {
-                ["$type"] = collection,
+                ["$type"] = (collection ?? Collection).Value,
                 ["text"] = text,
-                ["createdAt"] = DateTimeOffset.UtcNow.ToString("O"),
+                ["createdAt"] = AtDatetime.Now(),
             },
-            rkey);
+            rkey is null ? null : RecordKey.Parse(rkey));
 
     /// <summary>
     /// A credential provider acting as <paramref name="actor"/>, resolving hosts through the test
@@ -184,7 +184,7 @@ public sealed class SpaceNetworkFixture : IAsyncLifetime
     /// <c>EcdsaSecp256k1VerificationKey2019</c> form rather than the <c>Multikey</c> that
     /// plc.directory serves; both are read since #98.
     /// </remarks>
-    public Task<string> ResolveSigningKeyAsync(string did, CancellationToken cancellationToken = default)
+    public Task<string> ResolveSigningKeyAsync(Did did, CancellationToken cancellationToken = default)
         => SpaceSyncer.ResolveSigningKeyAsync(DidResolver)(did, cancellationToken);
 
     public async ValueTask DisposeAsync()
@@ -193,7 +193,7 @@ public sealed class SpaceNetworkFixture : IAsyncLifetime
         {
             try
             {
-                await owner.Client.SimpleSpace.DeleteSpaceAsync(space.Value);
+                await owner.Client.SimpleSpace.DeleteSpaceAsync(space);
             }
             catch
             {
@@ -205,7 +205,7 @@ public sealed class SpaceNetworkFixture : IAsyncLifetime
         {
             try
             {
-                await _admin.DeleteAccountAsync(Did.Parse(actor.Did));
+                await _admin.DeleteAccountAsync(actor.Did);
             }
             catch
             {

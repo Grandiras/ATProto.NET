@@ -15,10 +15,10 @@ namespace ATProtoNet.Tests.Server.Spaces;
 /// </summary>
 public class SimpleSpaceManagingAppClientTests
 {
-    private const string AuthorityDid = "did:plc:bbbbbbbbbbbbbbbbbbbbbbbb";
-    private const string UserDid = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa";
-    private const string AppDid = "did:web:app.example.com";
-    private const string ManagingApp = AppDid + "#forum";
+    private static readonly Did AuthorityDid = Did.Parse("did:plc:bbbbbbbbbbbbbbbbbbbbbbbb");
+    private static readonly Did UserDid = Did.Parse("did:plc:aaaaaaaaaaaaaaaaaaaaaaaa");
+    private static readonly Did AppDid = Did.Parse("did:web:app.example.com");
+    private static readonly string ManagingApp = AppDid + "#forum";
     private const string ClientId = "https://app.example.com/client-metadata.json";
 
     private static SpaceUri Space => SpaceUri.Parse($"at://{AuthorityDid}/space/com.atmoboards.forum/default");

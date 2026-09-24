@@ -1,5 +1,6 @@
 using System.Text.Json;
 using ATProtoNet.Crypto;
+using ATProtoNet.Identity;
 using ATProtoNet.Repo;
 using ATProtoNet.Spaces;
 
@@ -10,8 +11,8 @@ public class SpaceRepoCarTests
     private static readonly SpaceUri _space =
         SpaceUri.Parse("at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default");
 
-    private const string Author = "did:plc:z72i7hdynmk6r22z27h6tvur";
-    private const string Rev = "3l6oveex3ii2l";
+    private static readonly Did Author = Did.Parse("did:plc:z72i7hdynmk6r22z27h6tvur");
+    private static readonly Tid Rev = Tid.Parse("3l6oveex3ii2l");
 
     private static SpaceRepoRecord Record(string collection, string rkey, string text)
     {
@@ -21,7 +22,7 @@ public class SpaceRepoCarTests
             ["text"] = text,
         });
 
-        return SpaceRepoRecord.Create(collection, rkey, value);
+        return SpaceRepoRecord.Create(Nsid.Parse(collection), RecordKey.Parse(rkey), value);
     }
 
     private static (byte[] Car, AtProtoKey Key, List<SpaceRepoRecord> Records) BuildRepo(
@@ -170,7 +171,7 @@ public class SpaceRepoCarTests
         // passed off as the same account's repo in another.
         var (car, key, _) = BuildRepo(("com.atmoboards.thread", "aaa", "first"));
         using var _k = key;
-        var otherSpace = SpaceUri.Create(_space.Authority, _space.SpaceType, "other");
+        var otherSpace = SpaceUri.Create(_space.Authority, _space.SpaceType, RecordKey.Parse("other"));
 
         Assert.Throws<SpaceRepoVerificationException>(
             () => SpaceRepoCar.Verify(car, otherSpace, Author, key.ToDidKey()));
@@ -183,7 +184,7 @@ public class SpaceRepoCarTests
         using var _k = key;
 
         Assert.Throws<SpaceRepoVerificationException>(
-            () => SpaceRepoCar.Verify(car, _space, "did:plc:ewvi7nxzyoun6zhxrhs64oiz", key.ToDidKey()));
+            () => SpaceRepoCar.Verify(car, _space, Did.Parse("did:plc:ewvi7nxzyoun6zhxrhs64oiz"), key.ToDidKey()));
     }
 
     [Fact]
@@ -256,26 +257,66 @@ public class SpaceRepoCarTests
     public void Serialize_IndexBlock_IsByteIdenticalToTheEncodedJsonIndex()
     {
         // The index is written straight to CBOR; it must match what encoding the equivalent
-        // {path: {"$link": cid}} object through DagCborEncoder produces, byte for byte.
+        // {path: {"$link": cid}} object through DagCborEncoder produces, byte for byte. Paths
+        // are ASCII (NSIDs and record keys both are), so the length-first order is the one to
+        // pin here; DagCborInteropTests covers the encoder's non-ASCII key order.
         var (car, key, records) = BuildRepo(
             ("com.example.n", "z", "short path"),
             ("com.example.note", "aaa", "long path"),
             ("com.example.n", "a", "shortest path"),
-            ("com.example.n", "\u00e9t\u00e9", "non-ASCII rkey"),
-            ("com.example.n", "\uE000a", "private use"),
-            ("com.example.n", "\U00010000", "supplementary"));
+            ("com.example.n", "a:b", "colon"),
+            ("com.example.n", "A~", "upper case and tilde"));
         using var _k = key;
 
         var index = new System.Text.Json.Nodes.JsonObject();
         foreach (var record in records)
-            index[record.Path] = new System.Text.Json.Nodes.JsonObject { ["$link"] = record.Cid };
+            index[record.Path] = new System.Text.Json.Nodes.JsonObject { ["$link"] = record.Cid.Value };
 
         var reader = CarReader.FromBytes(car);
 
         Assert.Equal(DagCborEncoder.Encode(JsonSerializer.SerializeToElement(index)), reader.Blocks[1].Data);
         Assert.Equal(
             reader.Blocks.Skip(2).Select(b => CidComputation.EncodeCidToString(b.Cid)),
-            SpaceRepoCar.Verify(car, _space, Author, key.ToDidKey()).Index.Select(e => e.Value));
+            SpaceRepoCar.Verify(car, _space, Author, key.ToDidKey()).Index.Select(e => e.Value.Value));
+    }
+
+    [Theory]
+    [InlineData("not-an-nsid/aaa")]
+    [InlineData("com.example.n/not a record key")]
+    public void Verify_IndexPathThatIsNotACollectionAndRecordKey_Throws(string path)
+    {
+        // The commit vouches for the index as a set of strings, so a path that does not parse
+        // passes the digest comparison and has to be refused when the record is decoded.
+        var key = AtProtoCrypto.GenerateP256Key();
+        using var _k = key;
+        var (recordBytes, recordCid) = DagCborEncoder.EncodeWithCid(
+            JsonSerializer.SerializeToElement(new Dictionary<string, object> { ["text"] = "x" }));
+
+        var commit = SpaceRepoCommit
+            .FromIndex([new KeyValuePair<string, Cid>(path, recordCid)])
+            .Sign(new SpaceCommitContext(_space, Author, Rev), key);
+        var commitBytes = commit.ToDagCbor();
+        var commitCid = CidComputation.ComputeBinaryForDagCbor(commitBytes);
+
+        var index = new System.Text.Json.Nodes.JsonObject
+        {
+            [path] = new System.Text.Json.Nodes.JsonObject { ["$link"] = recordCid.Value },
+        };
+        var indexBytes = DagCborEncoder.Encode(JsonSerializer.SerializeToElement(index));
+        var indexCid = CidComputation.ComputeBinaryForDagCbor(indexBytes);
+
+        var car = CarWriter.Write(
+            [commitCid, indexCid],
+            [
+                new CarBlock(commitCid, commitBytes),
+                new CarBlock(indexCid, indexBytes),
+                new CarBlock(recordCid.ToBytes(), recordBytes),
+            ]);
+
+        var ex = Assert.Throws<SpaceRepoVerificationException>(
+            () => SpaceRepoCar.Verify(car, _space, Author, key.ToDidKey()));
+
+        Assert.Contains("Invalid record path", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]

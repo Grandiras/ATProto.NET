@@ -1,3 +1,4 @@
+using ATProtoNet.Identity;
 using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Tests.Spaces;
@@ -23,7 +24,7 @@ public class SpaceUriTests
     [Fact]
     public void Create_RoundTripsThroughParse()
     {
-        var space = SpaceUri.Create(Authority, "com.atmoboards.forum", "default");
+        var space = SpaceUri.Create(Did.Parse(Authority), Nsid.Parse("com.atmoboards.forum"), RecordKey.Parse("default"));
 
         Assert.Equal(SpaceRef, space.Value);
         Assert.Equal(space, SpaceUri.Parse(space.Value));
@@ -60,7 +61,7 @@ public class SpaceUriTests
     {
         var space = SpaceUri.Parse(SpaceRef);
 
-        var record = space.Record(Author, "com.atmoboards.thread", "3l6oveex3ii2l");
+        var record = space.Record(Did.Parse(Author), Nsid.Parse("com.atmoboards.thread"), RecordKey.Parse("3l6oveex3ii2l"));
 
         Assert.Equal(RecordRef, record.Value);
         Assert.Equal(SpaceRecordUri.Parse(RecordRef), record);
@@ -116,25 +117,24 @@ public class SpaceUriTests
     }
 
     [Fact]
-    public void Create_RejectsAHandleAuthority()
+    public void TryParse_RejectsAHandleAuthority()
     {
-        Assert.Throws<ArgumentException>(
-            () => SpaceUri.Create("alice.example.com", "com.atmoboards.forum", "default"));
+        Assert.False(SpaceUri.TryParse("at://alice.example.com/space/com.atmoboards.forum/default", out _));
     }
 
     [Fact]
-    public void Create_RejectsASpaceKeyOverTheLengthLimit()
+    public void TryParse_RejectsASpaceKeyOverTheLengthLimit()
     {
-        Assert.Throws<ArgumentException>(
-            () => SpaceUri.Create(Authority, "com.atmoboards.forum", new string('a', 513)));
+        Assert.False(SpaceUri.TryParse($"at://{Authority}/space/com.atmoboards.forum/{new string('a', 513)}", out _));
     }
 
     [Fact]
     public void Create_AcceptsASpaceKeyAtTheLengthLimit()
     {
-        var space = SpaceUri.Create(Authority, "com.atmoboards.forum", new string('a', 512));
+        var space = SpaceUri.Create(
+            Did.Parse(Authority), Nsid.Parse("com.atmoboards.forum"), RecordKey.Parse(new string('a', 512)));
 
-        Assert.Equal(512, space.Skey.Length);
+        Assert.Equal(512, space.Skey.Value.Length);
     }
 
     [Fact]
@@ -147,7 +147,7 @@ public class SpaceUriTests
     public void Equality_IsByValue()
     {
         var a = SpaceUri.Parse(SpaceRef);
-        var b = SpaceUri.Create(Authority, "com.atmoboards.forum", "default");
+        var b = SpaceUri.Create(Did.Parse(Authority), Nsid.Parse("com.atmoboards.forum"), RecordKey.Parse("default"));
 
         Assert.True(a == b);
         Assert.False(a != b);

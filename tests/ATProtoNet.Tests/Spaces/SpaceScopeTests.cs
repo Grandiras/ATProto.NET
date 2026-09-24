@@ -1,5 +1,6 @@
 using System.Text.Json;
 using ATProtoNet.Auth.OAuth;
+using ATProtoNet.Identity;
 using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Tests.Spaces;
@@ -186,10 +187,22 @@ public class SpaceScopeTests
         Assert.Equal("any", declaration.Key);
         Assert.Equal("AtmoBoards Forum", declaration.Name);
         Assert.Equal("A discussion forum", declaration.Description);
-        Assert.Equal(["com.atmoboards.thread", "com.atmoboards.reply"], declaration.Collections);
+        Assert.Equal(["com.atmoboards.thread", "com.atmoboards.reply"], declaration.Collections.Select(c => c.Value));
         Assert.Equal("Foro AtmoBoards", declaration.GetName("es"));
         Assert.Equal("AtmoBoards Forum", declaration.GetName("de"));
         Assert.Equal("AtmoBoards Forum", declaration.GetName(null));
+    }
+
+    [Fact]
+    public void FromLexicon_CollectionThatIsNotAnNsid_Throws()
+    {
+        var lexicon = JsonSerializer.Deserialize<JsonElement>("""
+        {"lexicon":1,"id":"com.atmoboards.forum","defs":{"main":{
+          "type":"space","key":"any","name":"AtmoBoards Forum",
+          "collections":["com.atmoboards.*"]}}}
+        """);
+
+        Assert.Throws<JsonException>(() => SpaceTypeDeclaration.FromLexicon(lexicon));
     }
 
     [Fact]

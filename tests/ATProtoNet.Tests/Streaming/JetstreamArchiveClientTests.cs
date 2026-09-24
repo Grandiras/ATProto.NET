@@ -123,7 +123,7 @@ public class JetstreamArchiveClientTests
     }
 
     [Fact]
-    public async Task ListAllSegmentsAsync_FollowsThePaginationCursor()
+    public async Task EnumerateSegmentsAsync_FollowsThePaginationCursor()
     {
         var handler = new ScriptedHandler()
             .Json(new
@@ -137,7 +137,7 @@ public class JetstreamArchiveClientTests
             });
 
         var segments = new List<JetstreamSegmentInfo>();
-        await foreach (var segment in Create(handler).ListAllSegmentsAsync(pageSize: 1))
+        await foreach (var segment in Create(handler).EnumerateSegmentsAsync(pageSize: 1))
             segments.Add(segment);
 
         Assert.Equal(["seg_0.jss", "seg_1.jss"], segments.Select(s => s.Name));
@@ -157,6 +157,29 @@ public class JetstreamArchiveClientTests
             minWitnessedAt = 3,
             maxWitnessedAt = 4,
         };
+    }
+
+    [Fact]
+    public async Task EnumerateSegmentsAsync_ServerRepeatingItsCursor_StopsAfterTheRepeat()
+    {
+        // Each page carries a segment and the same cursor. The loop this enumerator used to run
+        // stopped only on an empty page, so such a server was asked for the same page forever.
+        var handler = new ScriptedHandler();
+        for (var i = 0; i < 5; i++)
+        {
+            handler.Json(new
+            {
+                cursor = "same",
+                segments = new[] { new { name = $"seg_{i}.jss", index = i, checksum = "0123456789abcdef" } },
+            });
+        }
+
+        var segments = new List<JetstreamSegmentInfo>();
+        await foreach (var segment in Create(handler).EnumerateSegmentsAsync())
+            segments.Add(segment);
+
+        Assert.Equal(2, handler.Requests.Count);
+        Assert.Equal(["seg_0.jss", "seg_1.jss"], segments.Select(s => s.Name));
     }
 
     [Fact]

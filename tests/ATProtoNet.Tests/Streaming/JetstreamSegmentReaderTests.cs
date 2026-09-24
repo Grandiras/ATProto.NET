@@ -59,11 +59,11 @@ public class JetstreamSegmentReaderTests
         Assert.Equal(2, rows.Count);
         Assert.Equal(7, rows[0].Seq);
         Assert.Equal("app.bsky.feed.post", rows[0].Collection);
-        Assert.Equal("aaa", rows[0].RKey);
+        Assert.Equal("aaa", rows[0].Rkey);
         Assert.False(rows[0].Payload.IsEmpty);
         Assert.Equal(8, rows[1].Seq);
         Assert.Equal("app.bsky.feed.like", rows[1].Collection);
-        Assert.Equal("bbbb", rows[1].RKey);
+        Assert.Equal("bbbb", rows[1].Rkey);
         Assert.True(rows[1].Payload.IsEmpty);
     }
 

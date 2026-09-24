@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using ATProtoNet.Auth.OAuth;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Spaces;
 
@@ -28,7 +29,7 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
     {
         var space = await fixture.CreateSpaceAsync("deleg-shape", members: [fixture.Member]);
 
-        var response = await fixture.Member.Client.Space.GetDelegationTokenAsync(space.Value);
+        var response = await fixture.Member.Client.Space.GetDelegationTokenAsync(space);
         var token = SpaceTokens.Parse(SpaceTokenType.Delegation, response.Token);
 
         Assert.Equal(fixture.Member.Did, token.Issuer);
@@ -91,16 +92,16 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
         Assert.Equal(fixture.PdsUrl, reader.HostUrl);
 
         var record = await reader.Space.GetRecordAsync(
-            space.Value, fixture.Member.Did, SpaceNetworkFixture.Collection, "shared");
+            space, fixture.Member.Did, SpaceNetworkFixture.Collection, RecordKey.Parse("shared"));
         Assert.Equal("members only", record.Value.GetProperty("text").GetString());
 
-        var listed = await reader.Space.ListRecordsAsync(space.Value, fixture.Member.Did);
+        var listed = await reader.Space.ListRecordsAsync(space, fixture.Member.Did);
         Assert.Single(listed.Records);
 
         // Several requests on one credential, each with its own proof: a replayed proof would
         // fail here, which is the check the SDK's per-request `jti` exists for.
-        var commit = await reader.Space.GetLatestCommitAsync(space.Value, fixture.Member.Did);
-        Assert.NotEmpty(commit.Commit.Rev);
+        var commit = await reader.Space.GetLatestCommitAsync(space, fixture.Member.Did);
+        Assert.NotNull(commit.Commit.Rev);
     }
 
     [RequiresSpacesFact]
@@ -108,7 +109,7 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
     {
         var space = await fixture.CreateSpaceAsync("deleg-replay", members: [fixture.Member]);
 
-        var delegation = await fixture.Member.Client.Space.GetDelegationTokenAsync(space.Value);
+        var delegation = await fixture.Member.Client.Space.GetDelegationTokenAsync(space);
 
         // A fresh proof each time, so the DPoP replay check is satisfied and the token's own
         // single-use property is what has to refuse the second exchange. A captured token that
@@ -133,7 +134,7 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
         var space = await fixture.CreateSpaceAsync("deleg-sub", members: [fixture.Member]);
         var other = await fixture.CreateSpaceAsync("deleg-sub-other", members: [fixture.Member]);
 
-        var delegation = await fixture.Member.Client.Space.GetDelegationTokenAsync(space.Value);
+        var delegation = await fixture.Member.Client.Space.GetDelegationTokenAsync(space);
 
         using var response = await ExchangeAsync(other, delegation.Token);
         Assert.Equal(SpaceErrors.InvalidDelegationToken, await ErrorOf(response));
@@ -206,7 +207,7 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
         await using var provider = fixture.CreateProvider(fixture.Member);
         await provider.GetCredentialAsync(space);
 
-        await fixture.Authority.Client.SimpleSpace.DeleteSpaceAsync(space.Value);
+        await fixture.Authority.Client.SimpleSpace.DeleteSpaceAsync(space);
 
         // The durable drop signal. A syncer that missed the deletion notification learns here,
         // and can tell it apart from an authority that is merely down.
@@ -229,7 +230,7 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
         using var client = new HttpClient();
         using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
         {
-            Content = JsonContent.Create(new GetSpaceCredentialRequest { Space = space.Value }),
+            Content = JsonContent.Create(new GetSpaceCredentialRequest { Space = space }),
         };
 
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", delegationToken);

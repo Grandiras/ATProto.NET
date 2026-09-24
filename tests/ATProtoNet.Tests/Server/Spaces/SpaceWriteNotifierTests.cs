@@ -11,9 +11,9 @@ namespace ATProtoNet.Tests.Server.Spaces;
 
 public class SpaceWriteNotifierTests
 {
-    private const string AuthorityDid = "did:plc:bbbbbbbbbbbbbbbbbbbbbbbb";
-    private const string SyncerDid = "did:web:syncer.example.com";
-    private const string MemberDid = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa";
+    private static readonly Did AuthorityDid = Did.Parse("did:plc:bbbbbbbbbbbbbbbbbbbbbbbb");
+    private static readonly Did SyncerDid = Did.Parse("did:web:syncer.example.com");
+    private static readonly Did MemberDid = Did.Parse("did:plc:aaaaaaaaaaaaaaaaaaaaaaaa");
     private const string SyncerEndpoint = "https://syncer.example.com";
 
     private static SpaceUri Space => SpaceUri.Parse($"at://{AuthorityDid}/space/com.atmoboards.forum/default");
@@ -33,7 +33,7 @@ public class SpaceWriteNotifierTests
     };
 
     private const string AuthorityPds = "https://pds.example.com";
-    private const string HostDid = "did:web:host.example.com";
+    private static readonly Did HostDid = Did.Parse("did:web:host.example.com");
 
     private static (SpaceWriteNotifier Notifier, InMemorySpaceAuthorityStore Store, RecordingHandler Handler)
         Create(HttpStatusCode status = HttpStatusCode.OK)
@@ -57,7 +57,7 @@ public class SpaceWriteNotifierTests
         await store.RegisterNotifyAsync(
             Space, $"{SyncerDid}#atproto_space_syncer", DateTimeOffset.UtcNow.AddDays(1));
 
-        var delivered = await notifier.NotifyWriteAsync(Space, MemberDid, "3l6oveex3ii2l", [1, 2, 3]);
+        var delivered = await notifier.NotifyWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1, 2, 3]);
 
         Assert.Equal(1, delivered);
         var request = Assert.Single(handler.Requests);
@@ -70,7 +70,7 @@ public class SpaceWriteNotifierTests
     {
         var (notifier, _, handler) = Create();
 
-        Assert.Equal(0, await notifier.NotifyWriteAsync(Space, MemberDid, "3l6oveex3ii2l", [1]));
+        Assert.Equal(0, await notifier.NotifyWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]));
         Assert.Empty(handler.Requests);
     }
 
@@ -81,7 +81,7 @@ public class SpaceWriteNotifierTests
         await store.RegisterNotifyAsync(
             Space, $"{SyncerDid}#atproto_space_syncer", DateTimeOffset.UtcNow.AddMinutes(-1));
 
-        Assert.Equal(0, await notifier.NotifyWriteAsync(Space, MemberDid, "3l6oveex3ii2l", [1]));
+        Assert.Equal(0, await notifier.NotifyWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]));
         Assert.Empty(handler.Requests);
     }
 
@@ -94,7 +94,7 @@ public class SpaceWriteNotifierTests
         await store.RegisterNotifyAsync(
             Space, $"{SyncerDid}#atproto_space_syncer", DateTimeOffset.UtcNow.AddDays(1));
 
-        Assert.Equal(0, await notifier.NotifyWriteAsync(Space, MemberDid, "3l6oveex3ii2l", [1]));
+        Assert.Equal(0, await notifier.NotifyWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]));
     }
 
     [Fact]
@@ -104,7 +104,7 @@ public class SpaceWriteNotifierTests
         await store.RegisterNotifyAsync(
             Space, "did:web:nowhere.example.com#atproto_space_syncer", DateTimeOffset.UtcNow.AddDays(1));
 
-        Assert.Equal(0, await notifier.NotifyWriteAsync(Space, MemberDid, "3l6oveex3ii2l", [1]));
+        Assert.Equal(0, await notifier.NotifyWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]));
     }
 
     [Fact]
@@ -164,7 +164,7 @@ public class SpaceWriteNotifierTests
         var (notifier, store, handler) = Create();
         await notifier.EnsureAuthoritySubscribedAsync(Space, MemberDid);
 
-        Assert.Equal(1, await notifier.NotifyWriteAsync(Space, MemberDid, "3l6oveex3ii2l", [1, 2, 3]));
+        Assert.Equal(1, await notifier.NotifyWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1, 2, 3]));
 
         var request = Assert.Single(handler.Requests);
         Assert.Equal($"{AuthorityPds}/xrpc/{SpaceNsids.NotifyWrite}", request.Url);
@@ -181,7 +181,7 @@ public class SpaceWriteNotifierTests
         await store.RegisterNotifyAsync(
             Space, $"{SyncerDid}#atproto_space_syncer", DateTimeOffset.UtcNow.AddDays(1));
 
-        await notifier.NotifyWriteAsync(Space, MemberDid, "3l6oveex3ii2l", [1]);
+        await notifier.NotifyWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]);
 
         Assert.Equal($"{SyncerDid}#atproto_space_syncer", Claim(Assert.Single(handler.Requests).Token, "aud"));
     }
@@ -196,7 +196,7 @@ public class SpaceWriteNotifierTests
         await store.RegisterNotifyAsync(
             Space, $"{SyncerDid}#atproto_space_syncer", DateTimeOffset.UtcNow.AddDays(1));
 
-        Assert.Equal(1, await notifier.ForwardWriteAsync(Space, MemberDid, "3l6oveex3ii2l", [1, 2, 3]));
+        Assert.Equal(1, await notifier.ForwardWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1, 2, 3]));
 
         var request = Assert.Single(handler.Requests);
         Assert.Equal($"{SyncerEndpoint}/xrpc/{SpaceNsids.NotifyWrite}", request.Url);
@@ -232,7 +232,7 @@ public class SpaceWriteNotifierTests
             new ServiceAuthGenerator(HostDid, AtProtoCrypto.GenerateP256Key()),
             new HttpClient(new RecordingHandler(HttpStatusCode.OK)));
 
-        Assert.Equal(0, await notifier.ForwardWriteAsync(Space, MemberDid, "3l6oveex3ii2l", [1]));
+        Assert.Equal(0, await notifier.ForwardWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]));
     }
 
     private static string? Claim(string? jwt, string name)

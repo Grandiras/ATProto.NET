@@ -1,3 +1,4 @@
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Spaces;
@@ -11,7 +12,7 @@ namespace ATProtoNet.Tests.Server.Spaces;
 /// </summary>
 public class SimpleSpaceAuthorityStoreTests
 {
-    private const string Owner = "did:plc:bbbbbbbbbbbbbbbbbbbbbbbb";
+    private static readonly Did Owner = Did.Parse("did:plc:bbbbbbbbbbbbbbbbbbbbbbbb");
 
     private static readonly SpaceUri Space =
         SpaceUri.Parse($"at://{Owner}/space/com.atmoboards.forum/default");
@@ -73,7 +74,7 @@ public class SimpleSpaceAuthorityStoreTests
             new SimpleSpaceRecord(Space, Owner, new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess()));
 
         var store = Store;
-        await store.RecordWriteAsync(Space, Owner, "3l6oveex3ii2l", [1, 2, 3]);
+        await store.RecordWriteAsync(Space, Owner, Tid.Parse("3l6oveex3ii2l"), [1, 2, 3]);
 
         var direct = await _inner.ListReposAsync(Space, 10, null, TestContext.Current.CancellationToken);
         var bridged = await store.ListReposAsync(Space, 10, null, TestContext.Current.CancellationToken);

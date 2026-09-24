@@ -1,4 +1,7 @@
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
+using ATProtoNet.Models;
+using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 
@@ -92,7 +95,7 @@ public sealed class AllowListAppAccess : SimpleSpaceAppAccess
 {
     /// <summary>The OAuth client IDs permitted to access the space.</summary>
     [JsonPropertyName("allowed")]
-    public required List<string> Allowed { get; init; }
+    public required IReadOnlyList<string> Allowed { get; init; }
 }
 
 /// <summary>The <c>$type</c> discriminators for the <c>com.atproto.simplespace.defs</c> unions.</summary>
@@ -142,7 +145,7 @@ public sealed class CreateSimpleSpaceRequest
     /// (e.g. <c>app.bsky.group</c>).
     /// </summary>
     [JsonPropertyName("type")]
-    public required string Type { get; init; }
+    public required Nsid Type { get; init; }
 
     /// <summary>
     /// The space key, distinguishing multiple spaces of the same type under the same owner.
@@ -150,7 +153,7 @@ public sealed class CreateSimpleSpaceRequest
     /// </summary>
     [JsonPropertyName("skey")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Skey { get; init; }
+    public RecordKey? Skey { get; init; }
 
     /// <summary>How the authority decides whether to authorize a user to read the space.</summary>
     [JsonPropertyName("readPolicy")]
@@ -173,10 +176,7 @@ public sealed class CreateSimpleSpaceResponse
 {
     /// <summary>URI of the created space.</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
-
-    /// <summary>Parses <see cref="Uri"/> into its authority, type, and key components.</summary>
-    public Spaces.SpaceUri ToSpaceUri() => Spaces.SpaceUri.Parse(Uri);
+    public required SpaceUri Uri { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -188,7 +188,7 @@ public sealed class UpdateSimpleSpaceRequest
 {
     /// <summary>Reference to the space to update.</summary>
     [JsonPropertyName("space")]
-    public required string Space { get; init; }
+    public required SpaceUri Space { get; init; }
 
     /// <summary>Replaces the current read policy wholesale when supplied.</summary>
     [JsonPropertyName("readPolicy")]
@@ -211,7 +211,7 @@ public sealed class DeleteSimpleSpaceRequest
 {
     /// <summary>Reference to the space to delete.</summary>
     [JsonPropertyName("space")]
-    public required string Space { get; init; }
+    public required SpaceUri Space { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -223,7 +223,7 @@ public sealed class GetSimpleSpaceResponse
 {
     /// <summary>URI of the space.</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required SpaceUri Uri { get; init; }
 
     /// <summary>How the authority decides whether to authorize a user to read the space.</summary>
     [JsonPropertyName("readPolicy")]
@@ -253,11 +253,11 @@ public sealed class PutSimpleSpaceMemberRequest
 {
     /// <summary>Reference to the space.</summary>
     [JsonPropertyName("space")]
-    public required string Space { get; init; }
+    public required SpaceUri Space { get; init; }
 
     /// <summary>The DID of the member.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 
     /// <summary>Whether the member may read under a member-list read policy.</summary>
     [JsonPropertyName("read")]
@@ -273,11 +273,11 @@ public sealed class RemoveSimpleSpaceMemberRequest
 {
     /// <summary>Reference to the space.</summary>
     [JsonPropertyName("space")]
-    public required string Space { get; init; }
+    public required SpaceUri Space { get; init; }
 
     /// <summary>The DID of the member to remove.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 }
 
 /// <summary>A member of a <c>simplespace</c> space, and their access.</summary>
@@ -290,7 +290,7 @@ public sealed class SimpleSpaceMember
 {
     /// <summary>The member's DID.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 
     /// <summary>Whether the member may read under a member-list read policy.</summary>
     [JsonPropertyName("read")]
@@ -302,7 +302,7 @@ public sealed class SimpleSpaceMember
 }
 
 /// <summary>Response from <c>listMembers</c>.</summary>
-public sealed class ListSimpleSpaceMembersResponse
+public sealed class ListSimpleSpaceMembersResponse : ICursorPage<SimpleSpaceMember>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -313,7 +313,9 @@ public sealed class ListSimpleSpaceMembersResponse
 
     /// <summary>The current members.</summary>
     [JsonPropertyName("members")]
-    public required List<SimpleSpaceMember> Members { get; init; }
+    public required IReadOnlyList<SimpleSpaceMember> Members { get; init; }
+
+    IReadOnlyList<SimpleSpaceMember> ICursorPage<SimpleSpaceMember>.Items => Members;
 }
 
 // ──────────────────────────────────────────────────────────────

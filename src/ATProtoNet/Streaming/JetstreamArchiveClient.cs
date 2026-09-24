@@ -167,7 +167,7 @@ public sealed class JetstreamArchiveClient : IDisposable
     }
 
     /// <summary>
-    /// Enumerate sealed segment files, in ascending index order.
+    /// List one page of sealed segment files, in ascending index order.
     /// </summary>
     /// <param name="limit">Maximum number of segments to return (1–1000). Null uses the server default.</param>
     /// <param name="cursor">Pagination cursor from a previous page.</param>
@@ -194,23 +194,14 @@ public sealed class JetstreamArchiveClient : IDisposable
     /// <summary>
     /// Enumerate every sealed segment, following the pagination cursor to the end of the archive.
     /// </summary>
-    /// <param name="pageSize">Page size to request (1–1000). Null uses the server default.</param>
+    /// <param name="pageSize">Segments per request (1–1000); <see langword="null"/> for the server default.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async IAsyncEnumerable<JetstreamSegmentInfo> ListAllSegmentsAsync(
+    public IAsyncEnumerable<JetstreamSegmentInfo> EnumerateSegmentsAsync(
         int? pageSize = null,
-        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        string? cursor = null;
-        do
-        {
-            var page = await ListSegmentsAsync(pageSize, cursor, cancellationToken);
-            foreach (var segment in page.Segments)
-                yield return segment;
-
-            // A page that returns nothing but still hands back a cursor would loop forever.
-            cursor = page.Segments.Count > 0 ? page.Cursor : null;
-        } while (!string.IsNullOrEmpty(cursor) && !cancellationToken.IsCancellationRequested);
-    }
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<JetstreamSegmentPage, JetstreamSegmentInfo>(
+            (cursor, ct) => ListSegmentsAsync(pageSize, cursor, ct),
+            cancellationToken);
 
     /// <summary>
     /// Open a sealed segment file for reading, optionally from a byte offset.

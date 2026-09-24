@@ -1,3 +1,4 @@
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Spaces;
@@ -6,9 +7,9 @@ namespace ATProtoNet.Tests.Server.Spaces;
 
 public class SimpleSpaceAccessPolicyTests
 {
-    private const string Owner = "did:plc:bbbbbbbbbbbbbbbbbbbbbbbb";
-    private const string Member = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa";
-    private const string Stranger = "did:plc:eeeeeeeeeeeeeeeeeeeeeeee";
+    private static readonly Did Owner = Did.Parse("did:plc:bbbbbbbbbbbbbbbbbbbbbbbb");
+    private static readonly Did Member = Did.Parse("did:plc:aaaaaaaaaaaaaaaaaaaaaaaa");
+    private static readonly Did Stranger = Did.Parse("did:plc:eeeeeeeeeeeeeeeeeeeeeeee");
     private const string ClientId = "https://app.example.com/client-metadata.json";
 
     private static SpaceUri Space => SpaceUri.Parse($"at://{Owner}/space/com.atmoboards.forum/default");
@@ -34,10 +35,10 @@ public class SimpleSpaceAccessPolicyTests
         return record;
     }
 
-    private static SpaceAccessRequest Read(string user, string? clientId = null) =>
+    private static SpaceAccessRequest Read(Did user, string? clientId = null) =>
         new(Space, user, clientId, SpaceAccessKind.Read);
 
-    private static SpaceAccessRequest Write(string user) =>
+    private static SpaceAccessRequest Write(Did user) =>
         new(Space, user, null, SpaceAccessKind.Write);
 
     [Fact]
@@ -307,7 +308,7 @@ public class SimpleSpaceAccessPolicyTests
         public SpaceAccessKind? LastAccess { get; private set; }
 
         public Task<bool> CheckUserAccessAsync(
-            string managingApp, SpaceUri space, string userDid, SpaceAccessKind access, string? clientId,
+            string managingApp, SpaceUri space, Did userDid, SpaceAccessKind access, string? clientId,
             CancellationToken cancellationToken = default)
         {
             Calls++;

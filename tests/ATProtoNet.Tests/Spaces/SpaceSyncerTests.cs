@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using ATProtoNet.Crypto;
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Serialization;
 using ATProtoNet.Spaces;
@@ -15,7 +16,7 @@ public class SpaceSyncerTests : IDisposable
     private static readonly SpaceUri _space =
         SpaceUri.Parse("at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default");
 
-    private const string Repo = "did:plc:z72i7hdynmk6r22z27h6tvur";
+    private static readonly Did Repo = Did.Parse("did:plc:z72i7hdynmk6r22z27h6tvur");
 
     private readonly StubHost _host = new();
     private readonly HttpClient _httpClient;
@@ -35,8 +36,8 @@ public class SpaceSyncerTests : IDisposable
     private SpaceSyncer CreateSyncer() =>
         new(_space, _store, (_, _) => Task.FromResult(_key.ToDidKey()));
 
-    private SignedSpaceCommit SignOver(string rev, params (string Collection, string Rkey, string Cid)[] records) =>
-        SpaceRepoCommit.FromRecords(records).Sign(new SpaceCommitContext(_space, Repo, rev), _key);
+    private SignedSpaceCommit SignOver(string rev, params (Nsid Collection, RecordKey Rkey, Cid Cid)[] records) =>
+        SpaceRepoCommit.FromRecords(records).Sign(new SpaceCommitContext(_space, Repo, Tid.Parse(rev)), _key);
 
     private static SpaceRepoRecord Record(string collection, string rkey, string text)
     {
@@ -45,7 +46,7 @@ public class SpaceSyncerTests : IDisposable
             ["$type"] = collection,
             ["text"] = text,
         });
-        return SpaceRepoRecord.Create(collection, rkey, value);
+        return SpaceRepoRecord.Create(Nsid.Parse(collection), RecordKey.Parse(rkey), value);
     }
 
     private static string OpsJson(SignedSpaceCommit? commit, string? cursor, params string[] ops)
@@ -71,15 +72,15 @@ public class SpaceSyncerTests : IDisposable
     public async Task SyncRepoAsync_AppliesOpsAndReportsUpToDateWhenDigestsAgree()
     {
         var record = Record("com.example.n", "a", "x");
-        var commit = SignOver("3l6ov2", (record.Collection, record.Rkey, record.Cid));
+        var commit = SignOver("3l6oveex3ii24", (record.Collection, record.Rkey, record.Cid));
 
-        _host.Ops = OpsJson(commit, cursor: null, CreateOp("3l6ov2", "com.example.n", "a", record.Cid));
+        _host.Ops = OpsJson(commit, cursor: null, CreateOp("3l6oveex3ii24", "com.example.n", "a", record.Cid));
 
         var cursor = new SpaceRepoCursor(Repo);
         var result = await CreateSyncer().SyncRepoAsync(_client, cursor);
 
         Assert.Equal(SpaceSyncOutcome.UpToDate, result.Outcome);
-        Assert.Equal("3l6ov2", cursor.Rev);
+        Assert.Equal("3l6oveex3ii24", cursor.Rev);
         Assert.Single(result.Ops);
         Assert.Single(_store.Applied);
         Assert.True(cursor.Commit.Matches(commit));
@@ -90,22 +91,22 @@ public class SpaceSyncerTests : IDisposable
     {
         _host.Ops = OpsJson(commit: null, cursor: "more");
 
-        await CreateSyncer().SyncRepoAsync(_client, new SpaceRepoCursor(Repo, "3l6ov1", default));
+        await CreateSyncer().SyncRepoAsync(_client, new SpaceRepoCursor(Repo, Tid.Parse("3l6oveex3ii23"), default));
 
-        Assert.Contains("since=3l6ov1", _host.LastQuery, StringComparison.Ordinal);
+        Assert.Contains("since=3l6oveex3ii23", _host.LastQuery, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task SyncRepoAsync_WithoutACommit_ReportsPartialSoTheCallerContinues()
     {
         var record = Record("com.example.n", "a", "x");
-        _host.Ops = OpsJson(commit: null, cursor: "more", CreateOp("3l6ov2", "com.example.n", "a", record.Cid));
+        _host.Ops = OpsJson(commit: null, cursor: "more", CreateOp("3l6oveex3ii24", "com.example.n", "a", record.Cid));
 
         var cursor = new SpaceRepoCursor(Repo);
         var result = await CreateSyncer().SyncRepoAsync(_client, cursor);
 
         Assert.Equal(SpaceSyncOutcome.Partial, result.Outcome);
-        Assert.Equal("3l6ov2", cursor.Rev);
+        Assert.Equal("3l6oveex3ii24", cursor.Rev);
         Assert.Null(result.Commit);
     }
 
@@ -158,7 +159,7 @@ public class SpaceSyncerTests : IDisposable
 
         var record = Record("com.example.n", "a", "x");
         var cursor = new SpaceRepoCursor(
-            Repo, "3l6ov1", new SpaceRepoCommit().Add(record.Collection, record.Rkey, record.Cid).SetHash.GetState());
+            Repo, Tid.Parse("3l6oveex3ii23"), new SpaceRepoCommit().Add(record.Collection, record.Rkey, record.Cid).SetHash.GetState());
 
         var result = await CreateSyncer().SyncRepoAsync(_client, cursor);
 
@@ -177,14 +178,14 @@ public class SpaceSyncerTests : IDisposable
         var second = Record("com.example.n", "b", "x");
 
         var before = new SpaceRepoCommit().Add(first.Collection, first.Rkey, first.Cid);
-        var persisted = new SpaceRepoCursor(Repo, "3l6ov1", before.SetHash.GetState());
+        var persisted = new SpaceRepoCursor(Repo, Tid.Parse("3l6oveex3ii23"), before.SetHash.GetState());
 
         var commit = SignOver(
-            "3l6ov2",
+            "3l6oveex3ii24",
             (first.Collection, first.Rkey, first.Cid),
             (second.Collection, second.Rkey, second.Cid));
 
-        _host.Ops = OpsJson(commit, cursor: null, CreateOp("3l6ov2", "com.example.n", "b", second.Cid));
+        _host.Ops = OpsJson(commit, cursor: null, CreateOp("3l6oveex3ii24", "com.example.n", "b", second.Cid));
 
         var result = await CreateSyncer().SyncRepoAsync(_client, persisted);
 
@@ -202,18 +203,18 @@ public class SpaceSyncerTests : IDisposable
         var missed = Record("com.example.n", "b", "x");
 
         var commit = SignOver(
-            "3l6ov3",
+            "3l6oveex3ii25",
             (seen.Collection, seen.Rkey, seen.Cid),
             (missed.Collection, missed.Rkey, missed.Cid));
 
-        _host.Ops = OpsJson(commit, cursor: null, CreateOp("3l6ov2", "com.example.n", "a", seen.Cid));
+        _host.Ops = OpsJson(commit, cursor: null, CreateOp("3l6oveex3ii24", "com.example.n", "a", seen.Cid));
         _host.Car = SpaceRepoCar.Serialize(commit, [seen, missed]);
 
         var cursor = new SpaceRepoCursor(Repo);
         var result = await CreateSyncer().SyncRepoAsync(_client, cursor);
 
         Assert.Equal(SpaceSyncOutcome.Recovered, result.Outcome);
-        Assert.Equal("3l6ov3", cursor.Rev);
+        Assert.Equal("3l6oveex3ii25", cursor.Rev);
         Assert.True(cursor.Commit.Matches(commit));
 
         var replaced = Assert.Single(_store.Replaced);
@@ -226,17 +227,17 @@ public class SpaceSyncerTests : IDisposable
         // The oplog is a transport optimization with no history guarantee: a host may compact
         // it, and it does not survive account migration.
         var record = Record("com.example.n", "a", "x");
-        var commit = SignOver("3l6ov3", (record.Collection, record.Rkey, record.Cid));
+        var commit = SignOver("3l6oveex3ii25", (record.Collection, record.Rkey, record.Cid));
 
         _host.OpsStatus = HttpStatusCode.BadRequest;
         _host.Ops = """{"error":"InvalidRequest","message":"since is no longer available"}""";
         _host.Car = SpaceRepoCar.Serialize(commit, [record]);
 
-        var cursor = new SpaceRepoCursor(Repo, "3l6ov0", default);
+        var cursor = new SpaceRepoCursor(Repo, Tid.Parse("3l6oveex3ii22"), default);
         var result = await CreateSyncer().SyncRepoAsync(_client, cursor);
 
         Assert.Equal(SpaceSyncOutcome.Recovered, result.Outcome);
-        Assert.Equal("3l6ov3", cursor.Rev);
+        Assert.Equal("3l6oveex3ii25", cursor.Rev);
     }
 
     [Theory]
@@ -254,7 +255,7 @@ public class SpaceSyncerTests : IDisposable
         _host.Car = [];
 
         await Assert.ThrowsAnyAsync<XrpcException>(
-            () => CreateSyncer().SyncRepoAsync(_client, new SpaceRepoCursor(Repo, "3l6ov0", default)));
+            () => CreateSyncer().SyncRepoAsync(_client, new SpaceRepoCursor(Repo, Tid.Parse("3l6oveex3ii22"), default)));
     }
 
     [Fact]
@@ -278,7 +279,7 @@ public class SpaceSyncerTests : IDisposable
 
         var record = Record("com.example.n", "a", "x");
         var cursor = new SpaceRepoCursor(
-            Repo, "3l6ov1", new SpaceRepoCommit().Add(record.Collection, record.Rkey, record.Cid).SetHash.GetState());
+            Repo, Tid.Parse("3l6oveex3ii23"), new SpaceRepoCommit().Add(record.Collection, record.Rkey, record.Cid).SetHash.GetState());
 
         var result = await CreateSyncer().RecoverAsync(_client, cursor);
 
@@ -297,9 +298,9 @@ public class SpaceSyncerTests : IDisposable
         var record = Record("com.example.n", "a", "x");
         var forged = SpaceRepoCommit
             .FromRecords([(record.Collection, record.Rkey, record.Cid)])
-            .Sign(new SpaceCommitContext(_space, Repo, "3l6ov2"), attacker);
+            .Sign(new SpaceCommitContext(_space, Repo, Tid.Parse("3l6oveex3ii24")), attacker);
 
-        _host.Ops = OpsJson(forged, cursor: null, CreateOp("3l6ov2", "com.example.n", "a", record.Cid));
+        _host.Ops = OpsJson(forged, cursor: null, CreateOp("3l6oveex3ii24", "com.example.n", "a", record.Cid));
 
         await Assert.ThrowsAsync<SpaceRepoVerificationException>(
             () => CreateSyncer().SyncRepoAsync(_client, new SpaceRepoCursor(Repo)));
@@ -308,11 +309,11 @@ public class SpaceSyncerTests : IDisposable
     [Fact]
     public async Task RecoverAsync_WithACarForAnotherSpace_Throws()
     {
-        var other = SpaceUri.Create(_space.Authority, _space.SpaceType, "other");
+        var other = SpaceUri.Create(_space.Authority, _space.SpaceType, RecordKey.Parse("other"));
         var record = Record("com.example.n", "a", "x");
         var commit = SpaceRepoCommit
             .FromRecords([(record.Collection, record.Rkey, record.Cid)])
-            .Sign(new SpaceCommitContext(other, Repo, "3l6ov3"), _key);
+            .Sign(new SpaceCommitContext(other, Repo, Tid.Parse("3l6oveex3ii25")), _key);
 
         _host.Car = SpaceRepoCar.Serialize(commit, [record]);
 
@@ -331,7 +332,7 @@ public class SpaceSyncerTests : IDisposable
         var cursor = new SpaceRepoCursor(Repo);
         cursor.Commit.Add(record.Collection, record.Rkey, record.Cid);
 
-        var restored = new SpaceRepoCursor(Repo, "3l6ov1", cursor.GetState());
+        var restored = new SpaceRepoCursor(Repo, Tid.Parse("3l6oveex3ii23"), cursor.GetState());
 
         Assert.Equal(cursor.Commit.Digest(), restored.Commit.Digest());
     }
@@ -350,22 +351,22 @@ public class SpaceSyncerTests : IDisposable
 
         public List<VerifiedSpaceRepo> Replaced { get; } = [];
 
-        public List<string> Dropped { get; } = [];
+        public List<Did> Dropped { get; } = [];
 
-        public Task ApplyAsync(SpaceUri space, string repo, SpaceRepoOpEntry op, CancellationToken cancellationToken)
+        public Task ApplyAsync(SpaceUri space, Did repo, SpaceRepoOpEntry op, CancellationToken cancellationToken)
         {
             Applied.Add(op);
             return Task.CompletedTask;
         }
 
         public Task ReplaceAsync(
-            SpaceUri space, string repo, VerifiedSpaceRepo contents, CancellationToken cancellationToken)
+            SpaceUri space, Did repo, VerifiedSpaceRepo contents, CancellationToken cancellationToken)
         {
             Replaced.Add(contents);
             return Task.CompletedTask;
         }
 
-        public Task DropAsync(SpaceUri space, string repo, CancellationToken cancellationToken)
+        public Task DropAsync(SpaceUri space, Did repo, CancellationToken cancellationToken)
         {
             Dropped.Add(repo);
             return Task.CompletedTask;

@@ -1,3 +1,4 @@
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Spaces;
 using Microsoft.AspNetCore.Http;
@@ -24,7 +25,7 @@ public sealed record SpaceCredentialRequestAuth(
     public SpaceUri Space => Delegation.Space;
 
     /// <summary>The user the requesting application is acting for.</summary>
-    public string UserDid => Delegation.UserDid;
+    public Did UserDid => Delegation.UserDid;
 
     /// <summary>
     /// The attested client ID, or <see langword="null"/> when the app did not attest.

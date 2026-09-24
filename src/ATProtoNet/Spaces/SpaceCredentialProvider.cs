@@ -97,7 +97,7 @@ public sealed class SpaceCredentialOptions
     /// Resolves a space authority or repo host DID to its endpoint. Supply this to override DID
     /// document resolution, e.g. to point a test at a local PDS.
     /// </summary>
-    public Func<string, CancellationToken, Task<string>>? HostResolver { get; init; }
+    public Func<Did, CancellationToken, Task<string>>? HostResolver { get; init; }
 }
 
 /// <summary>
@@ -251,9 +251,9 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A reader the caller is responsible for disposing.</returns>
     public async Task<SpaceReader> CreateReaderForRepoAsync(
-        SpaceUri space, string repoDid, CancellationToken cancellationToken = default)
+        SpaceUri space, Did repoDid, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(repoDid);
+        ArgumentNullException.ThrowIfNull(repoDid);
 
         var host = await ResolveHostAsync(repoDid, cancellationToken);
         return await CreateReaderAsync(space, host, cancellationToken);
@@ -269,9 +269,9 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
     /// Thrown when the DID publishes no endpoint, or one that is not an absolute http(s) URL free
     /// of a query and fragment.
     /// </exception>
-    public async Task<string> ResolveHostAsync(string did, CancellationToken cancellationToken = default)
+    public async Task<string> ResolveHostAsync(Did did, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(did);
+        ArgumentNullException.ThrowIfNull(did);
 
         if (_options.HostResolver is not null)
             return await _options.HostResolver(did, cancellationToken);
@@ -358,12 +358,12 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
         CancellationToken cancellationToken)
     {
         // Single-use and 60 seconds long, so it is fetched immediately before the exchange.
-        var delegation = await _client.Space.GetDelegationTokenAsync(space.Value, cancellationToken);
+        var delegation = await _client.Space.GetDelegationTokenAsync(space, cancellationToken);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
         {
             Content = JsonContent.Create(
-                new GetSpaceCredentialRequest { Space = space.Value, ClientAttestation = clientAttestation },
+                new GetSpaceCredentialRequest { Space = space, ClientAttestation = clientAttestation },
                 options: AtProtoJsonDefaults.Options),
         };
 

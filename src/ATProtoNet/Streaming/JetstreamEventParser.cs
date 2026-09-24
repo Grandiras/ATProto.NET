@@ -217,9 +217,10 @@ public static class JetstreamEventParser
     private static JetstreamCommitEvent? ParseCommitFields(
         JsonElement commit, Did did, long timeUs, long? cursor)
     {
-        if (GetString(commit, "collection") is not { } collection)
+        // A commit whose path does not parse names no record a consumer could act on.
+        if (!Nsid.TryParse(GetString(commit, "collection"), out var collection))
             return null;
-        if (GetString(commit, "rkey") is not { } rkey)
+        if (!RecordKey.TryParse(GetString(commit, "rkey"), out var rkey))
             return null;
 
         JetstreamOperation operation;
@@ -250,9 +251,9 @@ public static class JetstreamEventParser
             TimeUs = timeUs,
             Cursor = cursor,
             Collection = collection,
-            RKey = rkey,
+            Rkey = rkey,
             Operation = operation,
-            Rev = GetString(commit, "rev"),
+            Rev = ParseTid(commit, "rev"),
             Cid = cid,
             Record = commit.TryGetProperty("record", out var record) && record.ValueKind == JsonValueKind.Object
                 ? record.Clone()
@@ -262,16 +263,18 @@ public static class JetstreamEventParser
 
     private static JetstreamIdentityEvent ParseIdentity(JsonElement root, Did did, long timeUs, long? cursor)
     {
-        string? handle = null;
+        Handle? handle = null;
         long? seq = null;
-        string? time = null;
+        AtDatetime? time = null;
 
         if (root.TryGetProperty("identity", out var identity) && identity.ValueKind == JsonValueKind.Object)
         {
-            handle = GetString(identity, "handle");
+            // A handle that does not parse is dropped rather than the event: the DID is still
+            // what a consumer needs to re-resolve the identity.
+            handle = Handle.TryParse(GetString(identity, "handle"), out var parsed) ? parsed : null;
             if (identity.TryGetProperty("seq", out var seqProp) && seqProp.TryGetInt64(out var seqValue))
                 seq = seqValue;
-            time = GetString(identity, "time");
+            time = ParseDatetime(identity, "time");
         }
 
         return new JetstreamIdentityEvent
@@ -304,7 +307,7 @@ public static class JetstreamEventParser
             Seq = account.TryGetProperty("seq", out var seqProp) && seqProp.TryGetInt64(out var seqValue)
                 ? seqValue
                 : null,
-            Time = GetString(account, "time"),
+            Time = ParseDatetime(account, "time"),
         };
     }
 
@@ -334,12 +337,12 @@ public static class JetstreamEventParser
             Did = did,
             TimeUs = timeUs,
             Cursor = cursor,
-            Rev = GetString(sync, "rev"),
+            Rev = ParseTid(sync, "rev"),
             Blocks = blocks,
             Seq = sync.TryGetProperty("seq", out var seqProp) && seqProp.TryGetInt64(out var seqValue)
                 ? seqValue
                 : null,
-            Time = GetString(sync, "time"),
+            Time = ParseDatetime(sync, "time"),
         };
     }
 
@@ -362,4 +365,12 @@ public static class JetstreamEventParser
         => element.TryGetProperty(name, out var prop) && prop.ValueKind == JsonValueKind.String
             ? prop.GetString()
             : null;
+
+    // Optional metadata that does not parse is dropped rather than the event carrying it.
+    internal static Tid? ParseTid(JsonElement element, string name)
+        => Tid.TryParse(GetString(element, name), out var tid) ? tid : null;
+
+    // Read leniently, as the JSON converter reads a datetime: the text is kept either way.
+    internal static AtDatetime? ParseDatetime(JsonElement element, string name)
+        => GetString(element, name) is { } text ? AtDatetime.FromWire(text) : null;
 }

@@ -40,18 +40,18 @@ public sealed record SpaceUri : IIdentifier<SpaceUri>
     public string Value { get; }
 
     /// <summary>The space authority: the DID at the root of the space, and the issuer of its credentials.</summary>
-    public string Authority { get; }
+    public Did Authority { get; }
 
     /// <summary>The space type: an NSID naming the modality of the space.</summary>
-    public string SpaceType { get; }
+    public Nsid SpaceType { get; }
 
     /// <summary>
     /// The space key, distinguishing spaces of the same type under the same authority.
     /// Carries the same syntax requirements as a record key.
     /// </summary>
-    public string Skey { get; }
+    public RecordKey Skey { get; }
 
-    private SpaceUri(string value, string authority, string spaceType, string skey)
+    private SpaceUri(string value, Did authority, Nsid spaceType, RecordKey skey)
     {
         Value = value;
         Authority = authority;
@@ -65,19 +65,11 @@ public sealed record SpaceUri : IIdentifier<SpaceUri>
     /// <param name="authority">The space authority DID.</param>
     /// <param name="spaceType">The space type NSID.</param>
     /// <param name="skey">The space key.</param>
-    /// <exception cref="ArgumentException">Thrown when any component is invalid.</exception>
-    public static SpaceUri Create(string authority, string spaceType, string skey)
+    public static SpaceUri Create(Did authority, Nsid spaceType, RecordKey skey)
     {
         ArgumentNullException.ThrowIfNull(authority);
         ArgumentNullException.ThrowIfNull(spaceType);
         ArgumentNullException.ThrowIfNull(skey);
-
-        if (!Did.TryParse(authority, out _))
-            throw new ArgumentException($"Space URI authority must be a DID: '{authority}'.", nameof(authority));
-        if (!Nsid.TryParse(spaceType, out _))
-            throw new ArgumentException($"Invalid space type NSID: '{spaceType}'.", nameof(spaceType));
-        if (!IsValidSkey(skey))
-            throw new ArgumentException($"Invalid space key: '{skey}'.", nameof(skey));
 
         return new SpaceUri($"{Scheme}{authority}/{Marker}/{spaceType}/{skey}", authority, spaceType, skey);
     }
@@ -139,7 +131,7 @@ public sealed record SpaceUri : IIdentifier<SpaceUri>
     /// <param name="author">The DID of the record's author.</param>
     /// <param name="collection">The record collection NSID.</param>
     /// <param name="rkey">The record key.</param>
-    public SpaceRecordUri Record(string author, string collection, string rkey) =>
+    public SpaceRecordUri Record(Did author, Nsid collection, RecordKey rkey) =>
         SpaceRecordUri.Create(this, author, collection, rkey);
 
     /// <summary>
@@ -178,10 +170,6 @@ public sealed record SpaceUri : IIdentifier<SpaceUri>
     /// <exception cref="ArgumentException">Thrown when <paramref name="value"/> is not a valid space URI.</exception>
     public static explicit operator SpaceUri(string value) => Parse(value);
 
-    // A space key carries the same syntax requirements as a record key.
-    internal static bool IsValidSkey(string? value) =>
-        value is not null && value.Length <= 512 && RecordKey.TryParse(value, out _);
-
     /// <summary>
     /// Splits a space URI into its leading three components plus whatever follows, without
     /// validating the trailing part. Shared by both URI types so the space-ref grammar is
@@ -189,12 +177,14 @@ public sealed record SpaceUri : IIdentifier<SpaceUri>
     /// </summary>
     internal static bool TrySplit(
         [NotNullWhen(true)] string? value,
-        [NotNullWhen(true)] out string authority,
-        [NotNullWhen(true)] out string spaceType,
-        [NotNullWhen(true)] out string skey,
+        [NotNullWhen(true)] out Did? authority,
+        [NotNullWhen(true)] out Nsid? spaceType,
+        [NotNullWhen(true)] out RecordKey? skey,
         out string? rest)
     {
-        authority = spaceType = skey = string.Empty;
+        authority = null;
+        spaceType = null;
+        skey = null;
         rest = null;
 
         if (value is null || value.Length > 8192)
@@ -211,16 +201,16 @@ public sealed record SpaceUri : IIdentifier<SpaceUri>
         if (!string.Equals(segments[1], Marker, StringComparison.Ordinal))
             return false;
 
-        if (!Did.TryParse(segments[0], out _))
+        // A space key carries the same syntax requirements as a record key.
+        if (!Did.TryParse(segments[0], out authority) ||
+            !Nsid.TryParse(segments[2], out spaceType) ||
+            !RecordKey.TryParse(segments[3], out skey))
+        {
+            authority = null;
+            spaceType = null;
+            skey = null;
             return false;
-        if (!Nsid.TryParse(segments[2], out _))
-            return false;
-        if (!IsValidSkey(segments[3]))
-            return false;
-
-        authority = segments[0];
-        spaceType = segments[2];
-        skey = segments[3];
+        }
 
         if (segments.Length > 4)
             rest = string.Join('/', segments[4..]);
@@ -250,15 +240,15 @@ public sealed record SpaceRecordUri : IIdentifier<SpaceRecordUri>
     public SpaceUri Space { get; }
 
     /// <summary>The DID of the account that authored the record.</summary>
-    public string Author { get; }
+    public Did Author { get; }
 
     /// <summary>The record collection NSID.</summary>
-    public string Collection { get; }
+    public Nsid Collection { get; }
 
     /// <summary>The record key.</summary>
-    public string Rkey { get; }
+    public RecordKey Rkey { get; }
 
-    private SpaceRecordUri(string value, SpaceUri space, string author, string collection, string rkey)
+    private SpaceRecordUri(string value, SpaceUri space, Did author, Nsid collection, RecordKey rkey)
     {
         Value = value;
         Space = space;
@@ -274,20 +264,12 @@ public sealed record SpaceRecordUri : IIdentifier<SpaceRecordUri>
     /// <param name="author">The DID of the record's author.</param>
     /// <param name="collection">The record collection NSID.</param>
     /// <param name="rkey">The record key.</param>
-    /// <exception cref="ArgumentException">Thrown when any component is invalid.</exception>
-    public static SpaceRecordUri Create(SpaceUri space, string author, string collection, string rkey)
+    public static SpaceRecordUri Create(SpaceUri space, Did author, Nsid collection, RecordKey rkey)
     {
         ArgumentNullException.ThrowIfNull(space);
         ArgumentNullException.ThrowIfNull(author);
         ArgumentNullException.ThrowIfNull(collection);
         ArgumentNullException.ThrowIfNull(rkey);
-
-        if (!Did.TryParse(author, out _))
-            throw new ArgumentException($"Space record URI author must be a DID: '{author}'.", nameof(author));
-        if (!Nsid.TryParse(collection, out _))
-            throw new ArgumentException($"Invalid collection NSID: '{collection}'.", nameof(collection));
-        if (!RecordKey.TryParse(rkey, out _))
-            throw new ArgumentException($"Invalid record key: '{rkey}'.", nameof(rkey));
 
         return new SpaceRecordUri($"{space.Value}/{author}/{collection}/{rkey}", space, author, collection, rkey);
     }
@@ -318,17 +300,16 @@ public sealed record SpaceRecordUri : IIdentifier<SpaceRecordUri>
             return false;
 
         var tail = rest.Split('/');
-        if (tail.Length != 3)
+        if (tail.Length != 3 ||
+            !Did.TryParse(tail[0], out var author) ||
+            !Nsid.TryParse(tail[1], out var collection) ||
+            !RecordKey.TryParse(tail[2], out var rkey))
+        {
             return false;
-        if (!Did.TryParse(tail[0], out _))
-            return false;
-        if (!Nsid.TryParse(tail[1], out _))
-            return false;
-        if (!RecordKey.TryParse(tail[2], out _))
-            return false;
+        }
 
         var space = SpaceUri.Create(authority, spaceType, skey);
-        recordUri = new SpaceRecordUri(value, space, tail[0], tail[1], tail[2]);
+        recordUri = new SpaceRecordUri(value, space, author, collection, rkey);
         return true;
     }
 

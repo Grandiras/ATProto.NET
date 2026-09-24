@@ -1,3 +1,4 @@
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 using ATProtoNet.Spaces;
 
@@ -23,7 +24,7 @@ namespace ATProtoNet.Server.Spaces;
 /// </param>
 public sealed record SimpleSpaceRecord(
     SpaceUri Uri,
-    string Owner,
+    Did Owner,
     SimpleSpaceUserPolicy ReadPolicy,
     SimpleSpaceUserPolicy WritePolicy,
     SimpleSpaceAppAccess AppAccess,
@@ -84,7 +85,7 @@ public interface ISimpleSpaceStore
     /// <param name="write">Whether the member's writes are tracked under a member-list write policy.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task PutMemberAsync(
-        SpaceUri space, string did, bool read, bool write, CancellationToken cancellationToken = default);
+        SpaceUri space, Did did, bool read, bool write, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Removes a member. Idempotent.
@@ -92,7 +93,7 @@ public interface ISimpleSpaceStore
     /// <param name="space">The space.</param>
     /// <param name="did">The member's DID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task RemoveMemberAsync(SpaceUri space, string did, CancellationToken cancellationToken = default);
+    Task RemoveMemberAsync(SpaceUri space, Did did, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Reads one account's entry on a space's member list.
@@ -102,7 +103,7 @@ public interface ISimpleSpaceStore
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The member and their access, or <see langword="null"/> when they are not on the list.</returns>
     Task<SimpleSpaceMember?> GetMemberAsync(
-        SpaceUri space, string did, CancellationToken cancellationToken = default);
+        SpaceUri space, Did did, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Lists a space's members and their access, for the owner's own administration.

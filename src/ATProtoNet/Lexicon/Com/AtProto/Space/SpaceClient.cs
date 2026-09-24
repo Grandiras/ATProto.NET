@@ -1,4 +1,5 @@
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Space;
@@ -14,10 +15,10 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Space;
 /// data is not end-to-end encrypted, and every service that handles it can read it.</para>
 /// <para>The methods here fall into three groups by who serves them:</para>
 /// <list type="bullet">
-/// <item><description><b>PDS methods</b> — <see cref="GetDelegationTokenAsync(string, CancellationToken)"/>,
+/// <item><description><b>PDS methods</b> — <see cref="GetDelegationTokenAsync"/>,
 /// <see cref="ListSpacesAsync"/>, and the record writes. Served by the authenticated user's own
 /// PDS and authenticated with OAuth.</description></item>
-/// <item><description><b>Repo methods</b> — <see cref="GetRecordAsync"/>,
+/// <item><description><b>Repo methods</b> — <see cref="GetRecordAsync(SpaceUri, Did, Nsid, RecordKey, CancellationToken)"/>,
 /// <see cref="ListRecordsAsync"/>, <see cref="GetRepoAsync"/>, <see cref="ListRepoOpsAsync"/>,
 /// and the rest of the read/sync surface. Served by whichever host holds the repo, and accept
 /// either OAuth (for the caller's own repo) or a space credential (for a syncer).</description></item>
@@ -57,23 +58,13 @@ public sealed class SpaceClient
     /// scope with a <c>read</c> grant; <c>read_self</c> alone does not confer this method.
     /// </remarks>
     public Task<GetDelegationTokenResponse> GetDelegationTokenAsync(
-        string space, CancellationToken cancellationToken = default)
+        SpaceUri space, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
+        ArgumentNullException.ThrowIfNull(space);
 
         var parameters = new XrpcParams().Add("space", space);
         return _xrpc.QueryAsync<GetDelegationTokenResponse>(
             "com.atproto.space.getDelegationToken", parameters, cancellationToken: cancellationToken);
-    }
-
-    /// <inheritdoc cref="GetDelegationTokenAsync(string, CancellationToken)"/>
-    /// <param name="space">The space the token is for.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<GetDelegationTokenResponse> GetDelegationTokenAsync(
-        SpaceUri space, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(space);
-        return GetDelegationTokenAsync(space.Value, cancellationToken);
     }
 
     /// <summary>
@@ -94,11 +85,11 @@ public sealed class SpaceClient
     /// <see cref="SpaceErrors.AppNotAuthorized"/> comes back.</para>
     /// </remarks>
     public Task<GetSpaceCredentialResponse> GetSpaceCredentialAsync(
-        string space,
+        SpaceUri space,
         string? clientAttestation = null,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
+        ArgumentNullException.ThrowIfNull(space);
 
         var request = new GetSpaceCredentialRequest { Space = space, ClientAttestation = clientAttestation };
         return _xrpc.ProcedureAsync<GetSpaceCredentialResponse>(
@@ -110,9 +101,9 @@ public sealed class SpaceClient
     // ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Lists the spaces the authenticated user holds a repo in.
+    /// Lists one page of the spaces the authenticated user holds a repo in.
     /// </summary>
-    /// <param name="type">Filter to spaces of this type (an NSID).</param>
+    /// <param name="type">Filter to spaces of this type.</param>
     /// <param name="did">Filter to spaces under this authority DID.</param>
     /// <param name="limit">Maximum number of results per page (1–100, default 50).</param>
     /// <param name="cursor">Pagination cursor.</param>
@@ -124,8 +115,8 @@ public sealed class SpaceClient
     /// its permissioned repos through this method.
     /// </remarks>
     public Task<ListSpacesResponse> ListSpacesAsync(
-        string? type = null,
-        string? did = null,
+        Nsid? type = null,
+        Did? did = null,
         int? limit = null,
         string? cursor = null,
         CancellationToken cancellationToken = default)
@@ -141,7 +132,24 @@ public sealed class SpaceClient
     }
 
     /// <summary>
-    /// Lists the repos that hold data in a space — the writer set. Served by the space host.
+    /// Enumerates every space the authenticated user holds a repo in, fetching pages as needed.
+    /// </summary>
+    /// <param name="type">Filter to spaces of this type.</param>
+    /// <param name="did">Filter to spaces under this authority DID.</param>
+    /// <param name="pageSize">Spaces per request (1–100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<SpaceView> EnumerateSpacesAsync(
+        Nsid? type = null,
+        Did? did = null,
+        int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<ListSpacesResponse, SpaceView>(
+            (cursor, ct) => ListSpacesAsync(type, did, pageSize, cursor, ct),
+            cancellationToken);
+
+    /// <summary>
+    /// Lists one page of the repos that hold data in a space — the writer set. Served by the
+    /// space host.
     /// </summary>
     /// <param name="space">The space.</param>
     /// <param name="limit">Maximum number of results per page (1–1000, default 100).</param>
@@ -158,12 +166,12 @@ public sealed class SpaceClient
     /// re-syncing only what advanced.</para>
     /// </remarks>
     public Task<ListSpaceReposResponse> ListReposAsync(
-        string space,
+        SpaceUri space,
         int? limit = null,
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
+        ArgumentNullException.ThrowIfNull(space);
 
         var parameters = new XrpcParams()
             .Add("space", space)
@@ -175,26 +183,21 @@ public sealed class SpaceClient
     }
 
     /// <summary>
-    /// Enumerates a space's whole writer set, following pagination.
+    /// Enumerates a space's whole writer set, fetching pages as needed.
     /// </summary>
     /// <param name="space">The space.</param>
-    /// <param name="pageSize">Results per request.</param>
+    /// <param name="pageSize">Repos per request (1–1000); <see langword="null"/> for the server default.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async IAsyncEnumerable<SpaceRepoView> EnumerateReposAsync(
-        string space,
+    public IAsyncEnumerable<SpaceRepoView> EnumerateReposAsync(
+        SpaceUri space,
         int? pageSize = null,
-        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
-        string? cursor = null;
-        do
-        {
-            var page = await ListReposAsync(space, pageSize, cursor, cancellationToken);
-            foreach (var repo in page.Repos)
-                yield return repo;
+        ArgumentNullException.ThrowIfNull(space);
 
-            cursor = page.Repos.Count == 0 ? null : page.Cursor;
-        }
-        while (!string.IsNullOrEmpty(cursor));
+        return Pagination.EnumerateAsync<ListSpaceReposResponse, SpaceRepoView>(
+            (cursor, ct) => ListReposAsync(space, pageSize, cursor, ct),
+            cancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -210,16 +213,16 @@ public sealed class SpaceClient
     /// <param name="rkey">The record key.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetSpaceRecordResponse> GetRecordAsync(
-        string space,
-        string repo,
-        string collection,
-        string rkey,
+        SpaceUri space,
+        Did repo,
+        Nsid collection,
+        RecordKey rkey,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repo);
-        ArgumentException.ThrowIfNullOrWhiteSpace(collection);
-        ArgumentException.ThrowIfNullOrWhiteSpace(rkey);
+        ArgumentNullException.ThrowIfNull(space);
+        ArgumentNullException.ThrowIfNull(repo);
+        ArgumentNullException.ThrowIfNull(collection);
+        ArgumentNullException.ThrowIfNull(rkey);
 
         var parameters = new XrpcParams()
             .Add("space", space)
@@ -232,75 +235,83 @@ public sealed class SpaceClient
     }
 
     /// <summary>
-    /// Lists the records in an account's repo within a space.
+    /// Gets the record a space record URI names.
+    /// </summary>
+    /// <param name="uri">The record's URI, which names its space, author, collection and key.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<GetSpaceRecordResponse> GetRecordAsync(
+        SpaceRecordUri uri, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(uri);
+        return GetRecordAsync(uri.Space, uri.Author, uri.Collection, uri.Rkey, cancellationToken);
+    }
+
+    /// <summary>
+    /// Lists one page of the records in an account's repo within a space.
     /// </summary>
     /// <param name="space">The space.</param>
     /// <param name="repo">The DID of the account whose repo to list.</param>
     /// <param name="collection">Restrict to one collection. Lists across all collections when omitted.</param>
-    /// <param name="limit">Maximum number of results per page (1–1000, default 50).</param>
-    /// <param name="cursor">Pagination cursor.</param>
     /// <param name="reverse">Reverse the order of the returned records.</param>
     /// <param name="excludeValues">
     /// Return only metadata (collection, rkey, cid). Combined with <c>getLatestCommit</c> this
     /// is the cheap way to heal a copy that has diverged only slightly: diff the listing against
     /// what you hold and fetch just the differing records.
     /// </param>
+    /// <param name="limit">Maximum number of results per page (1–1000, default 50).</param>
+    /// <param name="cursor">Pagination cursor.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ListSpaceRecordsResponse> ListRecordsAsync(
-        string space,
-        string repo,
-        string? collection = null,
-        int? limit = null,
-        string? cursor = null,
+        SpaceUri space,
+        Did repo,
+        Nsid? collection = null,
         bool? reverse = null,
         bool? excludeValues = null,
+        int? limit = null,
+        string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repo);
+        ArgumentNullException.ThrowIfNull(space);
+        ArgumentNullException.ThrowIfNull(repo);
 
         var parameters = new XrpcParams()
             .Add("space", space)
             .Add("repo", repo)
             .Add("collection", collection)
-            .Add("limit", limit)
-            .Add("cursor", cursor)
             .Add("reverse", reverse)
-            .Add("excludeValues", excludeValues);
+            .Add("excludeValues", excludeValues)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<ListSpaceRecordsResponse>(
             "com.atproto.space.listRecords", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
-    /// Enumerates every record in an account's repo within a space, following pagination.
+    /// Enumerates every record in an account's repo within a space, fetching pages as needed.
     /// </summary>
     /// <param name="space">The space.</param>
     /// <param name="repo">The DID of the account whose repo to list.</param>
     /// <param name="collection">Restrict to one collection.</param>
-    /// <param name="pageSize">Results per request.</param>
+    /// <param name="reverse">Reverse the order of the returned records.</param>
     /// <param name="excludeValues">Return only metadata.</param>
+    /// <param name="pageSize">Records per request (1–1000); <see langword="null"/> for the server default.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async IAsyncEnumerable<SpaceRecordView> EnumerateRecordsAsync(
-        string space,
-        string repo,
-        string? collection = null,
-        int? pageSize = null,
+    public IAsyncEnumerable<SpaceRecordView> EnumerateRecordsAsync(
+        SpaceUri space,
+        Did repo,
+        Nsid? collection = null,
+        bool? reverse = null,
         bool? excludeValues = null,
-        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        int? pageSize = null,
+        CancellationToken cancellationToken = default)
     {
-        string? cursor = null;
-        do
-        {
-            var page = await ListRecordsAsync(
-                space, repo, collection, pageSize, cursor, reverse: null, excludeValues, cancellationToken);
+        ArgumentNullException.ThrowIfNull(space);
+        ArgumentNullException.ThrowIfNull(repo);
 
-            foreach (var record in page.Records)
-                yield return record;
-
-            cursor = page.Records.Count == 0 ? null : page.Cursor;
-        }
-        while (!string.IsNullOrEmpty(cursor));
+        return Pagination.EnumerateAsync<ListSpaceRecordsResponse, SpaceRecordView>(
+            (cursor, ct) => ListRecordsAsync(space, repo, collection, reverse, excludeValues, pageSize, cursor, ct),
+            cancellationToken);
     }
 
     /// <summary>
@@ -314,10 +325,10 @@ public sealed class SpaceClient
     /// arrives over the wire like anything else.
     /// </remarks>
     public Task<GetSpaceLatestCommitResponse> GetLatestCommitAsync(
-        string space, string repo, CancellationToken cancellationToken = default)
+        SpaceUri space, Did repo, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repo);
+        ArgumentNullException.ThrowIfNull(space);
+        ArgumentNullException.ThrowIfNull(repo);
 
         var parameters = new XrpcParams()
             .Add("space", space)
@@ -339,13 +350,13 @@ public sealed class SpaceClient
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The CAR stream, which the caller disposes. Verify it with <see cref="SpaceRepoCar.Verify"/>.</returns>
     public Task<XrpcStreamResponse> GetRepoAsync(
-        string space,
-        string repo,
+        SpaceUri space,
+        Did repo,
         bool? excludeValues = null,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repo);
+        ArgumentNullException.ThrowIfNull(space);
+        ArgumentNullException.ThrowIfNull(repo);
 
         var parameters = new XrpcParams()
             .Add("space", space)
@@ -362,9 +373,9 @@ public sealed class SpaceClient
     /// <param name="space">The space.</param>
     /// <param name="repo">The DID of the account.</param>
     /// <param name="since">Return operations after this revision — the caller's own sync position.</param>
+    /// <param name="excludeValues">Return operation metadata only, without inlined record values.</param>
     /// <param name="limit">Maximum number of operations per page (1–1000, default 100).</param>
     /// <param name="cursor">Opaque pagination cursor. Takes precedence over <paramref name="since"/>.</param>
-    /// <param name="excludeValues">Return operation metadata only, without inlined record values.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <remarks>
     /// <para>The oplog is a transport optimization, not a committed data structure. A host may
@@ -376,24 +387,24 @@ public sealed class SpaceClient
     /// signed commit, which is what a syncer compares its own running set hash against.</para>
     /// </remarks>
     public Task<ListSpaceRepoOpsResponse> ListRepoOpsAsync(
-        string space,
-        string repo,
-        string? since = null,
+        SpaceUri space,
+        Did repo,
+        Tid? since = null,
+        bool? excludeValues = null,
         int? limit = null,
         string? cursor = null,
-        bool? excludeValues = null,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repo);
+        ArgumentNullException.ThrowIfNull(space);
+        ArgumentNullException.ThrowIfNull(repo);
 
         var parameters = new XrpcParams()
             .Add("space", space)
             .Add("repo", repo)
             .Add("since", since)
+            .Add("excludeValues", excludeValues)
             .Add("limit", limit)
-            .Add("cursor", cursor)
-            .Add("excludeValues", excludeValues);
+            .Add("cursor", cursor);
 
         return _xrpc.QueryAsync<ListSpaceRepoOpsResponse>(
             "com.atproto.space.listRepoOps", parameters, cancellationToken: cancellationToken);
@@ -413,11 +424,11 @@ public sealed class SpaceClient
     /// </remarks>
     /// <returns>The blob's bytes and declared media type, which the caller disposes.</returns>
     public Task<XrpcStreamResponse> GetBlobAsync(
-        string space, string repo, string cid, CancellationToken cancellationToken = default)
+        SpaceUri space, Did repo, Cid cid, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repo);
-        ArgumentException.ThrowIfNullOrWhiteSpace(cid);
+        ArgumentNullException.ThrowIfNull(space);
+        ArgumentNullException.ThrowIfNull(repo);
+        ArgumentNullException.ThrowIfNull(cid);
 
         var parameters = new XrpcParams()
             .Add("space", space)
@@ -429,7 +440,7 @@ public sealed class SpaceClient
     }
 
     /// <summary>
-    /// Lists the CIDs of blobs referenced by an account's records within a space.
+    /// Lists one page of the CIDs of blobs referenced by an account's records within a space.
     /// </summary>
     /// <param name="space">The space.</param>
     /// <param name="repo">The DID of the account.</param>
@@ -442,15 +453,15 @@ public sealed class SpaceClient
     /// <c>com.atproto.sync.listBlobs</c>, which is unauthenticated.
     /// </remarks>
     public Task<ListSpaceBlobsResponse> ListBlobsAsync(
-        string space,
-        string repo,
-        string? since = null,
+        SpaceUri space,
+        Did repo,
+        Tid? since = null,
         int? limit = null,
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repo);
+        ArgumentNullException.ThrowIfNull(space);
+        ArgumentNullException.ThrowIfNull(repo);
 
         var parameters = new XrpcParams()
             .Add("space", space)
@@ -461,6 +472,30 @@ public sealed class SpaceClient
 
         return _xrpc.QueryAsync<ListSpaceBlobsResponse>(
             "com.atproto.space.listBlobs", parameters, cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Enumerates the CIDs of every blob referenced by an account's records within a space,
+    /// fetching pages as needed.
+    /// </summary>
+    /// <param name="space">The space.</param>
+    /// <param name="repo">The DID of the account.</param>
+    /// <param name="since">Optional revision of the permissioned repo to list blobs since.</param>
+    /// <param name="pageSize">CIDs per request (1–1000); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<Cid> EnumerateBlobsAsync(
+        SpaceUri space,
+        Did repo,
+        Tid? since = null,
+        int? pageSize = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(space);
+        ArgumentNullException.ThrowIfNull(repo);
+
+        return Pagination.EnumerateAsync<ListSpaceBlobsResponse, Cid>(
+            (cursor, ct) => ListBlobsAsync(space, repo, since, pageSize, cursor, ct),
+            cancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -479,17 +514,17 @@ public sealed class SpaceClient
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <remarks>Writes accept only an OAuth credential — a write is attributed to the authoring user.</remarks>
     public Task<SpaceWriteResult> CreateRecordAsync(
-        string space,
-        string repo,
-        string collection,
+        SpaceUri space,
+        Did repo,
+        Nsid collection,
         object record,
-        string? rkey = null,
+        RecordKey? rkey = null,
         bool? validate = null,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repo);
-        ArgumentException.ThrowIfNullOrWhiteSpace(collection);
+        ArgumentNullException.ThrowIfNull(space);
+        ArgumentNullException.ThrowIfNull(repo);
+        ArgumentNullException.ThrowIfNull(collection);
         ArgumentNullException.ThrowIfNull(record);
 
         var request = new CreateSpaceRecordRequest
@@ -517,18 +552,18 @@ public sealed class SpaceClient
     /// <param name="validate">Lexicon validation behaviour; <see langword="null"/> validates known Lexicons only.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<SpaceWriteResult> PutRecordAsync(
-        string space,
-        string repo,
-        string collection,
-        string rkey,
+        SpaceUri space,
+        Did repo,
+        Nsid collection,
+        RecordKey rkey,
         object record,
         bool? validate = null,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repo);
-        ArgumentException.ThrowIfNullOrWhiteSpace(collection);
-        ArgumentException.ThrowIfNullOrWhiteSpace(rkey);
+        ArgumentNullException.ThrowIfNull(space);
+        ArgumentNullException.ThrowIfNull(repo);
+        ArgumentNullException.ThrowIfNull(collection);
+        ArgumentNullException.ThrowIfNull(rkey);
         ArgumentNullException.ThrowIfNull(record);
 
         var request = new PutSpaceRecordRequest
@@ -555,16 +590,16 @@ public sealed class SpaceClient
     /// <param name="rkey">The record key.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task DeleteRecordAsync(
-        string space,
-        string repo,
-        string collection,
-        string rkey,
+        SpaceUri space,
+        Did repo,
+        Nsid collection,
+        RecordKey rkey,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repo);
-        ArgumentException.ThrowIfNullOrWhiteSpace(collection);
-        ArgumentException.ThrowIfNullOrWhiteSpace(rkey);
+        ArgumentNullException.ThrowIfNull(space);
+        ArgumentNullException.ThrowIfNull(repo);
+        ArgumentNullException.ThrowIfNull(collection);
+        ArgumentNullException.ThrowIfNull(rkey);
 
         var request = new DeleteSpaceRecordRequest
         {
@@ -576,6 +611,18 @@ public sealed class SpaceClient
 
         await _xrpc.ProcedureAsync(
             "com.atproto.space.deleteRecord", request, cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Deletes the record a space record URI names from the caller's permissioned repo, or
+    /// ensures it does not exist.
+    /// </summary>
+    /// <param name="uri">The record's URI. Its author must be the authenticated member.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task DeleteRecordAsync(SpaceRecordUri uri, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(uri);
+        return DeleteRecordAsync(uri.Space, uri.Author, uri.Collection, uri.Rkey, cancellationToken);
     }
 
     /// <summary>
@@ -591,14 +638,14 @@ public sealed class SpaceClient
     /// as one atomic change: entries sharing a <c>rev</c> belong together.
     /// </remarks>
     public Task<ApplySpaceWritesResponse> ApplyWritesAsync(
-        string space,
-        string repo,
+        SpaceUri space,
+        Did repo,
         IEnumerable<SpaceWriteOp> writes,
         bool? validate = null,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repo);
+        ArgumentNullException.ThrowIfNull(space);
+        ArgumentNullException.ThrowIfNull(repo);
         ArgumentNullException.ThrowIfNull(writes);
 
         var request = new ApplySpaceWritesRequest
@@ -637,9 +684,9 @@ public sealed class SpaceClient
     /// registration and extends its expiry.</para>
     /// </remarks>
     public Task<RegisterNotifyResponse> RegisterNotifyAsync(
-        string space, string service, CancellationToken cancellationToken = default)
+        SpaceUri space, string service, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
+        ArgumentNullException.ThrowIfNull(space);
         ArgumentException.ThrowIfNullOrWhiteSpace(service);
 
         var request = new RegisterNotifyRequest { Space = space, Service = service };
@@ -654,9 +701,9 @@ public sealed class SpaceClient
     /// <param name="service">The subscriber's service identifier, as passed to <see cref="RegisterNotifyAsync"/>.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task UnregisterNotifyAsync(
-        string space, string service, CancellationToken cancellationToken = default)
+        SpaceUri space, string service, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
+        ArgumentNullException.ThrowIfNull(space);
         ArgumentException.ThrowIfNullOrWhiteSpace(service);
 
         var request = new UnregisterNotifyRequest { Space = space, Service = service };
@@ -677,15 +724,15 @@ public sealed class SpaceClient
     /// registered for the space. Authenticated with service auth.
     /// </remarks>
     public async Task NotifyWriteAsync(
-        string space,
-        string repo,
-        string rev,
+        SpaceUri space,
+        Did repo,
+        Tid rev,
         byte[] hash,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repo);
-        ArgumentException.ThrowIfNullOrWhiteSpace(rev);
+        ArgumentNullException.ThrowIfNull(space);
+        ArgumentNullException.ThrowIfNull(repo);
+        ArgumentNullException.ThrowIfNull(rev);
         ArgumentNullException.ThrowIfNull(hash);
 
         var request = new NotifyWriteRequest { Space = space, Repo = repo, Rev = rev, Hash = hash };
@@ -704,9 +751,9 @@ public sealed class SpaceClient
     /// <see cref="SpaceErrors.SpaceDeleted"/>. A renewal that fails for any other reason says
     /// nothing about the space, and the syncer keeps its copy.
     /// </remarks>
-    public async Task NotifySpaceDeletedAsync(string space, CancellationToken cancellationToken = default)
+    public async Task NotifySpaceDeletedAsync(SpaceUri space, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(space);
+        ArgumentNullException.ThrowIfNull(space);
 
         var request = new NotifySpaceDeletedRequest { Space = space };
         await _xrpc.ProcedureAsync(

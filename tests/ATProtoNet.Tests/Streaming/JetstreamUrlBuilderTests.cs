@@ -1,3 +1,4 @@
+using ATProtoNet.Identity;
 using ATProtoNet.Streaming;
 
 namespace ATProtoNet.Tests.Streaming;
@@ -18,7 +19,7 @@ public class JetstreamUrlBuilderTests
     {
         ServiceUrl = serviceUrl,
         WantedCollections = collections,
-        WantedDids = dids,
+        WantedDids = dids?.Select(Did.Parse).ToList(),
         MaxMessageSizeBytes = maxMessageSizeBytes,
         Decompressor = decompressor,
     };

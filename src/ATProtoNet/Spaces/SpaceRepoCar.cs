@@ -1,5 +1,6 @@
 using System.Formats.Cbor;
 using System.Text.Json;
+using ATProtoNet.Identity;
 using ATProtoNet.Repo;
 
 namespace ATProtoNet.Spaces;
@@ -11,7 +12,7 @@ namespace ATProtoNet.Spaces;
 /// <param name="Rkey">The record key.</param>
 /// <param name="Cid">The record's CID.</param>
 /// <param name="Bytes">The record encoded as DAG-CBOR.</param>
-public readonly record struct SpaceRepoRecord(string Collection, string Rkey, string Cid, byte[] Bytes)
+public readonly record struct SpaceRepoRecord(Nsid Collection, RecordKey Rkey, Cid Cid, byte[] Bytes)
 {
     /// <summary>The record's path within the repo, <c>{collection}/{rkey}</c>.</summary>
     public string Path => $"{Collection}/{Rkey}";
@@ -22,10 +23,10 @@ public readonly record struct SpaceRepoRecord(string Collection, string Rkey, st
     /// <param name="collection">The record collection NSID.</param>
     /// <param name="rkey">The record key.</param>
     /// <param name="value">The record value, in the AT Protocol JSON data model.</param>
-    public static SpaceRepoRecord Create(string collection, string rkey, JsonElement value)
+    public static SpaceRepoRecord Create(Nsid collection, RecordKey rkey, JsonElement value)
     {
         var (bytes, cid) = DagCborEncoder.EncodeWithCid(value);
-        return new SpaceRepoRecord(collection, rkey, cid.Value, bytes);
+        return new SpaceRepoRecord(collection, rkey, cid, bytes);
     }
 }
 
@@ -43,7 +44,7 @@ public readonly record struct SpaceRepoRecord(string Collection, string Rkey, st
 /// </param>
 public sealed record VerifiedSpaceRepo(
     SignedSpaceCommit Commit,
-    IReadOnlyList<KeyValuePair<string, string>> Index,
+    IReadOnlyList<KeyValuePair<string, Cid>> Index,
     IReadOnlyList<SpaceRepoRecord> Records);
 
 /// <summary>
@@ -98,7 +99,7 @@ public static class SpaceRepoCar
         indexWriter.WriteStartMap(paths.Count);
         for (var i = 0; i < paths.Count; i++)
         {
-            recordCids[i] = CidComputation.DecodeCidString(byPath[paths[i]].Cid);
+            recordCids[i] = CidComputation.DecodeCidString(byPath[paths[i]].Cid.Value);
             indexWriter.WriteTextString(paths[i]);
             DagCborLink.Write(indexWriter, recordCids[i]);
         }
@@ -141,12 +142,12 @@ public static class SpaceRepoCar
     public static VerifiedSpaceRepo Verify(
         ReadOnlySpan<byte> car,
         SpaceUri space,
-        string author,
+        Did author,
         string didKey,
         bool expectValues = true)
     {
         ArgumentNullException.ThrowIfNull(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(author);
+        ArgumentNullException.ThrowIfNull(author);
         ArgumentException.ThrowIfNullOrWhiteSpace(didKey);
 
         CarReader reader;
@@ -206,7 +207,7 @@ public static class SpaceRepoCar
             var (path, cid) = index[i];
             var block = blocks[i + 2];
 
-            var expectedCid = CidComputation.DecodeCidString(cid);
+            var expectedCid = CidComputation.DecodeCidString(cid.Value);
             if (!block.Cid.AsSpan().SequenceEqual(expectedCid))
             {
                 throw new SpaceRepoVerificationException(
@@ -217,11 +218,14 @@ public static class SpaceRepoCar
                 throw new SpaceRepoVerificationException($"Block at '{path}' does not hash to its CID.");
 
             var separator = path.LastIndexOf('/');
-            if (separator <= 0 || separator == path.Length - 1)
+            if (separator <= 0 ||
+                !Nsid.TryParse(path[..separator], out var collection) ||
+                !RecordKey.TryParse(path[(separator + 1)..], out var rkey))
+            {
                 throw new SpaceRepoVerificationException($"Invalid record path in the repo index: '{path}'.");
+            }
 
-            records.Add(new SpaceRepoRecord(
-                path[..separator], path[(separator + 1)..], cid, block.Data));
+            records.Add(new SpaceRepoRecord(collection, rkey, cid, block.Data));
         }
 
         return new VerifiedSpaceRepo(commit, index, records);
@@ -231,7 +235,7 @@ public static class SpaceRepoCar
     /// Decodes the index block into path/CID pairs, preserving the CAR's own order so that the
     /// record blocks can be matched against it positionally.
     /// </summary>
-    private static List<KeyValuePair<string, string>> DecodeIndex(ReadOnlyMemory<byte> indexBlock)
+    private static List<KeyValuePair<string, Cid>> DecodeIndex(ReadOnlyMemory<byte> indexBlock)
     {
         JsonElement element;
         try
@@ -246,18 +250,19 @@ public static class SpaceRepoCar
         if (element.ValueKind != JsonValueKind.Object)
             throw new SpaceRepoVerificationException("The repo index must be a DAG-CBOR map.");
 
-        var index = new List<KeyValuePair<string, string>>();
+        var index = new List<KeyValuePair<string, Cid>>();
         foreach (var entry in element.EnumerateObject())
         {
             if (entry.Value.ValueKind != JsonValueKind.Object ||
                 !entry.Value.TryGetProperty("$link", out var link) ||
-                link.ValueKind != JsonValueKind.String)
+                link.ValueKind != JsonValueKind.String ||
+                !Cid.TryParse(link.GetString(), out var cid))
             {
                 throw new SpaceRepoVerificationException(
                     $"Repo index entry '{entry.Name}' is not a CID link.");
             }
 
-            index.Add(new KeyValuePair<string, string>(entry.Name, link.GetString()!));
+            index.Add(new KeyValuePair<string, Cid>(entry.Name, cid));
         }
 
         return index;

@@ -65,7 +65,7 @@ public class JetstreamV2EventParserTests
 
         Assert.Equal("did:plc:eygmaihciaxprqvxpfvl6flk", commit.Did.Value);
         Assert.Equal("app.bsky.feed.like", commit.Collection);
-        Assert.Equal("3l3qo2vuowo2b", commit.RKey);
+        Assert.Equal("3l3qo2vuowo2b", commit.Rkey);
         Assert.Equal(JetstreamOperation.Create, commit.Operation);
         Assert.Equal("3l3qo2vutsw2b", commit.Rev);
         Assert.NotNull(commit.Cid);

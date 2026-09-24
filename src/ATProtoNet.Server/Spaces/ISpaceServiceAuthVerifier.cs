@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using ATProtoNet.Auth;
 using ATProtoNet.Crypto;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Spaces;
 using Microsoft.AspNetCore.Http;
@@ -13,7 +14,7 @@ namespace ATProtoNet.Server.Spaces;
 /// <param name="Issuer">The calling service's DID.</param>
 /// <param name="Audience">The service identifier it addressed: a DID, possibly with a service fragment.</param>
 /// <param name="Method">The <c>lxm</c> it was scoped to, when it named one.</param>
-public sealed record VerifiedServiceAuth(string Issuer, string Audience, string? Method);
+public sealed record VerifiedServiceAuth(Did Issuer, string Audience, Nsid? Method);
 
 /// <summary>
 /// Verifies the service auth tokens on the notification endpoints.
@@ -42,7 +43,7 @@ public interface ISpaceServiceAuthVerifier
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="SpaceVerificationException">Thrown when any check fails.</exception>
     Task<VerifiedServiceAuth> VerifyAsync(
-        HttpContext context, IReadOnlyCollection<string> acceptedAudiences, string expectedMethod,
+        HttpContext context, IReadOnlyCollection<string> acceptedAudiences, Nsid expectedMethod,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -55,7 +56,7 @@ public interface ISpaceServiceAuthVerifier
     /// Without this check any service could advance any account's revision in a space's writer
     /// set, which is what a syncer decides from whether to re-read a repo.
     /// </remarks>
-    Task<bool> IsRepoHostAsync(string serviceDid, string repoDid, CancellationToken cancellationToken = default);
+    Task<bool> IsRepoHostAsync(Did serviceDid, Did repoDid, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -103,7 +104,7 @@ public sealed class SpaceServiceAuthVerifier : ISpaceServiceAuthVerifier
     public Task<VerifiedServiceAuth> VerifyAsync(
         HttpContext context,
         string expectedAudience,
-        string expectedMethod,
+        Nsid expectedMethod,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedAudience);
@@ -114,12 +115,12 @@ public sealed class SpaceServiceAuthVerifier : ISpaceServiceAuthVerifier
     public async Task<VerifiedServiceAuth> VerifyAsync(
         HttpContext context,
         IReadOnlyCollection<string> acceptedAudiences,
-        string expectedMethod,
+        Nsid expectedMethod,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(acceptedAudiences);
-        ArgumentException.ThrowIfNullOrWhiteSpace(expectedMethod);
+        ArgumentNullException.ThrowIfNull(expectedMethod);
 
         if (acceptedAudiences.Count == 0)
             throw new ArgumentException("At least one audience must be accepted.", nameof(acceptedAudiences));
@@ -134,7 +135,10 @@ public sealed class SpaceServiceAuthVerifier : ISpaceServiceAuthVerifier
 
         var payload = decoded.Payload;
 
-        var issuer = payload.GetStringOrNull("iss") ?? throw Invalid("The service auth token is missing its \"iss\".");
+        var issuerText = payload.GetStringOrNull("iss") ?? throw Invalid("The service auth token is missing its \"iss\".");
+        if (!Did.TryParse(issuerText, out var issuer))
+            throw Invalid($"The service auth token's \"iss\" must be a DID; got '{issuerText}'.");
+
         var audience = payload.GetStringOrNull("aud") ?? throw Invalid("The service auth token is missing its \"aud\".");
 
         if (!acceptedAudiences.Contains(audience, StringComparer.Ordinal))
@@ -144,7 +148,7 @@ public sealed class SpaceServiceAuthVerifier : ISpaceServiceAuthVerifier
         }
 
         var method = payload.GetStringOrNull("lxm");
-        if (method is not null && !string.Equals(method, expectedMethod, StringComparison.Ordinal))
+        if (method is not null && !string.Equals(method, expectedMethod.Value, StringComparison.Ordinal))
             throw Invalid($"The service auth token is scoped to '{method}', not to '{expectedMethod}'.");
 
         if (!payload.TryGetProperty("exp", out var exp) || !exp.TryGetInt64(out var expSeconds))
@@ -193,24 +197,24 @@ public sealed class SpaceServiceAuthVerifier : ISpaceServiceAuthVerifier
         // A jti is optional in the AT Protocol service auth spec, so its absence is not an error
         // — but when one is present it is spent, so a captured token cannot be re-delivered.
         if (payload.GetStringOrNull("jti") is { } tokenId &&
-            !await _replayStore.TryConsumeAsync(issuer, tokenId, expiresAt, cancellationToken))
+            !await _replayStore.TryConsumeAsync(issuer.Value, tokenId, expiresAt, cancellationToken))
         {
             throw Invalid("The service auth token has already been used.");
         }
 
-        return new VerifiedServiceAuth(issuer, audience, method);
+        return new VerifiedServiceAuth(issuer, audience, method is null ? null : expectedMethod);
     }
 
     /// <inheritdoc/>
     public async Task<bool> IsRepoHostAsync(
-        string serviceDid, string repoDid, CancellationToken cancellationToken = default)
+        Did serviceDid, Did repoDid, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(serviceDid);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repoDid);
+        ArgumentNullException.ThrowIfNull(serviceDid);
+        ArgumentNullException.ThrowIfNull(repoDid);
 
         // The usual AT Protocol shape: a PDS signs service auth with the account's own key, so
         // the issuer is the account rather than the host.
-        if (string.Equals(serviceDid, repoDid, StringComparison.Ordinal))
+        if (serviceDid == repoDid)
             return true;
 
         var repoDocument = await _resolver.ResolveAsync(repoDid, cancellationToken);

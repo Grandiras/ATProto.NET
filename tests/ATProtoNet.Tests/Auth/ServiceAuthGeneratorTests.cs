@@ -1,5 +1,6 @@
 using ATProtoNet.Auth;
 using ATProtoNet.Crypto;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.Tests.Auth;
 
@@ -10,7 +11,7 @@ public sealed class ServiceAuthGeneratorTests
     public void CreateToken_ProducesThreePartJwt()
     {
         using var key = AtProtoCrypto.GenerateP256Key();
-        using var gen = new ServiceAuthGenerator("did:plc:test123", key);
+        using var gen = new ServiceAuthGenerator(Did.Parse("did:plc:test123"), key);
 
         var token = gen.CreateToken("did:web:bsky.social");
 
@@ -22,7 +23,7 @@ public sealed class ServiceAuthGeneratorTests
     public void CreateToken_IncludesCorrectIssuer()
     {
         using var key = AtProtoCrypto.GenerateP256Key();
-        using var gen = new ServiceAuthGenerator("did:plc:myservice", key);
+        using var gen = new ServiceAuthGenerator(Did.Parse("did:plc:myservice"), key);
 
         var token = gen.CreateToken("did:web:target.example");
         var payload = DecodePayload(token);
@@ -34,7 +35,7 @@ public sealed class ServiceAuthGeneratorTests
     public void CreateToken_IncludesAudience()
     {
         using var key = AtProtoCrypto.GenerateP256Key();
-        using var gen = new ServiceAuthGenerator("did:plc:test", key);
+        using var gen = new ServiceAuthGenerator(Did.Parse("did:plc:test"), key);
 
         var token = gen.CreateToken("did:web:audience.example");
         var payload = DecodePayload(token);
@@ -46,9 +47,9 @@ public sealed class ServiceAuthGeneratorTests
     public void CreateToken_IncludesLxm_WhenProvided()
     {
         using var key = AtProtoCrypto.GenerateP256Key();
-        using var gen = new ServiceAuthGenerator("did:plc:test", key);
+        using var gen = new ServiceAuthGenerator(Did.Parse("did:plc:test"), key);
 
-        var token = gen.CreateToken("did:web:target", lxm: "com.atproto.repo.getRecord");
+        var token = gen.CreateToken("did:web:target", lxm: Nsid.Parse("com.atproto.repo.getRecord"));
         var payload = DecodePayload(token);
 
         Assert.Contains("\"lxm\":\"com.atproto.repo.getRecord\"", payload);
@@ -58,7 +59,7 @@ public sealed class ServiceAuthGeneratorTests
     public void CreateToken_OmitsLxm_WhenNull()
     {
         using var key = AtProtoCrypto.GenerateP256Key();
-        using var gen = new ServiceAuthGenerator("did:plc:test", key);
+        using var gen = new ServiceAuthGenerator(Did.Parse("did:plc:test"), key);
 
         var token = gen.CreateToken("did:web:target");
         var payload = DecodePayload(token);
@@ -70,7 +71,7 @@ public sealed class ServiceAuthGeneratorTests
     public void CreateToken_IncludesExpClaim()
     {
         using var key = AtProtoCrypto.GenerateP256Key();
-        using var gen = new ServiceAuthGenerator("did:plc:test", key);
+        using var gen = new ServiceAuthGenerator(Did.Parse("did:plc:test"), key);
 
         var token = gen.CreateToken("did:web:target");
         var payload = DecodePayload(token);
@@ -82,7 +83,7 @@ public sealed class ServiceAuthGeneratorTests
     public void CreateToken_IncludesIatClaim()
     {
         using var key = AtProtoCrypto.GenerateP256Key();
-        using var gen = new ServiceAuthGenerator("did:plc:test", key);
+        using var gen = new ServiceAuthGenerator(Did.Parse("did:plc:test"), key);
 
         var token = gen.CreateToken("did:web:target");
         var payload = DecodePayload(token);
@@ -94,7 +95,7 @@ public sealed class ServiceAuthGeneratorTests
     public void CreateToken_IncludesJtiClaim()
     {
         using var key = AtProtoCrypto.GenerateP256Key();
-        using var gen = new ServiceAuthGenerator("did:plc:test", key);
+        using var gen = new ServiceAuthGenerator(Did.Parse("did:plc:test"), key);
 
         var token = gen.CreateToken("did:web:target");
 
@@ -106,9 +107,9 @@ public sealed class ServiceAuthGeneratorTests
     {
         using var key = AtProtoCrypto.GenerateK256Key();
         var didKey = key.ToDidKey();
-        using var gen = new ServiceAuthGenerator("did:plc:test", key);
+        using var gen = new ServiceAuthGenerator(Did.Parse("did:plc:test"), key);
 
-        var token = gen.CreateToken("did:web:target", lxm: "com.atproto.repo.getRecord");
+        var token = gen.CreateToken("did:web:target", lxm: Nsid.Parse("com.atproto.repo.getRecord"));
         var parts = token.Split('.');
 
         Assert.Equal("ES256K", TestJws.DecodeJson(token, 0).GetProperty("alg").GetString());
@@ -120,7 +121,7 @@ public sealed class ServiceAuthGeneratorTests
     public void CreateToken_UniqueJtiEachTime()
     {
         using var key = AtProtoCrypto.GenerateP256Key();
-        using var gen = new ServiceAuthGenerator("did:plc:test", key);
+        using var gen = new ServiceAuthGenerator(Did.Parse("did:plc:test"), key);
 
         var token1 = gen.CreateToken("did:web:target");
         var token2 = gen.CreateToken("did:web:target");
@@ -132,7 +133,7 @@ public sealed class ServiceAuthGeneratorTests
     public void CreateToken_HeaderUsesES256ForP256()
     {
         using var key = AtProtoCrypto.GenerateP256Key();
-        using var gen = new ServiceAuthGenerator("did:plc:test", key);
+        using var gen = new ServiceAuthGenerator(Did.Parse("did:plc:test"), key);
 
         var token = gen.CreateToken("did:web:target");
         var header = DecodeHeader(token);
@@ -144,17 +145,42 @@ public sealed class ServiceAuthGeneratorTests
     public void CreateToken_RejectsExpiryOver5Minutes()
     {
         using var key = AtProtoCrypto.GenerateP256Key();
-        using var gen = new ServiceAuthGenerator("did:plc:test", key);
+        using var gen = new ServiceAuthGenerator(Did.Parse("did:plc:test"), key);
 
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             gen.CreateToken("did:web:target", expiresIn: TimeSpan.FromMinutes(10)));
     }
 
     [Fact]
+    public void CreateToken_AudienceWithAServiceFragment_IsWrittenVerbatim()
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        using var gen = new ServiceAuthGenerator(Did.Parse("did:plc:test"), key);
+
+        var token = gen.CreateToken("did:web:feed.example.com#bsky_fg");
+        var payload = System.Text.Encoding.UTF8.GetString(Base64UrlDecode(token.Split('.')[1]));
+
+        Assert.Contains("\"aud\":\"did:web:feed.example.com#bsky_fg\"", payload);
+    }
+
+    [Theory]
+    [InlineData("https://feed.example.com")]
+    [InlineData("feed.example.com")]
+    [InlineData("did:web:feed.example.com#")]
+    [InlineData("#bsky_fg")]
+    public void CreateToken_AudienceThatIsNotAServiceIdentifier_Throws(string audience)
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        using var gen = new ServiceAuthGenerator(Did.Parse("did:plc:test"), key);
+
+        Assert.Throws<ArgumentException>(() => gen.CreateToken(audience));
+    }
+
+    [Fact]
     public void CreateToken_ThrowsWhenDisposed()
     {
         var key = AtProtoCrypto.GenerateP256Key();
-        var gen = new ServiceAuthGenerator("did:plc:test", key);
+        var gen = new ServiceAuthGenerator(Did.Parse("did:plc:test"), key);
         gen.Dispose();
 
         Assert.Throws<ObjectDisposedException>(() => gen.CreateToken("did:web:target"));
@@ -164,7 +190,7 @@ public sealed class ServiceAuthGeneratorTests
     public void ServiceDid_ReturnsConfiguredDid()
     {
         using var key = AtProtoCrypto.GenerateP256Key();
-        using var gen = new ServiceAuthGenerator("did:plc:myservice", key);
+        using var gen = new ServiceAuthGenerator(Did.Parse("did:plc:myservice"), key);
 
         Assert.Equal("did:plc:myservice", gen.ServiceDid);
     }
@@ -174,7 +200,7 @@ public sealed class ServiceAuthGeneratorTests
     {
         using var key = AtProtoCrypto.GenerateP256Key();
         var didKey = key.ToDidKey();
-        using var gen = new ServiceAuthGenerator("did:plc:test", key);
+        using var gen = new ServiceAuthGenerator(Did.Parse("did:plc:test"), key);
 
         var token = gen.CreateToken("did:web:target");
         var parts = token.Split('.');

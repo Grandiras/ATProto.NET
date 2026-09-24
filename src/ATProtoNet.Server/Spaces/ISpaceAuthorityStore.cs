@@ -1,3 +1,4 @@
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Spaces;
 
@@ -64,7 +65,7 @@ public interface ISpaceAuthorityStore
     /// it, since the set is defined as the accounts that have written at least one record.
     /// </remarks>
     Task RecordWriteAsync(
-        SpaceUri space, string repoDid, string rev, byte[] hash, CancellationToken cancellationToken = default);
+        SpaceUri space, Did repoDid, Tid rev, byte[] hash, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Registers a service to receive a space's write notifications, or renews an existing
@@ -119,7 +120,7 @@ public interface ISpaceRepoHost
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The record, or <see langword="null"/> when there is none at that path.</returns>
     Task<GetSpaceRecordResponse?> GetRecordAsync(
-        SpaceUri space, string repoDid, string collection, string rkey,
+        SpaceUri space, Did repoDid, Nsid collection, RecordKey rkey,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -128,14 +129,14 @@ public interface ISpaceRepoHost
     /// <param name="space">The space.</param>
     /// <param name="repoDid">The DID of the account whose repo to list.</param>
     /// <param name="collection">Restrict to one collection, or <see langword="null"/> for all.</param>
-    /// <param name="limit">Maximum number of results.</param>
-    /// <param name="cursor">Pagination cursor.</param>
     /// <param name="reverse">Reverse the order of the returned records.</param>
     /// <param name="excludeValues">Return only metadata.</param>
+    /// <param name="limit">Maximum number of results.</param>
+    /// <param name="cursor">Pagination cursor.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<ListSpaceRecordsResponse> ListRecordsAsync(
-        SpaceUri space, string repoDid, string? collection, int limit, string? cursor,
-        bool reverse, bool excludeValues, CancellationToken cancellationToken = default);
+        SpaceUri space, Did repoDid, Nsid? collection, bool reverse, bool excludeValues, int limit,
+        string? cursor, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Returns an account's current signed commit for a space.
@@ -145,7 +146,7 @@ public interface ISpaceRepoHost
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The commit, or <see langword="null"/> when the account holds no repo here.</returns>
     Task<SignedSpaceCommit?> GetLatestCommitAsync(
-        SpaceUri space, string repoDid, CancellationToken cancellationToken = default);
+        SpaceUri space, Did repoDid, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Serializes an account's whole permissioned repo as a CAR, for full-state recovery.
@@ -160,7 +161,7 @@ public interface ISpaceRepoHost
     /// a consumer verify the whole thing in one pass.
     /// </remarks>
     Task<Stream?> GetRepoAsync(
-        SpaceUri space, string repoDid, bool excludeValues, CancellationToken cancellationToken = default);
+        SpaceUri space, Did repoDid, bool excludeValues, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Returns a page of an account's operation log for a space.
@@ -168,9 +169,9 @@ public interface ISpaceRepoHost
     /// <param name="space">The space.</param>
     /// <param name="repoDid">The DID of the account.</param>
     /// <param name="since">Return operations after this revision.</param>
+    /// <param name="excludeValues">Return operation metadata only.</param>
     /// <param name="limit">Maximum number of operations.</param>
     /// <param name="cursor">Opaque pagination cursor; takes precedence over <paramref name="since"/>.</param>
-    /// <param name="excludeValues">Return operation metadata only.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The page, or <see langword="null"/> when the account holds no repo here.</returns>
     /// <remarks>
@@ -181,8 +182,8 @@ public interface ISpaceRepoHost
     /// and it will recover through <see cref="GetRepoAsync"/> on its own.
     /// </remarks>
     Task<ListSpaceRepoOpsResponse?> ListRepoOpsAsync(
-        SpaceUri space, string repoDid, string? since, int limit, string? cursor,
-        bool excludeValues, CancellationToken cancellationToken = default);
+        SpaceUri space, Did repoDid, Tid? since, bool excludeValues, int limit, string? cursor,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Lists the CIDs of blobs referenced by an account's records within a space.
@@ -194,7 +195,7 @@ public interface ISpaceRepoHost
     /// <param name="cursor">Pagination cursor.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<ListSpaceBlobsResponse> ListBlobsAsync(
-        SpaceUri space, string repoDid, string? since, int limit, string? cursor,
+        SpaceUri space, Did repoDid, Tid? since, int limit, string? cursor,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -212,7 +213,7 @@ public interface ISpaceRepoHost
     /// blob the account holds to anyone with a credential for any of its spaces.
     /// </remarks>
     Task<SpaceBlobContent?> GetBlobAsync(
-        SpaceUri space, string repoDid, string cid, CancellationToken cancellationToken = default);
+        SpaceUri space, Did repoDid, Cid cid, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

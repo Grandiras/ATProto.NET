@@ -14,8 +14,8 @@ public class JetstreamV2ConsumerTests
         Did = Did.Parse(TestDid),
         TimeUs = timeUs ?? 1_725_911_162_000_000 + seq,
         Cursor = seq,
-        Collection = "app.bsky.feed.post",
-        RKey = "3l3qo2vuowo2b",
+        Collection = Nsid.Parse("app.bsky.feed.post"),
+        Rkey = RecordKey.Parse("3l3qo2vuowo2b"),
         Operation = JetstreamOperation.Create,
     };
 
@@ -162,8 +162,8 @@ public class JetstreamV2ConsumerTests
         {
             Did = Did.Parse(TestDid),
             TimeUs = 1_725_911_162_329_308,
-            Collection = "app.bsky.feed.post",
-            RKey = "3l3qo2vuowo2b",
+            Collection = Nsid.Parse("app.bsky.feed.post"),
+            Rkey = RecordKey.Parse("3l3qo2vuowo2b"),
             Operation = JetstreamOperation.Create,
         };
         var source = new ScriptedSource().Connection(seqless);

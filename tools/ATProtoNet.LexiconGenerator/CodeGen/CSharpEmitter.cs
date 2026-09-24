@@ -321,7 +321,7 @@ public sealed class CSharpEmitter
             sb.AppendLine("        Collections =");
             sb.AppendLine("        [");
             foreach (var collection in collections)
-                sb.AppendLine($"            {Quote(collection)},");
+                sb.AppendLine($"            ATProtoNet.Identity.Nsid.Parse({Quote(collection)}),");
             sb.AppendLine("        ],");
         }
 

@@ -54,7 +54,7 @@ public class JetstreamEventParserTests
         Assert.Equal("did:plc:eygmaihciaxprqvxpfvl6flk", commit.Did.Value);
         Assert.Equal(1725911162329308, commit.TimeUs);
         Assert.Equal("app.bsky.feed.like", commit.Collection);
-        Assert.Equal("3l3qo2vuowo2b", commit.RKey);
+        Assert.Equal("3l3qo2vuowo2b", commit.Rkey);
         Assert.Equal(JetstreamOperation.Create, commit.Operation);
         Assert.Equal("3l3qo2vutsw2b", commit.Rev);
         Assert.NotNull(commit.Cid);
@@ -63,6 +63,35 @@ public class JetstreamEventParserTests
         Assert.Equal(
             "at://did:plc:eygmaihciaxprqvxpfvl6flk/app.bsky.feed.like/3l3qo2vuowo2b",
             commit.Uri.ToString());
+    }
+
+    [Theory]
+    [InlineData("\"collection\":\"app.bsky.feed.like\"", "\"collection\":\"not an nsid\"")]
+    [InlineData("\"rkey\":\"3l3qo2vuowo2b\"", "\"rkey\":\"not a record key\"")]
+    public void Parse_CommitWhosePathDoesNotParse_IsSkipped(string field, string malformed)
+    {
+        // Such a commit names no record a consumer could act on.
+        Assert.Null(JetstreamEventParser.Parse(CreateCommitJson.Replace(field, malformed)));
+    }
+
+    [Fact]
+    public void Parse_CommitWithAMalformedRev_KeepsTheEventWithoutTheRev()
+    {
+        var commit = Assert.IsType<JetstreamCommitEvent>(JetstreamEventParser.Parse(
+            CreateCommitJson.Replace("\"rev\":\"3l3qo2vutsw2b\"", "\"rev\":\"not-a-tid\"")));
+
+        Assert.Null(commit.Rev);
+        Assert.Equal("3l3qo2vuowo2b", commit.Rkey.Value);
+    }
+
+    [Fact]
+    public void Parse_IdentityWithAMalformedHandle_KeepsTheEventWithoutTheHandle()
+    {
+        var identity = Assert.IsType<JetstreamIdentityEvent>(JetstreamEventParser.Parse(
+            IdentityJson.Replace("\"handle\":\"yohenrique.com\"", "\"handle\":\"not a handle\"")));
+
+        Assert.Null(identity.Handle);
+        Assert.Equal("did:plc:ufbl4k27gp6kzas5glhz7fim", identity.Did.Value);
     }
 
     [Fact]
@@ -119,7 +148,7 @@ public class JetstreamEventParserTests
         Assert.Equal("did:plc:ufbl4k27gp6kzas5glhz7fim", identity.Did.Value);
         Assert.Equal("yohenrique.com", identity.Handle);
         Assert.Equal(1409752997, identity.Seq);
-        Assert.Equal("2024-09-09T19:46:02.102Z", identity.Time);
+        Assert.Equal("2024-09-09T19:46:02.102Z", identity.Time?.ToString());
     }
 
     [Fact]
@@ -246,7 +275,7 @@ public class JetstreamEventParserTests
         Assert.Equal(expected.Did.Value, actual.Did.Value);
         Assert.Equal(expected.TimeUs, actual.TimeUs);
         Assert.Equal(expected.Collection, actual.Collection);
-        Assert.Equal(expected.RKey, actual.RKey);
+        Assert.Equal(expected.Rkey, actual.Rkey);
         Assert.Equal(expected.Operation, actual.Operation);
         Assert.Equal(expected.Cid?.Value, actual.Cid?.Value);
         Assert.Equal(expected.Record?.GetRawText(), actual.Record?.GetRawText());

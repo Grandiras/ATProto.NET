@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using ATProtoNet.Auth;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Serialization;
 using ATProtoNet.Spaces;
@@ -33,6 +34,9 @@ namespace ATProtoNet.Server.Spaces;
 /// </remarks>
 public sealed class SpaceWriteNotifier
 {
+    private static readonly Nsid NotifyWrite = Nsid.Parse(SpaceNsids.NotifyWrite);
+    private static readonly Nsid NotifySpaceDeleted = Nsid.Parse(SpaceNsids.NotifySpaceDeleted);
+
     private readonly ISpaceAuthorityStore _store;
     private readonly ISpaceDidDocumentResolver _resolver;
     private readonly ServiceAuthGenerator _serviceAuth;
@@ -82,15 +86,15 @@ public sealed class SpaceWriteNotifier
     /// (<see cref="ForwardWriteAsync"/>).
     /// </remarks>
     public Task<int> NotifyWriteAsync(
-        SpaceUri space, string repoDid, string rev, byte[] hash, CancellationToken cancellationToken = default)
+        SpaceUri space, Did repoDid, Tid rev, byte[] hash, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repoDid);
-        ArgumentException.ThrowIfNullOrWhiteSpace(rev);
+        ArgumentNullException.ThrowIfNull(repoDid);
+        ArgumentNullException.ThrowIfNull(rev);
         ArgumentNullException.ThrowIfNull(hash);
 
-        var body = new NotifyWriteRequest { Space = space.Value, Repo = repoDid, Rev = rev, Hash = hash };
-        return FanOutAsync(space, SpaceNsids.NotifyWrite, body, includeAuthority: true, cancellationToken);
+        var body = new NotifyWriteRequest { Space = space, Repo = repoDid, Rev = rev, Hash = hash };
+        return FanOutAsync(space, NotifyWrite, body, includeAuthority: true, cancellationToken);
     }
 
     /// <summary>
@@ -114,14 +118,14 @@ public sealed class SpaceWriteNotifier
     /// host and authority it sits in the same store, and forwarding to it would only deliver the
     /// notification back to this endpoint.</para>
     /// </remarks>
-    public Task<int> ForwardWriteAsync(SpaceUri space, string repoDid, string rev, byte[] hash)
+    public Task<int> ForwardWriteAsync(SpaceUri space, Did repoDid, Tid rev, byte[] hash)
     {
         ArgumentNullException.ThrowIfNull(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repoDid);
-        ArgumentException.ThrowIfNullOrWhiteSpace(rev);
+        ArgumentNullException.ThrowIfNull(repoDid);
+        ArgumentNullException.ThrowIfNull(rev);
         ArgumentNullException.ThrowIfNull(hash);
 
-        var body = new NotifyWriteRequest { Space = space.Value, Repo = repoDid, Rev = rev, Hash = hash };
+        var body = new NotifyWriteRequest { Space = space, Repo = repoDid, Rev = rev, Hash = hash };
 
         // Off the caller's path, and with no cancellation token: the request that triggered this
         // completes before the deliveries do, and cancelling them with it would drop them all.
@@ -130,7 +134,7 @@ public sealed class SpaceWriteNotifier
             try
             {
                 return await FanOutAsync(
-                    space, SpaceNsids.NotifyWrite, body, includeAuthority: false, CancellationToken.None);
+                    space, NotifyWrite, body, includeAuthority: false, CancellationToken.None);
             }
             catch (Exception ex)
             {
@@ -158,8 +162,8 @@ public sealed class SpaceWriteNotifier
         ArgumentNullException.ThrowIfNull(space);
 
         // Only the authority deletes a space, so its own registration has nothing to learn.
-        var body = new NotifySpaceDeletedRequest { Space = space.Value };
-        return FanOutAsync(space, SpaceNsids.NotifySpaceDeleted, body, includeAuthority: false, cancellationToken);
+        var body = new NotifySpaceDeletedRequest { Space = space };
+        return FanOutAsync(space, NotifySpaceDeleted, body, includeAuthority: false, cancellationToken);
     }
 
     /// <summary>
@@ -182,14 +186,14 @@ public sealed class SpaceWriteNotifier
     /// </remarks>
     public async Task<bool> EnsureAuthoritySubscribedAsync(
         SpaceUri space,
-        string repoDid,
+        Did repoDid,
         TimeSpan? lifetime = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repoDid);
+        ArgumentNullException.ThrowIfNull(repoDid);
 
-        if (string.Equals(space.Authority, repoDid, StringComparison.Ordinal))
+        if (space.Authority == repoDid)
             return false;
 
         var service = SpaceAuthority.HostAudience(space.Authority);
@@ -205,7 +209,7 @@ public sealed class SpaceWriteNotifier
     }
 
     private async Task<int> FanOutAsync<TBody>(
-        SpaceUri space, string nsid, TBody body, bool includeAuthority, CancellationToken cancellationToken)
+        SpaceUri space, Nsid nsid, TBody body, bool includeAuthority, CancellationToken cancellationToken)
     {
         var subscribers = await _store.ListSubscribersAsync(space, cancellationToken);
 
@@ -226,9 +230,9 @@ public sealed class SpaceWriteNotifier
     /// except for the space's own authority host, which the reference authority expects to be
     /// addressed by its bare DID.
     /// </summary>
-    private static string Audience(SpaceUri space, string service, string did) =>
+    private static string Audience(SpaceUri space, string service, Did did) =>
         string.Equals(service, SpaceAuthority.HostAudience(space.Authority), StringComparison.Ordinal)
-            ? did
+            ? did.Value
             : service;
 
     /// <summary>
@@ -236,7 +240,7 @@ public sealed class SpaceWriteNotifier
     /// as <c>#atproto_space_host</c>, both of which resolve to the same endpoint.
     /// </summary>
     private static bool IsAuthority(SpaceUri space, string service) =>
-        string.Equals(service, space.Authority, StringComparison.Ordinal) ||
+        string.Equals(service, space.Authority.Value, StringComparison.Ordinal) ||
         string.Equals(service, SpaceAuthority.HostAudience(space.Authority), StringComparison.Ordinal);
 
     /// <summary>
@@ -256,7 +260,7 @@ public sealed class SpaceWriteNotifier
     private async Task<bool> DeliverAsync<TBody>(
         SpaceUri space,
         SpaceNotifySubscriber subscriber,
-        string nsid,
+        Nsid nsid,
         TBody body,
         CancellationToken cancellationToken)
     {

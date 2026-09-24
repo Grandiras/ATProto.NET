@@ -45,7 +45,7 @@ public class SpaceCredentialProviderTests : IDisposable
         using var resolver = ResolverPublishing(endpoint);
         await using var provider = new SpaceCredentialProvider(_client, didResolver: resolver);
 
-        var ex = await Assert.ThrowsAsync<SpaceCredentialException>(() => provider.ResolveHostAsync(Did));
+        var ex = await Assert.ThrowsAsync<SpaceCredentialException>(() => provider.ResolveHostAsync(ATProtoNet.Identity.Did.Parse(Did)));
 
         Assert.Contains(endpoint, ex.Message);
     }
@@ -56,7 +56,7 @@ public class SpaceCredentialProviderTests : IDisposable
         using var resolver = ResolverPublishing("https://pds.example.com");
         await using var provider = new SpaceCredentialProvider(_client, didResolver: resolver);
 
-        Assert.Equal("https://pds.example.com", await provider.ResolveHostAsync(Did));
+        Assert.Equal("https://pds.example.com", await provider.ResolveHostAsync(ATProtoNet.Identity.Did.Parse(Did)));
     }
 
     private static DidResolver ResolverPublishing(string endpoint)

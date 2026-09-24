@@ -1,3 +1,4 @@
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Spaces;
@@ -137,23 +138,23 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
 
         var hasMore = page.Count > limit;
         var repos = page.Take(limit)
-            .Select(e => new SpaceRepoView { Did = e.Did, Rev = e.Rev, Hash = e.Hash })
+            .Select(e => new SpaceRepoView { Did = Did.Parse(e.Did), Rev = Tid.Parse(e.Rev), Hash = e.Hash })
             .ToList();
 
         return new ListSpaceReposResponse
         {
             Repos = repos,
-            Cursor = hasMore && repos.Count > 0 ? repos[^1].Did : null,
+            Cursor = hasMore && repos.Count > 0 ? repos[^1].Did.Value : null,
         };
     }
 
     /// <inheritdoc/>
     public async Task RecordWriteAsync(
-        SpaceUri space, string repoDid, string rev, byte[] hash, CancellationToken cancellationToken = default)
+        SpaceUri space, Did repoDid, Tid rev, byte[] hash, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repoDid);
-        ArgumentException.ThrowIfNullOrWhiteSpace(rev);
+        ArgumentNullException.ThrowIfNull(repoDid);
+        ArgumentNullException.ThrowIfNull(rev);
         ArgumentNullException.ThrowIfNull(hash);
 
         // Two notifications for the same repo can both find no row and both insert; the loser's
@@ -163,15 +164,15 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
             await EnsureSpaceAsync(context, space.Value, ct);
 
             var writers = context.Set<SpaceWriterEntity>();
-            var existing = await writers.FindAsync([space.Value, repoDid], ct);
+            var existing = await writers.FindAsync([space.Value, repoDid.Value], ct);
 
             if (existing is null)
             {
                 writers.Add(new SpaceWriterEntity
                 {
                     Space = space.Value,
-                    Did = repoDid,
-                    Rev = rev,
+                    Did = repoDid.Value,
+                    Rev = rev.Value,
                     Hash = hash,
                 });
             }
@@ -179,9 +180,9 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
             // a syncer reads the writer set to decide what advanced. TIDs sort
             // lexicographically, and the comparison is ordinal here rather than in the database
             // because a collation that ignores case would call two different revisions equal.
-            else if (string.CompareOrdinal(rev, existing.Rev) >= 0)
+            else if (string.CompareOrdinal(rev.Value, existing.Rev) >= 0)
             {
-                existing.Rev = rev;
+                existing.Rev = rev.Value;
                 existing.Hash = hash;
             }
         }, cancellationToken);

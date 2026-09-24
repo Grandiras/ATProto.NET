@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Spaces;
@@ -68,8 +69,8 @@ public sealed class InMemorySpaceAuthorityStore : ISpaceAuthorityStore
         // Ordered by DID so the cursor is a stable position rather than an index into a set that
         // reorders as writes arrive.
         var page = state.Writers
-            .OrderBy(entry => entry.Key, StringComparer.Ordinal)
-            .Where(entry => cursor is null || string.CompareOrdinal(entry.Key, cursor) > 0)
+            .OrderBy(entry => entry.Key.Value, StringComparer.Ordinal)
+            .Where(entry => cursor is null || string.CompareOrdinal(entry.Key.Value, cursor) > 0)
             .Take(limit + 1)
             .ToList();
 
@@ -81,16 +82,17 @@ public sealed class InMemorySpaceAuthorityStore : ISpaceAuthorityStore
         return Task.FromResult(new ListSpaceReposResponse
         {
             Repos = repos,
-            Cursor = hasMore && repos.Count > 0 ? repos[^1].Did : null,
+            Cursor = hasMore && repos.Count > 0 ? repos[^1].Did.Value : null,
         });
     }
 
     /// <inheritdoc/>
     public Task RecordWriteAsync(
-        SpaceUri space, string repoDid, string rev, byte[] hash, CancellationToken cancellationToken = default)
+        SpaceUri space, Did repoDid, Tid rev, byte[] hash, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repoDid);
+        ArgumentNullException.ThrowIfNull(repoDid);
+        ArgumentNullException.ThrowIfNull(rev);
 
         var state = _spaces.GetOrAdd(space.Value, _ => new SpaceState());
 
@@ -99,7 +101,7 @@ public sealed class InMemorySpaceAuthorityStore : ISpaceAuthorityStore
         state.Writers.AddOrUpdate(
             repoDid,
             _ => new WriterState(rev, hash),
-            (_, existing) => string.CompareOrdinal(rev, existing.Rev) >= 0
+            (_, existing) => rev.CompareTo(existing.Rev) >= 0
                 ? new WriterState(rev, hash)
                 : existing);
 
@@ -150,11 +152,11 @@ public sealed class InMemorySpaceAuthorityStore : ISpaceAuthorityStore
     private sealed class SpaceState
     {
         public bool Deleted { get; set; }
-        public ConcurrentDictionary<string, WriterState> Writers { get; } = new(StringComparer.Ordinal);
+        public ConcurrentDictionary<Did, WriterState> Writers { get; } = new();
         public ConcurrentDictionary<string, DateTimeOffset> Subscribers { get; } = new(StringComparer.Ordinal);
     }
 
-    private sealed record WriterState(string Rev, byte[] Hash);
+    private sealed record WriterState(Tid Rev, byte[] Hash);
 }
 
 /// <summary>
@@ -212,10 +214,10 @@ public sealed class InMemorySimpleSpaceStore : ISimpleSpaceStore
 
     /// <inheritdoc/>
     public Task PutMemberAsync(
-        SpaceUri space, string did, bool read, bool write, CancellationToken cancellationToken = default)
+        SpaceUri space, Did did, bool read, bool write, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(did);
+        ArgumentNullException.ThrowIfNull(did);
 
         if (_spaces.TryGetValue(space.Value, out var entry))
             entry.Members[did] = new MemberAccess(read, write);
@@ -224,10 +226,10 @@ public sealed class InMemorySimpleSpaceStore : ISimpleSpaceStore
     }
 
     /// <inheritdoc/>
-    public Task RemoveMemberAsync(SpaceUri space, string did, CancellationToken cancellationToken = default)
+    public Task RemoveMemberAsync(SpaceUri space, Did did, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(did);
+        ArgumentNullException.ThrowIfNull(did);
 
         if (_spaces.TryGetValue(space.Value, out var entry))
             entry.Members.TryRemove(did, out _);
@@ -237,10 +239,10 @@ public sealed class InMemorySimpleSpaceStore : ISimpleSpaceStore
 
     /// <inheritdoc/>
     public Task<SimpleSpaceMember?> GetMemberAsync(
-        SpaceUri space, string did, CancellationToken cancellationToken = default)
+        SpaceUri space, Did did, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(did);
+        ArgumentNullException.ThrowIfNull(did);
 
         return Task.FromResult(
             _spaces.TryGetValue(space.Value, out var entry) && entry.Members.TryGetValue(did, out var access)
@@ -258,8 +260,8 @@ public sealed class InMemorySimpleSpaceStore : ISimpleSpaceStore
             return Task.FromResult(new ListSimpleSpaceMembersResponse { Members = [] });
 
         var page = entry.Members
-            .OrderBy(member => member.Key, StringComparer.Ordinal)
-            .Where(member => cursor is null || string.CompareOrdinal(member.Key, cursor) > 0)
+            .OrderBy(member => member.Key.Value, StringComparer.Ordinal)
+            .Where(member => cursor is null || string.CompareOrdinal(member.Key.Value, cursor) > 0)
             .Take(limit + 1)
             .ToList();
 
@@ -269,11 +271,11 @@ public sealed class InMemorySimpleSpaceStore : ISimpleSpaceStore
         return Task.FromResult(new ListSimpleSpaceMembersResponse
         {
             Members = members,
-            Cursor = hasMore && members.Count > 0 ? members[^1].Did : null,
+            Cursor = hasMore && members.Count > 0 ? members[^1].Did.Value : null,
         });
     }
 
-    private static SimpleSpaceMember ToMember(string did, MemberAccess access) =>
+    private static SimpleSpaceMember ToMember(Did did, MemberAccess access) =>
         new() { Did = did, Read = access.Read, Write = access.Write };
 
     private sealed record MemberAccess(bool Read, bool Write);
@@ -282,6 +284,6 @@ public sealed class InMemorySimpleSpaceStore : ISimpleSpaceStore
     {
         public required SimpleSpaceRecord Record { get; set; }
 
-        public ConcurrentDictionary<string, MemberAccess> Members { get; } = new(StringComparer.Ordinal);
+        public ConcurrentDictionary<Did, MemberAccess> Members { get; } = new();
     }
 }

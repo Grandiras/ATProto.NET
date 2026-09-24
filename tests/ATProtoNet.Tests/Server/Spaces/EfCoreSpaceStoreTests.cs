@@ -1,3 +1,4 @@
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 using ATProtoNet.Server.EntityFrameworkCore;
 using ATProtoNet.Server.Spaces;
@@ -88,12 +89,12 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
         var store = Authority();
         await store.DeclareSpaceAsync(Space);
 
-        await store.RecordWriteAsync(Space, "did:plc:alice", "3kaa", [1, 2, 3]);
+        await store.RecordWriteAsync(Space, Did.Parse("did:plc:alice"), Tid.Parse("3kaaaaaaaaaaa"), [1, 2, 3]);
 
         var repos = await store.ListReposAsync(Space, 10, null);
         var alice = Assert.Single(repos.Repos);
         Assert.Equal("did:plc:alice", alice.Did);
-        Assert.Equal("3kaa", alice.Rev);
+        Assert.Equal("3kaaaaaaaaaaa", alice.Rev);
         Assert.Equal([1, 2, 3], alice.Hash);
     }
 
@@ -101,25 +102,25 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
     public async Task RecordWriteAsync_OlderRevision_DoesNotWalkTheRepoBackwards()
     {
         var store = Authority();
-        await store.RecordWriteAsync(Space, "did:plc:alice", "3kbb", [2]);
+        await store.RecordWriteAsync(Space, Did.Parse("did:plc:alice"), Tid.Parse("3kbbbbbbbbbbb"), [2]);
 
-        await store.RecordWriteAsync(Space, "did:plc:alice", "3kaa", [1]);
+        await store.RecordWriteAsync(Space, Did.Parse("did:plc:alice"), Tid.Parse("3kaaaaaaaaaaa"), [1]);
 
         var repos = await store.ListReposAsync(Space, 10, null);
-        Assert.Equal("3kbb", Assert.Single(repos.Repos).Rev);
+        Assert.Equal("3kbbbbbbbbbbb", Assert.Single(repos.Repos).Rev);
     }
 
     [Fact]
     public async Task RecordWriteAsync_NewerRevision_Advances()
     {
         var store = Authority();
-        await store.RecordWriteAsync(Space, "did:plc:alice", "3kaa", [1]);
+        await store.RecordWriteAsync(Space, Did.Parse("did:plc:alice"), Tid.Parse("3kaaaaaaaaaaa"), [1]);
 
-        await store.RecordWriteAsync(Space, "did:plc:alice", "3kbb", [2]);
+        await store.RecordWriteAsync(Space, Did.Parse("did:plc:alice"), Tid.Parse("3kbbbbbbbbbbb"), [2]);
 
         var repos = await store.ListReposAsync(Space, 10, null);
         var alice = Assert.Single(repos.Repos);
-        Assert.Equal("3kbb", alice.Rev);
+        Assert.Equal("3kbbbbbbbbbbb", alice.Rev);
         Assert.Equal([2], alice.Hash);
     }
 
@@ -127,15 +128,15 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
     public async Task ListReposAsync_PagesByDid_AndTheCursorResumesWhereItLeftOff()
     {
         var store = Authority();
-        foreach (var did in new[] { "did:plc:c", "did:plc:a", "did:plc:b" })
-            await store.RecordWriteAsync(Space, did, "3kaa", [1]);
+        foreach (var did in new[] { Did.Parse("did:plc:c"), Did.Parse("did:plc:a"), Did.Parse("did:plc:b") })
+            await store.RecordWriteAsync(Space, did, Tid.Parse("3kaaaaaaaaaaa"), [1]);
 
         var first = await store.ListReposAsync(Space, 2, null);
-        Assert.Equal(["did:plc:a", "did:plc:b"], first.Repos.Select(r => r.Did));
+        Assert.Equal(["did:plc:a", "did:plc:b"], first.Repos.Select(r => r.Did.Value));
         Assert.Equal("did:plc:b", first.Cursor);
 
         var second = await store.ListReposAsync(Space, 2, first.Cursor);
-        Assert.Equal(["did:plc:c"], second.Repos.Select(r => r.Did));
+        Assert.Equal(["did:plc:c"], second.Repos.Select(r => r.Did.Value));
         Assert.Null(second.Cursor);
     }
 
@@ -187,7 +188,7 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
     {
         // The point of the whole exercise: state outlives the process that recorded it, and a
         // second instance reading the same database sees it.
-        await Authority().RecordWriteAsync(Space, "did:plc:alice", "3kaa", [7]);
+        await Authority().RecordWriteAsync(Space, Did.Parse("did:plc:alice"), Tid.Parse("3kaaaaaaaaaaa"), [7]);
 
         var repos = await Authority().ListReposAsync(Space, 10, null);
 
@@ -200,7 +201,7 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
     public async Task CreateSpaceAsync_TheSameUriTwice_IsRefused()
     {
         var store = SimpleSpace();
-        var record = new SimpleSpaceRecord(Space, "did:plc:authority", new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess());
+        var record = new SimpleSpaceRecord(Space, Did.Parse("did:plc:authority"), new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess());
 
         Assert.True(await store.CreateSpaceAsync(record));
         Assert.False(await store.CreateSpaceAsync(record));
@@ -212,7 +213,7 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
         var store = SimpleSpace();
         await store.CreateSpaceAsync(new SimpleSpaceRecord(
             Space,
-            "did:plc:authority",
+            Did.Parse("did:plc:authority"),
             new ManagingAppPolicy { ManagingApp = "did:web:forum.example#forum" },
             new PublicPolicy(),
             new AllowListAppAccess { Allowed = ["https://forum.example/client-metadata.json"] }));
@@ -240,7 +241,7 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
     public async Task UpdateSpaceAsync_ReplacesThePolicy()
     {
         var store = SimpleSpace();
-        var record = new SimpleSpaceRecord(Space, "did:plc:authority", new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess());
+        var record = new SimpleSpaceRecord(Space, Did.Parse("did:plc:authority"), new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess());
         await store.CreateSpaceAsync(record);
 
         await store.UpdateSpaceAsync(record with { WritePolicy = new PublicPolicy() });
@@ -255,7 +256,7 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
     {
         var store = SimpleSpace();
         await store.CreateSpaceAsync(
-            new SimpleSpaceRecord(Space, "did:plc:authority", new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess()));
+            new SimpleSpaceRecord(Space, Did.Parse("did:plc:authority"), new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess()));
 
         await store.DeleteSpaceAsync(Space);
         await store.DeleteSpaceAsync(Space);
@@ -270,19 +271,19 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
     {
         var store = SimpleSpace();
         await store.CreateSpaceAsync(
-            new SimpleSpaceRecord(Space, "did:plc:authority", new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess()));
+            new SimpleSpaceRecord(Space, Did.Parse("did:plc:authority"), new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess()));
 
-        await store.PutMemberAsync(Space, "did:plc:alice", read: true, write: true);
-        await store.PutMemberAsync(Space, "did:plc:alice", read: true, write: true);
-        var alice = await store.GetMemberAsync(Space, "did:plc:alice");
+        await store.PutMemberAsync(Space, Did.Parse("did:plc:alice"), read: true, write: true);
+        await store.PutMemberAsync(Space, Did.Parse("did:plc:alice"), read: true, write: true);
+        var alice = await store.GetMemberAsync(Space, Did.Parse("did:plc:alice"));
         Assert.NotNull(alice);
         Assert.True(alice.Read);
         Assert.True(alice.Write);
-        Assert.Null(await store.GetMemberAsync(Space, "did:plc:bob"));
+        Assert.Null(await store.GetMemberAsync(Space, Did.Parse("did:plc:bob")));
 
-        await store.RemoveMemberAsync(Space, "did:plc:alice");
-        await store.RemoveMemberAsync(Space, "did:plc:alice");
-        Assert.Null(await store.GetMemberAsync(Space, "did:plc:alice"));
+        await store.RemoveMemberAsync(Space, Did.Parse("did:plc:alice"));
+        await store.RemoveMemberAsync(Space, Did.Parse("did:plc:alice"));
+        Assert.Null(await store.GetMemberAsync(Space, Did.Parse("did:plc:alice")));
     }
 
     [Fact]
@@ -290,10 +291,10 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
     {
         var store = SimpleSpace();
         await store.CreateSpaceAsync(
-            new SimpleSpaceRecord(Space, "did:plc:authority", new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess()));
+            new SimpleSpaceRecord(Space, Did.Parse("did:plc:authority"), new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess()));
 
-        await store.PutMemberAsync(Space, "did:plc:alice", read: true, write: false);
-        await store.PutMemberAsync(Space, "did:plc:alice", read: false, write: true);
+        await store.PutMemberAsync(Space, Did.Parse("did:plc:alice"), read: true, write: false);
+        await store.PutMemberAsync(Space, Did.Parse("did:plc:alice"), read: false, write: true);
 
         var member = Assert.Single((await store.ListMembersAsync(Space, 10, null)).Members);
         Assert.Equal("did:plc:alice", member.Did);
@@ -308,11 +309,11 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
         // default win; a member put in as read-only must read back read-only.
         var store = SimpleSpace();
         await store.CreateSpaceAsync(
-            new SimpleSpaceRecord(Space, "did:plc:authority", new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess()));
+            new SimpleSpaceRecord(Space, Did.Parse("did:plc:authority"), new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess()));
 
-        await store.PutMemberAsync(Space, "did:plc:alice", read: false, write: false);
+        await store.PutMemberAsync(Space, Did.Parse("did:plc:alice"), read: false, write: false);
 
-        var member = await SimpleSpace().GetMemberAsync(Space, "did:plc:alice");
+        var member = await SimpleSpace().GetMemberAsync(Space, Did.Parse("did:plc:alice"));
         Assert.NotNull(member);
         Assert.False(member.Read);
         Assert.False(member.Write);
@@ -323,9 +324,9 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
     {
         var store = SimpleSpace();
 
-        await store.PutMemberAsync(Space, "did:plc:alice", read: true, write: true);
+        await store.PutMemberAsync(Space, Did.Parse("did:plc:alice"), read: true, write: true);
 
-        Assert.Null(await store.GetMemberAsync(Space, "did:plc:alice"));
+        Assert.Null(await store.GetMemberAsync(Space, Did.Parse("did:plc:alice")));
     }
 
     [Fact]
@@ -333,17 +334,17 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
     {
         var store = SimpleSpace();
         await store.CreateSpaceAsync(
-            new SimpleSpaceRecord(Space, "did:plc:authority", new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess()));
-        foreach (var did in new[] { "did:plc:c", "did:plc:a", "did:plc:b" })
+            new SimpleSpaceRecord(Space, Did.Parse("did:plc:authority"), new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess()));
+        foreach (var did in new[] { Did.Parse("did:plc:c"), Did.Parse("did:plc:a"), Did.Parse("did:plc:b") })
             await store.PutMemberAsync(Space, did, read: true, write: did == "did:plc:b");
 
         var first = await store.ListMembersAsync(Space, 2, null);
-        Assert.Equal(["did:plc:a", "did:plc:b"], first.Members.Select(m => m.Did));
+        Assert.Equal(["did:plc:a", "did:plc:b"], first.Members.Select(m => m.Did.Value));
         Assert.Equal([false, true], first.Members.Select(m => m.Write));
         Assert.Equal("did:plc:b", first.Cursor);
 
         var second = await store.ListMembersAsync(Space, 2, first.Cursor);
-        Assert.Equal(["did:plc:c"], second.Members.Select(m => m.Did));
+        Assert.Equal(["did:plc:c"], second.Members.Select(m => m.Did.Value));
         Assert.Null(second.Cursor);
     }
 
@@ -353,10 +354,10 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
         // A member list is never published to the network, so a restart that loses it loses the
         // space's access control with nothing to rebuild it from.
         await SimpleSpace().CreateSpaceAsync(
-            new SimpleSpaceRecord(Space, "did:plc:authority", new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess()));
-        await SimpleSpace().PutMemberAsync(Space, "did:plc:alice", read: true, write: false);
+            new SimpleSpaceRecord(Space, Did.Parse("did:plc:authority"), new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess()));
+        await SimpleSpace().PutMemberAsync(Space, Did.Parse("did:plc:alice"), read: true, write: false);
 
-        var member = await SimpleSpace().GetMemberAsync(Space, "did:plc:alice");
+        var member = await SimpleSpace().GetMemberAsync(Space, Did.Parse("did:plc:alice"));
         Assert.NotNull(member);
         Assert.True(member.Read);
         Assert.False(member.Write);

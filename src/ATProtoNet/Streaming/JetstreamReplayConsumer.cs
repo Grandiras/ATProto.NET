@@ -593,7 +593,7 @@ internal sealed class JetstreamArchiveFilter
     public JetstreamArchiveFilter(JetstreamConsumerOptions options)
     {
         if (options.WantedDids is { Count: > 0 } dids)
-            _dids = [.. dids];
+            _dids = [.. dids.Select(did => did.Value)];
 
         if (options.WantedKinds is { Count: > 0 } kinds)
             _kinds = [.. kinds];
@@ -618,7 +618,7 @@ internal sealed class JetstreamArchiveFilter
 
     public bool Matches(JetstreamEvent evt)
     {
-        if (_dids is not null && !_dids.Contains(evt.Did.ToString()))
+        if (_dids is not null && !_dids.Contains(evt.Did.Value))
             return false;
 
         if (_kinds is not null && !_kinds.Contains(KindOf(evt)))
@@ -629,12 +629,12 @@ internal sealed class JetstreamArchiveFilter
         if (_collections is null || evt is not JetstreamCommitEvent commit)
             return true;
 
-        if (_collections.Contains(commit.Collection))
+        if (_collections.Contains(commit.Collection.Value))
             return true;
 
         foreach (var prefix in _collectionPrefixes)
         {
-            if (commit.Collection.StartsWith(prefix, StringComparison.Ordinal))
+            if (commit.Collection.Value.StartsWith(prefix, StringComparison.Ordinal))
                 return true;
         }
 

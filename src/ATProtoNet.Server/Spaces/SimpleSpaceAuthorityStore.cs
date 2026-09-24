@@ -1,3 +1,4 @@
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Spaces;
 
@@ -72,7 +73,7 @@ public sealed class SimpleSpaceAuthorityStore : ISpaceAuthorityStore
 
     /// <inheritdoc/>
     public Task RecordWriteAsync(
-        SpaceUri space, string repoDid, string rev, byte[] hash, CancellationToken cancellationToken = default) =>
+        SpaceUri space, Did repoDid, Tid rev, byte[] hash, CancellationToken cancellationToken = default) =>
         _inner.RecordWriteAsync(space, repoDid, rev, hash, cancellationToken);
 
     /// <inheritdoc/>
