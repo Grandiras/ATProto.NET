@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Tests.Spaces;
@@ -151,6 +152,48 @@ public class LtHashTests
 
         Assert.NotEqual(original, clone);
         Assert.Equal(new LtHash().Add(RecordA), original);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(90)]
+    [InlineData(600)]  // past the stack buffer for the UTF-8 bytes
+    [InlineData(1500)] // more than one BLAKE3 chunk
+    public void AddAndRemove_ElementOfAnyLength_MatchesLaneByLaneArithmetic(int length)
+    {
+        var element = new string('x', length) + "/bafyreicnt42y6vo6pfpvyro234ac4o6ijug6adwwrh7awflgrqlt4zibxq";
+        var start = new LtHash().Add(RecordA).Add(RecordB);
+        var startState = start.GetState();
+
+        // The spec's construction, one lane at a time on the scalar BLAKE3 path.
+        var expanded = new byte[LtHash.StateBytes];
+        ATProtoNet.Crypto.Blake3.HashExtended(System.Text.Encoding.UTF8.GetBytes(element), expanded, parallelism: 1);
+        var added = new byte[LtHash.StateBytes];
+        var removed = new byte[LtHash.StateBytes];
+        for (var i = 0; i < LtHash.Lanes; i++)
+        {
+            var lane = BinaryPrimitives.ReadUInt16LittleEndian(startState.AsSpan(i * 2));
+            var delta = BinaryPrimitives.ReadUInt16LittleEndian(expanded.AsSpan(i * 2));
+            BinaryPrimitives.WriteUInt16LittleEndian(added.AsSpan(i * 2), unchecked((ushort)(lane + delta)));
+            BinaryPrimitives.WriteUInt16LittleEndian(removed.AsSpan(i * 2), unchecked((ushort)(lane - delta)));
+        }
+
+        Assert.Equal(added, start.Clone().Add(element).GetState());
+        Assert.Equal(removed, start.Clone().Remove(element).GetState());
+    }
+
+    [Fact]
+    public void WriteState_LargerDestination_WritesOnlyTheState()
+    {
+        var hash = new LtHash().Add(RecordA);
+        var destination = new byte[LtHash.StateBytes + 3];
+        destination.AsSpan().Fill(0xAA);
+
+        hash.WriteState(destination);
+
+        Assert.Equal(hash.GetState(), destination[..LtHash.StateBytes]);
+        Assert.All(destination[LtHash.StateBytes..], b => Assert.Equal(0xAA, b));
     }
 
     [Fact]

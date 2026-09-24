@@ -53,7 +53,9 @@ bool verified = publicKey.Verify(data, signature);
 bool ok = AtProtoCrypto.VerifySignature(key.ToDidKey(), data, signature);
 ```
 
-All signatures use SHA-256 with low-S normalization, as required by the AT Protocol specification. Signatures with S > half-order are automatically normalized during signing, and rejected during verification. Pass the raw message — these methods hash it for you.
+All signatures use SHA-256 with low-S normalization, as required by the AT Protocol specification. Signatures with S > half-order are automatically normalized during signing, and rejected during verification, as is anything but the 64-byte `r || s` form (DER included). Pass the raw message — these methods hash it for you.
+
+`AtProtoCrypto.VerifySignature` keeps a bounded cache of parsed keys, keyed by the did:key string, so verifying repeatedly against the same signer skips the parse and key import. `FromDidKey` always returns a fresh key that you own and dispose.
 
 ## Multikey Encoding
 

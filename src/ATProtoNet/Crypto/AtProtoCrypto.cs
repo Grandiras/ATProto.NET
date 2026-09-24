@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using System.Numerics;
 using System.Security.Cryptography;
 
@@ -14,17 +13,20 @@ namespace ATProtoNet.Crypto;
 /// </summary>
 public static class AtProtoCrypto
 {
-    /// <summary>OID for secp256k1 (K-256): 1.3.132.0.10</summary>
-    private static readonly Oid s_k256Oid = new("1.3.132.0.10");
+    /// <summary>Length of a SEC1 compressed point on either supported curve.</summary>
+    private const int CompressedKeyLength = 33;
 
-    /// <summary>Multicodec varint prefix for P-256 compressed public keys (0x1200 → [0x80, 0x24]).</summary>
-    private static readonly byte[] s_p256MulticodecPrefix = [0x80, 0x24];
+    /// <summary>Length of an IEEE P1363 (<c>r || s</c>) signature on either supported curve.</summary>
+    private const int SignatureLength = 64;
 
-    /// <summary>Multicodec varint prefix for K-256 compressed public keys (0xE7 → [0xE7, 0x01]).</summary>
-    private static readonly byte[] s_k256MulticodecPrefix = [0xE7, 0x01];
+    /// <summary>A did:key multikey: a 2-byte multicodec prefix and a compressed point.</summary>
+    private const int MultikeyLength = 2 + CompressedKeyLength;
 
     // Base58 Bitcoin alphabet
     private const string Base58Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+    /// <summary>Base58 digit value of each ASCII character, or -1.</summary>
+    private static readonly sbyte[] s_base58Digits = CreateBase58Digits();
 
     /// <summary>
     /// Generates a new P-256 (NIST secp256r1) key pair for signing.
@@ -47,8 +49,7 @@ public static class AtProtoCrypto
     {
         try
         {
-            var curve = ECCurve.CreateFromValue(s_k256Oid.Value!);
-            var ecdsa = ECDsa.Create(curve);
+            var ecdsa = ECDsa.Create(CurveInfo.K256.CreateCurve());
             return new AtProtoKey(ecdsa, KeyCurve.K256);
         }
         catch (PlatformNotSupportedException)
@@ -72,7 +73,7 @@ public static class AtProtoCrypto
 
         // Validate that the actual key curve matches the declared curve
         var actualOid = ecdsa.ExportParameters(false).Curve.Oid?.Value;
-        var expectedOid = curve == KeyCurve.P256 ? "1.2.840.10045.3.1.7" : "1.3.132.0.10";
+        var expectedOid = CurveInfo.For(curve).OidValue;
         if (actualOid != expectedOid)
         {
             ecdsa.Dispose();
@@ -92,25 +93,10 @@ public static class AtProtoCrypto
     /// <returns>An <see cref="AtProtoKey"/> for verification only (no private key).</returns>
     public static AtProtoKey ImportCompressedPublicKey(ReadOnlySpan<byte> compressedPublicKey, KeyCurve curve)
     {
-        if (compressedPublicKey.Length != 33)
+        if (compressedPublicKey.Length != CompressedKeyLength)
             throw new ArgumentException("Compressed public key must be 33 bytes.", nameof(compressedPublicKey));
 
-        var ecCurve = curve == KeyCurve.P256
-            ? ECCurve.NamedCurves.nistP256
-            : ECCurve.CreateFromValue(s_k256Oid.Value!);
-
-        var ecdsa = ECDsa.Create();
-
-        // .NET 10+ supports importing compressed point directly via ECParameters
-        // We need to decompress the point
-        var parameters = new ECParameters
-        {
-            Curve = ecCurve,
-            Q = DecompressPoint(compressedPublicKey, ecCurve),
-        };
-
-        ecdsa.ImportParameters(parameters);
-        return new AtProtoKey(ecdsa, curve);
+        return CreatePublicKey(PublicKeyParameters(compressedPublicKey, CurveInfo.For(curve)), curve);
     }
 
     /// <summary>
@@ -121,11 +107,8 @@ public static class AtProtoCrypto
     /// <exception cref="FormatException">Thrown when the did:key is malformed.</exception>
     public static AtProtoKey FromDidKey(string didKey)
     {
-        if (!didKey.StartsWith("did:key:z", StringComparison.Ordinal))
-            throw new FormatException("did:key must start with 'did:key:z'.");
-
-        var multikey = didKey["did:key:".Length..];
-        return FromMultikey(multikey);
+        var parameters = ParseDidKey(didKey, out var curve);
+        return CreatePublicKey(parameters, curve);
     }
 
     /// <summary>
@@ -135,35 +118,57 @@ public static class AtProtoCrypto
     /// <returns>The parsed <see cref="AtProtoKey"/> (public key only).</returns>
     public static AtProtoKey FromMultikey(string multikey)
     {
-        if (string.IsNullOrEmpty(multikey) || multikey[0] != 'z')
-            throw new FormatException("Multikey must start with 'z' (base58btc prefix).");
+        var parameters = ParseMultikey(multikey, out var curve);
+        return CreatePublicKey(parameters, curve);
+    }
 
-        var bytes = Base58Decode(multikey[1..]);
+    /// <summary>
+    /// Parses a <c>did:key</c> to its curve and decompressed public point. The point is
+    /// validated to lie on the curve but not yet imported into a platform key.
+    /// </summary>
+    /// <exception cref="FormatException">Thrown when the did:key is malformed.</exception>
+    internal static ECParameters ParseDidKey(string didKey, out KeyCurve curve)
+    {
+        ArgumentNullException.ThrowIfNull(didKey);
+        if (!didKey.StartsWith("did:key:z", StringComparison.Ordinal))
+            throw new FormatException("did:key must start with 'did:key:z'.");
 
-        if (bytes.Length < 2)
+        return ParseMultikey(didKey["did:key:".Length..], out curve);
+    }
+
+    private static ECParameters ParseMultikey(string multikey, out KeyCurve curve)
+    {
+        // Both supported keys are exactly MultikeyLength bytes; the spare room lets a slightly
+        // over-long value decode far enough to be reported as the wrong length.
+        Span<byte> bytes = stackalloc byte[MultikeyLength + 8];
+        var length = Base58Decode(MultibasePayload(multikey), bytes);
+
+        if (length < 2)
             throw new FormatException("Multikey too short.");
 
-        KeyCurve curve;
-        int prefixLen;
+        var info = CurveInfo.FromMulticodec(bytes[0], bytes[1])
+            ?? throw new FormatException($"Unknown multicodec prefix: 0x{bytes[0]:X2} 0x{bytes[1]:X2}");
 
-        if (bytes.Length >= 2 && bytes[0] == 0x80 && bytes[1] == 0x24)
+        if (length != MultikeyLength)
         {
-            curve = KeyCurve.P256;
-            prefixLen = 2;
-        }
-        else if (bytes.Length >= 2 && bytes[0] == 0xE7 && bytes[1] == 0x01)
-        {
-            curve = KeyCurve.K256;
-            prefixLen = 2;
-        }
-        else
-        {
-            throw new FormatException($"Unknown multicodec prefix: 0x{bytes[0]:X2} 0x{bytes[1]:X2}");
+            throw new FormatException(
+                $"A {info.Curve} multikey must carry a {CompressedKeyLength}-byte compressed key, got {length - 2} bytes.");
         }
 
-        var compressedKey = bytes[prefixLen..];
-        return ImportCompressedPublicKey(compressedKey, curve);
+        curve = info.Curve;
+        return PublicKeyParameters(bytes[2..length], info);
     }
+
+    /// <summary>Imports a public point as a verification-only key.</summary>
+    internal static AtProtoKey CreatePublicKey(ECParameters parameters, KeyCurve curve)
+        => new(ECDsa.Create(parameters), curve);
+
+    private static ECParameters PublicKeyParameters(ReadOnlySpan<byte> compressedPublicKey, CurveInfo curve)
+        => new()
+        {
+            Curve = curve.CreateCurve(),
+            Q = DecompressPoint(compressedPublicKey, curve),
+        };
 
     /// <summary>
     /// Formats a raw public key as a <c>did:key</c> identifier.
@@ -198,7 +203,7 @@ public static class AtProtoCrypto
     /// </remarks>
     public static byte[] CompressPublicKey(ReadOnlySpan<byte> publicKey)
     {
-        if (publicKey.Length == 33 && publicKey[0] is 0x02 or 0x03)
+        if (publicKey.Length == CompressedKeyLength && publicKey[0] is 0x02 or 0x03)
             return publicKey.ToArray();
 
         if (publicKey.Length != 65 || publicKey[0] != 0x04)
@@ -208,9 +213,15 @@ public static class AtProtoCrypto
                 (publicKey.Length > 0 ? $" with prefix 0x{publicKey[0]:X2}." : "."));
         }
 
-        var compressed = new byte[33];
-        compressed[0] = (byte)((publicKey[64] & 1) == 0 ? 0x02 : 0x03);
-        publicKey[1..33].CopyTo(compressed.AsSpan(1));
+        return CompressPoint(publicKey[1..33], yIsOdd: (publicKey[64] & 1) == 1);
+    }
+
+    /// <summary>SEC1 point compression: X, with the parity of Y in the prefix byte.</summary>
+    internal static byte[] CompressPoint(ReadOnlySpan<byte> x, bool yIsOdd)
+    {
+        var compressed = new byte[CompressedKeyLength];
+        compressed[0] = yIsOdd ? (byte)0x03 : (byte)0x02;
+        x.CopyTo(compressed.AsSpan(1));
         return compressed;
     }
 
@@ -223,6 +234,10 @@ public static class AtProtoCrypto
     /// <c>Ecdsa...VerificationKey2019</c> forms.
     /// </remarks>
     internal static byte[] MultibaseToBytes(string multibase)
+        => Base58DecodeToArray(MultibasePayload(multibase));
+
+    /// <summary>The base58btc payload of a <c>z</c>-prefixed multibase string.</summary>
+    private static ReadOnlySpan<char> MultibasePayload(string multibase)
     {
         if (string.IsNullOrEmpty(multibase))
             throw new FormatException("Multibase value is empty.");
@@ -230,7 +245,7 @@ public static class AtProtoCrypto
         if (multibase[0] != 'z')
             throw new FormatException($"Unsupported multibase prefix '{multibase[0]}'; expected 'z' (base58btc).");
 
-        return Base58Decode(multibase[1..]);
+        return multibase.AsSpan(1);
     }
 
     /// <summary>
@@ -240,21 +255,23 @@ public static class AtProtoCrypto
     /// <param name="message">The raw message bytes that were signed. Do NOT pre-hash; this method hashes with SHA-256 internally.</param>
     /// <param name="signature">The signature bytes (IEEE P1363 format — r || s concatenation).</param>
     /// <returns><c>true</c> if the signature is valid.</returns>
+    /// <remarks>
+    /// Parsed keys are cached, keyed by the did:key string and bounded in number, so repeated
+    /// verifications against the same signer skip parsing and key import.
+    /// </remarks>
     public static bool VerifySignature(string didKey, ReadOnlySpan<byte> message, ReadOnlySpan<byte> signature)
-    {
-        using var key = FromDidKey(didKey);
-        return key.Verify(message, signature);
-    }
+        => DidKeyCache.Shared.Verify(didKey, message, signature);
 
     /// <summary>
     /// Encodes a 33-byte compressed public key as a base58btc multikey string.
     /// </summary>
     internal static string ToMultikey(ReadOnlySpan<byte> compressedPublicKey, KeyCurve curve)
     {
-        var prefix = curve == KeyCurve.P256 ? s_p256MulticodecPrefix : s_k256MulticodecPrefix;
-        var encoded = new byte[prefix.Length + compressedPublicKey.Length];
-        prefix.CopyTo(encoded, 0);
-        compressedPublicKey.CopyTo(encoded.AsSpan(prefix.Length));
+        var info = CurveInfo.For(curve);
+        var encoded = new byte[2 + compressedPublicKey.Length];
+        encoded[0] = info.Multicodec0;
+        encoded[1] = info.Multicodec1;
+        compressedPublicKey.CopyTo(encoded.AsSpan(2));
         return "z" + Base58Encode(encoded);
     }
 
@@ -262,123 +279,125 @@ public static class AtProtoCrypto
     /// Decompresses an EC point from compressed SEC1 form.
     /// Computes Y from X using the curve equation y² = x³ + ax + b (mod p).
     /// </summary>
-    private static ECPoint DecompressPoint(ReadOnlySpan<byte> compressed, ECCurve curve)
+    private static ECPoint DecompressPoint(ReadOnlySpan<byte> compressed, CurveInfo curve)
     {
-        if (compressed.Length != 33)
+        if (compressed.Length != CompressedKeyLength)
             throw new FormatException("Compressed point must be 33 bytes.");
 
         var prefix = compressed[0];
         if (prefix is not (0x02 or 0x03))
             throw new FormatException($"Invalid compressed point prefix: 0x{prefix:X2}");
 
-        var isOdd = prefix == 0x03;
-        var xBytes = compressed[1..].ToArray();
-
-        // Get curve parameters
-        ECCurveParams curveParams;
-        var oid = curve.Oid?.Value;
-
-        if (oid == "1.2.840.10045.3.1.7" || curve.Oid?.FriendlyName == "nistP256")
-            curveParams = ECCurveParams.P256();
-        else if (oid == "1.3.132.0.10")
-            curveParams = ECCurveParams.K256();
-        else
-            throw new ArgumentException($"Unsupported curve for decompression: {oid}");
-
-        var p = new BigInteger(curveParams.P, true, true);
-        var a = new BigInteger(curveParams.A, true, true);
-        var b = new BigInteger(curveParams.B, true, true);
-        var x = new BigInteger(xBytes, true, true);
-
-        // Validate X is in valid range [0, p)
-        if (x.Sign < 0 || x >= p)
+        var p = curve.P;
+        var x = new BigInteger(compressed[1..], isUnsigned: true, isBigEndian: true);
+        if (x >= p)
             throw new FormatException("X coordinate out of range for curve.");
 
-        // y² = x³ + ax + b (mod p)
-        var ySquared = (BigInteger.ModPow(x, 3, p) + a * x + b) % p;
-        if (ySquared < 0) ySquared += p;
+        var ySquared = (BigInteger.ModPow(x, 3, p) + (curve.A * x) + curve.B) % p;
 
-        // Compute modular square root using Tonelli-Shanks (both P-256 and K-256 have p ≡ 3 mod 4)
-        // For p ≡ 3 mod 4: y = ySquared^((p+1)/4) mod p
-        var exp = (p + 1) / 4;
-        var y = BigInteger.ModPow(ySquared, exp, p);
-
-        // Verify: y² mod p == ySquared
-        if (BigInteger.ModPow(y, 2, p) != ySquared)
+        // Both curves have p ≡ 3 (mod 4), where a square root is ySquared^((p + 1) / 4).
+        var y = BigInteger.ModPow(ySquared, curve.SqrtExponent, p);
+        if (y * y % p != ySquared)
             throw new FormatException("Invalid compressed point: no valid Y coordinate.");
 
-        // Choose correct Y parity (odd/even)
-        if (y.IsEven == isOdd)
+        if (y.IsEven == (prefix == 0x03))
             y = p - y;
 
-        var yBytes = y.ToByteArray(true, true);
+        var yBytes = new byte[32];
+        y.TryWriteBytes(yBytes.AsSpan(32 - y.GetByteCount(isUnsigned: true)), out _, isUnsigned: true, isBigEndian: true);
 
-        // Pad to 32 bytes
-        var xPadded = new byte[32];
-        var yPadded = new byte[32];
-        xBytes.AsSpan(0, Math.Min(xBytes.Length, 32)).CopyTo(xPadded.AsSpan(32 - Math.Min(xBytes.Length, 32)));
-        yBytes.AsSpan(0, Math.Min(yBytes.Length, 32)).CopyTo(yPadded.AsSpan(32 - Math.Min(yBytes.Length, 32)));
-
-        return new ECPoint { X = xPadded, Y = yPadded };
+        return new ECPoint { X = compressed[1..].ToArray(), Y = yBytes };
     }
 
-    /// <summary>Well-known curve parameters for EC point decompression and signature normalization.</summary>
-    private readonly struct ECCurveParams
+    /// <summary>
+    /// Everything this SDK needs to know about one of its two curves, computed once. Both have
+    /// 32-byte field elements and a prime modulus p ≡ 3 (mod 4).
+    /// </summary>
+    private sealed class CurveInfo
     {
-        public byte[] P { get; init; }
-        public byte[] A { get; init; }
-        public byte[] B { get; init; }
-        public byte[] Order { get; init; }
-        public byte[] HalfOrder { get; init; }
+        public static readonly CurveInfo P256 = new(
+            KeyCurve.P256,
+            oidValue: "1.2.840.10045.3.1.7",
+            multicodec0: 0x80, multicodec1: 0x24, // varint of 0x1200
+            p: "FFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF",
+            a: "FFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFC", // -3 mod p
+            b: "5AC635D8AA3A93E7B3EBBD55769886BC651D06B0CC53B0F63BCE3C3E27D2604B",
+            order: "FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551");
 
-        /// <summary>NIST P-256 (secp256r1) curve parameters.</summary>
-        public static ECCurveParams P256() => new()
+        public static readonly CurveInfo K256 = new(
+            KeyCurve.K256,
+            oidValue: "1.3.132.0.10",
+            multicodec0: 0xE7, multicodec1: 0x01, // varint of 0xE7
+            p: "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F",
+            a: "00",
+            b: "07",
+            order: "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
+
+        private CurveInfo(
+            KeyCurve curve, string oidValue, byte multicodec0, byte multicodec1,
+            string p, string a, string b, string order)
         {
-            P = [0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x01,
-                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF,
-                 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF],
-            // a = -3 mod p = p - 3
-            A = [0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x01,
-                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF,
-                 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFC],
-            B = [0x5A, 0xC6, 0x35, 0xD8, 0xAA, 0x3A, 0x93, 0xE7,
-                 0xB3, 0xEB, 0xBD, 0x55, 0x76, 0x98, 0x86, 0xBC,
-                 0x65, 0x1D, 0x06, 0xB0, 0xCC, 0x53, 0xB0, 0xF6,
-                 0x3B, 0xCE, 0x3C, 0x3E, 0x27, 0xD2, 0x60, 0x4B],
-            // n = FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551
-            Order = [0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00,
-                     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                     0xBC, 0xE6, 0xFA, 0xAD, 0xA7, 0x17, 0x9E, 0x84,
-                     0xF3, 0xB9, 0xCA, 0xC2, 0xFC, 0x63, 0x25, 0x51],
-            // n/2 = 7FFFFFFF800000007FFFFFFFFFFFFFFFDE737D56D38BCF4279DCE5617E3192A8
-            HalfOrder = [0x7F, 0xFF, 0xFF, 0xFF, 0x80, 0x00, 0x00, 0x00,
-                         0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                         0xDE, 0x73, 0x7D, 0x56, 0xD3, 0x8B, 0xCF, 0x42,
-                         0x79, 0xDC, 0xE5, 0x61, 0x7E, 0x31, 0x92, 0xA8],
+            Curve = curve;
+            OidValue = oidValue;
+            Multicodec0 = multicodec0;
+            Multicodec1 = multicodec1;
+            P = FromHex(p);
+            A = FromHex(a);
+            B = FromHex(b);
+            SqrtExponent = (P + 1) / 4;
+            Order = FromHex(order);
+
+            HalfOrder = new byte[32];
+            (Order / 2).TryWriteBytes(HalfOrder, out _, isUnsigned: true, isBigEndian: true);
+        }
+
+        public KeyCurve Curve { get; }
+
+        public string OidValue { get; }
+
+        /// <summary>The two bytes of the curve's multicodec varint, which prefix a multikey.</summary>
+        public byte Multicodec0 { get; }
+
+        /// <inheritdoc cref="Multicodec0"/>
+        public byte Multicodec1 { get; }
+
+        public BigInteger P { get; }
+
+        public BigInteger A { get; }
+
+        public BigInteger B { get; }
+
+        /// <summary>(p + 1) / 4, the exponent of a modular square root when p ≡ 3 (mod 4).</summary>
+        public BigInteger SqrtExponent { get; }
+
+        /// <summary>The group order n.</summary>
+        public BigInteger Order { get; }
+
+        /// <summary>n / 2 as 32 big-endian bytes: the largest S a low-S signature may carry.</summary>
+        public byte[] HalfOrder { get; }
+
+        public static CurveInfo For(KeyCurve curve) => curve switch
+        {
+            KeyCurve.P256 => P256,
+            KeyCurve.K256 => K256,
+            _ => throw new ArgumentOutOfRangeException(nameof(curve), curve, "Unsupported key curve."),
         };
 
-        /// <summary>secp256k1 (K-256) curve parameters.</summary>
-        public static ECCurveParams K256() => new()
+        public static CurveInfo? FromMulticodec(byte first, byte second)
         {
-            P = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                 0xFF, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF, 0xFC, 0x2F],
-            A = [0x00], // a = 0
-            B = [0x07], // b = 7
-            // n = FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
-            Order = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE,
-                     0xBA, 0xAE, 0xDC, 0xE6, 0xAF, 0x48, 0xA0, 0x3B,
-                     0xBF, 0xD2, 0x5E, 0x8C, 0xD0, 0x36, 0x41, 0x41],
-            // n/2 = 7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0
-            HalfOrder = [0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                         0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                         0x5D, 0x57, 0x6E, 0x73, 0x57, 0xA4, 0x50, 0x1D,
-                         0xDF, 0xE9, 0x2F, 0x46, 0x68, 0x1B, 0x20, 0xA0],
-        };
+            if (first == P256.Multicodec0 && second == P256.Multicodec1)
+                return P256;
+            if (first == K256.Multicodec0 && second == K256.Multicodec1)
+                return K256;
+            return null;
+        }
+
+        public ECCurve CreateCurve() => Curve == KeyCurve.P256
+            ? ECCurve.NamedCurves.nistP256
+            : ECCurve.CreateFromValue(OidValue);
+
+        private static BigInteger FromHex(string hex)
+            => new(Convert.FromHexString(hex), isUnsigned: true, isBigEndian: true);
     }
 
     /// <summary>Base58 Bitcoin encoding (no check).</summary>
@@ -427,47 +446,74 @@ public static class AtProtoCrypto
 
     /// <summary>Base58 Bitcoin decoding (no check).</summary>
     internal static byte[] Base58Decode(string encoded)
+        => string.IsNullOrEmpty(encoded) ? [] : Base58DecodeToArray(encoded);
+
+    private static byte[] Base58DecodeToArray(ReadOnlySpan<char> encoded)
     {
-        if (string.IsNullOrEmpty(encoded))
-            return [];
+        // Every base58 digit carries less than a byte, so the input length bounds the output.
+        Span<byte> buffer = encoded.Length <= 128 ? stackalloc byte[128] : new byte[encoded.Length];
+        return buffer[..Base58Decode(encoded, buffer)].ToArray();
+    }
 
-        // Count leading '1's
-        var leadingOnes = 0;
+    /// <summary>Base58 Bitcoin decoding (no check) into <paramref name="destination"/>.</summary>
+    /// <returns>The number of bytes written.</returns>
+    /// <exception cref="FormatException">
+    /// Thrown for a character outside the alphabet, or when the value does not fit in
+    /// <paramref name="destination"/>. The work is bounded by the destination size, however
+    /// long the input.
+    /// </exception>
+    internal static int Base58Decode(ReadOnlySpan<char> encoded, Span<byte> destination)
+    {
+        // Each leading '1' is a leading zero byte.
+        var leadingZeros = 0;
+        while (leadingZeros < encoded.Length && encoded[leadingZeros] == '1')
+            leadingZeros++;
+
+        if (leadingZeros > destination.Length)
+            throw new FormatException("Base58 value is too long.");
+
+        // Accumulate the value little-endian at the front of the destination:
+        // value = value * 58 + digit, one character at a time.
+        var capacity = destination.Length - leadingZeros;
+        var length = 0;
         foreach (var c in encoded)
         {
-            if (c != '1') break;
-            leadingOnes++;
-        }
-
-        // Convert from base58
-        var work = new List<byte>();
-
-        foreach (var c in encoded)
-        {
-            var digit = Base58Alphabet.IndexOf(c);
+            var digit = c < s_base58Digits.Length ? s_base58Digits[c] : -1;
             if (digit < 0)
                 throw new FormatException($"Invalid Base58 character: '{c}'");
 
             var carry = digit;
-            for (var i = 0; i < work.Count; i++)
+            for (var i = 0; i < length; i++)
             {
-                carry += work[i] * 58;
-                work[i] = (byte)(carry & 0xFF);
+                carry += destination[i] * 58;
+                destination[i] = (byte)carry;
                 carry >>= 8;
             }
+
             while (carry > 0)
             {
-                work.Add((byte)(carry & 0xFF));
+                if (length == capacity)
+                    throw new FormatException("Base58 value is too long.");
+
+                destination[length++] = (byte)carry;
                 carry >>= 8;
             }
         }
 
-        work.Reverse();
+        // Big-endian, after the leading zeros.
+        destination[..length].Reverse();
+        destination[..length].CopyTo(destination[leadingZeros..]);
+        destination[..leadingZeros].Clear();
+        return leadingZeros + length;
+    }
 
-        // Add leading zeros
-        var result = new byte[leadingOnes + work.Count];
-        work.CopyTo(result, leadingOnes);
-        return result;
+    private static sbyte[] CreateBase58Digits()
+    {
+        var digits = new sbyte[128];
+        digits.AsSpan().Fill(-1);
+        for (var i = 0; i < Base58Alphabet.Length; i++)
+            digits[Base58Alphabet[i]] = (sbyte)i;
+        return digits;
     }
 
     /// <summary>
@@ -477,12 +523,14 @@ public static class AtProtoCrypto
     internal static bool IsLowS(ReadOnlySpan<byte> signature, KeyCurve curve)
     {
         var halfLen = signature.Length / 2;
-        var sSpan = signature[halfLen..];
-        var halfOrder = curve == KeyCurve.P256
-            ? ECCurveParams.P256().HalfOrder
-            : ECCurveParams.K256().HalfOrder;
-        return CompareBigEndianUnsigned(sSpan, halfOrder) <= 0;
+        return CompareBigEndianUnsigned(signature[halfLen..], CurveInfo.For(curve).HalfOrder) <= 0;
     }
+
+    /// <summary>
+    /// Whether <paramref name="signature"/> has the IEEE P1363 length of both supported curves.
+    /// A DER-encoded signature, which atproto does not allow, never does.
+    /// </summary>
+    internal static bool HasSignatureLength(ReadOnlySpan<byte> signature) => signature.Length == SignatureLength;
 
     /// <summary>
     /// Normalizes an ECDSA signature to use low-S form as required by AT Protocol.
@@ -493,16 +541,13 @@ public static class AtProtoCrypto
     {
         var halfLen = signature.Length / 2;
         var sSpan = signature.AsSpan(halfLen);
-        var curveParams = curve == KeyCurve.P256
-            ? ECCurveParams.P256()
-            : ECCurveParams.K256();
+        var curveInfo = CurveInfo.For(curve);
 
         // Compare S > halfOrder (big-endian unsigned)
-        if (CompareBigEndianUnsigned(sSpan, curveParams.HalfOrder) > 0)
+        if (CompareBigEndianUnsigned(sSpan, curveInfo.HalfOrder) > 0)
         {
-            var n = new BigInteger(curveParams.Order, true, true);
             var s = new BigInteger(sSpan, true, true);
-            var lowS = n - s;
+            var lowS = curveInfo.Order - s;
             var lowSBytes = lowS.ToByteArray(true, true);
 
             var result = (byte[])signature.Clone();
@@ -542,6 +587,17 @@ public enum KeyCurve
 
     /// <summary>secp256k1 — used for legacy/Bitcoin-derived AT Protocol keys.</summary>
     K256,
+}
+
+internal static class KeyCurveExtensions
+{
+    /// <summary>The JWS <c>alg</c> for signatures made with a key on this curve.</summary>
+    internal static string JwsAlgorithm(this KeyCurve curve) => curve switch
+    {
+        KeyCurve.P256 => "ES256",
+        KeyCurve.K256 => "ES256K",
+        _ => throw new ArgumentOutOfRangeException(nameof(curve), curve, "Unsupported key curve."),
+    };
 }
 
 /// <summary>
@@ -591,8 +647,9 @@ public sealed class AtProtoKey : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        // Reject high-S signatures (AT Protocol requires low-S normalization)
-        if (!AtProtoCrypto.IsLowS(signature, Curve))
+        // Only the fixed-length r || s form, and only low-S: AT Protocol requires low-S
+        // normalization to rule out signature malleability.
+        if (!AtProtoCrypto.HasSignatureLength(signature) || !AtProtoCrypto.IsLowS(signature, Curve))
             return false;
 
         return _key.VerifyData(
@@ -607,15 +664,8 @@ public sealed class AtProtoKey : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var parameters = _key.ExportParameters(false);
-        var x = parameters.Q.X!;
-        var y = parameters.Q.Y!;
-
-        var compressed = new byte[33];
-        // 0x02 if Y is even, 0x03 if Y is odd
-        compressed[0] = (byte)((y[^1] & 1) == 0 ? 0x02 : 0x03);
-        x.CopyTo(compressed, 1);
-        return compressed;
+        var q = _key.ExportParameters(false).Q;
+        return AtProtoCrypto.CompressPoint(q.X, yIsOdd: (q.Y![^1] & 1) == 1);
     }
 
     /// <summary>Returns the multikey string (z-prefixed base58btc with multicodec prefix).</summary>

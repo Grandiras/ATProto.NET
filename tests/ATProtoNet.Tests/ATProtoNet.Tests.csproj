@@ -31,6 +31,8 @@
   <ItemGroup>
     <!-- Binary conformance fixtures (e.g. Jetstream's own golden segment block). -->
     <None Include="Streaming/TestData/*.bin" CopyToOutputDirectory="PreserveNewest" />
+    <!-- atproto-interop-tests fixtures, vendored unchanged (see Crypto/TestData/README.md). -->
+    <None Include="Crypto/TestData/*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

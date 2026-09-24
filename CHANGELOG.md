@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`app.bsky.embed.gallery`** (#115) — `GalleryEmbed` / `GalleryImage` and `GalleryView` / `GalleryViewImage`, registered as post embeds, post-view embeds, and `recordWithMedia` media.
 - **`ProfileRecord.Pronouns`, `Website`, `Labels` and `JoinedViaStarterPack`** (#115).
 
+
 ### Changed
 
 - **Shared build settings are set once** — the target framework, nullable reference types, implicit usings and the package metadata now come from `Directory.Build.props`, with `src/`, `tests/` and `samples/` layers for documentation files and `IsPackable`, instead of being repeated in every project file. The published package metadata is unchanged apart from the two dependencies above (#110)
@@ -51,6 +52,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Null-safe identifier conversions** — implicit conversions from an identifier to `string`, and from `Did`/`Handle` to `AtIdentifier`, return `null` for a `null` input instead of throwing or building an empty `AtIdentifier`. (#114)
 - **`SpaceUri` and `SpaceRecordUri` serialize to JSON as their URI string**, like every other identifier, instead of as an object that could not be read back. (#114)
 - **A union variant always writes its `$type`** (#115) — also where it is not in union position, such as `RecordWithMediaEmbed.Record`, which the data model allows on any object. A `$type` read there is therefore written back rather than dropped, and one is added where it was absent.
+- **Faster BLAKE3 and `LtHash`** — BLAKE3 now compresses XOF output blocks 8 (or 4) at a time with hardware vectors and allocates nothing, and `LtHash` adds and subtracts its lanes with vectors. `LtHash.Add`/`Remove` are about 16× faster and allocation-free, which makes verifying a space repo's index (`SpaceRepoCommit.FromIndex`, `SpaceRepoCar.Verify`) about 12× faster. The output is bit-identical, and hosts without vector hardware or with big-endian byte order take a scalar path (#112)
+- **`AtProtoCrypto.VerifySignature` caches parsed `did:key`s** — up to 1,024 keys, least recently used evicted first, so repeated verification against the same signer skips base58 decoding, point decompression and key import. P-256 verification against a known key is about twice as fast; every verifier built on it (space tokens and commits, service auth, `FirehoseVerifier`) benefits without code changes (#112)
+
+
 
 
 
@@ -78,6 +83,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Unknown record fields survive a read-modify-write** (#115) — fields an SDK model or `AtProtoRecord` subclass did not declare were dropped when a record read through `RecordCollection<T>` or `GetRecordAsync<T>` was written back.
 - **Registered union variants take effect** (#115) — `LexiconTypeRegistry.RegisterUnionVariant` only affected `CreateOptions()`, which no client used; `AtProtoJsonDefaults.Options` now consults the registry.
 - **Jetstream `sync` events accept unpadded `$bytes`** (#115) — the parser and the archive segment reader rejected unpadded base64, which the data model specifies, and delivered the event with `Blocks` set to `null`.
+- **Malformed keys fail consistently** — a `did:key` or multikey whose key is not a 33-byte compressed point now throws `FormatException`, as documented, instead of `ArgumentException`. An undefined `KeyCurve` value now throws `ArgumentOutOfRangeException` instead of being treated as K-256 (#112)
+
+
 
 
 

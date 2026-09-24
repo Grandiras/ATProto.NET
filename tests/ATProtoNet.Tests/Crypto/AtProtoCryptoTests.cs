@@ -239,6 +239,44 @@ public sealed class AtProtoCryptoTests
     public void Base58Decode_RejectsInvalidCharacters()
     {
         Assert.Throws<FormatException>(() => AtProtoCrypto.Base58Decode("invalid0OIl"));
+        Assert.Throws<FormatException>(() => AtProtoCrypto.Base58Decode("abcé"));
+    }
+
+    [Theory]
+    [InlineData("", "")]
+    [InlineData("1", "00")]
+    [InlineData("111", "000000")]
+    [InlineData("2", "01")]
+    [InlineData("z", "39")]
+    [InlineData("5Q", "ff")]
+    [InlineData("11LZL", "00000100ff")] // leading zeros ahead of a multi-byte value
+    [InlineData("StV1DL6CwTryKyV", "68656c6c6f20776f726c64")] // "hello world"
+    public void Base58Decode_KnownValue_DecodesToBytes(string encoded, string expectedHex)
+    {
+        Assert.Equal(expectedHex, Convert.ToHexStringLower(AtProtoCrypto.Base58Decode(encoded)));
+        Assert.Equal(encoded, AtProtoCrypto.Base58Encode(Convert.FromHexString(expectedHex)));
+    }
+
+    [Fact]
+    public void Base58Decode_IntoSpan_WritesOnlyTheValue()
+    {
+        Span<byte> destination = stackalloc byte[8];
+        destination.Fill(0xAA);
+
+        var written = AtProtoCrypto.Base58Decode("11LZL", destination);
+
+        Assert.Equal("00000100ff", Convert.ToHexStringLower(destination[..written]));
+    }
+
+    [Theory]
+    [InlineData("LZL", 2)]   // three value bytes
+    [InlineData("111", 2)]   // three leading zeros
+    [InlineData("1LZL", 3)]  // one zero plus three value bytes
+    public void Base58Decode_ValueLongerThanDestination_ThrowsFormatException(string encoded, int destinationLength)
+    {
+        var destination = new byte[destinationLength];
+
+        Assert.Throws<FormatException>(() => AtProtoCrypto.Base58Decode(encoded, destination));
     }
 
     // ── Point Compression / did:key Formatting ───────────────
@@ -310,29 +348,138 @@ public sealed class AtProtoCryptoTests
     // ── K-256 (if platform supports it) ──────────────────────
 
     [Fact]
-    public void K256_GenerateAndSign_IfSupported()
+    public void GenerateK256Key_SignAndVerify_RoundTripsThroughDidKey()
+    {
+        using var key = GenerateK256KeyOrSkip();
+        Assert.Equal(KeyCurve.K256, key.Curve);
+
+        var message = "K-256 test"u8.ToArray();
+        var signature = key.Sign(message);
+        Assert.True(key.Verify(message, signature));
+        Assert.True(AtProtoCrypto.IsLowS(signature, KeyCurve.K256));
+
+        var didKey = key.ToDidKey();
+        Assert.StartsWith("did:key:zQ3s", didKey);
+
+        using var parsed = AtProtoCrypto.FromDidKey(didKey);
+        Assert.Equal(KeyCurve.K256, parsed.Curve);
+        Assert.True(parsed.Verify(message, signature));
+        Assert.True(AtProtoCrypto.VerifySignature(didKey, message, signature));
+    }
+
+    // Skipped, not passed, where the platform lacks secp256k1 (macOS without OpenSSL).
+    private static AtProtoKey GenerateK256KeyOrSkip()
     {
         try
         {
-            using var key = AtProtoCrypto.GenerateK256Key();
-            Assert.Equal(KeyCurve.K256, key.Curve);
-
-            var message = "K-256 test"u8.ToArray();
-            var signature = key.Sign(message);
-            Assert.True(key.Verify(message, signature));
-
-            var didKey = key.ToDidKey();
-            Assert.StartsWith("did:key:z", didKey);
-
-            // Round-trip
-            using var parsed = AtProtoCrypto.FromDidKey(didKey);
-            Assert.Equal(KeyCurve.K256, parsed.Curve);
-            Assert.True(parsed.Verify(message, signature));
+            return AtProtoCrypto.GenerateK256Key();
         }
-        catch (PlatformNotSupportedException)
+        catch (PlatformNotSupportedException ex)
         {
-            // K-256 not available on this platform — skip
+            Assert.Skip(ex.Message);
+            throw;
         }
+    }
+
+    // ── Point decompression and multikey parsing ─────────────
+
+    [Theory]
+    [InlineData(KeyCurve.P256, 1)] // x³ - 3x + b is not a square mod p
+    [InlineData(KeyCurve.K256, 5)] // x³ + 7 is not a square mod p
+    public void ImportCompressedPublicKey_XWithNoPointOnTheCurve_ThrowsFormatException(KeyCurve curve, byte x)
+    {
+        var compressed = new byte[33];
+        compressed[0] = 0x02;
+        compressed[32] = x;
+
+        // Decompression fails before any platform key import, so this runs everywhere.
+        Assert.Throws<FormatException>(() => AtProtoCrypto.ImportCompressedPublicKey(compressed, curve));
+    }
+
+    [Fact]
+    public void ImportCompressedPublicKey_XNotBelowTheFieldPrime_ThrowsFormatException()
+    {
+        var compressed = new byte[33];
+        compressed[0] = 0x03;
+        compressed.AsSpan(1).Fill(0xFF);
+
+        Assert.Throws<FormatException>(() => AtProtoCrypto.ImportCompressedPublicKey(compressed, KeyCurve.P256));
+    }
+
+    [Theory]
+    [InlineData(0x04)]
+    [InlineData(0x00)]
+    public void ImportCompressedPublicKey_InvalidPrefix_ThrowsFormatException(byte prefix)
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var compressed = key.GetCompressedPublicKey();
+        compressed[0] = prefix;
+
+        Assert.Throws<FormatException>(() => AtProtoCrypto.ImportCompressedPublicKey(compressed, KeyCurve.P256));
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(1)]
+    [InlineData(40)]
+    public void FromMultikey_WrongKeyLength_ThrowsFormatException(int extraBytes)
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        byte[] valid = [0x80, 0x24, .. key.GetCompressedPublicKey()];
+        var bytes = extraBytes < 0 ? valid[..^1] : [.. valid, .. new byte[extraBytes]];
+
+        Assert.Throws<FormatException>(() => AtProtoCrypto.FromMultikey("z" + AtProtoCrypto.Base58Encode(bytes)));
+    }
+
+    [Fact]
+    public void FromDidKey_ParsedKey_HasTheSameCompressedPointBothParities()
+    {
+        // Decompression recovers Y from X and the parity bit, so both parities must come back.
+        var seenParities = new HashSet<byte>();
+        for (var attempt = 0; attempt < 32 && seenParities.Count < 2; attempt++)
+        {
+            using var key = AtProtoCrypto.GenerateP256Key();
+            var compressed = key.GetCompressedPublicKey();
+            seenParities.Add(compressed[0]);
+
+            using var parsed = AtProtoCrypto.FromDidKey(key.ToDidKey());
+            Assert.Equal(compressed, parsed.GetCompressedPublicKey());
+        }
+
+        Assert.Equal(2, seenParities.Count);
+    }
+
+    // ── Signature form ───────────────────────────────────────
+
+    [Theory]
+    [InlineData(63)]
+    [InlineData(65)]
+    [InlineData(0)]
+    public void Verify_SignatureOfTheWrongLength_ReturnsFalse(int length)
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var message = "length"u8.ToArray();
+        var signature = key.Sign(message);
+        var resized = new byte[length];
+        signature.AsSpan(0, Math.Min(length, signature.Length)).CopyTo(resized);
+
+        Assert.False(key.Verify(message, resized));
+    }
+
+    // ── JWS algorithm ────────────────────────────────────────
+
+    [Theory]
+    [InlineData(KeyCurve.P256, "ES256")]
+    [InlineData(KeyCurve.K256, "ES256K")]
+    public void JwsAlgorithm_KnownCurve_ReturnsItsAlg(KeyCurve curve, string expected)
+    {
+        Assert.Equal(expected, curve.JwsAlgorithm());
+    }
+
+    [Fact]
+    public void JwsAlgorithm_UndefinedCurve_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => ((KeyCurve)42).JwsAlgorithm());
     }
 
     // ── Security: Low-S Normalization ────────────────────────

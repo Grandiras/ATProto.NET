@@ -1,4 +1,7 @@
+using System.Buffers;
 using System.Buffers.Binary;
+using System.Numerics;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using ATProtoNet.Crypto;
@@ -59,8 +62,7 @@ public sealed class LtHash : IEquatable<LtHash>
                 $"LtHash state must be {StateBytes} bytes, got {state.Length}.", nameof(state));
         }
 
-        for (var i = 0; i < Lanes; i++)
-            _lanes[i] = BinaryPrimitives.ReadUInt16LittleEndian(state[(i * 2)..]);
+        ReadLittleEndianLanes(state, _lanes);
     }
 
     /// <summary>Whether the state is all zeroes, i.e. the repo holds no records.</summary>
@@ -86,8 +88,7 @@ public sealed class LtHash : IEquatable<LtHash>
 
         Span<ushort> expanded = stackalloc ushort[Lanes];
         Expand(element, expanded);
-        for (var i = 0; i < Lanes; i++)
-            _lanes[i] = unchecked((ushort)(_lanes[i] + expanded[i]));
+        AddLanes(_lanes, expanded);
         return this;
     }
 
@@ -100,8 +101,7 @@ public sealed class LtHash : IEquatable<LtHash>
 
         Span<ushort> expanded = stackalloc ushort[Lanes];
         Expand(element, expanded);
-        for (var i = 0; i < Lanes; i++)
-            _lanes[i] = unchecked((ushort)(_lanes[i] - expanded[i]));
+        SubtractLanes(_lanes, expanded);
         return this;
     }
 
@@ -124,8 +124,11 @@ public sealed class LtHash : IEquatable<LtHash>
         if (destination.Length < StateBytes)
             throw new ArgumentException($"Destination must be at least {StateBytes} bytes.", nameof(destination));
 
-        for (var i = 0; i < Lanes; i++)
-            BinaryPrimitives.WriteUInt16LittleEndian(destination[(i * 2)..], _lanes[i]);
+        var lanes = MemoryMarshal.Cast<byte, ushort>(destination[..StateBytes]);
+        if (BitConverter.IsLittleEndian)
+            _lanes.CopyTo(lanes);
+        else
+            BinaryPrimitives.ReverseEndianness(_lanes, lanes);
     }
 
     /// <summary>
@@ -156,8 +159,8 @@ public sealed class LtHash : IEquatable<LtHash>
             return true;
 
         return CryptographicOperations.FixedTimeEquals(
-            System.Runtime.InteropServices.MemoryMarshal.AsBytes(_lanes.AsSpan()),
-            System.Runtime.InteropServices.MemoryMarshal.AsBytes(other._lanes.AsSpan()));
+            MemoryMarshal.AsBytes(_lanes.AsSpan()),
+            MemoryMarshal.AsBytes(other._lanes.AsSpan()));
     }
 
     /// <inheritdoc/>
@@ -179,22 +182,65 @@ public sealed class LtHash : IEquatable<LtHash>
         byte[]? rented = null;
         var utf8 = byteCount <= 512
             ? stackalloc byte[512]
-            : (rented = System.Buffers.ArrayPool<byte>.Shared.Rent(byteCount));
+            : (rented = ArrayPool<byte>.Shared.Rent(byteCount));
 
         try
         {
             var written = Encoding.UTF8.GetBytes(element, utf8);
 
-            Span<byte> expanded = stackalloc byte[StateBytes];
-            Blake3.HashExtended(utf8[..written], expanded);
-
-            for (var i = 0; i < Lanes; i++)
-                lanes[i] = BinaryPrimitives.ReadUInt16LittleEndian(expanded[(i * 2)..]);
+            // The XOF output is the little-endian lane array itself, so it is written straight
+            // into the lanes and only needs swapping on a big-endian host.
+            Blake3.HashExtended(utf8[..written], MemoryMarshal.AsBytes(lanes[..Lanes]));
+            if (!BitConverter.IsLittleEndian)
+                BinaryPrimitives.ReverseEndianness(lanes[..Lanes], lanes[..Lanes]);
         }
         finally
         {
             if (rented is not null)
-                System.Buffers.ArrayPool<byte>.Shared.Return(rented);
+                ArrayPool<byte>.Shared.Return(rented);
         }
+    }
+
+    private static void ReadLittleEndianLanes(ReadOnlySpan<byte> state, Span<ushort> lanes)
+    {
+        var source = MemoryMarshal.Cast<byte, ushort>(state[..StateBytes]);
+        if (BitConverter.IsLittleEndian)
+            source.CopyTo(lanes);
+        else
+            BinaryPrimitives.ReverseEndianness(source, lanes);
+    }
+
+    // Lane-wise arithmetic mod 2^16, a vector at a time where the hardware allows it; the
+    // wrap-around is the defined behaviour of both the vector and the unchecked scalar ops.
+    private static void AddLanes(Span<ushort> lanes, ReadOnlySpan<ushort> delta)
+    {
+        var i = 0;
+        if (Vector.IsHardwareAccelerated)
+        {
+            var vectors = MemoryMarshal.Cast<ushort, Vector<ushort>>(lanes);
+            var deltas = MemoryMarshal.Cast<ushort, Vector<ushort>>(delta[..lanes.Length]);
+            for (var v = 0; v < vectors.Length; v++)
+                vectors[v] += deltas[v];
+            i = vectors.Length * Vector<ushort>.Count;
+        }
+
+        for (; i < lanes.Length; i++)
+            lanes[i] = unchecked((ushort)(lanes[i] + delta[i]));
+    }
+
+    private static void SubtractLanes(Span<ushort> lanes, ReadOnlySpan<ushort> delta)
+    {
+        var i = 0;
+        if (Vector.IsHardwareAccelerated)
+        {
+            var vectors = MemoryMarshal.Cast<ushort, Vector<ushort>>(lanes);
+            var deltas = MemoryMarshal.Cast<ushort, Vector<ushort>>(delta[..lanes.Length]);
+            for (var v = 0; v < vectors.Length; v++)
+                vectors[v] -= deltas[v];
+            i = vectors.Length * Vector<ushort>.Count;
+        }
+
+        for (; i < lanes.Length; i++)
+            lanes[i] = unchecked((ushort)(lanes[i] - delta[i]));
     }
 }

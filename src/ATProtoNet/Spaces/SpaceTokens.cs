@@ -228,7 +228,7 @@ public static class SpaceTokens
         var header = new Dictionary<string, object>
         {
             ["typ"] = TypeHeader(type),
-            ["alg"] = signingKey.Curve == KeyCurve.P256 ? "ES256" : "ES256K",
+            ["alg"] = signingKey.Curve.JwsAlgorithm(),
         };
 
         // A client attestation's key comes from the client's own JWKS, so it has no default kid.

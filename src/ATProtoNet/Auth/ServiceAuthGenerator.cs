@@ -34,7 +34,7 @@ public sealed class ServiceAuthGenerator : IDisposable
     {
         _serviceDid = serviceDid ?? throw new ArgumentNullException(nameof(serviceDid));
         _signingKey = signingKey ?? throw new ArgumentNullException(nameof(signingKey));
-        _algorithm = signingKey.Curve == KeyCurve.P256 ? "ES256" : "ES256K";
+        _algorithm = signingKey.Curve.JwsAlgorithm();
     }
 
     /// <summary>

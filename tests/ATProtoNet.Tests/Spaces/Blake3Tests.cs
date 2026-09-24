@@ -1,4 +1,6 @@
+using System.Security.Cryptography;
 using ATProtoNet.Crypto;
+using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Tests.Spaces;
 
@@ -94,6 +96,92 @@ public class Blake3Tests
 
         Assert.NotEqual(output[..64], output[64..128]);
         Assert.NotEqual(output[64..128], output[128..192]);
+    }
+
+    [Theory]
+    [InlineData(0, 2048, "c700539924eb9d06649c0b8478f48455baa0562f93f10a2613539e3efd9a2f2e")]
+    [InlineData(1, 2048, "d365f0775d8cd2a359fcf60b4966119a845d21c7773e3736b329d802ad621eaf")]
+    [InlineData(64, 2048, "dd3ee983da21c6b5afabb05660c51d1a28ad2da8f82007819f5b6e62e1996735")]
+    [InlineData(65, 1000, "6528ed68864e4ad1007a15799834249e6f0b6750fa30fb500535eb56eac977cd")]
+    [InlineData(1024, 2048, "b3dec1e2872e517492507570abeae0427075e861b1e7167a9d78f39e2bede8c5")]
+    [InlineData(1025, 2048, "a01508f215456cde8d99a531b13c5965d58665387b234b2266b4c2eea1515abc")]
+    [InlineData(2049, 1000, "a00f1717a95e7eba0a7a9cdb364df59600c06fa964a8f4aeef5fead296ca4be2")]
+    [InlineData(8193, 4099, "56a8ab7bde1adf011aacc9bd1f57101356868451853cd19b06ccef528fdada77")]
+    [InlineData(102400, 2048, "8f9ebf9833beb42780229cad517362eaf361265e2f0ec05d4f80b566772e95ce")]
+    public void HashExtended_LongOutput_MatchesIndependentImplementation(int inputLength, int outputLength, string expectedSha256)
+    {
+        // The official vectors stop at 131 bytes (3 output blocks), short of the batched
+        // output path. These are sha256 digests of @noble/hashes 1.8.0 output for the same
+        // inputs, at lengths that exercise the 8-, 4- and 1-block paths and a partial block.
+        foreach (var parallelism in new[] { 1, 4, 8 })
+        {
+            var output = new byte[outputLength];
+            Blake3.HashExtended(ReferenceInput(inputLength), output, parallelism);
+
+            Assert.Equal(expectedSha256, Convert.ToHexStringLower(SHA256.HashData(output)));
+        }
+    }
+
+    [Fact]
+    public void HashExtended_EveryInputLengthUpToOneChunk_BatchedPathsMatchScalar()
+    {
+        // LtHash elements are single-chunk inputs, so cover every length a chunk can have;
+        // 2048 output bytes is exactly what LtHash asks for.
+        var scalar = new byte[LtHash.StateBytes];
+        var batched = new byte[LtHash.StateBytes];
+
+        for (var length = 0; length <= Blake3.ChunkLen; length++)
+        {
+            var input = ReferenceInput(length);
+            Blake3.HashExtended(input, scalar, parallelism: 1);
+
+            Blake3.HashExtended(input, batched, parallelism: 4);
+            Assert.True(scalar.AsSpan().SequenceEqual(batched), $"4-way output differs at input length {length}.");
+
+            Blake3.HashExtended(input, batched, parallelism: 8);
+            Assert.True(scalar.AsSpan().SequenceEqual(batched), $"8-way output differs at input length {length}.");
+        }
+    }
+
+    [Fact]
+    public void HashExtended_EveryOutputLengthUpToTwentyBlocks_BatchedPathsMatchScalar()
+    {
+        // Output lengths that are not a multiple of a batch fall through 8 → 4 → 1 → partial.
+        var input = ReferenceInput(100);
+        var scalar = new byte[20 * Blake3.BlockLen];
+        Blake3.HashExtended(input, scalar, parallelism: 1);
+
+        for (var length = 0; length <= scalar.Length; length++)
+        {
+            foreach (var parallelism in new[] { 4, 8 })
+            {
+                var output = new byte[length];
+                Blake3.HashExtended(input, output, parallelism);
+                Assert.True(scalar.AsSpan(0, length).SequenceEqual(output), $"{parallelism}-way output differs at length {length}.");
+            }
+        }
+    }
+
+    [Fact]
+    public void HashExtended_DefaultParallelism_MatchesScalar()
+    {
+        var input = ReferenceInput(3000);
+        var expected = new byte[2048];
+        var actual = new byte[2048];
+
+        Blake3.HashExtended(input, expected, parallelism: 1);
+        Blake3.HashExtended(input, actual);
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    [InlineData(16)]
+    public void HashExtended_UnsupportedParallelism_Throws(int parallelism)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => Blake3.HashExtended([], new byte[32], parallelism));
     }
 
     [Fact]
