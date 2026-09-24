@@ -245,11 +245,7 @@ public sealed class RecordCollection<T> where T : class
         var response = await _client.Repo.ListRecordsAsync(
             repo, Collection, reverse, limit, cursor, cancellationToken);
 
-        return new RecordPage<T>
-        {
-            Records = [.. response.Records.Select(e => ToView("com.atproto.repo.listRecords", e.Uri, e.Cid, e.Value))],
-            Cursor = response.Cursor,
-        };
+        return ToPage(response);
     }
 
     /// <summary>
@@ -300,6 +296,16 @@ public sealed class RecordCollection<T> where T : class
             return false;
         }
     }
+
+    /// <summary>
+    /// Deserializes a <c>com.atproto.repo.listRecords</c> page; a record that is not a valid
+    /// <typeparamref name="T"/> is an <see cref="XrpcResponseFormatException"/>.
+    /// </summary>
+    internal static RecordPage<T> ToPage(ListRecordsResponse response) => new()
+    {
+        Records = [.. response.Records.Select(e => ToView("com.atproto.repo.listRecords", e.Uri, e.Cid, e.Value))],
+        Cursor = response.Cursor,
+    };
 
     private static RecordView<T> ToView(string nsid, AtUri uri, Cid? cid, JsonElement value) => new()
     {

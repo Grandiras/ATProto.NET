@@ -17,6 +17,8 @@ public sealed class CommunicationClient
     /// <summary>
     /// Create a new email template.
     /// </summary>
+    /// <param name="request">The template.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<CommunicationTemplateView> CreateTemplateAsync(
         CreateTemplateRequest request,
         CancellationToken cancellationToken = default) =>
@@ -26,6 +28,8 @@ public sealed class CommunicationClient
     /// <summary>
     /// Delete a communication template.
     /// </summary>
+    /// <param name="id">The template's identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task DeleteTemplateAsync(
         string id,
         CancellationToken cancellationToken = default)
@@ -46,6 +50,8 @@ public sealed class CommunicationClient
     /// <summary>
     /// Update an existing communication template.
     /// </summary>
+    /// <param name="request">The template's identifier and the fields to change.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<CommunicationTemplateView> UpdateTemplateAsync(
         UpdateTemplateRequest request,
         CancellationToken cancellationToken = default) =>

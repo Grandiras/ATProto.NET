@@ -13,6 +13,11 @@ ATProto.NET provides full support for the `tools.ozone.*` namespace — the cont
 | `Ozone.Server` | `tools.ozone.server` | Server configuration |
 | `Ozone.Signature` | `tools.ozone.signature` | Signature correlation & analysis |
 
+Identifiers are typed (`Did`, `Handle`, `AtUri`, `Cid` and `AtDatetime` from `ATProtoNet.Identity`):
+parse literals with `Did.Parse("…")` and friends. The one exception is the `subject` filter of
+`QueryEventsAsync` and `QuerySubjectsAsync`, a plain string because it takes either an account's DID
+or a record's AT URI.
+
 ## Moderation
 
 ### Emit Moderation Events
@@ -25,7 +30,7 @@ await client.Ozone.Moderation.EmitEventAsync(new EmitEventRequest
     {
         Comment = "Violates community guidelines",
     },
-    Subject = new RepoSubject { Did = "did:plc:abc123" },
+    Subject = new RepoSubject { Did = Did.Parse("did:plc:abc123") },
     CreatedBy = client.Did!,
 });
 
@@ -38,7 +43,7 @@ await client.Ozone.Moderation.EmitEventAsync(new EmitEventRequest
         NegateLabelVals = [],
         Comment = "Spam account",
     },
-    Subject = new RepoSubject { Did = "did:plc:abc123" },
+    Subject = new RepoSubject { Did = Did.Parse("did:plc:abc123") },
     CreatedBy = client.Did!,
 });
 
@@ -49,7 +54,7 @@ await client.Ozone.Moderation.EmitEventAsync(new EmitEventRequest
     {
         Comment = "Reviewing this account",
     },
-    Subject = new RepoSubject { Did = "did:plc:abc123" },
+    Subject = new RepoSubject { Did = Did.Parse("did:plc:abc123") },
     CreatedBy = client.Did!,
 });
 ```
@@ -59,11 +64,18 @@ await client.Ozone.Moderation.EmitEventAsync(new EmitEventRequest
 ```csharp
 var events = await client.Ozone.Moderation.QueryEventsAsync(
     subject: "did:plc:abc123",
+    createdAfter: AtDatetime.FromDateTimeOffset(DateTimeOffset.UtcNow.AddDays(-7)),
     limit: 50);
 
 foreach (var evt in events.Events)
 {
     Console.WriteLine($"Event: {evt.Event} at {evt.CreatedAt}");
+}
+
+// Every matching event, fetching pages as needed
+await foreach (var evt in client.Ozone.Moderation.EnumerateEventsAsync(subject: "did:plc:abc123"))
+{
+    Console.WriteLine($"{evt.Id} by {evt.CreatedBy}");
 }
 ```
 
@@ -77,19 +89,30 @@ foreach (var subject in subjects.Subjects)
     Console.WriteLine($"Subject: {subject.Subject}");
     Console.WriteLine($"Review state: {subject.ReviewState}");
 }
+
+// The whole escalated queue
+await foreach (var subject in client.Ozone.Moderation.EnumerateSubjectsAsync(
+    reviewState: SubjectReviewState.Escalated))
+{
+    Console.WriteLine(subject.Subject);
+}
 ```
 
 ### Get Moderation Record/Repo Info
 
 ```csharp
-var record = await client.Ozone.Moderation.GetRecordAsync(uri: "at://did:plc:abc/app.bsky.feed.post/123");
-var repo = await client.Ozone.Moderation.GetRepoAsync(did: "did:plc:abc123");
+var record = await client.Ozone.Moderation.GetRecordAsync(
+    uri: AtUri.Parse("at://did:plc:abc/app.bsky.feed.post/123"));
+var repo = await client.Ozone.Moderation.GetRepoAsync(did: Did.Parse("did:plc:abc123"));
 ```
 
 ### Search Repositories
 
 ```csharp
 var results = await client.Ozone.Moderation.SearchReposAsync(q: "spam");
+
+await foreach (var repo in client.Ozone.Moderation.EnumerateReposAsync(q: "spam"))
+    Console.WriteLine(repo.Handle);
 ```
 
 ## Communication Templates
@@ -125,22 +148,24 @@ await client.Ozone.Communication.DeleteTemplateAsync(id: template.Id);
 // Add a team member
 await client.Ozone.Team.AddMemberAsync(new AddMemberRequest
 {
-    Did = "did:plc:newmoderator",
+    Did = Did.Parse("did:plc:newmoderator"),
     Role = TeamMemberRole.Moderator,
 });
 
-// List team members
+// List team members, one page or all of them
 var members = await client.Ozone.Team.ListMembersAsync();
+await foreach (var member in client.Ozone.Team.EnumerateMembersAsync())
+    Console.WriteLine($"{member.Did}: {member.Role}");
 
 // Update a member's role
 await client.Ozone.Team.UpdateMemberAsync(new UpdateMemberRequest
 {
-    Did = "did:plc:newmoderator",
+    Did = Did.Parse("did:plc:newmoderator"),
     Role = TeamMemberRole.Admin,
 });
 
 // Remove a team member
-await client.Ozone.Team.DeleteMemberAsync(did: "did:plc:newmoderator");
+await client.Ozone.Team.DeleteMemberAsync(did: Did.Parse("did:plc:newmoderator"));
 ```
 
 ## Named Sets
@@ -160,11 +185,15 @@ await client.Ozone.Set.AddValuesAsync(
     "blocked-domains",
     ["spam-site.example.com", "bad-domain.example.com"]);
 
-// Get values from a set
+// Get one page of a set's values, or all of them
 var values = await client.Ozone.Set.GetValuesAsync(name: "blocked-domains");
+await foreach (var value in client.Ozone.Set.EnumerateValuesAsync("blocked-domains"))
+    Console.WriteLine(value);
 
-// Query all sets
+// Query sets, one page or all of them
 var sets = await client.Ozone.Set.QuerySetsAsync();
+await foreach (var set in client.Ozone.Set.EnumerateSetsAsync())
+    Console.WriteLine($"{set.Name}: {set.SetSize} values");
 
 // Remove values
 await client.Ozone.Set.DeleteValuesAsync(
@@ -181,14 +210,15 @@ Find related accounts through signature correlation:
 
 ```csharp
 // Find correlated signatures
-var correlation = await client.Ozone.Signature.FindCorrelationAsync(dids: ["did:plc:abc", "did:plc:def"]);
+var correlation = await client.Ozone.Signature.FindCorrelationAsync(
+    dids: [Did.Parse("did:plc:abc"), Did.Parse("did:plc:def")]);
 
 // Search accounts by signature
 var accounts = await client.Ozone.Signature.SearchAccountsAsync(
     values: [new SigDetail { Property = "userAgent", Value = "some-signal" }]);
 
 // Find related accounts
-var related = await client.Ozone.Signature.FindRelatedAccountsAsync(did: "did:plc:abc123");
+var related = await client.Ozone.Signature.FindRelatedAccountsAsync(did: Did.Parse("did:plc:abc123"));
 ```
 
 ## Server Configuration

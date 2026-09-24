@@ -140,7 +140,7 @@ public class StandardSiteModelTests
         {
             Site = "https://example.com",
             Title = "Test",
-            PublishedAt = "2024-01-20T14:30:00.000Z"
+            PublishedAt = AtDatetime.Parse("2024-01-20T14:30:00.000Z")
         };
         Assert.Equal("site.standard.document", doc.Type);
     }
@@ -152,7 +152,7 @@ public class StandardSiteModelTests
         {
             Site = "at://did:plc:abc/site.standard.publication/xyz",
             Title = "Getting Started",
-            PublishedAt = "2024-01-20T14:30:00.000Z"
+            PublishedAt = AtDatetime.Parse("2024-01-20T14:30:00.000Z")
         };
 
         var json = JsonSerializer.Serialize(record);
@@ -171,12 +171,12 @@ public class StandardSiteModelTests
         {
             Site = "https://example.com",
             Title = "A Post",
-            PublishedAt = "2024-01-20T14:30:00.000Z",
+            PublishedAt = AtDatetime.Parse("2024-01-20T14:30:00.000Z"),
             Path = "/blog/a-post",
             Description = "An article about things",
             TextContent = "Full text here",
             Tags = ["tutorial", "atproto"],
-            UpdatedAt = "2024-02-01T10:00:00.000Z"
+            UpdatedAt = AtDatetime.Parse("2024-02-01T10:00:00.000Z")
         };
 
         var json = JsonSerializer.Serialize(record);
@@ -196,7 +196,7 @@ public class StandardSiteModelTests
         {
             Site = "https://example.com",
             Title = "Post with comments",
-            PublishedAt = "2024-01-20T14:30:00.000Z",
+            PublishedAt = AtDatetime.Parse("2024-01-20T14:30:00.000Z"),
             BskyPostRef = new StrongRef { Uri = AtUri.Parse("at://did:plc:abc/app.bsky.feed.post/xyz"), Cid = Cid.Parse("bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm") }
         };
 
@@ -215,7 +215,7 @@ public class StandardSiteModelTests
         {
             Site = "at://did:plc:abc/site.standard.publication/xyz",
             Title = "Test Post",
-            PublishedAt = "2024-01-20T14:30:00.000Z",
+            PublishedAt = AtDatetime.Parse("2024-01-20T14:30:00.000Z"),
             Path = "/blog/test",
             Tags = ["test"]
         };
@@ -239,7 +239,7 @@ public class StandardSiteModelTests
     {
         var sub = new SubscriptionRecord
         {
-            Publication = "at://did:plc:abc/site.standard.publication/xyz"
+            Publication = AtUri.Parse("at://did:plc:abc/site.standard.publication/xyz")
         };
         Assert.Equal("site.standard.graph.subscription", sub.Type);
     }
@@ -249,7 +249,7 @@ public class StandardSiteModelTests
     {
         var sub = new SubscriptionRecord
         {
-            Publication = "at://did:plc:abc/site.standard.publication/xyz"
+            Publication = AtUri.Parse("at://did:plc:abc/site.standard.publication/xyz")
         };
 
         var json = JsonSerializer.Serialize(sub);
@@ -265,7 +265,7 @@ public class StandardSiteModelTests
     {
         var sub = new SubscriptionRecord
         {
-            Publication = "at://did:plc:abc/site.standard.publication/xyz"
+            Publication = AtUri.Parse("at://did:plc:abc/site.standard.publication/xyz")
         };
 
         var json = JsonSerializer.Serialize(sub);

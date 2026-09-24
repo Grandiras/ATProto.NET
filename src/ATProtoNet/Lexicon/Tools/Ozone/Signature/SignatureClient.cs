@@ -1,4 +1,5 @@
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Signature;
 
@@ -17,29 +18,35 @@ public sealed class SignatureClient
     /// <summary>
     /// Find signature correlations between multiple DIDs.
     /// </summary>
+    /// <param name="dids">The accounts to correlate.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<FindCorrelationResponse> FindCorrelationAsync(
-        List<string> dids,
+        IEnumerable<Did> dids,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
-            .AddAll("dids", dids);
+            .AddAll("dids", dids.Select(did => did.Value));
         return _xrpc.QueryAsync<FindCorrelationResponse>(
             "tools.ozone.signature.findCorrelation", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
-    /// Search accounts by signature properties.
+    /// Search one page of accounts by signature properties.
     /// </summary>
+    /// <param name="values">The signature values to search for.</param>
+    /// <param name="limit">Maximum number of accounts (1-100, default 50).</param>
+    /// <param name="cursor">Pagination cursor from a previous response.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<SearchAccountsResponse> SearchAccountsAsync(
-        List<SigDetail> values,
-        string? cursor = null,
+        IEnumerable<SigDetail> values,
         int? limit = null,
+        string? cursor = null,
         CancellationToken cancellationToken = default)
     {
         // SearchAccounts uses POST with a body
         var request = new SearchAccountsRequest
         {
-            Values = values,
+            Values = [.. values],
             Cursor = cursor,
             Limit = limit,
         };
@@ -48,12 +55,16 @@ public sealed class SignatureClient
     }
 
     /// <summary>
-    /// Find accounts related to a given DID by shared signatures.
+    /// Find one page of the accounts related to a given DID by shared signatures.
     /// </summary>
+    /// <param name="did">The account to find relatives of.</param>
+    /// <param name="limit">Maximum number of accounts (1-100, default 50).</param>
+    /// <param name="cursor">Pagination cursor from a previous response.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<FindRelatedAccountsResponse> FindRelatedAccountsAsync(
-        string did,
-        string? cursor = null,
+        Did did,
         int? limit = null,
+        string? cursor = null,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
@@ -68,7 +79,7 @@ public sealed class SignatureClient
 internal sealed class SearchAccountsRequest
 {
     [System.Text.Json.Serialization.JsonPropertyName("values")]
-    public required List<SigDetail> Values { get; init; }
+    public required IReadOnlyList<SigDetail> Values { get; init; }
 
     [System.Text.Json.Serialization.JsonPropertyName("cursor")]
     public string? Cursor { get; init; }

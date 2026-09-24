@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 using ATProtoNet.Models;
 using ATProtoNet.Serialization;
 
@@ -97,11 +98,11 @@ public sealed class ModEventLabel : ModEventType
 
     /// <summary>The label values to apply.</summary>
     [JsonPropertyName("createLabelVals")]
-    public List<string>? CreateLabelVals { get; init; }
+    public IReadOnlyList<string>? CreateLabelVals { get; init; }
 
     /// <summary>The label values to remove.</summary>
     [JsonPropertyName("negateLabelVals")]
-    public List<string>? NegateLabelVals { get; init; }
+    public IReadOnlyList<string>? NegateLabelVals { get; init; }
 }
 
 /// <summary>A moderation event that records a comment on the subject.</summary>
@@ -207,11 +208,11 @@ public sealed class ModEventTag : ModEventType
 
     /// <summary>The tags to add.</summary>
     [JsonPropertyName("add")]
-    public List<string>? Add { get; init; }
+    public IReadOnlyList<string>? Add { get; init; }
 
     /// <summary>The tags to remove.</summary>
     [JsonPropertyName("remove")]
-    public List<string>? Remove { get; init; }
+    public IReadOnlyList<string>? Remove { get; init; }
 }
 
 // ─── Subject Types ───
@@ -253,7 +254,7 @@ public sealed class RepoSubject : ModerationSubject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 }
 
 /// <summary>A moderation subject referring to a single record.</summary>
@@ -261,11 +262,11 @@ public sealed class RecordSubject : ModerationSubject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public string? Cid { get; init; }
+    public Cid? Cid { get; init; }
 }
 
 // ─── View Models ───
@@ -289,23 +290,23 @@ public sealed class ModEventView : LexObject
 
     /// <summary>The CIDs of specific blobs on the subject record the action applies to.</summary>
     [JsonPropertyName("subjectBlobCids")]
-    public List<string>? SubjectBlobCids { get; init; }
+    public IReadOnlyList<Cid>? SubjectBlobCids { get; init; }
 
     /// <summary>The DID of the account that created this.</summary>
     [JsonPropertyName("createdBy")]
-    public required string CreatedBy { get; init; }
+    public required Did CreatedBy { get; init; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>When the event was created.</summary>
     [JsonPropertyName("createdAt")]
-    public required string CreatedAt { get; init; }
+    public required AtDatetime CreatedAt { get; init; }
 
     /// <summary>The handle of the account that created the event.</summary>
     [JsonPropertyName("creatorHandle")]
-    public string? CreatorHandle { get; init; }
+    public Handle? CreatorHandle { get; init; }
 
     /// <summary>The handle of the subject account at the time of the event.</summary>
     [JsonPropertyName("subjectHandle")]
-    public string? SubjectHandle { get; init; }
+    public Handle? SubjectHandle { get; init; }
 }
 
 /// <summary>
@@ -327,15 +328,15 @@ public sealed class ModEventViewDetail : LexObject
 
     /// <summary>The blobs on the subject record the event applies to.</summary>
     [JsonPropertyName("subjectBlobs")]
-    public List<JsonElement>? SubjectBlobs { get; init; }
+    public IReadOnlyList<JsonElement>? SubjectBlobs { get; init; }
 
     /// <summary>The DID of the account that created this.</summary>
     [JsonPropertyName("createdBy")]
-    public required string CreatedBy { get; init; }
+    public required Did CreatedBy { get; init; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>When the event was created.</summary>
     [JsonPropertyName("createdAt")]
-    public required string CreatedAt { get; init; }
+    public required AtDatetime CreatedAt { get; init; }
 }
 
 /// <summary>
@@ -353,19 +354,19 @@ public sealed class SubjectStatusView : LexObject
 
     /// <summary>The CIDs of specific blobs on the subject record the action applies to.</summary>
     [JsonPropertyName("subjectBlobCids")]
-    public List<string>? SubjectBlobCids { get; init; }
+    public IReadOnlyList<Cid>? SubjectBlobCids { get; init; }
 
     /// <summary>The handle of the subject repository.</summary>
     [JsonPropertyName("subjectRepoHandle")]
-    public string? SubjectRepoHandle { get; init; }
+    public Handle? SubjectRepoHandle { get; init; }
 
-    /// <summary>Timestamp of the last update (ISO 8601).</summary>
+    /// <summary>When the subject's status last changed.</summary>
     [JsonPropertyName("updatedAt")]
-    public required string UpdatedAt { get; init; }
+    public required AtDatetime UpdatedAt { get; init; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>When the subject's status was created.</summary>
     [JsonPropertyName("createdAt")]
-    public required string CreatedAt { get; init; }
+    public required AtDatetime CreatedAt { get; init; }
 
     /// <summary>The review state of the subject (open, escalated, or closed).</summary>
     [JsonPropertyName("reviewState")]
@@ -375,29 +376,29 @@ public sealed class SubjectStatusView : LexObject
     [JsonPropertyName("comment")]
     public string? Comment { get; init; }
 
-    /// <summary>Timestamp until which the subject is muted (ISO 8601).</summary>
+    /// <summary>When the subject's mute ends.</summary>
     [JsonPropertyName("muteUntil")]
-    public string? MuteUntil { get; init; }
+    public AtDatetime? MuteUntil { get; init; }
 
-    /// <summary>Timestamp until which reports from this subject are muted (ISO 8601).</summary>
+    /// <summary>When the mute on reports from this subject ends.</summary>
     [JsonPropertyName("muteReportingUntil")]
-    public string? MuteReportingUntil { get; init; }
+    public AtDatetime? MuteReportingUntil { get; init; }
 
     /// <summary>The DID of the moderator who last reviewed the subject.</summary>
     [JsonPropertyName("lastReviewedBy")]
-    public string? LastReviewedBy { get; init; }
+    public Did? LastReviewedBy { get; init; }
 
-    /// <summary>Timestamp of the last moderation review (ISO 8601).</summary>
+    /// <summary>When the subject was last reviewed.</summary>
     [JsonPropertyName("lastReviewedAt")]
-    public string? LastReviewedAt { get; init; }
+    public AtDatetime? LastReviewedAt { get; init; }
 
-    /// <summary>Timestamp of the most recent report (ISO 8601).</summary>
+    /// <summary>When the subject was last reported.</summary>
     [JsonPropertyName("lastReportedAt")]
-    public string? LastReportedAt { get; init; }
+    public AtDatetime? LastReportedAt { get; init; }
 
-    /// <summary>Timestamp of the most recent appeal (ISO 8601).</summary>
+    /// <summary>When the subject was last appealed.</summary>
     [JsonPropertyName("lastAppealedAt")]
-    public string? LastAppealedAt { get; init; }
+    public AtDatetime? LastAppealedAt { get; init; }
 
     /// <summary>Whether the subject has been taken down.</summary>
     [JsonPropertyName("takendown")]
@@ -407,13 +408,13 @@ public sealed class SubjectStatusView : LexObject
     [JsonPropertyName("appealed")]
     public bool? Appealed { get; init; }
 
-    /// <summary>Timestamp until which the subject is suspended (ISO 8601).</summary>
+    /// <summary>When the subject's suspension ends.</summary>
     [JsonPropertyName("suspendUntil")]
-    public string? SuspendUntil { get; init; }
+    public AtDatetime? SuspendUntil { get; init; }
 
     /// <summary>Free-form tags attached to the subject.</summary>
     [JsonPropertyName("tags")]
-    public List<string>? Tags { get; init; }
+    public IReadOnlyList<string>? Tags { get; init; }
 }
 
 /// <summary>
@@ -423,11 +424,11 @@ public sealed class RecordViewDetail : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
-    public required string Uri { get; init; }
+    public required AtUri Uri { get; init; }
 
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
-    public required string Cid { get; init; }
+    public required Cid Cid { get; init; }
 
     /// <summary>The record value.</summary>
     [JsonPropertyName("value")]
@@ -435,11 +436,11 @@ public sealed class RecordViewDetail : LexObject
 
     /// <summary>The CIDs of blobs referenced by the record.</summary>
     [JsonPropertyName("blobCids")]
-    public List<string>? BlobCids { get; init; }
+    public IReadOnlyList<Cid>? BlobCids { get; init; }
 
-    /// <summary>Timestamp at which the app view indexed this data (ISO 8601).</summary>
+    /// <summary>When Ozone indexed this data.</summary>
     [JsonPropertyName("indexedAt")]
-    public required string IndexedAt { get; init; }
+    public required AtDatetime IndexedAt { get; init; }
 
     /// <summary>Moderation state attached to this subject.</summary>
     [JsonPropertyName("moderation")]
@@ -467,11 +468,11 @@ public sealed class RepoView : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 
     /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
     [JsonPropertyName("handle")]
-    public required string Handle { get; init; }
+    public required Handle Handle { get; init; }
 
     /// <summary>The email address of the account.</summary>
     [JsonPropertyName("email")]
@@ -481,11 +482,11 @@ public sealed class RepoView : LexObject
     /// Selected records from the repository (such as the profile record) included for convenience.
     /// </summary>
     [JsonPropertyName("relatedRecords")]
-    public List<JsonElement>? RelatedRecords { get; init; }
+    public IReadOnlyList<JsonElement>? RelatedRecords { get; init; }
 
-    /// <summary>Timestamp at which the app view indexed this data (ISO 8601).</summary>
+    /// <summary>When Ozone indexed this data.</summary>
     [JsonPropertyName("indexedAt")]
-    public required string IndexedAt { get; init; }
+    public required AtDatetime IndexedAt { get; init; }
 
     /// <summary>Moderation state attached to this subject.</summary>
     [JsonPropertyName("moderation")]
@@ -503,17 +504,15 @@ public sealed class RepoView : LexObject
     [JsonPropertyName("inviteNote")]
     public string? InviteNote { get; init; }
 
-    /// <summary>
-    /// Timestamp at which the account was deactivated (ISO 8601), if it is deactivated.
-    /// </summary>
+    /// <summary>When the account was deactivated, if it is deactivated.</summary>
     [JsonPropertyName("deactivatedAt")]
-    public string? DeactivatedAt { get; init; }
+    public AtDatetime? DeactivatedAt { get; init; }
 
     /// <summary>
     /// Signals correlating this account with others (such as a shared IP or device).
     /// </summary>
     [JsonPropertyName("threatSignatures")]
-    public List<JsonElement>? ThreatSignatures { get; init; }
+    public IReadOnlyList<JsonElement>? ThreatSignatures { get; init; }
 }
 
 /// <summary>
@@ -523,11 +522,11 @@ public sealed class RepoViewDetail : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 
     /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
     [JsonPropertyName("handle")]
-    public required string Handle { get; init; }
+    public required Handle Handle { get; init; }
 
     /// <summary>The email address of the account.</summary>
     [JsonPropertyName("email")]
@@ -537,11 +536,11 @@ public sealed class RepoViewDetail : LexObject
     /// Selected records from the repository (such as the profile record) included for convenience.
     /// </summary>
     [JsonPropertyName("relatedRecords")]
-    public List<JsonElement>? RelatedRecords { get; init; }
+    public IReadOnlyList<JsonElement>? RelatedRecords { get; init; }
 
-    /// <summary>Timestamp at which the app view indexed this data (ISO 8601).</summary>
+    /// <summary>When Ozone indexed this data.</summary>
     [JsonPropertyName("indexedAt")]
-    public required string IndexedAt { get; init; }
+    public required AtDatetime IndexedAt { get; init; }
 
     /// <summary>Moderation state attached to this subject.</summary>
     [JsonPropertyName("moderation")]
@@ -549,7 +548,7 @@ public sealed class RepoViewDetail : LexObject
 
     /// <summary>The labels applied to this subject.</summary>
     [JsonPropertyName("labels")]
-    public List<JsonElement>? Labels { get; init; }
+    public IReadOnlyList<JsonElement>? Labels { get; init; }
 
     /// <summary>The invite code the account signed up with, if any.</summary>
     [JsonPropertyName("invitedBy")]
@@ -557,7 +556,7 @@ public sealed class RepoViewDetail : LexObject
 
     /// <summary>The invite codes created by the account.</summary>
     [JsonPropertyName("invites")]
-    public List<JsonElement>? Invites { get; init; }
+    public IReadOnlyList<JsonElement>? Invites { get; init; }
 
     /// <summary>Whether the account is barred from creating invite codes.</summary>
     [JsonPropertyName("invitesDisabled")]
@@ -567,23 +566,19 @@ public sealed class RepoViewDetail : LexObject
     [JsonPropertyName("inviteNote")]
     public string? InviteNote { get; init; }
 
-    /// <summary>
-    /// Timestamp at which the email address was confirmed (ISO 8601), if it has been.
-    /// </summary>
+    /// <summary>When the email address was confirmed, if it has been.</summary>
     [JsonPropertyName("emailConfirmedAt")]
-    public string? EmailConfirmedAt { get; init; }
+    public AtDatetime? EmailConfirmedAt { get; init; }
 
-    /// <summary>
-    /// Timestamp at which the account was deactivated (ISO 8601), if it is deactivated.
-    /// </summary>
+    /// <summary>When the account was deactivated, if it is deactivated.</summary>
     [JsonPropertyName("deactivatedAt")]
-    public string? DeactivatedAt { get; init; }
+    public AtDatetime? DeactivatedAt { get; init; }
 
     /// <summary>
     /// Signals correlating this account with others (such as a shared IP or device).
     /// </summary>
     [JsonPropertyName("threatSignatures")]
-    public List<JsonElement>? ThreatSignatures { get; init; }
+    public IReadOnlyList<JsonElement>? ThreatSignatures { get; init; }
 }
 
 // ─── Subject review state constants ───
@@ -625,17 +620,17 @@ public sealed class EmitEventRequest
 
     /// <summary>The CIDs of specific blobs on the subject record the action applies to.</summary>
     [JsonPropertyName("subjectBlobCids")]
-    public List<string>? SubjectBlobCids { get; init; }
+    public IReadOnlyList<Cid>? SubjectBlobCids { get; init; }
 
     /// <summary>The DID of the account that created this.</summary>
     [JsonPropertyName("createdBy")]
-    public required string CreatedBy { get; init; }
+    public required Did CreatedBy { get; init; }
 }
 
 /// <summary>
 /// Response from tools.ozone.moderation.queryEvents.
 /// </summary>
-public sealed class QueryEventsResponse
+public sealed class QueryEventsResponse : ICursorPage<ModEventView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -646,13 +641,15 @@ public sealed class QueryEventsResponse
 
     /// <summary>The moderation events.</summary>
     [JsonPropertyName("events")]
-    public required List<ModEventView> Events { get; init; }
+    public required IReadOnlyList<ModEventView> Events { get; init; }
+
+    IReadOnlyList<ModEventView> ICursorPage<ModEventView>.Items => Events;
 }
 
 /// <summary>
 /// Response from tools.ozone.moderation.querySubjects (subject queue view).
 /// </summary>
-public sealed class QuerySubjectsResponse
+public sealed class QuerySubjectsResponse : ICursorPage<SubjectStatusView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -663,13 +660,15 @@ public sealed class QuerySubjectsResponse
 
     /// <summary>The subject status records.</summary>
     [JsonPropertyName("subjects")]
-    public required List<SubjectStatusView> Subjects { get; init; }
+    public required IReadOnlyList<SubjectStatusView> Subjects { get; init; }
+
+    IReadOnlyList<SubjectStatusView> ICursorPage<SubjectStatusView>.Items => Subjects;
 }
 
 /// <summary>
 /// Response from tools.ozone.moderation.searchRepos.
 /// </summary>
-public sealed class SearchReposResponse
+public sealed class SearchReposResponse : ICursorPage<RepoView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -680,5 +679,7 @@ public sealed class SearchReposResponse
 
     /// <summary>The repositories.</summary>
     [JsonPropertyName("repos")]
-    public required List<RepoView> Repos { get; init; }
+    public required IReadOnlyList<RepoView> Repos { get; init; }
+
+    IReadOnlyList<RepoView> ICursorPage<RepoView>.Items => Repos;
 }

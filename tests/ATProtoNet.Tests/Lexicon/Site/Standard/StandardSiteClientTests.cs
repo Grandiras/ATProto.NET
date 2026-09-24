@@ -1,5 +1,6 @@
 using System.Text.Json;
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Site.Standard;
 using ATProtoNet.Lexicon.Site.Standard.Document;
 using ATProtoNet.Lexicon.Site.Standard.Graph;
@@ -50,7 +51,7 @@ public class StandardSiteClientTests : IDisposable
             Name = "My Blog"
         };
 
-        var result = await _site.CreatePublicationAsync("did:plc:test", record);
+        var result = await _site.CreatePublicationAsync(Did.Parse("did:plc:test"), record);
 
         Assert.Contains("site.standard.publication", capturedBody);
         Assert.Equal("at://did:plc:test/site.standard.publication/abc", result.Uri);
@@ -76,7 +77,7 @@ public class StandardSiteClientTests : IDisposable
             });
         };
 
-        var result = await _site.GetPublicationAsync("did:plc:test", "abc");
+        var result = await _site.GetPublicationAsync(Did.Parse("did:plc:test"), RecordKey.Parse("abc"));
 
         Assert.Contains("collection=site.standard.publication", capturedUrl);
         Assert.Equal("My Blog", result.Value.Name);
@@ -99,7 +100,7 @@ public class StandardSiteClientTests : IDisposable
             Name = "Updated Blog"
         };
 
-        await _site.PutPublicationAsync("did:plc:test", "abc", record);
+        await _site.PutPublicationAsync(Did.Parse("did:plc:test"), RecordKey.Parse("abc"), record);
 
         Assert.Contains("site.standard.publication", capturedBody);
         Assert.Contains("Updated Blog", capturedBody);
@@ -115,7 +116,7 @@ public class StandardSiteClientTests : IDisposable
             return JsonResponse(new { commit = new { cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", rev = "3jzfcijpj2z2a" } });
         };
 
-        await _site.DeletePublicationAsync("did:plc:test", "abc");
+        await _site.DeletePublicationAsync(Did.Parse("did:plc:test"), RecordKey.Parse("abc"));
 
         Assert.Contains("site.standard.publication", capturedBody);
     }
@@ -130,7 +131,7 @@ public class StandardSiteClientTests : IDisposable
             return JsonResponse(new { records = new object[0] });
         };
 
-        await _site.ListPublicationsAsync("did:plc:test", limit: 10);
+        await _site.ListPublicationsAsync(Did.Parse("did:plc:test"), limit: 10);
 
         Assert.Contains("collection=site.standard.publication", capturedUrl);
         Assert.Contains("limit=10", capturedUrl);
@@ -154,12 +155,12 @@ public class StandardSiteClientTests : IDisposable
         {
             Site = "at://did:plc:test/site.standard.publication/abc",
             Title = "My First Post",
-            PublishedAt = "2024-01-20T14:30:00.000Z",
+            PublishedAt = AtDatetime.Parse("2024-01-20T14:30:00.000Z"),
             Path = "/blog/my-first-post",
             Tags = ["tutorial", "atproto"]
         };
 
-        var result = await _site.CreateDocumentAsync("did:plc:test", record);
+        var result = await _site.CreateDocumentAsync(Did.Parse("did:plc:test"), record);
 
         Assert.Contains("site.standard.document", capturedBody);
         Assert.Equal("at://did:plc:test/site.standard.document/doc1", result.Uri);
@@ -187,7 +188,7 @@ public class StandardSiteClientTests : IDisposable
             });
         };
 
-        var result = await _site.GetDocumentAsync("did:plc:test", "doc1");
+        var result = await _site.GetDocumentAsync(Did.Parse("did:plc:test"), RecordKey.Parse("doc1"));
 
         Assert.Contains("collection=site.standard.document", capturedUrl);
         Assert.Equal("My First Post", result.Value.Title);
@@ -209,11 +210,11 @@ public class StandardSiteClientTests : IDisposable
         {
             Site = "https://myblog.example.com",
             Title = "Updated Post",
-            PublishedAt = "2024-01-20T14:30:00.000Z",
-            UpdatedAt = "2024-02-01T10:00:00.000Z"
+            PublishedAt = AtDatetime.Parse("2024-01-20T14:30:00.000Z"),
+            UpdatedAt = AtDatetime.Parse("2024-02-01T10:00:00.000Z")
         };
 
-        await _site.PutDocumentAsync("did:plc:test", "doc1", record);
+        await _site.PutDocumentAsync(Did.Parse("did:plc:test"), RecordKey.Parse("doc1"), record);
 
         Assert.Contains("site.standard.document", capturedBody);
         Assert.Contains("Updated Post", capturedBody);
@@ -229,7 +230,7 @@ public class StandardSiteClientTests : IDisposable
             return JsonResponse(new { commit = new { cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", rev = "3jzfcijpj2z2a" } });
         };
 
-        await _site.DeleteDocumentAsync("did:plc:test", "doc1");
+        await _site.DeleteDocumentAsync(Did.Parse("did:plc:test"), RecordKey.Parse("doc1"));
 
         Assert.Contains("site.standard.document", capturedBody);
     }
@@ -244,7 +245,7 @@ public class StandardSiteClientTests : IDisposable
             return JsonResponse(new { records = new object[0] });
         };
 
-        await _site.ListDocumentsAsync("did:plc:test");
+        await _site.ListDocumentsAsync(Did.Parse("did:plc:test"));
 
         Assert.Contains("collection=site.standard.document", capturedUrl);
     }
@@ -265,10 +266,10 @@ public class StandardSiteClientTests : IDisposable
 
         var record = new SubscriptionRecord
         {
-            Publication = "at://did:plc:author/site.standard.publication/abc"
+            Publication = AtUri.Parse("at://did:plc:author/site.standard.publication/abc")
         };
 
-        var result = await _site.CreateSubscriptionAsync("did:plc:sub", record);
+        var result = await _site.CreateSubscriptionAsync(Did.Parse("did:plc:sub"), record);
 
         Assert.Contains("site.standard.graph.subscription", capturedBody);
         Assert.Equal("at://did:plc:sub/site.standard.graph.subscription/s1", result.Uri);
@@ -292,7 +293,7 @@ public class StandardSiteClientTests : IDisposable
             });
         };
 
-        var result = await _site.GetSubscriptionAsync("did:plc:sub", "s1");
+        var result = await _site.GetSubscriptionAsync(Did.Parse("did:plc:sub"), RecordKey.Parse("s1"));
 
         Assert.Contains("collection=site.standard.graph.subscription", capturedUrl);
         Assert.Equal("at://did:plc:author/site.standard.publication/abc", result.Value.Publication);
@@ -308,7 +309,7 @@ public class StandardSiteClientTests : IDisposable
             return JsonResponse(new { commit = new { cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", rev = "3jzfcijpj2z2a" } });
         };
 
-        await _site.DeleteSubscriptionAsync("did:plc:sub", "s1");
+        await _site.DeleteSubscriptionAsync(Did.Parse("did:plc:sub"), RecordKey.Parse("s1"));
 
         Assert.Contains("site.standard.graph.subscription", capturedBody);
     }
@@ -323,9 +324,137 @@ public class StandardSiteClientTests : IDisposable
             return JsonResponse(new { records = new object[0] });
         };
 
-        await _site.ListSubscriptionsAsync("did:plc:sub");
+        await _site.ListSubscriptionsAsync(Did.Parse("did:plc:sub"));
 
         Assert.Contains("collection=site.standard.graph.subscription", capturedUrl);
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Typed listings and AT URI overloads
+    // ──────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task ListDocumentsAsync_ReturnsTypedRecords()
+    {
+        _handler.ResponseFactory = _ => JsonResponse(new
+        {
+            cursor = "next",
+            records = new[]
+            {
+                new
+                {
+                    uri = "at://did:plc:test/site.standard.document/doc1",
+                    cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm",
+                    value = new
+                    {
+                        site = "https://myblog.example.com",
+                        title = "My First Post",
+                        publishedAt = "2024-01-20T14:30:00Z",
+                    },
+                },
+            },
+        });
+
+        var page = await _site.ListDocumentsAsync(Did.Parse("did:plc:test"));
+
+        var doc = Assert.Single(page.Records);
+        Assert.Equal(RecordKey.Parse("doc1"), doc.RecordKey);
+        Assert.Equal("My First Post", doc.Value.Title);
+        Assert.Equal("2024-01-20T14:30:00Z", doc.Value.PublishedAt.ToString());
+        Assert.Equal("next", page.Cursor);
+    }
+
+    [Fact]
+    public async Task ListSubscriptionsAsync_RecordOfTheWrongShape_IsAResponseFormatError()
+    {
+        _handler.ResponseFactory = _ => JsonResponse(new
+        {
+            records = new[]
+            {
+                new
+                {
+                    uri = "at://did:plc:sub/site.standard.graph.subscription/s1",
+                    cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm",
+                    value = new { publication = "https://not-an-at-uri.example.com" },
+                },
+            },
+        });
+
+        await Assert.ThrowsAsync<XrpcResponseFormatException>(
+            () => _site.ListSubscriptionsAsync(Did.Parse("did:plc:sub")));
+    }
+
+    [Fact]
+    public async Task EnumeratePublicationsAsync_WalksPagesWithThePageSize()
+    {
+        var queries = new List<string>();
+        _handler.ResponseFactory = request =>
+        {
+            queries.Add(Uri.UnescapeDataString(request.RequestUri!.Query));
+            var rkey = $"p{queries.Count}";
+            return JsonResponse(new
+            {
+                cursor = queries.Count == 1 ? "page-2" : null,
+                records = new[]
+                {
+                    new
+                    {
+                        uri = $"at://did:plc:test/site.standard.publication/{rkey}",
+                        cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm",
+                        value = new { url = "https://myblog.example.com", name = rkey },
+                    },
+                },
+            });
+        };
+
+        var names = new List<string>();
+        await foreach (var publication in _site.EnumeratePublicationsAsync(Did.Parse("did:plc:test"), pageSize: 1))
+            names.Add(publication.Value.Name);
+
+        Assert.Equal(["p1", "p2"], names);
+        Assert.Equal(2, queries.Count);
+        Assert.Contains("limit=1", queries[0]);
+        Assert.Contains("cursor=page-2", queries[1]);
+    }
+
+    [Fact]
+    public async Task GetPublicationAsync_ByAtUri_QueriesItsParts()
+    {
+        string? capturedQuery = null;
+        _handler.ResponseFactory = request =>
+        {
+            capturedQuery = Uri.UnescapeDataString(request.RequestUri!.Query);
+            return JsonResponse(new
+            {
+                uri = "at://did:plc:author/site.standard.publication/self",
+                value = new { url = "https://myblog.example.com", name = "My Blog" },
+            });
+        };
+
+        var subscription = new SubscriptionRecord
+        {
+            Publication = AtUri.Parse("at://did:plc:author/site.standard.publication/self"),
+        };
+        var publication = await _site.GetPublicationAsync(subscription.Publication);
+
+        Assert.Equal("?repo=did:plc:author&collection=site.standard.publication&rkey=self", capturedQuery);
+        Assert.Equal("My Blog", publication.Value.Name);
+    }
+
+    [Theory]
+    [InlineData("at://did:plc:author/site.standard.document/self")]
+    [InlineData("at://did:plc:author/site.standard.publication")]
+    public async Task GetPublicationAsync_UriThatNamesNoPublication_ThrowsBeforeSending(string uri)
+    {
+        var sent = false;
+        _handler.ResponseFactory = _ =>
+        {
+            sent = true;
+            return JsonResponse(new { });
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => _site.GetPublicationAsync(AtUri.Parse(uri)));
+        Assert.False(sent);
     }
 
     public void Dispose()

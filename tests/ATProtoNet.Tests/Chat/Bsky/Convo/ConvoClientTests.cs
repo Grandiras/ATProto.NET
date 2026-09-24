@@ -1,5 +1,6 @@
 using System.Text.Json;
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Chat.Bsky.Convo;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -233,6 +234,135 @@ public class ConvoClientTests : IDisposable
         await _xrpc.QueryAsync<object>("app.bsky.feed.getTimeline");
         Assert.Null(capturedProxy);
     }
+
+    [Fact]
+    public async Task ListConvosAsync_FiltersThenPaging_SendsEveryParameter()
+    {
+        string? capturedQuery = null;
+        _handler.ResponseFactory = request =>
+        {
+            capturedQuery = Uri.UnescapeDataString(request.RequestUri!.Query);
+            return JsonResponse(new { convos = Array.Empty<object>() });
+        };
+
+        await _convo.ListConvosAsync(true, "accepted", 10, "abc");
+
+        Assert.Equal("?readOnly=true&status=accepted&limit=10&cursor=abc", capturedQuery);
+    }
+
+    [Fact]
+    public async Task GetConvoForMembersAsync_TypedDids_SendsOneParameterEach()
+    {
+        string? capturedQuery = null;
+        _handler.ResponseFactory = request =>
+        {
+            capturedQuery = Uri.UnescapeDataString(request.RequestUri!.Query);
+            return JsonResponse(new
+            {
+                convo = new
+                {
+                    id = "convo-1",
+                    rev = "rev-1",
+                    members = new[] { new { did = "did:plc:user1", handle = "alice.bsky.social" } },
+                    muted = false,
+                    unreadCount = 0,
+                },
+            });
+        };
+
+        var result = await _convo.GetConvoForMembersAsync(
+            [Did.Parse("did:plc:user1"), Did.Parse("did:plc:user2")]);
+
+        Assert.Equal("?members=did:plc:user1&members=did:plc:user2", capturedQuery);
+        Assert.Equal(Did.Parse("did:plc:user1"), result.Convo.Members[0].Did);
+        Assert.Equal(Handle.Parse("alice.bsky.social"), result.Convo.Members[0].Handle);
+    }
+
+    [Fact]
+    public async Task SendMessageBatchAsync_AnySequence_SendsEveryItem()
+    {
+        string? capturedBody = null;
+        _handler.ResponseFactory = request =>
+        {
+            capturedBody = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+            return JsonResponse(new { items = Array.Empty<object>() });
+        };
+
+        var items = Enumerable.Range(1, 3).Select(i => new BatchMessageItem
+        {
+            ConvoId = $"convo-{i}",
+            Message = new MessageInput { Text = $"#{i}" },
+        });
+        await _convo.SendMessageBatchAsync(items);
+
+        using var body = JsonDocument.Parse(capturedBody!);
+        Assert.Equal(3, body.RootElement.GetProperty("items").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task EnumerateConvosAsync_WalksPagesWithTheFiltersAndPageSize()
+    {
+        var queries = new List<string>();
+        _handler.ResponseFactory = request =>
+        {
+            queries.Add(Uri.UnescapeDataString(request.RequestUri!.Query));
+            return queries.Count == 1
+                ? JsonResponse(new { cursor = "page-2", convos = new[] { Convo("convo-1") } })
+                : JsonResponse(new { convos = new[] { Convo("convo-2") } });
+        };
+
+        var convos = await _convo.EnumerateConvosAsync(status: "request", pageSize: 1).ToListAsync();
+
+        Assert.Equal(["convo-1", "convo-2"], convos.Select(c => c.Id));
+        Assert.Equal(["?status=request&limit=1", "?status=request&limit=1&cursor=page-2"], queries);
+    }
+
+    [Fact]
+    public async Task EnumerateMessagesAsync_RepeatedCursor_StopsInsteadOfLooping()
+    {
+        var requests = 0;
+        _handler.ResponseFactory = _ =>
+        {
+            requests++;
+            return JsonResponse(new
+            {
+                cursor = "same",
+                messages = new[] { new { id = $"msg-{requests}", rev = "rev-1" } },
+            });
+        };
+
+        var messages = await _convo.EnumerateMessagesAsync("convo-1").ToListAsync();
+
+        Assert.Equal(2, requests);
+        Assert.Equal(["msg-1", "msg-2"], messages.Select(m => m.GetProperty("id").GetString()));
+    }
+
+    [Fact]
+    public async Task EnumerateLogAsync_StopsWhenTheLogHasNoNewerEntries()
+    {
+        var queries = new List<string>();
+        _handler.ResponseFactory = request =>
+        {
+            queries.Add(Uri.UnescapeDataString(request.RequestUri!.Query));
+            return queries.Count == 1
+                ? JsonResponse(new { cursor = "rev-5", logs = new[] { new { rev = "rev-5", convoId = "convo-1" } } })
+                : JsonResponse(new { cursor = "rev-5", logs = Array.Empty<object>() });
+        };
+
+        var entries = await _convo.EnumerateLogAsync().ToListAsync();
+
+        Assert.Equal("rev-5", Assert.Single(entries).Rev);
+        Assert.Equal(["", "?cursor=rev-5"], queries);
+    }
+
+    private static object Convo(string id) => new
+    {
+        id,
+        rev = "rev-1",
+        members = Array.Empty<object>(),
+        muted = false,
+        unreadCount = 0,
+    };
 
     public void Dispose()
     {

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Site.Standard.Document;
@@ -30,7 +31,7 @@ public sealed class DocumentRecord : LexObject
 
     /// <summary>Timestamp of the document's publish time.</summary>
     [JsonPropertyName("publishedAt")]
-    public required string PublishedAt { get; init; }
+    public required AtDatetime PublishedAt { get; init; }
 
     /// <summary>
     /// Combine with site or publication URL to construct a canonical URL.
@@ -66,9 +67,9 @@ public sealed class DocumentRecord : LexObject
 
     /// <summary>Tags to categorize the document. Avoid prepending with hashtags.</summary>
     [JsonPropertyName("tags")]
-    public List<string>? Tags { get; init; }
+    public IReadOnlyList<string>? Tags { get; init; }
 
     /// <summary>Timestamp of the document's last edit.</summary>
     [JsonPropertyName("updatedAt")]
-    public string? UpdatedAt { get; init; }
+    public AtDatetime? UpdatedAt { get; init; }
 }

@@ -48,11 +48,6 @@ public class TypedIdentifierGuardTests
     /// </summary>
     private static readonly string[] PendingConversions =
     [
-        // PR 3: chat.bsky.*, tools.ozone.*, site.standard.*
-        "ATProtoNet.Lexicon.Chat.",
-        "ATProtoNet.Lexicon.Tools.Ozone.",
-        "ATProtoNet.Lexicon.Site.Standard.",
-
         // PR 4: spaces and streaming, including the com.atproto.sync.subscribeRepos event
         // models the firehose reads.
         "ATProtoNet.Lexicon.Com.AtProto.Space.",
@@ -108,7 +103,32 @@ public class TypedIdentifierGuardTests
             "No Lexicon format: the accounts whose codes to disable, including `admin`.",
         ["ATProtoNet.AtProtoClient.SetLabelers(labelerDids)"] =
             "Header entries: a labeler DID, optionally followed by the `;redact` parameter.",
+
+        ["ATProtoNet.Lexicon.Chat.Bsky.Convo.ConvoView.Rev"] = ChatRev,
+        ["ATProtoNet.Lexicon.Chat.Bsky.Convo.MessageView.Rev"] = ChatRev,
+        ["ATProtoNet.Lexicon.Chat.Bsky.Convo.DeletedMessageView.Rev"] = ChatRev,
+        ["ATProtoNet.Lexicon.Chat.Bsky.Convo.ConvoLogEntry.Rev"] = ChatRev,
+        ["ATProtoNet.Lexicon.Chat.Bsky.Convo.LeaveConvoResponse.Rev"] = ChatRev,
+        ["ATProtoNet.Lexicon.Chat.Bsky.Convo.AcceptConvoResponse.Rev"] = ChatRev,
+
+        ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.ModerationClient.QueryEventsAsync(subject)"] = OzoneSubjectFilter,
+        ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.ModerationClient.EnumerateEventsAsync(subject)"] = OzoneSubjectFilter,
+        ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.ModerationClient.QuerySubjectsAsync(subject)"] = OzoneSubjectFilter,
+        ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.ModerationClient.EnumerateSubjectsAsync(subject)"] = OzoneSubjectFilter,
+        ["ATProtoNet.Lexicon.Tools.Ozone.Communication.CommunicationTemplateView.Subject"] =
+            "The email's subject line.",
+        ["ATProtoNet.Lexicon.Tools.Ozone.Communication.CreateTemplateRequest.Subject"] =
+            "The email's subject line.",
+        ["ATProtoNet.Lexicon.Tools.Ozone.Communication.UpdateTemplateRequest.Subject"] =
+            "The email's subject line.",
+        ["ATProtoNet.Lexicon.Tools.Ozone.Team.TeamMember.LastUpdatedBy"] =
+            "No Lexicon format: Ozone writes `admin_token` when an admin token made the change.",
     };
+
+    private const string ChatRev = "No Lexicon format: an opaque revision string of the chat service.";
+
+    private const string OzoneSubjectFilter =
+        "Lexicon format `uri`: an account subject is a bare DID, a record subject an AT URI.";
 
     // The last camel-case word of a member name that marks an identifier-carrying member, from
     // the names the upstream Lexicons give their identifier-format fields.

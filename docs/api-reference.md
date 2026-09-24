@@ -558,17 +558,18 @@ Endpoint handlers (all `IXrpcEndpoint`, registered by the `Add…` extensions ab
 ## StandardSiteClient (`site.standard.*`)
 
 Accessed via `client.Site`. See [Standard.site](standard-site.md). A flat client over
-`com.atproto.repo.*` — every method takes the repository (DID or handle) first.
+`com.atproto.repo.*` — every method takes the repository (`AtIdentifier`: DID or handle) first.
 
 | Method | Description |
 |--------|-------------|
 | `CreatePublicationAsync(repo, record, rkey?)` | Create a publication |
-| `GetPublicationAsync(repo, rkey)` | Get a publication (typed) |
+| `GetPublicationAsync(repo, rkey)` / `GetPublicationAsync(uri)` | Get a publication (typed), by repo and record key or by AT URI |
 | `PutPublicationAsync(repo, rkey, record, swapRecord?)` | Create or update a publication |
 | `DeletePublicationAsync(repo, rkey)` | Delete a publication |
-| `ListPublicationsAsync(repo, limit?, cursor?)` | List publications (untyped values) |
-| `CreateDocumentAsync` / `GetDocumentAsync` / `PutDocumentAsync` / `DeleteDocumentAsync` / `ListDocumentsAsync` | The same five operations for `site.standard.document` |
-| `CreateSubscriptionAsync` / `GetSubscriptionAsync` / `DeleteSubscriptionAsync` / `ListSubscriptionsAsync` | Subscription records |
+| `ListPublicationsAsync(repo, limit?, cursor?)` | One `RecordPage<PublicationRecord>` |
+| `EnumeratePublicationsAsync(repo, pageSize?)` | Every publication, as `RecordView<PublicationRecord>` |
+| `CreateDocumentAsync` / `GetDocumentAsync` / `PutDocumentAsync` / `DeleteDocumentAsync` / `ListDocumentsAsync` / `EnumerateDocumentsAsync` | The same operations for `site.standard.document` |
+| `CreateSubscriptionAsync` / `GetSubscriptionAsync` / `DeleteSubscriptionAsync` / `ListSubscriptionsAsync` / `EnumerateSubscriptionsAsync` | Subscription records |
 
 ---
 

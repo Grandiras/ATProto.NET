@@ -21,11 +21,6 @@ public sealed class ChatDeclarationRecord : LexObject
 }
 
 /// <summary>
-/// Request for chat.bsky.actor.deleteAccount.
-/// </summary>
-public sealed class DeleteChatAccountRequest;
-
-/// <summary>
 /// Allowed values for <see cref="ChatDeclarationRecord.AllowIncoming"/>.
 /// </summary>
 public static class ChatAllowIncoming

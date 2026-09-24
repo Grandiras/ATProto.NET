@@ -43,20 +43,28 @@ if (result.Cursor is not null)
 {
     var nextPage = await client.Chat.Convo.ListConvosAsync(cursor: result.Cursor);
 }
+
+// Or let the SDK fetch the pages
+await foreach (var convo in client.Chat.Convo.EnumerateConvosAsync(status: "accepted"))
+{
+    Console.WriteLine(convo.Id);
+}
 ```
 
 ### Get or Create a Conversation
 
+Members are DIDs (`ATProtoNet.Identity.Did`):
+
 ```csharp
 // Get conversation with a specific user
 var convo = await client.Chat.Convo.GetConvoForMembersAsync(
-    members: ["did:plc:otherperson"]);
+    members: [Did.Parse("did:plc:otherperson")]);
 
 Console.WriteLine($"Convo ID: {convo.Convo.Id}");
 
 // Check conversation availability
 var availability = await client.Chat.Convo.GetConvoAvailabilityAsync(
-    members: ["did:plc:otherperson"]);
+    members: [Did.Parse("did:plc:otherperson")]);
 ```
 
 ### Get a Conversation by ID
@@ -88,6 +96,9 @@ var result = await client.Chat.Convo.SendMessageBatchAsync(items: [
 
 ### Get Messages
 
+Each entry is the raw JSON of a `chat.bsky.convo.defs#messageView` or `#deletedMessageView`;
+check `$type` before reading it:
+
 ```csharp
 var messages = await client.Chat.Convo.GetMessagesAsync(
     convoId: "convo-id",
@@ -95,7 +106,17 @@ var messages = await client.Chat.Convo.GetMessagesAsync(
 
 foreach (var msg in messages.Messages)
 {
-    Console.WriteLine($"[{msg.SentAt}] {msg.Sender?.Did}: {msg.Text}");
+    if (msg.GetProperty("$type").GetString() != "chat.bsky.convo.defs#messageView")
+        continue;
+
+    var view = msg.Deserialize<MessageView>(AtProtoJsonDefaults.Options)!;
+    Console.WriteLine($"[{view.SentAt}] {view.Sender.Did}: {view.Text}");
+}
+
+// Every message in the conversation, fetching pages as needed
+await foreach (var msg in client.Chat.Convo.EnumerateMessagesAsync("convo-id"))
+{
+    Console.WriteLine(msg.GetProperty("id").GetString());
 }
 ```
 
@@ -158,6 +179,12 @@ Get the activity log for conversations:
 
 ```csharp
 var log = await client.Chat.Convo.GetLogAsync();
+
+// Or walk it until the chat service has no newer entries
+await foreach (var entry in client.Chat.Convo.EnumerateLogAsync())
+{
+    Console.WriteLine($"{entry.Type} in {entry.ConvoId}");
+}
 ```
 
 ## Account Management

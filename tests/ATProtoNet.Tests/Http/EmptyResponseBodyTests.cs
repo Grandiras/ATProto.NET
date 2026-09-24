@@ -139,7 +139,7 @@ public class EmptyResponseBodyTests : IDisposable
         "tools.ozone.communication.deleteTemplate" =>
             _client.Ozone.Communication.DeleteTemplateAsync("template-1"),
         "tools.ozone.team.deleteMember" =>
-            _client.Ozone.Team.DeleteMemberAsync("did:plc:alice"),
+            _client.Ozone.Team.DeleteMemberAsync(Did.Parse("did:plc:alice")),
         "tools.ozone.set.deleteSet" =>
             _client.Ozone.Set.DeleteSetAsync("set-1"),
         "tools.ozone.set.addValues" =>

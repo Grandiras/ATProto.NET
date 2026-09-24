@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Tools.Ozone.Communication;
 using ATProtoNet.Lexicon.Tools.Ozone.Moderation;
 using ATProtoNet.Lexicon.Tools.Ozone.Set;
@@ -88,8 +89,8 @@ public class OzoneClientTests
         var request = new EmitEventRequest
         {
             Event = new ModEventTakedown { Comment = "spam", DurationInHours = 24 },
-            Subject = new RepoSubject { Did = "did:plc:abc" },
-            CreatedBy = "did:plc:mod",
+            Subject = new RepoSubject { Did = Did.Parse("did:plc:abc") },
+            CreatedBy = Did.Parse("did:plc:mod"),
         };
 
         var result = await client.Ozone.Moderation.EmitEventAsync(request);
@@ -144,7 +145,7 @@ public class OzoneClientTests
         var handler = OkJson(response);
         var client = CreateClient(handler);
 
-        var result = await client.Ozone.Moderation.GetRepoAsync("did:plc:xyz");
+        var result = await client.Ozone.Moderation.GetRepoAsync(Did.Parse("did:plc:xyz"));
 
         Assert.Equal("did:plc:xyz", result.Did);
         Assert.Contains("did=did", handler.LastRequestUri!.Query);
@@ -258,7 +259,7 @@ public class OzoneClientTests
         var client = CreateClient(handler);
 
         var result = await client.Ozone.Team.AddMemberAsync(
-            new AddMemberRequest { Did = "did:plc:newmod", Role = TeamMemberRole.Moderator });
+            new AddMemberRequest { Did = Did.Parse("did:plc:newmod"), Role = TeamMemberRole.Moderator });
 
         Assert.Equal("did:plc:newmod", result.Did);
         Assert.Equal(TeamMemberRole.Moderator, result.Role);
@@ -366,7 +367,7 @@ public class OzoneClientTests
         var handler = OkJson(response);
         var client = CreateClient(handler);
 
-        await client.Ozone.Signature.FindRelatedAccountsAsync("did:plc:abc");
+        await client.Ozone.Signature.FindRelatedAccountsAsync(Did.Parse("did:plc:abc"));
 
         Assert.Contains("did=did", handler.LastRequestUri!.Query);
     }
@@ -419,7 +420,7 @@ public class OzoneClientTests
     [Fact]
     public void ModerationSubject_RepoRef_Serializes()
     {
-        var subject = new RepoSubject { Did = "did:plc:abc" };
+        var subject = new RepoSubject { Did = Did.Parse("did:plc:abc") };
         var json = JsonSerializer.Serialize<ModerationSubject>(subject);
 
         Assert.Contains("\"$type\":\"com.atproto.admin.defs#repoRef\"", json);
@@ -429,7 +430,7 @@ public class OzoneClientTests
     [Fact]
     public void ModerationSubject_StrongRef_Serializes()
     {
-        var subject = new RecordSubject { Uri = "at://did:plc:abc/app.bsky.feed.post/123", Cid = "bafyabc" };
+        var subject = new RecordSubject { Uri = AtUri.Parse("at://did:plc:abc/app.bsky.feed.post/123"), Cid = Cid.Parse("bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm") };
         var json = JsonSerializer.Serialize<ModerationSubject>(subject);
 
         Assert.Contains("\"$type\":\"com.atproto.repo.strongRef\"", json);

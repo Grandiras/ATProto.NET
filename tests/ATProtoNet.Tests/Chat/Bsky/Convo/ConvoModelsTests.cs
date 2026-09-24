@@ -58,7 +58,7 @@ public class ConvoModelsTests
         Assert.Equal("msg-1", msg.Id);
         Assert.Equal("Hello world!", msg.Text);
         Assert.Equal("did:plc:user1", msg.Sender.Did);
-        Assert.Equal("2024-06-15T12:00:00Z", msg.SentAt);
+        Assert.Equal("2024-06-15T12:00:00Z", msg.SentAt.ToString());
     }
 
     [Fact]

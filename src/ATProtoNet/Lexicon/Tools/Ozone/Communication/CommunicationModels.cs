@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Communication;
@@ -30,15 +31,15 @@ public sealed class CommunicationTemplateView : LexObject
 
     /// <summary>The DID of the account that last updated this.</summary>
     [JsonPropertyName("lastUpdatedBy")]
-    public required string LastUpdatedBy { get; init; }
+    public required Did LastUpdatedBy { get; init; }
 
-    /// <summary>Timestamp of creation (ISO 8601).</summary>
+    /// <summary>When the template was created.</summary>
     [JsonPropertyName("createdAt")]
-    public required string CreatedAt { get; init; }
+    public required AtDatetime CreatedAt { get; init; }
 
-    /// <summary>Timestamp of the last update (ISO 8601).</summary>
+    /// <summary>When the template was last updated.</summary>
     [JsonPropertyName("updatedAt")]
-    public required string UpdatedAt { get; init; }
+    public required AtDatetime UpdatedAt { get; init; }
 }
 
 /// <summary>
@@ -60,7 +61,7 @@ public sealed class CreateTemplateRequest
 
     /// <summary>The DID of the account that created this.</summary>
     [JsonPropertyName("createdBy")]
-    public string? CreatedBy { get; init; }
+    public Did? CreatedBy { get; init; }
 }
 
 /// <summary>
@@ -86,7 +87,7 @@ public sealed class UpdateTemplateRequest
 
     /// <summary>The DID of the account performing the update.</summary>
     [JsonPropertyName("updatedBy")]
-    public string? UpdatedBy { get; init; }
+    public Did? UpdatedBy { get; init; }
 
     /// <summary>Whether this entry is disabled.</summary>
     [JsonPropertyName("disabled")]
@@ -96,7 +97,7 @@ public sealed class UpdateTemplateRequest
 /// <summary>
 /// Request to delete a communication template.
 /// </summary>
-public sealed class DeleteTemplateRequest
+internal sealed class DeleteTemplateRequest
 {
     /// <summary>The identifier of the template to delete.</summary>
     [JsonPropertyName("id")]
@@ -110,5 +111,5 @@ public sealed class ListTemplatesResponse
 {
     /// <summary>The communication templates.</summary>
     [JsonPropertyName("communicationTemplates")]
-    public required List<CommunicationTemplateView> CommunicationTemplates { get; init; }
+    public required IReadOnlyList<CommunicationTemplateView> CommunicationTemplates { get; init; }
 }

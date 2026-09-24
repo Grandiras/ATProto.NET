@@ -1,4 +1,5 @@
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Team;
 
@@ -17,6 +18,8 @@ public sealed class TeamClient
     /// <summary>
     /// Add a new team member with the specified role.
     /// </summary>
+    /// <param name="request">The member's DID and role.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<TeamMember> AddMemberAsync(
         AddMemberRequest request,
         CancellationToken cancellationToken = default) =>
@@ -26,8 +29,10 @@ public sealed class TeamClient
     /// <summary>
     /// Remove a team member.
     /// </summary>
+    /// <param name="did">The member's DID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task DeleteMemberAsync(
-        string did,
+        Did did,
         CancellationToken cancellationToken = default)
     {
         var request = new DeleteMemberRequest { Did = did };
@@ -36,8 +41,11 @@ public sealed class TeamClient
     }
 
     /// <summary>
-    /// List team members.
+    /// List one page of team members.
     /// </summary>
+    /// <param name="limit">Maximum number of members (1-100, default 50).</param>
+    /// <param name="cursor">Pagination cursor from a previous response.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ListMembersResponse> ListMembersAsync(
         int? limit = null,
         string? cursor = null,
@@ -51,8 +59,22 @@ public sealed class TeamClient
     }
 
     /// <summary>
+    /// Enumerate every team member, fetching pages as needed.
+    /// </summary>
+    /// <param name="pageSize">Members per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<TeamMember> EnumerateMembersAsync(
+        int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<ListMembersResponse, TeamMember>(
+            (cursor, ct) => ListMembersAsync(pageSize, cursor, ct),
+            cancellationToken);
+
+    /// <summary>
     /// Update a team member's role or status.
     /// </summary>
+    /// <param name="request">The member's DID and the changes.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<TeamMember> UpdateMemberAsync(
         UpdateMemberRequest request,
         CancellationToken cancellationToken = default) =>

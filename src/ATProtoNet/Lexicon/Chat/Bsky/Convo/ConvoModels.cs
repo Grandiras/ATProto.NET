@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Chat.Bsky.Convo;
@@ -17,13 +18,13 @@ public sealed class ConvoView : LexObject
     [JsonPropertyName("id")]
     public required string Id { get; init; }
 
-    /// <summary>The repository revision (a TID) this data was read at.</summary>
+    /// <summary>The conversation's revision, an opaque string the chat service assigns.</summary>
     [JsonPropertyName("rev")]
     public required string Rev { get; init; }
 
     /// <summary>The members.</summary>
     [JsonPropertyName("members")]
-    public required List<ChatMemberView> Members { get; init; }
+    public required IReadOnlyList<ChatMemberView> Members { get; init; }
 
     /// <summary>The most recent message in the conversation.</summary>
     [JsonPropertyName("lastMessage")]
@@ -53,11 +54,11 @@ public sealed class ChatMemberView : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 
     /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
     [JsonPropertyName("handle")]
-    public required string Handle { get; init; }
+    public required Handle Handle { get; init; }
 
     /// <summary>The human-readable display name.</summary>
     [JsonPropertyName("displayName")]
@@ -76,7 +77,7 @@ public sealed class ChatMemberView : LexObject
 
     /// <summary>The labels applied to the member's account.</summary>
     [JsonPropertyName("labels")]
-    public List<Label>? Labels { get; init; }
+    public IReadOnlyList<Label>? Labels { get; init; }
 
     /// <summary>Whether chat is disabled for this account.</summary>
     [JsonPropertyName("chatDisabled")]
@@ -92,7 +93,7 @@ public sealed class MessageView : LexObject
     [JsonPropertyName("id")]
     public required string Id { get; init; }
 
-    /// <summary>The repository revision (a TID) this data was read at.</summary>
+    /// <summary>The message's revision, an opaque string the chat service assigns.</summary>
     [JsonPropertyName("rev")]
     public required string Rev { get; init; }
 
@@ -102,7 +103,7 @@ public sealed class MessageView : LexObject
 
     /// <summary>Rich-text facets (mentions, links, tags) applied to the text.</summary>
     [JsonPropertyName("facets")]
-    public List<JsonElement>? Facets { get; init; }
+    public IReadOnlyList<JsonElement>? Facets { get; init; }
 
     /// <summary>Embedded content attached to the message.</summary>
     [JsonPropertyName("embed")]
@@ -112,9 +113,9 @@ public sealed class MessageView : LexObject
     [JsonPropertyName("sender")]
     public required MessageSender Sender { get; init; }
 
-    /// <summary>Timestamp at which the message was sent (ISO 8601).</summary>
+    /// <summary>When the message was sent.</summary>
     [JsonPropertyName("sentAt")]
-    public required string SentAt { get; init; }
+    public required AtDatetime SentAt { get; init; }
 }
 
 /// <summary>
@@ -126,7 +127,7 @@ public sealed class DeletedMessageView : LexObject
     [JsonPropertyName("id")]
     public required string Id { get; init; }
 
-    /// <summary>The repository revision (a TID) this data was read at.</summary>
+    /// <summary>The message's revision, an opaque string the chat service assigns.</summary>
     [JsonPropertyName("rev")]
     public required string Rev { get; init; }
 
@@ -134,9 +135,9 @@ public sealed class DeletedMessageView : LexObject
     [JsonPropertyName("sender")]
     public required MessageSender Sender { get; init; }
 
-    /// <summary>Timestamp at which the message was sent (ISO 8601).</summary>
+    /// <summary>When the message was sent.</summary>
     [JsonPropertyName("sentAt")]
-    public required string SentAt { get; init; }
+    public required AtDatetime SentAt { get; init; }
 }
 
 /// <summary>
@@ -146,7 +147,7 @@ public sealed class MessageSender : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
-    public required string Did { get; init; }
+    public required Did Did { get; init; }
 }
 
 /// <summary>
@@ -158,7 +159,7 @@ public sealed class ConvoLogEntry : LexObject
     [JsonPropertyName("$type")]
     public string? Type { get; init; }
 
-    /// <summary>The repository revision (a TID) this data was read at.</summary>
+    /// <summary>The revision of the change this entry records.</summary>
     [JsonPropertyName("rev")]
     public string? Rev { get; init; }
 
@@ -178,7 +179,7 @@ public sealed class ConvoLogEntry : LexObject
 /// <summary>
 /// Request body for chat.bsky.convo.sendMessage.
 /// </summary>
-public sealed class SendMessageRequest
+internal sealed class SendMessageRequest
 {
     /// <summary>The identifier of the conversation.</summary>
     [JsonPropertyName("convoId")]
@@ -200,7 +201,7 @@ public sealed class MessageInput : LexObject
 
     /// <summary>Rich-text facets (mentions, links, tags) applied to the text.</summary>
     [JsonPropertyName("facets")]
-    public List<JsonElement>? Facets { get; init; }
+    public IReadOnlyList<JsonElement>? Facets { get; init; }
 
     /// <summary>Embedded content attached to the message.</summary>
     [JsonPropertyName("embed")]
@@ -224,17 +225,17 @@ public sealed class BatchMessageItem : LexObject
 /// <summary>
 /// Request body for chat.bsky.convo.sendMessageBatch.
 /// </summary>
-public sealed class SendMessageBatchRequest
+internal sealed class SendMessageBatchRequest
 {
     /// <summary>The messages to send.</summary>
     [JsonPropertyName("items")]
-    public required List<BatchMessageItem> Items { get; init; }
+    public required IReadOnlyList<BatchMessageItem> Items { get; init; }
 }
 
 /// <summary>
 /// Request body for chat.bsky.convo.deleteMessageForSelf.
 /// </summary>
-public sealed class DeleteMessageForSelfRequest
+internal sealed class DeleteMessageForSelfRequest
 {
     /// <summary>The identifier of the conversation.</summary>
     [JsonPropertyName("convoId")]
@@ -248,7 +249,7 @@ public sealed class DeleteMessageForSelfRequest
 /// <summary>
 /// Request body for chat.bsky.convo.leaveConvo.
 /// </summary>
-public sealed class LeaveConvoRequest
+internal sealed class LeaveConvoRequest
 {
     /// <summary>The identifier of the conversation.</summary>
     [JsonPropertyName("convoId")]
@@ -258,7 +259,7 @@ public sealed class LeaveConvoRequest
 /// <summary>
 /// Request body for chat.bsky.convo.muteConvo.
 /// </summary>
-public sealed class MuteConvoRequest
+internal sealed class MuteConvoRequest
 {
     /// <summary>The identifier of the conversation.</summary>
     [JsonPropertyName("convoId")]
@@ -268,7 +269,7 @@ public sealed class MuteConvoRequest
 /// <summary>
 /// Request body for chat.bsky.convo.unmuteConvo.
 /// </summary>
-public sealed class UnmuteConvoRequest
+internal sealed class UnmuteConvoRequest
 {
     /// <summary>The identifier of the conversation.</summary>
     [JsonPropertyName("convoId")]
@@ -278,7 +279,7 @@ public sealed class UnmuteConvoRequest
 /// <summary>
 /// Request body for chat.bsky.convo.updateRead.
 /// </summary>
-public sealed class UpdateReadRequest
+internal sealed class UpdateReadRequest
 {
     /// <summary>The identifier of the conversation.</summary>
     [JsonPropertyName("convoId")]
@@ -292,7 +293,7 @@ public sealed class UpdateReadRequest
 /// <summary>
 /// Request body for chat.bsky.convo.acceptConvo.
 /// </summary>
-public sealed class AcceptConvoRequest
+internal sealed class AcceptConvoRequest
 {
     /// <summary>The identifier of the conversation.</summary>
     [JsonPropertyName("convoId")]
@@ -302,7 +303,7 @@ public sealed class AcceptConvoRequest
 /// <summary>
 /// Request body for chat.bsky.convo.addReaction.
 /// </summary>
-public sealed class AddReactionRequest
+internal sealed class AddReactionRequest
 {
     /// <summary>The identifier of the conversation.</summary>
     [JsonPropertyName("convoId")]
@@ -320,7 +321,7 @@ public sealed class AddReactionRequest
 /// <summary>
 /// Request body for chat.bsky.convo.removeReaction.
 /// </summary>
-public sealed class RemoveReactionRequest
+internal sealed class RemoveReactionRequest
 {
     /// <summary>The identifier of the conversation.</summary>
     [JsonPropertyName("convoId")]
@@ -342,7 +343,7 @@ public sealed class RemoveReactionRequest
 /// <summary>
 /// Response from chat.bsky.convo.listConvos.
 /// </summary>
-public sealed class ListConvosResponse
+public sealed class ListConvosResponse : ICursorPage<ConvoView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -353,7 +354,9 @@ public sealed class ListConvosResponse
 
     /// <summary>The conversations.</summary>
     [JsonPropertyName("convos")]
-    public required List<ConvoView> Convos { get; init; }
+    public required IReadOnlyList<ConvoView> Convos { get; init; }
+
+    IReadOnlyList<ConvoView> ICursorPage<ConvoView>.Items => Convos;
 }
 
 /// <summary>
@@ -389,7 +392,7 @@ public sealed class GetConvoAvailabilityResponse
 /// <summary>
 /// Response from chat.bsky.convo.getMessages.
 /// </summary>
-public sealed class GetMessagesResponse
+public sealed class GetMessagesResponse : ICursorPage<JsonElement>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -398,9 +401,14 @@ public sealed class GetMessagesResponse
     [JsonPropertyName("cursor")]
     public string? Cursor { get; init; }
 
-    /// <summary>The messages.</summary>
+    /// <summary>
+    /// The messages: <c>chat.bsky.convo.defs#messageView</c>, <c>#deletedMessageView</c> and
+    /// other views, told apart by <c>$type</c>.
+    /// </summary>
     [JsonPropertyName("messages")]
-    public required List<JsonElement> Messages { get; init; }
+    public required IReadOnlyList<JsonElement> Messages { get; init; }
+
+    IReadOnlyList<JsonElement> ICursorPage<JsonElement>.Items => Messages;
 }
 
 /// <summary>
@@ -410,7 +418,7 @@ public sealed class SendMessageBatchResponse
 {
     /// <summary>The sent messages.</summary>
     [JsonPropertyName("items")]
-    public required List<MessageView> Items { get; init; }
+    public required IReadOnlyList<MessageView> Items { get; init; }
 }
 
 /// <summary>
@@ -422,7 +430,7 @@ public sealed class LeaveConvoResponse
     [JsonPropertyName("convoId")]
     public required string ConvoId { get; init; }
 
-    /// <summary>The repository revision (a TID) this data was read at.</summary>
+    /// <summary>The conversation's revision after leaving it.</summary>
     [JsonPropertyName("rev")]
     public required string Rev { get; init; }
 }
@@ -436,7 +444,7 @@ public sealed class AcceptConvoResponse
     [JsonPropertyName("convo")]
     public ConvoView? Convo { get; init; }
 
-    /// <summary>The repository revision (a TID) this data was read at.</summary>
+    /// <summary>The conversation's revision after accepting it.</summary>
     [JsonPropertyName("rev")]
     public string? Rev { get; init; }
 }
@@ -444,7 +452,7 @@ public sealed class AcceptConvoResponse
 /// <summary>
 /// Response from chat.bsky.convo.getLog.
 /// </summary>
-public sealed class GetLogResponse
+public sealed class GetLogResponse : ICursorPage<ConvoLogEntry>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -455,5 +463,7 @@ public sealed class GetLogResponse
 
     /// <summary>The conversation log entries.</summary>
     [JsonPropertyName("logs")]
-    public required List<ConvoLogEntry> Logs { get; init; }
+    public required IReadOnlyList<ConvoLogEntry> Logs { get; init; }
+
+    IReadOnlyList<ConvoLogEntry> ICursorPage<ConvoLogEntry>.Items => Logs;
 }

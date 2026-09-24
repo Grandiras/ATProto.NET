@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Site.Standard.Graph;
@@ -21,5 +22,5 @@ public sealed class SubscriptionRecord : LexObject
     /// (e.g. at://did:plc:abc123/site.standard.publication/xyz789).
     /// </summary>
     [JsonPropertyName("publication")]
-    public required string Publication { get; init; }
+    public required AtUri Publication { get; init; }
 }
