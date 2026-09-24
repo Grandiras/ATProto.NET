@@ -73,9 +73,9 @@ public class OutOfOrderTypeMetadataTests
     }
 
     [Fact]
-    public void RegistryOptions_AlsoTolerateTrailingDiscriminator()
+    public void CopiedOptions_AlsoTolerateTrailingDiscriminator()
     {
-        var options = LexiconTypeRegistry.Instance.CreateOptions();
+        var options = new JsonSerializerOptions(AtProtoJsonDefaults.Options) { WriteIndented = true };
 
         var post = JsonSerializer.Deserialize<PostView>(PostViewJson, options);
 

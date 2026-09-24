@@ -1,11 +1,12 @@
 using System.Text.Json.Serialization;
+using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Server;
 
 /// <summary>
 /// Ozone server configuration.
 /// </summary>
-public sealed class OzoneServerConfig
+public sealed class OzoneServerConfig : LexObject
 {
     /// <summary>Configuration of the app view service Ozone talks to.</summary>
     [JsonPropertyName("appview")]
@@ -31,7 +32,7 @@ public sealed class OzoneServerConfig
 /// <summary>
 /// A service endpoint configuration.
 /// </summary>
-public sealed class ServiceConfig
+public sealed class ServiceConfig : LexObject
 {
     /// <summary>The service URL.</summary>
     [JsonPropertyName("url")]
@@ -41,7 +42,7 @@ public sealed class ServiceConfig
 /// <summary>
 /// Viewer-specific config (current user's role).
 /// </summary>
-public sealed class OzoneViewerConfig
+public sealed class OzoneViewerConfig : LexObject
 {
     /// <summary>The role assigned to the member.</summary>
     [JsonPropertyName("role")]

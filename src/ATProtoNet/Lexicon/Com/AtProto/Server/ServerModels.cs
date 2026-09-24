@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Server;
 
@@ -231,7 +232,7 @@ public sealed class DescribeServerResponse
 }
 
 /// <summary>Links to a server's policy documents.</summary>
-public sealed class ServerLinks
+public sealed class ServerLinks : LexObject
 {
     /// <summary>URL of the server's privacy policy.</summary>
     [JsonPropertyName("privacyPolicy")]
@@ -243,7 +244,7 @@ public sealed class ServerLinks
 }
 
 /// <summary>Contact details for a server operator.</summary>
-public sealed class ServerContact
+public sealed class ServerContact : LexObject
 {
     /// <summary>The email address of the account.</summary>
     [JsonPropertyName("email")]
@@ -269,7 +270,7 @@ public sealed class CreateAppPasswordRequest
 /// <summary>
 /// Response from com.atproto.server.createAppPassword.
 /// </summary>
-public sealed class AppPassword
+public sealed class AppPassword : LexObject
 {
     /// <summary>The name of the app password.</summary>
     [JsonPropertyName("name")]
@@ -301,7 +302,7 @@ public sealed class ListAppPasswordsResponse
 }
 
 /// <summary>Metadata about an app password, without the password itself.</summary>
-public sealed class AppPasswordInfo
+public sealed class AppPasswordInfo : LexObject
 {
     /// <summary>The name of the app password.</summary>
     [JsonPropertyName("name")]
@@ -443,7 +444,7 @@ public sealed class CreateInviteCodesResponse
 }
 
 /// <summary>The invite codes issued to one account.</summary>
-public sealed class AccountCodes
+public sealed class AccountCodes : LexObject
 {
     /// <summary>The DID of the account the codes belong to.</summary>
     [JsonPropertyName("account")]
@@ -465,7 +466,7 @@ public sealed class GetAccountInviteCodesResponse
 }
 
 /// <summary>An invite code and its usage history.</summary>
-public sealed class InviteCode
+public sealed class InviteCode : LexObject
 {
     /// <summary>The invite code string.</summary>
     [JsonPropertyName("code")]
@@ -497,7 +498,7 @@ public sealed class InviteCode
 }
 
 /// <summary>A single use of an invite code.</summary>
-public sealed class InviteCodeUse
+public sealed class InviteCodeUse : LexObject
 {
     /// <summary>The DID of the account that used the code.</summary>
     [JsonPropertyName("usedBy")]

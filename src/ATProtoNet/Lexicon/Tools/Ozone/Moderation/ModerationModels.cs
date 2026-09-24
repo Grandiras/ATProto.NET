@@ -1,14 +1,18 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Models;
+using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Moderation;
 
 // ─── Moderation Event Types ───
 
 /// <summary>
-/// Base moderation event that captures all event types emitted by Ozone.
+/// Base moderation event that captures all event types emitted by Ozone (the open
+/// <c>tools.ozone.moderation.defs#modEventView.event</c> union). Ozone emits event types this SDK
+/// does not model; they read as <see cref="UnknownModEvent"/>.
 /// </summary>
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
+[AtProtoUnion(typeof(UnknownModEvent))]
 [JsonDerivedType(typeof(ModEventTakedown), "tools.ozone.moderation.defs#modEventTakedown")]
 [JsonDerivedType(typeof(ModEventReverseTakedown), "tools.ozone.moderation.defs#modEventReverseTakedown")]
 [JsonDerivedType(typeof(ModEventAcknowledge), "tools.ozone.moderation.defs#modEventAcknowledge")]
@@ -23,7 +27,30 @@ namespace ATProtoNet.Lexicon.Tools.Ozone.Moderation;
 [JsonDerivedType(typeof(ModEventEmail), "tools.ozone.moderation.defs#modEventEmail")]
 [JsonDerivedType(typeof(ModEventDivert), "tools.ozone.moderation.defs#modEventDivert")]
 [JsonDerivedType(typeof(ModEventTag), "tools.ozone.moderation.defs#modEventTag")]
-public abstract class ModEventType { }
+public abstract class ModEventType : LexObject;
+
+/// <summary>
+/// A moderation event whose <c>$type</c> this SDK version does not model. It keeps the raw object
+/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
+/// </summary>
+public sealed class UnknownModEvent : ModEventType, IUnknownUnionVariant
+{
+    /// <summary>Creates an unknown moderation event from its discriminator and raw object.</summary>
+    /// <param name="type">The object's <c>$type</c>.</param>
+    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+    public UnknownModEvent(string type, JsonElement raw)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(type);
+        Type = type;
+        Raw = UnknownUnionVariant.RequireObject(raw);
+    }
+
+    /// <inheritdoc/>
+    public string Type { get; }
+
+    /// <inheritdoc/>
+    public JsonElement Raw { get; }
+}
 
 /// <summary>A moderation event that takes the subject down.</summary>
 public sealed class ModEventTakedown : ModEventType
@@ -190,12 +217,36 @@ public sealed class ModEventTag : ModEventType
 // ─── Subject Types ───
 
 /// <summary>
-/// A moderation subject — either a repo (account) or a specific record.
+/// A moderation subject — either a repo (account) or a specific record. A subject type this SDK
+/// does not model reads as <see cref="UnknownModerationSubject"/>.
 /// </summary>
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
+[AtProtoUnion(typeof(UnknownModerationSubject))]
 [JsonDerivedType(typeof(RepoSubject), "com.atproto.admin.defs#repoRef")]
 [JsonDerivedType(typeof(RecordSubject), "com.atproto.repo.strongRef")]
-public abstract class ModerationSubject { }
+public abstract class ModerationSubject : LexObject;
+
+/// <summary>
+/// A moderation subject whose <c>$type</c> this SDK version does not model. It keeps the raw object
+/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
+/// </summary>
+public sealed class UnknownModerationSubject : ModerationSubject, IUnknownUnionVariant
+{
+    /// <summary>Creates an unknown moderation subject from its discriminator and raw object.</summary>
+    /// <param name="type">The object's <c>$type</c>.</param>
+    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+    public UnknownModerationSubject(string type, JsonElement raw)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(type);
+        Type = type;
+        Raw = UnknownUnionVariant.RequireObject(raw);
+    }
+
+    /// <inheritdoc/>
+    public string Type { get; }
+
+    /// <inheritdoc/>
+    public JsonElement Raw { get; }
+}
 
 /// <summary>A moderation subject referring to a whole repository (account).</summary>
 public sealed class RepoSubject : ModerationSubject
@@ -222,7 +273,7 @@ public sealed class RecordSubject : ModerationSubject
 /// <summary>
 /// A moderation event record as returned by the API.
 /// </summary>
-public sealed class ModEventView
+public sealed class ModEventView : LexObject
 {
     /// <summary>The identifier of the event.</summary>
     [JsonPropertyName("id")]
@@ -260,7 +311,7 @@ public sealed class ModEventView
 /// <summary>
 /// Moderation event detail view with subject/event metadata.
 /// </summary>
-public sealed class ModEventViewDetail
+public sealed class ModEventViewDetail : LexObject
 {
     /// <summary>The identifier of the event.</summary>
     [JsonPropertyName("id")]
@@ -290,7 +341,7 @@ public sealed class ModEventViewDetail
 /// <summary>
 /// Subject status view from querySubjects.
 /// </summary>
-public sealed class SubjectStatusView
+public sealed class SubjectStatusView : LexObject
 {
     /// <summary>The identifier of the subject status record.</summary>
     [JsonPropertyName("id")]
@@ -368,7 +419,7 @@ public sealed class SubjectStatusView
 /// <summary>
 /// Record view with moderation context.
 /// </summary>
-public sealed class RecordViewDetail
+public sealed class RecordViewDetail : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -402,7 +453,7 @@ public sealed class RecordViewDetail
 /// <summary>
 /// Moderation detail attached to a record or repo view.
 /// </summary>
-public sealed class ModerationDetail
+public sealed class ModerationDetail : LexObject
 {
     /// <summary>The current moderation status of the subject.</summary>
     [JsonPropertyName("subjectStatus")]
@@ -412,7 +463,7 @@ public sealed class ModerationDetail
 /// <summary>
 /// Repo/account view with moderation context.
 /// </summary>
-public sealed class RepoView
+public sealed class RepoView : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
@@ -468,7 +519,7 @@ public sealed class RepoView
 /// <summary>
 /// Repo view detail with additional fields.
 /// </summary>
-public sealed class RepoViewDetail
+public sealed class RepoViewDetail : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]

@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Models;
+using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Moderation;
 
@@ -8,12 +10,36 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Moderation;
 // ──────────────────────────────────────────────────────────────
 
 /// <summary>
-/// The subject of a moderation report – can be a repo (account) or a record.
+/// The subject of a moderation report – can be a repo (account) or a record. A subject type this
+/// SDK does not model reads as <see cref="UnknownReportSubject"/>.
 /// </summary>
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
+[AtProtoUnion(typeof(UnknownReportSubject))]
 [JsonDerivedType(typeof(RepoSubject), "com.atproto.admin.defs#repoRef")]
 [JsonDerivedType(typeof(RecordSubject), "com.atproto.repo.strongRef")]
-public abstract class ReportSubject { }
+public abstract class ReportSubject : LexObject;
+
+/// <summary>
+/// A report subject whose <c>$type</c> this SDK version does not model. It keeps the raw object and
+/// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
+/// </summary>
+public sealed class UnknownReportSubject : ReportSubject, IUnknownUnionVariant
+{
+    /// <summary>Creates an unknown report subject from its discriminator and raw object.</summary>
+    /// <param name="type">The object's <c>$type</c>.</param>
+    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+    public UnknownReportSubject(string type, JsonElement raw)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(type);
+        Type = type;
+        Raw = UnknownUnionVariant.RequireObject(raw);
+    }
+
+    /// <inheritdoc/>
+    public string Type { get; }
+
+    /// <inheritdoc/>
+    public JsonElement Raw { get; }
+}
 
 /// <summary>
 /// A repository (account) subject for moderation reports.

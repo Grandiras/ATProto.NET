@@ -13,7 +13,7 @@ namespace ATProtoNet.Lexicon.App.Bsky.Graph;
 /// <summary>
 /// A follow record. Collection: app.bsky.graph.follow
 /// </summary>
-public sealed class FollowRecord
+public sealed class FollowRecord : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>app.bsky.graph.follow</c>).</summary>
     [JsonPropertyName("$type")]
@@ -31,7 +31,7 @@ public sealed class FollowRecord
 /// <summary>
 /// A block record. Collection: app.bsky.graph.block
 /// </summary>
-public sealed class BlockRecord
+public sealed class BlockRecord : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>app.bsky.graph.block</c>).</summary>
     [JsonPropertyName("$type")]
@@ -49,7 +49,7 @@ public sealed class BlockRecord
 /// <summary>
 /// A list record. Collection: app.bsky.graph.list
 /// </summary>
-public sealed class ListRecord
+public sealed class ListRecord : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>app.bsky.graph.list</c>).</summary>
     [JsonPropertyName("$type")]
@@ -87,7 +87,7 @@ public sealed class ListRecord
 /// <summary>
 /// A list item record. Collection: app.bsky.graph.listitem
 /// </summary>
-public sealed class ListItemRecord
+public sealed class ListItemRecord : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>app.bsky.graph.listitem</c>).</summary>
     [JsonPropertyName("$type")]
@@ -109,7 +109,7 @@ public sealed class ListItemRecord
 /// <summary>
 /// A list block record. Collection: app.bsky.graph.listblock
 /// </summary>
-public sealed class ListBlockRecord
+public sealed class ListBlockRecord : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>app.bsky.graph.listblock</c>).</summary>
     [JsonPropertyName("$type")]
@@ -150,7 +150,7 @@ public static class ListPurpose
 /// <summary>
 /// A list view.
 /// </summary>
-public sealed class ListView
+public sealed class ListView : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -204,7 +204,7 @@ public sealed class ListView
 /// <summary>
 /// Viewer state for a list.
 /// </summary>
-public sealed class ListViewerState
+public sealed class ListViewerState : LexObject
 {
     /// <summary>Whether the viewer has muted this list.</summary>
     [JsonPropertyName("muted")]
@@ -218,7 +218,7 @@ public sealed class ListViewerState
 /// <summary>
 /// A basic list view (less detail).
 /// </summary>
-public sealed class ListViewBasic
+public sealed class ListViewBasic : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -260,7 +260,7 @@ public sealed class ListViewBasic
 /// <summary>
 /// A list item view (a member of a list).
 /// </summary>
-public sealed class ListItemView
+public sealed class ListItemView : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -466,7 +466,7 @@ public sealed class MuteActorListRequest
 /// <summary>
 /// A starter pack record. Collection: app.bsky.graph.starterpack
 /// </summary>
-public sealed class StarterPackRecord
+public sealed class StarterPackRecord : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>app.bsky.graph.starterpack</c>).</summary>
     [JsonPropertyName("$type")]
@@ -500,7 +500,7 @@ public sealed class StarterPackRecord
 /// <summary>
 /// A feed item reference in a starter pack.
 /// </summary>
-public sealed class StarterPackFeedItem
+public sealed class StarterPackFeedItem : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -510,7 +510,7 @@ public sealed class StarterPackFeedItem
 /// <summary>
 /// Basic view of a starter pack.
 /// </summary>
-public sealed class StarterPackViewBasic
+public sealed class StarterPackViewBasic : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -554,7 +554,7 @@ public sealed class StarterPackViewBasic
 /// <summary>
 /// Full view of a starter pack.
 /// </summary>
-public sealed class StarterPackView
+public sealed class StarterPackView : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -610,7 +610,7 @@ public sealed class StarterPackView
 /// <summary>
 /// A relationship between two actors.
 /// </summary>
-public sealed class Relationship
+public sealed class Relationship : LexObject
 {
     /// <summary>The Lexicon type discriminator for this object.</summary>
     [JsonPropertyName("$type")]
@@ -636,7 +636,7 @@ public sealed class Relationship
 /// <summary>
 /// A "not found" actor placeholder in relationship responses.
 /// </summary>
-public sealed class NotFoundActor
+public sealed class NotFoundActor : LexObject
 {
     /// <summary>The Lexicon type discriminator for this object.</summary>
     [JsonPropertyName("$type")]

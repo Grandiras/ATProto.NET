@@ -11,7 +11,7 @@ namespace ATProtoNet.Lexicon.App.Bsky.Labeler;
 /// <summary>
 /// Record type for <c>app.bsky.labeler.service</c> — declares a labeler service.
 /// </summary>
-public sealed class LabelerServiceRecord
+public sealed class LabelerServiceRecord : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>app.bsky.labeler.service</c>).</summary>
     [JsonPropertyName("$type")]
@@ -29,7 +29,7 @@ public sealed class LabelerServiceRecord
 /// <summary>
 /// Policy configuration for a labeler service.
 /// </summary>
-public sealed class LabelerPolicies
+public sealed class LabelerPolicies : LexObject
 {
     /// <summary>The label values this labeler may publish.</summary>
     [JsonPropertyName("labelValues")]
@@ -43,7 +43,7 @@ public sealed class LabelerPolicies
 /// <summary>
 /// Custom label value definition published by a labeler.
 /// </summary>
-public sealed class LabelValueDefinition
+public sealed class LabelValueDefinition : LexObject
 {
     /// <summary>The label value identifier this definition describes.</summary>
     [JsonPropertyName("identifier")]
@@ -77,7 +77,7 @@ public sealed class LabelValueDefinition
 /// <summary>
 /// Localized name and description for a label value definition.
 /// </summary>
-public sealed class LabelValueDefinitionStrings
+public sealed class LabelValueDefinitionStrings : LexObject
 {
     /// <summary>The BCP-47 language tag these strings are in.</summary>
     [JsonPropertyName("lang")]
@@ -99,7 +99,7 @@ public sealed class LabelValueDefinitionStrings
 /// <summary>
 /// Detailed view of a labeler service.
 /// </summary>
-public sealed class LabelerViewDetailed
+public sealed class LabelerViewDetailed : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -137,7 +137,7 @@ public sealed class LabelerViewDetailed
 /// <summary>
 /// Basic view of a labeler service.
 /// </summary>
-public sealed class LabelerView
+public sealed class LabelerView : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -171,7 +171,7 @@ public sealed class LabelerView
 /// <summary>
 /// Viewer state for a labeler service.
 /// </summary>
-public sealed class LabelerViewerState
+public sealed class LabelerViewerState : LexObject
 {
     /// <summary>The AT-URI of the viewer's like record, if they have liked this.</summary>
     [JsonPropertyName("like")]

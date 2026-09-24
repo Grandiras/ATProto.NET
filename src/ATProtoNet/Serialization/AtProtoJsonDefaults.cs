@@ -11,18 +11,20 @@ namespace ATProtoNet.Serialization;
 public static class AtProtoJsonDefaults
 {
     /// <summary>
-    /// Gets the default JSON serializer options configured for AT Protocol data.
+    /// Gets the JSON serializer options every SDK client uses for AT Protocol data.
     /// </summary>
     /// <remarks>
+    /// <para>They carry the SDK's Lexicon semantics: <c>$type</c> is read wherever it appears in an
+    /// object, <see cref="AtProtoUnionAttribute"/> unions resolve their variants (including those
+    /// registered on <see cref="LexiconTypeRegistry.Instance"/>) and keep unrecognized ones, and
+    /// <see cref="Models.LexObject"/> models round-trip the fields they do not declare.</para>
+    /// <para>The instance is read-only. For different settings, copy it, which keeps all of the
+    /// above: <c>new JsonSerializerOptions(AtProtoJsonDefaults.Options) { WriteIndented = true }</c>.
+    /// To add a union variant, register it on <see cref="LexiconTypeRegistry.Instance"/> rather than
+    /// adding a converter.</para>
     /// <para>Initialized by the runtime's type initializer rather than a <c>??=</c> on first read:
     /// concurrent first calls could otherwise each build their own instance, and every
     /// <see cref="JsonSerializerOptions"/> carries its own reflection-derived contract cache.</para>
-    /// <para>The instance is deliberately <em>not</em> frozen here.
-    /// <see cref="JsonSerializer"/> calls <see cref="JsonSerializerOptions.MakeReadOnly()"/>
-    /// itself on first use, so pre-freezing would buy nothing but would break the startup-time
-    /// <c>AtProtoJsonDefaults.Options.Converters.Add(...)</c> that consumers can do today. Adding
-    /// to it after the SDK has serialized anything still throws, as it always has — prefer
-    /// passing your own <see cref="JsonSerializerOptions"/> to the client constructors.</para>
     /// </remarks>
     public static JsonSerializerOptions Options { get; } = CreateOptions();
 
@@ -52,9 +54,8 @@ public static class AtProtoJsonDefaults
     /// the documented way (<c>public override string Type => "com.example.todo.item";</c>) writes
     /// both <c>"$type"</c> (from the base member) and a stray <c>"type"</c> (from the override,
     /// renamed by the camelCase policy) — polluting records that other AT Protocol apps read.</para>
-    /// <para>This modifier is applied automatically by <see cref="Options"/> and by
-    /// <see cref="LexiconTypeRegistry.CreateOptions"/>. Add it to your own
-    /// <see cref="JsonSerializerOptions"/> if you build them from scratch:</para>
+    /// <para>This modifier is applied automatically by <see cref="Options"/> and by any copy of it.
+    /// Add it to your own <see cref="JsonSerializerOptions"/> if you build them from scratch:</para>
     /// <code>
     /// var options = new JsonSerializerOptions
     /// {
@@ -120,6 +121,7 @@ public static class AtProtoJsonDefaults
 
     private static JsonSerializerOptions CreateOptions()
     {
+        var registry = LexiconTypeRegistry.Instance;
         var options = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -127,32 +129,26 @@ public static class AtProtoJsonDefaults
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             WriteIndented = false,
             NumberHandling = JsonNumberHandling.AllowReadingFromString,
-            // The Bluesky appview (and real-world record writers) put "$type" anywhere in
-            // the object, not necessarily first — without this, every polymorphic union
-            // payload (embed views, record-internal unions) fails to deserialize (#50).
+            // The Bluesky appview (and real-world record writers) put "$type" anywhere in the
+            // object, not necessarily first (#50). [AtProtoUnion] bases find it themselves; this
+            // covers plain [JsonPolymorphic] types.
             AllowOutOfOrderMetadataProperties = true,
-            // AtProtoRecord subclasses would otherwise emit both "$type" (base member) and a
-            // stray "type" (the override, which does not inherit [JsonPropertyName]) (#49).
             TypeInfoResolver = new DefaultJsonTypeInfoResolver
             {
-                Modifiers = { ApplyRecordTypeDiscriminator },
+                Modifiers =
+                {
+                    // AtProtoRecord subclasses would otherwise emit both "$type" (base member) and
+                    // a stray "type" (the override, which does not inherit [JsonPropertyName]) (#49).
+                    ApplyRecordTypeDiscriminator,
+                    registry.ApplyUnionContracts,
+                },
             },
         };
 
         options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+        options.Converters.Add(new AtProtoUnionConverterFactory(registry));
+        options.MakeReadOnly();
 
         return options;
     }
 }
-
-/// <summary>
-/// Marker interface for AT Protocol union types.
-/// </summary>
-/// <remarks>
-/// This is a documentation marker only — it carries no serialization behaviour and is not
-/// required for a union to round-trip. Discriminated (de)serialization comes from
-/// <see cref="JsonPolymorphicAttribute"/> / <see cref="JsonDerivedTypeAttribute"/> on the union
-/// base, optionally extended at runtime through
-/// <see cref="LexiconTypeRegistry.RegisterUnionVariant{TBase, TDerived}(string)"/>.
-/// </remarks>
-public interface IAtProtoUnion;

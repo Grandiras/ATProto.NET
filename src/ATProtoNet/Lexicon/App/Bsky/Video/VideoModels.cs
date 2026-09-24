@@ -11,7 +11,7 @@ namespace ATProtoNet.Lexicon.App.Bsky.Video;
 /// <summary>
 /// The processing status of a video upload job.
 /// </summary>
-public sealed class JobStatus
+public sealed class JobStatus : LexObject
 {
     /// <summary>The identifier of the processing job.</summary>
     [JsonPropertyName("jobId")]

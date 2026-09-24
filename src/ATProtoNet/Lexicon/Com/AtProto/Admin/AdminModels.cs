@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Admin;
 
@@ -10,7 +11,7 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Admin;
 /// <summary>
 /// Detailed account information returned by admin endpoints.
 /// </summary>
-public sealed class AccountInfo
+public sealed class AccountInfo : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
@@ -68,7 +69,7 @@ public sealed class AccountInfo
 /// <summary>
 /// A threat signature associated with an account.
 /// </summary>
-public sealed class ThreatSignature
+public sealed class ThreatSignature : LexObject
 {
     /// <summary>The name of the account property the signature was derived from.</summary>
     [JsonPropertyName("property")]
@@ -118,7 +119,7 @@ public sealed class GetSubjectStatusResponse
 /// <summary>
 /// Detailed status information for a subject (takedown, deactivated, etc.).
 /// </summary>
-public sealed class SubjectStatusDetail
+public sealed class SubjectStatusDetail : LexObject
 {
     /// <summary>Whether the status is currently applied.</summary>
     [JsonPropertyName("applied")]

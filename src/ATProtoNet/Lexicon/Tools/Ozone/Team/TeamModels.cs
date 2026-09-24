@@ -1,11 +1,12 @@
 using System.Text.Json.Serialization;
+using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Team;
 
 /// <summary>
 /// A team member in the Ozone moderation service.
 /// </summary>
-public sealed class TeamMember
+public sealed class TeamMember : LexObject
 {
     /// <summary>The DID of the team member.</summary>
     [JsonPropertyName("did")]
@@ -39,7 +40,7 @@ public sealed class TeamMember
 /// <summary>
 /// Profile information for a team member.
 /// </summary>
-public sealed class TeamMemberProfile
+public sealed class TeamMemberProfile : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using ATProtoNet.Identity;
+using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Streaming;
 
@@ -320,7 +321,7 @@ public static class JetstreamEventParser
         {
             try
             {
-                blocks = Convert.FromBase64String(base64);
+                blocks = LexBase64.Decode(base64);
             }
             catch (FormatException)
             {

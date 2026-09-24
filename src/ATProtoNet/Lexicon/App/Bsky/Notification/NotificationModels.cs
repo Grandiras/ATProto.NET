@@ -12,7 +12,7 @@ namespace ATProtoNet.Lexicon.App.Bsky.Notification;
 /// <summary>
 /// A notification entry.
 /// </summary>
-public sealed class NotificationView
+public sealed class NotificationView : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]

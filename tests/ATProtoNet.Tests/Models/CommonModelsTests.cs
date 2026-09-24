@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ATProtoNet.Lexicon.Com.AtProto.Label;
 using ATProtoNet.Models;
 using ATProtoNet.Serialization;
 
@@ -133,6 +134,44 @@ public class CommonModelsTests
         Assert.DoesNotContain("\"exp\"", json);
         Assert.DoesNotContain("\"sig\"", json);
         Assert.DoesNotContain("\"cid\"", json);
+    }
+
+    // The shape com.atproto.label.queryLabels returns from mod.bsky.app: every label is signed,
+    // and the 64-byte signature is a Lexicon bytes value with unpadded base64.
+    private const string SignedLabelsJson =
+        """
+        {"cursor":"1","labels":[{"ver":1,"src":"did:plc:ar7c4by46qjdydhdevvrndac","uri":"did:plc:x2ptifqmpdbncpfbwxgfvl5c","val":"!hide","neg":false,"cts":"2024-05-29T19:21:44.113Z","sig":{"$bytes":"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+Pw"}}]}
+        """;
+
+    [Fact]
+    public void Label_SignedLabelFromQueryLabels_DeserializesSignature()
+    {
+        var response = JsonSerializer.Deserialize<QueryLabelsResponse>(SignedLabelsJson, _options)!;
+
+        var label = Assert.Single(response.Labels);
+        Assert.Equal("!hide", label.Val);
+        Assert.Equal(Enumerable.Range(0, 64).Select(i => (byte)i), label.Sig!);
+    }
+
+    [Fact]
+    public void Label_Signature_SerializesAsUnpaddedBytesObject()
+    {
+        var label = new Label
+        {
+            Src = "did:plc:labeler",
+            Uri = "at://did:plc:abc",
+            Val = "spam",
+            Cts = "2024-01-01T00:00:00.000Z",
+            Sig = [0xde, 0xad, 0xbe, 0xef],
+        };
+
+        var json = JsonSerializer.Serialize(label, _options);
+
+        using var doc = JsonDocument.Parse(json);
+        var sig = doc.RootElement.GetProperty("sig");
+        Assert.Equal("3q2+7w", sig.GetProperty("$bytes").GetString());
+        Assert.Single(sig.EnumerateObject());
+        Assert.Equal(label.Sig, JsonSerializer.Deserialize<Label>(json, _options)!.Sig);
     }
 }
 

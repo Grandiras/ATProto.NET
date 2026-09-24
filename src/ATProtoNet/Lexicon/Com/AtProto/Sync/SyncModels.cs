@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Sync;
 
@@ -100,7 +101,7 @@ public sealed class ListBlobsResponse
 /// <summary>
 /// A single repo entry from listRepos.
 /// </summary>
-public sealed class RepoInfo
+public sealed class RepoInfo : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
@@ -206,7 +207,7 @@ public sealed class GetRepoStatusResponse
 /// <summary>
 /// Information about an upstream host (PDS or relay) consumed by a relay.
 /// </summary>
-public sealed class HostInfo
+public sealed class HostInfo : LexObject
 {
     /// <summary>
     /// Hostname of the server (not a URL, no scheme).
@@ -289,7 +290,7 @@ public sealed class GetHostStatusResponse
 /// <summary>
 /// A repo entry from listReposByCollection (DID only).
 /// </summary>
-public sealed class CollectionRepoInfo
+public sealed class CollectionRepoInfo : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]

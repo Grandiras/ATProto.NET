@@ -72,7 +72,7 @@ All events carry:
 
 `JetstreamIdentityEvent`, `JetstreamAccountEvent`, and `JetstreamSyncEvent` also expose the *upstream* relay's `Seq` and `Time`, which are distinct from Jetstream's own `Cursor` and `TimeUs`.
 
-Typed record access uses the SDK's serialization defaults, including types registered in `LexiconTypeRegistry`:
+Typed record access uses the SDK's serialization defaults (`AtProtoJsonDefaults.Options`), including union variants registered in `LexiconTypeRegistry`:
 
 ```csharp
 if (evt is JetstreamCommitEvent { Operation: not JetstreamOperation.Delete } commit)

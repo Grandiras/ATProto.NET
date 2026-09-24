@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using ATProtoNet.Identity;
+using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Models;
 
@@ -68,7 +69,7 @@ public sealed class CidLink
 /// A strong reference to a specific record, including both URI and CID.
 /// This is used when you need to reference a specific version of a record.
 /// </summary>
-public sealed class StrongRef
+public sealed class StrongRef : LexObject
 {
     /// <summary>
     /// The AT URI of the record.
@@ -86,7 +87,7 @@ public sealed class StrongRef
 /// <summary>
 /// Represents labels applied to content for moderation/classification.
 /// </summary>
-public sealed class Label
+public sealed class Label : LexObject
 {
     /// <summary>
     /// The version of the label format.
@@ -137,9 +138,11 @@ public sealed class Label
     public string? Exp { get; init; }
 
     /// <summary>
-    /// Signature of the label, as bytes.
+    /// Signature of the label, as bytes. On the wire it is a Lexicon <c>bytes</c> value,
+    /// <c>{"$bytes": "…"}</c>.
     /// </summary>
     [JsonPropertyName("sig")]
+    [JsonConverter(typeof(LexBytesJsonConverter))]
     public byte[]? Sig { get; init; }
 }
 

@@ -84,10 +84,11 @@ public class RecordTypeDiscriminatorTests
     }
 
     [Fact]
-    public void Serialize_ThroughTypeRegistryOptions_WritesDollarTypeAndNoStrayType()
+    public void Serialize_ThroughCopiedOptions_WritesDollarTypeAndNoStrayType()
     {
         var json = SerializeToObject(
-            (object)new TodoItem { Title = "Buy milk" }, LexiconTypeRegistry.Instance.CreateOptions());
+            (object)new TodoItem { Title = "Buy milk" },
+            new JsonSerializerOptions(AtProtoJsonDefaults.Options) { WriteIndented = true });
 
         Assert.Equal("com.example.todo.item", (string?)json["$type"]);
         Assert.False(json.ContainsKey("type"));

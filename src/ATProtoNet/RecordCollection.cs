@@ -3,6 +3,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
+using ATProtoNet.Lexicon.Com.AtProto.Repo;
+using ATProtoNet.Models;
 using ATProtoNet.Serialization;
 
 namespace ATProtoNet;
@@ -11,6 +13,12 @@ namespace ATProtoNet;
 /// Base class for custom AT Protocol record types.
 /// Extend this to define your own Lexicon record schemas.
 /// </summary>
+/// <remarks>
+/// Fields a record carries but your class does not declare, such as those added by a newer
+/// revision of the Lexicon or by another app, are kept in <see cref="LexObject.ExtensionData"/>
+/// and written back by <see cref="RecordCollection{T}.PutAsync"/>, so a read-modify-write does
+/// not drop them.
+/// </remarks>
 /// <example>
 /// <code>
 /// public class TodoItem : AtProtoRecord
@@ -29,7 +37,7 @@ namespace ATProtoNet;
 /// }
 /// </code>
 /// </example>
-public abstract class AtProtoRecord
+public abstract class AtProtoRecord : LexObject
 {
     /// <summary>
     /// The Lexicon type identifier (NSID#name) for this record.

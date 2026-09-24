@@ -148,6 +148,16 @@ public class JetstreamV2EventParserTests
     }
 
     [Fact]
+    public void ParseFrame_Sync_UnpaddedBytes_DecodesBlocks()
+    {
+        // The data model specifies unpadded base64, which Convert.FromBase64String rejects alone.
+        var sync = Assert.IsType<JetstreamSyncEvent>(
+            Parse(SyncJson.Replace("emVyb0NBUg==", "emVyb0NBUg")).Event);
+
+        Assert.Equal("zeroCAR", Encoding.UTF8.GetString(sync.Blocks!));
+    }
+
+    [Fact]
     public void ParseFrame_Sync_UndecodableBlocks_StillDeliversEvent()
     {
         // The DID and rev are enough to trigger a resync even when the CAR is unusable.

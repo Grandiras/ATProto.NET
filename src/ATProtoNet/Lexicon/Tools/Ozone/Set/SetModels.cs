@@ -1,11 +1,12 @@
 using System.Text.Json.Serialization;
+using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Set;
 
 /// <summary>
 /// A named set of values used for moderation rules.
 /// </summary>
-public sealed class OzoneSetView
+public sealed class OzoneSetView : LexObject
 {
     /// <summary>The name of the set.</summary>
     [JsonPropertyName("name")]

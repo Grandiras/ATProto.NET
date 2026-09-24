@@ -1,11 +1,12 @@
 using System.Text.Json.Serialization;
+using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Chat.Bsky.Actor;
 
 /// <summary>
 /// Record type for chat.bsky.actor.declaration — declares chat preferences.
 /// </summary>
-public sealed class ChatDeclarationRecord
+public sealed class ChatDeclarationRecord : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>chat.bsky.actor.declaration</c>).</summary>
     [JsonPropertyName("$type")]

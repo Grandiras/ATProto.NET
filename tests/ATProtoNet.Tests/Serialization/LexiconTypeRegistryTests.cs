@@ -1,169 +1,162 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Models;
 using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Tests.Serialization;
 
 // ── Test Types ────────────────────────────────────────────────
+// The registry is process-wide, so every base here is private to these tests.
 
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
+[AtProtoUnion(typeof(UnknownRegistryTestUnion))]
 [JsonDerivedType(typeof(BuiltInVariant), "com.example.builtIn")]
-public abstract class TestUnionBase;
+public abstract class RegistryTestUnion : LexObject;
 
-public sealed class BuiltInVariant : TestUnionBase
+public sealed class BuiltInVariant : RegistryTestUnion
 {
     [JsonPropertyName("value")]
     public string Value { get; init; } = "";
 }
 
-public sealed class PluginVariant : TestUnionBase
+public sealed class PluginVariant : RegistryTestUnion
 {
     [JsonPropertyName("custom")]
     public string Custom { get; init; } = "";
 }
 
-public sealed class TestRecord
-{
-    [JsonPropertyName("$type")]
-    public string Type => "com.example.test.record";
+public sealed class ConflictingVariant : RegistryTestUnion;
 
-    [JsonPropertyName("name")]
-    public required string Name { get; init; }
+public sealed class UnknownRegistryTestUnion(string type, JsonElement raw) : RegistryTestUnion, IUnknownUnionVariant
+{
+    public string Type { get; } = type;
+
+    public JsonElement Raw { get; } = raw;
 }
 
-public sealed class AnotherRecord
-{
-    [JsonPropertyName("$type")]
-    public string Type => "com.example.test.another";
+[AtProtoUnion(typeof(UnknownPluginTestUnion))]
+public abstract class PluginTestUnion : LexObject;
 
-    [JsonPropertyName("count")]
-    public int Count { get; init; }
+public sealed class PluginTestVariant : PluginTestUnion;
+
+public sealed class UnknownPluginTestUnion(string type, JsonElement raw) : PluginTestUnion, IUnknownUnionVariant
+{
+    public string Type { get; } = type;
+
+    public JsonElement Raw { get; } = raw;
 }
+
+public abstract class NotAUnion;
+
+public sealed class NotAUnionVariant : NotAUnion;
+
+// Open without naming its unknown variant: a declaration error.
+[AtProtoUnion]
+public abstract class MisdeclaredUnion;
 
 // ── Test Plugin ───────────────────────────────────────────────
 
 public sealed class TestLexiconPlugin : ILexiconPlugin
 {
     public void Register(ILexiconTypeRegistrar registrar)
-    {
-        registrar.RegisterRecordType<TestRecord>("com.example.test.record");
-        registrar.RegisterRecordType<AnotherRecord>("com.example.test.another");
-        registrar.RegisterUnionVariant<TestUnionBase, PluginVariant>("com.example.plugin");
-    }
+        => registrar.RegisterUnionVariant<PluginTestUnion, PluginTestVariant>("com.example.pluginVariant");
 }
 
 // ── Tests ─────────────────────────────────────────────────────
 
 public class LexiconTypeRegistryTests
 {
-    [Fact]
-    public void RegisterRecordType_StoresType()
-    {
-        var registry = new LexiconTypeRegistry();
-        registry.RegisterRecordType<TestRecord>("com.example.test.record");
-
-        Assert.Equal(typeof(TestRecord), registry.GetRecordType("com.example.test.record"));
-    }
-
-    [Fact]
-    public void GetRecordType_UnknownNsid_ReturnsNull()
-    {
-        var registry = new LexiconTypeRegistry();
-        Assert.Null(registry.GetRecordType("com.example.nonexistent"));
-    }
+    private static LexiconTypeRegistry Registry => LexiconTypeRegistry.Instance;
 
     [Fact]
     public void RegisterUnionVariant_AddsVariant()
     {
-        var registry = new LexiconTypeRegistry();
-        registry.RegisterUnionVariant<TestUnionBase, PluginVariant>("com.example.plugin");
+        Registry.RegisterUnionVariant<RegistryTestUnion, PluginVariant>("com.example.plugin");
 
-        var variants = registry.GetUnionVariants(typeof(TestUnionBase));
-        Assert.Single(variants);
-        Assert.Equal("com.example.plugin", variants[0].Discriminator);
-        Assert.Equal(typeof(PluginVariant), variants[0].DerivedType);
+        var variant = Assert.Single(Registry.GetUnionVariants(typeof(RegistryTestUnion)));
+        Assert.Equal("com.example.plugin", variant.Discriminator);
+        Assert.Equal(typeof(PluginVariant), variant.DerivedType);
+    }
+
+    [Fact]
+    public void RegisterUnionVariant_SameRegistrationTwice_IsIdempotent()
+    {
+        Registry.RegisterUnionVariant<RegistryTestUnion, PluginVariant>("com.example.plugin");
+        Registry.RegisterUnionVariant<RegistryTestUnion, PluginVariant>("com.example.plugin");
+
+        Assert.Single(Registry.GetUnionVariants(typeof(RegistryTestUnion)));
+    }
+
+    [Fact]
+    public void RegisterUnionVariant_DiscriminatorTakenByAnotherVariant_Throws()
+    {
+        Registry.RegisterUnionVariant<RegistryTestUnion, PluginVariant>("com.example.plugin");
+
+        Assert.Throws<ArgumentException>(
+            () => Registry.RegisterUnionVariant<RegistryTestUnion, ConflictingVariant>("com.example.plugin"));
+        Assert.Throws<ArgumentException>(
+            () => Registry.RegisterUnionVariant<RegistryTestUnion, ConflictingVariant>("com.example.builtIn"));
+    }
+
+    [Fact]
+    public void RegisterUnionVariant_BaseThatIsNotAUnion_Throws()
+    {
+        Assert.Throws<ArgumentException>(
+            () => Registry.RegisterUnionVariant<NotAUnion, NotAUnionVariant>("com.example.notAUnion"));
+    }
+
+    [Fact]
+    public void RegisterUnionVariant_EmptyDiscriminator_Throws()
+    {
+        Assert.Throws<ArgumentException>(
+            () => Registry.RegisterUnionVariant<RegistryTestUnion, PluginVariant>(""));
     }
 
     [Fact]
     public void LoadPlugin_InvokesRegister()
     {
-        var registry = new LexiconTypeRegistry();
-        registry.LoadPlugin<TestLexiconPlugin>();
+        Registry.LoadPlugin<TestLexiconPlugin>();
 
-        Assert.Equal(typeof(TestRecord), registry.GetRecordType("com.example.test.record"));
-        Assert.Equal(typeof(AnotherRecord), registry.GetRecordType("com.example.test.another"));
-        Assert.Single(registry.GetUnionVariants(typeof(TestUnionBase)));
+        var variant = Assert.Single(Registry.GetUnionVariants(typeof(PluginTestUnion)));
+        Assert.Equal(typeof(PluginTestVariant), variant.DerivedType);
+        Assert.IsType<PluginTestVariant>(JsonSerializer.Deserialize<PluginTestUnion>(
+            """{"$type":"com.example.pluginVariant"}""", AtProtoJsonDefaults.Options));
     }
 
     [Fact]
-    public void CreateOptions_DeserializesBuiltInVariant()
+    public void GetUnionVariants_DoesNotListDeclaredVariants()
     {
-        var registry = new LexiconTypeRegistry();
-        var options = registry.CreateOptions();
-
-        var json = """{"$type":"com.example.builtIn","value":"test"}""";
-        var result = JsonSerializer.Deserialize<TestUnionBase>(json, options);
-
-        Assert.IsType<BuiltInVariant>(result);
-        Assert.Equal("test", ((BuiltInVariant)result).Value);
+        Assert.DoesNotContain(Registry.GetUnionVariants(typeof(RegistryTestUnion)),
+            v => v.DerivedType == typeof(BuiltInVariant));
+        Assert.Empty(Registry.GetUnionVariants(typeof(NotAUnion)));
     }
 
     [Fact]
-    public void CreateOptions_DeserializesPluginVariant()
+    public void DefaultOptions_DeserializeDeclaredVariant()
     {
-        var registry = new LexiconTypeRegistry();
-        registry.RegisterUnionVariant<TestUnionBase, PluginVariant>("com.example.plugin");
-        var options = registry.CreateOptions();
+        var result = JsonSerializer.Deserialize<RegistryTestUnion>(
+            """{"$type":"com.example.builtIn","value":"test"}""", AtProtoJsonDefaults.Options);
 
-        var json = """{"$type":"com.example.plugin","custom":"hello"}""";
-        var result = JsonSerializer.Deserialize<TestUnionBase>(json, options);
-
-        Assert.IsType<PluginVariant>(result);
-        Assert.Equal("hello", ((PluginVariant)result).Custom);
+        Assert.Equal("test", Assert.IsType<BuiltInVariant>(result).Value);
     }
 
     [Fact]
-    public void CreateOptions_SerializesPluginVariant()
+    public void DefaultOptions_RoundTripRegisteredVariant()
     {
-        var registry = new LexiconTypeRegistry();
-        registry.RegisterUnionVariant<TestUnionBase, PluginVariant>("com.example.plugin");
-        var options = registry.CreateOptions();
+        Registry.RegisterUnionVariant<RegistryTestUnion, PluginVariant>("com.example.plugin");
 
-        TestUnionBase obj = new PluginVariant { Custom = "world" };
-        var json = JsonSerializer.Serialize(obj, options);
+        var json = JsonSerializer.Serialize<RegistryTestUnion>(new PluginVariant { Custom = "world" }, AtProtoJsonDefaults.Options);
 
-        Assert.Contains("\"$type\":\"com.example.plugin\"", json);
-        Assert.Contains("\"custom\":\"world\"", json);
+        Assert.Equal("""{"$type":"com.example.plugin","custom":"world"}""", json);
+        Assert.Equal("world", Assert.IsType<PluginVariant>(
+            JsonSerializer.Deserialize<RegistryTestUnion>(json, AtProtoJsonDefaults.Options)).Custom);
     }
 
     [Fact]
-    public void RecordTypes_ReturnsAllRegistered()
+    public void OpenUnionWithoutUnknownVariant_IsRejectedWhenFirstUsed()
     {
-        var registry = new LexiconTypeRegistry();
-        registry.RegisterRecordType<TestRecord>("com.example.test.record");
-        registry.RegisterRecordType<AnotherRecord>("com.example.test.another");
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => JsonSerializer.Deserialize<MisdeclaredUnion>("""{"$type":"x"}""", AtProtoJsonDefaults.Options));
 
-        Assert.Equal(2, registry.RecordTypes.Count);
-    }
-
-    [Fact]
-    public void LoadPluginsFromAssembly_FindsAttributedPlugins()
-    {
-        // This test verifies the scanning works — even if no plugins, no error
-        var registry = new LexiconTypeRegistry();
-        registry.LoadPluginsFromAssembly(typeof(LexiconTypeRegistryTests).Assembly);
-
-        // The test assembly doesn't have [assembly: LexiconPlugin] so nothing is registered
-        Assert.Empty(registry.RecordTypes);
-    }
-
-    [Fact]
-    public void RegisterRecordType_OverwritesPrevious()
-    {
-        var registry = new LexiconTypeRegistry();
-        registry.RegisterRecordType<TestRecord>("com.example.test.record");
-        registry.RegisterRecordType<AnotherRecord>("com.example.test.record");
-
-        Assert.Equal(typeof(AnotherRecord), registry.GetRecordType("com.example.test.record"));
+        Assert.Contains("Closed = true", ex.Message);
     }
 }

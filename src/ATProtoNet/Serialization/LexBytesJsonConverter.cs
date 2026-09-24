@@ -27,7 +27,7 @@ public sealed class LexBytesJsonConverter : JsonConverter<byte[]>
                 return null;
 
             case JsonTokenType.String:
-                return DecodeBase64(reader.GetString()!);
+                return LexBase64.Decode(reader.GetString()!);
 
             case JsonTokenType.StartObject:
                 break;
@@ -44,7 +44,7 @@ public sealed class LexBytesJsonConverter : JsonConverter<byte[]>
             {
                 return base64 is null
                     ? throw new JsonException("Lexicon bytes object is missing its \"$bytes\" property.")
-                    : DecodeBase64(base64);
+                    : LexBase64.Decode(base64);
             }
 
             if (reader.TokenType != JsonTokenType.PropertyName)
@@ -78,12 +78,5 @@ public sealed class LexBytesJsonConverter : JsonConverter<byte[]>
         writer.WriteStartObject();
         writer.WriteString("$bytes"u8, Convert.ToBase64String(value).TrimEnd('='));
         writer.WriteEndObject();
-    }
-
-    private static byte[] DecodeBase64(string value)
-    {
-        // The AT Protocol emits unpadded base64; Convert.FromBase64String requires padding.
-        var padding = (4 - (value.Length % 4)) % 4;
-        return Convert.FromBase64String(padding == 0 ? value : value + new string('=', padding));
     }
 }

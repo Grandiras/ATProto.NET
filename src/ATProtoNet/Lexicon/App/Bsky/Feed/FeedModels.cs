@@ -4,6 +4,7 @@ using ATProtoNet.Lexicon.App.Bsky.Actor;
 using ATProtoNet.Lexicon.App.Bsky.Embed;
 using ATProtoNet.Lexicon.App.Bsky.RichText;
 using ATProtoNet.Models;
+using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Feed;
 
@@ -15,7 +16,7 @@ namespace ATProtoNet.Lexicon.App.Bsky.Feed;
 /// A Bluesky post record stored in the repository.
 /// Collection: app.bsky.feed.post
 /// </summary>
-public sealed class PostRecord
+public sealed class PostRecord : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>app.bsky.feed.post</c>).</summary>
     [JsonPropertyName("$type")]
@@ -57,7 +58,7 @@ public sealed class PostRecord
 /// <summary>
 /// Reply reference linking to parent and root posts.
 /// </summary>
-public sealed class ReplyRef
+public sealed class ReplyRef : LexObject
 {
     /// <summary>The root post of the thread.</summary>
     [JsonPropertyName("root")]
@@ -71,7 +72,7 @@ public sealed class ReplyRef
 /// <summary>
 /// Self-applied content labels for a post.
 /// </summary>
-public sealed class SelfLabels
+public sealed class SelfLabels : LexObject
 {
     /// <summary>
     /// The Lexicon type discriminator (<c>com.atproto.label.defs#selfLabels</c>).
@@ -87,7 +88,7 @@ public sealed class SelfLabels
 /// <summary>
 /// A single self-label value.
 /// </summary>
-public sealed class SelfLabelValue
+public sealed class SelfLabelValue : LexObject
 {
     /// <summary>The label value.</summary>
     [JsonPropertyName("val")]
@@ -101,7 +102,7 @@ public sealed class SelfLabelValue
 /// <summary>
 /// A like record. Collection: app.bsky.feed.like
 /// </summary>
-public sealed class LikeRecord
+public sealed class LikeRecord : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>app.bsky.feed.like</c>).</summary>
     [JsonPropertyName("$type")]
@@ -123,7 +124,7 @@ public sealed class LikeRecord
 /// <summary>
 /// A repost record. Collection: app.bsky.feed.repost
 /// </summary>
-public sealed class RepostRecord
+public sealed class RepostRecord : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>app.bsky.feed.repost</c>).</summary>
     [JsonPropertyName("$type")]
@@ -146,7 +147,7 @@ public sealed class RepostRecord
 /// A threadgate record that controls who can reply to a thread.
 /// Collection: app.bsky.feed.threadgate
 /// </summary>
-public sealed class ThreadgateRecord
+public sealed class ThreadgateRecord : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>app.bsky.feed.threadgate</c>).</summary>
     [JsonPropertyName("$type")]
@@ -176,7 +177,7 @@ public sealed class ThreadgateRecord
 /// A postgate record that controls embedding/quoting of a post.
 /// Collection: app.bsky.feed.postgate
 /// </summary>
-public sealed class PostgateRecord
+public sealed class PostgateRecord : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>app.bsky.feed.postgate</c>).</summary>
     [JsonPropertyName("$type")]
@@ -206,7 +207,7 @@ public sealed class PostgateRecord
 /// <summary>
 /// A feed generator record. Collection: app.bsky.feed.generator
 /// </summary>
-public sealed class GeneratorRecord
+public sealed class GeneratorRecord : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>app.bsky.feed.generator</c>).</summary>
     [JsonPropertyName("$type")]
@@ -252,7 +253,7 @@ public sealed class GeneratorRecord
 /// <summary>
 /// A full post view as returned by feed endpoints.
 /// </summary>
-public sealed class PostView
+public sealed class PostView : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -310,7 +311,7 @@ public sealed class PostView
 /// <summary>
 /// Viewer state for a post (like/repost status).
 /// </summary>
-public sealed class PostViewerState
+public sealed class PostViewerState : LexObject
 {
     /// <summary>AT-URI of the viewer's like record, if liked.</summary>
     [JsonPropertyName("like")]
@@ -340,7 +341,7 @@ public sealed class PostViewerState
 /// <summary>
 /// A feed view item wrapping a post with optional reason (repost).
 /// </summary>
-public sealed class FeedViewPost
+public sealed class FeedViewPost : LexObject
 {
     /// <summary>The post.</summary>
     [JsonPropertyName("post")]
@@ -364,7 +365,7 @@ public sealed class FeedViewPost
 /// <summary>
 /// Reply context within a feed view.
 /// </summary>
-public sealed class FeedReplyRef
+public sealed class FeedReplyRef : LexObject
 {
     /// <summary>The root post of the thread.</summary>
     [JsonPropertyName("root")]
@@ -384,13 +385,38 @@ public sealed class FeedReplyRef
 // ──────────────────────────────────────────────────────────────
 
 /// <summary>
-/// A thread view node.
+/// A thread view node (the open union behind <c>app.bsky.feed.getPostThread#thread</c> and a
+/// thread post's <c>parent</c> and <c>replies</c>). A node type this SDK does not model reads as
+/// <see cref="UnknownThreadNode"/>.
 /// </summary>
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
+[AtProtoUnion(typeof(UnknownThreadNode))]
 [JsonDerivedType(typeof(ThreadViewPost), "app.bsky.feed.defs#threadViewPost")]
 [JsonDerivedType(typeof(NotFoundPost), "app.bsky.feed.defs#notFoundPost")]
 [JsonDerivedType(typeof(BlockedPost), "app.bsky.feed.defs#blockedPost")]
-public abstract class ThreadNode { }
+public abstract class ThreadNode : LexObject;
+
+/// <summary>
+/// A thread node whose <c>$type</c> this SDK version does not model. It keeps the raw object and
+/// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
+/// </summary>
+public sealed class UnknownThreadNode : ThreadNode, IUnknownUnionVariant
+{
+    /// <summary>Creates an unknown thread node from its discriminator and raw object.</summary>
+    /// <param name="type">The object's <c>$type</c>.</param>
+    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+    public UnknownThreadNode(string type, JsonElement raw)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(type);
+        Type = type;
+        Raw = UnknownUnionVariant.RequireObject(raw);
+    }
+
+    /// <inheritdoc/>
+    public string Type { get; }
+
+    /// <inheritdoc/>
+    public JsonElement Raw { get; }
+}
 
 /// <summary>
 /// A post in a thread tree.
@@ -451,7 +477,7 @@ public sealed class BlockedPost : ThreadNode
 /// <summary>
 /// A feed generator view.
 /// </summary>
-public sealed class GeneratorView
+public sealed class GeneratorView : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -509,7 +535,7 @@ public sealed class GeneratorView
 /// <summary>
 /// Viewer state for a feed generator.
 /// </summary>
-public sealed class GeneratorViewerState
+public sealed class GeneratorViewerState : LexObject
 {
     /// <summary>The AT-URI of the viewer's like record, if they have liked this.</summary>
     [JsonPropertyName("like")]
@@ -589,7 +615,7 @@ public sealed class GetLikesResponse
 /// <summary>
 /// A single like info entry.
 /// </summary>
-public sealed class LikeInfo
+public sealed class LikeInfo : LexObject
 {
     /// <summary>Timestamp at which the app view indexed this data (ISO 8601).</summary>
     [JsonPropertyName("indexedAt")]
@@ -758,7 +784,7 @@ public sealed class DescribeFeedGeneratorResponse
 /// <summary>
 /// Feed description within describeFeedGenerator.
 /// </summary>
-public sealed class DescribeFeedGeneratorFeed
+public sealed class DescribeFeedGeneratorFeed : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -785,7 +811,7 @@ public sealed class GetFeedSkeletonResponse
 /// <summary>
 /// A skeleton feed post (just a URI reference, used by feed generators).
 /// </summary>
-public sealed class SkeletonFeedPost
+public sealed class SkeletonFeedPost : LexObject
 {
     /// <summary>The AT-URI of the post.</summary>
     [JsonPropertyName("post")]

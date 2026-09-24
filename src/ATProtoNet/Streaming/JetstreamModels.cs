@@ -392,13 +392,13 @@ public sealed class JetstreamCommitEvent : JetstreamEvent
     public AtUri Uri => _uri ??= AtUri.Parse($"at://{Did}/{Collection}/{RKey}");
 
     /// <summary>
-    /// Deserialize the record body as <typeparamref name="T"/> using the SDK's
-    /// serialization defaults, including types registered in <see cref="LexiconTypeRegistry"/>.
-    /// Returns null for delete operations.
+    /// Deserialize the record body as <typeparamref name="T"/> using
+    /// <see cref="AtProtoJsonDefaults.Options"/>, including union variants registered in
+    /// <see cref="LexiconTypeRegistry"/>. Returns null for delete operations.
     /// </summary>
     public T? GetRecord<T>() where T : class
         => Record is { } record
-            ? record.Deserialize<T>(LexiconTypeRegistry.Instance.CreateOptions())
+            ? record.Deserialize<T>(AtProtoJsonDefaults.Options)
             : null;
 }
 

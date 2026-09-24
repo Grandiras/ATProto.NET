@@ -1,11 +1,12 @@
 using System.Text.Json.Serialization;
+using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Signature;
 
 /// <summary>
 /// A signature correlation result.
 /// </summary>
-public sealed class SigDetail
+public sealed class SigDetail : LexObject
 {
     /// <summary>The name of the account property the signature was derived from.</summary>
     [JsonPropertyName("property")]
@@ -19,7 +20,7 @@ public sealed class SigDetail
 /// <summary>
 /// An account with associated signatures.
 /// </summary>
-public sealed class AccountResult
+public sealed class AccountResult : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
@@ -37,7 +38,7 @@ public sealed class AccountResult
 /// <summary>
 /// A related account.
 /// </summary>
-public sealed class RelatedAccount
+public sealed class RelatedAccount : LexObject
 {
     /// <summary>The related account.</summary>
     [JsonPropertyName("account")]

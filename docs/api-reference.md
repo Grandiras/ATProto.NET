@@ -73,7 +73,7 @@ The main entry point. Created via `AtProtoClientBuilder` or direct construction.
 | `FollowAsync(did)` | Follow an actor |
 | `UnfollowAsync(followUri)` | Unfollow an actor |
 | `DeletePostAsync(postUri)` | Delete a post |
-| `UpdateProfileAsync(displayName?, description?, avatar?, banner?)` | Update profile |
+| `UpdateProfileAsync(update)` | Read-modify-write the profile record (`p => p.DisplayName = "x"`); keeps every other field and retries on a concurrent edit |
 
 ---
 

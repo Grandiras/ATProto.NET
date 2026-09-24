@@ -908,51 +908,85 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     }
 
     /// <summary>
-    /// Update the authenticated user's profile.
+    /// Update the authenticated user's profile: read the current record, let
+    /// <paramref name="update"/> edit it, and write it back.
     /// </summary>
-    /// <param name="displayName">New display name (null = no change).</param>
-    /// <param name="description">New description/bio (null = no change).</param>
-    /// <param name="avatar">New avatar blob (null = no change).</param>
-    /// <param name="banner">New banner blob (null = no change).</param>
+    /// <param name="update">
+    /// Edits the current profile in place, for example <c>p =&gt; p.DisplayName = "Alice"</c>.
+    /// Setting a property to <see langword="null"/> removes the field. It may run more than once
+    /// (see remarks), each time on a freshly read record.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task UpdateProfileAsync(
-        string? displayName = null,
-        string? description = null,
-        BlobRef? avatar = null,
-        BlobRef? banner = null,
+    /// <returns>A reference to the written profile record.</returns>
+    /// <remarks>
+    /// <para>Every field <paramref name="update"/> leaves alone is written back unchanged,
+    /// including fields this SDK version does not model (kept in
+    /// <see cref="LexObject.ExtensionData"/>).</para>
+    /// <para>The write is guarded by <c>swapRecord</c>, so a concurrent edit from another client is
+    /// never silently overwritten. If one lands between the read and the write, the whole
+    /// read-edit-write is retried, up to three attempts in total, after which the
+    /// <c>InvalidSwap</c> <see cref="AtProtoHttpException"/> is rethrown. When the account has no
+    /// profile yet, <paramref name="update"/> receives an empty record with <c>createdAt</c> set,
+    /// and the write carries no swap guard.</para>
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">The client is not authenticated.</exception>
+    public async Task<RecordRef> UpdateProfileAsync(
+        Action<ProfileRecord> update,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(update);
         EnsureAuthenticated();
+        var did = _session!.Did;
 
-        // Read current profile record
-        GetRecordResponse? existing = null;
+        for (var attempt = 1; ; attempt++)
+        {
+            var (profile, cid) = await GetProfileRecordAsync(did, cancellationToken);
+            update(profile);
+
+            try
+            {
+                var written = await Repo.PutRecordAsync(
+                    did, ProfileCollection, ProfileRecordKey, profile,
+                    swapRecord: cid,
+                    cancellationToken: cancellationToken);
+
+                return RecordRef.From(written.Uri, written.Cid);
+            }
+            catch (AtProtoHttpException ex) when (ex.ErrorType == "InvalidSwap"
+                                                   && attempt < MaxProfileUpdateAttempts)
+            {
+                _logger.LogDebug(
+                    "Profile changed concurrently (attempt {Attempt} of {Max}); re-reading",
+                    attempt, MaxProfileUpdateAttempts);
+            }
+        }
+    }
+
+    private const string ProfileCollection = "app.bsky.actor.profile";
+    private const string ProfileRecordKey = "self";
+    private const int MaxProfileUpdateAttempts = 3;
+
+    /// <summary>
+    /// Reads the account's profile record and the CID to swap against, or a fresh record and
+    /// <see langword="null"/> when there is none.
+    /// </summary>
+    private async Task<(ProfileRecord Profile, string? Cid)> GetProfileRecordAsync(
+        string did, CancellationToken cancellationToken)
+    {
         try
         {
-            existing = await Repo.GetRecordAsync(
-                _session!.Did, "app.bsky.actor.profile", "self", cancellationToken: cancellationToken);
+            var existing = await Repo.GetRecordAsync(
+                did, ProfileCollection, ProfileRecordKey, cancellationToken: cancellationToken);
+
+            var profile = existing.Value.Deserialize<ProfileRecord>(AtProtoJsonDefaults.Options)
+                ?? throw new InvalidOperationException($"The profile record of {did} is null.");
+            return (profile, existing.Cid);
         }
         catch (AtProtoHttpException ex) when (ex.StatusCode == System.Net.HttpStatusCode.BadRequest
                                                && ex.ErrorType == "RecordNotFound")
         {
-            // No existing profile; will create
+            return (new ProfileRecord { CreatedAt = AtProtoJsonDefaults.NowTimestamp() }, null);
         }
-
-        ProfileRecord? current = null;
-        if (existing?.Value is { } val)
-            current = val.Deserialize<ProfileRecord>(AtProtoJsonDefaults.Options);
-
-        var updated = new ProfileRecord
-        {
-            DisplayName = displayName ?? current?.DisplayName,
-            Description = description ?? current?.Description,
-            Avatar = avatar ?? current?.Avatar,
-            Banner = banner ?? current?.Banner,
-            CreatedAt = current?.CreatedAt ?? AtProtoJsonDefaults.NowTimestamp(),
-        };
-
-        await Repo.PutRecordAsync(
-            _session!.Did, "app.bsky.actor.profile", "self", updated,
-            cancellationToken: cancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────

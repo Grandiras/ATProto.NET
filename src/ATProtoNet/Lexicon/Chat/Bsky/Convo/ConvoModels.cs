@@ -11,7 +11,7 @@ namespace ATProtoNet.Lexicon.Chat.Bsky.Convo;
 /// <summary>
 /// A conversation view returned by chat.bsky.convo endpoints.
 /// </summary>
-public sealed class ConvoView
+public sealed class ConvoView : LexObject
 {
     /// <summary>The identifier of the conversation.</summary>
     [JsonPropertyName("id")]
@@ -49,7 +49,7 @@ public sealed class ConvoView
 /// <summary>
 /// A chat member (actor profile) within a conversation.
 /// </summary>
-public sealed class ChatMemberView
+public sealed class ChatMemberView : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
@@ -86,7 +86,7 @@ public sealed class ChatMemberView
 /// <summary>
 /// A message view within a conversation.
 /// </summary>
-public sealed class MessageView
+public sealed class MessageView : LexObject
 {
     /// <summary>The identifier of the message.</summary>
     [JsonPropertyName("id")]
@@ -120,7 +120,7 @@ public sealed class MessageView
 /// <summary>
 /// A deleted message placeholder.
 /// </summary>
-public sealed class DeletedMessageView
+public sealed class DeletedMessageView : LexObject
 {
     /// <summary>The identifier of the message.</summary>
     [JsonPropertyName("id")]
@@ -142,7 +142,7 @@ public sealed class DeletedMessageView
 /// <summary>
 /// The sender of a message.
 /// </summary>
-public sealed class MessageSender
+public sealed class MessageSender : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
@@ -152,7 +152,7 @@ public sealed class MessageSender
 /// <summary>
 /// A log entry in a conversation log.
 /// </summary>
-public sealed class ConvoLogEntry
+public sealed class ConvoLogEntry : LexObject
 {
     /// <summary>The Lexicon type discriminator for this object.</summary>
     [JsonPropertyName("$type")]
@@ -192,7 +192,7 @@ public sealed class SendMessageRequest
 /// <summary>
 /// Input for a message to be sent.
 /// </summary>
-public sealed class MessageInput
+public sealed class MessageInput : LexObject
 {
     /// <summary>The message text.</summary>
     [JsonPropertyName("text")]
@@ -210,7 +210,7 @@ public sealed class MessageInput
 /// <summary>
 /// A message within a batch send request.
 /// </summary>
-public sealed class BatchMessageItem
+public sealed class BatchMessageItem : LexObject
 {
     /// <summary>The identifier of the conversation.</summary>
     [JsonPropertyName("convoId")]

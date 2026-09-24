@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ATProtoNet.Models;
+using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Embed;
 
@@ -9,15 +10,40 @@ namespace ATProtoNet.Lexicon.App.Bsky.Embed;
 // ──────────────────────────────────────────────────────────────
 
 /// <summary>
-/// Base type for embed objects attached to posts.
+/// Base type for embed objects attached to posts (the open <c>app.bsky.feed.post#embed</c> union).
+/// An embed type this SDK does not model reads as <see cref="UnknownEmbed"/>.
 /// </summary>
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
+[AtProtoUnion(typeof(UnknownEmbed))]
 [JsonDerivedType(typeof(ImagesEmbed), "app.bsky.embed.images")]
 [JsonDerivedType(typeof(ExternalEmbed), "app.bsky.embed.external")]
 [JsonDerivedType(typeof(RecordEmbed), "app.bsky.embed.record")]
 [JsonDerivedType(typeof(RecordWithMediaEmbed), "app.bsky.embed.recordWithMedia")]
 [JsonDerivedType(typeof(VideoEmbed), "app.bsky.embed.video")]
-public abstract class EmbedBase { }
+[JsonDerivedType(typeof(GalleryEmbed), "app.bsky.embed.gallery")]
+public abstract class EmbedBase : LexObject;
+
+/// <summary>
+/// An embed whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes
+/// it back unchanged; see <see cref="IUnknownUnionVariant"/>.
+/// </summary>
+public sealed class UnknownEmbed : EmbedBase, IUnknownUnionVariant
+{
+    /// <summary>Creates an unknown embed from its discriminator and raw object.</summary>
+    /// <param name="type">The object's <c>$type</c>.</param>
+    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+    public UnknownEmbed(string type, JsonElement raw)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(type);
+        Type = type;
+        Raw = UnknownUnionVariant.RequireObject(raw);
+    }
+
+    /// <inheritdoc/>
+    public string Type { get; }
+
+    /// <inheritdoc/>
+    public JsonElement Raw { get; }
+}
 
 // ──────────────────────────────────────────────────────────────
 //  app.bsky.embed.images
@@ -36,7 +62,7 @@ public sealed class ImagesEmbed : EmbedBase
 /// <summary>
 /// A single image within an images embed.
 /// </summary>
-public sealed class EmbedImage
+public sealed class EmbedImage : LexObject
 {
     /// <summary>The uploaded blob reference for the image.</summary>
     [JsonPropertyName("image")]
@@ -54,7 +80,7 @@ public sealed class EmbedImage
 /// <summary>
 /// Aspect ratio hint for image display.
 /// </summary>
-public sealed class AspectRatio
+public sealed class AspectRatio : LexObject
 {
     /// <summary>The width in pixels.</summary>
     [JsonPropertyName("width")]
@@ -82,7 +108,7 @@ public sealed class ExternalEmbed : EmbedBase
 /// <summary>
 /// External link metadata.
 /// </summary>
-public sealed class ExternalInfo
+public sealed class ExternalInfo : LexObject
 {
     /// <summary>URL of the linked page.</summary>
     [JsonPropertyName("uri")]
@@ -120,7 +146,7 @@ public sealed class RecordEmbed : EmbedBase
 // ──────────────────────────────────────────────────────────────
 
 /// <summary>
-/// A record embed combined with media (images or external link).
+/// A record embed combined with media.
 /// </summary>
 public sealed class RecordWithMediaEmbed : EmbedBase
 {
@@ -128,7 +154,10 @@ public sealed class RecordWithMediaEmbed : EmbedBase
     [JsonPropertyName("record")]
     public required RecordEmbed Record { get; init; }
 
-    /// <summary>The media embed (images or external). Must be ImagesEmbed or ExternalEmbed.</summary>
+    /// <summary>
+    /// The media: an <see cref="ImagesEmbed"/>, <see cref="VideoEmbed"/>, <see cref="ExternalEmbed"/>
+    /// or <see cref="GalleryEmbed"/>.
+    /// </summary>
     [JsonPropertyName("media")]
     public required EmbedBase Media { get; init; }
 }
@@ -164,7 +193,7 @@ public sealed class VideoEmbed : EmbedBase
 /// <summary>
 /// A video caption file reference.
 /// </summary>
-public sealed class VideoCaption
+public sealed class VideoCaption : LexObject
 {
     /// <summary>The BCP-47 language tag of the caption track.</summary>
     [JsonPropertyName("lang")]
@@ -176,19 +205,109 @@ public sealed class VideoCaption
 }
 
 // ──────────────────────────────────────────────────────────────
+//  app.bsky.embed.gallery
+// ──────────────────────────────────────────────────────────────
+
+/// <summary>
+/// A gallery embed: an assortment of media items. The Lexicon allows up to 20 items; clients should
+/// currently limit authoring to 10.
+/// </summary>
+public sealed class GalleryEmbed : EmbedBase
+{
+    /// <summary>The media items, each of which may be of a different type.</summary>
+    [JsonPropertyName("items")]
+    public required List<GalleryItem> Items { get; init; }
+}
+
+/// <summary>
+/// One media item in a <see cref="GalleryEmbed"/> (the open <c>app.bsky.embed.gallery#main.items</c>
+/// union). An item type this SDK does not model reads as <see cref="UnknownGalleryItem"/>.
+/// </summary>
+[AtProtoUnion(typeof(UnknownGalleryItem))]
+[JsonDerivedType(typeof(GalleryImage), "app.bsky.embed.gallery#image")]
+public abstract class GalleryItem : LexObject;
+
+/// <summary>
+/// An image in a gallery embed. Unlike <see cref="EmbedImage"/>, alt text and aspect ratio are required.
+/// </summary>
+public sealed class GalleryImage : GalleryItem
+{
+    /// <summary>The uploaded image blob (<c>image/*</c>, at most 2,000,000 bytes).</summary>
+    [JsonPropertyName("image")]
+    public required BlobRef Image { get; init; }
+
+    /// <summary>Alt text describing the image, for accessibility.</summary>
+    [JsonPropertyName("alt")]
+    public required string Alt { get; init; }
+
+    /// <summary>The image's aspect ratio.</summary>
+    [JsonPropertyName("aspectRatio")]
+    public required AspectRatio AspectRatio { get; init; }
+}
+
+/// <summary>
+/// A gallery item whose <c>$type</c> this SDK version does not model. It keeps the raw object and
+/// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
+/// </summary>
+public sealed class UnknownGalleryItem : GalleryItem, IUnknownUnionVariant
+{
+    /// <summary>Creates an unknown gallery item from its discriminator and raw object.</summary>
+    /// <param name="type">The object's <c>$type</c>.</param>
+    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+    public UnknownGalleryItem(string type, JsonElement raw)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(type);
+        Type = type;
+        Raw = UnknownUnionVariant.RequireObject(raw);
+    }
+
+    /// <inheritdoc/>
+    public string Type { get; }
+
+    /// <inheritdoc/>
+    public JsonElement Raw { get; }
+}
+
+// ──────────────────────────────────────────────────────────────
 //  Embed view types (returned when reading posts)
 // ──────────────────────────────────────────────────────────────
 
 /// <summary>
-/// Base type for embedded content views (returned from server).
+/// Base type for embedded content views returned by the appview (the open
+/// <c>app.bsky.feed.defs#postView.embed</c> union). An embed view this SDK does not model reads as
+/// <see cref="UnknownEmbedView"/>.
 /// </summary>
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
+[AtProtoUnion(typeof(UnknownEmbedView))]
 [JsonDerivedType(typeof(ImagesView), "app.bsky.embed.images#view")]
 [JsonDerivedType(typeof(ExternalView), "app.bsky.embed.external#view")]
 [JsonDerivedType(typeof(RecordView), "app.bsky.embed.record#view")]
 [JsonDerivedType(typeof(RecordWithMediaView), "app.bsky.embed.recordWithMedia#view")]
 [JsonDerivedType(typeof(VideoView), "app.bsky.embed.video#view")]
-public abstract class EmbedView { }
+[JsonDerivedType(typeof(GalleryView), "app.bsky.embed.gallery#view")]
+public abstract class EmbedView : LexObject;
+
+/// <summary>
+/// An embed view whose <c>$type</c> this SDK version does not model. It keeps the raw object and
+/// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
+/// </summary>
+public sealed class UnknownEmbedView : EmbedView, IUnknownUnionVariant
+{
+    /// <summary>Creates an unknown embed view from its discriminator and raw object.</summary>
+    /// <param name="type">The object's <c>$type</c>.</param>
+    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+    public UnknownEmbedView(string type, JsonElement raw)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(type);
+        Type = type;
+        Raw = UnknownUnionVariant.RequireObject(raw);
+    }
+
+    /// <inheritdoc/>
+    public string Type { get; }
+
+    /// <inheritdoc/>
+    public JsonElement Raw { get; }
+}
 
 /// <summary>
 /// View of an images embed.
@@ -203,7 +322,7 @@ public sealed class ImagesView : EmbedView
 /// <summary>
 /// A viewed image with thumbnails.
 /// </summary>
-public sealed class ImageViewItem
+public sealed class ImageViewItem : LexObject
 {
     /// <summary>URL of the thumbnail image.</summary>
     [JsonPropertyName("thumb")]
@@ -237,7 +356,7 @@ public sealed class ExternalView : EmbedView
 /// <summary>
 /// External link view metadata.
 /// </summary>
-public sealed class ExternalViewInfo
+public sealed class ExternalViewInfo : LexObject
 {
     /// <summary>URL of the linked page.</summary>
     [JsonPropertyName("uri")]
@@ -306,4 +425,67 @@ public sealed class VideoView : EmbedView
     /// </summary>
     [JsonPropertyName("aspectRatio")]
     public AspectRatio? AspectRatio { get; init; }
+}
+
+/// <summary>
+/// View of a gallery embed.
+/// </summary>
+public sealed class GalleryView : EmbedView
+{
+    /// <summary>The media item views.</summary>
+    [JsonPropertyName("items")]
+    public required List<GalleryViewItem> Items { get; init; }
+}
+
+/// <summary>
+/// One media item in a <see cref="GalleryView"/> (the open <c>app.bsky.embed.gallery#view.items</c>
+/// union). An item view this SDK does not model reads as <see cref="UnknownGalleryViewItem"/>.
+/// </summary>
+[AtProtoUnion(typeof(UnknownGalleryViewItem))]
+[JsonDerivedType(typeof(GalleryViewImage), "app.bsky.embed.gallery#viewImage")]
+public abstract class GalleryViewItem : LexObject;
+
+/// <summary>
+/// A viewed image in a gallery embed.
+/// </summary>
+public sealed class GalleryViewImage : GalleryViewItem
+{
+    /// <summary>URL of a thumbnail of the image, typically on the appview's CDN.</summary>
+    [JsonPropertyName("thumbnail")]
+    public required string Thumbnail { get; init; }
+
+    /// <summary>URL of a large version of the image. May or may not be the exact original blob.</summary>
+    [JsonPropertyName("fullsize")]
+    public required string Fullsize { get; init; }
+
+    /// <summary>Alt text describing the image, for accessibility.</summary>
+    [JsonPropertyName("alt")]
+    public required string Alt { get; init; }
+
+    /// <summary>The image's aspect ratio.</summary>
+    [JsonPropertyName("aspectRatio")]
+    public required AspectRatio AspectRatio { get; init; }
+}
+
+/// <summary>
+/// A gallery item view whose <c>$type</c> this SDK version does not model. It keeps the raw object
+/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
+/// </summary>
+public sealed class UnknownGalleryViewItem : GalleryViewItem, IUnknownUnionVariant
+{
+    /// <summary>Creates an unknown gallery item view from its discriminator and raw object.</summary>
+    /// <param name="type">The object's <c>$type</c>.</param>
+    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+    public UnknownGalleryViewItem(string type, JsonElement raw)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(type);
+        Type = type;
+        Raw = UnknownUnionVariant.RequireObject(raw);
+    }
+
+    /// <inheritdoc/>
+    public string Type { get; }
+
+    /// <inheritdoc/>
+    public JsonElement Raw { get; }
 }

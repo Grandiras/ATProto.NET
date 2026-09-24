@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using ATProtoNet.Identity;
 using ATProtoNet.Repo;
+using ATProtoNet.Serialization;
 using DidValue = ATProtoNet.Identity.Did;
 
 namespace ATProtoNet.Streaming;
@@ -207,7 +208,7 @@ public sealed class JetstreamArchiveRow
         {
             try
             {
-                blocks = Convert.FromBase64String(base64);
+                blocks = LexBase64.Decode(base64);
             }
             catch (FormatException)
             {

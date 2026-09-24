@@ -31,7 +31,7 @@ public sealed class QueryLabelsResponse
 /// <summary>
 /// A labels event from the label subscription stream.
 /// </summary>
-public sealed class LabelsEvent
+public sealed class LabelsEvent : LexObject
 {
     /// <summary>The sequence number of the event on the firehose.</summary>
     [JsonPropertyName("seq")]

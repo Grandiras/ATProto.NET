@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Lexicon.App.Bsky.Feed;
 using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Actor;
@@ -11,7 +12,7 @@ namespace ATProtoNet.Lexicon.App.Bsky.Actor;
 /// <summary>
 /// Detailed profile view (returned by getProfile).
 /// </summary>
-public sealed class ProfileViewDetailed
+public sealed class ProfileViewDetailed : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
@@ -77,7 +78,7 @@ public sealed class ProfileViewDetailed
 /// <summary>
 /// Basic profile view (used in actor lists, follows, etc.).
 /// </summary>
-public sealed class ProfileView
+public sealed class ProfileView : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
@@ -119,7 +120,7 @@ public sealed class ProfileView
 /// <summary>
 /// Minimal profile view (used inline in posts, etc.).
 /// </summary>
-public sealed class ProfileViewBasic
+public sealed class ProfileViewBasic : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
@@ -153,7 +154,7 @@ public sealed class ProfileViewBasic
 /// <summary>
 /// Viewer relationship state between the authenticated user and a viewed actor.
 /// </summary>
-public sealed class ViewerState
+public sealed class ViewerState : LexObject
 {
     /// <summary>Whether the viewer has muted this subject.</summary>
     [JsonPropertyName("muted")]
@@ -195,7 +196,7 @@ public sealed class ViewerState
 /// <summary>
 /// Known followers between the viewer and the subject.
 /// </summary>
-public sealed class KnownFollowers
+public sealed class KnownFollowers : LexObject
 {
     /// <summary>The total number of known followers.</summary>
     [JsonPropertyName("count")]
@@ -299,33 +300,54 @@ public sealed class SearchActorsTypeaheadResponse
 /// <summary>
 /// An actor profile record stored in the repo at app.bsky.actor.profile/self.
 /// </summary>
-public sealed class ProfileRecord
+/// <remarks>
+/// The properties are settable so that <see cref="AtProtoClient.UpdateProfileAsync"/> can hand the
+/// current record to a callback that edits it in place. Setting a property to
+/// <see langword="null"/> removes the field.
+/// </remarks>
+public sealed class ProfileRecord : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>app.bsky.actor.profile</c>).</summary>
     [JsonPropertyName("$type")]
     public string Type => "app.bsky.actor.profile";
 
-    /// <summary>The human-readable display name.</summary>
+    /// <summary>The human-readable display name (at most 64 graphemes).</summary>
     [JsonPropertyName("displayName")]
-    public string? DisplayName { get; init; }
+    public string? DisplayName { get; set; }
 
-    /// <summary>A free-text description.</summary>
+    /// <summary>A free-text description (at most 256 graphemes).</summary>
     [JsonPropertyName("description")]
-    public string? Description { get; init; }
+    public string? Description { get; set; }
 
-    /// <summary>The avatar image.</summary>
+    /// <summary>Free-form pronouns text (at most 20 graphemes).</summary>
+    [JsonPropertyName("pronouns")]
+    public string? Pronouns { get; set; }
+
+    /// <summary>A website URI shown on the profile.</summary>
+    [JsonPropertyName("website")]
+    public string? Website { get; set; }
+
+    /// <summary>The avatar image (PNG or JPEG, at most 1,000,000 bytes).</summary>
     [JsonPropertyName("avatar")]
-    public BlobRef? Avatar { get; init; }
+    public BlobRef? Avatar { get; set; }
 
-    /// <summary>The banner image.</summary>
+    /// <summary>The banner image (PNG or JPEG, at most 1,000,000 bytes).</summary>
     [JsonPropertyName("banner")]
-    public BlobRef? Banner { get; init; }
+    public BlobRef? Banner { get; set; }
+
+    /// <summary>Self-applied labels on the whole account.</summary>
+    [JsonPropertyName("labels")]
+    public SelfLabels? Labels { get; set; }
+
+    /// <summary>The starter pack the account joined through, if any.</summary>
+    [JsonPropertyName("joinedViaStarterPack")]
+    public StrongRef? JoinedViaStarterPack { get; set; }
 
     /// <summary>A reference to the post pinned to the profile.</summary>
     [JsonPropertyName("pinnedPost")]
-    public StrongRef? PinnedPost { get; init; }
+    public StrongRef? PinnedPost { get; set; }
 
     /// <summary>Timestamp of creation (ISO 8601).</summary>
     [JsonPropertyName("createdAt")]
-    public string? CreatedAt { get; init; }
+    public string? CreatedAt { get; set; }
 }

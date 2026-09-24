@@ -57,11 +57,12 @@ This serializes to:
 
 > **Note on `$type` and custom serializer options.** `System.Text.Json` does not inherit
 > `[JsonPropertyName]` through a property `override`, so the SDK guarantees the `$type` name with a
-> contract modifier rather than the attribute alone. Every serializer the SDK uses
-> (`AtProtoJsonDefaults.Options`, `LexiconTypeRegistry.CreateOptions()`, and therefore
-> `RecordCollection<T>` / `RepoClient`) applies it automatically — write the plain `override` above
-> and nothing else. If you serialize records with `JsonSerializerOptions` you built yourself, add the
-> modifier so you get the same guarantee:
+> contract modifier rather than the attribute alone. `AtProtoJsonDefaults.Options`, which every SDK
+> client uses (and therefore `RecordCollection<T>` / `RepoClient`), applies it automatically — write
+> the plain `override` above and nothing else. For different settings, copy those options
+> (`new JsonSerializerOptions(AtProtoJsonDefaults.Options) { WriteIndented = true }`), which keeps
+> it. If you build `JsonSerializerOptions` from scratch instead, add the modifier so you get the
+> same guarantee:
 >
 > ```csharp
 > var options = new JsonSerializerOptions
@@ -346,17 +347,34 @@ public class PhotoRecord : AtProtoRecord
 }
 ```
 
-## Union Types
+## Unions and unknown fields
 
-Lexicon unions map to a polymorphic base class discriminated by `$type`. Declare the variants
-with the standard `System.Text.Json` attributes — `AtProtoJsonDefaults.Options` (and
-`LexiconTypeRegistry.CreateOptions()`) handle them with no extra registration:
+Lexicons evolve: new union variants appear (Bluesky's gallery embed did, in 2026), and records
+gain optional fields. The SDK is built so that data it doesn't know about neither breaks a
+response nor gets lost when you write a record back. The same two mechanisms are available to
+your own record types.
+
+### Unions
+
+A Lexicon union maps to an abstract base class marked `[AtProtoUnion]`, with one subclass per
+variant, discriminated by `$type`. Declare the variants you know with `[JsonDerivedType]`, using
+the discriminator the Lexicon defines: `<nsid>#<defName>` for a `defs` entry, or the bare NSID
+for a `main` def.
+
+Unions are **open** unless the Lexicon says `"closed": true`, so an open union also names an
+*unknown* variant. A `$type` the base neither declares nor has registered reads as that variant.
+It keeps the whole object as a `JsonElement` and writes it back byte-for-byte:
 
 ```csharp
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using ATProtoNet.Models;
+using ATProtoNet.Serialization;
+
+[AtProtoUnion(typeof(UnknownAttribution))]
 [JsonDerivedType(typeof(AuthorAttribution), "com.example.recipe.defs#attributionAuthor")]
 [JsonDerivedType(typeof(SourceAttribution), "com.example.recipe.defs#attributionSource")]
-public abstract class RecipeAttribution;
+public abstract class RecipeAttribution : LexObject;
 
 public sealed class AuthorAttribution : RecipeAttribution
 {
@@ -369,38 +387,91 @@ public sealed class SourceAttribution : RecipeAttribution
     [JsonPropertyName("url")]
     public string Url { get; set; } = "";
 }
+
+// Needs exactly this constructor shape; the SDK calls it with the $type and the raw object.
+public sealed class UnknownAttribution(string type, JsonElement raw)
+    : RecipeAttribution, IUnknownUnionVariant
+{
+    public string Type { get; } = type;
+    public JsonElement Raw { get; } = raw;
+}
 ```
 
-Use the discriminator value the Lexicon defines: `<nsid>#<defName>` for a `defs` entry, or the
-bare NSID when the union arm is a whole record type.
+A `switch` over the base should handle the unknown arm. The compiler won't insist, since the
+base isn't sealed:
 
-Implementing the `IAtProtoUnion` marker interface on the base is **optional** — it documents
-intent and has no effect on serialization.
+```csharp
+var credit = recipe.Attribution switch
+{
+    AuthorAttribution a => a.Did,
+    SourceAttribution s => s.Url,
+    UnknownAttribution u => $"(unsupported attribution {u.Type})",
+    _ => null,
+};
+```
 
-For an *open* union (one whose Lexicon allows variants you don't know at compile time), extra
-arms can be added at runtime through the registry:
+For a closed union, write `[AtProtoUnion(Closed = true)]` and no unknown variant. An unknown
+`$type` then fails with a `JsonException`, which is what the Lexicon asks for. In the SDK only
+`com.atproto.repo.applyWrites` is closed.
+
+Behavior worth knowing:
+
+- `$type` may appear anywhere in the object; the Bluesky appview often puts it last.
+- A variant writes its `$type` first, whether you serialize it through the base or on its own.
+- The SDK's Bluesky, Ozone and `com.atproto` unions follow this pattern, each with an
+  `Unknown{Base}` variant: `UnknownEmbed`, `UnknownEmbedView`, `UnknownFacetFeature`,
+  `UnknownThreadNode`, `UnknownModEvent` and so on. The Spaces models don't yet.
+- A plain `[JsonPolymorphic]` base still works. It keeps `System.Text.Json`'s own, strict
+  behavior, so an unknown `$type` fails the whole response.
+
+### Registering variants of a union you don't own
+
+To add a variant to a union declared elsewhere, such as your own embed type on the SDK's
+`EmbedBase`, register it once at startup:
 
 ```csharp
 LexiconTypeRegistry.Instance
-    .RegisterUnionVariant<RecipeAttribution, ImportedAttribution>("com.example.recipe.defs#attributionImported");
-
-var options = LexiconTypeRegistry.Instance.CreateOptions();
-var attribution = JsonSerializer.Deserialize<RecipeAttribution>(json, options);
+    .RegisterUnionVariant<EmbedBase, RecipeEmbed>("com.example.recipe.embed");
 ```
 
-Two things to know before relying on this:
+That is all it takes. `AtProtoJsonDefaults.Options`, which every SDK client, `RecordCollection<T>`
+and Jetstream's `GetRecord<T>()` use, consults the registry. A registered variant then reads as
+your type everywhere instead of as `UnknownEmbed`, and writes with its `$type`. Reads check the
+registry on every discriminator the base doesn't declare, so even a late registration is picked
+up. Still, register before you first *serialize* the variant, because its contract is built on
+first use.
 
-- **The base still needs `[JsonPolymorphic]`.** `RegisterUnionVariant` augments an existing
-  polymorphic type; it does not make a plain abstract class polymorphic. Without the attribute the
-  registration is silently ignored — writes emit `{}` (the derived properties are dropped) and
-  reads throw `NotSupportedException: Deserialization of interface or abstract types is not
-  supported`. Keep `[JsonPolymorphic]` plus a `[JsonDerivedType]` for every arm you know at
-  compile time, and use the registry only for the ones you don't.
-- **`CreateOptions()` is not what `GetCollection<T>` uses.** `RecordCollection<T>` and the XRPC
-  clients serialize with `AtProtoJsonDefaults.Options`, which does not consult the registry.
-  Runtime-registered variants therefore apply to Jetstream's typed record decoding and to your own
-  `JsonSerializer` calls that pass `CreateOptions()` — not to records read or written through
-  `GetCollection<T>`. For those, declare the arms with `[JsonDerivedType]`.
+A discriminator can map to only one type per base: registering one that is already declared or
+registered for a different type throws `ArgumentException`. The same goes for a base that isn't a
+union.
+
+### Unknown fields
+
+Every SDK model of a Lexicon record or object derives from `LexObject`, and so does
+`AtProtoRecord`. `LexObject` has an `ExtensionData` dictionary. Any field a model doesn't declare
+lands there on read and is written back after the declared ones:
+
+```csharp
+// A newer app wrote "priority", which this TodoItem doesn't declare.
+var item = await todos.GetAsync(rkey);
+item.Value.Completed = true;
+
+await todos.PutAsync(rkey, item.Value, swapRecord: item.Cid); // "priority" is still there
+```
+
+- `ExtensionData` stays `null` when there is nothing extra, so a model that matches the wire
+  costs nothing.
+- `$type` never ends up in `ExtensionData` for a record or a union variant. The record's own
+  `$type` wins on write.
+- Your plain classes (not derived from `LexObject` or `AtProtoRecord`) drop unknown fields as
+  before. Derive from `LexObject` to opt in.
+- Views that come back from the appview have `ExtensionData` too. It's a quick way to read a new
+  field before the SDK models it:
+  `post.ExtensionData?.TryGetValue("bookmarkCount", out var count) == true`.
+
+`AtProtoClient.UpdateProfileAsync` is built on this. It reads the profile, lets your callback edit
+it (`p => p.Description = "…"`), and writes it back guarded by `swapRecord`. Every field you
+didn't touch survives, including ones this SDK version doesn't know about.
 
 ## Error Handling
 
@@ -430,11 +501,9 @@ catch (AtProtoHttpException ex)
 
 ## Distributing Lexicons as NuGet Packages
 
-ATProto.NET supports **Lexicon plugins** — NuGet packages that register custom record types and union variants automatically at startup.
-
-### Creating a Plugin
-
-1. Implement `ILexiconPlugin`:
+A package that ships Lexicon types needs no registration for its own records and unions; the
+attributes on the types are enough. It needs registration only for variants it adds to unions
+declared elsewhere, like a custom embed on `EmbedBase`. Bundle those in an `ILexiconPlugin`:
 
 ```csharp
 using ATProtoNet.Serialization;
@@ -443,33 +512,16 @@ public class MyAppLexicons : ILexiconPlugin
 {
     public void Register(ILexiconTypeRegistrar registrar)
     {
-        // Register custom record types
-        registrar.RegisterRecordType<TodoItem>("com.example.todo.item");
-        registrar.RegisterRecordType<Project>("com.example.todo.project");
-
-        // Register union variants (extends built-in polymorphic types)
         registrar.RegisterUnionVariant<EmbedBase, CustomEmbed>("com.example.embed.custom");
     }
 }
 ```
 
-2. Mark the assembly with `[LexiconPlugin]`:
+Consumers load it once at startup:
 
 ```csharp
-[assembly: LexiconPlugin(typeof(MyAppLexicons))]
-```
-
-### Loading Plugins
-
-```csharp
-// Load a specific plugin
 LexiconTypeRegistry.Instance.LoadPlugin<MyAppLexicons>();
-
-// Or scan an assembly for [LexiconPlugin] attributes
-LexiconTypeRegistry.Instance.LoadPluginsFromAssembly(typeof(MyAppLexicons).Assembly);
-
-// Create JSON options that include plugin types
-var options = LexiconTypeRegistry.Instance.CreateOptions();
 ```
 
-Plugin-registered union variants work alongside built-in `[JsonDerivedType]` attributes, so custom types can extend the standard AT Protocol type hierarchy at runtime.
+From then on every SDK client reads and writes the plugin's variants, alongside the ones the SDK
+declares.

@@ -10,7 +10,7 @@ namespace ATProtoNet.Lexicon.Site.Standard.Publication;
 /// <summary>
 /// Represents a Standard.site publication — a collection of documents published to the web.
 /// </summary>
-public sealed class PublicationRecord
+public sealed class PublicationRecord : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>site.standard.publication</c>).</summary>
     [JsonPropertyName("$type")]
@@ -44,7 +44,7 @@ public sealed class PublicationRecord
 /// <summary>
 /// Platform-specific preferences for a publication.
 /// </summary>
-public sealed class PublicationPreferences
+public sealed class PublicationPreferences : LexObject
 {
     /// <summary>Whether the publication should appear in discovery feeds.</summary>
     [JsonPropertyName("showInDiscover")]
@@ -58,7 +58,7 @@ public sealed class PublicationPreferences
 /// <summary>
 /// Simplified publication theme with four color roles (site.standard.theme.basic).
 /// </summary>
-public sealed class BasicTheme
+public sealed class BasicTheme : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>site.standard.theme.basic</c>).</summary>
     [JsonPropertyName("$type")]
@@ -84,7 +84,7 @@ public sealed class BasicTheme
 /// <summary>
 /// An RGB color (site.standard.theme.color#rgb). Values 0-255.
 /// </summary>
-public sealed class ThemeColorRgb
+public sealed class ThemeColorRgb : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>site.standard.theme.color#rgb</c>).</summary>
     [JsonPropertyName("$type")]
@@ -106,7 +106,7 @@ public sealed class ThemeColorRgb
 /// <summary>
 /// An RGBA color (site.standard.theme.color#rgba). RGB values 0-255, alpha 0-100.
 /// </summary>
-public sealed class ThemeColorRgba
+public sealed class ThemeColorRgba : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>site.standard.theme.color#rgba</c>).</summary>
     [JsonPropertyName("$type")]

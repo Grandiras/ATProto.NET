@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ATProtoNet.Models;
+using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Repo;
 
@@ -238,7 +239,7 @@ public sealed class ListRecordsResponse : ICursoredResponse
 /// <summary>
 /// A single record entry in a list response.
 /// </summary>
-public sealed class RecordEntry
+public sealed class RecordEntry : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -317,13 +318,12 @@ public sealed class ApplyWritesRequest
 /// <summary>
 /// A single write operation in an applyWrites batch.
 /// </summary>
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
+/// <remarks>The Lexicon marks this union closed, so an unrecognized <c>$type</c> is an error.</remarks>
+[AtProtoUnion(Closed = true)]
 [JsonDerivedType(typeof(ApplyWriteCreate), "com.atproto.repo.applyWrites#create")]
 [JsonDerivedType(typeof(ApplyWriteUpdate), "com.atproto.repo.applyWrites#update")]
 [JsonDerivedType(typeof(ApplyWriteDelete), "com.atproto.repo.applyWrites#delete")]
-public abstract class ApplyWriteOperation
-{
-}
+public abstract class ApplyWriteOperation : LexObject;
 
 /// <summary>A create operation within an <c>applyWrites</c> batch.</summary>
 public sealed class ApplyWriteCreate : ApplyWriteOperation
@@ -390,7 +390,7 @@ public sealed class ApplyWritesResponse
 }
 
 /// <summary>The result of a single write within an <c>applyWrites</c> batch.</summary>
-public sealed class ApplyWriteResult
+public sealed class ApplyWriteResult : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -426,7 +426,7 @@ public sealed class ListMissingBlobsResponse : ICursoredResponse
 }
 
 /// <summary>A blob referenced by a record that has not been uploaded yet.</summary>
-public sealed class MissingBlob
+public sealed class MissingBlob : LexObject
 {
     /// <summary>The CID of the missing blob.</summary>
     [JsonPropertyName("cid")]
@@ -436,7 +436,7 @@ public sealed class MissingBlob
 /// <summary>
 /// Commit metadata included in write operation responses.
 /// </summary>
-public sealed class CommitMeta
+public sealed class CommitMeta : LexObject
 {
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]

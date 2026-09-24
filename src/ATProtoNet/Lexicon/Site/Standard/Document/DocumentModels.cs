@@ -11,7 +11,7 @@ namespace ATProtoNet.Lexicon.Site.Standard.Document;
 /// <summary>
 /// Represents a Standard.site document — an individual published document or blog post.
 /// </summary>
-public sealed class DocumentRecord
+public sealed class DocumentRecord : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>site.standard.document</c>).</summary>
     [JsonPropertyName("$type")]

@@ -55,6 +55,11 @@ across the whole input set, so generating documents one at a time loses type inf
 | inline `object` schema | nested class (`Recipe.NutritionInfo`); an array of them is singularized (`List<Ingredient>`) |
 | token family (`cookingMethod*`) | one static class per family (`CookingMethod.Baking`, plus `CookingMethod.All`) |
 
+Generated unions use `System.Text.Json`'s own polymorphism, which rejects a `$type` it does not
+know. To make one open, as Lexicon unions are unless marked `closed`, swap `[JsonPolymorphic]` for
+`[AtProtoUnion(typeof(Unknown…))]` and add the unknown variant; see
+[Unions and unknown fields](custom-records.md#unions-and-unknown-fields).
+
 Optional properties are always nullable — a bare `JsonElement` would serialize as
 `ValueKind.Undefined` and throw. Members are renamed when a Lexicon name collides with its
 enclosing type or another member (a `blob` property `image` inside def `image` becomes
@@ -342,9 +347,8 @@ The publisher:
 If you're distributing your Lexicon types as a NuGet package, combine the code generator with the [plugin system](custom-records.md#distributing-lexicons-as-nuget-packages):
 
 1. Generate C# types from your Lexicon schemas
-2. Implement `ILexiconPlugin` to register the types
-3. Mark the assembly with `[LexiconPlugin]`
-4. Package and distribute via NuGet
+2. Implement `ILexiconPlugin` to register any variants your types add to unions you don't own
+3. Package and distribute via NuGet; consumers call `LexiconTypeRegistry.Instance.LoadPlugin<T>()` at startup
 
 ## Next Steps
 

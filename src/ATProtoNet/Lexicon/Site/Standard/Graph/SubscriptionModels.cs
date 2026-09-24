@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Site.Standard.Graph;
 
@@ -9,7 +10,7 @@ namespace ATProtoNet.Lexicon.Site.Standard.Graph;
 /// <summary>
 /// Represents a Standard.site subscription — a follow relationship to a publication.
 /// </summary>
-public sealed class SubscriptionRecord
+public sealed class SubscriptionRecord : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>site.standard.graph.subscription</c>).</summary>
     [JsonPropertyName("$type")]

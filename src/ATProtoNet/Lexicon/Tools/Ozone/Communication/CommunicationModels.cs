@@ -1,11 +1,12 @@
 using System.Text.Json.Serialization;
+using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Communication;
 
 /// <summary>
 /// A communication template used for moderation emails.
 /// </summary>
-public sealed class CommunicationTemplateView
+public sealed class CommunicationTemplateView : LexObject
 {
     /// <summary>The identifier of the template.</summary>
     [JsonPropertyName("id")]
