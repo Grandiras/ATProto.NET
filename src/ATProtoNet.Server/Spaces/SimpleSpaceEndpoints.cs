@@ -98,10 +98,16 @@ public sealed class CreateSimpleSpaceEndpoint
         if (!SpaceUri.TryParse($"at://{caller}/space/{type}/{skey}", out var uri))
             throw new XrpcException("InvalidRequest", $"'{skey}' is not a valid space key.");
 
-        RequireSupported(input.Policy, input.AppAccess);
+        // Required on the wire; a JSON null gets past deserialization, so it is caught here rather
+        // than stored as a space with no policy to enforce.
+        var readPolicy = input.ReadPolicy ?? throw Missing("readPolicy");
+        var writePolicy = input.WritePolicy ?? throw Missing("writePolicy");
+        var appAccess = input.AppAccess ?? throw Missing("appAccess");
+
+        RequireSupported(readPolicy, writePolicy, appAccess);
 
         var created = await Store.CreateSpaceAsync(
-            new SimpleSpaceRecord(uri, caller, input.Policy, input.AppAccess), cancellationToken);
+            new SimpleSpaceRecord(uri, caller, readPolicy, writePolicy, appAccess), cancellationToken);
 
         return created
             ? new CreateSimpleSpaceResponse { Uri = uri.Value }
@@ -109,11 +115,28 @@ public sealed class CreateSimpleSpaceEndpoint
                 SimpleSpaceErrors.SpaceAlreadyExists, $"{uri} already exists.", StatusCodes.Status409Conflict);
     }
 
+    private static XrpcException Missing(string name) =>
+        new("InvalidRequest", $"The \"{name}\" field is required.");
+
     /// <summary>
     /// Rejects a policy variant this host does not implement, rather than storing one it could
-    /// not enforce at mint time.
+    /// not enforce.
     /// </summary>
-    internal static void RequireSupported(SimpleSpaceUserPolicy? policy, SimpleSpaceAppAccess? appAccess)
+    internal static void RequireSupported(
+        SimpleSpaceUserPolicy? readPolicy, SimpleSpaceUserPolicy? writePolicy, SimpleSpaceAppAccess? appAccess)
+    {
+        RequireSupported(readPolicy);
+        RequireSupported(writePolicy);
+
+        if (appAccess is not (null or OpenAppAccess or AllowListAppAccess))
+        {
+            throw new XrpcException(
+                SimpleSpaceErrors.UnsupportedAppAccess,
+                $"This host does not implement the '{appAccess.GetType().Name}' app access variant.");
+        }
+    }
+
+    private static void RequireSupported(SimpleSpaceUserPolicy? policy)
     {
         if (policy is not (null or PublicPolicy or MemberListPolicy or ManagingAppPolicy))
         {
@@ -124,13 +147,6 @@ public sealed class CreateSimpleSpaceEndpoint
 
         if (policy is ManagingAppPolicy managing)
             SpaceRequestValidation.RequireServiceIdentifier(managing.ManagingApp, "managingApp");
-
-        if (appAccess is not (null or OpenAppAccess or AllowListAppAccess))
-        {
-            throw new XrpcException(
-                SimpleSpaceErrors.UnsupportedAppAccess,
-                $"This host does not implement the '{appAccess.GetType().Name}' app access variant.");
-        }
     }
 }
 
@@ -157,11 +173,16 @@ public sealed class UpdateSimpleSpaceEndpoint
         ArgumentNullException.ThrowIfNull(input);
 
         var space = await RequireOwnedSpaceAsync(input.Space, context, cancellationToken);
-        CreateSimpleSpaceEndpoint.RequireSupported(input.Policy, input.AppAccess);
+        CreateSimpleSpaceEndpoint.RequireSupported(input.ReadPolicy, input.WritePolicy, input.AppAccess);
 
         // Omitted fields are left unchanged; a supplied one replaces that policy wholesale.
         await Store.UpdateSpaceAsync(
-            space with { Policy = input.Policy ?? space.Policy, AppAccess = input.AppAccess ?? space.AppAccess },
+            space with
+            {
+                ReadPolicy = input.ReadPolicy ?? space.ReadPolicy,
+                WritePolicy = input.WritePolicy ?? space.WritePolicy,
+                AppAccess = input.AppAccess ?? space.AppAccess,
+            },
             cancellationToken);
     }
 }
@@ -266,38 +287,44 @@ public sealed class GetSimpleSpaceEndpoint
         return new GetSimpleSpaceResponse
         {
             Uri = space.Uri.Value,
-            Policy = space.Policy,
+            ReadPolicy = space.ReadPolicy,
+            WritePolicy = space.WritePolicy,
             AppAccess = space.AppAccess,
         };
     }
 }
 
-/// <summary>Serves <c>com.atproto.simplespace.addMember</c>.</summary>
-[XrpcEndpoint(Nsid = SpaceNsids.AddSimpleSpaceMember)]
-public sealed class AddSimpleSpaceMemberEndpoint
-    : SimpleSpaceEndpointBase, IXrpcProcedureVoid<AddSimpleSpaceMemberRequest>
+/// <summary>Serves <c>com.atproto.simplespace.putMember</c>.</summary>
+/// <remarks>
+/// An upsert: both access flags are replaced every time. Clearing a member's read flag stops the
+/// authority minting <em>new</em> credentials for them, as removal does; clearing the write flag
+/// stops it recording their writes and forwarding their notifications from the next one on.
+/// </remarks>
+[XrpcEndpoint(Nsid = SpaceNsids.PutSimpleSpaceMember)]
+public sealed class PutSimpleSpaceMemberEndpoint
+    : SimpleSpaceEndpointBase, IXrpcProcedureVoid<PutSimpleSpaceMemberRequest>
 {
     /// <summary>Creates the endpoint.</summary>
     /// <param name="callerResolver">Identifies the authenticated account.</param>
     /// <param name="store">The spaces and member lists this authority holds.</param>
-    public AddSimpleSpaceMemberEndpoint(ISpaceCallerResolver callerResolver, ISimpleSpaceStore store)
+    public PutSimpleSpaceMemberEndpoint(ISpaceCallerResolver callerResolver, ISimpleSpaceStore store)
         : base(callerResolver, store)
     {
     }
 
     /// <inheritdoc/>
-    public string Nsid => SpaceNsids.AddSimpleSpaceMember;
+    public string Nsid => SpaceNsids.PutSimpleSpaceMember;
 
     /// <inheritdoc/>
     public async Task HandleAsync(
-        AddSimpleSpaceMemberRequest input, HttpContext context, CancellationToken cancellationToken = default)
+        PutSimpleSpaceMemberRequest input, HttpContext context, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
 
         var space = await RequireOwnedSpaceAsync(input.Space, context, cancellationToken);
         var did = SpaceRequestValidation.RequireDid(input.Did, "did");
 
-        await Store.AddMemberAsync(space.Uri, did, cancellationToken);
+        await Store.PutMemberAsync(space.Uri, did, input.Read, input.Write, cancellationToken);
     }
 }
 
@@ -337,9 +364,9 @@ public sealed class RemoveSimpleSpaceMemberEndpoint
 
 /// <summary>Serves <c>com.atproto.simplespace.listMembers</c>.</summary>
 /// <remarks>
-/// The member list is host-internal state consulted at credential-mint time, so it is served to
-/// the space's owner and to nobody else. It is never enumerated to the network —
-/// <c>listRepos</c> returns writers, not readers.
+/// The member list is host-internal state, so it is served — with each member's read and write
+/// access — to the space's owner and to nobody else. It is never enumerated to the network —
+/// <c>listRepos</c> returns the writers the write policy admitted, not the member list.
 /// </remarks>
 [XrpcEndpoint(Nsid = SpaceNsids.ListSimpleSpaceMembers)]
 public sealed class ListSimpleSpaceMembersEndpoint

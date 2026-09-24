@@ -86,7 +86,7 @@ public sealed class SimpleSpaceEntity
     public required string Owner { get; set; }
 
     /// <summary>
-    /// The user policy, as the JSON of its Lexicon union variant (carrying its <c>$type</c>).
+    /// The read policy, as the JSON of its Lexicon union variant (carrying its <c>$type</c>).
     /// </summary>
     /// <remarks>
     /// Stored as the wire form rather than as columns so a policy variant added to the union
@@ -94,7 +94,10 @@ public sealed class SimpleSpaceEntity
     /// <see cref="ATProtoNet.Lexicon.Com.AtProto.SimpleSpace.SimpleSpaceUserPolicy"/> is
     /// identified by everywhere else too.
     /// </remarks>
-    public required string Policy { get; set; }
+    public required string ReadPolicy { get; set; }
+
+    /// <summary>The write policy, as the JSON of its Lexicon union variant.</summary>
+    public required string WritePolicy { get; set; }
 
     /// <summary>The app access policy, as the JSON of its Lexicon union variant.</summary>
     public required string AppAccess { get; set; }
@@ -104,7 +107,7 @@ public sealed class SimpleSpaceEntity
 }
 
 /// <summary>
-/// One DID on a space's member list.
+/// One DID on a space's member list, and its access.
 /// </summary>
 /// <remarks>
 /// Unlike the writer set, this is never published to the network and cannot be rebuilt from
@@ -120,6 +123,12 @@ public sealed class SimpleSpaceMemberEntity
     /// <summary>The member's DID. Part of the composite primary key.</summary>
     [MaxLength(512)]
     public required string Did { get; set; }
+
+    /// <summary>Whether the member may read under a member-list read policy.</summary>
+    public bool Read { get; set; }
+
+    /// <summary>Whether the member's writes are tracked under a member-list write policy.</summary>
+    public bool Write { get; set; }
 }
 
 /// <summary>

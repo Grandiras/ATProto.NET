@@ -112,23 +112,28 @@ public sealed class SpaceNetworkFixture : IAsyncLifetime
     /// Creates a space owned by <see cref="Authority"/>, with a key derived from the calling test.
     /// </summary>
     /// <param name="skey">The space key. Give each test its own so they stay order-independent.</param>
-    /// <param name="policy">How the authority authorizes requesting users. Defaults to a member list.</param>
+    /// <param name="readPolicy">Who the authority mints credentials for. Defaults to a member list.</param>
+    /// <param name="writePolicy">Whose writes the authority tracks. Defaults to a member list.</param>
     /// <param name="appAccess">How the authority authorizes requesting apps. Defaults to open.</param>
-    /// <param name="members">Accounts to add to the member list. The owner is never one of them.</param>
+    /// <param name="members">
+    /// Accounts to put on the member list with read and write access. The owner is never one of
+    /// them.
+    /// </param>
     public async Task<SpaceUri> CreateSpaceAsync(
         string skey,
-        SimpleSpaceUserPolicy? policy = null,
+        SimpleSpaceUserPolicy? readPolicy = null,
+        SimpleSpaceUserPolicy? writePolicy = null,
         SimpleSpaceAppAccess? appAccess = null,
         SpaceActor[]? members = null)
     {
         var created = await Authority.Client.SimpleSpace.CreateSpaceAsync(
-            SpaceType, skey, policy, appAccess);
+            SpaceType, skey, readPolicy, writePolicy, appAccess);
 
         var space = SpaceUri.Parse(created.Uri);
         _spaces.Add((Authority, space));
 
         foreach (var member in members ?? [])
-            await Authority.Client.SimpleSpace.AddMemberAsync(space.Value, member.Did);
+            await Authority.Client.SimpleSpace.PutMemberAsync(space.Value, member.Did, read: true, write: true);
 
         return space;
     }

@@ -83,7 +83,8 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
         {
             Type = "com.atmoboards.forum",
             Skey = "default",
-            Policy = new MemberListPolicy(),
+            ReadPolicy = new MemberListPolicy(),
+            WritePolicy = new MemberListPolicy(),
             AppAccess = new OpenAppAccess(),
         });
 
@@ -101,7 +102,8 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
         using var response = await PostAsync(SpaceNsids.CreateSimpleSpace, new CreateSimpleSpaceRequest
         {
             Type = "com.atmoboards.forum",
-            Policy = new PublicPolicy(),
+            ReadPolicy = new PublicPolicy(),
+            WritePolicy = new PublicPolicy(),
             AppAccess = new OpenAppAccess(),
         });
 
@@ -117,7 +119,8 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
         {
             Type = "com.atmoboards.forum",
             Skey = "default",
-            Policy = new MemberListPolicy(),
+            ReadPolicy = new MemberListPolicy(),
+            WritePolicy = new MemberListPolicy(),
             AppAccess = new OpenAppAccess(),
         };
 
@@ -137,7 +140,8 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
         using var response = await PostAsync(SpaceNsids.CreateSimpleSpace, new CreateSimpleSpaceRequest
         {
             Type = "com.atmoboards.forum",
-            Policy = new PublicPolicy(),
+            ReadPolicy = new PublicPolicy(),
+            WritePolicy = new PublicPolicy(),
             AppAccess = new OpenAppAccess(),
         });
 
@@ -145,36 +149,115 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task AddMember_ByAnAccountThatIsNotTheOwner_AnswersSpaceNotFound()
+    public async Task CreateSpace_StoresTheReadAndWritePoliciesSeparately()
+    {
+        _caller.Did = Owner;
+
+        using var response = await PostAsync(SpaceNsids.CreateSimpleSpace, new CreateSimpleSpaceRequest
+        {
+            Type = "com.atmoboards.forum",
+            Skey = "split",
+            ReadPolicy = new MemberListPolicy(),
+            WritePolicy = new PublicPolicy(),
+            AppAccess = new OpenAppAccess(),
+        });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var stored = await _store.GetSpaceAsync(SpaceUri.Parse($"at://{Owner}/space/com.atmoboards.forum/split"));
+        Assert.IsType<MemberListPolicy>(stored!.ReadPolicy);
+        Assert.IsType<PublicPolicy>(stored.WritePolicy);
+    }
+
+    [Theory]
+    [InlineData("readPolicy")]
+    [InlineData("writePolicy")]
+    public async Task CreateSpace_WithoutEitherPolicy_IsARequestError(string omitted)
+    {
+        // Both are required on the wire. Defaulting a missing one server-side would store a policy
+        // the caller never asked for.
+        _caller.Did = Owner;
+
+        var fields = new Dictionary<string, string>
+        {
+            ["type"] = "\"com.atmoboards.forum\"",
+            ["readPolicy"] = $$"""{"$type":"{{SimpleSpaceTypes.MemberListPolicy}}"}""",
+            ["writePolicy"] = $$"""{"$type":"{{SimpleSpaceTypes.MemberListPolicy}}"}""",
+            ["appAccess"] = $$"""{"$type":"{{SimpleSpaceTypes.Open}}"}""",
+        };
+        fields.Remove(omitted);
+        var json = "{" + string.Join(",", fields.Select(field => $"\"{field.Key}\":{field.Value}")) + "}";
+
+        using var response = await PostRawAsync(SpaceNsids.CreateSimpleSpace, json);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("InvalidRequest", await ReadErrorAsync(response));
+    }
+
+    [Fact]
+    public async Task PutMember_ByAnAccountThatIsNotTheOwner_AnswersSpaceNotFound()
     {
         // Answering NotSpaceOwner would confirm the space exists to anyone who guessed its URI.
         var space = await SeedSpaceAsync();
         _caller.Did = Other;
 
         using var response = await PostAsync(
-            SpaceNsids.AddSimpleSpaceMember,
-            new AddSimpleSpaceMemberRequest { Space = space.Value, Did = Other });
+            SpaceNsids.PutSimpleSpaceMember,
+            new PutSimpleSpaceMemberRequest { Space = space.Value, Did = Other, Read = true, Write = true });
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal(SimpleSpaceErrors.SpaceNotFound, await ReadErrorAsync(response));
     }
 
     [Fact]
-    public async Task AddAndListMembers_RoundTrips()
+    public async Task PutMember_ReplacesBothFlags_AndListMembersReportsThemOnTheWire()
     {
         var space = await SeedSpaceAsync();
         _caller.Did = Owner;
 
-        using var added = await PostAsync(
-            SpaceNsids.AddSimpleSpaceMember,
-            new AddSimpleSpaceMemberRequest { Space = space.Value, Did = Other });
-        Assert.Equal(HttpStatusCode.OK, added.StatusCode);
+        using var first = await PostAsync(
+            SpaceNsids.PutSimpleSpaceMember,
+            new PutSimpleSpaceMemberRequest { Space = space.Value, Did = Other, Read = true, Write = false });
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+
+        using var second = await PostAsync(
+            SpaceNsids.PutSimpleSpaceMember,
+            new PutSimpleSpaceMemberRequest { Space = space.Value, Did = Other, Read = false, Write = true });
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
 
         using var listed = await _client.GetAsync(
             $"/xrpc/{SpaceNsids.ListSimpleSpaceMembers}?space={Uri.EscapeDataString(space.Value)}");
 
-        var body = await listed.Content.ReadFromJsonAsync<ListSimpleSpaceMembersResponse>(AtProtoJsonDefaults.Options);
-        Assert.Equal(Other, Assert.Single(body!.Members).Did);
+        using var document = JsonDocument.Parse(await listed.Content.ReadAsStringAsync());
+        var member = Assert.Single(document.RootElement.GetProperty("members").EnumerateArray());
+        Assert.Equal(Other, member.GetProperty("did").GetString());
+        Assert.False(member.GetProperty("read").GetBoolean());
+        Assert.True(member.GetProperty("write").GetBoolean());
+    }
+
+    [Fact]
+    public async Task PutMember_WithoutTheAccessFlags_IsARequestError()
+    {
+        var space = await SeedSpaceAsync();
+        _caller.Did = Owner;
+
+        using var response = await PostRawAsync(
+            SpaceNsids.PutSimpleSpaceMember,
+            JsonSerializer.Serialize(new { space = space.Value, did = Other }));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AddMember_IsNoLongerServed()
+    {
+        // Removed upstream in favour of putMember; a route that answers is one that has to be kept.
+        var space = await SeedSpaceAsync();
+        _caller.Did = Owner;
+
+        using var response = await PostRawAsync(
+            "com.atproto.simplespace.addMember", JsonSerializer.Serialize(new { space = space.Value, did = Other }));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
@@ -199,13 +282,31 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
 
         using var response = await PostAsync(
             SpaceNsids.UpdateSimpleSpace,
-            new UpdateSimpleSpaceRequest { Space = space.Value, Policy = new PublicPolicy() });
+            new UpdateSimpleSpaceRequest { Space = space.Value, WritePolicy = new PublicPolicy() });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var stored = await _store.GetSpaceAsync(space);
-        Assert.IsType<PublicPolicy>(stored!.Policy);
+        Assert.IsType<MemberListPolicy>(stored!.ReadPolicy);
+        Assert.IsType<PublicPolicy>(stored.WritePolicy);
         Assert.IsType<OpenAppAccess>(stored.AppAccess);
+    }
+
+    [Fact]
+    public async Task GetSpace_DescribesBothPoliciesOnTheWire()
+    {
+        var space = await SeedSpaceAsync(writePolicy: new PublicPolicy());
+        _caller.Did = Owner;
+
+        using var response = await _client.GetAsync(
+            $"/xrpc/{SpaceNsids.GetSimpleSpace}?space={Uri.EscapeDataString(space.Value)}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var root = document.RootElement;
+        Assert.Equal(SimpleSpaceTypes.MemberListPolicy, root.GetProperty("readPolicy").GetProperty("$type").GetString());
+        Assert.Equal(SimpleSpaceTypes.PublicPolicy, root.GetProperty("writePolicy").GetProperty("$type").GetString());
+        Assert.False(root.TryGetProperty("policy", out _));
     }
 
     [Fact]
@@ -239,11 +340,11 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, second.StatusCode);
     }
 
-    private async Task<SpaceUri> SeedSpaceAsync()
+    private async Task<SpaceUri> SeedSpaceAsync(SimpleSpaceUserPolicy? writePolicy = null)
     {
         var space = SpaceUri.Parse($"at://{Owner}/space/com.atmoboards.forum/seeded");
-        await _store.CreateSpaceAsync(
-            new SimpleSpaceRecord(space, Owner, new MemberListPolicy(), new OpenAppAccess()));
+        await _store.CreateSpaceAsync(new SimpleSpaceRecord(
+            space, Owner, new MemberListPolicy(), writePolicy ?? new MemberListPolicy(), new OpenAppAccess()));
 
         return space;
     }
@@ -251,6 +352,10 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
     private Task<HttpResponseMessage> PostAsync<TBody>(string nsid, TBody body) =>
         _client.PostAsync(
             $"/xrpc/{nsid}", JsonContent.Create(body, options: AtProtoJsonDefaults.Options));
+
+    private Task<HttpResponseMessage> PostRawAsync(string nsid, string json) =>
+        _client.PostAsync(
+            $"/xrpc/{nsid}", new StringContent(json, System.Text.Encoding.UTF8, "application/json"));
 
     private static async Task<string?> ReadErrorAsync(HttpResponseMessage response)
     {

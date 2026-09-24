@@ -12,7 +12,7 @@ namespace ATProtoNet.Server.Spaces;
 /// A verified inter-service authentication token.
 /// </summary>
 /// <param name="Issuer">The calling service's DID.</param>
-/// <param name="Audience">The DID it addressed.</param>
+/// <param name="Audience">The service identifier it addressed: a DID, possibly with a service fragment.</param>
 /// <param name="Method">The <c>lxm</c> it was scoped to, when it named one.</param>
 public sealed record VerifiedServiceAuth(string Issuer, string Audience, string? Method);
 
@@ -33,12 +33,17 @@ public interface ISpaceServiceAuthVerifier
     /// Verifies the <c>Authorization: Bearer</c> service auth token on a request.
     /// </summary>
     /// <param name="context">The HTTP context.</param>
-    /// <param name="expectedAudience">The DID this service answers to.</param>
+    /// <param name="acceptedAudiences">
+    /// The service identifiers this service answers to for the request. The token's <c>aud</c>
+    /// must equal one of them exactly. Several are accepted where senders legitimately differ —
+    /// a space authority is addressed by its bare DID by the reference implementation and by
+    /// <c>{did}#atproto_space_host</c> or its own service DID by others.
+    /// </param>
     /// <param name="expectedMethod">The <c>lxm</c> the token must be scoped to.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="SpaceVerificationException">Thrown when any check fails.</exception>
     Task<VerifiedServiceAuth> VerifyAsync(
-        HttpContext context, string expectedAudience, string expectedMethod,
+        HttpContext context, IReadOnlyCollection<string> acceptedAudiences, string expectedMethod,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -87,16 +92,38 @@ public sealed class SpaceServiceAuthVerifier : ISpaceServiceAuthVerifier
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
-    /// <inheritdoc/>
-    public async Task<VerifiedServiceAuth> VerifyAsync(
+    /// <summary>
+    /// Verifies the <c>Authorization: Bearer</c> service auth token on a request addressed to a
+    /// single audience.
+    /// </summary>
+    /// <param name="context">The HTTP context.</param>
+    /// <param name="expectedAudience">The service identifier the token's <c>aud</c> must equal.</param>
+    /// <param name="expectedMethod">The <c>lxm</c> the token must be scoped to.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="SpaceVerificationException">Thrown when any check fails.</exception>
+    public Task<VerifiedServiceAuth> VerifyAsync(
         HttpContext context,
         string expectedAudience,
         string expectedMethod,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(context);
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedAudience);
+        return VerifyAsync(context, [expectedAudience], expectedMethod, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<VerifiedServiceAuth> VerifyAsync(
+        HttpContext context,
+        IReadOnlyCollection<string> acceptedAudiences,
+        string expectedMethod,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(acceptedAudiences);
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedMethod);
+
+        if (acceptedAudiences.Count == 0)
+            throw new ArgumentException("At least one audience must be accepted.", nameof(acceptedAudiences));
 
         var header = context.Request.Headers.Authorization.ToString();
         if (!header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
@@ -112,8 +139,11 @@ public sealed class SpaceServiceAuthVerifier : ISpaceServiceAuthVerifier
         var issuer = GetString(payload, "iss") ?? throw Invalid("The service auth token is missing its \"iss\".");
         var audience = GetString(payload, "aud") ?? throw Invalid("The service auth token is missing its \"aud\".");
 
-        if (!string.Equals(audience, expectedAudience, StringComparison.Ordinal))
-            throw Invalid($"The service auth token is addressed to '{audience}', not to '{expectedAudience}'.");
+        if (!acceptedAudiences.Contains(audience, StringComparer.Ordinal))
+        {
+            throw Invalid(
+                $"The service auth token is addressed to '{audience}', not to {string.Join(" or ", acceptedAudiences.Select(a => $"'{a}'"))}.");
+        }
 
         var method = GetString(payload, "lxm");
         if (method is not null && !string.Equals(method, expectedMethod, StringComparison.Ordinal))

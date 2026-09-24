@@ -36,6 +36,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     private readonly InMemorySimpleSpaceStore _simpleSpaceStore = new();
     private readonly StubCallerResolver _caller = new();
     private readonly StubRepoHost _repoHost = new();
+    private readonly OutboundHandler _outbound = new();
 
     private IHost _host = null!;
     private HttpClient _client = null!;
@@ -50,8 +51,8 @@ public class SpaceServerEndpointTests : IAsyncLifetime
 
         _space = SpaceUri.Parse($"at://{AuthorityDid}/space/com.atmoboards.forum/default");
         await _simpleSpaceStore.CreateSpaceAsync(
-            new SimpleSpaceRecord(_space, AuthorityDid, new MemberListPolicy(), new OpenAppAccess()));
-        await _simpleSpaceStore.AddMemberAsync(_space, MemberDid);
+            new SimpleSpaceRecord(_space, AuthorityDid, new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess()));
+        await _simpleSpaceStore.PutMemberAsync(_space, MemberDid, read: true, write: true);
 
         _host = await new HostBuilder()
             .ConfigureWebHost(web =>
@@ -74,6 +75,10 @@ public class SpaceServerEndpointTests : IAsyncLifetime
                         .AddSpaceAuthority<InMemorySpaceAuthorityStore>(_authorityKey)
                         .AddSimpleSpace<InMemorySimpleSpaceStore>()
                         .AddSpaceRepoHost<StubRepoHost>();
+
+                    // Every outbound call — a forwarded notification included — lands here.
+                    services.AddHttpClient(SpaceServerExtensions.HttpClientName)
+                        .ConfigurePrimaryHttpMessageHandler(() => _outbound);
                 });
                 web.Configure(app =>
                 {
@@ -167,6 +172,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         await _simpleSpaceStore.CreateSpaceAsync(new SimpleSpaceRecord(
             gated,
             AuthorityDid,
+            new PublicPolicy(),
             new PublicPolicy(),
             new AllowListAppAccess { Allowed = ["https://app.example.com/client-metadata.json"] }));
 
@@ -446,6 +452,134 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         Assert.Equal(SpaceErrors.SpaceNotFound, await ReadErrorAsync(response));
     }
 
+    // ── notifyWrite: the write policy ─────────────────────────
+
+    [Fact]
+    public async Task NotifyWrite_MemberWithWriteAccess_IsRecorded()
+    {
+        using var response = await NotifyWriteAsync(_space, MemberDid, _memberKey, "3l6oveex3ii2l");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains(MemberDid, await WriterDidsAsync(_space));
+    }
+
+    [Fact]
+    public async Task NotifyWrite_MemberWithoutWriteAccess_IsRefusedAndNotRecorded()
+    {
+        // The reference authority refuses "a member without write access" the same way.
+        await _simpleSpaceStore.PutMemberAsync(_space, MemberDid, read: true, write: false);
+
+        using var response = await NotifyWriteAsync(_space, MemberDid, _memberKey, "3l6oveex3ii2l");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(SpaceErrors.NotAuthorized, await ReadErrorAsync(response));
+        Assert.DoesNotContain(MemberDid, await WriterDidsAsync(_space));
+    }
+
+    [Fact]
+    public async Task NotifyWrite_NonMemberUnderAMemberListWritePolicy_IsRefused()
+    {
+        using var response = await NotifyWriteAsync(_space, StrangerDid, _strangerKey, "3l6oveex3ii2l");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.DoesNotContain(StrangerDid, await WriterDidsAsync(_space));
+    }
+
+    [Fact]
+    public async Task NotifyWrite_NonMemberUnderAPublicWritePolicy_IsRecorded()
+    {
+        var space = await CreateSpaceThroughSimpleSpaceAsync("public-write", writePolicy: new PublicPolicy());
+
+        using var response = await NotifyWriteAsync(space, StrangerDid, _strangerKey, "3l6oveex3ii2l");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains(StrangerDid, await WriterDidsAsync(space));
+    }
+
+    [Fact]
+    public async Task NotifyWrite_RevThatIsNotATid_IsARequestErrorBeforeAnyAuthCheck()
+    {
+        // No Authorization header at all: the malformed rev is what gets refused.
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/xrpc/{SpaceNsids.NotifyWrite}")
+        {
+            Content = JsonContent.Create(
+                new NotifyWriteRequest { Space = _space.Value, Repo = MemberDid, Rev = "not-a-tid", Hash = [1] },
+                options: AtProtoJsonDefaults.Options),
+        };
+
+        using var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("InvalidRequest", await ReadErrorAsync(response));
+    }
+
+    [Theory]
+    [InlineData(MemberDid)]                             // what the reference repo host sends
+    [InlineData(MemberDid + "#atproto_space_host")]     // the authority's space host identifier
+    [InlineData(AuthorityDid)]                          // this service's own ServiceDid
+    public async Task NotifyWrite_OnAMultiTenantHost_AcceptsEachWayOfAddressingTheAuthority(string audience)
+    {
+        // A space anchored on an account this host serves, while the host's ServiceDid is its own.
+        // Accepting only the ServiceDid refused every notification from a reference PDS.
+        var space = await CreateSpaceThroughSimpleSpaceAsync(
+            "tenant", writePolicy: new PublicPolicy(), owner: MemberDid);
+
+        using var response = await NotifyWriteAsync(space, StrangerDid, _strangerKey, "3l6oveex3ii2l", audience);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task NotifyWrite_AddressedToAnotherService_IsRefused()
+    {
+        var space = await CreateSpaceThroughSimpleSpaceAsync("misaddressed", writePolicy: new PublicPolicy());
+
+        using var response = await NotifyWriteAsync(
+            space, StrangerDid, _strangerKey, "3l6oveex3ii2l", audience: "did:web:elsewhere.example.com");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.DoesNotContain(StrangerDid, await WriterDidsAsync(space));
+    }
+
+    [Fact]
+    public async Task NotifyWrite_Accepted_IsForwardedToARegisteredSyncer()
+    {
+        // Syncers registered with registerNotify hear about remote writes only because the
+        // authority forwards them; the notification is addressed to the identifier they registered.
+        const string syncer = "did:web:syncer.example.com";
+        _resolver.Publish(syncer, new ATProtoNet.Identity.DidDocument
+        {
+            Id = syncer,
+            Service =
+            [
+                new ATProtoNet.Identity.ServiceEndpoint
+                {
+                    Id = "#atproto_space_syncer",
+                    Type = "AtprotoSpaceSyncer",
+                    Endpoint = "https://syncer.example.com",
+                },
+            ],
+        });
+
+        var store = _host.Services.GetRequiredService<ISpaceAuthorityStore>();
+        await store.RegisterNotifyAsync(_space, $"{syncer}#atproto_space_syncer", DateTimeOffset.UtcNow.AddDays(1));
+
+        using var response = await NotifyWriteAsync(_space, MemberDid, _memberKey, "3l6oveex3ii2l");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var (url, token, body) = await _outbound.FirstRequest.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal($"https://syncer.example.com/xrpc/{SpaceNsids.NotifyWrite}", url.ToString());
+        var payload = token!.Split('.')[1].Replace('-', '+').Replace('_', '/');
+        payload = payload.PadRight(payload.Length + ((4 - (payload.Length % 4)) % 4), '=');
+        using var claims = JsonDocument.Parse(Convert.FromBase64String(payload));
+        Assert.Equal($"{syncer}#atproto_space_syncer", claims.RootElement.GetProperty("aud").GetString());
+
+        using var forwarded = JsonDocument.Parse(body);
+        Assert.Equal(MemberDid, forwarded.RootElement.GetProperty("repo").GetString());
+        Assert.Equal("3l6oveex3ii2l", forwarded.RootElement.GetProperty("rev").GetString());
+    }
+
     // ── Helpers ───────────────────────────────────────────────
 
     private string MintDelegation(string userDid, AtProtoKey userKey, SpaceUri? space = null)
@@ -507,9 +641,10 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     }
 
     /// <summary>Creates a space the way an application does: over the owner's own session.</summary>
-    private async Task<SpaceUri> CreateSpaceThroughSimpleSpaceAsync(string skey)
+    private async Task<SpaceUri> CreateSpaceThroughSimpleSpaceAsync(
+        string skey, SimpleSpaceUserPolicy? writePolicy = null, string owner = AuthorityDid)
     {
-        _caller.Did = AuthorityDid;
+        _caller.Did = owner;
 
         using var response = await _client.PostAsync(
             $"/xrpc/{SpaceNsids.CreateSimpleSpace}",
@@ -519,7 +654,8 @@ public class SpaceServerEndpointTests : IAsyncLifetime
                     Type = "com.atmoboards.forum",
                     Skey = skey,
                     // Public, so the exchange turns on the space existing rather than on membership.
-                    Policy = new PublicPolicy(),
+                    ReadPolicy = new PublicPolicy(),
+                    WritePolicy = writePolicy ?? new PublicPolicy(),
                     AppAccess = new OpenAppAccess(),
                 },
                 options: AtProtoJsonDefaults.Options));
@@ -535,7 +671,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     /// its account's key produces.
     /// </summary>
     private async Task<HttpResponseMessage> NotifyWriteAsync(
-        SpaceUri space, string repoDid, AtProtoKey repoKey, string rev)
+        SpaceUri space, string repoDid, AtProtoKey repoKey, string rev, string audience = AuthorityDid)
     {
         using var generator = new ServiceAuthGenerator(repoDid, repoKey);
 
@@ -547,9 +683,37 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         };
 
         request.Headers.Authorization = new AuthenticationHeaderValue(
-            "Bearer", generator.CreateToken(AuthorityDid, SpaceNsids.NotifyWrite));
+            "Bearer", generator.CreateToken(audience, SpaceNsids.NotifyWrite));
 
         return await _client.SendAsync(request);
+    }
+
+    private async Task<IReadOnlyList<string>> WriterDidsAsync(SpaceUri space)
+    {
+        var store = _host.Services.GetRequiredService<ISpaceAuthorityStore>();
+        var page = await store.ListReposAsync(space, 100, null);
+        return page.Repos.Select(repo => repo.Did).ToList();
+    }
+
+    /// <summary>
+    /// Stands in for every service this host calls out to, and lets a test wait for a delivery
+    /// that happens off the request path.
+    /// </summary>
+    private sealed class OutboundHandler : HttpMessageHandler
+    {
+        private readonly TaskCompletionSource<(Uri Url, string? Token, string Body)> _first =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task<(Uri Url, string? Token, string Body)> FirstRequest => _first.Task;
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var body = request.Content is null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken);
+            _first.TrySetResult((request.RequestUri!, request.Headers.Authorization?.Parameter, body));
+
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        }
     }
 
     private static async Task<string?> ReadErrorAsync(HttpResponseMessage response)

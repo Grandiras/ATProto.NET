@@ -228,7 +228,7 @@ public static class SpaceServerExtensions
         services.AddXrpcEndpoint<UpdateSimpleSpaceEndpoint>();
         services.AddXrpcEndpoint<DeleteSimpleSpaceEndpoint>();
         services.AddXrpcEndpoint<GetSimpleSpaceEndpoint>();
-        services.AddXrpcEndpoint<AddSimpleSpaceMemberEndpoint>();
+        services.AddXrpcEndpoint<PutSimpleSpaceMemberEndpoint>();
         services.AddXrpcEndpoint<RemoveSimpleSpaceMemberEndpoint>();
         services.AddXrpcEndpoint<ListSimpleSpaceMembersEndpoint>();
 

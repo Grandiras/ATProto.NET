@@ -14,7 +14,9 @@ namespace ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 /// <c>simplespace</c> is the baseline every account's PDS is required to offer, so an
 /// application can build against it without standing up a bespoke space service. Its spaces are
 /// anchored on a user's own DID and governed by an explicit member list, or by the
-/// <see cref="PublicPolicy"/> and <see cref="ManagingAppPolicy"/> alternatives.</para>
+/// <see cref="PublicPolicy"/> and <see cref="ManagingAppPolicy"/> alternatives — separately for
+/// reading (who the authority mints credentials for) and writing (whose writes it tracks and
+/// forwards).</para>
 /// <para>It is neither the only permitted implementation nor a privileged one. Other space types
 /// may define their own management implementations and are full protocol participants; they are
 /// simply hosted on their own space services rather than on a PDS.</para>
@@ -37,17 +39,27 @@ public sealed class SimpleSpaceClient
     /// </summary>
     /// <param name="type">The space type NSID.</param>
     /// <param name="skey">The space key. A TID is generated when omitted.</param>
-    /// <param name="policy">
-    /// How to authorize requesting users. Defaults to <see cref="MemberListPolicy"/>.
+    /// <param name="readPolicy">
+    /// How to authorize users to read the space. Defaults to <see cref="MemberListPolicy"/>.
+    /// </param>
+    /// <param name="writePolicy">
+    /// How to decide whose writes the authority tracks and forwards. Defaults to
+    /// <see cref="MemberListPolicy"/>.
     /// </param>
     /// <param name="appAccess">
     /// How to authorize requesting apps. Defaults to <see cref="OpenAppAccess"/>.
     /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <remarks>
+    /// All three policies are required on the wire, so the defaults are always sent. The write
+    /// policy does not stop anyone writing to their own repo; it decides whether the authority
+    /// lists them in the writer set and forwards their write notifications to syncers.
+    /// </remarks>
     public async Task<CreateSimpleSpaceResponse> CreateSpaceAsync(
         string type,
         string? skey = null,
-        SimpleSpaceUserPolicy? policy = null,
+        SimpleSpaceUserPolicy? readPolicy = null,
+        SimpleSpaceUserPolicy? writePolicy = null,
         SimpleSpaceAppAccess? appAccess = null,
         CancellationToken cancellationToken = default)
     {
@@ -57,7 +69,8 @@ public sealed class SimpleSpaceClient
         {
             Type = type,
             Skey = skey,
-            Policy = policy ?? new MemberListPolicy(),
+            ReadPolicy = readPolicy ?? new MemberListPolicy(),
+            WritePolicy = writePolicy ?? new MemberListPolicy(),
             AppAccess = appAccess ?? new OpenAppAccess(),
         };
 
@@ -70,18 +83,27 @@ public sealed class SimpleSpaceClient
     /// replaces that policy wholesale.
     /// </summary>
     /// <param name="space">The space to update.</param>
-    /// <param name="policy">The new user policy, or <see langword="null"/> to leave it.</param>
+    /// <param name="readPolicy">The new read policy, or <see langword="null"/> to leave it.</param>
+    /// <param name="writePolicy">The new write policy, or <see langword="null"/> to leave it.</param>
     /// <param name="appAccess">The new app access policy, or <see langword="null"/> to leave it.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task UpdateSpaceAsync(
         string space,
-        SimpleSpaceUserPolicy? policy = null,
+        SimpleSpaceUserPolicy? readPolicy = null,
+        SimpleSpaceUserPolicy? writePolicy = null,
         SimpleSpaceAppAccess? appAccess = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(space);
 
-        var request = new UpdateSimpleSpaceRequest { Space = space, Policy = policy, AppAccess = appAccess };
+        var request = new UpdateSimpleSpaceRequest
+        {
+            Space = space,
+            ReadPolicy = readPolicy,
+            WritePolicy = writePolicy,
+            AppAccess = appAccess,
+        };
+
         await _xrpc.ProcedureAsync<UpdateSimpleSpaceRequest>(
             "com.atproto.simplespace.updateSpace", request, cancellationToken: cancellationToken);
     }
@@ -126,25 +148,32 @@ public sealed class SimpleSpaceClient
     }
 
     /// <summary>
-    /// Adds a member to a space's member list.
+    /// Adds a member to a space's member list, or replaces an existing member's access.
     /// </summary>
     /// <param name="space">The space.</param>
-    /// <param name="did">The DID of the member to add.</param>
+    /// <param name="did">The DID of the member.</param>
+    /// <param name="read">Whether the member may read under a member-list read policy.</param>
+    /// <param name="write">
+    /// Whether the member's writes are tracked under a member-list write policy.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <remarks>
-    /// The member list is host-internal state consulted at credential-mint time when the space's
-    /// policy is <see cref="MemberListPolicy"/>. It is not a synced protocol structure and is
-    /// never enumerated to the network.
+    /// <para>An upsert: both flags are replaced every time, so to change one pass the other's
+    /// current value too. A member with neither flag stays on the list but is admitted to
+    /// nothing; <see cref="RemoveMemberAsync(string, string, CancellationToken)"/> takes them off
+    /// it.</para>
+    /// <para>The member list is host-internal state. It is not a synced protocol structure and
+    /// is never enumerated to the network.</para>
     /// </remarks>
-    public async Task AddMemberAsync(
-        string space, string did, CancellationToken cancellationToken = default)
+    public async Task PutMemberAsync(
+        string space, string did, bool read, bool write, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(space);
         ArgumentException.ThrowIfNullOrWhiteSpace(did);
 
-        var request = new AddSimpleSpaceMemberRequest { Space = space, Did = did };
-        await _xrpc.ProcedureAsync<AddSimpleSpaceMemberRequest>(
-            "com.atproto.simplespace.addMember", request, cancellationToken: cancellationToken);
+        var request = new PutSimpleSpaceMemberRequest { Space = space, Did = did, Read = read, Write = write };
+        await _xrpc.ProcedureAsync<PutSimpleSpaceMemberRequest>(
+            "com.atproto.simplespace.putMember", request, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -170,7 +199,8 @@ public sealed class SimpleSpaceClient
     }
 
     /// <summary>
-    /// Lists a space's member list. Must be called on the space authority's PDS.
+    /// Lists a space's member list, with each member's read and write access. Must be called on
+    /// the space authority's PDS.
     /// </summary>
     /// <param name="space">The space.</param>
     /// <param name="limit">Maximum number of results per page (1–1000, default 100).</param>
@@ -222,32 +252,43 @@ public sealed class SimpleSpaceClient
     }
 
     /// <summary>
-    /// Asks a space's managing app whether to authorize a requesting user.
+    /// Asks a space's managing app whether to authorize a user to read or write the space.
     /// </summary>
     /// <param name="space">The space.</param>
-    /// <param name="user">The DID of the requesting user.</param>
-    /// <param name="clientId">The attested client ID, if a client attestation was presented.</param>
+    /// <param name="user">The DID of the user.</param>
+    /// <param name="access">
+    /// The kind of access being checked: <see cref="SimpleSpaceAccess.Read"/> or
+    /// <see cref="SimpleSpaceAccess.Write"/>.
+    /// </param>
+    /// <param name="clientId">
+    /// The attested client ID, if a client attestation was presented. Omit it for write checks,
+    /// which have no app behind them.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <remarks>
     /// Unlike the other <c>simplespace</c> methods this one is served by the managing app rather
-    /// than by a PDS, and is called by the space authority at credential-mint time when the
-    /// space's policy is <see cref="ManagingAppPolicy"/>. The authority issues it with itself as
-    /// <c>iss</c> and the managing app as <c>aud</c>, so the app can verify the call genuinely
-    /// came from the space's authority. Included here for applications implementing the
-    /// managing-app side, and for authorities written against this SDK.
+    /// than by a PDS. The space authority calls it when the matching policy is a
+    /// <see cref="ManagingAppPolicy"/> — with <c>read</c> at credential-mint time, and with
+    /// <c>write</c> when a write notification arrives. It issues the call with itself as
+    /// <c>iss</c> and the managing app's service identifier as <c>aud</c>, so the app can verify
+    /// the call genuinely came from the space's authority. Included here for applications
+    /// implementing the managing-app side, and for authorities written against this SDK.
     /// </remarks>
     public Task<CheckUserAccessResponse> CheckUserAccessAsync(
         string space,
         string user,
+        string access,
         string? clientId = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(space);
         ArgumentException.ThrowIfNullOrWhiteSpace(user);
+        ArgumentException.ThrowIfNullOrWhiteSpace(access);
 
         var parameters = new XrpcParams()
             .Add("space", space)
             .Add("user", user)
+            .Add("access", access)
             .Add("clientId", clientId);
 
         return _xrpc.QueryAsync<CheckUserAccessResponse>(
@@ -266,14 +307,19 @@ public sealed class SimpleSpaceClient
         return GetSpaceAsync(space.Value, cancellationToken);
     }
 
-    /// <inheritdoc cref="AddMemberAsync(string, string, CancellationToken)"/>
+    /// <inheritdoc cref="PutMemberAsync(string, string, bool, bool, CancellationToken)"/>
     /// <param name="space">The space.</param>
-    /// <param name="did">The DID of the member to add.</param>
+    /// <param name="did">The DID of the member.</param>
+    /// <param name="read">Whether the member may read under a member-list read policy.</param>
+    /// <param name="write">
+    /// Whether the member's writes are tracked under a member-list write policy.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task AddMemberAsync(SpaceUri space, string did, CancellationToken cancellationToken = default)
+    public Task PutMemberAsync(
+        SpaceUri space, string did, bool read, bool write, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(space);
-        return AddMemberAsync(space.Value, did, cancellationToken);
+        return PutMemberAsync(space.Value, did, read, write, cancellationToken);
     }
 
     /// <inheritdoc cref="RemoveMemberAsync(string, string, CancellationToken)"/>

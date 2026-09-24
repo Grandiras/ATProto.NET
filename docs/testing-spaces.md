@@ -4,26 +4,59 @@ The unit tests for [spaces](spaces.md) stub the HTTP layer: the cryptographic co
 
 `tests/ATProtoNet.IntegrationTests/` carries that second set, behind `[RequiresSpacesFact]`. They skip unless the environment says a space host is there, so CI is unaffected.
 
-## There is no released server yet
+## Where the alpha is published
 
-No PDS release serves `com.atproto.space.*`. The implementation lives on [bluesky-social/atproto#5187](https://github.com/bluesky-social/atproto/pull/5187) (branch `permissioned-data`), which is a work in progress, so there is no container image to pull and the endpoints may still change. Until there is one, the host these tests run against is built from that branch.
+No stable PDS release serves `com.atproto.space.*`. The implementation lives on [bluesky-social/atproto#5187](https://github.com/bluesky-social/atproto/pull/5187) (branch `permissioned-data`), still an open draft whose endpoints may change. Bluesky does publish an alpha of it, announced in [AT Protocol Spaces (alpha)](https://atproto.com/blog/atproto-spaces-alpha):
+
+| Artifact | What it is |
+| --- | --- |
+| `ghcr.io/bluesky-social/atproto:pds-spaces-alpha` | The PDS as a container image, built from the `permissioned-data-alpha` branch. The tag moves, so pin the digest: `ghcr.io/bluesky-social/atproto@sha256:4b19b376aa6164b62ede70bb35db79096c6dac9985cecb175e82022860a3d796` was built on 2026-09-15 from `158c439b` and includes the `simplespace` read/write split. It listens on port 3000 and is configured with the same `PDS_*` variables as the reference PDS image. |
+| `@atproto/pds@alpha`, `@atproto/dev-env@alpha` on npm | The same code as packages. `0.0.0-spaces-alpha-20260915165437` matches the image above. |
+| `https://spaces-alpha.host.bsky.network` | A hosted PDS running the alpha. Invite-only, updated weekly, and its data is not kept. |
+
+The tests provision and delete their own accounts, so they need admin access to the PDS. They also need the PLC directory it registers those accounts with. That rules out the hosted PDS, and the container image needs a PLC directory alongside it. The simplest host is the in-process dev network, which brings its own.
 
 ## Standing one up
 
-Requires Node 22+ and pnpm 11.
+### From npm
+
+Requires Node 22+. The alpha dev network installs with pnpm. Several `@atproto/lex*` packages also have a plain `0.0.0` release on npm that still carries unresolved `workspace:*` dependencies, and the alpha's `^0.0.0-spaces-alpha-…` ranges resolve to it. The overrides pin them back to the alpha snapshot:
+
+```json
+{
+  "name": "space-net",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@atproto/dev-env": "0.0.0-spaces-alpha-20260915165437"
+  },
+  "pnpm": {
+    "overrides": {
+      "@atproto/bsync": "0.0.0-spaces-alpha-20260915165437",
+      "@atproto/lex": "0.0.0-spaces-alpha-20260915165437",
+      "@atproto/lex-builder": "0.0.0-spaces-alpha-20260915165437",
+      "@atproto/lex-cbor": "0.0.0-spaces-alpha-20260915165437",
+      "@atproto/lex-client": "0.0.0-spaces-alpha-20260915165437",
+      "@atproto/lex-data": "0.0.0-spaces-alpha-20260915165437",
+      "@atproto/lex-document": "0.0.0-spaces-alpha-20260915165437",
+      "@atproto/lex-installer": "0.0.0-spaces-alpha-20260915165437",
+      "@atproto/lex-json": "0.0.0-spaces-alpha-20260915165437",
+      "@atproto/lex-password-session": "0.0.0-spaces-alpha-20260915165437",
+      "@atproto/lex-resolver": "0.0.0-spaces-alpha-20260915165437",
+      "@atproto/lex-schema": "0.0.0-spaces-alpha-20260915165437"
+    }
+  }
+}
+```
 
 ```bash
-git clone --depth 1 -b permissioned-data https://github.com/bluesky-social/atproto.git
-cd atproto
-pnpm install
-pnpm build                                              # test files fail to type-check; dist/ is still emitted
-pnpm --filter @atproto/oauth-provider-ui run build       # the PDS refuses to boot without this bundle
+npx pnpm@9 install
 ```
 
 Then run a network — a PLC directory and a PDS, both in-process:
 
 ```js
-// space-net.mjs, at the repo root
+// space-net.mjs
 import { TestNetworkNoAppView } from '@atproto/dev-env'
 
 const network = await TestNetworkNoAppView.create({
@@ -41,6 +74,21 @@ node space-net.mjs
 ```
 
 The dev PDS requires no invite codes and its admin password is `admin-pass`.
+
+### From source
+
+To test against a revision that has not been published yet, build the branch. Requires Node 22+ and pnpm. Pin the commit, since the branch moves:
+
+```bash
+git clone -b permissioned-data https://github.com/bluesky-social/atproto.git
+cd atproto
+git checkout 787a730fcd22ed7791e2636beb509a943017ba1c   # permissioned-data as of 2026-09-22
+pnpm install
+pnpm build                                              # test files fail to type-check; dist/ is still emitted
+pnpm --filter @atproto/oauth-provider-ui run build       # the PDS refuses to boot without this bundle
+```
+
+Run the same `space-net.mjs` from the repository root.
 
 ## Running the tests
 
@@ -72,11 +120,11 @@ Set `ATPROTO_REQUIRE_INTEGRATION=1` to make a missing prerequisite a failure rat
 | --- | --- |
 | `SpaceCredentialTests` | The two-hop exchange end to end, and the refusals that make it worth something: a replayed delegation token, a token for another space, a proof signed by another key, a proof addressed to another host, a credential presented as a bearer token. |
 | `SpaceRepoSyncTests` | The CAR round trip — write records, fetch `getRepo`, and verify the server's commit and index with `SpaceRepoCar.Verify`. This is the highest-value one: it checks the SDK's LtHash, commit-context encoding, MAC, and canonical DAG-CBOR ordering against a real implementation rather than against a reimplementation of the same spec. Then incremental sync over a real oplog, divergence detection, and the fallback to full recovery. |
-| `SimpleSpacePolicyTests` | Who a real authority admits: a non-member refused under `member-list`, an app refused under `#allowList`, revocation taking effect at the next renewal, and the repo boundary holding between two accounts on the same host. |
+| `SimpleSpacePolicyTests` | Who a real authority admits: a non-member refused under `member-list`, an app refused under `#allowList`, revocation taking effect at the next renewal, and the repo boundary holding between two accounts on the same host. Then the read/write split: `putMember` replacing both flags, `updateSpace` replacing only the policy it names, a read-only member getting a credential while staying out of the writer set, a write-only member being tracked while refused a credential, and a `public` write policy tracking a non-member. |
 
 The reference implementation's own suite, `packages/pds/tests/space/`, is a good map of what else is worth asserting.
 
 ## Two things to know about the dev network
 
 - **Its PLC is older than production's.** It publishes `EcdsaSecp256k1VerificationKey2019` verification methods, whose `publicKeyMultibase` is a bare uncompressed point; plc.directory publishes `Multikey`, whose value is multicodec-tagged. The SDK reads both (`DidDocument.GetSigningKey()`), so `SpaceSyncer.ResolveSigningKeyAsync` works against either network and the fixture uses it directly.
-- **The writer set is eventually consistent.** `listRepos` is maintained from write notifications the writing PDS sends without awaiting, so a test that has just written polls for its own entry rather than expecting it on the next request.
+- **The writer set is eventually consistent.** `listRepos` is maintained from write notifications the writing PDS sends without awaiting, so a test that has just written polls for its own entry rather than expecting it on the next request. A test that asserts a writer is *absent* first waits for one that must be present — the authority, which is always admitted — so the absence means something.

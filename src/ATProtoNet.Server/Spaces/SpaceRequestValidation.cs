@@ -68,6 +68,17 @@ internal static class SpaceRequestValidation
             : throw new XrpcException("InvalidRequest", $"The \"{name}\" parameter must be a record key; got '{value}'.");
     }
 
+    /// <summary>Parses a required TID parameter, such as a repo revision.</summary>
+    public static string RequireTid(string? value, string name)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            throw new XrpcException("InvalidRequest", $"The \"{name}\" parameter is required.");
+
+        return Tid.TryParse(value, out _)
+            ? value
+            : throw new XrpcException("InvalidRequest", $"The \"{name}\" parameter must be a TID; got '{value}'.");
+    }
+
     /// <summary>Requires a non-empty string parameter.</summary>
     public static string RequireString(string? value, string name) =>
         string.IsNullOrWhiteSpace(value)

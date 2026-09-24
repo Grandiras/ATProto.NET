@@ -84,6 +84,12 @@ public static class SpaceAuthority
     /// entry is used.
     /// </param>
     /// <returns>The endpoint URL, or <see langword="null"/> when the fragment is not published.</returns>
+    /// <remarks>
+    /// The space host is resolved the same way whether it is named or implied: through
+    /// <see cref="GetHostEndpoint"/>, falling back to <c>#atproto_pds</c>. An authority on an
+    /// ordinary PDS publishes no <c>#atproto_space_host</c> entry, and a notification addressed
+    /// to <c>{authority}#atproto_space_host</c> must still reach it there.
+    /// </remarks>
     public static string? GetServiceEndpoint(DidDocument didDocument, string? serviceId)
     {
         ArgumentNullException.ThrowIfNull(didDocument);
@@ -94,7 +100,9 @@ public static class SpaceAuthority
         if (!serviceId.StartsWith('#'))
             serviceId = "#" + serviceId;
 
-        return FindService(didDocument, serviceId);
+        return serviceId == HostServiceId
+            ? GetHostEndpoint(didDocument)
+            : FindService(didDocument, serviceId);
     }
 
     /// <summary>

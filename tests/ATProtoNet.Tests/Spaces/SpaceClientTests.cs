@@ -222,35 +222,42 @@ public class SpaceClientTests : IDisposable
     // ── simplespace ──────────────────────────────────────────────
 
     [Fact]
-    public async Task CreateSpaceAsync_DefaultsToAMemberListAndOpenAppAccess()
+    public async Task CreateSpaceAsync_DefaultsBothPoliciesToAMemberListAndAppAccessToOpen()
     {
+        // readPolicy, writePolicy, and appAccess are all required on the wire, so the defaults are
+        // always sent rather than left for the server to assume.
         RespondWith($$"""{"uri":"{{Space}}"}""");
 
         await _simpleSpace.CreateSpaceAsync("com.atmoboards.forum");
 
         var body = JsonSerializer.Deserialize<JsonElement>(_handler.LastBody!);
         Assert.Equal(
-            SimpleSpaceTypes.MemberListPolicy, body.GetProperty("policy").GetProperty("$type").GetString());
+            SimpleSpaceTypes.MemberListPolicy, body.GetProperty("readPolicy").GetProperty("$type").GetString());
+        Assert.Equal(
+            SimpleSpaceTypes.MemberListPolicy, body.GetProperty("writePolicy").GetProperty("$type").GetString());
         Assert.Equal(
             SimpleSpaceTypes.Open, body.GetProperty("appAccess").GetProperty("$type").GetString());
         Assert.False(body.TryGetProperty("skey", out _));
+        Assert.False(body.TryGetProperty("policy", out _));
     }
 
     [Fact]
-    public async Task CreateSpaceAsync_SerializesAManagingAppPolicyAndAnAllowList()
+    public async Task CreateSpaceAsync_SerializesEachPolicyUnderItsOwnName()
     {
         RespondWith($$"""{"uri":"{{Space}}"}""");
 
         await _simpleSpace.CreateSpaceAsync(
             "com.atmoboards.forum",
             skey: "default",
-            policy: new ManagingAppPolicy { ManagingApp = "did:web:example.com#forum" },
+            readPolicy: new ManagingAppPolicy { ManagingApp = "did:web:example.com#forum" },
+            writePolicy: new PublicPolicy(),
             appAccess: new AllowListAppAccess { Allowed = ["https://app.example.com/client-metadata.json"] });
 
         var body = JsonSerializer.Deserialize<JsonElement>(_handler.LastBody!);
-        var policy = body.GetProperty("policy");
-        Assert.Equal(SimpleSpaceTypes.ManagingAppPolicy, policy.GetProperty("$type").GetString());
-        Assert.Equal("did:web:example.com#forum", policy.GetProperty("managingApp").GetString());
+        var readPolicy = body.GetProperty("readPolicy");
+        Assert.Equal(SimpleSpaceTypes.ManagingAppPolicy, readPolicy.GetProperty("$type").GetString());
+        Assert.Equal("did:web:example.com#forum", readPolicy.GetProperty("managingApp").GetString());
+        Assert.Equal(SimpleSpaceTypes.PublicPolicy, body.GetProperty("writePolicy").GetProperty("$type").GetString());
 
         var appAccess = body.GetProperty("appAccess");
         Assert.Equal(SimpleSpaceTypes.AllowList, appAccess.GetProperty("$type").GetString());
@@ -261,10 +268,12 @@ public class SpaceClientTests : IDisposable
     [Fact]
     public async Task GetSpaceAsync_DeserializesThePolicyUnions()
     {
+        // The shape the reference getSpace serves since the read/write split.
         RespondWith(
             $$"""
             {"uri":"{{Space}}",
-             "policy":{"$type":"{{SimpleSpaceTypes.ManagingAppPolicy}}","managingApp":"did:web:example.com#forum"},
+             "readPolicy":{"$type":"{{SimpleSpaceTypes.ManagingAppPolicy}}","managingApp":"did:web:example.com#forum"},
+             "writePolicy":{"$type":"{{SimpleSpaceTypes.PublicPolicy}}"},
              "appAccess":{"$type":"{{SimpleSpaceTypes.AllowList}}",
                           "allowed":["https://app.example.com/client-metadata.json"]}
             }
@@ -272,8 +281,9 @@ public class SpaceClientTests : IDisposable
 
         var response = await _simpleSpace.GetSpaceAsync(Space);
 
-        var policy = Assert.IsType<ManagingAppPolicy>(response.Policy);
-        Assert.Equal("did:web:example.com#forum", policy.ManagingApp);
+        var readPolicy = Assert.IsType<ManagingAppPolicy>(response.ReadPolicy);
+        Assert.Equal("did:web:example.com#forum", readPolicy.ManagingApp);
+        Assert.IsType<PublicPolicy>(response.WritePolicy);
         var appAccess = Assert.IsType<AllowListAppAccess>(response.AppAccess);
         Assert.Single(appAccess.Allowed);
     }
@@ -283,11 +293,53 @@ public class SpaceClientTests : IDisposable
     {
         RespondWith("{}");
 
-        await _simpleSpace.UpdateSpaceAsync(Space, policy: new PublicPolicy());
+        await _simpleSpace.UpdateSpaceAsync(Space, writePolicy: new PublicPolicy());
 
         var body = JsonSerializer.Deserialize<JsonElement>(_handler.LastBody!);
-        Assert.Equal(SimpleSpaceTypes.PublicPolicy, body.GetProperty("policy").GetProperty("$type").GetString());
+        Assert.Equal(SimpleSpaceTypes.PublicPolicy, body.GetProperty("writePolicy").GetProperty("$type").GetString());
+        Assert.False(body.TryGetProperty("readPolicy", out _));
         Assert.False(body.TryGetProperty("appAccess", out _));
+        Assert.False(body.TryGetProperty("policy", out _));
+    }
+
+    [Fact]
+    public async Task PutMemberAsync_SendsBothAccessFlags()
+    {
+        RespondWith("{}");
+
+        await _simpleSpace.PutMemberAsync(Space, Repo, read: true, write: false);
+
+        Assert.EndsWith("/xrpc/com.atproto.simplespace.putMember", _handler.LastRequest!.RequestUri!.AbsolutePath);
+        var body = JsonSerializer.Deserialize<JsonElement>(_handler.LastBody!);
+        Assert.Equal(Space, body.GetProperty("space").GetString());
+        Assert.Equal(Repo, body.GetProperty("did").GetString());
+        Assert.True(body.GetProperty("read").GetBoolean());
+        Assert.False(body.GetProperty("write").GetBoolean());
+    }
+
+    [Fact]
+    public async Task ListMembersAsync_ReadsEachMembersAccess()
+    {
+        RespondWith($$"""{"members":[{"did":"{{Repo}}","read":false,"write":true}]}""");
+
+        var member = Assert.Single((await _simpleSpace.ListMembersAsync(Space)).Members);
+
+        Assert.Equal(Repo, member.Did);
+        Assert.False(member.Read);
+        Assert.True(member.Write);
+    }
+
+    [Fact]
+    public async Task CheckUserAccessAsync_SendsTheAccessKind()
+    {
+        RespondWith("""{"authorized":true}""");
+
+        await _simpleSpace.CheckUserAccessAsync(Space, Repo, SimpleSpaceAccess.Write);
+
+        var query = _handler.LastRequest!.RequestUri!.Query;
+        Assert.Contains($"user={Uri.EscapeDataString(Repo)}", query, StringComparison.Ordinal);
+        Assert.Contains("access=write", query, StringComparison.Ordinal);
+        Assert.DoesNotContain("clientId", query, StringComparison.Ordinal);
     }
 
     public void Dispose()

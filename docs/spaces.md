@@ -206,7 +206,7 @@ await using var provider = new SpaceCredentialProvider(client);
 
 var space = SpaceUri.Parse("at://did:plc:abc123/space/com.atmoboards.forum/default");
 
-// The writer set: accounts that have written at least one record into the space.
+// The writer set: accounts that have written into the space and that its authority tracks.
 await foreach (var writer in client.Space.EnumerateReposAsync(space))
 {
     using var reader = await provider.CreateReaderForRepoAsync(space, writer.Did);
@@ -333,13 +333,19 @@ only the differences.
 
 ### Discovering the writer set
 
-`listRepos` on the space host returns the accounts that hold data in a space. It is the **sync
-boundary**, not an access-control list: it enumerates accounts that have *written at least one
-record*, never the broader set allowed to write, and never readers — the protocol does not enumerate
-readers at all.
+`listRepos` on the space host returns the accounts whose data a space's syncers should pull. It is
+the **sync boundary**, not an access-control list: it enumerates accounts that have *written at least
+one record* **and** that the authority admits as writers — under `simplespace`, the ones its write
+policy admits. It never lists the broader set allowed to write, and never readers; the protocol does
+not enumerate readers at all.
+
+Being left out of it does not stop anyone writing to their own repo. It means the authority neither
+lists those writes nor forwards their notifications, so no syncer following the space picks them
+up. An authority may exclude writers for any reason, spam and abuse included; with a `public` write
+policy it tracks writers who were never members.
 
 It is also only what the authority *claims*, kept current by the write notifications it has
-received. A listed account's repo host is the source of truth. Because each entry carries that
+accepted. A listed account's repo host is the source of truth. Because each entry carries that
 repo's current revision, a periodic sweep can compare revisions and re-sync only what advanced.
 
 ### Write notifications
@@ -350,10 +356,11 @@ Rather than polling, a syncer registers for notifications:
 await reader.Space.RegisterNotifyAsync(space, "did:web:syncer.example.com#atproto_space_syncer");
 ```
 
-Notifications carry no record data — only that a repo reached a new revision and hash — and are
-**best-effort**. A dropped one is not a lost write: the repo is caught up by a later notification, or
-by the periodic sweep above. They are the latency optimization; the sweep is the correctness
-guarantee.
+A writer's repo host tells the space's authority, and the authority forwards each notification it
+accepts to every service registered with it. Notifications carry no record data — only that a repo
+reached a new revision and hash — and are **best-effort**. A dropped one is not a lost write: the
+repo is caught up by a later notification, or by the periodic sweep above. They are the latency
+optimization; the sweep is the correctness guarantee.
 
 ## Managing a space with `simplespace`
 
@@ -366,36 +373,55 @@ against it without standing up a bespoke space service.
 var created = await client.SimpleSpace.CreateSpaceAsync(
     "com.atmoboards.forum",
     skey: "default",
-    policy: new MemberListPolicy(),
+    readPolicy: new MemberListPolicy(),
+    writePolicy: new MemberListPolicy(),
     appAccess: new OpenAppAccess());
 
-await client.SimpleSpace.AddMemberAsync(created.Uri, "did:plc:member");
+// An upsert: both flags are replaced every time.
+await client.SimpleSpace.PutMemberAsync(created.Uri, "did:plc:member", read: true, write: true);
+await client.SimpleSpace.PutMemberAsync(created.Uri, "did:plc:lurker", read: true, write: false);
+
 await foreach (var member in client.SimpleSpace.EnumerateMembersAsync(created.Uri))
-    Console.WriteLine(member.Did);
+    Console.WriteLine($"{member.Did} read={member.Read} write={member.Write}");
+
+// Each policy is replaced wholesale when supplied and left alone when not.
+await client.SimpleSpace.UpdateSpaceAsync(created.Uri, writePolicy: new PublicPolicy());
 ```
 
-A user must be authorized by the **user policy** *and* their app by the **app access policy** for a
-credential to be minted.
+A space has three policies, and reading and writing are governed separately:
 
-| User policy | Behaviour |
+- **Reading.** The authority mints a credential only when the user passes the **read policy** *and*
+  their app passes the **app access policy**.
+- **Writing.** The **write policy** decides whether the authority tracks a writer in the writer set
+  and forwards its write notifications. It cannot stop anyone writing to their own repo. App access
+  does not apply: the notification comes from the writer's repo host, not from an app.
+
+The space's owner is always admitted to both, whatever the policies say.
+
+| Read / write policy | Behaviour |
 | --- | --- |
-| `MemberListPolicy` | *(default)* Authorize users on the space's member list |
-| `PublicPolicy` | Authorize any requester |
-| `ManagingAppPolicy` | Ask the managing app per request, via `checkUserAccess` |
+| `MemberListPolicy` | *(default for both)* Members whose `read` / `write` flag is set |
+| `PublicPolicy` | Anyone |
+| `ManagingAppPolicy` | Ask the managing app via `checkUserAccess`, with `access=read` or `access=write` |
 
 `ManagingAppPolicy` is what enables dynamic policies — follower-gating, paid subscriptions, join
-approvals — without an app maintaining an explicit list.
+approvals — without an app maintaining an explicit list. The call carries the attested client ID on
+a read check and none on a write check. A managing app that cannot be reached is a refusal.
 
 | App access | Behaviour |
 | --- | --- |
 | `OpenAppAccess` | *(default)* Any app; no client attestation required, so public clients work |
 | `AllowListAppAccess` | Only the named client IDs, evaluated against the **attested** `client_id` |
 
-The member list is host-internal state consulted at mint time. It is not a synced protocol structure
-and is never enumerated to the network — `listRepos` returns writers, not readers.
+The member list is host-internal state. Each member carries two independent flags, so a member can
+be read-only, write-only, both, or on the list but admitted to neither. It is not a synced protocol
+structure and is never enumerated to the network. `listRepos` returns the writers the write policy
+admitted, not the member list.
 
-Removing a member stops the authority minting *new* credentials for them; one already issued stays
-valid until it expires, and records they wrote remain their own data in their own repo.
+Removing a member, or clearing their `read` flag, stops the authority minting *new* credentials for
+them. One already issued stays valid until it expires, and records they wrote remain their own data
+in their own repo. Clearing the `write` flag stops the authority recording and forwarding their
+writes from the next notification on.
 
 ## Space deletion
 
@@ -569,6 +595,40 @@ one of `ConfigureSpaceAuthorityModel`, `ConfigureSimpleSpaceModel`, `ConfigureSp
 from its `OnModelCreating`. Pagination is by DID, as in the in-memory stores, so a cursor names a
 position rather than an offset into a set that reorders as writes arrive.
 
+#### Upgrading a `simplespace` database from 0.6
+
+The read/write split changed the `simplespace` schema, and since the model lives in your context,
+the migration is yours to generate (`dotnet ef migrations add SimpleSpaceReadWriteAccess`):
+
+| Table | Before | After |
+| --- | --- | --- |
+| `AtProtoSimpleSpaces` | `Policy` | `ReadPolicy`, `WritePolicy` (both required, JSON like `Policy` was) |
+| `AtProtoSimpleSpaceMembers` | `Space`, `Did` | plus `Read`, `Write` (`bool`, required) |
+
+EF generates the column changes but not the data. Edit the migration so existing spaces keep the
+policy they had for both reading and writing, and existing members keep both kinds of access. This
+matches the reference implementation's own `003-space-access` migration:
+
+```csharp
+protected override void Up(MigrationBuilder migrationBuilder)
+{
+    // Keep the column types EF generated for your provider; only the data steps are added.
+    migrationBuilder.AddColumn<string>(name: "ReadPolicy", table: "AtProtoSimpleSpaces", nullable: false, defaultValue: "");
+    migrationBuilder.AddColumn<string>(name: "WritePolicy", table: "AtProtoSimpleSpaces", nullable: false, defaultValue: "");
+    migrationBuilder.Sql("""UPDATE "AtProtoSimpleSpaces" SET "ReadPolicy" = "Policy", "WritePolicy" = "Policy" """);
+    migrationBuilder.DropColumn(name: "Policy", table: "AtProtoSimpleSpaces");
+
+    // Existing members could read and had their writes tracked; keep it that way.
+    migrationBuilder.AddColumn<bool>(name: "Read", table: "AtProtoSimpleSpaceMembers", nullable: false, defaultValue: true);
+    migrationBuilder.AddColumn<bool>(name: "Write", table: "AtProtoSimpleSpaceMembers", nullable: false, defaultValue: true);
+}
+```
+
+If EF generated a rename of `Policy` rather than a drop, replace it with the steps above. The
+`defaultValue: true` belongs in the migration only. The model deliberately configures no database
+default for `Read` and `Write`, because EF would then treat a `false` as unset and store the
+default instead. Adjust the identifier quoting in the `UPDATE` for your provider if needed.
+
 `AddAtProtoEfCoreSpaceReplayStore<T>()` is the option for a deployment with no Redis: the replay
 check is a single insert whose primary key is `(iss, jti, exp)`, so the database's own uniqueness
 enforcement is what makes it atomic, and expired rows are swept opportunistically. Redis is the
@@ -591,29 +651,44 @@ side by side. Registering an `ISpaceAuthorityStore` of your own *before* `AddSpa
 opts out of the bridge entirely — wrap it in `SimpleSpaceAuthorityStore` yourself if it needs
 one.
 
-### The authority: deciding who reads
+### The authority: deciding who reads and whose writes count
 
-An authority's whole access-control decision happens once, at `getSpaceCredential`; every repo
-host in the space trusts it afterwards and has no state with which to revisit it.
+An authority's read decision happens once, at `getSpaceCredential`; every repo host in the space
+trusts it afterwards and has no state with which to revisit it. Its write decision happens on each
+`notifyWrite`, and decides whether the writer enters the writer set and has its notification
+forwarded. `ISpaceAccessPolicy` answers both, told which by `SpaceAccessRequest.Access`:
 
 ```csharp
 public sealed class ForumPolicy : ISpaceAccessPolicy
 {
     public async Task<SpaceAccessDecision> EvaluateAsync(SpaceAccessRequest request, CancellationToken ct)
-        => await IsSubscriberAsync(request.UserDid, ct)
+    {
+        var allowed = request.Access switch
+        {
+            SpaceAccessKind.Read => await IsSubscriberAsync(request.UserDid, ct),
+            // A write carries no attestation: the caller is the writer's repo host, not an app.
+            SpaceAccessKind.Write => await IsContributorAsync(request.UserDid, ct),
+            _ => false,
+        };
+
+        return allowed
             ? SpaceAccessDecision.Granted
             : SpaceAccessDecision.Refuse(SpaceAccessOutcome.UserNotAuthorized);
+    }
 }
 ```
 
-`AddSimpleSpace<T>()` supplies the baseline policy instead, evaluating both perimeters — the user
-policy (`MemberListPolicy`, `PublicPolicy`, `ManagingAppPolicy`) and the app access policy
-(`OpenAppAccess`, `AllowListAppAccess`) — over an `ISimpleSpaceStore` you implement.
+`AddSimpleSpace<T>()` supplies the baseline policy instead, over an `ISimpleSpaceStore` you
+implement. For a read it evaluates both perimeters: the read policy (`MemberListPolicy`,
+`PublicPolicy`, `ManagingAppPolicy`) and the app access policy (`OpenAppAccess`,
+`AllowListAppAccess`). For a write it evaluates the write policy alone.
 
-Two behaviours there are deliberate and worth keeping in a bespoke policy. Refusing an unattested
-request with `AppNotAuthorized` is what tells a client holding an attestation to retry with it,
-since nothing else advertises that a space gates on app identity. And a `ManagingAppPolicy` whose
-app is unreachable **refuses**: failing open would turn every outage of the app into an open space.
+A few behaviours there are deliberate and worth keeping in a bespoke policy. Refusing an unattested
+read with `AppNotAuthorized` is what tells a client holding an attestation to retry with it, since
+nothing else advertises that a space gates on app identity. A write must **not** be put through an
+app perimeter: it never carries an attestation, so every write would be refused. And a
+`ManagingAppPolicy` whose app is unreachable **refuses**: failing open would turn every outage of
+the app into an open space.
 
 ### The repo host: serving reads
 
@@ -662,9 +737,27 @@ authority learns who holds data in its spaces only from the notifications it rec
 receives them only because it is registered to. It is a no-op for a personal-data space, where the
 authority and the repo host are the same service.
 
-Inbound, `NotifyWriteEndpoint` accepts a notification only from the host that actually answers for
-the named repo — otherwise any service could advance any account's revision in the writer set,
-which is what a syncer decides from whether to re-read a repo.
+Each delivery is addressed (`aud`) to the service identifier the subscriber registered, fragment
+and all, because that is what a syncer or managing app such as `did:web:app.example.com#forum`
+verifies. The authority's own registration, `{authority}#atproto_space_host`, is the exception. It
+is reached at the authority's `#atproto_space_host` endpoint, or at its `#atproto_pds` when it
+publishes none, as an authority on an ordinary PDS does. It is addressed by the authority's bare
+DID, which is what the reference authority checks.
+
+Inbound, `NotifyWriteEndpoint` does four things in order:
+
+1. It refuses malformed input before any auth check. `rev` must be a TID.
+2. It accepts a token addressed to the authority's bare DID, to `{authority}#atproto_space_host`,
+   or to `SpaceServerOptions.ServiceDid`. Reference repo hosts send the first, so a multi-tenant
+   host configured with its own `ServiceDid` still accepts them.
+3. It accepts a notification only from the host that actually answers for the named repo.
+   Otherwise any service could advance any account's revision in the writer set, which is what a
+   syncer uses to decide whether to re-read a repo.
+4. It puts the writer to the access policy as a write. A refused writer gets a 403 and is neither
+   recorded nor forwarded. An admitted one is recorded, then forwarded in the background to every
+   service registered for the space (`SpaceWriteNotifier.ForwardWriteAsync`). The authority's own
+   registration is skipped, so a service that is both repo host and authority does not notify
+   itself.
 
 ### What is not here
 
@@ -696,6 +789,7 @@ PDS already has.
 
 ## See also
 
+- [`samples/SpacesSample`](../samples/SpacesSample/Program.cs) — a runnable walk through personal data, sync, and the credential exchange against a permissioned-data PDS
 - [Testing Against a Real Space Host](testing-spaces.md) — how to run the space integration tests against a permissioned-data PDS
 - [OAuth Authentication](oauth.md) — the DPoP, PAR, and PKCE flow the credential exchange builds on
 - [Low-Level Repo API](low-level-repo.md) — CAR files and DAG-CBOR, shared with public repositories

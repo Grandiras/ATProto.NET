@@ -394,16 +394,16 @@ Accessed via `client.SimpleSpace`. The space-management implementation every PDS
 
 | Method | Description |
 |--------|-------------|
-| `CreateSpaceAsync(type, skey?, policy?, appAccess?)` | Create a space owned by the authenticated user |
-| `UpdateSpaceAsync(space, policy?, appAccess?)` | Replace either policy; omitted ones are unchanged |
+| `CreateSpaceAsync(type, skey?, readPolicy?, writePolicy?, appAccess?)` | Create a space owned by the authenticated user |
+| `UpdateSpaceAsync(space, readPolicy?, writePolicy?, appAccess?)` | Replace any of the three policies; omitted ones are unchanged |
 | `DeleteSpaceAsync(space)` | Delete a space (idempotent) |
 | `GetSpaceAsync(space)` | Describe a space and its configuration |
-| `AddMemberAsync` / `RemoveMemberAsync` | Maintain the host-internal member list |
-| `ListMembersAsync(...)` / `EnumerateMembersAsync(...)` | List members (OAuth only, on the authority's PDS) |
-| `CheckUserAccessAsync(space, user, clientId?)` | Served by a `ManagingAppPolicy` space's managing app |
+| `PutMemberAsync(space, did, read, write)` / `RemoveMemberAsync` | Maintain the host-internal member list; `PutMemberAsync` is an upsert of both access flags |
+| `ListMembersAsync(...)` / `EnumerateMembersAsync(...)` | List members and their `Read` / `Write` access (OAuth only, on the authority's PDS) |
+| `CheckUserAccessAsync(space, user, access, clientId?)` | Served by a `ManagingAppPolicy` space's managing app; `access` is `SimpleSpaceAccess.Read` or `.Write` |
 
-Policies: `PublicPolicy`, `MemberListPolicy` *(default)*, `ManagingAppPolicy`;
-app access: `OpenAppAccess` *(default)*, `AllowListAppAccess`.
+Read and write policies: `PublicPolicy`, `MemberListPolicy` *(default)*, `ManagingAppPolicy`;
+app access (reads only): `OpenAppAccess` *(default)*, `AllowListAppAccess`.
 
 ---
 
@@ -450,14 +450,14 @@ the ordinary `MapXrpcEndpoints()`.
 | `ISpaceReplayStore` / `InMemorySpaceReplayStore` | Single-use enforcement, keyed on `(iss, jti, exp)` |
 | `ISpaceDidDocumentResolver` / `CachingSpaceDidDocumentResolver` | DID document resolution, with `#atproto` / `#atproto_space` key selection |
 | `SpaceVerificationException` | An `XrpcException` carrying `InvalidDelegationToken`, `InvalidClientAttestation`, or `NotAuthorized` |
-| `ISpaceAccessPolicy` / `SpaceAccessRequest` / `SpaceAccessDecision` | The authority's mint-time decision |
+| `ISpaceAccessPolicy` / `SpaceAccessRequest` / `SpaceAccessKind` / `SpaceAccessDecision` | The authority's decisions: who gets a credential (`Read`), and whose write notifications it tracks and forwards (`Write`) |
 | `ISpaceCredentialIssuer` / `SpaceCredentialIssuer` | Mints credentials bound to the requester's key |
 | `ISpaceAuthorityStore` / `InMemorySpaceAuthorityStore` | Writer set and notification registrations |
 | `ISpaceRepoHost` / `SpaceBlobContent` | The reads a repo host serves |
 | `ISimpleSpaceStore` / `InMemorySimpleSpaceStore` / `SimpleSpaceRecord` | `simplespace` spaces and member lists |
-| `SimpleSpaceAccessPolicy` | The baseline policy: member list / public / managing app, and open / allow-list app access |
+| `SimpleSpaceAccessPolicy` | The baseline policy: read and write policies (member list / public / managing app), and open / allow-list app access for reads |
 | `ISimpleSpaceManagingAppClient` / `SimpleSpaceManagingAppClient` | The `checkUserAccess` call out to a managing app |
-| `SpaceWriteNotifier` | Best-effort `notifyWrite` / `notifySpaceDeleted` fan-out, and first-write auto-registration |
+| `SpaceWriteNotifier` | Best-effort `notifyWrite` / `notifySpaceDeleted` fan-out, the authority's forwarding of accepted writes, and first-write auto-registration |
 | `ISpaceCallerResolver` / `ClaimsSpaceCallerResolver` | The DID behind a `simplespace` administration request |
 | `SpaceNsids` | The NSID constants the endpoints are registered under |
 

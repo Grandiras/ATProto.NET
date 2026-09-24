@@ -19,14 +19,26 @@ public class SimpleSpaceAccessPolicyTests
     private SimpleSpaceAccessPolicy CreatePolicy() => new(_store, _managingApp);
 
     private async Task<SimpleSpaceRecord> SeedAsync(
-        SimpleSpaceUserPolicy? policy = null, SimpleSpaceAppAccess? appAccess = null)
+        SimpleSpaceUserPolicy? readPolicy = null,
+        SimpleSpaceAppAccess? appAccess = null,
+        SimpleSpaceUserPolicy? writePolicy = null)
     {
         var record = new SimpleSpaceRecord(
-            Space, Owner, policy ?? new MemberListPolicy(), appAccess ?? new OpenAppAccess());
+            Space,
+            Owner,
+            readPolicy ?? new MemberListPolicy(),
+            writePolicy ?? new MemberListPolicy(),
+            appAccess ?? new OpenAppAccess());
 
         await _store.CreateSpaceAsync(record);
         return record;
     }
+
+    private static SpaceAccessRequest Read(string user, string? clientId = null) =>
+        new(Space, user, clientId, SpaceAccessKind.Read);
+
+    private static SpaceAccessRequest Write(string user) =>
+        new(Space, user, null, SpaceAccessKind.Write);
 
     [Fact]
     public async Task EvaluateAsync_UnknownSpace_AnswersSpaceNotFound()
@@ -53,7 +65,7 @@ public class SimpleSpaceAccessPolicyTests
     public async Task EvaluateAsync_MemberListPolicy_AdmitsAMemberAndRefusesAStranger()
     {
         await SeedAsync(new MemberListPolicy());
-        await _store.AddMemberAsync(Space, Member);
+        await _store.PutMemberAsync(Space, Member, read: true, write: true);
         var policy = CreatePolicy();
 
         Assert.True((await policy.EvaluateAsync(new SpaceAccessRequest(Space, Member, null))).IsGranted);
@@ -66,7 +78,7 @@ public class SimpleSpaceAccessPolicyTests
     public async Task EvaluateAsync_RemovedMember_IsRefusedFromThenOn()
     {
         await SeedAsync(new MemberListPolicy());
-        await _store.AddMemberAsync(Space, Member);
+        await _store.PutMemberAsync(Space, Member, read: true, write: true);
         await _store.RemoveMemberAsync(Space, Member);
 
         var decision = await CreatePolicy().EvaluateAsync(new SpaceAccessRequest(Space, Member, null));
@@ -168,6 +180,120 @@ public class SimpleSpaceAccessPolicyTests
         Assert.Equal(SpaceAccessOutcome.NotAuthorized, decision.Outcome);
     }
 
+    // ── Read and write access ─────────────────────────────────
+
+    [Fact]
+    public async Task EvaluateAsync_ReadOnlyMember_CanReadButIsNotTrackedAsAWriter()
+    {
+        await SeedAsync();
+        await _store.PutMemberAsync(Space, Member, read: true, write: false);
+        var policy = CreatePolicy();
+
+        Assert.True((await policy.EvaluateAsync(Read(Member))).IsGranted);
+        Assert.Equal(SpaceAccessOutcome.UserNotAuthorized, (await policy.EvaluateAsync(Write(Member))).Outcome);
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_WriteOnlyMember_IsTrackedButCannotRead()
+    {
+        await SeedAsync();
+        await _store.PutMemberAsync(Space, Member, read: false, write: true);
+        var policy = CreatePolicy();
+
+        Assert.Equal(SpaceAccessOutcome.UserNotAuthorized, (await policy.EvaluateAsync(Read(Member))).Outcome);
+        Assert.True((await policy.EvaluateAsync(Write(Member))).IsGranted);
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_MemberWithNeitherFlag_IsAdmittedToNothing()
+    {
+        await SeedAsync();
+        await _store.PutMemberAsync(Space, Member, read: false, write: false);
+        var policy = CreatePolicy();
+
+        Assert.False((await policy.EvaluateAsync(Read(Member))).IsGranted);
+        Assert.False((await policy.EvaluateAsync(Write(Member))).IsGranted);
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_PublicWritePolicy_TracksANonMemberWhoStillCannotRead()
+    {
+        await SeedAsync(readPolicy: new MemberListPolicy(), writePolicy: new PublicPolicy());
+        var policy = CreatePolicy();
+
+        Assert.True((await policy.EvaluateAsync(Write(Stranger))).IsGranted);
+        Assert.Equal(SpaceAccessOutcome.UserNotAuthorized, (await policy.EvaluateAsync(Read(Stranger))).Outcome);
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_PublicReadPolicy_DoesNotOpenTheWriterSet()
+    {
+        await SeedAsync(readPolicy: new PublicPolicy(), writePolicy: new MemberListPolicy());
+        var policy = CreatePolicy();
+
+        Assert.True((await policy.EvaluateAsync(Read(Stranger))).IsGranted);
+        Assert.Equal(SpaceAccessOutcome.UserNotAuthorized, (await policy.EvaluateAsync(Write(Stranger))).Outcome);
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_WriteIntoAnAllowListSpace_IsNotHeldToTheAppPerimeter()
+    {
+        // A write notification comes from the writer's repo host, not an app, and carries no
+        // attestation. Applying the app perimeter would refuse every write into an app-gated space.
+        await SeedAsync(appAccess: new AllowListAppAccess { Allowed = [ClientId] });
+        await _store.PutMemberAsync(Space, Member, read: true, write: true);
+        var policy = CreatePolicy();
+
+        Assert.True((await policy.EvaluateAsync(Write(Member))).IsGranted);
+        Assert.Equal(SpaceAccessOutcome.AppNotAuthorized, (await policy.EvaluateAsync(Read(Member))).Outcome);
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_Owner_IsAlwaysTrackedAsAWriter()
+    {
+        // The owner is the only party who can reconfigure the space, so no policy may lock it out
+        // — not even a managing app that cannot be reached.
+        await SeedAsync(writePolicy: new ManagingAppPolicy { ManagingApp = "did:web:app.example.com#forum" });
+        _managingApp.Throw = new HttpRequestException("unreachable");
+
+        Assert.True((await CreatePolicy().EvaluateAsync(Write(Owner))).IsGranted);
+        Assert.Equal(0, _managingApp.Calls);
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_ManagingAppWritePolicy_AsksAboutWriteAccessWithoutAClientId()
+    {
+        await SeedAsync(writePolicy: new ManagingAppPolicy { ManagingApp = "did:web:app.example.com#forum" });
+        _managingApp.Authorized = true;
+
+        var decision = await CreatePolicy().EvaluateAsync(
+            new SpaceAccessRequest(Space, Member, ClientId, SpaceAccessKind.Write));
+
+        Assert.True(decision.IsGranted);
+        Assert.Equal(SpaceAccessKind.Write, _managingApp.LastAccess);
+        Assert.Null(_managingApp.LastClientId);
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_ManagingAppReadPolicy_AsksAboutReadAccessWithTheClientId()
+    {
+        await SeedAsync(readPolicy: new ManagingAppPolicy { ManagingApp = "did:web:app.example.com#forum" });
+        _managingApp.Authorized = true;
+
+        Assert.True((await CreatePolicy().EvaluateAsync(Read(Member, ClientId))).IsGranted);
+        Assert.Equal(SpaceAccessKind.Read, _managingApp.LastAccess);
+        Assert.Equal(ClientId, _managingApp.LastClientId);
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_WriteForADeletedSpace_AnswersSpaceDeleted()
+    {
+        await SeedAsync(writePolicy: new PublicPolicy());
+        await _store.DeleteSpaceAsync(Space);
+
+        Assert.Equal(SpaceAccessOutcome.SpaceDeleted, (await CreatePolicy().EvaluateAsync(Write(Member))).Outcome);
+    }
+
     private sealed class StubManagingApp : ISimpleSpaceManagingAppClient
     {
         public bool Authorized { get; set; }
@@ -178,12 +304,15 @@ public class SimpleSpaceAccessPolicyTests
 
         public Exception? Throw { get; set; }
 
+        public SpaceAccessKind? LastAccess { get; private set; }
+
         public Task<bool> CheckUserAccessAsync(
-            string managingApp, SpaceUri space, string userDid, string? clientId,
+            string managingApp, SpaceUri space, string userDid, SpaceAccessKind access, string? clientId,
             CancellationToken cancellationToken = default)
         {
             Calls++;
             LastClientId = clientId;
+            LastAccess = access;
 
             return Throw is not null ? Task.FromException<bool>(Throw) : Task.FromResult(Authorized);
         }

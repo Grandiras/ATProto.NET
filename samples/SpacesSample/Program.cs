@@ -4,7 +4,8 @@
 //   ATPROTO_PDS_URL=http://localhost:2583 \
 //   ATPROTO_TEST_HANDLE=alice.test ATPROTO_TEST_PASSWORD=... dotnet run
 //
-// This needs a PDS running the permissioned-data implementation (bluesky-social/atproto#5187);
+// This needs a PDS running the permissioned-data implementation (bluesky-social/atproto#5187,
+// published as ghcr.io/bluesky-social/atproto:pds-spaces-alpha — see docs/testing-spaces.md);
 // an ordinary PDS answers 404 on every com.atproto.space.* method.
 //
 // It walks three things in order:
@@ -45,10 +46,14 @@ Console.WriteLine($"Signed in as {did}\n");
 
 Console.WriteLine("── Creating a personal space ──");
 
+// Reading and writing are governed separately: the read policy decides who the authority mints
+// credentials for, the write policy whose writes it tracks and forwards to syncers. A personal
+// space keeps both to the (empty) member list — the owner is always admitted.
 var created = await client.SimpleSpace.CreateSpaceAsync(
     "com.example.bookmarks",
     skey: "self",
-    policy: new MemberListPolicy(),
+    readPolicy: new MemberListPolicy(),
+    writePolicy: new MemberListPolicy(),
     appAccess: new OpenAppAccess());
 
 var space = created.ToSpaceUri();
@@ -129,8 +134,9 @@ try
     var credential = await provider.GetCredentialAsync(space);
     Console.WriteLine($"credential expires {credential.ExpiresAt:u}, bound to key {credential.Token.ConfirmationThumbprint}");
 
-    // The writer set: accounts that have written at least one record into the space. It is the
-    // sync boundary, not an access-control list — readers are never enumerated.
+    // The writer set: accounts that have written at least one record into the space and that its
+    // write policy admits. It is the sync boundary, not an access-control list — readers are
+    // never enumerated.
     await foreach (var writer in client.Space.EnumerateReposAsync(space))
     {
         Console.WriteLine($"\nwriter {writer.Did} @ rev {writer.Rev}");

@@ -128,7 +128,8 @@ public class SpaceDbContext : DbContext
             entity.HasKey(e => e.Space);
             entity.Property(e => e.Space).HasMaxLength(512);
             entity.Property(e => e.Owner).HasMaxLength(512).IsRequired();
-            entity.Property(e => e.Policy).IsRequired();
+            entity.Property(e => e.ReadPolicy).IsRequired();
+            entity.Property(e => e.WritePolicy).IsRequired();
             entity.Property(e => e.AppAccess).IsRequired();
             entity.Property(e => e.Deleted);
 
@@ -142,6 +143,12 @@ public class SpaceDbContext : DbContext
             entity.HasKey(e => new { e.Space, e.Did });
             entity.Property(e => e.Space).HasMaxLength(512);
             entity.Property(e => e.Did).HasMaxLength(512);
+
+            // No database default: EF would then skip sending a `false` it takes for unset and
+            // the column default would win. An upgrade migration defaults the new columns to
+            // true for existing rows instead — see docs/spaces.md.
+            entity.Property(e => e.Read);
+            entity.Property(e => e.Write);
         });
     }
 

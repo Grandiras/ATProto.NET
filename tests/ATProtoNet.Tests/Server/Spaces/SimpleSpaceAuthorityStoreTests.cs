@@ -25,7 +25,7 @@ public class SimpleSpaceAuthorityStoreTests
     public async Task GetSpaceStateAsync_ForASpaceTheSimpleSpaceStoreHolds_Grants()
     {
         await _spaces.CreateSpaceAsync(
-            new SimpleSpaceRecord(Space, Owner, new MemberListPolicy(), new OpenAppAccess()));
+            new SimpleSpaceRecord(Space, Owner, new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess()));
 
         Assert.Equal(
             SpaceAccessOutcome.Granted,
@@ -36,7 +36,7 @@ public class SimpleSpaceAuthorityStoreTests
     public async Task GetSpaceStateAsync_ForADeletedSpace_AnswersSpaceDeleted()
     {
         await _spaces.CreateSpaceAsync(
-            new SimpleSpaceRecord(Space, Owner, new MemberListPolicy(), new OpenAppAccess()));
+            new SimpleSpaceRecord(Space, Owner, new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess()));
         await _spaces.DeleteSpaceAsync(Space);
 
         // Read rather than copied, so deletion needs no second write: a syncer that missed the
@@ -70,7 +70,7 @@ public class SimpleSpaceAuthorityStoreTests
     public async Task RecordWriteAsync_WritesThroughToTheInnerStore()
     {
         await _spaces.CreateSpaceAsync(
-            new SimpleSpaceRecord(Space, Owner, new MemberListPolicy(), new OpenAppAccess()));
+            new SimpleSpaceRecord(Space, Owner, new MemberListPolicy(), new MemberListPolicy(), new OpenAppAccess()));
 
         var store = Store;
         await store.RecordWriteAsync(Space, Owner, "3l6oveex3ii2l", [1, 2, 3]);

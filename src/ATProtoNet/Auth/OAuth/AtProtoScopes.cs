@@ -117,7 +117,7 @@ public enum SpaceAction
 /// <para>The protocol does not enumerate what each verb permits, because space management is
 /// implementation-defined; each implementation maps the verbs onto its own administrative
 /// surface. In <c>com.atproto.simplespace</c>, for instance, <see cref="Update"/> authorizes
-/// <c>updateSpace</c> as well as <c>addMember</c> and <c>removeMember</c>.</para>
+/// <c>updateSpace</c> as well as <c>putMember</c> and <c>removeMember</c>.</para>
 /// </remarks>
 [Flags]
 public enum SpaceManage

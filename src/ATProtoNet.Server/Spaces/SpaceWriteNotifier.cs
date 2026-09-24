@@ -22,8 +22,14 @@ namespace ATProtoNet.Server.Spaces;
 /// <c>listRepos</c>, which is the actual correctness guarantee. Delivery failures are therefore
 /// logged and dropped rather than retried into a queue, and one unreachable subscriber never
 /// holds up the others.</para>
-/// <para>Each delivery is authenticated with service auth issued by this service, addressed to
-/// the subscriber's DID and scoped to the method being called.</para>
+/// <para>Each delivery is authenticated with service auth issued by this service, scoped to the
+/// method being called and addressed to the service identifier the subscriber registered —
+/// fragment and all, since that is the audience a subscriber such as
+/// <c>did:web:syncer.example.com#atproto_space_syncer</c> verifies against. The one exception is
+/// a space's own authority, registered by <see cref="EnsureAuthoritySubscribedAsync"/> as
+/// <c>{authority}#atproto_space_host</c>: it is reached at its space host endpoint, falling back
+/// to its <c>#atproto_pds</c>, and addressed by its bare DID, which is what the reference
+/// authority checks.</para>
 /// </remarks>
 public sealed class SpaceWriteNotifier
 {
@@ -69,6 +75,12 @@ public sealed class SpaceWriteNotifier
     /// <param name="hash">The repo's commit hash after the write.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of subscribers the notification reached.</returns>
+    /// <remarks>
+    /// This is the repo host's half of the notification path. On a repo host the subscribers
+    /// include the space's authority, registered by <see cref="EnsureAuthoritySubscribedAsync"/>,
+    /// which applies its write policy and forwards the notification to its own subscribers
+    /// (<see cref="ForwardWriteAsync"/>).
+    /// </remarks>
     public Task<int> NotifyWriteAsync(
         SpaceUri space, string repoDid, string rev, byte[] hash, CancellationToken cancellationToken = default)
     {
@@ -78,7 +90,56 @@ public sealed class SpaceWriteNotifier
         ArgumentNullException.ThrowIfNull(hash);
 
         var body = new NotifyWriteRequest { Space = space.Value, Repo = repoDid, Rev = rev, Hash = hash };
-        return FanOutAsync(space, SpaceNsids.NotifyWrite, body, cancellationToken);
+        return FanOutAsync(space, SpaceNsids.NotifyWrite, body, includeAuthority: true, cancellationToken);
+    }
+
+    /// <summary>
+    /// Forwards a write notification this authority accepted to the services registered for the
+    /// space, in the background.
+    /// </summary>
+    /// <param name="space">The space.</param>
+    /// <param name="repoDid">The DID of the account whose repo advanced.</param>
+    /// <param name="rev">The revision of the write.</param>
+    /// <param name="hash">The repo's commit hash after the write.</param>
+    /// <returns>
+    /// The fan-out, which never faults: it resolves to the number of subscribers reached. The
+    /// <c>notifyWrite</c> endpoint does not await it, so neither the writer's repo host nor the
+    /// request waits on downstream syncers.
+    /// </returns>
+    /// <remarks>
+    /// <para>This is the authority's half of the notification path: a repo host tells the
+    /// authority, and the authority tells everyone who registered with it. Call it only for a
+    /// write the space's write policy admitted.</para>
+    /// <para>The space's own authority subscription is skipped. On a service that is both repo
+    /// host and authority it sits in the same store, and forwarding to it would only deliver the
+    /// notification back to this endpoint.</para>
+    /// </remarks>
+    public Task<int> ForwardWriteAsync(SpaceUri space, string repoDid, string rev, byte[] hash)
+    {
+        ArgumentNullException.ThrowIfNull(space);
+        ArgumentException.ThrowIfNullOrWhiteSpace(repoDid);
+        ArgumentException.ThrowIfNullOrWhiteSpace(rev);
+        ArgumentNullException.ThrowIfNull(hash);
+
+        var body = new NotifyWriteRequest { Space = space.Value, Repo = repoDid, Rev = rev, Hash = hash };
+
+        // Off the caller's path, and with no cancellation token: the request that triggered this
+        // completes before the deliveries do, and cancelling them with it would drop them all.
+        return Task.Run(async () =>
+        {
+            try
+            {
+                return await FanOutAsync(
+                    space, SpaceNsids.NotifyWrite, body, includeAuthority: false, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                // Best-effort: a failure to even read the subscriber list is a latency cost, since
+                // every syncer's sweep over listRepos still finds the write.
+                _logger.LogWarning(ex, "Forwarding {Nsid} for {Space} failed.", SpaceNsids.NotifyWrite, space);
+                return 0;
+            }
+        });
     }
 
     /// <summary>
@@ -96,8 +157,9 @@ public sealed class SpaceWriteNotifier
     {
         ArgumentNullException.ThrowIfNull(space);
 
+        // Only the authority deletes a space, so its own registration has nothing to learn.
         var body = new NotifySpaceDeletedRequest { Space = space.Value };
-        return FanOutAsync(space, SpaceNsids.NotifySpaceDeleted, body, cancellationToken);
+        return FanOutAsync(space, SpaceNsids.NotifySpaceDeleted, body, includeAuthority: false, cancellationToken);
     }
 
     /// <summary>
@@ -143,9 +205,13 @@ public sealed class SpaceWriteNotifier
     }
 
     private async Task<int> FanOutAsync<TBody>(
-        SpaceUri space, string nsid, TBody body, CancellationToken cancellationToken)
+        SpaceUri space, string nsid, TBody body, bool includeAuthority, CancellationToken cancellationToken)
     {
         var subscribers = await _store.ListSubscribersAsync(space, cancellationToken);
+
+        if (!includeAuthority)
+            subscribers = subscribers.Where(s => !IsAuthority(space, s.Service)).ToList();
+
         if (subscribers.Count == 0)
             return 0;
 
@@ -154,6 +220,24 @@ public sealed class SpaceWriteNotifier
 
         return results.Count(delivered => delivered);
     }
+
+    /// <summary>
+    /// The <c>aud</c> a delivery is addressed to: the identifier the subscriber registered,
+    /// except for the space's own authority host, which the reference authority expects to be
+    /// addressed by its bare DID.
+    /// </summary>
+    private static string Audience(SpaceUri space, string service, string did) =>
+        string.Equals(service, SpaceAuthority.HostAudience(space.Authority), StringComparison.Ordinal)
+            ? did
+            : service;
+
+    /// <summary>
+    /// Whether a service identifier names the space's own authority as its space host — bare, or
+    /// as <c>#atproto_space_host</c>, both of which resolve to the same endpoint.
+    /// </summary>
+    private static bool IsAuthority(SpaceUri space, string service) =>
+        string.Equals(service, space.Authority, StringComparison.Ordinal) ||
+        string.Equals(service, SpaceAuthority.HostAudience(space.Authority), StringComparison.Ordinal);
 
     /// <summary>
     /// Whether an exception is a delivery failure to be logged and dropped, rather than a
@@ -180,6 +264,9 @@ public sealed class SpaceWriteNotifier
         {
             var (did, fragment) = SpaceAuthority.ParseServiceIdentifier(subscriber.Service);
             var document = await _resolver.ResolveAsync(did, cancellationToken);
+
+            // A #atproto_space_host fragment resolves with its #atproto_pds fallback, so an
+            // authority on an ordinary PDS, which publishes no such entry, is still reached.
             var endpoint = SpaceAuthority.GetServiceEndpoint(document, fragment);
 
             if (string.IsNullOrEmpty(endpoint))
@@ -197,7 +284,7 @@ public sealed class SpaceWriteNotifier
                 Content = JsonContent.Create(body, options: AtProtoJsonDefaults.Options),
             };
             request.Headers.Authorization = new AuthenticationHeaderValue(
-                "Bearer", _serviceAuth.CreateToken(did, nsid));
+                "Bearer", _serviceAuth.CreateToken(Audience(space, subscriber.Service, did), nsid));
 
             using var response = await _httpClient.SendAsync(request, cancellationToken);
 

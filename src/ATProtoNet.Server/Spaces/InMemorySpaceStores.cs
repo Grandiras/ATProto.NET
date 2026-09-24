@@ -211,13 +211,14 @@ public sealed class InMemorySimpleSpaceStore : ISimpleSpaceStore
     }
 
     /// <inheritdoc/>
-    public Task AddMemberAsync(SpaceUri space, string did, CancellationToken cancellationToken = default)
+    public Task PutMemberAsync(
+        SpaceUri space, string did, bool read, bool write, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(space);
         ArgumentException.ThrowIfNullOrWhiteSpace(did);
 
         if (_spaces.TryGetValue(space.Value, out var entry))
-            entry.Members[did] = 0;
+            entry.Members[did] = new MemberAccess(read, write);
 
         return Task.CompletedTask;
     }
@@ -235,13 +236,16 @@ public sealed class InMemorySimpleSpaceStore : ISimpleSpaceStore
     }
 
     /// <inheritdoc/>
-    public Task<bool> IsMemberAsync(SpaceUri space, string did, CancellationToken cancellationToken = default)
+    public Task<SimpleSpaceMember?> GetMemberAsync(
+        SpaceUri space, string did, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(space);
         ArgumentException.ThrowIfNullOrWhiteSpace(did);
 
         return Task.FromResult(
-            _spaces.TryGetValue(space.Value, out var entry) && entry.Members.ContainsKey(did));
+            _spaces.TryGetValue(space.Value, out var entry) && entry.Members.TryGetValue(did, out var access)
+                ? ToMember(did, access)
+                : null);
     }
 
     /// <inheritdoc/>
@@ -253,14 +257,14 @@ public sealed class InMemorySimpleSpaceStore : ISimpleSpaceStore
         if (!_spaces.TryGetValue(space.Value, out var entry))
             return Task.FromResult(new ListSimpleSpaceMembersResponse { Members = [] });
 
-        var page = entry.Members.Keys
-            .OrderBy(did => did, StringComparer.Ordinal)
-            .Where(did => cursor is null || string.CompareOrdinal(did, cursor) > 0)
+        var page = entry.Members
+            .OrderBy(member => member.Key, StringComparer.Ordinal)
+            .Where(member => cursor is null || string.CompareOrdinal(member.Key, cursor) > 0)
             .Take(limit + 1)
             .ToList();
 
         var hasMore = page.Count > limit;
-        var members = page.Take(limit).Select(did => new SimpleSpaceMember { Did = did }).ToList();
+        var members = page.Take(limit).Select(member => ToMember(member.Key, member.Value)).ToList();
 
         return Task.FromResult(new ListSimpleSpaceMembersResponse
         {
@@ -269,11 +273,15 @@ public sealed class InMemorySimpleSpaceStore : ISimpleSpaceStore
         });
     }
 
+    private static SimpleSpaceMember ToMember(string did, MemberAccess access) =>
+        new() { Did = did, Read = access.Read, Write = access.Write };
+
+    private sealed record MemberAccess(bool Read, bool Write);
+
     private sealed class Entry
     {
         public required SimpleSpaceRecord Record { get; set; }
 
-        // A set; the value is unused. ConcurrentDictionary is the only concurrent set available.
-        public ConcurrentDictionary<string, byte> Members { get; } = new(StringComparer.Ordinal);
+        public ConcurrentDictionary<string, MemberAccess> Members { get; } = new(StringComparer.Ordinal);
     }
 }

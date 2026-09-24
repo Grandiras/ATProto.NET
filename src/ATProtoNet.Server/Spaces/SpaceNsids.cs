@@ -66,8 +66,8 @@ public static class SpaceNsids
     /// <summary><c>com.atproto.simplespace.getSpace</c>.</summary>
     public const string GetSimpleSpace = "com.atproto.simplespace.getSpace";
 
-    /// <summary><c>com.atproto.simplespace.addMember</c>.</summary>
-    public const string AddSimpleSpaceMember = "com.atproto.simplespace.addMember";
+    /// <summary><c>com.atproto.simplespace.putMember</c>.</summary>
+    public const string PutSimpleSpaceMember = "com.atproto.simplespace.putMember";
 
     /// <summary><c>com.atproto.simplespace.removeMember</c>.</summary>
     public const string RemoveSimpleSpaceMember = "com.atproto.simplespace.removeMember";

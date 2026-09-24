@@ -85,7 +85,7 @@ public sealed class GetSpaceCredentialEndpoint
             context, input.ClientAttestation, space, cancellationToken);
 
         var decision = await _policy.EvaluateAsync(
-            new SpaceAccessRequest(space, auth.UserDid, auth.AttestedClientId), cancellationToken);
+            new SpaceAccessRequest(space, auth.UserDid, auth.AttestedClientId, SpaceAccessKind.Read), cancellationToken);
 
         if (!decision.IsGranted)
         {
@@ -116,10 +116,11 @@ public sealed class GetSpaceCredentialEndpoint
 /// </summary>
 /// <remarks>
 /// The writer set is the <em>sync boundary</em>, not an access-control list. It enumerates the
-/// accounts that have written at least one record, never the broader set allowed to write and
-/// never readers — the protocol does not enumerate readers at all. It is also only what this
-/// authority claims, kept current by the write notifications it has received; a listed account's
-/// repo host is the source of truth, which is what the per-entry revision is for.
+/// accounts that have written at least one record and that the space's write policy admitted —
+/// never the broader set allowed to write, and never readers; the protocol does not enumerate
+/// readers at all. It is also only what this authority claims, kept current by the write
+/// notifications it has accepted; a listed account's repo host is the source of truth, which is
+/// what the per-entry revision is for.
 /// </remarks>
 [XrpcEndpoint(Nsid = SpaceNsids.ListRepos)]
 public sealed class ListSpaceReposEndpoint : IXrpcQuery<ListSpaceReposParameters, ListSpaceReposResponse>
@@ -286,36 +287,62 @@ public sealed class UnregisterNotifyEndpoint : IXrpcProcedureVoid<UnregisterNoti
 /// </summary>
 /// <remarks>
 /// <para>This is what keeps <c>listRepos</c> current, and it is how an account joins the writer
-/// set at all — the set is defined as the accounts that have written at least one record, and
-/// this notification is the authority's only evidence of that.</para>
+/// set at all — the set is the accounts that have written at least one record <em>and</em> that
+/// the space's write policy admits, and this notification is the authority's only evidence of the
+/// first.</para>
 /// <para>It is authenticated with <em>service auth</em> rather than with a space credential:
 /// the caller is a PDS acting as itself, not an application acting for a user. The notification
 /// is accepted only from the host that actually answers for the named repo, so an arbitrary
-/// service cannot advance another account's revision in the writer set.</para>
+/// service cannot advance another account's revision in the writer set. The token may address
+/// this authority by its bare DID (what the reference implementation sends), as
+/// <c>{authority}#atproto_space_host</c>, or by <see cref="SpaceServerOptions.ServiceDid"/>.</para>
+/// <para>The writer is then put to the access policy as a <see cref="SpaceAccessKind.Write"/>.
+/// One it refuses is answered with 403 and neither recorded nor forwarded — refusing a write
+/// notification does not stop anyone writing to their own repo, only this authority listing and
+/// relaying it. One it admits is recorded, and forwarded in the background to every service
+/// registered for the space.</para>
 /// </remarks>
 [XrpcEndpoint(Nsid = SpaceNsids.NotifyWrite)]
 public sealed class NotifyWriteEndpoint : IXrpcProcedureVoid<NotifyWriteRequest>
 {
     private readonly ISpaceServiceAuthVerifier _serviceAuth;
     private readonly ISpaceAuthorityStore _store;
+    private readonly ISpaceAccessPolicy _policy;
     private readonly SpaceServerOptions _options;
+    private readonly SpaceWriteNotifier? _notifier;
+    private readonly ILogger _logger;
 
     /// <summary>
     /// Creates the endpoint.
     /// </summary>
     /// <param name="serviceAuth">Verifies the calling host's service auth token.</param>
     /// <param name="store">The authority's state.</param>
+    /// <param name="policy">Decides whether the writer is tracked.</param>
     /// <param name="options">Server options.</param>
+    /// <param name="notifier">
+    /// Forwards an accepted notification to the services registered for the space. Optional:
+    /// without it a syncer finds the write on its next sweep over <c>listRepos</c> instead.
+    /// </param>
+    /// <param name="logger">Optional logger.</param>
     public NotifyWriteEndpoint(
-        ISpaceServiceAuthVerifier serviceAuth, ISpaceAuthorityStore store, SpaceServerOptions options)
+        ISpaceServiceAuthVerifier serviceAuth,
+        ISpaceAuthorityStore store,
+        ISpaceAccessPolicy policy,
+        SpaceServerOptions options,
+        SpaceWriteNotifier? notifier = null,
+        ILogger<NotifyWriteEndpoint>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(serviceAuth);
         ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(policy);
         ArgumentNullException.ThrowIfNull(options);
 
         _serviceAuth = serviceAuth;
         _store = store;
+        _policy = policy;
         _options = options;
+        _notifier = notifier;
+        _logger = logger ?? (ILogger)NullLogger.Instance;
     }
 
     /// <inheritdoc/>
@@ -327,12 +354,13 @@ public sealed class NotifyWriteEndpoint : IXrpcProcedureVoid<NotifyWriteRequest>
     {
         ArgumentNullException.ThrowIfNull(input);
 
+        // Malformed input is refused before any auth check, as the Lexicon's own types would be.
         var space = SpaceRequestValidation.RequireSpace(input.Space);
         var repo = SpaceRequestValidation.RequireDid(input.Repo, "repo");
-        var rev = SpaceRequestValidation.RequireString(input.Rev, "rev");
+        var rev = SpaceRequestValidation.RequireTid(input.Rev, "rev");
+        var hash = input.Hash ?? throw new XrpcException("InvalidRequest", "The \"hash\" field is required.");
 
-        var caller = await _serviceAuth.VerifyAsync(
-            context, _options.ServiceDid ?? space.Authority, Nsid, cancellationToken);
+        var caller = await _serviceAuth.VerifyAsync(context, AcceptedAudiences(space), Nsid, cancellationToken);
 
         // The account itself, or the service that hosts its repo. Anything else is a stranger
         // claiming another account's repo advanced.
@@ -349,6 +377,35 @@ public sealed class NotifyWriteEndpoint : IXrpcProcedureVoid<NotifyWriteRequest>
         if (state != SpaceAccessOutcome.Granted)
             throw ListSpaceReposEndpoint.SpaceStateError(space, state);
 
-        await _store.RecordWriteAsync(space, repo, rev, input.Hash, cancellationToken);
+        // No attested client: the caller is the writer's repo host, not an application.
+        var decision = await _policy.EvaluateAsync(
+            new SpaceAccessRequest(space, repo, AttestedClientId: null, SpaceAccessKind.Write), cancellationToken);
+
+        if (!decision.IsGranted)
+        {
+            if (decision.Outcome is SpaceAccessOutcome.SpaceNotFound or SpaceAccessOutcome.SpaceDeleted)
+                throw ListSpaceReposEndpoint.SpaceStateError(space, decision.Outcome);
+
+            _logger.LogInformation(
+                "Refused a write notification for {Space} from {Repo}: {Outcome} {Reason}",
+                space, repo, decision.Outcome, decision.Reason);
+
+            throw new XrpcException(
+                SpaceErrors.NotAuthorized,
+                "The writer is not authorized for this space.",
+                StatusCodes.Status403Forbidden);
+        }
+
+        await _store.RecordWriteAsync(space, repo, rev, hash, cancellationToken);
+
+        // Not awaited: neither the writer's repo host nor this request waits on downstream
+        // syncers, whose deliveries are best-effort anyway.
+        _ = _notifier?.ForwardWriteAsync(space, repo, rev, hash);
     }
+
+    private string[] AcceptedAudiences(SpaceUri space) =>
+        _options.ServiceDid is { } serviceDid &&
+        !string.Equals(serviceDid, space.Authority, StringComparison.Ordinal)
+            ? [space.Authority, SpaceAuthority.HostAudience(space.Authority), serviceDid]
+            : [space.Authority, SpaceAuthority.HostAudience(space.Authority)];
 }

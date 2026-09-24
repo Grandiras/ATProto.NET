@@ -39,7 +39,7 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
     public async Task PublicPolicy_MintsForANonMember()
     {
         // The control for the refusal above: same non-member, same exchange, different policy.
-        var space = await fixture.CreateSpaceAsync("policy-public", new PublicPolicy());
+        var space = await fixture.CreateSpaceAsync("policy-public", readPolicy: new PublicPolicy());
 
         await using var provider = fixture.CreateProvider(fixture.Outsider);
         var credential = await provider.GetCredentialAsync(space);
@@ -71,8 +71,8 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
         // Policy public so the user passes and the refusal can only be about the app.
         var space = await fixture.CreateSpaceAsync(
             "policy-app",
-            new PublicPolicy(),
-            new AllowListAppAccess { Allowed = ["https://app.example.com/client-metadata.json"] });
+            readPolicy: new PublicPolicy(),
+            appAccess: new AllowListAppAccess { Allowed = ["https://app.example.com/client-metadata.json"] });
 
         await using var provider = fixture.CreateProvider(fixture.Member);
 
@@ -87,8 +87,8 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
     {
         var space = await fixture.CreateSpaceAsync(
             "policy-app-retry",
-            new PublicPolicy(),
-            new AllowListAppAccess { Allowed = ["https://app.example.com/client-metadata.json"] });
+            readPolicy: new PublicPolicy(),
+            appAccess: new AllowListAppAccess { Allowed = ["https://app.example.com/client-metadata.json"] });
 
         var audiences = new List<string>();
 
@@ -132,9 +132,10 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
     {
         var space = await fixture.CreateSpaceAsync(
             "policy-config",
-            new MemberListPolicy(),
-            new OpenAppAccess(),
-            [fixture.Member]);
+            readPolicy: new MemberListPolicy(),
+            writePolicy: new PublicPolicy(),
+            appAccess: new OpenAppAccess(),
+            members: [fixture.Member]);
 
         await using var provider = fixture.CreateProvider(fixture.Member);
         using var host = await provider.CreateReaderAsync(space, fixture.PdsUrl);
@@ -142,7 +143,111 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
         var configuration = await host.SimpleSpace.GetSpaceAsync(space.Value);
 
         Assert.Equal(space.Value, configuration.Uri);
-        Assert.IsType<MemberListPolicy>(configuration.Policy);
+        Assert.IsType<MemberListPolicy>(configuration.ReadPolicy);
+        Assert.IsType<PublicPolicy>(configuration.WritePolicy);
         Assert.IsType<OpenAppAccess>(configuration.AppAccess);
+    }
+
+    [RequiresSpacesFact]
+    public async Task UpdateSpaceAsync_ReplacesOnlyThePolicyItWasGiven()
+    {
+        var space = await fixture.CreateSpaceAsync("policy-update");
+
+        await fixture.Authority.Client.SimpleSpace.UpdateSpaceAsync(space.Value, writePolicy: new PublicPolicy());
+
+        var configuration = await fixture.Authority.Client.SimpleSpace.GetSpaceAsync(space);
+        Assert.IsType<MemberListPolicy>(configuration.ReadPolicy);
+        Assert.IsType<PublicPolicy>(configuration.WritePolicy);
+        Assert.IsType<OpenAppAccess>(configuration.AppAccess);
+    }
+
+    [RequiresSpacesFact]
+    public async Task PutMemberAsync_ReplacesBothFlags_AndListMembersReportsThem()
+    {
+        var space = await fixture.CreateSpaceAsync("policy-put");
+        var simpleSpace = fixture.Authority.Client.SimpleSpace;
+
+        await simpleSpace.PutMemberAsync(space, fixture.Member.Did, read: true, write: false);
+        await simpleSpace.PutMemberAsync(space, fixture.Member.Did, read: false, write: true);
+
+        // An upsert that replaces both flags, not a second row and not a merge.
+        var member = Assert.Single((await simpleSpace.ListMembersAsync(space.Value)).Members);
+        Assert.Equal(fixture.Member.Did, member.Did);
+        Assert.False(member.Read);
+        Assert.True(member.Write);
+    }
+
+    [RequiresSpacesFact]
+    public async Task ReadOnlyMember_GetsACredentialButStaysOutOfTheWriterSet()
+    {
+        var space = await fixture.CreateSpaceAsync("policy-read-only");
+        await fixture.Authority.Client.SimpleSpace.PutMemberAsync(
+            space, fixture.Member.Did, read: true, write: false);
+
+        await using var memberProvider = fixture.CreateProvider(fixture.Member);
+        var credential = await memberProvider.GetCredentialAsync(space);
+        Assert.Equal(space.Value, credential.Token.Subject);
+
+        // Nothing stops the member writing to its own repo: the write policy decides only whether
+        // the authority tracks the write. The authority's own write, which it always admits, is
+        // the control that says the member's notification has had its chance to land.
+        await fixture.WriteAsync(fixture.Member, space, "read-only member");
+        await fixture.WriteAsync(fixture.Authority, space, "authority");
+
+        var writers = await ReadWriterSetUntilAsync(space, fixture.Authority.Did);
+
+        Assert.Contains(fixture.Authority.Did, writers);
+        Assert.DoesNotContain(fixture.Member.Did, writers);
+    }
+
+    [RequiresSpacesFact]
+    public async Task WriteOnlyMember_IsTrackedButRefusedACredential()
+    {
+        var space = await fixture.CreateSpaceAsync("policy-write-only");
+        await fixture.Authority.Client.SimpleSpace.PutMemberAsync(
+            space, fixture.Member.Did, read: false, write: true);
+
+        await using var memberProvider = fixture.CreateProvider(fixture.Member);
+        var refusal = await Assert.ThrowsAsync<SpaceCredentialException>(
+            () => memberProvider.GetCredentialAsync(space));
+        Assert.Equal(SpaceErrors.UserNotAuthorized, refusal.Error);
+
+        await fixture.WriteAsync(fixture.Member, space, "write-only member");
+
+        Assert.Contains(fixture.Member.Did, await ReadWriterSetUntilAsync(space, fixture.Member.Did));
+    }
+
+    [RequiresSpacesFact]
+    public async Task PublicWritePolicy_TracksAWriterWhoWasNeverAMember()
+    {
+        var space = await fixture.CreateSpaceAsync("policy-public-write", writePolicy: new PublicPolicy());
+
+        await fixture.WriteAsync(fixture.Outsider, space, "never a member");
+
+        Assert.Contains(fixture.Outsider.Did, await ReadWriterSetUntilAsync(space, fixture.Outsider.Did));
+    }
+
+    /// <summary>
+    /// Reads the writer set as the authority's own syncer would, until it lists
+    /// <paramref name="expected"/> or the attempts run out. The set is maintained from write
+    /// notifications the writing PDS sends without awaiting, so it is eventually consistent.
+    /// </summary>
+    private async Task<IReadOnlyList<string>> ReadWriterSetUntilAsync(SpaceUri space, string expected)
+    {
+        await using var provider = fixture.CreateProvider(fixture.Authority);
+        using var host = await provider.CreateReaderAsync(space, fixture.PdsUrl);
+
+        IReadOnlyList<string> writers = [];
+        for (var attempt = 0; attempt < 50; attempt++)
+        {
+            var page = await host.Space.ListReposAsync(space.Value);
+            writers = page.Repos.Select(repo => repo.Did).ToList();
+            if (writers.Contains(expected))
+                break;
+
+            await Task.Delay(100);
+        }
+
+        return writers;
     }
 }
