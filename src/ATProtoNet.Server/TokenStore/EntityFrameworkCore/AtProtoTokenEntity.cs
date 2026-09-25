@@ -3,8 +3,8 @@ using System.ComponentModel.DataAnnotations;
 namespace ATProtoNet.Server.EntityFrameworkCore;
 
 /// <summary>
-/// Entity representing a stored AT Protocol OAuth token in the database.
-/// The token payload is encrypted at rest using ASP.NET Core Data Protection.
+/// Entity representing a stored AT Protocol session in the database.
+/// The session JSON is encrypted at rest using ASP.NET Core Data Protection.
 /// </summary>
 public sealed class AtProtoTokenEntity
 {
@@ -16,7 +16,7 @@ public sealed class AtProtoTokenEntity
     public required string Did { get; set; }
 
     /// <summary>
-    /// The encrypted, serialized token data (JSON protected by Data Protection).
+    /// The encrypted, serialized session (JSON protected by Data Protection).
     /// </summary>
     public required string EncryptedTokenData { get; set; }
 

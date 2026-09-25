@@ -43,15 +43,16 @@ var client = new AtProtoClientBuilder()
 var client = new AtProtoClientBuilder()
     .WithInstanceUrl("https://your-pds.example.com")  // Required: PDS URL
     .WithRelayUrl("wss://bsky.network")                // Relay for firehose (default)
-    .WithAutoRefreshSession(true)                       // Auto-refresh tokens (default: true)
-    .WithSessionStore(new InMemorySessionStore())       // Session persistence (default)
+    .WithAutoRefreshSession(true)                       // Refresh tokens on demand (default: true)
+    .WithSessionStore(new InMemoryAtProtoSessionStore()) // Session persistence (default: none)
     .WithHttpClient(httpClient)                         // Custom HttpClient
     .WithLoggerFactory(loggerFactory)                   // Logging
     .Build();
 ```
 
-`InMemorySessionStore` is the only store that ships with the SDK — implement `ISessionStore` to keep
-sessions across restarts, as shown in [Session Management](session-management.md#custom-session-store).
+The core package ships `InMemoryAtProtoSessionStore`; `ATProtoNet.Server` adds encrypted file and EF Core
+stores, and a custom `IAtProtoSessionStore` is a few lines, as shown in
+[Session Management](session-management.md#persisting-sessions).
 
 ### Direct Construction
 
@@ -92,7 +93,7 @@ After login, you can access:
 ```csharp
 client.Did       // Did: did:plc:abc123...
 client.Handle    // Handle: alice.example.com
-client.Session   // Full Session object with tokens, email, etc.
+client.Session   // AtProtoSession — here a PasswordSession, with tokens, email, etc.
 ```
 
 ## What's Next?

@@ -40,7 +40,8 @@ app.MapPost("/accounts", async (SignupRequest signup, PdsAdminClient pds, Cancel
         ct);
 
     // account.AccessJwt / account.RefreshJwt is a ready-to-use session for the new
-    // user — hand it to AtProtoClient.ResumeSessionAsync to act on their behalf.
+    // user — wrap it in a PasswordSession and hand it to AtProtoClient.ApplySessionAsync
+    // to act on their behalf.
     return Results.Created($"/accounts/{account.Did}", new { account.Did, account.Handle });
 });
 

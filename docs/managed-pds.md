@@ -210,10 +210,11 @@ account:
 using ATProtoNet.Auth;
 
 using var client = pds.CreateClient();
-await client.ResumeSessionAsync(new Session
+await client.ApplySessionAsync(new PasswordSession
 {
     Did = account.Did,
     Handle = account.Handle,
+    ServiceEndpoint = client.ServiceUrl,
     AccessJwt = account.AccessJwt,
     RefreshJwt = account.RefreshJwt,
 });

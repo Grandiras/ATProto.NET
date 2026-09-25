@@ -130,6 +130,9 @@ public class TypedIdentifierGuardTests
         ["ATProtoNet.Streaming.JetstreamArchiveRow.Collection"] = "Raw archive column, empty on non-commit rows; ToEvent() types it.",
         ["ATProtoNet.Streaming.JetstreamArchiveRow.Rkey"] = "Raw archive column, empty on non-commit rows; ToEvent() types it.",
         ["ATProtoNet.Streaming.JetstreamArchiveRow.Rev"] = "Raw archive column, empty when absent; ToEvent() types it.",
+
+        ["ATProtoNet.Auth.OAuthSession.Issuer"] =
+            "An OAuth authorization server's issuer identifier (RFC 8414): a URL, compared exactly as the server states it.",
     };
 
     private const string ChatRev = "No Lexicon format: an opaque revision string of the chat service.";

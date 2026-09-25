@@ -325,25 +325,6 @@ public class OAuthModelsTests
     }
 
     [Fact]
-    public void OAuthSessionResult_Dispose_DisposeDPoP()
-    {
-        var dpop = new DPoPProofGenerator();
-        var session = new OAuthSessionResult
-        {
-            Did = "did:plc:test",
-            Handle = "test.bsky.social",
-            AccessToken = "token",
-            PdsUrl = "https://pds.example.com",
-            DPoP = dpop,
-        };
-
-        session.Dispose();
-
-        Assert.Throws<ObjectDisposedException>(() =>
-            dpop.GenerateProof("POST", "https://example.com"));
-    }
-
-    [Fact]
     public void JsonWebKey_Properties()
     {
         var jwk = new JsonWebKey

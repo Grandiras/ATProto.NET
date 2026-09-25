@@ -32,7 +32,7 @@ internal static partial class SdkSource
 
     // QueryAsync<T>("nsid", …), ProcedureAsync("nsid", …), …: the generic arguments hold no
     // parentheses, so the match can span the line break most calls put after the '('.
-    [GeneratedRegex(@"\b(?<method>QueryAsync|DownloadAsync|ProcedureAsync|UploadAsync|ProcedureWithRefreshTokenAsync)\s*(?:<[^()]*>)?\s*\(\s*""(?<nsid>[^""]+)""")]
+    [GeneratedRegex(@"\b(?<method>QueryAsync|DownloadAsync|ProcedureAsync|UploadAsync|ProcedureWithTokenAsync)\s*(?:<[^()]*>)?\s*\(\s*""(?<nsid>[^""]+)""")]
     private static partial Regex CallPattern();
 
     [GeneratedRegex(@"""(?:[^""\\\n]|\\.)*""")]

@@ -1,127 +1,113 @@
+using System.Net;
 using System.Security.Claims;
-using ATProtoNet.Auth.OAuth;
+using System.Text.Json;
+using ATProtoNet.Auth;
+using ATProtoNet.Http;
+using ATProtoNet.Identity;
 using ATProtoNet.Server.Services;
+using ATProtoNet.Tests.Auth;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using static ATProtoNet.Tests.Auth.SessionKit;
 
 namespace ATProtoNet.Tests.Server;
 
-public class AtProtoClientFactoryTests
+public sealed class AtProtoClientFactoryTests : IDisposable
 {
-    private readonly IAtProtoTokenStore _tokenStore;
+    private readonly StubServer _server = new();
+    private readonly IAtProtoSessionStore _store = new InMemoryAtProtoSessionStore();
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILoggerFactory _loggerFactory;
     private readonly AtProtoClientFactory _factory;
 
     public AtProtoClientFactoryTests()
     {
-        _tokenStore = Substitute.For<IAtProtoTokenStore>();
         _httpClientFactory = Substitute.For<IHttpClientFactory>();
         _loggerFactory = Substitute.For<ILoggerFactory>();
 
-        _httpClientFactory.CreateClient("AtProtoClient").Returns(new HttpClient());
+        _httpClientFactory.CreateClient("AtProtoClient").Returns(_ => new HttpClient(_server, disposeHandler: false));
         _loggerFactory.CreateLogger(Arg.Any<string>()).Returns(Substitute.For<ILogger>());
 
-        _factory = new AtProtoClientFactory(_tokenStore, _httpClientFactory, _loggerFactory);
+        _factory = new AtProtoClientFactory(_store, _httpClientFactory, _loggerFactory);
     }
+
+    public void Dispose() => _server.Dispose();
+
+    private static ClaimsPrincipal User(string type, string value) =>
+        new(new ClaimsIdentity([new Claim(type, value)], "test"));
 
     [Fact]
     public async Task CreateClientForUserAsync_ReturnsNull_WhenUserHasNoClaims()
     {
-        var user = new ClaimsPrincipal(new ClaimsIdentity());
-
-        var client = await _factory.CreateClientForUserAsync(user);
-
-        Assert.Null(client);
+        Assert.Null(await _factory.CreateClientForUserAsync(new ClaimsPrincipal(new ClaimsIdentity())));
     }
 
     [Fact]
     public async Task CreateClientForUserAsync_ReturnsNull_WhenNoDidClaim()
     {
-        var claims = new[] { new Claim(ClaimTypes.Name, "alice") };
-        var user = new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
-
-        var client = await _factory.CreateClientForUserAsync(user);
-
-        Assert.Null(client);
+        Assert.Null(await _factory.CreateClientForUserAsync(User(ClaimTypes.Name, "alice")));
     }
 
     [Fact]
-    public async Task CreateClientForUserAsync_ReturnsNull_WhenNoTokensStored()
+    public async Task CreateClientForUserAsync_ReturnsNull_WhenTheDidClaimIsNotADid()
     {
-        var claims = new[] { new Claim("did", "did:plc:abc123") };
-        var user = new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
-
-        _tokenStore.GetAsync("did:plc:abc123", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<AtProtoTokenData?>(null));
-
-        var client = await _factory.CreateClientForUserAsync(user);
-
-        Assert.Null(client);
+        Assert.Null(await _factory.CreateClientForUserAsync(User("did", "alice")));
     }
 
     [Fact]
-    public async Task CreateClientForUserAsync_UsesDidClaim()
+    public async Task CreateClientForUserAsync_ReturnsNull_WhenNoSessionIsStored()
     {
-        var claims = new[] { new Claim("did", "did:plc:abc123") };
-        var user = new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
-
-        _tokenStore.GetAsync("did:plc:abc123", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<AtProtoTokenData?>(null));
-
-        await _factory.CreateClientForUserAsync(user);
-
-        await _tokenStore.Received(1).GetAsync("did:plc:abc123", Arg.Any<CancellationToken>());
+        Assert.Null(await _factory.CreateClientForUserAsync(User("did", "did:plc:abc123")));
     }
 
     [Fact]
-    public async Task CreateClientForUserAsync_FallsBackToNameIdentifierClaim()
+    public async Task CreateClientForUserAsync_ReadsTheDidClaim_ThenFallsBackToNameIdentifier()
     {
-        var claims = new[] { new Claim(ClaimTypes.NameIdentifier, "did:plc:fallback") };
-        var user = new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
+        var store = Substitute.For<IAtProtoSessionStore>();
+        store.GetAsync(Arg.Any<Did>(), Arg.Any<CancellationToken>()).Returns(ValueTask.FromResult<AtProtoSession?>(null));
+        var factory = new AtProtoClientFactory(store, _httpClientFactory, _loggerFactory);
 
-        _tokenStore.GetAsync("did:plc:fallback", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<AtProtoTokenData?>(null));
+        await factory.CreateClientForUserAsync(User("did", "did:plc:fromdid"));
+        await factory.CreateClientForUserAsync(User(ClaimTypes.NameIdentifier, "did:plc:fallback"));
 
-        await _factory.CreateClientForUserAsync(user);
-
-        await _tokenStore.Received(1).GetAsync("did:plc:fallback", Arg.Any<CancellationToken>());
+        await store.Received(1).GetAsync(Did.Parse("did:plc:fromdid"), Arg.Any<CancellationToken>());
+        await store.Received(1).GetAsync(Did.Parse("did:plc:fallback"), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task CreateClientForUserAsync_ReturnsClient_WhenTokensExist()
+    public async Task CreateClientForUserAsync_ReturnsAClientOnTheStoredSession()
     {
-        // Generate a real DPoP key for testing
-        using var dpop = new DPoPProofGenerator();
-        var privateKey = dpop.ExportPrivateKey();
+        var session = OAuthSession(NewDPoPKey());
+        await _store.SetAsync(session);
 
-        var tokenData = new AtProtoTokenData
-        {
-            Did = "did:plc:abc123",
-            Handle = "alice.bsky.social",
-            IsHandleVerified = true,
-            AccessToken = "access-token",
-            RefreshToken = "refresh-token",
-            PdsUrl = "https://bsky.social",
-            Issuer = "https://bsky.social",
-            TokenEndpoint = "https://bsky.social/oauth/token",
-            DPoPPrivateKey = privateKey,
-            ExpiresIn = 3600,
-            Scope = "atproto",
-        };
-
-        var claims = new[] { new Claim("did", "did:plc:abc123") };
-        var user = new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
-
-        _tokenStore.GetAsync("did:plc:abc123", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<AtProtoTokenData?>(tokenData));
-
-        await using var client = await _factory.CreateClientForUserAsync(user);
+        await using var client = await _factory.CreateClientForUserAsync(User("did", "did:plc:alice"));
 
         Assert.NotNull(client);
-        Assert.True(client.IsAuthenticated);
-        Assert.Equal("did:plc:abc123", client.Did);
-        Assert.Equal("alice.bsky.social", client.Handle);
+        Assert.Same(session, client.Session);
+        Assert.Equal(Pds, client.ServiceUrl);
+        Assert.Empty(_server.Requests);
+    }
+
+    [Fact]
+    public async Task APerRequestClient_RefreshesOnDemandAndWritesTheRotatedTokensBack()
+    {
+        var refreshed = AccessJwt("a2");
+        _server.Respond = r => r.Nsid switch
+        {
+            "com.atproto.server.refreshSession" => SessionResponse(refreshed, "r2"),
+            "com.example.ping" when r.Authorization == $"Bearer {refreshed}" => JsonResponse("{}"),
+            "com.example.ping" => XrpcError(XrpcErrors.ExpiredToken),
+            _ => throw new InvalidOperationException(r.Nsid),
+        };
+        await _store.SetAsync(PasswordSession(AccessJwt("a1"), "r1"));
+
+        await using (var client = await _factory.CreateClientForUserAsync(User("did", "did:plc:alice")))
+            await client!.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping"));
+
+        // The next request's client starts from the rotated refresh token, not the spent one.
+        var stored = Assert.IsType<PasswordSession>(await _store.GetAsync(Alice));
+        Assert.Equal("r2", stored.RefreshJwt);
+        Assert.Equal(refreshed, stored.AccessJwt);
     }
 
     [Fact]
@@ -131,7 +117,7 @@ public class AtProtoClientFactoryTests
     }
 
     [Fact]
-    public void Constructor_ThrowsOnNullTokenStore()
+    public void Constructor_ThrowsOnNullSessionStore()
     {
         Assert.Throws<ArgumentNullException>(() =>
             new AtProtoClientFactory(null!, _httpClientFactory, _loggerFactory));
@@ -141,13 +127,13 @@ public class AtProtoClientFactoryTests
     public void Constructor_ThrowsOnNullHttpClientFactory()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            new AtProtoClientFactory(_tokenStore, null!, _loggerFactory));
+            new AtProtoClientFactory(_store, null!, _loggerFactory));
     }
 
     [Fact]
     public void Constructor_ThrowsOnNullLoggerFactory()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            new AtProtoClientFactory(_tokenStore, _httpClientFactory, null!));
+            new AtProtoClientFactory(_store, _httpClientFactory, null!));
     }
 }

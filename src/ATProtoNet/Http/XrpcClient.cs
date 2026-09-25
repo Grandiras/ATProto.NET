@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using ATProtoNet.Auth.OAuth;
+using ATProtoNet.Identity;
 using ATProtoNet.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -22,7 +23,12 @@ namespace ATProtoNet.Http;
 /// change after the client has sent requests.</para>
 /// <para>The session state (tokens, DPoP key and nonce, client-wide proxy and labeler headers)
 /// is held in fields replaced as a whole, so a request in flight on another thread sees either
-/// the old or the new value, never a mix.</para>
+/// the old or the new value, never a mix. The service URL and the session credentials are one
+/// such value: a call reads them once, and every attempt of it goes to that service with those
+/// credentials, so a session installed meanwhile is never sent to the previous one's service.</para>
+/// <para>When a <see cref="SessionHandler"/> is attached, session-authenticated calls consult it:
+/// before sending, so it can refresh a token about to expire, and once after the service rejects
+/// the token, so it can refresh and have the call resent with the same account's new tokens.</para>
 /// </remarks>
 internal sealed class XrpcClient
 {
@@ -31,8 +37,8 @@ internal sealed class XrpcClient
     private readonly HttpClient _httpClient;
     private readonly ILogger _logger;
 
-    private volatile Uri _serviceUrl;
-    private volatile SessionCredentials? _credentials;
+    private readonly object _targetLock = new();
+    private volatile XrpcTarget _target;
     private volatile string? _dpopNonce;
     private volatile string? _adminCredential;
     private volatile string? _proxyHeader;
@@ -52,7 +58,7 @@ internal sealed class XrpcClient
         ArgumentNullException.ThrowIfNull(serviceUrl);
 
         _httpClient = httpClient;
-        _serviceUrl = AtProtoHttp.NormalizeBaseUrl(serviceUrl);
+        _target = new XrpcTarget(AtProtoHttp.NormalizeBaseUrl(serviceUrl), Credentials: null);
         _logger = logger ?? NullLogger.Instance;
     }
 
@@ -69,7 +75,7 @@ internal sealed class XrpcClient
     internal TimeProvider TimeProvider { get; init; } = TimeProvider.System;
 
     /// <summary>The service requests are addressed to.</summary>
-    internal Uri ServiceUrl => _serviceUrl;
+    internal Uri ServiceUrl => _target.ServiceUrl;
 
     /// <summary>
     /// The latest repository revision (TID) received via the <c>Atproto-Repo-Rev</c> response
@@ -84,6 +90,11 @@ internal sealed class XrpcClient
     internal bool HasAdminCredentials => _adminCredential is not null;
 
     /// <summary>
+    /// Keeps the session's credentials fresh: consulted by every call authenticated with them.
+    /// </summary>
+    internal IXrpcSessionHandler? SessionHandler { get; set; }
+
+    /// <summary>
     /// Points the transport at another service. Takes effect for the next request, including
     /// on a client that has already sent some.
     /// </summary>
@@ -92,14 +103,16 @@ internal sealed class XrpcClient
     /// comes from a DID document or an OAuth session, and the session's tokens go wherever it
     /// points.
     /// </exception>
-    internal void SetServiceUrl(Uri url) => _serviceUrl = AtProtoHttp.ValidateServiceUrl(url, nameof(url));
+    internal void SetServiceUrl(Uri url)
+    {
+        var validated = AtProtoHttp.ValidateServiceUrl(url, nameof(url));
+        lock (_targetLock)
+            _target = _target with { ServiceUrl = validated };
+    }
 
     /// <summary>Sets Bearer session tokens (app-password sessions).</summary>
-    internal void SetTokens(string accessToken, string? refreshToken = null)
-    {
-        _credentials = new SessionCredentials(accessToken, refreshToken, DPoP: null);
-        _dpopNonce = null;
-    }
+    internal void SetTokens(string accessToken, string? refreshToken = null) =>
+        SetSession(serviceUrl: null, new XrpcCredentials(accessToken, refreshToken, DPoP: null), keepDPoPNonce: false);
 
     /// <summary>
     /// Sets DPoP-bound OAuth tokens. Requests then carry <c>Authorization: DPoP &lt;token&gt;</c>
@@ -112,16 +125,35 @@ internal sealed class XrpcClient
     internal void SetOAuthTokens(string accessToken, string? refreshToken, DPoPProofGenerator dpop, string? dpopNonce = null)
     {
         ArgumentNullException.ThrowIfNull(dpop);
-        _credentials = new SessionCredentials(accessToken, refreshToken, dpop);
+        SetSession(serviceUrl: null, new XrpcCredentials(accessToken, refreshToken, dpop), keepDPoPNonce: false);
         _dpopNonce = dpopNonce;
     }
 
-    /// <summary>Clears the session tokens.</summary>
-    internal void ClearTokens()
+    /// <summary>
+    /// Installs session credentials, or clears them with <see langword="null"/>, together with
+    /// the service they belong to, as one change: no call sees one without the other.
+    /// </summary>
+    /// <param name="serviceUrl">
+    /// The service, already validated with <see cref="AtProtoHttp.ValidateServiceUrl"/> (or equal
+    /// to the current one); <see langword="null"/> keeps the current service.
+    /// </param>
+    /// <param name="credentials">The credentials.</param>
+    /// <param name="keepDPoPNonce">
+    /// Keep the resource server's DPoP nonce: true when the same key goes on talking to the same
+    /// service, as after a token refresh.
+    /// </param>
+    internal void SetSession(Uri? serviceUrl, XrpcCredentials? credentials, bool keepDPoPNonce)
     {
-        _credentials = null;
-        _dpopNonce = null;
+        lock (_targetLock)
+        {
+            _target = new XrpcTarget(serviceUrl ?? _target.ServiceUrl, credentials);
+            if (!keepDPoPNonce)
+                _dpopNonce = null;
+        }
     }
+
+    /// <summary>Clears the session tokens.</summary>
+    internal void ClearTokens() => SetSession(serviceUrl: null, credentials: null, keepDPoPNonce: false);
 
     /// <summary>
     /// Sets PDS admin credentials, sent as HTTP Basic authentication — the scheme the reference
@@ -297,20 +329,41 @@ internal sealed class XrpcClient
     }
 
     /// <summary>
-    /// Performs a procedure authenticated with the session's refresh token instead of its
-    /// access token, as <c>com.atproto.server.refreshSession</c> requires.
+    /// Performs one of the calls that manage the session itself (sign-in, sign-up, refresh,
+    /// sign-out): addressed to the service directly, and authenticated with the token given
+    /// rather than the installed session's, so it never triggers a refresh of its own.
     /// </summary>
-    internal async Task<TResponse> ProcedureWithRefreshTokenAsync<TResponse>(
-        string nsid, CancellationToken cancellationToken = default)
+    /// <param name="nsid">The method NSID.</param>
+    /// <param name="body">The request body, or <see langword="null"/>.</param>
+    /// <param name="bearerToken">
+    /// The bearer token to send (a refresh JWT, say), or <see langword="null"/> to send none.
+    /// </param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    internal async Task<TResponse> ProcedureWithTokenAsync<TResponse>(
+        string nsid, object? body, string? bearerToken, CancellationToken cancellationToken = default)
     {
-        var request = new XrpcRequest(HttpMethod.Post, nsid, Parameters: null, Direct)
-        {
-            Authentication = XrpcAuthentication.RefreshToken,
-        };
-
-        using var response = await SendAsync(request, cancellationToken);
+        using var response = await SendAsync(TokenRequest(nsid, body, bearerToken), cancellationToken);
         return await ReadJsonAsync<TResponse>(response, nsid, cancellationToken);
     }
+
+    /// <summary>
+    /// <see cref="ProcedureWithTokenAsync{TResponse}"/> for a procedure whose response body, if
+    /// any, is ignored.
+    /// </summary>
+    /// <inheritdoc cref="ProcedureWithTokenAsync{TResponse}" path="/param"/>
+    internal async Task ProcedureWithTokenAsync(
+        string nsid, object? body, string? bearerToken, CancellationToken cancellationToken = default)
+    {
+        using var response = await SendAsync(TokenRequest(nsid, body, bearerToken), cancellationToken);
+    }
+
+    private XrpcRequest TokenRequest(string nsid, object? body, string? bearerToken) =>
+        new(HttpMethod.Post, nsid, Parameters: null, Direct)
+        {
+            Content = JsonBody(body),
+            Authentication = XrpcAuthentication.Explicit,
+            BearerToken = bearerToken,
+        };
 
     /// <summary>
     /// Per-call options for the calls that manage the session itself — sign-in, refresh,
@@ -337,9 +390,9 @@ internal sealed class XrpcClient
     }
 
     /// <summary>
-    /// Sends a request, answering a DPoP nonce challenge and 429s by retrying, and returns the
-    /// successful response with its body unread. Every failure is thrown as an
-    /// <see cref="XrpcException"/>.
+    /// Sends a request, answering a DPoP nonce challenge, a rejected session token and 429s by
+    /// retrying, and returns the successful response with its body unread. Every failure is
+    /// thrown as an <see cref="XrpcException"/>.
     /// </summary>
     /// <remarks>
     /// The response is requested with <see cref="HttpCompletionOption.ResponseHeadersRead"/>,
@@ -351,9 +404,19 @@ internal sealed class XrpcClient
     {
         ValidateHeaders(request.Options);
 
-        var uri = BuildUri(request.Nsid, request.Parameters);
         var nonceRetried = false;
+        var sessionRetried = false;
         var rateLimitAttempt = 0;
+        var sessionHandler = request.Authentication == XrpcAuthentication.Session ? SessionHandler : null;
+
+        if (sessionHandler is not null && _target.Credentials is not null)
+            await sessionHandler.BeforeSendAsync(cancellationToken);
+
+        // Read once, after any refresh above, and used for every attempt: a session installed
+        // while this call waits (on a 429, on a refresh) must not receive it, and its tokens must
+        // not go to this call's service. Only a recovery for the same account replaces them.
+        var target = _target;
+        var uri = BuildUri(target.ServiceUrl, request.Nsid, request.Parameters);
 
         _logger.LogDebug("XRPC {Method} {Uri}", request.Method.Method, uri);
 
@@ -362,7 +425,8 @@ internal sealed class XrpcClient
             // The message is not disposed: that would only dispose its content, which HTTP/2
             // may still be streaming when an early response arrives, and neither content type
             // used here holds anything to release.
-            var message = CreateMessage(request, uri, out var usedDPoP);
+            var message = CreateMessage(request, uri, target, request.Nsid, out var credentials);
+            var usedDPoP = credentials?.DPoP is not null;
             var response = await _httpClient.SendAsync(
                 message, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
@@ -374,10 +438,13 @@ internal sealed class XrpcClient
                     return response;
 
                 // A resource server that wants a (fresh) DPoP nonce answers 401 with the nonce
-                // in a header. The nonce is captured above; retry once with it.
+                // in a header. The nonce is captured above; retry once with it. A token rejected
+                // as invalid is a session matter even when a new nonce comes with it: the
+                // recovery below resends with that nonce too.
                 if (usedDPoP && !nonceRetried &&
                     response.StatusCode == HttpStatusCode.Unauthorized &&
-                    response.Headers.Contains("DPoP-Nonce"))
+                    response.Headers.Contains("DPoP-Nonce") &&
+                    !HasInvalidTokenChallenge(response))
                 {
                     nonceRetried = true;
                     await EnsureReplayableAsync(request, response, "answer a DPoP nonce challenge", cancellationToken);
@@ -400,7 +467,29 @@ internal sealed class XrpcClient
                     continue;
                 }
 
-                throw await CreateExceptionAsync(response, request.Nsid, cancellationToken);
+                var exception = await CreateExceptionAsync(response, request.Nsid, cancellationToken);
+
+                // An expired or invalidated access token: have the session refreshed (or pick up
+                // the tokens another call has refreshed meanwhile) and resend, once. The refresh
+                // happens even for a body that cannot be resent, so the next call succeeds.
+                if (sessionHandler is not null && credentials is not null && !sessionRetried &&
+                    IsRejectedCredential(response, exception))
+                {
+                    sessionRetried = true;
+
+                    if (await sessionHandler.TryRecoverAsync(credentials, cancellationToken) is { } recovered &&
+                        request.Replayable)
+                    {
+                        // The same account on the same service, so the same URI.
+                        target = target with { Credentials = recovered };
+                        nonceRetried = false;
+                        _logger.LogDebug("Session token rejected on {Nsid}; retrying with refreshed credentials", request.Nsid);
+                        response.Dispose();
+                        continue;
+                    }
+                }
+
+                throw exception;
             }
             catch
             {
@@ -408,6 +497,32 @@ internal sealed class XrpcClient
                 throw;
             }
         }
+    }
+
+    /// <summary>
+    /// Whether a failure rejects the access token in a way a refresh cures: a PDS answers an
+    /// expired bearer JWT with <c>ExpiredToken</c>, and a resource server an expired or revoked
+    /// DPoP-bound token with a 401 whose challenge carries <c>error="invalid_token"</c>
+    /// (RFC 6750 section 3.1, RFC 9449 section 7.1). A nonce challenge is not one of these.
+    /// </summary>
+    private static bool IsRejectedCredential(HttpResponseMessage response, XrpcException exception) =>
+        exception.Is(XrpcErrors.ExpiredToken) || HasInvalidTokenChallenge(response);
+
+    private static bool HasInvalidTokenChallenge(HttpResponseMessage response)
+    {
+        if (response.StatusCode != HttpStatusCode.Unauthorized ||
+            !response.Headers.TryGetValues("WWW-Authenticate", out var challenges))
+        {
+            return false;
+        }
+
+        foreach (var challenge in challenges)
+        {
+            if (challenge.Contains("error=\"invalid_token\"", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -480,7 +595,7 @@ internal sealed class XrpcClient
     private Func<HttpContent>? JsonBody(object? body) =>
         body is null ? null : () => JsonContent.Create(body, body.GetType(), JsonMediaType, JsonOptions);
 
-    private Uri BuildUri(string nsid, XrpcParams? parameters)
+    private static Uri BuildUri(Uri serviceUrl, string nsid, XrpcParams? parameters)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(nsid);
 
@@ -502,10 +617,11 @@ internal sealed class XrpcClient
             }
         }
 
-        return new Uri(_serviceUrl, builder.ToString());
+        return new Uri(serviceUrl, builder.ToString());
     }
 
-    private HttpRequestMessage CreateMessage(XrpcRequest request, Uri uri, out bool usedDPoP)
+    private HttpRequestMessage CreateMessage(
+        XrpcRequest request, Uri uri, XrpcTarget target, string nsid, out XrpcCredentials? credentials)
     {
         var message = new HttpRequestMessage(request.Method, uri) { Content = request.Content?.Invoke() };
         var headers = message.Headers;
@@ -513,7 +629,21 @@ internal sealed class XrpcClient
         if (UserAgent is not null)
             headers.TryAddWithoutValidation("User-Agent", UserAgent);
 
-        usedDPoP = ApplyAuthorization(message, request.Authentication);
+        try
+        {
+            credentials = ApplyAuthorization(message, request, target.Credentials);
+        }
+        catch (ObjectDisposedException)
+        {
+            // The DPoP key was released between this call reading the session and signing its
+            // proof: the session was signed out or replaced by another while the call was in
+            // flight, which leaves nothing this call may authenticate as.
+            throw new XrpcAuthenticationException(
+                XrpcErrors.AuthenticationRequired,
+                "The session this call was made with was signed out or replaced while it was in flight.",
+                HttpStatusCode.Unauthorized,
+                nsid);
+        }
 
         // Service proxying and labeler selection are independent of authentication: a public
         // AppView read with labeler subscriptions carries them with no session at all.
@@ -559,18 +689,17 @@ internal sealed class XrpcClient
     };
 
     /// <summary>
-    /// Sets the <c>Authorization</c> header (and a DPoP proof) for the session, and returns
-    /// whether the request is DPoP-bound.
+    /// Sets the <c>Authorization</c> header (and a DPoP proof) for the request, and returns the
+    /// session credentials it carries, if it carries the session's.
     /// </summary>
-    private bool ApplyAuthorization(HttpRequestMessage message, XrpcAuthentication authentication)
+    private XrpcCredentials? ApplyAuthorization(
+        HttpRequestMessage message, XrpcRequest request, XrpcCredentials? credentials)
     {
-        var credentials = _credentials;
-
-        if (authentication == XrpcAuthentication.RefreshToken)
+        if (request.Authentication == XrpcAuthentication.Explicit)
         {
-            if (credentials?.RefreshToken is { } refreshToken)
-                message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", refreshToken);
-            return false;
+            if (request.BearerToken is { } token)
+                message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            return null;
         }
 
         if (credentials is null)
@@ -578,7 +707,7 @@ internal sealed class XrpcClient
             // Admin (Basic) auth for com.atproto.admin.* against a self-hosted PDS.
             if (_adminCredential is { } admin)
                 message.Headers.Authorization = new AuthenticationHeaderValue("Basic", admin);
-            return false;
+            return null;
         }
 
         if (credentials.DPoP is { } dpop)
@@ -588,11 +717,11 @@ internal sealed class XrpcClient
                 "DPoP",
                 dpop.GenerateProofWithAccessToken(
                     message.Method.Method, message.RequestUri!.ToString(), _dpopNonce, credentials.AccessToken));
-            return true;
+            return credentials;
         }
 
         message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", credentials.AccessToken);
-        return false;
+        return credentials;
     }
 
     private void ObserveResponseHeaders(HttpResponseMessage response, bool usedDPoP)
@@ -641,12 +770,18 @@ internal sealed class XrpcClient
     //  Types
     // ──────────────────────────────────────────────────────────
 
-    private sealed record SessionCredentials(string AccessToken, string? RefreshToken, DPoPProofGenerator? DPoP);
+    /// <summary>The service calls go to, and the session credentials that belong to it.</summary>
+    /// <param name="ServiceUrl">The service.</param>
+    /// <param name="Credentials">The session's credentials, if a session is installed.</param>
+    private sealed record XrpcTarget(Uri ServiceUrl, XrpcCredentials? Credentials);
 
     private enum XrpcAuthentication
     {
+        /// <summary>The installed session's credentials, or the admin credentials without one.</summary>
         Session,
-        RefreshToken,
+
+        /// <summary>The request's own <see cref="XrpcRequest.BearerToken"/>, or none.</summary>
+        Explicit,
     }
 
     /// <summary>One logical XRPC call, which may be sent more than once.</summary>
@@ -666,6 +801,9 @@ internal sealed class XrpcClient
         public bool Replayable { get; init; } = true;
 
         public XrpcAuthentication Authentication { get; init; } = XrpcAuthentication.Session;
+
+        /// <summary>The token an <see cref="XrpcAuthentication.Explicit"/> request carries, if any.</summary>
+        public string? BearerToken { get; init; }
     }
 
     /// <summary>
@@ -756,4 +894,51 @@ internal sealed class XrpcClient
         {
         }
     }
+}
+
+/// <summary>
+/// Session credentials as <see cref="XrpcClient"/> sends them. Immutable: a change of tokens is a
+/// new instance, so comparing references tells whether the credentials changed.
+/// </summary>
+/// <param name="AccessToken">The access token.</param>
+/// <param name="RefreshToken">The refresh token, if the holder keeps it here.</param>
+/// <param name="DPoP">The DPoP key the access token is bound to, for an OAuth session.</param>
+internal sealed record XrpcCredentials(string AccessToken, string? RefreshToken, DPoPProofGenerator? DPoP)
+{
+    /// <summary>The account the credentials authenticate, when a session installed them.</summary>
+    public Did? Account { get; init; }
+
+    /// <summary>The service the credentials belong to, when a session installed them.</summary>
+    public Uri? Service { get; init; }
+
+    /// <summary>The account and service; never the tokens.</summary>
+    public override string ToString() =>
+        $"XrpcCredentials {{ Account = {Account}, Service = {Service}, DPoP = {DPoP is not null} }}";
+}
+
+/// <summary>
+/// Keeps the credentials of an <see cref="XrpcClient"/> fresh. <see cref="AtProtoClient"/>
+/// implements it over its session.
+/// </summary>
+internal interface IXrpcSessionHandler
+{
+    /// <summary>
+    /// Called before a call authenticated with the session is sent: refreshes the session first
+    /// if its access token is about to expire. Completes synchronously when it is not.
+    /// </summary>
+    /// <param name="cancellationToken">The call's cancellation token.</param>
+    ValueTask BeforeSendAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Called when the service rejected <paramref name="rejected"/> as expired or invalid.
+    /// Refreshes the session unless another call already replaced those credentials.
+    /// </summary>
+    /// <param name="rejected">The credentials the rejected request carried.</param>
+    /// <param name="cancellationToken">The call's cancellation token.</param>
+    /// <returns>
+    /// The credentials to resend with: newer ones of the same account on the same service. Never
+    /// another account's, which would make the call act as someone else; <see langword="null"/>
+    /// when there are none.
+    /// </returns>
+    Task<XrpcCredentials?> TryRecoverAsync(XrpcCredentials rejected, CancellationToken cancellationToken);
 }

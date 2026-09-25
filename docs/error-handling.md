@@ -190,7 +190,9 @@ bool exists = await todos.ExistsAsync(RecordKey.Parse("some-key"));
 
 ## Retry pattern
 
-The client already retries 429s within `XrpcRateLimitOptions`. For transient server errors, a small wrapper does the rest:
+The client already retries 429s within `XrpcRateLimitOptions`, and with `AutoRefreshSession` on it
+refreshes an expired session and resends the request by itself. For transient server errors, a small
+wrapper does the rest:
 
 ```csharp
 async Task<T> WithRetryAsync<T>(Func<Task<T>> operation, int maxRetries = 3)
@@ -208,10 +210,6 @@ async Task<T> WithRetryAsync<T>(Func<Task<T>> operation, int maxRetries = 3)
                 or HttpStatusCode.GatewayTimeout)
         {
             await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, attempt)));
-        }
-        catch (XrpcException ex) when (attempt < maxRetries - 1 && ex.Is(XrpcErrors.ExpiredToken))
-        {
-            await client.RefreshSessionAsync();
         }
     }
 }

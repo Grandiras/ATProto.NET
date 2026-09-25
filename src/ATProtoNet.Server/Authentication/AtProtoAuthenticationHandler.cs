@@ -60,35 +60,34 @@ public class AtProtoAuthenticationHandler : AuthenticationHandler<AtProtoAuthent
         try
         {
             // Signature/identity validation is delegated to the PDS via getSession.
-            var tempClient = new AtProtoClientBuilder()
+            await using var tempClient = new AtProtoClientBuilder()
                 .WithInstanceUrl(Options.PdsUrl ?? "https://bsky.social")
                 .WithAutoRefreshSession(false)
                 .Build();
 
             // Manually set the access token for validation. getSession replaces the placeholder
             // handle; the DID is the token's subject, which the PDS vouches for by accepting it.
-            var session = new Auth.Session
+            var session = new Auth.PasswordSession
             {
                 Did = subject,
                 Handle = PlaceholderHandle,
+                ServiceEndpoint = tempClient.ServiceUrl,
                 AccessJwt = token,
                 RefreshJwt = string.Empty,
             };
 
-            await tempClient.ResumeSessionAsync(session);
-
-            if (!tempClient.IsAuthenticated || tempClient.Session is null)
+            if (await tempClient.ResumeSessionAsync(session) is not Auth.PasswordSession current)
                 return AuthenticateResult.Fail("Invalid AT Protocol token");
 
             var claims = new List<Claim>
             {
-                new(ClaimTypes.NameIdentifier, tempClient.Session.Did),
-                new("did", tempClient.Session.Did),
-                new("handle", tempClient.Session.Handle),
+                new(ClaimTypes.NameIdentifier, current.Did),
+                new("did", current.Did),
+                new("handle", current.Handle),
             };
 
-            if (tempClient.Session.Email is not null)
-                claims.Add(new Claim(ClaimTypes.Email, tempClient.Session.Email));
+            if (current.Email is not null)
+                claims.Add(new Claim(ClaimTypes.Email, current.Email));
 
             var identity = new ClaimsIdentity(claims, Scheme.Name);
             var principal = new ClaimsPrincipal(identity);

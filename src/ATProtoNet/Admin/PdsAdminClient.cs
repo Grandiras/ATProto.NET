@@ -140,7 +140,7 @@ public sealed class PdsAdminClient : IDisposable
         }
 
         Admin = new AdminClient(_adminXrpc);
-        Server = new ServerClient(_adminXrpc, _logger);
+        Server = new ServerClient(_adminXrpc);
     }
 
     /// <summary>
@@ -211,10 +211,10 @@ public sealed class PdsAdminClient : IDisposable
                 return;
             }
 
-            // Sets the tokens on _adminXrpc, which is the client this one is bound to.
             var session = await Server.CreateSessionAsync(
                 _adminIdentifier, _adminPassword, cancellationToken: cancellationToken);
 
+            _adminXrpc.SetTokens(session.AccessJwt);
             _hasAdminSession = true;
             _logger.LogDebug("Signed in as PDS administrator {Did}", session.Did);
         }

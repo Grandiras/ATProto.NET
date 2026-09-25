@@ -1,5 +1,4 @@
 using ATProtoNet.Auth;
-using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Server.Services;
 using ATProtoNet.Server.TokenStore;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,18 +12,18 @@ namespace ATProtoNet.Server;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers server-side AT Protocol services: token store and client factory.
+    /// Registers server-side AT Protocol services: session store and client factory.
     /// Use alongside <c>AddAtProtoAuthentication()</c> from ATProtoNet.Blazor to enable
     /// backend AT Protocol API access for logged-in users.
     /// </summary>
     /// <remarks>
     /// <para>Registers:</para>
     /// <list type="bullet">
-    /// <item><description><see cref="IAtProtoTokenStore"/> — for storing OAuth tokens server-side (default: in-memory)</description></item>
+    /// <item><description><see cref="IAtProtoSessionStore"/> — for storing sessions server-side (default: <see cref="FileAtProtoSessionStore"/>)</description></item>
     /// <item><description><see cref="IAtProtoClientFactory"/> — for creating per-request authenticated <see cref="AtProtoClient"/> instances</description></item>
     /// </list>
-    /// <para>When the Blazor <c>AtProtoOAuthService</c> detects that <see cref="IAtProtoTokenStore"/>
-    /// is registered, it automatically stores OAuth tokens after login and removes them on logout.</para>
+    /// <para>When the Blazor <c>AtProtoOAuthService</c> detects that <see cref="IAtProtoSessionStore"/>
+    /// is registered, it automatically stores the OAuth session after login, and revokes and removes it on logout.</para>
     /// </remarks>
     /// <example>
     /// <code>
@@ -50,44 +49,44 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient("AtProtoClient")
             .ConfigurePrimaryHttpMessageHandler(Http.AtProtoHttp.CreateHandler);
 
-        services.TryAddSingleton<IAtProtoTokenStore, FileAtProtoTokenStore>();
+        services.TryAddSingleton<IAtProtoSessionStore, FileAtProtoSessionStore>();
         services.TryAddSingleton<IAtProtoClientFactory, AtProtoClientFactory>();
 
         return services;
     }
 
     /// <summary>
-    /// Registers server-side AT Protocol services with a custom token store directory.
-    /// Tokens are encrypted and persisted to files using ASP.NET Core Data Protection.
+    /// Registers server-side AT Protocol services with a custom session store directory.
+    /// Sessions are encrypted and persisted to files using ASP.NET Core Data Protection.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="tokenDirectory">
-    /// Directory where encrypted token files are stored.
+    /// Directory where encrypted session files are stored.
     /// Defaults to <c>{LocalApplicationData}/ATProtoNet/tokens</c>.
     /// </param>
     /// <returns>The service collection for chaining.</returns>
     public static IServiceCollection AddAtProtoServer(this IServiceCollection services, string tokenDirectory)
     {
-        services.AddSingleton(new FileTokenStoreOptions { Directory = tokenDirectory });
+        services.AddSingleton(new FileSessionStoreOptions { Directory = tokenDirectory });
         return services.AddAtProtoServer();
     }
 
     /// <summary>
-    /// Registers server-side AT Protocol services with a custom token store implementation.
+    /// Registers server-side AT Protocol services with a custom session store implementation.
     /// </summary>
-    /// <typeparam name="TTokenStore">
-    /// Custom <see cref="IAtProtoTokenStore"/> implementation
+    /// <typeparam name="TSessionStore">
+    /// Custom <see cref="IAtProtoSessionStore"/> implementation
     /// (e.g., backed by a database, Redis, or encrypted file store).
     /// </typeparam>
     /// <param name="services">The service collection.</param>
     /// <returns>The service collection for chaining.</returns>
-    public static IServiceCollection AddAtProtoServer<TTokenStore>(this IServiceCollection services)
-        where TTokenStore : class, IAtProtoTokenStore
+    public static IServiceCollection AddAtProtoServer<TSessionStore>(this IServiceCollection services)
+        where TSessionStore : class, IAtProtoSessionStore
     {
         services.AddHttpClient("AtProtoClient")
             .ConfigurePrimaryHttpMessageHandler(Http.AtProtoHttp.CreateHandler);
 
-        services.AddSingleton<IAtProtoTokenStore, TTokenStore>();
+        services.AddSingleton<IAtProtoSessionStore, TSessionStore>();
         services.TryAddSingleton<IAtProtoClientFactory, AtProtoClientFactory>();
 
         return services;
@@ -97,6 +96,7 @@ public static class ServiceCollectionExtensions
     /// Add a standalone AT Protocol client to the DI container.
     /// This is for server-to-server scenarios where you log in with app credentials
     /// (not user OAuth tokens). For user-authenticated access, use <see cref="AddAtProtoServer(IServiceCollection)"/> instead.
+    /// The client persists its session to the registered <see cref="IAtProtoSessionStore"/>, if any.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="configure">Action to configure the client options.</param>
@@ -113,8 +113,6 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         Action<AtProtoClientOptions>? configure = null)
     {
-        services.TryAddSingleton<ISessionStore, InMemorySessionStore>();
-
         services.AddHttpClient<AtProtoClient>()
             .ConfigurePrimaryHttpMessageHandler(Http.AtProtoHttp.CreateHandler);
 
@@ -128,7 +126,7 @@ public static class ServiceCollectionExtensions
 
             var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
             var httpClient = httpClientFactory.CreateClient(nameof(AtProtoClient));
-            var sessionStore = sp.GetRequiredService<ISessionStore>();
+            var sessionStore = sp.GetService<IAtProtoSessionStore>();
             var logger = sp.GetService<Microsoft.Extensions.Logging.ILogger<AtProtoClient>>();
 
             return new AtProtoClient(options, httpClient, sessionStore, logger);
@@ -138,14 +136,14 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Add the AT Protocol client with a custom session store.
+    /// Add the AT Protocol client with a session store it persists its session to.
     /// </summary>
     public static IServiceCollection AddAtProto<TSessionStore>(
         this IServiceCollection services,
         Action<AtProtoClientOptions>? configure = null)
-        where TSessionStore : class, ISessionStore
+        where TSessionStore : class, IAtProtoSessionStore
     {
-        services.AddSingleton<ISessionStore, TSessionStore>();
+        services.AddSingleton<IAtProtoSessionStore, TSessionStore>();
         return services.AddAtProto(configure);
     }
 
@@ -158,8 +156,6 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         Action<AtProtoClientOptions>? configure = null)
     {
-        services.TryAddScoped<ISessionStore, InMemorySessionStore>();
-
         services.AddHttpClient<AtProtoClient>()
             .ConfigurePrimaryHttpMessageHandler(Http.AtProtoHttp.CreateHandler);
 
@@ -170,7 +166,7 @@ public static class ServiceCollectionExtensions
 
             var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
             var httpClient = httpClientFactory.CreateClient(nameof(AtProtoClient));
-            var sessionStore = sp.GetRequiredService<ISessionStore>();
+            var sessionStore = sp.GetService<IAtProtoSessionStore>();
             var logger = sp.GetService<Microsoft.Extensions.Logging.ILogger<AtProtoClient>>();
 
             return new AtProtoClient(options, httpClient, sessionStore, logger);

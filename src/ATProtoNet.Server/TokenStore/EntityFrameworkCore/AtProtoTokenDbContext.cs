@@ -3,9 +3,9 @@ using Microsoft.EntityFrameworkCore;
 namespace ATProtoNet.Server.EntityFrameworkCore;
 
 /// <summary>
-/// DbContext for AT Protocol token storage.
+/// DbContext for AT Protocol session storage.
 /// Add this context to your application's EF Core configuration,
-/// or use <see cref="AtProtoTokenStoreExtensions.AddAtProtoEfCoreTokenStore{TContext}"/>
+/// or use <see cref="AtProtoTokenStoreExtensions.AddAtProtoEfCoreSessionStore{TContext}"/>
 /// for automatic registration.
 /// </summary>
 /// <remarks>

@@ -4,8 +4,8 @@ namespace ATProtoNet.Server.Services;
 
 /// <summary>
 /// Factory for creating authenticated <see cref="AtProtoClient"/> instances
-/// for the current user. Uses stored OAuth tokens from <see cref="ATProtoNet.Auth.OAuth.IAtProtoTokenStore"/>
-/// to create clients configured with the user's PDS URL and DPoP-bound tokens.
+/// for the current user. Uses the sessions in <see cref="ATProtoNet.Auth.IAtProtoSessionStore"/>
+/// to create clients configured with the user's PDS URL and tokens.
 /// </summary>
 /// <remarks>
 /// <para>Each call to <see cref="CreateClientForUserAsync"/> returns a new disposable client.
@@ -27,7 +27,8 @@ public interface IAtProtoClientFactory
 {
     /// <summary>
     /// Creates an authenticated <see cref="AtProtoClient"/> for the specified user.
-    /// The client is configured with the user's PDS URL and DPoP-bound OAuth tokens.
+    /// The client is configured with the user's PDS URL and stored session, and refreshes it
+    /// on demand.
     /// </summary>
     /// <param name="user">
     /// The claims principal from the current request. Must contain a <c>did</c> or
@@ -36,7 +37,7 @@ public interface IAtProtoClientFactory
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// An authenticated <see cref="AtProtoClient"/>, or <c>null</c> if the user
-    /// has no stored tokens (e.g., not logged in via OAuth, or tokens were removed).
+    /// has no stored session (e.g., not logged in via OAuth, or signed out).
     /// </returns>
     /// <remarks>
     /// <para>The returned client is disposable. Use <c>await using</c> for proper cleanup:</para>

@@ -80,10 +80,10 @@ public class DynamicPdsTests
     }
 
     [Fact]
-    public void OAuthSession_NullByDefault()
+    public void Session_NullByDefault()
     {
         using var client = new AtProtoClient(new AtProtoClientOptions());
 
-        Assert.Null(client.OAuthSession);
+        Assert.Null(client.Session);
     }
 }

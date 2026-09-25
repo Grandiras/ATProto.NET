@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Web;
+using ATProtoNet.Identity;
 using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Auth.OAuth;
@@ -20,8 +21,12 @@ namespace ATProtoNet.Auth.OAuth;
 /// <item>Call <see cref="StartAuthorizationAsync"/> to get an authorization URL</item>
 /// <item>Redirect the user to that URL</item>
 /// <item>Handle the callback via <see cref="CompleteAuthorizationAsync"/></item>
-/// <item>Use the returned session with <see cref="AtProtoClient"/></item>
+/// <item>Install the returned <see cref="Auth.OAuthSession"/> with
+/// <see cref="AtProtoClient.ApplySessionAsync"/>, passing this client so the session can be
+/// refreshed</item>
 /// </list>
+/// <para>The client is thread-safe and meant to be shared: one per application (one
+/// <c>client_id</c>), not one per user.</para>
 /// </remarks>
 public sealed class OAuthClient : IDisposable
 {
@@ -30,8 +35,17 @@ public sealed class OAuthClient : IDisposable
     private readonly AuthorizationServerDiscovery _discovery;
     private readonly ILogger _logger;
     private readonly ConcurrentDictionary<string, PendingAuthorization> _pendingAuthorizations = new();
+
+    // The latest DPoP nonce each authorization server handed out, by origin, so a refresh or
+    // revocation does not pay a use_dpop_nonce round trip every time.
+    private readonly ConcurrentDictionary<string, string> _authServerNonces = new(StringComparer.OrdinalIgnoreCase);
+
     private static readonly TimeSpan PendingAuthorizationTimeout = TimeSpan.FromMinutes(10);
     private const int MaxPendingAuthorizations = 100;
+
+    /// <summary>The most of an error body read from an authorization server.</summary>
+    private const int MaxErrorBodyBytes = 64 * 1024;
+
     private bool _disposed;
 
     /// <summary>
@@ -151,6 +165,7 @@ public sealed class OAuthClient : IDisposable
             ExpectedDid = expectedDid,
             Issuer = metadata.Issuer,
             TokenEndpoint = metadata.TokenEndpoint,
+            RevocationEndpoint = metadata.RevocationEndpoint,
             PdsUrl = resolvedPdsUrl,
             DPoP = dpop,
             RedirectUri = redirectUri,
@@ -182,15 +197,17 @@ public sealed class OAuthClient : IDisposable
     /// <param name="state">The state parameter from the callback.</param>
     /// <param name="issuer">The issuer (iss) parameter from the callback.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The OAuth session containing tokens, DID, and PDS URL.</returns>
+    /// <returns>
+    /// The session: the account's DID and PDS, its tokens and the DPoP key they are bound to.
+    /// </returns>
     /// <remarks>
     /// Handle verification is best-effort: an unreachable, slow, or silent handle
-    /// authority yields a session with <see cref="OAuthSessionResult.IsHandleVerified"/>
-    /// <c>false</c> and the DID as the handle, never an exception. Only
-    /// <paramref name="cancellationToken"/> being cancelled aborts the flow at that
-    /// point — the DID is already established by the token response's <c>sub</c>.
+    /// authority yields a session whose <see cref="Auth.AtProtoSession.Handle"/> is
+    /// <c>handle.invalid</c>, never an exception. Only <paramref name="cancellationToken"/>
+    /// being cancelled aborts the flow at that point — the DID is already established by the
+    /// token response's <c>sub</c>.
     /// </remarks>
-    public async Task<OAuthSessionResult> CompleteAuthorizationAsync(
+    public async Task<Auth.OAuthSession> CompleteAuthorizationAsync(
         string code,
         string state,
         string issuer,
@@ -237,8 +254,7 @@ public sealed class OAuthClient : IDisposable
             throw new OAuthException("Token response missing 'sub' field.", "missing_sub");
         }
 
-        // Validate DID format (must start with "did:")
-        if (!tokenResponse.Sub.StartsWith("did:", StringComparison.OrdinalIgnoreCase))
+        if (!Did.TryParse(tokenResponse.Sub, out var did))
         {
             pending.DPoP.Dispose();
             throw new OAuthException(
@@ -342,78 +358,260 @@ public sealed class OAuthClient : IDisposable
             _logger.LogWarning(ex, "Could not resolve handle from DID document");
         }
 
-        // If bidirectional verification didn't pass, fall back to the DID so callers
-        // still have a unique identifier per user. Inspect IsHandleVerified before
-        // rendering Handle as a user-facing display name; the atproto convention is
-        // to show 'handle.invalid' in UIs for unverified accounts, but the SDK
-        // surfaces the DID so downstream code stays able to distinguish users.
-        var isHandleVerified = handle is not null;
-        handle ??= tokenResponse.Sub;
+        // A handle that did not verify is no handle: the session carries 'handle.invalid', the
+        // atproto convention, and the DID stays the account's identifier.
+        var verifiedHandle = handle is not null && Handle.TryParse(handle, out var parsedHandle) ? parsedHandle : null;
 
         _logger.LogInformation("OAuth flow completed for {Did} (Handle={Handle}, Verified={Verified})",
-            tokenResponse.Sub, handle, isHandleVerified);
+            did, handle ?? did.Value, verifiedHandle is not null);
 
-        return new OAuthSessionResult
+        try
         {
-            Did = tokenResponse.Sub,
-            Handle = handle,
-            IsHandleVerified = isHandleVerified,
-            AccessToken = tokenResponse.AccessToken,
-            RefreshToken = tokenResponse.RefreshToken,
-            TokenType = tokenResponse.TokenType,
-            ExpiresIn = tokenResponse.ExpiresIn,
-            Scope = tokenResponse.Scope,
-            PdsUrl = pending.PdsUrl,
-            Issuer = pending.Issuer,
-            TokenEndpoint = pending.TokenEndpoint,
-            DPoP = pending.DPoP,
-            DpopKeyId = pending.DPoP.KeyThumbprint,
+            return new Auth.OAuthSession
+            {
+                Did = did,
+                Handle = verifiedHandle ?? Auth.AtProtoSession.InvalidHandle,
+                ServiceEndpoint = new Uri(pending.PdsUrl, UriKind.Absolute),
+                AccessToken = tokenResponse.AccessToken,
+                RefreshToken = tokenResponse.RefreshToken,
+                ExpiresAt = ExpiresAt(tokenResponse),
+                Scope = tokenResponse.Scope,
+                DPoPKey = pending.DPoP.ExportPrivateKey(),
+                Issuer = pending.Issuer,
+                TokenEndpoint = new Uri(pending.TokenEndpoint, UriKind.Absolute),
+                RevocationEndpoint = Uri.TryCreate(pending.RevocationEndpoint, UriKind.Absolute, out var revocation)
+                    ? revocation
+                    : null,
+            };
+        }
+        finally
+        {
+            // The session carries the key as bytes; this key object has served its purpose.
+            pending.DPoP.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Exchanges the session's refresh token for new tokens, and returns the refreshed session.
+    /// </summary>
+    /// <param name="session">The session to refresh.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// The session with the new access token, its expiry, and the rotated refresh token. The old
+    /// refresh token is spent: persist the result before anything else can refresh.
+    /// </returns>
+    /// <exception cref="OAuthException">
+    /// The authorization server refused the refresh. <see cref="OAuthException.Error"/> is the
+    /// OAuth error, <c>invalid_grant</c> when the refresh token has expired, been revoked or been
+    /// used already, in which case the user has to authorize again.
+    /// </exception>
+    /// <remarks>
+    /// <see cref="AtProtoClient"/> refreshes the sessions it holds by itself; call this only to
+    /// manage a session outside one.
+    /// </remarks>
+    public async Task<Auth.OAuthSession> RefreshAsync(
+        Auth.OAuthSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        using var dpop = new DPoPProofGenerator(session.DPoPKey.ToArray());
+        return await RefreshAsync(session, dpop, cancellationToken);
+    }
+
+    /// <summary>
+    /// <see cref="RefreshAsync(Auth.OAuthSession, CancellationToken)"/> with the session's DPoP
+    /// key already loaded.
+    /// </summary>
+    internal async Task<Auth.OAuthSession> RefreshAsync(
+        Auth.OAuthSession session,
+        DPoPProofGenerator dpop,
+        CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        if (string.IsNullOrEmpty(session.RefreshToken))
+            throw new OAuthException("The session has no refresh token.", "no_refresh_token");
+
+        _logger.LogDebug("Refreshing OAuth tokens for {Did}", session.Did);
+
+        using var response = await PostWithDPoPAsync(
+            session.TokenEndpoint,
+            new Dictionary<string, string>
+            {
+                ["grant_type"] = "refresh_token",
+                ["refresh_token"] = session.RefreshToken,
+                ["client_id"] = _options.ClientMetadata.ClientId,
+            },
+            dpop,
+            "Token refresh",
+            cancellationToken);
+
+        OAuthTokenResponse? tokens;
+        try
+        {
+            tokens = await response.Content.ReadFromJsonAsync<OAuthTokenResponse>(cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            throw new OAuthException("The token refresh response is not valid JSON.", "token_error", ex);
+        }
+
+        // A success status with no usable token is as much a failure as an error body: storing
+        // it would replace a working session with one that cannot authenticate anything.
+        if (tokens is null || string.IsNullOrEmpty(tokens.AccessToken))
+            throw new OAuthException("The token refresh response carries no access token.", "token_error");
+
+        if (!string.Equals(tokens.TokenType, "DPoP", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new OAuthException(
+                $"The token refresh response has token type '{tokens.TokenType}'; AT Protocol tokens are DPoP-bound.",
+                "token_error");
+        }
+
+        return session with
+        {
+            AccessToken = tokens.AccessToken,
+
+            // A refresh response may omit refresh_token to mean "keep using the current one".
+            RefreshToken = tokens.RefreshToken ?? session.RefreshToken,
+            ExpiresAt = ExpiresAt(tokens),
+            Scope = tokens.Scope ?? session.Scope,
         };
     }
 
     /// <summary>
-    /// Refreshes OAuth tokens using the refresh token and DPoP.
+    /// Revokes the session at its authorization server (RFC 7009), so its tokens stop working
+    /// everywhere. The refresh token is revoked, which ends the whole grant; a session without
+    /// one revokes its access token.
     /// </summary>
-    /// <param name="session">The current OAuth session result.</param>
+    /// <param name="session">The session to revoke.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Updated token information.</returns>
-    public async Task<OAuthTokenResponse> RefreshTokensAsync(
-        OAuthSessionResult session,
-        CancellationToken cancellationToken = default)
+    /// <exception cref="OAuthException">The authorization server answered with an error.</exception>
+    /// <remarks>
+    /// <para>A server that publishes no <c>revocation_endpoint</c> has nothing to call, and this
+    /// returns without error. Per RFC 7009 a token the server no longer knows is not an error
+    /// either, so revoking an expired session succeeds.</para>
+    /// <para><see cref="AtProtoClient.LogoutAsync"/> calls this for an OAuth session.</para>
+    /// </remarks>
+    public async Task RevokeAsync(Auth.OAuthSession session, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        using var dpop = new DPoPProofGenerator(session.DPoPKey.ToArray());
+        await RevokeAsync(session, dpop, cancellationToken);
+    }
+
+    /// <summary>
+    /// <see cref="RevokeAsync(Auth.OAuthSession, CancellationToken)"/> with the session's DPoP
+    /// key already loaded.
+    /// </summary>
+    internal async Task RevokeAsync(Auth.OAuthSession session, DPoPProofGenerator dpop, CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (session.RefreshToken is null)
-            throw new OAuthException("No refresh token available.", "no_refresh_token");
-
-        _logger.LogDebug("Refreshing OAuth tokens for {Did}", session.Did);
-
-        var dpopProof = session.DPoP.GenerateProof("POST", session.TokenEndpoint, session.AuthServerDpopNonce);
-
-        var requestContent = new FormUrlEncodedContent(new Dictionary<string, string>
+        var endpoint = session.RevocationEndpoint;
+        if (endpoint is null)
         {
-            ["grant_type"] = "refresh_token",
-            ["refresh_token"] = session.RefreshToken,
-            ["client_id"] = _options.ClientMetadata.ClientId,
-        });
+            var metadata = await _discovery.FetchAuthorizationServerMetadataAsync(session.Issuer, cancellationToken);
+            if (!Uri.TryCreate(metadata.RevocationEndpoint, UriKind.Absolute, out endpoint))
+            {
+                _logger.LogInformation(
+                    "Authorization server {Issuer} publishes no revocation endpoint; nothing to revoke", session.Issuer);
+                return;
+            }
+        }
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, session.TokenEndpoint)
+        var (token, hint) = string.IsNullOrEmpty(session.RefreshToken)
+            ? (session.AccessToken, "access_token")
+            : (session.RefreshToken, "refresh_token");
+
+        using var response = await PostWithDPoPAsync(
+            endpoint,
+            new Dictionary<string, string>
+            {
+                ["token"] = token,
+                ["token_type_hint"] = hint,
+                ["client_id"] = _options.ClientMetadata.ClientId,
+            },
+            dpop,
+            "Token revocation",
+            cancellationToken);
+
+        _logger.LogDebug("Revoked the OAuth session of {Did}", session.Did);
+    }
+
+    private static DateTimeOffset? ExpiresAt(OAuthTokenResponse tokens) =>
+        tokens.ExpiresIn is { } seconds && seconds > 0 ? DateTimeOffset.UtcNow.AddSeconds(seconds) : null;
+
+    /// <summary>
+    /// POSTs a form to an authorization server endpoint with a DPoP proof, answering one
+    /// <c>use_dpop_nonce</c> challenge (RFC 9449 section 8), and returns the successful response.
+    /// </summary>
+    /// <exception cref="OAuthException">The server answered with an error, carried as <see cref="OAuthException.Error"/>.</exception>
+    private async Task<HttpResponseMessage> PostWithDPoPAsync(
+        Uri endpoint,
+        Dictionary<string, string> form,
+        DPoPProofGenerator dpop,
+        string operation,
+        CancellationToken cancellationToken)
+    {
+        var origin = endpoint.GetLeftPart(UriPartial.Authority);
+
+        for (var attempt = 1; ; attempt++)
         {
-            Content = requestContent,
-        };
-        request.Headers.TryAddWithoutValidation("DPoP", dpopProof);
+            _authServerNonces.TryGetValue(origin, out var nonce);
 
-        var response = await SendWithDpopRetryAsync(request, session.DPoP, session.TokenEndpoint, "POST",
-            nonce => session.AuthServerDpopNonce = nonce, cancellationToken);
+            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+            {
+                Content = new FormUrlEncodedContent(form),
+            };
+            request.Headers.TryAddWithoutValidation("DPoP", dpop.GenerateProof("POST", endpoint.ToString(), nonce));
 
-        var tokenResponse = await response.Content.ReadFromJsonAsync<OAuthTokenResponse>(cancellationToken)
-            ?? throw new OAuthException("Failed to deserialize token refresh response.", "token_error");
+            var response = await _httpClient.SendAsync(request, cancellationToken);
 
-        // Update nonce
-        if (response.Headers.TryGetValues("DPoP-Nonce", out var nonceValues))
-            session.AuthServerDpopNonce = nonceValues.First();
+            string? freshNonce = null;
+            if (response.Headers.TryGetValues("DPoP-Nonce", out var nonces) &&
+                nonces.FirstOrDefault() is { Length: > 0 } value)
+            {
+                freshNonce = value;
+                _authServerNonces[origin] = value;
+            }
 
-        return tokenResponse;
+            if (response.IsSuccessStatusCode)
+                return response;
+
+            OAuthErrorResponse? error;
+            using (response)
+                error = await ReadErrorAsync(response, cancellationToken);
+
+            if (attempt == 1 && freshNonce is not null && error?.Error == "use_dpop_nonce")
+            {
+                _logger.LogDebug("{Operation} asked for a DPoP nonce; retrying with it", operation);
+                continue;
+            }
+
+            var code = string.IsNullOrEmpty(error?.Error) ? "server_error" : error.Error;
+            throw new OAuthException(
+                $"{operation} failed with {(int)response.StatusCode} {code}" +
+                (string.IsNullOrEmpty(error?.ErrorDescription) ? "." : $": {error.ErrorDescription}"),
+                code);
+        }
+    }
+
+    private static async Task<OAuthErrorResponse?> ReadErrorAsync(
+        HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        var body = await response.Content.ReadBoundedAsync(MaxErrorBodyBytes, cancellationToken);
+        if (body is not { Length: > 0 } bytes)
+            return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<OAuthErrorResponse>(bytes.Span);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     /// <summary>
@@ -652,53 +850,6 @@ public sealed class OAuthClient : IDisposable
         }
     }
 
-    private async Task<HttpResponseMessage> SendWithDpopRetryAsync(
-        HttpRequestMessage request,
-        DPoPProofGenerator dpop,
-        string url,
-        string method,
-        Action<string> updateNonce,
-        CancellationToken cancellationToken)
-    {
-        var response = await _httpClient.SendAsync(request, cancellationToken);
-
-        if (response.Headers.TryGetValues("DPoP-Nonce", out var nonceValues))
-        {
-            var newNonce = nonceValues.First();
-            updateNonce(newNonce);
-
-            if ((response.StatusCode == HttpStatusCode.BadRequest ||
-                 response.StatusCode == HttpStatusCode.Unauthorized))
-            {
-                var body = await response.Content.ReadAsStringAsync(cancellationToken);
-                if (body.Contains("use_dpop_nonce", StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogDebug("DPoP nonce error, retrying request");
-
-                    var dpopProof = dpop.GenerateProof(method, url, newNonce);
-
-                    // Rebuild request (can't reuse)
-                    using var retryRequest = new HttpRequestMessage(request.Method, request.RequestUri);
-                    if (request.Content is not null)
-                    {
-                        var contentBytes = await request.Content.ReadAsByteArrayAsync(cancellationToken);
-                        retryRequest.Content = new ByteArrayContent(contentBytes);
-                        if (request.Content.Headers.ContentType is not null)
-                            retryRequest.Content.Headers.ContentType = request.Content.Headers.ContentType;
-                    }
-                    retryRequest.Headers.TryAddWithoutValidation("DPoP", dpopProof);
-
-                    response = await _httpClient.SendAsync(retryRequest, cancellationToken);
-
-                    if (response.Headers.TryGetValues("DPoP-Nonce", out var retryNonceValues))
-                        updateNonce(retryNonceValues.First());
-                }
-            }
-        }
-
-        return response;
-    }
-
     private static string BuildAuthorizationUrl(string authorizationEndpoint, string requestUri, string clientId)
     {
         var uriBuilder = new UriBuilder(authorizationEndpoint);
@@ -761,79 +912,11 @@ public sealed class OAuthClient : IDisposable
         public string? ExpectedDid { get; init; }
         public string Issuer { get; init; } = string.Empty;
         public string TokenEndpoint { get; init; } = string.Empty;
+        public string? RevocationEndpoint { get; init; }
         public string PdsUrl { get; init; } = string.Empty;
         public DPoPProofGenerator DPoP { get; init; } = null!;
         public string RedirectUri { get; init; } = string.Empty;
         public string ClientId { get; init; } = string.Empty;
         public DateTimeOffset CreatedAt { get; init; }
-    }
-}
-
-/// <summary>
-/// Result of a completed OAuth authorization flow.
-/// Contains the tokens, identity info, and DPoP key needed for authenticated requests.
-/// </summary>
-public sealed class OAuthSessionResult : IDisposable
-{
-    /// <summary>The DID of the authenticated account.</summary>
-    public string Did { get; init; } = string.Empty;
-
-    /// <summary>
-    /// The handle of the authenticated account. Falls back to the DID when the
-    /// handle could not be bidirectionally verified — check <see cref="IsHandleVerified"/>
-    /// before displaying this as a user-facing identifier.
-    /// </summary>
-    public string Handle { get; init; } = string.Empty;
-
-    /// <summary>
-    /// Whether the handle was bidirectionally verified against the handle's own
-    /// authority (DNS TXT / .well-known). When false, <see cref="Handle"/> holds
-    /// the DID and the account should be rendered as unverified.
-    /// </summary>
-    public bool IsHandleVerified { get; init; }
-
-    /// <summary>The OAuth access token (opaque, DPoP-bound).</summary>
-    public string AccessToken { get; set; } = string.Empty;
-
-    /// <summary>The OAuth refresh token.</summary>
-    public string? RefreshToken { get; set; }
-
-    /// <summary>The token type (should be "DPoP").</summary>
-    public string TokenType { get; init; } = string.Empty;
-
-    /// <summary>Token expiration in seconds.</summary>
-    public int? ExpiresIn { get; init; }
-
-    /// <summary>The granted scopes.</summary>
-    public string? Scope { get; init; }
-
-    /// <summary>The PDS (Resource Server) URL.</summary>
-    public string PdsUrl { get; init; } = string.Empty;
-
-    /// <summary>The Authorization Server issuer URL.</summary>
-    public string Issuer { get; init; } = string.Empty;
-
-    /// <summary>The token endpoint URL (for refresh).</summary>
-    public string TokenEndpoint { get; init; } = string.Empty;
-
-    /// <summary>The DPoP proof generator bound to this session.</summary>
-    public DPoPProofGenerator DPoP { get; init; } = null!;
-
-    /// <summary>The DPoP key thumbprint.</summary>
-    public string DpopKeyId { get; init; } = string.Empty;
-
-    /// <summary>The current DPoP nonce for the Authorization Server.</summary>
-    public string? AuthServerDpopNonce { get; set; }
-
-    /// <summary>The current DPoP nonce for the Resource Server (PDS).</summary>
-    public string? ResourceServerDpopNonce { get; set; }
-
-    /// <summary>When the access token was obtained.</summary>
-    public DateTimeOffset TokenObtainedAt { get; set; } = DateTimeOffset.UtcNow;
-
-    /// <inheritdoc/>
-    public void Dispose()
-    {
-        DPoP?.Dispose();
     }
 }

@@ -82,11 +82,12 @@ public sealed class AtProtoOAuthServerOptions
     public OAuthClientMetadata? ClientMetadata { get; set; }
 
     /// <summary>
-    /// Optional callback to customize the claims created from the OAuth result.
+    /// Optional callback to customize the claims created from the OAuth session.
     /// When not set, default claims are generated: <c>NameIdentifier</c> (DID),
-    /// <c>Name</c> (handle), <c>did</c>, <c>handle</c>, <c>pds_url</c>, <c>auth_method</c>.
+    /// <c>Name</c> (handle), <c>did</c>, <c>handle</c>, <c>handle_verified</c>, <c>pds_url</c>,
+    /// <c>auth_method</c>.
     /// </summary>
-    public Func<OAuthSessionResult, IEnumerable<Claim>>? ClaimsFactory { get; set; }
+    public Func<ATProtoNet.Auth.OAuthSession, IEnumerable<Claim>>? ClaimsFactory { get; set; }
 
     /// <summary>
     /// Expiration duration for the authentication cookie.

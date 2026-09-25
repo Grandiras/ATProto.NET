@@ -1,6 +1,5 @@
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
-using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Server;
 
@@ -8,22 +7,36 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Server;
 /// Client for com.atproto.server.* XRPC endpoints.
 /// Handles session management, account creation, and server administration.
 /// </summary>
+/// <remarks>
+/// Like every Lexicon sub-client it is stateless: the session calls return the tokens they are
+/// given and take the ones they need, but never install or clear the client's session. To sign
+/// in or out, use <see cref="AtProtoClient.LoginAsync"/>, <see cref="AtProtoClient.CreateAccountAndLoginAsync"/>
+/// and <see cref="AtProtoClient.LogoutAsync"/>, which also keep the session refreshed.
+/// </remarks>
 public sealed class ServerClient
 {
     private readonly XrpcClient _xrpc;
-    private readonly ILogger _logger;
 
-    internal ServerClient(XrpcClient xrpc, ILogger logger)
+    internal ServerClient(XrpcClient xrpc)
     {
         _xrpc = xrpc;
-        _logger = logger;
     }
 
     /// <summary>
-    /// Create an authentication session (login).
+    /// Create an authentication session (sign in). The request carries no credentials, and the
+    /// tokens returned are not installed on the client; <see cref="AtProtoClient.LoginAsync"/>
+    /// does both.
     /// </summary>
-    public async Task<SessionResponse> CreateSessionAsync(
-        string identifier, string password, string? authFactorToken = null,
+    /// <param name="identifier">The account's handle, DID or email address.</param>
+    /// <param name="password">The password or app password.</param>
+    /// <param name="authFactorToken">The emailed second-factor token, when the account needs one.</param>
+    /// <param name="allowTakendown">
+    /// Let a taken-down account sign in, to a session that can only migrate or export it. Without
+    /// it the service refuses such an account with <c>AccountTakedown</c>.
+    /// </param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<SessionResponse> CreateSessionAsync(
+        string identifier, string password, string? authFactorToken = null, bool allowTakendown = false,
         CancellationToken cancellationToken = default)
     {
         var request = new CreateSessionRequest
@@ -31,30 +44,26 @@ public sealed class ServerClient
             Identifier = identifier,
             Password = password,
             AuthFactorToken = authFactorToken,
+
+            // Sent only when asked for, so the request stays what a server predating the field expects.
+            AllowTakendown = allowTakendown ? true : null,
         };
 
-        var response = await _xrpc.ProcedureAsync<SessionResponse>(
-            "com.atproto.server.createSession", request, options: XrpcClient.Direct,
-            cancellationToken: cancellationToken);
-
-        _xrpc.SetTokens(response.AccessJwt, response.RefreshJwt);
-        _logger.LogInformation("Session created for {Handle} ({Did})", response.Handle, response.Did);
-
-        return response;
+        return _xrpc.ProcedureWithTokenAsync<SessionResponse>(
+            "com.atproto.server.createSession", request, bearerToken: null, cancellationToken);
     }
 
     /// <summary>
-    /// Refresh the current session to get a new access token.
+    /// Exchange a refresh JWT for new session tokens. The refresh JWT is single-use: after this
+    /// call only the one returned is valid.
     /// </summary>
-    public async Task<SessionResponse> RefreshSessionAsync(CancellationToken cancellationToken = default)
+    /// <param name="refreshJwt">The session's refresh JWT.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<SessionResponse> RefreshSessionAsync(string refreshJwt, CancellationToken cancellationToken = default)
     {
-        var response = await _xrpc.ProcedureWithRefreshTokenAsync<SessionResponse>(
-            "com.atproto.server.refreshSession", cancellationToken);
-
-        _xrpc.SetTokens(response.AccessJwt, response.RefreshJwt);
-        _logger.LogDebug("Session refreshed for {Handle}", response.Handle);
-
-        return response;
+        ArgumentException.ThrowIfNullOrEmpty(refreshJwt);
+        return _xrpc.ProcedureWithTokenAsync<SessionResponse>(
+            "com.atproto.server.refreshSession", body: null, refreshJwt, cancellationToken);
     }
 
     /// <summary>
@@ -65,31 +74,32 @@ public sealed class ServerClient
             "com.atproto.server.getSession", options: XrpcClient.Direct, cancellationToken: cancellationToken);
 
     /// <summary>
-    /// Delete the current session (logout).
+    /// Delete a session on the server (sign out), invalidating its refresh JWT. The client's own
+    /// session is left installed; <see cref="AtProtoClient.LogoutAsync"/> clears it as well.
     /// </summary>
-    public async Task DeleteSessionAsync(CancellationToken cancellationToken = default)
+    /// <param name="refreshJwt">The refresh JWT of the session to delete, as the Lexicon requires.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task DeleteSessionAsync(string refreshJwt, CancellationToken cancellationToken = default)
     {
-        await _xrpc.ProcedureAsync(
-            "com.atproto.server.deleteSession", options: XrpcClient.Direct, cancellationToken: cancellationToken);
-        _xrpc.ClearTokens();
-        _logger.LogInformation("Session deleted");
+        ArgumentException.ThrowIfNullOrEmpty(refreshJwt);
+        return _xrpc.ProcedureWithTokenAsync(
+            "com.atproto.server.deleteSession", body: null, refreshJwt, cancellationToken);
     }
 
     /// <summary>
-    /// Create a new account on the server.
+    /// Create a new account on the server. The request carries no credentials, and the session
+    /// returned is not installed on the client; <see cref="AtProtoClient.CreateAccountAndLoginAsync"/>
+    /// does that too.
     /// </summary>
-    public async Task<CreateAccountResponse> CreateAccountAsync(
+    /// <param name="request">The account to create.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<CreateAccountResponse> CreateAccountAsync(
         CreateAccountRequest request,
         CancellationToken cancellationToken = default)
     {
-        var response = await _xrpc.ProcedureAsync<CreateAccountResponse>(
-            "com.atproto.server.createAccount", request, options: XrpcClient.Direct,
-            cancellationToken: cancellationToken);
-
-        _xrpc.SetTokens(response.AccessJwt, response.RefreshJwt);
-        _logger.LogInformation("Account created: {Handle} ({Did})", response.Handle, response.Did);
-
-        return response;
+        ArgumentNullException.ThrowIfNull(request);
+        return _xrpc.ProcedureWithTokenAsync<CreateAccountResponse>(
+            "com.atproto.server.createAccount", request, bearerToken: null, cancellationToken);
     }
 
     /// <summary>

@@ -17,8 +17,8 @@ namespace ATProtoNet.Tests.Auth.OAuth;
 /// while the <see cref="HttpClient"/> has a <c>ConnectTimeout</c> — fails with
 /// <see cref="TaskCanceledException"/>, not the <see cref="HttpRequestException"/>
 /// a refused connection produces. Both mean the same thing here ("could not
-/// verify"), so both must land on <see cref="OAuthSessionResult.IsHandleVerified"/>
-/// <c>false</c>. Only the caller's own cancellation aborts the flow.
+/// verify"), so both must land on a session whose handle is <c>handle.invalid</c>.
+/// Only the caller's own cancellation aborts the flow.
 /// </remarks>
 public class OAuthCallbackHandleVerificationTests
 {
@@ -47,11 +47,10 @@ public class OAuthCallbackHandleVerificationTests
         // timeout there used to escape CompleteAuthorizationAsync entirely.
         stub.DidDocumentAtCallback = _ => throw ConnectTimeout();
 
-        using var session = await client.CompleteAuthorizationAsync("code", state, Issuer);
+        var session = await client.CompleteAuthorizationAsync("code", state, Issuer);
 
-        Assert.False(session.IsHandleVerified);
-        Assert.Equal(Did, session.Did);
-        Assert.Equal(Did, session.Handle);
+        Assert.Equal(Did, session.Did.Value);
+        Assert.Equal("handle.invalid", session.Handle.Value);
     }
 
     [Fact]
@@ -67,10 +66,9 @@ public class OAuthCallbackHandleVerificationTests
         using var client = Client(stub);
         var state = await StartAsync(client);
 
-        using var session = await client.CompleteAuthorizationAsync("code", state, Issuer);
+        var session = await client.CompleteAuthorizationAsync("code", state, Issuer);
 
-        Assert.False(session.IsHandleVerified);
-        Assert.Equal(Did, session.Handle);
+        Assert.Equal("handle.invalid", session.Handle.Value);
     }
 
     [Fact]
@@ -81,10 +79,9 @@ public class OAuthCallbackHandleVerificationTests
         using var client = Client(stub);
         var state = await StartAsync(client);
 
-        using var session = await client.CompleteAuthorizationAsync("code", state, Issuer);
+        var session = await client.CompleteAuthorizationAsync("code", state, Issuer);
 
-        Assert.True(session.IsHandleVerified);
-        Assert.Equal(Handle, session.Handle);
+        Assert.Equal(Handle, session.Handle.Value);
     }
 
     [Fact]
@@ -94,10 +91,30 @@ public class OAuthCallbackHandleVerificationTests
         using var client = Client(stub);
         var state = await StartAsync(client);
 
-        using var session = await client.CompleteAuthorizationAsync("code", state, Issuer);
+        var session = await client.CompleteAuthorizationAsync("code", state, Issuer);
 
-        Assert.False(session.IsHandleVerified);
-        Assert.Equal(Did, session.Handle);
+        Assert.Equal("handle.invalid", session.Handle.Value);
+    }
+
+    [Fact]
+    public async Task Complete_ReturnsASessionWithEverythingARefreshNeeds()
+    {
+        var stub = new FlowStub();
+        using var client = Client(stub);
+        var state = await StartAsync(client);
+
+        var session = await client.CompleteAuthorizationAsync("code", state, Issuer);
+
+        Assert.Equal(new Uri("https://pds.example.com"), session.ServiceEndpoint);
+        Assert.Equal("at", session.AccessToken);
+        Assert.Equal("rt", session.RefreshToken);
+        Assert.Equal(Issuer, session.Issuer);
+        Assert.Equal(new Uri($"{Issuer}/oauth/token"), session.TokenEndpoint);
+        Assert.Equal(new Uri($"{Issuer}/oauth/revoke"), session.RevocationEndpoint);
+        Assert.InRange(session.ExpiresAt!.Value, DateTimeOffset.UtcNow.AddMinutes(59), DateTimeOffset.UtcNow.AddMinutes(61));
+
+        using var key = new DPoPProofGenerator(session.DPoPKey.ToArray());
+        Assert.False(string.IsNullOrEmpty(key.KeyThumbprint));
     }
 
     [Fact]
@@ -208,6 +225,7 @@ public class OAuthCallbackHandleVerificationTests
                   "authorization_endpoint": "{{Issuer}}/oauth/authorize",
                   "token_endpoint": "{{Issuer}}/oauth/token",
                   "pushed_authorization_request_endpoint": "{{Issuer}}/oauth/par",
+                  "revocation_endpoint": "{{Issuer}}/oauth/revoke",
                   "scopes_supported": ["atproto", "transition:generic"],
                   "dpop_signing_alg_values_supported": ["ES256"]
                 }

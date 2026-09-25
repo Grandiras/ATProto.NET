@@ -28,8 +28,8 @@ builder.Services.AddAtProtoAuthentication(options =>
 });
 
 // 3. Register AT Proto Server (enables backend AT Proto access via IAtProtoClientFactory)
-//    This also registers IAtProtoTokenStore, which the Blazor OAuth service
-//    automatically uses to store tokens after login.
+//    This also registers IAtProtoSessionStore, which the Blazor OAuth service
+//    automatically uses to store the session after login and revoke it on logout.
 builder.Services.AddAtProtoServer();
 
 builder.Services.AddCascadingAuthenticationState();

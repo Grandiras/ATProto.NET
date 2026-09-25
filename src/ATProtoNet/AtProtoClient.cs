@@ -42,6 +42,10 @@ namespace ATProtoNet;
 /// or access protocol-level sub-clients directly.</para>
 /// <para>One ATProto account can be used across many applications — each app
 /// defines its own Lexicon schemas and stores records in the user's PDS.</para>
+/// <para>The client is thread-safe: any number of requests may run concurrently, session
+/// changes (sign-in, refresh, sign-out) are serialized, and concurrent callers that find the
+/// access token expired share one refresh. See <c>docs/session-management.md</c> for the full
+/// contract, including what the client disposes and what it leaves to you.</para>
 /// </remarks>
 /// <example>
 /// <code>
@@ -63,19 +67,10 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     private readonly HttpClient _httpClient;
     private readonly bool _ownsHttpClient;
     private readonly XrpcClient _xrpc;
-    private readonly ISessionStore _sessionStore;
+    private readonly SessionManager _sessions;
     private readonly ILogger<AtProtoClient> _logger;
-    private readonly SemaphoreSlim _refreshLock = new(1, 1);
-    private static readonly TimeSpan _refreshTimerDeadline = TimeSpan.FromSeconds(30);
     private readonly string? _relayUrl;
-    private Session? _session;
-    private OAuthSessionResult? _oauthSession;
-    private OAuthClient? _oauthClient;
-    private IAtProtoTokenStore? _oauthTokenStore;
-    private Timer? _refreshTimer;
-    // Volatile so the thread-pool timer callback observes Dispose's write
-    // without a barrier on weakly-ordered CPUs.
-    private volatile bool _disposed;
+    private int _disposed;
 
     // ──────────────────────────────────────────────────────────
     //  Construction
@@ -93,11 +88,34 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <summary>
     /// Create a new client with full configuration.
     /// </summary>
+    /// <param name="options">The client options.</param>
+    /// <param name="httpClient">
+    /// The <see cref="HttpClient"/> to send with; <see langword="null"/> uses one the client owns.
+    /// A supplied one is never disposed or modified, so it may be shared.
+    /// </param>
+    /// <param name="sessionStore">
+    /// Where to persist the session, if anywhere. The client writes every session it installs or
+    /// refreshes and removes it on sign-out; it does not dispose the store.
+    /// </param>
+    /// <param name="logger">An optional logger.</param>
     public AtProtoClient(
         AtProtoClientOptions options,
         HttpClient? httpClient,
-        ISessionStore? sessionStore,
+        IAtProtoSessionStore? sessionStore,
         ILogger<AtProtoClient>? logger)
+        : this(options, httpClient, sessionStore, logger, TimeProvider.System)
+    {
+    }
+
+    /// <summary>
+    /// Create a new client with full configuration and a clock, for tests.
+    /// </summary>
+    internal AtProtoClient(
+        AtProtoClientOptions options,
+        HttpClient? httpClient,
+        IAtProtoSessionStore? sessionStore,
+        ILogger<AtProtoClient>? logger,
+        TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentException.ThrowIfNullOrWhiteSpace(options.InstanceUrl);
@@ -107,7 +125,6 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             throw new ArgumentException($"'{options.InstanceUrl}' is not an absolute URL.", nameof(options));
 
         _logger = logger ?? NullLogger<AtProtoClient>.Instance;
-        _sessionStore = sessionStore ?? new InMemorySessionStore();
 
         // A supplied HttpClient is only sent through: its BaseAddress and default headers are
         // neither read nor written, so one client can serve any number of AtProtoClients.
@@ -125,7 +142,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             RateLimit = options.RateLimit,
         };
 
-        Server = new ServerClient(_xrpc, _logger);
+        Server = new ServerClient(_xrpc);
         Repo = new RepoClient(_xrpc);
         Identity = new IdentityClient(_xrpc);
         Sync = new SyncClient(_xrpc);
@@ -149,8 +166,16 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         Ozone = new OzoneClient(_xrpc);
         Site = new StandardSiteClient(Repo);
 
-        if (options.AutoRefreshSession)
-            _refreshTimer = new Timer(OnRefreshTimerElapsed, null, Timeout.Infinite, Timeout.Infinite);
+        _sessions = new SessionManager(
+            _xrpc,
+            Server,
+            sessionStore,
+            change => SessionChanged?.Invoke(this, change),
+            _logger,
+            timeProvider,
+            options.AutoRefreshSession,
+            options.BackgroundRefresh);
+        _xrpc.SessionHandler = _sessions;
 
         _relayUrl = options.RelayUrl;
     }
@@ -340,17 +365,32 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     //  Session state
     // ──────────────────────────────────────────────────────────
 
-    /// <summary>The current session, or null if not authenticated.</summary>
-    public Session? Session => _session;
+    /// <summary>
+    /// The installed session — a <see cref="PasswordSession"/> or an <see cref="OAuthSession"/> —
+    /// or <see langword="null"/> when signed out. Each refresh replaces it with a new value.
+    /// </summary>
+    public AtProtoSession? Session => _sessions.Session;
 
-    /// <summary>Whether the client currently has an active session.</summary>
-    public bool IsAuthenticated => _session is not null;
+    /// <summary>Whether a session is installed.</summary>
+    public bool IsAuthenticated => Session is not null;
 
-    /// <summary>The DID of the authenticated user, or null.</summary>
-    public Did? Did => _session?.Did;
+    /// <summary>The DID of the authenticated account, or null.</summary>
+    public Did? Did => Session?.Did;
 
-    /// <summary>The handle of the authenticated user, or null.</summary>
-    public Handle? Handle => _session?.Handle;
+    /// <summary>The handle of the authenticated account, or null.</summary>
+    public Handle? Handle => Session?.Handle;
+
+    /// <summary>
+    /// Raised after the session changes: installed (<see cref="AtProtoSessionChange.Created"/>),
+    /// refreshed, expired because its refresh token was refused, or signed out.
+    /// </summary>
+    /// <remarks>
+    /// Handlers run synchronously on the thread that made the change, after the client has
+    /// released its session lock, so a handler may call back into the client. An exception a
+    /// handler throws is logged, not propagated. To persist sessions, prefer an
+    /// <see cref="IAtProtoSessionStore"/>, which the client awaits before it moves on.
+    /// </remarks>
+    public event EventHandler<AtProtoSessionChangedEventArgs>? SessionChanged;
 
     /// <summary>
     /// The latest repository revision (TID) received from the service via the
@@ -425,30 +465,51 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     // ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Authenticate with a handle/email and password (or app password).
+    /// Sign in with a password or app password (<c>com.atproto.server.createSession</c>) and
+    /// install the session.
     /// </summary>
-    /// <param name="identifier">Handle or email address.</param>
-    /// <param name="password">Password or app password.</param>
-    /// <param name="authFactorToken">Optional 2FA token.</param>
+    /// <param name="identifier">The account's handle, DID or email address.</param>
+    /// <param name="password">The password or app password.</param>
+    /// <param name="authFactorToken">The emailed second-factor token, when the account needs one.</param>
+    /// <param name="allowTakendown">
+    /// Let a taken-down account sign in (the Lexicon's <c>allowTakendown</c>), to a session the
+    /// service limits to migrating or exporting the account. Without it the service refuses such
+    /// an account with <see cref="XrpcErrors.AccountTakedown"/>.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The authenticated session.</returns>
-    public async Task<Session> LoginAsync(
+    /// <returns>The installed session.</returns>
+    /// <remarks>
+    /// The request goes to <see cref="ServiceUrl"/>. When that is an entryway such as
+    /// <c>bsky.social</c>, the service answers with the account's DID document, and the client
+    /// moves to the PDS it names (HTTPS services only).
+    /// </remarks>
+    /// <exception cref="XrpcException">
+    /// The service refused the sign-in; <see cref="XrpcErrors.AuthFactorTokenRequired"/> asks for
+    /// <paramref name="authFactorToken"/>.
+    /// </exception>
+    public async Task<PasswordSession> LoginAsync(
         string identifier,
         string password,
         string? authFactorToken = null,
+        bool allowTakendown = false,
         CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(identifier);
+        ArgumentException.ThrowIfNullOrEmpty(password);
+        ThrowIfDisposed();
         _logger.LogInformation("Logging in as {Identifier}", identifier);
 
         var response = await Server.CreateSessionAsync(
-            identifier, password, authFactorToken, cancellationToken);
+            identifier, password, authFactorToken, allowTakendown, cancellationToken);
 
-        var session = new Session
+        var session = new PasswordSession
         {
             Did = response.Did,
             Handle = response.Handle,
+            ServiceEndpoint = SessionManager.ResolveServiceEndpoint(response.DidDoc, response.Did, _xrpc.ServiceUrl),
             AccessJwt = response.AccessJwt,
             RefreshJwt = response.RefreshJwt,
+            ExpiresAt = SessionManager.ReadJwtExpiry(response.AccessJwt),
             Email = response.Email,
             EmailConfirmed = response.EmailConfirmed,
             EmailAuthFactor = response.EmailAuthFactor,
@@ -456,195 +517,195 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             Status = response.Status,
         };
 
-        await ApplySessionAsync(session);
+        await _sessions.InstallAsync(session, oauthClient: null, persist: true, cancellationToken);
         _logger.LogInformation("Logged in successfully as {Handle} ({Did})", session.Handle, session.Did);
         return session;
     }
 
     /// <summary>
-    /// Resume a session from a previously stored session.
-    /// This validates the session by calling getSession, and refreshes tokens if needed.
+    /// Create an account (<c>com.atproto.server.createAccount</c>) and install the session the
+    /// service returns for it.
     /// </summary>
-    /// <param name="session">A previously saved session.</param>
+    /// <param name="request">The account to create.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task ResumeSessionAsync(
-        Session session, CancellationToken cancellationToken = default)
+    /// <returns>The new account's session.</returns>
+    /// <remarks>
+    /// <see cref="ServerClient.CreateAccountAsync"/> creates the account without signing in; this
+    /// is that call plus <see cref="ApplySessionAsync"/>.
+    /// </remarks>
+    public async Task<PasswordSession> CreateAccountAndLoginAsync(
+        CreateAccountRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ThrowIfDisposed();
+
+        var response = await Server.CreateAccountAsync(request, cancellationToken);
+
+        var session = new PasswordSession
+        {
+            Did = response.Did,
+            Handle = response.Handle,
+            ServiceEndpoint = SessionManager.ResolveServiceEndpoint(response.DidDoc, response.Did, _xrpc.ServiceUrl),
+            AccessJwt = response.AccessJwt,
+            RefreshJwt = response.RefreshJwt,
+            ExpiresAt = SessionManager.ReadJwtExpiry(response.AccessJwt),
+            Email = request.Email,
+        };
+
+        await _sessions.InstallAsync(session, oauthClient: null, persist: true, cancellationToken);
+        _logger.LogInformation("Created account {Handle} ({Did})", session.Handle, session.Did);
+        return session;
+    }
+
+    /// <summary>
+    /// Install a session you already hold — from <see cref="OAuthClient.CompleteAuthorizationAsync"/>,
+    /// or saved earlier — as it is, without contacting the service.
+    /// </summary>
+    /// <param name="session">The session. It replaces any installed session, of either kind.</param>
+    /// <param name="oauthClient">
+    /// For an <see cref="OAuthSession"/>, the <see cref="OAuthClient"/> that issued it, which
+    /// refreshes and revokes it. When omitted, the one given with the previous OAuth session is
+    /// kept; without any, the session works until its access token expires. The client does not
+    /// take ownership of it.
+    /// </param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <remarks>
+    /// The client points itself at <see cref="AtProtoSession.ServiceEndpoint"/> and writes the
+    /// session to its session store, if it has one. An access token that has expired is
+    /// refreshed on the first request.
+    /// </remarks>
+    /// <exception cref="ArgumentException">
+    /// The session's service endpoint is not HTTPS (or loopback), or its DPoP key is not a P-256
+    /// PKCS#8 key. The client is left as it was.
+    /// </exception>
+    public async Task ApplySessionAsync(
+        AtProtoSession session,
+        OAuthClient? oauthClient = null,
+        CancellationToken cancellationToken = default) =>
+        await _sessions.InstallAsync(session, oauthClient, persist: true, cancellationToken);
+
+    /// <summary>
+    /// Install a saved session and check it with the service (<c>com.atproto.server.getSession</c>),
+    /// refreshing it if the access token has expired.
+    /// </summary>
+    /// <param name="session">The saved session.</param>
+    /// <param name="oauthClient">For an <see cref="OAuthSession"/>, the <see cref="OAuthClient"/> that issued it.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// The session now installed: refreshed if it had to be, and for a password session with
+    /// the account details the service reported.
+    /// </returns>
+    /// <exception cref="XrpcAuthenticationException">
+    /// The service rejected the session (after a refresh, where one applied): it has been removed
+    /// from the client and the store, and <see cref="SessionChanged"/> reports it
+    /// <see cref="AtProtoSessionChange.Expired"/>.
+    /// </exception>
+    /// <exception cref="OAuthException">
+    /// An OAuth session's refresh failed. On <c>invalid_grant</c> it has been removed, as above.
+    /// </exception>
+    /// <remarks>
+    /// Any other failure, such as the service being unreachable, is thrown with the session left
+    /// installed and stored, so it can be used once the service answers again.
+    /// </remarks>
+    public async Task<AtProtoSession> ResumeSessionAsync(
+        AtProtoSession session,
+        OAuthClient? oauthClient = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(session);
         _logger.LogInformation("Resuming session for {Did}", session.Did);
 
-        // Apply tokens first so we can make the API call
-        _xrpc.SetTokens(session.AccessJwt, session.RefreshJwt);
+        var installed = await _sessions.InstallAsync(session, oauthClient, persist: true, cancellationToken);
 
+        // Through the ordinary pipeline, so an expired access token is refreshed and the call resent.
+        GetSessionResponse account;
         try
         {
-            // Validate the access token
-            var current = await Server.GetSessionAsync(cancellationToken);
-            _logger.LogInformation("Session resumed successfully for {Handle}", current.Handle);
-
-            await ApplySessionAsync(session.With(
-                handle: current.Handle,
-                email: current.Email,
-                emailConfirmed: current.EmailConfirmed));
+            account = await Server.GetSessionAsync(cancellationToken);
         }
-        catch (XrpcException ex) when (ex.Is(XrpcErrors.ExpiredToken))
+        catch (XrpcAuthenticationException ex)
         {
-            _logger.LogInformation("Access token expired, attempting refresh");
-            await RefreshSessionAsync(cancellationToken);
+            // Still rejected (InvalidToken, or refused again after a refresh): the session is dead.
+            await _sessions.ExpireAsync(installed, ex);
+            throw;
         }
+
+        var current = await _sessions.UpdateAccountAsync(account, cancellationToken)
+            ?? throw new InvalidOperationException("The session was signed out while it was being resumed.");
+
+        _logger.LogInformation("Session resumed successfully for {Handle}", current.Handle);
+        return current;
     }
 
     /// <summary>
-    /// Refresh the current session tokens. Routes OAuth-bound sessions through the
-    /// OAuth token endpoint (requires a registered <see cref="OAuthClient"/> — see
-    /// <see cref="ApplyOAuthSessionAsync"/>) and legacy app-password sessions through
-    /// <c>com.atproto.server.refreshSession</c>.
+    /// Install the session of <paramref name="did"/> from the session store, if it holds one,
+    /// without contacting the service.
     /// </summary>
-    public async Task RefreshSessionAsync(CancellationToken cancellationToken = default)
+    /// <param name="did">The account to restore.</param>
+    /// <param name="oauthClient">For an <see cref="OAuthSession"/>, the <see cref="OAuthClient"/> that issued it.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Whether a session was found and installed.</returns>
+    /// <exception cref="InvalidOperationException">The client has no session store.</exception>
+    public async Task<bool> TryRestoreSessionAsync(
+        Did did,
+        OAuthClient? oauthClient = null,
+        CancellationToken cancellationToken = default)
     {
-        await _refreshLock.WaitAsync(cancellationToken);
-        try
-        {
-            await RefreshSessionUnlockedAsync(cancellationToken);
-        }
-        finally
-        {
-            _refreshLock.Release();
-        }
+        ArgumentNullException.ThrowIfNull(did);
+        ThrowIfDisposed();
+
+        var store = _sessions.Store ?? throw new InvalidOperationException(
+            "No session store is configured. Pass one to the constructor or AtProtoClientBuilder.WithSessionStore.");
+
+        var session = await store.GetAsync(did, cancellationToken);
+        if (session is null)
+            return false;
+
+        await _sessions.InstallAsync(session, oauthClient, persist: false, cancellationToken);
+        return true;
     }
 
     /// <summary>
-    /// Performs the actual refresh work without touching <see cref="_refreshLock"/>.
-    /// Public callers should go through <see cref="RefreshSessionAsync"/>; the timer
-    /// callback acquires the lock itself with a non-blocking wait so it can skip
-    /// when a refresh is already in progress.
+    /// Refresh the session's tokens now: a password session through
+    /// <c>com.atproto.server.refreshSession</c>, an OAuth session through its authorization
+    /// server. Calls made concurrently share one refresh.
     /// </summary>
-    private async Task RefreshSessionUnlockedAsync(CancellationToken cancellationToken)
-    {
-        if (_oauthSession is not null)
-        {
-            if (_oauthClient is null)
-                throw new InvalidOperationException(
-                    "Cannot refresh OAuth session: no OAuthClient was registered. " +
-                    "Pass an OAuthClient to ApplyOAuthSessionAsync, or refresh manually.");
-
-            _logger.LogDebug("Refreshing OAuth session for {Did}", _oauthSession.Did);
-
-            var tokens = await _oauthClient.RefreshTokensAsync(_oauthSession, cancellationToken);
-            var refreshedAt = DateTimeOffset.UtcNow;
-
-            // Persist before mutating memory. The auth server has already
-            // invalidated the old refresh token, so a failed store write must
-            // leave the in-memory session on the dead token — the next request
-            // then fails loudly with invalid_grant instead of silently diverging
-            // from what the store holds.
-            if (_oauthTokenStore is not null)
-            {
-                var updated = BuildRefreshedTokenData(_oauthSession, tokens, refreshedAt);
-                await _oauthTokenStore.StoreAsync(_oauthSession.Did, updated, cancellationToken);
-            }
-
-            _oauthSession.AccessToken = tokens.AccessToken;
-            if (tokens.RefreshToken is not null)
-                _oauthSession.RefreshToken = tokens.RefreshToken;
-            _oauthSession.TokenObtainedAt = refreshedAt;
-
-            _xrpc.SetOAuthTokens(
-                _oauthSession.AccessToken,
-                _oauthSession.RefreshToken,
-                _oauthSession.DPoP,
-                _oauthSession.ResourceServerDpopNonce);
-
-            if (_session is not null)
-            {
-                _session = _session.With(
-                    accessJwt: _oauthSession.AccessToken,
-                    refreshJwt: _oauthSession.RefreshToken ?? string.Empty);
-                await _sessionStore.SaveAsync(_session, cancellationToken);
-            }
-
-            if (tokens.ExpiresIn is { } expiresIn && expiresIn > 0)
-                StartRefreshTimer(TimeSpan.FromSeconds(Math.Max(expiresIn - 60, 30)));
-
-            _logger.LogDebug("OAuth session refreshed successfully");
-            return;
-        }
-
-        if (_session?.RefreshJwt is null or "")
-            throw new InvalidOperationException("No session to refresh. Call LoginAsync first.");
-
-        _logger.LogDebug("Refreshing session for {Did}", _session.Did);
-
-        var response = await Server.RefreshSessionAsync(cancellationToken);
-
-        await ApplySessionAsync(_session.With(
-            handle: response.Handle,
-            accessJwt: response.AccessJwt,
-            refreshJwt: response.RefreshJwt));
-        _logger.LogDebug("Session refreshed successfully");
-    }
+    /// <remarks>
+    /// With <see cref="AtProtoClientOptions.AutoRefreshSession"/> on (the default) this is
+    /// rarely needed: the client refreshes before the access token expires, and again when the
+    /// service reports it expired.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">No session is installed.</exception>
+    /// <exception cref="XrpcAuthenticationException">
+    /// The PDS refused the refresh token; the session has expired and been removed.
+    /// </exception>
+    /// <exception cref="OAuthException">
+    /// The authorization server refused the refresh. On <c>invalid_grant</c> the session has
+    /// expired and been removed.
+    /// </exception>
+    public Task RefreshSessionAsync(CancellationToken cancellationToken = default) =>
+        _sessions.RefreshAsync(cancellationToken);
 
     /// <summary>
-    /// Log out and destroy the current session.
+    /// Sign out: remove the session from the client and its store, then end it at the service —
+    /// <c>com.atproto.server.deleteSession</c> for a password session, token revocation
+    /// (RFC 7009) for an OAuth session.
     /// </summary>
-    public async Task LogoutAsync(CancellationToken cancellationToken = default)
-    {
-        // Held across the network call on purpose: releasing it for the round
-        // trip would let a concurrent ApplyOAuthSessionAsync install a new
-        // session that the teardown below then nulls out. Pass a
-        // CancellationToken to bound a slow PDS.
-        await _refreshLock.WaitAsync(cancellationToken);
-        try
-        {
-            if (_session is null && _oauthSession is null) return;
-
-            var loggingOutDid = _session?.Did ?? _oauthSession?.Did;
-            _logger.LogInformation("Logging out {Did}", loggingOutDid);
-
-            try
-            {
-                if (_session is not null)
-                    await Server.DeleteSessionAsync(cancellationToken);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogWarning(ex, "Failed to delete session on server");
-            }
-
-            // Purge the persisted refresh token + DPoP key so credentials don't
-            // outlive the session. Best-effort: a store outage must not block
-            // the in-process teardown below.
-            if (_oauthTokenStore is not null && loggingOutDid is not null)
-            {
-                try
-                {
-                    await _oauthTokenStore.RemoveAsync(loggingOutDid, cancellationToken);
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    _logger.LogWarning(ex,
-                        "Failed to remove persisted OAuth tokens for {Did}; " +
-                        "stored tokens may outlive the in-process session.", loggingOutDid);
-                }
-            }
-
-            _xrpc.ClearTokens();
-            _session = null;
-            _oauthSession?.Dispose();
-            _oauthSession = null;
-            _oauthClient = null;
-            // Dropped so a later ApplyOAuthSessionAsync for a different user
-            // can't inherit this store implicitly.
-            _oauthTokenStore = null;
-            StopRefreshTimer();
-
-            await _sessionStore.ClearAsync(cancellationToken);
-        }
-        finally
-        {
-            _refreshLock.Release();
-        }
-    }
+    /// <param name="cancellationToken">
+    /// Cancels the wait for the session lock and the call to the service; the local teardown and
+    /// the store removal complete regardless.
+    /// </param>
+    /// <remarks>
+    /// The local teardown always happens, and <see cref="SessionChanged"/> reports
+    /// <see cref="AtProtoSessionChange.Removed"/>. A failure after that — the service
+    /// unreachable, the store refusing the removal, an OAuth session installed without the
+    /// <see cref="OAuthClient"/> that could revoke it (<see cref="InvalidOperationException"/>) —
+    /// is then thrown, because a session left active at the service is worth knowing about. A
+    /// token the service already considers invalid is not a failure.
+    /// </remarks>
+    public Task LogoutAsync(CancellationToken cancellationToken = default) =>
+        _sessions.LogoutAsync(cancellationToken);
 
     // ──────────────────────────────────────────────────────────
     //  Dynamic PDS
@@ -652,8 +713,8 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
     /// <summary>
     /// Points the client at another service — typically the user's PDS — at runtime. Call this
-    /// before <see cref="LoginAsync"/> when the user selects a different PDS;
-    /// <see cref="ApplyOAuthSessionAsync"/> does it for you.
+    /// before <see cref="LoginAsync"/> when the user selects a different PDS; installing a
+    /// session moves the client to the session's service for you.
     /// </summary>
     /// <remarks>
     /// Safe on a client that has already sent requests, and on an <see cref="HttpClient"/> shared
@@ -673,152 +734,9 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
     /// <summary>
     /// The service this client sends requests to: <see cref="AtProtoClientOptions.InstanceUrl"/>
-    /// until <see cref="SetServiceUrl"/> or <see cref="ApplyOAuthSessionAsync"/> changes it.
+    /// until <see cref="SetServiceUrl"/> or an installed session changes it.
     /// </summary>
     public Uri ServiceUrl => _xrpc.ServiceUrl;
-
-    // ──────────────────────────────────────────────────────────
-    //  OAuth Authentication
-    // ──────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Apply an OAuth session obtained from <see cref="OAuthClient.CompleteAuthorizationAsync"/>.
-    /// Sets up DPoP-bound tokens and points the client at the correct PDS.
-    /// </summary>
-    /// <param name="oauthSession">The completed OAuth session.</param>
-    /// <param name="oauthClient">
-    /// The <see cref="OAuthClient"/> that issued the session. Required for token
-    /// refresh; without it, <see cref="RefreshSessionAsync"/> will throw rather than
-    /// fall through to the legacy refresh endpoint with an empty bearer token.
-    /// </param>
-    /// <param name="tokenStore">
-    /// Optional durable store to receive rotated tokens after each successful
-    /// OAuth refresh. When provided, the rotated access/refresh tokens are
-    /// written back to <paramref name="tokenStore"/> alongside the in-memory
-    /// session so other processes and per-request clients see the latest
-    /// refresh token. Without this, a rotated refresh token is invalidated
-    /// before the next request reads the stale value from the store and the
-    /// user is silently logged out.
-    /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task ApplyOAuthSessionAsync(
-        OAuthSessionResult oauthSession,
-        OAuthClient? oauthClient = null,
-        IAtProtoTokenStore? tokenStore = null,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(oauthSession);
-
-        // Typed before anything is swapped, so a malformed session leaves the client untouched.
-        // An unverified handle is no handle (OAuthClient reports the DID in its place), which
-        // the typed session records the atproto way; a verified one that does not parse is a
-        // broken session, not something to downgrade quietly.
-        var did = Did.Parse(oauthSession.Did);
-        var handle = !oauthSession.IsHandleVerified ? InvalidHandle
-            : Handle.TryParse(oauthSession.Handle, out var verified) ? verified
-            : throw new ArgumentException(
-                $"The session's handle is marked verified but '{oauthSession.Handle}' is not a valid handle.",
-                nameof(oauthSession));
-
-        // Serialize against any in-flight refresh — without this lock the timer
-        // callback can dereference _oauthSession/_oauthClient/_xrpc tokens while
-        // Apply swaps them out, producing torn state or writing refresh results
-        // onto a freshly-installed session it never targeted.
-        await _refreshLock.WaitAsync(cancellationToken);
-        try
-        {
-            // Overwrite only when supplied: a shorthand re-Apply
-            // (`ApplyOAuthSessionAsync(session)`, as docs/oauth.md shows) must not
-            // clear the refresh client and store a prior full Apply installed.
-            // Use LogoutAsync to clear them deterministically.
-            if (oauthClient is not null) _oauthClient = oauthClient;
-            if (tokenStore is not null) _oauthTokenStore = tokenStore;
-
-            _logger.LogInformation("Applying OAuth session for {Did} on PDS {PdsUrl}",
-                oauthSession.Did, oauthSession.PdsUrl);
-
-            // Point the XRPC client at the user's PDS
-            _xrpc.SetServiceUrl(new Uri(oauthSession.PdsUrl, UriKind.Absolute));
-
-            // Set DPoP-bound tokens
-            _xrpc.SetOAuthTokens(
-                oauthSession.AccessToken,
-                oauthSession.RefreshToken,
-                oauthSession.DPoP,
-                oauthSession.ResourceServerDpopNonce);
-
-            // Dispose the previous DPoP key before swapping, or a re-Apply
-            // (account switch, factory reuse) leaks the ECDsa native handle until
-            // finalization. Skipped when re-applying the same instance.
-            if (!ReferenceEquals(_oauthSession, oauthSession))
-                _oauthSession?.Dispose();
-
-            _oauthSession = oauthSession;
-
-            // Create a session object for backward compatibility
-            _session = new Session
-            {
-                Did = did,
-                Handle = handle,
-                AccessJwt = oauthSession.AccessToken,
-                RefreshJwt = oauthSession.RefreshToken ?? string.Empty,
-            };
-
-            await _sessionStore.SaveAsync(_session, cancellationToken);
-
-            // Schedule token refresh
-            if (oauthSession.ExpiresIn.HasValue)
-            {
-                var refreshIn = TimeSpan.FromSeconds(Math.Max(oauthSession.ExpiresIn.Value - 60, 30));
-                StartRefreshTimer(refreshIn);
-            }
-            else
-            {
-                StartRefreshTimer(TimeSpan.FromMinutes(4));
-            }
-        }
-        finally
-        {
-            _refreshLock.Release();
-        }
-    }
-
-    /// <summary>
-    /// Builds an <see cref="AtProtoTokenData"/> snapshot using the unchanged
-    /// session metadata (DPoP key, PDS URL, issuer, handle) combined with the
-    /// freshly-rotated tokens from a refresh response. Used by the OAuth
-    /// refresh path to persist the new state to <see cref="IAtProtoTokenStore"/>
-    /// BEFORE mutating the in-memory session.
-    /// </summary>
-    private static AtProtoTokenData BuildRefreshedTokenData(
-        OAuthSessionResult session, OAuthTokenResponse tokens, DateTimeOffset refreshedAt)
-    {
-        return new AtProtoTokenData
-        {
-            Did = session.Did,
-            Handle = session.Handle,
-            IsHandleVerified = session.IsHandleVerified,
-            AccessToken = tokens.AccessToken,
-            // Refresh responses MAY omit refresh_token to mean "reuse the prior
-            // one"; keep the existing one in that case.
-            RefreshToken = tokens.RefreshToken ?? session.RefreshToken,
-            PdsUrl = session.PdsUrl,
-            Issuer = session.Issuer,
-            TokenEndpoint = session.TokenEndpoint,
-            DPoPPrivateKey = session.DPoP.ExportPrivateKey(),
-            AuthServerDpopNonce = session.AuthServerDpopNonce,
-            ResourceServerDpopNonce = session.ResourceServerDpopNonce,
-            TokenObtainedAt = refreshedAt,
-            // ExpiresIn / Scope may be rotated by the AS — prefer fresh values.
-            ExpiresIn = tokens.ExpiresIn ?? session.ExpiresIn,
-            Scope = tokens.Scope ?? session.Scope,
-        };
-    }
-
-    /// <summary>
-    /// The current OAuth session, if authenticated via OAuth.
-    /// </summary>
-    public OAuthSessionResult? OAuthSession => _oauthSession;
 
     // ──────────────────────────────────────────────────────────
     //  High-level convenience methods
@@ -858,7 +776,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         };
 
         return await Repo.CreateRecordAsync(
-            _session!.Did, PostCollection, post, cancellationToken: cancellationToken);
+            _sessions.Session!.Did, PostCollection, post, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -879,7 +797,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         };
 
         return await Repo.CreateRecordAsync(
-            _session!.Did, LikeCollection, like, cancellationToken: cancellationToken);
+            _sessions.Session!.Did, LikeCollection, like, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -910,7 +828,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         };
 
         return await Repo.CreateRecordAsync(
-            _session!.Did, RepostCollection, repost, cancellationToken: cancellationToken);
+            _sessions.Session!.Did, RepostCollection, repost, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -940,7 +858,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         };
 
         return await Repo.CreateRecordAsync(
-            _session!.Did, FollowCollection, follow, cancellationToken: cancellationToken);
+            _sessions.Session!.Did, FollowCollection, follow, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -993,7 +911,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(update);
         EnsureAuthenticated();
-        var did = _session!.Did;
+        var did = _sessions.Session!.Did;
 
         for (var attempt = 1; ; attempt++)
         {
@@ -1024,7 +942,6 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     private static readonly Nsid RepostCollection = Nsid.Parse("app.bsky.feed.repost");
     private static readonly Nsid FollowCollection = Nsid.Parse("app.bsky.graph.follow");
     private static readonly Nsid ProfileCollection = Nsid.Parse("app.bsky.actor.profile");
-    private static readonly Handle InvalidHandle = Handle.Parse("handle.invalid");
     private const int MaxProfileUpdateAttempts = 3;
 
     /// <summary>
@@ -1051,73 +968,11 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     //  Private helpers
     // ──────────────────────────────────────────────────────────
 
-    private async Task ApplySessionAsync(Session session)
-    {
-        _session = session;
-        _xrpc.SetTokens(session.AccessJwt, session.RefreshJwt);
-        await _sessionStore.SaveAsync(session);
-
-        // Schedule a refresh 5 minutes before the access token expires.
-        // Access tokens are typically valid for ~2 hours.
-        StartRefreshTimer(TimeSpan.FromMinutes(115));
-    }
-
-    private void StartRefreshTimer(TimeSpan delay)
-    {
-        _refreshTimer?.Change(delay, Timeout.InfiniteTimeSpan);
-    }
-
-    private void StopRefreshTimer()
-    {
-        _refreshTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-    }
-
-    private async void OnRefreshTimerElapsed(object? state)
-    {
-        if (_disposed) return;
-
-        // WaitAsync(0) throws if Dispose ran between the timer firing and here;
-        // treat that as "client is gone".
-        bool acquired;
-        try
-        {
-            acquired = await _refreshLock.WaitAsync(0);
-        }
-        catch (ObjectDisposedException) { return; }
-
-        if (!acquired)
-        {
-            _logger.LogDebug("Session refresh already in progress, skipping");
-            return;
-        }
-
-        try
-        {
-            // Dispose can race the pre-check above; don't refresh (and persist)
-            // tokens for a client that is shutting down.
-            if (_disposed) return;
-
-            // Bound the refresh so an unresponsive token endpoint can't pin
-            // _refreshLock against foreground LogoutAsync / ApplyOAuthSessionAsync.
-            using var cts = new CancellationTokenSource(_refreshTimerDeadline);
-            await RefreshSessionUnlockedAsync(cts.Token);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Automatic session refresh failed");
-        }
-        finally
-        {
-            // Dispose could have raced ahead — guard the release.
-            try { _refreshLock.Release(); }
-            catch (ObjectDisposedException) { }
-            catch (SemaphoreFullException) { }
-        }
-    }
+    private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
 
     internal void EnsureAuthenticated()
     {
-        if (_session is null)
+        if (_sessions.Session is null)
             throw new InvalidOperationException("Not authenticated. Call LoginAsync first.");
     }
 
@@ -1136,53 +991,40 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     //  Disposal
     // ──────────────────────────────────────────────────────────
 
-    /// <inheritdoc/>
-    public void Dispose()
+    /// <summary>
+    /// Releases the client, first waiting for a token exchange already under way to finish and
+    /// be stored (bounded by the exchange's 30-second limit). This is the preferred way to
+    /// dispose it.
+    /// </summary>
+    /// <remarks>
+    /// The session stays valid at the service (dispose is not sign-out; call
+    /// <see cref="LogoutAsync"/> for that) and in the session store. The client disposes what it
+    /// created — its own <see cref="HttpClient"/>, the DPoP key object it built from an OAuth
+    /// session — and nothing it was given: a supplied <see cref="HttpClient"/>,
+    /// <see cref="OAuthClient"/> or <see cref="IAtProtoSessionStore"/> stays usable.
+    /// </remarks>
+    public async ValueTask DisposeAsync()
     {
-        if (_disposed) return;
-        _disposed = true;
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            return;
 
-        // Drain in-flight timer callbacks before disposing _refreshLock and
-        // _oauthSession: the no-arg Timer.Dispose() returns without waiting,
-        // leaving a running refresh holding the lock. The WaitHandle overload
-        // signals once all callbacks have drained.
-        if (_refreshTimer is not null)
-        {
-            using var waitHandle = new System.Threading.ManualResetEvent(false);
-            if (_refreshTimer.Dispose(waitHandle))
-            {
-                // The callback bounds its own work with the same deadline, and
-                // its Release is guarded, so overrunning is safe — but it is
-                // worth investigating, hence the log.
-                if (!waitHandle.WaitOne(_refreshTimerDeadline + TimeSpan.FromSeconds(5)))
-                {
-                    _logger.LogWarning(
-                        "Refresh-timer callback did not drain within {Timeout}s during Dispose; " +
-                        "proceeding with lock/session teardown. Late callback completion is " +
-                        "guarded but may produce harmless ObjectDisposedException log noise.",
-                        (_refreshTimerDeadline + TimeSpan.FromSeconds(5)).TotalSeconds);
-                }
-            }
-        }
-
-        _oauthSession?.Dispose();
-        _refreshLock.Dispose();
+        await _sessions.DisposeAsync();
         if (_ownsHttpClient)
             _httpClient.Dispose();
     }
 
-    /// <inheritdoc/>
-    public async ValueTask DisposeAsync()
+    /// <summary>
+    /// Releases the client without waiting. A token exchange already under way still finishes
+    /// and is stored in the background, since abandoning it could leave the store with a spent
+    /// refresh token; the DPoP key it uses is released once it is done.
+    /// </summary>
+    /// <remarks>Prefer <see cref="DisposeAsync"/>; see there for what is and is not disposed.</remarks>
+    public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            return;
 
-        // Timer.DisposeAsync waits for in-flight callbacks, so the lock and
-        // session are safe to dispose afterward.
-        if (_refreshTimer is not null)
-            await _refreshTimer.DisposeAsync();
-        _oauthSession?.Dispose();
-        _refreshLock.Dispose();
+        _sessions.Dispose();
         if (_ownsHttpClient)
             _httpClient.Dispose();
     }
@@ -1285,10 +1127,25 @@ public sealed class AtProtoClientOptions
     public XrpcRateLimitOptions RateLimit { get; set; } = new();
 
     /// <summary>
-    /// Whether to automatically refresh the session before the access token expires.
+    /// Whether the client refreshes the session by itself: before a request when the access
+    /// token is about to expire, and once more when the service answers that it has
+    /// (<c>ExpiredToken</c>, or a DPoP <c>invalid_token</c> challenge), resending the request.
     /// Default: true.
     /// </summary>
+    /// <remarks>
+    /// With it off, requests carry whatever token is installed, and an expired one fails with
+    /// <see cref="XrpcAuthenticationException"/> until <see cref="AtProtoClient.RefreshSessionAsync"/>
+    /// is called.
+    /// </remarks>
     public bool AutoRefreshSession { get; set; } = true;
+
+    /// <summary>
+    /// Whether to also refresh on a timer shortly before the access token expires, even when no
+    /// request is being made, so an idle client's session (and its stored copy) stays current.
+    /// Needs <see cref="AutoRefreshSession"/>. Default: false — refreshing on demand covers every
+    /// request.
+    /// </summary>
+    public bool BackgroundRefresh { get; set; }
 
     /// <summary>
     /// OAuth configuration options. When set, enables OAuth authentication support.

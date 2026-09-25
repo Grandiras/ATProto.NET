@@ -1,8 +1,10 @@
 using System.Collections.Concurrent;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using ATProtoNet.Auth;
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Http;
+using ATProtoNet.Identity;
 using ATProtoNet.Server.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -202,123 +204,110 @@ public sealed class AtProtoOAuthService : IOAuthClientProvider, IDisposable
         var loginContext = _loginContexts.TryRemove(state, out var lc) ? lc : null;
 
         // Exchange authorization code for tokens
-        var result = await client.CompleteAuthorizationAsync(code, state, issuer, cancellationToken);
+        var session = await client.CompleteAuthorizationAsync(code, state, issuer, cancellationToken);
 
-        try
+        // Create claims
+        var claims = _serverOptions.ClaimsFactory is not null
+            ? _serverOptions.ClaimsFactory(session).ToList()
+            : CreateDefaultClaims(session);
+
+        var identity = new ClaimsIdentity(claims, "ATProto");
+        var principal = new ClaimsPrincipal(identity);
+
+        var properties = new AuthenticationProperties
         {
-            // Create claims
-            var claims = _serverOptions.ClaimsFactory is not null
-                ? _serverOptions.ClaimsFactory(result).ToList()
-                : CreateDefaultClaims(result);
+            IsPersistent = _serverOptions.IsPersistent,
+            ExpiresUtc = DateTimeOffset.UtcNow.Add(_serverOptions.CookieExpiration),
+            AllowRefresh = true,
+        };
 
-            var identity = new ClaimsIdentity(claims, "ATProto");
-            var principal = new ClaimsPrincipal(identity);
+        // Store the session server-side if IAtProtoSessionStore is registered (regardless of relay)
+        var sessionStore = context.RequestServices.GetService<IAtProtoSessionStore>();
+        if (sessionStore is not null)
+        {
+            await sessionStore.SetAsync(session, cancellationToken);
+            _logger.LogInformation("Stored the OAuth session of {Did}", session.Did);
+        }
 
-            var properties = new AuthenticationProperties
-            {
-                IsPersistent = _serverOptions.IsPersistent,
-                ExpiresUtc = DateTimeOffset.UtcNow.Add(_serverOptions.CookieExpiration),
-                AllowRefresh = true,
-            };
+        // Determine return URL: prefer server-side store, fall back to cookie, then default
+        var returnUrl = loginContext?.ReturnUrl
+            ?? context.Request.Cookies["atproto_return_url"]
+            ?? _serverOptions.DefaultReturnUrl;
 
-            // Store tokens server-side if IAtProtoTokenStore is registered (regardless of relay)
-            var tokenStore = context.RequestServices.GetService<IAtProtoTokenStore>();
-            if (tokenStore is not null)
-            {
-                var tokenData = new AtProtoTokenData
-                {
-                    Did = result.Did,
-                    Handle = result.Handle,
-                    IsHandleVerified = result.IsHandleVerified,
-                    AccessToken = result.AccessToken,
-                    RefreshToken = result.RefreshToken,
-                    PdsUrl = result.PdsUrl,
-                    Issuer = result.Issuer,
-                    TokenEndpoint = result.TokenEndpoint,
-                    DPoPPrivateKey = result.DPoP.ExportPrivateKey(),
-                    AuthServerDpopNonce = result.AuthServerDpopNonce,
-                    ResourceServerDpopNonce = result.ResourceServerDpopNonce,
-                    TokenObtainedAt = result.TokenObtainedAt,
-                    ExpiresIn = result.ExpiresIn,
-                    Scope = result.Scope,
-                };
+        // Clean up the return URL cookie (best-effort; may be on a different domain)
+        context.Response.Cookies.Delete("atproto_return_url", new CookieOptions
+        {
+            Path = _serverOptions.RoutePrefix,
+        });
 
-                await tokenStore.StoreAsync(result.Did, tokenData, cancellationToken);
-                _logger.LogInformation("Stored OAuth tokens for DID: {Did}", result.Did);
-            }
-
-            // Determine return URL: prefer server-side store, fall back to cookie, then default
-            var returnUrl = loginContext?.ReturnUrl
-                ?? context.Request.Cookies["atproto_return_url"]
-                ?? _serverOptions.DefaultReturnUrl;
-
-            // Clean up the return URL cookie (best-effort; may be on a different domain)
-            context.Response.Cookies.Delete("atproto_return_url", new CookieOptions
-            {
-                Path = _serverOptions.RoutePrefix,
-            });
-
-            // Check if cookie relay is needed (callback domain ≠ login domain).
-            // This handles Aspire / Kestrel multi-bind where the OAuth callback arrives on
-            // http://127.0.0.1 but the user's browser is on https://localhost.
-            var callbackOrigin = $"{context.Request.Scheme}://{context.Request.Host}";
-            if (loginContext is not null &&
-                !callbackOrigin.Equals(loginContext.Origin, StringComparison.OrdinalIgnoreCase))
-            {
-                // Callback arrived on a different origin than the user's browser.
-                // Don't issue a cookie here (it would be on the wrong domain).
-                // Instead, redirect to the login origin with a one-time relay code.
-                var relayCode = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
-                _relayCodes[relayCode] = new RelayEntry(
-                    principal, properties, returnUrl, DateTime.UtcNow.AddMinutes(2));
-                CleanupExpiredRelayCodes();
-
-                _logger.LogInformation(
-                    "Cookie relay initiated: {CallbackOrigin} -> {LoginOrigin} for {Handle}",
-                    callbackOrigin, loginContext.Origin, result.Handle);
-
-                return $"{loginContext.Origin}{_serverOptions.RoutePrefix}/relay?code={relayCode}";
-            }
-
-            // Same origin — issue the cookie directly
-            await context.SignInAsync(_serverOptions.CookieScheme, principal, properties);
+        // Check if cookie relay is needed (callback domain ≠ login domain).
+        // This handles Aspire / Kestrel multi-bind where the OAuth callback arrives on
+        // http://127.0.0.1 but the user's browser is on https://localhost.
+        var callbackOrigin = $"{context.Request.Scheme}://{context.Request.Host}";
+        if (loginContext is not null &&
+            !callbackOrigin.Equals(loginContext.Origin, StringComparison.OrdinalIgnoreCase))
+        {
+            // Callback arrived on a different origin than the user's browser.
+            // Don't issue a cookie here (it would be on the wrong domain).
+            // Instead, redirect to the login origin with a one-time relay code.
+            var relayCode = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+            _relayCodes[relayCode] = new RelayEntry(
+                principal, properties, returnUrl, DateTime.UtcNow.AddMinutes(2));
+            CleanupExpiredRelayCodes();
 
             _logger.LogInformation(
-                "OAuth login completed for DID: {Did}, Handle: {Handle}",
-                result.Did, result.Handle);
+                "Cookie relay initiated: {CallbackOrigin} -> {LoginOrigin} for {Did}",
+                callbackOrigin, loginContext.Origin, session.Did);
 
-            return returnUrl;
+            return $"{loginContext.Origin}{_serverOptions.RoutePrefix}/relay?code={relayCode}";
         }
-        finally
-        {
-            // Clean up the OAuth session result — DPoP keys and tokens have been
-            // extracted to AtProtoTokenData (if token store is registered) or are
-            // no longer needed (cookie-only mode)
-            result.Dispose();
-        }
+
+        // Same origin — issue the cookie directly
+        await context.SignInAsync(_serverOptions.CookieScheme, principal, properties);
+
+        _logger.LogInformation(
+            "OAuth login completed for DID: {Did}, Handle: {Handle}",
+            session.Did, session.Handle);
+
+        return returnUrl;
     }
 
     /// <summary>
-    /// Signs out by clearing the authentication cookie.
+    /// Signs out: revokes the user's stored OAuth session at its authorization server, removes
+    /// it from the <see cref="IAtProtoSessionStore"/> (when one is registered), and clears the
+    /// authentication cookie.
     /// </summary>
     /// <param name="context">The current HTTP context.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The URL to redirect to after logout.</returns>
+    /// <remarks>
+    /// The local sign-out always completes; a revocation the authorization server refuses or
+    /// cannot be reached for is logged as a warning.
+    /// </remarks>
     public async Task<string> LogoutAsync(HttpContext context, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        // Remove stored tokens if IAtProtoTokenStore is registered
-        var tokenStore = context.RequestServices.GetService<IAtProtoTokenStore>();
-        if (tokenStore is not null)
-        {
-            var did = context.User.FindFirst("did")?.Value
-                ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        var sessionStore = context.RequestServices.GetService<IAtProtoSessionStore>();
+        var claim = context.User.FindFirst("did")?.Value
+            ?? context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            if (!string.IsNullOrWhiteSpace(did))
+        if (sessionStore is not null && Did.TryParse(claim, out var did))
+        {
+            var session = await sessionStore.GetAsync(did, cancellationToken);
+            await sessionStore.RemoveAsync(did, cancellationToken);
+            _logger.LogInformation("Removed the stored OAuth session of {Did}", did);
+
+            if (session is OAuthSession oauth && TryGetClient() is { } client)
             {
-                await tokenStore.RemoveAsync(did, cancellationToken);
-                _logger.LogInformation("Removed stored OAuth tokens for DID: {Did}", did);
+                try
+                {
+                    await client.RevokeAsync(oauth, cancellationToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex, "Could not revoke the OAuth session of {Did}", did);
+                }
             }
         }
 
@@ -368,24 +357,22 @@ public sealed class AtProtoOAuthService : IOAuthClientProvider, IDisposable
         return null;
     }
 
-    private static List<Claim> CreateDefaultClaims(OAuthSessionResult result)
+    private static List<Claim> CreateDefaultClaims(OAuthSession session)
     {
-        // For unverified handles, OAuthSessionResult.Handle is the DID (see
-        // OAuthClient.CompleteAuthorizationAsync). Stamping a DID into ClaimTypes.Name
-        // pollutes UI greetings, URL slugs, and log filters keyed on User.Identity.Name.
-        // Use the atproto sentinel "handle.invalid" for Name so callers can branch
-        // on the IsHandleVerified claim, while still surfacing the DID via the
-        // `did` claim and the actual stored handle value via `handle`.
-        var nameForDisplay = result.IsHandleVerified ? result.Handle : "handle.invalid";
+        // An unverified handle is 'handle.invalid' in the session. That sentinel goes into
+        // ClaimTypes.Name (a DID there would pollute UI greetings, URL slugs and log filters
+        // keyed on User.Identity.Name), while the `handle` claim carries the DID instead, so it
+        // still tells users apart; `handle_verified` says which case applies.
+        var verified = session.Handle.Value != "handle.invalid";
 
         var claims = new List<Claim>
         {
-            new(ClaimTypes.NameIdentifier, result.Did),
-            new(ClaimTypes.Name, nameForDisplay),
-            new("did", result.Did),
-            new("handle", result.Handle),
-            new("handle_verified", result.IsHandleVerified ? "true" : "false"),
-            new("pds_url", result.PdsUrl),
+            new(ClaimTypes.NameIdentifier, session.Did.Value),
+            new(ClaimTypes.Name, session.Handle.Value),
+            new("did", session.Did.Value),
+            new("handle", verified ? session.Handle.Value : session.Did.Value),
+            new("handle_verified", verified ? "true" : "false"),
+            new("pds_url", session.ServiceEndpoint.OriginalString),
             new("auth_method", "oauth"),
         };
 

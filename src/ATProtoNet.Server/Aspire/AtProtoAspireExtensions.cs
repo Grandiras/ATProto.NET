@@ -1,4 +1,3 @@
-using ATProtoNet.Auth;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -25,8 +24,8 @@ public sealed class AtProtoClientSettings
     public string? RelayUrl { get; set; } = "wss://bsky.network";
 
     /// <summary>
-    /// Whether to auto-refresh session tokens.
-    /// Default: true
+    /// Whether the client refreshes its session by itself (see
+    /// <see cref="AtProtoClientOptions.AutoRefreshSession"/>). Default: true
     /// </summary>
     public bool AutoRefreshSession { get; set; } = true;
 
@@ -96,7 +95,7 @@ public static class AtProtoAspireExtensions
                 RelayUrl = settings.RelayUrl,
             };
 
-            return new AtProtoClient(options, httpClient, new InMemorySessionStore(), logger);
+            return new AtProtoClient(options, httpClient, sessionStore: null, logger);
         });
 
         // Health check

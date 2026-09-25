@@ -210,8 +210,10 @@ public class OpenUnionTests
     /// <summary>
     /// Guards the rule the SDK's models follow: every <c>$type</c>-discriminated union is an
     /// <see cref="AtProtoUnionAttribute"/> base, open unless the Lexicon marks it closed. The
-    /// exceptions are Spaces (owned by the Spaces work) and the firehose message frame, which is
-    /// transcoded from CBOR by a parser that drops unknown frame types itself.
+    /// exceptions are Spaces (owned by the Spaces work), the firehose message frame, which is
+    /// transcoded from CBOR by a parser that drops unknown frame types itself, and
+    /// <see cref="ATProtoNet.Auth.AtProtoSession"/>, the SDK's own persisted form rather than a
+    /// Lexicon union.
     /// </summary>
     [Fact]
     public void SdkUnionBases_AreAllAtProtoUnionsWithAValidShape()
@@ -219,7 +221,7 @@ public class OpenUnionTests
         var polymorphic = typeof(AtProtoClient).Assembly.GetTypes()
             .Where(t => t.IsDefined(typeof(JsonPolymorphicAttribute), inherit: false)
                 || t.IsDefined(typeof(JsonDerivedTypeAttribute), inherit: false))
-            .Where(t => t != typeof(FirehoseMessage)
+            .Where(t => t != typeof(FirehoseMessage) && t != typeof(ATProtoNet.Auth.AtProtoSession)
                 && !t.Namespace!.StartsWith("ATProtoNet.Lexicon.Com.AtProto.Space", StringComparison.Ordinal)
                 && !t.Namespace!.StartsWith("ATProtoNet.Lexicon.Com.AtProto.SimpleSpace", StringComparison.Ordinal))
             .ToList();

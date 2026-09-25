@@ -90,4 +90,39 @@ public class AuthenticationTests
         Assert.False(client.IsAuthenticated);
         Assert.Null(client.Session);
     }
+
+    [RequiresPdsFact]
+    public async Task Logout_RevokesTheRefreshToken()
+    {
+        using var client = new AtProtoClientBuilder()
+            .WithInstanceUrl(TestConfig.PdsUrl)
+            .Build();
+
+        var session = await client.LoginAsync(TestConfig.Handle, TestConfig.Password);
+        await client.LogoutAsync();
+
+        // deleteSession was sent the refresh JWT, so the PDS no longer honours it.
+        using var other = new AtProtoClientBuilder()
+            .WithInstanceUrl(TestConfig.PdsUrl)
+            .Build();
+        await Assert.ThrowsAsync<Http.XrpcAuthenticationException>(
+            () => other.Server.RefreshSessionAsync(session.RefreshJwt));
+    }
+
+    [RequiresPdsFact]
+    public async Task RefreshSession_RotatesTheTokensAndKnowsTheirExpiry()
+    {
+        using var client = new AtProtoClientBuilder()
+            .WithInstanceUrl(TestConfig.PdsUrl)
+            .Build();
+
+        var session = await client.LoginAsync(TestConfig.Handle, TestConfig.Password);
+        await client.RefreshSessionAsync();
+
+        var refreshed = Assert.IsType<Auth.PasswordSession>(client.Session);
+        Assert.NotEqual(session.RefreshJwt, refreshed.RefreshJwt);
+        Assert.NotNull(session.ExpiresAt);
+        Assert.NotNull(refreshed.ExpiresAt);
+        Assert.True(refreshed.ExpiresAt > DateTimeOffset.UtcNow);
+    }
 }

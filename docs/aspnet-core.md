@@ -199,9 +199,9 @@ app.Use(async (context, next) =>
     var sessionJson = context.Request.Cookies["atproto_session"];
     if (sessionJson is not null)
     {
-        var session = JsonSerializer.Deserialize<Session>(sessionJson);
+        var session = JsonSerializer.Deserialize<AtProtoSession>(sessionJson);
         var client = context.RequestServices.GetRequiredService<AtProtoClient>();
-        await client.ResumeSessionAsync(session!);
+        await client.ApplySessionAsync(session!); // no request; refreshes on demand
     }
     await next();
 });
@@ -214,7 +214,7 @@ from the Server package, which handles DPoP keys, token storage, and per-user cl
 
 ```csharp
 builder.Services.AddAtProtoAuthentication(); // Blazor OAuth login
-builder.Services.AddAtProtoServer();          // Token store + client factory
+builder.Services.AddAtProtoServer();          // Session store + client factory
 
 // In endpoints or services:
 app.MapGet("/api/profile", async (ClaimsPrincipal user, IAtProtoClientFactory factory) =>
@@ -227,4 +227,4 @@ app.MapGet("/api/profile", async (ClaimsPrincipal user, IAtProtoClientFactory fa
 }).RequireAuthorization();
 ```
 
-See [Server Integration](server.md) for full documentation on `IAtProtoClientFactory`, `IAtProtoTokenStore`, and custom token store implementations.
+See [Server Integration](server.md) for full documentation on `IAtProtoClientFactory`, `IAtProtoSessionStore`, and custom session store implementations.

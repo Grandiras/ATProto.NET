@@ -10,7 +10,7 @@ The main entry point. Created via `AtProtoClientBuilder` or direct construction.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Session` | `Session?` | Current session (null if not authenticated) |
+| `Session` | `AtProtoSession?` | Current session: a `PasswordSession` or `OAuthSession` (null if not authenticated) |
 | `IsAuthenticated` | `bool` | Whether the client has an active session |
 | `Did` | `Did?` | Authenticated user's DID |
 | `Handle` | `Handle?` | Authenticated user's handle |
@@ -29,7 +29,6 @@ The main entry point. Created via `AtProtoClientBuilder` or direct construction.
 | `Chat` | `ChatClients` | `chat.bsky.*` sub-clients |
 | `Ozone` | `OzoneClient` | `tools.ozone.*` sub-clients |
 | `Site` | `StandardSiteClient` | `site.standard.*` records |
-| `OAuthSession` | `OAuthSessionResult?` | The applied OAuth session, if any |
 | `ServiceUrl` | `Uri` | The service URL requests currently go to |
 
 ### Custom Lexicon Methods
@@ -48,12 +47,18 @@ The main entry point. Created via `AtProtoClientBuilder` or direct construction.
 
 | Method | Description |
 |--------|-------------|
-| `LoginAsync(identifier, password, authFactorToken?)` | Authenticate and create a session |
-| `ResumeSessionAsync(session)` | Resume from a saved `Session` |
-| `RefreshSessionAsync()` | Manually refresh session tokens |
-| `LogoutAsync()` | Destroy the session |
-| `ApplyOAuthSessionAsync(oauthSession)` | Adopt an `OAuthSessionResult` (sets PDS URL, DPoP, session) |
+| `LoginAsync(identifier, password, authFactorToken?, allowTakendown?)` | Sign in with a password; returns the `PasswordSession` |
+| `CreateAccountAndLoginAsync(request)` | Create an account and install its session |
+| `ApplySessionAsync(session, oauthClient?)` | Install a session you hold (an OAuth callback's, or a saved one) without a request |
+| `ResumeSessionAsync(session, oauthClient?)` | Install a saved session and check it with `getSession`, refreshing if expired |
+| `TryRestoreSessionAsync(did, oauthClient?)` | Install the session the session store holds for `did` |
+| `RefreshSessionAsync()` | Refresh the session now (concurrent calls share one refresh) |
+| `LogoutAsync()` | Sign out locally, then revoke at the service (`deleteSession` / RFC 7009) |
 | `SetServiceUrl(uri)` | Point the client at a different PDS at runtime (HTTPS unless loopback) |
+
+| Event | Description |
+|-------|-------------|
+| `SessionChanged` | The session was created, refreshed, expired or removed (`AtProtoSessionChangedEventArgs`) |
 
 ### Streaming, Proxying & Labelers
 
@@ -164,8 +169,9 @@ Fluent builder for `AtProtoClient`.
 |--------|-------------|
 | `WithInstanceUrl(url)` | Set the PDS/service URL |
 | `WithRelayUrl(url)` | Set the relay WebSocket URL for firehose |
-| `WithAutoRefreshSession(bool)` | Enable/disable auto token refresh |
-| `WithSessionStore(store)` | Set custom session persistence |
+| `WithAutoRefreshSession(bool)` | Enable/disable refreshing on demand (before expiry, and after an `ExpiredToken` / `invalid_token`) |
+| `WithBackgroundRefresh(bool)` | Also refresh on a timer while idle (default off) |
+| `WithSessionStore(store)` | Persist the session to an `IAtProtoSessionStore` |
 | `WithHttpClient(client)` | Use a custom HttpClient |
 | `WithLoggerFactory(factory)` | Set logging factory |
 | `Build()` | Create the `AtProtoClient` |
@@ -242,10 +248,10 @@ returns no cursor, an empty one, or one it already returned.
 
 | Method | Description |
 |--------|-------------|
-| `CreateSessionAsync(identifier, password, authFactorToken?)` | Login |
+| `CreateSessionAsync(identifier, password, authFactorToken?, allowTakendown?)` | Create a session; the client's session is not changed |
 | `GetSessionAsync()` | Get current session info |
-| `RefreshSessionAsync()` | Refresh tokens |
-| `DeleteSessionAsync()` | Logout |
+| `RefreshSessionAsync(refreshJwt)` | Exchange a refresh JWT for new tokens |
+| `DeleteSessionAsync(refreshJwt)` | Delete the session the refresh JWT belongs to |
 | `CreateAccountAsync(email, handle, password, inviteCode?)` | Create new account |
 | `CreateAppPasswordAsync(name)` | Create an app password |
 | `ListAppPasswordsAsync()` | List app passwords |
@@ -297,42 +303,35 @@ returns no cursor, an empty one, or one it already returned.
 
 ## Session & Auth
 
-### Session
+### AtProtoSession
+
+An immutable session, `PasswordSession` or `OAuthSession`. See [session-management.md](session-management.md).
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `Did` | `Did` | User's DID |
 | `Handle` | `Handle` | User's handle (`handle.invalid` when it did not verify) |
-| `AccessJwt` | `string` | Access token |
-| `RefreshJwt` | `string` | Refresh token |
-| `Email` | `string?` | Email |
-| `EmailConfirmed` | `bool?` | Email confirmed |
-| `EmailAuthFactor` | `bool?` | 2FA enabled |
-| `DidDoc` | `object?` | DID document as returned by the server |
-| `Active` | `bool?` | Account active |
-| `Status` | `string?` | Account status |
+| `ServiceEndpoint` | `Uri` | The PDS the session's requests go to |
+| `ExpiresAt` | `DateTimeOffset?` | When the access token expires |
 
-### ISessionStore
+`PasswordSession` adds `AccessJwt`, `RefreshJwt`, `Email`, `EmailConfirmed`, `EmailAuthFactor`,
+`Active` and `Status`. `OAuthSession` adds `AccessToken`, `RefreshToken`, `DPoPKey` (PKCS#8),
+`Issuer`, `TokenEndpoint`, `RevocationEndpoint` and `Scope`.
 
-| Method | Description |
-|--------|-------------|
-| `SaveAsync(session, ct?)` | Persist session |
-| `LoadAsync(ct?)` | Load saved session |
-| `ClearAsync(ct?)` | Clear saved session |
+### IAtProtoSessionStore
 
-### IAtProtoTokenStore
-
-Server-side OAuth token storage for multi-user scenarios. See [server.md](server.md).
+Session persistence, keyed by DID. Implementations: `InMemoryAtProtoSessionStore` (core),
+`FileAtProtoSessionStore` and `EfCoreAtProtoSessionStore<TContext>` (Server). See [server.md](server.md).
 
 | Method | Description |
 |--------|-------------|
-| `StoreAsync(did, data, ct?)` | Store token data for a user |
-| `GetAsync(did, ct?)` | Retrieve stored token data |
-| `RemoveAsync(did, ct?)` | Remove stored token data |
+| `GetAsync(did, ct?)` | Read the stored session of an account |
+| `SetAsync(session, ct?)` | Store a session, replacing the account's previous one |
+| `RemoveAsync(did, ct?)` | Remove the stored session of an account |
 
 ### IAtProtoClientFactory
 
-Creates authenticated `AtProtoClient` instances from stored OAuth tokens. See [server.md](server.md).
+Creates authenticated `AtProtoClient` instances from stored sessions. See [server.md](server.md).
 
 | Method | Description |
 |--------|-------------|

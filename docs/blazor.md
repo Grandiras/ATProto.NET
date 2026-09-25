@@ -158,11 +158,12 @@ Override the default claims by providing a `ClaimsFactory`:
 ```csharp
 builder.Services.AddAtProtoAuthentication(options =>
 {
-    options.ClaimsFactory = result => new[]
+    // session is the OAuthSession the callback produced
+    options.ClaimsFactory = session => new[]
     {
-        new Claim(ClaimTypes.NameIdentifier, result.Did),
-        new Claim(ClaimTypes.Name, result.Handle),
-        new Claim(ClaimTypes.Role, result.Did == "did:plc:myadmindid" ? "Admin" : "User"),
+        new Claim(ClaimTypes.NameIdentifier, session.Did.Value),
+        new Claim(ClaimTypes.Name, session.Handle.Value),
+        new Claim(ClaimTypes.Role, session.Did.Value == "did:plc:myadmindid" ? "Admin" : "User"),
     };
 });
 ```
@@ -182,7 +183,7 @@ builder.Services.AddAtProtoAuthentication(options =>
 | `ClientName` | `string?` | — | App name shown on consent page |
 | `BaseUrl` | `string?` | — | Explicit base URL (for reverse proxies) |
 | `ClientMetadata` | `OAuthClientMetadata?` | — | Explicit client metadata (for production) |
-| `ClaimsFactory` | `Func<...>?` | — | Custom claims factory |
+| `ClaimsFactory` | `Func<OAuthSession, IEnumerable<Claim>>?` | — | Custom claims factory |
 | `CookieExpiration` | `TimeSpan` | 7 days | Cookie lifetime |
 | `IsPersistent` | `bool` | `true` | Persist cookie across sessions |
 | `HttpClient` | `HttpClient?` | — | Client used for OAuth discovery/token requests. Caller-owned: its `Timeout` is untouched and it is not disposed with the service |
@@ -294,7 +295,7 @@ dotnet add package ATProtoNet.Server
 ```
 
 ```csharp
-builder.Services.AddAtProtoServer(); // Registers IAtProtoTokenStore + IAtProtoClientFactory
+builder.Services.AddAtProtoServer(); // Registers IAtProtoSessionStore + IAtProtoClientFactory
 ```
 
 This enables `IAtProtoClientFactory` to create authenticated `AtProtoClient` instances for logged-in users.

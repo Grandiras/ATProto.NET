@@ -83,22 +83,22 @@ public class XrpcTransportTests : IDisposable
     }
 
     [Fact]
-    public async Task ApplyOAuthSessionAsync_AfterARequest_PointsAtTheSessionsPds()
+    public async Task ApplySessionAsync_AfterARequest_PointsAtTheSessionsPds()
     {
         using var client = CreateClient("https://entryway.example.com");
         await client.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping"));
 
-        await client.ApplyOAuthSessionAsync(new OAuthSessionResult
+        using var key = new DPoPProofGenerator();
+        await client.ApplySessionAsync(new OAuthSession
         {
-            Did = "did:plc:alice",
-            Handle = "alice.example.com",
+            Did = Did.Parse("did:plc:alice"),
+            Handle = Handle.Parse("alice.example.com"),
+            ServiceEndpoint = new Uri("https://pds.alice.example.com"),
             AccessToken = "access",
             RefreshToken = "refresh",
-            TokenType = "DPoP",
-            PdsUrl = "https://pds.alice.example.com",
+            DPoPKey = key.ExportPrivateKey(),
             Issuer = "https://entryway.example.com",
-            TokenEndpoint = "https://entryway.example.com/oauth/token",
-            DPoP = new DPoPProofGenerator(),
+            TokenEndpoint = new Uri("https://entryway.example.com/oauth/token"),
         });
         await client.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping"));
 

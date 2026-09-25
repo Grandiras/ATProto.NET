@@ -1,44 +1,40 @@
 using System.Text.Json;
-using ATProtoNet.Auth.OAuth;
+using ATProtoNet.Auth;
+using ATProtoNet.Identity;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Server.TokenStore;
 
 /// <summary>
-/// File-based implementation of <see cref="IAtProtoTokenStore"/> that persists tokens
-/// to encrypted JSON files using ASP.NET Core Data Protection.
+/// An <see cref="IAtProtoSessionStore"/> that keeps each account's session in its own file,
+/// encrypted with ASP.NET Core Data Protection.
 /// </summary>
 /// <remarks>
-/// <para>Each user's token data is stored in a separate file named <c>{did-hash}.dat</c>
-/// within the configured directory. File content is encrypted with Data Protection,
-/// so tokens (including the DPoP private key) are protected at rest.</para>
+/// <para>Each session is stored in a file named <c>{did-hash}.dat</c> within the configured
+/// directory. The content is encrypted with Data Protection, so tokens (including an OAuth
+/// session's DPoP private key) are protected at rest. Files written by the 0.6 token store are
+/// read as OAuth sessions.</para>
 /// <para>Suitable for single-server deployments. For multi-server or cloud scenarios,
-/// implement <see cref="IAtProtoTokenStore"/> with a shared store (e.g., database, Redis).</para>
+/// implement <see cref="IAtProtoSessionStore"/> with a shared store (e.g., database, Redis).</para>
 /// </remarks>
-public sealed class FileAtProtoTokenStore : IAtProtoTokenStore
+public sealed class FileAtProtoSessionStore : IAtProtoSessionStore
 {
     private readonly string _directory;
     private readonly IDataProtector _protector;
-    private readonly ILogger<FileAtProtoTokenStore> _logger;
+    private readonly ILogger<FileAtProtoSessionStore> _logger;
     private readonly SemaphoreSlim _lock = new(1, 1);
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = false,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
-
     /// <summary>
-    /// Creates a new <see cref="FileAtProtoTokenStore"/>.
+    /// Creates a new <see cref="FileAtProtoSessionStore"/>.
     /// </summary>
-    /// <param name="dataProtectionProvider">Data protection provider for encrypting token files.</param>
+    /// <param name="dataProtectionProvider">Data protection provider for encrypting session files.</param>
     /// <param name="logger">Logger instance.</param>
     /// <param name="options">Options specifying the storage directory.</param>
-    public FileAtProtoTokenStore(
+    public FileAtProtoSessionStore(
         IDataProtectionProvider dataProtectionProvider,
-        ILogger<FileAtProtoTokenStore> logger,
-        FileTokenStoreOptions? options = null)
+        ILogger<FileAtProtoSessionStore> logger,
+        FileSessionStoreOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(dataProtectionProvider);
 
@@ -73,17 +69,17 @@ public sealed class FileAtProtoTokenStore : IAtProtoTokenStore
     }
 
     /// <inheritdoc/>
-    public async Task StoreAsync(string did, AtProtoTokenData data, CancellationToken cancellationToken = default)
+    public async ValueTask SetAsync(AtProtoSession session, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(did);
-        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(session);
 
+        var did = session.Did;
         var filePath = GetFilePath(did);
 
         await _lock.WaitAsync(cancellationToken);
         try
         {
-            var json = JsonSerializer.Serialize(data, JsonOptions);
+            var json = AtProtoSessionJson.Serialize(session);
             var encrypted = _protector.Protect(json);
 
             // Write to a sibling temp file and move it into place, so a crash or a
@@ -94,7 +90,7 @@ public sealed class FileAtProtoTokenStore : IAtProtoTokenStore
             RestrictToOwner(tempPath);
             File.Move(tempPath, filePath, overwrite: true);
 
-            _logger.LogDebug("Stored tokens for DID {Did}", did);
+            _logger.LogDebug("Stored the session of {Did}", did);
         }
         finally
         {
@@ -103,9 +99,9 @@ public sealed class FileAtProtoTokenStore : IAtProtoTokenStore
     }
 
     /// <inheritdoc/>
-    public async Task<AtProtoTokenData?> GetAsync(string did, CancellationToken cancellationToken = default)
+    public async ValueTask<AtProtoSession?> GetAsync(Did did, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(did);
+        ArgumentNullException.ThrowIfNull(did);
 
         var filePath = GetFilePath(did);
 
@@ -117,11 +113,11 @@ public sealed class FileAtProtoTokenStore : IAtProtoTokenStore
         {
             var encrypted = await File.ReadAllTextAsync(filePath, cancellationToken);
             var json = _protector.Unprotect(encrypted);
-            return JsonSerializer.Deserialize<AtProtoTokenData>(json, JsonOptions);
+            return AtProtoSessionJson.Deserialize(json);
         }
-        catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or JsonException)
+        catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or JsonException or FormatException)
         {
-            _logger.LogWarning(ex, "Failed to read token file for DID {Did}; removing corrupted file", did);
+            _logger.LogWarning(ex, "Failed to read the session file of {Did}; removing corrupted file", did);
             TryDeleteFile(filePath);
             return null;
         }
@@ -132,9 +128,9 @@ public sealed class FileAtProtoTokenStore : IAtProtoTokenStore
     }
 
     /// <inheritdoc/>
-    public async Task RemoveAsync(string did, CancellationToken cancellationToken = default)
+    public async ValueTask RemoveAsync(Did did, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(did);
+        ArgumentNullException.ThrowIfNull(did);
 
         var filePath = GetFilePath(did);
 
@@ -144,7 +140,7 @@ public sealed class FileAtProtoTokenStore : IAtProtoTokenStore
         try
         {
             TryDeleteFile(filePath);
-            _logger.LogDebug("Removed tokens for DID {Did}", did);
+            _logger.LogDebug("Removed the session of {Did}", did);
         }
         finally
         {
@@ -152,12 +148,12 @@ public sealed class FileAtProtoTokenStore : IAtProtoTokenStore
         }
     }
 
-    private string GetFilePath(string did)
+    private string GetFilePath(Did did)
     {
         // Hash the DID to create a safe filename
         var hash = Convert.ToHexStringLower(
             System.Security.Cryptography.SHA256.HashData(
-                System.Text.Encoding.UTF8.GetBytes(did)));
+                System.Text.Encoding.UTF8.GetBytes(did.Value)));
 
         return Path.Combine(_directory, $"{hash}.dat");
     }
@@ -177,12 +173,12 @@ public sealed class FileAtProtoTokenStore : IAtProtoTokenStore
 }
 
 /// <summary>
-/// Configuration options for <see cref="FileAtProtoTokenStore"/>.
+/// Configuration options for <see cref="FileAtProtoSessionStore"/>.
 /// </summary>
-public sealed class FileTokenStoreOptions
+public sealed class FileSessionStoreOptions
 {
     /// <summary>
-    /// Directory where encrypted token files are stored.
+    /// Directory where encrypted session files are stored.
     /// Defaults to <c>{LocalApplicationData}/ATProtoNet/tokens</c>.
     /// </summary>
     public string? Directory { get; set; }

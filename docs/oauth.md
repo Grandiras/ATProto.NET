@@ -143,8 +143,12 @@ var session = await oauthClient.CompleteAuthorizationAsync(
     issuer: queryParams["iss"]);
 
 Console.WriteLine($"Authenticated as {session.Handle} ({session.Did})");
-Console.WriteLine($"PDS: {session.PdsUrl}");
+Console.WriteLine($"PDS: {session.ServiceEndpoint}");
 ```
+
+The result is an `OAuthSession`: an immutable value holding the account's DID and PDS, the tokens,
+their expiry, the authorization server's endpoints, and the DPoP key the tokens are bound to (as
+PKCS#8 bytes). A handle that did not verify comes back as `handle.invalid`.
 
 This performs:
 - State verification (CSRF protection)
@@ -155,31 +159,49 @@ This performs:
 
 ### Step 3: Use the Session
 
-Apply the OAuth session to an `AtProtoClient`:
+Install the session on an `AtProtoClient`, together with the `OAuthClient` that issued it:
 
 ```csharp
-var client = new AtProtoClient(new AtProtoClientOptions
-{
-    InstanceUrl = session.PdsUrl,
-});
+await using var client = new AtProtoClientBuilder()
+    .WithSessionStore(sessionStore)   // optional: keeps a persisted copy current
+    .Build();
 
-await client.ApplyOAuthSessionAsync(session);
+await client.ApplySessionAsync(session, oauthClient);
 
-// Now use the client normally
-var profile = await client.Bsky.Actor.GetProfileAsync(client.Did!);
+// Now use the client normally: it is pointed at the session's PDS
+var profile = await client.Bsky.Actor.GetProfileAsync(session.Did);
 await client.PostAsync("Hello from OAuth!");
 ```
 
-### Step 4: Refresh Tokens
+The client neither copies nor disposes the `OAuthClient`; keep one per application and share it.
+
+### Step 4: Refresh and Sign Out
+
+The client refreshes the session by itself: before a request when the access token is about to
+expire, and once more when the PDS answers with a DPoP `invalid_token` challenge. Concurrent requests
+share one refresh, since a refresh token can only be spent once. Each refresh installs a new
+`OAuthSession` and writes it to the session store; `SessionChanged` reports it.
 
 ```csharp
-var newTokens = await oauthClient.RefreshTokensAsync(session);
+await client.RefreshSessionAsync();   // explicitly, if you need to
 
-// Update session with new tokens
-session.AccessToken = newTokens.AccessToken;
-if (newTokens.RefreshToken is not null)
-    session.RefreshToken = newTokens.RefreshToken;
+// Sign out: drops the session locally and from the store, then revokes it (RFC 7009)
+await client.LogoutAsync();
 ```
+
+If the authorization server refuses the refresh token (`invalid_grant`: expired, revoked, or already
+used), the session has ended: the client removes it and throws `OAuthException`. Outside an
+`AtProtoClient`, `oauthClient.RefreshAsync(session)` returns the refreshed session and
+`oauthClient.RevokeAsync(session)` revokes it.
+
+To resume after a restart, restore the session from your store and hand the `OAuthClient` over again:
+
+```csharp
+if (await client.TryRestoreSessionAsync(did, oauthClient))
+    Console.WriteLine($"Welcome back, {client.Handle}");
+```
+
+See [Session Management](session-management.md) for the whole lifecycle.
 
 ## Dynamic PDS Selection
 
@@ -237,11 +259,15 @@ After login, these claims are available on `context.User`:
 | Claim | Description |
 |-------|-------------|
 | `ClaimTypes.NameIdentifier` | User's DID |
-| `ClaimTypes.Name` | User's handle |
+| `ClaimTypes.Name` | User's handle, or `handle.invalid` when it did not verify |
 | `did` | User's DID |
-| `handle` | User's handle |
+| `handle` | User's handle, or the DID when it did not verify |
+| `handle_verified` | `"true"` or `"false"` |
 | `pds_url` | User's PDS URL |
 | `auth_method` | Always `"oauth"` |
+
+With `AddAtProtoServer()` registered, the callback stores the `OAuthSession` in the
+`IAtProtoSessionStore`, and `/atproto/logout` revokes it at the authorization server and removes it.
 
 ### Production Configuration
 
@@ -333,14 +359,14 @@ back to the appview.
 
 ## DPoP Key Management
 
-Each OAuth session has its own ES256 (P-256) key pair:
+Each OAuth session has its own ES256 (P-256) key pair, carried by the session as PKCS#8 bytes, so
+persisting the session persists the key:
 
 ```csharp
-// Export key for persistence (store securely!)
-byte[] keyBytes = session.DPoP.ExportPrivateKey();
+ReadOnlyMemory<byte> keyBytes = session.DPoPKey;
 
-// Import key in a new session
-var dpop = new DPoPProofGenerator(keyBytes);
+// A proof generator over the same key, should you need one outside an AtProtoClient
+using var dpop = new DPoPProofGenerator(keyBytes.ToArray());
 ```
 
 AT Protocol DPoP proofs are ES256 only, so importing a key on any other curve (a K-256 repo signing key, for example) throws `ArgumentException`.
@@ -387,7 +413,9 @@ catch (OAuthException ex)
 | `invalid_scope` | Token doesn't include `atproto` scope |
 | `unsupported_scope` | The authorization server does not offer a required scope |
 | `par_failed` | Pushed Authorization Request failed |
-| `token_error` | Token exchange failed |
+| `token_error` | Token exchange failed, or a token response carried no usable access token |
+| `invalid_grant` | The refresh token has expired, been revoked, or already been used; sign in again |
+| `use_dpop_nonce` | The server kept asking for a new DPoP nonce (the first request is retried automatically) |
 | `no_refresh_token` | Refresh attempted without refresh token |
 | `invalid_handle` | Handle contains invalid characters or format |
 | `invalid_did` | DID format or host is invalid |

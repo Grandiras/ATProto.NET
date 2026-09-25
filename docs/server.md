@@ -1,7 +1,7 @@
 # Server-Side AT Protocol Integration
 
 ATProtoNet.Server provides tools for integrating AT Protocol access into ASP.NET Core applications.
-It works alongside ATProtoNet.Blazor to enable authenticated backend API calls using stored OAuth tokens.
+It works alongside ATProtoNet.Blazor to enable authenticated backend API calls using stored OAuth sessions.
 
 ## Quick Start
 
@@ -76,15 +76,19 @@ app.MapGet("/api/profile", async (ClaimsPrincipal user, IAtProtoClientFactory fa
 │     → Exchanges code for DPoP-bound tokens         │
 │     → Creates claims (DID, handle, PDS URL)        │
 │     → Issues cookie via SignInAsync()               │
-│     → Stores tokens in IAtProtoTokenStore ────┐    │
+│     → Stores session in IAtProtoSessionStore ─┐    │
 │                                               │    │
 │  3. API endpoint or Blazor component           │    │
 │     → IAtProtoClientFactory                    │    │
 │       → Reads DID from cookie claims           │    │
-│       → Looks up tokens ◄─────────────────────┘    │
-│       → Reconstructs DPoP key                      │
+│       → Restores the session ◄────────────────┘    │
 │       → Creates authenticated AtProtoClient        │
 │       → Calls AT Proto APIs on user's PDS          │
+│       → Refreshes on demand, writes rotated        │
+│         tokens back to the store                   │
+│                                                    │
+│  4. /atproto/logout                                │
+│     → Revokes the session (RFC 7009), removes it   │
 └────────────────────────────────────────────────────┘
 ```
 
@@ -96,7 +100,9 @@ Key security points:
 
 ## `IAtProtoClientFactory`
 
-Creates authenticated `AtProtoClient` instances from stored OAuth tokens.
+Creates authenticated `AtProtoClient` instances from stored sessions. Each client refreshes its
+session on demand (before the access token expires, and after the PDS rejects it) and writes the
+rotated tokens back to the store, so the next request's client starts from them.
 
 ```csharp
 public interface IAtProtoClientFactory
@@ -109,7 +115,10 @@ public interface IAtProtoClientFactory
 
 Returns `null` when:
 - The user has no `did` claim (not authenticated)
-- No tokens are stored for the user's DID (not logged in via OAuth, or tokens expired/removed)
+- No session is stored for the user's DID (not logged in via OAuth, signed out, or expired)
+
+Each per-request client refreshes on its own: two concurrent requests for the same user that both
+find the access token expired each spend the refresh token, and the second is refused.
 
 The returned client is **disposable** — always use `await using`:
 
@@ -117,23 +126,25 @@ The returned client is **disposable** — always use `await using`:
 await using var client = await factory.CreateClientForUserAsync(user);
 ```
 
-## `IAtProtoTokenStore`
+## `IAtProtoSessionStore`
 
-Interface for server-side OAuth token storage. Tokens are stored keyed by DID.
+Server-side session storage, keyed by DID. It is the same interface `AtProtoClient` persists its own
+session to (see [Session Management](session-management.md#persisting-sessions)).
 
 ```csharp
-public interface IAtProtoTokenStore
+public interface IAtProtoSessionStore
 {
-    Task StoreAsync(string did, AtProtoTokenData data, CancellationToken ct = default);
-    Task<AtProtoTokenData?> GetAsync(string did, CancellationToken ct = default);
-    Task RemoveAsync(string did, CancellationToken ct = default);
+    ValueTask<AtProtoSession?> GetAsync(Did did, CancellationToken ct = default);
+    ValueTask SetAsync(AtProtoSession session, CancellationToken ct = default);
+    ValueTask RemoveAsync(Did did, CancellationToken ct = default);
 }
 ```
 
-### Default: `FileAtProtoTokenStore`
+### Default: `FileAtProtoSessionStore`
 
-The default implementation stores tokens as encrypted files using ASP.NET Core Data Protection.
-Tokens persist across app restarts. Suitable for single-server deployments.
+The default implementation stores each session as an encrypted file using ASP.NET Core Data
+Protection. Sessions persist across app restarts. Suitable for single-server deployments. Files
+written by the 0.6 `FileAtProtoTokenStore` are read as they are.
 
 ```csharp
 // Default — stores in {LocalApplicationData}/ATProtoNet/tokens/
@@ -145,62 +156,56 @@ builder.Services.AddAtProtoServer("/var/data/atproto-tokens");
 
 ### In-Memory Store
 
-For development or testing, use the in-memory store (tokens are lost on restart):
+For development or testing, use the in-memory store from the core package (sessions are lost on
+restart):
 
 ```csharp
-builder.Services.AddAtProtoServer<InMemoryAtProtoTokenStore>();
+builder.Services.AddAtProtoServer<InMemoryAtProtoSessionStore>();
 ```
 
 ### Custom Implementation
 
-For production, implement `IAtProtoTokenStore` with a durable, encrypted store:
+For production, implement `IAtProtoSessionStore` with a durable, encrypted store. Sessions serialize
+with `System.Text.Json` as `AtProtoSession`:
 
 ```csharp
-public class DatabaseTokenStore : IAtProtoTokenStore
+public class DatabaseSessionStore(MyDbContext db, IDataProtectionProvider protection) : IAtProtoSessionStore
 {
-    private readonly MyDbContext _db;
+    private readonly IDataProtector _protector = protection.CreateProtector("MyApp.Sessions");
 
-    public DatabaseTokenStore(MyDbContext db) => _db = db;
-
-    public async Task StoreAsync(string did, AtProtoTokenData data, CancellationToken ct)
+    public async ValueTask SetAsync(AtProtoSession session, CancellationToken ct)
     {
-        // Encrypt data.DPoPPrivateKey before storing!
-        var entity = await _db.TokenEntries.FindAsync([did], ct);
-        if (entity is null)
-        {
-            entity = new TokenEntry { Did = did };
-            _db.TokenEntries.Add(entity);
-        }
-        entity.SetFromTokenData(data); // Map and encrypt
-        await _db.SaveChangesAsync(ct);
+        var entry = await db.Sessions.FindAsync([session.Did.Value], ct);
+        if (entry is null)
+            db.Sessions.Add(entry = new SessionEntry { Did = session.Did.Value });
+
+        entry.Payload = _protector.Protect(JsonSerializer.Serialize(session));
+        await db.SaveChangesAsync(ct);
     }
 
     // ... GetAsync, RemoveAsync
 }
 
 // Register:
-builder.Services.AddAtProtoServer<DatabaseTokenStore>();
+builder.Services.AddAtProtoServer<DatabaseSessionStore>();
 ```
 
-> **Security:** `AtProtoTokenData.DPoPPrivateKey` contains an unencrypted PKCS#8 private key.
-> Always encrypt it before persisting to a database or external store.
+> **Security:** an `OAuthSession` carries its DPoP private key (`DPoPKey`, unencrypted PKCS#8) and
+> every session its tokens. Always encrypt sessions before persisting them.
 
-### Entity Framework Core Token Store
+### Entity Framework Core Session Store
 
-ATProtoNet provides a ready-made EF Core implementation, included in the `ATProtoNet.Server` package. (It previously shipped as the separate `ATProtoNet.Server.EntityFrameworkCore` package, which has been merged into `ATProtoNet.Server`; the `ATProtoNet.Server.EntityFrameworkCore` namespace and the `AddAtProtoEfCoreTokenStore<T>()` API are unchanged.)
-
-```bash
-dotnet add package ATProtoNet.Server
-```
+ATProtoNet provides a ready-made EF Core implementation in the `ATProtoNet.Server` package
+(namespace `ATProtoNet.Server.EntityFrameworkCore`).
 
 Register with your `DbContext`:
 
 ```csharp
-builder.Services.AddDbContext<AppDbContext>(options =>
+builder.Services.AddDbContextFactory<AppDbContext>(options =>
     options.UseSqlite("Data Source=app.db"));
 
-// Add the EF Core token store
-builder.Services.AddAtProtoEfCoreTokenStore<AppDbContext>();
+// Add the EF Core session store
+builder.Services.AddAtProtoEfCoreSessionStore<AppDbContext>();
 ```
 
 Your `DbContext` must inherit from `AtProtoTokenDbContext` or include the `AtProtoTokenEntity` set:
@@ -229,7 +234,10 @@ public class AppDbContext : DbContext
 }
 ```
 
-The `EfCoreAtProtoTokenStore` handles encryption via ASP.NET Core Data Protection before persisting DPoP keys.
+The `EfCoreAtProtoSessionStore` encrypts each session with ASP.NET Core Data Protection and keeps it
+in the `EncryptedTokenData` column. The table (`AtProtoTokens`: `Did`, `EncryptedTokenData`,
+`UpdatedAt`) is the one the 0.6 token store used, so upgrading needs no migration, and rows the 0.6
+store wrote are read as they are.
 
 The same namespace also carries EF Core stores for the space server — the writer set, the
 `com.atproto.simplespace` member lists, and the single-use-token replay table — alongside a Redis
