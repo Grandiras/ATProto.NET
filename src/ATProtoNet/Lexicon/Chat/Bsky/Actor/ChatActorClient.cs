@@ -4,7 +4,7 @@ namespace ATProtoNet.Lexicon.Chat.Bsky.Actor;
 
 /// <summary>
 /// Client for chat.bsky.actor.* XRPC endpoints.
-/// Handles chat account operations: declaration, deletion, and data export.
+/// Handles chat account operations: status, deletion, and data export.
 /// </summary>
 public sealed class ChatActorClient
 {
@@ -16,6 +16,15 @@ public sealed class ChatActorClient
     {
         _xrpc = xrpc;
     }
+
+    /// <summary>
+    /// Gets the viewer's chat status: whether chat is disabled for the account, whether it may
+    /// create groups, and how many members a group may have.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<GetStatusResponse> GetStatusAsync(CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetStatusResponse>(
+            "chat.bsky.actor.getStatus", options: ChatProxy, cancellationToken: cancellationToken);
 
     /// <summary>
     /// Deletes the chat account data for the authenticated user.

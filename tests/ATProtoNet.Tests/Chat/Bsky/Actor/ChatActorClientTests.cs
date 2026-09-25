@@ -46,6 +46,48 @@ public class ChatActorClientTests : IDisposable
         Assert.Equal(ServiceProxy.BskyChatHeader, capturedProxy);
     }
 
+    [Fact]
+    public async Task GetStatusAsync_GetsWithProxy_ReadsTheStatus()
+    {
+        string? capturedUrl = null;
+        string? capturedProxy = null;
+        string? capturedMethod = null;
+        _handler.ResponseFactory = request =>
+        {
+            capturedUrl = request.RequestUri?.PathAndQuery;
+            capturedMethod = request.Method.Method;
+            capturedProxy = request.Headers.TryGetValues("atproto-proxy", out var v)
+                ? v.FirstOrDefault() : null;
+            return new HttpResponseMessage
+            {
+                Content = new StringContent("""{"chatDisabled":false,"canCreateGroups":true,"groupMemberLimit":100}"""),
+            };
+        };
+
+        var status = await _actor.GetStatusAsync();
+
+        Assert.Equal("/xrpc/chat.bsky.actor.getStatus", capturedUrl);
+        Assert.Equal("GET", capturedMethod);
+        Assert.Equal(ServiceProxy.BskyChatHeader, capturedProxy);
+        Assert.False(status.ChatDisabled);
+        Assert.True(status.CanCreateGroups);
+        Assert.Equal(100, status.GroupMemberLimit);
+    }
+
+    [Fact]
+    public void ChatDeclarationRecord_WithGroupInvites_WritesTheLexiconShape()
+    {
+        var record = new ChatDeclarationRecord
+        {
+            AllowIncoming = ChatAllowIncoming.Following,
+            AllowGroupInvites = ChatAllowIncoming.None,
+        };
+
+        Assert.Equal(
+            """{"$type":"chat.bsky.actor.declaration","allowIncoming":"following","allowGroupInvites":"none"}""",
+            JsonSerializer.Serialize(record, ATProtoNet.Serialization.AtProtoJsonDefaults.Options));
+    }
+
     public void Dispose()
     {
         _httpClient.Dispose();

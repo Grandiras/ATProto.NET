@@ -46,11 +46,17 @@ public partial class LexiconDriftTests
         [typeof(Chat.Convo.ChatMemberView)] = "chat.bsky.actor.defs#profileViewBasic",
         [typeof(Chat.Convo.MessageSender)] = "chat.bsky.convo.defs#messageViewSender",
         [typeof(Chat.Convo.BatchMessageItem)] = "chat.bsky.convo.sendMessageBatch#batchItem",
-        // A loose view over the getLog union: rev, convoId and message are what its variants share.
-        [typeof(Chat.Convo.ConvoLogEntry)] = "chat.bsky.convo.defs#logCreateMessage",
-        // muteConvo, unmuteConvo and updateRead share this output; so do addReaction and removeReaction.
+        [typeof(Chat.Convo.MessageReplyRef)] = "chat.bsky.convo.defs#replyRef",
+        // Every method answering {convo} shares this output: muteConvo, unmuteConvo, updateRead,
+        // lockConvo, unlockConvo, and the group's createGroup, editGroup, removeMembers and
+        // approveJoinRequest. addReaction and removeReaction share MessageOutput.
         [typeof(Chat.Convo.ConvoOutput)] = "chat.bsky.convo.muteConvo#output",
         [typeof(Chat.Convo.MessageOutput)] = "chat.bsky.convo.addReaction#output",
+        // createJoinLink, editJoinLink, enableJoinLink and disableJoinLink share this output.
+        [typeof(Chat.Group.JoinLinkOutput)] = "chat.bsky.group.createJoinLink#output",
+        [typeof(Chat.Moderation.ModerationConvoView)] = "chat.bsky.moderation.defs#convoView",
+        [typeof(Chat.Moderation.ChatActorMetadata)] = "chat.bsky.moderation.getActorMetadata#metadata",
+        [typeof(Chat.Notification.ChatNotificationPreferences)] = "chat.bsky.notification.defs#preferences",
 
         [typeof(AtProto.Admin.AccountInfo)] = "com.atproto.admin.defs#accountView",
         [typeof(AtProto.Admin.SubjectStatusDetail)] = "com.atproto.admin.defs#statusAttr",
@@ -105,6 +111,10 @@ public partial class LexiconDriftTests
             "Removed from subscribeRepos upstream in 2025; the firehose models are reworked by #126.",
         [typeof(AtProto.Sync.TombstoneEvent)] =
             "Removed from subscribeRepos upstream in 2025; the firehose models are reworked by #126.",
+        [typeof(Chat.Convo.ConvoLogEntry)] =
+            "The base of the getLog union, holding the rev and convoId every variant has; the variants are checked one by one.",
+        [typeof(Chat.Convo.UnknownConvoLogEntry)] =
+            "The unknown getLog variant: it keeps the raw object and reads rev and convoId from it.",
     };
 
     /// <summary>
@@ -130,18 +140,7 @@ public partial class LexiconDriftTests
         ["Lexicon.App.Bsky.Feed.PostRecord.entities"] = "Deprecated upstream: replaced by facets.",
         ["Lexicon.App.Bsky.Actor.GetSuggestionsResponse.recId"] = "Deprecated upstream: use recIdStr.",
         ["Lexicon.App.Bsky.Graph.GetSuggestedFollowsByActorResponse.recId"] = "Deprecated upstream: use recIdStr.",
-
-        // Group chats, reactions and replies: typed views, each with an open union, come with #128.
-        ["Lexicon.Chat.Bsky.Convo.ConvoView.kind"] = GroupChats,
-        ["Lexicon.Chat.Bsky.Convo.ConvoView.lastReaction"] = GroupChats,
-        ["Lexicon.Chat.Bsky.Convo.ChatMemberView.kind"] = GroupChats,
-        ["Lexicon.Chat.Bsky.Convo.MessageView.reactions"] = GroupChats,
-        ["Lexicon.Chat.Bsky.Convo.MessageView.replyTo"] = GroupChats,
-        ["Lexicon.Chat.Bsky.Convo.MessageInput.replyTo"] = GroupChats,
-        ["Lexicon.Chat.Bsky.Convo.ConvoLogEntry.relatedProfiles"] = GroupChats,
     };
-
-    private const string GroupChats = "Group chats and the typed chat views are #128.";
 
     /// <summary>
     /// Constants in a knownValues class that upstream does not list, keyed <c>Class:value</c>,
@@ -193,6 +192,15 @@ public partial class LexiconDriftTests
         ("ATProtoNet.Lexicon.App.Bsky.Video.JobFailureCode", "app.bsky.video.defs#jobStatus:failureCode"),
         ("ATProtoNet.Lexicon.App.Bsky.Video.JobState", "app.bsky.video.defs#jobStatus:state"),
         ("ATProtoNet.Lexicon.Chat.Bsky.Actor.ChatAllowIncoming", "chat.bsky.actor.declaration:allowIncoming"),
+        ("ATProtoNet.Lexicon.Chat.Bsky.Actor.ChatMemberRole", "chat.bsky.actor.defs#memberRole"),
+        ("ATProtoNet.Lexicon.Chat.Bsky.Convo.ConvoKinds", "chat.bsky.convo.defs#convoKind"),
+        ("ATProtoNet.Lexicon.Chat.Bsky.Convo.ConvoLockStatus", "chat.bsky.convo.defs#convoLockStatus"),
+        ("ATProtoNet.Lexicon.Chat.Bsky.Convo.ConvoReadState", "chat.bsky.convo.listConvos#params:readState"),
+        ("ATProtoNet.Lexicon.Chat.Bsky.Convo.ConvoStatus", "chat.bsky.convo.defs#convoStatus"),
+        ("ATProtoNet.Lexicon.Chat.Bsky.Group.JoinLinkEnabledStatus", "chat.bsky.group.defs#linkEnabledStatus"),
+        ("ATProtoNet.Lexicon.Chat.Bsky.Group.JoinRule", "chat.bsky.group.defs#joinRule"),
+        ("ATProtoNet.Lexicon.Chat.Bsky.Group.RequestJoinStatus", "chat.bsky.group.requestJoin#output:status"),
+        ("ATProtoNet.Lexicon.Chat.Bsky.Notification.ChatPreferenceInclude", "chat.bsky.notification.defs#chatPreference:include"),
         ("ATProtoNet.Lexicon.Com.AtProto.Moderation.ReportReasons", "com.atproto.moderation.defs#reasonType"),
         ("ATProtoNet.Lexicon.Com.AtProto.Sync.AccountHostingStatus", "com.atproto.sync.getRepoStatus#output:status"),
         ("ATProtoNet.Lexicon.Com.AtProto.Sync.HostStatus", "com.atproto.sync.defs#hostStatus"),

@@ -9,6 +9,9 @@ using ATProtoNet.Lexicon.App.Bsky.Feed;
 using ATProtoNet.Lexicon.App.Bsky.Labeler;
 using ATProtoNet.Lexicon.Chat.Bsky.Actor;
 using ATProtoNet.Lexicon.Chat.Bsky.Convo;
+using ATProtoNet.Lexicon.Chat.Bsky.Group;
+using ATProtoNet.Lexicon.Chat.Bsky.Moderation;
+using ATProtoNet.Lexicon.Chat.Bsky.Notification;
 using ATProtoNet.Lexicon.App.Bsky.Graph;
 using ATProtoNet.Lexicon.App.Bsky.Notification;
 using ATProtoNet.Lexicon.App.Bsky.RichText;
@@ -161,7 +164,12 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             new VideoClient(_xrpc));
 
         // Chat sub-clients (automatically proxied to chat service)
-        Chat = new ChatClients(new ConvoClient(_xrpc), new ChatActorClient(_xrpc));
+        Chat = new ChatClients(
+            new ConvoClient(_xrpc),
+            new ChatActorClient(_xrpc),
+            new GroupClient(_xrpc),
+            new ChatNotificationClient(_xrpc),
+            new ChatModerationClient(_xrpc));
 
         Ozone = new OzoneClient(_xrpc);
         Site = new StandardSiteClient(Repo);
@@ -1072,22 +1080,39 @@ public sealed class BlueskyClients
 
 /// <summary>
 /// Groups the Bluesky Chat sub-clients.
-/// All requests are automatically proxied to the chat service via the <c>atproto-proxy</c> header.
-/// Requires the <c>transition:chat.bsky</c> OAuth scope.
+/// Their requests are automatically proxied to the chat service via the <c>atproto-proxy</c>
+/// header, except <see cref="Moderation"/>'s. Requires the <c>transition:chat.bsky</c> OAuth scope.
 /// </summary>
 public sealed class ChatClients
 {
-    internal ChatClients(ConvoClient convo, ChatActorClient actor)
+    internal ChatClients(
+        ConvoClient convo,
+        ChatActorClient actor,
+        GroupClient group,
+        ChatNotificationClient notification,
+        ChatModerationClient moderation)
     {
         Convo = convo;
         Actor = actor;
+        Group = group;
+        Notification = notification;
+        Moderation = moderation;
     }
 
-    /// <summary>chat.bsky.convo.* — conversations, messages, reactions.</summary>
+    /// <summary>chat.bsky.convo.* — conversations, direct and group, messages, reactions.</summary>
     public ConvoClient Convo { get; }
 
-    /// <summary>chat.bsky.actor.* — chat account management.</summary>
+    /// <summary>chat.bsky.actor.* — chat status and account management.</summary>
     public ChatActorClient Actor { get; }
+
+    /// <summary>chat.bsky.group.* — group conversations, members, join links and join requests.</summary>
+    public GroupClient Group { get; }
+
+    /// <summary>chat.bsky.notification.* — chat notification preferences.</summary>
+    public ChatNotificationClient Notification { get; }
+
+    /// <summary>chat.bsky.moderation.* — conversation lookups and chat access, for moderation services.</summary>
+    public ChatModerationClient Moderation { get; }
 }
 
 /// <summary>

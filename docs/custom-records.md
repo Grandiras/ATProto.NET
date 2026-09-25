@@ -439,9 +439,10 @@ Behavior worth knowing:
 
 - `$type` may appear anywhere in the object; the Bluesky appview often puts it last.
 - A variant writes its `$type` first, whether you serialize it through the base or on its own.
-- The SDK's Bluesky, Ozone and `com.atproto` unions follow this pattern, each with an
+- The SDK's Bluesky, chat, Ozone and `com.atproto` unions follow this pattern, each with an
   `Unknown{Base}` variant: `UnknownEmbed`, `UnknownEmbedView`, `UnknownFacetFeature`,
-  `UnknownThreadNode`, `UnknownModEvent` and so on. The Spaces models don't yet.
+  `UnknownThreadNode`, `UnknownModEvent`, `UnknownConvoLogEntry` and so on. The Spaces models
+  don't yet.
 - A plain `[JsonPolymorphic]` base still works. It keeps `System.Text.Json`'s own, strict
   behavior, so an unknown `$type` fails the whole response.
 

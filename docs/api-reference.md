@@ -426,8 +426,11 @@ Accessed via `client.Chat`. See [Chat & Direct Messages](chat.md).
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Convo` | `ConvoClient` | Conversations and messages |
-| `Actor` | `ChatActorClient` | Chat actor preferences |
+| `Convo` | `ConvoClient` | Conversations (direct and group), messages, reactions, the log |
+| `Actor` | `ChatActorClient` | Chat status and account data |
+| `Group` | `GroupClient` | Group conversations, members, join links and join requests |
+| `Notification` | `ChatNotificationClient` | Chat notification preferences |
+| `Moderation` | `ChatModerationClient` | Conversation lookups and chat access, for moderation services (no fixed proxy) |
 
 ---
 

@@ -64,7 +64,7 @@ ATProto.NET/
 │   │   └── Lexicon/
 │   │       ├── Com/AtProto/                   # Protocol-level APIs (Server, Repo, Identity, Sync, Admin, Label, Moderation)
 │   │       ├── App/Bsky/                      # Bluesky (Actor, Feed, Graph, Notification, RichText, Embed, Video, Labeler)
-│   │       ├── Chat/Bsky/                     # Direct messaging (Convo, Actor)
+│   │       ├── Chat/Bsky/                     # Direct and group chats (Convo, Actor, Group, Embed, Notification, Moderation)
 │   │       ├── Site/Standard/                 # Long-form publishing
 │   │       └── Tools/Ozone/                   # Moderation tooling
 │   ├── ATProtoNet.Server/                     # ASP.NET Core integration (incl. EF Core token store + Aspire client)

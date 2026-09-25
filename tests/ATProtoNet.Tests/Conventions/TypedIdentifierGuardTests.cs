@@ -85,6 +85,8 @@ public class TypedIdentifierGuardTests
         ["ATProtoNet.Lexicon.Chat.Bsky.Convo.ConvoView.Rev"] = ChatRev,
         ["ATProtoNet.Lexicon.Chat.Bsky.Convo.MessageView.Rev"] = ChatRev,
         ["ATProtoNet.Lexicon.Chat.Bsky.Convo.DeletedMessageView.Rev"] = ChatRev,
+        ["ATProtoNet.Lexicon.Chat.Bsky.Convo.SystemMessageView.Rev"] = ChatRev,
+        ["ATProtoNet.Lexicon.Chat.Bsky.Moderation.ModerationConvoView.Rev"] = ChatRev,
         ["ATProtoNet.Lexicon.Chat.Bsky.Convo.ConvoLogEntry.Rev"] = ChatRev,
         ["ATProtoNet.Lexicon.Chat.Bsky.Convo.LeaveConvoResponse.Rev"] = ChatRev,
         ["ATProtoNet.Lexicon.Chat.Bsky.Convo.AcceptConvoResponse.Rev"] = ChatRev,
