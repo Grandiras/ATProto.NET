@@ -9,7 +9,9 @@ using ATProtoNet.Lexicon.Com.AtProto.Repo;
 using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using ATProtoNet.Models;
 using ATProtoNet.Serialization;
+using OzoneHosting = ATProtoNet.Lexicon.Tools.Ozone.Hosting;
 using OzoneModeration = ATProtoNet.Lexicon.Tools.Ozone.Moderation;
+using OzoneReport = ATProtoNet.Lexicon.Tools.Ozone.Report;
 using ReportModeration = ATProtoNet.Lexicon.Com.AtProto.Moderation;
 
 namespace ATProtoNet.Tests.Serialization;
@@ -36,8 +38,12 @@ public class OpenUnionTests
         { typeof(FacetFeature), "app.bsky.richtext.facet#future" },
         { typeof(ThreadNode), "app.bsky.feed.defs#threadFuture" },
         { typeof(ReportModeration.ReportSubject), "com.atproto.admin.defs#future" },
-        { typeof(OzoneModeration.ModEventType), "tools.ozone.moderation.defs#accountEvent" },
+        { typeof(OzoneModeration.ModEventType), "tools.ozone.moderation.defs#futureEvent" },
         { typeof(OzoneModeration.ModerationSubject), "chat.bsky.convo.defs#futureRef" },
+        { typeof(OzoneModeration.ModerationSubjectView), "tools.ozone.moderation.defs#convoView" },
+        { typeof(OzoneModeration.ScheduledAction), "tools.ozone.moderation.scheduleAction#label" },
+        { typeof(OzoneReport.ReportActivity), "tools.ozone.report.defs#futureActivity" },
+        { typeof(OzoneHosting.AccountHistoryDetails), "tools.ozone.hosting.getAccountHistory#futureChange" },
     };
 
     [Theory]
@@ -115,7 +121,7 @@ public class OpenUnionTests
         // Shape of a real Ozone queryEvents entry for an event type added after this SDK's models.
         const string json =
             """
-            {"id":7,"event":{"$type":"tools.ozone.moderation.defs#identityEvent","handle":"new.example.com","timestamp":"2026-01-01T00:00:00Z"},
+            {"id":7,"event":{"$type":"tools.ozone.moderation.defs#futureEvent","handle":"new.example.com","timestamp":"2026-01-01T00:00:00Z"},
              "subject":{"$type":"com.atproto.admin.defs#repoRef","did":"did:plc:a"},
              "subjectBlobCids":[],"createdBy":"did:plc:mod","createdAt":"2026-01-01T00:00:00Z"}
             """;
@@ -123,7 +129,7 @@ public class OpenUnionTests
         var view = JsonSerializer.Deserialize<OzoneModeration.ModEventView>(json, Options)!;
 
         var unknown = Assert.IsType<OzoneModeration.UnknownModEvent>(view.Event);
-        Assert.Equal("tools.ozone.moderation.defs#identityEvent", unknown.Type);
+        Assert.Equal("tools.ozone.moderation.defs#futureEvent", unknown.Type);
         Assert.Equal("did:plc:a", Assert.IsType<OzoneModeration.RepoSubject>(view.Subject).Did);
     }
 

@@ -439,10 +439,16 @@ Type names below live under `ATProtoNet.Lexicon.Tools.Ozone.*`.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Moderation` | `ModerationClient` | Subject review, reports, actions |
+| `Moderation` | `ModerationClient` | Events, subject review, account and record lookups, scheduled actions |
+| `Report` | `ReportClient` | Individual reports: query, assign, activities, close, statistics |
+| `Queue` | `QueueClient` | Moderation queues, report routing, queue assignments |
 | `Communication` | `CommunicationClient` | Email templates and user emails |
 | `Team` | `TeamClient` | Team member management |
 | `Set` | `SetClient` | Named sets of DIDs/URIs |
+| `Setting` | `SettingClient` | Instance and personal settings |
+| `Safelink` | `SafelinkClient` | URL safety rules and their audit log |
+| `Verification` | `VerificationClient` | Verifications the Ozone service issues |
+| `Hosting` | `HostingClient` | Account history from the account's host |
 | `Signature` | `SignatureClient` | Signature search and correlation |
 | `Server` | `OzoneServerClient` | Server config |
 

@@ -84,6 +84,9 @@ public partial class LexiconDriftTests
         [typeof(Ozone.Server.OzoneViewerConfig)] = "tools.ozone.server.getConfig#viewerConfig",
         [typeof(Ozone.Set.OzoneSetView)] = "tools.ozone.set.defs#setView",
         [typeof(Ozone.Team.TeamMember)] = "tools.ozone.team.defs#member",
+        [typeof(Ozone.Safelink.SafelinkEvent)] = "tools.ozone.safelink.defs#event",
+        [typeof(Ozone.Setting.SettingOption)] = "tools.ozone.setting.defs#option",
+        [typeof(Ozone.Hosting.AccountHistoryEvent)] = "tools.ozone.hosting.getAccountHistory#event",
     };
 
     /// <summary>
@@ -158,10 +161,7 @@ public partial class LexiconDriftTests
     /// Upstream knownValues a constant class deliberately lacks, keyed <c>Class:value</c>; a key
     /// ending in <c>*</c> matches a prefix. And why.
     /// </summary>
-    private static readonly Dictionary<string, string> MissingKnownValues = new(StringComparer.Ordinal)
-    {
-        ["ReportReasons:tools.ozone.report.defs#*"] = "The granular Ozone report reasons are #131.",
-    };
+    private static readonly Dictionary<string, string> MissingKnownValues = new(StringComparer.Ordinal);
 
     /// <summary>The rows of <see cref="KnownValueLocations"/>, for the theory.</summary>
     public static TheoryData<string, string> KnownValueClasses
@@ -196,7 +196,16 @@ public partial class LexiconDriftTests
         ("ATProtoNet.Lexicon.Com.AtProto.Moderation.ReportReasons", "com.atproto.moderation.defs#reasonType"),
         ("ATProtoNet.Lexicon.Com.AtProto.Sync.AccountHostingStatus", "com.atproto.sync.getRepoStatus#output:status"),
         ("ATProtoNet.Lexicon.Com.AtProto.Sync.HostStatus", "com.atproto.sync.defs#hostStatus"),
+        ("ATProtoNet.Lexicon.Tools.Ozone.Hosting.AccountHistoryEventType", "tools.ozone.hosting.getAccountHistory#params:events"),
+        ("ATProtoNet.Lexicon.Tools.Ozone.Moderation.ScheduledActionStatus", "tools.ozone.moderation.defs#scheduledActionView:status"),
         ("ATProtoNet.Lexicon.Tools.Ozone.Moderation.SubjectReviewState", "tools.ozone.moderation.defs#subjectReviewState"),
+        ("ATProtoNet.Lexicon.Tools.Ozone.Report.ReportStatus", "tools.ozone.report.defs#reportView:status"),
+        ("ATProtoNet.Lexicon.Tools.Ozone.Report.ReportSubjectType", "tools.ozone.report.queryReports#params:subjectType"),
+        ("ATProtoNet.Lexicon.Tools.Ozone.Safelink.SafelinkActionType", "tools.ozone.safelink.defs#actionType"),
+        ("ATProtoNet.Lexicon.Tools.Ozone.Safelink.SafelinkEventType", "tools.ozone.safelink.defs#eventType"),
+        ("ATProtoNet.Lexicon.Tools.Ozone.Safelink.SafelinkPatternType", "tools.ozone.safelink.defs#patternType"),
+        ("ATProtoNet.Lexicon.Tools.Ozone.Safelink.SafelinkReasonType", "tools.ozone.safelink.defs#reasonType"),
+        ("ATProtoNet.Lexicon.Tools.Ozone.Setting.SettingScope", "tools.ozone.setting.defs#option:scope"),
         ("ATProtoNet.Lexicon.Tools.Ozone.Team.TeamMemberRole", "tools.ozone.team.defs#member:role"),
     ];
 }

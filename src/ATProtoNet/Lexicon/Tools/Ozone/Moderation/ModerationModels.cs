@@ -4,6 +4,7 @@ using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Models;
 using ATProtoNet.Serialization;
+using Preference = ATProtoNet.Lexicon.App.Bsky.Actor.Preference;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Moderation;
 
@@ -29,6 +30,17 @@ namespace ATProtoNet.Lexicon.Tools.Ozone.Moderation;
 [JsonDerivedType(typeof(ModEventEmail), "tools.ozone.moderation.defs#modEventEmail")]
 [JsonDerivedType(typeof(ModEventDivert), "tools.ozone.moderation.defs#modEventDivert")]
 [JsonDerivedType(typeof(ModEventTag), "tools.ozone.moderation.defs#modEventTag")]
+[JsonDerivedType(typeof(ModEventResolveAppeal), "tools.ozone.moderation.defs#modEventResolveAppeal")]
+[JsonDerivedType(typeof(ModEventPriorityScore), "tools.ozone.moderation.defs#modEventPriorityScore")]
+[JsonDerivedType(typeof(AccountEvent), "tools.ozone.moderation.defs#accountEvent")]
+[JsonDerivedType(typeof(IdentityEvent), "tools.ozone.moderation.defs#identityEvent")]
+[JsonDerivedType(typeof(RecordEvent), "tools.ozone.moderation.defs#recordEvent")]
+[JsonDerivedType(typeof(AgeAssuranceEvent), "tools.ozone.moderation.defs#ageAssuranceEvent")]
+[JsonDerivedType(typeof(AgeAssuranceOverrideEvent), "tools.ozone.moderation.defs#ageAssuranceOverrideEvent")]
+[JsonDerivedType(typeof(AgeAssurancePurgeEvent), "tools.ozone.moderation.defs#ageAssurancePurgeEvent")]
+[JsonDerivedType(typeof(RevokeAccountCredentialsEvent), "tools.ozone.moderation.defs#revokeAccountCredentialsEvent")]
+[JsonDerivedType(typeof(ScheduleTakedownEvent), "tools.ozone.moderation.defs#scheduleTakedownEvent")]
+[JsonDerivedType(typeof(CancelScheduledTakedownEvent), "tools.ozone.moderation.defs#cancelScheduledTakedownEvent")]
 public abstract class ModEventType : LexObject;
 
 /// <summary>
@@ -182,9 +194,9 @@ public sealed class ModEventReport : ModEventType
     [JsonPropertyName("isReporterMuted")]
     public bool? IsReporterMuted { get; init; }
 
-    /// <summary>The report type, for report events.</summary>
+    /// <summary>The report's reason type (see <c>ReportReasons</c>).</summary>
     [JsonPropertyName("reportType")]
-    public string? ReportType { get; init; }
+    public required string ReportType { get; init; }
 }
 
 /// <summary>A moderation event that mutes the subject for a period.</summary>
@@ -207,16 +219,18 @@ public sealed class ModEventUnmute : ModEventType
     public string? Comment { get; init; }
 }
 
-/// <summary>A moderation event that mutes reports from the subject for a period.</summary>
+/// <summary>A moderation event that mutes reports from the subject.</summary>
 public sealed class ModEventMuteReporter : ModEventType
 {
     /// <summary>A free-text moderator comment.</summary>
     [JsonPropertyName("comment")]
     public string? Comment { get; init; }
 
-    /// <summary>Duration of the action in hours.</summary>
+    /// <summary>
+    /// How long the mute lasts, in hours; <see langword="null"/> (or 0) for a permanent mute.
+    /// </summary>
     [JsonPropertyName("durationInHours")]
-    public required int DurationInHours { get; init; }
+    public int? DurationInHours { get; init; }
 }
 
 /// <summary>A moderation event that unmutes reports from the subject.</summary>
@@ -291,6 +305,219 @@ public sealed class ModEventTag : ModEventType
     /// <summary>How long the change lasts, in hours; <see langword="null"/> for permanently.</summary>
     [JsonPropertyName("durationInHours")]
     public int? DurationInHours { get; init; }
+}
+
+/// <summary>A moderation event that resolves an appeal on the subject.</summary>
+public sealed class ModEventResolveAppeal : ModEventType
+{
+    /// <summary>How the appeal was resolved.</summary>
+    [JsonPropertyName("comment")]
+    public string? Comment { get; init; }
+}
+
+/// <summary>
+/// A moderation event that sets the subject's priority score, which orders the review queue.
+/// </summary>
+public sealed class ModEventPriorityScore : ModEventType
+{
+    /// <summary>A free-text moderator comment.</summary>
+    [JsonPropertyName("comment")]
+    public string? Comment { get; init; }
+
+    /// <summary>The new priority score.</summary>
+    [JsonPropertyName("score")]
+    public required int Score { get; init; }
+}
+
+/// <summary>
+/// An account status change on the account's host, which Ozone records as it arrives from the
+/// network.
+/// </summary>
+public sealed class AccountEvent : ModEventType
+{
+    /// <summary>A free-text comment.</summary>
+    [JsonPropertyName("comment")]
+    public string? Comment { get; init; }
+
+    /// <summary>
+    /// Whether the account has a repository that can be fetched from the host that emitted the
+    /// event.
+    /// </summary>
+    [JsonPropertyName("active")]
+    public required bool Active { get; init; }
+
+    /// <summary>
+    /// The account's status when it is not active: <c>unknown</c>, <c>deactivated</c>,
+    /// <c>deleted</c>, <c>takendown</c>, <c>suspended</c> or <c>tombstoned</c>.
+    /// </summary>
+    [JsonPropertyName("status")]
+    public string? Status { get; init; }
+
+    /// <summary>When the change happened.</summary>
+    [JsonPropertyName("timestamp")]
+    public required AtDatetime Timestamp { get; init; }
+}
+
+/// <summary>
+/// An identity change of the account (handle, PDS or tombstone), which Ozone records as it
+/// arrives from the network.
+/// </summary>
+public sealed class IdentityEvent : ModEventType
+{
+    /// <summary>A free-text comment.</summary>
+    [JsonPropertyName("comment")]
+    public string? Comment { get; init; }
+
+    /// <summary>The account's handle after the change.</summary>
+    [JsonPropertyName("handle")]
+    public Handle? Handle { get; init; }
+
+    /// <summary>The account's PDS after the change.</summary>
+    [JsonPropertyName("pdsHost")]
+    public string? PdsHost { get; init; }
+
+    /// <summary>Whether the identity was tombstoned.</summary>
+    [JsonPropertyName("tombstone")]
+    public bool? Tombstone { get; init; }
+
+    /// <summary>When the change happened.</summary>
+    [JsonPropertyName("timestamp")]
+    public required AtDatetime Timestamp { get; init; }
+}
+
+/// <summary>
+/// A write to the subject record, which Ozone records as it arrives from the network.
+/// </summary>
+public sealed class RecordEvent : ModEventType
+{
+    /// <summary>A free-text comment.</summary>
+    [JsonPropertyName("comment")]
+    public string? Comment { get; init; }
+
+    /// <summary>The operation: <c>create</c>, <c>update</c> or <c>delete</c>.</summary>
+    [JsonPropertyName("op")]
+    public required string Op { get; init; }
+
+    /// <summary>The record's CID after the write.</summary>
+    [JsonPropertyName("cid")]
+    public Cid? Cid { get; init; }
+
+    /// <summary>When the write happened.</summary>
+    [JsonPropertyName("timestamp")]
+    public required AtDatetime Timestamp { get; init; }
+}
+
+/// <summary>A step of the account's age-assurance flow, reported by the app view.</summary>
+public sealed class AgeAssuranceEvent : ModEventType
+{
+    /// <summary>When the step was recorded.</summary>
+    [JsonPropertyName("createdAt")]
+    public required AtDatetime CreatedAt { get; init; }
+
+    /// <summary>The identifier (a UUID) of this run of the age-assurance flow.</summary>
+    [JsonPropertyName("attemptId")]
+    public required string AttemptId { get; init; }
+
+    /// <summary>The flow's status: <c>unknown</c>, <c>pending</c> or <c>assured</c>.</summary>
+    [JsonPropertyName("status")]
+    public required string Status { get; init; }
+
+    /// <summary>
+    /// The access level the flow granted: <c>unknown</c>, <c>none</c>, <c>safe</c> or <c>full</c>.
+    /// </summary>
+    [JsonPropertyName("access")]
+    public string? Access { get; init; }
+
+    /// <summary>The ISO 3166-1 alpha-2 country code given when the flow began.</summary>
+    [JsonPropertyName("countryCode")]
+    public string? CountryCode { get; init; }
+
+    /// <summary>The ISO 3166-2 region code given when the flow began.</summary>
+    [JsonPropertyName("regionCode")]
+    public string? RegionCode { get; init; }
+
+    /// <summary>The IP address that began the flow.</summary>
+    [JsonPropertyName("initIp")]
+    public string? InitIp { get; init; }
+
+    /// <summary>The user agent that began the flow.</summary>
+    [JsonPropertyName("initUa")]
+    public string? InitUa { get; init; }
+
+    /// <summary>The IP address that completed the flow.</summary>
+    [JsonPropertyName("completeIp")]
+    public string? CompleteIp { get; init; }
+
+    /// <summary>The user agent that completed the flow.</summary>
+    [JsonPropertyName("completeUa")]
+    public string? CompleteUa { get; init; }
+}
+
+/// <summary>A moderation event that overrides the account's age-assurance state.</summary>
+public sealed class AgeAssuranceOverrideEvent : ModEventType
+{
+    /// <summary>
+    /// The state to set: <c>assured</c>, <c>reset</c> (back to the original state) or
+    /// <c>blocked</c>.
+    /// </summary>
+    [JsonPropertyName("status")]
+    public required string Status { get; init; }
+
+    /// <summary>
+    /// The access level to grant: <c>unknown</c>, <c>none</c>, <c>safe</c> or <c>full</c>.
+    /// </summary>
+    [JsonPropertyName("access")]
+    public string? Access { get; init; }
+
+    /// <summary>Why the state is overridden.</summary>
+    [JsonPropertyName("comment")]
+    public required string Comment { get; init; }
+}
+
+/// <summary>A moderation event that purges the account's age-assurance data.</summary>
+public sealed class AgeAssurancePurgeEvent : ModEventType
+{
+    /// <summary>Why the data is purged.</summary>
+    [JsonPropertyName("comment")]
+    public required string Comment { get; init; }
+}
+
+/// <summary>A moderation event that revokes the account's credentials (sessions and app passwords).</summary>
+public sealed class RevokeAccountCredentialsEvent : ModEventType
+{
+    /// <summary>Why the credentials are revoked.</summary>
+    [JsonPropertyName("comment")]
+    public required string Comment { get; init; }
+}
+
+/// <summary>
+/// A takedown was scheduled for the account (see <see cref="ModerationClient.ScheduleActionAsync"/>).
+/// </summary>
+public sealed class ScheduleTakedownEvent : ModEventType
+{
+    /// <summary>A free-text moderator comment.</summary>
+    [JsonPropertyName("comment")]
+    public string? Comment { get; init; }
+
+    /// <summary>The exact time the takedown runs.</summary>
+    [JsonPropertyName("executeAt")]
+    public AtDatetime? ExecuteAt { get; init; }
+
+    /// <summary>The earliest time the takedown runs, for a randomized time.</summary>
+    [JsonPropertyName("executeAfter")]
+    public AtDatetime? ExecuteAfter { get; init; }
+
+    /// <summary>The latest time the takedown runs, for a randomized time.</summary>
+    [JsonPropertyName("executeUntil")]
+    public AtDatetime? ExecuteUntil { get; init; }
+}
+
+/// <summary>The account's scheduled takedowns were cancelled.</summary>
+public sealed class CancelScheduledTakedownEvent : ModEventType
+{
+    /// <summary>A free-text moderator comment.</summary>
+    [JsonPropertyName("comment")]
+    public string? Comment { get; init; }
 }
 
 // ─── Subject Types ───
@@ -755,9 +982,62 @@ public sealed class AccountStrike : LexObject
 }
 
 /// <summary>
+/// An account or record as Ozone sees it, or a marker that Ozone does not know it: what
+/// <see cref="ModerationClient.GetReposAsync"/> and <see cref="ModerationClient.GetRecordsAsync"/>
+/// return one of per requested subject. Where <see cref="ModerationSubject"/> refers to a subject,
+/// this is its hydrated view. A view this SDK does not model reads as
+/// <see cref="UnknownModerationSubjectView"/>.
+/// </summary>
+[AtProtoUnion(typeof(UnknownModerationSubjectView))]
+[JsonDerivedType(typeof(RepoViewDetail), "tools.ozone.moderation.defs#repoViewDetail")]
+[JsonDerivedType(typeof(RepoViewNotFound), "tools.ozone.moderation.defs#repoViewNotFound")]
+[JsonDerivedType(typeof(RecordViewDetail), "tools.ozone.moderation.defs#recordViewDetail")]
+[JsonDerivedType(typeof(RecordViewNotFound), "tools.ozone.moderation.defs#recordViewNotFound")]
+public abstract class ModerationSubjectView : LexObject;
+
+/// <summary>
+/// A subject view whose <c>$type</c> this SDK version does not model. It keeps the raw object
+/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
+/// </summary>
+public sealed class UnknownModerationSubjectView : ModerationSubjectView, IUnknownUnionVariant
+{
+    /// <summary>Creates an unknown subject view from its discriminator and raw object.</summary>
+    /// <param name="type">The object's <c>$type</c>.</param>
+    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+    public UnknownModerationSubjectView(string type, JsonElement raw)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(type);
+        Type = type;
+        Raw = UnknownUnionVariant.RequireObject(raw);
+    }
+
+    /// <inheritdoc/>
+    public string Type { get; }
+
+    /// <inheritdoc/>
+    public JsonElement Raw { get; }
+}
+
+/// <summary>An account Ozone does not know.</summary>
+public sealed class RepoViewNotFound : ModerationSubjectView
+{
+    /// <summary>The DID that was looked up.</summary>
+    [JsonPropertyName("did")]
+    public required Did Did { get; init; }
+}
+
+/// <summary>A record Ozone does not know.</summary>
+public sealed class RecordViewNotFound : ModerationSubjectView
+{
+    /// <summary>The AT URI that was looked up.</summary>
+    [JsonPropertyName("uri")]
+    public required AtUri Uri { get; init; }
+}
+
+/// <summary>
 /// Record view with moderation context.
 /// </summary>
-public sealed class RecordViewDetail : LexObject
+public sealed class RecordViewDetail : ModerationSubjectView
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -951,7 +1231,7 @@ public sealed class RepoView : LexObject
 /// <summary>
 /// Repo view detail with additional fields.
 /// </summary>
-public sealed class RepoViewDetail : LexObject
+public sealed class RepoViewDetail : ModerationSubjectView
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
@@ -1012,6 +1292,369 @@ public sealed class RepoViewDetail : LexObject
     /// </summary>
     [JsonPropertyName("threatSignatures")]
     public IReadOnlyList<JsonElement>? ThreatSignatures { get; init; }
+}
+
+/// <summary>
+/// Everything Ozone knows about one subject, from getSubjects
+/// (<c>tools.ozone.moderation.defs#subjectView</c>).
+/// </summary>
+public sealed class SubjectView : LexObject
+{
+    /// <summary>The kind of subject: <c>account</c>, <c>record</c> or <c>chat</c>.</summary>
+    [JsonPropertyName("type")]
+    public required string Type { get; init; }
+
+    /// <summary>The subject as requested: an account's DID, or a record's AT URI.</summary>
+    [JsonPropertyName("subject")]
+    public required string Subject { get; init; }
+
+    /// <summary>The subject's moderation status, if it has one.</summary>
+    [JsonPropertyName("status")]
+    public SubjectStatusView? Status { get; init; }
+
+    /// <summary>The account, or the record's account.</summary>
+    [JsonPropertyName("repo")]
+    public RepoViewDetail? Repo { get; init; }
+
+    /// <summary>
+    /// The account's profile view, in the shape the app view returns (an open union upstream
+    /// declares no variants for).
+    /// </summary>
+    [JsonPropertyName("profile")]
+    public JsonElement? Profile { get; init; }
+
+    /// <summary>The record, for a record subject.</summary>
+    [JsonPropertyName("record")]
+    public RecordViewDetail? Record { get; init; }
+}
+
+/// <summary>
+/// How an account's reports turned out (<c>tools.ozone.moderation.defs#reporterStats</c>).
+/// </summary>
+public sealed class ReporterStats : LexObject
+{
+    /// <summary>The reporter's DID.</summary>
+    [JsonPropertyName("did")]
+    public required Did Did { get; init; }
+
+    /// <summary>The reports the account filed on accounts.</summary>
+    [JsonPropertyName("accountReportCount")]
+    public required int AccountReportCount { get; init; }
+
+    /// <summary>The reports the account filed on records.</summary>
+    [JsonPropertyName("recordReportCount")]
+    public required int RecordReportCount { get; init; }
+
+    /// <summary>The accounts the account reported.</summary>
+    [JsonPropertyName("reportedAccountCount")]
+    public required int ReportedAccountCount { get; init; }
+
+    /// <summary>The records the account reported.</summary>
+    [JsonPropertyName("reportedRecordCount")]
+    public required int ReportedRecordCount { get; init; }
+
+    /// <summary>The accounts taken down as a result of the account's reports.</summary>
+    [JsonPropertyName("takendownAccountCount")]
+    public required int TakendownAccountCount { get; init; }
+
+    /// <summary>The records taken down as a result of the account's reports.</summary>
+    [JsonPropertyName("takendownRecordCount")]
+    public required int TakendownRecordCount { get; init; }
+
+    /// <summary>The accounts labeled as a result of the account's reports.</summary>
+    [JsonPropertyName("labeledAccountCount")]
+    public required int LabeledAccountCount { get; init; }
+
+    /// <summary>The records labeled as a result of the account's reports.</summary>
+    [JsonPropertyName("labeledRecordCount")]
+    public required int LabeledRecordCount { get; init; }
+}
+
+/// <summary>
+/// One day of an account's history, from getAccountTimeline
+/// (<c>tools.ozone.moderation.getAccountTimeline#timelineItem</c>).
+/// </summary>
+public sealed class TimelineItem : LexObject
+{
+    /// <summary>The day, as <c>YYYY-MM-DD</c>.</summary>
+    [JsonPropertyName("day")]
+    public required string Day { get; init; }
+
+    /// <summary>How many events of each type happened that day.</summary>
+    [JsonPropertyName("summary")]
+    public required IReadOnlyList<TimelineItemSummary> Summary { get; init; }
+}
+
+/// <summary>
+/// How many events of one type an account had on one day
+/// (<c>tools.ozone.moderation.getAccountTimeline#timelineItemSummary</c>).
+/// </summary>
+public sealed class TimelineItemSummary : LexObject
+{
+    /// <summary>What the events were about: <c>account</c>, <c>record</c> or <c>chat</c>.</summary>
+    [JsonPropertyName("eventSubjectType")]
+    public required string EventSubjectType { get; init; }
+
+    /// <summary>
+    /// The event type: a moderation event (<c>tools.ozone.moderation.defs#modEvent…</c> and the
+    /// other event defs), a PLC operation (<c>tools.ozone.moderation.defs#timelineEventPlc…</c>)
+    /// or an account history event (<c>tools.ozone.hosting.getAccountHistory#…</c>).
+    /// </summary>
+    [JsonPropertyName("eventType")]
+    public required string EventType { get; init; }
+
+    /// <summary>The number of events.</summary>
+    [JsonPropertyName("count")]
+    public required int Count { get; init; }
+}
+
+/// <summary>
+/// A moderation action scheduled to run later
+/// (<c>tools.ozone.moderation.defs#scheduledActionView</c>).
+/// </summary>
+public sealed class ScheduledActionView : LexObject
+{
+    /// <summary>The scheduled action's identifier.</summary>
+    [JsonPropertyName("id")]
+    public required long Id { get; init; }
+
+    /// <summary>The action to run: <c>takedown</c>.</summary>
+    [JsonPropertyName("action")]
+    public required string Action { get; init; }
+
+    /// <summary>The event the action will emit when it runs, as Ozone stored it.</summary>
+    [JsonPropertyName("eventData")]
+    public JsonElement? EventData { get; init; }
+
+    /// <summary>The account the action applies to.</summary>
+    [JsonPropertyName("did")]
+    public required Did Did { get; init; }
+
+    /// <summary>The exact time the action runs.</summary>
+    [JsonPropertyName("executeAt")]
+    public AtDatetime? ExecuteAt { get; init; }
+
+    /// <summary>The earliest time the action runs, for a randomized time.</summary>
+    [JsonPropertyName("executeAfter")]
+    public AtDatetime? ExecuteAfter { get; init; }
+
+    /// <summary>The latest time the action runs, for a randomized time.</summary>
+    [JsonPropertyName("executeUntil")]
+    public AtDatetime? ExecuteUntil { get; init; }
+
+    /// <summary>
+    /// Whether the time is picked at random between <see cref="ExecuteAfter"/> and
+    /// <see cref="ExecuteUntil"/>.
+    /// </summary>
+    [JsonPropertyName("randomizeExecution")]
+    public bool? RandomizeExecution { get; init; }
+
+    /// <summary>The moderator who scheduled the action.</summary>
+    [JsonPropertyName("createdBy")]
+    public required Did CreatedBy { get; init; }
+
+    /// <summary>When the action was scheduled.</summary>
+    [JsonPropertyName("createdAt")]
+    public required AtDatetime CreatedAt { get; init; }
+
+    /// <summary>When the scheduled action last changed.</summary>
+    [JsonPropertyName("updatedAt")]
+    public AtDatetime? UpdatedAt { get; init; }
+
+    /// <summary>The action's status (see <see cref="ScheduledActionStatus"/>).</summary>
+    [JsonPropertyName("status")]
+    public required string Status { get; init; }
+
+    /// <summary>When Ozone last tried to run the action.</summary>
+    [JsonPropertyName("lastExecutedAt")]
+    public AtDatetime? LastExecutedAt { get; init; }
+
+    /// <summary>Why the last attempt to run the action failed.</summary>
+    [JsonPropertyName("lastFailureReason")]
+    public string? LastFailureReason { get; init; }
+
+    /// <summary>The moderation event the action emitted when it ran.</summary>
+    [JsonPropertyName("executionEventId")]
+    public long? ExecutionEventId { get; init; }
+}
+
+/// <summary>
+/// The statuses of a scheduled action (<see cref="ScheduledActionView.Status"/>), for
+/// <see cref="ModerationClient.ListScheduledActionsAsync"/>.
+/// </summary>
+public static class ScheduledActionStatus
+{
+    /// <summary>Waiting to run.</summary>
+    public const string Pending = "pending";
+
+    /// <summary>Ran.</summary>
+    public const string Executed = "executed";
+
+    /// <summary>Cancelled before it ran.</summary>
+    public const string Cancelled = "cancelled";
+
+    /// <summary>Ran and failed.</summary>
+    public const string Failed = "failed";
+}
+
+/// <summary>
+/// An action to schedule with <see cref="ModerationClient.ScheduleActionAsync"/> (the open
+/// <c>tools.ozone.moderation.scheduleAction#input.action</c> union). An action this SDK does not
+/// model reads as <see cref="UnknownScheduledAction"/>.
+/// </summary>
+[AtProtoUnion(typeof(UnknownScheduledAction))]
+[JsonDerivedType(typeof(ScheduledTakedown), "tools.ozone.moderation.scheduleAction#takedown")]
+public abstract class ScheduledAction : LexObject;
+
+/// <summary>
+/// A scheduled action whose <c>$type</c> this SDK version does not model. It keeps the raw object
+/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
+/// </summary>
+public sealed class UnknownScheduledAction : ScheduledAction, IUnknownUnionVariant
+{
+    /// <summary>Creates an unknown scheduled action from its discriminator and raw object.</summary>
+    /// <param name="type">The object's <c>$type</c>.</param>
+    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+    public UnknownScheduledAction(string type, JsonElement raw)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(type);
+        Type = type;
+        Raw = UnknownUnionVariant.RequireObject(raw);
+    }
+
+    /// <inheritdoc/>
+    public string Type { get; }
+
+    /// <inheritdoc/>
+    public JsonElement Raw { get; }
+}
+
+/// <summary>A takedown to run later.</summary>
+public sealed class ScheduledTakedown : ScheduledAction
+{
+    /// <summary>A free-text moderator comment.</summary>
+    [JsonPropertyName("comment")]
+    public string? Comment { get; init; }
+
+    /// <summary>How long the takedown lasts, in hours; <see langword="null"/> for permanently.</summary>
+    [JsonPropertyName("durationInHours")]
+    public int? DurationInHours { get; init; }
+
+    /// <summary>Whether to also acknowledge every open report on the account's content.</summary>
+    [JsonPropertyName("acknowledgeAccountSubjects")]
+    public bool? AcknowledgeAccountSubjects { get; init; }
+
+    /// <summary>The moderation policies the action enforces (at most 5).</summary>
+    [JsonPropertyName("policies")]
+    public IReadOnlyList<string>? Policies { get; init; }
+
+    /// <summary>The severity level of the violation, such as <c>sev-1</c>.</summary>
+    [JsonPropertyName("severityLevel")]
+    public string? SeverityLevel { get; init; }
+
+    /// <summary>The number of strikes the takedown gives the account.</summary>
+    [JsonPropertyName("strikeCount")]
+    public int? StrikeCount { get; init; }
+
+    /// <summary>When the strikes expire; <see langword="null"/> for never.</summary>
+    [JsonPropertyName("strikeExpiresAt")]
+    public AtDatetime? StrikeExpiresAt { get; init; }
+
+    /// <summary>The body of the email sent to the account when the takedown runs.</summary>
+    [JsonPropertyName("emailContent")]
+    public string? EmailContent { get; init; }
+
+    /// <summary>The subject line of that email.</summary>
+    [JsonPropertyName("emailSubject")]
+    public string? EmailSubject { get; init; }
+}
+
+/// <summary>
+/// When a scheduled action runs (<c>tools.ozone.moderation.scheduleAction#schedulingConfig</c>):
+/// at <see cref="ExecuteAt"/>, or at a random time between <see cref="ExecuteAfter"/> and
+/// <see cref="ExecuteUntil"/>.
+/// </summary>
+public sealed class SchedulingConfig : LexObject
+{
+    /// <summary>The exact time to run the action.</summary>
+    [JsonPropertyName("executeAt")]
+    public AtDatetime? ExecuteAt { get; init; }
+
+    /// <summary>The earliest time to run the action, for a randomized time.</summary>
+    [JsonPropertyName("executeAfter")]
+    public AtDatetime? ExecuteAfter { get; init; }
+
+    /// <summary>The latest time to run the action, for a randomized time.</summary>
+    [JsonPropertyName("executeUntil")]
+    public AtDatetime? ExecuteUntil { get; init; }
+}
+
+/// <summary>
+/// Which accounts an action was scheduled for
+/// (<c>tools.ozone.moderation.scheduleAction#scheduledActionResults</c>).
+/// </summary>
+public sealed class ScheduledActionResults : LexObject
+{
+    /// <summary>The accounts the action was scheduled for.</summary>
+    [JsonPropertyName("succeeded")]
+    public required IReadOnlyList<Did> Succeeded { get; init; }
+
+    /// <summary>The accounts it could not be scheduled for, and why.</summary>
+    [JsonPropertyName("failed")]
+    public required IReadOnlyList<FailedScheduling> Failed { get; init; }
+}
+
+/// <summary>
+/// An account an action could not be scheduled for
+/// (<c>tools.ozone.moderation.scheduleAction#failedScheduling</c>).
+/// </summary>
+public sealed class FailedScheduling : LexObject
+{
+    /// <summary>The account.</summary>
+    [JsonPropertyName("subject")]
+    public required Did Subject { get; init; }
+
+    /// <summary>What went wrong.</summary>
+    [JsonPropertyName("error")]
+    public required string Error { get; init; }
+
+    /// <summary>A machine-readable error code.</summary>
+    [JsonPropertyName("errorCode")]
+    public string? ErrorCode { get; init; }
+}
+
+/// <summary>
+/// Which accounts' scheduled actions were cancelled
+/// (<c>tools.ozone.moderation.cancelScheduledActions#cancellationResults</c>).
+/// </summary>
+public sealed class CancellationResults : LexObject
+{
+    /// <summary>The accounts whose pending actions were all cancelled.</summary>
+    [JsonPropertyName("succeeded")]
+    public required IReadOnlyList<Did> Succeeded { get; init; }
+
+    /// <summary>The accounts whose actions could not be cancelled, and why.</summary>
+    [JsonPropertyName("failed")]
+    public required IReadOnlyList<FailedCancellation> Failed { get; init; }
+}
+
+/// <summary>
+/// An account whose scheduled actions could not be cancelled
+/// (<c>tools.ozone.moderation.cancelScheduledActions#failedCancellation</c>).
+/// </summary>
+public sealed class FailedCancellation : LexObject
+{
+    /// <summary>The account.</summary>
+    [JsonPropertyName("did")]
+    public required Did Did { get; init; }
+
+    /// <summary>What went wrong.</summary>
+    [JsonPropertyName("error")]
+    public required string Error { get; init; }
+
+    /// <summary>A machine-readable error code.</summary>
+    [JsonPropertyName("errorCode")]
+    public string? ErrorCode { get; init; }
 }
 
 // ─── Subject review state constants ───
@@ -1311,4 +1954,159 @@ public sealed class SearchReposResponse : ICursorPage<RepoView>
     public required IReadOnlyList<RepoView> Repos { get; init; }
 
     IReadOnlyList<RepoView> ICursorPage<RepoView>.Items => Repos;
+}
+
+/// <summary>
+/// Response from tools.ozone.moderation.getAccountPreferences.
+/// </summary>
+public sealed class GetAccountPreferencesResponse
+{
+    /// <summary>The account's private app preferences, one object per kind.</summary>
+    [JsonPropertyName("preferences")]
+    public required IReadOnlyList<Preference> Preferences { get; init; }
+}
+
+/// <summary>
+/// Response from tools.ozone.moderation.getRepos.
+/// </summary>
+public sealed class GetReposResponse
+{
+    /// <summary>
+    /// One entry per requested DID: a <see cref="RepoViewDetail"/>, or a
+    /// <see cref="RepoViewNotFound"/> for an account Ozone does not know.
+    /// </summary>
+    [JsonPropertyName("repos")]
+    public required IReadOnlyList<ModerationSubjectView> Repos { get; init; }
+}
+
+/// <summary>
+/// Response from tools.ozone.moderation.getRecords.
+/// </summary>
+public sealed class GetRecordsResponse
+{
+    /// <summary>
+    /// One entry per requested AT URI: a <see cref="RecordViewDetail"/>, or a
+    /// <see cref="RecordViewNotFound"/> for a record Ozone does not know.
+    /// </summary>
+    [JsonPropertyName("records")]
+    public required IReadOnlyList<ModerationSubjectView> Records { get; init; }
+}
+
+/// <summary>
+/// Response from tools.ozone.moderation.getSubjects.
+/// </summary>
+public sealed class GetSubjectsResponse
+{
+    /// <summary>The subjects.</summary>
+    [JsonPropertyName("subjects")]
+    public required IReadOnlyList<SubjectView> Subjects { get; init; }
+}
+
+/// <summary>
+/// Response from tools.ozone.moderation.getAccountTimeline.
+/// </summary>
+public sealed class GetAccountTimelineResponse
+{
+    /// <summary>The account's history, one entry per day.</summary>
+    [JsonPropertyName("timeline")]
+    public required IReadOnlyList<TimelineItem> Timeline { get; init; }
+}
+
+/// <summary>
+/// Response from tools.ozone.moderation.getReporterStats.
+/// </summary>
+public sealed class GetReporterStatsResponse
+{
+    /// <summary>The statistics, one entry per reporter.</summary>
+    [JsonPropertyName("stats")]
+    public required IReadOnlyList<ReporterStats> Stats { get; init; }
+}
+
+/// <summary>
+/// Request body for tools.ozone.moderation.scheduleAction.
+/// </summary>
+internal sealed class ScheduleActionRequest
+{
+    /// <summary>The action to schedule.</summary>
+    [JsonPropertyName("action")]
+    public required ScheduledAction Action { get; init; }
+
+    /// <summary>The accounts to schedule it for.</summary>
+    [JsonPropertyName("subjects")]
+    public required IReadOnlyList<Did> Subjects { get; init; }
+
+    /// <summary>The moderator scheduling it.</summary>
+    [JsonPropertyName("createdBy")]
+    public required Did CreatedBy { get; init; }
+
+    /// <summary>When it runs.</summary>
+    [JsonPropertyName("scheduling")]
+    public required SchedulingConfig Scheduling { get; init; }
+
+    /// <summary>The tool scheduling it, passed on to the event it emits.</summary>
+    [JsonPropertyName("modTool")]
+    public ModTool? ModTool { get; init; }
+}
+
+/// <summary>
+/// Request body for tools.ozone.moderation.listScheduledActions.
+/// </summary>
+internal sealed class ListScheduledActionsRequest
+{
+    /// <summary>Only actions scheduled to run after this time.</summary>
+    [JsonPropertyName("startsAfter")]
+    public AtDatetime? StartsAfter { get; init; }
+
+    /// <summary>Only actions scheduled to run before this time.</summary>
+    [JsonPropertyName("endsBefore")]
+    public AtDatetime? EndsBefore { get; init; }
+
+    /// <summary>Only actions for these accounts.</summary>
+    [JsonPropertyName("subjects")]
+    public IReadOnlyList<Did>? Subjects { get; init; }
+
+    /// <summary>Only actions in these statuses.</summary>
+    [JsonPropertyName("statuses")]
+    public required IReadOnlyList<string> Statuses { get; init; }
+
+    /// <summary>Maximum number of actions.</summary>
+    [JsonPropertyName("limit")]
+    public int? Limit { get; init; }
+
+    /// <summary>Pagination cursor from a previous response.</summary>
+    [JsonPropertyName("cursor")]
+    public string? Cursor { get; init; }
+}
+
+/// <summary>
+/// Response from tools.ozone.moderation.listScheduledActions.
+/// </summary>
+public sealed class ListScheduledActionsResponse : ICursorPage<ScheduledActionView>
+{
+    /// <summary>The scheduled actions.</summary>
+    [JsonPropertyName("actions")]
+    public required IReadOnlyList<ScheduledActionView> Actions { get; init; }
+
+    /// <summary>
+    /// Pagination cursor; pass this back on the next request to continue where this page ended.
+    /// <see langword="null"/> when there are no further results.
+    /// </summary>
+    [JsonPropertyName("cursor")]
+    public string? Cursor { get; init; }
+
+    IReadOnlyList<ScheduledActionView> ICursorPage<ScheduledActionView>.Items => Actions;
+}
+
+/// <summary>
+/// Request body for tools.ozone.moderation.cancelScheduledActions.
+/// </summary>
+internal sealed class CancelScheduledActionsRequest
+{
+    /// <summary>The accounts whose pending actions to cancel.</summary>
+    [JsonPropertyName("subjects")]
+    public required IReadOnlyList<Did> Subjects { get; init; }
+
+    /// <summary>Why they are cancelled.</summary>
+    [JsonPropertyName("comment")]
+    public string? Comment { get; init; }
 }

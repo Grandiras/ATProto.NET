@@ -142,28 +142,224 @@ public sealed class CreateReportResponse
 }
 
 /// <summary>
-/// Well-known moderation report reason types.
+/// Well-known moderation report reason types (<c>com.atproto.moderation.defs#reasonType</c>).
 /// </summary>
+/// <remarks>
+/// Two sets: the original coarse <c>com.atproto.moderation.defs#reason*</c> reasons (<see cref="Spam"/>
+/// to <see cref="Appeal"/>), and the granular <c>tools.ozone.report.defs#reason*</c> reasons,
+/// grouped by category, which upstream now prefers. Each coarse reason names its granular
+/// replacement. The granular appeal and catch-all reasons are <see cref="OzoneAppeal"/> and
+/// <see cref="OzoneOther"/>. Some reasons go only to the app's moderation authority, not to
+/// third-party labelers; their summaries say so.
+/// </remarks>
 public static class ReportReasons
 {
-    /// <summary>The <c>com.atproto.moderation.defs#reasonSpam</c> report reason.</summary>
+    /// <summary>
+    /// Spam: frequent unwanted promotion, replies or mentions
+    /// (<c>com.atproto.moderation.defs#reasonSpam</c>). Prefer <see cref="MisleadingSpam"/>.
+    /// </summary>
     public const string Spam = "com.atproto.moderation.defs#reasonSpam";
 
-    /// <summary>The <c>com.atproto.moderation.defs#reasonViolation</c> report reason.</summary>
+    /// <summary>
+    /// A direct violation of server rules, laws or terms of service
+    /// (<c>com.atproto.moderation.defs#reasonViolation</c>). Prefer <see cref="RuleOther"/>.
+    /// </summary>
     public const string Violation = "com.atproto.moderation.defs#reasonViolation";
 
-    /// <summary>The <c>com.atproto.moderation.defs#reasonMisleading</c> report reason.</summary>
+    /// <summary>
+    /// Misleading identity, affiliation or content
+    /// (<c>com.atproto.moderation.defs#reasonMisleading</c>). Prefer <see cref="MisleadingOther"/>.
+    /// </summary>
     public const string Misleading = "com.atproto.moderation.defs#reasonMisleading";
 
-    /// <summary>The <c>com.atproto.moderation.defs#reasonSexual</c> report reason.</summary>
+    /// <summary>
+    /// Unwanted or mislabeled sexual content (<c>com.atproto.moderation.defs#reasonSexual</c>).
+    /// Prefer <see cref="SexualUnlabeled"/>.
+    /// </summary>
     public const string Sexual = "com.atproto.moderation.defs#reasonSexual";
 
-    /// <summary>The <c>com.atproto.moderation.defs#reasonRude</c> report reason.</summary>
+    /// <summary>
+    /// Rude, harassing, explicit or otherwise unwelcoming behavior
+    /// (<c>com.atproto.moderation.defs#reasonRude</c>). Prefer <see cref="HarassmentOther"/>.
+    /// </summary>
     public const string Rude = "com.atproto.moderation.defs#reasonRude";
 
-    /// <summary>The <c>com.atproto.moderation.defs#reasonOther</c> report reason.</summary>
+    /// <summary>
+    /// A report that fits no other category (<c>com.atproto.moderation.defs#reasonOther</c>).
+    /// Prefer <see cref="OzoneOther"/>.
+    /// </summary>
     public const string Other = "com.atproto.moderation.defs#reasonOther";
 
-    /// <summary>The <c>com.atproto.moderation.defs#reasonAppeal</c> report reason.</summary>
+    /// <summary>
+    /// An appeal of a moderation action (<c>com.atproto.moderation.defs#reasonAppeal</c>).
+    /// </summary>
     public const string Appeal = "com.atproto.moderation.defs#reasonAppeal";
+
+    /// <summary>
+    /// An appeal of a moderation action, in the granular set
+    /// (<c>tools.ozone.report.defs#reasonAppeal</c>).
+    /// </summary>
+    public const string OzoneAppeal = "tools.ozone.report.defs#reasonAppeal";
+
+    /// <summary>
+    /// An issue none of the granular reasons covers (<c>tools.ozone.report.defs#reasonOther</c>).
+    /// </summary>
+    public const string OzoneOther = "tools.ozone.report.defs#reasonOther";
+
+    // ─── Violence ───
+
+    /// <summary>Animal welfare violations (<c>tools.ozone.report.defs#reasonViolenceAnimal</c>).</summary>
+    public const string ViolenceAnimal = "tools.ozone.report.defs#reasonViolenceAnimal";
+
+    /// <summary>Threats or incitement (<c>tools.ozone.report.defs#reasonViolenceThreats</c>).</summary>
+    public const string ViolenceThreats = "tools.ozone.report.defs#reasonViolenceThreats";
+
+    /// <summary>Graphic violent content (<c>tools.ozone.report.defs#reasonViolenceGraphicContent</c>).</summary>
+    public const string ViolenceGraphicContent = "tools.ozone.report.defs#reasonViolenceGraphicContent";
+
+    /// <summary>Glorification of violence (<c>tools.ozone.report.defs#reasonViolenceGlorification</c>).</summary>
+    public const string ViolenceGlorification = "tools.ozone.report.defs#reasonViolenceGlorification";
+
+    /// <summary>
+    /// Extremist content (<c>tools.ozone.report.defs#reasonViolenceExtremistContent</c>). Goes
+    /// only to the app's moderation authority.
+    /// </summary>
+    public const string ViolenceExtremistContent = "tools.ozone.report.defs#reasonViolenceExtremistContent";
+
+    /// <summary>Human trafficking (<c>tools.ozone.report.defs#reasonViolenceTrafficking</c>).</summary>
+    public const string ViolenceTrafficking = "tools.ozone.report.defs#reasonViolenceTrafficking";
+
+    /// <summary>Other violent content (<c>tools.ozone.report.defs#reasonViolenceOther</c>).</summary>
+    public const string ViolenceOther = "tools.ozone.report.defs#reasonViolenceOther";
+
+    // ─── Sexual content ───
+
+    /// <summary>Adult sexual abuse content (<c>tools.ozone.report.defs#reasonSexualAbuseContent</c>).</summary>
+    public const string SexualAbuseContent = "tools.ozone.report.defs#reasonSexualAbuseContent";
+
+    /// <summary>Non-consensual intimate imagery (<c>tools.ozone.report.defs#reasonSexualNCII</c>).</summary>
+    public const string SexualNcii = "tools.ozone.report.defs#reasonSexualNCII";
+
+    /// <summary>Deepfake adult content (<c>tools.ozone.report.defs#reasonSexualDeepfake</c>).</summary>
+    public const string SexualDeepfake = "tools.ozone.report.defs#reasonSexualDeepfake";
+
+    /// <summary>Animal sexual abuse (<c>tools.ozone.report.defs#reasonSexualAnimal</c>).</summary>
+    public const string SexualAnimal = "tools.ozone.report.defs#reasonSexualAnimal";
+
+    /// <summary>Unlabeled adult content (<c>tools.ozone.report.defs#reasonSexualUnlabeled</c>).</summary>
+    public const string SexualUnlabeled = "tools.ozone.report.defs#reasonSexualUnlabeled";
+
+    /// <summary>Other sexual violence content (<c>tools.ozone.report.defs#reasonSexualOther</c>).</summary>
+    public const string SexualOther = "tools.ozone.report.defs#reasonSexualOther";
+
+    // ─── Child safety ───
+
+    /// <summary>
+    /// Child sexual abuse material (<c>tools.ozone.report.defs#reasonChildSafetyCSAM</c>). Goes
+    /// only to the app's moderation authority.
+    /// </summary>
+    public const string ChildSafetyCsam = "tools.ozone.report.defs#reasonChildSafetyCSAM";
+
+    /// <summary>
+    /// Grooming or predatory behavior (<c>tools.ozone.report.defs#reasonChildSafetyGroom</c>).
+    /// Goes only to the app's moderation authority.
+    /// </summary>
+    public const string ChildSafetyGroom = "tools.ozone.report.defs#reasonChildSafetyGroom";
+
+    /// <summary>
+    /// A privacy violation involving a minor (<c>tools.ozone.report.defs#reasonChildSafetyPrivacy</c>).
+    /// </summary>
+    public const string ChildSafetyPrivacy = "tools.ozone.report.defs#reasonChildSafetyPrivacy";
+
+    /// <summary>
+    /// Harassment or bullying of minors (<c>tools.ozone.report.defs#reasonChildSafetyHarassment</c>).
+    /// </summary>
+    public const string ChildSafetyHarassment = "tools.ozone.report.defs#reasonChildSafetyHarassment";
+
+    /// <summary>
+    /// Other child safety issues (<c>tools.ozone.report.defs#reasonChildSafetyOther</c>). Goes
+    /// only to the app's moderation authority.
+    /// </summary>
+    public const string ChildSafetyOther = "tools.ozone.report.defs#reasonChildSafetyOther";
+
+    // ─── Harassment ───
+
+    /// <summary>Trolling (<c>tools.ozone.report.defs#reasonHarassmentTroll</c>).</summary>
+    public const string HarassmentTroll = "tools.ozone.report.defs#reasonHarassmentTroll";
+
+    /// <summary>Targeted harassment (<c>tools.ozone.report.defs#reasonHarassmentTargeted</c>).</summary>
+    public const string HarassmentTargeted = "tools.ozone.report.defs#reasonHarassmentTargeted";
+
+    /// <summary>Hate speech (<c>tools.ozone.report.defs#reasonHarassmentHateSpeech</c>).</summary>
+    public const string HarassmentHateSpeech = "tools.ozone.report.defs#reasonHarassmentHateSpeech";
+
+    /// <summary>Doxxing (<c>tools.ozone.report.defs#reasonHarassmentDoxxing</c>).</summary>
+    public const string HarassmentDoxxing = "tools.ozone.report.defs#reasonHarassmentDoxxing";
+
+    /// <summary>
+    /// Other harassing or hateful content (<c>tools.ozone.report.defs#reasonHarassmentOther</c>).
+    /// </summary>
+    public const string HarassmentOther = "tools.ozone.report.defs#reasonHarassmentOther";
+
+    // ─── Misleading ───
+
+    /// <summary>A fake account or bot (<c>tools.ozone.report.defs#reasonMisleadingBot</c>).</summary>
+    public const string MisleadingBot = "tools.ozone.report.defs#reasonMisleadingBot";
+
+    /// <summary>Impersonation (<c>tools.ozone.report.defs#reasonMisleadingImpersonation</c>).</summary>
+    public const string MisleadingImpersonation = "tools.ozone.report.defs#reasonMisleadingImpersonation";
+
+    /// <summary>Spam (<c>tools.ozone.report.defs#reasonMisleadingSpam</c>).</summary>
+    public const string MisleadingSpam = "tools.ozone.report.defs#reasonMisleadingSpam";
+
+    /// <summary>A scam (<c>tools.ozone.report.defs#reasonMisleadingScam</c>).</summary>
+    public const string MisleadingScam = "tools.ozone.report.defs#reasonMisleadingScam";
+
+    /// <summary>
+    /// False information about elections (<c>tools.ozone.report.defs#reasonMisleadingElections</c>).
+    /// </summary>
+    public const string MisleadingElections = "tools.ozone.report.defs#reasonMisleadingElections";
+
+    /// <summary>Other misleading content (<c>tools.ozone.report.defs#reasonMisleadingOther</c>).</summary>
+    public const string MisleadingOther = "tools.ozone.report.defs#reasonMisleadingOther";
+
+    // ─── Rule violations ───
+
+    /// <summary>Hacking or system attacks (<c>tools.ozone.report.defs#reasonRuleSiteSecurity</c>).</summary>
+    public const string RuleSiteSecurity = "tools.ozone.report.defs#reasonRuleSiteSecurity";
+
+    /// <summary>
+    /// Promoting or selling prohibited items or services
+    /// (<c>tools.ozone.report.defs#reasonRuleProhibitedSales</c>).
+    /// </summary>
+    public const string RuleProhibitedSales = "tools.ozone.report.defs#reasonRuleProhibitedSales";
+
+    /// <summary>A banned user returning (<c>tools.ozone.report.defs#reasonRuleBanEvasion</c>).</summary>
+    public const string RuleBanEvasion = "tools.ozone.report.defs#reasonRuleBanEvasion";
+
+    /// <summary>Other rule violations (<c>tools.ozone.report.defs#reasonRuleOther</c>).</summary>
+    public const string RuleOther = "tools.ozone.report.defs#reasonRuleOther";
+
+    // ─── Self-harm ───
+
+    /// <summary>
+    /// Content promoting or depicting self-harm (<c>tools.ozone.report.defs#reasonSelfHarmContent</c>).
+    /// </summary>
+    public const string SelfHarmContent = "tools.ozone.report.defs#reasonSelfHarmContent";
+
+    /// <summary>Eating disorders (<c>tools.ozone.report.defs#reasonSelfHarmED</c>).</summary>
+    public const string SelfHarmED = "tools.ozone.report.defs#reasonSelfHarmED";
+
+    /// <summary>
+    /// Dangerous challenges or activities (<c>tools.ozone.report.defs#reasonSelfHarmStunts</c>).
+    /// </summary>
+    public const string SelfHarmStunts = "tools.ozone.report.defs#reasonSelfHarmStunts";
+
+    /// <summary>
+    /// Dangerous substances or drug abuse (<c>tools.ozone.report.defs#reasonSelfHarmSubstances</c>).
+    /// </summary>
+    public const string SelfHarmSubstances = "tools.ozone.report.defs#reasonSelfHarmSubstances";
+
+    /// <summary>Other dangerous content (<c>tools.ozone.report.defs#reasonSelfHarmOther</c>).</summary>
+    public const string SelfHarmOther = "tools.ozone.report.defs#reasonSelfHarmOther";
 }

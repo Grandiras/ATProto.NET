@@ -93,6 +93,15 @@ public class TypedIdentifierGuardTests
         ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.ModerationClient.EnumerateEventsAsync(subject)"] = OzoneSubjectFilter,
         ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.SubjectStatusFilter.Subject"] = OzoneSubjectFilter,
         ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.SubjectStatusFilter.IgnoreSubjects"] = OzoneSubjectFilter,
+        ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.ModerationClient.GetSubjectsAsync(subjects)"] = OzoneSubjectFilter,
+        ["ATProtoNet.Lexicon.Tools.Ozone.Report.ReportClient.CloseReportsAsync(subject)"] = OzoneSubjectFilter,
+        ["ATProtoNet.Lexicon.Tools.Ozone.Report.ReportFilter.Subject"] = OzoneSubjectFilter,
+        ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.SubjectView.Subject"] =
+            "No Lexicon format: the subject as requested, an account's DID or a record's AT URI.",
+        ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.ScheduledTakedown.EmailSubject"] =
+            "The email's subject line.",
+        ["ATProtoNet.Lexicon.Tools.Ozone.Hosting.AccountHistoryEvent.CreatedBy"] =
+            "No Lexicon format: who made the change, as the account's host records it.",
         ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.SubjectStatusView.AgeAssuranceUpdatedBy"] =
             "No Lexicon format: who last changed the state, `admin` or `user`.",
         ["ATProtoNet.Lexicon.Tools.Ozone.Set.SetClient.QuerySetsAsync(sortBy)"] = OzoneSetSort,
