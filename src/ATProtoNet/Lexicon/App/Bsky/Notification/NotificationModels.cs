@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Actor;
+using ATProtoNet.Lexicon.App.Bsky.Graph;
 using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Notification;
@@ -27,10 +28,7 @@ public sealed class NotificationView : LexObject
     [JsonPropertyName("author")]
     public required ProfileView Author { get; init; }
 
-    /// <summary>
-    /// Reason for the notification: "like", "repost", "follow", "mention",
-    /// "reply", "quote", "starterpack-joined".
-    /// </summary>
+    /// <summary>Why the notification was sent (see <see cref="NotificationReasons"/>).</summary>
     [JsonPropertyName("reason")]
     public required string Reason { get; init; }
 
@@ -41,6 +39,12 @@ public sealed class NotificationView : LexObject
     /// <summary>The record that triggered the notification.</summary>
     [JsonPropertyName("record")]
     public required JsonElement Record { get; init; }
+
+    /// <summary>
+    /// The starter pack the notification is about, for a <c>starterpack-joined</c> notification.
+    /// </summary>
+    [JsonPropertyName("starterPack")]
+    public StarterPackViewBasic? StarterPack { get; init; }
 
     /// <summary>Whether the notification has been read.</summary>
     [JsonPropertyName("isRead")]
@@ -71,8 +75,9 @@ public sealed class ListNotificationsResponse : ICursorPage<NotificationView>
     [JsonPropertyName("notifications")]
     public required IReadOnlyList<NotificationView> Notifications { get; init; }
 
-    /// <summary>Whether only priority notifications were returned.</summary>
+    /// <summary>No longer populated.</summary>
     [JsonPropertyName("priority")]
+    [Obsolete("Deprecated upstream: the appview no longer populates this field.")]
     public bool? Priority { get; init; }
 
     /// <summary>The timestamp notifications were last marked seen at.</summary>
@@ -134,6 +139,10 @@ public sealed class RegisterPushRequest
     /// <summary>The application identifier the push token belongs to.</summary>
     [JsonPropertyName("appId")]
     public required string AppId { get; init; }
+
+    /// <summary>Whether the client knows the account to be age-restricted.</summary>
+    [JsonPropertyName("ageRestricted")]
+    public bool? AgeRestricted { get; init; }
 }
 
 /// <summary>
@@ -161,4 +170,37 @@ public static class NotificationReasons
 
     /// <summary>The <c>starterpack-joined</c> notification reason.</summary>
     public const string StarterpackJoined = "starterpack-joined";
+
+    /// <summary>A trusted verifier verified the account.</summary>
+    public const string Verified = "verified";
+
+    /// <summary>A trusted verifier removed the account's verification.</summary>
+    public const string Unverified = "unverified";
+
+    /// <summary>Someone liked a repost the account made.</summary>
+    public const string LikeViaRepost = "like-via-repost";
+
+    /// <summary>Someone reposted a repost the account made.</summary>
+    public const string RepostViaRepost = "repost-via-repost";
+
+    /// <summary>An account the viewer subscribed to posted.</summary>
+    public const string SubscribedPost = "subscribed-post";
+
+    /// <summary>One of the account's contacts joined.</summary>
+    public const string ContactMatch = "contact-match";
+}
+
+/// <summary>
+/// Which of an account's activity the viewer is subscribed to
+/// (<c>app.bsky.notification.defs#activitySubscription</c>).
+/// </summary>
+public sealed class ActivitySubscription : LexObject
+{
+    /// <summary>Whether the viewer is notified of the account's posts.</summary>
+    [JsonPropertyName("post")]
+    public required bool Post { get; init; }
+
+    /// <summary>Whether the viewer is notified of the account's replies.</summary>
+    [JsonPropertyName("reply")]
+    public required bool Reply { get; init; }
 }

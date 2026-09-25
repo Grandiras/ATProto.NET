@@ -26,6 +26,12 @@ internal sealed class CreateSessionRequest
     /// </summary>
     [JsonPropertyName("authFactorToken")]
     public string? AuthFactorToken { get; init; }
+
+    /// <summary>
+    /// Whether a taken-down account may sign in, to a session that can only migrate or export it.
+    /// </summary>
+    [JsonPropertyName("allowTakendown")]
+    public bool? AllowTakendown { get; init; }
 }
 
 /// <summary>
@@ -185,6 +191,16 @@ public sealed class CreateAccountResponse
 }
 
 /// <summary>
+/// Request body for deactivateAccount.
+/// </summary>
+internal sealed class DeactivateAccountRequest
+{
+    /// <summary>How long the server should keep the deactivated account before deleting it.</summary>
+    [JsonPropertyName("deleteAfter")]
+    public AtDatetime? DeleteAfter { get; init; }
+}
+
+/// <summary>
 /// Request body for com.atproto.server.deleteAccount.
 /// </summary>
 public sealed class DeleteAccountRequest
@@ -226,6 +242,10 @@ public sealed class DescribeServerResponse
     /// <summary>Contact details for the server operator.</summary>
     [JsonPropertyName("contact")]
     public ServerContact? Contact { get; init; }
+
+    /// <summary>The largest blob the server accepts, in bytes, if it states one.</summary>
+    [JsonPropertyName("blobUploadLimit")]
+    public long? BlobUploadLimit { get; init; }
 
     /// <summary>The DID of the server.</summary>
     [JsonPropertyName("did")]

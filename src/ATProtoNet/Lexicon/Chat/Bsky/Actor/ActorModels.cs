@@ -18,10 +18,18 @@ public sealed class ChatDeclarationRecord : LexObject
     /// </summary>
     [JsonPropertyName("allowIncoming")]
     public required string AllowIncoming { get; init; }
+
+    /// <summary>
+    /// Who may add this account to a group conversation (<c>all</c>, <c>none</c>, or
+    /// <c>following</c>).
+    /// </summary>
+    [JsonPropertyName("allowGroupInvites")]
+    public string? AllowGroupInvites { get; init; }
 }
 
 /// <summary>
-/// Allowed values for <see cref="ChatDeclarationRecord.AllowIncoming"/>.
+/// Known values of <see cref="ChatDeclarationRecord.AllowIncoming"/> and
+/// <see cref="ChatDeclarationRecord.AllowGroupInvites"/>.
 /// </summary>
 public static class ChatAllowIncoming
 {

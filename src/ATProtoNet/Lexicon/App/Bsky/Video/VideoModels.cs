@@ -22,7 +22,7 @@ public sealed class JobStatus : LexObject
     [JsonPropertyName("did")]
     public required Did Did { get; init; }
 
-    /// <summary>Job processing state (e.g., JOB_STATE_CREATED, JOB_STATE_ENCODING, JOB_STATE_COMPLETED, JOB_STATE_FAILED).</summary>
+    /// <summary>The job's processing state (see <see cref="JobState"/>).</summary>
     [JsonPropertyName("state")]
     public required string State { get; init; }
 
@@ -37,6 +37,10 @@ public sealed class JobStatus : LexObject
     /// <summary>Error identifier when state is JOB_STATE_FAILED.</summary>
     [JsonPropertyName("error")]
     public string? Error { get; init; }
+
+    /// <summary>Why the job failed, when state is JOB_STATE_FAILED (see <see cref="JobFailureCode"/>).</summary>
+    [JsonPropertyName("failureCode")]
+    public string? FailureCode { get; init; }
 
     /// <summary>Human-readable error message.</summary>
     [JsonPropertyName("message")]
@@ -54,14 +58,47 @@ public static class JobState
     /// <summary>The <c>JOB_STATE_ENCODING</c> video processing job state.</summary>
     public const string Encoding = "JOB_STATE_ENCODING";
 
+    /// <summary>The <c>JOB_STATE_ENCODED</c> video processing job state.</summary>
+    public const string Encoded = "JOB_STATE_ENCODED";
+
     /// <summary>The <c>JOB_STATE_SCANNING</c> video processing job state.</summary>
     public const string Scanning = "JOB_STATE_SCANNING";
+
+    /// <summary>The <c>JOB_STATE_SCANNED</c> video processing job state.</summary>
+    public const string Scanned = "JOB_STATE_SCANNED";
+
+    /// <summary>The <c>JOB_STATE_UPLOADING</c> video processing job state.</summary>
+    public const string Uploading = "JOB_STATE_UPLOADING";
+
+    /// <summary>The <c>JOB_STATE_UPLOADED</c> video processing job state.</summary>
+    public const string Uploaded = "JOB_STATE_UPLOADED";
 
     /// <summary>The <c>JOB_STATE_COMPLETED</c> video processing job state.</summary>
     public const string Completed = "JOB_STATE_COMPLETED";
 
     /// <summary>The <c>JOB_STATE_FAILED</c> video processing job state.</summary>
     public const string Failed = "JOB_STATE_FAILED";
+}
+
+/// <summary>
+/// Known values of <see cref="JobStatus.FailureCode"/>.
+/// </summary>
+public static class JobFailureCode
+{
+    /// <summary>The upload is not a valid video, or breaks a limit.</summary>
+    public const string ValidationFailure = "validation_failure";
+
+    /// <summary>The video could not be encoded.</summary>
+    public const string EncodingFailure = "encoding_failure";
+
+    /// <summary>The encoded video could not be uploaded to the account's PDS.</summary>
+    public const string PdsUploadFailure = "pds_upload_failure";
+
+    /// <summary>The account's PDS does not accept a blob of the video's size.</summary>
+    public const string PdsUploadUnsupportedBlobSize = "pds_upload_unsupported_blob_size";
+
+    /// <summary>Any other failure.</summary>
+    public const string GenericFailure = "generic_failure";
 }
 
 // ──────────────────────────────────────────────────────────────

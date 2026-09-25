@@ -1,0 +1,5 @@
+# The vendored Lexicons under lexicons/ stay byte-for-byte as fetched (see README.md).
+[lexicons/**]
+trim_trailing_whitespace = false
+insert_final_newline = unset
+indent_size = unset

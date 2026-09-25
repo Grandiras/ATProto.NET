@@ -20,8 +20,7 @@ foreach (var view in response.Views)
 {
     var detailed = view.Deserialize<LabelerViewDetailed>(AtProtoJsonDefaults.Options)!;
 
-    // Creator is a raw JsonElement (app.bsky.actor.defs#profileView)
-    Console.WriteLine($"Labeler: {detailed.Creator.GetProperty("handle").GetString()}");
+    Console.WriteLine($"Labeler: {detailed.Creator.Handle}");
     Console.WriteLine($"Likes: {detailed.LikeCount}");
 
     foreach (var labelDef in detailed.Policies.LabelValueDefinitions ?? [])
@@ -37,22 +36,32 @@ Without `detailed: true`, deserialize into `LabelerView` instead — it carries 
 
 ## Standard Label Values
 
-The SDK provides constants for all well-known Bluesky label values:
+`StandardLabelValues` holds the label values with a global meaning
+(`com.atproto.label.defs#labelValue`), plus a few that Bluesky's moderation service applies:
 
 ```csharp
 using ATProtoNet.Lexicon.App.Bsky.Labeler;
 
-// Content labels
+// System labels: clients apply them whatever the viewer's settings
+StandardLabelValues.Hide              // "!hide"
+StandardLabelValues.Warn              // "!warn"
+StandardLabelValues.NoUnauthenticated // "!no-unauthenticated"
+
+// Content and account labels
 StandardLabelValues.Porn
 StandardLabelValues.Sexual
 StandardLabelValues.Nudity
 StandardLabelValues.GraphicMedia
-StandardLabelValues.Gore
+StandardLabelValues.Bot
 
-// Account labels
+// Applied by Bluesky's moderation service
 StandardLabelValues.Spam
 StandardLabelValues.Impersonation
+StandardLabelValues.Misleading
 ```
+
+`Gore`, `ContentWarning` and `NotAvailable` are obsolete: none is a global label value, and
+`NotAvailable` was always the same string as `NoUnauthenticated`.
 
 ## Custom Label Definitions
 

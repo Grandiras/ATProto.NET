@@ -123,9 +123,12 @@ public class ConvoClientTests : IDisposable
                 ? v.FirstOrDefault() : null;
             return JsonResponse(new
             {
-                id = "convo-1", rev = "rev-2",
-                members = Array.Empty<object>(),
-                muted = true, unreadCount = 0,
+                convo = new
+                {
+                    id = "convo-1", rev = "rev-2",
+                    members = Array.Empty<object>(),
+                    muted = true, unreadCount = 0,
+                },
             });
         };
 
@@ -145,7 +148,7 @@ public class ConvoClientTests : IDisposable
             capturedUrl = request.RequestUri?.PathAndQuery;
             capturedProxy = request.Headers.TryGetValues("atproto-proxy", out var v)
                 ? v.FirstOrDefault() : null;
-            return new HttpResponseMessage { Content = new StringContent("{}") };
+            return JsonResponse(new { updatedCount = 0 });
         };
 
         await _convo.UpdateAllReadAsync();
@@ -200,9 +203,12 @@ public class ConvoClientTests : IDisposable
                 ? v.FirstOrDefault() : null;
             return JsonResponse(new
             {
-                id = "msg-1", rev = "rev-1",
-                sender = new { did = "did:plc:user1" },
-                sentAt = "2024-01-01T00:00:00Z",
+                message = new
+                {
+                    id = "msg-1", rev = "rev-1", text = "hi",
+                    sender = new { did = "did:plc:user1" },
+                    sentAt = "2024-01-01T00:00:00Z",
+                },
             });
         };
 
@@ -245,9 +251,9 @@ public class ConvoClientTests : IDisposable
             return JsonResponse(new { convos = Array.Empty<object>() });
         };
 
-        await _convo.ListConvosAsync(true, "accepted", 10, "abc");
+        await _convo.ListConvosAsync("unread", "accepted", 10, "abc");
 
-        Assert.Equal("?readOnly=true&status=accepted&limit=10&cursor=abc", capturedQuery);
+        Assert.Equal("?readState=unread&status=accepted&limit=10&cursor=abc", capturedQuery);
     }
 
     [Fact]

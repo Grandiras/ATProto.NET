@@ -109,7 +109,9 @@ public class EmptyResponseBodyTests : IDisposable
             _client.Identity.SubmitPlcOperationAsync(
                 new SubmitPlcOperationRequest { Operation = new Dictionary<string, object>() }),
         "com.atproto.sync.notifyOfUpdate" =>
+#pragma warning disable CS0618 // deprecated upstream, still a void procedure worth covering
             _client.Sync.NotifyOfUpdateAsync("pds.example.com"),
+#pragma warning restore CS0618
         "com.atproto.sync.requestCrawl" =>
             _client.Sync.RequestCrawlAsync("pds.example.com"),
         "app.bsky.actor.putPreferences" =>

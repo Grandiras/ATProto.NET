@@ -1,6 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ATProtoNet.Identity;
+using ATProtoNet.Lexicon.App.Bsky.Actor;
+using ATProtoNet.Lexicon.App.Bsky.Embed;
+using ATProtoNet.Lexicon.App.Bsky.Feed;
 using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Labeler;
@@ -22,9 +25,33 @@ public sealed class LabelerServiceRecord : LexObject
     [JsonPropertyName("policies")]
     public required LabelerPolicies Policies { get; init; }
 
+    /// <summary>Self-applied labels on the labeler service.</summary>
+    [JsonPropertyName("labels")]
+    public SelfLabels? Labels { get; init; }
+
     /// <summary>Timestamp of creation.</summary>
     [JsonPropertyName("createdAt")]
     public required AtDatetime CreatedAt { get; init; }
+
+    /// <summary>
+    /// The report reasons the labeler accepts (<c>com.atproto.moderation.defs#reasonType</c>
+    /// values); <see langword="null"/> for all.
+    /// </summary>
+    [JsonPropertyName("reasonTypes")]
+    public IReadOnlyList<string>? ReasonTypes { get; init; }
+
+    /// <summary>
+    /// The kinds of subject the labeler accepts reports on: <c>account</c>, <c>record</c> or
+    /// <c>chat</c>; <see langword="null"/> for all.
+    /// </summary>
+    [JsonPropertyName("subjectTypes")]
+    public IReadOnlyList<string>? SubjectTypes { get; init; }
+
+    /// <summary>
+    /// The record collections the labeler accepts reports on; <see langword="null"/> for all.
+    /// </summary>
+    [JsonPropertyName("subjectCollections")]
+    public IReadOnlyList<Nsid>? SubjectCollections { get; init; }
 }
 
 /// <summary>
@@ -112,7 +139,7 @@ public sealed class LabelerViewDetailed : LexObject
 
     /// <summary>The account that created this.</summary>
     [JsonPropertyName("creator")]
-    public required JsonElement Creator { get; init; }
+    public required ProfileView Creator { get; init; }
 
     /// <summary>The number of likes.</summary>
     [JsonPropertyName("likeCount")]
@@ -133,12 +160,33 @@ public sealed class LabelerViewDetailed : LexObject
     /// <summary>The labeler's declared labelling policies.</summary>
     [JsonPropertyName("policies")]
     public required LabelerPolicies Policies { get; init; }
+
+    /// <summary>
+    /// The report reasons the labeler accepts (<c>com.atproto.moderation.defs#reasonType</c>
+    /// values); <see langword="null"/> for all.
+    /// </summary>
+    [JsonPropertyName("reasonTypes")]
+    public IReadOnlyList<string>? ReasonTypes { get; init; }
+
+    /// <summary>
+    /// The kinds of subject the labeler accepts reports on: <c>account</c>, <c>record</c> or
+    /// <c>chat</c>; <see langword="null"/> for all.
+    /// </summary>
+    [JsonPropertyName("subjectTypes")]
+    public IReadOnlyList<string>? SubjectTypes { get; init; }
+
+    /// <summary>
+    /// The record collections the labeler accepts reports on; <see langword="null"/> for all.
+    /// </summary>
+    [JsonPropertyName("subjectCollections")]
+    public IReadOnlyList<Nsid>? SubjectCollections { get; init; }
 }
 
 /// <summary>
-/// Basic view of a labeler service.
+/// Basic view of a labeler service. Also a variant of <see cref="EmbeddedRecordView"/>, for a
+/// labeler embedded in a post.
 /// </summary>
-public sealed class LabelerView : LexObject
+public sealed class LabelerView : EmbeddedRecordView
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -150,7 +198,7 @@ public sealed class LabelerView : LexObject
 
     /// <summary>The account that created this.</summary>
     [JsonPropertyName("creator")]
-    public required JsonElement Creator { get; init; }
+    public required ProfileView Creator { get; init; }
 
     /// <summary>The number of likes.</summary>
     [JsonPropertyName("likeCount")]
@@ -243,10 +291,24 @@ public static class LabelDefaultSetting
 }
 
 /// <summary>
-/// Well-known standard label values used by Bluesky moderation.
+/// Label values with a global meaning (<c>com.atproto.label.defs#labelValue</c>), plus some that
+/// Bluesky's moderation service applies.
 /// </summary>
+/// <remarks>
+/// A value starting with <c>!</c> is a system label: clients apply its behavior regardless of the
+/// viewer's settings.
+/// </remarks>
 public static class StandardLabelValues
 {
+    /// <summary>Hides the content from every viewer.</summary>
+    public const string Hide = "!hide";
+
+    /// <summary>Shows the content behind a warning every viewer must click through.</summary>
+    public const string Warn = "!warn";
+
+    /// <summary>The account is automated.</summary>
+    public const string Bot = "bot";
+
     /// <summary>The <c>porn</c> standard label value.</summary>
     public const string Porn = "porn";
 
@@ -259,24 +321,27 @@ public static class StandardLabelValues
     /// <summary>The <c>graphic-media</c> standard label value.</summary>
     public const string GraphicMedia = "graphic-media";
 
-    /// <summary>The <c>gore</c> standard label value.</summary>
+    /// <summary>The <c>gore</c> label value, which the Lexicon no longer lists.</summary>
+    [Obsolete("No longer a global label value; use GraphicMedia.")]
     public const string Gore = "gore";
 
-    /// <summary>The <c>spam</c> standard label value.</summary>
+    /// <summary>Spam, as Bluesky's moderation service applies it.</summary>
     public const string Spam = "spam";
 
-    /// <summary>The <c>impersonation</c> standard label value.</summary>
+    /// <summary>Impersonation, as Bluesky's moderation service applies it.</summary>
     public const string Impersonation = "impersonation";
 
-    /// <summary>Content not available (takedown / DMCA).</summary>
+    /// <summary>The same value as <see cref="NoUnauthenticated"/>, under a misleading name.</summary>
+    [Obsolete("Duplicates NoUnauthenticated, which this value always was; use that.")]
     public const string NotAvailable = "!no-unauthenticated";
 
-    /// <summary>The account's content requires authentication to view.</summary>
+    /// <summary>Asks apps and appviews not to show the account's content to logged-out viewers.</summary>
     public const string NoUnauthenticated = "!no-unauthenticated";
 
-    /// <summary>Content warning.</summary>
+    /// <summary>The <c>content-warning</c> label value.</summary>
+    [Obsolete("Neither a global label value nor one Bluesky's moderation service applies.")]
     public const string ContentWarning = "content-warning";
 
-    /// <summary>Misleading content.</summary>
+    /// <summary>Misleading content, as Bluesky's moderation service applies it.</summary>
     public const string Misleading = "misleading";
 }

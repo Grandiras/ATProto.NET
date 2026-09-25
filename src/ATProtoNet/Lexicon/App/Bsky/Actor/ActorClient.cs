@@ -1,4 +1,3 @@
-using System.Text.Json;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 
@@ -58,10 +57,14 @@ public sealed class ActorClient
     /// <summary>
     /// Set the authenticated user's preferences.
     /// </summary>
-    /// <param name="preferences">The complete set of preference objects; it replaces the stored one.</param>
+    /// <param name="preferences">
+    /// The complete set of preferences; it replaces the stored one. Pass back the
+    /// <see cref="UnknownPreference"/>s <see cref="GetPreferencesAsync"/> returned, so preferences
+    /// this SDK does not model survive.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task PutPreferencesAsync(
-        IEnumerable<JsonElement> preferences, CancellationToken cancellationToken = default)
+        IEnumerable<Preference> preferences, CancellationToken cancellationToken = default)
     {
         var request = new PutPreferencesRequest { Preferences = [.. preferences] };
         await _xrpc.ProcedureAsync(

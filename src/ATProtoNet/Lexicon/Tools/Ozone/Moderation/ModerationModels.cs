@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Models;
 using ATProtoNet.Serialization;
@@ -63,6 +64,36 @@ public sealed class ModEventTakedown : ModEventType
     /// <summary>Duration of the action in hours.</summary>
     [JsonPropertyName("durationInHours")]
     public int? DurationInHours { get; init; }
+
+    /// <summary>
+    /// Whether to also acknowledge every open report on the account's records, for an account
+    /// subject.
+    /// </summary>
+    [JsonPropertyName("acknowledgeAccountSubjects")]
+    public bool? AcknowledgeAccountSubjects { get; init; }
+
+    /// <summary>The moderation policies the action enforces.</summary>
+    [JsonPropertyName("policies")]
+    public IReadOnlyList<string>? Policies { get; init; }
+
+    /// <summary>The severity level of the violation, such as <c>sev-1</c>.</summary>
+    [JsonPropertyName("severityLevel")]
+    public string? SeverityLevel { get; init; }
+
+    /// <summary>
+    /// The services the takedown applies to: <c>appview</c> and/or <c>pds</c>; <see langword="null"/>
+    /// for both.
+    /// </summary>
+    [JsonPropertyName("targetServices")]
+    public IReadOnlyList<string>? TargetServices { get; init; }
+
+    /// <summary>The number of strikes the action gives the account.</summary>
+    [JsonPropertyName("strikeCount")]
+    public int? StrikeCount { get; init; }
+
+    /// <summary>When the strikes expire; <see langword="null"/> for never.</summary>
+    [JsonPropertyName("strikeExpiresAt")]
+    public AtDatetime? StrikeExpiresAt { get; init; }
 }
 
 /// <summary>A moderation event that restores a taken-down subject.</summary>
@@ -71,6 +102,18 @@ public sealed class ModEventReverseTakedown : ModEventType
     /// <summary>A free-text moderator comment.</summary>
     [JsonPropertyName("comment")]
     public string? Comment { get; init; }
+
+    /// <summary>The moderation policies the action enforces.</summary>
+    [JsonPropertyName("policies")]
+    public IReadOnlyList<string>? Policies { get; init; }
+
+    /// <summary>The severity level of the violation, such as <c>sev-1</c>.</summary>
+    [JsonPropertyName("severityLevel")]
+    public string? SeverityLevel { get; init; }
+
+    /// <summary>The number of strikes the reversal removes from the account.</summary>
+    [JsonPropertyName("strikeCount")]
+    public int? StrikeCount { get; init; }
 }
 
 /// <summary>A moderation event that acknowledges the subject and closes its review.</summary>
@@ -79,6 +122,13 @@ public sealed class ModEventAcknowledge : ModEventType
     /// <summary>A free-text moderator comment.</summary>
     [JsonPropertyName("comment")]
     public string? Comment { get; init; }
+
+    /// <summary>
+    /// Whether to also acknowledge every open report on the account's records, for an account
+    /// subject.
+    /// </summary>
+    [JsonPropertyName("acknowledgeAccountSubjects")]
+    public bool? AcknowledgeAccountSubjects { get; init; }
 }
 
 /// <summary>A moderation event that escalates the subject for further review.</summary>
@@ -98,11 +148,15 @@ public sealed class ModEventLabel : ModEventType
 
     /// <summary>The label values to apply.</summary>
     [JsonPropertyName("createLabelVals")]
-    public IReadOnlyList<string>? CreateLabelVals { get; init; }
+    public required IReadOnlyList<string> CreateLabelVals { get; init; }
 
     /// <summary>The label values to remove.</summary>
     [JsonPropertyName("negateLabelVals")]
-    public IReadOnlyList<string>? NegateLabelVals { get; init; }
+    public required IReadOnlyList<string> NegateLabelVals { get; init; }
+
+    /// <summary>How long the change lasts, in hours; <see langword="null"/> for permanently.</summary>
+    [JsonPropertyName("durationInHours")]
+    public int? DurationInHours { get; init; }
 }
 
 /// <summary>A moderation event that records a comment on the subject.</summary>
@@ -187,6 +241,26 @@ public sealed class ModEventEmail : ModEventType
     /// <summary>The body of the email.</summary>
     [JsonPropertyName("content")]
     public string? Content { get; init; }
+
+    /// <summary>The moderation policies the action enforces.</summary>
+    [JsonPropertyName("policies")]
+    public IReadOnlyList<string>? Policies { get; init; }
+
+    /// <summary>The severity level of the violation, such as <c>sev-1</c>.</summary>
+    [JsonPropertyName("severityLevel")]
+    public string? SeverityLevel { get; init; }
+
+    /// <summary>The number of strikes the action gives the account.</summary>
+    [JsonPropertyName("strikeCount")]
+    public int? StrikeCount { get; init; }
+
+    /// <summary>When the strikes expire; <see langword="null"/> for never.</summary>
+    [JsonPropertyName("strikeExpiresAt")]
+    public AtDatetime? StrikeExpiresAt { get; init; }
+
+    /// <summary>Whether the email was delivered.</summary>
+    [JsonPropertyName("isDelivered")]
+    public bool? IsDelivered { get; init; }
 }
 
 /// <summary>
@@ -208,11 +282,15 @@ public sealed class ModEventTag : ModEventType
 
     /// <summary>The tags to add.</summary>
     [JsonPropertyName("add")]
-    public IReadOnlyList<string>? Add { get; init; }
+    public required IReadOnlyList<string> Add { get; init; }
 
     /// <summary>The tags to remove.</summary>
     [JsonPropertyName("remove")]
-    public IReadOnlyList<string>? Remove { get; init; }
+    public required IReadOnlyList<string> Remove { get; init; }
+
+    /// <summary>How long the change lasts, in hours; <see langword="null"/> for permanently.</summary>
+    [JsonPropertyName("durationInHours")]
+    public int? DurationInHours { get; init; }
 }
 
 // ─── Subject Types ───
@@ -224,6 +302,8 @@ public sealed class ModEventTag : ModEventType
 [AtProtoUnion(typeof(UnknownModerationSubject))]
 [JsonDerivedType(typeof(RepoSubject), "com.atproto.admin.defs#repoRef")]
 [JsonDerivedType(typeof(RecordSubject), "com.atproto.repo.strongRef")]
+[JsonDerivedType(typeof(MessageSubject), "chat.bsky.convo.defs#messageRef")]
+[JsonDerivedType(typeof(ConvoSubject), "chat.bsky.convo.defs#convoRef")]
 public abstract class ModerationSubject : LexObject;
 
 /// <summary>
@@ -269,6 +349,38 @@ public sealed class RecordSubject : ModerationSubject
     public Cid? Cid { get; init; }
 }
 
+/// <summary>
+/// A chat message as a moderation subject (<c>chat.bsky.convo.defs#messageRef</c>).
+/// </summary>
+public sealed class MessageSubject : ModerationSubject
+{
+    /// <summary>The DID of the message's sender.</summary>
+    [JsonPropertyName("did")]
+    public required Did Did { get; init; }
+
+    /// <summary>The identifier of the conversation.</summary>
+    [JsonPropertyName("convoId")]
+    public required string ConvoId { get; init; }
+
+    /// <summary>The identifier of the message.</summary>
+    [JsonPropertyName("messageId")]
+    public required string MessageId { get; init; }
+}
+
+/// <summary>
+/// A chat conversation as a moderation subject (<c>chat.bsky.convo.defs#convoRef</c>).
+/// </summary>
+public sealed class ConvoSubject : ModerationSubject
+{
+    /// <summary>The DID of the account the conversation is reported for.</summary>
+    [JsonPropertyName("did")]
+    public required Did Did { get; init; }
+
+    /// <summary>The identifier of the conversation.</summary>
+    [JsonPropertyName("convoId")]
+    public required string ConvoId { get; init; }
+}
+
 // ─── View Models ───
 
 /// <summary>
@@ -307,6 +419,10 @@ public sealed class ModEventView : LexObject
     /// <summary>The handle of the subject account at the time of the event.</summary>
     [JsonPropertyName("subjectHandle")]
     public Handle? SubjectHandle { get; init; }
+
+    /// <summary>The tool the event was emitted with.</summary>
+    [JsonPropertyName("modTool")]
+    public ModTool? ModTool { get; init; }
 }
 
 /// <summary>
@@ -328,7 +444,7 @@ public sealed class ModEventViewDetail : LexObject
 
     /// <summary>The blobs on the subject record the event applies to.</summary>
     [JsonPropertyName("subjectBlobs")]
-    public IReadOnlyList<JsonElement>? SubjectBlobs { get; init; }
+    public IReadOnlyList<BlobView>? SubjectBlobs { get; init; }
 
     /// <summary>The DID of the account that created this.</summary>
     [JsonPropertyName("createdBy")]
@@ -337,10 +453,28 @@ public sealed class ModEventViewDetail : LexObject
     /// <summary>When the event was created.</summary>
     [JsonPropertyName("createdAt")]
     public required AtDatetime CreatedAt { get; init; }
+
+    /// <summary>The tool the event was emitted with.</summary>
+    [JsonPropertyName("modTool")]
+    public ModTool? ModTool { get; init; }
 }
 
 /// <summary>
-/// Subject status view from querySubjects.
+/// The tool a moderation event was emitted with (<c>tools.ozone.moderation.defs#modTool</c>).
+/// </summary>
+public sealed class ModTool : LexObject
+{
+    /// <summary>The tool's name, such as <c>automod/1.1.3</c> or <c>ozone/workspace</c>.</summary>
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    /// <summary>Additional information about the tool, in a shape the tool defines.</summary>
+    [JsonPropertyName("meta")]
+    public JsonElement? Meta { get; init; }
+}
+
+/// <summary>
+/// A subject's moderation status, from queryStatuses.
 /// </summary>
 public sealed class SubjectStatusView : LexObject
 {
@@ -415,6 +549,209 @@ public sealed class SubjectStatusView : LexObject
     /// <summary>Free-form tags attached to the subject.</summary>
     [JsonPropertyName("tags")]
     public IReadOnlyList<string>? Tags { get; init; }
+
+    /// <summary>
+    /// The subject's hosting status: an <see cref="AccountHosting"/> or a <see cref="RecordHosting"/>.
+    /// </summary>
+    [JsonPropertyName("hosting")]
+    public SubjectHosting? Hosting { get; init; }
+
+    /// <summary>The subject's priority score, which moderators set to order the queue.</summary>
+    [JsonPropertyName("priorityScore")]
+    public int? PriorityScore { get; init; }
+
+    /// <summary>Statistics about the account, for an account subject.</summary>
+    [JsonPropertyName("accountStats")]
+    public AccountStats? AccountStats { get; init; }
+
+    /// <summary>Statistics about the account's records.</summary>
+    [JsonPropertyName("recordsStats")]
+    public RecordsStats? RecordsStats { get; init; }
+
+    /// <summary>The account's strikes.</summary>
+    [JsonPropertyName("accountStrike")]
+    public AccountStrike? AccountStrike { get; init; }
+
+    /// <summary>
+    /// The account's age-assurance state: <c>pending</c>, <c>assured</c>, <c>unknown</c>,
+    /// <c>reset</c> or <c>blocked</c>.
+    /// </summary>
+    [JsonPropertyName("ageAssuranceState")]
+    public string? AgeAssuranceState { get; init; }
+
+    /// <summary>Who last changed the age-assurance state: <c>admin</c> or <c>user</c>.</summary>
+    [JsonPropertyName("ageAssuranceUpdatedBy")]
+    public string? AgeAssuranceUpdatedBy { get; init; }
+}
+
+/// <summary>
+/// A subject's hosting status (the open union behind <see cref="SubjectStatusView.Hosting"/>).
+/// A status this SDK does not model reads as <see cref="UnknownSubjectHosting"/>.
+/// </summary>
+[AtProtoUnion(typeof(UnknownSubjectHosting))]
+[JsonDerivedType(typeof(AccountHosting), "tools.ozone.moderation.defs#accountHosting")]
+[JsonDerivedType(typeof(RecordHosting), "tools.ozone.moderation.defs#recordHosting")]
+public abstract class SubjectHosting : LexObject;
+
+/// <summary>
+/// A hosting status whose <c>$type</c> this SDK version does not model. It keeps the raw object
+/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
+/// </summary>
+public sealed class UnknownSubjectHosting : SubjectHosting, IUnknownUnionVariant
+{
+    /// <summary>Creates an unknown hosting status from its discriminator and raw object.</summary>
+    /// <param name="type">The object's <c>$type</c>.</param>
+    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+    public UnknownSubjectHosting(string type, JsonElement raw)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(type);
+        Type = type;
+        Raw = UnknownUnionVariant.RequireObject(raw);
+    }
+
+    /// <inheritdoc/>
+    public string Type { get; }
+
+    /// <inheritdoc/>
+    public JsonElement Raw { get; }
+}
+
+/// <summary>An account's hosting status.</summary>
+public sealed class AccountHosting : SubjectHosting
+{
+    /// <summary>
+    /// The status: <c>takendown</c>, <c>suspended</c>, <c>deleted</c>, <c>deactivated</c> or
+    /// <c>unknown</c>.
+    /// </summary>
+    [JsonPropertyName("status")]
+    public required string Status { get; init; }
+
+    /// <summary>When the status last changed.</summary>
+    [JsonPropertyName("updatedAt")]
+    public AtDatetime? UpdatedAt { get; init; }
+
+    /// <summary>When the account was created.</summary>
+    [JsonPropertyName("createdAt")]
+    public AtDatetime? CreatedAt { get; init; }
+
+    /// <summary>When the account was deleted.</summary>
+    [JsonPropertyName("deletedAt")]
+    public AtDatetime? DeletedAt { get; init; }
+
+    /// <summary>When the account was deactivated.</summary>
+    [JsonPropertyName("deactivatedAt")]
+    public AtDatetime? DeactivatedAt { get; init; }
+
+    /// <summary>When the account was reactivated.</summary>
+    [JsonPropertyName("reactivatedAt")]
+    public AtDatetime? ReactivatedAt { get; init; }
+}
+
+/// <summary>A record's hosting status.</summary>
+public sealed class RecordHosting : SubjectHosting
+{
+    /// <summary>The status: <c>deleted</c> or <c>unknown</c>.</summary>
+    [JsonPropertyName("status")]
+    public required string Status { get; init; }
+
+    /// <summary>When the status last changed.</summary>
+    [JsonPropertyName("updatedAt")]
+    public AtDatetime? UpdatedAt { get; init; }
+
+    /// <summary>When the record was created.</summary>
+    [JsonPropertyName("createdAt")]
+    public AtDatetime? CreatedAt { get; init; }
+
+    /// <summary>When the record was deleted.</summary>
+    [JsonPropertyName("deletedAt")]
+    public AtDatetime? DeletedAt { get; init; }
+}
+
+/// <summary>
+/// Moderation statistics about an account (<c>tools.ozone.moderation.defs#accountStats</c>).
+/// </summary>
+public sealed class AccountStats : LexObject
+{
+    /// <summary>The number of reports on the account.</summary>
+    [JsonPropertyName("reportCount")]
+    public int? ReportCount { get; init; }
+
+    /// <summary>The number of appeals the account made.</summary>
+    [JsonPropertyName("appealCount")]
+    public int? AppealCount { get; init; }
+
+    /// <summary>The number of times the account was suspended.</summary>
+    [JsonPropertyName("suspendCount")]
+    public int? SuspendCount { get; init; }
+
+    /// <summary>The number of times the account was escalated.</summary>
+    [JsonPropertyName("escalateCount")]
+    public int? EscalateCount { get; init; }
+
+    /// <summary>The number of times the account was taken down.</summary>
+    [JsonPropertyName("takedownCount")]
+    public int? TakedownCount { get; init; }
+}
+
+/// <summary>
+/// Moderation statistics about an account's records
+/// (<c>tools.ozone.moderation.defs#recordsStats</c>).
+/// </summary>
+public sealed class RecordsStats : LexObject
+{
+    /// <summary>The number of reports on the account's records.</summary>
+    [JsonPropertyName("totalReports")]
+    public int? TotalReports { get; init; }
+
+    /// <summary>The number of records that were reported.</summary>
+    [JsonPropertyName("reportedCount")]
+    public int? ReportedCount { get; init; }
+
+    /// <summary>The number of records that were escalated.</summary>
+    [JsonPropertyName("escalatedCount")]
+    public int? EscalatedCount { get; init; }
+
+    /// <summary>The number of records that were appealed.</summary>
+    [JsonPropertyName("appealedCount")]
+    public int? AppealedCount { get; init; }
+
+    /// <summary>The number of the account's records that are moderation subjects.</summary>
+    [JsonPropertyName("subjectCount")]
+    public int? SubjectCount { get; init; }
+
+    /// <summary>The number of those subjects still waiting for review.</summary>
+    [JsonPropertyName("pendingCount")]
+    public int? PendingCount { get; init; }
+
+    /// <summary>The number of those subjects that were reviewed.</summary>
+    [JsonPropertyName("processedCount")]
+    public int? ProcessedCount { get; init; }
+
+    /// <summary>The number of records that were taken down.</summary>
+    [JsonPropertyName("takendownCount")]
+    public int? TakendownCount { get; init; }
+}
+
+/// <summary>
+/// An account's strikes (<c>tools.ozone.moderation.defs#accountStrike</c>).
+/// </summary>
+public sealed class AccountStrike : LexObject
+{
+    /// <summary>The strikes that have not expired.</summary>
+    [JsonPropertyName("activeStrikeCount")]
+    public int? ActiveStrikeCount { get; init; }
+
+    /// <summary>Every strike the account has received.</summary>
+    [JsonPropertyName("totalStrikeCount")]
+    public int? TotalStrikeCount { get; init; }
+
+    /// <summary>When the account received its first strike.</summary>
+    [JsonPropertyName("firstStrikeAt")]
+    public AtDatetime? FirstStrikeAt { get; init; }
+
+    /// <summary>When the account received its latest strike.</summary>
+    [JsonPropertyName("lastStrikeAt")]
+    public AtDatetime? LastStrikeAt { get; init; }
 }
 
 /// <summary>
@@ -434,9 +771,13 @@ public sealed class RecordViewDetail : LexObject
     [JsonPropertyName("value")]
     public required JsonElement Value { get; init; }
 
-    /// <summary>The CIDs of blobs referenced by the record.</summary>
-    [JsonPropertyName("blobCids")]
-    public IReadOnlyList<Cid>? BlobCids { get; init; }
+    /// <summary>The blobs the record references.</summary>
+    [JsonPropertyName("blobs")]
+    public required IReadOnlyList<BlobView> Blobs { get; init; }
+
+    /// <summary>The labels applied to the record.</summary>
+    [JsonPropertyName("labels")]
+    public IReadOnlyList<Label>? Labels { get; init; }
 
     /// <summary>When Ozone indexed this data.</summary>
     [JsonPropertyName("indexedAt")]
@@ -449,6 +790,98 @@ public sealed class RecordViewDetail : LexObject
     /// <summary>The repository the record belongs to.</summary>
     [JsonPropertyName("repo")]
     public required RepoView Repo { get; init; }
+}
+
+/// <summary>
+/// A blob with its moderation context (<c>tools.ozone.moderation.defs#blobView</c>).
+/// </summary>
+public sealed class BlobView : LexObject
+{
+    /// <summary>The blob's CID.</summary>
+    [JsonPropertyName("cid")]
+    public required Cid Cid { get; init; }
+
+    /// <summary>The blob's media type.</summary>
+    [JsonPropertyName("mimeType")]
+    public required string MimeType { get; init; }
+
+    /// <summary>The blob's size in bytes.</summary>
+    [JsonPropertyName("size")]
+    public required long Size { get; init; }
+
+    /// <summary>When Ozone first saw the blob.</summary>
+    [JsonPropertyName("createdAt")]
+    public required AtDatetime CreatedAt { get; init; }
+
+    /// <summary>
+    /// Media details: an <see cref="ImageDetails"/> or a <see cref="VideoDetails"/>.
+    /// </summary>
+    [JsonPropertyName("details")]
+    public BlobDetails? Details { get; init; }
+
+    /// <summary>The blob's moderation state.</summary>
+    [JsonPropertyName("moderation")]
+    public ModerationDetail? Moderation { get; init; }
+}
+
+/// <summary>
+/// Media details of a blob (the open union behind <see cref="BlobView.Details"/>). Details this
+/// SDK does not model read as <see cref="UnknownBlobDetails"/>.
+/// </summary>
+[AtProtoUnion(typeof(UnknownBlobDetails))]
+[JsonDerivedType(typeof(ImageDetails), "tools.ozone.moderation.defs#imageDetails")]
+[JsonDerivedType(typeof(VideoDetails), "tools.ozone.moderation.defs#videoDetails")]
+public abstract class BlobDetails : LexObject;
+
+/// <summary>
+/// Blob details whose <c>$type</c> this SDK version does not model. They keep the raw object and
+/// write it back unchanged; see <see cref="IUnknownUnionVariant"/>.
+/// </summary>
+public sealed class UnknownBlobDetails : BlobDetails, IUnknownUnionVariant
+{
+    /// <summary>Creates unknown blob details from their discriminator and raw object.</summary>
+    /// <param name="type">The object's <c>$type</c>.</param>
+    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+    public UnknownBlobDetails(string type, JsonElement raw)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(type);
+        Type = type;
+        Raw = UnknownUnionVariant.RequireObject(raw);
+    }
+
+    /// <inheritdoc/>
+    public string Type { get; }
+
+    /// <inheritdoc/>
+    public JsonElement Raw { get; }
+}
+
+/// <summary>The dimensions of an image blob.</summary>
+public sealed class ImageDetails : BlobDetails
+{
+    /// <summary>The width in pixels.</summary>
+    [JsonPropertyName("width")]
+    public required int Width { get; init; }
+
+    /// <summary>The height in pixels.</summary>
+    [JsonPropertyName("height")]
+    public required int Height { get; init; }
+}
+
+/// <summary>The dimensions and length of a video blob.</summary>
+public sealed class VideoDetails : BlobDetails
+{
+    /// <summary>The width in pixels.</summary>
+    [JsonPropertyName("width")]
+    public required int Width { get; init; }
+
+    /// <summary>The height in pixels.</summary>
+    [JsonPropertyName("height")]
+    public required int Height { get; init; }
+
+    /// <summary>The length in seconds.</summary>
+    [JsonPropertyName("length")]
+    public required int Length { get; init; }
 }
 
 /// <summary>
@@ -625,6 +1058,44 @@ public sealed class EmitEventRequest
     /// <summary>The DID of the account that created this.</summary>
     [JsonPropertyName("createdBy")]
     public required Did CreatedBy { get; init; }
+
+    /// <summary>The tool emitting the event.</summary>
+    [JsonPropertyName("modTool")]
+    public ModTool? ModTool { get; init; }
+
+    /// <summary>
+    /// An identifier the caller chooses to make the call idempotent: a second event with the
+    /// same one fails with <c>DuplicateExternalId</c>.
+    /// </summary>
+    [JsonPropertyName("externalId")]
+    public string? ExternalId { get; init; }
+
+    /// <summary>What to do with the subject's reports as the event is emitted.</summary>
+    [JsonPropertyName("reportAction")]
+    public ReportAction? ReportAction { get; init; }
+}
+
+/// <summary>
+/// What an emitted event does to the subject's reports
+/// (<c>tools.ozone.moderation.emitEvent#reportAction</c>).
+/// </summary>
+public sealed class ReportAction : LexObject
+{
+    /// <summary>The reports to act on, by identifier.</summary>
+    [JsonPropertyName("ids")]
+    public IReadOnlyList<long>? Ids { get; init; }
+
+    /// <summary>The report types to act on.</summary>
+    [JsonPropertyName("types")]
+    public IReadOnlyList<string>? Types { get; init; }
+
+    /// <summary>Whether to act on every report on the subject.</summary>
+    [JsonPropertyName("all")]
+    public bool? All { get; init; }
+
+    /// <summary>A note to record with the action.</summary>
+    [JsonPropertyName("note")]
+    public string? Note { get; init; }
 }
 
 /// <summary>
@@ -647,9 +1118,9 @@ public sealed class QueryEventsResponse : ICursorPage<ModEventView>
 }
 
 /// <summary>
-/// Response from tools.ozone.moderation.querySubjects (subject queue view).
+/// Response from tools.ozone.moderation.queryStatuses (the review queue).
 /// </summary>
-public sealed class QuerySubjectsResponse : ICursorPage<SubjectStatusView>
+public sealed class QueryStatusesResponse : ICursorPage<SubjectStatusView>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -658,11 +1129,169 @@ public sealed class QuerySubjectsResponse : ICursorPage<SubjectStatusView>
     [JsonPropertyName("cursor")]
     public string? Cursor { get; init; }
 
-    /// <summary>The subject status records.</summary>
-    [JsonPropertyName("subjects")]
-    public required IReadOnlyList<SubjectStatusView> Subjects { get; init; }
+    /// <summary>The subjects' moderation statuses.</summary>
+    [JsonPropertyName("subjectStatuses")]
+    public required IReadOnlyList<SubjectStatusView> SubjectStatuses { get; init; }
 
-    IReadOnlyList<SubjectStatusView> ICursorPage<SubjectStatusView>.Items => Subjects;
+    IReadOnlyList<SubjectStatusView> ICursorPage<SubjectStatusView>.Items => SubjectStatuses;
+}
+
+/// <summary>
+/// Which subject statuses <see cref="ModerationClient.QueryStatusesAsync"/> returns, and in what
+/// order. Every filter is optional; set only the ones you need.
+/// </summary>
+public sealed class SubjectStatusFilter
+{
+    internal static SubjectStatusFilter None { get; } = new();
+
+    /// <summary>Only this subject: an account's DID, or a record's AT URI.</summary>
+    public string? Subject { get; init; }
+
+    /// <summary>
+    /// With an account <see cref="Subject"/>, also the statuses of the account's records.
+    /// </summary>
+    public bool? IncludeAllUserRecords { get; init; }
+
+    /// <summary>Only subjects of this kind: <c>account</c>, <c>record</c> or <c>conversation</c>.</summary>
+    public string? SubjectType { get; init; }
+
+    /// <summary>Only records in these collections.</summary>
+    public IReadOnlyList<Nsid>? Collections { get; init; }
+
+    /// <summary>Leave out these subjects: account DIDs or record AT URIs.</summary>
+    public IReadOnlyList<string>? IgnoreSubjects { get; init; }
+
+    /// <summary>Only subjects in this review state (see <see cref="SubjectReviewState"/>).</summary>
+    public string? ReviewState { get; init; }
+
+    /// <summary>Only subjects whose status comment contains this keyword.</summary>
+    public string? Comment { get; init; }
+
+    /// <summary>Only subjects reported after this time.</summary>
+    public AtDatetime? ReportedAfter { get; init; }
+
+    /// <summary>Only subjects reported before this time.</summary>
+    public AtDatetime? ReportedBefore { get; init; }
+
+    /// <summary>Only subjects reviewed after this time.</summary>
+    public AtDatetime? ReviewedAfter { get; init; }
+
+    /// <summary>Only subjects reviewed before this time.</summary>
+    public AtDatetime? ReviewedBefore { get; init; }
+
+    /// <summary>Only subjects last reviewed by this moderator.</summary>
+    public Did? LastReviewedBy { get; init; }
+
+    /// <summary>Only subjects with these hosting statuses (such as <c>deleted</c>).</summary>
+    public IReadOnlyList<string>? HostingStatuses { get; init; }
+
+    /// <summary>Only subjects deleted from their host after this time.</summary>
+    public AtDatetime? HostingDeletedAfter { get; init; }
+
+    /// <summary>Only subjects deleted from their host before this time.</summary>
+    public AtDatetime? HostingDeletedBefore { get; init; }
+
+    /// <summary>Only subjects whose hosting status changed after this time.</summary>
+    public AtDatetime? HostingUpdatedAfter { get; init; }
+
+    /// <summary>Only subjects whose hosting status changed before this time.</summary>
+    public AtDatetime? HostingUpdatedBefore { get; init; }
+
+    /// <summary>Whether to include muted subjects.</summary>
+    public bool? IncludeMuted { get; init; }
+
+    /// <summary>Whether to return only muted subjects.</summary>
+    public bool? OnlyMuted { get; init; }
+
+    /// <summary>Only subjects that are, or are not, taken down.</summary>
+    public bool? Takendown { get; init; }
+
+    /// <summary>Only subjects that do, or do not, have an unresolved appeal.</summary>
+    public bool? Appealed { get; init; }
+
+    /// <summary>Only subjects with these tags.</summary>
+    public IReadOnlyList<string>? Tags { get; init; }
+
+    /// <summary>Leave out subjects with any of these tags.</summary>
+    public IReadOnlyList<string>? ExcludeTags { get; init; }
+
+    /// <summary>Only accounts suspended at least this many times.</summary>
+    public int? MinAccountSuspendCount { get; init; }
+
+    /// <summary>Only accounts with at least this many reported records.</summary>
+    public int? MinReportedRecordsCount { get; init; }
+
+    /// <summary>Only accounts with at least this many taken-down records.</summary>
+    public int? MinTakendownRecordsCount { get; init; }
+
+    /// <summary>Only subjects with at least this priority score.</summary>
+    public int? MinPriorityScore { get; init; }
+
+    /// <summary>Only accounts with at least this many active strikes.</summary>
+    public int? MinStrikeCount { get; init; }
+
+    /// <summary>
+    /// Only accounts in this age-assurance state: <c>pending</c>, <c>assured</c>, <c>unknown</c>,
+    /// <c>reset</c> or <c>blocked</c>.
+    /// </summary>
+    public string? AgeAssuranceState { get; init; }
+
+    /// <summary>
+    /// The field to sort by: <c>lastReportedAt</c> (the default), <c>lastReviewedAt</c>,
+    /// <c>reportedRecordsCount</c>, <c>takendownRecordsCount</c> or <c>priorityScore</c>.
+    /// </summary>
+    public string? SortField { get; init; }
+
+    /// <summary>The sort direction: <c>asc</c> or <c>desc</c> (the default).</summary>
+    public string? SortDirection { get; init; }
+
+    /// <summary>
+    /// Split the queue into this many parts, so moderators can each work one; use with
+    /// <see cref="QueueIndex"/>.
+    /// </summary>
+    public int? QueueCount { get; init; }
+
+    /// <summary>Which part of a split queue to return, from 0.</summary>
+    public int? QueueIndex { get; init; }
+
+    /// <summary>A seed that keeps the split of the queue stable across requests.</summary>
+    public string? QueueSeed { get; init; }
+
+    internal XrpcParams ToParams() => new XrpcParams()
+        .Add("subject", Subject)
+        .Add("includeAllUserRecords", IncludeAllUserRecords)
+        .Add("subjectType", SubjectType)
+        .AddAll("collections", Collections?.Select(collection => collection.Value))
+        .AddAll("ignoreSubjects", IgnoreSubjects)
+        .Add("reviewState", ReviewState)
+        .Add("comment", Comment)
+        .Add("reportedAfter", ReportedAfter?.ToString())
+        .Add("reportedBefore", ReportedBefore?.ToString())
+        .Add("reviewedAfter", ReviewedAfter?.ToString())
+        .Add("reviewedBefore", ReviewedBefore?.ToString())
+        .Add("lastReviewedBy", LastReviewedBy)
+        .AddAll("hostingStatuses", HostingStatuses)
+        .Add("hostingDeletedAfter", HostingDeletedAfter?.ToString())
+        .Add("hostingDeletedBefore", HostingDeletedBefore?.ToString())
+        .Add("hostingUpdatedAfter", HostingUpdatedAfter?.ToString())
+        .Add("hostingUpdatedBefore", HostingUpdatedBefore?.ToString())
+        .Add("includeMuted", IncludeMuted)
+        .Add("onlyMuted", OnlyMuted)
+        .Add("takendown", Takendown)
+        .Add("appealed", Appealed)
+        .AddAll("tags", Tags)
+        .AddAll("excludeTags", ExcludeTags)
+        .Add("minAccountSuspendCount", MinAccountSuspendCount)
+        .Add("minReportedRecordsCount", MinReportedRecordsCount)
+        .Add("minTakendownRecordsCount", MinTakendownRecordsCount)
+        .Add("minPriorityScore", MinPriorityScore)
+        .Add("minStrikeCount", MinStrikeCount)
+        .Add("ageAssuranceState", AgeAssuranceState)
+        .Add("sortField", SortField)
+        .Add("sortDirection", SortDirection)
+        .Add("queueCount", QueueCount)
+        .Add("queueIndex", QueueIndex)
+        .Add("queueSeed", QueueSeed);
 }
 
 /// <summary>

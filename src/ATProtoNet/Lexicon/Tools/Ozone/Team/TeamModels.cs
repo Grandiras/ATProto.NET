@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using ATProtoNet.Identity;
+using ATProtoNet.Lexicon.App.Bsky.Actor;
 using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Team;
@@ -19,7 +20,7 @@ public sealed class TeamMember : LexObject
 
     /// <summary>The profile of the member, if resolved.</summary>
     [JsonPropertyName("profile")]
-    public TeamMemberProfile? Profile { get; init; }
+    public ProfileViewDetailed? Profile { get; init; }
 
     /// <summary>The role assigned to the member.</summary>
     [JsonPropertyName("role")]
@@ -42,28 +43,6 @@ public sealed class TeamMember : LexObject
 }
 
 /// <summary>
-/// Profile information for a team member.
-/// </summary>
-public sealed class TeamMemberProfile : LexObject
-{
-    /// <summary>The DID (decentralized identifier) of the account.</summary>
-    [JsonPropertyName("did")]
-    public required Did Did { get; init; }
-
-    /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
-    [JsonPropertyName("handle")]
-    public required Handle Handle { get; init; }
-
-    /// <summary>The human-readable display name.</summary>
-    [JsonPropertyName("displayName")]
-    public string? DisplayName { get; init; }
-
-    /// <summary>The avatar image.</summary>
-    [JsonPropertyName("avatar")]
-    public string? Avatar { get; init; }
-}
-
-/// <summary>
 /// Team member role constants.
 /// </summary>
 public static class TeamMemberRole
@@ -76,6 +55,9 @@ public static class TeamMemberRole
 
     /// <summary>The <c>tools.ozone.team.defs#roleTriage</c> team member role.</summary>
     public const string Triage = "tools.ozone.team.defs#roleTriage";
+
+    /// <summary>The <c>tools.ozone.team.defs#roleVerifier</c> team member role, which issues verifications.</summary>
+    public const string Verifier = "tools.ozone.team.defs#roleVerifier";
 }
 
 /// <summary>

@@ -504,7 +504,7 @@ public sealed class FeedClient
     /// <param name="lang">Filter by language (BCP-47).</param>
     /// <param name="domain">Filter by domain in post links.</param>
     /// <param name="url">Filter by URL in post links.</param>
-    /// <param name="tag">Filter by hashtag (without #).</param>
+    /// <param name="tags">Only posts with all of these hashtags (without <c>#</c>).</param>
     /// <param name="limit">Max results per page (1-100, default 25).</param>
     /// <param name="cursor">Pagination cursor.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -518,7 +518,7 @@ public sealed class FeedClient
         string? lang = null,
         string? domain = null,
         string? url = null,
-        string? tag = null,
+        IEnumerable<string>? tags = null,
         int? limit = null,
         string? cursor = null,
         CancellationToken cancellationToken = default)
@@ -533,7 +533,7 @@ public sealed class FeedClient
             .Add("lang", lang)
             .Add("domain", domain)
             .Add("url", url)
-            .Add("tag", tag)
+            .AddAll("tag", tags)
             .Add("limit", limit)
             .Add("cursor", cursor);
 
@@ -555,7 +555,7 @@ public sealed class FeedClient
     /// <param name="lang">Filter by language (BCP-47).</param>
     /// <param name="domain">Filter by domain in post links.</param>
     /// <param name="url">Filter by URL in post links.</param>
-    /// <param name="tag">Filter by hashtag (without #).</param>
+    /// <param name="tags">Only posts with all of these hashtags (without <c>#</c>).</param>
     /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<PostView> EnumerateSearchPostsAsync(
@@ -568,11 +568,11 @@ public sealed class FeedClient
         string? lang = null,
         string? domain = null,
         string? url = null,
-        string? tag = null,
+        IEnumerable<string>? tags = null,
         int? pageSize = null,
         CancellationToken cancellationToken = default) =>
         Pagination.EnumerateAsync<SearchPostsResponse, PostView>(
             (cursor, ct) => SearchPostsAsync(
-                q, sort, since, until, mentions, author, lang, domain, url, tag, pageSize, cursor, ct),
+                q, sort, since, until, mentions, author, lang, domain, url, tags, pageSize, cursor, ct),
             cancellationToken);
 }

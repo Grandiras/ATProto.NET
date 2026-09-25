@@ -123,9 +123,9 @@ public class UnknownFieldTests
     public void View_UnknownField_IsReadable()
     {
         var author = JsonSerializer.Deserialize<ProfileViewBasic>(
-            """{"did":"did:plc:a","handle":"a.test","pronouns":"they/them"}""", Options)!;
+            """{"did":"did:plc:a","handle":"a.test","nickname":"a"}""", Options)!;
 
-        Assert.Equal("they/them", author.ExtensionData!["pronouns"].GetString());
+        Assert.Equal("a", author.ExtensionData!["nickname"].GetString());
     }
 
     [Fact]

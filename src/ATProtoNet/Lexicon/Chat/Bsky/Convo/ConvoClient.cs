@@ -30,20 +30,20 @@ public sealed class ConvoClient
     /// <summary>
     /// Lists one page of conversations for the authenticated user.
     /// </summary>
-    /// <param name="readOnly">Read-state filter, sent as <c>readOnly</c>.</param>
+    /// <param name="readState">Only conversations in this read state: <c>unread</c>.</param>
     /// <param name="status">Only conversations with this status (<c>request</c> or <c>accepted</c>).</param>
     /// <param name="limit">Maximum number of conversations (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ListConvosResponse> ListConvosAsync(
-        bool? readOnly = null,
+        string? readState = null,
         string? status = null,
         int? limit = null,
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
-            .Add("readOnly", readOnly)
+            .Add("readState", readState)
             .Add("status", status)
             .Add("limit", limit)
             .Add("cursor", cursor);
@@ -55,17 +55,17 @@ public sealed class ConvoClient
     /// <summary>
     /// Enumerates every conversation of the authenticated user, fetching pages as needed.
     /// </summary>
-    /// <param name="readOnly">Read-state filter, sent as <c>readOnly</c>.</param>
+    /// <param name="readState">Only conversations in this read state: <c>unread</c>.</param>
     /// <param name="status">Only conversations with this status (<c>request</c> or <c>accepted</c>).</param>
     /// <param name="pageSize">Conversations per request (1-100); <see langword="null"/> for the server default.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<ConvoView> EnumerateConvosAsync(
-        bool? readOnly = null,
+        string? readState = null,
         string? status = null,
         int? pageSize = null,
         CancellationToken cancellationToken = default) =>
         Pagination.EnumerateAsync<ListConvosResponse, ConvoView>(
-            (cursor, ct) => ListConvosAsync(readOnly, status, pageSize, cursor, ct),
+            (cursor, ct) => ListConvosAsync(readState, status, pageSize, cursor, ct),
             cancellationToken);
 
     /// <summary>
@@ -240,15 +240,17 @@ public sealed class ConvoClient
     /// </summary>
     /// <param name="convoId">The conversation's identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<ConvoView> MuteConvoAsync(
+    /// <returns>The conversation after the change.</returns>
+    public async Task<ConvoView> MuteConvoAsync(
         string convoId,
         CancellationToken cancellationToken = default)
     {
         var request = new MuteConvoRequest { ConvoId = convoId };
 
-        return _xrpc.ProcedureAsync<ConvoView>(
+        var output = await _xrpc.ProcedureAsync<ConvoOutput>(
             "chat.bsky.convo.muteConvo", request, options: ChatProxy,
             cancellationToken: cancellationToken);
+        return output.Convo;
     }
 
     /// <summary>
@@ -256,15 +258,17 @@ public sealed class ConvoClient
     /// </summary>
     /// <param name="convoId">The conversation's identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<ConvoView> UnmuteConvoAsync(
+    /// <returns>The conversation after the change.</returns>
+    public async Task<ConvoView> UnmuteConvoAsync(
         string convoId,
         CancellationToken cancellationToken = default)
     {
         var request = new UnmuteConvoRequest { ConvoId = convoId };
 
-        return _xrpc.ProcedureAsync<ConvoView>(
+        var output = await _xrpc.ProcedureAsync<ConvoOutput>(
             "chat.bsky.convo.unmuteConvo", request, options: ChatProxy,
             cancellationToken: cancellationToken);
+        return output.Convo;
     }
 
     /// <summary>
@@ -273,7 +277,8 @@ public sealed class ConvoClient
     /// <param name="convoId">The conversation's identifier.</param>
     /// <param name="messageId">The last message read; <see langword="null"/> for the whole conversation.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<ConvoView> UpdateReadAsync(
+    /// <returns>The conversation after the change.</returns>
+    public async Task<ConvoView> UpdateReadAsync(
         string convoId, string? messageId = null,
         CancellationToken cancellationToken = default)
     {
@@ -283,20 +288,29 @@ public sealed class ConvoClient
             MessageId = messageId,
         };
 
-        return _xrpc.ProcedureAsync<ConvoView>(
+        var output = await _xrpc.ProcedureAsync<ConvoOutput>(
             "chat.bsky.convo.updateRead", request, options: ChatProxy,
             cancellationToken: cancellationToken);
+        return output.Convo;
     }
 
     /// <summary>
     /// Marks all conversations as read.
     /// </summary>
+    /// <param name="status">
+    /// Only conversations with this status (<c>request</c> or <c>accepted</c>); <see langword="null"/>
+    /// for all.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task UpdateAllReadAsync(
+    public Task<UpdateAllReadResponse> UpdateAllReadAsync(
+        string? status = null,
         CancellationToken cancellationToken = default)
     {
-        await _xrpc.ProcedureAsync(
-            "chat.bsky.convo.updateAllRead", options: ChatProxy,
+        // Always a JSON body, even an empty one: the method declares an application/json input.
+        var request = new UpdateAllReadRequest { Status = status };
+
+        return _xrpc.ProcedureAsync<UpdateAllReadResponse>(
+            "chat.bsky.convo.updateAllRead", request, options: ChatProxy,
             cancellationToken: cancellationToken);
     }
 
@@ -327,7 +341,8 @@ public sealed class ConvoClient
     /// <param name="messageId">The message's identifier.</param>
     /// <param name="value">The reaction, a single emoji.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<MessageView> AddReactionAsync(
+    /// <returns>The message after the change.</returns>
+    public async Task<MessageView> AddReactionAsync(
         string convoId, string messageId, string value,
         CancellationToken cancellationToken = default)
     {
@@ -338,9 +353,10 @@ public sealed class ConvoClient
             Value = value,
         };
 
-        return _xrpc.ProcedureAsync<MessageView>(
+        var output = await _xrpc.ProcedureAsync<MessageOutput>(
             "chat.bsky.convo.addReaction", request, options: ChatProxy,
             cancellationToken: cancellationToken);
+        return output.Message;
     }
 
     /// <summary>
@@ -350,7 +366,8 @@ public sealed class ConvoClient
     /// <param name="messageId">The message's identifier.</param>
     /// <param name="value">The reaction to remove.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<MessageView> RemoveReactionAsync(
+    /// <returns>The message after the change.</returns>
+    public async Task<MessageView> RemoveReactionAsync(
         string convoId, string messageId, string value,
         CancellationToken cancellationToken = default)
     {
@@ -361,9 +378,10 @@ public sealed class ConvoClient
             Value = value,
         };
 
-        return _xrpc.ProcedureAsync<MessageView>(
+        var output = await _xrpc.ProcedureAsync<MessageOutput>(
             "chat.bsky.convo.removeReaction", request, options: ChatProxy,
             cancellationToken: cancellationToken);
+        return output.Message;
     }
 
     // ──────────────────────────────────────────────────────────

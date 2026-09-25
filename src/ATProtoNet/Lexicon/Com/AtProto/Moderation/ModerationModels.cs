@@ -91,6 +91,24 @@ internal sealed class CreateReportRequest
     /// <summary>The subject being reported.</summary>
     [JsonPropertyName("subject")]
     public required ReportSubject Subject { get; init; }
+
+    /// <summary>The tool that filed the report.</summary>
+    [JsonPropertyName("modTool")]
+    public ModTool? ModTool { get; init; }
+}
+
+/// <summary>
+/// The tool a report was filed with (<c>com.atproto.moderation.createReport#modTool</c>).
+/// </summary>
+public sealed class ModTool : LexObject
+{
+    /// <summary>The tool's name, such as <c>bsky-app/android</c> or <c>bsky-web/chrome</c>.</summary>
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    /// <summary>Additional information about the tool, in a shape the tool defines.</summary>
+    [JsonPropertyName("meta")]
+    public JsonElement? Meta { get; init; }
 }
 
 /// <summary>

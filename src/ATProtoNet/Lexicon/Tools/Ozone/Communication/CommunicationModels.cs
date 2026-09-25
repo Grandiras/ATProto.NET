@@ -25,6 +25,10 @@ public sealed class CommunicationTemplateView : LexObject
     [JsonPropertyName("contentMarkdown")]
     public required string ContentMarkdown { get; init; }
 
+    /// <summary>The language of the template (BCP-47).</summary>
+    [JsonPropertyName("lang")]
+    public string? Lang { get; init; }
+
     /// <summary>Whether this entry is disabled.</summary>
     [JsonPropertyName("disabled")]
     public required bool Disabled { get; init; }
@@ -59,6 +63,10 @@ public sealed class CreateTemplateRequest
     [JsonPropertyName("subject")]
     public required string Subject { get; init; }
 
+    /// <summary>The language of the template (BCP-47).</summary>
+    [JsonPropertyName("lang")]
+    public string? Lang { get; init; }
+
     /// <summary>The DID of the account that created this.</summary>
     [JsonPropertyName("createdBy")]
     public Did? CreatedBy { get; init; }
@@ -84,6 +92,10 @@ public sealed class UpdateTemplateRequest
     /// <summary>The subject line used when the template is sent.</summary>
     [JsonPropertyName("subject")]
     public string? Subject { get; init; }
+
+    /// <summary>The language of the template (BCP-47).</summary>
+    [JsonPropertyName("lang")]
+    public string? Lang { get; init; }
 
     /// <summary>The DID of the account performing the update.</summary>
     [JsonPropertyName("updatedBy")]

@@ -15,8 +15,8 @@ ATProto.NET provides full support for the `tools.ozone.*` namespace — the cont
 
 Identifiers are typed (`Did`, `Handle`, `AtUri`, `Cid` and `AtDatetime` from `ATProtoNet.Identity`):
 parse literals with `Did.Parse("…")` and friends. The one exception is the `subject` filter of
-`QueryEventsAsync` and `QuerySubjectsAsync`, a plain string because it takes either an account's DID
-or a record's AT URI.
+`QueryEventsAsync` and `SubjectStatusFilter`, a plain string because it takes either an account's
+DID or a record's AT URI.
 
 ## Moderation
 
@@ -79,22 +79,29 @@ await foreach (var evt in client.Ozone.Moderation.EnumerateEventsAsync(subject: 
 }
 ```
 
-### Query Subjects Under Review
+### Query the Review Queue
+
+`tools.ozone.moderation.queryStatuses` takes some 35 filters, so `QueryStatusesAsync` takes them as
+one `SubjectStatusFilter`:
 
 ```csharp
-var subjects = await client.Ozone.Moderation.QuerySubjectsAsync(limit: 25);
+var page = await client.Ozone.Moderation.QueryStatusesAsync(limit: 25);
 
-foreach (var subject in subjects.Subjects)
+foreach (var status in page.SubjectStatuses)
 {
-    Console.WriteLine($"Subject: {subject.Subject}");
-    Console.WriteLine($"Review state: {subject.ReviewState}");
+    Console.WriteLine($"Subject: {status.Subject}");
+    Console.WriteLine($"Review state: {status.ReviewState}");
 }
 
-// The whole escalated queue
-await foreach (var subject in client.Ozone.Moderation.EnumerateSubjectsAsync(
-    reviewState: SubjectReviewState.Escalated))
+// The whole escalated queue, highest priority first
+await foreach (var status in client.Ozone.Moderation.EnumerateStatusesAsync(new SubjectStatusFilter
 {
-    Console.WriteLine(subject.Subject);
+    ReviewState = SubjectReviewState.Escalated,
+    Takendown = false,
+    SortField = "priorityScore",
+}))
+{
+    Console.WriteLine($"{status.Subject}: {status.PriorityScore}");
 }
 ```
 
@@ -213,9 +220,8 @@ Find related accounts through signature correlation:
 var correlation = await client.Ozone.Signature.FindCorrelationAsync(
     dids: [Did.Parse("did:plc:abc"), Did.Parse("did:plc:def")]);
 
-// Search accounts by signature
-var accounts = await client.Ozone.Signature.SearchAccountsAsync(
-    values: [new SigDetail { Property = "userAgent", Value = "some-signal" }]);
+// Search accounts that share any of these signature values
+var accounts = await client.Ozone.Signature.SearchAccountsAsync(values: ["some-signal"]);
 
 // Find related accounts
 var related = await client.Ozone.Signature.FindRelatedAccountsAsync(did: Did.Parse("did:plc:abc123"));

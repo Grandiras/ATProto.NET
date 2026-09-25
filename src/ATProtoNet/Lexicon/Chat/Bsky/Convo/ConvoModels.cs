@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ATProtoNet.Identity;
+using ATProtoNet.Lexicon.App.Bsky.Actor;
 using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Chat.Bsky.Convo;
@@ -34,10 +35,6 @@ public sealed class ConvoView : LexObject
     [JsonPropertyName("muted")]
     public bool Muted { get; init; }
 
-    /// <summary>Whether the conversation has been opened by the viewer.</summary>
-    [JsonPropertyName("opened")]
-    public bool? Opened { get; init; }
-
     /// <summary>The status of the conversation (<c>request</c> or <c>accepted</c>).</summary>
     [JsonPropertyName("status")]
     public string? Status { get; init; }
@@ -69,19 +66,31 @@ public sealed class ChatMemberView : LexObject
     public string? Avatar { get; init; }
 
     /// <summary>
-    /// Counts and flags for content associated with the actor (lists, feed generators, chat
-    /// availability).
+    /// Counts and settings for what the account has published or allows, including who may chat
+    /// with it.
     /// </summary>
     [JsonPropertyName("associated")]
-    public JsonElement? Associated { get; init; }
+    public ProfileAssociated? Associated { get; init; }
+
+    /// <summary>The viewer's relationship to the member.</summary>
+    [JsonPropertyName("viewer")]
+    public ViewerState? Viewer { get; init; }
 
     /// <summary>The labels applied to the member's account.</summary>
     [JsonPropertyName("labels")]
     public IReadOnlyList<Label>? Labels { get; init; }
 
+    /// <summary>When the member's account was created.</summary>
+    [JsonPropertyName("createdAt")]
+    public AtDatetime? CreatedAt { get; init; }
+
     /// <summary>Whether chat is disabled for this account.</summary>
     [JsonPropertyName("chatDisabled")]
     public bool? ChatDisabled { get; init; }
+
+    /// <summary>The member's verification state.</summary>
+    [JsonPropertyName("verification")]
+    public VerificationState? Verification { get; init; }
 }
 
 /// <summary>
@@ -291,6 +300,16 @@ internal sealed class UpdateReadRequest
 }
 
 /// <summary>
+/// Request body for chat.bsky.convo.updateAllRead.
+/// </summary>
+internal sealed class UpdateAllReadRequest
+{
+    /// <summary>Only conversations with this status (<c>request</c> or <c>accepted</c>).</summary>
+    [JsonPropertyName("status")]
+    public string? Status { get; init; }
+}
+
+/// <summary>
 /// Request body for chat.bsky.convo.acceptConvo.
 /// </summary>
 internal sealed class AcceptConvoRequest
@@ -384,9 +403,13 @@ public sealed class GetConvoForMembersResponse
 /// </summary>
 public sealed class GetConvoAvailabilityResponse
 {
-    /// <summary>Whether the viewer may start a conversation with this account.</summary>
-    [JsonPropertyName("canConvo")]
-    public bool CanConvo { get; init; }
+    /// <summary>Whether the viewer may chat with the given members.</summary>
+    [JsonPropertyName("canChat")]
+    public required bool CanChat { get; init; }
+
+    /// <summary>The existing conversation with those members, if there is one.</summary>
+    [JsonPropertyName("convo")]
+    public ConvoView? Convo { get; init; }
 }
 
 /// <summary>
@@ -407,6 +430,10 @@ public sealed class GetMessagesResponse : ICursorPage<JsonElement>
     /// </summary>
     [JsonPropertyName("messages")]
     public required IReadOnlyList<JsonElement> Messages { get; init; }
+
+    /// <summary>Profiles of accounts the messages refer to that are not conversation members.</summary>
+    [JsonPropertyName("relatedProfiles")]
+    public IReadOnlyList<ChatMemberView>? RelatedProfiles { get; init; }
 
     IReadOnlyList<JsonElement> ICursorPage<JsonElement>.Items => Messages;
 }
@@ -440,13 +467,41 @@ public sealed class LeaveConvoResponse
 /// </summary>
 public sealed class AcceptConvoResponse
 {
-    /// <summary>The conversation.</summary>
-    [JsonPropertyName("convo")]
-    public ConvoView? Convo { get; init; }
-
-    /// <summary>The conversation's revision after accepting it.</summary>
+    /// <summary>
+    /// The conversation's revision after accepting it; absent when it was already accepted.
+    /// </summary>
     [JsonPropertyName("rev")]
     public string? Rev { get; init; }
+}
+
+/// <summary>
+/// Response from chat.bsky.convo.updateAllRead.
+/// </summary>
+public sealed class UpdateAllReadResponse
+{
+    /// <summary>The number of conversations that were marked read.</summary>
+    [JsonPropertyName("updatedCount")]
+    public required int UpdatedCount { get; init; }
+}
+
+/// <summary>
+/// The output of chat.bsky.convo.muteConvo, unmuteConvo and updateRead, which the client unwraps.
+/// </summary>
+internal sealed class ConvoOutput
+{
+    /// <summary>The conversation after the change.</summary>
+    [JsonPropertyName("convo")]
+    public required ConvoView Convo { get; init; }
+}
+
+/// <summary>
+/// The output of chat.bsky.convo.addReaction and removeReaction, which the client unwraps.
+/// </summary>
+internal sealed class MessageOutput
+{
+    /// <summary>The message after the change.</summary>
+    [JsonPropertyName("message")]
+    public required MessageView Message { get; init; }
 }
 
 /// <summary>

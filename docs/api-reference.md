@@ -233,7 +233,7 @@ returns no cursor, an empty one, or one it already returned.
 | `Bsky.Graph.EnumerateListBlocksAsync(pageSize?)` / `EnumerateListMutesAsync(pageSize?)` | `app.bsky.graph.getListBlocks` / `getListMutes` |
 | `Bsky.Graph.EnumerateActorStarterPacksAsync(actor, pageSize?)` | `app.bsky.graph.getActorStarterPacks` |
 | `Bsky.Graph.EnumerateSearchStarterPacksAsync(query, pageSize?)` | `app.bsky.graph.searchStarterPacks` |
-| `Bsky.Notification.EnumerateNotificationsAsync(priority?, seenAt?, pageSize?)` | `app.bsky.notification.listNotifications` |
+| `Bsky.Notification.EnumerateNotificationsAsync(reasons?, pageSize?)` | `app.bsky.notification.listNotifications` |
 | `RecordCollection<T>.EnumerateAsync` / `EnumerateFromAsync` | `com.atproto.repo.listRecords`, deserialized |
 
 ---

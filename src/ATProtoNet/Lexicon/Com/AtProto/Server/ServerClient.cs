@@ -245,8 +245,17 @@ public sealed class ServerClient
     /// <summary>
     /// Deactivate an account.
     /// </summary>
-    public Task DeactivateAccountAsync(CancellationToken cancellationToken = default) =>
-        _xrpc.ProcedureAsync("com.atproto.server.deactivateAccount", cancellationToken: cancellationToken);
+    /// <param name="deleteAfter">
+    /// A recommendation to the server of how long to keep the deactivated account before deleting
+    /// it.
+    /// </param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task DeactivateAccountAsync(AtDatetime? deleteAfter = null, CancellationToken cancellationToken = default) =>
+        // Always a JSON body, even an empty one: the reference PDS rejects this method without one.
+        _xrpc.ProcedureAsync(
+            "com.atproto.server.deactivateAccount",
+            new DeactivateAccountRequest { DeleteAfter = deleteAfter },
+            cancellationToken: cancellationToken);
 
     /// <summary>
     /// Check account status.

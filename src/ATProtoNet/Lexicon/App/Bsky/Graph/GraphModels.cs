@@ -2,8 +2,11 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Actor;
+using ATProtoNet.Lexicon.App.Bsky.Embed;
+using ATProtoNet.Lexicon.App.Bsky.Feed;
 using ATProtoNet.Lexicon.App.Bsky.RichText;
 using ATProtoNet.Models;
+using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Graph;
 
@@ -27,6 +30,12 @@ public sealed class FollowRecord : LexObject
     /// <summary>Timestamp of creation.</summary>
     [JsonPropertyName("createdAt")]
     public required AtDatetime CreatedAt { get; init; }
+
+    /// <summary>
+    /// The record through which the account came to follow, such as a starter pack.
+    /// </summary>
+    [JsonPropertyName("via")]
+    public StrongRef? Via { get; init; }
 }
 
 /// <summary>
@@ -76,9 +85,9 @@ public sealed class ListRecord : LexObject
     [JsonPropertyName("avatar")]
     public BlobRef? Avatar { get; init; }
 
-    /// <summary>The labels applied to this subject.</summary>
+    /// <summary>Self-applied labels on the list.</summary>
     [JsonPropertyName("labels")]
-    public JsonElement? Labels { get; init; }
+    public SelfLabels? Labels { get; init; }
 
     /// <summary>Timestamp of creation.</summary>
     [JsonPropertyName("createdAt")]
@@ -149,9 +158,9 @@ public static class ListPurpose
 // ──────────────────────────────────────────────────────────────
 
 /// <summary>
-/// A list view.
+/// A list view. Also a variant of <see cref="EmbeddedRecordView"/>, for a list embedded in a post.
 /// </summary>
-public sealed class ListView : LexObject
+public sealed class ListView : EmbeddedRecordView
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -214,6 +223,12 @@ public sealed class ListViewerState : LexObject
     /// <summary>The AT-URI of the viewer's list-block record, if the viewer blocks this list.</summary>
     [JsonPropertyName("blocked")]
     public AtUri? Blocked { get; init; }
+
+    /// <summary>
+    /// The AT-URI of the viewer's opt-out record, if the viewer opted out of this reference list.
+    /// </summary>
+    [JsonPropertyName("referenceListOptOut")]
+    public AtUri? ReferenceListOptOut { get; init; }
 }
 
 /// <summary>
@@ -270,6 +285,13 @@ public sealed class ListItemView : LexObject
     /// <summary>The profile of the listed account.</summary>
     [JsonPropertyName("subject")]
     public required ProfileView Subject { get; init; }
+
+    /// <summary>
+    /// <see langword="true"/> when the listed account opted out of the reference list; absent
+    /// otherwise.
+    /// </summary>
+    [JsonPropertyName("subjectOptedOut")]
+    public bool? SubjectOptedOut { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -450,9 +472,16 @@ public sealed class GetSuggestedFollowsByActorResponse
     public required IReadOnlyList<ProfileView> Suggestions { get; init; }
 
     /// <summary>
-    /// Whether these are generic fallback suggestions rather than personalised ones.
+    /// The recommendation's identifier (a snowflake), for recommendation events.
+    /// </summary>
+    [JsonPropertyName("recIdStr")]
+    public string? RecIdStr { get; init; }
+
+    /// <summary>
+    /// Whether these were generic fallback suggestions. No longer used.
     /// </summary>
     [JsonPropertyName("isFallback")]
+    [Obsolete("Deprecated upstream: the appview no longer uses this field.")]
     public bool? IsFallback { get; init; }
 }
 
@@ -464,6 +493,14 @@ internal sealed class MuteActorRequest
     /// <summary>The DID or handle of the actor to mute.</summary>
     [JsonPropertyName("actor")]
     public required AtIdentifier Actor { get; init; }
+
+    /// <summary>Whether the mute covers only the actor's reposts (muteActor only).</summary>
+    [JsonPropertyName("onlyReposts")]
+    public bool? OnlyReposts { get; init; }
+
+    /// <summary>Whether the mute covers only the actor's quote posts (muteActor only).</summary>
+    [JsonPropertyName("onlyQuoteposts")]
+    public bool? OnlyQuoteposts { get; init; }
 }
 
 /// <summary>
@@ -525,9 +562,10 @@ public sealed class StarterPackFeedItem : LexObject
 }
 
 /// <summary>
-/// Basic view of a starter pack.
+/// Basic view of a starter pack. Also a variant of <see cref="EmbeddedRecordView"/>, for a starter
+/// pack embedded in a post.
 /// </summary>
-public sealed class StarterPackViewBasic : LexObject
+public sealed class StarterPackViewBasic : EmbeddedRecordView
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -599,7 +637,7 @@ public sealed class StarterPackView : LexObject
 
     /// <summary>The feed generators included in the pack.</summary>
     [JsonPropertyName("feeds")]
-    public IReadOnlyList<JsonElement>? Feeds { get; init; }
+    public IReadOnlyList<GeneratorView>? Feeds { get; init; }
 
     /// <summary>
     /// The number of accounts that joined via this starter pack in the last week.
@@ -625,40 +663,91 @@ public sealed class StarterPackView : LexObject
 // ──────────────────────────────────────────────────────────────
 
 /// <summary>
-/// A relationship between two actors.
+/// One entry of a <c>getRelationships</c> response: a <see cref="Relationship"/>, or a
+/// <see cref="NotFoundActor"/> for an account that could not be found. An entry this SDK does not
+/// model reads as <see cref="UnknownRelationshipEntry"/>.
 /// </summary>
-public sealed class Relationship : LexObject
-{
-    /// <summary>The Lexicon type discriminator for this object.</summary>
-    [JsonPropertyName("$type")]
-    public string? Type { get; init; }
+[AtProtoUnion(typeof(UnknownRelationshipEntry))]
+[JsonDerivedType(typeof(Relationship), "app.bsky.graph.defs#relationship")]
+[JsonDerivedType(typeof(NotFoundActor), "app.bsky.graph.defs#notFoundActor")]
+public abstract class RelationshipEntry : LexObject;
 
-    /// <summary>The DID (decentralized identifier) of the account.</summary>
+/// <summary>
+/// A relationship entry whose <c>$type</c> this SDK version does not model. It keeps the raw
+/// object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
+/// </summary>
+public sealed class UnknownRelationshipEntry : RelationshipEntry, IUnknownUnionVariant
+{
+    /// <summary>Creates an unknown relationship entry from its discriminator and raw object.</summary>
+    /// <param name="type">The object's <c>$type</c>.</param>
+    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+    public UnknownRelationshipEntry(string type, JsonElement raw)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(type);
+        Type = type;
+        Raw = UnknownUnionVariant.RequireObject(raw);
+    }
+
+    /// <inheritdoc/>
+    public string Type { get; }
+
+    /// <inheritdoc/>
+    public JsonElement Raw { get; }
+}
+
+/// <summary>
+/// The relationship between the queried actor and another account.
+/// </summary>
+public sealed class Relationship : RelationshipEntry
+{
+    /// <summary>The DID (decentralized identifier) of the other account.</summary>
     [JsonPropertyName("did")]
     public required Did Did { get; init; }
 
     /// <summary>
-    /// The AT-URI of the viewer's follow record, if the viewer follows this actor.
+    /// The AT-URI of the actor's follow record, if the actor follows the other account.
     /// </summary>
     [JsonPropertyName("following")]
     public AtUri? Following { get; init; }
 
     /// <summary>
-    /// The AT-URI of the subject's follow record, if the subject follows the viewer.
+    /// The AT-URI of the other account's follow record, if it follows the actor.
     /// </summary>
     [JsonPropertyName("followedBy")]
     public AtUri? FollowedBy { get; init; }
+
+    /// <summary>
+    /// The AT-URI of the actor's block record, if the actor blocks the other account.
+    /// </summary>
+    [JsonPropertyName("blocking")]
+    public AtUri? Blocking { get; init; }
+
+    /// <summary>
+    /// The AT-URI of the other account's block record, if it blocks the actor.
+    /// </summary>
+    [JsonPropertyName("blockedBy")]
+    public AtUri? BlockedBy { get; init; }
+
+    /// <summary>
+    /// The AT-URI of the actor's list-block record, if the actor blocks the other account through
+    /// a block list.
+    /// </summary>
+    [JsonPropertyName("blockingByList")]
+    public AtUri? BlockingByList { get; init; }
+
+    /// <summary>
+    /// The AT-URI of the other account's list-block record, if it blocks the actor through a
+    /// block list.
+    /// </summary>
+    [JsonPropertyName("blockedByList")]
+    public AtUri? BlockedByList { get; init; }
 }
 
 /// <summary>
 /// A "not found" actor placeholder in relationship responses.
 /// </summary>
-public sealed class NotFoundActor : LexObject
+public sealed class NotFoundActor : RelationshipEntry
 {
-    /// <summary>The Lexicon type discriminator for this object.</summary>
-    [JsonPropertyName("$type")]
-    public string? Type { get; init; }
-
     /// <summary>The DID or handle that could not be resolved.</summary>
     [JsonPropertyName("actor")]
     public required AtIdentifier Actor { get; init; }
@@ -685,7 +774,7 @@ public sealed class GetRelationshipsResponse
 
     /// <summary>The relationships between the actor and each of the requested accounts.</summary>
     [JsonPropertyName("relationships")]
-    public required IReadOnlyList<JsonElement> Relationships { get; init; }
+    public required IReadOnlyList<RelationshipEntry> Relationships { get; init; }
 }
 
 /// <summary>

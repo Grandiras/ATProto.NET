@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ATProtoNet.Identity;
+using ATProtoNet.Lexicon.App.Bsky.Feed;
 using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Site.Standard.Document;
@@ -72,4 +73,37 @@ public sealed class DocumentRecord : LexObject
     /// <summary>Timestamp of the document's last edit.</summary>
     [JsonPropertyName("updatedAt")]
     public AtDatetime? UpdatedAt { get; init; }
+
+    /// <summary>The people who contributed to the document.</summary>
+    [JsonPropertyName("contributors")]
+    public IReadOnlyList<DocumentContributor>? Contributors { get; init; }
+
+    /// <summary>
+    /// Open union describing how the document relates to external resources. Each entry must
+    /// specify a <c>$type</c>.
+    /// </summary>
+    [JsonPropertyName("links")]
+    public JsonElement? Links { get; init; }
+
+    /// <summary>Self-applied labels on the document.</summary>
+    [JsonPropertyName("labels")]
+    public SelfLabels? Labels { get; init; }
+}
+
+/// <summary>
+/// A contributor to a document (<c>site.standard.document#contributor</c>).
+/// </summary>
+public sealed class DocumentContributor : LexObject
+{
+    /// <summary>The contributor's DID.</summary>
+    [JsonPropertyName("did")]
+    public required Did Did { get; init; }
+
+    /// <summary>The contributor's role, such as author or editor (at most 100 graphemes).</summary>
+    [JsonPropertyName("role")]
+    public string? Role { get; init; }
+
+    /// <summary>The name to show for the contributor (at most 100 graphemes).</summary>
+    [JsonPropertyName("displayName")]
+    public string? DisplayName { get; init; }
 }

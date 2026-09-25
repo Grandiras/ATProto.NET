@@ -23,4 +23,8 @@ public sealed class SubscriptionRecord : LexObject
     /// </summary>
     [JsonPropertyName("publication")]
     public required AtUri Publication { get; init; }
+
+    /// <summary>When the subscription was created.</summary>
+    [JsonPropertyName("createdAt")]
+    public AtDatetime? CreatedAt { get; init; }
 }

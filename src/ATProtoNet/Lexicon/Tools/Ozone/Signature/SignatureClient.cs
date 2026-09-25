@@ -31,27 +31,26 @@ public sealed class SignatureClient
     }
 
     /// <summary>
-    /// Search one page of accounts by signature properties.
+    /// Search one page of the accounts that match any of the given threat-signature values.
     /// </summary>
-    /// <param name="values">The signature values to search for.</param>
+    /// <param name="values">The signature values to search for (see <see cref="SigDetail.Value"/>).</param>
     /// <param name="limit">Maximum number of accounts (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<SearchAccountsResponse> SearchAccountsAsync(
-        IEnumerable<SigDetail> values,
+        IEnumerable<string> values,
         int? limit = null,
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        // SearchAccounts uses POST with a body
-        var request = new SearchAccountsRequest
-        {
-            Values = [.. values],
-            Cursor = cursor,
-            Limit = limit,
-        };
-        return _xrpc.ProcedureAsync<SearchAccountsResponse>(
-            "tools.ozone.signature.searchAccounts", request, cancellationToken: cancellationToken);
+        ArgumentNullException.ThrowIfNull(values);
+
+        var parameters = new XrpcParams()
+            .AddAll("values", values)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
+        return _xrpc.QueryAsync<SearchAccountsResponse>(
+            "tools.ozone.signature.searchAccounts", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -74,16 +73,4 @@ public sealed class SignatureClient
         return _xrpc.QueryAsync<FindRelatedAccountsResponse>(
             "tools.ozone.signature.findRelatedAccounts", parameters, cancellationToken: cancellationToken);
     }
-}
-
-internal sealed class SearchAccountsRequest
-{
-    [System.Text.Json.Serialization.JsonPropertyName("values")]
-    public required IReadOnlyList<SigDetail> Values { get; init; }
-
-    [System.Text.Json.Serialization.JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
-    [System.Text.Json.Serialization.JsonPropertyName("limit")]
-    public int? Limit { get; init; }
 }

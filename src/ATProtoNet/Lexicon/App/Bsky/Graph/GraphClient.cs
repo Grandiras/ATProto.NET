@@ -25,15 +25,17 @@ public sealed class GraphClient
     /// Get one page of the accounts following an actor.
     /// </summary>
     /// <param name="actor">Handle or DID of the actor.</param>
+    /// <param name="sort">The order: <c>latest</c> or <c>top</c>; the server's default when omitted.</param>
     /// <param name="limit">Max results per page (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetFollowersResponse> GetFollowersAsync(
-        AtIdentifier actor, int? limit = null, string? cursor = null,
+        AtIdentifier actor, string? sort = null, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
             .Add("actor", actor)
+            .Add("sort", sort)
             .Add("limit", limit)
             .Add("cursor", cursor);
 
@@ -45,28 +47,31 @@ public sealed class GraphClient
     /// Enumerate the accounts following an actor, fetching pages as needed.
     /// </summary>
     /// <param name="actor">Handle or DID of the actor.</param>
+    /// <param name="sort">The order: <c>latest</c> or <c>top</c>; the server's default when omitted.</param>
     /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<ProfileView> EnumerateFollowersAsync(
-        AtIdentifier actor, int? pageSize = null,
+        AtIdentifier actor, string? sort = null, int? pageSize = null,
         CancellationToken cancellationToken = default) =>
         Pagination.EnumerateAsync<GetFollowersResponse, ProfileView>(
-            (cursor, ct) => GetFollowersAsync(actor, pageSize, cursor, ct),
+            (cursor, ct) => GetFollowersAsync(actor, sort, pageSize, cursor, ct),
             cancellationToken);
 
     /// <summary>
     /// Get one page of the accounts an actor follows.
     /// </summary>
     /// <param name="actor">Handle or DID of the actor.</param>
+    /// <param name="sort">The order: <c>latest</c> or <c>top</c>; the server's default when omitted.</param>
     /// <param name="limit">Max results per page (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetFollowsResponse> GetFollowsAsync(
-        AtIdentifier actor, int? limit = null, string? cursor = null,
+        AtIdentifier actor, string? sort = null, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
             .Add("actor", actor)
+            .Add("sort", sort)
             .Add("limit", limit)
             .Add("cursor", cursor);
 
@@ -78,13 +83,14 @@ public sealed class GraphClient
     /// Enumerate the accounts an actor follows, fetching pages as needed.
     /// </summary>
     /// <param name="actor">Handle or DID of the actor.</param>
+    /// <param name="sort">The order: <c>latest</c> or <c>top</c>; the server's default when omitted.</param>
     /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<ProfileView> EnumerateFollowsAsync(
-        AtIdentifier actor, int? pageSize = null,
+        AtIdentifier actor, string? sort = null, int? pageSize = null,
         CancellationToken cancellationToken = default) =>
         Pagination.EnumerateAsync<GetFollowsResponse, ProfileView>(
-            (cursor, ct) => GetFollowsAsync(actor, pageSize, cursor, ct),
+            (cursor, ct) => GetFollowsAsync(actor, sort, pageSize, cursor, ct),
             cancellationToken);
 
     /// <summary>
@@ -167,14 +173,26 @@ public sealed class GraphClient
             cancellationToken);
 
     /// <summary>
-    /// Mute an actor.
+    /// Mute an actor: fully, or only their reposts and/or quote posts.
     /// </summary>
+    /// <remarks>
+    /// With neither scope set the actor is fully muted; with either set, only that content is.
+    /// A repeated call replaces the stored scope rather than adding to it.
+    /// </remarks>
     /// <param name="actor">Handle or DID of the actor.</param>
+    /// <param name="onlyReposts">Mute only the actor's reposts.</param>
+    /// <param name="onlyQuoteposts">Mute only the actor's quote posts.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task MuteActorAsync(
-        AtIdentifier actor, CancellationToken cancellationToken = default)
+        AtIdentifier actor, bool? onlyReposts = null, bool? onlyQuoteposts = null,
+        CancellationToken cancellationToken = default)
     {
-        var request = new MuteActorRequest { Actor = actor };
+        var request = new MuteActorRequest
+        {
+            Actor = actor,
+            OnlyReposts = onlyReposts,
+            OnlyQuoteposts = onlyQuoteposts,
+        };
         await _xrpc.ProcedureAsync(
             "app.bsky.graph.muteActor", request, cancellationToken: cancellationToken);
     }
@@ -226,15 +244,20 @@ public sealed class GraphClient
     /// Get one page of the lists an actor created.
     /// </summary>
     /// <param name="actor">Handle or DID of the actor.</param>
+    /// <param name="purposes">
+    /// Only lists with these purposes, by short name: <c>modlist</c>, <c>curatelist</c>.
+    /// <see langword="null"/> for every purpose the server supports.
+    /// </param>
     /// <param name="limit">Max results per page (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetListsResponse> GetListsAsync(
-        AtIdentifier actor, int? limit = null, string? cursor = null,
+        AtIdentifier actor, IEnumerable<string>? purposes = null, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
             .Add("actor", actor)
+            .AddAll("purposes", purposes)
             .Add("limit", limit)
             .Add("cursor", cursor);
 
@@ -246,13 +269,17 @@ public sealed class GraphClient
     /// Enumerate the lists an actor created, fetching pages as needed.
     /// </summary>
     /// <param name="actor">Handle or DID of the actor.</param>
+    /// <param name="purposes">
+    /// Only lists with these purposes, by short name: <c>modlist</c>, <c>curatelist</c>.
+    /// <see langword="null"/> for every purpose the server supports.
+    /// </param>
     /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<ListView> EnumerateListsAsync(
-        AtIdentifier actor, int? pageSize = null,
+        AtIdentifier actor, IEnumerable<string>? purposes = null, int? pageSize = null,
         CancellationToken cancellationToken = default) =>
         Pagination.EnumerateAsync<GetListsResponse, ListView>(
-            (cursor, ct) => GetListsAsync(actor, pageSize, cursor, ct),
+            (cursor, ct) => GetListsAsync(actor, purposes, pageSize, cursor, ct),
             cancellationToken);
 
     /// <summary>

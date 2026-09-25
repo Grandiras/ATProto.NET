@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Feed;
+using ATProtoNet.Lexicon.App.Bsky.Notification;
 using ATProtoNet.Models;
 using ATProtoNet.Serialization;
 
@@ -96,15 +97,16 @@ public class TypedBskyClientTests : IDisposable
     }
 
     [Fact]
-    public async Task ListNotificationsAsync_SendsSeenAtAsItsText_AndParsesTypedNotifications()
+    public async Task ListNotificationsAsync_SendsReasons_AndParsesTypedNotifications()
     {
         _handler.Respond = _ =>
             $$"""{"notifications":[{"uri":"at://{{DidText}}/app.bsky.feed.like/3k2lb","cid":"{{Cid1}}","author":{{ProfileJson}},"reason":"like","reasonSubject":"{{PostUri}}","record":{},"isRead":false,"indexedAt":"2024-05-01T12:00:00.000Z"}],"seenAt":"2024-05-01T12:00:00+02:00"}""";
 
         var page = await _client.Bsky.Notification.ListNotificationsAsync(
-            priority: true, seenAt: AtDatetime.Parse("2024-05-01T12:00:00+02:00"), limit: 10);
+            reasons: [NotificationReasons.Like, NotificationReasons.LikeViaRepost], limit: 10);
 
-        Assert.Equal("priority=true&seenAt=2024-05-01T12:00:00+02:00&limit=10", Query(_handler.Requests.Single()));
+        // seenAt is deliberately not a parameter: upstream answers it with an error since 2026-09-21.
+        Assert.Equal("reasons=like&reasons=like-via-repost&limit=10", Query(_handler.Requests.Single()));
         var notification = Assert.Single(page.Notifications);
         Assert.Equal(AtUri.Parse(PostUri), notification.ReasonSubject);
         Assert.Equal(Cid1, notification.Cid.Value);
@@ -169,11 +171,11 @@ public class TypedBskyClientTests : IDisposable
             ? """{"notifications":[]}"""
             : """{"cursor":"n2","notifications":[]}""";
 
-        await foreach (var _ in _client.Bsky.Notification.EnumerateNotificationsAsync(priority: true))
+        await foreach (var _ in _client.Bsky.Notification.EnumerateNotificationsAsync(reasons: [NotificationReasons.Reply]))
         {
         }
 
-        Assert.Equal(["priority=true", "priority=true&cursor=n2"], _handler.Requests.Select(Query));
+        Assert.Equal(["reasons=reply", "reasons=reply&cursor=n2"], _handler.Requests.Select(Query));
     }
 
     [Fact]

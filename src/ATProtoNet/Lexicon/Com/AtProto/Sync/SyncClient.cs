@@ -140,6 +140,7 @@ public sealed class SyncClient
     /// <summary>
     /// Notify a relay/crawler that this PDS has new data.
     /// </summary>
+    [Obsolete("Deprecated upstream: use RequestCrawlAsync.")]
     public async Task NotifyOfUpdateAsync(
         string hostname, CancellationToken cancellationToken = default)
     {

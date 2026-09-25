@@ -136,9 +136,14 @@ await client.Chat.Convo.DeleteMessageForSelfAsync(
 // Mark a specific conversation as read
 await client.Chat.Convo.UpdateReadAsync(convoId: "convo-id");
 
-// Mark all conversations as read
-await client.Chat.Convo.UpdateAllReadAsync();
+// Mark all conversations as read, or only the accepted ones or the requests
+var result = await client.Chat.Convo.UpdateAllReadAsync();
+Console.WriteLine($"{result.UpdatedCount} conversations marked read");
+await client.Chat.Convo.UpdateAllReadAsync(status: "request");
 ```
+
+`UpdateReadAsync`, `MuteConvoAsync` and `UnmuteConvoAsync` return the conversation after the
+change; `AddReactionAsync` and `RemoveReactionAsync` return the message.
 
 ### Mute and Unmute
 
@@ -193,8 +198,14 @@ await foreach (var entry in client.Chat.Convo.EnumerateLogAsync())
 // Delete chat account data
 await client.Chat.Actor.DeleteAccountAsync();
 
-// Export chat data
-var data = await client.Chat.Actor.ExportAccountDataAsync();
+// Export chat data: JSON Lines, one object per line
+await using var export = await client.Chat.Actor.ExportAccountDataAsync();
+using var reader = new StreamReader(export.Content);
+while (await reader.ReadLineAsync() is { Length: > 0 } line)
+{
+    using var item = JsonDocument.Parse(line);
+    // …
+}
 ```
 
 ## Chat Declaration

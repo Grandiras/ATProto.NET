@@ -21,11 +21,13 @@ public sealed class ModerationClient
     /// <param name="subject">The subject being reported.</param>
     /// <param name="reasonType">The reason type. Use constants from <see cref="ReportReasons"/>.</param>
     /// <param name="reason">Optional free-text description of the report.</param>
+    /// <param name="modTool">The tool filing the report, if the labeler should know.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<CreateReportResponse> CreateReportAsync(
         ReportSubject subject,
         string reasonType,
         string? reason = null,
+        ModTool? modTool = null,
         CancellationToken cancellationToken = default)
     {
         var request = new CreateReportRequest
@@ -33,6 +35,7 @@ public sealed class ModerationClient
             ReasonType = reasonType,
             Subject = subject,
             Reason = reason,
+            ModTool = modTool,
         };
 
         return _xrpc.ProcedureAsync<CreateReportResponse>(
@@ -56,7 +59,7 @@ public sealed class ModerationClient
             new RepoSubject { Did = did },
             reasonType,
             reason,
-            cancellationToken);
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -78,6 +81,6 @@ public sealed class ModerationClient
             new RecordSubject { Uri = uri, Cid = cid },
             reasonType,
             reason,
-            cancellationToken);
+            cancellationToken: cancellationToken);
     }
 }

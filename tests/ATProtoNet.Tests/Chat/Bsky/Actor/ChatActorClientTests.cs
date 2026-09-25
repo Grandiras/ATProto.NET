@@ -46,34 +46,6 @@ public class ChatActorClientTests : IDisposable
         Assert.Equal(ServiceProxy.BskyChatHeader, capturedProxy);
     }
 
-    [Fact]
-    public void ChatDeclarationRecord_HasCorrectType()
-    {
-        var decl = new ChatDeclarationRecord { AllowIncoming = ChatAllowIncoming.Following };
-
-        Assert.Equal("chat.bsky.actor.declaration", decl.Type);
-        Assert.Equal("following", decl.AllowIncoming);
-    }
-
-    [Fact]
-    public void ChatDeclarationRecord_Serializes()
-    {
-        var decl = new ChatDeclarationRecord { AllowIncoming = ChatAllowIncoming.All };
-        var json = JsonSerializer.Serialize(decl);
-        var doc = JsonDocument.Parse(json);
-
-        Assert.Equal("chat.bsky.actor.declaration", doc.RootElement.GetProperty("$type").GetString());
-        Assert.Equal("all", doc.RootElement.GetProperty("allowIncoming").GetString());
-    }
-
-    [Fact]
-    public void ChatAllowIncoming_HasExpectedValues()
-    {
-        Assert.Equal("all", ChatAllowIncoming.All);
-        Assert.Equal("none", ChatAllowIncoming.None);
-        Assert.Equal("following", ChatAllowIncoming.Following);
-    }
-
     public void Dispose()
     {
         _httpClient.Dispose();

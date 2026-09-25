@@ -90,6 +90,19 @@ public sealed class ModerationClient
     /// <param name="removedTags">Only events that removed all of these tags.</param>
     /// <param name="reportTypes">Only report events of these reason types.</param>
     /// <param name="types">Only events of these types (<c>tools.ozone.moderation.defs#modEvent…</c>).</param>
+    /// <param name="collections">
+    /// Only events on records in these collections; applies when <paramref name="subject"/> is
+    /// an account or <paramref name="includeAllUserRecords"/> is set.
+    /// </param>
+    /// <param name="subjectType">Only events on this kind of subject: <c>account</c>, <c>record</c> or <c>conversation</c>.</param>
+    /// <param name="includeAllUserRecords">
+    /// With an account <paramref name="subject"/>, also events on the account's records.
+    /// </param>
+    /// <param name="policies">Only events enforcing one of these policies.</param>
+    /// <param name="modTool">Only events emitted with one of these tools.</param>
+    /// <param name="batchId">Only events of this batch.</param>
+    /// <param name="ageAssuranceState">Only age-assurance events that set this state.</param>
+    /// <param name="withStrike"><see langword="true"/> for only events that gave strikes.</param>
     /// <param name="limit">Maximum number of events (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -107,6 +120,14 @@ public sealed class ModerationClient
         IEnumerable<string>? removedTags = null,
         IEnumerable<string>? reportTypes = null,
         IEnumerable<string>? types = null,
+        IEnumerable<Nsid>? collections = null,
+        string? subjectType = null,
+        bool? includeAllUserRecords = null,
+        IEnumerable<string>? policies = null,
+        IEnumerable<string>? modTool = null,
+        string? batchId = null,
+        string? ageAssuranceState = null,
+        bool? withStrike = null,
         int? limit = null,
         string? cursor = null,
         CancellationToken cancellationToken = default)
@@ -125,6 +146,14 @@ public sealed class ModerationClient
             .AddAll("removedTags", removedTags)
             .AddAll("reportTypes", reportTypes)
             .AddAll("types", types)
+            .AddAll("collections", collections?.Select(collection => collection.Value))
+            .Add("subjectType", subjectType)
+            .Add("includeAllUserRecords", includeAllUserRecords)
+            .AddAll("policies", policies)
+            .AddAll("modTool", modTool)
+            .Add("batchId", batchId)
+            .Add("ageAssuranceState", ageAssuranceState)
+            .Add("withStrike", withStrike)
             .Add("limit", limit)
             .Add("cursor", cursor);
         return _xrpc.QueryAsync<QueryEventsResponse>(
@@ -149,6 +178,19 @@ public sealed class ModerationClient
     /// <param name="removedTags">Only events that removed all of these tags.</param>
     /// <param name="reportTypes">Only report events of these reason types.</param>
     /// <param name="types">Only events of these types (<c>tools.ozone.moderation.defs#modEvent…</c>).</param>
+    /// <param name="collections">
+    /// Only events on records in these collections; applies when <paramref name="subject"/> is
+    /// an account or <paramref name="includeAllUserRecords"/> is set.
+    /// </param>
+    /// <param name="subjectType">Only events on this kind of subject: <c>account</c>, <c>record</c> or <c>conversation</c>.</param>
+    /// <param name="includeAllUserRecords">
+    /// With an account <paramref name="subject"/>, also events on the account's records.
+    /// </param>
+    /// <param name="policies">Only events enforcing one of these policies.</param>
+    /// <param name="modTool">Only events emitted with one of these tools.</param>
+    /// <param name="batchId">Only events of this batch.</param>
+    /// <param name="ageAssuranceState">Only age-assurance events that set this state.</param>
+    /// <param name="withStrike"><see langword="true"/> for only events that gave strikes.</param>
     /// <param name="pageSize">Events per request (1-100); <see langword="null"/> for the server default.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<ModEventView> EnumerateEventsAsync(
@@ -165,94 +207,56 @@ public sealed class ModerationClient
         IEnumerable<string>? removedTags = null,
         IEnumerable<string>? reportTypes = null,
         IEnumerable<string>? types = null,
+        IEnumerable<Nsid>? collections = null,
+        string? subjectType = null,
+        bool? includeAllUserRecords = null,
+        IEnumerable<string>? policies = null,
+        IEnumerable<string>? modTool = null,
+        string? batchId = null,
+        string? ageAssuranceState = null,
+        bool? withStrike = null,
         int? pageSize = null,
         CancellationToken cancellationToken = default) =>
         Pagination.EnumerateAsync<QueryEventsResponse, ModEventView>(
             (cursor, ct) => QueryEventsAsync(
                 subject, createdBy, sortDirection, createdAfter, createdBefore, hasComment, comment,
                 addedLabels, removedLabels, addedTags, removedTags, reportTypes, types,
-                pageSize, cursor, ct),
+                collections, subjectType, includeAllUserRecords, policies, modTool, batchId,
+                ageAssuranceState, withStrike, pageSize, cursor, ct),
             cancellationToken);
 
     /// <summary>
-    /// Search/filter one page of moderation subjects (moderation queue view).
+    /// Get one page of the subjects' moderation statuses: the review queue.
     /// </summary>
-    /// <param name="subject">
-    /// Only this subject: an account's DID, or a record's AT URI.
-    /// </param>
-    /// <param name="reviewState">Only subjects in this review state (see <see cref="SubjectReviewState"/>).</param>
-    /// <param name="sortDirection">Sort direction, <c>asc</c> or <c>desc</c> (the default).</param>
-    /// <param name="sortField">The field to sort by.</param>
-    /// <param name="takendown">Only subjects that were taken down.</param>
-    /// <param name="appealed">Only subjects with an unresolved appeal.</param>
-    /// <param name="lastReviewedBy">Only subjects last reviewed by this moderator.</param>
-    /// <param name="tags">Only subjects with these tags.</param>
-    /// <param name="excludeTags">Leave out subjects with any of these tags.</param>
-    /// <param name="limit">Maximum number of subjects (1-100, default 50).</param>
+    /// <param name="filter">Which subjects to return and in what order; <see langword="null"/> for the defaults.</param>
+    /// <param name="limit">Maximum number of statuses (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<QuerySubjectsResponse> QuerySubjectsAsync(
-        string? subject = null,
-        string? reviewState = null,
-        string? sortDirection = null,
-        string? sortField = null,
-        string? takendown = null,
-        string? appealed = null,
-        Did? lastReviewedBy = null,
-        IEnumerable<string>? tags = null,
-        IEnumerable<string>? excludeTags = null,
+    public Task<QueryStatusesResponse> QueryStatusesAsync(
+        SubjectStatusFilter? filter = null,
         int? limit = null,
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new XrpcParams()
-            .Add("subject", subject)
-            .Add("reviewState", reviewState)
-            .Add("sortDirection", sortDirection)
-            .Add("sortField", sortField)
-            .Add("takendown", takendown)
-            .Add("appealed", appealed)
-            .Add("lastReviewedBy", lastReviewedBy)
-            .AddAll("tags", tags)
-            .AddAll("excludeTags", excludeTags)
+        var parameters = (filter ?? SubjectStatusFilter.None).ToParams()
             .Add("limit", limit)
             .Add("cursor", cursor);
-        return _xrpc.QueryAsync<QuerySubjectsResponse>(
-            "tools.ozone.moderation.querySubjects", parameters, cancellationToken: cancellationToken);
+        return _xrpc.QueryAsync<QueryStatusesResponse>(
+            "tools.ozone.moderation.queryStatuses", parameters, cancellationToken: cancellationToken);
     }
 
     /// <summary>
-    /// Enumerate every moderation subject matching the filters, fetching pages as needed.
+    /// Enumerate every subject status a filter matches, fetching pages as needed.
     /// </summary>
-    /// <param name="subject">
-    /// Only this subject: an account's DID, or a record's AT URI.
-    /// </param>
-    /// <param name="reviewState">Only subjects in this review state (see <see cref="SubjectReviewState"/>).</param>
-    /// <param name="sortDirection">Sort direction, <c>asc</c> or <c>desc</c> (the default).</param>
-    /// <param name="sortField">The field to sort by.</param>
-    /// <param name="takendown">Only subjects that were taken down.</param>
-    /// <param name="appealed">Only subjects with an unresolved appeal.</param>
-    /// <param name="lastReviewedBy">Only subjects last reviewed by this moderator.</param>
-    /// <param name="tags">Only subjects with these tags.</param>
-    /// <param name="excludeTags">Leave out subjects with any of these tags.</param>
-    /// <param name="pageSize">Subjects per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="filter">Which subjects to return and in what order; <see langword="null"/> for the defaults.</param>
+    /// <param name="pageSize">Statuses per request (1-100); <see langword="null"/> for the server default.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public IAsyncEnumerable<SubjectStatusView> EnumerateSubjectsAsync(
-        string? subject = null,
-        string? reviewState = null,
-        string? sortDirection = null,
-        string? sortField = null,
-        string? takendown = null,
-        string? appealed = null,
-        Did? lastReviewedBy = null,
-        IEnumerable<string>? tags = null,
-        IEnumerable<string>? excludeTags = null,
+    public IAsyncEnumerable<SubjectStatusView> EnumerateStatusesAsync(
+        SubjectStatusFilter? filter = null,
         int? pageSize = null,
         CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<QuerySubjectsResponse, SubjectStatusView>(
-            (cursor, ct) => QuerySubjectsAsync(
-                subject, reviewState, sortDirection, sortField, takendown, appealed, lastReviewedBy,
-                tags, excludeTags, pageSize, cursor, ct),
+        Pagination.EnumerateAsync<QueryStatusesResponse, SubjectStatusView>(
+            (cursor, ct) => QueryStatusesAsync(filter, pageSize, cursor, ct),
             cancellationToken);
 
     /// <summary>

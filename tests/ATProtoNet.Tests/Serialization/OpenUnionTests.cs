@@ -37,7 +37,7 @@ public class OpenUnionTests
         { typeof(ThreadNode), "app.bsky.feed.defs#threadFuture" },
         { typeof(ReportModeration.ReportSubject), "com.atproto.admin.defs#future" },
         { typeof(OzoneModeration.ModEventType), "tools.ozone.moderation.defs#accountEvent" },
-        { typeof(OzoneModeration.ModerationSubject), "chat.bsky.convo.defs#messageRef" },
+        { typeof(OzoneModeration.ModerationSubject), "chat.bsky.convo.defs#futureRef" },
     };
 
     [Theory]

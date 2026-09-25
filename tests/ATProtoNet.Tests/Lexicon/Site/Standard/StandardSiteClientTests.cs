@@ -457,6 +457,16 @@ public class StandardSiteClientTests : IDisposable
         Assert.False(sent);
     }
 
+    [Fact]
+    public void AtProtoClient_Site_IsAvailable()
+    {
+        using var client = new AtProtoClientBuilder()
+            .WithInstanceUrl("https://pds.example.com")
+            .Build();
+
+        Assert.NotNull(client.Site);
+    }
+
     public void Dispose()
     {
         _httpClient.Dispose();

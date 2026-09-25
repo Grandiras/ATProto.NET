@@ -514,8 +514,8 @@ public static class AtProtoScopes
     /// <summary>
     /// Constructs an <c>include</c> scope string that references a published permission set.
     /// Permission sets are Lexicon schemas that bundle multiple granular permissions under a single NSID.
-    /// <para>Example: <c>AtProtoScopes.Include("app.bsky.authBasicFeatures", "did:web:api.bsky.app#svc_appview")</c>
-    /// → <c>"include:app.bsky.authBasicFeatures?aud=did:web:api.bsky.app%23svc_appview"</c></para>
+    /// <para>Example: <c>AtProtoScopes.Include(PermissionSets.FullApp, "did:web:api.bsky.app#bsky_appview")</c>
+    /// → <c>"include:app.bsky.authFullApp?aud=did:web:api.bsky.app%23bsky_appview"</c></para>
     /// </summary>
     /// <param name="permissionSetNsid">The NSID of the permission set Lexicon.</param>
     /// <param name="aud">Optional audience DID passed to permissions with <c>inheritAud</c>.</param>
@@ -526,55 +526,61 @@ public static class AtProtoScopes
         return string.IsNullOrWhiteSpace(aud) ? scope : $"{scope}?aud={EncodeScopeValue(aud)}";
     }
 
-    // ─── Well-known Bluesky permission set NSIDs ────────────────────────
+    // ─── Published permission set NSIDs ────────────────────────────────
 
     /// <summary>
-    /// Well-known Bluesky permission set NSIDs for use with <see cref="Include"/>.
-    /// These correspond to the <c>app.bsky.auth*</c> permission set Lexicons.
+    /// The NSIDs of published permission sets, for use with <see cref="Include"/>: Bluesky's
+    /// <c>app.bsky.auth*</c> and <c>chat.bsky.authFullChatClient</c>, and Standard.site's
+    /// <c>site.standard.auth*</c>.
     /// </summary>
+    /// <remarks>
+    /// An authorization server resolves each set from the Lexicon its authority publishes, so an
+    /// NSID nobody published makes the whole <c>include:</c> scope unresolvable. The SDK's tests
+    /// check these constants against a snapshot of the published sets.
+    /// </remarks>
     public static class PermissionSets
     {
-        /// <summary>Full Bluesky Social app functionality. Superset of all other permission sets.</summary>
+        /// <summary>
+        /// Full Bluesky app functionality: all public content and interactions, private
+        /// preferences and subscriptions, and other Bluesky-specific data.
+        /// </summary>
         public const string FullApp = "app.bsky.authFullApp";
 
-        /// <summary>Manage Bluesky profile (read/update/delete profile, actor status, notification declaration).</summary>
+        /// <summary>Update the Bluesky profile, the account status and the notification declaration.</summary>
         public const string ManageProfile = "app.bsky.authManageProfile";
 
-        /// <summary>Create posts only (not update/delete). Usually needs blob permission as well.</summary>
+        /// <summary>
+        /// Create posts, with their threadgates and postgates, and upload videos; posts cannot be
+        /// updated or deleted. Images still need a <c>blob</c> permission.
+        /// </summary>
         public const string CreatePosts = "app.bsky.authCreatePosts";
 
-        /// <summary>Delete posts only (not create/update). For "delete old posts" automation.</summary>
-        public const string DeletePosts = "app.bsky.authDeletePosts";
+        /// <summary>Delete public account history: posts, reposts and likes.</summary>
+        public const string DeleteContent = "app.bsky.authDeleteContent";
 
-        /// <summary>Full create/update/delete permissions for posts.</summary>
-        public const string ManagePosts = "app.bsky.authManagePosts";
+        /// <summary>View and configure the Bluesky app's notifications.</summary>
+        public const string ManageNotifications = "app.bsky.authManageNotifications";
 
-        /// <summary>Manage follows (create/update/delete).</summary>
-        public const string ManageFollows = "app.bsky.authManageFollows";
-
-        /// <summary>Manage lists and starter packs.</summary>
-        public const string ManageListsAndPacks = "app.bsky.authManageListsAndPacks";
-
-        /// <summary>View notifications (unread count, list, mark seen).</summary>
-        public const string ViewNotifications = "app.bsky.authViewNotifs";
-
-        /// <summary>Full notification management including preferences and push registration.</summary>
-        public const string ManageNotifications = "app.bsky.authManageNotifs";
-
-        /// <summary>Manage hosted feed generators (declarative feeds).</summary>
+        /// <summary>Manage feed generator declaration records.</summary>
         public const string ManageFeedDeclarations = "app.bsky.authManageFeedDeclarations";
 
-        /// <summary>Manage hosted labeling service (e.g., Ozone).</summary>
+        /// <summary>Manage the labeler declaration record of a hosted labeling service.</summary>
         public const string ManageLabelerService = "app.bsky.authManageLabelerService";
 
-        /// <summary>Manage Bluesky preferences (get/put).</summary>
-        public const string ManagePreferences = "app.bsky.authManagePrefs";
-
-        /// <summary>Manage personal moderation (blocks, mutes, services).</summary>
+        /// <summary>Manage personal moderation: blocks, mutes, moderation lists and services, and preferences.</summary>
         public const string ManageModeration = "app.bsky.authManageModeration";
 
-        /// <summary>Read-only access to all content (profiles, feeds, search, etc.).</summary>
+        /// <summary>Read-only access to all content, and to the account's notifications and preferences.</summary>
         public const string ViewAll = "app.bsky.authViewAll";
+
+        /// <summary>A full Bluesky chat client: every conversation and the chat settings.</summary>
+        public const string FullChatClient = "chat.bsky.authFullChatClient";
+
+        /// <summary>Standard.site: manage publications, documents, subscriptions and recommendations.</summary>
+        public const string StandardSiteFull = "site.standard.authFull";
+
+        /// <summary>Standard.site: manage publication subscriptions and document recommendations.</summary>
+        public const string StandardSiteSocial = "site.standard.authSocial";
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────

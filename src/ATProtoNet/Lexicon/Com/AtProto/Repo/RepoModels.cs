@@ -436,6 +436,10 @@ public sealed class MissingBlob : LexObject
     /// <summary>The CID of the missing blob.</summary>
     [JsonPropertyName("cid")]
     public required Cid Cid { get; init; }
+
+    /// <summary>The AT-URI of the record that references the blob.</summary>
+    [JsonPropertyName("recordUri")]
+    public required AtUri RecordUri { get; init; }
 }
 
 /// <summary>

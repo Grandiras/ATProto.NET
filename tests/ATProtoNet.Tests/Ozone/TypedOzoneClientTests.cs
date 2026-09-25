@@ -101,7 +101,7 @@ public class TypedOzoneClientTests : IDisposable
     {
         var uri = AtUri.Parse($"at://{ModDid}/app.bsky.feed.post/3k2la");
         _handler.Pages.Enqueue($$"""
-            {"uri":"{{uri}}","cid":"{{CidText}}","value":{},"indexedAt":"2024-01-01T00:00:00Z",
+            {"uri":"{{uri}}","cid":"{{CidText}}","value":{},"blobs":[],"indexedAt":"2024-01-01T00:00:00Z",
              "moderation":{},"repo":{"did":"{{ModDid}}","handle":"mod.example.com","indexedAt":"2024-01-01T00:00:00Z","moderation":{} } }
             """);
 
@@ -161,21 +161,23 @@ public class TypedOzoneClientTests : IDisposable
     }
 
     [Fact]
-    public async Task SearchAccountsAsync_LimitThenCursor_SendsBoth()
+    public async Task SearchAccountsAsync_IsAQueryWithOneValuesParameterEach()
     {
-        _handler.Pages.Enqueue("""{"accounts":[]}""");
+        _handler.Pages.Enqueue($$"""{"accounts":[{"did":"{{ModDid}}","handle":"mod.example.com","indexedAt":"2026-09-01T00:00:00.000Z"}]}""");
 
-        await _client.Ozone.Signature.SearchAccountsAsync(
-            [new SigDetail { Property = "ip", Value = "192.0.2.1" }], 10, "c");
+        var page = await _client.Ozone.Signature.SearchAccountsAsync(["192.0.2.1", "device-7"], 10, "c");
 
-        using var body = JsonDocument.Parse(_handler.Bodies.Single()!);
-        Assert.Equal(10, body.RootElement.GetProperty("limit").GetInt32());
-        Assert.Equal("c", body.RootElement.GetProperty("cursor").GetString());
+        // A query, not a procedure: the values go in the query string and nothing in a body.
+        Assert.Null(_handler.Bodies.Single());
+        Assert.Equal(
+            "?values=192.0.2.1&values=device-7&limit=10&cursor=c",
+            Uri.UnescapeDataString(_handler.Requests.Single().Query));
+        Assert.Equal(ModDid, Assert.Single(page.Accounts).Did.Value);
     }
 
     public static TheoryData<string> Enumerators =>
     [
-        "events", "subjects", "repos", "sets", "values", "members",
+        "events", "statuses", "repos", "sets", "values", "members",
     ];
 
     [Theory]
@@ -233,8 +235,8 @@ public class TypedOzoneClientTests : IDisposable
         {
             "events" => ("tools.ozone.moderation.queryEvents", Pages("events", eventView),
                 c => Count(c.Ozone.Moderation.EnumerateEventsAsync(pageSize: 2))),
-            "subjects" => ("tools.ozone.moderation.querySubjects", Pages("subjects", status),
-                c => Count(c.Ozone.Moderation.EnumerateSubjectsAsync(pageSize: 2))),
+            "statuses" => ("tools.ozone.moderation.queryStatuses", Pages("subjectStatuses", status),
+                c => Count(c.Ozone.Moderation.EnumerateStatusesAsync(pageSize: 2))),
             "repos" => ("tools.ozone.moderation.searchRepos", Pages("repos", repo),
                 c => Count(c.Ozone.Moderation.EnumerateReposAsync("mod", pageSize: 2))),
             "sets" => ("tools.ozone.set.querySets", Pages("sets", Set),

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Server;
@@ -27,6 +28,10 @@ public sealed class OzoneServerConfig : LexObject
     /// <summary>The requesting account's relationship to this subject.</summary>
     [JsonPropertyName("viewer")]
     public OzoneViewerConfig? Viewer { get; init; }
+
+    /// <summary>The DID the service issues verifications as, if it acts as a verifier.</summary>
+    [JsonPropertyName("verifierDid")]
+    public Did? VerifierDid { get; init; }
 }
 
 /// <summary>
@@ -44,7 +49,7 @@ public sealed class ServiceConfig : LexObject
 /// </summary>
 public sealed class OzoneViewerConfig : LexObject
 {
-    /// <summary>The role assigned to the member.</summary>
+    /// <summary>The viewer's team role (see <see cref="Team.TeamMemberRole"/>).</summary>
     [JsonPropertyName("role")]
     public string? Role { get; init; }
 }

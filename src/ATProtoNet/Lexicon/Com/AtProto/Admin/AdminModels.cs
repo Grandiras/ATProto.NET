@@ -49,6 +49,10 @@ public sealed class AccountInfo : LexObject
     [JsonPropertyName("invitesDisabled")]
     public bool? InvitesDisabled { get; init; }
 
+    /// <summary>The administrator's note on why the account's invites were disabled or enabled.</summary>
+    [JsonPropertyName("inviteNote")]
+    public string? InviteNote { get; init; }
+
     /// <summary>
     /// Selected records from the repository (such as the profile record) included for convenience.
     /// </summary>

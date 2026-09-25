@@ -28,11 +28,13 @@ public sealed class ChatActorClient
 
     /// <summary>
     /// Exports the chat account data for the authenticated user.
-    /// Returns a stream of JSONL data.
     /// </summary>
-    public Task<byte[]> ExportAccountDataAsync(CancellationToken cancellationToken = default)
-    {
-        return _xrpc.QueryAsync<byte[]>(
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// The export as JSON Lines (<c>application/jsonl</c>): one JSON object per line. Dispose it
+    /// once read.
+    /// </returns>
+    public Task<XrpcStreamResponse> ExportAccountDataAsync(CancellationToken cancellationToken = default) =>
+        _xrpc.DownloadAsync(
             "chat.bsky.actor.exportAccountData", options: ChatProxy, cancellationToken: cancellationToken);
-    }
 }

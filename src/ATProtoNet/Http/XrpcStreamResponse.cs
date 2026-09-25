@@ -1,7 +1,7 @@
 namespace ATProtoNet.Http;
 
 /// <summary>
-/// A binary XRPC response — a blob or a repository CAR — read as a stream.
+/// A binary XRPC response — a blob, a repository CAR or a JSON Lines export — read as a stream.
 /// </summary>
 /// <remarks>
 /// The response owns the underlying HTTP response and its connection. Dispose it once the

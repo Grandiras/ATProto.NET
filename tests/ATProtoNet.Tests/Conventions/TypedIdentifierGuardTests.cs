@@ -55,6 +55,10 @@ public class TypedIdentifierGuardTests
             "Lexicon format `uri`: the linked web page's URL.",
         ["ATProtoNet.Lexicon.App.Bsky.RichText.LinkFeature.Uri"] =
             "Lexicon format `uri`: the link facet's target URL.",
+        ["ATProtoNet.Lexicon.App.Bsky.Embed.ExternalViewSource.Uri"] =
+            "Lexicon format `uri`: the linked content's source site.",
+        ["ATProtoNet.Lexicon.App.Bsky.Actor.FeedViewPreference.Feed"] =
+            "No Lexicon format: a feed's AT URI, or an identifier such as `home` that describes one.",
         ["ATProtoNet.Lexicon.App.Bsky.RichText.RichTextBuilder.Link(uri)"] =
             "Lexicon format `uri`: the link facet's target URL.",
         ["ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.SearchPostsAsync(since)"] =
@@ -87,8 +91,12 @@ public class TypedIdentifierGuardTests
 
         ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.ModerationClient.QueryEventsAsync(subject)"] = OzoneSubjectFilter,
         ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.ModerationClient.EnumerateEventsAsync(subject)"] = OzoneSubjectFilter,
-        ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.ModerationClient.QuerySubjectsAsync(subject)"] = OzoneSubjectFilter,
-        ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.ModerationClient.EnumerateSubjectsAsync(subject)"] = OzoneSubjectFilter,
+        ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.SubjectStatusFilter.Subject"] = OzoneSubjectFilter,
+        ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.SubjectStatusFilter.IgnoreSubjects"] = OzoneSubjectFilter,
+        ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.SubjectStatusView.AgeAssuranceUpdatedBy"] =
+            "No Lexicon format: who last changed the state, `admin` or `user`.",
+        ["ATProtoNet.Lexicon.Tools.Ozone.Set.SetClient.QuerySetsAsync(sortBy)"] = OzoneSetSort,
+        ["ATProtoNet.Lexicon.Tools.Ozone.Set.SetClient.EnumerateSetsAsync(sortBy)"] = OzoneSetSort,
         ["ATProtoNet.Lexicon.Tools.Ozone.Communication.CommunicationTemplateView.Subject"] =
             "The email's subject line.",
         ["ATProtoNet.Lexicon.Tools.Ozone.Communication.CreateTemplateRequest.Subject"] =
@@ -128,6 +136,8 @@ public class TypedIdentifierGuardTests
 
     private const string OzoneSubjectFilter =
         "Lexicon format `uri`: an account subject is a bare DID, a record subject an AT URI.";
+
+    private const string OzoneSetSort = "No Lexicon format: the field to sort by, `name`, `createdAt` or `updatedAt`.";
 
     // The last camel-case word of a member name that marks an identifier-carrying member, from
     // the names the upstream Lexicons give their identifier-format fields.

@@ -43,15 +43,24 @@ public sealed class TeamClient
     /// <summary>
     /// List one page of team members.
     /// </summary>
+    /// <param name="q">Only members whose handle or display name matches this search term.</param>
+    /// <param name="disabled">Only disabled, or only enabled, members.</param>
+    /// <param name="roles">Only members with one of these roles (see <see cref="TeamMemberRole"/>).</param>
     /// <param name="limit">Maximum number of members (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ListMembersResponse> ListMembersAsync(
+        string? q = null,
+        bool? disabled = null,
+        IEnumerable<string>? roles = null,
         int? limit = null,
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
+            .Add("q", q)
+            .Add("disabled", disabled)
+            .AddAll("roles", roles)
             .Add("limit", limit)
             .Add("cursor", cursor);
         return _xrpc.QueryAsync<ListMembersResponse>(
@@ -61,13 +70,19 @@ public sealed class TeamClient
     /// <summary>
     /// Enumerate every team member, fetching pages as needed.
     /// </summary>
+    /// <param name="q">Only members whose handle or display name matches this search term.</param>
+    /// <param name="disabled">Only disabled, or only enabled, members.</param>
+    /// <param name="roles">Only members with one of these roles (see <see cref="TeamMemberRole"/>).</param>
     /// <param name="pageSize">Members per request (1-100); <see langword="null"/> for the server default.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<TeamMember> EnumerateMembersAsync(
+        string? q = null,
+        bool? disabled = null,
+        IEnumerable<string>? roles = null,
         int? pageSize = null,
         CancellationToken cancellationToken = default) =>
         Pagination.EnumerateAsync<ListMembersResponse, TeamMember>(
-            (cursor, ct) => ListMembersAsync(pageSize, cursor, ct),
+            (cursor, ct) => ListMembersAsync(q, disabled, roles, pageSize, cursor, ct),
             cancellationToken);
 
     /// <summary>

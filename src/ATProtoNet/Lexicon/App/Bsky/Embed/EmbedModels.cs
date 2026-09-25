@@ -1,6 +1,10 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ATProtoNet.Identity;
+using ATProtoNet.Lexicon.App.Bsky.Actor;
+using ATProtoNet.Lexicon.App.Bsky.Feed;
+using ATProtoNet.Lexicon.App.Bsky.Graph;
+using ATProtoNet.Lexicon.App.Bsky.Labeler;
 using ATProtoNet.Models;
 using ATProtoNet.Serialization;
 
@@ -126,6 +130,13 @@ public sealed class ExternalInfo : LexObject
     /// <summary>Optional thumbnail blob.</summary>
     [JsonPropertyName("thumb")]
     public BlobRef? Thumb { get; init; }
+
+    /// <summary>
+    /// Records the linked page is associated with, such as the <c>site.standard.document</c> it
+    /// publishes.
+    /// </summary>
+    [JsonPropertyName("associatedRefs")]
+    public IReadOnlyList<StrongRef>? AssociatedRefs { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -189,6 +200,25 @@ public sealed class VideoEmbed : EmbedBase
     /// <summary>The caption tracks for the video.</summary>
     [JsonPropertyName("captions")]
     public IReadOnlyList<VideoCaption>? Captions { get; init; }
+
+    /// <summary>
+    /// How the video is presented: <c>default</c>, or <c>gif</c> for a looping, muted clip (see
+    /// <see cref="VideoPresentation"/>).
+    /// </summary>
+    [JsonPropertyName("presentation")]
+    public string? Presentation { get; init; }
+}
+
+/// <summary>
+/// Known values of <see cref="VideoEmbed.Presentation"/> and <see cref="VideoView.Presentation"/>.
+/// </summary>
+public static class VideoPresentation
+{
+    /// <summary>A regular video.</summary>
+    public const string Default = "default";
+
+    /// <summary>A short looping clip without sound, shown like an animated GIF.</summary>
+    public const string Gif = "gif";
 }
 
 /// <summary>
@@ -374,6 +404,100 @@ public sealed class ExternalViewInfo : LexObject
     /// <summary>URL of the thumbnail image.</summary>
     [JsonPropertyName("thumb")]
     public string? Thumb { get; init; }
+
+    /// <summary>When the linked content was created, if known.</summary>
+    [JsonPropertyName("createdAt")]
+    public AtDatetime? CreatedAt { get; init; }
+
+    /// <summary>When the linked content was last updated, if known.</summary>
+    [JsonPropertyName("updatedAt")]
+    public AtDatetime? UpdatedAt { get; init; }
+
+    /// <summary>The estimated reading time of the linked content, in minutes.</summary>
+    [JsonPropertyName("readingTime")]
+    public int? ReadingTime { get; init; }
+
+    /// <summary>The labels applied to the linked content.</summary>
+    [JsonPropertyName("labels")]
+    public IReadOnlyList<Label>? Labels { get; init; }
+
+    /// <summary>The publication or site the linked content comes from.</summary>
+    [JsonPropertyName("source")]
+    public ExternalViewSource? Source { get; init; }
+
+    /// <summary>Records the linked content is associated with.</summary>
+    [JsonPropertyName("associatedRefs")]
+    public IReadOnlyList<StrongRef>? AssociatedRefs { get; init; }
+
+    /// <summary>Accounts associated with the linked content, such as its authors.</summary>
+    [JsonPropertyName("associatedProfiles")]
+    public IReadOnlyList<ProfileViewBasic>? AssociatedProfiles { get; init; }
+}
+
+/// <summary>
+/// The publication or site linked content comes from
+/// (<c>app.bsky.embed.external#viewExternalSource</c>).
+/// </summary>
+public sealed class ExternalViewSource : LexObject
+{
+    /// <summary>URL of the source.</summary>
+    [JsonPropertyName("uri")]
+    public required string Uri { get; init; }
+
+    /// <summary>URL of the source's icon.</summary>
+    [JsonPropertyName("icon")]
+    public string? Icon { get; init; }
+
+    /// <summary>The source's name.</summary>
+    [JsonPropertyName("title")]
+    public required string Title { get; init; }
+
+    /// <summary>A description of the source.</summary>
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
+
+    /// <summary>The source's colors.</summary>
+    [JsonPropertyName("theme")]
+    public ExternalViewSourceTheme? Theme { get; init; }
+}
+
+/// <summary>
+/// The colors of a linked content's source
+/// (<c>app.bsky.embed.external#viewExternalSourceTheme</c>).
+/// </summary>
+public sealed class ExternalViewSourceTheme : LexObject
+{
+    /// <summary>The background color.</summary>
+    [JsonPropertyName("backgroundRGB")]
+    public ColorRgb? BackgroundRgb { get; init; }
+
+    /// <summary>The text color.</summary>
+    [JsonPropertyName("foregroundRGB")]
+    public ColorRgb? ForegroundRgb { get; init; }
+
+    /// <summary>The accent color, for links and buttons.</summary>
+    [JsonPropertyName("accentRGB")]
+    public ColorRgb? AccentRgb { get; init; }
+
+    /// <summary>The color of text on the accent color.</summary>
+    [JsonPropertyName("accentForegroundRGB")]
+    public ColorRgb? AccentForegroundRgb { get; init; }
+}
+
+/// <summary>An RGB color (<c>app.bsky.embed.external#colorRGB</c>).</summary>
+public sealed class ColorRgb : LexObject
+{
+    /// <summary>The red component, 0 to 255.</summary>
+    [JsonPropertyName("r")]
+    public required int R { get; init; }
+
+    /// <summary>The green component, 0 to 255.</summary>
+    [JsonPropertyName("g")]
+    public required int G { get; init; }
+
+    /// <summary>The blue component, 0 to 255.</summary>
+    [JsonPropertyName("b")]
+    public required int B { get; init; }
 }
 
 /// <summary>
@@ -381,9 +505,148 @@ public sealed class ExternalViewInfo : LexObject
 /// </summary>
 public sealed class RecordView : EmbedView
 {
-    /// <summary>The embedded record view.</summary>
+    /// <summary>
+    /// The embedded record: an <see cref="EmbeddedRecord"/> for a post, a placeholder when it
+    /// cannot be shown, or the view of a feed generator, list, labeler or starter pack.
+    /// </summary>
     [JsonPropertyName("record")]
-    public required JsonElement Record { get; init; }
+    public required EmbeddedRecordView Record { get; init; }
+}
+
+/// <summary>
+/// The record a record embed shows (the open union behind <see cref="RecordView.Record"/>). A
+/// view this SDK does not model reads as <see cref="UnknownEmbeddedRecordView"/>.
+/// </summary>
+[AtProtoUnion(typeof(UnknownEmbeddedRecordView))]
+[JsonDerivedType(typeof(EmbeddedRecord), "app.bsky.embed.record#viewRecord")]
+[JsonDerivedType(typeof(EmbeddedRecordNotFound), "app.bsky.embed.record#viewNotFound")]
+[JsonDerivedType(typeof(EmbeddedRecordBlocked), "app.bsky.embed.record#viewBlocked")]
+[JsonDerivedType(typeof(EmbeddedRecordDetached), "app.bsky.embed.record#viewDetached")]
+[JsonDerivedType(typeof(GeneratorView), "app.bsky.feed.defs#generatorView")]
+[JsonDerivedType(typeof(ListView), "app.bsky.graph.defs#listView")]
+[JsonDerivedType(typeof(LabelerView), "app.bsky.labeler.defs#labelerView")]
+[JsonDerivedType(typeof(StarterPackViewBasic), "app.bsky.graph.defs#starterPackViewBasic")]
+public abstract class EmbeddedRecordView : LexObject;
+
+/// <summary>
+/// An embedded record view whose <c>$type</c> this SDK version does not model. It keeps the raw
+/// object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
+/// </summary>
+public sealed class UnknownEmbeddedRecordView : EmbeddedRecordView, IUnknownUnionVariant
+{
+    /// <summary>Creates an unknown embedded record view from its discriminator and raw object.</summary>
+    /// <param name="type">The object's <c>$type</c>.</param>
+    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+    public UnknownEmbeddedRecordView(string type, JsonElement raw)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(type);
+        Type = type;
+        Raw = UnknownUnionVariant.RequireObject(raw);
+    }
+
+    /// <inheritdoc/>
+    public string Type { get; }
+
+    /// <inheritdoc/>
+    public JsonElement Raw { get; }
+}
+
+/// <summary>
+/// An embedded record, such as a quoted post (<c>app.bsky.embed.record#viewRecord</c>).
+/// </summary>
+public sealed class EmbeddedRecord : EmbeddedRecordView
+{
+    /// <summary>The AT-URI of the record.</summary>
+    [JsonPropertyName("uri")]
+    public required AtUri Uri { get; init; }
+
+    /// <summary>The CID of the record version.</summary>
+    [JsonPropertyName("cid")]
+    public required Cid Cid { get; init; }
+
+    /// <summary>The record's author.</summary>
+    [JsonPropertyName("author")]
+    public required ProfileViewBasic Author { get; init; }
+
+    /// <summary>The record itself.</summary>
+    [JsonPropertyName("value")]
+    public required JsonElement Value { get; init; }
+
+    /// <summary>The labels applied to the record.</summary>
+    [JsonPropertyName("labels")]
+    public IReadOnlyList<Label>? Labels { get; init; }
+
+    /// <summary>The number of replies.</summary>
+    [JsonPropertyName("replyCount")]
+    public int? ReplyCount { get; init; }
+
+    /// <summary>The number of reposts.</summary>
+    [JsonPropertyName("repostCount")]
+    public int? RepostCount { get; init; }
+
+    /// <summary>The number of likes.</summary>
+    [JsonPropertyName("likeCount")]
+    public int? LikeCount { get; init; }
+
+    /// <summary>The number of quote posts.</summary>
+    [JsonPropertyName("quoteCount")]
+    public int? QuoteCount { get; init; }
+
+    /// <summary>The views of the record's own embeds.</summary>
+    [JsonPropertyName("embeds")]
+    public IReadOnlyList<EmbedView>? Embeds { get; init; }
+
+    /// <summary>Timestamp at which the app view indexed this data.</summary>
+    [JsonPropertyName("indexedAt")]
+    public required AtDatetime IndexedAt { get; init; }
+}
+
+/// <summary>
+/// An embedded record that was not found (<c>app.bsky.embed.record#viewNotFound</c>).
+/// </summary>
+public sealed class EmbeddedRecordNotFound : EmbeddedRecordView
+{
+    /// <summary>The AT-URI of the record.</summary>
+    [JsonPropertyName("uri")]
+    public required AtUri Uri { get; init; }
+
+    /// <summary>Always <see langword="true"/>.</summary>
+    [JsonPropertyName("notFound")]
+    public bool NotFound => true;
+}
+
+/// <summary>
+/// An embedded record whose author blocks, or is blocked by, the viewer
+/// (<c>app.bsky.embed.record#viewBlocked</c>).
+/// </summary>
+public sealed class EmbeddedRecordBlocked : EmbeddedRecordView
+{
+    /// <summary>The AT-URI of the record.</summary>
+    [JsonPropertyName("uri")]
+    public required AtUri Uri { get; init; }
+
+    /// <summary>Always <see langword="true"/>.</summary>
+    [JsonPropertyName("blocked")]
+    public bool Blocked => true;
+
+    /// <summary>The record's author.</summary>
+    [JsonPropertyName("author")]
+    public required BlockedAuthor Author { get; init; }
+}
+
+/// <summary>
+/// An embedded post its author detached from the quoting post
+/// (<c>app.bsky.embed.record#viewDetached</c>).
+/// </summary>
+public sealed class EmbeddedRecordDetached : EmbeddedRecordView
+{
+    /// <summary>The AT-URI of the record.</summary>
+    [JsonPropertyName("uri")]
+    public required AtUri Uri { get; init; }
+
+    /// <summary>Always <see langword="true"/>.</summary>
+    [JsonPropertyName("detached")]
+    public bool Detached => true;
 }
 
 /// <summary>
@@ -426,6 +689,13 @@ public sealed class VideoView : EmbedView
     /// </summary>
     [JsonPropertyName("aspectRatio")]
     public AspectRatio? AspectRatio { get; init; }
+
+    /// <summary>
+    /// How the video is presented: <c>default</c>, or <c>gif</c> for a looping, muted clip (see
+    /// <see cref="VideoPresentation"/>).
+    /// </summary>
+    [JsonPropertyName("presentation")]
+    public string? Presentation { get; init; }
 }
 
 /// <summary>

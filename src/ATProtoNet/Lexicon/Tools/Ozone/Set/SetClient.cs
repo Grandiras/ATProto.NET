@@ -109,15 +109,24 @@ public sealed class SetClient
     /// <summary>
     /// Query one page of sets.
     /// </summary>
+    /// <param name="namePrefix">Only sets whose name starts with this prefix.</param>
+    /// <param name="sortBy">The field to sort by: <c>name</c> (the default), <c>createdAt</c> or <c>updatedAt</c>.</param>
+    /// <param name="sortDirection">The sort direction: <c>asc</c> (the default) or <c>desc</c>.</param>
     /// <param name="limit">Maximum number of sets (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<QuerySetsResponse> QuerySetsAsync(
+        string? namePrefix = null,
+        string? sortBy = null,
+        string? sortDirection = null,
         int? limit = null,
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
         var parameters = new XrpcParams()
+            .Add("namePrefix", namePrefix)
+            .Add("sortBy", sortBy)
+            .Add("sortDirection", sortDirection)
             .Add("limit", limit)
             .Add("cursor", cursor);
         return _xrpc.QueryAsync<QuerySetsResponse>(
@@ -127,12 +136,18 @@ public sealed class SetClient
     /// <summary>
     /// Enumerate every set, fetching pages as needed.
     /// </summary>
+    /// <param name="namePrefix">Only sets whose name starts with this prefix.</param>
+    /// <param name="sortBy">The field to sort by: <c>name</c> (the default), <c>createdAt</c> or <c>updatedAt</c>.</param>
+    /// <param name="sortDirection">The sort direction: <c>asc</c> (the default) or <c>desc</c>.</param>
     /// <param name="pageSize">Sets per request (1-100); <see langword="null"/> for the server default.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<OzoneSetView> EnumerateSetsAsync(
+        string? namePrefix = null,
+        string? sortBy = null,
+        string? sortDirection = null,
         int? pageSize = null,
         CancellationToken cancellationToken = default) =>
         Pagination.EnumerateAsync<QuerySetsResponse, OzoneSetView>(
-            (cursor, ct) => QuerySetsAsync(pageSize, cursor, ct),
+            (cursor, ct) => QuerySetsAsync(namePrefix, sortBy, sortDirection, pageSize, cursor, ct),
             cancellationToken);
 }

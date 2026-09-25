@@ -172,17 +172,70 @@ public class OzoneClientTests
     }
 
     [Fact]
-    public async Task QuerySubjects_PassesReviewState()
+    public async Task QueryStatusesAsync_Filter_SendsTheQueryStatusesParameters()
     {
-        var response = new { subjects = new object[] { } };
-
-        var handler = OkJson(response);
+        var handler = OkJson(new { subjectStatuses = new object[] { } });
         var client = CreateClient(handler);
 
-        await client.Ozone.Moderation.QuerySubjectsAsync(
-            reviewState: SubjectReviewState.Escalated);
+        await client.Ozone.Moderation.QueryStatusesAsync(
+            new SubjectStatusFilter
+            {
+                ReviewState = SubjectReviewState.Escalated,
+                Takendown = true,
+                Appealed = false,
+                Collections = [Nsid.Parse("app.bsky.feed.post")],
+                MinPriorityScore = 5,
+            },
+            limit: 10);
 
-        Assert.Contains("reviewState=", handler.LastRequestUri!.Query);
+        // querySubjects never existed; the queue is queryStatuses, with boolean filters.
+        Assert.Equal("/xrpc/tools.ozone.moderation.queryStatuses", handler.LastRequestUri!.AbsolutePath);
+        Assert.Equal(
+            "?collections=app.bsky.feed.post&reviewState=tools.ozone.moderation.defs#reviewEscalated"
+                + "&takendown=true&appealed=false&minPriorityScore=5&limit=10",
+            Uri.UnescapeDataString(handler.LastRequestUri.Query));
+    }
+
+    [Fact]
+    public async Task QueryStatusesAsync_ReadsSubjectStatuses()
+    {
+        var handler = OkJson(new
+        {
+            cursor = "c1",
+            subjectStatuses = new object[]
+            {
+                new
+                {
+                    id = 7,
+                    subject = new Dictionary<string, object>
+                    {
+                        ["$type"] = "chat.bsky.convo.defs#convoRef",
+                        ["did"] = "did:plc:abc",
+                        ["convoId"] = "convo-1",
+                    },
+                    hosting = new Dictionary<string, object>
+                    {
+                        ["$type"] = "tools.ozone.moderation.defs#accountHosting",
+                        ["status"] = "deactivated",
+                    },
+                    createdAt = "2026-09-01T00:00:00.000Z",
+                    updatedAt = "2026-09-02T00:00:00.000Z",
+                    reviewState = SubjectReviewState.Open,
+                    takendown = false,
+                    priorityScore = 3,
+                },
+            },
+        });
+        var client = CreateClient(handler);
+
+        var page = await client.Ozone.Moderation.QueryStatusesAsync();
+
+        var status = Assert.Single(page.SubjectStatuses);
+        Assert.Equal("c1", page.Cursor);
+        Assert.Equal("convo-1", Assert.IsType<ConvoSubject>(status.Subject).ConvoId);
+        Assert.Equal("deactivated", Assert.IsType<AccountHosting>(status.Hosting).Status);
+        Assert.Equal(3, status.PriorityScore);
+        Assert.False(status.Takendown);
     }
 
     // ─── Communication ───
@@ -371,73 +424,6 @@ public class OzoneClientTests
 
         Assert.Contains("did=did", handler.LastRequestUri!.Query);
     }
-
-    // ─── Model Serialization ───
-
-    [Fact]
-    public void SubjectReviewState_Constants()
-    {
-        Assert.Equal("tools.ozone.moderation.defs#reviewOpen", SubjectReviewState.Open);
-        Assert.Equal("tools.ozone.moderation.defs#reviewEscalated", SubjectReviewState.Escalated);
-        Assert.Equal("tools.ozone.moderation.defs#reviewClosed", SubjectReviewState.Closed);
-        Assert.Equal("tools.ozone.moderation.defs#reviewNone", SubjectReviewState.None);
-    }
-
-    [Fact]
-    public void TeamMemberRole_Constants()
-    {
-        Assert.Equal("tools.ozone.team.defs#roleAdmin", TeamMemberRole.Admin);
-        Assert.Equal("tools.ozone.team.defs#roleModerator", TeamMemberRole.Moderator);
-        Assert.Equal("tools.ozone.team.defs#roleTriage", TeamMemberRole.Triage);
-    }
-
-    [Fact]
-    public void ModEventTakedown_Serializes_WithTypeDiscriminator()
-    {
-        var evt = new ModEventTakedown { Comment = "spam", DurationInHours = 24 };
-        var json = JsonSerializer.Serialize<ModEventType>(evt);
-
-        Assert.Contains("\"$type\":\"tools.ozone.moderation.defs#modEventTakedown\"", json);
-        Assert.Contains("\"comment\":\"spam\"", json);
-        Assert.Contains("\"durationInHours\":24", json);
-    }
-
-    [Fact]
-    public void ModEventLabel_Serializes_WithLabels()
-    {
-        var evt = new ModEventLabel
-        {
-            Comment = "adding label",
-            CreateLabelVals = ["spam"],
-            NegateLabelVals = ["nsfw"],
-        };
-        var json = JsonSerializer.Serialize<ModEventType>(evt);
-
-        Assert.Contains("modEventLabel", json);
-        Assert.Contains("\"createLabelVals\":[\"spam\"]", json);
-    }
-
-    [Fact]
-    public void ModerationSubject_RepoRef_Serializes()
-    {
-        var subject = new RepoSubject { Did = Did.Parse("did:plc:abc") };
-        var json = JsonSerializer.Serialize<ModerationSubject>(subject);
-
-        Assert.Contains("\"$type\":\"com.atproto.admin.defs#repoRef\"", json);
-        Assert.Contains("\"did\":\"did:plc:abc\"", json);
-    }
-
-    [Fact]
-    public void ModerationSubject_StrongRef_Serializes()
-    {
-        var subject = new RecordSubject { Uri = AtUri.Parse("at://did:plc:abc/app.bsky.feed.post/123"), Cid = Cid.Parse("bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm") };
-        var json = JsonSerializer.Serialize<ModerationSubject>(subject);
-
-        Assert.Contains("\"$type\":\"com.atproto.repo.strongRef\"", json);
-        Assert.Contains("\"uri\":\"at://did:plc:abc/app.bsky.feed.post/123\"", json);
-    }
-
-    // ─── Helper ───
 
     internal sealed class FakeHandler : HttpMessageHandler
     {

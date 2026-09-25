@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using ATProtoNet.Lexicon.App.Bsky.Feed;
 using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Site.Standard.Publication;
@@ -39,6 +40,10 @@ public sealed class PublicationRecord : LexObject
     /// <summary>Platform-specific preferences for the publication.</summary>
     [JsonPropertyName("preferences")]
     public PublicationPreferences? Preferences { get; init; }
+
+    /// <summary>Self-applied labels on the publication.</summary>
+    [JsonPropertyName("labels")]
+    public SelfLabels? Labels { get; init; }
 }
 
 /// <summary>

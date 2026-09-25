@@ -1,5 +1,5 @@
 using System.Text.Json.Serialization;
-using ATProtoNet.Identity;
+using ATProtoNet.Lexicon.Com.AtProto.Admin;
 using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Signature;
@@ -19,31 +19,13 @@ public sealed class SigDetail : LexObject
 }
 
 /// <summary>
-/// An account with associated signatures.
-/// </summary>
-public sealed class AccountResult : LexObject
-{
-    /// <summary>The DID (decentralized identifier) of the account.</summary>
-    [JsonPropertyName("did")]
-    public required Did Did { get; init; }
-
-    /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
-    [JsonPropertyName("handle")]
-    public required Handle Handle { get; init; }
-
-    /// <summary>Accounts sharing one or more signature values with this one.</summary>
-    [JsonPropertyName("similarAccounts")]
-    public IReadOnlyList<SigDetail>? SimilarAccounts { get; init; }
-}
-
-/// <summary>
 /// A related account.
 /// </summary>
 public sealed class RelatedAccount : LexObject
 {
     /// <summary>The related account.</summary>
     [JsonPropertyName("account")]
-    public required AccountResult Account { get; init; }
+    public required AccountInfo Account { get; init; }
 
     /// <summary>The signature values shared with the queried account.</summary>
     [JsonPropertyName("similarities")]
@@ -63,7 +45,7 @@ public sealed class FindCorrelationResponse
 /// <summary>
 /// Response from searchAccounts.
 /// </summary>
-public sealed class SearchAccountsResponse : ICursorPage<AccountResult>
+public sealed class SearchAccountsResponse : ICursorPage<AccountInfo>
 {
     /// <summary>
     /// Pagination cursor; pass this back on the next request to continue where this page ended.
@@ -74,9 +56,9 @@ public sealed class SearchAccountsResponse : ICursorPage<AccountResult>
 
     /// <summary>The accounts.</summary>
     [JsonPropertyName("accounts")]
-    public required IReadOnlyList<AccountResult> Accounts { get; init; }
+    public required IReadOnlyList<AccountInfo> Accounts { get; init; }
 
-    IReadOnlyList<AccountResult> ICursorPage<AccountResult>.Items => Accounts;
+    IReadOnlyList<AccountInfo> ICursorPage<AccountInfo>.Items => Accounts;
 }
 
 /// <summary>
