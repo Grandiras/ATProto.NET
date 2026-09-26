@@ -14,7 +14,7 @@ public class BlueskyFeatureTests
         _fixture = fixture;
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task CreatePost_PublishesText()
     {
         var client = _fixture.Client;
@@ -29,7 +29,7 @@ public class BlueskyFeatureTests
         await client.Bsky.DeleteRecordAsync(postRef.Uri);
     }
 
-    [RequiresBlueskyFact]
+    [RequiresFact(IntegrationRequirement.Bluesky)]
     public async Task GetProfile_ReturnsSelfProfile()
     {
         var client = _fixture.Client;
@@ -41,7 +41,7 @@ public class BlueskyFeatureTests
         Assert.NotNull(profile.Handle);
     }
 
-    [RequiresBlueskyFact]
+    [RequiresFact(IntegrationRequirement.Bluesky)]
     public async Task GetTimeline_ReturnsResults()
     {
         var client = _fixture.Client;
@@ -52,7 +52,7 @@ public class BlueskyFeatureTests
         // Timeline might be empty for a test account, but it should not throw
     }
 
-    [RequiresBlueskyFact]
+    [RequiresFact(IntegrationRequirement.Bluesky)]
     public async Task GetNotificationCount_ReturnsResult()
     {
         var client = _fixture.Client;
@@ -63,7 +63,7 @@ public class BlueskyFeatureTests
         Assert.True(count.Count >= 0);
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task CreatePostWithRichText_PublishesWithFacets()
     {
         var client = _fixture.Client;

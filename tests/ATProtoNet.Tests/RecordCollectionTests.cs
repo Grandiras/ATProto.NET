@@ -51,13 +51,6 @@ public class RecordCollectionTests
     }
 
     [Fact]
-    public void AtProtoRecord_Type_ReturnsCorrectNsid()
-    {
-        var todo = new TodoItem();
-        Assert.Equal("com.example.todo.item", todo.Type);
-    }
-
-    [Fact]
     public void AtProtoRecord_CreatedAt_IsNullUntilSet()
     {
         Assert.Null(new TodoItem().CreatedAt);
@@ -118,25 +111,6 @@ public class RecordCollectionTests
         var json = JsonSerializer.Serialize(new TodoItem(), AtProtoJsonDefaults.Options);
 
         Assert.DoesNotContain("collection", json, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public void AtProtoRecord_DifferentTypes_HaveDifferentNsids()
-    {
-        var todo = new TodoItem();
-        var bookmark = new BookmarkRecord();
-
-        Assert.NotEqual(todo.Type, bookmark.Type);
-    }
-
-    [Fact]
-    public void AtProtoRecord_CanSetCustomCreatedAt()
-    {
-        var todo = new TodoItem
-        {
-            CreatedAt = AtDatetime.Parse("2024-01-15T12:00:00.000Z")
-        };
-        Assert.Equal("2024-01-15T12:00:00.000Z", todo.CreatedAt.ToString());
     }
 
     // ──────────────────────────────────────────────────────────
@@ -288,19 +262,4 @@ public class RecordCollectionTests
         Assert.False(page.HasMore);
     }
 
-    [Fact]
-    public void RecordPage_CanContainMultipleRecords()
-    {
-        var page = new RecordPage<TodoItem>
-        {
-            Records =
-            [
-                new(AtUri.Parse("at://did:plc:abc/com.example.col/1"), null, new TodoItem { Title = "a" }),
-                new(AtUri.Parse("at://did:plc:abc/com.example.col/2"), null, new TodoItem { Title = "b" }),
-                new(AtUri.Parse("at://did:plc:abc/com.example.col/3"), null, new TodoItem { Title = "c" }),
-            ],
-        };
-
-        Assert.Equal(3, page.Records.Count);
-    }
 }

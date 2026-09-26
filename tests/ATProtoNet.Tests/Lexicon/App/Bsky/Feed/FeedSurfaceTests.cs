@@ -1,5 +1,6 @@
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Feed;
+using ATProtoNet.Tests.TestSupport;
 using static ATProtoNet.Tests.Lexicon.App.Bsky.BskyFixtures;
 
 namespace ATProtoNet.Tests.Lexicon.App.Bsky.Feed;
@@ -9,7 +10,7 @@ namespace ATProtoNet.Tests.Lexicon.App.Bsky.Feed;
 /// </summary>
 public sealed class FeedSurfaceTests : IDisposable
 {
-    private readonly ScriptedXrpcHandler _handler = new();
+    private readonly HttpStub _handler = new();
     private readonly AtProtoClient _client;
 
     public FeedSurfaceTests() => _client = _handler.CreateClient();

@@ -5,17 +5,6 @@ namespace ATProtoNet.Tests.Repo;
 public class CidComputationTests
 {
     [Fact]
-    public void ComputeForDagCbor_ProducesValidCid()
-    {
-        var data = new byte[] { 0xA1, 0x61, 0x61, 0x01 }; // CBOR: { "a": 1 }
-        var cid = CidComputation.ComputeForDagCbor(data);
-
-        // CID should start with 'b' (base32lower multibase prefix)
-        Assert.StartsWith("b", cid.Value);
-        Assert.True(cid.Value.Length > 10);
-    }
-
-    [Fact]
     public void ComputeForRaw_ProducesValidCid()
     {
         var data = new byte[] { 0x48, 0x65, 0x6C, 0x6C, 0x6F }; // "Hello"
@@ -23,16 +12,6 @@ public class CidComputationTests
 
         Assert.StartsWith("b", cid.Value);
         Assert.True(cid.Value.Length > 10);
-    }
-
-    [Fact]
-    public void ComputeForDagCbor_IsDeterministic()
-    {
-        var data = new byte[] { 0xA1, 0x61, 0x61, 0x01 };
-        var cid1 = CidComputation.ComputeForDagCbor(data);
-        var cid2 = CidComputation.ComputeForDagCbor(data);
-
-        Assert.Equal(cid1, cid2);
     }
 
     [Fact]

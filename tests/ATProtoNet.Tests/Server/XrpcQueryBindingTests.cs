@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Server.Xrpc;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.AspNetCore.Http;
 
 namespace ATProtoNet.Tests.Server;

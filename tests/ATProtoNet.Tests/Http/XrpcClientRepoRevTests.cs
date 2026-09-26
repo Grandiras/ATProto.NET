@@ -1,35 +1,35 @@
 using System.Net;
 using System.Text.Json;
 using ATProtoNet.Http;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Tests.Http;
 
 public class XrpcClientRepoRevTests : IDisposable
 {
-    private readonly MockHttpMessageHandler _handler;
+    private readonly HttpStub _stub = new();
     private readonly HttpClient _httpClient;
     private readonly XrpcClient _xrpc;
 
     public XrpcClientRepoRevTests()
     {
-        _handler = new MockHttpMessageHandler();
-        _httpClient = new HttpClient(_handler) { BaseAddress = new Uri("https://pds.example.com/") };
+        _httpClient = new HttpClient(_stub) { BaseAddress = new Uri("https://pds.example.com/") };
         _xrpc = new XrpcClient(_httpClient, _httpClient.BaseAddress!, NullLogger.Instance);
+    }
+
+    private static HttpResponseMessage WithRepoRev(string? rev)
+    {
+        var response = HttpStub.JsonResponse("{}");
+        if (rev is not null)
+            response.Headers.TryAddWithoutValidation("Atproto-Repo-Rev", rev);
+        return response;
     }
 
     [Fact]
     public async Task QueryAsync_ExtractsRepoRevHeader()
     {
-        _handler.ResponseFactory = _ =>
-        {
-            var response = new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{\"did\":\"did:plc:test\"}", System.Text.Encoding.UTF8, "application/json"),
-            };
-            response.Headers.TryAddWithoutValidation("Atproto-Repo-Rev", "3jzhpt2dsby2u");
-            return response;
-        };
+        _stub.On("com.atproto.server.describeServer", _ => WithRepoRev("3jzhpt2dsby2u"));
 
         await _xrpc.QueryAsync<JsonElement>("com.atproto.server.describeServer");
 
@@ -39,15 +39,7 @@ public class XrpcClientRepoRevTests : IDisposable
     [Fact]
     public async Task ProcedureAsync_ExtractsRepoRevHeader()
     {
-        _handler.ResponseFactory = _ =>
-        {
-            var response = new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
-            };
-            response.Headers.TryAddWithoutValidation("Atproto-Repo-Rev", "3jzhpt2dsby2x");
-            return response;
-        };
+        _stub.On("com.atproto.repo.createRecord", _ => WithRepoRev("3jzhpt2dsby2x"));
 
         await _xrpc.ProcedureAsync<JsonElement>("com.atproto.repo.createRecord", new { });
 
@@ -57,18 +49,8 @@ public class XrpcClientRepoRevTests : IDisposable
     [Fact]
     public async Task LatestRepoRev_UpdatesOnSubsequentRequests()
     {
-        int callCount = 0;
-        _handler.ResponseFactory = _ =>
-        {
-            callCount++;
-            var response = new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
-            };
-            response.Headers.TryAddWithoutValidation("Atproto-Repo-Rev",
-                callCount == 1 ? "3jzhpt2dsby2u" : "3jzhpt2dsby2z");
-            return response;
-        };
+        _stub.On("com.atproto.server.describeServer", _ => WithRepoRev("3jzhpt2dsby2u"));
+        _stub.On("com.atproto.server.describeServer", _ => WithRepoRev("3jzhpt2dsby2z"));
 
         await _xrpc.QueryAsync<JsonElement>("com.atproto.server.describeServer");
         Assert.Equal("3jzhpt2dsby2u", _xrpc.LatestRepoRev);
@@ -80,10 +62,7 @@ public class XrpcClientRepoRevTests : IDisposable
     [Fact]
     public async Task LatestRepoRev_IsNullWhenNoHeader()
     {
-        _handler.ResponseFactory = _ => new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
-        };
+        _stub.On("com.atproto.server.describeServer", _ => WithRepoRev(null));
 
         await _xrpc.QueryAsync<JsonElement>("com.atproto.server.describeServer");
 
@@ -93,18 +72,8 @@ public class XrpcClientRepoRevTests : IDisposable
     [Fact]
     public async Task LatestRepoRev_RetainsPreviousValueWhenHeaderMissing()
     {
-        int callCount = 0;
-        _handler.ResponseFactory = _ =>
-        {
-            callCount++;
-            var response = new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
-            };
-            if (callCount == 1)
-                response.Headers.TryAddWithoutValidation("Atproto-Repo-Rev", "3jzhpt2dsby2u");
-            return response;
-        };
+        _stub.On("com.atproto.server.describeServer", _ => WithRepoRev("3jzhpt2dsby2u"));
+        _stub.On("com.atproto.server.describeServer", _ => WithRepoRev(null));
 
         await _xrpc.QueryAsync<JsonElement>("com.atproto.server.describeServer");
         Assert.Equal("3jzhpt2dsby2u", _xrpc.LatestRepoRev);
@@ -116,21 +85,6 @@ public class XrpcClientRepoRevTests : IDisposable
     public void Dispose()
     {
         _httpClient.Dispose();
-        _handler.Dispose();
-    }
-
-    private sealed class MockHttpMessageHandler : HttpMessageHandler
-    {
-        public Func<HttpRequestMessage, HttpResponseMessage> ResponseFactory { get; set; } =
-            _ => new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
-            };
-
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            return Task.FromResult(ResponseFactory(request));
-        }
+        _stub.Dispose();
     }
 }

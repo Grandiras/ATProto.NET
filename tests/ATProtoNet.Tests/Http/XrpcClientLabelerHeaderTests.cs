@@ -1,21 +1,18 @@
 using ATProtoNet.Http;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Tests.Http;
 
 public class XrpcClientLabelerHeaderTests : IDisposable
 {
-    private readonly MockHttpMessageHandler _handler;
+    private readonly HttpStub _stub = new();
     private readonly HttpClient _httpClient;
     private readonly XrpcClient _xrpc;
 
     public XrpcClientLabelerHeaderTests()
     {
-        _handler = new MockHttpMessageHandler();
-        _httpClient = new HttpClient(_handler)
-        {
-            BaseAddress = new Uri("https://pds.example.com/")
-        };
+        _httpClient = new HttpClient(_stub) { BaseAddress = new Uri("https://pds.example.com/") };
         _xrpc = new XrpcClient(_httpClient, _httpClient.BaseAddress!, NullLogger.Instance);
         _xrpc.SetTokens("test-token");
     }
@@ -23,97 +20,52 @@ public class XrpcClientLabelerHeaderTests : IDisposable
     [Fact]
     public async Task SetLabelers_IncludesHeaderInRequests()
     {
-        string? capturedHeader = null;
-        _handler.ResponseFactory = request =>
-        {
-            capturedHeader = request.Headers.TryGetValues("atproto-accept-labelers", out var values)
-                ? values.FirstOrDefault()
-                : null;
-            return new HttpResponseMessage
-            {
-                Content = new StringContent("{}")
-            };
-        };
+        _stub.On("app.bsky.feed.getTimeline", "{}");
 
         _xrpc.SetLabelers(["did:plc:labeler1", "did:plc:labeler2"]);
         await _xrpc.QueryAsync<object>("app.bsky.feed.getTimeline");
 
-        Assert.Equal("did:plc:labeler1, did:plc:labeler2", capturedHeader);
+        Assert.Equal(
+            "did:plc:labeler1, did:plc:labeler2",
+            Assert.Single(_stub.Requests).HeaderOrDefault("atproto-accept-labelers"));
     }
 
     [Fact]
     public async Task ClearLabelers_RemovesHeader()
     {
-        string? capturedHeader = null;
-        _handler.ResponseFactory = request =>
-        {
-            capturedHeader = request.Headers.TryGetValues("atproto-accept-labelers", out var values)
-                ? values.FirstOrDefault()
-                : null;
-            return new HttpResponseMessage
-            {
-                Content = new StringContent("{}")
-            };
-        };
+        _stub.On("app.bsky.feed.getTimeline", "{}");
 
         _xrpc.SetLabelers(["did:plc:labeler1"]);
         _xrpc.ClearLabelers();
         await _xrpc.QueryAsync<object>("app.bsky.feed.getTimeline");
 
-        Assert.Null(capturedHeader);
+        Assert.Null(Assert.Single(_stub.Requests).HeaderOrDefault("atproto-accept-labelers"));
     }
 
     [Fact]
     public async Task NoLabelers_NoHeader()
     {
-        bool hasHeader = false;
-        _handler.ResponseFactory = request =>
-        {
-            hasHeader = request.Headers.Contains("atproto-accept-labelers");
-            return new HttpResponseMessage
-            {
-                Content = new StringContent("{}")
-            };
-        };
+        _stub.On("app.bsky.feed.getTimeline", "{}");
 
         await _xrpc.QueryAsync<object>("app.bsky.feed.getTimeline");
 
-        Assert.False(hasHeader);
+        Assert.Null(Assert.Single(_stub.Requests).HeaderOrDefault("atproto-accept-labelers"));
     }
 
     [Fact]
     public async Task SingleLabeler_NoTrailingComma()
     {
-        string? capturedHeader = null;
-        _handler.ResponseFactory = request =>
-        {
-            capturedHeader = request.Headers.TryGetValues("atproto-accept-labelers", out var values)
-                ? values.FirstOrDefault()
-                : null;
-            return new HttpResponseMessage
-            {
-                Content = new StringContent("{}")
-            };
-        };
+        _stub.On("app.bsky.feed.getTimeline", "{}");
 
         _xrpc.SetLabelers(["did:plc:labeler1"]);
         await _xrpc.QueryAsync<object>("app.bsky.feed.getTimeline");
 
-        Assert.Equal("did:plc:labeler1", capturedHeader);
+        Assert.Equal("did:plc:labeler1", Assert.Single(_stub.Requests).HeaderOrDefault("atproto-accept-labelers"));
     }
 
     public void Dispose()
     {
         _httpClient.Dispose();
-    }
-
-    private sealed class MockHttpMessageHandler : HttpMessageHandler
-    {
-        public Func<HttpRequestMessage, HttpResponseMessage> ResponseFactory { get; set; } =
-            _ => new HttpResponseMessage { Content = new StringContent("{}") };
-
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-            => Task.FromResult(ResponseFactory(request));
+        _stub.Dispose();
     }
 }

@@ -1,12 +1,13 @@
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Unspecced;
+using ATProtoNet.Tests.TestSupport;
 using static ATProtoNet.Tests.Lexicon.App.Bsky.BskyFixtures;
 
 namespace ATProtoNet.Tests.Lexicon.App.Bsky.Unspecced;
 
 public sealed class UnspeccedClientTests : IDisposable
 {
-    private readonly ScriptedXrpcHandler _handler = new();
+    private readonly HttpStub _handler = new();
     private readonly AtProtoClient _client;
 
     public UnspeccedClientTests() => _client = _handler.CreateClient();

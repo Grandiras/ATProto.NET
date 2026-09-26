@@ -1,4 +1,5 @@
 using ATProtoNet.Identity;
+using ATProtoNet.Tests.TestSupport;
 using static ATProtoNet.Tests.Lexicon.App.Bsky.BskyFixtures;
 
 namespace ATProtoNet.Tests.Lexicon.App.Bsky.Embed;
@@ -8,7 +9,7 @@ public sealed class EmbedClientTests : IDisposable
     private const string DocumentUri = $"at://{AliceDid}/site.standard.document/3lwinfmsd2k2i";
     private const string PublicationUri = $"at://{AliceDid}/site.standard.publication/3lwinfmsd2k2j";
 
-    private readonly ScriptedXrpcHandler _handler = new();
+    private readonly HttpStub _handler = new();
     private readonly AtProtoClient _client;
 
     public EmbedClientTests() => _client = _handler.CreateClient();

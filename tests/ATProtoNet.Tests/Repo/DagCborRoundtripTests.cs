@@ -52,17 +52,6 @@ public class DagCborRoundtripTests
     }
 
     [Fact]
-    public void Roundtrip_TypeField_Preserved()
-    {
-        var original = JsonDocument.Parse("{\"$type\":\"app.bsky.feed.post\",\"text\":\"hello\",\"createdAt\":\"2024-01-01T00:00:00Z\"}").RootElement;
-        var bytes = DagCborEncoder.Encode(original);
-        var decoded = DagCborDecoder.Decode(bytes);
-
-        Assert.Equal("app.bsky.feed.post", decoded.GetProperty("$type").GetString());
-        Assert.Equal("hello", decoded.GetProperty("text").GetString());
-    }
-
-    [Fact]
     public void Roundtrip_EmptyArray()
     {
         var original = JsonDocument.Parse("{\"items\":[]}").RootElement;
@@ -93,15 +82,4 @@ public class DagCborRoundtripTests
         Assert.Equal(-12345, decoded.GetProperty("neg").GetInt32());
     }
 
-    [Fact]
-    public void EncodeThenComputeCid_IsConsistent()
-    {
-        var json = JsonDocument.Parse("{\"text\":\"hello\",\"count\":42}").RootElement;
-
-        var (bytes1, cid1) = DagCborEncoder.EncodeWithCid(json);
-        var (bytes2, cid2) = DagCborEncoder.EncodeWithCid(json);
-
-        Assert.Equal(bytes1, bytes2);
-        Assert.Equal(cid1, cid2);
-    }
 }

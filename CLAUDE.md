@@ -22,17 +22,16 @@ dotnet test tests/ATProtoNet.Tests/ -p:EnableSourceControlManagerQueries=false \
   --filter "FullyQualifiedName~RecordCollectionTests"
 ```
 
-Integration tests in `tests/ATProtoNet.IntegrationTests/` need a live PDS and are gated by `[RequiresPdsFactAttribute]` / `[RequiresBlueskyFactAttribute]` (see `TestInfrastructure.cs`). Required env vars:
+Integration tests in `tests/ATProtoNet.IntegrationTests/` need a live PDS and are gated by the enum-driven `[RequiresFact(IntegrationRequirement.Pds)]` / `[RequiresFact(IntegrationRequirement.Bluesky)]` (a `[RequiresTheory(...)]` counterpart exists too; see `TestInfrastructure.cs`). Required env vars:
 
 - `ATPROTO_PDS_URL` (default `http://localhost:2583`)
 - `ATPROTO_TEST_HANDLE`, `ATPROTO_TEST_PASSWORD`
 - `ATPROTO_HAS_BLUESKY=true` for app-view tests
-- `ATPROTO_TEST_JETSTREAM=true` for the live Jetstream v2 protocol tests (`[RequiresJetstreamFact]`) — these need outbound internet but no PDS and no credentials; `ATPROTO_JETSTREAM_URL` overrides the host
-- `ATPROTO_TEST_SPACES=true` for the permissioned-data tests (`[RequiresSpacesFact]`) — these need a PDS that serves `com.atproto.space.*`, which no release does yet, plus `ATPROTO_PDS_ADMIN_PASSWORD` (they provision their own accounts) and `ATPROTO_PLC_URL` (that network's own PLC directory). See `docs/testing-spaces.md`
-- `ATPROTO_REDIS_URL` (e.g. `localhost:6379`) enables the Redis replay-store tests (`[RequiresRedisFact]`) — these need a Redis server and nothing else: no PDS, no credentials, no internet
-- `ATPROTO_JETSTREAM_API_KEY` additionally enables the Jetstream v2 archive tests (`[RequiresJetstreamArchiveFact]`); the replay HTTP endpoints are authenticated and metered in response bytes, so those tests stay deliberately small
+- `ATPROTO_TEST_JETSTREAM=true` for the live Jetstream v2 protocol tests (`IntegrationRequirement.Jetstream`) — these need outbound internet but no PDS and no credentials; `ATPROTO_JETSTREAM_URL` overrides the host
+- `ATPROTO_TEST_SPACES=true` for the permissioned-data tests (`IntegrationRequirement.Spaces`) — these need a PDS that serves `com.atproto.space.*`, which no release does yet, plus `ATPROTO_PDS_ADMIN_PASSWORD` (they provision their own accounts) and `ATPROTO_PLC_URL` (that network's own PLC directory). See `docs/testing-spaces.md`
+- `ATPROTO_JETSTREAM_API_KEY` additionally enables the Jetstream v2 archive tests (`IntegrationRequirement.JetstreamArchive`); the replay HTTP endpoints are authenticated and metered in response bytes, so those tests stay deliberately small
 
-Without these, the attribute sets `Skip` rather than failing — CI runs unit tests only.
+Without these, the attribute sets `Skip` rather than failing — CI runs unit tests only. Setting `ATPROTO_REQUIRE_INTEGRATION=1` turns a missing prerequisite into a failure instead of a skip, so a CI job whose environment quietly stopped providing one gets caught rather than passing on skipped tests.
 
 CI (`.forgejo/workflows/ci.yml`) builds on `mcr.microsoft.com/dotnet/sdk:10.0` and runs `dotnet test tests/ATProtoNet.Tests/ --configuration Release`. The `package` job pushes `dotnet pack` output to a Forgejo NuGet feed on `main`.
 

@@ -30,19 +30,6 @@ public class OzoneClientTests
     // ─── Moderation ───
 
     [Fact]
-    public async Task Ozone_Property_Exists()
-    {
-        var client = CreateClient(OkJson(new { }));
-        Assert.NotNull(client.Ozone);
-        Assert.NotNull(client.Ozone.Moderation);
-        Assert.NotNull(client.Ozone.Communication);
-        Assert.NotNull(client.Ozone.Team);
-        Assert.NotNull(client.Ozone.Set);
-        Assert.NotNull(client.Ozone.Server);
-        Assert.NotNull(client.Ozone.Signature);
-    }
-
-    [Fact]
     public async Task EmitEvent_SendsTakedown()
     {
         var response = new

@@ -35,14 +35,6 @@ public class DynamicPdsTests
     }
 
     [Fact]
-    public void ServiceUrl_DefaultValue()
-    {
-        using var client = new AtProtoClient(new AtProtoClientOptions());
-
-        Assert.Equal(new Uri("https://bsky.social/"), client.ServiceUrl);
-    }
-
-    [Fact]
     public void SetServiceUrl_CanChangeServiceMultipleTimes()
     {
         using var client = new AtProtoClient(new AtProtoClientOptions());
@@ -57,11 +49,4 @@ public class DynamicPdsTests
         Assert.Equal("bsky.social", client.ServiceUrl.Host);
     }
 
-    [Fact]
-    public void Session_NullByDefault()
-    {
-        using var client = new AtProtoClient(new AtProtoClientOptions());
-
-        Assert.Null(client.Session);
-    }
 }

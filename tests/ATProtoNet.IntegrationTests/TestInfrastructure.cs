@@ -3,172 +3,155 @@ using System.Runtime.CompilerServices;
 namespace ATProtoNet.IntegrationTests;
 
 /// <summary>
-/// Skips a test when no PDS is available for integration testing.
-/// Set environment variables:
-///   ATPROTO_PDS_URL (default: http://localhost:2583)
-///   ATPROTO_TEST_HANDLE
-///   ATPROTO_TEST_PASSWORD
+/// What an integration test needs beyond the unit-test sandbox: a live PDS, Bluesky app-view
+/// services on it, its admin password, outbound internet to Jetstream, a Jetstream API key, or a
+/// PDS that serves the permissioned-data (spaces) protocol. See <see cref="RequiresFactAttribute"/>.
 /// </summary>
-public sealed class RequiresPdsFactAttribute : FactAttribute
+public enum IntegrationRequirement
 {
-    public RequiresPdsFactAttribute(
-        [CallerFilePath] string? sourceFilePath = null,
-        [CallerLineNumber] int sourceLineNumber = -1)
-        : base(sourceFilePath, sourceLineNumber)
-    {
-        var handle = Environment.GetEnvironmentVariable("ATPROTO_TEST_HANDLE");
-        var password = Environment.GetEnvironmentVariable("ATPROTO_TEST_PASSWORD");
+    /// <summary>A PDS and a pre-existing account: <c>ATPROTO_TEST_HANDLE</c> / <c>ATPROTO_TEST_PASSWORD</c>.</summary>
+    Pds,
 
-        if (string.IsNullOrEmpty(handle) || string.IsNullOrEmpty(password))
-        {
-            Skip = "Integration tests require ATPROTO_TEST_HANDLE and ATPROTO_TEST_PASSWORD environment variables. " +
-                   "Optionally set ATPROTO_PDS_URL (defaults to http://localhost:2583).";
-        }
-    }
+    /// <summary>The above, plus Bluesky app-view services: <c>ATPROTO_HAS_BLUESKY=true</c>.</summary>
+    Bluesky,
+
+    /// <summary>The server's admin password: <c>ATPROTO_PDS_ADMIN_PASSWORD</c>. Provisions its own accounts.</summary>
+    PdsAdmin,
+
+    /// <summary>Outbound internet to Bluesky's public Jetstream: <c>ATPROTO_TEST_JETSTREAM=true</c>.</summary>
+    Jetstream,
+
+    /// <summary>The above, plus a Jetstream v2 archive API key: <c>ATPROTO_JETSTREAM_API_KEY</c>.</summary>
+    JetstreamArchive,
+
+    /// <summary>
+    /// A PDS serving <c>com.atproto.space.*</c> and its admin password. Provisions its own
+    /// accounts. See <c>docs/testing-spaces.md</c>.
+    /// </summary>
+    Spaces,
 }
 
 /// <summary>
-/// Test configuration sourced from environment variables.
+/// Resolves what each <see cref="IntegrationRequirement"/> needs into a skip reason, or
+/// <see langword="null"/> when it is satisfied.
 /// </summary>
-/// <summary>
-/// Skips a test that requires Bluesky app view services (not available on a bare PDS).
-/// Set ATPROTO_HAS_BLUESKY=true to enable these tests.
-/// </summary>
-public sealed class RequiresBlueskyFactAttribute : FactAttribute
+internal static class IntegrationRequirements
 {
-    public RequiresBlueskyFactAttribute(
-        [CallerFilePath] string? sourceFilePath = null,
-        [CallerLineNumber] int sourceLineNumber = -1)
-        : base(sourceFilePath, sourceLineNumber)
+    public static string? SkipReason(IntegrationRequirement requirement)
     {
-        var handle = Environment.GetEnvironmentVariable("ATPROTO_TEST_HANDLE");
-        var password = Environment.GetEnvironmentVariable("ATPROTO_TEST_PASSWORD");
-        var hasBluesky = Environment.GetEnvironmentVariable("ATPROTO_HAS_BLUESKY");
+        var reason = requirement switch
+        {
+            IntegrationRequirement.Pds => PdsReason(),
+            IntegrationRequirement.Bluesky => BlueskyReason(),
+            IntegrationRequirement.PdsAdmin => PdsAdminReason(),
+            IntegrationRequirement.Jetstream => JetstreamReason(),
+            IntegrationRequirement.JetstreamArchive => JetstreamArchiveReason(),
+            IntegrationRequirement.Spaces => SpacesReason(),
+            _ => throw new ArgumentOutOfRangeException(nameof(requirement), requirement, null),
+        };
 
-        if (string.IsNullOrEmpty(handle) || string.IsNullOrEmpty(password))
+        // dotnet test --filter exits 0 when every matched test skips, so a CI job whose
+        // environment variables drifted would pass while verifying nothing.
+        // ATPROTO_REQUIRE_INTEGRATION=1 makes a missing prerequisite a failure instead: the
+        // attribute lets the test run, and it fails on its own for lacking what it needs.
+        return reason is not null && !TestConfig.IntegrationRequired ? reason : null;
+    }
+
+    private static bool HasAccount => !string.IsNullOrEmpty(TestConfig.Handle) && !string.IsNullOrEmpty(TestConfig.Password);
+
+    private static string? PdsReason() => HasAccount
+        ? null
+        : "Integration tests require ATPROTO_TEST_HANDLE and ATPROTO_TEST_PASSWORD environment variables. " +
+          "Optionally set ATPROTO_PDS_URL (defaults to http://localhost:2583).";
+
+    private static string? BlueskyReason()
+    {
+        if (!HasAccount)
         {
-            Skip = "Integration tests require ATPROTO_TEST_HANDLE and ATPROTO_TEST_PASSWORD environment variables.";
+            return "Integration tests require ATPROTO_TEST_HANDLE and ATPROTO_TEST_PASSWORD environment variables.";
         }
-        else if (!string.Equals(hasBluesky, "true", StringComparison.OrdinalIgnoreCase))
+
+        if (!string.Equals(Environment.GetEnvironmentVariable("ATPROTO_HAS_BLUESKY"), "true", StringComparison.OrdinalIgnoreCase))
         {
-            Skip = "Bluesky app view tests require ATPROTO_HAS_BLUESKY=true. " +
+            return "Bluesky app view tests require ATPROTO_HAS_BLUESKY=true. " +
                    "A bare PDS does not have app.bsky.* services configured.";
         }
+
+        return null;
     }
-}
 
-/// <summary>
-/// Skips a test that administers a PDS when no admin password is available.
-/// Set ATPROTO_PDS_ADMIN_PASSWORD (and optionally ATPROTO_PDS_URL).
-/// </summary>
-/// <remarks>
-/// Unlike <see cref="RequiresPdsFactAttribute"/> these tests need no pre-existing
-/// account — they provision their own — but they do need the server's admin password.
-/// </remarks>
-public sealed class RequiresPdsAdminFactAttribute : FactAttribute
-{
-    public RequiresPdsAdminFactAttribute(
-        [CallerFilePath] string? sourceFilePath = null,
-        [CallerLineNumber] int sourceLineNumber = -1)
-        : base(sourceFilePath, sourceLineNumber)
+    private static string? PdsAdminReason() => string.IsNullOrEmpty(TestConfig.AdminPassword)
+        ? "PDS admin tests require the ATPROTO_PDS_ADMIN_PASSWORD environment variable. " +
+          "Optionally set ATPROTO_PDS_URL (defaults to http://localhost:2583)."
+        : null;
+
+    private static string? JetstreamReason() => TestConfig.JetstreamEnabled
+        ? null
+        : "Jetstream tests require ATPROTO_TEST_JETSTREAM=true. " +
+          "They connect to Bluesky's public Jetstream instances over the internet.";
+
+    private static string? JetstreamArchiveReason()
     {
-        if (string.IsNullOrEmpty(TestConfig.AdminPassword) && !TestConfig.IntegrationRequired)
-        {
-            Skip = "PDS admin tests require the ATPROTO_PDS_ADMIN_PASSWORD environment variable. " +
-                   "Optionally set ATPROTO_PDS_URL (defaults to http://localhost:2583).";
-        }
-    }
-}
-
-/// <summary>
-/// Skips a test that talks to Bluesky's public Jetstream instances.
-/// Set ATPROTO_TEST_JETSTREAM=true to enable these tests.
-/// </summary>
-/// <remarks>
-/// Unlike the other integration tests these need no PDS and no credentials — only outbound
-/// internet access to <see cref="ATProtoNet.Streaming.JetstreamEndpoints.UsEast"/> — so they
-/// have their own switch rather than riding on the PDS environment variables.
-/// </remarks>
-public sealed class RequiresJetstreamFactAttribute : FactAttribute
-{
-    public RequiresJetstreamFactAttribute(
-        [CallerFilePath] string? sourceFilePath = null,
-        [CallerLineNumber] int sourceLineNumber = -1)
-        : base(sourceFilePath, sourceLineNumber)
-    {
-        if (!TestConfig.JetstreamEnabled && !TestConfig.IntegrationRequired)
-        {
-            Skip = "Jetstream tests require ATPROTO_TEST_JETSTREAM=true. " +
-                   "They connect to Bluesky's public Jetstream instances over the internet.";
-        }
-    }
-}
-
-/// <summary>
-/// Skips a test that talks to the Jetstream v2 archive (the metered HTTP replay endpoints).
-/// </summary>
-/// <remarks>
-/// On top of <see cref="RequiresJetstreamFactAttribute"/>'s outbound internet these need an API
-/// key: the archive endpoints are authenticated and metered in response bytes, unlike the live
-/// WebSocket tail. Set <c>ATPROTO_JETSTREAM_API_KEY</c> to run them.
-/// </remarks>
-public sealed class RequiresJetstreamArchiveFactAttribute : FactAttribute
-{
-    public RequiresJetstreamArchiveFactAttribute(
-        [CallerFilePath] string? sourceFilePath = null,
-        [CallerLineNumber] int sourceLineNumber = -1)
-        : base(sourceFilePath, sourceLineNumber)
-    {
-        if (TestConfig.IntegrationRequired)
-            return;
-
         if (!TestConfig.JetstreamEnabled)
         {
-            Skip = "Jetstream tests require ATPROTO_TEST_JETSTREAM=true. " +
+            return "Jetstream tests require ATPROTO_TEST_JETSTREAM=true. " +
                    "They connect to Bluesky's public Jetstream instances over the internet.";
         }
-        else if (string.IsNullOrEmpty(TestConfig.JetstreamApiKey))
+
+        if (string.IsNullOrEmpty(TestConfig.JetstreamApiKey))
         {
-            Skip = "Jetstream archive tests require ATPROTO_JETSTREAM_API_KEY. " +
+            return "Jetstream archive tests require ATPROTO_JETSTREAM_API_KEY. " +
                    "The replay endpoints are authenticated and metered in response bytes.";
         }
+
+        return null;
+    }
+
+    private static string? SpacesReason()
+    {
+        if (!TestConfig.SpacesEnabled)
+        {
+            return "Space tests require ATPROTO_TEST_SPACES=true and a PDS that serves " +
+                   "com.atproto.space.* (no release does yet — see docs/testing-spaces.md).";
+        }
+
+        if (string.IsNullOrEmpty(TestConfig.AdminPassword))
+        {
+            return "Space tests provision their own accounts and require the " +
+                   "ATPROTO_PDS_ADMIN_PASSWORD environment variable.";
+        }
+
+        return null;
     }
 }
 
 /// <summary>
-/// Skips a test that talks to a PDS serving <c>com.atproto.space.*</c> — the permissioned data
-/// protocol.
+/// An integration <see cref="FactAttribute"/> gated on an <see cref="IntegrationRequirement"/>:
+/// skipped when it is not met, unless <c>ATPROTO_REQUIRE_INTEGRATION</c> is set, in which case the
+/// test runs and fails on its own for lacking what it needs.
 /// </summary>
-/// <remarks>
-/// <para>No PDS release serves these endpoints yet; they live on
-/// <see href="https://github.com/bluesky-social/atproto/pull/5187">bluesky-social/atproto#5187</see>.
-/// Until one does, these tests run against a dev network built from that branch — see
-/// <c>docs/testing-spaces.md</c> for the three commands that stand one up.</para>
-/// <para>They provision their own accounts rather than using <c>ATPROTO_TEST_HANDLE</c>, because
-/// a space needs an authority, a second member to read across the repo boundary, and a
-/// non-member to be refused. That takes the server's admin password, as
-/// <see cref="RequiresPdsAdminFactAttribute"/> does.</para>
-/// </remarks>
-public sealed class RequiresSpacesFactAttribute : FactAttribute
+public sealed class RequiresFactAttribute : FactAttribute
 {
-    public RequiresSpacesFactAttribute(
+    public RequiresFactAttribute(
+        IntegrationRequirement requirement,
         [CallerFilePath] string? sourceFilePath = null,
         [CallerLineNumber] int sourceLineNumber = -1)
         : base(sourceFilePath, sourceLineNumber)
     {
-        if (TestConfig.IntegrationRequired)
-            return;
+        Skip = IntegrationRequirements.SkipReason(requirement);
+    }
+}
 
-        if (!TestConfig.SpacesEnabled)
-        {
-            Skip = "Space tests require ATPROTO_TEST_SPACES=true and a PDS that serves " +
-                   "com.atproto.space.* (no release does yet — see docs/testing-spaces.md).";
-        }
-        else if (string.IsNullOrEmpty(TestConfig.AdminPassword))
-        {
-            Skip = "Space tests provision their own accounts and require the " +
-                   "ATPROTO_PDS_ADMIN_PASSWORD environment variable.";
-        }
+/// <summary>The <see cref="TheoryAttribute"/> counterpart of <see cref="RequiresFactAttribute"/>.</summary>
+public sealed class RequiresTheoryAttribute : TheoryAttribute
+{
+    public RequiresTheoryAttribute(
+        IntegrationRequirement requirement,
+        [CallerFilePath] string? sourceFilePath = null,
+        [CallerLineNumber] int sourceLineNumber = -1)
+        : base(sourceFilePath, sourceLineNumber)
+    {
+        Skip = IntegrationRequirements.SkipReason(requirement);
     }
 }
 

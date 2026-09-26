@@ -1,8 +1,7 @@
-using System.Net;
-using System.Text;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Models;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Http;
 
@@ -14,13 +13,13 @@ public class PaginationTests : IDisposable
     private const string DidText = "did:plc:ewvi7nxzyoun6zhxrhs64oiz";
     private const string Cid1 = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm";
 
-    private readonly PagingHandler _handler = new();
+    private readonly HttpStub _stub = new();
     private readonly HttpClient _httpClient;
     private readonly AtProtoClient _client;
 
     public PaginationTests()
     {
-        _httpClient = new HttpClient(_handler);
+        _httpClient = new HttpClient(_stub);
         _client = new AtProtoClient(
             new AtProtoClientOptions { InstanceUrl = "https://pds.example.com", AutoRefreshSession = false },
             _httpClient, null, null);
@@ -30,7 +29,7 @@ public class PaginationTests : IDisposable
     {
         _client.Dispose();
         _httpClient.Dispose();
-        _handler.Dispose();
+        _stub.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -125,7 +124,7 @@ public class PaginationTests : IDisposable
     [Fact]
     public async Task EnumerateRecordsAsync_ServerRepeatsItsCursor_EndsAfterTwoRequests()
     {
-        _handler.Respond = _ => $$$"""{"cursor":"c1","records":[{"uri":"at://{{{DidText}}}/com.example.note/1","cid":"{{{Cid1}}}","value":{}}]}""";
+        _stub.Fallback($$$"""{"cursor":"c1","records":[{"uri":"at://{{{DidText}}}/com.example.note/1","cid":"{{{Cid1}}}","value":{}}]}""");
 
         var records = new List<ATProtoNet.Lexicon.Com.AtProto.Repo.RecordEntry>();
         await foreach (var record in _client.Repo.EnumerateRecordsAsync(
@@ -135,18 +134,18 @@ public class PaginationTests : IDisposable
         }
 
         Assert.Equal(2, records.Count);
-        Assert.Equal(2, _handler.Requests.Count);
-        Assert.DoesNotContain("cursor=", _handler.Requests[0]);
-        Assert.Contains("cursor=c1", _handler.Requests[1]);
-        Assert.Contains("limit=10", _handler.Requests[0]);
+        Assert.Equal(2, _stub.Requests.Count);
+        Assert.DoesNotContain("cursor=", _stub.Requests[0].Query);
+        Assert.Contains("cursor=c1", _stub.Requests[1].Query);
+        Assert.Contains("limit=10", _stub.Requests[0].Query);
     }
 
     [Fact]
     public async Task EnumerateBlobsAsync_WalksEveryPage()
     {
-        _handler.Respond = request => request.Contains("cursor=")
+        _stub.Fallback(request => HttpStub.JsonResponse(request.Query.Contains("cursor=")
             ? $$"""{"cids":["{{Cid1}}"]}"""
-            : $$"""{"cursor":"next","cids":["{{Cid1}}","{{Cid1}}"]}""";
+            : $$"""{"cursor":"next","cids":["{{Cid1}}","{{Cid1}}"]}"""));
 
         var cids = new List<Cid>();
         await foreach (var cid in _client.Sync.EnumerateBlobsAsync(Did.Parse(DidText)))
@@ -154,15 +153,15 @@ public class PaginationTests : IDisposable
 
         Assert.Equal(3, cids.Count);
         Assert.All(cids, cid => Assert.Equal(Cid1, cid.Value));
-        Assert.Equal(2, _handler.Requests.Count);
+        Assert.Equal(2, _stub.Requests.Count);
     }
 
     [Fact]
     public async Task EnumerateAsync_OnARecordCollection_UsesThePaginator()
     {
-        _handler.Respond = request => request.Contains("createSession")
+        _stub.Fallback(request => HttpStub.JsonResponse(request.Nsid == "com.atproto.server.createSession"
             ? $$"""{"did":"{{DidText}}","handle":"alice.test","accessJwt":"a","refreshJwt":"r"}"""
-            : $$$"""{"cursor":"same","records":[{"uri":"at://{{{DidText}}}/com.example.note/1","cid":"{{{Cid1}}}","value":{"text":"hi"}}]}""";
+            : $$$"""{"cursor":"same","records":[{"uri":"at://{{{DidText}}}/com.example.note/1","cid":"{{{Cid1}}}","value":{"text":"hi"}}]}"""));
         await _client.LoginAsync("alice.test", "password");
 
         var notes = new List<RecordView<Note>>();
@@ -176,25 +175,5 @@ public class PaginationTests : IDisposable
     private sealed class Note
     {
         public string? Text { get; set; }
-    }
-
-    private sealed class PagingHandler : HttpMessageHandler
-    {
-        public Func<string, string> Respond { get; set; } = _ => "{}";
-
-        public List<string> Requests { get; } = [];
-
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            var uri = request.RequestUri!.ToString();
-            if (!uri.Contains("createSession"))
-                Requests.Add(uri);
-
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(Respond(uri), Encoding.UTF8, "application/json"),
-            });
-        }
     }
 }

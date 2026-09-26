@@ -9,7 +9,8 @@ namespace ATProtoNet.IntegrationTests;
 /// </summary>
 /// <remarks>
 /// These need an API key on top of outbound internet, so they are gated by
-/// <see cref="RequiresJetstreamArchiveFactAttribute"/> and skip by default. Every one of them is
+/// <see cref="RequiresFactAttribute"/> (<see cref="IntegrationRequirement.JetstreamArchive"/>) and
+/// skip by default. Every one of them is
 /// deliberately small: the endpoints are metered in response bytes, so a test that downloaded a
 /// whole 256 MB segment would spend real quota. The unit tests cover the decoder itself against
 /// Jetstream's own golden fixtures.
@@ -31,7 +32,7 @@ public class JetstreamArchiveTests
     private static JetstreamArchiveClient Archive()
         => new(TestConfig.JetstreamUrl, TestConfig.JetstreamApiKey);
 
-    [RequiresJetstreamArchiveFact]
+    [RequiresFact(IntegrationRequirement.JetstreamArchive)]
     public async Task ListSegmentsAsync_ReportsSealedSegmentsInIndexOrder()
     {
         using var cts = new CancellationTokenSource(Timeout);
@@ -54,7 +55,7 @@ public class JetstreamArchiveTests
         Assert.Equal(indices.OrderBy(i => i), indices);
     }
 
-    [RequiresJetstreamArchiveFact]
+    [RequiresFact(IntegrationRequirement.JetstreamArchive)]
     public async Task PlanSnapshotAsync_PlansAWindowAndPinsTheSealedTip()
     {
         using var cts = new CancellationTokenSource(Timeout);
@@ -84,7 +85,7 @@ public class JetstreamArchiveTests
         });
     }
 
-    [RequiresJetstreamArchiveFact]
+    [RequiresFact(IntegrationRequirement.JetstreamArchive)]
     public async Task GetBlockAsync_ReturnsAFrameTheSegmentReaderCanDecode()
     {
         using var cts = new CancellationTokenSource(Timeout);
@@ -112,7 +113,7 @@ public class JetstreamArchiveTests
         Assert.All(rows, row => Assert.NotNull(row.ToEvent()));
     }
 
-    [RequiresJetstreamArchiveFact]
+    [RequiresFact(IntegrationRequirement.JetstreamArchive)]
     public async Task GetSegmentAsync_HonoursARangeRequest()
     {
         using var cts = new CancellationTokenSource(Timeout);
@@ -133,7 +134,7 @@ public class JetstreamArchiveTests
         Assert.Equal(segment.Checksum, parsed.Checksum.ToString("x16"));
     }
 
-    [RequiresJetstreamArchiveFact]
+    [RequiresFact(IntegrationRequirement.JetstreamArchive)]
     public async Task ProbeSegmentAsync_ReportsTheListedSizeAndChecksumWithoutABody()
     {
         using var cts = new CancellationTokenSource(Timeout);
@@ -148,7 +149,7 @@ public class JetstreamArchiveTests
         Assert.Equal(segment.Checksum, probe.ETag);
     }
 
-    [RequiresJetstreamArchiveFact]
+    [RequiresFact(IntegrationRequirement.JetstreamArchive)]
     public async Task AnInvalidApiKeyIsRefusedWithoutRetrying()
     {
         using var cts = new CancellationTokenSource(Timeout);
@@ -161,7 +162,7 @@ public class JetstreamArchiveTests
         Assert.False(ex.IsRetryable);
     }
 
-    [RequiresJetstreamArchiveFact]
+    [RequiresFact(IntegrationRequirement.JetstreamArchive)]
     public async Task SnapshotMode_DeliversArchivedEventsInSequenceOrder()
     {
         using var cts = new CancellationTokenSource(Timeout);

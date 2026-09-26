@@ -24,7 +24,7 @@ public class SpaceAccountSigningTests(SpaceNetworkFixture fixture)
 {
     private static readonly Did SdkHostDid = Did.Parse("did:web:sdk-host.example.com");
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task NotifyWrite_SignedAsTheWriter_JoinsTheReferenceAuthoritysWriterSet()
     {
         using var writerKey = AtProtoCrypto.GenerateK256Key();
@@ -40,7 +40,7 @@ public class SpaceAccountSigningTests(SpaceNetworkFixture fixture)
         Assert.Contains(writer.Value, await ReadWriterSetAsync(space));
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task NotifyWrite_SignedAsTheHostService_IsRefusedByTheReferenceAuthority()
     {
         // The control: the same notification, signed as the host rather than the writer.

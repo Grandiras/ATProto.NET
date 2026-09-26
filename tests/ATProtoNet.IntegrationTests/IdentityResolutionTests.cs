@@ -13,7 +13,7 @@ public class IdentityResolutionTests
         _fixture = fixture;
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task ResolveHandle_ReturnsDidForKnownHandle()
     {
         var client = _fixture.Client;

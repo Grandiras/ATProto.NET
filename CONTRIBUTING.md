@@ -211,8 +211,10 @@ public sealed class ListBlobsResponse : ICursorPage<Cid>
 
 - Unit tests go in `tests/ATProtoNet.Tests/`
 - Integration tests go in `tests/ATProtoNet.IntegrationTests/`
-- Use `[RequiresPdsFact]` for tests that need a live PDS
-- Use `[RequiresBlueskyFact]` for tests that need Bluesky app view services
+- Use `[RequiresFact(IntegrationRequirement.Pds)]` for tests that need a live PDS
+- Use `[RequiresFact(IntegrationRequirement.Bluesky)]` for tests that need Bluesky app view services
+- Setting `ATPROTO_REQUIRE_INTEGRATION=1` turns a missing prerequisite into a failure instead of a
+  skip, so CI can catch an environment that silently stopped providing one
 - Name tests: `MethodName_Scenario_ExpectedResult`
 
 ### Commits

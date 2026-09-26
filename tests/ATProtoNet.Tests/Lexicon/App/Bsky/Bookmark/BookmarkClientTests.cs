@@ -2,13 +2,14 @@ using System.Text.Json;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Feed;
 using ATProtoNet.Serialization;
+using ATProtoNet.Tests.TestSupport;
 using static ATProtoNet.Tests.Lexicon.App.Bsky.BskyFixtures;
 
 namespace ATProtoNet.Tests.Lexicon.App.Bsky.Bookmark;
 
 public sealed class BookmarkClientTests : IDisposable
 {
-    private readonly ScriptedXrpcHandler _handler = new();
+    private readonly HttpStub _handler = new();
     private readonly AtProtoClient _client;
 
     public BookmarkClientTests() => _client = _handler.CreateClient();

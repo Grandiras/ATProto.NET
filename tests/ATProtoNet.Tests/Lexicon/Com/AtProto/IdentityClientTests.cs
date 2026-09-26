@@ -1,9 +1,8 @@
 using System.Net;
-using System.Text;
-using System.Text.Json;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Tests.Identity;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Lexicon.Com.AtProto;
 
@@ -18,13 +17,14 @@ public class IdentityClientTests : IDisposable
     private static readonly string IdentityInfoJson =
         $$"""{"did":"{{DidText}}","handle":"atproto.com","didDoc":{{DidDocs.AtprotoDotCom}}}""";
 
-    private readonly RecordingHandler _handler = new();
+    private readonly HttpStub _stub = new();
     private readonly HttpClient _httpClient;
     private readonly AtProtoClient _client;
 
     public IdentityClientTests()
     {
-        _httpClient = new HttpClient(_handler);
+        _stub.Fallback("{}");
+        _httpClient = new HttpClient(_stub);
         _client = new AtProtoClient(
             new AtProtoClientOptions { InstanceUrl = "https://pds.example.com", AutoRefreshSession = false },
             _httpClient, null, null);
@@ -34,20 +34,22 @@ public class IdentityClientTests : IDisposable
     {
         _client.Dispose();
         _httpClient.Dispose();
-        _handler.Dispose();
+        _stub.Dispose();
         GC.SuppressFinalize(this);
     }
+
+    private HttpStub.RecordedRequest Last => _stub.Requests[^1];
 
     [Fact]
     public async Task ResolveIdentityAsync_SendsTheIdentifierAndParsesTheIdentity()
     {
-        _handler.Body = IdentityInfoJson;
+        _stub.Fallback(IdentityInfoJson);
 
         var info = await _client.Identity.ResolveIdentityAsync(AtIdentifier.Parse("atproto.com"));
 
         Assert.Equal(
             "https://pds.example.com/xrpc/com.atproto.identity.resolveIdentity?identifier=atproto.com",
-            _handler.LastUri);
+            Last.Uri.ToString());
         Assert.Equal(Did.Parse(DidText), info.Did);
         Assert.Equal(Handle.Parse("atproto.com"), info.Handle);
         Assert.Equal(Did.Parse(DidText), info.DidDoc.Id);
@@ -57,7 +59,7 @@ public class IdentityClientTests : IDisposable
     [Fact]
     public async Task ResolveIdentityAsync_UnverifiedHandle_IsHandleInvalid()
     {
-        _handler.Body = IdentityInfoJson.Replace("\"handle\":\"atproto.com\"", "\"handle\":\"handle.invalid\"", StringComparison.Ordinal);
+        _stub.Fallback(IdentityInfoJson.Replace("\"handle\":\"atproto.com\"", "\"handle\":\"handle.invalid\"", StringComparison.Ordinal));
 
         var info = await _client.Identity.ResolveIdentityAsync(AtIdentifier.Parse(DidText));
 
@@ -67,8 +69,8 @@ public class IdentityClientTests : IDisposable
     [Fact]
     public async Task ResolveIdentityAsync_HandleNotFound_SurfacesTheLexiconError()
     {
-        _handler.Status = HttpStatusCode.BadRequest;
-        _handler.Body = """{"error":"HandleNotFound","message":"Unable to resolve handle"}""";
+        _stub.Fallback(_ => HttpStub.JsonResponse(
+            """{"error":"HandleNotFound","message":"Unable to resolve handle"}""", HttpStatusCode.BadRequest));
 
         var ex = await Assert.ThrowsAnyAsync<XrpcException>(
             () => _client.Identity.ResolveIdentityAsync(AtIdentifier.Parse("nobody.example.com")));
@@ -79,48 +81,25 @@ public class IdentityClientTests : IDisposable
     [Fact]
     public async Task ResolveDidAsync_SendsTheDidAndParsesTheDocument()
     {
-        _handler.Body = $$"""{"didDoc":{{DidDocs.AtprotoDotCom}}}""";
+        _stub.Fallback($$"""{"didDoc":{{DidDocs.AtprotoDotCom}}}""");
 
         var response = await _client.Identity.ResolveDidAsync(Did.Parse(DidText));
 
         Assert.Equal(
             $"https://pds.example.com/xrpc/com.atproto.identity.resolveDid?did={DidText}",
-            Uri.UnescapeDataString(_handler.LastUri!));
+            Uri.UnescapeDataString(Last.Uri.ToString()));
         Assert.Equal("did:key:zQ3shunBKsXixLxKtC5qeSG9E4J5RkGN57im31pcTzbNQnm5w", response.DidDoc.GetSigningKey());
     }
 
     [Fact]
     public async Task RefreshIdentityAsync_PostsTheIdentifier()
     {
-        _handler.Body = IdentityInfoJson;
+        _stub.Fallback(IdentityInfoJson);
 
         var info = await _client.Identity.RefreshIdentityAsync(AtIdentifier.Parse(DidText));
 
-        Assert.Equal("https://pds.example.com/xrpc/com.atproto.identity.refreshIdentity", _handler.LastUri);
-        using var body = JsonDocument.Parse(_handler.LastBody!);
-        Assert.Equal(DidText, body.RootElement.GetProperty("identifier").GetString());
+        Assert.Equal("https://pds.example.com/xrpc/com.atproto.identity.refreshIdentity", Last.Uri.ToString());
+        Assert.Equal(DidText, Last.JsonBody.GetProperty("identifier").GetString());
         Assert.Equal(Handle.Parse("atproto.com"), info.Handle);
-    }
-
-    private sealed class RecordingHandler : HttpMessageHandler
-    {
-        public string Body { get; set; } = "{}";
-
-        public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
-
-        public string? LastUri { get; private set; }
-
-        public string? LastBody { get; private set; }
-
-        protected override async Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            LastUri = request.RequestUri!.ToString();
-            LastBody = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
-            return new HttpResponseMessage(Status)
-            {
-                Content = new StringContent(Body, Encoding.UTF8, "application/json"),
-            };
-        }
     }
 }

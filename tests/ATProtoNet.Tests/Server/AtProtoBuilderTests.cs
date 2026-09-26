@@ -9,6 +9,7 @@ using ATProtoNet.Server.Services;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Server.TokenStore;
 using ATProtoNet.Tests.Auth;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;

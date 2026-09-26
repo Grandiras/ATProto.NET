@@ -14,7 +14,7 @@ public class RepositoryTests
         _fixture = fixture;
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task CreateAndGetRecord_RoundTrips()
     {
         var client = _fixture.Client;
@@ -50,7 +50,7 @@ public class RepositoryTests
             client.Did!, Nsid.Parse("app.bsky.feed.post"), rkey);
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task GetVerifiedRecord_ProvesACreatedRecordAndThenItsDeletion()
     {
         var client = _fixture.Client;
@@ -86,7 +86,7 @@ public class RepositoryTests
         Assert.False(gone.Exists);
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task DescribeRepo_ReturnsRepoInfo()
     {
         var client = _fixture.Client;

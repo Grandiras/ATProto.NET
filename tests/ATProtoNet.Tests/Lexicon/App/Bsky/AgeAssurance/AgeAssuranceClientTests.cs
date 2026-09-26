@@ -1,10 +1,11 @@
 using ATProtoNet.Lexicon.App.Bsky.AgeAssurance;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Lexicon.App.Bsky.AgeAssurance;
 
 public sealed class AgeAssuranceClientTests : IDisposable
 {
-    private readonly ScriptedXrpcHandler _handler = new();
+    private readonly HttpStub _handler = new();
     private readonly AtProtoClient _client;
 
     public AgeAssuranceClientTests() => _client = _handler.CreateClient();

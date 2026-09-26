@@ -2,7 +2,7 @@
 
 The unit tests for [spaces](spaces.md) stub the HTTP layer: the cryptographic constructions are pinned against the reference implementation's own outputs, and the wire shape against hand-written JSON. That proves the SDK agrees with a *reading* of the specification. It cannot prove a server accepts what the SDK sends — whether the `htu` in a DPoP proof is the one the host computes for the request, whether the delegation token it presents as a bearer grant is honoured as one, whether the LtHash the SDK folds from an oplog lands on the digest the host independently signed.
 
-`tests/ATProtoNet.IntegrationTests/` carries that second set, behind `[RequiresSpacesFact]`. They skip unless the environment says a space host is there, so CI is unaffected.
+`tests/ATProtoNet.IntegrationTests/` carries that second set, behind `[RequiresFact(IntegrationRequirement.Spaces)]`. They skip unless the environment says a space host is there, so CI is unaffected — unless `ATPROTO_REQUIRE_INTEGRATION=1` is also set, in which case a missing prerequisite fails the test instead of skipping it.
 
 ## Where the alpha is published
 

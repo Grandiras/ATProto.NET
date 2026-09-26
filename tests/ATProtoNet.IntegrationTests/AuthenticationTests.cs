@@ -5,7 +5,7 @@ namespace ATProtoNet.IntegrationTests;
 /// </summary>
 public class AuthenticationTests
 {
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task Login_WithValidCredentials_Succeeds()
     {
         using var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl, AutoRefreshSession = false });
@@ -22,7 +22,7 @@ public class AuthenticationTests
         Assert.NotEmpty(session.RefreshJwt);
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task Login_WithInvalidCredentials_Throws()
     {
         using var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl, AutoRefreshSession = false });
@@ -31,7 +31,7 @@ public class AuthenticationTests
             () => client.LoginAsync("invalid.handle", "wrong-password"));
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task GetSession_AfterLogin_ReturnsSession()
     {
         using var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl, AutoRefreshSession = false });
@@ -44,7 +44,7 @@ public class AuthenticationTests
         Assert.NotNull(sessionResponse.Handle);
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task ResumeSession_WithValidTokens_Succeeds()
     {
         using var client1 = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl, AutoRefreshSession = false });
@@ -60,7 +60,7 @@ public class AuthenticationTests
         Assert.Equal(session.Did, client2.Did);
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task Logout_ClearsSession()
     {
         using var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl, AutoRefreshSession = false });
@@ -73,7 +73,7 @@ public class AuthenticationTests
         Assert.Null(client.Session);
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task Logout_RevokesTheRefreshToken()
     {
         using var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl });
@@ -87,7 +87,7 @@ public class AuthenticationTests
             () => other.Server.RefreshSessionAsync(session.RefreshJwt));
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task RefreshSession_RotatesTheTokensAndKnowsTheirExpiry()
     {
         using var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl });

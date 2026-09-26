@@ -21,7 +21,7 @@ namespace ATProtoNet.IntegrationTests;
 [Collection("Spaces")]
 public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
 {
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task MemberListPolicy_RefusesANonMember()
     {
         var space = await fixture.CreateSpaceAsync("policy-members", members: [fixture.Member]);
@@ -36,7 +36,7 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
         Assert.Equal(SpaceErrors.UserNotAuthorized, refusal.Error);
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task PublicPolicy_MintsForANonMember()
     {
         // The control for the refusal above: same non-member, same exchange, different policy.
@@ -48,7 +48,7 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
         Assert.Equal(space.Value, credential.Token.Subject);
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task RemovingAMember_StopsTheNextCredentialRenewal()
     {
         var space = await fixture.CreateSpaceAsync("policy-revoke", members: [fixture.Member]);
@@ -66,7 +66,7 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
         Assert.Equal(SpaceErrors.UserNotAuthorized, refusal.Error);
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task AllowListAppAccess_RefusesAnAppThatPresentsNoAttestation()
     {
         // Policy public so the user passes and the refusal can only be about the app.
@@ -83,7 +83,7 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
         Assert.Equal(SpaceErrors.AppNotAuthorized, refusal.Error);
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task AllowListAppAccess_DrivesTheRetryWithAClientAttestation()
     {
         var space = await fixture.CreateSpaceAsync(
@@ -110,7 +110,7 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
         Assert.Equal(space.HostAudience, Assert.Single(audiences));
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task SpaceRecords_AreNotServedToACoLocatedNonMember()
     {
         var space = await fixture.CreateSpaceAsync("policy-boundary", members: [fixture.Member]);
@@ -128,7 +128,7 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
         Assert.Equal(SpaceErrors.RepoNotFound, refusal.Error);
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task GetSpaceAsync_ServesTheConfigurationToAMemberHoldingACredential()
     {
         var space = await fixture.CreateSpaceAsync(
@@ -149,7 +149,7 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
         Assert.IsType<OpenAppAccess>(configuration.AppAccess);
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task UpdateSpaceAsync_ReplacesOnlyThePolicyItWasGiven()
     {
         var space = await fixture.CreateSpaceAsync("policy-update");
@@ -162,7 +162,7 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
         Assert.IsType<OpenAppAccess>(configuration.AppAccess);
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task PutMemberAsync_ReplacesBothFlags_AndListMembersReportsThem()
     {
         var space = await fixture.CreateSpaceAsync("policy-put");
@@ -178,7 +178,7 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
         Assert.True(member.Write);
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task ReadOnlyMember_GetsACredentialButStaysOutOfTheWriterSet()
     {
         var space = await fixture.CreateSpaceAsync("policy-read-only");
@@ -201,7 +201,7 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
         Assert.DoesNotContain(fixture.Member.Did, writers);
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task WriteOnlyMember_IsTrackedButRefusedACredential()
     {
         var space = await fixture.CreateSpaceAsync("policy-write-only");
@@ -218,7 +218,7 @@ public class SimpleSpacePolicyTests(SpaceNetworkFixture fixture)
         Assert.Contains(fixture.Member.Did, await ReadWriterSetUntilAsync(space, fixture.Member.Did));
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task PublicWritePolicy_TracksAWriterWhoWasNeverAMember()
     {
         var space = await fixture.CreateSpaceAsync("policy-public-write", writePolicy: new PublicPolicy());

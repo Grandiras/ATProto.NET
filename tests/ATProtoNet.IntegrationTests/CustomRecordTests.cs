@@ -52,7 +52,7 @@ public class CustomRecordTests
         _fixture = fixture;
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task CreateRecord_ReturnsRecordRef()
     {
         var client = _fixture.Client;
@@ -75,7 +75,7 @@ public class CustomRecordTests
         await notes.DeleteAsync(created.RecordKey);
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task CreateAndGet_RoundTrips()
     {
         var client = _fixture.Client;
@@ -104,7 +104,7 @@ public class CustomRecordTests
         await notes.DeleteAsync(created.RecordKey);
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task PutRecord_CreatesOrUpdates()
     {
         var client = _fixture.Client;
@@ -141,7 +141,7 @@ public class CustomRecordTests
         await notes.DeleteAsync(RecordKey.Parse(rkey));
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task DeleteRecord_RemovesRecord()
     {
         var client = _fixture.Client;
@@ -161,7 +161,7 @@ public class CustomRecordTests
         Assert.False(exists);
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task ExistsAsync_ReturnsTrueForExistingRecord()
     {
         var client = _fixture.Client;
@@ -179,7 +179,7 @@ public class CustomRecordTests
         await notes.DeleteAsync(created.RecordKey);
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task ExistsAsync_ReturnsFalseForMissingRecord()
     {
         var client = _fixture.Client;
@@ -188,7 +188,7 @@ public class CustomRecordTests
         Assert.False(await notes.ExistsAsync(RecordKey.Parse("nonexistent-key-12345")));
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task ListRecords_ReturnsPage()
     {
         var client = _fixture.Client;
@@ -229,7 +229,7 @@ public class CustomRecordTests
         }
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task EnumerateAsync_IteratesAllRecords()
     {
         var client = _fixture.Client;
@@ -264,7 +264,7 @@ public class CustomRecordTests
         }
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task GetFromOtherUser_WorksWithOwnDid()
     {
         var client = _fixture.Client;
@@ -288,7 +288,7 @@ public class CustomRecordTests
         }
     }
 
-    [RequiresPdsFact]
+    [RequiresFact(IntegrationRequirement.Pds)]
     public async Task MultipleCollections_WorkIndependently()
     {
         var client = _fixture.Client;

@@ -1,4 +1,5 @@
 using ATProtoNet.Identity;
+using ATProtoNet.Tests.TestSupport;
 using static ATProtoNet.Tests.Lexicon.App.Bsky.BskyFixtures;
 
 namespace ATProtoNet.Tests.Lexicon.App.Bsky.Graph;
@@ -8,7 +9,7 @@ namespace ATProtoNet.Tests.Lexicon.App.Bsky.Graph;
 /// </summary>
 public sealed class GraphSurfaceTests : IDisposable
 {
-    private readonly ScriptedXrpcHandler _handler = new();
+    private readonly HttpStub _handler = new();
     private readonly AtProtoClient _client;
 
     public GraphSurfaceTests() => _client = _handler.CreateClient();

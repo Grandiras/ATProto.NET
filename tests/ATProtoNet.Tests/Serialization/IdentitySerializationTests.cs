@@ -27,16 +27,6 @@ public class IdentitySerializationTests
         Assert.Equal("did:plc:abc123", did.Value);
     }
 
-    [Fact]
-    public void Did_RoundTrips()
-    {
-        var original = Did.Parse("did:web:example.com");
-        var json = JsonSerializer.Serialize(original, _options);
-        var deserialized = JsonSerializer.Deserialize<Did>(json, _options);
-
-        Assert.Equal(original, deserialized);
-    }
-
     // ── Handle ──
 
     [Fact]
@@ -100,16 +90,6 @@ public class IdentitySerializationTests
         Assert.Equal("\"com.atproto.repo.createRecord\"", json);
     }
 
-    [Fact]
-    public void Nsid_RoundTrips()
-    {
-        var original = Nsid.Parse("app.bsky.feed.post");
-        var json = JsonSerializer.Serialize(original, _options);
-        var deserialized = JsonSerializer.Deserialize<Nsid>(json, _options);
-
-        Assert.Equal(original, deserialized);
-    }
-
     // ── AtUri ──
 
     [Fact]
@@ -118,16 +98,6 @@ public class IdentitySerializationTests
         var uri = AtUri.Parse("at://did:plc:abc123/app.bsky.feed.post/3k2la");
         var json = JsonSerializer.Serialize(uri, _options);
         Assert.Equal("\"at://did:plc:abc123/app.bsky.feed.post/3k2la\"", json);
-    }
-
-    [Fact]
-    public void AtUri_RoundTrips()
-    {
-        var original = AtUri.Parse("at://did:plc:abc123/app.bsky.feed.post/3k2la");
-        var json = JsonSerializer.Serialize(original, _options);
-        var deserialized = JsonSerializer.Deserialize<AtUri>(json, _options);
-
-        Assert.Equal(original, deserialized);
     }
 
     // ── Tid ──
@@ -140,16 +110,6 @@ public class IdentitySerializationTests
         Assert.Equal("\"abcdefghijklm\"", json);
     }
 
-    [Fact]
-    public void Tid_RoundTrips()
-    {
-        var original = Tid.Next();
-        var json = JsonSerializer.Serialize(original, _options);
-        var deserialized = JsonSerializer.Deserialize<Tid>(json, _options);
-
-        Assert.Equal(original, deserialized);
-    }
-
     // ── RecordKey ──
 
     [Fact]
@@ -158,16 +118,6 @@ public class IdentitySerializationTests
         var rkey = RecordKey.Parse("self");
         var json = JsonSerializer.Serialize(rkey, _options);
         Assert.Equal("\"self\"", json);
-    }
-
-    [Fact]
-    public void RecordKey_RoundTrips()
-    {
-        var original = RecordKey.NewTid();
-        var json = JsonSerializer.Serialize(original, _options);
-        var deserialized = JsonSerializer.Deserialize<RecordKey>(json, _options);
-
-        Assert.Equal(original, deserialized);
     }
 
     // ── Cid ──

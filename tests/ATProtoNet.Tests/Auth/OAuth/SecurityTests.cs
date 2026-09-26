@@ -68,20 +68,35 @@ public class SecurityTests
     }
 
     /// <summary>
-    /// Discovery with the SDK's default identity resolver, which fetches through its own
-    /// policy-enforcing client; the handler only sees the OAuth metadata requests.
+    /// Discovery whose identity resolver — DID and handle resolution alike — is wired to the same
+    /// scripted <paramref name="handler"/> as the OAuth metadata fetch, never to a real socket.
     /// </summary>
+    /// <remarks>
+    /// These tests assert that a refused identifier reaches <em>no</em> request at all
+    /// (<c>handler.Count == 0</c>), which is the property under test. Wiring every transport to
+    /// one inert stub means that if the SSRF guard ever regressed, the test would fail on an
+    /// unexpected request recorded by the stub instead of a real socket reaching
+    /// <c>169.254.169.254</c> or a private address from inside the test run.
+    /// </remarks>
     private static (AuthorizationServerDiscovery Discovery, Identity.ScriptedHandler Handler) CreateDiscovery()
     {
         var handler = new Identity.ScriptedHandler(_ => Identity.ScriptedHandler.Status(System.Net.HttpStatusCode.NotFound));
+        var httpClient = new HttpClient(handler, disposeHandler: false);
+        var options = new ATProtoNet.Identity.IdentityResolverOptions
+        {
+            DnsOverHttpsUrl = null,
+            HandleResolutionTimeout = TimeSpan.FromMilliseconds(1),
+        };
+
+        var didResolver = new ATProtoNet.Identity.CachingDidResolver(
+            new ATProtoNet.Identity.DidResolver(
+                new ATProtoNet.Identity.PlcClient(httpClient, options.PlcDirectoryUrl, options),
+                new ATProtoNet.Identity.DidWebResolver(httpClient, options)));
+        var handleResolver = new ATProtoNet.Identity.HandleResolver(httpClient, options);
+        var identityResolver = new ATProtoNet.Identity.IdentityResolver(didResolver, handleResolver);
+
         var discovery = new AuthorizationServerDiscovery(
-            new HttpClient(handler),
-            Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance,
-            ATProtoNet.Identity.IdentityResolver.CreateDefault(new ATProtoNet.Identity.IdentityResolverOptions
-            {
-                DnsOverHttpsUrl = null,
-                HandleResolutionTimeout = TimeSpan.FromMilliseconds(1),
-            }));
+            httpClient, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, identityResolver);
         return (discovery, handler);
     }
 
@@ -95,7 +110,10 @@ public class SecurityTests
     [InlineData("ftp://example.com")]
     public void SetServiceUrl_RejectsNonTlsPublicUrls(string url)
     {
-        using var httpClient = new HttpClient();
+        // SetServiceUrl only validates and stores the URI — it never sends anything — so a
+        // handler with nothing scripted is enough, and fails loudly if that ever stops holding.
+        using var httpClient = new HttpClient(new Identity.ScriptedHandler(_ =>
+            throw new InvalidOperationException("SetServiceUrl should not send a request.")));
         var xrpc = new XrpcClient(httpClient, new Uri("https://example.com/"));
 
         Assert.Throws<ArgumentException>(() => xrpc.SetServiceUrl(new Uri(url)));
@@ -110,7 +128,8 @@ public class SecurityTests
     [InlineData("http://[::1]:5000")]
     public void SetServiceUrl_AcceptsValidUrls(string url)
     {
-        using var httpClient = new HttpClient();
+        using var httpClient = new HttpClient(new Identity.ScriptedHandler(_ =>
+            throw new InvalidOperationException("SetServiceUrl should not send a request.")));
         var xrpc = new XrpcClient(httpClient, new Uri("https://example.com/"));
 
         xrpc.SetServiceUrl(new Uri(url));

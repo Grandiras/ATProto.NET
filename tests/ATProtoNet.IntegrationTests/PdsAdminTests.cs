@@ -32,7 +32,7 @@ public class PdsAdminTests : IDisposable
             null);
     }
 
-    [RequiresPdsAdminFact]
+    [RequiresFact(IntegrationRequirement.PdsAdmin)]
     public async Task DescribeServerAsync_ReportsHandleDomains()
     {
         var server = await _admin.DescribeServerAsync();
@@ -41,7 +41,7 @@ public class PdsAdminTests : IDisposable
         Assert.NotEmpty(server.AvailableUserDomains);
     }
 
-    [RequiresPdsAdminFact]
+    [RequiresFact(IntegrationRequirement.PdsAdmin)]
     public async Task CreateInviteCodeAsync_ReturnsAUsableCode()
     {
         var code = await _admin.CreateInviteCodeAsync();
@@ -52,7 +52,7 @@ public class PdsAdminTests : IDisposable
         Assert.Contains('-', code);
     }
 
-    [RequiresPdsAdminFact]
+    [RequiresFact(IntegrationRequirement.PdsAdmin)]
     public async Task CreateAccountAsync_ProvisionsAnAccountWithAResolvableDid()
     {
         var handle = await NextHandleAsync();
@@ -72,7 +72,7 @@ public class PdsAdminTests : IDisposable
         Assert.NotEmpty(account.RefreshJwt);
     }
 
-    [RequiresPdsAdminFact]
+    [RequiresFact(IntegrationRequirement.PdsAdmin)]
     public async Task CreateAccountAsync_MintsAnInviteCodeWhenTheServerRequiresOne()
     {
         var server = await _admin.DescribeServerAsync();
@@ -96,7 +96,7 @@ public class PdsAdminTests : IDisposable
         Assert.StartsWith("did:", account.Did);
     }
 
-    [RequiresPdsAdminFact]
+    [RequiresFact(IntegrationRequirement.PdsAdmin)]
     public async Task GetAccountAsync_ReturnsTheProvisionedAccount()
     {
         var handle = await NextHandleAsync();
@@ -118,7 +118,7 @@ public class PdsAdminTests : IDisposable
         Assert.Equal(email, account.Email);
     }
 
-    [RequiresPdsAdminFact]
+    [RequiresFact(IntegrationRequirement.PdsAdmin)]
     public async Task UpdateAccountHandleAsync_ChangesTheHandle()
     {
         var created = await _admin.CreateAccountAsync(new CreateAccountRequest
@@ -137,7 +137,7 @@ public class PdsAdminTests : IDisposable
         Assert.Equal(newHandle, account.Handle);
     }
 
-    [RequiresPdsAdminFact]
+    [RequiresFact(IntegrationRequirement.PdsAdmin)]
     public async Task TakedownAndRestoreAccountAsync_RoundTrip()
     {
         var created = await _admin.CreateAccountAsync(new CreateAccountRequest
@@ -160,7 +160,7 @@ public class PdsAdminTests : IDisposable
         Assert.False(status.Takedown?.Applied ?? false);
     }
 
-    [RequiresPdsAdminFact]
+    [RequiresFact(IntegrationRequirement.PdsAdmin)]
     public async Task NewAccount_CanSignInWithTheSessionItWasGiven()
     {
         const string password = "correct-horse-battery-staple";
@@ -182,7 +182,7 @@ public class PdsAdminTests : IDisposable
         Assert.Equal(created.Did, session.Did);
     }
 
-    [RequiresPdsAdminFact]
+    [RequiresFact(IntegrationRequirement.PdsAdmin)]
     public async Task DeleteAccountAsync_RemovesTheAccount()
     {
         var created = await _admin.CreateAccountAsync(new CreateAccountRequest

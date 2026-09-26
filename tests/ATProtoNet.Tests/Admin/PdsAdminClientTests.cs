@@ -1,9 +1,7 @@
-using System.Net;
-using System.Text;
-using System.Text.Json;
 using ATProtoNet.Admin;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Server;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Admin;
 
@@ -11,13 +9,13 @@ public class PdsAdminClientTests : IDisposable
 {
     private const string AdminPassword = "hunter2";
 
-    private readonly MockHttpMessageHandler _handler = new();
+    private readonly HttpStub _stub = new();
     private readonly HttpClient _httpClient;
     private readonly PdsAdminClient _client;
 
     public PdsAdminClientTests()
     {
-        _httpClient = new HttpClient(_handler)
+        _httpClient = new HttpClient(_stub)
         {
             BaseAddress = new Uri("https://pds.example.com/")
         };
@@ -87,8 +85,8 @@ public class PdsAdminClientTests : IDisposable
     [Fact]
     public async Task Constructor_SendsToTheOptionsUrl_NotASuppliedClientsBaseAddress()
     {
-        using var handler = new MockHttpMessageHandler();
-        using var httpClient = new HttpClient(handler)
+        using var stub = new HttpStub();
+        using var httpClient = new HttpClient(stub)
         {
             BaseAddress = new Uri("http://pds:3000/"),
         };
@@ -96,14 +94,14 @@ public class PdsAdminClientTests : IDisposable
             new PdsAdminOptions { Url = "https://pds.example.com", AdminPassword = AdminPassword },
             httpClient,
             null);
-        handler.Enqueue("""{"code":"pds-example-com-abc123"}""");
+        stub.On("com.atproto.server.createInviteCode", """{"code":"pds-example-com-abc123"}""");
 
         await client.CreateInviteCodeAsync();
 
         // The Authorization header goes where the validated options URL points, and the
         // supplied client is left as it was.
         Assert.Equal(new Uri("https://pds.example.com/"), client.PdsUrl);
-        Assert.Equal("pds.example.com", Assert.Single(handler.Requests).Host);
+        Assert.Equal("pds.example.com", Assert.Single(stub.Requests).Uri.Host);
         Assert.Equal(new Uri("http://pds:3000/"), httpClient.BaseAddress);
     }
 
@@ -114,17 +112,17 @@ public class PdsAdminClientTests : IDisposable
     [Fact]
     public async Task CreateInviteCodeAsync_AuthenticatesWithAdminPassword()
     {
-        _handler.Enqueue("""{"code":"pds-example-com-abc123"}""");
+        _stub.On("com.atproto.server.createInviteCode", """{"code":"pds-example-com-abc123"}""");
 
         var code = await _client.CreateInviteCodeAsync();
 
         Assert.Equal("pds-example-com-abc123", code);
 
-        var request = Assert.Single(_handler.Requests);
-        var expected = Convert.ToBase64String(Encoding.UTF8.GetBytes($"admin:{AdminPassword}"));
-        Assert.Equal("Basic", request.AuthScheme);
-        Assert.Equal(expected, request.AuthParameter);
-        Assert.Contains("com.atproto.server.createInviteCode", request.Path);
+        var request = Assert.Single(_stub.Requests);
+        var expected = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"admin:{AdminPassword}"));
+        Assert.Equal("Basic", request.Headers.Authorization?.Scheme);
+        Assert.Equal(expected, request.Headers.Authorization?.Parameter);
+        Assert.Equal("com.atproto.server.createInviteCode", request.Nsid);
     }
 
     [Fact]
@@ -137,7 +135,7 @@ public class PdsAdminClientTests : IDisposable
     [Fact]
     public async Task CreateInviteCodesAsync_FlattensCodesAcrossAccounts()
     {
-        _handler.Enqueue("""
+        _stub.On("com.atproto.server.createInviteCodes", """
             {"codes":[{"account":"admin","codes":["code-1","code-2"]},
                       {"account":"other","codes":["code-3"]}]}
             """);
@@ -154,9 +152,9 @@ public class PdsAdminClientTests : IDisposable
     [Fact]
     public async Task CreateAccountAsync_WhenInviteRequired_MintsCodeThenCreatesAccount()
     {
-        _handler.Enqueue("""{"did":"did:web:pds.example.com","inviteCodeRequired":true}""");
-        _handler.Enqueue("""{"code":"minted-code"}""");
-        _handler.Enqueue("""{"did":"did:plc:alice","handle":"alice.example.com","accessJwt":"a","refreshJwt":"r"}""");
+        _stub.On("com.atproto.server.describeServer", """{"did":"did:web:pds.example.com","inviteCodeRequired":true}""");
+        _stub.On("com.atproto.server.createInviteCode", """{"code":"minted-code"}""");
+        _stub.On("com.atproto.server.createAccount", """{"did":"did:plc:alice","handle":"alice.example.com","accessJwt":"a","refreshJwt":"r"}""");
 
         var account = await _client.CreateAccountAsync(new CreateAccountRequest
         {
@@ -168,12 +166,12 @@ public class PdsAdminClientTests : IDisposable
         Assert.Equal("did:plc:alice", account.Did);
         Assert.Equal("alice.example.com", account.Handle);
 
-        Assert.Equal(3, _handler.Requests.Count);
-        Assert.Contains("com.atproto.server.describeServer", _handler.Requests[0].Path);
-        Assert.Contains("com.atproto.server.createInviteCode", _handler.Requests[1].Path);
-        Assert.Contains("com.atproto.server.createAccount", _handler.Requests[2].Path);
+        Assert.Equal(3, _stub.Requests.Count);
+        Assert.Equal("com.atproto.server.describeServer", _stub.Requests[0].Nsid);
+        Assert.Equal("com.atproto.server.createInviteCode", _stub.Requests[1].Nsid);
+        Assert.Equal("com.atproto.server.createAccount", _stub.Requests[2].Nsid);
 
-        var body = JsonDocument.Parse(_handler.Requests[2].Body!).RootElement;
+        var body = _stub.Requests[2].JsonBody;
         Assert.Equal("minted-code", body.GetProperty("inviteCode").GetString());
         Assert.Equal("alice.example.com", body.GetProperty("handle").GetString());
         Assert.Equal("alice@example.com", body.GetProperty("email").GetString());
@@ -182,8 +180,8 @@ public class PdsAdminClientTests : IDisposable
     [Fact]
     public async Task CreateAccountAsync_SendsSignupWithoutAdminCredentials()
     {
-        _handler.Enqueue("""{"did":"did:web:pds.example.com","inviteCodeRequired":false}""");
-        _handler.Enqueue("""{"did":"did:plc:alice","handle":"alice.example.com","accessJwt":"a","refreshJwt":"r"}""");
+        _stub.On("com.atproto.server.describeServer", """{"did":"did:web:pds.example.com","inviteCodeRequired":false}""");
+        _stub.On("com.atproto.server.createAccount", """{"did":"did:plc:alice","handle":"alice.example.com","accessJwt":"a","refreshJwt":"r"}""");
 
         await _client.CreateAccountAsync(new CreateAccountRequest
         {
@@ -192,15 +190,15 @@ public class PdsAdminClientTests : IDisposable
         });
 
         // Signup is a public endpoint — leaking the admin password onto it would be a bug.
-        var signup = _handler.Requests.Single(r => r.Path.Contains("createAccount"));
-        Assert.Null(signup.AuthScheme);
+        var signup = Assert.Single(_stub.To("com.atproto.server.createAccount"));
+        Assert.Null(signup.Headers.Authorization);
     }
 
     [Fact]
     public async Task CreateAccountAsync_WhenInviteNotRequired_DoesNotMintCode()
     {
-        _handler.Enqueue("""{"did":"did:web:pds.example.com","inviteCodeRequired":false}""");
-        _handler.Enqueue("""{"did":"did:plc:alice","handle":"alice.example.com","accessJwt":"a","refreshJwt":"r"}""");
+        _stub.On("com.atproto.server.describeServer", """{"did":"did:web:pds.example.com","inviteCodeRequired":false}""");
+        _stub.On("com.atproto.server.createAccount", """{"did":"did:plc:alice","handle":"alice.example.com","accessJwt":"a","refreshJwt":"r"}""");
 
         await _client.CreateAccountAsync(new CreateAccountRequest
         {
@@ -208,13 +206,13 @@ public class PdsAdminClientTests : IDisposable
             Password = "correct-horse",
         });
 
-        Assert.DoesNotContain(_handler.Requests, r => r.Path.Contains("createInviteCode"));
+        Assert.Empty(_stub.To("com.atproto.server.createInviteCode"));
     }
 
     [Fact]
     public async Task CreateAccountAsync_WithExplicitInviteCode_SkipsDescribeServer()
     {
-        _handler.Enqueue("""{"did":"did:plc:alice","handle":"alice.example.com","accessJwt":"a","refreshJwt":"r"}""");
+        _stub.On("com.atproto.server.createAccount", """{"did":"did:plc:alice","handle":"alice.example.com","accessJwt":"a","refreshJwt":"r"}""");
 
         await _client.CreateAccountAsync(new CreateAccountRequest
         {
@@ -223,10 +221,10 @@ public class PdsAdminClientTests : IDisposable
             InviteCode = "supplied-code",
         });
 
-        var request = Assert.Single(_handler.Requests);
-        Assert.Contains("com.atproto.server.createAccount", request.Path);
+        var request = Assert.Single(_stub.Requests);
+        Assert.Equal("com.atproto.server.createAccount", request.Nsid);
 
-        var body = JsonDocument.Parse(request.Body!).RootElement;
+        var body = request.JsonBody;
         Assert.Equal("supplied-code", body.GetProperty("inviteCode").GetString());
     }
 
@@ -248,31 +246,31 @@ public class PdsAdminClientTests : IDisposable
     [Fact]
     public async Task GetAccountAsync_QueriesAdminEndpoint()
     {
-        _handler.Enqueue("""
+        _stub.On("com.atproto.admin.getAccountInfo", """
             {"did":"did:plc:alice","handle":"alice.example.com","indexedAt":"2026-07-25T00:00:00.000Z"}
             """);
 
         var account = await _client.GetAccountAsync(Did.Parse("did:plc:alice"));
 
         Assert.Equal("alice.example.com", account.Handle);
-        Assert.Contains("com.atproto.admin.getAccountInfo", _handler.Requests[0].Path);
-        Assert.Contains("did=did%3Aplc%3Aalice", _handler.Requests[0].Path);
+        var request = Assert.Single(_stub.To("com.atproto.admin.getAccountInfo"));
+        Assert.Contains("did=did%3Aplc%3Aalice", request.Query);
     }
 
     [Fact]
     public async Task SearchAccountsAsync_QueriesAdminEndpointWithAdminAuth()
     {
-        _handler.Enqueue("""
+        _stub.On("com.atproto.admin.searchAccounts", """
             {"cursor":"c2","accounts":[{"did":"did:plc:alice","handle":"alice.example.com","indexedAt":"2026-07-25T00:00:00.000Z"}]}
             """);
 
         var page = await _client.SearchAccountsAsync(email: "alice@example.com", limit: 5);
 
-        var request = Assert.Single(_handler.Requests);
-        Assert.Contains("com.atproto.admin.searchAccounts", request.Path);
-        Assert.Contains("email=alice%40example.com", request.Path);
-        Assert.Contains("limit=5", request.Path);
-        Assert.Equal("Basic", request.AuthScheme);
+        var request = Assert.Single(_stub.Requests);
+        Assert.Equal("com.atproto.admin.searchAccounts", request.Nsid);
+        Assert.Contains("email=alice%40example.com", request.Query);
+        Assert.Contains("limit=5", request.Query);
+        Assert.Equal("Basic", request.Headers.Authorization?.Scheme);
         Assert.Equal("c2", page.Cursor);
         Assert.Equal("alice.example.com", Assert.Single(page.Accounts).Handle);
     }
@@ -280,27 +278,27 @@ public class PdsAdminClientTests : IDisposable
     [Fact]
     public async Task EnumerateSearchAccountsAsync_FetchesEveryPage()
     {
-        _handler.Enqueue("""
+        _stub.On("com.atproto.admin.searchAccounts", """
             {"cursor":"c2","accounts":[{"did":"did:plc:alice","handle":"alice.example.com","indexedAt":"2026-07-25T00:00:00.000Z"}]}
             """);
-        _handler.Enqueue("""
+        _stub.On("com.atproto.admin.searchAccounts", """
             {"accounts":[{"did":"did:plc:bob","handle":"bob.example.com","indexedAt":"2026-07-25T00:00:00.000Z"}]}
             """);
 
         var accounts = await _client.EnumerateSearchAccountsAsync(pageSize: 1).ToListAsync();
 
         Assert.Equal(["alice.example.com", "bob.example.com"], accounts.Select(a => a.Handle.Value));
-        Assert.Contains("cursor=c2", _handler.Requests[1].Path);
+        Assert.Contains("cursor=c2", _stub.To("com.atproto.admin.searchAccounts").Last().Query);
     }
 
     [Fact]
     public async Task TakedownAccountAsync_SendsRepoRefWithTakedownApplied()
     {
-        _handler.Enqueue("""{"subject":{"$type":"com.atproto.admin.defs#repoRef","did":"did:plc:alice"}}""");
+        _stub.On("com.atproto.admin.updateSubjectStatus", """{"subject":{"$type":"com.atproto.admin.defs#repoRef","did":"did:plc:alice"}}""");
 
         await _client.TakedownAccountAsync(Did.Parse("did:plc:alice"), reference: "report-42");
 
-        var body = JsonDocument.Parse(_handler.Requests[0].Body!).RootElement;
+        var body = Assert.Single(_stub.Requests).JsonBody;
         Assert.Equal("com.atproto.admin.defs#repoRef", body.GetProperty("subject").GetProperty("$type").GetString());
         Assert.Equal("did:plc:alice", body.GetProperty("subject").GetProperty("did").GetString());
         Assert.True(body.GetProperty("takedown").GetProperty("applied").GetBoolean());
@@ -310,38 +308,38 @@ public class PdsAdminClientTests : IDisposable
     [Fact]
     public async Task RestoreAccountAsync_SendsTakedownNotApplied()
     {
-        _handler.Enqueue("""{"subject":{"$type":"com.atproto.admin.defs#repoRef","did":"did:plc:alice"}}""");
+        _stub.On("com.atproto.admin.updateSubjectStatus", """{"subject":{"$type":"com.atproto.admin.defs#repoRef","did":"did:plc:alice"}}""");
 
         await _client.RestoreAccountAsync(Did.Parse("did:plc:alice"));
 
-        var body = JsonDocument.Parse(_handler.Requests[0].Body!).RootElement;
+        var body = Assert.Single(_stub.Requests).JsonBody;
         Assert.False(body.GetProperty("takedown").GetProperty("applied").GetBoolean());
     }
 
     [Fact]
     public async Task UpdateAccountHandleAsync_PostsToAdminEndpoint()
     {
-        _handler.Enqueue("{}");
+        _stub.On("com.atproto.admin.updateAccountHandle", "{}");
 
         await _client.UpdateAccountHandleAsync(Did.Parse("did:plc:alice"), Handle.Parse("alice2.example.com"));
 
-        var request = Assert.Single(_handler.Requests);
-        Assert.Contains("com.atproto.admin.updateAccountHandle", request.Path);
+        var request = Assert.Single(_stub.Requests);
+        Assert.Equal("com.atproto.admin.updateAccountHandle", request.Nsid);
 
-        var body = JsonDocument.Parse(request.Body!).RootElement;
+        var body = request.JsonBody;
         Assert.Equal("alice2.example.com", body.GetProperty("handle").GetString());
     }
 
     [Fact]
     public async Task DeleteAccountAsync_PostsToAdminEndpoint()
     {
-        _handler.Enqueue("{}");
+        _stub.On("com.atproto.admin.deleteAccount", "{}");
 
         await _client.DeleteAccountAsync(Did.Parse("did:plc:alice"));
 
-        var request = Assert.Single(_handler.Requests);
-        Assert.Contains("com.atproto.admin.deleteAccount", request.Path);
-        Assert.Equal("Basic", request.AuthScheme);
+        var request = Assert.Single(_stub.Requests);
+        Assert.Equal("com.atproto.admin.deleteAccount", request.Nsid);
+        Assert.Equal("Basic", request.Headers.Authorization?.Scheme);
     }
 
     [Fact]
@@ -350,24 +348,24 @@ public class PdsAdminClientTests : IDisposable
         // The reference PDS answers all of these with 200 and no body. Asking for a
         // deserialized response throws JsonException on the empty payload, which broke
         // every one of them against a real server.
-        var calls = new List<Func<Task>>
-        {
-            () => _client.DeleteAccountAsync(Did.Parse("did:plc:alice")),
-            () => _client.UpdateAccountHandleAsync(Did.Parse("did:plc:alice"), Handle.Parse("alice2.example.com")),
-            () => _client.UpdateAccountEmailAsync(AtIdentifier.Parse("did:plc:alice"), "new@example.com"),
-            () => _client.UpdateAccountPasswordAsync(Did.Parse("did:plc:alice"), "new-password"),
-            () => _client.Admin.DisableAccountInvitesAsync(Did.Parse("did:plc:alice")),
-            () => _client.Admin.EnableAccountInvitesAsync(Did.Parse("did:plc:alice")),
-            () => _client.Admin.DisableInviteCodesAsync(["code-1"]),
-        };
+        (string Nsid, Func<Task> Call)[] calls =
+        [
+            ("com.atproto.admin.deleteAccount", () => _client.DeleteAccountAsync(Did.Parse("did:plc:alice"))),
+            ("com.atproto.admin.updateAccountHandle", () => _client.UpdateAccountHandleAsync(Did.Parse("did:plc:alice"), Handle.Parse("alice2.example.com"))),
+            ("com.atproto.admin.updateAccountEmail", () => _client.UpdateAccountEmailAsync(AtIdentifier.Parse("did:plc:alice"), "new@example.com")),
+            ("com.atproto.admin.updateAccountPassword", () => _client.UpdateAccountPasswordAsync(Did.Parse("did:plc:alice"), "new-password")),
+            ("com.atproto.admin.disableAccountInvites", () => _client.Admin.DisableAccountInvitesAsync(Did.Parse("did:plc:alice"))),
+            ("com.atproto.admin.enableAccountInvites", () => _client.Admin.EnableAccountInvitesAsync(Did.Parse("did:plc:alice"))),
+            ("com.atproto.admin.disableInviteCodes", () => _client.Admin.DisableInviteCodesAsync(["code-1"])),
+        ];
 
-        foreach (var call in calls)
+        foreach (var (nsid, call) in calls)
         {
-            _handler.Enqueue("");
+            _stub.On(nsid, "");
             await call();
         }
 
-        Assert.Equal(calls.Count, _handler.Requests.Count);
+        Assert.Equal(calls.Length, _stub.Requests.Count);
     }
 
     [Fact]
@@ -382,41 +380,7 @@ public class PdsAdminClientTests : IDisposable
     {
         _client.Dispose();
         _httpClient.Dispose();
-        _handler.Dispose();
+        _stub.Dispose();
         GC.SuppressFinalize(this);
-    }
-
-    private sealed record CapturedRequest(
-        string Path, string? AuthScheme, string? AuthParameter, string? Body, string Host = "");
-
-    private sealed class MockHttpMessageHandler : HttpMessageHandler
-    {
-        private readonly Queue<string> _responses = new();
-
-        public List<CapturedRequest> Requests { get; } = [];
-
-        public void Enqueue(string json) => _responses.Enqueue(json);
-
-        protected override async Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            var body = request.Content is null
-                ? null
-                : await request.Content.ReadAsStringAsync(cancellationToken);
-
-            Requests.Add(new CapturedRequest(
-                request.RequestUri!.PathAndQuery,
-                request.Headers.Authorization?.Scheme,
-                request.Headers.Authorization?.Parameter,
-                body,
-                request.RequestUri.Host));
-
-            var json = _responses.Count > 0 ? _responses.Dequeue() : "{}";
-
-            return new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(json, Encoding.UTF8, "application/json"),
-            };
-        }
     }
 }

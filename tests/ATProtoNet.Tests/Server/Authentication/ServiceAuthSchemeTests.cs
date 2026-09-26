@@ -8,6 +8,7 @@ using ATProtoNet.Identity;
 using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Xrpc;
 using ATProtoNet.Tests.Server.Spaces;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;

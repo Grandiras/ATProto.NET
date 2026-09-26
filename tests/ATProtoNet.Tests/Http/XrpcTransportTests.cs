@@ -1,10 +1,12 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using ATProtoNet.Auth;
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Http;
 
@@ -15,18 +17,22 @@ namespace ATProtoNet.Tests.Http;
 /// </summary>
 public class XrpcTransportTests : IDisposable
 {
-    private readonly RecordingHandler _handler = new();
+    private readonly HttpStub _stub = new();
     private readonly HttpClient _httpClient;
 
     public XrpcTransportTests()
     {
-        _httpClient = new HttpClient(_handler);
+        // These tests hit many different endpoints without caring which — they assert on
+        // headers, routing and failure handling, not response content — so one fallback
+        // responder covers all of them; individual tests replace it as needed.
+        _stub.Fallback("{}");
+        _httpClient = new HttpClient(_stub);
     }
 
     public void Dispose()
     {
         _httpClient.Dispose();
-        _handler.Dispose();
+        _stub.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -44,7 +50,7 @@ public class XrpcTransportTests : IDisposable
     [Fact]
     public async Task InstanceUrl_WinsOverASuppliedClientsBaseAddress()
     {
-        using var httpClient = new HttpClient(_handler, disposeHandler: false)
+        using var httpClient = new HttpClient(_stub, disposeHandler: false)
         {
             BaseAddress = new Uri("https://elsewhere.example.com/"),
         };
@@ -54,7 +60,7 @@ public class XrpcTransportTests : IDisposable
 
         await client.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping"));
 
-        Assert.Equal("https://pds.example.com/xrpc/com.example.ping", _handler.Single().Uri);
+        Assert.Equal("https://pds.example.com/xrpc/com.example.ping", Assert.Single(_stub.Requests).Uri.AbsoluteUri);
         Assert.Equal(new Uri("https://elsewhere.example.com/"), httpClient.BaseAddress);
     }
 
@@ -78,7 +84,7 @@ public class XrpcTransportTests : IDisposable
                 "https://pds2.example.com/xrpc/com.example.ping",
                 "https://other.example.com/xrpc/com.example.ping",
             },
-            _handler.Requests.Select(r => r.Uri));
+            _stub.Requests.Select(r => r.Uri.AbsoluteUri));
         Assert.Null(_httpClient.BaseAddress);
     }
 
@@ -103,7 +109,7 @@ public class XrpcTransportTests : IDisposable
         await client.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping"));
 
         Assert.Equal(new Uri("https://pds.alice.example.com/"), client.ServiceUrl);
-        Assert.Equal("https://pds.alice.example.com/xrpc/com.example.ping", _handler.Requests[^1].Uri);
+        Assert.Equal("https://pds.alice.example.com/xrpc/com.example.ping", _stub.Requests[^1].Uri.AbsoluteUri);
     }
 
     [Theory]
@@ -153,7 +159,7 @@ public class XrpcTransportTests : IDisposable
 
             // Before: 100 product tokens accumulated here, a 1,899-character header.
             Assert.Empty(_httpClient.DefaultRequestHeaders.UserAgent);
-            Assert.Equal(AtProtoHttp.DefaultUserAgent, _handler.Single().UserAgent);
+            Assert.Equal(AtProtoHttp.DefaultUserAgent, Assert.Single(_stub.Requests).UserAgent);
             Assert.StartsWith("ATProtoNet/", AtProtoHttp.DefaultUserAgent);
         }
         finally
@@ -173,20 +179,20 @@ public class XrpcTransportTests : IDisposable
 
         Assert.Equal(
             new[] { "MyApp/2.1 (+https://myapp.example)", "OtherApp/1.0" },
-            _handler.Requests.Select(r => r.UserAgent));
+            _stub.Requests.Select(r => r.UserAgent));
     }
 
     [Fact]
     public async Task UserAgent_Null_LeavesTheHttpClientsDefault()
     {
-        using var httpClient = new HttpClient(_handler, disposeHandler: false);
+        using var httpClient = new HttpClient(_stub, disposeHandler: false);
         httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Host/1.0");
         using var client = new AtProtoClient(
             new AtProtoClientOptions { UserAgent = null, AutoRefreshSession = false }, httpClient, null, null);
 
         await client.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping"));
 
-        Assert.Equal("Host/1.0", _handler.Single().UserAgent);
+        Assert.Equal("Host/1.0", Assert.Single(_stub.Requests).UserAgent);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -202,10 +208,10 @@ public class XrpcTransportTests : IDisposable
 
         await client.QueryAsync<JsonElement>(Nsid.Parse("app.bsky.feed.getPostThread"));
 
-        var request = _handler.Single();
+        var request = Assert.Single(_stub.Requests);
         Assert.Null(request.Authorization);
-        Assert.Equal(ServiceProxy.BskyAppViewHeader, request.Header("atproto-proxy"));
-        Assert.Equal("did:plc:labeler1, did:plc:labeler2;redact", request.Header("atproto-accept-labelers"));
+        Assert.Equal(ServiceProxy.BskyAppViewHeader, request.HeaderOrDefault("atproto-proxy"));
+        Assert.Equal("did:plc:labeler1, did:plc:labeler2;redact", request.HeaderOrDefault("atproto-accept-labelers"));
     }
 
     [Fact]
@@ -220,10 +226,10 @@ public class XrpcTransportTests : IDisposable
             options: new XrpcCallOptions { Proxy = "did:plc:labeler#atproto_labeler", AcceptLabelers = [] });
         await client.QueryAsync<JsonElement>(Nsid.Parse("app.bsky.feed.getTimeline"));
 
-        Assert.Equal("did:plc:labeler#atproto_labeler", _handler.Requests[0].Header("atproto-proxy"));
-        Assert.Null(_handler.Requests[0].Header("atproto-accept-labelers"));
-        Assert.Equal(ServiceProxy.BskyAppViewHeader, _handler.Requests[1].Header("atproto-proxy"));
-        Assert.Equal("did:plc:default", _handler.Requests[1].Header("atproto-accept-labelers"));
+        Assert.Equal("did:plc:labeler#atproto_labeler", _stub.Requests[0].HeaderOrDefault("atproto-proxy"));
+        Assert.Null(_stub.Requests[0].HeaderOrDefault("atproto-accept-labelers"));
+        Assert.Equal(ServiceProxy.BskyAppViewHeader, _stub.Requests[1].HeaderOrDefault("atproto-proxy"));
+        Assert.Equal("did:plc:default", _stub.Requests[1].HeaderOrDefault("atproto-accept-labelers"));
     }
 
     [Fact]
@@ -236,10 +242,10 @@ public class XrpcTransportTests : IDisposable
             new { i },
             new XrpcCallOptions { Proxy = $"did:web:svc{i}.example#svc" })));
 
-        Assert.All(_handler.Requests, r =>
+        Assert.All(_stub.Requests, r =>
         {
-            var i = r.Uri[(r.Uri.LastIndexOf('=') + 1)..];
-            Assert.Equal($"did:web:svc{i}.example#svc", r.Header("atproto-proxy"));
+            var i = r.Query[(r.Query.LastIndexOf('=') + 1)..];
+            Assert.Equal($"did:web:svc{i}.example#svc", r.HeaderOrDefault("atproto-proxy"));
         });
     }
 
@@ -251,7 +257,7 @@ public class XrpcTransportTests : IDisposable
         using var client = CreateClient();
         client.SetProxy(ServiceProxy.BskyAppViewHeader);
         client.SetLabelers("did:plc:labeler");
-        _handler.Respond(_ => Json("""{"did":"did:plc:alice","handle":"alice.test","accessJwt":"a","refreshJwt":"r"}"""));
+        _stub.Fallback("""{"did":"did:plc:alice","handle":"alice.test","accessJwt":"a","refreshJwt":"r"}""");
 
         await client.LoginAsync("alice.test", "password");                     // createSession
         await client.RefreshSessionAsync();                                    // refreshSession
@@ -268,18 +274,18 @@ public class XrpcTransportTests : IDisposable
             "com.atproto.server.createAccount",
             "com.atproto.server.deleteSession",
         };
-        var session = _handler.Requests.Where(r => sessionCalls.Any(r.Uri.EndsWith)).ToList();
+        var session = _stub.Requests.Where(r => sessionCalls.Any(nsid => r.Uri.AbsoluteUri.EndsWith(nsid, StringComparison.Ordinal))).ToList();
         Assert.Equal(sessionCalls.Length, session.Count);
         Assert.All(session, r =>
         {
-            Assert.Null(r.Header("atproto-proxy"));
-            Assert.Null(r.Header("atproto-accept-labelers"));
+            Assert.Null(r.HeaderOrDefault("atproto-proxy"));
+            Assert.Null(r.HeaderOrDefault("atproto-accept-labelers"));
         });
 
         // The defaults were in effect all along: the ordinary call carries both.
-        var timeline = Assert.Single(_handler.Requests, r => r.Uri.EndsWith("app.bsky.feed.getTimeline"));
-        Assert.Equal(ServiceProxy.BskyAppViewHeader, timeline.Header("atproto-proxy"));
-        Assert.Equal("did:plc:labeler", timeline.Header("atproto-accept-labelers"));
+        var timeline = Assert.Single(_stub.Requests, r => r.Uri.AbsoluteUri.EndsWith("app.bsky.feed.getTimeline", StringComparison.Ordinal));
+        Assert.Equal(ServiceProxy.BskyAppViewHeader, timeline.HeaderOrDefault("atproto-proxy"));
+        Assert.Equal("did:plc:labeler", timeline.HeaderOrDefault("atproto-accept-labelers"));
     }
 
     [Fact]
@@ -293,8 +299,8 @@ public class XrpcTransportTests : IDisposable
         await xrpc.QueryAsync<JsonElement>(
             "com.example.explicit", options: XrpcClient.Direct with { Proxy = "did:web:svc.example#svc" });
 
-        Assert.Null(_handler.Requests[0].Header("atproto-proxy"));
-        Assert.Equal("did:web:svc.example#svc", _handler.Requests[1].Header("atproto-proxy"));
+        Assert.Null(_stub.Requests[0].HeaderOrDefault("atproto-proxy"));
+        Assert.Equal("did:web:svc.example#svc", _stub.Requests[1].HeaderOrDefault("atproto-proxy"));
     }
 
     [Fact]
@@ -309,8 +315,9 @@ public class XrpcTransportTests : IDisposable
                 Headers = new Dictionary<string, string> { ["X-Trace"] = "abc", ["User-Agent"] = "Probe/1" },
             });
 
-        Assert.Equal("abc", _handler.Single().Header("X-Trace"));
-        Assert.Equal("Probe/1", _handler.Single().UserAgent);
+        var request = Assert.Single(_stub.Requests);
+        Assert.Equal("abc", request.HeaderOrDefault("X-Trace"));
+        Assert.Equal("Probe/1", request.UserAgent);
     }
 
     [Theory]
@@ -323,14 +330,14 @@ public class XrpcTransportTests : IDisposable
         await Assert.ThrowsAsync<ArgumentException>(() => client.QueryAsync<JsonElement>(
             Nsid.Parse("com.example.ping"),
             options: new XrpcCallOptions { Headers = new Dictionary<string, string> { [header] = "x" } }));
-        Assert.Empty(_handler.Requests);
+        Assert.Empty(_stub.Requests);
     }
 
     [Fact]
     public async Task CallOptions_Timeout_ThrowsTimeoutException()
     {
         using var client = CreateClient();
-        _handler.Delay = TimeSpan.FromSeconds(30);
+        _stub.Delay = TimeSpan.FromSeconds(30);
 
         var ex = await Assert.ThrowsAsync<TimeoutException>(() => client.QueryAsync<JsonElement>(
             Nsid.Parse("com.example.slow"), options: new XrpcCallOptions { Timeout = TimeSpan.FromMilliseconds(50) }));
@@ -342,7 +349,7 @@ public class XrpcTransportTests : IDisposable
     public async Task CallerCancellation_StaysAnOperationCanceledException()
     {
         using var client = CreateClient();
-        _handler.Delay = TimeSpan.FromSeconds(30);
+        _stub.Delay = TimeSpan.FromSeconds(30);
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.QueryAsync<JsonElement>(
@@ -361,7 +368,7 @@ public class XrpcTransportTests : IDisposable
         // ResponseContentRead would make HttpClient buffer the whole body first — for a
         // timeline-sized response, a large-object-heap array per call.
         var body = new TrackingContent(Encoding.UTF8.GetBytes("""{"feed":[],"cursor":"c"}"""));
-        _handler.Respond(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = body });
+        _stub.Fallback(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = body });
         using var client = CreateClient();
 
         var result = await client.QueryAsync<JsonElement>(Nsid.Parse("app.bsky.feed.getTimeline"));
@@ -374,7 +381,7 @@ public class XrpcTransportTests : IDisposable
     [Fact]
     public async Task QueryAsync_WhenTheBodyIsNotTheExpectedType_ThrowsResponseFormatException()
     {
-        _handler.Respond(_ => Json("""{"feed": "not-an-array"}"""));
+        _stub.Fallback("""{"feed": "not-an-array"}""");
         using var client = CreateClient();
 
         var ex = await Assert.ThrowsAsync<XrpcResponseFormatException>(
@@ -387,7 +394,7 @@ public class XrpcTransportTests : IDisposable
     [Fact]
     public async Task QueryAsync_WhenTheBodyIsEmpty_ThrowsResponseFormatException()
     {
-        _handler.Respond(_ => Json(""));
+        _stub.Fallback("");
         using var client = CreateClient();
 
         await Assert.ThrowsAsync<XrpcResponseFormatException>(
@@ -397,7 +404,7 @@ public class XrpcTransportTests : IDisposable
     [Fact]
     public async Task QueryAsync_WhenTheServiceFails_ThrowsXrpcExceptionWithTheNsid()
     {
-        _handler.Respond(_ => Json("""{"error":"RecordNotFound","message":"gone"}""", HttpStatusCode.BadRequest));
+        _stub.Fallback(_ => HttpStub.JsonResponse("""{"error":"RecordNotFound","message":"gone"}""", HttpStatusCode.BadRequest));
         using var client = CreateClient();
 
         var ex = await Assert.ThrowsAsync<XrpcException>(
@@ -413,7 +420,7 @@ public class XrpcTransportTests : IDisposable
     {
         var bytes = new byte[] { 0x89, 0x50, 0x4E, 0x47 };
         var content = new TrackingContent(bytes, "image/png");
-        _handler.Respond(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+        _stub.Fallback(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
         using var client = CreateClient();
 
         await using (var blob = await client.Sync.GetBlobAsync(Did.Parse("did:plc:alice"), Cid.Parse("bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy")))
@@ -429,14 +436,14 @@ public class XrpcTransportTests : IDisposable
         Assert.True(content.Disposed);
         Assert.Equal(
             "https://pds.example.com/xrpc/com.atproto.sync.getBlob?did=did%3Aplc%3Aalice&cid=bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy",
-            _handler.Single().Uri);
+            Assert.Single(_stub.Requests).Uri.AbsoluteUri);
     }
 
     [Fact]
     public async Task Download_WhenTheServiceFails_ThrowsAndReleasesTheResponse()
     {
         var content = new TrackingContent("""{"error":"BlobNotFound"}"""u8.ToArray());
-        _handler.Respond(_ => new HttpResponseMessage(HttpStatusCode.BadRequest) { Content = content });
+        _stub.Fallback(_ => new HttpResponseMessage(HttpStatusCode.BadRequest) { Content = content });
         using var client = CreateClient();
 
         var ex = await Assert.ThrowsAsync<XrpcException>(() => client.Sync.GetBlobAsync(Did.Parse("did:plc:alice"), Cid.Parse("bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy")));
@@ -452,15 +459,16 @@ public class XrpcTransportTests : IDisposable
     [Fact]
     public async Task Upload_SendsFromTheCallersPositionAndLeavesTheStreamOpen()
     {
-        _handler.Respond(_ => Json("""{"blob":{"$type":"blob","ref":{"$link":"bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy"},"mimeType":"image/png","size":3}}"""));
+        _stub.Fallback("""{"blob":{"$type":"blob","ref":{"$link":"bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy"},"mimeType":"image/png","size":3}}""");
         using var client = CreateClient();
         using var stream = new MemoryStream("HEADERbody"u8.ToArray());
         stream.Position = 6;
 
         await client.Repo.UploadBlobAsync(stream, "image/png");
 
-        Assert.Equal("body", Encoding.UTF8.GetString(_handler.Single().Body!));
-        Assert.Equal(4, _handler.Single().ContentLength);
+        var request = Assert.Single(_stub.Requests);
+        Assert.Equal("body", request.BodyText);
+        Assert.Equal(4, request.ContentLength);
         Assert.True(stream.CanRead);
     }
 
@@ -468,22 +476,22 @@ public class XrpcTransportTests : IDisposable
     public async Task Upload_RetryRewindsToTheCallersPositionNotZero()
     {
         var calls = 0;
-        _handler.Respond(_ => ++calls == 1
+        _stub.Fallback(_ => ++calls == 1
             ? RateLimited()
-            : Json("""{"blob":{"$type":"blob","ref":{"$link":"bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy"},"mimeType":"image/png","size":4}}"""));
+            : HttpStub.JsonResponse("""{"blob":{"$type":"blob","ref":{"$link":"bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy"},"mimeType":"image/png","size":4}}"""));
         using var client = CreateClient();
         using var stream = new MemoryStream("HEADERbody"u8.ToArray());
         stream.Position = 6;
 
         await client.Repo.UploadBlobAsync(stream, "image/png");
 
-        Assert.Equal(new[] { "body", "body" }, _handler.Requests.Select(r => Encoding.UTF8.GetString(r.Body!)));
+        Assert.Equal(new[] { "body", "body" }, _stub.Requests.Select(r => r.BodyText));
     }
 
     [Fact]
     public async Task Upload_OfANonSeekableStreamThatNeedsARetry_FailsClearly()
     {
-        _handler.Respond(_ => RateLimited());
+        _stub.Fallback(_ => RateLimited());
         using var client = CreateClient();
         await using var stream = new NonSeekableStream("body"u8.ToArray());
 
@@ -492,19 +500,19 @@ public class XrpcTransportTests : IDisposable
 
         Assert.Contains("seekable", ex.Message);
         Assert.IsType<XrpcRateLimitException>(ex.InnerException);
-        Assert.Single(_handler.Requests);
+        Assert.Single(_stub.Requests);
     }
 
     [Fact]
     public async Task Upload_OfANonSeekableStream_SucceedsWithoutARetry()
     {
-        _handler.Respond(_ => Json("""{"blob":{"$type":"blob","ref":{"$link":"bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy"},"mimeType":"image/png","size":4}}"""));
+        _stub.Fallback("""{"blob":{"$type":"blob","ref":{"$link":"bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy"},"mimeType":"image/png","size":4}}""");
         using var client = CreateClient();
         await using var stream = new NonSeekableStream("body"u8.ToArray());
 
         await client.Repo.UploadBlobAsync(stream, "image/png");
 
-        Assert.Equal("body", Encoding.UTF8.GetString(_handler.Single().Body!));
+        Assert.Equal("body", Assert.Single(_stub.Requests).BodyText);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -519,21 +527,21 @@ public class XrpcTransportTests : IDisposable
         xrpc.SetOAuthTokens("access", "refresh", dpop);
 
         var calls = 0;
-        _handler.Respond(_ =>
+        _stub.Fallback(_ =>
         {
             if (++calls > 1)
-                return Json("{}");
+                return HttpStub.JsonResponse("{}");
 
-            var challenge = Json("""{"error":"use_dpop_nonce"}""", HttpStatusCode.Unauthorized);
+            var challenge = HttpStub.JsonResponse("""{"error":"use_dpop_nonce"}""", HttpStatusCode.Unauthorized);
             challenge.Headers.TryAddWithoutValidation("DPoP-Nonce", "n-1");
             return challenge;
         });
 
         await xrpc.QueryAsync<JsonElement>("com.example.ping");
 
-        Assert.Equal(2, _handler.Requests.Count);
-        Assert.All(_handler.Requests, r => Assert.StartsWith("DPoP ", r.Authorization));
-        Assert.True(Jwt.TryDecode(_handler.Requests[1].Header("DPoP")!, out var proof, out var error), error);
+        Assert.Equal(2, _stub.Requests.Count);
+        Assert.All(_stub.Requests, r => Assert.StartsWith("DPoP ", r.Authorization));
+        Assert.True(Jwt.TryDecode(_stub.Requests[1].HeaderOrDefault("DPoP")!, out var proof, out var error), error);
         var payload = proof.Payload;
         Assert.Equal("n-1", payload.GetProperty("nonce").GetString());
         Assert.Equal("https://pds.example.com/xrpc/com.example.ping", payload.GetProperty("htu").GetString());
@@ -543,61 +551,11 @@ public class XrpcTransportTests : IDisposable
     //  Helpers
     // ──────────────────────────────────────────────────────────
 
-    private static HttpResponseMessage Json(string body, HttpStatusCode status = HttpStatusCode.OK) =>
-        new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
-
     private static HttpResponseMessage RateLimited()
     {
-        var response = Json("""{"error":"RateLimitExceeded"}""", HttpStatusCode.TooManyRequests);
+        var response = HttpStub.JsonResponse("""{"error":"RateLimitExceeded"}""", HttpStatusCode.TooManyRequests);
         response.Headers.TryAddWithoutValidation("Retry-After", "0");
         return response;
-    }
-
-    private sealed record RecordedRequest(
-        string Method, string Uri, string? Authorization, string? UserAgent,
-        Dictionary<string, string> Headers, byte[]? Body, long? ContentLength)
-    {
-        public string? Header(string name) => Headers.TryGetValue(name, out var value) ? value : null;
-    }
-
-    private sealed class RecordingHandler : HttpMessageHandler
-    {
-        private readonly object _gate = new();
-        private Func<HttpRequestMessage, HttpResponseMessage> _respond = _ => Json("{}");
-
-        public List<RecordedRequest> Requests { get; } = [];
-
-        public TimeSpan Delay { get; set; }
-
-        public void Respond(Func<HttpRequestMessage, HttpResponseMessage> respond) => _respond = respond;
-
-        public RecordedRequest Single() => Assert.Single(Requests);
-
-        protected override async Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            if (Delay > TimeSpan.Zero)
-                await Task.Delay(Delay, cancellationToken);
-
-            var body = request.Content is null ? null : await request.Content.ReadAsByteArrayAsync(cancellationToken);
-            var headers = request.Headers.ToDictionary(
-                h => h.Key, h => string.Join(", ", h.Value), StringComparer.OrdinalIgnoreCase);
-
-            lock (_gate)
-            {
-                Requests.Add(new RecordedRequest(
-                    request.Method.Method,
-                    request.RequestUri!.AbsoluteUri,
-                    request.Headers.Authorization?.ToString(),
-                    // Serialized as on the wire: product tokens joined with spaces.
-                    request.Headers.UserAgent.Count > 0 ? request.Headers.UserAgent.ToString() : null,
-                    headers,
-                    body,
-                    request.Content?.Headers.ContentLength));
-            }
-
-            return _respond(request);
-        }
     }
 
     /// <summary>Records whether HttpClient buffered the body or handed out a stream.</summary>
@@ -608,7 +566,7 @@ public class XrpcTransportTests : IDisposable
         public TrackingContent(byte[] bytes, string mediaType = "application/json")
         {
             _bytes = bytes;
-            Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(mediaType);
+            Headers.ContentType = new MediaTypeHeaderValue(mediaType);
             Headers.ContentLength = bytes.Length;
         }
 

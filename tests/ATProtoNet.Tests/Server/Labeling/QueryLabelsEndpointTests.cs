@@ -9,6 +9,7 @@ using ATProtoNet.Models;
 using ATProtoNet.Serialization;
 using ATProtoNet.Server.Labeling;
 using ATProtoNet.Server.Xrpc;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ATProtoNet.Tests.Server.Labeling;

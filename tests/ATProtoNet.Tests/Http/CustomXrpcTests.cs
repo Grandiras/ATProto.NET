@@ -1,9 +1,11 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
+using ATProtoNet.Tests.TestSupport;
 using NSubstitute;
 
 namespace ATProtoNet.Tests.Http;
@@ -19,23 +21,46 @@ public sealed class CustomXrpcTests : IDisposable
     private static readonly Nsid ListItems = Nsid.Parse("com.example.todo.listItems");
     private static readonly Nsid UpdateStatus = Nsid.Parse("com.example.todo.updateStatus");
 
-    private readonly FakeService _service = new();
+    private readonly HttpStub _stub = new();
     private readonly HttpClient _httpClient;
     private readonly AtProtoClient _client;
 
+    // Mutable, like the fixture it replaces: each test points the next answer at whatever
+    // it is about to assert on, and the stub's routes read it lazily at call time.
+    private HttpStatusCode _status = HttpStatusCode.OK;
+    private string _body = "{}";
+    private string _contentType = "application/json";
+
     public CustomXrpcTests()
     {
-        _httpClient = new HttpClient(_service);
+        _httpClient = new HttpClient(_stub);
         _client = new AtProtoClient(
             new AtProtoClientOptions { InstanceUrl = "https://pds.example.com", AutoRefreshSession = false },
             _httpClient);
+
+        foreach (var nsid in new[]
+        {
+            "com.example.todo.listItems", "com.example.todo.updateStatus",
+            "com.example.blob.get", "com.example.blob.put",
+            "com.atproto.server.createSession", "com.atproto.server.deleteSession",
+        })
+        {
+            _stub.On(nsid, BuildResponse);
+        }
+    }
+
+    private HttpResponseMessage BuildResponse(HttpStub.RecordedRequest _)
+    {
+        var content = new StringContent(_body, Encoding.UTF8);
+        content.Headers.ContentType = new MediaTypeHeaderValue(_contentType);
+        return new HttpResponseMessage(_status) { Content = content };
     }
 
     public void Dispose()
     {
         _client.Dispose();
         _httpClient.Dispose();
-        _service.Dispose();
+        _stub.Dispose();
     }
 
     // ──────────────────────────────────────────────────────────
@@ -45,17 +70,17 @@ public sealed class CustomXrpcTests : IDisposable
     [Fact]
     public async Task QueryAsync_WithXrpcParams_SendsThemInOrderAndReadsTheOutput()
     {
-        _service.Body = """{"items":["a","b"],"cursor":"next"}""";
+        _body = """{"items":["a","b"],"cursor":"next"}""";
 
         var result = await _client.QueryAsync<ListItemsOutput>(
             ListItems,
             new XrpcParams { { "limit", 25 }, { "reverse", true }, { "cursor", (string?)null } }.AddAll("tag", ["x", "y"]));
 
-        var request = Assert.Single(_service.Requests);
-        Assert.Equal("GET", request.Method);
+        var request = Assert.Single(_stub.To("com.example.todo.listItems"));
+        Assert.Equal(HttpMethod.Get, request.Method);
         Assert.Equal(
             "https://pds.example.com/xrpc/com.example.todo.listItems?limit=25&reverse=true&tag=x&tag=y",
-            request.Uri);
+            request.Uri.AbsoluteUri);
         Assert.Equal(["a", "b"], result.Items);
         Assert.Equal("next", result.Cursor);
     }
@@ -63,27 +88,27 @@ public sealed class CustomXrpcTests : IDisposable
     [Fact]
     public async Task QueryAsync_WithAnAnonymousObject_SendsTheSameParameters()
     {
-        _service.Body = """{"items":[]}""";
+        _body = """{"items":[]}""";
 
         await _client.QueryAsync<ListItemsOutput>(ListItems, new { limit = 25, reverse = true, tag = new[] { "x", "y" } });
 
-        Assert.EndsWith("?limit=25&reverse=true&tag=x&tag=y", Assert.Single(_service.Requests).Uri);
+        Assert.EndsWith("?limit=25&reverse=true&tag=x&tag=y", Assert.Single(_stub.To("com.example.todo.listItems")).Uri.AbsoluteUri);
     }
 
     [Fact]
     public async Task ProcedureAsyncWithOutput_PostsTheInputAndReadsTheOutput()
     {
-        _service.Body = """{"status":"done"}""";
+        _body = """{"status":"done"}""";
 
         var result = await _client.ProcedureAsync<UpdateStatusInput, StatusOutput>(
             UpdateStatus,
             new UpdateStatusInput { Rkey = "abc", Status = "done" },
             new XrpcParams().Add("dryRun", false));
 
-        var request = Assert.Single(_service.Requests);
-        Assert.Equal("POST", request.Method);
-        Assert.Equal("https://pds.example.com/xrpc/com.example.todo.updateStatus?dryRun=false", request.Uri);
-        Assert.Equal("""{"rkey":"abc","status":"done"}""", request.Body);
+        var request = Assert.Single(_stub.To("com.example.todo.updateStatus"));
+        Assert.Equal(HttpMethod.Post, request.Method);
+        Assert.Equal("https://pds.example.com/xrpc/com.example.todo.updateStatus?dryRun=false", request.Uri.AbsoluteUri);
+        Assert.Equal("""{"rkey":"abc","status":"done"}""", request.BodyText);
         Assert.Equal("application/json", request.ContentType);
         Assert.Equal("done", result.Status);
     }
@@ -91,11 +116,11 @@ public sealed class CustomXrpcTests : IDisposable
     [Fact]
     public async Task ProcedureAsyncWithInput_PostsTheInputAndIgnoresAnyOutput()
     {
-        _service.Body = "";
+        _body = "";
 
         await _client.ProcedureAsync(UpdateStatus, new UpdateStatusInput { Rkey = "abc", Status = "open" });
 
-        Assert.Equal("""{"rkey":"abc","status":"open"}""", Assert.Single(_service.Requests).Body);
+        Assert.Equal("""{"rkey":"abc","status":"open"}""", Assert.Single(_stub.To("com.example.todo.updateStatus")).BodyText);
     }
 
     [Fact]
@@ -103,10 +128,10 @@ public sealed class CustomXrpcTests : IDisposable
     {
         await _client.ProcedureAsync(UpdateStatus, new XrpcParams().Add("rkey", "abc"));
 
-        var request = Assert.Single(_service.Requests);
-        Assert.Equal("POST", request.Method);
-        Assert.EndsWith("?rkey=abc", request.Uri);
-        Assert.Null(request.Body);
+        var request = Assert.Single(_stub.To("com.example.todo.updateStatus"));
+        Assert.Equal(HttpMethod.Post, request.Method);
+        Assert.EndsWith("?rkey=abc", request.Uri.AbsoluteUri);
+        Assert.Empty(request.BodyText);
     }
 
     [Fact]
@@ -114,13 +139,13 @@ public sealed class CustomXrpcTests : IDisposable
     {
         await _client.ProcedureAsync<UpdateStatusInput?>(UpdateStatus, null);
 
-        Assert.Null(Assert.Single(_service.Requests).Body);
+        Assert.Empty(Assert.Single(_stub.To("com.example.todo.updateStatus")).BodyText);
     }
 
     [Fact]
     public async Task QueryAsync_WhenTheOutputDoesNotMatch_ThrowsResponseFormatException()
     {
-        _service.Body = """{"items":"not-an-array"}""";
+        _body = """{"items":"not-an-array"}""";
 
         var ex = await Assert.ThrowsAsync<XrpcResponseFormatException>(
             () => _client.QueryAsync<ListItemsOutput>(ListItems));
@@ -134,7 +159,7 @@ public sealed class CustomXrpcTests : IDisposable
         await Assert.ThrowsAsync<ArgumentNullException>(() => _client.QueryAsync<JsonElement>(null!));
         await Assert.ThrowsAsync<ArgumentNullException>(() => _client.ProcedureAsync(null!));
         await Assert.ThrowsAsync<ArgumentNullException>(() => _client.Transport.DownloadAsync(null!));
-        Assert.Empty(_service.Requests);
+        Assert.Empty(_stub.Requests);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -157,27 +182,28 @@ public sealed class CustomXrpcTests : IDisposable
     {
         var todo = new TodoClient(_client.Transport);
 
-        _service.Body = """{"items":[]}""";
+        _body = """{"items":[]}""";
         await todo.ListItemsAsync();
-        Assert.Null(_service.Requests[^1].Authorization);
+        Assert.Null(_stub.To("com.example.todo.listItems").Last().Authorization);
 
         await SignInAsync();
-        _service.Body = """{"status":"done"}""";
+        _body = """{"status":"done"}""";
         await todo.UpdateStatusAsync("abc", "done");
-        Assert.Equal("Bearer access-1", _service.Requests[^1].Authorization);
+        Assert.Equal("Bearer access-1", _stub.To("com.example.todo.updateStatus").Last().Authorization);
 
         await _client.LogoutAsync();
-        _service.Body = """{"items":[]}""";
+        _body = """{"items":[]}""";
         await todo.ListItemsAsync(limit: 5);
-        Assert.Null(_service.Requests[^1].Authorization);
-        Assert.EndsWith("?limit=5", _service.Requests[^1].Uri);
+        var last = _stub.To("com.example.todo.listItems").Last();
+        Assert.Null(last.Authorization);
+        Assert.EndsWith("?limit=5", last.Uri.AbsoluteUri);
     }
 
     [Fact]
     public async Task Transport_ServiceErrors_SurfaceAsXrpcExceptions()
     {
-        _service.Status = HttpStatusCode.BadRequest;
-        _service.Body = """{"error":"ItemNotFound","message":"No such item"}""";
+        _status = HttpStatusCode.BadRequest;
+        _body = """{"error":"ItemNotFound","message":"No such item"}""";
 
         var ex = await Assert.ThrowsAsync<XrpcException>(() => new TodoClient(_client.Transport).ListItemsAsync());
 
@@ -188,8 +214,8 @@ public sealed class CustomXrpcTests : IDisposable
     [Fact]
     public async Task Transport_DownloadAndUpload_MoveBinaryBodies()
     {
-        _service.Body = "blob-bytes";
-        _service.ContentType = "application/octet-stream";
+        _body = "blob-bytes";
+        _contentType = "application/octet-stream";
 
         await using (var download = await _client.Transport.DownloadAsync(
             Nsid.Parse("com.example.blob.get"), new XrpcParams().Add("cid", "abc")))
@@ -199,17 +225,17 @@ public sealed class CustomXrpcTests : IDisposable
             Assert.Equal("application/octet-stream", download.ContentType);
         }
 
-        _service.Body = """{"status":"stored"}""";
-        _service.ContentType = "application/json";
+        _body = """{"status":"stored"}""";
+        _contentType = "application/json";
         using var data = new MemoryStream("PNG"u8.ToArray());
 
         var stored = await _client.Transport.UploadAsync<StatusOutput>(
             Nsid.Parse("com.example.blob.put"), data, "image/png", new XrpcParams().Add("part", 1));
 
-        var upload = _service.Requests[^1];
-        Assert.Equal("POST", upload.Method);
-        Assert.EndsWith("/xrpc/com.example.blob.put?part=1", upload.Uri);
-        Assert.Equal("PNG", upload.Body);
+        var upload = Assert.Single(_stub.To("com.example.blob.put"));
+        Assert.Equal(HttpMethod.Post, upload.Method);
+        Assert.EndsWith("/xrpc/com.example.blob.put?part=1", upload.Uri.AbsoluteUri);
+        Assert.Equal("PNG", upload.BodyText);
         Assert.Equal("image/png", upload.ContentType);
         Assert.Equal("stored", stored.Status);
     }
@@ -237,7 +263,7 @@ public sealed class CustomXrpcTests : IDisposable
 
     private async Task SignInAsync()
     {
-        _service.Body = $$"""{"did":"{{DidText}}","handle":"alice.test","accessJwt":"access-1","refreshJwt":"refresh-1"}""";
+        _body = $$"""{"did":"{{DidText}}","handle":"alice.test","accessJwt":"access-1","refreshJwt":"refresh-1"}""";
         await _client.LoginAsync("alice.test", "password");
     }
 
@@ -263,36 +289,5 @@ public sealed class CustomXrpcTests : IDisposable
     {
         [JsonPropertyName("status")]
         public string? Status { get; init; }
-    }
-
-    private sealed record Recorded(string Method, string Uri, string? Authorization, string? Body, string? ContentType);
-
-    private sealed class FakeService : HttpMessageHandler
-    {
-        public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
-
-        public string Body { get; set; } = "{}";
-
-        public string ContentType { get; set; } = "application/json";
-
-        public List<Recorded> Requests { get; } = [];
-
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
-        {
-            // Session management calls are not what these tests look at.
-            if (!request.RequestUri!.AbsolutePath.Contains("com.atproto.server.", StringComparison.Ordinal))
-            {
-                Requests.Add(new Recorded(
-                    request.Method.Method,
-                    request.RequestUri.AbsoluteUri,
-                    request.Headers.Authorization?.ToString(),
-                    request.Content is null ? null : await request.Content.ReadAsStringAsync(ct),
-                    request.Content?.Headers.ContentType?.MediaType));
-            }
-
-            var content = new StringContent(Body, Encoding.UTF8);
-            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(ContentType);
-            return new HttpResponseMessage(Status) { Content = content };
-        }
     }
 }

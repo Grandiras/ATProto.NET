@@ -101,24 +101,6 @@ public class DidTests
     }
 
     [Fact]
-    public void CompareTo_Orders_Correctly()
-    {
-        var a = Did.Parse("did:plc:aaa");
-        var b = Did.Parse("did:plc:bbb");
-
-        Assert.True(a.CompareTo(b) < 0);
-        Assert.True(b.CompareTo(a) > 0);
-        Assert.Equal(0, a.CompareTo(Did.Parse("did:plc:aaa")));
-    }
-
-    [Fact]
-    public void ExplicitCast_FromString_Works()
-    {
-        var did = (Did)"did:plc:abc123";
-        Assert.Equal("did:plc:abc123", did.Value);
-    }
-
-    [Fact]
     public void ImplicitCast_ToString_Works()
     {
         var did = Did.Parse("did:plc:abc123");

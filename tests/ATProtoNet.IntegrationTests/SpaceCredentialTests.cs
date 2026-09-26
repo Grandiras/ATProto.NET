@@ -24,7 +24,7 @@ namespace ATProtoNet.IntegrationTests;
 [Collection("Spaces")]
 public class SpaceCredentialTests(SpaceNetworkFixture fixture)
 {
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task GetDelegationTokenAsync_MintsATokenAddressedToTheSpaceAuthority()
     {
         var space = await fixture.CreateSpaceAsync("deleg-shape", members: [fixture.Member]);
@@ -40,7 +40,7 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
         Assert.False(token.IsExpired());
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task GetCredentialAsync_ExchangesADelegationTokenForAKeyBoundCredential()
     {
         var space = await fixture.CreateSpaceAsync("cred-mint", members: [fixture.Member]);
@@ -59,7 +59,7 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
         Assert.True(credential.ExpiresAt > DateTimeOffset.UtcNow);
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task GetCredentialAsync_CachesUntilForcedToRenew()
     {
         var space = await fixture.CreateSpaceAsync("cred-cache", members: [fixture.Member]);
@@ -78,7 +78,7 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
         Assert.NotEqual(first.Token.ConfirmationThumbprint, renewed.Token.ConfirmationThumbprint);
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task CreateReaderForRepoAsync_ReadsAnotherMembersRepo()
     {
         var space = await fixture.CreateSpaceAsync("cred-read", members: [fixture.Member]);
@@ -104,7 +104,7 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
         Assert.NotNull(commit.Commit.Rev);
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task GetSpaceCredentialAsync_RefusesAReplayedDelegationToken()
     {
         var space = await fixture.CreateSpaceAsync("deleg-replay", members: [fixture.Member]);
@@ -128,7 +128,7 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
             new[] { "JwtReplayed", SpaceErrors.InvalidDelegationToken });
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task GetSpaceCredentialAsync_RefusesADelegationTokenForAnotherSpace()
     {
         var space = await fixture.CreateSpaceAsync("deleg-sub", members: [fixture.Member]);
@@ -140,7 +140,7 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
         Assert.Equal(SpaceErrors.InvalidDelegationToken, await ErrorOf(response));
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task SpaceCredential_PresentedWithAProofSignedByAnotherKey_IsRefused()
     {
         var space = await fixture.CreateSpaceAsync("cred-rebind", members: [fixture.Member]);
@@ -157,7 +157,7 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task SpaceCredential_PresentedWithAProofForAnotherHost_IsRefused()
     {
         var space = await fixture.CreateSpaceAsync("cred-htu", members: [fixture.Member]);
@@ -176,7 +176,7 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task SpaceCredential_PresentedAsABearerToken_IsRefused()
     {
         var space = await fixture.CreateSpaceAsync("cred-bearer", members: [fixture.Member]);
@@ -198,7 +198,7 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
         Assert.Equal(HttpStatusCode.OK, proper.StatusCode);
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task GetCredentialAsync_AfterTheSpaceIsDeleted_ReportsSpaceDeleted()
     {
         var space = await fixture.CreateSpaceAsync("cred-deleted", members: [fixture.Member]);

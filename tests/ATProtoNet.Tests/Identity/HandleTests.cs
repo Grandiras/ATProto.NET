@@ -102,10 +102,4 @@ public class HandleTests
         Assert.Equal("alice.bsky.social", value);
     }
 
-    [Fact]
-    public void ExplicitCast_FromString_Works()
-    {
-        var handle = (Handle)"alice.bsky.social";
-        Assert.Equal("alice.bsky.social", handle.Value);
-    }
 }

@@ -10,7 +10,8 @@ namespace ATProtoNet.IntegrationTests;
 /// path and subprotocol, the envelope and event shapes, the <c>kinds</c> filter, inclusive
 /// sequence-number resume, the pre-upgrade rejections, and the dictionary fetch. They need no
 /// PDS and no credentials — only outbound internet — and are gated by
-/// <see cref="RequiresJetstreamFactAttribute"/> so CI stays offline by default.
+/// <see cref="RequiresFactAttribute"/> (<see cref="IntegrationRequirement.Jetstream"/>) so CI
+/// stays offline by default.
 /// </remarks>
 public class JetstreamV2Tests
 {
@@ -26,7 +27,7 @@ public class JetstreamV2Tests
             WantedCollections = collections,
         };
 
-    [RequiresJetstreamFact]
+    [RequiresFact(IntegrationRequirement.Jetstream)]
     public async Task SubscribeAsync_V2_DeliversParsedEventsWithSequenceCursors()
     {
         using var cts = new CancellationTokenSource(Timeout);
@@ -59,7 +60,7 @@ public class JetstreamV2Tests
         Assert.Equal(cursors.OrderBy(c => c), cursors);
     }
 
-    [RequiresJetstreamFact]
+    [RequiresFact(IntegrationRequirement.Jetstream)]
     public async Task SubscribeAsync_V2_FiltersCommitsByCollection()
     {
         using var cts = new CancellationTokenSource(Timeout);
@@ -79,7 +80,7 @@ public class JetstreamV2Tests
         Assert.All(commits, commit => Assert.Equal("app.bsky.feed.post", commit.Collection));
     }
 
-    [RequiresJetstreamFact]
+    [RequiresFact(IntegrationRequirement.Jetstream)]
     public async Task SubscribeAsync_V2_ReplaysTheCursorInclusively()
     {
         using var cts = new CancellationTokenSource(Timeout);
@@ -104,7 +105,7 @@ public class JetstreamV2Tests
         Assert.Equal(did, replayed.Did.ToString());
     }
 
-    [RequiresJetstreamFact]
+    [RequiresFact(IntegrationRequirement.Jetstream)]
     public async Task SubscribeAsync_V2_WithCursorBelowRetentionFloor_ThrowsConnectException()
     {
         using var cts = new CancellationTokenSource(Timeout);
@@ -118,7 +119,7 @@ public class JetstreamV2Tests
         Assert.False(ex.IsRetryable);
     }
 
-    [RequiresJetstreamFact]
+    [RequiresFact(IntegrationRequirement.Jetstream)]
     public async Task SubscribeAsync_V2_WithUnknownDictionaryId_ThrowsConnectException()
     {
         using var cts = new CancellationTokenSource(Timeout);
@@ -138,7 +139,7 @@ public class JetstreamV2Tests
         Assert.False(ex.IsRetryable);
     }
 
-    [RequiresJetstreamFact]
+    [RequiresFact(IntegrationRequirement.Jetstream)]
     public async Task GetZstdDictionaryAsync_ReturnsADictionaryCarryingItsOwnId()
     {
         using var cts = new CancellationTokenSource(Timeout);
@@ -155,7 +156,7 @@ public class JetstreamV2Tests
         Assert.Equal(current.Data, byId.Data);
     }
 
-    [RequiresJetstreamFact]
+    [RequiresFact(IntegrationRequirement.Jetstream)]
     public async Task GetZstdDictionaryAsync_WithUnknownId_ThrowsConnectException()
     {
         using var cts = new CancellationTokenSource(Timeout);
@@ -168,7 +169,7 @@ public class JetstreamV2Tests
         Assert.InRange(ex.StatusCode!.Value, 400, 499);
     }
 
-    [RequiresJetstreamFact]
+    [RequiresFact(IntegrationRequirement.Jetstream)]
     public async Task SubscribeAsync_V2_TimestampCursor_SeeksByTime()
     {
         using var cts = new CancellationTokenSource(Timeout);
@@ -184,7 +185,7 @@ public class JetstreamV2Tests
         Assert.True(evt.Timestamp < DateTimeOffset.UtcNow.AddMinutes(-1), "The seek should start in the past");
     }
 
-    [RequiresJetstreamFact]
+    [RequiresFact(IntegrationRequirement.Jetstream)]
     public async Task GetHealthAsync_ReportsAVersion()
     {
         using var cts = new CancellationTokenSource(Timeout);
@@ -195,7 +196,7 @@ public class JetstreamV2Tests
         Assert.False(string.IsNullOrEmpty(health.Version));
     }
 
-    [RequiresJetstreamFact]
+    [RequiresFact(IntegrationRequirement.Jetstream)]
     public async Task SubscribeAsync_V1_AgainstAV2Host_StillParsesAndCarriesACursor()
     {
         using var cts = new CancellationTokenSource(Timeout);

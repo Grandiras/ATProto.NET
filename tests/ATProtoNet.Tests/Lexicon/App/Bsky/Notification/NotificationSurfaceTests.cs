@@ -2,6 +2,7 @@ using System.Text.Json;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Notification;
 using ATProtoNet.Serialization;
+using ATProtoNet.Tests.TestSupport;
 using static ATProtoNet.Tests.Lexicon.App.Bsky.BskyFixtures;
 
 namespace ATProtoNet.Tests.Lexicon.App.Bsky.Notification;
@@ -30,7 +31,7 @@ public sealed class NotificationSurfaceTests : IDisposable
         }}
         """;
 
-    private readonly ScriptedXrpcHandler _handler = new();
+    private readonly HttpStub _handler = new();
     private readonly AtProtoClient _client;
 
     public NotificationSurfaceTests() => _client = _handler.CreateClient();

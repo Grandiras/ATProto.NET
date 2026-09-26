@@ -1,9 +1,7 @@
-using System.Net;
-using System.Text;
-using System.Text.Json;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Moderation;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Lexicon.Com.AtProto;
 
@@ -18,13 +16,14 @@ public class TypedRepoClientTests : IDisposable
     private static readonly Did Alice = Did.Parse(DidText);
     private static readonly Nsid Notes = Nsid.Parse("com.example.note");
 
-    private readonly CapturingHandler _handler = new();
+    private readonly HttpStub _stub = new();
     private readonly HttpClient _httpClient;
     private readonly AtProtoClient _client;
 
     public TypedRepoClientTests()
     {
-        _httpClient = new HttpClient(_handler);
+        _stub.Fallback("{}");
+        _httpClient = new HttpClient(_stub);
         _client = new AtProtoClient(
             new AtProtoClientOptions { InstanceUrl = "https://pds.example.com", AutoRefreshSession = false },
             _httpClient, null, null);
@@ -34,23 +33,25 @@ public class TypedRepoClientTests : IDisposable
     {
         _client.Dispose();
         _httpClient.Dispose();
-        _handler.Dispose();
+        _stub.Dispose();
         GC.SuppressFinalize(this);
     }
+
+    private HttpStub.RecordedRequest Last => _stub.Requests[^1];
 
     [Fact]
     public async Task CreateRecordAsync_WritesIdentifiersAsStringsAndParsesTheResponse()
     {
-        _handler.Body = $$$"""{"uri":"at://{{{DidText}}}/com.example.note/3k2la","cid":"{{{CidText}}}","commit":{"cid":"{{{CidText}}}","rev":"3k2la2bcd5e2a"}}""";
+        _stub.Fallback($$$"""{"uri":"at://{{{DidText}}}/com.example.note/3k2la","cid":"{{{CidText}}}","commit":{"cid":"{{{CidText}}}","rev":"3k2la2bcd5e2a"}}""");
 
         var created = await _client.Repo.CreateRecordAsync(
             Alice, Notes, new { text = "hi" }, RecordKey.Parse("3k2la"), swapCommit: Cid.Parse(CidText));
 
-        using var body = JsonDocument.Parse(_handler.LastBody!);
-        Assert.Equal(DidText, body.RootElement.GetProperty("repo").GetString());
-        Assert.Equal("com.example.note", body.RootElement.GetProperty("collection").GetString());
-        Assert.Equal("3k2la", body.RootElement.GetProperty("rkey").GetString());
-        Assert.Equal(CidText, body.RootElement.GetProperty("swapCommit").GetString());
+        var body = Last.JsonBody;
+        Assert.Equal(DidText, body.GetProperty("repo").GetString());
+        Assert.Equal("com.example.note", body.GetProperty("collection").GetString());
+        Assert.Equal("3k2la", body.GetProperty("rkey").GetString());
+        Assert.Equal(CidText, body.GetProperty("swapCommit").GetString());
 
         Assert.Equal(RecordKey.Parse("3k2la"), created.Uri.RecordKey);
         Assert.Equal(CidText, created.Cid.Value);
@@ -60,26 +61,24 @@ public class TypedRepoClientTests : IDisposable
     [Fact]
     public async Task GetRecordAsync_ByAtUri_SplitsTheUriIntoItsParameters()
     {
-        _handler.Body = $$$"""{"uri":"at://{{{DidText}}}/com.example.note/n1","value":{}}""";
+        _stub.Fallback($$$"""{"uri":"at://{{{DidText}}}/com.example.note/n1","value":{}}""");
 
         var record = await _client.Repo.GetRecordAsync(AtUri.Parse($"at://{DidText}/com.example.note/n1"));
 
         Assert.Equal(
             $"https://pds.example.com/xrpc/com.atproto.repo.getRecord?repo={DidText}&collection=com.example.note&rkey=n1",
-            Uri.UnescapeDataString(_handler.LastUri!));
+            Uri.UnescapeDataString(Last.Uri.ToString()));
         Assert.Null(record.Cid);
     }
 
     [Fact]
     public async Task DeleteRecordAsync_ByAtUri_SendsItsParts()
     {
-        _handler.Body = "{}";
-
         await _client.Repo.DeleteRecordAsync(AtUri.Parse($"at://{DidText}/com.example.note/n1"));
 
-        using var body = JsonDocument.Parse(_handler.LastBody!);
-        Assert.Equal(DidText, body.RootElement.GetProperty("repo").GetString());
-        Assert.Equal("n1", body.RootElement.GetProperty("rkey").GetString());
+        var body = Last.JsonBody;
+        Assert.Equal(DidText, body.GetProperty("repo").GetString());
+        Assert.Equal("n1", body.GetProperty("rkey").GetString());
     }
 
     [Fact]
@@ -87,17 +86,17 @@ public class TypedRepoClientTests : IDisposable
     {
         await Assert.ThrowsAsync<ArgumentException>(
             () => _client.Repo.GetRecordAsync(AtUri.Parse($"at://{DidText}/com.example.note")));
-        Assert.Null(_handler.LastUri);
+        Assert.Empty(_stub.Requests);
     }
 
     [Fact]
     public async Task ListRecordsAsync_SendsFiltersLimitAndCursor()
     {
-        _handler.Body = """{"records":[]}""";
+        _stub.Fallback("""{"records":[]}""");
 
         await _client.Repo.ListRecordsAsync(Alice, Notes, reverse: true, limit: 5, cursor: "c");
 
-        var query = Uri.UnescapeDataString(new Uri(_handler.LastUri!).Query);
+        var query = Uri.UnescapeDataString(Last.Query);
         Assert.Contains("limit=5", query);
         Assert.Contains("cursor=c", query);
         Assert.Contains("reverse=true", query);
@@ -106,49 +105,28 @@ public class TypedRepoClientTests : IDisposable
     [Fact]
     public async Task Response_WithAnInvalidIdentifier_IsAResponseFormatError()
     {
-        _handler.Body = $$$"""{"uri":"at://{{{DidText}}}/com.example.note/n1","cid":"not-a-cid","value":{}}""";
+        _stub.Fallback($$$"""{"uri":"at://{{{DidText}}}/com.example.note/n1","cid":"not-a-cid","value":{}}""");
 
         var ex = await Assert.ThrowsAsync<XrpcResponseFormatException>(
             () => _client.Repo.GetRecordAsync(Alice, Notes, RecordKey.Parse("n1")));
 
-        Assert.IsType<JsonException>(ex.InnerException);
+        Assert.IsType<System.Text.Json.JsonException>(ex.InnerException);
     }
 
     [Fact]
     public async Task CreateReportAsync_SubjectFirst_SerializesTheTypedSubject()
     {
-        _handler.Body = $$"""{"id":1,"reasonType":"{{ReportReasons.Spam}}","subject":{"$type":"com.atproto.repo.strongRef","uri":"at://{{DidText}}/com.example.note/n1","cid":"{{CidText}}"},"reportedBy":"{{DidText}}","createdAt":"2024-01-01T00:00:00.000Z"}""";
+        _stub.Fallback($$"""{"id":1,"reasonType":"{{ReportReasons.Spam}}","subject":{"$type":"com.atproto.repo.strongRef","uri":"at://{{DidText}}/com.example.note/n1","cid":"{{CidText}}"},"reportedBy":"{{DidText}}","createdAt":"2024-01-01T00:00:00.000Z"}""");
 
         var report = await _client.Moderation.CreateReportAsync(
             new RecordSubject { Uri = AtUri.Parse($"at://{DidText}/com.example.note/n1"), Cid = Cid.Parse(CidText) },
             ReportReasons.Spam);
 
-        using var body = JsonDocument.Parse(_handler.LastBody!);
-        var subject = body.RootElement.GetProperty("subject");
+        var subject = Last.JsonBody.GetProperty("subject");
         Assert.Equal("com.atproto.repo.strongRef", subject.GetProperty("$type").GetString());
         Assert.Equal(CidText, subject.GetProperty("cid").GetString());
         Assert.Equal(Alice, report.ReportedBy);
         Assert.Equal("2024-01-01T00:00:00.000Z", report.CreatedAt.ToString());
         Assert.Equal(Cid.Parse(CidText), Assert.IsType<RecordSubject>(report.Subject).Cid);
-    }
-
-    private sealed class CapturingHandler : HttpMessageHandler
-    {
-        public string Body { get; set; } = "{}";
-
-        public string? LastUri { get; private set; }
-
-        public string? LastBody { get; private set; }
-
-        protected override async Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            LastUri = request.RequestUri!.ToString();
-            LastBody = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
-            return new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(Body, Encoding.UTF8, "application/json"),
-            };
-        }
     }
 }

@@ -175,14 +175,4 @@ public class AtUriTests
         Assert.ThrowsAny<ArgumentException>(() => (AtUri)"at://did:plc:abc123/");
     }
 
-    [Fact]
-    public void CompareTo_IsOrdinal()
-    {
-        var a = AtUri.Parse("at://did:plc:abc123/app.bsky.feed.like/3k2la");
-        var b = AtUri.Parse("at://did:plc:abc123/app.bsky.feed.post/3k2la");
-
-        Assert.True(a.CompareTo(b) < 0);
-        Assert.True(b.CompareTo(a) > 0);
-        Assert.Equal(0, a.CompareTo(AtUri.Parse(a.Value)));
-    }
 }

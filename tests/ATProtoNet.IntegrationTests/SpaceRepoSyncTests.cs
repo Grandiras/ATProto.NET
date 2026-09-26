@@ -19,7 +19,7 @@ namespace ATProtoNet.IntegrationTests;
 [Collection("Spaces")]
 public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
 {
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task GetRepoAsync_ServesACarThatVerifiesAgainstTheServersOwnCommit()
     {
         var space = await fixture.CreateSpaceAsync("car-verify", members: [fixture.Member]);
@@ -63,7 +63,7 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
             repo.Records.Select(record => record.Path).Order(StringComparer.Ordinal));
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task GetRepoAsync_WithExcludeValues_ServesAnIndexOnlyCarThatStillVerifies()
     {
         var space = await fixture.CreateSpaceAsync("car-index", members: [fixture.Member]);
@@ -85,7 +85,7 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
         Assert.True(SpaceRepoCommit.FromIndex(repo.Index).Matches(repo.Commit));
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task GetRepoAsync_AfterADelete_VerifiesAgainstTheAdvancedCommit()
     {
         var space = await fixture.CreateSpaceAsync("car-delete", members: [fixture.Member]);
@@ -109,7 +109,7 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
         Assert.Equal($"{SpaceNetworkFixture.Collection}/keep", repo.Records[0].Path);
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task SyncRepoAsync_ReplaysTheOplogToTheRepoSignedCommit()
     {
         var space = await fixture.CreateSpaceAsync("sync-replay", members: [fixture.Member]);
@@ -136,7 +136,7 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
         Assert.Equal(result.Commit!.Rev, cursor.Rev);
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task SyncRepoAsync_ResumesFromItsCursorAndAppliesOnlyWhatIsNew()
     {
         var space = await fixture.CreateSpaceAsync("sync-resume", members: [fixture.Member]);
@@ -171,7 +171,7 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
         Assert.Empty(idle.Ops);
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task SyncRepoAsync_WhenTheLocalCopyDiverges_RecoversInFull()
     {
         var space = await fixture.CreateSpaceAsync("sync-diverge", members: [fixture.Member]);
@@ -200,7 +200,7 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
         Assert.True(diverged.Commit.Matches(result.Commit!));
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task SyncRepoAsync_WithASinceTheHostCannotServe_RecoversInFull()
     {
         var space = await fixture.CreateSpaceAsync("sync-since", members: [fixture.Member]);
@@ -228,7 +228,7 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
         Assert.Equal(result.Commit!.Rev, stale.Rev);
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task SyncRepoAsync_ForAnAccountThatHasWrittenNothing_ReportsNoRepo()
     {
         var space = await fixture.CreateSpaceAsync("sync-norepo", members: [fixture.Member]);
@@ -264,7 +264,7 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
         Assert.Equal(0, store.Count(fixture.Member.Did));
     }
 
-    [RequiresSpacesFact]
+    [RequiresFact(IntegrationRequirement.Spaces)]
     public async Task ListReposAsync_EnumeratesTheWriterSetTheAuthorityRecorded()
     {
         var space = await fixture.CreateSpaceAsync("writer-set", members: [fixture.Member]);

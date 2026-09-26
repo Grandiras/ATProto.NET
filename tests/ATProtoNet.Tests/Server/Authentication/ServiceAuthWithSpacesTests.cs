@@ -12,6 +12,7 @@ using ATProtoNet.Server.Spaces;
 using ATProtoNet.Server.Xrpc;
 using ATProtoNet.Spaces;
 using ATProtoNet.Tests.Server.Spaces;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;

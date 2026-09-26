@@ -1,10 +1,9 @@
 using System.Net;
-using System.Text;
-using System.Text.Json;
 using ATProtoNet.Admin;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Server;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Admin;
 
@@ -23,13 +22,13 @@ public class PdsAdminClientAccountAuthTests : IDisposable
          "accessJwt":"access-1","refreshJwt":"refresh-1"}
         """;
 
-    private readonly MockHttpMessageHandler _handler = new();
+    private readonly HttpStub _stub = new();
     private readonly HttpClient _httpClient;
     private readonly PdsAdminClient _client;
 
     public PdsAdminClientAccountAuthTests()
     {
-        _httpClient = new HttpClient(_handler)
+        _httpClient = new HttpClient(_stub)
         {
             BaseAddress = new Uri("https://pds.example.com/"),
         };
@@ -65,7 +64,7 @@ public class PdsAdminClientAccountAuthTests : IDisposable
     {
         // The administrator account may not exist yet: on a fresh Tranquil instance the
         // application registers it, and the client is resolved before that happens.
-        Assert.Empty(_handler.Requests);
+        Assert.Empty(_stub.Requests);
         Assert.Equal(PdsAdminAuthentication.AdminAccount, _client.Authentication);
     }
 
@@ -76,69 +75,63 @@ public class PdsAdminClientAccountAuthTests : IDisposable
     [Fact]
     public async Task AdminCall_SignsInFirstAndSendsABearerToken()
     {
-        _handler.Enqueue(SessionJson);
-        _handler.Enqueue("""{"code":"pds-example-com-abc123"}""");
+        _stub.On("com.atproto.server.createSession", SessionJson);
+        _stub.On("com.atproto.server.createInviteCode", """{"code":"pds-example-com-abc123"}""");
 
         var code = await _client.CreateInviteCodeAsync();
 
         Assert.Equal("pds-example-com-abc123", code);
-        Assert.Equal(2, _handler.Requests.Count);
+        Assert.Equal(2, _stub.Requests.Count);
 
-        var login = _handler.Requests[0];
-        Assert.Contains("com.atproto.server.createSession", login.Path);
-        Assert.Null(login.AuthScheme);
+        var login = Assert.Single(_stub.To("com.atproto.server.createSession"));
+        Assert.Null(login.Headers.Authorization);
 
-        var body = JsonDocument.Parse(login.Body!).RootElement;
+        var body = login.JsonBody;
         Assert.Equal(AdminHandle, body.GetProperty("identifier").GetString());
         Assert.Equal(AdminPassword, body.GetProperty("password").GetString());
 
-        var invite = _handler.Requests[1];
-        Assert.Contains("com.atproto.server.createInviteCode", invite.Path);
+        var invite = Assert.Single(_stub.To("com.atproto.server.createInviteCode"));
 
         // Basic here would be the reference PDS's scheme, which Tranquil does not accept.
-        Assert.Equal("Bearer", invite.AuthScheme);
-        Assert.Equal("access-1", invite.AuthParameter);
+        Assert.Equal("Bearer", invite.Headers.Authorization?.Scheme);
+        Assert.Equal("access-1", invite.Headers.Authorization?.Parameter);
     }
 
     [Fact]
     public async Task AdminCalls_ReuseOneSession()
     {
-        _handler.Enqueue(SessionJson);
-        _handler.Enqueue("{}");
-        _handler.Enqueue("{}");
+        _stub.On("com.atproto.server.createSession", SessionJson);
+        _stub.On("com.atproto.admin.deleteAccount", "{}");
+        _stub.On("com.atproto.admin.updateAccountHandle", "{}");
 
         await _client.DeleteAccountAsync(Did.Parse("did:plc:alice"));
         await _client.UpdateAccountHandleAsync(Did.Parse("did:plc:bob"), Handle.Parse("bob2.example.com"));
 
-        Assert.Equal(1, _handler.Requests.Count(r => r.Path.Contains("createSession")));
+        Assert.Single(_stub.To("com.atproto.server.createSession"));
     }
 
     [Fact]
     public async Task EnsureAdminSessionAsync_MakesTheRawClientsUsable()
     {
-        _handler.Enqueue(SessionJson);
-        _handler.Enqueue("""{"did":"did:plc:alice","handle":"alice.example.com","indexedAt":"2026-07-25T00:00:00.000Z"}""");
+        _stub.On("com.atproto.server.createSession", SessionJson);
+        _stub.On("com.atproto.admin.getAccountInfo", """{"did":"did:plc:alice","handle":"alice.example.com","indexedAt":"2026-07-25T00:00:00.000Z"}""");
 
         await _client.EnsureAdminSessionAsync();
         await _client.Admin.GetAccountInfoAsync(Did.Parse("did:plc:alice"));
 
-        Assert.Equal("Bearer", _handler.Requests[1].AuthScheme);
+        Assert.Equal("Bearer", Assert.Single(_stub.To("com.atproto.admin.getAccountInfo")).Headers.Authorization?.Scheme);
     }
 
     [Fact]
     public async Task ConcurrentAdminCalls_SignInOnlyOnce()
     {
-        _handler.Enqueue(SessionJson);
-
-        for (var i = 0; i < 8; i++)
-        {
-            _handler.Enqueue("{}");
-        }
+        _stub.On("com.atproto.server.createSession", SessionJson);
+        _stub.On("com.atproto.admin.deleteAccount", "{}");
 
         await Task.WhenAll(Enumerable.Range(0, 8)
             .Select(_ => _client.DeleteAccountAsync(Did.Parse("did:plc:alice"))));
 
-        Assert.Equal(1, _handler.Requests.Count(r => r.Path.Contains("createSession")));
+        Assert.Single(_stub.To("com.atproto.server.createSession"));
     }
 
     // ──────────────────────────────────────────────────────────
@@ -148,63 +141,63 @@ public class PdsAdminClientAccountAuthTests : IDisposable
     [Fact]
     public async Task AdminCall_WhenTheSessionIsRejected_SignsInAgainAndRetries()
     {
-        _handler.Enqueue(SessionJson);
-        _handler.Enqueue("""{"error":"ExpiredToken","message":"Token has expired"}""", HttpStatusCode.Unauthorized);
-        _handler.Enqueue(SessionJson.Replace("access-1", "access-2"));
-        _handler.Enqueue("{}");
+        _stub.On("com.atproto.server.createSession", SessionJson);
+        _stub.On("com.atproto.server.createSession", SessionJson.Replace("access-1", "access-2"));
+        _stub.On("com.atproto.admin.deleteAccount", HttpStatusCode.Unauthorized, """{"error":"ExpiredToken","message":"Token has expired"}""");
+        _stub.On("com.atproto.admin.deleteAccount", "{}");
 
         // The client is registered as a typed HttpClient and outlives its access tokens,
         // so an expired one has to be recoverable rather than fatal.
         await _client.DeleteAccountAsync(Did.Parse("did:plc:alice"));
 
-        Assert.Equal(4, _handler.Requests.Count);
-        Assert.Equal(2, _handler.Requests.Count(r => r.Path.Contains("createSession")));
-        Assert.Equal("access-2", _handler.Requests[3].AuthParameter);
+        Assert.Equal(4, _stub.Requests.Count);
+        Assert.Equal(2, _stub.To("com.atproto.server.createSession").Count());
+        Assert.Equal("access-2", _stub.To("com.atproto.admin.deleteAccount").Last().Headers.Authorization?.Parameter);
     }
 
     [Fact]
     public async Task AdminCall_WhenTheRetryIsAlsoRejected_Throws()
     {
-        _handler.Enqueue(SessionJson);
-        _handler.Enqueue("""{"error":"ExpiredToken"}""", HttpStatusCode.Unauthorized);
-        _handler.Enqueue(SessionJson);
-        _handler.Enqueue("""{"error":"ExpiredToken"}""", HttpStatusCode.Unauthorized);
+        _stub.On("com.atproto.server.createSession", SessionJson);
+        _stub.On("com.atproto.server.createSession", SessionJson);
+        _stub.On("com.atproto.admin.deleteAccount", HttpStatusCode.Unauthorized, """{"error":"ExpiredToken"}""");
+        _stub.On("com.atproto.admin.deleteAccount", HttpStatusCode.Unauthorized, """{"error":"ExpiredToken"}""");
 
         var ex = await Assert.ThrowsAsync<XrpcAuthenticationException>(
             () => _client.DeleteAccountAsync(Did.Parse("did:plc:alice")));
 
         // One retry, not a loop: a password that has stopped working must surface.
         Assert.Equal(HttpStatusCode.Unauthorized, ex.StatusCode);
-        Assert.Equal(4, _handler.Requests.Count);
+        Assert.Equal(4, _stub.Requests.Count);
     }
 
     [Fact]
     public async Task SearchAccountsAsync_SignsInAndRetriesARejectedSession()
     {
         // Tranquil serves searchAccounts, so it goes through the same session handling.
-        _handler.Enqueue(SessionJson);
-        _handler.Enqueue("""{"error":"ExpiredToken"}""", HttpStatusCode.Unauthorized);
-        _handler.Enqueue(SessionJson.Replace("access-1", "access-2"));
-        _handler.Enqueue("""{"accounts":[]}""");
+        _stub.On("com.atproto.server.createSession", SessionJson);
+        _stub.On("com.atproto.server.createSession", SessionJson.Replace("access-1", "access-2"));
+        _stub.On("com.atproto.admin.searchAccounts", HttpStatusCode.Unauthorized, """{"error":"ExpiredToken"}""");
+        _stub.On("com.atproto.admin.searchAccounts", """{"accounts":[]}""");
 
         var page = await _client.SearchAccountsAsync(email: "alice@example.com");
 
         Assert.Empty(page.Accounts);
-        Assert.Contains("com.atproto.admin.searchAccounts", _handler.Requests[3].Path);
-        Assert.Equal("Bearer", _handler.Requests[3].AuthScheme);
-        Assert.Equal("access-2", _handler.Requests[3].AuthParameter);
+        var retry = _stub.To("com.atproto.admin.searchAccounts").Last();
+        Assert.Equal("Bearer", retry.Headers.Authorization?.Scheme);
+        Assert.Equal("access-2", retry.Headers.Authorization?.Parameter);
     }
 
     [Fact]
     public async Task AdminCall_DoesNotRetryOtherErrors()
     {
-        _handler.Enqueue(SessionJson);
-        _handler.Enqueue("""{"error":"InvalidRequest","message":"nope"}""", HttpStatusCode.BadRequest);
+        _stub.On("com.atproto.server.createSession", SessionJson);
+        _stub.On("com.atproto.admin.deleteAccount", HttpStatusCode.BadRequest, """{"error":"InvalidRequest","message":"nope"}""");
 
         await Assert.ThrowsAsync<XrpcException>(
             () => _client.DeleteAccountAsync(Did.Parse("did:plc:alice")));
 
-        Assert.Equal(2, _handler.Requests.Count);
+        Assert.Equal(2, _stub.Requests.Count);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -214,8 +207,8 @@ public class PdsAdminClientAccountAuthTests : IDisposable
     [Fact]
     public async Task CreateAccountAsync_WhenInvitesAreOff_NeedsNoSession()
     {
-        _handler.Enqueue("""{"did":"did:web:pds.example.com","inviteCodeRequired":false}""");
-        _handler.Enqueue("""{"did":"did:plc:admin","handle":"pdsadmin.pds.example.com","accessJwt":"a","refreshJwt":"r"}""");
+        _stub.On("com.atproto.server.describeServer", """{"did":"did:web:pds.example.com","inviteCodeRequired":false}""");
+        _stub.On("com.atproto.server.createAccount", """{"did":"did:plc:admin","handle":"pdsadmin.pds.example.com","accessJwt":"a","refreshJwt":"r"}""");
 
         // This is how the administrator account itself gets created: Tranquil flags the
         // first account on an empty instance as an administrator, and signup is public —
@@ -228,68 +221,26 @@ public class PdsAdminClientAccountAuthTests : IDisposable
         });
 
         Assert.Equal("did:plc:admin", account.Did);
-        Assert.DoesNotContain(_handler.Requests, r => r.Path.Contains("createSession"));
-        Assert.All(_handler.Requests, r => Assert.Null(r.AuthScheme));
+        Assert.Empty(_stub.To("com.atproto.server.createSession"));
+        Assert.All(_stub.Requests, r => Assert.Null(r.Headers.Authorization));
     }
 
     [Fact]
     public async Task DescribeServerAsync_NeedsNoSession()
     {
-        _handler.Enqueue("""{"did":"did:web:pds.example.com","inviteCodeRequired":false}""");
+        _stub.On("com.atproto.server.describeServer", """{"did":"did:web:pds.example.com","inviteCodeRequired":false}""");
 
         await _client.DescribeServerAsync();
 
-        var request = Assert.Single(_handler.Requests);
-        Assert.Null(request.AuthScheme);
+        var request = Assert.Single(_stub.Requests);
+        Assert.Null(request.Headers.Authorization);
     }
 
     public void Dispose()
     {
         _client.Dispose();
         _httpClient.Dispose();
-        _handler.Dispose();
+        _stub.Dispose();
         GC.SuppressFinalize(this);
-    }
-
-    private sealed record CapturedRequest(
-        string Path, string? AuthScheme, string? AuthParameter, string? Body);
-
-    private sealed class MockHttpMessageHandler : HttpMessageHandler
-    {
-        private readonly Queue<(string Json, HttpStatusCode Status)> _responses = new();
-        private readonly Lock _gate = new();
-
-        public List<CapturedRequest> Requests { get; } = [];
-
-        public void Enqueue(string json, HttpStatusCode status = HttpStatusCode.OK) =>
-            _responses.Enqueue((json, status));
-
-        protected override async Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            var body = request.Content is null
-                ? null
-                : await request.Content.ReadAsStringAsync(cancellationToken);
-
-            var captured = new CapturedRequest(
-                request.RequestUri!.PathAndQuery,
-                request.Headers.Authorization?.Scheme,
-                request.Headers.Authorization?.Parameter,
-                body);
-
-            lock (_gate)
-            {
-                Requests.Add(captured);
-
-                var (json, status) = _responses.Count > 0
-                    ? _responses.Dequeue()
-                    : ("{}", HttpStatusCode.OK);
-
-                return new HttpResponseMessage(status)
-                {
-                    Content = new StringContent(json, Encoding.UTF8, "application/json"),
-                };
-            }
-        }
     }
 }

@@ -2,6 +2,7 @@ using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Draft;
 using ATProtoNet.Lexicon.App.Bsky.Feed;
 using ATProtoNet.Models;
+using ATProtoNet.Tests.TestSupport;
 using static ATProtoNet.Tests.Lexicon.App.Bsky.BskyFixtures;
 using DraftModel = ATProtoNet.Lexicon.App.Bsky.Draft.Draft;
 
@@ -11,7 +12,7 @@ public sealed class DraftClientTests : IDisposable
 {
     private const string DraftId = "3lwinfmsd2k2h";
 
-    private readonly ScriptedXrpcHandler _handler = new();
+    private readonly HttpStub _handler = new();
     private readonly AtProtoClient _client;
 
     public DraftClientTests() => _client = _handler.CreateClient();

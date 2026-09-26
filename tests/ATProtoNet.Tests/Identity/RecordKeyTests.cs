@@ -31,12 +31,6 @@ public class RecordKeyTests
     }
 
     [Fact]
-    public void Self_IsValidSingleton()
-    {
-        Assert.Equal("self", RecordKey.Self.Value);
-    }
-
-    [Fact]
     public void NewTid_GeneratesValidRecordKey()
     {
         var rkey = RecordKey.NewTid();

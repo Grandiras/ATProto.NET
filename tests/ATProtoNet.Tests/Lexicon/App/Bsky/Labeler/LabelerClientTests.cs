@@ -1,26 +1,22 @@
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Labeler;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Tests.Lexicon.App.Bsky.Labeler;
 
 public class LabelerClientTests : IDisposable
 {
-    private readonly MockHttpMessageHandler _handler;
+    private readonly HttpStub _stub = new();
     private readonly HttpClient _httpClient;
     private readonly XrpcClient _xrpc;
     private readonly LabelerClient _labeler;
 
     public LabelerClientTests()
     {
-        _handler = new MockHttpMessageHandler();
-        _httpClient = new HttpClient(_handler)
-        {
-            BaseAddress = new Uri("https://pds.example.com/")
-        };
+        _httpClient = new HttpClient(_stub) { BaseAddress = new Uri("https://pds.example.com/") };
         _xrpc = new XrpcClient(_httpClient, _httpClient.BaseAddress!, NullLogger.Instance);
         _xrpc.SetTokens("test-token");
         _labeler = new LabelerClient(_xrpc);
@@ -29,64 +25,37 @@ public class LabelerClientTests : IDisposable
     [Fact]
     public async Task GetServices_SendsCorrectRequest()
     {
-        string? capturedUrl = null;
-        _handler.ResponseFactory = request =>
-        {
-            capturedUrl = request.RequestUri?.PathAndQuery;
-            return JsonResponse(new { views = Array.Empty<object>() });
-        };
+        _stub.On("app.bsky.labeler.getServices", """{"views":[]}""");
 
         var result = await _labeler.GetServicesAsync(
             [Did.Parse("did:plc:labeler1"), Did.Parse("did:plc:labeler2")],
             detailed: true);
 
-        Assert.Contains("/xrpc/app.bsky.labeler.getServices", capturedUrl);
-        Assert.Contains("detailed=true", capturedUrl!);
+        var request = Assert.Single(_stub.Requests);
+        Assert.Contains("detailed=true", request.Query);
         Assert.NotNull(result);
         Assert.Empty(result.Views);
 
         // XRPC arrays travel as repeated keys, never as one comma-joined value.
-        Assert.Equal(2, Regex.Matches(capturedUrl!, "dids=", RegexOptions.IgnoreCase).Count);
-        Assert.Contains("dids=did%3aplc%3alabeler1", capturedUrl!, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("dids=did%3aplc%3alabeler2", capturedUrl!, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("%2C", capturedUrl!, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(2, Regex.Matches(request.Query, "dids=", RegexOptions.IgnoreCase).Count);
+        Assert.Contains("dids=did%3aplc%3alabeler1", request.Query, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("dids=did%3aplc%3alabeler2", request.Query, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("%2C", request.Query, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
     public async Task GetServices_WithoutDetailed_OmitsParam()
     {
-        string? capturedUrl = null;
-        _handler.ResponseFactory = request =>
-        {
-            capturedUrl = request.RequestUri?.PathAndQuery;
-            return JsonResponse(new { views = Array.Empty<object>() });
-        };
+        _stub.On("app.bsky.labeler.getServices", """{"views":[]}""");
 
         await _labeler.GetServicesAsync([Did.Parse("did:plc:labeler1")]);
 
-        Assert.DoesNotContain("detailed", capturedUrl!);
+        Assert.DoesNotContain("detailed", Assert.Single(_stub.Requests).Query);
     }
 
     public void Dispose()
     {
         _httpClient.Dispose();
-    }
-
-    private static HttpResponseMessage JsonResponse(object body) => new()
-    {
-        Content = new StringContent(
-            JsonSerializer.Serialize(body),
-            System.Text.Encoding.UTF8,
-            "application/json")
-    };
-
-    private sealed class MockHttpMessageHandler : HttpMessageHandler
-    {
-        public Func<HttpRequestMessage, HttpResponseMessage> ResponseFactory { get; set; } =
-            _ => new HttpResponseMessage { Content = new StringContent("{}") };
-
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-            => Task.FromResult(ResponseFactory(request));
+        _stub.Dispose();
     }
 }

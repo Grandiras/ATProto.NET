@@ -1,8 +1,9 @@
 using System.Net;
 using ATProtoNet.Http;
 using ATProtoNet.Lexicon.App.Bsky.Video;
+using ATProtoNet.Tests.TestSupport;
 using static ATProtoNet.Tests.Lexicon.App.Bsky.BskyFixtures;
-using static ATProtoNet.Tests.Lexicon.App.Bsky.ScriptedXrpcHandler;
+using static ATProtoNet.Tests.TestSupport.HttpStub;
 
 namespace ATProtoNet.Tests.Lexicon.App.Bsky.Video;
 
@@ -24,7 +25,7 @@ public sealed class VideoUploadTests : IDisposable
         PollInterval = TimeSpan.Zero,
     };
 
-    private readonly ScriptedXrpcHandler _handler = new();
+    private readonly HttpStub _handler = new();
     private readonly AtProtoClient _client;
 
     public VideoUploadTests() => _client = _handler.CreateClient();

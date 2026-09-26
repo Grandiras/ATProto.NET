@@ -1,24 +1,21 @@
 using System.Text.Json;
 using ATProtoNet.Http;
 using ATProtoNet.Lexicon.Chat.Bsky.Actor;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Tests.Chat.Bsky.Actor;
 
 public class ChatActorClientTests : IDisposable
 {
-    private readonly MockHttpMessageHandler _handler;
+    private readonly HttpStub _stub = new();
     private readonly HttpClient _httpClient;
     private readonly XrpcClient _xrpc;
     private readonly ChatActorClient _actor;
 
     public ChatActorClientTests()
     {
-        _handler = new MockHttpMessageHandler();
-        _httpClient = new HttpClient(_handler)
-        {
-            BaseAddress = new Uri("https://pds.example.com/")
-        };
+        _httpClient = new HttpClient(_stub) { BaseAddress = new Uri("https://pds.example.com/") };
         _xrpc = new XrpcClient(_httpClient, _httpClient.BaseAddress!, NullLogger.Instance);
         _xrpc.SetTokens("test-token");
         _actor = new ChatActorClient(_xrpc);
@@ -27,48 +24,25 @@ public class ChatActorClientTests : IDisposable
     [Fact]
     public async Task DeleteAccount_PostsWithProxy()
     {
-        string? capturedUrl = null;
-        string? capturedProxy = null;
-        string? capturedMethod = null;
-        _handler.ResponseFactory = request =>
-        {
-            capturedUrl = request.RequestUri?.PathAndQuery;
-            capturedMethod = request.Method.Method;
-            capturedProxy = request.Headers.TryGetValues("atproto-proxy", out var v)
-                ? v.FirstOrDefault() : null;
-            return new HttpResponseMessage { Content = new StringContent("{}") };
-        };
+        _stub.On("chat.bsky.actor.deleteAccount", "{}");
 
         await _actor.DeleteAccountAsync();
 
-        Assert.Contains("chat.bsky.actor.deleteAccount", capturedUrl);
-        Assert.Equal("POST", capturedMethod);
-        Assert.Equal(ServiceProxy.BskyChatHeader, capturedProxy);
+        var request = Assert.Single(_stub.To("chat.bsky.actor.deleteAccount"));
+        Assert.Equal(HttpMethod.Post, request.Method);
+        Assert.Equal(ServiceProxy.BskyChatHeader, request.Proxy);
     }
 
     [Fact]
     public async Task GetStatusAsync_GetsWithProxy_ReadsTheStatus()
     {
-        string? capturedUrl = null;
-        string? capturedProxy = null;
-        string? capturedMethod = null;
-        _handler.ResponseFactory = request =>
-        {
-            capturedUrl = request.RequestUri?.PathAndQuery;
-            capturedMethod = request.Method.Method;
-            capturedProxy = request.Headers.TryGetValues("atproto-proxy", out var v)
-                ? v.FirstOrDefault() : null;
-            return new HttpResponseMessage
-            {
-                Content = new StringContent("""{"chatDisabled":false,"canCreateGroups":true,"groupMemberLimit":100}"""),
-            };
-        };
+        _stub.On("chat.bsky.actor.getStatus", """{"chatDisabled":false,"canCreateGroups":true,"groupMemberLimit":100}""");
 
         var status = await _actor.GetStatusAsync();
 
-        Assert.Equal("/xrpc/chat.bsky.actor.getStatus", capturedUrl);
-        Assert.Equal("GET", capturedMethod);
-        Assert.Equal(ServiceProxy.BskyChatHeader, capturedProxy);
+        var request = Assert.Single(_stub.To("chat.bsky.actor.getStatus"));
+        Assert.Equal(HttpMethod.Get, request.Method);
+        Assert.Equal(ServiceProxy.BskyChatHeader, request.Proxy);
         Assert.False(status.ChatDisabled);
         Assert.True(status.CanCreateGroups);
         Assert.Equal(100, status.GroupMemberLimit);
@@ -91,15 +65,5 @@ public class ChatActorClientTests : IDisposable
     public void Dispose()
     {
         _httpClient.Dispose();
-    }
-
-    private sealed class MockHttpMessageHandler : HttpMessageHandler
-    {
-        public Func<HttpRequestMessage, HttpResponseMessage> ResponseFactory { get; set; } =
-            _ => new HttpResponseMessage { Content = new StringContent("{}") };
-
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-            => Task.FromResult(ResponseFactory(request));
     }
 }

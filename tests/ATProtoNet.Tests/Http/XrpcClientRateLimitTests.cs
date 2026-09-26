@@ -3,6 +3,7 @@ using System.Net;
 using System.Text.Json;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Tests.Http;
@@ -11,14 +12,13 @@ public class XrpcClientRateLimitTests : IDisposable
 {
     private const string RateLimitedBody = """{"error":"RateLimitExceeded","message":"Too many requests"}""";
 
-    private readonly MockHttpMessageHandler _handler;
+    private readonly HttpStub _stub = new();
     private readonly HttpClient _httpClient;
     private readonly XrpcClient _xrpc;
 
     public XrpcClientRateLimitTests()
     {
-        _handler = new MockHttpMessageHandler();
-        _httpClient = new HttpClient(_handler);
+        _httpClient = new HttpClient(_stub);
         _xrpc = CreateClient(new XrpcRateLimitOptions());
     }
 
@@ -28,17 +28,14 @@ public class XrpcClientRateLimitTests : IDisposable
     [Fact]
     public async Task QueryAsync_ParsesRateLimitHeaders()
     {
-        _handler.ResponseFactory = _ =>
+        _stub.On("com.atproto.server.describeServer", _ =>
         {
-            var response = new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
-            };
+            var response = HttpStub.JsonResponse("{}");
             response.Headers.TryAddWithoutValidation("RateLimit-Limit", "3000");
             response.Headers.TryAddWithoutValidation("RateLimit-Remaining", "2999");
             response.Headers.TryAddWithoutValidation("RateLimit-Reset", "1700000000");
             return response;
-        };
+        });
 
         await _xrpc.QueryAsync<JsonElement>("com.atproto.server.describeServer");
 
@@ -52,17 +49,14 @@ public class XrpcClientRateLimitTests : IDisposable
     [Fact]
     public async Task RateLimitInfo_IsExceeded_WhenRemainingIsZero()
     {
-        _handler.ResponseFactory = _ =>
+        _stub.On("com.atproto.server.describeServer", _ =>
         {
-            var response = new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
-            };
+            var response = HttpStub.JsonResponse("{}");
             response.Headers.TryAddWithoutValidation("RateLimit-Limit", "3000");
             response.Headers.TryAddWithoutValidation("RateLimit-Remaining", "0");
             response.Headers.TryAddWithoutValidation("RateLimit-Reset", "1700000000");
             return response;
-        };
+        });
 
         await _xrpc.QueryAsync<JsonElement>("com.atproto.server.describeServer");
 
@@ -73,18 +67,14 @@ public class XrpcClientRateLimitTests : IDisposable
     [Fact]
     public async Task QueryAsync_RetriesOn429WithRetryAfterHeader()
     {
-        int callCount = 0;
-        _handler.ResponseFactory = _ =>
+        var callCount = 0;
+        _stub.On("com.atproto.server.describeServer", _ =>
         {
             callCount++;
-            if (callCount == 1)
-                return RateLimited(retryAfter: "0");
-
-            return new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{\"did\":\"did:plc:test\"}", System.Text.Encoding.UTF8, "application/json"),
-            };
-        };
+            return callCount == 1
+                ? RateLimited(retryAfter: "0")
+                : HttpStub.JsonResponse("""{"did":"did:plc:test"}""");
+        });
 
         var result = await _xrpc.QueryAsync<JsonElement>("com.atproto.server.describeServer");
 
@@ -95,12 +85,12 @@ public class XrpcClientRateLimitTests : IDisposable
     [Fact]
     public async Task QueryAsync_ThrowsRateLimitExceptionAfterMaxRetries()
     {
-        int callCount = 0;
-        _handler.ResponseFactory = _ =>
+        var callCount = 0;
+        _stub.On("com.atproto.server.describeServer", _ =>
         {
             callCount++;
             return RateLimited(retryAfter: "0");
-        };
+        });
 
         var xrpc = CreateClient(new XrpcRateLimitOptions { MaxRetries = 2 });
 
@@ -115,12 +105,12 @@ public class XrpcClientRateLimitTests : IDisposable
     [Fact]
     public async Task QueryAsync_NoRetryWhenMaxRetriesIsZero()
     {
-        int callCount = 0;
-        _handler.ResponseFactory = _ =>
+        var callCount = 0;
+        _stub.On("com.atproto.server.describeServer", _ =>
         {
             callCount++;
             return RateLimited(retryAfter: "0");
-        };
+        });
 
         var xrpc = CreateClient(new XrpcRateLimitOptions { MaxRetries = 0 });
 
@@ -133,12 +123,12 @@ public class XrpcClientRateLimitTests : IDisposable
     public async Task QueryAsync_WhenTheWaitExceedsMaxDelay_ThrowsAtOnceWithRetryAfter()
     {
         // A daily window: before, the client slept on this for the rest of the day.
-        int callCount = 0;
-        _handler.ResponseFactory = _ =>
+        var callCount = 0;
+        _stub.On("com.atproto.server.createSession", _ =>
         {
             callCount++;
             return RateLimited(retryAfter: "86400");
-        };
+        });
 
         var stopwatch = Stopwatch.StartNew();
         var ex = await Assert.ThrowsAsync<XrpcRateLimitException>(
@@ -153,14 +143,14 @@ public class XrpcClientRateLimitTests : IDisposable
     public async Task QueryAsync_WhenRateLimitResetIsHoursAway_ThrowsAtOnce()
     {
         var reset = DateTimeOffset.UtcNow.AddHours(3);
-        _handler.ResponseFactory = _ =>
+        _stub.On("com.atproto.server.createSession", _ =>
         {
             var response = RateLimited(retryAfter: null);
             response.Headers.TryAddWithoutValidation("RateLimit-Limit", "300");
             response.Headers.TryAddWithoutValidation("RateLimit-Remaining", "0");
             response.Headers.TryAddWithoutValidation("RateLimit-Reset", reset.ToUnixTimeSeconds().ToString());
             return response;
-        };
+        });
 
         var ex = await Assert.ThrowsAsync<XrpcRateLimitException>(
             () => _xrpc.QueryAsync<JsonElement>("com.atproto.server.createSession"));
@@ -173,18 +163,15 @@ public class XrpcClientRateLimitTests : IDisposable
     [Fact]
     public async Task QueryAsync_HonoursAnHttpDateRetryAfter()
     {
-        int callCount = 0;
-        _handler.ResponseFactory = _ =>
+        var callCount = 0;
+        _stub.On("com.atproto.server.describeServer", _ =>
         {
             callCount++;
             return callCount == 1
                 // A date already reached: retry at once.
                 ? RateLimited(retryAfter: DateTimeOffset.UtcNow.AddMinutes(-1).ToString("R"))
-                : new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
-                };
-        };
+                : HttpStub.JsonResponse("{}");
+        });
 
         await _xrpc.QueryAsync<JsonElement>("com.atproto.server.describeServer");
 
@@ -194,7 +181,7 @@ public class XrpcClientRateLimitTests : IDisposable
     [Fact]
     public async Task QueryAsync_WhenAnHttpDateRetryAfterIsBeyondMaxDelay_Throws()
     {
-        _handler.ResponseFactory = _ => RateLimited(retryAfter: DateTimeOffset.UtcNow.AddHours(1).ToString("R"));
+        _stub.On("com.atproto.server.describeServer", _ => RateLimited(retryAfter: DateTimeOffset.UtcNow.AddHours(1).ToString("R")));
 
         var ex = await Assert.ThrowsAsync<XrpcRateLimitException>(
             () => _xrpc.QueryAsync<JsonElement>("com.atproto.server.describeServer"));
@@ -223,12 +210,12 @@ public class XrpcClientRateLimitTests : IDisposable
     [Fact]
     public async Task AtProtoClient_AppliesItsRateLimitOptions()
     {
-        int callCount = 0;
-        _handler.ResponseFactory = _ =>
+        var callCount = 0;
+        _stub.On("com.example.ping", _ =>
         {
             callCount++;
             return RateLimited(retryAfter: "0");
-        };
+        });
 
         using var client = new AtProtoClient(
             new AtProtoClientOptions
@@ -247,10 +234,7 @@ public class XrpcClientRateLimitTests : IDisposable
     [Fact]
     public async Task LatestRateLimitInfo_IsNullWhenNoHeaders()
     {
-        _handler.ResponseFactory = _ => new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
-        };
+        _stub.On("com.atproto.server.describeServer", "{}");
 
         await _xrpc.QueryAsync<JsonElement>("com.atproto.server.describeServer");
 
@@ -260,32 +244,14 @@ public class XrpcClientRateLimitTests : IDisposable
     public void Dispose()
     {
         _httpClient.Dispose();
-        _handler.Dispose();
+        _stub.Dispose();
     }
 
     private static HttpResponseMessage RateLimited(string? retryAfter)
     {
-        var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests)
-        {
-            Content = new StringContent(RateLimitedBody, System.Text.Encoding.UTF8, "application/json"),
-        };
+        var response = HttpStub.JsonResponse(RateLimitedBody, HttpStatusCode.TooManyRequests);
         if (retryAfter is not null)
             response.Headers.TryAddWithoutValidation("Retry-After", retryAfter);
         return response;
-    }
-
-    private sealed class MockHttpMessageHandler : HttpMessageHandler
-    {
-        public Func<HttpRequestMessage, HttpResponseMessage> ResponseFactory { get; set; } =
-            _ => new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json"),
-            };
-
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            return Task.FromResult(ResponseFactory(request));
-        }
     }
 }

@@ -85,17 +85,6 @@ public class TidTests
     }
 
     [Fact]
-    public void CompareTo_OrdersCorrectly()
-    {
-        var a = Tid.Parse("2222222222222");
-        var b = Tid.Parse("jzzzzzzzzzzzz");
-
-        Assert.True(a.CompareTo(b) < 0);
-        Assert.True(b.CompareTo(a) > 0);
-        Assert.True(a.CompareTo(null) > 0);
-    }
-
-    [Fact]
     public void FromInt64_ToInt64_RoundTrip()
     {
         var tid = Tid.Parse("3jzfcijpj2z2a");

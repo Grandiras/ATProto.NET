@@ -1,8 +1,7 @@
-using System.Net;
-using System.Text;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Notification;
 using ATProtoNet.Lexicon.Com.AtProto.Identity;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Http;
 
@@ -19,23 +18,23 @@ namespace ATProtoNet.Tests.Http;
 /// </remarks>
 public class EmptyResponseBodyTests : IDisposable
 {
-    private readonly EmptyBodyHandler _handler;
+    private readonly HttpStub _stub = new();
     private readonly HttpClient _httpClient;
     private readonly AtProtoClient _client;
 
     public EmptyResponseBodyTests()
     {
-        _handler = new EmptyBodyHandler();
-        _httpClient = new HttpClient(_handler)
-        {
-            BaseAddress = new Uri("https://pds.example.com/"),
-        };
+        _httpClient = new HttpClient(_stub) { BaseAddress = new Uri("https://pds.example.com/") };
 
         _client = new AtProtoClient(
             new AtProtoClientOptions { InstanceUrl = "https://pds.example.com" },
             _httpClient,
             null,
             null);
+
+        // A real PDS answers a void procedure with 200 and nothing in the body.
+        foreach (var nsid in VoidProcedures)
+            _stub.On(nsid, "");
     }
 
     private static readonly string[] VoidProcedures =
@@ -79,8 +78,7 @@ public class EmptyResponseBodyTests : IDisposable
     {
         await Invoke(nsid);
 
-        var request = Assert.Single(_handler.Requests);
-        Assert.Contains(nsid, request);
+        Assert.Single(_stub.To(nsid));
     }
 
     [Fact]
@@ -155,27 +153,7 @@ public class EmptyResponseBodyTests : IDisposable
     {
         _client.Dispose();
         _httpClient.Dispose();
-        _handler.Dispose();
+        _stub.Dispose();
         GC.SuppressFinalize(this);
-    }
-
-    /// <summary>
-    /// Answers every request the way a real PDS answers a procedure with no output:
-    /// 200, and nothing in the body.
-    /// </summary>
-    private sealed class EmptyBodyHandler : HttpMessageHandler
-    {
-        public List<string> Requests { get; } = [];
-
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            Requests.Add(request.RequestUri!.PathAndQuery);
-
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("", Encoding.UTF8, "application/json"),
-            });
-        }
     }
 }

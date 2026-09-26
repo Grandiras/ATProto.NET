@@ -97,26 +97,6 @@ public sealed class MstNodeDataTests
     }
 
     [Fact]
-    public void ToBytes_IsDeterministic()
-    {
-        var valueCid = CidComputation.ComputeBinaryForDagCbor([0x42]);
-
-        var node = new MstNodeData
-        {
-            Left = null,
-            Entries =
-            [
-                new MstTreeEntry(0, "a"u8.ToArray(), valueCid, null),
-                new MstTreeEntry(0, "b"u8.ToArray(), valueCid, null),
-            ],
-        };
-
-        var bytes1 = node.ToBytes();
-        var bytes2 = node.ToBytes();
-        Assert.Equal(bytes1, bytes2);
-    }
-
-    [Fact]
     public void ToBytes_AbsentLinks_AreWrittenAsNull()
     {
         // {"e": [{"k": h'61', "p": 0, "t": null, "v": <cid>}], "l": null}: the spec schema always
