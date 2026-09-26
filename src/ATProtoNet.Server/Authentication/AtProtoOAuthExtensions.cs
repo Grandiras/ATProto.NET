@@ -238,16 +238,29 @@ public static class AtProtoOAuthExtensions
 
         // Written once: the options are fixed by the time the endpoints are mapped.
         var metadataJson = metadata.ToJson();
-        endpoints.MapGet(DocumentPath(metadata.ClientId, "client_id"), () => Results.Text(metadataJson, "application/json"))
+        endpoints.MapGet(DocumentPath(metadata.ClientId, "client_id"), (HttpContext context) => Document(context, metadataJson))
             .ExcludeFromDescription();
 
         if (metadata.JwksUri is { } jwksUri)
         {
             var keySetJson = JsonSerializer.Serialize(OAuthClientKey.CreateKeySet(options.ClientKeys));
-            endpoints.MapGet(DocumentPath(jwksUri, "jwks_uri"), () => Results.Text(keySetJson, "application/json"))
+            endpoints.MapGet(DocumentPath(jwksUri, "jwks_uri"), (HttpContext context) => Document(context, keySetJson))
                 .ExcludeFromDescription();
         }
     }
+
+    /// <summary>
+    /// A client document, cacheable for <see cref="ClientDocumentMaxAge"/>: authorization servers
+    /// fetch it at every login, and a key added for rotation reaches them within that time.
+    /// </summary>
+    private static IResult Document(HttpContext context, string json)
+    {
+        context.Response.Headers.CacheControl = $"public, max-age={(int)ClientDocumentMaxAge.TotalSeconds}";
+        return Results.Text(json, "application/json");
+    }
+
+    /// <summary>How long the served client metadata and key set may be cached (5 minutes).</summary>
+    internal static readonly TimeSpan ClientDocumentMaxAge = TimeSpan.FromMinutes(5);
 
     private static string DocumentPath(string url, string field)
     {

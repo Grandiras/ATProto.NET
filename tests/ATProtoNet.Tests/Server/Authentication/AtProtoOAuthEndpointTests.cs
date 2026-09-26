@@ -150,6 +150,7 @@ public sealed class AtProtoOAuthEndpointTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("public, max-age=300", response.Headers.CacheControl?.ToString());
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Equal(MetadataUrl, json.RootElement.GetProperty("client_id").GetString());
         Assert.Equal("My App", json.RootElement.GetProperty("client_name").GetString());
@@ -176,6 +177,7 @@ public sealed class AtProtoOAuthEndpointTests
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("public, max-age=300", response.Headers.CacheControl?.ToString());
         var keys = JsonSerializer.Deserialize<JsonWebKeySet>(body)!.Keys;
         Assert.Equal(["key-2", "key-1"], keys.Select(k => k.Kid));
         Assert.All(keys, key => Assert.True(current.Matches(key) || retired.Matches(key)));

@@ -459,8 +459,9 @@ builder.Services.AddAtProtoAuthentication(options =>
 });
 ```
 
-See [Confidential Clients](#confidential-clients) for key rotation, and [blazor.md](blazor.md) for
-every option.
+Both documents are served with `Cache-Control: public, max-age=300`, so publish a new key at least
+five minutes before putting it first. See [Confidential Clients](#confidential-clients) for key
+rotation, and [blazor.md](blazor.md) for every option.
 
 ### Refreshing Across Requests
 
