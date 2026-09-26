@@ -299,7 +299,12 @@ them refreshing at the same moment could spend the same refresh token. Give them
 `ISessionRefreshCoordinator` (`AtProtoClientOptions.RefreshCoordinator`) as well as the store: a
 client then refreshes under the account's lock and reads the store first, taking up the session
 another client has already refreshed, and ending one the store no longer holds, since it was signed
-out. `InProcessSessionRefreshCoordinator` covers the clients of one process, and the server
+out. Every other change a client makes to the store — installing a session, updating its account
+details, forgetting a refused one, signing out — takes the same lock, so none interleaves with a
+refresh: a sign-out waits for a refresh under way, removes its result, and revokes the tokens that
+refresh produced, so a session removed from the store stays removed. The server integration's
+OAuth login stores and removes sessions under the same lock. `InProcessSessionRefreshCoordinator`
+covers the clients of one process, and the server
 integration's client factory uses the one `AddAtProtoServer()` registers; several processes on one
 store need a distributed lock behind the interface.
 

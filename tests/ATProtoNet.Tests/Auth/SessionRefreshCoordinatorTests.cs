@@ -196,6 +196,50 @@ public sealed class SessionRefreshCoordinatorTests : IDisposable
     }
 
     [Fact]
+    public async Task SigningOutWhileAnotherClientRefreshes_LeavesTheStoreEmpty_AndRevokesTheLiveToken()
+    {
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        ServeRotatingTokens(release.Task);
+        await _store.SetAsync(OAuthSession(
+            _key, expiresAt: DateTimeOffset.UtcNow.AddSeconds(20), revocationEndpoint: RevocationEndpoint));
+        var coordinator = new InProcessSessionRefreshCoordinator();
+        await using var a = await RestoreAsync(coordinator);
+        await using var b = await RestoreAsync(coordinator);
+
+        // A is exchanging the refresh token when B signs out.
+        var refresh = a.RefreshSessionAsync();
+        await Eventually(() => _server.To(TokenEndpoint.AbsolutePath).Count == 1);
+        var logout = b.LogoutAsync();
+        release.SetResult();
+        await Task.WhenAll(refresh, logout);
+
+        // A's result is removed with the rest rather than written back after the sign-out, and
+        // the tokens revoked are the ones A's refresh made, which are the live ones.
+        Assert.Null(await _store.GetAsync(Alice));
+        Assert.Equal("rt-2", Assert.Single(_server.To(RevocationEndpoint.AbsolutePath)).Form["token"]);
+    }
+
+    [Fact]
+    public async Task SigningInWhileAnotherClientRefreshes_KeepsTheNewSession()
+    {
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        ServeRotatingTokens(release.Task);
+        await StoreExpiringSessionAsync();
+        var coordinator = new InProcessSessionRefreshCoordinator();
+        await using var a = await RestoreAsync(coordinator);
+        await using var b = Client(_http, _store, o => o.RefreshCoordinator = coordinator);
+
+        // A is refreshing the old session when B installs a new sign-in of the account.
+        var refresh = a.RefreshSessionAsync();
+        await Eventually(() => _server.To(TokenEndpoint.AbsolutePath).Count == 1);
+        var signIn = b.ApplySessionAsync(OAuthSession(NewDPoPKey(), accessToken: "at-new", refreshToken: "rt-new"), _oauth);
+        release.SetResult();
+        await Task.WhenAll(refresh, signIn);
+
+        Assert.Equal("rt-new", Assert.IsType<OAuthSession>(await _store.GetAsync(Alice)).RefreshToken);
+    }
+
+    [Fact]
     public async Task WithoutASessionStore_TheCoordinatorIsNotUsed()
     {
         ServeRotatingTokens(Task.CompletedTask);

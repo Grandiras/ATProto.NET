@@ -34,7 +34,10 @@ namespace ATProtoNet.Auth;
 /// the account's lock among every client sharing the store, and starts by reading the store: a
 /// session another client has refreshed meanwhile is taken up instead of being exchanged again,
 /// and one the store no longer holds was signed out. The result is stored before the lock is
-/// released, so the next client reads it.</para>
+/// released, so the next client reads it. Every other store change (a session installed, its
+/// account details updated, an expired one forgotten, a sign-out) takes the same lock, so none
+/// interleaves with a refresh: a sign-out waits for a refresh under way and then removes its
+/// result too, instead of the refresh writing the session back afterwards.</para>
 /// </remarks>
 internal sealed class SessionManager : IXrpcSessionHandler
 {
@@ -167,8 +170,13 @@ internal sealed class SessionManager : IXrpcSessionHandler
                 // session still in flight fails instead of signing with it (see XrpcClient).
                 previous?.DPoP?.Dispose();
 
+                // Under the account's lease, so a refresh of the account's previous session by
+                // another client cannot write its result over this one afterwards.
                 if (persist)
-                    await PersistAsync(session);
+                {
+                    await using (await AcquireStoreLeaseAsync(session.Did))
+                        await PersistAsync(session);
+                }
 
                 change = new AtProtoSessionChangedEventArgs(AtProtoSessionChange.Created, session, previous?.Session);
             }
@@ -221,7 +229,19 @@ internal sealed class SessionManager : IXrpcSessionHandler
                 {
                     // Same credentials instance, so the session's generation does not change.
                     Publish(state with { Session = updated }, serviceUrl: null);
-                    await PersistAsync(updated);
+
+                    // The store is written only while it still holds these tokens: another client
+                    // may have refreshed the session, or signed it out, since this one read it, and
+                    // new account details are not worth undoing either.
+                    await using (await AcquireStoreLeaseAsync(updated.Did))
+                    {
+                        if (_coordinator is null ||
+                            await ReadStoredQuietlyAsync(updated.Did) is { } stored && SameGeneration(stored, password))
+                        {
+                            await PersistAsync(updated);
+                        }
+                    }
+
                     change = new AtProtoSessionChangedEventArgs(AtProtoSessionChange.Refreshed, updated, password);
                     current = updated;
                 }
@@ -250,7 +270,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
         try
         {
             if (_state is { } state && SameSession(state.Credentials, installed))
-                change = await ExpireLockedAsync(state, error);
+                change = await ExpireLockedAsync(state, error, leaseHeld: false);
         }
         finally
         {
@@ -426,7 +446,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
                         "The session was signed out: the session store no longer holds it.",
                         HttpStatusCode.Unauthorized,
                         nsid: null);
-                    change = await ExpireLockedAsync(state, signedOut);
+                    change = await ExpireLockedAsync(state, signedOut, leaseHeld: true);
                     throw signedOut;
                 }
 
@@ -446,7 +466,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
                 }
                 catch (Exception ex) when (IsSessionEnded(ex))
                 {
-                    change = await ExpireLockedAsync(state, ex);
+                    change = await ExpireLockedAsync(state, ex, leaseHeld: lease is not null);
                     throw;
                 }
                 catch (OperationCanceledException ex) when (deadline.IsCancellationRequested)
@@ -508,6 +528,72 @@ internal sealed class SessionManager : IXrpcSessionHandler
             throw new TimeoutException(
                 $"Another client did not finish refreshing the session within {RefreshTimeout.TotalSeconds:0} s.", ex);
         }
+    }
+
+    /// <summary>
+    /// Waits for the account's lease before the store is changed outside a refresh (a session
+    /// installed, updated, expired or signed out), so the change and another client's refresh do
+    /// not interleave: a refresh under way stores its result first. Returns at once without a
+    /// coordinator.
+    /// </summary>
+    /// <remarks>
+    /// Not cancelled, since the store change it guards completes regardless. After the refresh
+    /// time limit the change goes ahead without the lease, as it would with no coordinator.
+    /// </remarks>
+    private async Task<IAsyncDisposable> AcquireStoreLeaseAsync(Did did)
+    {
+        if (_coordinator is null)
+            return NoLease.Instance;
+
+        using var deadline = new CancellationTokenSource(RefreshTimeout, _time);
+        try
+        {
+            return await _coordinator.AcquireAsync(did, deadline.Token);
+        }
+        catch (OperationCanceledException) when (deadline.IsCancellationRequested)
+        {
+            _logger.LogWarning(
+                "Another client held the session of {Did} for {Seconds:0} s; changing the store without waiting further",
+                did, RefreshTimeout.TotalSeconds);
+            return NoLease.Instance;
+        }
+    }
+
+    /// <summary>Reads the account's session from the store, or <see langword="null"/> when that fails.</summary>
+    private async Task<AtProtoSession?> ReadStoredQuietlyAsync(Did did)
+    {
+        try
+        {
+            return await ReadStoredAsync(did);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not read the stored session of {Did}", did);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Whether <paramref name="stored"/> is a later copy of <paramref name="current"/> that another
+    /// client stored after refreshing it: the same account and kind, other tokens, and for an
+    /// OAuth session the same grant (its DPoP key).
+    /// </summary>
+    private static bool IsLaterCopy(AtProtoSession stored, AtProtoSession current) =>
+        stored.Did == current.Did &&
+        !SameGeneration(stored, current) &&
+        (stored, current) switch
+        {
+            (OAuthSession later, OAuthSession earlier) => later.DPoPKey.Span.SequenceEqual(earlier.DPoPKey.Span),
+            (PasswordSession, PasswordSession) => true,
+            _ => false,
+        };
+
+    /// <summary>The lease without a coordinator: nothing to release.</summary>
+    private sealed class NoLease : IAsyncDisposable
+    {
+        public static readonly NoLease Instance = new();
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     /// <summary>Reads the account's session from the store, within the refresh time limit.</summary>
@@ -642,13 +728,25 @@ internal sealed class SessionManager : IXrpcSessionHandler
     /// Drops a session the service no longer accepts, with the transition lock held: from the
     /// client, and from the store if the store still holds this copy.
     /// </summary>
-    private async Task<AtProtoSessionChangedEventArgs> ExpireLockedAsync(State state, Exception error)
+    /// <param name="state">The session to drop.</param>
+    /// <param name="error">Why it is dropped.</param>
+    /// <param name="leaseHeld">Whether the caller holds the account's refresh lease already.</param>
+    private async Task<AtProtoSessionChangedEventArgs> ExpireLockedAsync(State state, Exception error, bool leaseHeld)
     {
         _logger.LogWarning(error, "The session of {Did} is no longer accepted and has expired", state.Session.Did);
 
         Publish(null, serviceUrl: null);
         state.DPoP?.Dispose();
-        await ForgetAsync(state.Session);
+
+        if (leaseHeld)
+        {
+            await ForgetAsync(state.Session);
+        }
+        else
+        {
+            await using (await AcquireStoreLeaseAsync(state.Session.Did))
+                await ForgetAsync(state.Session);
+        }
 
         return new AtProtoSessionChangedEventArgs(AtProtoSessionChange.Expired, null, state.Session, error);
     }
@@ -679,11 +777,26 @@ internal sealed class SessionManager : IXrpcSessionHandler
             // cancelled with the call, so the credentials do not outlive the sign-out.
             Publish(null, serviceUrl: null);
 
+            // What is revoked: this client's session, or the later copy of it another client
+            // stored after refreshing it, whose tokens are the live ones.
+            var revoked = state;
             if (_store is not null)
             {
                 try
                 {
-                    await _store.RemoveAsync(state.Session.Did, CancellationToken.None);
+                    // Under the account's lease: a refresh by another client finishes and stores
+                    // its result first, and is then removed with the rest, instead of writing the
+                    // session back once it has been signed out.
+                    await using (await AcquireStoreLeaseAsync(state.Session.Did))
+                    {
+                        if (_coordinator is not null && await ReadStoredQuietlyAsync(state.Session.Did) is { } stored &&
+                            IsLaterCopy(stored, state.Session))
+                        {
+                            revoked = state with { Session = stored };
+                        }
+
+                        await _store.RemoveAsync(state.Session.Did, CancellationToken.None);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -694,7 +807,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
 
             try
             {
-                await RevokeAsync(state, cancellationToken);
+                await RevokeAsync(revoked, cancellationToken);
             }
             catch (Exception ex)
             {
