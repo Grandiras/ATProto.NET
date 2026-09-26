@@ -25,7 +25,8 @@ public class SimpleSpaceManagingAppClientTests
 
     private readonly RecordingHandler _handler = new();
 
-    private SimpleSpaceManagingAppClient CreateClient(string endpoint = "https://app.example.com")
+    private SimpleSpaceManagingAppClient CreateClient(
+        string endpoint = "https://app.example.com", ISpaceAccountSigner? accountSigner = null, Did? serviceDid = null)
     {
         var resolver = new FakeDidDocumentResolver().Publish(AppDid, new DidDocument
         {
@@ -38,8 +39,9 @@ public class SimpleSpaceManagingAppClientTests
 
         return new SimpleSpaceManagingAppClient(
             resolver,
-            new ServiceAuthGenerator(AuthorityDid, AtProtoCrypto.GenerateP256Key()),
-            new HttpClient(_handler));
+            new ServiceAuthGenerator(serviceDid ?? AuthorityDid, AtProtoCrypto.GenerateP256Key()),
+            new HttpClient(_handler),
+            accountSigner);
     }
 
     [Fact]
@@ -94,6 +96,49 @@ public class SimpleSpaceManagingAppClientTests
         Assert.Equal(ManagingApp, claims.GetProperty("aud").GetString());
         Assert.Equal(AuthorityDid, claims.GetProperty("iss").GetString());
         Assert.Equal(SpaceNsids.CheckUserAccess, claims.GetProperty("lxm").GetString());
+    }
+
+    [Fact]
+    public async Task CheckUserAccessAsync_OnAHostServingTheAuthoritysAccount_SignsAsTheAuthority()
+    {
+        // A managing app answers checkUserAccess only for the space's authority. A multi-account
+        // host whose service DID is not the authority signs with the authority's own key.
+        using var authorityKey = AtProtoCrypto.GenerateP256Key();
+        var signer = new TestAccountSigner().Add(AuthorityDid, authorityKey);
+        var client = CreateClient(accountSigner: signer, serviceDid: Did.Parse("did:web:pds.example.com"));
+
+        await client.CheckUserAccessAsync(ManagingApp, Space, UserDid, SpaceAccessKind.Read, null);
+
+        var claims = DecodePayload(_handler.LastRequest!.Headers.Authorization!.Parameter!);
+        Assert.Equal(AuthorityDid, claims.GetProperty("iss").GetString());
+        Assert.Equal([AuthorityDid], signer.Requests);
+    }
+
+    [Fact]
+    public async Task CheckUserAccessAsync_WithoutTheAuthoritysKey_SignsAsTheService()
+    {
+        var serviceDid = Did.Parse("did:web:pds.example.com");
+        var client = CreateClient(accountSigner: new TestAccountSigner(), serviceDid: serviceDid);
+
+        await client.CheckUserAccessAsync(ManagingApp, Space, UserDid, SpaceAccessKind.Read, null);
+
+        var claims = DecodePayload(_handler.LastRequest!.Headers.Authorization!.Parameter!);
+        Assert.Equal(serviceDid, claims.GetProperty("iss").GetString());
+    }
+
+    [Fact]
+    public async Task CheckUserAccessAsync_WhenTheServiceIsTheAuthority_StillAsksTheSigner()
+    {
+        // An authority signing credentials with a dedicated #atproto_space key needs the signer to
+        // supply its #atproto key for its own DID; the service generator holds the wrong one.
+        using var accountKey = AtProtoCrypto.GenerateP256Key();
+        var signer = new TestAccountSigner().Add(AuthorityDid, accountKey);
+
+        await CreateClient(accountSigner: signer).CheckUserAccessAsync(ManagingApp, Space, UserDid, SpaceAccessKind.Read, null);
+
+        Assert.Equal([AuthorityDid], signer.Requests);
+        var parts = _handler.LastRequest!.Headers.Authorization!.Parameter!.Split('.');
+        Assert.True(accountKey.Verify(Encoding.ASCII.GetBytes($"{parts[0]}.{parts[1]}"), TestJws.Decode(parts[2])));
     }
 
     [Fact]

@@ -27,9 +27,7 @@ public sealed class DPoPProof
         string tokenId,
         string method,
         string uri,
-        DateTimeOffset issuedAt,
-        string? accessTokenHash,
-        string? nonce)
+        DateTimeOffset issuedAt)
     {
         Raw = raw;
         Algorithm = algorithm;
@@ -38,14 +36,12 @@ public sealed class DPoPProof
         Method = method;
         Uri = uri;
         IssuedAt = issuedAt;
-        AccessTokenHash = accessTokenHash;
-        Nonce = nonce;
     }
 
     /// <summary>The proof as it arrived on the <c>DPoP</c> header.</summary>
     public string Raw { get; }
 
-    /// <summary>The JWS <c>alg</c>: <c>ES256</c> or <c>ES256K</c>.</summary>
+    /// <summary>The JWS <c>alg</c>. Always <c>ES256</c>, the only algorithm a space DPoP proof may use.</summary>
     public string Algorithm { get; }
 
     /// <summary>
@@ -65,12 +61,6 @@ public sealed class DPoPProof
 
     /// <summary>The <c>iat</c>.</summary>
     public DateTimeOffset IssuedAt { get; }
-
-    /// <summary>The <c>ath</c>, the hash of the credential this proof accompanies. Absent on the credential exchange.</summary>
-    public string? AccessTokenHash { get; }
-
-    /// <summary>The server-supplied <c>nonce</c>, when the proof carries one.</summary>
-    public string? Nonce { get; }
 }
 
 /// <summary>
@@ -97,11 +87,20 @@ public sealed class DPoPProof
 /// <item><description>the <c>jti</c> has not been seen, so it cannot be used twice inside that
 /// window.</description></item>
 /// </list>
+/// <para>Proposal 0016 narrows RFC 9449 in two ways, and both are enforced as the reference
+/// implementation enforces them. The proof is signed with <c>ES256</c> and nothing else. And the
+/// proof on the credential exchange carries <em>no</em> <c>ath</c>: the delegation token it
+/// travels with is a single-use grant rather than an access token, so an <c>ath</c> there binds
+/// the proof to something it has no business naming. Server-provided nonces are not used; a
+/// <c>nonce</c> claim is ignored.</para>
 /// </remarks>
 public sealed class DPoPProofValidator
 {
     /// <summary>The <c>typ</c> header every DPoP proof carries.</summary>
     public const string ProofType = DPoP.TokenType;
+
+    /// <summary>The one JWS algorithm a space DPoP proof may be signed with.</summary>
+    public const string ProofAlgorithm = "ES256";
 
     private readonly IJtiReplayStore _replayStore;
     private readonly SpaceServerOptions _options;
@@ -143,17 +142,36 @@ public sealed class DPoPProofValidator
     /// </param>
     /// <param name="accessToken">
     /// The credential presented on the request, whose hash <c>ath</c> must match, or
-    /// <see langword="null"/> when the request carries no credential.
+    /// <see langword="null"/> on the credential exchange, whose proof must carry no <c>ath</c>.
     /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="SpaceVerificationException">Thrown when any check fails.</exception>
-    public async Task<DPoPProof> ValidateAsync(
+    public Task<DPoPProof> ValidateAsync(
         string proofJwt,
         string httpMethod,
         string requestUri,
         string? boundThumbprint = null,
         string? accessToken = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        ValidateWithHashAsync(
+            proofJwt,
+            httpMethod,
+            requestUri,
+            boundThumbprint,
+            accessToken is null ? null : DPoP.AccessTokenHash(accessToken),
+            cancellationToken);
+
+    /// <summary>
+    /// Verifies a proof, given the <c>ath</c> the credential it accompanies hashes to, for a
+    /// caller that already holds the hash.
+    /// </summary>
+    internal async Task<DPoPProof> ValidateWithHashAsync(
+        string proofJwt,
+        string httpMethod,
+        string requestUri,
+        string? boundThumbprint,
+        string? expectedAccessTokenHash,
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(httpMethod);
         ArgumentException.ThrowIfNullOrWhiteSpace(requestUri);
@@ -179,6 +197,8 @@ public sealed class DPoPProofValidator
 
         var algorithm = header.GetStringOrNull("alg")
             ?? throw Invalid("The DPoP proof is missing its \"alg\" header.");
+        if (!string.Equals(algorithm, ProofAlgorithm, StringComparison.Ordinal))
+            throw Invalid($"A DPoP proof must be signed with {ProofAlgorithm}, not '{algorithm}'.");
 
         if (!header.TryGetProperty("jwk", out var jwkElement) || jwkElement.ValueKind != JsonValueKind.Object)
             throw Invalid("The DPoP proof is missing its \"jwk\" header.");
@@ -210,7 +230,7 @@ public sealed class DPoPProofValidator
             throw Invalid("The DPoP proof is signed by a key the credential is not bound to.");
         }
 
-        if (!JsonWebKeyVerifier.Verify(jwk, algorithm, signingInput, signature, Invalid))
+        if (!JsonWebKeyVerifier.Verify(jwk, algorithm, signingInput, signature, Invalid, thumbprint))
             throw Invalid("The DPoP proof's signature does not verify against its embedded key.");
 
         var tokenId = payload.GetStringOrNull("jti")
@@ -251,16 +271,21 @@ public sealed class DPoPProofValidator
             throw Invalid("The DPoP proof has aged out.");
 
         var accessTokenHash = payload.GetStringOrNull("ath");
-        if (accessToken is not null)
+        if (expectedAccessTokenHash is not null)
         {
-            var expected = DPoP.AccessTokenHash(accessToken);
             if (accessTokenHash is null)
                 throw Invalid("The DPoP proof is missing the \"ath\" hash of the credential it accompanies.");
             if (!CryptographicOperations.FixedTimeEquals(
-                    Encoding.UTF8.GetBytes(accessTokenHash), Encoding.UTF8.GetBytes(expected)))
+                    Encoding.UTF8.GetBytes(accessTokenHash), Encoding.UTF8.GetBytes(expectedAccessTokenHash)))
             {
                 throw Invalid("The DPoP proof's \"ath\" names a different credential than the one presented.");
             }
+        }
+        else if (payload.TryGetProperty("ath", out _))
+        {
+            throw Invalid(
+                "The DPoP proof on a credential exchange must carry no \"ath\": the delegation token is a " +
+                "grant, not an access token.");
         }
 
         // Consumed last, and only once everything else has passed, so a forged proof cannot burn
@@ -268,9 +293,7 @@ public sealed class DPoPProofValidator
         if (!await _replayStore.TryConsumeAsync(thumbprint, tokenId, issuedAt + _options.ProofLifetime, cancellationToken))
             throw Invalid("The DPoP proof has already been used.");
 
-        return new DPoPProof(
-            proofJwt, algorithm, thumbprint, tokenId, method, uri, issuedAt,
-            accessTokenHash, payload.GetStringOrNull("nonce"));
+        return new DPoPProof(proofJwt, algorithm, thumbprint, tokenId, method, uri, issuedAt);
     }
 
     private static SpaceVerificationException Invalid(string message) =>

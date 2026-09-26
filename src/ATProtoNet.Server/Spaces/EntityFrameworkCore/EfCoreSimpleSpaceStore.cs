@@ -19,6 +19,8 @@ namespace ATProtoNet.Server.EntityFrameworkCore;
 /// losing one loses the space's access control, and the space keeps existing without it.</para>
 /// <para>The three policies are stored as the JSON of their Lexicon union variants, discriminator
 /// and all, so a variant added later needs no schema change.</para>
+/// <para>Changes to rows that exist are single <c>UPDATE</c> or <c>DELETE</c> statements with no
+/// read before them; only a new member takes the read-then-insert path.</para>
 /// <para>Register with
 /// <see cref="SpaceStoreExtensions.AddAtProtoEfCoreSimpleSpace{TContext}"/>.</para>
 /// </remarks>
@@ -113,21 +115,26 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
     {
         ArgumentNullException.ThrowIfNull(space);
 
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
-        var entity = await context.Set<SimpleSpaceEntity>().FindAsync([space.Uri.Value], cancellationToken);
+        var uri = space.Uri.Value;
+        var owner = space.Owner.Value;
+        var readPolicy = JsonSerializer.Serialize(space.ReadPolicy, _jsonOptions);
+        var writePolicy = JsonSerializer.Serialize(space.WritePolicy, _jsonOptions);
+        var appAccess = JsonSerializer.Serialize(space.AppAccess, _jsonOptions);
+        var deleted = space.Deleted;
 
         // A space that is not there is left alone rather than created, matching the in-memory
         // store: an update reaches here only through an endpoint that already loaded it.
-        if (entity is null)
-            return;
-
-        entity.Owner = space.Owner.Value;
-        entity.ReadPolicy = JsonSerializer.Serialize(space.ReadPolicy, _jsonOptions);
-        entity.WritePolicy = JsonSerializer.Serialize(space.WritePolicy, _jsonOptions);
-        entity.AppAccess = JsonSerializer.Serialize(space.AppAccess, _jsonOptions);
-        entity.Deleted = space.Deleted;
-
-        await context.SaveChangesAsync(cancellationToken);
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        await context.Set<SimpleSpaceEntity>()
+            .Where(e => e.Space == uri)
+            .ExecuteUpdateAsync(
+                set => set
+                    .SetProperty(e => e.Owner, owner)
+                    .SetProperty(e => e.ReadPolicy, readPolicy)
+                    .SetProperty(e => e.WritePolicy, writePolicy)
+                    .SetProperty(e => e.AppAccess, appAccess)
+                    .SetProperty(e => e.Deleted, deleted),
+                cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -135,16 +142,14 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
     {
         ArgumentNullException.ThrowIfNull(space);
 
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
-        var entity = await context.Set<SimpleSpaceEntity>().FindAsync([space.Value], cancellationToken);
+        var uri = space.Value;
 
         // Flagged rather than removed: a deleted space keeps answering SpaceDeleted, which is how
         // a syncer that missed the notification learns to drop its copy.
-        if (entity is null || entity.Deleted)
-            return;
-
-        entity.Deleted = true;
-        await context.SaveChangesAsync(cancellationToken);
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        await context.Set<SimpleSpaceEntity>()
+            .Where(e => e.Space == uri && !e.Deleted)
+            .ExecuteUpdateAsync(set => set.SetProperty(e => e.Deleted, true), cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -153,6 +158,19 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
     {
         ArgumentNullException.ThrowIfNull(space);
         ArgumentNullException.ThrowIfNull(did);
+
+        // Changing an existing member's flags, the common case, is one statement.
+        var spaceValue = space.Value;
+        var member = did.Value;
+        await using (var context = await _contextFactory.CreateDbContextAsync(cancellationToken))
+        {
+            var updated = await context.Set<SimpleSpaceMemberEntity>()
+                .Where(e => e.Space == spaceValue && e.Did == member)
+                .ExecuteUpdateAsync(set => set.SetProperty(e => e.Read, read).SetProperty(e => e.Write, write), cancellationToken);
+
+            if (updated > 0)
+                return;
+        }
 
         if (await TryPutMemberAsync(space, did.Value, read, write, cancellationToken))
             return;
@@ -207,15 +225,13 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
         ArgumentNullException.ThrowIfNull(space);
         ArgumentNullException.ThrowIfNull(did);
 
+        var spaceValue = space.Value;
+        var member = did.Value;
+
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
-        var members = context.Set<SimpleSpaceMemberEntity>();
-        var entity = await members.FindAsync([space.Value, did.Value], cancellationToken);
-
-        if (entity is null)
-            return;
-
-        members.Remove(entity);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.Set<SimpleSpaceMemberEntity>()
+            .Where(e => e.Space == spaceValue && e.Did == member)
+            .ExecuteDeleteAsync(cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -257,14 +273,9 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
             .Take(limit + 1)
             .ToListAsync(cancellationToken);
 
-        var hasMore = page.Count > limit;
-        var members = page.Take(limit).Select(ToMember).ToList();
+        var (members, next) = SpacePaging.Page(page, limit, ToMember, member => member.Did.Value);
 
-        return new ListSimpleSpaceMembersResponse
-        {
-            Members = members,
-            Cursor = hasMore && members.Count > 0 ? members[^1].Did.Value : null,
-        };
+        return new ListSimpleSpaceMembersResponse { Members = members, Cursor = next };
     }
 
     private SimpleSpaceRecord ToRecord(SimpleSpaceEntity entity)

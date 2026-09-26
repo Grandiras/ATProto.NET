@@ -58,8 +58,9 @@ public interface IJtiReplayStore
 /// An in-process <see cref="IJtiReplayStore"/>, suitable for a single-instance service.
 /// </summary>
 /// <remarks>
-/// Expired entries are swept opportunistically as new ones arrive, so the store's size tracks
-/// the number of tokens in flight rather than the number ever seen. It holds no state across a
+/// Expired entries are swept at most once a minute, in the background, triggered by whichever
+/// consumption finds a sweep due — so the store's size tracks the number of tokens in flight
+/// rather than the number ever seen, and no request waits on a scan. It holds no state across a
 /// restart: a token accepted before one can be replayed after it, within its own (short)
 /// lifetime. Use a shared store where that matters, or where more than one instance serves the
 /// same DID — <c>AddAtProtoEfCoreJtiReplayStore&lt;TContext&gt;()</c>, or your own.
@@ -71,6 +72,7 @@ public sealed class InMemoryJtiReplayStore : IJtiReplayStore
     private readonly ConcurrentDictionary<string, DateTimeOffset> _consumed = new(StringComparer.Ordinal);
     private readonly TimeProvider _timeProvider;
     private long _sweepDue;
+    private Task _sweep = Task.CompletedTask;
 
     /// <summary>Creates a store using the system clock.</summary>
     public InMemoryJtiReplayStore() : this(TimeProvider.System)
@@ -89,6 +91,9 @@ public sealed class InMemoryJtiReplayStore : IJtiReplayStore
 
     /// <summary>The number of identifiers currently held, for diagnostics and tests.</summary>
     public int Count => _consumed.Count;
+
+    /// <summary>The most recent background sweep, for tests to wait on.</summary>
+    internal Task LastSweep => Volatile.Read(ref _sweep);
 
     /// <inheritdoc/>
     public ValueTask<bool> TryConsumeAsync(
@@ -114,10 +119,15 @@ public sealed class InMemoryJtiReplayStore : IJtiReplayStore
         if (Interlocked.CompareExchange(ref _sweepDue, next, due) != due)
             return;
 
-        foreach (var (key, expiry) in _consumed)
+        // A scan of every entry has no place on the request that happened to find it due. The
+        // dictionary tolerates the concurrent consumptions the scan runs alongside.
+        Volatile.Write(ref _sweep, Task.Run(() =>
         {
-            if (expiry <= now)
-                _consumed.TryRemove(key, out _);
-        }
+            foreach (var (key, expiry) in _consumed)
+            {
+                if (expiry <= now)
+                    _consumed.TryRemove(key, out _);
+            }
+        }));
     }
 }

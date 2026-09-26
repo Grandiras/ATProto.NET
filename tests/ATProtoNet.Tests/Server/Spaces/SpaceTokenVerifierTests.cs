@@ -314,7 +314,6 @@ public class SpaceCredentialVerifierTests
             credential, dpop.Proof("GET", Url, accessToken: credential), "GET", Url, space);
 
         Assert.Equal(space, verified.Space);
-        Assert.Equal(AuthorityDid, verified.AuthorityDid);
         Assert.Equal(dpop.Thumbprint, verified.Proof.KeyThumbprint);
     }
 

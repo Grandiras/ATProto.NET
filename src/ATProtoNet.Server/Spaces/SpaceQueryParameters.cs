@@ -17,7 +17,7 @@ namespace ATProtoNet.Server.Spaces;
 /// DID, an NSID, a record key, a TID or a CID is answered with <c>InvalidRequest</c> before the
 /// endpoint runs. A missing one binds as <see langword="null"/> and is refused by the endpoint.</para>
 /// </remarks>
-public abstract class SpaceRepoParameters
+internal abstract class SpaceRepoParameters
 {
     /// <summary>The space, as an <c>at://{authority}/space/{type}/{skey}</c> URI.</summary>
     [JsonPropertyName("space")]
@@ -29,7 +29,7 @@ public abstract class SpaceRepoParameters
 }
 
 /// <summary>Query parameters for <c>com.atproto.space.listRepos</c>.</summary>
-public sealed class ListSpaceReposParameters
+internal sealed class ListSpaceReposParameters
 {
     /// <summary>The space whose writer set is being listed.</summary>
     [JsonPropertyName("space")]
@@ -45,7 +45,7 @@ public sealed class ListSpaceReposParameters
 }
 
 /// <summary>Query parameters for <c>com.atproto.space.getRecord</c>.</summary>
-public sealed class GetSpaceRecordParameters : SpaceRepoParameters
+internal sealed class GetSpaceRecordParameters : SpaceRepoParameters
 {
     /// <summary>The record collection NSID.</summary>
     [JsonPropertyName("collection")]
@@ -57,7 +57,7 @@ public sealed class GetSpaceRecordParameters : SpaceRepoParameters
 }
 
 /// <summary>Query parameters for <c>com.atproto.space.listRecords</c>.</summary>
-public sealed class ListSpaceRecordsParameters : SpaceRepoParameters
+internal sealed class ListSpaceRecordsParameters : SpaceRepoParameters
 {
     /// <summary>Restrict to one collection. Lists across all collections when omitted.</summary>
     [JsonPropertyName("collection")]
@@ -83,10 +83,10 @@ public sealed class ListSpaceRecordsParameters : SpaceRepoParameters
 }
 
 /// <summary>Query parameters for <c>com.atproto.space.getLatestCommit</c>.</summary>
-public sealed class GetSpaceLatestCommitParameters : SpaceRepoParameters;
+internal sealed class GetSpaceLatestCommitParameters : SpaceRepoParameters;
 
 /// <summary>Query parameters for <c>com.atproto.space.getRepo</c>.</summary>
-public sealed class GetSpaceRepoParameters : SpaceRepoParameters
+internal sealed class GetSpaceRepoParameters : SpaceRepoParameters
 {
     /// <summary>Return only the commit and index roots, with no record blocks.</summary>
     [JsonPropertyName("excludeValues")]
@@ -95,7 +95,7 @@ public sealed class GetSpaceRepoParameters : SpaceRepoParameters
 }
 
 /// <summary>Query parameters for <c>com.atproto.space.listRepoOps</c>.</summary>
-public sealed class ListSpaceRepoOpsParameters : SpaceRepoParameters
+internal sealed class ListSpaceRepoOpsParameters : SpaceRepoParameters
 {
     /// <summary>Return operations after this revision — the caller's own sync position.</summary>
     [JsonPropertyName("since")]
@@ -116,7 +116,7 @@ public sealed class ListSpaceRepoOpsParameters : SpaceRepoParameters
 }
 
 /// <summary>Query parameters for <c>com.atproto.space.getBlob</c>.</summary>
-public sealed class GetSpaceBlobParameters : SpaceRepoParameters
+internal sealed class GetSpaceBlobParameters : SpaceRepoParameters
 {
     /// <summary>The blob's CID.</summary>
     [JsonPropertyName("cid")]
@@ -124,7 +124,7 @@ public sealed class GetSpaceBlobParameters : SpaceRepoParameters
 }
 
 /// <summary>Query parameters for <c>com.atproto.space.listBlobs</c>.</summary>
-public sealed class ListSpaceBlobsParameters : SpaceRepoParameters
+internal sealed class ListSpaceBlobsParameters : SpaceRepoParameters
 {
     /// <summary>List blobs referenced since this revision of the permissioned repo.</summary>
     [JsonPropertyName("since")]
@@ -140,7 +140,7 @@ public sealed class ListSpaceBlobsParameters : SpaceRepoParameters
 }
 
 /// <summary>Query parameters for <c>com.atproto.simplespace.getSpace</c>.</summary>
-public sealed class GetSimpleSpaceParameters
+internal sealed class GetSimpleSpaceParameters
 {
     /// <summary>The space.</summary>
     [JsonPropertyName("space")]
@@ -148,7 +148,7 @@ public sealed class GetSimpleSpaceParameters
 }
 
 /// <summary>Query parameters for <c>com.atproto.simplespace.listMembers</c>.</summary>
-public sealed class ListSimpleSpaceMembersParameters
+internal sealed class ListSimpleSpaceMembersParameters
 {
     /// <summary>The space.</summary>
     [JsonPropertyName("space")]

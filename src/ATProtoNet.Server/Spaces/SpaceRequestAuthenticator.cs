@@ -21,9 +21,6 @@ namespace ATProtoNet.Server.Spaces;
 public sealed record SpaceCredentialRequestAuth(
     VerifiedDelegationToken Delegation, DPoPProof Proof, VerifiedClientAttestation? Attestation)
 {
-    /// <summary>The space the credential is being requested for.</summary>
-    public SpaceUri Space => Delegation.Space;
-
     /// <summary>The user the requesting application is acting for.</summary>
     public Did UserDid => Delegation.UserDid;
 
@@ -186,11 +183,8 @@ public sealed class SpaceRequestAuthenticator
     /// The URL a DPoP proof presented on this request must name, honouring
     /// <see cref="SpaceServerOptions.PublicBaseUrl"/>.
     /// </summary>
-    /// <param name="context">The HTTP context.</param>
-    public string BuildRequestUri(HttpContext context)
+    private string BuildRequestUri(HttpContext context)
     {
-        ArgumentNullException.ThrowIfNull(context);
-
         var request = context.Request;
         return _options.BuildRequestUri(
             request.Scheme, request.Host.Value ?? string.Empty, request.PathBase + request.Path);

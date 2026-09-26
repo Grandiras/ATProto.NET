@@ -39,6 +39,11 @@ public sealed class InMemorySpaceAuthorityStore : ISpaceAuthorityStore
 
     /// <summary>Marks a space deleted, so it answers <see cref="SpaceErrors.SpaceDeleted"/>.</summary>
     /// <param name="space">The space.</param>
+    /// <remarks>
+    /// The counterpart of <see cref="DeclareSpace"/> for a bespoke space type. A space deleted
+    /// through <c>com.atproto.simplespace.deleteSpace</c> needs no call here: its deletion is read
+    /// from the <see cref="ISimpleSpaceStore"/>.
+    /// </remarks>
     public void MarkDeleted(SpaceUri space)
     {
         ArgumentNullException.ThrowIfNull(space);
@@ -66,24 +71,14 @@ public sealed class InMemorySpaceAuthorityStore : ISpaceAuthorityStore
         if (!_spaces.TryGetValue(space.Value, out var state))
             return Task.FromResult(new ListSpaceReposResponse { Repos = [] });
 
-        // Ordered by DID so the cursor is a stable position rather than an index into a set that
-        // reorders as writes arrive.
-        var page = state.Writers
-            .OrderBy(entry => entry.Key.Value, StringComparer.Ordinal)
-            .Where(entry => cursor is null || string.CompareOrdinal(entry.Key.Value, cursor) > 0)
-            .Take(limit + 1)
-            .ToList();
+        var rows = SpacePaging.After(state.Writers, entry => entry.Key.Value, cursor, limit);
+        var (repos, next) = SpacePaging.Page(
+            rows,
+            limit,
+            entry => new SpaceRepoView { Did = entry.Key, Rev = entry.Value.Rev, Hash = entry.Value.Hash },
+            repo => repo.Did.Value);
 
-        var hasMore = page.Count > limit;
-        var repos = page.Take(limit)
-            .Select(entry => new SpaceRepoView { Did = entry.Key, Rev = entry.Value.Rev, Hash = entry.Value.Hash })
-            .ToList();
-
-        return Task.FromResult(new ListSpaceReposResponse
-        {
-            Repos = repos,
-            Cursor = hasMore && repos.Count > 0 ? repos[^1].Did.Value : null,
-        });
+        return Task.FromResult(new ListSpaceReposResponse { Repos = repos, Cursor = next });
     }
 
     /// <inheritdoc/>
@@ -259,20 +254,11 @@ public sealed class InMemorySimpleSpaceStore : ISimpleSpaceStore
         if (!_spaces.TryGetValue(space.Value, out var entry))
             return Task.FromResult(new ListSimpleSpaceMembersResponse { Members = [] });
 
-        var page = entry.Members
-            .OrderBy(member => member.Key.Value, StringComparer.Ordinal)
-            .Where(member => cursor is null || string.CompareOrdinal(member.Key.Value, cursor) > 0)
-            .Take(limit + 1)
-            .ToList();
+        var rows = SpacePaging.After(entry.Members, member => member.Key.Value, cursor, limit);
+        var (members, next) = SpacePaging.Page(
+            rows, limit, member => ToMember(member.Key, member.Value), member => member.Did.Value);
 
-        var hasMore = page.Count > limit;
-        var members = page.Take(limit).Select(member => ToMember(member.Key, member.Value)).ToList();
-
-        return Task.FromResult(new ListSimpleSpaceMembersResponse
-        {
-            Members = members,
-            Cursor = hasMore && members.Count > 0 ? members[^1].Did.Value : null,
-        });
+        return Task.FromResult(new ListSimpleSpaceMembersResponse { Members = members, Cursor = next });
     }
 
     private static SimpleSpaceMember ToMember(Did did, MemberAccess access) =>

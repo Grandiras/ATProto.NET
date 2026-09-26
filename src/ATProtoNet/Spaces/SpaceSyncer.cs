@@ -182,6 +182,31 @@ public sealed class SpaceSyncer
     }
 
     /// <summary>
+    /// The largest full repo download <see cref="RecoverAsync"/> accepts, in bytes. Defaults to
+    /// 256 MiB.
+    /// </summary>
+    /// <remarks>
+    /// A download is held in memory whole, because it is verified — commit, index and every
+    /// record — before any of it replaces the local copy. A host that declares a longer body is
+    /// refused before it is read, and one that sends more than it declared, or declares nothing,
+    /// is cut off at this size. Either way the recovery throws
+    /// <see cref="SpaceRepoVerificationException"/> and the local copy is left as it was.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not positive, or exceeds <see cref="Array.MaxLength"/>.</exception>
+    public long MaxRepoSize
+    {
+        get => _maxRepoSize;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(value, Array.MaxLength);
+            _maxRepoSize = value;
+        }
+    }
+
+    private long _maxRepoSize = 256L * 1024 * 1024;
+
+    /// <summary>
     /// Advances one repo as far as it can, recovering in full if the operation log cannot carry
     /// the copy forward.
     /// </summary>
@@ -310,15 +335,26 @@ public sealed class SpaceSyncer
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(cursor);
 
-        byte[] car;
+        ReadOnlyMemory<byte> car;
         try
         {
             await using var response = await client.GetRepoAsync(
                 _space, cursor.Repo, excludeValues: null, cancellationToken);
 
-            using var buffer = new MemoryStream();
-            await response.Content.CopyToAsync(buffer, cancellationToken);
-            car = buffer.ToArray();
+            var limit = _maxRepoSize;
+            if (response.ContentLength > limit)
+            {
+                throw new SpaceRepoVerificationException(
+                    $"The repo download declares {response.ContentLength} bytes, over the {limit}-byte limit (MaxRepoSize).");
+            }
+
+            // Sized from the declared length up front, and verified from the stream's own buffer
+            // rather than a copy of it. The declared length is only a hint from the host, so it
+            // sizes the first allocation up to a cap and the buffer grows past that as data comes,
+            // up to the limit whatever was declared.
+            var buffer = new MemoryStream(InitialCapacity(response.ContentLength));
+            await CopyBoundedAsync(response.Content, buffer, limit, cancellationToken);
+            car = buffer.GetBuffer().AsMemory(0, (int)buffer.Length);
         }
         catch (XrpcException ex) when (IsMissingRepo(ex))
         {
@@ -328,13 +364,52 @@ public sealed class SpaceSyncer
         }
 
         var repo = await VerifyWithKeyRefreshAsync(
-            cursor.Repo, didKey => SpaceRepoCar.Verify(car, _space, cursor.Repo, didKey), cancellationToken);
+            cursor.Repo, didKey => SpaceRepoCar.Verify(car.Span, _space, cursor.Repo, didKey), cancellationToken);
 
         await _store.ReplaceAsync(_space, cursor.Repo, repo, cancellationToken);
         cursor.Reset(SpaceRepoCommit.FromIndex(repo.Index), repo.Commit.Rev);
 
         return new SpaceSyncResult(SpaceSyncOutcome.Recovered, repo.Commit.Rev, repo.Commit, [], repo);
     }
+
+    /// <summary>
+    /// Copies a download into <paramref name="destination"/>, refusing it once it passes
+    /// <paramref name="limit"/> bytes.
+    /// </summary>
+    private static async Task CopyBoundedAsync(
+        Stream source, MemoryStream destination, long limit, CancellationToken cancellationToken)
+    {
+        var chunk = System.Buffers.ArrayPool<byte>.Shared.Rent(81920);
+        try
+        {
+            int read;
+            while ((read = await source.ReadAsync(chunk, cancellationToken)) > 0)
+            {
+                if (destination.Length + read > limit)
+                {
+                    throw new SpaceRepoVerificationException(
+                        $"The repo download exceeds the {limit}-byte limit (MaxRepoSize).");
+                }
+
+                destination.Write(chunk, 0, read);
+            }
+        }
+        finally
+        {
+            System.Buffers.ArrayPool<byte>.Shared.Return(chunk);
+        }
+    }
+
+    /// <summary>
+    /// The first allocation for a repo download: its declared length, up to
+    /// <see cref="MaxInitialCapacity"/>, so a host cannot make a syncer allocate a large buffer
+    /// just by claiming a large body.
+    /// </summary>
+    internal static int InitialCapacity(long? contentLength) =>
+        contentLength is > 0 ? (int)Math.Min(contentLength.Value, MaxInitialCapacity) : 0;
+
+    /// <summary>The most a repo download's declared length may pre-allocate.</summary>
+    internal const int MaxInitialCapacity = 32 * 1024 * 1024;
 
     /// <summary>
     /// Runs a verification against the author's signing key, and once more against a refreshed
@@ -363,9 +438,24 @@ public sealed class SpaceSyncer
         }
     }
 
-    private static string SigningKey(Did author, DidDocument document) =>
-        SpaceAuthority.GetSigningKey(document)
-            ?? throw new SpaceRepoVerificationException($"'{author}' publishes no AT Protocol signing key.");
+    /// <summary>
+    /// The author's repo signing key: a space commit is signed with the account's own
+    /// <c>#atproto</c> key, like a public one. A <c>#atproto_space</c> entry is a space
+    /// <em>authority's</em> credential key and plays no part here.
+    /// </summary>
+    private static string SigningKey(Did author, DidDocument document)
+    {
+        try
+        {
+            return document.GetSigningKey()
+                ?? throw new SpaceRepoVerificationException($"'{author}' publishes no AT Protocol signing key.");
+        }
+        catch (FormatException ex)
+        {
+            throw new SpaceRepoVerificationException(
+                $"'{author}' publishes an AT Protocol signing key that is malformed: {ex.Message}", ex);
+        }
+    }
 
     /// <summary>
     /// Whether the host rejected the request itself — a <c>since</c> it cannot serve, a filter it

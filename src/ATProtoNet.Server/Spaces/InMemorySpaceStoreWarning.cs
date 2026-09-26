@@ -6,72 +6,31 @@ using Microsoft.Extensions.Logging;
 namespace ATProtoNet.Server.Spaces;
 
 /// <summary>
-/// Says once, at startup, which of the space server's stores are still the in-process defaults.
+/// Says once, at startup, when single-use tokens are tracked by the in-process default replay
+/// store.
 /// </summary>
 /// <remarks>
-/// <para>The defaults are deliberate — a single-instance service and a test host want them — but
-/// two of them are silently wrong in a deployment that grew a second replica or a restart
-/// policy, and nothing else would ever say so. A replay store that is per-process means a
-/// captured delegation token is caught only by the instance that saw the original; a member list
-/// held in memory is gone after a restart and is not republished by anything on the
-/// network.</para>
+/// <para>The default is deliberate — a single-instance service and a test host want it — but it
+/// is silently wrong in a deployment that grew a second replica or a restart policy, and nothing
+/// else would ever say so: a captured delegation token is caught only by the instance that saw
+/// the original, and the symptom is an accepted replay rather than an error.</para>
 /// <para>Set <see cref="SpaceServerOptions.WarnOnInMemoryStores"/> to <see langword="false"/> to
-/// silence it where the defaults are the intended choice.</para>
+/// silence it where the default is the intended choice.</para>
 /// </remarks>
-internal sealed class InMemorySpaceStoreWarning : IHostedService
+internal sealed class InMemorySpaceStoreWarning(
+    IServiceProvider services, SpaceServerOptions options, ILogger<InMemorySpaceStoreWarning> logger)
+    : IHostedService
 {
-    private readonly IServiceProvider _services;
-    private readonly SpaceServerOptions _options;
-    private readonly ILogger<InMemorySpaceStoreWarning> _logger;
-
-    public InMemorySpaceStoreWarning(
-        IServiceProvider services, SpaceServerOptions options, ILogger<InMemorySpaceStoreWarning> logger)
-    {
-        _services = services;
-        _options = options;
-        _logger = logger;
-    }
-
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        if (!_options.WarnOnInMemoryStores)
-            return Task.CompletedTask;
-
-        if (_services.GetService<IJtiReplayStore>() is InMemoryJtiReplayStore)
+        if (options.WarnOnInMemoryStores && services.GetService<IJtiReplayStore>() is InMemoryJtiReplayStore)
         {
-            _logger.LogWarning(
+            logger.LogWarning(
                 "Space single-use tokens are tracked by {Store}, which is per-process: a delegation token, " +
                 "client attestation, DPoP proof or service auth token replayed against another instance is " +
                 "accepted, and one replayed after a restart is accepted too. Register a shared store " +
-                "(AddAtProtoEfCoreJtiReplayStore, AddAtProtoRedisSpaceReplayStore) if more than one instance " +
-                "answers for this DID.",
+                "(AddAtProtoEfCoreJtiReplayStore) if more than one instance answers for this DID.",
                 nameof(InMemoryJtiReplayStore));
-        }
-
-        if (_services.GetService<ISimpleSpaceStore>() is InMemorySimpleSpaceStore)
-        {
-            _logger.LogWarning(
-                "simplespace member lists are held by {Store} and are lost on restart. A member list is never " +
-                "published to the network, so nothing rebuilds it — the spaces survive without their access " +
-                "control. Register a durable store (AddAtProtoEfCoreSimpleSpace) for anything but development.",
-                nameof(InMemorySimpleSpaceStore));
-        }
-
-        // The writer set is only what the authority claims, and the next notifyWrite from any
-        // repo host restores an entry, so this one is worth saying and not worth warning about.
-        // Unwrapped first: alongside simplespace the registered store is the bridge, and what
-        // holds the writer set is the store inside it.
-        var authorityStore = _services.GetService<ISpaceAuthorityStore>();
-        if (authorityStore is SimpleSpaceAuthorityStore bridge)
-            authorityStore = bridge.Inner;
-
-        if (authorityStore is InMemorySpaceAuthorityStore)
-        {
-            _logger.LogInformation(
-                "Space writer sets are held by {Store} and start empty after a restart, until each repo host's " +
-                "next notifyWrite restores its entry. Register a durable store " +
-                "(AddAtProtoEfCoreSpaceAuthority) to keep syncers from seeing an empty space in the meantime.",
-                nameof(InMemorySpaceAuthorityStore));
         }
 
         return Task.CompletedTask;

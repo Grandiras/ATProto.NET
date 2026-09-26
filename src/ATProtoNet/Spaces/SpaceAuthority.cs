@@ -14,6 +14,12 @@ namespace ATProtoNet.Spaces;
 /// space authority with no DID-document change at all. That is what makes personal-data spaces
 /// (bookmarks, drafts, mutes) work on any PDS. An authority MAY publish the dedicated entries
 /// to point at distinct key material or a distinct host.</para>
+/// <para>Only an <em>absent</em> entry falls back. Proposal 0016 makes an entry that is published
+/// but malformed an error: a <c>#atproto_space</c> key of a type this SDK does not read or with
+/// no usable key material, or a <c>#atproto_space_host</c> service that is not of type
+/// <c>AtprotoSpaceHost</c> or whose endpoint is not an absolute <c>https</c> URL. Quietly using
+/// the <c>#atproto</c> entries instead would verify against, or deliver to, something the
+/// authority never named.</para>
 /// </remarks>
 public static class SpaceAuthority
 {
@@ -48,7 +54,11 @@ public static class SpaceAuthority
     /// </summary>
     /// <param name="didDocument">The authority's DID document.</param>
     /// <returns>The signing key as a <c>did:key</c> string, or <see langword="null"/> when neither entry exists.</returns>
-    /// <exception cref="FormatException">Thrown when a published entry's key material is malformed.</exception>
+    /// <exception cref="FormatException">
+    /// Thrown when a <c>#atproto_space</c> entry is published but unusable: a type this SDK does
+    /// not read, no key material, or key material that does not decode. The fallback applies only
+    /// to an absent entry. Also thrown when the <c>#atproto</c> key material is malformed.
+    /// </exception>
     /// <remarks>
     /// Both the <c>Multikey</c> and the legacy <c>Ecdsa...VerificationKey2019</c> verification
     /// method types are read — see <see cref="VerificationMethod.ToDidKey"/>.
@@ -57,8 +67,13 @@ public static class SpaceAuthority
     {
         ArgumentNullException.ThrowIfNull(didDocument);
 
-        return didDocument.GetVerificationKey(SigningKeyId)
-            ?? didDocument.GetSigningKey();
+        return didDocument.TryGetVerificationKey(SigningKeyId, out var key) switch
+        {
+            DidDocumentEntryStatus.Found => key,
+            DidDocumentEntryStatus.Absent => didDocument.GetSigningKey(),
+            _ => throw new FormatException(
+                $"'{didDocument.Id}' publishes a {SigningKeyId} verification method that is not a usable key."),
+        };
     }
 
     /// <summary>
@@ -67,15 +82,26 @@ public static class SpaceAuthority
     /// </summary>
     /// <param name="didDocument">The authority's DID document.</param>
     /// <returns>
-    /// The host URL, or <see langword="null"/> when neither entry exists with an absolute http(s)
-    /// endpoint.
+    /// The host URL, or <see langword="null"/> when no <c>#atproto_space_host</c> entry is
+    /// published and the PDS entry is absent or has no absolute http(s) endpoint.
     /// </returns>
+    /// <exception cref="FormatException">
+    /// Thrown when a <c>#atproto_space_host</c> entry is published but is not of type
+    /// <c>AtprotoSpaceHost</c> or its endpoint is not an absolute <c>https</c> URL. The fallback
+    /// applies only to an absent entry.
+    /// </exception>
     public static Uri? GetHostEndpoint(DidDocument didDocument)
     {
         ArgumentNullException.ThrowIfNull(didDocument);
 
-        return didDocument.GetServiceEndpoint(HostServiceId)
-            ?? didDocument.GetPdsEndpoint();
+        return didDocument.TryGetServiceEndpoint(HostServiceId, HostServiceType, out var endpoint) switch
+        {
+            DidDocumentEntryStatus.Found when endpoint!.Scheme == Uri.UriSchemeHttps => endpoint,
+            DidDocumentEntryStatus.Absent => didDocument.GetPdsEndpoint(),
+            _ => throw new FormatException(
+                $"'{didDocument.Id}' publishes a {HostServiceId} service that is not of type " +
+                $"{HostServiceType} with an absolute https endpoint."),
+        };
     }
 
     /// <summary>
@@ -90,6 +116,10 @@ public static class SpaceAuthority
     /// The endpoint URL, or <see langword="null"/> when the fragment is not published with an
     /// absolute http(s) endpoint.
     /// </returns>
+    /// <exception cref="FormatException">
+    /// Thrown when the space host is named and its <c>#atproto_space_host</c> entry is published
+    /// but malformed; see <see cref="GetHostEndpoint"/>.
+    /// </exception>
     /// <remarks>
     /// The space host is resolved the same way whether it is named or implied: through
     /// <see cref="GetHostEndpoint"/>, falling back to <c>#atproto_pds</c>. An authority on an

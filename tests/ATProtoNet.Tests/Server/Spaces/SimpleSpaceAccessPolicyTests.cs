@@ -295,6 +295,30 @@ public class SimpleSpaceAccessPolicyTests
         Assert.Equal(SpaceAccessOutcome.SpaceDeleted, (await CreatePolicy().EvaluateAsync(Write(Member))).Outcome);
     }
 
+    [Theory]
+    [InlineData("did:web:app.example.com")]
+    [InlineData("did:web:app.example.com#atproto_space_host")]
+    public async Task EvaluateAsync_ManagingAppWithAMalformedSpaceHostEntry_RefusesRatherThanThrowing(string managingApp)
+    {
+        // Proposal 0016 makes a malformed #atproto_space_host an error; reaching the managing app
+        // through one is an unreachable app, which is a refusal — not a 500.
+        var appDid = ATProtoNet.Identity.Did.Parse("did:web:app.example.com");
+        var resolver = new FakeDidDocumentResolver().Publish(appDid, new DidDocument
+        {
+            Id = appDid,
+            Service = [new DidDocumentService { Id = "#atproto_space_host", Type = "AtprotoSpaceHost", Endpoint = "http://app.example.com" }],
+        });
+        var client = new SimpleSpaceManagingAppClient(
+            resolver,
+            new ATProtoNet.Auth.ServiceAuthGenerator(Owner, ATProtoNet.Crypto.AtProtoCrypto.GenerateP256Key()),
+            new HttpClient());
+        await SeedAsync(new ManagingAppPolicy { ManagingApp = managingApp });
+
+        var decision = await new SimpleSpaceAccessPolicy(_store, client).EvaluateAsync(Read(Member));
+
+        Assert.Equal(SpaceAccessOutcome.NotAuthorized, decision.Outcome);
+    }
+
     private sealed class StubManagingApp : ISimpleSpaceManagingAppClient
     {
         public bool Authorized { get; set; }

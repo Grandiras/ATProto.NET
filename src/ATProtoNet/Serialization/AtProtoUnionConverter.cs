@@ -142,7 +142,8 @@ internal sealed class AtProtoUnionConverterFactory(LexiconTypeRegistry registry)
 /// <remarks>
 /// Resolution order: the variants declared on the base, then the registry (consulted on every
 /// miss, so a registration takes effect even after this converter was built), then the unknown
-/// variant or, for a closed union, an error.
+/// variant. A closed union resolves its declared variants only — the registry refuses variants
+/// for one — and anything else is an error.
 /// </remarks>
 internal sealed class AtProtoUnionConverter<TBase>(AtProtoUnionShape shape, LexiconTypeRegistry registry)
     : JsonConverter<TBase>
@@ -157,7 +158,7 @@ internal sealed class AtProtoUnionConverter<TBase>(AtProtoUnionShape shape, Lexi
             ?? throw new JsonException($"A '{typeof(TBase).Name}' union member has no \"$type\".");
 
         if (shape.Variants.TryGetValue(discriminator, out var variant)
-            || registry.TryGetVariant(typeof(TBase), discriminator, out variant))
+            || (!shape.Closed && registry.TryGetVariant(typeof(TBase), discriminator, out variant)))
         {
             return (TBase?)JsonSerializer.Deserialize(ref reader, options.GetTypeInfo(variant));
         }

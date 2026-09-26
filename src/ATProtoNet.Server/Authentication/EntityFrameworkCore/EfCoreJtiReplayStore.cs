@@ -15,11 +15,11 @@ namespace ATProtoNet.Server.EntityFrameworkCore;
 /// replay check, with no read-modify-write to race. Two instances presented the same token
 /// concurrently therefore see exactly one success between them, which is the guarantee
 /// <see cref="InMemoryJtiReplayStore"/> cannot give across a load balancer.</para>
-/// <para>Expired rows are swept opportunistically, at most once a minute and never on the
-/// caller's critical path for correctness: a token past its expiry is rejected on the expiry
-/// itself, so a row that outlives its sweep costs space and nothing else. A sweep that fails —
-/// a provider that cannot translate the bulk delete, a transient outage — is logged and
-/// ignored rather than failing the token check it rode along with.</para>
+/// <para>Expired rows are swept at most once a minute, in the background: the consumption that
+/// finds a sweep due starts it and returns without waiting. Nothing depends on it for
+/// correctness — a token past its expiry is rejected on the expiry itself, so a row that
+/// outlives its sweep costs space and nothing else. A sweep that fails — a provider that cannot
+/// translate the bulk delete, a transient outage — is logged and ignored.</para>
 /// <para>Register it with
 /// <see cref="JtiReplayStoreExtensions.AddAtProtoEfCoreJtiReplayStore{TContext}"/>.</para>
 /// </remarks>
@@ -37,6 +37,7 @@ public sealed class EfCoreJtiReplayStore<TContext> : IJtiReplayStore
     private readonly TimeProvider _timeProvider;
     private readonly ILogger _logger;
     private long _sweepDue;
+    private Task _sweep = Task.CompletedTask;
 
     /// <summary>
     /// Creates the store.
@@ -75,6 +76,9 @@ public sealed class EfCoreJtiReplayStore<TContext> : IJtiReplayStore
         _sweepDue = _timeProvider.GetUtcNow().Add(SweepInterval).ToUnixTimeMilliseconds();
     }
 
+    /// <summary>The most recent background sweep, for tests to wait on.</summary>
+    internal Task LastSweep => Volatile.Read(ref _sweep);
+
     /// <inheritdoc/>
     public async ValueTask<bool> TryConsumeAsync(
         string issuer, string tokenId, DateTimeOffset expiresAt, CancellationToken cancellationToken = default)
@@ -90,7 +94,7 @@ public sealed class EfCoreJtiReplayStore<TContext> : IJtiReplayStore
         try
         {
             await context.SaveChangesAsync(cancellationToken);
-            await SweepIfDueAsync(cancellationToken);
+            SweepIfDue();
             return true;
         }
         catch (DbUpdateException)
@@ -114,7 +118,7 @@ public sealed class EfCoreJtiReplayStore<TContext> : IJtiReplayStore
         }
     }
 
-    private async Task SweepIfDueAsync(CancellationToken cancellationToken)
+    private void SweepIfDue()
     {
         var now = _timeProvider.GetUtcNow();
         var due = Interlocked.Read(ref _sweepDue);
@@ -130,14 +134,21 @@ public sealed class EfCoreJtiReplayStore<TContext> : IJtiReplayStore
         // from earlier seconds are certainly past.
         var cutoff = now.ToUnixTimeSeconds();
 
+        // Not awaited, and not tied to the request's cancellation: the request that found the
+        // sweep due should not pay for it, and cancelling it would only leave the rows for later.
+        Volatile.Write(ref _sweep, Task.Run(() => SweepAsync(cutoff)));
+    }
+
+    private async Task SweepAsync(long cutoff)
+    {
         try
         {
-            await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+            await using var context = await _contextFactory.CreateDbContextAsync();
             await context.Set<JtiReplayEntity>()
                 .Where(e => e.ExpiresAt < cutoff)
-                .ExecuteDeleteAsync(cancellationToken);
+                .ExecuteDeleteAsync();
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex)
         {
             // Housekeeping only: a token past its expiry is rejected on the expiry itself, so a
             // table that keeps growing is a storage problem, never a correctness one.

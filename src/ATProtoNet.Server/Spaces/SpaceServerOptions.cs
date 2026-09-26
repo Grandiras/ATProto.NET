@@ -102,6 +102,23 @@ public sealed class SpaceServerOptions
     };
 
     /// <summary>
+    /// How many verified space credentials a repo host remembers, so that a credential presented
+    /// again skips its signature check. Defaults to 10,000; zero turns the cache off.
+    /// </summary>
+    /// <remarks>
+    /// <para>A syncer presents the same credential on every read for its two-hour life, and
+    /// verifying its signature is most of what a read costs before any data is touched. An entry
+    /// lasts until the credential expires. Expiry, the requested space, the DPoP proof and the
+    /// authority's key are still checked on every request — the key against the DID document
+    /// <see cref="DidCache"/> currently serves, so a rotated key stops verifying cached credentials
+    /// exactly when it stops verifying new ones.</para>
+    /// <para>An entry holds the parsed credential, about 3 KB, so the default bounds the cache
+    /// near 30 MB. When full, the least recently used entry is evicted; one authority may hold at
+    /// most a quarter of the entries, since any DID can mint credentials for its own spaces.</para>
+    /// </remarks>
+    public int VerifiedCredentialCacheCapacity { get; set; } = 10_000;
+
+    /// <summary>
     /// The lifetime of the credentials this authority issues. Defaults to
     /// <see cref="SpaceTokens.DefaultCredentialLifetime"/> (two hours).
     /// </summary>
@@ -114,11 +131,16 @@ public sealed class SpaceServerOptions
     public TimeSpan NotifyRegistrationLifetime { get; set; } = TimeSpan.FromDays(7);
 
     /// <summary>
-    /// The verification-method fragment a space authority's credentials are signed with. When
-    /// omitted, <see cref="SpaceAuthority.SigningKeyId"/> is used if the authority publishes it
-    /// and <c>#atproto</c> otherwise, which is what lets an ordinary account be an authority
-    /// with no DID-document change.
+    /// The verification-method fragment a space authority's credentials are signed with, sent as
+    /// their <c>kid</c>: <see cref="SpaceAuthority.SigningKeyId"/> (<c>#atproto_space</c>) or
+    /// <c>#atproto</c>. When omitted, <c>#atproto</c>, which is what lets an ordinary account be
+    /// an authority with no DID-document change.
     /// </summary>
+    /// <remarks>
+    /// A reader verifies a credential against exactly the entry its <c>kid</c> names, with no
+    /// fallback, so an authority that signs with a dedicated <c>#atproto_space</c> key must say
+    /// so here.
+    /// </remarks>
     public string? CredentialKeyId { get; set; }
 
     /// <summary>
@@ -132,17 +154,30 @@ public sealed class SpaceServerOptions
     public int MaxClientMetadataBytes { get; set; } = 256 * 1024;
 
     /// <summary>
-    /// Whether to log at startup that the space server is still using the in-process default
-    /// stores. Defaults to <see langword="true"/>.
+    /// How long the keys a client publishes — its <c>client-metadata.json</c> and JWKS — are
+    /// remembered for verifying its attestations. Defaults to five minutes;
+    /// <see cref="TimeSpan.Zero"/> fetches them for every attestation.
     /// </summary>
     /// <remarks>
-    /// <para>The defaults are per-process, which is a correctness gap rather than a performance
-    /// one once a second instance exists: <see cref="InMemoryJtiReplayStore"/> catches a
-    /// replayed single-use token only on the instance that saw the original, and
-    /// <see cref="InMemorySimpleSpaceStore"/> loses a member list — which nothing on the network
-    /// republishes — on every restart.</para>
-    /// <para>Set this to <see langword="false"/> where the defaults are the intended choice, as
-    /// in a test host or a development server.</para>
+    /// An attestation that names a key the remembered set lacks, or does not verify against it,
+    /// is checked once more against a fresh fetch, so a client's key rotation takes effect
+    /// without waiting for the entry to expire. A key the client <em>removes</em> from its JWKS,
+    /// though, keeps verifying its attestations here for up to this long. A client's metadata is
+    /// fetched at most once every 30 seconds, whether the fetch succeeds or fails.
+    /// </remarks>
+    public TimeSpan ClientMetadataCacheLifetime { get; set; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Whether to log at startup that the space server is still tracking single-use tokens in
+    /// the in-process default <see cref="InMemoryJtiReplayStore"/>. Defaults to
+    /// <see langword="true"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>The default is per-process, which is a correctness gap rather than a performance one
+    /// once a second instance exists: it catches a replayed single-use token only on the instance
+    /// that saw the original.</para>
+    /// <para>Set this to <see langword="false"/> where the default is the intended choice, as in
+    /// a test host or a development server.</para>
     /// </remarks>
     public bool WarnOnInMemoryStores { get; set; } = true;
 

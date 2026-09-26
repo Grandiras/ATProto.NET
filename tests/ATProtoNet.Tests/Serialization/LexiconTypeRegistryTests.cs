@@ -53,6 +53,14 @@ public sealed class NotAUnionVariant : NotAUnion;
 [AtProtoUnion]
 public abstract class MisdeclaredUnion;
 
+[AtProtoUnion(Closed = true)]
+[JsonDerivedType(typeof(ClosedDeclaredVariant), "com.example.closed#declared")]
+public abstract class ClosedRegistryTestUnion : LexObject;
+
+public sealed class ClosedDeclaredVariant : ClosedRegistryTestUnion;
+
+public sealed class ClosedExtraVariant : ClosedRegistryTestUnion;
+
 // ── Test Plugin ───────────────────────────────────────────────
 
 public sealed class TestLexiconPlugin : ILexiconPlugin
@@ -149,6 +157,28 @@ public class LexiconTypeRegistryTests
         Assert.Equal("""{"$type":"com.example.plugin","custom":"world"}""", json);
         Assert.Equal("world", Assert.IsType<PluginVariant>(
             JsonSerializer.Deserialize<RegistryTestUnion>(json, AtProtoJsonDefaults.Options)).Custom);
+    }
+
+    [Fact]
+    public void RegisterUnionVariant_OnAClosedUnion_Throws()
+    {
+        // A closed Lexicon union promises every reader its declared variants are all there are,
+        // so a runtime registration would write data other implementations reject.
+        var ex = Assert.Throws<ArgumentException>(
+            () => Registry.RegisterUnionVariant<ClosedRegistryTestUnion, ClosedExtraVariant>("com.example.closed#extra"));
+
+        Assert.Contains("closed", ex.Message, StringComparison.Ordinal);
+        Assert.Empty(Registry.GetUnionVariants(typeof(ClosedRegistryTestUnion)));
+    }
+
+    [Fact]
+    public void ClosedUnion_ReadsOnlyItsDeclaredVariants()
+    {
+        Assert.IsType<ClosedDeclaredVariant>(JsonSerializer.Deserialize<ClosedRegistryTestUnion>(
+            """{"$type":"com.example.closed#declared"}""", AtProtoJsonDefaults.Options));
+
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<ClosedRegistryTestUnion>(
+            """{"$type":"com.example.closed#extra"}""", AtProtoJsonDefaults.Options));
     }
 
     [Fact]

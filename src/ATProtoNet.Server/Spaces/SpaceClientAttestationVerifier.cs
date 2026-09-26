@@ -1,4 +1,4 @@
-using System.Net.Http.Json;
+using System.Collections.Concurrent;
 using System.Text.Json;
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
@@ -10,12 +10,11 @@ namespace ATProtoNet.Server.Spaces;
 /// <summary>
 /// A client attestation that verified.
 /// </summary>
-/// <param name="Token">The parsed attestation.</param>
 /// <param name="ClientId">
 /// The application's OAuth client ID — its <c>iss</c>, and the value an
 /// <c>AllowListAppAccess</c> policy is evaluated against.
 /// </param>
-public sealed record VerifiedClientAttestation(SpaceToken Token, string ClientId);
+public sealed record VerifiedClientAttestation(string ClientId);
 
 /// <summary>
 /// Resolves an OAuth <c>client_id</c> to the public keys its attestations verify against.
@@ -150,13 +149,27 @@ public sealed class HttpSpaceClientMetadataResolver : ISpaceClientMetadataResolv
 /// JWKS the client publishes at its own <c>client_id</c> URL, which is what makes an allow-list
 /// of client IDs enforceable rather than advisory: only the holder of the published key can
 /// produce one.</para>
+/// <para>A client's published keys are remembered for
+/// <see cref="SpaceServerOptions.ClientMetadataCacheLifetime"/>, so an app renewing its
+/// credentials does not cost a fetch of its metadata (and JWKS) each time. The flip side is that
+/// a key the client removes from its JWKS keeps verifying here for up to that long. An
+/// attestation naming a key the remembered set lacks, or failing against it, is checked once more
+/// against a fresh fetch — a client that rotated its key is not locked out until the entry
+/// expires — but a client's metadata is fetched at most once every 30 seconds however those
+/// fetches end, so forged attestations cannot turn into a fetch each even while the client's host
+/// is failing. Concurrent requests for one client share a single fetch.</para>
 /// </remarks>
 public sealed class SpaceClientAttestationVerifier
 {
+    private const int ClientKeyCacheCapacity = 1024;
+    private static readonly TimeSpan MinRefetchInterval = TimeSpan.FromSeconds(30);
+
     private readonly ISpaceClientMetadataResolver _metadataResolver;
     private readonly IJtiReplayStore _replayStore;
     private readonly SpaceServerOptions _options;
     private readonly TimeProvider _timeProvider;
+    private readonly ConcurrentDictionary<string, ClientKeys> _clientKeys = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, Lazy<Task<IReadOnlyList<JsonWebKey>>>> _fetches = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Creates a verifier.
@@ -229,11 +242,24 @@ public sealed class SpaceClientAttestationVerifier
                 "this service accepts.");
         }
 
-        var keys = await _metadataResolver.ResolveKeysAsync(parsed.Issuer, cancellationToken);
-        var key = SelectKey(keys, parsed.KeyId, parsed.Issuer);
+        var (keys, cached) = await GetKeysAsync(parsed.Issuer, now, cancellationToken);
+        var failure = Check(keys, parsed);
 
-        if (!JsonWebKeyVerifier.Verify(key, parsed.Algorithm, parsed.SigningInput, parsed.Signature, Invalid))
-            throw Invalid($"The client attestation's signature does not verify against client '{parsed.Issuer}'.");
+        // A key the client has since rotated in is not in a remembered set yet. A refetch that
+        // fails leaves the original refusal standing.
+        if (failure is not null && cached && IsFetchDue(parsed.Issuer, now))
+        {
+            try
+            {
+                failure = Check(await FetchKeysAsync(parsed.Issuer, now, cancellationToken), parsed);
+            }
+            catch (SpaceVerificationException)
+            {
+            }
+        }
+
+        if (failure is not null)
+            throw failure;
 
         if (!await _replayStore.TryConsumeAsync(
                 parsed.Issuer, parsed.TokenId!, _options.ReplayRetention(parsed.ExpiresAt), cancellationToken))
@@ -241,7 +267,92 @@ public sealed class SpaceClientAttestationVerifier
             throw Invalid("The client attestation has already been used; attestations are single-use.");
         }
 
-        return new VerifiedClientAttestation(parsed, parsed.Issuer);
+        return new VerifiedClientAttestation(parsed.Issuer);
+    }
+
+    private async Task<(IReadOnlyList<JsonWebKey> Keys, bool Cached)> GetKeysAsync(
+        string clientId, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (_clientKeys.TryGetValue(clientId, out var entry))
+        {
+            if (entry.Keys is { } keys && now - entry.FetchedAt < _options.ClientMetadataCacheLifetime)
+                return (keys, true);
+
+            // The last fetch failed, and recently: refuse without asking again. One still in
+            // flight is joined instead.
+            if (entry.Keys is null && !IsFetchDue(clientId, now) && !_fetches.ContainsKey(clientId))
+                throw Invalid($"The metadata of client '{clientId}' could not be fetched; try again later.");
+        }
+
+        return (await FetchKeysAsync(clientId, now, cancellationToken), false);
+    }
+
+    /// <summary>Whether the last fetch for a client, however it ended, is at least 30 seconds old.</summary>
+    private bool IsFetchDue(string clientId, DateTimeOffset now) =>
+        !_clientKeys.TryGetValue(clientId, out var entry) || now - entry.AttemptedAt >= MinRefetchInterval;
+
+    /// <summary>
+    /// Fetches a client's keys, sharing one fetch among concurrent callers, and records the
+    /// attempt whether it succeeds or not.
+    /// </summary>
+    private async Task<IReadOnlyList<JsonWebKey>> FetchKeysAsync(
+        string clientId, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var caching = _options.ClientMetadataCacheLifetime > TimeSpan.Zero;
+        if (caching)
+        {
+            // Past the bound, start over rather than track recency: the working set is the apps
+            // that attested in the last few minutes, and it refills on their next request.
+            if (_clientKeys.Count >= ClientKeyCacheCapacity)
+                _clientKeys.Clear();
+
+            // Recorded before the fetch, so requests arriving while it runs, or after it fails,
+            // do not start another.
+            _clientKeys.AddOrUpdate(
+                clientId,
+                static (_, at) => new ClientKeys(null, at, at),
+                static (_, existing, at) => existing with { AttemptedAt = at },
+                now);
+        }
+
+        // Not tied to one caller's cancellation, since others may be waiting on the same fetch;
+        // the named client's timeout bounds it.
+        var fetch = _fetches.GetOrAdd(
+            clientId, id => new Lazy<Task<IReadOnlyList<JsonWebKey>>>(() => FetchSharedAsync(id)));
+
+        var keys = await fetch.Value.WaitAsync(cancellationToken);
+        if (caching)
+            _clientKeys[clientId] = new ClientKeys(keys, now, now);
+        return keys;
+    }
+
+    private async Task<IReadOnlyList<JsonWebKey>> FetchSharedAsync(string clientId)
+    {
+        try
+        {
+            return await _metadataResolver.ResolveKeysAsync(clientId, CancellationToken.None);
+        }
+        finally
+        {
+            // Gone as soon as it settles, whoever is still waiting, so the next fetch is a new one.
+            _fetches.TryRemove(clientId, out _);
+        }
+    }
+
+    /// <summary>Checks the attestation against a key set, returning the refusal rather than throwing it.</summary>
+    private static SpaceVerificationException? Check(IReadOnlyList<JsonWebKey> keys, SpaceToken parsed)
+    {
+        try
+        {
+            var key = SelectKey(keys, parsed.KeyId, parsed.Issuer);
+            return JsonWebKeyVerifier.Verify(key, parsed.Algorithm, parsed.SigningInput, parsed.Signature, Invalid)
+                ? null
+                : Invalid($"The client attestation's signature does not verify against client '{parsed.Issuer}'.");
+        }
+        catch (SpaceVerificationException ex)
+        {
+            return ex;
+        }
     }
 
     private static JsonWebKey SelectKey(IReadOnlyList<JsonWebKey> keys, string? keyId, string clientId)
@@ -262,4 +373,10 @@ public sealed class SpaceClientAttestationVerifier
 
     private static SpaceVerificationException Invalid(string message) =>
         new(SpaceErrors.InvalidClientAttestation, message);
+
+    /// <summary>
+    /// What is known of a client's keys: the last set fetched (none if every fetch failed), when it
+    /// was fetched, and when a fetch was last attempted.
+    /// </summary>
+    private sealed record ClientKeys(IReadOnlyList<JsonWebKey>? Keys, DateTimeOffset FetchedAt, DateTimeOffset AttemptedAt);
 }

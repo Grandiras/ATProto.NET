@@ -476,8 +476,9 @@ var credit = recipe.Attribution switch
 ```
 
 For a closed union, write `[AtProtoUnion(Closed = true)]` and no unknown variant. An unknown
-`$type` then fails with a `JsonException`, which is what the Lexicon asks for. In the SDK only
-`com.atproto.repo.applyWrites` is closed.
+`$type` then fails with a `JsonException`, which is what the Lexicon asks for, and
+`RegisterUnionVariant` refuses to add a variant to it (see below). In the SDK only the `writes` of
+`com.atproto.repo.applyWrites` and `com.atproto.space.applyWrites` are closed.
 
 Behavior worth knowing:
 
@@ -506,6 +507,10 @@ your type everywhere instead of as `UnknownEmbed`, and writes with its `$type`. 
 registry on every discriminator the base doesn't declare, so even a late registration is picked
 up. Still, register before you first *serialize* the variant, because its contract is built on
 first use.
+
+A closed union takes no registrations: `RegisterUnionVariant` throws `ArgumentException` for an
+`[AtProtoUnion(Closed = true)]` base, because its Lexicon promises every reader that the declared
+variants are all there are.
 
 A discriminator can map to only one type per base: registering one that is already declared or
 registered for a different type throws `ArgumentException`. The same goes for a base that isn't a

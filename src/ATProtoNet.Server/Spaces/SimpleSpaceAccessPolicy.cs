@@ -166,7 +166,7 @@ public sealed class SimpleSpaceAccessPolicy : ISpaceAccessPolicy
                         : SpaceAccessDecision.Refuse(
                             SpaceAccessOutcome.UserNotAuthorized, "The managing app declined.");
                 }
-                catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException)
+                catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException or FormatException)
                 {
                     // An unreachable managing app is a refusal, not a grant. Failing open here
                     // would turn every outage of the app into an open space.
@@ -216,7 +216,10 @@ public interface ISimpleSpaceManagingAppClient
 /// <remarks>
 /// <para>The service auth token is addressed to the managing app's service identifier exactly as
 /// the policy names it — <c>did:web:app.example.com#forum</c>, fragment and all — because that
-/// is the audience a managing app verifies against.</para>
+/// is the audience a managing app verifies against. It is signed as the space's authority, which
+/// is who a managing app accepts the question from: through an <see cref="ISpaceAccountSigner"/>
+/// when this service hosts the authority's account, and otherwise as this service, which is the
+/// authority itself when <see cref="SpaceServerOptions.ServiceDid"/> is the authority DID.</para>
 /// <para>A read check sits on the critical path of a credential request, so this wants a tight
 /// timeout on the <see cref="HttpClient"/> handed to it — a slow managing app should refuse
 /// quickly rather than hold the exchange open.</para>
@@ -228,15 +231,26 @@ public sealed class SimpleSpaceManagingAppClient : ISimpleSpaceManagingAppClient
     private readonly IDidResolver _resolver;
     private readonly ServiceAuthGenerator _serviceAuth;
     private readonly HttpClient _httpClient;
+    private readonly ISpaceAccountSigner? _accountSigner;
+    private readonly ILogger _logger;
 
     /// <summary>
     /// Creates a client.
     /// </summary>
     /// <param name="resolver">Resolves the managing app's endpoint.</param>
-    /// <param name="serviceAuth">Signs the outbound service auth token as this authority.</param>
+    /// <param name="serviceAuth">
+    /// Signs the outbound service auth token as this service, when
+    /// <paramref name="accountSigner"/> cannot sign as the space's authority.
+    /// </param>
     /// <param name="httpClient">The client used for the call.</param>
+    /// <param name="accountSigner">Signs as the space's authority when this service hosts it. Optional.</param>
+    /// <param name="logger">Optional logger.</param>
     public SimpleSpaceManagingAppClient(
-        IDidResolver resolver, ServiceAuthGenerator serviceAuth, HttpClient httpClient)
+        IDidResolver resolver,
+        ServiceAuthGenerator serviceAuth,
+        HttpClient httpClient,
+        ISpaceAccountSigner? accountSigner = null,
+        ILogger<SimpleSpaceManagingAppClient>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(resolver);
         ArgumentNullException.ThrowIfNull(serviceAuth);
@@ -245,6 +259,8 @@ public sealed class SimpleSpaceManagingAppClient : ISimpleSpaceManagingAppClient
         _resolver = resolver;
         _serviceAuth = serviceAuth;
         _httpClient = httpClient;
+        _accountSigner = accountSigner;
+        _logger = logger ?? (ILogger)NullLogger.Instance;
     }
 
     /// <inheritdoc/>
@@ -269,8 +285,21 @@ public sealed class SimpleSpaceManagingAppClient : ISimpleSpaceManagingAppClient
 
         var (did, fragment) = SpaceAuthority.ParseServiceIdentifier(managingApp);
         var document = await _resolver.ResolveOrRefuseAsync(did, refresh: false, cancellationToken);
-        var endpoint = SpaceAuthority.GetServiceEndpoint(document, fragment)
-            ?? throw new InvalidOperationException($"Managing app '{managingApp}' resolves to no usable endpoint.");
+
+        Uri? endpoint;
+        try
+        {
+            endpoint = SpaceAuthority.GetServiceEndpoint(document, fragment);
+        }
+        catch (FormatException ex)
+        {
+            // A malformed #atproto_space_host is as unusable as a missing one, which the policy
+            // treats as an unreachable app: a refusal.
+            throw new InvalidOperationException($"Managing app '{managingApp}' publishes a malformed endpoint: {ex.Message}", ex);
+        }
+
+        if (endpoint is null)
+            throw new InvalidOperationException($"Managing app '{managingApp}' resolves to no usable endpoint.");
 
         // The same failure as a missing endpoint, which the policy treats as a refusal.
         if (!Http.AtProtoHttp.TryNormalizeBaseUrl(endpoint.OriginalString, out var baseUrl))
@@ -285,9 +314,12 @@ public sealed class SimpleSpaceManagingAppClient : ISimpleSpaceManagingAppClient
                         : $"&clientId={Uri.EscapeDataString(clientId)}");
         var url = new Uri(baseUrl, $"xrpc/{SpaceNsids.CheckUserAccess}{query}");
 
+        var signer = await SpaceAccountSigning.ChooseAsync(
+            _accountSigner, _serviceAuth, space.Authority, _logger, cancellationToken);
+
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
-            "Bearer", _serviceAuth.CreateToken(managingApp, CheckUserAccessNsid));
+            "Bearer", signer.CreateToken(managingApp, CheckUserAccessNsid));
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)

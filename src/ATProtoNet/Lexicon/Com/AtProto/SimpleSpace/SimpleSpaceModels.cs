@@ -1,6 +1,8 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using ATProtoNet.Identity;
 using ATProtoNet.Models;
+using ATProtoNet.Serialization;
 using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
@@ -19,14 +21,39 @@ namespace ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 /// <see cref="SimpleSpaceAppAccess">app access policy</see> for a credential to be minted. A
 /// write is judged by the write policy alone: its notification comes from the writer's repo
 /// host rather than from an app, so there is no app to judge.</para>
-/// <para>The union is open at the schema layer, and a host rejects a variant it does not
-/// implement at create/update time rather than storing a policy it could not enforce.</para>
+/// <para>The union is open: a variant this SDK version does not model reads as an
+/// <see cref="UnknownSimpleSpaceUserPolicy"/>, so a <c>getSpace</c> from a newer server still
+/// deserializes. A host rejects a variant it does not implement at create/update time rather
+/// than storing a policy it could not enforce.</para>
 /// </remarks>
+[AtProtoUnion(typeof(UnknownSimpleSpaceUserPolicy))]
 [JsonDerivedType(typeof(PublicPolicy), SimpleSpaceTypes.PublicPolicy)]
 [JsonDerivedType(typeof(MemberListPolicy), SimpleSpaceTypes.MemberListPolicy)]
 [JsonDerivedType(typeof(ManagingAppPolicy), SimpleSpaceTypes.ManagingAppPolicy)]
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
-public abstract class SimpleSpaceUserPolicy;
+public abstract class SimpleSpaceUserPolicy : LexObject;
+
+/// <summary>
+/// A user policy whose <c>$type</c> this SDK version does not model. It keeps the raw object and
+/// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
+/// </summary>
+public sealed class UnknownSimpleSpaceUserPolicy : SimpleSpaceUserPolicy, IUnknownUnionVariant
+{
+    /// <summary>Creates an unknown user policy from its discriminator and raw object.</summary>
+    /// <param name="type">The object's <c>$type</c>.</param>
+    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+    public UnknownSimpleSpaceUserPolicy(string type, JsonElement raw)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(type);
+        Type = type;
+        Raw = UnknownUnionVariant.RequireObject(raw);
+    }
+
+    /// <inheritdoc/>
+    public string Type { get; }
+
+    /// <inheritdoc/>
+    public JsonElement Raw { get; }
+}
 
 /// <summary>Any user is authorized.</summary>
 public sealed class PublicPolicy : SimpleSpaceUserPolicy;
@@ -70,13 +97,38 @@ public sealed class ManagingAppPolicy : SimpleSpaceUserPolicy
 /// How a <c>simplespace</c> authority decides whether to authorize a requesting <em>app</em>.
 /// </summary>
 /// <remarks>
-/// It applies to reads only. A write notification comes from the writer's repo host, which
-/// presents no client attestation, so it is judged by the write policy alone.
+/// <para>It applies to reads only. A write notification comes from the writer's repo host, which
+/// presents no client attestation, so it is judged by the write policy alone.</para>
+/// <para>The union is open: a variant this SDK version does not model reads as an
+/// <see cref="UnknownSimpleSpaceAppAccess"/>.</para>
 /// </remarks>
+[AtProtoUnion(typeof(UnknownSimpleSpaceAppAccess))]
 [JsonDerivedType(typeof(OpenAppAccess), SimpleSpaceTypes.Open)]
 [JsonDerivedType(typeof(AllowListAppAccess), SimpleSpaceTypes.AllowList)]
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
-public abstract class SimpleSpaceAppAccess;
+public abstract class SimpleSpaceAppAccess : LexObject;
+
+/// <summary>
+/// An app access policy whose <c>$type</c> this SDK version does not model. It keeps the raw
+/// object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
+/// </summary>
+public sealed class UnknownSimpleSpaceAppAccess : SimpleSpaceAppAccess, IUnknownUnionVariant
+{
+    /// <summary>Creates an unknown app access policy from its discriminator and raw object.</summary>
+    /// <param name="type">The object's <c>$type</c>.</param>
+    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+    public UnknownSimpleSpaceAppAccess(string type, JsonElement raw)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(type);
+        Type = type;
+        Raw = UnknownUnionVariant.RequireObject(raw);
+    }
+
+    /// <inheritdoc/>
+    public string Type { get; }
+
+    /// <inheritdoc/>
+    public JsonElement Raw { get; }
+}
 
 /// <summary>
 /// Any application may access the space. This is the default, and requires no client
@@ -286,7 +338,7 @@ public sealed class RemoveSimpleSpaceMemberRequest
 /// but admitted to neither. Each applies only where the corresponding policy is a
 /// <see cref="MemberListPolicy"/>.
 /// </remarks>
-public sealed class SimpleSpaceMember
+public sealed class SimpleSpaceMember : LexObject
 {
     /// <summary>The member's DID.</summary>
     [JsonPropertyName("did")]

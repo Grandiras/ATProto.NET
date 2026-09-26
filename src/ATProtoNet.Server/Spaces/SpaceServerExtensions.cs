@@ -3,6 +3,7 @@ using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
 using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Xrpc;
+using ATProtoNet.Spaces;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -108,38 +109,19 @@ public static class SpaceServerExtensions
         });
         services.TryAddSingleton<ISpaceCallerResolver, ClaimsSpaceCallerResolver>();
 
+        // The one outbound fetch that needs the named, SSRF-safe client.
         services.TryAddSingleton<ISpaceClientMetadataResolver>(sp => new HttpSpaceClientMetadataResolver(
             sp.GetRequiredService<IHttpClientFactory>().CreateClient(HttpClientName),
             sp.GetRequiredService<SpaceServerOptions>()));
 
-        services.TryAddSingleton(sp => new DPoPProofValidator(
-            sp.GetRequiredService<IJtiReplayStore>(), sp.GetRequiredService<SpaceServerOptions>()));
-
-        services.TryAddSingleton(sp => new SpaceDelegationTokenVerifier(
-            sp.GetRequiredKeyedService<IDidResolver>(DidResolverKey),
-            sp.GetRequiredService<IJtiReplayStore>(),
-            sp.GetRequiredService<SpaceServerOptions>()));
-
-        services.TryAddSingleton(sp => new SpaceCredentialVerifier(
-            sp.GetRequiredKeyedService<IDidResolver>(DidResolverKey),
-            sp.GetRequiredService<DPoPProofValidator>()));
-
-        services.TryAddSingleton(sp => new SpaceClientAttestationVerifier(
-            sp.GetRequiredService<ISpaceClientMetadataResolver>(),
-            sp.GetRequiredService<IJtiReplayStore>(),
-            sp.GetRequiredService<SpaceServerOptions>()));
-
-        services.TryAddSingleton<ISpaceServiceAuthVerifier>(sp => new SpaceServiceAuthVerifier(
-            sp.GetRequiredKeyedService<IDidResolver>(DidResolverKey),
-            sp.GetRequiredService<IJtiReplayStore>(),
-            sp.GetRequiredService<SpaceServerOptions>()));
-
-        services.TryAddSingleton(sp => new SpaceRequestAuthenticator(
-            sp.GetRequiredService<SpaceDelegationTokenVerifier>(),
-            sp.GetRequiredService<SpaceCredentialVerifier>(),
-            sp.GetRequiredService<DPoPProofValidator>(),
-            sp.GetRequiredService<SpaceClientAttestationVerifier>(),
-            sp.GetRequiredService<SpaceServerOptions>()));
+        // The verifiers take the space server's own resolver through [FromKeyedServices], and a
+        // registered TimeProvider when there is one.
+        services.TryAddSingleton<DPoPProofValidator>();
+        services.TryAddSingleton<SpaceDelegationTokenVerifier>();
+        services.TryAddSingleton<SpaceCredentialVerifier>();
+        services.TryAddSingleton<SpaceClientAttestationVerifier>();
+        services.TryAddSingleton<SpaceServiceAuthVerifier>();
+        services.TryAddSingleton<SpaceRequestAuthenticator>();
 
         return services;
     }
@@ -152,8 +134,17 @@ public static class SpaceServerExtensions
     /// <param name="services">The service collection.</param>
     /// <param name="signingKey">
     /// The key credentials are signed with. It must be the one published in the authority's DID
-    /// document at <c>#atproto_space</c>, or at <c>#atproto</c> when it publishes no dedicated
-    /// entry.
+    /// document at the entry <see cref="SpaceServerOptions.CredentialKeyId"/> names:
+    /// <c>#atproto</c> by default, or <c>#atproto_space</c> for a dedicated key.
+    /// </param>
+    /// <param name="serviceAuthKey">
+    /// The service's <c>#atproto</c> key, which signs outbound service auth (forwarded
+    /// notifications, deletion notices, managing-app checks) as
+    /// <see cref="SpaceServerOptions.ServiceDid"/>. Defaults to <paramref name="signingKey"/>,
+    /// which is that key unless credentials are signed with a dedicated <c>#atproto_space</c>
+    /// key. With a dedicated key, pass this or register an <see cref="ISpaceAccountSigner"/> that
+    /// signs as the service's DID; the host refuses to start with neither, since service auth is
+    /// only ever accepted from an <c>#atproto</c> key.
     /// </param>
     /// <returns>The service collection for chaining.</returns>
     /// <remarks>
@@ -167,9 +158,14 @@ public static class SpaceServerExtensions
     /// through <c>deleteSpace</c> answers <c>SpaceDeleted</c>. A store registered as
     /// <see cref="ISpaceAuthorityStore"/> before this call is left exactly as registered; wrap it
     /// yourself if it needs the same bridge.</para>
+    /// <para>Outbound notifications and managing-app checks are signed as
+    /// <see cref="SpaceServerOptions.ServiceDid"/> with <paramref name="signingKey"/>, unless an
+    /// <see cref="ISpaceAccountSigner"/> is registered and holds the key of the account a call
+    /// speaks for — which a service hosting its users' repos needs, since the reference authority
+    /// accepts a write notification only from its writer.</para>
     /// </remarks>
     public static IServiceCollection AddSpaceAuthority<TStore>(
-        this IServiceCollection services, AtProtoKey signingKey)
+        this IServiceCollection services, AtProtoKey signingKey, AtProtoKey? serviceAuthKey = null)
         where TStore : class, ISpaceAuthorityStore
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -193,23 +189,22 @@ public static class SpaceServerExtensions
         services.TryAddSingleton<ISpaceCredentialIssuer>(sp =>
             new SpaceCredentialIssuer(signingKey, sp.GetRequiredService<SpaceServerOptions>()));
 
-        services.TryAddSingleton(sp =>
-        {
-            var options = sp.GetRequiredService<SpaceServerOptions>();
-            if (options.ServiceDid is null)
-            {
-                throw new InvalidOperationException(
-                    $"A space authority must know its own DID; set {nameof(SpaceServerOptions)}.{nameof(SpaceServerOptions.ServiceDid)}.");
-            }
+        services.TryAddSingleton(sp => CreateServiceAuth(
+            sp.GetRequiredService<SpaceServerOptions>(),
+            signingKey,
+            serviceAuthKey,
+            hasAccountSigner: sp.GetService<ISpaceAccountSigner>() is not null));
 
-            return new ServiceAuthGenerator(options.ServiceDid, signingKey);
-        });
+        // Resolved at startup rather than at the first notification, so a key configuration that
+        // can only produce refused service auth stops the host instead of dropping every forward.
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, SpaceAuthorityStartupCheck>());
 
         services.TryAddSingleton(sp => new SpaceWriteNotifier(
             sp.GetRequiredService<ISpaceAuthorityStore>(),
             sp.GetRequiredKeyedService<IDidResolver>(DidResolverKey),
             sp.GetRequiredService<ServiceAuthGenerator>(),
             sp.GetRequiredService<IHttpClientFactory>().CreateClient(HttpClientName),
+            sp.GetService<ISpaceAccountSigner>(),
             sp.GetService<Microsoft.Extensions.Logging.ILogger<SpaceWriteNotifier>>()));
 
         services.AddXrpcEndpoint<GetSpaceCredentialEndpoint>();
@@ -220,6 +215,47 @@ public static class SpaceServerExtensions
 
         return services;
     }
+
+    /// <summary>
+    /// Builds the generator outbound service auth falls back to: signed as the service DID with
+    /// its <c>#atproto</c> key.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// No service DID is configured, or credentials use a dedicated <c>#atproto_space</c> key and
+    /// neither a service auth key nor an account signer was supplied.
+    /// </exception>
+    internal static ServiceAuthGenerator CreateServiceAuth(
+        SpaceServerOptions options, AtProtoKey signingKey, AtProtoKey? serviceAuthKey, bool hasAccountSigner)
+    {
+        if (options.ServiceDid is null)
+        {
+            throw new InvalidOperationException(
+                $"A space authority must know its own DID; set {nameof(SpaceServerOptions)}.{nameof(SpaceServerOptions.ServiceDid)}.");
+        }
+
+        if (serviceAuthKey is not null)
+            return new ServiceAuthGenerator(options.ServiceDid, serviceAuthKey);
+
+        if (!UsesDedicatedCredentialKey(options))
+            return new ServiceAuthGenerator(options.ServiceDid, signingKey);
+
+        if (!hasAccountSigner)
+        {
+            throw new InvalidOperationException(
+                $"Credentials are signed with the dedicated {SpaceAuthority.SigningKeyId} key, but service auth is only " +
+                $"accepted from an #atproto key. Pass the service's #atproto key to {nameof(AddSpaceAuthority)} as " +
+                $"serviceAuthKey, or register an {nameof(ISpaceAccountSigner)} that signs as {options.ServiceDid}.");
+        }
+
+        // The signer answers for the service's own DID. This generator is reached only for an
+        // account the signer holds no key for, and says truthfully which key it signs with; a
+        // receiver refuses it, as it would any service auth not signed by the account.
+        return new ServiceAuthGenerator(options.ServiceDid, signingKey, SpaceAuthority.SigningKeyId);
+    }
+
+    private static bool UsesDedicatedCredentialKey(SpaceServerOptions options) =>
+        options.CredentialKeyId is { } keyId &&
+        string.Equals(keyId.TrimStart('#'), SpaceAuthority.SigningKeyId.TrimStart('#'), StringComparison.Ordinal);
 
     /// <summary>
     /// Registers the <c>com.atproto.simplespace</c> endpoints and its access policy — the
@@ -244,12 +280,11 @@ public static class SpaceServerExtensions
         services.TryAddSingleton<ISimpleSpaceManagingAppClient>(sp => new SimpleSpaceManagingAppClient(
             sp.GetRequiredKeyedService<IDidResolver>(DidResolverKey),
             sp.GetRequiredService<ServiceAuthGenerator>(),
-            sp.GetRequiredService<IHttpClientFactory>().CreateClient(HttpClientName)));
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(HttpClientName),
+            sp.GetService<ISpaceAccountSigner>(),
+            sp.GetService<Microsoft.Extensions.Logging.ILogger<SimpleSpaceManagingAppClient>>()));
 
-        services.TryAddSingleton<ISpaceAccessPolicy>(sp => new SimpleSpaceAccessPolicy(
-            sp.GetRequiredService<ISimpleSpaceStore>(),
-            sp.GetRequiredService<ISimpleSpaceManagingAppClient>(),
-            sp.GetService<Microsoft.Extensions.Logging.ILogger<SimpleSpaceAccessPolicy>>()));
+        services.TryAddSingleton<ISpaceAccessPolicy, SimpleSpaceAccessPolicy>();
 
         services.AddXrpcEndpoint<CreateSimpleSpaceEndpoint>();
         services.AddXrpcEndpoint<UpdateSimpleSpaceEndpoint>();

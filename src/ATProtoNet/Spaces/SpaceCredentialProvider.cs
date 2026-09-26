@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using ATProtoNet.Auth.OAuth;
@@ -139,10 +140,18 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
     private readonly bool _ownsDidResolver;
     private readonly ILogger _logger;
 
-    private readonly Dictionary<string, SpaceCredential> _credentials = new(StringComparer.Ordinal);
+    // The current credential per space, read without a lock, and the one mint per space in flight.
+    // A slow authority never delays a cache hit, or a mint, for any other space.
+    private readonly ConcurrentDictionary<string, SpaceCredential> _credentials = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, Lazy<Task<SpaceCredential>>> _mints = new(StringComparer.Ordinal);
+
+    // Guards storing, retiring and disposing credentials, so Dispose never races a mint's result.
+    private readonly object _state = new();
+
+    // Credentials a renewal replaced, kept for the readers still holding them until they expire.
     private readonly List<SpaceCredential> _superseded = [];
-    private readonly SemaphoreSlim _lock = new(1, 1);
-    private bool _disposed;
+    private readonly CancellationTokenSource _disposing = new();
+    private volatile bool _disposed;
 
     /// <summary>
     /// Creates a provider that mints delegation tokens through <paramref name="client"/>'s session.
@@ -189,6 +198,15 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
     /// <param name="forceRenew">Discard any cached credential and mint a fresh one.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="SpaceCredentialException">Thrown when the authority refuses to issue one.</exception>
+    /// <remarks>
+    /// <para>Concurrent callers for one space share a single mint, and its outcome: they all get
+    /// its credential, or all see its failure, so a refusal costs one exchange (and one delegation
+    /// token) rather than one per waiter. A forced renewal joins a mint already in flight — its
+    /// credential is newer than the one the caller saw — and otherwise replaces the credential that
+    /// was current when it was asked for.</para>
+    /// <para>The mint is not tied to any one caller: cancelling <paramref name="cancellationToken"/>
+    /// stops this caller waiting, not the exchange the others are waiting on.</para>
+    /// </remarks>
     public async Task<SpaceCredential> GetCredentialAsync(
         SpaceUri space,
         bool forceRenew = false,
@@ -197,30 +215,88 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
         ArgumentNullException.ThrowIfNull(space);
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        await _lock.WaitAsync(cancellationToken);
+        _credentials.TryGetValue(space.Value, out var seen);
+        if (!forceRenew && IsFresh(seen))
+            return seen!;
+
+        var mint = _mints.GetOrAdd(
+            space.Value,
+            _ => new Lazy<Task<SpaceCredential>>(() => MintAndStoreAsync(space, seen, forceRenew)));
+
+        return await mint.Value.WaitAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The one mint in flight for a space: stores its credential and retires the one it replaces,
+    /// then steps aside for the next.
+    /// </summary>
+    private async Task<SpaceCredential> MintAndStoreAsync(SpaceUri space, SpaceCredential? seen, bool forceRenew)
+    {
         try
         {
-            if (!forceRenew &&
-                _credentials.TryGetValue(space.Value, out var cached) &&
-                !cached.IsExpired(DateTimeOffset.UtcNow + _options.RenewalWindow))
+            // A mint that finished just before this one started may already have done the job.
+            // It counts unless this was a forced renewal of exactly the credential still current.
+            _credentials.TryGetValue(space.Value, out var current);
+            if (IsFresh(current) && (!forceRenew || !ReferenceEquals(current, seen)))
+                return current!;
+
+            var credential = await MintAsync(space, _disposing.Token);
+
+            lock (_state)
             {
-                return cached;
+                if (_disposed)
+                {
+                    credential.Dispose();
+                    throw new ObjectDisposedException(nameof(SpaceCredentialProvider));
+                }
+
+                _credentials.TryGetValue(space.Value, out var replaced);
+                _credentials[space.Value] = credential;
+                if (replaced is not null)
+                    RetireLocked(replaced);
             }
-
-            var credential = await MintAsync(space, cancellationToken);
-
-            // A renewed credential does not invalidate the readers already holding the old one —
-            // they keep signing with its key until they are disposed — so the superseded
-            // credential is retained rather than disposed here, and released with the provider.
-            if (_credentials.Remove(space.Value, out var previous))
-                _superseded.Add(previous);
-            _credentials[space.Value] = credential;
 
             return credential;
         }
         finally
         {
-            _lock.Release();
+            _mints.TryRemove(space.Value, out _);
+        }
+    }
+
+    private bool IsFresh(SpaceCredential? credential) =>
+        credential is not null && !credential.IsExpired(DateTimeOffset.UtcNow + _options.RenewalWindow);
+
+    /// <summary>
+    /// Keeps a replaced credential for the readers still holding it, and disposes the ones that
+    /// have expired, which no reader can use any more.
+    /// </summary>
+    /// <remarks>
+    /// A renewed credential does not invalidate the readers already holding the old one — they
+    /// keep signing with its key until they are done — so it is not disposed on the spot. Once
+    /// it has expired every host refuses it anyway, and its key can go. That bounds what is kept
+    /// to about one credential per space, rather than one per renewal for the provider's life.
+    /// </remarks>
+    private void RetireLocked(SpaceCredential replaced)
+    {
+        _superseded.Add(replaced);
+        for (var i = _superseded.Count - 1; i >= 0; i--)
+        {
+            if (_superseded[i].IsExpired())
+            {
+                _superseded[i].Dispose();
+                _superseded.RemoveAt(i);
+            }
+        }
+    }
+
+    /// <summary>The number of replaced credentials still kept for their readers, for tests.</summary>
+    internal int SupersededCount
+    {
+        get
+        {
+            lock (_state)
+                return _superseded.Count;
         }
     }
 
@@ -270,7 +346,8 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="SpaceCredentialException">
     /// Thrown when the DID publishes no endpoint, or one that is not an absolute http(s) URL free
-    /// of a query and fragment.
+    /// of a query and fragment, or a <c>#atproto_space_host</c> entry that is malformed (which
+    /// is not a reason to fall back to the PDS).
     /// </exception>
     public async Task<string> ResolveHostAsync(Did did, CancellationToken cancellationToken = default)
     {
@@ -289,10 +366,23 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
             throw new SpaceCredentialException($"Could not resolve '{did}': {ex.Message}", ex);
         }
 
-        var endpoint = SpaceAuthority.GetHostEndpoint(document)
-            ?? throw new SpaceCredentialException(
+        Uri? endpoint;
+        try
+        {
+            endpoint = SpaceAuthority.GetHostEndpoint(document);
+        }
+        catch (FormatException ex)
+        {
+            // A broken space host entry is an error rather than a reason to try the PDS instead.
+            throw new SpaceCredentialException(ex.Message, ex);
+        }
+
+        if (endpoint is null)
+        {
+            throw new SpaceCredentialException(
                 $"'{did}' publishes neither an {SpaceAuthority.HostServiceId} service entry nor a PDS endpoint " +
                 "with an absolute http(s) URL.");
+        }
 
         return AtProtoHttp.TryNormalizeBaseUrl(endpoint.OriginalString, out _)
             ? endpoint.OriginalString
@@ -402,20 +492,27 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
-        if (_disposed)
-            return;
+        lock (_state)
+        {
+            if (_disposed)
+                return;
 
-        _disposed = true;
+            _disposed = true;
 
-        foreach (var credential in _credentials.Values)
-            credential.Dispose();
-        _credentials.Clear();
+            foreach (var credential in _credentials.Values)
+                credential.Dispose();
+            _credentials.Clear();
 
-        foreach (var credential in _superseded)
-            credential.Dispose();
-        _superseded.Clear();
+            foreach (var credential in _superseded)
+                credential.Dispose();
+            _superseded.Clear();
+        }
 
-        _lock.Dispose();
+        // A mint in flight stops; one that completes anyway disposes its own credential, since it
+        // stores under the same lock that has now seen _disposed.
+        _disposing.Cancel();
+        _disposing.Dispose();
+
         if (_ownsDidResolver && _didResolver is IDisposable disposable)
             disposable.Dispose();
         if (_ownsHttpClient)

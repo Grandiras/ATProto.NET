@@ -72,7 +72,8 @@ public sealed class SpaceTypeDeclaration
     /// <remarks>
     /// This is a recommendation and the default collection set for a bare <c>space:</c> scope of
     /// this type — not a constraint. Any collection may be written to any space; the protocol
-    /// does not restrict it.
+    /// does not restrict it. The entries may come from any NSID domain, and none may be a
+    /// wildcard.
     /// </remarks>
     [JsonPropertyName("collections")]
     public required IReadOnlyList<Nsid> Collections { get; init; }
@@ -94,7 +95,10 @@ public sealed class SpaceTypeDeclaration
     /// <param name="lexicon">The parsed Lexicon document.</param>
     /// <returns>The declaration, or <see langword="null"/> when the document does not declare a space type.</returns>
     /// <exception cref="JsonException">
-    /// The declaration is malformed, for example a <c>collections</c> entry that is not an NSID.
+    /// The declaration is malformed, for example a <c>collections</c> entry that is not an NSID,
+    /// or one that is a wildcard, which proposal 0016 rules out: <c>collections</c> is the default
+    /// collection set of a <c>space:</c> scope, and a wildcard there would grant every collection
+    /// by default.
     /// </exception>
     public static SpaceTypeDeclaration? FromLexicon(JsonElement lexicon)
     {
@@ -114,6 +118,20 @@ public sealed class SpaceTypeDeclaration
             type.GetString() != "space")
         {
             return null;
+        }
+
+        // Named on its own, since as an NSID a wildcard fails with a message that does not say
+        // why a declaration may not use one.
+        if (main.TryGetProperty("collections", out var collections) && collections.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var collection in collections.EnumerateArray())
+            {
+                if (collection.ValueKind == JsonValueKind.String && collection.GetString()!.Contains('*'))
+                {
+                    throw new JsonException(
+                        $"A space type's collections may not contain a wildcard; got '{collection.GetString()}'.");
+                }
+            }
         }
 
         return main.Deserialize<SpaceTypeDeclaration>();

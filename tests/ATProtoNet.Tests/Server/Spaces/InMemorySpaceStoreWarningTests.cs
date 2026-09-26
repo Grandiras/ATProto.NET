@@ -40,41 +40,28 @@ public class InMemorySpaceStoreWarningTests
     }
 
     [Fact]
-    public async Task StartAsync_WithTheDefaultSimpleSpaceStore_WarnsThatMemberListsAreLost()
+    public async Task StartAsync_WithTheInMemorySpaceStores_SaysNothingAboutThem()
     {
+        // Only the replay store is a silent correctness gap across instances; the space stores
+        // are the documented development defaults and say so in their own docs.
         var logs = new CapturingLoggerProvider();
         var services = BuildServices(logs, configure: s =>
-            s.AddSingleton<ISimpleSpaceStore>(new InMemorySimpleSpaceStore()));
+        {
+            s.AddSingleton<IJtiReplayStore>(new SharedReplayStore());
+            s.AddSingleton<ISimpleSpaceStore>(new InMemorySimpleSpaceStore());
+            s.AddSingleton<ISpaceAuthorityStore>(new InMemorySpaceAuthorityStore());
+        });
 
         await StartAsync(services);
 
-        var warning = Assert.Single(logs.Records, record => record.Message.Contains("member lists"));
-        Assert.Equal(LogLevel.Warning, warning.Level);
-    }
-
-    [Fact]
-    public async Task StartAsync_WithTheDefaultAuthorityStore_OnlyInforms()
-    {
-        // The writer set is only what the authority claims, and the next notifyWrite from any
-        // repo host restores an entry — worth saying, not worth warning about.
-        var logs = new CapturingLoggerProvider();
-        var services = BuildServices(logs, configure: s =>
-            s.AddSingleton<ISpaceAuthorityStore>(new InMemorySpaceAuthorityStore()));
-
-        await StartAsync(services);
-
-        var record = Assert.Single(logs.Records, r => r.Message.Contains("writer sets"));
-        Assert.Equal(LogLevel.Information, record.Level);
+        Assert.Empty(logs.Records);
     }
 
     [Fact]
     public async Task StartAsync_WhenSuppressed_SaysNothing()
     {
         var logs = new CapturingLoggerProvider();
-        var services = BuildServices(
-            logs,
-            options => options.WarnOnInMemoryStores = false,
-            s => s.AddSingleton<ISimpleSpaceStore>(new InMemorySimpleSpaceStore()));
+        var services = BuildServices(logs, options => options.WarnOnInMemoryStores = false);
 
         await StartAsync(services);
 

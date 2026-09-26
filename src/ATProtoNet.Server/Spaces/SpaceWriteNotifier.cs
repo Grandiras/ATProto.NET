@@ -23,14 +23,18 @@ namespace ATProtoNet.Server.Spaces;
 /// <c>listRepos</c>, which is the actual correctness guarantee. Delivery failures are therefore
 /// logged and dropped rather than retried into a queue, and one unreachable subscriber never
 /// holds up the others.</para>
-/// <para>Each delivery is authenticated with service auth issued by this service, scoped to the
-/// method being called and addressed to the service identifier the subscriber registered —
-/// fragment and all, since that is the audience a subscriber such as
+/// <para>Each delivery is authenticated with service auth scoped to the method being called and
+/// addressed to the service identifier the subscriber registered — fragment and all, since that
+/// is the audience a subscriber such as
 /// <c>did:web:syncer.example.com#atproto_space_syncer</c> verifies against. The one exception is
 /// a space's own authority, registered by <see cref="EnsureAuthoritySubscribedAsync"/> as
 /// <c>{authority}#atproto_space_host</c>: it is reached at its space host endpoint, falling back
 /// to its <c>#atproto_pds</c>, and addressed by its bare DID, which is what the reference
 /// authority checks.</para>
+/// <para>The token is signed as the account the call speaks for — the writer on a repo host's
+/// notification, the space's authority on a forwarded one or a deletion — when an
+/// <see cref="ISpaceAccountSigner"/> holds that account's key, since the reference authority
+/// accepts a write notification only from its writer. Otherwise it is signed as this service.</para>
 /// </remarks>
 public sealed class SpaceWriteNotifier
 {
@@ -41,6 +45,7 @@ public sealed class SpaceWriteNotifier
     private readonly IDidResolver _resolver;
     private readonly ServiceAuthGenerator _serviceAuth;
     private readonly HttpClient _httpClient;
+    private readonly ISpaceAccountSigner? _accountSigner;
     private readonly ILogger _logger;
 
     /// <summary>
@@ -48,14 +53,19 @@ public sealed class SpaceWriteNotifier
     /// </summary>
     /// <param name="store">The authority's state, which holds the subscriber list.</param>
     /// <param name="resolver">Resolves each subscriber's delivery endpoint.</param>
-    /// <param name="serviceAuth">Signs the outbound service auth tokens as this service.</param>
+    /// <param name="serviceAuth">
+    /// Signs the outbound service auth tokens as this service, when
+    /// <paramref name="accountSigner"/> cannot sign as the account a call speaks for.
+    /// </param>
     /// <param name="httpClient">The client used for delivery.</param>
+    /// <param name="accountSigner">Signs as the hosted account a call speaks for. Optional.</param>
     /// <param name="logger">Optional logger.</param>
     public SpaceWriteNotifier(
         ISpaceAuthorityStore store,
         IDidResolver resolver,
         ServiceAuthGenerator serviceAuth,
         HttpClient httpClient,
+        ISpaceAccountSigner? accountSigner = null,
         ILogger<SpaceWriteNotifier>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(store);
@@ -67,6 +77,7 @@ public sealed class SpaceWriteNotifier
         _resolver = resolver;
         _serviceAuth = serviceAuth;
         _httpClient = httpClient;
+        _accountSigner = accountSigner;
         _logger = logger ?? (ILogger)NullLogger.Instance;
     }
 
@@ -83,7 +94,8 @@ public sealed class SpaceWriteNotifier
     /// This is the repo host's half of the notification path. On a repo host the subscribers
     /// include the space's authority, registered by <see cref="EnsureAuthoritySubscribedAsync"/>,
     /// which applies its write policy and forwards the notification to its own subscribers
-    /// (<see cref="ForwardWriteAsync"/>).
+    /// (<see cref="ForwardWriteAsync"/>). Each delivery is signed as <paramref name="repoDid"/>
+    /// when an <see cref="ISpaceAccountSigner"/> holds its key.
     /// </remarks>
     public Task<int> NotifyWriteAsync(
         SpaceUri space, Did repoDid, Tid rev, byte[] hash, CancellationToken cancellationToken = default)
@@ -94,7 +106,7 @@ public sealed class SpaceWriteNotifier
         ArgumentNullException.ThrowIfNull(hash);
 
         var body = new NotifyWriteRequest { Space = space, Repo = repoDid, Rev = rev, Hash = hash };
-        return FanOutAsync(space, NotifyWrite, body, includeAuthority: true, cancellationToken);
+        return FanOutAsync(space, repoDid, NotifyWrite, body, includeAuthority: true, cancellationToken);
     }
 
     /// <summary>
@@ -134,7 +146,7 @@ public sealed class SpaceWriteNotifier
             try
             {
                 return await FanOutAsync(
-                    space, NotifyWrite, body, includeAuthority: false, CancellationToken.None);
+                    space, space.Authority, NotifyWrite, body, includeAuthority: false, CancellationToken.None);
             }
             catch (Exception ex)
             {
@@ -163,7 +175,7 @@ public sealed class SpaceWriteNotifier
 
         // Only the authority deletes a space, so its own registration has nothing to learn.
         var body = new NotifySpaceDeletedRequest { Space = space };
-        return FanOutAsync(space, NotifySpaceDeleted, body, includeAuthority: false, cancellationToken);
+        return FanOutAsync(space, space.Authority, NotifySpaceDeleted, body, includeAuthority: false, cancellationToken);
     }
 
     /// <summary>
@@ -208,8 +220,15 @@ public sealed class SpaceWriteNotifier
         return true;
     }
 
+    /// <summary>Delivers one notification to every subscriber of a space.</summary>
+    /// <param name="space">The space.</param>
+    /// <param name="issuer">The account the notification speaks for, which it is signed as when possible.</param>
+    /// <param name="nsid">The method being called.</param>
+    /// <param name="body">The request body.</param>
+    /// <param name="includeAuthority">Whether the space's own authority subscription is delivered to.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     private async Task<int> FanOutAsync<TBody>(
-        SpaceUri space, Nsid nsid, TBody body, bool includeAuthority, CancellationToken cancellationToken)
+        SpaceUri space, Did issuer, Nsid nsid, TBody body, bool includeAuthority, CancellationToken cancellationToken)
     {
         var subscribers = await _store.ListSubscribersAsync(space, cancellationToken);
 
@@ -219,7 +238,8 @@ public sealed class SpaceWriteNotifier
         if (subscribers.Count == 0)
             return 0;
 
-        var deliveries = subscribers.Select(s => DeliverAsync(space, s, nsid, body, cancellationToken));
+        var signer = await SpaceAccountSigning.ChooseAsync(_accountSigner, _serviceAuth, issuer, _logger, cancellationToken);
+        var deliveries = subscribers.Select(s => DeliverAsync(space, s, signer, nsid, body, cancellationToken));
         var results = await Task.WhenAll(deliveries);
 
         return results.Count(delivered => delivered);
@@ -259,6 +279,7 @@ public sealed class SpaceWriteNotifier
     private async Task<bool> DeliverAsync<TBody>(
         SpaceUri space,
         SpaceNotifySubscriber subscriber,
+        ServiceAuthGenerator signer,
         Nsid nsid,
         TBody body,
         CancellationToken cancellationToken)
@@ -287,7 +308,7 @@ public sealed class SpaceWriteNotifier
                 Content = JsonContent.Create(body, options: AtProtoJsonDefaults.Options),
             };
             request.Headers.Authorization = new AuthenticationHeaderValue(
-                "Bearer", _serviceAuth.CreateToken(Audience(space, subscriber.Service, did), nsid));
+                "Bearer", signer.CreateToken(Audience(space, subscriber.Service, did), nsid));
 
             using var response = await _httpClient.SendAsync(request, cancellationToken);
 

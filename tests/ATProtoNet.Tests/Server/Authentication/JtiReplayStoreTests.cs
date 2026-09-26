@@ -51,10 +51,49 @@ public class InMemoryJtiReplayStoreTests
         await store.TryConsumeAsync("did:plc:a", "short", clock.GetUtcNow().AddSeconds(30));
         Assert.Equal(1, store.Count);
 
-        // Past both the entry's expiry and the sweep interval.
+        // Past both the entry's expiry and the sweep interval. The sweep runs in the background,
+        // off the consumption that found it due.
         clock.Advance(TimeSpan.FromMinutes(2));
         await store.TryConsumeAsync("did:plc:a", "fresh", clock.GetUtcNow().AddMinutes(1));
+        await store.LastSweep;
 
+        Assert.Equal(1, store.Count);
+    }
+
+    [Fact]
+    public async Task TryConsumeAsync_EntryDueLaterWithinTheSecond_SurvivesTheSweep()
+    {
+        // The sweep at 60.2 s must drop the entry that expired at 10 s and keep the one that must
+        // outlive 60.5 s, and the replay check runs only once that sweep has finished.
+        var clock = new ManualClock();
+        var start = clock.GetUtcNow();
+        var store = new InMemoryJtiReplayStore(clock);
+        await store.TryConsumeAsync("did:plc:a", "old", start.AddSeconds(10));
+        clock.Advance(TimeSpan.FromSeconds(60.2));
+        var retainUntil = start.AddSeconds(60.5);
+
+        Assert.True(await store.TryConsumeAsync("did:plc:a", "nonce", retainUntil));
+        await store.LastSweep;
+
+        Assert.Equal(1, store.Count);
+        Assert.False(await store.TryConsumeAsync("did:plc:a", "nonce", retainUntil));
+    }
+
+    [Fact]
+    public async Task TryConsumeAsync_WhenASweepIsDue_DoesNotWaitForIt()
+    {
+        var clock = new ManualClock();
+        var store = new InMemoryJtiReplayStore(clock);
+        for (var i = 0; i < 1000; i++)
+            await store.TryConsumeAsync("did:plc:a", $"n{i}", clock.GetUtcNow().AddSeconds(30));
+
+        clock.Advance(TimeSpan.FromMinutes(2));
+        var consumed = store.TryConsumeAsync("did:plc:a", "fresh", clock.GetUtcNow().AddMinutes(1));
+
+        // The consumption completes synchronously; the scan is a separate task.
+        Assert.True(consumed.IsCompletedSuccessfully);
+        Assert.True(await consumed);
+        await store.LastSweep;
         Assert.Equal(1, store.Count);
     }
 }
@@ -97,13 +136,20 @@ public sealed class EfCoreJtiReplayStoreTests : IAsyncLifetime
     {
         // Rows hold whole seconds. An entry that must outlive 60.5 s is stored as 60; a sweep at
         // 60.2 s that deleted "60 or earlier" dropped it while its token was still accepted.
+        // The sweep that consumption starts must have finished before the replay is checked, and
+        // must have run: it drops the entry that expired at 10 s.
         var clock = new ManualClock();
         var start = clock.GetUtcNow();
         var store = new EfCoreJtiReplayStore<JtiReplayDbContext>(new Factory(_options), clock);
+        await store.TryConsumeAsync("did:plc:a", "old", start.AddSeconds(10));
         clock.Advance(TimeSpan.FromSeconds(60.2));
         var retainUntil = start.AddSeconds(60.5);
 
         Assert.True(await store.TryConsumeAsync("did:plc:a", "nonce", retainUntil));
+        await store.LastSweep;
+
+        await using (var context = new JtiReplayDbContext(_options))
+            Assert.Equal(1, await context.AtProtoJtiReplay.CountAsync());
         Assert.False(await store.TryConsumeAsync("did:plc:a", "nonce", retainUntil));
     }
 

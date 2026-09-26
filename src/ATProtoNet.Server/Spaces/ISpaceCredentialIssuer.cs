@@ -32,16 +32,17 @@ public interface ISpaceCredentialIssuer
 /// process.
 /// </summary>
 /// <remarks>
-/// The key must be the one published in the authority's DID document at
+/// <para>The key must be the one published in the authority's DID document at
 /// <see cref="SpaceAuthority.SigningKeyId"/>, or at <c>#atproto</c> when the authority publishes
-/// no dedicated entry — a reader resolves it from there and nowhere else. Name which one in
-/// <see cref="SpaceServerOptions.CredentialKeyId"/> so the credential's <c>kid</c> says
-/// unambiguously which key to verify against.
+/// no dedicated entry — a reader resolves it from there and nowhere else. The credential's
+/// <c>kid</c> names which: <see cref="SpaceServerOptions.CredentialKeyId"/>, or <c>#atproto</c>
+/// when that is unset, and a reader verifies against exactly the entry it names.</para>
+/// <para>The issuer does not own the key: a signing key usually outlives any one consumer, and
+/// whoever created it disposes it.</para>
 /// </remarks>
-public sealed class SpaceCredentialIssuer : ISpaceCredentialIssuer, IDisposable
+public sealed class SpaceCredentialIssuer : ISpaceCredentialIssuer
 {
     private readonly AtProtoKey _signingKey;
-    private readonly bool _ownsKey;
     private readonly SpaceServerOptions _options;
 
     /// <summary>
@@ -52,12 +53,8 @@ public sealed class SpaceCredentialIssuer : ISpaceCredentialIssuer, IDisposable
     /// Server options. <see cref="SpaceServerOptions.ServiceDid"/> is required and becomes the
     /// credential's <c>iss</c>.
     /// </param>
-    /// <param name="ownsKey">
-    /// Whether disposing the issuer disposes the key. Defaults to <see langword="false"/>, since
-    /// a signing key usually outlives any one consumer.
-    /// </param>
     /// <exception cref="ArgumentException">Thrown when no service DID is configured.</exception>
-    public SpaceCredentialIssuer(AtProtoKey signingKey, SpaceServerOptions options, bool ownsKey = false)
+    public SpaceCredentialIssuer(AtProtoKey signingKey, SpaceServerOptions options)
     {
         ArgumentNullException.ThrowIfNull(signingKey);
         ArgumentNullException.ThrowIfNull(options);
@@ -70,7 +67,6 @@ public sealed class SpaceCredentialIssuer : ISpaceCredentialIssuer, IDisposable
         }
 
         _signingKey = signingKey;
-        _ownsKey = ownsKey;
         _options = options;
     }
 
@@ -100,12 +96,5 @@ public sealed class SpaceCredentialIssuer : ISpaceCredentialIssuer, IDisposable
             keyId: _options.CredentialKeyId);
 
         return Task.FromResult(credential);
-    }
-
-    /// <inheritdoc/>
-    public void Dispose()
-    {
-        if (_ownsKey)
-            _signingKey.Dispose();
     }
 }

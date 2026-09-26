@@ -545,6 +545,22 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task NotifyWrite_SignedByAServiceAtTheWritersPdsOrigin_IsRefused()
+    {
+        // The reference authority requires iss to be the writer. A service whose DID document
+        // names an endpoint at the writer's PDS origin is not the writer — anyone can publish that.
+        const string hostDid = "did:web:host.example.com";
+        using var hostKey = AtProtoCrypto.GenerateP256Key();
+        _resolver.PublishAccount(hostDid, hostKey, BaseUrl);
+        var space = await CreateSpaceThroughSimpleSpaceAsync("host-signed", writePolicy: new PublicPolicy());
+
+        using var response = await NotifyWriteAsync(space, StrangerDid, hostKey, "3l6oveex3ii2l", signer: hostDid);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.DoesNotContain(StrangerDid, await WriterDidsAsync(space));
+    }
+
+    [Fact]
     public async Task NotifyWrite_Accepted_IsForwardedToARegisteredSyncer()
     {
         // Syncers registered with registerNotify hear about remote writes only because the
@@ -674,9 +690,9 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     /// its account's key produces.
     /// </summary>
     private async Task<HttpResponseMessage> NotifyWriteAsync(
-        SpaceUri space, string repoDid, AtProtoKey repoKey, string rev, string audience = AuthorityDid)
+        SpaceUri space, string repoDid, AtProtoKey repoKey, string rev, string audience = AuthorityDid, string? signer = null)
     {
-        using var generator = new ServiceAuthGenerator(Did.Parse(repoDid), repoKey);
+        using var generator = new ServiceAuthGenerator(Did.Parse(signer ?? repoDid), repoKey);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, $"/xrpc/{SpaceNsids.NotifyWrite}")
         {

@@ -36,7 +36,7 @@ public class SpaceWriteNotifierTests
     private static readonly Did HostDid = Did.Parse("did:web:host.example.com");
 
     private static (SpaceWriteNotifier Notifier, InMemorySpaceAuthorityStore Store, RecordingHandler Handler)
-        Create(HttpStatusCode status = HttpStatusCode.OK)
+        Create(HttpStatusCode status = HttpStatusCode.OK, ISpaceAccountSigner? accountSigner = null)
     {
         var store = new InMemorySpaceAuthorityStore();
 
@@ -47,7 +47,7 @@ public class SpaceWriteNotifierTests
         var handler = new RecordingHandler(status);
         var serviceAuth = new ServiceAuthGenerator(HostDid, AtProtoCrypto.GenerateP256Key());
 
-        return (new SpaceWriteNotifier(store, resolver, serviceAuth, new HttpClient(handler)), store, handler);
+        return (new SpaceWriteNotifier(store, resolver, serviceAuth, new HttpClient(handler), accountSigner), store, handler);
     }
 
     [Fact]
@@ -275,6 +275,99 @@ public class SpaceWriteNotifierTests
             new HttpClient(new RecordingHandler(HttpStatusCode.OK)));
 
         Assert.Equal(0, await notifier.ForwardWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]));
+    }
+
+    // ── Per-account signing ────────────────────────────────────
+
+    [Fact]
+    public async Task NotifyWriteAsync_WithTheWritersKey_SignsAsTheWriter()
+    {
+        // The reference authority accepts notifyWrite only when iss is the writer, which a repo
+        // host signing as itself never is.
+        using var memberKey = AtProtoCrypto.GenerateP256Key();
+        var signer = new TestAccountSigner().Add(MemberDid, memberKey);
+        var (notifier, _, handler) = Create(accountSigner: signer);
+        await notifier.EnsureAuthoritySubscribedAsync(Space, MemberDid);
+
+        Assert.Equal(1, await notifier.NotifyWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]));
+
+        var token = Assert.Single(handler.Requests).Token!;
+        Assert.Equal(MemberDid, Claim(token, "iss"));
+        Assert.Equal(AuthorityDid, Claim(token, "aud"));
+        Assert.True(VerifiesAgainst(token, memberKey));
+    }
+
+    [Fact]
+    public async Task ForwardWriteAsync_WithTheAuthoritysKey_SignsAsTheAuthority()
+    {
+        using var authorityKey = AtProtoCrypto.GenerateP256Key();
+        var signer = new TestAccountSigner().Add(AuthorityDid, authorityKey);
+        var (notifier, store, handler) = Create(accountSigner: signer);
+        await store.RegisterNotifyAsync(Space, $"{SyncerDid}#atproto_space_syncer", DateTimeOffset.UtcNow.AddDays(1));
+
+        Assert.Equal(1, await notifier.ForwardWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]));
+
+        var token = Assert.Single(handler.Requests).Token!;
+        Assert.Equal(AuthorityDid, Claim(token, "iss"));
+        Assert.True(VerifiesAgainst(token, authorityKey));
+    }
+
+    [Fact]
+    public async Task NotifySpaceDeletedAsync_WithTheAuthoritysKey_SignsAsTheAuthority()
+    {
+        using var authorityKey = AtProtoCrypto.GenerateP256Key();
+        var signer = new TestAccountSigner().Add(AuthorityDid, authorityKey);
+        var (notifier, store, handler) = Create(accountSigner: signer);
+        await store.RegisterNotifyAsync(Space, $"{SyncerDid}#atproto_space_syncer", DateTimeOffset.UtcNow.AddDays(1));
+
+        await notifier.NotifySpaceDeletedAsync(Space);
+
+        Assert.Equal(AuthorityDid, Claim(Assert.Single(handler.Requests).Token, "iss"));
+    }
+
+    [Fact]
+    public async Task NotifyWriteAsync_SignerWithoutTheAccountsKey_FallsBackToTheServiceKey()
+    {
+        using var otherKey = AtProtoCrypto.GenerateP256Key();
+        var signer = new TestAccountSigner().Add(Did.Parse("did:plc:eeeeeeeeeeeeeeeeeeeeeeee"), otherKey);
+        var (notifier, _, handler) = Create(accountSigner: signer);
+        await notifier.EnsureAuthoritySubscribedAsync(Space, MemberDid);
+
+        await notifier.NotifyWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]);
+
+        Assert.Equal(HostDid, Claim(Assert.Single(handler.Requests).Token, "iss"));
+    }
+
+    [Fact]
+    public async Task NotifyWriteAsync_SignerThatFails_FallsBackToTheServiceKeyAndStillDelivers()
+    {
+        var signer = new TestAccountSigner { Fail = true };
+        var (notifier, _, handler) = Create(accountSigner: signer);
+        await notifier.EnsureAuthoritySubscribedAsync(Space, MemberDid);
+
+        Assert.Equal(1, await notifier.NotifyWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]));
+        Assert.Equal(HostDid, Claim(Assert.Single(handler.Requests).Token, "iss"));
+    }
+
+    [Fact]
+    public async Task NotifyWriteAsync_SignerAnsweringForAnotherAccount_IsNotUsed()
+    {
+        // A generator for the wrong DID would put that DID in iss; the service key is used instead.
+        using var wrongKey = AtProtoCrypto.GenerateP256Key();
+        var signer = new TestAccountSigner { Override = new ServiceAuthGenerator(AuthorityDid, wrongKey) };
+        var (notifier, _, handler) = Create(accountSigner: signer);
+        await notifier.EnsureAuthoritySubscribedAsync(Space, MemberDid);
+
+        await notifier.NotifyWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]);
+
+        Assert.Equal(HostDid, Claim(Assert.Single(handler.Requests).Token, "iss"));
+    }
+
+    private static bool VerifiesAgainst(string jwt, AtProtoKey key)
+    {
+        var parts = jwt.Split('.');
+        return key.Verify(
+            System.Text.Encoding.ASCII.GetBytes($"{parts[0]}.{parts[1]}"), TestJws.Decode(parts[2]));
     }
 
     private static string? Claim(string? jwt, string name)

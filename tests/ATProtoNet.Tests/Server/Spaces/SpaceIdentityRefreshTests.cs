@@ -12,8 +12,7 @@ namespace ATProtoNet.Tests.Server.Spaces;
 
 /// <summary>
 /// How the space verifiers use a cached DID document: one refetch when a signature fails
-/// against it, resolution failures reported in the space error contract, and the two documents
-/// <see cref="SpaceServiceAuthVerifier.IsRepoHostAsync"/> needs resolved together.
+/// against it, and resolution failures reported in the space error contract.
 /// </summary>
 public class SpaceIdentityRefreshTests
 {
@@ -138,61 +137,5 @@ public class SpaceIdentityRefreshTests
 
         Assert.Equal(HostDid, verified.Issuer);
         Assert.Equal(1, resolver.RefreshCount);
-    }
-
-    [Fact]
-    public async Task IsRepoHostAsync_ResolvesBothDocumentsConcurrently()
-    {
-        // Each resolution waits until the other has started: resolved one after the other, this
-        // never completes.
-        var resolver = new BarrierResolver(participants: 2)
-            .Publish(UserDid, "https://pds.example.com")
-            .Publish(HostDid, "https://pds.example.com");
-        var verifier = new SpaceServiceAuthVerifier(resolver, new InMemoryJtiReplayStore());
-
-        var isHost = await verifier.IsRepoHostAsync(HostDid, UserDid).WaitAsync(TimeSpan.FromSeconds(10));
-
-        Assert.True(isHost);
-    }
-
-    [Fact]
-    public async Task IsRepoHostAsync_RepoWithNoHost_IsFalseEvenWhenTheServiceDoesNotResolve()
-    {
-        var resolver = new FakeDidDocumentResolver().Publish(UserDid, new DidDocument { Id = UserDid });
-        var verifier = new SpaceServiceAuthVerifier(resolver, new InMemoryJtiReplayStore());
-
-        Assert.False(await verifier.IsRepoHostAsync(HostDid, UserDid));
-    }
-
-    [Fact]
-    public async Task IsRepoHostAsync_DifferentOrigins_IsFalse()
-    {
-        using var key = AtProtoCrypto.GenerateP256Key();
-        var resolver = new FakeDidDocumentResolver()
-            .PublishAccount(UserDid, key, "https://pds.example.com")
-            .PublishAccount(HostDid, key, "https://elsewhere.example.com");
-        var verifier = new SpaceServiceAuthVerifier(resolver, new InMemoryJtiReplayStore());
-
-        Assert.False(await verifier.IsRepoHostAsync(HostDid, UserDid));
-    }
-
-    private sealed class BarrierResolver(int participants) : IDidResolver
-    {
-        private readonly Dictionary<Did, DidDocument> _documents = new();
-        private readonly Barrier _barrier = new(participants);
-
-        public BarrierResolver Publish(Did did, string pds)
-        {
-            _documents[did] = Identity.DidDocs.Parse(did.Value, pds: pds);
-            return this;
-        }
-
-        public Task<DidDocument> ResolveAsync(Did did, CancellationToken cancellationToken = default) =>
-            Task.Run(() =>
-            {
-                if (!_barrier.SignalAndWait(TimeSpan.FromSeconds(5), cancellationToken))
-                    throw new TimeoutException("The other document was not being resolved at the same time.");
-                return _documents[did];
-            }, cancellationToken);
     }
 }

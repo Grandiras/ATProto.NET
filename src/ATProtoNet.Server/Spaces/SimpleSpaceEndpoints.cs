@@ -19,34 +19,17 @@ namespace ATProtoNet.Server.Spaces;
 /// every one of them is scoped to the caller's own DID. A space's authority is its owner's DID,
 /// so an account can only ever create spaces under itself.
 /// </remarks>
-public abstract class SimpleSpaceEndpointBase
+internal abstract class SimpleSpaceEndpointBase(ISpaceCallerResolver callerResolver, ISimpleSpaceStore store)
 {
-    /// <summary>
-    /// Creates the endpoint.
-    /// </summary>
-    /// <param name="callerResolver">Identifies the authenticated account.</param>
-    /// <param name="store">The spaces and member lists this authority holds.</param>
-    protected SimpleSpaceEndpointBase(ISpaceCallerResolver callerResolver, ISimpleSpaceStore store)
-    {
-        ArgumentNullException.ThrowIfNull(callerResolver);
-        ArgumentNullException.ThrowIfNull(store);
-
-        CallerResolver = callerResolver;
-        Store = store;
-    }
-
     /// <summary>Identifies the authenticated account.</summary>
-    protected ISpaceCallerResolver CallerResolver { get; }
+    protected ISpaceCallerResolver CallerResolver { get; } = callerResolver;
 
     /// <summary>The spaces and member lists this authority holds.</summary>
-    protected ISimpleSpaceStore Store { get; }
+    protected ISimpleSpaceStore Store { get; } = store;
 
     /// <summary>
     /// Loads a space the caller owns, or throws.
     /// </summary>
-    /// <param name="spaceValue">The space from the request.</param>
-    /// <param name="context">The HTTP context.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     protected async Task<SimpleSpaceRecord> RequireOwnedSpaceAsync(
         SpaceUri? spaceValue, HttpContext context, CancellationToken cancellationToken)
     {
@@ -65,27 +48,17 @@ public abstract class SimpleSpaceEndpointBase
     }
 
     /// <summary>The error a <c>simplespace</c> method answers with for a space the caller may not see.</summary>
-    /// <param name="space">The space that was addressed.</param>
     protected static XrpcException NotFound(SpaceUri space) =>
         new(SimpleSpaceErrors.SpaceNotFound, $"No such space: {space}.", HttpStatusCode.NotFound);
 }
 
 /// <summary>Serves <c>com.atproto.simplespace.createSpace</c>.</summary>
-public sealed class CreateSimpleSpaceEndpoint
-    : SimpleSpaceEndpointBase, IXrpcProcedure<CreateSimpleSpaceRequest, CreateSimpleSpaceResponse>
+internal sealed class CreateSimpleSpaceEndpoint(ISpaceCallerResolver callerResolver, ISimpleSpaceStore store)
+    : SimpleSpaceEndpointBase(callerResolver, store),
+      IXrpcProcedure<CreateSimpleSpaceRequest, CreateSimpleSpaceResponse>
 {
-    /// <summary>Creates the endpoint.</summary>
-    /// <param name="callerResolver">Identifies the authenticated account.</param>
-    /// <param name="store">The spaces this authority holds.</param>
-    public CreateSimpleSpaceEndpoint(ISpaceCallerResolver callerResolver, ISimpleSpaceStore store)
-        : base(callerResolver, store)
-    {
-    }
-
-    /// <inheritdoc/>
     public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.CreateSimpleSpace);
 
-    /// <inheritdoc/>
     public async Task<CreateSimpleSpaceResponse> HandleAsync(
         CreateSimpleSpaceRequest input, HttpContext context, CancellationToken cancellationToken = default)
     {
@@ -118,8 +91,8 @@ public sealed class CreateSimpleSpaceEndpoint
         new(XrpcErrors.InvalidRequest, $"The \"{name}\" field is required.");
 
     /// <summary>
-    /// Rejects a policy variant this host does not implement, rather than storing one it could
-    /// not enforce.
+    /// Rejects a policy variant this host does not implement — one a newer schema added, which
+    /// reads as an <c>Unknown…</c> variant — rather than storing one it could not enforce.
     /// </summary>
     internal static void RequireSupported(
         SimpleSpaceUserPolicy? readPolicy, SimpleSpaceUserPolicy? writePolicy, SimpleSpaceAppAccess? appAccess)
@@ -131,7 +104,7 @@ public sealed class CreateSimpleSpaceEndpoint
         {
             throw new XrpcException(
                 SimpleSpaceErrors.UnsupportedAppAccess,
-                $"This host does not implement the '{appAccess.GetType().Name}' app access variant.");
+                $"This host does not implement the '{VariantName(appAccess)}' app access variant.");
         }
     }
 
@@ -141,30 +114,23 @@ public sealed class CreateSimpleSpaceEndpoint
         {
             throw new XrpcException(
                 SimpleSpaceErrors.UnsupportedPolicy,
-                $"This host does not implement the '{policy.GetType().Name}' user policy.");
+                $"This host does not implement the '{VariantName(policy)}' user policy.");
         }
 
         if (policy is ManagingAppPolicy managing)
             SpaceRequestValidation.RequireServiceIdentifier(managing.ManagingApp, "managingApp");
     }
+
+    private static string VariantName(object variant) =>
+        variant is Serialization.IUnknownUnionVariant unknown ? unknown.Type : variant.GetType().Name;
 }
 
 /// <summary>Serves <c>com.atproto.simplespace.updateSpace</c>.</summary>
-public sealed class UpdateSimpleSpaceEndpoint
-    : SimpleSpaceEndpointBase, IXrpcProcedureVoid<UpdateSimpleSpaceRequest>
+internal sealed class UpdateSimpleSpaceEndpoint(ISpaceCallerResolver callerResolver, ISimpleSpaceStore store)
+    : SimpleSpaceEndpointBase(callerResolver, store), IXrpcProcedureVoid<UpdateSimpleSpaceRequest>
 {
-    /// <summary>Creates the endpoint.</summary>
-    /// <param name="callerResolver">Identifies the authenticated account.</param>
-    /// <param name="store">The spaces this authority holds.</param>
-    public UpdateSimpleSpaceEndpoint(ISpaceCallerResolver callerResolver, ISimpleSpaceStore store)
-        : base(callerResolver, store)
-    {
-    }
-
-    /// <inheritdoc/>
     public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.UpdateSimpleSpace);
 
-    /// <inheritdoc/>
     public async Task HandleAsync(
         UpdateSimpleSpaceRequest input, HttpContext context, CancellationToken cancellationToken = default)
     {
@@ -190,32 +156,17 @@ public sealed class UpdateSimpleSpaceEndpoint
 /// Deleting a space stops the authority issuing credentials for it and deletes the authority's
 /// own repo in it. Other members' repos are <em>not</em> deleted: a member's records are the
 /// member's own data, and deleting the space does not entitle the authority to destroy them —
-/// they simply become unreadable to everyone but the member's own account.
+/// they simply become unreadable to everyone but the member's own account. Registered syncers
+/// are told to drop their copies when a <see cref="SpaceWriteNotifier"/> is registered; one that
+/// is never told learns on its next credential renewal, which answers
+/// <see cref="SpaceErrors.SpaceDeleted"/>.
 /// </remarks>
-public sealed class DeleteSimpleSpaceEndpoint
-    : SimpleSpaceEndpointBase, IXrpcProcedureVoid<DeleteSimpleSpaceRequest>
+internal sealed class DeleteSimpleSpaceEndpoint(
+    ISpaceCallerResolver callerResolver, ISimpleSpaceStore store, SpaceWriteNotifier? notifier = null)
+    : SimpleSpaceEndpointBase(callerResolver, store), IXrpcProcedureVoid<DeleteSimpleSpaceRequest>
 {
-    private readonly SpaceWriteNotifier? _notifier;
-
-    /// <summary>Creates the endpoint.</summary>
-    /// <param name="callerResolver">Identifies the authenticated account.</param>
-    /// <param name="store">The spaces this authority holds.</param>
-    /// <param name="notifier">
-    /// Tells registered syncers to drop their copies. Optional: a syncer that is never told
-    /// learns on its next credential renewal, which answers
-    /// <see cref="SpaceErrors.SpaceDeleted"/>.
-    /// </param>
-    public DeleteSimpleSpaceEndpoint(
-        ISpaceCallerResolver callerResolver, ISimpleSpaceStore store, SpaceWriteNotifier? notifier = null)
-        : base(callerResolver, store)
-    {
-        _notifier = notifier;
-    }
-
-    /// <inheritdoc/>
     public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.DeleteSimpleSpace);
 
-    /// <inheritdoc/>
     public async Task HandleAsync(
         DeleteSimpleSpaceRequest input, HttpContext context, CancellationToken cancellationToken = default)
     {
@@ -234,35 +185,20 @@ public sealed class DeleteSimpleSpaceEndpoint
             throw NotFound(uri);
 
         // Notify before deleting, so the subscriber list is still readable.
-        if (_notifier is not null)
-            await _notifier.NotifySpaceDeletedAsync(uri, cancellationToken);
+        if (notifier is not null)
+            await notifier.NotifySpaceDeletedAsync(uri, cancellationToken);
 
         await Store.DeleteSpaceAsync(uri, cancellationToken);
     }
 }
 
 /// <summary>Serves <c>com.atproto.simplespace.getSpace</c>.</summary>
-public sealed class GetSimpleSpaceEndpoint
-    : SimpleSpaceEndpointBase, IXrpcQuery<GetSimpleSpaceParameters, GetSimpleSpaceResponse>
+internal sealed class GetSimpleSpaceEndpoint(
+    ISpaceCallerResolver callerResolver, ISimpleSpaceStore store, SpaceRequestAuthenticator authenticator)
+    : SimpleSpaceEndpointBase(callerResolver, store), IXrpcQuery<GetSimpleSpaceParameters, GetSimpleSpaceResponse>
 {
-    private readonly SpaceRequestAuthenticator _authenticator;
-
-    /// <summary>Creates the endpoint.</summary>
-    /// <param name="callerResolver">Identifies the authenticated account.</param>
-    /// <param name="store">The spaces this authority holds.</param>
-    /// <param name="authenticator">Verifies a space credential, for callers presenting one.</param>
-    public GetSimpleSpaceEndpoint(
-        ISpaceCallerResolver callerResolver, ISimpleSpaceStore store, SpaceRequestAuthenticator authenticator)
-        : base(callerResolver, store)
-    {
-        ArgumentNullException.ThrowIfNull(authenticator);
-        _authenticator = authenticator;
-    }
-
-    /// <inheritdoc/>
     public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.GetSimpleSpace);
 
-    /// <inheritdoc/>
     public async Task<GetSimpleSpaceResponse> HandleAsync(
         GetSimpleSpaceParameters parameters, HttpContext context, CancellationToken cancellationToken = default)
     {
@@ -278,7 +214,7 @@ public sealed class GetSimpleSpaceEndpoint
         // space to it discloses nothing new.
         var caller = CallerResolver.GetCallerDid(context);
         if (space.Owner != caller)
-            await _authenticator.AuthenticateCredentialAsync(context, uri, cancellationToken);
+            await authenticator.AuthenticateCredentialAsync(context, uri, cancellationToken);
 
         return new GetSimpleSpaceResponse
         {
@@ -296,21 +232,11 @@ public sealed class GetSimpleSpaceEndpoint
 /// authority minting <em>new</em> credentials for them, as removal does; clearing the write flag
 /// stops it recording their writes and forwarding their notifications from the next one on.
 /// </remarks>
-public sealed class PutSimpleSpaceMemberEndpoint
-    : SimpleSpaceEndpointBase, IXrpcProcedureVoid<PutSimpleSpaceMemberRequest>
+internal sealed class PutSimpleSpaceMemberEndpoint(ISpaceCallerResolver callerResolver, ISimpleSpaceStore store)
+    : SimpleSpaceEndpointBase(callerResolver, store), IXrpcProcedureVoid<PutSimpleSpaceMemberRequest>
 {
-    /// <summary>Creates the endpoint.</summary>
-    /// <param name="callerResolver">Identifies the authenticated account.</param>
-    /// <param name="store">The spaces and member lists this authority holds.</param>
-    public PutSimpleSpaceMemberEndpoint(ISpaceCallerResolver callerResolver, ISimpleSpaceStore store)
-        : base(callerResolver, store)
-    {
-    }
-
-    /// <inheritdoc/>
     public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.PutSimpleSpaceMember);
 
-    /// <inheritdoc/>
     public async Task HandleAsync(
         PutSimpleSpaceMemberRequest input, HttpContext context, CancellationToken cancellationToken = default)
     {
@@ -329,21 +255,11 @@ public sealed class PutSimpleSpaceMemberEndpoint
 /// issued stays valid until it expires, and records they wrote remain their own data in their
 /// own repo.
 /// </remarks>
-public sealed class RemoveSimpleSpaceMemberEndpoint
-    : SimpleSpaceEndpointBase, IXrpcProcedureVoid<RemoveSimpleSpaceMemberRequest>
+internal sealed class RemoveSimpleSpaceMemberEndpoint(ISpaceCallerResolver callerResolver, ISimpleSpaceStore store)
+    : SimpleSpaceEndpointBase(callerResolver, store), IXrpcProcedureVoid<RemoveSimpleSpaceMemberRequest>
 {
-    /// <summary>Creates the endpoint.</summary>
-    /// <param name="callerResolver">Identifies the authenticated account.</param>
-    /// <param name="store">The spaces and member lists this authority holds.</param>
-    public RemoveSimpleSpaceMemberEndpoint(ISpaceCallerResolver callerResolver, ISimpleSpaceStore store)
-        : base(callerResolver, store)
-    {
-    }
-
-    /// <inheritdoc/>
     public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.RemoveSimpleSpaceMember);
 
-    /// <inheritdoc/>
     public async Task HandleAsync(
         RemoveSimpleSpaceMemberRequest input, HttpContext context, CancellationToken cancellationToken = default)
     {
@@ -362,21 +278,12 @@ public sealed class RemoveSimpleSpaceMemberEndpoint
 /// access — to the space's owner and to nobody else. It is never enumerated to the network —
 /// <c>listRepos</c> returns the writers the write policy admitted, not the member list.
 /// </remarks>
-public sealed class ListSimpleSpaceMembersEndpoint
-    : SimpleSpaceEndpointBase, IXrpcQuery<ListSimpleSpaceMembersParameters, ListSimpleSpaceMembersResponse>
+internal sealed class ListSimpleSpaceMembersEndpoint(ISpaceCallerResolver callerResolver, ISimpleSpaceStore store)
+    : SimpleSpaceEndpointBase(callerResolver, store),
+      IXrpcQuery<ListSimpleSpaceMembersParameters, ListSimpleSpaceMembersResponse>
 {
-    /// <summary>Creates the endpoint.</summary>
-    /// <param name="callerResolver">Identifies the authenticated account.</param>
-    /// <param name="store">The spaces and member lists this authority holds.</param>
-    public ListSimpleSpaceMembersEndpoint(ISpaceCallerResolver callerResolver, ISimpleSpaceStore store)
-        : base(callerResolver, store)
-    {
-    }
-
-    /// <inheritdoc/>
     public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.ListSimpleSpaceMembers);
 
-    /// <inheritdoc/>
     public async Task<ListSimpleSpaceMembersResponse> HandleAsync(
         ListSimpleSpaceMembersParameters parameters, HttpContext context, CancellationToken cancellationToken = default)
     {

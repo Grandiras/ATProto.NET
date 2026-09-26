@@ -15,6 +15,12 @@ namespace ATProtoNet.Server.EntityFrameworkCore;
 /// Losing the writer set is not catastrophic — it is only what the authority <em>claims</em>,
 /// and the next <c>notifyWrite</c> from any repo host rebuilds an entry — but until then syncers
 /// see a space that has no repos in it, which is a worse answer than a stale one.</para>
+/// <para>The writes on the notification path are updates first. A renewed registration costs one
+/// <c>UPDATE</c> and no read; <c>notifyWrite</c> for a writer already in the set costs a
+/// primary-key read and one <c>UPDATE</c> conditioned on the revision it read. Revisions are
+/// compared here rather than in SQL, because a SQL comparison follows the column's collation and a
+/// TID's order is its bytes' only under some collations. Only a row that does not exist yet takes
+/// the insert path.</para>
 /// <para>Pagination is by DID, so a cursor names a position rather than an offset into a set
 /// that reorders as writes arrive. The ordering and the cursor comparison are both evaluated by
 /// the database, so they agree with each other under any collation; a database whose collation
@@ -87,6 +93,17 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
     {
         ArgumentNullException.ThrowIfNull(space);
 
+        var spaceValue = space.Value;
+        await using (var context = await _contextFactory.CreateDbContextAsync(cancellationToken))
+        {
+            var updated = await context.Set<SpaceEntity>()
+                .Where(e => e.Space == spaceValue)
+                .ExecuteUpdateAsync(set => set.SetProperty(e => e.Deleted, true), cancellationToken);
+
+            if (updated > 0)
+                return;
+        }
+
         await MutateAsync(async (context, ct) =>
         {
             var entity = await context.Set<SpaceEntity>().FindAsync([space.Value], ct);
@@ -136,16 +153,13 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
             .Take(limit + 1)
             .ToListAsync(cancellationToken);
 
-        var hasMore = page.Count > limit;
-        var repos = page.Take(limit)
-            .Select(e => new SpaceRepoView { Did = Did.Parse(e.Did), Rev = Tid.Parse(e.Rev), Hash = e.Hash })
-            .ToList();
+        var (repos, next) = SpacePaging.Page(
+            page,
+            limit,
+            e => new SpaceRepoView { Did = Did.Parse(e.Did), Rev = Tid.Parse(e.Rev), Hash = e.Hash },
+            repo => repo.Did.Value);
 
-        return new ListSpaceReposResponse
-        {
-            Repos = repos,
-            Cursor = hasMore && repos.Count > 0 ? repos[^1].Did.Value : null,
-        };
+        return new ListSpaceReposResponse { Repos = repos, Cursor = next };
     }
 
     /// <inheritdoc/>
@@ -157,36 +171,66 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
         ArgumentNullException.ThrowIfNull(rev);
         ArgumentNullException.ThrowIfNull(hash);
 
-        // Two notifications for the same repo can both find no row and both insert; the loser's
-        // insert violates the key, and the retry takes the update path instead.
-        await MutateAsync(async (context, ct) =>
+        var spaceValue = space.Value;
+        var did = repoDid.Value;
+        var revValue = rev.Value;
+
+        for (var attempt = 1; ; attempt++)
         {
-            await EnsureSpaceAsync(context, space.Value, ct);
-
+            await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
             var writers = context.Set<SpaceWriterEntity>();
-            var existing = await writers.FindAsync([space.Value, repoDid.Value], ct);
 
-            if (existing is null)
+            var current = await writers
+                .Where(e => e.Space == spaceValue && e.Did == did)
+                .Select(e => e.Rev)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (current is null)
             {
-                writers.Add(new SpaceWriterEntity
+                // A first write. Two first notifications can both find no row and both insert;
+                // the loser's insert violates the key, and its next attempt finds the row.
+                await EnsureSpaceAsync(context, spaceValue, cancellationToken);
+                writers.Add(new SpaceWriterEntity { Space = spaceValue, Did = did, Rev = revValue, Hash = hash });
+                try
                 {
-                    Space = space.Value,
-                    Did = repoDid.Value,
-                    Rev = rev.Value,
-                    Hash = hash,
-                });
+                    await context.SaveChangesAsync(cancellationToken);
+                    return;
+                }
+                catch (DbUpdateException) when (attempt < MaxWriteAttempts)
+                {
+                    continue;
+                }
             }
+
             // A notification that arrives out of order must not walk a repo's revision backwards;
-            // a syncer reads the writer set to decide what advanced. TIDs sort
-            // lexicographically, and the comparison is ordinal here rather than in the database
-            // because a collation that ignores case would call two different revisions equal.
-            else if (string.CompareOrdinal(rev.Value, existing.Rev) >= 0)
+            // a syncer reads the writer set to decide what advanced. TIDs order by their bytes,
+            // which is compared here: in SQL the column's collation decides, and one that is not
+            // ordinal (Danish, say, which sorts "aa" after "z") would order two TIDs the other way.
+            if (string.CompareOrdinal(revValue, current) < 0)
+                return;
+
+            // Advance only from the revision just read, so a newer notification landing in between
+            // is never overwritten by this one. Equality needs no collation to agree on an order.
+            var updated = await writers
+                .Where(e => e.Space == spaceValue && e.Did == did && e.Rev == current)
+                .ExecuteUpdateAsync(
+                    set => set.SetProperty(e => e.Rev, revValue).SetProperty(e => e.Hash, hash),
+                    cancellationToken);
+
+            if (updated > 0)
+                return;
+
+            if (attempt >= MaxWriteAttempts)
             {
-                existing.Rev = rev.Value;
-                existing.Hash = hash;
+                throw new DbUpdateConcurrencyException(
+                    $"The revision of '{did}' in '{spaceValue}' kept changing while recording '{revValue}'.");
             }
-        }, cancellationToken);
+        }
     }
+
+    // How often RecordWriteAsync re-reads a writer whose row changed under it. Each retry means
+    // another notification for the same repo landed in between, so this is rarely more than one.
+    private const int MaxWriteAttempts = 5;
 
     /// <inheritdoc/>
     public async Task RegisterNotifyAsync(
@@ -194,6 +238,19 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
     {
         ArgumentNullException.ThrowIfNull(space);
         ArgumentException.ThrowIfNullOrWhiteSpace(service);
+
+        var spaceValue = space.Value;
+
+        // A renewal, the common case, is one statement.
+        await using (var context = await _contextFactory.CreateDbContextAsync(cancellationToken))
+        {
+            var updated = await context.Set<SpaceSubscriberEntity>()
+                .Where(e => e.Space == spaceValue && e.Service == service)
+                .ExecuteUpdateAsync(set => set.SetProperty(e => e.ExpiresAt, expiresAt), cancellationToken);
+
+            if (updated > 0)
+                return;
+        }
 
         await MutateAsync(async (context, ct) =>
         {
@@ -225,15 +282,12 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
         ArgumentNullException.ThrowIfNull(space);
         ArgumentException.ThrowIfNullOrWhiteSpace(service);
 
+        var spaceValue = space.Value;
+
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
-        var subscribers = context.Set<SpaceSubscriberEntity>();
-        var existing = await subscribers.FindAsync([space.Value, service], cancellationToken);
-
-        if (existing is null)
-            return;
-
-        subscribers.Remove(existing);
-        await context.SaveChangesAsync(cancellationToken);
+        await context.Set<SpaceSubscriberEntity>()
+            .Where(e => e.Space == spaceValue && e.Service == service)
+            .ExecuteDeleteAsync(cancellationToken);
     }
 
     /// <inheritdoc/>

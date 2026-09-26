@@ -126,6 +126,43 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task RecordWriteAsync_UnderACollationThatIsNotOrdinal_StillOrdersRevisionsByTheirBytes()
+    {
+        // A SQL comparison follows the column's collation, and a TID's order is its bytes' only
+        // under some (Danish sorts "aa" after "z"). A reversed collation is the extreme case.
+        await using var connection = new SqliteConnection($"Data Source=collated-{Guid.NewGuid():N};Mode=Memory;Cache=Shared");
+        await connection.OpenAsync();
+        connection.CreateCollation("REVERSED", (x, y) => -string.CompareOrdinal(x, y));
+        var options = new DbContextOptionsBuilder<ReversedRevisionContext>().UseSqlite(connection).Options;
+        await using (var context = new ReversedRevisionContext(options))
+            await context.Database.EnsureCreatedAsync();
+
+        var store = new EfCoreSpaceAuthorityStore<ReversedRevisionContext>(
+            new ReversedRevisionFactory(options), TimeProvider.System);
+        var alice = Did.Parse("did:plc:alice");
+
+        await store.RecordWriteAsync(Space, alice, Tid.Parse("3kbbbbbbbbbbb"), [2]);
+        await store.RecordWriteAsync(Space, alice, Tid.Parse("3kaaaaaaaaaaa"), [1]);
+        Assert.Equal("3kbbbbbbbbbbb", Assert.Single((await store.ListReposAsync(Space, 10, null)).Repos).Rev);
+
+        await store.RecordWriteAsync(Space, alice, Tid.Parse("3kccccccccccc"), [3]);
+        var repo = Assert.Single((await store.ListReposAsync(Space, 10, null)).Repos);
+        Assert.Equal("3kccccccccccc", repo.Rev);
+        Assert.Equal([3], repo.Hash);
+    }
+
+    [Fact]
+    public async Task RecordWriteAsync_TheSameRevisionAgain_UpdatesTheHash()
+    {
+        var store = Authority();
+        await store.RecordWriteAsync(Space, Did.Parse("did:plc:alice"), Tid.Parse("3kaaaaaaaaaaa"), [1]);
+
+        await store.RecordWriteAsync(Space, Did.Parse("did:plc:alice"), Tid.Parse("3kaaaaaaaaaaa"), [9]);
+
+        Assert.Equal([9], Assert.Single((await store.ListReposAsync(Space, 10, null)).Repos).Hash);
+    }
+
+    [Fact]
     public async Task ListReposAsync_PagesByDid_AndTheCursorResumesWhereItLeftOff()
     {
         var store = Authority();
@@ -419,9 +456,11 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
         await store.TryConsumeAsync("did:plc:a", "short", clock.GetUtcNow().AddSeconds(30));
         Assert.Equal(1, await CountReplayEntriesAsync());
 
-        // Past both the entry's expiry and the sweep interval.
+        // Past both the entry's expiry and the sweep interval. The sweep runs in the background,
+        // off the consumption that found it due.
         clock.Advance(TimeSpan.FromMinutes(2));
         await store.TryConsumeAsync("did:plc:a", "fresh", clock.GetUtcNow().AddMinutes(1));
+        await store.LastSweep;
 
         Assert.Equal(1, await CountReplayEntriesAsync());
     }
@@ -435,6 +474,22 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
     private sealed class Factory(DbContextOptions<SpaceDbContext> options) : IDbContextFactory<SpaceDbContext>
     {
         public SpaceDbContext CreateDbContext() => new(options);
+    }
+
+    /// <summary>The authority model with its revision column under a collation that reverses the byte order.</summary>
+    private sealed class ReversedRevisionContext(DbContextOptions<ReversedRevisionContext> options) : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            SpaceDbContext.ConfigureSpaceAuthorityModel(modelBuilder);
+            modelBuilder.Entity<SpaceWriterEntity>().Property(e => e.Rev).UseCollation("REVERSED");
+        }
+    }
+
+    private sealed class ReversedRevisionFactory(DbContextOptions<ReversedRevisionContext> options)
+        : IDbContextFactory<ReversedRevisionContext>
+    {
+        public ReversedRevisionContext CreateDbContext() => new(options);
     }
 
     private sealed class FakeClock(DateTimeOffset now) : TimeProvider

@@ -39,9 +39,16 @@ public sealed class LexiconTypeRegistry : ILexiconTypeRegistrar
 
     /// <inheritdoc />
     /// <exception cref="ArgumentException">
-    /// <typeparamref name="TBase"/> is not a union base, or <paramref name="typeDiscriminator"/> is
-    /// already declared or registered for a different variant.
+    /// <typeparamref name="TBase"/> is not a union base, or is a closed one, or
+    /// <paramref name="typeDiscriminator"/> is already declared or registered for a different
+    /// variant.
     /// </exception>
+    /// <remarks>
+    /// A closed union (<c>[AtProtoUnion(Closed = true)]</c>) takes no registrations. The Lexicon
+    /// that marks a union closed promises its readers that the declared variants are all there
+    /// will ever be, so a variant added at runtime would write data that every other
+    /// implementation rejects.
+    /// </remarks>
     public void RegisterUnionVariant<TBase, TDerived>(string typeDiscriminator)
         where TBase : class
         where TDerived : class, TBase
@@ -55,6 +62,13 @@ public sealed class LexiconTypeRegistry : ILexiconTypeRegistrar
             throw new ArgumentException(
                 $"'{baseType.Name}' is not a union base. Mark it [AtProtoUnion] (or [JsonPolymorphic]) "
                 + "so its variants are resolved by $type.", nameof(TBase));
+        }
+
+        if (shape is { Closed: true })
+        {
+            throw new ArgumentException(
+                $"'{baseType.Name}' is a closed union: its Lexicon allows no variants beyond the ones it declares.",
+                nameof(TBase));
         }
 
         if (typeof(TDerived).IsAbstract)

@@ -228,6 +228,42 @@ public class SpaceSyncerTests : IDisposable
     }
 
     [Fact]
+    public async Task RecoverAsync_AuthorPublishingASpaceKey_VerifiesTheCommitAgainstTheAccountKey()
+    {
+        // A commit is signed with the author's repo key, #atproto. An author that is also a space
+        // authority may publish a #atproto_space key too; that one signs credentials, not commits.
+        using var spaceKey = AtProtoCrypto.GenerateP256Key();
+        _resolver.Publish(Repo.Value, new DidDocument
+        {
+            Id = Repo,
+            VerificationMethod =
+            [
+                new VerificationMethod { Id = $"{Repo}#atproto_space", Type = "Multikey", PublicKeyMultibase = spaceKey.ToMultikey() },
+                new VerificationMethod { Id = $"{Repo}#atproto", Type = "Multikey", PublicKeyMultibase = _key.ToMultikey() },
+            ],
+        });
+        var record = Record("com.example.n", "a", "x");
+        var commit = SignOver("3l6oveex3ii25", (record.Collection, record.Rkey, record.Cid));
+        _host.Car = SpaceRepoCar.Serialize(commit, [record]);
+
+        var result = await new SpaceSyncer(_space, _store, _resolver).RecoverAsync(_client, new SpaceRepoCursor(Repo));
+
+        Assert.Equal(SpaceSyncOutcome.Recovered, result.Outcome);
+    }
+
+    [Theory]
+    [InlineData(null, 0)]
+    [InlineData(0L, 0)]
+    [InlineData(4096L, 4096)]
+    [InlineData(long.MaxValue, SpaceSyncer.MaxInitialCapacity)]
+    public void InitialCapacity_IsTheDeclaredLengthUpToTheCap(long? contentLength, int expected)
+    {
+        // A host's Content-Length is a hint: it sizes the first allocation, but a claimed
+        // gigabyte cannot make the syncer allocate one before a byte arrives.
+        Assert.Equal(expected, SpaceSyncer.InitialCapacity(contentLength));
+    }
+
+    [Fact]
     public async Task SyncRepoAsync_WhenTheOplogCannotServeSince_RecoversInFull()
     {
         // The oplog is a transport optimization with no history guarantee: a host may compact
@@ -334,6 +370,54 @@ public class SpaceSyncerTests : IDisposable
         Assert.Equal(1, _resolver.RefreshCount);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RecoverAsync_ARepoOverMaxRepoSize_IsRefusedAndTheCopyKept(bool declared)
+    {
+        // Declared or not, a download past the limit stops being read: the whole repo is held in
+        // memory to be verified, so the host must not choose how much that is.
+        var record = Record("com.example.n", "a", "x");
+        var commit = SignOver("3l6oveex3ii25", (record.Collection, record.Rkey, record.Cid));
+        _host.Car = SpaceRepoCar.Serialize(commit, [record]);
+        _host.UndeclaredLength = !declared;
+        var syncer = CreateSyncer();
+        syncer.MaxRepoSize = _host.Car.Length - 1;
+
+        var ex = await Assert.ThrowsAsync<SpaceRepoVerificationException>(
+            () => syncer.RecoverAsync(_client, new SpaceRepoCursor(Repo)));
+
+        Assert.Contains("MaxRepoSize", ex.Message, StringComparison.Ordinal);
+        Assert.Empty(_store.Replaced);
+        Assert.Empty(_store.Dropped);
+    }
+
+    [Fact]
+    public async Task RecoverAsync_ARepoExactlyAtMaxRepoSize_IsRecovered()
+    {
+        var record = Record("com.example.n", "a", "x");
+        var commit = SignOver("3l6oveex3ii25", (record.Collection, record.Rkey, record.Cid));
+        _host.Car = SpaceRepoCar.Serialize(commit, [record]);
+        _host.UndeclaredLength = true;
+        var syncer = CreateSyncer();
+        syncer.MaxRepoSize = _host.Car.Length;
+
+        var result = await syncer.RecoverAsync(_client, new SpaceRepoCursor(Repo));
+
+        Assert.Equal(SpaceSyncOutcome.Recovered, result.Outcome);
+    }
+
+    [Theory]
+    [InlineData(0L)]
+    [InlineData(-1L)]
+    [InlineData(long.MaxValue)]
+    public void MaxRepoSize_OutOfRange_Throws(long value)
+    {
+        var syncer = CreateSyncer();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => syncer.MaxRepoSize = value);
+    }
+
     [Fact]
     public async Task RecoverAsync_WithACarForAnotherSpace_Throws()
     {
@@ -413,6 +497,9 @@ public class SpaceSyncerTests : IDisposable
 
         public string CarError { get; set; } = "{}";
 
+        /// <summary>Sends the CAR without a <c>Content-Length</c>, as a chunked response would.</summary>
+        public bool UndeclaredLength { get; set; }
+
         public string LastQuery { get; private set; } = "";
 
         protected override Task<HttpResponseMessage> SendAsync(
@@ -438,8 +525,21 @@ public class SpaceSyncerTests : IDisposable
 
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new ByteArrayContent(Car ?? []),
+                Content = UndeclaredLength ? new UnsizedContent(Car ?? []) : new ByteArrayContent(Car ?? []),
             });
+        }
+    }
+
+    /// <summary>A body whose length is not known up front.</summary>
+    private sealed class UnsizedContent(byte[] bytes) : HttpContent
+    {
+        protected override Task SerializeToStreamAsync(Stream stream, System.Net.TransportContext? context) =>
+            stream.WriteAsync(bytes).AsTask();
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = 0;
+            return false;
         }
     }
 }

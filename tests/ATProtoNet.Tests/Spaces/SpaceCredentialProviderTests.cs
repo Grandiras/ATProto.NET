@@ -60,6 +60,34 @@ public class SpaceCredentialProviderTests : IDisposable
         Assert.Contains(endpoint, ex.Message);
     }
 
+    [Theory]
+    [InlineData("AtprotoPersonalDataServer", "https://spaces.example.com")]
+    [InlineData("AtprotoSpaceHost", "http://spaces.example.com")]
+    public async Task ResolveHostAsync_MalformedSpaceHostEntry_ThrowsRatherThanUsingThePds(string type, string endpoint)
+    {
+        // Proposal 0016: a #atproto_space_host that is published but malformed is an error, and
+        // the #atproto_pds fallback is for an absent entry only.
+        using var resolver = ResolverPublishing(
+            "https://pds.example.com",
+            $$"""{"id":"#atproto_space_host","type":"{{type}}","serviceEndpoint":"{{endpoint}}"}""");
+        await using var provider = new SpaceCredentialProvider(_client, didResolver: resolver);
+
+        var ex = await Assert.ThrowsAsync<SpaceCredentialException>(() => provider.ResolveHostAsync(ATProtoNet.Identity.Did.Parse(Did)));
+
+        Assert.Contains("#atproto_space_host", ex.Message);
+    }
+
+    [Fact]
+    public async Task ResolveHostAsync_PublishedSpaceHost_IsPreferredOverThePds()
+    {
+        using var resolver = ResolverPublishing(
+            "https://pds.example.com",
+            """{"id":"#atproto_space_host","type":"AtprotoSpaceHost","serviceEndpoint":"https://spaces.example.com"}""");
+        await using var provider = new SpaceCredentialProvider(_client, didResolver: resolver);
+
+        Assert.Equal("https://spaces.example.com", await provider.ResolveHostAsync(ATProtoNet.Identity.Did.Parse(Did)));
+    }
+
     [Fact]
     public async Task ResolveHostAsync_ReturnsAUsableEndpoint()
     {
@@ -69,7 +97,7 @@ public class SpaceCredentialProviderTests : IDisposable
         Assert.Equal("https://pds.example.com", await provider.ResolveHostAsync(ATProtoNet.Identity.Did.Parse(Did)));
     }
 
-    private static DidResolver ResolverPublishing(string endpoint)
+    private static DidResolver ResolverPublishing(string endpoint, string? extraService = null)
     {
         var document = $$"""
             {
@@ -80,7 +108,7 @@ public class SpaceCredentialProviderTests : IDisposable
                 "id": "#atproto_pds",
                 "type": "AtprotoPersonalDataServer",
                 "serviceEndpoint": "{{endpoint}}"
-              }]
+              }{{(extraService is null ? "" : "," + extraService)}}]
             }
             """;
 

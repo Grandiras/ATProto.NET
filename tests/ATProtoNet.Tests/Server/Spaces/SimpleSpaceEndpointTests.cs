@@ -195,6 +195,33 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
         Assert.Equal("InvalidRequest", await ReadErrorAsync(response));
     }
 
+    [Theory]
+    [InlineData("readPolicy", "UnsupportedPolicy")]
+    [InlineData("writePolicy", "UnsupportedPolicy")]
+    [InlineData("appAccess", "UnsupportedAppAccess")]
+    public async Task CreateSpace_WithAVariantThisHostDoesNotImplement_AnswersTheLexiconsError(string field, string error)
+    {
+        // The unions are open, so a newer variant reads as Unknown… rather than failing the body;
+        // the host then refuses to store a policy it could not enforce, with the declared error.
+        _caller.Did = Owner;
+
+        var fields = new Dictionary<string, string>
+        {
+            ["type"] = "\"com.atmoboards.forum\"",
+            ["readPolicy"] = $$"""{"$type":"{{SimpleSpaceTypes.MemberListPolicy}}"}""",
+            ["writePolicy"] = $$"""{"$type":"{{SimpleSpaceTypes.MemberListPolicy}}"}""",
+            ["appAccess"] = $$"""{"$type":"{{SimpleSpaceTypes.Open}}"}""",
+        };
+        fields[field] = """{"$type":"com.atproto.simplespace.defs#unauthenticatedPolicy"}""";
+        var json = "{" + string.Join(",", fields.Select(f => $"\"{f.Key}\":{f.Value}")) + "}";
+
+        using var response = await PostRawAsync(SpaceNsids.CreateSimpleSpace, json);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(error, await ReadErrorAsync(response));
+        Assert.Contains("unauthenticatedPolicy", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task PutMember_ByAnAccountThatIsNotTheOwner_AnswersSpaceNotFound()
     {

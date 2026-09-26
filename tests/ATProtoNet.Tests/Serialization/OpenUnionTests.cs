@@ -215,7 +215,7 @@ public class OpenUnionTests
     /// <summary>
     /// Guards the rule the SDK's models follow: every <c>$type</c>-discriminated union is an
     /// <see cref="AtProtoUnionAttribute"/> base, open unless the Lexicon marks it closed. The
-    /// exceptions are Spaces (owned by the Spaces work), the firehose and label stream messages,
+    /// exceptions are the firehose and label stream messages,
     /// whose variant is named by the event-stream frame header and which the stream parsers
     /// deserialize by that type, dropping unknown ones themselves, and
     /// <see cref="ATProtoNet.Auth.AtProtoSession"/>, the SDK's own persisted form rather than a
@@ -229,9 +229,7 @@ public class OpenUnionTests
                 || t.IsDefined(typeof(JsonDerivedTypeAttribute), inherit: false))
             .Where(t => t != typeof(FirehoseMessage)
                 && t != typeof(ATProtoNet.Lexicon.Com.AtProto.Label.LabelStreamMessage)
-                && t != typeof(ATProtoNet.Auth.AtProtoSession)
-                && !t.Namespace!.StartsWith("ATProtoNet.Lexicon.Com.AtProto.Space", StringComparison.Ordinal)
-                && !t.Namespace!.StartsWith("ATProtoNet.Lexicon.Com.AtProto.SimpleSpace", StringComparison.Ordinal))
+                && t != typeof(ATProtoNet.Auth.AtProtoSession))
             .ToList();
 
         Assert.NotEmpty(polymorphic);
@@ -245,7 +243,9 @@ public class OpenUnionTests
         });
 
         var closed = polymorphic.Where(t => t.GetCustomAttribute<AtProtoUnionAttribute>()!.Closed).ToList();
-        Assert.Equal([typeof(ApplyWriteOperation)], closed);
+        Assert.Equal(
+            [typeof(ApplyWriteOperation), typeof(ATProtoNet.Lexicon.Com.AtProto.Space.SpaceWriteOp)],
+            closed.OrderBy(t => t.Name, StringComparer.Ordinal));
     }
 
     [Fact]

@@ -199,10 +199,45 @@ public class SpaceScopeTests
         var lexicon = JsonSerializer.Deserialize<JsonElement>("""
         {"lexicon":1,"id":"com.atmoboards.forum","defs":{"main":{
           "type":"space","key":"any","name":"AtmoBoards Forum",
-          "collections":["com.atmoboards.*"]}}}
+          "collections":["not an nsid"]}}}
         """);
 
         Assert.Throws<JsonException>(() => SpaceTypeDeclaration.FromLexicon(lexicon));
+    }
+
+    [Theory]
+    [InlineData("*")]
+    [InlineData("com.atmoboards.*")]
+    public void FromLexicon_WildcardCollection_IsRefusedByName(string collection)
+    {
+        // Proposal 0016: `collections` is a space: scope's default collection set, and may not
+        // contain a wildcard.
+        var lexicon = JsonSerializer.Deserialize<JsonElement>("""
+        {"lexicon":1,"id":"com.atmoboards.forum","defs":{"main":{
+          "type":"space","key":"any","name":"AtmoBoards Forum",
+          "collections":["com.atmoboards.thread","COLLECTION"]}}}
+        """.Replace("COLLECTION", collection, StringComparison.Ordinal));
+
+        var ex = Assert.Throws<JsonException>(() => SpaceTypeDeclaration.FromLexicon(lexicon));
+
+        Assert.Contains("wildcard", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FromLexicon_LongNameAndCollectionsFromOtherDomains_AreAccepted()
+    {
+        // The proposal sets no length limit on `name`, and lets `collections` span NSID domains.
+        var name = new string('n', 200);
+        var lexicon = JsonSerializer.Deserialize<JsonElement>("""
+        {"lexicon":1,"id":"com.atmoboards.forum","defs":{"main":{
+          "type":"space","key":"any","name":"NAME",
+          "collections":["com.atmoboards.thread","org.example.reaction"]}}}
+        """.Replace("NAME", name, StringComparison.Ordinal));
+
+        var declaration = SpaceTypeDeclaration.FromLexicon(lexicon)!;
+
+        Assert.Equal(name, declaration.Name);
+        Assert.Equal(["com.atmoboards.thread", "org.example.reaction"], declaration.Collections.Select(c => c.Value));
     }
 
     [Fact]

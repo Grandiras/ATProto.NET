@@ -62,20 +62,18 @@ public class DPoPInteropTests
         Assert.Equal(generator.KeyThumbprint, proof.KeyThumbprint);
         Assert.Equal("GET", proof.Method);
         Assert.Equal(Url, proof.Uri);
-        Assert.NotNull(proof.AccessTokenHash);
     }
 
     [Fact]
     public async Task GeneratedProof_WithoutAccessToken_ValidatesAsACredentialExchangeProof()
     {
+        // Proposal 0016 uses no server nonces; a proof that carries one anyway is not refused.
         using var generator = new DPoPProofGenerator();
 
         var proof = await CreateValidator().ValidateAsync(
             generator.GenerateProof("POST", Url, nonce: "server-nonce"), "POST", Url);
 
         Assert.Equal(generator.KeyThumbprint, proof.KeyThumbprint);
-        Assert.Equal("server-nonce", proof.Nonce);
-        Assert.Null(proof.AccessTokenHash);
     }
 
     [Fact]
@@ -208,7 +206,6 @@ public class DPoPInteropTests
         var proof = await CreateValidator(clock).ValidateAsync(RfcTokenRequestProof, "POST", RfcTokenUrl);
 
         Assert.Equal(RfcThumbprint, proof.KeyThumbprint);
-        Assert.Null(proof.AccessTokenHash);
     }
 
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider

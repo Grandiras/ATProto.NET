@@ -59,6 +59,10 @@ public sealed record VerifiedSpaceRepo(
 /// the commit makes its digest trustworthy; folding the index's entries into a set hash and
 /// comparing against that digest authenticates every path/CID pair without reading a record;
 /// and each record block is then checked against the CID the index already vouched for.</para>
+/// <para>Verification is as strict as the reference implementation's: every index key is
+/// exactly one <c>{collection}/{rkey}</c> with a valid NSID and record key, every index entry
+/// links a DAG-CBOR CID, and every record block decodes as a DAG-CBOR map — a record is an
+/// object, so a block that hashes to its CID but holds a bare string is still refused.</para>
 /// </remarks>
 public static class SpaceRepoCar
 {
@@ -183,7 +187,7 @@ public static class SpaceRepoCar
         if (!blocks[1].Cid.AsSpan().SequenceEqual(reader.Roots[1]))
             throw new SpaceRepoVerificationException("Expected the index block to follow the commit.");
 
-        var index = DecodeIndex(blocks[1].Data);
+        var index = DecodeIndex(blocks[1].Data, out var paths);
         if (!SpaceRepoCommit.FromIndex(index).Matches(commit))
             throw new SpaceRepoVerificationException("The repo index does not match the commit hash.");
 
@@ -217,14 +221,10 @@ public static class SpaceRepoCar
             if (CarReader.VerifyBlockCid(block) == BlockCidVerification.Mismatch)
                 throw new SpaceRepoVerificationException($"Block at '{path}' does not hash to its CID.");
 
-            var separator = path.LastIndexOf('/');
-            if (separator <= 0 ||
-                !Nsid.TryParse(path[..separator], out var collection) ||
-                !RecordKey.TryParse(path[(separator + 1)..], out var rkey))
-            {
-                throw new SpaceRepoVerificationException($"Invalid record path in the repo index: '{path}'.");
-            }
+            if (!IsRecordMap(block.Data, out var error))
+                throw new SpaceRepoVerificationException($"The record at '{path}' is not a DAG-CBOR map: {error}");
 
+            var (collection, rkey) = paths[i];
             records.Add(new SpaceRepoRecord(collection, rkey, cid, block.Data));
         }
 
@@ -235,7 +235,10 @@ public static class SpaceRepoCar
     /// Decodes the index block into path/CID pairs, preserving the CAR's own order so that the
     /// record blocks can be matched against it positionally.
     /// </summary>
-    private static List<KeyValuePair<string, Cid>> DecodeIndex(ReadOnlyMemory<byte> indexBlock)
+    /// <param name="indexBlock">The index block.</param>
+    /// <param name="paths">Each entry's path, parsed, in the same order.</param>
+    private static List<KeyValuePair<string, Cid>> DecodeIndex(
+        ReadOnlyMemory<byte> indexBlock, out List<(Nsid Collection, RecordKey Rkey)> paths)
     {
         JsonElement element;
         try
@@ -251,6 +254,7 @@ public static class SpaceRepoCar
             throw new SpaceRepoVerificationException("The repo index must be a DAG-CBOR map.");
 
         var index = new List<KeyValuePair<string, Cid>>();
+        paths = [];
         foreach (var entry in element.EnumerateObject())
         {
             if (entry.Value.ValueKind != JsonValueKind.Object ||
@@ -262,9 +266,41 @@ public static class SpaceRepoCar
                     $"Repo index entry '{entry.Name}' is not a CID link.");
             }
 
+            // A record is DAG-CBOR; a raw CID names a blob, which a repo index never holds.
+            if (cid.Codec != CidCodec.DagCbor)
+                throw new SpaceRepoVerificationException($"Repo index entry '{entry.Name}' links a non-DAG-CBOR CID {cid}.");
+
+            // Checked for every entry, whether or not the record blocks came with the index: an
+            // index-only CAR is diffed against a local copy by path, so its paths have to parse.
+            paths.Add(ParsePath(entry.Name));
             index.Add(new KeyValuePair<string, Cid>(entry.Name, cid));
         }
 
         return index;
     }
+
+    /// <summary>
+    /// Splits an index key into its collection and record key: exactly one <c>/</c>, with a
+    /// valid NSID before it and a valid record key after it.
+    /// </summary>
+    private static (Nsid Collection, RecordKey Rkey) ParsePath(string path)
+    {
+        var separator = path.IndexOf('/');
+        if (separator <= 0 ||
+            path.IndexOf('/', separator + 1) >= 0 ||
+            !Nsid.TryParse(path[..separator], out var collection) ||
+            !RecordKey.TryParse(path[(separator + 1)..], out var rkey))
+        {
+            throw new SpaceRepoVerificationException($"Invalid record path in the repo index: '{path}'.");
+        }
+
+        return (collection, rkey);
+    }
+
+    /// <summary>
+    /// Whether a record block is a single map in strict DAG-CBOR: no indefinite lengths, no
+    /// non-shortest forms, canonical key order, and no tag but a CID link.
+    /// </summary>
+    private static bool IsRecordMap(ReadOnlyMemory<byte> block, out string? error) =>
+        SpaceRecordCbor.TryValidateRecord(block, out error);
 }

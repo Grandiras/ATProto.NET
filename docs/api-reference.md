@@ -600,7 +600,8 @@ Accessed via `client.SimpleSpace`. The space-management implementation every PDS
 | `CheckUserAccessAsync(space, user, access, clientId?)` | Served by a `ManagingAppPolicy` space's managing app; `access` is `SimpleSpaceAccess.Read` or `.Write` |
 
 Read and write policies: `PublicPolicy`, `MemberListPolicy` *(default)*, `ManagingAppPolicy`;
-app access (reads only): `OpenAppAccess` *(default)*, `AllowListAppAccess`.
+app access (reads only): `OpenAppAccess` *(default)*, `AllowListAppAccess`. Both unions are open: a
+variant this SDK does not model reads as `UnknownSimpleSpaceUserPolicy` / `UnknownSimpleSpaceAppAccess`.
 
 ---
 
@@ -620,8 +621,8 @@ app access (reads only): `OpenAppAccess` *(default)*, `AllowListAppAccess`.
 | `SpaceRepoCommit` / `SignedSpaceCommit` / `SpaceCommitContext` | Build, sign, and compare a repo's commit |
 | `SpaceCommitVerifier` | `Verify(commit, context, didKey)`, `ComputeMac(...)` |
 | `SpaceRepoCar` / `VerifiedSpaceRepo` / `SpaceRepoRecord` | Serialize and verify the two-root repo CAR |
-| `SpaceAuthority` | `#atproto_space` / `#atproto_space_host` resolution, with `#atproto` / `#atproto_pds` fallbacks |
-| `SpaceTypeDeclaration` | The `"type": "space"` Lexicon definition; `FromLexicon`, `GetName(lang)` |
+| `SpaceAuthority` | `#atproto_space` / `#atproto_space_host` resolution, with `#atproto` / `#atproto_pds` fallbacks when an entry is absent; a malformed one throws `FormatException` |
+| `SpaceTypeDeclaration` | The `"type": "space"` Lexicon definition; `FromLexicon` (refuses a wildcard collection), `GetName(lang)` |
 | `SpaceErrors` / `SimpleSpaceErrors` | The named XRPC errors these endpoints return |
 | `AtProtoScopes.Space(...)` (`ATProtoNet.Auth.OAuth`) | Build `space:` scopes; `SpaceAction`, `SpaceManage` |
 
@@ -652,14 +653,15 @@ the ordinary `MapXrpcEndpoints()`.
 
 | Type | Description |
 |------|-------------|
-| `SpaceServerOptions` | `ServiceDid`, `PublicBaseUrl`, `ProofLifetime`, `MaxSingleUseTokenLifetime`, `CredentialLifetime`, `CredentialKeyId`, … |
+| `SpaceServerOptions` | `ServiceDid`, `PublicBaseUrl`, `ProofLifetime`, `MaxSingleUseTokenLifetime`, `CredentialLifetime`, `CredentialKeyId`, `VerifiedCredentialCacheCapacity`, `ClientMetadataCacheLifetime`, … |
 | `SpaceRequestAuthenticator` | Pulls the credentials off an `HttpContext` and verifies them |
-| `DPoPProofValidator` / `DPoPProof` | RFC 9449 proof verification: signature, thumbprint, `ath`, `htm`/`htu`, `iat`, replay |
-| `SpaceDelegationTokenVerifier` / `VerifiedDelegationToken` | Audience pinned to `spaceHostAud(sub)`, issuer key from the DID document, single use |
-| `SpaceCredentialVerifier` / `VerifiedSpaceCredential` | Signer resolved from the space URI, plus the DPoP binding |
-| `SpaceClientAttestationVerifier` / `VerifiedClientAttestation` | Verified against the key the attestation's `kid` names in the client's published JWKS |
+| `DPoPProofValidator` / `DPoPProof` | RFC 9449 proof verification as proposal 0016 narrows it: `ES256` only, signature, thumbprint, `ath` (and none on the exchange), `htm`/`htu`, `iat`, replay |
+| `SpaceDelegationTokenVerifier` / `VerifiedDelegationToken` | Audience pinned to `spaceHostAud(sub)`, `kid` `#atproto` only, issuer key from the DID document, single use |
+| `SpaceCredentialVerifier` / `VerifiedSpaceCredential` | Signer resolved from the space URI and the `kid` (`#atproto_space` or `#atproto`, no fallback), plus the DPoP binding; verified credentials are cached |
+| `SpaceClientAttestationVerifier` / `VerifiedClientAttestation` | Verified against the key the attestation's `kid` names in the client's published JWKS, cached per `client_id` |
 | `ISpaceClientMetadataResolver` / `HttpSpaceClientMetadataResolver` | `client_id` → `client-metadata.json` → `jwks` / `jwks_uri` |
-| `ISpaceServiceAuthVerifier` / `SpaceServiceAuthVerifier` | Service auth on the notification endpoints (through `ServiceAuthVerifier`), and the "does this service host that repo" check |
+| `SpaceServiceAuthVerifier` | Service auth on the notification endpoints (through `ServiceAuthVerifier`); `notifyWrite` also requires `iss` to be the writer |
+| `ISpaceAccountSigner` | Signs outbound notifications and managing-app checks as the account they speak for; the service key is the fallback |
 | `IJtiReplayStore` / `InMemoryJtiReplayStore` (`ATProtoNet.Server.Authentication`) | Single-use enforcement, keyed on `(iss, jti, exp)`, shared with service auth |
 | `IDidResolver` (keyed `SpaceServerExtensions.DidResolverKey`) | DID document resolution for every verifier, cached per `SpaceServerOptions.DidCache` (a hard 5 minutes by default) |
 | `SpaceVerificationException` | An `XrpcException` carrying `InvalidDelegationToken`, `InvalidClientAttestation`, or `NotAuthorized` |
@@ -674,12 +676,8 @@ the ordinary `MapXrpcEndpoints()`.
 | `ISpaceCallerResolver` / `ClaimsSpaceCallerResolver` | The DID behind a `simplespace` administration request |
 | `SpaceNsids` | The NSID constants the endpoints are registered under |
 
-Endpoint handlers (all `IXrpcEndpoint`, registered by the `Add…` extensions above):
-`GetSpaceCredentialEndpoint`, `ListSpaceReposEndpoint`, `RegisterNotifyEndpoint`,
-`UnregisterNotifyEndpoint`, `NotifyWriteEndpoint`; `GetSpaceRecordEndpoint`,
-`ListSpaceRecordsEndpoint`, `GetSpaceLatestCommitEndpoint`, `GetSpaceRepoEndpoint`,
-`ListSpaceRepoOpsEndpoint`, `GetSpaceBlobEndpoint`, `ListSpaceBlobsEndpoint`; and the seven
-`com.atproto.simplespace` handlers.
+The endpoint handlers themselves are internal: the `Add…` extensions above register them, and
+`MapXrpcEndpoints()` maps them.
 
 ---
 

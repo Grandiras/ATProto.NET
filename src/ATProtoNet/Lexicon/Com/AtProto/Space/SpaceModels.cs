@@ -58,7 +58,7 @@ public sealed class GetSpaceCredentialResponse
 // ──────────────────────────────────────────────────────────────
 
 /// <summary>A space the authenticated user holds a repo in.</summary>
-public sealed class SpaceView
+public sealed class SpaceView : LexObject
 {
     /// <summary>URI of the space.</summary>
     [JsonPropertyName("uri")]
@@ -87,7 +87,7 @@ public sealed class ListSpacesResponse : ICursorPage<SpaceView>
 // ──────────────────────────────────────────────────────────────
 
 /// <summary>A repo that holds data in a space, as claimed by the space authority.</summary>
-public sealed class SpaceRepoView
+public sealed class SpaceRepoView : LexObject
 {
     /// <summary>The DID of a repo that holds data in the space.</summary>
     [JsonPropertyName("did")]
@@ -147,7 +147,7 @@ public sealed class GetSpaceRecordResponse
 }
 
 /// <summary>A record listed from a permissioned repo.</summary>
-public sealed class SpaceRecordView
+public sealed class SpaceRecordView : LexObject
 {
     /// <summary>The record collection NSID.</summary>
     [JsonPropertyName("collection")]
@@ -233,7 +233,7 @@ public sealed class GetSpaceLatestCommitResponse
 /// <see langword="null"/> for a create. Operations sharing a <see cref="Rev"/> were applied
 /// atomically as one batch.
 /// </remarks>
-public sealed class SpaceRepoOpEntry
+public sealed class SpaceRepoOpEntry : LexObject
 {
     /// <summary>The revision this operation was written at.</summary>
     [JsonPropertyName("rev")]
@@ -410,11 +410,12 @@ public sealed class SpaceWriteResult
 // ──────────────────────────────────────────────────────────────
 
 /// <summary>Base type for the operations in an <c>applyWrites</c> batch.</summary>
+/// <remarks>The Lexicon marks this union closed, so an unrecognized <c>$type</c> is an error.</remarks>
+[AtProtoUnion(Closed = true)]
 [JsonDerivedType(typeof(SpaceCreateOp), "com.atproto.space.applyWrites#create")]
 [JsonDerivedType(typeof(SpaceUpdateOp), "com.atproto.space.applyWrites#update")]
 [JsonDerivedType(typeof(SpaceDeleteOp), "com.atproto.space.applyWrites#delete")]
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
-public abstract class SpaceWriteOp
+public abstract class SpaceWriteOp : LexObject
 {
     /// <summary>The NSID of the record collection.</summary>
     [JsonPropertyName("collection")]
@@ -480,7 +481,7 @@ internal sealed class ApplySpaceWritesRequest
 }
 
 /// <summary>One entry in an <c>applyWrites</c> result, in the order the writes were given.</summary>
-public sealed class SpaceWriteOpResult
+public sealed class SpaceWriteOpResult : LexObject
 {
     /// <summary>The discriminator naming which kind of result this is.</summary>
     [JsonPropertyName("$type")]

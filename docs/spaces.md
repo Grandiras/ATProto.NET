@@ -110,8 +110,9 @@ await client.Space.ApplyWritesAsync(space, client.Did!,
 Blobs are **not** uploaded through this namespace. A space record references a blob uploaded with
 `com.atproto.repo.uploadBlob`, so a client writing blob-bearing records needs a `blob:` permission
 alongside its `space:` one. Reading them back is `client.Space.GetBlobAsync(...)`, and
-`ListBlobsAsync` enumerates what a repo references in one space — `com.atproto.sync.listBlobs` never
-will, because it is unauthenticated.
+`ListBlobsAsync` enumerates what a repo references in one space. The public sync endpoints never
+serve them, because they are unauthenticated: `com.atproto.sync.listBlobs` omits them, and
+`com.atproto.sync.getBlob` answers `BlobNotFound` for a blob that no public record references.
 
 ## OAuth scopes
 
@@ -178,7 +179,9 @@ declaration.Collections;      // the default collection set for a bare space: sc
 ```
 
 `Collections` is a recommendation, not a constraint. Any collection may be written to any space; the
-protocol does not restrict it.
+protocol does not restrict it. Its entries may come from any NSID domain, but none may be a wildcard
+(`*`): `FromLexicon` refuses one with a `JsonException`, since the set is a `space:` scope's default
+and a wildcard would grant every collection. The proposal sets no length limit on `Name`.
 
 If you publish your own space type, `atproto-lexgen` generates the declaration in both directions —
 a static holder from the Lexicon JSON, the Lexicon JSON back from the holder, and a diff that calls
@@ -336,7 +339,11 @@ calling again would only produce the same empty page.
 order. That layout is what lets `SpaceRepoCar.Verify` validate the whole thing in one pass —
 verifying the commit makes its digest trustworthy, folding the index into a set hash authenticates
 every path/CID pair *without reading a single record*, and each block is then checked against a CID
-the index already vouched for.
+the index already vouched for, and must be a single map in strict DAG-CBOR (no indefinite lengths,
+non-shortest forms, floats, or tags other than a CID link). The download is held in memory until all
+of that passes, so `RecoverAsync` refuses one larger than `SpaceSyncer.MaxRepoSize` (256 MiB by
+default) — before reading it if the host declares the length, and as soon as it passes the limit if
+not.
 
 For a copy that has diverged only slightly, `listRecords` with `excludeValues: true` plus
 `getLatestCommit` is cheaper than a whole download: diff the listing against what you hold and fetch
@@ -372,6 +379,12 @@ accepts to every service registered with it. Notifications carry no record data 
 reached a new revision and hash — and are **best-effort**. A dropped one is not a lost write: the
 repo is caught up by a later notification, or by the periodic sweep above. They are the latency
 optimization; the sweep is the correctness guarantee.
+
+Registrations are keyed by space and service only. A space credential names the space and the
+reading application, not a subscriber service, so `unregisterNotify` — here as in the reference
+authority — removes the named service for any caller holding a credential for that space. Being
+dropped costs a syncer latency, not data: its sweep still catches every write, and its next
+`registerNotify` renewal puts it back.
 
 ## Managing a space with `simplespace`
 
@@ -570,11 +583,34 @@ authority therefore cannot present it there.
 against the space's authority and the key is resolved from that authority's DID document, so
 nobody but a space's own authority can mint credentials for it.
 
+**A token names its key, and only that key is tried.** As in the reference implementation, a
+delegation token's `kid` must be `#atproto`, and a credential's `#atproto_space` or `#atproto`
+(with or without the `#`). A token without a `kid`, or with any other, is refused, and the key is
+resolved from exactly the entry named: a credential labelled `#atproto_space` from an authority that
+publishes no such entry is refused rather than tried against `#atproto`. An authority that signs with
+a dedicated `#atproto_space` key sets `SpaceServerOptions.CredentialKeyId` to say so.
+
 **A proof binds a credential to its holder.** The signature is verified against the proof's own
 embedded `jwk`, which proves nothing on its own — anyone can embed any key — so the thumbprint is
 matched against the credential's `cnf.jkt`, which is what makes it mean something. `ath` pins the
 proof to the credential presented, `htm` and `htu` pin it to this request, `iat` bounds how long a
-captured proof is useful, and `jti` is spent once.
+captured proof is useful, and `jti` is spent once. As proposal 0016 specifies, a proof is signed with
+`ES256` and nothing else, and the proof on `getSpaceCredential` must carry **no** `ath`: the
+delegation token beside it is a one-time grant, not an access token.
+
+A syncer presents the same credential on every read for two hours, so the repo host remembers a
+credential whose signature verified — keyed by its SHA-256 hash, up to
+`SpaceServerOptions.VerifiedCredentialCacheCapacity` of them — and skips parsing and the signature
+check when it comes back. Expiry, the requested space and the proof are still checked on every
+request, and so is the authority's key: it is re-read from the cached DID document and compared with
+the key the signature was checked against, so a rotated key stops verifying cached credentials at
+exactly the moment it stops verifying new ones. When the cache is full the least recently used entry
+goes; since any DID can mint credentials for its own spaces, one authority holds at most a quarter
+of it. A client's published
+attestation keys are likewise remembered for `ClientMetadataCacheLifetime` (five minutes) — so a
+key the client removes keeps verifying for up to that long — and refetched early when an
+attestation names a key the remembered set lacks. A client's metadata is fetched at most every 30
+seconds, successful or not, and concurrent requests share one fetch.
 
 That last "spent once" is `IJtiReplayStore` (in `ATProtoNet.Server.Authentication`, shared with
 [service auth](xrpc-handlers.md#serving-xrpc-to-other-services)), keyed on `(iss, jti, exp)`. The
@@ -618,10 +654,9 @@ and any repo host's next `notifyWrite` restores it; a member list is never publi
 at all, so losing it on a restart loses the space's access control while the space itself carries
 on existing.
 
-`AddAtProtoSpaces()` says so at startup — a warning for each of those two, an informational line
-for the writer set — until a durable store is registered. Set
-`SpaceServerOptions.WarnOnInMemoryStores = false` where the defaults are the intended choice, as in
-a test host.
+`AddAtProtoSpaces()` logs a warning at startup while the in-process replay store is registered. Set
+`SpaceServerOptions.WarnOnInMemoryStores = false` where it is the intended choice, as in a test
+host.
 
 ```csharp
 // Redis for the replay store: SET NX is one round trip and expires with the token's own exp.
@@ -643,7 +678,13 @@ The EF Core stores take an `IDbContextFactory<T>` — they open a context per op
 `SpaceDbContext` or any context of your own that calls `SpaceDbContext.ConfigureSpaceModel()` (or
 one of `ConfigureSpaceAuthorityModel`, `ConfigureSimpleSpaceModel` and
 `JtiReplayDbContext.ConfigureJtiReplayModel`) from its `OnModelCreating`. Pagination is by DID, as in the in-memory stores, so a cursor names a
-position rather than an offset into a set that reorders as writes arrive.
+position rather than an offset into a set that reorders as writes arrive. Changes to rows that exist
+— a renewed registration, a member's flags — are a single `UPDATE` with no read before it (a
+writer advancing reads its revision first, to compare it ordinally rather than by the database's
+collation), and the replay store sweeps expired rows in the background rather than on the request
+that finds a sweep due. Both need a provider that translates `ExecuteUpdate`/`ExecuteDelete`, which
+every relational one does and the EF Core in-memory provider does not: for tests, use SQLite in
+memory (`Data Source=<name>;Mode=Memory;Cache=Shared`, over a connection held open for the test).
 
 #### Upgrading a `simplespace` database from 0.6
 
@@ -779,9 +820,38 @@ for any of its spaces.
 ### Write notifications
 
 `SpaceWriteNotifier` fans `notifyWrite` out to the services registered for a space, authenticated
-with service auth issued by this service. Delivery is best-effort by design: a failure is logged
-and dropped, because the syncer's periodic sweep over `listRepos` is the correctness guarantee and
-the notification is only the latency optimization.
+with service auth. Delivery is best-effort by design: a failure is logged and dropped, because the
+syncer's periodic sweep over `listRepos` is the correctness guarantee and the notification is only
+the latency optimization.
+
+The token is signed as the account the call speaks for when this service holds that account's key:
+the writer on a repo host's `notifyWrite`, and the space's authority on a forwarded one, on
+`notifySpaceDeleted` and on a managing app's `checkUserAccess`. That matters because the reference
+authority accepts `notifyWrite` only when its `iss` is the writer, and a bulletin-style managing app
+answers `checkUserAccess` only for the authority — a service signing everything as its own
+`ServiceDid` is refused by both unless that DID *is* the account. Register an `ISpaceAccountSigner`
+that hands out a `ServiceAuthGenerator` per hosted account; without one, or for an account it has no
+key for, calls are signed as the service. The signer is asked for the service's own DID as well.
+
+An authority that signs credentials with a dedicated `#atproto_space` key
+(`CredentialKeyId = "#atproto_space"`) cannot sign service auth with it — receivers accept service
+auth only from an `#atproto` key — so it passes its `#atproto` key as well, or has the signer answer
+for its DID. The host refuses to start with neither.
+
+```csharp
+builder.Services.AddAtProtoSpaces(o => { o.ServiceDid = authorityDid; o.CredentialKeyId = "#atproto_space"; })
+    .AddSpaceAuthority<MyAuthorityStore>(spaceKey, serviceAuthKey: atprotoKey);
+```
+
+```csharp
+public sealed class ActorStoreSigner(IActorStore actors) : ISpaceAccountSigner
+{
+    public async ValueTask<ServiceAuthGenerator?> GetSignerAsync(Did account, CancellationToken ct) =>
+        await actors.GetSigningKeyAsync(account, ct) is { } key ? new ServiceAuthGenerator(account, key) : null;
+}
+
+builder.Services.AddSingleton<ISpaceAccountSigner, ActorStoreSigner>();
+```
 
 ```csharp
 // On a repo host, after a write into a space anchored on someone else's DID.
@@ -807,9 +877,10 @@ Inbound, `NotifyWriteEndpoint` does four things in order:
 2. It accepts a token addressed to the authority's bare DID, to `{authority}#atproto_space_host`,
    or to `SpaceServerOptions.ServiceDid`. Reference repo hosts send the first, so a multi-tenant
    host configured with its own `ServiceDid` still accepts them.
-3. It accepts a notification only from the host that actually answers for the named repo.
-   Otherwise any service could advance any account's revision in the writer set, which is what a
-   syncer uses to decide whether to re-read a repo.
+3. It accepts a notification only when the service auth's `iss` is the writer itself, as the
+   reference authority does. Otherwise any service could advance any account's revision in the
+   writer set, which is what a syncer uses to decide whether to re-read a repo; a PDS signs as the
+   account it hosts (`ISpaceAccountSigner` on an SDK host).
 4. It puts the writer to the access policy as a write. A refused writer gets a 403 and is neither
    recorded nor forwarded. An admitted one is recorded, then forwarded in the background to every
    service registered for the space (`SpaceWriteNotifier.ForwardWriteAsync`). The authority's own
@@ -835,14 +906,14 @@ PDS already has.
 | `SpaceSyncer`, `SpaceRepoCursor`, `ISpaceRepoStore` | Incremental sync and full-state recovery |
 | `LtHash`, `SpaceRepoCommit`, `SpaceCommitVerifier` | The set hash and the commit construction |
 | `SpaceRepoCar`, `VerifiedSpaceRepo` | Serialize and verify a repo's CAR form |
-| `SpaceAuthority` | Resolve `#atproto_space` / `#atproto_space_host` from a DID document |
+| `SpaceAuthority` | Resolve `#atproto_space` / `#atproto_space_host` from a DID document: an absent entry falls back to `#atproto` / `#atproto_pds`, a malformed one is an error |
 | `SpaceTypeDeclaration` | The `"type": "space"` Lexicon definition |
 | `AtProtoScopes.Space` | Build `space:` OAuth scopes |
-| `AddAtProtoSpaces` / `AddSpaceAuthority` / `AddSpaceRepoHost` / `AddSimpleSpace` | Register the server halves (`ATProtoNet.Server`) |
+| `AddAtProtoSpaces` / `AddSpaceAuthority` / `AddSpaceRepoHost` / `AddSimpleSpace` | Register the server halves (`ATProtoNet.Server`); the endpoint handlers are internal |
 | `SpaceRequestAuthenticator`, `DPoPProofValidator`, `SpaceDelegationTokenVerifier`, `SpaceCredentialVerifier`, `SpaceClientAttestationVerifier`, `SpaceServiceAuthVerifier` | Verify what a caller presents |
 | `ISpaceAccessPolicy`, `ISpaceCredentialIssuer`, `ISpaceAuthorityStore`, `ISpaceRepoHost`, `ISimpleSpaceStore`, `IJtiReplayStore` | The seams a server implements |
 | `RedisSpaceReplayStore`, `EfCoreJtiReplayStore`, `EfCoreSpaceAuthorityStore`, `EfCoreSimpleSpaceStore` | Durable, multi-instance implementations of those stores |
-| `SpaceWriteNotifier` | Deliver write and deletion notifications |
+| `SpaceWriteNotifier`, `ISpaceAccountSigner` | Deliver write and deletion notifications, signed as the account they speak for |
 
 ## See also
 

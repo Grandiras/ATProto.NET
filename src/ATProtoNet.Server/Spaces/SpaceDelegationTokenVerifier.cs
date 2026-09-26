@@ -2,13 +2,13 @@ using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Server.Authentication;
 using ATProtoNet.Spaces;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ATProtoNet.Server.Spaces;
 
 /// <summary>
-/// A delegation token that verified, together with what it establishes.
+/// What a delegation token that verified establishes.
 /// </summary>
-/// <param name="Token">The parsed token.</param>
 /// <param name="Space">The space named by its <c>sub</c>.</param>
 /// <param name="UserDid">
 /// The user the requesting application is acting for — the token's <c>iss</c>.
@@ -18,7 +18,7 @@ namespace ATProtoNet.Server.Spaces;
 /// read the space is the authority's own determination, made against its policy after this;
 /// the token says nothing about it.
 /// </remarks>
-public sealed record VerifiedDelegationToken(SpaceToken Token, SpaceUri Space, Did UserDid);
+public sealed record VerifiedDelegationToken(SpaceUri Space, Did UserDid);
 
 /// <summary>
 /// Verifies the delegation tokens presented to a space authority at credential-mint time.
@@ -31,8 +31,9 @@ public sealed record VerifiedDelegationToken(SpaceToken Token, SpaceUri Space, D
 /// turn around and present it to the authority of space B, because the audience it carries names
 /// A.</para>
 /// <para>Verification is otherwise the usual JWT shape — parse, check expiry, verify against the
-/// issuer's <c>#atproto</c> key from its DID document — plus single use. A delegation token
-/// lives 60 seconds and is spent once; the replay store is what enforces the second half.</para>
+/// issuer's <c>#atproto</c> key from its DID document, which is the only <c>kid</c> proposal 0016
+/// allows a delegation token — plus single use. A delegation token lives 60 seconds and is spent
+/// once; the replay store is what enforces the second half.</para>
 /// </remarks>
 public sealed class SpaceDelegationTokenVerifier
 {
@@ -46,13 +47,14 @@ public sealed class SpaceDelegationTokenVerifier
     /// </summary>
     /// <param name="resolver">
     /// Resolves the issuing account's DID document; a <see cref="CachingDidResolver"/>, since every
-    /// request resolves one.
+    /// request resolves one. Resolved from the container under
+    /// <see cref="SpaceServerExtensions.DidResolverKey"/>.
     /// </param>
     /// <param name="replayStore">The store that consumes each token's <c>jti</c>.</param>
     /// <param name="options">Server options.</param>
     /// <param name="timeProvider">The clock. Defaults to the system clock.</param>
     public SpaceDelegationTokenVerifier(
-        IDidResolver resolver,
+        [FromKeyedServices(SpaceServerExtensions.DidResolverKey)] IDidResolver resolver,
         IJtiReplayStore replayStore,
         SpaceServerOptions? options = null,
         TimeProvider? timeProvider = null)
@@ -112,9 +114,12 @@ public sealed class SpaceDelegationTokenVerifier
         if (!Did.TryParse(parsed.Issuer, out var userDid))
             throw Invalid($"A delegation token's issuer must be a DID; got '{parsed.Issuer}'.");
 
+        var keyId = SpaceDidResolution.RequireKeyId(
+            parsed.KeyId, SpaceDidResolution.DelegationKeyIds, SpaceErrors.InvalidDelegationToken);
+
         var verified = await SpaceDidResolution.VerifyWithKeyRefreshAsync(
-            refresh => _resolver.ResolveAccountKeyAsync(
-                userDid, parsed.KeyId, SpaceErrors.InvalidDelegationToken, refresh, cancellationToken),
+            refresh => _resolver.ResolveKeyAsync(
+                userDid, keyId, SpaceErrors.InvalidDelegationToken, refresh, cancellationToken),
             issuerKey => SpaceTokens.Verify(parsed, issuerKey, expectedAudience, space, _timeProvider.GetUtcNow()),
             SpaceErrors.InvalidDelegationToken);
 
@@ -135,7 +140,7 @@ public sealed class SpaceDelegationTokenVerifier
             throw Invalid("The delegation token has already been used; delegation tokens are single-use.");
         }
 
-        return new VerifiedDelegationToken(verified, space, userDid);
+        return new VerifiedDelegationToken(space, userDid);
     }
 
     private static SpaceVerificationException Invalid(string message) =>

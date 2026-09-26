@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using ATProtoNet.Auth;
 using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
 using ATProtoNet.Server.Spaces;
@@ -115,6 +116,40 @@ public sealed class FakeDidDocumentResolver : IDidResolver
         RefreshCount++;
         _stale.Remove(did.Value);
         return ResolveAsync(did, cancellationToken);
+    }
+}
+
+/// <summary>
+/// An <see cref="ISpaceAccountSigner"/> holding the keys a test hands it, standing in for a PDS's
+/// actor store.
+/// </summary>
+public sealed class TestAccountSigner : ISpaceAccountSigner
+{
+    private readonly Dictionary<Did, ServiceAuthGenerator> _signers = [];
+
+    /// <summary>Makes every lookup throw, as a key store that is down would.</summary>
+    public bool Fail { get; init; }
+
+    /// <summary>Answers every lookup with this generator, whichever account was asked for.</summary>
+    public ServiceAuthGenerator? Override { get; init; }
+
+    /// <summary>The accounts asked for, in order.</summary>
+    public List<Did> Requests { get; } = [];
+
+    public TestAccountSigner Add(Did account, AtProtoKey key)
+    {
+        _signers[account] = new ServiceAuthGenerator(account, key);
+        return this;
+    }
+
+    public ValueTask<ServiceAuthGenerator?> GetSignerAsync(Did account, CancellationToken cancellationToken = default)
+    {
+        Requests.Add(account);
+
+        if (Fail)
+            throw new InvalidOperationException("The key store is unavailable.");
+
+        return ValueTask.FromResult(Override ?? _signers.GetValueOrDefault(account));
     }
 }
 

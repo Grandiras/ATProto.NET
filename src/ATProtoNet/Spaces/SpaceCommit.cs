@@ -26,7 +26,7 @@ namespace ATProtoNet.Spaces;
 /// proves nothing about its contents — only that the author signed a
 /// <c>(space, author, rev, ikm)</c> context.</para>
 /// </remarks>
-public sealed class SignedSpaceCommit
+public sealed class SignedSpaceCommit : Models.LexObject
 {
     /// <summary>The commit format version currently defined by the protocol.</summary>
     public const int CurrentVersion = 1;

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Tests.Identity;
@@ -224,6 +225,89 @@ public class DPoPProofValidatorTests
 
         await Assert.ThrowsAsync<SpaceVerificationException>(
             () => validator.ValidateAsync(key.Proof("GET", Url, algorithm: "ES256K"), "GET", Url));
+    }
+
+    [Fact]
+    public async Task ValidateAsync_Es256kProofOnASecp256k1Key_IsRejected()
+    {
+        // Proposal 0016 and the reference implementation pin DPoP proofs to ES256; a consistent
+        // secp256k1 key and ES256K signature is still refused.
+        using var key = ECDsa.Create(ECCurve.CreateFromValue("1.3.132.0.10"));
+        var q = key.ExportParameters(includePrivateParameters: false).Q;
+        var proof = TestJws.Mint(
+            new Dictionary<string, object>
+            {
+                ["typ"] = "dpop+jwt",
+                ["alg"] = "ES256K",
+                ["jwk"] = new Dictionary<string, string>
+                {
+                    ["kty"] = "EC",
+                    ["crv"] = "secp256k1",
+                    ["x"] = TestJws.Encode(q.X),
+                    ["y"] = TestJws.Encode(q.Y),
+                },
+            },
+            new Dictionary<string, object>
+            {
+                ["jti"] = Guid.NewGuid().ToString("N"),
+                ["htm"] = "GET",
+                ["htu"] = Url,
+                ["iat"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            },
+            input => key.SignData(input, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
+
+        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
+            () => CreateValidator().ValidateAsync(proof, "GET", Url));
+
+        Assert.Contains("ES256", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ValidateAsync_AthOnACredentialExchangeProof_IsRejected()
+    {
+        // The delegation token is a single-use grant, not an access token: the exchange proof
+        // must not bind to it (proposal 0016, and the reference refuses it).
+        using var key = new TestDPoPKey();
+
+        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
+            () => CreateValidator().ValidateAsync(
+                key.Proof("POST", Url, accessToken: "a-delegation-token"), "POST", Url));
+
+        Assert.Contains("ath", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ValidateAsync_JwkWithAYOffTheCurve_IsRejected()
+    {
+        // A did:key keeps only X and the parity of Y, so a JWK must be checked on import: this
+        // one shares X (and Y's parity) with the real key, and would otherwise verify as it.
+        using var key = new TestDPoPKey();
+        var y = TestJws.Decode(key.Y);
+        y[5] ^= 0x02; // keeps the low bit, so the parity is unchanged
+
+        var proof = key.Proof("GET", Url, editJwk: jwk => jwk["y"] = TestJws.Encode(y));
+
+        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
+            () => CreateValidator().ValidateAsync(proof, "GET", Url));
+
+        Assert.Contains("not a valid EC public key", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ValidateAsync_SameKeyAcrossProofs_VerifiesEachSignature()
+    {
+        // The imported key is remembered by thumbprint; a proof the key did not sign still fails.
+        using var key = new TestDPoPKey();
+        var validator = CreateValidator();
+
+        await validator.ValidateAsync(key.Proof("GET", Url), "GET", Url);
+
+        var parts = key.Proof("GET", Url).Split('.');
+        var other = key.Proof("GET", Url).Split('.');
+        var forged = $"{parts[0]}.{parts[1]}.{other[2]}";
+
+        await Assert.ThrowsAsync<SpaceVerificationException>(() => validator.ValidateAsync(forged, "GET", Url));
+        await validator.ValidateAsync(key.Proof("GET", Url), "GET", Url);
     }
 
     [Fact]

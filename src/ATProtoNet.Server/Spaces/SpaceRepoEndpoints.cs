@@ -20,35 +20,15 @@ namespace ATProtoNet.Server.Spaces;
 /// </remarks>
 /// <typeparam name="TParams">The endpoint's query parameters.</typeparam>
 [AuthenticatesItself]
-public abstract class SpaceRepoEndpointBase<TParams>
+internal abstract class SpaceRepoEndpointBase<TParams>(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
     where TParams : SpaceRepoParameters
 {
-    /// <summary>
-    /// Creates the endpoint.
-    /// </summary>
-    /// <param name="authenticator">Verifies the presented credential and its DPoP proof.</param>
-    /// <param name="repoHost">The repos this service holds.</param>
-    protected SpaceRepoEndpointBase(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
-    {
-        ArgumentNullException.ThrowIfNull(authenticator);
-        ArgumentNullException.ThrowIfNull(repoHost);
-
-        Authenticator = authenticator;
-        RepoHost = repoHost;
-    }
-
-    /// <summary>Verifies the presented credential and its DPoP proof.</summary>
-    protected SpaceRequestAuthenticator Authenticator { get; }
-
     /// <summary>The repos this service holds.</summary>
-    protected ISpaceRepoHost RepoHost { get; }
+    protected ISpaceRepoHost RepoHost { get; } = repoHost;
 
     /// <summary>
     /// Validates the addressing parameters and authenticates the request against them.
     /// </summary>
-    /// <param name="parameters">The request's query parameters.</param>
-    /// <param name="context">The HTTP context.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The space and repo the request addresses.</returns>
     protected async Task<(SpaceUri Space, Did Repo)> AuthenticateAsync(
         TParams parameters, HttpContext context, CancellationToken cancellationToken)
@@ -58,14 +38,12 @@ public abstract class SpaceRepoEndpointBase<TParams>
         var space = SpaceRequestValidation.RequireSpace(parameters.Space);
         var repo = SpaceRequestValidation.Require(parameters.Repo, "repo");
 
-        await Authenticator.AuthenticateCredentialAsync(context, space, cancellationToken);
+        await authenticator.AuthenticateCredentialAsync(context, space, cancellationToken);
 
         return (space, repo);
     }
 
     /// <summary>The error a repo host answers with when it holds nothing for a (space, repo) pair.</summary>
-    /// <param name="space">The space that was addressed.</param>
-    /// <param name="repo">The repo that was addressed.</param>
     /// <remarks>
     /// It deliberately does not distinguish "member who has never written" from "not a member":
     /// the protocol carries no reader set, and saying more would leak membership.
@@ -75,21 +53,12 @@ public abstract class SpaceRepoEndpointBase<TParams>
 }
 
 /// <summary>Serves <c>com.atproto.space.getRecord</c>.</summary>
-public sealed class GetSpaceRecordEndpoint
-    : SpaceRepoEndpointBase<GetSpaceRecordParameters>, IXrpcQuery<GetSpaceRecordParameters, GetSpaceRecordResponse>
+internal sealed class GetSpaceRecordEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
+    : SpaceRepoEndpointBase<GetSpaceRecordParameters>(authenticator, repoHost),
+      IXrpcQuery<GetSpaceRecordParameters, GetSpaceRecordResponse>
 {
-    /// <summary>Creates the endpoint.</summary>
-    /// <param name="authenticator">Verifies the presented credential.</param>
-    /// <param name="repoHost">The repos this service holds.</param>
-    public GetSpaceRecordEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
-        : base(authenticator, repoHost)
-    {
-    }
-
-    /// <inheritdoc/>
     public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.GetRecord);
 
-    /// <inheritdoc/>
     public async Task<GetSpaceRecordResponse> HandleAsync(
         GetSpaceRecordParameters parameters, HttpContext context, CancellationToken cancellationToken = default)
     {
@@ -106,22 +75,12 @@ public sealed class GetSpaceRecordEndpoint
 }
 
 /// <summary>Serves <c>com.atproto.space.listRecords</c>.</summary>
-public sealed class ListSpaceRecordsEndpoint
-    : SpaceRepoEndpointBase<ListSpaceRecordsParameters>,
+internal sealed class ListSpaceRecordsEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
+    : SpaceRepoEndpointBase<ListSpaceRecordsParameters>(authenticator, repoHost),
       IXrpcQuery<ListSpaceRecordsParameters, ListSpaceRecordsResponse>
 {
-    /// <summary>Creates the endpoint.</summary>
-    /// <param name="authenticator">Verifies the presented credential.</param>
-    /// <param name="repoHost">The repos this service holds.</param>
-    public ListSpaceRecordsEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
-        : base(authenticator, repoHost)
-    {
-    }
-
-    /// <inheritdoc/>
     public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.ListRecords);
 
-    /// <inheritdoc/>
     public async Task<ListSpaceRecordsResponse> HandleAsync(
         ListSpaceRecordsParameters parameters, HttpContext context, CancellationToken cancellationToken = default)
     {
@@ -140,22 +99,12 @@ public sealed class ListSpaceRecordsEndpoint
 }
 
 /// <summary>Serves <c>com.atproto.space.getLatestCommit</c>.</summary>
-public sealed class GetSpaceLatestCommitEndpoint
-    : SpaceRepoEndpointBase<GetSpaceLatestCommitParameters>,
+internal sealed class GetSpaceLatestCommitEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
+    : SpaceRepoEndpointBase<GetSpaceLatestCommitParameters>(authenticator, repoHost),
       IXrpcQuery<GetSpaceLatestCommitParameters, GetSpaceLatestCommitResponse>
 {
-    /// <summary>Creates the endpoint.</summary>
-    /// <param name="authenticator">Verifies the presented credential.</param>
-    /// <param name="repoHost">The repos this service holds.</param>
-    public GetSpaceLatestCommitEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
-        : base(authenticator, repoHost)
-    {
-    }
-
-    /// <inheritdoc/>
     public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.GetLatestCommit);
 
-    /// <inheritdoc/>
     public async Task<GetSpaceLatestCommitResponse> HandleAsync(
         GetSpaceLatestCommitParameters parameters, HttpContext context, CancellationToken cancellationToken = default)
     {
@@ -169,22 +118,12 @@ public sealed class GetSpaceLatestCommitEndpoint
 }
 
 /// <summary>Serves <c>com.atproto.space.listRepoOps</c>.</summary>
-public sealed class ListSpaceRepoOpsEndpoint
-    : SpaceRepoEndpointBase<ListSpaceRepoOpsParameters>,
+internal sealed class ListSpaceRepoOpsEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
+    : SpaceRepoEndpointBase<ListSpaceRepoOpsParameters>(authenticator, repoHost),
       IXrpcQuery<ListSpaceRepoOpsParameters, ListSpaceRepoOpsResponse>
 {
-    /// <summary>Creates the endpoint.</summary>
-    /// <param name="authenticator">Verifies the presented credential.</param>
-    /// <param name="repoHost">The repos this service holds.</param>
-    public ListSpaceRepoOpsEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
-        : base(authenticator, repoHost)
-    {
-    }
-
-    /// <inheritdoc/>
     public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.ListRepoOps);
 
-    /// <inheritdoc/>
     public async Task<ListSpaceRepoOpsResponse> HandleAsync(
         ListSpaceRepoOpsParameters parameters, HttpContext context, CancellationToken cancellationToken = default)
     {
@@ -203,22 +142,12 @@ public sealed class ListSpaceRepoOpsEndpoint
 }
 
 /// <summary>Serves <c>com.atproto.space.listBlobs</c>.</summary>
-public sealed class ListSpaceBlobsEndpoint
-    : SpaceRepoEndpointBase<ListSpaceBlobsParameters>,
+internal sealed class ListSpaceBlobsEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
+    : SpaceRepoEndpointBase<ListSpaceBlobsParameters>(authenticator, repoHost),
       IXrpcQuery<ListSpaceBlobsParameters, ListSpaceBlobsResponse>
 {
-    /// <summary>Creates the endpoint.</summary>
-    /// <param name="authenticator">Verifies the presented credential.</param>
-    /// <param name="repoHost">The repos this service holds.</param>
-    public ListSpaceBlobsEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
-        : base(authenticator, repoHost)
-    {
-    }
-
-    /// <inheritdoc/>
     public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.ListBlobs);
 
-    /// <inheritdoc/>
     public async Task<ListSpaceBlobsResponse> HandleAsync(
         ListSpaceBlobsParameters parameters, HttpContext context, CancellationToken cancellationToken = default)
     {
@@ -237,24 +166,15 @@ public sealed class ListSpaceBlobsEndpoint
 /// <summary>
 /// Serves <c>com.atproto.space.getRepo</c>: an account's whole permissioned repo as a CAR.
 /// </summary>
-public sealed class GetSpaceRepoEndpoint
-    : SpaceRepoEndpointBase<GetSpaceRepoParameters>, IXrpcBlobQuery<GetSpaceRepoParameters>
+internal sealed class GetSpaceRepoEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
+    : SpaceRepoEndpointBase<GetSpaceRepoParameters>(authenticator, repoHost),
+      IXrpcBlobQuery<GetSpaceRepoParameters>
 {
     /// <summary>The content type a repo CAR is served as.</summary>
     public const string CarContentType = "application/vnd.ipld.car";
 
-    /// <summary>Creates the endpoint.</summary>
-    /// <param name="authenticator">Verifies the presented credential.</param>
-    /// <param name="repoHost">The repos this service holds.</param>
-    public GetSpaceRepoEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
-        : base(authenticator, repoHost)
-    {
-    }
-
-    /// <inheritdoc/>
     public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.GetRepo);
 
-    /// <inheritdoc/>
     public async Task<XrpcBlobResult> HandleAsync(
         GetSpaceRepoParameters parameters, HttpContext context, CancellationToken cancellationToken = default)
     {
@@ -273,21 +193,12 @@ public sealed class GetSpaceRepoEndpoint
 /// <summary>
 /// Serves <c>com.atproto.space.getBlob</c>: a blob referenced from a permissioned record.
 /// </summary>
-public sealed class GetSpaceBlobEndpoint
-    : SpaceRepoEndpointBase<GetSpaceBlobParameters>, IXrpcBlobQuery<GetSpaceBlobParameters>
+internal sealed class GetSpaceBlobEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
+    : SpaceRepoEndpointBase<GetSpaceBlobParameters>(authenticator, repoHost),
+      IXrpcBlobQuery<GetSpaceBlobParameters>
 {
-    /// <summary>Creates the endpoint.</summary>
-    /// <param name="authenticator">Verifies the presented credential.</param>
-    /// <param name="repoHost">The repos this service holds.</param>
-    public GetSpaceBlobEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
-        : base(authenticator, repoHost)
-    {
-    }
-
-    /// <inheritdoc/>
     public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.GetBlob);
 
-    /// <inheritdoc/>
     public async Task<XrpcBlobResult> HandleAsync(
         GetSpaceBlobParameters parameters, HttpContext context, CancellationToken cancellationToken = default)
     {

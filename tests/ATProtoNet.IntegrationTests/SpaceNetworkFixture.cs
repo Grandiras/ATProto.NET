@@ -189,7 +189,7 @@ public sealed class SpaceNetworkFixture : IAsyncLifetime
     /// <c>Multikey</c> that plc.directory serves; both are read since #98.
     /// </remarks>
     public async Task<string> ResolveSigningKeyAsync(Did did, CancellationToken cancellationToken = default)
-        => SpaceAuthority.GetSigningKey(await DidResolver.ResolveAsync(did, cancellationToken))
+        => (await DidResolver.ResolveAsync(did, cancellationToken)).GetSigningKey()
             ?? throw new InvalidOperationException($"'{did}' publishes no AT Protocol signing key.");
 
     public async ValueTask DisposeAsync()

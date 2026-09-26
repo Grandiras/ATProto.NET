@@ -283,6 +283,9 @@ public class SpaceRepoCarTests
     [Theory]
     [InlineData("not-an-nsid/aaa")]
     [InlineData("com.example.n/not a record key")]
+    [InlineData("com.example.n/aaa/bbb")] // two separators: the reference refuses it, LastIndexOf would not
+    [InlineData("/aaa")]
+    [InlineData("com.example.n")]
     public void Verify_IndexPathThatIsNotACollectionAndRecordKey_Throws(string path)
     {
         // The commit vouches for the index as a set of strings, so a path that does not parse
@@ -317,6 +320,131 @@ public class SpaceRepoCarTests
             () => SpaceRepoCar.Verify(car, _space, Author, key.ToDidKey()));
 
         Assert.Contains("Invalid record path", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Verify_IndexOnlyCarWithAnInvalidPath_Throws()
+    {
+        // An index-only CAR is diffed against a local copy by path, so its paths are checked even
+        // though no record block comes with them.
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var (_, recordCid) = RecordBlock();
+        var car = CraftedCar(key, "com.example.n/aaa/bbb", recordCid, record: null);
+
+        var ex = Assert.Throws<SpaceRepoVerificationException>(
+            () => SpaceRepoCar.Verify(car, _space, Author, key.ToDidKey(), expectValues: false));
+
+        Assert.Contains("Invalid record path", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(new byte[] { 0x65, 0x68, 0x65, 0x6c, 0x6c, 0x6f })] // "hello"
+    [InlineData(new byte[] { 0x82, 0x01, 0x02 })]                    // [1, 2]
+    [InlineData(new byte[] { 0xa1, 0x61, 0x61 })]                    // a map missing its value
+    [InlineData(new byte[] { 0xbf, 0xff })]                          // indefinite-length map
+    [InlineData(new byte[] { 0xa1, 0x61, 0x61, 0x9f, 0xff })]        // {"a": an indefinite-length array}
+    [InlineData(new byte[] { 0xa1, 0x61, 0x61, 0x7f, 0xff })]        // {"a": an indefinite-length string}
+    [InlineData(new byte[] { 0xa1, 0x61, 0x61, 0xc1, 0x00 })]        // {"a": tag 1, a timestamp}
+    [InlineData(new byte[] { 0xa1, 0x61, 0x61, 0xd8, 0x2a, 0x43, 0x01, 0x71, 0x12 })] // tag 42 without the 0x00 prefix
+    [InlineData(new byte[] { 0xa1, 0x61, 0x61, 0xd8, 0x2a, 0x61, 0x78 })] // tag 42 over a text string
+    [InlineData(new byte[] { 0xa1, 0x61, 0x61, 0x18, 0x01 })]        // {"a": 1} with 1 in a longer form than it needs
+    [InlineData(new byte[] { 0xa2, 0x62, 0x61, 0x61, 0x01, 0x61, 0x62, 0x02 })] // keys out of length-first order
+    [InlineData(new byte[] { 0xa2, 0x61, 0x61, 0x01, 0x61, 0x61, 0x02 })] // a repeated key
+    [InlineData(new byte[] { 0xa1, 0x01, 0x01 })]                    // a non-text key
+    [InlineData(new byte[] { 0xa1, 0x61, 0x61, 0xfb, 0x3f, 0xf0, 0, 0, 0, 0, 0, 0 })] // {"a": 1.0}
+    [InlineData(new byte[] { 0xa1, 0x61, 0x61, 0xf7 })]              // {"a": undefined}
+    [InlineData(new byte[] { 0xa1, 0x61, 0x61, 0x1b, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff })] // past int64
+    [InlineData(new byte[] { 0xa1, 0x61, 0x61, 0x61, 0xff })]        // invalid UTF-8
+    public void Verify_RecordBlockThatIsNotADagCborMap_Throws(byte[] recordBytes)
+    {
+        // The block hashes to the CID the index names, so only decoding it tells it is no record.
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var recordCid = CidComputation.ComputeForDagCbor(recordBytes);
+        var car = CraftedCar(key, "com.example.n/aaa", recordCid, recordBytes);
+
+        var ex = Assert.Throws<SpaceRepoVerificationException>(
+            () => SpaceRepoCar.Verify(car, _space, Author, key.ToDidKey()));
+
+        Assert.Contains("not a DAG-CBOR map", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Verify_IndexLinkingARawCid_Throws()
+    {
+        // A raw CID names a blob; a record in the index is always DAG-CBOR.
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var (recordBytes, _) = RecordBlock();
+        var rawCid = CidComputation.ComputeForRaw(recordBytes);
+        var car = CraftedCar(key, "com.example.n/aaa", rawCid, recordBytes);
+
+        var ex = Assert.Throws<SpaceRepoVerificationException>(
+            () => SpaceRepoCar.Verify(car, _space, Author, key.ToDidKey()));
+
+        Assert.Contains("non-DAG-CBOR", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Verify_RecordBlockThatIsAMap_IsAccepted()
+    {
+        // The positive control for the crafted-CAR tests above.
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var (recordBytes, recordCid) = RecordBlock();
+        var car = CraftedCar(key, "com.example.n/aaa", recordCid, recordBytes);
+
+        var verified = SpaceRepoCar.Verify(car, _space, Author, key.ToDidKey());
+
+        var record = Assert.Single(verified.Records);
+        Assert.Equal("com.example.n/aaa", record.Path);
+    }
+
+    [Fact]
+    public void Verify_RecordUsingEveryAllowedKind_IsAccepted()
+    {
+        // The strict check must not refuse what a conforming writer produces: links, bytes,
+        // negative and multi-byte integers, nesting, booleans and null.
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var (_, linked) = RecordBlock();
+        var value = System.Text.Json.Nodes.JsonNode.Parse(
+            """
+            {"$type":"com.example.n","text":"x","n":-5,"big":1000000,"flag":true,"none":null,
+             "list":[1,"a",{"b":false}],"ref":{"$link":"LINK"},"bytes":{"$bytes":"AQI"}}
+            """.Replace("LINK", linked.Value, StringComparison.Ordinal))!;
+        var (recordBytes, recordCid) = DagCborEncoder.EncodeWithCid(JsonSerializer.SerializeToElement(value));
+        var car = CraftedCar(key, "com.example.n/aaa", recordCid, recordBytes);
+
+        var verified = SpaceRepoCar.Verify(car, _space, Author, key.ToDidKey());
+
+        Assert.Single(verified.Records);
+    }
+
+    private static (byte[] Bytes, Cid Cid) RecordBlock() =>
+        DagCborEncoder.EncodeWithCid(
+            JsonSerializer.SerializeToElement(new Dictionary<string, object> { ["text"] = "x" }));
+
+    /// <summary>
+    /// A CAR whose commit vouches for a one-entry index built by hand, so the index can hold what
+    /// <see cref="SpaceRepoCar.Serialize"/> never would.
+    /// </summary>
+    private static byte[] CraftedCar(AtProtoKey key, string path, Cid recordCid, byte[]? record)
+    {
+        var commit = SpaceRepoCommit
+            .FromIndex([new KeyValuePair<string, Cid>(path, recordCid)])
+            .Sign(new SpaceCommitContext(_space, Author, Rev), key);
+        var commitBytes = commit.ToDagCbor();
+        var commitCid = CidComputation.ComputeBinaryForDagCbor(commitBytes);
+
+        var index = new System.Text.Json.Nodes.JsonObject
+        {
+            [path] = new System.Text.Json.Nodes.JsonObject { ["$link"] = recordCid.Value },
+        };
+        var indexBytes = DagCborEncoder.Encode(JsonSerializer.SerializeToElement(index));
+        var indexCid = CidComputation.ComputeBinaryForDagCbor(indexBytes);
+
+        List<CarBlock> blocks = [new CarBlock(commitCid, commitBytes), new CarBlock(indexCid, indexBytes)];
+        if (record is not null)
+            blocks.Add(new CarBlock(recordCid.ToBytes(), record));
+
+        return CarWriter.Write([commitCid, indexCid], blocks);
     }
 
     [Fact]
