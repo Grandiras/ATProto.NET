@@ -320,6 +320,40 @@ public class AuthorizationServerMetadataValidationTests
     }
 
     [Fact]
+    public async Task ResolveFromServerUrlAsync_APds_FetchesItsResourceMetadataOnce()
+    {
+        var handler = new ScriptedHandler(request => request.RequestUri!.AbsolutePath switch
+        {
+            "/.well-known/oauth-protected-resource" => ScriptedHandler.Json(ResourceMetadata()),
+            "/.well-known/oauth-authorization-server" => ScriptedHandler.Json(ServerMetadata()),
+            _ => ScriptedHandler.Status(HttpStatusCode.NotFound),
+        });
+
+        // A clock past the cache lifetime at every reading, so nothing the cache holds hides a fetch.
+        using var discovery = new AuthorizationServerDiscovery(
+            new HttpClient(handler), NullLogger.Instance, Substitute.For<IIdentityResolver>())
+        {
+            TimeProvider = new RacingClock(),
+        };
+
+        var metadata = await discovery.ResolveFromServerUrlAsync(PdsUrl, CancellationToken.None);
+
+        Assert.Equal(Issuer, metadata.Issuer);
+        Assert.Equal(
+            ["/.well-known/oauth-protected-resource", "/.well-known/oauth-authorization-server"],
+            handler.Requests.Select(uri => uri.AbsolutePath));
+    }
+
+    /// <summary>A clock that moves an hour on with every reading.</summary>
+    private sealed class RacingClock : TimeProvider
+    {
+        private long _hours;
+
+        public override DateTimeOffset GetUtcNow() =>
+            DateTimeOffset.UnixEpoch.AddHours(Interlocked.Increment(ref _hours));
+    }
+
+    [Fact]
     public async Task AServerThatIsNeither_ReportsThePdsFailure()
     {
         var handler = new ScriptedHandler(_ => ScriptedHandler.Status(HttpStatusCode.NotFound));

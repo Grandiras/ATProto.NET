@@ -94,6 +94,9 @@ public sealed class AuthorizationServerDiscovery : IDisposable
     /// <summary>The resolver handles and DIDs are resolved through.</summary>
     public IIdentityResolver IdentityResolver { get; }
 
+    /// <summary>The clock the metadata cache expires by.</summary>
+    internal TimeProvider TimeProvider { get; init; } = TimeProvider.System;
+
     /// <summary>
     /// Resolves an account identifier (handle or DID) to the PDS URL and Authorization Server metadata.
     /// </summary>
@@ -205,6 +208,16 @@ public sealed class AuthorizationServerDiscovery : IDisposable
         string pdsUrl, bool bypassCache, CancellationToken cancellationToken)
     {
         var resource = await ResolveResourceAsync(pdsUrl, bypassCache, cancellationToken);
+        return await ResolveAuthorizationServerAsync(resource, bypassCache, cancellationToken);
+    }
+
+    /// <summary>
+    /// The authorization server of a resource whose protected-resource metadata has been read:
+    /// its metadata, which must list the resource when it lists any.
+    /// </summary>
+    private async Task<AuthorizationServerMetadata> ResolveAuthorizationServerAsync(
+        (string Resource, string Issuer) resource, bool bypassCache, CancellationToken cancellationToken)
+    {
         var metadata = await GetAuthorizationServerMetadataAsync(resource.Issuer, bypassCache, cancellationToken);
 
         // RFC 9728 section 4: an authorization server that lists the resources it protects must
@@ -231,9 +244,10 @@ public sealed class AuthorizationServerDiscovery : IDisposable
     internal async Task<AuthorizationServerMetadata> ResolveFromServerUrlAsync(
         string serverUrl, CancellationToken cancellationToken)
     {
+        (string Resource, string Issuer) resource;
         try
         {
-            await ResolveResourceAsync(serverUrl, bypassCache: false, cancellationToken);
+            resource = await ResolveResourceAsync(serverUrl, bypassCache: false, cancellationToken);
         }
         catch (OAuthException ex) when (ex.Error != "invalid_server_url")
         {
@@ -251,7 +265,7 @@ public sealed class AuthorizationServerDiscovery : IDisposable
             throw;
         }
 
-        return await ResolveAuthorizationServerAsync(serverUrl, bypassCache: false, cancellationToken);
+        return await ResolveAuthorizationServerAsync(resource, bypassCache: false, cancellationToken);
     }
 
     /// <summary>
@@ -372,7 +386,7 @@ public sealed class AuthorizationServerDiscovery : IDisposable
     private async Task<ReadOnlyMemory<byte>> GetMetadataDocumentAsync(Uri url, bool bypassCache, CancellationToken cancellationToken)
     {
         var key = url.AbsoluteUri;
-        if (!bypassCache && _metadataCache.TryGetValue(key, out var cached) && cached.ExpiresAt > DateTimeOffset.UtcNow)
+        if (!bypassCache && _metadataCache.TryGetValue(key, out var cached) && cached.ExpiresAt > TimeProvider.GetUtcNow())
             return cached.Body;
 
         _logger.LogDebug("Fetching OAuth metadata from {Url}", url);
@@ -400,7 +414,7 @@ public sealed class AuthorizationServerDiscovery : IDisposable
 
     private void CacheMetadataDocument(string key, ReadOnlyMemory<byte> body)
     {
-        var now = DateTimeOffset.UtcNow;
+        var now = TimeProvider.GetUtcNow();
         _metadataCache[key] = new CachedDocument(body, now + MetadataCacheLifetime);
         if (_metadataCache.Count <= MetadataCacheCapacity)
             return;

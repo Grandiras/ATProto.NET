@@ -187,7 +187,8 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             _logger,
             timeProvider,
             options.AutoRefreshSession,
-            options.BackgroundRefresh);
+            options.BackgroundRefresh,
+            options.RefreshCoordinator);
         _xrpc.SessionHandler = _sessions;
         Bsky.Bind(this);
     }
@@ -735,6 +736,26 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     }
 
     /// <summary>
+    /// Installs a session read from the session store, as <see cref="TryRestoreSessionAsync"/>
+    /// does, with its DPoP key already loaded: the server integration's client factory keeps the
+    /// imported key of each account rather than importing it for every request.
+    /// </summary>
+    /// <param name="session">The stored session.</param>
+    /// <param name="oauthClient">For an <see cref="OAuthSession"/>, the <see cref="OAuthClient"/> that issued it.</param>
+    /// <param name="dpop">
+    /// For an <see cref="OAuthSession"/>, a key object for its <see cref="OAuthSession.DPoPKey"/>,
+    /// which the client takes over; <see langword="null"/> imports the key.
+    /// </param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    internal async Task InstallStoredSessionAsync(
+        AtProtoSession session, OAuthClient? oauthClient, DPoPProofGenerator? dpop, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ThrowIfDisposed();
+        await _sessions.InstallAsync(session, oauthClient, persist: false, cancellationToken, dpop);
+    }
+
+    /// <summary>
     /// Refresh the session's tokens now: a password session through
     /// <c>com.atproto.server.refreshSession</c>, an OAuth session through its authorization
     /// server. Calls made concurrently share one refresh.
@@ -1035,4 +1056,16 @@ public sealed class AtProtoClientOptions
     /// request.
     /// </summary>
     public bool BackgroundRefresh { get; set; }
+
+    /// <summary>
+    /// Coordinates this client's refreshes with the other clients that share its session store,
+    /// so an account's single-use refresh token is spent once (see
+    /// <see cref="ISessionRefreshCoordinator"/>). Used only when the client has a session store.
+    /// Default: <see langword="null"/>, for a client that is the only one acting for its account.
+    /// </summary>
+    /// <remarks>
+    /// Give every client that shares the store the same coordinator. The server integration's
+    /// client factory does this for its per-request clients.
+    /// </remarks>
+    public ISessionRefreshCoordinator? RefreshCoordinator { get; set; }
 }
