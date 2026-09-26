@@ -530,9 +530,9 @@ public sealed class AtProtoOAuthService : IDisposable
         }
 
         throw new InvalidOperationException(
-            "The development loopback OAuth client needs a callback on a plain HTTP loopback address, and the " +
-            "server listens on none. Bind one (for example http://127.0.0.1:5000), set BaseUrl, or configure " +
-            "ClientMetadata for a client_id you publish.");
+            "The development loopback OAuth client takes its callback from the server's plain HTTP loopback " +
+            "address, and the server reports none (it knows its addresses once it has started). Bind one (for " +
+            "example http://127.0.0.1:5000), set BaseUrl, or configure ClientMetadata for a client_id you publish.");
     }
 
     /// <summary>

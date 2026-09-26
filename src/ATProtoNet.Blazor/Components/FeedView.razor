@@ -25,8 +25,8 @@ else
     <div class="atproto-feed @CssClass">
         @foreach (var item in _feedItems)
         {
-            <PostCard @key="item.Post.Uri"
-                      Post="@item.Post"
+            @* Not keyed by post: a timeline can hold one post twice, reposted by two accounts. *@
+            <PostCard Post="@item.Post"
                       OnReply="OnReply"
                       OnRepost="OnRepost"
                       OnLike="OnLike" />

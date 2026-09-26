@@ -65,6 +65,17 @@ public sealed class FeedViewTests : IAsyncDisposable
     }
 
     [Fact]
+    public void OnePostTwiceInTheFeed_RendersBoth()
+    {
+        // A timeline holds a post once for each account that reposted it.
+        _host.Server.Respond = _ => FeedResponse(null, PostJson("p1", "twice"), PostJson("p1", "twice"));
+
+        var cut = _host.Context.Render<FeedView>();
+
+        cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll("article.atproto-post").Count));
+    }
+
+    [Fact]
     public void LoadMore_ContinuesFromTheCursor()
     {
         _host.Server.Respond = r => r.Uri.Query.Contains("cursor=c1")
