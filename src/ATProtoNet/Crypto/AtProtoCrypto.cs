@@ -723,6 +723,17 @@ public sealed class AtProtoKey : IDisposable
         return AtProtoCrypto.CompressPoint(q.X, yIsOdd: (q.Y![^1] & 1) == 1);
     }
 
+    /// <summary>
+    /// Exports the key's parameters: the public point, and the private scalar when
+    /// <paramref name="includePrivateParameters"/> is set.
+    /// </summary>
+    /// <exception cref="CryptographicException">The private scalar was asked for and this is a public key.</exception>
+    internal ECParameters ExportParameters(bool includePrivateParameters)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _key.ExportParameters(includePrivateParameters);
+    }
+
     /// <summary>Returns the multikey string (z-prefixed base58btc with multicodec prefix).</summary>
     public string ToMultikey()
     {

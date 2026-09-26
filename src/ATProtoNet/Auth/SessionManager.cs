@@ -141,7 +141,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
 
                 var refresher = session is OAuthSession ? oauthClient ?? previous?.OAuthClient : null;
                 credentials = Credentials(session, dpop, serviceUrl);
-                Publish(new State(session, dpop, refresher, credentials), serviceUrl, keepDPoPNonce: false);
+                Publish(new State(session, dpop, refresher, credentials), serviceUrl);
                 published = true;
 
                 // The replaced session's key object signs nothing any more; a call of that
@@ -201,7 +201,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
                 if (updated != password)
                 {
                     // Same credentials instance, so the session's generation does not change.
-                    Publish(state with { Session = updated }, serviceUrl: null, keepDPoPNonce: true);
+                    Publish(state with { Session = updated }, serviceUrl: null);
                     await PersistAsync(updated);
                     change = new AtProtoSessionChangedEventArgs(AtProtoSessionChange.Refreshed, updated, password);
                     current = updated;
@@ -430,8 +430,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
             var moved = !serviceUrl.Equals(state.Credentials.Service);
             Publish(
                 state with { Session = refreshed, Credentials = Credentials(refreshed, state.DPoP, serviceUrl) },
-                moved ? serviceUrl : null,
-                keepDPoPNonce: !moved);
+                moved ? serviceUrl : null);
             await PersistAsync(refreshed);
 
             _logger.LogDebug("Refreshed the session of {Did}", refreshed.Did);
@@ -507,7 +506,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
     {
         _logger.LogWarning(error, "The session of {Did} is no longer accepted and has expired", state.Session.Did);
 
-        Publish(null, serviceUrl: null, keepDPoPNonce: false);
+        Publish(null, serviceUrl: null);
         state.DPoP?.Dispose();
         await ForgetAsync(state.Session);
 
@@ -538,7 +537,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
             // Local teardown first: whatever the service says, no request carries these
             // credentials again and the store no longer holds them. The store removal is not
             // cancelled with the call, so the credentials do not outlive the sign-out.
-            Publish(null, serviceUrl: null, keepDPoPNonce: false);
+            Publish(null, serviceUrl: null);
 
             if (_store is not null)
             {
@@ -618,13 +617,12 @@ internal sealed class SessionManager : IXrpcSessionHandler
     /// </summary>
     /// <param name="next">The new state, or <see langword="null"/> to remove the session.</param>
     /// <param name="serviceUrl">The service to move to, validated; <see langword="null"/> stays.</param>
-    /// <param name="keepDPoPNonce">Keep the resource server's DPoP nonce.</param>
-    private void Publish(State? next, Uri? serviceUrl, bool keepDPoPNonce)
+    private void Publish(State? next, Uri? serviceUrl)
     {
         // A call reads the credentials after they are published, and by then this is the state
         // it is compared against, so it can never be resent with the previous generation.
         _state = next;
-        _xrpc.SetSession(serviceUrl, next?.Credentials, keepDPoPNonce);
+        _xrpc.SetSession(serviceUrl, next?.Credentials);
         ScheduleBackgroundRefresh(next);
     }
 

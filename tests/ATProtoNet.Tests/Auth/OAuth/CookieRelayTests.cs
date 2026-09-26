@@ -145,43 +145,31 @@ public class CookieRelayTests : IDisposable
 
     #endregion
 
-    #region Login context storage
+    #region Browser binding
 
     [Fact]
-    public void LoginContext_IsStoredOnStartLogin()
+    public async Task TryRedeemRelayCodeAsync_WithoutTheBindingCookie_IssuesNoCookie()
     {
-        var loginContexts = (IDictionary)GetLoginContextsDictionary();
+        // Someone else's relay link: the browser redeeming it did not start the login.
+        var (code, _) = InsertRelayEntry("/", TimeSpan.FromMinutes(2));
+        var authService = Substitute.For<IAuthenticationService>();
+        var context = CreateHttpContext(authService, withBinding: false);
 
-        // Before login, no contexts
-        Assert.Empty(loginContexts);
+        var result = await _service.TryRedeemRelayCodeAsync(context, code);
+
+        Assert.Null(result);
+        await authService.DidNotReceive().SignInAsync(
+            Arg.Any<HttpContext>(), Arg.Any<string>(), Arg.Any<ClaimsPrincipal>(), Arg.Any<AuthenticationProperties>());
     }
 
     [Fact]
-    public void LoginContextCleanup_RemovesExpiredEntries()
+    public void IsIssuedRelayUrl_OnlyAcceptsCodesThisServiceIssued()
     {
-        var loginContexts = GetLoginContextsDictionary();
+        var (code, _) = InsertRelayEntry("/", TimeSpan.FromMinutes(2));
 
-        // Insert expired entries via reflection
-        var loginContextType = typeof(AtProtoOAuthService).GetNestedType(
-            "LoginContext", BindingFlags.NonPublic)!;
-        var expiredEntry = Activator.CreateInstance(
-            loginContextType, "https://localhost:7203", "/", DateTime.UtcNow.AddMinutes(-5))!;
-        var validEntry = Activator.CreateInstance(
-            loginContextType, "https://localhost:7204", "/admin", DateTime.UtcNow.AddMinutes(5))!;
-
-        // Use IDictionary interface to add entries
-        loginContexts.GetType().GetMethod("TryAdd")!
-            .Invoke(loginContexts, ["expired-state", expiredEntry]);
-        loginContexts.GetType().GetMethod("TryAdd")!
-            .Invoke(loginContexts, ["valid-state", validEntry]);
-
-        // Trigger cleanup
-        var cleanupMethod = typeof(AtProtoOAuthService).GetMethod(
-            "CleanupExpiredLoginContexts", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        cleanupMethod.Invoke(_service, null);
-
-        // Only the valid entry should remain
-        Assert.Single((IDictionary)loginContexts);
+        Assert.True(_service.IsIssuedRelayUrl($"https://localhost:7203/atproto/relay?code={code}"));
+        Assert.False(_service.IsIssuedRelayUrl("https://localhost:7203/atproto/relay?code=DEADBEEF"));
+        Assert.False(_service.IsIssuedRelayUrl($"https://evil.example.com/elsewhere?code={code}"));
     }
 
     #endregion
@@ -261,10 +249,17 @@ public class CookieRelayTests : IDisposable
 
     #region Helpers
 
+    /// <summary>The browser's binding cookie value in these tests, and its hash as a login keeps it.</summary>
+    private const string Binding = "dGVzdC1iaW5kaW5nLXZhbHVlLWZvci10aGUtcmVsYXk";
+
+    private static readonly string BindingHash =
+        Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.ASCII.GetBytes(Binding)));
+
     /// <summary>
-    /// Creates a <see cref="DefaultHttpContext"/> with a mock <see cref="IAuthenticationService"/>.
+    /// Creates a <see cref="DefaultHttpContext"/> with a mock <see cref="IAuthenticationService"/>,
+    /// presenting the binding cookie unless <paramref name="withBinding"/> is false.
     /// </summary>
-    private static DefaultHttpContext CreateHttpContext(IAuthenticationService? authService = null)
+    private static DefaultHttpContext CreateHttpContext(IAuthenticationService? authService = null, bool withBinding = true)
     {
         authService ??= Substitute.For<IAuthenticationService>();
         var services = new ServiceCollection();
@@ -275,52 +270,35 @@ public class CookieRelayTests : IDisposable
         };
         context.Request.Scheme = "https";
         context.Request.Host = new HostString("localhost", 7203);
+        if (withBinding)
+            context.Request.Headers.Cookie = $"__Host-atproto-oauth-binding={Binding}";
         return context;
     }
 
-    /// <summary>
-    /// Inserts a relay entry directly into the service's internal relay codes dictionary
-    /// via reflection, avoiding the need to run the full OAuth flow.
-    /// </summary>
-    private (string Code, object Entry) InsertRelayEntry(string returnUrl, TimeSpan expiresIn)
+    /// <summary>Adds a relay entry, as a callback on another loopback origin does, and returns its code.</summary>
+    private (string Code, AtProtoOAuthService.RelayEntry Entry) InsertRelayEntry(string returnUrl, TimeSpan expiresIn)
     {
-        var relayCodes = GetRelayCodesDictionary();
-        var code = Guid.NewGuid().ToString("N").ToUpperInvariant();
-
-        var relayEntryType = typeof(AtProtoOAuthService).GetNestedType(
-            "RelayEntry", BindingFlags.NonPublic)!;
-
         var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
         {
             new Claim(ClaimTypes.NameIdentifier, "did:plc:test123"),
             new Claim(ClaimTypes.Name, "test.bsky.social"),
         }, "ATProto"));
 
-        var properties = new AuthenticationProperties
-        {
-            IsPersistent = true,
-            ExpiresUtc = DateTimeOffset.UtcNow.AddHours(1),
-        };
+        var entry = new AtProtoOAuthService.RelayEntry(
+            principal,
+            new AuthenticationProperties { IsPersistent = true, ExpiresUtc = DateTimeOffset.UtcNow.AddHours(1) },
+            returnUrl,
+            DateTime.UtcNow.Add(expiresIn),
+            Session: null,
+            BindingHash);
 
-        var entry = Activator.CreateInstance(
-            relayEntryType, principal, properties, returnUrl, DateTime.UtcNow.Add(expiresIn))!;
-
-        relayCodes.GetType().GetMethod("TryAdd")!.Invoke(relayCodes, [code, entry]);
-
-        return (code, entry);
+        return (_service.AddRelayEntry(entry), entry);
     }
 
     private object GetRelayCodesDictionary()
     {
         var field = typeof(AtProtoOAuthService).GetField(
             "_relayCodes", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        return field.GetValue(_service)!;
-    }
-
-    private object GetLoginContextsDictionary()
-    {
-        var field = typeof(AtProtoOAuthService).GetField(
-            "_loginContexts", BindingFlags.NonPublic | BindingFlags.Instance)!;
         return field.GetValue(_service)!;
     }
 

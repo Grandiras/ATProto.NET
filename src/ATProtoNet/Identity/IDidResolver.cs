@@ -87,6 +87,23 @@ public interface IIdentityResolver
     /// (<see cref="DidResolutionErrorKind.HandleNotFound"/>) or to conflicting ones.
     /// </exception>
     Task<ResolvedIdentity> ResolveAsync(AtIdentifier identifier, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Resolves a DID as <see cref="ResolveAsync"/> does, but from a DID document fetched afresh:
+    /// no cached copy, however recent, is used, and the fetched one replaces it.
+    /// </summary>
+    /// <param name="did">The DID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The identity.</returns>
+    /// <exception cref="DidResolutionException">Thrown when the DID cannot be resolved.</exception>
+    /// <remarks>
+    /// For checks a stale document would defeat, such as OAuth confirming that an account's
+    /// authorization server is the one that issued its tokens. The default resolves through
+    /// <see cref="ResolveAsync"/>, which is right for a resolver that caches nothing; a resolver
+    /// that caches must override it.
+    /// </remarks>
+    Task<ResolvedIdentity> ResolveUncachedAsync(Did did, CancellationToken cancellationToken = default) =>
+        ResolveAsync(AtIdentifier.FromDid(did), cancellationToken);
 }
 
 /// <summary>

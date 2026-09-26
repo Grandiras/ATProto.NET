@@ -43,6 +43,32 @@ public class SessionTests
     }
 
     [Fact]
+    public void OAuthSession_ClientKeyId_RoundTrips()
+    {
+        AtProtoSession session = OAuthSession(NewDPoPKey()) with { ClientKeyId = "key-2026" };
+
+        var json = JsonSerializer.Serialize(session);
+        var read = Assert.IsType<OAuthSession>(JsonSerializer.Deserialize<AtProtoSession>(json));
+
+        Assert.Equal("key-2026", JsonDocument.Parse(json).RootElement.GetProperty("clientKeyId").GetString());
+        Assert.Equal("key-2026", read.ClientKeyId);
+    }
+
+    [Fact]
+    public void OAuthSession_StoredWithoutAClientKeyId_ReadsAsAPublicClientSession()
+    {
+        // What a session store holds from before confidential clients: no clientKeyId member.
+        var stored = JsonSerializer.Serialize<AtProtoSession>(OAuthSession(NewDPoPKey()));
+        var root = System.Text.Json.Nodes.JsonNode.Parse(stored)!.AsObject();
+        root.Remove("clientKeyId");
+
+        var read = Assert.IsType<OAuthSession>(AtProtoSessionJson.Deserialize(root.ToJsonString()));
+
+        Assert.Null(read.ClientKeyId);
+        Assert.Equal("at-1", read.AccessToken);
+    }
+
+    [Fact]
     public void ToString_NamesTheAccountButNotItsCredentials()
     {
         var password = PasswordSession("secret-access", "secret-refresh").ToString();

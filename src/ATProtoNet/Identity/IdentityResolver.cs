@@ -99,6 +99,21 @@ public sealed class IdentityResolver : IIdentityResolver, IDisposable
         return new ResolvedIdentity(did, verified ? handle : Handle.Invalid, verified, document.GetPdsEndpoint(), document);
     }
 
+    /// <inheritdoc/>
+    /// <remarks>
+    /// The DID resolver's cached document is dropped first (<see cref="IDidResolver.InvalidateAsync"/>),
+    /// so the resolution fetches it again. <see cref="IDidResolver.RefreshAsync"/> is not used: a
+    /// caching resolver may answer it with a copy fetched moments ago, which is exactly the window
+    /// a check against a freshly moved account must not have.
+    /// </remarks>
+    public async Task<ResolvedIdentity> ResolveUncachedAsync(Did did, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(did);
+
+        await _didResolver.InvalidateAsync(did, cancellationToken).ConfigureAwait(false);
+        return await ResolveDidAsync(did, cancellationToken).ConfigureAwait(false);
+    }
+
     private async Task<ResolvedIdentity> ResolveDidAsync(Did did, CancellationToken cancellationToken)
     {
         var document = await _didResolver.ResolveAsync(did, cancellationToken).ConfigureAwait(false);

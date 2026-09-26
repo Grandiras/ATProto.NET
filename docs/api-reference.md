@@ -6,7 +6,7 @@ Complete listing of the ATProto.NET public API surface.
 
 The main entry point: `new AtProtoClient(options?, httpClient?, sessionStore?, logger?)`, every
 argument optional (`AtProtoClientOptions`: `InstanceUrl`, `UserAgent`, `RateLimit`,
-`AutoRefreshSession`, `BackgroundRefresh`, `OAuth`).
+`AutoRefreshSession`, `BackgroundRefresh`).
 
 ### Properties
 
@@ -331,7 +331,8 @@ An immutable session, `PasswordSession` or `OAuthSession`. See [session-manageme
 
 `PasswordSession` adds `AccessJwt`, `RefreshJwt`, `Email`, `EmailConfirmed`, `EmailAuthFactor`,
 `Active` and `Status`. `OAuthSession` adds `AccessToken`, `RefreshToken`, `DPoPKey` (PKCS#8),
-`Issuer`, `TokenEndpoint`, `RevocationEndpoint` and `Scope`.
+`Issuer`, `TokenEndpoint`, `RevocationEndpoint`, `Scope` and, for a confidential client,
+`ClientKeyId`.
 
 ### IAtProtoSessionStore
 
@@ -739,10 +740,18 @@ Permission NSIDs for OAuth scope negotiation:
 | Constant | Value | Description |
 |----------|-------|-------------|
 | `AtProto` | `atproto` | Base AT Protocol scope |
-| `TransitionGeneric` | `transition:generic` | Generic transition scope |
-| `TransitionChatBsky` | `transition:chat.bsky` | Chat messaging scope |
-| `TransitionEmail` | `transition:email` | Access to the account's email address |
-| `Default` | `atproto transition:generic` | The SDK's default scope string |
+| `TransitionGeneric` | `transition:generic` | Legacy broad scope |
+| `TransitionChatBsky` | `transition:chat.bsky` | Legacy chat messaging scope |
+| `TransitionEmail` | `transition:email` | Legacy access to the account's email address |
+| `Default` | `atproto transition:generic` | The SDK's default scope string (legacy) |
+| `BlueskyAppView` | `did:web:api.bsky.app#bsky_appview` | Audience of the `app.bsky` permission sets |
+| `BlueskyChat` | `did:web:api.bsky.chat#bsky_chat` | Audience of `chat.bsky.authFullChatClient` |
+
+`Presets` holds complete scope strings built on Bluesky's permission sets (`BlueskyApp`,
+`BlueskyAppWithChat`, `BlueskyReadOnly`, `BlueskyPosting`), and `PermissionSets` the published set
+NSIDs. The builders `Repo`, `Rpc`, `Blob`, `Account`, `Identity`, `Include` and `Space` compose
+granular scopes; `Rpc` and `Include` require an `aud` that is a DID with a service fragment (`Rpc`
+also accepts `*`). See [OAuth](oauth.md#scopes).
 
 ---
 

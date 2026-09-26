@@ -515,7 +515,7 @@ public class XrpcTransportTests : IDisposable
     public async Task DPoPNonceChallenge_IsRetriedOnceWithTheNonce()
     {
         using var dpop = new DPoPProofGenerator();
-        var xrpc = new XrpcClient(_httpClient, new Uri("https://pds.example.com/"));
+        var xrpc = new XrpcClient(_httpClient, new Uri("https://pds.example.com/")) { NonceCache = new DPoPNonceCache() };
         xrpc.SetOAuthTokens("access", "refresh", dpop);
 
         var calls = 0;

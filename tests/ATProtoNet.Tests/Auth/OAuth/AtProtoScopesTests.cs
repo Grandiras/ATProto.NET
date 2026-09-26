@@ -240,9 +240,112 @@ public class AtProtoScopesTests
     }
 
     [Fact]
-    public void Identity_SubmitAction()
+    public void Identity_ObsoleteSubmitAction_StillEmitsTheOldForm()
     {
+#pragma warning disable CS0618 // Kept for source compatibility; servers reject the action parameter.
         Assert.Equal("identity:handle?action=submit", AtProtoScopes.Identity("handle", IdentityAction.Submit));
+        Assert.Equal("identity:handle", AtProtoScopes.Identity("handle", IdentityAction.Manage));
+#pragma warning restore CS0618
+    }
+
+    [Fact]
+    public void IdentityAction_IsObsolete()
+    {
+#pragma warning disable CS0618
+        var type = typeof(IdentityAction);
+#pragma warning restore CS0618
+        Assert.NotNull(type.GetCustomAttributes(typeof(ObsoleteAttribute), inherit: false).SingleOrDefault());
+    }
+
+    // ─── Audiences ──────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("did:web:api.bsky.app#bsky_appview", "did:web:api.bsky.app%23bsky_appview")]
+    [InlineData("did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_labeler", "did:plc:ewvi7nxzyoun6zhxrhs64oiz%23atproto_labeler")]
+    [InlineData("did:web:api.bsky.app%23bsky_appview", "did:web:api.bsky.app%23bsky_appview")]
+    [InlineData("*", "*")]
+    public void Rpc_ServiceReferenceOrWildcard_IsAccepted(string aud, string encoded)
+    {
+        Assert.Equal($"rpc:app.bsky.feed.getTimeline?aud={encoded}", AtProtoScopes.Rpc("app.bsky.feed.getTimeline", aud));
+    }
+
+    [Theory]
+    [InlineData("did:web:api.bsky.app")]               // a bare DID: the reference parser rejects it
+    [InlineData("did:web:api.bsky.app#")]              // an empty fragment
+    [InlineData("#bsky_appview")]                      // no DID
+    [InlineData("api.bsky.app#bsky_appview")]          // not a DID
+    [InlineData("did:web:api.bsky.app#a&aud=*")]       // scope syntax smuggled in the fragment
+    [InlineData("did:web:api.bsky.app#a b")]
+    public void Rpc_AudThatIsNotAServiceReference_Throws(string aud)
+    {
+        Assert.Throws<ArgumentException>(() => AtProtoScopes.Rpc("app.bsky.feed.getTimeline", aud));
+        Assert.Throws<ArgumentException>(() => AtProtoScopes.Rpc(["app.bsky.feed.getTimeline", "app.bsky.feed.getPosts"], aud));
+    }
+
+    [Fact]
+    public void Include_WildcardAud_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => AtProtoScopes.Include(AtProtoScopes.PermissionSets.FullApp, "*"));
+    }
+
+    [Fact]
+    public void Include_BareDidAud_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => AtProtoScopes.Include(AtProtoScopes.PermissionSets.FullApp, "did:web:api.bsky.app"));
+    }
+
+    // ─── Presets ────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Presets_AreBuiltFromThePublishedPermissionSets()
+    {
+        Assert.Equal(
+            AtProtoScopes.Presets.BlueskyApp,
+            AtProtoScopes.Combine(
+                AtProtoScopes.AtProto,
+                AtProtoScopes.Include(AtProtoScopes.PermissionSets.FullApp, AtProtoScopes.BlueskyAppView),
+                AtProtoScopes.Blob()));
+
+        Assert.Equal(
+            AtProtoScopes.Presets.BlueskyAppWithChat,
+            AtProtoScopes.Combine(
+                AtProtoScopes.Presets.BlueskyApp,
+                AtProtoScopes.Include(AtProtoScopes.PermissionSets.FullChatClient, AtProtoScopes.BlueskyChat)));
+
+        Assert.Equal(
+            AtProtoScopes.Presets.BlueskyReadOnly,
+            AtProtoScopes.Combine(
+                AtProtoScopes.AtProto,
+                AtProtoScopes.Include(AtProtoScopes.PermissionSets.ViewAll, AtProtoScopes.BlueskyAppView)));
+
+        Assert.Equal(
+            AtProtoScopes.Presets.BlueskyPosting,
+            AtProtoScopes.Combine(
+                AtProtoScopes.AtProto,
+                AtProtoScopes.Include(AtProtoScopes.PermissionSets.CreatePosts, AtProtoScopes.BlueskyAppView),
+                AtProtoScopes.Blob()));
+    }
+
+    [Fact]
+    public void Presets_UseNoTransitionalScope()
+    {
+        foreach (var preset in new[]
+                 {
+                     AtProtoScopes.Presets.BlueskyApp, AtProtoScopes.Presets.BlueskyAppWithChat,
+                     AtProtoScopes.Presets.BlueskyReadOnly, AtProtoScopes.Presets.BlueskyPosting,
+                 })
+        {
+            var scopes = preset.Split(' ');
+            Assert.Equal(AtProtoScopes.AtProto, scopes[0]);
+            Assert.DoesNotContain(scopes, scope => scope.StartsWith("transition:", StringComparison.Ordinal));
+        }
+    }
+
+    [Fact]
+    public void ServiceAudiences_MatchTheServiceProxyConstants()
+    {
+        Assert.Equal(ATProtoNet.Http.ServiceProxy.BskyAppViewHeader, AtProtoScopes.BlueskyAppView);
+        Assert.Equal(ATProtoNet.Http.ServiceProxy.BskyChatHeader, AtProtoScopes.BlueskyChat);
     }
 
     // ─── Include (permission sets) ──────────────────────────────────────

@@ -1,4 +1,6 @@
+using System.Buffers;
 using System.Text;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.Auth.OAuth;
 
@@ -43,6 +45,13 @@ public enum AccountAction
 /// <summary>
 /// Actions for identity attribute permissions.
 /// </summary>
+/// <remarks>
+/// The permission spec no longer has an <c>action</c> parameter on <c>identity</c> scopes, and
+/// authorization servers reject a scope that carries one. Use
+/// <see cref="AtProtoScopes.Identity(string)"/>.
+/// </remarks>
+[Obsolete("The permission spec dropped the action parameter of identity scopes, and authorization servers reject " +
+    "'identity:*?action=...'. Use AtProtoScopes.Identity(attr), which grants control of the attribute.")]
 public enum IdentityAction
 {
     /// <summary>Full control over the identity attribute.</summary>
@@ -157,35 +166,47 @@ public static class AtProtoScopes
     public const string AtProto = "atproto";
 
     /// <summary>
-    /// Broad PDS account permissions, equivalent to the previous "App Password" authorization level.
+    /// <b>Legacy.</b> Broad PDS account permissions, equivalent to the previous "App Password" authorization level.
     /// Includes: write any repository record type, upload blobs, read/write preferences,
     /// API proxying for most Lexicons, and service auth token generation.
     /// Does NOT include: account management (change handle/email, delete/deactivate/migrate account)
     /// or DM access (<c>chat.bsky.*</c> Lexicons).
     /// </summary>
+    /// <remarks>
+    /// The transitional scopes remain supported, but the specification intends to deprecate and
+    /// eventually remove them, and the consent screen presents this one as access to nearly
+    /// everything. Request granular permissions instead: <see cref="Repo(string, RepoAction)"/>,
+    /// <see cref="Rpc(string, string)"/>, <see cref="Blob(string)"/>, a permission set through
+    /// <see cref="Include"/>, or one of the <see cref="Presets"/>.
+    /// </remarks>
     public const string TransitionGeneric = "transition:generic";
 
     /// <summary>
-    /// Access to Bluesky DM (Direct Message) Lexicons (<c>chat.bsky.*</c>).
+    /// <b>Legacy.</b> Access to Bluesky DM (Direct Message) Lexicons (<c>chat.bsky.*</c>).
     /// This scope depends on and does not function without <see cref="TransitionGeneric"/>.
+    /// Prefer <see cref="PermissionSets.FullChatClient"/> (<see cref="Presets.BlueskyAppWithChat"/>).
     /// </summary>
     public const string TransitionChatBsky = "transition:chat.bsky";
 
     /// <summary>
-    /// Access to the account email address and confirmation status via
-    /// <c>com.atproto.server.getSession</c>.
+    /// <b>Legacy.</b> Access to the account email address and confirmation status via
+    /// <c>com.atproto.server.getSession</c>. Prefer <c>account:email</c>
+    /// (<see cref="Account(string, AccountAction)"/>).
     /// </summary>
     public const string TransitionEmail = "transition:email";
 
     /// <summary>
-    /// Default scope string: <c>"atproto transition:generic"</c>.
-    /// Suitable for most applications that need to read/write records and upload blobs.
+    /// Default scope string: <c>"atproto transition:generic"</c>, the legacy broad grant (see
+    /// <see cref="TransitionGeneric"/>). It covers most applications that read and write records
+    /// and upload blobs; new applications should request granular permissions or a
+    /// <see cref="Presets">preset</see> instead.
     /// </summary>
     public const string Default = $"{AtProto} {TransitionGeneric}";
 
     /// <summary>
-    /// Full scope string including DM access: <c>"atproto transition:generic transition:chat.bsky"</c>.
-    /// Use this when your application needs access to Bluesky Direct Messages.
+    /// Full scope string including DM access: <c>"atproto transition:generic transition:chat.bsky"</c>,
+    /// built on the legacy transitional scopes. <see cref="Presets.BlueskyAppWithChat"/> is its
+    /// granular counterpart.
     /// </summary>
     public const string WithChat = $"{AtProto} {TransitionGeneric} {TransitionChatBsky}";
 
@@ -408,12 +429,20 @@ public static class AtProtoScopes
     /// → <c>"rpc:app.bsky.feed.searchPosts?aud=did:web:api.bsky.app%23bsky_appview"</c></para>
     /// </summary>
     /// <param name="lxm">The Lexicon method NSID, or <c>"*"</c> for all methods.</param>
-    /// <param name="aud">The target service DID (with optional fragment), or <c>"*"</c> for any service.</param>
-    /// <exception cref="ArgumentException">Both <paramref name="lxm"/> and <paramref name="aud"/> are wildcards.</exception>
+    /// <param name="aud">
+    /// The target service as a DID with its service fragment (<c>did:web:api.bsky.app#bsky_appview</c>),
+    /// or <c>"*"</c> for any service.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// Both <paramref name="lxm"/> and <paramref name="aud"/> are wildcards, or
+    /// <paramref name="aud"/> is neither <c>"*"</c> nor a DID with a service fragment; a bare DID
+    /// makes the scope invalid.
+    /// </exception>
     public static string Rpc(string lxm, string aud)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(lxm);
         ArgumentException.ThrowIfNullOrWhiteSpace(aud);
+        ValidateAudience(aud, allowWildcard: true);
         if (lxm == "*" && aud == "*")
             throw new ArgumentException("Both lxm and aud cannot be wildcards simultaneously.");
 
@@ -426,11 +455,18 @@ public static class AtProtoScopes
     /// → <c>"rpc?lxm=app.bsky.feed.searchPosts&amp;lxm=app.bsky.feed.getTimeline&amp;aud=did:web:api.bsky.app%23bsky_appview"</c></para>
     /// </summary>
     /// <param name="lxms">The Lexicon method NSIDs.</param>
-    /// <param name="aud">The target service DID (with optional fragment), or <c>"*"</c> for any service.</param>
+    /// <param name="aud">
+    /// The target service as a DID with its service fragment, or <c>"*"</c> for any service.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="lxms"/> is empty, or <paramref name="aud"/> is neither <c>"*"</c> nor a DID
+    /// with a service fragment.
+    /// </exception>
     public static string Rpc(IReadOnlyList<string> lxms, string aud)
     {
         ArgumentNullException.ThrowIfNull(lxms);
         ArgumentException.ThrowIfNullOrWhiteSpace(aud);
+        ValidateAudience(aud, allowWildcard: true);
         if (lxms.Count == 0)
             throw new ArgumentException("At least one lxm is required.", nameof(lxms));
         if (lxms.Count == 1)
@@ -503,8 +539,21 @@ public static class AtProtoScopes
     /// <para>Example: <c>AtProtoScopes.Identity("*")</c> → <c>"identity:*"</c> (full DID document control)</para>
     /// </summary>
     /// <param name="attr">The identity attribute (<c>"handle"</c> or <c>"*"</c> for full control).</param>
-    /// <param name="action">The action type. Defaults to <see cref="IdentityAction.Manage"/>.</param>
-    public static string Identity(string attr, IdentityAction action = IdentityAction.Manage)
+    public static string Identity(string attr)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(attr);
+        return $"identity:{attr}";
+    }
+
+    /// <summary>
+    /// Constructs an <c>identity</c> permission scope with an <c>action</c> parameter, which the
+    /// permission spec no longer has.
+    /// </summary>
+    /// <param name="attr">The identity attribute (<c>"handle"</c> or <c>"*"</c> for full control).</param>
+    /// <param name="action">The action type.</param>
+    [Obsolete("The permission spec dropped the action parameter of identity scopes, and authorization servers reject " +
+        "'identity:*?action=submit'. Use Identity(attr).")]
+    public static string Identity(string attr, IdentityAction action)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(attr);
         var scope = $"identity:{attr}";
@@ -518,12 +567,80 @@ public static class AtProtoScopes
     /// → <c>"include:app.bsky.authFullApp?aud=did:web:api.bsky.app%23bsky_appview"</c></para>
     /// </summary>
     /// <param name="permissionSetNsid">The NSID of the permission set Lexicon.</param>
-    /// <param name="aud">Optional audience DID passed to permissions with <c>inheritAud</c>.</param>
+    /// <param name="aud">
+    /// The service the set's <c>inheritAud</c> permissions are for, as a DID with its service
+    /// fragment (<see cref="BlueskyAppView"/>, for instance). Omit it for a set without such
+    /// permissions.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="aud"/> is not a DID with a service fragment; a wildcard is not allowed here.
+    /// </exception>
     public static string Include(string permissionSetNsid, string? aud = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(permissionSetNsid);
         var scope = $"include:{permissionSetNsid}";
-        return string.IsNullOrWhiteSpace(aud) ? scope : $"{scope}?aud={EncodeScopeValue(aud)}";
+        if (string.IsNullOrWhiteSpace(aud))
+            return scope;
+
+        ValidateAudience(aud, allowWildcard: false);
+        return $"{scope}?aud={EncodeScopeValue(aud)}";
+    }
+
+    // ─── Service audiences ─────────────────────────────────────────────
+
+    /// <summary>
+    /// The Bluesky AppView as an audience, <c>did:web:api.bsky.app#bsky_appview</c>: the
+    /// <c>aud</c> of Bluesky's <c>app.bsky</c> permission sets and of <c>rpc</c> grants for
+    /// AppView methods.
+    /// </summary>
+    public const string BlueskyAppView = "did:web:api.bsky.app#bsky_appview";
+
+    /// <summary>
+    /// The Bluesky chat service as an audience, <c>did:web:api.bsky.chat#bsky_chat</c>: the
+    /// <c>aud</c> of <see cref="PermissionSets.FullChatClient"/>.
+    /// </summary>
+    public const string BlueskyChat = "did:web:api.bsky.chat#bsky_chat";
+
+    // ─── Presets ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Complete scope strings for common Bluesky clients, built on Bluesky's published permission
+    /// sets instead of the transitional scopes, for <see cref="OAuthOptions.Scope"/> and the
+    /// client metadata's <c>scope</c>.
+    /// </summary>
+    /// <remarks>
+    /// Permission sets cannot grant <c>blob</c> or <c>account</c> permissions, so a preset that
+    /// uploads media adds <c>blob:*/*</c> itself. Combine a preset with further scopes using
+    /// <see cref="Combine"/>.
+    /// </remarks>
+    public static class Presets
+    {
+        /// <summary>
+        /// A full Bluesky client: <see cref="PermissionSets.FullApp"/> at the AppView, and media
+        /// uploads. <c>atproto include:app.bsky.authFullApp?aud=did:web:api.bsky.app%23bsky_appview blob:*/*</c>
+        /// </summary>
+        public const string BlueskyApp =
+            "atproto include:app.bsky.authFullApp?aud=did:web:api.bsky.app%23bsky_appview blob:*/*";
+
+        /// <summary>
+        /// <see cref="BlueskyApp"/> plus every chat conversation
+        /// (<see cref="PermissionSets.FullChatClient"/> at the chat service).
+        /// </summary>
+        public const string BlueskyAppWithChat =
+            BlueskyApp + " include:chat.bsky.authFullChatClient?aud=did:web:api.bsky.chat%23bsky_chat";
+
+        /// <summary>
+        /// Read-only Bluesky access: <see cref="PermissionSets.ViewAll"/> at the AppView.
+        /// </summary>
+        public const string BlueskyReadOnly =
+            "atproto include:app.bsky.authViewAll?aud=did:web:api.bsky.app%23bsky_appview";
+
+        /// <summary>
+        /// Creating posts with images and videos, and nothing else:
+        /// <see cref="PermissionSets.CreatePosts"/> at the AppView, and media uploads.
+        /// </summary>
+        public const string BlueskyPosting =
+            "atproto include:app.bsky.authCreatePosts?aud=did:web:api.bsky.app%23bsky_appview blob:*/*";
     }
 
     // ─── Published permission set NSIDs ────────────────────────────────
@@ -612,6 +729,39 @@ public static class AtProtoScopes
     /// </summary>
     private static string EncodeScopeValue(string value) =>
         value.Replace("#", "%23");
+
+    /// <summary>
+    /// Checks an <c>aud</c> the way the reference scope parser does: <c>*</c> where the
+    /// resource allows it, otherwise a DID with a service fragment, since a service is addressed
+    /// by its DID document entry, not by the DID alone. A fragment already encoded as
+    /// <c>%23</c> is accepted.
+    /// </summary>
+    private static void ValidateAudience(string aud, bool allowWildcard)
+    {
+        if (aud == "*")
+        {
+            if (allowWildcard)
+                return;
+            throw new ArgumentException("An include scope's aud must name a service; '*' is not allowed.", nameof(aud));
+        }
+
+        var decoded = aud.Replace("%23", "#", StringComparison.OrdinalIgnoreCase);
+        var hash = decoded.IndexOf('#');
+        if (hash > 0 && hash < decoded.Length - 1 &&
+            Did.TryParse(decoded[..hash], out _) &&
+            decoded.AsSpan(hash + 1).IndexOfAnyExcept(ServiceFragmentChars) < 0)
+        {
+            return;
+        }
+
+        throw new ArgumentException(
+            $"'{aud}' is not a service reference: the aud must be a DID with a service fragment, " +
+            $"such as '{BlueskyAppView}'" + (allowWildcard ? ", or '*'." : "."),
+            nameof(aud));
+    }
+
+    private static readonly SearchValues<char> ServiceFragmentChars =
+        SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~");
 
     private static void AppendRepoActions(StringBuilder sb, RepoAction actions, bool hasExistingParams)
     {

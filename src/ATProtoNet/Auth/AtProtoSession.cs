@@ -152,6 +152,15 @@ public sealed record OAuthSession : AtProtoSession
     [JsonPropertyName("scope")]
     public string? Scope { get; init; }
 
+    /// <summary>
+    /// For a confidential client, the key id of the client key (<see cref="OAuth.OAuthClientKey"/>)
+    /// the grant was authenticated with: the authorization server expects the refreshes and the
+    /// revocation to be signed by the same key. <see langword="null"/> for a public client, and
+    /// in sessions stored before confidential clients were supported.
+    /// </summary>
+    [JsonPropertyName("clientKeyId")]
+    public string? ClientKeyId { get; init; }
+
     internal override string AccessCredential => AccessToken;
 
     internal override bool CanRefresh => !string.IsNullOrEmpty(RefreshToken);

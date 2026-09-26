@@ -22,11 +22,13 @@ namespace ATProtoNet.Http;
 /// <see cref="HttpClient.BaseAddress"/>, not its <see cref="HttpClient.DefaultRequestHeaders"/> —
 /// so any number of transports, hosts and sessions can share one client, and the service can
 /// change after the client has sent requests.</para>
-/// <para>The session state (tokens, DPoP key and nonce, client-wide proxy and labeler headers)
+/// <para>The session state (tokens, DPoP key, client-wide proxy and labeler headers)
 /// is held in fields replaced as a whole, so a request in flight on another thread sees either
 /// the old or the new value, never a mix. The service URL and the session credentials are one
 /// such value: a call reads them once, and every attempt of it goes to that service with those
-/// credentials, so a session installed meanwhile is never sent to the previous one's service.</para>
+/// credentials, so a session installed meanwhile is never sent to the previous one's service.
+/// DPoP nonces are the server's, not the session's, and live in <see cref="NonceCache"/> by
+/// origin.</para>
 /// <para>When a <see cref="SessionHandler"/> is attached, session-authenticated calls consult it:
 /// before sending, so it can refresh a token about to expire, and once after the service rejects
 /// the token, so it can refresh and have the call resent with the same account's new tokens.</para>
@@ -40,7 +42,6 @@ internal sealed class XrpcClient : IXrpcTransport
 
     private readonly object _targetLock = new();
     private volatile XrpcTarget _target;
-    private volatile string? _dpopNonce;
     private volatile string? _adminCredential;
     private volatile string? _proxyHeader;
     private volatile string? _labelerHeader;
@@ -74,6 +75,13 @@ internal sealed class XrpcClient : IXrpcTransport
 
     /// <summary>The clock for rate-limit arithmetic and back-off delays.</summary>
     internal TimeProvider TimeProvider { get; init; } = TimeProvider.System;
+
+    /// <summary>
+    /// Where the DPoP nonces of the services this transport talks to are kept: by default the
+    /// process-wide cache, so a new transport's first request carries a nonce another one
+    /// already received.
+    /// </summary>
+    internal DPoPNonceCache NonceCache { get; init; } = DPoPNonceCache.Shared;
 
     /// <summary>The service requests are addressed to.</summary>
     internal Uri ServiceUrl => _target.ServiceUrl;
@@ -113,7 +121,7 @@ internal sealed class XrpcClient : IXrpcTransport
 
     /// <summary>Sets Bearer session tokens (app-password sessions).</summary>
     internal void SetTokens(string accessToken, string? refreshToken = null) =>
-        SetSession(serviceUrl: null, new XrpcCredentials(accessToken, refreshToken, DPoP: null), keepDPoPNonce: false);
+        SetSession(serviceUrl: null, new XrpcCredentials(accessToken, refreshToken, DPoP: null));
 
     /// <summary>
     /// Sets DPoP-bound OAuth tokens. Requests then carry <c>Authorization: DPoP &lt;token&gt;</c>
@@ -122,12 +130,10 @@ internal sealed class XrpcClient : IXrpcTransport
     /// <param name="accessToken">The DPoP-bound access token.</param>
     /// <param name="refreshToken">The refresh token.</param>
     /// <param name="dpop">The DPoP key for this session.</param>
-    /// <param name="dpopNonce">The resource server's current DPoP nonce, if known.</param>
-    internal void SetOAuthTokens(string accessToken, string? refreshToken, DPoPProofGenerator dpop, string? dpopNonce = null)
+    internal void SetOAuthTokens(string accessToken, string? refreshToken, DPoPProofGenerator dpop)
     {
         ArgumentNullException.ThrowIfNull(dpop);
-        SetSession(serviceUrl: null, new XrpcCredentials(accessToken, refreshToken, dpop), keepDPoPNonce: false);
-        _dpopNonce = dpopNonce;
+        SetSession(serviceUrl: null, new XrpcCredentials(accessToken, refreshToken, dpop));
     }
 
     /// <summary>
@@ -139,22 +145,14 @@ internal sealed class XrpcClient : IXrpcTransport
     /// to the current one); <see langword="null"/> keeps the current service.
     /// </param>
     /// <param name="credentials">The credentials.</param>
-    /// <param name="keepDPoPNonce">
-    /// Keep the resource server's DPoP nonce: true when the same key goes on talking to the same
-    /// service, as after a token refresh.
-    /// </param>
-    internal void SetSession(Uri? serviceUrl, XrpcCredentials? credentials, bool keepDPoPNonce)
+    internal void SetSession(Uri? serviceUrl, XrpcCredentials? credentials)
     {
         lock (_targetLock)
-        {
             _target = new XrpcTarget(serviceUrl ?? _target.ServiceUrl, credentials);
-            if (!keepDPoPNonce)
-                _dpopNonce = null;
-        }
     }
 
     /// <summary>Clears the session tokens.</summary>
-    internal void ClearTokens() => SetSession(serviceUrl: null, credentials: null, keepDPoPNonce: false);
+    internal void ClearTokens() => SetSession(serviceUrl: null, credentials: null);
 
     /// <summary>
     /// Sets PDS admin credentials, sent as HTTP Basic authentication — the scheme the reference
@@ -487,7 +485,7 @@ internal sealed class XrpcClient : IXrpcTransport
 
             try
             {
-                ObserveResponseHeaders(response, usedDPoP);
+                ObserveResponseHeaders(response, uri, usedDPoP);
 
                 if (response.IsSuccessStatusCode)
                     return response;
@@ -771,7 +769,7 @@ internal sealed class XrpcClient : IXrpcTransport
             message.Headers.TryAddWithoutValidation(
                 "DPoP",
                 dpop.GenerateProofWithAccessToken(
-                    message.Method.Method, message.RequestUri!.ToString(), _dpopNonce, credentials.AccessToken));
+                    message.Method.Method, message.RequestUri!.ToString(), NonceCache.Get(message.RequestUri), credentials.AccessToken));
             return credentials;
         }
 
@@ -779,13 +777,10 @@ internal sealed class XrpcClient : IXrpcTransport
         return credentials;
     }
 
-    private void ObserveResponseHeaders(HttpResponseMessage response, bool usedDPoP)
+    private void ObserveResponseHeaders(HttpResponseMessage response, Uri uri, bool usedDPoP)
     {
-        if (usedDPoP && response.Headers.TryGetValues("DPoP-Nonce", out var nonces) &&
-            nonces.FirstOrDefault() is { Length: > 0 } nonce)
-        {
-            _dpopNonce = nonce;
-        }
+        if (usedDPoP)
+            NonceCache.Observe(uri, response);
 
         if (response.Headers.TryGetValues("Atproto-Repo-Rev", out var revs) &&
             revs.FirstOrDefault() is { } rev)

@@ -1,5 +1,3 @@
-using ATProtoNet.Auth.OAuth;
-
 namespace ATProtoNet.Tests.Auth.OAuth;
 
 public class DynamicPdsTests
@@ -42,26 +40,6 @@ public class DynamicPdsTests
         using var client = new AtProtoClient(new AtProtoClientOptions());
 
         Assert.Equal(new Uri("https://bsky.social/"), client.ServiceUrl);
-    }
-
-    [Fact]
-    public void AtProtoClientOptions_OAuthProperty()
-    {
-        var options = new AtProtoClientOptions();
-
-        Assert.Null(options.OAuth);
-
-        options.OAuth = new OAuthOptions
-        {
-            ClientMetadata = new OAuthClientMetadata
-            {
-                ClientId = "https://myapp.example.com/client-metadata.json",
-            },
-        };
-
-        Assert.NotNull(options.OAuth);
-        Assert.Equal("https://myapp.example.com/client-metadata.json",
-            options.OAuth.ClientMetadata.ClientId);
     }
 
     [Fact]

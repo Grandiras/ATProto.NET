@@ -1,10 +1,8 @@
-using System.Collections.Concurrent;
-using System.Net;
-using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using System.Text.Json;
-using System.Web;
 using ATProtoNet.Identity;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Auth.OAuth;
 
@@ -13,9 +11,12 @@ namespace ATProtoNet.Auth.OAuth;
 /// server discovery, PAR, DPoP, PKCE, token exchange, and identity verification.
 /// </summary>
 /// <remarks>
-/// <para>This implements a "public" OAuth client (no client secret).
-/// For confidential clients, use <see cref="OAuthClientMetadata.TokenEndpointAuthMethod"/>
-/// set to <c>"private_key_jwt"</c> and provide keys via <c>Jwks</c>.</para>
+/// <para>By default this is a public client (<c>token_endpoint_auth_method</c> <c>none</c>). A
+/// confidential client sets <see cref="OAuthClientMetadata.TokenEndpointAuthMethod"/> to
+/// <c>private_key_jwt</c>, publishes its keys in the client metadata, and supplies them in
+/// <see cref="OAuthOptions.ClientKeys"/>; every request to the authorization server then carries
+/// an ES256 client assertion (RFC 7523), and the reference authorization server grants its
+/// sessions a far longer lifetime.</para>
 /// <para>Usage flow:</para>
 /// <list type="number">
 /// <item>Call <see cref="StartAuthorizationAsync"/> to get an authorization URL</item>
@@ -25,54 +26,84 @@ namespace ATProtoNet.Auth.OAuth;
 /// <see cref="AtProtoClient.ApplySessionAsync"/>, passing this client so the session can be
 /// refreshed</item>
 /// </list>
+/// <para>Every request to an authorization server (pushed authorization, token exchange, refresh,
+/// revocation) takes one path: a DPoP proof carrying the server's latest nonce, shared across the
+/// process by origin; one retry when the server asks for a fresh nonce; a capped response that is
+/// always disposed; and any error body reported as <see cref="OAuthException"/>. The endpoints
+/// come from metadata whoever controls an account's DID document chooses, so by default these
+/// requests follow the identity fetch policy (see <see cref="OAuthOptions.HttpClient"/>).</para>
 /// <para>The client is thread-safe and meant to be shared: one per application (one
 /// <c>client_id</c>), not one per user.</para>
 /// </remarks>
 public sealed class OAuthClient : IDisposable
 {
+    /// <summary>How long a started authorization waits for its callback (10 minutes).</summary>
+    public static readonly TimeSpan AuthorizationLifetime = TimeSpan.FromMinutes(10);
+
+    /// <summary>The most of a response body read from an authorization server.</summary>
+    private const int MaxResponseBytes = 64 * 1024;
+
+    /// <summary>The longest <c>state</c> looked up; the client's own are 43 characters.</summary>
+    private const int MaxStateLength = 256;
+
+    private const string ClientAssertionType = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer";
+
+    private static readonly MediaTypeWithQualityHeaderValue JsonMediaType = new("application/json");
+
     private readonly OAuthOptions _options;
+    private readonly OAuthClientKey[] _clientKeys;
     private readonly HttpClient _httpClient;
+    private readonly bool _ownsHttpClient;
     private readonly AuthorizationServerDiscovery _discovery;
     private readonly IdentityResolver? _ownedIdentityResolver;
+    private readonly IOAuthStateStore _stateStore;
     private readonly ILogger _logger;
-    private readonly ConcurrentDictionary<string, PendingAuthorization> _pendingAuthorizations = new();
-
-    // The latest DPoP nonce each authorization server handed out, by origin, so a refresh or
-    // revocation does not pay a use_dpop_nonce round trip every time.
-    private readonly ConcurrentDictionary<string, string> _authServerNonces = new(StringComparer.OrdinalIgnoreCase);
-
-    private static readonly TimeSpan PendingAuthorizationTimeout = TimeSpan.FromMinutes(10);
-    private const int MaxPendingAuthorizations = 100;
-
-    /// <summary>The most of an error body read from an authorization server.</summary>
-    private const int MaxErrorBodyBytes = 64 * 1024;
 
     private bool _disposed;
 
     /// <summary>
     /// Creates a new OAuth client with the specified options.
     /// </summary>
-    public OAuthClient(OAuthOptions options, HttpClient httpClient, ILogger logger)
+    /// <param name="options">The client's configuration.</param>
+    /// <param name="logger">An optional logger.</param>
+    /// <exception cref="ArgumentException">
+    /// The client authentication is inconsistent: a <c>token_endpoint_auth_method</c> other than
+    /// <c>none</c> or <c>private_key_jwt</c>; <see cref="OAuthOptions.ClientKeys"/> for a public
+    /// client; or a <c>private_key_jwt</c> client without keys, without
+    /// <c>token_endpoint_auth_signing_alg</c> <c>ES256</c>, without <c>jwks</c> or
+    /// <c>jwks_uri</c>, or with a key its inline <c>jwks</c> does not publish.
+    /// </exception>
+    public OAuthClient(OAuthOptions options, ILogger? logger = null)
     {
-        _options = options ?? throw new ArgumentNullException(nameof(options));
-        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        // A resolver the options supply is the caller's; one created here is this client's, and
-        // goes with it on Dispose.
-        var identityResolver = _options.IdentityResolver;
+        ArgumentNullException.ThrowIfNull(options);
+
+        if (options.RequestTimeout <= TimeSpan.Zero && options.RequestTimeout != Timeout.InfiniteTimeSpan)
+            throw new ArgumentOutOfRangeException(nameof(options), "RequestTimeout must be positive, or Timeout.InfiniteTimeSpan.");
+
+        _options = options;
+        _clientKeys = ValidateClientAuthentication(options);
+        _logger = logger ?? NullLogger.Instance;
+
+        // A client the options supply is the caller's, used as is; one created here enforces the
+        // fetch policy and goes with this client on Dispose.
+        _ownsHttpClient = options.HttpClient is null;
+        _httpClient = options.HttpClient ?? IdentityNetworkPolicy.CreateClient(options.AllowPrivateNetworks);
+
+        // Likewise for the resolver.
+        var identityResolver = options.IdentityResolver;
         if (identityResolver is null)
         {
             identityResolver = _ownedIdentityResolver = IdentityResolver.CreateDefault(
                 new IdentityResolverOptions
                 {
-                    HandleResolutionTimeout = _options.HandleResolutionTimeout,
-                    AllowPrivateNetworks = _options.AllowPrivateNetworks,
+                    HandleResolutionTimeout = options.HandleResolutionTimeout,
+                    AllowPrivateNetworks = options.AllowPrivateNetworks,
                 },
-                logger);
+                _logger);
         }
 
-        _discovery = new AuthorizationServerDiscovery(
-            _options.MetadataHttpClient, logger, identityResolver, _options.AllowPrivateNetworks);
+        _discovery = new AuthorizationServerDiscovery(_httpClient, _logger, identityResolver, options.AllowPrivateNetworks);
+        _stateStore = options.StateStore ?? new InMemoryOAuthStateStore();
     }
 
     /// <summary>
@@ -80,34 +111,49 @@ public sealed class OAuthClient : IDisposable
     /// </summary>
     public AuthorizationServerDiscovery Discovery => _discovery;
 
+    /// <summary>The DPoP nonces of the authorization servers: the process-wide cache unless a test supplies one.</summary>
+    internal DPoPNonceCache NonceCache { get; init; } = DPoPNonceCache.Shared;
+
+    /// <summary>The clock for expiry times and client assertions.</summary>
+    internal TimeProvider TimeProvider { get; init; } = TimeProvider.System;
+
     /// <summary>
     /// Begins the OAuth authorization flow. Resolves the user's identity, performs
-    /// server discovery, makes a Pushed Authorization Request (PAR), and returns
-    /// the URL to redirect the user to for authentication.
+    /// server discovery, makes a Pushed Authorization Request (PAR), stores the pending
+    /// authorization, and returns the URL to redirect the user to for authentication.
     /// </summary>
     /// <param name="identifier">
-    /// A handle (e.g., "alice.bsky.social"), DID, or PDS/entryway URL.
-    /// When a URL is provided, it is used directly as the PDS.
+    /// A handle (e.g., "alice.bsky.social"), DID, or server URL. A URL names a PDS, or an
+    /// authorization server such as an entryway, and the account is learned at the callback.
     /// </param>
     /// <param name="redirectUri">The callback URL the user will be redirected to after authorization.</param>
-    /// <param name="pdsUrl">
-    /// Optional PDS URL. When provided, skips the automatic handle → DID → PDS resolution
-    /// and uses this URL directly. The identifier is still passed as a login hint.
+    /// <param name="options">
+    /// Where to sign in when the identifier should only be the login hint, and who is signing in.
     /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>
-    /// The authorization URL to redirect the user to, and the state parameter for verification.
-    /// </returns>
-    public async Task<(string AuthorizationUrl, string State)> StartAuthorizationAsync(
+    /// <returns>The authorization URL, the <c>state</c> the callback will carry, and its expiry.</returns>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="redirectUri"/> is not an absolute HTTPS URL (or HTTP on a loopback address),
+    /// or the options' <see cref="OAuthAuthorizationOptions.AppState"/> is longer than
+    /// <see cref="OAuthAuthorizationOptions.MaxAppStateLength"/>.
+    /// </exception>
+    /// <exception cref="OAuthException">Resolution, discovery or the pushed authorization request failed.</exception>
+    public async Task<OAuthAuthorizationRequest> StartAuthorizationAsync(
         string identifier,
         string redirectUri,
-        string? pdsUrl = null,
+        OAuthAuthorizationOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         ArgumentException.ThrowIfNullOrWhiteSpace(identifier);
         ArgumentException.ThrowIfNullOrWhiteSpace(redirectUri);
+
+        if (options?.AppState is { Length: > OAuthAuthorizationOptions.MaxAppStateLength })
+        {
+            throw new ArgumentException(
+                $"AppState is longer than {OAuthAuthorizationOptions.MaxAppStateLength} characters.", nameof(options));
+        }
 
         // Validate redirect_uri: must be HTTPS (except localhost for development)
         if (!Uri.TryCreate(redirectUri, UriKind.Absolute, out var redirectUriParsed))
@@ -123,83 +169,92 @@ public sealed class OAuthClient : IDisposable
 
         _logger.LogInformation("Starting OAuth authorization flow for {Identifier}", identifier);
 
-        // Step 1: Resolve identity and Authorization Server
-        string resolvedPdsUrl;
-        string? expectedDid = null;
+        // Step 1: the authorization server, and the account when the identifier names one.
         AuthorizationServerMetadata metadata;
+        ResolvedIdentity? identity = null;
         string? loginHint = null;
 
-        if (!string.IsNullOrWhiteSpace(pdsUrl))
+        if (!string.IsNullOrWhiteSpace(options?.ServerUrl))
         {
-            // PDS URL explicitly provided — skip resolution, use identifier as login hint
-            resolvedPdsUrl = pdsUrl;
-            metadata = await _discovery.ResolveAuthorizationServerAsync(pdsUrl, cancellationToken);
+            metadata = await _discovery.ResolveFromServerUrlAsync(options.ServerUrl, cancellationToken);
             loginHint = identifier;
         }
         else if (IsUrl(identifier))
         {
-            // Starting with PDS URL (identifier IS the URL)
-            resolvedPdsUrl = identifier;
-            metadata = await _discovery.ResolveAuthorizationServerAsync(resolvedPdsUrl, cancellationToken);
+            metadata = await _discovery.ResolveFromServerUrlAsync(identifier, cancellationToken);
         }
         else
         {
-            // Starting with handle or DID — full resolution chain
-            var (resolvedPds, resolvedMetadata, did) =
-                await _discovery.ResolveFromIdentifierAsync(identifier, cancellationToken);
-            resolvedPdsUrl = resolvedPds;
-            metadata = resolvedMetadata;
-            expectedDid = did;
-            loginHint = identifier; // Pass original identifier as login_hint
+            identity = await _discovery.ResolveIdentityAsync(
+                AuthorizationServerDiscovery.ParseIdentifier(identifier), cancellationToken);
+            var pds = identity.PdsEndpoint
+                ?? throw new OAuthException(
+                    $"DID document for '{identity.Did}' does not contain an atproto PDS service.", "pds_not_found");
+            metadata = await _discovery.ResolveAuthorizationServerAsync(pds.OriginalString, cancellationToken);
+            loginHint = identifier;
         }
 
-        // Step 2: Generate PKCE challenge
+        var clientKey = SelectClientKey(metadata);
+
+        // Step 2: PKCE, the state, and the DPoP key the session's tokens will be bound to.
         var codeVerifier = PkceGenerator.GenerateCodeVerifier();
         var codeChallenge = PkceGenerator.ComputeCodeChallenge(codeVerifier);
-
-        // Step 3: Generate DPoP keypair for this session
-        var dpop = new DPoPProofGenerator();
-
-        // Step 4: Generate state parameter
         var state = PkceGenerator.GenerateState();
+        using var dpop = new DPoPProofGenerator();
 
-        // Step 5: Make Pushed Authorization Request (PAR)
-        var requestUri = await SendPushedAuthorizationRequestAsync(
-            metadata, dpop, state, codeChallenge, redirectUri, loginHint, cancellationToken);
+        // Step 3: the pushed authorization request.
+        var clientId = _options.ClientMetadata.ClientId;
+        var par = await PostFormWithDpopAsync<PushedAuthorizationResponse>(
+            new Uri(metadata.PushedAuthorizationRequestEndpoint, UriKind.Absolute),
+            () =>
+            {
+                var form = new Dictionary<string, string>
+                {
+                    ["response_type"] = "code",
+                    ["redirect_uri"] = redirectUri,
+                    ["state"] = state,
+                    ["scope"] = _options.Scope,
+                    ["code_challenge"] = codeChallenge,
+                    ["code_challenge_method"] = "S256",
+                };
+                if (loginHint is not null)
+                    form["login_hint"] = loginHint;
+                AddClientAuthentication(form, clientKey, metadata.Issuer);
+                return form;
+            },
+            dpop,
+            "Pushed authorization request",
+            "par_failed",
+            cancellationToken);
 
-        // Step 6: Clean up expired pending authorizations (prevent unbounded growth)
-        CleanupExpiredPendingAuthorizations();
+        if (string.IsNullOrEmpty(par.RequestUri))
+            throw new OAuthException("The pushed authorization response carries no request_uri.", "par_failed");
 
-        // Step 7: Store pending authorization state
-        var pending = new PendingAuthorization
+        // Step 4: what the callback needs, until it comes.
+        var now = TimeProvider.GetUtcNow();
+        var pending = new OAuthPendingAuthorization
         {
             State = state,
-            CodeVerifier = codeVerifier,
-            ExpectedDid = expectedDid,
+            RequesterId = options?.RequesterId,
             Issuer = metadata.Issuer,
-            TokenEndpoint = metadata.TokenEndpoint,
-            RevocationEndpoint = metadata.RevocationEndpoint,
-            PdsUrl = resolvedPdsUrl,
-            DPoP = dpop,
+            TokenEndpoint = new Uri(metadata.TokenEndpoint, UriKind.Absolute),
+            RevocationEndpoint = metadata.RevocationEndpoint is { } revocation ? new Uri(revocation, UriKind.Absolute) : null,
             RedirectUri = redirectUri,
-            ClientId = _options.ClientMetadata.ClientId,
-            CreatedAt = DateTimeOffset.UtcNow,
+            CodeVerifier = codeVerifier,
+            DPoPKey = dpop.ExportPrivateKey(),
+            ClientKeyId = clientKey?.KeyId,
+            Did = identity?.Did,
+            AppState = options?.AppState,
+            CreatedAt = now,
+            ExpiresAt = now + AuthorizationLifetime,
         };
 
-        // Enforce maximum pending authorizations to prevent resource exhaustion
-        if (_pendingAuthorizations.Count >= MaxPendingAuthorizations)
-            throw new OAuthException(
-                "Too many pending authorization requests. Please try again later.",
-                "server_error");
-
-        _pendingAuthorizations[state] = pending;
-
-        // Step 7: Build authorization URL
-        var authUrl = BuildAuthorizationUrl(metadata.AuthorizationEndpoint, requestUri, _options.ClientMetadata.ClientId);
+        await _stateStore.SetAsync(pending, cancellationToken);
 
         _logger.LogDebug("OAuth authorization URL generated, state={State}", state);
 
-        return (authUrl, state);
+        return new OAuthAuthorizationRequest(
+            BuildAuthorizationUrl(metadata.AuthorizationEndpoint, par.RequestUri, clientId), state, pending.ExpiresAt);
     }
 
     /// <summary>
@@ -214,13 +269,41 @@ public sealed class OAuthClient : IDisposable
     /// The session: the account's DID and PDS, its tokens and the DPoP key they are bound to.
     /// </returns>
     /// <remarks>
-    /// Handle verification is best-effort: an unreachable, slow, or silent handle
+    /// <para>Before the session is returned, the account the tokens name is resolved from a
+    /// freshly fetched DID document, and its authorization server, read from freshly fetched
+    /// metadata, must be the issuer, as the reference client checks at every code exchange. An
+    /// authorization started from a handle or DID must also have produced tokens for that
+    /// account. Tokens that fail these checks are revoked, best effort, before the exception.</para>
+    /// <para>Handle verification is best-effort: an unreachable, slow, or silent handle
     /// authority yields a session whose <see cref="Auth.AtProtoSession.Handle"/> is
-    /// <c>handle.invalid</c>, never an exception. Only <paramref name="cancellationToken"/>
-    /// being cancelled aborts the flow at that point — the DID is already established by the
-    /// token response's <c>sub</c>.
+    /// <c>handle.invalid</c>, never an exception.</para>
+    /// <para>The <c>state</c> ties the callback to a pending authorization, but not to the browser
+    /// that started it: a web front end must bind the two itself (the Blazor integration uses a
+    /// cookie), or a victim could be signed in as the account of whoever sent them a callback URL.</para>
     /// </remarks>
+    /// <exception cref="OAuthException">
+    /// The state is unknown (<c>invalid_state</c>) or expired (<c>state_expired</c>), the issuer
+    /// differs (<c>issuer_mismatch</c>), the token exchange failed, or the tokens are not for the
+    /// expected account on this authorization server.
+    /// </exception>
     public async Task<Auth.OAuthSession> CompleteAuthorizationAsync(
+        string code,
+        string state,
+        string issuer,
+        CancellationToken cancellationToken = default) =>
+        (await CompleteAuthorizationWithAppStateAsync(code, state, issuer, cancellationToken)).Session;
+
+    /// <summary>
+    /// <see cref="CompleteAuthorizationAsync"/>, also returning the
+    /// <see cref="OAuthAuthorizationOptions.AppState"/> the authorization was started with.
+    /// </summary>
+    /// <param name="code">The authorization code from the callback.</param>
+    /// <param name="state">The state parameter from the callback.</param>
+    /// <param name="issuer">The issuer (iss) parameter from the callback.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The session and the application state.</returns>
+    /// <exception cref="OAuthException">As <see cref="CompleteAuthorizationAsync"/>.</exception>
+    public async Task<OAuthAuthorizationResult> CompleteAuthorizationWithAppStateAsync(
         string code,
         string state,
         string issuer,
@@ -230,146 +313,85 @@ public sealed class OAuthClient : IDisposable
 
         _logger.LogDebug("Completing OAuth authorization, state={State}", state);
 
-        // Step 1: Look up pending authorization
-        if (!_pendingAuthorizations.TryRemove(state, out var pending))
+        // Step 1: the pending authorization, single use. A state no store could hold is not looked up.
+        var pending = state is { Length: > 0 and <= MaxStateLength }
+            ? await _stateStore.TakeAsync(state, cancellationToken)
+            : null;
+        if (pending is null)
             throw new OAuthException("Unknown or expired OAuth state parameter.", "invalid_state");
 
-        // Step 2: Verify issuer matches
-        if (!string.Equals(pending.Issuer, issuer, StringComparison.OrdinalIgnoreCase))
+        // Step 2: the callback comes from the server the authorization was pushed to (RFC 9207).
+        if (!string.Equals(pending.Issuer, issuer, StringComparison.Ordinal))
             throw new OAuthException(
                 $"Issuer mismatch. Expected '{pending.Issuer}', got '{issuer}'.",
                 "issuer_mismatch");
 
-        // Step 3: Check expiration (10 minutes max)
-        if (DateTimeOffset.UtcNow - pending.CreatedAt > TimeSpan.FromMinutes(10))
-        {
-            pending.DPoP.Dispose();
+        if (TimeProvider.GetUtcNow() >= pending.ExpiresAt)
             throw new OAuthException("OAuth authorization state has expired.", "state_expired");
-        }
 
-        // Step 4: Exchange code for tokens
-        OAuthTokenResponse tokenResponse;
+        // Step 3: exchange the code for tokens, authenticated as the pushed request was.
+        var clientKey = pending.ClientKeyId is { } keyId ? FindClientKey(keyId) : null;
+        using var dpop = new DPoPProofGenerator(pending.DPoPKey.ToArray());
+
+        var tokens = await PostFormWithDpopAsync<OAuthTokenResponse>(
+            pending.TokenEndpoint,
+            () =>
+            {
+                var form = new Dictionary<string, string>
+                {
+                    ["grant_type"] = "authorization_code",
+                    ["code"] = code,
+                    ["redirect_uri"] = pending.RedirectUri,
+                    ["code_verifier"] = pending.CodeVerifier,
+                };
+                AddClientAuthentication(form, clientKey, pending.Issuer);
+                return form;
+            },
+            dpop,
+            "Token exchange",
+            "token_error",
+            cancellationToken);
+
+        // Step 4: the account. The authoritative DID is the token response's `sub`, and the
+        // issuer must be its authorization server now, not as some cache remembers it. A handle
+        // counts only when verified in both directions: the DID document claims it AND the
+        // handle's own authorities map it back to this DID, or a PDS could announce any handle.
+        Did did;
+        ResolvedIdentity identity;
         try
         {
-            tokenResponse = await ExchangeCodeForTokensAsync(
-                pending, code, cancellationToken);
+            did = ValidateTokenResponse(tokens, pending.Did, "Token response");
+            identity = await VerifyIssuerAsync(did, pending.Issuer, cancellationToken);
         }
-        catch
+        catch (OAuthException)
         {
-            pending.DPoP.Dispose();
+            await RevokeUnusableTokensAsync(tokens, pending.RevocationEndpoint, clientKey, pending.Issuer, dpop);
             throw;
         }
 
-        // Step 5: Verify the sub (DID) matches expected
-        if (tokenResponse.Sub is null)
-        {
-            pending.DPoP.Dispose();
-            throw new OAuthException("Token response missing 'sub' field.", "missing_sub");
-        }
+        var handle = identity.HandleVerified && identity.Handle is { } verified ? verified : Handle.Invalid;
+        if (handle == Handle.Invalid && identity.Document.GetHandle() is { } claimed)
+            _logger.LogWarning("Handle '{Handle}' of {Did} does not verify; treating as unverified.", claimed, did);
 
-        if (!Did.TryParse(tokenResponse.Sub, out var did))
-        {
-            pending.DPoP.Dispose();
-            throw new OAuthException(
-                $"Token response 'sub' is not a valid DID: '{tokenResponse.Sub}'.",
-                "invalid_sub");
-        }
+        _logger.LogInformation("OAuth flow completed for {Did} (Handle={Handle})", did, handle);
 
-        if (pending.ExpectedDid is not null &&
-            !string.Equals(pending.ExpectedDid, tokenResponse.Sub, StringComparison.Ordinal))
+        var session = new Auth.OAuthSession
         {
-            pending.DPoP.Dispose();
-            throw new OAuthException(
-                $"Token response DID '{tokenResponse.Sub}' does not match expected '{pending.ExpectedDid}'.",
-                "did_mismatch");
-        }
+            Did = did,
+            Handle = handle,
+            ServiceEndpoint = identity.PdsEndpoint!,
+            AccessToken = tokens.AccessToken,
+            RefreshToken = tokens.RefreshToken,
+            ExpiresAt = ExpiresAt(tokens),
+            Scope = tokens.Scope,
+            DPoPKey = pending.DPoPKey,
+            Issuer = pending.Issuer,
+            TokenEndpoint = pending.TokenEndpoint,
+            RevocationEndpoint = pending.RevocationEndpoint,
+            ClientKeyId = pending.ClientKeyId,
+        };
 
-        // Step 6: Verify scope includes 'atproto' (exact token match, not substring)
-        if (tokenResponse.Scope is null ||
-            !tokenResponse.Scope.Split(' ').Contains("atproto", StringComparer.Ordinal))
-        {
-            pending.DPoP.Dispose();
-            throw new OAuthException("Token response does not include 'atproto' scope.", "invalid_scope");
-        }
-
-        // Step 7: If started from server (no expected DID), verify DID → PDS → AS consistency
-        ResolvedIdentity? identity = null;
-        if (pending.ExpectedDid is null)
-        {
-            try
-            {
-                identity = await VerifyDidToAuthServerConsistencyAsync(
-                    tokenResponse.Sub, pending.Issuer, cancellationToken);
-            }
-            catch
-            {
-                pending.DPoP.Dispose();
-                throw;
-            }
-        }
-
-        // Step 8: The handle, verified bidirectionally: the DID document claims it in
-        // alsoKnownAs AND the handle's own authorities (DNS TXT _atproto.<handle>,
-        // /.well-known/atproto-did) map it back to this DID. Without the second check, a PDS
-        // could announce any handle for its users.
-        //
-        // Nothing here can fail the login: the authoritative DID is the token response's `sub`,
-        // already in hand. A handle authority that cannot be reached leaves the handle
-        // unverified, and a DID document that cannot be fetched does the same — only the
-        // CALLER cancelling means the session is no longer wanted.
-        string? handle = null;
-        try
-        {
-            identity ??= await _discovery.IdentityResolver.ResolveAsync(
-                AtIdentifier.FromDid(Did.Parse(tokenResponse.Sub)), cancellationToken);
-
-            if (identity.HandleVerified)
-                handle = identity.Handle!.Value;
-            else if (identity.Document.GetHandle() is { } claimed)
-                _logger.LogWarning("Handle '{Handle}' of {Did} does not verify; treating as unverified.", claimed, tokenResponse.Sub);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            // No session is being returned, so nothing else will dispose the key.
-            pending.DPoP.Dispose();
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Could not resolve the identity of {Did} to verify its handle.", tokenResponse.Sub);
-        }
-
-        // A handle that did not verify is no handle: the session carries 'handle.invalid', the
-        // atproto convention, and the DID stays the account's identifier.
-        var verifiedHandle = handle is not null && Handle.TryParse(handle, out var parsedHandle) ? parsedHandle : null;
-
-        _logger.LogInformation("OAuth flow completed for {Did} (Handle={Handle}, Verified={Verified})",
-            did, handle ?? did.Value, verifiedHandle is not null);
-
-        try
-        {
-            return new Auth.OAuthSession
-            {
-                Did = did,
-                Handle = verifiedHandle ?? Handle.Invalid,
-                ServiceEndpoint = new Uri(pending.PdsUrl, UriKind.Absolute),
-                AccessToken = tokenResponse.AccessToken,
-                RefreshToken = tokenResponse.RefreshToken,
-                ExpiresAt = ExpiresAt(tokenResponse),
-                Scope = tokenResponse.Scope,
-                DPoPKey = pending.DPoP.ExportPrivateKey(),
-                Issuer = pending.Issuer,
-                TokenEndpoint = new Uri(pending.TokenEndpoint, UriKind.Absolute),
-                RevocationEndpoint = Uri.TryCreate(pending.RevocationEndpoint, UriKind.Absolute, out var revocation)
-                    ? revocation
-                    : null,
-            };
-        }
-        finally
-        {
-            // The session carries the key as bytes; this key object has served its purpose.
-            pending.DPoP.Dispose();
-        }
+        return new OAuthAuthorizationResult(session, pending.AppState);
     }
 
     /// <summary>
@@ -384,11 +406,18 @@ public sealed class OAuthClient : IDisposable
     /// <exception cref="OAuthException">
     /// The authorization server refused the refresh. <see cref="OAuthException.Error"/> is the
     /// OAuth error, <c>invalid_grant</c> when the refresh token has expired, been revoked or been
-    /// used already, in which case the user has to authorize again.
+    /// used already, in which case the user has to authorize again. Also thrown when the
+    /// account's authorization server is no longer the session's issuer
+    /// (<c>auth_server_mismatch</c>), in which case nothing was sent, and when the response is not
+    /// for the session's account (<c>did_mismatch</c>) or lacks the <c>atproto</c> scope
+    /// (<c>invalid_scope</c>).
     /// </exception>
     /// <remarks>
-    /// <see cref="AtProtoClient"/> refreshes the sessions it holds by itself; call this only to
-    /// manage a session outside one.
+    /// <para>Before the refresh token is spent, the account's DID is resolved again and its
+    /// authorization server must still be the session's issuer; the session moves to the PDS the
+    /// DID document names now.</para>
+    /// <para><see cref="AtProtoClient"/> refreshes the sessions it holds by itself; call this only to
+    /// manage a session outside one.</para>
     /// </remarks>
     public async Task<Auth.OAuthSession> RefreshAsync(
         Auth.OAuthSession session,
@@ -413,40 +442,42 @@ public sealed class OAuthClient : IDisposable
         if (string.IsNullOrEmpty(session.RefreshToken))
             throw new OAuthException("The session has no refresh token.", "no_refresh_token");
 
+        var clientKey = ClientKeyOf(session);
+
         _logger.LogDebug("Refreshing OAuth tokens for {Did}", session.Did);
 
-        using var response = await PostWithDPoPAsync(
+        // The account may have moved to another authorization server since it signed in; the
+        // refresh token goes only to the one authoritative for it now, confirmed from freshly
+        // fetched documents, as in the reference client.
+        var identity = await VerifyIssuerAsync(session.Did, session.Issuer, cancellationToken);
+
+        var tokens = await PostFormWithDpopAsync<OAuthTokenResponse>(
             session.TokenEndpoint,
-            new Dictionary<string, string>
+            () =>
             {
-                ["grant_type"] = "refresh_token",
-                ["refresh_token"] = session.RefreshToken,
-                ["client_id"] = _options.ClientMetadata.ClientId,
+                var form = new Dictionary<string, string>
+                {
+                    ["grant_type"] = "refresh_token",
+                    ["refresh_token"] = session.RefreshToken,
+                };
+                AddClientAuthentication(form, clientKey, session.Issuer);
+                return form;
             },
             dpop,
             "Token refresh",
+            "token_error",
             cancellationToken);
 
-        OAuthTokenResponse? tokens;
+        // Tokens for another account, or without the atproto scope, must never replace the
+        // session, even though the server has already rotated the refresh token; they are revoked.
         try
         {
-            tokens = await response.Content.ReadFromJsonAsync<OAuthTokenResponse>(cancellationToken);
+            ValidateTokenResponse(tokens, session.Did, "The token refresh response");
         }
-        catch (JsonException ex)
+        catch (OAuthException)
         {
-            throw new OAuthException("The token refresh response is not valid JSON.", "token_error", ex);
-        }
-
-        // A success status with no usable token is as much a failure as an error body: storing
-        // it would replace a working session with one that cannot authenticate anything.
-        if (tokens is null || string.IsNullOrEmpty(tokens.AccessToken))
-            throw new OAuthException("The token refresh response carries no access token.", "token_error");
-
-        if (!string.Equals(tokens.TokenType, "DPoP", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new OAuthException(
-                $"The token refresh response has token type '{tokens.TokenType}'; AT Protocol tokens are DPoP-bound.",
-                "token_error");
+            await RevokeUnusableTokensAsync(tokens, session.RevocationEndpoint, clientKey, session.Issuer, dpop);
+            throw;
         }
 
         return session with
@@ -456,7 +487,8 @@ public sealed class OAuthClient : IDisposable
             // A refresh response may omit refresh_token to mean "keep using the current one".
             RefreshToken = tokens.RefreshToken ?? session.RefreshToken,
             ExpiresAt = ExpiresAt(tokens),
-            Scope = tokens.Scope ?? session.Scope,
+            Scope = tokens.Scope,
+            ServiceEndpoint = identity.PdsEndpoint ?? session.ServiceEndpoint,
         };
     }
 
@@ -489,10 +521,12 @@ public sealed class OAuthClient : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
+        var clientKey = ClientKeyOf(session);
+
         var endpoint = session.RevocationEndpoint;
         if (endpoint is null)
         {
-            var metadata = await _discovery.FetchAuthorizationServerMetadataAsync(session.Issuer, cancellationToken);
+            var metadata = await _discovery.GetAuthorizationServerMetadataAsync(session.Issuer, bypassCache: false, cancellationToken);
             if (!Uri.TryCreate(metadata.RevocationEndpoint, UriKind.Absolute, out endpoint))
             {
                 _logger.LogInformation(
@@ -505,13 +539,17 @@ public sealed class OAuthClient : IDisposable
             ? (session.AccessToken, "access_token")
             : (session.RefreshToken, "refresh_token");
 
-        using var response = await PostWithDPoPAsync(
+        await PostFormWithDpopAsync(
             endpoint,
-            new Dictionary<string, string>
+            () =>
             {
-                ["token"] = token,
-                ["token_type_hint"] = hint,
-                ["client_id"] = _options.ClientMetadata.ClientId,
+                var form = new Dictionary<string, string>
+                {
+                    ["token"] = token,
+                    ["token_type_hint"] = hint,
+                };
+                AddClientAuthentication(form, clientKey, session.Issuer);
+                return form;
             },
             dpop,
             "Token revocation",
@@ -520,50 +558,192 @@ public sealed class OAuthClient : IDisposable
         _logger.LogDebug("Revoked the OAuth session of {Did}", session.Did);
     }
 
-    private static DateTimeOffset? ExpiresAt(OAuthTokenResponse tokens) =>
-        tokens.ExpiresIn is { } seconds && seconds > 0 ? DateTimeOffset.UtcNow.AddSeconds(seconds) : null;
+    /// <summary>
+    /// Revokes tokens the client has refused, best effort, as the reference client does: tokens
+    /// for another account or from the wrong server should not outlive the refusal. The refresh
+    /// token goes, which ends the grant; failing that, the access token. Nothing is thrown, and
+    /// without a known revocation endpoint nothing is sent.
+    /// </summary>
+    private async Task RevokeUnusableTokensAsync(
+        OAuthTokenResponse tokens, Uri? endpoint, OAuthClientKey? clientKey, string issuer, DPoPProofGenerator dpop)
+    {
+        var (token, hint) = !string.IsNullOrEmpty(tokens.RefreshToken)
+            ? (tokens.RefreshToken, "refresh_token")
+            : (tokens.AccessToken, "access_token");
+
+        if (endpoint is null || string.IsNullOrEmpty(token))
+            return;
+
+        try
+        {
+            await PostFormWithDpopAsync(
+                endpoint,
+                () =>
+                {
+                    var form = new Dictionary<string, string> { ["token"] = token, ["token_type_hint"] = hint };
+                    AddClientAuthentication(form, clientKey, issuer);
+                    return form;
+                },
+                dpop,
+                "Revoking refused tokens",
+                CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            // Best effort: the refusal that led here is what the caller must see.
+            _logger.LogDebug(ex, "Could not revoke the tokens {Issuer} issued and the client refused", issuer);
+        }
+    }
+
+    private DateTimeOffset? ExpiresAt(OAuthTokenResponse tokens) =>
+        tokens.ExpiresIn is { } seconds && seconds > 0 ? TimeProvider.GetUtcNow().AddSeconds(seconds) : null;
 
     /// <summary>
-    /// POSTs a form to an authorization server endpoint with a DPoP proof, answering one
-    /// <c>use_dpop_nonce</c> challenge (RFC 9449 section 8), and returns the successful response.
+    /// Checks a token response from the code exchange or a refresh: a DPoP-bound access token,
+    /// for <paramref name="expected"/> when given, with the <c>atproto</c> scope.
     /// </summary>
-    /// <exception cref="OAuthException">The server answered with an error, carried as <see cref="OAuthException.Error"/>.</exception>
-    private async Task<HttpResponseMessage> PostWithDPoPAsync(
+    /// <returns>The account the tokens are for.</returns>
+    private static Did ValidateTokenResponse(OAuthTokenResponse tokens, Did? expected, string what)
+    {
+        // A success status with no usable token is as much a failure as an error body: storing
+        // it would replace a working session with one that cannot authenticate anything.
+        if (string.IsNullOrEmpty(tokens.AccessToken))
+            throw new OAuthException($"{what} carries no access token.", "token_error");
+
+        if (!string.Equals(tokens.TokenType, "DPoP", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new OAuthException(
+                $"{what} has token type '{tokens.TokenType}'; AT Protocol tokens are DPoP-bound.",
+                "token_error");
+        }
+
+        if (tokens.Sub is null)
+            throw new OAuthException($"{what} is missing the 'sub' field.", "missing_sub");
+
+        if (!Did.TryParse(tokens.Sub, out var did))
+            throw new OAuthException($"{what} 'sub' is not a valid DID: '{tokens.Sub}'.", "invalid_sub");
+
+        if (expected is not null && !did.Equals(expected))
+        {
+            throw new OAuthException(
+                $"{what} is for '{did}', not the expected '{expected}'.",
+                "did_mismatch");
+        }
+
+        // An exact token match, not a substring.
+        if (tokens.Scope is null ||
+            !tokens.Scope.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains(AtProtoScopes.AtProto, StringComparer.Ordinal))
+        {
+            throw new OAuthException($"{what} does not include the 'atproto' scope.", "invalid_scope");
+        }
+
+        return did;
+    }
+
+    /// <summary>
+    /// POSTs a form to an authorization server endpoint with a DPoP proof and reads the answer:
+    /// the one path every authorization server request takes.
+    /// </summary>
+    /// <param name="endpoint">The endpoint, from validated metadata or a stored session.</param>
+    /// <param name="buildForm">
+    /// Builds the form; called for each attempt, so a client assertion is never sent twice.
+    /// </param>
+    /// <param name="dpop">The key the proof is signed with.</param>
+    /// <param name="operation">What the request is, for messages.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The body of the successful response, or <see langword="null"/> when it is over the cap.</returns>
+    /// <remarks>
+    /// The proof carries the endpoint origin's latest nonce, and a <c>use_dpop_nonce</c> answer
+    /// that brings a fresh one is retried once with it (RFC 9449 section 8); every nonce a
+    /// response brings is remembered for the next request. Responses are read up to 64 KiB and
+    /// disposed, and the exchange as a whole, body included, is bounded by
+    /// <see cref="OAuthOptions.RequestTimeout"/>.
+    /// </remarks>
+    /// <exception cref="OAuthException">
+    /// The server answered with an error, carried as <see cref="OAuthException.Error"/>; the
+    /// endpoint is not one the client may send to (<c>invalid_server_url</c>); the exchange ran
+    /// out of time (<c>request_timeout</c>); or the connection or the body failed
+    /// (<c>request_failed</c>).
+    /// </exception>
+    /// <exception cref="OperationCanceledException">The caller cancelled.</exception>
+    private async Task<ReadOnlyMemory<byte>?> PostFormWithDpopAsync(
         Uri endpoint,
-        Dictionary<string, string> form,
+        Func<Dictionary<string, string>> buildForm,
         DPoPProofGenerator dpop,
         string operation,
         CancellationToken cancellationToken)
     {
-        var origin = endpoint.GetLeftPart(UriPartial.Authority);
+        // The endpoint came from metadata whoever controls the account's DID document chose; the
+        // fetch policy's handler checks the address, and this the URL.
+        if (!AuthorizationServerDiscovery.IsEndpoint(endpoint, _options.AllowPrivateNetworks))
+        {
+            throw new OAuthException(
+                $"{operation} refused: '{endpoint}' is not an absolute HTTPS URL without query or fragment.",
+                "invalid_server_url");
+        }
 
+        // One budget for the whole exchange, retry and body included: HttpClient.Timeout stops
+        // applying once the headers are in, so a server stalling mid-body is bounded only by this.
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        budget.CancelAfter(_options.RequestTimeout);
+
+        try
+        {
+            return await SendFormWithDpopAsync(endpoint, buildForm, dpop, operation, budget.Token);
+        }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new OAuthException(
+                $"{operation} did not complete within {_options.RequestTimeout.TotalSeconds:0.#} s.", "request_timeout", ex);
+        }
+        catch (HttpRequestException ex) when (IdentityNetworkPolicy.IsBlocked(ex))
+        {
+            throw new OAuthException(
+                $"{operation} refused: {endpoint.Host} is not a public address.", "invalid_server_url", ex);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidDataException)
+        {
+            // IOException covers a body broken off mid-read, InvalidDataException one that does
+            // not decode under its Content-Encoding.
+            throw new OAuthException($"{operation} could not reach {endpoint.Host}: {ex.Message}", "request_failed", ex);
+        }
+    }
+
+    private async Task<ReadOnlyMemory<byte>?> SendFormWithDpopAsync(
+        Uri endpoint,
+        Func<Dictionary<string, string>> buildForm,
+        DPoPProofGenerator dpop,
+        string operation,
+        CancellationToken cancellationToken)
+    {
         for (var attempt = 1; ; attempt++)
         {
-            _authServerNonces.TryGetValue(origin, out var nonce);
-
             using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
             {
-                Content = new FormUrlEncodedContent(form),
+                Content = new FormUrlEncodedContent(buildForm()),
             };
-            request.Headers.TryAddWithoutValidation("DPoP", dpop.GenerateProof("POST", endpoint.ToString(), nonce));
+            request.Headers.Accept.Add(JsonMediaType);
+            request.Headers.TryAddWithoutValidation(
+                "DPoP", dpop.GenerateProof("POST", endpoint.AbsoluteUri, NonceCache.Get(endpoint)));
 
-            var response = await _httpClient.SendAsync(request, cancellationToken);
+            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            var freshNonce = NonceCache.Observe(endpoint, response);
 
-            string? freshNonce = null;
-            if (response.Headers.TryGetValues("DPoP-Nonce", out var nonces) &&
-                nonces.FirstOrDefault() is { Length: > 0 } value)
+            ReadOnlyMemory<byte>? body;
+            try
             {
-                freshNonce = value;
-                _authServerNonces[origin] = value;
+                body = await response.Content.ReadBoundedAsync(MaxResponseBytes, cancellationToken);
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Brotli reports a body that does not decode this way.
+                throw new InvalidDataException(ex.Message, ex);
             }
 
             if (response.IsSuccessStatusCode)
-                return response;
+                return body;
 
-            OAuthErrorResponse? error;
-            using (response)
-                error = await ReadErrorAsync(response, cancellationToken);
-
+            var error = ParseError(body);
             if (attempt == 1 && freshNonce is not null && error?.Error == "use_dpop_nonce")
             {
                 _logger.LogDebug("{Operation} asked for a DPoP nonce; retrying with it", operation);
@@ -571,6 +751,7 @@ public sealed class OAuthClient : IDisposable
             }
 
             var code = string.IsNullOrEmpty(error?.Error) ? "server_error" : error.Error;
+            _logger.LogDebug("{Operation} failed with {Status} {Error}", operation, (int)response.StatusCode, code);
             throw new OAuthException(
                 $"{operation} failed with {(int)response.StatusCode} {code}" +
                 (string.IsNullOrEmpty(error?.ErrorDescription) ? "." : $": {error.ErrorDescription}"),
@@ -578,10 +759,36 @@ public sealed class OAuthClient : IDisposable
         }
     }
 
-    private static async Task<OAuthErrorResponse?> ReadErrorAsync(
-        HttpResponseMessage response, CancellationToken cancellationToken)
+    /// <summary>
+    /// <see cref="PostFormWithDpopAsync(Uri, Func{Dictionary{string, string}}, DPoPProofGenerator, string, CancellationToken)"/>,
+    /// reading the answer as <typeparamref name="T"/>; an answer that is not one is
+    /// <paramref name="invalidResponseError"/>.
+    /// </summary>
+    private async Task<T> PostFormWithDpopAsync<T>(
+        Uri endpoint,
+        Func<Dictionary<string, string>> buildForm,
+        DPoPProofGenerator dpop,
+        string operation,
+        string invalidResponseError,
+        CancellationToken cancellationToken)
+        where T : class
     {
-        var body = await response.Content.ReadBoundedAsync(MaxErrorBodyBytes, cancellationToken);
+        var body = await PostFormWithDpopAsync(endpoint, buildForm, dpop, operation, cancellationToken)
+            ?? throw new OAuthException($"The {operation} response is larger than {MaxResponseBytes} bytes.", invalidResponseError);
+
+        try
+        {
+            return JsonSerializer.Deserialize<T>(body.Span)
+                ?? throw new OAuthException($"The {operation} response is empty.", invalidResponseError);
+        }
+        catch (JsonException ex)
+        {
+            throw new OAuthException($"The {operation} response is not valid JSON.", invalidResponseError, ex);
+        }
+    }
+
+    private static OAuthErrorResponse? ParseError(ReadOnlyMemory<byte>? body)
+    {
         if (body is not { Length: > 0 } bytes)
             return null;
 
@@ -596,218 +803,148 @@ public sealed class OAuthClient : IDisposable
     }
 
     /// <summary>
-    /// Returns the public state of a pending authorization (for serialization/persistence).
+    /// Adds the client's identification to a form: its <c>client_id</c>, and for a confidential
+    /// client a fresh assertion for <paramref name="audience"/> signed with <paramref name="key"/>.
     /// </summary>
-    /// <remarks>
-    /// <b>Security warning:</b> The returned <see cref="OAuthAuthorizationState"/> contains
-    /// the PKCE code verifier, which is a secret. Store it securely (e.g. server-side session
-    /// or encrypted storage) and never expose it to the client or log it.
-    /// </remarks>
-    public OAuthAuthorizationState? GetPendingAuthorizationState(string state)
+    private void AddClientAuthentication(Dictionary<string, string> form, OAuthClientKey? key, string audience)
     {
-        if (!_pendingAuthorizations.TryGetValue(state, out var pending))
+        var clientId = _options.ClientMetadata.ClientId;
+        form["client_id"] = clientId;
+
+        if (key is not null)
+        {
+            form["client_assertion_type"] = ClientAssertionType;
+            form["client_assertion"] = key.CreateAssertion(clientId, audience, TimeProvider.GetUtcNow());
+        }
+    }
+
+    /// <summary>
+    /// The key a new authorization is authenticated with: the first client key, for an
+    /// authorization server that accepts <c>private_key_jwt</c> with ES256; none for a public client.
+    /// </summary>
+    private OAuthClientKey? SelectClientKey(AuthorizationServerMetadata metadata)
+    {
+        if (_clientKeys.Length == 0)
             return null;
 
-        return new OAuthAuthorizationState
+        if (!metadata.TokenEndpointAuthMethodsSupported.Contains("private_key_jwt") ||
+            !metadata.TokenEndpointAuthSigningAlgValuesSupported.Contains(OAuthClientKey.Algorithm))
         {
-            State = pending.State,
-            CodeVerifier = pending.CodeVerifier,
-            ExpectedDid = pending.ExpectedDid,
-            Issuer = pending.Issuer,
-            TokenEndpoint = pending.TokenEndpoint,
-            PdsUrl = pending.PdsUrl,
-            DpopKeyId = pending.DPoP.KeyThumbprint,
-            CreatedAt = pending.CreatedAt,
-            RedirectUri = pending.RedirectUri,
-            ClientId = pending.ClientId,
-        };
-    }
-
-    private async Task<string> SendPushedAuthorizationRequestAsync(
-        AuthorizationServerMetadata metadata,
-        DPoPProofGenerator dpop,
-        string state,
-        string codeChallenge,
-        string redirectUri,
-        string? loginHint,
-        CancellationToken cancellationToken)
-    {
-        var parUrl = metadata.PushedAuthorizationRequestEndpoint;
-
-        var parameters = new Dictionary<string, string>
-        {
-            ["response_type"] = "code",
-            ["client_id"] = _options.ClientMetadata.ClientId,
-            ["redirect_uri"] = redirectUri,
-            ["state"] = state,
-            ["scope"] = _options.Scope,
-            ["code_challenge"] = codeChallenge,
-            ["code_challenge_method"] = "S256",
-        };
-
-        if (loginHint is not null)
-            parameters["login_hint"] = loginHint;
-
-        // First attempt - expect DPoP nonce error
-        string? dpopNonce = null;
-        var dpopProof = dpop.GenerateProof("POST", parUrl, dpopNonce);
-
-        var content = new FormUrlEncodedContent(parameters);
-        using var firstRequest = new HttpRequestMessage(HttpMethod.Post, parUrl)
-        {
-            Content = content,
-        };
-        firstRequest.Headers.TryAddWithoutValidation("DPoP", dpopProof);
-
-        var firstResponse = await _httpClient.SendAsync(firstRequest, cancellationToken);
-
-        // Extract DPoP nonce from response
-        if (firstResponse.Headers.TryGetValues("DPoP-Nonce", out var nonceValues))
-            dpopNonce = nonceValues.First();
-
-        // If we got a use_dpop_nonce error, retry with the nonce
-        if (firstResponse.StatusCode == HttpStatusCode.BadRequest && dpopNonce is not null)
-        {
-            _logger.LogDebug("PAR returned use_dpop_nonce, retrying with nonce");
-
-            dpopProof = dpop.GenerateProof("POST", parUrl, dpopNonce);
-            content = new FormUrlEncodedContent(parameters);
-            using var retryRequest = new HttpRequestMessage(HttpMethod.Post, parUrl)
-            {
-                Content = content,
-            };
-            retryRequest.Headers.TryAddWithoutValidation("DPoP", dpopProof);
-
-            var retryResponse = await _httpClient.SendAsync(retryRequest, cancellationToken);
-
-            if (retryResponse.Headers.TryGetValues("DPoP-Nonce", out var retryNonceValues))
-                dpopNonce = retryNonceValues.First();
-
-            if (!retryResponse.IsSuccessStatusCode)
-            {
-                var errorBody = await retryResponse.Content.ReadAsStringAsync(cancellationToken);
-                _logger.LogError("PAR failed: {StatusCode} {Body}", retryResponse.StatusCode, errorBody);
-
-                var errorResponse = JsonSerializer.Deserialize<OAuthErrorResponse>(errorBody);
-                throw new OAuthException(
-                    $"PAR failed: {errorResponse?.Error} - {errorResponse?.ErrorDescription ?? errorBody}",
-                    errorResponse?.Error ?? "par_failed");
-            }
-
-            var parResult = await retryResponse.Content.ReadFromJsonAsync<PushedAuthorizationResponse>(cancellationToken)
-                ?? throw new OAuthException("Failed to deserialize PAR response.", "par_failed");
-
-            return parResult.RequestUri;
-        }
-
-        if (!firstResponse.IsSuccessStatusCode)
-        {
-            var errorBody = await firstResponse.Content.ReadAsStringAsync(cancellationToken);
-            _logger.LogError("PAR failed: {StatusCode} {Body}", firstResponse.StatusCode, errorBody);
-
-            var errorResponse = JsonSerializer.Deserialize<OAuthErrorResponse>(errorBody);
             throw new OAuthException(
-                $"PAR failed: {errorResponse?.Error} - {errorResponse?.ErrorDescription ?? errorBody}",
-                errorResponse?.Error ?? "par_failed");
+                $"Authorization server '{metadata.Issuer}' does not accept private_key_jwt client authentication with ES256.",
+                "unsupported_client_auth");
         }
 
-        var result = await firstResponse.Content.ReadFromJsonAsync<PushedAuthorizationResponse>(cancellationToken)
-            ?? throw new OAuthException("Failed to deserialize PAR response.", "par_failed");
-
-        return result.RequestUri;
+        return _clientKeys[0];
     }
 
-    private async Task<OAuthTokenResponse> ExchangeCodeForTokensAsync(
-        PendingAuthorization pending,
-        string code,
-        CancellationToken cancellationToken)
+    /// <summary>
+    /// The key a session's requests are authenticated with: the one its grant was issued to, or
+    /// none for a session of a public client.
+    /// </summary>
+    private OAuthClientKey? ClientKeyOf(Auth.OAuthSession session) =>
+        session.ClientKeyId is { } keyId ? FindClientKey(keyId) : null;
+
+    private OAuthClientKey FindClientKey(string keyId)
     {
-        var parameters = new Dictionary<string, string>
+        foreach (var key in _clientKeys)
         {
-            ["grant_type"] = "authorization_code",
-            ["code"] = code,
-            ["redirect_uri"] = pending.RedirectUri,
-            ["client_id"] = pending.ClientId,
-            ["code_verifier"] = pending.CodeVerifier,
-        };
+            if (string.Equals(key.KeyId, keyId, StringComparison.Ordinal))
+                return key;
+        }
 
-        string? dpopNonce = null;
-        var dpopProof = pending.DPoP.GenerateProof("POST", pending.TokenEndpoint, dpopNonce);
+        // The authorization server binds a grant to the key that authenticated it, so no other
+        // key can stand in.
+        throw new OAuthException(
+            $"The session was authorized with client key '{keyId}', which this client no longer has.",
+            "client_key_unavailable");
+    }
 
-        var content = new FormUrlEncodedContent(parameters);
-        using var firstRequest = new HttpRequestMessage(HttpMethod.Post, pending.TokenEndpoint)
+    private static OAuthClientKey[] ValidateClientAuthentication(OAuthOptions options)
+    {
+        var metadata = options.ClientMetadata
+            ?? throw new ArgumentException("The options carry no client metadata.", nameof(options));
+        var keys = options.ClientKeys?.ToArray() ?? [];
+
+        if (keys.Any(key => key is null))
+            throw new ArgumentException("ClientKeys contains a null key.", nameof(options));
+
+        switch (metadata.TokenEndpointAuthMethod)
         {
-            Content = content,
-        };
-        firstRequest.Headers.TryAddWithoutValidation("DPoP", dpopProof);
-
-        var firstResponse = await _httpClient.SendAsync(firstRequest, cancellationToken);
-
-        // Extract DPoP nonce
-        if (firstResponse.Headers.TryGetValues("DPoP-Nonce", out var nonceValues))
-            dpopNonce = nonceValues.First();
-
-        // Handle use_dpop_nonce error - retry with nonce
-        if ((firstResponse.StatusCode == HttpStatusCode.BadRequest ||
-             firstResponse.StatusCode == HttpStatusCode.Unauthorized) && dpopNonce is not null)
-        {
-            var firstBody = await firstResponse.Content.ReadAsStringAsync(cancellationToken);
-            if (firstBody.Contains("use_dpop_nonce", StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogDebug("Token request returned use_dpop_nonce, retrying with nonce");
-
-                dpopProof = pending.DPoP.GenerateProof("POST", pending.TokenEndpoint, dpopNonce);
-                content = new FormUrlEncodedContent(parameters);
-                using var retryRequest = new HttpRequestMessage(HttpMethod.Post, pending.TokenEndpoint)
+            case "none":
+                if (keys.Length > 0)
                 {
-                    Content = content,
-                };
-                retryRequest.Headers.TryAddWithoutValidation("DPoP", dpopProof);
-
-                var retryResponse = await _httpClient.SendAsync(retryRequest, cancellationToken);
-
-                if (retryResponse.Headers.TryGetValues("DPoP-Nonce", out var retryNonceValues))
-                    dpopNonce = retryNonceValues.First();
-
-                if (!retryResponse.IsSuccessStatusCode)
-                {
-                    var errorBody = await retryResponse.Content.ReadAsStringAsync(cancellationToken);
-                    var errorResponse = JsonSerializer.Deserialize<OAuthErrorResponse>(errorBody);
-                    throw new OAuthException(
-                        $"Token exchange failed: {errorResponse?.Error} - {errorResponse?.ErrorDescription ?? errorBody}",
-                        errorResponse?.Error ?? "token_error");
+                    throw new ArgumentException(
+                        "ClientKeys are only used by a confidential client: set the client metadata's " +
+                        "TokenEndpointAuthMethod to 'private_key_jwt' and publish the keys.",
+                        nameof(options));
                 }
 
-                return await retryResponse.Content.ReadFromJsonAsync<OAuthTokenResponse>(cancellationToken)
-                    ?? throw new OAuthException("Failed to deserialize token response.", "token_error");
-            }
-        }
+                return keys;
 
-        if (!firstResponse.IsSuccessStatusCode)
-        {
-            var errorBody = await firstResponse.Content.ReadAsStringAsync(cancellationToken);
-            var errorResponse = JsonSerializer.Deserialize<OAuthErrorResponse>(errorBody);
-            throw new OAuthException(
-                $"Token exchange failed: {errorResponse?.Error} - {errorResponse?.ErrorDescription ?? errorBody}",
-                errorResponse?.Error ?? "token_error");
-        }
+            case "private_key_jwt":
+                if (keys.Length == 0)
+                    throw new ArgumentException("A private_key_jwt client needs at least one key in ClientKeys.", nameof(options));
 
-        return await firstResponse.Content.ReadFromJsonAsync<OAuthTokenResponse>(cancellationToken)
-            ?? throw new OAuthException("Failed to deserialize token response.", "token_error");
+                if (metadata.TokenEndpointAuthSigningAlg != OAuthClientKey.Algorithm)
+                {
+                    throw new ArgumentException(
+                        "A private_key_jwt client must declare TokenEndpointAuthSigningAlg 'ES256'.", nameof(options));
+                }
+
+                if (metadata.Jwks is null && string.IsNullOrEmpty(metadata.JwksUri))
+                {
+                    throw new ArgumentException(
+                        "A private_key_jwt client must publish its keys in the client metadata, as Jwks or at JwksUri.",
+                        nameof(options));
+                }
+
+                if (keys.Select(key => key.KeyId).Distinct(StringComparer.Ordinal).Count() != keys.Length)
+                    throw new ArgumentException("ClientKeys contains two keys with the same key id.", nameof(options));
+
+                if (metadata.Jwks is { } published)
+                {
+                    foreach (var key in keys)
+                    {
+                        if (!published.Keys.Any(jwk => jwk.Kid == key.KeyId && key.Matches(jwk)))
+                        {
+                            throw new ArgumentException(
+                                $"Client key '{key.KeyId}' is not published in the client metadata's Jwks.", nameof(options));
+                        }
+                    }
+                }
+
+                return keys;
+
+            default:
+                throw new ArgumentException(
+                    $"Unsupported token_endpoint_auth_method '{metadata.TokenEndpointAuthMethod}': " +
+                    "AT Protocol clients use 'none' or 'private_key_jwt'.",
+                    nameof(options));
+        }
     }
 
-    private async Task<ResolvedIdentity> VerifyDidToAuthServerConsistencyAsync(
-        string did, string expectedIssuer, CancellationToken cancellationToken)
+    /// <summary>
+    /// Resolves the account and checks that its authorization server is
+    /// <paramref name="expectedIssuer"/>: the DID → PDS → authorization server chain must lead
+    /// back to the server that issued the tokens.
+    /// </summary>
+    /// <returns>The account's identity, with its PDS.</returns>
+    private async Task<ResolvedIdentity> VerifyIssuerAsync(
+        Did did, string expectedIssuer, CancellationToken cancellationToken)
     {
         try
         {
-            var identity = await _discovery.ResolveIdentityAsync(AtIdentifier.FromDid(Did.Parse(did)), cancellationToken);
+            // No cache on this path: a copy from before the account moved would confirm the
+            // server it left, which may be the one asking.
+            var identity = await _discovery.ResolveIdentityUncachedAsync(did, cancellationToken);
             var pdsUrl = identity.PdsEndpoint
                 ?? throw new OAuthException(
                     $"DID document for '{did}' does not contain an atproto PDS service.", "pds_not_found");
-            var metadata = await _discovery.ResolveAuthorizationServerAsync(pdsUrl.OriginalString, cancellationToken);
+            var metadata = await _discovery.ResolveAuthorizationServerAsync(
+                pdsUrl.OriginalString, bypassCache: true, cancellationToken);
 
-            if (!string.Equals(metadata.Issuer, expectedIssuer, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(metadata.Issuer, expectedIssuer, StringComparison.Ordinal))
             {
                 throw new OAuthException(
                     $"DID '{did}' resolves to Authorization Server '{metadata.Issuer}' " +
@@ -836,15 +973,9 @@ public sealed class OAuthClient : IDisposable
         }
     }
 
-    private static string BuildAuthorizationUrl(string authorizationEndpoint, string requestUri, string clientId)
-    {
-        var uriBuilder = new UriBuilder(authorizationEndpoint);
-        var query = HttpUtility.ParseQueryString(uriBuilder.Query);
-        query["request_uri"] = requestUri;
-        query["client_id"] = clientId;
-        uriBuilder.Query = query.ToString();
-        return uriBuilder.ToString();
-    }
+    private static Uri BuildAuthorizationUrl(string authorizationEndpoint, string requestUri, string clientId) =>
+        new($"{authorizationEndpoint}?client_id={Uri.EscapeDataString(clientId)}&request_uri={Uri.EscapeDataString(requestUri)}",
+            UriKind.Absolute);
 
     private static bool IsUrl(string value)
     {
@@ -856,55 +987,16 @@ public sealed class OAuthClient : IDisposable
                 value.Contains('/'));
     }
 
-    /// <summary>
-    /// Removes pending authorizations that are older than <see cref="PendingAuthorizationTimeout"/>.
-    /// Called before adding new entries to prevent unbounded growth of the dictionary.
-    /// </summary>
-    private void CleanupExpiredPendingAuthorizations()
-    {
-        var now = DateTimeOffset.UtcNow;
-        foreach (var kvp in _pendingAuthorizations)
-        {
-            if (now - kvp.Value.CreatedAt > PendingAuthorizationTimeout)
-            {
-                if (_pendingAuthorizations.TryRemove(kvp.Key, out var expired))
-                {
-                    expired.DPoP.Dispose();
-                    _logger.LogDebug("Cleaned up expired pending authorization, state={State}", kvp.Key);
-                }
-            }
-        }
-    }
-
     /// <inheritdoc/>
     public void Dispose()
     {
         if (!_disposed)
         {
             _disposed = true;
-            foreach (var pending in _pendingAuthorizations.Values)
-                pending.DPoP.Dispose();
-            _pendingAuthorizations.Clear();
             _discovery.Dispose();
             _ownedIdentityResolver?.Dispose();
+            if (_ownsHttpClient)
+                _httpClient.Dispose();
         }
-    }
-
-    /// <summary>
-    /// Internal state for a pending authorization.
-    /// </summary>
-    private sealed class PendingAuthorization
-    {
-        public string State { get; init; } = string.Empty;
-        public string CodeVerifier { get; init; } = string.Empty;
-        public string? ExpectedDid { get; init; }
-        public string Issuer { get; init; } = string.Empty;
-        public string TokenEndpoint { get; init; } = string.Empty;
-        public string? RevocationEndpoint { get; init; }
-        public string PdsUrl { get; init; } = string.Empty;
-        public DPoPProofGenerator DPoP { get; init; } = null!;
-        public string RedirectUri { get; init; } = string.Empty;
-        public string ClientId { get; init; } = string.Empty;
-        public DateTimeOffset CreatedAt { get; init; }
     }
 }

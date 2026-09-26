@@ -3,7 +3,6 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using ATProtoNet.Auth;
 using ATProtoNet.Auth.OAuth;
-using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Server.Services;
 using Microsoft.AspNetCore.Authentication;
@@ -33,11 +32,11 @@ public sealed class AtProtoOAuthService : IOAuthClientProvider, IDisposable
     private readonly ILogger<AtProtoOAuthService> _logger;
     private readonly ILogger<OAuthClient> _oauthClientLogger;
     private readonly IIdentityResolver? _identityResolver;
+    private readonly IOAuthStateStore? _stateStore;
     private volatile OAuthClient? _oauthClient;
     private HttpClient? _httpClient;
     private readonly object _lock = new();
     private bool _disposed;
-    private readonly ConcurrentDictionary<string, LoginContext> _loginContexts = new();
     private readonly ConcurrentDictionary<string, RelayEntry> _relayCodes = new();
 
     /// <summary>
@@ -50,13 +49,22 @@ public sealed class AtProtoOAuthService : IOAuthClientProvider, IDisposable
     /// registered (see <c>AddAtProtoIdentity</c>); when <see langword="null"/>, the OAuth client
     /// creates its own.
     /// </param>
+    /// <param name="stateStore">
+    /// Where pending logins wait for their callbacks. Taken from dependency injection when
+    /// registered, such as a <see cref="DistributedCacheOAuthStateStore"/> shared by several
+    /// instances; when <see langword="null"/>, the OAuth client keeps them in memory.
+    /// </param>
     public AtProtoOAuthService(
-        AtProtoOAuthServerOptions serverOptions, ILoggerFactory loggerFactory, IIdentityResolver? identityResolver = null)
+        AtProtoOAuthServerOptions serverOptions,
+        ILoggerFactory loggerFactory,
+        IIdentityResolver? identityResolver = null,
+        IOAuthStateStore? stateStore = null)
     {
         _serverOptions = serverOptions ?? throw new ArgumentNullException(nameof(serverOptions));
         _logger = loggerFactory.CreateLogger<AtProtoOAuthService>();
         _oauthClientLogger = loggerFactory.CreateLogger<OAuthClient>();
         _identityResolver = identityResolver;
+        _stateStore = stateStore;
     }
 
     /// <summary>
@@ -109,6 +117,18 @@ public sealed class AtProtoOAuthService : IOAuthClientProvider, IDisposable
             var clientMetadata = _serverOptions.ClientMetadata
                 ?? CreateLoopbackMetadata(callbackUrl, _serverOptions.Scopes, _serverOptions.ClientName);
 
+            // A caller-supplied client is theirs: it is used as is (so it is theirs to secure),
+            // its Timeout is left alone, and it is not disposed with this service. An owned one
+            // runs under the identity fetch policy, public addresses only, with the configured
+            // timeout.
+            var httpClient = _serverOptions.HttpClient;
+            if (httpClient is null)
+            {
+                httpClient = IdentityNetworkPolicy.CreateClient(_serverOptions.AllowPrivateNetworks);
+                httpClient.Timeout = _serverOptions.HttpClientTimeout;
+                _httpClient = httpClient;
+            }
+
             var oauthOptions = new OAuthOptions
             {
                 ClientMetadata = clientMetadata,
@@ -116,24 +136,11 @@ public sealed class AtProtoOAuthService : IOAuthClientProvider, IDisposable
                 HandleResolutionTimeout = _serverOptions.HandleResolutionTimeout,
                 IdentityResolver = _identityResolver,
                 AllowPrivateNetworks = _serverOptions.AllowPrivateNetworks,
-
-                // A caller-supplied client is theirs to secure and is used as is; without one,
-                // discovery fetches under the identity fetch policy.
-                MetadataHttpClient = _serverOptions.HttpClient,
+                HttpClient = httpClient,
+                StateStore = _stateStore,
             };
 
-            // A caller-supplied client is theirs: don't touch its Timeout or headers, and
-            // don't dispose it with this service. An owned one is this service's alone, so
-            // its default headers are safe to set before first use.
-            var httpClient = _serverOptions.HttpClient;
-            if (httpClient is null)
-            {
-                httpClient = AtProtoHttp.CreateClient(_serverOptions.HttpClientTimeout);
-                httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd(AtProtoHttp.DefaultUserAgent);
-                _httpClient = httpClient;
-            }
-
-            _oauthClient = new OAuthClient(oauthOptions, httpClient, _oauthClientLogger);
+            _oauthClient = new OAuthClient(oauthOptions, _oauthClientLogger);
 
             _logger.LogInformation(
                 "AT Proto OAuth client initialized with client_id: {ClientId}",
@@ -148,10 +155,19 @@ public sealed class AtProtoOAuthService : IOAuthClientProvider, IDisposable
     /// </summary>
     /// <param name="context">The current HTTP context.</param>
     /// <param name="handle">The user's AT Protocol handle (e.g., "alice.bsky.social"), DID, or PDS URL.</param>
-    /// <param name="returnUrl">Optional URL to redirect to after successful login. Stored in a temporary cookie.</param>
+    /// <param name="returnUrl">
+    /// Optional local URL to return to after the login (a path such as <c>/admin</c>); anything
+    /// else is ignored in favour of <see cref="AtProtoOAuthServerOptions.DefaultReturnUrl"/>. It is
+    /// kept with the pending login on the server.
+    /// </param>
     /// <param name="pdsUrl">Optional explicit PDS URL to skip automatic discovery.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The authorization URL to redirect the user to.</returns>
+    /// <remarks>
+    /// Sets the browser's login binding cookie, which the callback requires. Pending logins are
+    /// limited per remote address (an IPv6 address by its /64); behind a reverse proxy, restore
+    /// the client's address with <c>UseForwardedHeaders</c>, or every user shares one limit.
+    /// </remarks>
     public async Task<string> StartLoginAsync(
         HttpContext context,
         string handle,
@@ -164,33 +180,25 @@ public sealed class AtProtoOAuthService : IOAuthClientProvider, IDisposable
         var callbackUrl = BuildCallbackUrl(context);
         var client = GetOrCreateClient(callbackUrl);
 
-        // Store returnUrl in a temporary cookie so we can retrieve it after the OAuth redirect
-        if (!string.IsNullOrWhiteSpace(returnUrl))
-        {
-            context.Response.Cookies.Append("atproto_return_url", returnUrl, new CookieOptions
+        var loginState = new OAuthLoginState(
+            $"{context.Request.Scheme}://{context.Request.Host}",
+            OAuthLoginBinding.IsLocalUrl(returnUrl) ? returnUrl : null,
+            OAuthLoginBinding.Issue(context));
+
+        var authorization = await client.StartAuthorizationAsync(
+            handle,
+            callbackUrl,
+            new OAuthAuthorizationOptions
             {
-                HttpOnly = true,
-                Secure = context.Request.IsHttps,
-                SameSite = SameSiteMode.Lax,
-                MaxAge = TimeSpan.FromMinutes(10),
-                Path = _serverOptions.RoutePrefix,
-            });
-        }
-
-        var (authorizationUrl, state) = await client.StartAuthorizationAsync(
-            handle, callbackUrl, pdsUrl, cancellationToken);
-
-        // Store login context server-side for cross-origin cookie relay.
-        // When the OAuth callback arrives on a different origin (e.g., http://127.0.0.1)
-        // than the user's browser (e.g., https://localhost), the SDK automatically
-        // relays the auth cookie back to the correct origin.
-        var loginOrigin = $"{context.Request.Scheme}://{context.Request.Host}";
-        _loginContexts[state] = new LoginContext(loginOrigin, returnUrl, DateTime.UtcNow.AddMinutes(10));
-        CleanupExpiredLoginContexts();
+                ServerUrl = pdsUrl,
+                RequesterId = OAuthAuthorizationOptions.RequesterIdFor(context.Connection.RemoteIpAddress),
+                AppState = loginState.Serialize(),
+            },
+            cancellationToken);
 
         _logger.LogInformation("OAuth login started for handle: {Handle}", handle);
 
-        return authorizationUrl;
+        return authorization.AuthorizationUrl.AbsoluteUri;
     }
 
     /// <summary>
@@ -202,7 +210,14 @@ public sealed class AtProtoOAuthService : IOAuthClientProvider, IDisposable
     /// <param name="state">The state parameter from the callback.</param>
     /// <param name="issuer">The issuer parameter from the callback.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The return URL to redirect to after successful authentication.</returns>
+    /// <returns>
+    /// Where to redirect: the login's local return URL, or, when the callback arrived on another
+    /// loopback origin than the login started on, that origin's relay URL.
+    /// </returns>
+    /// <exception cref="OAuthException">
+    /// The login failed, or the browser does not present the binding cookie of the login it
+    /// completes (<c>login_not_bound</c>); the tokens are then revoked and nothing is stored.
+    /// </exception>
     public async Task<string> CompleteCallbackAsync(
         HttpContext context,
         string code,
@@ -212,74 +227,49 @@ public sealed class AtProtoOAuthService : IOAuthClientProvider, IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var client = _oauthClient
+        // With explicit client metadata the client can be built here too, so a login started
+        // before a restart, or on another instance sharing the state store, still completes.
+        var client = _oauthClient ?? TryGetClient()
             ?? throw new InvalidOperationException(
                 "OAuth client not initialized. Ensure StartLoginAsync was called first.");
 
-        // Retrieve login context (stored by StartLoginAsync) for cross-origin cookie relay
-        var loginContext = _loginContexts.TryRemove(state, out var lc) ? lc : null;
-
-        // Exchange authorization code for tokens
-        var session = await client.CompleteAuthorizationAsync(code, state, issuer, cancellationToken);
-
-        // Create claims
-        var claims = _serverOptions.ClaimsFactory is not null
-            ? _serverOptions.ClaimsFactory(session).ToList()
-            : CreateDefaultClaims(session);
-
-        var identity = new ClaimsIdentity(claims, "ATProto");
-        var principal = new ClaimsPrincipal(identity);
-
-        var properties = new AuthenticationProperties
-        {
-            IsPersistent = _serverOptions.IsPersistent,
-            ExpiresUtc = DateTimeOffset.UtcNow.Add(_serverOptions.CookieExpiration),
-            AllowRefresh = true,
-        };
-
-        // Store the session server-side if IAtProtoSessionStore is registered (regardless of relay)
-        var sessionStore = context.RequestServices.GetService<IAtProtoSessionStore>();
-        if (sessionStore is not null)
-        {
-            await sessionStore.SetAsync(session, cancellationToken);
-            _logger.LogInformation("Stored the OAuth session of {Did}", session.Did);
-        }
-
-        // Determine return URL: prefer server-side store, fall back to cookie, then default
-        var returnUrl = loginContext?.ReturnUrl
-            ?? context.Request.Cookies["atproto_return_url"]
-            ?? _serverOptions.DefaultReturnUrl;
-
-        // Clean up the return URL cookie (best-effort; may be on a different domain)
-        context.Response.Cookies.Delete("atproto_return_url", new CookieOptions
-        {
-            Path = _serverOptions.RoutePrefix,
-        });
-
-        // Check if cookie relay is needed (callback domain ≠ login domain).
-        // This handles Aspire / Kestrel multi-bind where the OAuth callback arrives on
-        // http://127.0.0.1 but the user's browser is on https://localhost.
+        var result = await client.CompleteAuthorizationWithAppStateAsync(code, state, issuer, cancellationToken);
+        var session = result.Session;
+        var loginState = OAuthLoginState.TryParse(result.AppState);
         var callbackOrigin = $"{context.Request.Scheme}://{context.Request.Host}";
-        if (loginContext is not null &&
-            !callbackOrigin.Equals(loginContext.Origin, StringComparison.OrdinalIgnoreCase))
+        var returnUrl = loginState?.ReturnUrl ?? _serverOptions.DefaultReturnUrl;
+
+        // A callback on another origin than the login's (Aspire and Kestrel multi-bind: the
+        // loopback callback on http://127.0.0.1, the browser on https://localhost) cannot see the
+        // binding cookie, so the relay on the login's origin checks it. Only between loopback
+        // origins: a relay elsewhere would redirect to whatever Host the login was started with.
+        if (loginState is not null &&
+            !callbackOrigin.Equals(loginState.Origin, StringComparison.OrdinalIgnoreCase) &&
+            OAuthLoginBinding.IsLoopbackOrigin(loginState.Origin) &&
+            OAuthLoginBinding.IsLoopbackOrigin(callbackOrigin))
         {
-            // Callback arrived on a different origin than the user's browser.
-            // Don't issue a cookie here (it would be on the wrong domain).
-            // Instead, redirect to the login origin with a one-time relay code.
-            var relayCode = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
-            _relayCodes[relayCode] = new RelayEntry(
-                principal, properties, returnUrl, DateTime.UtcNow.AddMinutes(2));
-            CleanupExpiredRelayCodes();
+            var relayCode = AddRelayEntry(new RelayEntry(
+                CreatePrincipal(session), CreateAuthenticationProperties(), returnUrl,
+                DateTime.UtcNow.AddMinutes(2), session, loginState.BindingHash));
 
             _logger.LogInformation(
                 "Cookie relay initiated: {CallbackOrigin} -> {LoginOrigin} for {Did}",
-                callbackOrigin, loginContext.Origin, session.Did);
+                callbackOrigin, loginState.Origin, session.Did);
 
-            return $"{loginContext.Origin}{_serverOptions.RoutePrefix}/relay?code={relayCode}";
+            return $"{loginState.Origin}{_serverOptions.RoutePrefix}/relay?code={relayCode}";
         }
 
-        // Same origin — issue the cookie directly
-        await context.SignInAsync(_serverOptions.CookieScheme, principal, properties);
+        if (loginState is null || !OAuthLoginBinding.Verify(context, loginState.BindingHash))
+        {
+            await RevokeQuietlyAsync(client, session);
+            throw new OAuthException(
+                "This sign-in was not started in this browser. Start it again from the sign-in page.",
+                "login_not_bound");
+        }
+
+        OAuthLoginBinding.Clear(context);
+        await StoreSessionAsync(context, session, cancellationToken);
+        await context.SignInAsync(_serverOptions.CookieScheme, CreatePrincipal(session), CreateAuthenticationProperties());
 
         _logger.LogInformation(
             "OAuth login completed for DID: {Did}, Handle: {Handle}",
@@ -423,7 +413,10 @@ public sealed class AtProtoOAuthService : IOAuthClientProvider, IDisposable
     /// <param name="context">The current HTTP context (on the user's browsing domain).</param>
     /// <param name="code">The one-time relay code from the query string.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The return URL to redirect to, or null if the code is invalid or expired.</returns>
+    /// <returns>
+    /// The return URL to redirect to, or null if the code is invalid or expired, or the browser
+    /// does not present the binding cookie of the login the code completes.
+    /// </returns>
     public async Task<string?> TryRedeemRelayCodeAsync(
         HttpContext context, string? code, CancellationToken cancellationToken = default)
     {
@@ -437,6 +430,18 @@ public sealed class AtProtoOAuthService : IOAuthClientProvider, IDisposable
         if (!_relayCodes.TryRemove(code, out var entry) || entry.Expiry < DateTime.UtcNow)
             return null;
 
+        if (!OAuthLoginBinding.Verify(context, entry.BindingHash))
+        {
+            _logger.LogWarning("Cookie relay refused: the browser did not start the login it completes");
+            if (entry.Session is not null && TryGetClient() is { } client)
+                await RevokeQuietlyAsync(client, entry.Session);
+            return null;
+        }
+
+        OAuthLoginBinding.Clear(context);
+        if (entry.Session is not null)
+            await StoreSessionAsync(context, entry.Session, cancellationToken);
+
         // Issue the cookie on this domain (the user's actual browsing domain)
         await context.SignInAsync(_serverOptions.CookieScheme, entry.Principal, entry.Properties);
 
@@ -447,14 +452,64 @@ public sealed class AtProtoOAuthService : IOAuthClientProvider, IDisposable
         return entry.ReturnUrl;
     }
 
-    private void CleanupExpiredLoginContexts()
+    /// <summary>Whether <paramref name="url"/> is a relay URL this service issued and has not redeemed yet.</summary>
+    internal bool IsIssuedRelayUrl(string url)
     {
-        var expired = _loginContexts
-            .Where(kv => kv.Value.Expiry < DateTime.UtcNow)
-            .Select(kv => kv.Key)
-            .ToList();
-        foreach (var key in expired)
-            _loginContexts.TryRemove(key, out _);
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            uri.AbsolutePath != $"{_serverOptions.RoutePrefix.TrimEnd('/')}/relay" ||
+            !uri.Query.StartsWith("?code=", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return _relayCodes.ContainsKey(uri.Query["?code=".Length..]);
+    }
+
+    /// <summary>Keeps a relay entry under a new one-time code, and returns the code.</summary>
+    internal string AddRelayEntry(RelayEntry entry)
+    {
+        var code = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+        _relayCodes[code] = entry;
+        CleanupExpiredRelayCodes();
+        return code;
+    }
+
+    private ClaimsPrincipal CreatePrincipal(OAuthSession session)
+    {
+        var claims = _serverOptions.ClaimsFactory is not null
+            ? _serverOptions.ClaimsFactory(session).ToList()
+            : CreateDefaultClaims(session);
+        return new ClaimsPrincipal(new ClaimsIdentity(claims, "ATProto"));
+    }
+
+    private AuthenticationProperties CreateAuthenticationProperties() => new()
+    {
+        IsPersistent = _serverOptions.IsPersistent,
+        ExpiresUtc = DateTimeOffset.UtcNow.Add(_serverOptions.CookieExpiration),
+        AllowRefresh = true,
+    };
+
+    /// <summary>Stores the session server-side when an <see cref="IAtProtoSessionStore"/> is registered.</summary>
+    private async Task StoreSessionAsync(HttpContext context, OAuthSession session, CancellationToken cancellationToken)
+    {
+        if (context.RequestServices?.GetService<IAtProtoSessionStore>() is { } sessionStore)
+        {
+            await sessionStore.SetAsync(session, cancellationToken);
+            _logger.LogInformation("Stored the OAuth session of {Did}", session.Did);
+        }
+    }
+
+    /// <summary>Revokes a session this service refuses to sign in with, best effort.</summary>
+    private async Task RevokeQuietlyAsync(OAuthClient client, OAuthSession session)
+    {
+        try
+        {
+            await client.RevokeAsync(session, CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is OAuthException or OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Could not revoke the refused OAuth session of {Did}", session.Did);
+        }
     }
 
     private void CleanupExpiredRelayCodes()
@@ -468,18 +523,18 @@ public sealed class AtProtoOAuthService : IOAuthClientProvider, IDisposable
     }
 
     /// <summary>
-    /// Stores the login origin and return URL for a pending OAuth flow,
-    /// enabling cross-origin cookie relay when the callback arrives on a different domain.
-    /// </summary>
-    private sealed record LoginContext(string Origin, string? ReturnUrl, DateTime Expiry);
-
-    /// <summary>
     /// Stores the authentication result for a one-time cookie relay redirect,
     /// allowing the SDK to issue the cookie on the user's actual browsing domain.
     /// </summary>
-    private sealed record RelayEntry(
+    /// <param name="Principal">The user to sign in.</param>
+    /// <param name="Properties">The authentication cookie's properties.</param>
+    /// <param name="ReturnUrl">Where to send the browser afterwards; a local URL.</param>
+    /// <param name="Expiry">When the relay code stops working.</param>
+    /// <param name="Session">The session to store once the browser is confirmed, if any.</param>
+    /// <param name="BindingHash">The hash of the binding cookie the redeeming browser must present.</param>
+    internal sealed record RelayEntry(
         ClaimsPrincipal Principal, AuthenticationProperties Properties,
-        string ReturnUrl, DateTime Expiry);
+        string ReturnUrl, DateTime Expiry, OAuthSession? Session, string BindingHash);
 
     /// <inheritdoc/>
     public void Dispose()

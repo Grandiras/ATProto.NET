@@ -255,25 +255,11 @@ public class OAuthModelsTests
         var options = new OAuthOptions();
 
         Assert.Equal("atproto transition:generic", options.Scope);
-        Assert.Equal("https://bsky.social", options.DefaultPdsUrl);
         Assert.NotNull(options.ClientMetadata);
-    }
-
-    [Fact]
-    public void OAuthAuthorizationState_Defaults()
-    {
-        var state = new OAuthAuthorizationState();
-
-        Assert.Equal(string.Empty, state.State);
-        Assert.Equal(string.Empty, state.CodeVerifier);
-        Assert.Null(state.ExpectedDid);
-        Assert.Equal(string.Empty, state.Issuer);
-        Assert.Equal(string.Empty, state.TokenEndpoint);
-        Assert.Equal(string.Empty, state.PdsUrl);
-        Assert.Equal(string.Empty, state.DpopKeyId);
-        Assert.Equal(string.Empty, state.RedirectUri);
-        Assert.Equal(string.Empty, state.ClientId);
-        Assert.True(state.CreatedAt <= DateTimeOffset.UtcNow);
+        Assert.Null(options.HttpClient);
+        Assert.Null(options.StateStore);
+        Assert.Empty(options.ClientKeys);
+        Assert.False(options.AllowPrivateNetworks);
     }
 
     [Fact]

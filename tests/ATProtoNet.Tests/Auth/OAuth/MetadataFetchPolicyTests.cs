@@ -26,7 +26,7 @@ public class MetadataFetchPolicyTests
             RedirectUris = [RedirectUri],
         },
         IdentityResolver = resolver,
-        MetadataHttpClient = metadata,
+        HttpClient = metadata,
         AllowPrivateNetworks = allowPrivate,
     };
 
@@ -35,7 +35,7 @@ public class MetadataFetchPolicyTests
     [Fact]
     public async Task Dispose_ResolverTheClientCreated_IsDisposedWithIt()
     {
-        var client = new OAuthClient(Options(), new HttpClient(), NullLogger.Instance);
+        var client = new OAuthClient(Options(), NullLogger.Instance);
         var resolver = client.Discovery.IdentityResolver;
 
         client.Dispose();
@@ -48,7 +48,7 @@ public class MetadataFetchPolicyTests
     public void Dispose_ResolverTheOptionsSupplied_IsLeftToTheCaller()
     {
         var resolver = Substitute.For<IIdentityResolver, IDisposable>();
-        var client = new OAuthClient(Options(resolver), new HttpClient(), NullLogger.Instance);
+        var client = new OAuthClient(Options(resolver), NullLogger.Instance);
 
         client.Dispose();
 
@@ -61,10 +61,11 @@ public class MetadataFetchPolicyTests
     public async Task StartAuthorization_PdsOnALoopbackAddress_IsRefusedWithoutConnecting()
     {
         using var server = new LoopbackServer(_ => "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
-        using var client = new OAuthClient(Options(Substitute.For<IIdentityResolver>()), new HttpClient(), NullLogger.Instance);
+        using var client = new OAuthClient(Options(Substitute.For<IIdentityResolver>()), NullLogger.Instance);
 
         var ex = await Assert.ThrowsAsync<OAuthException>(
-            () => client.StartAuthorizationAsync("alice.example.com", RedirectUri, pdsUrl: $"https://localhost:{server.Port}"));
+            () => client.StartAuthorizationAsync(
+                "alice.example.com", RedirectUri, new OAuthAuthorizationOptions { ServerUrl = $"https://localhost:{server.Port}" }));
 
         Assert.Equal("metadata_fetch_failed", ex.Error);
         Assert.Equal(0, server.Connections);

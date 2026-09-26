@@ -62,6 +62,21 @@ This maps three HTTP endpoints:
 | `/atproto/callback` | GET | Handles OAuth callback, issues cookie, redirects to returnUrl |
 | `/atproto/logout` | POST | Clears cookie, redirects to post-logout URL |
 
+### Login CSRF protection
+
+The OAuth `state` parameter ties the callback to a pending authorization, not to a browser: on
+its own, anyone who could get a victim to open a completed callback URL could sign them in as
+whoever started that login. `/atproto/login` closes that gap itself, without any application
+code: it gives the browser a random value in an HttpOnly, `SameSite=Lax` cookie (`Secure`, with
+the `__Host-` prefix, on HTTPS) and keeps only its hash with the pending authorization; `/atproto/callback`
+requires the same cookie, checks it against that hash, and deletes it once the login completes. A
+callback that arrives without the matching cookie is refused (`login_not_bound`) and its tokens
+are revoked. `returnUrl` is kept server-side with the pending authorization rather than in a
+cookie, and only ever a local path (`/…`, never `//` or `/\`, which browsers can treat as another
+host) — anything else falls back to `DefaultReturnUrl`. See
+[OAuth: State Parameter](oauth.md#state-parameter) for the same mechanism from the core client's
+side.
+
 ## Components
 
 ### Login Form
@@ -186,14 +201,38 @@ builder.Services.AddAtProtoAuthentication(options =>
 | `ClaimsFactory` | `Func<OAuthSession, IEnumerable<Claim>>?` | — | Custom claims factory |
 | `CookieExpiration` | `TimeSpan` | 7 days | Cookie lifetime |
 | `IsPersistent` | `bool` | `true` | Persist cookie across sessions |
-| `HttpClient` | `HttpClient?` | — | Client used for OAuth discovery/token requests. Caller-owned: its `Timeout` is untouched and it is not disposed with the service |
+| `HttpClient` | `HttpClient?` | — | Client used for OAuth discovery, pushed authorization, token and revocation requests. Caller-owned: used as is, its `Timeout` is untouched and it is not disposed with the service |
 | `HttpClientTimeout` | `TimeSpan` | 30 s | Timeout for the SDK-created OAuth `HttpClient`. Ignored when `HttpClient` is set |
 | `HandleResolutionTimeout` | `TimeSpan` | 5 s | Budget per handle-resolution round. `Timeout.InfiniteTimeSpan` disables it |
 | `AllowPrivateNetworks` | `bool` | `false` | Development opt-out for a local PDS or PLC: plain HTTP and private addresses in discovery and identity resolution. Never set it where users can name any handle, DID or PDS |
 
-Without `HttpClient`, the PDS and authorization-server metadata requests go out under the identity
-fetch policy (public addresses only, no redirects; see [OAuth](oauth.md#metadata-fetch-policy)). A
-supplied `HttpClient` carries them as is.
+Without `HttpClient`, every request to a PDS or an authorization server (metadata, pushed
+authorization, token, refresh, revocation) goes out under the identity fetch policy (public
+addresses only, no redirects; see [OAuth](oauth.md#fetch-policy)). That owned client connects
+directly and never through a proxy — the policy checks the address it connects to, and a proxy
+would make that the proxy's address rather than the target's. An application that must reach the
+internet through an egress proxy supplies its own `HttpClient` (which is then used as is, proxy
+included) and relies on the proxy to keep requests off private addresses. A supplied `HttpClient`
+carries every one of those requests as is.
+
+Pending logins are limited per remote address, grouping an IPv6 address by its /64 (see
+[OAuth](oauth.md#pending-authorizations)), so one address flooding `/atproto/login` only displaces
+its own. Behind a reverse proxy or load balancer, that address is the proxy's unless the
+application restores the client's with `app.UseForwardedHeaders()` (with the proxy listed in
+`KnownProxies`/`KnownNetworks`) before `MapAtProtoOAuth()` runs — otherwise every user behind it
+shares one requester's limit. To share pending logins between instances, or keep them across a
+restart, register a state store; the service takes it from dependency injection:
+
+```csharp
+builder.Services.AddStackExchangeRedisCache(options => options.Configuration = "localhost:6379");
+builder.Services.AddSingleton<IOAuthStateStore>(sp => new DistributedCacheOAuthStateStore(
+    sp.GetRequiredService<IDistributedCache>(),
+    new DistributedCacheOAuthStateStoreOptions
+    {
+        Protect = protector.Protect,      // an IDataProtector: the entries hold DPoP private keys
+        Unprotect = protector.Unprotect,
+    }));
+```
 
 ### Handle resolution timeouts
 
@@ -229,7 +268,7 @@ builder.Services.AddAtProtoAuthentication(options =>
 {
     options.ClientMetadata = new OAuthClientMetadata
     {
-        ClientId = "https://myapp.example.com/client-metadata.json",
+        ClientId = "https://myapp.example.com/oauth-client-metadata.json",
         ClientName = "My App",
         ClientUri = "https://myapp.example.com",
         RedirectUris = ["https://myapp.example.com/atproto/callback"],

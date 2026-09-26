@@ -5,7 +5,9 @@ using System.Text.Json;
 using ATProtoNet.Auth;
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Identity;
+using ATProtoNet.Tests.Identity;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 
 namespace ATProtoNet.Tests.Auth;
 
@@ -35,9 +37,23 @@ internal sealed record StubRequest(
 /// A PDS, authorization server and DID directory in one handler: each test scripts the answers,
 /// and every request is recorded.
 /// </summary>
+/// <remarks>
+/// The OAuth metadata documents (<c>/.well-known/oauth-protected-resource</c> and
+/// <c>/.well-known/oauth-authorization-server</c>) are answered by the stub itself, as a PDS at
+/// the requested origin and the authorization server <see cref="SessionKit.Issuer"/>, and kept
+/// apart in <see cref="MetadataRequests"/>, so the scripted answers and the recorded requests are
+/// only the ones a test is about. Set <see cref="ServesOAuthMetadata"/> to script them too.
+/// </remarks>
 internal sealed class StubServer : HttpMessageHandler
 {
     private readonly ConcurrentQueue<StubRequest> _requests = new();
+    private readonly ConcurrentQueue<Uri> _metadataRequests = new();
+
+    /// <summary>Whether the stub answers the OAuth metadata requests itself. Default: true.</summary>
+    public bool ServesOAuthMetadata { get; set; } = true;
+
+    /// <summary>The OAuth metadata requests the stub answered itself.</summary>
+    public IReadOnlyList<Uri> MetadataRequests => [.. _metadataRequests];
 
     /// <summary>Answers a request; the token is the one the client passed in.</summary>
     public Func<StubRequest, CancellationToken, Task<HttpResponseMessage>> Handler { get; set; } =
@@ -56,6 +72,12 @@ internal sealed class StubServer : HttpMessageHandler
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        if (ServesOAuthMetadata && SessionKit.OAuthMetadata(request.RequestUri!) is { } metadata)
+        {
+            _metadataRequests.Enqueue(request.RequestUri!);
+            return metadata;
+        }
+
         var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
         var headers = request.Headers.ToDictionary(h => h.Key, h => string.Join(", ", h.Value), StringComparer.OrdinalIgnoreCase);
         var recorded = new StubRequest(
@@ -93,6 +115,61 @@ internal static class SessionKit
         JsonResponse($$"""{"error":"{{error}}","error_description":"{{error}} described"}""", status);
 
     /// <summary>
+    /// Authorization server metadata as the AT Protocol profile requires it: the issuer, its
+    /// endpoints under <paramref name="issuer"/>, and the required capabilities.
+    /// </summary>
+    public static string AuthorizationServerMetadataJson(string issuer = Issuer, bool privateKeyJwt = true) => $$"""
+        {
+          "issuer": "{{issuer}}",
+          "authorization_endpoint": "{{issuer}}/oauth/authorize",
+          "token_endpoint": "{{issuer}}/oauth/token",
+          "pushed_authorization_request_endpoint": "{{issuer}}/oauth/par",
+          "revocation_endpoint": "{{issuer}}/oauth/revoke",
+          "require_pushed_authorization_requests": true,
+          "authorization_response_iss_parameter_supported": true,
+          "client_id_metadata_document_supported": true,
+          "scopes_supported": ["atproto", "transition:generic"],
+          "dpop_signing_alg_values_supported": ["ES256"],
+          "token_endpoint_auth_methods_supported": ["none"{{(privateKeyJwt ? ", \"private_key_jwt\"" : "")}}],
+          "token_endpoint_auth_signing_alg_values_supported": ["ES256"]
+        }
+        """;
+
+    /// <summary>
+    /// The answer to an OAuth metadata request: protected-resource metadata naming the requested
+    /// origin as the resource and <see cref="Issuer"/> as its authorization server, or
+    /// <see cref="AuthorizationServerMetadataJson"/> for the requested origin. <see langword="null"/>
+    /// for any other request.
+    /// </summary>
+    public static HttpResponseMessage? OAuthMetadata(Uri url)
+    {
+        var origin = url.GetLeftPart(UriPartial.Authority);
+        return url.AbsolutePath switch
+        {
+            "/.well-known/oauth-protected-resource" =>
+                JsonResponse($$"""{"resource":"{{origin}}","authorization_servers":["{{Issuer}}"]}"""),
+            "/.well-known/oauth-authorization-server" => JsonResponse(AuthorizationServerMetadataJson(origin)),
+            _ => null,
+        };
+    }
+
+    /// <summary>
+    /// An identity resolver that knows only Alice: <see cref="AliceHandle"/>, verified, hosted on
+    /// <paramref name="pds"/> (default <see cref="Pds"/>).
+    /// </summary>
+    public static IIdentityResolver AliceIdentity(Uri? pds = null)
+    {
+        pds ??= Pds;
+        var identity = new ResolvedIdentity(
+            Alice, AliceHandle, HandleVerified: true, pds, DidDocs.Parse(Alice.Value, AliceHandle.Value, pds.OriginalString));
+
+        var resolver = Substitute.For<IIdentityResolver>();
+        resolver.ResolveAsync(Arg.Any<AtIdentifier>(), Arg.Any<CancellationToken>()).Returns(identity);
+        resolver.ResolveUncachedAsync(Arg.Any<Did>(), Arg.Any<CancellationToken>()).Returns(identity);
+        return resolver;
+    }
+
+    /// <summary>
     /// A PDS-style access JWT: unsigned for the client's purposes, which only reads its
     /// <c>exp</c>. <paramref name="id"/> tells tokens apart.
     /// </summary>
@@ -124,6 +201,43 @@ internal static class SessionKit
             {"access_token":"{{accessToken}}","token_type":"DPoP",{{(refreshToken is null ? "" : $"\"refresh_token\":\"{refreshToken}\",")}}
              "expires_in":{{expiresIn}},"scope":"atproto transition:generic","sub":"{{Alice.Value}}"}
             """);
+
+    /// <summary>A token response for <paramref name="sub"/> with <paramref name="scope"/>; either omitted when null.</summary>
+    public static HttpResponseMessage TokenResponseFor(string? sub, string? scope = "atproto transition:generic") =>
+        JsonResponse(
+            "{\"access_token\":\"at-2\",\"token_type\":\"DPoP\",\"refresh_token\":\"rt-2\",\"expires_in\":900" +
+            (scope is null ? "" : $",\"scope\":\"{scope}\"") +
+            (sub is null ? "" : $",\"sub\":\"{sub}\"") + "}");
+
+    /// <summary>The pushed authorization endpoint's answer.</summary>
+    public static HttpResponseMessage ParResponse() =>
+        JsonResponse("""{"request_uri":"urn:ietf:params:oauth:request_uri:stub","expires_in":60}""");
+
+    /// <summary>
+    /// The authorization server's side of a whole login: the pushed authorization, the token
+    /// exchange (tokens for Alice) and revocation, at <see cref="Issuer"/>.
+    /// </summary>
+    public static HttpResponseMessage AuthorizationServer(StubRequest request) => request.Path switch
+    {
+        "/oauth/par" => ParResponse(),
+        "/oauth/token" => TokenResponse("at-1", "rt-1"),
+        "/oauth/revoke" => new HttpResponseMessage(HttpStatusCode.OK),
+        _ => throw new InvalidOperationException($"Unexpected request to {request.Uri}"),
+    };
+
+    /// <summary>The callback URL the kit's clients register.</summary>
+    public const string RedirectUri = "https://app.example.com/callback";
+
+    /// <summary>
+    /// Runs a whole login against the stub from Alice's handle, and returns the session and the
+    /// authorization it started.
+    /// </summary>
+    public static async Task<(OAuthSession Session, OAuthAuthorizationRequest Authorization)> SignInAsync(OAuthClient client)
+    {
+        var authorization = await client.StartAuthorizationAsync(AliceHandle.Value, RedirectUri);
+        var session = await client.CompleteAuthorizationAsync("code", authorization.State, Issuer);
+        return (session, authorization);
+    }
 
     public static PasswordSession PasswordSession(string accessJwt, string refreshJwt, Uri? service = null) => new()
     {
@@ -158,20 +272,28 @@ internal static class SessionKit
         return key.ExportPrivateKey();
     }
 
-    public static OAuthClient OAuthClient(HttpClient httpClient) => new(
+    /// <summary>
+    /// A public client over <paramref name="httpClient"/>, resolving identities with
+    /// <paramref name="identity"/> (default <see cref="AliceIdentity"/>), with DPoP nonces of its own
+    /// so no other test's nonces reach it.
+    /// </summary>
+    public static OAuthClient OAuthClient(HttpClient httpClient, IIdentityResolver? identity = null) => new(
         new OAuthOptions
         {
             ClientMetadata = new OAuthClientMetadata
             {
                 ClientId = ClientId,
-                RedirectUris = ["https://app.example.com/callback"],
+                RedirectUris = [RedirectUri],
             },
 
-            // The stub stands in for the authorization server's metadata too.
-            MetadataHttpClient = httpClient,
+            // The stub stands in for the PDS and the authorization server.
+            HttpClient = httpClient,
+            IdentityResolver = identity ?? AliceIdentity(),
         },
-        httpClient,
-        NullLogger.Instance);
+        NullLogger.Instance)
+    {
+        NonceCache = new DPoPNonceCache(),
+    };
 
     public static AtProtoClient Client(
         HttpClient httpClient,

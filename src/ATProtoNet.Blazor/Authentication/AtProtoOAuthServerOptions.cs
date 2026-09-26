@@ -106,8 +106,9 @@ public sealed class AtProtoOAuthServerOptions
     /// token requests. When set, the caller owns its lifetime (it is not disposed with
     /// the service) and its <see cref="System.Net.Http.HttpClient.Timeout"/> is left
     /// untouched — use this to plug in an <c>IHttpClientFactory</c> client, a proxy, or
-    /// custom handlers. When not set, the SDK creates one and applies
-    /// <see cref="HttpClientTimeout"/>.
+    /// custom handlers. It is used as is, so it is also the caller's to keep from reaching
+    /// private addresses (see <see cref="OAuthOptions.HttpClient"/>). When not set, the SDK
+    /// creates one under its identity fetch policy and applies <see cref="HttpClientTimeout"/>.
     /// </summary>
     public HttpClient? HttpClient { get; set; }
 

@@ -76,6 +76,13 @@ public sealed class AuthorizationServerMetadata
     /// <summary>URL of the token revocation endpoint, if offered.</summary>
     [JsonPropertyName("revocation_endpoint")]
     public string? RevocationEndpoint { get; set; }
+
+    /// <summary>
+    /// The protected resources the authorization server serves, when it lists them (RFC 9728
+    /// section 4); a PDS it does not list is not one it authorizes for.
+    /// </summary>
+    [JsonPropertyName("protected_resources")]
+    public List<string>? ProtectedResources { get; set; }
 }
 
 /// <summary>
@@ -326,26 +333,29 @@ public sealed class OAuthOptions
 {
     /// <summary>
     /// The OAuth client metadata. The <c>client_id</c> must be a fully-qualified HTTPS URL
-    /// at which the client metadata JSON document can be fetched by Authorization Servers.
+    /// at which the client metadata JSON document can be fetched by Authorization Servers;
+    /// by convention <c>https://{host}/oauth-client-metadata.json</c>, which consent screens show
+    /// as the bare host.
     /// </summary>
+    /// <remarks>
+    /// A confidential client sets <see cref="OAuthClientMetadata.TokenEndpointAuthMethod"/> to
+    /// <c>private_key_jwt</c> and <see cref="OAuthClientMetadata.TokenEndpointAuthSigningAlg"/>
+    /// to <c>ES256</c>, publishes its keys as <see cref="OAuthClientMetadata.Jwks"/> or at
+    /// <see cref="OAuthClientMetadata.JwksUri"/>, and supplies them in <see cref="ClientKeys"/>.
+    /// </remarks>
     public OAuthClientMetadata ClientMetadata { get; set; } = new();
 
     /// <summary>
     /// The scopes to request. Must include "atproto".
-    /// Default: <see cref="AtProtoScopes.Default"/> ("atproto transition:generic")
+    /// Default: <see cref="AtProtoScopes.Default"/> ("atproto transition:generic"), the legacy
+    /// broad grant; prefer granular scopes or a preset from <see cref="AtProtoScopes.Presets"/>.
     /// </summary>
     public string Scope { get; set; } = AtProtoScopes.Default;
 
     /// <summary>
-    /// Default PDS URL shown in the login form. Users can override this.
-    /// Default: "https://bsky.social"
-    /// </summary>
-    public string DefaultPdsUrl { get; set; } = "https://bsky.social";
-
-    /// <summary>
     /// Budget for each handle resolution round during discovery. Keeps a handle
     /// domain that silently drops traffic (parked apex, firewall) from stalling the
-    /// login flow for the full <see cref="HttpClient.Timeout"/>.
+    /// login flow for the full <see cref="System.Net.Http.HttpClient.Timeout"/>.
     /// Default: <see cref="AuthorizationServerDiscovery.DefaultHandleResolutionTimeout"/>
     /// (5 seconds). Set to <see cref="Timeout.InfiniteTimeSpan"/> to disable.
     /// </summary>
@@ -363,56 +373,134 @@ public sealed class OAuthOptions
     public Identity.IIdentityResolver? IdentityResolver { get; set; }
 
     /// <summary>
-    /// The development opt-out for the requests the client makes to discover a PDS's
-    /// authorization server, and for the identity resolver it creates when
-    /// <see cref="IdentityResolver"/> is <see langword="null"/>: plain HTTP and private addresses
-    /// are accepted, for a local PDS. Defaults to <see langword="false"/>. See
-    /// <see cref="Identity.IdentityResolverOptions.AllowPrivateNetworks"/>.
+    /// The development opt-out for every request the client makes to a PDS or an authorization
+    /// server (metadata, pushed authorization, token, refresh and revocation), and for the
+    /// identity resolver it creates when <see cref="IdentityResolver"/> is <see langword="null"/>:
+    /// plain HTTP and private addresses are accepted, for a local PDS. Defaults to
+    /// <see langword="false"/>. See <see cref="Identity.IdentityResolverOptions.AllowPrivateNetworks"/>.
     /// </summary>
     public bool AllowPrivateNetworks { get; set; }
 
     /// <summary>
-    /// The client the protected-resource and authorization-server metadata requests go through,
-    /// used as is. When <see langword="null"/> (the default) they go through the SDK's identity
-    /// fetch policy: the PDS URL comes from a DID document anyone can write, so only public
-    /// addresses are reached. Supply one only if it is already safe for such URLs, or to route
-    /// through a proxy you control.
+    /// The client every request to a PDS or an authorization server goes through: the
+    /// protected-resource and authorization-server metadata, and the pushed authorization, token,
+    /// refresh and revocation requests. Used as is and never disposed by the client.
     /// </summary>
-    public HttpClient? MetadataHttpClient { get; set; }
+    /// <remarks>
+    /// When <see langword="null"/> (the default) the requests go through the SDK's identity fetch
+    /// policy: the PDS URL comes from a DID document anyone can write and the endpoints from that
+    /// PDS's authorization server, so only public addresses are reached, over HTTPS, without
+    /// following redirects. Supply a client only if it is already safe for such URLs, or to route
+    /// through a proxy you control. The URL rules (HTTPS, no query or fragment) and the response
+    /// size caps apply either way.
+    /// </remarks>
+    public HttpClient? HttpClient { get; set; }
+
+    /// <summary>
+    /// The longest one pushed authorization, token, refresh or revocation request may take,
+    /// reading the response included, retry included. Default: 30 seconds.
+    /// <see cref="Timeout.InfiniteTimeSpan"/> disables it, leaving only the caller's token.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="System.Net.Http.HttpClient.Timeout"/> stops applying once a response's headers
+    /// have arrived, so without this budget a server that stalls mid-body would hold the request
+    /// open for as long as the caller waits.
+    /// </remarks>
+    public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Where pending authorizations wait for their callbacks. When <see langword="null"/> (the
+    /// default), the client keeps them in an <see cref="InMemoryOAuthStateStore"/> of its own;
+    /// several instances of an application, or one that may restart during a login, need a
+    /// shared store such as <see cref="DistributedCacheOAuthStateStore"/>.
+    /// </summary>
+    public IOAuthStateStore? StateStore { get; set; }
+
+    /// <summary>
+    /// The keys a confidential (<c>private_key_jwt</c>) client signs its client assertions with.
+    /// New authorizations use the first; a session keeps using the key it was issued with
+    /// (<see cref="Auth.OAuthSession.ClientKeyId"/>), so a key being rotated out stays listed until
+    /// its sessions have ended. Empty for a public client. The keys are the caller's and are not
+    /// disposed with the client.
+    /// </summary>
+    public IList<OAuthClientKey> ClientKeys { get; set; } = [];
 }
 
 /// <summary>
-/// Represents a pending OAuth authorization that is awaiting callback.
+/// Options for one <see cref="OAuthClient.StartAuthorizationAsync"/> call.
 /// </summary>
-public sealed class OAuthAuthorizationState
+public sealed class OAuthAuthorizationOptions
 {
-    /// <summary>Unique state parameter for CSRF protection.</summary>
-    public string State { get; init; } = string.Empty;
+    /// <summary>
+    /// The server to sign in at, skipping resolution of the identifier, which is still sent as
+    /// the login hint: a PDS, or an authorization server (such as an entryway) that serves no
+    /// protected-resource metadata.
+    /// </summary>
+    public string? ServerUrl { get; set; }
 
-    /// <summary>PKCE code verifier (raw secret).</summary>
-    public string CodeVerifier { get; init; } = string.Empty;
+    /// <summary>
+    /// Who is signing in, typically derived from the remote address of the request that started
+    /// the flow with <see cref="RequesterIdFor"/>. The state store limits how many pending
+    /// authorizations one requester can hold, so one address cannot crowd out everyone else's
+    /// logins; without it only the store's overall bound applies.
+    /// </summary>
+    /// <remarks>
+    /// Behind a reverse proxy the remote address is the proxy's unless the application restores
+    /// the client's (in ASP.NET Core, <c>UseForwardedHeaders</c>); otherwise every user shares
+    /// one requester's limit.
+    /// </remarks>
+    public string? RequesterId { get; set; }
 
-    /// <summary>The resolved DID of the user, if known (when starting from handle).</summary>
-    public string? ExpectedDid { get; init; }
+    /// <summary>
+    /// Application data kept with the pending authorization and handed back by
+    /// <see cref="OAuthClient.CompleteAuthorizationWithAppStateAsync"/>, such as where to send the
+    /// user afterwards. It stays on the server, in the state store; at most
+    /// <see cref="MaxAppStateLength"/> characters.
+    /// </summary>
+    public string? AppState { get; set; }
 
-    /// <summary>The Authorization Server issuer URL.</summary>
-    public string Issuer { get; init; } = string.Empty;
+    /// <summary>The longest <see cref="AppState"/> accepted.</summary>
+    public const int MaxAppStateLength = 4096;
 
-    /// <summary>The token endpoint URL.</summary>
-    public string TokenEndpoint { get; init; } = string.Empty;
+    /// <summary>
+    /// The requester id for a remote address: an IPv4 address as is (an IPv4-mapped IPv6 address
+    /// as its IPv4 form), and an IPv6 address by its /64 prefix, the block a single subscriber is
+    /// usually given, so one subscriber cannot mint unlimited requesters.
+    /// </summary>
+    /// <param name="remoteAddress">The remote address, or <see langword="null"/> when unknown.</param>
+    /// <returns>The requester id, or <see langword="null"/> for an unknown address.</returns>
+    public static string? RequesterIdFor(System.Net.IPAddress? remoteAddress)
+    {
+        if (remoteAddress is null)
+            return null;
 
-    /// <summary>The PDS (Resource Server) URL.</summary>
-    public string PdsUrl { get; init; } = string.Empty;
+        if (remoteAddress.IsIPv4MappedToIPv6)
+            remoteAddress = remoteAddress.MapToIPv4();
 
-    /// <summary>The DPoP key thumbprint bound to this session.</summary>
-    public string DpopKeyId { get; init; } = string.Empty;
+        if (remoteAddress.AddressFamily != System.Net.Sockets.AddressFamily.InterNetworkV6)
+            return remoteAddress.ToString();
 
-    /// <summary>Timestamp when this state was created.</summary>
-    public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
-
-    /// <summary>The redirect URI used for this authorization.</summary>
-    public string RedirectUri { get; init; } = string.Empty;
-
-    /// <summary>The client ID used.</summary>
-    public string ClientId { get; init; } = string.Empty;
+        Span<byte> bytes = stackalloc byte[16];
+        remoteAddress.TryWriteBytes(bytes, out _);
+        bytes[8..].Clear();
+        return $"{new System.Net.IPAddress(bytes)}/64";
+    }
 }
+
+/// <summary>
+/// A completed authorization: the session, and the application data the authorization was
+/// started with.
+/// </summary>
+/// <param name="Session">The session.</param>
+/// <param name="AppState">The <see cref="OAuthAuthorizationOptions.AppState"/> the authorization was started with.</param>
+public sealed record OAuthAuthorizationResult(OAuthSession Session, string? AppState);
+
+/// <summary>
+/// A started authorization: where to send the user, and the state its callback will carry.
+/// </summary>
+/// <param name="AuthorizationUrl">The authorization server's authorization endpoint, with the
+/// pushed request's <c>request_uri</c> and the <c>client_id</c>. Redirect the user to its
+/// <see cref="Uri.AbsoluteUri"/>.</param>
+/// <param name="State">The <c>state</c> parameter the callback will carry back.</param>
+/// <param name="ExpiresAt">When the authorization stops being accepted; a callback after it fails with <c>state_expired</c>.</param>
+public sealed record OAuthAuthorizationRequest(Uri AuthorizationUrl, string State, DateTimeOffset ExpiresAt);

@@ -316,14 +316,13 @@ public sealed class OAuthSessionLifecycleTests : IDisposable
     [Fact]
     public async Task LogoutAsync_RevocationEndpointNotKnown_LooksItUp()
     {
-        _server.Respond = r => r.Path == "/.well-known/oauth-authorization-server"
-            ? JsonResponse($$"""{"issuer":"{{Issuer}}","token_endpoint":"{{TokenEndpoint}}","revocation_endpoint":"{{RevocationEndpoint}}"}""")
-            : new HttpResponseMessage(HttpStatusCode.OK);
+        _server.Respond = _ => new HttpResponseMessage(HttpStatusCode.OK);
         await using var client = NewClient();
         await client.ApplySessionAsync(OAuthSession(_key, revocationEndpoint: null), _oauth);
 
         await client.LogoutAsync();
 
+        Assert.Equal(new Uri($"{Issuer}/.well-known/oauth-authorization-server"), Assert.Single(_server.MetadataRequests));
         Assert.Single(_server.To(RevocationEndpoint.AbsolutePath));
     }
 

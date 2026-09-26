@@ -1027,9 +1027,4 @@ public sealed class AtProtoClientOptions
     /// request.
     /// </summary>
     public bool BackgroundRefresh { get; set; }
-
-    /// <summary>
-    /// OAuth configuration options. When set, enables OAuth authentication support.
-    /// </summary>
-    public OAuthOptions? OAuth { get; set; }
 }
