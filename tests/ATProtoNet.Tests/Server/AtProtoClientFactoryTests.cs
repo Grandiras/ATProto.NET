@@ -214,6 +214,53 @@ public sealed class AtProtoClientFactoryTests : IDisposable
     }
 
     [Fact]
+    public async Task SigningOutThroughAClient_DropsAndReleasesTheCachedKey()
+    {
+        _server.Respond = _ => JsonResponse("{}");
+        using var http = new HttpClient(_server, disposeHandler: false);
+        using var oauth = OAuthClient(http);
+        var factory = new AtProtoClientFactory(_store, _httpClientFactory, _loggerFactory, oauth);
+        await _store.SetAsync(OAuthSession(NewDPoPKey(), revocationEndpoint: RevocationEndpoint));
+        var user = User("did", "did:plc:alice");
+        await using var other = await factory.CreateClientForUserAsync(user);
+
+        await using (var client = await factory.CreateClientForUserAsync(user))
+            await client!.LogoutAsync();
+
+        Assert.Equal(0, factory.CachedKeyCount);
+
+        // Another request's client of the signed-out session can no longer sign with the key.
+        await Assert.ThrowsAsync<XrpcAuthenticationException>(() => other!.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping")));
+        Assert.Empty(_server.To("com.example.ping"));
+    }
+
+    [Fact]
+    public async Task ASessionGoneFromTheStore_TakesItsCachedKeyWithIt()
+    {
+        await _store.SetAsync(OAuthSession(NewDPoPKey()));
+        var user = User("did", "did:plc:alice");
+        await (await _factory.CreateClientForUserAsync(user))!.DisposeAsync();
+        Assert.Equal(1, _factory.CachedKeyCount);
+
+        await _store.RemoveAsync(Alice);
+
+        Assert.Null(await _factory.CreateClientForUserAsync(user));
+        Assert.Equal(0, _factory.CachedKeyCount);
+    }
+
+    [Fact]
+    public async Task TheEndOfAnOlderSession_KeepsTheNewSessionsKey()
+    {
+        var oldKey = NewDPoPKey();
+        await _store.SetAsync(OAuthSession(NewDPoPKey()));
+        await (await _factory.CreateClientForUserAsync(User("did", "did:plc:alice")))!.DisposeAsync();
+
+        _factory.ForgetKey(Alice, oldKey);
+
+        Assert.Equal(1, _factory.CachedKeyCount);
+    }
+
+    [Fact]
     public async Task AServiceAuthCaller_DoesNotGetTheAccountsStoredSession()
     {
         // Service auth issues the same did claim for whoever holds a token naming that DID.

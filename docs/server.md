@@ -140,7 +140,8 @@ interface. OAuth sessions are refreshed and revoked with the `OAuthClient` regis
 injection, which `AddAtProtoAuthentication()` provides.
 
 The factory keeps the imported DPoP key of each account it has recently served (up to 1,024), so a
-request does not pay for importing it again.
+request does not pay for importing it again. A sign-out, a refused session, or a session found gone
+from the store drops and releases the account's key, so no client of that session signs with it again.
 
 The returned client is **disposable** — always use `await using`:
 

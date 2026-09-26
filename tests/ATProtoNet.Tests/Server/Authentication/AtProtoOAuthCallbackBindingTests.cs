@@ -245,6 +245,28 @@ public sealed class AtProtoOAuthCallbackBindingTests : IDisposable
     }
 
     [Fact]
+    public async Task LogoutAsync_DropsTheClientFactorysCachedKey()
+    {
+        var store = new InMemoryAtProtoSessionStore();
+        await store.SetAsync(OAuthSession(NewDPoPKey(), revocationEndpoint: RevocationEndpoint));
+        var httpClients = Substitute.For<IHttpClientFactory>();
+        httpClients.CreateClient(Arg.Any<string>()).Returns(_ => new HttpClient(_server, disposeHandler: false));
+        var factory = new ATProtoNet.Server.Services.AtProtoClientFactory(store, httpClients, NullLoggerFactory.Instance);
+        var user = new ClaimsPrincipal(new ClaimsIdentity([new Claim(AtProtoClaimTypes.Did, Alice.Value)], "ATProto"));
+        await (await factory.CreateClientForUserAsync(user))!.DisposeAsync();
+        Assert.Equal(1, factory.CachedKeyCount);
+
+        using var service = Service();
+        var services = new ServiceCollection();
+        services.AddSingleton(_auth);
+        services.AddSingleton<IAtProtoSessionStore>(store);
+        services.AddSingleton<ATProtoNet.Server.Services.IAtProtoClientFactory>(factory);
+        await service.LogoutAsync(new DefaultHttpContext { RequestServices = services.BuildServiceProvider(), User = user });
+
+        Assert.Equal(0, factory.CachedKeyCount);
+    }
+
+    [Fact]
     public async Task LogoutAsync_ForAServiceAuthCaller_LeavesTheAccountsSessionAlone()
     {
         var store = new InMemoryAtProtoSessionStore();

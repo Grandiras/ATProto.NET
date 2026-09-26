@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using ATProtoNet.Auth;
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Identity;
+using ATProtoNet.Server.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -359,6 +360,10 @@ public sealed class AtProtoOAuthService : IDisposable
 
             if (session is OAuthSession oauth)
             {
+                // The client factory's cached copy of the session's DPoP key goes with it.
+                if (context.RequestServices?.GetService<IAtProtoClientFactory>() is AtProtoClientFactory factory)
+                    factory.ForgetKey(did, oauth.DPoPKey);
+
                 try
                 {
                     await Client.RevokeAsync(oauth, cancellationToken);

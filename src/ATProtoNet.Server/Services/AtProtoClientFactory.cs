@@ -89,7 +89,11 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
 
         var session = await _sessionStore.GetAsync(did, cancellationToken);
         if (session is null)
+        {
+            // Signed out: whatever key material is cached for the account goes too.
+            ForgetKey(did, keyBytes: null);
             return null;
+        }
 
         // Refreshes on demand and persists rotated tokens to the same store, so a refresh made
         // by this request is what the next request's client reads.
@@ -98,6 +102,16 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
             _httpClientFactory.CreateClient(HttpClientName),
             _sessionStore,
             _clientLogger);
+
+        // A session this client signs out, or finds refused, takes its cached key with it.
+        client.SessionChanged += (_, change) =>
+        {
+            if (change.Change is AtProtoSessionChange.Removed or AtProtoSessionChange.Expired &&
+                change.Previous is OAuthSession ended)
+            {
+                ForgetKey(ended.Did, ended.DPoPKey);
+            }
+        };
 
         try
         {
@@ -131,7 +145,14 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
         if (_keys.TryGetValue(session.Did, out var cached) && cached.KeyBytes.AsSpan().SequenceEqual(session.DPoPKey.Span))
         {
             cached.LastUsed = now;
-            return cached.Prototype.CreateView();
+            try
+            {
+                return cached.Prototype.CreateView();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Forgotten by a sign-out meanwhile; the session read since is a new one.
+            }
         }
 
         DPoPProofGenerator prototype;
@@ -151,6 +172,27 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
             EvictLeastRecentlyUsed();
 
         return prototype.CreateView();
+    }
+
+    /// <summary>
+    /// Drops the account's cached DPoP key once its session has ended (signed out, or refused),
+    /// and disposes it: a client of that session still holding it stops signing with it.
+    /// </summary>
+    /// <param name="did">The account.</param>
+    /// <param name="keyBytes">
+    /// The ended session's key; a cached key of another (newer) session is kept.
+    /// <see langword="null"/> drops whatever is cached.
+    /// </param>
+    internal void ForgetKey(Did did, ReadOnlyMemory<byte>? keyBytes)
+    {
+        if (!_keys.TryGetValue(did, out var cached) ||
+            (keyBytes is { } ended && !cached.KeyBytes.AsSpan().SequenceEqual(ended.Span)))
+        {
+            return;
+        }
+
+        if (_keys.TryRemove(new KeyValuePair<Did, CachedKey>(did, cached)))
+            cached.Prototype.Dispose();
     }
 
     private void EvictLeastRecentlyUsed()
