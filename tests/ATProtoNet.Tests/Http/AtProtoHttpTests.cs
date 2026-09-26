@@ -45,16 +45,16 @@ public class AtProtoHttpTests
         await Assert.ThrowsAsync<HttpRequestException>(() => client.SendAsync(request));
     }
 
-    [Theory]
-    [InlineData("AtProtoClient")]
-    public void AddAtProtoServer_NamedClientUsesTheSdkHandlerSettings(string name)
+    [Fact]
+    public void AddAtProto_NamedClientUsesTheSdkHandlerSettings()
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddAtProtoServer();
+        services.AddAtProto().WithClientFactory();
 
         using var provider = services.BuildServiceProvider();
-        var handler = provider.GetRequiredService<IHttpMessageHandlerFactory>().CreateHandler(name);
+        var handler = provider.GetRequiredService<IHttpMessageHandlerFactory>()
+            .CreateHandler(AtProtoServiceCollectionExtensions.HttpClientName);
 
         var primary = PrimaryOf(handler);
         Assert.Equal(DecompressionMethods.All, primary.AutomaticDecompression);

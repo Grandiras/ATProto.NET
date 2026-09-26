@@ -22,8 +22,8 @@ namespace ATProtoNet.Server.Authentication;
 /// <para>An implementation backing a multi-instance deployment must be shared across instances.
 /// <see cref="InMemoryJtiReplayStore"/> is per-process, so a replay is caught only by the
 /// instance that saw the original;
-/// <see cref="ATProtoNet.Server.EntityFrameworkCore.EfCoreJtiReplayStore{TContext}"/> is shared
-/// through a database. Anything with an atomic "set if absent, with expiry" — Redis
+/// <c>EfCoreJtiReplayStore&lt;TContext&gt;</c> (the <c>ATProtoNet.Server.EntityFrameworkCore</c>
+/// package) is shared through a database. Anything with an atomic "set if absent, with expiry" — Redis
 /// <c>SET key 1 NX EXAT exp</c>, say — makes a store in a few lines.</para>
 /// </remarks>
 public interface IJtiReplayStore

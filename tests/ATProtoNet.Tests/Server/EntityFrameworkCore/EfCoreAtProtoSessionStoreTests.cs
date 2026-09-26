@@ -1,5 +1,6 @@
 using ATProtoNet.Auth;
 using ATProtoNet.Identity;
+using ATProtoNet.Server;
 using ATProtoNet.Server.EntityFrameworkCore;
 using ATProtoNet.Tests.Auth;
 using Microsoft.AspNetCore.DataProtection;
@@ -8,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using static ATProtoNet.Tests.Auth.SessionKit;
 
-namespace ATProtoNet.Tests.Server;
+namespace ATProtoNet.Tests.Server.EntityFrameworkCore;
 
 public class EfCoreAtProtoSessionStoreTests : IAsyncLifetime
 {
@@ -160,16 +161,28 @@ public class EfCoreAtProtoSessionStoreTests : IAsyncLifetime
     }
 
     [Fact]
-    public void AddAtProtoEfCoreSessionStore_RegistersTheStore()
+    public async Task WithEfCoreSessionStore_ReplacesTheDefaultStoreEitherWayRound()
     {
-        var services = new ServiceCollection()
-            .AddLogging()
-            .AddSingleton(_contextFactory)
-            .AddAtProtoEfCoreSessionStore<AtProtoTokenDbContext>();
+        foreach (var efFirst in new[] { true, false })
+        {
+            var services = new ServiceCollection().AddLogging().AddSingleton(_contextFactory);
+            var atproto = services.AddAtProto();
+            if (efFirst)
+                atproto.WithEfCoreSessionStore<AtProtoTokenDbContext>().WithClientFactory();
+            else
+                atproto.WithClientFactory().WithEfCoreSessionStore<AtProtoTokenDbContext>();
 
-        using var provider = services.BuildServiceProvider();
+            await using var provider = services.BuildServiceProvider();
 
-        Assert.IsType<EfCoreAtProtoSessionStore<AtProtoTokenDbContext>>(provider.GetRequiredService<IAtProtoSessionStore>());
+            var store = Assert.IsType<EfCoreAtProtoSessionStore<AtProtoTokenDbContext>>(
+                provider.GetRequiredService<IAtProtoSessionStore>());
+            Assert.Single(services, d => d.ServiceType == typeof(IAtProtoSessionStore));
+
+            // It works over the registered context: what it writes, it reads back.
+            await store.SetAsync(PasswordSession("access", "refresh"));
+            Assert.NotNull(await store.GetAsync(Alice));
+            await store.RemoveAsync(Alice);
+        }
     }
 
     private sealed class TestDbContextFactory(DbContextOptions<AtProtoTokenDbContext> options)

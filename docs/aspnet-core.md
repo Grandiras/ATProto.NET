@@ -10,6 +10,9 @@ dotnet add package ATProtoNet.Server
 
 ## Service Registration
 
+`AddAtProto()` registers an `AtProtoClient` and returns an `IAtProtoBuilder`, which the rest of the
+registration hangs off (see [Server Integration](server.md#the-atproto-builder)).
+
 ### Singleton Client
 
 Register a single shared `AtProtoClient`:
@@ -22,13 +25,26 @@ builder.Services.AddAtProto(options =>
 });
 ```
 
-### Custom Session Store
+The options go through `IOptions<AtProtoClientOptions>`, so they also bind from configuration, and
+an `InstanceUrl` that is not an absolute http(s) URL stops the host at startup:
 
 ```csharp
-builder.Services.AddAtProto<DatabaseSessionStore>(options =>
+builder.Services.AddAtProto();
+builder.Services.Configure<AtProtoClientOptions>(builder.Configuration.GetSection("AtProto"));
+```
+
+### Custom Session Store
+
+The client writes its session to the registered store, so it survives a restart. The store is a
+singleton; one over a database takes an `IDbContextFactory` rather than a `DbContext` (see
+[Custom Implementation](server.md#custom-implementation)):
+
+```csharp
+builder.Services.AddAtProto(options =>
 {
     options.InstanceUrl = "https://your-pds.example.com";
-});
+})
+.WithSessionStore<DatabaseSessionStore>();
 ```
 
 ### Scoped Client (Per-Request)
@@ -36,17 +52,24 @@ builder.Services.AddAtProto<DatabaseSessionStore>(options =>
 For multi-user scenarios where each request has its own session:
 
 ```csharp
-builder.Services.AddAtProtoScoped(options =>
+builder.Services.AddAtProto(options =>
 {
     options.InstanceUrl = "https://your-pds.example.com";
-});
+})
+.WithLifetime(ServiceLifetime.Scoped);
 ```
+
+### HTTP Handlers
+
+Every client of the registration sends through one named `HttpClient`, whose builder is
+`IAtProtoBuilder.HttpClient`. Add logging or telemetry handlers there, but not a handler that
+retries on its own: see [HTTP handlers and resilience](server.md#http-handlers-and-resilience).
 
 ## Authentication
 
 `ATProtoNet.Server` authenticates two kinds of caller:
 
-- **Users**, with the OAuth cookie login: `AddAtProtoAuthentication()` and `MapAtProtoOAuth()`
+- **Users**, with the OAuth cookie login: `AddAtProto().WithOAuth()` and `MapAtProtoOAuth()`
   sign a user in with their AT Protocol account and an ordinary authentication cookie (see
   [OAuth: Hosted Login](oauth.md#hosted-login-aspnet-core) and the
   [multi-user pattern](#multi-user-pattern-oauth) below).
@@ -179,10 +202,11 @@ For apps where each user authenticates with app passwords (not OAuth):
 
 ```csharp
 // Create a per-request client
-builder.Services.AddAtProtoScoped(options =>
+builder.Services.AddAtProto(options =>
 {
     options.InstanceUrl = "https://your-pds.example.com";
-});
+})
+.WithLifetime(ServiceLifetime.Scoped);
 
 // Middleware to authenticate the AT Protocol session from a cookie/header
 app.Use(async (context, next) =>
@@ -209,8 +233,10 @@ using ATProtoNet.Server;
 using ATProtoNet.Server.Authentication;
 
 builder.Services.AddAuthentication("Cookies").AddCookie();
-builder.Services.AddAtProtoAuthentication(); // OAuth cookie login
-builder.Services.AddAtProtoServer();          // Session store + client factory
+builder.Services.AddAtProto()
+    .WithOAuth()                // OAuth cookie login
+    .WithClientFactory()        // Client factory + refresh coordinator
+    .WithFileSessionStore();    // Session store (in memory, with a startup warning, by default)
 
 app.MapAtProtoOAuth();
 

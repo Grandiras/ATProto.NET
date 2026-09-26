@@ -2,12 +2,9 @@ using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
 using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.EntityFrameworkCore;
-using ATProtoNet.Server.Redis;
 using ATProtoNet.Server.Spaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using NSubstitute;
-using StackExchange.Redis;
 
 namespace ATProtoNet.Tests.Server.Spaces;
 
@@ -41,19 +38,6 @@ public class SpaceStoreRegistrationTests
         using var provider = services.BuildServiceProvider();
 
         Assert.IsType<EfCoreJtiReplayStore<SpaceDbContext>>(provider.GetRequiredService<IJtiReplayStore>());
-    }
-
-    [Fact]
-    public void AddAtProtoRedisSpaceReplayStore_ReplacesTheInProcessDefault()
-    {
-        var services = Services();
-        services.AddSingleton(Substitute.For<IConnectionMultiplexer>());
-        services.AddAtProtoSpaces();
-        services.AddAtProtoRedisSpaceReplayStore();
-
-        using var provider = services.BuildServiceProvider();
-
-        Assert.IsType<RedisSpaceReplayStore>(provider.GetRequiredService<IJtiReplayStore>());
     }
 
     [Fact]

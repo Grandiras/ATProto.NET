@@ -4,6 +4,7 @@ using System.Text.Json;
 using ATProtoNet.Auth;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
+using ATProtoNet.Server;
 using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Services;
 using ATProtoNet.Tests.Auth;
@@ -26,7 +27,7 @@ public sealed class AtProtoClientFactoryTests : IDisposable
         _httpClientFactory = Substitute.For<IHttpClientFactory>();
         _loggerFactory = Substitute.For<ILoggerFactory>();
 
-        _httpClientFactory.CreateClient("AtProtoClient").Returns(_ => new HttpClient(_server, disposeHandler: false));
+        _httpClientFactory.CreateClient(AtProtoServiceCollectionExtensions.HttpClientName).Returns(_ => new HttpClient(_server, disposeHandler: false));
         _loggerFactory.CreateLogger(Arg.Any<string>()).Returns(Substitute.For<ILogger>());
 
         _factory = new AtProtoClientFactory(_store, _httpClientFactory, _loggerFactory);

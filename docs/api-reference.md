@@ -338,7 +338,7 @@ An immutable session, `PasswordSession` or `OAuthSession`. See [session-manageme
 ### IAtProtoSessionStore
 
 Session persistence, keyed by DID. Implementations: `InMemoryAtProtoSessionStore` (core),
-`FileAtProtoSessionStore` and `EfCoreAtProtoSessionStore<TContext>` (Server). See [server.md](server.md).
+`FileAtProtoSessionStore` (Server) and `EfCoreAtProtoSessionStore<TContext>` (Server.EntityFrameworkCore). See [server.md](server.md).
 
 | Method | Description |
 |--------|-------------|

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace ATProtoNet.Server;
 
@@ -40,6 +41,12 @@ public static class PdsAdminExtensions
     /// <para>
     /// Keep the admin password out of source control — it grants full control over
     /// every account on the server.
+    /// </para>
+    /// <para>
+    /// The options go through <see cref="IOptions{TOptions}"/> and are validated when the
+    /// host starts: a missing URL or password, an account without its identifier, or a
+    /// plaintext URL without <see cref="PdsAdminOptions.AllowInsecureHttp"/> stops it with an
+    /// <see cref="OptionsValidationException"/> naming the configuration key.
     /// </para>
     /// <para>
     /// The client is registered as a typed <see cref="HttpClient"/>, so it is
@@ -80,12 +87,11 @@ public static class PdsAdminExtensions
         Action<PdsAdminOptions>? configureOptions = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(configurationSectionName);
 
-        var options = new PdsAdminOptions { Url = string.Empty, AdminPassword = string.Empty };
-        builder.Configuration.GetSection(configurationSectionName).Bind(options);
-        configureOptions?.Invoke(options);
-
-        builder.Services.AddAtProtoPdsAdmin(options);
+        // Configuration, not code: the callbacks post-configure, so code wins whatever the order.
+        builder.Services.AddOptions<PdsAdminOptions>().Bind(builder.Configuration.GetSection(configurationSectionName));
+        builder.Services.AddPdsAdminClient(configureOptions);
 
         return builder;
     }
@@ -94,17 +100,13 @@ public static class PdsAdminExtensions
     /// Registers a <see cref="PdsAdminClient"/> as a typed <see cref="HttpClient"/> with explicit options.
     /// </summary>
     /// <param name="services">The service collection.</param>
-    /// <param name="options">The PDS URL and admin credentials.</param>
+    /// <param name="options">The PDS URL and admin credentials, copied into the registration.</param>
     /// <returns>The service collection for chaining.</returns>
     /// <remarks>
-    /// A missing URL or admin password fails here, while the host is being built. The
-    /// client's own validation — notably the refusal to send the admin password over
-    /// plaintext HTTP — runs when it is first resolved, so a URL that is present but
-    /// unusable surfaces at that point rather than at startup.
+    /// The options are validated when the host starts, as by the
+    /// <see cref="AddAtProtoPdsAdmin(IHostApplicationBuilder, string, Action{PdsAdminOptions}?)"/>
+    /// overload, and without a host when the client is first resolved.
     /// </remarks>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown when the PDS URL or admin password is missing.
-    /// </exception>
     public static IServiceCollection AddAtProtoPdsAdmin(
         this IServiceCollection services,
         PdsAdminOptions options)
@@ -112,6 +114,55 @@ public static class PdsAdminExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(options);
 
+        return services.AddPdsAdminClient(target => CopyOptions(options, target));
+    }
+
+    /// <summary>
+    /// Registers a <see cref="PdsAdminClient"/> as a typed <see cref="HttpClient"/> for the given PDS.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="pdsUrl">The PDS base URL.</param>
+    /// <param name="adminPassword">The server's admin password.</param>
+    /// <returns>The service collection for chaining.</returns>
+    public static IServiceCollection AddAtProtoPdsAdmin(
+        this IServiceCollection services,
+        string pdsUrl,
+        string adminPassword)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        return services.AddPdsAdminClient(options =>
+        {
+            options.Url = pdsUrl;
+            options.AdminPassword = adminPassword;
+        });
+    }
+
+    private static IServiceCollection AddPdsAdminClient(
+        this IServiceCollection services, Action<PdsAdminOptions>? configure)
+    {
+        services.AddValidatedOptions(configure, ValidateOptions);
+
+        // Registered as a typed client rather than a singleton over one captured
+        // HttpClient: the factory rotates the underlying handler, so a long-running
+        // deployment picks up DNS changes behind the PDS URL.
+        services
+            .AddHttpClient(nameof(PdsAdminClient))
+            .ConfigurePrimaryHttpMessageHandler(Http.AtProtoHttp.CreateHandler)
+            .AddTypedClient((httpClient, sp) => new PdsAdminClient(
+                sp.GetRequiredService<IOptions<PdsAdminOptions>>().Value,
+                httpClient,
+                sp.GetService<ILogger<PdsAdminClient>>()));
+
+        return services;
+    }
+
+    /// <summary>
+    /// The configuration mistakes that would otherwise surface on the first admin call, long
+    /// after startup, with the configuration key to fix.
+    /// </summary>
+    internal static void ValidateOptions(PdsAdminOptions options)
+    {
         if (string.IsNullOrWhiteSpace(options.Url))
         {
             throw new InvalidOperationException(
@@ -135,34 +186,29 @@ public static class PdsAdminExtensions
                 "is not set. In an Aspire solution, call WithAtProtoTranquilPds(pds) on the project resource.");
         }
 
-        // Registered as a typed client rather than a singleton over one captured
-        // HttpClient: the factory rotates the underlying handler, so a long-running
-        // deployment picks up DNS changes behind the PDS URL.
-        services
-            .AddHttpClient(nameof(PdsAdminClient))
-            .ConfigurePrimaryHttpMessageHandler(Http.AtProtoHttp.CreateHandler)
-            .AddTypedClient((httpClient, sp) => new PdsAdminClient(
-                options,
-                httpClient,
-                sp.GetService<ILogger<PdsAdminClient>>()));
+        if (!Http.AtProtoHttp.TryNormalizeBaseUrl(options.Url, out var url))
+        {
+            throw new InvalidOperationException(
+                $"'{DefaultConfigurationSection}:Url' must be an absolute http(s) URL with no query or fragment; got '{options.Url}'.");
+        }
 
-        return services;
+        if (url.Scheme != Uri.UriSchemeHttps && !url.IsLoopback && !options.AllowInsecureHttp)
+        {
+            throw new InvalidOperationException(
+                $"Refusing to send the PDS admin credentials in the clear to '{url}'. Use HTTPS, or set " +
+                $"'{DefaultConfigurationSection}:AllowInsecureHttp' if the PDS is only reachable over a private " +
+                "network you trust.");
+        }
     }
 
-    /// <summary>
-    /// Registers a <see cref="PdsAdminClient"/> as a typed <see cref="HttpClient"/> for the given PDS.
-    /// </summary>
-    /// <param name="services">The service collection.</param>
-    /// <param name="pdsUrl">The PDS base URL.</param>
-    /// <param name="adminPassword">The server's admin password.</param>
-    /// <returns>The service collection for chaining.</returns>
-    public static IServiceCollection AddAtProtoPdsAdmin(
-        this IServiceCollection services,
-        string pdsUrl,
-        string adminPassword) =>
-        services.AddAtProtoPdsAdmin(new PdsAdminOptions
-        {
-            Url = pdsUrl,
-            AdminPassword = adminPassword,
-        });
+    /// <summary>Copies every setting of <paramref name="source"/> onto <paramref name="target"/>.</summary>
+    internal static void CopyOptions(PdsAdminOptions source, PdsAdminOptions target)
+    {
+        target.Url = source.Url;
+        target.AdminPassword = source.AdminPassword;
+        target.Authentication = source.Authentication;
+        target.AdminIdentifier = source.AdminIdentifier;
+        target.AdminUser = source.AdminUser;
+        target.AllowInsecureHttp = source.AllowInsecureHttp;
+    }
 }

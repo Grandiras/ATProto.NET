@@ -38,7 +38,7 @@ If you want a map of how the packages compose, see **[Architecture](architecture
 - [ASP.NET Core](aspnet-core.md) — dependency injection, authentication, controllers
 - [Server Integration](server.md) — `IAtProtoClientFactory`, token store, backend AT Proto access
 - [Blazor](blazor.md) — components, cookie-based OAuth login, interactive apps
-- [Aspire](aspire.md) — service defaults, health checks, resilience
+- [Aspire](aspire.md) — the client from configuration, health checks, and keeping service-default retries off the SDK
 - [Standard.site](standard-site.md) — long-form publishing integration
 
 ### Building Servers

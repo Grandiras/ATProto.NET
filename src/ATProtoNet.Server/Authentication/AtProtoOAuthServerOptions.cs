@@ -5,12 +5,12 @@ namespace ATProtoNet.Server.Authentication;
 
 /// <summary>
 /// Options for the hosted AT Protocol OAuth login, which signs users in with a cookie.
-/// Use with <see cref="AtProtoOAuthExtensions.AddAtProtoAuthentication"/> and
+/// Use with <see cref="AtProtoOAuthExtensions.WithOAuth"/> and
 /// <see cref="AtProtoOAuthExtensions.MapAtProtoOAuth"/>.
 /// </summary>
 /// <example>
 /// <code>
-/// builder.Services.AddAtProtoAuthentication(options =>
+/// builder.Services.AddAtProto().WithOAuth(options =>
 /// {
 ///     options.ClientName = "My App";
 ///     options.CookieScheme = CookieAuthenticationDefaults.AuthenticationScheme;
@@ -141,16 +141,20 @@ public sealed class AtProtoOAuthServerOptions
     /// Optional <see cref="System.Net.Http.HttpClient"/> to use for OAuth discovery and
     /// token requests. When set, the caller owns its lifetime (it is not disposed with
     /// the service) and its <see cref="System.Net.Http.HttpClient.Timeout"/> is left
-    /// untouched — use this to plug in an <c>IHttpClientFactory</c> client, a proxy, or
-    /// custom handlers. It is used as is, so it is also the caller's to keep from reaching
-    /// private addresses (see <see cref="OAuthOptions.HttpClient"/>). When not set, the SDK
-    /// creates one under its identity fetch policy and applies <see cref="HttpClientTimeout"/>.
+    /// untouched. It is used as is, so it is also the caller's to keep from reaching
+    /// private addresses (see <see cref="OAuthOptions.HttpClient"/>). When not set, the login
+    /// sends with the client named <see cref="AtProtoOAuthExtensions.HttpClientName"/>, which
+    /// <see cref="AtProtoOAuthExtensions.WithOAuth"/> gives the identity fetch policy and
+    /// <see cref="HttpClientTimeout"/>; add logging or telemetry handlers to that client. It
+    /// connects directly, never through a proxy, since the policy checks the address it connects
+    /// to: behind an egress proxy, supply this client (with the proxy) and let the proxy keep
+    /// requests off private addresses.
     /// </summary>
     public HttpClient? HttpClient { get; set; }
 
     /// <summary>
-    /// Timeout applied to the SDK-created <see cref="System.Net.Http.HttpClient"/> used
-    /// for OAuth requests. Ignored when <see cref="HttpClient"/> is supplied.
+    /// Timeout of the <see cref="System.Net.Http.HttpClient"/> used for OAuth requests.
+    /// Ignored when <see cref="HttpClient"/> is supplied.
     /// Default: 30 seconds (the <see cref="System.Net.Http.HttpClient"/> default of
     /// 100 seconds is far longer than any browser or reverse proxy will wait during login).
     /// </summary>

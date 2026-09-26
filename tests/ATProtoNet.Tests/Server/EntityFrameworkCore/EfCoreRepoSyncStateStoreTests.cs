@@ -6,7 +6,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace ATProtoNet.Tests.Server;
+namespace ATProtoNet.Tests.Server.EntityFrameworkCore;
 
 /// <summary>The EF Core repo sync state store, over SQLite.</summary>
 public sealed class EfCoreRepoSyncStateStoreTests : IAsyncLifetime

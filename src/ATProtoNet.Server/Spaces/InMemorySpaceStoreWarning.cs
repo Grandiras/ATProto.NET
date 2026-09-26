@@ -29,7 +29,8 @@ internal sealed class InMemorySpaceStoreWarning(
                 "Space single-use tokens are tracked by {Store}, which is per-process: a delegation token, " +
                 "client attestation, DPoP proof or service auth token replayed against another instance is " +
                 "accepted, and one replayed after a restart is accepted too. Register a shared store " +
-                "(AddAtProtoEfCoreJtiReplayStore) if more than one instance answers for this DID.",
+                "(AddAtProtoEfCoreJtiReplayStore, from ATProtoNet.Server.EntityFrameworkCore) if more than one instance " +
+                "answers for this DID.",
                 nameof(InMemoryJtiReplayStore));
         }
 

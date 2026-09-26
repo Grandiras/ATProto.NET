@@ -3,6 +3,7 @@ using ATProtoNet.Server;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace ATProtoNet.Tests.Server;
 
@@ -69,7 +70,7 @@ public class PdsAdminExtensionsTests
     }
 
     [Fact]
-    public void AddAtProtoPdsAdmin_WithoutAllowInsecureHttp_RejectsPlaintextPds()
+    public async Task AddAtProtoPdsAdmin_WithoutAllowInsecureHttp_RejectsPlaintextPdsAtStartup()
     {
         var builder = Host.CreateApplicationBuilder();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
@@ -82,7 +83,9 @@ public class PdsAdminExtensionsTests
 
         using var host = builder.Build();
 
-        Assert.Throws<ArgumentException>(() => host.Services.GetRequiredService<PdsAdminClient>());
+        var ex = await Assert.ThrowsAsync<OptionsValidationException>(() => host.StartAsync());
+        Assert.Contains("AtProto:Pds:AllowInsecureHttp", ex.Message);
+        Assert.Throws<OptionsValidationException>(() => host.Services.GetRequiredService<PdsAdminClient>());
     }
 
     [Fact]
@@ -104,27 +107,49 @@ public class PdsAdminExtensionsTests
     }
 
     [Fact]
-    public void AddAtProtoPdsAdmin_WithoutUrl_ThrowsWithActionableMessage()
+    public async Task AddAtProtoPdsAdmin_WithoutUrl_StopsTheHostWithAnActionableMessage()
     {
         var builder = Host.CreateApplicationBuilder();
+        builder.AddAtProtoPdsAdmin();
 
-        var ex = Assert.Throws<InvalidOperationException>(() => builder.AddAtProtoPdsAdmin());
+        using var host = builder.Build();
 
+        var ex = await Assert.ThrowsAsync<OptionsValidationException>(() => host.StartAsync());
         Assert.Contains("AtProto:Pds:Url", ex.Message);
     }
 
     [Fact]
-    public void AddAtProtoPdsAdmin_WithoutAdminPassword_ThrowsWithActionableMessage()
+    public async Task AddAtProtoPdsAdmin_WithoutAdminPassword_StopsTheHostWithAnActionableMessage()
     {
         var builder = Host.CreateApplicationBuilder();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["AtProto:Pds:Url"] = "https://pds.example.com",
         });
+        builder.AddAtProtoPdsAdmin();
 
-        var ex = Assert.Throws<InvalidOperationException>(() => builder.AddAtProtoPdsAdmin());
+        using var host = builder.Build();
 
+        var ex = await Assert.ThrowsAsync<OptionsValidationException>(() => host.StartAsync());
         Assert.Contains("AtProto:Pds:AdminPassword", ex.Message);
+    }
+
+    [Fact]
+    public void AddAtProtoPdsAdmin_ExplicitCredentialsThenTheConfiguredOnes_CodeWins()
+    {
+        var builder = Host.CreateApplicationBuilder();
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["AtProto:Pds:Url"] = "https://configured.example.com",
+            ["AtProto:Pds:AdminPassword"] = "from-config",
+        });
+
+        builder.Services.AddAtProtoPdsAdmin("https://code.example.com", "hunter2");
+        builder.AddAtProtoPdsAdmin();
+
+        using var host = builder.Build();
+
+        Assert.Equal("https://code.example.com/", host.Services.GetRequiredService<PdsAdminClient>().PdsUrl.ToString());
     }
 
     [Fact]
@@ -138,6 +163,32 @@ public class PdsAdminExtensionsTests
         var client = provider.GetRequiredService<PdsAdminClient>();
 
         Assert.Equal("https://pds.example.com/", client.PdsUrl.ToString());
+    }
+
+    [Fact]
+    public void AddAtProtoPdsAdmin_WithAnOptionsInstance_RegistersClientWithEverySetting()
+    {
+        var services = new ServiceCollection();
+        var options = new PdsAdminOptions
+        {
+            Url = "http://pds:3000",
+            AdminPassword = "hunter2",
+            Authentication = PdsAdminAuthentication.AdminAccount,
+            AdminIdentifier = "admin.pds.example.com",
+            AdminUser = "root",
+            AllowInsecureHttp = true,
+        };
+
+        services.AddAtProtoPdsAdmin(options);
+
+        using var provider = services.BuildServiceProvider();
+        var registered = provider.GetRequiredService<IOptions<PdsAdminOptions>>().Value;
+
+        // Every public setting is carried over, so one added later cannot be silently dropped.
+        foreach (var property in typeof(PdsAdminOptions).GetProperties())
+            Assert.Equal(property.GetValue(options), property.GetValue(registered));
+
+        Assert.Equal(PdsAdminAuthentication.AdminAccount, provider.GetRequiredService<PdsAdminClient>().Authentication);
     }
 
     [Fact]
@@ -181,7 +232,7 @@ public class PdsAdminExtensionsTests
     }
 
     [Fact]
-    public void AddAtProtoPdsAdmin_AccountAuthenticationWithoutIdentifier_ThrowsWhileTheHostIsBuilt()
+    public async Task AddAtProtoPdsAdmin_AccountAuthenticationWithoutIdentifier_StopsTheHostAtStartup()
     {
         var builder = Host.CreateApplicationBuilder();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
@@ -190,11 +241,13 @@ public class PdsAdminExtensionsTests
             ["AtProto:Pds:Authentication"] = "AdminAccount",
             ["AtProto:Pds:AdminPassword"] = "hunter2",
         });
+        builder.AddAtProtoPdsAdmin();
+
+        using var host = builder.Build();
 
         // Naming an account but not saying which one would otherwise surface as an
         // authentication failure on the first admin call, long after startup.
-        var ex = Assert.Throws<InvalidOperationException>(() => builder.AddAtProtoPdsAdmin());
-
+        var ex = await Assert.ThrowsAsync<OptionsValidationException>(() => host.StartAsync());
         Assert.Contains("AtProto:Pds:AdminIdentifier", ex.Message);
     }
 }

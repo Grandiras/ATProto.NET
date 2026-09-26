@@ -551,8 +551,8 @@ of accepting the old key until the fetch completes — on an idle server, for up
 `UseDistributedCache` to share documents across instances.
 
 Fetching follows the options `AddAtProtoIdentity()` registers (`AddAtProtoSpaces()` calls it): every
-DID a token names is fetched under the SDK's SSRF policy; call `AddAtProtoIdentity(o => …)` first to
-change the PLC directory or opt out of the policy for a local test network. A DID that does not
+DID a token names is fetched under the SDK's SSRF policy; call `AddAtProtoIdentity(o => …)`, before or
+after, to change the PLC directory or opt out of the policy for a local test network. A DID that does not
 resolve, for whatever reason, is refused as `NotAuthorized`. The `AtProtoSpaces` named client, which
 fetches client metadata and reaches managing apps and subscribers at URLs taken from DID documents,
 runs on the same hardened handler: public addresses only and no redirects, under the same opt-out.
@@ -638,7 +638,7 @@ deployment should replace:
 
 | Seam | Default | Durable implementations |
 | --- | --- | --- |
-| `IJtiReplayStore` | `InMemoryJtiReplayStore` | `RedisSpaceReplayStore`, `EfCoreJtiReplayStore<T>` |
+| `IJtiReplayStore` | `InMemoryJtiReplayStore` | `EfCoreJtiReplayStore<T>`, or [your own over Redis](#a-replay-store-on-redis) |
 | `ISimpleSpaceStore` | `InMemorySimpleSpaceStore` | `EfCoreSimpleSpaceStore<T>` |
 | `ISpaceAuthorityStore` | `InMemorySpaceAuthorityStore` | `EfCoreSpaceAuthorityStore<T>` |
 
@@ -658,18 +658,16 @@ on existing.
 `SpaceServerOptions.WarnOnInMemoryStores = false` where it is the intended choice, as in a test
 host.
 
-```csharp
-// Redis for the replay store: SET NX is one round trip and expires with the token's own exp.
-builder.Services.AddSingleton<IConnectionMultiplexer>(
-    _ => ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("redis")!));
+The durable stores are in the `ATProtoNet.Server.EntityFrameworkCore` package:
 
+```csharp
 // A relational database for the state that has to outlive the process.
 builder.Services.AddDbContextFactory<SpaceDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("spaces")));
 
 builder.Services
     .AddAtProtoSpaces(options => { /* … */ })
-    .AddAtProtoRedisSpaceReplayStore()
+    .AddAtProtoEfCoreJtiReplayStore<SpaceDbContext>()
     .AddAtProtoEfCoreSpaceAuthority<SpaceDbContext>(credentialSigningKey)
     .AddAtProtoEfCoreSimpleSpace<SpaceDbContext>();
 ```
@@ -720,10 +718,46 @@ If EF generated a rename of `Policy` rather than a drop, replace it with the ste
 default for `Read` and `Write`, because EF would then treat a `false` as unset and store the
 default instead. Adjust the identifier quoting in the `UPDATE` for your provider if needed.
 
-`AddAtProtoEfCoreJtiReplayStore<T>()` is the option for a deployment with no Redis: the replay
-check is a single insert whose primary key is `(iss, jti, exp)`, so the database's own uniqueness
-enforcement is what makes it atomic, and expired rows are swept opportunistically. Redis is the
-lighter hop for something on every authenticated request.
+`AddAtProtoEfCoreJtiReplayStore<T>()` puts the replay check in the database: a single insert whose
+primary key is `(iss, jti, exp)`, so the database's own uniqueness enforcement is what makes it
+atomic, and expired rows are swept opportunistically.
+
+#### A replay store on Redis
+
+Redis is the lighter hop for something on every authenticated request, and a replay store over it
+is a few lines: `SET key value NX EX ttl` is the whole check, atomic across every instance, and the
+key expires with the token it guards, so nothing sweeps. The SDK does not ship one, to keep
+`StackExchange.Redis` out of `ATProtoNet.Server`:
+
+```csharp
+using ATProtoNet.Server.Authentication;
+using StackExchange.Redis;
+
+public sealed class RedisJtiReplayStore(IConnectionMultiplexer redis) : IJtiReplayStore
+{
+    public async ValueTask<bool> TryConsumeAsync(
+        string issuer, string tokenId, DateTimeOffset expiresAt, CancellationToken cancellationToken = default)
+    {
+        // Redis refuses a TTL of zero or less, and an identifier never written could be spent twice.
+        var ttl = expiresAt - DateTimeOffset.UtcNow;
+        if (ttl < TimeSpan.FromSeconds(1))
+            ttl = TimeSpan.FromSeconds(1);
+
+        // Keyed on (iss, jti, exp) like the interface: two issuers picking one nonce is no collision.
+        var key = $"atproto:jti:{issuer}|{tokenId}|{expiresAt.ToUnixTimeSeconds()}";
+        return await redis.GetDatabase().StringSetAsync(key, RedisValue.EmptyString, ttl, when: When.NotExists);
+    }
+}
+```
+
+Register it with `Replace`, so it wins over the in-process default whichever runs first (and serves
+service auth too, which shares the store):
+
+```csharp
+builder.Services.AddSingleton<IConnectionMultiplexer>(
+    _ => ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("redis")!));
+builder.Services.Replace(ServiceDescriptor.Singleton<IJtiReplayStore, RedisJtiReplayStore>());
+```
 
 #### Upgrading the replay table from 0.6
 
@@ -912,7 +946,7 @@ PDS already has.
 | `AddAtProtoSpaces` / `AddSpaceAuthority` / `AddSpaceRepoHost` / `AddSimpleSpace` | Register the server halves (`ATProtoNet.Server`); the endpoint handlers are internal |
 | `SpaceRequestAuthenticator`, `DPoPProofValidator`, `SpaceDelegationTokenVerifier`, `SpaceCredentialVerifier`, `SpaceClientAttestationVerifier`, `SpaceServiceAuthVerifier` | Verify what a caller presents |
 | `ISpaceAccessPolicy`, `ISpaceCredentialIssuer`, `ISpaceAuthorityStore`, `ISpaceRepoHost`, `ISimpleSpaceStore`, `IJtiReplayStore` | The seams a server implements |
-| `RedisSpaceReplayStore`, `EfCoreJtiReplayStore`, `EfCoreSpaceAuthorityStore`, `EfCoreSimpleSpaceStore` | Durable, multi-instance implementations of those stores |
+| `EfCoreJtiReplayStore`, `EfCoreSpaceAuthorityStore`, `EfCoreSimpleSpaceStore` | Durable, multi-instance implementations of those stores (`ATProtoNet.Server.EntityFrameworkCore`) |
 | `SpaceWriteNotifier`, `ISpaceAccountSigner` | Deliver write and deletion notifications, signed as the account they speak for |
 
 ## See also

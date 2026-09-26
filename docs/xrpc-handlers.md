@@ -348,9 +348,10 @@ Some things to know:
 
 - **Run more than one instance? Share the replay store.** The default `InMemoryJtiReplayStore` is
   per-process, so a captured token replayed against another instance is accepted. Register
-  `AddAtProtoEfCoreJtiReplayStore<JtiReplayDbContext>()` (with `AddDbContextFactory<JtiReplayDbContext>`),
-  or implement `IJtiReplayStore` over anything with an atomic "set if absent, with expiry", such as
-  Redis `SET key 1 NX EXAT exp`. A space server uses the same store.
+  `AddAtProtoEfCoreJtiReplayStore<JtiReplayDbContext>()` (with `AddDbContextFactory<JtiReplayDbContext>`,
+  from the `ATProtoNet.Server.EntityFrameworkCore` package), or implement `IJtiReplayStore` over
+  anything with an atomic "set if absent, with expiry", such as Redis `SET key value NX EX ttl`
+  ([the whole store](spaces.md#a-replay-store-on-redis)). A space server uses the same store.
 - **Keys come from the DID document cache.** A token that fails against a cached key is retried
   once against a refreshed document, so a caller's key rotation is picked up at once. A key rotated
   *away* keeps verifying until the cached document expires, though: shorten the cache through

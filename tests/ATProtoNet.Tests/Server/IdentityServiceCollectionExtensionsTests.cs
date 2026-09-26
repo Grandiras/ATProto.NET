@@ -26,14 +26,29 @@ public class IdentityServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddAtProtoIdentity_FirstCallsOptionsWin()
+    public void AddAtProtoIdentity_CalledTwice_AppliesBothConfigurationsInOrder()
     {
         var services = new ServiceCollection()
             .AddAtProtoIdentity(o => o.RequestTimeout = TimeSpan.FromSeconds(2))
+            .AddAtProtoIdentity(o => o.MaxDidDocumentBytes = 8 * 1024)
             .AddAtProtoIdentity(o => o.RequestTimeout = TimeSpan.FromSeconds(9));
         using var provider = services.BuildServiceProvider();
 
-        Assert.Equal(TimeSpan.FromSeconds(2), provider.GetRequiredService<IdentityResolverOptions>().RequestTimeout);
+        var options = provider.GetRequiredService<IdentityResolverOptions>();
+        Assert.Equal(TimeSpan.FromSeconds(9), options.RequestTimeout);
+        Assert.Equal(8 * 1024, options.MaxDidDocumentBytes);
+        Assert.Same(options, provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<IdentityResolverOptions>>().Value);
+    }
+
+    [Fact]
+    public void AddAtProtoIdentity_AfterAddAtProtoSpaces_StillConfiguresTheResolvers()
+    {
+        var services = new ServiceCollection().AddLogging();
+        services.AddAtProtoSpaces();
+        services.AddAtProtoIdentity(o => o.PlcDirectoryUrl = new Uri("https://plc.example.com/"));
+        using var provider = services.BuildServiceProvider();
+
+        Assert.Equal(new Uri("https://plc.example.com/"), provider.GetRequiredService<IdentityResolverOptions>().PlcDirectoryUrl);
     }
 
     [Fact]

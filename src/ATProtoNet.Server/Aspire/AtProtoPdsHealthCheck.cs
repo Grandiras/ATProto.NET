@@ -6,6 +6,10 @@ namespace ATProtoNet.Aspire;
 /// Health check that verifies connectivity to the configured PDS instance
 /// by calling the <c>com.atproto.server.describeServer</c> endpoint.
 /// </summary>
+/// <remarks>
+/// An unreachable PDS reports the registration's failure status (<c>Degraded</c> as
+/// <c>WithHealthCheck()</c> registers it), or <see cref="HealthStatus.Unhealthy"/> without one.
+/// </remarks>
 public sealed class AtProtoPdsHealthCheck : IHealthCheck
 {
     private readonly AtProtoClient _client;
@@ -37,7 +41,8 @@ public sealed class AtProtoPdsHealthCheck : IHealthCheck
         }
         catch (Exception ex)
         {
-            return HealthCheckResult.Unhealthy(
+            return new HealthCheckResult(
+                context.Registration?.FailureStatus ?? HealthStatus.Unhealthy,
                 $"PDS unreachable at {_client.ServiceUrl}",
                 exception: ex);
         }

@@ -354,8 +354,10 @@ using ATProtoNet.Server.Authentication;
 
 // Program.cs
 builder.Services.AddAuthentication("Cookies").AddCookie("Cookies");
-builder.Services.AddAtProtoAuthentication();
-builder.Services.AddAtProtoServer();   // session store, client factory, refresh coordinator
+builder.Services.AddAtProto()
+    .WithOAuth()                  // the hosted login
+    .WithClientFactory()          // per-user clients and the refresh coordinator
+    .WithFileSessionStore();      // where the login keeps each session; in memory by default
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
@@ -364,11 +366,25 @@ app.UseAuthorization();
 app.MapAtProtoOAuth();  // Maps /atproto/login, /atproto/callback, /atproto/relay, /atproto/logout
 ```
 
-`AddAtProtoAuthentication()` registers `AtProtoOAuthService` and its `OAuthClient`, built from the
-options alone, as singletons. The client factory refreshes the sessions it restores with that
-`OAuthClient`, so a process that has just restarted refreshes the sessions it stored before. With
-an OAuth flow of your own, register your `OAuthClient` as a singleton instead, and the factory uses
-it.
+`WithOAuth()` registers `AtProtoOAuthService` and its `OAuthClient`, built from the options
+alone, as singletons. The client factory refreshes the sessions it restores with that
+`OAuthClient`, which it resolves when a client first needs it, so a process that has just
+restarted refreshes the sessions it stored before. With an OAuth flow of your own, register your
+`OAuthClient` as a singleton instead, and the factory uses it.
+
+`AtProtoOAuthServerOptions` goes through `IOptions<T>`: bind it from configuration with
+`builder.Services.Configure<AtProtoOAuthServerOptions>(builder.Configuration.GetSection("AtProto:OAuth"))`
+(everything but `ClientKeys` and `ClaimsFactory`, which are set in code), and a mistake (scopes
+without `atproto`, a `RoutePrefix` or `LoginPath` that is not a local path, `ClientKeys` without
+`ClientMetadata`, `ServeClientMetadata` with nothing to serve…) stops the host at startup.
+
+The login sends its discovery, PAR, token and revocation requests with the named `HttpClient`
+`AtProtoOAuthExtensions.HttpClientName` (`"ATProtoNet.OAuth"`), which `WithOAuth()` gives the
+identity fetch policy (public addresses only, no redirects) and `HttpClientTimeout`. Add logging or
+telemetry handlers to it with `builder.Services.AddHttpClient(AtProtoOAuthExtensions.HttpClientName)`,
+but no handler that retries: an authorization code and a refresh token are single-use, and a DPoP
+proof sent twice is refused. Aspire service defaults add a retrying one to every client; remove it
+with `.RemoveAllResilienceHandlers()` on that builder.
 
 For Blazor, the `ATProtoNet.Blazor` package adds a `LoginForm` component that submits to the
 login endpoint, and widgets that act as the signed-in user (see [blazor.md](blazor.md)):
@@ -413,9 +429,9 @@ After login, these claims are available on `context.User`; the names are constan
 | `pds_url` (`AtProtoClaimTypes.PdsUrl`) | User's PDS URL |
 | `auth_method` (`AtProtoClaimTypes.AuthMethod`) | Always `"oauth"` |
 
-With `AddAtProtoServer()` registered, the callback stores the `OAuthSession` in the
+With `WithClientFactory()` registered, the callback stores the `OAuthSession` in the
 `IAtProtoSessionStore`, and `/atproto/logout` removes it and revokes it at the authorization
-server. Both take the account's refresh lock (see [Refreshing Across Requests](#refreshing-across-requests)),
+server. Without it the login only signs users in, and keeps no tokens. Both take the account's refresh lock (see [Refreshing Across Requests](#refreshing-across-requests)),
 so neither interleaves with a refresh.
 
 ### Production Configuration
@@ -424,7 +440,7 @@ For production, provide explicit client metadata instead of the auto-generated l
 and let `MapAtProtoOAuth()` serve it at its `client_id`:
 
 ```csharp
-builder.Services.AddAtProtoAuthentication(options =>
+builder.Services.AddAtProto().WithOAuth(options =>
 {
     options.ClientMetadata = new OAuthClientMetadata
     {
@@ -442,7 +458,7 @@ builder.Services.AddAtProtoAuthentication(options =>
 A confidential client adds its keys, and can have their public halves served at its `jwks_uri`:
 
 ```csharp
-builder.Services.AddAtProtoAuthentication(options =>
+builder.Services.AddAtProto().WithOAuth(options =>
 {
     options.ClientMetadata = new OAuthClientMetadata
     {
@@ -468,7 +484,7 @@ rotation, and [blazor.md](blazor.md) for every option.
 The client factory creates a client per request from the stored session, so two requests of one
 user can find its access token about to expire at the same moment. Refresh tokens are single-use:
 if both clients refreshed, the authorization server would see its token spent twice and end the
-session. `AddAtProtoServer()` therefore registers an `ISessionRefreshCoordinator`
+session. `WithClientFactory()` therefore registers an `ISessionRefreshCoordinator`
 (`InProcessSessionRefreshCoordinator`), and every client the factory creates refreshes under the
 account's lock and reads the store once it holds it. A session another client has refreshed
 meanwhile is taken up without spending anything, and one the store no longer holds was signed out,

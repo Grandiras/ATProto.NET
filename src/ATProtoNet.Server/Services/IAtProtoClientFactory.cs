@@ -10,7 +10,7 @@ namespace ATProtoNet.Server.Services;
 /// <remarks>
 /// <para>Each call to <see cref="CreateClientForUserAsync"/> returns a new disposable client.
 /// The caller is responsible for disposing it after use.</para>
-/// <para>Register with <c>services.AddAtProtoServer()</c>.</para>
+/// <para>Register with <c>services.AddAtProto().WithClientFactory()</c>.</para>
 /// </remarks>
 /// <example>
 /// <code>

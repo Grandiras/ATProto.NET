@@ -203,9 +203,11 @@ builder.Services.AddAtProtoIdentity(o =>
 });
 ```
 
-Registration is idempotent and the first call's options win. `AddAtProtoSpaces` calls it, and
-the Blazor OAuth service picks up a registered `IIdentityResolver`, so call it first to
-configure what they use. The space server fetches under these options but keeps a shorter-lived
+Registration is idempotent. The options go through `IOptions<IdentityResolverOptions>`: every
+call's configuration applies, in order, whichever registration calls it first (`AddAtProtoSpaces`
+and `AddAtProtoServiceAuth` do, and the hosted OAuth login picks up a registered
+`IIdentityResolver`), they bind from configuration with
+`services.Configure<IdentityResolverOptions>(section)`, and a bad value stops the host at startup. The space server fetches under these options but keeps a shorter-lived
 cache of its own (`SpaceServerOptions.DidCache`: a hard 5-minute lifetime), because the documents it
 caches back credential checks; see
 [Permissioned Data](spaces.md).

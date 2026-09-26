@@ -69,6 +69,24 @@ public class AtProtoPdsHealthCheckTests
         Assert.Equal(HealthStatus.Unhealthy, result.Status);
     }
 
+    [Fact]
+    public async Task CheckHealthAsync_WhenServerThrows_ReportsTheRegistrationsFailureStatus()
+    {
+        // WithHealthCheck() registers the check as Degraded; it always answered Unhealthy.
+        var handler = new FakeHttpMessageHandler(
+            new HttpResponseMessage(HttpStatusCode.InternalServerError) { Content = new StringContent("Server Error") });
+        var healthCheck = new AtProtoPdsHealthCheck(CreateClientWithHandler(handler));
+
+        var result = await healthCheck.CheckHealthAsync(
+            new HealthCheckContext
+            {
+                Registration = new HealthCheckRegistration("test", healthCheck, HealthStatus.Degraded, null)
+            });
+
+        Assert.Equal(HealthStatus.Degraded, result.Status);
+        Assert.NotNull(result.Exception);
+    }
+
     private sealed class FakeHttpMessageHandler : HttpMessageHandler
     {
         private readonly HttpResponseMessage _response;

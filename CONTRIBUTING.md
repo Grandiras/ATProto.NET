@@ -204,6 +204,7 @@ public sealed class ListBlobsResponse : ICursorPage<Cid>
 
 - **ATProtoNet** — Core SDK, zero ASP.NET dependency
 - **ATProtoNet.Server** — ASP.NET Core integration (DI, OAuth cookie login, service auth)
+- **ATProtoNet.Server.EntityFrameworkCore** — EF Core stores for the server package
 - **ATProtoNet.Blazor** — Blazor components acting as the signed-in user
 
 ### Testing
@@ -235,6 +236,7 @@ ATProto.NET/
 │   │   ├── Serialization/       # JSON converters
 │   │   └── Streaming/           # Firehose / WebSocket
 │   ├── ATProtoNet.Server/       # ASP.NET Core integration
+│   ├── ATProtoNet.Server.EntityFrameworkCore/  # EF Core stores
 │   └── ATProtoNet.Blazor/       # Blazor components
 ├── tests/
 │   ├── ATProtoNet.Tests/        # Unit tests

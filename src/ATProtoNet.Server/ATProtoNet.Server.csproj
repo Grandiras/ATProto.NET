@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>ASP.NET Core integration for ATProtoNet — dependency injection, authentication, middleware, EF Core and Redis stores, and .NET Aspire client integration (health checks and resilience) for AT Protocol applications.</Description>
-    <PackageTags>atproto;bluesky;aspnetcore;at-protocol;dotnet;entityframeworkcore;redis;aspire</PackageTags>
+    <Description>ASP.NET Core integration for ATProtoNet — dependency injection, the OAuth cookie login and per-user clients, service auth, XRPC endpoint handlers, the space server, and .NET Aspire client integration for AT Protocol applications. Depends on nothing beyond the ASP.NET Core shared framework.</Description>
+    <PackageTags>atproto;bluesky;aspnetcore;at-protocol;dotnet;oauth;aspire</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,20 +13,14 @@
     <InternalsVisibleTo Include="ATProtoNet.Tests" />
     <!-- The components find the signed-in user the way the client factory does. -->
     <InternalsVisibleTo Include="ATProtoNet.Blazor" />
+    <!-- The EF Core space stores page their lists the way the in-memory ones do (SpacePaging). -->
+    <InternalsVisibleTo Include="ATProtoNet.Server.EntityFrameworkCore" />
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The only dependency beyond the core package: EF Core stores are in
+         ATProtoNet.Server.EntityFrameworkCore, and resilience is the application's to add. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- EF Core token store (merged from ATProtoNet.Server.EntityFrameworkCore) -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.10" />
-    <!-- Aspire client integration: standard resilience handler (merged from ATProtoNet.Aspire) -->
-    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.8.0" />
-    <!-- Redis-backed space replay store: SET NX is what makes spending a single-use token atomic
-         across instances, and no abstraction in the shared framework offers it. -->
-    <PackageReference Include="StackExchange.Redis" Version="2.13.17" />
   </ItemGroup>
 
 </Project>

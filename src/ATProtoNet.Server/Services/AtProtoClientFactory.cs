@@ -24,16 +24,14 @@ namespace ATProtoNet.Server.Services;
 /// </remarks>
 public sealed class AtProtoClientFactory : IAtProtoClientFactory
 {
-    /// <summary>The name of the <see cref="HttpClient"/> the per-request clients send with.</summary>
-    internal const string HttpClientName = "AtProtoClient";
-
     /// <summary>The most accounts whose DPoP keys are kept; beyond it the least recently used go.</summary>
     internal const int MaxCachedKeys = 1024;
 
     private readonly IAtProtoSessionStore _sessionStore;
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly OAuthClient? _oauthClient;
+    private readonly Func<OAuthClient?> _oauthClient;
     private readonly ISessionRefreshCoordinator? _refreshCoordinator;
+    private readonly AtProtoClientOptions? _clientOptions;
     private readonly ILogger<AtProtoClient> _clientLogger;
     private readonly ILogger<AtProtoClientFactory> _logger;
     private readonly ConcurrentDictionary<Did, CachedKey> _keys = new();
@@ -43,15 +41,18 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
     /// Creates a new <see cref="AtProtoClientFactory"/>.
     /// </summary>
     /// <param name="sessionStore">Store of the users' sessions.</param>
-    /// <param name="httpClientFactory">HTTP client factory for outbound requests.</param>
+    /// <param name="httpClientFactory">
+    /// Creates the <see cref="HttpClient"/> the clients send with, the one named
+    /// <see cref="AtProtoServiceCollectionExtensions.HttpClientName"/>.
+    /// </param>
     /// <param name="loggerFactory">Logger factory.</param>
     /// <param name="oauthClient">
     /// The <see cref="OAuthClient"/> that refreshes and revokes OAuth sessions: the one the hosted
-    /// login registers (<c>AddAtProtoAuthentication()</c>), or your own registered in dependency
+    /// login registers (<c>WithOAuth()</c>), or your own registered in dependency
     /// injection. Without one, a client on an OAuth session works until its access token expires.
     /// </param>
     /// <param name="refreshCoordinator">
-    /// Coordinates the per-request clients' refreshes, registered by <c>AddAtProtoServer()</c>;
+    /// Coordinates the per-request clients' refreshes, registered by <c>WithClientFactory()</c>;
     /// share the same instance with anything else that writes to the store. Without one, two
     /// concurrent requests for a user can both spend its refresh token.
     /// </param>
@@ -61,6 +62,33 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
         ILoggerFactory loggerFactory,
         OAuthClient? oauthClient = null,
         ISessionRefreshCoordinator? refreshCoordinator = null)
+        : this(sessionStore, httpClientFactory, loggerFactory, () => oauthClient, refreshCoordinator, clientOptions: null)
+    {
+    }
+
+    /// <summary>
+    /// Creates a factory that resolves its <see cref="OAuthClient"/> when a client first needs
+    /// one, and gives its clients the transport settings of <paramref name="clientOptions"/>, as
+    /// the dependency injection registration does.
+    /// </summary>
+    /// <param name="sessionStore">Store of the users' sessions.</param>
+    /// <param name="httpClientFactory">Creates the clients' <see cref="HttpClient"/>.</param>
+    /// <param name="loggerFactory">Logger factory.</param>
+    /// <param name="oauthClient">Resolves the <see cref="OAuthClient"/> on first use.</param>
+    /// <param name="refreshCoordinator">Coordinates the clients' refreshes.</param>
+    /// <param name="clientOptions">
+    /// The registration's options, whose <see cref="AtProtoClientOptions.UserAgent"/> and
+    /// <see cref="AtProtoClientOptions.RateLimit"/> the clients take. The rest describe one
+    /// account's session and do not apply: a client addresses its user's PDS and refreshes on
+    /// demand under <paramref name="refreshCoordinator"/>.
+    /// </param>
+    internal AtProtoClientFactory(
+        IAtProtoSessionStore sessionStore,
+        IHttpClientFactory httpClientFactory,
+        ILoggerFactory loggerFactory,
+        Func<OAuthClient?> oauthClient,
+        ISessionRefreshCoordinator? refreshCoordinator,
+        AtProtoClientOptions? clientOptions)
     {
         _sessionStore = sessionStore ?? throw new ArgumentNullException(nameof(sessionStore));
         _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
@@ -68,9 +96,13 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
 
         _oauthClient = oauthClient;
         _refreshCoordinator = refreshCoordinator;
+        _clientOptions = clientOptions;
         _clientLogger = loggerFactory.CreateLogger<AtProtoClient>();
         _logger = loggerFactory.CreateLogger<AtProtoClientFactory>();
     }
+
+    /// <summary>The coordinator the clients refresh under.</summary>
+    internal ISessionRefreshCoordinator? RefreshCoordinator => _refreshCoordinator;
 
     /// <summary>How many accounts' DPoP keys are cached.</summary>
     internal int CachedKeyCount => _keys.Count;
@@ -98,8 +130,8 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
         // Refreshes on demand and persists rotated tokens to the same store, so a refresh made
         // by this request is what the next request's client reads.
         var client = new AtProtoClient(
-            new AtProtoClientOptions { RefreshCoordinator = _refreshCoordinator },
-            _httpClientFactory.CreateClient(HttpClientName),
+            CreateClientOptions(),
+            _httpClientFactory.CreateClient(AtProtoServiceCollectionExtensions.HttpClientName),
             _sessionStore,
             _clientLogger);
 
@@ -116,13 +148,14 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
         try
         {
             var key = session is OAuthSession oauth ? KeyFor(oauth) : null;
-            await client.InstallStoredSessionAsync(session, _oauthClient, key, cancellationToken);
+            var oauthClient = session is OAuthSession ? _oauthClient() : null;
+            await client.InstallStoredSessionAsync(session, oauthClient, key, cancellationToken);
 
-            if (session is OAuthSession && _oauthClient is null && Interlocked.Exchange(ref _warnedNoOAuthClient, 1) == 0)
+            if (session is OAuthSession && oauthClient is null && Interlocked.Exchange(ref _warnedNoOAuthClient, 1) == 0)
             {
                 _logger.LogWarning(
                     "No OAuthClient is registered, so per-request clients cannot refresh OAuth sessions once their " +
-                    "access tokens expire. Register the hosted login (AddAtProtoAuthentication) or your own OAuthClient.");
+                    "access tokens expire. Register the hosted login (WithOAuth) or your own OAuthClient.");
             }
         }
         catch
@@ -132,6 +165,23 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
         }
 
         return client;
+    }
+
+    /// <summary>
+    /// A client's options: the registration's transport settings, and the refresh behaviour every
+    /// per-request client needs whatever the registered client's (on demand, no timer, under the
+    /// factory's coordinator).
+    /// </summary>
+    private AtProtoClientOptions CreateClientOptions()
+    {
+        var options = new AtProtoClientOptions { RefreshCoordinator = _refreshCoordinator };
+        if (_clientOptions is { } configured)
+        {
+            options.UserAgent = configured.UserAgent;
+            options.RateLimit = configured.RateLimit;
+        }
+
+        return options;
     }
 
     /// <summary>

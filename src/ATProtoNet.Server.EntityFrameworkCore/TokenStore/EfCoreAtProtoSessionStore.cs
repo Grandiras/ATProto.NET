@@ -18,7 +18,7 @@ namespace ATProtoNet.Server.EntityFrameworkCore;
 /// across instances (e.g., via Azure Blob Storage, a shared file system, or a database).</para>
 /// <para>Each session is one <see cref="AtProtoTokenEntity"/> row holding the encrypted session
 /// JSON; rows written by the 0.6 token store are read as OAuth sessions.</para>
-/// <para>Use <see cref="AtProtoTokenStoreExtensions.AddAtProtoEfCoreSessionStore{TContext}"/>
+/// <para>Use <see cref="AtProtoTokenStoreExtensions.WithEfCoreSessionStore{TContext}"/>
 /// to register this store with dependency injection.</para>
 /// </remarks>
 /// <typeparam name="TContext">

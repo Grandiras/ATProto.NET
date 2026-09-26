@@ -25,7 +25,7 @@ namespace ATProtoNet.Server.Authentication;
 /// the session there for <c>IAtProtoClientFactory</c>, and revokes and removes it on sign-out.</para>
 /// <para>Its <see cref="Client"/> is built from the options alone, without a request, so a
 /// process that has just started can refresh the sessions it stored before. Registered as a
-/// singleton by <see cref="AtProtoOAuthExtensions.AddAtProtoAuthentication"/>, which also
+/// singleton by <see cref="AtProtoOAuthExtensions.WithOAuth"/>, which also
 /// registers that client as the <see cref="OAuthClient"/>.</para>
 /// </remarks>
 public sealed class AtProtoOAuthService : IDisposable
@@ -72,9 +72,15 @@ public sealed class AtProtoOAuthService : IDisposable
     /// </param>
     /// <param name="refreshCoordinator">
     /// The coordinator the client factory's clients refresh under (registered by
-    /// <c>AddAtProtoServer()</c>). Storing a new session and signing out take the account's
+    /// <c>WithClientFactory()</c>). Storing a new session and signing out take the account's
     /// lock too, so neither interleaves with a refresh.
     /// </param>
+    /// <remarks>
+    /// Without <see cref="AtProtoOAuthServerOptions.HttpClient"/>, a service constructed here
+    /// creates and owns a client under the identity fetch policy. The one <c>WithOAuth()</c>
+    /// registers sends with the named client <see cref="AtProtoOAuthExtensions.HttpClientName"/>
+    /// instead, which it configures with the same policy.
+    /// </remarks>
     public AtProtoOAuthService(
         AtProtoOAuthServerOptions serverOptions,
         ILoggerFactory loggerFactory,
@@ -93,6 +99,16 @@ public sealed class AtProtoOAuthService : IDisposable
         _server = server;
         _refreshCoordinator = refreshCoordinator;
     }
+
+    /// <summary>
+    /// The factory of the named client <see cref="AtProtoOAuthExtensions.HttpClientName"/>, set
+    /// only by <c>WithOAuth()</c>, which gives that name the identity fetch policy. Anywhere else
+    /// the name could carry a default handler that follows redirects to private addresses.
+    /// </summary>
+    internal IHttpClientFactory? PolicyHttpClientFactory { get; init; }
+
+    /// <summary>The coordinator a new session is stored under and a sign-out waits on.</summary>
+    internal ISessionRefreshCoordinator? RefreshCoordinator => _refreshCoordinator;
 
     /// <summary>The clock relayed logins expire by.</summary>
     internal TimeProvider TimeProvider { get; init; } = TimeProvider.System;
@@ -156,10 +172,10 @@ public sealed class AtProtoOAuthService : IDisposable
             }
 
             // A caller-supplied client is theirs: it is used as is (so it is theirs to secure),
-            // its Timeout is left alone, and it is not disposed with this service. An owned one
-            // runs under the identity fetch policy, public addresses only, with the configured
-            // timeout.
-            var httpClient = _serverOptions.HttpClient;
+            // its Timeout is left alone, and it is not disposed with this service. So is the
+            // factory's, which WithOAuth configures. An owned one runs under the identity fetch
+            // policy, public addresses only, with the configured timeout.
+            var httpClient = _serverOptions.HttpClient ?? PolicyHttpClientFactory?.CreateClient(AtProtoOAuthExtensions.HttpClientName);
             HttpClient? owned = null;
             if (httpClient is null)
             {

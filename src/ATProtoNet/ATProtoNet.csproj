@@ -8,6 +8,8 @@
   <ItemGroup>
     <InternalsVisibleTo Include="ATProtoNet.Tests" />
     <InternalsVisibleTo Include="ATProtoNet.Server" />
+    <!-- The EF Core session store reads and writes sessions in the SDK's JSON form. -->
+    <InternalsVisibleTo Include="ATProtoNet.Server.EntityFrameworkCore" />
   </ItemGroup>
 
   <ItemGroup>

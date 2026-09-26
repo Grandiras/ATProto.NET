@@ -21,20 +21,23 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.ExpireTimeSpan = TimeSpan.FromDays(7);
     });
 
-// 2. Register the AT Proto OAuth login (ATProtoNet.Server). Without ClientMetadata it is a
-//    development loopback client on the server's plain HTTP address (see launchSettings.json).
-builder.Services.AddAtProtoAuthentication(options =>
-{
-    options.ClientName = "ATProto.NET Server Integration Sample";
-    options.LoginPath = "/login";
-});
+// 2. Register AT Proto (ATProtoNet.Server):
+//    - the OAuth login. Without ClientMetadata it is a development loopback client on the
+//      server's plain HTTP address (see launchSettings.json).
+//    - the client factory, for backend AT Proto access as the signed-in user.
+//    - the session store the login keeps each session in for the factory, and revokes and
+//      removes it from on logout. In memory here, so a restart signs everyone out; use
+//      WithFileSessionStore() or WithEfCoreSessionStore<T>() for anything that should last.
+builder.Services.AddAtProto()
+    .WithOAuth(options =>
+    {
+        options.ClientName = "ATProto.NET Server Integration Sample";
+        options.LoginPath = "/login";
+    })
+    .WithClientFactory()
+    .WithInMemorySessionStore();
 
-// 3. Register AT Proto Server (enables backend AT Proto access via IAtProtoClientFactory)
-//    This also registers IAtProtoSessionStore, which the OAuth login uses to store the session
-//    after login and revoke it on logout.
-builder.Services.AddAtProtoServer();
-
-// 4. Register the Blazor components' client: FeedView, PostCard, ProfileCard and ComposePost
+// 3. Register the Blazor components' client: FeedView, PostCard, ProfileCard and ComposePost
 //    act as the signed-in user through it.
 builder.Services.AddAtProtoBlazor();
 
@@ -58,7 +61,7 @@ app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-// 5. Map AT Proto OAuth endpoints: /atproto/login, /atproto/callback, /atproto/relay, /atproto/logout
+// 4. Map AT Proto OAuth endpoints: /atproto/login, /atproto/callback, /atproto/relay, /atproto/logout
 app.MapAtProtoOAuth();
 
 // ─────────────────────────────────────────────

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Entity Framework Core stores for ATProtoNet.Server — the encrypted session store, the single-use token replay store, the space server's authority and simplespace stores, and Sync 1.1 repository state — for multi-instance AT Protocol services on any relational database.</Description>
+    <PackageTags>atproto;bluesky;aspnetcore;at-protocol;dotnet;entityframeworkcore</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ATProtoNet.Server\ATProtoNet.Server.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ATProtoNet.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Data Protection encrypts the stored sessions. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Keep Microsoft.EntityFrameworkCore.InMemory and .Sqlite in tests/ATProtoNet.Tests on
+         exactly this version: a mismatch loads two EF Core Abstractions assemblies. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.10" />
+  </ItemGroup>
+
+</Project>

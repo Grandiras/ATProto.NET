@@ -32,14 +32,14 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.ExpireTimeSpan = TimeSpan.FromDays(7);
     });
 
-// 2. Register the AT Proto OAuth login (a loopback client_id for development)
-builder.Services.AddAtProtoAuthentication(options =>
-{
-    options.ClientName = "My App";
-});
+// 2. Register the AT Proto OAuth login (a loopback client_id for development), the client
+//    factory and a session store (in memory, with a startup warning, unless you choose one)
+builder.Services.AddAtProto()
+    .WithOAuth(options => options.ClientName = "My App")
+    .WithClientFactory()
+    .WithFileSessionStore();
 
-// 3. Register the session store and client factory, and the widgets' user client
-builder.Services.AddAtProtoServer();
+// 3. Register the widgets' user client
 builder.Services.AddAtProtoBlazor();
 
 builder.Services.AddCascadingAuthenticationState();
@@ -197,7 +197,7 @@ session by it. They only look at the identity the login issues (authentication t
 never at a service auth identity carrying the same claim.
 
 ```csharp
-builder.Services.AddAtProtoAuthentication(options =>
+builder.Services.AddAtProto().WithOAuth(options =>
 {
     // session is the OAuthSession the callback produced
     options.ClaimsFactory = session => new[]
@@ -214,7 +214,10 @@ builder.Services.AddAtProtoAuthentication(options =>
 
 ### AtProtoOAuthServerOptions
 
-`AtProtoOAuthServerOptions` (`ATProtoNet.Server.Authentication`) configures the login:
+`AtProtoOAuthServerOptions` (`ATProtoNet.Server.Authentication`) configures the login. It goes
+through `IOptions<T>`, so it also binds from configuration
+(`builder.Services.Configure<AtProtoOAuthServerOptions>(section)`), and a bad value stops the host
+at startup:
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
@@ -232,8 +235,8 @@ builder.Services.AddAtProtoAuthentication(options =>
 | `ClaimsFactory` | `Func<OAuthSession, IEnumerable<Claim>>?` | — | Custom claims factory |
 | `CookieExpiration` | `TimeSpan` | 7 days | Cookie lifetime |
 | `IsPersistent` | `bool` | `true` | Persist cookie across sessions |
-| `HttpClient` | `HttpClient?` | — | Client used for OAuth discovery, pushed authorization, token and revocation requests. Caller-owned: used as is, its `Timeout` is untouched and it is not disposed with the service |
-| `HttpClientTimeout` | `TimeSpan` | 30 s | Timeout for the SDK-created OAuth `HttpClient`. Ignored when `HttpClient` is set |
+| `HttpClient` | `HttpClient?` | — | Client used for OAuth discovery, pushed authorization, token and revocation requests. Caller-owned: used as is, its `Timeout` is untouched and it is not disposed with the service. Without it, the named client `AtProtoOAuthExtensions.HttpClientName` is used |
+| `HttpClientTimeout` | `TimeSpan` | 30 s | Timeout of the OAuth `HttpClient`. Ignored when `HttpClient` is set |
 | `HandleResolutionTimeout` | `TimeSpan` | 5 s | Budget per handle-resolution round. `Timeout.InfiniteTimeSpan` disables it |
 | `AllowPrivateNetworks` | `bool` | `false` | Development opt-out for a local PDS or PLC: plain HTTP and private addresses in discovery and identity resolution. Never set it where users can name any handle, DID or PDS |
 
@@ -242,9 +245,11 @@ registered as the `OAuthClient` singleton, which the client factory refreshes an
 with.
 
 Without `HttpClient`, every request to a PDS or an authorization server (metadata, pushed
-authorization, token, refresh, revocation) goes out under the identity fetch policy (public
-addresses only, no redirects; see [OAuth](oauth.md#fetch-policy)). That owned client connects
-directly and never through a proxy — the policy checks the address it connects to, and a proxy
+authorization, token, refresh, revocation) goes out through the named client
+`AtProtoOAuthExtensions.HttpClientName` under the identity fetch policy (public addresses only, no
+redirects; see [OAuth](oauth.md#fetch-policy)). Handlers added to that name (logging, telemetry)
+apply, but never add one that retries: codes and refresh tokens are single-use and DPoP proofs are
+refused when replayed. Its primary handler connects directly and never through a proxy — the policy checks the address it connects to, and a proxy
 would make that the proxy's address rather than the target's. An application that must reach the
 internet through an egress proxy supplies its own `HttpClient` (which is then used as is, proxy
 included) and relies on the proxy to keep requests off private addresses. A supplied `HttpClient`
@@ -274,7 +279,7 @@ builder.Services.AddSingleton<IOAuthStateStore>(sp => new DistributedCacheOAuthS
 Handle resolution talks to a host named by the user (`https://<handle>/.well-known/atproto-did`), which may be parked or firewalled and silently drop traffic on port 443. The SDK runs that lookup alongside the DNS-over-HTTPS TXT lookup and bounds both with `HandleResolutionTimeout`, so a dead handle domain costs a few seconds instead of the `HttpClient` timeout. When an `IIdentityResolver` is registered (`AddAtProtoIdentity`), the service uses it instead, and its own options apply. Raise it for slow networks, or lower it for a snappier sign-in:
 
 ```csharp
-builder.Services.AddAtProtoAuthentication(options =>
+builder.Services.AddAtProto().WithOAuth(options =>
 {
     options.HandleResolutionTimeout = TimeSpan.FromSeconds(3);
     options.HttpClientTimeout = TimeSpan.FromSeconds(20);
@@ -283,10 +288,10 @@ builder.Services.AddAtProtoAuthentication(options =>
 
 ### Development (Loopback Client)
 
-For development, the library auto-generates [loopback client metadata](https://atproto.com/specs/oauth#localhost-client-development). Just call `AddAtProtoAuthentication()` without explicit `ClientMetadata`:
+For development, the library auto-generates [loopback client metadata](https://atproto.com/specs/oauth#localhost-client-development). Just call `WithOAuth()` without explicit `ClientMetadata`:
 
 ```csharp
-builder.Services.AddAtProtoAuthentication(options =>
+builder.Services.AddAtProto().WithOAuth(options =>
 {
     options.ClientName = "My Dev App";
 });
@@ -298,14 +303,16 @@ server's plain HTTP address on `127.0.0.1` (a `localhost` or any-address binding
 so after a restart the stored sessions still refresh. Bind a plain HTTP address, such as
 `http://127.0.0.1:5000` in `launchSettings.json`, even when the browser uses HTTPS: loopback
 clients call back over HTTP, and the login relays the cookie to the browser's origin. Without one
-(and without `BaseUrl`), the login fails with an `InvalidOperationException` saying so.
+(and without `BaseUrl`), the login fails with an `InvalidOperationException` saying so. The client
+is built when a login or a stored session first needs it, after the server has started, so
+resolving the client factory earlier is fine.
 
 ### Production
 
 For production, host a [client metadata JSON document](https://drafts.aaronpk.com/draft-parecki-oauth-client-id-metadata-document/) at a public HTTPS URL and provide it explicitly; `ServeClientMetadata` has `MapAtProtoOAuth()` serve it at its `client_id`:
 
 ```csharp
-builder.Services.AddAtProtoAuthentication(options =>
+builder.Services.AddAtProto().WithOAuth(options =>
 {
     options.ClientMetadata = new OAuthClientMetadata
     {
@@ -458,9 +465,9 @@ takes a `CssClass` for its container.
 
 ## Backend AT Proto Access
 
-`AddAtProtoServer()` registers `IAtProtoSessionStore` and `IAtProtoClientFactory`, which API
-endpoints and services use to create authenticated `AtProtoClient` instances for logged-in users.
-See [server.md](server.md) for full documentation.
+`WithClientFactory()` registers `IAtProtoClientFactory` and the `IAtProtoSessionStore` it reads,
+which API endpoints and services use to create authenticated `AtProtoClient` instances for
+logged-in users. See [server.md](server.md) for full documentation, and for choosing the store.
 
 ## Examples
 

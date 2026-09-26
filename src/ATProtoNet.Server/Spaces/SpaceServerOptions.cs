@@ -9,10 +9,10 @@ namespace ATProtoNet.Server.Spaces;
 /// tokens presented to it.
 /// </summary>
 /// <remarks>
-/// A single service can act as a space authority, a repo host, or both. Only
-/// <see cref="ServiceDid"/> is always required; the authority half additionally needs a
-/// credential signing key, which is supplied to
-/// <see cref="SpaceCredentialIssuer"/> rather than held here.
+/// A single service can act as a space authority, a repo host, or both. The authority half needs
+/// <see cref="ServiceDid"/> (checked when the host starts) and a credential signing key, which is
+/// supplied to <see cref="SpaceCredentialIssuer"/> rather than held here. A service that only
+/// verifies, or only hosts repos, can leave <see cref="ServiceDid"/> unset.
 /// </remarks>
 public sealed class SpaceServerOptions
 {

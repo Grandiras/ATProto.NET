@@ -1,6 +1,8 @@
 # .NET Aspire Integration
 
-The `ATProtoNet.Server` package integrates ATProto.NET into .NET Aspire service defaults with health checks, resilience policies, and configuration binding. (This client integration previously shipped as the separate `ATProtoNet.Aspire` package; it has been merged into `ATProtoNet.Server`. The `ATProtoNet.Aspire` namespace and the `AddAtProtoClient()` API are unchanged.)
+The `ATProtoNet.Server` package integrates ATProto.NET into .NET Aspire service defaults: the
+`AtProtoClient` bound from configuration (or from the PDS resource's connection string), and a
+health check for the PDS. It adds no resilience handler; see [Resilience](#resilience).
 
 ## Installation
 
@@ -15,7 +17,7 @@ using ATProtoNet.Aspire;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// One-line registration with health checks and resilience
+// The client, bound from the "AtProto" section, and the atproto-pds health check
 builder.AddAtProtoClient();
 
 var app = builder.Build();
@@ -24,30 +26,56 @@ var app = builder.Build();
 var client = app.Services.GetRequiredService<AtProtoClient>();
 ```
 
+`AddAtProtoClient()` returns the same `IAtProtoBuilder` as `services.AddAtProto()` (see
+[Server Integration](server.md#the-atproto-builder)), so the rest of the registration chains on:
+
+```csharp
+builder.AddAtProtoClient()
+    .WithOAuth()
+    .WithClientFactory()
+    .WithFileSessionStore();
+```
+
 ## Configuration
 
 ### Via appsettings.json
+
+The section binds to `AtProtoClientOptions`; `DisableHealthChecks` leaves out the health check.
 
 ```json
 {
   "AtProto": {
     "InstanceUrl": "https://bsky.social",
     "AutoRefreshSession": true,
-    "DisableHealthChecks": false,
-    "DisableResilience": false
+    "UserAgent": "MyApp/1.0",
+    "RateLimit": { "MaxRetries": 3, "MaxDelay": "00:00:30" },
+    "DisableHealthChecks": false
   }
 }
 ```
 
-### Via Code
+A bad value, such as an `InstanceUrl` that is not an absolute http(s) URL, stops the host at
+startup with an `OptionsValidationException`.
+
+### From the AppHost
+
+An AppHost that references the PDS resource (`WithReference(pds)`, which `WithAtProtoPds(pds)`
+does) gives the project the PDS URL as the connection string `ConnectionStrings:pds`. Name it, and
+it becomes the `InstanceUrl`:
 
 ```csharp
-builder.AddAtProtoClient(configureSettings: settings =>
+builder.AddAtProtoClient(connectionName: "pds");
+```
+
+### Via Code
+
+The callback runs after the configuration section and the connection string, so it wins, even over a `services.AddAtProto(o => …)` made before `AddAtProtoClient()`:
+
+```csharp
+builder.AddAtProtoClient(configure: options =>
 {
-    settings.InstanceUrl = "https://my-pds.example.com";
-    settings.AutoRefreshSession = true;
-    settings.DisableHealthChecks = false;
-    settings.DisableResilience = false;
+    options.InstanceUrl = "https://my-pds.example.com";
+    options.AutoRefreshSession = true;
 });
 ```
 
@@ -57,43 +85,70 @@ builder.AddAtProtoClient(configureSettings: settings =>
 builder.AddAtProtoClient(configurationSectionName: "MyApp:AtProto");
 ```
 
-## Settings Reference
+## Options Reference
 
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
 | `InstanceUrl` | `string` | `"https://bsky.social"` | PDS / service instance URL |
 | `AutoRefreshSession` | `bool` | `true` | Refresh the session on demand, before expiry and after an `ExpiredToken` |
-| `DisableHealthChecks` | `bool` | `false` | Disable PDS connectivity health check |
-| `DisableResilience` | `bool` | `false` | Disable standard HTTP resilience |
+| `BackgroundRefresh` | `bool` | `false` | Also refresh on a timer while idle |
+| `UserAgent` | `string` | `ATProtoNet/<version>` | The `User-Agent` sent with every request |
+| `RateLimit:MaxRetries` / `RateLimit:MaxDelay` | `int` / `TimeSpan` | `3` / `30s` | How a `429` is retried |
+| `DisableHealthChecks` | `bool` | `false` | Leave out the PDS health check (read by `AddAtProtoClient` only) |
 
 ## Health Checks
 
-By default, a health check named `atproto-pds` is registered. It verifies PDS connectivity by calling `com.atproto.server.describeServer`. The check is tagged with `atproto` and `ready`.
+By default, a health check named `atproto-pds` is registered. It verifies PDS connectivity by
+calling `com.atproto.server.describeServer`, reports `Degraded` when the PDS is unreachable, and is
+tagged with `atproto` and `ready`. Outside Aspire, add it with `.WithHealthCheck()` on the builder,
+which also takes another name, failure status and tags.
 
 ```csharp
 // Health check is automatically registered
 // Access at /health or via Aspire dashboard
 
-// To disable:
-builder.AddAtProtoClient(configureSettings: s => s.DisableHealthChecks = true);
+// To disable, set AtProto:DisableHealthChecks to true
 ```
 
 ## Resilience
 
-Standard HTTP resilience (retry with exponential backoff, circuit breaker) is added via `Microsoft.Extensions.Http.Resilience`. This protects against transient network failures.
+The SDK adds no resilience handler, and must not be combined with one that retries on its own. The
+SDK already retries a `429` (`AtProtoClientOptions.RateLimit`), refreshes an expired session, and
+signs a fresh DPoP proof for every attempt. A handler below it that retries would send a
+non-idempotent `POST` twice (a `createRecord` becomes two records) and resend a request with the
+DPoP proof it already carries. A DPoP proof is single-use (its `jti` is spent the first time the
+server sees it), so the resent request is refused, or worse accepted by a server that does not
+track proofs, which is the replay DPoP exists to stop. The OAuth login's authorization codes and
+refresh tokens are single-use too.
+
+The named client `"ATProtoNet"` (`IAtProtoBuilder.HttpClient`) is shared by the registered
+`AtProtoClient` and the client factory's per-user clients, whose OAuth sessions sign every request
+with a DPoP proof. So there is no retry policy that is safe on it, not even one limited to `GET`:
+leave retries to the SDK, and for transient server errors wrap the call in your own retry, where
+each attempt is a new request with a new proof (see [Error Handling](error-handling.md#retry-pattern)).
+
+Aspire's `ServiceDefaults` add the standard resilience handler to *every* client through
+`ConfigureHttpClientDefaults`, retries, a 10-second attempt timeout (which also cuts off a large
+`getRepo` or `getBlob` download) and all. Remove it from the SDK's clients (the method is
+experimental in `Microsoft.Extensions.Http.Resilience`, hence the pragma):
 
 ```csharp
-// To disable resilience handlers:
-builder.AddAtProtoClient(configureSettings: s => s.DisableResilience = true);
+#pragma warning disable EXTEXP0001
+var atproto = builder.AddAtProtoClient();
+atproto.HttpClient.RemoveAllResilienceHandlers();
+// With the hosted OAuth login (WithOAuth), its client too:
+builder.Services.AddHttpClient(AtProtoOAuthExtensions.HttpClientName).RemoveAllResilienceHandlers();
+#pragma warning restore EXTEXP0001
 ```
 
 ## What It Registers
 
 `AddAtProtoClient()` registers:
 
-1. **Named HttpClient** (`"ATProtoNet"`) with the SDK's connection settings (response decompression, a 5-minute connection lifetime) and optional resilience handler
-2. **`AtProtoClient`** as a singleton, configured from `IConfiguration` and `IHttpClientFactory`
-3. **Health check** (`atproto-pds`) verifying PDS connectivity
+1. **`AtProtoClientOptions`** through `IOptions<T>`, bound from the configuration section (and the connection string), validated at startup
+2. **Named HttpClient** (`AtProtoServiceCollectionExtensions.HttpClientName`, `"ATProtoNet"`) with the SDK's connection settings (response decompression, a 5-minute connection lifetime), exposed as `IAtProtoBuilder.HttpClient`
+3. **`AtProtoClient`** as a singleton (`.WithLifetime(...)` changes it)
+4. **Health check** (`atproto-pds`) verifying PDS connectivity, unless disabled
 
 ## Usage in Services
 
@@ -231,7 +286,7 @@ In your API project:
 
 ```csharp
 builder.AddServiceDefaults();
-builder.AddAtProtoClient();
+builder.AddAtProtoClient();   // and remove the default resilience handler, as above
 ```
 
 ## Next Steps

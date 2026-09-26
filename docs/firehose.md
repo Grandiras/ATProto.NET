@@ -287,7 +287,7 @@ await verifier.StateStore.SetAsync(new RepoSyncState(did, Rev: null, Data: null,
 
 ### Keeping state
 
-`IRepoSyncStateStore` keeps each repository's last revision, tree root and status. `InMemoryRepoSyncStateStore` is fast and forgets everything on restart, after which each repository starts a new chain at its next commit. `ATProtoNet.Server` has an EF Core store that survives restarts:
+`IRepoSyncStateStore` keeps each repository's last revision, tree root and status. `InMemoryRepoSyncStateStore` is fast and forgets everything on restart, after which each repository starts a new chain at its next commit. The `ATProtoNet.Server.EntityFrameworkCore` package has an EF Core store that survives restarts:
 
 ```csharp
 builder.Services.AddDbContextFactory<RepoSyncStateDbContext>(o => o.UseNpgsql(connectionString));

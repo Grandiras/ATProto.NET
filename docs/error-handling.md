@@ -141,7 +141,7 @@ catch (XrpcRateLimitException ex)
 }
 ```
 
-Set `MaxRetries = 0` when the `HttpClient` you pass in already has a retrying resilience handler, so the two do not multiply.
+Do not pass an `HttpClient` whose pipeline retries on its own. A retry below the SDK resends a non-idempotent `POST` (a `createRecord` twice) and the request's DPoP proof, which is single-use, and it multiplies with the SDK's own 429 retries. Under Aspire service defaults, which add a retrying handler to every client, remove it from the SDK's clients (see [.NET Aspire Integration](aspire.md#resilience)). If a shared client you do not control must retry, set `MaxRetries = 0` so the two at least do not multiply, and use it only for a client that sends no DPoP proofs.
 
 ## Responses that do not match
 
@@ -195,7 +195,8 @@ bool exists = await todos.ExistsAsync(RecordKey.Parse("some-key"));
 
 The client already retries 429s within `XrpcRateLimitOptions`, and with `AutoRefreshSession` on it
 refreshes an expired session and resends the request by itself. For transient server errors, a small
-wrapper does the rest:
+wrapper above the SDK does the rest: each attempt is a new request with a fresh DPoP proof. Retry
+only calls that are safe to repeat, since a `502` does not say whether a write went through:
 
 ```csharp
 async Task<T> WithRetryAsync<T>(Func<Task<T>> operation, int maxRetries = 3)

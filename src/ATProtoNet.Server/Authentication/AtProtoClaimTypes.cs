@@ -2,7 +2,7 @@ namespace ATProtoNet.Server.Authentication;
 
 /// <summary>
 /// The claim types the AT Protocol authentication schemes issue: the OAuth cookie login
-/// (<see cref="AtProtoOAuthExtensions.AddAtProtoAuthentication"/>) and service auth
+/// (<see cref="AtProtoOAuthExtensions.WithOAuth"/>) and service auth
 /// (<see cref="AtProtoServiceAuthExtensions.AddAtProtoServiceAuth(Microsoft.AspNetCore.Authentication.AuthenticationBuilder, Action{AtProtoServiceAuthOptions}?)"/>).
 /// </summary>
 /// <remarks>

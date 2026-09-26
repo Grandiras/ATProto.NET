@@ -1,6 +1,6 @@
 # Architecture
 
-ATProto.NET is split into four runtime packages plus one `dotnet tool`. They layer onto each other so you take only what you need — the core SDK has no ASP.NET dependency, and each integration package adds one capability on top.
+ATProto.NET is split into five runtime packages plus one `dotnet tool`. They layer onto each other so you take only what you need — the core SDK has no ASP.NET dependency, and each integration package adds one capability on top.
 
 ## Package layering
 
@@ -10,14 +10,14 @@ ATProto.NET is split into four runtime packages plus one `dotnet tool`. They lay
               │  Components (LoginForm, FeedView, PostCard, …)       │
               └─────────────────────────┬────────────────────────────┘
                                         │ uses
-              ┌─────────────────────────▼────────────────────────────┐
-              │  ATProtoNet.Server                                   │
-              │  DI (AddAtProtoServer), OAuth cookie login,          │
-              │  service auth, refresh coordination,                 │
-              │  IAtProtoClientFactory, token stores (in-memory,     │
-              │  file, EF Core), Aspire client integration           │
-              │  (AddAtProtoClient — health checks, resilience),     │
-              │  server-side XRPC routing                            │
+              ┌─────────────────────────▼────────────────────────────┐   ┌──────────────────────────────────┐
+              │  ATProtoNet.Server                                   │◄──┤  ATProtoNet.Server.              │
+              │  DI (AddAtProto → IAtProtoBuilder), OAuth cookie     │   │  EntityFrameworkCore             │
+              │  login, service auth, refresh coordination,          │   │  EF Core stores: sessions, the   │
+              │  IAtProtoClientFactory, session stores (in-memory,   │   │  replay table, space stores,     │
+              │  file), Aspire client integration (AddAtProtoClient  │   │  Sync 1.1 repository state       │
+              │  — health checks), XRPC routing, the space server    │   └──────────────────────────────────┘
+              │  — nothing beyond the ASP.NET Core shared framework  │
               └─────────────────────────┬────────────────────────────┘
                                         │ builds on
                                         ▼
@@ -39,7 +39,8 @@ ATProto.NET is split into four runtime packages plus one `dotnet tool`. They lay
 | Package | Role |
 |---------|------|
 | **`ATProtoNet`** | Core SDK, zero ASP.NET dependency. `AtProtoClient` composes per-Lexicon-domain sub-clients (`Server`, `Repo`, `Identity`, `Sync`, `Admin`, `Label`, `Moderation`, `Temp`, `Lexicon`, `Bsky`, `Chat`, `Ozone`, `Site`) around a shared `XrpcClient`. Custom records flow through `RecordCollection<T>` / `GetCollection<T>(nsid)`; custom XRPC through `QueryAsync<T>` / `ProcedureAsync<T>`. |
-| **`ATProtoNet.Server`** | ASP.NET Core integration: DI extensions (`AddAtProto`, `AddAtProtoServer`), the OAuth cookie login (`AddAtProtoAuthentication`, `MapAtProtoOAuth`), service auth (`AddAtProtoServiceAuth`), `IAtProtoClientFactory`, the file and EF Core `IAtProtoSessionStore` implementations, server-side XRPC handler routing, the [space server](spaces.md#serving-a-space) (`AddAtProtoSpaces` — credential verification plus the space authority and repo host endpoints), and .NET Aspire client integration (`AddAtProtoClient` with health checks and resilience). |
+| **`ATProtoNet.Server`** | ASP.NET Core integration: `AddAtProto()` and the `IAtProtoBuilder` the rest hangs off (`WithOAuth` for the OAuth cookie login with `MapAtProtoOAuth`, `WithClientFactory` for `IAtProtoClientFactory`, the session store, `WithHealthCheck`), service auth (`AddAtProtoServiceAuth`), the in-memory default and file `IAtProtoSessionStore`s, server-side XRPC handler routing, the [space server](spaces.md#serving-a-space) (`AddAtProtoSpaces` — credential verification plus the space authority and repo host endpoints), and .NET Aspire client integration (`AddAtProtoClient` with a health check). No NuGet dependency beyond the core package and the ASP.NET Core shared framework. |
+| **`ATProtoNet.Server.EntityFrameworkCore`** | The EF Core stores, namespace `ATProtoNet.Server.EntityFrameworkCore`: the encrypted session store (`WithEfCoreSessionStore<T>()`), the single-use token replay store (`AddAtProtoEfCoreJtiReplayStore<T>()`), the space authority and `simplespace` stores, and Sync 1.1 repository state, each with its `DbContext` and `Configure…Model` helper. |
 | **`ATProtoNet.Blazor`** | Blazor components: `LoginForm`, and `FeedView`, `PostCard`, `ProfileCard` and `ComposePost`, which act as the signed-in user through `AddAtProtoBlazor()`. |
 | **`ATProtoNet.Aspire.Hosting`** | Aspire `AppHost`-side resources for running a PDS container: the official Bluesky one (`AddAtProtoPds`, `WithAtProtoPds`) or Tranquil (`AddAtProtoTranquilPds`, `WithAtProtoTranquilPds`, which also provisions the PostgreSQL server it needs). Administer either with `PdsAdminClient` from the core package. |
 | **`tools/ATProtoNet.LexiconGenerator`** | `dotnet tool` (binary `atproto-lexgen`) for bidirectional Lexicon JSON ↔ C# generation, linting and diffing schemas, and publishing and resolving them on the network. |
@@ -68,7 +69,8 @@ ATProto.NET/
 │   │       ├── Chat/Bsky/                     # Direct and group chats (Convo, Actor, Group, Embed, Notification, Moderation)
 │   │       ├── Site/Standard/                 # Long-form publishing
 │   │       └── Tools/Ozone/                   # Moderation tooling
-│   ├── ATProtoNet.Server/                     # ASP.NET Core integration (incl. EF Core token store + Aspire client)
+│   ├── ATProtoNet.Server/                     # ASP.NET Core integration (incl. the Aspire client)
+│   ├── ATProtoNet.Server.EntityFrameworkCore/ # EF Core stores
 │   ├── ATProtoNet.Blazor/                     # Blazor components
 │   └── ATProtoNet.Aspire.Hosting/             # Aspire AppHost-side PDS container resource
 ├── tools/

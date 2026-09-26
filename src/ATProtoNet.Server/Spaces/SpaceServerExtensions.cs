@@ -58,18 +58,21 @@ public static class SpaceServerExtensions
     /// <param name="configure">Configures <see cref="SpaceServerOptions"/>.</param>
     /// <returns>The service collection for chaining.</returns>
     /// <remarks>
-    /// This is the half that has to be right, and it is registered on its own so a service that
-    /// only needs to <em>verify</em> — a moderation service, a proxy, a test harness — can take
-    /// it without also standing up an endpoint surface.
+    /// <para>This is the half that has to be right, and it is registered on its own so a service
+    /// that only needs to <em>verify</em> — a moderation service, a proxy, a test harness — can
+    /// take it without also standing up an endpoint surface.</para>
+    /// <para>The options go through <see cref="Microsoft.Extensions.Options.IOptions{TOptions}"/>:
+    /// every call's <paramref name="configure"/> applies, they bind from configuration with
+    /// <c>services.Configure&lt;SpaceServerOptions&gt;(section)</c> (all but
+    /// <see cref="SpaceServerOptions.ServiceDid"/>, which is set in code), and they are validated
+    /// when the host starts.</para>
     /// </remarks>
     public static IServiceCollection AddAtProtoSpaces(
         this IServiceCollection services, Action<SpaceServerOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        var options = new SpaceServerOptions();
-        configure?.Invoke(options);
-        services.TryAddSingleton(options);
+        services.AddValidatedOptions(configure, ValidateOptions);
 
         services.AddHttpClient(HttpClientName, client =>
         {
@@ -126,6 +129,29 @@ public static class SpaceServerExtensions
         return services;
     }
 
+    /// <summary>The checks <see cref="AddAtProtoSpaces"/> runs on the options when the host starts.</summary>
+    internal static void ValidateOptions(SpaceServerOptions options)
+    {
+        if (!string.IsNullOrEmpty(options.PublicBaseUrl))
+            AtProtoOptionsRegistration.RequireHttpUrl(options.PublicBaseUrl, nameof(options.PublicBaseUrl));
+
+        RequirePositive(options.ProofLifetime, nameof(options.ProofLifetime));
+        RequirePositive(options.MaxSingleUseTokenLifetime, nameof(options.MaxSingleUseTokenLifetime));
+        RequirePositive(options.CredentialLifetime, nameof(options.CredentialLifetime));
+        RequirePositive(options.NotifyRegistrationLifetime, nameof(options.NotifyRegistrationLifetime));
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.ClockSkew, TimeSpan.Zero, nameof(options.ClockSkew));
+        ArgumentOutOfRangeException.ThrowIfLessThan(
+            options.ClientMetadataCacheLifetime, TimeSpan.Zero, nameof(options.ClientMetadataCacheLifetime));
+        ArgumentOutOfRangeException.ThrowIfNegative(
+            options.VerifiedCredentialCacheCapacity, nameof(options.VerifiedCredentialCacheCapacity));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaxClientMetadataBytes, nameof(options.MaxClientMetadataBytes));
+        ArgumentNullException.ThrowIfNull(options.DidCache, nameof(options.DidCache));
+        options.DidCache.Validate();
+
+        static void RequirePositive(TimeSpan value, string name) =>
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, TimeSpan.Zero, name);
+    }
+
     /// <summary>
     /// Registers the space-authority endpoints: <c>getSpaceCredential</c>, <c>listRepos</c>,
     /// <c>registerNotify</c>, <c>unregisterNotify</c>, and <c>notifyWrite</c>.
@@ -158,6 +184,8 @@ public static class SpaceServerExtensions
     /// through <c>deleteSpace</c> answers <c>SpaceDeleted</c>. A store registered as
     /// <see cref="ISpaceAuthorityStore"/> before this call is left exactly as registered; wrap it
     /// yourself if it needs the same bridge.</para>
+    /// <para><see cref="SpaceServerOptions.ServiceDid"/> is required: without it the host fails to
+    /// start with an <see cref="Microsoft.Extensions.Options.OptionsValidationException"/>.</para>
     /// <para>Outbound notifications and managing-app checks are signed as
     /// <see cref="SpaceServerOptions.ServiceDid"/> with <paramref name="signingKey"/>, unless an
     /// <see cref="ISpaceAccountSigner"/> is registered and holds the key of the account a call
@@ -170,6 +198,14 @@ public static class SpaceServerExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(signingKey);
+
+        // An authority signs credentials and service auth as its own DID; a verifier or a repo
+        // host does without one.
+        services.AddOptions<SpaceServerOptions>()
+            .Validate(
+                options => options.ServiceDid is not null,
+                $"A space authority must know its own DID; set {nameof(SpaceServerOptions)}.{nameof(SpaceServerOptions.ServiceDid)}.")
+            .ValidateOnStart();
 
         services.TryAddSingleton<TStore>();
 

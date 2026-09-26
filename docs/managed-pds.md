@@ -445,7 +445,7 @@ using var pds = new PdsAdminClient(
 
 ## See also
 
-- [.NET Aspire Integration](aspire.md) — client-side health checks and resilience
+- [.NET Aspire Integration](aspire.md) — the client bound from configuration, and its health check
 - [Server Integration](server.md) — token store and per-user client factory
 - [`samples/ManagedPdsSample`](../samples/ManagedPdsSample) — signup API built on `PdsAdminClient`
 - [`samples/ManagedPdsSample.AppHost`](../samples/ManagedPdsSample.AppHost) — the Aspire AppHost wiring it to a PDS container

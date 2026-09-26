@@ -11,9 +11,12 @@
 # Core SDK
 dotnet add package ATProtoNet
 
-# ASP.NET Core integration — DI, OAuth cookie login, service auth, EF Core token store,
-# and .NET Aspire client integration (optional)
+# ASP.NET Core integration — DI, OAuth cookie login, service auth, and .NET Aspire client
+# integration (optional)
 dotnet add package ATProtoNet.Server
+
+# EF Core stores for ATProtoNet.Server — sessions, replay table, space server, sync state (optional)
+dotnet add package ATProtoNet.Server.EntityFrameworkCore
 
 # Blazor components (optional)
 dotnet add package ATProtoNet.Blazor
@@ -53,8 +56,8 @@ var client = new AtProtoClient(
     logger: loggerFactory.CreateLogger<AtProtoClient>());  // Logging (default: none)
 ```
 
-The core package ships `InMemoryAtProtoSessionStore`; `ATProtoNet.Server` adds encrypted file and EF Core
-stores, and a custom `IAtProtoSessionStore` is a few lines, as shown in
+The core package ships `InMemoryAtProtoSessionStore`; `ATProtoNet.Server` adds an encrypted file store
+and `ATProtoNet.Server.EntityFrameworkCore` an EF Core one, and a custom `IAtProtoSessionStore` is a few lines, as shown in
 [Session Management](session-management.md#persisting-sessions).
 
 The client covers one account's session with its PDS. Firehose and Jetstream consumers are built

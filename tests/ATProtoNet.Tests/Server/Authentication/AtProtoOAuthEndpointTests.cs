@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 
 namespace ATProtoNet.Tests.Server.Authentication;
@@ -42,7 +43,7 @@ public sealed class AtProtoOAuthEndpointTests
                     s.AddRouting();
                     s.AddLogging();
                     s.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie();
-                    s.AddAtProtoAuthentication(configure);
+                    s.AddAtProto().WithOAuth(configure);
                     services?.Invoke(s);
                 });
                 web.Configure(app =>
@@ -190,18 +191,22 @@ public sealed class AtProtoOAuthEndpointTests
     [Fact]
     public async Task ServeClientMetadata_WithoutClientMetadata_FailsAtStartup()
     {
-        await Assert.ThrowsAsync<InvalidOperationException>(() => StartAsync(o => o.ServeClientMetadata = true));
+        var ex = await Assert.ThrowsAsync<OptionsValidationException>(() => StartAsync(o => o.ServeClientMetadata = true));
+
+        Assert.Contains("none is configured", ex.Message);
     }
 
     [Fact]
     public async Task ServeClientMetadata_AClientIdWithoutAPath_FailsAtStartup()
     {
-        await Assert.ThrowsAsync<InvalidOperationException>(() => StartAsync(o =>
+        var ex = await Assert.ThrowsAsync<OptionsValidationException>(() => StartAsync(o =>
         {
             o.ClientMetadata = Metadata();
             o.ClientMetadata.ClientId = "https://app.example.com/";
             o.ServeClientMetadata = true;
         }));
+
+        Assert.Contains("client_id", ex.Message);
     }
 
     [Fact]
@@ -215,13 +220,10 @@ public sealed class AtProtoOAuthEndpointTests
     }
 
     [Fact]
-    public async Task AddAtProtoAuthentication_RegistersTheServicesClientForTheFactory()
+    public async Task WithOAuth_RegistersTheServicesClientForTheFactory()
     {
         using var host = await StartAsync(o => o.ClientMetadata = Metadata(), s =>
-        {
-            s.AddSingleton<IAtProtoSessionStore>(new InMemoryAtProtoSessionStore());
-            s.AddAtProtoServer();
-        });
+            s.AddAtProto().WithClientFactory().WithInMemorySessionStore());
 
         var oauth = host.Services.GetRequiredService<OAuthClient>();
 

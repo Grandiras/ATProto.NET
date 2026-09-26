@@ -22,9 +22,12 @@ public static class IdentityServiceCollectionExtensions
     /// <param name="configure">Configures <see cref="IdentityResolverOptions"/>.</param>
     /// <returns>The service collection for chaining.</returns>
     /// <remarks>
-    /// <para>Registration is idempotent: a resolver already registered is kept, and the first
-    /// call's options win. <c>AddAtProtoSpaces</c> calls this, so call it first to configure the
-    /// resolvers a space server uses.</para>
+    /// <para>Registration is idempotent: a resolver already registered is kept. The options go
+    /// through <see cref="Microsoft.Extensions.Options.IOptions{TOptions}"/>, so every call's
+    /// <paramref name="configure"/> applies, in order, whichever registration calls this first
+    /// (<c>AddAtProtoSpaces</c> and <c>AddAtProtoServiceAuth</c> do); they bind from configuration
+    /// with <c>services.Configure&lt;IdentityResolverOptions&gt;(section)</c>, and are validated
+    /// when the host starts.</para>
     /// <para>With <see cref="DidCacheOptions.UseDistributedCache"/> set, the cache is backed by the
     /// registered <see cref="IDistributedCache"/>, which must then be registered as well.</para>
     /// </remarks>
@@ -43,9 +46,7 @@ public static class IdentityServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        var options = new IdentityResolverOptions();
-        configure?.Invoke(options);
-        services.TryAddSingleton(options);
+        services.AddValidatedOptions(configure, static options => options.Validate());
 
         services.TryAddSingleton<IDidResolver>(sp =>
         {

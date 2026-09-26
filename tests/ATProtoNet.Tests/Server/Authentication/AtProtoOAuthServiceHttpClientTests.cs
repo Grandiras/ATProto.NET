@@ -2,6 +2,7 @@ using System.Net;
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Server.Authentication;
 using ATProtoNet.Identity;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
@@ -69,6 +70,37 @@ public class AtProtoOAuthServiceHttpClientTests
 
         Assert.Equal(TimeSpan.FromSeconds(12), service.Client.HttpClient.Timeout);
     }
+
+    [Fact]
+    public void ConstructedFromAContainerWithoutWithOAuth_KeepsTheIdentityFetchPolicy()
+    {
+        // Without WithOAuth() the named client has a default handler, which follows redirects and
+        // reaches private addresses; the service must not pick it up just because a factory exists.
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddHttpClient();
+        using var provider = services.BuildServiceProvider();
+
+        using var service = ActivatorUtilities.CreateInstance<AtProtoOAuthService>(provider, CreateOptions());
+
+        var primary = Assert.IsType<SocketsHttpHandler>(HandlerOf(service.Client.HttpClient));
+        Assert.NotNull(primary.ConnectCallback);
+        Assert.False(primary.AllowAutoRedirect);
+    }
+
+    [Fact]
+    public void CreatedHttpClient_SendsTheSdksUserAgent()
+    {
+        using var service = new AtProtoOAuthService(CreateOptions(), NullLoggerFactory.Instance);
+
+        Assert.StartsWith("ATProtoNet/", service.Client.HttpClient.DefaultRequestHeaders.UserAgent.ToString());
+    }
+
+    // HttpMessageInvoker keeps its handler private; no InternalsVisibleTo reaches the BCL.
+    private static HttpMessageHandler HandlerOf(HttpClient client) =>
+        (HttpMessageHandler)typeof(HttpMessageInvoker)
+            .GetField("_handler", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(client)!;
 
     [Fact]
     public void Client_IsBuiltOnceFromTheOptions()

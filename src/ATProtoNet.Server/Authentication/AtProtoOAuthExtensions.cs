@@ -1,11 +1,16 @@
 using System.Text.Json;
+using ATProtoNet.Auth;
 using ATProtoNet.Auth.OAuth;
+using ATProtoNet.Http;
+using ATProtoNet.Identity;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace ATProtoNet.Server.Authentication;
 
@@ -19,9 +24,11 @@ namespace ATProtoNet.Server.Authentication;
 /// builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
 ///     .AddCookie(options => { options.LoginPath = "/login"; });
 ///
-/// // 2. Register AT Proto OAuth, and the session store and client factory
-/// builder.Services.AddAtProtoAuthentication();
-/// builder.Services.AddAtProtoServer();
+/// // 2. Register AT Proto OAuth, the client factory and a session store
+/// builder.Services.AddAtProto()
+///     .WithOAuth()
+///     .WithClientFactory()
+///     .WithFileSessionStore();
 ///
 /// // 3. Map OAuth endpoints
 /// app.MapAtProtoOAuth();
@@ -36,6 +43,22 @@ public static class AtProtoOAuthExtensions
     internal const string LoginFailedError = "login_failed";
 
     /// <summary>
+    /// The name of the <see cref="HttpClient"/> the hosted login's <see cref="OAuthClient"/> sends
+    /// with: discovery, pushed authorization, token, refresh and revocation requests.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="WithOAuth"/> gives it the identity fetch policy (public addresses only, no
+    /// redirects; <see cref="AtProtoOAuthServerOptions.AllowPrivateNetworks"/> lifts it) and
+    /// <see cref="AtProtoOAuthServerOptions.HttpClientTimeout"/>, and the SDK's <c>User-Agent</c>.
+    /// It connects directly, never through a proxy: the policy checks the address it connects to.
+    /// Add handlers to it with
+    /// <c>services.AddHttpClient(AtProtoOAuthExtensions.HttpClientName)</c>, but no retrying one:
+    /// an authorization code and a refresh token are single-use, and a DPoP proof is refused when
+    /// sent twice.
+    /// </remarks>
+    public const string HttpClientName = "ATProtoNet.OAuth";
+
+    /// <summary>
     /// Registers the hosted AT Protocol OAuth login. Use with <see cref="MapAtProtoOAuth"/> to map
     /// its endpoints.
     /// </summary>
@@ -47,39 +70,107 @@ public static class AtProtoOAuthExtensions
     /// <code>
     /// builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     ///     .AddCookie();
-    /// builder.Services.AddAtProtoAuthentication();
+    /// builder.Services.AddAtProto()
+    ///     .WithOAuth(o => o.ClientName = "My App")
+    ///     .WithClientFactory();
     /// </code>
+    /// <para>The options go through <see cref="IOptions{TOptions}"/>, so they bind from
+    /// configuration (<c>services.Configure&lt;AtProtoOAuthServerOptions&gt;(section)</c>) and are
+    /// validated when the host starts.</para>
     /// <para>For development, loopback client metadata is generated for the server's plain HTTP
     /// address. For production, provide explicit <see cref="AtProtoOAuthServerOptions.ClientMetadata"/>
     /// with a published client_id, and for a confidential client its
     /// <see cref="AtProtoOAuthServerOptions.ClientKeys"/>.</para>
+    /// <para>With <see cref="AtProtoBuilderExtensions.WithClientFactory"/>, the login stores each
+    /// session in the session store for the factory, and revokes and removes it on sign-out.
+    /// Without it, the login only signs users in.</para>
     /// </remarks>
-    /// <param name="services">The service collection.</param>
-    /// <param name="configure">Optional action to configure AT Proto OAuth options.</param>
-    /// <returns>The service collection for chaining.</returns>
-    public static IServiceCollection AddAtProtoAuthentication(
-        this IServiceCollection services,
+    /// <param name="builder">The AT Protocol builder.</param>
+    /// <param name="configure">Configures the login.</param>
+    /// <returns>The builder, for chaining.</returns>
+    public static IAtProtoBuilder WithOAuth(
+        this IAtProtoBuilder builder,
         Action<AtProtoOAuthServerOptions>? configure = null)
     {
-        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(builder);
+        var services = builder.Services;
 
-        var options = new AtProtoOAuthServerOptions();
-        configure?.Invoke(options);
+        services.AddValidatedOptions(configure, ValidateOptions);
 
-        services.AddSingleton(options);
-        services.TryAddSingleton<AtProtoOAuthService>();
+        services.AddHttpClient(HttpClientName)
+            .ConfigureHttpClient((sp, client) =>
+            {
+                client.Timeout = OptionsOf(sp).HttpClientTimeout;
+                client.DefaultRequestHeaders.UserAgent.TryParseAdd(AtProtoHttp.DefaultUserAgent);
+            })
+            .ConfigurePrimaryHttpMessageHandler(sp => IdentityNetworkPolicy.CreateHandler(OptionsOf(sp).AllowPrivateNetworks));
+
+        services.TryAddSingleton(sp => new AtProtoOAuthService(
+            sp.GetRequiredService<AtProtoOAuthServerOptions>(),
+            sp.GetRequiredService<ILoggerFactory>(),
+            sp.GetService<IIdentityResolver>(),
+            sp.GetService<IOAuthStateStore>(),
+            sp.GetService<IServer>(),
+            sp.GetService<ISessionRefreshCoordinator>())
+        {
+            // The name was just given the identity fetch policy.
+            PolicyHttpClientFactory = sp.GetRequiredService<IHttpClientFactory>(),
+        });
 
         // The client factory refreshes and revokes the OAuth sessions it restores with the
         // OAuthClient registered here: the service's own. Both the service and the container
         // dispose it at shutdown, which is harmless.
         services.TryAddSingleton(sp => sp.GetRequiredService<AtProtoOAuthService>().Client);
 
-        return services;
+        return builder;
+    }
+
+    private static AtProtoOAuthServerOptions OptionsOf(IServiceProvider services) =>
+        services.GetRequiredService<IOptions<AtProtoOAuthServerOptions>>().Value;
+
+    /// <summary>The checks <see cref="WithOAuth"/> runs on the options when the host starts.</summary>
+    internal static void ValidateOptions(AtProtoOAuthServerOptions options)
+    {
+        RequireLocalPath(options.RoutePrefix, nameof(options.RoutePrefix));
+        RequireLocalPath(options.LoginPath, nameof(options.LoginPath));
+        ArgumentException.ThrowIfNullOrWhiteSpace(options.CookieScheme, nameof(options.CookieScheme));
+        ArgumentException.ThrowIfNullOrWhiteSpace(options.DefaultReturnUrl, nameof(options.DefaultReturnUrl));
+        ArgumentException.ThrowIfNullOrWhiteSpace(options.PostLogoutRedirectUri, nameof(options.PostLogoutRedirectUri));
+
+        if (string.IsNullOrWhiteSpace(options.Scopes) ||
+            !options.Scopes.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains(AtProtoScopes.AtProto))
+        {
+            throw new ArgumentException($"Must include '{AtProtoScopes.AtProto}'; got '{options.Scopes}'.", nameof(options.Scopes));
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.BaseUrl))
+            AtProtoOptionsRegistration.RequireHttpUrl(options.BaseUrl, nameof(options.BaseUrl));
+
+        AtProtoOptionsRegistration.RequirePositive(options.HttpClientTimeout, nameof(options.HttpClientTimeout));
+        AtProtoOptionsRegistration.RequirePositive(options.HandleResolutionTimeout, nameof(options.HandleResolutionTimeout));
+        if (options.CookieExpiration <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(options.CookieExpiration), options.CookieExpiration, "Must be positive.");
+
+        if (options.ClientKeys.Count > 0 && options.ClientMetadata is null)
+        {
+            throw new InvalidOperationException(
+                "ClientKeys are for a confidential client, which needs ClientMetadata: its client_id " +
+                "document must publish the keys, which a loopback client has nowhere to do.");
+        }
+
+        if (options.ServeClientMetadata)
+            _ = ClientDocumentPaths(options);
+    }
+
+    private static void RequireLocalPath(string? value, string name)
+    {
+        if (string.IsNullOrEmpty(value) || value[0] != '/' || value.StartsWith("//", StringComparison.Ordinal))
+            throw new ArgumentException($"Must be a path on this application, starting with '/'; got '{value}'.", name);
     }
 
     /// <summary>
     /// Maps the AT Protocol OAuth endpoints: login, callback, relay and logout, and on request the
-    /// client's metadata document and key set. Requires <see cref="AddAtProtoAuthentication"/>.
+    /// client's metadata document and key set. Requires <see cref="WithOAuth"/>.
     /// </summary>
     /// <remarks>
     /// <para>Maps the following endpoints:</para>
@@ -233,20 +324,33 @@ public static class AtProtoOAuthExtensions
     /// <summary>Serves the client metadata at its <c>client_id</c>, and the key set at its <c>jwks_uri</c>.</summary>
     private static void MapClientDocuments(IEndpointRouteBuilder endpoints, AtProtoOAuthServerOptions options)
     {
+        var (metadataPath, keySetPath) = ClientDocumentPaths(options);
+
+        // Written once: the options are fixed by the time the endpoints are mapped.
+        var metadataJson = options.ClientMetadata!.ToJson();
+        endpoints.MapGet(metadataPath, (HttpContext context) => Document(context, metadataJson))
+            .ExcludeFromDescription();
+
+        if (keySetPath is not null)
+        {
+            var keySetJson = JsonSerializer.Serialize(OAuthClientKey.CreateKeySet(options.ClientKeys));
+            endpoints.MapGet(keySetPath, (HttpContext context) => Document(context, keySetJson))
+                .ExcludeFromDescription();
+        }
+    }
+
+    /// <summary>
+    /// The paths <see cref="AtProtoOAuthServerOptions.ServeClientMetadata"/> serves the client's
+    /// documents at: its <c>client_id</c>'s, and its <c>jwks_uri</c>'s when it names one.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">No client metadata is configured, or a URL cannot be served.</exception>
+    private static (string Metadata, string? KeySet) ClientDocumentPaths(AtProtoOAuthServerOptions options)
+    {
         var metadata = options.ClientMetadata ?? throw new InvalidOperationException(
             "ServeClientMetadata serves the configured ClientMetadata, and none is configured.");
 
-        // Written once: the options are fixed by the time the endpoints are mapped.
-        var metadataJson = metadata.ToJson();
-        endpoints.MapGet(DocumentPath(metadata.ClientId, "client_id"), (HttpContext context) => Document(context, metadataJson))
-            .ExcludeFromDescription();
-
-        if (metadata.JwksUri is { } jwksUri)
-        {
-            var keySetJson = JsonSerializer.Serialize(OAuthClientKey.CreateKeySet(options.ClientKeys));
-            endpoints.MapGet(DocumentPath(jwksUri, "jwks_uri"), (HttpContext context) => Document(context, keySetJson))
-                .ExcludeFromDescription();
-        }
+        return (DocumentPath(metadata.ClientId, "client_id"),
+            metadata.JwksUri is { } jwksUri ? DocumentPath(jwksUri, "jwks_uri") : null);
     }
 
     /// <summary>

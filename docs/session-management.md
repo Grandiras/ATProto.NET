@@ -305,7 +305,7 @@ refresh: a sign-out waits for a refresh under way, removes its result, and revok
 refresh produced, so a session removed from the store stays removed. The server integration's
 OAuth login stores and removes sessions under the same lock. `InProcessSessionRefreshCoordinator`
 covers the clients of one process, and the server
-integration's client factory uses the one `AddAtProtoServer()` registers; several processes on one
+integration's client factory uses the one `WithClientFactory()` registers; several processes on one
 store need a distributed lock behind the interface.
 
 ```csharp

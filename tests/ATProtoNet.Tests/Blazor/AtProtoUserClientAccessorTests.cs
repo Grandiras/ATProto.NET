@@ -2,10 +2,12 @@ using System.Security.Claims;
 using ATProtoNet.Auth;
 using ATProtoNet.Blazor;
 using ATProtoNet.Identity;
+using ATProtoNet.Server;
 using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Services;
 using ATProtoNet.Tests.Auth;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using static ATProtoNet.Tests.Auth.SessionKit;
 
@@ -161,6 +163,26 @@ public sealed class AtProtoUserClientAccessorTests : IDisposable
 
         await Assert.ThrowsAsync<ObjectDisposedException>(() => client.TryRestoreSessionAsync(Alice));
         await Assert.ThrowsAsync<ObjectDisposedException>(() => accessor.GetClientAsync());
+    }
+
+    [Fact]
+    public async Task AddAtProtoBlazor_OverTheClientFactory_ResolvesOneAccessorPerScope()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddAtProto().WithClientFactory().WithInMemorySessionStore();
+        services.AddAtProtoBlazor();
+        services.AddScoped<AuthenticationStateProvider, TestAuthenticationState>();
+
+        await using var provider = services.BuildServiceProvider(
+            new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
+        await using var first = provider.CreateAsyncScope();
+        await using var second = provider.CreateAsyncScope();
+
+        var accessor = first.ServiceProvider.GetRequiredService<AtProtoUserClientAccessor>();
+        Assert.Same(accessor, first.ServiceProvider.GetRequiredService<AtProtoUserClientAccessor>());
+        Assert.NotSame(accessor, second.ServiceProvider.GetRequiredService<AtProtoUserClientAccessor>());
+        Assert.Null(await accessor.GetClientAsync());
     }
 
     private sealed class TestAuthenticationState : AuthenticationStateProvider

@@ -7,7 +7,7 @@ using ATProtoNet.Spaces;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
-namespace ATProtoNet.Tests.Server.Spaces;
+namespace ATProtoNet.Tests.Server.EntityFrameworkCore;
 
 /// <summary>
 /// The EF Core space stores, over a real relational provider.
