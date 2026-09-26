@@ -17,13 +17,16 @@ namespace ATProtoNet.Server.TokenStore;
 /// read as OAuth sessions.</para>
 /// <para>Suitable for single-server deployments. For multi-server or cloud scenarios,
 /// implement <see cref="IAtProtoSessionStore"/> with a shared store (e.g., database, Redis).</para>
+/// <para>Reads take no lock: a write replaces the file in one rename, so a reader sees the old
+/// session or the new one, never part of either. Writes and removals of one account are
+/// serialized; different accounts do not wait for each other.</para>
 /// </remarks>
 public sealed class FileAtProtoSessionStore : IAtProtoSessionStore
 {
     private readonly string _directory;
     private readonly IDataProtector _protector;
     private readonly ILogger<FileAtProtoSessionStore> _logger;
-    private readonly SemaphoreSlim _lock = new(1, 1);
+    private readonly KeyedLock<string> _writeLocks = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Creates a new <see cref="FileAtProtoSessionStore"/>.
@@ -75,13 +78,10 @@ public sealed class FileAtProtoSessionStore : IAtProtoSessionStore
 
         var did = session.Did;
         var filePath = GetFilePath(did);
+        var encrypted = _protector.Protect(AtProtoSessionJson.Serialize(session));
 
-        await _lock.WaitAsync(cancellationToken);
-        try
+        await using (await _writeLocks.AcquireAsync(filePath, cancellationToken))
         {
-            var json = AtProtoSessionJson.Serialize(session);
-            var encrypted = _protector.Protect(json);
-
             // Write to a sibling temp file and move it into place, so a crash or a
             // concurrent reader never observes a half-written token file — losing the
             // refresh token that way logs the user out with no way to recover it.
@@ -89,13 +89,9 @@ public sealed class FileAtProtoSessionStore : IAtProtoSessionStore
             await File.WriteAllTextAsync(tempPath, encrypted, cancellationToken);
             RestrictToOwner(tempPath);
             File.Move(tempPath, filePath, overwrite: true);
+        }
 
-            _logger.LogDebug("Stored the session of {Did}", did);
-        }
-        finally
-        {
-            _lock.Release();
-        }
+        _logger.LogDebug("Stored the session of {Did}", did);
     }
 
     /// <inheritdoc/>
@@ -104,26 +100,27 @@ public sealed class FileAtProtoSessionStore : IAtProtoSessionStore
         ArgumentNullException.ThrowIfNull(did);
 
         var filePath = GetFilePath(did);
-
-        if (!File.Exists(filePath))
+        var encrypted = await TryReadFileAsync(filePath, cancellationToken);
+        if (encrypted is null)
             return null;
 
-        await _lock.WaitAsync(cancellationToken);
-        try
+        if (TryDecode(encrypted, out var session, out _))
+            return session;
+
+        // Removed only under the write lock, and only if it is still the unreadable copy: a
+        // write may have replaced it since it was read.
+        await using (await _writeLocks.AcquireAsync(filePath, cancellationToken))
         {
-            var encrypted = await File.ReadAllTextAsync(filePath, cancellationToken);
-            var json = _protector.Unprotect(encrypted);
-            return AtProtoSessionJson.Deserialize(json);
-        }
-        catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or JsonException or FormatException)
-        {
-            _logger.LogWarning(ex, "Failed to read the session file of {Did}; removing corrupted file", did);
+            encrypted = await TryReadFileAsync(filePath, cancellationToken);
+            if (encrypted is null)
+                return null;
+
+            if (TryDecode(encrypted, out session, out var error))
+                return session;
+
+            _logger.LogWarning(error, "Failed to read the session file of {Did}; removing corrupted file", did);
             TryDeleteFile(filePath);
             return null;
-        }
-        finally
-        {
-            _lock.Release();
         }
     }
 
@@ -134,17 +131,47 @@ public sealed class FileAtProtoSessionStore : IAtProtoSessionStore
 
         var filePath = GetFilePath(did);
 
-        // Under the same lock as StoreAsync: deleting concurrently with a write
-        // otherwise leaves the just-written file behind and the logout ineffective.
-        await _lock.WaitAsync(cancellationToken);
+        // Under the account's write lock: deleting concurrently with a write otherwise leaves
+        // the just-written file behind and the logout ineffective.
+        await using (await _writeLocks.AcquireAsync(filePath, cancellationToken))
+            TryDeleteFile(filePath);
+
+        _logger.LogDebug("Removed the session of {Did}", did);
+    }
+
+    /// <summary>
+    /// Reads a session file, or returns <see langword="null"/> when there is none. The file is
+    /// opened so that a write can replace it, and a removal delete it, while it is being read.
+    /// </summary>
+    private static async Task<string?> TryReadFileAsync(string filePath, CancellationToken cancellationToken)
+    {
         try
         {
-            TryDeleteFile(filePath);
-            _logger.LogDebug("Removed the session of {Did}", did);
+            await using var stream = new FileStream(
+                filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete,
+                bufferSize: 4096, FileOptions.Asynchronous);
+            using var reader = new StreamReader(stream);
+            return await reader.ReadToEndAsync(cancellationToken);
         }
-        finally
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
         {
-            _lock.Release();
+            return null;
+        }
+    }
+
+    private bool TryDecode(string encrypted, out AtProtoSession? session, out Exception? error)
+    {
+        try
+        {
+            session = AtProtoSessionJson.Deserialize(_protector.Unprotect(encrypted));
+            error = null;
+            return true;
+        }
+        catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or JsonException or FormatException)
+        {
+            session = null;
+            error = ex;
+            return false;
         }
     }
 

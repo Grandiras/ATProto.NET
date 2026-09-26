@@ -4,8 +4,8 @@
 
 <h1>ATProto.NET Server Integration Sample</h1>
 <p class="text-muted">
-    This sample demonstrates using <strong>ATProtoNet.Blazor</strong> for OAuth login
-    and <strong>ATProtoNet.Server</strong> for backend AT Protocol access.
+    This sample demonstrates <strong>ATProtoNet.Server</strong> for the OAuth login and backend AT Protocol access,
+    and the <strong>ATProtoNet.Blazor</strong> components acting as the signed-in user.
 </p>
 
 <AuthorizeView>
@@ -19,7 +19,7 @@
                     <tbody>
                         <tr>
                             <th scope="row" style="width: 100px;">DID</th>
-                            <td><code>@context.User.FindFirst("did")?.Value</code></td>
+                            <td><code>@context.User.FindFirst(AtProtoClaimTypes.Did)?.Value</code></td>
                         </tr>
                         <tr>
                             <th scope="row">Handle</th>
@@ -27,11 +27,11 @@
                         </tr>
                         <tr>
                             <th scope="row">PDS</th>
-                            <td><code>@context.User.FindFirst("pds_url")?.Value</code></td>
+                            <td><code>@context.User.FindFirst(AtProtoClaimTypes.PdsUrl)?.Value</code></td>
                         </tr>
                         <tr>
                             <th scope="row">Auth Method</th>
-                            <td><code>@context.User.FindFirst("auth_method")?.Value</code></td>
+                            <td><code>@context.User.FindFirst(AtProtoClaimTypes.AuthMethod)?.Value</code></td>
                         </tr>
                     </tbody>
                 </table>

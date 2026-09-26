@@ -13,22 +13,23 @@ public static class ServiceCollectionExtensions
 {
     /// <summary>
     /// Registers server-side AT Protocol services: session store and client factory.
-    /// Use alongside <c>AddAtProtoAuthentication()</c> from ATProtoNet.Blazor to enable
-    /// backend AT Protocol API access for logged-in users.
+    /// Use alongside <c>AddAtProtoAuthentication()</c> to enable backend AT Protocol API access
+    /// for logged-in users.
     /// </summary>
     /// <remarks>
     /// <para>Registers:</para>
     /// <list type="bullet">
     /// <item><description><see cref="IAtProtoSessionStore"/> — for storing sessions server-side (default: <see cref="FileAtProtoSessionStore"/>)</description></item>
     /// <item><description><see cref="IAtProtoClientFactory"/> — for creating per-request authenticated <see cref="AtProtoClient"/> instances</description></item>
+    /// <item><description><see cref="ISessionRefreshCoordinator"/> — an <see cref="InProcessSessionRefreshCoordinator"/>, under which those clients, the OAuth login and sign-out change a user's stored session one at a time</description></item>
     /// </list>
-    /// <para>When the Blazor <c>AtProtoOAuthService</c> detects that <see cref="IAtProtoSessionStore"/>
-    /// is registered, it automatically stores the OAuth session after login, and revokes and removes it on logout.</para>
+    /// <para>When the hosted OAuth login (<c>AtProtoOAuthService</c>) finds an <see cref="IAtProtoSessionStore"/>
+    /// registered, it stores the OAuth session after login, and revokes and removes it on logout.</para>
     /// </remarks>
     /// <example>
     /// <code>
     /// // Program.cs
-    /// builder.Services.AddAtProtoAuthentication(); // Blazor OAuth login
+    /// builder.Services.AddAtProtoAuthentication(); // OAuth cookie login
     /// builder.Services.AddAtProtoServer();          // Backend AT Proto access
     ///
     /// // In a Minimal API endpoint or controller:
@@ -46,10 +47,11 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAtProtoServer(this IServiceCollection services)
     {
         services.AddDataProtection();
-        services.AddHttpClient("AtProtoClient")
+        services.AddHttpClient(AtProtoClientFactory.HttpClientName)
             .ConfigurePrimaryHttpMessageHandler(Http.AtProtoHttp.CreateHandler);
 
         services.TryAddSingleton<IAtProtoSessionStore, FileAtProtoSessionStore>();
+        services.TryAddSingleton<ISessionRefreshCoordinator, InProcessSessionRefreshCoordinator>();
         services.TryAddSingleton<IAtProtoClientFactory, AtProtoClientFactory>();
 
         return services;
@@ -83,10 +85,11 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAtProtoServer<TSessionStore>(this IServiceCollection services)
         where TSessionStore : class, IAtProtoSessionStore
     {
-        services.AddHttpClient("AtProtoClient")
+        services.AddHttpClient(AtProtoClientFactory.HttpClientName)
             .ConfigurePrimaryHttpMessageHandler(Http.AtProtoHttp.CreateHandler);
 
         services.AddSingleton<IAtProtoSessionStore, TSessionStore>();
+        services.TryAddSingleton<ISessionRefreshCoordinator, InProcessSessionRefreshCoordinator>();
         services.TryAddSingleton<IAtProtoClientFactory, AtProtoClientFactory>();
 
         return services;

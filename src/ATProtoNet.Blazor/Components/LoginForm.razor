@@ -185,11 +185,38 @@
     private bool _specifyPds;
     private string? _error;
 
+    /// <inheritdoc/>
     protected override void OnInitialized()
     {
-        // Show error from OAuth callback redirect (passed as ?error= query parameter)
+        // A failed login comes back with ?error=<code> (see AtProtoOAuthServerOptions.LoginPath).
         var uri = new Uri(Navigation.Uri);
         var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
-        _error = queryParams["error"];
+        _error = ErrorMessage(queryParams["error"]);
+    }
+
+    /// <summary>
+    /// The message for a login error code: localized under <c>Error_{code}</c> (or <c>Error</c>
+    /// for the generic one) when a localizer is registered. The code itself is never displayed,
+    /// since anyone can put one in a link to this page.
+    /// </summary>
+    private string? ErrorMessage(string? code)
+    {
+        if (string.IsNullOrEmpty(code))
+            return null;
+
+        var known = code switch
+        {
+            "access_denied" => "Sign-in was cancelled.",
+            "login_not_bound" => "This sign-in was started in another browser. Please sign in again.",
+            "invalid_state" or "state_expired" => "This sign-in has expired. Please sign in again.",
+            "invalid_handle" or "invalid_did" or "handle_resolution_failed" or "handle_resolution_conflict"
+                or "unsupported_did_method" or "did_resolution_failed" or "pds_not_found"
+                => "We couldn't find that account. Check the username and try again.",
+            _ => null,
+        };
+
+        return known is not null
+            ? Resolve(null, $"Error_{code}", known)
+            : Resolve(null, "Error", "Sign-in failed. Please try again.");
     }
 }

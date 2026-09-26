@@ -1,14 +1,23 @@
-@if (_loading && !_feedItems.Any())
+@inject AtProtoUserClientAccessor UserClient
+@inject ILogger<FeedView> Logger
+
+@if (_signedOut)
 {
-    <div class="atproto-feed-loading">
+    <div class="atproto-feed atproto-feed-signed-out @CssClass">
+        <p>Sign in to see this feed.</p>
+    </div>
+}
+else if (_loading && _feedItems.Count == 0)
+{
+    <div class="atproto-feed atproto-feed-loading @CssClass">
         <p>Loading feed…</p>
     </div>
 }
-else if (_error is not null)
+else if (_error is not null && _feedItems.Count == 0)
 {
-    <div class="atproto-feed-error" role="alert">
+    <div class="atproto-feed atproto-feed-error @CssClass" role="alert">
         <p>@_error</p>
-        <button @onclick="LoadFeedAsync">Retry</button>
+        <button type="button" @onclick="ReloadAsync">Retry</button>
     </div>
 }
 else
@@ -16,17 +25,28 @@ else
     <div class="atproto-feed @CssClass">
         @foreach (var item in _feedItems)
         {
-            <PostCard Post="@item.Post"
+            <PostCard @key="item.Post.Uri"
+                      Post="@item.Post"
                       OnReply="OnReply"
                       OnRepost="OnRepost"
                       OnLike="OnLike" />
         }
 
+        @if (_feedItems.Count == 0)
+        {
+            <p class="atproto-feed-empty">No posts yet.</p>
+        }
+
+        @if (_error is not null)
+        {
+            <p class="atproto-feed-error" role="alert">@_error</p>
+        }
+
         @if (_cursor is not null)
         {
             <div class="atproto-feed-load-more">
-                <button @onclick="LoadMoreAsync" disabled="@_loading">
-                    @(_loading ? "Loading…" : "Load More")
+                <button type="button" @onclick="LoadMoreAsync" disabled="@_loading">
+                    @(_loading ? "Loading…" : "Load more")
                 </button>
             </div>
         }
@@ -34,13 +54,11 @@ else
 }
 
 @code {
-    [Inject] private AtProtoClient Client { get; set; } = default!;
-
     /// <summary>
-    /// The type of feed to display:
-    /// "timeline" (default), "author:{handle}", "feed:{at-uri}", "list:{at-uri}".
+    /// What the feed shows. Default: <see cref="ATProtoNet.Blazor.FeedSource.Timeline"/>, the
+    /// signed-in user's home timeline.
     /// </summary>
-    [Parameter] public string FeedSource { get; set; } = "timeline";
+    [Parameter] public FeedSource FeedSource { get; set; } = FeedSource.Timeline;
 
     /// <summary>Number of posts per page.</summary>
     [Parameter] public int PageSize { get; set; } = 25;
@@ -48,96 +66,100 @@ else
     /// <summary>Callback when reply is clicked on a post.</summary>
     [Parameter] public EventCallback<PostView> OnReply { get; set; }
 
-    /// <summary>Callback when repost is clicked on a post.</summary>
+    /// <summary>
+    /// Callback when repost is clicked on a post. When not set, each <see cref="PostCard"/>
+    /// reposts (or undoes its repost) as the signed-in user.
+    /// </summary>
     [Parameter] public EventCallback<PostView> OnRepost { get; set; }
 
-    /// <summary>Callback when like is clicked on a post.</summary>
+    /// <summary>
+    /// Callback when like is clicked on a post. When not set, each <see cref="PostCard"/>
+    /// likes (or unlikes) as the signed-in user.
+    /// </summary>
     [Parameter] public EventCallback<PostView> OnLike { get; set; }
 
     /// <summary>Optional CSS class.</summary>
     [Parameter] public string? CssClass { get; set; }
 
-    private List<FeedViewPost> _feedItems = new();
+    private List<FeedViewPost> _feedItems = [];
+    private FeedSource? _loadedSource;
+    private int _loadedPageSize;
     private string? _cursor;
     private string? _error;
     private bool _loading;
+    private bool _signedOut;
 
+    /// <inheritdoc/>
     protected override async Task OnParametersSetAsync()
     {
-        _feedItems.Clear();
-        _cursor = null;
-        await LoadFeedAsync();
+        ArgumentNullException.ThrowIfNull(FeedSource);
+
+        // A parent re-rendering passes the same parameters again; only a new source or page size
+        // is a new feed.
+        if (FeedSource == _loadedSource && PageSize == _loadedPageSize)
+            return;
+
+        _loadedSource = FeedSource;
+        _loadedPageSize = PageSize;
+        await ReloadAsync();
     }
 
-    private async Task LoadFeedAsync()
+    private async Task ReloadAsync()
     {
-        if (!Client.IsAuthenticated) return;
-
-        _loading = true;
-        _error = null;
-        StateHasChanged();
-
-        try
-        {
-            var response = await GetFeedResponseAsync(null);
-            _feedItems = response.Feed.ToList();
-            _cursor = response.Cursor;
-        }
-        catch (Exception ex)
-        {
-            _error = ex.Message;
-        }
-        finally
-        {
-            _loading = false;
-            StateHasChanged();
-        }
+        _feedItems = [];
+        _cursor = null;
+        await LoadPageAsync(cursor: null);
     }
 
     private async Task LoadMoreAsync()
     {
-        if (_cursor is null || _loading) return;
+        if (_cursor is null || _loading)
+            return;
 
+        await LoadPageAsync(_cursor);
+    }
+
+    private async Task LoadPageAsync(string? cursor)
+    {
+        var source = FeedSource;
         _loading = true;
-        StateHasChanged();
+        _error = null;
+        _signedOut = false;
 
         try
         {
-            var response = await GetFeedResponseAsync(_cursor);
+            var client = await UserClient.GetClientAsync();
+            if (client is null)
+            {
+                _signedOut = true;
+                return;
+            }
+
+            var response = await FetchAsync(client, source, cursor);
+
+            // The parameters changed while this page loaded; the new feed has been requested.
+            if (source != FeedSource)
+                return;
+
             _feedItems.AddRange(response.Feed);
             _cursor = response.Cursor;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _error = ex.Message;
+            Logger.LogWarning(ex, "Loading the feed {Source} failed", source);
+            _error = cursor is null ? "Couldn't load the feed." : "Couldn't load more posts.";
         }
         finally
         {
             _loading = false;
-            StateHasChanged();
         }
     }
 
-    private Task<FeedResponse> GetFeedResponseAsync(string? cursor)
+    private Task<FeedResponse> FetchAsync(AtProtoClient client, FeedSource source, string? cursor) => source switch
     {
-        if (FeedSource.StartsWith("author:"))
-        {
-            var actor = AtIdentifier.Parse(FeedSource["author:".Length..]);
-            return Client.Bsky.Feed.GetAuthorFeedAsync(actor, limit: PageSize, cursor: cursor);
-        }
-        else if (FeedSource.StartsWith("feed:"))
-        {
-            var feedUri = AtUri.Parse(FeedSource["feed:".Length..]);
-            return Client.Bsky.Feed.GetFeedAsync(feedUri, PageSize, cursor);
-        }
-        else if (FeedSource.StartsWith("list:"))
-        {
-            var listUri = AtUri.Parse(FeedSource["list:".Length..]);
-            return Client.Bsky.Feed.GetListFeedAsync(listUri, PageSize, cursor);
-        }
-        else
-        {
-            return Client.Bsky.Feed.GetTimelineAsync(limit: PageSize, cursor: cursor);
-        }
-    }
+        FeedSource.AuthorSource author => client.Bsky.Feed.GetAuthorFeedAsync(author.Actor, limit: PageSize, cursor: cursor),
+        FeedSource.GeneratorSource generator => client.Bsky.Feed.GetFeedAsync(generator.GeneratorUri, PageSize, cursor),
+        FeedSource.ListSource list => client.Bsky.Feed.GetListFeedAsync(list.ListUri, PageSize, cursor),
+        _ => client.Bsky.Feed.GetTimelineAsync(limit: PageSize, cursor: cursor),
+    };
 }

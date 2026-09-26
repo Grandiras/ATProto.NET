@@ -18,21 +18,13 @@ using XrpcErrorBody = ATProtoNet.Server.Xrpc.XrpcErrorBody;
 namespace ATProtoNet.Server.Authentication;
 
 /// <summary>
-/// Names used by the service auth authentication scheme.
+/// Names used by the service auth authentication scheme. Its claims are
+/// <see cref="AtProtoClaimTypes"/>.
 /// </summary>
 public static class AtProtoServiceAuthDefaults
 {
     /// <summary>The scheme name <c>AddAtProtoServiceAuth()</c> registers under by default.</summary>
     public const string AuthenticationScheme = "AtProtoServiceAuth";
-
-    /// <summary>The claim carrying the caller's DID (the token's <c>iss</c>), and the identity's name.</summary>
-    public const string DidClaimType = "did";
-
-    /// <summary>The claim carrying the XRPC method the token was scoped to (<c>lxm</c>), when it named one.</summary>
-    public const string LexiconMethodClaimType = "lxm";
-
-    /// <summary>The claim carrying the audience the token addressed (<c>aud</c>).</summary>
-    public const string AudienceClaimType = "aud";
 }
 
 /// <summary>
@@ -190,15 +182,15 @@ internal sealed class AtProtoServiceAuthHandler : AuthenticationHandler<AtProtoS
 
         List<Claim> claims =
         [
-            new(AtProtoServiceAuthDefaults.DidClaimType, verified.Issuer.Value),
-            new(AtProtoServiceAuthDefaults.AudienceClaimType, verified.Audience),
+            new(AtProtoClaimTypes.Did, verified.Issuer.Value),
+            new(AtProtoClaimTypes.Audience, verified.Audience),
         ];
 
         if (verified.Method is { } scoped)
-            claims.Add(new Claim(AtProtoServiceAuthDefaults.LexiconMethodClaimType, scoped.Value));
+            claims.Add(new Claim(AtProtoClaimTypes.LexiconMethod, scoped.Value));
 
         var identity = new ClaimsIdentity(
-            claims, Scheme.Name, nameType: AtProtoServiceAuthDefaults.DidClaimType, roleType: null);
+            claims, Scheme.Name, nameType: AtProtoClaimTypes.Did, roleType: null);
 
         return AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme.Name));
     }
@@ -307,7 +299,7 @@ public static class AtProtoServiceAuthExtensions
     /// <para>A request is authenticated when its <c>Authorization: Bearer</c> token passes
     /// <see cref="ServiceAuthVerifier"/> with the <c>lxm</c> bound to the NSID of the XRPC endpoint
     /// it reached, and the principal carries the <c>did</c>, <c>aud</c> and <c>lxm</c> claims
-    /// (<see cref="AtProtoServiceAuthDefaults"/>), with the DID as its name. A refusal is answered
+    /// (<see cref="AtProtoClaimTypes"/>), with the DID as its name. A refusal is answered
     /// with <c>401</c> and the XRPC error envelope.</para>
     /// <para>A token is verified, and so spent, only on an endpoint whose authorization asks for
     /// this scheme: <see cref="RequireServiceAuthAttribute"/>, <see cref="RequireServiceAuth{TBuilder}"/>,

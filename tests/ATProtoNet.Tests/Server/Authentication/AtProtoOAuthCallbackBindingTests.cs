@@ -2,7 +2,7 @@ using System.Net;
 using System.Security.Claims;
 using ATProtoNet.Auth;
 using ATProtoNet.Auth.OAuth;
-using ATProtoNet.Blazor.Authentication;
+using ATProtoNet.Server.Authentication;
 using ATProtoNet.Tests.Auth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using static ATProtoNet.Tests.Auth.SessionKit;
 
-namespace ATProtoNet.Tests.Auth.OAuth;
+namespace ATProtoNet.Tests.Server.Authentication;
 
 /// <summary>
 /// The Blazor callback accepts a login only from the browser that started it, and returns only
@@ -78,9 +78,11 @@ public sealed class AtProtoOAuthCallbackBindingTests : IDisposable
         var (state, cookie) = await StartAsync(service, "/inbox");
         var callback = Request(cookie: cookie);
 
-        var returnUrl = await service.CompleteCallbackAsync(callback, "code", state, Issuer);
+        var result = await service.CompleteCallbackAsync(callback, "code", state, Issuer);
 
-        Assert.Equal("/inbox", returnUrl);
+        Assert.Equal("/inbox", result.RedirectUrl);
+        Assert.False(result.IsRelay);
+        Assert.Equal(Alice, result.Did);
         await _sessions.Received(1).SetAsync(Arg.Any<AtProtoSession>(), Arg.Any<CancellationToken>());
         await _auth.Received(1).SignInAsync(callback, Arg.Any<string>(), Arg.Any<ClaimsPrincipal>(), Arg.Any<AuthenticationProperties>());
         Assert.Contains("expires=Thu, 01 Jan 1970", callback.Response.Headers.SetCookie.ToString());
@@ -125,7 +127,7 @@ public sealed class AtProtoOAuthCallbackBindingTests : IDisposable
         using var service = Service();
         var (state, cookie) = await StartAsync(service, returnUrl);
 
-        Assert.Equal("/", await service.CompleteCallbackAsync(Request(cookie: cookie), "code", state, Issuer));
+        Assert.Equal("/", (await service.CompleteCallbackAsync(Request(cookie: cookie), "code", state, Issuer)).RedirectUrl);
     }
 
     [Fact]
@@ -134,10 +136,28 @@ public sealed class AtProtoOAuthCallbackBindingTests : IDisposable
         using var service = Service();
         var (state, cookie) = await StartAsync(service);
 
-        var returnUrl = await service.CompleteCallbackAsync(
+        var result = await service.CompleteCallbackAsync(
             Request(cookie: $"{cookie}; atproto_return_url=https://evil.example.com/"), "code", state, Issuer);
 
-        Assert.Equal("/", returnUrl);
+        Assert.Equal("/", result.RedirectUrl);
+    }
+
+    [Fact]
+    public async Task Callback_OnAnotherLoopbackOrigin_ReturnsTheRelayOnTheLoginsOrigin()
+    {
+        using var service = Service();
+        var context = Request(host: "localhost:7203");
+        await service.StartLoginAsync(context, AliceHandle.Value, "/inbox");
+        var state = _server.To("/oauth/par")[^1].Form["state"];
+
+        var callback = Request(host: "127.0.0.1:5203");
+        callback.Request.Scheme = "http";
+        var result = await service.CompleteCallbackAsync(callback, "code", state, Issuer);
+
+        Assert.True(result.IsRelay);
+        Assert.StartsWith("https://localhost:7203/atproto/relay?code=", result.RedirectUrl);
+        Assert.Equal(1, service.PendingRelayCount);
+        await _auth.DidNotReceiveWithAnyArgs().SignInAsync(default!, default, default!, default);
     }
 
     [Fact]
@@ -148,7 +168,7 @@ public sealed class AtProtoOAuthCallbackBindingTests : IDisposable
         using var second = Service();
         var (state, cookie) = await StartAsync(first, "/inbox");
 
-        Assert.Equal("/inbox", await second.CompleteCallbackAsync(Request(cookie: cookie), "code", state, Issuer));
+        Assert.Equal("/inbox", (await second.CompleteCallbackAsync(Request(cookie: cookie), "code", state, Issuer)).RedirectUrl);
     }
 
     [Fact]
@@ -163,5 +183,46 @@ public sealed class AtProtoOAuthCallbackBindingTests : IDisposable
             () => service.CompleteCallbackAsync(Request(host: "callback.example.com"), "code", state, Issuer));
 
         Assert.Equal("login_not_bound", ex.Error);
+    }
+
+    [Fact]
+    public async Task LogoutAsync_WaitsForARefreshUnderWay_ThenRemovesAndRevokesTheSession()
+    {
+        // A refresh holding the account's lock finishes before the session is removed, and one
+        // waiting behind the sign-out finds nothing to bring back.
+        var coordinator = new InProcessSessionRefreshCoordinator();
+        var store = new InMemoryAtProtoSessionStore();
+        await store.SetAsync(OAuthSession(NewDPoPKey(), refreshToken: "rt-live", revocationEndpoint: RevocationEndpoint));
+        using var service = new AtProtoOAuthService(
+            new AtProtoOAuthServerOptions
+            {
+                ClientMetadata = new OAuthClientMetadata { ClientId = ClientId, RedirectUris = ["https://app.example.com/atproto/callback"] },
+                HttpClient = _http,
+            },
+            NullLoggerFactory.Instance,
+            AliceIdentity(),
+            refreshCoordinator: coordinator);
+
+        var services = new ServiceCollection();
+        services.AddSingleton(_auth);
+        services.AddSingleton<IAtProtoSessionStore>(store);
+        var context = new DefaultHttpContext
+        {
+            RequestServices = services.BuildServiceProvider(),
+            User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(AtProtoClaimTypes.Did, Alice.Value)], "test")),
+        };
+
+        var refreshing = await coordinator.AcquireAsync(Alice);
+        var logout = service.LogoutAsync(context);
+        await Task.Delay(50);
+        Assert.False(logout.IsCompleted);
+        Assert.NotNull(await store.GetAsync(Alice));
+
+        await refreshing.DisposeAsync();
+        Assert.Equal("/", await logout);
+
+        Assert.Null(await store.GetAsync(Alice));
+        Assert.Equal("rt-live", Assert.Single(_server.To("/oauth/revoke")).Form["token"]);
+        await _auth.Received(1).SignOutAsync(context, Arg.Any<string>(), Arg.Any<AuthenticationProperties>());
     }
 }

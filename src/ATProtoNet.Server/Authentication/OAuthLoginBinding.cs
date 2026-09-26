@@ -6,7 +6,7 @@ using System.Text.Json.Serialization;
 using ATProtoNet.Auth.OAuth;
 using Microsoft.AspNetCore.Http;
 
-namespace ATProtoNet.Blazor.Authentication;
+namespace ATProtoNet.Server.Authentication;
 
 /// <summary>
 /// What a login's callback needs from its start, kept server-side as the pending authorization's

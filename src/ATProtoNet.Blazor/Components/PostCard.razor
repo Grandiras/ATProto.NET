@@ -1,4 +1,5 @@
-@using System.Text.Json
+@inject AtProtoUserClientAccessor UserClient
+@inject ILogger<PostCard> Logger
 
 <article class="atproto-post @CssClass">
     <div class="atproto-post-header">
@@ -34,18 +35,23 @@
     </div>
 
     <div class="atproto-post-actions">
-        <button class="atproto-post-action" @onclick="HandleReply" title="Reply">
+        <button type="button" class="atproto-post-action atproto-post-reply" @onclick="HandleReply" title="Reply">
             💬 @(Post.ReplyCount ?? 0)
         </button>
-        <button class="atproto-post-action @(Post.Viewer?.Repost is not null ? "active" : "")"
-                @onclick="HandleRepost" title="Repost">
-            🔁 @(Post.RepostCount ?? 0)
+        <button type="button" class="atproto-post-action atproto-post-repost @(_repost is not null ? "active" : "")"
+                @onclick="HandleRepost" disabled="@_busy" title="Repost" aria-pressed="@(_repost is not null ? "true" : "false")">
+            🔁 @_repostCount
         </button>
-        <button class="atproto-post-action @(Post.Viewer?.Like is not null ? "active" : "")"
-                @onclick="HandleLike" title="Like">
-            ❤️ @(Post.LikeCount ?? 0)
+        <button type="button" class="atproto-post-action atproto-post-like @(_like is not null ? "active" : "")"
+                @onclick="HandleLike" disabled="@_busy" title="Like" aria-pressed="@(_like is not null ? "true" : "false")">
+            ❤️ @_likeCount
         </button>
     </div>
+
+    @if (_error is not null)
+    {
+        <p class="atproto-post-error" role="alert">@_error</p>
+    }
 </article>
 
 @code {
@@ -56,14 +62,45 @@
     /// <summary>Callback when the reply button is clicked.</summary>
     [Parameter] public EventCallback<PostView> OnReply { get; set; }
 
-    /// <summary>Callback when the repost button is clicked.</summary>
+    /// <summary>
+    /// Callback when the repost button is clicked. When not set, the card reposts the post as
+    /// the signed-in user, or undoes the repost.
+    /// </summary>
     [Parameter] public EventCallback<PostView> OnRepost { get; set; }
 
-    /// <summary>Callback when the like button is clicked.</summary>
+    /// <summary>
+    /// Callback when the like button is clicked. When not set, the card likes the post as the
+    /// signed-in user, or unlikes it.
+    /// </summary>
     [Parameter] public EventCallback<PostView> OnLike { get; set; }
 
     /// <summary>Optional CSS class.</summary>
     [Parameter] public string? CssClass { get; set; }
+
+    private PostView? _shown;
+    private AtUri? _like;
+    private AtUri? _repost;
+    private int _likeCount;
+    private int _repostCount;
+    private bool _busy;
+    private string? _error;
+
+    /// <inheritdoc/>
+    protected override void OnParametersSet()
+    {
+        ArgumentNullException.ThrowIfNull(Post);
+
+        // The viewer state is the card's own once it acts on the post; a new post resets it.
+        if (ReferenceEquals(Post, _shown))
+            return;
+
+        _shown = Post;
+        _like = Post.Viewer?.Like;
+        _repost = Post.Viewer?.Repost;
+        _likeCount = Post.LikeCount ?? 0;
+        _repostCount = Post.RepostCount ?? 0;
+        _error = null;
+    }
 
     private string GetPostText()
     {
@@ -135,6 +172,67 @@
     }
 
     private Task HandleReply() => OnReply.InvokeAsync(Post);
-    private Task HandleRepost() => OnRepost.InvokeAsync(Post);
-    private Task HandleLike() => OnLike.InvokeAsync(Post);
+
+    private Task HandleRepost() => OnRepost.HasDelegate
+        ? OnRepost.InvokeAsync(Post)
+        : ToggleAsync(repost: true);
+
+    private Task HandleLike() => OnLike.HasDelegate
+        ? OnLike.InvokeAsync(Post)
+        : ToggleAsync(repost: false);
+
+    /// <summary>Likes or reposts the post as the signed-in user, or undoes it.</summary>
+    private async Task ToggleAsync(bool repost)
+    {
+        if (_busy)
+            return;
+
+        _busy = true;
+        _error = null;
+        try
+        {
+            var client = await UserClient.GetClientAsync();
+            if (client is null)
+            {
+                _error = "Sign in to do that.";
+                return;
+            }
+
+            var existing = repost ? _repost : _like;
+            if (existing is not null)
+            {
+                await client.Bsky.DeleteRecordAsync(existing);
+                SetState(repost, null, -1);
+            }
+            else
+            {
+                var subject = new StrongRef { Uri = Post.Uri, Cid = Post.Cid };
+                var created = repost ? await client.Bsky.RepostAsync(subject) : await client.Bsky.LikeAsync(subject);
+                SetState(repost, created.Uri, +1);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Logger.LogWarning(ex, "Updating the {Action} of {Post} failed", repost ? "repost" : "like", Post.Uri);
+            _error = repost ? "Couldn't update the repost." : "Couldn't update the like.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void SetState(bool repost, AtUri? record, int delta)
+    {
+        if (repost)
+        {
+            _repost = record;
+            _repostCount = Math.Max(0, _repostCount + delta);
+        }
+        else
+        {
+            _like = record;
+            _likeCount = Math.Max(0, _likeCount + delta);
+        }
+    }
 }

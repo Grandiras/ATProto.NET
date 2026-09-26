@@ -24,7 +24,7 @@ public class TypedIdentifierGuardTests
     private static readonly Assembly[] Assemblies =
     [
         typeof(AtProtoClient).Assembly,
-        typeof(AtProtoAuthenticationHandler).Assembly,
+        typeof(AtProtoOAuthService).Assembly,
     ];
 
     /// <summary>The namespaces scanned: an entry ending in <c>.*</c> also covers its children.</summary>
@@ -155,6 +155,14 @@ public class TypedIdentifierGuardTests
 
         ["ATProtoNet.Auth.OAuthSession.Issuer"] =
             "An OAuth authorization server's issuer identifier (RFC 8414): a URL, compared exactly as the server states it.",
+
+        // The hosted OAuth login takes what the browser sent.
+        ["ATProtoNet.Server.Authentication.AtProtoOAuthService.StartLoginAsync(handle)"] =
+            "The sign-in identifier as the user typed it: a handle, a DID or a server URL.",
+        ["ATProtoNet.Server.Authentication.AtProtoOAuthService.CompleteCallbackAsync(issuer)"] =
+            "The callback's `iss`: an authorization server's issuer URL.",
+        ["ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.PostLogoutRedirectUri"] =
+            "A URL the browser is sent to after sign-out, not an AT URI.",
     };
 
     private const string ChatRev = "No Lexicon format: an opaque revision string of the chat service.";

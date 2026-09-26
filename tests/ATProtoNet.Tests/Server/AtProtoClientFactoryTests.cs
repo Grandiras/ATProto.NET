@@ -111,6 +111,108 @@ public sealed class AtProtoClientFactoryTests : IDisposable
     }
 
     [Fact]
+    public async Task ClientsOfOneAccount_ShareTheImportedDPoPKey()
+    {
+        _server.Respond = _ => JsonResponse("{}");
+        var key = NewDPoPKey();
+        await _store.SetAsync(OAuthSession(key));
+        var user = User("did", "did:plc:alice");
+
+        var first = await _factory.CreateClientForUserAsync(user);
+        await using (var second = await _factory.CreateClientForUserAsync(user))
+        {
+            // Releasing one request's client leaves the key usable by the others.
+            await first!.DisposeAsync();
+            await second!.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping"));
+        }
+
+        Assert.Equal(1, _factory.CachedKeyCount);
+        using var expected = new ATProtoNet.Auth.OAuth.DPoPProofGenerator(key);
+        Assert.Equal(expected.KeyThumbprint, Thumbprint(Assert.Single(_server.Requests).DPoP!));
+    }
+
+    [Fact]
+    public async Task ASessionWithAnotherKey_ReplacesTheCachedOne()
+    {
+        _server.Respond = _ => JsonResponse("{}");
+        var user = User("did", "did:plc:alice");
+        await _store.SetAsync(OAuthSession(NewDPoPKey()));
+        await (await _factory.CreateClientForUserAsync(user))!.DisposeAsync();
+
+        var newKey = NewDPoPKey();
+        await _store.SetAsync(OAuthSession(newKey));
+        await using (var client = await _factory.CreateClientForUserAsync(user))
+            await client!.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping"));
+
+        using var expected = new ATProtoNet.Auth.OAuth.DPoPProofGenerator(newKey);
+        Assert.Equal(expected.KeyThumbprint, Thumbprint(Assert.Single(_server.Requests).DPoP!));
+        Assert.Equal(1, _factory.CachedKeyCount);
+    }
+
+    [Fact]
+    public async Task TheKeyCache_IsBounded()
+    {
+        for (var i = 0; i <= AtProtoClientFactory.MaxCachedKeys; i++)
+        {
+            var did = Did.Parse($"did:plc:user{i}");
+            await _store.SetAsync(OAuthSession(NewDPoPKey()) with { Did = did });
+            await (await _factory.CreateClientForUserAsync(User("did", did.Value)))!.DisposeAsync();
+        }
+
+        Assert.InRange(_factory.CachedKeyCount, 1, AtProtoClientFactory.MaxCachedKeys);
+    }
+
+    [Fact]
+    public async Task ConcurrentRequestsOfOneUser_SpendTheRefreshTokenOnce()
+    {
+        var live = "rt-1";
+        var issued = 1;
+        _server.Handler = async (r, ct) =>
+        {
+            if (r.Path != TokenEndpoint.AbsolutePath)
+                return JsonResponse("{}");
+
+            // Long enough for every other request to reach its refresh meanwhile.
+            await Task.Delay(100, ct);
+            lock (_server)
+            {
+                if (r.Form["refresh_token"] != live)
+                    return OAuthError("invalid_grant");
+                live = $"rt-{++issued}";
+                return TokenResponse($"at-{issued}", live);
+            }
+        };
+        using var http = new HttpClient(_server, disposeHandler: false);
+        using var oauth = OAuthClient(http);
+        var factory = new AtProtoClientFactory(
+            _store, _httpClientFactory, _loggerFactory, oauth, new InProcessSessionRefreshCoordinator());
+        await _store.SetAsync(OAuthSession(NewDPoPKey(), expiresAt: DateTimeOffset.UtcNow.AddSeconds(20)));
+        var user = User("did", "did:plc:alice");
+
+        await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Run(async () =>
+        {
+            await using var client = await factory.CreateClientForUserAsync(user);
+            await client!.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping"));
+        })));
+
+        Assert.Single(_server.To(TokenEndpoint.AbsolutePath));
+        Assert.Equal("rt-2", Assert.IsType<OAuthSession>(await _store.GetAsync(Alice)).RefreshToken);
+    }
+
+    private static string Thumbprint(string proof)
+    {
+        Assert.True(Jwt.TryDecode(proof, out var jwt, out _));
+        var jwk = jwt.Header.GetProperty("jwk");
+        return ATProtoNet.Auth.OAuth.DPoP.Thumbprint(new ATProtoNet.Auth.OAuth.JsonWebKey
+        {
+            Kty = jwk.GetProperty("kty").GetString()!,
+            Crv = jwk.GetProperty("crv").GetString(),
+            X = jwk.GetProperty("x").GetString(),
+            Y = jwk.GetProperty("y").GetString(),
+        });
+    }
+
+    [Fact]
     public async Task CreateClientForUserAsync_ThrowsOnNullUser()
     {
         await Assert.ThrowsAsync<ArgumentNullException>(() => _factory.CreateClientForUserAsync(null!));

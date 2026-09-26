@@ -111,6 +111,12 @@ public sealed class OAuthClient : IDisposable
     /// </summary>
     public AuthorizationServerDiscovery Discovery => _discovery;
 
+    /// <summary>The client every request to a PDS or authorization server goes through.</summary>
+    internal HttpClient HttpClient => _httpClient;
+
+    /// <summary>The <c>client_id</c> this client identifies itself with.</summary>
+    internal string ClientId => _options.ClientMetadata.ClientId;
+
     /// <summary>The DPoP nonces of the authorization servers: the process-wide cache unless a test supplies one.</summary>
     internal DPoPNonceCache NonceCache { get; init; } = DPoPNonceCache.Shared;
 
