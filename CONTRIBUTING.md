@@ -203,8 +203,8 @@ public sealed class ListBlobsResponse : ICursorPage<Cid>
 ### Architecture
 
 - **ATProtoNet** — Core SDK, zero ASP.NET dependency
-- **ATProtoNet.Server** — ASP.NET Core integration (DI, auth handlers)
-- **ATProtoNet.Blazor** — Blazor components and auth state
+- **ATProtoNet.Server** — ASP.NET Core integration (DI, OAuth cookie login, service auth)
+- **ATProtoNet.Blazor** — Blazor components acting as the signed-in user
 
 ### Testing
 

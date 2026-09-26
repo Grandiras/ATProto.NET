@@ -294,8 +294,19 @@ not propagated. For persistence prefer an `IAtProtoSessionStore`, which the clie
   per-call values pass `XrpcCallOptions`.
 
 Coalescing works within one client. Several clients that share one stored session (per-request
-clients on a web server, several processes on one store) each refresh on their own, so two of them
-refreshing at the same moment can spend the same refresh token.
+clients on a web server, several processes on one store) would each refresh on their own, so two of
+them refreshing at the same moment could spend the same refresh token. Give them one
+`ISessionRefreshCoordinator` (`AtProtoClientOptions.RefreshCoordinator`) as well as the store: a
+client then refreshes under the account's lock and reads the store first, taking up the session
+another client has already refreshed, and ending one the store no longer holds, since it was signed
+out. `InProcessSessionRefreshCoordinator` covers the clients of one process, and the server
+integration's client factory uses the one `AddAtProtoServer()` registers; several processes on one
+store need a distributed lock behind the interface.
+
+```csharp
+var coordinator = new InProcessSessionRefreshCoordinator();   // one for every client of the store
+var client = new AtProtoClient(new AtProtoClientOptions { RefreshCoordinator = coordinator }, http, store);
+```
 
 ## Ownership and disposal
 

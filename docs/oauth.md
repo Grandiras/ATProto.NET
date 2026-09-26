@@ -52,7 +52,7 @@ app.MapGet("/oauth-client-metadata.json", () =>
     Results.Content(oauthOptions.ClientMetadata.ToJson(), "application/json"));
 ```
 
-`Results.Json(metadata)` works too — the optional properties are annotated with `[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]`, so nulls are never written regardless of the serializer options in play.
+`Results.Json(metadata)` works too — the optional properties are annotated with `[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]`, so nulls are never written regardless of the serializer options in play. The [hosted login](#hosted-login-aspnet-core) serves it for you with `ServeClientMetadata`.
 
 ### 2. Configure OAuthClient
 
@@ -140,6 +140,9 @@ one configured and published until its sessions have ended; a session whose key 
 `client_key_unavailable`. Sessions from before a client became confidential carry no key id and
 are still sent as a public client's, which an authorization server that now expects an assertion
 refuses: those users sign in again. The keys are yours: the `OAuthClient` does not dispose them.
+
+The hosted login takes the same keys in `AtProtoOAuthServerOptions.ClientKeys` (see
+[Hosted Login](#production-configuration)).
 
 ### Development / Loopback Client
 
@@ -338,28 +341,37 @@ var authorization = await oauthClient.StartAuthorizationAsync(
     "https://myapp.example.com/callback");
 ```
 
-## Blazor Integration
+## Hosted Login (ASP.NET Core)
 
-ATProtoNet.Blazor provides cookie-based OAuth integration that works with standard Blazor authentication patterns.
+`ATProtoNet.Server` runs the whole flow for an ASP.NET Core application (MVC, Razor Pages, minimal
+APIs or Blazor) and signs the user in with a standard authentication cookie.
 
 ### Setup
 
 ```csharp
+using ATProtoNet.Server;
+using ATProtoNet.Server.Authentication;
+
 // Program.cs
 builder.Services.AddAuthentication("Cookies").AddCookie("Cookies");
 builder.Services.AddAtProtoAuthentication();
-builder.Services.AddCascadingAuthenticationState();
-builder.Services.AddAuthorizationCore();
+builder.Services.AddAtProtoServer();   // session store, client factory, refresh coordinator
+builder.Services.AddAuthorization();
 
 var app = builder.Build();
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapAtProtoOAuth();  // Maps /atproto/login, /atproto/callback, /atproto/logout
+app.MapAtProtoOAuth();  // Maps /atproto/login, /atproto/callback, /atproto/relay, /atproto/logout
 ```
 
-### Login Form
+`AddAtProtoAuthentication()` registers `AtProtoOAuthService` and its `OAuthClient`, built from the
+options alone, as singletons. The client factory refreshes the sessions it restores with that
+`OAuthClient`, so a process that has just restarted refreshes the sessions it stored before. With
+an OAuth flow of your own, register your `OAuthClient` as a singleton instead, and the factory uses
+it.
 
-The `LoginForm` component renders a form that submits to the login endpoint:
+For Blazor, the `ATProtoNet.Blazor` package adds a `LoginForm` component that submits to the
+login endpoint, and widgets that act as the signed-in user (see [blazor.md](blazor.md)):
 
 ```razor
 <LoginForm ReturnUrl="/" ShowPdsOption="true" />
@@ -367,32 +379,49 @@ The `LoginForm` component renders a form that submits to the login endpoint:
 
 ### OAuth Flow
 
-1. User submits their handle via the `LoginForm`
-2. `GET /atproto/login?handle=alice.bsky.social` resolves the user's PDS and starts OAuth
-3. User authorizes at their PDS
-4. `GET /atproto/callback` exchanges the code for tokens, creates claims, and issues a cookie via `HttpContext.SignInAsync()`
-5. Standard Blazor `<AuthorizeView>` components work automatically
+1. The browser opens `GET /atproto/login?handle=alice.bsky.social&returnUrl=/inbox`, which resolves
+   the user's PDS, starts OAuth, and binds the login to the browser with a cookie
+2. The user authorizes at their authorization server
+3. `GET /atproto/callback` exchanges the code for tokens, checks the browser's binding cookie,
+   stores the session, and issues the authentication cookie via `HttpContext.SignInAsync()`
+4. `[Authorize]`, `<AuthorizeView>` and `IAtProtoClientFactory` work with the signed-in user
+
+`AtProtoOAuthService.CompleteCallbackAsync` returns an `AtProtoOAuthCallbackResult`: the account's
+`Did`, and the `RedirectUrl` to send the browser to, which is the login's own local return URL or,
+when the callback arrived on another loopback origin than the login started on, the relay
+endpoint on the login's origin (`IsRelay`). It is never a URL taken from the request. A relayed
+login that is not redeemed within two minutes, or is evicted when more than 256 wait, has its
+tokens revoked.
+
+A login that fails redirects to `LoginPath` (default `/login`) with an `error` code, never a
+message: the `OAuthException.Error` (`invalid_handle`, `login_not_bound`, `invalid_state`, …), the
+authorization server's own error code (`access_denied`, …), or `login_failed` for anything else,
+which is logged. `LoginForm` turns the codes into messages.
 
 ### Available Claims
 
-After login, these claims are available on `context.User`:
+After login, these claims are available on `context.User`; the names are constants on
+`AtProtoClaimTypes`:
 
 | Claim | Description |
 |-------|-------------|
 | `ClaimTypes.NameIdentifier` | User's DID |
 | `ClaimTypes.Name` | User's handle, or `handle.invalid` when it did not verify |
-| `did` | User's DID |
-| `handle` | User's handle, or the DID when it did not verify |
-| `handle_verified` | `"true"` or `"false"` |
-| `pds_url` | User's PDS URL |
-| `auth_method` | Always `"oauth"` |
+| `did` (`AtProtoClaimTypes.Did`) | User's DID |
+| `handle` (`AtProtoClaimTypes.Handle`) | User's handle, or the DID when it did not verify |
+| `handle_verified` (`AtProtoClaimTypes.HandleVerified`) | `"true"` or `"false"` |
+| `pds_url` (`AtProtoClaimTypes.PdsUrl`) | User's PDS URL |
+| `auth_method` (`AtProtoClaimTypes.AuthMethod`) | Always `"oauth"` |
 
 With `AddAtProtoServer()` registered, the callback stores the `OAuthSession` in the
-`IAtProtoSessionStore`, and `/atproto/logout` revokes it at the authorization server and removes it.
+`IAtProtoSessionStore`, and `/atproto/logout` removes it and revokes it at the authorization
+server. Both take the account's refresh lock (see [Refreshing Across Requests](#refreshing-across-requests)),
+so neither interleaves with a refresh.
 
 ### Production Configuration
 
-For production, provide explicit client metadata instead of the auto-generated loopback client_id:
+For production, provide explicit client metadata instead of the auto-generated loopback client_id,
+and let `MapAtProtoOAuth()` serve it at its `client_id`:
 
 ```csharp
 builder.Services.AddAtProtoAuthentication(options =>
@@ -406,10 +435,47 @@ builder.Services.AddAtProtoAuthentication(options =>
         Scope = AtProtoScopes.Presets.BlueskyApp,
     };
     options.Scopes = AtProtoScopes.Presets.BlueskyApp;
+    options.ServeClientMetadata = true;   // GET /oauth-client-metadata.json
 });
 ```
 
-See [blazor.md](blazor.md) for complete documentation.
+A confidential client adds its keys, and can have their public halves served at its `jwks_uri`:
+
+```csharp
+builder.Services.AddAtProtoAuthentication(options =>
+{
+    options.ClientMetadata = new OAuthClientMetadata
+    {
+        ClientId = "https://myapp.example.com/oauth-client-metadata.json",
+        RedirectUris = ["https://myapp.example.com/atproto/callback"],
+        Scope = AtProtoScopes.Presets.BlueskyApp,
+        TokenEndpointAuthMethod = "private_key_jwt",
+        TokenEndpointAuthSigningAlg = "ES256",
+        JwksUri = "https://myapp.example.com/oauth/jwks.json",
+    };
+    options.Scopes = AtProtoScopes.Presets.BlueskyApp;
+    options.ClientKeys.Add(OAuthClientKey.Import("key-2026", pkcs8));  // new logins use the first key
+    options.ServeClientMetadata = true;   // also GET /oauth/jwks.json
+});
+```
+
+See [Confidential Clients](#confidential-clients) for key rotation, and [blazor.md](blazor.md) for
+every option.
+
+### Refreshing Across Requests
+
+The client factory creates a client per request from the stored session, so two requests of one
+user can find its access token about to expire at the same moment. Refresh tokens are single-use:
+if both clients refreshed, the authorization server would see its token spent twice and end the
+session. `AddAtProtoServer()` therefore registers an `ISessionRefreshCoordinator`
+(`InProcessSessionRefreshCoordinator`), and every client the factory creates refreshes under the
+account's lock and reads the store once it holds it. A session another client has refreshed
+meanwhile is taken up without spending anything, and one the store no longer holds was signed out,
+so it ends (`XrpcAuthenticationException`, `InvalidToken`) instead of being brought back.
+
+Clients you create yourself get the same protection with `AtProtoClientOptions.RefreshCoordinator`,
+given the same coordinator and a shared store. The in-process coordinator covers one process; several
+instances sharing one store need a distributed lock behind `ISessionRefreshCoordinator`.
 
 ## Security Considerations
 
@@ -432,8 +498,8 @@ The authorization code flow uses PKCE with S256 challenge method. The code verif
 
 The state parameter is generated with 32 bytes of cryptographic randomness. It ties the callback
 to a pending authorization, and each state completes at most once. It does not tie the callback
-to the browser that started the login, so a web front end must bind the two itself; the Blazor
-integration does it with a cookie (see [blazor.md](blazor.md)). Keep application data, such as
+to the browser that started the login, so a web front end must bind the two itself; the hosted
+login does it with a cookie (see [blazor.md](blazor.md#login-csrf-protection)). Keep application data, such as
 the return URL, with the pending authorization: `OAuthAuthorizationOptions.AppState` is handed
 back by `CompleteAuthorizationWithAppStateAsync`.
 

@@ -11,7 +11,7 @@
 # Core SDK
 dotnet add package ATProtoNet
 
-# ASP.NET Core integration — DI, JWT auth, EF Core token store,
+# ASP.NET Core integration — DI, OAuth cookie login, service auth, EF Core token store,
 # and .NET Aspire client integration (optional)
 dotnet add package ATProtoNet.Server
 
