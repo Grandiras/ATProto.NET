@@ -125,11 +125,9 @@ public class AtProtoHttpTests
         Assert.Equal("serviceUrl", ex.ParamName);
     }
 
-    private static HttpClient HttpClientOf(AtProtoClient client) =>
-        (HttpClient)typeof(AtProtoClient)
-            .GetField("_httpClient", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(client)!;
+    private static HttpClient HttpClientOf(AtProtoClient client) => client.HttpClient;
 
+    // HttpMessageInvoker keeps its handler private; no InternalsVisibleTo reaches the BCL.
     private static HttpMessageHandler HandlerOf(HttpClient client) =>
         (HttpMessageHandler)typeof(HttpMessageInvoker)
             .GetField("_handler", BindingFlags.Instance | BindingFlags.NonPublic)!

@@ -836,6 +836,9 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <summary>The logger, for the helpers that act on the client's behalf.</summary>
     internal ILogger Logger => _logger;
 
+    /// <summary>The <see cref="HttpClient"/> the client sends with.</summary>
+    internal HttpClient HttpClient => _httpClient;
+
     /// <summary>
     /// The installed session, for a call that acts on the signed-in account; read once, so the
     /// caller works with one account even when the session changes meanwhile.
