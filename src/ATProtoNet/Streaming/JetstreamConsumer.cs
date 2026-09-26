@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -15,14 +16,20 @@ namespace ATProtoNet.Streaming;
 /// in flight and filters out replayed events it already delivered
 /// (<c>time_us &lt;= <see cref="LastTimeUs"/></c>). On <see cref="JetstreamProtocol.V2"/> the
 /// cursor is a sequence number the server replays inclusively, so the consumer reconnects at
-/// <see cref="LastCursor"/> exactly and filters out the one replayed event.</para>
+/// <see cref="LastCursor"/> exactly and filters out the one replayed event. A v2 start cursor of
+/// 10^15 or more is a timestamp seek (<see cref="JetstreamCursor"/>), which is how a stored v1
+/// cursor carries over; the consumer resumes by sequence number from the first event.</para>
 /// <para>A subscription the server rejects before the WebSocket upgrade — a cursor below the
 /// retention floor, a retired zstd dictionary, a malformed filter — is not retried: the
-/// <see cref="JetstreamConnectException"/> is rethrown, because reconnecting with the same
-/// request would loop forever and silently skip the gap.</para>
-/// <para>Delivery is <b>at-least-once across process restarts</b>: the cursor is persisted every
-/// <see cref="JetstreamConsumerOptions.CursorPersistInterval"/> events, so events after the last
-/// persisted cursor may be redelivered when resuming from the store. Processing must be idempotent.</para>
+/// <see cref="JetstreamException"/> is rethrown, because reconnecting with the same
+/// request would loop forever and silently skip the gap. Neither is an error frame that is not
+/// retryable; one that is (<c>ConsumerTooSlow</c>) is reported to
+/// <see cref="StreamConsumerOptions.OnStreamError"/> and followed by a reconnect.</para>
+/// <para>Delivery is <b>at-least-once</b>: an event's position is recorded when the caller asks
+/// for the next one, and the cursor is saved every
+/// <see cref="StreamConsumerOptions.CursorPersistInterval"/> events and when the enumeration ends,
+/// so events after the last saved cursor may be delivered again when resuming from the store.
+/// Processing must be idempotent. Cancelling the token ends the enumeration normally.</para>
 /// <para>Jetstream events carry no MST proofs or signatures and cannot be cryptographically
 /// verified — see <see cref="JetstreamEvent"/>.</para>
 /// </remarks>
@@ -33,8 +40,8 @@ namespace ATProtoNet.Streaming;
 ///     ServiceUrl = JetstreamEndpoints.UsEast,
 ///     Protocol = JetstreamProtocol.V2,
 ///     WantedCollections = ["app.bsky.feed.post", "app.bsky.feed.like"],
-///     CursorStore = new InMemoryFirehoseCursorStore(),
-///     MaxReconnectAttempts = -1,
+///     CursorStore = new InMemoryStreamCursorStore(),
+///     Reconnect = new StreamReconnectPolicy { MaxAttempts = null },
 /// });
 /// await foreach (var evt in consumer.ConsumeAsync())
 /// {
@@ -43,13 +50,11 @@ namespace ATProtoNet.Streaming;
 /// }
 /// </code>
 /// </example>
-public sealed class JetstreamConsumer : IDisposable
+public sealed class JetstreamConsumer
 {
     private readonly JetstreamConsumerOptions _options;
     private readonly ILogger _logger;
     private readonly Func<long?, CancellationToken, IAsyncEnumerable<JetstreamEvent>> _connectionFactory;
-    private bool _disposed;
-    private int _eventsSinceLastPersist;
 
     /// <summary>The <c>time_us</c> of the last delivered event. The reconnect cursor base on
     /// <see cref="JetstreamProtocol.V1"/>.</summary>
@@ -60,13 +65,11 @@ public sealed class JetstreamConsumer : IDisposable
     /// carrying one has been delivered.</summary>
     public long? LastCursor { get; private set; }
 
-    /// <summary>Whether the consumer is currently receiving events.</summary>
-    public bool IsConnected { get; private set; }
-
     /// <summary>
     /// Create a managed Jetstream consumer.
     /// </summary>
     /// <param name="options">Consumer configuration.</param>
+    /// <exception cref="ArgumentException">The options are not valid.</exception>
     public JetstreamConsumer(JetstreamConsumerOptions options)
         : this(options, (cursor, ct) => SubscribeOnce(options, cursor, ct))
     {
@@ -77,6 +80,7 @@ public sealed class JetstreamConsumer : IDisposable
         Func<long?, CancellationToken, IAsyncEnumerable<JetstreamEvent>> connectionFactory)
     {
         ArgumentNullException.ThrowIfNull(options);
+        options.Validate();
         _options = options;
         _logger = options.Logger ?? NullLogger.Instance;
         _connectionFactory = connectionFactory;
@@ -86,142 +90,126 @@ public sealed class JetstreamConsumer : IDisposable
     /// Consume Jetstream events with automatic reconnection and cursor persistence.
     /// </summary>
     /// <param name="cursor">Initial cursor to resume from — a sequence number on
-    /// <see cref="JetstreamProtocol.V2"/>, a unix-microseconds timestamp on
-    /// <see cref="JetstreamProtocol.V1"/>. If null and a cursor store is configured, the stored
-    /// cursor is used; otherwise consumption starts live.</param>
+    /// <see cref="JetstreamProtocol.V2"/> (or a timestamp from <see cref="JetstreamCursor.FromTimestamp"/>),
+    /// a unix-microseconds timestamp on <see cref="JetstreamProtocol.V1"/>. If null and a cursor
+    /// store is configured, the stored cursor is used; otherwise consumption starts live.</param>
     /// <param name="cancellationToken">Cancellation token to stop consuming.</param>
-    /// <exception cref="JetstreamConnectException">The server rejected the subscription before
-    /// the WebSocket upgrade and retrying it unchanged cannot succeed.</exception>
+    /// <exception cref="JetstreamException">The server rejected the subscription before the
+    /// WebSocket upgrade, or sent an error frame, and retrying it unchanged cannot succeed.</exception>
+    /// <exception cref="EventStreamException">Every reconnect attempt
+    /// <see cref="StreamConsumerOptions.Reconnect"/> allows failed.</exception>
     public async IAsyncEnumerable<JetstreamEvent> ConsumeAsync(
         long? cursor = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var startCursor = cursor;
+        var v2 = _options.Protocol == JetstreamProtocol.V2;
+        var tracker = new CursorTracker(
+            _options.CursorStore, _options.ResolvedStreamId, _options.CursorPersistInterval, _logger);
 
-        if (startCursor is null && _options.CursorStore is not null)
+        var startCursor = cursor;
+        if (startCursor is null)
         {
-            startCursor = await _options.CursorStore.GetCursorAsync(
-                _options.ResolvedStreamId, cancellationToken);
+            try
+            {
+                startCursor = await tracker.LoadAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                yield break;
+            }
 
             if (startCursor.HasValue)
                 _logger.LogInformation("Resuming Jetstream from stored cursor {Cursor}", startCursor.Value);
         }
 
-        var v2 = _options.Protocol == JetstreamProtocol.V2;
+        // A v2 sequence cursor is replayed inclusively, so it is also the floor below which events
+        // were already delivered. A timestamp seek is only a server-side position, no floor for
+        // the sequence numbers that follow: the first event sets that.
+        var timestampSeek = v2 && startCursor is { } start && JetstreamCursor.IsTimestamp(start);
+        tracker.Start(timestampSeek ? null : startCursor);
+        var seqFloor = v2 && !timestampSeek ? startCursor : null;
+
         var rewindMicros = (long)_options.ReconnectRewind.TotalMicroseconds;
-        var reconnectAttempts = 0;
+        var backoff = new ReconnectBackoff(_options.Reconnect, _logger, "Jetstream");
         var firstConnection = true;
-        JetstreamConnectException? fatal = null;
 
-        while (!cancellationToken.IsCancellationRequested)
+        try
         {
-            // v2 cursors are sequence numbers replayed inclusively, so there is nothing to
-            // rewind past; v1 cursors are timestamps, which need the in-flight overlap.
-            var resumeCursor = v2 ? LastCursor : LastTimeUs is { } last ? last - rewindMicros : null;
-            var connectCursor = firstConnection ? startCursor : resumeCursor ?? startCursor;
-            firstConnection = false;
-
-            var enumerator = _connectionFactory(connectCursor, cancellationToken)
-                .GetAsyncEnumerator(cancellationToken);
-            try
+            while (!cancellationToken.IsCancellationRequested)
             {
-                while (!cancellationToken.IsCancellationRequested)
+                // v2 cursors are sequence numbers replayed inclusively, so there is nothing to
+                // rewind past; v1 cursors are timestamps, which need the in-flight overlap.
+                var resumeCursor = v2 ? LastCursor : LastTimeUs is { } last ? last - rewindMicros : null;
+                var connectCursor = firstConnection ? startCursor : resumeCursor ?? startCursor;
+                firstConnection = false;
+
+                Exception? failure = null;
+                var enumerator = _connectionFactory(connectCursor, cancellationToken)
+                    .GetAsyncEnumerator(cancellationToken);
+                try
                 {
-                    JetstreamEvent? evt = null;
-                    try
+                    while (!cancellationToken.IsCancellationRequested)
                     {
-                        if (await enumerator.MoveNextAsync())
-                            evt = enumerator.Current;
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        // Treated as a normal end of stream; the outer loop observes the token.
-                    }
-                    catch (JetstreamConnectException ex) when (!ex.IsRetryable)
-                    {
-                        // The subscription itself was refused; reconnecting would loop.
-                        fatal = ex;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Jetstream connection failed");
-                    }
-
-                    if (evt is null)
-                        break;
-
-                    IsConnected = true;
-                    reconnectAttempts = 0;
-
-                    // Skip events the server replayed that were already delivered.
-                    if (v2)
-                    {
-                        if (LastCursor.HasValue && evt.Cursor is { } cursorValue && cursorValue <= LastCursor.Value)
-                            continue;
-                    }
-                    else if (LastTimeUs.HasValue && evt.TimeUs <= LastTimeUs.Value)
-                    {
-                        continue;
-                    }
-
-                    LastTimeUs = evt.TimeUs;
-                    if (evt.Cursor is { } seq)
-                        LastCursor = seq;
-
-                    if (_options.CursorStore is not null && StoredCursor(evt) is { } storedCursor)
-                    {
-                        _eventsSinceLastPersist++;
-                        if (_eventsSinceLastPersist >= _options.CursorPersistInterval)
+                        JetstreamEvent evt;
+                        try
                         {
-                            await _options.CursorStore.StoreCursorAsync(
-                                _options.ResolvedStreamId, storedCursor, cancellationToken);
-                            _eventsSinceLastPersist = 0;
+                            if (!await enumerator.MoveNextAsync().ConfigureAwait(false))
+                                break;
+                            evt = enumerator.Current;
                         }
+                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                        {
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            failure = ex;
+                            break;
+                        }
+
+                        backoff.Reset();
+
+                        // Skip events the server replayed that were already delivered.
+                        if (v2)
+                        {
+                            if (seqFloor.HasValue && evt.Cursor is { } seq && seq <= seqFloor.Value)
+                                continue;
+                        }
+                        else if (LastTimeUs.HasValue && evt.TimeUs <= LastTimeUs.Value)
+                        {
+                            continue;
+                        }
+
+                        LastTimeUs = evt.TimeUs;
+                        if (evt.Cursor is { } eventCursor)
+                            LastCursor = seqFloor = eventCursor;
+
+                        yield return evt;
+
+                        // Recorded once the caller asks for the next event, having handled this one.
+                        if (StoredCursor(evt) is { } stored)
+                            tracker.Advance(stored);
                     }
-
-                    yield return evt;
                 }
-            }
-            finally
-            {
-                await enumerator.DisposeAsync();
-            }
+                finally
+                {
+                    await enumerator.DisposeAsync().ConfigureAwait(false);
+                }
 
-            IsConnected = false;
+                if (cancellationToken.IsCancellationRequested)
+                    break;
 
-            if (fatal is not null || cancellationToken.IsCancellationRequested)
-                break;
+                if (failure is EventStreamException { IsRetryable: false })
+                    ExceptionDispatchInfo.Throw(failure);
 
-            reconnectAttempts++;
-            if (_options.MaxReconnectAttempts >= 0 && reconnectAttempts > _options.MaxReconnectAttempts)
-            {
-                _logger.LogError("Max reconnection attempts ({Max}) exceeded", _options.MaxReconnectAttempts);
-                break;
-            }
-
-            var delay = TimeSpan.FromTicks(_options.ReconnectDelay.Ticks * Math.Min(reconnectAttempts, 6));
-            _logger.LogWarning("Jetstream disconnected. Reconnecting in {Delay}s (attempt {Attempt})",
-                delay.TotalSeconds, reconnectAttempts);
-
-            try
-            {
-                await Task.Delay(delay, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
+                if (!await backoff.WaitAsync(failure, cancellationToken).ConfigureAwait(false))
+                    break;
             }
         }
-
-        // Final cursor persist on shutdown
-        if (_options.CursorStore is not null && (v2 ? LastCursor : LastTimeUs) is { } finalCursor)
+        finally
         {
-            await _options.CursorStore.StoreCursorAsync(
-                _options.ResolvedStreamId, finalCursor, CancellationToken.None);
+            await tracker.FlushAsync().ConfigureAwait(false);
         }
-
-        if (fatal is not null)
-            throw fatal;
     }
 
     /// <summary>
@@ -238,15 +226,11 @@ public sealed class JetstreamConsumer : IDisposable
         long? cursor,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        using var client = new JetstreamClient(options);
-        await foreach (var evt in client.SubscribeAsync(cursor, cancellationToken))
-            yield return evt;
-    }
-
-    /// <inheritdoc/>
-    public void Dispose()
-    {
-        if (_disposed) return;
-        _disposed = true;
+        var client = new JetstreamClient(options);
+        await using (client.ConfigureAwait(false))
+        {
+            await foreach (var evt in client.SubscribeAsync(cursor, cancellationToken).ConfigureAwait(false))
+                yield return evt;
+        }
     }
 }

@@ -30,7 +30,7 @@ public class JetstreamV2Tests
     public async Task SubscribeAsync_V2_DeliversParsedEventsWithSequenceCursors()
     {
         using var cts = new CancellationTokenSource(Timeout);
-        using var client = new JetstreamClient(V2Options(kinds: [JetstreamEventKind.Commit]));
+        await using var client = new JetstreamClient(V2Options(kinds: [JetstreamEventKind.Commit]));
 
         var events = new List<JetstreamEvent>();
         await foreach (var evt in client.SubscribeAsync(cancellationToken: cts.Token))
@@ -63,7 +63,7 @@ public class JetstreamV2Tests
     public async Task SubscribeAsync_V2_FiltersCommitsByCollection()
     {
         using var cts = new CancellationTokenSource(Timeout);
-        using var client = new JetstreamClient(V2Options(
+        await using var client = new JetstreamClient(V2Options(
             kinds: [JetstreamEventKind.Commit],
             collections: ["app.bsky.feed.post"]));
 
@@ -87,7 +87,7 @@ public class JetstreamV2Tests
 
         long cursor;
         string did;
-        using (var live = new JetstreamClient(options))
+        await using (var live = new JetstreamClient(options))
         {
             var first = await FirstEventAsync(live, null, cts.Token);
             cursor = first.Cursor!.Value;
@@ -97,7 +97,7 @@ public class JetstreamV2Tests
         // A v2 cursor names an event the server replays rather than a position to resume
         // after — which is why JetstreamConsumer reconnects at the last sequence it delivered
         // and ignores ReconnectRewind.
-        using var replay = new JetstreamClient(options);
+        await using var replay = new JetstreamClient(options);
         var replayed = await FirstEventAsync(replay, cursor, cts.Token);
 
         Assert.Equal(cursor, replayed.Cursor);
@@ -108,9 +108,9 @@ public class JetstreamV2Tests
     public async Task SubscribeAsync_V2_WithCursorBelowRetentionFloor_ThrowsConnectException()
     {
         using var cts = new CancellationTokenSource(Timeout);
-        using var client = new JetstreamClient(V2Options());
+        await using var client = new JetstreamClient(V2Options());
 
-        var ex = await Assert.ThrowsAsync<JetstreamConnectException>(async () =>
+        var ex = await Assert.ThrowsAsync<JetstreamException>(async () =>
             await FirstEventAsync(client, 1, cts.Token));
 
         // Validated before the upgrade, so it arrives as an HTTP status rather than a frame.
@@ -129,9 +129,9 @@ public class JetstreamV2Tests
             ZstdDictionaryId = 1, // Far below any dictionary the server has ever trained
             Decompressor = new UnusedDecompressor(),
         };
-        using var client = new JetstreamClient(options);
+        await using var client = new JetstreamClient(options);
 
-        var ex = await Assert.ThrowsAsync<JetstreamConnectException>(async () =>
+        var ex = await Assert.ThrowsAsync<JetstreamException>(async () =>
             await FirstEventAsync(client, null, cts.Token));
 
         Assert.Equal(400, ex.StatusCode);
@@ -139,40 +139,67 @@ public class JetstreamV2Tests
     }
 
     [RequiresJetstreamFact]
-    public async Task GetDictionaryAsync_ReturnsADictionaryCarryingItsOwnId()
+    public async Task GetZstdDictionaryAsync_ReturnsADictionaryCarryingItsOwnId()
     {
         using var cts = new CancellationTokenSource(Timeout);
-        using var dictionaries = new JetstreamDictionaryClient(TestConfig.JetstreamUrl);
+        using var dictionaries = new JetstreamArchiveClient(TestConfig.JetstreamUrl);
 
-        var current = await dictionaries.GetDictionaryAsync(cancellationToken: cts.Token);
+        var current = await dictionaries.GetZstdDictionaryAsync(cancellationToken: cts.Token);
 
         Assert.True(current.Id > 0);
         Assert.NotEmpty(current.Data);
         // The ID read out of the RFC 8878 header is the one the server names the dictionary
         // by, so fetching it explicitly returns the same dictionary.
-        var byId = await dictionaries.GetDictionaryAsync(current.Id, cts.Token);
+        var byId = await dictionaries.GetZstdDictionaryAsync(current.Id, cts.Token);
         Assert.Equal(current.Id, byId.Id);
         Assert.Equal(current.Data, byId.Data);
     }
 
     [RequiresJetstreamFact]
-    public async Task GetDictionaryAsync_WithUnknownId_ThrowsConnectException()
+    public async Task GetZstdDictionaryAsync_WithUnknownId_ThrowsConnectException()
     {
         using var cts = new CancellationTokenSource(Timeout);
-        using var dictionaries = new JetstreamDictionaryClient(TestConfig.JetstreamUrl);
+        using var dictionaries = new JetstreamArchiveClient(TestConfig.JetstreamUrl);
 
-        var ex = await Assert.ThrowsAsync<JetstreamConnectException>(async () =>
-            await dictionaries.GetDictionaryAsync(1, cts.Token));
+        var ex = await Assert.ThrowsAsync<JetstreamException>(async () =>
+            await dictionaries.GetZstdDictionaryAsync(1, cts.Token));
 
         Assert.NotNull(ex.StatusCode);
         Assert.InRange(ex.StatusCode!.Value, 400, 499);
     }
 
     [RequiresJetstreamFact]
+    public async Task SubscribeAsync_V2_TimestampCursor_SeeksByTime()
+    {
+        using var cts = new CancellationTokenSource(Timeout);
+        var since = DateTimeOffset.UtcNow.AddMinutes(-5);
+        await using var client = new JetstreamClient(V2Options(kinds: [JetstreamEventKind.Commit]));
+
+        // A cursor of 10^15 or more is a unix-microseconds seek, how a v1 cursor carries over.
+        var evt = await FirstEventAsync(client, JetstreamCursor.FromTimestamp(since), cts.Token);
+
+        Assert.NotNull(evt.Cursor);
+        Assert.False(JetstreamCursor.IsTimestamp(evt.Cursor!.Value));
+        Assert.True(evt.Timestamp >= since.AddMinutes(-1), $"{evt.Timestamp} is well before {since}");
+        Assert.True(evt.Timestamp < DateTimeOffset.UtcNow.AddMinutes(-1), "The seek should start in the past");
+    }
+
+    [RequiresJetstreamFact]
+    public async Task GetHealthAsync_ReportsAVersion()
+    {
+        using var cts = new CancellationTokenSource(Timeout);
+        using var jetstream = new JetstreamArchiveClient(TestConfig.JetstreamUrl);
+
+        var health = await jetstream.GetHealthAsync(cts.Token);
+
+        Assert.False(string.IsNullOrEmpty(health.Version));
+    }
+
+    [RequiresJetstreamFact]
     public async Task SubscribeAsync_V1_AgainstAV2Host_StillParsesAndCarriesACursor()
     {
         using var cts = new CancellationTokenSource(Timeout);
-        using var client = new JetstreamClient(new JetstreamConsumerOptions
+        await using var client = new JetstreamClient(new JetstreamConsumerOptions
         {
             ServiceUrl = TestConfig.JetstreamUrl,
             WantedCollections = ["app.bsky.feed.post"],

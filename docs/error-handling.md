@@ -15,8 +15,8 @@ AtProtoException                        (ATProtoNet)          catch-all for SDK 
 ├── SpaceCredentialException            (ATProtoNet.Spaces)
 ├── SpaceTokenException                 (ATProtoNet.Spaces)
 ├── SpaceRepoVerificationException      (ATProtoNet.Spaces)
-├── JetstreamConnectException           (ATProtoNet.Streaming)
-└── JetstreamArchiveException           (ATProtoNet.Streaming)
+└── EventStreamException                (ATProtoNet.Streaming)  an event stream failed: error frame, refused subscription, exhausted reconnects
+    └── JetstreamException              (ATProtoNet.Streaming)
 ```
 
 `AtProtoException` lives in the root `ATProtoNet` namespace; each concrete exception lives next to the component that raises it. Every exception that carries a protocol error name exposes it as `Error`.

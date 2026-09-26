@@ -96,6 +96,8 @@ public class TypedIdentifierGuardTests
         ["ATProtoNet.Lexicon.Chat.Bsky.Convo.ConvoLogEntry.Rev"] = ChatRev,
         ["ATProtoNet.Lexicon.Chat.Bsky.Convo.LeaveConvoResponse.Rev"] = ChatRev,
         ["ATProtoNet.Lexicon.Chat.Bsky.Convo.AcceptConvoResponse.Rev"] = ChatRev,
+        ["ATProtoNet.Lexicon.Chat.Bsky.Moderation.ChatModerationEvent.Rev"] = ChatRev,
+        ["ATProtoNet.Streaming.ChatModerationEventConsumer.LastRev"] = ChatRev,
 
         ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.ModerationClient.QueryEventsAsync(subject)"] = OzoneSubjectFilter,
         ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.ModerationClient.EnumerateEventsAsync(subject)"] = OzoneSubjectFilter,

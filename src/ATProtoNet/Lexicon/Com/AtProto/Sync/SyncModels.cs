@@ -329,23 +329,32 @@ public sealed class ListReposByCollectionResponse : ICursorPage<CollectionRepoIn
 // ──────────────────────────────────────────────────────────────
 
 /// <summary>
-/// Base type for firehose event stream messages.
+/// A message of the <c>com.atproto.sync.subscribeRepos</c> event stream: a sequenced
+/// <see cref="FirehoseEvent"/>, or an <see cref="InfoEvent"/>.
 /// </summary>
+/// <remarks>
+/// The event-stream frame header names the variant (<c>#commit</c>, <c>#identity</c>, …); the
+/// body carries no <c>$type</c>. <see cref="Streaming.FirehoseEventParser"/> reads both.
+/// </remarks>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
 [JsonDerivedType(typeof(CommitEvent), "#commit")]
 [JsonDerivedType(typeof(SyncEvent), "#sync")]
 [JsonDerivedType(typeof(IdentityEvent), "#identity")]
 [JsonDerivedType(typeof(AccountEvent), "#account")]
-[JsonDerivedType(typeof(HandleEvent), "#handle")]
-[JsonDerivedType(typeof(TombstoneEvent), "#tombstone")]
 [JsonDerivedType(typeof(InfoEvent), "#info")]
-public abstract class FirehoseMessage
+public abstract class FirehoseMessage;
+
+/// <summary>
+/// A sequenced firehose message: every <c>subscribeRepos</c> variant except <c>#info</c>. Its
+/// <see cref="Seq"/> is the stream cursor.
+/// </summary>
+public abstract class FirehoseEvent : FirehoseMessage
 {
-    /// <summary>Sequence number of this event.</summary>
+    /// <summary>The stream sequence number of this event, and the cursor to resume after it.</summary>
     [JsonPropertyName("seq")]
     public long Seq { get; init; }
 
-    /// <summary>When the upstream host emitted the event.</summary>
+    /// <summary>When the upstream host originally broadcast the event.</summary>
     [JsonPropertyName("time")]
     public AtDatetime? Time { get; init; }
 }
@@ -353,7 +362,7 @@ public abstract class FirehoseMessage
 /// <summary>
 /// A commit event from the firehose. Indicates a repository commit.
 /// </summary>
-public sealed class CommitEvent : FirehoseMessage
+public sealed class CommitEvent : FirehoseEvent
 {
     /// <summary>The DID of the repository the commit belongs to.</summary>
     [JsonPropertyName("repo")]
@@ -376,12 +385,12 @@ public sealed class CommitEvent : FirehoseMessage
     /// separately.
     /// </summary>
     [JsonPropertyName("tooBig")]
+    [Obsolete("Deprecated upstream: replaced by #sync events and data limits, and always false.")]
     public bool TooBig { get; init; }
 
-    /// <summary>
-    /// Whether the commit is a rebase. Deprecated and always <see langword="false"/>.
-    /// </summary>
+    /// <summary>Whether the commit is a rebase.</summary>
     [JsonPropertyName("rebase")]
+    [Obsolete("Deprecated upstream and unused: always false.")]
     public bool Rebase { get; init; }
 
     /// <summary>CAR-encoded blocks (base64 when serialized via JSON; binary in CBOR).</summary>
@@ -400,19 +409,17 @@ public sealed class CommitEvent : FirehoseMessage
     [JsonPropertyName("prevData")]
     public Cid? PrevData { get; init; }
 
-    /// <summary>DEPRECATED — will soon always be empty. List of new blobs referenced by records in this commit.</summary>
+    /// <summary>New blobs referenced by records in this commit.</summary>
     [JsonPropertyName("blobs")]
+    [Obsolete("Deprecated upstream: always empty. Read blob references from the records instead.")]
     public IReadOnlyList<Cid>? Blobs { get; init; }
 }
 
 /// <summary>
 /// What a <see cref="RepoOp"/> did to its record: the known values of
-/// <c>com.atproto.sync.subscribeRepos#repoOp.action</c>.
+/// <c>com.atproto.sync.subscribeRepos#repoOp.action</c>. Jetstream's commit events carry the same
+/// value as <see cref="Streaming.JetstreamCommitEvent.Operation"/>.
 /// </summary>
-/// <remarks>
-/// The same three operations as <see cref="Streaming.JetstreamOperation"/>, which carries them
-/// for Jetstream's commit events.
-/// </remarks>
 public enum RepoOpAction
 {
     /// <summary>A record was created.</summary>
@@ -456,7 +463,7 @@ public sealed class RepoOp
 /// data loss incidents, or when the upstream host does not know recent state.
 /// New in Sync v1.1.
 /// </summary>
-public sealed class SyncEvent : FirehoseMessage
+public sealed class SyncEvent : FirehoseEvent
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
@@ -474,7 +481,7 @@ public sealed class SyncEvent : FirehoseMessage
 /// <summary>
 /// An identity event – a DID document was updated.
 /// </summary>
-public sealed class IdentityEvent : FirehoseMessage
+public sealed class IdentityEvent : FirehoseEvent
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
@@ -488,7 +495,7 @@ public sealed class IdentityEvent : FirehoseMessage
 /// <summary>
 /// An account status event.
 /// </summary>
-public sealed class AccountEvent : FirehoseMessage
+public sealed class AccountEvent : FirehoseEvent
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
@@ -506,39 +513,16 @@ public sealed class AccountEvent : FirehoseMessage
 }
 
 /// <summary>
-/// Legacy handle event (deprecated in favor of identity event).
-/// </summary>
-public sealed class HandleEvent : FirehoseMessage
-{
-    /// <summary>The DID (decentralized identifier) of the account.</summary>
-    [JsonPropertyName("did")]
-    public required Did Did { get; init; }
-
-    /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
-    [JsonPropertyName("handle")]
-    public required Handle Handle { get; init; }
-}
-
-/// <summary>
-/// A tombstone event – a repository was deleted.
-/// </summary>
-public sealed class TombstoneEvent : FirehoseMessage
-{
-    /// <summary>The DID (decentralized identifier) of the account.</summary>
-    [JsonPropertyName("did")]
-    public required Did Did { get; init; }
-}
-
-/// <summary>
-/// An informational event from the relay.
+/// An informational message from the host, such as <c>OutdatedCursor</c> when the requested
+/// cursor predates its retention window. It is not sequenced and does not move the cursor.
 /// </summary>
 public sealed class InfoEvent : FirehoseMessage
 {
-    /// <summary>The name.</summary>
+    /// <summary>The notice's name, such as <c>OutdatedCursor</c>.</summary>
     [JsonPropertyName("name")]
     public required string Name { get; init; }
 
-    /// <summary>The message.</summary>
+    /// <summary>A human-readable description, if the host sent one.</summary>
     [JsonPropertyName("message")]
     public string? Message { get; init; }
 }

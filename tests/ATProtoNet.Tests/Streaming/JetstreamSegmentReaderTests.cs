@@ -1,3 +1,4 @@
+using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using ATProtoNet.Repo;
 using ATProtoNet.Streaming;
 using static ATProtoNet.Tests.Streaming.JetstreamSegmentFixture;
@@ -32,7 +33,7 @@ public class JetstreamSegmentReaderTests
         var segment = Segment([[Row.Commit(1)]]);
         segment[0] = (byte)'x';
 
-        var ex = Assert.Throws<JetstreamArchiveException>(() => JetstreamSegmentReader.ReadHeader(segment));
+        var ex = Assert.Throws<JetstreamException>(() => JetstreamSegmentReader.ReadHeader(segment));
         Assert.Contains("jss0", ex.Message);
     }
 
@@ -43,7 +44,7 @@ public class JetstreamSegmentReaderTests
         // has no footer, so walking its blocks would run off the end of the written data.
         var segment = Segment([[Row.Commit(1)]], checksum: 0);
 
-        var ex = Assert.Throws<JetstreamArchiveException>(() => JetstreamSegmentReader.ReadHeader(segment));
+        var ex = Assert.Throws<JetstreamException>(() => JetstreamSegmentReader.ReadHeader(segment));
         Assert.Contains("active", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -76,7 +77,7 @@ public class JetstreamSegmentReaderTests
     {
         var block = BlockFrame([Row.Commit(1)]);
 
-        var ex = Assert.Throws<JetstreamArchiveException>(
+        var ex = Assert.Throws<JetstreamException>(
             () => JetstreamSegmentReader.DecodeBlock(block.AsSpan(0, block.Length - 8)));
 
         Assert.Contains("truncated", ex.Message);
@@ -89,7 +90,7 @@ public class JetstreamSegmentReaderTests
         var block = new byte[16];
         System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(block, uint.MaxValue);
 
-        Assert.Throws<JetstreamArchiveException>(() => JetstreamSegmentReader.DecodeBlock(block));
+        Assert.Throws<JetstreamException>(() => JetstreamSegmentReader.DecodeBlock(block));
     }
 
     [Fact]
@@ -113,7 +114,7 @@ public class JetstreamSegmentReaderTests
         var evt = Assert.IsType<JetstreamCommitEvent>(row.ToEvent());
 
         Assert.Equal(42, evt.Cursor);
-        Assert.Equal(JetstreamOperation.Create, evt.Operation);
+        Assert.Equal(RepoOpAction.Create, evt.Operation);
         Assert.Equal("app.bsky.feed.post", evt.Collection);
         Assert.Equal("hello archive", evt.Record!.Value.GetProperty("text").GetString());
         // The archive stores no CID column: it is the DAG-CBOR hash of the stored payload.
@@ -127,7 +128,7 @@ public class JetstreamSegmentReaderTests
             Row.Commit(5, kind: JetstreamArchiveRowKind.CreateResync)])) [0];
 
         var evt = Assert.IsType<JetstreamCommitEvent>(row.ToEvent());
-        Assert.Equal(JetstreamOperation.Create, evt.Operation);
+        Assert.Equal(RepoOpAction.Create, evt.Operation);
     }
 
     [Fact]
@@ -137,7 +138,7 @@ public class JetstreamSegmentReaderTests
             Row.Commit(6, kind: JetstreamArchiveRowKind.Delete)])) [0];
 
         var evt = Assert.IsType<JetstreamCommitEvent>(row.ToEvent());
-        Assert.Equal(JetstreamOperation.Delete, evt.Operation);
+        Assert.Equal(RepoOpAction.Delete, evt.Operation);
         Assert.Null(evt.Record);
         Assert.Null(evt.Cid);
     }
@@ -231,7 +232,7 @@ public class JetstreamSegmentReaderTests
         var segment = Segment([[Row.Commit(1), Row.Commit(2)]]);
         using var stream = new MemoryStream(segment[..(segment.Length / 2)]);
 
-        await Assert.ThrowsAsync<JetstreamArchiveException>(async () =>
+        await Assert.ThrowsAsync<JetstreamException>(async () =>
         {
             await foreach (var _ in JetstreamSegmentReader.ReadRowsAsync(stream, Decompressor)) { }
         });
@@ -240,7 +241,7 @@ public class JetstreamSegmentReaderTests
     [Fact]
     public void DecodeBlockFrame_WrapsADecompressorFailure()
     {
-        var ex = Assert.Throws<JetstreamArchiveException>(
+        var ex = Assert.Throws<JetstreamException>(
             () => JetstreamSegmentReader.DecodeBlockFrame([1, 2, 3], new ThrowingDecompressor()));
 
         Assert.Contains("decompress", ex.Message);

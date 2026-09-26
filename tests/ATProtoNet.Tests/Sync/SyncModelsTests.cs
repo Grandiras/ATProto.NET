@@ -82,8 +82,10 @@ public class SyncModelsTests
         Assert.IsType<CommitEvent>(msg);
         var commit = (CommitEvent)msg;
         Assert.Equal("bafyreihlzn2lwoicy7x46zrj4ysc3eqhmpvghca5vbhcwtubpytilc6xsi", commit.PrevData);
+#pragma warning disable CS0618 // Deprecated upstream, but still read.
         Assert.NotNull(commit.Blobs);
         Assert.Empty(commit.Blobs);
+#pragma warning restore CS0618
         Assert.Equal(3, commit.Ops!.Count);
 
         // create — no prev

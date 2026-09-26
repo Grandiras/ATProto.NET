@@ -89,8 +89,8 @@ public class XrpcExceptionTests
             new SpaceCredentialException("bad"),
             new SpaceTokenException("bad"),
             new SpaceRepoVerificationException("bad"),
-            new JetstreamConnectException("bad"),
-            new JetstreamArchiveException("bad"),
+            new JetstreamException("bad"),
+            new JetstreamException("bad"),
             new SpaceVerificationException("NotAuthorized", "bad"),
         };
 

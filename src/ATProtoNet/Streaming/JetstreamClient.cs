@@ -1,7 +1,5 @@
-using System.Globalization;
-using System.Net.WebSockets;
 using System.Runtime.CompilerServices;
-using System.Text;
+using ATProtoNet.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -17,12 +15,15 @@ namespace ATProtoNet.Streaming;
 /// <para>Jetstream events carry no MST proofs or signatures and cannot be cryptographically
 /// verified; use the binary firehose (<see cref="TypedFirehoseConsumer"/>) when verification
 /// matters.</para>
-/// <para>This client handles one connection with no reconnect logic.
-/// For a managed production consumer, use <see cref="JetstreamConsumer"/>.</para>
+/// <para>This client handles one connection with no reconnect logic; each subscription owns its
+/// socket, and disposing the client ends them all. For a managed production consumer, use
+/// <see cref="JetstreamConsumer"/>. An enumeration ends normally when the server closes the
+/// connection or the token is cancelled, and throws a <see cref="JetstreamException"/> when the
+/// server refuses the subscription or sends an error frame.</para>
 /// </remarks>
 /// <example>
 /// <code>
-/// var client = new JetstreamClient(new JetstreamConsumerOptions
+/// await using var client = new JetstreamClient(new JetstreamConsumerOptions
 /// {
 ///     ServiceUrl = JetstreamEndpoints.UsEast,
 ///     Protocol = JetstreamProtocol.V2,
@@ -36,12 +37,8 @@ namespace ATProtoNet.Streaming;
 /// }
 /// </code>
 /// </example>
-public sealed class JetstreamClient : IDisposable
+public sealed class JetstreamClient : IAsyncDisposable
 {
-    private const int MaxWantedCollections = 100;
-    private const int MaxWantedDids = 10_000;
-    private const long MaxMaxMessageSizeBytes = 4_294_967_295;
-
     /// <summary>The v2 endpoint path — the subscription Lexicon's canonical XRPC route.</summary>
     private const string V2Path = "/xrpc/network.bsky.jetstream.subscribeEvents";
 
@@ -50,175 +47,143 @@ public sealed class JetstreamClient : IDisposable
 
     private readonly JetstreamConsumerOptions _options;
     private readonly ILogger _logger;
-    private ClientWebSocket? _ws;
-    private bool _disposed;
+    private readonly StreamConnector _connector;
+    private readonly CancellationTokenSource _disposed = new();
 
     /// <summary>
     /// Create a Jetstream client.
     /// </summary>
     /// <param name="options">Subscription configuration.</param>
+    /// <exception cref="ArgumentException">The options are not valid.</exception>
     public JetstreamClient(JetstreamConsumerOptions options)
+        : this(options, StreamSocket.Connector)
+    {
+    }
+
+    internal JetstreamClient(JetstreamConsumerOptions options, StreamConnector connector)
     {
         ArgumentNullException.ThrowIfNull(options);
-        ArgumentException.ThrowIfNullOrWhiteSpace(options.ServiceUrl);
+        options.Validate();
         _options = options;
         _logger = options.Logger ?? NullLogger.Instance;
+        _connector = connector;
     }
 
     /// <summary>
     /// Subscribe to the Jetstream event stream.
     /// </summary>
     /// <param name="cursor">Optional resume position: a sequence number on
-    /// <see cref="JetstreamProtocol.V2"/> (a value of 1e15 or greater is read as a
-    /// unix-microseconds timestamp instead), or a unix-microseconds timestamp on
-    /// <see cref="JetstreamProtocol.V1"/>. If null, starts from the live stream.</param>
+    /// <see cref="JetstreamProtocol.V2"/>, where a value of 10^15 or more is read as a
+    /// unix-microseconds timestamp instead (see <see cref="JetstreamCursor"/>), or a
+    /// unix-microseconds timestamp on <see cref="JetstreamProtocol.V1"/>. If null, starts from the
+    /// live stream.</param>
     /// <param name="cancellationToken">Cancellation token to stop the subscription.</param>
+    /// <exception cref="JetstreamException">The server refused the subscription (see
+    /// <see cref="EventStreamException.IsRetryable"/>) or sent an error frame.</exception>
     public async IAsyncEnumerable<JetstreamEvent> SubscribeAsync(
         long? cursor = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var endpoint = BuildSubscribeUri(_options, cursor);
+        ObjectDisposedException.ThrowIf(_disposed.IsCancellationRequested, this);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposed.Token);
 
-        _ws = new ClientWebSocket();
-        _ws.Options.CollectHttpResponseDetails = true;
-        if (_options.Protocol == JetstreamProtocol.V2)
-            _ws.Options.AddSubProtocol(V2SubProtocol);
+        var endpoint = BuildSubscribeUri(_options, cursor);
+        var socketOptions = new StreamSocketOptions(
+            SubProtocol: _options.Protocol == JetstreamProtocol.V2 ? V2SubProtocol : null);
 
         _logger.LogInformation("Connecting to Jetstream at {Endpoint}", endpoint);
 
+        var connection = _connector(endpoint, socketOptions, linked.Token).GetAsyncEnumerator(linked.Token);
         try
         {
-            await _ws.ConnectAsync(endpoint, cancellationToken);
+            while (!linked.IsCancellationRequested)
+            {
+                StreamSocketMessage message;
+                try
+                {
+                    if (!await connection.MoveNextAsync().ConfigureAwait(false))
+                        break;
+                    message = connection.Current;
+                }
+                catch (OperationCanceledException) when (linked.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (EventStreamException ex) when (ex is not JetstreamException)
+                {
+                    // The v2 endpoint validates the subscription before the upgrade and rejects a
+                    // stale cursor, a retired dictionary, or a malformed filter with an HTTP status.
+                    throw new JetstreamException(
+                        $"Jetstream rejected the subscription at {endpoint.GetLeftPart(UriPartial.Path)}" +
+                        (ex.StatusCode is { } status ? $" with HTTP {status}." : "."),
+                        ex.StatusCode,
+                        ex.Error,
+                        innerException: ex);
+                }
+
+                var frame = Parse(message);
+
+                if (frame.Error is { } error)
+                {
+                    // An error frame is terminal: the server closes the stream right after it.
+                    _logger.LogWarning("Jetstream stream error {Error}: {Message}", error.Error, error.Message);
+                    _options.OnStreamError?.Invoke(error);
+                    throw new JetstreamException(
+                        $"Jetstream sent error {error.Error}" + (error.Message is null ? "." : $": {error.Message}"),
+                        error: error.Error);
+                }
+
+                if (frame.Info is { } info)
+                {
+                    _logger.LogInformation("Jetstream info {Name}: {Message}", info.Name, info.Message);
+                    _options.OnInfo?.Invoke(info);
+                    continue;
+                }
+
+                if (frame.Event is { } evt)
+                    yield return evt;
+            }
         }
-        catch (WebSocketException ex)
+        finally
         {
-            // The v2 endpoint validates the subscription before the upgrade and rejects a
-            // stale cursor, a retired dictionary, or a malformed filter with an HTTP status.
-            int? status = _ws.HttpStatusCode != 0 ? (int)_ws.HttpStatusCode : null;
-            throw new JetstreamConnectException(
-                $"Jetstream rejected the subscription at {endpoint}" +
-                (status is null ? "." : $" with HTTP {status}."),
-                status,
-                ex);
-        }
-
-        _logger.LogInformation("Connected to Jetstream");
-
-        var buffer = new byte[1024 * 64];
-
-        while (_ws.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
-        {
-            byte[]? payload;
-            try
-            {
-                payload = await ReadMessageAsync(buffer, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (WebSocketException ex)
-            {
-                _logger.LogWarning(ex, "Jetstream WebSocket error");
-                break;
-            }
-
-            if (payload is null)
-                break;
-
-            // AsMemory, not the span overload: the payload is already an array, so this
-            // parses it where it sits instead of copying every frame.
-            var frame = JetstreamEventParser.ParseFrame(payload.AsMemory(), _options.Protocol);
-
-            if (frame.Error is { } error)
-            {
-                // An error frame is terminal: the server closes the stream right after it.
-                _logger.LogWarning("Jetstream stream error {Error}: {Message}", error.Error, error.Message);
-                _options.OnStreamError?.Invoke(error);
-                break;
-            }
-
-            if (frame.Info is { } info)
-            {
-                _logger.LogInformation("Jetstream info {Name}: {Message}", info.Name, info.Message);
-                _options.OnInfo?.Invoke(info);
-                continue;
-            }
-
-            if (frame.Event is { } evt)
-                yield return evt;
-            else
-                _logger.LogDebug("Skipped unparseable Jetstream frame ({Size} bytes)", payload.Length);
+            await connection.DisposeAsync().ConfigureAwait(false);
         }
 
         _logger.LogInformation("Jetstream subscription ended");
     }
 
-    /// <summary>
-    /// Disconnect from the event stream.
-    /// </summary>
-    public async Task DisconnectAsync(CancellationToken cancellationToken = default)
+    /// <summary>Ends every subscription still running on this client.</summary>
+    public ValueTask DisposeAsync()
     {
-        if (_ws is { State: WebSocketState.Open })
+        if (!_disposed.IsCancellationRequested)
+            _disposed.Cancel();
+        return ValueTask.CompletedTask;
+    }
+
+    /// <summary>
+    /// Parses a message straight from the receive buffer. Only a compressed frame is copied, by
+    /// the decompressor.
+    /// </summary>
+    private JetstreamFrame Parse(StreamSocketMessage message)
+    {
+        var json = message.IsBinary && _options.Decompressor is { } decompressor
+            ? decompressor.Decompress(message.Data.Span)
+            : message.Data;
+
+        var frame = JetstreamEventParser.Parse(json, _options.Protocol, out var dropped);
+        if (dropped is { } reason)
         {
-            try
-            {
-                await _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client disconnect", cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Error closing Jetstream WebSocket");
-            }
+            _logger.LogDebug("Skipped Jetstream frame ({Reason}, {Size} bytes)", reason, json.Length);
+            _options.OnEventDropped?.Invoke(new DroppedStreamEvent(reason, null, null));
         }
+
+        return frame;
     }
 
     internal static Uri BuildSubscribeUri(JetstreamConsumerOptions options, long? cursor)
     {
-        if (options.WantedCollections is { Count: > MaxWantedCollections })
-            throw new ArgumentException(
-                $"Jetstream accepts at most {MaxWantedCollections} wantedCollections entries " +
-                $"(got {options.WantedCollections.Count}).");
-        if (options.WantedDids is { Count: > MaxWantedDids })
-            throw new ArgumentException(
-                $"Jetstream accepts at most {MaxWantedDids} wantedDids entries " +
-                $"(got {options.WantedDids.Count}).");
-        if (options.MaxMessageSizeBytes is < 0 or > MaxMaxMessageSizeBytes)
-            throw new ArgumentException(
-                $"MaxMessageSizeBytes must be between 0 and {MaxMaxMessageSizeBytes} " +
-                $"(got {options.MaxMessageSizeBytes}).");
-
+        options.Validate();
         var v2 = options.Protocol == JetstreamProtocol.V2;
-
-        if (!v2)
-        {
-            if (options.WantedKinds is { Count: > 0 })
-                throw new ArgumentException(
-                    "WantedKinds requires JetstreamProtocol.V2; the v1 wire has no kinds filter.");
-            if (options.ZstdDictionaryId is not null)
-                throw new ArgumentException(
-                    "ZstdDictionaryId requires JetstreamProtocol.V2; the v1 wire negotiates " +
-                    "compression with compress=true and an unversioned dictionary.");
-        }
-        else
-        {
-            // The server rejects this pre-upgrade, since a collection filter that can never
-            // match a delivered kind is always a mistake. Fail before opening the socket.
-            if (options.WantedCollections is { Count: > 0 }
-                && options.WantedKinds is { Count: > 0 } kinds
-                && !kinds.Contains(JetstreamEventKind.Commit))
-                throw new ArgumentException(
-                    "WantedCollections only constrains commit events, so it cannot be combined " +
-                    "with a WantedKinds list that excludes JetstreamEventKind.Commit.");
-            if (options.Decompressor is not null && options.ZstdDictionaryId is null)
-                throw new ArgumentException(
-                    "JetstreamProtocol.V2 compression is dictionary-versioned: set ZstdDictionaryId " +
-                    "to the id of the dictionary the decompressor was built with " +
-                    $"(see {nameof(JetstreamDictionaryClient)}).");
-            if (options.ZstdDictionaryId is not null && options.Decompressor is null)
-                throw new ArgumentException(
-                    "ZstdDictionaryId makes the server send binary zstd frames, so it requires " +
-                    "a Decompressor to read them.");
-        }
 
         var baseUrl = options.ServiceUrl.TrimEnd('/');
         if (baseUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
@@ -226,110 +191,21 @@ public sealed class JetstreamClient : IDisposable
         else if (baseUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
             baseUrl = "ws://" + baseUrl["http://".Length..];
 
-        var query = new StringBuilder();
-
-        if (options.WantedCollections is not null)
-        {
-            foreach (var collection in options.WantedCollections)
-                Append(query, v2 ? "collections" : "wantedCollections", collection);
-        }
-
-        if (options.WantedDids is not null)
-        {
-            foreach (var did in options.WantedDids)
-                Append(query, v2 ? "dids" : "wantedDids", did.Value);
-        }
-
-        if (v2 && options.WantedKinds is not null)
-        {
-            foreach (var kind in options.WantedKinds)
-                Append(query, "kinds", KindName(kind));
-        }
-
-        if (cursor.HasValue)
-            Append(query, "cursor", cursor.Value.ToString(CultureInfo.InvariantCulture));
-
-        if (options.MaxMessageSizeBytes.HasValue)
-            Append(query, "maxMessageSizeBytes",
-                options.MaxMessageSizeBytes.Value.ToString(CultureInfo.InvariantCulture));
+        var query = new XrpcParams()
+            .AddAll(v2 ? "collections" : "wantedCollections", options.WantedCollections)
+            .AddAll(v2 ? "dids" : "wantedDids", options.WantedDids?.Select(did => did.Value))
+            .AddAll("kinds", v2 ? options.WantedKinds?.Select(JetstreamKinds.Name) : null)
+            .Add("cursor", cursor)
+            .Add("maxMessageSizeBytes", options.MaxMessageSizeBytes);
 
         if (options.Decompressor is not null)
         {
             if (v2)
-                Append(query, "zstdDictionary",
-                    options.ZstdDictionaryId!.Value.ToString(CultureInfo.InvariantCulture));
+                query.Add("zstdDictionary", options.ZstdDictionaryId);
             else
-                Append(query, "compress", "true");
+                query.Add("compress", "true");
         }
 
-        return new Uri($"{baseUrl}{(v2 ? V2Path : "/subscribe")}{query}");
-
-        static void Append(StringBuilder query, string name, string value)
-        {
-            query.Append(query.Length == 0 ? '?' : '&');
-            query.Append(name).Append('=').Append(Uri.EscapeDataString(value));
-        }
-    }
-
-    /// <summary>The wire name of an event kind — the <c>$type</c> fragment the server filters on.</summary>
-    private static string KindName(JetstreamEventKind kind) => kind switch
-    {
-        JetstreamEventKind.Commit => "commit",
-        JetstreamEventKind.Identity => "identity",
-        JetstreamEventKind.Account => "account",
-        JetstreamEventKind.Sync => "sync",
-        _ => throw new ArgumentException($"Unknown Jetstream event kind: {kind}", nameof(kind)),
-    };
-
-    private async Task<byte[]?> ReadMessageAsync(byte[] buffer, CancellationToken cancellationToken)
-    {
-        var result = await _ws!.ReceiveAsync(buffer, cancellationToken);
-        if (result.MessageType == WebSocketMessageType.Close)
-            return null;
-
-        byte[] payload;
-
-        if (result.EndOfMessage)
-        {
-            // Jetstream events are a couple of kilobytes, so all but the rare oversized frame
-            // arrives whole in the 64 KB buffer. Copy it out directly rather than staging it
-            // through a MemoryStream that would allocate its own buffer and copy twice.
-            if (result.Count == 0)
-                return null;
-
-            payload = buffer[..result.Count];
-        }
-        else
-        {
-            using var ms = new MemoryStream();
-            ms.Write(buffer, 0, result.Count);
-
-            do
-            {
-                result = await _ws.ReceiveAsync(buffer, cancellationToken);
-                if (result.MessageType == WebSocketMessageType.Close)
-                    return null;
-
-                ms.Write(buffer, 0, result.Count);
-            } while (!result.EndOfMessage);
-
-            if (ms.Length == 0)
-                return null;
-
-            payload = ms.ToArray();
-        }
-
-        if (result.MessageType == WebSocketMessageType.Binary && _options.Decompressor is not null)
-            payload = _options.Decompressor.Decompress(payload);
-
-        return payload;
-    }
-
-    /// <inheritdoc/>
-    public void Dispose()
-    {
-        if (_disposed) return;
-        _disposed = true;
-        _ws?.Dispose();
+        return new Uri($"{baseUrl}{(v2 ? V2Path : "/subscribe")}{query.ToQueryString()}");
     }
 }

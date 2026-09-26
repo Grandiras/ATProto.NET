@@ -70,6 +70,7 @@ public partial class LexiconDriftTests
         [typeof(AtProto.Admin.SubjectStatusDetail)] = "com.atproto.admin.defs#statusAttr",
         [typeof(AtProto.Admin.AdminDeleteAccountRequest)] = "com.atproto.admin.deleteAccount#input",
         [typeof(AtProto.Label.LabelsEvent)] = "com.atproto.label.subscribeLabels#labels",
+        [typeof(AtProto.Label.LabelInfoEvent)] = "com.atproto.label.subscribeLabels#info",
         // createRecord and putRecord share one output shape.
         [typeof(AtProto.Repo.RecordWriteResponse)] = "com.atproto.repo.createRecord#output",
         [typeof(AtProto.Repo.GetRecordResponse<>)] = "com.atproto.repo.getRecord#output",
@@ -116,30 +117,25 @@ public partial class LexiconDriftTests
         [typeof(DataModel.CidLink)] = "The data model's CID link, not a Lexicon def.",
         [typeof(AtProto.Identity.DidService)] =
             "A did:plc service entry; the Lexicon types a PLC operation's services as unknown.",
-        [typeof(AtProto.Sync.FirehoseMessage)] =
-            "The base of the subscribeRepos message variants, which are checked one by one.",
-        [typeof(AtProto.Sync.HandleEvent)] =
-            "Removed from subscribeRepos upstream in 2025; the firehose models are reworked by #126.",
-        [typeof(AtProto.Sync.TombstoneEvent)] =
-            "Removed from subscribeRepos upstream in 2025; the firehose models are reworked by #126.",
+        [typeof(AtProto.Sync.FirehoseEvent)] =
+            "The base of the sequenced subscribeRepos variants, holding the seq and time each has; the variants are checked one by one.",
         [typeof(Chat.Convo.ConvoLogEntry)] =
             "The base of the getLog union, holding the rev and convoId every variant has; the variants are checked one by one.",
         [typeof(Chat.Convo.UnknownConvoLogEntry)] =
             "The unknown getLog variant: it keeps the raw object and reads rev and convoId from it.",
+        [typeof(Chat.Moderation.ChatModerationEvent)] =
+            "The base of the subscribeModEvents union, holding the rev and createdAt every variant has; the variants are checked one by one.",
+        [typeof(Chat.Moderation.GroupChatModerationEvent)] =
+            "The fields most subscribeModEvents group variants share; the variants are checked one by one.",
+        [typeof(Chat.Moderation.UnknownChatModerationEvent)] =
+            "The unknown subscribeModEvents variant: it keeps the raw object and reads rev and createdAt from it.",
     };
 
     /// <summary>
     /// JSON names a model uses that its upstream def does not declare, keyed
     /// <c>Namespace.Type.jsonName</c> (without the <c>ATProtoNet.</c> prefix), and why.
     /// </summary>
-    private static readonly Dictionary<string, string> UnknownProperties = new(StringComparer.Ordinal)
-    {
-        ["Lexicon.Com.AtProto.Sync.InfoEvent.seq"] = FirehoseBase,
-        ["Lexicon.Com.AtProto.Sync.InfoEvent.time"] = FirehoseBase,
-    };
-
-    private const string FirehoseBase =
-        "FirehoseMessage gives every variant seq and time, which #info lacks; reworked by #126.";
+    private static readonly Dictionary<string, string> UnknownProperties = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Upstream properties a model deliberately does not declare, keyed like

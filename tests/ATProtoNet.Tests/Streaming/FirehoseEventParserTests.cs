@@ -1,5 +1,4 @@
 using System.Formats.Cbor;
-using System.Net.WebSockets;
 using System.Text.Json;
 using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using ATProtoNet.Repo;
@@ -82,11 +81,7 @@ public class FirehoseEventParserTests
         }
     }
 
-    private static FirehoseFrame MakeFrame(byte[] data) => new()
-    {
-        RawData = data,
-        MessageType = WebSocketMessageType.Binary,
-    };
+    private static ReadOnlyMemory<byte> MakeFrame(byte[] data) => data;
 
     [Fact]
     public void Parse_CommitEvent_ReturnsCommitEvent()
@@ -114,8 +109,6 @@ public class FirehoseEventParserTests
         Assert.Equal("bafyreievaxfmw7drb3ixcjp4y3ftm2pi3xfgzdgyv5vdd5vtzvsgatbqta", commit.Commit);
         Assert.Equal("3jzfcijpj2z2a", commit.Rev);
         Assert.Equal(42, commit.Seq);
-        Assert.False(commit.TooBig);
-        Assert.False(commit.Rebase);
         Assert.Equal("2024-01-15T12:00:00.000Z", commit.Time?.ToString());
     }
 
@@ -202,19 +195,36 @@ public class FirehoseEventParserTests
     }
 
     [Fact]
-    public void Parse_ErrorOp_ReturnsNull()
+    public void Parse_ErrorFrame_ThrowsTheTypedError()
     {
-        // op = -1 means error
+        // op = -1 is an error frame; the relay closes the stream after it.
         var body = new Dictionary<string, object?>
         {
             ["error"] = "FutureCursor",
             ["message"] = "Cursor is in the future",
         };
 
-        var frameData = EncodeCborFrame(-1, "#info", body);
-        var result = FirehoseEventParser.Parse(MakeFrame(frameData));
+        var ex = Assert.Throws<EventStreamException>(() => FirehoseEventParser.Parse(EncodeCborFrame(-1, "#info", body)));
 
-        Assert.Null(result);
+        Assert.Equal(EventStreamErrors.FutureCursor, ex.Error);
+        Assert.Contains("Cursor is in the future", ex.Message);
+        Assert.False(ex.IsRetryable);
+    }
+
+    [Fact]
+    public void Parse_InfoEvent_HasNoSequence()
+    {
+        var body = new Dictionary<string, object?>
+        {
+            ["name"] = "OutdatedCursor",
+            ["message"] = "Cursor is older than the retention window",
+        };
+
+        var info = Assert.IsType<InfoEvent>(FirehoseEventParser.Parse(EncodeCborFrame(1, "#info", body)));
+
+        Assert.Equal("OutdatedCursor", info.Name);
+        Assert.Equal("Cursor is older than the retention window", info.Message);
+        Assert.IsNotAssignableFrom<FirehoseEvent>(info);
     }
 
     [Fact]
@@ -302,50 +312,18 @@ public class FirehoseEventParserTests
         Assert.NotNull(result);
         var commit = Assert.IsType<CommitEvent>(result);
         Assert.Equal("bafyreihlzn2lwoicy7x46zrj4ysc3eqhmpvghca5vbhcwtubpytilc6xsi", commit.PrevData);
+
+        // Deprecated upstream, but still read when a relay sends it.
+#pragma warning disable CS0618
         Assert.NotNull(commit.Blobs);
         Assert.Single(commit.Blobs);
+#pragma warning restore CS0618
     }
 
-    [Fact]
-    public void TryParse_ValidFrame_ReturnsTrue()
-    {
-        var body = new Dictionary<string, object?>
-        {
-            ["did"] = "did:plc:test",
-            ["active"] = true,
-            ["seq"] = 1L,
-        };
-
-        var frameData = EncodeCborFrame(1, "#account", body);
-        var frame = MakeFrame(frameData);
-
-        bool success = FirehoseEventParser.TryParse(frame, out var message, out var error);
-
-        Assert.True(success);
-        Assert.NotNull(message);
-        Assert.Null(error);
-    }
-
-    [Fact]
-    public void TryParse_EmptyFrame_ReturnsFalse()
-    {
-        var frame = MakeFrame(Array.Empty<byte>());
-
-        bool success = FirehoseEventParser.TryParse(frame, out var message, out var error);
-
-        Assert.False(success);
-        Assert.Null(message);
-        Assert.NotNull(error);
-    }
-
-    [Fact]
-    public void Parse_NullFrame_ThrowsArgumentNullException()
-    {
-        Assert.Throws<ArgumentNullException>(() => FirehoseEventParser.Parse((FirehoseFrame)null!));
-    }
-
-    [Fact]
-    public void Parse_HandleEvent_ReturnsHandleEvent()
+    [Theory]
+    [InlineData("#handle")]
+    [InlineData("#tombstone")]
+    public void Parse_EventRemovedUpstream_ReturnsNull(string type)
     {
         var body = new Dictionary<string, object?>
         {
@@ -355,13 +333,7 @@ public class FirehoseEventParserTests
             ["time"] = "2024-01-15T12:00:00.000Z",
         };
 
-        var frameData = EncodeCborFrame(1, "#handle", body);
-        var result = FirehoseEventParser.Parse(MakeFrame(frameData));
-
-        Assert.NotNull(result);
-        var handle = Assert.IsType<HandleEvent>(result);
-        Assert.Equal("did:plc:handle123", handle.Did);
-        Assert.Equal("newhandle.bsky.social", handle.Handle);
+        Assert.Null(FirehoseEventParser.Parse(EncodeCborFrame(1, type, body)));
     }
 
     [Fact]

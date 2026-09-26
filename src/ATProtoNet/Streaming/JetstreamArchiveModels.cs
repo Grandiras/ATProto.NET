@@ -53,7 +53,7 @@ public sealed class JetstreamArchiveOptions
 
     /// <summary>
     /// Start the backfill after this sequence number; events at or below it are not delivered.
-    /// When null, a cursor from <see cref="JetstreamConsumerOptions.CursorStore"/> is used,
+    /// When null, a cursor from <see cref="StreamConsumerOptions.CursorStore"/> is used,
     /// and failing that the replay starts at the beginning of the archive.
     /// </summary>
     public long? AfterSeq { get; init; }
@@ -105,7 +105,7 @@ public sealed class JetstreamArchiveOptions
     /// <summary>
     /// How many times a plan page that does not advance past the previous one — the sealed tip
     /// reported ahead of the segments that carry it — is re-planned before the backfill fails with
-    /// a <see cref="JetstreamArchiveException"/>. Each attempt backs off exponentially from a
+    /// a <see cref="JetstreamException"/>. Each attempt backs off exponentially from a
     /// second, capped by <see cref="MaxRetryDelay"/>. Failing is deliberate: giving up quietly
     /// below the pinned tip would leave a permanent gap, because the cutover reconnects at that tip
     /// and never redelivers the skipped range. Default: 5.
@@ -113,7 +113,7 @@ public sealed class JetstreamArchiveOptions
     public int MaxStalledPlanAttempts { get; init; } = 5;
 
     /// <summary>
-    /// The archive host, when it differs from <see cref="JetstreamConsumerOptions.ServiceUrl"/>
+    /// The archive host, when it differs from <see cref="StreamConsumerOptions.ServiceUrl"/>
     /// (e.g. a CDN mirror in front of the segment files). <c>ws(s)</c> schemes are converted to
     /// <c>http(s)</c> automatically.
     /// </summary>
@@ -187,26 +187,6 @@ public sealed class JetstreamPlannedSegment
             : JetstreamSegmentDownloadMode.Segment;
 }
 
-/// <summary>Planner statistics for one <c>planSnapshot</c> page.</summary>
-public sealed class JetstreamPlanStats
-{
-    /// <summary>Segments the planner looked at.</summary>
-    [JsonPropertyName("segmentsExamined")]
-    public long SegmentsExamined { get; init; }
-
-    /// <summary>Segments that matched the filter.</summary>
-    [JsonPropertyName("segmentsMatched")]
-    public long SegmentsMatched { get; init; }
-
-    /// <summary>Blocks that matched the filter.</summary>
-    [JsonPropertyName("blocksMatched")]
-    public long BlocksMatched { get; init; }
-
-    /// <summary>Items counted toward the server's per-page plan limit.</summary>
-    [JsonPropertyName("entries")]
-    public long Entries { get; init; }
-}
-
 /// <summary>One page of a <c>network.bsky.jetstream.planSnapshot</c> response.</summary>
 public sealed class JetstreamSnapshotPlan
 {
@@ -229,10 +209,6 @@ public sealed class JetstreamSnapshotPlan
     /// <summary>The segments to download, in ascending sequence order.</summary>
     [JsonPropertyName("segments")]
     public IReadOnlyList<JetstreamPlannedSegment> Segments { get; init; } = [];
-
-    /// <summary>Planner statistics for this page.</summary>
-    [JsonPropertyName("stats")]
-    public JetstreamPlanStats? Stats { get; init; }
 }
 
 /// <summary>A <c>network.bsky.jetstream.planSnapshot</c> request body.</summary>
@@ -319,51 +295,4 @@ public sealed class JetstreamSegmentPage : ICursorPage<JetstreamSegmentInfo>
     public IReadOnlyList<JetstreamSegmentInfo> Segments { get; init; } = [];
 
     IReadOnlyList<JetstreamSegmentInfo> ICursorPage<JetstreamSegmentInfo>.Items => Segments;
-}
-
-/// <summary>
-/// Thrown when a Jetstream archive HTTP request fails, or a segment cannot be decoded.
-/// </summary>
-/// <remarks>
-/// The metered endpoints answer a missing or revoked key with <c>401</c>
-/// (<c>invalid bearer credential</c>) and an exhausted byte quota with <c>429</c>
-/// (<c>byte limit exceeded</c>) plus a <c>Retry-After</c> header. Both surface here;
-/// <see cref="IsRetryable"/> distinguishes them, and <see cref="JetstreamArchiveClient"/>
-/// already waits out a <c>429</c> before it gives up.
-/// </remarks>
-public sealed class JetstreamArchiveException : AtProtoException
-{
-    /// <summary>Create an archive exception.</summary>
-    /// <param name="message">The error description.</param>
-    /// <param name="statusCode">The HTTP status the server answered with, if any.</param>
-    /// <param name="error">The XRPC error name from the response body, if any.</param>
-    /// <param name="retryAfter">The <c>Retry-After</c> the response asked for, if any.</param>
-    /// <param name="innerException">The underlying exception, if any.</param>
-    public JetstreamArchiveException(
-        string message,
-        int? statusCode = null,
-        string? error = null,
-        TimeSpan? retryAfter = null,
-        Exception? innerException = null)
-        : base(message, innerException)
-    {
-        StatusCode = statusCode;
-        Error = error;
-        RetryAfter = retryAfter;
-    }
-
-    /// <summary>The HTTP status code, if the failure came from a response.</summary>
-    public int? StatusCode { get; }
-
-    /// <summary>The XRPC error name (e.g. <c>SegmentNotFound</c>), if the body carried one.</summary>
-    public string? Error { get; }
-
-    /// <summary>How long the server asked the client to wait, if it sent <c>Retry-After</c>.</summary>
-    public TimeSpan? RetryAfter { get; }
-
-    /// <summary>
-    /// Whether retrying the same request could succeed: true for a transport fault, a 5xx, and
-    /// the metered <c>429</c>; false for the other 4xx statuses, which reject the request itself.
-    /// </summary>
-    public bool IsRetryable => StatusCode is not (>= 400 and < 500) || StatusCode == 429;
 }

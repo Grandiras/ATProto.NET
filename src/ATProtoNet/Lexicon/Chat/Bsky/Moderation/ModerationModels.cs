@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ATProtoNet.Identity;
@@ -202,4 +203,323 @@ internal sealed class GetConvoResponse
     /// <summary>The conversation.</summary>
     [JsonPropertyName("convo")]
     public required ModerationConvoView Convo { get; init; }
+}
+
+// ──────────────────────────────────────────────────────────
+//  Moderation event stream (chat.bsky.moderation.subscribeModEvents)
+// ──────────────────────────────────────────────────────────
+
+/// <summary>
+/// An event of the chat moderation stream (the open <c>chat.bsky.moderation.subscribeModEvents</c>
+/// message union), such as a <see cref="ConvoFirstMessageEvent"/> or a
+/// <see cref="GroupChatMemberAddedEvent"/>. Every event carries its revision and creation time; an
+/// event this SDK does not model reads as <see cref="UnknownChatModerationEvent"/>.
+/// </summary>
+/// <remarks>
+/// Read the stream with <see cref="Streaming.ChatModerationEventConsumer"/>.
+/// </remarks>
+[AtProtoUnion(typeof(UnknownChatModerationEvent))]
+[JsonDerivedType(typeof(ConvoFirstMessageEvent), "chat.bsky.moderation.subscribeModEvents#eventConvoFirstMessage")]
+[JsonDerivedType(typeof(GroupChatCreatedEvent), "chat.bsky.moderation.subscribeModEvents#eventGroupChatCreated")]
+[JsonDerivedType(typeof(GroupChatMemberAddedEvent), "chat.bsky.moderation.subscribeModEvents#eventGroupChatMemberAdded")]
+[JsonDerivedType(typeof(GroupChatMemberJoinedEvent), "chat.bsky.moderation.subscribeModEvents#eventGroupChatMemberJoined")]
+[JsonDerivedType(typeof(GroupChatJoinRequestEvent), "chat.bsky.moderation.subscribeModEvents#eventGroupChatJoinRequest")]
+[JsonDerivedType(typeof(GroupChatJoinRequestApprovedEvent), "chat.bsky.moderation.subscribeModEvents#eventGroupChatJoinRequestApproved")]
+[JsonDerivedType(typeof(GroupChatJoinRequestRejectedEvent), "chat.bsky.moderation.subscribeModEvents#eventGroupChatJoinRequestRejected")]
+[JsonDerivedType(typeof(ChatAcceptedEvent), "chat.bsky.moderation.subscribeModEvents#eventChatAccepted")]
+[JsonDerivedType(typeof(GroupChatMemberLeftEvent), "chat.bsky.moderation.subscribeModEvents#eventGroupChatMemberLeft")]
+[JsonDerivedType(typeof(GroupChatUpdatedEvent), "chat.bsky.moderation.subscribeModEvents#eventGroupChatUpdated")]
+[JsonDerivedType(typeof(RateLimitExceededEvent), "chat.bsky.moderation.subscribeModEvents#eventRateLimitExceeded")]
+public abstract class ChatModerationEvent : LexObject
+{
+    /// <summary>
+    /// The event's revision, an opaque string the chat service assigns; the stream cursor to
+    /// resume after it.
+    /// </summary>
+    [JsonPropertyName("rev")]
+    public required string Rev { get; init; }
+
+    /// <summary>When the event happened.</summary>
+    [JsonPropertyName("createdAt")]
+    public required AtDatetime CreatedAt { get; init; }
+}
+
+/// <summary>
+/// A moderation event whose <c>$type</c> this SDK version does not model. It keeps the raw object;
+/// see <see cref="IUnknownUnionVariant"/>.
+/// </summary>
+public sealed class UnknownChatModerationEvent : ChatModerationEvent, IUnknownUnionVariant
+{
+    /// <summary>
+    /// Creates an unknown event from its discriminator and raw object.
+    /// <see cref="ChatModerationEvent.Rev"/> and <see cref="ChatModerationEvent.CreatedAt"/> are
+    /// read from the object, and are empty when it lacks them.
+    /// </summary>
+    /// <param name="type">The object's <c>$type</c>.</param>
+    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+    [SetsRequiredMembers]
+    public UnknownChatModerationEvent(string type, JsonElement raw)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(type);
+        Type = type;
+        Raw = UnknownUnionVariant.RequireObject(raw);
+        Rev = StringProperty(Raw, "rev") ?? "";
+        CreatedAt = StringProperty(Raw, "createdAt") is { } createdAt ? AtDatetime.FromWire(createdAt) : default;
+    }
+
+    // Not wire properties: the SDK writes an unknown variant as its Raw object.
+
+    /// <inheritdoc/>
+    [JsonIgnore]
+    public string Type { get; }
+
+    /// <inheritdoc/>
+    [JsonIgnore]
+    public JsonElement Raw { get; }
+
+    private static string? StringProperty(JsonElement raw, string name) =>
+        raw.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+}
+
+/// <summary>
+/// The first message was sent in a conversation (<c>#eventConvoFirstMessage</c>).
+/// </summary>
+public sealed class ConvoFirstMessageEvent : ChatModerationEvent
+{
+    /// <summary>The identifier of the conversation.</summary>
+    [JsonPropertyName("convoId")]
+    public required string ConvoId { get; init; }
+
+    /// <summary>The identifier of the message, if the service included it.</summary>
+    [JsonPropertyName("messageId")]
+    public string? MessageId { get; init; }
+
+    /// <summary>The message's recipients. The sender is <see cref="User"/>, not one of them.</summary>
+    [JsonPropertyName("recipients")]
+    public required IReadOnlyList<Did> Recipients { get; init; }
+
+    /// <summary>The message's author.</summary>
+    [JsonPropertyName("user")]
+    public required Did User { get; init; }
+}
+
+/// <summary>
+/// The group fields most moderation events share: the conversation, who acted, and the group's
+/// state at the time of the event.
+/// </summary>
+public abstract class GroupChatModerationEvent : ChatModerationEvent
+{
+    /// <summary>The identifier of the conversation.</summary>
+    [JsonPropertyName("convoId")]
+    public required string ConvoId { get; init; }
+
+    /// <summary>When the conversation was originally created.</summary>
+    [JsonPropertyName("convoCreatedAt")]
+    public required AtDatetime ConvoCreatedAt { get; init; }
+
+    /// <summary>The account that performed the action; see each event for who that is.</summary>
+    [JsonPropertyName("actorDid")]
+    public required Did ActorDid { get; init; }
+
+    /// <summary>The group's owner.</summary>
+    [JsonPropertyName("ownerDid")]
+    public required Did OwnerDid { get; init; }
+
+    /// <summary>The group's name.</summary>
+    [JsonPropertyName("groupName")]
+    public required string GroupName { get; init; }
+
+    /// <summary>The group's member count at the time of the event.</summary>
+    [JsonPropertyName("groupMemberCount")]
+    public required long GroupMemberCount { get; init; }
+}
+
+/// <summary>
+/// A group chat was created (<c>#eventGroupChatCreated</c>). <see cref="GroupChatModerationEvent.ActorDid"/>
+/// is the owner, and <see cref="GroupChatModerationEvent.GroupName"/> the name set at creation.
+/// </summary>
+public sealed class GroupChatCreatedEvent : GroupChatModerationEvent
+{
+    /// <summary>Everyone added when the group was created.</summary>
+    [JsonPropertyName("initialMemberDids")]
+    public required IReadOnlyList<Did> InitialMemberDids { get; init; }
+}
+
+/// <summary>
+/// The owner added a member to a group chat, who starts in the request state
+/// (<c>#eventGroupChatMemberAdded</c>).
+/// </summary>
+public sealed class GroupChatMemberAddedEvent : GroupChatModerationEvent
+{
+    /// <summary>The member who was added.</summary>
+    [JsonPropertyName("subjectDid")]
+    public required Did SubjectDid { get; init; }
+
+    /// <summary>Whether the added member follows the owner.</summary>
+    [JsonPropertyName("subjectFollowsOwner")]
+    public required bool SubjectFollowsOwner { get; init; }
+
+    /// <summary>How many members have not accepted the conversation yet.</summary>
+    [JsonPropertyName("requestMembersCount")]
+    public required long RequestMembersCount { get; init; }
+}
+
+/// <summary>
+/// Someone joined a group chat through a join link that needs no approval
+/// (<c>#eventGroupChatMemberJoined</c>). <see cref="GroupChatModerationEvent.ActorDid"/> is the
+/// new member.
+/// </summary>
+public sealed class GroupChatMemberJoinedEvent : GroupChatModerationEvent
+{
+    /// <summary>The code of the join link used.</summary>
+    [JsonPropertyName("joinLinkCode")]
+    public required string JoinLinkCode { get; init; }
+
+    /// <summary>Whether the new member follows the owner.</summary>
+    [JsonPropertyName("subjectFollowsOwner")]
+    public required bool SubjectFollowsOwner { get; init; }
+}
+
+/// <summary>
+/// Someone asked to join a group chat through a join link that needs approval
+/// (<c>#eventGroupChatJoinRequest</c>). <see cref="GroupChatModerationEvent.ActorDid"/> is the
+/// requester.
+/// </summary>
+public sealed class GroupChatJoinRequestEvent : GroupChatModerationEvent
+{
+    /// <summary>The code of the join link used.</summary>
+    [JsonPropertyName("joinLinkCode")]
+    public required string JoinLinkCode { get; init; }
+
+    /// <summary>Whether the requester follows the owner.</summary>
+    [JsonPropertyName("subjectFollowsOwner")]
+    public required bool SubjectFollowsOwner { get; init; }
+}
+
+/// <summary>
+/// The owner approved a join request (<c>#eventGroupChatJoinRequestApproved</c>).
+/// </summary>
+public sealed class GroupChatJoinRequestApprovedEvent : GroupChatModerationEvent
+{
+    /// <summary>The member whose request was approved.</summary>
+    [JsonPropertyName("subjectDid")]
+    public required Did SubjectDid { get; init; }
+}
+
+/// <summary>
+/// The owner rejected a join request (<c>#eventGroupChatJoinRequestRejected</c>).
+/// </summary>
+public sealed class GroupChatJoinRequestRejectedEvent : GroupChatModerationEvent
+{
+    /// <summary>The account whose request was rejected.</summary>
+    [JsonPropertyName("subjectDid")]
+    public required Did SubjectDid { get; init; }
+}
+
+/// <summary>
+/// A member left a group chat or was removed from it (<c>#eventGroupChatMemberLeft</c>).
+/// <see cref="GroupChatModerationEvent.ActorDid"/> is the member when they left, or the owner
+/// when they were removed.
+/// </summary>
+public sealed class GroupChatMemberLeftEvent : GroupChatModerationEvent
+{
+    /// <summary>The member who left or was removed.</summary>
+    [JsonPropertyName("subjectDid")]
+    public required Did SubjectDid { get; init; }
+
+    /// <summary>How the member left: <c>voluntary</c> or <c>kicked</c>.</summary>
+    [JsonPropertyName("leaveMethod")]
+    public required string LeaveMethod { get; init; }
+}
+
+/// <summary>
+/// A group chat's metadata or status changed (<c>#eventGroupChatUpdated</c>).
+/// </summary>
+public sealed class GroupChatUpdatedEvent : GroupChatModerationEvent
+{
+    /// <summary>
+    /// What changed: <c>name_changed</c>, <c>locked</c>, <c>locked_permanently</c>,
+    /// <c>unlocked</c>, <c>join_link_created</c>, <c>join_link_disabled</c> or
+    /// <c>join_link_settings_changed</c>.
+    /// </summary>
+    [JsonPropertyName("updateType")]
+    public required string UpdateType { get; init; }
+
+    /// <summary>The previous name, when <see cref="UpdateType"/> is <c>name_changed</c>.</summary>
+    [JsonPropertyName("oldName")]
+    public string? OldName { get; init; }
+
+    /// <summary>The new name, when <see cref="UpdateType"/> is <c>name_changed</c>.</summary>
+    [JsonPropertyName("newName")]
+    public string? NewName { get; init; }
+
+    /// <summary>
+    /// Why the group was locked, when <see cref="UpdateType"/> is <c>locked</c>: for example
+    /// <c>owner_action</c>, <c>owner_left</c> or <c>label_applied</c>.
+    /// </summary>
+    [JsonPropertyName("lockReason")]
+    public string? LockReason { get; init; }
+
+    /// <summary>The join link's code, for a join-link update.</summary>
+    [JsonPropertyName("joinLinkCode")]
+    public string? JoinLinkCode { get; init; }
+
+    /// <summary>Whether the join link needs the owner's approval, for a join-link update.</summary>
+    [JsonPropertyName("joinLinkRequiresApproval")]
+    public bool? JoinLinkRequiresApproval { get; init; }
+
+    /// <summary>Whether the join link is limited to the owner's followers, for a join-link update.</summary>
+    [JsonPropertyName("joinLinkFollowersOnly")]
+    public bool? JoinLinkFollowersOnly { get; init; }
+}
+
+/// <summary>
+/// Someone accepted a conversation, explicitly or by sending a message
+/// (<c>#eventChatAccepted</c>). The group fields are present only for group conversations.
+/// </summary>
+public sealed class ChatAcceptedEvent : ChatModerationEvent
+{
+    /// <summary>The identifier of the conversation.</summary>
+    [JsonPropertyName("convoId")]
+    public required string ConvoId { get; init; }
+
+    /// <summary>When the conversation was originally created.</summary>
+    [JsonPropertyName("convoCreatedAt")]
+    public required AtDatetime ConvoCreatedAt { get; init; }
+
+    /// <summary>The account that accepted the conversation.</summary>
+    [JsonPropertyName("actorDid")]
+    public required Did ActorDid { get; init; }
+
+    /// <summary>How the conversation was accepted: <c>explicit</c> or <c>message</c>.</summary>
+    [JsonPropertyName("method")]
+    public required string Method { get; init; }
+
+    /// <summary>The group's owner, for a group conversation.</summary>
+    [JsonPropertyName("ownerDid")]
+    public Did? OwnerDid { get; init; }
+
+    /// <summary>The group's name, for a group conversation.</summary>
+    [JsonPropertyName("groupName")]
+    public string? GroupName { get; init; }
+
+    /// <summary>The group's member count at the time of the event, for a group conversation.</summary>
+    [JsonPropertyName("groupMemberCount")]
+    public long? GroupMemberCount { get; init; }
+}
+
+/// <summary>
+/// An account exceeded a rate limit (<c>#eventRateLimitExceeded</c>).
+/// </summary>
+public sealed class RateLimitExceededEvent : ChatModerationEvent
+{
+    /// <summary>The account that hit the limit.</summary>
+    [JsonPropertyName("actorDid")]
+    public required Did ActorDid { get; init; }
+
+    /// <summary>The NSID of the rate-limited endpoint.</summary>
+    [JsonPropertyName("endpoint")]
+    public required string Endpoint { get; init; }
 }

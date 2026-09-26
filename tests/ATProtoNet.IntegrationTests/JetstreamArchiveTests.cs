@@ -134,12 +134,27 @@ public class JetstreamArchiveTests
     }
 
     [RequiresJetstreamArchiveFact]
+    public async Task ProbeSegmentAsync_ReportsTheListedSizeAndChecksumWithoutABody()
+    {
+        using var cts = new CancellationTokenSource(Timeout);
+        using var archive = Archive();
+
+        var segment = (await archive.ListSegmentsAsync(limit: 1, cancellationToken: cts.Token)).Segments[0];
+
+        // HEAD is not charged for, so it is how a mirror checks a segment before paying for it.
+        var probe = await archive.ProbeSegmentAsync(segment.Name, cts.Token);
+
+        Assert.Equal(segment.SizeBytes, probe.ContentLength);
+        Assert.Equal(segment.Checksum, probe.ETag);
+    }
+
+    [RequiresJetstreamArchiveFact]
     public async Task AnInvalidApiKeyIsRefusedWithoutRetrying()
     {
         using var cts = new CancellationTokenSource(Timeout);
         using var archive = new JetstreamArchiveClient(TestConfig.JetstreamUrl, "not-a-real-key");
 
-        var ex = await Assert.ThrowsAsync<JetstreamArchiveException>(
+        var ex = await Assert.ThrowsAsync<JetstreamException>(
             () => archive.ListSegmentsAsync(limit: 1, cancellationToken: cts.Token));
 
         Assert.Equal(401, ex.StatusCode);

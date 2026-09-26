@@ -18,30 +18,32 @@ namespace ATProtoNet.Streaming;
 /// summaries, so it never misses matching data but can hand back blocks with none — the exact
 /// <see cref="JetstreamConsumerOptions.WantedDids"/> /
 /// <see cref="JetstreamConsumerOptions.WantedCollections"/> /
-/// <see cref="JetstreamConsumerOptions.WantedKinds"/> filter is applied again here, to what was
-/// decoded.</para>
+/// <see cref="JetstreamConsumerOptions.WantedKinds"/> filter is applied again here, to each row's
+/// columns before the row is decoded. Downloads and decoding run
+/// <see cref="JetstreamArchiveOptions.DownloadParallelism"/> wide, and events are still delivered
+/// strictly in sequence order.</para>
 /// <para>The cutover connects the live socket once at the pinned tip. That cursor is inclusive, so
 /// events at or below the last sequence number already delivered are dropped and one
 /// <c>await foreach</c> spans history and live. If the backfill runs long enough that the pinned
 /// tip ages out of the socket's lookback window (36 hours on the Bluesky-hosted instances), the
-/// connect is refused with a <see cref="JetstreamConnectException"/> — the consumer re-enters the
+/// connect is refused with a <see cref="JetstreamException"/> — the consumer re-enters the
 /// plan loop from the last sequence number it delivered rather than skipping the gap, up to
 /// <see cref="JetstreamArchiveOptions.MaxCutoverAttempts"/> times. A backfill that stops advancing
 /// below the pinned tip is retried
 /// (<see cref="JetstreamArchiveOptions.MaxStalledPlanAttempts"/>) and then fails with a
-/// <see cref="JetstreamArchiveException"/> rather than cutting over across the hole.</para>
+/// <see cref="JetstreamException"/> rather than cutting over across the hole.</para>
 /// <para>Delivery is <b>at-least-once and folded, not filtered</b>: every matching event arrives in
 /// sequence order, including creates a later delete supersedes, and events after the last persisted
 /// cursor are redelivered when a new process resumes. Fold into idempotent writes keyed on the
 /// record's <c>at://</c> URI; an account event with <c>Active = false</c>, or a
 /// <see cref="JetstreamSyncEvent"/>, removes all of that account's records. Account-level events
 /// carry no collection and are delivered even to a collection-filtered consumer, exactly as on the
-/// live tail.</para>
+/// live tail. Cancelling the token ends the enumeration normally.</para>
 /// <para>Requires <see cref="JetstreamProtocol.V2"/> — v1 has no archive.</para>
 /// </remarks>
 /// <example>
 /// <code>
-/// var consumer = new JetstreamReplayConsumer(new JetstreamConsumerOptions
+/// using var consumer = new JetstreamReplayConsumer(new JetstreamConsumerOptions
 /// {
 ///     ServiceUrl = JetstreamEndpoints.UsEast,
 ///     Protocol = JetstreamProtocol.V2,
@@ -69,7 +71,7 @@ public sealed class JetstreamReplayConsumer : IDisposable
     private readonly JetstreamArchiveClient _client;
     private readonly bool _ownsClient;
     private readonly ILogger _logger;
-    private int _eventsSinceLastPersist;
+    private readonly Func<JetstreamConsumerOptions, JetstreamConsumer> _liveFactory;
     private bool _disposed;
 
     /// <summary>The sequence number of the last event delivered, or null before the first one.</summary>
@@ -77,9 +79,6 @@ public sealed class JetstreamReplayConsumer : IDisposable
 
     /// <summary>Whether the consumer is still reading the archive rather than the live tail.</summary>
     public bool IsBackfilling { get; private set; }
-
-    /// <summary>The sealed tip pinned for the current backfill, or null before the first plan.</summary>
-    public long? PinnedTipSeq { get; private set; }
 
     /// <summary>
     /// Create a replay consumer.
@@ -102,11 +101,20 @@ public sealed class JetstreamReplayConsumer : IDisposable
     /// instance.</param>
     /// <exception cref="ArgumentException">The options cannot describe a replay.</exception>
     public JetstreamReplayConsumer(JetstreamConsumerOptions options, JetstreamArchiveClient? archiveClient)
+        : this(options, archiveClient, live => new JetstreamConsumer(live))
+    {
+    }
+
+    internal JetstreamReplayConsumer(
+        JetstreamConsumerOptions options,
+        JetstreamArchiveClient? archiveClient,
+        Func<JetstreamConsumerOptions, JetstreamConsumer> liveFactory)
     {
         ArgumentNullException.ThrowIfNull(options);
         _options = options;
         _archive = Validate(options);
         _logger = options.Logger ?? NullLogger.Instance;
+        _liveFactory = liveFactory;
 
         _client = archiveClient ?? new JetstreamArchiveClient(
             _archive.ServiceUrl ?? options.ServiceUrl,
@@ -126,29 +134,49 @@ public sealed class JetstreamReplayConsumer : IDisposable
     /// </summary>
     /// <param name="afterSeq">Resume position: events at or below this sequence number are not
     /// delivered. When null, <see cref="JetstreamArchiveOptions.AfterSeq"/> is used, then the
-    /// <see cref="JetstreamConsumerOptions.CursorStore"/>, and failing both the replay starts at
+    /// <see cref="StreamConsumerOptions.CursorStore"/>, and failing both the replay starts at
     /// the beginning of the archive.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <exception cref="JetstreamArchiveException">An archive request failed unrecoverably, or the
-    /// plan stopped advancing below the pinned tip for
-    /// <see cref="JetstreamArchiveOptions.MaxStalledPlanAttempts"/> consecutive pages.</exception>
-    /// <exception cref="JetstreamConnectException">The live cutover was refused and could not be
-    /// recovered by re-planning within
+    /// <exception cref="ArgumentException">The resume position is a timestamp cursor
+    /// (<see cref="JetstreamCursor"/>): the archive is addressed by sequence number only.</exception>
+    /// <exception cref="JetstreamException">An archive request failed unrecoverably, the plan
+    /// stopped advancing below the pinned tip for
+    /// <see cref="JetstreamArchiveOptions.MaxStalledPlanAttempts"/> consecutive pages, or the live
+    /// cutover was refused and could not be recovered by re-planning within
     /// <see cref="JetstreamArchiveOptions.MaxCutoverAttempts"/> attempts.</exception>
+    /// <exception cref="EventStreamException">The live tail kept disconnecting until
+    /// <see cref="StreamConsumerOptions.Reconnect"/> gave up.</exception>
     public async IAsyncEnumerable<JetstreamEvent> ReplayAsync(
         long? afterSeq = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var start = afterSeq ?? _archive.AfterSeq;
+        var tracker = new CursorTracker(
+            _options.CursorStore, _options.ResolvedStreamId, _options.CursorPersistInterval, _logger);
 
-        if (start is null && _options.CursorStore is not null)
+        var start = afterSeq ?? _archive.AfterSeq;
+        if (start is null)
         {
-            start = await _options.CursorStore.GetCursorAsync(_options.ResolvedStreamId, cancellationToken);
+            try
+            {
+                start = await tracker.LoadAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                yield break;
+            }
+
             if (start.HasValue)
                 _logger.LogInformation("Resuming Jetstream replay from stored cursor {Cursor}", start.Value);
         }
 
-        var filter = new JetstreamArchiveFilter(_options);
+        if (start is { } resume && JetstreamCursor.IsTimestamp(resume))
+            throw new ArgumentException(
+                $"The Jetstream archive is addressed by sequence number, and {resume} is a timestamp cursor. " +
+                "Replay from a sequence number (or from the start), or tail the live stream from the timestamp " +
+                "with JetstreamConsumer.",
+                nameof(afterSeq));
+
+        tracker.Start(start);
 
         // Persist whatever was delivered on every exit path — a cancelled backfill included, so a
         // restart resumes near where it stopped rather than at the last interval boundary.
@@ -158,56 +186,75 @@ public sealed class JetstreamReplayConsumer : IDisposable
             {
                 // Backfill: plan, download, decode, filter — everything sealed up to the pinned tip.
                 IsBackfilling = true;
-                await foreach (var evt in BackfillAsync(start ?? 0, filter, cancellationToken))
-                {
-                    if (await TrackAsync(evt, cancellationToken))
-                        yield return evt;
-                }
-
-                IsBackfilling = false;
-
-                if (_archive.SnapshotOnly)
-                    yield break;
-
-                // Cutover: one live connection at the pinned tip, which the server replays inclusively.
-                var tip = PinnedTipSeq ?? LastCursor ?? start ?? 0;
-                var live = new JetstreamConsumer(_options);
-                JetstreamConnectException? refused = null;
-
+                long? tip = null;
+                var backfill = BackfillAsync(start ?? 0, pinned => tip = pinned, cancellationToken)
+                    .GetAsyncEnumerator(cancellationToken);
                 try
                 {
-                    var enumerator = live.ConsumeAsync(tip, cancellationToken).GetAsyncEnumerator(cancellationToken);
-                    try
+                    while (!cancellationToken.IsCancellationRequested)
                     {
-                        while (true)
+                        try
                         {
-                            JetstreamEvent? evt = null;
-                            try
-                            {
-                                if (await enumerator.MoveNextAsync())
-                                    evt = enumerator.Current;
-                            }
-                            catch (JetstreamConnectException ex) when (!ex.IsRetryable)
-                            {
-                                // The pinned tip aged out of the lookback window while we backfilled.
-                                refused = ex;
-                            }
-
-                            if (evt is null)
+                            if (!await backfill.MoveNextAsync().ConfigureAwait(false))
                                 break;
-
-                            if (await TrackAsync(evt, cancellationToken))
-                                yield return evt;
                         }
-                    }
-                    finally
-                    {
-                        await enumerator.DisposeAsync();
+                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                        {
+                            yield break;
+                        }
+
+                        var evt = backfill.Current;
+                        if (!IsNew(evt))
+                            continue;
+
+                        yield return evt;
+                        tracker.Advance(evt.Cursor!.Value);
                     }
                 }
                 finally
                 {
-                    live.Dispose();
+                    await backfill.DisposeAsync().ConfigureAwait(false);
+                }
+
+                IsBackfilling = false;
+
+                if (_archive.SnapshotOnly || cancellationToken.IsCancellationRequested)
+                    yield break;
+
+                // Cutover: one live connection at the pinned tip, which the server replays inclusively.
+                var cutover = tip ?? LastCursor ?? start ?? 0;
+                JetstreamException? refused = null;
+
+                var live = _liveFactory(_options).ConsumeAsync(cutover, cancellationToken)
+                    .GetAsyncEnumerator(cancellationToken);
+                try
+                {
+                    while (!cancellationToken.IsCancellationRequested)
+                    {
+                        try
+                        {
+                            if (!await live.MoveNextAsync().ConfigureAwait(false))
+                                break;
+                        }
+                        catch (JetstreamException ex) when (!ex.IsRetryable && ex.StatusCode is not null)
+                        {
+                            // The pinned tip aged out of the lookback window while we backfilled.
+                            refused = ex;
+                            break;
+                        }
+
+                        var evt = live.Current;
+                        if (!IsNew(evt))
+                            continue;
+
+                        yield return evt;
+                        if (evt.Cursor is { } seq)
+                            tracker.Advance(seq);
+                    }
+                }
+                finally
+                {
+                    await live.DisposeAsync().ConfigureAwait(false);
                 }
 
                 if (refused is null)
@@ -215,25 +262,41 @@ public sealed class JetstreamReplayConsumer : IDisposable
 
                 if (attempt >= _archive.MaxCutoverAttempts)
                 {
-                    throw new JetstreamConnectException(
-                        $"The Jetstream live tail refused the cutover at sequence {tip} after " +
+                    throw new JetstreamException(
+                        $"The Jetstream live tail refused the cutover at sequence {cutover} after " +
                         $"{attempt + 1} backfill attempts; the archive is not catching up to the " +
                         "socket's lookback window.",
                         refused.StatusCode,
-                        refused);
+                        refused.Error,
+                        innerException: refused);
                 }
 
                 // Re-enter the plan loop from what we durably delivered rather than skip the gap.
                 start = LastCursor ?? start;
-                PinnedTipSeq = null;
                 _logger.LogWarning(refused,
-                    "Jetstream refused the cutover at {Tip}; re-planning from {Cursor}", tip, start);
+                    "Jetstream refused the cutover at {Tip}; re-planning from {Cursor}", cutover, start);
             }
         }
         finally
         {
-            await PersistAsync(CancellationToken.None);
+            await tracker.FlushAsync().ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// Records an event as the last delivered. Returns false for one delivered already, which the
+    /// inclusive cutover cursor and an overlapping re-plan can both produce.
+    /// </summary>
+    private bool IsNew(JetstreamEvent evt)
+    {
+        if (evt.Cursor is not { } seq)
+            return true;
+
+        if (LastCursor is { } last && seq <= last)
+            return false;
+
+        LastCursor = seq;
+        return true;
     }
 
     /// <summary>
@@ -242,12 +305,15 @@ public sealed class JetstreamReplayConsumer : IDisposable
     /// </summary>
     private async IAsyncEnumerable<JetstreamEvent> BackfillAsync(
         long afterSeq,
-        JetstreamArchiveFilter filter,
+        Action<long> pinTip,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         long? tip = null;
         var planned = afterSeq;
         var stalls = 0;
+        var planKinds = _options.WantedKinds is { Count: > 0 } wanted
+            ? wanted.Select(JetstreamKinds.Name).ToList()
+            : null;
 
         while (true)
         {
@@ -256,7 +322,7 @@ public sealed class JetstreamReplayConsumer : IDisposable
             var plan = await _client.PlanSnapshotAsync(
                 new JetstreamSnapshotRequest
                 {
-                    Kinds = filter.PlanKinds,
+                    Kinds = planKinds,
                     Dids = _options.WantedDids,
                     Collections = _options.WantedCollections,
                     AfterSeq = planned,
@@ -264,14 +330,14 @@ public sealed class JetstreamReplayConsumer : IDisposable
                     // cannot float upward while the backfill is downloading it.
                     BeforeSeq = tip ?? _archive.BeforeSeq,
                 },
-                cancellationToken);
+                cancellationToken).ConfigureAwait(false);
 
             // A snapshot's BeforeSeq caps the ceiling: without it the pinned tip would replace the
             // caller's bound on the second page and the snapshot would run to the sealed tip.
             tip ??= _archive.BeforeSeq is { } before
                 ? Math.Min(before, plan.SealedTipSeq)
                 : plan.SealedTipSeq;
-            PinnedTipSeq = tip;
+            pinTip(tip.Value);
             var ceiling = tip.Value;
 
             // The server truncates a page at a whole work-unit boundary and always admits at least
@@ -282,7 +348,7 @@ public sealed class JetstreamReplayConsumer : IDisposable
             if (plan.PlannedThroughSeq <= planned && planned < ceiling)
             {
                 if (++stalls > _archive.MaxStalledPlanAttempts)
-                    throw new JetstreamArchiveException(
+                    throw new JetstreamException(
                         $"Jetstream planned through {plan.PlannedThroughSeq}, which does not advance " +
                         $"past {planned}, on {stalls} consecutive attempts; the backfill cannot reach " +
                         $"the pinned tip {ceiling}. Delivered through " +
@@ -296,7 +362,7 @@ public sealed class JetstreamReplayConsumer : IDisposable
                     plan.PlannedThroughSeq, planned, ceiling, delay, stalls,
                     _archive.MaxStalledPlanAttempts);
 
-                await Task.Delay(delay, cancellationToken);
+                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
                 continue;
             }
 
@@ -306,17 +372,11 @@ public sealed class JetstreamReplayConsumer : IDisposable
                 "Planned {Segments} segment(s) through sequence {Through} of {Tip}",
                 plan.Segments.Count, plan.PlannedThroughSeq, ceiling);
 
-            await foreach (var row in DownloadAsync(plan.Segments, cancellationToken))
-            {
-                // The planner has no false negatives but does return blocks with no matching rows,
-                // so the exact filter is applied to what was decoded.
-                if (row.Seq <= (LastCursor ?? afterSeq) || row.Seq > ceiling)
-                    continue;
-                if (row.ToEvent() is not { } evt || !filter.Matches(evt))
-                    continue;
-
+            // The planner has no false negatives but does return blocks with no matching rows, so
+            // the exact filter is applied to each row, before it is decoded.
+            var filter = new JetstreamArchiveRowFilter(_options, LastCursor ?? afterSeq, ceiling);
+            await foreach (var evt in DownloadAsync(plan.Segments, filter, cancellationToken).ConfigureAwait(false))
                 yield return evt;
-            }
 
             // Reached only at or above the ceiling, since a non-advancing page below it re-plans.
             if (plan.PlannedThroughSeq <= planned)
@@ -339,12 +399,13 @@ public sealed class JetstreamReplayConsumer : IDisposable
     }
 
     /// <summary>
-    /// Download the planned work units — whole segments or single blocks — with
-    /// <see cref="JetstreamArchiveOptions.DownloadParallelism"/> in flight, and decode them
-    /// strictly in plan order so events stay sequence-ordered.
+    /// Download and decode the planned work units — whole segments or single blocks — with
+    /// <see cref="JetstreamArchiveOptions.DownloadParallelism"/> in flight, and deliver their
+    /// events strictly in plan order so they stay sequence-ordered.
     /// </summary>
-    private async IAsyncEnumerable<JetstreamArchiveRow> DownloadAsync(
+    private async IAsyncEnumerable<JetstreamEvent> DownloadAsync(
         IReadOnlyList<JetstreamPlannedSegment> segments,
+        JetstreamArchiveRowFilter filter,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var units = WorkUnits(segments).ToList();
@@ -366,8 +427,8 @@ public sealed class JetstreamReplayConsumer : IDisposable
                 {
                     // Started here, awaited by the consumer: the bounded channel is what caps how
                     // many downloads run at once.
-                    pending = DownloadUnitAsync(unit, abort.Token);
-                    await channel.Writer.WriteAsync(pending, abort.Token);
+                    pending = DownloadUnitAsync(unit, filter, abort.Token);
+                    await channel.Writer.WriteAsync(pending, abort.Token).ConfigureAwait(false);
                     pending = null;
                 }
 
@@ -377,19 +438,22 @@ public sealed class JetstreamReplayConsumer : IDisposable
             {
                 channel.Writer.TryComplete(ex);
                 if (pending is not null)
-                    await Observe(pending);
+                    await Observe(pending).ConfigureAwait(false);
             }
         }, CancellationToken.None);
 
         try
         {
-            await foreach (var download in channel.Reader.ReadAllAsync(cancellationToken))
+            await foreach (var download in channel.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
             {
-                var unit = await download;
+                var unit = await download.ConfigureAwait(false);
                 try
                 {
-                    await foreach (var row in unit.ReadAsync(_archive.BlockDecompressor, cancellationToken))
-                        yield return row;
+                    await foreach (var evt in unit.ReadAsync(_archive.BlockDecompressor, filter, parallelism, cancellationToken)
+                        .ConfigureAwait(false))
+                    {
+                        yield return evt;
+                    }
                 }
                 finally
                 {
@@ -401,23 +465,23 @@ public sealed class JetstreamReplayConsumer : IDisposable
         {
             // Stop the prefetch and observe every download still in flight, so an abandoned
             // failure does not surface later as an unobserved task exception.
-            await abort.CancelAsync();
+            await abort.CancelAsync().ConfigureAwait(false);
             channel.Writer.TryComplete();
-            await Drain(channel.Reader);
-            await producer;
+            await Drain(channel.Reader).ConfigureAwait(false);
+            await producer.ConfigureAwait(false);
         }
 
         static async Task Drain(ChannelReader<Task<DownloadedUnit>> reader)
         {
             while (reader.TryRead(out var pending))
-                await Observe(pending);
+                await Observe(pending).ConfigureAwait(false);
         }
 
         static async Task Observe(Task<DownloadedUnit> pending)
         {
             try
             {
-                (await pending).Dispose();
+                (await pending.ConfigureAwait(false)).Dispose();
             }
             catch (Exception)
             {
@@ -445,15 +509,18 @@ public sealed class JetstreamReplayConsumer : IDisposable
         }
     }
 
-    private async Task<DownloadedUnit> DownloadUnitAsync(WorkUnit unit, CancellationToken cancellationToken)
+    private async Task<DownloadedUnit> DownloadUnitAsync(
+        WorkUnit unit, JetstreamArchiveRowFilter filter, CancellationToken cancellationToken)
     {
         if (unit.BlockIndex is { } blockIndex)
         {
-            var frame = await _client.GetBlockAsync(unit.Segment.Name, blockIndex, cancellationToken);
-            return new DownloadedUnit(frame, null);
+            // A block is small, so it is decoded here, in parallel with the other downloads.
+            var frame = await _client.GetBlockAsync(unit.Segment.Name, blockIndex, cancellationToken).ConfigureAwait(false);
+            return new DownloadedUnit(JetstreamSegmentReader.DecodeEvents(frame, _archive.BlockDecompressor, filter), null);
         }
 
-        // Segments run to hundreds of megabytes, so they are spooled to disk rather than buffered.
+        // Segments run to hundreds of megabytes, so they are spooled to disk rather than buffered,
+        // and decoded block by block as they are read back.
         var path = Path.Combine(
             _archive.SpoolDirectory ?? Path.GetTempPath(),
             $"jetstream-{Guid.NewGuid():n}.jss");
@@ -464,49 +531,21 @@ public sealed class JetstreamReplayConsumer : IDisposable
 
         try
         {
-            await _client.DownloadSegmentAsync(unit.Segment.Name, file, cancellationToken);
+            await _client.DownloadSegmentAsync(unit.Segment.Name, file, cancellationToken).ConfigureAwait(false);
             file.Position = 0;
             return new DownloadedUnit(null, file);
         }
         catch
         {
-            await file.DisposeAsync();
+            await file.DisposeAsync().ConfigureAwait(false);
             throw;
         }
     }
 
-    /// <summary>
-    /// Record an event as delivered, persisting the cursor on the configured interval.
-    /// </summary>
-    /// <returns>Whether the event should be delivered: false for one already delivered, which the
-    /// inclusive cutover cursor and an overlapping re-plan can both produce.</returns>
-    private async Task<bool> TrackAsync(JetstreamEvent evt, CancellationToken cancellationToken)
-    {
-        if (evt.Cursor is not { } seq)
-            return true;
-
-        if (LastCursor.HasValue && seq <= LastCursor.Value)
-            return false;
-
-        LastCursor = seq;
-
-        if (_options.CursorStore is not null && ++_eventsSinceLastPersist >= _options.CursorPersistInterval)
-            await PersistAsync(cancellationToken);
-
-        return true;
-    }
-
-    private async Task PersistAsync(CancellationToken cancellationToken)
-    {
-        if (_options.CursorStore is null || LastCursor is not { } cursor)
-            return;
-
-        await _options.CursorStore.StoreCursorAsync(_options.ResolvedStreamId, cursor, cancellationToken);
-        _eventsSinceLastPersist = 0;
-    }
-
     private static JetstreamArchiveOptions Validate(JetstreamConsumerOptions options)
     {
+        options.Validate();
+
         if (options.Protocol != JetstreamProtocol.V2)
             throw new ArgumentException(
                 "The Jetstream archive is v2-only: set Protocol = JetstreamProtocol.V2.",
@@ -529,14 +568,6 @@ public sealed class JetstreamReplayConsumer : IDisposable
                 $"AfterSeq ({archive.AfterSeq}) must be below BeforeSeq ({archive.BeforeSeq}).",
                 nameof(options));
 
-        if (options.WantedCollections is { Count: > 0 }
-            && options.WantedKinds is { Count: > 0 } kinds
-            && !kinds.Contains(JetstreamEventKind.Commit))
-            throw new ArgumentException(
-                "WantedCollections only constrains commit events, so it cannot be combined with a " +
-                "WantedKinds list that excludes JetstreamEventKind.Commit.",
-                nameof(options));
-
         return archive;
     }
 
@@ -552,109 +583,60 @@ public sealed class JetstreamReplayConsumer : IDisposable
     /// <summary>One planned download: a whole segment, or a single block within one.</summary>
     private sealed record WorkUnit(JetstreamPlannedSegment Segment, int? BlockIndex);
 
-    /// <summary>A downloaded work unit: an in-memory block frame, or a spooled segment file.</summary>
-    private sealed class DownloadedUnit(byte[]? frame, FileStream? file) : IDisposable
+    /// <summary>A downloaded work unit: a decoded block's events, or a spooled segment file.</summary>
+    private sealed class DownloadedUnit(List<JetstreamEvent>? events, FileStream? file) : IDisposable
     {
-        public async IAsyncEnumerable<JetstreamArchiveRow> ReadAsync(
+        public async IAsyncEnumerable<JetstreamEvent> ReadAsync(
             IJetstreamBlockDecompressor decompressor,
+            JetstreamArchiveRowFilter filter,
+            int parallelism,
             [EnumeratorCancellation] CancellationToken cancellationToken)
         {
-            if (file is not null)
+            if (events is not null)
             {
-                await foreach (var row in JetstreamSegmentReader.ReadRowsAsync(file, decompressor, cancellationToken))
-                    yield return row;
-
+                foreach (var evt in events)
+                    yield return evt;
                 yield break;
             }
 
-            foreach (var row in JetstreamSegmentReader.DecodeBlockFrame(frame!, decompressor))
+            // Decode up to `parallelism` blocks ahead of the one being delivered, in order.
+            var pending = new Queue<Task<List<JetstreamEvent>>>();
+            try
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                yield return row;
+                await foreach (var frame in JetstreamSegmentReader.ReadBlockFramesAsync(file!, cancellationToken)
+                    .ConfigureAwait(false))
+                {
+                    pending.Enqueue(Task.Run(() => JetstreamSegmentReader.DecodeEvents(frame, decompressor, filter), cancellationToken));
+                    if (pending.Count < parallelism)
+                        continue;
+
+                    foreach (var evt in await pending.Dequeue().ConfigureAwait(false))
+                        yield return evt;
+                }
+
+                while (pending.Count > 0)
+                {
+                    foreach (var evt in await pending.Dequeue().ConfigureAwait(false))
+                        yield return evt;
+                }
+            }
+            finally
+            {
+                // Observe decodes an early exit abandoned; their results are not needed.
+                while (pending.TryDequeue(out var abandoned))
+                {
+                    try
+                    {
+                        await abandoned.ConfigureAwait(false);
+                    }
+                    catch (Exception)
+                    {
+                        // Already exiting: this failure is not the one being reported.
+                    }
+                }
             }
         }
 
         public void Dispose() => file?.Dispose();
     }
-}
-
-/// <summary>
-/// The exact client-side filter the replay applies to decoded rows, mirroring the live tail's
-/// server-side semantics: DIDs and kinds constrain everything, collections constrain commit events
-/// only.
-/// </summary>
-internal sealed class JetstreamArchiveFilter
-{
-    private readonly HashSet<string>? _dids;
-    private readonly HashSet<string>? _collections;
-    private readonly string[] _collectionPrefixes;
-    private readonly HashSet<JetstreamEventKind>? _kinds;
-
-    public JetstreamArchiveFilter(JetstreamConsumerOptions options)
-    {
-        if (options.WantedDids is { Count: > 0 } dids)
-            _dids = [.. dids.Select(did => did.Value)];
-
-        if (options.WantedKinds is { Count: > 0 } kinds)
-            _kinds = [.. kinds];
-
-        if (options.WantedCollections is { Count: > 0 } collections)
-        {
-            _collections = [.. collections.Where(c => !c.EndsWith('*'))];
-            _collectionPrefixes = [.. collections.Where(c => c.EndsWith('*')).Select(c => c[..^1])];
-        }
-        else
-        {
-            _collectionPrefixes = [];
-        }
-
-        PlanKinds = options.WantedKinds is { Count: > 0 } wanted
-            ? [.. wanted.Select(KindName)]
-            : null;
-    }
-
-    /// <summary>The <c>kinds</c> filter as the wire names <c>planSnapshot</c> takes.</summary>
-    public IReadOnlyList<string>? PlanKinds { get; }
-
-    public bool Matches(JetstreamEvent evt)
-    {
-        if (_dids is not null && !_dids.Contains(evt.Did.Value))
-            return false;
-
-        if (_kinds is not null && !_kinds.Contains(KindOf(evt)))
-            return false;
-
-        // A collection filter constrains commit events only: identity, account, and sync events
-        // carry no collection and flow regardless, exactly as on the live tail.
-        if (_collections is null || evt is not JetstreamCommitEvent commit)
-            return true;
-
-        if (_collections.Contains(commit.Collection.Value))
-            return true;
-
-        foreach (var prefix in _collectionPrefixes)
-        {
-            if (commit.Collection.Value.StartsWith(prefix, StringComparison.Ordinal))
-                return true;
-        }
-
-        return false;
-    }
-
-    private static JetstreamEventKind KindOf(JetstreamEvent evt) => evt switch
-    {
-        JetstreamCommitEvent => JetstreamEventKind.Commit,
-        JetstreamIdentityEvent => JetstreamEventKind.Identity,
-        JetstreamAccountEvent => JetstreamEventKind.Account,
-        _ => JetstreamEventKind.Sync,
-    };
-
-    private static string KindName(JetstreamEventKind kind) => kind switch
-    {
-        JetstreamEventKind.Commit => "commit",
-        JetstreamEventKind.Identity => "identity",
-        JetstreamEventKind.Account => "account",
-        JetstreamEventKind.Sync => "sync",
-        _ => throw new ArgumentException($"Unknown Jetstream event kind: {kind}", nameof(kind)),
-    };
 }

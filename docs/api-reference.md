@@ -736,22 +736,28 @@ See [Firehose](firehose.md) and [Jetstream](jetstream.md).
 
 | Type | Description |
 |------|-------------|
-| `FirehoseClient` | Raw WebSocket subscription to `com.atproto.sync.subscribeRepos` |
-| `FirehoseConsumer` / `TypedFirehoseConsumer` | Reconnecting consumers; the typed one parses frames, filters by collection, and verifies |
-| `FirehoseEventParser` | CBOR frame → `CommitEvent` / `SyncEvent` / `IdentityEvent` / `AccountEvent` |
-| `FirehoseVerifier` | `VerifyCid(...)` (local) and `VerifySignatureAsync(...)` (needs DID resolution) |
-| `IFirehoseCursorStore` | `GetCursorAsync` / `StoreCursorAsync`; `InMemoryFirehoseCursorStore` included |
+| `FirehoseClient` | Single-connection subscription to `com.atproto.sync.subscribeRepos` (`SubscribeAsync`) or a labeler's `com.atproto.label.subscribeLabels` (`SubscribeLabelsAsync`), yielding typed messages; `IAsyncDisposable` |
+| `TypedFirehoseConsumer` | Reconnecting firehose consumer: parses each frame once, filters by collection before parsing, verifies when a `Verifier` is set, persists the cursor |
+| `LabelStreamConsumer` | Reconnecting label-stream consumer: `LabelsEvent` / `LabelInfoEvent`, cursor persistence |
+| `ChatModerationEventConsumer` | Authenticated `chat.bsky.moderation.subscribeModEvents` stream with typed events and an unknown fallback |
+| `FirehoseEventParser` | CBOR frame → `CommitEvent` / `SyncEvent` / `IdentityEvent` / `AccountEvent` / `InfoEvent`; throws `EventStreamException` for an error frame |
+| `FirehoseVerifier` | `VerifyCid(...)` (local) and `VerifySignatureAsync(...)` (needs DID resolution; also checks every block's CID) |
+| `IRecordEvent`, `FirehoseRecordEvent`, `GetRecordEvents()` | One record change from either stream: a `JetstreamCommitEvent`, or a firehose commit split per operation with its record decoded |
+| `StreamConsumerOptions`, `StreamReconnectPolicy` | Shared consumer settings: URL, cursor store, reconnect backoff (`InitialDelay`, `MaxDelay`, `MaxAttempts`), `OnStreamError`, `OnEventDropped` |
+| `IStreamCursorStore` | `GetCursorAsync` / `StoreCursorAsync` (`ValueTask`); `InMemoryStreamCursorStore` included |
+| `EventStreamException`, `EventStreamError`, `EventStreamErrors` | Error frames (`FutureCursor`, `ConsumerTooSlow`), refused subscriptions and exhausted reconnects; `Error`, `StatusCode`, `IsRetryable` |
 | `JetstreamClient` / `JetstreamConsumer` | JSON streaming with server-side collection/DID/kind filtering, on either wire protocol (`JetstreamProtocol.V1` / `V2`) |
+| `JetstreamCursor` | Timestamp cursors (`FromTimestamp`, `IsTimestamp`): a v2 cursor of 10^15 or more seeks by time |
 | `JetstreamEventParser`, `IJetstreamDecompressor` | Forward-tolerant parsing (`ParseFrame`); optional zstd seam |
 | `JetstreamCommitEvent` / `IdentityEvent` / `AccountEvent` / `SyncEvent` | Typed events; `SyncEvent` is v2 only |
-| `JetstreamEndpoints`, `JetstreamDictionaryClient` | Public instance URLs; v2 zstd dictionary fetch |
-| `JetstreamConnectException` | Subscription rejected pre-upgrade (`CursorTooOld`, …); `IsRetryable` |
+| `JetstreamEndpoints` | Public instance URLs |
 | `JetstreamReplayConsumer` | v2 archive backfill (`ReplayAsync`) with an inclusive, dedup'd cutover into the live tail; snapshot mode with `SnapshotOnly` |
-| `JetstreamArchiveClient` | `PlanSnapshotAsync` / `ListSegmentsAsync` / `EnumerateSegmentsAsync` / `GetSegmentAsync` / `GetBlockAsync`, with bearer auth, `Range` resume, and `Retry-After`-aware 429 handling |
+| `JetstreamArchiveClient` | `PlanSnapshotAsync` / `ListSegmentsAsync` / `EnumerateSegmentsAsync` / `GetSegmentAsync` / `GetBlockAsync`, with bearer auth, `Range` resume, and `Retry-After`-aware 429 handling; free `HEAD` probes (`ProbeSegmentAsync` / `ProbeBlockAsync`); `GetZstdDictionaryAsync` and `GetHealthAsync` |
 | `JetstreamArchiveOptions`, `IJetstreamBlockDecompressor` | Replay configuration on `JetstreamConsumerOptions.Archive`; zstd seam for `.jss` blocks |
 | `JetstreamSegmentReader`, `JetstreamArchiveRow` | Streaming `.jss` decoder (`ReadRowsAsync` / `ReadEventsAsync` / `DecodeBlockFrame`) and the raw columnar row, including untouched CBOR payloads |
 | `JetstreamSegmentHeader`, `JetstreamSegmentInfo`, `JetstreamSnapshotPlan` | Segment metadata for mirrors: checksums, sequence and witnessed-at bounds, plan pages |
-| `JetstreamArchiveException` | Archive HTTP or decode failure; `StatusCode`, `Error`, `RetryAfter`, `IsRetryable` |
+| `JetstreamException` | Any Jetstream failure: a refused subscription (`CursorTooOld`, …), an error frame, an archive HTTP or decode failure; `StatusCode`, `Error`, `RetryAfter`, `IsRetryable` |
+| `JetstreamHealthCheck` (`ATProtoNet.Server`) | `IHealthCheck` over `/xrpc/_health`; register with `AddHealthChecks().AddJetstream(url)` |
 
 ---
 

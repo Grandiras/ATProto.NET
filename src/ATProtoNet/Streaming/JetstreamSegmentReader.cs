@@ -3,8 +3,8 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using ATProtoNet.Identity;
+using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using ATProtoNet.Repo;
-using ATProtoNet.Serialization;
 using DidValue = ATProtoNet.Identity.Did;
 
 namespace ATProtoNet.Streaming;
@@ -49,7 +49,7 @@ public enum JetstreamArchiveRowKind : byte
 /// <see cref="Payload"/> CBOR. It is exposed for mirrors and auditors that want the bytes the
 /// network published rather than the JSON projection — the archive keeps records as CBOR
 /// precisely so a mirror stays byte-auditable. The identifier columns are therefore kept as the
-/// text the archive stored, unvalidated; <see cref="ToEvent"/> parses them into the typed event
+/// text the archive stored, unvalidated; <see cref="ToEvent()"/> parses them into the typed event
 /// the live tail delivers, and consumers that just want events can use it or the event-level
 /// readers on <see cref="JetstreamSegmentReader"/>.
 /// </remarks>
@@ -103,31 +103,23 @@ public sealed class JetstreamArchiveRow
     /// requires. Malformed rows are skipped rather than thrown on, matching the live parser's
     /// forward tolerance.</returns>
     public JetstreamEvent? ToEvent()
+        => DidValue.TryParse(Did, out var did) ? ToEvent(did) : null;
+
+    /// <summary>Projects the row with its DID already parsed.</summary>
+    internal JetstreamEvent? ToEvent(DidValue did) => Kind switch
     {
-        DidValue did;
-        try
-        {
-            did = DidValue.Parse(Did);
-        }
-        catch (Exception ex) when (ex is ArgumentException or FormatException)
-        {
-            return null;
-        }
+        JetstreamArchiveRowKind.Create or JetstreamArchiveRowKind.CreateResync => Commit(did, RepoOpAction.Create),
+        JetstreamArchiveRowKind.Update => Commit(did, RepoOpAction.Update),
+        JetstreamArchiveRowKind.Delete => Commit(did, RepoOpAction.Delete),
+        JetstreamArchiveRowKind.Identity => JetstreamEvents.Identity(DecodePayload(), did, TimeUs, Seq),
+        JetstreamArchiveRowKind.Account => DecodePayload() is { } account
+            ? JetstreamEvents.Account(account, did, TimeUs, Seq)
+            : null,
+        JetstreamArchiveRowKind.Sync => JetstreamEvents.Sync(DecodePayload(), did, TimeUs, Seq, fallbackRev: Rev),
+        _ => null,
+    };
 
-        return Kind switch
-        {
-            JetstreamArchiveRowKind.Create or JetstreamArchiveRowKind.CreateResync
-                => Commit(did, JetstreamOperation.Create),
-            JetstreamArchiveRowKind.Update => Commit(did, JetstreamOperation.Update),
-            JetstreamArchiveRowKind.Delete => Commit(did, JetstreamOperation.Delete),
-            JetstreamArchiveRowKind.Identity => Identity(did),
-            JetstreamArchiveRowKind.Account => Account(did),
-            JetstreamArchiveRowKind.Sync => Sync(did),
-            _ => null,
-        };
-    }
-
-    private JetstreamCommitEvent? Commit(DidValue did, JetstreamOperation operation)
+    private JetstreamCommitEvent? Commit(DidValue did, RepoOpAction operation)
     {
         if (!Nsid.TryParse(Collection, out var collection) || !RecordKey.TryParse(Rkey, out var rkey))
             return null;
@@ -137,104 +129,28 @@ public sealed class JetstreamArchiveRow
 
         // A delete carries no record; anything else materializes one, and its CID is the
         // DAG-CBOR hash of exactly these bytes — the archive stores no separate CID column.
-        if (operation != JetstreamOperation.Delete && !Payload.IsEmpty)
+        if (operation != RepoOpAction.Delete && !Payload.IsEmpty)
         {
             try
             {
                 record = DagCborDecoder.Decode(Payload);
                 cid = CidComputation.ComputeForDagCbor(Payload.Span);
             }
-            catch (Exception ex) when (ex is System.Formats.Cbor.CborContentException or InvalidOperationException
-                                           or ArgumentException or FormatException or NotSupportedException)
+            catch (Exception ex) when (EventStreamFrame.IsMalformed(ex) || ex is NotSupportedException)
             {
                 record = null;
                 cid = null;
             }
         }
 
-        return new JetstreamCommitEvent
-        {
-            Did = did,
-            TimeUs = TimeUs,
-            Cursor = Seq,
-            Collection = collection,
-            Rkey = rkey,
-            Operation = operation,
-            Rev = Tid.TryParse(Rev, out var rev) ? rev : null,
-            Cid = cid,
-            Record = record,
-        };
+        return JetstreamEvents.Commit(
+            did, TimeUs, Seq, collection, rkey, operation, Tid.TryParse(Rev, out var rev) ? rev : null, cid, record);
     }
 
-    private JetstreamIdentityEvent Identity(DidValue did)
-    {
-        var frame = DecodePayload();
-        return new JetstreamIdentityEvent
-        {
-            Did = did,
-            TimeUs = TimeUs,
-            Cursor = Seq,
-            Handle = Handle.TryParse(GetString(frame, "handle"), out var handle) ? handle : null,
-            Seq = GetInt64(frame, "seq"),
-            Time = GetDatetime(frame, "time"),
-        };
-    }
-
-    private JetstreamAccountEvent? Account(DidValue did)
-    {
-        var frame = DecodePayload();
-        if (frame is not { } account
-            || !account.TryGetProperty("active", out var active)
-            || active.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
-            return null;
-
-        return new JetstreamAccountEvent
-        {
-            Did = did,
-            TimeUs = TimeUs,
-            Cursor = Seq,
-            Active = active.GetBoolean(),
-            Status = GetString(frame, "status"),
-            Seq = GetInt64(frame, "seq"),
-            Time = GetDatetime(frame, "time"),
-        };
-    }
-
-    private JetstreamSyncEvent Sync(DidValue did)
-    {
-        var frame = DecodePayload();
-
-        byte[]? blocks = null;
-        // DagCborDecoder renders a CBOR byte string as { "$bytes": "<base64>" }, matching the
-        // JSON shape the live wire delivers the same field in.
-        if (frame is { } sync
-            && sync.TryGetProperty("blocks", out var blocksProp)
-            && blocksProp.ValueKind == JsonValueKind.Object
-            && GetString(blocksProp, "$bytes") is { } base64)
-        {
-            try
-            {
-                blocks = LexBase64.Decode(base64);
-            }
-            catch (FormatException)
-            {
-                // Tolerate an undecodable CAR — the DID and rev are still actionable
-            }
-        }
-
-        return new JetstreamSyncEvent
-        {
-            Did = did,
-            TimeUs = TimeUs,
-            Cursor = Seq,
-            Rev = Tid.TryParse(GetString(frame, "rev") ?? Rev, out var rev) ? rev : null,
-            Blocks = blocks,
-            Seq = GetInt64(frame, "seq"),
-            Time = GetDatetime(frame, "time"),
-        };
-    }
-
-    /// <summary>Decode a non-commit payload — a CBOR <c>subscribeRepos</c> frame body — to JSON.</summary>
+    /// <summary>
+    /// Decode a non-commit payload — a CBOR <c>subscribeRepos</c> frame body — to JSON. It has
+    /// the same fields the live wire nests under <c>identity</c>, <c>account</c> or <c>sync</c>.
+    /// </summary>
     private JsonElement? DecodePayload()
     {
         if (Payload.IsEmpty)
@@ -245,27 +161,11 @@ public sealed class JetstreamArchiveRow
             var element = DagCborDecoder.Decode(Payload);
             return element.ValueKind == JsonValueKind.Object ? element : null;
         }
-        catch (Exception ex) when (ex is System.Formats.Cbor.CborContentException or InvalidOperationException
-                                       or ArgumentException or FormatException or NotSupportedException)
+        catch (FormatException)
         {
             return null;
         }
     }
-
-    private static string? GetString(JsonElement? element, string name)
-        => element is { } value && value.TryGetProperty(name, out var prop)
-            && prop.ValueKind == JsonValueKind.String
-            ? prop.GetString()
-            : null;
-
-    private static AtDatetime? GetDatetime(JsonElement? element, string name)
-        => GetString(element, name) is { } text ? AtDatetime.FromWire(text) : null;
-
-    private static long? GetInt64(JsonElement? element, string name)
-        => element is { } value && value.TryGetProperty(name, out var prop)
-            && prop.ValueKind == JsonValueKind.Number && prop.TryGetInt64(out var number)
-            ? number
-            : null;
 }
 
 /// <summary>
@@ -375,20 +275,20 @@ public static class JetstreamSegmentReader
     /// </summary>
     /// <param name="header">At least <see cref="JetstreamSegmentHeader.Size"/> bytes from the
     /// start of the file.</param>
-    /// <exception cref="JetstreamArchiveException">The bytes are not a sealed segment header.</exception>
+    /// <exception cref="JetstreamException">The bytes are not a sealed segment header.</exception>
     public static JetstreamSegmentHeader ReadHeader(ReadOnlySpan<byte> header)
     {
         if (header.Length < JetstreamSegmentHeader.Size)
-            throw new JetstreamArchiveException(
+            throw new JetstreamException(
                 $"A segment header is {JetstreamSegmentHeader.Size} bytes; got {header.Length}.");
 
         if (!header[..4].SequenceEqual(JetstreamSegmentHeader.Magic))
-            throw new JetstreamArchiveException(
+            throw new JetstreamException(
                 "Not a Jetstream segment: the file does not start with the 'jss0' magic.");
 
         var checksum = BinaryPrimitives.ReadUInt64LittleEndian(header[4..]);
         if (checksum == 0)
-            throw new JetstreamArchiveException(
+            throw new JetstreamException(
                 "This segment is active, not sealed: its checksum is zero and it has no footer. " +
                 "Only sealed segments are served by getSegment.");
 
@@ -411,7 +311,7 @@ public static class JetstreamSegmentReader
         };
 
         if (parsed.FooterOffset < JetstreamSegmentHeader.Size)
-            throw new JetstreamArchiveException(
+            throw new JetstreamException(
                 $"Segment footer offset {parsed.FooterOffset} overlaps the fixed header.");
 
         return parsed;
@@ -423,52 +323,87 @@ public static class JetstreamSegmentReader
     /// </summary>
     /// <param name="frame">The compressed block frame.</param>
     /// <param name="decompressor">The zstd decompressor to inflate it with.</param>
-    /// <exception cref="JetstreamArchiveException">The frame could not be decompressed or decoded.</exception>
+    /// <exception cref="JetstreamException">The frame could not be decompressed or decoded.</exception>
     public static IReadOnlyList<JetstreamArchiveRow> DecodeBlockFrame(
         ReadOnlySpan<byte> frame,
         IJetstreamBlockDecompressor decompressor)
     {
-        ArgumentNullException.ThrowIfNull(decompressor);
+        var block = Decompress(frame, decompressor);
 
-        byte[] block;
-        try
-        {
-            block = decompressor.Decompress(frame);
-        }
-        catch (Exception ex) when (ex is not JetstreamArchiveException and not OperationCanceledException)
-        {
-            throw new JetstreamArchiveException(
-                $"Could not decompress a {frame.Length}-byte segment block: {ex.Message}",
-                innerException: ex);
-        }
-
-        return DecodeBlock(block);
+        // Copied, not aliased: rows handed to a caller may outlive a decompressor that reuses its
+        // output buffer.
+        return DecodeRows(block, filter: null, copyPayloads: true);
     }
 
     /// <summary>
     /// Decode an already-decompressed block body: an event count followed by the fixed-width
     /// columns and then the concatenated variable-length ones.
     /// </summary>
-    /// <param name="block">The decompressed block body.</param>
-    /// <exception cref="JetstreamArchiveException">The block is truncated or its columns do not
-    /// add up.</exception>
-    public static IReadOnlyList<JetstreamArchiveRow> DecodeBlock(ReadOnlySpan<byte> block)
+    /// <exception cref="JetstreamException">The block is truncated or its columns do not add up.</exception>
+    internal static IReadOnlyList<JetstreamArchiveRow> DecodeBlock(ReadOnlySpan<byte> block)
+        => DecodeRows(block.ToArray(), filter: null, copyPayloads: true);
+
+    /// <summary>
+    /// Decode a block frame straight to events, applying <paramref name="filter"/> to the row
+    /// columns first: only rows that match are projected, which is where the cost is (DAG-CBOR to
+    /// JSON, and hashing the record for its CID).
+    /// </summary>
+    internal static List<JetstreamEvent> DecodeEvents(
+        ReadOnlySpan<byte> frame, IJetstreamBlockDecompressor decompressor, JetstreamArchiveRowFilter filter)
     {
+        // The decompressed block is this call's alone, so matching rows alias it rather than copy.
+        var rows = DecodeRows(Decompress(frame, decompressor), filter, copyPayloads: false);
+        var events = new List<JetstreamEvent>(rows.Count);
+
+        // One DID parse per account per block: the rows of a busy account repeat it.
+        Dictionary<string, DidValue?>? dids = null;
+        foreach (var row in rows)
+        {
+            dids ??= new Dictionary<string, DidValue?>(StringComparer.Ordinal);
+            if (!dids.TryGetValue(row.Did, out var did))
+                dids[row.Did] = did = DidValue.TryParse(row.Did, out var parsed) ? parsed : null;
+
+            if (did is not null && row.ToEvent(did) is { } evt)
+                events.Add(evt);
+        }
+
+        return events;
+    }
+
+    private static byte[] Decompress(ReadOnlySpan<byte> frame, IJetstreamBlockDecompressor decompressor)
+    {
+        ArgumentNullException.ThrowIfNull(decompressor);
+
+        try
+        {
+            return decompressor.Decompress(frame);
+        }
+        catch (Exception ex) when (ex is not JetstreamException and not OperationCanceledException)
+        {
+            throw new JetstreamException(
+                $"Could not decompress a {frame.Length}-byte segment block: {ex.Message}",
+                innerException: ex);
+        }
+    }
+
+    private static List<JetstreamArchiveRow> DecodeRows(byte[] blockArray, JetstreamArchiveRowFilter? filter, bool copyPayloads)
+    {
+        ReadOnlySpan<byte> block = blockArray;
         if (block.Length < 4)
-            throw new JetstreamArchiveException(
+            throw new JetstreamException(
                 $"A segment block is at least 4 bytes; got {block.Length}.");
 
         var count = BinaryPrimitives.ReadUInt32LittleEndian(block);
         if (count == 0)
             return [];
         if (count > MaxEventsPerBlock)
-            throw new JetstreamArchiveException(
+            throw new JetstreamException(
                 $"Segment block claims {count} events, above the {MaxEventsPerBlock} ceiling.");
 
         var n = (int)count;
         var fixedBytes = 4L + (long)n * FixedColumnBytesPerEvent;
         if (block.Length < fixedBytes)
-            throw new JetstreamArchiveException(
+            throw new JetstreamException(
                 $"Segment block is truncated: {n} events need {fixedBytes} bytes of columns, " +
                 $"the block has {block.Length}.");
 
@@ -502,11 +437,12 @@ public static class JetstreamSegmentReader
         var totalBytes = payloadsStart + payloadsTotal;
 
         if (block.Length < totalBytes)
-            throw new JetstreamArchiveException(
+            throw new JetstreamException(
                 $"Segment block is truncated: its columns need {totalBytes} bytes, " +
                 $"the block has {block.Length}.");
 
-        var rows = new JetstreamArchiveRow[n];
+        var rows = new List<JetstreamArchiveRow>(filter is null ? n : 0);
+        var strings = new StringInterner();
         int collectionAt = (int)collectionsStart, didAt = (int)didsStart, rkeyAt = (int)rkeysStart,
             revAt = (int)revsStart, payloadAt = (int)payloadsStart;
 
@@ -518,19 +454,30 @@ public static class JetstreamSegmentReader
             int revSize = block[revLen + i];
             var payloadSize = (int)BinaryPrimitives.ReadUInt32LittleEndian(block[(eventLen + (i * 4))..]);
 
-            rows[i] = new JetstreamArchiveRow
+            var rowSeq = (long)BinaryPrimitives.ReadUInt64LittleEndian(block[(seq + (i * 8))..]);
+            var rowKind = (JetstreamArchiveRowKind)block[kind + i];
+
+            // An account and a collection repeat across a block's rows, so each is one string.
+            var did = strings.Get(block.Slice(didAt, didSize));
+            var collection = strings.Get(block.Slice(collectionAt, collectionSize));
+
+            if (filter is null || filter.Matches(rowSeq, rowKind, did, collection))
             {
-                Seq = (long)BinaryPrimitives.ReadUInt64LittleEndian(block[(seq + (i * 8))..]),
-                WitnessedAt = BinaryPrimitives.ReadInt64LittleEndian(block[(witnessedAt + (i * 8))..]),
-                IndexedAt = BinaryPrimitives.ReadInt64LittleEndian(block[(indexedAt + (i * 8))..]),
-                Kind = (JetstreamArchiveRowKind)block[kind + i],
-                Collection = Utf8(block.Slice(collectionAt, collectionSize)),
-                Did = Utf8(block.Slice(didAt, didSize)),
-                Rkey = Utf8(block.Slice(rkeyAt, rkeySize)),
-                Rev = Utf8(block.Slice(revAt, revSize)),
-                // Copied, not aliased: the caller outlives the decompression buffer.
-                Payload = block.Slice(payloadAt, payloadSize).ToArray(),
-            };
+                rows.Add(new JetstreamArchiveRow
+                {
+                    Seq = rowSeq,
+                    WitnessedAt = BinaryPrimitives.ReadInt64LittleEndian(block[(witnessedAt + (i * 8))..]),
+                    IndexedAt = BinaryPrimitives.ReadInt64LittleEndian(block[(indexedAt + (i * 8))..]),
+                    Kind = rowKind,
+                    Collection = collection,
+                    Did = did,
+                    Rkey = Utf8(block.Slice(rkeyAt, rkeySize)),
+                    Rev = strings.Get(block.Slice(revAt, revSize)),
+                    Payload = copyPayloads
+                        ? block.Slice(payloadAt, payloadSize).ToArray()
+                        : blockArray.AsMemory(payloadAt, payloadSize),
+                });
+            }
 
             collectionAt += collectionSize;
             didAt += didSize;
@@ -551,42 +498,17 @@ public static class JetstreamSegmentReader
     /// stream need not be seekable.</param>
     /// <param name="decompressor">The zstd decompressor for the block frames.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <exception cref="JetstreamArchiveException">The segment is not a sealed <c>.jss</c> file,
+    /// <exception cref="JetstreamException">The segment is not a sealed <c>.jss</c> file,
     /// or is truncated.</exception>
     public static async IAsyncEnumerable<JetstreamArchiveRow> ReadRowsAsync(
         Stream segment,
         IJetstreamBlockDecompressor decompressor,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(segment);
         ArgumentNullException.ThrowIfNull(decompressor);
 
-        var headerBytes = new byte[JetstreamSegmentHeader.Size];
-        await ReadExactlyAsync(segment, headerBytes, "segment header", cancellationToken);
-        var header = ReadHeader(headerBytes);
-
-        var offset = (ulong)JetstreamSegmentHeader.Size;
-        var lengthPrefix = new byte[8];
-
-        for (uint blockIndex = 0; blockIndex < header.BlockCount; blockIndex++)
+        await foreach (var frame in ReadBlockFramesAsync(segment, cancellationToken).ConfigureAwait(false))
         {
-            if (offset + 8 > header.FooterOffset)
-                throw new JetstreamArchiveException(
-                    $"Segment is truncated: block {blockIndex} starts at {offset}, " +
-                    $"past the footer at {header.FooterOffset}.");
-
-            await ReadExactlyAsync(segment, lengthPrefix, $"block {blockIndex} length", cancellationToken);
-            var frameLength = BinaryPrimitives.ReadUInt64LittleEndian(lengthPrefix);
-
-            if (frameLength > MaxBlockFrameBytes || offset + 8 + frameLength > header.FooterOffset)
-                throw new JetstreamArchiveException(
-                    $"Segment block {blockIndex} claims {frameLength} bytes, which does not fit " +
-                    $"before the footer at {header.FooterOffset}.");
-
-            var frame = new byte[(int)frameLength];
-            await ReadExactlyAsync(segment, frame, $"block {blockIndex}", cancellationToken);
-            offset += 8 + frameLength;
-
             foreach (var row in DecodeBlockFrame(frame, decompressor))
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -607,27 +529,183 @@ public static class JetstreamSegmentReader
         IJetstreamBlockDecompressor decompressor,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await foreach (var row in ReadRowsAsync(segment, decompressor, cancellationToken))
+        await foreach (var row in ReadRowsAsync(segment, decompressor, cancellationToken).ConfigureAwait(false))
         {
             if (row.ToEvent() is { } evt)
                 yield return evt;
         }
     }
 
-    private static async Task ReadExactlyAsync(
-        Stream stream,
-        byte[] buffer,
-        string what,
-        CancellationToken cancellationToken)
+    /// <summary>
+    /// Read a sealed segment's header, then yield each stored block frame (still compressed) in
+    /// order.
+    /// </summary>
+    /// <exception cref="JetstreamException">The segment is not a sealed <c>.jss</c> file, or is
+    /// truncated.</exception>
+    internal static async IAsyncEnumerable<byte[]> ReadBlockFramesAsync(
+        Stream segment,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var read = 0;
-        while (read < buffer.Length)
+        ArgumentNullException.ThrowIfNull(segment);
+
+        var headerBytes = new byte[JetstreamSegmentHeader.Size];
+        await ReadExactlyAsync(segment, headerBytes, "segment header", cancellationToken).ConfigureAwait(false);
+        var header = ReadHeader(headerBytes);
+
+        var offset = (ulong)JetstreamSegmentHeader.Size;
+        var lengthPrefix = new byte[8];
+
+        for (uint blockIndex = 0; blockIndex < header.BlockCount; blockIndex++)
         {
-            var got = await stream.ReadAsync(buffer.AsMemory(read), cancellationToken);
-            if (got == 0)
-                throw new JetstreamArchiveException(
-                    $"Segment ended while reading {what}: expected {buffer.Length} bytes, got {read}.");
-            read += got;
+            if (offset + 8 > header.FooterOffset)
+                throw new JetstreamException(
+                    $"Segment is truncated: block {blockIndex} starts at {offset}, " +
+                    $"past the footer at {header.FooterOffset}.");
+
+            await ReadExactlyAsync(segment, lengthPrefix, $"block {blockIndex} length", cancellationToken).ConfigureAwait(false);
+            var frameLength = BinaryPrimitives.ReadUInt64LittleEndian(lengthPrefix);
+
+            if (frameLength > MaxBlockFrameBytes || offset + 8 + frameLength > header.FooterOffset)
+                throw new JetstreamException(
+                    $"Segment block {blockIndex} claims {frameLength} bytes, which does not fit " +
+                    $"before the footer at {header.FooterOffset}.");
+
+            var frame = new byte[(int)frameLength];
+            await ReadExactlyAsync(segment, frame, $"block {blockIndex}", cancellationToken).ConfigureAwait(false);
+            offset += 8 + frameLength;
+
+            yield return frame;
         }
+    }
+
+    private static async Task ReadExactlyAsync(Stream stream, byte[] buffer, string what, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await stream.ReadExactlyAsync(buffer, cancellationToken).ConfigureAwait(false);
+        }
+        catch (EndOfStreamException ex)
+        {
+            throw new JetstreamException($"Segment ended while reading {what}: expected {buffer.Length} bytes.", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Hands out one string per distinct UTF-8 value within a block, so the rows of a busy account
+    /// or collection share it instead of each decoding their own.
+    /// </summary>
+    private sealed class StringInterner
+    {
+        private readonly Dictionary<string, string> _strings = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> _lookup;
+
+        public StringInterner() => _lookup = _strings.GetAlternateLookup<ReadOnlySpan<char>>();
+
+        public string Get(ReadOnlySpan<byte> utf8)
+        {
+            if (utf8.IsEmpty)
+                return string.Empty;
+
+            // Longer values are rare (a did:web on a long domain) and decode directly.
+            if (utf8.Length > 512)
+                return Encoding.UTF8.GetString(utf8);
+
+            Span<char> chars = stackalloc char[utf8.Length];
+            var length = Encoding.UTF8.GetChars(utf8, chars);
+            var text = chars[..length];
+
+            if (_lookup.TryGetValue(text, out var existing))
+                return existing;
+
+            var created = new string(text);
+            _strings[created] = created;
+            return created;
+        }
+    }
+}
+
+/// <summary>
+/// The exact client-side filter the archive replay applies, mirroring the live tail's server-side
+/// semantics: DIDs and kinds constrain everything, collections constrain commit events only. It
+/// works on a row's columns, so rows are dropped before they are projected to events.
+/// </summary>
+internal sealed class JetstreamArchiveRowFilter
+{
+    private readonly HashSet<string>? _dids;
+    private readonly HashSet<string>? _collections;
+    private readonly string[] _collectionPrefixes;
+    private readonly HashSet<JetstreamEventKind>? _kinds;
+
+    public JetstreamArchiveRowFilter(JetstreamConsumerOptions options, long afterSeq, long ceiling)
+    {
+        AfterSeq = afterSeq;
+        Ceiling = ceiling;
+
+        if (options.WantedDids is { Count: > 0 } dids)
+            _dids = new HashSet<string>(dids.Select(did => did.Value), StringComparer.Ordinal);
+
+        if (options.WantedKinds is { Count: > 0 } kinds)
+            _kinds = [.. kinds];
+
+        if (options.WantedCollections is { Count: > 0 } collections)
+        {
+            _collections = new HashSet<string>(collections.Where(c => !c.EndsWith('*')), StringComparer.Ordinal);
+            _collectionPrefixes = [.. collections.Where(c => c.EndsWith('*')).Select(c => c[..^1])];
+        }
+        else
+        {
+            _collectionPrefixes = [];
+        }
+    }
+
+    /// <summary>Rows at or below this sequence number were delivered already.</summary>
+    public long AfterSeq { get; }
+
+    /// <summary>Rows above this sequence number belong to the live tail.</summary>
+    public long Ceiling { get; }
+
+    /// <summary>Whether a row's columns pass the sequence window and the filter.</summary>
+    public bool Matches(long seq, JetstreamArchiveRowKind kind, string did, string collection)
+    {
+        if (seq <= AfterSeq || seq > Ceiling)
+            return false;
+
+        if (_dids is not null && !_dids.Contains(did))
+            return false;
+
+        var eventKind = kind switch
+        {
+            JetstreamArchiveRowKind.Create or JetstreamArchiveRowKind.Update or JetstreamArchiveRowKind.Delete
+                or JetstreamArchiveRowKind.CreateResync => JetstreamEventKind.Commit,
+            JetstreamArchiveRowKind.Identity => JetstreamEventKind.Identity,
+            JetstreamArchiveRowKind.Account => JetstreamEventKind.Account,
+            JetstreamArchiveRowKind.Sync => JetstreamEventKind.Sync,
+            // A kind this version does not model cannot be projected; ToEvent skips it anyway.
+            _ => (JetstreamEventKind?)null,
+        };
+
+        if (eventKind is null || (_kinds is not null && !_kinds.Contains(eventKind.Value)))
+            return false;
+
+        // A collection filter constrains commit events only: identity, account, and sync events
+        // carry no collection and flow regardless, exactly as on the live tail.
+        return eventKind != JetstreamEventKind.Commit || MatchesCollection(collection);
+    }
+
+    private bool MatchesCollection(string collection)
+    {
+        if (_collections is null)
+            return true;
+
+        if (_collections.Contains(collection))
+            return true;
+
+        foreach (var prefix in _collectionPrefixes)
+        {
+            if (collection.StartsWith(prefix, StringComparison.Ordinal))
+                return true;
+        }
+
+        return false;
     }
 }

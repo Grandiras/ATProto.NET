@@ -408,7 +408,45 @@ await client.Chat.Moderation.UpdateActorAccessAsync(
     Did.Parse("did:plc:spammer"), allowAccess: false, reference: "ozone-event-123");
 ```
 
-The `chat.bsky.moderation.subscribeModEvents` event stream is not wrapped yet.
+The moderation event stream, `chat.bsky.moderation.subscribeModEvents`, is a WebSocket
+subscription on the chat service itself, so it is not on `client.Chat`: read it with
+`ChatModerationEventConsumer` (`ATProtoNet.Streaming`). The endpoint is private, and every
+connection, reconnects included, asks `GetAccessTokenAsync` for a fresh bearer token: a
+service-auth token whose audience is the chat service and whose `lxm` is the method. Each event is
+a `ChatModerationEvent` (`ConvoFirstMessageEvent`, `GroupChatCreatedEvent`,
+`GroupChatMemberAddedEvent`, `GroupChatMemberLeftEvent`, `GroupChatUpdatedEvent`,
+`ChatAcceptedEvent`, `RateLimitExceededEvent`, …), and one this SDK does not model reads as
+`UnknownChatModerationEvent`.
+
+```csharp
+var consumer = new ChatModerationEventConsumer(new ChatModerationEventConsumerOptions
+{
+    ServiceUrl = "wss://api.bsky.chat",
+    GetAccessTokenAsync = ct => MintServiceAuthAsync(
+        audience: "did:web:api.bsky.chat", lxm: "chat.bsky.moderation.subscribeModEvents", ct),
+});
+
+// ChatModerationEventConsumer.BeginningCursor replays from the start; null starts live.
+await foreach (var evt in consumer.ConsumeAsync(cursor: savedRev, stoppingToken))
+{
+    switch (evt)
+    {
+        case GroupChatMemberAddedEvent added:
+            await ReviewAsync(added.ConvoId, added.SubjectDid);
+            break;
+        case RateLimitExceededEvent limited:
+            metrics.RateLimited(limited.ActorDid, limited.Endpoint);
+            break;
+    }
+
+    savedRev = evt.Rev;   // the cursor: persist it yourself
+}
+```
+
+The consumer reconnects after the last `Rev` it delivered, and follows the same
+`StreamReconnectPolicy` and error handling as the firehose consumers (see
+[Firehose Streaming](firehose.md#reconnecting-and-errors)). The cursor is a revision string, not a
+sequence number, so it is not kept in an `IStreamCursorStore`.
 
 ## Chat Log
 

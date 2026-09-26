@@ -24,8 +24,8 @@ public class DagCborRoundtripTests
         var bytes = DagCborEncoder.Encode(original);
         var decoded = DagCborDecoder.Decode(bytes);
 
-        var dataBytes = Convert.FromBase64String(decoded.GetProperty("data").GetProperty("$bytes").GetString()!);
-        Assert.Equal("Hello World"u8.ToArray(), dataBytes);
+        // The data model's base64 is unpadded, whichever form was read.
+        Assert.Equal("SGVsbG8gV29ybGQ", decoded.GetProperty("data").GetProperty("$bytes").GetString());
     }
 
     [Fact]

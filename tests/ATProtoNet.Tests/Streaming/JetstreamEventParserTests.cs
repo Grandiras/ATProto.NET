@@ -1,3 +1,4 @@
+using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using System.Text;
 using System.Text.Json.Serialization;
 using ATProtoNet.Streaming;
@@ -27,6 +28,9 @@ public class JetstreamEventParserTests
         {"did":"did:plc:ufbl4k27gp6kzas5glhz7fim","time_us":1725911162329308,"kind":"account","account":{"active":true,"did":"did:plc:ufbl4k27gp6kzas5glhz7fim","seq":1409753013,"time":"2024-09-09T19:46:02.102Z"}}
         """;
 
+    private static JetstreamEvent? Parse(string json)
+        => JetstreamEventParser.ParseFrame(Encoding.UTF8.GetBytes(json), JetstreamProtocol.V1).Event;
+
     private sealed class LikeSubject
     {
         [JsonPropertyName("uri")]
@@ -48,14 +52,14 @@ public class JetstreamEventParserTests
     [Fact]
     public void Parse_CreateCommit_ReturnsCommitEvent()
     {
-        var evt = JetstreamEventParser.Parse(CreateCommitJson);
+        var evt = Parse(CreateCommitJson);
 
         var commit = Assert.IsType<JetstreamCommitEvent>(evt);
         Assert.Equal("did:plc:eygmaihciaxprqvxpfvl6flk", commit.Did.Value);
         Assert.Equal(1725911162329308, commit.TimeUs);
         Assert.Equal("app.bsky.feed.like", commit.Collection);
         Assert.Equal("3l3qo2vuowo2b", commit.Rkey);
-        Assert.Equal(JetstreamOperation.Create, commit.Operation);
+        Assert.Equal(RepoOpAction.Create, commit.Operation);
         Assert.Equal("3l3qo2vutsw2b", commit.Rev);
         Assert.NotNull(commit.Cid);
         Assert.Equal("bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi", commit.Cid!.Value);
@@ -71,13 +75,13 @@ public class JetstreamEventParserTests
     public void Parse_CommitWhosePathDoesNotParse_IsSkipped(string field, string malformed)
     {
         // Such a commit names no record a consumer could act on.
-        Assert.Null(JetstreamEventParser.Parse(CreateCommitJson.Replace(field, malformed)));
+        Assert.Null(Parse(CreateCommitJson.Replace(field, malformed)));
     }
 
     [Fact]
     public void Parse_CommitWithAMalformedRev_KeepsTheEventWithoutTheRev()
     {
-        var commit = Assert.IsType<JetstreamCommitEvent>(JetstreamEventParser.Parse(
+        var commit = Assert.IsType<JetstreamCommitEvent>(Parse(
             CreateCommitJson.Replace("\"rev\":\"3l3qo2vutsw2b\"", "\"rev\":\"not-a-tid\"")));
 
         Assert.Null(commit.Rev);
@@ -87,7 +91,7 @@ public class JetstreamEventParserTests
     [Fact]
     public void Parse_IdentityWithAMalformedHandle_KeepsTheEventWithoutTheHandle()
     {
-        var identity = Assert.IsType<JetstreamIdentityEvent>(JetstreamEventParser.Parse(
+        var identity = Assert.IsType<JetstreamIdentityEvent>(Parse(
             IdentityJson.Replace("\"handle\":\"yohenrique.com\"", "\"handle\":\"not a handle\"")));
 
         Assert.Null(identity.Handle);
@@ -98,7 +102,7 @@ public class JetstreamEventParserTests
     public void Parse_CreateCommit_RecordSurvivesDocumentDisposal()
     {
         // The parser clones the record element; accessing it after Parse returns must not throw.
-        var evt = JetstreamEventParser.Parse(CreateCommitJson);
+        var evt = Parse(CreateCommitJson);
 
         var commit = Assert.IsType<JetstreamCommitEvent>(evt);
         Assert.Equal("app.bsky.feed.like", commit.Record!.Value.GetProperty("$type").GetString());
@@ -107,7 +111,7 @@ public class JetstreamEventParserTests
     [Fact]
     public void GetRecord_TypedDeserialization_MapsFields()
     {
-        var commit = (JetstreamCommitEvent)JetstreamEventParser.Parse(CreateCommitJson)!;
+        var commit = (JetstreamCommitEvent)Parse(CreateCommitJson)!;
 
         var record = commit.GetRecord<LikeRecord>();
 
@@ -123,17 +127,17 @@ public class JetstreamEventParserTests
     {
         var json = CreateCommitJson.Replace("\"operation\":\"create\"", "\"operation\":\"update\"");
 
-        var commit = Assert.IsType<JetstreamCommitEvent>(JetstreamEventParser.Parse(json));
-        Assert.Equal(JetstreamOperation.Update, commit.Operation);
+        var commit = Assert.IsType<JetstreamCommitEvent>(Parse(json));
+        Assert.Equal(RepoOpAction.Update, commit.Operation);
     }
 
     [Fact]
     public void Parse_DeleteCommit_HasNullRecordAndCid()
     {
-        var evt = JetstreamEventParser.Parse(DeleteCommitJson);
+        var evt = Parse(DeleteCommitJson);
 
         var commit = Assert.IsType<JetstreamCommitEvent>(evt);
-        Assert.Equal(JetstreamOperation.Delete, commit.Operation);
+        Assert.Equal(RepoOpAction.Delete, commit.Operation);
         Assert.Null(commit.Record);
         Assert.Null(commit.Cid);
         Assert.Null(commit.GetRecord<LikeRecord>());
@@ -142,7 +146,7 @@ public class JetstreamEventParserTests
     [Fact]
     public void Parse_Identity_ReturnsIdentityEvent()
     {
-        var evt = JetstreamEventParser.Parse(IdentityJson);
+        var evt = Parse(IdentityJson);
 
         var identity = Assert.IsType<JetstreamIdentityEvent>(evt);
         Assert.Equal("did:plc:ufbl4k27gp6kzas5glhz7fim", identity.Did.Value);
@@ -154,7 +158,7 @@ public class JetstreamEventParserTests
     [Fact]
     public void Parse_ActiveAccount_ReturnsAccountEvent()
     {
-        var evt = JetstreamEventParser.Parse(AccountJson);
+        var evt = Parse(AccountJson);
 
         var account = Assert.IsType<JetstreamAccountEvent>(evt);
         Assert.True(account.Active);
@@ -167,7 +171,7 @@ public class JetstreamEventParserTests
     {
         var json = AccountJson.Replace("\"active\":true", "\"active\":false,\"status\":\"takendown\"");
 
-        var account = Assert.IsType<JetstreamAccountEvent>(JetstreamEventParser.Parse(json));
+        var account = Assert.IsType<JetstreamAccountEvent>(Parse(json));
         Assert.False(account.Active);
         Assert.Equal("takendown", account.Status);
     }
@@ -177,7 +181,7 @@ public class JetstreamEventParserTests
     {
         var json = """{"did":"did:plc:ufbl4k27gp6kzas5glhz7fim","time_us":1,"kind":"somethingNew","somethingNew":{}}""";
 
-        Assert.Null(JetstreamEventParser.Parse(json));
+        Assert.Null(Parse(json));
     }
 
     [Fact]
@@ -185,7 +189,7 @@ public class JetstreamEventParserTests
     {
         var json = CreateCommitJson.Replace("\"operation\":\"create\"", "\"operation\":\"merge\"");
 
-        Assert.Null(JetstreamEventParser.Parse(json));
+        Assert.Null(Parse(json));
     }
 
     [Theory]
@@ -195,7 +199,7 @@ public class JetstreamEventParserTests
     [InlineData("42")]
     public void Parse_MalformedFrame_ReturnsNull(string json)
     {
-        Assert.Null(JetstreamEventParser.Parse(json));
+        Assert.Null(Parse(json));
     }
 
     [Fact]
@@ -203,7 +207,7 @@ public class JetstreamEventParserTests
     {
         var json = """{"time_us":1,"kind":"commit","commit":{"operation":"create","collection":"a.b.c","rkey":"x"}}""";
 
-        Assert.Null(JetstreamEventParser.Parse(json));
+        Assert.Null(Parse(json));
     }
 
     [Fact]
@@ -211,7 +215,7 @@ public class JetstreamEventParserTests
     {
         var json = CreateCommitJson.Replace("did:plc:eygmaihciaxprqvxpfvl6flk", "not-a-did");
 
-        Assert.Null(JetstreamEventParser.Parse(json));
+        Assert.Null(Parse(json));
     }
 
     [Fact]
@@ -219,7 +223,7 @@ public class JetstreamEventParserTests
     {
         var json = """{"did":"did:plc:ufbl4k27gp6kzas5glhz7fim","time_us":1,"kind":"commit"}""";
 
-        Assert.Null(JetstreamEventParser.Parse(json));
+        Assert.Null(Parse(json));
     }
 
     [Fact]
@@ -230,7 +234,7 @@ public class JetstreamEventParserTests
         var json = CreateCommitJson.Replace(
             "bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi", "!!!");
 
-        var commit = Assert.IsType<JetstreamCommitEvent>(JetstreamEventParser.Parse(json));
+        var commit = Assert.IsType<JetstreamCommitEvent>(Parse(json));
         Assert.NotNull(commit.Record);
         Assert.Null(commit.Cid);
     }
@@ -241,44 +245,21 @@ public class JetstreamEventParserTests
         var json = CreateCommitJson.Replace(
             "\"kind\":\"commit\"", "\"kind\":\"commit\",\"futureField\":{\"nested\":true}");
 
-        Assert.IsType<JetstreamCommitEvent>(JetstreamEventParser.Parse(json));
+        Assert.IsType<JetstreamCommitEvent>(Parse(json));
     }
 
     [Fact]
-    public void Parse_Utf8Overload_MatchesStringOverload()
+    public void ParseFrame_ReportsWhyAFrameWasDropped()
     {
-        var evt = JetstreamEventParser.Parse(Encoding.UTF8.GetBytes(CreateCommitJson));
+        JetstreamEventParser.Parse(Encoding.UTF8.GetBytes(CreateCommitJson), JetstreamProtocol.V1, out var kept);
+        JetstreamEventParser.Parse(Encoding.UTF8.GetBytes(CreateCommitJson.Replace("did:plc:", "not-a-did:")),
+            JetstreamProtocol.V1, out var malformed);
+        JetstreamEventParser.Parse(Encoding.UTF8.GetBytes(CreateCommitJson.Replace("\"kind\":\"commit\"", "\"kind\":\"future\"")),
+            JetstreamProtocol.V1, out var unknown);
 
-        var commit = Assert.IsType<JetstreamCommitEvent>(evt);
-        Assert.Equal("app.bsky.feed.like", commit.Collection);
-    }
-
-    [Fact]
-    public void Parse_NullString_Throws()
-    {
-        Assert.Throws<ArgumentNullException>(() => JetstreamEventParser.Parse((string)null!));
-    }
-
-    [Fact]
-    public void ParseFrame_MemoryOverload_MatchesSpanOverload()
-    {
-        // The memory overload is the one the WebSocket loop uses, because it parses the
-        // frame in place instead of copying it. It must agree with the span overload.
-        var utf8 = Encoding.UTF8.GetBytes(CreateCommitJson);
-
-        var fromSpan = JetstreamEventParser.ParseFrame(utf8.AsSpan(), JetstreamProtocol.V1);
-        var fromMemory = JetstreamEventParser.ParseFrame(utf8.AsMemory(), JetstreamProtocol.V1);
-
-        var expected = Assert.IsType<JetstreamCommitEvent>(fromSpan.Event);
-        var actual = Assert.IsType<JetstreamCommitEvent>(fromMemory.Event);
-
-        Assert.Equal(expected.Did.Value, actual.Did.Value);
-        Assert.Equal(expected.TimeUs, actual.TimeUs);
-        Assert.Equal(expected.Collection, actual.Collection);
-        Assert.Equal(expected.Rkey, actual.Rkey);
-        Assert.Equal(expected.Operation, actual.Operation);
-        Assert.Equal(expected.Cid?.Value, actual.Cid?.Value);
-        Assert.Equal(expected.Record?.GetRawText(), actual.Record?.GetRawText());
+        Assert.Null(kept);
+        Assert.Equal(StreamDropReason.Malformed, malformed);
+        Assert.Equal(StreamDropReason.UnknownType, unknown);
     }
 
     [Fact]

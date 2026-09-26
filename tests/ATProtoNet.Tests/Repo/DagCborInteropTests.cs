@@ -42,6 +42,19 @@ public sealed class DagCborInteropTests
 
     [Theory]
     [MemberData(nameof(DataModelFixtures))]
+    public void Decode_DataModelFixture_MatchesTheReferenceJson(string json, string cborHex, string cid)
+    {
+        // The reference JSON writes $bytes unpadded, as the data model specifies.
+        _ = cid;
+        var decoded = DagCborDecoder.Decode(Convert.FromHexString(cborHex));
+
+        Assert.True(
+            JsonNode.DeepEquals(JsonNode.Parse(json), JsonSerializer.SerializeToNode(decoded)),
+            $"Decoded {decoded.GetRawText()}");
+    }
+
+    [Theory]
+    [MemberData(nameof(DataModelFixtures))]
     public void Decode_DataModelFixture_RoundTripsToTheSameBytes(string json, string cborHex, string cid)
     {
         _ = cid;
@@ -63,8 +76,8 @@ public sealed class DagCborInteropTests
 
         Assert.Equal("bafyreidfayvfuwqa7qlnopdjiqrxzs6blmoeu4rujcjtnci5beludirz2a", decoded.GetProperty("a").GetProperty("$link").GetString());
         Assert.Equal(
-            Convert.FromBase64String("nFERjvLLiw9qm45JrqH9QTzyC2Lu1Xb4ne6+sBrCzI0="),
-            Convert.FromBase64String(decoded.GetProperty("b").GetProperty("$bytes").GetString()!));
+            "nFERjvLLiw9qm45JrqH9QTzyC2Lu1Xb4ne6+sBrCzI0",
+            decoded.GetProperty("b").GetProperty("$bytes").GetString());
         Assert.Equal(
             "bafkreiccldh766hwcnuxnf2wh6jgzepf2nlu2lvcllt63eww5p6chi4ity",
             decoded.GetProperty("c").GetProperty("ref").GetProperty("$link").GetString());

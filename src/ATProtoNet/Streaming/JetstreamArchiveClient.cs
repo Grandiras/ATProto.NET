@@ -1,4 +1,4 @@
-using System.Globalization;
+using System.Buffers.Binary;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -51,18 +51,46 @@ public sealed class JetstreamSegmentDownload : IDisposable
 }
 
 /// <summary>
-/// Typed client for the Jetstream v2 archive HTTP endpoints: <c>planSnapshot</c>,
-/// <c>listSegments</c>, <c>getSegment</c>, and <c>getBlock</c>.
+/// What a <c>HEAD</c> request reports about a segment or block without downloading it: its size
+/// and ETag. The metered endpoints charge for response bytes, and a <c>HEAD</c> has none.
+/// </summary>
+/// <param name="ContentLength">The size in bytes a <c>GET</c> would return, if the server reported it.</param>
+/// <param name="ETag">The ETag with its quotes stripped, if the server sent one.</param>
+public sealed record JetstreamArchiveProbe(long? ContentLength, string? ETag);
+
+/// <summary>
+/// A zstd dictionary served by <c>network.bsky.jetstream.getZstdDictionary</c>, together with
+/// the ID that identifies it on the wire.
+/// </summary>
+/// <param name="Id">The dictionary ID to pass as <see cref="JetstreamConsumerOptions.ZstdDictionaryId"/>.</param>
+/// <param name="Data">The raw zstd structured dictionary (RFC 8878 §5) to build a decompressor with.</param>
+public sealed record JetstreamZstdDictionary(int Id, byte[] Data);
+
+/// <summary>What a Jetstream instance's <c>/xrpc/_health</c> endpoint reports.</summary>
+public sealed class JetstreamHealth
+{
+    /// <summary>The server's version string.</summary>
+    [JsonPropertyName("version")]
+    public string? Version { get; init; }
+}
+
+/// <summary>
+/// Typed client for the Jetstream v2 HTTP endpoints: the archive (<c>planSnapshot</c>,
+/// <c>listSegments</c>, <c>getSegment</c>, <c>getBlock</c>), the zstd dictionary
+/// (<c>getZstdDictionary</c>), and the health check (<c>/xrpc/_health</c>).
 /// </summary>
 /// <remarks>
-/// <para>These are the endpoints behind Jetstream's <b>replay</b> and <b>snapshot</b> modes.
+/// <para>The archive endpoints are behind Jetstream's <b>replay</b> and <b>snapshot</b> modes.
 /// Unlike the live WebSocket tail they are authenticated with an API key
 /// (<c>Authorization: Bearer</c>) and, on the Bluesky-hosted instances, metered in
-/// <i>response bytes on the wire</i> rather than in requests.</para>
+/// <i>response bytes on the wire</i> rather than in requests. The dictionary and health endpoints
+/// are public, and the key is never sent to them.</para>
 /// <para>Metering shapes the retry behaviour: an exhausted quota is answered with <c>429</c> and a
 /// <c>Retry-After</c>, and a download cut off mid-body leaves the bytes already received intact
 /// and un-recharged. <see cref="DownloadSegmentAsync"/> therefore resumes with an HTTP
-/// <c>Range</c> request from the exact byte offset it stopped at instead of starting over.</para>
+/// <c>Range</c> request from the exact byte offset it stopped at instead of starting over, and
+/// <see cref="ProbeSegmentAsync"/> / <see cref="ProbeBlockAsync"/> learn a size with a <c>HEAD</c>,
+/// which costs nothing.</para>
 /// <para>Segment responses are immutable, ETag'd, and CDN-cacheable — until a compaction rewrites
 /// the file to physically drop deleted records, which changes its checksum. A mirror re-lists and
 /// compares <see cref="JetstreamSegmentInfo.Checksum"/> rather than assuming a name never changes
@@ -88,6 +116,11 @@ public sealed class JetstreamArchiveClient : IDisposable
     private const string ListSegmentsPath = "xrpc/network.bsky.jetstream.listSegments";
     private const string GetSegmentPath = "xrpc/network.bsky.jetstream.getSegment";
     private const string GetBlockPath = "xrpc/network.bsky.jetstream.getBlock";
+    private const string GetZstdDictionaryPath = "xrpc/network.bsky.jetstream.getZstdDictionary";
+    private const string HealthPath = "xrpc/_health";
+
+    /// <summary>The four-byte little-endian magic number a zstd structured dictionary starts with.</summary>
+    private const uint DictionaryMagic = 0xEC30A437;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -108,12 +141,12 @@ public sealed class JetstreamArchiveClient : IDisposable
     public TimeSpan MaxRetryDelay { get; init; } = TimeSpan.FromMinutes(5);
 
     /// <summary>
-    /// Create an archive client.
+    /// Create a Jetstream HTTP client.
     /// </summary>
     /// <param name="serviceUrl">The Jetstream host URL. <c>ws(s)</c> schemes are converted to
     /// <c>http(s)</c>, so the same value can configure this and
-    /// <see cref="JetstreamConsumerOptions.ServiceUrl"/>.</param>
-    /// <param name="apiKey">The API key for the metered HTTP endpoints. Null omits the
+    /// <see cref="StreamConsumerOptions.ServiceUrl"/>.</param>
+    /// <param name="apiKey">The API key for the metered archive endpoints. Null omits the
     /// <c>Authorization</c> header, which only an unmetered self-hosted instance accepts.</param>
     /// <param name="httpClient">An <see cref="HttpClient"/> to send with. When null, one is
     /// created and disposed with this instance.</param>
@@ -144,7 +177,7 @@ public sealed class JetstreamArchiveClient : IDisposable
     /// </remarks>
     /// <param name="request">The filter and sequence window to plan over.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <exception cref="JetstreamArchiveException">The server refused the request.</exception>
+    /// <exception cref="JetstreamException">The server refused the request.</exception>
     public async Task<JetstreamSnapshotPlan> PlanSnapshotAsync(
         JetstreamSnapshotRequest request,
         CancellationToken cancellationToken = default)
@@ -152,15 +185,12 @@ public sealed class JetstreamArchiveClient : IDisposable
         ArgumentNullException.ThrowIfNull(request);
 
         using var response = await SendWithRetryAsync(
-            () =>
+            () => new HttpRequestMessage(HttpMethod.Post, new Uri(_baseUri, PlanSnapshotPath))
             {
-                var message = new HttpRequestMessage(HttpMethod.Post, new Uri(_baseUri, PlanSnapshotPath))
-                {
-                    Content = JsonContent.Create(request, options: JsonOptions),
-                };
-                return message;
+                Content = JsonContent.Create(request, options: JsonOptions),
             },
             HttpCompletionOption.ResponseContentRead,
+            authenticate: true,
             cancellationToken);
 
         return await ReadJsonAsync<JetstreamSnapshotPlan>(response, cancellationToken);
@@ -177,15 +207,14 @@ public sealed class JetstreamArchiveClient : IDisposable
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var query = new QueryBuilder();
-        if (limit.HasValue)
-            query.Add("limit", limit.Value.ToString(CultureInfo.InvariantCulture));
-        if (!string.IsNullOrEmpty(cursor))
-            query.Add("cursor", cursor);
+        var query = new XrpcParams()
+            .Add("limit", limit)
+            .Add("cursor", string.IsNullOrEmpty(cursor) ? null : cursor);
 
         using var response = await SendWithRetryAsync(
-            () => new HttpRequestMessage(HttpMethod.Get, new Uri(_baseUri, ListSegmentsPath + query)),
+            () => new HttpRequestMessage(HttpMethod.Get, Endpoint(ListSegmentsPath, query)),
             HttpCompletionOption.ResponseContentRead,
+            authenticate: true,
             cancellationToken);
 
         return await ReadJsonAsync<JetstreamSegmentPage>(response, cancellationToken);
@@ -211,7 +240,7 @@ public sealed class JetstreamArchiveClient : IDisposable
     /// Null downloads the whole file.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The open response; dispose it when done.</returns>
-    /// <exception cref="JetstreamArchiveException">The server refused the request (e.g.
+    /// <exception cref="JetstreamException">The server refused the request (e.g.
     /// <c>SegmentNotFound</c>).</exception>
     public async Task<JetstreamSegmentDownload> GetSegmentAsync(
         string name,
@@ -219,19 +248,18 @@ public sealed class JetstreamArchiveClient : IDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-
-        var query = new QueryBuilder();
-        query.Add("name", name);
+        var uri = Endpoint(GetSegmentPath, new XrpcParams().Add("name", name));
 
         var response = await SendWithRetryAsync(
             () =>
             {
-                var message = new HttpRequestMessage(HttpMethod.Get, new Uri(_baseUri, GetSegmentPath + query));
+                var message = new HttpRequestMessage(HttpMethod.Get, uri);
                 if (rangeStart is > 0)
                     message.Headers.Range = new RangeHeaderValue(rangeStart, null);
                 return message;
             },
             HttpCompletionOption.ResponseHeadersRead,
+            authenticate: true,
             cancellationToken);
 
         try
@@ -244,6 +272,37 @@ public sealed class JetstreamArchiveClient : IDisposable
             response.Dispose();
             throw;
         }
+    }
+
+    /// <summary>
+    /// Learn a segment's size and ETag with a <c>HEAD</c> request, which the metered endpoints
+    /// do not charge for: to plan a download, or to check a mirror is current.
+    /// </summary>
+    /// <param name="name">The segment filename.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="JetstreamException">The server refused the request (e.g.
+    /// <c>SegmentNotFound</c>, or a status only when the server does not support <c>HEAD</c>).</exception>
+    public Task<JetstreamArchiveProbe> ProbeSegmentAsync(string name, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        return ProbeAsync(Endpoint(GetSegmentPath, new XrpcParams().Add("name", name)), cancellationToken);
+    }
+
+    /// <summary>
+    /// Learn a block's compressed size and ETag with a <c>HEAD</c> request, which the metered
+    /// endpoints do not charge for.
+    /// </summary>
+    /// <param name="segment">The segment filename.</param>
+    /// <param name="blockIndex">Zero-based block index within the segment.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="JetstreamException">The server refused the request (e.g.
+    /// <c>BlockNotFound</c>).</exception>
+    public Task<JetstreamArchiveProbe> ProbeBlockAsync(
+        string segment, int blockIndex, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(segment);
+        ArgumentOutOfRangeException.ThrowIfNegative(blockIndex);
+        return ProbeAsync(BlockUri(segment, blockIndex), cancellationToken);
     }
 
     /// <summary>
@@ -314,7 +373,7 @@ public sealed class JetstreamArchiveClient : IDisposable
     /// <param name="segment">The segment filename.</param>
     /// <param name="blockIndex">Zero-based block index within the segment.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <exception cref="JetstreamArchiveException">The server refused the request (e.g.
+    /// <exception cref="JetstreamException">The server refused the request (e.g.
     /// <c>SegmentNotFound</c>, <c>BlockNotFound</c>).</exception>
     public async Task<byte[]> GetBlockAsync(
         string segment,
@@ -323,17 +382,91 @@ public sealed class JetstreamArchiveClient : IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(segment);
         ArgumentOutOfRangeException.ThrowIfNegative(blockIndex);
-
-        var query = new QueryBuilder();
-        query.Add("segment", segment);
-        query.Add("blockIndex", blockIndex.ToString(CultureInfo.InvariantCulture));
+        var uri = BlockUri(segment, blockIndex);
 
         using var response = await SendWithRetryAsync(
-            () => new HttpRequestMessage(HttpMethod.Get, new Uri(_baseUri, GetBlockPath + query)),
+            () => new HttpRequestMessage(HttpMethod.Get, uri),
             HttpCompletionOption.ResponseContentRead,
+            authenticate: true,
             cancellationToken);
 
         return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Fetch the zstd dictionary that <see cref="JetstreamProtocol.V2"/> frame compression uses.
+    /// </summary>
+    /// <remarks>
+    /// <para>Compressed v2 frames are dictionary-versioned: fetch the server's current dictionary,
+    /// build an <see cref="IJetstreamDecompressor"/> with it, and opt in by setting both
+    /// <see cref="JetstreamConsumerOptions.Decompressor"/> and
+    /// <see cref="JetstreamConsumerOptions.ZstdDictionaryId"/>. A dictionary is immutable for a given
+    /// ID and may be retired after the server retrains, at which point connecting is rejected with an
+    /// HTTP 400 and the current ID — fetch again with no ID to get it.</para>
+    /// <para>The SDK ships no zstd implementation, so this only retrieves the dictionary bytes;
+    /// decompression stays the caller's (see the Jetstream documentation page for a
+    /// <c>ZstdSharp.Port</c> implementation). The endpoint is public: no API key is sent.</para>
+    /// </remarks>
+    /// <param name="id">The dictionary ID to fetch. When null (the default), the server returns
+    /// its current dictionary.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The dictionary bytes and the ID read out of them.</returns>
+    /// <exception cref="JetstreamException">The server refused the request (e.g.
+    /// <c>DictionaryNotFound</c>) or returned something that is not a zstd dictionary.</exception>
+    public async Task<JetstreamZstdDictionary> GetZstdDictionaryAsync(
+        int? id = null,
+        CancellationToken cancellationToken = default)
+    {
+        var uri = Endpoint(GetZstdDictionaryPath, new XrpcParams().Add("id", id));
+        using var response = await SendWithRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, uri),
+            HttpCompletionOption.ResponseContentRead,
+            authenticate: false,
+            cancellationToken);
+
+        var data = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+
+        // A structured dictionary carries its own ID in its header, which is the same ID the
+        // subscription's zstdDictionary parameter takes — so a bare "current dictionary" fetch
+        // is enough to configure a subscription, with no second call to learn the ID.
+        if (data.Length < 8 || BinaryPrimitives.ReadUInt32LittleEndian(data) != DictionaryMagic)
+            throw new JetstreamException(
+                $"Jetstream returned {data.Length} bytes that are not a zstd dictionary.",
+                (int)response.StatusCode);
+
+        return new JetstreamZstdDictionary((int)BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(4)), data);
+    }
+
+    /// <summary>
+    /// Ask the instance whether it is up (<c>GET /xrpc/_health</c>). The endpoint is public: no
+    /// API key is sent. It is not retried, so a health check reports the first failure.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The server's report, including its version.</returns>
+    /// <exception cref="JetstreamException">The server answered with an error status or a body
+    /// that is not a health report.</exception>
+    /// <exception cref="HttpRequestException">The server could not be reached.</exception>
+    public async Task<JetstreamHealth> GetHealthAsync(CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(_baseUri, HealthPath));
+        using var response = await _http.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            throw await BuildFailureAsync(response, cancellationToken);
+
+        return await ReadJsonAsync<JetstreamHealth>(response, cancellationToken);
+    }
+
+    private async Task<JetstreamArchiveProbe> ProbeAsync(Uri uri, CancellationToken cancellationToken)
+    {
+        using var response = await SendWithRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Head, uri),
+            HttpCompletionOption.ResponseHeadersRead,
+            authenticate: true,
+            cancellationToken);
+
+        return new JetstreamArchiveProbe(
+            response.Content.Headers.ContentLength,
+            response.Headers.ETag?.Tag.Trim('"'));
     }
 
     /// <summary>
@@ -343,17 +476,18 @@ public sealed class JetstreamArchiveClient : IDisposable
     private async Task<HttpResponseMessage> SendWithRetryAsync(
         Func<HttpRequestMessage> requestFactory,
         HttpCompletionOption completionOption,
+        bool authenticate,
         CancellationToken cancellationToken)
     {
         for (var attempt = 0; ; attempt++)
         {
             HttpResponseMessage? response = null;
-            JetstreamArchiveException failure;
+            JetstreamException failure;
 
             try
             {
                 using var request = requestFactory();
-                if (_apiKey is not null)
+                if (authenticate && _apiKey is not null)
                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
 
                 response = await _http.SendAsync(request, completionOption, cancellationToken);
@@ -365,13 +499,11 @@ public sealed class JetstreamArchiveClient : IDisposable
             }
             catch (HttpRequestException ex)
             {
-                failure = new JetstreamArchiveException(
-                    $"Jetstream archive request failed: {ex.Message}", innerException: ex);
+                failure = new JetstreamException($"Jetstream request failed: {ex.Message}", innerException: ex);
             }
             catch (IOException ex)
             {
-                failure = new JetstreamArchiveException(
-                    $"Jetstream archive request failed: {ex.Message}", innerException: ex);
+                failure = new JetstreamException($"Jetstream request failed: {ex.Message}", innerException: ex);
             }
 
             response?.Dispose();
@@ -380,13 +512,13 @@ public sealed class JetstreamArchiveClient : IDisposable
                 throw failure;
 
             var delay = RetryDelay(failure, attempt);
-            _logger.LogWarning("Jetstream archive request failed ({Error}); retrying in {Delay}s",
+            _logger.LogWarning("Jetstream request failed ({Error}); retrying in {Delay}s",
                 failure.Message, delay.TotalSeconds);
             await Task.Delay(delay, cancellationToken);
         }
     }
 
-    private static async Task<JetstreamArchiveException> BuildFailureAsync(
+    private static async Task<JetstreamException> BuildFailureAsync(
         HttpResponseMessage response,
         CancellationToken cancellationToken)
     {
@@ -398,10 +530,10 @@ public sealed class JetstreamArchiveClient : IDisposable
         {
             401 => "Jetstream refused the archive request: the API key is missing, malformed, or revoked",
             429 => "Jetstream archive byte quota exhausted",
-            _ => "Jetstream refused the archive request",
+            _ => "Jetstream refused the request",
         };
 
-        return new JetstreamArchiveException(
+        return new JetstreamException(
             $"{description} (HTTP {status}{(error is null ? string.Empty : $", {error}")})" +
             (message is null ? "." : $": {message}"),
             status,
@@ -412,7 +544,7 @@ public sealed class JetstreamArchiveClient : IDisposable
     /// <summary>Whether a mid-download failure can be resumed with a <c>Range</c> request.</summary>
     private static bool IsResumable(Exception ex) => ex switch
     {
-        JetstreamArchiveException archive => archive.IsRetryable,
+        JetstreamException jetstream => jetstream.IsRetryable,
         IOException or HttpRequestException => true,
         _ => false,
     };
@@ -425,7 +557,7 @@ public sealed class JetstreamArchiveClient : IDisposable
     /// </summary>
     private TimeSpan RetryDelay(Exception ex, int attempt)
     {
-        var requested = (ex as JetstreamArchiveException)?.RetryAfter;
+        var requested = (ex as JetstreamException)?.RetryAfter;
         var delay = requested ?? TimeSpan.FromSeconds(Math.Min(30, Math.Pow(2, attempt)));
         return delay > MaxRetryDelay ? MaxRetryDelay : delay;
     }
@@ -438,18 +570,23 @@ public sealed class JetstreamArchiveClient : IDisposable
         try
         {
             return await response.Content.ReadFromJsonAsync<T>(JsonOptions, cancellationToken)
-                ?? throw new JetstreamArchiveException(
+                ?? throw new JetstreamException(
                     $"Jetstream returned an empty {typeof(T).Name} body.",
                     (int)response.StatusCode);
         }
         catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {
-            throw new JetstreamArchiveException(
+            throw new JetstreamException(
                 $"Jetstream returned a body that is not a {typeof(T).Name}: {ex.Message}",
                 (int)response.StatusCode,
                 innerException: ex);
         }
     }
+
+    private Uri BlockUri(string segment, int blockIndex) =>
+        Endpoint(GetBlockPath, new XrpcParams().Add("segment", segment).Add("blockIndex", blockIndex));
+
+    private Uri Endpoint(string path, XrpcParams query) => new(_baseUri, path + query.ToQueryString());
 
     internal static string ToHttpUrl(string serviceUrl)
     {
@@ -468,20 +605,5 @@ public sealed class JetstreamArchiveClient : IDisposable
         _disposed = true;
         if (_ownsHttpClient)
             _http.Dispose();
-    }
-
-    /// <summary>Builds a percent-encoded query string, prefixed with <c>?</c> when non-empty.</summary>
-    private struct QueryBuilder
-    {
-        private System.Text.StringBuilder? _query;
-
-        public void Add(string name, string value)
-        {
-            _query ??= new System.Text.StringBuilder();
-            _query.Append(_query.Length == 0 ? '?' : '&');
-            _query.Append(name).Append('=').Append(Uri.EscapeDataString(value));
-        }
-
-        public override readonly string ToString() => _query?.ToString() ?? string.Empty;
     }
 }

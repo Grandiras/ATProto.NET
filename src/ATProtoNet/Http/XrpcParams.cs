@@ -101,6 +101,27 @@ public sealed class XrpcParams : IEnumerable<KeyValuePair<string, string>>
     }
 
     /// <summary>
+    /// The parameters as a percent-encoded query string with repeated keys for arrays, prefixed
+    /// with <c>?</c>, or an empty string when there are none.
+    /// </summary>
+    internal string ToQueryString()
+    {
+        if (_pairs.Count == 0)
+            return string.Empty;
+
+        var query = new System.Text.StringBuilder();
+        foreach (var (key, value) in _pairs)
+        {
+            query.Append(query.Length == 0 ? '?' : '&')
+                .Append(Uri.EscapeDataString(key))
+                .Append('=')
+                .Append(Uri.EscapeDataString(value));
+        }
+
+        return query.ToString();
+    }
+
+    /// <summary>
     /// Converts a loosely typed parameter object — an anonymous type, a dictionary, or a pair
     /// sequence — into parameters, or returns <see langword="null"/> when there is nothing to
     /// send. A property whose value is a non-string sequence expands into one pair per element.

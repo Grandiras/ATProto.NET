@@ -1,3 +1,4 @@
+using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using System.Text;
 using System.Text.Json.Serialization;
 using ATProtoNet.Streaming;
@@ -56,7 +57,10 @@ public class JetstreamV2EventParserTests
     }
 
     private static JetstreamFrame Parse(string json)
-        => JetstreamEventParser.ParseFrame(json, JetstreamProtocol.V2);
+        => JetstreamEventParser.ParseFrame(Encoding.UTF8.GetBytes(json), JetstreamProtocol.V2);
+
+    private static JetstreamFrame ParseV1(string json)
+        => JetstreamEventParser.ParseFrame(Encoding.UTF8.GetBytes(json), JetstreamProtocol.V1);
 
     [Fact]
     public void ParseFrame_Commit_ReadsFlattenedFields()
@@ -66,7 +70,7 @@ public class JetstreamV2EventParserTests
         Assert.Equal("did:plc:eygmaihciaxprqvxpfvl6flk", commit.Did.Value);
         Assert.Equal("app.bsky.feed.like", commit.Collection);
         Assert.Equal("3l3qo2vuowo2b", commit.Rkey);
-        Assert.Equal(JetstreamOperation.Create, commit.Operation);
+        Assert.Equal(RepoOpAction.Create, commit.Operation);
         Assert.Equal("3l3qo2vutsw2b", commit.Rev);
         Assert.NotNull(commit.Cid);
         Assert.Equal(24664288881, commit.Cursor);
@@ -111,7 +115,7 @@ public class JetstreamV2EventParserTests
     {
         var commit = Assert.IsType<JetstreamCommitEvent>(Parse(DeleteCommitJson).Event);
 
-        Assert.Equal(JetstreamOperation.Delete, commit.Operation);
+        Assert.Equal(RepoOpAction.Delete, commit.Operation);
         Assert.Null(commit.Record);
         Assert.Null(commit.Cid);
     }
@@ -255,26 +259,10 @@ public class JetstreamV2EventParserTests
     }
 
     [Fact]
-    public void ParseFrame_Utf8Overload_MatchesStringOverload()
-    {
-        var frame = JetstreamEventParser.ParseFrame(
-            Encoding.UTF8.GetBytes(CommitJson), JetstreamProtocol.V2);
-
-        Assert.Equal("app.bsky.feed.like", Assert.IsType<JetstreamCommitEvent>(frame.Event).Collection);
-    }
-
-    [Fact]
-    public void ParseFrame_NullString_Throws()
-    {
-        Assert.Throws<ArgumentNullException>(
-            () => JetstreamEventParser.ParseFrame((string)null!, JetstreamProtocol.V2));
-    }
-
-    [Fact]
     public void ParseFrame_V2FrameOnV1Protocol_Skipped()
     {
         // The envelope has no "kind", so the v1 parser must not half-read it.
-        Assert.Null(JetstreamEventParser.ParseFrame(CommitJson, JetstreamProtocol.V1).Event);
+        Assert.Null(ParseV1(CommitJson).Event);
     }
 
     [Fact]
@@ -287,7 +275,7 @@ public class JetstreamV2EventParserTests
             """;
 
         var commit = Assert.IsType<JetstreamCommitEvent>(
-            JetstreamEventParser.ParseFrame(json, JetstreamProtocol.V1).Event);
+            ParseV1(json).Event);
 
         Assert.Equal(12345, commit.Cursor);
         Assert.Equal(1725911162329308, commit.TimeUs);
@@ -301,6 +289,6 @@ public class JetstreamV2EventParserTests
             {"did":"did:plc:eygmaihciaxprqvxpfvl6flk","time_us":1725911162329308,"kind":"commit","commit":{"rev":"3l3qo2vutsw2b","operation":"create","collection":"app.bsky.feed.like","rkey":"3l3qo2vuowo2b"}}
             """;
 
-        Assert.Null(JetstreamEventParser.ParseFrame(json, JetstreamProtocol.V1).Event!.Cursor);
+        Assert.Null(ParseV1(json).Event!.Cursor);
     }
 }

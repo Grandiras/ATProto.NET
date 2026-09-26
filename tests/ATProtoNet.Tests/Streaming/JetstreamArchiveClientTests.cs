@@ -100,7 +100,6 @@ public class JetstreamArchiveClientTests
         Assert.Equal(JetstreamSegmentDownloadMode.Segment, plan.Segments[0].DownloadMode);
         Assert.Equal(JetstreamSegmentDownloadMode.Blocks, plan.Segments[1].DownloadMode);
         Assert.Equal(new JetstreamBlockRange(3, 5), plan.Segments[1].Blocks![0]);
-        Assert.Equal(3, plan.Stats!.BlocksMatched);
     }
 
     [Fact]
@@ -279,7 +278,7 @@ public class JetstreamArchiveClientTests
             .Error(HttpStatusCode.TooManyRequests, "byte limit exceeded", TimeSpan.FromSeconds(30))
             .Error(HttpStatusCode.TooManyRequests, "byte limit exceeded", TimeSpan.FromSeconds(30));
 
-        var ex = await Assert.ThrowsAsync<JetstreamArchiveException>(
+        var ex = await Assert.ThrowsAsync<JetstreamException>(
             () => Create(handler).GetBlockAsync("seg_0.jss", 0));
 
         Assert.Equal(429, ex.StatusCode);
@@ -295,7 +294,7 @@ public class JetstreamArchiveClientTests
             .Error(HttpStatusCode.Unauthorized, "invalid bearer credential")
             .Bytes([7]);
 
-        var ex = await Assert.ThrowsAsync<JetstreamArchiveException>(
+        var ex = await Assert.ThrowsAsync<JetstreamException>(
             () => Create(handler).GetBlockAsync("seg_0.jss", 0));
 
         Assert.Equal(401, ex.StatusCode);
@@ -308,7 +307,7 @@ public class JetstreamArchiveClientTests
     {
         var handler = new ScriptedHandler().Error(HttpStatusCode.BadRequest, "SegmentNotFound");
 
-        var ex = await Assert.ThrowsAsync<JetstreamArchiveException>(
+        var ex = await Assert.ThrowsAsync<JetstreamException>(
             () => Create(handler).GetBlockAsync("missing.jss", 0));
 
         Assert.Equal("SegmentNotFound", ex.Error);

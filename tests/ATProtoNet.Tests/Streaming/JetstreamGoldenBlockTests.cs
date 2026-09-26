@@ -1,3 +1,4 @@
+using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using ATProtoNet.Streaming;
 
 namespace ATProtoNet.Tests.Streaming;
@@ -90,7 +91,7 @@ public class JetstreamGoldenBlockTests
             .ToList();
 
         var create = Assert.IsType<JetstreamCommitEvent>(events[0]);
-        Assert.Equal(JetstreamOperation.Create, create.Operation);
+        Assert.Equal(RepoOpAction.Create, create.Operation);
         Assert.Equal("at://did:plc:abcdefghijklmnopqrstuvwx/app.bsky.feed.post/3l3qo2vuowo2b",
             create.Uri.ToString());
         Assert.Equal(5, create.Record!.Value.GetProperty("hello").GetInt32());
@@ -102,7 +103,7 @@ public class JetstreamGoldenBlockTests
         Assert.Null(identity.Handle);
 
         var delete = Assert.IsType<JetstreamCommitEvent>(events[2]);
-        Assert.Equal(JetstreamOperation.Delete, delete.Operation);
+        Assert.Equal(RepoOpAction.Delete, delete.Operation);
         Assert.Null(delete.Cid);
     }
 }

@@ -1,363 +1,129 @@
-using System.Net.WebSockets;
 using System.Runtime.CompilerServices;
+using ATProtoNet.Lexicon.Com.AtProto.Label;
+using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Streaming;
 
 /// <summary>
-/// Client for consuming the AT Protocol event stream (firehose) over WebSocket.
-/// Connects to <c>com.atproto.sync.subscribeRepos</c> or similar event stream endpoints.
+/// Reads an AT Protocol event stream over a single WebSocket connection, with no reconnecting and
+/// no cursor persistence: the repository stream (<c>com.atproto.sync.subscribeRepos</c>, the
+/// firehose) of a relay or PDS, or a labeler's label stream (<c>com.atproto.label.subscribeLabels</c>).
 /// </summary>
 /// <remarks>
-/// <para>The firehose delivers events as CBOR-encoded frames (header + body).
-/// This implementation reads frames and exposes them as an <see cref="IAsyncEnumerable{T}"/>.</para>
-/// <para>For a managed production consumer, consider using <see cref="FirehoseConsumer"/>.</para>
+/// <para>For a long-running consumer, use <see cref="TypedFirehoseConsumer"/> or
+/// <see cref="LabelStreamConsumer"/>, which reconnect and persist the cursor.</para>
+/// <para>Each subscription owns its connection, so several can run at once; disposing the client
+/// ends them all. An enumeration ends normally when the server closes the connection or the token
+/// is cancelled, and throws an <see cref="EventStreamException"/> when the server sends an error
+/// frame. Frames that cannot be parsed, or are of a type this SDK version does not model, are
+/// skipped.</para>
 /// </remarks>
 /// <example>
 /// <code>
-/// var firehose = new FirehoseClient("wss://bsky.network");
-/// await foreach (var msg in firehose.SubscribeAsync())
+/// await using var firehose = new FirehoseClient("wss://bsky.network");
+/// await foreach (var message in firehose.SubscribeAsync())
 /// {
-///     if (msg is CommitEvent commit)
+///     if (message is CommitEvent commit)
 ///         Console.WriteLine($"Commit from {commit.Repo}: {commit.Ops?.Count} ops");
 /// }
 /// </code>
 /// </example>
-public sealed class FirehoseClient : IDisposable
-{
-    private readonly Uri _serviceUri;
-    private readonly ILogger _logger;
-    private ClientWebSocket? _ws;
-    private bool _disposed;
-
-    /// <summary>
-    /// Create a firehose client connected to the given relay or PDS.
-    /// </summary>
-    /// <param name="serviceUrl">The WebSocket URL of the relay (e.g., "wss://bsky.network").</param>
-    /// <param name="logger">Optional logger.</param>
-    public FirehoseClient(string serviceUrl, ILogger? logger = null)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(serviceUrl);
-        _serviceUri = new Uri(serviceUrl.TrimEnd('/'));
-        _logger = logger ?? NullLogger.Instance;
-    }
-
-    /// <summary>
-    /// Subscribe to the repository event stream.
-    /// Returns an async enumerable of firehose messages.
-    /// </summary>
-    /// <param name="cursor">Optional sequence number to resume from.
-    /// If null, starts from the live stream (no backfill).</param>
-    /// <param name="cancellationToken">Cancellation token to stop the subscription.</param>
-    public async IAsyncEnumerable<FirehoseFrame> SubscribeAsync(
-        long? cursor = null,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        var endpoint = $"{_serviceUri}/xrpc/com.atproto.sync.subscribeRepos";
-        if (cursor.HasValue)
-            endpoint += $"?cursor={cursor.Value}";
-
-        _ws = new ClientWebSocket();
-        _logger.LogInformation("Connecting to firehose at {Endpoint}", endpoint);
-
-        await _ws.ConnectAsync(new Uri(endpoint), cancellationToken);
-        _logger.LogInformation("Connected to firehose");
-
-        var buffer = new byte[1024 * 64]; // 64KB buffer
-
-        while (_ws.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
-        {
-            FirehoseFrame? frame;
-            try
-            {
-                frame = await ReadFrameAsync(buffer, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (WebSocketException ex) when (ex.WebSocketErrorCode == WebSocketError.ConnectionClosedPrematurely)
-            {
-                _logger.LogWarning("WebSocket connection closed prematurely");
-                break;
-            }
-
-            if (frame is not null)
-                yield return frame;
-        }
-
-        _logger.LogInformation("Firehose subscription ended");
-    }
-
-    /// <summary>
-    /// Subscribe to label events.
-    /// </summary>
-    public async IAsyncEnumerable<FirehoseFrame> SubscribeLabelsAsync(
-        long? cursor = null,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        var endpoint = $"{_serviceUri}/xrpc/com.atproto.label.subscribeLabels";
-        if (cursor.HasValue)
-            endpoint += $"?cursor={cursor.Value}";
-
-        _ws = new ClientWebSocket();
-        await _ws.ConnectAsync(new Uri(endpoint), cancellationToken);
-
-        var buffer = new byte[1024 * 64];
-
-        while (_ws.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
-        {
-            FirehoseFrame? frame;
-            try
-            {
-                frame = await ReadFrameAsync(buffer, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (WebSocketException)
-            {
-                break;
-            }
-
-            if (frame is not null)
-                yield return frame;
-        }
-    }
-
-    /// <summary>
-    /// Disconnect from the event stream.
-    /// </summary>
-    public async Task DisconnectAsync(CancellationToken cancellationToken = default)
-    {
-        if (_ws is { State: WebSocketState.Open })
-        {
-            try
-            {
-                await _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client disconnect", cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Error closing WebSocket");
-            }
-        }
-    }
-
-    private async Task<FirehoseFrame?> ReadFrameAsync(byte[] buffer, CancellationToken cancellationToken)
-    {
-        var result = await _ws!.ReceiveAsync(buffer, cancellationToken);
-        if (result.MessageType == WebSocketMessageType.Close)
-            return null;
-
-        byte[] raw;
-
-        if (result.EndOfMessage)
-        {
-            // Most commit frames fit the 64 KB buffer in one receive. Copying straight out of
-            // it skips the MemoryStream's own buffer and one of the two copies.
-            if (result.Count == 0)
-                return null;
-
-            raw = buffer[..result.Count];
-        }
-        else
-        {
-            using var ms = new MemoryStream();
-            ms.Write(buffer, 0, result.Count);
-
-            do
-            {
-                result = await _ws.ReceiveAsync(buffer, cancellationToken);
-                if (result.MessageType == WebSocketMessageType.Close)
-                    return null;
-
-                ms.Write(buffer, 0, result.Count);
-            } while (!result.EndOfMessage);
-
-            if (ms.Length == 0)
-                return null;
-
-            raw = ms.ToArray();
-        }
-
-        return new FirehoseFrame
-        {
-            RawData = raw,
-            MessageType = result.MessageType,
-        };
-    }
-
-    /// <inheritdoc/>
-    public void Dispose()
-    {
-        if (_disposed) return;
-        _disposed = true;
-        _ws?.Dispose();
-    }
-}
-
-/// <summary>
-/// A raw frame received from the firehose WebSocket.
-/// AT Protocol uses DAG-CBOR encoding for firehose frames.
-/// </summary>
-public sealed class FirehoseFrame
-{
-    /// <summary>The raw binary data of the frame.</summary>
-    public required byte[] RawData { get; init; }
-
-    /// <summary>The WebSocket message type.</summary>
-    public WebSocketMessageType MessageType { get; init; }
-
-    /// <summary>The size of the frame in bytes.</summary>
-    public int Size => RawData.Length;
-}
-
-/// <summary>
-/// A managed firehose consumer that handles reconnection and cursor management.
-/// </summary>
-public sealed class FirehoseConsumer : IDisposable
+public sealed class FirehoseClient : IAsyncDisposable
 {
     private readonly string _serviceUrl;
     private readonly ILogger _logger;
-    private readonly TimeSpan _reconnectDelay;
-    private readonly int _maxReconnectAttempts;
-    private FirehoseClient? _client;
-    private bool _disposed;
-
-    /// <summary>The last successfully processed sequence number.</summary>
-    public long? LastSeq { get; private set; }
-
-    /// <summary>Whether the consumer is currently connected.</summary>
-    public bool IsConnected { get; private set; }
+    private readonly StreamConnector _connector;
+    private readonly CancellationTokenSource _disposed = new();
 
     /// <summary>
-    /// Create a managed firehose consumer.
+    /// Create a client for the given relay, PDS or labeler.
     /// </summary>
-    /// <param name="serviceUrl">The relay/PDS WebSocket URL.</param>
+    /// <param name="serviceUrl">The service's WebSocket URL (e.g., "wss://bsky.network").</param>
     /// <param name="logger">Optional logger.</param>
-    /// <param name="reconnectDelay">Delay between reconnection attempts. Default: 5 seconds.</param>
-    /// <param name="maxReconnectAttempts">Max reconnection attempts. Default: 10. Use -1 for unlimited.</param>
-    public FirehoseConsumer(
-        string serviceUrl,
-        ILogger? logger = null,
-        TimeSpan? reconnectDelay = null,
-        int maxReconnectAttempts = 10)
+    public FirehoseClient(string serviceUrl, ILogger? logger = null)
+        : this(serviceUrl, logger, StreamSocket.Connector)
     {
-        _serviceUrl = serviceUrl;
+    }
+
+    internal FirehoseClient(string serviceUrl, ILogger? logger, StreamConnector connector)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(serviceUrl);
+        _serviceUrl = serviceUrl.TrimEnd('/');
         _logger = logger ?? NullLogger.Instance;
-        _reconnectDelay = reconnectDelay ?? TimeSpan.FromSeconds(5);
-        _maxReconnectAttempts = maxReconnectAttempts;
+        _connector = connector;
     }
 
     /// <summary>
-    /// Start consuming the firehose with automatic reconnection.
+    /// Subscribe to the repository event stream (<c>com.atproto.sync.subscribeRepos</c>).
     /// </summary>
-    /// <param name="cursor">Initial cursor to resume from.</param>
-    /// <param name="cancellationToken">Cancellation token to stop consuming.</param>
-    public async IAsyncEnumerable<FirehoseFrame> ConsumeAsync(
+    /// <param name="cursor">The sequence number to resume after. If null, starts from the live
+    /// stream (no backfill).</param>
+    /// <param name="cancellationToken">Cancellation token to stop the subscription.</param>
+    /// <exception cref="EventStreamException">The server sent an error frame, such as
+    /// <c>FutureCursor</c>, or refused the connection.</exception>
+    public IAsyncEnumerable<FirehoseMessage> SubscribeAsync(
         long? cursor = null,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        var currentCursor = cursor;
-        // Floor for monotonicity checks. Pre-seed with the caller's cursor so a
-        // misbehaving relay can't rewind us below the requested resume point on
-        // the very first frame (when currentCursor is still null and a naive
-        // long.MinValue baseline would accept anything).
-        var monotonicFloor = cursor ?? long.MinValue;
-        var reconnectAttempts = 0;
-
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            _client?.Dispose();
-            _client = new FirehoseClient(_serviceUrl, _logger);
-
-            await foreach (var frame in _client.SubscribeAsync(currentCursor, cancellationToken))
-            {
-                IsConnected = true;
-                reconnectAttempts = 0;
-                yield return frame;
-
-                // Cursor advancement rules:
-                //
-                //  * If the consumer calls Acknowledge(seq), LastSeq drives the
-                //    reconnect cursor and the SDK delivers at-least-once
-                //    semantics: frames yielded but not acknowledged are
-                //    redelivered on reconnect.
-                //
-                //  * If the consumer NEVER calls Acknowledge, we fall back to
-                //    the current frame's in-band seq so the reconnect cursor
-                //    still moves forward — but this path is at-MOST-once: a
-                //    crash between yield and the next reconnect drops the
-                //    unprocessed frame. Consumers that need at-least-once MUST
-                //    call Acknowledge after successful processing.
-                //
-                // Either way the cursor is monotonic — a misbehaving relay that
-                // rolls seq backward (or a first frame with a seq below the
-                // caller-supplied resume cursor) cannot trick us into replaying
-                // older events.
-                var nextCursor = LastSeq ?? TryReadSeq(frame);
-                if (nextCursor is { } seq && seq > monotonicFloor)
-                {
-                    currentCursor = seq;
-                    monotonicFloor = seq;
-                }
-            }
-
-            IsConnected = false;
-
-            if (cancellationToken.IsCancellationRequested)
-                break;
-
-            reconnectAttempts++;
-            if (_maxReconnectAttempts >= 0 && reconnectAttempts > _maxReconnectAttempts)
-            {
-                _logger.LogError("Max reconnection attempts ({Max}) exceeded", _maxReconnectAttempts);
-                break;
-            }
-
-            var delay = TimeSpan.FromTicks(_reconnectDelay.Ticks * Math.Min(reconnectAttempts, 6));
-            _logger.LogWarning("Firehose disconnected. Reconnecting in {Delay}s (attempt {Attempt})",
-                delay.TotalSeconds, reconnectAttempts);
-
-            try
-            {
-                await Task.Delay(delay, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-        }
-    }
+        CancellationToken cancellationToken = default)
+        => SubscribeAsync(new RepoStreamHandler(Endpoint("com.atproto.sync.subscribeRepos", cursor), _logger), cancellationToken);
 
     /// <summary>
-    /// Update the last processed sequence number (for cursor management).
+    /// Subscribe to a labeler's label stream (<c>com.atproto.label.subscribeLabels</c>).
     /// </summary>
-    public void Acknowledge(long seq)
+    /// <param name="cursor">The sequence number to resume after. If null, starts from the live
+    /// stream.</param>
+    /// <param name="cancellationToken">Cancellation token to stop the subscription.</param>
+    /// <exception cref="EventStreamException">The server sent an error frame, such as
+    /// <c>FutureCursor</c>, or refused the connection.</exception>
+    public IAsyncEnumerable<LabelStreamMessage> SubscribeLabelsAsync(
+        long? cursor = null,
+        CancellationToken cancellationToken = default)
+        => SubscribeAsync(new LabelStreamHandler(Endpoint("com.atproto.label.subscribeLabels", cursor), _logger), cancellationToken);
+
+    /// <summary>Ends every subscription still running on this client.</summary>
+    public ValueTask DisposeAsync()
     {
-        LastSeq = seq;
+        if (!_disposed.IsCancellationRequested)
+            _disposed.Cancel();
+        return ValueTask.CompletedTask;
     }
 
-    private static long? TryReadSeq(FirehoseFrame frame)
+    private async IAsyncEnumerable<T> SubscribeAsync<T>(
+        EventStreamHandler<T> handler,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+        where T : class
     {
-        try
+        ObjectDisposedException.ThrowIf(_disposed.IsCancellationRequested, this);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposed.Token);
+
+        await foreach (var message in EventStreamLoop.RunAsync(
+            handler, _connector, reconnect: null, _logger, onStreamError: null, linked.Token).ConfigureAwait(false))
         {
-            var message = FirehoseEventParser.Parse(frame);
-            return message?.Seq;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            return null;
+            yield return message;
         }
     }
 
-    /// <inheritdoc/>
-    public void Dispose()
+    private Uri Endpoint(string nsid, long? cursor) =>
+        new($"{_serviceUrl}/xrpc/{nsid}" + (cursor is { } value ? $"?cursor={value}" : string.Empty));
+
+    /// <summary>One connection to the repository stream, parsing each frame into a message.</summary>
+    private sealed class RepoStreamHandler(Uri endpoint, ILogger logger) : EventStreamHandler<FirehoseMessage>
     {
-        if (_disposed) return;
-        _disposed = true;
-        _client?.Dispose();
+        public override string Stream => "firehose";
+
+        public override ValueTask<(Uri Endpoint, StreamSocketOptions Options)> ConnectAsync(CancellationToken cancellationToken) =>
+            ValueTask.FromResult((endpoint, default(StreamSocketOptions)));
+
+        public override ValueTask<FirehoseMessage?> HandleAsync(string type, ReadOnlyMemory<byte> body, CancellationToken cancellationToken)
+        {
+            var message = FirehoseEventParser.ParseBody(type, body);
+            if (message is null)
+                Dropped(StreamDropReason.Malformed, EventStreamFrame.ReadSeq(body), type);
+            return ValueTask.FromResult(message);
+        }
+
+        public override void Dropped(StreamDropReason reason, long? cursor, string? detail) =>
+            logger.LogDebug("Skipped firehose frame {Cursor} ({Reason}): {Detail}", cursor, reason, detail);
     }
 }

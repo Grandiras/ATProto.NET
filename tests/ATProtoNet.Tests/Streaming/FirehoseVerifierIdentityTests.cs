@@ -126,10 +126,9 @@ public sealed class FirehoseVerifierIdentityTests : IDisposable
     {
         var (verifier, directory, _) = Create();
         using var __ = verifier;
-        using var consumer = new TypedFirehoseConsumer(new TypedFirehoseConsumerOptions
+        var consumer = new TypedFirehoseConsumer(new TypedFirehoseConsumerOptions
         {
             ServiceUrl = "wss://relay.example.com",
-            VerifySignatures = true,
             Verifier = verifier,
         });
 

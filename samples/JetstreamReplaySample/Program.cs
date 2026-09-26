@@ -35,8 +35,8 @@ var options = new JetstreamConsumerOptions
     WantedKinds = [JetstreamEventKind.Commit],
     // A replay cursor is the same v2 sequence number the live tail persists, so one store spans
     // both phases and a restart resumes the backfill where it stopped.
-    CursorStore = new InMemoryFirehoseCursorStore(),
-    MaxReconnectAttempts = -1,
+    CursorStore = new InMemoryStreamCursorStore(),
+    Reconnect = new StreamReconnectPolicy { MaxAttempts = null },   // reconnect the live tail forever
     Archive = new JetstreamArchiveOptions
     {
         ApiKey = apiKey,
@@ -53,6 +53,7 @@ var switched = false;
 
 try
 {
+    // Ctrl+C cancels the token, which ends the loop normally with the cursor saved.
     await foreach (var evt in consumer.ReplayAsync(cancellationToken: cts.Token))
     {
         if (!consumer.IsBackfilling && !switched)
@@ -73,19 +74,15 @@ try
             Console.WriteLine($"[{commit.Cursor}] {commit.Operation} {commit.Uri}");
     }
 }
-catch (OperationCanceledException)
-{
-    // Ctrl+C
-}
-catch (JetstreamArchiveException ex) when (ex.StatusCode == 401)
+catch (JetstreamException ex) when (ex.StatusCode == 401)
 {
     Console.Error.WriteLine("The archive refused the API key. Set JETSTREAM_API_KEY to a valid key.");
 }
-catch (JetstreamConnectException ex)
+catch (JetstreamException ex)
 {
-    // The pinned tip aged out of the live socket's lookback window and re-planning could not
-    // catch up; resume from the persisted cursor on the next run.
-    Console.Error.WriteLine($"Cutover failed: {ex.Message}");
+    // For example the pinned tip aged out of the live socket's lookback window and re-planning
+    // could not catch up; resume from the persisted cursor on the next run.
+    Console.Error.WriteLine($"Replay failed: {ex.Message}");
 }
 
 Console.WriteLine($"\nStopped at sequence {consumer.LastCursor}. " +

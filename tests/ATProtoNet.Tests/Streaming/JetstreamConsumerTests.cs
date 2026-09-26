@@ -1,3 +1,4 @@
+using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using ATProtoNet.Identity;
 using ATProtoNet.Streaming;
 
@@ -13,7 +14,7 @@ public class JetstreamConsumerTests
         TimeUs = timeUs,
         Collection = Nsid.Parse("exchange.recipe.recipe"),
         Rkey = RecordKey.Parse(rkey),
-        Operation = JetstreamOperation.Create,
+        Operation = RepoOpAction.Create,
     };
 
     /// <summary>
@@ -68,7 +69,7 @@ public class JetstreamConsumerTests
     }
 
     private static JetstreamConsumerOptions Options(
-        IFirehoseCursorStore? store = null,
+        IStreamCursorStore? store = null,
         int persistInterval = 100,
         int maxReconnects = 0,
         TimeSpan? rewind = null) => new()
@@ -76,17 +77,34 @@ public class JetstreamConsumerTests
         ServiceUrl = "wss://jetstream.test",
         CursorStore = store,
         CursorPersistInterval = persistInterval,
-        MaxReconnectAttempts = maxReconnects,
-        ReconnectDelay = TimeSpan.FromMilliseconds(1),
+        Reconnect = Reconnect(maxReconnects),
         ReconnectRewind = rewind ?? TimeSpan.FromSeconds(5),
     };
 
-    private static async Task<List<JetstreamEvent>> DrainAsync(
+    internal static StreamReconnectPolicy Reconnect(int maxReconnects) => new()
+    {
+        InitialDelay = TimeSpan.FromMilliseconds(1),
+        MaxDelay = TimeSpan.FromMilliseconds(1),
+        MaxAttempts = maxReconnects < 0 ? null : maxReconnects,
+    };
+
+    /// <summary>
+    /// Collects every event until the scripted connections run out and the reconnect policy gives
+    /// up, which ends the enumeration with an <see cref="EventStreamException"/>.
+    /// </summary>
+    internal static async Task<List<JetstreamEvent>> DrainAsync(
         JetstreamConsumer consumer, long? cursor = null, CancellationToken ct = default)
     {
         var events = new List<JetstreamEvent>();
-        await foreach (var evt in consumer.ConsumeAsync(cursor, ct))
-            events.Add(evt);
+        try
+        {
+            await foreach (var evt in consumer.ConsumeAsync(cursor, ct))
+                events.Add(evt);
+        }
+        catch (EventStreamException ex) when (ex is not JetstreamException)
+        {
+        }
+
         return events;
     }
 
@@ -116,7 +134,7 @@ public class JetstreamConsumerTests
     [Fact]
     public async Task ConsumeAsync_ResumesFromStoredCursor()
     {
-        var store = new InMemoryFirehoseCursorStore();
+        var store = new InMemoryStreamCursorStore();
         await store.StoreCursorAsync("wss://jetstream.test", 12345);
         var source = new ScriptedSource().Connection(Commit(100_000_000));
         var consumer = new JetstreamConsumer(Options(store), source.Connect);
@@ -129,7 +147,7 @@ public class JetstreamConsumerTests
     [Fact]
     public async Task ConsumeAsync_ExplicitCursor_OverridesStore()
     {
-        var store = new InMemoryFirehoseCursorStore();
+        var store = new InMemoryStreamCursorStore();
         await store.StoreCursorAsync("wss://jetstream.test", 12345);
         var source = new ScriptedSource().Connection(Commit(100_000_000));
         var consumer = new JetstreamConsumer(Options(store), source.Connect);
@@ -142,7 +160,7 @@ public class JetstreamConsumerTests
     [Fact]
     public async Task ConsumeAsync_PersistsCursorAtIntervalAndOnShutdown()
     {
-        var store = new InMemoryFirehoseCursorStore();
+        var store = new InMemoryStreamCursorStore();
         var source = new ScriptedSource().Connection(
             Commit(100), Commit(200), Commit(300), Commit(400), Commit(500));
         var consumer = new JetstreamConsumer(Options(store, persistInterval: 2), source.Connect);
@@ -198,6 +216,43 @@ public class JetstreamConsumerTests
     }
 
     [Fact]
+    public async Task ConsumeAsync_ReconnectAttemptsExhausted_ThrowsRatherThanEndingLikeTheStream()
+    {
+        var failure = new InvalidOperationException("connection reset");
+        var source = new ScriptedSource()
+            .Connection(Commit(100))
+            .FailingConnection(failure)
+            .FailingConnection(failure);
+        var consumer = new JetstreamConsumer(Options(maxReconnects: 2), source.Connect);
+
+        var events = new List<JetstreamEvent>();
+        var ex = await Assert.ThrowsAsync<EventStreamException>(async () =>
+        {
+            await foreach (var evt in consumer.ConsumeAsync(cancellationToken: TestContext.Current.CancellationToken))
+                events.Add(evt);
+        });
+
+        Assert.Single(events);
+        Assert.Same(failure, ex.InnerException);
+        Assert.Equal(3, source.ConnectionCount);
+    }
+
+    [Fact]
+    public async Task ConsumeAsync_ReconnectAttemptsResetOnceAConnectionDelivers()
+    {
+        // Two drops in a row would exhaust one attempt, but each connection delivers first.
+        var source = new ScriptedSource()
+            .Connection(Commit(100))
+            .Connection(Commit(200))
+            .Connection(Commit(300));
+        var consumer = new JetstreamConsumer(Options(maxReconnects: 1), source.Connect);
+
+        var events = await DrainAsync(consumer);
+
+        Assert.Equal([100L, 200L, 300L], events.Select(e => e.TimeUs).ToArray());
+    }
+
+    [Fact]
     public async Task ConsumeAsync_ConnectionException_TriggersReconnect()
     {
         var source = new ScriptedSource()
@@ -214,7 +269,7 @@ public class JetstreamConsumerTests
     [Fact]
     public async Task ConsumeAsync_Cancellation_PersistsFinalCursor()
     {
-        var store = new InMemoryFirehoseCursorStore();
+        var store = new InMemoryStreamCursorStore();
         var source = new ScriptedSource().Connection(
             Commit(100), Commit(200), Commit(300));
         var consumer = new JetstreamConsumer(Options(store, maxReconnects: -1), source.Connect);
@@ -239,11 +294,14 @@ public class JetstreamConsumerTests
     }
 
     [Fact]
-    public void JetstreamConsumer_Dispose_DoesNotThrow()
+    public void JetstreamConsumer_InvalidReconnectPolicy_Throws()
     {
-        var consumer = new JetstreamConsumer(Options());
+        var options = new JetstreamConsumerOptions
+        {
+            ServiceUrl = "wss://jetstream.test",
+            Reconnect = new StreamReconnectPolicy { MaxAttempts = -1 },
+        };
 
-        consumer.Dispose();
-        consumer.Dispose(); // Should not throw
+        Assert.Throws<ArgumentOutOfRangeException>(() => new JetstreamConsumer(options));
     }
 }

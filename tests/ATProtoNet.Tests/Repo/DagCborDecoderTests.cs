@@ -53,8 +53,38 @@ public class DagCborDecoderTests
         var decoded = DagCborDecoder.Decode(bytes);
         Assert.Equal(JsonValueKind.Object, decoded.ValueKind);
         Assert.True(decoded.TryGetProperty("$bytes", out var bytesValue));
-        var decodedData = Convert.FromBase64String(bytesValue.GetString()!);
-        Assert.Equal("Hello"u8.ToArray(), decodedData);
+        Assert.Equal("SGVsbG8", bytesValue.GetString());
+    }
+
+    [Theory]
+    [InlineData("", "")]
+    [InlineData("66", "Zg")]         // "f": two padding characters dropped
+    [InlineData("666f", "Zm8")]      // "fo": one dropped
+    [InlineData("666f6f", "Zm9v")]   // "foo": none to drop
+    [InlineData("fbff", "+/8")]      // the standard alphabet, not base64url
+    public void Decode_ByteString_WritesUnpaddedBase64(string hex, string expected)
+    {
+        // The atproto data model specifies base64 without padding (RFC 4648 §4, standard
+        // alphabet); these are the RFC's own test vectors.
+        var writer = new CborWriter(CborConformanceMode.Canonical);
+        writer.WriteByteString(Convert.FromHexString(hex));
+
+        var decoded = DagCborDecoder.Decode(writer.Encode());
+
+        Assert.Equal(expected, decoded.GetProperty("$bytes").GetString());
+    }
+
+    [Fact]
+    public void Decode_LargeByteString_WritesUnpaddedBase64()
+    {
+        // Past the stack buffer, the encoding goes through a pooled array.
+        var data = Enumerable.Range(0, 1000).Select(i => (byte)i).ToArray();
+        var writer = new CborWriter(CborConformanceMode.Canonical);
+        writer.WriteByteString(data);
+
+        var decoded = DagCborDecoder.Decode(writer.Encode());
+
+        Assert.Equal(Convert.ToBase64String(data).TrimEnd('='), decoded.GetProperty("$bytes").GetString());
     }
 
     [Fact]

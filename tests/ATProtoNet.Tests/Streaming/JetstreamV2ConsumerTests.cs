@@ -1,3 +1,4 @@
+using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using ATProtoNet.Identity;
 using ATProtoNet.Streaming;
 
@@ -16,7 +17,7 @@ public class JetstreamV2ConsumerTests
         Cursor = seq,
         Collection = Nsid.Parse("app.bsky.feed.post"),
         Rkey = RecordKey.Parse("3l3qo2vuowo2b"),
-        Operation = JetstreamOperation.Create,
+        Operation = RepoOpAction.Create,
     };
 
     /// <summary>
@@ -67,7 +68,7 @@ public class JetstreamV2ConsumerTests
     }
 
     private static JetstreamConsumerOptions Options(
-        IFirehoseCursorStore? store = null,
+        IStreamCursorStore? store = null,
         int persistInterval = 100,
         int maxReconnects = 0) => new()
     {
@@ -75,17 +76,11 @@ public class JetstreamV2ConsumerTests
         Protocol = JetstreamProtocol.V2,
         CursorStore = store,
         CursorPersistInterval = persistInterval,
-        MaxReconnectAttempts = maxReconnects,
-        ReconnectDelay = TimeSpan.FromMilliseconds(1),
+        Reconnect = JetstreamConsumerTests.Reconnect(maxReconnects),
     };
 
-    private static async Task<List<JetstreamEvent>> DrainAsync(JetstreamConsumer consumer, long? cursor = null)
-    {
-        var events = new List<JetstreamEvent>();
-        await foreach (var evt in consumer.ConsumeAsync(cursor))
-            events.Add(evt);
-        return events;
-    }
+    private static Task<List<JetstreamEvent>> DrainAsync(JetstreamConsumer consumer, long? cursor = null)
+        => JetstreamConsumerTests.DrainAsync(consumer, cursor);
 
     [Fact]
     public async Task ConsumeAsync_TracksLastSequenceNumber()
@@ -130,7 +125,7 @@ public class JetstreamV2ConsumerTests
     [Fact]
     public async Task ConsumeAsync_PersistsSequenceNumberNotTimestamp()
     {
-        var store = new InMemoryFirehoseCursorStore();
+        var store = new InMemoryStreamCursorStore();
         var source = new ScriptedSource().Connection(Commit(100), Commit(200), Commit(300));
         var consumer = new JetstreamConsumer(Options(store, persistInterval: 2), source.Connect);
 
@@ -142,7 +137,7 @@ public class JetstreamV2ConsumerTests
     [Fact]
     public async Task ConsumeAsync_ResumesFromStoredSequenceNumber()
     {
-        var store = new InMemoryFirehoseCursorStore();
+        var store = new InMemoryStreamCursorStore();
         await store.StoreCursorAsync(StreamId, 24664288881);
         var source = new ScriptedSource().Connection(Commit(24664288882));
         var consumer = new JetstreamConsumer(Options(store), source.Connect);
@@ -157,14 +152,14 @@ public class JetstreamV2ConsumerTests
     {
         // Storing a v2 event's timestamp would hand the server a resume position it reads as
         // a sequence number, silently jumping the stream forward.
-        var store = new InMemoryFirehoseCursorStore();
+        var store = new InMemoryStreamCursorStore();
         var seqless = new JetstreamCommitEvent
         {
             Did = Did.Parse(TestDid),
             TimeUs = 1_725_911_162_329_308,
             Collection = Nsid.Parse("app.bsky.feed.post"),
             Rkey = RecordKey.Parse("3l3qo2vuowo2b"),
-            Operation = JetstreamOperation.Create,
+            Operation = RepoOpAction.Create,
         };
         var source = new ScriptedSource().Connection(seqless);
         var consumer = new JetstreamConsumer(Options(store, persistInterval: 1), source.Connect);
@@ -179,7 +174,7 @@ public class JetstreamV2ConsumerTests
     public async Task ConsumeAsync_RetryableConnectFailure_Reconnects()
     {
         var source = new ScriptedSource()
-            .FailingConnection(new JetstreamConnectException("rate limited", statusCode: 429))
+            .FailingConnection(new JetstreamException("rate limited", statusCode: 429))
             .Connection(Commit(100));
         var consumer = new JetstreamConsumer(Options(maxReconnects: 1), source.Connect);
 
@@ -194,10 +189,10 @@ public class JetstreamV2ConsumerTests
         // CursorTooOld: reconnecting with the same cursor can only fail the same way, and
         // dropping the cursor would silently skip the gap the caller must backfill.
         var source = new ScriptedSource()
-            .FailingConnection(new JetstreamConnectException("cursor too old", statusCode: 400));
+            .FailingConnection(new JetstreamException("cursor too old", statusCode: 400));
         var consumer = new JetstreamConsumer(Options(maxReconnects: -1), source.Connect);
 
-        var ex = await Assert.ThrowsAsync<JetstreamConnectException>(() => DrainAsync(consumer));
+        var ex = await Assert.ThrowsAsync<JetstreamException>(() => DrainAsync(consumer));
 
         Assert.Equal(400, ex.StatusCode);
         Assert.Single(source.ObservedCursors);
@@ -206,25 +201,152 @@ public class JetstreamV2ConsumerTests
     [Fact]
     public async Task ConsumeAsync_RejectedSubscription_PersistsProgressBeforeThrowing()
     {
-        var store = new InMemoryFirehoseCursorStore();
+        var store = new InMemoryStreamCursorStore();
         var source = new ScriptedSource()
             .Connection(Commit(100))
-            .FailingConnection(new JetstreamConnectException("cursor too old", statusCode: 400));
+            .FailingConnection(new JetstreamException("cursor too old", statusCode: 400));
         var consumer = new JetstreamConsumer(Options(store, maxReconnects: -1), source.Connect);
 
-        await Assert.ThrowsAsync<JetstreamConnectException>(() => DrainAsync(consumer));
+        await Assert.ThrowsAsync<JetstreamException>(() => DrainAsync(consumer));
 
         Assert.Equal(100L, await store.GetCursorAsync(StreamId));
+    }
+
+    [Fact]
+    public async Task ConsumeAsync_SequenceCursor_SkipsTheInclusiveReplayOfIt()
+    {
+        // The server replays ?cursor=N inclusively, and N is the last event already handled.
+        var source = new ScriptedSource().Connection(Commit(100), Commit(101));
+        var consumer = new JetstreamConsumer(Options(), source.Connect);
+
+        var events = await DrainAsync(consumer, cursor: 100);
+
+        Assert.Equal([101L], events.Select(e => e.Cursor).ToArray());
+    }
+
+    [Fact]
+    public async Task ConsumeAsync_TimestampCursor_IsNotADedupFloorForSequenceNumbers()
+    {
+        // A cursor of 10^15 or more seeks by time. Treated as a sequence floor it would drop every
+        // event, since sequence numbers are far below it.
+        var seek = JetstreamCursor.FromTimestamp(new DateTimeOffset(2026, 9, 25, 0, 0, 0, TimeSpan.Zero));
+        var store = new InMemoryStreamCursorStore();
+        var source = new ScriptedSource().Connection(Commit(100), Commit(101));
+        var consumer = new JetstreamConsumer(Options(store), source.Connect);
+
+        var events = await DrainAsync(consumer, cursor: seek);
+
+        Assert.Equal([100L, 101L], events.Select(e => e.Cursor).ToArray());
+        Assert.Equal([seek], source.ObservedCursors);
+        Assert.Equal(101L, await store.GetCursorAsync(StreamId));
+    }
+
+    [Fact]
+    public async Task ConsumeAsync_TimestampCursor_ReconnectsBySequenceNumber()
+    {
+        var seek = JetstreamCursor.FromTimestamp(new DateTimeOffset(2026, 9, 25, 0, 0, 0, TimeSpan.Zero));
+        var source = new ScriptedSource()
+            .Connection(Commit(100))
+            .Connection(Commit(100), Commit(101));
+        var consumer = new JetstreamConsumer(Options(maxReconnects: 1), source.Connect);
+
+        var events = await DrainAsync(consumer, cursor: seek);
+
+        Assert.Equal([100L, 101L], events.Select(e => e.Cursor).ToArray());
+        Assert.Equal(seek, source.ObservedCursors[0]);
+        Assert.Equal(100L, source.ObservedCursors[1]);
+    }
+
+    [Fact]
+    public async Task ConsumeAsync_TimestampSeekBeforeAnyEvent_ReconnectsWithTheTimestamp()
+    {
+        var seek = JetstreamCursor.FromTimestamp(new DateTimeOffset(2026, 9, 25, 0, 0, 0, TimeSpan.Zero));
+        var source = new ScriptedSource()
+            .FailingConnection(new InvalidOperationException("reset"))
+            .Connection(Commit(100));
+        var consumer = new JetstreamConsumer(Options(maxReconnects: 1), source.Connect);
+
+        await DrainAsync(consumer, cursor: seek);
+
+        Assert.Equal(seek, source.ObservedCursors[1]);
+    }
+
+    [Fact]
+    public async Task ConsumeAsync_StoredV1Cursor_MigratesToSequenceNumbers()
+    {
+        // A v1 consumer stored time_us; the same store read by a v2 consumer seeks by that time and
+        // from then on persists sequence numbers.
+        const long v1Cursor = 1_725_911_162_329_308;
+        var store = new InMemoryStreamCursorStore();
+        await store.StoreCursorAsync(StreamId, v1Cursor);
+        var source = new ScriptedSource().Connection(Commit(24664288882));
+        var consumer = new JetstreamConsumer(Options(store), source.Connect);
+
+        var events = await DrainAsync(consumer);
+
+        Assert.Single(events);
+        Assert.Equal([v1Cursor], source.ObservedCursors);
+        Assert.Equal(24664288882L, await store.GetCursorAsync(StreamId));
+    }
+
+    [Fact]
+    public async Task ConsumeAsync_RetryableErrorFrame_Reconnects()
+    {
+        var source = new ScriptedSource()
+            .FailingConnection(new JetstreamException("too slow", error: EventStreamErrors.ConsumerTooSlow))
+            .Connection(Commit(100));
+        var consumer = new JetstreamConsumer(Options(maxReconnects: 1), source.Connect);
+
+        var events = await DrainAsync(consumer);
+
+        // The connection the error ended, the reconnect that delivered, and one more that the
+        // scripted source leaves empty.
+        Assert.Single(events);
+        Assert.Equal(3, source.ObservedCursors.Count);
+    }
+
+    [Fact]
+    public async Task ConsumeAsync_FutureCursorErrorFrame_Throws()
+    {
+        var source = new ScriptedSource()
+            .FailingConnection(new JetstreamException("ahead", error: EventStreamErrors.FutureCursor));
+        var consumer = new JetstreamConsumer(Options(maxReconnects: -1), source.Connect);
+
+        var ex = await Assert.ThrowsAsync<JetstreamException>(() => DrainAsync(consumer));
+
+        Assert.Equal(EventStreamErrors.FutureCursor, ex.Error);
+        Assert.Single(source.ObservedCursors);
     }
 
     [Theory]
     [InlineData(400, false)]
     [InlineData(404, false)]
+    [InlineData(408, true)]
     [InlineData(429, true)]
     [InlineData(500, true)]
     [InlineData(null, true)]
-    public void JetstreamConnectException_IsRetryable_FollowsStatusClass(int? statusCode, bool retryable)
+    public void JetstreamException_IsRetryable_FollowsStatusClass(int? statusCode, bool retryable)
     {
-        Assert.Equal(retryable, new JetstreamConnectException("...", statusCode).IsRetryable);
+        Assert.Equal(retryable, new JetstreamException("...", statusCode).IsRetryable);
+    }
+
+    [Fact]
+    public void JetstreamCursor_FromTimestamp_IsUnixMicroseconds()
+    {
+        var time = new DateTimeOffset(2024, 9, 9, 19, 46, 2, 329, TimeSpan.Zero).AddTicks(3080);
+
+        Assert.Equal(1_725_911_162_329_308, JetstreamCursor.FromTimestamp(time));
+        Assert.True(JetstreamCursor.IsTimestamp(1_725_911_162_329_308));
+        Assert.False(JetstreamCursor.IsTimestamp(24664288882));
+    }
+
+    [Fact]
+    public void JetstreamCursor_FromTimestamp_BeforeTheBoundary_Throws()
+    {
+        // 2001-09-09T01:46:40Z is 10^15 µs; anything earlier would read as a sequence number.
+        var boundary = DateTimeOffset.UnixEpoch.AddTicks(JetstreamCursor.TimestampThreshold * 10);
+
+        Assert.Equal(JetstreamCursor.TimestampThreshold, JetstreamCursor.FromTimestamp(boundary));
+        Assert.Throws<ArgumentOutOfRangeException>(() => JetstreamCursor.FromTimestamp(boundary.AddTicks(-10)));
     }
 }

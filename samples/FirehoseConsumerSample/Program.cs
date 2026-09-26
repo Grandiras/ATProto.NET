@@ -1,8 +1,9 @@
 // Firehose consumer sample — demonstrates real-time event streaming with filtering and verification
 // See docs/firehose.md for full documentation
 
-using ATProtoNet.Streaming;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Sync;
+using ATProtoNet.Streaming;
 
 Console.WriteLine("ATProto.NET Firehose Consumer Sample");
 Console.WriteLine("====================================");
@@ -17,15 +18,16 @@ Console.CancelKeyPress += (_, e) =>
     cts.Cancel();
 };
 
+var dropped = 0;
 var options = new TypedFirehoseConsumerOptions
 {
     ServiceUrl = "wss://bsky.network",
-    CollectionFilter = new HashSet<string> { "app.bsky.feed.post" },
-    CursorStore = new InMemoryFirehoseCursorStore(),
+    CollectionFilter = new HashSet<Nsid> { Nsid.Parse("app.bsky.feed.post") },
+    CursorStore = new InMemoryStreamCursorStore(),
     VerifyCids = true,
-    ReconnectDelay = TimeSpan.FromSeconds(5),
-    MaxReconnectAttempts = -1, // Unlimited reconnections
+    Reconnect = new StreamReconnectPolicy { MaxAttempts = null }, // Reconnect forever
     CursorPersistInterval = 100,
+    OnEventDropped = _ => Interlocked.Increment(ref dropped),
 };
 
 var consumer = new TypedFirehoseConsumer(options);
@@ -33,6 +35,7 @@ var count = 0;
 
 try
 {
+    // Ctrl+C cancels the token, which ends the loop normally with the cursor saved.
     await foreach (var msg in consumer.ConsumeAsync(cancellationToken: cts.Token))
     {
         if (msg is CommitEvent commit)
@@ -46,7 +49,10 @@ try
         }
     }
 }
-catch (OperationCanceledException)
+catch (EventStreamException ex)
 {
-    Console.WriteLine($"\nStopped. Processed {count} operations.");
+    // An error reconnecting cannot fix, such as FutureCursor.
+    Console.Error.WriteLine($"The firehose failed: {ex.Message}");
 }
+
+Console.WriteLine($"\nStopped at sequence {consumer.LastSeq}. Processed {count} operations, dropped {dropped} event(s).");

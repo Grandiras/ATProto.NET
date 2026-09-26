@@ -7,10 +7,13 @@ using ATProtoNet.Repo;
 namespace ATProtoNet.Streaming;
 
 /// <summary>
-/// Verifies the authenticity of firehose commit events against the AT Protocol specification.
-/// Performs CID verification, commit signature verification, and optionally MST proof verification.
+/// Verifies firehose events: that every block of a commit's CAR matches its CID, and that the
+/// commit is signed by the account's current signing key.
 /// </summary>
 /// <remarks>
+/// <para>It does not invert the commit's operations against the previous MST root
+/// (<c>prevData</c>), so it does not prove that the operations listed are the ones the signed
+/// commit made.</para>
 /// <para>Signature verification reads each account's signing key from its DID document, so the
 /// resolver must cache: a firehose carries thousands of commits a second from far fewer
 /// accounts. The default one does, and a cached key costs no network at all. Keep the cache
@@ -67,23 +70,13 @@ public sealed class FirehoseVerifier : IDisposable
     public static VerificationResult VerifyCid(CommitEvent commit)
     {
         ArgumentNullException.ThrowIfNull(commit);
-
-        if (commit.Blocks is null || commit.Blocks.Length == 0)
-            return VerificationResult.Failure("Commit has no blocks");
-
-        try
-        {
-            var car = CarReader.FromBytes(commit.Blocks);
-            return VerifyCarBlockCids(car);
-        }
-        catch (Exception ex)
-        {
-            return VerificationResult.Failure($"CID verification error: {ex.Message}");
-        }
+        return ReadVerifiedCar(commit.Blocks, "Commit", out _);
     }
 
     /// <summary>
-    /// Verifies a commit event's signature against the account's signing key from the DID document.
+    /// Verifies a commit event's signature against the account's signing key from the DID
+    /// document, and every block of its CAR against its CID; a passing result makes a separate
+    /// <see cref="VerifyCid(CommitEvent)"/> unnecessary.
     /// Performs: serialize unsigned commit as DAG-CBOR → SHA-256 → verify ECDSA signature.
     /// </summary>
     /// <param name="commit">The commit event with blocks.</param>
@@ -94,17 +87,16 @@ public sealed class FirehoseVerifier : IDisposable
     {
         ArgumentNullException.ThrowIfNull(commit);
 
-        if (commit.Blocks is null || commit.Blocks.Length == 0)
-            return VerificationResult.Failure("Commit has no blocks");
+        // Every block's CID is checked against its bytes: a signed commit only binds the commit
+        // block itself, so otherwise a peer could swap record bytes and leave the signature valid.
+        var cids = ReadVerifiedCar(commit.Blocks, "Commit", out var car);
+        if (!cids.IsValid)
+            return cids;
 
         try
         {
-            // Parse the CAR file and find the commit block (first root). Verify
-            // every block's CID against its bytes — a signed commit only binds the
-            // commit block itself; subtree blocks must be checked separately or a
-            // peer can swap record bytes while leaving the commit signature valid.
-            var car = CarReader.FromBytes(commit.Blocks, verifyBlockCids: true);
-            var rootBlock = car.GetRootBlock();
+            // The commit block is the CAR's first root.
+            var rootBlock = car!.GetRootBlock();
             if (rootBlock is null)
                 return VerificationResult.Failure("No root block in CAR");
 
@@ -146,7 +138,7 @@ public sealed class FirehoseVerifier : IDisposable
 
             return VerificationResult.Failure("Signature verification failed");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return VerificationResult.Failure($"Signature verification error: {ex.Message}");
         }
@@ -160,45 +152,28 @@ public sealed class FirehoseVerifier : IDisposable
     public static VerificationResult VerifyCid(SyncEvent syncEvent)
     {
         ArgumentNullException.ThrowIfNull(syncEvent);
+        return ReadVerifiedCar(syncEvent.Blocks, "Sync event", out _);
+    }
 
-        if (syncEvent.Blocks is null || syncEvent.Blocks.Length == 0)
-            return VerificationResult.Failure("Sync event has no blocks");
+    /// <summary>
+    /// Parses an event's CAR and checks every block against its CID, failing closed on a codec
+    /// other than dag-cbor or raw, which could otherwise carry blocks past the check.
+    /// </summary>
+    private static VerificationResult ReadVerifiedCar(byte[]? blocks, string what, out CarReader? car)
+    {
+        car = null;
+        if (blocks is null || blocks.Length == 0)
+            return VerificationResult.Failure($"{what} has no blocks");
 
         try
         {
-            var car = CarReader.FromBytes(syncEvent.Blocks);
-            return VerifyCarBlockCids(car);
+            car = CarReader.FromBytes(blocks, verifyBlockCids: true);
+            return VerificationResult.Success();
         }
-        catch (Exception ex)
+        catch (FormatException ex)
         {
             return VerificationResult.Failure($"CID verification error: {ex.Message}");
         }
-    }
-
-    private static VerificationResult VerifyCarBlockCids(CarReader car)
-    {
-        foreach (var block in car.Blocks)
-        {
-            // Fail closed on UnknownCodec, matching CarReader.VerifyAllBlockCids.
-            // AT Protocol only uses dag-cbor (0x71) and raw (0x55); anything else
-            // from an untrusted source could smuggle blocks past CID verification
-            // because the verifier can't recompute the digest under a codec it
-            // doesn't recognize. Diverging policy here from the CarReader path
-            // would let a hostile relay's commit pass the cheap pre-check while
-            // failing the full signature verification — opposite verdicts on the
-            // same input.
-            switch (CarReader.VerifyBlockCid(block))
-            {
-                case BlockCidVerification.Mismatch:
-                    return VerificationResult.Failure($"CID mismatch for block {block.CidHex}");
-                case BlockCidVerification.UnknownCodec:
-                    return VerificationResult.Failure(
-                        $"Block {block.CidHex} uses an unsupported CID codec; " +
-                        "AT Protocol only permits dag-cbor (0x71) and raw (0x55).");
-            }
-        }
-
-        return VerificationResult.Success();
     }
 
     /// <summary>

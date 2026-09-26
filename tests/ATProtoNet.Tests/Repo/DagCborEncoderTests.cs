@@ -108,10 +108,9 @@ public class DagCborEncoderTests
         var bytes = DagCborEncoder.Encode(json);
         var decoded = DagCborDecoder.Decode(bytes);
 
-        // Decoded back should be a $bytes object
+        // Decoded back should be a $bytes object, in the data model's unpadded base64
         Assert.True(decoded.TryGetProperty("$bytes", out var bytesValue));
-        var decodedBytes = Convert.FromBase64String(bytesValue.GetString()!);
-        Assert.Equal("Hello"u8.ToArray(), decodedBytes);
+        Assert.Equal("SGVsbG8", bytesValue.GetString());
     }
 
     [Fact]

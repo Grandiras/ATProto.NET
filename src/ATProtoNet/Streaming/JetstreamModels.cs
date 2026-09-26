@@ -1,22 +1,25 @@
 using System.Text.Json;
 using ATProtoNet.Identity;
+using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using ATProtoNet.Serialization;
-using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Streaming;
 
 /// <summary>
-/// Configuration options for <see cref="JetstreamClient"/> and <see cref="JetstreamConsumer"/>.
+/// Configuration options for <see cref="JetstreamClient"/>, <see cref="JetstreamConsumer"/> and
+/// <see cref="JetstreamReplayConsumer"/>.
 /// </summary>
-public sealed class JetstreamConsumerOptions
+/// <remarks>
+/// <see cref="StreamConsumerOptions.ServiceUrl"/> is the Jetstream host URL without the endpoint
+/// path (e.g., <c>wss://jetstream.us-east.bsky.network</c>); <c>http(s)</c> schemes are converted
+/// to <c>ws(s)</c> automatically. See <see cref="JetstreamEndpoints"/> for the public
+/// Bluesky-operated instances.
+/// </remarks>
+public sealed class JetstreamConsumerOptions : StreamConsumerOptions
 {
-    /// <summary>
-    /// The Jetstream host URL, without the endpoint path
-    /// (e.g., "wss://jetstream.us-east.bsky.network").
-    /// <c>http(s)</c> schemes are converted to <c>ws(s)</c> automatically.
-    /// See <see cref="JetstreamEndpoints"/> for the public Bluesky-operated instances.
-    /// </summary>
-    public required string ServiceUrl { get; init; }
+    private const int MaxWantedCollections = 100;
+    private const int MaxWantedDids = 10_000;
+    private const long MaxMaxMessageSizeBytes = 4_294_967_295;
 
     /// <summary>
     /// Which Jetstream wire protocol to speak. Defaults to
@@ -68,8 +71,8 @@ public sealed class JetstreamConsumerOptions
     public long? MaxMessageSizeBytes { get; init; }
 
     /// <summary>
-    /// Optional decompressor for zstd-compressed frames. When set, <c>compress=true</c>
-    /// is requested from the server and binary frames are passed through
+    /// Optional decompressor for zstd-compressed frames. When set, compressed frames are
+    /// requested from the server and binary frames are passed through
     /// <see cref="IJetstreamDecompressor.Decompress"/>. When null (default),
     /// uncompressed JSON text frames are requested.
     /// </summary>
@@ -80,7 +83,7 @@ public sealed class JetstreamConsumerOptions
     /// <c>ZstdSharp.Port</c>.</para>
     /// <para>On <see cref="JetstreamProtocol.V2"/> the dictionary is versioned and
     /// <see cref="ZstdDictionaryId"/> must be set alongside this — fetch both with
-    /// <see cref="JetstreamDictionaryClient"/>.</para>
+    /// <see cref="JetstreamArchiveClient.GetZstdDictionaryAsync"/>.</para>
     /// </remarks>
     public IJetstreamDecompressor? Decompressor { get; init; }
 
@@ -92,7 +95,7 @@ public sealed class JetstreamConsumerOptions
     /// </summary>
     /// <remarks>
     /// Obtain the ID and the matching dictionary bytes from
-    /// <see cref="JetstreamDictionaryClient.GetDictionaryAsync"/>. A retired ID is rejected
+    /// <see cref="JetstreamArchiveClient.GetZstdDictionaryAsync"/>. A retired ID is rejected
     /// before the WebSocket upgrade with an HTTP 400 (<c>UnknownZstdDictionary</c>) naming
     /// the current one.
     /// </remarks>
@@ -110,20 +113,6 @@ public sealed class JetstreamConsumerOptions
     /// </remarks>
     public JetstreamArchiveOptions? Archive { get; init; }
 
-    /// <summary>Optional cursor store for persistent resume across restarts.
-    /// The stored value is whatever the selected <see cref="Protocol"/> uses as its cursor:
-    /// the event's <c>time_us</c> (unix microseconds) on <see cref="JetstreamProtocol.V1"/>,
-    /// and its <c>seq</c> (<see cref="JetstreamEvent.Cursor"/>) on
-    /// <see cref="JetstreamProtocol.V2"/>. The two are not interchangeable — give each
-    /// protocol its own <see cref="StreamId"/> if both share a store.</summary>
-    public IFirehoseCursorStore? CursorStore { get; init; }
-
-    /// <summary>Stream identifier used as the key for cursor storage. Defaults to the service URL.</summary>
-    public string? StreamId { get; init; }
-
-    /// <summary>Interval (in number of events) between cursor persistence. Default: 100.</summary>
-    public int CursorPersistInterval { get; init; } = 100;
-
     /// <summary>
     /// How far to rewind the cursor when reconnecting, to compensate for events that may
     /// have been in flight when the connection dropped. Replayed events already delivered
@@ -136,15 +125,6 @@ public sealed class JetstreamConsumerOptions
     /// </remarks>
     public TimeSpan ReconnectRewind { get; init; } = TimeSpan.FromSeconds(5);
 
-    /// <summary>Base delay between reconnection attempts. Default: 5 seconds.</summary>
-    public TimeSpan ReconnectDelay { get; init; } = TimeSpan.FromSeconds(5);
-
-    /// <summary>Max reconnection attempts. Default: 10. Use -1 for unlimited.</summary>
-    public int MaxReconnectAttempts { get; init; } = 10;
-
-    /// <summary>Optional logger.</summary>
-    public ILogger? Logger { get; init; }
-
     /// <summary>
     /// Invoked for each advisory <c>#info</c> frame. <see cref="JetstreamProtocol.V2"/> only.
     /// Info frames carry no sequence number and do not advance the cursor, so they are not
@@ -152,15 +132,52 @@ public sealed class JetstreamConsumerOptions
     /// </summary>
     public Action<JetstreamInfo>? OnInfo { get; init; }
 
-    /// <summary>
-    /// Invoked when the server sends a terminal error frame (e.g. <c>ConsumerTooSlow</c>)
-    /// before closing the stream. <see cref="JetstreamProtocol.V2"/> only.
-    /// <see cref="JetstreamConsumer"/> reconnects afterwards as it would after any drop.
-    /// </summary>
-    public Action<JetstreamStreamError>? OnStreamError { get; init; }
+    /// <inheritdoc/>
+    internal override void Validate()
+    {
+        base.Validate();
 
-    /// <summary>The resolved stream identifier for cursor storage.</summary>
-    internal string ResolvedStreamId => StreamId ?? ServiceUrl;
+        if (WantedCollections is { Count: > MaxWantedCollections })
+            throw new ArgumentException(
+                $"Jetstream accepts at most {MaxWantedCollections} wantedCollections entries " +
+                $"(got {WantedCollections.Count}).");
+        if (WantedDids is { Count: > MaxWantedDids })
+            throw new ArgumentException(
+                $"Jetstream accepts at most {MaxWantedDids} wantedDids entries (got {WantedDids.Count}).");
+        if (MaxMessageSizeBytes is < 0 or > MaxMaxMessageSizeBytes)
+            throw new ArgumentException(
+                $"MaxMessageSizeBytes must be between 0 and {MaxMaxMessageSizeBytes} (got {MaxMessageSizeBytes}).");
+
+        if (Protocol != JetstreamProtocol.V2)
+        {
+            if (WantedKinds is { Count: > 0 })
+                throw new ArgumentException(
+                    "WantedKinds requires JetstreamProtocol.V2; the v1 wire has no kinds filter.");
+            if (ZstdDictionaryId is not null)
+                throw new ArgumentException(
+                    "ZstdDictionaryId requires JetstreamProtocol.V2; the v1 wire negotiates " +
+                    "compression with compress=true and an unversioned dictionary.");
+            return;
+        }
+
+        // The server rejects this pre-upgrade, since a collection filter that can never match a
+        // delivered kind is always a mistake. Fail before opening the socket.
+        if (WantedCollections is { Count: > 0 }
+            && WantedKinds is { Count: > 0 } kinds
+            && !kinds.Contains(JetstreamEventKind.Commit))
+            throw new ArgumentException(
+                "WantedCollections only constrains commit events, so it cannot be combined " +
+                "with a WantedKinds list that excludes JetstreamEventKind.Commit.");
+        if (Decompressor is not null && ZstdDictionaryId is null)
+            throw new ArgumentException(
+                "JetstreamProtocol.V2 compression is dictionary-versioned: set ZstdDictionaryId " +
+                "to the id of the dictionary the decompressor was built with " +
+                $"(see {nameof(JetstreamArchiveClient)}.{nameof(JetstreamArchiveClient.GetZstdDictionaryAsync)}).");
+        if (ZstdDictionaryId is not null && Decompressor is null)
+            throw new ArgumentException(
+                "ZstdDictionaryId makes the server send binary zstd frames, so it requires " +
+                "a Decompressor to read them.");
+    }
 }
 
 /// <summary>The Jetstream wire protocol a client speaks.</summary>
@@ -205,6 +222,62 @@ public enum JetstreamEventKind
     Sync,
 }
 
+/// <summary>The wire names of <see cref="JetstreamEventKind"/>, shared by the live and archive filters.</summary>
+internal static class JetstreamKinds
+{
+    /// <summary>The wire name of an event kind — the <c>$type</c> fragment the server filters on.</summary>
+    public static string Name(JetstreamEventKind kind) => kind switch
+    {
+        JetstreamEventKind.Commit => "commit",
+        JetstreamEventKind.Identity => "identity",
+        JetstreamEventKind.Account => "account",
+        JetstreamEventKind.Sync => "sync",
+        _ => throw new ArgumentException($"Unknown Jetstream event kind: {kind}", nameof(kind)),
+    };
+}
+
+/// <summary>
+/// Jetstream cursors: sequence numbers, and the unix-microseconds timestamps v1 used, which v2
+/// still accepts as a seek position.
+/// </summary>
+/// <remarks>
+/// <para>Jetstream splits the two at 10^15: a cursor below it is a sequence number, a cursor at or
+/// above it a unix-microseconds timestamp (any time after September 2001). On
+/// <see cref="JetstreamProtocol.V2"/> a timestamp cursor seeks to the first retained event
+/// witnessed at or after that time; the consumer then resumes by sequence number, so a stored v1
+/// cursor migrates to v2 by itself.</para>
+/// <para>A timestamp seek is at-least-once: it may redeliver events around the boundary, and they
+/// cannot be deduplicated by <see cref="JetstreamEvent.TimeUs"/>, which can be an imported display
+/// time rather than the time the server seeks by. Never build a cursor near the boundary by hand.</para>
+/// </remarks>
+public static class JetstreamCursor
+{
+    /// <summary>The smallest timestamp cursor: 10^15 unix microseconds. Smaller values are sequence numbers.</summary>
+    public const long TimestampThreshold = 1_000_000_000_000_000;
+
+    /// <summary>
+    /// A cursor that seeks to <paramref name="time"/>: on <see cref="JetstreamProtocol.V2"/> the
+    /// first retained event witnessed at or after it, on <see cref="JetstreamProtocol.V1"/> its
+    /// native cursor.
+    /// </summary>
+    /// <param name="time">The time to start from.</param>
+    /// <returns>The time in unix microseconds.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="time"/> is before 2001-09-09,
+    /// whose microseconds would read as a sequence number.</exception>
+    public static long FromTimestamp(DateTimeOffset time)
+    {
+        var micros = (time.UtcTicks - DateTimeOffset.UnixEpoch.UtcTicks) / 10;
+        if (micros < TimestampThreshold)
+            throw new ArgumentOutOfRangeException(nameof(time), time,
+                "A timestamp cursor must be at or after 2001-09-09T01:46:40Z; earlier ones read as sequence numbers.");
+        return micros;
+    }
+
+    /// <summary>Whether <paramref name="cursor"/> is a unix-microseconds timestamp rather than a sequence number.</summary>
+    /// <param name="cursor">The cursor.</param>
+    public static bool IsTimestamp(long cursor) => cursor >= TimestampThreshold;
+}
+
 /// <summary>
 /// The public Jetstream instances operated by Bluesky.
 /// </summary>
@@ -244,67 +317,53 @@ public sealed class JetstreamInfo
 }
 
 /// <summary>
-/// A terminal error frame sent by the server immediately before it closes the stream
-/// (a v2 <c>error</c> envelope).
-/// </summary>
-public sealed class JetstreamStreamError
-{
-    /// <summary>The error name, with no namespace or <c>#</c> prefix — e.g. <c>ConsumerTooSlow</c>.</summary>
-    public required string Error { get; init; }
-
-    /// <summary>A human-readable description, if the server provided one.</summary>
-    public string? Message { get; init; }
-}
-
-/// <summary>
 /// The outcome of parsing one Jetstream frame: at most one of an event, an advisory notice,
 /// or a terminal error. All three are null for a frame that could not be understood, which
 /// callers should skip.
 /// </summary>
 /// <param name="Event">The parsed event, if the frame carried one.</param>
 /// <param name="Info">The advisory notice, if the frame was an <c>#info</c>.</param>
-/// <param name="Error">The terminal error, if the frame was an error envelope.</param>
+/// <param name="Error">The terminal error, if the frame was a v2 error envelope.</param>
 public readonly record struct JetstreamFrame(
     JetstreamEvent? Event,
     JetstreamInfo? Info,
-    JetstreamStreamError? Error);
+    EventStreamError? Error);
 
 /// <summary>
-/// Thrown when a Jetstream subscription is rejected before the WebSocket upgrade completes.
+/// Thrown when Jetstream refuses a subscription, an archive or dictionary request fails, a
+/// segment cannot be decoded, or the live stream ends with an error frame.
 /// </summary>
 /// <remarks>
-/// The v2 endpoint validates the subscription up front and answers with an XRPC error
-/// envelope: <c>CursorTooOld</c> when the requested sequence number is below the retention
+/// <para>The v2 endpoint validates a subscription before the WebSocket upgrade and answers with
+/// an XRPC error: <c>CursorTooOld</c> when the requested sequence number is below the retention
 /// floor, <c>UnknownZstdDictionary</c> for a retired dictionary ID, and <c>InvalidRequest</c>
 /// for a malformed filter. None of those become valid by retrying the same request, so
 /// <see cref="JetstreamConsumer"/> rethrows rather than reconnecting — a backfilling consumer
-/// is meant to re-enter its backfill from the last sequence number it durably processed.
+/// is meant to re-enter its backfill from the last sequence number it durably processed.</para>
+/// <para>The metered archive endpoints answer a missing or revoked key with <c>401</c>
+/// (<c>invalid bearer credential</c>) and an exhausted byte quota with <c>429</c>
+/// (<c>byte limit exceeded</c>) plus a <c>Retry-After</c> header;
+/// <see cref="JetstreamArchiveClient"/> waits out a <c>429</c> before it gives up.</para>
 /// </remarks>
-public sealed class JetstreamConnectException : AtProtoException
+public sealed class JetstreamException : EventStreamException
 {
-    /// <summary>Create a connect exception.</summary>
+    /// <summary>Create a Jetstream exception.</summary>
     /// <param name="message">The error description.</param>
-    /// <param name="statusCode">The HTTP status the server answered the upgrade with, if known.</param>
-    /// <param name="innerException">The underlying transport exception, if any.</param>
-    public JetstreamConnectException(string message, int? statusCode = null, Exception? innerException = null)
-        : base(message, innerException)
-        => StatusCode = statusCode;
+    /// <param name="statusCode">The HTTP status the server answered with, if any.</param>
+    /// <param name="error">The XRPC error name from the response body or error frame, if any.</param>
+    /// <param name="retryAfter">The <c>Retry-After</c> the response asked for, if any.</param>
+    /// <param name="innerException">The underlying exception, if any.</param>
+    public JetstreamException(
+        string message,
+        int? statusCode = null,
+        string? error = null,
+        TimeSpan? retryAfter = null,
+        Exception? innerException = null)
+        : base(message, error, statusCode, innerException)
+        => RetryAfter = retryAfter;
 
-    /// <summary>The HTTP status code the upgrade request was answered with, if the transport reported one.</summary>
-    public int? StatusCode { get; }
-
-    /// <summary>
-    /// The XRPC error name the server answered with (e.g. <c>DictionaryNotFound</c>), when the
-    /// failure came from a response whose body could be read. A refused WebSocket upgrade does
-    /// not expose its body, so this is <see langword="null"/> there.
-    /// </summary>
-    public string? Error { get; init; }
-
-    /// <summary>
-    /// Whether reconnecting with the same request could succeed. False for 4xx statuses other
-    /// than 429, which reject the subscription itself rather than reporting a transient fault.
-    /// </summary>
-    public bool IsRetryable => StatusCode is not (>= 400 and < 500) || StatusCode == 429;
+    /// <summary>How long the server asked the client to wait, if it sent <c>Retry-After</c>.</summary>
+    public TimeSpan? RetryAfter { get; }
 }
 
 /// <summary>
@@ -317,23 +376,6 @@ public interface IJetstreamDecompressor
     /// <param name="frame">The raw compressed frame.</param>
     /// <returns>The decompressed UTF-8 JSON payload.</returns>
     byte[] Decompress(ReadOnlySpan<byte> frame);
-}
-
-/// <summary>The repository operation carried by a Jetstream commit event.</summary>
-/// <remarks>
-/// The same three operations as the firehose's
-/// <see cref="Lexicon.Com.AtProto.Sync.RepoOpAction"/>.
-/// </remarks>
-public enum JetstreamOperation
-{
-    /// <summary>A record was created.</summary>
-    Create,
-
-    /// <summary>A record was updated.</summary>
-    Update,
-
-    /// <summary>A record was deleted.</summary>
-    Delete,
 }
 
 /// <summary>
@@ -375,7 +417,7 @@ public abstract class JetstreamEvent
 }
 
 /// <summary>A record create/update/delete in a repository.</summary>
-public sealed class JetstreamCommitEvent : JetstreamEvent
+public sealed class JetstreamCommitEvent : JetstreamEvent, IRecordEvent
 {
     private AtUri? _uri;
 
@@ -386,7 +428,7 @@ public sealed class JetstreamCommitEvent : JetstreamEvent
     public required RecordKey Rkey { get; init; }
 
     /// <summary>The repository operation.</summary>
-    public required JetstreamOperation Operation { get; init; }
+    public required RepoOpAction Operation { get; init; }
 
     /// <summary>The repo revision of the commit, if present.</summary>
     public Tid? Rev { get; init; }

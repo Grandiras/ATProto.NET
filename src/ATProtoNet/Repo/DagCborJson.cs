@@ -1,3 +1,5 @@
+using System.Buffers;
+using System.Buffers.Text;
 using System.Formats.Cbor;
 using System.Text.Json;
 
@@ -10,7 +12,7 @@ internal enum DagCborJsonForm
 {
     /// <summary>
     /// The AT Protocol JSON data model: a CID becomes <c>{"$link": "bafy…"}</c> and a byte string
-    /// becomes <c>{"$bytes": "&lt;base64&gt;"}</c>.
+    /// becomes <c>{"$bytes": "&lt;base64&gt;"}</c>, unpadded as the data model specifies.
     /// </summary>
     Wrapped,
 
@@ -196,8 +198,36 @@ internal static class DagCborJson
         EnsureDepth(depth + 1);
         writer.WriteStartObject();
         writer.WritePropertyName("$bytes");
-        writer.WriteBase64StringValue(reader.ReadByteString());
+        WriteUnpaddedBase64(writer, reader.ReadByteString());
         writer.WriteEndObject();
+    }
+
+    /// <summary>
+    /// Writes <paramref name="bytes"/> as a base64 string without trailing <c>=</c>: the data
+    /// model's <c>$bytes</c> form. <see cref="Utf8JsonWriter.WriteBase64StringValue"/> always pads.
+    /// </summary>
+    private static void WriteUnpaddedBase64(Utf8JsonWriter writer, byte[] bytes)
+    {
+        // Two quotes around the encoding; the base64 alphabet needs no JSON escaping.
+        var length = Base64.GetMaxEncodedToUtf8Length(bytes.Length) + 2;
+        byte[]? rented = null;
+        Span<byte> buffer = length <= 256 ? stackalloc byte[256] : (rented = ArrayPool<byte>.Shared.Rent(length));
+
+        try
+        {
+            Base64.EncodeToUtf8(bytes, buffer[1..], out _, out var written);
+            while (written > 0 && buffer[written] == (byte)'=')
+                written--;
+
+            buffer[0] = (byte)'"';
+            buffer[written + 1] = (byte)'"';
+            writer.WriteRawValue(buffer[..(written + 2)], skipInputValidation: true);
+        }
+        finally
+        {
+            if (rented is not null)
+                ArrayPool<byte>.Shared.Return(rented);
+        }
     }
 
     private static void EnsureDepth(int depth)
