@@ -1,40 +1,23 @@
-using ATProtoNet.Identity;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Spaces;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Server.Spaces;
 
-public class InMemorySpaceAuthorityStoreTests
+/// <summary>The contract every <see cref="ISpaceAuthorityStore"/> must satisfy, held in memory.</summary>
+public class InMemorySpaceAuthorityStoreTests : SpaceAuthorityStoreContractTests
 {
-    private static readonly SpaceUri Space =
-        SpaceUri.Parse("at://did:plc:bbbbbbbbbbbbbbbbbbbbbbbb/space/com.example.bespoke/default");
+    protected override ISpaceAuthorityStore CreateStore() => new InMemorySpaceAuthorityStore();
 
-    [Fact]
-    public async Task MarkDeleted_ADeclaredSpace_AnswersSpaceDeleted()
+    protected override Task DeclareSpaceAsync(ISpaceAuthorityStore store, SpaceUri space)
     {
-        // A bespoke space type has no simplespace store to read its deletion from, so the
-        // authority store is where it is recorded.
-        var store = new InMemorySpaceAuthorityStore();
-        store.DeclareSpace(Space);
-
-        store.MarkDeleted(Space);
-
-        Assert.Equal(SpaceAccessOutcome.SpaceDeleted, await store.GetSpaceStateAsync(Space));
+        ((InMemorySpaceAuthorityStore)store).DeclareSpace(space);
+        return Task.CompletedTask;
     }
 
-    [Fact]
-    public async Task ListReposAsync_PagesByDidWithACursor()
+    protected override Task MarkDeletedAsync(ISpaceAuthorityStore store, SpaceUri space)
     {
-        var store = new InMemorySpaceAuthorityStore();
-        foreach (var did in new[] { "did:plc:c", "did:plc:a", "did:plc:b" })
-            await store.RecordWriteAsync(Space, Did.Parse(did), Tid.Parse("3kaaaaaaaaaaa"), [1]);
-
-        var first = await store.ListReposAsync(Space, limit: 2, cursor: null);
-        var second = await store.ListReposAsync(Space, limit: 2, cursor: first.Cursor);
-
-        Assert.Equal(["did:plc:a", "did:plc:b"], first.Repos.Select(r => r.Did.Value));
-        Assert.Equal("did:plc:b", first.Cursor);
-        Assert.Equal(["did:plc:c"], second.Repos.Select(r => r.Did.Value));
-        Assert.Null(second.Cursor);
+        ((InMemorySpaceAuthorityStore)store).MarkDeleted(space);
+        return Task.CompletedTask;
     }
 }

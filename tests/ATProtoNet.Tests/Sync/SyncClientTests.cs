@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using ATProtoNet.Identity;
 using ATProtoNet.Repo;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Sync;
 
@@ -12,6 +13,9 @@ namespace ATProtoNet.Tests.Sync;
 /// </summary>
 public sealed class SyncClientTests : IDisposable
 {
+    private const string GetRecord = "com.atproto.sync.getRecord";
+    private const string GetBlocks = "com.atproto.sync.getBlocks";
+
     private static readonly JsonElement Vector = LoadVector();
     private static readonly Did Repo = Did.Parse(Vector.GetProperty("did").GetString()!);
     private static readonly string SigningKey = Vector.GetProperty("signingKey").GetString()!;
@@ -19,39 +23,42 @@ public sealed class SyncClientTests : IDisposable
     private static readonly RecordKey Rkey = RecordKey.Parse(Vector.GetProperty("rkey").GetString()!);
     private static readonly byte[] ProofCar = Convert.FromBase64String(Vector.GetProperty("presentCar").GetString()!);
 
-    private readonly CarHandler _handler = new();
-    private readonly HttpClient _httpClient;
-    private readonly AtProtoClient _client;
+    private readonly XrpcTestClient _fixture = new();
 
-    public SyncClientTests()
-    {
-        _httpClient = new HttpClient(_handler);
-        _client = new AtProtoClient(
-            new AtProtoClientOptions { InstanceUrl = "https://pds.example.com", AutoRefreshSession = false },
-            _httpClient, null, null);
-    }
+    private AtProtoClient Client => _fixture.Client;
 
-    public void Dispose()
+    public void Dispose() => _fixture.Dispose();
+
+    /// <summary>Scripts a CAR body, declaring its length or sending it chunked (as <c>DeclareLength: false</c> does).</summary>
+    private void RespondWithCar(string nsid, byte[] body, bool declareLength = true, long? declaredLength = null)
     {
-        _client.Dispose();
-        _httpClient.Dispose();
-        _handler.Dispose();
-        GC.SuppressFinalize(this);
+        _fixture.On(nsid, _ =>
+        {
+            HttpContent content = declareLength
+                ? new ByteArrayContent(body)
+                : new StreamContent(new NonSeekableStream(body));
+            content.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.ipld.car");
+            if (declaredLength is { } declared)
+                content.Headers.ContentLength = declared;
+
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+        });
     }
 
     [Fact]
     public async Task GetRecordAsync_QueriesTheRecordAndStreamsTheCar()
     {
-        _handler.Body = ProofCar;
+        RespondWithCar(GetRecord, ProofCar);
 
-        await using var response = await _client.Sync.GetRecordAsync(Repo, Collection, Rkey);
+        await using var response = await Client.Sync.GetRecordAsync(Repo, Collection, Rkey);
         using var copy = new MemoryStream();
         await response.Content.CopyToAsync(copy);
 
-        Assert.Equal(HttpMethod.Get, _handler.LastMethod);
+        var sent = _fixture.To(GetRecord).Single();
+        Assert.Equal(HttpMethod.Get, sent.Method);
         Assert.Equal(
             $"/xrpc/com.atproto.sync.getRecord?did={Repo}&collection={Collection}&rkey={Rkey}",
-            Uri.UnescapeDataString(_handler.LastUri!.PathAndQuery));
+            Uri.UnescapeDataString(sent.Uri.PathAndQuery));
         Assert.Equal("application/vnd.ipld.car", response.ContentType);
         Assert.Equal(ProofCar, copy.ToArray());
     }
@@ -59,9 +66,9 @@ public sealed class SyncClientTests : IDisposable
     [Fact]
     public async Task GetVerifiedRecordAsync_ReferenceProof_ReturnsTheVerifiedRecord()
     {
-        _handler.Body = ProofCar;
+        RespondWithCar(GetRecord, ProofCar);
 
-        var record = await _client.Sync.GetVerifiedRecordAsync(Repo, Collection, Rkey, SigningKey);
+        var record = await Client.Sync.GetVerifiedRecordAsync(Repo, Collection, Rkey, SigningKey);
 
         Assert.True(record.Exists);
         Assert.Equal(Vector.GetProperty("recordCid").GetString(), record.Cid!.Value);
@@ -71,10 +78,9 @@ public sealed class SyncClientTests : IDisposable
     [Fact]
     public async Task GetVerifiedRecordAsync_ChunkedResponse_IsReadWhole()
     {
-        _handler.Body = ProofCar;
-        _handler.DeclareLength = false;
+        RespondWithCar(GetRecord, ProofCar, declareLength: false);
 
-        var record = await _client.Sync.GetVerifiedRecordAsync(Repo, Collection, Rkey, SigningKey);
+        var record = await Client.Sync.GetVerifiedRecordAsync(Repo, Collection, Rkey, SigningKey);
 
         Assert.True(record.Exists);
     }
@@ -82,21 +88,20 @@ public sealed class SyncClientTests : IDisposable
     [Fact]
     public async Task GetVerifiedRecordAsync_WrongSigningKey_Throws()
     {
-        _handler.Body = ProofCar;
+        RespondWithCar(GetRecord, ProofCar);
         using var other = ATProtoNet.Crypto.AtProtoCrypto.GenerateK256Key();
 
         await Assert.ThrowsAsync<RepoVerificationException>(
-            () => _client.Sync.GetVerifiedRecordAsync(Repo, Collection, Rkey, other.ToDidKey()));
+            () => Client.Sync.GetVerifiedRecordAsync(Repo, Collection, Rkey, other.ToDidKey()));
     }
 
     [Fact]
     public async Task GetVerifiedRecordAsync_DeclaredLengthOverTheCeiling_ThrowsWithoutReading()
     {
-        _handler.Body = ProofCar;
-        _handler.DeclaredLength = 64L * 1024 * 1024;
+        RespondWithCar(GetRecord, ProofCar, declaredLength: 64L * 1024 * 1024);
 
         var ex = await Assert.ThrowsAsync<RepoVerificationException>(
-            () => _client.Sync.GetVerifiedRecordAsync(Repo, Collection, Rkey, SigningKey));
+            () => Client.Sync.GetVerifiedRecordAsync(Repo, Collection, Rkey, SigningKey));
 
         Assert.Contains("larger than", ex.Message);
     }
@@ -104,11 +109,10 @@ public sealed class SyncClientTests : IDisposable
     [Fact]
     public async Task GetVerifiedRecordAsync_ChunkedBodyOverTheCeiling_Throws()
     {
-        _handler.Body = new byte[16 * 1024 * 1024 + 1];
-        _handler.DeclareLength = false;
+        RespondWithCar(GetRecord, new byte[16 * 1024 * 1024 + 1], declareLength: false);
 
         var ex = await Assert.ThrowsAsync<RepoVerificationException>(
-            () => _client.Sync.GetVerifiedRecordAsync(Repo, Collection, Rkey, SigningKey));
+            () => Client.Sync.GetVerifiedRecordAsync(Repo, Collection, Rkey, SigningKey));
 
         Assert.Contains("larger than", ex.Message);
     }
@@ -116,17 +120,18 @@ public sealed class SyncClientTests : IDisposable
     [Fact]
     public async Task GetBlocksAsync_RepeatsTheCidsParameter()
     {
-        _handler.Body = ProofCar;
+        RespondWithCar(GetBlocks, ProofCar);
         var first = Cid.Parse("bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm");
         var second = Cid.Parse(Vector.GetProperty("recordCid").GetString()!);
 
-        await using var response = await _client.Sync.GetBlocksAsync(Repo, [first, second]);
+        await using var response = await Client.Sync.GetBlocksAsync(Repo, [first, second]);
         var car = await CarReader.FromStreamAsync(response.Content);
 
-        Assert.Equal(HttpMethod.Get, _handler.LastMethod);
+        var sent = _fixture.To(GetBlocks).Single();
+        Assert.Equal(HttpMethod.Get, sent.Method);
         Assert.Equal(
             $"/xrpc/com.atproto.sync.getBlocks?did={Repo}&cids={first}&cids={second}",
-            Uri.UnescapeDataString(_handler.LastUri!.PathAndQuery));
+            Uri.UnescapeDataString(sent.Uri.PathAndQuery));
         Assert.Equal(5, car.Blocks.Count);
     }
 
@@ -134,36 +139,6 @@ public sealed class SyncClientTests : IDisposable
     {
         var path = Path.Combine(AppContext.BaseDirectory, "Repo", "TestData", "record-proof.json");
         return JsonDocument.Parse(File.ReadAllBytes(path)).RootElement.Clone();
-    }
-
-    /// <summary>Answers every request with a CAR body, declaring its length or sending it chunked.</summary>
-    private sealed class CarHandler : HttpMessageHandler
-    {
-        public byte[] Body { get; set; } = [];
-
-        public bool DeclareLength { get; set; } = true;
-
-        public long? DeclaredLength { get; set; }
-
-        public HttpMethod? LastMethod { get; private set; }
-
-        public Uri? LastUri { get; private set; }
-
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            LastMethod = request.Method;
-            LastUri = request.RequestUri;
-
-            HttpContent content = DeclareLength
-                ? new ByteArrayContent(Body)
-                : new StreamContent(new NonSeekableStream(Body));
-            content.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.ipld.car");
-            if (DeclaredLength is { } declared)
-                content.Headers.ContentLength = declared;
-
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
-        }
     }
 
     /// <summary>A body with no length to report, as a chunked response has.</summary>

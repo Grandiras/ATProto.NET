@@ -1,5 +1,7 @@
+using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.EntityFrameworkCore;
 using ATProtoNet.Tests.Identity;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,7 +10,7 @@ namespace ATProtoNet.Tests.Server.EntityFrameworkCore;
 /// <summary>
 /// The EF Core store over its own context, for a service with service auth and no space server.
 /// </summary>
-public sealed class EfCoreJtiReplayStoreTests : IAsyncLifetime
+public sealed class EfCoreJtiReplayStoreTests : JtiReplayStoreContractTests, IAsyncLifetime
 {
     private SqliteConnection _connection = null!;
     private DbContextOptions<JtiReplayDbContext> _options = null!;
@@ -26,16 +28,16 @@ public sealed class EfCoreJtiReplayStoreTests : IAsyncLifetime
 
     public async ValueTask DisposeAsync() => await _connection.DisposeAsync();
 
-    private EfCoreJtiReplayStore<JtiReplayDbContext> Store() => new(new Factory(_options));
+    protected override IJtiReplayStore CreateStore() => new EfCoreJtiReplayStore<JtiReplayDbContext>(new Factory(_options));
 
     [Fact]
     public async Task TryConsumeAsync_AcrossTwoStoreInstances_SpendsAnIdentifierOnce()
     {
         var expiry = DateTimeOffset.UtcNow.AddMinutes(1);
 
-        Assert.True(await Store().TryConsumeAsync("did:plc:a", "nonce", expiry));
-        Assert.False(await Store().TryConsumeAsync("did:plc:a", "nonce", expiry));
-        Assert.True(await Store().TryConsumeAsync("did:plc:b", "nonce", expiry));
+        Assert.True(await CreateStore().TryConsumeAsync("did:plc:a", "nonce", expiry));
+        Assert.False(await CreateStore().TryConsumeAsync("did:plc:a", "nonce", expiry));
+        Assert.True(await CreateStore().TryConsumeAsync("did:plc:b", "nonce", expiry));
     }
 
     [Fact]

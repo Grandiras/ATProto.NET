@@ -52,18 +52,16 @@ podman run -d --name atproto-pds \
   -v pds-data:/pds \
   ghcr.io/bluesky-social/pds:latest
 
-# Create a test account
-curl -s -X POST http://localhost:2583/xrpc/com.atproto.server.createAccount \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Basic $(echo -n 'admin:admin-pass' | base64)" \
-  -d '{"handle":"testuser.pds.test","email":"test@test.com","password":"test-password"}'
-
-# Run integration tests
+# Run integration tests — AuthenticatedClientFixture and SpaceNetworkFixture provision their
+# own throwaway accounts through the admin API, so no account needs creating by hand.
 ATPROTO_PDS_URL=http://localhost:2583 \
-ATPROTO_TEST_HANDLE=testuser.pds.test \
-ATPROTO_TEST_PASSWORD=test-password \
+ATPROTO_PDS_ADMIN_PASSWORD=admin-pass \
 dotnet test tests/ATProtoNet.IntegrationTests/
 ```
+
+To run against an existing account instead (a hosted PDS where account provisioning isn't
+available, say), set `ATPROTO_TEST_HANDLE` / `ATPROTO_TEST_PASSWORD` — when both are present,
+`AuthenticatedClientFixture` signs in with them instead of provisioning one.
 
 ## How to Contribute
 

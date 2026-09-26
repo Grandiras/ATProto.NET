@@ -2,13 +2,14 @@ using ATProtoNet.Auth;
 using ATProtoNet.Identity;
 using ATProtoNet.Server.TokenStore;
 using ATProtoNet.Tests.Auth;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Logging.Abstractions;
 using static ATProtoNet.Tests.Auth.SessionKit;
 
 namespace ATProtoNet.Tests.Server;
 
-public class FileAtProtoSessionStoreTests : IDisposable
+public class FileAtProtoSessionStoreTests : SessionStoreContractTests, IDisposable
 {
     private readonly string _testDir;
     private readonly IDataProtectionProvider _dataProtection = DataProtectionProvider.Create("ATProtoNet.Tests");
@@ -37,71 +38,11 @@ public class FileAtProtoSessionStoreTests : IDisposable
     private FileAtProtoSessionStore NewStore(string directory) =>
         new(_dataProtection, NullLogger<FileAtProtoSessionStore>.Instance, new FileSessionStoreOptions { Directory = directory });
 
+    protected override IAtProtoSessionStore CreateStore() => NewStore(_testDir);
+
     private static OAuthSession TestSession(string did = "did:plc:alice") =>
         OAuthSession([10, 20, 30, 40, 50], accessToken: "access-token-value", refreshToken: "refresh-token-value")
             with { Did = Did.Parse(did) };
-
-    [Fact]
-    public async Task SetAsync_And_GetAsync_RoundTrips()
-    {
-        var session = TestSession();
-        await _store.SetAsync(session);
-
-        var retrieved = Assert.IsType<OAuthSession>(await _store.GetAsync(Alice));
-
-        Assert.Equal(session with { DPoPKey = retrieved.DPoPKey }, retrieved);
-        Assert.Equal(new byte[] { 10, 20, 30, 40, 50 }, retrieved.DPoPKey.ToArray());
-    }
-
-    [Fact]
-    public async Task APasswordSession_RoundTrips()
-    {
-        var session = PasswordSession("access", "refresh");
-        await _store.SetAsync(session);
-
-        Assert.Equal(session, await _store.GetAsync(Alice));
-    }
-
-    [Fact]
-    public async Task GetAsync_ReturnsNull_WhenNotFound()
-    {
-        Assert.Null(await _store.GetAsync(Did.Parse("did:plc:nonexistent")));
-    }
-
-    [Fact]
-    public async Task SetAsync_ReplacesTheStoredSession()
-    {
-        await _store.SetAsync(TestSession());
-        await _store.SetAsync(TestSession() with { AccessToken = "new-access-token" });
-
-        var retrieved = Assert.IsType<OAuthSession>(await _store.GetAsync(Alice));
-        Assert.Equal("new-access-token", retrieved.AccessToken);
-    }
-
-    [Fact]
-    public async Task RemoveAsync_RemovesTheSession()
-    {
-        await _store.SetAsync(TestSession());
-        await _store.RemoveAsync(Alice);
-
-        Assert.Null(await _store.GetAsync(Alice));
-    }
-
-    [Fact]
-    public async Task RemoveAsync_DoesNotThrow_WhenNotFound()
-    {
-        await _store.RemoveAsync(Did.Parse("did:plc:nonexistent"));
-    }
-
-    [Fact]
-    public async Task Accounts_AreIsolated()
-    {
-        await _store.SetAsync(TestSession("did:plc:alice") with { AccessToken = "alice" });
-        await _store.SetAsync(TestSession("did:plc:bob") with { AccessToken = "bob" });
-
-        Assert.Equal("alice", Assert.IsType<OAuthSession>(await _store.GetAsync(Did.Parse("did:plc:alice"))).AccessToken);
-        Assert.Equal("bob", Assert.IsType<OAuthSession>(await _store.GetAsync(Did.Parse("did:plc:bob"))).AccessToken);
-    }
 
     [Fact]
     public async Task StoredSession_IsOneEncryptedFile()
@@ -151,12 +92,6 @@ public class FileAtProtoSessionStoreTests : IDisposable
         Assert.Equal("legacy-access", session.AccessToken);
         Assert.Equal("legacy-refresh", session.RefreshToken);
         Assert.Equal(AliceHandle, session.Handle);
-    }
-
-    [Fact]
-    public async Task SetAsync_ThrowsOnNullSession()
-    {
-        await Assert.ThrowsAsync<ArgumentNullException>(async () => await _store.SetAsync(null!));
     }
 
     [Fact]

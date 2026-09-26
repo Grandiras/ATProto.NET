@@ -3,7 +3,9 @@ using ATProtoNet.Identity;
 using ATProtoNet.Server;
 using ATProtoNet.Server.EntityFrameworkCore;
 using ATProtoNet.Tests.Auth;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -11,113 +13,39 @@ using static ATProtoNet.Tests.Auth.SessionKit;
 
 namespace ATProtoNet.Tests.Server.EntityFrameworkCore;
 
-public class EfCoreAtProtoSessionStoreTests : IAsyncLifetime
+public class EfCoreAtProtoSessionStoreTests : SessionStoreContractTests, IAsyncLifetime
 {
     private readonly IDataProtectionProvider _dataProtection = DataProtectionProvider.Create("ATProtoNet.Tests");
+    private SqliteConnection _connection = null!;
     private IDbContextFactory<AtProtoTokenDbContext> _contextFactory = null!;
-    private EfCoreAtProtoSessionStore<AtProtoTokenDbContext> _store = null!;
-    private readonly string _dbName = $"AtProtoTokens_{Guid.NewGuid():N}";
 
     public async ValueTask InitializeAsync()
     {
-        var optionsBuilder = new DbContextOptionsBuilder<AtProtoTokenDbContext>()
-            .UseInMemoryDatabase(_dbName);
+        _connection = new SqliteConnection($"Data Source=tokens-{Guid.NewGuid():N};Mode=Memory;Cache=Shared");
+        await _connection.OpenAsync();
 
-        _contextFactory = new TestDbContextFactory(optionsBuilder.Options);
+        var options = new DbContextOptionsBuilder<AtProtoTokenDbContext>().UseSqlite(_connection).Options;
+        _contextFactory = new TestDbContextFactory(options);
 
         await using var ctx = await _contextFactory.CreateDbContextAsync();
         await ctx.Database.EnsureCreatedAsync();
-
-        _store = new EfCoreAtProtoSessionStore<AtProtoTokenDbContext>(
-            _contextFactory,
-            _dataProtection,
-            NullLogger<EfCoreAtProtoSessionStore<AtProtoTokenDbContext>>.Instance);
     }
 
-    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    public async ValueTask DisposeAsync() => await _connection.DisposeAsync();
+
+    protected override IAtProtoSessionStore CreateStore() => new EfCoreAtProtoSessionStore<AtProtoTokenDbContext>(
+        _contextFactory,
+        _dataProtection,
+        NullLogger<EfCoreAtProtoSessionStore<AtProtoTokenDbContext>>.Instance);
 
     private static OAuthSession TestSession(string did = "did:plc:alice") =>
         OAuthSession([10, 20, 30, 40, 50], accessToken: "access-token-value", refreshToken: "refresh-token-value")
             with { Did = Did.Parse(did) };
 
     [Fact]
-    public async Task SetAsync_And_GetAsync_RoundTrips()
-    {
-        var session = TestSession();
-        await _store.SetAsync(session);
-
-        var retrieved = Assert.IsType<OAuthSession>(await _store.GetAsync(Alice));
-
-        Assert.Equal(session with { DPoPKey = retrieved.DPoPKey }, retrieved);
-        Assert.Equal(new byte[] { 10, 20, 30, 40, 50 }, retrieved.DPoPKey.ToArray());
-    }
-
-    [Fact]
-    public async Task APasswordSession_RoundTrips()
-    {
-        var session = PasswordSession("access", "refresh");
-        await _store.SetAsync(session);
-
-        Assert.Equal(session, await _store.GetAsync(Alice));
-    }
-
-    [Fact]
-    public async Task GetAsync_ReturnsNull_WhenNotFound()
-    {
-        Assert.Null(await _store.GetAsync(Did.Parse("did:plc:nonexistent")));
-    }
-
-    [Fact]
-    public async Task SetAsync_ReplacesTheStoredSession()
-    {
-        await _store.SetAsync(TestSession());
-        await _store.SetAsync(TestSession() with { AccessToken = "new-access-token" });
-
-        var retrieved = Assert.IsType<OAuthSession>(await _store.GetAsync(Alice));
-        Assert.Equal("new-access-token", retrieved.AccessToken);
-    }
-
-    [Fact]
-    public async Task RemoveAsync_RemovesTheSession()
-    {
-        await _store.SetAsync(TestSession());
-        await _store.RemoveAsync(Alice);
-
-        Assert.Null(await _store.GetAsync(Alice));
-    }
-
-    [Fact]
-    public async Task RemoveAsync_NoOp_WhenNotFound()
-    {
-        await _store.RemoveAsync(Did.Parse("did:plc:nonexistent"));
-    }
-
-    [Fact]
-    public async Task Accounts_AreIndependent()
-    {
-        await _store.SetAsync(TestSession("did:plc:alice") with { AccessToken = "alice" });
-        await _store.SetAsync(TestSession("did:plc:bob") with { AccessToken = "bob" });
-
-        Assert.Equal("alice", Assert.IsType<OAuthSession>(await _store.GetAsync(Did.Parse("did:plc:alice"))).AccessToken);
-        Assert.Equal("bob", Assert.IsType<OAuthSession>(await _store.GetAsync(Did.Parse("did:plc:bob"))).AccessToken);
-    }
-
-    [Fact]
-    public async Task SetAsync_NullSession_Throws()
-    {
-        await Assert.ThrowsAsync<ArgumentNullException>(async () => await _store.SetAsync(null!));
-    }
-
-    [Fact]
-    public async Task GetAsync_NullDid_Throws()
-    {
-        await Assert.ThrowsAsync<ArgumentNullException>(async () => await _store.GetAsync(null!));
-    }
-
-    [Fact]
     public async Task Session_IsEncryptedInTheExistingTable()
     {
-        await _store.SetAsync(TestSession());
+        await CreateStore().SetAsync(TestSession());
 
         // The same entity and table as 0.6: one row per DID, the session in EncryptedTokenData.
         await using var ctx = await _contextFactory.CreateDbContextAsync();
@@ -154,7 +82,7 @@ public class EfCoreAtProtoSessionStoreTests : IAsyncLifetime
             await ctx.SaveChangesAsync();
         }
 
-        var session = Assert.IsType<OAuthSession>(await _store.GetAsync(Alice));
+        var session = Assert.IsType<OAuthSession>(await CreateStore().GetAsync(Alice));
 
         Assert.Equal("legacy-access", session.AccessToken);
         Assert.Equal("legacy-refresh", session.RefreshToken);

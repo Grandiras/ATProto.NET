@@ -1,6 +1,7 @@
 using System.Text.Json;
 using ATProtoNet.Auth;
 using ATProtoNet.Identity;
+using ATProtoNet.Tests.TestSupport;
 using static ATProtoNet.Tests.Auth.SessionKit;
 
 namespace ATProtoNet.Tests.Auth;
@@ -208,10 +209,17 @@ public class SessionTests
     }
 }
 
-public class InMemoryAtProtoSessionStoreTests
+/// <summary>
+/// The contract every <see cref="IAtProtoSessionStore"/> must satisfy, plus the one guarantee
+/// specific to holding sessions in memory: nothing is copied or reserialized, so what comes back
+/// is the exact instance that was stored.
+/// </summary>
+public class InMemoryAtProtoSessionStoreTests : SessionStoreContractTests
 {
+    protected override IAtProtoSessionStore CreateStore() => new InMemoryAtProtoSessionStore();
+
     [Fact]
-    public async Task SetAndGet_ReturnTheStoredSession()
+    public async Task SetAndGet_ReturnsTheExactStoredInstance()
     {
         var store = new InMemoryAtProtoSessionStore();
         var session = PasswordSession("access", "refresh");
@@ -219,41 +227,5 @@ public class InMemoryAtProtoSessionStoreTests
         await store.SetAsync(session);
 
         Assert.Same(session, await store.GetAsync(Alice));
-    }
-
-    [Fact]
-    public async Task Get_WhenNothingIsStored_ReturnsNull()
-    {
-        Assert.Null(await new InMemoryAtProtoSessionStore().GetAsync(Alice));
-    }
-
-    [Fact]
-    public async Task Set_ReplacesTheAccountsPreviousSession_AndKeepsOtherAccounts()
-    {
-        var store = new InMemoryAtProtoSessionStore();
-        var bob = PasswordSession("b", "b") with { Did = Did.Parse("did:plc:bob") };
-        await store.SetAsync(PasswordSession("old", "old"));
-        await store.SetAsync(bob);
-
-        var current = PasswordSession("new", "new");
-        await store.SetAsync(current);
-
-        Assert.Same(current, await store.GetAsync(Alice));
-        Assert.Same(bob, await store.GetAsync(bob.Did));
-    }
-
-    [Fact]
-    public async Task Remove_DropsOnlyThatAccount()
-    {
-        var store = new InMemoryAtProtoSessionStore();
-        var bob = PasswordSession("b", "b") with { Did = Did.Parse("did:plc:bob") };
-        await store.SetAsync(PasswordSession("a", "a"));
-        await store.SetAsync(bob);
-
-        await store.RemoveAsync(Alice);
-        await store.RemoveAsync(Did.Parse("did:plc:nobody"));
-
-        Assert.Null(await store.GetAsync(Alice));
-        Assert.Same(bob, await store.GetAsync(bob.Did));
     }
 }

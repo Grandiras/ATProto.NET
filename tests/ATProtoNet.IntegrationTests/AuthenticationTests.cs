@@ -3,14 +3,21 @@ namespace ATProtoNet.IntegrationTests;
 /// <summary>
 /// Tests for authentication and session management against a real PDS.
 /// </summary>
-public class AuthenticationTests
+/// <remarks>
+/// Each test signs in for itself — that is what is under test — rather than using the fixture's
+/// already-authenticated <see cref="AuthenticatedClientFixture.Client"/>. Sharing the fixture
+/// (rather than provisioning per test) only saves the one account the whole class signs in and
+/// out of; a plain <see cref="IClassFixture{TFixture}"/> keeps that separate from the other
+/// suites in the "Authenticated" collection, so this class runs independently of them.
+/// </remarks>
+public class AuthenticationTests(AuthenticatedClientFixture fixture) : IClassFixture<AuthenticatedClientFixture>
 {
     [RequiresFact(IntegrationRequirement.Pds)]
     public async Task Login_WithValidCredentials_Succeeds()
     {
         using var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl, AutoRefreshSession = false });
 
-        var session = await client.LoginAsync(TestConfig.Handle, TestConfig.Password);
+        var session = await client.LoginAsync(fixture.Handle, fixture.Password);
 
         Assert.NotNull(session);
         Assert.True(client.IsAuthenticated);
@@ -36,7 +43,7 @@ public class AuthenticationTests
     {
         using var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl, AutoRefreshSession = false });
 
-        await client.LoginAsync(TestConfig.Handle, TestConfig.Password);
+        await client.LoginAsync(fixture.Handle, fixture.Password);
 
         var sessionResponse = await client.Server.GetSessionAsync();
 
@@ -49,7 +56,7 @@ public class AuthenticationTests
     {
         using var client1 = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl, AutoRefreshSession = false });
 
-        var session = await client1.LoginAsync(TestConfig.Handle, TestConfig.Password);
+        var session = await client1.LoginAsync(fixture.Handle, fixture.Password);
 
         // Create a new client and resume with saved session
         using var client2 = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl, AutoRefreshSession = false });
@@ -65,7 +72,7 @@ public class AuthenticationTests
     {
         using var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl, AutoRefreshSession = false });
 
-        await client.LoginAsync(TestConfig.Handle, TestConfig.Password);
+        await client.LoginAsync(fixture.Handle, fixture.Password);
         Assert.True(client.IsAuthenticated);
 
         await client.LogoutAsync();
@@ -78,7 +85,7 @@ public class AuthenticationTests
     {
         using var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl });
 
-        var session = await client.LoginAsync(TestConfig.Handle, TestConfig.Password);
+        var session = await client.LoginAsync(fixture.Handle, fixture.Password);
         await client.LogoutAsync();
 
         // deleteSession was sent the refresh JWT, so the PDS no longer honours it.
@@ -92,7 +99,7 @@ public class AuthenticationTests
     {
         using var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl });
 
-        var session = await client.LoginAsync(TestConfig.Handle, TestConfig.Password);
+        var session = await client.LoginAsync(fixture.Handle, fixture.Password);
         await client.RefreshSessionAsync();
 
         var refreshed = Assert.IsType<Auth.PasswordSession>(client.Session);

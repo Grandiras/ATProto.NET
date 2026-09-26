@@ -49,8 +49,9 @@ jobs:
           ATPROTO_ASPIRE_MANIFEST: ${{ github.workspace }}/manifest.json
           ATPROTO_REQUIRE_INTEGRATION: "1"
 
-  # Exercises PdsAdminClient against the real reference PDS: the wire format, the admin
-  # auth scheme, and the account-provisioning flow are all seams unit tests cannot cover.
+  # Exercises the SDK against the real reference PDS: PdsAdminClient's wire format and admin
+  # auth scheme, account provisioning, login/session/refresh, and record CRUD — seams a scripted
+  # HTTP stub cannot cover.
   pds-integration:
     runs-on: ubuntu-latest
     container:
@@ -92,10 +93,17 @@ jobs:
           echo "PDS did not become healthy in time"
           exit 1
 
-      - name: Run PDS admin integration tests
+      - name: Run PDS integration tests
+        # Beyond PdsAdminTests: login/refresh/session (AuthenticationTests), custom and
+        # well-known record CRUD (RepositoryTests, CustomRecordTests), and handle resolution
+        # (IdentityResolutionTests) — everything AuthenticatedClientFixture's own provisioned
+        # account can reach on a bare PDS. BlueskyFeatureTests' app-view-gated cases
+        # (IntegrationRequirement.Bluesky) stay out: this container has no app.bsky.* services,
+        # so ATPROTO_REQUIRE_INTEGRATION would fail them rather than skip.
         run: |
           dotnet test tests/ATProtoNet.IntegrationTests/ --configuration Release \
-            --filter "FullyQualifiedName~PdsAdminTests" --verbosity normal \
+            --filter "FullyQualifiedName~PdsAdminTests|FullyQualifiedName~AuthenticationTests|FullyQualifiedName~RepositoryTests|FullyQualifiedName~CustomRecordTests|FullyQualifiedName~IdentityResolutionTests" \
+            --verbosity normal \
             -- RunConfiguration.TreatNoTestsAsError=true
         env:
           ATPROTO_PDS_URL: http://pds:3000

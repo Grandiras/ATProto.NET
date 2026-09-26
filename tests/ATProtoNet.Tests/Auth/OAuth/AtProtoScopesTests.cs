@@ -6,90 +6,51 @@ public class AtProtoScopesTests
 {
     // ─── Transitional scope constants ───────────────────────────────────
 
-    [Fact]
-    public void Default_ContainsAtProtoAndTransitionGeneric()
+    public static TheoryData<string, string, string> ScopeConstants() => new()
     {
-        Assert.Equal("atproto transition:generic", AtProtoScopes.Default);
-    }
+        { nameof(AtProtoScopes.Default), AtProtoScopes.Default, "atproto transition:generic" },
+        { nameof(AtProtoScopes.WithChat), AtProtoScopes.WithChat, "atproto transition:generic transition:chat.bsky" },
+        { nameof(AtProtoScopes.AuthOnly), AtProtoScopes.AuthOnly, "atproto" },
+        { nameof(AtProtoScopes.AtProto), AtProtoScopes.AtProto, "atproto" },
+        { nameof(AtProtoScopes.TransitionGeneric), AtProtoScopes.TransitionGeneric, "transition:generic" },
+        { nameof(AtProtoScopes.TransitionChatBsky), AtProtoScopes.TransitionChatBsky, "transition:chat.bsky" },
+        { nameof(AtProtoScopes.TransitionEmail), AtProtoScopes.TransitionEmail, "transition:email" },
+    };
 
-    [Fact]
-    public void WithChat_ContainsChatScope()
-    {
-        Assert.Equal("atproto transition:generic transition:chat.bsky", AtProtoScopes.WithChat);
-    }
-
-    [Fact]
-    public void AuthOnly_IsJustAtProto()
-    {
-        Assert.Equal("atproto", AtProtoScopes.AuthOnly);
-    }
-
-    [Fact]
-    public void Constants_MatchExpectedValues()
-    {
-        Assert.Equal("atproto", AtProtoScopes.AtProto);
-        Assert.Equal("transition:generic", AtProtoScopes.TransitionGeneric);
-        Assert.Equal("transition:chat.bsky", AtProtoScopes.TransitionChatBsky);
-        Assert.Equal("transition:email", AtProtoScopes.TransitionEmail);
-    }
+    [Theory]
+    [MemberData(nameof(ScopeConstants))]
+    public void ScopeConstants_MatchExpectedValues(string name, string actual, string expected) =>
+        Assert.True(expected == actual, $"{name}: expected '{expected}' but was '{actual}'");
 
     // ─── Repo scopes ────────────────────────────────────────────────────
 
-    [Fact]
-    public void Repo_SingleCollection_AllActions()
+    public static TheoryData<Func<string>, string> RepoScopeCases() => new()
     {
-        Assert.Equal("repo:app.bsky.feed.post", AtProtoScopes.Repo("app.bsky.feed.post"));
-    }
+        { () => AtProtoScopes.Repo("app.bsky.feed.post"), "repo:app.bsky.feed.post" },
+        {
+            () => AtProtoScopes.Repo("app.bsky.feed.post", RepoAction.Create | RepoAction.Delete),
+            "repo:app.bsky.feed.post?action=create&action=delete"
+        },
+        { () => AtProtoScopes.Repo("app.bsky.feed.like", RepoAction.Delete), "repo:app.bsky.feed.like?action=delete" },
+        { () => AtProtoScopes.Repo("*"), "repo:*" },
+        { () => AtProtoScopes.Repo("*", RepoAction.Delete), "repo:*?action=delete" },
+        {
+            () => AtProtoScopes.Repo(["app.bsky.feed.post", "app.bsky.feed.like"]),
+            "repo?collection=app.bsky.feed.post&collection=app.bsky.feed.like"
+        },
+        {
+            () => AtProtoScopes.Repo(["app.bsky.feed.post", "app.bsky.feed.like"], RepoAction.Create | RepoAction.Delete),
+            "repo?collection=app.bsky.feed.post&collection=app.bsky.feed.like&action=create&action=delete"
+        },
+        {
+            // The list overload delegates to the single-collection one for a one-element list.
+            () => AtProtoScopes.Repo(["app.bsky.feed.post"]), "repo:app.bsky.feed.post"
+        },
+    };
 
-    [Fact]
-    public void Repo_SingleCollection_SpecificActions()
-    {
-        Assert.Equal(
-            "repo:app.bsky.feed.post?action=create&action=delete",
-            AtProtoScopes.Repo("app.bsky.feed.post", RepoAction.Create | RepoAction.Delete));
-    }
-
-    [Fact]
-    public void Repo_SingleCollection_SingleAction()
-    {
-        Assert.Equal(
-            "repo:app.bsky.feed.like?action=delete",
-            AtProtoScopes.Repo("app.bsky.feed.like", RepoAction.Delete));
-    }
-
-    [Fact]
-    public void Repo_Wildcard()
-    {
-        Assert.Equal("repo:*", AtProtoScopes.Repo("*"));
-    }
-
-    [Fact]
-    public void Repo_Wildcard_WithActions()
-    {
-        Assert.Equal("repo:*?action=delete", AtProtoScopes.Repo("*", RepoAction.Delete));
-    }
-
-    [Fact]
-    public void Repo_MultipleCollections()
-    {
-        Assert.Equal(
-            "repo?collection=app.bsky.feed.post&collection=app.bsky.feed.like",
-            AtProtoScopes.Repo(["app.bsky.feed.post", "app.bsky.feed.like"]));
-    }
-
-    [Fact]
-    public void Repo_MultipleCollections_WithActions()
-    {
-        Assert.Equal(
-            "repo?collection=app.bsky.feed.post&collection=app.bsky.feed.like&action=create&action=delete",
-            AtProtoScopes.Repo(["app.bsky.feed.post", "app.bsky.feed.like"], RepoAction.Create | RepoAction.Delete));
-    }
-
-    [Fact]
-    public void Repo_SingleCollectionList_DelegatesToSingleOverload()
-    {
-        Assert.Equal("repo:app.bsky.feed.post", AtProtoScopes.Repo(["app.bsky.feed.post"]));
-    }
+    [Theory]
+    [MemberData(nameof(RepoScopeCases))]
+    public void Repo_ProducesTheExpectedScope(Func<string> build, string expected) => Assert.Equal(expected, build());
 
     [Fact]
     public void Repo_EmptyCollection_Throws()
@@ -97,63 +58,50 @@ public class AtProtoScopesTests
         Assert.Throws<ArgumentException>(() => AtProtoScopes.Repo([]));
     }
 
-    [Fact]
-    public void Repo_NoActions_IsRejectedRatherThanSilentlyWidened()
+    public static TheoryData<Action> RepoNoActionsCases() => new()
+    {
+        () => AtProtoScopes.Repo("app.bsky.feed.post", RepoAction.None),
+        () => AtProtoScopes.Repo(["app.bsky.feed.post", "app.bsky.feed.like"], RepoAction.None),
+        // The list overload delegates to the single-collection one for a one-element list, so
+        // the guard has to hold on that path too.
+        () => AtProtoScopes.Repo(["app.bsky.feed.post"], RepoAction.None),
+    };
+
+    [Theory]
+    [MemberData(nameof(RepoNoActionsCases))]
+    public void Repo_NoActions_IsRejectedRatherThanSilentlyWidened(Action call)
     {
         // An omitted action list means RepoAction.All, so quietly emitting nothing for None
         // would hand back a create/update/delete grant instead of the zero-write one asked
         // for. The grammar cannot express it, so the call fails instead.
-        var ex = Assert.Throws<ArgumentException>(
-            () => AtProtoScopes.Repo("app.bsky.feed.post", RepoAction.None));
-
-        Assert.Equal("actions", ex.ParamName);
-    }
-
-    [Fact]
-    public void Repo_MultipleCollections_NoActions_IsRejected()
-    {
-        var ex = Assert.Throws<ArgumentException>(
-            () => AtProtoScopes.Repo(["app.bsky.feed.post", "app.bsky.feed.like"], RepoAction.None));
-
-        Assert.Equal("actions", ex.ParamName);
-    }
-
-    [Fact]
-    public void Repo_SingleCollectionList_NoActions_IsRejected()
-    {
-        // The list overload delegates to the single-collection one for a one-element list, so
-        // the guard has to hold on that path too.
-        var ex = Assert.Throws<ArgumentException>(
-            () => AtProtoScopes.Repo(["app.bsky.feed.post"], RepoAction.None));
+        var ex = Assert.Throws<ArgumentException>(call);
 
         Assert.Equal("actions", ex.ParamName);
     }
 
     // ─── Rpc scopes ─────────────────────────────────────────────────────
 
-    [Fact]
-    public void Rpc_SingleLxm_WithAud()
+    public static TheoryData<Func<string>, string> RpcScopeCases() => new()
     {
-        Assert.Equal(
-            "rpc:app.bsky.feed.searchPosts?aud=did:web:api.bsky.app%23bsky_appview",
-            AtProtoScopes.Rpc("app.bsky.feed.searchPosts", "did:web:api.bsky.app#bsky_appview"));
-    }
+        {
+            () => AtProtoScopes.Rpc("app.bsky.feed.searchPosts", "did:web:api.bsky.app#bsky_appview"),
+            "rpc:app.bsky.feed.searchPosts?aud=did:web:api.bsky.app%23bsky_appview"
+        },
+        {
+            () => AtProtoScopes.Rpc("*", "did:web:api.bsky.app#bsky_appview"),
+            "rpc:*?aud=did:web:api.bsky.app%23bsky_appview"
+        },
+        { () => AtProtoScopes.Rpc("com.atproto.moderation.createReport", "*"), "rpc:com.atproto.moderation.createReport?aud=*" },
+        {
+            () => AtProtoScopes.Rpc(["app.bsky.feed.searchPosts", "app.bsky.feed.getTimeline"], "did:web:api.bsky.app#bsky_appview"),
+            "rpc?lxm=app.bsky.feed.searchPosts&lxm=app.bsky.feed.getTimeline&aud=did:web:api.bsky.app%23bsky_appview"
+        },
+        { () => AtProtoScopes.Rpc(["app.bsky.feed.searchPosts"], "*"), "rpc:app.bsky.feed.searchPosts?aud=*" },
+    };
 
-    [Fact]
-    public void Rpc_WildcardLxm()
-    {
-        Assert.Equal(
-            "rpc:*?aud=did:web:api.bsky.app%23bsky_appview",
-            AtProtoScopes.Rpc("*", "did:web:api.bsky.app#bsky_appview"));
-    }
-
-    [Fact]
-    public void Rpc_WildcardAud()
-    {
-        Assert.Equal(
-            "rpc:com.atproto.moderation.createReport?aud=*",
-            AtProtoScopes.Rpc("com.atproto.moderation.createReport", "*"));
-    }
+    [Theory]
+    [MemberData(nameof(RpcScopeCases))]
+    public void Rpc_ProducesTheExpectedScope(Func<string> build, string expected) => Assert.Equal(expected, build());
 
     [Fact]
     public void Rpc_BothWildcards_Throws()
@@ -161,69 +109,32 @@ public class AtProtoScopesTests
         Assert.Throws<ArgumentException>(() => AtProtoScopes.Rpc("*", "*"));
     }
 
-    [Fact]
-    public void Rpc_MultipleLxms()
-    {
-        Assert.Equal(
-            "rpc?lxm=app.bsky.feed.searchPosts&lxm=app.bsky.feed.getTimeline&aud=did:web:api.bsky.app%23bsky_appview",
-            AtProtoScopes.Rpc(["app.bsky.feed.searchPosts", "app.bsky.feed.getTimeline"], "did:web:api.bsky.app#bsky_appview"));
-    }
-
-    [Fact]
-    public void Rpc_SingleLxmList_DelegatesToSingleOverload()
-    {
-        Assert.Equal(
-            "rpc:app.bsky.feed.searchPosts?aud=*",
-            AtProtoScopes.Rpc(["app.bsky.feed.searchPosts"], "*"));
-    }
-
     // ─── Blob scopes ────────────────────────────────────────────────────
 
-    [Fact]
-    public void Blob_AllTypes()
+    public static TheoryData<Func<string>, string> BlobScopeCases() => new()
     {
-        Assert.Equal("blob:*/*", AtProtoScopes.Blob());
-    }
+        { () => AtProtoScopes.Blob(), "blob:*/*" },
+        { () => AtProtoScopes.Blob("video/*"), "blob:video/*" },
+        { () => AtProtoScopes.Blob(["video/*", "text/html"]), "blob?accept=video/*&accept=text/html" },
+        { () => AtProtoScopes.Blob(["image/png"]), "blob:image/png" },
+    };
 
-    [Fact]
-    public void Blob_SpecificType()
-    {
-        Assert.Equal("blob:video/*", AtProtoScopes.Blob("video/*"));
-    }
-
-    [Fact]
-    public void Blob_MultipleTypes()
-    {
-        Assert.Equal(
-            "blob?accept=video/*&accept=text/html",
-            AtProtoScopes.Blob(["video/*", "text/html"]));
-    }
-
-    [Fact]
-    public void Blob_SingleTypeList_DelegatesToSingleOverload()
-    {
-        Assert.Equal("blob:image/png", AtProtoScopes.Blob(["image/png"]));
-    }
+    [Theory]
+    [MemberData(nameof(BlobScopeCases))]
+    public void Blob_ProducesTheExpectedScope(Func<string> build, string expected) => Assert.Equal(expected, build());
 
     // ─── Account scopes ─────────────────────────────────────────────────
 
-    [Fact]
-    public void Account_ReadEmail()
+    public static TheoryData<Func<string>, string> AccountScopeCases() => new()
     {
-        Assert.Equal("account:email", AtProtoScopes.Account("email"));
-    }
+        { () => AtProtoScopes.Account("email"), "account:email" },
+        { () => AtProtoScopes.Account("repo", AccountAction.Manage), "account:repo?action=manage" },
+        { () => AtProtoScopes.Account("status"), "account:status" },
+    };
 
-    [Fact]
-    public void Account_ManageRepo()
-    {
-        Assert.Equal("account:repo?action=manage", AtProtoScopes.Account("repo", AccountAction.Manage));
-    }
-
-    [Fact]
-    public void Account_ReadStatus()
-    {
-        Assert.Equal("account:status", AtProtoScopes.Account("status"));
-    }
+    [Theory]
+    [MemberData(nameof(AccountScopeCases))]
+    public void Account_ProducesTheExpectedScope(Func<string> build, string expected) => Assert.Equal(expected, build());
 
     // ─── Identity scopes ────────────────────────────────────────────────
 

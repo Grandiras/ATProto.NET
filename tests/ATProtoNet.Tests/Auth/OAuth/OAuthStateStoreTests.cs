@@ -3,6 +3,7 @@ using ATProtoNet.Auth;
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Tests.Auth;
 using ATProtoNet.Tests.Identity;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -11,6 +12,20 @@ using NSubstitute;
 using static ATProtoNet.Tests.Auth.SessionKit;
 
 namespace ATProtoNet.Tests.Auth.OAuth;
+
+/// <summary>The contract every <see cref="IOAuthStateStore"/> must satisfy, over each of the two implementations.</summary>
+public sealed class InMemoryOAuthStateStoreContractTests : OAuthStateStoreContractTests
+{
+    protected override IOAuthStateStore CreateStore() => new InMemoryOAuthStateStore();
+}
+
+/// <inheritdoc cref="InMemoryOAuthStateStoreContractTests"/>
+public sealed class DistributedCacheOAuthStateStoreContractTests : OAuthStateStoreContractTests
+{
+    protected override IOAuthStateStore CreateStore() => new DistributedCacheOAuthStateStore(
+        new MemoryDistributedCache(Options.Create(new MemoryDistributedCacheOptions())),
+        new DistributedCacheOAuthStateStoreOptions { StoreSecretsUnencrypted = true });
+}
 
 /// <summary>
 /// Where pending authorizations wait for their callbacks: bounded per requester and in total in
@@ -62,17 +77,6 @@ public sealed class OAuthStateStoreTests : IDisposable
     // ──────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task InMemory_Take_IsSingleUse()
-    {
-        var store = new InMemoryOAuthStateStore();
-        await store.SetAsync(Pending("s-1"));
-
-        Assert.NotNull(await store.TakeAsync("s-1"));
-        Assert.Null(await store.TakeAsync("s-1"));
-        Assert.Equal(0, store.Count);
-    }
-
-    [Fact]
     public async Task InMemory_ARequesterOverItsLimit_DisplacesOnlyItsOwnOldest()
     {
         var store = new InMemoryOAuthStateStore(maxPerRequester: 3);
@@ -114,17 +118,6 @@ public sealed class OAuthStateStoreTests : IDisposable
 
         Assert.Equal(1, store.Count);
         Assert.Null(await store.TakeAsync("old"));
-    }
-
-    [Fact]
-    public async Task InMemory_TheSameStateTwice_KeepsTheLatest()
-    {
-        var store = new InMemoryOAuthStateStore();
-        await store.SetAsync(Pending("s-1", "a"));
-        await store.SetAsync(Pending("s-1", "b") with { CodeVerifier = "second" });
-
-        Assert.Equal(1, store.Count);
-        Assert.Equal("second", (await store.TakeAsync("s-1"))!.CodeVerifier);
     }
 
     [Theory]
@@ -264,7 +257,7 @@ public sealed class OAuthStateStoreTests : IDisposable
     private static readonly DistributedCacheOAuthStateStoreOptions Plaintext = new() { StoreSecretsUnencrypted = true };
 
     [Fact]
-    public async Task Distributed_RoundTripsOnceAndKeysByAHashOfTheState()
+    public async Task Distributed_RoundTripsThroughTheCache_AndKeysByAHashOfTheState()
     {
         var cache = new RecordingCache(NewCache());
         var store = new DistributedCacheOAuthStateStore(cache, Plaintext);
@@ -276,7 +269,6 @@ public sealed class OAuthStateStoreTests : IDisposable
         Assert.Equal(pending.CodeVerifier, taken!.CodeVerifier);
         Assert.Equal(pending.DPoPKey.ToArray(), taken.DPoPKey.ToArray());
         Assert.Equal(pending.RequesterId, taken.RequesterId);
-        Assert.Null(await store.TakeAsync("s-1"));
 
         var key = Assert.Single(cache.Keys.Distinct());
         Assert.StartsWith("atproto:oauth-state:", key);

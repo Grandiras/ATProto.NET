@@ -59,16 +59,24 @@ internal static class IntegrationRequirements
 
     private static bool HasAccount => !string.IsNullOrEmpty(TestConfig.Handle) && !string.IsNullOrEmpty(TestConfig.Password);
 
-    private static string? PdsReason() => HasAccount
+    /// <summary>
+    /// Whether a test can get an authenticated client at all: either <see cref="AuthenticatedClientFixture"/>
+    /// signs in with an existing account (<c>ATPROTO_TEST_HANDLE</c> / <c>ATPROTO_TEST_PASSWORD</c>), or
+    /// it provisions a throwaway one through the admin API (<c>ATPROTO_PDS_ADMIN_PASSWORD</c>).
+    /// </summary>
+    private static bool CanAuthenticate => HasAccount || !string.IsNullOrEmpty(TestConfig.AdminPassword);
+
+    private static string? PdsReason() => CanAuthenticate
         ? null
-        : "Integration tests require ATPROTO_TEST_HANDLE and ATPROTO_TEST_PASSWORD environment variables. " +
+        : "Integration tests require ATPROTO_PDS_ADMIN_PASSWORD (to provision a throwaway account) or " +
+          "ATPROTO_TEST_HANDLE and ATPROTO_TEST_PASSWORD (to sign in as an existing one). " +
           "Optionally set ATPROTO_PDS_URL (defaults to http://localhost:2583).";
 
     private static string? BlueskyReason()
     {
-        if (!HasAccount)
+        if (!CanAuthenticate)
         {
-            return "Integration tests require ATPROTO_TEST_HANDLE and ATPROTO_TEST_PASSWORD environment variables.";
+            return "Integration tests require ATPROTO_PDS_ADMIN_PASSWORD or ATPROTO_TEST_HANDLE / ATPROTO_TEST_PASSWORD.";
         }
 
         if (!string.Equals(Environment.GetEnvironmentVariable("ATPROTO_HAS_BLUESKY"), "true", StringComparison.OrdinalIgnoreCase))
@@ -133,19 +141,6 @@ internal static class IntegrationRequirements
 public sealed class RequiresFactAttribute : FactAttribute
 {
     public RequiresFactAttribute(
-        IntegrationRequirement requirement,
-        [CallerFilePath] string? sourceFilePath = null,
-        [CallerLineNumber] int sourceLineNumber = -1)
-        : base(sourceFilePath, sourceLineNumber)
-    {
-        Skip = IntegrationRequirements.SkipReason(requirement);
-    }
-}
-
-/// <summary>The <see cref="TheoryAttribute"/> counterpart of <see cref="RequiresFactAttribute"/>.</summary>
-public sealed class RequiresTheoryAttribute : TheoryAttribute
-{
-    public RequiresTheoryAttribute(
         IntegrationRequirement requirement,
         [CallerFilePath] string? sourceFilePath = null,
         [CallerLineNumber] int sourceLineNumber = -1)

@@ -5,9 +5,12 @@
     <PackageReference Include="bunit" Version="2.11.3" />
     <PackageReference Include="coverlet.collector" Version="10.0.1" />
     <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.10" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.10" />
-    <!-- The space stores lean on relational behaviour the in-memory provider does not model:
-         composite keys, and a key violation being how a replayed token is detected. -->
+    <!-- Every EF Core store test runs over this, not the in-memory provider: the space stores
+         lean on relational behaviour the in-memory provider does not model (composite keys, and
+         a key violation being how a replayed token is detected), and it also removes a whole
+         class of drift bug — the in-memory provider's own package had to be kept pinned to
+         exactly the same version as EFCore.Relational in src, or the two loaded different EF
+         Core Abstractions assemblies and every EF-backed test blew up with a MissingMethodException. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
     <!-- Pinned ahead of what the Sqlite provider asks for: its 2.1.11 native bundle carries
          GHSA-2m69-gcr7-jv3q, which NuGet reports as a restore warning on every build. -->

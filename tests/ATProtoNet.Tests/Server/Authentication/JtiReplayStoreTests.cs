@@ -2,44 +2,19 @@ using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.EntityFrameworkCore;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Tests.Identity;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ATProtoNet.Tests.Server.Authentication;
 
-public class InMemoryJtiReplayStoreTests
+/// <summary>
+/// The contract every <see cref="IJtiReplayStore"/> must satisfy, plus the sweep behaviour
+/// specific to holding entries in memory with a background scan.
+/// </summary>
+public class InMemoryJtiReplayStoreTests : JtiReplayStoreContractTests
 {
-    [Fact]
-    public async Task TryConsumeAsync_FirstUse_Succeeds()
-    {
-        var store = new InMemoryJtiReplayStore();
-
-        Assert.True(await store.TryConsumeAsync("did:plc:a", "nonce", DateTimeOffset.UtcNow.AddMinutes(1)));
-    }
-
-    [Fact]
-    public async Task TryConsumeAsync_SecondUse_Fails()
-    {
-        var store = new InMemoryJtiReplayStore();
-        var expiry = DateTimeOffset.UtcNow.AddMinutes(1);
-
-        await store.TryConsumeAsync("did:plc:a", "nonce", expiry);
-
-        Assert.False(await store.TryConsumeAsync("did:plc:a", "nonce", expiry));
-    }
-
-    [Fact]
-    public async Task TryConsumeAsync_SameNonceFromAnotherIssuer_IsNotACollision()
-    {
-        // Entries are keyed on (issuer, jti, expiry): two issuers picking the same nonce are not
-        // the same token, and one must not be able to burn the other's.
-        var store = new InMemoryJtiReplayStore();
-        var expiry = DateTimeOffset.UtcNow.AddMinutes(1);
-
-        await store.TryConsumeAsync("did:plc:a", "nonce", expiry);
-
-        Assert.True(await store.TryConsumeAsync("did:plc:b", "nonce", expiry));
-    }
+    protected override IJtiReplayStore CreateStore() => new InMemoryJtiReplayStore();
 
     [Fact]
     public async Task TryConsumeAsync_ExpiredEntries_AreSweptOut()
@@ -101,8 +76,18 @@ public class InMemoryJtiReplayStoreTests
 /// The shared store wins over the in-process default whichever way round the registrations go,
 /// and one store serves service auth and the space server alike.
 /// </summary>
-public class JtiReplayStoreRegistrationTests
+public class JtiReplayStoreRegistrationTests : IDisposable
 {
+    // These tests only check which store type DI resolves; they never touch the database. One
+    // connection held open for the whole test class is enough to keep the shared-cache database
+    // alive across the several `AddDbContextFactory` registrations built from it.
+    private readonly Microsoft.Data.Sqlite.SqliteConnection _connection =
+        new($"Data Source=jti-registration-{Guid.NewGuid():N};Mode=Memory;Cache=Shared");
+
+    public JtiReplayStoreRegistrationTests() => _connection.Open();
+
+    public void Dispose() => _connection.Dispose();
+
     [Fact]
     public void AddAtProtoEfCoreJtiReplayStore_AfterAddAtProtoServiceAuth_Wins()
     {
@@ -141,12 +126,11 @@ public class JtiReplayStoreRegistrationTests
         Assert.IsType<InMemoryJtiReplayStore>(provider.GetRequiredService<IJtiReplayStore>());
     }
 
-    private static ServiceCollection Services()
+    private ServiceCollection Services()
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddDbContextFactory<JtiReplayDbContext>(
-            options => options.UseInMemoryDatabase($"registration-{Guid.NewGuid():N}"));
+        services.AddDbContextFactory<JtiReplayDbContext>(options => options.UseSqlite(_connection));
 
         return services;
     }

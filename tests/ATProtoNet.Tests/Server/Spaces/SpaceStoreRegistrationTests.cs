@@ -3,6 +3,7 @@ using ATProtoNet.Identity;
 using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.EntityFrameworkCore;
 using ATProtoNet.Server.Spaces;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -14,8 +15,17 @@ namespace ATProtoNet.Tests.Server.Spaces;
 /// are made — the order they appear in <c>Program.cs</c> is not something a deployment should
 /// have to get right.
 /// </summary>
-public class SpaceStoreRegistrationTests
+public class SpaceStoreRegistrationTests : IDisposable
 {
+    // These tests only check which store type DI resolves; they never touch the database. One
+    // connection held open for the whole test class is enough to keep the shared-cache database
+    // alive across the several `AddDbContextFactory` registrations built from it.
+    private readonly SqliteConnection _connection = new($"Data Source=space-registration-{Guid.NewGuid():N};Mode=Memory;Cache=Shared");
+
+    public SpaceStoreRegistrationTests() => _connection.Open();
+
+    public void Dispose() => _connection.Dispose();
+
     [Fact]
     public void AddAtProtoEfCoreJtiReplayStore_AfterAddAtProtoSpaces_Wins()
     {
@@ -90,12 +100,11 @@ public class SpaceStoreRegistrationTests
         Assert.IsType<InMemorySpaceAuthorityStore>(provider.GetRequiredService<ISpaceAuthorityStore>());
     }
 
-    private static ServiceCollection Services()
+    private ServiceCollection Services()
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddDbContextFactory<SpaceDbContext>(
-            options => options.UseInMemoryDatabase($"registration-{Guid.NewGuid():N}"));
+        services.AddDbContextFactory<SpaceDbContext>(options => options.UseSqlite(_connection));
 
         return services;
     }

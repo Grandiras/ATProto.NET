@@ -1,4 +1,3 @@
-using System.Net;
 using System.Text.Json;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Moderation;
@@ -6,73 +5,42 @@ using ATProtoNet.Lexicon.Tools.Ozone.Communication;
 using ATProtoNet.Lexicon.Tools.Ozone.Moderation;
 using ATProtoNet.Lexicon.Tools.Ozone.Set;
 using ATProtoNet.Lexicon.Tools.Ozone.Team;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Ozone;
 
-public class OzoneClientTests
+public sealed class OzoneClientTests : IDisposable
 {
-    private static AtProtoClient CreateClient(FakeHandler handler)
-    {
-        var httpClient = new HttpClient(handler);
-        var options = new AtProtoClientOptions { InstanceUrl = "https://ozone.test" };
-        return new AtProtoClient(options, httpClient, null, null);
-    }
+    private readonly XrpcTestClient _fixture = new(instanceUrl: "https://ozone.test");
 
-    private static FakeHandler OkJson(object body) =>
-        new(new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new StringContent(
-                JsonSerializer.Serialize(body),
-                System.Text.Encoding.UTF8,
-                "application/json")
-        });
+    private AtProtoClient Client => _fixture.Client;
+
+    public void Dispose() => _fixture.Dispose();
+
+    private static string Json(object body) => JsonSerializer.Serialize(body);
 
     // ─── Moderation ───
 
     [Fact]
     public async Task EmitEvent_SendsTakedown()
     {
-        var response = new
-        {
-            id = 1L,
-            @event = new
+        // Raw JSON to get $type as a property name, which an anonymous object cannot produce.
+        _fixture.On("tools.ozone.moderation.emitEvent", """
             {
-                @__type = "tools.ozone.moderation.defs#modEventTakedown",
-                comment = "spam",
-                durationInHours = 24,
-            },
-            subject = new
-            {
-                @__type = "com.atproto.admin.defs#repoRef",
-                did = "did:plc:abc",
-            },
-            createdBy = "did:plc:mod",
-            createdAt = "2024-01-01T00:00:00Z",
-        };
-
-        // Use raw JSON to get $type as property name
-        var json = """
-        {
-            "id": 1,
-            "event": {
-                "$type": "tools.ozone.moderation.defs#modEventTakedown",
-                "comment": "spam",
-                "durationInHours": 24
-            },
-            "subject": {
-                "$type": "com.atproto.admin.defs#repoRef",
-                "did": "did:plc:abc"
-            },
-            "createdBy": "did:plc:mod",
-            "createdAt": "2024-01-01T00:00:00Z"
-        }
-        """;
-
-        var handler = new FakeHandler(new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
-        });
-        var client = CreateClient(handler);
+                "id": 1,
+                "event": {
+                    "$type": "tools.ozone.moderation.defs#modEventTakedown",
+                    "comment": "spam",
+                    "durationInHours": 24
+                },
+                "subject": {
+                    "$type": "com.atproto.admin.defs#repoRef",
+                    "did": "did:plc:abc"
+                },
+                "createdBy": "did:plc:mod",
+                "createdAt": "2024-01-01T00:00:00Z"
+            }
+            """);
 
         var request = new EmitEventRequest
         {
@@ -81,91 +49,75 @@ public class OzoneClientTests
             CreatedBy = Did.Parse("did:plc:mod"),
         };
 
-        var result = await client.Ozone.Moderation.EmitEventAsync(request);
+        var result = await Client.Ozone.Moderation.EmitEventAsync(request);
 
         Assert.Equal(1L, result.Id);
         Assert.Equal("did:plc:mod", result.CreatedBy);
-        Assert.Contains("tools.ozone.moderation.emitEvent", handler.LastRequestUri!.ToString());
     }
 
     [Fact]
     public async Task GetEvent_QueriesById()
     {
-        var json = """
-        {
-            "id": 42,
-            "event": {
-                "$type": "tools.ozone.moderation.defs#modEventComment",
-                "comment": "test"
-            },
-            "subject": {
-                "$type": "com.atproto.admin.defs#repoRef",
-                "did": "did:plc:abc"
-            },
-            "createdBy": "did:plc:mod",
-            "createdAt": "2024-01-01T00:00:00Z"
-        }
-        """;
+        _fixture.On("tools.ozone.moderation.getEvent", """
+            {
+                "id": 42,
+                "event": {
+                    "$type": "tools.ozone.moderation.defs#modEventComment",
+                    "comment": "test"
+                },
+                "subject": {
+                    "$type": "com.atproto.admin.defs#repoRef",
+                    "did": "did:plc:abc"
+                },
+                "createdBy": "did:plc:mod",
+                "createdAt": "2024-01-01T00:00:00Z"
+            }
+            """);
 
-        var handler = new FakeHandler(new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
-        });
-        var client = CreateClient(handler);
-
-        var result = await client.Ozone.Moderation.GetEventAsync(42);
+        var result = await Client.Ozone.Moderation.GetEventAsync(42);
 
         Assert.Equal(42L, result.Id);
-        Assert.Contains("id=42", handler.LastRequestUri!.Query);
+        Assert.Contains("id=42", _fixture.To("tools.ozone.moderation.getEvent").Single().Query);
     }
 
     [Fact]
     public async Task GetRepo_QueriesByDid()
     {
-        var response = new
+        _fixture.On("tools.ozone.moderation.getRepo", Json(new
         {
             did = "did:plc:xyz",
             handle = "user.bsky.social",
             indexedAt = "2024-01-01T00:00:00Z",
             moderation = new { },
-        };
+        }));
 
-        var handler = OkJson(response);
-        var client = CreateClient(handler);
-
-        var result = await client.Ozone.Moderation.GetRepoAsync(Did.Parse("did:plc:xyz"));
+        var result = await Client.Ozone.Moderation.GetRepoAsync(Did.Parse("did:plc:xyz"));
 
         Assert.Equal("did:plc:xyz", result.Did);
-        Assert.Contains("did=did", handler.LastRequestUri!.Query);
+        Assert.Contains("did=did", _fixture.To("tools.ozone.moderation.getRepo").Single().Query);
     }
 
     [Fact]
     public async Task QueryEvents_PassesParameters()
     {
-        var response = new
-        {
-            events = new object[] { },
-        };
+        _fixture.On("tools.ozone.moderation.queryEvents", Json(new { events = Array.Empty<object>() }));
 
-        var handler = OkJson(response);
-        var client = CreateClient(handler);
-
-        await client.Ozone.Moderation.QueryEventsAsync(
+        await Client.Ozone.Moderation.QueryEventsAsync(
             subject: "did:plc:abc",
             limit: 10,
             sortDirection: "desc");
 
-        Assert.Contains("subject=did", handler.LastRequestUri!.Query);
-        Assert.Contains("limit=10", handler.LastRequestUri.Query);
+        var sent = _fixture.To("tools.ozone.moderation.queryEvents").Single();
+        Assert.Contains("subject=did", sent.Query);
+        Assert.Contains("limit=10", sent.Query);
     }
 
     [Fact]
     public async Task QueryStatusesAsync_Filter_SendsTheQueryStatusesParameters()
     {
-        var handler = OkJson(new { subjectStatuses = new object[] { } });
-        var client = CreateClient(handler);
+        _fixture.On("tools.ozone.moderation.queryStatuses", Json(new { subjectStatuses = Array.Empty<object>() }));
 
-        await client.Ozone.Moderation.QueryStatusesAsync(
+        await Client.Ozone.Moderation.QueryStatusesAsync(
             new SubjectStatusFilter
             {
                 ReviewState = SubjectReviewState.Escalated,
@@ -177,17 +129,18 @@ public class OzoneClientTests
             limit: 10);
 
         // querySubjects never existed; the queue is queryStatuses, with boolean filters.
-        Assert.Equal("/xrpc/tools.ozone.moderation.queryStatuses", handler.LastRequestUri!.AbsolutePath);
+        var sent = _fixture.To("tools.ozone.moderation.queryStatuses").Single();
+        Assert.Equal("/xrpc/tools.ozone.moderation.queryStatuses", sent.Path);
         Assert.Equal(
-            "?collections=app.bsky.feed.post&reviewState=tools.ozone.moderation.defs#reviewEscalated"
+            "collections=app.bsky.feed.post&reviewState=tools.ozone.moderation.defs#reviewEscalated"
                 + "&takendown=true&appealed=false&minPriorityScore=5&limit=10",
-            Uri.UnescapeDataString(handler.LastRequestUri.Query));
+            Uri.UnescapeDataString(sent.Query));
     }
 
     [Fact]
     public async Task QueryStatusesAsync_ReadsSubjectStatuses()
     {
-        var handler = OkJson(new
+        _fixture.On("tools.ozone.moderation.queryStatuses", Json(new
         {
             cursor = "c1",
             subjectStatuses = new object[]
@@ -213,10 +166,9 @@ public class OzoneClientTests
                     priorityScore = 3,
                 },
             },
-        });
-        var client = CreateClient(handler);
+        }));
 
-        var page = await client.Ozone.Moderation.QueryStatusesAsync();
+        var page = await Client.Ozone.Moderation.QueryStatusesAsync();
 
         var status = Assert.Single(page.SubjectStatuses);
         Assert.Equal("c1", page.Cursor);
@@ -231,7 +183,7 @@ public class OzoneClientTests
     [Fact]
     public async Task CreateTemplate_ReturnsView()
     {
-        var response = new
+        _fixture.On("tools.ozone.communication.createTemplate", Json(new
         {
             id = "tmpl-1",
             name = "Warning",
@@ -240,12 +192,9 @@ public class OzoneClientTests
             lastUpdatedBy = "did:plc:mod",
             createdAt = "2024-01-01T00:00:00Z",
             updatedAt = "2024-01-01T00:00:00Z",
-        };
+        }));
 
-        var handler = OkJson(response);
-        var client = CreateClient(handler);
-
-        var result = await client.Ozone.Communication.CreateTemplateAsync(
+        var result = await Client.Ozone.Communication.CreateTemplateAsync(
             new CreateTemplateRequest
             {
                 Name = "Warning",
@@ -260,7 +209,7 @@ public class OzoneClientTests
     [Fact]
     public async Task ListTemplates_ReturnsList()
     {
-        var response = new
+        _fixture.On("tools.ozone.communication.listTemplates", Json(new
         {
             communicationTemplates = new[]
             {
@@ -275,12 +224,9 @@ public class OzoneClientTests
                     updatedAt = "2024-01-01T00:00:00Z",
                 }
             }
-        };
+        }));
 
-        var handler = OkJson(response);
-        var client = CreateClient(handler);
-
-        var result = await client.Ozone.Communication.ListTemplatesAsync();
+        var result = await Client.Ozone.Communication.ListTemplatesAsync();
 
         Assert.Single(result.CommunicationTemplates);
     }
@@ -290,16 +236,13 @@ public class OzoneClientTests
     [Fact]
     public async Task AddMember_ReturnsTeamMember()
     {
-        var response = new
+        _fixture.On("tools.ozone.team.addMember", Json(new
         {
             did = "did:plc:newmod",
             role = "tools.ozone.team.defs#roleModerator",
-        };
+        }));
 
-        var handler = OkJson(response);
-        var client = CreateClient(handler);
-
-        var result = await client.Ozone.Team.AddMemberAsync(
+        var result = await Client.Ozone.Team.AddMemberAsync(
             new AddMemberRequest { Did = Did.Parse("did:plc:newmod"), Role = TeamMemberRole.Moderator });
 
         Assert.Equal("did:plc:newmod", result.Did);
@@ -309,23 +252,20 @@ public class OzoneClientTests
     [Fact]
     public async Task ListMembers_ReturnsPaginated()
     {
-        var response = new
+        _fixture.On("tools.ozone.team.listMembers", Json(new
         {
             members = new[]
             {
                 new { did = "did:plc:admin", role = "tools.ozone.team.defs#roleAdmin" }
             },
             cursor = "next-page",
-        };
+        }));
 
-        var handler = OkJson(response);
-        var client = CreateClient(handler);
-
-        var result = await client.Ozone.Team.ListMembersAsync(limit: 25);
+        var result = await Client.Ozone.Team.ListMembersAsync(limit: 25);
 
         Assert.Single(result.Members);
         Assert.Equal("next-page", result.Cursor);
-        Assert.Contains("limit=25", handler.LastRequestUri!.Query);
+        Assert.Contains("limit=25", _fixture.To("tools.ozone.team.listMembers").Single().Query);
     }
 
     // ─── Set ───
@@ -333,18 +273,15 @@ public class OzoneClientTests
     [Fact]
     public async Task UpsertSet_CreatesSet()
     {
-        var response = new
+        _fixture.On("tools.ozone.set.upsertSet", Json(new
         {
             name = "bad-words",
             setSize = 0,
             createdAt = "2024-01-01T00:00:00Z",
             updatedAt = "2024-01-01T00:00:00Z",
-        };
+        }));
 
-        var handler = OkJson(response);
-        var client = CreateClient(handler);
-
-        var result = await client.Ozone.Set.UpsertSetAsync(
+        var result = await Client.Ozone.Set.UpsertSetAsync(
             new UpsertSetRequest { Name = "bad-words", Description = "Known bad words" });
 
         Assert.Equal("bad-words", result.Name);
@@ -353,7 +290,7 @@ public class OzoneClientTests
     [Fact]
     public async Task GetValues_ReturnsSetValues()
     {
-        var response = new
+        _fixture.On("tools.ozone.set.getValues", Json(new
         {
             set = new
             {
@@ -363,15 +300,12 @@ public class OzoneClientTests
                 updatedAt = "2024-01-01T00:00:00Z",
             },
             values = new[] { "word1", "word2" },
-        };
+        }));
 
-        var handler = OkJson(response);
-        var client = CreateClient(handler);
-
-        var result = await client.Ozone.Set.GetValuesAsync("bad-words");
+        var result = await Client.Ozone.Set.GetValuesAsync("bad-words");
 
         Assert.Equal(2, result.Values.Count);
-        Assert.Contains("name=bad-words", handler.LastRequestUri!.Query);
+        Assert.Contains("name=bad-words", _fixture.To("tools.ozone.set.getValues").Single().Query);
     }
 
     // ─── Server ───
@@ -379,17 +313,14 @@ public class OzoneClientTests
     [Fact]
     public async Task GetConfig_ReturnsConfig()
     {
-        var response = new
+        _fixture.On("tools.ozone.server.getConfig", Json(new
         {
             appview = new { url = "https://api.bsky.app" },
             pds = new { url = "https://pds.example.com" },
             viewer = new { role = "tools.ozone.team.defs#roleAdmin" },
-        };
+        }));
 
-        var handler = OkJson(response);
-        var client = CreateClient(handler);
-
-        var result = await client.Ozone.Server.GetConfigAsync();
+        var result = await Client.Ozone.Server.GetConfigAsync();
 
         Assert.Equal("https://api.bsky.app", result.Appview?.Url);
         Assert.Equal("tools.ozone.team.defs#roleAdmin", result.Viewer?.Role);
@@ -400,33 +331,10 @@ public class OzoneClientTests
     [Fact]
     public async Task FindRelatedAccounts_QueriesByDid()
     {
-        var response = new
-        {
-            accounts = new object[] { },
-        };
+        _fixture.On("tools.ozone.signature.findRelatedAccounts", Json(new { accounts = Array.Empty<object>() }));
 
-        var handler = OkJson(response);
-        var client = CreateClient(handler);
+        await Client.Ozone.Signature.FindRelatedAccountsAsync(Did.Parse("did:plc:abc"));
 
-        await client.Ozone.Signature.FindRelatedAccountsAsync(Did.Parse("did:plc:abc"));
-
-        Assert.Contains("did=did", handler.LastRequestUri!.Query);
-    }
-
-    internal sealed class FakeHandler : HttpMessageHandler
-    {
-        private readonly HttpResponseMessage _response;
-        public Uri? LastRequestUri { get; private set; }
-        public HttpMethod? LastMethod { get; private set; }
-
-        public FakeHandler(HttpResponseMessage response) => _response = response;
-
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            LastRequestUri = request.RequestUri;
-            LastMethod = request.Method;
-            return Task.FromResult(_response);
-        }
+        Assert.Contains("did=did", _fixture.To("tools.ozone.signature.findRelatedAccounts").Single().Query);
     }
 }

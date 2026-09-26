@@ -1,11 +1,9 @@
-using System.Net;
-using System.Text;
 using System.Text.Json;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Moderation;
 using ATProtoNet.Lexicon.Tools.Ozone.Moderation;
-using ATProtoNet.Lexicon.Tools.Ozone.Signature;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Ozone;
 
@@ -13,37 +11,23 @@ namespace ATProtoNet.Tests.Ozone;
 /// The typed tools.ozone surface: identifiers go out as their strings, come back parsed, and
 /// every cursored listing has an enumerator on the shared paginator.
 /// </summary>
-public class TypedOzoneClientTests : IDisposable
+public sealed class TypedOzoneClientTests : IDisposable
 {
     private const string ModDid = "did:plc:ewvi7nxzyoun6zhxrhs64oiz";
     private const string CidText = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm";
 
-    private readonly ScriptedHandler _handler = new();
-    private readonly HttpClient _httpClient;
-    private readonly AtProtoClient _client;
+    private readonly XrpcTestClient _fixture = new(instanceUrl: "https://ozone.example.com");
 
-    public TypedOzoneClientTests()
-    {
-        _httpClient = new HttpClient(_handler);
-        _client = new AtProtoClient(
-            new AtProtoClientOptions { InstanceUrl = "https://ozone.example.com", AutoRefreshSession = false },
-            _httpClient, null, null);
-    }
+    private AtProtoClient Client => _fixture.Client;
 
-    public void Dispose()
-    {
-        _client.Dispose();
-        _httpClient.Dispose();
-        _handler.Dispose();
-        GC.SuppressFinalize(this);
-    }
+    public void Dispose() => _fixture.Dispose();
 
     [Fact]
     public async Task QueryEventsAsync_TypedFilters_GoOutAsTheirStrings()
     {
-        _handler.Pages.Enqueue("""{"events":[]}""");
+        _fixture.On("tools.ozone.moderation.queryEvents", """{"events":[]}""");
 
-        await _client.Ozone.Moderation.QueryEventsAsync(
+        await Client.Ozone.Moderation.QueryEventsAsync(
             subject: "did:plc:abc",
             createdBy: Did.Parse(ModDid),
             createdAfter: AtDatetime.Parse("2024-01-01T00:00:00Z"),
@@ -55,13 +39,13 @@ public class TypedOzoneClientTests : IDisposable
         Assert.Equal(
             $"?subject=did:plc:abc&createdBy={ModDid}&createdAfter=2024-01-01T00:00:00Z" +
             "&createdBefore=2024-02-01T00:00:00.000Z&types=tools.ozone.moderation.defs#modEventTakedown&limit=5&cursor=c",
-            Uri.UnescapeDataString(_handler.Requests.Single().Query));
+            Uri.UnescapeDataString(_fixture.To("tools.ozone.moderation.queryEvents").Single().Uri.Query));
     }
 
     [Fact]
     public async Task QueryEventsAsync_ParsesTheTypedEventView()
     {
-        _handler.Pages.Enqueue($$"""
+        _fixture.On("tools.ozone.moderation.queryEvents", $$"""
             {"events":[{
               "id":7,
               "event":{"$type":"tools.ozone.moderation.defs#modEventComment","comment":"hi"},
@@ -73,7 +57,7 @@ public class TypedOzoneClientTests : IDisposable
             }]}
             """);
 
-        var page = await _client.Ozone.Moderation.QueryEventsAsync();
+        var page = await Client.Ozone.Moderation.QueryEventsAsync();
 
         var view = Assert.Single(page.Events);
         var subject = Assert.IsType<RecordSubject>(view.Subject);
@@ -87,12 +71,12 @@ public class TypedOzoneClientTests : IDisposable
     [Fact]
     public async Task GetRepoAsync_InvalidDidInTheResponse_IsAResponseFormatError()
     {
-        _handler.Pages.Enqueue("""
+        _fixture.On("tools.ozone.moderation.getRepo", """
             {"did":"not-a-did","handle":"user.example.com","relatedRecords":[],"indexedAt":"2024-01-01T00:00:00Z","moderation":{}}
             """);
 
         var ex = await Assert.ThrowsAsync<XrpcResponseFormatException>(
-            () => _client.Ozone.Moderation.GetRepoAsync(Did.Parse(ModDid)));
+            () => Client.Ozone.Moderation.GetRepoAsync(Did.Parse(ModDid)));
 
         Assert.IsType<JsonException>(ex.InnerException);
     }
@@ -101,14 +85,16 @@ public class TypedOzoneClientTests : IDisposable
     public async Task GetRecordAsync_SendsTheTypedUriAndCid()
     {
         var uri = AtUri.Parse($"at://{ModDid}/app.bsky.feed.post/3k2la");
-        _handler.Pages.Enqueue($$"""
+        _fixture.On("tools.ozone.moderation.getRecord", $$"""
             {"uri":"{{uri}}","cid":"{{CidText}}","value":{},"blobs":[],"indexedAt":"2024-01-01T00:00:00Z",
              "moderation":{},"repo":{"did":"{{ModDid}}","handle":"mod.example.com","indexedAt":"2024-01-01T00:00:00Z","moderation":{} } }
             """);
 
-        var record = await _client.Ozone.Moderation.GetRecordAsync(uri, Cid.Parse(CidText));
+        var record = await Client.Ozone.Moderation.GetRecordAsync(uri, Cid.Parse(CidText));
 
-        Assert.Equal($"?uri={uri}&cid={CidText}", Uri.UnescapeDataString(_handler.Requests.Single().Query));
+        Assert.Equal(
+            $"?uri={uri}&cid={CidText}",
+            Uri.UnescapeDataString(_fixture.To("tools.ozone.moderation.getRecord").Single().Uri.Query));
         Assert.Equal(uri, record.Uri);
         Assert.Equal(Handle.Parse("mod.example.com"), record.Repo.Handle);
     }
@@ -116,13 +102,13 @@ public class TypedOzoneClientTests : IDisposable
     [Fact]
     public async Task EmitEventAsync_WritesTypedIdentifiersAsStrings()
     {
-        _handler.Pages.Enqueue($$"""
+        _fixture.On("tools.ozone.moderation.emitEvent", $$"""
             {"id":1,"event":{"$type":"tools.ozone.moderation.defs#modEventAcknowledge"},
              "subject":{"$type":"com.atproto.admin.defs#repoRef","did":"{{ModDid}}"},
              "createdBy":"{{ModDid}}","createdAt":"2024-01-01T00:00:00.000Z"}
             """);
 
-        await _client.Ozone.Moderation.EmitEventAsync(new EmitEventRequest
+        await Client.Ozone.Moderation.EmitEventAsync(new EmitEventRequest
         {
             Event = new ModEventAcknowledge(),
             Subject = new RepoSubject { Did = Did.Parse(ModDid) },
@@ -130,20 +116,20 @@ public class TypedOzoneClientTests : IDisposable
             CreatedBy = Did.Parse(ModDid),
         });
 
-        using var body = JsonDocument.Parse(_handler.Bodies.Single()!);
-        Assert.Equal(ModDid, body.RootElement.GetProperty("createdBy").GetString());
-        Assert.Equal(CidText, body.RootElement.GetProperty("subjectBlobCids")[0].GetString());
-        Assert.Equal(ModDid, body.RootElement.GetProperty("subject").GetProperty("did").GetString());
+        var body = _fixture.To("tools.ozone.moderation.emitEvent").Single().JsonBody;
+        Assert.Equal(ModDid, body.GetProperty("createdBy").GetString());
+        Assert.Equal(CidText, body.GetProperty("subjectBlobCids")[0].GetString());
+        Assert.Equal(ModDid, body.GetProperty("subject").GetProperty("did").GetString());
     }
 
     [Fact]
     public async Task ListMembersAsync_AdminTokenAsLastUpdatedBy_ReadsAsIs()
     {
-        _handler.Pages.Enqueue($$"""
+        _fixture.On("tools.ozone.team.listMembers", $$"""
             {"members":[{"did":"{{ModDid}}","role":"tools.ozone.team.defs#roleAdmin","lastUpdatedBy":"admin_token"}]}
             """);
 
-        var page = await _client.Ozone.Team.ListMembersAsync();
+        var page = await Client.Ozone.Team.ListMembersAsync();
 
         Assert.Equal("admin_token", Assert.Single(page.Members).LastUpdatedBy);
     }
@@ -151,11 +137,11 @@ public class TypedOzoneClientTests : IDisposable
     [Fact]
     public async Task FindRelatedAccountsAsync_LimitThenCursor_SendsBoth()
     {
-        _handler.Pages.Enqueue("""{"accounts":[]}""");
+        _fixture.On("tools.ozone.signature.findRelatedAccounts", """{"accounts":[]}""");
 
-        await _client.Ozone.Signature.FindRelatedAccountsAsync(Did.Parse(ModDid), 10, "c");
+        await Client.Ozone.Signature.FindRelatedAccountsAsync(Did.Parse(ModDid), 10, "c");
 
-        var query = Uri.UnescapeDataString(_handler.Requests.Single().Query);
+        var query = Uri.UnescapeDataString(_fixture.To("tools.ozone.signature.findRelatedAccounts").Single().Uri.Query);
         Assert.Contains($"did={ModDid}", query);
         Assert.Contains("limit=10", query);
         Assert.Contains("cursor=c", query);
@@ -164,15 +150,18 @@ public class TypedOzoneClientTests : IDisposable
     [Fact]
     public async Task SearchAccountsAsync_IsAQueryWithOneValuesParameterEach()
     {
-        _handler.Pages.Enqueue($$"""{"accounts":[{"did":"{{ModDid}}","handle":"mod.example.com","indexedAt":"2026-09-01T00:00:00.000Z"}]}""");
+        _fixture.On(
+            "tools.ozone.signature.searchAccounts",
+            $$"""{"accounts":[{"did":"{{ModDid}}","handle":"mod.example.com","indexedAt":"2026-09-01T00:00:00.000Z"}]}""");
 
-        var page = await _client.Ozone.Signature.SearchAccountsAsync(["192.0.2.1", "device-7"], 10, "c");
+        var page = await Client.Ozone.Signature.SearchAccountsAsync(["192.0.2.1", "device-7"], 10, "c");
 
         // A query, not a procedure: the values go in the query string and nothing in a body.
-        Assert.Null(_handler.Bodies.Single());
+        var sent = _fixture.To("tools.ozone.signature.searchAccounts").Single();
+        Assert.Empty(sent.Body);
         Assert.Equal(
             "?values=192.0.2.1&values=device-7&limit=10&cursor=c",
-            Uri.UnescapeDataString(_handler.Requests.Single().Query));
+            Uri.UnescapeDataString(sent.Uri.Query));
         Assert.Equal(ModDid, Assert.Single(page.Accounts).Did.Value);
     }
 
@@ -188,17 +177,17 @@ public class TypedOzoneClientTests : IDisposable
         // Two pages, then the second cursor again: the paginator must stop instead of looping.
         var (nsid, pages, enumerate) = Listing(listing);
         foreach (var page in pages)
-            _handler.Pages.Enqueue(page);
+            _fixture.On(nsid, page);
 
-        var items = await enumerate(_client);
+        var items = await enumerate(Client);
 
         Assert.Equal(3, items);
-        Assert.Equal(3, _handler.Requests.Count);
-        Assert.All(_handler.Requests, uri => Assert.Equal($"/xrpc/{nsid}", uri.AbsolutePath));
-        Assert.All(_handler.Requests, uri => Assert.Contains("limit=2", uri.Query));
-        Assert.DoesNotContain("cursor=", _handler.Requests[0].Query);
-        Assert.Contains("cursor=c1", _handler.Requests[1].Query);
-        Assert.Contains("cursor=c2", _handler.Requests[2].Query);
+        Assert.Equal(3, _fixture.Requests.Count);
+        Assert.All(_fixture.Requests, r => Assert.Equal($"/xrpc/{nsid}", r.Path));
+        Assert.All(_fixture.Requests, r => Assert.Contains("limit=2", r.Uri.Query));
+        Assert.DoesNotContain("cursor=", _fixture.Requests[0].Uri.Query);
+        Assert.Contains("cursor=c1", _fixture.Requests[1].Uri.Query);
+        Assert.Contains("cursor=c2", _fixture.Requests[2].Uri.Query);
     }
 
     private static (string Nsid, string[] Pages, Func<AtProtoClient, Task<int>> Enumerate) Listing(string listing)
@@ -248,25 +237,5 @@ public class TypedOzoneClientTests : IDisposable
                 c => Count(c.Ozone.Team.EnumerateMembersAsync(pageSize: 2))),
             _ => throw new ArgumentOutOfRangeException(nameof(listing)),
         };
-    }
-
-    private sealed class ScriptedHandler : HttpMessageHandler
-    {
-        public Queue<string> Pages { get; } = new();
-
-        public List<Uri> Requests { get; } = [];
-
-        public List<string?> Bodies { get; } = [];
-
-        protected override async Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            Requests.Add(request.RequestUri!);
-            Bodies.Add(request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken));
-            return new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(Pages.Dequeue(), Encoding.UTF8, "application/json"),
-            };
-        }
     }
 }

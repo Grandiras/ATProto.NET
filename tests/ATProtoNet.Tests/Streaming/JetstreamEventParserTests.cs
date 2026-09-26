@@ -176,53 +176,27 @@ public class JetstreamEventParserTests
         Assert.Equal("takendown", account.Status);
     }
 
-    [Fact]
-    public void Parse_UnknownKind_ReturnsNull()
+    public static TheoryData<string, string> NullCases()
     {
-        var json = """{"did":"did:plc:ufbl4k27gp6kzas5glhz7fim","time_us":1,"kind":"somethingNew","somethingNew":{}}""";
-
-        Assert.Null(Parse(json));
-    }
-
-    [Fact]
-    public void Parse_UnknownOperation_ReturnsNull()
-    {
-        var json = CreateCommitJson.Replace("\"operation\":\"create\"", "\"operation\":\"merge\"");
-
-        Assert.Null(Parse(json));
+        var data = new TheoryData<string, string>
+        {
+            { "UnknownKind", """{"did":"did:plc:ufbl4k27gp6kzas5glhz7fim","time_us":1,"kind":"somethingNew","somethingNew":{}}""" },
+            { "UnknownOperation", CreateCommitJson.Replace("\"operation\":\"create\"", "\"operation\":\"merge\"") },
+            { "NotJsonAtAll", "not json at all" },
+            { "TruncatedJson", "{\"truncated\":" },
+            { "EmptyArray", "[]" },
+            { "BareNumber", "42" },
+            { "MissingDid", """{"time_us":1,"kind":"commit","commit":{"operation":"create","collection":"a.b.c","rkey":"x"}}""" },
+            { "InvalidDid", CreateCommitJson.Replace("did:plc:eygmaihciaxprqvxpfvl6flk", "not-a-did") },
+            { "CommitWithoutBody", """{"did":"did:plc:ufbl4k27gp6kzas5glhz7fim","time_us":1,"kind":"commit"}""" },
+        };
+        return data;
     }
 
     [Theory]
-    [InlineData("not json at all")]
-    [InlineData("{\"truncated\":")]
-    [InlineData("[]")]
-    [InlineData("42")]
-    public void Parse_MalformedFrame_ReturnsNull(string json)
+    [MemberData(nameof(NullCases))]
+    public void Parse_InvalidOrUnrecognizedFrame_ReturnsNull(string _, string json)
     {
-        Assert.Null(Parse(json));
-    }
-
-    [Fact]
-    public void Parse_MissingDid_ReturnsNull()
-    {
-        var json = """{"time_us":1,"kind":"commit","commit":{"operation":"create","collection":"a.b.c","rkey":"x"}}""";
-
-        Assert.Null(Parse(json));
-    }
-
-    [Fact]
-    public void Parse_InvalidDid_ReturnsNull()
-    {
-        var json = CreateCommitJson.Replace("did:plc:eygmaihciaxprqvxpfvl6flk", "not-a-did");
-
-        Assert.Null(Parse(json));
-    }
-
-    [Fact]
-    public void Parse_CommitWithoutBody_ReturnsNull()
-    {
-        var json = """{"did":"did:plc:ufbl4k27gp6kzas5glhz7fim","time_us":1,"kind":"commit"}""";
-
         Assert.Null(Parse(json));
     }
 
