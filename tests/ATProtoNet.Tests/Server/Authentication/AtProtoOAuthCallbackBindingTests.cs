@@ -186,6 +186,65 @@ public sealed class AtProtoOAuthCallbackBindingTests : IDisposable
     }
 
     [Fact]
+    public async Task Callback_OnALoopbackOrigin_OfALoginStartedOnAPublicHost_IsNotRelayed()
+    {
+        // The check that keeps a login started with `Host: evil.example.com` from having the
+        // victim's loopback callback relayed to that host.
+        using var service = Service();
+        await service.StartLoginAsync(Request(host: "evil.example.com"), AliceHandle.Value);
+        var state = _server.To("/oauth/par")[^1].Form["state"];
+        var callback = Request(host: "127.0.0.1:5203");
+        callback.Request.Scheme = "http";
+
+        var ex = await Assert.ThrowsAsync<OAuthException>(() => service.CompleteCallbackAsync(callback, "code", state, Issuer));
+
+        Assert.Equal("login_not_bound", ex.Error);
+        Assert.Equal(0, service.PendingRelayCount);
+        Assert.Single(_server.To("/oauth/revoke"));
+    }
+
+    [Fact]
+    public async Task Callback_AStoredReturnUrlThatIsNotLocal_IsIgnored()
+    {
+        // The return URL comes back from the state store, which may be shared or tampered with.
+        using var service = Service();
+        var (state, cookie) = await StartAsync(service, "/inbox");
+        await RewriteAppStateAsync(state, app => app.Replace("\"/inbox\"", "\"https://evil.example.com/\""));
+
+        var result = await service.CompleteCallbackAsync(Request(cookie: cookie), "code", state, Issuer);
+
+        Assert.Equal("/", result.RedirectUrl);
+    }
+
+    [Theory]
+    [InlineData("https://localhost:7203/elsewhere")]
+    [InlineData("https://user@localhost:7203")]
+    [InlineData("javascript:alert(1)")]
+    public async Task Callback_AStoredOriginThatIsNotAnOrigin_IsRefused(string origin)
+    {
+        using var service = Service();
+        await service.StartLoginAsync(Request(host: "localhost:7203"), AliceHandle.Value);
+        var state = _server.To("/oauth/par")[^1].Form["state"];
+        await RewriteAppStateAsync(state, app => app.Replace("\"https://localhost:7203\"", $"\"{origin}\""));
+        var callback = Request(host: "127.0.0.1:5203");
+        callback.Request.Scheme = "http";
+
+        var ex = await Assert.ThrowsAsync<OAuthException>(() => service.CompleteCallbackAsync(callback, "code", state, Issuer));
+
+        Assert.Equal("login_not_bound", ex.Error);
+        Assert.Equal(0, service.PendingRelayCount);
+    }
+
+    private async Task RewriteAppStateAsync(string state, Func<string, string> rewrite)
+    {
+        var pending = await _store.TakeAsync(state);
+        Assert.NotNull(pending?.AppState);
+        var rewritten = rewrite(pending.AppState);
+        Assert.NotEqual(pending.AppState, rewritten);
+        await _store.SetAsync(pending with { AppState = rewritten });
+    }
+
+    [Fact]
     public async Task LogoutAsync_WaitsForARefreshUnderWay_ThenRemovesAndRevokesTheSession()
     {
         // A refresh holding the account's lock finishes before the session is removed, and one

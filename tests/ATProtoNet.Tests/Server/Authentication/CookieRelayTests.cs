@@ -139,18 +139,22 @@ public sealed class CookieRelayTests : IDisposable
     #region Browser binding
 
     [Fact]
-    public async Task TryRedeemRelayCodeAsync_WithoutTheBindingCookie_IssuesNoCookie()
+    public async Task TryRedeemRelayCodeAsync_WithoutTheBindingCookie_IssuesNoCookie_AndRevokesTheSession()
     {
         // Someone else's relay link: the browser redeeming it did not start the login.
-        var code = InsertRelayEntry(_service, "/", TimeSpan.FromMinutes(2));
+        var time = new ManualTimeProvider();
+        using var service = RevokingService(time);
+        var code = InsertRelayEntry(service, "/", TimeSpan.FromMinutes(2), time.Now, Session("rt-relayed"));
         var authService = Substitute.For<IAuthenticationService>();
         var context = CreateHttpContext(authService, withBinding: false);
 
-        var result = await _service.TryRedeemRelayCodeAsync(context, code);
+        var result = await service.TryRedeemRelayCodeAsync(context, code);
 
         Assert.Null(result);
         await authService.DidNotReceive().SignInAsync(
             Arg.Any<HttpContext>(), Arg.Any<string>(), Arg.Any<ClaimsPrincipal>(), Arg.Any<AuthenticationProperties>());
+        Assert.Equal("rt-relayed", Assert.Single(_server.To("/oauth/revoke")).Form["token"]);
+        Assert.Equal(0, service.PendingRelayCount);
     }
 
     #endregion
