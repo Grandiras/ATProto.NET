@@ -18,12 +18,6 @@ public sealed class AtProtoClientSettings
     public string InstanceUrl { get; set; } = "https://bsky.social";
 
     /// <summary>
-    /// The WebSocket relay URL for firehose subscriptions.
-    /// Default: "wss://bsky.network"
-    /// </summary>
-    public string? RelayUrl { get; set; } = "wss://bsky.network";
-
-    /// <summary>
     /// Whether the client refreshes its session by itself (see
     /// <see cref="AtProtoClientOptions.AutoRefreshSession"/>). Default: true
     /// </summary>
@@ -92,7 +86,6 @@ public static class AtProtoAspireExtensions
             {
                 InstanceUrl = settings.InstanceUrl,
                 AutoRefreshSession = settings.AutoRefreshSession,
-                RelayUrl = settings.RelayUrl,
             };
 
             return new AtProtoClient(options, httpClient, sessionStore: null, logger);

@@ -32,7 +32,6 @@ var client = app.Services.GetRequiredService<AtProtoClient>();
 {
   "AtProto": {
     "InstanceUrl": "https://bsky.social",
-    "RelayUrl": "wss://bsky.network",
     "AutoRefreshSession": true,
     "DisableHealthChecks": false,
     "DisableResilience": false
@@ -46,7 +45,6 @@ var client = app.Services.GetRequiredService<AtProtoClient>();
 builder.AddAtProtoClient(configureSettings: settings =>
 {
     settings.InstanceUrl = "https://my-pds.example.com";
-    settings.RelayUrl = "wss://bsky.network";
     settings.AutoRefreshSession = true;
     settings.DisableHealthChecks = false;
     settings.DisableResilience = false;
@@ -64,7 +62,6 @@ builder.AddAtProtoClient(configurationSectionName: "MyApp:AtProto");
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `InstanceUrl` | `string` | `"https://bsky.social"` | PDS / service instance URL |
-| `RelayUrl` | `string?` | `"wss://bsky.network"` | WebSocket relay URL for firehose |
 | `AutoRefreshSession` | `bool` | `true` | Refresh the session on demand, before expiry and after an `ExpiredToken` |
 | `DisableHealthChecks` | `bool` | `false` | Disable PDS connectivity health check |
 | `DisableResilience` | `bool` | `false` | Disable standard HTTP resilience |
@@ -112,7 +109,7 @@ public class MyService
         if (!_client.IsAuthenticated)
             await _client.LoginAsync("bot.bsky.social", "app-password");
 
-        await _client.PostAsync(text);
+        await _client.Bsky.PostAsync(text);
     }
 }
 ```

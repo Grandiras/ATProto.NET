@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ATProtoNet.Identity;
+using ATProtoNet.Lexicon.Com.AtProto.Moderation;
 using ATProtoNet.Lexicon.Com.AtProto.Server;
 using ATProtoNet.Models;
 
@@ -132,9 +133,12 @@ public sealed class SearchAccountsResponse : ICursorPage<AccountInfo>
 /// </summary>
 public sealed class GetSubjectStatusResponse
 {
-    /// <summary>The subject the status applies to.</summary>
+    /// <summary>
+    /// The subject the status applies to: a <see cref="RepoSubject"/>, <see cref="RecordSubject"/>
+    /// or <see cref="RepoBlobSubject"/>.
+    /// </summary>
     [JsonPropertyName("subject")]
-    public required JsonElement Subject { get; init; }
+    public required ModerationSubject Subject { get; init; }
 
     /// <summary>Takedown status of the subject, if taken down.</summary>
     [JsonPropertyName("takedown")]
@@ -168,9 +172,12 @@ public sealed class SubjectStatusDetail : LexObject
 /// </summary>
 public sealed class UpdateSubjectStatusRequest
 {
-    /// <summary>The subject to update.</summary>
+    /// <summary>
+    /// The subject to update: a <see cref="RepoSubject"/>, <see cref="RecordSubject"/> or
+    /// <see cref="RepoBlobSubject"/>.
+    /// </summary>
     [JsonPropertyName("subject")]
-    public required JsonElement Subject { get; init; }
+    public required ModerationSubject Subject { get; init; }
 
     /// <summary>Takedown status of the subject, if taken down.</summary>
     [JsonPropertyName("takedown")]
@@ -188,7 +195,7 @@ public sealed class UpdateSubjectStatusResponse
 {
     /// <summary>The subject that was updated.</summary>
     [JsonPropertyName("subject")]
-    public required JsonElement Subject { get; init; }
+    public required ModerationSubject Subject { get; init; }
 
     /// <summary>Takedown status of the subject, if taken down.</summary>
     [JsonPropertyName("takedown")]

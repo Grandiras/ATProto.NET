@@ -19,15 +19,14 @@ public class BlueskyFeatureTests
     {
         var client = _fixture.Client;
 
-        var postRef = await client.PostAsync($"Hello from ATProtoNet integration test! {Guid.NewGuid():N}");
+        var postRef = await client.Bsky.PostAsync($"Hello from ATProtoNet integration test! {Guid.NewGuid():N}");
 
         Assert.NotNull(postRef);
-        Assert.NotNull(postRef.Uri);
+        Assert.Equal(Nsid.Parse("app.bsky.feed.post"), postRef.Uri.Collection);
         Assert.NotNull(postRef.Cid);
 
         // Clean up
-        var uri = Identity.AtUri.Parse(postRef.Uri);
-        await client.Repo.DeleteRecordAsync(client.Did!, Nsid.Parse("app.bsky.feed.post"), uri.RecordKey!);
+        await client.Bsky.DeleteRecordAsync(postRef.Uri);
     }
 
     [RequiresBlueskyFact]
@@ -69,20 +68,19 @@ public class BlueskyFeatureTests
     {
         var client = _fixture.Client;
 
-        var (text, facets) = new Lexicon.App.Bsky.RichText.RichTextBuilder()
+        var text = new Lexicon.App.Bsky.RichText.RichTextBuilder()
             .Text("Testing ")
             .Tag("atproto")
             .Text(" SDK ")
             .Link("link", "https://example.com")
             .Build();
 
-        var postRef = await client.PostAsync(text, facets: facets);
+        var postRef = await client.Bsky.PostAsync(text);
 
-        Assert.NotNull(postRef);
-        Assert.NotNull(postRef.Uri);
+        var post = await client.Repo.GetRecordAsync<Lexicon.App.Bsky.Feed.PostRecord>(postRef.Uri);
+        Assert.Equal(2, post.Value.Facets?.Count);
 
         // Clean up
-        var uri = Identity.AtUri.Parse(postRef.Uri);
-        await client.Repo.DeleteRecordAsync(client.Did!, Nsid.Parse("app.bsky.feed.post"), uri.RecordKey!);
+        await client.Bsky.DeleteRecordAsync(postRef.Uri);
     }
 }

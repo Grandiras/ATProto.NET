@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using ATProtoNet.Admin;
 using ATProtoNet.Identity;
+using ATProtoNet.Lexicon.Com.AtProto.Server;
 
 namespace ATProtoNet.Tests.Admin;
 
@@ -157,7 +158,7 @@ public class PdsAdminClientTests : IDisposable
         _handler.Enqueue("""{"code":"minted-code"}""");
         _handler.Enqueue("""{"did":"did:plc:alice","handle":"alice.example.com","accessJwt":"a","refreshJwt":"r"}""");
 
-        var account = await _client.CreateAccountAsync(new CreatePdsAccountRequest
+        var account = await _client.CreateAccountAsync(new CreateAccountRequest
         {
             Handle = Handle.Parse("alice.example.com"),
             Email = "alice@example.com",
@@ -184,7 +185,7 @@ public class PdsAdminClientTests : IDisposable
         _handler.Enqueue("""{"did":"did:web:pds.example.com","inviteCodeRequired":false}""");
         _handler.Enqueue("""{"did":"did:plc:alice","handle":"alice.example.com","accessJwt":"a","refreshJwt":"r"}""");
 
-        await _client.CreateAccountAsync(new CreatePdsAccountRequest
+        await _client.CreateAccountAsync(new CreateAccountRequest
         {
             Handle = Handle.Parse("alice.example.com"),
             Password = "correct-horse",
@@ -201,7 +202,7 @@ public class PdsAdminClientTests : IDisposable
         _handler.Enqueue("""{"did":"did:web:pds.example.com","inviteCodeRequired":false}""");
         _handler.Enqueue("""{"did":"did:plc:alice","handle":"alice.example.com","accessJwt":"a","refreshJwt":"r"}""");
 
-        await _client.CreateAccountAsync(new CreatePdsAccountRequest
+        await _client.CreateAccountAsync(new CreateAccountRequest
         {
             Handle = Handle.Parse("alice.example.com"),
             Password = "correct-horse",
@@ -215,7 +216,7 @@ public class PdsAdminClientTests : IDisposable
     {
         _handler.Enqueue("""{"did":"did:plc:alice","handle":"alice.example.com","accessJwt":"a","refreshJwt":"r"}""");
 
-        await _client.CreateAccountAsync(new CreatePdsAccountRequest
+        await _client.CreateAccountAsync(new CreateAccountRequest
         {
             Handle = Handle.Parse("alice.example.com"),
             Password = "correct-horse",
@@ -233,7 +234,7 @@ public class PdsAdminClientTests : IDisposable
     public async Task CreateAccountAsync_WithoutHandle_Throws()
     {
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            _client.CreateAccountAsync(new CreatePdsAccountRequest
+            _client.CreateAccountAsync(new CreateAccountRequest
             {
                 Handle = Handle.Parse(""),
                 Password = "correct-horse",
@@ -295,7 +296,7 @@ public class PdsAdminClientTests : IDisposable
     [Fact]
     public async Task TakedownAccountAsync_SendsRepoRefWithTakedownApplied()
     {
-        _handler.Enqueue("""{"subject":{"did":"did:plc:alice"}}""");
+        _handler.Enqueue("""{"subject":{"$type":"com.atproto.admin.defs#repoRef","did":"did:plc:alice"}}""");
 
         await _client.TakedownAccountAsync(Did.Parse("did:plc:alice"), reference: "report-42");
 
@@ -309,7 +310,7 @@ public class PdsAdminClientTests : IDisposable
     [Fact]
     public async Task RestoreAccountAsync_SendsTakedownNotApplied()
     {
-        _handler.Enqueue("""{"subject":{"did":"did:plc:alice"}}""");
+        _handler.Enqueue("""{"subject":{"$type":"com.atproto.admin.defs#repoRef","did":"did:plc:alice"}}""");
 
         await _client.RestoreAccountAsync(Did.Parse("did:plc:alice"));
 

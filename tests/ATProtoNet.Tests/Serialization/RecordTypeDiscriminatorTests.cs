@@ -61,7 +61,7 @@ public class RecordTypeDiscriminatorTests
         var json = SerializeToObject(new TodoItem { Title = "Buy milk" }, AtProtoJsonDefaults.Options);
 
         Assert.Equal("Buy milk", (string?)json["title"]);
-        Assert.NotNull(json["createdAt"]);
+        Assert.False(json.ContainsKey("createdAt"), "an unset createdAt is omitted, not invented");
     }
 
     [Fact]

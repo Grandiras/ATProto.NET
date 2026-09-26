@@ -18,13 +18,15 @@ public sealed class ModerationClient
     /// <summary>
     /// Submit a moderation report for a repo (account) or record.
     /// </summary>
-    /// <param name="subject">The subject being reported.</param>
+    /// <param name="subject">
+    /// The subject being reported: a <see cref="RepoSubject"/> or a <see cref="RecordSubject"/>.
+    /// </param>
     /// <param name="reasonType">The reason type. Use constants from <see cref="ReportReasons"/>.</param>
     /// <param name="reason">Optional free-text description of the report.</param>
     /// <param name="modTool">The tool filing the report, if the labeler should know.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<CreateReportResponse> CreateReportAsync(
-        ReportSubject subject,
+        ModerationSubject subject,
         string reasonType,
         string? reason = null,
         ModTool? modTool = null,

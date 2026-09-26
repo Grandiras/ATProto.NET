@@ -5,6 +5,7 @@ using ATProtoNet.Lexicon.App.Bsky.Embed;
 using ATProtoNet.Lexicon.App.Bsky.Feed;
 using ATProtoNet.Lexicon.App.Bsky.Graph;
 using ATProtoNet.Lexicon.App.Bsky.Labeler;
+using ATProtoNet.Lexicon.Com.AtProto.Moderation;
 using ATProtoNet.Lexicon.Tools.Ozone.Moderation;
 using ATProtoNet.Serialization;
 
@@ -223,6 +224,27 @@ public class LexiconUnionTests
         var status = detail.Moderation.SubjectStatus!;
         Assert.Equal("m1", Assert.IsType<MessageSubject>(status.Subject).MessageId);
         Assert.Equal("deleted", Assert.IsType<RecordHosting>(status.Hosting).Status);
+    }
+
+    [Fact]
+    public void ModerationSubject_AdminSubjectStatus_ReadsEveryVariantAndWritesItsType()
+    {
+        const string blob =
+            """
+            {"subject":{"$type":"com.atproto.admin.defs#repoBlobRef","did":"did:plc:a","cid":"bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy","recordUri":"at://did:plc:a/app.bsky.feed.post/1"},
+             "takedown":{"applied":true,"ref":"t1"}}
+            """;
+
+        var status = JsonSerializer.Deserialize<ATProtoNet.Lexicon.Com.AtProto.Admin.GetSubjectStatusResponse>(blob, Options)!;
+
+        var subject = Assert.IsType<RepoBlobSubject>(status.Subject);
+        Assert.Equal("did:plc:a", subject.Did);
+        Assert.Equal("at://did:plc:a/app.bsky.feed.post/1", subject.RecordUri);
+
+        var request = new ATProtoNet.Lexicon.Com.AtProto.Admin.UpdateSubjectStatusRequest { Subject = new RepoSubject { Did = global::ATProtoNet.Identity.Did.Parse("did:plc:a") } };
+        AssertSameJson(
+            """{"subject":{"$type":"com.atproto.admin.defs#repoRef","did":"did:plc:a"}}""",
+            JsonSerializer.Serialize(request, Options));
     }
 
     private static void AssertSameJson(string expected, string actual) =>

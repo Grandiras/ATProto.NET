@@ -27,42 +27,38 @@ dotnet tool install -g ATProtoNet.LexiconGenerator
 
 ## Create a Client
 
-The simplest way to create a client:
+There is one constructor, and every argument is optional:
 
 ```csharp
 using ATProtoNet;
 
-var client = new AtProtoClientBuilder()
-    .WithInstanceUrl("https://your-pds.example.com")
-    .Build();
+var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = "https://your-pds.example.com" });
 ```
 
-### Builder Options
+`new AtProtoClient()` alone addresses `https://bsky.social`.
+
+### Options
 
 ```csharp
-var client = new AtProtoClientBuilder()
-    .WithInstanceUrl("https://your-pds.example.com")  // Required: PDS URL
-    .WithRelayUrl("wss://bsky.network")                // Relay for firehose (default)
-    .WithAutoRefreshSession(true)                       // Refresh tokens on demand (default: true)
-    .WithSessionStore(new InMemoryAtProtoSessionStore()) // Session persistence (default: none)
-    .WithHttpClient(httpClient)                         // Custom HttpClient
-    .WithLoggerFactory(loggerFactory)                   // Logging
-    .Build();
+var client = new AtProtoClient(
+    new AtProtoClientOptions
+    {
+        InstanceUrl = "https://your-pds.example.com", // PDS or entryway URL (default: https://bsky.social)
+        AutoRefreshSession = true,                     // Refresh tokens on demand (default: true)
+        BackgroundRefresh = false,                     // Also refresh on a timer while idle (default: false)
+        UserAgent = "MyApp/1.0",                       // User-Agent header (default: ATProtoNet/<version>)
+    },
+    httpClient: httpClient,                                // Custom HttpClient (default: one the client owns)
+    sessionStore: new InMemoryAtProtoSessionStore(),       // Session persistence (default: none)
+    logger: loggerFactory.CreateLogger<AtProtoClient>());  // Logging (default: none)
 ```
 
 The core package ships `InMemoryAtProtoSessionStore`; `ATProtoNet.Server` adds encrypted file and EF Core
 stores, and a custom `IAtProtoSessionStore` is a few lines, as shown in
 [Session Management](session-management.md#persisting-sessions).
 
-### Direct Construction
-
-```csharp
-var client = new AtProtoClient(new AtProtoClientOptions
-{
-    InstanceUrl = "https://your-pds.example.com",
-    AutoRefreshSession = true,
-});
-```
+The client covers one account's session with its PDS. Firehose and Jetstream consumers are built
+on their own, independent of it; see [Firehose Streaming](firehose.md).
 
 ## Authenticate
 

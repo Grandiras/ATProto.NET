@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
@@ -18,15 +19,36 @@ namespace ATProtoNet.Http;
 /// identifier types included — through <see cref="object.ToString"/>. <see cref="AddAll"/>
 /// appends one pair per element, so array parameters go out as repeated keys
 /// (<c>uris=a&amp;uris=b</c>) per the XRPC convention rather than as one comma-joined value.</para>
-/// <para><see cref="From"/> applies the same rules to a loosely typed parameter object — an
-/// anonymous type or a dictionary — for the custom-XRPC entry points.</para>
+/// <para>Build one fluently, or with a collection initializer, and pass it to
+/// <see cref="AtProtoClient.QueryAsync{TOut}(Nsid, XrpcParams?, XrpcCallOptions?, CancellationToken)"/>
+/// or an <see cref="IXrpcTransport"/> call. Identifier types such as <see cref="Did"/> and
+/// <see cref="AtUri"/> pass as strings.</para>
 /// </remarks>
-internal sealed class XrpcParams : IEnumerable<KeyValuePair<string, string>>
+/// <example>
+/// <code>
+/// var parameters = new XrpcParams
+/// {
+///     { "actor", did },
+///     { "limit", 25 },
+///     { "cursor", cursor },
+/// };
+///
+/// var fluent = new XrpcParams().Add("actor", did).AddAll("tags", ["a", "b"]);
+/// </code>
+/// </example>
+public sealed class XrpcParams : IEnumerable<KeyValuePair<string, string>>
 {
     private static readonly ConcurrentDictionary<Type, PropertyInfo[]> PropertyCache = new();
     private static readonly ConcurrentDictionary<Enum, string> EnumNames = new();
 
     private readonly List<KeyValuePair<string, string>> _pairs = [];
+
+    /// <summary>
+    /// Why the parameter-object entry points are not trim-safe: they read the object's public
+    /// properties by reflection.
+    /// </summary>
+    internal const string AnonymousParametersWarning =
+        "Reads the parameter object's properties by reflection, which trimming can remove. Pass an XrpcParams instead.";
 
     /// <summary>The number of pairs added.</summary>
     public int Count => _pairs.Count;
@@ -83,7 +105,8 @@ internal sealed class XrpcParams : IEnumerable<KeyValuePair<string, string>>
     /// sequence — into parameters, or returns <see langword="null"/> when there is nothing to
     /// send. A property whose value is a non-string sequence expands into one pair per element.
     /// </summary>
-    public static XrpcParams? From(object? parameters)
+    [RequiresUnreferencedCode(AnonymousParametersWarning)]
+    internal static XrpcParams? From(object? parameters)
     {
         switch (parameters)
         {

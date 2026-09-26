@@ -15,7 +15,7 @@ public class CommonModelsTests
     {
         var blob = new BlobRef
         {
-            Ref = new BlobLink { Link = Cid.Parse("bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy") },
+            Ref = new CidLink { Link = Cid.Parse("bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy") },
             MimeType = "image/jpeg",
             Size = 12345,
         };

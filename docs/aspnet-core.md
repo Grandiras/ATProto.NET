@@ -86,7 +86,7 @@ public class TodoController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> List([FromQuery] int limit = 50, [FromQuery] string? cursor = null)
     {
-        var todos = _client.GetCollection<TodoItem>(Nsid.Parse("com.example.todo.item"));
+        var todos = _client.GetCollection<TodoItem>();
         var page = await todos.ListAsync(limit: limit, cursor: cursor);
 
         return Ok(new
@@ -106,23 +106,16 @@ public class TodoController : ControllerBase
     [HttpGet("{key}")]
     public async Task<IActionResult> Get(string key)
     {
-        var todos = _client.GetCollection<TodoItem>(Nsid.Parse("com.example.todo.item"));
+        var todos = _client.GetCollection<TodoItem>();
 
-        try
-        {
-            var item = await todos.GetAsync(RecordKey.Parse(key));
-            return Ok(item.Value);
-        }
-        catch (XrpcException ex) when (ex.Is(XrpcErrors.RecordNotFound))
-        {
-            return NotFound();
-        }
+        var item = await todos.FindAsync(RecordKey.Parse(key));
+        return item is null ? NotFound() : Ok(item.Value);
     }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] TodoItem item)
     {
-        var todos = _client.GetCollection<TodoItem>(Nsid.Parse("com.example.todo.item"));
+        var todos = _client.GetCollection<TodoItem>();
         var created = await todos.CreateAsync(item);
 
         return CreatedAtAction(nameof(Get),
@@ -133,7 +126,7 @@ public class TodoController : ControllerBase
     [HttpPut("{key}")]
     public async Task<IActionResult> Update(string key, [FromBody] TodoItem item)
     {
-        var todos = _client.GetCollection<TodoItem>(Nsid.Parse("com.example.todo.item"));
+        var todos = _client.GetCollection<TodoItem>();
         var updated = await todos.PutAsync(RecordKey.Parse(key), item);
 
         return Ok(new { uri = updated.Uri, cid = updated.Cid });
@@ -142,7 +135,7 @@ public class TodoController : ControllerBase
     [HttpDelete("{key}")]
     public async Task<IActionResult> Delete(string key)
     {
-        var todos = _client.GetCollection<TodoItem>(Nsid.Parse("com.example.todo.item"));
+        var todos = _client.GetCollection<TodoItem>();
         await todos.DeleteAsync(RecordKey.Parse(key));
         return NoContent();
     }
@@ -165,7 +158,7 @@ var app = builder.Build();
 var client = app.Services.GetRequiredService<AtProtoClient>();
 await client.LoginAsync("service-account.example.com", "app-password");
 
-var todos = client.GetCollection<TodoItem>(Nsid.Parse("com.example.todo.item"));
+var todos = client.GetCollection<TodoItem>();
 
 app.MapGet("/todos", async (int? limit, string? cursor) =>
 {

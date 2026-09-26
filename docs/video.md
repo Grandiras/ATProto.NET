@@ -15,11 +15,14 @@ await using var video = File.OpenRead("my-video.mp4");
 
 var job = await client.Bsky.Video.UploadVideoAsync(video, "video/mp4");
 
-await client.PostAsync("Check out this video!", embed: new VideoEmbed
+await client.Bsky.PostAsync("Check out this video!", new PostOptions
 {
-    Video = job.Blob!,
-    AspectRatio = new AspectRatio { Width = 1920, Height = 1080 },
-    Alt = "A description of the video for accessibility",
+    Embed = new VideoEmbed
+    {
+        Video = job.Blob!,
+        AspectRatio = new AspectRatio { Width = 1920, Height = 1080 },
+        Alt = "A description of the video for accessibility",
+    },
 });
 ```
 

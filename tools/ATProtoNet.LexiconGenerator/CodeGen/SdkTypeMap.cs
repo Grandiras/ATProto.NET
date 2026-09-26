@@ -44,7 +44,7 @@ public static class SdkTypeMap
         ["app.bsky.embed.external#view"] = $"{Lex}.App.Bsky.Embed.ExternalView",
         ["app.bsky.embed.external#viewExternal"] = $"{Lex}.App.Bsky.Embed.ExternalViewInfo",
         ["app.bsky.embed.record#main"] = $"{Lex}.App.Bsky.Embed.RecordEmbed",
-        ["app.bsky.embed.record#view"] = $"{Lex}.App.Bsky.Embed.RecordView",
+        ["app.bsky.embed.record#view"] = $"{Lex}.App.Bsky.Embed.RecordEmbedView",
         ["app.bsky.embed.recordWithMedia#main"] = $"{Lex}.App.Bsky.Embed.RecordWithMediaEmbed",
         ["app.bsky.embed.recordWithMedia#view"] = $"{Lex}.App.Bsky.Embed.RecordWithMediaView",
         ["app.bsky.embed.video#main"] = $"{Lex}.App.Bsky.Embed.VideoEmbed",

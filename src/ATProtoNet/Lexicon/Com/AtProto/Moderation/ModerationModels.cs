@@ -11,24 +11,30 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Moderation;
 // ──────────────────────────────────────────────────────────────
 
 /// <summary>
-/// The subject of a moderation report – can be a repo (account) or a record. A subject type this
-/// SDK does not model reads as <see cref="UnknownReportSubject"/>.
+/// What a moderation action is about: an account, a record, a blob, or a chat message or
+/// conversation. One union serves reports (<c>com.atproto.moderation.createReport</c>), a PDS's
+/// subject status (<c>com.atproto.admin.*SubjectStatus</c>) and Ozone's events and statuses
+/// (<c>tools.ozone.moderation.*</c>); each method accepts the variants its Lexicon lists, and a
+/// subject type this SDK does not model reads as <see cref="UnknownModerationSubject"/>.
 /// </summary>
-[AtProtoUnion(typeof(UnknownReportSubject))]
+[AtProtoUnion(typeof(UnknownModerationSubject))]
 [JsonDerivedType(typeof(RepoSubject), "com.atproto.admin.defs#repoRef")]
 [JsonDerivedType(typeof(RecordSubject), "com.atproto.repo.strongRef")]
-public abstract class ReportSubject : LexObject;
+[JsonDerivedType(typeof(RepoBlobSubject), "com.atproto.admin.defs#repoBlobRef")]
+[JsonDerivedType(typeof(MessageSubject), "chat.bsky.convo.defs#messageRef")]
+[JsonDerivedType(typeof(ConvoSubject), "chat.bsky.convo.defs#convoRef")]
+public abstract class ModerationSubject : LexObject;
 
 /// <summary>
-/// A report subject whose <c>$type</c> this SDK version does not model. It keeps the raw object and
-/// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
+/// A moderation subject whose <c>$type</c> this SDK version does not model. It keeps the raw object
+/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownReportSubject : ReportSubject, IUnknownUnionVariant
+public sealed class UnknownModerationSubject : ModerationSubject, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown report subject from its discriminator and raw object.</summary>
+    /// <summary>Creates an unknown moderation subject from its discriminator and raw object.</summary>
     /// <param name="type">The object's <c>$type</c>.</param>
     /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownReportSubject(string type, JsonElement raw)
+    public UnknownModerationSubject(string type, JsonElement raw)
     {
         ArgumentException.ThrowIfNullOrEmpty(type);
         Type = type;
@@ -43,9 +49,9 @@ public sealed class UnknownReportSubject : ReportSubject, IUnknownUnionVariant
 }
 
 /// <summary>
-/// A repository (account) subject for moderation reports.
+/// A repository (account) as a moderation subject (<c>com.atproto.admin.defs#repoRef</c>).
 /// </summary>
-public sealed class RepoSubject : ReportSubject
+public sealed class RepoSubject : ModerationSubject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
@@ -53,9 +59,9 @@ public sealed class RepoSubject : ReportSubject
 }
 
 /// <summary>
-/// A record subject for moderation reports.
+/// A record version as a moderation subject (<c>com.atproto.repo.strongRef</c>).
 /// </summary>
-public sealed class RecordSubject : ReportSubject
+public sealed class RecordSubject : ModerationSubject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -64,6 +70,57 @@ public sealed class RecordSubject : ReportSubject
     /// <summary>The CID (content identifier) of the record version.</summary>
     [JsonPropertyName("cid")]
     public required Cid Cid { get; init; }
+}
+
+/// <summary>
+/// A blob in an account's repository as a moderation subject
+/// (<c>com.atproto.admin.defs#repoBlobRef</c>).
+/// </summary>
+public sealed class RepoBlobSubject : ModerationSubject
+{
+    /// <summary>The DID of the account the blob belongs to.</summary>
+    [JsonPropertyName("did")]
+    public required Did Did { get; init; }
+
+    /// <summary>The CID of the blob.</summary>
+    [JsonPropertyName("cid")]
+    public required Cid Cid { get; init; }
+
+    /// <summary>The AT-URI of the record that references the blob, if known.</summary>
+    [JsonPropertyName("recordUri")]
+    public AtUri? RecordUri { get; init; }
+}
+
+/// <summary>
+/// A chat message as a moderation subject (<c>chat.bsky.convo.defs#messageRef</c>).
+/// </summary>
+public sealed class MessageSubject : ModerationSubject
+{
+    /// <summary>The DID of the message's sender.</summary>
+    [JsonPropertyName("did")]
+    public required Did Did { get; init; }
+
+    /// <summary>The identifier of the conversation.</summary>
+    [JsonPropertyName("convoId")]
+    public required string ConvoId { get; init; }
+
+    /// <summary>The identifier of the message.</summary>
+    [JsonPropertyName("messageId")]
+    public required string MessageId { get; init; }
+}
+
+/// <summary>
+/// A chat conversation as a moderation subject (<c>chat.bsky.convo.defs#convoRef</c>).
+/// </summary>
+public sealed class ConvoSubject : ModerationSubject
+{
+    /// <summary>The DID of the account the conversation is reported for.</summary>
+    [JsonPropertyName("did")]
+    public required Did Did { get; init; }
+
+    /// <summary>The identifier of the conversation.</summary>
+    [JsonPropertyName("convoId")]
+    public required string ConvoId { get; init; }
 }
 
 /// <summary>
@@ -90,7 +147,7 @@ internal sealed class CreateReportRequest
 
     /// <summary>The subject being reported.</summary>
     [JsonPropertyName("subject")]
-    public required ReportSubject Subject { get; init; }
+    public required ModerationSubject Subject { get; init; }
 
     /// <summary>The tool that filed the report.</summary>
     [JsonPropertyName("modTool")]
@@ -130,7 +187,7 @@ public sealed class CreateReportResponse
 
     /// <summary>The subject the report was filed against.</summary>
     [JsonPropertyName("subject")]
-    public required JsonElement Subject { get; init; }
+    public required ModerationSubject Subject { get; init; }
 
     /// <summary>The DID of the account that filed the report.</summary>
     [JsonPropertyName("reportedBy")]

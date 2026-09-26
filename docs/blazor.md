@@ -278,7 +278,7 @@ Display a timeline feed:
 <ComposePost OnPostCreated="HandlePost" />
 
 @code {
-    private void HandlePost(CreateRecordResponse response)
+    private void HandlePost(RecordRef response)
     {
         Console.WriteLine($"Posted: {response.Uri}");
     }

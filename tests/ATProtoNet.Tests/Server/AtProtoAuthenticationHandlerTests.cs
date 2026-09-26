@@ -26,7 +26,7 @@ public class AtProtoAuthenticationHandlerTests
         var monitor = Substitute.For<IOptionsMonitor<AtProtoAuthenticationOptions>>();
         monitor.Get(Arg.Any<string>()).Returns(new AtProtoAuthenticationOptions());
 
-        await using var client = new AtProtoClientBuilder().Build();
+        await using var client = new AtProtoClient();
         var handler = new AtProtoAuthenticationHandler(monitor, NullLoggerFactory.Instance, UrlEncoder.Default, client);
 
         var context = new DefaultHttpContext();

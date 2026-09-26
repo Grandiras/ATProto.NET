@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
+using ATProtoNet.Lexicon.Com.AtProto.Moderation;
 using ATProtoNet.Lexicon.Tools.Ozone.Moderation;
 using ATProtoNet.Lexicon.Tools.Ozone.Signature;
 

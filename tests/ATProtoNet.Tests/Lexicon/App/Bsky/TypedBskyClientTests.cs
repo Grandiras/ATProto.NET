@@ -184,7 +184,7 @@ public class TypedBskyClientTests : IDisposable
         await LoginAsync();
         _handler.Respond = _ => $$"""{"uri":"{{PostUri}}","cid":"{{Cid1}}"}""";
 
-        var created = await _client.PostAsync("hi");
+        var created = await _client.Bsky.PostAsync("hi");
 
         using var body = JsonDocument.Parse(_handler.Bodies.Last()!);
         var record = body.RootElement.GetProperty("record");
@@ -199,7 +199,7 @@ public class TypedBskyClientTests : IDisposable
         await LoginAsync();
         _handler.Respond = _ => $$"""{"uri":"at://{{DidText}}/app.bsky.graph.follow/3k2lf","cid":"{{Cid1}}"}""";
 
-        await _client.FollowAsync(Did.Parse("did:plc:bob"));
+        await _client.Bsky.FollowAsync(Did.Parse("did:plc:bob"));
 
         using var body = JsonDocument.Parse(_handler.Bodies.Last()!);
         Assert.Equal("app.bsky.graph.follow", body.RootElement.GetProperty("collection").GetString());

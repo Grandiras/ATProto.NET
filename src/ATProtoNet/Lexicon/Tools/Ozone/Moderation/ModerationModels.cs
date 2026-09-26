@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
+using ATProtoNet.Lexicon.Com.AtProto.Moderation;
 using ATProtoNet.Models;
 using ATProtoNet.Serialization;
 using Preference = ATProtoNet.Lexicon.App.Bsky.Actor.Preference;
@@ -518,94 +519,6 @@ public sealed class CancelScheduledTakedownEvent : ModEventType
     /// <summary>A free-text moderator comment.</summary>
     [JsonPropertyName("comment")]
     public string? Comment { get; init; }
-}
-
-// ─── Subject Types ───
-
-/// <summary>
-/// A moderation subject — either a repo (account) or a specific record. A subject type this SDK
-/// does not model reads as <see cref="UnknownModerationSubject"/>.
-/// </summary>
-[AtProtoUnion(typeof(UnknownModerationSubject))]
-[JsonDerivedType(typeof(RepoSubject), "com.atproto.admin.defs#repoRef")]
-[JsonDerivedType(typeof(RecordSubject), "com.atproto.repo.strongRef")]
-[JsonDerivedType(typeof(MessageSubject), "chat.bsky.convo.defs#messageRef")]
-[JsonDerivedType(typeof(ConvoSubject), "chat.bsky.convo.defs#convoRef")]
-public abstract class ModerationSubject : LexObject;
-
-/// <summary>
-/// A moderation subject whose <c>$type</c> this SDK version does not model. It keeps the raw object
-/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
-public sealed class UnknownModerationSubject : ModerationSubject, IUnknownUnionVariant
-{
-    /// <summary>Creates an unknown moderation subject from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownModerationSubject(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
-
-    /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
-}
-
-/// <summary>A moderation subject referring to a whole repository (account).</summary>
-public sealed class RepoSubject : ModerationSubject
-{
-    /// <summary>The DID (decentralized identifier) of the account.</summary>
-    [JsonPropertyName("did")]
-    public required Did Did { get; init; }
-}
-
-/// <summary>A moderation subject referring to a single record.</summary>
-public sealed class RecordSubject : ModerationSubject
-{
-    /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
-    [JsonPropertyName("uri")]
-    public required AtUri Uri { get; init; }
-
-    /// <summary>The CID (content identifier) of the record version.</summary>
-    [JsonPropertyName("cid")]
-    public Cid? Cid { get; init; }
-}
-
-/// <summary>
-/// A chat message as a moderation subject (<c>chat.bsky.convo.defs#messageRef</c>).
-/// </summary>
-public sealed class MessageSubject : ModerationSubject
-{
-    /// <summary>The DID of the message's sender.</summary>
-    [JsonPropertyName("did")]
-    public required Did Did { get; init; }
-
-    /// <summary>The identifier of the conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
-
-    /// <summary>The identifier of the message.</summary>
-    [JsonPropertyName("messageId")]
-    public required string MessageId { get; init; }
-}
-
-/// <summary>
-/// A chat conversation as a moderation subject (<c>chat.bsky.convo.defs#convoRef</c>).
-/// </summary>
-public sealed class ConvoSubject : ModerationSubject
-{
-    /// <summary>The DID of the account the conversation is reported for.</summary>
-    [JsonPropertyName("did")]
-    public required Did Did { get; init; }
-
-    /// <summary>The identifier of the conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
 }
 
 // ─── View Models ───

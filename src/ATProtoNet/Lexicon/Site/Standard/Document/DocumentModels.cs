@@ -13,11 +13,14 @@ namespace ATProtoNet.Lexicon.Site.Standard.Document;
 /// <summary>
 /// Represents a Standard.site document — an individual published document or blog post.
 /// </summary>
-public sealed class DocumentRecord : LexObject
+public sealed class DocumentRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>site.standard.document</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("site.standard.document");
+
     /// <summary>The Lexicon type discriminator (<c>site.standard.document</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "site.standard.document";
+    public string Type => Collection;
 
     /// <summary>
     /// Points to a publication record (at://) or a publication URL (https://) for loose documents.

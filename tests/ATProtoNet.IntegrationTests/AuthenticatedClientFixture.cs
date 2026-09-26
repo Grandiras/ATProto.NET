@@ -9,10 +9,7 @@ public class AuthenticatedClientFixture : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        Client = new AtProtoClientBuilder()
-            .WithInstanceUrl(TestConfig.PdsUrl)
-            .WithAutoRefreshSession(false)
-            .Build();
+        Client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl, AutoRefreshSession = false });
 
         await Client.LoginAsync(TestConfig.Handle, TestConfig.Password);
     }

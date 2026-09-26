@@ -175,11 +175,11 @@ IAsyncEnumerable<RecordEntry> EnumerateRecordsAsync(
 ```csharp
 // Before: the subject after the reason
 Task<CreateReportResponse> CreateReportAsync(
-    string reasonType, ReportSubject subject, string? reason = null, CancellationToken ct = default);
+    string reasonType, ModerationSubject subject, string? reason = null, CancellationToken ct = default);
 
 // After: subject first
 Task<CreateReportResponse> CreateReportAsync(
-    ReportSubject subject, string reasonType, string? reason = null, CancellationToken ct = default);
+    ModerationSubject subject, string reasonType, string? reason = null, CancellationToken ct = default);
 ```
 
 ```csharp

@@ -4,7 +4,9 @@ Complete listing of the ATProto.NET public API surface.
 
 ## AtProtoClient
 
-The main entry point. Created via `AtProtoClientBuilder` or direct construction.
+The main entry point: `new AtProtoClient(options?, httpClient?, sessionStore?, logger?)`, every
+argument optional (`AtProtoClientOptions`: `InstanceUrl`, `UserAgent`, `RateLimit`,
+`AutoRefreshSession`, `BackgroundRefresh`, `OAuth`).
 
 ### Properties
 
@@ -30,19 +32,25 @@ The main entry point. Created via `AtProtoClientBuilder` or direct construction.
 | `Chat` | `ChatClients` | `chat.bsky.*` sub-clients |
 | `Ozone` | `OzoneClient` | `tools.ozone.*` sub-clients |
 | `Site` | `StandardSiteClient` | `site.standard.*` records |
+| `Transport` | `IXrpcTransport` | The XRPC transport, for sub-clients of Lexicons the SDK does not ship |
 | `ServiceUrl` | `Uri` | The service URL requests currently go to |
 
 ### Custom Lexicon Methods
 
 | Method | Description |
 |--------|-------------|
-| `GetCollection<T>(collection)` | Get a typed `RecordCollection<T>` for CRUD (`collection` is an `Nsid`) |
-| `QueryAsync<T>(nsid, parameters?, options?)` | Call a custom XRPC query (GET) |
-| `ProcedureAsync<T>(nsid, body?, options?)` | Call a custom XRPC procedure (POST) with response |
-| `ProcedureAsync(nsid, body?, options?)` | Call a custom XRPC procedure (POST) without response |
+| `GetCollection<T>()` | Get a typed `RecordCollection<T>` for a record type that implements `IAtProtoRecord` |
+| `GetCollection<T>(collection)` | The same for a collection chosen at run time (`collection` is an `Nsid`; throws if `T` declares another) |
+| `QueryAsync<TOut>(nsid, parameters?, options?)` | Call a custom XRPC query (GET) |
+| `QueryAsync<TOut>(nsid, object parameters, options?)` | The same with an anonymous object or dictionary for parameters (`[RequiresUnreferencedCode]`) |
+| `ProcedureAsync<TIn, TOut>(nsid, input, parameters?, options?)` | Call a custom XRPC procedure (POST) and read its output |
+| `ProcedureAsync<TIn>(nsid, input, parameters?, options?)` | Call a procedure with an input, ignoring any output |
+| `ProcedureAsync(nsid, parameters?, options?)` | Call a procedure without input, ignoring any output |
 
-`nsid` is an `Nsid`. `options` is an `XrpcCallOptions` (`Proxy`, `AcceptLabelers`, `Headers`,
-`Timeout`) that applies to that one call only.
+`nsid` is an `Nsid` and `parameters` an `XrpcParams`. `options` is an `XrpcCallOptions` (`Proxy`,
+`AcceptLabelers`, `Headers`, `Timeout`) that applies to that one call only. `Transport` offers the
+same calls, plus `DownloadAsync` and `UploadAsync<TOut>` for binary bodies; see
+[Custom XRPC](custom-xrpc.md#building-a-sub-client-for-another-lexicon).
 
 ### Authentication Methods
 
@@ -61,30 +69,31 @@ The main entry point. Created via `AtProtoClientBuilder` or direct construction.
 |-------|-------------|
 | `SessionChanged` | The session was created, refreshed, expired or removed (`AtProtoSessionChangedEventArgs`) |
 
-### Streaming, Proxying & Labelers
+### Proxying & Labelers
 
 | Method | Description |
 |--------|-------------|
-| `CreateFirehoseClient()` | Low-level `FirehoseClient` bound to the configured relay |
-| `CreateFirehoseConsumer(...)` | Reconnecting `FirehoseConsumer` |
 | `SetProxy(header)` / `ClearProxy()` | Client-wide default `atproto-proxy` header (not applied to session calls) |
 | `SetLabelers(dids)` / `ClearLabelers()` | Client-wide default `atproto-accept-labelers` header (strings: a DID, optionally with `;redact`) |
 
 Both defaults are sent with or without a session. To vary them per call on a shared client, pass
 `XrpcCallOptions` instead.
 
-### Bluesky Convenience Methods
+Firehose and Jetstream clients are constructed on their own (`new FirehoseClient(relayUrl)`,
+`new JetstreamClient(…)`), independent of a user-session client.
+
+### Bluesky Helpers (`client.Bsky`)
+
+Writes to the signed-in account's repository. Each returns a `RecordRef` (except the delete) and
+throws `XrpcAuthenticationException` without a session.
 
 | Method | Description |
 |--------|-------------|
-| `PostAsync(text, facets?, embed?, reply?, langs?, labels?)` | Create a text post (returns `CreateRecordResponse`) |
-| `LikeAsync(uri, cid)` | Like a post (`AtUri`, `Cid`) |
-| `UnlikeAsync(likeUri)` | Unlike a post (`AtUri`) |
-| `RepostAsync(uri, cid)` | Repost a post (`AtUri`, `Cid`) |
-| `UndoRepostAsync(repostUri)` | Undo a repost (`AtUri`) |
-| `FollowAsync(did)` | Follow an actor (`Did`) |
-| `UnfollowAsync(followUri)` | Unfollow an actor (`AtUri`) |
-| `DeletePostAsync(postUri)` | Delete a post (`AtUri`) |
+| `PostAsync(text, options?)` | Create a post. `text` is a `RichText`: a `string` converts, and `RichTextBuilder.Build()` makes one with facets. `PostOptions`: `Embed`, `Reply`, `Langs`, `Labels`, `Tags`, `CreatedAt` |
+| `LikeAsync(subject)` | Like a record (`StrongRef`; `RecordRef.ToStrongRef()` makes one) |
+| `RepostAsync(subject)` | Repost a post (`StrongRef`) |
+| `FollowAsync(subject)` | Follow an account (`Did`) |
+| `DeleteRecordAsync(uri)` | Delete a post, like, repost or follow by its `AtUri`, which must name a collection and a record key |
 | `UpdateProfileAsync(update)` | Read-modify-write the profile record (`p => p.DisplayName = "x"`); keeps every other field and retries on a concurrent edit |
 
 ---
@@ -97,49 +106,56 @@ converts implicitly).
 
 | Method | Description |
 |--------|-------------|
-| `CreateAsync(record, rkey?, validate?)` | Create a new record |
+| `CreateAsync(record, rkey?, validate?)` | Create a new record (stamps an unset `AtProtoRecord.CreatedAt`) |
 | `GetAsync(rkey, cid?)` | Get a record by key |
 | `GetFromAsync(repo, rkey, cid?)` | Get a record from another user |
+| `FindAsync(rkey, cid?)` | Get a record by key, or `null` on `RecordNotFound` |
+| `FindFromAsync(repo, rkey, cid?)` | The same from another user |
 | `PutAsync(rkey, record, validate?, swapRecord?)` | Create or update a record |
 | `DeleteAsync(rkey, swapRecord?)` | Delete a record |
 | `ListAsync(reverse?, limit?, cursor?)` | List one page of records |
 | `ListFromAsync(repo, reverse?, limit?, cursor?)` | List records from another user |
 | `EnumerateAsync(pageSize?)` | Enumerate all records (auto-pagination) |
 | `EnumerateFromAsync(repo, pageSize?)` | Enumerate from another user |
-| `ExistsAsync(rkey)` | Check if a record exists |
+| `ExistsAsync(rkey)` | Check if a record exists (`FindAsync(rkey) is not null`) |
 
 ---
 
 ## AtProtoRecord
 
-Base class for custom record types.
+Base class for custom record types. Implement `IAtProtoRecord` too (`static Nsid Collection`), so
+`GetCollection<T>()` knows the collection.
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `Type` | `string` (abstract) | Lexicon NSID (`$type` field) |
-| `CreatedAt` | `AtDatetime?` | Creation timestamp (set to now on construction; read values keep their text) |
+| `CreatedAt` | `AtDatetime?` | Creation timestamp: `null` until set (`CreateAsync` stamps it when unset); read values keep their text, and a record read without one stays `null` |
 
 ---
 
 ## RecordRef
 
-Reference to a created/updated record.
+Reference to a created/updated record: `new RecordRef(uri, cid, commit?)`.
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `Uri` | `AtUri` | AT URI of the record |
 | `Cid` | `Cid` | Content hash |
+| `Commit` | `CommitMeta?` | The commit that wrote it (`Cid` and `Rev`) |
 | `RecordKey` | `RecordKey` | Record key portion of the URI |
+| `ValidationStatus` | `string?` | `valid`, or `unknown` when the service does not know the Lexicon |
 
-Returned by `RecordCollection<T>.CreateAsync` / `PutAsync`. The `RepoClient` methods return the raw
-`CreateRecordResponse` / `PutRecordResponse` instead, which also carry `Commit` (`CommitMeta` with
-`Cid` and `Rev`).
+`ToStrongRef()` returns the `StrongRef` to this version. Returned by every write:
+`RecordCollection<T>.CreateAsync` / `PutAsync`, `RepoClient.CreateRecordAsync` / `PutRecordAsync`,
+the `client.Bsky` helpers and the `StandardSiteClient` create/put methods.
 
 ---
 
 ## RecordView\<T\>
 
-A record fetched from the repository.
+A record fetched from the repository: `new RecordView<T>(uri, cid, value)`. Returned by every
+typed read: `RecordCollection<T>`, `RepoClient.GetRecordAsync<T>` (and the untyped
+`GetRecordAsync`, as a `RecordView<JsonElement>`), and `StandardSiteClient`.
 
 | Property | Type | Description |
 |----------|------|-------------|
@@ -159,23 +175,6 @@ Paginated list of records; an `ICursorPage<RecordView<T>>`.
 | `Records` | `IReadOnlyList<RecordView<T>>` | Records in this page |
 | `Cursor` | `string?` | Cursor for next page |
 | `HasMore` | `bool` | Whether more pages exist |
-
----
-
-## AtProtoClientBuilder
-
-Fluent builder for `AtProtoClient`.
-
-| Method | Description |
-|--------|-------------|
-| `WithInstanceUrl(url)` | Set the PDS/service URL |
-| `WithRelayUrl(url)` | Set the relay WebSocket URL for firehose |
-| `WithAutoRefreshSession(bool)` | Enable/disable refreshing on demand (before expiry, and after an `ExpiredToken` / `invalid_token`) |
-| `WithBackgroundRefresh(bool)` | Also refresh on a timer while idle (default off) |
-| `WithSessionStore(store)` | Persist the session to an `IAtProtoSessionStore` |
-| `WithHttpClient(client)` | Use a custom HttpClient |
-| `WithLoggerFactory(factory)` | Set logging factory |
-| `Build()` | Create the `AtProtoClient` |
 
 ---
 

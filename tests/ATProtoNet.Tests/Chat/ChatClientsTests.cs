@@ -5,7 +5,7 @@ public class ChatClientsTests
     [Fact]
     public void Chat_EverySubClient_IsRegistered()
     {
-        using var client = new AtProtoClientBuilder().Build();
+        using var client = new AtProtoClient();
 
         Assert.NotNull(client.Chat.Convo);
         Assert.NotNull(client.Chat.Actor);

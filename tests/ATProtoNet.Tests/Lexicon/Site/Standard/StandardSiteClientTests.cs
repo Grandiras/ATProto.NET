@@ -584,9 +584,7 @@ public class StandardSiteClientTests : IDisposable
     [Fact]
     public void AtProtoClient_Site_IsAvailable()
     {
-        using var client = new AtProtoClientBuilder()
-            .WithInstanceUrl("https://pds.example.com")
-            .Build();
+        using var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = "https://pds.example.com" });
 
         Assert.NotNull(client.Site);
     }

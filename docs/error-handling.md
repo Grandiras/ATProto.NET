@@ -154,7 +154,7 @@ try
 {
     var feed = await client.QueryAsync<FeedResponse>(
         Nsid.Parse("app.bsky.feed.getTimeline"),
-        new { limit = 50 },
+        new XrpcParams().Add("limit", 50),
         new XrpcCallOptions { Timeout = TimeSpan.FromSeconds(5) });
 }
 catch (TimeoutException)
@@ -166,23 +166,26 @@ catch (TimeoutException)
 
 ## Not-authenticated state
 
-Operations that need a session throw `InvalidOperationException` when the client has none:
+Operations that act on the signed-in account (`RecordCollection<T>` calls on your own repository,
+the `client.Bsky` helpers) throw `XrpcAuthenticationException` with `AuthenticationRequired` when
+no session is installed, before sending anything. It is the same exception a service's 401 raises,
+so one handler covers both, for password and OAuth sessions alike:
 
 ```csharp
 try
 {
-    var todos = client.GetCollection<TodoItem>(Nsid.Parse("com.example.todo.item"));
+    var todos = client.GetCollection<TodoItem>();
     await todos.CreateAsync(new TodoItem { Title = "Test" });
 }
-catch (InvalidOperationException ex) when (ex.Message.Contains("Not authenticated"))
+catch (XrpcAuthenticationException ex) when (ex.Is(XrpcErrors.AuthenticationRequired))
 {
-    Console.WriteLine("Call LoginAsync first");
+    Console.WriteLine("Sign in first");
 }
 ```
 
 ## Existence checking
 
-Use `ExistsAsync` to check for a record without a try/catch. It returns `false` only for `RecordNotFound`; any other error (a malformed key, an unavailable repo) still throws.
+Use `FindAsync` to read a record that may be absent without a try/catch: it returns `null` only for `RecordNotFound`, and `ExistsAsync` is `FindAsync(...) is not null`. Any other error (a malformed key, an unavailable repo) still throws.
 
 ```csharp
 bool exists = await todos.ExistsAsync(RecordKey.Parse("some-key"));

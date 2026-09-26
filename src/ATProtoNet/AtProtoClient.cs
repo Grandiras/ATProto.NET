@@ -1,4 +1,6 @@
-using System.Text.Json;
+using System.Diagnostics.CodeAnalysis;
+using System.Net;
+using System.Runtime.CompilerServices;
 using ATProtoNet.Auth;
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Http;
@@ -17,7 +19,6 @@ using ATProtoNet.Lexicon.Chat.Bsky.Moderation;
 using ATProtoNet.Lexicon.Chat.Bsky.Notification;
 using ATProtoNet.Lexicon.App.Bsky.Graph;
 using ATProtoNet.Lexicon.App.Bsky.Notification;
-using ATProtoNet.Lexicon.App.Bsky.RichText;
 using ATProtoNet.Lexicon.App.Bsky.Unspecced;
 using ATProtoNet.Lexicon.App.Bsky.Video;
 using ATProtoNet.Lexicon.Com.AtProto.Admin;
@@ -32,7 +33,6 @@ using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using ATProtoNet.Lexicon.Com.AtProto.Temp;
 using ATProtoNet.Lexicon.Site.Standard;
 using ATProtoNet.Lexicon.Tools.Ozone;
-using ATProtoNet.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -43,10 +43,10 @@ namespace ATProtoNet;
 /// or interact with Bluesky and any atproto-compatible service.
 /// </summary>
 /// <remarks>
-/// <para>Create an instance using <see cref="AtProtoClientBuilder"/> or register via
-/// dependency injection with <c>services.AddAtProto()</c>.</para>
+/// <para>Construct it with <see cref="AtProtoClient(AtProtoClientOptions?, HttpClient?, IAtProtoSessionStore?, ILogger{AtProtoClient}?)"/>
+/// or register it via dependency injection with <c>services.AddAtProto()</c>.</para>
 /// <para>After construction, call <see cref="LoginAsync"/> to authenticate, then use
-/// <see cref="GetCollection{T}"/> for typed CRUD on your custom Lexicon records,
+/// <see cref="GetCollection{T}()"/> for typed CRUD on your custom Lexicon records,
 /// or access protocol-level sub-clients directly.</para>
 /// <para>One ATProto account can be used across many applications — each app
 /// defines its own Lexicon schemas and stores records in the user's PDS.</para>
@@ -58,13 +58,11 @@ namespace ATProtoNet;
 /// <example>
 /// <code>
 /// // Custom app example — one account, your own data
-/// var client = new AtProtoClientBuilder()
-///     .WithInstanceUrl("https://my-pds.example.com")
-///     .Build();
+/// var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = "https://my-pds.example.com" });
 ///
 /// await client.LoginAsync("alice.example.com", "app-password");
 ///
-/// var todos = client.GetCollection&lt;TodoItem&gt;("com.example.todo.item");
+/// var todos = client.GetCollection&lt;TodoItem&gt;();
 /// var created = await todos.CreateAsync(new TodoItem { Title = "Buy milk" });
 /// await foreach (var item in todos.EnumerateAsync())
 ///     Console.WriteLine(item.Value.Title);
@@ -77,7 +75,6 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     private readonly XrpcClient _xrpc;
     private readonly SessionManager _sessions;
     private readonly ILogger<AtProtoClient> _logger;
-    private readonly string? _relayUrl;
     private int _disposed;
 
     // ──────────────────────────────────────────────────────────
@@ -85,18 +82,12 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     // ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Create a new client for the given PDS/service URL.
-    /// Prefer using <see cref="AtProtoClientBuilder"/> for full configuration.
+    /// Create a client.
     /// </summary>
-    public AtProtoClient(AtProtoClientOptions options)
-        : this(options, null, null, null)
-    {
-    }
-
-    /// <summary>
-    /// Create a new client with full configuration.
-    /// </summary>
-    /// <param name="options">The client options.</param>
+    /// <param name="options">
+    /// The client options; <see langword="null"/> uses the defaults, which address
+    /// <c>https://bsky.social</c>.
+    /// </param>
     /// <param name="httpClient">
     /// The <see cref="HttpClient"/> to send with; <see langword="null"/> uses one the client owns.
     /// A supplied one is never disposed or modified, so it may be shared.
@@ -106,12 +97,13 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// refreshes and removes it on sign-out; it does not dispose the store.
     /// </param>
     /// <param name="logger">An optional logger.</param>
+    /// <exception cref="ArgumentException"><see cref="AtProtoClientOptions.InstanceUrl"/> is not an absolute URL.</exception>
     public AtProtoClient(
-        AtProtoClientOptions options,
-        HttpClient? httpClient,
-        IAtProtoSessionStore? sessionStore,
-        ILogger<AtProtoClient>? logger)
-        : this(options, httpClient, sessionStore, logger, TimeProvider.System)
+        AtProtoClientOptions? options = null,
+        HttpClient? httpClient = null,
+        IAtProtoSessionStore? sessionStore = null,
+        ILogger<AtProtoClient>? logger = null)
+        : this(options ?? new AtProtoClientOptions(), httpClient, sessionStore, logger, TimeProvider.System)
     {
     }
 
@@ -195,8 +187,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             options.AutoRefreshSession,
             options.BackgroundRefresh);
         _xrpc.SessionHandler = _sessions;
-
-        _relayUrl = options.RelayUrl;
+        Bsky.Bind(this);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -254,137 +245,190 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     public StandardSiteClient Site { get; }
 
     // ──────────────────────────────────────────────────────────
-    //  Firehose / Relay
-    // ──────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Create a new <see cref="Streaming.FirehoseClient"/> using the configured relay URL.
-    /// </summary>
-    /// <returns>A new <see cref="Streaming.FirehoseClient"/>. Caller is responsible for disposal.</returns>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown when no relay URL is configured (set <see cref="AtProtoClientOptions.RelayUrl"/>).
-    /// </exception>
-    public Streaming.FirehoseClient CreateFirehoseClient() =>
-        new(RequireRelayUrl(), _logger);
-
-    /// <summary>
-    /// Create a new <see cref="Streaming.FirehoseConsumer"/> using the configured relay URL.
-    /// The consumer handles automatic reconnection and cursor management.
-    /// </summary>
-    /// <param name="reconnectDelay">Delay between reconnection attempts. Default: 5 seconds.</param>
-    /// <param name="maxReconnectAttempts">Max reconnection attempts. Default: 10. Use -1 for unlimited.</param>
-    /// <returns>A new <see cref="Streaming.FirehoseConsumer"/>. Caller is responsible for disposal.</returns>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown when no relay URL is configured (set <see cref="AtProtoClientOptions.RelayUrl"/>).
-    /// </exception>
-    public Streaming.FirehoseConsumer CreateFirehoseConsumer(
-        TimeSpan? reconnectDelay = null,
-        int maxReconnectAttempts = 10) =>
-        new(RequireRelayUrl(), _logger, reconnectDelay, maxReconnectAttempts);
-
-    private string RequireRelayUrl() =>
-        string.IsNullOrEmpty(_relayUrl)
-            ? throw new InvalidOperationException(
-                "No relay URL configured. Set AtProtoClientOptions.RelayUrl or use AtProtoClientBuilder.WithRelayUrl().")
-            : _relayUrl;
-
-    // ──────────────────────────────────────────────────────────
     //  Custom Lexicon support
     // ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Get a strongly-typed <see cref="RecordCollection{T}"/> for a custom Lexicon record type.
-    /// This is the primary API for building custom AT Protocol applications.
+    /// Get a strongly-typed <see cref="RecordCollection{T}"/> for a record type that names its
+    /// collection. This is the primary API for building custom AT Protocol applications.
     /// </summary>
-    /// <typeparam name="T">Your record type (can extend <see cref="AtProtoRecord"/> or be any serializable class).</typeparam>
-    /// <param name="collection">The Lexicon NSID for the collection (e.g., "com.example.todo.item").</param>
-    /// <returns>A typed collection providing Create, Get, Put, Delete, List, and Enumerate operations.</returns>
+    /// <typeparam name="T">Your record type, declaring its collection through <see cref="IAtProtoRecord"/>.</typeparam>
+    /// <returns>A typed collection providing Create, Get, Find, Put, Delete, List, and Enumerate operations.</returns>
     /// <example>
     /// <code>
-    /// var todos = client.GetCollection&lt;TodoItem&gt;(Nsid.Parse("com.example.todo.item"));
+    /// var todos = client.GetCollection&lt;TodoItem&gt;();
     /// await todos.CreateAsync(new TodoItem { Title = "Example" });
+    /// </code>
+    /// </example>
+    public RecordCollection<T> GetCollection<T>() where T : class, IAtProtoRecord =>
+        new(this, T.Collection);
+
+    /// <summary>
+    /// Get a strongly-typed <see cref="RecordCollection{T}"/> for a collection chosen at run time.
+    /// </summary>
+    /// <typeparam name="T">
+    /// The record type: an <see cref="AtProtoRecord"/>, or any serializable class.
+    /// </typeparam>
+    /// <param name="collection">The Lexicon NSID for the collection (e.g., "com.example.todo.item").</param>
+    /// <returns>A typed collection providing Create, Get, Find, Put, Delete, List, and Enumerate operations.</returns>
+    /// <exception cref="ArgumentException">
+    /// <typeparamref name="T"/> implements <see cref="IAtProtoRecord"/> and declares a different
+    /// collection.
+    /// </exception>
+    /// <example>
+    /// <code>
+    /// var notes = client.GetCollection&lt;Note&gt;(Nsid.Parse(settings.NotesCollection));
     /// </code>
     /// </example>
     public RecordCollection<T> GetCollection<T>(Nsid collection) where T : class
     {
         ArgumentNullException.ThrowIfNull(collection);
+
+        if (RecordPaths.DeclaredCollection<T>() is { } declared && declared != collection)
+        {
+            throw new ArgumentException(
+                $"{typeof(T).Name} is a {declared} record and cannot be stored in {collection}.",
+                nameof(collection));
+        }
+
         return new RecordCollection<T>(this, collection);
     }
 
     /// <summary>
+    /// The XRPC transport the sub-clients send through: this client's service and session.
+    /// Build a sub-client for a Lexicon the SDK does not ship on it, so its calls sign in,
+    /// refresh and sign out with this client.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// public sealed class TodoClient(IXrpcTransport transport)
+    /// {
+    ///     private static readonly Nsid ListItems = Nsid.Parse("com.example.todo.listItems");
+    ///
+    ///     public Task&lt;ListItemsOutput&gt; ListItemsAsync(int? limit = null, CancellationToken ct = default) =>
+    ///         transport.QueryAsync&lt;ListItemsOutput&gt;(ListItems, new XrpcParams().Add("limit", limit), cancellationToken: ct);
+    /// }
+    ///
+    /// var todo = new TodoClient(client.Transport);
+    /// </code>
+    /// </example>
+    public IXrpcTransport Transport => _xrpc;
+
+    /// <summary>
     /// Call a custom XRPC query (HTTP GET) endpoint defined by your Lexicon.
     /// </summary>
-    /// <typeparam name="T">The expected response type.</typeparam>
+    /// <typeparam name="TOut">The expected output type.</typeparam>
     /// <param name="nsid">The method NSID (e.g., "com.example.todo.listItems").</param>
-    /// <param name="parameters">
-    /// Optional query parameters as an anonymous object or a dictionary. A sequence value is
-    /// sent as a repeated key; timestamps go out as ISO 8601 UTC and enums by their JSON names.
-    /// </param>
+    /// <param name="parameters">The query parameters, if the method takes any.</param>
     /// <param name="options">Optional per-call settings: proxy, labelers, headers, timeout.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcException">The service answered with an XRPC error.</exception>
-    /// <exception cref="XrpcResponseFormatException">The response is not a <typeparamref name="T"/>.</exception>
+    /// <exception cref="XrpcResponseFormatException">The response is not a <typeparamref name="TOut"/>.</exception>
     /// <example>
     /// <code>
     /// var result = await client.QueryAsync&lt;ListResult&gt;(
     ///     Nsid.Parse("com.example.todo.listItems"),
-    ///     new { limit = 25, cursor = "abc" });
+    ///     new XrpcParams { { "limit", 25 }, { "cursor", cursor } });
     /// </code>
     /// </example>
-    public Task<T> QueryAsync<T>(
+    public Task<TOut> QueryAsync<TOut>(
         Nsid nsid,
-        object? parameters = null,
+        XrpcParams? parameters = null,
         XrpcCallOptions? options = null,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(nsid);
-        return _xrpc.QueryAsync<T>(nsid.Value, XrpcParams.From(parameters), options, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        Transport.QueryAsync<TOut>(nsid, parameters, options, cancellationToken);
 
     /// <summary>
-    /// Call a custom XRPC procedure (HTTP POST) endpoint defined by your Lexicon.
+    /// Call a custom XRPC query (HTTP GET) with its parameters given as an object: an anonymous
+    /// type or a dictionary.
     /// </summary>
-    /// <typeparam name="T">The expected response type.</typeparam>
+    /// <typeparam name="TOut">The expected output type.</typeparam>
+    /// <param name="nsid">The method NSID (e.g., "com.example.todo.listItems").</param>
+    /// <param name="parameters">
+    /// The parameters: each public property (or dictionary entry) is one, a sequence value is
+    /// sent as a repeated key, timestamps go out as ISO 8601 UTC and enums by their JSON names.
+    /// </param>
+    /// <param name="options">Optional per-call settings: proxy, labelers, headers, timeout.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <remarks>
+    /// The properties are read by reflection, so this overload is not trim-safe; the
+    /// <see cref="XrpcParams"/> overload is.
+    /// </remarks>
+    /// <exception cref="XrpcException">The service answered with an XRPC error.</exception>
+    /// <exception cref="XrpcResponseFormatException">The response is not a <typeparamref name="TOut"/>.</exception>
+    [RequiresUnreferencedCode(XrpcParams.AnonymousParametersWarning)]
+    public Task<TOut> QueryAsync<TOut>(
+        Nsid nsid,
+        object parameters,
+        XrpcCallOptions? options = null,
+        CancellationToken cancellationToken = default) =>
+        Transport.QueryAsync<TOut>(nsid, XrpcParams.From(parameters), options, cancellationToken);
+
+    /// <summary>
+    /// Call a custom XRPC procedure (HTTP POST) endpoint defined by your Lexicon and read its
+    /// output.
+    /// </summary>
+    /// <typeparam name="TIn">The input type.</typeparam>
+    /// <typeparam name="TOut">The expected output type.</typeparam>
     /// <param name="nsid">The method NSID (e.g., "com.example.todo.updateStatus").</param>
-    /// <param name="body">The request body, serialized as JSON; <see langword="null"/> sends none.</param>
+    /// <param name="input">The input, serialized as JSON; <see langword="null"/> sends none.</param>
+    /// <param name="parameters">The query parameters, if the method takes any.</param>
     /// <param name="options">Optional per-call settings: proxy, labelers, headers, timeout.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcException">The service answered with an XRPC error.</exception>
-    /// <exception cref="XrpcResponseFormatException">The response is not a <typeparamref name="T"/>.</exception>
+    /// <exception cref="XrpcResponseFormatException">The response is not a <typeparamref name="TOut"/>.</exception>
     /// <example>
     /// <code>
-    /// var result = await client.ProcedureAsync&lt;StatusResult&gt;(
+    /// var result = await client.ProcedureAsync&lt;UpdateStatusInput, StatusResult&gt;(
     ///     Nsid.Parse("com.example.todo.updateStatus"),
-    ///     new { rkey = "abc", status = "done" });
+    ///     new UpdateStatusInput { Rkey = "abc", Status = "done" });
     /// </code>
     /// </example>
-    public Task<T> ProcedureAsync<T>(
+    public Task<TOut> ProcedureAsync<TIn, TOut>(
         Nsid nsid,
-        object? body = null,
+        TIn input,
+        XrpcParams? parameters = null,
         XrpcCallOptions? options = null,
-        CancellationToken cancellationToken = default) where T : class
-    {
-        ArgumentNullException.ThrowIfNull(nsid);
-        return _xrpc.ProcedureAsync<T>(nsid.Value, body, parameters: null, options, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        Transport.ProcedureAsync<TIn, TOut>(nsid, input, parameters, options, cancellationToken);
 
     /// <summary>
-    /// Call a custom XRPC procedure (HTTP POST) that returns no response body.
+    /// Call a custom XRPC procedure (HTTP POST) that takes an input, ignoring any output.
     /// </summary>
+    /// <typeparam name="TIn">The input type.</typeparam>
     /// <param name="nsid">The method NSID.</param>
-    /// <param name="body">The request body, serialized as JSON; <see langword="null"/> sends none.</param>
+    /// <param name="input">The input, serialized as JSON; <see langword="null"/> sends none.</param>
+    /// <param name="parameters">The query parameters, if the method takes any.</param>
     /// <param name="options">Optional per-call settings: proxy, labelers, headers, timeout.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcException">The service answered with an XRPC error.</exception>
+    public Task ProcedureAsync<TIn>(
+        Nsid nsid,
+        TIn input,
+        XrpcParams? parameters = null,
+        XrpcCallOptions? options = null,
+        CancellationToken cancellationToken = default) =>
+        Transport.ProcedureAsync(nsid, input, parameters, options, cancellationToken);
+
+    /// <summary>
+    /// Call a custom XRPC procedure (HTTP POST) that takes no input, ignoring any output.
+    /// </summary>
+    /// <param name="nsid">The method NSID.</param>
+    /// <param name="parameters">The query parameters, if the method takes any.</param>
+    /// <param name="options">Optional per-call settings: proxy, labelers, headers, timeout.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <remarks>
+    /// Preferred over <see cref="ProcedureAsync{TIn}"/> when the second argument is an
+    /// <see cref="XrpcParams"/>, which is never a procedure's input.
+    /// </remarks>
+    /// <exception cref="XrpcException">The service answered with an XRPC error.</exception>
+    [OverloadResolutionPriority(1)]
     public Task ProcedureAsync(
         Nsid nsid,
-        object? body = null,
+        XrpcParams? parameters = null,
         XrpcCallOptions? options = null,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(nsid);
-        return _xrpc.ProcedureAsync(nsid.Value, body, parameters: null, options, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        Transport.ProcedureAsync(nsid, parameters, options, cancellationToken);
 
     // ──────────────────────────────────────────────────────────
     //  Session state
@@ -469,16 +513,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// The DIDs of labeler services to subscribe to, each optionally followed by the
     /// <c>;redact</c> parameter, as the header carries them.
     /// </param>
-    public void SetLabelers(IEnumerable<string> labelerDids) => _xrpc.SetLabelers(labelerDids);
-
-    /// <summary>
-    /// Sets the subscribed labeler DIDs from string parameters.
-    /// </summary>
-    /// <param name="labelerDids">
-    /// The DIDs of labeler services to subscribe to, each optionally followed by the
-    /// <c>;redact</c> parameter, as the header carries them.
-    /// </param>
-    public void SetLabelers(params string[] labelerDids) => _xrpc.SetLabelers(labelerDids);
+    public void SetLabelers(params IEnumerable<string> labelerDids) => _xrpc.SetLabelers(labelerDids);
 
     /// <summary>
     /// Clears the subscribed labeler DIDs, removing the <c>atproto-accept-labelers</c> header.
@@ -681,7 +716,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         ThrowIfDisposed();
 
         var store = _sessions.Store ?? throw new InvalidOperationException(
-            "No session store is configured. Pass one to the constructor or AtProtoClientBuilder.WithSessionStore.");
+            "No session store is configured. Pass one to the AtProtoClient constructor.");
 
         var session = await store.GetAsync(did, cancellationToken);
         if (session is null)
@@ -764,253 +799,29 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     public Uri ServiceUrl => _xrpc.ServiceUrl;
 
     // ──────────────────────────────────────────────────────────
-    //  High-level convenience methods
-    // ──────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Create a text post. For richer posts, use <see cref="RepoClient.CreateRecordAsync"/>.
-    /// </summary>
-    /// <param name="text">The post text.</param>
-    /// <param name="facets">Optional rich-text facets.</param>
-    /// <param name="embed">Optional embed (images, link card, quote, video).</param>
-    /// <param name="reply">Optional reply reference.</param>
-    /// <param name="langs">Optional language tags (BCP-47).</param>
-    /// <param name="labels">Optional self-labels for content warnings.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The URI and CID of the created post.</returns>
-    public async Task<CreateRecordResponse> PostAsync(
-        string text,
-        IEnumerable<Facet>? facets = null,
-        EmbedBase? embed = null,
-        ReplyRef? reply = null,
-        IEnumerable<string>? langs = null,
-        SelfLabels? labels = null,
-        CancellationToken cancellationToken = default)
-    {
-        EnsureAuthenticated();
-
-        var post = new PostRecord
-        {
-            Text = text,
-            Facets = facets?.ToList(),
-            Embed = embed,
-            Reply = reply,
-            Langs = langs?.ToList(),
-            Labels = labels,
-            CreatedAt = AtDatetime.Now(),
-        };
-
-        return await Repo.CreateRecordAsync(
-            _sessions.Session!.Did, PostCollection, post, cancellationToken: cancellationToken);
-    }
-
-    /// <summary>
-    /// Like a post.
-    /// </summary>
-    /// <param name="uri">The AT-URI of the post.</param>
-    /// <param name="cid">The CID of the post.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task<CreateRecordResponse> LikeAsync(
-        AtUri uri, Cid cid, CancellationToken cancellationToken = default)
-    {
-        EnsureAuthenticated();
-
-        var like = new LikeRecord
-        {
-            Subject = new StrongRef { Uri = uri, Cid = cid },
-            CreatedAt = AtDatetime.Now(),
-        };
-
-        return await Repo.CreateRecordAsync(
-            _sessions.Session!.Did, LikeCollection, like, cancellationToken: cancellationToken);
-    }
-
-    /// <summary>
-    /// Unlike a post (delete the like record).
-    /// </summary>
-    /// <param name="likeUri">The AT-URI of the like record (from PostViewerState.Like).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task UnlikeAsync(AtUri likeUri, CancellationToken cancellationToken = default)
-    {
-        await DeleteByUriAsync(likeUri, cancellationToken);
-    }
-
-    /// <summary>
-    /// Repost a post.
-    /// </summary>
-    /// <param name="uri">The AT-URI of the post.</param>
-    /// <param name="cid">The CID of the post.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task<CreateRecordResponse> RepostAsync(
-        AtUri uri, Cid cid, CancellationToken cancellationToken = default)
-    {
-        EnsureAuthenticated();
-
-        var repost = new RepostRecord
-        {
-            Subject = new StrongRef { Uri = uri, Cid = cid },
-            CreatedAt = AtDatetime.Now(),
-        };
-
-        return await Repo.CreateRecordAsync(
-            _sessions.Session!.Did, RepostCollection, repost, cancellationToken: cancellationToken);
-    }
-
-    /// <summary>
-    /// Undo a repost.
-    /// </summary>
-    /// <param name="repostUri">The AT-URI of the repost record (from PostViewerState.Repost).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task UndoRepostAsync(AtUri repostUri, CancellationToken cancellationToken = default)
-    {
-        await DeleteByUriAsync(repostUri, cancellationToken);
-    }
-
-    /// <summary>
-    /// Follow an actor.
-    /// </summary>
-    /// <param name="did">The DID of the actor to follow.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task<CreateRecordResponse> FollowAsync(
-        Did did, CancellationToken cancellationToken = default)
-    {
-        EnsureAuthenticated();
-
-        var follow = new FollowRecord
-        {
-            Subject = did,
-            CreatedAt = AtDatetime.Now(),
-        };
-
-        return await Repo.CreateRecordAsync(
-            _sessions.Session!.Did, FollowCollection, follow, cancellationToken: cancellationToken);
-    }
-
-    /// <summary>
-    /// Unfollow an actor.
-    /// </summary>
-    /// <param name="followUri">The AT-URI of the follow record (from ViewerState.Following).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task UnfollowAsync(AtUri followUri, CancellationToken cancellationToken = default)
-    {
-        await DeleteByUriAsync(followUri, cancellationToken);
-    }
-
-    /// <summary>
-    /// Delete a post.
-    /// </summary>
-    /// <param name="postUri">The AT-URI of the post to delete.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task DeletePostAsync(AtUri postUri, CancellationToken cancellationToken = default)
-    {
-        await DeleteByUriAsync(postUri, cancellationToken);
-    }
-
-    /// <summary>
-    /// Update the authenticated user's profile: read the current record, let
-    /// <paramref name="update"/> edit it, and write it back.
-    /// </summary>
-    /// <param name="update">
-    /// Edits the current profile in place, for example <c>p =&gt; p.DisplayName = "Alice"</c>.
-    /// Setting a property to <see langword="null"/> removes the field. It may run more than once
-    /// (see remarks), each time on a freshly read record.
-    /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>A reference to the written profile record.</returns>
-    /// <remarks>
-    /// <para>Every field <paramref name="update"/> leaves alone is written back unchanged,
-    /// including fields this SDK version does not model (kept in
-    /// <see cref="LexObject.ExtensionData"/>).</para>
-    /// <para>The write is guarded by <c>swapRecord</c>, so a concurrent edit from another client is
-    /// never silently overwritten. If one lands between the read and the write, the whole
-    /// read-edit-write is retried, up to three attempts in total, after which the
-    /// <see cref="XrpcErrors.InvalidSwap"/> <see cref="XrpcException"/> is rethrown. When the account has no
-    /// profile yet, <paramref name="update"/> receives an empty record with <c>createdAt</c> set,
-    /// and the write carries no swap guard.</para>
-    /// </remarks>
-    /// <exception cref="InvalidOperationException">The client is not authenticated.</exception>
-    /// <exception cref="XrpcResponseFormatException">The stored profile is not a valid profile record.</exception>
-    public async Task<RecordRef> UpdateProfileAsync(
-        Action<ProfileRecord> update,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(update);
-        EnsureAuthenticated();
-        var did = _sessions.Session!.Did;
-
-        for (var attempt = 1; ; attempt++)
-        {
-            var (profile, cid) = await GetProfileRecordAsync(did, cancellationToken);
-            update(profile);
-
-            try
-            {
-                var written = await Repo.PutRecordAsync(
-                    did, ProfileCollection, RecordKey.Self, profile,
-                    swapRecord: cid,
-                    cancellationToken: cancellationToken);
-
-                return RecordRef.From("com.atproto.repo.putRecord", written.Uri, written.Cid);
-            }
-            catch (XrpcException ex) when (ex.Is(XrpcErrors.InvalidSwap)
-                                           && attempt < MaxProfileUpdateAttempts)
-            {
-                _logger.LogDebug(
-                    "Profile changed concurrently (attempt {Attempt} of {Max}); re-reading",
-                    attempt, MaxProfileUpdateAttempts);
-            }
-        }
-    }
-
-    private static readonly Nsid PostCollection = Nsid.Parse("app.bsky.feed.post");
-    private static readonly Nsid LikeCollection = Nsid.Parse("app.bsky.feed.like");
-    private static readonly Nsid RepostCollection = Nsid.Parse("app.bsky.feed.repost");
-    private static readonly Nsid FollowCollection = Nsid.Parse("app.bsky.graph.follow");
-    private static readonly Nsid ProfileCollection = Nsid.Parse("app.bsky.actor.profile");
-    private const int MaxProfileUpdateAttempts = 3;
-
-    /// <summary>
-    /// Reads the account's profile record and the CID to swap against, or a fresh record and
-    /// <see langword="null"/> when there is none.
-    /// </summary>
-    private async Task<(ProfileRecord Profile, Cid? Cid)> GetProfileRecordAsync(
-        Did did, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var existing = await Repo.GetRecordAsync<ProfileRecord>(
-                did, ProfileCollection, RecordKey.Self, cancellationToken: cancellationToken);
-
-            return (existing.Value, existing.Cid);
-        }
-        catch (XrpcException ex) when (ex.Is(XrpcErrors.RecordNotFound))
-        {
-            return (new ProfileRecord { CreatedAt = AtDatetime.Now() }, null);
-        }
-    }
-
-    // ──────────────────────────────────────────────────────────
     //  Private helpers
     // ──────────────────────────────────────────────────────────
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
 
-    internal void EnsureAuthenticated()
-    {
-        if (_sessions.Session is null)
-            throw new InvalidOperationException("Not authenticated. Call LoginAsync first.");
-    }
+    /// <summary>The logger, for the helpers that act on the client's behalf.</summary>
+    internal ILogger Logger => _logger;
 
     /// <summary>
-    /// Deletes the record an AT-URI points at. Backs the undo-style convenience
-    /// methods (unlike, unfollow, undo repost, delete post), which differ only in
-    /// which URI the caller hands over.
+    /// The installed session, for a call that acts on the signed-in account; read once, so the
+    /// caller works with one account even when the session changes meanwhile.
     /// </summary>
-    private async Task DeleteByUriAsync(AtUri uri, CancellationToken cancellationToken)
-    {
-        EnsureAuthenticated();
-        await Repo.DeleteRecordAsync(uri, cancellationToken: cancellationToken);
-    }
+    /// <exception cref="XrpcAuthenticationException">No session is installed.</exception>
+    internal AtProtoSession RequireSession() =>
+        _sessions.Session ?? throw new XrpcAuthenticationException(
+            XrpcErrors.AuthenticationRequired,
+            "This call acts on the signed-in account, and no session is installed. Sign in, or install a session, first.",
+            HttpStatusCode.Unauthorized,
+            nsid: null);
+
+    /// <summary>The DID of the installed session's account.</summary>
+    /// <exception cref="XrpcAuthenticationException">No session is installed.</exception>
+    internal Did RequireDid() => RequireSession().Did;
 
     // ──────────────────────────────────────────────────────────
     //  Disposal
@@ -1058,7 +869,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 /// <summary>
 /// Groups the Bluesky application sub-clients.
 /// </summary>
-public sealed class BlueskyClients
+public sealed partial class BlueskyClients
 {
     internal BlueskyClients(
         ActorClient actor,
@@ -1221,13 +1032,4 @@ public sealed class AtProtoClientOptions
     /// OAuth configuration options. When set, enables OAuth authentication support.
     /// </summary>
     public OAuthOptions? OAuth { get; set; }
-
-    /// <summary>
-    /// The WebSocket URL of the relay service for firehose subscriptions.
-    /// Default: "wss://bsky.network".
-    /// Set to a custom URL to use a different relay, or <c>null</c> to disable
-    /// the convenience <see cref="AtProtoClient.CreateFirehoseClient"/> and
-    /// <see cref="AtProtoClient.CreateFirehoseConsumer"/> methods.
-    /// </summary>
-    public string? RelayUrl { get; set; } = "wss://bsky.network";
 }

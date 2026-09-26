@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Chat.Bsky.Convo;
 using ATProtoNet.Models;
 using ATProtoNet.Serialization;
@@ -9,11 +10,14 @@ namespace ATProtoNet.Lexicon.Chat.Bsky.Actor;
 /// <summary>
 /// Record type for chat.bsky.actor.declaration — declares chat preferences.
 /// </summary>
-public sealed class ChatDeclarationRecord : LexObject
+public sealed class ChatDeclarationRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>chat.bsky.actor.declaration</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("chat.bsky.actor.declaration");
+
     /// <summary>The Lexicon type discriminator (<c>chat.bsky.actor.declaration</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "chat.bsky.actor.declaration";
+    public string Type => Collection;
 
     /// <summary>
     /// Who may start a conversation with this account (<c>all</c>, <c>none</c>, or

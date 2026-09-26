@@ -4,6 +4,7 @@ using System.Text.Json;
 using ATProtoNet.Admin;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
+using ATProtoNet.Lexicon.Com.AtProto.Server;
 
 namespace ATProtoNet.Tests.Admin;
 
@@ -219,7 +220,7 @@ public class PdsAdminClientAccountAuthTests : IDisposable
         // This is how the administrator account itself gets created: Tranquil flags the
         // first account on an empty instance as an administrator, and signup is public —
         // so it has to work before the client has any admin authority at all.
-        var account = await _client.CreateAccountAsync(new CreatePdsAccountRequest
+        var account = await _client.CreateAccountAsync(new CreateAccountRequest
         {
             Handle = Handle.Parse(AdminHandle),
             Email = "admin@example.com",

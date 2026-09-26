@@ -14,17 +14,21 @@ In AT Protocol:
 
 ### Using AtProtoRecord Base Class
 
-The `AtProtoRecord` base class automatically handles the `$type` and `createdAt` fields:
+The `AtProtoRecord` base class handles the `$type` and `createdAt` fields. Implement
+`IAtProtoRecord` as well, so the record type names its collection once and
+`client.GetCollection<TodoItem>()` needs no NSID:
 
 ```csharp
 using System.Text.Json.Serialization;
 using ATProtoNet;
+using ATProtoNet.Identity;
 
-public class TodoItem : AtProtoRecord
+public class TodoItem : AtProtoRecord, IAtProtoRecord
 {
-    // The Lexicon NSID for this record type
-    [JsonPropertyName("$type")]
-    public override string Type => "com.example.todo.item";
+    // The Lexicon NSID of the collection, which is also the record's $type
+    public static Nsid Collection { get; } = Nsid.Parse("com.example.todo.item");
+
+    public override string Type => Collection;
 
     [JsonPropertyName("title")]
     public string Title { get; set; } = "";
@@ -43,7 +47,7 @@ public class TodoItem : AtProtoRecord
 }
 ```
 
-This serializes to:
+`CreateAsync` sets `createdAt` to the current time when it is unset, so this is written as:
 ```json
 {
   "$type": "com.example.todo.item",
@@ -79,13 +83,16 @@ This serializes to:
 
 ### Using Plain C# Classes
 
-You don't have to extend `AtProtoRecord`. Any serializable class works:
+You don't have to extend `AtProtoRecord`. Any serializable class works, and it can implement
+`IAtProtoRecord` too:
 
 ```csharp
-public class Bookmark
+public class Bookmark : IAtProtoRecord
 {
+    public static Nsid Collection { get; } = Nsid.Parse("com.example.bookmarks.bookmark");
+
     [JsonPropertyName("$type")]
-    public string Type => "com.example.bookmarks.bookmark";
+    public string Type => Collection;
 
     [JsonPropertyName("url")]
     public string Url { get; set; } = "";
@@ -101,12 +108,24 @@ public class Bookmark
 ## Getting a Collection
 
 ```csharp
-using ATProtoNet.Identity;
-
-var todos = client.GetCollection<TodoItem>(Nsid.Parse("com.example.todo.item"));
+var todos = client.GetCollection<TodoItem>();
 ```
 
-The collection NSID should match your Lexicon definition. By convention, it follows reverse-domain notation: `com.yourcompany.appname.recordtype`.
+The collection comes from `TodoItem.Collection`, and should match your Lexicon definition. By convention, it follows reverse-domain notation: `com.yourcompany.appname.recordtype`.
+
+The SDK's own record models implement `IAtProtoRecord` too, so the same works for them:
+`client.GetCollection<PostRecord>()`, `GetCollection<ProfileRecord>()`, `GetCollection<DocumentRecord>()`
+and so on for every `app.bsky`, `chat.bsky` and `site.standard` record.
+
+When the collection is only known at run time, or the type does not implement `IAtProtoRecord`,
+pass it explicitly. A type that does declare a collection refuses any other one with an
+`ArgumentException`, so a record never lands in a collection its `$type` does not match:
+
+```csharp
+using ATProtoNet.Identity;
+
+var notes = client.GetCollection<Note>(Nsid.Parse(settings.NotesCollection));
+```
 
 Collections, record keys, CIDs and AT URIs are typed (`Nsid`, `RecordKey`, `Cid`, `AtUri`; see
 [Identity Types](identity-types.md)). A value the API hands you, like `created.RecordKey` below, is
@@ -127,7 +146,14 @@ var created = await todos.CreateAsync(new TodoItem
 Console.WriteLine($"URI: {created.Uri}");
 Console.WriteLine($"CID: {created.Cid}");
 Console.WriteLine($"Record Key: {created.RecordKey}");
+Console.WriteLine($"Commit: {created.Commit?.Rev}");
 ```
+
+Every write returns a `RecordRef`: the record's `Uri`, the `Cid` of the version written, its
+`RecordKey`, and the `Commit` that wrote it. `ToStrongRef()` turns it into the
+`com.atproto.repo.strongRef` other records use to point at that version. When the record is an
+`AtProtoRecord` whose `CreatedAt` is `null`, `CreateAsync` sets it to the current time first;
+a value you set is kept.
 
 The server generates a TID-based record key. You can also specify one:
 
@@ -147,6 +173,19 @@ Console.WriteLine($"URI: {item.Uri}");
 Console.WriteLine($"CID: {item.Cid}");
 Console.WriteLine($"Key: {item.RecordKey}");
 ```
+
+Every typed read returns a `RecordView<T>`: `Uri`, `Cid`, `Value` and `RecordKey`. Each record is
+deserialized once, straight from the response. `GetAsync` throws `XrpcException` with
+`RecordNotFound` when there is no such record; when absence is an expected answer, use
+`FindAsync`, which returns `null` instead:
+
+```csharp
+var maybe = await todos.FindAsync(RecordKey.Parse("maybe-there"));
+if (maybe is null)
+    Console.WriteLine("Not created yet");
+```
+
+Only `RecordNotFound` means absent: a malformed key or a missing repository still throws.
 
 ### Update (Put)
 
@@ -179,7 +218,7 @@ await todos.DeleteAsync(created.RecordKey);
 ### Check Existence
 
 ```csharp
-bool exists = await todos.ExistsAsync(RecordKey.Parse("some-record-key"));
+bool exists = await todos.ExistsAsync(RecordKey.Parse("some-record-key")); // FindAsync(...) is not null
 ```
 
 ## Listing Records
@@ -233,7 +272,7 @@ One of the key features of AT Protocol is that records are public by default. Yo
 ```csharp
 var other = Did.Parse("did:plc:otherperson");
 
-// Read a specific record from another user
+// Read a specific record from another user (FindFromAsync returns null when it is absent)
 var item = await todos.GetFromAsync(other, RecordKey.Parse("record-key"));
 
 // List records from another user
@@ -254,10 +293,10 @@ A single AT Protocol account supports data from many applications by using diffe
 await client.LoginAsync("alice.example.com", "app-password");
 
 // Different apps, same account, different collections
-var todos = client.GetCollection<TodoItem>(Nsid.Parse("com.example.todo.item"));
-var bookmarks = client.GetCollection<Bookmark>(Nsid.Parse("com.example.bookmarks.bookmark"));
-var notes = client.GetCollection<Note>(Nsid.Parse("com.example.notes.note"));
-var recipes = client.GetCollection<Recipe>(Nsid.Parse("com.example.recipes.recipe"));
+var todos = client.GetCollection<TodoItem>();
+var bookmarks = client.GetCollection<Bookmark>();
+var notes = client.GetCollection<Note>();
+var recipes = client.GetCollection<Recipe>();
 
 // Each collection is independent
 await todos.CreateAsync(new TodoItem { Title = "Cook dinner" });
@@ -286,10 +325,11 @@ Examples:
 Use camelCase for JSON fields (AT Protocol convention):
 
 ```csharp
-public class MyRecord : AtProtoRecord
+public class MyRecord : AtProtoRecord, IAtProtoRecord
 {
-    [JsonPropertyName("$type")]
-    public override string Type => "com.example.myapp.record";
+    public static Nsid Collection { get; } = Nsid.Parse("com.example.myapp.record");
+
+    public override string Type => Collection;
 
     [JsonPropertyName("firstName")]
     public string FirstName { get; set; } = "";
@@ -324,17 +364,20 @@ if (record.DueDate?.TryGetValue(out var due) == true)
 
 Reading is lenient: a value that isn't a valid atproto datetime is kept verbatim with
 `IsValid == false` rather than failing the whole record. `AtProtoRecord.CreatedAt` is an
-`AtDatetime?` set to the current time when you create the object.
+`AtDatetime?`: `null` until you set it or `CreateAsync` stamps it, and exactly what was stored
+(or `null`, when nothing was) for a record you read, so writing that record back with `PutAsync`
+never invents a creation time.
 
 ### References Between Records
 
 Use AT URIs to reference other records:
 
 ```csharp
-public class Comment : AtProtoRecord
+public class Comment : AtProtoRecord, IAtProtoRecord
 {
-    [JsonPropertyName("$type")]
-    public override string Type => "com.example.todo.comment";
+    public static Nsid Collection { get; } = Nsid.Parse("com.example.todo.comment");
+
+    public override string Type => Collection;
 
     [JsonPropertyName("todoUri")]
     public required AtUri TodoUri { get; set; }  // AT URI to the todo item
@@ -355,10 +398,11 @@ var blobResponse = await client.Repo.UploadBlobAsync(
     mimeType: "image/jpeg");
 
 // Reference it in your record
-public class PhotoRecord : AtProtoRecord
+public class PhotoRecord : AtProtoRecord, IAtProtoRecord
 {
-    [JsonPropertyName("$type")]
-    public override string Type => "com.example.photos.photo";
+    public static Nsid Collection { get; } = Nsid.Parse("com.example.photos.photo");
+
+    public override string Type => Collection;
 
     [JsonPropertyName("image")]
     public BlobRef? Image { get; set; }
@@ -491,7 +535,7 @@ await todos.PutAsync(rkey, item.Value, swapRecord: item.Cid); // "priority" is s
   field before the SDK models it:
   `post.ExtensionData?.TryGetValue("bookmarkCount", out var count) == true`.
 
-`AtProtoClient.UpdateProfileAsync` is built on this. It reads the profile, lets your callback edit
+`client.Bsky.UpdateProfileAsync` is built on this. It reads the profile, lets your callback edit
 it (`p => p.Description = "…"`), and writes it back guarded by `swapRecord`. Every field you
 didn't touch survives, including ones this SDK version doesn't know about.
 
@@ -506,7 +550,11 @@ try
 }
 catch (XrpcException ex) when (ex.Is(XrpcErrors.RecordNotFound))
 {
-    Console.WriteLine("Record does not exist");
+    Console.WriteLine("Record does not exist"); // or use FindAsync, which returns null
+}
+catch (XrpcAuthenticationException)
+{
+    Console.WriteLine("Sign in first: own-repository calls need a session");
 }
 catch (XrpcException ex)
 {

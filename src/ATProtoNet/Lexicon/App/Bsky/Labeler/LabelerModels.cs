@@ -15,11 +15,14 @@ namespace ATProtoNet.Lexicon.App.Bsky.Labeler;
 /// <summary>
 /// Record type for <c>app.bsky.labeler.service</c> — declares a labeler service.
 /// </summary>
-public sealed class LabelerServiceRecord : LexObject
+public sealed class LabelerServiceRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>app.bsky.labeler.service</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("app.bsky.labeler.service");
+
     /// <summary>The Lexicon type discriminator (<c>app.bsky.labeler.service</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "app.bsky.labeler.service";
+    public string Type => Collection;
 
     /// <summary>The labeler's declared labelling policies.</summary>
     [JsonPropertyName("policies")]

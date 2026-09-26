@@ -57,7 +57,7 @@ public static class PdsAdminExtensions
     ///
     /// app.MapPost("/signup", async (SignupForm form, PdsAdminClient pds) =>
     /// {
-    ///     var account = await pds.CreateAccountAsync(new CreatePdsAccountRequest
+    ///     var account = await pds.CreateAccountAsync(new CreateAccountRequest
     ///     {
     ///         Handle = $"{form.Username}.pds.example.com",
     ///         Email = form.Email,

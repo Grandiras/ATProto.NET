@@ -311,7 +311,7 @@ public sealed class UnknownGalleryItem : GalleryItem, IUnknownUnionVariant
 [AtProtoUnion(typeof(UnknownEmbedView))]
 [JsonDerivedType(typeof(ImagesView), "app.bsky.embed.images#view")]
 [JsonDerivedType(typeof(ExternalView), "app.bsky.embed.external#view")]
-[JsonDerivedType(typeof(RecordView), "app.bsky.embed.record#view")]
+[JsonDerivedType(typeof(RecordEmbedView), "app.bsky.embed.record#view")]
 [JsonDerivedType(typeof(RecordWithMediaView), "app.bsky.embed.recordWithMedia#view")]
 [JsonDerivedType(typeof(VideoView), "app.bsky.embed.video#view")]
 [JsonDerivedType(typeof(GalleryView), "app.bsky.embed.gallery#view")]
@@ -503,7 +503,7 @@ public sealed class ColorRgb : LexObject
 /// <summary>
 /// View of a quoted record embed.
 /// </summary>
-public sealed class RecordView : EmbedView
+public sealed class RecordEmbedView : EmbedView
 {
     /// <summary>
     /// The embedded record: an <see cref="EmbeddedRecord"/> for a post, a placeholder when it
@@ -514,7 +514,7 @@ public sealed class RecordView : EmbedView
 }
 
 /// <summary>
-/// The record a record embed shows (the open union behind <see cref="RecordView.Record"/>). A
+/// The record a record embed shows (the open union behind <see cref="RecordEmbedView.Record"/>). A
 /// view this SDK does not model reads as <see cref="UnknownEmbeddedRecordView"/>.
 /// </summary>
 [AtProtoUnion(typeof(UnknownEmbeddedRecordView))]
@@ -656,7 +656,7 @@ public sealed class RecordWithMediaView : EmbedView
 {
     /// <summary>The embedded record view.</summary>
     [JsonPropertyName("record")]
-    public required RecordView Record { get; init; }
+    public required RecordEmbedView Record { get; init; }
 
     /// <summary>The media embedded alongside the record.</summary>
     [JsonPropertyName("media")]

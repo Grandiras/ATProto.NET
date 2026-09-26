@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Feed;
 using ATProtoNet.Models;
 
@@ -11,11 +12,14 @@ namespace ATProtoNet.Lexicon.Site.Standard.Publication;
 /// <summary>
 /// Represents a Standard.site publication — a collection of documents published to the web.
 /// </summary>
-public sealed class PublicationRecord : LexObject
+public sealed class PublicationRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>site.standard.publication</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("site.standard.publication");
+
     /// <summary>The Lexicon type discriminator (<c>site.standard.publication</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "site.standard.publication";
+    public string Type => Collection;
 
     /// <summary>Base URL for the publication (e.g. https://standard.site). Avoid trailing slashes.</summary>
     [JsonPropertyName("url")]
@@ -63,11 +67,14 @@ public sealed class PublicationPreferences : LexObject
 /// <summary>
 /// Simplified publication theme with four color roles (site.standard.theme.basic).
 /// </summary>
-public sealed class BasicTheme : LexObject
+public sealed class BasicTheme : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>site.standard.theme.basic</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("site.standard.theme.basic");
+
     /// <summary>The Lexicon type discriminator (<c>site.standard.theme.basic</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "site.standard.theme.basic";
+    public string Type => Collection;
 
     /// <summary>Color used for content background.</summary>
     [JsonPropertyName("background")]

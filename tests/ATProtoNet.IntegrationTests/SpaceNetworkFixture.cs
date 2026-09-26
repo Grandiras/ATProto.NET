@@ -1,5 +1,6 @@
 using ATProtoNet.Admin;
 using ATProtoNet.Identity;
+using ATProtoNet.Lexicon.Com.AtProto.Server;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 using ATProtoNet.Spaces;
 
@@ -89,17 +90,14 @@ public sealed class SpaceNetworkFixture : IAsyncLifetime
     {
         var handle = $"{name}-{Guid.NewGuid():N}"[..16].TrimEnd('-') + _handleDomain;
 
-        var account = await _admin.CreateAccountAsync(new CreatePdsAccountRequest
+        var account = await _admin.CreateAccountAsync(new CreateAccountRequest
         {
             Handle = Handle.Parse(handle),
             Email = $"{Guid.NewGuid():N}@example.com",
             Password = AccountPassword,
         });
 
-        var client = new AtProtoClientBuilder()
-            .WithInstanceUrl(TestConfig.SpacesPdsUrl)
-            .WithAutoRefreshSession(false)
-            .Build();
+        var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.SpacesPdsUrl, AutoRefreshSession = false });
 
         await client.LoginAsync(handle, AccountPassword);
 

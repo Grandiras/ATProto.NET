@@ -1,5 +1,6 @@
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.RichText;
+using RichTextValue = ATProtoNet.Lexicon.App.Bsky.RichText.RichText;
 
 namespace ATProtoNet.Tests.RichText;
 
@@ -16,7 +17,7 @@ public class RichTextBuilderTests
             .Build();
 
         Assert.Equal("Hello, world!", text);
-        Assert.Null(facets);
+        Assert.Empty(facets);
     }
 
     [Fact]
@@ -120,7 +121,7 @@ public class RichTextBuilderTests
             .Build();
 
         Assert.Equal("Line 1\nLine 2", text);
-        Assert.Null(facets);
+        Assert.Empty(facets);
     }
 
     [Fact]
@@ -158,6 +159,23 @@ public class RichTextBuilderTests
         var (text, facets) = new RichTextBuilder().Build();
 
         Assert.Equal(string.Empty, text);
-        Assert.Null(facets);
+        Assert.Empty(facets);
+    }
+
+    [Fact]
+    public void RichText_FromString_HasTheTextAndNoFacets()
+    {
+        RichTextValue richText = "plain";
+
+        Assert.Equal("plain", richText.Text);
+        Assert.Empty(richText.Facets);
+        Assert.Equal("plain", richText.ToString());
+    }
+
+    [Fact]
+    public void RichText_NullText_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => new RichTextValue(null!));
+        Assert.Throws<ArgumentNullException>(() => new RichTextValue("x", null!));
     }
 }

@@ -20,7 +20,7 @@ public sealed class BlobRef
     /// Content-addressed reference to the blob data.
     /// </summary>
     [JsonPropertyName("ref")]
-    public BlobLink? Ref { get; init; }
+    public CidLink? Ref { get; init; }
 
     /// <summary>
     /// MIME type of the blob.
@@ -36,20 +36,8 @@ public sealed class BlobRef
 }
 
 /// <summary>
-/// A CID link within a blob reference.
-/// </summary>
-public sealed class BlobLink
-{
-    /// <summary>
-    /// The CID of the blob.
-    /// </summary>
-    [JsonPropertyName("$link")]
-    public required Cid Link { get; init; }
-}
-
-/// <summary>
-/// Represents a CID link in AT Protocol JSON data.
-/// Used for content-addressed references within records.
+/// Represents a CID link in AT Protocol JSON data (<c>{"$link": "…"}</c>).
+/// Used for content-addressed references within records, such as a blob's <see cref="BlobRef.Ref"/>.
 /// </summary>
 public sealed class CidLink
 {

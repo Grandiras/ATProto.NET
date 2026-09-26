@@ -225,12 +225,17 @@ public sealed class CSharpEmitter
         var className = TypeNameOf(ctx, defName, "record");
         var typeValue = TypeMapper.TypeValue(ctx.Nsid, defName);
 
-        // Generated records subclass the SDK base so they work with RecordCollection<T>.
+        // Generated records subclass the SDK base and name their collection, so they work with
+        // client.GetCollection<T>() and RecordCollection<T>.
         ctx.NeedsSdkCore = true;
+        ctx.NeedsSdkIdentity = true;
 
         EmitXmlDoc(sb, def.Description, 0);
-        sb.AppendLine($"public sealed class {className} : AtProtoRecord");
+        sb.AppendLine($"public sealed class {className} : AtProtoRecord, IAtProtoRecord");
         sb.AppendLine("{");
+        sb.AppendLine("    /// <inheritdoc />");
+        sb.AppendLine($"    public static Nsid Collection {{ get; }} = Nsid.Parse(\"{ctx.Nsid}\");");
+        sb.AppendLine();
         sb.AppendLine("    /// <inheritdoc />");
         // The attribute has to be repeated on the override: System.Text.Json does not carry
         // [JsonPropertyName] over from the base declaration, and would emit both
@@ -402,6 +407,7 @@ public sealed class CSharpEmitter
         {
             used.Add("Type");
             used.Add("CreatedAt");
+            used.Add("Collection");
         }
 
         var nested = new List<PendingNested>();

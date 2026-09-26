@@ -111,11 +111,8 @@ public sealed class RichTextBuilder
     /// Build the rich text result.
     /// </summary>
     /// <returns>
-    /// The text and its facets, or <see langword="null"/> facets when there are none. The facets
-    /// are a snapshot: appending to the builder afterwards does not change them.
+    /// The text and its facets, which are empty when there are none. The facets are a snapshot:
+    /// appending to the builder afterwards does not change them.
     /// </returns>
-    public (string Text, IReadOnlyList<Facet>? Facets) Build()
-    {
-        return (_text.ToString(), _facets.Count > 0 ? [.. _facets] : null);
-    }
+    public RichText Build() => new(_text.ToString(), [.. _facets]);
 }

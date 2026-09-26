@@ -37,7 +37,7 @@ public sealed class StandardSiteClient
     /// <param name="record">The publication record to create.</param>
     /// <param name="rkey">Optional record key.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<CreateRecordResponse> CreatePublicationAsync(
+    public Task<RecordRef> CreatePublicationAsync(
         AtIdentifier repo,
         PublicationRecord record,
         RecordKey? rkey = null,
@@ -53,7 +53,7 @@ public sealed class StandardSiteClient
     /// <param name="repo">The DID or handle of the repo owner.</param>
     /// <param name="rkey">The record key.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<GetRecordResponse<PublicationRecord>> GetPublicationAsync(
+    public Task<RecordView<PublicationRecord>> GetPublicationAsync(
         AtIdentifier repo,
         RecordKey rkey,
         CancellationToken cancellationToken = default)
@@ -69,7 +69,7 @@ public sealed class StandardSiteClient
     /// <param name="uri">The publication's AT URI.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="ArgumentException"><paramref name="uri"/> does not name a publication record.</exception>
-    public Task<GetRecordResponse<PublicationRecord>> GetPublicationAsync(
+    public Task<RecordView<PublicationRecord>> GetPublicationAsync(
         AtUri uri,
         CancellationToken cancellationToken = default)
     {
@@ -85,7 +85,7 @@ public sealed class StandardSiteClient
     /// <param name="record">The publication record to write.</param>
     /// <param name="swapRecord">Optional compare-and-swap guard: the CID the record must be at.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<PutRecordResponse> PutPublicationAsync(
+    public Task<RecordRef> PutPublicationAsync(
         AtIdentifier repo,
         RecordKey rkey,
         PublicationRecord record,
@@ -152,7 +152,7 @@ public sealed class StandardSiteClient
     /// <param name="record">The document record to create.</param>
     /// <param name="rkey">Optional record key.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<CreateRecordResponse> CreateDocumentAsync(
+    public Task<RecordRef> CreateDocumentAsync(
         AtIdentifier repo,
         DocumentRecord record,
         RecordKey? rkey = null,
@@ -168,7 +168,7 @@ public sealed class StandardSiteClient
     /// <param name="repo">The DID or handle of the repo owner.</param>
     /// <param name="rkey">The record key.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<GetRecordResponse<DocumentRecord>> GetDocumentAsync(
+    public Task<RecordView<DocumentRecord>> GetDocumentAsync(
         AtIdentifier repo,
         RecordKey rkey,
         CancellationToken cancellationToken = default)
@@ -183,7 +183,7 @@ public sealed class StandardSiteClient
     /// <param name="uri">The document's AT URI.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="ArgumentException"><paramref name="uri"/> does not name a document record.</exception>
-    public Task<GetRecordResponse<DocumentRecord>> GetDocumentAsync(
+    public Task<RecordView<DocumentRecord>> GetDocumentAsync(
         AtUri uri,
         CancellationToken cancellationToken = default)
     {
@@ -199,7 +199,7 @@ public sealed class StandardSiteClient
     /// <param name="record">The document record to write.</param>
     /// <param name="swapRecord">Optional compare-and-swap guard: the CID the record must be at.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<PutRecordResponse> PutDocumentAsync(
+    public Task<RecordRef> PutDocumentAsync(
         AtIdentifier repo,
         RecordKey rkey,
         DocumentRecord record,
@@ -266,7 +266,7 @@ public sealed class StandardSiteClient
     /// <param name="record">The subscription record.</param>
     /// <param name="rkey">Optional record key.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<CreateRecordResponse> CreateSubscriptionAsync(
+    public Task<RecordRef> CreateSubscriptionAsync(
         AtIdentifier repo,
         SubscriptionRecord record,
         RecordKey? rkey = null,
@@ -282,7 +282,7 @@ public sealed class StandardSiteClient
     /// <param name="repo">The DID or handle of the subscriber.</param>
     /// <param name="rkey">The record key.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<GetRecordResponse<SubscriptionRecord>> GetSubscriptionAsync(
+    public Task<RecordView<SubscriptionRecord>> GetSubscriptionAsync(
         AtIdentifier repo,
         RecordKey rkey,
         CancellationToken cancellationToken = default)
@@ -297,7 +297,7 @@ public sealed class StandardSiteClient
     /// <param name="uri">The subscription's AT URI.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="ArgumentException"><paramref name="uri"/> does not name a subscription record.</exception>
-    public Task<GetRecordResponse<SubscriptionRecord>> GetSubscriptionAsync(
+    public Task<RecordView<SubscriptionRecord>> GetSubscriptionAsync(
         AtUri uri,
         CancellationToken cancellationToken = default)
     {
@@ -361,7 +361,7 @@ public sealed class StandardSiteClient
     /// <param name="record">The recommendation record.</param>
     /// <param name="rkey">Optional record key; a TID is generated when omitted.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<CreateRecordResponse> CreateRecommendationAsync(
+    public Task<RecordRef> CreateRecommendationAsync(
         AtIdentifier repo,
         RecommendRecord record,
         RecordKey? rkey = null,
@@ -377,7 +377,7 @@ public sealed class StandardSiteClient
     /// <param name="repo">The DID or handle of the recommending account.</param>
     /// <param name="rkey">The record key.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<GetRecordResponse<RecommendRecord>> GetRecommendationAsync(
+    public Task<RecordView<RecommendRecord>> GetRecommendationAsync(
         AtIdentifier repo,
         RecordKey rkey,
         CancellationToken cancellationToken = default)
@@ -392,7 +392,7 @@ public sealed class StandardSiteClient
     /// <param name="uri">The recommendation's AT URI.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="ArgumentException"><paramref name="uri"/> does not name a recommendation record.</exception>
-    public Task<GetRecordResponse<RecommendRecord>> GetRecommendationAsync(
+    public Task<RecordView<RecommendRecord>> GetRecommendationAsync(
         AtUri uri,
         CancellationToken cancellationToken = default)
     {
@@ -445,14 +445,11 @@ public sealed class StandardSiteClient
             (cursor, ct) => ListRecommendationsAsync(repo, pageSize, cursor, ct),
             cancellationToken);
 
-    private async Task<RecordPage<T>> ListAsync<T>(
+    private Task<RecordPage<T>> ListAsync<T>(
         AtIdentifier repo, Nsid collection, int? limit, string? cursor, CancellationToken cancellationToken)
-        where T : class
-    {
-        var response = await _repo.ListRecordsAsync(
-            repo, collection, limit: limit, cursor: cursor, cancellationToken: cancellationToken).ConfigureAwait(false);
-        return RecordCollection<T>.ToPage(response);
-    }
+        where T : class =>
+        _repo.ListRecordsAsync<T>(
+            repo, collection, limit: limit, cursor: cursor, cancellationToken: cancellationToken);
 
     private static RecordKey RecordKeyOf(AtUri uri, Nsid collection)
     {

@@ -37,9 +37,8 @@ public class OpenUnionTests
         { typeof(GalleryViewItem), "app.bsky.embed.gallery#viewVideo" },
         { typeof(FacetFeature), "app.bsky.richtext.facet#future" },
         { typeof(ThreadNode), "app.bsky.feed.defs#threadFuture" },
-        { typeof(ReportModeration.ReportSubject), "com.atproto.admin.defs#future" },
+        { typeof(ReportModeration.ModerationSubject), "chat.bsky.convo.defs#futureRef" },
         { typeof(OzoneModeration.ModEventType), "tools.ozone.moderation.defs#futureEvent" },
-        { typeof(OzoneModeration.ModerationSubject), "chat.bsky.convo.defs#futureRef" },
         { typeof(OzoneModeration.ModerationSubjectView), "tools.ozone.moderation.defs#convoView" },
         { typeof(OzoneModeration.ScheduledAction), "tools.ozone.moderation.scheduleAction#label" },
         { typeof(OzoneReport.ReportActivity), "tools.ozone.report.defs#futureActivity" },
@@ -130,7 +129,7 @@ public class OpenUnionTests
 
         var unknown = Assert.IsType<OzoneModeration.UnknownModEvent>(view.Event);
         Assert.Equal("tools.ozone.moderation.defs#futureEvent", unknown.Type);
-        Assert.Equal("did:plc:a", Assert.IsType<OzoneModeration.RepoSubject>(view.Subject).Did);
+        Assert.Equal("did:plc:a", Assert.IsType<ReportModeration.RepoSubject>(view.Subject).Did);
     }
 
     [Fact]

@@ -16,7 +16,7 @@ The SDK is in `0.*` because, while it's near feature-complete, it's mostly vibe-
 
 ## At a glance
 
-- **Custom Lexicon support** — `RecordCollection<T>` for typed CRUD on your own record schemas, plus `QueryAsync<T>` / `ProcedureAsync<T>` for custom XRPC methods.
+- **Custom Lexicon support** — `RecordCollection<T>` for typed CRUD on your own record schemas, plus `QueryAsync<TOut>` / `ProcedureAsync<TIn, TOut>` for custom XRPC methods and a public transport for sub-clients of your own Lexicons.
 - **OAuth & identity** — full AT Protocol OAuth (DPoP, PAR, PKCE), `did:plc` / `did:web` resolution, type-safe `Did` / `Handle` / `AtUri` / `Nsid` / `Tid` / `RecordKey` / `Cid`.
 - **Bluesky, Chat, Ozone** — `app.bsky.*` (actors, feeds, graph, notifications, rich text, video, bookmarks, drafts, age assurance), `chat.bsky.*` (direct and group chats), `tools.ozone.*` (moderation, reports, queues).
 - **Hosting** — ASP.NET Core DI + JWT auth, Blazor components with cookie-based OAuth, .NET Aspire integration, and a **managed PDS** — run the official Bluesky PDS or [Tranquil PDS](https://tangled.org/tranquil.farm/tranquil-pds) container via `ATProtoNet.Aspire.Hosting` and administer it with `PdsAdminClient`.
@@ -42,24 +42,22 @@ using ATProtoNet;
 using ATProtoNet.Identity;
 using System.Text.Json.Serialization;
 
-// 1. Define your record type
-public class TodoItem : AtProtoRecord
+// 1. Define your record type; it names its collection once
+public class TodoItem : AtProtoRecord, IAtProtoRecord
 {
-    [JsonPropertyName("$type")]
-    public override string Type => "com.example.todo.item";
+    public static Nsid Collection { get; } = Nsid.Parse("com.example.todo.item");
+    public override string Type => Collection;
 
     [JsonPropertyName("title")]     public string Title { get; set; } = "";
     [JsonPropertyName("completed")] public bool Completed { get; set; }
 }
 
 // 2. Connect and authenticate
-var client = new AtProtoClientBuilder()
-    .WithInstanceUrl("https://bsky.social")
-    .Build();
+var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = "https://bsky.social" });
 await client.LoginAsync("alice.bsky.social", "app-password");
 
 // 3. Get a typed collection and do CRUD
-var todos = client.GetCollection<TodoItem>(Nsid.Parse("com.example.todo.item"));
+var todos = client.GetCollection<TodoItem>();
 
 var created = await todos.CreateAsync(new TodoItem { Title = "Buy groceries" });
 

@@ -263,7 +263,7 @@ public class MyService
     public async Task PostAsync(string text)
     {
         await _client.LoginAsync("my-bot.bsky.social", "app-password-here");
-        await _client.PostAsync(text);
+        await _client.Bsky.PostAsync(text);
     }
 }
 ```

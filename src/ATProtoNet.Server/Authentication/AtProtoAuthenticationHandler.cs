@@ -60,10 +60,11 @@ public class AtProtoAuthenticationHandler : AuthenticationHandler<AtProtoAuthent
         try
         {
             // Signature/identity validation is delegated to the PDS via getSession.
-            await using var tempClient = new AtProtoClientBuilder()
-                .WithInstanceUrl(Options.PdsUrl ?? "https://bsky.social")
-                .WithAutoRefreshSession(false)
-                .Build();
+            await using var tempClient = new AtProtoClient(new AtProtoClientOptions
+            {
+                InstanceUrl = Options.PdsUrl ?? "https://bsky.social",
+                AutoRefreshSession = false,
+            });
 
             // Manually set the access token for validation. getSession replaces the placeholder
             // handle; the DID is the token's subject, which the PDS vouches for by accepting it.

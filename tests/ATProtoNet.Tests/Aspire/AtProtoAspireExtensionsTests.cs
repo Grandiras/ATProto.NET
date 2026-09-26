@@ -49,7 +49,6 @@ public class AtProtoAspireExtensionsTests
         var config = new Dictionary<string, string?>
         {
             ["AtProto:InstanceUrl"] = "https://my-pds.example.com",
-            ["AtProto:RelayUrl"] = "wss://my-relay.example.com",
             ["AtProto:AutoRefreshSession"] = "false",
         };
 

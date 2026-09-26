@@ -14,8 +14,8 @@ namespace ATProtoNet.Http;
 /// <example>
 /// <code>
 /// var labels = await client.QueryAsync&lt;QueryLabelsResponse&gt;(
-///     "com.atproto.label.queryLabels",
-///     new { uriPatterns = new[] { "at://did:plc:alice/*" } },
+///     Nsid.Parse("com.atproto.label.queryLabels"),
+///     new XrpcParams().AddAll("uriPatterns", ["at://did:plc:alice/*"]),
 ///     new XrpcCallOptions { Proxy = "did:plc:labeler#atproto_labeler" });
 /// </code>
 /// </example>

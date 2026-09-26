@@ -103,11 +103,12 @@ Concurrent requests that find the token expired share one refresh. This matters:
 single-use, and a second refresh with the same token would be refused and end the session.
 
 ```csharp
-var client = new AtProtoClientBuilder()
-    .WithInstanceUrl("https://your-pds.example.com")
-    .WithAutoRefreshSession(true)   // default
-    .WithBackgroundRefresh(false)   // default
-    .Build();
+var client = new AtProtoClient(new AtProtoClientOptions
+{
+    InstanceUrl = "https://your-pds.example.com",
+    AutoRefreshSession = true,   // default
+    BackgroundRefresh = false,   // default
+});
 ```
 
 `BackgroundRefresh` adds a timer that refreshes shortly before expiry even when the client is idle,
@@ -205,9 +206,7 @@ Three ways to install a session you saved earlier:
 | `TryRestoreSessionAsync(did, oauthClient?)` | No | No (it reads from the store) |
 
 ```csharp
-var client = new AtProtoClientBuilder()
-    .WithSessionStore(store)
-    .Build();
+var client = new AtProtoClient(sessionStore: store);
 
 if (!await client.TryRestoreSessionAsync(savedDid))
     await client.LoginAsync("alice.example.com", "app-password");

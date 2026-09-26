@@ -7,7 +7,7 @@ namespace ATProtoNet.Auth;
 /// Persists sessions, one per account, keyed by DID.
 /// </summary>
 /// <remarks>
-/// <para>Give one to <see cref="AtProtoClient"/> (<see cref="AtProtoClientBuilder.WithSessionStore"/>)
+/// <para>Give one to the <see cref="AtProtoClient"/> constructor
 /// and the client keeps it current: it writes each session it installs and every refreshed
 /// version, and removes the session when it is signed out or expires.
 /// <see cref="AtProtoClient.TryRestoreSessionAsync"/> reads it back, and the server-side client

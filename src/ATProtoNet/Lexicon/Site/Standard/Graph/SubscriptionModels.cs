@@ -11,11 +11,14 @@ namespace ATProtoNet.Lexicon.Site.Standard.Graph;
 /// <summary>
 /// Represents a Standard.site subscription — a follow relationship to a publication.
 /// </summary>
-public sealed class SubscriptionRecord : LexObject
+public sealed class SubscriptionRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>site.standard.graph.subscription</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("site.standard.graph.subscription");
+
     /// <summary>The Lexicon type discriminator (<c>site.standard.graph.subscription</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "site.standard.graph.subscription";
+    public string Type => Collection;
 
     /// <summary>
     /// AT-URI reference to the publication record being subscribed to

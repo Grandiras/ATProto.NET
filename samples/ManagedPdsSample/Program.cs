@@ -1,5 +1,6 @@
 using ATProtoNet.Admin;
 using ATProtoNet.Identity;
+using ATProtoNet.Lexicon.Com.AtProto.Server;
 using ATProtoNet.Server;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -31,7 +32,7 @@ app.MapGet("/pds", async (PdsAdminClient pds, CancellationToken ct) =>
 app.MapPost("/accounts", async (SignupRequest signup, PdsAdminClient pds, CancellationToken ct) =>
 {
     var account = await pds.CreateAccountAsync(
-        new CreatePdsAccountRequest
+        new CreateAccountRequest
         {
             Handle = Handle.Parse(signup.Handle),
             Email = signup.Email,

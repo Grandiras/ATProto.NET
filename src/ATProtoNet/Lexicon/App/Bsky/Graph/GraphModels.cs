@@ -17,11 +17,14 @@ namespace ATProtoNet.Lexicon.App.Bsky.Graph;
 /// <summary>
 /// A follow record. Collection: app.bsky.graph.follow
 /// </summary>
-public sealed class FollowRecord : LexObject
+public sealed class FollowRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>app.bsky.graph.follow</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("app.bsky.graph.follow");
+
     /// <summary>The Lexicon type discriminator (<c>app.bsky.graph.follow</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "app.bsky.graph.follow";
+    public string Type => Collection;
 
     /// <summary>The DID of the account being followed.</summary>
     [JsonPropertyName("subject")]
@@ -41,11 +44,14 @@ public sealed class FollowRecord : LexObject
 /// <summary>
 /// A block record. Collection: app.bsky.graph.block
 /// </summary>
-public sealed class BlockRecord : LexObject
+public sealed class BlockRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>app.bsky.graph.block</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("app.bsky.graph.block");
+
     /// <summary>The Lexicon type discriminator (<c>app.bsky.graph.block</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "app.bsky.graph.block";
+    public string Type => Collection;
 
     /// <summary>The DID of the account being blocked.</summary>
     [JsonPropertyName("subject")]
@@ -59,11 +65,14 @@ public sealed class BlockRecord : LexObject
 /// <summary>
 /// A list record. Collection: app.bsky.graph.list
 /// </summary>
-public sealed class ListRecord : LexObject
+public sealed class ListRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>app.bsky.graph.list</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("app.bsky.graph.list");
+
     /// <summary>The Lexicon type discriminator (<c>app.bsky.graph.list</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "app.bsky.graph.list";
+    public string Type => Collection;
 
     /// <summary>List purpose: "app.bsky.graph.defs#modlist" or "app.bsky.graph.defs#curatelist".</summary>
     [JsonPropertyName("purpose")]
@@ -97,11 +106,14 @@ public sealed class ListRecord : LexObject
 /// <summary>
 /// A list item record. Collection: app.bsky.graph.listitem
 /// </summary>
-public sealed class ListItemRecord : LexObject
+public sealed class ListItemRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>app.bsky.graph.listitem</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("app.bsky.graph.listitem");
+
     /// <summary>The Lexicon type discriminator (<c>app.bsky.graph.listitem</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "app.bsky.graph.listitem";
+    public string Type => Collection;
 
     /// <summary>The DID of the account included in the list.</summary>
     [JsonPropertyName("subject")]
@@ -119,11 +131,14 @@ public sealed class ListItemRecord : LexObject
 /// <summary>
 /// A list block record. Collection: app.bsky.graph.listblock
 /// </summary>
-public sealed class ListBlockRecord : LexObject
+public sealed class ListBlockRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>app.bsky.graph.listblock</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("app.bsky.graph.listblock");
+
     /// <summary>The Lexicon type discriminator (<c>app.bsky.graph.listblock</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "app.bsky.graph.listblock";
+    public string Type => Collection;
 
     /// <summary>The AT-URI of the list being blocked.</summary>
     [JsonPropertyName("subject")]
@@ -142,11 +157,14 @@ public sealed class ListBlockRecord : LexObject
 /// The appview honors it only while the list's purpose is <see cref="ListPurpose.ReferenceList"/>,
 /// and indexes at most one per author and list.
 /// </remarks>
-public sealed class ReferenceListOptOutRecord : LexObject
+public sealed class ReferenceListOptOutRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>app.bsky.graph.referencelistoptout</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("app.bsky.graph.referencelistoptout");
+
     /// <summary>The Lexicon type discriminator (<c>app.bsky.graph.referencelistoptout</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "app.bsky.graph.referencelistoptout";
+    public string Type => Collection;
 
     /// <summary>The canonical, DID-based AT-URI of the list to be left out of.</summary>
     [JsonPropertyName("subject")]
@@ -165,11 +183,14 @@ public sealed class ReferenceListOptOutRecord : LexObject
 /// An app counts a verification only when it trusts its issuer, and only while the subject's
 /// current handle and display name still match the ones recorded here.
 /// </remarks>
-public sealed class VerificationRecord : LexObject
+public sealed class VerificationRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>app.bsky.graph.verification</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("app.bsky.graph.verification");
+
     /// <summary>The Lexicon type discriminator (<c>app.bsky.graph.verification</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "app.bsky.graph.verification";
+    public string Type => Collection;
 
     /// <summary>The DID of the verified account.</summary>
     [JsonPropertyName("subject")]
@@ -574,11 +595,14 @@ internal sealed class MuteActorListRequest
 /// <summary>
 /// A starter pack record. Collection: app.bsky.graph.starterpack
 /// </summary>
-public sealed class StarterPackRecord : LexObject
+public sealed class StarterPackRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>app.bsky.graph.starterpack</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("app.bsky.graph.starterpack");
+
     /// <summary>The Lexicon type discriminator (<c>app.bsky.graph.starterpack</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "app.bsky.graph.starterpack";
+    public string Type => Collection;
 
     /// <summary>The name.</summary>
     [JsonPropertyName("name")]

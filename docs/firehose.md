@@ -48,21 +48,17 @@ catch (OperationCanceledException)
 }
 ```
 
-## Convenience Methods
+## Constructing Streaming Clients
 
-Create firehose clients directly from `AtProtoClient`:
+Streaming clients are independent of `AtProtoClient`: a relay subscription needs no session, and
+one process often reads the firehose without signing anyone in. Construct them with the relay URL:
 
 ```csharp
-var client = new AtProtoClientBuilder()
-    .WithInstanceUrl("https://bsky.social")
-    .WithRelayUrl("wss://bsky.network")  // Default
-    .Build();
+// A low-level firehose client
+using var firehoseClient = new FirehoseClient("wss://bsky.network", logger);
 
-// Create a low-level firehose client
-var firehoseClient = client.CreateFirehoseClient();
-
-// Create a reconnecting firehose consumer
-var consumer = client.CreateFirehoseConsumer();
+// A reconnecting firehose consumer
+using var consumer = new FirehoseConsumer("wss://bsky.network", logger, reconnectDelay: TimeSpan.FromSeconds(5));
 ```
 
 ## Typed Firehose Consumer
@@ -265,13 +261,10 @@ using var verifier = new FirehoseVerifier(resolver);
 
 ## Custom Relay URL
 
-Configure a custom relay URL:
+Pass any relay (or a PDS, for its own repositories) to the constructor:
 
 ```csharp
-var client = new AtProtoClientBuilder()
-    .WithInstanceUrl("https://bsky.social")
-    .WithRelayUrl("wss://custom-relay.example.com")
-    .Build();
+using var firehose = new FirehoseClient("wss://custom-relay.example.com");
 ```
 
 ## Use Cases

@@ -29,7 +29,7 @@ atproto-lexgen csharp --input ./lexicons --output ./Generated --namespace MyApp.
 This generates:
 - `sealed class` types with `required`/`init` properties
 - `[JsonPropertyName]` attributes for JSON serialization
-- `record` defs as subclasses of `AtProtoRecord`, so they drop straight into `GetCollection<T>()`
+- `record` defs as subclasses of `AtProtoRecord` that implement `IAtProtoRecord` (a static `Collection`), so they drop straight into `client.GetCollection<T>()`
 - `$type` expression-body properties
 - Support for all Lexicon types: record, space, object, string enum, token, ref, union, array, blob
 

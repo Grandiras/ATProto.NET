@@ -181,8 +181,10 @@ public class CSharpEmitterTests
     {
         var recipe = EmitAll(RecipeDefs, RecipeRecord)["Exchange/Recipe/Recipe.g.cs"];
 
-        Assert.Contains("public sealed class RecipeRecord : AtProtoRecord", recipe);
+        Assert.Contains("public sealed class RecipeRecord : AtProtoRecord, IAtProtoRecord", recipe);
+        Assert.Contains("public static Nsid Collection { get; } = Nsid.Parse(\"exchange.recipe.recipe\");", recipe);
         Assert.Contains("using ATProtoNet;", recipe);
+        Assert.Contains("using ATProtoNet.Identity;", recipe);
         // The attribute must be repeated on the override or System.Text.Json writes both
         // "Type" and "$type".
         Assert.Contains("[JsonPropertyName(\"$type\")]\n    public override string Type => \"exchange.recipe.recipe\";", recipe);

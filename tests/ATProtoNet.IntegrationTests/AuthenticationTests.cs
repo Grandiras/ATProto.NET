@@ -8,10 +8,7 @@ public class AuthenticationTests
     [RequiresPdsFact]
     public async Task Login_WithValidCredentials_Succeeds()
     {
-        using var client = new AtProtoClientBuilder()
-            .WithInstanceUrl(TestConfig.PdsUrl)
-            .WithAutoRefreshSession(false)
-            .Build();
+        using var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl, AutoRefreshSession = false });
 
         var session = await client.LoginAsync(TestConfig.Handle, TestConfig.Password);
 
@@ -28,10 +25,7 @@ public class AuthenticationTests
     [RequiresPdsFact]
     public async Task Login_WithInvalidCredentials_Throws()
     {
-        using var client = new AtProtoClientBuilder()
-            .WithInstanceUrl(TestConfig.PdsUrl)
-            .WithAutoRefreshSession(false)
-            .Build();
+        using var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl, AutoRefreshSession = false });
 
         await Assert.ThrowsAnyAsync<Http.XrpcException>(
             () => client.LoginAsync("invalid.handle", "wrong-password"));
@@ -40,10 +34,7 @@ public class AuthenticationTests
     [RequiresPdsFact]
     public async Task GetSession_AfterLogin_ReturnsSession()
     {
-        using var client = new AtProtoClientBuilder()
-            .WithInstanceUrl(TestConfig.PdsUrl)
-            .WithAutoRefreshSession(false)
-            .Build();
+        using var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl, AutoRefreshSession = false });
 
         await client.LoginAsync(TestConfig.Handle, TestConfig.Password);
 
@@ -56,18 +47,12 @@ public class AuthenticationTests
     [RequiresPdsFact]
     public async Task ResumeSession_WithValidTokens_Succeeds()
     {
-        using var client1 = new AtProtoClientBuilder()
-            .WithInstanceUrl(TestConfig.PdsUrl)
-            .WithAutoRefreshSession(false)
-            .Build();
+        using var client1 = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl, AutoRefreshSession = false });
 
         var session = await client1.LoginAsync(TestConfig.Handle, TestConfig.Password);
 
         // Create a new client and resume with saved session
-        using var client2 = new AtProtoClientBuilder()
-            .WithInstanceUrl(TestConfig.PdsUrl)
-            .WithAutoRefreshSession(false)
-            .Build();
+        using var client2 = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl, AutoRefreshSession = false });
 
         await client2.ResumeSessionAsync(session);
 
@@ -78,10 +63,7 @@ public class AuthenticationTests
     [RequiresPdsFact]
     public async Task Logout_ClearsSession()
     {
-        using var client = new AtProtoClientBuilder()
-            .WithInstanceUrl(TestConfig.PdsUrl)
-            .WithAutoRefreshSession(false)
-            .Build();
+        using var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl, AutoRefreshSession = false });
 
         await client.LoginAsync(TestConfig.Handle, TestConfig.Password);
         Assert.True(client.IsAuthenticated);
@@ -94,17 +76,13 @@ public class AuthenticationTests
     [RequiresPdsFact]
     public async Task Logout_RevokesTheRefreshToken()
     {
-        using var client = new AtProtoClientBuilder()
-            .WithInstanceUrl(TestConfig.PdsUrl)
-            .Build();
+        using var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl });
 
         var session = await client.LoginAsync(TestConfig.Handle, TestConfig.Password);
         await client.LogoutAsync();
 
         // deleteSession was sent the refresh JWT, so the PDS no longer honours it.
-        using var other = new AtProtoClientBuilder()
-            .WithInstanceUrl(TestConfig.PdsUrl)
-            .Build();
+        using var other = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl });
         await Assert.ThrowsAsync<Http.XrpcAuthenticationException>(
             () => other.Server.RefreshSessionAsync(session.RefreshJwt));
     }
@@ -112,9 +90,7 @@ public class AuthenticationTests
     [RequiresPdsFact]
     public async Task RefreshSession_RotatesTheTokensAndKnowsTheirExpiry()
     {
-        using var client = new AtProtoClientBuilder()
-            .WithInstanceUrl(TestConfig.PdsUrl)
-            .Build();
+        using var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = TestConfig.PdsUrl });
 
         var session = await client.LoginAsync(TestConfig.Handle, TestConfig.Password);
         await client.RefreshSessionAsync();

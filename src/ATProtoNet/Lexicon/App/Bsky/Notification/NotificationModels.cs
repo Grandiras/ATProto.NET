@@ -447,11 +447,14 @@ public sealed class PutActivitySubscriptionResponse
 /// The account's choice of who may subscribe to its activity. Collection:
 /// <c>app.bsky.notification.declaration</c>, record key <c>self</c>.
 /// </summary>
-public sealed class NotificationDeclarationRecord : LexObject
+public sealed class NotificationDeclarationRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>app.bsky.notification.declaration</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("app.bsky.notification.declaration");
+
     /// <summary>The Lexicon type discriminator (<c>app.bsky.notification.declaration</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "app.bsky.notification.declaration";
+    public string Type => Collection;
 
     /// <summary>
     /// Who may subscribe to the account's activity (see <see cref="AllowedSubscribers"/>). An

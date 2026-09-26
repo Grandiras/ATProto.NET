@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Identity;
@@ -30,7 +31,7 @@ namespace ATProtoNet.Http;
 /// before sending, so it can refresh a token about to expire, and once after the service rejects
 /// the token, so it can refresh and have the call resent with the same account's new tokens.</para>
 /// </remarks>
-internal sealed class XrpcClient
+internal sealed class XrpcClient : IXrpcTransport
 {
     private static readonly MediaTypeHeaderValue JsonMediaType = new("application/json");
 
@@ -390,6 +391,41 @@ internal sealed class XrpcClient
     /// labeler defaults, which route other calls to an AppView or labeler, do not apply.
     /// </summary>
     internal static XrpcCallOptions Direct { get; } = new() { IsDirect = true };
+
+    // ──────────────────────────────────────────────────────────
+    //  IXrpcTransport: the same calls, for sub-clients outside the SDK
+    // ──────────────────────────────────────────────────────────
+
+    Task<TOut> IXrpcTransport.QueryAsync<TOut>(
+        Nsid nsid, XrpcParams? parameters, XrpcCallOptions? options, CancellationToken cancellationToken) =>
+        QueryAsync<TOut>(NsidOf(nsid), parameters, options, cancellationToken);
+
+    Task<XrpcStreamResponse> IXrpcTransport.DownloadAsync(
+        Nsid nsid, XrpcParams? parameters, XrpcCallOptions? options, CancellationToken cancellationToken) =>
+        DownloadAsync(NsidOf(nsid), parameters, options, cancellationToken);
+
+    Task<TOut> IXrpcTransport.ProcedureAsync<TIn, TOut>(
+        Nsid nsid, TIn input, XrpcParams? parameters, XrpcCallOptions? options, CancellationToken cancellationToken) =>
+        ProcedureAsync<TOut>(NsidOf(nsid), input, parameters, options, cancellationToken);
+
+    Task IXrpcTransport.ProcedureAsync<TIn>(
+        Nsid nsid, TIn input, XrpcParams? parameters, XrpcCallOptions? options, CancellationToken cancellationToken) =>
+        ProcedureAsync(NsidOf(nsid), input, parameters, options, cancellationToken);
+
+    Task IXrpcTransport.ProcedureAsync(
+        Nsid nsid, XrpcParams? parameters, XrpcCallOptions? options, CancellationToken cancellationToken) =>
+        ProcedureAsync(NsidOf(nsid), body: null, parameters, options, cancellationToken);
+
+    Task<TOut> IXrpcTransport.UploadAsync<TOut>(
+        Nsid nsid, Stream data, string mimeType, XrpcParams? parameters, XrpcCallOptions? options,
+        CancellationToken cancellationToken) =>
+        UploadAsync<TOut>(NsidOf(nsid), data, mimeType, parameters, options, cancellationToken);
+
+    private static string NsidOf(Nsid nsid, [CallerArgumentExpression(nameof(nsid))] string? paramName = null)
+    {
+        ArgumentNullException.ThrowIfNull(nsid, paramName);
+        return nsid.Value;
+    }
 
     // ──────────────────────────────────────────────────────────
     //  Pipeline

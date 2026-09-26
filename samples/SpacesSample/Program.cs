@@ -34,7 +34,7 @@ if (string.IsNullOrEmpty(handle) || string.IsNullOrEmpty(password))
     return 1;
 }
 
-using var client = new AtProtoClientBuilder().WithInstanceUrl(pdsUrl).Build();
+using var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = pdsUrl });
 await client.LoginAsync(handle, password);
 
 var did = client.Did!;

@@ -11,11 +11,14 @@ namespace ATProtoNet.Lexicon.Site.Standard.Graph;
 /// <summary>
 /// Represents a Standard.site recommendation — an account recommending a document.
 /// </summary>
-public sealed class RecommendRecord : LexObject
+public sealed class RecommendRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>site.standard.graph.recommend</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("site.standard.graph.recommend");
+
     /// <summary>The Lexicon type discriminator (<c>site.standard.graph.recommend</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "site.standard.graph.recommend";
+    public string Type => Collection;
 
     /// <summary>
     /// AT-URI reference to the document record being recommended

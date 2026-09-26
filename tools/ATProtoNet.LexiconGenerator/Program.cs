@@ -306,7 +306,7 @@ public static class Program
               - sealed classes with init-only properties
               - required keyword for non-optional fields
               - [JsonPropertyName] on all properties
-              - record defs subclass AtProtoRecord ($type override, inherited createdAt)
+              - record defs subclass AtProtoRecord and implement IAtProtoRecord ($type override, static Collection, inherited createdAt)
               - unions of object defs become [JsonPolymorphic] base classes
               - refs to com.atproto.*/app.bsky.* defs reuse the SDK's own models
               - token families are grouped into one static class of constants

@@ -18,11 +18,14 @@ namespace ATProtoNet.Lexicon.App.Bsky.Feed;
 /// A Bluesky post record stored in the repository.
 /// Collection: app.bsky.feed.post
 /// </summary>
-public sealed class PostRecord : LexObject
+public sealed class PostRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>app.bsky.feed.post</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("app.bsky.feed.post");
+
     /// <summary>The Lexicon type discriminator (<c>app.bsky.feed.post</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "app.bsky.feed.post";
+    public string Type => Collection;
 
     /// <summary>The post text content (max 300 graphemes / ~3000 bytes).</summary>
     [JsonPropertyName("text")]
@@ -104,11 +107,14 @@ public sealed class SelfLabelValue : LexObject
 /// <summary>
 /// A like record. Collection: app.bsky.feed.like
 /// </summary>
-public sealed class LikeRecord : LexObject
+public sealed class LikeRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>app.bsky.feed.like</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("app.bsky.feed.like");
+
     /// <summary>The Lexicon type discriminator (<c>app.bsky.feed.like</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "app.bsky.feed.like";
+    public string Type => Collection;
 
     /// <summary>A strong reference to the post being liked.</summary>
     [JsonPropertyName("subject")]
@@ -132,11 +138,14 @@ public sealed class LikeRecord : LexObject
 /// <summary>
 /// A repost record. Collection: app.bsky.feed.repost
 /// </summary>
-public sealed class RepostRecord : LexObject
+public sealed class RepostRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>app.bsky.feed.repost</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("app.bsky.feed.repost");
+
     /// <summary>The Lexicon type discriminator (<c>app.bsky.feed.repost</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "app.bsky.feed.repost";
+    public string Type => Collection;
 
     /// <summary>A strong reference to the post being reposted.</summary>
     [JsonPropertyName("subject")]
@@ -161,11 +170,14 @@ public sealed class RepostRecord : LexObject
 /// A threadgate record that controls who can reply to a thread.
 /// Collection: app.bsky.feed.threadgate
 /// </summary>
-public sealed class ThreadgateRecord : LexObject
+public sealed class ThreadgateRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>app.bsky.feed.threadgate</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("app.bsky.feed.threadgate");
+
     /// <summary>The Lexicon type discriminator (<c>app.bsky.feed.threadgate</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "app.bsky.feed.threadgate";
+    public string Type => Collection;
 
     /// <summary>The AT-URI of the post this threadgate applies to.</summary>
     [JsonPropertyName("post")]
@@ -191,11 +203,14 @@ public sealed class ThreadgateRecord : LexObject
 /// A postgate record that controls embedding/quoting of a post.
 /// Collection: app.bsky.feed.postgate
 /// </summary>
-public sealed class PostgateRecord : LexObject
+public sealed class PostgateRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>app.bsky.feed.postgate</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("app.bsky.feed.postgate");
+
     /// <summary>The Lexicon type discriminator (<c>app.bsky.feed.postgate</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "app.bsky.feed.postgate";
+    public string Type => Collection;
 
     /// <summary>The AT-URI of the post this postgate applies to.</summary>
     [JsonPropertyName("post")]
@@ -308,11 +323,14 @@ public sealed class UnknownPostgateEmbeddingRule : PostgateEmbeddingRule, IUnkno
 /// <summary>
 /// A feed generator record. Collection: app.bsky.feed.generator
 /// </summary>
-public sealed class GeneratorRecord : LexObject
+public sealed class GeneratorRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>app.bsky.feed.generator</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("app.bsky.feed.generator");
+
     /// <summary>The Lexicon type discriminator (<c>app.bsky.feed.generator</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "app.bsky.feed.generator";
+    public string Type => Collection;
 
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]

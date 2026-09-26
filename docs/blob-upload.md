@@ -48,10 +48,11 @@ BlobRef blob = await client.Repo.UploadBlobAsync(
 After uploading, reference the blob in your record:
 
 ```csharp
-public class PhotoRecord : AtProtoRecord
+public class PhotoRecord : AtProtoRecord, IAtProtoRecord
 {
-    [JsonPropertyName("$type")]
-    public override string Type => "com.example.photos.photo";
+    public static Nsid Collection { get; } = Nsid.Parse("com.example.photos.photo");
+
+    public override string Type => Collection;
 
     [JsonPropertyName("image")]
     public BlobRef? Image { get; set; }
@@ -68,7 +69,7 @@ BlobRef uploaded = await client.Repo.UploadBlobAsync(
     "/path/to/vacation.jpg",
     "image/jpeg");
 
-var photos = client.GetCollection<PhotoRecord>(Nsid.Parse("com.example.photos.photo"));
+var photos = client.GetCollection<PhotoRecord>();
 await photos.CreateAsync(new PhotoRecord
 {
     Image = uploaded,

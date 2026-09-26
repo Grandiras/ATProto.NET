@@ -70,7 +70,10 @@ public partial class LexiconDriftTests
         [typeof(AtProto.Admin.SubjectStatusDetail)] = "com.atproto.admin.defs#statusAttr",
         [typeof(AtProto.Admin.AdminDeleteAccountRequest)] = "com.atproto.admin.deleteAccount#input",
         [typeof(AtProto.Label.LabelsEvent)] = "com.atproto.label.subscribeLabels#labels",
+        // createRecord and putRecord share one output shape.
+        [typeof(AtProto.Repo.RecordWriteResponse)] = "com.atproto.repo.createRecord#output",
         [typeof(AtProto.Repo.GetRecordResponse<>)] = "com.atproto.repo.getRecord#output",
+        [typeof(AtProto.Repo.ListRecordsResponse<>)] = "com.atproto.repo.listRecords#output",
         [typeof(AtProto.Repo.RecordEntry)] = "com.atproto.repo.listRecords#record",
         // One model for the three result variants; createResult declares all of its fields.
         [typeof(AtProto.Repo.ApplyWriteResult)] = "com.atproto.repo.applyWrites#createResult",
@@ -110,7 +113,6 @@ public partial class LexiconDriftTests
     private static readonly Dictionary<Type, string> NotLexiconObjects = new()
     {
         [typeof(DataModel.BlobRef)] = "The data model's blob, not a Lexicon def.",
-        [typeof(DataModel.BlobLink)] = "The data model's CID link, not a Lexicon def.",
         [typeof(DataModel.CidLink)] = "The data model's CID link, not a Lexicon def.",
         [typeof(AtProto.Identity.DidService)] =
             "A did:plc service entry; the Lexicon types a PLC operation's services as unknown.",

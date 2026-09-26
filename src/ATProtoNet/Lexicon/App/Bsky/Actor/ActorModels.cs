@@ -943,15 +943,18 @@ public sealed class SearchActorsTypeaheadResponse
 /// An actor profile record stored in the repo at app.bsky.actor.profile/self.
 /// </summary>
 /// <remarks>
-/// The properties are settable so that <see cref="AtProtoClient.UpdateProfileAsync"/> can hand the
+/// The properties are settable so that <see cref="BlueskyClients.UpdateProfileAsync"/> can hand the
 /// current record to a callback that edits it in place. Setting a property to
 /// <see langword="null"/> removes the field.
 /// </remarks>
-public sealed class ProfileRecord : LexObject
+public sealed class ProfileRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>app.bsky.actor.profile</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("app.bsky.actor.profile");
+
     /// <summary>The Lexicon type discriminator (<c>app.bsky.actor.profile</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "app.bsky.actor.profile";
+    public string Type => Collection;
 
     /// <summary>The human-readable display name (at most 64 graphemes).</summary>
     [JsonPropertyName("displayName")]
@@ -998,11 +1001,14 @@ public sealed class ProfileRecord : LexObject
 /// An account's status, such as being live. Collection: app.bsky.actor.status, record key
 /// <c>self</c>. Profile views show it as <see cref="StatusView"/>.
 /// </summary>
-public sealed class StatusRecord : LexObject
+public sealed class StatusRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>app.bsky.actor.status</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("app.bsky.actor.status");
+
     /// <summary>The Lexicon type discriminator (<c>app.bsky.actor.status</c>).</summary>
     [JsonPropertyName("$type")]
-    public string Type => "app.bsky.actor.status";
+    public string Type => Collection;
 
     /// <summary>The status (see <see cref="ActorStatus"/>).</summary>
     [JsonPropertyName("status")]
@@ -1034,13 +1040,16 @@ public static class ActorStatus
 /// An account's choice about appearing in content discovery. Collection:
 /// app.bsky.actor.contentVisibilityDeclaration, record key <c>self</c>.
 /// </summary>
-public sealed class ContentVisibilityDeclarationRecord : LexObject
+public sealed class ContentVisibilityDeclarationRecord : LexObject, IAtProtoRecord
 {
+    /// <summary>The collection records of this type are stored in (<c>app.bsky.actor.contentVisibilityDeclaration</c>).</summary>
+    public static Nsid Collection { get; } = Nsid.Parse("app.bsky.actor.contentVisibilityDeclaration");
+
     /// <summary>
     /// The Lexicon type discriminator (<c>app.bsky.actor.contentVisibilityDeclaration</c>).
     /// </summary>
     [JsonPropertyName("$type")]
-    public string Type => "app.bsky.actor.contentVisibilityDeclaration";
+    public string Type => Collection;
 
     /// <summary>
     /// Whether the account asks that its posts be left out of algorithmic recommendations. An

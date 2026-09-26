@@ -136,6 +136,7 @@ the project. `AddAtProtoPdsAdmin()` binds them:
 
 ```csharp
 using ATProtoNet.Admin;
+using ATProtoNet.Lexicon.Com.AtProto.Server;   // CreateAccountRequest
 using ATProtoNet.Server;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -187,7 +188,7 @@ the PDS with TLS, or opt in yourself once you are satisfied the hop is private:
 ```csharp
 app.MapPost("/signup", async (SignupForm form, PdsAdminClient pds) =>
 {
-    var account = await pds.CreateAccountAsync(new CreatePdsAccountRequest
+    var account = await pds.CreateAccountAsync(new CreateAccountRequest
     {
         Handle = Handle.Parse($"{form.Username}.pds.example.com"),
         Email = form.Email,
@@ -331,7 +332,7 @@ handle and password the AppHost configured:
 ```csharp
 app.MapPost("/bootstrap", async (PdsAdminClient pds, IConfiguration config) =>
 {
-    await pds.CreateAccountAsync(new CreatePdsAccountRequest
+    await pds.CreateAccountAsync(new CreateAccountRequest
     {
         Handle = Handle.Parse(config["AtProto:Pds:AdminIdentifier"]!),
         Password = config["AtProto:Pds:AdminPassword"]!,

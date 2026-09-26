@@ -19,9 +19,7 @@ Chat requires the `transition:chat.bsky` OAuth scope. All chat requests are auto
 ## Quick Start
 
 ```csharp
-var client = new AtProtoClientBuilder()
-    .WithInstanceUrl("https://bsky.social")
-    .Build();
+var client = new AtProtoClient(new AtProtoClientOptions { InstanceUrl = "https://bsky.social" });
 
 await client.LoginAsync("alice.bsky.social", "app-password");
 

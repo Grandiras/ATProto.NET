@@ -42,7 +42,7 @@
     [Parameter] public List<string>? Langs { get; set; }
 
     /// <summary>Callback invoked when the post is successfully created.</summary>
-    [Parameter] public EventCallback<ATProtoNet.Lexicon.Com.AtProto.Repo.CreateRecordResponse> OnPostCreated { get; set; }
+    [Parameter] public EventCallback<ATProtoNet.RecordRef> OnPostCreated { get; set; }
 
     /// <summary>Optional CSS class.</summary>
     [Parameter] public string? CssClass { get; set; }
@@ -61,10 +61,9 @@
 
         try
         {
-            var result = await Client.PostAsync(
+            var result = await Client.Bsky.PostAsync(
                 _text,
-                reply: ReplyTo,
-                langs: Langs);
+                new PostOptions { Reply = ReplyTo, Langs = Langs });
 
             _text = string.Empty;
             await OnPostCreated.InvokeAsync(result);

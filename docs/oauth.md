@@ -162,15 +162,14 @@ This performs:
 Install the session on an `AtProtoClient`, together with the `OAuthClient` that issued it:
 
 ```csharp
-await using var client = new AtProtoClientBuilder()
-    .WithSessionStore(sessionStore)   // optional: keeps a persisted copy current
-    .Build();
+await using var client = new AtProtoClient(
+    sessionStore: sessionStore);   // optional: keeps a persisted copy current
 
 await client.ApplySessionAsync(session, oauthClient);
 
 // Now use the client normally: it is pointed at the session's PDS
 var profile = await client.Bsky.Actor.GetProfileAsync(session.Did);
-await client.PostAsync("Hello from OAuth!");
+await client.Bsky.PostAsync("Hello from OAuth!");
 ```
 
 The client neither copies nor disposes the `OAuthClient`; keep one per application and share it.

@@ -1,10 +1,9 @@
 using System.Net;
-using System.Text.Json;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Admin;
+using ATProtoNet.Lexicon.Com.AtProto.Moderation;
 using ATProtoNet.Lexicon.Com.AtProto.Server;
-using ATProtoNet.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -34,7 +33,7 @@ namespace ATProtoNet.Admin;
 /// <code>
 /// using var admin = new PdsAdminClient("https://pds.example.com", adminPassword);
 ///
-/// var account = await admin.CreateAccountAsync(new CreatePdsAccountRequest
+/// var account = await admin.CreateAccountAsync(new CreateAccountRequest
 /// {
 ///     Handle = Handle.Parse("alice.pds.example.com"),
 ///     Email = "alice@example.com",
@@ -358,29 +357,32 @@ public sealed class PdsAdminClient : IDisposable
     /// server that requires invites has to be given a code explicitly until an
     /// administrator exists.
     /// </remarks>
-    /// <param name="request">The account to create.</param>
+    /// <param name="request">
+    /// The account to create. <see cref="CreateAccountRequest.Password"/> is required. The handle
+    /// must fall under one of the PDS's available user domains (see
+    /// <see cref="DescribeServerAsync"/>), and the reference PDS requires an email address.
+    /// </param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>
     /// The new account's DID and handle, along with a session (access and refresh
     /// tokens) the account holder can be signed in with immediately.
     /// </returns>
+    /// <exception cref="ArgumentException">The request has no password.</exception>
     public async Task<CreateAccountResponse> CreateAccountAsync(
-        CreatePdsAccountRequest request,
+        CreateAccountRequest request,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(request.Handle);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Password);
 
-        var inviteCode = request.InviteCode;
-
-        if (inviteCode is null)
+        if (request.InviteCode is null)
         {
             var server = await DescribeServerAsync(cancellationToken);
 
             if (server.InviteCodeRequired == true)
             {
-                inviteCode = await CreateInviteCodeAsync(cancellationToken: cancellationToken);
+                request = CopyWithInviteCode(request, await CreateInviteCodeAsync(cancellationToken: cancellationToken));
                 _logger.LogDebug("Minted invite code for new account {Handle}", request.Handle);
             }
         }
@@ -388,17 +390,22 @@ public sealed class PdsAdminClient : IDisposable
         // Signup is an ordinary public endpoint — send it without the admin header.
         return await _publicXrpc.ProcedureAsync<CreateAccountResponse>(
             "com.atproto.server.createAccount",
-            new CreateAccountRequest
-            {
-                Handle = request.Handle,
-                Password = request.Password,
-                Email = request.Email,
-                Did = request.Did,
-                InviteCode = inviteCode,
-                RecoveryKey = request.RecoveryKey,
-            },
+            request,
             cancellationToken: cancellationToken);
     }
+
+    private static CreateAccountRequest CopyWithInviteCode(CreateAccountRequest request, string inviteCode) => new()
+    {
+        Email = request.Email,
+        Handle = request.Handle,
+        Did = request.Did,
+        InviteCode = inviteCode,
+        VerificationCode = request.VerificationCode,
+        VerificationPhone = request.VerificationPhone,
+        Password = request.Password,
+        RecoveryKey = request.RecoveryKey,
+        PlcOp = request.PlcOp,
+    };
 
     /// <summary>
     /// Get detailed information about an account.
@@ -470,7 +477,7 @@ public sealed class PdsAdminClient : IDisposable
 
         var request = new UpdateSubjectStatusRequest
         {
-            Subject = CreateRepoRef(did),
+            Subject = new RepoSubject { Did = did },
             Takedown = new SubjectStatusDetail { Applied = true, Ref = reference },
         };
 
@@ -488,7 +495,7 @@ public sealed class PdsAdminClient : IDisposable
 
         var request = new UpdateSubjectStatusRequest
         {
-            Subject = CreateRepoRef(did),
+            Subject = new RepoSubject { Did = did },
             Takedown = new SubjectStatusDetail { Applied = false },
         };
 
@@ -559,15 +566,6 @@ public sealed class PdsAdminClient : IDisposable
     /// </remarks>
     public AtProtoClient CreateClient() =>
         new(new AtProtoClientOptions { InstanceUrl = PdsUrl.ToString().TrimEnd('/') });
-
-    private static JsonElement CreateRepoRef(Did did) =>
-        JsonSerializer.SerializeToElement(
-            new Dictionary<string, string>
-            {
-                ["$type"] = "com.atproto.admin.defs#repoRef",
-                ["did"] = did.Value,
-            },
-            AtProtoJsonDefaults.Options);
 
     /// <inheritdoc/>
     public void Dispose()

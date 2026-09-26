@@ -25,6 +25,10 @@ subject that may be either an account's DID or a record's AT URI, a plain string
 filter of `QueryEventsAsync`, `SubjectStatusFilter` and `ReportFilter`, `GetSubjectsAsync` and
 `CloseReportsAsync`.
 
+Subjects (`RepoSubject`, `RecordSubject`, `MessageSubject`, `ConvoSubject`) are the variants of the
+one `ModerationSubject` union in `ATProtoNet.Lexicon.Com.AtProto.Moderation`, which reports and a
+PDS's subject status use too; import that namespace alongside `ATProtoNet.Lexicon.Tools.Ozone.Moderation`.
+
 ## Moderation
 
 ### Emit Moderation Events

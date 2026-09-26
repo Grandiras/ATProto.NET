@@ -117,7 +117,7 @@ public class TypedRepoClientTests : IDisposable
     [Fact]
     public async Task CreateReportAsync_SubjectFirst_SerializesTheTypedSubject()
     {
-        _handler.Body = $$"""{"id":1,"reasonType":"{{ReportReasons.Spam}}","subject":{},"reportedBy":"{{DidText}}","createdAt":"2024-01-01T00:00:00.000Z"}""";
+        _handler.Body = $$"""{"id":1,"reasonType":"{{ReportReasons.Spam}}","subject":{"$type":"com.atproto.repo.strongRef","uri":"at://{{DidText}}/com.example.note/n1","cid":"{{CidText}}"},"reportedBy":"{{DidText}}","createdAt":"2024-01-01T00:00:00.000Z"}""";
 
         var report = await _client.Moderation.CreateReportAsync(
             new RecordSubject { Uri = AtUri.Parse($"at://{DidText}/com.example.note/n1"), Cid = Cid.Parse(CidText) },
@@ -129,6 +129,7 @@ public class TypedRepoClientTests : IDisposable
         Assert.Equal(CidText, subject.GetProperty("cid").GetString());
         Assert.Equal(Alice, report.ReportedBy);
         Assert.Equal("2024-01-01T00:00:00.000Z", report.CreatedAt.ToString());
+        Assert.Equal(Cid.Parse(CidText), Assert.IsType<RecordSubject>(report.Subject).Cid);
     }
 
     private sealed class CapturingHandler : HttpMessageHandler

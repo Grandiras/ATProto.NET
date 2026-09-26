@@ -2,7 +2,6 @@ using System.Text.Json;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Models;
-using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Repo;
 
@@ -29,7 +28,8 @@ public sealed class RepoClient
     /// <param name="validate">Whether to validate against the Lexicon schema.</param>
     /// <param name="swapCommit">Optional compare-and-swap guard: the commit CID the repository must be at.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<CreateRecordResponse> CreateRecordAsync(
+    /// <returns>A reference to the record written.</returns>
+    public async Task<RecordRef> CreateRecordAsync(
         AtIdentifier repo,
         Nsid collection,
         object record,
@@ -48,19 +48,52 @@ public sealed class RepoClient
             SwapCommit = swapCommit,
         };
 
-        return _xrpc.ProcedureAsync<CreateRecordResponse>(
+        var response = await _xrpc.ProcedureAsync<RecordWriteResponse>(
             "com.atproto.repo.createRecord", request, cancellationToken: cancellationToken);
+
+        return ToRecordRef(CreateRecordNsid, response);
     }
 
     /// <summary>
-    /// Get a single record from a repository.
+    /// Get a single record from a repository, with its value as raw JSON.
     /// </summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
     /// <param name="collection">The NSID of the collection.</param>
     /// <param name="rkey">The record key.</param>
     /// <param name="cid">Optional specific version CID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<GetRecordResponse> GetRecordAsync(
+    public Task<RecordView<JsonElement>> GetRecordAsync(
+        AtIdentifier repo,
+        Nsid collection,
+        RecordKey rkey,
+        Cid? cid = null,
+        CancellationToken cancellationToken = default) =>
+        GetRecordAsync<JsonElement>(repo, collection, rkey, cid, cancellationToken);
+
+    /// <summary>
+    /// Get the record an AT URI names, with its value as raw JSON.
+    /// </summary>
+    /// <param name="uri">The record's AT URI: it must name a collection and a record key.</param>
+    /// <param name="cid">Optional specific version CID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentException"><paramref name="uri"/> does not name a record.</exception>
+    public Task<RecordView<JsonElement>> GetRecordAsync(
+        AtUri uri,
+        Cid? cid = null,
+        CancellationToken cancellationToken = default) =>
+        GetRecordAsync<JsonElement>(uri, cid, cancellationToken);
+
+    /// <summary>
+    /// Get a single record and deserialize the value to a typed object.
+    /// </summary>
+    /// <typeparam name="T">The record type.</typeparam>
+    /// <param name="repo">The DID or handle of the repo owner.</param>
+    /// <param name="collection">The NSID of the collection.</param>
+    /// <param name="rkey">The record key.</param>
+    /// <param name="cid">Optional specific version CID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="XrpcResponseFormatException">The record is not a valid <typeparamref name="T"/>.</exception>
+    public async Task<RecordView<T>> GetRecordAsync<T>(
         AtIdentifier repo,
         Nsid collection,
         RecordKey rkey,
@@ -73,64 +106,21 @@ public sealed class RepoClient
             .Add("rkey", rkey)
             .Add("cid", cid);
 
-        return _xrpc.QueryAsync<GetRecordResponse>(
-            "com.atproto.repo.getRecord", parameters, cancellationToken: cancellationToken);
-    }
-
-    /// <summary>
-    /// Get the record an AT URI names.
-    /// </summary>
-    /// <param name="uri">The record's AT URI: it must name a collection and a record key.</param>
-    /// <param name="cid">Optional specific version CID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <exception cref="ArgumentException"><paramref name="uri"/> does not name a record.</exception>
-    public Task<GetRecordResponse> GetRecordAsync(
-        AtUri uri,
-        Cid? cid = null,
-        CancellationToken cancellationToken = default)
-    {
-        var (collection, rkey) = RecordPath(uri);
-        return GetRecordAsync(uri.Repo, collection, rkey, cid, cancellationToken);
-    }
-
-    /// <summary>
-    /// Get a single record and deserialize the value to a typed object.
-    /// </summary>
-    /// <typeparam name="T">The record type.</typeparam>
-    /// <param name="repo">The DID or handle of the repo owner.</param>
-    /// <param name="collection">The NSID of the collection.</param>
-    /// <param name="rkey">The record key.</param>
-    /// <param name="cid">Optional specific version CID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task<GetRecordResponse<T>> GetRecordAsync<T>(
-        AtIdentifier repo,
-        Nsid collection,
-        RecordKey rkey,
-        Cid? cid = null,
-        CancellationToken cancellationToken = default)
-    {
-        const string nsid = "com.atproto.repo.getRecord";
-
-        var response = await GetRecordAsync(repo, collection, rkey, cid, cancellationToken);
-
-        T typedValue;
+        GetRecordResponse<T> response;
         try
         {
-            typedValue = response.Value.Deserialize<T>(AtProtoJsonDefaults.Options)
-                ?? throw new XrpcResponseFormatException(nsid, $"Record {response.Uri} is null.");
+            response = await _xrpc.QueryAsync<GetRecordResponse<T>>(
+                "com.atproto.repo.getRecord", parameters, cancellationToken: cancellationToken);
         }
-        catch (JsonException ex)
+        catch (XrpcResponseFormatException ex) when (ex.InnerException is JsonException json)
         {
             throw new XrpcResponseFormatException(
-                nsid, $"Record {response.Uri} is not a valid {typeof(T).Name}: {ex.Message}", ex);
+                GetRecordNsid,
+                $"Record {AtUri.Create(repo, collection, rkey)} is not a valid {typeof(T).Name}: {json.Message}",
+                json);
         }
 
-        return new GetRecordResponse<T>
-        {
-            Uri = response.Uri,
-            Cid = response.Cid,
-            Value = typedValue,
-        };
+        return ToRecordView(GetRecordNsid, response);
     }
 
     /// <summary>
@@ -141,12 +131,13 @@ public sealed class RepoClient
     /// <param name="cid">Optional specific version CID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="ArgumentException"><paramref name="uri"/> does not name a record.</exception>
-    public Task<GetRecordResponse<T>> GetRecordAsync<T>(
+    /// <exception cref="XrpcResponseFormatException">The record is not a valid <typeparamref name="T"/>.</exception>
+    public Task<RecordView<T>> GetRecordAsync<T>(
         AtUri uri,
         Cid? cid = null,
         CancellationToken cancellationToken = default)
     {
-        var (collection, rkey) = RecordPath(uri);
+        var (collection, rkey) = RecordPaths.PathOf(uri);
         return GetRecordAsync<T>(uri.Repo, collection, rkey, cid, cancellationToken);
     }
 
@@ -161,7 +152,8 @@ public sealed class RepoClient
     /// <param name="swapRecord">Optional compare-and-swap guard: the CID the record must be at.</param>
     /// <param name="swapCommit">Optional compare-and-swap guard: the commit CID the repository must be at.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task<PutRecordResponse> PutRecordAsync(
+    /// <returns>A reference to the record written.</returns>
+    public async Task<RecordRef> PutRecordAsync(
         AtIdentifier repo,
         Nsid collection,
         RecordKey rkey,
@@ -182,8 +174,10 @@ public sealed class RepoClient
             SwapCommit = swapCommit,
         };
 
-        return _xrpc.ProcedureAsync<PutRecordResponse>(
+        var response = await _xrpc.ProcedureAsync<RecordWriteResponse>(
             "com.atproto.repo.putRecord", request, cancellationToken: cancellationToken);
+
+        return ToRecordRef(PutRecordNsid, response);
     }
 
     /// <summary>
@@ -230,7 +224,7 @@ public sealed class RepoClient
         Cid? swapCommit = null,
         CancellationToken cancellationToken = default)
     {
-        var (collection, rkey) = RecordPath(uri);
+        var (collection, rkey) = RecordPaths.PathOf(uri);
         return DeleteRecordAsync(uri.Repo, collection, rkey, swapRecord, swapCommit, cancellationToken);
     }
 
@@ -260,6 +254,47 @@ public sealed class RepoClient
 
         return _xrpc.QueryAsync<ListRecordsResponse>(
             "com.atproto.repo.listRecords", parameters, cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// <see cref="ListRecordsAsync(AtIdentifier, Nsid, bool?, int?, string?, CancellationToken)"/>
+    /// with each value deserialized straight into <typeparamref name="T"/>; a record that is not
+    /// one fails the page with <see cref="XrpcResponseFormatException"/>.
+    /// </summary>
+    internal async Task<RecordPage<T>> ListRecordsAsync<T>(
+        AtIdentifier repo,
+        Nsid collection,
+        bool? reverse = null,
+        int? limit = null,
+        string? cursor = null,
+        CancellationToken cancellationToken = default)
+    {
+        var parameters = new XrpcParams()
+            .Add("repo", repo)
+            .Add("collection", collection)
+            .Add("limit", limit)
+            .Add("cursor", cursor)
+            .Add("reverse", reverse);
+
+        ListRecordsResponse<T> response;
+        try
+        {
+            response = await _xrpc.QueryAsync<ListRecordsResponse<T>>(
+                "com.atproto.repo.listRecords", parameters, cancellationToken: cancellationToken);
+        }
+        catch (XrpcResponseFormatException ex) when (ex.InnerException is JsonException json)
+        {
+            throw new XrpcResponseFormatException(
+                ListRecordsNsid,
+                $"A record in {AtUri.Create(repo, collection)} is not a valid {typeof(T).Name}: {json.Message}",
+                json);
+        }
+
+        return new RecordPage<T>
+        {
+            Records = [.. response.Records.Select(r => ToRecordView(ListRecordsNsid, r))],
+            Cursor = response.Cursor,
+        };
     }
 
     /// <summary>
@@ -414,12 +449,24 @@ public sealed class RepoClient
             (cursor, ct) => ListMissingBlobsAsync(pageSize, cursor, ct),
             cancellationToken);
 
-    private static (Nsid Collection, RecordKey Rkey) RecordPath(AtUri uri)
+    private const string CreateRecordNsid = "com.atproto.repo.createRecord";
+    private const string PutRecordNsid = "com.atproto.repo.putRecord";
+    private const string GetRecordNsid = "com.atproto.repo.getRecord";
+    private const string ListRecordsNsid = "com.atproto.repo.listRecords";
+
+    private static RecordRef ToRecordRef(string nsid, RecordWriteResponse response) =>
+        response.Uri.RecordKey is null
+            ? throw new XrpcResponseFormatException(nsid, $"Record URI {response.Uri} has no record key.")
+            : new RecordRef(response.Uri, response.Cid, response.Commit) { ValidationStatus = response.ValidationStatus };
+
+    private static RecordView<T> ToRecordView<T>(string nsid, GetRecordResponse<T> response)
     {
-        ArgumentNullException.ThrowIfNull(uri);
-        return uri is { Collection: { } collection, RecordKey: { } rkey }
-            ? (collection, rkey)
-            : throw new ArgumentException(
-                $"'{uri}' does not name a record: it needs a collection and a record key.", nameof(uri));
+        if (response.Uri.RecordKey is null)
+            throw new XrpcResponseFormatException(nsid, $"Record URI {response.Uri} has no record key.");
+
+        if (response.Value is null or JsonElement { ValueKind: JsonValueKind.Undefined or JsonValueKind.Null })
+            throw new XrpcResponseFormatException(nsid, $"Record {response.Uri} has no value.");
+
+        return new RecordView<T>(response.Uri, response.Cid, response.Value);
     }
 }

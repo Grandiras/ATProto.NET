@@ -49,9 +49,10 @@ internal sealed class CreateRecordRequest
 }
 
 /// <summary>
-/// Response from com.atproto.repo.createRecord.
+/// Response from com.atproto.repo.createRecord, and from com.atproto.repo.putRecord, whose output
+/// is the same shape. The client methods return it as a <see cref="RecordRef"/>.
 /// </summary>
-public sealed class CreateRecordResponse
+internal sealed class RecordWriteResponse
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -74,27 +75,11 @@ public sealed class CreateRecordResponse
 }
 
 /// <summary>
-/// Response from com.atproto.repo.getRecord.
+/// Response from com.atproto.repo.getRecord, with the value deserialized straight into
+/// <typeparamref name="T"/>; also one record of a typed com.atproto.repo.listRecords page. The
+/// client methods return it as a <see cref="RecordView{T}"/>.
 /// </summary>
-public sealed class GetRecordResponse
-{
-    /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
-    [JsonPropertyName("uri")]
-    public required AtUri Uri { get; init; }
-
-    /// <summary>The CID (content identifier) of the record version.</summary>
-    [JsonPropertyName("cid")]
-    public Cid? Cid { get; init; }
-
-    /// <summary>The record value.</summary>
-    [JsonPropertyName("value")]
-    public JsonElement Value { get; init; }
-}
-
-/// <summary>
-/// Typed response from com.atproto.repo.getRecord.
-/// </summary>
-public sealed class GetRecordResponse<T>
+internal sealed class GetRecordResponse<T>
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -149,31 +134,6 @@ internal sealed class PutRecordRequest
     /// </summary>
     [JsonPropertyName("swapCommit")]
     public Cid? SwapCommit { get; init; }
-}
-
-/// <summary>
-/// Response from com.atproto.repo.putRecord.
-/// </summary>
-public sealed class PutRecordResponse
-{
-    /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
-    [JsonPropertyName("uri")]
-    public required AtUri Uri { get; init; }
-
-    /// <summary>The CID (content identifier) of the record version.</summary>
-    [JsonPropertyName("cid")]
-    public required Cid Cid { get; init; }
-
-    /// <summary>The commit the write was applied in.</summary>
-    [JsonPropertyName("commit")]
-    public CommitMeta? Commit { get; init; }
-
-    /// <summary>
-    /// Whether the server validated the record against a known Lexicon (<c>valid</c> or
-    /// <c>unknown</c>).
-    /// </summary>
-    [JsonPropertyName("validationStatus")]
-    public string? ValidationStatus { get; init; }
 }
 
 /// <summary>
@@ -237,6 +197,25 @@ public sealed class ListRecordsResponse : ICursorPage<RecordEntry>
     public IReadOnlyList<RecordEntry> Records { get; init; } = [];
 
     IReadOnlyList<RecordEntry> ICursorPage<RecordEntry>.Items => Records;
+}
+
+/// <summary>
+/// Response from com.atproto.repo.listRecords, with each value deserialized straight into
+/// <typeparamref name="T"/>. <see cref="RecordCollection{T}"/> returns it as a
+/// <see cref="RecordPage{T}"/>.
+/// </summary>
+internal sealed class ListRecordsResponse<T>
+{
+    /// <summary>
+    /// Pagination cursor; pass this back on the next request to continue where this page ended.
+    /// <see langword="null"/> when there are no further results.
+    /// </summary>
+    [JsonPropertyName("cursor")]
+    public string? Cursor { get; init; }
+
+    /// <summary>The records in this page of results.</summary>
+    [JsonPropertyName("records")]
+    public IReadOnlyList<GetRecordResponse<T>> Records { get; init; } = [];
 }
 
 /// <summary>
