@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using ATProtoNet.Labeling;
 using ATProtoNet.Lexicon.Com.AtProto.Label;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -9,7 +10,21 @@ namespace ATProtoNet.Streaming;
 /// Configuration options for <see cref="LabelStreamConsumer"/>. <see cref="StreamConsumerOptions.ServiceUrl"/>
 /// is the labeler's WebSocket URL.
 /// </summary>
-public sealed class LabelStreamConsumerOptions : StreamConsumerOptions;
+public sealed class LabelStreamConsumerOptions : StreamConsumerOptions
+{
+    /// <summary>
+    /// Verifies the signature of every label the stream delivers, against its issuer's
+    /// <c>#atproto_label</c> key, and reports each outcome in <see cref="LabelsEvent.Verification"/>.
+    /// Null, the default, verifies nothing.
+    /// </summary>
+    /// <remarks>
+    /// A label that does not verify is still delivered, with its outcome: filter on
+    /// <see cref="LabelVerificationResult.IsValid"/> to act only on verified labels. The spec asks
+    /// a service to verify labels it receives from another; an end client usually trusts the
+    /// labelers it chose.
+    /// </remarks>
+    public LabelVerifier? Verifier { get; init; }
+}
 
 /// <summary>
 /// A reconnecting consumer of a labeler's label stream (<c>com.atproto.label.subscribeLabels</c>),
@@ -25,6 +40,8 @@ public sealed class LabelStreamConsumerOptions : StreamConsumerOptions;
 /// <see cref="StreamConsumerOptions.OnStreamError"/>; the consumer reconnects after a retryable one
 /// and throws an <see cref="EventStreamException"/> for one that is not (<c>FutureCursor</c>), and
 /// when <see cref="StreamConsumerOptions.Reconnect"/> gives up.</para>
+/// <para>With a <see cref="LabelStreamConsumerOptions.Verifier"/>, every <see cref="LabelsEvent"/>
+/// carries the outcome of verifying each of its labels in <see cref="LabelsEvent.Verification"/>.</para>
 /// </remarks>
 /// <example>
 /// <code>
@@ -112,7 +129,8 @@ public sealed class LabelStreamConsumer
                     (tracker.Current is { } value ? $"?cursor={value}" : string.Empty)),
                 _logger,
                 tracker,
-                _options.OnEventDropped);
+                _options.OnEventDropped,
+                _options.Verifier);
 
             await foreach (var message in EventStreamLoop.RunAsync(
                 handler, _connector, _options.Reconnect, _logger, _options.OnStreamError, cancellationToken)
@@ -136,7 +154,8 @@ internal sealed class LabelStreamHandler(
     Func<Uri> endpoint,
     ILogger logger,
     CursorTracker? cursor = null,
-    Action<DroppedStreamEvent>? onDropped = null) : EventStreamHandler<LabelStreamMessage>
+    Action<DroppedStreamEvent>? onDropped = null,
+    LabelVerifier? verifier = null) : EventStreamHandler<LabelStreamMessage>
 {
     public LabelStreamHandler(Uri endpoint, ILogger logger)
         : this(() => endpoint, logger)
@@ -148,7 +167,7 @@ internal sealed class LabelStreamHandler(
     public override ValueTask<(Uri Endpoint, StreamSocketOptions Options)> ConnectAsync(CancellationToken cancellationToken) =>
         ValueTask.FromResult((endpoint(), default(StreamSocketOptions)));
 
-    public override ValueTask<LabelStreamMessage?> HandleAsync(
+    public override async ValueTask<LabelStreamMessage?> HandleAsync(
         string type, ReadOnlyMemory<byte> body, CancellationToken cancellationToken)
     {
         LabelStreamMessage? message = type switch
@@ -163,14 +182,27 @@ internal sealed class LabelStreamHandler(
             Dropped(type is "#labels" or "#info" ? StreamDropReason.Malformed : StreamDropReason.UnknownType,
                 EventStreamFrame.ReadSeq(body), type);
         }
-        else if (message is LabelsEvent labels && cursor is not null && labels.Seq <= cursor.Current)
+        else if (message is LabelsEvent labels)
         {
             // Already delivered: a replay from an inclusive cursor.
-            return ValueTask.FromResult<LabelStreamMessage?>(null);
+            if (cursor is not null && labels.Seq <= cursor.Current)
+                return null;
+
+            if (verifier is not null)
+                return await VerifyAsync(labels, verifier, cancellationToken).ConfigureAwait(false);
         }
 
-        return ValueTask.FromResult(message);
+        return message;
     }
+
+    private static async Task<LabelsEvent> VerifyAsync(
+        LabelsEvent labels, LabelVerifier verifier, CancellationToken cancellationToken) => new()
+    {
+        Seq = labels.Seq,
+        Labels = labels.Labels,
+        ExtensionData = labels.ExtensionData,
+        Verification = await verifier.VerifyAllAsync(labels.Labels, cancellationToken).ConfigureAwait(false),
+    };
 
     public override void Delivered(LabelStreamMessage message)
     {

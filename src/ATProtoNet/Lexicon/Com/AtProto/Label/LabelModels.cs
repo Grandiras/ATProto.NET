@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using ATProtoNet.Labeling;
 using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Label;
@@ -56,6 +57,18 @@ public sealed class LabelsEvent : LabelStreamMessage
     /// <summary>The labels emitted in this event.</summary>
     [JsonPropertyName("labels")]
     public required IReadOnlyList<Models.Label> Labels { get; init; }
+
+    /// <summary>
+    /// The outcome of verifying each of <see cref="Labels"/>, in the same order, when the consumer
+    /// that read the event verifies (<see cref="Streaming.LabelStreamConsumerOptions.Verifier"/>);
+    /// otherwise <see langword="null"/>. Not part of the wire format.
+    /// </summary>
+    /// <remarks>
+    /// A label that did not verify is still delivered, in both lists: what to do with it is the
+    /// caller's choice.
+    /// </remarks>
+    [JsonIgnore]
+    public IReadOnlyList<LabelVerificationResult>? Verification { get; init; }
 }
 
 /// <summary>

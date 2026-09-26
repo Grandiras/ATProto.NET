@@ -801,11 +801,14 @@ public class XrpcEndpointRegistrationTests
             .AddSimpleSpace<InMemorySimpleSpaceStore>()
             .AddSpaceRepoHost<ISpaceRepoHost>();
 
+        // The labeler's queryLabels is the one endpoint outside the space server.
+        services.AddXrpcEndpoint<ATProtoNet.Server.Labeling.QueryLabelsEndpoint>();
+
         var registered = Registry(services).Registrations;
         var scanned = Registry(new ServiceCollection().AddXrpcEndpointsFromAssembly(typeof(SpaceNsids).Assembly))
             .Registrations;
 
-        Assert.Equal(19, registered.Count);
+        Assert.Equal(20, registered.Count);
         Assert.Equal(Describe(registered), Describe(scanned));
     }
 

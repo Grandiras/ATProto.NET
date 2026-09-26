@@ -293,6 +293,8 @@ await foreach (var message in labels.ConsumeAsync(cancellationToken: stoppingTok
 
 Messages are a `LabelsEvent` (`Seq`, the cursor, and `Labels`) or a `LabelInfoEvent` notice such as `OutdatedCursor`.
 
+Set `Verifier = new LabelVerifier(resolver)` on the options to check every label's signature against its labeler's `#atproto_label` key. Each `LabelsEvent` then carries `Verification`, one result per label; labels that fail are still delivered, so filter on `result.IsValid`. See [Labeler Services](labeler.md#verifying-labels).
+
 ## Commit Verification
 
 `FirehoseVerifier` verifies firehose commits: that every block of the CAR matches its CID, and that the commit is signed by the account's current key. It does not invert the operations against the previous MST root (`prevData`).

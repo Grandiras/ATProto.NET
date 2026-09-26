@@ -31,7 +31,7 @@ If you want a map of how the packages compose, see **[Architecture](architecture
 ### Bluesky Features
 - [Chat & Direct Messages](chat.md) — `chat.bsky` DMs
 - [Video Upload](video.md) — `app.bsky.video` upload and processing
-- [Labeler Services](labeler.md) — label definitions, labeler info, header management
+- [Labeler Services](labeler.md) — label definitions, labeler info, header management, and signing, verifying and serving labels
 - [Ozone Moderation](ozone.md) — `tools.ozone` moderation client
 
 ### Integration

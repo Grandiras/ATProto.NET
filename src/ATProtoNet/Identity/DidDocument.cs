@@ -26,6 +26,9 @@ public sealed class DidDocument
     /// <summary>The verification method fragment of an account's repo signing key.</summary>
     public const string SigningKeyId = "#atproto";
 
+    /// <summary>The verification method fragment of a labeler's label signing key.</summary>
+    public const string LabelKeyId = "#atproto_label";
+
     /// <summary>
     /// The JSON-LD context. Omitted when serializing unless set — required when <em>publishing</em>
     /// a document (e.g. a <c>did:web</c> <c>/.well-known/did.json</c>), ignorable when consuming

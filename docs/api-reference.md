@@ -756,6 +756,21 @@ also accepts `*`). See [OAuth](oauth.md#scopes).
 
 ---
 
+## Labels (`ATProtoNet.Labeling`, `ATProtoNet.Server.Labeling`)
+
+See [Labeler Services](labeler.md#signing-labels).
+
+| Type | Description |
+|------|-------------|
+| `LabelSigner` | Signs a labeler's labels with its `#atproto_label` key: `Sign(label)`, `Sign(subject, value, cid?, negate?, expiresAt?)`; `Labeler`, `SigningKey` |
+| `LabelVerifier` | `VerifyAsync(label)` / `VerifyAllAsync(labels)` against the issuer's `#atproto_label` key, refetching the DID document once on failure |
+| `LabelVerificationResult`, `LabelVerificationStatus` | `Label`, `Status` (`Valid`, `Unsigned`, `UnsupportedVersion`, `Malformed`, `NoLabelKey`, `IssuerUnresolved`, `InvalidSignature`), `IsValid`, `SigningKey`, `Error` |
+| `LabelSigning` | `GetSigningBytes(label)` (the DRISL bytes a signature covers) and `Verify(label, didKey)` against a known key |
+| `LabelStreamFrames` | `Encode(LabelStreamMessage)` / `EncodeError(error, message?)`: `subscribeLabels` frames for a labeler to send |
+| `QueryLabelsEndpoint`, `ILabelSource`, `LabelQuery` | Serves `com.atproto.label.queryLabels` from your storage, signing the labeler's unsigned labels when a `LabelSigner` is registered |
+
+---
+
 ## Streaming
 
 See [Firehose](firehose.md) and [Jetstream](jetstream.md).
@@ -764,7 +779,7 @@ See [Firehose](firehose.md) and [Jetstream](jetstream.md).
 |------|-------------|
 | `FirehoseClient` | Single-connection subscription to `com.atproto.sync.subscribeRepos` (`SubscribeAsync`) or a labeler's `com.atproto.label.subscribeLabels` (`SubscribeLabelsAsync`), yielding typed messages; `IAsyncDisposable` |
 | `TypedFirehoseConsumer` | Reconnecting firehose consumer: parses each frame once, filters by collection before parsing, verifies when a `Verifier` is set, persists the cursor |
-| `LabelStreamConsumer` | Reconnecting label-stream consumer: `LabelsEvent` / `LabelInfoEvent`, cursor persistence |
+| `LabelStreamConsumer` | Reconnecting label-stream consumer: `LabelsEvent` / `LabelInfoEvent`, cursor persistence; verifies each label when a `Verifier` is set (`LabelsEvent.Verification`) |
 | `ChatModerationEventConsumer` | Authenticated `chat.bsky.moderation.subscribeModEvents` stream with typed events and an unknown fallback |
 | `FirehoseEventParser` | CBOR frame → `CommitEvent` / `SyncEvent` / `IdentityEvent` / `AccountEvent` / `InfoEvent`; throws `EventStreamException` for an error frame |
 | `FirehoseVerifier` | `VerifyCid(...)` (local) and `VerifySignatureAsync(...)` (needs DID resolution; also checks every block's CID) |
