@@ -177,27 +177,37 @@ public class FileAtProtoSessionStoreTests : IDisposable
         // Reads take no lock: a reader must still never see a missing or half-written file while
         // the same account's session is being replaced.
         await _store.SetAsync(TestSession() with { AccessToken = "v0" });
-        using var stop = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
+        using var readersDone = new CancellationTokenSource();
+        var writing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var writers = Enumerable.Range(1, 4).Select(w => Task.Run(async () =>
         {
-            for (var i = 0; !stop.IsCancellationRequested; i++)
+            for (var i = 0; !readersDone.IsCancellationRequested; i++)
+            {
                 await _store.SetAsync(TestSession() with { AccessToken = $"w{w}-{i}" });
-        }));
+                writing.TrySetResult();
+            }
+        })).ToList();
         var readers = Enumerable.Range(0, 16).Select(_ => Task.Run(async () =>
         {
-            var reads = 0;
-            while (!stop.IsCancellationRequested)
+            await writing.Task;
+            for (var i = 0; i < 100; i++)
             {
                 var session = Assert.IsType<OAuthSession>(await _store.GetAsync(Alice));
                 Assert.StartsWith(session.AccessToken == "v0" ? "v0" : "w", session.AccessToken);
-                reads++;
             }
-            return reads;
         })).ToList();
 
-        await Task.WhenAll(writers);
-        Assert.All(await Task.WhenAll(readers), reads => Assert.True(reads > 0));
+        try
+        {
+            await Task.WhenAll(readers);
+        }
+        finally
+        {
+            readersDone.Cancel();
+            await Task.WhenAll(writers);
+        }
+
         Assert.Single(Directory.GetFiles(_testDir, "*.dat"));
         Assert.Empty(Directory.GetFiles(_testDir, "*.tmp"));
     }
