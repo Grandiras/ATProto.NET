@@ -760,3 +760,33 @@ public sealed class UnknownGalleryViewItem : GalleryViewItem, IUnknownUnionVaria
     /// <inheritdoc/>
     public JsonElement Raw { get; }
 }
+
+// ──────────────────────────────────────────────────────────────
+//  getEmbedExternalView
+// ──────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Response from getEmbedExternalView. Every property is <see langword="null"/> when no record
+/// resolved, or the records do not back the URL; render an ordinary link card then, and leave
+/// <see cref="ExternalInfo.AssociatedRefs"/> unset.
+/// </summary>
+public sealed class GetEmbedExternalViewResponse
+{
+    /// <summary>The hydrated external embed view, its <c>uri</c> the requested URL.</summary>
+    [JsonPropertyName("view")]
+    public ExternalView? View { get; init; }
+
+    /// <summary>
+    /// Strong references to the records behind the view, for the post's
+    /// <see cref="ExternalInfo.AssociatedRefs"/>.
+    /// </summary>
+    [JsonPropertyName("associatedRefs")]
+    public IReadOnlyList<StrongRef>? AssociatedRefs { get; init; }
+
+    /// <summary>
+    /// The records behind the view, such as a <c>site.standard.document</c> and its
+    /// publication, so that they need not be fetched again.
+    /// </summary>
+    [JsonPropertyName("associatedRecords")]
+    public IReadOnlyList<JsonElement>? AssociatedRecords { get; init; }
+}

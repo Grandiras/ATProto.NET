@@ -553,4 +553,121 @@ public sealed class GraphClient
         Pagination.EnumerateAsync<SearchStarterPacksResponse, StarterPackViewBasic>(
             (cursor, ct) => SearchStarterPacksAsync(query, pageSize, cursor, ct),
             cancellationToken);
+
+    /// <summary>
+    /// Search for starter packs, one page at a time, returning full starter pack views and an
+    /// estimate of the hit count.
+    /// </summary>
+    /// <param name="query">Search query.</param>
+    /// <param name="limit">Max results per page (1-100, default 25).</param>
+    /// <param name="cursor">Pagination cursor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<SearchStarterPacksV2Response> SearchStarterPacksV2Async(
+        string query, int? limit = null, string? cursor = null,
+        CancellationToken cancellationToken = default)
+    {
+        var parameters = new XrpcParams()
+            .Add("q", query)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
+        return _xrpc.QueryAsync<SearchStarterPacksV2Response>(
+            "app.bsky.graph.searchStarterPacksV2", parameters, cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Enumerate every starter pack matching a <see cref="SearchStarterPacksV2Async"/> search,
+    /// fetching pages as needed.
+    /// </summary>
+    /// <param name="query">Search query.</param>
+    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<StarterPackView> EnumerateSearchStarterPacksV2Async(
+        string query, int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<SearchStarterPacksV2Response, StarterPackView>(
+            (cursor, ct) => SearchStarterPacksV2Async(query, pageSize, cursor, ct),
+            cancellationToken);
+
+    // ──────────────────────────────────────────────────────────
+    //  Membership
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Get one page of the authenticated account's curation and moderation lists, each with
+    /// whether an actor is on it.
+    /// </summary>
+    /// <param name="actor">Handle or DID of the actor to check.</param>
+    /// <param name="purposes">
+    /// Only lists with these purposes, by short name: <c>modlist</c>, <c>curatelist</c>.
+    /// <see langword="null"/> for both.
+    /// </param>
+    /// <param name="limit">Max results per page (1-100, default 50).</param>
+    /// <param name="cursor">Pagination cursor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<GetListsWithMembershipResponse> GetListsWithMembershipAsync(
+        AtIdentifier actor, IEnumerable<string>? purposes = null, int? limit = null, string? cursor = null,
+        CancellationToken cancellationToken = default)
+    {
+        var parameters = new XrpcParams()
+            .Add("actor", actor)
+            .AddAll("purposes", purposes)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
+
+        return _xrpc.QueryAsync<GetListsWithMembershipResponse>(
+            "app.bsky.graph.getListsWithMembership", parameters, cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Enumerate the authenticated account's curation and moderation lists, each with whether an
+    /// actor is on it, fetching pages as needed.
+    /// </summary>
+    /// <param name="actor">Handle or DID of the actor to check.</param>
+    /// <param name="purposes">
+    /// Only lists with these purposes, by short name: <c>modlist</c>, <c>curatelist</c>.
+    /// <see langword="null"/> for both.
+    /// </param>
+    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<ListWithMembership> EnumerateListsWithMembershipAsync(
+        AtIdentifier actor, IEnumerable<string>? purposes = null, int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<GetListsWithMembershipResponse, ListWithMembership>(
+            (cursor, ct) => GetListsWithMembershipAsync(actor, purposes, pageSize, cursor, ct),
+            cancellationToken);
+
+    /// <summary>
+    /// Get one page of the authenticated account's starter packs, each with whether an actor is
+    /// in it.
+    /// </summary>
+    /// <param name="actor">Handle or DID of the actor to check.</param>
+    /// <param name="limit">Max results per page (1-100, default 50).</param>
+    /// <param name="cursor">Pagination cursor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<GetStarterPacksWithMembershipResponse> GetStarterPacksWithMembershipAsync(
+        AtIdentifier actor, int? limit = null, string? cursor = null,
+        CancellationToken cancellationToken = default)
+    {
+        var parameters = new XrpcParams()
+            .Add("actor", actor)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
+
+        return _xrpc.QueryAsync<GetStarterPacksWithMembershipResponse>(
+            "app.bsky.graph.getStarterPacksWithMembership", parameters, cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Enumerate the authenticated account's starter packs, each with whether an actor is in it,
+    /// fetching pages as needed.
+    /// </summary>
+    /// <param name="actor">Handle or DID of the actor to check.</param>
+    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<StarterPackWithMembership> EnumerateStarterPacksWithMembershipAsync(
+        AtIdentifier actor, int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<GetStarterPacksWithMembershipResponse, StarterPackWithMembership>(
+            (cursor, ct) => GetStarterPacksWithMembershipAsync(actor, pageSize, cursor, ct),
+            cancellationToken);
 }

@@ -125,6 +125,333 @@ public sealed class UploadVideoResponse
     public required JobStatus JobStatus { get; init; }
 }
 
+// ──────────────────────────────────────────────────────────────
+//  Multipart upload
+// ──────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Request body for startUpload.
+/// </summary>
+internal sealed class StartUploadRequest
+{
+    /// <summary>The exact size of the whole video, in bytes.</summary>
+    [JsonPropertyName("sizeBytes")]
+    public required long SizeBytes { get; init; }
+
+    /// <summary>The video's MIME type.</summary>
+    [JsonPropertyName("mimeType")]
+    public required string MimeType { get; init; }
+
+    /// <summary>The file name, if the client has one.</summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; init; }
+
+    /// <summary>The advisory duration in milliseconds.</summary>
+    [JsonPropertyName("durationMs")]
+    public long? DurationMs { get; init; }
+
+    /// <summary>The advisory width in pixels.</summary>
+    [JsonPropertyName("width")]
+    public int? Width { get; init; }
+
+    /// <summary>The advisory height in pixels.</summary>
+    [JsonPropertyName("height")]
+    public int? Height { get; init; }
+}
+
+/// <summary>
+/// Response from startUpload: how to split the video, and until when the session is open.
+/// </summary>
+public sealed class StartUploadResponse
+{
+    /// <summary>The upload session's identifier.</summary>
+    [JsonPropertyName("jobId")]
+    public required string JobId { get; init; }
+
+    /// <summary>The size of every part but the last, in bytes. The last part holds the rest.</summary>
+    [JsonPropertyName("partSizeBytes")]
+    public required long PartSizeBytes { get; init; }
+
+    /// <summary>The number of parts, numbered from 1.</summary>
+    [JsonPropertyName("partCount")]
+    public required int PartCount { get; init; }
+
+    /// <summary>When the session expires if it is not finished.</summary>
+    [JsonPropertyName("expiresAt")]
+    public required AtDatetime ExpiresAt { get; init; }
+}
+
+/// <summary>
+/// Response from uploadPart.
+/// </summary>
+public sealed class UploadPartResponse
+{
+    /// <summary>The part that was stored.</summary>
+    [JsonPropertyName("partNumber")]
+    public required int PartNumber { get; init; }
+
+    /// <summary>The part's size in bytes.</summary>
+    [JsonPropertyName("sizeBytes")]
+    public required long SizeBytes { get; init; }
+}
+
+/// <summary>
+/// Request body for finishUpload.
+/// </summary>
+internal sealed class FinishUploadRequest
+{
+    /// <summary>The upload session to finish.</summary>
+    [JsonPropertyName("jobId")]
+    public required string JobId { get; init; }
+}
+
+/// <summary>
+/// Response from finishUpload.
+/// </summary>
+public sealed class FinishUploadResponse
+{
+    /// <summary>
+    /// The processing job to poll with <see cref="VideoClient.GetJobStatusAsync"/>. When the
+    /// service recognizes a video it already processed, this is that video's job rather than the
+    /// upload's.
+    /// </summary>
+    [JsonPropertyName("completedJobId")]
+    public required string CompletedJobId { get; init; }
+
+    /// <summary>The processing job's status.</summary>
+    [JsonPropertyName("jobStatus")]
+    public required JobStatus JobStatus { get; init; }
+}
+
+/// <summary>
+/// Response from getUploadStatus: the authoritative state of an upload session.
+/// </summary>
+public sealed class GetUploadStatusResponse
+{
+    /// <summary>The upload session's identifier.</summary>
+    [JsonPropertyName("jobId")]
+    public required string JobId { get; init; }
+
+    /// <summary>The size of every part but the last, in bytes.</summary>
+    [JsonPropertyName("partSizeBytes")]
+    public required long PartSizeBytes { get; init; }
+
+    /// <summary>The number of parts.</summary>
+    [JsonPropertyName("partCount")]
+    public required int PartCount { get; init; }
+
+    /// <summary>The numbers of the parts the service has stored.</summary>
+    [JsonPropertyName("receivedParts")]
+    public required IReadOnlyList<int> ReceivedParts { get; init; }
+
+    /// <summary>When the session expires if it is not finished.</summary>
+    [JsonPropertyName("expiresAt")]
+    public required AtDatetime ExpiresAt { get; init; }
+
+    /// <summary>The session's state (see <see cref="UploadState"/>).</summary>
+    [JsonPropertyName("state")]
+    public required string State { get; init; }
+
+    /// <summary>The processing job, once the session completed.</summary>
+    [JsonPropertyName("completedJobId")]
+    public string? CompletedJobId { get; init; }
+
+    /// <summary>The processing job's status, once the session completed.</summary>
+    [JsonPropertyName("jobStatus")]
+    public JobStatus? JobStatus { get; init; }
+
+    /// <summary>Why the session failed, when it did.</summary>
+    [JsonPropertyName("failureReason")]
+    public string? FailureReason { get; init; }
+}
+
+/// <summary>
+/// Request body for abortUpload.
+/// </summary>
+internal sealed class AbortUploadRequest
+{
+    /// <summary>The upload session to abort.</summary>
+    [JsonPropertyName("jobId")]
+    public required string JobId { get; init; }
+}
+
+/// <summary>
+/// Response from abortUpload: the session's final state, which is <see cref="UploadState.Aborted"/>
+/// unless it had already ended otherwise.
+/// </summary>
+public sealed class AbortUploadResponse
+{
+    /// <summary>The session's state (see <see cref="UploadState"/>).</summary>
+    [JsonPropertyName("state")]
+    public required string State { get; init; }
+
+    /// <summary>The processing job, when the session had already completed.</summary>
+    [JsonPropertyName("completedJobId")]
+    public string? CompletedJobId { get; init; }
+
+    /// <summary>Why the session failed, when it had.</summary>
+    [JsonPropertyName("failureReason")]
+    public string? FailureReason { get; init; }
+}
+
+/// <summary>
+/// Known values of a multipart upload session's state (<see cref="GetUploadStatusResponse.State"/>).
+/// </summary>
+public static class UploadState
+{
+    /// <summary>The session is open for parts.</summary>
+    public const string Created = "created";
+
+    /// <summary>A finishUpload call is assembling the parts.</summary>
+    public const string Finishing = "finishing";
+
+    /// <summary>The parts were assembled and handed to a processing job.</summary>
+    public const string Completed = "completed";
+
+    /// <summary>The session failed; see <see cref="GetUploadStatusResponse.FailureReason"/>.</summary>
+    public const string Failed = "failed";
+
+    /// <summary>The session was aborted.</summary>
+    public const string Aborted = "aborted";
+
+    /// <summary>The session expired before it was finished.</summary>
+    public const string Expired = "expired";
+}
+
+/// <summary>
+/// Error names the <c>app.bsky.video.*</c> upload methods declare, for matching with
+/// <see cref="Http.XrpcException.Is"/>.
+/// </summary>
+public static class VideoErrors
+{
+    /// <summary>The declared or detected MIME type is not supported.</summary>
+    public const string UnsupportedContentType = "UnsupportedContentType";
+
+    /// <summary>The video is larger than the per-file cap or the remaining daily byte allowance.</summary>
+    public const string VideoTooLarge = "VideoTooLarge";
+
+    /// <summary>The declared duration is longer than the limit.</summary>
+    public const string VideoTooLong = "VideoTooLong";
+
+    /// <summary>The declared dimensions have an unsupported aspect ratio.</summary>
+    public const string BadAspectRatio = "BadAspectRatio";
+
+    /// <summary>The daily video or byte allowance is used up.</summary>
+    public const string DailyLimitExceeded = "DailyLimitExceeded";
+
+    /// <summary>The account has as many open upload sessions as it may.</summary>
+    public const string TooManyOpenUploads = "TooManyOpenUploads";
+
+    /// <summary>The account may not upload video.</summary>
+    public const string UploadForbidden = "UploadForbidden";
+
+    /// <summary>The service is draining or at capacity; retrying later may succeed.</summary>
+    public const string ServiceOverloaded = "ServiceOverloaded";
+
+    /// <summary>The upload session is unknown, or too old to be remembered.</summary>
+    public const string UploadNotFound = "UploadNotFound";
+
+    /// <summary>The upload session expired.</summary>
+    public const string UploadExpired = "UploadExpired";
+
+    /// <summary>The part number is outside the session's range.</summary>
+    public const string InvalidPartNumber = "InvalidPartNumber";
+
+    /// <summary>The part's <c>Content-Length</c> is not the size the session expects for it.</summary>
+    public const string PartSizeMismatch = "PartSizeMismatch";
+
+    /// <summary>A finishUpload call is in progress; check getUploadStatus and retry.</summary>
+    public const string UploadNotReady = "UploadNotReady";
+
+    /// <summary>The upload session failed.</summary>
+    public const string UploadFailed = "UploadFailed";
+
+    /// <summary>The upload session was aborted.</summary>
+    public const string UploadAborted = "UploadAborted";
+
+    /// <summary>The upload session already completed.</summary>
+    public const string UploadAlreadyCompleted = "UploadAlreadyCompleted";
+
+    /// <summary>Not every part was stored; the message lists the missing part numbers.</summary>
+    public const string MissingParts = "MissingParts";
+}
+
+/// <summary>
+/// Settings for <see cref="VideoClient.UploadVideoAsync"/>.
+/// </summary>
+public sealed record VideoUploadOptions
+{
+    /// <summary>The settings used when none are passed.</summary>
+    public static VideoUploadOptions Default { get; } = new();
+
+    /// <summary>
+    /// The exact number of bytes to upload from the stream. Required for a stream that cannot
+    /// seek; by default, a seekable stream is uploaded from its position to its end.
+    /// </summary>
+    public long? Length { get; init; }
+
+    /// <summary>The file name to declare to the service, if any.</summary>
+    public string? FileName { get; init; }
+
+    /// <summary>
+    /// The video's duration, if known. The service uses it only to reject a video that is too
+    /// long before it is uploaded; it measures the video itself afterwards.
+    /// </summary>
+    public TimeSpan? Duration { get; init; }
+
+    /// <summary>The video's width in pixels, if known. Advisory, like <see cref="Duration"/>.</summary>
+    public int? Width { get; init; }
+
+    /// <summary>The video's height in pixels, if known. Advisory, like <see cref="Duration"/>.</summary>
+    public int? Height { get; init; }
+
+    /// <summary>
+    /// How many times to send each request before giving up on a transient failure: a lost
+    /// connection, a timeout, a 5xx or 429 response, or <see cref="VideoErrors.ServiceOverloaded"/>.
+    /// Default 4. Other errors are not retried, and neither is starting the session, which is
+    /// not idempotent, unless the service refused it with a 429 or
+    /// <see cref="VideoErrors.ServiceOverloaded"/>.
+    /// </summary>
+    public int MaxAttempts { get; init; } = 4;
+
+    /// <summary>
+    /// The wait before the first retry. It doubles after each further failure, up to 30 seconds.
+    /// Default 1 second.
+    /// </summary>
+    public TimeSpan RetryDelay { get; init; } = TimeSpan.FromSeconds(1);
+
+    /// <summary>How long to wait between processing-status checks. Default 1 second.</summary>
+    public TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(1);
+}
+
+/// <summary>
+/// A video upload that did not produce a usable video: its processing job failed, or ended
+/// without a blob, or the service answered with an inconsistent upload plan.
+/// </summary>
+/// <remarks>
+/// XRPC errors from the upload itself (a size limit, an expired session, …) surface as
+/// <see cref="Http.XrpcException"/>; match their names with <see cref="VideoErrors"/>.
+/// </remarks>
+public sealed class VideoUploadException : AtProtoException
+{
+    /// <summary>Creates the exception.</summary>
+    /// <param name="message">A description of what went wrong.</param>
+    /// <param name="jobStatus">The processing job's final status, when there is one.</param>
+    public VideoUploadException(string message, JobStatus? jobStatus = null)
+        : base(message)
+    {
+        JobStatus = jobStatus;
+    }
+
+    /// <summary>The processing job's final status, when the failure came from processing.</summary>
+    public JobStatus? JobStatus { get; }
+
+    /// <summary>
+    /// Why processing failed (see <see cref="JobFailureCode"/>), when the service said so.
+    /// </summary>
+    public string? FailureCode => JobStatus?.FailureCode;
+}
+
 /// <summary>
 /// Response from getUploadLimits.
 /// </summary>

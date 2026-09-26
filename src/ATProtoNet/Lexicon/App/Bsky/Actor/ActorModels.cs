@@ -993,3 +993,59 @@ public sealed class ProfileRecord : LexObject
     [JsonPropertyName("createdAt")]
     public AtDatetime? CreatedAt { get; set; }
 }
+
+/// <summary>
+/// An account's status, such as being live. Collection: app.bsky.actor.status, record key
+/// <c>self</c>. Profile views show it as <see cref="StatusView"/>.
+/// </summary>
+public sealed class StatusRecord : LexObject
+{
+    /// <summary>The Lexicon type discriminator (<c>app.bsky.actor.status</c>).</summary>
+    [JsonPropertyName("$type")]
+    public string Type => "app.bsky.actor.status";
+
+    /// <summary>The status (see <see cref="ActorStatus"/>).</summary>
+    [JsonPropertyName("status")]
+    public required string Status { get; init; }
+
+    /// <summary>An embed for the status, such as an <see cref="ExternalEmbed"/> linking to the stream.</summary>
+    [JsonPropertyName("embed")]
+    public EmbedBase? Embed { get; init; }
+
+    /// <summary>How long the status lasts, in minutes. Apps may impose limits.</summary>
+    [JsonPropertyName("durationMinutes")]
+    public int? DurationMinutes { get; init; }
+
+    /// <summary>Timestamp of creation.</summary>
+    [JsonPropertyName("createdAt")]
+    public required AtDatetime CreatedAt { get; init; }
+}
+
+/// <summary>
+/// Known values of <see cref="StatusRecord.Status"/> and <see cref="StatusView.Status"/>.
+/// </summary>
+public static class ActorStatus
+{
+    /// <summary>The account is offering live content.</summary>
+    public const string Live = "app.bsky.actor.status#live";
+}
+
+/// <summary>
+/// An account's choice about appearing in content discovery. Collection:
+/// app.bsky.actor.contentVisibilityDeclaration, record key <c>self</c>.
+/// </summary>
+public sealed class ContentVisibilityDeclarationRecord : LexObject
+{
+    /// <summary>
+    /// The Lexicon type discriminator (<c>app.bsky.actor.contentVisibilityDeclaration</c>).
+    /// </summary>
+    [JsonPropertyName("$type")]
+    public string Type => "app.bsky.actor.contentVisibilityDeclaration";
+
+    /// <summary>
+    /// Whether the account asks that its posts be left out of algorithmic recommendations. An
+    /// account without the record counts as <see langword="false"/>.
+    /// </summary>
+    [JsonPropertyName("hideFromAlgorithmicRecommendations")]
+    public required bool HideFromAlgorithmicRecommendations { get; init; }
+}

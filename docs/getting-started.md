@@ -96,6 +96,31 @@ client.Handle    // Handle: alice.example.com
 client.Session   // AtProtoSession — here a PasswordSession, with tokens, email, etc.
 ```
 
+## Bookmarks
+
+Bluesky bookmarks are private: the appview stores them for their owner, outside the repository.
+Bookmark a post by its URI and CID, and read them back newest first:
+
+```csharp
+await client.Bsky.Bookmark.CreateBookmarkAsync(post.Uri, post.Cid);
+
+await foreach (var bookmark in client.Bsky.Bookmark.EnumerateBookmarksAsync())
+{
+    var text = bookmark.Item switch
+    {
+        PostView view => view.Record.GetProperty("text").GetString(),
+        NotFoundPost => "(deleted)",
+        BlockedPost => "(blocked)",
+        _ => "(unsupported)",
+    };
+    Console.WriteLine(text);
+}
+
+await client.Bsky.Bookmark.DeleteBookmarkAsync(post.Uri);
+```
+
+`PostView.Viewer.Bookmarked` and `PostView.BookmarkCount` show a post's bookmark state in feeds.
+
 ## What's Next?
 
 - [Custom Lexicon Records](custom-records.md) — Build your own AT Protocol app

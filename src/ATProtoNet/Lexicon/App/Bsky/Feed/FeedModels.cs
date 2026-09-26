@@ -356,9 +356,48 @@ public sealed class GeneratorRecord : LexObject
 // ──────────────────────────────────────────────────────────────
 
 /// <summary>
+/// A post as a view refers to it: the post itself, or a placeholder when it cannot be shown (the
+/// open union of <c>app.bsky.feed.defs#postView</c>, <c>#notFoundPost</c> and <c>#blockedPost</c>
+/// behind <see cref="Bookmark.BookmarkView.Item"/>). A variant this SDK does not model reads as
+/// <see cref="UnknownPostEntry"/>.
+/// </summary>
+/// <remarks>
+/// <see cref="ThreadNode"/> derives from it so that <see cref="NotFoundPost"/> and
+/// <see cref="BlockedPost"/> can be variants of both unions.
+/// </remarks>
+[AtProtoUnion(typeof(UnknownPostEntry))]
+[JsonDerivedType(typeof(PostView), "app.bsky.feed.defs#postView")]
+[JsonDerivedType(typeof(NotFoundPost), "app.bsky.feed.defs#notFoundPost")]
+[JsonDerivedType(typeof(BlockedPost), "app.bsky.feed.defs#blockedPost")]
+public abstract class PostEntry : LexObject;
+
+/// <summary>
+/// A post entry whose <c>$type</c> this SDK version does not model. It keeps the raw object and
+/// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
+/// </summary>
+public sealed class UnknownPostEntry : PostEntry, IUnknownUnionVariant
+{
+    /// <summary>Creates an unknown post entry from its discriminator and raw object.</summary>
+    /// <param name="type">The object's <c>$type</c>.</param>
+    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+    public UnknownPostEntry(string type, JsonElement raw)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(type);
+        Type = type;
+        Raw = UnknownUnionVariant.RequireObject(raw);
+    }
+
+    /// <inheritdoc/>
+    public string Type { get; }
+
+    /// <inheritdoc/>
+    public JsonElement Raw { get; }
+}
+
+/// <summary>
 /// A full post view as returned by feed endpoints.
 /// </summary>
-public sealed class PostView : LexObject
+public sealed class PostView : PostEntry
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
@@ -615,7 +654,7 @@ public sealed class FeedReplyRef : LexObject
 [JsonDerivedType(typeof(ThreadViewPost), "app.bsky.feed.defs#threadViewPost")]
 [JsonDerivedType(typeof(NotFoundPost), "app.bsky.feed.defs#notFoundPost")]
 [JsonDerivedType(typeof(BlockedPost), "app.bsky.feed.defs#blockedPost")]
-public abstract class ThreadNode : LexObject;
+public abstract class ThreadNode : PostEntry;
 
 /// <summary>
 /// A thread node whose <c>$type</c> this SDK version does not model. It keeps the raw object and
@@ -1042,6 +1081,246 @@ public sealed class SearchPostsResponse : ICursorPage<PostView>
     public required IReadOnlyList<PostView> Posts { get; init; }
 
     IReadOnlyList<PostView> ICursorPage<PostView>.Items => Posts;
+}
+
+/// <summary>
+/// The filters of <see cref="FeedClient.SearchPostsV2Async"/>. Every filter is optional; a list
+/// matches a post that matches any of its entries, and the filters combine with AND.
+/// </summary>
+public sealed record PostSearchFilters
+{
+    /// <summary>Only posts by one of these accounts.</summary>
+    public IEnumerable<AtIdentifier>? Authors { get; init; }
+
+    /// <summary>Only posts that mention one of these accounts.</summary>
+    public IEnumerable<AtIdentifier>? Mentions { get; init; }
+
+    /// <summary>Only posts that link to one of these domains.</summary>
+    public IEnumerable<string>? Domains { get; init; }
+
+    /// <summary>Only posts that link to one of these URLs.</summary>
+    public IEnumerable<string>? Urls { get; init; }
+
+    /// <summary>Only posts that embed one of these records.</summary>
+    public IEnumerable<AtUri>? EmbeddedAtUris { get; init; }
+
+    /// <summary>Only posts tagged with one of these hashtags (without <c>#</c>).</summary>
+    public IEnumerable<string>? Hashtags { get; init; }
+
+    /// <summary>No posts by any of these accounts.</summary>
+    public IEnumerable<AtIdentifier>? ExcludeAuthors { get; init; }
+
+    /// <summary>No posts that mention any of these accounts.</summary>
+    public IEnumerable<AtIdentifier>? ExcludeMentions { get; init; }
+
+    /// <summary>No posts that link to any of these domains.</summary>
+    public IEnumerable<string>? ExcludeDomains { get; init; }
+
+    /// <summary>No posts that link to any of these URLs.</summary>
+    public IEnumerable<string>? ExcludeUrls { get; init; }
+
+    /// <summary>No posts that embed any of these records.</summary>
+    public IEnumerable<AtUri>? ExcludeEmbeddedAtUris { get; init; }
+
+    /// <summary>No posts tagged with any of these hashtags (without <c>#</c>).</summary>
+    public IEnumerable<string>? ExcludeHashtags { get; init; }
+
+    /// <summary>
+    /// Only posts indexed at or after this time: a datetime, or just an ISO date
+    /// (<c>YYYY-MM-DD</c>).
+    /// </summary>
+    public string? Since { get; init; }
+
+    /// <summary>
+    /// Only posts indexed before this time (default now): a datetime, or just an ISO date
+    /// (<c>YYYY-MM-DD</c>).
+    /// </summary>
+    public string? Until { get; init; }
+
+    /// <summary>Search the whole index instead of the window of recent posts.</summary>
+    public bool? AllTime { get; init; }
+
+    /// <summary>Only posts in one of these languages (BCP-47).</summary>
+    public IEnumerable<string>? Languages { get; init; }
+
+    /// <summary>No posts in any of these languages (BCP-47).</summary>
+    public IEnumerable<string>? ExcludeLanguages { get; init; }
+
+    /// <summary>Only posts with media.</summary>
+    public bool? HasMedia { get; init; }
+
+    /// <summary>Only posts with a video.</summary>
+    public bool? HasVideo { get; init; }
+
+    /// <summary>Only direct replies to this post.</summary>
+    public AtUri? ReplyParentUri { get; init; }
+
+    /// <summary>Only posts in the thread under this root post.</summary>
+    public AtUri? ThreadRootUri { get; init; }
+
+    /// <summary>No replies. Excludes <see cref="RepliesOnly"/>.</summary>
+    public bool? ExcludeReplies { get; init; }
+
+    /// <summary>Only replies. Excludes <see cref="ExcludeReplies"/>.</summary>
+    public bool? RepliesOnly { get; init; }
+
+    /// <summary>Only posts by accounts the viewer follows.</summary>
+    public bool? Following { get; init; }
+
+    /// <summary>
+    /// The language analyzer to read the query with (see <see cref="SearchQueryLanguage"/>); the
+    /// server detects it when possible if unset.
+    /// </summary>
+    public string? QueryLanguage { get; init; }
+}
+
+/// <summary>
+/// Known values of the <c>sort</c> parameter of <see cref="FeedClient.SearchPostsV2Async"/>.
+/// </summary>
+public static class PostSearchSort
+{
+    /// <summary>Newest first.</summary>
+    public const string Recent = "recent";
+
+    /// <summary>By search ranking.</summary>
+    public const string Top = "top";
+}
+
+/// <summary>
+/// Known query languages of <see cref="FeedClient.SearchPostsV2Async"/>: the scripts that need a
+/// dedicated analyzer.
+/// </summary>
+public static class SearchQueryLanguage
+{
+    /// <summary>Japanese.</summary>
+    public const string Japanese = "ja";
+
+    /// <summary>Chinese.</summary>
+    public const string Chinese = "zh";
+
+    /// <summary>Korean.</summary>
+    public const string Korean = "ko";
+
+    /// <summary>Thai.</summary>
+    public const string Thai = "th";
+
+    /// <summary>Arabic.</summary>
+    public const string Arabic = "ar";
+}
+
+/// <summary>
+/// Response from searchPostsV2.
+/// </summary>
+public sealed class SearchPostsV2Response : ICursorPage<PostView>
+{
+    /// <summary>
+    /// Pagination cursor; pass this back on the next request to continue where this page ended.
+    /// <see langword="null"/> when there are no further results.
+    /// </summary>
+    [JsonPropertyName("cursor")]
+    public string? Cursor { get; init; }
+
+    /// <summary>An estimate of the number of matching posts, possibly rounded or truncated.</summary>
+    [JsonPropertyName("hitsTotal")]
+    public int? HitsTotal { get; init; }
+
+    /// <summary>The matching posts.</summary>
+    [JsonPropertyName("posts")]
+    public required IReadOnlyList<PostView> Posts { get; init; }
+
+    /// <summary>
+    /// The languages detected in the query (see <see cref="SearchQueryLanguage"/>), for Chinese,
+    /// Japanese, Korean, Thai or Arabic text; empty or <see langword="null"/> otherwise.
+    /// </summary>
+    [JsonPropertyName("detectedQueryLanguages")]
+    public IReadOnlyList<string>? DetectedQueryLanguages { get; init; }
+
+    IReadOnlyList<PostView> ICursorPage<PostView>.Items => Posts;
+}
+
+// ──────────────────────────────────────────────────────────────
+//  sendInteractions
+// ──────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Feedback about one feed item for the feed generator that served it
+/// (<c>app.bsky.feed.defs#interaction</c>).
+/// </summary>
+public sealed class Interaction : LexObject
+{
+    /// <summary>The AT-URI of the feed item, usually a post.</summary>
+    [JsonPropertyName("item")]
+    public AtUri? Item { get; init; }
+
+    /// <summary>What happened (see <see cref="InteractionEvent"/>).</summary>
+    [JsonPropertyName("event")]
+    public string? Event { get; init; }
+
+    /// <summary>
+    /// The item's <see cref="FeedViewPost.FeedContext"/>, passed back to the generator.
+    /// </summary>
+    [JsonPropertyName("feedContext")]
+    public string? FeedContext { get; init; }
+
+    /// <summary>The <see cref="FeedViewPost.ReqId"/> of the request that served the item.</summary>
+    [JsonPropertyName("reqId")]
+    public string? ReqId { get; init; }
+}
+
+/// <summary>
+/// Known values of <see cref="Interaction.Event"/>.
+/// </summary>
+public static class InteractionEvent
+{
+    /// <summary>The viewer asked to see less content like the item.</summary>
+    public const string RequestLess = "app.bsky.feed.defs#requestLess";
+
+    /// <summary>The viewer asked to see more content like the item.</summary>
+    public const string RequestMore = "app.bsky.feed.defs#requestMore";
+
+    /// <summary>The viewer opened the item.</summary>
+    public const string ClickthroughItem = "app.bsky.feed.defs#clickthroughItem";
+
+    /// <summary>The viewer opened the item's author.</summary>
+    public const string ClickthroughAuthor = "app.bsky.feed.defs#clickthroughAuthor";
+
+    /// <summary>The viewer opened the account that reposted the item.</summary>
+    public const string ClickthroughReposter = "app.bsky.feed.defs#clickthroughReposter";
+
+    /// <summary>The viewer opened the item's embed.</summary>
+    public const string ClickthroughEmbed = "app.bsky.feed.defs#clickthroughEmbed";
+
+    /// <summary>The item was shown to the viewer.</summary>
+    public const string Seen = "app.bsky.feed.defs#interactionSeen";
+
+    /// <summary>The viewer liked the item.</summary>
+    public const string Like = "app.bsky.feed.defs#interactionLike";
+
+    /// <summary>The viewer reposted the item.</summary>
+    public const string Repost = "app.bsky.feed.defs#interactionRepost";
+
+    /// <summary>The viewer replied to the item.</summary>
+    public const string Reply = "app.bsky.feed.defs#interactionReply";
+
+    /// <summary>The viewer quoted the item.</summary>
+    public const string Quote = "app.bsky.feed.defs#interactionQuote";
+
+    /// <summary>The viewer shared the item.</summary>
+    public const string Share = "app.bsky.feed.defs#interactionShare";
+}
+
+/// <summary>
+/// Request body for sendInteractions.
+/// </summary>
+internal sealed class SendInteractionsRequest
+{
+    /// <summary>The feed the items came from.</summary>
+    [JsonPropertyName("feed")]
+    public AtUri? Feed { get; init; }
+
+    /// <summary>The interactions.</summary>
+    [JsonPropertyName("interactions")]
+    public required IReadOnlyList<Interaction> Interactions { get; init; }
 }
 
 /// <summary>

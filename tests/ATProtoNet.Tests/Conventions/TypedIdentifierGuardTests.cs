@@ -69,6 +69,12 @@ public class TypedIdentifierGuardTests
             "No Lexicon format: a datetime or a bare ISO date (YYYY-MM-DD).",
         ["ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.EnumerateSearchPostsAsync(until)"] =
             "No Lexicon format: a datetime or a bare ISO date (YYYY-MM-DD).",
+        ["ATProtoNet.Lexicon.App.Bsky.Feed.PostSearchFilters.Since"] =
+            "No Lexicon format: a datetime or a bare ISO date (YYYY-MM-DD).",
+        ["ATProtoNet.Lexicon.App.Bsky.Feed.PostSearchFilters.Until"] =
+            "No Lexicon format: a datetime or a bare ISO date (YYYY-MM-DD).",
+        ["ATProtoNet.Lexicon.App.Bsky.Draft.DraftEmbedExternal.Uri"] =
+            "Lexicon format `uri`: the linked web page's URL.",
         ["ATProtoNet.Lexicon.Com.AtProto.Admin.SendEmailRequest.Subject"] =
             "The email's subject line.",
         ["ATProtoNet.Lexicon.Com.AtProto.Server.InviteCode.ForAccount"] =

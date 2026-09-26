@@ -4,6 +4,9 @@ using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Actor;
+using ATProtoNet.Lexicon.App.Bsky.AgeAssurance;
+using ATProtoNet.Lexicon.App.Bsky.Bookmark;
+using ATProtoNet.Lexicon.App.Bsky.Draft;
 using ATProtoNet.Lexicon.App.Bsky.Embed;
 using ATProtoNet.Lexicon.App.Bsky.Feed;
 using ATProtoNet.Lexicon.App.Bsky.Labeler;
@@ -15,6 +18,7 @@ using ATProtoNet.Lexicon.Chat.Bsky.Notification;
 using ATProtoNet.Lexicon.App.Bsky.Graph;
 using ATProtoNet.Lexicon.App.Bsky.Notification;
 using ATProtoNet.Lexicon.App.Bsky.RichText;
+using ATProtoNet.Lexicon.App.Bsky.Unspecced;
 using ATProtoNet.Lexicon.App.Bsky.Video;
 using ATProtoNet.Lexicon.Com.AtProto.Admin;
 using ATProtoNet.Lexicon.Com.AtProto.Identity;
@@ -163,7 +167,12 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             new GraphClient(_xrpc),
             new LabelerClient(_xrpc),
             new NotificationClient(_xrpc),
-            new VideoClient(_xrpc));
+            new VideoClient(_xrpc),
+            new AgeAssuranceClient(_xrpc),
+            new BookmarkClient(_xrpc),
+            new DraftClient(_xrpc),
+            new EmbedClient(_xrpc),
+            new UnspeccedClient(_xrpc));
 
         // Chat sub-clients (automatically proxied to chat service)
         Chat = new ChatClients(
@@ -1057,7 +1066,12 @@ public sealed class BlueskyClients
         GraphClient graph,
         LabelerClient labeler,
         NotificationClient notification,
-        VideoClient video)
+        VideoClient video,
+        AgeAssuranceClient ageAssurance,
+        BookmarkClient bookmark,
+        DraftClient draft,
+        EmbedClient embed,
+        UnspeccedClient unspecced)
     {
         Actor = actor;
         Feed = feed;
@@ -1065,6 +1079,11 @@ public sealed class BlueskyClients
         Labeler = labeler;
         Notification = notification;
         Video = video;
+        AgeAssurance = ageAssurance;
+        Bookmark = bookmark;
+        Draft = draft;
+        Embed = embed;
+        Unspecced = unspecced;
     }
 
     /// <summary>app.bsky.actor.* — profiles, preferences, search.</summary>
@@ -1084,6 +1103,24 @@ public sealed class BlueskyClients
 
     /// <summary>app.bsky.video.* — video upload, processing, limits.</summary>
     public VideoClient Video { get; }
+
+    /// <summary>app.bsky.ageassurance.* — age assurance state and regional configuration.</summary>
+    public AgeAssuranceClient AgeAssurance { get; }
+
+    /// <summary>app.bsky.bookmark.* — the account's private bookmarks.</summary>
+    public BookmarkClient Bookmark { get; }
+
+    /// <summary>app.bsky.draft.* — the account's private post drafts.</summary>
+    public DraftClient Draft { get; }
+
+    /// <summary>app.bsky.embed.* — resolving records into external embed views.</summary>
+    public EmbedClient Embed { get; }
+
+    /// <summary>
+    /// app.bsky.unspecced.* — endpoints the Bluesky app uses before they are specified, which
+    /// may change without notice.
+    /// </summary>
+    public UnspeccedClient Unspecced { get; }
 }
 
 /// <summary>

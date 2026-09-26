@@ -417,9 +417,94 @@ carry the same types (`PostView.Uri` is an `AtUri`, `ProfileView.Did` a `Did`, `
 | `Actor` | `ActorClient` | Profile and actor operations |
 | `Feed` | `FeedClient` | Posts, likes, reposts, timelines |
 | `Graph` | `GraphClient` | Follows, blocks, lists, starter packs |
-| `Notification` | `NotificationClient` | Notifications |
+| `Notification` | `NotificationClient` | Notifications, notification preferences, activity subscriptions, push |
 | `Labeler` | `LabelerClient` | Label service declarations |
-| `Video` | `VideoClient` | Video upload (`app.bsky.video.*`) |
+| `Video` | `VideoClient` | Video upload (`app.bsky.video.*`); see [Video Upload](video.md) |
+| `Bookmark` | `BookmarkClient` | Private bookmarks; see [Bookmarks](getting-started.md#bookmarks) |
+| `Draft` | `DraftClient` | Private post drafts |
+| `Embed` | `EmbedClient` | Enhanced link cards from records |
+| `AgeAssurance` | `AgeAssuranceClient` | Age assurance state and regional rules |
+| `Unspecced` | `UnspeccedClient` | Endpoints the Bluesky app uses before they are specified; may change without notice |
+
+### Post search
+
+`Feed.SearchPostsV2Async` (`app.bsky.feed.searchPostsV2`) takes an optional query and a
+`PostSearchFilters` of includes and excludes (authors, mentions, domains, URLs, embedded records,
+hashtags, languages, media, replies, thread, date range, `Following`, `QueryLanguage`). A list
+matches any of its entries; the filters combine. The response has `HitsTotal` and
+`DetectedQueryLanguages`; `EnumerateSearchPostsV2Async` walks every page.
+
+```csharp
+var page = await client.Bsky.Feed.SearchPostsV2Async("atproto", new PostSearchFilters
+{
+    Authors = [Handle.Parse("alice.bsky.social")],
+    Hashtags = ["dev"],
+    HasMedia = true,
+}, sort: PostSearchSort.Recent);
+```
+
+### Threads
+
+`Unspecced.GetPostThreadV2Async(anchor)` returns a thread the way the Bluesky app shows it: a flat
+list of `ThreadItem`s whose `Depth` places them (0 is the anchor, parents are negative). Each
+`Value` is a `ThreadItemPost` (with `OpThread`, `MoreReplies`, `HiddenByThreadgate`, …) or a
+placeholder: `ThreadItemBlocked`, `ThreadItemNotFound`, `ThreadItemNoUnauthenticated`. When
+`HasOtherReplies` is set, `GetPostThreadOtherV2Async(anchor)` returns the rest.
+
+### Drafts
+
+`Draft.CreateDraftAsync(draft)` stores a `Draft` of one or more `DraftPost`s and returns its `Tid`;
+`UpdateDraftAsync(id, draft)`, `DeleteDraftAsync(id)`, `GetDraftsAsync` and `EnumerateDraftsAsync`
+manage them. Draft media are on-device paths (`DraftEmbedLocalRef`), so they only resolve on the
+device that made the draft. `DraftErrors.DraftLimitReached` marks a full account.
+
+### Notification preferences and activity subscriptions
+
+- `Notification.GetPreferencesAsync()` returns the `NotificationPreferences`, one per notification
+  kind. `PutPreferencesV2Async(new PutPreferencesV2Request { Like = … })` changes the ones set and
+  returns all of them.
+- `PutActivitySubscriptionAsync(did, post, reply)` subscribes to an account's posts and replies
+  (both `false` unsubscribes); `ListActivitySubscriptionsAsync` / `EnumerateActivitySubscriptionsAsync`
+  list the accounts subscribed to. Who may subscribe to an account is its
+  `NotificationDeclarationRecord` (`app.bsky.notification.declaration`, key `self`).
+- `UnregisterPushAsync(serviceDid, token, platform, appId)` undoes `RegisterPushAsync`.
+
+### Graph
+
+- `Graph.GetListsWithMembershipAsync(actor)` and `GetStarterPacksWithMembershipAsync(actor)` list the
+  viewer's lists and starter packs, each with the actor's `ListItem` when the actor is on it.
+- `Graph.SearchStarterPacksV2Async(query)` returns full `StarterPackView`s and `HitsTotal`.
+
+### Link cards and feed feedback
+
+- `Embed.GetEmbedExternalViewAsync(url, uris)` resolves the records behind a page (such as a
+  `site.standard.document` and its publication) into an `ExternalView` plus the `AssociatedRefs` to
+  put into the post's `ExternalInfo.AssociatedRefs`. An empty response means: render an ordinary
+  link card.
+- `Feed.SendInteractionsAsync(interactions, feed, feedGenerator)` tells a feed generator how the
+  viewer reacted to its items (`InteractionEvent.RequestLess`, `Seen`, `Like`, …), passing back each
+  item's `FeedContext` and `ReqId`. With `feedGenerator` set, the call is proxied to that service.
+
+### Age assurance
+
+`AgeAssurance.GetConfigAsync()` returns each region's minimum age and ordered rules
+(`AgeAssuranceRule`: `DefaultAgeRule`, `DeclaredOverAgeRule`, `AssuredUnderAgeRule`,
+`AccountNewerThanRule`, …). `GetStateAsync(countryCode, regionCode)` returns the account's
+`AgeAssuranceState` (`Status`, `Access`) and the metadata to compute it client-side, and
+`BeginAsync(email, language, countryCode)` starts the process.
+
+### Records
+
+Records without a client method of their own are written through `client.Repo` or
+`RecordCollection<T>`:
+
+| Model | Collection | Key |
+|-------|------------|-----|
+| `StatusRecord` | `app.bsky.actor.status` (e.g. `ActorStatus.Live`) | `self` |
+| `ContentVisibilityDeclarationRecord` | `app.bsky.actor.contentVisibilityDeclaration` | `self` |
+| `NotificationDeclarationRecord` | `app.bsky.notification.declaration` | `self` |
+| `VerificationRecord` | `app.bsky.graph.verification` | TID |
+| `ReferenceListOptOutRecord` | `app.bsky.graph.referencelistoptout` | TID |
 
 ---
 
@@ -612,6 +697,7 @@ Constants for the `atproto-proxy` header, used to route a request at a specific 
 | `BskyChat` | `#bsky_chat` |
 | `AtProtoLabeler` | `#atproto_labeler` |
 | `AtProtoPds` | `#atproto_pds` |
+| `BskyFeedGenerator` | `#bsky_fg` |
 | `BskyAppViewDid` | `did:web:api.bsky.app` |
 | `BskyChatDid` | `did:web:api.bsky.chat` |
 

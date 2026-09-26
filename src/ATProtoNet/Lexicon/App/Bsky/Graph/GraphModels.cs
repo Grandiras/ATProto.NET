@@ -134,6 +134,60 @@ public sealed class ListBlockRecord : LexObject
     public required AtDatetime CreatedAt { get; init; }
 }
 
+/// <summary>
+/// A request by its author to be left out of the public presentation of a reference list.
+/// Collection: app.bsky.graph.referencelistoptout, record key a TID.
+/// </summary>
+/// <remarks>
+/// The appview honors it only while the list's purpose is <see cref="ListPurpose.ReferenceList"/>,
+/// and indexes at most one per author and list.
+/// </remarks>
+public sealed class ReferenceListOptOutRecord : LexObject
+{
+    /// <summary>The Lexicon type discriminator (<c>app.bsky.graph.referencelistoptout</c>).</summary>
+    [JsonPropertyName("$type")]
+    public string Type => "app.bsky.graph.referencelistoptout";
+
+    /// <summary>The canonical, DID-based AT-URI of the list to be left out of.</summary>
+    [JsonPropertyName("subject")]
+    public required AtUri Subject { get; init; }
+
+    /// <summary>Timestamp of creation.</summary>
+    [JsonPropertyName("createdAt")]
+    public required AtDatetime CreatedAt { get; init; }
+}
+
+/// <summary>
+/// A verification of one account by another. Collection: app.bsky.graph.verification, record key
+/// a TID.
+/// </summary>
+/// <remarks>
+/// An app counts a verification only when it trusts its issuer, and only while the subject's
+/// current handle and display name still match the ones recorded here.
+/// </remarks>
+public sealed class VerificationRecord : LexObject
+{
+    /// <summary>The Lexicon type discriminator (<c>app.bsky.graph.verification</c>).</summary>
+    [JsonPropertyName("$type")]
+    public string Type => "app.bsky.graph.verification";
+
+    /// <summary>The DID of the verified account.</summary>
+    [JsonPropertyName("subject")]
+    public required Did Subject { get; init; }
+
+    /// <summary>The verified account's handle when it was verified.</summary>
+    [JsonPropertyName("handle")]
+    public required Handle Handle { get; init; }
+
+    /// <summary>The verified account's display name when it was verified.</summary>
+    [JsonPropertyName("displayName")]
+    public required string DisplayName { get; init; }
+
+    /// <summary>When the verification was created.</summary>
+    [JsonPropertyName("createdAt")]
+    public required AtDatetime CreatedAt { get; init; }
+}
+
 // ──────────────────────────────────────────────────────────────
 //  Well-known list purposes
 // ──────────────────────────────────────────────────────────────
@@ -856,6 +910,101 @@ public sealed class SearchStarterPacksResponse : ICursorPage<StarterPackViewBasi
     public required IReadOnlyList<StarterPackViewBasic> StarterPacks { get; init; }
 
     IReadOnlyList<StarterPackViewBasic> ICursorPage<StarterPackViewBasic>.Items => StarterPacks;
+}
+
+/// <summary>
+/// Response from searchStarterPacksV2, which returns full starter pack views.
+/// </summary>
+public sealed class SearchStarterPacksV2Response : ICursorPage<StarterPackView>
+{
+    /// <summary>
+    /// Pagination cursor; pass this back on the next request to continue where this page ended.
+    /// <see langword="null"/> when there are no further results.
+    /// </summary>
+    [JsonPropertyName("cursor")]
+    public string? Cursor { get; init; }
+
+    /// <summary>An estimate of the number of matching starter packs, possibly rounded or truncated.</summary>
+    [JsonPropertyName("hitsTotal")]
+    public int? HitsTotal { get; init; }
+
+    /// <summary>The starter packs.</summary>
+    [JsonPropertyName("starterPacks")]
+    public required IReadOnlyList<StarterPackView> StarterPacks { get; init; }
+
+    IReadOnlyList<StarterPackView> ICursorPage<StarterPackView>.Items => StarterPacks;
+}
+
+/// <summary>
+/// One of the viewer's lists, and whether an actor is on it
+/// (<c>app.bsky.graph.getListsWithMembership#listWithMembership</c>).
+/// </summary>
+public sealed class ListWithMembership : LexObject
+{
+    /// <summary>The list.</summary>
+    [JsonPropertyName("list")]
+    public required ListView List { get; init; }
+
+    /// <summary>The actor's entry on the list; <see langword="null"/> when the actor is not on it.</summary>
+    [JsonPropertyName("listItem")]
+    public ListItemView? ListItem { get; init; }
+}
+
+/// <summary>
+/// Response from getListsWithMembership.
+/// </summary>
+public sealed class GetListsWithMembershipResponse : ICursorPage<ListWithMembership>
+{
+    /// <summary>
+    /// Pagination cursor; pass this back on the next request to continue where this page ended.
+    /// <see langword="null"/> when there are no further results.
+    /// </summary>
+    [JsonPropertyName("cursor")]
+    public string? Cursor { get; init; }
+
+    /// <summary>The viewer's lists, each with the actor's membership.</summary>
+    [JsonPropertyName("listsWithMembership")]
+    public required IReadOnlyList<ListWithMembership> ListsWithMembership { get; init; }
+
+    IReadOnlyList<ListWithMembership> ICursorPage<ListWithMembership>.Items => ListsWithMembership;
+}
+
+/// <summary>
+/// One of the viewer's starter packs, and whether an actor is in it
+/// (<c>app.bsky.graph.getStarterPacksWithMembership#starterPackWithMembership</c>).
+/// </summary>
+public sealed class StarterPackWithMembership : LexObject
+{
+    /// <summary>The starter pack.</summary>
+    [JsonPropertyName("starterPack")]
+    public required StarterPackView StarterPack { get; init; }
+
+    /// <summary>
+    /// The actor's entry on the starter pack's list; <see langword="null"/> when the actor is not
+    /// in it.
+    /// </summary>
+    [JsonPropertyName("listItem")]
+    public ListItemView? ListItem { get; init; }
+}
+
+/// <summary>
+/// Response from getStarterPacksWithMembership.
+/// </summary>
+public sealed class GetStarterPacksWithMembershipResponse : ICursorPage<StarterPackWithMembership>
+{
+    /// <summary>
+    /// Pagination cursor; pass this back on the next request to continue where this page ended.
+    /// <see langword="null"/> when there are no further results.
+    /// </summary>
+    [JsonPropertyName("cursor")]
+    public string? Cursor { get; init; }
+
+    /// <summary>The viewer's starter packs, each with the actor's membership.</summary>
+    [JsonPropertyName("starterPacksWithMembership")]
+    public required IReadOnlyList<StarterPackWithMembership> StarterPacksWithMembership { get; init; }
+
+    IReadOnlyList<StarterPackWithMembership> ICursorPage<StarterPackWithMembership>.Items =>
+        StarterPacksWithMembership;
 }
 
 /// <summary>

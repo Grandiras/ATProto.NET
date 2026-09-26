@@ -27,6 +27,9 @@ public static class ServiceProxy
     /// <summary>AT Protocol PDS service identifier.</summary>
     public const string AtProtoPds = "#atproto_pds";
 
+    /// <summary>Bluesky feed generator service identifier.</summary>
+    public const string BskyFeedGenerator = "#bsky_fg";
+
     // ─── Well-known service DIDs ────────────────────────────────────────
 
     /// <summary>Bluesky App View DID (<c>did:web:api.bsky.app</c>).</summary>

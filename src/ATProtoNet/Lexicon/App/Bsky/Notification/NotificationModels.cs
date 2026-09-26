@@ -132,7 +132,7 @@ public sealed class RegisterPushRequest
     [JsonPropertyName("token")]
     public required string Token { get; init; }
 
-    /// <summary>The push platform (<c>ios</c>, <c>android</c>, or <c>web</c>).</summary>
+    /// <summary>The push platform (see <see cref="PushPlatform"/>).</summary>
     [JsonPropertyName("platform")]
     public required string Platform { get; init; }
 
@@ -143,6 +143,337 @@ public sealed class RegisterPushRequest
     /// <summary>Whether the client knows the account to be age-restricted.</summary>
     [JsonPropertyName("ageRestricted")]
     public bool? AgeRestricted { get; init; }
+}
+
+/// <summary>
+/// Request body for unregisterPush.
+/// </summary>
+internal sealed class UnregisterPushRequest
+{
+    /// <summary>The DID of the push service.</summary>
+    [JsonPropertyName("serviceDid")]
+    public required Did ServiceDid { get; init; }
+
+    /// <summary>The push notification token.</summary>
+    [JsonPropertyName("token")]
+    public required string Token { get; init; }
+
+    /// <summary>The push platform.</summary>
+    [JsonPropertyName("platform")]
+    public required string Platform { get; init; }
+
+    /// <summary>The application identifier the push token belongs to.</summary>
+    [JsonPropertyName("appId")]
+    public required string AppId { get; init; }
+}
+
+/// <summary>
+/// Known push platforms, for <see cref="RegisterPushRequest.Platform"/> and
+/// <see cref="NotificationClient.UnregisterPushAsync"/>.
+/// </summary>
+public static class PushPlatform
+{
+    /// <summary>Apple Push Notification service.</summary>
+    public const string Ios = "ios";
+
+    /// <summary>Firebase Cloud Messaging.</summary>
+    public const string Android = "android";
+
+    /// <summary>Web Push.</summary>
+    public const string Web = "web";
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Preferences
+// ──────────────────────────────────────────────────────────────
+
+/// <summary>
+/// The account's notification preferences, per notification kind
+/// (<c>app.bsky.notification.defs#preferences</c>).
+/// </summary>
+public sealed class NotificationPreferences : LexObject
+{
+    /// <summary>
+    /// Chat notifications. Deprecated upstream in favor of the chat service's own preferences,
+    /// and read as a default value only, so it is not required here.
+    /// </summary>
+    [JsonPropertyName("chat")]
+    [Obsolete("Deprecated upstream: chat notification preferences belong to the chat service.")]
+    public ChatPreference? Chat { get; init; }
+
+    /// <summary>New followers.</summary>
+    [JsonPropertyName("follow")]
+    public required FilterablePreference Follow { get; init; }
+
+    /// <summary>Likes of the account's posts.</summary>
+    [JsonPropertyName("like")]
+    public required FilterablePreference Like { get; init; }
+
+    /// <summary>Likes of the account's reposts.</summary>
+    [JsonPropertyName("likeViaRepost")]
+    public required FilterablePreference LikeViaRepost { get; init; }
+
+    /// <summary>Mentions.</summary>
+    [JsonPropertyName("mention")]
+    public required FilterablePreference Mention { get; init; }
+
+    /// <summary>Quotes of the account's posts.</summary>
+    [JsonPropertyName("quote")]
+    public required FilterablePreference Quote { get; init; }
+
+    /// <summary>Replies.</summary>
+    [JsonPropertyName("reply")]
+    public required FilterablePreference Reply { get; init; }
+
+    /// <summary>Reposts of the account's posts.</summary>
+    [JsonPropertyName("repost")]
+    public required FilterablePreference Repost { get; init; }
+
+    /// <summary>Reposts of the account's reposts.</summary>
+    [JsonPropertyName("repostViaRepost")]
+    public required FilterablePreference RepostViaRepost { get; init; }
+
+    /// <summary>Someone joined through one of the account's starter packs.</summary>
+    [JsonPropertyName("starterpackJoined")]
+    public required NotificationPreference StarterpackJoined { get; init; }
+
+    /// <summary>Posts by accounts the viewer subscribed to.</summary>
+    [JsonPropertyName("subscribedPost")]
+    public required NotificationPreference SubscribedPost { get; init; }
+
+    /// <summary>A trusted verifier removed the account's verification.</summary>
+    [JsonPropertyName("unverified")]
+    public required NotificationPreference Unverified { get; init; }
+
+    /// <summary>A trusted verifier verified the account.</summary>
+    [JsonPropertyName("verified")]
+    public required NotificationPreference Verified { get; init; }
+}
+
+/// <summary>
+/// Whether a kind of notification is listed and pushed
+/// (<c>app.bsky.notification.defs#preference</c>).
+/// </summary>
+public sealed class NotificationPreference : LexObject
+{
+    /// <summary>Whether the notifications appear in the notification list.</summary>
+    [JsonPropertyName("list")]
+    public required bool List { get; init; }
+
+    /// <summary>Whether the notifications are pushed.</summary>
+    [JsonPropertyName("push")]
+    public required bool Push { get; init; }
+}
+
+/// <summary>
+/// Whether a kind of notification is listed and pushed, and from whom
+/// (<c>app.bsky.notification.defs#filterablePreference</c>).
+/// </summary>
+public sealed class FilterablePreference : LexObject
+{
+    /// <summary>Whose actions notify: see <see cref="NotificationInclude"/>.</summary>
+    [JsonPropertyName("include")]
+    public required string Include { get; init; }
+
+    /// <summary>Whether the notifications appear in the notification list.</summary>
+    [JsonPropertyName("list")]
+    public required bool List { get; init; }
+
+    /// <summary>Whether the notifications are pushed.</summary>
+    [JsonPropertyName("push")]
+    public required bool Push { get; init; }
+}
+
+/// <summary>
+/// Known values of <see cref="FilterablePreference.Include"/>.
+/// </summary>
+public static class NotificationInclude
+{
+    /// <summary>Everyone.</summary>
+    public const string All = "all";
+
+    /// <summary>Only accounts the account follows.</summary>
+    public const string Follows = "follows";
+}
+
+/// <summary>
+/// The deprecated chat notification preference (<c>app.bsky.notification.defs#chatPreference</c>).
+/// </summary>
+public sealed class ChatPreference : LexObject
+{
+    /// <summary>Whose messages notify: <c>all</c> or <c>accepted</c>.</summary>
+    [JsonPropertyName("include")]
+    public required string Include { get; init; }
+
+    /// <summary>Whether the notifications are pushed.</summary>
+    [JsonPropertyName("push")]
+    public required bool Push { get; init; }
+}
+
+/// <summary>
+/// Response from getPreferences.
+/// </summary>
+internal sealed class GetPreferencesResponse
+{
+    /// <summary>The preferences.</summary>
+    [JsonPropertyName("preferences")]
+    public required NotificationPreferences Preferences { get; init; }
+}
+
+/// <summary>
+/// Request body for putPreferencesV2: the preferences to change. A <see langword="null"/>
+/// property keeps its current value.
+/// </summary>
+public sealed class PutPreferencesV2Request
+{
+    /// <summary>
+    /// Chat notifications. Deprecated upstream: the service does not keep the value.
+    /// </summary>
+    [JsonPropertyName("chat")]
+    [Obsolete("Deprecated upstream: set chat notification preferences on the chat service.")]
+    public ChatPreference? Chat { get; init; }
+
+    /// <summary>New followers.</summary>
+    [JsonPropertyName("follow")]
+    public FilterablePreference? Follow { get; init; }
+
+    /// <summary>Likes of the account's posts.</summary>
+    [JsonPropertyName("like")]
+    public FilterablePreference? Like { get; init; }
+
+    /// <summary>Likes of the account's reposts.</summary>
+    [JsonPropertyName("likeViaRepost")]
+    public FilterablePreference? LikeViaRepost { get; init; }
+
+    /// <summary>Mentions.</summary>
+    [JsonPropertyName("mention")]
+    public FilterablePreference? Mention { get; init; }
+
+    /// <summary>Quotes of the account's posts.</summary>
+    [JsonPropertyName("quote")]
+    public FilterablePreference? Quote { get; init; }
+
+    /// <summary>Replies.</summary>
+    [JsonPropertyName("reply")]
+    public FilterablePreference? Reply { get; init; }
+
+    /// <summary>Reposts of the account's posts.</summary>
+    [JsonPropertyName("repost")]
+    public FilterablePreference? Repost { get; init; }
+
+    /// <summary>Reposts of the account's reposts.</summary>
+    [JsonPropertyName("repostViaRepost")]
+    public FilterablePreference? RepostViaRepost { get; init; }
+
+    /// <summary>Someone joined through one of the account's starter packs.</summary>
+    [JsonPropertyName("starterpackJoined")]
+    public NotificationPreference? StarterpackJoined { get; init; }
+
+    /// <summary>Posts by accounts the viewer subscribed to.</summary>
+    [JsonPropertyName("subscribedPost")]
+    public NotificationPreference? SubscribedPost { get; init; }
+
+    /// <summary>A trusted verifier removed the account's verification.</summary>
+    [JsonPropertyName("unverified")]
+    public NotificationPreference? Unverified { get; init; }
+
+    /// <summary>A trusted verifier verified the account.</summary>
+    [JsonPropertyName("verified")]
+    public NotificationPreference? Verified { get; init; }
+}
+
+/// <summary>
+/// Response from putPreferencesV2.
+/// </summary>
+internal sealed class PutPreferencesV2Response
+{
+    /// <summary>The preferences after the change.</summary>
+    [JsonPropertyName("preferences")]
+    public required NotificationPreferences Preferences { get; init; }
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Activity subscriptions
+// ──────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Response from listActivitySubscriptions.
+/// </summary>
+public sealed class ListActivitySubscriptionsResponse : ICursorPage<ProfileView>
+{
+    /// <summary>
+    /// Pagination cursor; pass this back on the next request to continue where this page ended.
+    /// <see langword="null"/> when there are no further results.
+    /// </summary>
+    [JsonPropertyName("cursor")]
+    public string? Cursor { get; init; }
+
+    /// <summary>The accounts the viewer is subscribed to.</summary>
+    [JsonPropertyName("subscriptions")]
+    public required IReadOnlyList<ProfileView> Subscriptions { get; init; }
+
+    IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Subscriptions;
+}
+
+/// <summary>
+/// Request body for putActivitySubscription.
+/// </summary>
+internal sealed class PutActivitySubscriptionRequest
+{
+    /// <summary>The account to subscribe to.</summary>
+    [JsonPropertyName("subject")]
+    public required Did Subject { get; init; }
+
+    /// <summary>Which of its activity to be notified of.</summary>
+    [JsonPropertyName("activitySubscription")]
+    public required ActivitySubscription ActivitySubscription { get; init; }
+}
+
+/// <summary>
+/// Response from putActivitySubscription.
+/// </summary>
+public sealed class PutActivitySubscriptionResponse
+{
+    /// <summary>The account subscribed to.</summary>
+    [JsonPropertyName("subject")]
+    public required Did Subject { get; init; }
+
+    /// <summary>The subscription as stored; <see langword="null"/> when it was removed.</summary>
+    [JsonPropertyName("activitySubscription")]
+    public ActivitySubscription? ActivitySubscription { get; init; }
+}
+
+/// <summary>
+/// The account's choice of who may subscribe to its activity. Collection:
+/// <c>app.bsky.notification.declaration</c>, record key <c>self</c>.
+/// </summary>
+public sealed class NotificationDeclarationRecord : LexObject
+{
+    /// <summary>The Lexicon type discriminator (<c>app.bsky.notification.declaration</c>).</summary>
+    [JsonPropertyName("$type")]
+    public string Type => "app.bsky.notification.declaration";
+
+    /// <summary>
+    /// Who may subscribe to the account's activity (see <see cref="AllowedSubscribers"/>). An
+    /// account without the record allows its followers.
+    /// </summary>
+    [JsonPropertyName("allowSubscriptions")]
+    public required string AllowSubscriptions { get; init; }
+}
+
+/// <summary>
+/// Known values of <see cref="NotificationDeclarationRecord.AllowSubscriptions"/>.
+/// </summary>
+public static class AllowedSubscribers
+{
+    /// <summary>Followers may subscribe (the default without a record).</summary>
+    public const string Followers = "followers";
+
+    /// <summary>Only mutual follows may subscribe.</summary>
+    public const string Mutuals = "mutuals";
+
+    /// <summary>Nobody may subscribe.</summary>
+    public const string None = "none";
 }
 
 /// <summary>

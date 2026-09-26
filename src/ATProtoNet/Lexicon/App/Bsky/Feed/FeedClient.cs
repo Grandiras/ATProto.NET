@@ -575,4 +575,117 @@ public sealed class FeedClient
             (cursor, ct) => SearchPostsAsync(
                 q, sort, since, until, mentions, author, lang, domain, url, tags, pageSize, cursor, ct),
             cancellationToken);
+
+    /// <summary>
+    /// Search posts by a query, filters, or both (<c>app.bsky.feed.searchPostsV2</c>), one page
+    /// at a time.
+    /// </summary>
+    /// <param name="query">The search text; a query or at least one filter is required.</param>
+    /// <param name="filters">What to include and exclude.</param>
+    /// <param name="sort">The ranking (see <see cref="PostSearchSort"/>).</param>
+    /// <param name="limit">Max results per page (1-100, default 25).</param>
+    /// <param name="cursor">Pagination cursor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<SearchPostsV2Response> SearchPostsV2Async(
+        string? query = null,
+        PostSearchFilters? filters = null,
+        string? sort = null,
+        int? limit = null,
+        string? cursor = null,
+        CancellationToken cancellationToken = default)
+    {
+        var parameters = new XrpcParams()
+            .Add("query", query)
+            .Add("sort", sort);
+
+        if (filters is not null)
+        {
+            parameters
+                .AddAll("authors", filters.Authors?.Select(a => a.Value))
+                .AddAll("mentions", filters.Mentions?.Select(a => a.Value))
+                .AddAll("domains", filters.Domains)
+                .AddAll("urls", filters.Urls)
+                .AddAll("embeddedAtUris", filters.EmbeddedAtUris?.Select(u => u.Value))
+                .AddAll("hashtags", filters.Hashtags)
+                .AddAll("excludeAuthors", filters.ExcludeAuthors?.Select(a => a.Value))
+                .AddAll("excludeMentions", filters.ExcludeMentions?.Select(a => a.Value))
+                .AddAll("excludeDomains", filters.ExcludeDomains)
+                .AddAll("excludeUrls", filters.ExcludeUrls)
+                .AddAll("excludeEmbeddedAtUris", filters.ExcludeEmbeddedAtUris?.Select(u => u.Value))
+                .AddAll("excludeHashtags", filters.ExcludeHashtags)
+                .Add("since", filters.Since)
+                .Add("until", filters.Until)
+                .Add("allTime", filters.AllTime)
+                .AddAll("languages", filters.Languages)
+                .AddAll("excludeLanguages", filters.ExcludeLanguages)
+                .Add("hasMedia", filters.HasMedia)
+                .Add("hasVideo", filters.HasVideo)
+                .Add("replyParentUri", filters.ReplyParentUri)
+                .Add("threadRootUri", filters.ThreadRootUri)
+                .Add("excludeReplies", filters.ExcludeReplies)
+                .Add("repliesOnly", filters.RepliesOnly)
+                .Add("following", filters.Following)
+                .Add("queryLanguage", filters.QueryLanguage);
+        }
+
+        parameters
+            .Add("limit", limit)
+            .Add("cursor", cursor);
+
+        return _xrpc.QueryAsync<SearchPostsV2Response>(
+            "app.bsky.feed.searchPostsV2", parameters, cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Enumerate every post matching a <see cref="SearchPostsV2Async"/> search, fetching pages as
+    /// needed.
+    /// </summary>
+    /// <param name="query">The search text; a query or at least one filter is required.</param>
+    /// <param name="filters">What to include and exclude.</param>
+    /// <param name="sort">The ranking (see <see cref="PostSearchSort"/>).</param>
+    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<PostView> EnumerateSearchPostsV2Async(
+        string? query = null,
+        PostSearchFilters? filters = null,
+        string? sort = null,
+        int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<SearchPostsV2Response, PostView>(
+            (cursor, ct) => SearchPostsV2Async(query, filters, sort, pageSize, cursor, ct),
+            cancellationToken);
+
+    // ──────────────────────────────────────────────────────────
+    //  Feed feedback
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Tell a feed generator how the viewer interacted with the items it served, such as
+    /// asking for more or less of an item. Generators that want this set
+    /// <see cref="GeneratorView.AcceptsInteractions"/>.
+    /// </summary>
+    /// <param name="interactions">The interactions.</param>
+    /// <param name="feed">The feed the items came from.</param>
+    /// <param name="feedGenerator">
+    /// The DID of the feed generator service (<see cref="GeneratorView.Did"/>). When set, the call
+    /// is proxied to that service's <see cref="ServiceProxy.BskyFeedGenerator"/> endpoint;
+    /// otherwise it goes wherever the client's proxy points.
+    /// </param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task SendInteractionsAsync(
+        IEnumerable<Interaction> interactions,
+        AtUri? feed = null,
+        Did? feedGenerator = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(interactions);
+
+        var request = new SendInteractionsRequest { Feed = feed, Interactions = [.. interactions] };
+        var options = feedGenerator is null
+            ? null
+            : new XrpcCallOptions { Proxy = ServiceProxy.Build(feedGenerator.Value, ServiceProxy.BskyFeedGenerator) };
+
+        return _xrpc.ProcedureAsync(
+            "app.bsky.feed.sendInteractions", request, options: options, cancellationToken: cancellationToken);
+    }
 }

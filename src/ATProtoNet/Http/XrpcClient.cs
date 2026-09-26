@@ -269,10 +269,11 @@ internal sealed class XrpcClient
         string nsid,
         Stream data,
         string mimeType,
+        XrpcParams? parameters = null,
         XrpcCallOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        var request = CreateUpload(nsid, data, mimeType, options);
+        var request = CreateUpload(nsid, data, mimeType, parameters, options);
         using var deadline = Deadline.Start(request, cancellationToken);
         try
         {
@@ -293,11 +294,13 @@ internal sealed class XrpcClient
         string nsid,
         Stream data,
         string mimeType,
+        XrpcParams? parameters = null,
         XrpcCallOptions? options = null,
         CancellationToken cancellationToken = default) =>
-        SendAndDiscardAsync(CreateUpload(nsid, data, mimeType, options), cancellationToken);
+        SendAndDiscardAsync(CreateUpload(nsid, data, mimeType, parameters, options), cancellationToken);
 
-    private static XrpcRequest CreateUpload(string nsid, Stream data, string mimeType, XrpcCallOptions? options)
+    private static XrpcRequest CreateUpload(
+        string nsid, Stream data, string mimeType, XrpcParams? parameters, XrpcCallOptions? options)
     {
         ArgumentNullException.ThrowIfNull(data);
         ArgumentException.ThrowIfNullOrWhiteSpace(mimeType);
@@ -305,7 +308,7 @@ internal sealed class XrpcClient
         var contentType = MediaTypeHeaderValue.Parse(mimeType);
         long? start = data.CanSeek ? data.Position : null;
 
-        return new XrpcRequest(HttpMethod.Post, nsid, Parameters: null, options)
+        return new XrpcRequest(HttpMethod.Post, nsid, parameters, options)
         {
             Content = () => new UploadContent(data, start, contentType),
             Replayable = data.CanSeek,
