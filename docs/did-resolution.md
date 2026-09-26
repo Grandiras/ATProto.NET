@@ -190,8 +190,9 @@ SDK's handler, while the identifier rules (hostname-only `did:web`, HTTPS) still
 
 ## Dependency injection
 
-`AddAtProtoIdentity` (in `ATProtoNet.Server`) registers `IDidResolver`, `IHandleResolver` and
-`IIdentityResolver` as singletons, so every consumer in the container shares one cache:
+`AddAtProtoIdentity` (in `ATProtoNet.Server`) registers `IDidResolver`, `IHandleResolver`,
+`IIdentityResolver` and `ILexiconResolver` (see [Resolving lexicons](#resolving-lexicons)) as
+singletons, so every consumer in the container shares one cache:
 
 ```csharp
 builder.Services.AddStackExchangeRedisCache(o => o.Configuration = "localhost");
@@ -337,6 +338,83 @@ IdentityInfo refreshed = await client.Identity.RefreshIdentityAsync(AtIdentifier
 
 These trust the service's answer. Failures are `XrpcException`s with `XrpcErrors.HandleNotFound`,
 `DidNotFound` or `DidDeactivated`.
+
+## Resolving lexicons
+
+A Lexicon schema is published as a `com.atproto.lexicon.schema` record, keyed by its NSID, in the
+repository its authority names in DNS. `LexiconResolver` resolves it the way the
+[Lexicon specification](https://atproto.com/specs/lexicon#lexicon-publication-and-resolution) and the
+reference resolver (`@atproto/lex-resolver`) do:
+
+1. **Authority.** The NSID without its name segment, reversed, is looked up as a DNS TXT record:
+   `app.example.feed.post` → `_lexicon.feed.example.app`, which must hold exactly one `did=<did>`.
+   There is no hierarchical walk: when that name has no record, resolution fails.
+2. **Repository.** The DID resolves (through the `IDidResolver` you pass) to its PDS and signing key.
+3. **Record.** `com.atproto.sync.getRecord` fetches the record with its proof, which is verified
+   against the signing key (`RecordProof`), so a PDS cannot hand out a schema its account never
+   committed. The record must be a `com.atproto.lexicon.schema` of language version 1 whose `id` is
+   the NSID.
+
+```csharp
+using ATProtoNet.Identity;
+using ATProtoNet.Lexicon.Com.AtProto.Lexicon;
+
+using var identity = IdentityResolver.CreateDefault();
+using var network = new LexiconResolver(identity.DidResolver);
+var lexicons = new CachingLexiconResolver(network);
+
+ResolvedLexicon lexicon = await lexicons.ResolveAsync(Nsid.Parse("site.standard.document"));
+
+Console.WriteLine(lexicon.Uri);             // at://did:plc:…/com.atproto.lexicon.schema/site.standard.document
+Console.WriteLine(lexicon.Schema.MainType); // record
+JsonElement main = lexicon.Schema.Defs!["main"];
+```
+
+The DNS query goes to `IdentityResolverOptions.DnsOverHttpsUrl` and every fetch runs under the
+[fetch policy](#the-fetch-policy-ssrf), since the authority and its PDS come from records anyone can
+publish. `ResolveAuthorityAsync(nsid)` does step 1 alone, and `ResolveAsync(nsid, authority)` skips
+it, for a schema whose DNS record is not published yet.
+
+Failures are `LexiconResolutionException`, with a `Kind`: `AuthorityNotFound` (no single `did=`
+record), `ResolutionFailed` (DNS, the DID or the PDS failed), `NotFound` (nothing published under
+the NSID), `InvalidRecord` (the proof does not verify, or it is not the schema asked for) and
+`NotPermissionSet`.
+
+`CachingLexiconResolver` caches any `ILexiconResolver`, on the model of `CachingDidResolver`:
+
+| `LexiconCacheOptions` | Default | Meaning |
+|---|---|---|
+| `StaleAfter` | 5 minutes | Served as is until then; after, served while re-resolved in the background |
+| `ExpireAfter` | 24 hours | Served at most this long, also while re-resolution keeps failing |
+| `FailureTtl` | 1 minute | How long a failed resolution is remembered |
+| `Capacity` | 1,000 | Schemas and failures held; the least recently used goes first |
+
+The defaults follow the permission specification (re-resolve every few minutes, never serve a
+stale set for more than a day) and keep DNS answers short-lived, as the Lexicon specification asks.
+`InvalidateAsync(nsid)` drops a schema, for a consumer that sees its record change on the firehose.
+
+To let a service resolve instead, use the client's `com.atproto.lexicon.resolveLexicon`: call
+`client.Lexicon.ResolveLexiconAsync(nsid)`, or use `client.Lexicon` as the `ILexiconResolver`. That
+trusts the service's answer.
+
+### Permission sets
+
+A permission set is a Lexicon whose `main` definition is a `permission-set`. An authorization server
+fails a login whose `include:` scope names a set it cannot resolve, so an app can check its sets up
+front:
+
+```csharp
+LexiconPermissionSet set = await lexicons.ResolvePermissionSetAsync(
+    Nsid.Parse(AtProtoScopes.PermissionSets.FullApp));
+Console.WriteLine(set.Title);
+
+// Or straight from the scope string you are about to request.
+await lexicons.ResolveIncludeScopeAsync(AtProtoScopes.Include(AtProtoScopes.PermissionSets.FullApp, aud));
+```
+
+Both throw `LexiconResolutionException` — `NotPermissionSet` when the Lexicon is something else.
+The set's permissions are kept as published (`LexiconPermission`), since a server must ignore the
+ones it cannot honor rather than reject the set.
 
 ## Next Steps
 

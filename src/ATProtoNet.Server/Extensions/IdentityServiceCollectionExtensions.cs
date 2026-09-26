@@ -1,4 +1,5 @@
 using ATProtoNet.Identity;
+using ATProtoNet.Lexicon.Com.AtProto.Lexicon;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -13,8 +14,9 @@ public static class IdentityServiceCollectionExtensions
 {
     /// <summary>
     /// Registers <see cref="IDidResolver"/> (a <see cref="CachingDidResolver"/> over a
-    /// <see cref="DidResolver"/>), <see cref="IHandleResolver"/> and <see cref="IIdentityResolver"/>
-    /// as singletons, so every consumer shares one DID document cache.
+    /// <see cref="DidResolver"/>), <see cref="IHandleResolver"/>, <see cref="IIdentityResolver"/> and
+    /// <see cref="ILexiconResolver"/> (a <see cref="CachingLexiconResolver"/> over a
+    /// <see cref="LexiconResolver"/>) as singletons, so every consumer shares one DID document cache.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="configure">Configures <see cref="IdentityResolverOptions"/>.</param>
@@ -65,6 +67,16 @@ public static class IdentityServiceCollectionExtensions
             sp.GetRequiredService<IDidResolver>(),
             sp.GetRequiredService<IHandleResolver>(),
             sp.GetService<ILogger<IdentityResolver>>()));
+
+        services.TryAddSingleton<ILexiconResolver>(sp => new CachingLexiconResolver(
+            new LexiconResolver(
+                sp.GetRequiredService<IDidResolver>(),
+                sp.GetRequiredService<IdentityResolverOptions>(),
+                sp.GetService<ILogger<LexiconResolver>>()),
+            options: null,
+            sp.GetService<TimeProvider>(),
+            sp.GetService<ILogger<CachingLexiconResolver>>(),
+            ownsInner: true));
 
         return services;
     }

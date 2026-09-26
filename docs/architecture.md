@@ -37,11 +37,11 @@ ATProto.NET is split into four runtime packages plus one `dotnet tool`. They lay
 
 | Package | Role |
 |---------|------|
-| **`ATProtoNet`** | Core SDK, zero ASP.NET dependency. `AtProtoClient` composes per-Lexicon-domain sub-clients (`Server`, `Repo`, `Identity`, `Sync`, `Admin`, `Label`, `Moderation`, `Temp`, `Bsky`, `Chat`, `Ozone`, `Site`) around a shared `XrpcClient`. Custom records flow through `RecordCollection<T>` / `GetCollection<T>(nsid)`; custom XRPC through `QueryAsync<T>` / `ProcedureAsync<T>`. |
+| **`ATProtoNet`** | Core SDK, zero ASP.NET dependency. `AtProtoClient` composes per-Lexicon-domain sub-clients (`Server`, `Repo`, `Identity`, `Sync`, `Admin`, `Label`, `Moderation`, `Temp`, `Lexicon`, `Bsky`, `Chat`, `Ozone`, `Site`) around a shared `XrpcClient`. Custom records flow through `RecordCollection<T>` / `GetCollection<T>(nsid)`; custom XRPC through `QueryAsync<T>` / `ProcedureAsync<T>`. |
 | **`ATProtoNet.Server`** | ASP.NET Core integration: DI extensions (`AddAtProto`, `AddAtProtoServer`), JWT auth handler, `IAtProtoClientFactory`, the file and EF Core `IAtProtoSessionStore` implementations, server-side XRPC handler routing, the [space server](spaces.md#serving-a-space) (`AddAtProtoSpaces` — credential verification plus the space authority and repo host endpoints), and .NET Aspire client integration (`AddAtProtoClient` with health checks and resilience). |
 | **`ATProtoNet.Blazor`** | Blazor components (`LoginForm`, etc.) and the OAuth login endpoints registered by `MapAtProtoOAuth()`. |
 | **`ATProtoNet.Aspire.Hosting`** | Aspire `AppHost`-side resources for running a PDS container: the official Bluesky one (`AddAtProtoPds`, `WithAtProtoPds`) or Tranquil (`AddAtProtoTranquilPds`, `WithAtProtoTranquilPds`, which also provisions the PostgreSQL server it needs). Administer either with `PdsAdminClient` from the core package. |
-| **`tools/ATProtoNet.LexiconGenerator`** | `dotnet tool` (binary `atproto-lexgen`) for bidirectional Lexicon JSON ↔ C# generation, schema diffing, and publishing. |
+| **`tools/ATProtoNet.LexiconGenerator`** | `dotnet tool` (binary `atproto-lexgen`) for bidirectional Lexicon JSON ↔ C# generation, linting and diffing schemas, and publishing and resolving them on the network. |
 
 ## Source tree
 
@@ -62,7 +62,7 @@ ATProto.NET/
 │   │   ├── RecordCollection.cs                # Typed CRUD for custom records
 │   │   ├── AtProtoClient.cs                   # Main client facade
 │   │   └── Lexicon/
-│   │       ├── Com/AtProto/                   # Protocol-level APIs (Server, Repo, Identity, Sync, Admin, Label, Moderation, Temp)
+│   │       ├── Com/AtProto/                   # Protocol-level APIs (Server, Repo, Identity, Sync, Admin, Label, Moderation, Temp, Lexicon)
 │   │       ├── App/Bsky/                      # Bluesky (Actor, Feed, Graph, Notification, RichText, Embed, Video, Labeler)
 │   │       ├── Chat/Bsky/                     # Direct and group chats (Convo, Actor, Group, Embed, Notification, Moderation)
 │   │       ├── Site/Standard/                 # Long-form publishing

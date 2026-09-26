@@ -28,6 +28,10 @@ public partial class LexiconJsonNameTests
     {
         ["ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRecordView.Path"] =
             "A computed helper the serializer writes as \"path\"; the space models are reworked by #119 part 4.",
+        ["ATProtoNet.Lexicon.Com.AtProto.Lexicon.LexiconPermissionSet.LocalizedTitles"] =
+            "The Lexicon language's own field name, \"title:lang\".",
+        ["ATProtoNet.Lexicon.Com.AtProto.Lexicon.LexiconPermissionSet.LocalizedDetails"] =
+            "The Lexicon language's own field name, \"detail:lang\".",
     };
 
     [Fact]

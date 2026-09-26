@@ -599,4 +599,97 @@ public class CSharpEmitterTests
         foreach (var (reference, typeName) in SdkTypeMap.Entries)
             Assert.True(sdkAssembly.GetType(typeName) is not null, $"{reference} → {typeName} does not exist");
     }
+
+    // ── Permission sets ──────────────────────────────────────
+
+    private const string AuthBasicSet = """
+        {
+          "lexicon": 1,
+          "id": "com.example.lexicon.authBasic",
+          "defs": {
+            "main": {
+              "type": "permission-set",
+              "title": "Basic <posting>",
+              "detail": "Create and delete posts.",
+              "permissions": [
+                { "type": "permission", "resource": "repo", "collection": ["com.example.lexicon.post"] },
+                { "type": "permission", "resource": "rpc", "inheritAud": true, "lxm": ["com.example.lexicon.getPosts"] }
+              ]
+            }
+          }
+        }
+        """;
+
+    [Fact]
+    public void Emit_PermissionSet_GeneratesNsidAndIncludeHelper()
+    {
+        var (files, warnings) = EmitWithWarnings(AuthBasicSet);
+
+        var content = files["Com/Example/Lexicon/AuthBasic.g.cs"];
+
+        Assert.Empty(warnings);
+        Assert.Contains("public static class AuthBasic", content);
+        Assert.Contains("public const string Nsid = \"com.example.lexicon.authBasic\";", content);
+        Assert.Contains(
+            "public static string Include(string? aud = null) => global::ATProtoNet.Auth.OAuth.AtProtoScopes.Include(Nsid, aud);",
+            content);
+        Assert.Contains("/// Basic &lt;posting&gt;", content);
+        Assert.Contains("/// Create and delete posts.", content);
+        Assert.Contains("without it those permissions grant nothing", content);
+        Assert.Equal(content.Count(c => c == '{'), content.Count(c => c == '}'));
+    }
+
+    [Fact]
+    public void Emit_PermissionSetInclude_BuildsTheScopeAtProtoScopesBuilds()
+    {
+        // The generated helper forwards to this exact call; the scope must be what an
+        // authorization server expects for the set.
+        Assert.Equal(
+            "include:com.example.lexicon.authBasic?aud=did:web:api.example.com%23svc",
+            ATProtoNet.Auth.OAuth.AtProtoScopes.Include("com.example.lexicon.authBasic", "did:web:api.example.com#svc"));
+        Assert.Equal(
+            "include:com.example.lexicon.authBasic",
+            ATProtoNet.Auth.OAuth.AtProtoScopes.Include("com.example.lexicon.authBasic"));
+    }
+
+    [Fact]
+    public void Emit_NullDefinitionType_WarnsThatItWasRemoved()
+    {
+        var doc = """
+            { "lexicon": 1, "id": "com.example.nothing", "defs": { "main": { "type": "null" } } }
+            """;
+
+        var (files, warnings) = EmitWithWarnings(doc);
+
+        Assert.Empty(files);
+        Assert.Contains(warnings, w => w.Contains("'null' type was removed"));
+    }
+
+    [Fact]
+    public void Emit_SpaceWithWildcardOrInvalidCollections_LeavesThemOut()
+    {
+        var doc = """
+            {
+              "lexicon": 1,
+              "id": "com.example.forum",
+              "defs": {
+                "main": {
+                  "type": "space",
+                  "key": "any",
+                  "name": "Forum",
+                  "collections": ["com.example.thread", "*", "not an nsid"]
+                }
+              }
+            }
+            """;
+
+        var (files, warnings) = EmitWithWarnings(doc);
+        var content = files["Com/Example/Forum.g.cs"];
+
+        Assert.Contains("ATProtoNet.Identity.Nsid.Parse(\"com.example.thread\"),", content);
+        Assert.DoesNotContain("Nsid.Parse(\"*\")", content);
+        Assert.DoesNotContain("not an nsid", content);
+        Assert.Contains(warnings, w => w.Contains("must not contain '*'"));
+        Assert.Contains(warnings, w => w.Contains("'not an nsid' is not an NSID"));
+    }
 }

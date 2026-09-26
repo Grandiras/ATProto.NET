@@ -26,17 +26,8 @@ public sealed class CSharpEmitter
     public IReadOnlyList<string> Warnings => _warnings;
 
     /// <summary>
-    /// Emits C# source files from a Lexicon document.
-    /// Returns a list of (relative file path, C# source content) pairs.
-    /// </summary>
-    /// <remarks>
-    /// Refs to definitions in other documents can only be typed when those documents are
-    /// part of the same call — prefer <see cref="EmitAll"/> for multi-document schemas.
-    /// </remarks>
-    public List<(string Path, string Content)> Emit(LexiconDocument doc) => EmitAll([doc]);
-
-    /// <summary>
     /// Emits C# source files for all documents, resolving refs and unions across the whole set.
+    /// Returns a list of (relative file path, C# source content) pairs.
     /// </summary>
     public List<(string Path, string Content)> EmitAll(IEnumerable<LexiconDocument> documents)
     {
@@ -78,9 +69,9 @@ public sealed class CSharpEmitter
     /// </summary>
     private static readonly HashSet<string> s_knownDefTypes = new(StringComparer.Ordinal)
     {
-        "record", "space", "query", "procedure", "subscription",
+        "record", "space", "query", "procedure", "subscription", "permission-set",
         "object", "array", "ref", "union", "token",
-        "string", "integer", "boolean", "null", "unknown",
+        "string", "integer", "boolean", "unknown",
         "blob", "bytes", "cid-link",
     };
 
@@ -118,6 +109,11 @@ public sealed class CSharpEmitter
 
                 case "space":
                     EmitSpaceType(body, ctx, defName, def);
+                    hasContent = true;
+                    break;
+
+                case "permission-set":
+                    EmitPermissionSet(body, ctx, defName, def);
                     hasContent = true;
                     break;
 
@@ -160,9 +156,12 @@ public sealed class CSharpEmitter
                     // pick it up, so say so instead of silently generating an empty file.
                     if (!s_knownDefTypes.Contains(def.Type))
                     {
-                        _warnings.Add(def.Type.Length == 0
-                            ? $"{ctx.Nsid}#{defName}: definition has no 'type' — nothing was emitted for it"
-                            : $"{ctx.Nsid}#{defName}: unsupported definition type '{def.Type}' — nothing was emitted for it");
+                        _warnings.Add(def.Type switch
+                        {
+                            "" => $"{ctx.Nsid}#{defName}: definition has no 'type' — nothing was emitted for it",
+                            "null" => $"{ctx.Nsid}#{defName}: the 'null' type was removed from the Lexicon language — nothing was emitted for it",
+                            _ => $"{ctx.Nsid}#{defName}: unsupported definition type '{def.Type}' — nothing was emitted for it",
+                        });
                     }
                     break;
             }
@@ -280,7 +279,22 @@ public sealed class CSharpEmitter
             name = typeValue;
         }
 
-        var collections = def.Collections ?? [];
+        // An entry that is not an NSID would make the declaration's initializer throw, so it is
+        // left out. The space proposal forbids '*' in particular: a space type names its collections.
+        var collections = new List<string>();
+        foreach (var collection in def.Collections ?? [])
+        {
+            if (global::ATProtoNet.Identity.Nsid.TryParse(collection, out _))
+            {
+                collections.Add(collection);
+                continue;
+            }
+
+            _warnings.Add(collection == "*"
+                ? $"{ctx.Nsid}#{defName}: 'collections' must not contain '*' — left out of the declaration"
+                : $"{ctx.Nsid}#{defName}: 'collections' entry '{collection}' is not an NSID — left out of the declaration");
+        }
+
         if (collections.Count == 0)
         {
             _warnings.Add(
@@ -343,6 +357,39 @@ public sealed class CSharpEmitter
         sb.AppendLine();
         sb.AppendLine("    /// <summary>The default collection set for a bare <c>space:</c> grant of this type.</summary>");
         sb.AppendLine("    public static IReadOnlyList<string> Collections => Declaration.Collections;");
+        sb.AppendLine("}");
+        sb.AppendLine();
+    }
+
+    /// <summary>
+    /// Emits a permission set (<c>"type": "permission-set"</c>) as a static holder of its NSID and
+    /// an <c>Include</c> helper that builds the <c>include:</c> OAuth scope requesting it.
+    /// </summary>
+    private void EmitPermissionSet(StringBuilder sb, FileContext ctx, string defName, LexiconSchema def)
+    {
+        var className = TypeNameOf(ctx, defName, "permission-set");
+        var nsid = TypeMapper.TypeValue(ctx.Nsid, defName);
+        var inheritsAudience = def.Permissions?.Any(p => p.Resource == "rpc" && p.InheritAud == true) == true;
+
+        EmitXmlDoc(sb, def.Title ?? def.Description, 0);
+        sb.AppendLine("/// <remarks>");
+        sb.AppendLine($"/// AT Protocol permission set <c>{nsid}</c>, requested with the <c>include:{nsid}</c> OAuth scope.");
+        if (!string.IsNullOrWhiteSpace(def.Detail))
+        {
+            foreach (var line in EscapeXml(def.Detail).Split('\n'))
+                sb.AppendLine($"/// {line.TrimEnd('\r')}");
+        }
+        sb.AppendLine("/// </remarks>");
+        sb.AppendLine($"public static class {className}");
+        sb.AppendLine("{");
+        sb.AppendLine("    /// <summary>The permission set NSID.</summary>");
+        sb.AppendLine($"    public const string Nsid = {Quote(nsid)};");
+        sb.AppendLine();
+        sb.AppendLine("    /// <summary>The <c>include:</c> OAuth scope that requests this permission set.</summary>");
+        sb.AppendLine(inheritsAudience
+            ? "    /// <param name=\"aud\">The service the set's <c>inheritAud</c> permissions are for, as a DID with its service fragment; without it those permissions grant nothing.</param>"
+            : "    /// <param name=\"aud\">The service <c>inheritAud</c> permissions are for; this set has none, so it can be omitted.</param>");
+        sb.AppendLine("    public static string Include(string? aud = null) => global::ATProtoNet.Auth.OAuth.AtProtoScopes.Include(Nsid, aud);");
         sb.AppendLine("}");
         sb.AppendLine();
     }
@@ -790,18 +837,18 @@ public sealed class CSharpEmitter
             return;
 
         var prefix = new string(' ', indent);
-
-        // Escape XML special characters
-        var escaped = description
-            .Replace("&", "&amp;")
-            .Replace("<", "&lt;")
-            .Replace(">", "&gt;");
+        var escaped = EscapeXml(description);
 
         sb.AppendLine($"{prefix}/// <summary>");
         foreach (var line in escaped.Split('\n'))
             sb.AppendLine($"{prefix}/// {line.TrimEnd('\r')}");
         sb.AppendLine($"{prefix}/// </summary>");
     }
+
+    private static string EscapeXml(string text) => text
+        .Replace("&", "&amp;")
+        .Replace("<", "&lt;")
+        .Replace(">", "&gt;");
 
     private static void EmitConstraintComments(StringBuilder sb, LexiconSchema schema, int indent)
     {

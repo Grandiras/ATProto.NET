@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.Loader;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ATProtoNet.LexiconGenerator.Schema;
@@ -13,13 +14,6 @@ namespace ATProtoNet.LexiconGenerator.CodeGen;
 /// </summary>
 public sealed class LexiconEmitter
 {
-    private static readonly JsonSerializerOptions s_jsonOptions = new()
-    {
-        WriteIndented = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
-
     private readonly List<string> _warnings = [];
 
     /// <summary>
@@ -31,10 +25,25 @@ public sealed class LexiconEmitter
     /// <summary>
     /// Loads an assembly and generates Lexicon schema documents for all AT Protocol types found.
     /// </summary>
-    /// <param name="assemblyPath">Absolute path to the .NET assembly (.dll).</param>
+    /// <param name="assemblyPath">Path to the .NET assembly (.dll).</param>
     /// <returns>A list of (NSID, JSON content) pairs.</returns>
+    /// <remarks>
+    /// The assembly is loaded into a context of its own, so it binds to its own dependencies —
+    /// its own copy of the SDK included — rather than to the ones this tool ships with.
+    /// </remarks>
     public List<(string Nsid, string JsonContent)> EmitFromAssembly(string assemblyPath)
-        => EmitFromAssembly(Assembly.LoadFrom(assemblyPath));
+    {
+        var fullPath = Path.GetFullPath(assemblyPath);
+        var context = new InspectionLoadContext(fullPath);
+        try
+        {
+            return EmitFromAssembly(context.LoadFromAssemblyPath(fullPath));
+        }
+        finally
+        {
+            context.Unload();
+        }
+    }
 
     /// <summary>
     /// Generates Lexicon schema documents for all AT Protocol types in a loaded assembly.
@@ -58,7 +67,7 @@ public sealed class LexiconEmitter
             if (typeValue is null)
                 continue;
 
-            var (nsid, defName) = TypeMapper.ParseTypeValue(typeValue);
+            var (nsid, defName) = TypeMapper.SplitRef(typeValue);
 
             var doc = DocumentFor(results, nsid);
             var schema = BuildSchemaFromType(type);
@@ -67,7 +76,7 @@ public sealed class LexiconEmitter
 
         return results
             .OrderBy(kv => kv.Key)
-            .Select(kv => (kv.Key, JsonSerializer.Serialize(kv.Value, s_jsonOptions)))
+            .Select(kv => (kv.Key, JsonSerializer.Serialize(kv.Value, LexiconJson.WriteOptions)))
             .ToList();
     }
 
@@ -411,9 +420,57 @@ public sealed class LexiconEmitter
             .Any(a => a.GetType().Name == "RequiredMemberAttribute"
                     || a.GetType().FullName == "System.Runtime.CompilerServices.RequiredMemberAttribute");
     }
+}
 
-    /// <summary>
-    /// Gets the JSON serializer options used for emitting Lexicon JSON.
-    /// </summary>
-    public static JsonSerializerOptions JsonOptions => s_jsonOptions;
+/// <summary>
+/// The context an assembly under inspection is loaded into: its dependencies resolve from its own
+/// <c>.deps.json</c> and directory first, and only what it does not carry comes from this tool.
+/// </summary>
+/// <remarks>
+/// Framework assemblies always come from the tool's own context, so the attribute types the
+/// emitter matches by type (<see cref="JsonPropertyNameAttribute"/>) are the same types the
+/// inspected assembly was compiled against.
+/// </remarks>
+internal sealed class InspectionLoadContext : AssemblyLoadContext
+{
+    private readonly AssemblyDependencyResolver? _resolver;
+    private readonly string _directory;
+
+    public InspectionLoadContext(string assemblyPath)
+        : base($"atproto-lexgen:{Path.GetFileName(assemblyPath)}", isCollectible: true)
+    {
+        _directory = Path.GetDirectoryName(assemblyPath) ?? ".";
+        try
+        {
+            _resolver = new AssemblyDependencyResolver(assemblyPath);
+        }
+        catch (InvalidOperationException)
+        {
+            // No usable .deps.json: the directory probe below still applies.
+            _resolver = null;
+        }
+    }
+
+    protected override Assembly? Load(AssemblyName assemblyName)
+    {
+        var name = assemblyName.Name;
+        if (name is null || IsFramework(name))
+            return null;
+
+        var path = _resolver?.ResolveAssemblyToPath(assemblyName);
+        if (path is null)
+        {
+            var candidate = Path.Combine(_directory, name + ".dll");
+            path = File.Exists(candidate) ? candidate : null;
+        }
+
+        return path is null ? null : LoadFromAssemblyPath(path);
+    }
+
+    private static bool IsFramework(string name) =>
+        name is "System" or "mscorlib" or "netstandard"
+        || name.StartsWith("System.", StringComparison.Ordinal)
+        || name.StartsWith("Microsoft.Win32.", StringComparison.Ordinal)
+        || name.StartsWith("Microsoft.VisualBasic", StringComparison.Ordinal)
+        || name.StartsWith("Microsoft.CSharp", StringComparison.Ordinal);
 }

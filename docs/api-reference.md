@@ -28,6 +28,7 @@ argument optional (`AtProtoClientOptions`: `InstanceUrl`, `UserAgent`, `RateLimi
 | `Space` | `SpaceClient` | `com.atproto.space.*` permissioned data |
 | `SimpleSpace` | `SimpleSpaceClient` | `com.atproto.simplespace.*` space management |
 | `Temp` | `TempClient` | `com.atproto.temp.*`: handle availability, signup queue, scope references |
+| `Lexicon` | `LexiconClient` | `com.atproto.lexicon.*`: Lexicon resolution through the service |
 | `Bsky` | `BlueskyClients` | `app.bsky.*` sub-clients |
 | `Chat` | `ChatClients` | `chat.bsky.*` sub-clients |
 | `Ozone` | `OzoneClient` | `tools.ozone.*` sub-clients |

@@ -56,7 +56,7 @@ public sealed class SpaceTypeDeclaration
     public required string Key { get; init; }
 
     /// <summary>
-    /// The human-readable name shown to users on OAuth consent screens (1–64 characters).
+    /// The human-readable name shown to users on OAuth consent screens. The space proposal sets no length limit.
     /// </summary>
     [JsonPropertyName("name")]
     public required string Name { get; init; }

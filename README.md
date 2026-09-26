@@ -23,7 +23,7 @@ The SDK is in `0.*` because, while it's near feature-complete, it's mostly vibe-
 - **Streaming** — typed firehose consumer with CID/signature verification, plus a Jetstream consumer (v1 and v2 wire protocols) with server-side collection/DID/kind filtering; both with reconnect and cursor persistence. Jetstream v2 also backfills from the network archive and cuts over into the live tail with no gap.
 - **Spaces (permissioned data, alpha)** — AT Protocol's second data protocol: access-controlled `space:` records with LtHash set-hash commits, DPoP-bound space credentials, incremental sync with full-state recovery, and `simplespace` management — on both sides, with `ATProtoNet.Server` serving a space as an authority or a repo host. See [Spaces](docs/spaces.md).
 - **Repository internals** — MST (including covering proofs), CAR v1 read *and* write, DAG-CBOR, signed commit objects, `did:plc` operation building, PLC directory client, P-256/K-256 crypto.
-- **Lexicon tooling** — `atproto-lexgen` `dotnet tool` for bidirectional Lexicon JSON ↔ C#, schema diffing, and publishing.
+- **Lexicon tooling** — `atproto-lexgen` `dotnet tool` for bidirectional Lexicon JSON ↔ C#, linting (permission sets included) and diffing, and publishing schemas to and resolving them from the network; `LexiconResolver` resolves and verifies published schemas at run time.
 
 ## Install
 

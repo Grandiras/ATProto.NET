@@ -86,6 +86,8 @@ public class TypedIdentifierGuardTests
             "No Lexicon format: the PDS writes `admin` for codes minted by the administrator.",
         ["ATProtoNet.Lexicon.Com.AtProto.Admin.AdminClient.DisableInviteCodesAsync(accounts)"] =
             "No Lexicon format: the accounts whose codes to disable, including `admin`.",
+        ["ATProtoNet.Lexicon.Com.AtProto.Lexicon.LexiconPermission.Collection"] = PublishedPermission,
+        ["ATProtoNet.Lexicon.Com.AtProto.Lexicon.LexiconPermission.Lxm"] = PublishedPermission,
         ["ATProtoNet.AtProtoClient.SetLabelers(labelerDids)"] =
             "Header entries: a labeler DID, optionally followed by the `;redact` parameter.",
 
@@ -156,6 +158,9 @@ public class TypedIdentifierGuardTests
     };
 
     private const string ChatRev = "No Lexicon format: an opaque revision string of the chat service.";
+
+    private const string PublishedPermission =
+        "NSIDs as a permission set publishes them, which may include values an authorization server has to ignore ('*'); parsing them would make the whole set unreadable.";
 
     private const string OzoneSubjectFilter =
         "Lexicon format `uri`: an account subject is a bare DID, a record subject an AT URI.";

@@ -1,6 +1,4 @@
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -31,7 +29,6 @@ public sealed class HandleResolver : IHandleResolver, IDisposable
 
     // Same-host redirects (http→https, a trailing slash) a well-known may take before answering.
     private const int MaxWellKnownRedirects = 3;
-    private const int MaxDnsResponseBytes = 64 * 1024;
 
     private static readonly HashSet<string> ReservedTlds = new(StringComparer.Ordinal)
     {
@@ -202,19 +199,12 @@ public sealed class HandleResolver : IHandleResolver, IDisposable
     private async Task<Did?> ResolveViaDnsAsync(
         Handle handle, Uri endpoint, CancellationToken attemptToken, CancellationToken callerToken)
     {
-        var url = new Uri($"{endpoint.GetLeftPart(UriPartial.Path).TrimEnd('/')}?name=_atproto.{handle.Value}&type=TXT");
-
-        DnsJsonResponse? response;
+        IReadOnlyList<string>? records;
         try
         {
-            var result = await IdentityFetch.GetAsync(
-                _httpClient, url, "application/dns-json", MaxDnsResponseBytes, Timeout.InfiniteTimeSpan, did: null, attemptToken)
+            records = await DnsTxtLookup.QueryAsync(
+                _httpClient, endpoint, $"_atproto.{handle.Value}", Timeout.InfiniteTimeSpan, attemptToken)
                 .ConfigureAwait(false);
-
-            if (!result.IsSuccess)
-                return null;
-
-            response = JsonSerializer.Deserialize<DnsJsonResponse>(result.Body.Span);
         }
         catch (OperationCanceledException) when (callerToken.IsCancellationRequested)
         {
@@ -227,13 +217,8 @@ public sealed class HandleResolver : IHandleResolver, IDisposable
         }
 
         Did? found = null;
-        foreach (var answer in response?.Answer ?? [])
+        foreach (var text in records ?? [])
         {
-            // TXT type is 16; a CNAME along the way is also listed.
-            if (answer is null || answer.Type is not (null or 16) || answer.Data is null)
-                continue;
-
-            var text = JoinCharacterStrings(answer.Data);
             if (!text.StartsWith("did=", StringComparison.Ordinal))
                 continue;
 
@@ -253,51 +238,10 @@ public sealed class HandleResolver : IHandleResolver, IDisposable
         return found;
     }
 
-    /// <summary>
-    /// Reassembles a TXT record's text from the JSON API's presentation form, where each
-    /// character-string is quoted and a long record may be split into several.
-    /// </summary>
-    private static string JoinCharacterStrings(string data)
-    {
-        data = data.Trim();
-        if (!data.StartsWith('"'))
-            return data;
-
-        var text = new StringBuilder(data.Length);
-        var inQuotes = false;
-        for (var i = 0; i < data.Length; i++)
-        {
-            var c = data[i];
-            if (c == '"')
-                inQuotes = !inQuotes;
-            else if (c == '\\' && inQuotes && i + 1 < data.Length)
-                text.Append(data[++i]);
-            else if (inQuotes)
-                text.Append(c);
-        }
-
-        return text.ToString();
-    }
-
     /// <inheritdoc/>
     public void Dispose()
     {
         if (_ownsHttpClient)
             _httpClient.Dispose();
-    }
-
-    private sealed class DnsJsonResponse
-    {
-        [JsonPropertyName("Answer")]
-        public List<DnsJsonAnswer?>? Answer { get; set; }
-    }
-
-    private sealed class DnsJsonAnswer
-    {
-        [JsonPropertyName("type")]
-        public int? Type { get; set; }
-
-        [JsonPropertyName("data")]
-        public string? Data { get; set; }
     }
 }

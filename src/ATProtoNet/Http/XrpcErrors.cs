@@ -105,6 +105,11 @@ public static class XrpcErrors
     /// <summary>The blob does not exist in the repository.</summary>
     public const string BlobNotFound = "BlobNotFound";
 
+    // ─── Lexicons ──────────────────────────────────────────────────────
+
+    /// <summary><c>resolveLexicon</c>: no Lexicon schema was resolved for the NSID.</summary>
+    public const string LexiconNotFound = "LexiconNotFound";
+
     /// <summary>
     /// The generic name XRPC gives an HTTP status, used when a response carried no error body.
     /// </summary>

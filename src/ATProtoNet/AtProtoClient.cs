@@ -24,6 +24,7 @@ using ATProtoNet.Lexicon.App.Bsky.Video;
 using ATProtoNet.Lexicon.Com.AtProto.Admin;
 using ATProtoNet.Lexicon.Com.AtProto.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Label;
+using ATProtoNet.Lexicon.Com.AtProto.Lexicon;
 using ATProtoNet.Lexicon.Com.AtProto.Moderation;
 using ATProtoNet.Lexicon.Com.AtProto.Repo;
 using ATProtoNet.Lexicon.Com.AtProto.Server;
@@ -152,6 +153,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         Space = new SpaceClient(_xrpc);
         SimpleSpace = new SimpleSpaceClient(_xrpc);
         Temp = new TempClient(_xrpc);
+        Lexicon = new LexiconClient(_xrpc);
 
         Bsky = new BlueskyClients(
             new ActorClient(_xrpc),
@@ -231,6 +233,12 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// queue, OAuth scope references.
     /// </summary>
     public TempClient Temp { get; }
+
+    /// <summary>
+    /// com.atproto.lexicon.* — Lexicon resolution through the service. To resolve and verify
+    /// schemas locally, use <see cref="LexiconResolver"/>.
+    /// </summary>
+    public LexiconClient Lexicon { get; }
 
     /// <summary>app.bsky.* — Bluesky social application APIs.</summary>
     public BlueskyClients Bsky { get; }

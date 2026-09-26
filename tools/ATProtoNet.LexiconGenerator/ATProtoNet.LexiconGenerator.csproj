@@ -6,8 +6,19 @@
     <!-- dotnet tool packaging -->
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>atproto-lexgen</ToolCommandName>
-    <Description>Bidirectional code generator for AT Protocol Lexicon schemas: Lexicon JSON ↔ C# classes. Generate C# from Lexicon, Lexicon from C#, and diff schemas for breaking changes.</Description>
+    <Description>Command-line tool for AT Protocol Lexicon schemas: generate C# from Lexicon and Lexicon from C#, lint and diff schemas, and publish and resolve them on the network.</Description>
     <PackageTags>atproto;lexicon;codegen;schema;at-protocol;dotnet-tool</PackageTags>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ATProtoNet.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Publishing and resolving go through the SDK: login, putRecord, and the verified
+         Lexicon resolver. Assemblies under inspection are loaded in a context of their own
+         (AssemblyInspection), so they bind to their own copy of the SDK, not this one. -->
+    <ProjectReference Include="..\..\src\ATProtoNet\ATProtoNet.csproj" />
+  </ItemGroup>
 
 </Project>

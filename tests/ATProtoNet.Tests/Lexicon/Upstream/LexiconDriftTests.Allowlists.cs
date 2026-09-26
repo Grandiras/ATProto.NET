@@ -94,6 +94,7 @@ public partial class LexiconDriftTests
         [typeof(AtProto.Sync.AccountEvent)] = "com.atproto.sync.subscribeRepos#account",
         [typeof(AtProto.Sync.InfoEvent)] = "com.atproto.sync.subscribeRepos#info",
         [typeof(AtProto.Temp.HandleSuggestion)] = "com.atproto.temp.checkHandleAvailability#suggestion",
+        [typeof(AtProto.Lexicon.ResolvedLexicon)] = "com.atproto.lexicon.resolveLexicon#output",
 
         [typeof(Site.Document.DocumentContributor)] = "site.standard.document#contributor",
         [typeof(Site.Publication.PublicationPreferences)] = "site.standard.publication#preferences",
@@ -115,6 +116,10 @@ public partial class LexiconDriftTests
     {
         [typeof(DataModel.BlobRef)] = "The data model's blob, not a Lexicon def.",
         [typeof(DataModel.CidLink)] = "The data model's CID link, not a Lexicon def.",
+        [typeof(AtProto.Lexicon.LexiconPermissionSet)] =
+            "A permission-set definition: part of the Lexicon language, which is not itself described in Lexicon.",
+        [typeof(AtProto.Lexicon.LexiconPermission)] =
+            "A permission of a permission-set definition: part of the Lexicon language, which is not itself described in Lexicon.",
         [typeof(AtProto.Identity.DidService)] =
             "A did:plc service entry; the Lexicon types a PLC operation's services as unknown.",
         [typeof(AtProto.Sync.FirehoseEvent)] =
@@ -135,7 +140,16 @@ public partial class LexiconDriftTests
     /// JSON names a model uses that its upstream def does not declare, keyed
     /// <c>Namespace.Type.jsonName</c> (without the <c>ATProtoNet.</c> prefix), and why.
     /// </summary>
-    private static readonly Dictionary<string, string> UnknownProperties = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, string> UnknownProperties = new(StringComparer.Ordinal)
+    {
+        ["Lexicon.Com.AtProto.Lexicon.LexiconSchemaRecord.id"] = LexiconFileField,
+        ["Lexicon.Com.AtProto.Lexicon.LexiconSchemaRecord.revision"] = LexiconFileField,
+        ["Lexicon.Com.AtProto.Lexicon.LexiconSchemaRecord.description"] = LexiconFileField,
+        ["Lexicon.Com.AtProto.Lexicon.LexiconSchemaRecord.defs"] = LexiconFileField,
+    };
+
+    private const string LexiconFileField =
+        "The meta-schema declares only 'lexicon'; the Lexicon spec's publication section has a schema record carry the fields of a Lexicon file.";
 
     /// <summary>
     /// Upstream properties a model deliberately does not declare, keyed like

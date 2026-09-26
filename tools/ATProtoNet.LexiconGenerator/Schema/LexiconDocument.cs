@@ -31,7 +31,7 @@ public sealed class LexiconDocument
 /// A single schema node in a Lexicon document. The <see cref="Type"/> field determines
 /// which other properties are meaningful (flat union — mirrors the JSON representation).
 /// 
-/// Definition types: record, space, query, procedure, subscription, object, string, token, boolean, integer, blob, array, ref, union.
+/// Definition types: record, space, query, procedure, subscription, permission-set, object, string, token, boolean, integer, blob, array, ref, union.
 /// Property types: string, integer, boolean, blob, bytes, array, ref, union, object, unknown, cid-link.
 /// </summary>
 public sealed class LexiconSchema
@@ -64,6 +64,27 @@ public sealed class LexiconSchema
     /// </summary>
     [JsonPropertyName("collections")]
     public List<string>? Collections { get; set; }
+
+    // ── permission-set ───────────────────────────────────────
+    /// <summary>A short name for the permission set, shown to users.</summary>
+    [JsonPropertyName("title")]
+    public string? Title { get; set; }
+
+    /// <summary>Localized <see cref="Title"/> values, keyed by language code.</summary>
+    [JsonPropertyName("title:lang")]
+    public Dictionary<string, string>? LocalizedTitles { get; set; }
+
+    /// <summary>What the permission set grants, shown to users.</summary>
+    [JsonPropertyName("detail")]
+    public string? Detail { get; set; }
+
+    /// <summary>Localized <see cref="Detail"/> values, keyed by language code.</summary>
+    [JsonPropertyName("detail:lang")]
+    public Dictionary<string, string>? LocalizedDetails { get; set; }
+
+    /// <summary>The permissions a permission set grants.</summary>
+    [JsonPropertyName("permissions")]
+    public List<LexiconPermission>? Permissions { get; set; }
 
     // ── object ───────────────────────────────────────────────
     [JsonPropertyName("required")]
@@ -148,6 +169,46 @@ public sealed class LexiconSchema
 
     [JsonPropertyName("maxSize")]
     public long? MaxSize { get; set; }
+}
+
+/// <summary>
+/// One permission of a <c>permission-set</c> definition. Which fields apply depends on
+/// <see cref="Resource"/>; see https://atproto.com/specs/permission.
+/// </summary>
+public sealed class LexiconPermission
+{
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "";
+
+    [JsonPropertyName("resource")]
+    public string Resource { get; set; } = "";
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    /// <summary><c>repo</c>: the record collections (NSIDs).</summary>
+    [JsonPropertyName("collection")]
+    public List<string>? Collection { get; set; }
+
+    /// <summary><c>repo</c>: the record operations allowed; all of them when absent.</summary>
+    [JsonPropertyName("action")]
+    public List<string>? Action { get; set; }
+
+    /// <summary><c>rpc</c>: the XRPC methods (NSIDs).</summary>
+    [JsonPropertyName("lxm")]
+    public List<string>? Lxm { get; set; }
+
+    /// <summary><c>rpc</c>: the audience; in a permission set only <c>*</c>.</summary>
+    [JsonPropertyName("aud")]
+    public string? Aud { get; set; }
+
+    /// <summary><c>rpc</c>: take the audience from the <c>include:</c> scope instead.</summary>
+    [JsonPropertyName("inheritAud")]
+    public bool? InheritAud { get; set; }
+
+    /// <summary>Parameters this model does not name — a linter finding, since servers ignore such a permission.</summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? OtherParameters { get; set; }
 }
 
 /// <summary>

@@ -1,0 +1,86 @@
+{
+  "generator": {
+    "@atproto/repo": "0.10.14",
+    "@atproto/crypto": "0.5.5",
+    "@atproto/lex-resolver": "0.3.0"
+  },
+  "did": "did:plc:lexiconvectorlexiconvect",
+  "signingKey": "did:key:zQ3shRAqqLZ7SFzXLeAUcuB4uw3LZ59FjACLagnBLW4u92UBc",
+  "pds": "https://pds.example.com",
+  "didDocument": {
+    "@context": [
+      "https://www.w3.org/ns/did/v1",
+      "https://w3id.org/security/multikey/v1",
+      "https://w3id.org/security/suites/secp256k1-2019/v1"
+    ],
+    "id": "did:plc:lexiconvectorlexiconvect",
+    "alsoKnownAs": [
+      "at://lexicons.example.com"
+    ],
+    "verificationMethod": [
+      {
+        "id": "did:plc:lexiconvectorlexiconvect#atproto",
+        "type": "Multikey",
+        "controller": "did:plc:lexiconvectorlexiconvect",
+        "publicKeyMultibase": "zQ3shRAqqLZ7SFzXLeAUcuB4uw3LZ59FjACLagnBLW4u92UBc"
+      }
+    ],
+    "service": [
+      {
+        "id": "#atproto_pds",
+        "type": "AtprotoPersonalDataServer",
+        "serviceEndpoint": "https://pds.example.com"
+      }
+    ]
+  },
+  "commit": "bafyreicrbfwi52xpxsk2dq3t5nubpoxkanlm6q4x73qkicst5fwco4hype",
+  "rev": "3m7fmkxcn5d2a",
+  "lexicons": {
+    "com.example.lexicon.post": {
+      "recordCid": "bafyreibleucvt34j2gzwyzpamdn4vcqvwoheqhqdhn57qqivqkgfjwvfdy",
+      "car": "OqJlcm9vdHOB2CpYJQABcRIgUQlsjurvvJWhw3PraBe66gNWz0OX/uCkClPpbCdw+HlndmVyc2lvbgHgAQFxEiBRCWyO6u+8laHDc+toF7rqA1bPQ5f+4KQKU+lsJ3D4eaZjZGlkeCBkaWQ6cGxjOmxleGljb252ZWN0b3JsZXhpY29udmVjdGNyZXZtM203Zm1reGNuNWQyYWNzaWdYQAPZ3KZ3plFYMDqtuXI2xicYhqT8CG2XrAF1cFB0+3lSf9WAQvrLNMRoDQfnebTAtVc0q5L76aCUXl7FjHgjPghkZGF0YdgqWCUAAXESIOGfBaJ3v7GxPSZhtEUd1kafytMnQVdHKgbwyQoBnybdZHByZXb2Z3ZlcnNpb24D4AIBcRIg4Z8Fone/sbE9JmG0RR3WRp/K0ydBV0cqBvDJCgGfJt2iYWWCpGFrWDdjb20uYXRwcm90by5sZXhpY29uLnNjaGVtYS9jb20uZXhhbXBsZS5sZXhpY29uLm1pc21hdGNoYXAAYXTYKlglAAFxEiCEdPXeN+P44t/gplfY3JiU8FDNXuiAFEi3XjrC18xXr2F22CpYJQABcRIgfQxJhKGqgqEemgigkIc2qWWc3Kxus3kkFgyIzZO1YT+kYWtYGmV4YW1wbGUubm90ZS8zbGVuYXgyc3MyMjIyYXAEYXTYKlglAAFxEiC9JoGl4MeZFJLMPUqmx/Jo1h8dD1aLSlyHdfiRGUP6sWF22CpYJQABcRIgIxgWoy1yur56P6oBEa7KVj1B3nO3tXVyfGamzbco0kFhbNgqWCUAAXESIFPC5sxCgZp1CKjcvLNHEQLtShX95QVIwtAL9/jYGEijlAEBcRIghHT13jfj+OLf4KZX2NyYlPBQzV7ogBRIt146wtfMV6+iYWWBpGFrWDNjb20uYXRwcm90by5sZXhpY29uLnNjaGVtYS9jb20uZXhhbXBsZS5sZXhpY29uLnBvc3RhcABhdPZhdtgqWCUAAXESICslBVnvidGzbGXgYNvKihWzjkgeAzt7+EEVgoxU2qUeYWz2rAIBcRIgKyUFWe+J0bNsZeBg28qKFbOOSB4DO3v4QRWCjFTapR6lYmlkeBhjb20uZXhhbXBsZS5sZXhpY29uLnBvc3RkZGVmc6FkbWFpbqNja2V5Y3RpZGR0eXBlZnJlY29yZGZyZWNvcmSjZHR5cGVmb2JqZWN0aHJlcXVpcmVkgmR0ZXh0aWNyZWF0ZWRBdGpwcm9wZXJ0aWVzomR0ZXh0omR0eXBlZnN0cmluZ2ltYXhMZW5ndGgZASxpY3JlYXRlZEF0omR0eXBlZnN0cmluZ2Zmb3JtYXRoZGF0ZXRpbWVlJHR5cGV4GmNvbS5hdHByb3RvLmxleGljb24uc2NoZW1hZ2xleGljb24Ba2Rlc2NyaXB0aW9uc0EgdGVzdCBwb3N0IHJlY29yZC4=",
+      "reference": {
+        "ok": true,
+        "uri": "at://did:plc:lexiconvectorlexiconvect/com.atproto.lexicon.schema/com.example.lexicon.post",
+        "cid": "bafyreibleucvt34j2gzwyzpamdn4vcqvwoheqhqdhn57qqivqkgfjwvfdy",
+        "lexiconId": "com.example.lexicon.post"
+      }
+    },
+    "com.example.lexicon.authBasic": {
+      "recordCid": "bafyreifaauqak7wnmabf6ympoqokw7tfpaa5ir6rmvhmibytcmwfkyg7lu",
+      "car": "OqJlcm9vdHOB2CpYJQABcRIgUQlsjurvvJWhw3PraBe66gNWz0OX/uCkClPpbCdw+HlndmVyc2lvbgHgAQFxEiBRCWyO6u+8laHDc+toF7rqA1bPQ5f+4KQKU+lsJ3D4eaZjZGlkeCBkaWQ6cGxjOmxleGljb252ZWN0b3JsZXhpY29udmVjdGNyZXZtM203Zm1reGNuNWQyYWNzaWdYQAPZ3KZ3plFYMDqtuXI2xicYhqT8CG2XrAF1cFB0+3lSf9WAQvrLNMRoDQfnebTAtVc0q5L76aCUXl7FjHgjPghkZGF0YdgqWCUAAXESIOGfBaJ3v7GxPSZhtEUd1kafytMnQVdHKgbwyQoBnybdZHByZXb2Z3ZlcnNpb24D4AIBcRIg4Z8Fone/sbE9JmG0RR3WRp/K0ydBV0cqBvDJCgGfJt2iYWWCpGFrWDdjb20uYXRwcm90by5sZXhpY29uLnNjaGVtYS9jb20uZXhhbXBsZS5sZXhpY29uLm1pc21hdGNoYXAAYXTYKlglAAFxEiCEdPXeN+P44t/gplfY3JiU8FDNXuiAFEi3XjrC18xXr2F22CpYJQABcRIgfQxJhKGqgqEemgigkIc2qWWc3Kxus3kkFgyIzZO1YT+kYWtYGmV4YW1wbGUubm90ZS8zbGVuYXgyc3MyMjIyYXAEYXTYKlglAAFxEiC9JoGl4MeZFJLMPUqmx/Jo1h8dD1aLSlyHdfiRGUP6sWF22CpYJQABcRIgIxgWoy1yur56P6oBEa7KVj1B3nO3tXVyfGamzbco0kFhbNgqWCUAAXESIFPC5sxCgZp1CKjcvLNHEQLtShX95QVIwtAL9/jYGEijUwFxEiBTwubMQoGadQio3LyzRxEC7UoV/eUFSMLQC/f42BhIo6JhZYBhbNgqWCUAAXESIM74dRclx40DFD2oXBI+ztb+NKZcMh/5XiL0gMS6VVtr1gEBcRIgzvh1FyXHjQMUPahcEj7O1v40plwyH/leIvSAxLpVW2uiYWWCpGFrWDhjb20uYXRwcm90by5sZXhpY29uLnNjaGVtYS9jb20uZXhhbXBsZS5sZXhpY29uLmF1dGhCYXNpY2FwAGF09mF22CpYJQABcRIgoAUgBX7NYAJfYY90HKt+ZXgB1EfRZU7EBxMTLFVg312kYWtHYmFkVHlwZWFwGC9hdPZhdtgqWCUAAXESIGLq49xMHEi9XgUQxK+QlSt1nrxSWS5IDoG7d9LEHuHOYWz2hgMBcRIgoAUgBX7NYAJfYY90HKt+ZXgB1EfRZU7EBxMTLFVg312kYmlkeB1jb20uZXhhbXBsZS5sZXhpY29uLmF1dGhCYXNpY2RkZWZzoWRtYWlupWR0eXBlbnBlcm1pc3Npb24tc2V0ZXRpdGxlbUJhc2ljIHBvc3RpbmdmZGV0YWlseBhDcmVhdGUgYW5kIGRlbGV0ZSBwb3N0cy5qdGl0bGU6bGFuZ6FiZGVwRWluZmFjaGVzIFBvc3RlbmtwZXJtaXNzaW9uc4KjZHR5cGVqcGVybWlzc2lvbmhyZXNvdXJjZWRyZXBvamNvbGxlY3Rpb26BeBhjb20uZXhhbXBsZS5sZXhpY29uLnBvc3SkY2x4bYF4HGNvbS5leGFtcGxlLmxleGljb24uZ2V0UG9zdHNkdHlwZWpwZXJtaXNzaW9uaHJlc291cmNlY3JwY2ppbmhlcml0QXVk9WUkdHlwZXgaY29tLmF0cHJvdG8ubGV4aWNvbi5zY2hlbWFnbGV4aWNvbgE=",
+      "reference": {
+        "ok": true,
+        "uri": "at://did:plc:lexiconvectorlexiconvect/com.atproto.lexicon.schema/com.example.lexicon.authBasic",
+        "cid": "bafyreifaauqak7wnmabf6ympoqokw7tfpaa5ir6rmvhmibytcmwfkyg7lu",
+        "lexiconId": "com.example.lexicon.authBasic"
+      }
+    },
+    "com.example.lexicon.mismatch": {
+      "recordCid": "bafyreid5breyjinkqkqr5gqiuciionvjmwonzldown4sifqmrdgzhnlbh4",
+      "car": "OqJlcm9vdHOB2CpYJQABcRIgUQlsjurvvJWhw3PraBe66gNWz0OX/uCkClPpbCdw+HlndmVyc2lvbgHgAQFxEiBRCWyO6u+8laHDc+toF7rqA1bPQ5f+4KQKU+lsJ3D4eaZjZGlkeCBkaWQ6cGxjOmxleGljb252ZWN0b3JsZXhpY29udmVjdGNyZXZtM203Zm1reGNuNWQyYWNzaWdYQAPZ3KZ3plFYMDqtuXI2xicYhqT8CG2XrAF1cFB0+3lSf9WAQvrLNMRoDQfnebTAtVc0q5L76aCUXl7FjHgjPghkZGF0YdgqWCUAAXESIOGfBaJ3v7GxPSZhtEUd1kafytMnQVdHKgbwyQoBnybdZHByZXb2Z3ZlcnNpb24D4AIBcRIg4Z8Fone/sbE9JmG0RR3WRp/K0ydBV0cqBvDJCgGfJt2iYWWCpGFrWDdjb20uYXRwcm90by5sZXhpY29uLnNjaGVtYS9jb20uZXhhbXBsZS5sZXhpY29uLm1pc21hdGNoYXAAYXTYKlglAAFxEiCEdPXeN+P44t/gplfY3JiU8FDNXuiAFEi3XjrC18xXr2F22CpYJQABcRIgfQxJhKGqgqEemgigkIc2qWWc3Kxus3kkFgyIzZO1YT+kYWtYGmV4YW1wbGUubm90ZS8zbGVuYXgyc3MyMjIyYXAEYXTYKlglAAFxEiC9JoGl4MeZFJLMPUqmx/Jo1h8dD1aLSlyHdfiRGUP6sWF22CpYJQABcRIgIxgWoy1yur56P6oBEa7KVj1B3nO3tXVyfGamzbco0kFhbNgqWCUAAXESIFPC5sxCgZp1CKjcvLNHEQLtShX95QVIwtAL9/jYGEijrQIBcRIgfQxJhKGqgqEemgigkIc2qWWc3Kxus3kkFgyIzZO1YT+lYmlkeBljb20uZXhhbXBsZS5sZXhpY29uLm90aGVyZGRlZnOhZG1haW6jY2tleWN0aWRkdHlwZWZyZWNvcmRmcmVjb3Jko2R0eXBlZm9iamVjdGhyZXF1aXJlZIJkdGV4dGljcmVhdGVkQXRqcHJvcGVydGllc6JkdGV4dKJkdHlwZWZzdHJpbmdpbWF4TGVuZ3RoGQEsaWNyZWF0ZWRBdKJkdHlwZWZzdHJpbmdmZm9ybWF0aGRhdGV0aW1lZSR0eXBleBpjb20uYXRwcm90by5sZXhpY29uLnNjaGVtYWdsZXhpY29uAWtkZXNjcmlwdGlvbnNBIHRlc3QgcG9zdCByZWNvcmQu",
+      "reference": {
+        "ok": false,
+        "error": "Invalid document id \"com.example.lexicon.other\" at at://did:plc:lexiconvectorlexiconvect/com.atproto.lexicon.schema/com.example.lexicon.mismatch (com.example.lexicon.mismatch)"
+      }
+    },
+    "com.example.lexicon.badType": {
+      "recordCid": "bafyreidc5lr5yta4jc6v4biqysxzbfjlowplyuszfzea5an3o7jmihxbzy",
+      "car": "OqJlcm9vdHOB2CpYJQABcRIgUQlsjurvvJWhw3PraBe66gNWz0OX/uCkClPpbCdw+HlndmVyc2lvbgHgAQFxEiBRCWyO6u+8laHDc+toF7rqA1bPQ5f+4KQKU+lsJ3D4eaZjZGlkeCBkaWQ6cGxjOmxleGljb252ZWN0b3JsZXhpY29udmVjdGNyZXZtM203Zm1reGNuNWQyYWNzaWdYQAPZ3KZ3plFYMDqtuXI2xicYhqT8CG2XrAF1cFB0+3lSf9WAQvrLNMRoDQfnebTAtVc0q5L76aCUXl7FjHgjPghkZGF0YdgqWCUAAXESIOGfBaJ3v7GxPSZhtEUd1kafytMnQVdHKgbwyQoBnybdZHByZXb2Z3ZlcnNpb24D4AIBcRIg4Z8Fone/sbE9JmG0RR3WRp/K0ydBV0cqBvDJCgGfJt2iYWWCpGFrWDdjb20uYXRwcm90by5sZXhpY29uLnNjaGVtYS9jb20uZXhhbXBsZS5sZXhpY29uLm1pc21hdGNoYXAAYXTYKlglAAFxEiCEdPXeN+P44t/gplfY3JiU8FDNXuiAFEi3XjrC18xXr2F22CpYJQABcRIgfQxJhKGqgqEemgigkIc2qWWc3Kxus3kkFgyIzZO1YT+kYWtYGmV4YW1wbGUubm90ZS8zbGVuYXgyc3MyMjIyYXAEYXTYKlglAAFxEiC9JoGl4MeZFJLMPUqmx/Jo1h8dD1aLSlyHdfiRGUP6sWF22CpYJQABcRIgIxgWoy1yur56P6oBEa7KVj1B3nO3tXVyfGamzbco0kFhbNgqWCUAAXESIFPC5sxCgZp1CKjcvLNHEQLtShX95QVIwtAL9/jYGEijUwFxEiBTwubMQoGadQio3LyzRxEC7UoV/eUFSMLQC/f42BhIo6JhZYBhbNgqWCUAAXESIM74dRclx40DFD2oXBI+ztb+NKZcMh/5XiL0gMS6VVtr1gEBcRIgzvh1FyXHjQMUPahcEj7O1v40plwyH/leIvSAxLpVW2uiYWWCpGFrWDhjb20uYXRwcm90by5sZXhpY29uLnNjaGVtYS9jb20uZXhhbXBsZS5sZXhpY29uLmF1dGhCYXNpY2FwAGF09mF22CpYJQABcRIgoAUgBX7NYAJfYY90HKt+ZXgB1EfRZU7EBxMTLFVg312kYWtHYmFkVHlwZWFwGC9hdPZhdtgqWCUAAXESIGLq49xMHEi9XgUQxK+QlSt1nrxSWS5IDoG7d9LEHuHOYWz2qgIBcRIgYurj3EwcSL1eBRDEr5CVK3WevFJZLkgOgbt30sQe4c6lYmlkeBtjb20uZXhhbXBsZS5sZXhpY29uLmJhZFR5cGVkZGVmc6FkbWFpbqNja2V5Y3RpZGR0eXBlZnJlY29yZGZyZWNvcmSjZHR5cGVmb2JqZWN0aHJlcXVpcmVkgmR0ZXh0aWNyZWF0ZWRBdGpwcm9wZXJ0aWVzomR0ZXh0omR0eXBlZnN0cmluZ2ltYXhMZW5ndGgZASxpY3JlYXRlZEF0omR0eXBlZnN0cmluZ2Zmb3JtYXRoZGF0ZXRpbWVlJHR5cGV2Y29tLmV4YW1wbGUubm90QVNjaGVtYWdsZXhpY29uAWtkZXNjcmlwdGlvbnNBIHRlc3QgcG9zdCByZWNvcmQu",
+      "reference": {
+        "ok": false,
+        "error": "Failed to verify Lexicon record proof at at://did:plc:lexiconvectorlexiconvect/com.atproto.lexicon.schema/com.example.lexicon.badType (com.example.lexicon.badType)",
+        "cause": "Invalid record type: expected com.atproto.lexicon.schema, got com.example.notASchema"
+      }
+    },
+    "com.example.lexicon.missing": {
+      "recordCid": null,
+      "car": "OqJlcm9vdHOB2CpYJQABcRIgUQlsjurvvJWhw3PraBe66gNWz0OX/uCkClPpbCdw+HlndmVyc2lvbgHgAQFxEiBRCWyO6u+8laHDc+toF7rqA1bPQ5f+4KQKU+lsJ3D4eaZjZGlkeCBkaWQ6cGxjOmxleGljb252ZWN0b3JsZXhpY29udmVjdGNyZXZtM203Zm1reGNuNWQyYWNzaWdYQAPZ3KZ3plFYMDqtuXI2xicYhqT8CG2XrAF1cFB0+3lSf9WAQvrLNMRoDQfnebTAtVc0q5L76aCUXl7FjHgjPghkZGF0YdgqWCUAAXESIOGfBaJ3v7GxPSZhtEUd1kafytMnQVdHKgbwyQoBnybdZHByZXb2Z3ZlcnNpb24D4AIBcRIg4Z8Fone/sbE9JmG0RR3WRp/K0ydBV0cqBvDJCgGfJt2iYWWCpGFrWDdjb20uYXRwcm90by5sZXhpY29uLnNjaGVtYS9jb20uZXhhbXBsZS5sZXhpY29uLm1pc21hdGNoYXAAYXTYKlglAAFxEiCEdPXeN+P44t/gplfY3JiU8FDNXuiAFEi3XjrC18xXr2F22CpYJQABcRIgfQxJhKGqgqEemgigkIc2qWWc3Kxus3kkFgyIzZO1YT+kYWtYGmV4YW1wbGUubm90ZS8zbGVuYXgyc3MyMjIyYXAEYXTYKlglAAFxEiC9JoGl4MeZFJLMPUqmx/Jo1h8dD1aLSlyHdfiRGUP6sWF22CpYJQABcRIgIxgWoy1yur56P6oBEa7KVj1B3nO3tXVyfGamzbco0kFhbNgqWCUAAXESIFPC5sxCgZp1CKjcvLNHEQLtShX95QVIwtAL9/jYGEijlAEBcRIghHT13jfj+OLf4KZX2NyYlPBQzV7ogBRIt146wtfMV6+iYWWBpGFrWDNjb20uYXRwcm90by5sZXhpY29uLnNjaGVtYS9jb20uZXhhbXBsZS5sZXhpY29uLnBvc3RhcABhdPZhdtgqWCUAAXESICslBVnvidGzbGXgYNvKihWzjkgeAzt7+EEVgoxU2qUeYWz2",
+      "reference": {
+        "ok": false,
+        "error": "Failed to verify Lexicon record proof at at://did:plc:lexiconvectorlexiconvect/com.atproto.lexicon.schema/com.example.lexicon.missing (com.example.lexicon.missing)",
+        "cause": "Record not found in proof"
+      }
+    }
+  }
+}

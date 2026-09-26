@@ -35,6 +35,8 @@
     <None Include="Crypto/TestData/*.json" CopyToOutputDirectory="PreserveNewest" />
     <!-- Reference-implementation repository vectors (see Repo/TestData/README.md). -->
     <None Include="Repo/TestData/*.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Reference-implementation Lexicon resolution vectors (see Lexicon/TestData/README.md). -->
+    <None Include="Lexicon/TestData/*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

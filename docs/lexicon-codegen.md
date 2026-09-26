@@ -1,6 +1,8 @@
 # Lexicon Code Generator
 
-ATProto.NET includes `atproto-lexgen`, a bidirectional `dotnet tool` for working with AT Protocol Lexicon schemas.
+ATProto.NET includes `atproto-lexgen`, a `dotnet tool` for working with AT Protocol Lexicon schemas: it
+generates C# from Lexicon JSON and Lexicon JSON from C#, lints and diffs schemas, and publishes them to
+and resolves them from the network.
 
 ## Installation
 
@@ -14,9 +16,10 @@ dotnet tool install -g ATProtoNet.LexiconGenerator
 |---------|-------------|
 | `atproto-lexgen csharp` | Generate C# classes from Lexicon JSON schemas |
 | `atproto-lexgen lexicon` | Generate Lexicon JSON from .NET assemblies |
+| `atproto-lexgen lint` | Check Lexicon schemas, permission sets included |
 | `atproto-lexgen diff` | Compare Lexicon schemas and detect breaking changes |
-| `atproto-lexgen migrate` | Scaffold or apply record migrations |
-| `atproto-lexgen publish` | Publish schemas with version tracking |
+| `atproto-lexgen publish` | Publish schemas as `com.atproto.lexicon.schema` records in your repository |
+| `atproto-lexgen resolve` | Fetch published schemas by NSID |
 
 ## Generate C# from Lexicons
 
@@ -31,7 +34,7 @@ This generates:
 - `[JsonPropertyName]` attributes for JSON serialization
 - `record` defs as subclasses of `AtProtoRecord` that implement `IAtProtoRecord` (a static `Collection`), so they drop straight into `client.GetCollection<T>()`
 - `$type` expression-body properties
-- Support for all Lexicon types: record, space, object, string enum, token, ref, union, array, blob
+- Support for all Lexicon types: record, space, permission-set, object, string enum, token, ref, union, array, blob
 
 A definition type outside the Lexicon vocabulary is reported as a `WARN` line naming the NSID and
 the type, rather than silently producing nothing. `query`, `procedure`, and `subscription` defs are
@@ -46,6 +49,7 @@ across the whole input set, so generating documents one at a time loses type inf
 |---------|--------------|
 | `record` def | `sealed class XRecord : AtProtoRecord` (`createdAt` comes from the base class) |
 | `space` def | `static class XSpace` holding the `SpaceTypeDeclaration` (see [Space type declarations](#space-type-declarations)) |
+| `permission-set` def | `static class X` with the NSID and an `Include(aud)` scope helper (see [Permission sets](#permission-sets)) |
 | ref to a def in the same run | that generated type |
 | ref to a `com.atproto.*` / `app.bsky.*` def the SDK already models | the SDK type (e.g. `app.bsky.embed.defs#aspectRatio` → `ATProtoNet.Lexicon.App.Bsky.Embed.AspectRatio`) |
 | ref that cannot be resolved | `JsonElement?` plus a `WARN` line naming the ref |
@@ -103,11 +107,15 @@ enclosing type or another member (a `blob` property `image` inside def `image` b
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using ATProtoNet;
+using ATProtoNet.Identity;
 
 namespace MyApp.Lexicon.Com.Example.Todo;
 
-public sealed class ItemRecord : AtProtoRecord
+public sealed class ItemRecord : AtProtoRecord, IAtProtoRecord
 {
+    /// <inheritdoc />
+    public static Nsid Collection { get; } = Nsid.Parse("com.example.todo.item");
+
     /// <inheritdoc />
     [JsonPropertyName("$type")]
     public override string Type => "com.example.todo.item";
@@ -125,10 +133,10 @@ public sealed class ItemRecord : AtProtoRecord
 
     // Constraints: format: datetime
     [JsonPropertyName("dueDate")]
-    public string? DueDate { get; init; }
+    public AtDatetime? DueDate { get; init; }
 
     [JsonPropertyName("tags")]
-    public List<string>? Tags { get; init; }
+    public IReadOnlyList<string>? Tags { get; init; }
 }
 ```
 
@@ -187,7 +195,63 @@ consentScreen.Title = ForumSpace.Declaration.GetName(userLanguage);
 
 `key`, `name`, and `collections` are `required` on `SpaceTypeDeclaration`, so a declaration that
 omits one still generates code that compiles — `"any"`, the raw NSID, and an empty collection set —
-and a `WARN` line names the field that was substituted for.
+and a `WARN` line names the field that was substituted for. A `collections` entry that is not an
+NSID — `*` in particular, which the space proposal forbids — is left out of the declaration with a
+`WARN` line. The proposal sets no length limit on `name`, so none is checked.
+
+### Permission sets
+
+A [permission set](https://atproto.com/specs/permission#permission-sets) bundles the permissions an
+app requests with one `include:` OAuth scope. Its Lexicon generates a static holder of the NSID and a
+helper that builds that scope:
+
+```json
+{
+  "lexicon": 1,
+  "id": "com.example.todo.authFull",
+  "defs": {
+    "main": {
+      "type": "permission-set",
+      "title": "Manage your to-do list",
+      "detail": "Create, edit and delete to-do items, and read your lists through the to-do service.",
+      "permissions": [
+        { "type": "permission", "resource": "repo", "collection": ["com.example.todo.item"] },
+        { "type": "permission", "resource": "rpc", "inheritAud": true, "lxm": ["com.example.todo.getLists"] }
+      ]
+    }
+  }
+}
+```
+
+```csharp
+/// <summary>
+/// Manage your to-do list
+/// </summary>
+/// <remarks>
+/// AT Protocol permission set <c>com.example.todo.authFull</c>, requested with the <c>include:com.example.todo.authFull</c> OAuth scope.
+/// Create, edit and delete to-do items, and read your lists through the to-do service.
+/// </remarks>
+public static class AuthFull
+{
+    /// <summary>The permission set NSID.</summary>
+    public const string Nsid = "com.example.todo.authFull";
+
+    /// <summary>The <c>include:</c> OAuth scope that requests this permission set.</summary>
+    public static string Include(string? aud = null) => global::ATProtoNet.Auth.OAuth.AtProtoScopes.Include(Nsid, aud);
+}
+```
+
+```csharp
+var scope = AtProtoScopes.Combine(
+    AtProtoScopes.AtProto,
+    AuthFull.Include("did:web:todo.example.com#todo_service"));
+// include:com.example.todo.authFull?aud=did:web:todo.example.com%23todo_service
+```
+
+The `aud` is passed to the set's `inheritAud` permissions; without it they grant nothing. Before
+asking for a set, an app can check that it is published and resolves — see
+[Resolving lexicons](did-resolution.md#resolving-lexicons). `atproto-lexgen lint` checks the set
+itself.
 
 ## Generate Lexicons from C# Assemblies
 
@@ -197,11 +261,39 @@ Reverse-generate Lexicon JSON schemas from compiled .NET types:
 atproto-lexgen lexicon --assembly ./bin/Debug/net10.0/MyApp.dll --output ./lexicons
 ```
 
-Record types are found by their `[JsonPropertyName("$type")]` discriminator. **Space types** are
+The assembly is loaded into a context of its own, so it binds to its own dependencies — its own
+copy of the SDK included — rather than to the ones the tool ships with. Record types are found by
+their `[JsonPropertyName("$type")]` discriminator. **Space types** are
 found by their declaration: any public static `SpaceTypeDeclaration` on a type that also carries an
 `Nsid` (or `SpaceType`) string constant — the shape the `csharp` command generates above, so a space
 type round-trips through both directions. A declaration with no NSID constant to attribute it to is
 reported as a `WARN` rather than guessed at.
+
+## Lint Schemas
+
+Check schema files against the Lexicon and permission specifications:
+
+```bash
+atproto-lexgen lint --input ./lexicons
+```
+
+| Rule | Severity |
+|------|----------|
+| `id` is a valid NSID, and the document has definitions | error |
+| primary types (`record`, `query`, `procedure`, `subscription`, `permission-set`, `space`) are the `main` definition | error |
+| no `null` type anywhere (removed from the Lexicon language) | error |
+| a definition type outside the Lexicon vocabulary | warning |
+| a `space` def's `collections` lists NSIDs, never `*` | warning |
+| permission sets have `permissions`; a set without a `title` or with no permissions | error / warning |
+| permission sets hold only `repo` and `rpc` permissions: `blob`, `account` and `identity` must be requested directly | error |
+| no wildcards in `collection` or `lxm` | error |
+| every `collection` and `lxm` NSID is in the set's own NSID group or below it — `app.example.feed.authPosts` may name `app.example.feed.post`, not `app.example.actor.profile` | error |
+| `action` values are `create`, `update` or `delete`, without repeats | error |
+| an `rpc` permission has `aud: "*"` or `inheritAud: true` — never a service DID, and never both | error |
+| a resource or parameter authorization servers do not know (they drop the whole permission) | warning |
+
+Errors exit with code 1; `--strict` makes warnings fail too. `publish` runs the same checks and
+refuses to publish over an error.
 
 ## Compare Schemas (Diff)
 
@@ -232,115 +324,72 @@ Use `--strict` mode for CI pipelines — exits with code 1 on breaking changes:
 atproto-lexgen diff --baseline ./baseline --current ./current --strict
 ```
 
-## Schema Migrations
+## Publish Schemas
 
-`atproto-lexgen migrate` has two modes, selected by which options you pass.
-
-### Scaffold Migrations
-
-Passing `--baseline` and `--current` compares two schema directories and generates migration stubs
-from the diff:
+Publish schemas as `com.atproto.lexicon.schema` records, keyed by NSID, in the repository of the
+account you sign in as:
 
 ```bash
-atproto-lexgen migrate --baseline ./v1 --current ./v2
+export ATPROTO_PASSWORD=xxxx-xxxx-xxxx-xxxx   # an app password
+atproto-lexgen publish --input ./lexicons --identifier lexicons.example.com
 ```
 
-### Migration File Format
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `-i`, `--input <dir>` | (required) | Directory of Lexicon `.json` files |
+| `-u`, `--identifier <id>` | `ATPROTO_IDENTIFIER` | The account's handle or DID (an email address works with `--pds`) |
+| `--pds <url>` | `ATPROTO_PDS_URL`, else looked up | The account's PDS. The password is sent only over HTTPS, or plain HTTP to a PDS on this machine; a PDS looked up from the DID document is held to the same rule |
+| `--force` | off | Publish breaking changes too |
 
-```json
-{
-  "nsid": "com.example.todo.item",
-  "fromRevision": 1,
-  "toRevision": 2,
-  "description": "Add tags, drop the legacy field",
-  "operations": [
-    { "op": "addProperty", "name": "tags", "default": [] },
-    { "op": "removeProperty", "name": "oldField" },
-    { "op": "renameProperty", "from": "dueDate", "to": "deadline" }
-  ]
-}
+The password comes from `ATPROTO_PASSWORD`, or a prompt that does not echo when the terminal is
+interactive; it is never taken as an argument, where it would end up in shell history and process
+lists. The session is ended when the command finishes.
+
+Before writing anything, `publish`:
+
+- lints the schemas and stops on errors;
+- compares each schema with the version already published: an identical one is skipped (`SAME`), and
+  a change that breaks the [Lexicon evolution rules](https://atproto.com/specs/lexicon#lexicon-evolution)
+  stops the whole run (`REFUSE`) unless `--force` is given. A breaking change belongs under a new NSID.
+
+An update names the record it replaces, so a concurrent change is not overwritten unseen.
+
+Resolvers find a schema through a DNS TXT record for its NSID *authority* — the NSID without its last
+segment, reversed. `app.example.feed.post` belongs to `feed.example.app`, whose record is:
+
+```
+_lexicon.feed.example.app.  TXT  "did=did:plc:…"
 ```
 
-### Apply Migrations
+Resolution is not hierarchical: every authority needs its own record. After publishing, the command
+checks the record of each authority it published to and prints `OK`, `MISSING` (with the record to
+create), `MISMATCH` (it names another DID) or `UNKNOWN` (the lookup failed).
 
-Passing `--input`, `--nsid`, `--from`, and `--to` runs the migration chain over a JSON file of
-records. `--migrations` points at the directory holding the migration files; `--output` defaults to
-stdout:
+The old `publish`, which copied files into a directory after a diff, is gone: keep published copies
+under version control and use `diff --strict` against them.
+
+## Resolve Schemas
+
+Fetch published schemas by NSID:
 
 ```bash
-atproto-lexgen migrate \
-  --input records.json --output migrated.json \
-  --nsid com.example.todo.item --from 1 --to 2 \
-  --migrations ./migrations
+atproto-lexgen resolve site.standard.document
+atproto-lexgen resolve app.bsky.feed.post app.bsky.actor.profile --output ./lexicons
 ```
 
-### Programmatic Migrations
+Each NSID is resolved as the Lexicon specification describes and the record is verified against the
+authority's signing key (see [Resolving lexicons](did-resolution.md#resolving-lexicons)). Without
+`--output` the schema is printed as a Lexicon file; with it each one is written to
+`<dir>/<nsid path>.json`. `--did <did>` reads from that repository and skips DNS, for a schema whose
+`_lexicon` record is not published yet.
 
-The migration types live in the generator tool's own assembly
-(`ATProtoNet.LexiconGenerator.Migrations`), so this API is available when you reference that project
-rather than through the runtime SDK packages.
+## Removed: `migrate`
 
-```csharp
-using System.Text.Json.Nodes;
-using ATProtoNet.LexiconGenerator.Migrations;
-
-// Fluent migration builder — a migration is scoped to one NSID and revision step
-ILexiconMigration migration = new MigrationBuilder("com.example.todo.item", 1, 2)
-    .WithDescription("Add tags, drop the legacy field")
-    .AddProperty("tags", new JsonArray())
-    .RemoveProperty("oldField")
-    .RenameProperty("dueDate", "deadline")
-    .Build();
-
-// Transform a record in place
-migration.Transform(record);   // record is a JsonObject
-```
-
-### Migration Runner
-
-The runner chains migrations across revisions and reports per-record results:
-
-```csharp
-var runner = new LexiconMigrationRunner()
-    .AddMigration(migration)
-    .AddMigration(new DelegateMigration(
-        "com.example.todo.item", 2, 3,
-        record => record["archived"] = false));
-
-MigrationResult result = runner.Migrate(
-    "com.example.todo.item", fromRevision: 1, toRevision: 3, records);
-
-Console.WriteLine($"{result.SuccessCount} migrated, {result.FailureCount} failed");
-foreach (var error in result.Errors)
-    Console.WriteLine($"  record {error.RecordIndex}: {error.Message}");
-```
-
-`records` is a list of JSON strings, and `result.MigratedRecords` holds the transformed output in the
-same order. `CanMigrate(nsid, from, to)` checks whether a complete chain exists before running one.
-
-## Publishing Schemas
-
-Publish schemas to a directory with version tracking:
-
-```bash
-# Publish with automatic revision bump for non-breaking changes
-atproto-lexgen publish --input ./lexicons --output ./published --baseline ./published
-
-# Publish from a compiled assembly instead of JSON files
-atproto-lexgen publish --assembly ./bin/Debug/net10.0/MyApp.dll --output ./published
-
-# Force publish even with breaking changes
-atproto-lexgen publish --input ./lexicons --output ./published --baseline ./published --force
-
-# Publish without bumping the revision
-atproto-lexgen publish --input ./lexicons --output ./published --no-bump
-```
-
-The publisher:
-- Validates against the baseline diff
-- Auto-increments revision numbers for non-breaking changes
-- Detects and warns on breaking changes
-- Tracks versions in the published directory
+`atproto-lexgen migrate` was removed in 0.7.0. It transformed local JSON files between schema
+"revisions" with add/remove/rename operations, and scaffolded stubs from a diff that it only printed.
+The Lexicon evolution rules leave nothing for it to do: new fields must be optional, fields are never
+removed, renamed or retyped, and a breaking change needs a new NSID — so records written under one
+revision of a schema stay valid under the next. Use `diff --strict` in CI to keep it that way.
 
 ## Lexicon Plugin Packages
 
