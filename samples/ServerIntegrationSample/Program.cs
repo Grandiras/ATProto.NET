@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using ATProtoNet.Blazor;
 using ATProtoNet.Server;
+using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using ServerIntegrationSample.Components;
@@ -20,7 +21,8 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.ExpireTimeSpan = TimeSpan.FromDays(7);
     });
 
-// 2. Register AT Proto OAuth for the Blazor login (auto-generates a loopback client_id for development)
+// 2. Register the AT Proto OAuth login (ATProtoNet.Server). Without ClientMetadata it is a
+//    development loopback client on the server's plain HTTP address (see launchSettings.json).
 builder.Services.AddAtProtoAuthentication(options =>
 {
     options.ClientName = "ATProto.NET Server Integration Sample";
@@ -28,9 +30,13 @@ builder.Services.AddAtProtoAuthentication(options =>
 });
 
 // 3. Register AT Proto Server (enables backend AT Proto access via IAtProtoClientFactory)
-//    This also registers IAtProtoSessionStore, which the Blazor OAuth service
-//    automatically uses to store the session after login and revoke it on logout.
+//    This also registers IAtProtoSessionStore, which the OAuth login uses to store the session
+//    after login and revoke it on logout.
 builder.Services.AddAtProtoServer();
+
+// 4. Register the Blazor components' client: FeedView, PostCard, ProfileCard and ComposePost
+//    act as the signed-in user through it.
+builder.Services.AddAtProtoBlazor();
 
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddAuthorizationCore();
@@ -52,7 +58,7 @@ app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-// 4. Map AT Proto OAuth endpoints: /atproto/login, /atproto/callback, /atproto/logout
+// 5. Map AT Proto OAuth endpoints: /atproto/login, /atproto/callback, /atproto/relay, /atproto/logout
 app.MapAtProtoOAuth();
 
 // ─────────────────────────────────────────────

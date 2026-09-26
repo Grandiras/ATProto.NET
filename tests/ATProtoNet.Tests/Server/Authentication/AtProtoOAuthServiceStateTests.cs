@@ -1,13 +1,13 @@
 using System.Net;
 using ATProtoNet.Auth.OAuth;
-using ATProtoNet.Blazor.Authentication;
+using ATProtoNet.Server.Authentication;
 using ATProtoNet.Tests.Auth;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using static ATProtoNet.Tests.Auth.SessionKit;
 
-namespace ATProtoNet.Tests.Auth.OAuth;
+namespace ATProtoNet.Tests.Server.Authentication;
 
 /// <summary>
 /// How the Blazor OAuth service keeps pending logins: in the state store it is given, limited

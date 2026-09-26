@@ -42,40 +42,33 @@ builder.Services.AddAtProtoScoped(options =>
 });
 ```
 
-## JWT Authentication Handler
+## Authentication
 
-Validate AT Protocol JWTs on incoming requests:
+`ATProtoNet.Server` authenticates two kinds of caller:
 
-> This handler accepts a user's PDS access token and checks it against one PDS. To accept calls
-> from other AT Protocol services — a feed generator, labeler or AppView called through a PDS — use
-> service auth instead: see
-> [Serving XRPC to other services](xrpc-handlers.md#serving-xrpc-to-other-services).
+- **Users**, with the OAuth cookie login: `AddAtProtoAuthentication()` and `MapAtProtoOAuth()`
+  sign a user in with their AT Protocol account and an ordinary authentication cookie (see
+  [OAuth: Hosted Login](oauth.md#hosted-login-aspnet-core) and the
+  [multi-user pattern](#multi-user-pattern-oauth) below).
+- **Other services and apps**, with service auth: `AddAuthentication().AddAtProtoServiceAuth(...)`
+  verifies the service auth token a feed generator, labeler, AppView or PDS-proxied app sends, bound
+  to the XRPC method it calls (see
+  [Serving XRPC to other services](xrpc-handlers.md#serving-xrpc-to-other-services)).
 
 ```csharp
 using ATProtoNet.Server.Authentication;
 
 builder.Services.AddAuthentication()
-    .AddAtProto(options =>
-    {
-        options.PdsUrl = "https://your-pds.example.com";
-    });
-
+    .AddAtProtoServiceAuth(o => o.Audiences.Add("did:web:api.example.com#my_service"));
 builder.Services.AddAuthorization();
+
+app.MapXrpcEndpoints().RequireServiceAuth();
 ```
 
-The default scheme name is `AtProtoAuthenticationExtensions.DefaultScheme` (`"ATProto"`); pass your
-own as the first argument to `AddAtProto` if you need a different one.
-
-Then protect endpoints:
-
-```csharp
-app.MapGet("/api/protected", [Authorize(AuthenticationSchemes = "ATProto")]
-    (ClaimsPrincipal user) =>
-{
-    var did = user.FindFirstValue("did");
-    return Results.Ok(new { did });
-});
-```
+Both put the caller's DID in the `did` claim (`AtProtoClaimTypes.Did`), but only the OAuth login's
+identity reaches the account's stored session through `IAtProtoClientFactory`: a service auth
+token is good for the one method it names, not for acting as the account. A service does not
+accept its users' PDS access tokens: they are meant for the PDS alone.
 
 ## Controller Example: Custom App
 
@@ -208,11 +201,18 @@ app.Use(async (context, next) =>
 ## Multi-User Pattern (OAuth)
 
 For apps with OAuth-based user login (recommended), use `IAtProtoClientFactory`
-from the Server package, which handles DPoP keys, token storage, and per-user client creation:
+from the Server package, which handles DPoP keys, token storage, refresh coordination and per-user
+client creation:
 
 ```csharp
-builder.Services.AddAtProtoAuthentication(); // Blazor OAuth login
+using ATProtoNet.Server;
+using ATProtoNet.Server.Authentication;
+
+builder.Services.AddAuthentication("Cookies").AddCookie();
+builder.Services.AddAtProtoAuthentication(); // OAuth cookie login
 builder.Services.AddAtProtoServer();          // Session store + client factory
+
+app.MapAtProtoOAuth();
 
 // In endpoints or services:
 app.MapGet("/api/profile", async (ClaimsPrincipal user, IAtProtoClientFactory factory) =>

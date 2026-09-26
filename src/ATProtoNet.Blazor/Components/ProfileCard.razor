@@ -1,58 +1,81 @@
-@if (Profile is not null)
+@inject AtProtoUserClientAccessor UserClient
+@inject ILogger<ProfileCard> Logger
+
+@if (Shown is { } profile)
 {
     <div class="atproto-profile-card @CssClass">
-        @if (ShowBanner && Profile.Banner is not null)
+        @if (ShowBanner && profile.Banner is not null)
         {
             <div class="atproto-profile-banner">
-                <img src="@Profile.Banner" alt="Banner" loading="lazy" />
+                <img src="@profile.Banner" alt="Banner" loading="lazy" />
             </div>
         }
 
         <div class="atproto-profile-info">
-            @if (Profile.Avatar is not null)
+            @if (profile.Avatar is not null)
             {
-                <img class="atproto-profile-avatar" src="@Profile.Avatar"
-                     alt="@(Profile.DisplayName ?? Profile.Handle.Value)"
+                <img class="atproto-profile-avatar" src="@profile.Avatar"
+                     alt="@(profile.DisplayName ?? profile.Handle.Value)"
                      loading="lazy" />
             }
             else
             {
                 <div class="atproto-profile-avatar-placeholder">
-                    @(Profile.Handle.Value.FirstOrDefault())
+                    @(profile.Handle.Value.FirstOrDefault())
                 </div>
             }
 
             <div class="atproto-profile-names">
-                @if (Profile.DisplayName is not null)
+                @if (profile.DisplayName is not null)
                 {
-                    <span class="atproto-profile-displayname">@Profile.DisplayName</span>
+                    <span class="atproto-profile-displayname">@profile.DisplayName</span>
                 }
-                <span class="atproto-profile-handle">@@@Profile.Handle</span>
+                <span class="atproto-profile-handle">@@@profile.Handle</span>
             </div>
         </div>
 
-        @if (ShowDescription && Profile.Description is not null)
+        @if (ShowDescription && profile.Description is not null)
         {
-            <p class="atproto-profile-description">@Profile.Description</p>
+            <p class="atproto-profile-description">@profile.Description</p>
         }
 
         @if (ShowStats)
         {
             <div class="atproto-profile-stats">
-                <span><strong>@(Profile.FollowersCount ?? 0)</strong> followers</span>
-                <span><strong>@(Profile.FollowsCount ?? 0)</strong> following</span>
-                <span><strong>@(Profile.PostsCount ?? 0)</strong> posts</span>
+                <span><strong>@(profile.FollowersCount ?? 0)</strong> followers</span>
+                <span><strong>@(profile.FollowsCount ?? 0)</strong> following</span>
+                <span><strong>@(profile.PostsCount ?? 0)</strong> posts</span>
             </div>
         }
 
         @ChildContent
     </div>
 }
+else if (_loading)
+{
+    <div class="atproto-profile-card atproto-profile-loading @CssClass">
+        <p>Loading profile…</p>
+    </div>
+}
+else if (_error is not null)
+{
+    <div class="atproto-profile-card atproto-profile-error @CssClass" role="alert">
+        <p>@_error</p>
+    </div>
+}
 
 @code {
-    /// <summary>The profile to display.</summary>
-    [Parameter, EditorRequired]
-    public ProfileViewDetailed? Profile { get; set; }
+    /// <summary>
+    /// The profile to display. When set, it is shown as given and <see cref="Actor"/> is not
+    /// looked up.
+    /// </summary>
+    [Parameter] public ProfileViewDetailed? Profile { get; set; }
+
+    /// <summary>
+    /// The account to show, by handle or DID, when no <see cref="Profile"/> is given: its profile
+    /// is fetched as the signed-in user.
+    /// </summary>
+    [Parameter] public AtIdentifier? Actor { get; set; }
 
     /// <summary>Whether to show the banner image.</summary>
     [Parameter] public bool ShowBanner { get; set; } = true;
@@ -68,4 +91,65 @@
 
     /// <summary>Optional child content rendered at the bottom of the card.</summary>
     [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// The authentication state, when the app cascades it: a new one (a sign-in, a sign-out)
+    /// fetches the profile again.
+    /// </summary>
+    [CascadingParameter] private Task<AuthenticationState>? AuthenticationState { get; set; }
+
+    private ProfileViewDetailed? _loaded;
+    private (AtIdentifier Actor, Task<AuthenticationState>? Auth)? _requested;
+    private bool _loading;
+    private string? _error;
+
+    private ProfileViewDetailed? Shown => Profile ?? _loaded;
+
+    /// <inheritdoc/>
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Profile is not null || Actor is null)
+        {
+            _loaded = null;
+            _requested = null;
+            _error = null;
+            return;
+        }
+
+        // Fetched again only for another actor or authentication state, or when the last attempt
+        // did not load it (signed out, or failed).
+        var request = (Actor, AuthenticationState);
+        if (_requested == request && (_loading || _loaded is not null))
+            return;
+
+        _requested = request;
+        var actor = Actor;
+        _loaded = null;
+        _error = null;
+        _loading = true;
+
+        try
+        {
+            var client = await UserClient.GetClientAsync();
+            var profile = client is null ? null : await client.Bsky.Actor.GetProfileAsync(actor);
+
+            if (_requested != request)
+                return;
+
+            _loaded = profile;
+            if (profile is null)
+                _error = "Sign in to see this profile.";
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Logger.LogWarning(ex, "Loading the profile of {Actor} failed", actor);
+            if (_requested == request)
+                _error = "Couldn't load the profile.";
+        }
+        finally
+        {
+            if (_requested == request)
+                _loading = false;
+        }
+    }
 }

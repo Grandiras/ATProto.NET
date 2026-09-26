@@ -32,8 +32,8 @@ public sealed class CallerOutput
     public static Task<CallerOutput> From(HttpContext context) => Task.FromResult(new CallerOutput
     {
         Did = context.User.Identity?.Name,
-        Lxm = context.User.FindFirst(AtProtoServiceAuthDefaults.LexiconMethodClaimType)?.Value,
-        Aud = context.User.FindFirst(AtProtoServiceAuthDefaults.AudienceClaimType)?.Value,
+        Lxm = context.User.FindFirst(AtProtoClaimTypes.LexiconMethod)?.Value,
+        Aud = context.User.FindFirst(AtProtoClaimTypes.Audience)?.Value,
     });
 }
 
@@ -121,7 +121,7 @@ public sealed class ServiceAuthSchemeTests : IDisposable
                 services.AddAuthentication()
                     .AddAtProtoServiceAuth(configure ?? (o => o.Audiences.Add(Audience)));
                 services.AddAuthorization(o =>
-                    o.AddPolicy(OnlyAlice, p => p.RequireClaim(AtProtoServiceAuthDefaults.DidClaimType, "did:plc:alice")));
+                    o.AddPolicy(OnlyAlice, p => p.RequireClaim(AtProtoClaimTypes.Did, "did:plc:alice")));
                 services.AddXrpcEndpoint<ServiceAuthWhoAmI>();
                 services.AddXrpcEndpoint<ServiceAuthUnmarked>();
                 services.AddXrpcEndpoint<ServiceAuthAnonymous>();

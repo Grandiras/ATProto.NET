@@ -172,6 +172,64 @@ public class FileAtProtoSessionStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task ReadsDuringRewrites_AlwaysSeeAWholeSession()
+    {
+        // Reads take no lock: a reader must still never see a missing or half-written file while
+        // the same account's session is being replaced.
+        await _store.SetAsync(TestSession() with { AccessToken = "v0" });
+        using var readersDone = new CancellationTokenSource();
+        var writing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var writers = Enumerable.Range(1, 4).Select(w => Task.Run(async () =>
+        {
+            for (var i = 0; !readersDone.IsCancellationRequested; i++)
+            {
+                await _store.SetAsync(TestSession() with { AccessToken = $"w{w}-{i}" });
+                writing.TrySetResult();
+            }
+        })).ToList();
+        var readers = Enumerable.Range(0, 16).Select(_ => Task.Run(async () =>
+        {
+            await writing.Task;
+            for (var i = 0; i < 100; i++)
+            {
+                var session = Assert.IsType<OAuthSession>(await _store.GetAsync(Alice));
+                Assert.StartsWith(session.AccessToken == "v0" ? "v0" : "w", session.AccessToken);
+            }
+        })).ToList();
+
+        try
+        {
+            await Task.WhenAll(readers);
+        }
+        finally
+        {
+            readersDone.Cancel();
+            await Task.WhenAll(writers);
+        }
+
+        Assert.Single(Directory.GetFiles(_testDir, "*.dat"));
+        Assert.Empty(Directory.GetFiles(_testDir, "*.tmp"));
+    }
+
+    [Fact]
+    public async Task ConcurrentWritesAndRemovals_OfOneAccount_LeaveOneOutcome()
+    {
+        await Task.WhenAll(Enumerable.Range(0, 32).Select(i => Task.Run(async () =>
+        {
+            if (i % 2 == 0)
+                await _store.SetAsync(TestSession() with { AccessToken = $"t{i}" });
+            else
+                await _store.RemoveAsync(Alice);
+        })));
+
+        // Whatever the order, the store holds a whole session or none, and nothing half-written.
+        var stored = await _store.GetAsync(Alice);
+        Assert.True(stored is null || ((OAuthSession)stored).AccessToken.StartsWith('t'));
+        Assert.Empty(Directory.GetFiles(_testDir, "*.tmp"));
+    }
+
+    [Fact]
     public async Task StoredSession_IsReadableByANewStoreInstance()
     {
         await _store.SetAsync(TestSession());

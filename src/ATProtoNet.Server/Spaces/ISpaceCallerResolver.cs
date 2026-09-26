@@ -30,8 +30,8 @@ public interface ISpaceCallerResolver
 /// <see cref="ClaimsPrincipal"/>.
 /// </summary>
 /// <remarks>
-/// It looks for a <c>did</c> claim first — the one
-/// <see cref="Authentication.AtProtoAuthenticationHandler"/> issues — and falls back to
+/// It looks for a <c>did</c> claim first — <see cref="Authentication.AtProtoClaimTypes.Did"/>,
+/// which the OAuth login and service auth issue — and falls back to
 /// <see cref="ClaimTypes.NameIdentifier"/>. Either way the value must parse as a DID; a handle
 /// is rejected, because a handle can be reassigned and would silently transfer ownership of a
 /// space.

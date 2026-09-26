@@ -1,0 +1,169 @@
+/*
+ * Minimal default styles for the ATProtoNet.Blazor components. Opt in with
+ *   <link rel="stylesheet" href="_content/ATProtoNet.Blazor/atproto-components.css" />
+ * Every rule targets the components' own atproto-* classes, and the colours come from the
+ * custom properties below, so an application restyles them by setting those on :root or on a
+ * container, or by leaving this file out and styling the classes itself.
+ */
+:root {
+    --atproto-muted: #6b7280;
+    --atproto-border: #e5e7eb;
+    --atproto-accent: #0a7aff;
+    --atproto-danger: #dc2626;
+    --atproto-radius: 0.5rem;
+    --atproto-gap: 0.75rem;
+}
+
+.atproto-feed {
+    display: flex;
+    flex-direction: column;
+    gap: var(--atproto-gap);
+}
+
+.atproto-feed-loading,
+.atproto-feed-signed-out,
+.atproto-feed-empty,
+.atproto-profile-loading {
+    color: var(--atproto-muted);
+}
+
+.atproto-feed-error,
+.atproto-profile-error,
+.atproto-post-error,
+.atproto-compose-error {
+    color: var(--atproto-danger);
+}
+
+.atproto-post,
+.atproto-profile-card,
+.atproto-compose {
+    border: 1px solid var(--atproto-border);
+    border-radius: var(--atproto-radius);
+    padding: var(--atproto-gap);
+}
+
+.atproto-post-header,
+.atproto-profile-info {
+    display: flex;
+    align-items: center;
+    gap: var(--atproto-gap);
+}
+
+.atproto-post-avatar {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.atproto-post-author {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.atproto-post-displayname,
+.atproto-profile-displayname {
+    font-weight: 600;
+}
+
+.atproto-post-handle,
+.atproto-post-time,
+.atproto-profile-handle,
+.atproto-profile-stats,
+.atproto-compose-charcount {
+    color: var(--atproto-muted);
+    font-size: 0.875em;
+}
+
+.atproto-post-time {
+    margin-left: auto;
+}
+
+.atproto-post-text,
+.atproto-profile-description {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.atproto-embed-images {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+    gap: 0.25rem;
+}
+
+.atproto-embed-images img,
+.atproto-embed-external img,
+.atproto-profile-banner img {
+    width: 100%;
+    border-radius: var(--atproto-radius);
+    object-fit: cover;
+}
+
+.atproto-embed-external {
+    display: block;
+    border: 1px solid var(--atproto-border);
+    border-radius: var(--atproto-radius);
+    padding: 0.5rem;
+    color: inherit;
+    text-decoration: none;
+}
+
+.atproto-post-actions {
+    display: flex;
+    gap: var(--atproto-gap);
+}
+
+.atproto-post-action {
+    border: none;
+    background: none;
+    color: var(--atproto-muted);
+    cursor: pointer;
+}
+
+.atproto-post-action.active {
+    color: var(--atproto-accent);
+}
+
+.atproto-profile-avatar,
+.atproto-profile-avatar-placeholder {
+    width: 4rem;
+    height: 4rem;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.atproto-profile-avatar-placeholder {
+    display: grid;
+    place-items: center;
+    background: var(--atproto-border);
+    font-size: 1.5rem;
+    text-transform: uppercase;
+}
+
+.atproto-profile-names {
+    display: flex;
+    flex-direction: column;
+}
+
+.atproto-profile-stats {
+    display: flex;
+    gap: var(--atproto-gap);
+}
+
+.atproto-compose-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+}
+
+.atproto-compose-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+}
+
+.atproto-compose-charcount.over {
+    color: var(--atproto-danger);
+}

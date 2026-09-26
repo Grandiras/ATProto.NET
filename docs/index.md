@@ -35,7 +35,7 @@ If you want a map of how the packages compose, see **[Architecture](architecture
 - [Ozone Moderation](ozone.md) — `tools.ozone` moderation client
 
 ### Integration
-- [ASP.NET Core](aspnet-core.md) — dependency injection, authentication handler, controllers
+- [ASP.NET Core](aspnet-core.md) — dependency injection, authentication, controllers
 - [Server Integration](server.md) — `IAtProtoClientFactory`, token store, backend AT Proto access
 - [Blazor](blazor.md) — components, cookie-based OAuth login, interactive apps
 - [Aspire](aspire.md) — service defaults, health checks, resilience

@@ -1,13 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <PropertyGroup>
-    <Description>Blazor components and services for AT Protocol applications — login forms, profile cards, feeds, and auth state integration.</Description>
+    <Description>Blazor components for AT Protocol applications — login form, profile card, feed, post card and composer — acting as the signed-in user through ATProtoNet.Server.</Description>
     <PackageTags>atproto;bluesky;blazor;at-protocol;dotnet</PackageTags>
   </PropertyGroup>
-
-  <ItemGroup>
-    <SupportedPlatform Include="browser" />
-  </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="ATProtoNet.Tests" />

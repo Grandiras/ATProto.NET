@@ -17,6 +17,7 @@ namespace ATProtoNet.Auth.OAuth;
 public sealed class DPoPProofGenerator : IDisposable
 {
     private readonly AtProtoKey _key;
+    private readonly bool _ownsKey = true;
     private readonly byte[] _encodedHeader;
     private readonly string _thumbprint;
 
@@ -65,6 +66,30 @@ public sealed class DPoPProofGenerator : IDisposable
         _key = new AtProtoKey(ecdsa, KeyCurve.P256);
         _thumbprint = DPoP.Thumbprint(jwk);
         _encodedHeader = Jwt.EncodeHeader(DPoP.TokenType, KeyCurve.P256, jwk: jwk);
+    }
+
+    /// <summary>
+    /// A generator that signs with <paramref name="shared"/>'s key object without owning it:
+    /// disposing it stops it signing and leaves the key to its owner.
+    /// </summary>
+    private DPoPProofGenerator(DPoPProofGenerator shared)
+    {
+        _key = shared._key;
+        _ownsKey = false;
+        _thumbprint = shared._thumbprint;
+        _encodedHeader = shared._encodedHeader;
+    }
+
+    /// <summary>
+    /// A generator over this one's key that its holder may dispose, as a client disposes the key
+    /// of a session it lets go, while this one keeps signing: importing a key costs far more
+    /// than signing with it, so a key shared by many short-lived clients is imported once.
+    /// </summary>
+    /// <exception cref="ObjectDisposedException">This generator is disposed.</exception>
+    internal DPoPProofGenerator CreateView()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return new DPoPProofGenerator(this);
     }
 
     /// <summary>
@@ -183,7 +208,8 @@ public sealed class DPoPProofGenerator : IDisposable
         if (!_disposed)
         {
             _disposed = true;
-            _key.Dispose();
+            if (_ownsKey)
+                _key.Dispose();
         }
     }
 

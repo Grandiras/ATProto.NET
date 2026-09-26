@@ -1,7 +1,8 @@
 # Server-Side AT Protocol Integration
 
-ATProtoNet.Server provides tools for integrating AT Protocol access into ASP.NET Core applications.
-It works alongside ATProtoNet.Blazor to enable authenticated backend API calls using stored OAuth sessions.
+ATProtoNet.Server provides tools for integrating AT Protocol access into ASP.NET Core applications:
+the OAuth cookie login, and authenticated backend API calls with the stored OAuth sessions. The
+Blazor components in ATProtoNet.Blazor build on it.
 
 ## Quick Start
 
@@ -9,17 +10,22 @@ It works alongside ATProtoNet.Blazor to enable authenticated backend API calls u
 
 ```csharp
 // Program.cs
+using ATProtoNet.Server;
+using ATProtoNet.Server.Authentication;
+
 builder.Services.AddAuthentication("Cookies").AddCookie();
-builder.Services.AddAtProtoAuthentication();  // Blazor OAuth login
+builder.Services.AddAtProtoAuthentication();  // OAuth cookie login
 builder.Services.AddAtProtoServer();           // Backend AT Proto access
-builder.Services.AddCascadingAuthenticationState();
-builder.Services.AddAuthorizationCore();
+builder.Services.AddAuthorization();
 
 var app = builder.Build();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapAtProtoOAuth();
 ```
+
+See [OAuth: Hosted Login](oauth.md#hosted-login-aspnet-core) for the login's endpoints, claims
+(`AtProtoClaimTypes`) and production configuration.
 
 ### 2. Use in API Endpoints
 
@@ -36,20 +42,19 @@ app.MapGet("/api/profile", async (ClaimsPrincipal user, IAtProtoClientFactory fa
 
 ### 3. Use in Blazor Components
 
+`ATProtoNet.Blazor` registers a scoped client for the signed-in user (`AddAtProtoBlazor()`), which
+its widgets use and your components can too:
+
 ```razor
 @page "/profile"
-@using ATProtoNet.Server.Services
+@using ATProtoNet.Blazor
 @attribute [Authorize]
-@inject IAtProtoClientFactory ClientFactory
+@inject AtProtoUserClientAccessor UserClient
 
 @code {
-    [CascadingParameter]
-    private Task<AuthenticationState> AuthState { get; set; } = null!;
-
     protected override async Task OnInitializedAsync()
     {
-        var auth = await AuthState;
-        await using var client = await ClientFactory.CreateClientForUserAsync(auth.User);
+        var client = await UserClient.GetClientAsync();   // shared by the circuit; do not dispose
         if (client is null) return;
 
         var profile = await client.Bsky.Actor.GetProfileAsync(client.Session!.Did);
@@ -97,6 +102,7 @@ Key security points:
 - **Cookie is encrypted** by ASP.NET Core Data Protection.
 - **DPoP-bound tokens** — even if intercepted, tokens can't be used without the private key.
 - **Per-request clients** — `IAtProtoClientFactory` creates a new `AtProtoClient` per call, avoiding token leakage between requests.
+- **One refresh at a time per user** — the per-request clients refresh under the account's lock, so a single-use refresh token is spent once.
 
 ## `IAtProtoClientFactory`
 
@@ -114,11 +120,28 @@ public interface IAtProtoClientFactory
 ```
 
 Returns `null` when:
-- The user has no `did` claim (not authenticated)
-- No session is stored for the user's DID (not logged in via OAuth, signed out, or expired)
+- The principal carries no user of the OAuth login: an authenticated identity the login issued
+  (authentication type `ATProto`), or one with an `auth_method` claim of `oauth`, holding a `did`
+  (or `ClaimTypes.NameIdentifier`) claim
+- No session is stored for the user's DID (signed out, or expired)
 
-Each per-request client refreshes on its own: two concurrent requests for the same user that both
-find the access token expired each spend the refresh token, and the second is refused.
+Identities of other schemes are ignored. Service auth in particular issues the same `did` claim
+for whoever holds a token naming that DID, and such a caller must not act through the account's
+stored OAuth session; on an endpoint that accepts both schemes, the factory still returns the
+cookie user's client, or none. A principal you build yourself counts when it carries
+`auth_method` = `oauth` (`AtProtoClaimTypes.AuthMethod`).
+
+The clients refresh under the `ISessionRefreshCoordinator` that `AddAtProtoServer()` registers:
+when two requests for the same user both find the access token about to expire, one refreshes and
+stores the new tokens, and the other reads them from the store instead of spending the refresh token
+again (see [OAuth: Refreshing Across Requests](oauth.md#refreshing-across-requests)). The in-process
+coordinator covers one process; instances sharing a store need a distributed lock behind the
+interface. OAuth sessions are refreshed and revoked with the `OAuthClient` registered in dependency
+injection, which `AddAtProtoAuthentication()` provides.
+
+The factory keeps the imported DPoP key of each account it has recently served (up to 1,024), so a
+request does not pay for importing it again. A sign-out, a refused session, or a session found gone
+from the store drops and releases the account's key, so no client of that session signs with it again.
 
 The returned client is **disposable** — always use `await using`:
 
@@ -144,7 +167,8 @@ public interface IAtProtoSessionStore
 
 The default implementation stores each session as an encrypted file using ASP.NET Core Data
 Protection. Sessions persist across app restarts. Suitable for single-server deployments. Files
-written by the 0.6 `FileAtProtoTokenStore` are read as they are.
+written by the 0.6 `FileAtProtoTokenStore` are read as they are. Reads take no lock (a write
+replaces the file in one rename), and writes are serialized per account.
 
 ```csharp
 // Default — stores in {LocalApplicationData}/ATProtoNet/tokens/
@@ -273,10 +297,10 @@ public class MyService
 ## Sample
 
 See [samples/ServerIntegrationSample/](../samples/ServerIntegrationSample/) for a complete working example with:
-- Blazor OAuth login
-- Profile page using `IAtProtoClientFactory`
-- Timeline page with live AT Proto data
-- Minimal API endpoints (`/api/profile`, `/api/timeline`)
+- the OAuth cookie login and `LoginForm`
+- a profile page using `ProfileCard`
+- a timeline page using `ComposePost` and `FeedView`, whose posts can be liked and reposted
+- minimal API endpoints (`/api/profile`, `/api/timeline`) using `IAtProtoClientFactory`
 
 ## XRPC Endpoint Handlers
 

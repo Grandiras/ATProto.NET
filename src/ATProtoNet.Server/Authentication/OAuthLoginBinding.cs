@@ -6,7 +6,7 @@ using System.Text.Json.Serialization;
 using ATProtoNet.Auth.OAuth;
 using Microsoft.AspNetCore.Http;
 
-namespace ATProtoNet.Blazor.Authentication;
+namespace ATProtoNet.Server.Authentication;
 
 /// <summary>
 /// What a login's callback needs from its start, kept server-side as the pending authorization's
@@ -23,21 +23,49 @@ internal sealed record OAuthLoginState(
 {
     public string Serialize() => JsonSerializer.Serialize(this);
 
+    /// <summary>
+    /// Reads the state back, checking it again: it comes from a state store, which may be shared
+    /// with other applications or tampered with, and decides where the browser is redirected.
+    /// </summary>
+    /// <returns>
+    /// The state, with a return URL that is not local dropped; <see langword="null"/> when there is
+    /// none, it is malformed, or its origin is not a bare <c>http</c> or <c>https</c> origin.
+    /// </returns>
     public static OAuthLoginState? TryParse(string? json)
     {
         if (string.IsNullOrEmpty(json))
             return null;
 
+        OAuthLoginState? state;
         try
         {
-            return JsonSerializer.Deserialize<OAuthLoginState>(json) is { Origin.Length: > 0, BindingHash.Length: > 0 } state
-                ? state
-                : null;
+            state = JsonSerializer.Deserialize<OAuthLoginState>(json);
         }
         catch (JsonException)
         {
             return null;
         }
+
+        if (state is not { Origin.Length: > 0, BindingHash.Length: > 0 } || !IsOrigin(state.Origin))
+            return null;
+
+        return OAuthLoginBinding.IsLocalUrl(state.ReturnUrl) ? state : state with { ReturnUrl = null };
+    }
+
+    /// <summary>
+    /// Whether <paramref name="value"/> is an <c>http</c> or <c>https</c> origin and nothing more:
+    /// scheme, host and optional port, with no user info, path, query or fragment.
+    /// </summary>
+    private static bool IsOrigin(string value)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
+        {
+            return false;
+        }
+
+        var authority = value[(value.IndexOf("://", StringComparison.Ordinal) + 3)..];
+        return authority.Length > 0 && authority.IndexOfAny(['/', '\\', '?', '#', '@']) < 0;
     }
 }
 

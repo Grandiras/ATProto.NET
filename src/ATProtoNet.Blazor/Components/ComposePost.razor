@@ -1,3 +1,7 @@
+@using System.Globalization
+@inject AtProtoUserClientAccessor UserClient
+@inject ILogger<ComposePost> Logger
+
 <div class="atproto-compose @CssClass">
     @if (_error is not null)
     {
@@ -6,19 +10,20 @@
 
     <form @onsubmit="HandlePostAsync">
         <textarea @bind="_text"
+                  @bind:event="oninput"
                   placeholder="@Placeholder"
                   maxlength="3000"
                   rows="@Rows"
                   disabled="@_posting"
-                  class="atproto-compose-textarea" />
+                  class="atproto-compose-textarea"></textarea>
 
         <div class="atproto-compose-footer">
-            <span class="atproto-compose-charcount @(_text.Length > 300 ? "over" : "")">
-                @_text.Length / 300 graphemes
+            <span class="atproto-compose-charcount @(Graphemes > MaxGraphemes ? "over" : "")">
+                @Graphemes / @MaxGraphemes
             </span>
 
             <button type="submit"
-                    disabled="@(_posting || string.IsNullOrWhiteSpace(_text))"
+                    disabled="@(!CanPost)"
                     class="atproto-compose-submit">
                 @(_posting ? "Posting…" : "Post")
             </button>
@@ -27,7 +32,8 @@
 </div>
 
 @code {
-    [Inject] private AtProtoClient Client { get; set; } = default!;
+    /// <summary>The most graphemes an <c>app.bsky.feed.post</c> may hold.</summary>
+    private const int MaxGraphemes = 300;
 
     /// <summary>Placeholder text for the compose area.</summary>
     [Parameter] public string Placeholder { get; set; } = "What's happening?";
@@ -51,31 +57,42 @@
     private string? _error;
     private bool _posting;
 
+    private int Graphemes => new StringInfo(_text).LengthInTextElements;
+
+    private bool CanPost => !_posting && !string.IsNullOrWhiteSpace(_text) && Graphemes <= MaxGraphemes;
+
     private async Task HandlePostAsync()
     {
-        if (string.IsNullOrWhiteSpace(_text) || _posting) return;
+        if (!CanPost)
+            return;
 
         _posting = true;
         _error = null;
-        StateHasChanged();
 
         try
         {
-            var result = await Client.Bsky.PostAsync(
+            var client = await UserClient.GetClientAsync();
+            if (client is null)
+            {
+                _error = "Sign in to post.";
+                return;
+            }
+
+            var result = await client.Bsky.PostAsync(
                 _text,
                 new PostOptions { Reply = ReplyTo, Langs = Langs });
 
             _text = string.Empty;
             await OnPostCreated.InvokeAsync(result);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _error = ex.Message;
+            Logger.LogWarning(ex, "Creating a post failed");
+            _error = "Couldn't create the post. Try again.";
         }
         finally
         {
             _posting = false;
-            StateHasChanged();
         }
     }
 }

@@ -48,13 +48,49 @@ public class LoginFormTests
         Assert.DoesNotContain("Anmelden", html);
     }
 
+    [Theory]
+    [InlineData("access_denied", "Sign-in was cancelled.")]
+    [InlineData("login_not_bound", "This sign-in was started in another browser. Please sign in again.")]
+    [InlineData("invalid_handle", "We couldn&#x27;t find that account. Check the username and try again.")]
+    [InlineData("state_expired", "This sign-in has expired. Please sign in again.")]
+    [InlineData("login_failed", "Sign-in failed. Please try again.")]
+    public async Task Render_AnErrorCode_ShowsItsMessage(string code, string message)
+    {
+        var html = await RenderLoginFormAsync(services => { }, uri: $"https://example.com/login?error={code}");
+
+        Assert.Contains(message, html);
+    }
+
+    [Fact]
+    public async Task Render_AnUnknownError_ShowsTheGenericMessageAndNotTheText()
+    {
+        // Anyone can link to the login page with any error text.
+        var html = await RenderLoginFormAsync(
+            services => { }, uri: "https://example.com/login?error=Your%20account%20is%20locked%2C%20call%20555-0100");
+
+        Assert.Contains("Sign-in failed. Please try again.", html);
+        Assert.DoesNotContain("locked", html);
+    }
+
+    [Fact]
+    public async Task Render_AnErrorMessage_IsLocalizedByCode()
+    {
+        var html = await RenderLoginFormAsync(
+            services => services.AddSingleton<IStringLocalizer<LoginForm>>(
+                new StubLocalizer(new Dictionary<string, string> { ["Error_access_denied"] = "Abgebrochen." })),
+            uri: "https://example.com/login?error=access_denied");
+
+        Assert.Contains("Abgebrochen.", html);
+    }
+
     private static async Task<string> RenderLoginFormAsync(
         Action<IServiceCollection> configureServices,
-        IDictionary<string, object?>? parameters = null)
+        IDictionary<string, object?>? parameters = null,
+        string uri = "https://example.com/login")
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddSingleton<NavigationManager, TestNavigationManager>();
+        services.AddSingleton<NavigationManager>(new TestNavigationManager(uri));
         configureServices(services);
 
         await using var provider = services.BuildServiceProvider();
@@ -70,7 +106,7 @@ public class LoginFormTests
 
     private sealed class TestNavigationManager : NavigationManager
     {
-        public TestNavigationManager() => Initialize("https://example.com/", "https://example.com/login");
+        public TestNavigationManager(string uri) => Initialize("https://example.com/", uri);
     }
 
     private sealed class StubLocalizer(IReadOnlyDictionary<string, string> strings) : IStringLocalizer<LoginForm>

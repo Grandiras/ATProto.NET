@@ -1,12 +1,12 @@
 using System.Security.Claims;
 using ATProtoNet.Auth.OAuth;
 
-namespace ATProtoNet.Blazor.Authentication;
+namespace ATProtoNet.Server.Authentication;
 
 /// <summary>
-/// Options for configuring AT Protocol OAuth server-side authentication with cookie integration.
-/// Use with <see cref="AtProtoAuthenticationExtensions.AddAtProtoAuthentication"/> and
-/// <see cref="AtProtoAuthenticationExtensions.MapAtProtoOAuth"/>.
+/// Options for the hosted AT Protocol OAuth login, which signs users in with a cookie.
+/// Use with <see cref="AtProtoOAuthExtensions.AddAtProtoAuthentication"/> and
+/// <see cref="AtProtoOAuthExtensions.MapAtProtoOAuth"/>.
 /// </summary>
 /// <example>
 /// <code>
@@ -24,7 +24,8 @@ public sealed class AtProtoOAuthServerOptions
     /// <summary>
     /// The route prefix for AT Proto OAuth endpoints.
     /// Default: "/atproto".
-    /// Mapped endpoints: <c>{RoutePrefix}/login</c>, <c>{RoutePrefix}/callback</c>, <c>{RoutePrefix}/logout</c>.
+    /// Mapped endpoints: <c>{RoutePrefix}/login</c>, <c>{RoutePrefix}/callback</c>,
+    /// <c>{RoutePrefix}/relay</c> and <c>{RoutePrefix}/logout</c>.
     /// </summary>
     public string RoutePrefix { get; set; } = "/atproto";
 
@@ -48,9 +49,11 @@ public sealed class AtProtoOAuthServerOptions
     public string PostLogoutRedirectUri { get; set; } = "/";
 
     /// <summary>
-    /// Path to redirect to when OAuth errors occur (e.g., callback failures).
-    /// An <c>error</c> query parameter is appended with the error message.
-    /// Default: "/login".
+    /// Path to redirect to when a login fails, with an <c>error</c> query parameter carrying a
+    /// short error code: the <see cref="OAuthException.Error"/> of an OAuth failure (such as
+    /// <c>invalid_handle</c> or <c>login_not_bound</c>), the authorization server's error (such
+    /// as <c>access_denied</c>), or <c>login_failed</c> for anything else. Never an exception
+    /// message. Default: "/login".
     /// </summary>
     public string LoginPath { get; set; } = "/login";
 
@@ -68,10 +71,13 @@ public sealed class AtProtoOAuthServerOptions
 
     /// <summary>
     /// Optional explicit base URL for the application (e.g., "https://myapp.example.com").
-    /// When set, this is used to construct the OAuth callback URL instead of detecting from the request.
-    /// Useful behind reverse proxies or in production deployments.
-    /// When not set, the callback URL is auto-detected from the incoming HTTP request.
+    /// When set, the OAuth callback URL is <c>{BaseUrl}{RoutePrefix}/callback</c>.
     /// </summary>
+    /// <remarks>
+    /// Without it, a client with <see cref="ClientMetadata"/> uses the registered redirect URI on
+    /// the request's origin (or the first one), and the development loopback client uses the
+    /// server's plain HTTP address on <c>127.0.0.1</c>.
+    /// </remarks>
     public string? BaseUrl { get; set; }
 
     /// <summary>
@@ -82,11 +88,41 @@ public sealed class AtProtoOAuthServerOptions
     public OAuthClientMetadata? ClientMetadata { get; set; }
 
     /// <summary>
-    /// Optional callback to customize the claims created from the OAuth session.
-    /// When not set, default claims are generated: <c>NameIdentifier</c> (DID),
-    /// <c>Name</c> (handle), <c>did</c>, <c>handle</c>, <c>handle_verified</c>, <c>pds_url</c>,
-    /// <c>auth_method</c>.
+    /// The keys of a confidential client (<c>private_key_jwt</c>), which authenticate every
+    /// pushed authorization, token, refresh and revocation request with a client assertion.
+    /// Empty (the default) for a public client.
     /// </summary>
+    /// <remarks>
+    /// <para>With keys, <see cref="ClientMetadata"/> is required and must declare
+    /// <c>token_endpoint_auth_method</c> <c>private_key_jwt</c>,
+    /// <c>token_endpoint_auth_signing_alg</c> <c>ES256</c>, and the public keys, inline as
+    /// <see cref="OAuthClientMetadata.Jwks"/> (see <see cref="OAuthClientKey.CreateKeySet"/>) or
+    /// at <see cref="OAuthClientMetadata.JwksUri"/>, which <see cref="ServeClientMetadata"/> can
+    /// serve. The client checks this when it is built.</para>
+    /// <para>A session stays bound to the key that authorized it, so keep retired keys here until
+    /// their sessions are gone; new logins use the first key. The service does not dispose them.</para>
+    /// </remarks>
+    public IList<OAuthClientKey> ClientKeys { get; } = new List<OAuthClientKey>();
+
+    /// <summary>
+    /// Whether <see cref="AtProtoOAuthExtensions.MapAtProtoOAuth"/> also serves the client's
+    /// public documents: <see cref="ClientMetadata"/> at the path of its <c>client_id</c> (for
+    /// example <c>/oauth-client-metadata.json</c>), and, when the metadata names a
+    /// <see cref="OAuthClientMetadata.JwksUri"/>, the public halves of <see cref="ClientKeys"/>
+    /// at that URL's path. Default: <see langword="false"/>.
+    /// </summary>
+    public bool ServeClientMetadata { get; set; }
+
+    /// <summary>
+    /// Optional callback to customize the claims created from the OAuth session.
+    /// When not set, default claims are generated: <see cref="ClaimTypes.NameIdentifier"/>
+    /// (DID), <see cref="ClaimTypes.Name"/> (handle), and the <see cref="AtProtoClaimTypes"/>
+    /// <c>did</c>, <c>handle</c>, <c>handle_verified</c>, <c>pds_url</c> and <c>auth_method</c>.
+    /// </summary>
+    /// <remarks>
+    /// Keep a <see cref="AtProtoClaimTypes.Did"/> (or <see cref="ClaimTypes.NameIdentifier"/>)
+    /// claim: the client factory and sign-out find the user's session by it.
+    /// </remarks>
     public Func<ATProtoNet.Auth.OAuthSession, IEnumerable<Claim>>? ClaimsFactory { get; set; }
 
     /// <summary>

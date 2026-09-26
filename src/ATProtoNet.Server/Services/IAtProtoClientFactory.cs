@@ -31,13 +31,17 @@ public interface IAtProtoClientFactory
     /// on demand.
     /// </summary>
     /// <param name="user">
-    /// The claims principal from the current request. Must contain a <c>did</c> or
-    /// <see cref="ClaimTypes.NameIdentifier"/> claim.
+    /// The claims principal from the current request. The user is the one the OAuth login signed
+    /// in: an authenticated identity the login issued (authentication type <c>ATProto</c>), or one
+    /// carrying an <c>auth_method</c> claim of <c>oauth</c>, with a <c>did</c> or
+    /// <see cref="ClaimTypes.NameIdentifier"/> claim. Identities of other schemes, service auth
+    /// among them, are not considered, so a service auth token naming a DID never reaches that
+    /// account's stored session.
     /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
-    /// An authenticated <see cref="AtProtoClient"/>, or <c>null</c> if the user
-    /// has no stored session (e.g., not logged in via OAuth, or signed out).
+    /// An authenticated <see cref="AtProtoClient"/>, or <c>null</c> if the principal carries no
+    /// OAuth login user, or the user has no stored session (signed out, say).
     /// </returns>
     /// <remarks>
     /// <para>The returned client is disposable. Use <c>await using</c> for proper cleanup:</para>
