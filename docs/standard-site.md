@@ -4,13 +4,14 @@ ATProto.NET provides native support for [Standard.site](https://standard.site) l
 
 ## Overview
 
-Standard.site is a long-form publishing platform built on AT Protocol. It uses three main record types:
+Standard.site is a long-form publishing platform built on AT Protocol. It uses four record types:
 
 | Record Type | NSID | Description |
 |-------------|------|-------------|
 | Publication | `site.standard.publication` | Blog/site identity |
 | Document | `site.standard.document` | Published articles/pages |
 | Subscription | `site.standard.graph.subscription` | Follow/subscribe to publications |
+| Recommendation | `site.standard.graph.recommend` | Recommend a document |
 
 `StandardSiteClient` is a thin typed wrapper over `com.atproto.repo.*`, so **every method takes the
 repository (an `AtIdentifier`: a DID or handle) as its first argument** — your own (`client.Did!`) for
@@ -112,8 +113,8 @@ foreach (var entry in docs.Records)
 }
 ```
 
-`EnumerateDocumentsAsync` fetches the pages for you (as do `EnumeratePublicationsAsync` and
-`EnumerateSubscriptionsAsync`):
+`EnumerateDocumentsAsync` fetches the pages for you (as do `EnumeratePublicationsAsync`,
+`EnumerateSubscriptionsAsync` and `EnumerateRecommendationsAsync`):
 
 ```csharp
 await foreach (var entry in client.Site.EnumerateDocumentsAsync(Did.Parse("did:plc:abc123")))
@@ -178,6 +179,29 @@ foreach (var entry in subs.Records)
 
 ```csharp
 await client.Site.DeleteSubscriptionAsync(client.Did!, RecordKey.Parse("subscription-key"));
+```
+
+## Recommendations
+
+Recommend a document to your followers:
+
+```csharp
+using ATProtoNet.Lexicon.Site.Standard.Graph;
+
+var created = await client.Site.CreateRecommendationAsync(client.Did!, new RecommendRecord
+{
+    Document = AtUri.Parse("at://did:plc:author/site.standard.document/doc-key"),
+    CreatedAt = AtDatetime.Now(),
+});
+
+await foreach (var entry in client.Site.EnumerateRecommendationsAsync(client.Did!))
+{
+    var doc = await client.Site.GetDocumentAsync(entry.Value.Document);
+    Console.WriteLine($"Recommended: {doc.Value.Title}");
+}
+
+// Withdraw it again.
+await client.Site.DeleteRecommendationAsync(client.Did!, created.Uri.RecordKey!);
 ```
 
 ## Themes

@@ -241,6 +241,10 @@ await pds.RestoreAccountAsync(did);
 await pds.DeleteAccountAsync(did);                // permanent
 ```
 
+`SearchAccountsAsync(email: …)` / `EnumerateSearchAccountsAsync` find accounts by email address
+on a [Tranquil PDS](#tranquil-pds); the reference PDS does not implement
+`com.atproto.admin.searchAccounts` and answers with an error.
+
 For endpoints these wrappers do not cover, `pds.Admin` and `pds.Server` expose the raw
 `com.atproto.admin.*` and `com.atproto.server.*` clients with the admin credentials
 already applied:

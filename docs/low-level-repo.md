@@ -182,6 +182,53 @@ var response = await client.Repo.ApplyWritesAsync(
     swapCommit: null);
 ```
 
+## Verified Record Reads
+
+`Repo.GetRecordAsync` returns whatever the server says. `Sync.GetVerifiedRecordAsync` instead fetches
+the record with its proof (`com.atproto.sync.getRecord`: the signed commit, the tree nodes on the
+path to the record, and the record) and checks it against the account's signing key, so the answer
+holds whichever server delivered it:
+
+```csharp
+using ATProtoNet.Repo;
+
+// The #atproto key of the account's DID document, resolved from a source you trust.
+string signingKey = didDocument.GetSigningKey()!;
+
+VerifiedRecord record = await client.Sync.GetVerifiedRecordAsync(
+    did, Nsid.Parse("app.bsky.feed.post"), RecordKey.Parse("3k2la…"), signingKey);
+
+if (record.Exists)
+    Console.WriteLine($"{record.Cid} at rev {record.Rev}: {record.Value}");
+else
+    Console.WriteLine($"No such record at rev {record.Rev}");   // the proof shows it is absent
+```
+
+A proof that does not verify (a block that does not match its CID, another repository's commit, a
+signature from another key, a missing tree node) throws `RepoVerificationException`. To verify a
+proof CAR you already hold, call `RecordProof.Verify(carBytes, did, collection, rkey, signingKey)`;
+`Sync.GetRecordAsync` downloads one without verifying it.
+
+`Sync.GetBlocksAsync(did, cids)` fetches arbitrary blocks (records or tree nodes) by CID as a CAR;
+read it with `CarReader.FromStreamAsync` and call `VerifyAllBlockCids()` before trusting it.
+
+## Importing a Repository
+
+Moving an account to a new PDS includes loading its repository there. `Repo.ImportRepoAsync`
+uploads a CAR (as `Sync.GetRepoAsync` exports it) into the signed-in account; blobs follow
+separately, listed by `Repo.EnumerateMissingBlobsAsync`:
+
+```csharp
+// On the old PDS: export to a file, so the upload can send a Content-Length and be retried.
+await using (var export = await oldClient.Sync.GetRepoAsync(did))
+await using (var file = File.Create(path))
+    await export.Content.CopyToAsync(file);
+
+// On the new PDS, signed in as the migrating account:
+await using var car = File.OpenRead(path);
+await newClient.Repo.ImportRepoAsync(car);
+```
+
 ## Authoring Repository Data
 
 The types above talk to a PDS. The `ATProtoNet.Repo` and `ATProtoNet.Identity` namespaces also let

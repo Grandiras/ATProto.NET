@@ -178,6 +178,23 @@ public class PdsAdminClientAccountAuthTests : IDisposable
     }
 
     [Fact]
+    public async Task SearchAccountsAsync_SignsInAndRetriesARejectedSession()
+    {
+        // Tranquil serves searchAccounts, so it goes through the same session handling.
+        _handler.Enqueue(SessionJson);
+        _handler.Enqueue("""{"error":"ExpiredToken"}""", HttpStatusCode.Unauthorized);
+        _handler.Enqueue(SessionJson.Replace("access-1", "access-2"));
+        _handler.Enqueue("""{"accounts":[]}""");
+
+        var page = await _client.SearchAccountsAsync(email: "alice@example.com");
+
+        Assert.Empty(page.Accounts);
+        Assert.Contains("com.atproto.admin.searchAccounts", _handler.Requests[3].Path);
+        Assert.Equal("Bearer", _handler.Requests[3].AuthScheme);
+        Assert.Equal("access-2", _handler.Requests[3].AuthParameter);
+    }
+
+    [Fact]
     public async Task AdminCall_DoesNotRetryOtherErrors()
     {
         _handler.Enqueue(SessionJson);

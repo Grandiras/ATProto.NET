@@ -33,6 +33,8 @@
     <None Include="Streaming/TestData/*.bin" CopyToOutputDirectory="PreserveNewest" />
     <!-- atproto-interop-tests fixtures, vendored unchanged (see Crypto/TestData/README.md). -->
     <None Include="Crypto/TestData/*.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Reference-implementation repository vectors (see Repo/TestData/README.md). -->
+    <None Include="Repo/TestData/*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

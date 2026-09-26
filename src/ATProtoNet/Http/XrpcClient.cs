@@ -272,18 +272,7 @@ internal sealed class XrpcClient
         XrpcCallOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(data);
-        ArgumentException.ThrowIfNullOrWhiteSpace(mimeType);
-
-        var contentType = MediaTypeHeaderValue.Parse(mimeType);
-        long? start = data.CanSeek ? data.Position : null;
-
-        var request = new XrpcRequest(HttpMethod.Post, nsid, Parameters: null, options)
-        {
-            Content = () => new UploadContent(data, start, contentType),
-            Replayable = data.CanSeek,
-        };
-
+        var request = CreateUpload(nsid, data, mimeType, options);
         using var deadline = Deadline.Start(request, cancellationToken);
         try
         {
@@ -294,6 +283,33 @@ internal sealed class XrpcClient
         {
             throw deadline.TimeoutException(ex);
         }
+    }
+
+    /// <summary>
+    /// Uploads binary data (HTTP POST) to a procedure without output, ignoring any response body.
+    /// The stream is read and replayed as <see cref="UploadAsync{TResponse}"/> describes.
+    /// </summary>
+    internal Task UploadAsync(
+        string nsid,
+        Stream data,
+        string mimeType,
+        XrpcCallOptions? options = null,
+        CancellationToken cancellationToken = default) =>
+        SendAndDiscardAsync(CreateUpload(nsid, data, mimeType, options), cancellationToken);
+
+    private static XrpcRequest CreateUpload(string nsid, Stream data, string mimeType, XrpcCallOptions? options)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentException.ThrowIfNullOrWhiteSpace(mimeType);
+
+        var contentType = MediaTypeHeaderValue.Parse(mimeType);
+        long? start = data.CanSeek ? data.Position : null;
+
+        return new XrpcRequest(HttpMethod.Post, nsid, Parameters: null, options)
+        {
+            Content = () => new UploadContent(data, start, contentType),
+            Replayable = data.CanSeek,
+        };
     }
 
     /// <summary>

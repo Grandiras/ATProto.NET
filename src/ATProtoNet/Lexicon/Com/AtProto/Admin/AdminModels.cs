@@ -101,6 +101,29 @@ public sealed class GetAccountInfosResponse
 }
 
 // ──────────────────────────────────────────────────────────────
+//  com.atproto.admin.searchAccounts
+// ──────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Response from searchAccounts.
+/// </summary>
+public sealed class SearchAccountsResponse : ICursorPage<AccountInfo>
+{
+    /// <summary>
+    /// Pagination cursor; pass this back on the next request to continue where this page ended.
+    /// <see langword="null"/> when there are no further results.
+    /// </summary>
+    [JsonPropertyName("cursor")]
+    public string? Cursor { get; init; }
+
+    /// <summary>The matching accounts.</summary>
+    [JsonPropertyName("accounts")]
+    public required IReadOnlyList<AccountInfo> Accounts { get; init; }
+
+    IReadOnlyList<AccountInfo> ICursorPage<AccountInfo>.Items => Accounts;
+}
+
+// ──────────────────────────────────────────────────────────────
 //  com.atproto.admin.getSubjectStatus
 // ──────────────────────────────────────────────────────────────
 
@@ -294,6 +317,20 @@ internal sealed class UpdateAccountPasswordRequest
     /// <summary>The account password.</summary>
     [JsonPropertyName("password")]
     public required string Password { get; init; }
+}
+
+/// <summary>
+/// Request body for updateAccountSigningKey.
+/// </summary>
+internal sealed class UpdateAccountSigningKeyRequest
+{
+    /// <summary>The DID (decentralized identifier) of the account.</summary>
+    [JsonPropertyName("did")]
+    public required Did Did { get; init; }
+
+    /// <summary>The new signing key, as a <c>did:key</c>.</summary>
+    [JsonPropertyName("signingKey")]
+    public required Did SigningKey { get; init; }
 }
 
 /// <summary>

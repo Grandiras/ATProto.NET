@@ -330,6 +330,130 @@ public class StandardSiteClientTests : IDisposable
     }
 
     // ──────────────────────────────────────────────────────────
+    //  Recommendations
+    // ──────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task CreateRecommendation_WritesTheRecordToItsCollection()
+    {
+        string? capturedBody = null;
+        _handler.ResponseFactory = request =>
+        {
+            capturedBody = request.Content?.ReadAsStringAsync().Result;
+            return JsonResponse(new { uri = "at://did:plc:fan/site.standard.graph.recommend/r1", cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm" });
+        };
+
+        var result = await _site.CreateRecommendationAsync(Did.Parse("did:plc:fan"), new RecommendRecord
+        {
+            Document = AtUri.Parse("at://did:plc:author/site.standard.document/doc1"),
+            CreatedAt = AtDatetime.Parse("2026-09-25T10:00:00.000Z"),
+        });
+
+        using var body = JsonDocument.Parse(capturedBody!);
+        Assert.Equal("site.standard.graph.recommend", body.RootElement.GetProperty("collection").GetString());
+        var record = body.RootElement.GetProperty("record");
+        Assert.Equal("site.standard.graph.recommend", record.GetProperty("$type").GetString());
+        Assert.Equal("at://did:plc:author/site.standard.document/doc1", record.GetProperty("document").GetString());
+        Assert.Equal("2026-09-25T10:00:00.000Z", record.GetProperty("createdAt").GetString());
+        Assert.Equal("at://did:plc:fan/site.standard.graph.recommend/r1", result.Uri);
+    }
+
+    [Fact]
+    public async Task GetRecommendation_ByAtUri_ReadsTheTypedRecord()
+    {
+        string? capturedQuery = null;
+        _handler.ResponseFactory = request =>
+        {
+            capturedQuery = Uri.UnescapeDataString(request.RequestUri!.Query);
+            return JsonResponse(new
+            {
+                uri = "at://did:plc:fan/site.standard.graph.recommend/r1",
+                cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm",
+                value = new
+                {
+                    document = "at://did:plc:author/site.standard.document/doc1",
+                    createdAt = "2026-09-25T10:00:00.000Z",
+                },
+            });
+        };
+
+        var result = await _site.GetRecommendationAsync(AtUri.Parse("at://did:plc:fan/site.standard.graph.recommend/r1"));
+
+        Assert.Equal("?repo=did:plc:fan&collection=site.standard.graph.recommend&rkey=r1", capturedQuery);
+        Assert.Equal(AtUri.Parse("at://did:plc:author/site.standard.document/doc1"), result.Value.Document);
+        Assert.Equal("2026-09-25T10:00:00.000Z", result.Value.CreatedAt.ToString());
+    }
+
+    [Fact]
+    public async Task GetRecommendation_UriOfAnotherCollection_ThrowsBeforeSending()
+    {
+        var sent = false;
+        _handler.ResponseFactory = _ =>
+        {
+            sent = true;
+            return JsonResponse(new { });
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => _site.GetRecommendationAsync(AtUri.Parse("at://did:plc:fan/site.standard.graph.subscription/r1")));
+        Assert.False(sent);
+    }
+
+    [Fact]
+    public async Task DeleteRecommendation_DeletesFromItsCollection()
+    {
+        string? capturedBody = null;
+        _handler.ResponseFactory = request =>
+        {
+            capturedBody = request.Content?.ReadAsStringAsync().Result;
+            return JsonResponse(new { commit = new { cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", rev = "3jzfcijpj2z2a" } });
+        };
+
+        await _site.DeleteRecommendationAsync(Did.Parse("did:plc:fan"), RecordKey.Parse("r1"));
+
+        using var body = JsonDocument.Parse(capturedBody!);
+        Assert.Equal("site.standard.graph.recommend", body.RootElement.GetProperty("collection").GetString());
+        Assert.Equal("r1", body.RootElement.GetProperty("rkey").GetString());
+    }
+
+    [Fact]
+    public async Task EnumerateRecommendationsAsync_ReturnsTypedRecordsAcrossPages()
+    {
+        var queries = new List<string>();
+        _handler.ResponseFactory = request =>
+        {
+            queries.Add(Uri.UnescapeDataString(request.RequestUri!.Query));
+            return JsonResponse(new
+            {
+                cursor = queries.Count == 1 ? "page-2" : null,
+                records = new[]
+                {
+                    new
+                    {
+                        uri = $"at://did:plc:fan/site.standard.graph.recommend/r{queries.Count}",
+                        cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm",
+                        value = new
+                        {
+                            document = $"at://did:plc:author/site.standard.document/doc{queries.Count}",
+                            createdAt = "2026-09-25T10:00:00.000Z",
+                        },
+                    },
+                },
+            });
+        };
+
+        var documents = new List<string>();
+        await foreach (var recommendation in _site.EnumerateRecommendationsAsync(Did.Parse("did:plc:fan"), pageSize: 1))
+            documents.Add(recommendation.Value.Document.Value);
+
+        Assert.Equal(
+            ["at://did:plc:author/site.standard.document/doc1", "at://did:plc:author/site.standard.document/doc2"],
+            documents);
+        Assert.Contains("collection=site.standard.graph.recommend", queries[0]);
+        Assert.Contains("cursor=page-2", queries[1]);
+    }
+
+    // ──────────────────────────────────────────────────────────
     //  Typed listings and AT URI overloads
     // ──────────────────────────────────────────────────────────
 

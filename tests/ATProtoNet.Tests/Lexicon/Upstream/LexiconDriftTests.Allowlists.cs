@@ -81,6 +81,7 @@ public partial class LexiconDriftTests
         [typeof(AtProto.Sync.IdentityEvent)] = "com.atproto.sync.subscribeRepos#identity",
         [typeof(AtProto.Sync.AccountEvent)] = "com.atproto.sync.subscribeRepos#account",
         [typeof(AtProto.Sync.InfoEvent)] = "com.atproto.sync.subscribeRepos#info",
+        [typeof(AtProto.Temp.HandleSuggestion)] = "com.atproto.temp.checkHandleAvailability#suggestion",
 
         [typeof(Site.Document.DocumentContributor)] = "site.standard.document#contributor",
         [typeof(Site.Publication.PublicationPreferences)] = "site.standard.publication#preferences",

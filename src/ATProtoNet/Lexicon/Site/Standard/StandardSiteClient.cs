@@ -9,14 +9,15 @@ namespace ATProtoNet.Lexicon.Site.Standard;
 
 /// <summary>
 /// Client for Standard.site lexicons — long-form publishing on AT Protocol.
-/// Provides convenience methods for managing publications, documents, and subscriptions
-/// using the underlying repo record operations.
+/// Provides convenience methods for managing publications, documents, subscriptions and
+/// recommendations using the underlying repo record operations.
 /// </summary>
 public sealed class StandardSiteClient
 {
     private static readonly Nsid PublicationCollection = Nsid.Parse("site.standard.publication");
     private static readonly Nsid DocumentCollection = Nsid.Parse("site.standard.document");
     private static readonly Nsid SubscriptionCollection = Nsid.Parse("site.standard.graph.subscription");
+    private static readonly Nsid RecommendCollection = Nsid.Parse("site.standard.graph.recommend");
 
     private readonly RepoClient _repo;
 
@@ -347,6 +348,101 @@ public sealed class StandardSiteClient
         CancellationToken cancellationToken = default) =>
         Pagination.EnumerateAsync<RecordPage<SubscriptionRecord>, RecordView<SubscriptionRecord>>(
             (cursor, ct) => ListSubscriptionsAsync(repo, pageSize, cursor, ct),
+            cancellationToken);
+
+    // ──────────────────────────────────────────────────────────
+    //  Recommendations
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Recommend a document.
+    /// </summary>
+    /// <param name="repo">The DID or handle of the recommending account.</param>
+    /// <param name="record">The recommendation record.</param>
+    /// <param name="rkey">Optional record key; a TID is generated when omitted.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<CreateRecordResponse> CreateRecommendationAsync(
+        AtIdentifier repo,
+        RecommendRecord record,
+        RecordKey? rkey = null,
+        CancellationToken cancellationToken = default)
+    {
+        return _repo.CreateRecordAsync(repo, RecommendCollection, record, rkey,
+            cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Get a recommendation record.
+    /// </summary>
+    /// <param name="repo">The DID or handle of the recommending account.</param>
+    /// <param name="rkey">The record key.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<GetRecordResponse<RecommendRecord>> GetRecommendationAsync(
+        AtIdentifier repo,
+        RecordKey rkey,
+        CancellationToken cancellationToken = default)
+    {
+        return _repo.GetRecordAsync<RecommendRecord>(repo, RecommendCollection, rkey,
+            cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Get the recommendation record an AT URI names.
+    /// </summary>
+    /// <param name="uri">The recommendation's AT URI.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentException"><paramref name="uri"/> does not name a recommendation record.</exception>
+    public Task<GetRecordResponse<RecommendRecord>> GetRecommendationAsync(
+        AtUri uri,
+        CancellationToken cancellationToken = default)
+    {
+        var rkey = RecordKeyOf(uri, RecommendCollection);
+        return GetRecommendationAsync(uri.Repo, rkey, cancellationToken);
+    }
+
+    /// <summary>
+    /// Withdraw a recommendation (delete the recommendation record).
+    /// </summary>
+    /// <param name="repo">The DID or handle of the recommending account.</param>
+    /// <param name="rkey">The record key.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<DeleteRecordResponse> DeleteRecommendationAsync(
+        AtIdentifier repo,
+        RecordKey rkey,
+        CancellationToken cancellationToken = default)
+    {
+        return _repo.DeleteRecordAsync(repo, RecommendCollection, rkey,
+            cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// List one page of the recommendation records in a repository.
+    /// </summary>
+    /// <param name="repo">The DID or handle of the recommending account.</param>
+    /// <param name="limit">Maximum number of records (1-100, default 50).</param>
+    /// <param name="cursor">Pagination cursor from a previous response.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<RecordPage<RecommendRecord>> ListRecommendationsAsync(
+        AtIdentifier repo,
+        int? limit = null,
+        string? cursor = null,
+        CancellationToken cancellationToken = default)
+    {
+        return ListAsync<RecommendRecord>(repo, RecommendCollection, limit, cursor, cancellationToken);
+    }
+
+    /// <summary>
+    /// Enumerate every recommendation record in a repository, fetching pages as needed.
+    /// </summary>
+    /// <param name="repo">The DID or handle of the recommending account.</param>
+    /// <param name="pageSize">Records per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<RecordView<RecommendRecord>> EnumerateRecommendationsAsync(
+        AtIdentifier repo,
+        int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<RecordPage<RecommendRecord>, RecordView<RecommendRecord>>(
+            (cursor, ct) => ListRecommendationsAsync(repo, pageSize, cursor, ct),
             cancellationToken);
 
     private async Task<RecordPage<T>> ListAsync<T>(

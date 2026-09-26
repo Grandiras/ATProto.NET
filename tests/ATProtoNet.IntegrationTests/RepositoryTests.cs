@@ -51,6 +51,42 @@ public class RepositoryTests
     }
 
     [RequiresPdsFact]
+    public async Task GetVerifiedRecord_ProvesACreatedRecordAndThenItsDeletion()
+    {
+        var client = _fixture.Client;
+        var collection = Nsid.Parse("app.bsky.feed.post");
+        var text = $"Integration test proof {Guid.NewGuid():N}";
+
+        var created = await client.Repo.CreateRecordAsync(client.Did!, collection, new Dictionary<string, object>
+        {
+            ["$type"] = "app.bsky.feed.post",
+            ["text"] = text,
+            ["createdAt"] = ATProtoNet.Serialization.AtProtoJsonDefaults.NowTimestamp(),
+        });
+        var rkey = created.Uri.RecordKey!;
+
+        // The key the PDS signs this account's commits with.
+        var credentials = await client.Identity.GetRecommendedDidCredentialsAsync();
+        var signingKey = credentials.VerificationMethods!["atproto"];
+
+        try
+        {
+            var proven = await client.Sync.GetVerifiedRecordAsync(client.Did!, collection, rkey, signingKey);
+
+            Assert.True(proven.Exists);
+            Assert.Equal(created.Cid, proven.Cid);
+            Assert.Equal(text, proven.Value!.Value.GetProperty("text").GetString());
+        }
+        finally
+        {
+            await client.Repo.DeleteRecordAsync(client.Did!, collection, rkey);
+        }
+
+        var gone = await client.Sync.GetVerifiedRecordAsync(client.Did!, collection, rkey, signingKey);
+        Assert.False(gone.Exists);
+    }
+
+    [RequiresPdsFact]
     public async Task DescribeRepo_ReturnsRepoInfo()
     {
         var client = _fixture.Client;

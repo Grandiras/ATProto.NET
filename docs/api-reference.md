@@ -25,6 +25,7 @@ The main entry point. Created via `AtProtoClientBuilder` or direct construction.
 | `Moderation` | `ModerationClient` | `com.atproto.moderation.*` methods |
 | `Space` | `SpaceClient` | `com.atproto.space.*` permissioned data |
 | `SimpleSpace` | `SimpleSpaceClient` | `com.atproto.simplespace.*` space management |
+| `Temp` | `TempClient` | `com.atproto.temp.*`: handle availability, signup queue, scope references |
 | `Bsky` | `BlueskyClients` | `app.bsky.*` sub-clients |
 | `Chat` | `ChatClients` | `chat.bsky.*` sub-clients |
 | `Ozone` | `OzoneClient` | `tools.ozone.*` sub-clients |
@@ -217,6 +218,7 @@ returns no cursor, an empty one, or one it already returned.
 | `Sync.EnumerateHostsAsync(pageSize?)` | `com.atproto.sync.listHosts` |
 | `Label.EnumerateLabelsAsync(uriPatterns, sources?, pageSize?)` | `com.atproto.label.queryLabels` |
 | `Admin.EnumerateInviteCodesAsync(sort?, pageSize?)` | `com.atproto.admin.getInviteCodes` |
+| `Admin.EnumerateSearchAccountsAsync(email?, pageSize?)` | `com.atproto.admin.searchAccounts` |
 | `Bsky.Actor.EnumerateSuggestionsAsync(pageSize?)` | `app.bsky.actor.getSuggestions` |
 | `Bsky.Actor.EnumerateSearchActorsAsync(q, pageSize?)` | `app.bsky.actor.searchActors` |
 | `Bsky.Feed.EnumerateTimelineAsync(algorithm?, pageSize?)` | `app.bsky.feed.getTimeline` |
@@ -366,6 +368,7 @@ Basic (the reference PDS), or as an administrator account (Tranquil PDS). See
 | `UpdateAccountHandleAsync(did, handle, ct?)` | Change an account's handle |
 | `UpdateAccountEmailAsync(account, email, ct?)` | Change an account's email (`account` is an `AtIdentifier`) |
 | `UpdateAccountPasswordAsync(did, password, ct?)` | Reset an account's password |
+| `SearchAccountsAsync(email?, limit?, cursor?, ct?)` / `EnumerateSearchAccountsAsync(email?, pageSize?, ct?)` | Search accounts by email (served by Tranquil, not by the reference PDS) |
 | `CreateClient()` | An `AtProtoClient` pointed at the same PDS |
 
 ---
@@ -579,6 +582,7 @@ Accessed via `client.Site`. See [Standard.site](standard-site.md). A flat client
 | `EnumeratePublicationsAsync(repo, pageSize?)` | Every publication, as `RecordView<PublicationRecord>` |
 | `CreateDocumentAsync` / `GetDocumentAsync` / `PutDocumentAsync` / `DeleteDocumentAsync` / `ListDocumentsAsync` / `EnumerateDocumentsAsync` | The same operations for `site.standard.document` |
 | `CreateSubscriptionAsync` / `GetSubscriptionAsync` / `DeleteSubscriptionAsync` / `ListSubscriptionsAsync` / `EnumerateSubscriptionsAsync` | Subscription records |
+| `CreateRecommendationAsync` / `GetRecommendationAsync` / `DeleteRecommendationAsync` / `ListRecommendationsAsync` / `EnumerateRecommendationsAsync` | Recommendation records (`site.standard.graph.recommend`) |
 
 ---
 
@@ -663,4 +667,5 @@ See [Low-Level Repo API](low-level-repo.md) and [Cryptography](crypto.md).
 | `DagCborEncoder` / `DagCborDecoder` | Deterministic CBOR encode/decode |
 | `CidComputation` | `ComputeForDagCbor`, `ComputeForRaw`, `Verify`, `DecodeCidString`, `TryDecodeCidString` |
 | `RepoCommit` / `SignedRepoCommit` | Build, sign, and verify repository commit objects |
+| `RecordProof` / `VerifiedRecord` / `RepoVerificationException` | Verify a `com.atproto.sync.getRecord` proof against the signed commit (see `Sync.GetVerifiedRecordAsync`) |
 | `PlcOperationBuilder` (`ATProtoNet.Identity`) | Build, sign, and derive a DID from a `did:plc` genesis operation |

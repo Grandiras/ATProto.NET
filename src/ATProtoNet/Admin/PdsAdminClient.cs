@@ -412,6 +412,39 @@ public sealed class PdsAdminClient : IDisposable
     }
 
     /// <summary>
+    /// Search one page of the accounts on this PDS, optionally by email address.
+    /// </summary>
+    /// <remarks>
+    /// A Tranquil PDS serves <c>com.atproto.admin.searchAccounts</c>; the reference Bluesky PDS
+    /// does not, and the call fails with an <see cref="XrpcException"/> there.
+    /// </remarks>
+    /// <param name="email">The email address to match.</param>
+    /// <param name="limit">Maximum number of results (1-100, default 50).</param>
+    /// <param name="cursor">Pagination cursor.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    public Task<SearchAccountsResponse> SearchAccountsAsync(
+        string? email = null,
+        int? limit = null,
+        string? cursor = null,
+        CancellationToken cancellationToken = default) =>
+        AdminCallAsync(ct => Admin.SearchAccountsAsync(email, limit, cursor, ct), cancellationToken);
+
+    /// <summary>
+    /// Enumerate every account on this PDS matching a search, fetching pages as needed.
+    /// </summary>
+    /// <remarks>Served where <see cref="SearchAccountsAsync"/> is.</remarks>
+    /// <param name="email">The email address to match.</param>
+    /// <param name="pageSize">Accounts per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    public IAsyncEnumerable<AccountInfo> EnumerateSearchAccountsAsync(
+        string? email = null,
+        int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<SearchAccountsResponse, AccountInfo>(
+            (cursor, ct) => SearchAccountsAsync(email, pageSize, cursor, ct),
+            cancellationToken);
+
+    /// <summary>
     /// Permanently delete an account and its repository.
     /// </summary>
     /// <param name="did">The account DID.</param>

@@ -335,6 +335,27 @@ public sealed class RepoClient
     }
 
     /// <summary>
+    /// Import a repository from a CAR file into the signed-in account, the step of an account
+    /// migration that moves its records to the new PDS.
+    /// </summary>
+    /// <remarks>
+    /// <para>The CAR is what <c>com.atproto.sync.getRepo</c> exports (see
+    /// <see cref="Sync.SyncClient.GetRepoAsync"/>): one root, the signed commit. The new PDS
+    /// verifies it, applies the records it holds, and signs a new commit of its own; blobs are
+    /// uploaded separately (<see cref="EnumerateMissingBlobsAsync"/> lists them).</para>
+    /// <para>The body is read from the stream's current position, and the stream is not disposed.
+    /// Pass a seekable stream (a file, or a <see cref="MemoryStream"/>): its length goes out as
+    /// the <c>Content-Length</c> the Lexicon asks for, and the call can be retried after a DPoP
+    /// nonce challenge or a rate limit. A non-seekable stream is sent chunked and fails with
+    /// <see cref="InvalidOperationException"/> if a retry is needed.</para>
+    /// </remarks>
+    /// <param name="car">The repository CAR file.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task ImportRepoAsync(Stream car, CancellationToken cancellationToken = default) =>
+        _xrpc.UploadAsync(
+            "com.atproto.repo.importRepo", car, "application/vnd.ipld.car", cancellationToken: cancellationToken);
+
+    /// <summary>
     /// Apply a batch of record writes in a single transaction.
     /// </summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>

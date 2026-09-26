@@ -259,6 +259,40 @@ public class PdsAdminClientTests : IDisposable
     }
 
     [Fact]
+    public async Task SearchAccountsAsync_QueriesAdminEndpointWithAdminAuth()
+    {
+        _handler.Enqueue("""
+            {"cursor":"c2","accounts":[{"did":"did:plc:alice","handle":"alice.example.com","indexedAt":"2026-07-25T00:00:00.000Z"}]}
+            """);
+
+        var page = await _client.SearchAccountsAsync(email: "alice@example.com", limit: 5);
+
+        var request = Assert.Single(_handler.Requests);
+        Assert.Contains("com.atproto.admin.searchAccounts", request.Path);
+        Assert.Contains("email=alice%40example.com", request.Path);
+        Assert.Contains("limit=5", request.Path);
+        Assert.Equal("Basic", request.AuthScheme);
+        Assert.Equal("c2", page.Cursor);
+        Assert.Equal("alice.example.com", Assert.Single(page.Accounts).Handle);
+    }
+
+    [Fact]
+    public async Task EnumerateSearchAccountsAsync_FetchesEveryPage()
+    {
+        _handler.Enqueue("""
+            {"cursor":"c2","accounts":[{"did":"did:plc:alice","handle":"alice.example.com","indexedAt":"2026-07-25T00:00:00.000Z"}]}
+            """);
+        _handler.Enqueue("""
+            {"accounts":[{"did":"did:plc:bob","handle":"bob.example.com","indexedAt":"2026-07-25T00:00:00.000Z"}]}
+            """);
+
+        var accounts = await _client.EnumerateSearchAccountsAsync(pageSize: 1).ToListAsync();
+
+        Assert.Equal(["alice.example.com", "bob.example.com"], accounts.Select(a => a.Handle.Value));
+        Assert.Contains("cursor=c2", _handler.Requests[1].Path);
+    }
+
+    [Fact]
     public async Task TakedownAccountAsync_SendsRepoRefWithTakedownApplied()
     {
         _handler.Enqueue("""{"subject":{"did":"did:plc:alice"}}""");

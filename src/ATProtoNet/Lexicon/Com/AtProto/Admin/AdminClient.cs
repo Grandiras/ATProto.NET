@@ -45,6 +45,44 @@ public sealed class AdminClient
     }
 
     /// <summary>
+    /// Search one page of the server's accounts, optionally by email address.
+    /// </summary>
+    /// <remarks>
+    /// Served by the Bluesky entryway (and through Ozone) and by some PDS implementations, such as
+    /// Tranquil; the reference Bluesky PDS does not implement it.
+    /// </remarks>
+    /// <param name="email">The email address to match.</param>
+    /// <param name="limit">Maximum number of results (1-100, default 50).</param>
+    /// <param name="cursor">Pagination cursor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<SearchAccountsResponse> SearchAccountsAsync(
+        string? email = null, int? limit = null, string? cursor = null,
+        CancellationToken cancellationToken = default)
+    {
+        var parameters = new XrpcParams()
+            .Add("email", email)
+            .Add("limit", limit)
+            .Add("cursor", cursor);
+
+        return _xrpc.QueryAsync<SearchAccountsResponse>(
+            "com.atproto.admin.searchAccounts", parameters, cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Enumerate every account matching a search, fetching pages as needed.
+    /// </summary>
+    /// <param name="email">The email address to match.</param>
+    /// <param name="pageSize">Accounts per request (1-100); <see langword="null"/> for the server default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public IAsyncEnumerable<AccountInfo> EnumerateSearchAccountsAsync(
+        string? email = null,
+        int? pageSize = null,
+        CancellationToken cancellationToken = default) =>
+        Pagination.EnumerateAsync<SearchAccountsResponse, AccountInfo>(
+            (cursor, ct) => SearchAccountsAsync(email, pageSize, cursor, ct),
+            cancellationToken);
+
+    /// <summary>
     /// Get the status of a subject (account, record, or blob).
     /// </summary>
     /// <param name="did">The account DID, for an account subject (or a blob's owner).</param>
@@ -170,6 +208,24 @@ public sealed class AdminClient
         var request = new UpdateAccountPasswordRequest { Did = did, Password = password };
         await _xrpc.ProcedureAsync(
             "com.atproto.admin.updateAccountPassword", request, cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Replace the repository signing key in an account's DID document (admin action).
+    /// </summary>
+    /// <remarks>
+    /// Served by the Bluesky entryway; the reference PDS does not implement it.
+    /// </remarks>
+    /// <param name="did">The account DID.</param>
+    /// <param name="signingKey">The new signing key, as a <c>did:key</c>.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task UpdateAccountSigningKeyAsync(
+        Did did, Did signingKey,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new UpdateAccountSigningKeyRequest { Did = did, SigningKey = signingKey };
+        await _xrpc.ProcedureAsync(
+            "com.atproto.admin.updateAccountSigningKey", request, cancellationToken: cancellationToken);
     }
 
     /// <summary>

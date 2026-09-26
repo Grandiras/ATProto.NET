@@ -25,6 +25,7 @@ using ATProtoNet.Lexicon.Com.AtProto.Server;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Lexicon.Com.AtProto.Sync;
+using ATProtoNet.Lexicon.Com.AtProto.Temp;
 using ATProtoNet.Lexicon.Site.Standard;
 using ATProtoNet.Lexicon.Tools.Ozone;
 using ATProtoNet.Models;
@@ -154,6 +155,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         Moderation = new ModerationClient(_xrpc);
         Space = new SpaceClient(_xrpc);
         SimpleSpace = new SimpleSpaceClient(_xrpc);
+        Temp = new TempClient(_xrpc);
 
         Bsky = new BlueskyClients(
             new ActorClient(_xrpc),
@@ -223,6 +225,12 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// com.atproto.simplespace.* — the space-management implementation every PDS supports.
     /// </summary>
     public SimpleSpaceClient SimpleSpace { get; }
+
+    /// <summary>
+    /// com.atproto.temp.* — methods upstream marks temporary: handle availability, the signup
+    /// queue, OAuth scope references.
+    /// </summary>
+    public TempClient Temp { get; }
 
     /// <summary>app.bsky.* — Bluesky social application APIs.</summary>
     public BlueskyClients Bsky { get; }

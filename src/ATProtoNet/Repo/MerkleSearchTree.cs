@@ -27,7 +27,7 @@ public sealed class MerkleSearchTree
     /// Deepest node chain <see cref="Deserialize"/> follows. A layer is two bits of a SHA-256
     /// leading-zero count, so a real tree of any size is a dozen layers deep at most.
     /// </summary>
-    private const int MaxTreeDepth = 64;
+    internal const int MaxTreeDepth = 64;
 
     /// <summary>Longest valid MST key, in characters.</summary>
     private const int MaxKeyLength = 1024;
