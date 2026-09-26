@@ -1,4 +1,5 @@
 using ATProtoNet.Identity;
+using ATProtoNet.Server.Authentication;
 using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Server.Spaces;
@@ -64,7 +65,7 @@ public sealed class SpaceServerOptions
     /// <see cref="ATProtoNet.Auth.ServiceAuthGenerator"/>, which itself refuses to exceed five
     /// minutes), but the <c>exp</c> on an inbound one is whatever its signer chose. Bounding it
     /// bounds two things: how long a captured token stays replayable at all, and how long its
-    /// <c>jti</c> occupies <see cref="ISpaceReplayStore"/>, which evicts an entry only once the
+    /// <c>jti</c> occupies <see cref="IJtiReplayStore"/>, which evicts an entry only once the
     /// token it guards has expired anyway.
     /// </remarks>
     public TimeSpan MaxSingleUseTokenLifetime { get; set; } = TimeSpan.FromMinutes(5);
@@ -136,7 +137,7 @@ public sealed class SpaceServerOptions
     /// </summary>
     /// <remarks>
     /// <para>The defaults are per-process, which is a correctness gap rather than a performance
-    /// one once a second instance exists: <see cref="InMemorySpaceReplayStore"/> catches a
+    /// one once a second instance exists: <see cref="InMemoryJtiReplayStore"/> catches a
     /// replayed single-use token only on the instance that saw the original, and
     /// <see cref="InMemorySimpleSpaceStore"/> loses a member list — which nothing on the network
     /// republishes — on every restart.</para>
@@ -153,6 +154,20 @@ public sealed class SpaceServerOptions
     /// <param name="now">The current time.</param>
     internal bool IsWithinSingleUseWindow(DateTimeOffset expiresAt, DateTimeOffset now) =>
         expiresAt <= now + MaxSingleUseTokenLifetime + ClockSkew;
+
+    /// <summary>
+    /// How long a single-use token's <c>jti</c> must stay in the <see cref="IJtiReplayStore"/>:
+    /// until the token stops being accepted, which the clock skew of its expiry check puts past
+    /// its <c>exp</c>.
+    /// </summary>
+    /// <param name="expiresAt">The token's <c>exp</c>.</param>
+    /// <remarks>
+    /// Delegation tokens and client attestations are checked for expiry by
+    /// <see cref="SpaceToken.IsExpired"/> with <see cref="SpaceTokens.DefaultClockSkew"/>, and
+    /// service auth with <see cref="ClockSkew"/>; the larger of the two covers either.
+    /// </remarks>
+    internal DateTimeOffset ReplayRetention(DateTimeOffset expiresAt) =>
+        expiresAt + (ClockSkew > SpaceTokens.DefaultClockSkew ? ClockSkew : SpaceTokens.DefaultClockSkew);
 
     /// <summary>
     /// Resolves this service's public request URI, honouring <see cref="PublicBaseUrl"/>.

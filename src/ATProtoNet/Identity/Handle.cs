@@ -22,7 +22,7 @@ public sealed partial record Handle : IIdentifier<Handle>
     // Handle must be a valid domain name
     // Each label: 1-63 chars, alphanumeric + hyphens, no leading/trailing hyphens
     // The top-level label may not start with a digit
-    [GeneratedRegex(@"^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$")]
+    [GeneratedRegex(@"^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\z")]
     private static partial Regex HandlePattern();
 
     /// <summary>

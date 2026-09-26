@@ -18,7 +18,7 @@ public sealed partial record Nsid : IIdentifier<Nsid>
     // The spec's reference pattern: a reversed-domain authority of at least two segments
     // (1-63 chars each, no leading/trailing hyphen, the first not starting with a digit),
     // then a name segment of 1-63 ASCII letters and digits starting with a letter.
-    [GeneratedRegex(@"^[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(\.[a-zA-Z]([a-zA-Z0-9]{0,62})?)$")]
+    [GeneratedRegex(@"^[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(\.[a-zA-Z]([a-zA-Z0-9]{0,62})?)\z")]
     private static partial Regex NsidPattern();
 
     /// <summary>

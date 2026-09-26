@@ -1,6 +1,7 @@
 using ATProtoNet.Auth;
 using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
+using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Xrpc;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
@@ -82,7 +83,7 @@ public static class SpaceServerExtensions
             .ConfigurePrimaryHttpMessageHandler(sp =>
                 IdentityNetworkPolicy.CreateHandler(sp.GetRequiredService<IdentityResolverOptions>().AllowPrivateNetworks));
 
-        services.TryAddSingleton<ISpaceReplayStore, InMemorySpaceReplayStore>();
+        services.TryAddSingleton<IJtiReplayStore, InMemoryJtiReplayStore>();
 
         // The in-process defaults are the right choice for a single instance and the wrong one
         // for two, and nothing about a deployment says which it is — so the service says at
@@ -112,11 +113,11 @@ public static class SpaceServerExtensions
             sp.GetRequiredService<SpaceServerOptions>()));
 
         services.TryAddSingleton(sp => new DPoPProofValidator(
-            sp.GetRequiredService<ISpaceReplayStore>(), sp.GetRequiredService<SpaceServerOptions>()));
+            sp.GetRequiredService<IJtiReplayStore>(), sp.GetRequiredService<SpaceServerOptions>()));
 
         services.TryAddSingleton(sp => new SpaceDelegationTokenVerifier(
             sp.GetRequiredKeyedService<IDidResolver>(DidResolverKey),
-            sp.GetRequiredService<ISpaceReplayStore>(),
+            sp.GetRequiredService<IJtiReplayStore>(),
             sp.GetRequiredService<SpaceServerOptions>()));
 
         services.TryAddSingleton(sp => new SpaceCredentialVerifier(
@@ -125,12 +126,12 @@ public static class SpaceServerExtensions
 
         services.TryAddSingleton(sp => new SpaceClientAttestationVerifier(
             sp.GetRequiredService<ISpaceClientMetadataResolver>(),
-            sp.GetRequiredService<ISpaceReplayStore>(),
+            sp.GetRequiredService<IJtiReplayStore>(),
             sp.GetRequiredService<SpaceServerOptions>()));
 
         services.TryAddSingleton<ISpaceServiceAuthVerifier>(sp => new SpaceServiceAuthVerifier(
             sp.GetRequiredKeyedService<IDidResolver>(DidResolverKey),
-            sp.GetRequiredService<ISpaceReplayStore>(),
+            sp.GetRequiredService<IJtiReplayStore>(),
             sp.GetRequiredService<SpaceServerOptions>()));
 
         services.TryAddSingleton(sp => new SpaceRequestAuthenticator(

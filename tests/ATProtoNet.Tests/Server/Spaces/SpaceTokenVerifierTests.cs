@@ -3,8 +3,10 @@ using System.Text;
 using ATProtoNet.Auth;
 using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
+using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Spaces;
+using ATProtoNet.Tests.Identity;
 using Microsoft.AspNetCore.Http;
 
 namespace ATProtoNet.Tests.Server.Spaces;
@@ -23,7 +25,7 @@ public class SpaceDelegationTokenVerifierTests
     {
         using var userKey = AtProtoCrypto.GenerateP256Key();
         var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
-        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var space = Space();
         var jwt = SpaceTokens.Create(
@@ -40,7 +42,7 @@ public class SpaceDelegationTokenVerifierTests
     {
         // A delegation token is minted in the user's name, and a space's participants are DIDs.
         using var userKey = AtProtoCrypto.GenerateP256Key();
-        var verifier = new SpaceDelegationTokenVerifier(new FakeDidDocumentResolver(), new InMemorySpaceReplayStore());
+        var verifier = new SpaceDelegationTokenVerifier(new FakeDidDocumentResolver(), new InMemoryJtiReplayStore());
 
         var space = Space();
         var jwt = SpaceTokens.Create(
@@ -60,7 +62,7 @@ public class SpaceDelegationTokenVerifierTests
         // subject rather than taken from the request.
         using var userKey = AtProtoCrypto.GenerateP256Key();
         var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
-        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var space = Space();
         var jwt = SpaceTokens.Create(
@@ -81,7 +83,7 @@ public class SpaceDelegationTokenVerifierTests
     {
         using var userKey = AtProtoCrypto.GenerateP256Key();
         var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
-        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var minted = SpaceUri.Parse($"at://{AuthorityDid}/space/com.atmoboards.forum/other");
         var jwt = SpaceTokens.Create(
@@ -95,7 +97,7 @@ public class SpaceDelegationTokenVerifierTests
     {
         using var userKey = AtProtoCrypto.GenerateP256Key();
         var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
-        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var space = Space();
         var jwt = SpaceTokens.Create(
@@ -113,7 +115,7 @@ public class SpaceDelegationTokenVerifierTests
         using var publishedKey = AtProtoCrypto.GenerateP256Key();
         using var attackerKey = AtProtoCrypto.GenerateP256Key();
         var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, publishedKey);
-        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var space = Space();
         var jwt = SpaceTokens.Create(
@@ -127,7 +129,7 @@ public class SpaceDelegationTokenVerifierTests
     {
         using var userKey = AtProtoCrypto.GenerateP256Key();
         var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
-        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var space = Space();
         var jwt = SpaceTokens.Create(
@@ -150,7 +152,7 @@ public class SpaceDelegationTokenVerifierTests
         // for exactly as long as it claims, so it is refused instead.
         using var userKey = AtProtoCrypto.GenerateP256Key();
         var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
-        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var space = Space();
         var jwt = SpaceTokens.Create(
@@ -174,7 +176,7 @@ public class SpaceDelegationTokenVerifierTests
         var ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var userKey = new AtProtoKey(ecdsa, KeyCurve.P256);
         var resolver = new FakeDidDocumentResolver().PublishLegacyAccount(UserDid, "#atproto", ecdsa);
-        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var space = Space();
         var jwt = SpaceTokens.Create(
@@ -206,7 +208,7 @@ public class SpaceDelegationTokenVerifierTests
         };
 
         var resolver = new FakeDidDocumentResolver().Publish(UserDid, document);
-        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var space = Space();
         var jwt = SpaceTokens.Create(
@@ -225,13 +227,59 @@ public class SpaceDelegationTokenVerifierTests
         // The typ header is what keeps the three token classes from being interchangeable.
         using var userKey = AtProtoCrypto.GenerateP256Key();
         var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
-        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var space = Space();
         var credential = SpaceTokens.Create(
             SpaceTokenType.Credential, AuthorityDid, space.Value, userKey, dpopThumbprint: "abc");
 
         await Assert.ThrowsAsync<SpaceVerificationException>(() => verifier.VerifyAsync(credential, space));
+    }
+
+    [Fact]
+    public async Task VerifyAsync_ReplayedAfterExpiryButWithinTheSkew_IsStillRefused()
+    {
+        // A token is accepted until exp plus the clock skew, so its jti must be kept that long;
+        // kept only until exp, the sweep dropped it while the token still verified.
+        var start = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        var clock = new ManualClock(start);
+        using var userKey = AtProtoCrypto.GenerateP256Key();
+        var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
+        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore(clock), timeProvider: clock);
+
+        var space = Space();
+        var jwt = SpaceTokens.Create(SpaceTokenType.Delegation, UserDid, space.Value, userKey, audience: space.HostAudience);
+        await verifier.VerifyAsync(jwt, space);
+
+        // Two to three seconds past exp: inside SpaceTokens.DefaultClockSkew, and past the
+        // store's one-minute sweep interval.
+        clock.Advance(TimeSpan.FromSeconds(63));
+
+        await Assert.ThrowsAsync<SpaceVerificationException>(() => verifier.VerifyAsync(jwt, space));
+    }
+
+    [Fact]
+    public async Task VerifyAsync_JtiOfOnlyWhitespace_IsRefusedNotThrown()
+    {
+        using var userKey = AtProtoCrypto.GenerateP256Key();
+        var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
+        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
+        var space = Space();
+        var now = DateTimeOffset.UtcNow;
+        var jwt = TestJws.Mint(
+            new Dictionary<string, object> { ["typ"] = SpaceTokens.DelegationType, ["alg"] = "ES256", ["kid"] = "#atproto" },
+            new Dictionary<string, object>
+            {
+                ["iss"] = UserDid.Value,
+                ["sub"] = space.Value,
+                ["aud"] = space.HostAudience,
+                ["iat"] = now.ToUnixTimeSeconds(),
+                ["exp"] = now.AddSeconds(60).ToUnixTimeSeconds(),
+                ["jti"] = " ",
+            },
+            input => userKey.Sign(input));
+
+        await Assert.ThrowsAsync<SpaceVerificationException>(() => verifier.VerifyAsync(jwt, space));
     }
 }
 
@@ -246,7 +294,7 @@ public class SpaceCredentialVerifierTests
 
     private static SpaceCredentialVerifier CreateVerifier(IDidResolver resolver)
     {
-        var replayStore = new InMemorySpaceReplayStore();
+        var replayStore = new InMemoryJtiReplayStore();
         return new SpaceCredentialVerifier(resolver, new DPoPProofValidator(replayStore));
     }
 
@@ -442,7 +490,7 @@ public class SpaceClientAttestationVerifierTests
     {
         using var key = new TestDPoPKey();
         var resolver = new FakeClientMetadataResolver().Publish(ClientId, key.ToJsonWebKey("key-1"));
-        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemoryJtiReplayStore());
 
         var verified = await verifier.VerifyAsync(Attestation(key), Audience);
 
@@ -457,7 +505,7 @@ public class SpaceClientAttestationVerifierTests
         jwk.X += "=";
         jwk.Y += "=";
         var resolver = new FakeClientMetadataResolver().Publish(ClientId, jwk);
-        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemoryJtiReplayStore());
 
         var verified = await verifier.VerifyAsync(Attestation(key), Audience);
 
@@ -473,7 +521,7 @@ public class SpaceClientAttestationVerifierTests
         var jwk = key.ToJsonWebKey("key-1");
         jwk.X = x;
         var resolver = new FakeClientMetadataResolver().Publish(ClientId, jwk);
-        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemoryJtiReplayStore());
 
         var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
             () => verifier.VerifyAsync(Attestation(key), Audience));
@@ -488,7 +536,7 @@ public class SpaceClientAttestationVerifierTests
         using var published = new TestDPoPKey();
         using var attacker = new TestDPoPKey();
         var resolver = new FakeClientMetadataResolver().Publish(ClientId, published.ToJsonWebKey("key-1"));
-        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemoryJtiReplayStore());
 
         var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
             () => verifier.VerifyAsync(Attestation(attacker), Audience));
@@ -501,7 +549,7 @@ public class SpaceClientAttestationVerifierTests
     {
         using var key = new TestDPoPKey();
         var resolver = new FakeClientMetadataResolver().Publish(ClientId, key.ToJsonWebKey("key-1"));
-        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemoryJtiReplayStore());
 
         var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
             () => verifier.VerifyAsync(Attestation(key, kid: "key-2"), Audience));
@@ -518,7 +566,7 @@ public class SpaceClientAttestationVerifierTests
         using var second = new TestDPoPKey();
         var resolver = new FakeClientMetadataResolver()
             .Publish(ClientId, first.ToJsonWebKey("key-1"), second.ToJsonWebKey("key-2"));
-        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemoryJtiReplayStore());
 
         await Assert.ThrowsAsync<SpaceVerificationException>(
             () => verifier.VerifyAsync(Attestation(first, kid: null), Audience));
@@ -529,7 +577,7 @@ public class SpaceClientAttestationVerifierTests
     {
         using var key = new TestDPoPKey();
         var resolver = new FakeClientMetadataResolver().Publish(ClientId, key.ToJsonWebKey());
-        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemoryJtiReplayStore());
 
         var verified = await verifier.VerifyAsync(Attestation(key, kid: null), Audience);
 
@@ -541,7 +589,7 @@ public class SpaceClientAttestationVerifierTests
     {
         using var key = new TestDPoPKey();
         var resolver = new FakeClientMetadataResolver().Publish(ClientId, key.ToJsonWebKey("key-1"));
-        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemoryJtiReplayStore());
 
         var other = SpaceAuthority.HostAudience(Did.Parse("did:plc:cccccccccccccccccccccccc"));
 
@@ -554,7 +602,7 @@ public class SpaceClientAttestationVerifierTests
     {
         using var key = new TestDPoPKey();
         var resolver = new FakeClientMetadataResolver().Publish(ClientId, key.ToJsonWebKey("key-1"));
-        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemoryJtiReplayStore());
 
         var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
             () => verifier.VerifyAsync(Attestation(key, lifetime: TimeSpan.FromDays(365)), Audience));
@@ -567,13 +615,30 @@ public class SpaceClientAttestationVerifierTests
     {
         using var key = new TestDPoPKey();
         var resolver = new FakeClientMetadataResolver().Publish(ClientId, key.ToJsonWebKey("key-1"));
-        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemoryJtiReplayStore());
 
         var attestation = Attestation(key);
         await verifier.VerifyAsync(attestation, Audience);
 
         await Assert.ThrowsAsync<SpaceVerificationException>(
             () => verifier.VerifyAsync(attestation, Audience));
+    }
+
+    [Fact]
+    public async Task VerifyAsync_ReplayedAfterExpiryButWithinTheSkew_IsStillRefused()
+    {
+        var start = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        var clock = new ManualClock(start);
+        using var key = new TestDPoPKey();
+        var resolver = new FakeClientMetadataResolver().Publish(ClientId, key.ToJsonWebKey("key-1"));
+        var verifier = new SpaceClientAttestationVerifier(resolver, new InMemoryJtiReplayStore(clock), timeProvider: clock);
+
+        var attestation = Attestation(key);
+        await verifier.VerifyAsync(attestation, Audience);
+
+        clock.Advance(TimeSpan.FromSeconds(63));
+
+        await Assert.ThrowsAsync<SpaceVerificationException>(() => verifier.VerifyAsync(attestation, Audience));
     }
 }
 
@@ -601,7 +666,9 @@ public class SpaceServiceAuthVerifierTests
         string? jti = null,
         string audience = AuthorityDid,
         JwsSegments padded = JwsSegments.None,
-        string issuer = HostDid)
+        string issuer = HostDid,
+        Action<Dictionary<string, object>>? edit = null,
+        Action<Dictionary<string, object>>? editHeader = null)
     {
         var now = DateTimeOffset.UtcNow;
         var header = new Dictionary<string, object> { ["typ"] = "JWT", ["alg"] = "ES256" };
@@ -615,11 +682,13 @@ public class SpaceServiceAuthVerifierTests
             ["jti"] = jti ?? Guid.NewGuid().ToString("N"),
         };
 
+        edit?.Invoke(payload);
+        editHeader?.Invoke(header);
         return TestJws.Mint(header, payload, input => key.Sign(input), padded);
     }
 
     private static SpaceServiceAuthVerifier CreateVerifier(AtProtoKey hostKey) =>
-        new(new FakeDidDocumentResolver().PublishAccount(HostDid, hostKey), new InMemorySpaceReplayStore());
+        new(new FakeDidDocumentResolver().PublishAccount(HostDid, hostKey), new InMemoryJtiReplayStore());
 
     [Fact]
     public async Task VerifyAsync_ValidToken_ReturnsTheCallingService()
@@ -631,6 +700,81 @@ public class SpaceServiceAuthVerifierTests
 
         Assert.Equal(HostDid, verified.Issuer);
         Assert.Equal(SpaceNsids.NotifyWrite, verified.Method);
+    }
+
+    [Theory]
+    [InlineData("exp", 253402300800L)] // 10000-01-01, one second past what DateTimeOffset holds
+    [InlineData("exp", long.MinValue)]
+    [InlineData("iat", long.MaxValue)]
+    [InlineData("iat", -62135596801L)] // one second before 0001-01-01
+    public async Task VerifyAsync_TimeClaimOutsideTheRepresentableRange_IsRefusedNotThrown(string claim, long seconds)
+    {
+        // Regression: DateTimeOffset.FromUnixTimeSeconds threw ArgumentOutOfRangeException, which
+        // reached the host as a 500 where a 401 was owed.
+        using var hostKey = AtProtoCrypto.GenerateP256Key();
+
+        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
+            () => CreateVerifier(hostKey).VerifyAsync(
+                ContextWith(ServiceAuth(hostKey, edit: p => p[claim] = seconds)), AuthorityDid, NotifyWrite));
+
+        Assert.Equal("NotAuthorized", ex.Error);
+        Assert.Contains("not a valid time", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("jti")]
+    [InlineData("lxm")]
+    [InlineData("iat")]
+    public async Task VerifyAsync_TokenWithoutARequiredClaim_IsRejected(string claim)
+    {
+        // The spec requires all three; this verifier let a token without a jti or an lxm through
+        // before it was rebuilt on the general one.
+        using var hostKey = AtProtoCrypto.GenerateP256Key();
+
+        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
+            () => CreateVerifier(hostKey).VerifyAsync(
+                ContextWith(ServiceAuth(hostKey, edit: p => p.Remove(claim))), AuthorityDid, NotifyWrite));
+
+        Assert.Equal("NotAuthorized", ex.Error);
+        Assert.Contains(claim, ex.Message, StringComparison.Ordinal);
+        Assert.IsType<ServiceAuthException>(ex.InnerException);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_TokenSignedWithAnotherKeyType_IsRejected()
+    {
+        using var hostKey = AtProtoCrypto.GenerateP256Key();
+
+        await Assert.ThrowsAsync<SpaceVerificationException>(
+            () => CreateVerifier(hostKey).VerifyAsync(
+                ContextWith(ServiceAuth(hostKey, editHeader: h => h["kid"] = "#atproto_label")), AuthorityDid, NotifyWrite));
+    }
+
+    [Fact]
+    public async Task VerifyAsync_IssuerWithAServiceFragment_IsRejected()
+    {
+        using var hostKey = AtProtoCrypto.GenerateP256Key();
+
+        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
+            () => CreateVerifier(hostKey).VerifyAsync(
+                ContextWith(ServiceAuth(hostKey, issuer: $"{HostDid}#atproto_pds")), AuthorityDid, NotifyWrite));
+
+        Assert.Contains("bare DID", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(AuthorityDid)] // what the reference implementation sends
+    [InlineData(AuthorityDid + "#atproto_space_host")]
+    public async Task VerifyAsync_EitherFormOfTheAuthoritysAudience_IsAccepted(string audience)
+    {
+        using var hostKey = AtProtoCrypto.GenerateP256Key();
+
+        var verified = await CreateVerifier(hostKey).VerifyAsync(
+            ContextWith(ServiceAuth(hostKey, audience: audience)),
+            [AuthorityDid, AuthorityDid + "#atproto_space_host"],
+            NotifyWrite);
+
+        Assert.Equal(audience, verified.Audience);
     }
 
     [Fact]
@@ -793,6 +937,22 @@ public class SpaceServiceAuthVerifierTests
 
         var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
             () => CreateVerifier(hostKey).VerifyAsync(ContextWith(jwt), AuthorityDid, NotifyWrite));
+
+        Assert.Equal("NotAuthorized", ex.Error);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_SignatureWithAnSOfTheOrderOrMore_IsRejectedNotThrown()
+    {
+        // Regression: the general verifier's high-S normalization threw OverflowException on it.
+        using var hostKey = AtProtoCrypto.GenerateP256Key();
+        var parts = ServiceAuth(hostKey).Split('.');
+        var signature = TestJws.Decode(parts[2]);
+        signature.AsSpan(32).Fill(0xFF);
+
+        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
+            () => CreateVerifier(hostKey).VerifyAsync(
+                ContextWith($"{parts[0]}.{parts[1]}.{TestJws.Encode(signature)}"), AuthorityDid, NotifyWrite));
 
         Assert.Equal("NotAuthorized", ex.Error);
     }

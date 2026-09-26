@@ -9,10 +9,11 @@ namespace ATProtoNet.Server.EntityFrameworkCore;
 /// </summary>
 /// <remarks>
 /// <para>Use this context as-is, or add the entities to a context you already have by calling
-/// <see cref="ConfigureSpaceModel(ModelBuilder)"/> — or one of the three narrower
-/// <c>Configure…</c> methods — from your own <c>OnModelCreating</c>. A service that is an
-/// authority but not a repo host, or that keeps its replay entries in Redis, only needs the
-/// parts it registers.</para>
+/// <see cref="ConfigureSpaceModel(ModelBuilder)"/> — or the narrower
+/// <see cref="ConfigureSpaceAuthorityModel"/>, <see cref="ConfigureSimpleSpaceModel"/> and
+/// <see cref="JtiReplayDbContext.ConfigureJtiReplayModel"/> — from your own
+/// <c>OnModelCreating</c>. A service that is an authority but not a repo host, or that keeps its
+/// replay entries elsewhere, only needs the parts it registers.</para>
 /// <para>The string columns are sized for real-world DIDs, NSIDs, and record keys rather than
 /// for the protocol's theoretical maxima, because they are index keys: a provider with a tight
 /// index-key limit (SQL Server's 900 bytes) rejects wider ones. Narrow or widen them from your
@@ -36,8 +37,11 @@ public class SpaceDbContext : DbContext
     /// <summary>The <c>com.atproto.simplespace</c> member lists.</summary>
     public DbSet<SimpleSpaceMemberEntity> AtProtoSimpleSpaceMembers => Set<SimpleSpaceMemberEntity>();
 
-    /// <summary>The single-use token identifiers already spent.</summary>
-    public DbSet<SpaceReplayEntity> AtProtoSpaceReplay => Set<SpaceReplayEntity>();
+    /// <summary>
+    /// The single-use token identifiers already spent, for
+    /// <see cref="EfCoreJtiReplayStore{TContext}"/>.
+    /// </summary>
+    public DbSet<JtiReplayEntity> AtProtoJtiReplay => Set<JtiReplayEntity>();
 
     /// <summary>Creates a new <see cref="SpaceDbContext"/>.</summary>
     /// <param name="options">The context options.</param>
@@ -66,7 +70,7 @@ public class SpaceDbContext : DbContext
     {
         ConfigureSpaceAuthorityModel(modelBuilder);
         ConfigureSimpleSpaceModel(modelBuilder);
-        ConfigureSpaceReplayModel(modelBuilder);
+        JtiReplayDbContext.ConfigureJtiReplayModel(modelBuilder);
     }
 
     /// <summary>
@@ -149,27 +153,6 @@ public class SpaceDbContext : DbContext
             // true for existing rows instead — see docs/spaces.md.
             entity.Property(e => e.Read);
             entity.Property(e => e.Write);
-        });
-    }
-
-    /// <summary>
-    /// Applies the configuration <see cref="EfCoreSpaceReplayStore{TContext}"/> needs.
-    /// </summary>
-    /// <param name="modelBuilder">The model builder.</param>
-    public static void ConfigureSpaceReplayModel(ModelBuilder modelBuilder)
-    {
-        ArgumentNullException.ThrowIfNull(modelBuilder);
-
-        modelBuilder.Entity<SpaceReplayEntity>(entity =>
-        {
-            entity.ToTable("AtProtoSpaceReplay");
-            entity.HasKey(e => new { e.Issuer, e.TokenId, e.ExpiresAt });
-            entity.Property(e => e.Issuer).HasMaxLength(512);
-            entity.Property(e => e.TokenId).HasMaxLength(255);
-            entity.Property(e => e.ExpiresAt);
-
-            // The sweep deletes by expiry across every issuer, so it needs its own index.
-            entity.HasIndex(e => e.ExpiresAt);
         });
     }
 }

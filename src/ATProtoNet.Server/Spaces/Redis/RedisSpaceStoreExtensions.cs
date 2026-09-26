@@ -1,4 +1,4 @@
-using ATProtoNet.Server.Spaces;
+using ATProtoNet.Server.Authentication;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using StackExchange.Redis;
@@ -21,7 +21,7 @@ namespace ATProtoNet.Server.Redis;
 public static class RedisSpaceStoreExtensions
 {
     /// <summary>
-    /// Replaces the in-process <see cref="ISpaceReplayStore"/> with a Redis-backed one, taking
+    /// Replaces the in-process <see cref="IJtiReplayStore"/> with a Redis-backed one, taking
     /// the connection from <see cref="IConnectionMultiplexer"/> in the container.
     /// </summary>
     /// <param name="services">The service collection.</param>
@@ -44,7 +44,7 @@ public static class RedisSpaceStoreExtensions
     }
 
     /// <summary>
-    /// Replaces the in-process <see cref="ISpaceReplayStore"/> with a Redis-backed one over a
+    /// Replaces the in-process <see cref="IJtiReplayStore"/> with a Redis-backed one over a
     /// database the caller resolves.
     /// </summary>
     /// <param name="services">The service collection.</param>
@@ -59,7 +59,7 @@ public static class RedisSpaceStoreExtensions
 
         // Replace rather than TryAdd: AddAtProtoSpaces() may already have registered the
         // in-process default, and this call is the deployment saying it wants the shared one.
-        services.Replace(ServiceDescriptor.Singleton<ISpaceReplayStore>(sp => new RedisSpaceReplayStore(
+        services.Replace(ServiceDescriptor.Singleton<IJtiReplayStore>(sp => new RedisSpaceReplayStore(
             databaseFactory(sp),
             keyPrefix,
             sp.GetService<TimeProvider>())));

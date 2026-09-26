@@ -145,4 +145,36 @@ public class JwtTests
         Assert.Matches("^[0-9a-f]{32}$", first);
         Assert.NotEqual(first, Mint());
     }
+
+    // ── Claims ───────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("""{}""", null)]
+    [InlineData("""{"exp":0}""", 0L)]
+    [InlineData("""{"exp":253402300799}""", 253402300799L)] // 9999-12-31T23:59:59Z
+    [InlineData("""{"exp":-62135596800}""", -62135596800L)] // 0001-01-01T00:00:00Z
+    public void TryGetNumericDate_AbsentOrRepresentable_Reads(string json, long? seconds)
+    {
+        var claims = JsonSerializer.Deserialize<JsonElement>(json);
+
+        Assert.True(claims.TryGetNumericDate("exp", out var value));
+        Assert.Equal(seconds, value?.ToUnixTimeSeconds());
+    }
+
+    [Theory]
+    [InlineData("""{"exp":253402300800}""")]
+    [InlineData("""{"exp":-62135596801}""")]
+    [InlineData("""{"exp":9223372036854775807}""")]
+    [InlineData("""{"exp":-9223372036854775808}""")]
+    [InlineData("""{"exp":1e30}""")]
+    [InlineData("""{"exp":1.5}""")]
+    [InlineData("""{"exp":"1700000000"}""")]
+    [InlineData("""{"exp":null}""")]
+    public void TryGetNumericDate_AnythingElse_IsInvalidRatherThanThrowing(string json)
+    {
+        var claims = JsonSerializer.Deserialize<JsonElement>(json);
+
+        Assert.False(claims.TryGetNumericDate("exp", out var value));
+        Assert.Null(value);
+    }
 }

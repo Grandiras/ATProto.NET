@@ -38,6 +38,7 @@ public class TypedIdentifierGuardTests
         "ATProtoNet.Lexicon.*",
         "ATProtoNet.Spaces.*",
         "ATProtoNet.Streaming.*",
+        "ATProtoNet.Server.Authentication",
         "ATProtoNet.Server.Spaces.*",
     ];
 
@@ -131,9 +132,9 @@ public class TypedIdentifierGuardTests
         ["ATProtoNet.Spaces.SpaceToken.Subject"] = "JWT `sub`: a space URI, or an OAuth client ID on a client attestation.",
         ["ATProtoNet.Spaces.SpaceTokens.Create(issuer)"] = "JWT `iss`: a DID, or an OAuth client ID on a client attestation.",
         ["ATProtoNet.Spaces.SpaceTokens.Create(subject)"] = "JWT `sub`: a space URI, or an OAuth client ID on a client attestation.",
-        ["ATProtoNet.Server.Spaces.ISpaceReplayStore.TryConsumeAsync(issuer)"] =
+        ["ATProtoNet.Server.Authentication.IJtiReplayStore.TryConsumeAsync(issuer)"] =
             "Scopes a `jti`: a token's `iss` (a DID or a client ID) or a DPoP key's thumbprint.",
-        ["ATProtoNet.Server.Spaces.InMemorySpaceReplayStore.TryConsumeAsync(issuer)"] =
+        ["ATProtoNet.Server.Authentication.InMemoryJtiReplayStore.TryConsumeAsync(issuer)"] =
             "Scopes a `jti`: a token's `iss` (a DID or a client ID) or a DPoP key's thumbprint.",
         ["ATProtoNet.Server.Spaces.DPoPProof.Uri"] = "The DPoP `htu`: an HTTP URL, not an AT URI.",
         ["ATProtoNet.Server.Spaces.DPoPProofValidator.ValidateAsync(requestUri)"] = "An HTTP request URL, not an AT URI.",

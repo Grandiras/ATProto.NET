@@ -88,7 +88,8 @@ internal sealed class XrpcEndpointRegistration
 
     /// <summary>
     /// The handler class's attributes — <c>[Authorize]</c>, <c>[AllowAnonymous]</c>,
-    /// <c>[EnableRateLimiting]</c>, <c>[RequestSizeLimit]</c> — as endpoint metadata.
+    /// <c>[EnableRateLimiting]</c>, <c>[RequestSizeLimit]</c> — as endpoint metadata, followed by
+    /// the <see cref="XrpcMethodMetadata"/> naming the method.
     /// </summary>
     public object[] Metadata { get; }
 
@@ -134,7 +135,8 @@ internal sealed class XrpcEndpointRegistration
         var invoke = (RequestDelegate)factory.MakeGenericMethod(typeArguments).Invoke(null, null)!;
 
         return new XrpcEndpointRegistration(
-            nsid, handlerType, httpMethod, invoke, handlerType.GetCustomAttributes(inherit: true));
+            nsid, handlerType, httpMethod, invoke,
+            [.. handlerType.GetCustomAttributes(inherit: true), new XrpcMethodMetadata(nsid)]);
     }
 
     private static Type Definition(Type type) => type.IsGenericType ? type.GetGenericTypeDefinition() : type;

@@ -1,17 +1,17 @@
-using ATProtoNet.Server.Spaces;
+using ATProtoNet.Server.Authentication;
 using StackExchange.Redis;
 
 namespace ATProtoNet.Server.Redis;
 
 /// <summary>
-/// Redis-backed <see cref="ISpaceReplayStore"/>: single-use token identifiers held in one Redis
+/// Redis-backed <see cref="IJtiReplayStore"/>: single-use token identifiers held in one Redis
 /// instance that every service instance shares.
 /// </summary>
 /// <remarks>
 /// <para>Consuming a token is a single <c>SET key value NX EX ttl</c>. Redis executes it
 /// atomically, so two instances presented the same delegation token, client attestation, or
 /// DPoP proof at the same moment see exactly one success between them — which is the guarantee
-/// <see cref="InMemorySpaceReplayStore"/> cannot give across a load balancer, and the reason a
+/// <see cref="InMemoryJtiReplayStore"/> cannot give across a load balancer, and the reason a
 /// multi-instance deployment needs a shared store at all.</para>
 /// <para>Expiry is the key's own TTL, taken from the token's <c>exp</c>: an entry disappears at
 /// the moment the token it guards would be rejected on its expiry anyway, so nothing sweeps and
@@ -21,7 +21,7 @@ namespace ATProtoNet.Server.Redis;
 /// <para>Register with
 /// <see cref="RedisSpaceStoreExtensions.AddAtProtoRedisSpaceReplayStore(Microsoft.Extensions.DependencyInjection.IServiceCollection, string?)"/>.</para>
 /// </remarks>
-public sealed class RedisSpaceReplayStore : ISpaceReplayStore
+public sealed class RedisSpaceReplayStore : IJtiReplayStore
 {
     /// <summary>The key prefix used when none is given.</summary>
     public const string DefaultKeyPrefix = "atproto:space:replay:";

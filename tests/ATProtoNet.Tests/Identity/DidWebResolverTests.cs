@@ -34,14 +34,28 @@ public class DidWebResolverTests
     }
 
     [Fact]
-    public async Task ResolveAsync_IdDiffersOnlyInHostCase_IsAccepted()
+    public async Task ResolveAsync_IdDiffersOnlyInHostCase_IsRefused()
     {
+        // Exactly as @atproto/identity compares: otherwise every casing of a did:web is a
+        // separate DID that resolves, and a signer can choose which one it signs as.
         var (resolver, _) = Create(_ => ScriptedHandler.Json(DidDocs.Json("did:web:example.com")));
+        using var __ = resolver;
+
+        var ex = await Assert.ThrowsAsync<DidResolutionException>(
+            () => resolver.ResolveAsync(Did.Parse("did:web:Example.COM")));
+
+        Assert.Equal(DidResolutionErrorKind.InvalidDocument, ex.Kind);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_ASpellingThatIsTheDocumentsOwnId_IsAccepted()
+    {
+        var (resolver, _) = Create(_ => ScriptedHandler.Json(DidDocs.Json("did:web:Example.COM")));
         using var __ = resolver;
 
         var document = await resolver.ResolveAsync(Did.Parse("did:web:Example.COM"));
 
-        Assert.Equal(ExampleDid, document.Id);
+        Assert.Equal("did:web:Example.COM", document.Id.Value);
     }
 
     [Theory]

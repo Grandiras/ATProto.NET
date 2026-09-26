@@ -19,6 +19,7 @@ namespace ATProtoNet.Server.Spaces;
 /// state with which to second-guess it.
 /// </remarks>
 /// <typeparam name="TParams">The endpoint's query parameters.</typeparam>
+[AuthenticatesItself]
 public abstract class SpaceRepoEndpointBase<TParams>
     where TParams : SpaceRepoParameters
 {

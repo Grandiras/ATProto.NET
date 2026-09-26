@@ -1,4 +1,4 @@
-using ATProtoNet.Server.Spaces;
+using ATProtoNet.Server.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -6,31 +6,29 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace ATProtoNet.Server.EntityFrameworkCore;
 
 /// <summary>
-/// EF Core-backed <see cref="ISpaceReplayStore"/>: single-use token identifiers in a relational
+/// EF Core-backed <see cref="IJtiReplayStore"/>: single-use token identifiers in a relational
 /// table shared by every instance.
 /// </summary>
 /// <remarks>
 /// <para>Consuming a token is one insert. The table's primary key is <c>(iss, jti, exp)</c> —
 /// exactly what the store is keyed on — so the database's uniqueness enforcement <em>is</em> the
-/// replay check, with no read-modify-write to race. Two instances presented the same delegation
-/// token concurrently therefore see exactly one success between them, which is the guarantee
-/// <see cref="InMemorySpaceReplayStore"/> cannot give across a load balancer.</para>
+/// replay check, with no read-modify-write to race. Two instances presented the same token
+/// concurrently therefore see exactly one success between them, which is the guarantee
+/// <see cref="InMemoryJtiReplayStore"/> cannot give across a load balancer.</para>
 /// <para>Expired rows are swept opportunistically, at most once a minute and never on the
 /// caller's critical path for correctness: a token past its expiry is rejected on the expiry
 /// itself, so a row that outlives its sweep costs space and nothing else. A sweep that fails —
 /// a provider that cannot translate the bulk delete, a transient outage — is logged and
 /// ignored rather than failing the token check it rode along with.</para>
-/// <para>A relational database is a heavier hop than Redis for something on every authenticated
-/// request; <see cref="ATProtoNet.Server.Redis.RedisSpaceReplayStore"/> is the lighter option
-/// where one is available. Register this one with
-/// <see cref="SpaceStoreExtensions.AddAtProtoEfCoreSpaceReplayStore{TContext}"/>.</para>
+/// <para>Register it with
+/// <see cref="JtiReplayStoreExtensions.AddAtProtoEfCoreJtiReplayStore{TContext}"/>.</para>
 /// </remarks>
 /// <typeparam name="TContext">
-/// A <see cref="DbContext"/> carrying <see cref="SpaceReplayEntity"/>. Use
-/// <see cref="SpaceDbContext"/>, or your own context configured with
-/// <see cref="SpaceDbContext.ConfigureSpaceReplayModel"/>.
+/// A <see cref="DbContext"/> carrying <see cref="JtiReplayEntity"/>. Use
+/// <see cref="JtiReplayDbContext"/> or <see cref="SpaceDbContext"/>, or your own context configured
+/// with <see cref="JtiReplayDbContext.ConfigureJtiReplayModel"/>.
 /// </typeparam>
-public sealed class EfCoreSpaceReplayStore<TContext> : ISpaceReplayStore
+public sealed class EfCoreJtiReplayStore<TContext> : IJtiReplayStore
     where TContext : DbContext
 {
     private static readonly TimeSpan SweepInterval = TimeSpan.FromMinutes(1);
@@ -45,9 +43,9 @@ public sealed class EfCoreSpaceReplayStore<TContext> : ISpaceReplayStore
     /// </summary>
     /// <param name="contextFactory">Supplies a context per operation.</param>
     /// <param name="logger">Receives sweep diagnostics.</param>
-    public EfCoreSpaceReplayStore(
+    public EfCoreJtiReplayStore(
         IDbContextFactory<TContext> contextFactory,
-        ILogger<EfCoreSpaceReplayStore<TContext>>? logger = null)
+        ILogger<EfCoreJtiReplayStore<TContext>>? logger = null)
         : this(contextFactory, TimeProvider.System, logger)
     {
     }
@@ -63,10 +61,10 @@ public sealed class EfCoreSpaceReplayStore<TContext> : ISpaceReplayStore
     /// picks it only when a <see cref="TimeProvider"/> is registered, and never has two
     /// constructors it cannot choose between.
     /// </remarks>
-    public EfCoreSpaceReplayStore(
+    public EfCoreJtiReplayStore(
         IDbContextFactory<TContext> contextFactory,
         TimeProvider timeProvider,
-        ILogger<EfCoreSpaceReplayStore<TContext>>? logger = null)
+        ILogger<EfCoreJtiReplayStore<TContext>>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(contextFactory);
         ArgumentNullException.ThrowIfNull(timeProvider);
@@ -87,7 +85,7 @@ public sealed class EfCoreSpaceReplayStore<TContext> : ISpaceReplayStore
         var expiry = expiresAt.ToUnixTimeSeconds();
 
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
-        context.Add(new SpaceReplayEntity { Issuer = issuer, TokenId = tokenId, ExpiresAt = expiry });
+        context.Add(new JtiReplayEntity { Issuer = issuer, TokenId = tokenId, ExpiresAt = expiry });
 
         try
         {
@@ -103,7 +101,7 @@ public sealed class EfCoreSpaceReplayStore<TContext> : ISpaceReplayStore
             // silently refused.
             context.ChangeTracker.Clear();
 
-            var spent = await context.Set<SpaceReplayEntity>()
+            var spent = await context.Set<JtiReplayEntity>()
                 .AsNoTracking()
                 .AnyAsync(
                     e => e.Issuer == issuer && e.TokenId == tokenId && e.ExpiresAt == expiry,
@@ -127,20 +125,23 @@ public sealed class EfCoreSpaceReplayStore<TContext> : ISpaceReplayStore
         if (Interlocked.CompareExchange(ref _sweepDue, next, due) != due)
             return;
 
+        // Rows hold whole seconds, rounded down from the instant the entry must outlive, so a row
+        // stamped with this very second may still guard a token for a fraction of it: only rows
+        // from earlier seconds are certainly past.
         var cutoff = now.ToUnixTimeSeconds();
 
         try
         {
             await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
-            await context.Set<SpaceReplayEntity>()
-                .Where(e => e.ExpiresAt <= cutoff)
+            await context.Set<JtiReplayEntity>()
+                .Where(e => e.ExpiresAt < cutoff)
                 .ExecuteDeleteAsync(cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Housekeeping only: a token past its expiry is rejected on the expiry itself, so a
             // table that keeps growing is a storage problem, never a correctness one.
-            _logger.LogWarning(ex, "Sweeping expired space replay entries failed; they remain until the next sweep");
+            _logger.LogWarning(ex, "Sweeping expired replay entries failed; they remain until the next sweep");
         }
     }
 }

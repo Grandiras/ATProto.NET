@@ -625,6 +625,22 @@ app access (reads only): `OpenAppAccess` *(default)*, `AllowListAppAccess`.
 
 ---
 
+## Service auth (`ATProtoNet.Server.Authentication`)
+
+Verifies the service auth tokens other services and apps call an XRPC service with. See
+[Serving XRPC to other services](xrpc-handlers.md#serving-xrpc-to-other-services).
+
+| Type | Description |
+|------|-------------|
+| `AddAtProtoServiceAuth(options => …)` | The authentication scheme: `did`, `lxm` and `aud` claims, the token bound to the endpoint's NSID |
+| `AtProtoServiceAuthOptions` | `Audiences` (required), `AllowedKeyIds`, `RequireLexiconMethod`, `ClockSkew`, `MaxTokenLifetime` |
+| `[RequireServiceAuth]` / `RequireServiceAuth()` | Require the scheme on a handler, or on the `MapXrpcEndpoints()` group |
+| `ServiceAuthVerifier` / `ServiceAuthVerifierOptions` / `VerifiedServiceAuth` | The verification itself, usable without ASP.NET Core |
+| `ServiceAuthException` / `ServiceAuthErrors` | A refusal: 401 with the reference implementation's error names |
+| `IJtiReplayStore` / `InMemoryJtiReplayStore` | Spends each token's `jti` once |
+| `EfCoreJtiReplayStore<T>` / `JtiReplayDbContext` / `AddAtProtoEfCoreJtiReplayStore<T>()` | The replay store over EF Core, shared across instances (`ATProtoNet.Server.EntityFrameworkCore`) |
+| `XrpcMethodMetadata` (`ATProtoNet.Server.Xrpc`) | The NSID an endpoint serves, attached by `MapXrpcEndpoints()` |
+
 ## Space server (`ATProtoNet.Server.Spaces`)
 
 The other half of the protocol: serving a space rather than reading one. See
@@ -641,8 +657,8 @@ the ordinary `MapXrpcEndpoints()`.
 | `SpaceCredentialVerifier` / `VerifiedSpaceCredential` | Signer resolved from the space URI, plus the DPoP binding |
 | `SpaceClientAttestationVerifier` / `VerifiedClientAttestation` | Verified against the key the attestation's `kid` names in the client's published JWKS |
 | `ISpaceClientMetadataResolver` / `HttpSpaceClientMetadataResolver` | `client_id` → `client-metadata.json` → `jwks` / `jwks_uri` |
-| `ISpaceServiceAuthVerifier` / `SpaceServiceAuthVerifier` | Service auth on the notification endpoints, and the "does this service host that repo" check |
-| `ISpaceReplayStore` / `InMemorySpaceReplayStore` | Single-use enforcement, keyed on `(iss, jti, exp)` |
+| `ISpaceServiceAuthVerifier` / `SpaceServiceAuthVerifier` | Service auth on the notification endpoints (through `ServiceAuthVerifier`), and the "does this service host that repo" check |
+| `IJtiReplayStore` / `InMemoryJtiReplayStore` (`ATProtoNet.Server.Authentication`) | Single-use enforcement, keyed on `(iss, jti, exp)`, shared with service auth |
 | `IDidResolver` (keyed `SpaceServerExtensions.DidResolverKey`) | DID document resolution for every verifier, cached per `SpaceServerOptions.DidCache` (a hard 5 minutes by default) |
 | `SpaceVerificationException` | An `XrpcException` carrying `InvalidDelegationToken`, `InvalidClientAttestation`, or `NotAuthorized` |
 | `ISpaceAccessPolicy` / `SpaceAccessRequest` / `SpaceAccessKind` / `SpaceAccessDecision` | The authority's decisions: who gets a credential (`Read`), and whose write notifications it tracks and forwards (`Write`) |

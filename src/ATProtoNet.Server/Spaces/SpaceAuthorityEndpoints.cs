@@ -24,6 +24,7 @@ namespace ATProtoNet.Server.Spaces;
 /// advertised anywhere; a space that does not wish to disclose which perimeter failed answers
 /// <c>NotAuthorized</c> instead, which a client does not retry.</para>
 /// </remarks>
+[AuthenticatesItself]
 public sealed class GetSpaceCredentialEndpoint
     : IXrpcProcedure<GetSpaceCredentialRequest, GetSpaceCredentialResponse>
 {
@@ -122,6 +123,7 @@ public sealed class GetSpaceCredentialEndpoint
 /// notifications it has accepted; a listed account's repo host is the source of truth, which is
 /// what the per-entry revision is for.
 /// </remarks>
+[AuthenticatesItself]
 public sealed class ListSpaceReposEndpoint : IXrpcQuery<ListSpaceReposParameters, ListSpaceReposResponse>
 {
     private readonly SpaceRequestAuthenticator _authenticator;
@@ -180,6 +182,7 @@ public sealed class ListSpaceReposEndpoint : IXrpcQuery<ListSpaceReposParameters
 /// <c>listRepos</c> catches it. That is why the registration merely has to be recorded, and why
 /// letting one lapse is not an error.
 /// </remarks>
+[AuthenticatesItself]
 public sealed class RegisterNotifyEndpoint : IXrpcProcedure<RegisterNotifyRequest, RegisterNotifyResponse>
 {
     private readonly SpaceRequestAuthenticator _authenticator;
@@ -239,6 +242,7 @@ public sealed class RegisterNotifyEndpoint : IXrpcProcedure<RegisterNotifyReques
 }
 
 /// <summary>Serves <c>com.atproto.space.unregisterNotify</c>.</summary>
+[AuthenticatesItself]
 public sealed class UnregisterNotifyEndpoint : IXrpcProcedureVoid<UnregisterNotifyRequest>
 {
     private readonly SpaceRequestAuthenticator _authenticator;
@@ -299,6 +303,7 @@ public sealed class UnregisterNotifyEndpoint : IXrpcProcedureVoid<UnregisterNoti
 /// relaying it. One it admits is recorded, and forwarded in the background to every service
 /// registered for the space.</para>
 /// </remarks>
+[AuthenticatesItself]
 public sealed class NotifyWriteEndpoint : IXrpcProcedureVoid<NotifyWriteRequest>
 {
     private readonly ISpaceServiceAuthVerifier _serviceAuth;

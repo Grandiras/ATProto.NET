@@ -43,6 +43,17 @@ public class SpaceTokensTests
             padded);
     }
 
+    /// <summary>
+    /// Rewrites one claim of a minted token. The signature no longer covers it, which parsing
+    /// does not check.
+    /// </summary>
+    private static string WithClaim(string jwt, string name, object value)
+    {
+        var claims = JsonSerializer.Deserialize<Dictionary<string, object>>(TestJws.Decode(jwt.Split('.')[1]))!;
+        claims[name] = value;
+        return TestJws.WithSegment(jwt, 1, TestJws.Encode(JsonSerializer.SerializeToUtf8Bytes(claims)));
+    }
+
     // ── Delegation tokens ────────────────────────────────────────
 
     [Fact]
@@ -220,6 +231,57 @@ public class SpaceTokensTests
             MintDelegation(key), index, TestJws.Encode(Encoding.UTF8.GetBytes(json)));
 
         Assert.Throws<SpaceTokenException>(() => SpaceTokens.Parse(SpaceTokenType.Delegation, jwt));
+    }
+
+    [Theory]
+    [InlineData("exp", 253402300800L)] // 10000-01-01, one second past what DateTimeOffset holds
+    [InlineData("exp", long.MaxValue)]
+    [InlineData("exp", long.MinValue)]
+    [InlineData("iat", 253402300800L)]
+    [InlineData("iat", -62135596801L)] // one second before 0001-01-01
+    public void TryParse_TimeClaimOutsideTheRepresentableRange_ReturnsFalse(string claim, long seconds)
+    {
+        // Regression: DateTimeOffset.FromUnixTimeSeconds threw ArgumentOutOfRangeException, which
+        // escaped TryParse, and reached a space server's host as a 500 instead of a refusal.
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var jwt = WithClaim(MintDelegation(key), claim, seconds);
+
+        Assert.False(SpaceTokens.TryParse(SpaceTokenType.Delegation, jwt, out _));
+        var ex = Assert.Throws<SpaceTokenException>(() => SpaceTokens.Parse(SpaceTokenType.Delegation, jwt));
+        Assert.Contains("not a valid time", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(" ")]
+    [InlineData("\t\t")]
+    [InlineData("a\u0000b")]
+    public void TryParse_JtiThatCannotBeSpent_ReturnsFalse(string jti)
+    {
+        // A replay store refuses to key on it, so it has to be refused here, not surface there.
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var jwt = WithClaim(MintDelegation(key), "jti", jti);
+
+        Assert.False(SpaceTokens.TryParse(SpaceTokenType.Delegation, jwt, out _));
+    }
+
+    [Fact]
+    public void Parse_OverlongJti_Throws()
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var jwt = WithClaim(MintDelegation(key), "jti", new string('a', 256));
+
+        Assert.Throws<SpaceTokenException>(() => SpaceTokens.Parse(SpaceTokenType.Delegation, jwt));
+    }
+
+    [Fact]
+    public void Parse_TheLastRepresentableSecond_IsAccepted()
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var jwt = WithClaim(MintDelegation(key), "exp", 253402300799L);
+
+        var token = SpaceTokens.Parse(SpaceTokenType.Delegation, jwt);
+
+        Assert.Equal(DateTimeOffset.MaxValue.ToUnixTimeSeconds(), token.ExpiresAt.ToUnixTimeSeconds());
     }
 
     [Theory]

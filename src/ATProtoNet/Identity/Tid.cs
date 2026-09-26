@@ -23,7 +23,7 @@ public sealed partial record Tid : IIdentifier<Tid>
 
     // The first character carries the high bit, which must be zero, so it is limited to the
     // lower half of the alphabet.
-    [GeneratedRegex("^[234567abcdefghij][234567abcdefghijklmnopqrstuvwxyz]{12}$")]
+    [GeneratedRegex(@"^[234567abcdefghij][234567abcdefghijklmnopqrstuvwxyz]{12}\z")]
     private static partial Regex TidPattern();
 
     /// <summary>

@@ -290,7 +290,9 @@ public static class SpaceTokens
         var subject = payload.GetStringOrNull("sub")
             ?? throw new SpaceTokenException("Token is missing its \"sub\" claim.");
 
-        if (!payload.TryGetProperty("exp", out var exp) || !exp.TryGetInt64(out var expSeconds))
+        if (!payload.TryGetNumericDate("exp", out var exp))
+            throw new SpaceTokenException("Token's \"exp\" claim is not a valid time.");
+        if (exp is not { } expiresAt)
             throw new SpaceTokenException("Token is missing its \"exp\" claim.");
 
         var audience = payload.GetStringOrNull("aud");
@@ -307,13 +309,18 @@ public static class SpaceTokens
         var tokenId = payload.GetStringOrNull("jti");
         if (type != SpaceTokenType.Credential && string.IsNullOrEmpty(tokenId))
             throw new SpaceTokenException($"A {type} token requires a \"jti\" to be consumed by.");
+        if (type != SpaceTokenType.Credential && !Jwt.IsUsableTokenId(tokenId))
+        {
+            throw new SpaceTokenException(
+                $"A {type} token's \"jti\" must be printable, not only whitespace, and at most " +
+                $"{Jwt.MaxTokenIdLength} characters.");
+        }
 
         if (type == SpaceTokenType.ClientAttestation && !string.Equals(issuer, subject, StringComparison.Ordinal))
             throw new SpaceTokenException("A client attestation's \"iss\" and \"sub\" must both be the client ID.");
 
-        var issuedAt = payload.TryGetProperty("iat", out var iat) && iat.TryGetInt64(out var iatSeconds)
-            ? DateTimeOffset.FromUnixTimeSeconds(iatSeconds)
-            : DateTimeOffset.MinValue;
+        if (!payload.TryGetNumericDate("iat", out var issuedAt))
+            throw new SpaceTokenException("Token's \"iat\" claim is not a valid time.");
 
         return new SpaceToken(
             type,
@@ -324,8 +331,8 @@ public static class SpaceTokens
             subject,
             audience,
             thumbprint,
-            issuedAt,
-            DateTimeOffset.FromUnixTimeSeconds(expSeconds),
+            issuedAt ?? DateTimeOffset.MinValue,
+            expiresAt,
             tokenId,
             signingInput,
             signature);

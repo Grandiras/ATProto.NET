@@ -2,6 +2,7 @@ using ATProtoNet.Auth;
 using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
+using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Spaces;
 using Microsoft.AspNetCore.Http;
@@ -33,7 +34,7 @@ public class SpaceIdentityRefreshTests
         var resolver = new FakeDidDocumentResolver()
             .PublishAccount(UserDid, oldKey)
             .Rotate(UserDid, FakeDidDocumentResolver.AccountDocument(UserDid, newKey));
-        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var verified = await verifier.VerifyAsync(DelegationToken(newKey), Space);
 
@@ -47,7 +48,7 @@ public class SpaceIdentityRefreshTests
         using var userKey = AtProtoCrypto.GenerateP256Key();
         using var forger = AtProtoCrypto.GenerateP256Key();
         var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
-        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var ex = await Assert.ThrowsAsync<SpaceVerificationException>(() => verifier.VerifyAsync(DelegationToken(forger), Space));
 
@@ -61,7 +62,7 @@ public class SpaceIdentityRefreshTests
         // Only a signature failure is something a newer document could change.
         using var userKey = AtProtoCrypto.GenerateP256Key();
         var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
-        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
         var expired = SpaceTokens.Create(
             SpaceTokenType.Delegation, UserDid, Space.Value, userKey, audience: Space.HostAudience,
             lifetime: TimeSpan.FromMinutes(-5));
@@ -75,7 +76,7 @@ public class SpaceIdentityRefreshTests
     public async Task DelegationToken_IssuerThatDoesNotResolve_IsARefusal()
     {
         using var userKey = AtProtoCrypto.GenerateP256Key();
-        var verifier = new SpaceDelegationTokenVerifier(new FakeDidDocumentResolver(), new InMemorySpaceReplayStore());
+        var verifier = new SpaceDelegationTokenVerifier(new FakeDidDocumentResolver(), new InMemoryJtiReplayStore());
 
         var ex = await Assert.ThrowsAsync<SpaceVerificationException>(() => verifier.VerifyAsync(DelegationToken(userKey), Space));
 
@@ -92,7 +93,7 @@ public class SpaceIdentityRefreshTests
         var resolver = Substitute.For<IDidResolver>();
         resolver.ResolveAsync(UserDid, Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromException<DidDocument>(new KeyNotFoundException("no such entry")));
-        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var ex = await Assert.ThrowsAsync<SpaceVerificationException>(() => verifier.VerifyAsync(DelegationToken(userKey), Space));
 
@@ -109,7 +110,7 @@ public class SpaceIdentityRefreshTests
         var resolver = new FakeDidDocumentResolver()
             .PublishAccount(AuthorityDid, oldKey)
             .Rotate(AuthorityDid, FakeDidDocumentResolver.AccountDocument(AuthorityDid, newKey));
-        var verifier = new SpaceCredentialVerifier(resolver, new DPoPProofValidator(new InMemorySpaceReplayStore()));
+        var verifier = new SpaceCredentialVerifier(resolver, new DPoPProofValidator(new InMemoryJtiReplayStore()));
         const string url = "https://host.example.com/xrpc/com.atproto.space.listRecords";
         var credential = SpaceTokens.Create(
             SpaceTokenType.Credential, AuthorityDid, Space.Value, newKey, dpopThumbprint: dpop.Thumbprint);
@@ -128,7 +129,7 @@ public class SpaceIdentityRefreshTests
         var resolver = new FakeDidDocumentResolver()
             .PublishAccount(HostDid, oldKey)
             .Rotate(HostDid, FakeDidDocumentResolver.AccountDocument(HostDid, newKey));
-        var verifier = new SpaceServiceAuthVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceServiceAuthVerifier(resolver, new InMemoryJtiReplayStore());
         using var generator = new ServiceAuthGenerator(HostDid, newKey);
 
         var context = new DefaultHttpContext();
@@ -147,7 +148,7 @@ public class SpaceIdentityRefreshTests
         var resolver = new BarrierResolver(participants: 2)
             .Publish(UserDid, "https://pds.example.com")
             .Publish(HostDid, "https://pds.example.com");
-        var verifier = new SpaceServiceAuthVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceServiceAuthVerifier(resolver, new InMemoryJtiReplayStore());
 
         var isHost = await verifier.IsRepoHostAsync(HostDid, UserDid).WaitAsync(TimeSpan.FromSeconds(10));
 
@@ -158,7 +159,7 @@ public class SpaceIdentityRefreshTests
     public async Task IsRepoHostAsync_RepoWithNoHost_IsFalseEvenWhenTheServiceDoesNotResolve()
     {
         var resolver = new FakeDidDocumentResolver().Publish(UserDid, new DidDocument { Id = UserDid });
-        var verifier = new SpaceServiceAuthVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceServiceAuthVerifier(resolver, new InMemoryJtiReplayStore());
 
         Assert.False(await verifier.IsRepoHostAsync(HostDid, UserDid));
     }
@@ -170,7 +171,7 @@ public class SpaceIdentityRefreshTests
         var resolver = new FakeDidDocumentResolver()
             .PublishAccount(UserDid, key, "https://pds.example.com")
             .PublishAccount(HostDid, key, "https://elsewhere.example.com");
-        var verifier = new SpaceServiceAuthVerifier(resolver, new InMemorySpaceReplayStore());
+        var verifier = new SpaceServiceAuthVerifier(resolver, new InMemoryJtiReplayStore());
 
         Assert.False(await verifier.IsRepoHostAsync(HostDid, UserDid));
     }

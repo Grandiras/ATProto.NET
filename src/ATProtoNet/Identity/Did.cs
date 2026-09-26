@@ -22,7 +22,7 @@ public sealed partial record Did : IIdentifier<Did>
 
     // did:<method>:<method-specific-id>. The method is lowercase letters only; the id may
     // contain '%' (percent-encoding) and ':', but may not end with either.
-    [GeneratedRegex(@"^did:[a-z]+:[a-zA-Z0-9._:%-]*[a-zA-Z0-9._-]$")]
+    [GeneratedRegex(@"^did:[a-z]+:[a-zA-Z0-9._:%-]*[a-zA-Z0-9._-]\z")]
     private static partial Regex DidPattern();
 
     /// <summary>

@@ -239,9 +239,11 @@ in the `EncryptedTokenData` column. The table (`AtProtoTokens`: `Did`, `Encrypte
 `UpdatedAt`) is the one the 0.6 token store used, so upgrading needs no migration, and rows the 0.6
 store wrote are read as they are.
 
-The same namespace also carries EF Core stores for the space server — the writer set, the
-`com.atproto.simplespace` member lists, and the single-use-token replay table — alongside a Redis
-replay store. See [Permissioned Data (Spaces)](spaces.md#the-stores).
+The same namespace also carries EF Core stores for the space server — the writer set and the
+`com.atproto.simplespace` member lists; see [Permissioned Data (Spaces)](spaces.md#the-stores) —
+and `EfCoreJtiReplayStore<T>`, the single-use-token replay table that service auth and the space
+server share (register it with `AddAtProtoEfCoreJtiReplayStore<T>()`, over `JtiReplayDbContext` or
+any context calling `JtiReplayDbContext.ConfigureJtiReplayModel`).
 
 ## Standalone Client (Server-to-Server)
 
@@ -375,5 +377,10 @@ failure is answered with an XRPC error body: an `XrpcException` with its own sta
 name, a request that does not bind with `400 InvalidRequest`, and any other exception with
 `500 InternalServerError`, logged and without its message. An NSID no handler serves answers
 `501 MethodNotImplemented`, and a registered one called with the wrong HTTP method answers `405`.
+
+A service called by other AT Protocol services — a feed generator, labeler or AppView — authenticates
+those calls with service auth: `AddAuthentication().AddAtProtoServiceAuth(...)` and
+`app.MapXrpcEndpoints().RequireServiceAuth()`. See
+[Serving XRPC to other services](xrpc-handlers.md#serving-xrpc-to-other-services).
 
 For a comprehensive guide covering dependency injection, combining with PDS hosting, and more examples, see [XRPC Endpoint Handlers](xrpc-handlers.md).

@@ -1,5 +1,6 @@
 using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
+using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.EntityFrameworkCore;
 using ATProtoNet.Server.Redis;
 using ATProtoNet.Server.Spaces;
@@ -19,27 +20,27 @@ namespace ATProtoNet.Tests.Server.Spaces;
 public class SpaceStoreRegistrationTests
 {
     [Fact]
-    public void AddAtProtoEfCoreSpaceReplayStore_AfterAddAtProtoSpaces_Wins()
+    public void AddAtProtoEfCoreJtiReplayStore_AfterAddAtProtoSpaces_Wins()
     {
         var services = Services();
         services.AddAtProtoSpaces();
-        services.AddAtProtoEfCoreSpaceReplayStore<SpaceDbContext>();
+        services.AddAtProtoEfCoreJtiReplayStore<SpaceDbContext>();
 
         using var provider = services.BuildServiceProvider();
 
-        Assert.IsType<EfCoreSpaceReplayStore<SpaceDbContext>>(provider.GetRequiredService<ISpaceReplayStore>());
+        Assert.IsType<EfCoreJtiReplayStore<SpaceDbContext>>(provider.GetRequiredService<IJtiReplayStore>());
     }
 
     [Fact]
-    public void AddAtProtoEfCoreSpaceReplayStore_BeforeAddAtProtoSpaces_Wins()
+    public void AddAtProtoEfCoreJtiReplayStore_BeforeAddAtProtoSpaces_Wins()
     {
         var services = Services();
-        services.AddAtProtoEfCoreSpaceReplayStore<SpaceDbContext>();
+        services.AddAtProtoEfCoreJtiReplayStore<SpaceDbContext>();
         services.AddAtProtoSpaces();
 
         using var provider = services.BuildServiceProvider();
 
-        Assert.IsType<EfCoreSpaceReplayStore<SpaceDbContext>>(provider.GetRequiredService<ISpaceReplayStore>());
+        Assert.IsType<EfCoreJtiReplayStore<SpaceDbContext>>(provider.GetRequiredService<IJtiReplayStore>());
     }
 
     [Fact]
@@ -52,7 +53,7 @@ public class SpaceStoreRegistrationTests
 
         using var provider = services.BuildServiceProvider();
 
-        Assert.IsType<RedisSpaceReplayStore>(provider.GetRequiredService<ISpaceReplayStore>());
+        Assert.IsType<RedisSpaceReplayStore>(provider.GetRequiredService<IJtiReplayStore>());
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
+using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.EntityFrameworkCore;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Spaces;
@@ -46,7 +47,7 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
 
     private EfCoreSimpleSpaceStore<SpaceDbContext> SimpleSpace() => new(new Factory(_options));
 
-    private EfCoreSpaceReplayStore<SpaceDbContext> Replay(TimeProvider? clock = null) =>
+    private EfCoreJtiReplayStore<SpaceDbContext> Replay(TimeProvider? clock = null) =>
         new(new Factory(_options), clock ?? TimeProvider.System);
 
     // ── the authority store ────────────────────────────────────────────────
@@ -428,7 +429,7 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
     private async Task<int> CountReplayEntriesAsync()
     {
         await using var context = new SpaceDbContext(_options);
-        return await context.AtProtoSpaceReplay.CountAsync();
+        return await context.AtProtoJtiReplay.CountAsync();
     }
 
     private sealed class Factory(DbContextOptions<SpaceDbContext> options) : IDbContextFactory<SpaceDbContext>

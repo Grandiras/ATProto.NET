@@ -86,7 +86,10 @@ public static class XrpcEndpointExtensions
     /// <remarks>
     /// <para>Each endpoint also carries its handler class's attributes as metadata, so
     /// <c>[Authorize]</c>, <c>[AllowAnonymous]</c>, <c>[EnableRateLimiting]</c> and
-    /// <c>[RequestSizeLimit]</c> on a handler apply to that endpoint alone.</para>
+    /// <c>[RequestSizeLimit]</c> on a handler apply to that endpoint alone. It carries an
+    /// <see cref="XrpcMethodMetadata"/> naming its NSID too, which service auth
+    /// (<c>AddAtProtoServiceAuth()</c>, <c>[RequireServiceAuth]</c>) binds each token's
+    /// <c>lxm</c> to.</para>
     /// <para>Every failure is answered with the XRPC error envelope: an
     /// <see cref="ATProtoNet.Http.XrpcException"/> with its own status, error name and headers,
     /// and anything else with <c>500 InternalServerError</c>, logged under

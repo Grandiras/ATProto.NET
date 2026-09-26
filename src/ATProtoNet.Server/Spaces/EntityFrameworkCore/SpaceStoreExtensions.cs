@@ -23,7 +23,7 @@ namespace ATProtoNet.Server.EntityFrameworkCore;
 ///
 /// builder.Services
 ///     .AddAtProtoSpaces(options => { /* … */ })
-///     .AddAtProtoEfCoreSpaceReplayStore&lt;SpaceDbContext&gt;()
+///     .AddAtProtoEfCoreJtiReplayStore&lt;SpaceDbContext&gt;()
 ///     .AddAtProtoEfCoreSpaceAuthority&lt;SpaceDbContext&gt;(credentialSigningKey)
 ///     .AddAtProtoEfCoreSimpleSpace&lt;SpaceDbContext&gt;();
 /// </code>
@@ -72,27 +72,5 @@ public static class SpaceStoreExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         return services.AddSimpleSpace<EfCoreSimpleSpaceStore<TContext>>();
-    }
-
-    /// <summary>
-    /// Replaces the in-process <see cref="ISpaceReplayStore"/> with an EF Core-backed one, so
-    /// single-use tokens are spent once across every instance rather than once per process.
-    /// </summary>
-    /// <typeparam name="TContext">
-    /// A <see cref="DbContext"/> configured with
-    /// <see cref="SpaceDbContext.ConfigureSpaceReplayModel"/>.
-    /// </typeparam>
-    /// <param name="services">The service collection.</param>
-    /// <returns>The service collection for chaining.</returns>
-    public static IServiceCollection AddAtProtoEfCoreSpaceReplayStore<TContext>(this IServiceCollection services)
-        where TContext : DbContext
-    {
-        ArgumentNullException.ThrowIfNull(services);
-
-        // Replace rather than TryAdd: AddAtProtoSpaces() may already have registered the
-        // in-process default, and this call is the deployment saying it wants the shared one.
-        services.Replace(ServiceDescriptor.Singleton<ISpaceReplayStore, EfCoreSpaceReplayStore<TContext>>());
-
-        return services;
     }
 }

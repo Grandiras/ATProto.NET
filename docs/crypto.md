@@ -99,10 +99,10 @@ using var generator = new ServiceAuthGenerator(
     serviceDid: Did.Parse("did:web:my-service.example.com"),
     signingKey: key);
 
-// The audience is the target's DID, optionally with a `#fragment` naming one of its services.
+// The audience is the target's DID with the `#fragment` of the service entry you are calling.
 var token = generator.CreateToken(
-    audience: "did:plc:target-service",
-    lxm: Nsid.Parse("app.bsky.feed.getFeedSkeleton"));  // Optional: Lexicon method
+    audience: "did:web:feed.example.com#bsky_fg",
+    lxm: Nsid.Parse("app.bsky.feed.getFeedSkeleton"));  // the method the token is valid for
 
 Console.WriteLine($"JWT: {token}");
 ```
@@ -110,9 +110,18 @@ Console.WriteLine($"JWT: {token}");
 ### Token Properties
 
 - Signed with ES256 (P-256) or ES256K (K-256)
-- Contains `iss`, `aud`, `exp`, `iat`, `jti`, and optional `lxm` claims
+- Contains `iss`, `aud`, `exp`, `iat`, `jti`, and `lxm` claims — all required by the
+  [service auth spec](https://atproto.com/specs/xrpc#inter-service-authentication-jwt) since its
+  2026 revision
+- `aud` is `did#serviceId`; a bare DID is still accepted for receivers that only understand that
+  form, but it is deprecated
+- `iss` is a bare DID. To sign with a key other than `#atproto`, pass its fragment as the
+  constructor's `keyId` (e.g. `"#atproto_label"`) and it is sent as the `kid` header
 - Default expiry: 60 seconds
 - Maximum allowed expiry: 5 minutes
+
+To accept these tokens on your own service, see
+[Serving XRPC to other services](xrpc-handlers.md#serving-xrpc-to-other-services).
 
 ## DAG-CBOR
 

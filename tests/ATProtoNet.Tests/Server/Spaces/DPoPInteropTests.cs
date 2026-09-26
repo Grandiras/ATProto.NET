@@ -1,4 +1,5 @@
 using ATProtoNet.Auth.OAuth;
+using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Spaces;
 
 namespace ATProtoNet.Tests.Server.Spaces;
@@ -40,7 +41,7 @@ public class DPoPInteropTests
     private const long RfcTokenIssuedAt = 1562262616;
 
     private static DPoPProofValidator CreateValidator(TimeProvider? clock = null) =>
-        new(new InMemorySpaceReplayStore(), new SpaceServerOptions(), clock);
+        new(new InMemoryJtiReplayStore(), new SpaceServerOptions(), clock);
 
     // ── Client generator → server validator ──────────────────────
 

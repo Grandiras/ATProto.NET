@@ -515,6 +515,13 @@ Register only the half a service implements: a route that answers is a route tha
 secured. `AddAtProtoSpaces()` on its own registers just the verifiers, which is all a moderation
 service or a proxy needs.
 
+The endpoints that check a space credential, delegation token or service auth themselves — the
+repo-host reads and the authority's `getSpaceCredential`, `listRepos`, `registerNotify`,
+`unregisterNotify` and `notifyWrite` — are anonymous as far as ASP.NET Core authorization goes, so a
+convention on the group (`MapXrpcEndpoints().RequireAuthorization()`, `.RequireServiceAuth()`) or a
+fallback policy does not stand in front of them. The `simplespace` administration endpoints read
+their caller from the host's own authentication and are gated like any other endpoint.
+
 The verifiers resolve DID documents through a `CachingDidResolver` of their own, registered under
 `SpaceServerExtensions.DidResolverKey`. Its lifetime is much shorter than the SDK's general
 default: `SpaceServerOptions.DidCache` holds a document for a hard 5 minutes (`StaleAfter` and
@@ -569,11 +576,12 @@ matched against the credential's `cnf.jkt`, which is what makes it mean somethin
 proof to the credential presented, `htm` and `htu` pin it to this request, `iat` bounds how long a
 captured proof is useful, and `jti` is spent once.
 
-That last "spent once" is `ISpaceReplayStore`, keyed on `(iss, jti, exp)`. The default is
-per-process: **replace it with a shared store** if more than one instance answers for the same DID,
-or a replay is only caught by the instance that saw the original. Two shared implementations ship
-in `ATProtoNet.Server` — see [The stores](#the-stores) below — and the service logs a warning at
-startup while the in-process default is still registered.
+That last "spent once" is `IJtiReplayStore` (in `ATProtoNet.Server.Authentication`, shared with
+[service auth](xrpc-handlers.md#serving-xrpc-to-other-services)), keyed on `(iss, jti, exp)`. The
+default is per-process: **replace it with a shared store** if more than one instance answers for
+the same DID, or a replay is only caught by the instance that saw the original. Two shared
+implementations ship in `ATProtoNet.Server` — see [The stores](#the-stores) below — and the service
+logs a warning at startup while the in-process default is still registered.
 
 Single-use tokens are also bounded in how long they may claim to live. A delegation token, a
 client attestation, and a service auth token are all minted to live 60 seconds, but the `exp` on
@@ -594,16 +602,16 @@ deployment should replace:
 
 | Seam | Default | Durable implementations |
 | --- | --- | --- |
-| `ISpaceReplayStore` | `InMemorySpaceReplayStore` | `RedisSpaceReplayStore`, `EfCoreSpaceReplayStore<T>` |
+| `IJtiReplayStore` | `InMemoryJtiReplayStore` | `RedisSpaceReplayStore`, `EfCoreJtiReplayStore<T>` |
 | `ISimpleSpaceStore` | `InMemorySimpleSpaceStore` | `EfCoreSimpleSpaceStore<T>` |
 | `ISpaceAuthorityStore` | `InMemorySpaceAuthorityStore` | `EfCoreSpaceAuthorityStore<T>` |
 
 Two of those defaults are more than an inconvenience.
 
 **The replay store is a correctness gap across instances.** It is what makes a delegation token, a
-client attestation, and a DPoP proof single-use, and being per-process means a replay is caught
-only by the instance that saw the original — two replicas behind a load balancer accept the same
-delegation token twice.
+client attestation, a DPoP proof and a `notifyWrite` service auth token single-use, and being
+per-process means a replay is caught only by the instance that saw the original — two replicas
+behind a load balancer accept the same delegation token twice.
 
 **A `simplespace` member list cannot be rebuilt.** The writer set is only what an authority claims,
 and any repo host's next `notifyWrite` restores it; a member list is never published to the network
@@ -633,8 +641,8 @@ builder.Services
 
 The EF Core stores take an `IDbContextFactory<T>` — they open a context per operation — and use
 `SpaceDbContext` or any context of your own that calls `SpaceDbContext.ConfigureSpaceModel()` (or
-one of `ConfigureSpaceAuthorityModel`, `ConfigureSimpleSpaceModel`, `ConfigureSpaceReplayModel`)
-from its `OnModelCreating`. Pagination is by DID, as in the in-memory stores, so a cursor names a
+one of `ConfigureSpaceAuthorityModel`, `ConfigureSimpleSpaceModel` and
+`JtiReplayDbContext.ConfigureJtiReplayModel`) from its `OnModelCreating`. Pagination is by DID, as in the in-memory stores, so a cursor names a
 position rather than an offset into a set that reorders as writes arrive.
 
 #### Upgrading a `simplespace` database from 0.6
@@ -671,10 +679,17 @@ If EF generated a rename of `Policy` rather than a drop, replace it with the ste
 default for `Read` and `Write`, because EF would then treat a `false` as unset and store the
 default instead. Adjust the identifier quoting in the `UPDATE` for your provider if needed.
 
-`AddAtProtoEfCoreSpaceReplayStore<T>()` is the option for a deployment with no Redis: the replay
+`AddAtProtoEfCoreJtiReplayStore<T>()` is the option for a deployment with no Redis: the replay
 check is a single insert whose primary key is `(iss, jti, exp)`, so the database's own uniqueness
 enforcement is what makes it atomic, and expired rows are swept opportunistically. Redis is the
 lighter hop for something on every authenticated request.
+
+#### Upgrading the replay table from 0.6
+
+The replay store is shared with service auth now, so its table is `AtProtoJtiReplay` (entity
+`JtiReplayEntity`) where it was `AtProtoSpaceReplay` (`SpaceReplayEntity`), with the same columns
+and key. A row lives only as long as the token it guards — minutes — so the migration EF generates,
+dropping the old table and creating the new one, loses nothing that matters.
 
 The two stores answer different questions, and `AddSpaceAuthority<T>()` bridges them: whenever an
 `ISimpleSpaceStore` is registered — in either order — the authority store is wrapped in a
@@ -824,9 +839,9 @@ PDS already has.
 | `SpaceTypeDeclaration` | The `"type": "space"` Lexicon definition |
 | `AtProtoScopes.Space` | Build `space:` OAuth scopes |
 | `AddAtProtoSpaces` / `AddSpaceAuthority` / `AddSpaceRepoHost` / `AddSimpleSpace` | Register the server halves (`ATProtoNet.Server`) |
-| `SpaceRequestAuthenticator`, `DPoPProofValidator`, `SpaceDelegationTokenVerifier`, `SpaceCredentialVerifier`, `SpaceClientAttestationVerifier` | Verify what a caller presents |
-| `ISpaceAccessPolicy`, `ISpaceCredentialIssuer`, `ISpaceAuthorityStore`, `ISpaceRepoHost`, `ISimpleSpaceStore` | The seams a server implements |
-| `RedisSpaceReplayStore`, `EfCoreSpaceReplayStore`, `EfCoreSpaceAuthorityStore`, `EfCoreSimpleSpaceStore` | Durable, multi-instance implementations of those stores |
+| `SpaceRequestAuthenticator`, `DPoPProofValidator`, `SpaceDelegationTokenVerifier`, `SpaceCredentialVerifier`, `SpaceClientAttestationVerifier`, `SpaceServiceAuthVerifier` | Verify what a caller presents |
+| `ISpaceAccessPolicy`, `ISpaceCredentialIssuer`, `ISpaceAuthorityStore`, `ISpaceRepoHost`, `ISimpleSpaceStore`, `IJtiReplayStore` | The seams a server implements |
+| `RedisSpaceReplayStore`, `EfCoreJtiReplayStore`, `EfCoreSpaceAuthorityStore`, `EfCoreSimpleSpaceStore` | Durable, multi-instance implementations of those stores |
 | `SpaceWriteNotifier` | Deliver write and deletion notifications |
 
 ## See also

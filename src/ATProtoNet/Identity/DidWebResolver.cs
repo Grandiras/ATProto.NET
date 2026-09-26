@@ -22,7 +22,7 @@ public sealed partial class DidWebResolver : IDidResolver, IDisposable
     private readonly IdentityResolverOptions _options;
 
     // One DNS hostname: dot-separated labels of letters, digits and inner hyphens.
-    [GeneratedRegex(@"^(?=.{1,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?=.{1,253}\z)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*\z", RegexOptions.IgnoreCase)]
     private static partial Regex HostnamePattern();
 
     /// <summary>

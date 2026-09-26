@@ -16,7 +16,7 @@ public sealed partial record RecordKey : IIdentifier<RecordKey>
 {
     // 1-512 characters from A-Z a-z 0-9 . - _ : ~ (the URI "unreserved" set plus ':'),
     // excluding the relative-path segments "." and "..".
-    [GeneratedRegex("^[A-Za-z0-9._:~-]{1,512}$")]
+    [GeneratedRegex(@"^[A-Za-z0-9._:~-]{1,512}\z")]
     private static partial Regex RecordKeyPattern();
 
     /// <summary>

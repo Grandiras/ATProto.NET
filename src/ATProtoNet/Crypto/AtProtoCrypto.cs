@@ -263,6 +263,27 @@ public static class AtProtoCrypto
         => DidKeyCache.Shared.Verify(didKey, message, signature);
 
     /// <summary>
+    /// Verifies a JWT's signature against a <c>did:key</c>, as the reference implementation checks
+    /// a service auth token: the header's <c>alg</c> must be the one the key's curve signs with,
+    /// and a high-S signature is accepted.
+    /// </summary>
+    /// <param name="didKey">The signer's did:key.</param>
+    /// <param name="algorithm">The token's <c>alg</c> header.</param>
+    /// <param name="signingInput">The <c>{header}.{payload}</c> bytes the signature covers.</param>
+    /// <param name="signature">The <c>r || s</c> signature.</param>
+    /// <returns><c>true</c> if the signature is valid.</returns>
+    /// <remarks>
+    /// Low-S is what keeps a signature over content-addressed data from having a second valid
+    /// form. A bearer token is not content-addressed, and generic JOSE signers (WebCrypto among
+    /// them) emit high-S about half the time, so <c>@atproto/xrpc-server</c> accepts either form
+    /// on a JWT.
+    /// </remarks>
+    /// <exception cref="FormatException">Thrown when the did:key is malformed.</exception>
+    internal static bool VerifyJwtSignature(
+        string didKey, string algorithm, ReadOnlySpan<byte> signingInput, ReadOnlySpan<byte> signature)
+        => DidKeyCache.Shared.VerifyJws(didKey, algorithm, signingInput, signature);
+
+    /// <summary>
     /// Encodes a 33-byte compressed public key as a base58btc multikey string.
     /// </summary>
     internal static string ToMultikey(ReadOnlySpan<byte> compressedPublicKey, KeyCurve curve)
@@ -347,6 +368,9 @@ public static class AtProtoCrypto
             SqrtExponent = (P + 1) / 4;
             Order = FromHex(order);
 
+            OrderBytes = new byte[32];
+            Order.TryWriteBytes(OrderBytes, out _, isUnsigned: true, isBigEndian: true);
+
             HalfOrder = new byte[32];
             (Order / 2).TryWriteBytes(HalfOrder, out _, isUnsigned: true, isBigEndian: true);
         }
@@ -372,6 +396,9 @@ public static class AtProtoCrypto
 
         /// <summary>The group order n.</summary>
         public BigInteger Order { get; }
+
+        /// <summary>n as 32 big-endian bytes: no signature scalar may reach it.</summary>
+        public byte[] OrderBytes { get; }
 
         /// <summary>n / 2 as 32 big-endian bytes: the largest S a low-S signature may carry.</summary>
         public byte[] HalfOrder { get; }
@@ -527,6 +554,25 @@ public static class AtProtoCrypto
     }
 
     /// <summary>
+    /// Whether both scalars of an IEEE P1363 <c>r || s</c> signature lie in [1, n − 1], the only
+    /// values an ECDSA signature can carry.
+    /// </summary>
+    /// <remarks>
+    /// A signature arriving on the wire is attacker-chosen bytes. Anything outside the range is
+    /// refused here, before it reaches arithmetic that assumes it (<see cref="NormalizeLowSSignature"/>)
+    /// or a platform verifier that may throw on it rather than answer <see langword="false"/>.
+    /// </remarks>
+    internal static bool HasScalarsInRange(ReadOnlySpan<byte> signature, KeyCurve curve)
+    {
+        var order = CurveInfo.For(curve).OrderBytes;
+        var half = signature.Length / 2;
+        return IsInRange(signature[..half], order) && IsInRange(signature[half..], order);
+
+        static bool IsInRange(ReadOnlySpan<byte> scalar, byte[] order) =>
+            scalar.ContainsAnyExcept((byte)0) && CompareBigEndianUnsigned(scalar, order) < 0;
+    }
+
+    /// <summary>
     /// Whether <paramref name="signature"/> has the IEEE P1363 length of both supported curves.
     /// A DER-encoded signature, which atproto does not allow, never does.
     /// </summary>
@@ -542,6 +588,11 @@ public static class AtProtoCrypto
         var halfLen = signature.Length / 2;
         var sSpan = signature.AsSpan(halfLen);
         var curveInfo = CurveInfo.For(curve);
+
+        // An S of n or more is no signature at all, and n - S would be negative: leave it as it
+        // is to fail verification rather than throw on the way there.
+        if (CompareBigEndianUnsigned(sSpan, curveInfo.OrderBytes) >= 0)
+            return signature;
 
         // Compare S > halfOrder (big-endian unsigned)
         if (CompareBigEndianUnsigned(sSpan, curveInfo.HalfOrder) > 0)
@@ -649,8 +700,12 @@ public sealed class AtProtoKey : IDisposable
 
         // Only the fixed-length r || s form, and only low-S: AT Protocol requires low-S
         // normalization to rule out signature malleability.
-        if (!AtProtoCrypto.HasSignatureLength(signature) || !AtProtoCrypto.IsLowS(signature, Curve))
+        if (!AtProtoCrypto.HasSignatureLength(signature) ||
+            !AtProtoCrypto.HasScalarsInRange(signature, Curve) ||
+            !AtProtoCrypto.IsLowS(signature, Curve))
+        {
             return false;
+        }
 
         return _key.VerifyData(
             data,

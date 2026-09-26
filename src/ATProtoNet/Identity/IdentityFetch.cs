@@ -187,13 +187,15 @@ internal static class IdentityFetch
     }
 
     /// <summary>
-    /// Whether a document's <c>id</c> is the DID asked for. A <c>did:plc</c> is case-sensitive
-    /// (its suffix is base32 over a hash), but a <c>did:web</c> embeds a DNS host, which is
-    /// case-insensitive per RFC 1035 — so <c>did:web:Example.com</c> and
-    /// <c>did:web:example.com</c> name the same document even though their strings differ.
+    /// Whether a document's <c>id</c> is exactly the DID asked for, as <c>@atproto/identity</c>
+    /// compares it.
     /// </summary>
+    /// <remarks>
+    /// A <c>did:web</c> embeds a DNS host, which DNS matches case-insensitively, so every casing of
+    /// one fetches the same document. Accepting the document for all of them would give one
+    /// identity as many spellings, and a signer could pick whichever it liked as its <c>iss</c>, a
+    /// different principal name each time. Held to its own <c>id</c>, a document answers for one.
+    /// </remarks>
     internal static bool IdsMatch(Did documentId, Did requested) =>
-        requested.Method == "web" && documentId.Method == "web"
-            ? string.Equals(documentId.Value, requested.Value, StringComparison.OrdinalIgnoreCase)
-            : documentId == requested;
+        string.Equals(documentId.Value, requested.Value, StringComparison.Ordinal);
 }

@@ -118,6 +118,24 @@ internal static class Jwt
         writer.WriteString("jti"u8, hex);
     }
 
+    /// <summary>The longest <c>jti</c> a verifier accepts: the width of the EF Core replay table's column.</summary>
+    public const int MaxTokenIdLength = 255;
+
+    /// <summary>
+    /// Whether an inbound token's <c>jti</c> can be spent in a replay store: present, not only
+    /// whitespace, free of control characters, and at most <see cref="MaxTokenIdLength"/> long.
+    /// </summary>
+    /// <remarks>
+    /// The value is the token signer's choice. Anything a store would refuse to key on has to be
+    /// refused here as a malformed token, or it surfaces from the store as a server fault.
+    /// </remarks>
+    /// <param name="tokenId">The <c>jti</c> claim, or <see langword="null"/> when there is none.</param>
+    public static bool IsUsableTokenId([NotNullWhen(true)] string? tokenId) =>
+        !string.IsNullOrWhiteSpace(tokenId) &&
+        tokenId.Length <= MaxTokenIdLength &&
+        !tokenId.AsSpan().ContainsAnyInRange('\0', '\x1f') &&
+        !tokenId.AsSpan().ContainsAnyInRange('\x7f', '\x9f');
+
     /// <summary>
     /// Splits a compact JWS and decodes its three parts, without verifying anything.
     /// </summary>
@@ -216,6 +234,44 @@ internal static class Jwt
 /// <summary>JSON reading helpers for token claims.</summary>
 internal static class JsonElementExtensions
 {
+    private static readonly long s_minUnixSeconds = DateTimeOffset.MinValue.ToUnixTimeSeconds();
+    private static readonly long s_maxUnixSeconds = DateTimeOffset.MaxValue.ToUnixTimeSeconds();
+
+    /// <summary>
+    /// Reads a JWT NumericDate member (<c>exp</c>, <c>iat</c>): whole seconds since the Unix epoch.
+    /// </summary>
+    /// <param name="element">The claims object to read from.</param>
+    /// <param name="name">The member name.</param>
+    /// <param name="value">
+    /// The instant, or <see langword="null"/> when <paramref name="element"/> has no such member.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> when the member is absent or holds a usable NumericDate;
+    /// <see langword="false"/> when it holds anything else, including an integer outside the years
+    /// 1 to 9999 that <see cref="DateTimeOffset"/> can represent.
+    /// </returns>
+    /// <remarks>
+    /// The value is whatever the token's signer wrote, so one that cannot be represented is a
+    /// malformed token to refuse, not an <see cref="ArgumentOutOfRangeException"/> to let escape.
+    /// </remarks>
+    public static bool TryGetNumericDate(this JsonElement element, string name, out DateTimeOffset? value)
+    {
+        value = null;
+        if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty(name, out var member))
+            return true;
+
+        if (member.ValueKind != JsonValueKind.Number ||
+            !member.TryGetInt64(out var seconds) ||
+            seconds < s_minUnixSeconds ||
+            seconds > s_maxUnixSeconds)
+        {
+            return false;
+        }
+
+        value = DateTimeOffset.FromUnixTimeSeconds(seconds);
+        return true;
+    }
+
     /// <summary>
     /// Reads a string member, or returns <see langword="null"/> when <paramref name="element"/>
     /// is not an object, has no such member, or the member is not a string.

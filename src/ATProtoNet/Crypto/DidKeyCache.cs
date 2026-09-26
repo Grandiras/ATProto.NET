@@ -65,6 +65,33 @@ internal sealed class DidKeyCache
         }
     }
 
+    /// <summary>
+    /// Verifies a JWS signature with the key a did:key names: <paramref name="algorithm"/> must be
+    /// the one the key's curve signs with, and a high-S signature is accepted.
+    /// </summary>
+    /// <exception cref="FormatException">Thrown when the did:key is malformed; nothing is cached.</exception>
+    internal bool VerifyJws(string didKey, string algorithm, ReadOnlySpan<byte> signingInput, ReadOnlySpan<byte> signature)
+    {
+        var entry = GetOrAdd(didKey);
+        if (!string.Equals(entry.Curve.JwsAlgorithm(), algorithm, StringComparison.Ordinal) ||
+            !AtProtoCrypto.HasSignatureLength(signature) ||
+            !AtProtoCrypto.HasScalarsInRange(signature, entry.Curve))
+        {
+            return false;
+        }
+
+        var normalized = AtProtoCrypto.NormalizeLowSSignature(signature.ToArray(), entry.Curve);
+        var key = entry.Rent();
+        try
+        {
+            return key.Verify(signingInput, normalized);
+        }
+        finally
+        {
+            entry.Return(key);
+        }
+    }
+
     private Entry GetOrAdd(string didKey)
     {
         ArgumentNullException.ThrowIfNull(didKey);
@@ -134,6 +161,8 @@ internal sealed class DidKeyCache
         }
 
         public string DidKey { get; }
+
+        public KeyCurve Curve => _curve;
 
         public AtProtoKey Rent()
         {

@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
+using ATProtoNet.Server.Authentication;
 using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Server.Spaces;
@@ -153,7 +154,7 @@ public sealed class HttpSpaceClientMetadataResolver : ISpaceClientMetadataResolv
 public sealed class SpaceClientAttestationVerifier
 {
     private readonly ISpaceClientMetadataResolver _metadataResolver;
-    private readonly ISpaceReplayStore _replayStore;
+    private readonly IJtiReplayStore _replayStore;
     private readonly SpaceServerOptions _options;
     private readonly TimeProvider _timeProvider;
 
@@ -166,7 +167,7 @@ public sealed class SpaceClientAttestationVerifier
     /// <param name="timeProvider">The clock. Defaults to the system clock.</param>
     public SpaceClientAttestationVerifier(
         ISpaceClientMetadataResolver metadataResolver,
-        ISpaceReplayStore replayStore,
+        IJtiReplayStore replayStore,
         SpaceServerOptions? options = null,
         TimeProvider? timeProvider = null)
     {
@@ -235,7 +236,7 @@ public sealed class SpaceClientAttestationVerifier
             throw Invalid($"The client attestation's signature does not verify against client '{parsed.Issuer}'.");
 
         if (!await _replayStore.TryConsumeAsync(
-                parsed.Issuer, parsed.TokenId!, parsed.ExpiresAt, cancellationToken))
+                parsed.Issuer, parsed.TokenId!, _options.ReplayRetention(parsed.ExpiresAt), cancellationToken))
         {
             throw Invalid("The client attestation has already been used; attestations are single-use.");
         }

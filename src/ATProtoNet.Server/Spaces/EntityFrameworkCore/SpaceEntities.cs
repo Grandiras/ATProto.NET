@@ -130,33 +130,3 @@ public sealed class SimpleSpaceMemberEntity
     /// <summary>Whether the member's writes are tracked under a member-list write policy.</summary>
     public bool Write { get; set; }
 }
-
-/// <summary>
-/// A single-use token identifier this service has already accepted.
-/// </summary>
-/// <remarks>
-/// The primary key is <c>(Issuer, TokenId, ExpiresAt)</c>, matching how
-/// <see cref="ATProtoNet.Server.Spaces.ISpaceReplayStore"/> is keyed: the uniqueness of that key
-/// <em>is</em> the replay check, so consuming a token is one insert with no read-modify-write.
-/// </remarks>
-public sealed class SpaceReplayEntity
-{
-    /// <summary>The token's <c>iss</c>, which scopes the identifier. Part of the composite primary key.</summary>
-    [MaxLength(512)]
-    public required string Issuer { get; set; }
-
-    /// <summary>The token's <c>jti</c>. Part of the composite primary key.</summary>
-    [MaxLength(255)]
-    public required string TokenId { get; set; }
-
-    /// <summary>
-    /// The token's expiry as Unix seconds. Part of the composite primary key, and what expired
-    /// rows are swept on.
-    /// </summary>
-    /// <remarks>
-    /// Held as a number rather than a timestamp so the key is byte-identical across providers
-    /// that store <see cref="DateTimeOffset"/> differently, and so the sweep is a plain integer
-    /// comparison.
-    /// </remarks>
-    public long ExpiresAt { get; set; }
-}

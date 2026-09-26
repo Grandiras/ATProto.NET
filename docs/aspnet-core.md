@@ -46,6 +46,11 @@ builder.Services.AddAtProtoScoped(options =>
 
 Validate AT Protocol JWTs on incoming requests:
 
+> This handler accepts a user's PDS access token and checks it against one PDS. To accept calls
+> from other AT Protocol services — a feed generator, labeler or AppView called through a PDS — use
+> service auth instead: see
+> [Serving XRPC to other services](xrpc-handlers.md#serving-xrpc-to-other-services).
+
 ```csharp
 using ATProtoNet.Server.Authentication;
 

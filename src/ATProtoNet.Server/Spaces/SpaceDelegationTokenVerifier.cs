@@ -1,5 +1,6 @@
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
+using ATProtoNet.Server.Authentication;
 using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Server.Spaces;
@@ -36,7 +37,7 @@ public sealed record VerifiedDelegationToken(SpaceToken Token, SpaceUri Space, D
 public sealed class SpaceDelegationTokenVerifier
 {
     private readonly IDidResolver _resolver;
-    private readonly ISpaceReplayStore _replayStore;
+    private readonly IJtiReplayStore _replayStore;
     private readonly SpaceServerOptions _options;
     private readonly TimeProvider _timeProvider;
 
@@ -52,7 +53,7 @@ public sealed class SpaceDelegationTokenVerifier
     /// <param name="timeProvider">The clock. Defaults to the system clock.</param>
     public SpaceDelegationTokenVerifier(
         IDidResolver resolver,
-        ISpaceReplayStore replayStore,
+        IJtiReplayStore replayStore,
         SpaceServerOptions? options = null,
         TimeProvider? timeProvider = null)
     {
@@ -129,7 +130,7 @@ public sealed class SpaceDelegationTokenVerifier
         // Spent only once everything else has passed, so a forged token cannot burn the
         // identifier of one the legitimate holder is about to present.
         if (!await _replayStore.TryConsumeAsync(
-                verified.Issuer, verified.TokenId!, verified.ExpiresAt, cancellationToken))
+                verified.Issuer, verified.TokenId!, _options.ReplayRetention(verified.ExpiresAt), cancellationToken))
         {
             throw Invalid("The delegation token has already been used; delegation tokens are single-use.");
         }

@@ -4,6 +4,7 @@ using System.Text.Json;
 using ATProtoNet.Auth;
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
+using ATProtoNet.Server.Authentication;
 
 namespace ATProtoNet.Server.Spaces;
 
@@ -102,7 +103,7 @@ public sealed class DPoPProofValidator
     /// <summary>The <c>typ</c> header every DPoP proof carries.</summary>
     public const string ProofType = DPoP.TokenType;
 
-    private readonly ISpaceReplayStore _replayStore;
+    private readonly IJtiReplayStore _replayStore;
     private readonly SpaceServerOptions _options;
     private readonly TimeProvider _timeProvider;
 
@@ -113,7 +114,7 @@ public sealed class DPoPProofValidator
     /// <param name="options">Server options; supplies the proof lifetime.</param>
     /// <param name="timeProvider">The clock. Defaults to the system clock.</param>
     public DPoPProofValidator(
-        ISpaceReplayStore replayStore,
+        IJtiReplayStore replayStore,
         SpaceServerOptions? options = null,
         TimeProvider? timeProvider = null)
     {
@@ -214,6 +215,12 @@ public sealed class DPoPProofValidator
 
         var tokenId = payload.GetStringOrNull("jti")
             ?? throw Invalid("The DPoP proof is missing its \"jti\" claim.");
+        if (!Jwt.IsUsableTokenId(tokenId))
+        {
+            throw Invalid(
+                "The DPoP proof's \"jti\" must be printable, not only whitespace, and at most " +
+                $"{Jwt.MaxTokenIdLength} characters.");
+        }
         var method = payload.GetStringOrNull("htm")
             ?? throw Invalid("The DPoP proof is missing its \"htm\" claim.");
         var uri = payload.GetStringOrNull("htu")
@@ -231,14 +238,16 @@ public sealed class DPoPProofValidator
         if (!string.Equals(normalizedProofUri, normalizedRequestUri, StringComparison.Ordinal))
             throw Invalid("The DPoP proof was minted for a different URL than the one it was presented at.");
 
-        if (!payload.TryGetProperty("iat", out var iat) || !iat.TryGetInt64(out var iatSeconds))
+        if (!payload.TryGetNumericDate("iat", out var iat))
+            throw Invalid("The DPoP proof's \"iat\" claim is not a valid time.");
+        if (iat is not { } issuedAt)
             throw Invalid("The DPoP proof is missing its \"iat\" claim.");
 
-        var issuedAt = DateTimeOffset.FromUnixTimeSeconds(iatSeconds);
         var now = _timeProvider.GetUtcNow();
         if (issuedAt > now + _options.ClockSkew)
             throw Invalid("The DPoP proof is dated in the future.");
-        if (issuedAt + _options.ProofLifetime < now)
+        // Refused from the very instant its jti may leave the replay store, not one tick later.
+        if (issuedAt + _options.ProofLifetime <= now)
             throw Invalid("The DPoP proof has aged out.");
 
         var accessTokenHash = payload.GetStringOrNull("ath");

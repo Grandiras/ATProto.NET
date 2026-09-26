@@ -1,20 +1,10 @@
-using System.Security.Cryptography;
-using ATProtoNet.Auth;
-using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
+using ATProtoNet.Server.Authentication;
 using ATProtoNet.Spaces;
 using Microsoft.AspNetCore.Http;
 
 namespace ATProtoNet.Server.Spaces;
-
-/// <summary>
-/// A verified inter-service authentication token.
-/// </summary>
-/// <param name="Issuer">The calling service's DID.</param>
-/// <param name="Audience">The service identifier it addressed: a DID, possibly with a service fragment.</param>
-/// <param name="Method">The <c>lxm</c> it was scoped to, when it named one.</param>
-public sealed record VerifiedServiceAuth(Did Issuer, string Audience, Nsid? Method);
 
 /// <summary>
 /// Verifies the service auth tokens on the notification endpoints.
@@ -23,9 +13,9 @@ public sealed record VerifiedServiceAuth(Did Issuer, string Audience, Nsid? Meth
 /// Write notifications are not carried by a space credential. The caller is a PDS acting as
 /// itself, telling an authority that one of the repos it hosts advanced, so it authenticates
 /// with the ordinary AT Protocol
-/// <see href="https://atproto.com/specs/xrpc#service-auth">service auth</see> a feed generator or
-/// labeler already uses: a short-lived JWT with <c>iss</c>, <c>aud</c>, and <c>lxm</c>, signed
-/// with the issuer's <c>#atproto</c> key.
+/// <see href="https://atproto.com/specs/xrpc#inter-service-authentication-jwt">service auth</see>
+/// a feed generator or labeler already uses: a short-lived JWT with <c>iss</c>, <c>aud</c>,
+/// <c>lxm</c> and a single-use <c>jti</c>, signed with the issuer's <c>#atproto</c> key.
 /// </remarks>
 public interface ISpaceServiceAuthVerifier
 {
@@ -63,12 +53,17 @@ public interface ISpaceServiceAuthVerifier
 /// The default <see cref="ISpaceServiceAuthVerifier"/>, resolving keys and endpoints from DID
 /// documents.
 /// </summary>
+/// <remarks>
+/// Tokens are checked by the general <see cref="ServiceAuthVerifier"/>: the <c>lxm</c> and
+/// <c>jti</c> are required, only an <c>#atproto</c> key is accepted, and the clock checks use
+/// <see cref="SpaceServerOptions.ClockSkew"/> and
+/// <see cref="SpaceServerOptions.MaxSingleUseTokenLifetime"/>. A refusal is reported as
+/// <see cref="SpaceErrors.NotAuthorized"/>, the error the space Lexicons declare.
+/// </remarks>
 public sealed class SpaceServiceAuthVerifier : ISpaceServiceAuthVerifier
 {
     private readonly IDidResolver _resolver;
-    private readonly ISpaceReplayStore _replayStore;
-    private readonly SpaceServerOptions _options;
-    private readonly TimeProvider _timeProvider;
+    private readonly ServiceAuthVerifier _verifier;
 
     /// <summary>
     /// Creates a verifier.
@@ -82,17 +77,25 @@ public sealed class SpaceServiceAuthVerifier : ISpaceServiceAuthVerifier
     /// <param name="timeProvider">The clock. Defaults to the system clock.</param>
     public SpaceServiceAuthVerifier(
         IDidResolver resolver,
-        ISpaceReplayStore replayStore,
+        IJtiReplayStore replayStore,
         SpaceServerOptions? options = null,
         TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(resolver);
         ArgumentNullException.ThrowIfNull(replayStore);
 
+        options ??= new SpaceServerOptions();
+
         _resolver = resolver;
-        _replayStore = replayStore;
-        _options = options ?? new SpaceServerOptions();
-        _timeProvider = timeProvider ?? TimeProvider.System;
+        _verifier = new ServiceAuthVerifier(
+            resolver,
+            replayStore,
+            new ServiceAuthVerifierOptions
+            {
+                ClockSkew = options.ClockSkew,
+                MaxTokenLifetime = options.MaxSingleUseTokenLifetime,
+            },
+            timeProvider);
     }
 
     /// <summary>
@@ -132,77 +135,15 @@ public sealed class SpaceServiceAuthVerifier : ISpaceServiceAuthVerifier
         if (!header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
             throw Invalid("A write notification is authenticated with a Bearer service auth token.");
 
-        var jwt = header["Bearer ".Length..].Trim();
-        if (!Jwt.TryDecode(jwt, out var decoded, out var error))
-            throw Invalid($"Malformed service auth token: {error}.");
-
-        var payload = decoded.Payload;
-
-        var issuerText = payload.GetStringOrNull("iss") ?? throw Invalid("The service auth token is missing its \"iss\".");
-        if (!Did.TryParse(issuerText, out var issuer))
-            throw Invalid($"The service auth token's \"iss\" must be a DID; got '{issuerText}'.");
-
-        var audience = payload.GetStringOrNull("aud") ?? throw Invalid("The service auth token is missing its \"aud\".");
-
-        if (!acceptedAudiences.Contains(audience, StringComparer.Ordinal))
+        try
         {
-            throw Invalid(
-                $"The service auth token is addressed to '{audience}', not to {string.Join(" or ", acceptedAudiences.Select(a => $"'{a}'"))}.");
+            return await _verifier.VerifyAsync(
+                header["Bearer ".Length..].Trim(), acceptedAudiences, expectedMethod, cancellationToken);
         }
-
-        var method = payload.GetStringOrNull("lxm");
-        if (method is not null && !string.Equals(method, expectedMethod.Value, StringComparison.Ordinal))
-            throw Invalid($"The service auth token is scoped to '{method}', not to '{expectedMethod}'.");
-
-        if (!payload.TryGetProperty("exp", out var exp) || !exp.TryGetInt64(out var expSeconds))
-            throw Invalid("The service auth token is missing its \"exp\".");
-
-        var expiresAt = DateTimeOffset.FromUnixTimeSeconds(expSeconds);
-        var now = _timeProvider.GetUtcNow();
-        if (expiresAt <= now - _options.ClockSkew)
-            throw Invalid("The service auth token is expired.");
-
-        // Service auth is short-lived by convention, but its `exp` is its issuer's own choice
-        // and the issuer here is any DID that can sign — the check that it hosts the repo comes
-        // later. Without a ceiling, a token dated years ahead is replayable for years and holds
-        // its jti in the replay store for just as long.
-        if (!_options.IsWithinSingleUseWindow(expiresAt, now))
+        catch (ServiceAuthException ex)
         {
-            throw Invalid(
-                $"The service auth token is valid for longer than the {_options.MaxSingleUseTokenLifetime} " +
-                "this service accepts.");
+            throw new SpaceVerificationException(SpaceErrors.NotAuthorized, ex.ErrorMessage ?? ex.Error, ex);
         }
-
-        // An `iat` is optional, but one dated in the future is not a fresh token.
-        if (payload.TryGetProperty("iat", out var iat) && iat.TryGetInt64(out var iatSeconds) &&
-            DateTimeOffset.FromUnixTimeSeconds(iatSeconds) > now + _options.ClockSkew)
-        {
-            throw Invalid("The service auth token is dated in the future.");
-        }
-
-        var signerKey = await _resolver.ResolveAccountKeyAsync(
-            issuer, keyId: null, SpaceErrors.NotAuthorized, refresh: false, cancellationToken);
-
-        if (!VerifySignature(signerKey, decoded))
-        {
-            // The cached document may predate a key rotation: refetch once before refusing. The
-            // resolver rate-limits refreshes, so forged tokens cannot each cost a directory request.
-            var refreshedKey = await _resolver.ResolveAccountKeyAsync(
-                issuer, keyId: null, SpaceErrors.NotAuthorized, refresh: true, cancellationToken);
-
-            if (string.Equals(refreshedKey, signerKey, StringComparison.Ordinal) || !VerifySignature(refreshedKey, decoded))
-                throw Invalid("The service auth token's signature does not verify.");
-        }
-
-        // A jti is optional in the AT Protocol service auth spec, so its absence is not an error
-        // — but when one is present it is spent, so a captured token cannot be re-delivered.
-        if (payload.GetStringOrNull("jti") is { } tokenId &&
-            !await _replayStore.TryConsumeAsync(issuer.Value, tokenId, expiresAt, cancellationToken))
-        {
-            throw Invalid("The service auth token has already been used.");
-        }
-
-        return new VerifiedServiceAuth(issuer, audience, method is null ? null : expectedMethod);
     }
 
     /// <inheritdoc/>
@@ -245,19 +186,6 @@ public sealed class SpaceServiceAuthVerifier : ISpaceServiceAuthVerifier
         // A host may publish several service entries; any of them answering at the same origin
         // as the repo's host is the same service.
         return serviceDocument.Service.Any(s => s is not null && SameOrigin(s.Endpoint, repoHost));
-    }
-
-    private static bool VerifySignature(string signerKey, DecodedJwt decoded)
-    {
-        try
-        {
-            return AtProtoCrypto.VerifySignature(signerKey, decoded.SigningInput, decoded.Signature);
-        }
-        catch (Exception ex) when (ex is ArgumentException or FormatException or CryptographicException)
-        {
-            throw new SpaceVerificationException(
-                SpaceErrors.NotAuthorized, $"Could not verify the service auth signature: {ex.Message}", ex);
-        }
     }
 
     private static void Observe(Task task) =>

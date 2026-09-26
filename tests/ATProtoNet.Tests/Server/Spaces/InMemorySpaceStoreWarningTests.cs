@@ -1,4 +1,5 @@
 using ATProtoNet.Identity;
+using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Spaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -23,7 +24,7 @@ public class InMemorySpaceStoreWarningTests
 
         var warning = Assert.Single(logs.Records, record => record.Message.Contains("single-use tokens"));
         Assert.Equal(LogLevel.Warning, warning.Level);
-        Assert.Contains("AddAtProtoRedisSpaceReplayStore", warning.Message);
+        Assert.Contains("AddAtProtoEfCoreJtiReplayStore", warning.Message);
     }
 
     [Fact]
@@ -31,7 +32,7 @@ public class InMemorySpaceStoreWarningTests
     {
         var logs = new CapturingLoggerProvider();
         var services = BuildServices(logs, configure: s =>
-            s.AddSingleton<ISpaceReplayStore>(new SharedReplayStore()));
+            s.AddSingleton<IJtiReplayStore>(new SharedReplayStore()));
 
         await StartAsync(services);
 
@@ -103,7 +104,7 @@ public class InMemorySpaceStoreWarningTests
         await warning.StartAsync(TestContext.Current.CancellationToken);
     }
 
-    private sealed class SharedReplayStore : ISpaceReplayStore
+    private sealed class SharedReplayStore : IJtiReplayStore
     {
         public ValueTask<bool> TryConsumeAsync(
             string issuer, string tokenId, DateTimeOffset expiresAt, CancellationToken cancellationToken = default)

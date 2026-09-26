@@ -1,4 +1,6 @@
+using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Spaces;
+using ATProtoNet.Tests.Identity;
 
 namespace ATProtoNet.Tests.Server.Spaces;
 
@@ -7,8 +9,8 @@ public class DPoPProofValidatorTests
     private const string Url = "https://pds.example.com/xrpc/com.atproto.space.getRecord";
 
     private static DPoPProofValidator CreateValidator(
-        ISpaceReplayStore? replayStore = null, SpaceServerOptions? options = null) =>
-        new(replayStore ?? new InMemorySpaceReplayStore(), options ?? new SpaceServerOptions());
+        IJtiReplayStore? replayStore = null, SpaceServerOptions? options = null) =>
+        new(replayStore ?? new InMemoryJtiReplayStore(), options ?? new SpaceServerOptions());
 
     [Fact]
     public async Task ValidateAsync_ValidProof_ReturnsThumbprintOfEmbeddedKey()
@@ -20,6 +22,37 @@ public class DPoPProofValidatorTests
 
         Assert.Equal(key.Thumbprint, proof.KeyThumbprint);
         Assert.Equal("GET", proof.Method);
+    }
+
+    [Theory]
+    [InlineData(253402300800L)] // 10000-01-01, one second past what DateTimeOffset holds
+    [InlineData(long.MaxValue)]
+    [InlineData(-62135596801L)] // one second before 0001-01-01
+    [InlineData(long.MinValue)]
+    public async Task ValidateAsync_IatOutsideTheRepresentableRange_IsRefusedNotThrown(long iat)
+    {
+        // Regression: DateTimeOffset.FromUnixTimeSeconds threw ArgumentOutOfRangeException, which
+        // reached the host as a 500 where a 401 was owed.
+        using var key = new TestDPoPKey();
+        var proof = key.SignJws(
+            new Dictionary<string, object>
+            {
+                ["typ"] = "dpop+jwt",
+                ["alg"] = "ES256",
+                ["jwk"] = new Dictionary<string, string> { ["kty"] = "EC", ["crv"] = "P-256", ["x"] = key.X, ["y"] = key.Y },
+            },
+            new Dictionary<string, object>
+            {
+                ["jti"] = Guid.NewGuid().ToString("N"),
+                ["htm"] = "GET",
+                ["htu"] = Url,
+                ["iat"] = iat,
+            });
+
+        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
+            () => CreateValidator().ValidateAsync(proof, "GET", Url));
+
+        Assert.Contains("\"iat\" claim is not a valid time", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -376,5 +409,32 @@ public class DPoPProofValidatorTests
             () => validator.ValidateAsync(respelled, "GET", Url));
 
         Assert.Contains("not base64url", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ValidateAsync_ReplayedAtTheInstantItAgesOut_IsRefused()
+    {
+        // Its jti is kept until iat + ProofLifetime, so from that instant on the proof itself
+        // must be refused: one tick of overlap was a window for a replay after the sweep.
+        var clock = new ManualClock();
+        var validator = new DPoPProofValidator(new InMemoryJtiReplayStore(clock), new SpaceServerOptions(), clock);
+        using var key = new TestDPoPKey();
+        var proof = key.Proof("GET", Url, issuedAt: clock.GetUtcNow());
+        await validator.ValidateAsync(proof, "GET", Url);
+
+        clock.Advance(new SpaceServerOptions().ProofLifetime);
+
+        await Assert.ThrowsAsync<SpaceVerificationException>(() => validator.ValidateAsync(proof, "GET", Url));
+    }
+
+    [Theory]
+    [InlineData(" ")]
+    [InlineData("abc\u0000")]
+    public async Task ValidateAsync_JtiThatCannotBeSpent_IsRefusedNotThrown(string jti)
+    {
+        using var key = new TestDPoPKey();
+
+        await Assert.ThrowsAsync<SpaceVerificationException>(
+            () => CreateValidator().ValidateAsync(key.Proof("GET", Url, jti: jti), "GET", Url));
     }
 }

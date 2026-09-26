@@ -1,3 +1,4 @@
+using ATProtoNet.Server.Authentication;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -36,15 +37,15 @@ internal sealed class InMemorySpaceStoreWarning : IHostedService
         if (!_options.WarnOnInMemoryStores)
             return Task.CompletedTask;
 
-        if (_services.GetService<ISpaceReplayStore>() is InMemorySpaceReplayStore)
+        if (_services.GetService<IJtiReplayStore>() is InMemoryJtiReplayStore)
         {
             _logger.LogWarning(
                 "Space single-use tokens are tracked by {Store}, which is per-process: a delegation token, " +
-                "client attestation, or DPoP proof replayed against another instance is accepted, and one " +
-                "replayed after a restart is accepted too. Register a shared store " +
-                "(AddAtProtoRedisSpaceReplayStore, AddAtProtoEfCoreSpaceReplayStore) if more than one instance " +
+                "client attestation, DPoP proof or service auth token replayed against another instance is " +
+                "accepted, and one replayed after a restart is accepted too. Register a shared store " +
+                "(AddAtProtoEfCoreJtiReplayStore, AddAtProtoRedisSpaceReplayStore) if more than one instance " +
                 "answers for this DID.",
-                nameof(InMemorySpaceReplayStore));
+                nameof(InMemoryJtiReplayStore));
         }
 
         if (_services.GetService<ISimpleSpaceStore>() is InMemorySimpleSpaceStore)
