@@ -128,11 +128,17 @@
         },
         ExternalView ext => builder =>
         {
-            builder.OpenElement(0, "a");
+            // The link is the post author's to choose: only a web link is rendered as one, never
+            // a javascript: or data: URL that would run in the application's origin when clicked.
+            var href = WebLink(ext.External.Uri);
+            builder.OpenElement(0, href is null ? "div" : "a");
             builder.AddAttribute(1, "class", "atproto-embed-external");
-            builder.AddAttribute(2, "href", ext.External.Uri);
-            builder.AddAttribute(3, "target", "_blank");
-            builder.AddAttribute(4, "rel", "noopener noreferrer");
+            if (href is not null)
+            {
+                builder.AddAttribute(2, "href", href);
+                builder.AddAttribute(3, "target", "_blank");
+                builder.AddAttribute(4, "rel", "noopener noreferrer nofollow");
+            }
 
             if (ext.External.Thumb is not null)
             {
@@ -156,6 +162,16 @@
         },
         _ => null,
     };
+
+    /// <summary>
+    /// <paramref name="uri"/> as a link target when it is an absolute <c>http</c> or <c>https</c>
+    /// URL, and <see langword="null"/> for anything else.
+    /// </summary>
+    internal static string? WebLink(string? uri) =>
+        Uri.TryCreate(uri, UriKind.Absolute, out var parsed) &&
+        (parsed.Scheme == Uri.UriSchemeHttps || parsed.Scheme == Uri.UriSchemeHttp)
+            ? parsed.AbsoluteUri
+            : null;
 
     private static string FormatTime(AtDatetime indexedAt)
     {

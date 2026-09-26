@@ -26,6 +26,52 @@ public sealed class PostCardTests : IAsyncDisposable
         Assert.Empty(_host.Server.Requests);
     }
 
+    [Theory]
+    [InlineData("javascript:alert(document.cookie)")]
+    [InlineData("JavaScript:alert(1)")]
+    [InlineData("data:text/html,<script>alert(1)</script>")]
+    [InlineData("vbscript:msgbox(1)")]
+    [InlineData("//evil.example.com/")]
+    [InlineData("not a url")]
+    public void AnExternalEmbedThatIsNotAWebLink_IsNotRenderedAsALink(string uri)
+    {
+        var cut = _host.Context.Render<PostCard>(p => p.Add(x => x.Post, WithExternalEmbed(uri)));
+
+        var embed = cut.Find(".atproto-embed-external");
+        Assert.Equal("DIV", embed.TagName);
+        Assert.Empty(cut.FindAll("a[href]"));
+        Assert.Contains("A title", embed.TextContent);
+    }
+
+    [Theory]
+    [InlineData("https://example.com/article?x=1", "https://example.com/article?x=1")]
+    [InlineData("http://example.com", "http://example.com/")]
+    public void AnExternalEmbedWithAWebLink_LinksToIt(string uri, string href)
+    {
+        var cut = _host.Context.Render<PostCard>(p => p.Add(x => x.Post, WithExternalEmbed(uri)));
+
+        var link = cut.Find("a.atproto-embed-external");
+        Assert.Equal(href, link.GetAttribute("href"));
+        Assert.Equal("_blank", link.GetAttribute("target"));
+        Assert.Contains("noopener", link.GetAttribute("rel"));
+    }
+
+    private static PostView WithExternalEmbed(string uri)
+    {
+        var json = System.Text.Json.Nodes.JsonNode.Parse(PostJson("p1", "look"))!.AsObject();
+        json["embed"] = new System.Text.Json.Nodes.JsonObject
+        {
+            ["$type"] = "app.bsky.embed.external#view",
+            ["external"] = new System.Text.Json.Nodes.JsonObject
+            {
+                ["uri"] = uri,
+                ["title"] = "A title",
+                ["description"] = "A description",
+            },
+        };
+        return JsonSerializer.Deserialize<PostView>(json.ToJsonString(), ATProtoNet.Serialization.AtProtoJsonDefaults.Options)!;
+    }
+
     [Fact]
     public void Like_WithoutACallback_LikesAsTheSignedInUserThenUnlikes()
     {
