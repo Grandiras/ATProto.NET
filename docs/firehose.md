@@ -103,7 +103,7 @@ await foreach (var msg in consumer.ConsumeAsync())
 | `CollectionFilter` | `IReadOnlySet<string>?` | `null` | Only emit events for these collections |
 | `CursorStore` | `IFirehoseCursorStore?` | `null` | Persistent cursor storage |
 | `StreamId` | `string?` | Service URL | Key for cursor storage |
-| `Verifier` | `FirehoseVerifier?` | `null` | Verifier instance |
+| `Verifier` | `FirehoseVerifier?` | `null` | Verifier instance; its cache is invalidated on every `#identity` event |
 | `VerifyCids` | `bool` | `false` | Verify CID integrity on commits |
 | `VerifySignatures` | `bool` | `false` | Verify commit signatures (needs Verifier) |
 | `CursorPersistInterval` | `int` | `100` | Events between cursor saves |
@@ -235,10 +235,10 @@ else
 
 ### Signature Verification
 
-Verify commit signatures against the signer's DID document (requires network access):
+Verify commit signatures against the signing key in the author's DID document:
 
 ```csharp
-var verifier = new FirehoseVerifier();  // Uses default DidResolver
+using var verifier = new FirehoseVerifier(); // its own CachingDidResolver
 
 var result = await verifier.VerifySignatureAsync(commitEvent);
 
@@ -247,10 +247,26 @@ if (result.IsValid)
     Console.WriteLine("Signature verified against DID signing key");
 }
 
-// Or with a custom DID resolver
-var resolver = new DidResolver();
-using var verifier = new FirehoseVerifier(resolver);
+// Or share a resolver (and its cache) with the rest of the application
+using var verifier2 = new FirehoseVerifier(myCachingDidResolver);
 ```
+
+A relay carries thousands of commits a second from far fewer accounts, so keys come from a
+cached DID document: a cache hit costs no network at all, and the parsed key is cached as well.
+Pass a `CachingDidResolver` (or any caching `IDidResolver`) to the second constructor — an
+uncached resolver makes a directory request per commit.
+
+Two rules keep the cache correct, as the sync spec requires:
+
+- **`#identity` events invalidate.** Call `verifier.InvalidateIdentityAsync(did)` for each one, so
+  the account's next commit is checked against a freshly resolved key. `TypedFirehoseConsumer`
+  does this whenever it has a `Verifier`.
+- **A failed signature refetches once.** A signature that does not verify against the cached key
+  is checked again against a refreshed document before it is reported as bad. Refreshes of one
+  DID are rate-limited (`DidCacheOptions.MinRefreshInterval`), so a stream of forged commits
+  does not turn into a directory request each.
+
+See [Identity Resolution](did-resolution.md) for the cache's lifetimes and the fetch policy.
 
 ## Firehose Endpoints
 
@@ -279,5 +295,5 @@ using var firehose = new FirehoseClient("wss://custom-relay.example.com");
 ## Next Steps
 
 - [Cryptography](crypto.md) — DAG-CBOR, CID computation used by the firehose
-- [DID Resolution](did-resolution.md) — Required for signature verification
+- [Identity Resolution](did-resolution.md) — Required for signature verification
 - [Low-Level Repo API](low-level-repo.md) — CAR file parsing for commit blocks

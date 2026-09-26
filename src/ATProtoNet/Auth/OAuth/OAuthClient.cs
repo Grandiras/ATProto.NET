@@ -33,6 +33,7 @@ public sealed class OAuthClient : IDisposable
     private readonly OAuthOptions _options;
     private readonly HttpClient _httpClient;
     private readonly AuthorizationServerDiscovery _discovery;
+    private readonly IdentityResolver? _ownedIdentityResolver;
     private readonly ILogger _logger;
     private readonly ConcurrentDictionary<string, PendingAuthorization> _pendingAuthorizations = new();
 
@@ -56,10 +57,22 @@ public sealed class OAuthClient : IDisposable
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _discovery = new AuthorizationServerDiscovery(httpClient, logger)
+        // A resolver the options supply is the caller's; one created here is this client's, and
+        // goes with it on Dispose.
+        var identityResolver = _options.IdentityResolver;
+        if (identityResolver is null)
         {
-            HandleResolutionTimeout = _options.HandleResolutionTimeout,
-        };
+            identityResolver = _ownedIdentityResolver = IdentityResolver.CreateDefault(
+                new IdentityResolverOptions
+                {
+                    HandleResolutionTimeout = _options.HandleResolutionTimeout,
+                    AllowPrivateNetworks = _options.AllowPrivateNetworks,
+                },
+                logger);
+        }
+
+        _discovery = new AuthorizationServerDiscovery(
+            _options.MetadataHttpClient, logger, identityResolver, _options.AllowPrivateNetworks);
     }
 
     /// <summary>
@@ -280,11 +293,12 @@ public sealed class OAuthClient : IDisposable
         }
 
         // Step 7: If started from server (no expected DID), verify DID → PDS → AS consistency
+        ResolvedIdentity? identity = null;
         if (pending.ExpectedDid is null)
         {
             try
             {
-                await VerifyDidToAuthServerConsistencyAsync(
+                identity = await VerifyDidToAuthServerConsistencyAsync(
                     tokenResponse.Sub, pending.Issuer, cancellationToken);
             }
             catch
@@ -294,58 +308,25 @@ public sealed class OAuthClient : IDisposable
             }
         }
 
-        // Step 8: Resolve handle from DID document — and verify bidirectionally.
-        // A handle is only authentic if (a) the DID document declares it in
-        // alsoKnownAs, AND (b) the handle's authoritative resolution (DNS TXT
-        // _atproto.<handle> or /.well-known/atproto-did) maps back to this DID.
-        // Without the second check, a PDS could announce any handle for its users.
+        // Step 8: The handle, verified bidirectionally: the DID document claims it in
+        // alsoKnownAs AND the handle's own authorities (DNS TXT _atproto.<handle>,
+        // /.well-known/atproto-did) map it back to this DID. Without the second check, a PDS
+        // could announce any handle for its users.
         //
-        // Nothing here can fail the login: the authoritative DID is the token
-        // response's `sub`, already in hand. A probe that times out (a parked
-        // handle domain swallowing the connection, or an HttpClient with a
-        // ConnectTimeout set) surfaces as OperationCanceledException, which is
-        // just another way for verification not to have happened — only the
+        // Nothing here can fail the login: the authoritative DID is the token response's `sub`,
+        // already in hand. A handle authority that cannot be reached leaves the handle
+        // unverified, and a DID document that cannot be fetched does the same — only the
         // CALLER cancelling means the session is no longer wanted.
         string? handle = null;
         try
         {
-            var didDoc = await _discovery.FetchDidDocumentAsync(tokenResponse.Sub, cancellationToken);
-            var claimedHandle = didDoc.AlsoKnownAs?
-                .FirstOrDefault(a => a.StartsWith("at://", StringComparison.OrdinalIgnoreCase))
-                ?["at://".Length..];
+            identity ??= await _discovery.IdentityResolver.ResolveAsync(
+                AtIdentifier.FromDid(Did.Parse(tokenResponse.Sub)), cancellationToken);
 
-            if (!string.IsNullOrEmpty(claimedHandle))
-            {
-                try
-                {
-                    // Use the AUTHORITATIVE resolver only (DNS TXT + .well-known on
-                    // the handle's own domain). The convenience resolver falls back
-                    // to the Bluesky appview, which is not the handle's authority —
-                    // accepting its answer would defeat bidirectional verification.
-                    var resolvedDid = await _discovery.ResolveHandleAuthoritativeAsync(claimedHandle, cancellationToken);
-                    if (string.Equals(resolvedDid, tokenResponse.Sub, StringComparison.Ordinal))
-                    {
-                        handle = claimedHandle;
-                    }
-                    else
-                    {
-                        _logger.LogWarning(
-                            "Handle '{Handle}' resolves to '{ResolvedDid}', not '{ExpectedDid}'; treating as unverified.",
-                            claimedHandle, resolvedDid, tokenResponse.Sub);
-                    }
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    // Caller gave up on the login; the outer handler cleans up.
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex,
-                        "Could not bidirectionally verify handle '{Handle}'; treating as unverified.",
-                        claimedHandle);
-                }
-            }
+            if (identity.HandleVerified)
+                handle = identity.Handle!.Value;
+            else if (identity.Document.GetHandle() is { } claimed)
+                _logger.LogWarning("Handle '{Handle}' of {Did} does not verify; treating as unverified.", claimed, tokenResponse.Sub);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -355,7 +336,7 @@ public sealed class OAuthClient : IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not resolve handle from DID document");
+            _logger.LogWarning(ex, "Could not resolve the identity of {Did} to verify its handle.", tokenResponse.Sub);
         }
 
         // A handle that did not verify is no handle: the session carries 'handle.invalid', the
@@ -370,7 +351,7 @@ public sealed class OAuthClient : IDisposable
             return new Auth.OAuthSession
             {
                 Did = did,
-                Handle = verifiedHandle ?? Auth.AtProtoSession.InvalidHandle,
+                Handle = verifiedHandle ?? Handle.Invalid,
                 ServiceEndpoint = new Uri(pending.PdsUrl, UriKind.Absolute),
                 AccessToken = tokenResponse.AccessToken,
                 RefreshToken = tokenResponse.RefreshToken,
@@ -815,13 +796,16 @@ public sealed class OAuthClient : IDisposable
             ?? throw new OAuthException("Failed to deserialize token response.", "token_error");
     }
 
-    private async Task VerifyDidToAuthServerConsistencyAsync(
+    private async Task<ResolvedIdentity> VerifyDidToAuthServerConsistencyAsync(
         string did, string expectedIssuer, CancellationToken cancellationToken)
     {
         try
         {
-            var pdsUrl = await _discovery.ResolvePdsFromDidAsync(did, cancellationToken);
-            var metadata = await _discovery.ResolveAuthorizationServerAsync(pdsUrl, cancellationToken);
+            var identity = await _discovery.ResolveIdentityAsync(AtIdentifier.FromDid(Did.Parse(did)), cancellationToken);
+            var pdsUrl = identity.PdsEndpoint
+                ?? throw new OAuthException(
+                    $"DID document for '{did}' does not contain an atproto PDS service.", "pds_not_found");
+            var metadata = await _discovery.ResolveAuthorizationServerAsync(pdsUrl.OriginalString, cancellationToken);
 
             if (!string.Equals(metadata.Issuer, expectedIssuer, StringComparison.OrdinalIgnoreCase))
             {
@@ -830,6 +814,8 @@ public sealed class OAuthClient : IDisposable
                     $"but token was received from '{expectedIssuer}'. Possible security issue.",
                     "auth_server_mismatch");
             }
+
+            return identity;
         }
         catch (OAuthException)
         {
@@ -899,6 +885,8 @@ public sealed class OAuthClient : IDisposable
             foreach (var pending in _pendingAuthorizations.Values)
                 pending.DPoP.Dispose();
             _pendingAuthorizations.Clear();
+            _discovery.Dispose();
+            _ownedIdentityResolver?.Dispose();
         }
     }
 

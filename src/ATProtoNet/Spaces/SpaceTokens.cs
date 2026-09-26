@@ -423,10 +423,10 @@ public static class SpaceTokens
         }
         catch (Exception ex) when (ex is ArgumentException or FormatException or CryptographicException)
         {
-            throw new SpaceTokenException($"Could not verify token signature: {ex.Message}", ex);
+            throw new SpaceTokenException($"Could not verify token signature: {ex.Message}", ex) { IsSignatureFailure = true };
         }
 
-        return valid ? token : throw new SpaceTokenException("Invalid token signature.");
+        return valid ? token : throw new SpaceTokenException("Invalid token signature.") { IsSignatureFailure = true };
     }
 }
 
@@ -445,4 +445,10 @@ public sealed class SpaceTokenException : AtProtoException
     public SpaceTokenException(string message, Exception innerException) : base(message, innerException)
     {
     }
+
+    /// <summary>
+    /// Whether the token failed on its signature, the one failure a key refreshed from the
+    /// issuer's DID document can change.
+    /// </summary>
+    internal bool IsSignatureFailure { get; init; }
 }

@@ -132,12 +132,12 @@ public sealed class DidDocumentKeyTests
         using var key = AtProtoCrypto.GenerateP256Key();
         var bare = new DidDocument
         {
-            Id = Did,
+            Id = ATProtoNet.Identity.Did.Parse(Did),
             VerificationMethod = [new() { Id = "#atproto", Type = "Multikey", PublicKeyMultibase = key.ToMultikey() }],
         };
         var qualified = new DidDocument
         {
-            Id = Did,
+            Id = ATProtoNet.Identity.Did.Parse(Did),
             VerificationMethod = [new() { Id = $"{Did}#atproto", Type = "Multikey", PublicKeyMultibase = key.ToMultikey() }],
         };
 
@@ -174,21 +174,24 @@ public sealed class DidDocumentKeyTests
     [Fact]
     public void SpaceAuthorityGetSigningKey_PrefersTheSpaceEntry()
     {
-        var (document, spaceKey) = LegacyDocument("#atproto_space");
+        var (legacy, spaceKey) = LegacyDocument("#atproto_space");
         using var accountKey = AtProtoCrypto.GenerateP256Key();
-        document.VerificationMethod.Add(new()
+        var document = new DidDocument
         {
-            Id = $"{Did}#atproto",
-            Type = "Multikey",
-            PublicKeyMultibase = accountKey.ToMultikey(),
-        });
+            Id = legacy.Id,
+            VerificationMethod =
+            [
+                .. legacy.VerificationMethod,
+                new() { Id = $"{Did}#atproto", Type = "Multikey", PublicKeyMultibase = accountKey.ToMultikey() },
+            ],
+        };
 
         Assert.Equal(spaceKey, SpaceAuthority.GetSigningKey(document));
     }
 
-    private static VerificationMethod LegacyMethod(string type, ECPoint q) => new()
+    private static VerificationMethod LegacyMethod(string type, ECPoint q, string fragment = "#atproto") => new()
     {
-        Id = $"{Did}#atproto",
+        Id = $"{Did}{fragment}",
         Type = type,
         // The legacy form: base58btc over a bare uncompressed point, no multicodec prefix.
         PublicKeyMultibase = "z" + AtProtoCrypto.Base58Encode([0x04, .. q.X!, .. q.Y!]),
@@ -200,9 +203,8 @@ public sealed class DidDocumentKeyTests
         var ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var key = new AtProtoKey(ecdsa, KeyCurve.P256);
 
-        var method = LegacyMethod("EcdsaSecp256r1VerificationKey2019", ecdsa.ExportParameters(false).Q);
-        method.Id = $"{Did}{fragment}";
+        var method = LegacyMethod("EcdsaSecp256r1VerificationKey2019", ecdsa.ExportParameters(false).Q, fragment);
 
-        return (new DidDocument { Id = Did, VerificationMethod = [method] }, key.ToDidKey());
+        return (new DidDocument { Id = ATProtoNet.Identity.Did.Parse(Did), VerificationMethod = [method] }, key.ToDidKey());
     }
 }

@@ -10,28 +10,52 @@ namespace ATProtoNet.Streaming;
 /// Verifies the authenticity of firehose commit events against the AT Protocol specification.
 /// Performs CID verification, commit signature verification, and optionally MST proof verification.
 /// </summary>
+/// <remarks>
+/// <para>Signature verification reads each account's signing key from its DID document, so the
+/// resolver must cache: a firehose carries thousands of commits a second from far fewer
+/// accounts. The default one does, and a cached key costs no network at all. Keep the cache
+/// current by passing each <c>#identity</c> event to <see cref="InvalidateIdentityAsync"/>
+/// (<see cref="TypedFirehoseConsumer"/> does); a signature that fails against a cached key is
+/// retried once against a refreshed document, as the sync spec requires.</para>
+/// </remarks>
 public sealed class FirehoseVerifier : IDisposable
 {
-    private readonly DidResolver _didResolver;
+    private readonly IDidResolver _didResolver;
     private readonly bool _ownsResolver;
 
     /// <summary>
-    /// Creates a new verifier with a default DID resolver.
+    /// Creates a verifier over its own <see cref="CachingDidResolver"/>.
     /// </summary>
-    public FirehoseVerifier()
+    /// <param name="options">Resolver options. Defaults apply when omitted.</param>
+    public FirehoseVerifier(IdentityResolverOptions? options = null)
     {
-        _didResolver = new DidResolver();
+        _didResolver = new CachingDidResolver(options);
         _ownsResolver = true;
     }
 
     /// <summary>
-    /// Creates a new verifier with an existing DID resolver.
+    /// Creates a verifier over an existing DID resolver, which the caller owns.
     /// </summary>
-    /// <param name="didResolver">The DID resolver for fetching signing keys.</param>
-    public FirehoseVerifier(DidResolver didResolver)
+    /// <param name="didResolver">
+    /// Resolves signing keys. Pass a <see cref="CachingDidResolver"/>: an uncached resolver makes a
+    /// directory request for every commit.
+    /// </param>
+    public FirehoseVerifier(IDidResolver didResolver)
     {
         _didResolver = didResolver ?? throw new ArgumentNullException(nameof(didResolver));
         _ownsResolver = false;
+    }
+
+    /// <summary>
+    /// Drops any cached DID document for an account, so its next commit is verified against a
+    /// freshly resolved key. Call it for every <c>#identity</c> event.
+    /// </summary>
+    /// <param name="did">The account whose identity changed.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task InvalidateIdentityAsync(Did did, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(did);
+        return _didResolver.InvalidateAsync(did, cancellationToken);
     }
 
     /// <summary>
@@ -97,20 +121,30 @@ public sealed class FirehoseVerifier : IDisposable
             if (sigBytes is null || sigBytes.Length == 0)
                 return VerificationResult.Failure("Commit has empty signature");
 
-            // Resolve the DID document to get the signing key
-            var didDoc = await _didResolver.ResolveDidAsync(commit.Repo, cancellationToken);
+            var didDoc = await _didResolver.ResolveAsync(commit.Repo, cancellationToken);
             var signingKey = didDoc.GetSigningKey();
             if (signingKey is null)
                 return VerificationResult.Failure($"No atproto signing key found for {commit.Repo}");
 
-            // Verify the ECDSA signature. AtProtoCrypto.VerifySignature hashes the
-            // message internally (via ECDsa.VerifyData), so pass the RAW unsigned
-            // commit bytes here, not a pre-computed digest — otherwise we'd verify
-            // SHA256(SHA256(bytes)) against a signature over SHA256(bytes).
-            var isValid = AtProtoCrypto.VerifySignature(signingKey, unsignedCborBytes, sigBytes);
-            return isValid
-                ? VerificationResult.Success()
-                : VerificationResult.Failure("Signature verification failed");
+            // AtProtoCrypto.VerifySignature hashes the message itself (via ECDsa.VerifyData), so
+            // it gets the RAW unsigned commit bytes, not a digest — otherwise it would verify
+            // SHA256(SHA256(bytes)) against a signature over SHA256(bytes). The parsed key is
+            // cached by did:key, so a cached document means no key parsing either.
+            if (AtProtoCrypto.VerifySignature(signingKey, unsignedCborBytes, sigBytes))
+                return VerificationResult.Success();
+
+            // The cached document may predate a key rotation: refetch once before declaring the
+            // signature bad. The resolver rate-limits refreshes, so forged commits cannot turn
+            // into a directory request each.
+            var refreshedKey = (await _didResolver.RefreshAsync(commit.Repo, cancellationToken)).GetSigningKey();
+            if (refreshedKey is not null &&
+                !string.Equals(refreshedKey, signingKey, StringComparison.Ordinal) &&
+                AtProtoCrypto.VerifySignature(refreshedKey, unsignedCborBytes, sigBytes))
+            {
+                return VerificationResult.Success();
+            }
+
+            return VerificationResult.Failure("Signature verification failed");
         }
         catch (Exception ex)
         {
@@ -336,8 +370,8 @@ public sealed class FirehoseVerifier : IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
-        if (_ownsResolver)
-            _didResolver.Dispose();
+        if (_ownsResolver && _didResolver is IDisposable disposable)
+            disposable.Dispose();
     }
 }
 

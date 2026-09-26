@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using ATProtoNet.Identity;
+using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Identity;
 
@@ -15,6 +16,59 @@ public sealed class ResolveHandleResponse
     /// <summary>The resolved DID.</summary>
     [JsonPropertyName("did")]
     public required Did Did { get; init; }
+}
+
+// ──────────────────────────────────────────────────────────────
+//  com.atproto.identity.defs
+// ──────────────────────────────────────────────────────────────
+
+/// <summary>
+/// An identity as a service resolved it (<c>com.atproto.identity.defs#identityInfo</c>).
+/// </summary>
+public sealed class IdentityInfo : LexObject
+{
+    /// <summary>The account's DID.</summary>
+    [JsonPropertyName("did")]
+    public required Did Did { get; init; }
+
+    /// <summary>
+    /// The account's verified handle, or <c>handle.invalid</c> (<see cref="Handle.Invalid"/>) when
+    /// the handle did not bidirectionally match the DID document.
+    /// </summary>
+    [JsonPropertyName("handle")]
+    public required Handle Handle { get; init; }
+
+    /// <summary>The complete DID document.</summary>
+    [JsonPropertyName("didDoc")]
+    public required DidDocument DidDoc { get; init; }
+}
+
+// ──────────────────────────────────────────────────────────────
+//  com.atproto.identity.resolveDid
+// ──────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Response from resolveDid.
+/// </summary>
+public sealed class ResolveDidResponse
+{
+    /// <summary>The complete DID document.</summary>
+    [JsonPropertyName("didDoc")]
+    public required DidDocument DidDoc { get; init; }
+}
+
+// ──────────────────────────────────────────────────────────────
+//  com.atproto.identity.refreshIdentity
+// ──────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Request body for refreshIdentity.
+/// </summary>
+internal sealed class RefreshIdentityRequest
+{
+    /// <summary>The DID or handle to refresh.</summary>
+    [JsonPropertyName("identifier")]
+    public required AtIdentifier Identifier { get; init; }
 }
 
 // ──────────────────────────────────────────────────────────────

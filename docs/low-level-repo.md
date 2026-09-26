@@ -280,7 +280,7 @@ using var repoSigningKey = AtProtoCrypto.GenerateP256Key();
 var unsigned = PlcOperationBuilder.CreateGenesisOperation(
     rotationKeys: [rotationKey.ToDidKey()],
     signingKeyDidKey: repoSigningKey.ToDidKey(),
-    handle: "alice.example.com",
+    handle: Handle.Parse("alice.example.com"),
     pdsEndpoint: "https://pds.example.com");
 
 PlcSignedOperation signedOp = PlcOperationBuilder.Sign(unsigned, rotationKey);
@@ -290,7 +290,7 @@ using var plc = new PlcClient();
 await plc.SubmitOperationAsync(signedOp);
 ```
 
-A directory rejection surfaces as `PlcException` with `Kind == PlcErrorKind.InvalidOperation`.
+A directory rejection surfaces as `DidResolutionException` with `Kind == DidResolutionErrorKind.OperationRejected`.
 
 ### Record keys from a sequence
 

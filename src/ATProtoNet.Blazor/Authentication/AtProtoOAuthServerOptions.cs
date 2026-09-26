@@ -120,12 +120,20 @@ public sealed class AtProtoOAuthServerOptions
     public TimeSpan HttpClientTimeout { get; set; } = TimeSpan.FromSeconds(30);
 
     /// <summary>
-    /// Budget for each handle resolution round (HTTPS well-known + DNS TXT raced
-    /// together, then the appview fallback). Prevents a handle whose domain silently
-    /// drops traffic on port 443 from stalling sign-in.
+    /// Budget for resolving a handle: its HTTPS well-known and DNS TXT lookups run together
+    /// within it. Prevents a handle whose domain silently drops traffic on port 443 from
+    /// stalling sign-in.
     /// Default: <see cref="AuthorizationServerDiscovery.DefaultHandleResolutionTimeout"/>
     /// (5 seconds). Set to <see cref="Timeout.InfiniteTimeSpan"/> to disable.
     /// </summary>
     public TimeSpan HandleResolutionTimeout { get; set; } =
         AuthorizationServerDiscovery.DefaultHandleResolutionTimeout;
+
+    /// <summary>
+    /// The development opt-out for OAuth discovery and identity resolution: plain HTTP and private
+    /// addresses are accepted, for a local PDS or PLC. Defaults to <see langword="false"/>. Never
+    /// set it where users can name any handle, DID or PDS. A registered
+    /// <see cref="ATProtoNet.Identity.IIdentityResolver"/> brings its own policy.
+    /// </summary>
+    public bool AllowPrivateNetworks { get; set; }
 }

@@ -29,18 +29,21 @@ public sealed record VerifiedSpaceCredential(
 /// </remarks>
 public sealed class SpaceCredentialVerifier
 {
-    private readonly ISpaceDidDocumentResolver _resolver;
+    private readonly IDidResolver _resolver;
     private readonly DPoPProofValidator _proofValidator;
     private readonly TimeProvider _timeProvider;
 
     /// <summary>
     /// Creates a verifier.
     /// </summary>
-    /// <param name="resolver">Resolves the issuing authority's DID document.</param>
+    /// <param name="resolver">
+    /// Resolves the issuing authority's DID document; a <see cref="CachingDidResolver"/>, since
+    /// every request resolves one.
+    /// </param>
     /// <param name="proofValidator">Verifies the accompanying DPoP proof.</param>
     /// <param name="timeProvider">The clock. Defaults to the system clock.</param>
     public SpaceCredentialVerifier(
-        ISpaceDidDocumentResolver resolver,
+        IDidResolver resolver,
         DPoPProofValidator proofValidator,
         TimeProvider? timeProvider = null)
     {
@@ -101,23 +104,11 @@ public sealed class SpaceCredentialVerifier
                 $"The credential for {space} was issued by '{parsed.Issuer}', not by the space's authority.");
         }
 
-        var authorityKey = await _resolver.ResolveAuthorityKeyAsync(
-            space.Authority, parsed.KeyId, cancellationToken);
-
-        SpaceToken verified;
-        try
-        {
-            verified = SpaceTokens.Verify(
-                parsed,
-                authorityKey,
-                expectedAudience: null,
-                expectedSubject: space,
-                _timeProvider.GetUtcNow());
-        }
-        catch (SpaceTokenException ex)
-        {
-            throw new SpaceVerificationException(SpaceErrors.NotAuthorized, ex.Message, ex);
-        }
+        var verified = await SpaceDidResolution.VerifyWithKeyRefreshAsync(
+            refresh => _resolver.ResolveAuthorityKeyAsync(space.Authority, parsed.KeyId, refresh, cancellationToken),
+            authorityKey => SpaceTokens.Verify(
+                parsed, authorityKey, expectedAudience: null, expectedSubject: space, _timeProvider.GetUtcNow()),
+            SpaceErrors.NotAuthorized);
 
         var proof = await _proofValidator.ValidateAsync(
             proofJwt,

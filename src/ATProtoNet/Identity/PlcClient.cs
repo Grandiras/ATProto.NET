@@ -1,184 +1,173 @@
-using System.Net.Http.Json;
+using System.Buffers;
+using System.Net;
+using System.Net.WebSockets;
+using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using ATProtoNet.Crypto;
+using ATProtoNet.Auth.OAuth;
+using ATProtoNet.Lexicon.Com.AtProto.Identity;
+using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Identity;
 
 /// <summary>
-/// Client for interacting with a PLC directory server (https://plc.directory).
-/// PLC (Public Ledger of Credentials) is the primary DID method for AT Protocol.
-/// <para>
-/// All methods are read-only and do not require authentication. The PLC directory
-/// is a permissionless public service.
-/// </para>
+/// Client for a PLC directory (<c>https://plc.directory</c>), the registry behind <c>did:plc</c>.
 /// </summary>
 /// <remarks>
-/// See: https://web.plc.directory/spec/v0.1/did-plc
+/// <para>Reads need no authentication. <see cref="ResolveAsync"/> makes this an
+/// <see cref="IDidResolver"/> for <c>did:plc</c>; the operation log, audit log, current state,
+/// export and export stream serve mirrors, auditors and PDS operators.</para>
+/// <para>Requests go to absolute URLs under <see cref="DirectoryUrl"/>; an
+/// <see cref="HttpClient.BaseAddress"/> is not used.</para>
 /// </remarks>
-public sealed class PlcClient : IDisposable
+/// <seealso href="https://web.plc.directory/spec/v0.1/did-plc">did:plc specification</seealso>
+public sealed class PlcClient : IDidResolver, IDisposable
 {
-    /// <summary>Default PLC directory URL.</summary>
-    public const string DefaultDirectoryUrl = "https://plc.directory";
+    /// <summary>The most entries one <see cref="ExportAsync"/> page may ask for.</summary>
+    public const int MaxExportCount = 1000;
+
+    // A DID's log grows by one entry per operation, and an export page holds up to 1000; both are
+    // far below these, which only bound what a misbehaving directory can make the client buffer.
+    private const int MaxLogBytes = 8 * 1024 * 1024;
+    private const int MaxExportBytes = 32 * 1024 * 1024;
+    private const int MaxStreamMessageBytes = 1024 * 1024;
+    private const int MaxErrorBodyBytes = 64 * 1024;
 
     private readonly HttpClient _httpClient;
     private readonly bool _ownsHttpClient;
-    private readonly JsonSerializerOptions _jsonOptions;
+    private readonly IdentityResolverOptions _options;
 
     /// <summary>
-    /// Creates a new PLC client targeting the specified directory server.
+    /// Creates a client for <see cref="IdentityResolverOptions.PlcDirectoryUrl"/> with its own
+    /// <see cref="HttpClient"/> under the SDK's identity fetch policy.
     /// </summary>
-    /// <param name="directoryUrl">The PLC directory base URL (defaults to <c>https://plc.directory</c>).</param>
-    public PlcClient(string directoryUrl = DefaultDirectoryUrl)
+    /// <param name="options">Resolver options. Defaults apply when omitted.</param>
+    /// <exception cref="ArgumentException">
+    /// The directory URL is not HTTPS and <see cref="IdentityResolverOptions.AllowPrivateNetworks"/>
+    /// is not set.
+    /// </exception>
+    public PlcClient(IdentityResolverOptions? options = null)
     {
-        // Owned, so setting its BaseAddress mutates nothing shared.
-        _httpClient = Http.AtProtoHttp.CreateClient();
-        _httpClient.BaseAddress = Http.AtProtoHttp.NormalizeBaseUrl(directoryUrl);
+        _options = options ?? new IdentityResolverOptions();
+        _options.Validate();
+        DirectoryUrl = IdentityNetworkPolicy.ValidateServiceUrl(
+            _options.PlcDirectoryUrl, _options.AllowPrivateNetworks, nameof(options));
+        _httpClient = IdentityNetworkPolicy.CreateClient(_options.AllowPrivateNetworks);
         _ownsHttpClient = true;
-        _jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        };
     }
 
     /// <summary>
-    /// Creates a new PLC client using the provided <see cref="HttpClient"/>.
+    /// Creates a client for an explicit directory that sends its requests through
+    /// <paramref name="httpClient"/>.
     /// </summary>
-    /// <param name="httpClient">Pre-configured HttpClient (caller owns lifecycle).</param>
-    public PlcClient(HttpClient httpClient)
+    /// <param name="httpClient">
+    /// The client to use, which the caller owns. It is used as is, so it is also how one trusted
+    /// private mirror is reached without the development opt-out.
+    /// </param>
+    /// <param name="directoryUrl">The directory's base URL (e.g. <c>https://plc.directory</c>).</param>
+    /// <param name="options">
+    /// Resolver options, for the request timeout and the document size cap. Defaults apply when
+    /// omitted; <see cref="IdentityResolverOptions.PlcDirectoryUrl"/> is not read.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="directoryUrl"/> is not an absolute http(s) URL, or has a query or fragment.
+    /// </exception>
+    public PlcClient(HttpClient httpClient, Uri directoryUrl, IdentityResolverOptions? options = null)
     {
-        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        ArgumentNullException.ThrowIfNull(httpClient);
+        ArgumentNullException.ThrowIfNull(directoryUrl);
+
+        _options = options ?? new IdentityResolverOptions();
+        _options.Validate();
+        DirectoryUrl = IdentityNetworkPolicy.ValidateServiceUrl(directoryUrl, allowPrivateNetworks: true, nameof(directoryUrl));
+        _httpClient = httpClient;
         _ownsHttpClient = false;
-        _jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        };
     }
 
+    /// <summary>The directory's base URL, ending in <c>/</c>.</summary>
+    public Uri DirectoryUrl { get; }
+
     /// <summary>
-    /// Resolves a <c>did:plc</c> identifier to a W3C DID Document.
+    /// Connects the export stream's WebSocket. Tests replace it to reach an in-process server.
     /// </summary>
-    /// <param name="did">The DID to resolve (e.g., <c>did:plc:ewvi7nxzyoun6zhxrhs64oiz</c>).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The resolved DID document.</returns>
-    /// <exception cref="PlcException">Thrown when the DID is not found or tombstoned.</exception>
-    public async Task<DidDocument> ResolveDidAsync(string did, CancellationToken cancellationToken = default)
-    {
-        ValidateDid(did);
-
-        using var response = await _httpClient.GetAsync("./" + did, cancellationToken);
-
-        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-            throw new PlcException($"DID not found: {did}", PlcErrorKind.NotFound);
-        if (response.StatusCode == System.Net.HttpStatusCode.Gone)
-            throw new PlcException($"DID has been tombstoned: {did}", PlcErrorKind.Tombstoned);
-
-        response.EnsureSuccessStatusCode();
-
-        var doc = await response.Content.ReadFromJsonAsync<DidDocument>(_jsonOptions, cancellationToken)
-            ?? throw new PlcException("Failed to parse DID document.", PlcErrorKind.ParseError);
-
-        // Defend against a compromised or misbehaving directory returning a forged
-        // document for a different DID. The `id` field must echo the requested DID.
-        if (!string.Equals(doc.Id, did, StringComparison.Ordinal))
-            throw new PlcException(
-                $"DID document id '{doc.Id}' does not match requested DID '{did}'.",
-                PlcErrorKind.ParseError);
-
-        return doc;
-    }
+    internal Func<Uri, CancellationToken, Task<WebSocket>>? ConnectWebSocket { get; set; }
 
     /// <summary>
-    /// Gets the full PLC operation log (chain of signed operations) for a DID.
+    /// Resolves a <c>did:plc</c> identifier to its DID document.
     /// </summary>
-    /// <param name="did">The DID to query.</param>
+    /// <param name="did">The DID (e.g. <c>did:plc:ewvi7nxzyoun6zhxrhs64oiz</c>).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The ordered list of PLC operations.</returns>
-    public async Task<IReadOnlyList<PlcOperation>> GetOperationLogAsync(
-        string did, CancellationToken cancellationToken = default)
+    /// <returns>The document.</returns>
+    /// <exception cref="DidResolutionException">
+    /// Thrown when the DID is not found (<see cref="DidResolutionErrorKind.NotFound"/>), is
+    /// tombstoned (<see cref="DidResolutionErrorKind.Deactivated"/>), or cannot be resolved.
+    /// </exception>
+    public Task<DidDocument> ResolveAsync(Did did, CancellationToken cancellationToken = default)
     {
-        ValidateDid(did);
-
-        using var response = await _httpClient.GetAsync($"./{did}/log", cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        var operations = await response.Content.ReadFromJsonAsync<List<PlcOperation>>(
-            _jsonOptions, cancellationToken) ?? [];
-
-        return operations;
+        RequirePlc(did);
+        return IdentityFetch.GetDidDocumentAsync(
+            _httpClient, DidUrl(did, null), did, _options.MaxDidDocumentBytes, _options.RequestTimeout, cancellationToken);
     }
 
     /// <summary>
-    /// Gets the PLC audit log for a DID, including CIDs, timestamps, and nullification status.
+    /// Gets a DID's operation log: the chain of signed operations that produced its current state,
+    /// nullified ones excluded.
     /// </summary>
-    /// <param name="did">The DID to query.</param>
+    /// <param name="did">The DID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The audit log entries.</returns>
-    public async Task<IReadOnlyList<PlcAuditEntry>> GetAuditLogAsync(
-        string did, CancellationToken cancellationToken = default)
+    /// <returns>The operations, oldest first.</returns>
+    /// <exception cref="DidResolutionException">Thrown when the request fails.</exception>
+    public Task<IReadOnlyList<PlcOperation>> GetOperationLogAsync(
+        Did did, CancellationToken cancellationToken = default)
     {
-        ValidateDid(did);
-
-        using var response = await _httpClient.GetAsync($"./{did}/log/audit", cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        var entries = await response.Content.ReadFromJsonAsync<List<PlcAuditEntry>>(
-            _jsonOptions, cancellationToken) ?? [];
-
-        return entries;
+        RequirePlc(did);
+        return GetJsonAsync<IReadOnlyList<PlcOperation>>(DidUrl(did, "log"), did, MaxLogBytes, cancellationToken);
     }
 
     /// <summary>
-    /// Gets the latest PLC operation for a DID.
+    /// Gets a DID's audit log: every operation the directory accepted, with its CID, time and
+    /// whether a later operation nullified it.
     /// </summary>
-    /// <param name="did">The DID to query.</param>
+    /// <param name="did">The DID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The most recent PLC operation.</returns>
-    public async Task<PlcOperation> GetLastOperationAsync(
-        string did, CancellationToken cancellationToken = default)
+    /// <returns>The entries, oldest first.</returns>
+    /// <exception cref="DidResolutionException">Thrown when the request fails.</exception>
+    public Task<IReadOnlyList<PlcAuditEntry>> GetAuditLogAsync(
+        Did did, CancellationToken cancellationToken = default)
     {
-        ValidateDid(did);
+        RequirePlc(did);
+        return GetJsonAsync<IReadOnlyList<PlcAuditEntry>>(DidUrl(did, "log/audit"), did, MaxLogBytes, cancellationToken);
+    }
 
-        using var response = await _httpClient.GetAsync($"./{did}/log/last", cancellationToken);
-
-        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-            throw new PlcException($"DID not found: {did}", PlcErrorKind.NotFound);
-
-        response.EnsureSuccessStatusCode();
-
-        return await response.Content.ReadFromJsonAsync<PlcOperation>(
-            _jsonOptions, cancellationToken)
-            ?? throw new PlcException("Failed to parse PLC operation.", PlcErrorKind.ParseError);
+    /// <summary>Gets the latest operation for a DID.</summary>
+    /// <param name="did">The DID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The most recent operation.</returns>
+    /// <exception cref="DidResolutionException">Thrown when the request fails.</exception>
+    public Task<PlcOperation> GetLastOperationAsync(Did did, CancellationToken cancellationToken = default)
+    {
+        RequirePlc(did);
+        return GetJsonAsync<PlcOperation>(DidUrl(did, "log/last"), did, _options.MaxDidDocumentBytes, cancellationToken);
     }
 
     /// <summary>
-    /// Gets the current PLC data for a DID (the data from the latest valid operation).
+    /// Gets a DID's current PLC state: its rotation keys, verification methods, handles and
+    /// services, in operation form without <c>type</c>, <c>prev</c> or <c>sig</c>.
     /// </summary>
-    /// <param name="did">The DID to query.</param>
+    /// <param name="did">The DID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The current PLC data.</returns>
-    public async Task<PlcData> GetPlcDataAsync(
-        string did, CancellationToken cancellationToken = default)
+    /// <returns>The current state.</returns>
+    /// <exception cref="DidResolutionException">Thrown when the request fails.</exception>
+    public Task<PlcOperation> GetPlcDataAsync(Did did, CancellationToken cancellationToken = default)
     {
-        ValidateDid(did);
-
-        using var response = await _httpClient.GetAsync($"./{did}/data", cancellationToken);
-
-        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-            throw new PlcException($"DID not found: {did}", PlcErrorKind.NotFound);
-        if (response.StatusCode == System.Net.HttpStatusCode.Gone)
-            throw new PlcException($"DID has been tombstoned: {did}", PlcErrorKind.Tombstoned);
-
-        response.EnsureSuccessStatusCode();
-
-        return await response.Content.ReadFromJsonAsync<PlcData>(_jsonOptions, cancellationToken)
-            ?? throw new PlcException("Failed to parse PLC data.", PlcErrorKind.ParseError);
+        RequirePlc(did);
+        return GetJsonAsync<PlcOperation>(DidUrl(did, "data"), did, _options.MaxDidDocumentBytes, cancellationToken);
     }
 
     /// <summary>
-    /// Submits a signed PLC operation to the directory, registering or updating a DID.
+    /// Submits a signed PLC operation, registering or updating a DID.
     /// </summary>
     /// <param name="operation">
     /// The signed operation, as produced by <see cref="PlcOperationBuilder.Sign"/>. For a
@@ -186,8 +175,11 @@ public sealed class PlcClient : IDisposable
     /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The DID the operation was submitted under.</returns>
-    /// <exception cref="PlcException">Thrown when the directory rejects the operation.</exception>
-    public Task<string> SubmitOperationAsync(
+    /// <exception cref="DidResolutionException">
+    /// Thrown with <see cref="DidResolutionErrorKind.OperationRejected"/> when the directory
+    /// rejects the operation.
+    /// </exception>
+    public Task<Did> SubmitOperationAsync(
         PlcSignedOperation operation, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(operation);
@@ -202,55 +194,331 @@ public sealed class PlcClient : IDisposable
     /// <param name="operation">The signed operation JSON.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The DID the operation was submitted under.</returns>
-    /// <exception cref="PlcException">Thrown when the directory rejects the operation.</exception>
-    public async Task<string> SubmitOperationAsync(
-        string did, System.Text.Json.Nodes.JsonObject operation, CancellationToken cancellationToken = default)
+    /// <exception cref="DidResolutionException">
+    /// Thrown with <see cref="DidResolutionErrorKind.OperationRejected"/> when the directory
+    /// rejects the operation.
+    /// </exception>
+    public async Task<Did> SubmitOperationAsync(
+        Did did, JsonObject operation, CancellationToken cancellationToken = default)
     {
-        ValidateDid(did);
+        RequirePlc(did);
         ArgumentNullException.ThrowIfNull(operation);
 
-        using var content = new StringContent(
-            operation.ToJsonString(), System.Text.Encoding.UTF8, "application/json");
-        using var response = await _httpClient.PostAsync("./" + did, content, cancellationToken);
+        using var content = new StringContent(operation.ToJsonString(), Encoding.UTF8, "application/json");
+        using var response = await SendAsync(
+            () => _httpClient.PostAsync(DidUrl(did, null), content, cancellationToken), did).ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)
         {
-            // PLC directories return a JSON body with a human-readable message; surface it
-            // verbatim because the failure is almost always actionable (bad signature,
-            // handle already claimed, rate limited).
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new PlcException(
-                $"PLC directory rejected the operation for {did} ({(int)response.StatusCode}): {body}",
-                PlcErrorKind.InvalidOperation);
+            // Directories answer with a human-readable message, and the failure is almost always
+            // actionable (bad signature, handle already claimed, rate limited), so it is surfaced.
+            string body;
+            try
+            {
+                var bytes = await response.Content.ReadBoundedAsync(MaxErrorBodyBytes, cancellationToken).ConfigureAwait(false);
+                body = bytes is { } read ? Encoding.UTF8.GetString(read.Span) : "(an error body over 64 KiB)";
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or InvalidOperationException)
+            {
+                body = "(an error body that could not be read)";
+            }
+
+            if (body.Length > 1024)
+                body = body[..1024];
+
+            throw new DidResolutionException(
+                $"The PLC directory rejected the operation for {did} ({(int)response.StatusCode}): {body}",
+                DidResolutionErrorKind.OperationRejected, did);
         }
 
         return did;
     }
 
-    /// <summary>
-    /// Checks whether the PLC directory server is reachable.
-    /// </summary>
+    /// <summary>Checks whether the directory answers its health endpoint.</summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns><c>true</c> if the server responds successfully.</returns>
+    /// <returns><see langword="true"/> if the directory answers with a success status.</returns>
     public async Task<bool> IsHealthyAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            using var response = await _httpClient.GetAsync("_health", cancellationToken);
-            return response.IsSuccessStatusCode;
+            var result = await IdentityFetch.GetAsync(
+                _httpClient, new Uri(DirectoryUrl, "_health"), "application/json", _options.MaxDidDocumentBytes,
+                _options.RequestTimeout, did: null, cancellationToken).ConfigureAwait(false);
+            return result.IsSuccess;
         }
-        catch
+        catch (DidResolutionException)
         {
             return false;
         }
     }
 
-    private static void ValidateDid(string did)
+    /// <summary>
+    /// Reads one page of the directory's sequenced export: every operation it accepted, in
+    /// sequence order.
+    /// </summary>
+    /// <param name="after">
+    /// The <see cref="PlcAuditEntry.Seq"/> to continue after. <c>0</c> starts at the beginning.
+    /// </param>
+    /// <param name="count">
+    /// The most entries to return, up to <see cref="MaxExportCount"/>. <see langword="null"/> is
+    /// the directory's default.
+    /// </param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// The entries. Continue with the last entry's <see cref="PlcAuditEntry.Seq"/>; a page shorter
+    /// than <paramref name="count"/> has reached the head, from where
+    /// <see cref="StreamExportAsync"/> follows new operations live.
+    /// </returns>
+    /// <exception cref="DidResolutionException">Thrown when the request fails.</exception>
+    public async Task<IReadOnlyList<PlcAuditEntry>> ExportAsync(
+        long after = 0, int? count = null, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(did))
-            throw new ArgumentException("DID cannot be null or empty.", nameof(did));
-        if (!did.StartsWith("did:plc:", StringComparison.Ordinal))
-            throw new ArgumentException("Only did:plc identifiers are supported.", nameof(did));
+        ArgumentOutOfRangeException.ThrowIfNegative(after);
+        if (count is not null)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(count.Value, 1, nameof(count));
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(count.Value, MaxExportCount, nameof(count));
+        }
+
+        var query = $"export?after={after.ToString(System.Globalization.CultureInfo.InvariantCulture)}" +
+                    (count is { } c ? $"&count={c.ToString(System.Globalization.CultureInfo.InvariantCulture)}" : "");
+        var url = new Uri(DirectoryUrl, query);
+
+        var result = await IdentityFetch.GetAsync(
+            _httpClient, url, "application/jsonlines, application/json", MaxExportBytes, _options.RequestTimeout,
+            did: null, cancellationToken).ConfigureAwait(false);
+        EnsureSuccess(result, url, did: null);
+
+        var entries = new List<PlcAuditEntry>();
+        var remaining = result.Body.Span;
+        while (!remaining.IsEmpty)
+        {
+            var newline = remaining.IndexOf((byte)'\n');
+            var line = newline < 0 ? remaining : remaining[..newline];
+            remaining = newline < 0 ? default : remaining[(newline + 1)..];
+
+            line = line.TrimEnd((byte)'\r');
+            if (!line.IsEmpty)
+                entries.Add(Deserialize<PlcAuditEntry>(line, url, did: null));
+        }
+
+        return entries;
+    }
+
+    /// <summary>
+    /// Follows the directory's export stream (<c>/export/stream</c>): operations as the directory
+    /// accepts them, over a WebSocket.
+    /// </summary>
+    /// <param name="cursor">
+    /// The <see cref="PlcAuditEntry.Seq"/> to resume after. <see langword="null"/> streams only
+    /// operations accepted after connecting.
+    /// </param>
+    /// <param name="cancellationToken">Cancellation token. Cancelling ends the stream.</param>
+    /// <returns>The entries, in sequence order.</returns>
+    /// <exception cref="PlcExportStreamException">
+    /// Thrown when the directory closes the stream with a reason, such as a cursor it can no
+    /// longer serve. See <see cref="PlcExportStreamException.CloseReason"/>.
+    /// </exception>
+    /// <remarks>
+    /// The stream ends without an exception when the directory closes it normally or the
+    /// connection drops; resume from the last <see cref="PlcAuditEntry.Seq"/> received. A cursor
+    /// older than the directory's retention window is refused with <c>OutdatedCursor</c>:
+    /// catch up with <see cref="ExportAsync"/> first.
+    /// </remarks>
+    public async IAsyncEnumerable<PlcAuditEntry> StreamExportAsync(
+        long? cursor = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (cursor is not null)
+            ArgumentOutOfRangeException.ThrowIfNegative(cursor.Value, nameof(cursor));
+
+        var builder = new UriBuilder(new Uri(DirectoryUrl, "export/stream"))
+        {
+            Scheme = DirectoryUrl.Scheme == Uri.UriSchemeHttps ? "wss" : "ws",
+            Port = DirectoryUrl.IsDefaultPort ? -1 : DirectoryUrl.Port,
+            Query = cursor is { } value ? $"cursor={value.ToString(System.Globalization.CultureInfo.InvariantCulture)}" : "",
+        };
+        var url = builder.Uri;
+
+        using var socket = await ConnectAsync(url, cancellationToken).ConfigureAwait(false);
+        var buffer = ArrayPool<byte>.Shared.Rent(16 * 1024);
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var message = await ReceiveMessageAsync(socket, buffer, url, cancellationToken).ConfigureAwait(false);
+                if (message is null)
+                    break;
+
+                yield return Deserialize<PlcAuditEntry>(message.Value.Span, url, did: null);
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+            if (socket.State == WebSocketState.Open)
+            {
+                try
+                {
+                    using var closeBudget = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                    await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, closeBudget.Token)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is WebSocketException or OperationCanceledException)
+                {
+                    // The stream is over either way.
+                }
+            }
+        }
+    }
+
+    private async Task<WebSocket> ConnectAsync(Uri url, CancellationToken cancellationToken)
+    {
+        if (ConnectWebSocket is not null)
+            return await ConnectWebSocket(url, cancellationToken).ConfigureAwait(false);
+
+        var socket = new ClientWebSocket();
+        socket.Options.SetRequestHeader("User-Agent", Http.AtProtoHttp.DefaultUserAgent);
+        try
+        {
+            // The owned client's handler carries the identity fetch policy; a caller's client is
+            // used as is, as for every other request.
+            using var invoker = _ownsHttpClient
+                ? new HttpMessageInvoker(IdentityNetworkPolicy.SharedHandler(_options.AllowPrivateNetworks), disposeHandler: false)
+                : null;
+            await socket.ConnectAsync(url, (HttpMessageInvoker?)invoker ?? _httpClient, cancellationToken).ConfigureAwait(false);
+            return socket;
+        }
+        catch (Exception ex) when (ex is WebSocketException or HttpRequestException)
+        {
+            socket.Dispose();
+            throw new DidResolutionException(
+                $"Could not open the PLC export stream at {url.Host}: {ex.Message}",
+                IdentityNetworkPolicy.IsBlocked(ex) ? DidResolutionErrorKind.Blocked : DidResolutionErrorKind.NetworkError,
+                did: null, ex);
+        }
+        catch
+        {
+            socket.Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Reads one whole text message, or returns <see langword="null"/> when the stream is over.
+    /// </summary>
+    private static async Task<ReadOnlyMemory<byte>?> ReceiveMessageAsync(
+        WebSocket socket, byte[] buffer, Uri url, CancellationToken cancellationToken)
+    {
+        using var message = new MemoryStream();
+        while (true)
+        {
+            WebSocketReceiveResult result;
+            try
+            {
+                result = await socket.ReceiveAsync(buffer, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return null;
+            }
+            catch (WebSocketException)
+            {
+                // A dropped connection ends the stream; the caller resumes from its cursor.
+                return null;
+            }
+
+            if (result.MessageType == WebSocketMessageType.Close)
+            {
+                var reason = socket.CloseStatusDescription;
+                if (socket.CloseStatus is not WebSocketCloseStatus.NormalClosure && !string.IsNullOrEmpty(reason))
+                {
+                    throw new PlcExportStreamException(
+                        $"The PLC directory at {url.Host} closed the export stream: {reason}.",
+                        reason, socket.CloseStatus);
+                }
+
+                return null;
+            }
+
+            message.Write(buffer, 0, result.Count);
+            if (message.Length > MaxStreamMessageBytes)
+            {
+                throw new PlcExportStreamException(
+                    $"The PLC export stream at {url.Host} sent a message over {MaxStreamMessageBytes} bytes.",
+                    closeReason: null, closeStatus: null);
+            }
+
+            if (result.EndOfMessage)
+                return message.ToArray();
+        }
+    }
+
+    private async Task<T> GetJsonAsync<T>(Uri url, Did did, int maxBytes, CancellationToken cancellationToken)
+    {
+        var result = await IdentityFetch.GetAsync(
+            _httpClient, url, "application/json", maxBytes, _options.RequestTimeout, did, cancellationToken)
+            .ConfigureAwait(false);
+        EnsureSuccess(result, url, did);
+        return Deserialize<T>(result.Body.Span, url, did);
+    }
+
+    private static void EnsureSuccess(IdentityFetch.Result result, Uri url, Did? did)
+    {
+        if (result.IsSuccess)
+            return;
+
+        throw result.Status switch
+        {
+            HttpStatusCode.NotFound => new DidResolutionException(
+                $"The PLC directory has no {url.AbsolutePath} for {did}.", DidResolutionErrorKind.NotFound, did),
+            HttpStatusCode.Gone => new DidResolutionException(
+                $"{did} has been deactivated.", DidResolutionErrorKind.Deactivated, did),
+            _ => new DidResolutionException(
+                $"The PLC directory answered {url.AbsolutePath} with HTTP {(int)result.Status}.",
+                DidResolutionErrorKind.HttpError, did),
+        };
+    }
+
+    private static T Deserialize<T>(ReadOnlySpan<byte> json, Uri url, Did? did)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<T>(json, AtProtoJsonDefaults.Options)
+                ?? throw new JsonException("The response is null.");
+        }
+        catch (JsonException ex)
+        {
+            throw new DidResolutionException(
+                $"The PLC directory's answer to {url.AbsolutePath} is malformed: {ex.Message}",
+                DidResolutionErrorKind.InvalidDocument, did, ex);
+        }
+    }
+
+    private async Task<HttpResponseMessage> SendAsync(Func<Task<HttpResponseMessage>> send, Did did)
+    {
+        try
+        {
+            return await send().ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException)
+        {
+            throw new DidResolutionException(
+                $"Could not reach the PLC directory at {DirectoryUrl.Host}: {ex.Message}",
+                IdentityNetworkPolicy.IsBlocked(ex) ? DidResolutionErrorKind.Blocked : DidResolutionErrorKind.NetworkError,
+                did, ex);
+        }
+    }
+
+    // A bare "did:plc:…" parses as an absolute URI with the scheme "did" and would replace the
+    // directory entirely, so the DID is anchored as a relative path segment.
+    private Uri DidUrl(Did did, string? suffix) =>
+        new(DirectoryUrl, suffix is null ? "./" + did.Value : $"./{did.Value}/{suffix}");
+
+    private static void RequirePlc(Did did)
+    {
+        ArgumentNullException.ThrowIfNull(did);
+        if (did.Method != "plc")
+            throw new DidResolutionException($"'{did}' is not a did:plc.", DidResolutionErrorKind.UnsupportedMethod, did);
     }
 
     /// <inheritdoc/>
@@ -261,273 +529,111 @@ public sealed class PlcClient : IDisposable
     }
 }
 
-// ── Models ───────────────────────────────────────────────────
-
-/// <summary>A W3C DID Document as returned by PLC directory resolution.</summary>
-public sealed class DidDocument
-{
-    /// <summary>
-    /// The JSON-LD context. Omitted when serializing unless set — required when *publishing* a
-    /// document (e.g. a <c>did:web</c> <c>/.well-known/did.json</c>), ignorable when consuming one.
-    /// </summary>
-    [JsonPropertyName("@context")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Context { get; set; }
-
-    /// <summary>The DID identifier (e.g., <c>did:plc:ewvi7nxzyoun6zhxrhs64oiz</c>).</summary>
-    [JsonPropertyName("id")]
-    public string Id { get; set; } = "";
-
-    /// <summary>Alternate identifiers, typically including the AT Protocol handle as <c>at://handle</c>.</summary>
-    [JsonPropertyName("alsoKnownAs")]
-    public List<string> AlsoKnownAs { get; set; } = [];
-
-    /// <summary>Verification methods (public keys) associated with this DID.</summary>
-    [JsonPropertyName("verificationMethod")]
-    public List<VerificationMethod> VerificationMethod { get; set; } = [];
-
-    /// <summary>Service endpoints associated with this DID.</summary>
-    [JsonPropertyName("service")]
-    public List<ServiceEndpoint> Service { get; set; } = [];
-
-    /// <summary>Extracts the AT Protocol handle from <see cref="AlsoKnownAs"/> entries.</summary>
-    /// <returns>The handle, or <c>null</c> if not found.</returns>
-    public string? GetHandle()
-    {
-        var atUri = AlsoKnownAs.FirstOrDefault(a =>
-            a.StartsWith("at://", StringComparison.OrdinalIgnoreCase));
-        return atUri?["at://".Length..];
-    }
-
-    /// <summary>
-    /// Extracts the account's AT Protocol repo-signing key (<c>#atproto</c>) as a <c>did:key</c>.
-    /// </summary>
-    /// <returns>The signing key, or <c>null</c> when the document publishes none.</returns>
-    /// <exception cref="FormatException">Thrown when the entry's key material is malformed.</exception>
-    public string? GetSigningKey() => GetVerificationKey("#atproto");
-
-    /// <summary>
-    /// Extracts a verification method's public key as a <c>did:key</c>, whichever of the
-    /// verification-method types AT Protocol uses the document publishes it under.
-    /// </summary>
-    /// <param name="fragment">
-    /// The verification method fragment, with or without its leading <c>#</c> (e.g. <c>#atproto</c>).
-    /// Both the bare fragment and the DID-qualified form are matched.
-    /// </param>
-    /// <returns>
-    /// The key as a <c>did:key</c> string, or <c>null</c> when no entry with that id is
-    /// published or its type is not one this SDK understands.
-    /// </returns>
-    /// <exception cref="FormatException">Thrown when the entry's key material is malformed.</exception>
-    public string? GetVerificationKey(string fragment)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(fragment);
-
-        if (!fragment.StartsWith('#'))
-            fragment = "#" + fragment;
-
-        return VerificationMethod
-            .FirstOrDefault(vm => vm.Id == fragment || vm.Id == $"{Id}{fragment}")
-            ?.ToDidKey();
-    }
-
-    /// <summary>Gets the PDS service endpoint URL.</summary>
-    /// <returns>The PDS URL, or <c>null</c> if not found.</returns>
-    public string? GetPdsEndpoint()
-    {
-        return Service.FirstOrDefault(s =>
-            (s.Id == "#atproto_pds" || s.Id == $"{Id}#atproto_pds") &&
-            s.Type == "AtprotoPersonalDataServer")?.Endpoint;
-    }
-}
-
-/// <summary>A verification method entry in a DID Document.</summary>
-public sealed class VerificationMethod
-{
-    /// <summary>The verification method identifier (e.g., <c>did:plc:...#atproto</c>).</summary>
-    [JsonPropertyName("id")]
-    public string Id { get; set; } = "";
-
-    /// <summary>The type (e.g., <c>Multikey</c>).</summary>
-    [JsonPropertyName("type")]
-    public string Type { get; set; } = "";
-
-    /// <summary>The controller DID.</summary>
-    [JsonPropertyName("controller")]
-    public string Controller { get; set; } = "";
-
-    /// <summary>The public key in multibase encoding (e.g., <c>z...</c> for base58btc).</summary>
-    [JsonPropertyName("publicKeyMultibase")]
-    public string? PublicKeyMultibase { get; set; }
-
-    /// <summary>
-    /// Converts this method's key material to a <c>did:key</c>.
-    /// </summary>
-    /// <returns>
-    /// The key as a <c>did:key</c> string, or <c>null</c> when the entry carries no key material
-    /// or its <see cref="Type"/> is not one this SDK understands.
-    /// </returns>
-    /// <exception cref="FormatException">Thrown when the key material is malformed for its type.</exception>
-    /// <remarks>
-    /// <para>Three types are accepted, matching the reference implementation. A
-    /// <c>Multikey</c>'s <c>publicKeyMultibase</c> is already the did:key encoding —
-    /// base58btc over multicodec-tagged compressed key bytes — so it passes through
-    /// unchanged. The legacy <c>EcdsaSecp256k1VerificationKey2019</c> and
-    /// <c>EcdsaSecp256r1VerificationKey2019</c> forms instead carry a bare uncompressed
-    /// point (<c>0x04 || X || Y</c>) with no multicodec prefix, so the point is compressed
-    /// and re-tagged with the curve the type names.</para>
-    /// <para>plc.directory serves <c>Multikey</c> today, but older PLC releases and
-    /// hand-written <c>did:web</c> documents may publish the legacy forms.</para>
-    /// </remarks>
-    public string? ToDidKey()
-    {
-        if (string.IsNullOrEmpty(PublicKeyMultibase))
-            return null;
-
-        return Type switch
-        {
-            "Multikey" => $"did:key:{PublicKeyMultibase}",
-            "EcdsaSecp256k1VerificationKey2019" => FormatLegacyDidKey(PublicKeyMultibase, KeyCurve.K256),
-            "EcdsaSecp256r1VerificationKey2019" => FormatLegacyDidKey(PublicKeyMultibase, KeyCurve.P256),
-            _ => null,
-        };
-    }
-
-    private static string FormatLegacyDidKey(string publicKeyMultibase, KeyCurve curve)
-        => AtProtoCrypto.FormatDidKey(AtProtoCrypto.MultibaseToBytes(publicKeyMultibase), curve);
-}
-
-/// <summary>A service endpoint entry in a DID Document.</summary>
-public sealed class ServiceEndpoint
-{
-    /// <summary>The service identifier (e.g., <c>#atproto_pds</c>).</summary>
-    [JsonPropertyName("id")]
-    public string Id { get; set; } = "";
-
-    /// <summary>The service type (e.g., <c>AtprotoPersonalDataServer</c>).</summary>
-    [JsonPropertyName("type")]
-    public string Type { get; set; } = "";
-
-    /// <summary>The endpoint URL.</summary>
-    [JsonPropertyName("serviceEndpoint")]
-    public string Endpoint { get; set; } = "";
-}
-
-/// <summary>A PLC operation — a signed state transition for a DID.</summary>
+/// <summary>
+/// A PLC operation: a signed state transition for a DID, or, from
+/// <see cref="PlcClient.GetPlcDataAsync"/>, the state the latest one produced.
+/// </summary>
 public sealed class PlcOperation
 {
-    /// <summary>Operation type (e.g., <c>plc_operation</c> or <c>plc_tombstone</c>).</summary>
+    /// <summary>
+    /// The operation type: <c>plc_operation</c>, <c>plc_tombstone</c>, or the legacy
+    /// <c>create</c>. <see langword="null"/> on a state read.
+    /// </summary>
     [JsonPropertyName("type")]
-    public string Type { get; set; } = "";
+    public string? Type { get; init; }
 
-    /// <summary>Service endpoints map.</summary>
+    /// <summary>The services, keyed by id without the leading <c>#</c> (e.g. <c>atproto_pds</c>).</summary>
     [JsonPropertyName("services")]
-    public Dictionary<string, PlcOperationService>? Services { get; set; }
+    public IReadOnlyDictionary<string, DidService>? Services { get; init; }
 
-    /// <summary>Alternate identifiers.</summary>
+    /// <summary>The <c>alsoKnownAs</c> entries, including the handle as <c>at://handle</c>.</summary>
     [JsonPropertyName("alsoKnownAs")]
-    public List<string>? AlsoKnownAs { get; set; }
+    public IReadOnlyList<string>? AlsoKnownAs { get; init; }
 
-    /// <summary>Rotation keys in <c>did:key</c> format.</summary>
+    /// <summary>The rotation keys as <c>did:key</c> strings, highest authority first.</summary>
     [JsonPropertyName("rotationKeys")]
-    public List<string>? RotationKeys { get; set; }
+    public IReadOnlyList<string>? RotationKeys { get; init; }
 
-    /// <summary>Verification methods map.</summary>
+    /// <summary>The verification methods as <c>did:key</c> strings, keyed by id without the leading <c>#</c>.</summary>
     [JsonPropertyName("verificationMethods")]
-    public Dictionary<string, string>? VerificationMethods { get; set; }
+    public IReadOnlyDictionary<string, string>? VerificationMethods { get; init; }
 
-    /// <summary>CID reference to the previous operation, or <c>null</c> for genesis.</summary>
+    /// <summary>The CID of the previous operation, or <see langword="null"/> for a genesis operation.</summary>
     [JsonPropertyName("prev")]
-    public string? Prev { get; set; }
+    public Cid? Prev { get; init; }
 
-    /// <summary>Cryptographic signature (base64).</summary>
+    /// <summary>The signature, as unpadded base64url.</summary>
     [JsonPropertyName("sig")]
-    public string? Sig { get; set; }
+    public string? Sig { get; init; }
 }
 
-/// <summary>A service entry within a PLC operation.</summary>
-public sealed class PlcOperationService
-{
-    /// <summary>The service type.</summary>
-    [JsonPropertyName("type")]
-    public string Type { get; set; } = "";
-
-    /// <summary>The service endpoint URL.</summary>
-    [JsonPropertyName("endpoint")]
-    public string Endpoint { get; set; } = "";
-}
-
-/// <summary>An audit log entry from the PLC directory.</summary>
+/// <summary>
+/// An operation as the directory recorded it: from a DID's audit log, or from the export.
+/// </summary>
 public sealed class PlcAuditEntry
 {
-    /// <summary>The DID this entry belongs to.</summary>
+    /// <summary>
+    /// The entry type: <c>sequenced_op</c> in the sequenced export, <see langword="null"/> in an
+    /// audit log.
+    /// </summary>
+    [JsonPropertyName("type")]
+    public string? Type { get; init; }
+
+    /// <summary>The DID the operation belongs to.</summary>
     [JsonPropertyName("did")]
-    public string Did { get; set; } = "";
+    public required Did Did { get; init; }
 
-    /// <summary>The PLC operation.</summary>
+    /// <summary>The operation.</summary>
     [JsonPropertyName("operation")]
-    public PlcOperation Operation { get; set; } = new();
+    public required PlcOperation Operation { get; init; }
 
-    /// <summary>The CID (content identifier) of this operation.</summary>
+    /// <summary>The operation's CID.</summary>
     [JsonPropertyName("cid")]
-    public string Cid { get; set; } = "";
+    public required Cid Cid { get; init; }
 
-    /// <summary>Whether this operation has been nullified (superseded by a later operation).</summary>
+    /// <summary>
+    /// Whether a later operation nullified this one. <see langword="null"/> in the sequenced
+    /// export, which does not report it.
+    /// </summary>
     [JsonPropertyName("nullified")]
-    public bool Nullified { get; set; }
+    public bool? Nullified { get; init; }
 
-    /// <summary>When this operation was indexed by the directory.</summary>
+    /// <summary>When the directory accepted the operation.</summary>
     [JsonPropertyName("createdAt")]
-    public DateTimeOffset CreatedAt { get; set; }
+    public required DateTimeOffset CreatedAt { get; init; }
+
+    /// <summary>
+    /// The directory's sequence number for the operation, strictly increasing; the cursor for
+    /// <see cref="PlcClient.ExportAsync"/> and <see cref="PlcClient.StreamExportAsync"/>.
+    /// <see langword="null"/> in an audit log.
+    /// </summary>
+    [JsonPropertyName("seq")]
+    public long? Seq { get; init; }
 }
 
-/// <summary>Current PLC data for a DID (latest resolved state).</summary>
-public sealed class PlcData
+/// <summary>
+/// Thrown when a PLC directory closes its export stream with a reason.
+/// </summary>
+public sealed class PlcExportStreamException : AtProtoException
 {
-    /// <summary>Service endpoints map.</summary>
-    [JsonPropertyName("services")]
-    public Dictionary<string, PlcOperationService>? Services { get; set; }
-
-    /// <summary>Alternate identifiers.</summary>
-    [JsonPropertyName("alsoKnownAs")]
-    public List<string>? AlsoKnownAs { get; set; }
-
-    /// <summary>Rotation keys in <c>did:key</c> format.</summary>
-    [JsonPropertyName("rotationKeys")]
-    public List<string>? RotationKeys { get; set; }
-
-    /// <summary>Verification methods map.</summary>
-    [JsonPropertyName("verificationMethods")]
-    public Dictionary<string, string>? VerificationMethods { get; set; }
-}
-
-// ── Exceptions ───────────────────────────────────────────────
-
-/// <summary>Categorizes PLC directory errors.</summary>
-public enum PlcErrorKind
-{
-    /// <summary>The DID was not found.</summary>
-    NotFound,
-
-    /// <summary>The DID has been tombstoned (deleted).</summary>
-    Tombstoned,
-
-    /// <summary>The response could not be parsed.</summary>
-    ParseError,
-
-    /// <summary>The directory rejected a submitted operation.</summary>
-    InvalidOperation,
-}
-
-/// <summary>Exception thrown by <see cref="PlcClient"/> operations.</summary>
-public sealed class PlcException : Exception
-{
-    /// <summary>The kind of error.</summary>
-    public PlcErrorKind Kind { get; }
-
-    /// <summary>Creates a new PLC exception.</summary>
-    public PlcException(string message, PlcErrorKind kind) : base(message)
+    /// <summary>Creates an exception.</summary>
+    /// <param name="message">A description of what went wrong.</param>
+    /// <param name="closeReason">The reason the directory gave, if any.</param>
+    /// <param name="closeStatus">The WebSocket close status, if the directory closed the stream.</param>
+    public PlcExportStreamException(string message, string? closeReason, WebSocketCloseStatus? closeStatus)
+        : base(message)
     {
-        Kind = kind;
+        CloseReason = closeReason;
+        CloseStatus = closeStatus;
     }
+
+    /// <summary>
+    /// The reason the directory gave: <c>OutdatedCursor</c> (the cursor predates its retention
+    /// window; catch up with <see cref="PlcClient.ExportAsync"/>), <c>FutureCursor</c> (the cursor
+    /// is ahead of the directory) or <c>ConsumerTooSlow</c> (reconnect from the last cursor).
+    /// </summary>
+    public string? CloseReason { get; }
+
+    /// <summary>The WebSocket close status, if the directory closed the stream.</summary>
+    public WebSocketCloseStatus? CloseStatus { get; }
 }

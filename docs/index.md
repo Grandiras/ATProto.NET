@@ -15,7 +15,7 @@ If you want a map of how the packages compose, see **[Architecture](architecture
 ### Core Concepts
 - [AT Protocol Overview](at-protocol-overview.md) — DIDs, handles, repositories, Lexicons
 - [Identity Types](identity-types.md) — `Did`, `Handle`, `AtUri`, `Nsid`, `Tid`, `RecordKey`, `Cid`
-- [DID Resolution](did-resolution.md) — `did:plc`, `did:web`, unified `DidResolver`
+- [Identity Resolution](did-resolution.md) — DID and handle resolvers, caching, and the SSRF fetch policy
 - [Session Management](session-management.md) — authentication, token refresh, custom persistence
 - [OAuth Authentication](oauth.md) — DPoP, PAR, PKCE, dynamic PDS selection
 - [Error Handling](error-handling.md) — XRPC errors, HTTP exceptions, retry patterns

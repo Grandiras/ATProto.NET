@@ -35,10 +35,20 @@ public class SpaceCredentialProviderTests : IDisposable
         Assert.Equal("hostUrl", ex.ParamName);
     }
 
+    [Fact]
+    public async Task ResolveHostAsync_WhenTheDidPublishesNoUrlAtAll_ThrowsSpaceCredentialException()
+    {
+        using var resolver = ResolverPublishing("not a url");
+        await using var provider = new SpaceCredentialProvider(_client, didResolver: resolver);
+
+        var ex = await Assert.ThrowsAsync<SpaceCredentialException>(() => provider.ResolveHostAsync(ATProtoNet.Identity.Did.Parse(Did)));
+
+        Assert.Contains("absolute http(s) URL", ex.Message);
+    }
+
     [Theory]
     [InlineData("https://pds.example.com/?tenant=1")]
     [InlineData("https://pds.example.com/#frag")]
-    [InlineData("not a url")]
     public async Task ResolveHostAsync_WhenTheDidPublishesAnUnusableEndpoint_ThrowsSpaceCredentialException(
         string endpoint)
     {
@@ -75,7 +85,9 @@ public class SpaceCredentialProviderTests : IDisposable
             """;
 
         var plc = new HttpClient(new StaticHandler(document)) { BaseAddress = new Uri("https://plc.directory/") };
-        return new DidResolver(new PlcClient(plc), new DidWebResolver(new HttpClient(new StaticHandler("{}"))));
+        return new DidResolver(
+            new PlcClient(plc, new Uri("https://plc.directory/")),
+            new DidWebResolver(new HttpClient(new StaticHandler("{}"))));
     }
 
     private sealed class StaticHandler(string body) : HttpMessageHandler

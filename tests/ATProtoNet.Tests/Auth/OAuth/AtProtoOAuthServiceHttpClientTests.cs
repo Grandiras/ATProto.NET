@@ -2,7 +2,9 @@ using System.Net;
 using System.Reflection;
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Blazor.Authentication;
+using ATProtoNet.Identity;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 
 namespace ATProtoNet.Tests.Auth.OAuth;
 
@@ -27,8 +29,10 @@ public class AtProtoOAuthServiceHttpClientTests
         var client = service.TryGetClient();
         Assert.NotNull(client);
 
-        await Assert.ThrowsAsync<OAuthException>(
-            () => client.Discovery.ResolveHandleToDidAsync("example.com"));
+        // The OAuth metadata requests go through the caller's client; identity resolution has
+        // its own, under the identity fetch policy.
+        await Assert.ThrowsAnyAsync<Exception>(
+            () => client.Discovery.ResolveAuthorizationServerAsync("https://pds.example.com"));
         Assert.NotEmpty(requests);
 
         // The caller owns the client's lifetime — it must survive the service.
@@ -74,7 +78,19 @@ public class AtProtoOAuthServiceHttpClientTests
     }
 
     [Fact]
-    public void HandleResolutionTimeout_FlowsToDiscovery()
+    public void RegisteredIdentityResolver_FlowsToDiscovery()
+    {
+        var resolver = Substitute.For<IIdentityResolver>();
+
+        using var service = new AtProtoOAuthService(CreateOptions(), NullLoggerFactory.Instance, resolver);
+        var client = service.TryGetClient();
+        Assert.NotNull(client);
+
+        Assert.Same(resolver, client.Discovery.IdentityResolver);
+    }
+
+    [Fact]
+    public void WithoutAnIdentityResolver_DiscoveryCreatesItsOwn()
     {
         var options = CreateOptions();
         options.HandleResolutionTimeout = TimeSpan.FromSeconds(3);
@@ -83,7 +99,7 @@ public class AtProtoOAuthServiceHttpClientTests
         var client = service.TryGetClient();
         Assert.NotNull(client);
 
-        Assert.Equal(TimeSpan.FromSeconds(3), client.Discovery.HandleResolutionTimeout);
+        Assert.IsType<IdentityResolver>(client.Discovery.IdentityResolver);
     }
 
     /// <summary>

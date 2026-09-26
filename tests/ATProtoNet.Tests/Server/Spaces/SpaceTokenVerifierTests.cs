@@ -244,7 +244,7 @@ public class SpaceCredentialVerifierTests
     private static SpaceUri Space(Did? authority = null) =>
         SpaceUri.Parse($"at://{authority ?? AuthorityDid}/space/com.atmoboards.forum/default");
 
-    private static SpaceCredentialVerifier CreateVerifier(ISpaceDidDocumentResolver resolver)
+    private static SpaceCredentialVerifier CreateVerifier(IDidResolver resolver)
     {
         var replayStore = new InMemorySpaceReplayStore();
         return new SpaceCredentialVerifier(resolver, new DPoPProofValidator(replayStore));

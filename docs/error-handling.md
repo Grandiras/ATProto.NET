@@ -31,7 +31,7 @@ What the SDK does **not** wrap:
 | `TimeoutException` | A per-call `XrpcCallOptions.Timeout` expired |
 | `HttpRequestException` | No response arrived at all (DNS, connection refused, TLS). Any response, even a 500, becomes an `XrpcException` |
 
-> The DID-resolution exceptions (`PlcException`, `DidWebException`) are not yet part of this hierarchy.
+> Identity resolution reports every failure, network ones included, as `DidResolutionException`, with a `Kind` naming what went wrong — see [Identity Resolution](did-resolution.md#errors).
 
 ## XrpcException
 

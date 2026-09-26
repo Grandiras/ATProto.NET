@@ -38,7 +38,7 @@ public sealed class SpaceWriteNotifier
     private static readonly Nsid NotifySpaceDeleted = Nsid.Parse(SpaceNsids.NotifySpaceDeleted);
 
     private readonly ISpaceAuthorityStore _store;
-    private readonly ISpaceDidDocumentResolver _resolver;
+    private readonly IDidResolver _resolver;
     private readonly ServiceAuthGenerator _serviceAuth;
     private readonly HttpClient _httpClient;
     private readonly ILogger _logger;
@@ -53,7 +53,7 @@ public sealed class SpaceWriteNotifier
     /// <param name="logger">Optional logger.</param>
     public SpaceWriteNotifier(
         ISpaceAuthorityStore store,
-        ISpaceDidDocumentResolver resolver,
+        IDidResolver resolver,
         ServiceAuthGenerator serviceAuth,
         HttpClient httpClient,
         ILogger<SpaceWriteNotifier>? logger = null)
@@ -247,15 +247,14 @@ public sealed class SpaceWriteNotifier
     /// Whether an exception is a delivery failure to be logged and dropped, rather than a
     /// cancellation the caller asked for and must see.
     /// </summary>
+    /// <remarks>
+    /// Anything a subscriber's DID document or endpoint can make go wrong is a failed delivery to
+    /// that subscriber: the document is written by whoever registered it, so letting one of its
+    /// failures escape would let a single subscriber stop <c>deleteSpace</c> for everyone. An
+    /// HttpClient timeout surfaces as a cancellation nobody requested, and counts too.
+    /// </remarks>
     private static bool IsDeliveryFailure(Exception exception, CancellationToken cancellationToken) =>
-        exception switch
-        {
-            // An HttpClient timeout surfaces as a cancellation nobody requested.
-            OperationCanceledException => !cancellationToken.IsCancellationRequested,
-            HttpRequestException or ArgumentException or SpaceVerificationException
-                or InvalidOperationException or UriFormatException => true,
-            _ => false,
-        };
+        exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested;
 
     private async Task<bool> DeliverAsync<TBody>(
         SpaceUri space,
@@ -267,13 +266,13 @@ public sealed class SpaceWriteNotifier
         try
         {
             var (did, fragment) = SpaceAuthority.ParseServiceIdentifier(subscriber.Service);
-            var document = await _resolver.ResolveAsync(did, cancellationToken);
+            var document = await _resolver.ResolveOrRefuseAsync(did, refresh: false, cancellationToken);
 
             // A #atproto_space_host fragment resolves with its #atproto_pds fallback, so an
             // authority on an ordinary PDS, which publishes no such entry, is still reached.
             var endpoint = SpaceAuthority.GetServiceEndpoint(document, fragment);
 
-            if (string.IsNullOrEmpty(endpoint))
+            if (endpoint is null)
             {
                 _logger.LogWarning(
                     "Subscriber {Service} for {Space} resolves to no delivery endpoint; skipping.",

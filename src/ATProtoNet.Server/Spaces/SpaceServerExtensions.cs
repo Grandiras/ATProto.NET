@@ -1,6 +1,8 @@
 using ATProtoNet.Auth;
 using ATProtoNet.Crypto;
+using ATProtoNet.Identity;
 using ATProtoNet.Server.Xrpc;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -41,6 +43,12 @@ public static class SpaceServerExtensions
     public const string HttpClientName = "AtProtoSpaces";
 
     /// <summary>
+    /// The service key of the <see cref="IDidResolver"/> the space server resolves DID documents
+    /// through: a cache of its own, configured by <see cref="SpaceServerOptions.DidCache"/>.
+    /// </summary>
+    public const string DidResolverKey = "ATProtoNet.Server.Spaces";
+
+    /// <summary>
     /// Registers the credential verification layer: DPoP proof, delegation token, space
     /// credential, client attestation, and service auth verification.
     /// </summary>
@@ -68,7 +76,11 @@ public static class SpaceServerExtensions
             // holding the exchange open.
             client.Timeout = TimeSpan.FromSeconds(10);
         })
-            .ConfigurePrimaryHttpMessageHandler(Http.AtProtoHttp.CreateHandler);
+            // Every URL this client reaches comes from a party the service does not control: a
+            // subscriber's or managing app's DID document, a client ID. So it connects only to
+            // public addresses, follows no redirects, and honours the identity development opt-out.
+            .ConfigurePrimaryHttpMessageHandler(sp =>
+                IdentityNetworkPolicy.CreateHandler(sp.GetRequiredService<IdentityResolverOptions>().AllowPrivateNetworks));
 
         services.TryAddSingleton<ISpaceReplayStore, InMemorySpaceReplayStore>();
 
@@ -78,8 +90,21 @@ public static class SpaceServerExtensions
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IHostedService, InMemorySpaceStoreWarning>());
 
-        services.TryAddSingleton<ISpaceDidDocumentResolver>(sp =>
-            new CachingSpaceDidDocumentResolver(sp.GetRequiredService<SpaceServerOptions>()));
+        // Every authenticated request resolves a DID document. The space server keeps a cache of
+        // its own, with a lifetime short enough that a rotated key stops verifying quickly, and
+        // fetches under the shared identity options.
+        services.AddAtProtoIdentity();
+        services.TryAddKeyedSingleton<IDidResolver>(DidResolverKey, (sp, _) =>
+        {
+            var cache = sp.GetRequiredService<SpaceServerOptions>().DidCache;
+            return new CachingDidResolver(
+                new DidResolver(sp.GetRequiredService<IdentityResolverOptions>()),
+                cache,
+                cache.UseDistributedCache ? sp.GetRequiredService<IDistributedCache>() : null,
+                sp.GetService<TimeProvider>(),
+                sp.GetService<Microsoft.Extensions.Logging.ILogger<CachingDidResolver>>(),
+                ownsInner: true);
+        });
         services.TryAddSingleton<ISpaceCallerResolver, ClaimsSpaceCallerResolver>();
 
         services.TryAddSingleton<ISpaceClientMetadataResolver>(sp => new HttpSpaceClientMetadataResolver(
@@ -90,12 +115,12 @@ public static class SpaceServerExtensions
             sp.GetRequiredService<ISpaceReplayStore>(), sp.GetRequiredService<SpaceServerOptions>()));
 
         services.TryAddSingleton(sp => new SpaceDelegationTokenVerifier(
-            sp.GetRequiredService<ISpaceDidDocumentResolver>(),
+            sp.GetRequiredKeyedService<IDidResolver>(DidResolverKey),
             sp.GetRequiredService<ISpaceReplayStore>(),
             sp.GetRequiredService<SpaceServerOptions>()));
 
         services.TryAddSingleton(sp => new SpaceCredentialVerifier(
-            sp.GetRequiredService<ISpaceDidDocumentResolver>(),
+            sp.GetRequiredKeyedService<IDidResolver>(DidResolverKey),
             sp.GetRequiredService<DPoPProofValidator>()));
 
         services.TryAddSingleton(sp => new SpaceClientAttestationVerifier(
@@ -104,7 +129,7 @@ public static class SpaceServerExtensions
             sp.GetRequiredService<SpaceServerOptions>()));
 
         services.TryAddSingleton<ISpaceServiceAuthVerifier>(sp => new SpaceServiceAuthVerifier(
-            sp.GetRequiredService<ISpaceDidDocumentResolver>(),
+            sp.GetRequiredKeyedService<IDidResolver>(DidResolverKey),
             sp.GetRequiredService<ISpaceReplayStore>(),
             sp.GetRequiredService<SpaceServerOptions>()));
 
@@ -181,7 +206,7 @@ public static class SpaceServerExtensions
 
         services.TryAddSingleton(sp => new SpaceWriteNotifier(
             sp.GetRequiredService<ISpaceAuthorityStore>(),
-            sp.GetRequiredService<ISpaceDidDocumentResolver>(),
+            sp.GetRequiredKeyedService<IDidResolver>(DidResolverKey),
             sp.GetRequiredService<ServiceAuthGenerator>(),
             sp.GetRequiredService<IHttpClientFactory>().CreateClient(HttpClientName),
             sp.GetService<Microsoft.Extensions.Logging.ILogger<SpaceWriteNotifier>>()));
@@ -216,7 +241,7 @@ public static class SpaceServerExtensions
         services.TryAddSingleton<ISimpleSpaceStore, TStore>();
 
         services.TryAddSingleton<ISimpleSpaceManagingAppClient>(sp => new SimpleSpaceManagingAppClient(
-            sp.GetRequiredService<ISpaceDidDocumentResolver>(),
+            sp.GetRequiredKeyedService<IDidResolver>(DidResolverKey),
             sp.GetRequiredService<ServiceAuthGenerator>(),
             sp.GetRequiredService<IHttpClientFactory>().CreateClient(HttpClientName)));
 

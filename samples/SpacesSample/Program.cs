@@ -94,7 +94,8 @@ Console.WriteLine($"\n{spaces.Spaces.Count} space(s) of this type hold data for 
 Console.WriteLine("── Syncing ──");
 
 var store = new ConsoleStore();
-var syncer = new SpaceSyncer(space, store, SpaceSyncer.ResolveSigningKeyAsync(new DidResolver()));
+using var didResolver = new CachingDidResolver();
+var syncer = new SpaceSyncer(space, store, didResolver);
 var cursor = new SpaceRepoCursor(did);
 
 var result = await syncer.SyncRepoAsync(client.Space, cursor);

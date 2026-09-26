@@ -1,186 +1,183 @@
+using System.Net;
+using System.Text;
 using ATProtoNet.Identity;
 
 namespace ATProtoNet.Tests.Identity;
 
+/// <summary>
+/// <c>did:web</c> resolution and the <see cref="DidResolver"/> dispatch in front of it. The URL
+/// rules themselves are the table in <see cref="IdentityFetchPolicyTests"/>.
+/// </summary>
 public class DidWebResolverTests
 {
-    // ─── URL Building ────────────────────────────────────────
+    private static readonly Did ExampleDid = Did.Parse("did:web:example.com");
+
+    private static (DidWebResolver Resolver, ScriptedHandler Handler) Create(
+        Func<HttpRequestMessage, HttpResponseMessage> respond, IdentityResolverOptions? options = null)
+    {
+        var handler = new ScriptedHandler(respond);
+        return (new DidWebResolver(new HttpClient(handler), options), handler);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_ValidDocument_FetchesTheWellKnownUrlAndParses()
+    {
+        var (resolver, handler) = Create(_ => ScriptedHandler.Json(DidDocs.Json("did:web:example.com", "example.com")));
+        using var _ = resolver;
+
+        var document = await resolver.ResolveAsync(ExampleDid);
+
+        Assert.Equal(new Uri("https://example.com/.well-known/did.json"), Assert.Single(handler.Requests));
+        Assert.Equal(ExampleDid, document.Id);
+        Assert.Equal(new Uri("https://pds.example.com"), document.GetPdsEndpoint());
+        Assert.Equal(Handle.Parse("example.com"), document.GetHandle());
+    }
+
+    [Fact]
+    public async Task ResolveAsync_IdDiffersOnlyInHostCase_IsAccepted()
+    {
+        var (resolver, _) = Create(_ => ScriptedHandler.Json(DidDocs.Json("did:web:example.com")));
+        using var __ = resolver;
+
+        var document = await resolver.ResolveAsync(Did.Parse("did:web:Example.COM"));
+
+        Assert.Equal(ExampleDid, document.Id);
+    }
 
     [Theory]
-    [InlineData("did:web:example.com", "https://example.com/.well-known/did.json")]
-    [InlineData("did:web:api.bsky.app", "https://api.bsky.app/.well-known/did.json")]
-    [InlineData("did:web:labeler.example.com", "https://labeler.example.com/.well-known/did.json")]
-    public void BuildResolutionUrl_ValidDid_ReturnsCorrectUrl(string did, string expectedUrl)
+    [InlineData(HttpStatusCode.NotFound, DidResolutionErrorKind.NotFound)]
+    [InlineData(HttpStatusCode.Gone, DidResolutionErrorKind.Deactivated)]
+    [InlineData(HttpStatusCode.InternalServerError, DidResolutionErrorKind.HttpError)]
+    [InlineData(HttpStatusCode.Found, DidResolutionErrorKind.HttpError)]
+    public async Task ResolveAsync_ErrorStatus_IsReportedByKind(HttpStatusCode status, DidResolutionErrorKind expected)
     {
-        Assert.Equal(expectedUrl, DidWebResolver.BuildResolutionUrl(did));
+        var (resolver, _) = Create(_ => ScriptedHandler.Status(status));
+        using var __ = resolver;
+
+        var ex = await Assert.ThrowsAsync<DidResolutionException>(() => resolver.ResolveAsync(ExampleDid));
+
+        Assert.Equal(expected, ex.Kind);
+        Assert.Equal(ExampleDid, ex.Did);
+    }
+
+    [Theory]
+    [InlineData("""{"id":"did:web:attacker.example"}""")]
+    [InlineData("not valid json {{{")]
+    [InlineData("""{"alsoKnownAs":[]}""")]
+    [InlineData("null")]
+    public async Task ResolveAsync_UnusableDocument_IsInvalidDocument(string body)
+    {
+        var (resolver, _) = Create(_ => ScriptedHandler.Json(body));
+        using var __ = resolver;
+
+        var ex = await Assert.ThrowsAsync<DidResolutionException>(() => resolver.ResolveAsync(ExampleDid));
+
+        Assert.Equal(DidResolutionErrorKind.InvalidDocument, ex.Kind);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ResolveAsync_BodyOverTheCap_IsRefused(bool declareLength)
+    {
+        var padded = DidDocs.Json("did:web:example.com").TrimEnd('}') + ",\"pad\":\"" + new string('x', 2048) + "\"}";
+        var (resolver, _) = Create(
+            _ =>
+            {
+                var content = new StreamContent(new MemoryStream(Encoding.UTF8.GetBytes(padded)));
+                if (!declareLength)
+                    content.Headers.ContentLength = null;
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+            },
+            new IdentityResolverOptions { MaxDidDocumentBytes = 1024 });
+        using var __ = resolver;
+
+        var ex = await Assert.ThrowsAsync<DidResolutionException>(() => resolver.ResolveAsync(ExampleDid));
+
+        Assert.Equal(DidResolutionErrorKind.ResponseTooLarge, ex.Kind);
     }
 
     [Fact]
-    public void BuildResolutionUrl_LocalhostWithPort_UsesHttp()
+    public async Task ResolveAsync_HostNeverAnswers_TimesOutWithinTheRequestTimeout()
     {
-        var url = DidWebResolver.BuildResolutionUrl("did:web:localhost%3A3000");
-        Assert.Equal("http://localhost:3000/.well-known/did.json", url);
+        var handler = new ScriptedHandler((_, ct) => ScriptedHandler.Never(ct));
+        using var resolver = new DidWebResolver(
+            new HttpClient(handler), new IdentityResolverOptions { RequestTimeout = TimeSpan.FromMilliseconds(200) });
+
+        var ex = await Assert.ThrowsAsync<DidResolutionException>(() => resolver.ResolveAsync(ExampleDid));
+
+        Assert.Equal(DidResolutionErrorKind.Timeout, ex.Kind);
     }
 
     [Fact]
-    public void BuildResolutionUrl_PathBased_Throws()
+    public async Task ResolveAsync_CallerCancels_PropagatesCancellation()
     {
-        var ex = Assert.Throws<DidWebException>(() =>
-            DidWebResolver.BuildResolutionUrl("did:web:example.com:path:to:resource"));
-        Assert.Equal(DidWebErrorKind.InvalidDid, ex.Kind);
+        var handler = new ScriptedHandler((_, ct) => ScriptedHandler.Never(ct));
+        using var resolver = new DidWebResolver(new HttpClient(handler));
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => resolver.ResolveAsync(ExampleDid, cts.Token));
     }
 
     [Fact]
-    public void BuildResolutionUrl_IpAddress_Throws()
+    public async Task ResolveAsync_NetworkFailure_IsNetworkError()
     {
-        var ex = Assert.Throws<DidWebException>(() =>
-            DidWebResolver.BuildResolutionUrl("did:web:192.168.1.1"));
-        Assert.Equal(DidWebErrorKind.InvalidDid, ex.Kind);
+        var (resolver, _) = Create(_ => throw new HttpRequestException("connection refused"));
+        using var __ = resolver;
+
+        var ex = await Assert.ThrowsAsync<DidResolutionException>(() => resolver.ResolveAsync(ExampleDid));
+
+        Assert.Equal(DidResolutionErrorKind.NetworkError, ex.Kind);
     }
 
-    [Fact]
-    public void BuildResolutionUrl_IPv6Bracketed_Throws()
+    [Theory]
+    [InlineData("did:web:example.com:user:alice")]
+    [InlineData("did:web:internal.corp%3A6379")]
+    [InlineData("did:web:localhost%3A2583")]
+    public async Task ResolveAsync_RefusedIdentifier_SendsNoRequest(string did)
     {
-        var ex = Assert.Throws<DidWebException>(() =>
-            DidWebResolver.BuildResolutionUrl("did:web:[::1]"));
-        Assert.Equal(DidWebErrorKind.InvalidDid, ex.Kind);
+        var (resolver, handler) = Create(_ => ScriptedHandler.Json("{}"));
+        using var _ = resolver;
+
+        await Assert.ThrowsAsync<DidResolutionException>(() => resolver.ResolveAsync(Did.Parse(did)));
+
+        Assert.Equal(0, handler.Count);
     }
 
-    [Fact]
-    public void BuildResolutionUrl_EmptyDomain_Throws()
-    {
-        Assert.Throws<DidWebException>(() =>
-            DidWebResolver.BuildResolutionUrl("did:web:"));
-    }
+    // ── DidResolver ──────────────────────────────────────────
 
     [Fact]
-    public void BuildResolutionUrl_WrongMethod_Throws()
-    {
-        Assert.Throws<ArgumentException>(() =>
-            DidWebResolver.BuildResolutionUrl("did:plc:12345"));
-    }
-
-    [Fact]
-    public void BuildResolutionUrl_NullInput_Throws()
-    {
-        Assert.Throws<ArgumentException>(() =>
-            DidWebResolver.BuildResolutionUrl(null!));
-    }
-
-    // ─── Resolution ──────────────────────────────────────────
-
-    [Fact]
-    public async Task ResolveDidAsync_ValidResponse_ReturnsDocument()
-    {
-        var didJson = """
-        {
-            "id": "did:web:example.com",
-            "alsoKnownAs": ["at://example.com"],
-            "verificationMethod": [{
-                "id": "#atproto",
-                "type": "Multikey",
-                "controller": "did:web:example.com",
-                "publicKeyMultibase": "zQ3shZc2QzFh7MC..."
-            }],
-            "service": [{
-                "id": "#atproto_pds",
-                "type": "AtprotoPersonalDataServer",
-                "serviceEndpoint": "https://pds.example.com"
-            }]
-        }
-        """;
-
-        var handler = new MockHandler(didJson);
-        using var httpClient = new HttpClient(handler);
-        using var resolver = new DidWebResolver(httpClient);
-
-        var doc = await resolver.ResolveDidAsync("did:web:example.com");
-
-        Assert.Equal("did:web:example.com", doc.Id);
-        Assert.Equal("https://pds.example.com", doc.GetPdsEndpoint());
-        Assert.Equal("example.com", doc.GetHandle());
-    }
-
-    [Fact]
-    public async Task ResolveDidAsync_IdMismatch_Throws()
-    {
-        var didJson = """{"id": "did:web:wrong.com"}""";
-
-        var handler = new MockHandler(didJson);
-        using var httpClient = new HttpClient(handler);
-        using var resolver = new DidWebResolver(httpClient);
-
-        var ex = await Assert.ThrowsAsync<DidWebException>(
-            () => resolver.ResolveDidAsync("did:web:example.com"));
-        Assert.Equal(DidWebErrorKind.ValidationError, ex.Kind);
-    }
-
-    [Fact]
-    public async Task ResolveDidAsync_NotFound_Throws()
-    {
-        var handler = new MockHandler(System.Net.HttpStatusCode.NotFound);
-        using var httpClient = new HttpClient(handler);
-        using var resolver = new DidWebResolver(httpClient);
-
-        var ex = await Assert.ThrowsAsync<DidWebException>(
-            () => resolver.ResolveDidAsync("did:web:example.com"));
-        Assert.Equal(DidWebErrorKind.NotFound, ex.Kind);
-    }
-
-    [Fact]
-    public async Task ResolveDidAsync_InvalidJson_Throws()
-    {
-        var handler = new MockHandler("not valid json {{{");
-        using var httpClient = new HttpClient(handler);
-        using var resolver = new DidWebResolver(httpClient);
-
-        var ex = await Assert.ThrowsAsync<DidWebException>(
-            () => resolver.ResolveDidAsync("did:web:example.com"));
-        Assert.Equal(DidWebErrorKind.ParseError, ex.Kind);
-    }
-
-    // ─── DidResolver (unified) ───────────────────────────────
-
-    [Fact]
-    public async Task DidResolver_UnsupportedMethod_Throws()
+    public async Task DidResolver_UnsupportedMethod_ThrowsUnsupportedMethod()
     {
         using var resolver = new DidResolver();
-        await Assert.ThrowsAsync<ArgumentException>(
-            () => resolver.ResolveDidAsync("did:key:z6Mkfriq1MqLBoPWecGoDLjguo1sB9brj6wT3qZ5BxkKpuP6"));
+
+        var ex = await Assert.ThrowsAsync<DidResolutionException>(
+            () => resolver.ResolveAsync(Did.Parse("did:key:z6Mkfriq1MqLBoPWecGoDLjguo1sB9brj6wT3qZ5BxkKpuP6")));
+
+        Assert.Equal(DidResolutionErrorKind.UnsupportedMethod, ex.Kind);
     }
 
     [Fact]
-    public async Task DidResolver_EmptyDid_Throws()
+    public async Task DidResolver_DispatchesOnTheMethod()
     {
-        using var resolver = new DidResolver();
-        await Assert.ThrowsAsync<ArgumentException>(() => resolver.ResolveDidAsync(""));
-    }
-
-    // ─── Test helpers ────────────────────────────────────────
-
-    private sealed class MockHandler : HttpMessageHandler
-    {
-        private readonly string? _content;
-        private readonly System.Net.HttpStatusCode _statusCode;
-
-        public MockHandler(string content, System.Net.HttpStatusCode statusCode = System.Net.HttpStatusCode.OK)
+        var handler = new ScriptedHandler(request => request.RequestUri!.Host switch
         {
-            _content = content;
-            _statusCode = statusCode;
-        }
+            "plc.example.com" => ScriptedHandler.Json(DidDocs.AtprotoDotCom),
+            _ => ScriptedHandler.Json(DidDocs.Json("did:web:example.com")),
+        });
+        using var http = new HttpClient(handler);
+        using var plc = new PlcClient(http, new Uri("https://plc.example.com"));
+        using var web = new DidWebResolver(http);
+        using var resolver = new DidResolver(plc, web);
 
-        public MockHandler(System.Net.HttpStatusCode statusCode)
-        {
-            _statusCode = statusCode;
-        }
+        await resolver.ResolveAsync(Did.Parse("did:plc:ewvi7nxzyoun6zhxrhs64oiz"));
+        await resolver.ResolveAsync(ExampleDid);
 
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            var response = new HttpResponseMessage(_statusCode);
-            if (_content is not null)
-                response.Content = new StringContent(_content, System.Text.Encoding.UTF8, "application/json");
-            return Task.FromResult(response);
-        }
+        Assert.Equal(
+            [
+                new Uri("https://plc.example.com/did:plc:ewvi7nxzyoun6zhxrhs64oiz"),
+                new Uri("https://example.com/.well-known/did.json"),
+            ],
+            handler.Requests);
     }
 }

@@ -35,7 +35,7 @@ public sealed record VerifiedDelegationToken(SpaceToken Token, SpaceUri Space, D
 /// </remarks>
 public sealed class SpaceDelegationTokenVerifier
 {
-    private readonly ISpaceDidDocumentResolver _resolver;
+    private readonly IDidResolver _resolver;
     private readonly ISpaceReplayStore _replayStore;
     private readonly SpaceServerOptions _options;
     private readonly TimeProvider _timeProvider;
@@ -43,12 +43,15 @@ public sealed class SpaceDelegationTokenVerifier
     /// <summary>
     /// Creates a verifier.
     /// </summary>
-    /// <param name="resolver">Resolves the issuing account's DID document.</param>
+    /// <param name="resolver">
+    /// Resolves the issuing account's DID document; a <see cref="CachingDidResolver"/>, since every
+    /// request resolves one.
+    /// </param>
     /// <param name="replayStore">The store that consumes each token's <c>jti</c>.</param>
     /// <param name="options">Server options.</param>
     /// <param name="timeProvider">The clock. Defaults to the system clock.</param>
     public SpaceDelegationTokenVerifier(
-        ISpaceDidDocumentResolver resolver,
+        IDidResolver resolver,
         ISpaceReplayStore replayStore,
         SpaceServerOptions? options = null,
         TimeProvider? timeProvider = null)
@@ -108,23 +111,11 @@ public sealed class SpaceDelegationTokenVerifier
         if (!Did.TryParse(parsed.Issuer, out var userDid))
             throw Invalid($"A delegation token's issuer must be a DID; got '{parsed.Issuer}'.");
 
-        var issuerKey = await _resolver.ResolveAccountKeyAsync(
-            userDid, parsed.KeyId, SpaceErrors.InvalidDelegationToken, cancellationToken);
-
-        SpaceToken verified;
-        try
-        {
-            verified = SpaceTokens.Verify(
-                parsed,
-                issuerKey,
-                expectedAudience,
-                space,
-                _timeProvider.GetUtcNow());
-        }
-        catch (SpaceTokenException ex)
-        {
-            throw new SpaceVerificationException(SpaceErrors.InvalidDelegationToken, ex.Message, ex);
-        }
+        var verified = await SpaceDidResolution.VerifyWithKeyRefreshAsync(
+            refresh => _resolver.ResolveAccountKeyAsync(
+                userDid, parsed.KeyId, SpaceErrors.InvalidDelegationToken, refresh, cancellationToken),
+            issuerKey => SpaceTokens.Verify(parsed, issuerKey, expectedAudience, space, _timeProvider.GetUtcNow()),
+            SpaceErrors.InvalidDelegationToken);
 
         // A delegation token lives 60 seconds; its issuer chooses the `exp` it actually carries,
         // so one dated far ahead is refused rather than remembered until then.

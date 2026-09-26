@@ -66,7 +66,7 @@ internal static class AtProtoSessionJson
         // The old format kept the DID in place of an unverified handle.
         var handle = GetBoolean(root, "isHandleVerified") == true && Handle.TryParse(Get(root, "handle"), out var verified)
             ? verified
-            : AtProtoSession.InvalidHandle;
+            : Handle.Invalid;
 
         var key = Get(root, "dPoPPrivateKey") ?? Get(root, "dpopPrivateKey")
             ?? throw new JsonException("The stored token data has no DPoP key.");

@@ -62,7 +62,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
                 web.ConfigureServices(services =>
                 {
                     services.AddRouting();
-                    services.AddSingleton<ISpaceDidDocumentResolver>(_resolver);
+                    services.AddKeyedSingleton<IDidResolver>(SpaceServerExtensions.DidResolverKey, _resolver);
                     services.AddSingleton<ISimpleSpaceStore>(_simpleSpaceStore);
                     services.AddSingleton<ISpaceCallerResolver>(_caller);
                     services.AddSingleton<ISpaceRepoHost>(_repoHost);
@@ -552,10 +552,10 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         const string syncer = "did:web:syncer.example.com";
         _resolver.Publish(syncer, new ATProtoNet.Identity.DidDocument
         {
-            Id = syncer,
+            Id = ATProtoNet.Identity.Did.Parse(syncer),
             Service =
             [
-                new ATProtoNet.Identity.ServiceEndpoint
+                new ATProtoNet.Identity.DidDocumentService
                 {
                     Id = "#atproto_space_syncer",
                     Type = "AtprotoSpaceSyncer",

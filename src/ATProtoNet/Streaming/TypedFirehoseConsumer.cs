@@ -139,61 +139,8 @@ public sealed class TypedFirehoseConsumer : IDisposable
             if (message is null)
                 continue;
 
-            // Apply collection filter for commit events
-            if (message is CommitEvent commit)
-            {
-                if (!PassesCollectionFilter(commit))
-                    continue;
-
-                // CID verification
-                if (_options.VerifyCids)
-                {
-                    var cidResult = FirehoseVerifier.VerifyCid(commit);
-                    if (!cidResult.IsValid)
-                    {
-                        _logger.LogWarning("CID verification failed for commit from {Repo}: {Error}",
-                            commit.Repo, cidResult.Error);
-                        continue;
-                    }
-                }
-
-                // Signature verification
-                if (_options.VerifySignatures && _options.Verifier is not null)
-                {
-                    var sigResult = await _options.Verifier.VerifySignatureAsync(commit, cancellationToken);
-                    if (!sigResult.IsValid)
-                    {
-                        _logger.LogWarning("Signature verification failed for commit from {Repo}: {Error}",
-                            commit.Repo, sigResult.Error);
-                        continue;
-                    }
-                }
-
-                TrackCursor(commit.Seq);
-            }
-            else if (message is SyncEvent syncEvent)
-            {
-                if (_options.VerifyCids)
-                {
-                    var cidResult = FirehoseVerifier.VerifyCid(syncEvent);
-                    if (!cidResult.IsValid)
-                    {
-                        _logger.LogWarning("CID verification failed for sync event from {Did}: {Error}",
-                            syncEvent.Did, cidResult.Error);
-                        continue;
-                    }
-                }
-
-                TrackCursor(syncEvent.Seq);
-            }
-            else if (message is IdentityEvent identity)
-            {
-                TrackCursor(identity.Seq);
-            }
-            else if (message is AccountEvent account)
-            {
-                TrackCursor(account.Seq);
-            }
+            if (!await AcceptAsync(message, cancellationToken))
+                continue;
 
             // Persist cursor periodically
             if (_options.CursorStore is not null && LastSeq.HasValue)
@@ -216,6 +163,76 @@ public sealed class TypedFirehoseConsumer : IDisposable
             await _options.CursorStore.StoreCursorAsync(
                 _options.ResolvedStreamId, LastSeq.Value, CancellationToken.None);
         }
+    }
+
+    /// <summary>
+    /// Filters and verifies one parsed event, and tracks its cursor. Returns whether it is
+    /// passed on to the caller.
+    /// </summary>
+    internal async Task<bool> AcceptAsync(FirehoseMessage message, CancellationToken cancellationToken)
+    {
+        // Apply collection filter for commit events
+        if (message is CommitEvent commit)
+        {
+            if (!PassesCollectionFilter(commit))
+                return false;
+
+            // CID verification
+            if (_options.VerifyCids)
+            {
+                var cidResult = FirehoseVerifier.VerifyCid(commit);
+                if (!cidResult.IsValid)
+                {
+                    _logger.LogWarning("CID verification failed for commit from {Repo}: {Error}",
+                        commit.Repo, cidResult.Error);
+                    return false;
+                }
+            }
+
+            // Signature verification
+            if (_options.VerifySignatures && _options.Verifier is not null)
+            {
+                var sigResult = await _options.Verifier.VerifySignatureAsync(commit, cancellationToken);
+                if (!sigResult.IsValid)
+                {
+                    _logger.LogWarning("Signature verification failed for commit from {Repo}: {Error}",
+                        commit.Repo, sigResult.Error);
+                    return false;
+                }
+            }
+
+            TrackCursor(commit.Seq);
+        }
+        else if (message is SyncEvent syncEvent)
+        {
+            if (_options.VerifyCids)
+            {
+                var cidResult = FirehoseVerifier.VerifyCid(syncEvent);
+                if (!cidResult.IsValid)
+                {
+                    _logger.LogWarning("CID verification failed for sync event from {Did}: {Error}",
+                        syncEvent.Did, cidResult.Error);
+                    return false;
+                }
+            }
+
+            TrackCursor(syncEvent.Seq);
+        }
+        else if (message is IdentityEvent identity)
+        {
+            // The account's handle or keys changed: the verifier must not go on checking its
+            // commits against a cached document.
+            if (_options.Verifier is not null)
+                await _options.Verifier.InvalidateIdentityAsync(identity.Did, cancellationToken);
+
+            TrackCursor(identity.Seq);
+        }
+        else if (message is AccountEvent account)
+        {
+            TrackCursor(account.Seq);
+        }
+
+        return true;
     }
 
     private bool PassesCollectionFilter(CommitEvent commit)

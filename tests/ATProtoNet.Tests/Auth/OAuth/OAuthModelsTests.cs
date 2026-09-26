@@ -250,34 +250,6 @@ public class OAuthModelsTests
     }
 
     [Fact]
-    public void DidDocument_Deserialization()
-    {
-        var json = """
-        {
-            "id": "did:plc:abc123",
-            "alsoKnownAs": ["at://alice.bsky.social"],
-            "service": [
-                {
-                    "id": "#atproto_pds",
-                    "type": "AtprotoPersonalDataServer",
-                    "serviceEndpoint": "https://pds.example.com"
-                }
-            ]
-        }
-        """;
-
-        var doc = JsonSerializer.Deserialize<DidDocument>(json, _options)!;
-
-        Assert.Equal("did:plc:abc123", doc.Id);
-        Assert.Single(doc.AlsoKnownAs!);
-        Assert.Equal("at://alice.bsky.social", doc.AlsoKnownAs![0]);
-        Assert.Single(doc.Service!);
-        Assert.Equal("#atproto_pds", doc.Service![0].Id);
-        Assert.Equal("AtprotoPersonalDataServer", doc.Service![0].Type);
-        Assert.Equal("https://pds.example.com", doc.Service![0].ServiceEndpoint);
-    }
-
-    [Fact]
     public void OAuthOptions_Defaults()
     {
         var options = new OAuthOptions();

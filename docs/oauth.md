@@ -310,9 +310,39 @@ The `iss` parameter from the callback is verified against the expected authoriza
 
 After token exchange, the returned `sub` (DID) is verified against the expected DID (if identity was resolved before authorization). For flows starting from a PDS URL, a full DID → PDS → AS consistency check is performed.
 
-### Handle Validation
+### Handle and DID Resolution
 
-Handles are validated against the AT Protocol handle format before being used in URL resolution to prevent SSRF attacks.
+Identities are resolved through an `IIdentityResolver` (see [Identity Resolution](did-resolution.md)).
+A handle or DID is parsed before anything is sent, and every identity fetch follows the SDK's SSRF
+policy: HTTPS only, public addresses only (checked after DNS), hostname-level `did:web` without a port,
+and bounded responses. After the token exchange, the account's handle counts as verified only when the
+DID document claims it and the handle's own authorities (DNS TXT and `/.well-known/atproto-did`) resolve
+it back to the same DID; otherwise the session's `Handle` is `handle.invalid` (`Handle.Invalid`).
+
+`OAuthOptions.IdentityResolver` supplies the resolver, for example a shared one from
+`AddAtProtoIdentity` or one with the development opt-out for a local PDS and PLC; the caller keeps
+ownership of it. When it is `null`, the client creates one with `IdentityResolver.CreateDefault`,
+applying `HandleResolutionTimeout` and `AllowPrivateNetworks`, and disposes it with the client.
+
+### Metadata Fetch Policy
+
+The PDS URL comes from a DID document, and the authorization server URL from the PDS's metadata:
+both are written by whoever controls the account. So the protected-resource and
+authorization-server metadata requests follow the same policy as identity fetches: HTTPS only, no
+query or fragment in the server URL, public addresses only (checked after DNS), no redirects, a
+64 KiB body cap and a 10-second timeout. A URL the rules refuse fails with `invalid_server_url`
+before anything is sent; a refused connection, a redirect, an error status or an oversized body is
+`metadata_fetch_failed`; an answer that is not metadata JSON is `invalid_metadata`.
+
+`OAuthOptions.AllowPrivateNetworks` is the development opt-out for a local PDS (plain HTTP and
+private addresses), for these requests and for the identity resolver the client creates.
+`OAuthOptions.MetadataHttpClient` routes the metadata requests through a client of your own, used
+as is: the URL rules and the body cap still apply, but the address check lives in the SDK's
+handler, so supply one only if it is already safe for such URLs (or reaches them through a proxy
+you control).
+
+The pushed-authorization, token and revocation requests still go through the `HttpClient` passed
+to the constructor, not yet under this policy.
 
 ### Redirect URI Validation
 
@@ -332,29 +362,26 @@ Handle → DID → PDS → Protected Resource Metadata → Authorization Server 
 
 ### Resolution Methods
 
-`OAuthClient.StartAuthorizationAsync` walks the whole chain for you. The individual steps are public
-if you need them on their own:
+`OAuthClient.StartAuthorizationAsync` walks the whole chain for you. The steps are public if you need
+them on their own:
 
 ```csharp
-var discovery = new AuthorizationServerDiscovery(httpClient, logger);
+var discovery = new AuthorizationServerDiscovery(httpClient, logger, identityResolver);
 
-// Resolve handle → DID: HTTPS well-known raced against DNS TXT (first answer wins),
-// then the Bluesky appview as a fallback. Each round is bounded by HandleResolutionTimeout.
-var did = await discovery.ResolveHandleToDidAsync("alice.bsky.social");
-
-// Resolve DID → PDS URL (via the DID document)
-var pds = await discovery.ResolvePdsFromDidAsync(did);
-
-// Fetch the DID document itself
-var didDoc = await discovery.FetchDidDocumentAsync(did);
+// Handle or DID → DID, PDS and authorization server metadata, as OAuthException on failure
+var (pdsUrl, metadata, did) = await discovery.ResolveFromIdentifierAsync("alice.bsky.social");
 
 // PDS → authorization server metadata (protected-resource metadata, then AS metadata)
-var metadata = await discovery.ResolveAuthorizationServerAsync(pds);
+var metadata2 = await discovery.ResolveAuthorizationServerAsync("https://pds.example.com");
+
+// The identity steps on their own: DID document, verified handle, PDS
+var identity = await discovery.IdentityResolver.ResolveAsync(AtIdentifier.Parse("alice.bsky.social"));
 ```
 
-For identity verification, prefer `ResolveHandleAuthoritativeAsync`: it consults only the handle's own
-authorities (HTTPS well-known and DNS TXT), requires them to agree when both answer, and never falls
-back to the appview.
+Handle resolution consults only the handle's own authorities, DNS TXT (over a configurable
+DNS-over-HTTPS endpoint) and the HTTPS well-known, concurrently and within `HandleResolutionTimeout`.
+When both answer they must agree, and a disagreement fails with `handle_resolution_conflict`; no third
+party such as an AppView is asked.
 
 ## DPoP Key Management
 
@@ -417,15 +444,16 @@ catch (OAuthException ex)
 | `use_dpop_nonce` | The server kept asking for a new DPoP nonce (the first request is retried automatically) |
 | `no_refresh_token` | Refresh attempted without refresh token |
 | `invalid_handle` | Handle contains invalid characters or format |
-| `invalid_did` | DID format or host is invalid |
+| `invalid_did` | The DID is malformed, or the identity fetch policy refuses it (a private host, a port, a path-based `did:web`) |
 | `unsupported_did_method` | The DID uses a method other than `did:plc` / `did:web` |
-| `handle_resolution_failed` | No authority answered for the handle |
+| `handle_resolution_failed` | The handle resolves to no DID |
 | `handle_resolution_conflict` | HTTPS and DNS resolution returned different DIDs |
-| `did_resolution_failed` | The DID document could not be fetched |
+| `did_resolution_failed` | The DID document could not be fetched, or is not the requested DID's |
 | `pds_not_found` | The DID document declares no PDS service endpoint |
-| `invalid_resource_metadata` | Protected-resource metadata was malformed |
-| `metadata_fetch_failed` | Authorization server metadata could not be fetched |
-| `invalid_metadata` | Authorization server metadata was malformed |
+| `invalid_server_url` | A PDS or authorization server URL the metadata fetch policy refuses (not HTTPS, a query or fragment) |
+| `invalid_resource_metadata` | Protected-resource metadata names no authorization server |
+| `metadata_fetch_failed` | Metadata could not be fetched: a refused address, a redirect, an error status, an oversized body |
+| `invalid_metadata` | Metadata was not valid JSON, or authorization server metadata lacks a required field |
 | `auth_server_mismatch` | The AS the DID resolves to isn't the one that issued the token |
 | `unsupported_dpop_alg` | The authorization server does not accept ES256 DPoP proofs |
 | `server_error` | The authorization server returned an error response |

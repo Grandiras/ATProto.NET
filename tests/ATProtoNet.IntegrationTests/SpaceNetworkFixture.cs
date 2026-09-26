@@ -57,8 +57,11 @@ public sealed class SpaceNetworkFixture : IAsyncLifetime
     /// <summary>Never a member of anything, and the party the refusal paths are asserted against.</summary>
     public SpaceActor Outsider { get; private set; } = null!;
 
-    /// <summary>Resolves DIDs through the test network's own PLC directory.</summary>
-    public DidResolver DidResolver { get; private set; } = null!;
+    /// <summary>
+    /// Resolves DIDs through the test network's own PLC directory, which is on a private network:
+    /// hence the development opt-out.
+    /// </summary>
+    public CachingDidResolver DidResolver { get; private set; } = null!;
 
     /// <summary>The base URL of the PDS hosting every account here.</summary>
     public string PdsUrl => TestConfig.SpacesPdsUrl.TrimEnd('/');
@@ -78,7 +81,11 @@ public sealed class SpaceNetworkFixture : IAsyncLifetime
         var server = await _admin.DescribeServerAsync();
         _handleDomain = server.AvailableUserDomains[0];
 
-        DidResolver = new DidResolver(new PlcClient(TestConfig.PlcUrl), new DidWebResolver());
+        DidResolver = new CachingDidResolver(new IdentityResolverOptions
+        {
+            PlcDirectoryUrl = new Uri(TestConfig.PlcUrl),
+            AllowPrivateNetworks = true,
+        });
 
         Authority = await CreateActorAsync("authority");
         Member = await CreateActorAsync("member");
@@ -176,14 +183,14 @@ public sealed class SpaceNetworkFixture : IAsyncLifetime
     /// Resolves an account's repo-signing key to a <c>did:key</c>, for verifying its commits.
     /// </summary>
     /// <remarks>
-    /// This is <see cref="SpaceSyncer.ResolveSigningKeyAsync(DidResolver)"/> — the production
-    /// path — so the tests assert against what an application would actually resolve. The PLC
-    /// pinned by the reference dev network publishes the legacy
-    /// <c>EcdsaSecp256k1VerificationKey2019</c> form rather than the <c>Multikey</c> that
-    /// plc.directory serves; both are read since #98.
+    /// This reads the key the way <see cref="SpaceSyncer"/> does, so the tests assert against
+    /// what an application would actually resolve. The PLC pinned by the reference dev network
+    /// publishes the legacy <c>EcdsaSecp256k1VerificationKey2019</c> form rather than the
+    /// <c>Multikey</c> that plc.directory serves; both are read since #98.
     /// </remarks>
-    public Task<string> ResolveSigningKeyAsync(Did did, CancellationToken cancellationToken = default)
-        => SpaceSyncer.ResolveSigningKeyAsync(DidResolver)(did, cancellationToken);
+    public async Task<string> ResolveSigningKeyAsync(Did did, CancellationToken cancellationToken = default)
+        => SpaceAuthority.GetSigningKey(await DidResolver.ResolveAsync(did, cancellationToken))
+            ?? throw new InvalidOperationException($"'{did}' publishes no AT Protocol signing key.");
 
     public async ValueTask DisposeAsync()
     {

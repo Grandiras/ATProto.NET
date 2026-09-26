@@ -189,10 +189,15 @@ builder.Services.AddAtProtoAuthentication(options =>
 | `HttpClient` | `HttpClient?` | — | Client used for OAuth discovery/token requests. Caller-owned: its `Timeout` is untouched and it is not disposed with the service |
 | `HttpClientTimeout` | `TimeSpan` | 30 s | Timeout for the SDK-created OAuth `HttpClient`. Ignored when `HttpClient` is set |
 | `HandleResolutionTimeout` | `TimeSpan` | 5 s | Budget per handle-resolution round. `Timeout.InfiniteTimeSpan` disables it |
+| `AllowPrivateNetworks` | `bool` | `false` | Development opt-out for a local PDS or PLC: plain HTTP and private addresses in discovery and identity resolution. Never set it where users can name any handle, DID or PDS |
+
+Without `HttpClient`, the PDS and authorization-server metadata requests go out under the identity
+fetch policy (public addresses only, no redirects; see [OAuth](oauth.md#metadata-fetch-policy)). A
+supplied `HttpClient` carries them as is.
 
 ### Handle resolution timeouts
 
-Handle resolution talks to a host named by the user (`https://<handle>/.well-known/atproto-did`), which may be parked or firewalled and silently drop traffic on port 443. The SDK races that lookup against the DNS-over-HTTPS TXT lookup and bounds each round with `HandleResolutionTimeout`, so a dead handle domain costs a few seconds instead of the `HttpClient` timeout. Raise it for slow networks, or lower it for a snappier sign-in:
+Handle resolution talks to a host named by the user (`https://<handle>/.well-known/atproto-did`), which may be parked or firewalled and silently drop traffic on port 443. The SDK runs that lookup alongside the DNS-over-HTTPS TXT lookup and bounds both with `HandleResolutionTimeout`, so a dead handle domain costs a few seconds instead of the `HttpClient` timeout. When an `IIdentityResolver` is registered (`AddAtProtoIdentity`), the service uses it instead, and its own options apply. Raise it for slow networks, or lower it for a snappier sign-in:
 
 ```csharp
 builder.Services.AddAtProtoAuthentication(options =>

@@ -166,6 +166,9 @@ internal static class SessionKit
                 ClientId = ClientId,
                 RedirectUris = ["https://app.example.com/callback"],
             },
+
+            // The stub stands in for the authorization server's metadata too.
+            MetadataHttpClient = httpClient,
         },
         httpClient,
         NullLogger.Instance);

@@ -200,6 +200,20 @@ read with, reads leniently (`IsValid`, `TryGetValue`, `Value`), and creates the 
 Every model and client in `ATProtoNet.Lexicon.Com.AtProto.*` and `ATProtoNet.Lexicon.App.Bsky.*` uses
 these types for identifier and `datetime` fields.
 
+### Identity Resolution
+
+See [Identity Resolution](did-resolution.md).
+
+| Type | Description |
+|------|-------------|
+| `IDidResolver` / `DidResolver` / `CachingDidResolver` | DID → `DidDocument`; the cache adds `RefreshAsync` and `InvalidateAsync` |
+| `IHandleResolver` / `HandleResolver` | Handle → DID over DNS TXT (DNS-over-HTTPS) and HTTPS well-known |
+| `IIdentityResolver` / `IdentityResolver` | DID or handle → `ResolvedIdentity` with a bidirectionally verified handle |
+| `PlcClient` / `DidWebResolver` | The two DID methods; `PlcClient` also reads logs and the export |
+| `IdentityResolverOptions` / `DidCacheOptions` | Directory URL, DNS-over-HTTPS endpoint, timeouts, size caps, the development opt-out, cache lifetimes |
+| `DidResolutionException` | Every resolution failure, with a `DidResolutionErrorKind` |
+| `AddAtProtoIdentity(...)` (`ATProtoNet.Server`) | Registers the resolvers as shared singletons |
+
 ## Pagination
 
 Every cursored response implements `ICursorPage<T>` (`IReadOnlyList<T> Items`, `string? Cursor`).
@@ -629,7 +643,7 @@ the ordinary `MapXrpcEndpoints()`.
 | `ISpaceClientMetadataResolver` / `HttpSpaceClientMetadataResolver` | `client_id` → `client-metadata.json` → `jwks` / `jwks_uri` |
 | `ISpaceServiceAuthVerifier` / `SpaceServiceAuthVerifier` | Service auth on the notification endpoints, and the "does this service host that repo" check |
 | `ISpaceReplayStore` / `InMemorySpaceReplayStore` | Single-use enforcement, keyed on `(iss, jti, exp)` |
-| `ISpaceDidDocumentResolver` / `CachingSpaceDidDocumentResolver` | DID document resolution, with `#atproto` / `#atproto_space` key selection |
+| `IDidResolver` (keyed `SpaceServerExtensions.DidResolverKey`) | DID document resolution for every verifier, cached per `SpaceServerOptions.DidCache` (a hard 5 minutes by default) |
 | `SpaceVerificationException` | An `XrpcException` carrying `InvalidDelegationToken`, `InvalidClientAttestation`, or `NotAuthorized` |
 | `ISpaceAccessPolicy` / `SpaceAccessRequest` / `SpaceAccessKind` / `SpaceAccessDecision` | The authority's decisions: who gets a credential (`Read`), and whose write notifications it tracks and forwards (`Write`) |
 | `ISpaceCredentialIssuer` / `SpaceCredentialIssuer` | Mints credentials bound to the requester's key |

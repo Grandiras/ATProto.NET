@@ -65,7 +65,7 @@ public interface ISpaceServiceAuthVerifier
 /// </summary>
 public sealed class SpaceServiceAuthVerifier : ISpaceServiceAuthVerifier
 {
-    private readonly ISpaceDidDocumentResolver _resolver;
+    private readonly IDidResolver _resolver;
     private readonly ISpaceReplayStore _replayStore;
     private readonly SpaceServerOptions _options;
     private readonly TimeProvider _timeProvider;
@@ -73,12 +73,15 @@ public sealed class SpaceServiceAuthVerifier : ISpaceServiceAuthVerifier
     /// <summary>
     /// Creates a verifier.
     /// </summary>
-    /// <param name="resolver">Resolves the caller's DID document.</param>
+    /// <param name="resolver">
+    /// Resolves the caller's DID document; a <see cref="CachingDidResolver"/>, since every
+    /// notification resolves one.
+    /// </param>
     /// <param name="replayStore">Consumes each token's <c>jti</c>.</param>
     /// <param name="options">Server options.</param>
     /// <param name="timeProvider">The clock. Defaults to the system clock.</param>
     public SpaceServiceAuthVerifier(
-        ISpaceDidDocumentResolver resolver,
+        IDidResolver resolver,
         ISpaceReplayStore replayStore,
         SpaceServerOptions? options = null,
         TimeProvider? timeProvider = null)
@@ -178,21 +181,18 @@ public sealed class SpaceServiceAuthVerifier : ISpaceServiceAuthVerifier
         }
 
         var signerKey = await _resolver.ResolveAccountKeyAsync(
-            issuer, keyId: null, SpaceErrors.NotAuthorized, cancellationToken);
+            issuer, keyId: null, SpaceErrors.NotAuthorized, refresh: false, cancellationToken);
 
-        bool valid;
-        try
+        if (!VerifySignature(signerKey, decoded))
         {
-            valid = AtProtoCrypto.VerifySignature(signerKey, decoded.SigningInput, decoded.Signature);
-        }
-        catch (Exception ex) when (ex is ArgumentException or FormatException or CryptographicException)
-        {
-            throw new SpaceVerificationException(
-                SpaceErrors.NotAuthorized, $"Could not verify the service auth signature: {ex.Message}", ex);
-        }
+            // The cached document may predate a key rotation: refetch once before refusing. The
+            // resolver rate-limits refreshes, so forged tokens cannot each cost a directory request.
+            var refreshedKey = await _resolver.ResolveAccountKeyAsync(
+                issuer, keyId: null, SpaceErrors.NotAuthorized, refresh: true, cancellationToken);
 
-        if (!valid)
-            throw Invalid("The service auth token's signature does not verify.");
+            if (string.Equals(refreshedKey, signerKey, StringComparison.Ordinal) || !VerifySignature(refreshedKey, decoded))
+                throw Invalid("The service auth token's signature does not verify.");
+        }
 
         // A jti is optional in the AT Protocol service auth spec, so its absence is not an error
         // — but when one is present it is spent, so a captured token cannot be re-delivered.
@@ -217,24 +217,61 @@ public sealed class SpaceServiceAuthVerifier : ISpaceServiceAuthVerifier
         if (serviceDid == repoDid)
             return true;
 
-        var repoDocument = await _resolver.ResolveAsync(repoDid, cancellationToken);
-        var repoHost = SpaceAuthority.GetHostEndpoint(repoDocument);
-        if (repoHost is null)
-            return false;
+        // Both documents are needed, so they are resolved together rather than one round trip
+        // after the other.
+        var repoTask = _resolver.ResolveOrRefuseAsync(repoDid, refresh: false, cancellationToken);
+        var serviceTask = _resolver.ResolveOrRefuseAsync(serviceDid, refresh: false, cancellationToken);
 
-        var serviceDocument = await _resolver.ResolveAsync(serviceDid, cancellationToken);
+        Uri? repoHost;
+        try
+        {
+            repoHost = SpaceAuthority.GetHostEndpoint(await repoTask);
+        }
+        catch
+        {
+            Observe(serviceTask);
+            throw;
+        }
+
+        // A repo with no host is hosted by nobody, whatever the service's own document says.
+        if (repoHost is null)
+        {
+            Observe(serviceTask);
+            return false;
+        }
+
+        var serviceDocument = await serviceTask;
 
         // A host may publish several service entries; any of them answering at the same origin
         // as the repo's host is the same service.
-        return serviceDocument.Service.Any(s => SameOrigin(s.Endpoint, repoHost));
+        return serviceDocument.Service.Any(s => s is not null && SameOrigin(s.Endpoint, repoHost));
     }
 
-    private static bool SameOrigin(string? left, string? right) =>
+    private static bool VerifySignature(string signerKey, DecodedJwt decoded)
+    {
+        try
+        {
+            return AtProtoCrypto.VerifySignature(signerKey, decoded.SigningInput, decoded.Signature);
+        }
+        catch (Exception ex) when (ex is ArgumentException or FormatException or CryptographicException)
+        {
+            throw new SpaceVerificationException(
+                SpaceErrors.NotAuthorized, $"Could not verify the service auth signature: {ex.Message}", ex);
+        }
+    }
+
+    private static void Observe(Task task) =>
+        _ = task.ContinueWith(
+            static t => _ = t.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+
+    private static bool SameOrigin(string? left, Uri right) =>
         Uri.TryCreate(left, UriKind.Absolute, out var a) &&
-        Uri.TryCreate(right, UriKind.Absolute, out var b) &&
-        string.Equals(a.Scheme, b.Scheme, StringComparison.OrdinalIgnoreCase) &&
-        string.Equals(a.Host, b.Host, StringComparison.OrdinalIgnoreCase) &&
-        a.Port == b.Port;
+        string.Equals(a.Scheme, right.Scheme, StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(a.Host, right.Host, StringComparison.OrdinalIgnoreCase) &&
+        a.Port == right.Port;
 
     private static SpaceVerificationException Invalid(string message) =>
         new(SpaceErrors.NotAuthorized, message);

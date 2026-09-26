@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using ATProtoNet.Auth.OAuth;
+using ATProtoNet.Identity;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Tests.Auth.OAuth;
@@ -140,18 +141,33 @@ public class OAuthCallbackHandleVerificationTests
 
     // ── Flow plumbing ─────────────────────────────────────────
 
-    private static OAuthClient Client(FlowStub stub) => new(
-        new OAuthOptions
-        {
-            ClientMetadata = new OAuthClientMetadata
+    private static OAuthClient Client(FlowStub stub)
+    {
+        var http = new HttpClient(stub);
+
+        // The stub stands in for every host, identity ones included. No DID document cache: the
+        // callback's re-read of the document is what several cases break.
+        var identityOptions = new IdentityResolverOptions { HandleResolutionTimeout = ShortBudget };
+        var identity = new IdentityResolver(
+            new DidResolver(
+                new PlcClient(http, new Uri("https://plc.directory/"), identityOptions),
+                new DidWebResolver(http, identityOptions)),
+            new HandleResolver(http, identityOptions));
+
+        return new OAuthClient(
+            new OAuthOptions
             {
-                ClientId = "https://app.example.com/client-metadata.json",
-                RedirectUris = [RedirectUri],
+                ClientMetadata = new OAuthClientMetadata
+                {
+                    ClientId = "https://app.example.com/client-metadata.json",
+                    RedirectUris = [RedirectUri],
+                },
+                IdentityResolver = identity,
+                MetadataHttpClient = http,
             },
-            HandleResolutionTimeout = ShortBudget,
-        },
-        new HttpClient(stub),
-        NullLogger.Instance);
+            http,
+            NullLogger.Instance);
+    }
 
     /// <summary>
     /// Runs the pre-redirect half of the flow (discovery + PAR) and returns the

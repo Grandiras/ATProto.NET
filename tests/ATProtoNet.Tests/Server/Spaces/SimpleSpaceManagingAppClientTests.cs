@@ -32,7 +32,7 @@ public class SimpleSpaceManagingAppClientTests
             Id = AppDid,
             Service =
             [
-                new ServiceEndpoint { Id = "#forum", Type = "BulletinManagingApp", Endpoint = endpoint },
+                new DidDocumentService { Id = "#forum", Type = "BulletinManagingApp", Endpoint = endpoint },
             ],
         });
 

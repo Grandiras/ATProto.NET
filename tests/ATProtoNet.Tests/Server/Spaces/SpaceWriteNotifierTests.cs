@@ -23,7 +23,7 @@ public class SpaceWriteNotifierTests
         Id = SyncerDid,
         Service =
         [
-            new ServiceEndpoint
+            new DidDocumentService
             {
                 Id = "#atproto_space_syncer",
                 Type = "AtprotoSpaceSyncer",
@@ -116,6 +116,48 @@ public class SpaceWriteNotifierTests
 
         Assert.Equal(1, await notifier.NotifySpaceDeletedAsync(Space));
         Assert.Equal($"{SyncerEndpoint}/xrpc/{SpaceNsids.NotifySpaceDeleted}", Assert.Single(handler.Requests).Url);
+    }
+
+    [Theory]
+    [InlineData("""{"id":"did:web:attacker.example.com","service":null}""")]
+    [InlineData("""{"id":"did:web:attacker.example.com","service":[{"id":"#atproto_space_syncer","type":"X","serviceEndpoint":"not a url"}]}""")]
+    [InlineData("""{"id":"did:web:attacker.example.com","service":[{"id":"#atproto_space_syncer","type":"X","serviceEndpoint":"https://explode.example.com"}]}""")]
+    public async Task NotifySpaceDeletedAsync_OneHostileSubscriber_DoesNotStopTheOthers(string attackerDocument)
+    {
+        // Whatever one subscriber's document or endpoint does, deleteSpace still reaches the rest
+        // and still completes: a subscriber's failure is an undelivered notification.
+        var attacker = Did.Parse("did:web:attacker.example.com");
+        var store = new InMemorySpaceAuthorityStore();
+        var resolver = new FakeDidDocumentResolver()
+            .Publish(SyncerDid, SyncerDocument())
+            .Publish(attacker, JsonSerializer.Deserialize<DidDocument>(attackerDocument, ATProtoNet.Serialization.AtProtoJsonDefaults.Options)!)
+            .PublishAccount(AuthorityDid, AtProtoCrypto.GenerateP256Key(), AuthorityPds);
+        var handler = new RecordingHandler(HttpStatusCode.OK)
+        {
+            Throw = request => request.RequestUri!.Host == "explode.example.com" ? new NotSupportedException("boom") : null,
+        };
+        var notifier = new SpaceWriteNotifier(
+            store, resolver, new ServiceAuthGenerator(HostDid, AtProtoCrypto.GenerateP256Key()), new HttpClient(handler));
+        await store.RegisterNotifyAsync(Space, $"{attacker}#atproto_space_syncer", DateTimeOffset.UtcNow.AddDays(1));
+        await store.RegisterNotifyAsync(Space, $"{SyncerDid}#atproto_space_syncer", DateTimeOffset.UtcNow.AddDays(1));
+
+        Assert.Equal(1, await notifier.NotifySpaceDeletedAsync(Space));
+        Assert.Contains(handler.Requests, r => r.Url.StartsWith(SyncerEndpoint, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task NotifyWriteAsync_ResolverThatFailsAnyOtherWay_IsSkippedWithoutThrowing()
+    {
+        var store = new InMemorySpaceAuthorityStore();
+        var resolver = Substitute.For<IDidResolver>();
+        resolver.ResolveAsync(Arg.Any<Did>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromException<DidDocument>(new InvalidCastException("custom resolver bug")));
+        var notifier = new SpaceWriteNotifier(
+            store, resolver, new ServiceAuthGenerator(HostDid, AtProtoCrypto.GenerateP256Key()),
+            new HttpClient(new RecordingHandler(HttpStatusCode.OK)));
+        await store.RegisterNotifyAsync(Space, $"{SyncerDid}#atproto_space_syncer", DateTimeOffset.UtcNow.AddDays(1));
+
+        Assert.Equal(0, await notifier.NotifyWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]));
     }
 
     [Fact]
@@ -248,9 +290,15 @@ public class SpaceWriteNotifierTests
     {
         public List<(string Url, string? AuthorizationScheme, string? Token, string? Body)> Requests { get; } = [];
 
+        /// <summary>An exception to fail a request with instead of answering it, if any.</summary>
+        public Func<HttpRequestMessage, Exception?> Throw { get; init; } = _ => null;
+
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            if (Throw(request) is { } failure)
+                throw failure;
+
             var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
 
             lock (Requests)

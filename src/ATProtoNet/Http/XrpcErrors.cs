@@ -71,6 +71,17 @@ public static class XrpcErrors
     /// <summary>The account has been taken down.</summary>
     public const string AccountTakedown = "AccountTakedown";
 
+    // ─── Identity ──────────────────────────────────────────────────────
+
+    /// <summary>The handle does not resolve to any DID.</summary>
+    public const string HandleNotFound = "HandleNotFound";
+
+    /// <summary>The DID has no current DID document.</summary>
+    public const string DidNotFound = "DidNotFound";
+
+    /// <summary>The DID existed but has been deactivated.</summary>
+    public const string DidDeactivated = "DidDeactivated";
+
     // ─── Repositories and records ──────────────────────────────────────
 
     /// <summary><c>getRecord</c>: no record exists at the given key.</summary>

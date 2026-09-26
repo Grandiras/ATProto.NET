@@ -117,7 +117,7 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
             await fixture.WriteAsync(fixture.Member, space, $"op {i}", $"op-{i}");
 
         var store = new InMemorySpaceRepoStore();
-        var syncer = new SpaceSyncer(space, store, fixture.ResolveSigningKeyAsync);
+        var syncer = new SpaceSyncer(space, store, fixture.DidResolver);
         var cursor = new SpaceRepoCursor(fixture.Member.Did);
 
         await using var provider = fixture.CreateProvider(fixture.Authority);
@@ -143,7 +143,7 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
         await fixture.WriteAsync(fixture.Member, space, "first", "first");
 
         var store = new InMemorySpaceRepoStore();
-        var syncer = new SpaceSyncer(space, store, fixture.ResolveSigningKeyAsync);
+        var syncer = new SpaceSyncer(space, store, fixture.DidResolver);
         var cursor = new SpaceRepoCursor(fixture.Member.Did);
 
         await using var provider = fixture.CreateProvider(fixture.Authority);
@@ -178,7 +178,7 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
         await fixture.WriteAsync(fixture.Member, space, "missed", "missed");
 
         var store = new InMemorySpaceRepoStore();
-        var syncer = new SpaceSyncer(space, store, fixture.ResolveSigningKeyAsync);
+        var syncer = new SpaceSyncer(space, store, fixture.DidResolver);
         var cursor = new SpaceRepoCursor(fixture.Member.Did);
 
         await using var provider = fixture.CreateProvider(fixture.Authority);
@@ -208,7 +208,7 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
         await fixture.WriteAsync(fixture.Member, space, "two", "two");
 
         var store = new InMemorySpaceRepoStore();
-        var syncer = new SpaceSyncer(space, store, fixture.ResolveSigningKeyAsync);
+        var syncer = new SpaceSyncer(space, store, fixture.DidResolver);
 
         await using var provider = fixture.CreateProvider(fixture.Authority);
         using var reader = await provider.CreateReaderForRepoAsync(space, fixture.Member.Did);
@@ -235,7 +235,7 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
         await fixture.WriteAsync(fixture.Authority, space, "only the authority wrote here");
 
         var store = new InMemorySpaceRepoStore();
-        var syncer = new SpaceSyncer(space, store, fixture.ResolveSigningKeyAsync);
+        var syncer = new SpaceSyncer(space, store, fixture.DidResolver);
         var cursor = new SpaceRepoCursor(fixture.Member.Did);
 
         await using var provider = fixture.CreateProvider(fixture.Authority);

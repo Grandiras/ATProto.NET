@@ -320,45 +320,6 @@ public sealed class OAuthErrorResponse
 }
 
 /// <summary>
-/// DID document as returned from a DID resolution.
-/// Simplified model capturing fields needed for PDS discovery.
-/// </summary>
-public sealed class DidDocument
-{
-    /// <summary>The DID this document describes.</summary>
-    [JsonPropertyName("id")]
-    public string Id { get; set; } = string.Empty;
-
-    /// <summary>The <c>alsoKnownAs</c> entries (handles) for the DID document.</summary>
-    [JsonPropertyName("alsoKnownAs")]
-    public List<string>? AlsoKnownAs { get; set; }
-
-    /// <summary>The services declared by the DID document.</summary>
-    [JsonPropertyName("service")]
-    public List<DidService>? Service { get; set; }
-}
-
-/// <summary>
-/// A service endpoint in a DID document.
-/// </summary>
-public sealed class DidService
-{
-    /// <summary>
-    /// The identifier of the service within the DID document (for example <c>#atproto_pds</c>).
-    /// </summary>
-    [JsonPropertyName("id")]
-    public string Id { get; set; } = string.Empty;
-
-    /// <summary>The service type (for example <c>AtprotoPersonalDataServer</c>).</summary>
-    [JsonPropertyName("type")]
-    public string Type { get; set; } = string.Empty;
-
-    /// <summary>The endpoint URL of the service.</summary>
-    [JsonPropertyName("serviceEndpoint")]
-    public string ServiceEndpoint { get; set; } = string.Empty;
-}
-
-/// <summary>
 /// Options for configuring the AT Protocol OAuth client.
 /// </summary>
 public sealed class OAuthOptions
@@ -390,6 +351,34 @@ public sealed class OAuthOptions
     /// </summary>
     public TimeSpan HandleResolutionTimeout { get; set; } =
         AuthorizationServerDiscovery.DefaultHandleResolutionTimeout;
+
+    /// <summary>
+    /// Resolves the identities the flow handles: the handle or DID a login starts from, and the
+    /// account the tokens are issued for. When <see langword="null"/> (the default), the client
+    /// creates one with <see cref="Identity.IdentityResolver.CreateDefault"/>, applying
+    /// <see cref="HandleResolutionTimeout"/>; a supplied resolver brings its own timeouts. Supply
+    /// a shared one to reuse its DID document cache, or one with
+    /// <see cref="Identity.IdentityResolverOptions.AllowPrivateNetworks"/> for a local PDS and PLC.
+    /// </summary>
+    public Identity.IIdentityResolver? IdentityResolver { get; set; }
+
+    /// <summary>
+    /// The development opt-out for the requests the client makes to discover a PDS's
+    /// authorization server, and for the identity resolver it creates when
+    /// <see cref="IdentityResolver"/> is <see langword="null"/>: plain HTTP and private addresses
+    /// are accepted, for a local PDS. Defaults to <see langword="false"/>. See
+    /// <see cref="Identity.IdentityResolverOptions.AllowPrivateNetworks"/>.
+    /// </summary>
+    public bool AllowPrivateNetworks { get; set; }
+
+    /// <summary>
+    /// The client the protected-resource and authorization-server metadata requests go through,
+    /// used as is. When <see langword="null"/> (the default) they go through the SDK's identity
+    /// fetch policy: the PDS URL comes from a DID document anyone can write, so only public
+    /// addresses are reached. Supply one only if it is already safe for such URLs, or to route
+    /// through a proxy you control.
+    /// </summary>
+    public HttpClient? MetadataHttpClient { get; set; }
 }
 
 /// <summary>

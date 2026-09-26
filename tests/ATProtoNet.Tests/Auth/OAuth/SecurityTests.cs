@@ -9,106 +9,39 @@ namespace ATProtoNet.Tests.Auth.OAuth;
 public class SecurityTests
 {
     // ──────────────────────────────────────────────────────────
-    //  SSRF: ValidateDidWebHost (via FetchDidDocumentAsync)
+    //  SSRF: identifiers are refused before any request is made
     // ──────────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData("localhost")]
-    [InlineData("LOCALHOST")]
-    [InlineData("127.0.0.1")]
-    [InlineData("127.0.0.2")]
-    [InlineData("127.255.255.255")]
-    [InlineData("10.0.0.1")]
-    [InlineData("10.255.255.255")]
-    [InlineData("172.16.0.1")]
-    [InlineData("172.31.255.255")]
-    [InlineData("192.168.0.1")]
-    [InlineData("192.168.255.255")]
-    [InlineData("169.254.1.1")]
-    [InlineData("0.0.0.0")]
-    [InlineData("100.64.0.1")]
-    [InlineData("[::1]")]
-    public async Task FetchDidDocument_BlocksPrivateAddresses(string host)
+    [InlineData("did:web:localhost")]
+    [InlineData("did:web:LOCALHOST")]
+    [InlineData("did:web:localhost%3A2583")]
+    [InlineData("did:web:127.0.0.1")]
+    [InlineData("did:web:10.0.0.1")]
+    [InlineData("did:web:169.254.169.254")]
+    [InlineData("did:web:internal.corp%3A6379")]
+    [InlineData("did:web:example.com:user:alice")]
+    public async Task ResolveFromIdentifier_RefusedDidWeb_IsInvalidDidWithoutARequest(string did)
     {
-        var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
-        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
-        var discovery = new AuthorizationServerDiscovery(httpClient, logger);
+        var (discovery, handler) = CreateDiscovery();
 
-        var did = $"did:web:{host}";
+        var ex = await Assert.ThrowsAsync<OAuthException>(() => discovery.ResolveFromIdentifierAsync(did));
+
+        Assert.Equal("invalid_did", ex.Error);
+        Assert.Equal(0, handler.Count);
+    }
+
+    [Fact]
+    public async Task ResolveFromIdentifier_UnsupportedDidMethod_IsReported()
+    {
+        var (discovery, handler) = CreateDiscovery();
 
         var ex = await Assert.ThrowsAsync<OAuthException>(
-            () => discovery.FetchDidDocumentAsync(did));
+            () => discovery.ResolveFromIdentifierAsync("did:key:z6Mkfriq1MqLBoPWecGoDLjguo1sB9brj6wT3qZ5BxkKpuP6"));
 
-        Assert.True(
-            ex.Message.Contains("private address", StringComparison.OrdinalIgnoreCase) ||
-            ex.Message.Contains("IP address", StringComparison.OrdinalIgnoreCase),
-            $"Expected private/IP address error, got: {ex.Message}");
+        Assert.Equal("unsupported_did_method", ex.Error);
+        Assert.Equal(0, handler.Count);
     }
-
-    [Theory]
-    [InlineData("172.15.255.255")] // Just below 172.16.0.0/12 — should be allowed
-    [InlineData("172.32.0.1")]     // Just above 172.31.255.255 — should be allowed
-    [InlineData("192.169.0.1")]    // Outside 192.168.0.0/16
-    [InlineData("11.0.0.1")]       // Outside 10.0.0.0/8
-    public async Task FetchDidDocument_AllowsPublicIps(string host)
-    {
-        // These IPs should NOT be blocked by SSRF checks.
-        // They'll fail for network reasons but should NOT throw "private address".
-        var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
-        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
-        var discovery = new AuthorizationServerDiscovery(httpClient, logger);
-
-        var did = $"did:web:{host}";
-
-        // Should not throw OAuthException with "private address"
-        var ex = await Assert.ThrowsAnyAsync<Exception>(
-            () => discovery.FetchDidDocumentAsync(did));
-
-        if (ex is OAuthException oex)
-        {
-            Assert.DoesNotContain("private address", oex.Message, StringComparison.OrdinalIgnoreCase);
-        }
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("  ")]
-    public async Task FetchDidDocument_RejectsEmptyHost(string host)
-    {
-        var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
-        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
-        var discovery = new AuthorizationServerDiscovery(httpClient, logger);
-
-        var did = $"did:web:{host}";
-
-        var ex = await Assert.ThrowsAsync<OAuthException>(
-            () => discovery.FetchDidDocumentAsync(did));
-
-        Assert.Contains("empty", ex.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Theory]
-    [InlineData("host?query")]
-    [InlineData("host#fragment")]
-    [InlineData("host@user")]
-    [InlineData("host with spaces")]
-    public async Task FetchDidDocument_RejectsInvalidCharacters(string host)
-    {
-        var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
-        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
-        var discovery = new AuthorizationServerDiscovery(httpClient, logger);
-
-        var did = $"did:web:{host}";
-
-        var ex = await Assert.ThrowsAsync<OAuthException>(
-            () => discovery.FetchDidDocumentAsync(did));
-
-        Assert.Contains("invalid", ex.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    // ──────────────────────────────────────────────────────────
-    //  Handle validation (SSRF prevention)
-    // ──────────────────────────────────────────────────────────
 
     [Theory]
     [InlineData("")]
@@ -123,14 +56,33 @@ public class SecurityTests
     [InlineData("host?injection.com")]
     [InlineData("host#injection.com")]
     [InlineData("user@host.com")]
-    public async Task ResolveHandle_RejectsInvalidFormats(string handle)
+    [InlineData("did:not valid")]
+    public async Task ResolveFromIdentifier_MalformedIdentifier_IsRefusedWithoutARequest(string identifier)
     {
-        var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
-        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
-        var discovery = new AuthorizationServerDiscovery(httpClient, logger);
+        var (discovery, handler) = CreateDiscovery();
 
-        await Assert.ThrowsAsync<OAuthException>(
-            () => discovery.ResolveHandleToDidAsync(handle));
+        var ex = await Assert.ThrowsAsync<OAuthException>(() => discovery.ResolveFromIdentifierAsync(identifier));
+
+        Assert.Contains(ex.Error, new[] { "invalid_handle", "invalid_did" });
+        Assert.Equal(0, handler.Count);
+    }
+
+    /// <summary>
+    /// Discovery with the SDK's default identity resolver, which fetches through its own
+    /// policy-enforcing client; the handler only sees the OAuth metadata requests.
+    /// </summary>
+    private static (AuthorizationServerDiscovery Discovery, Identity.ScriptedHandler Handler) CreateDiscovery()
+    {
+        var handler = new Identity.ScriptedHandler(_ => Identity.ScriptedHandler.Status(System.Net.HttpStatusCode.NotFound));
+        var discovery = new AuthorizationServerDiscovery(
+            new HttpClient(handler),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance,
+            ATProtoNet.Identity.IdentityResolver.CreateDefault(new ATProtoNet.Identity.IdentityResolverOptions
+            {
+                DnsOverHttpsUrl = null,
+                HandleResolutionTimeout = TimeSpan.FromMilliseconds(1),
+            }));
+        return (discovery, handler);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -183,30 +135,5 @@ public class SecurityTests
         var tokens = scope.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var contains = tokens.Contains("atproto", StringComparer.Ordinal);
         Assert.Equal(shouldContainAtproto, contains);
-    }
-
-    // ──────────────────────────────────────────────────────────
-    //  IPv6 bracket hosts are blocked
-    // ──────────────────────────────────────────────────────────
-
-    [Theory]
-    [InlineData("[::1]")]
-    [InlineData("[fe80::1]")]
-    [InlineData("[fc00::1]")]
-    public async Task FetchDidDocument_BlocksIPv6BracketHosts(string host)
-    {
-        var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
-        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
-        var discovery = new AuthorizationServerDiscovery(httpClient, logger);
-
-        var did = $"did:web:{host}";
-
-        var ex = await Assert.ThrowsAsync<OAuthException>(
-            () => discovery.FetchDidDocumentAsync(did));
-
-        Assert.True(
-            ex.Message.Contains("private address", StringComparison.OrdinalIgnoreCase) ||
-            ex.Message.Contains("IP address", StringComparison.OrdinalIgnoreCase),
-            $"Expected private address or IP address error, got: {ex.Message}");
     }
 }

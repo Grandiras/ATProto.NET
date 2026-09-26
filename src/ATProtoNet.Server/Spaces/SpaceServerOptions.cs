@@ -69,8 +69,36 @@ public sealed class SpaceServerOptions
     /// </remarks>
     public TimeSpan MaxSingleUseTokenLifetime { get; set; } = TimeSpan.FromMinutes(5);
 
-    /// <summary>How long a resolved DID document is reused before being re-fetched. Defaults to five minutes.</summary>
-    public TimeSpan DidDocumentCacheLifetime { get; set; } = TimeSpan.FromMinutes(5);
+    /// <summary>
+    /// The cache in front of the DID documents this service verifies tokens against. Defaults to
+    /// a hard 5-minute lifetime: <see cref="DidCacheOptions.StaleAfter"/> and
+    /// <see cref="DidCacheOptions.ExpireAfter"/> are both 5 minutes.
+    /// </summary>
+    /// <remarks>
+    /// <para>Every document here backs a signature check on a credential, a delegation token or a
+    /// service auth token, and a cached document is also how long a key its owner has rotated
+    /// away — perhaps because it leaked — keeps verifying. A space server rarely follows the
+    /// firehose's <c>#identity</c> events, so its cache lifetime is what bounds that window: with
+    /// the default, a rotated-out key is never accepted more than 5 minutes after it was
+    /// fetched. The SDK's general defaults (an hour, then a day) suit a firehose consumer that
+    /// does follow those events.</para>
+    /// <para>Setting <see cref="DidCacheOptions.ExpireAfter"/> above
+    /// <see cref="DidCacheOptions.StaleAfter"/> opts into stale-while-revalidate: a document past
+    /// <see cref="DidCacheOptions.StaleAfter"/> is still served while a background fetch replaces
+    /// it. That takes the fetch off the request path once a document goes stale, at the cost of
+    /// accepting the old key for requests that arrive before the fetch completes — on an idle
+    /// server, for as long as <see cref="DidCacheOptions.ExpireAfter"/>. A token that fails
+    /// against a cached key is retried once against a refreshed document either way.</para>
+    /// <para>Fetching follows the registered <see cref="IdentityResolverOptions"/> (see
+    /// <c>AddAtProtoIdentity</c>): the PLC directory, the fetch policy and its development
+    /// opt-out. The resolver is registered under <see cref="SpaceServerExtensions.DidResolverKey"/>;
+    /// register your own <see cref="IDidResolver"/> under that key to replace it.</para>
+    /// </remarks>
+    public DidCacheOptions DidCache { get; set; } = new()
+    {
+        StaleAfter = TimeSpan.FromMinutes(5),
+        ExpireAfter = TimeSpan.FromMinutes(5),
+    };
 
     /// <summary>
     /// The lifetime of the credentials this authority issues. Defaults to

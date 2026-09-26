@@ -149,7 +149,7 @@ public sealed class SpaceSyncer
 {
     private readonly SpaceUri _space;
     private readonly ISpaceRepoStore _store;
-    private readonly Func<Did, CancellationToken, Task<string>> _signingKeyResolver;
+    private readonly IDidResolver _didResolver;
     private readonly ILogger _logger;
 
     /// <summary>
@@ -157,25 +157,27 @@ public sealed class SpaceSyncer
     /// </summary>
     /// <param name="space">The space being synced.</param>
     /// <param name="store">The caller's copy of the space, which this drives.</param>
-    /// <param name="signingKeyResolver">
-    /// Resolves an author's DID to its <c>did:key</c> signing key, used to verify commits.
-    /// Supply <see cref="ResolveSigningKeyAsync"/> over a <see cref="DidResolver"/> for the
-    /// ordinary case, or your own cache — every pass verifies at least one commit.
+    /// <param name="didResolver">
+    /// Resolves an author's DID document, whose signing key verifies their commits. Every pass
+    /// verifies at least one commit, so give it a <see cref="CachingDidResolver"/>, and invalidate
+    /// it on the <c>#identity</c> firehose events that announce a key rotation — those apply to
+    /// permissioned repos exactly as to public ones. A commit that fails against a cached key is
+    /// retried once against a refreshed document.
     /// </param>
     /// <param name="logger">Optional logger.</param>
     public SpaceSyncer(
         SpaceUri space,
         ISpaceRepoStore store,
-        Func<Did, CancellationToken, Task<string>> signingKeyResolver,
+        IDidResolver didResolver,
         ILogger? logger = null)
     {
         ArgumentNullException.ThrowIfNull(space);
         ArgumentNullException.ThrowIfNull(store);
-        ArgumentNullException.ThrowIfNull(signingKeyResolver);
+        ArgumentNullException.ThrowIfNull(didResolver);
 
         _space = space;
         _store = store;
-        _signingKeyResolver = signingKeyResolver;
+        _didResolver = didResolver;
         _logger = logger ?? NullLogger.Instance;
     }
 
@@ -239,14 +241,14 @@ public sealed class SpaceSyncer
                 : new SpaceSyncResult(SpaceSyncOutcome.Partial, cursor.Rev, null, applied, null);
         }
 
-        var didKey = await _signingKeyResolver(cursor.Repo, cancellationToken);
         var context = new SpaceCommitContext(_space, cursor.Repo, page.Commit.Rev);
-
-        if (!SpaceCommitVerifier.Verify(page.Commit, context, didKey))
-        {
-            throw new SpaceRepoVerificationException(
-                $"The commit for {cursor.Repo} in {_space} failed verification.");
-        }
+        await VerifyWithKeyRefreshAsync(
+            cursor.Repo,
+            didKey => SpaceCommitVerifier.Verify(page.Commit, context, didKey)
+                ? true
+                : throw new SpaceRepoVerificationException(
+                    $"The commit for {cursor.Repo} in {_space} failed verification."),
+            cancellationToken);
 
         if (cursor.Commit.Matches(page.Commit))
         {
@@ -325,8 +327,8 @@ public sealed class SpaceSyncer
             return new SpaceSyncResult(SpaceSyncOutcome.NoRepo, null, null, [], null);
         }
 
-        var didKey = await _signingKeyResolver(cursor.Repo, cancellationToken);
-        var repo = SpaceRepoCar.Verify(car, _space, cursor.Repo, didKey);
+        var repo = await VerifyWithKeyRefreshAsync(
+            cursor.Repo, didKey => SpaceRepoCar.Verify(car, _space, cursor.Repo, didKey), cancellationToken);
 
         await _store.ReplaceAsync(_space, cursor.Repo, repo, cancellationToken);
         cursor.Reset(SpaceRepoCommit.FromIndex(repo.Index), repo.Commit.Rev);
@@ -335,27 +337,35 @@ public sealed class SpaceSyncer
     }
 
     /// <summary>
-    /// Builds a signing-key resolver over a <see cref="DidResolver"/>, suitable for the
-    /// <c>signingKeyResolver</c> constructor argument.
+    /// Runs a verification against the author's signing key, and once more against a refreshed
+    /// document if it fails: a cached document may predate a key rotation, and the sync spec asks
+    /// for exactly one refetch before a signature is declared bad.
     /// </summary>
-    /// <param name="resolver">The DID resolver to read documents through.</param>
-    /// <remarks>
-    /// This resolves a document per call. A syncer verifying many commits should cache the
-    /// result, and must invalidate that cache on the <c>#identity</c> firehose events that
-    /// announce a key rotation — those apply to permissioned repos exactly as they do to public
-    /// ones, so an application syncing only permissioned data still needs that stream.
-    /// </remarks>
-    public static Func<Did, CancellationToken, Task<string>> ResolveSigningKeyAsync(DidResolver resolver)
+    /// <param name="author">The author whose key signs what is verified.</param>
+    /// <param name="verify">The verification, throwing <see cref="SpaceRepoVerificationException"/> on failure.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task<T> VerifyWithKeyRefreshAsync<T>(
+        Did author, Func<string, T> verify, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(resolver);
-
-        return async (did, cancellationToken) =>
+        var didKey = SigningKey(author, await _didResolver.ResolveAsync(author, cancellationToken));
+        try
         {
-            var document = await resolver.ResolveDidAsync(did, cancellationToken);
-            return SpaceAuthority.GetSigningKey(document)
-                ?? throw new SpaceRepoVerificationException($"'{did}' publishes no AT Protocol signing key.");
-        };
+            return verify(didKey);
+        }
+        catch (SpaceRepoVerificationException)
+        {
+            var refreshed = SigningKey(author, await _didResolver.RefreshAsync(author, cancellationToken));
+            if (string.Equals(refreshed, didKey, StringComparison.Ordinal))
+                throw;
+
+            _logger.LogInformation("The signing key of {Repo} changed; verifying against the new one.", author);
+            return verify(refreshed);
+        }
     }
+
+    private static string SigningKey(Did author, DidDocument document) =>
+        SpaceAuthority.GetSigningKey(document)
+            ?? throw new SpaceRepoVerificationException($"'{author}' publishes no AT Protocol signing key.");
 
     /// <summary>
     /// Whether the host rejected the request itself — a <c>since</c> it cannot serve, a filter it

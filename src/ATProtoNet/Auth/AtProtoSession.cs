@@ -25,9 +25,6 @@ namespace ATProtoNet.Auth;
 [JsonDerivedType(typeof(OAuthSession), "oauth")]
 public abstract record AtProtoSession
 {
-    /// <summary>The handle a session carries when the account's handle did not verify.</summary>
-    internal static readonly Handle InvalidHandle = Handle.Parse("handle.invalid");
-
     private protected AtProtoSession()
     {
     }

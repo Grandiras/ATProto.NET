@@ -6,8 +6,10 @@ namespace ATProtoNet;
 /// <remarks>
 /// <para>Catching it catches every protocol-level failure: an XRPC error answered by a service
 /// (<see cref="Http.XrpcException"/> and its subtypes), a response that does not match its
-/// Lexicon (<see cref="Http.XrpcResponseFormatException"/>), and the failures of the OAuth,
-/// permissioned-space and Jetstream components.</para>
+/// Lexicon (<see cref="Http.XrpcResponseFormatException"/>), the failures of the OAuth,
+/// permissioned-space and Jetstream components, and identity resolution
+/// (<see cref="Identity.DidResolutionException"/>, which also covers the network failures of the
+/// fetches it makes).</para>
 /// <para>It does not catch what the SDK does not raise itself: argument validation
 /// (<see cref="ArgumentException"/>), misuse (<see cref="InvalidOperationException"/>,
 /// <see cref="ObjectDisposedException"/>), cancellation, or a transport fault — an

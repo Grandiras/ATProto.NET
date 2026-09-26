@@ -7,6 +7,7 @@ using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Serialization;
 using ATProtoNet.Spaces;
+using ATProtoNet.Tests.Server.Spaces;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Tests.Spaces;
@@ -33,8 +34,13 @@ public class SpaceSyncerTests : IDisposable
         _client = new SpaceClient(_xrpc);
     }
 
-    private SpaceSyncer CreateSyncer() =>
-        new(_space, _store, (_, _) => Task.FromResult(_key.ToDidKey()));
+    private readonly FakeDidDocumentResolver _resolver = new();
+
+    private SpaceSyncer CreateSyncer()
+    {
+        _resolver.PublishAccount(Repo.Value, _key);
+        return new(_space, _store, _resolver);
+    }
 
     private SignedSpaceCommit SignOver(string rev, params (Nsid Collection, RecordKey Rkey, Cid Cid)[] records) =>
         SpaceRepoCommit.FromRecords(records).Sign(new SpaceCommitContext(_space, Repo, Tid.Parse(rev)), _key);
@@ -304,6 +310,28 @@ public class SpaceSyncerTests : IDisposable
 
         await Assert.ThrowsAsync<SpaceRepoVerificationException>(
             () => CreateSyncer().SyncRepoAsync(_client, new SpaceRepoCursor(Repo)));
+
+        // One refetch before the signature is declared bad; the key it found was the same.
+        Assert.Equal(1, _resolver.RefreshCount);
+    }
+
+    [Fact]
+    public async Task SyncRepoAsync_WithACommitSignedByARotatedKey_VerifiesAfterOneRefresh()
+    {
+        using var rotated = AtProtoCrypto.GenerateP256Key();
+        var syncer = CreateSyncer();
+        _resolver.Rotate(Repo.Value, FakeDidDocumentResolver.AccountDocument(Repo.Value, rotated));
+
+        var record = Record("com.example.n", "a", "x");
+        var commit = SpaceRepoCommit
+            .FromRecords([(record.Collection, record.Rkey, record.Cid)])
+            .Sign(new SpaceCommitContext(_space, Repo, Tid.Parse("3l6oveex3ii24")), rotated);
+        _host.Ops = OpsJson(commit, cursor: null, CreateOp("3l6oveex3ii24", "com.example.n", "a", record.Cid));
+
+        var result = await syncer.SyncRepoAsync(_client, new SpaceRepoCursor(Repo));
+
+        Assert.Equal(SpaceSyncOutcome.UpToDate, result.Outcome);
+        Assert.Equal(1, _resolver.RefreshCount);
     }
 
     [Fact]

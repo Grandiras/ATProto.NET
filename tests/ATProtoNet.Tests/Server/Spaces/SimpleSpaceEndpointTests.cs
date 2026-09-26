@@ -42,7 +42,8 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
                 web.ConfigureServices(services =>
                 {
                     services.AddRouting();
-                    services.AddSingleton<ISpaceDidDocumentResolver>(
+                    services.AddKeyedSingleton<IDidResolver>(
+                        SpaceServerExtensions.DidResolverKey,
                         new FakeDidDocumentResolver().PublishAccount(Owner, _authorityKey, BaseUrl));
                     services.AddSingleton<ISimpleSpaceStore>(_store);
                     services.AddSingleton<ISpaceCallerResolver>(_caller);

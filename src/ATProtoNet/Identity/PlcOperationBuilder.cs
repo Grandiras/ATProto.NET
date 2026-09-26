@@ -39,18 +39,18 @@ public static class PlcOperationBuilder
     /// the PLC spec allows up to five.
     /// </param>
     /// <param name="signingKeyDidKey">The repository signing key as a <c>did:key</c>.</param>
-    /// <param name="handle">The account handle (without the <c>at://</c> prefix).</param>
+    /// <param name="handle">The account handle.</param>
     /// <param name="pdsEndpoint">The PDS service endpoint URL.</param>
     /// <returns>The unsigned operation as a JSON object.</returns>
     public static JsonObject CreateGenesisOperation(
         IReadOnlyList<string> rotationKeys,
         string signingKeyDidKey,
-        string handle,
+        Handle handle,
         string pdsEndpoint)
     {
         ArgumentNullException.ThrowIfNull(rotationKeys);
         ArgumentException.ThrowIfNullOrWhiteSpace(signingKeyDidKey);
-        ArgumentException.ThrowIfNullOrWhiteSpace(handle);
+        ArgumentNullException.ThrowIfNull(handle);
         ArgumentException.ThrowIfNullOrWhiteSpace(pdsEndpoint);
 
         if (rotationKeys.Count == 0)
@@ -120,11 +120,11 @@ public static class PlcOperationBuilder
     /// encoding of the SHA-256 hash of the operation's DAG-CBOR encoding.
     /// </summary>
     /// <param name="signedOperationCbor">DAG-CBOR bytes of the signed genesis operation.</param>
-    public static string DeriveDid(ReadOnlySpan<byte> signedOperationCbor)
+    public static Did DeriveDid(ReadOnlySpan<byte> signedOperationCbor)
     {
         Span<byte> hash = stackalloc byte[32];
         SHA256.HashData(signedOperationCbor, hash);
-        return "did:plc:" + Base32Lower.Encode(hash)[..24];
+        return Did.Parse("did:plc:" + Base32Lower.Encode(hash)[..24]);
     }
 
     private static JsonElement ToJsonElement(JsonObject node)
@@ -137,7 +137,7 @@ public static class PlcOperationBuilder
 /// <param name="Did">The DID the operation belongs to (derived from a genesis operation).</param>
 /// <param name="Operation">The operation JSON including its <c>sig</c> field — the submission body.</param>
 /// <param name="Cbor">The DAG-CBOR encoding of the signed operation.</param>
-public sealed record PlcSignedOperation(string Did, JsonObject Operation, byte[] Cbor)
+public sealed record PlcSignedOperation(Did Did, JsonObject Operation, byte[] Cbor)
 {
     /// <summary>Renders the operation as the JSON body a PLC directory expects.</summary>
     public string ToJson() => Operation.ToJsonString();

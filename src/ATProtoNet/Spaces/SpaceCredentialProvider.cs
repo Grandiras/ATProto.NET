@@ -135,7 +135,7 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
     private readonly SpaceCredentialOptions _options;
     private readonly HttpClient _httpClient;
     private readonly bool _ownsHttpClient;
-    private readonly DidResolver _didResolver;
+    private readonly IDidResolver _didResolver;
     private readonly bool _ownsDidResolver;
     private readonly ILogger _logger;
 
@@ -158,13 +158,16 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
     /// every reader this provider creates. One is created and owned when omitted. Requests are
     /// sent to absolute URLs, so any <see cref="HttpClient.BaseAddress"/> is ignored.
     /// </param>
-    /// <param name="didResolver">A DID resolver. One is created and owned when omitted.</param>
+    /// <param name="didResolver">
+    /// Resolves space authorities and repo hosts. A <see cref="CachingDidResolver"/> is created and
+    /// owned when omitted; pass a shared one to reuse its cache across providers.
+    /// </param>
     /// <param name="logger">Optional logger.</param>
     public SpaceCredentialProvider(
         AtProtoClient client,
         SpaceCredentialOptions? options = null,
         HttpClient? httpClient = null,
-        DidResolver? didResolver = null,
+        IDidResolver? didResolver = null,
         ILogger? logger = null)
     {
         ArgumentNullException.ThrowIfNull(client);
@@ -174,7 +177,7 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
         _ownsHttpClient = httpClient is null;
         _httpClient = httpClient ?? AtProtoHttp.CreateClient();
         _ownsDidResolver = didResolver is null;
-        _didResolver = didResolver ?? new DidResolver();
+        _didResolver = didResolver ?? new CachingDidResolver();
         _logger = logger ?? NullLogger.Instance;
     }
 
@@ -279,20 +282,21 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
         Identity.DidDocument document;
         try
         {
-            document = await _didResolver.ResolveDidAsync(did, cancellationToken);
+            document = await _didResolver.ResolveAsync(did, cancellationToken);
         }
-        catch (Exception ex) when (ex is HttpRequestException or DidWebException or InvalidOperationException)
+        catch (DidResolutionException ex)
         {
             throw new SpaceCredentialException($"Could not resolve '{did}': {ex.Message}", ex);
         }
 
         var endpoint = SpaceAuthority.GetHostEndpoint(document)
             ?? throw new SpaceCredentialException(
-                $"'{did}' publishes neither an {SpaceAuthority.HostServiceId} service entry nor a PDS endpoint.");
+                $"'{did}' publishes neither an {SpaceAuthority.HostServiceId} service entry nor a PDS endpoint " +
+                "with an absolute http(s) URL.");
 
-        return AtProtoHttp.TryNormalizeBaseUrl(endpoint, out _)
-            ? endpoint
-            : throw new SpaceCredentialException($"'{did}' publishes an unusable endpoint '{endpoint}'.");
+        return AtProtoHttp.TryNormalizeBaseUrl(endpoint.OriginalString, out _)
+            ? endpoint.OriginalString
+            : throw new SpaceCredentialException($"'{did}' publishes an unusable endpoint '{endpoint.OriginalString}'.");
     }
 
     private async Task<SpaceCredential> MintAsync(SpaceUri space, CancellationToken cancellationToken)
@@ -412,8 +416,8 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
         _superseded.Clear();
 
         _lock.Dispose();
-        if (_ownsDidResolver)
-            _didResolver.Dispose();
+        if (_ownsDidResolver && _didResolver is IDisposable disposable)
+            disposable.Dispose();
         if (_ownsHttpClient)
             _httpClient.Dispose();
     }

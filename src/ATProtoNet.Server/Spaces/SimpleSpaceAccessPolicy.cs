@@ -225,7 +225,7 @@ public sealed class SimpleSpaceManagingAppClient : ISimpleSpaceManagingAppClient
 {
     private static readonly Nsid CheckUserAccessNsid = Nsid.Parse(SpaceNsids.CheckUserAccess);
 
-    private readonly ISpaceDidDocumentResolver _resolver;
+    private readonly IDidResolver _resolver;
     private readonly ServiceAuthGenerator _serviceAuth;
     private readonly HttpClient _httpClient;
 
@@ -236,7 +236,7 @@ public sealed class SimpleSpaceManagingAppClient : ISimpleSpaceManagingAppClient
     /// <param name="serviceAuth">Signs the outbound service auth token as this authority.</param>
     /// <param name="httpClient">The client used for the call.</param>
     public SimpleSpaceManagingAppClient(
-        ISpaceDidDocumentResolver resolver, ServiceAuthGenerator serviceAuth, HttpClient httpClient)
+        IDidResolver resolver, ServiceAuthGenerator serviceAuth, HttpClient httpClient)
     {
         ArgumentNullException.ThrowIfNull(resolver);
         ArgumentNullException.ThrowIfNull(serviceAuth);
@@ -268,13 +268,13 @@ public sealed class SimpleSpaceManagingAppClient : ISimpleSpaceManagingAppClient
         };
 
         var (did, fragment) = SpaceAuthority.ParseServiceIdentifier(managingApp);
-        var document = await _resolver.ResolveAsync(did, cancellationToken);
+        var document = await _resolver.ResolveOrRefuseAsync(did, refresh: false, cancellationToken);
         var endpoint = SpaceAuthority.GetServiceEndpoint(document, fragment)
-            ?? throw new InvalidOperationException($"Managing app '{managingApp}' resolves to no endpoint.");
+            ?? throw new InvalidOperationException($"Managing app '{managingApp}' resolves to no usable endpoint.");
 
         // The same failure as a missing endpoint, which the policy treats as a refusal.
-        if (!Http.AtProtoHttp.TryNormalizeBaseUrl(endpoint, out var baseUrl))
-            throw new InvalidOperationException($"Managing app '{managingApp}' resolves to an unusable endpoint '{endpoint}'.");
+        if (!Http.AtProtoHttp.TryNormalizeBaseUrl(endpoint.OriginalString, out var baseUrl))
+            throw new InvalidOperationException($"Managing app '{managingApp}' resolves to an unusable endpoint '{endpoint.OriginalString}'.");
 
         // The Lexicon omits clientId for write checks, which have no app behind them.
         var query = $"?space={Uri.EscapeDataString(space.Value)}" +

@@ -292,7 +292,8 @@ Implement `ISpaceRepoStore` over whatever store you already have, and `SpaceSync
 protocol:
 
 ```csharp
-var syncer = new SpaceSyncer(space, myStore, SpaceSyncer.ResolveSigningKeyAsync(didResolver));
+// A CachingDidResolver: every pass verifies at least one commit against its author's key.
+var syncer = new SpaceSyncer(space, myStore, didResolver);
 
 var cursor = new SpaceRepoCursor(writerDid, savedRev, savedState);
 using var reader = await provider.CreateReaderForRepoAsync(space, writerDid);
@@ -466,7 +467,13 @@ public identity, so migration, key rotation, deactivation, and deletion all beha
 One consequence is easy to miss: those changes are announced on the **public** firehose, as
 `#identity` and `#account` events. An application syncing only permissioned data still needs
 `com.atproto.sync.subscribeRepos` to learn that a key rotated — otherwise it will keep verifying
-commits against a stale key. See [Firehose Streaming](firehose.md).
+commits against a stale key. Pass each `#identity` event's DID to the resolver's
+`InvalidateAsync`. See [Firehose Streaming](firehose.md).
+
+Short of that, a commit or token that fails against a cached key is retried once against a
+refreshed DID document before it is refused: `SpaceSyncer` and every server-side verifier do this,
+and the resolver rate-limits the refreshes so forged signatures cannot each cost a directory
+request. See [Identity Resolution](did-resolution.md#caching).
 
 Migration also needs `listSpaces` and `listBlobs`: an account has one permissioned repo *per space*
 rather than a single repository, and each carries its own blobs.
@@ -507,6 +514,31 @@ app.MapXrpcEndpoints();
 Register only the half a service implements: a route that answers is a route that has to be
 secured. `AddAtProtoSpaces()` on its own registers just the verifiers, which is all a moderation
 service or a proxy needs.
+
+The verifiers resolve DID documents through a `CachingDidResolver` of their own, registered under
+`SpaceServerExtensions.DidResolverKey`. Its lifetime is much shorter than the SDK's general
+default: `SpaceServerOptions.DidCache` holds a document for a hard 5 minutes (`StaleAfter` and
+`ExpireAfter` both 5 minutes) and refetches it before use after that. Every document here backs a
+credential check, and a cached document is how long a key its owner rotated away — perhaps because
+it leaked — keeps verifying; a space server rarely follows the firehose's `#identity` events, so the
+cache lifetime is what bounds that window. With the default, a rotated-out key is never accepted
+more than 5 minutes after it was fetched. A token that fails against a cached key is retried once
+against a refreshed document.
+
+Raising `ExpireAfter` above `StaleAfter` opts into stale-while-revalidate: a stale document is still
+served while a background fetch replaces it. That keeps the fetch off the request path, at the cost
+of accepting the old key until the fetch completes — on an idle server, for up to `ExpireAfter`. Set
+`UseDistributedCache` to share documents across instances.
+
+Fetching follows the options `AddAtProtoIdentity()` registers (`AddAtProtoSpaces()` calls it): every
+DID a token names is fetched under the SDK's SSRF policy; call `AddAtProtoIdentity(o => …)` first to
+change the PLC directory or opt out of the policy for a local test network. A DID that does not
+resolve, for whatever reason, is refused as `NotAuthorized`. The `AtProtoSpaces` named client, which
+fetches client metadata and reaches managing apps and subscribers at URLs taken from DID documents,
+runs on the same hardened handler: public addresses only and no redirects, under the same opt-out.
+To replace the resolver (a fixture, a directory mirror),
+register a keyed `IDidResolver` under `SpaceServerExtensions.DidResolverKey`. See
+[Identity Resolution](did-resolution.md).
 
 ### The verifiers
 

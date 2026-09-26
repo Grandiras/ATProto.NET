@@ -108,7 +108,7 @@ dotnet test tests/ATProtoNet.IntegrationTests/ -p:EnableSourceControlManagerQuer
 | `ATPROTO_PLC_URL` | The PLC directory that PDS registers accounts with. Defaults to `http://localhost:2582`. |
 | `ATPROTO_PDS_ADMIN_PASSWORD` | Used to provision and delete the test accounts. |
 
-`ATPROTO_PLC_URL` matters more than it looks. A space credential is exchanged with, and a commit verified against, whatever the DID document says — so the tests have to resolve DIDs through the test network's own directory rather than the public one. `SpaceNetworkFixture` builds a `DidResolver` over it and hands that to `SpaceCredentialProvider`; nothing about the SDK is special-cased for the test network.
+`ATPROTO_PLC_URL` matters more than it looks. A space credential is exchanged with, and a commit verified against, whatever the DID document says — so the tests have to resolve DIDs through the test network's own directory rather than the public one. `SpaceNetworkFixture` builds a `CachingDidResolver` over it, with the development opt-out (`AllowPrivateNetworks`) because the directory is on a private network, and hands that to `SpaceCredentialProvider` and `SpaceSyncer`; nothing else about the SDK is special-cased for the test network.
 
 Set `ATPROTO_REQUIRE_INTEGRATION=1` to make a missing prerequisite a failure rather than a skip — `dotnet test --filter` exits 0 when every matched test skips, so a job whose environment drifted would otherwise pass while verifying nothing.
 
@@ -126,5 +126,5 @@ The reference implementation's own suite, `packages/pds/tests/space/`, is a good
 
 ## Two things to know about the dev network
 
-- **Its PLC is older than production's.** It publishes `EcdsaSecp256k1VerificationKey2019` verification methods, whose `publicKeyMultibase` is a bare uncompressed point; plc.directory publishes `Multikey`, whose value is multicodec-tagged. The SDK reads both (`DidDocument.GetSigningKey()`), so `SpaceSyncer.ResolveSigningKeyAsync` works against either network and the fixture uses it directly.
+- **Its PLC is older than production's.** It publishes `EcdsaSecp256k1VerificationKey2019` verification methods, whose `publicKeyMultibase` is a bare uncompressed point; plc.directory publishes `Multikey`, whose value is multicodec-tagged. The SDK reads both (`DidDocument.GetSigningKey()`), so `SpaceSyncer` works against either network, and the fixture's `ResolveSigningKeyAsync` reads the key the same way.
 - **The writer set is eventually consistent.** `listRepos` is maintained from write notifications the writing PDS sends without awaiting, so a test that has just written polls for its own entry rather than expecting it on the next request. A test that asserts a writer is *absent* first waits for one that must be present — the authority, which is always admitted — so the absence means something.

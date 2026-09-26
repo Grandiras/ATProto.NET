@@ -1,237 +1,342 @@
-# DID Resolution
+# Identity Resolution
 
-ATProto.NET supports resolving Decentralized Identifiers (DIDs) using `did:plc` and `did:web` methods, with a unified `DidResolver` that dispatches to the correct resolver automatically.
+ATProto.NET resolves DIDs (`did:plc`, `did:web`) to DID documents and handles to DIDs, checks
+handles in both directions, caches documents, and fetches everything under an SSRF policy. The
+pieces are interfaces, so consumers take whatever resolver an application configures:
 
-## Unified DID Resolution
+| Interface | Default implementation | Does |
+|---|---|---|
+| `IDidResolver` | `CachingDidResolver` over `DidResolver` | DID → `DidDocument` |
+| `IHandleResolver` | `HandleResolver` | handle → DID (DNS TXT + HTTPS well-known) |
+| `IIdentityResolver` | `IdentityResolver` | DID or handle → verified `ResolvedIdentity` |
 
-```csharp
-using ATProtoNet.Identity;
+All of them live in `ATProtoNet.Identity` and report failure as one exception type,
+`DidResolutionException`.
 
-var resolver = new DidResolver();
-
-// Resolves any DID method automatically
-var doc = await resolver.ResolveDidAsync("did:plc:z72i7hdynmk6r22z27h6tvur");
-var doc2 = await resolver.ResolveDidAsync("did:web:alice.example.com");
-
-Console.WriteLine($"Handle: {doc.GetHandle()}");
-Console.WriteLine($"PDS: {doc.GetPdsEndpoint()}");
-```
-
-The `DidResolver` dispatches:
-- `did:plc:*` → `PlcClient` (PLC directory lookup)
-- `did:web:*` → `DidWebResolver` (HTTPS well-known document)
-
-## did:plc Resolution
-
-`did:plc` identifiers are resolved via the PLC directory server:
+## Resolving an identity
 
 ```csharp
 using ATProtoNet.Identity;
 
-var plcClient = new PlcClient();
+using var resolver = IdentityResolver.CreateDefault();
 
-// Resolve a DID document
-var doc = await plcClient.ResolveDidAsync("did:plc:z72i7hdynmk6r22z27h6tvur");
+var identity = await resolver.ResolveAsync(AtIdentifier.Parse("atproto.com"));
 
-Console.WriteLine($"Handle: {doc.GetHandle()}");
-Console.WriteLine($"PDS endpoint: {doc.GetPdsEndpoint()}");
-
-// Access verification methods (signing keys)
-foreach (var method in doc.VerificationMethod)
-{
-    Console.WriteLine($"Key: {method.Id} ({method.Type})");
-    Console.WriteLine($"  Public key: {method.PublicKeyMultibase}");
-}
-
-// Access service endpoints
-foreach (var service in doc.Service)
-{
-    Console.WriteLine($"Service: {service.Id} → {service.Endpoint}");
-}
+Console.WriteLine(identity.Did);            // did:plc:ewvi7nxzyoun6zhxrhs64oiz
+Console.WriteLine(identity.Handle);         // atproto.com, or handle.invalid
+Console.WriteLine(identity.HandleVerified); // true
+Console.WriteLine(identity.PdsEndpoint);    // https://…host.bsky.network
+DidDocument document = identity.Document;
 ```
 
-### PLC Operations
+A handle is **verified** only when both directions agree: the DID document claims it in
+`alsoKnownAs`, and the handle resolves back to the DID. Either half alone proves nothing —
+anyone can claim any handle in their own document, and anyone can point their own domain at
+someone else's DID. When verification fails, `Handle` is `Handle.Invalid` (`handle.invalid`)
+and `HandleVerified` is `false`; render such an account by its DID or as `handle.invalid`, never
+by the handle it claims. When the document claims no handle at all, `Handle` is `null`.
+
+Resolving a DID never fails because the handle's authorities are unreachable: the DID is the
+authoritative identifier, so the identity comes back with `handle.invalid`. Resolving a handle
+that resolves to no DID throws `DidResolutionException` with `Kind == HandleNotFound`.
+
+## Resolving DIDs
 
 ```csharp
-// Get the operation log
-var log = await plcClient.GetOperationLogAsync("did:plc:abc123");
+using var didResolver = new CachingDidResolver();
 
-// Get the audit log
-var audit = await plcClient.GetAuditLogAsync("did:plc:abc123");
+DidDocument doc = await didResolver.ResolveAsync(Did.Parse("did:plc:z72i7hdynmk6r22z27h6tvur"));
 
-// Get the latest operation
-var latest = await plcClient.GetLastOperationAsync("did:plc:abc123");
-
-// Get current PLC data
-var data = await plcClient.GetPlcDataAsync("did:plc:abc123");
-
-// Health check
-bool healthy = await plcClient.IsHealthyAsync();
+Handle? claimed = doc.GetHandle();        // the claimed handle — not verified
+string? signingKey = doc.GetSigningKey(); // the #atproto key as a did:key
+Uri? pds = doc.GetPdsEndpoint();          // the #atproto_pds service
 ```
 
-### Error Handling
+`DidResolver` dispatches on the method — `did:plc` to `PlcClient`, `did:web` to
+`DidWebResolver` — and caches nothing. `CachingDidResolver` wraps any `IDidResolver`; its
+parameterless constructor wraps a new `DidResolver`. Anything that resolves repeatedly (signature
+verification, a service checking tokens) should use the cache.
 
-`PlcClient` surfaces directory failures as `PlcException`, with a `Kind` describing what went wrong:
+`did:web` is hostname-level only: `did:web:example.com` fetches
+`https://example.com/.well-known/did.json`. A path-based `did:web` is refused, and so is a port
+on any host but `localhost` — which itself resolves only under the development opt-out below.
+
+### Caching
+
+| `DidCacheOptions` | Default | Meaning |
+|---|---|---|
+| `Capacity` | 10,000 | Documents held in memory; the least recently used goes first |
+| `StaleAfter` | 1 hour | Served as is until then; after, served while refreshed in the background |
+| `ExpireAfter` | 1 day | Refetched before use after this |
+| `FailureTtl` | 1 minute | How long a failed resolution is remembered |
+| `FailureCapacity` | 1,000 | Failures remembered, in an LRU of their own |
+| `MinRefreshInterval` | 30 s | Least time between two fetches a forced refresh may start for one DID |
+| `UseDistributedCache` | `false` | Back the cache with the registered `IDistributedCache` (DI only) |
+
+Concurrent requests for a DID that is not cached share one fetch. Failures are remembered for
+`FailureTtl`, so a DID that does not resolve — or a caller naming bogus DIDs — costs one fetch
+per window rather than one per request. They are kept apart from documents, so a flood of bogus
+DIDs pushes out older failures, never a cached document.
+
+Two operations keep a cache honest:
+
+- **`InvalidateAsync(did)`** drops a document. Call it when an identity changes, which the
+  firehose announces as an `#identity` event; `TypedFirehoseConsumer` does this for its verifier.
+- **`RefreshAsync(did)`** fetches past the cache. Call it once when a signature fails against a
+  cached key, since the document may predate a key rotation — the sync spec asks for exactly
+  that. Anyone can send a bad signature naming any DID, so a refresh fetches only when the
+  last fetch of that DID, failed or not, is at least `MinRefreshInterval` old; within it the
+  cached document (or the remembered failure) is returned.
+
+`FirehoseVerifier`, `SpaceSyncer` and the space-server verifiers all follow this pattern
+already. Both methods have default implementations on `IDidResolver`, so a resolver that caches
+nothing needs neither.
+
+To share documents between instances, pass an `IDistributedCache` to the `CachingDidResolver`
+constructor, or register one and set `Cache.UseDistributedCache` (see
+[dependency injection](#dependency-injection)). The distributed cache is consulted when memory
+misses and written after every fetch; failures stay in memory, and distributed-cache errors are
+logged and treated as misses. `InvalidateAsync` removes the shared copy too, and a write still in
+flight when it runs is removed again once it lands, so an invalidated document does not come back
+through the shared cache. It does not reach other instances' memory: each instance has to see
+the `#identity` event itself (or wait out `StaleAfter`).
+
+## Resolving handles
+
+```csharp
+using var handles = new HandleResolver();
+
+Did? did = await handles.ResolveAsync(Handle.Parse("alice.bsky.social"));
+```
+
+The resolver queries both of the handle's authorities concurrently, under one
+`HandleResolutionTimeout` budget (5 s by default):
+
+1. DNS TXT at `_atproto.alice.bsky.social`, over DNS-over-HTTPS;
+2. `GET https://alice.bsky.social/.well-known/atproto-did`.
+
+The two are different trust roots — DNS and a TLS certificate — so when both answer they must
+agree: a disagreement fails closed with `Kind == HandleConflict` rather than picking one, and so
+do two distinct `did=` values in DNS. When only one answers, its answer is used; when neither
+does, the result is `null`. The well-known request follows up to three HTTPS redirects on the
+handle's own host; one to another host or to plain HTTP, a response larger than 2 KiB, or any
+failure to read it counts as no answer. Handles under TLDs that never resolve (`.local`, `.localhost`,
+`.internal`, `.arpa`, `.onion`, `.alt`, `.example`, `.invalid`) are not looked up; `.test` is,
+under the development opt-out only.
+
+.NET has no TXT lookup of its own, so the DNS query goes to a DNS-over-HTTPS endpoint, which
+learns every handle resolved. It defaults to `https://dns.google/resolve`; point it at a resolver
+you run or trust, or disable DNS resolution:
+
+```csharp
+var options = new IdentityResolverOptions
+{
+    DnsOverHttpsUrl = new Uri("https://cloudflare-dns.com/dns-query"), // or null for HTTPS only
+};
+```
+
+## The fetch policy (SSRF)
+
+Identity hosts come from identifiers anyone can mint, and the services that resolve them — a
+space server checking a token, a firehose consumer, an OAuth login — do so on behalf of whoever
+sent the identifier. Every identity fetch the SDK makes (a `did:web` document, a PLC lookup, a
+handle's well-known, the DNS-over-HTTPS query) therefore follows one policy:
+
+- **HTTPS only.**
+- **Public addresses only, checked after DNS.** A connect callback resolves the host, refuses the
+  connection if *any* address is loopback, private, link-local (including cloud metadata at
+  `169.254.169.254`), CGNAT, multicast, documentation or otherwise reserved — IPv4 inside IPv6
+  is judged by its IPv4 address — and connects to exactly the addresses it checked, so a
+  rebinding DNS server cannot answer differently the second time. The hardened handler never
+  uses a proxy, which would make the checked address the proxy's.
+- **`did:web` is a fully qualified hostname**, with no path and no port.
+- **No redirects.** A DID document is served where the identifier says or not at all; a
+  redirect is an `HttpError`, and so is a response a caller's own client reached by following one.
+- **Bounded responses and short timeouts.** DID documents are capped at 64 KiB
+  (`MaxDidDocumentBytes`), a handle's well-known at 2 KiB, and each fetch has `RequestTimeout`
+  (5 s).
+- **Bounded concurrency.** At most 64 identity fetches run at once in a process; the rest wait
+  for a slot within their own timeout.
+
+A request the policy refuses fails with `Kind == Blocked` (or `InvalidDid` for an identifier AT
+Protocol does not resolve) before anything is sent.
+
+### Local development
+
+`IdentityResolverOptions.AllowPrivateNetworks` is the explicit opt-out for a local PDS, a private
+PLC mirror or a test network: it permits plain HTTP, private addresses,
+`did:web:localhost%3A2583` (over `http://`) and `.test` handles.
+
+```csharp
+var options = new IdentityResolverOptions
+{
+    PlcDirectoryUrl = new Uri("http://localhost:2582"),
+    AllowPrivateNetworks = true,
+};
+using var resolver = IdentityResolver.CreateDefault(options);
+```
+
+Never set it on a service that resolves identifiers it receives from other parties: that is the
+request forgery the policy exists to stop. To reach one trusted private PLC mirror while keeping
+the policy for everything else, give `PlcClient` your own `HttpClient`:
+
+```csharp
+var plc = new PlcClient(myHttpClient, new Uri("https://plc.internal.example"));
+var didResolver = new CachingDidResolver(new DidResolver(plc, new DidWebResolver()));
+```
+
+A resolver constructed with your own `HttpClient` uses it as is: the address check lives in the
+SDK's handler, while the identifier rules (hostname-only `did:web`, HTTPS) still apply.
+
+## Dependency injection
+
+`AddAtProtoIdentity` (in `ATProtoNet.Server`) registers `IDidResolver`, `IHandleResolver` and
+`IIdentityResolver` as singletons, so every consumer in the container shares one cache:
+
+```csharp
+builder.Services.AddStackExchangeRedisCache(o => o.Configuration = "localhost");
+builder.Services.AddAtProtoIdentity(o =>
+{
+    o.Cache.UseDistributedCache = true;
+    o.DnsOverHttpsUrl = new Uri("https://cloudflare-dns.com/dns-query");
+});
+```
+
+Registration is idempotent and the first call's options win. `AddAtProtoSpaces` calls it, and
+the Blazor OAuth service picks up a registered `IIdentityResolver`, so call it first to
+configure what they use. The space server fetches under these options but keeps a shorter-lived
+cache of its own (`SpaceServerOptions.DidCache`: a hard 5-minute lifetime), because the documents it
+caches back credential checks; see
+[Permissioned Data](spaces.md).
+
+## Errors
+
+Every resolver throws `DidResolutionException`, an `AtProtoException`, including for a network
+failure or a timeout, so a caller turning an unresolvable identity into its own error has one
+thing to catch:
 
 ```csharp
 try
 {
-    var doc = await plcClient.ResolveDidAsync("did:plc:nonexistent");
+    var doc = await didResolver.ResolveAsync(did);
 }
-catch (PlcException ex) when (ex.Kind == PlcErrorKind.NotFound)
+catch (DidResolutionException ex) when (ex.Kind is DidResolutionErrorKind.NotFound or DidResolutionErrorKind.Deactivated)
 {
-    Console.WriteLine("DID not found in PLC directory");
-}
-catch (PlcException ex) when (ex.Kind == PlcErrorKind.Tombstoned)
-{
-    Console.WriteLine("DID has been deleted");
+    Console.WriteLine($"{ex.Did} does not exist any more");
 }
 ```
 
-| `PlcErrorKind` | Meaning |
+| `DidResolutionErrorKind` | Meaning |
 |---|---|
-| `NotFound` | The directory returned 404 for this DID |
-| `Tombstoned` | The DID has been deleted (HTTP 410) |
-| `ParseError` | The response could not be parsed, or its `id` did not echo the requested DID |
-| `InvalidOperation` | The directory rejected a submitted operation |
+| `InvalidDid` | Not an identifier AT Protocol resolves: a path-based `did:web`, a port off `localhost`, an IP address for a host |
+| `UnsupportedMethod` | Neither `did:plc` nor `did:web` |
+| `Blocked` | The fetch policy refused the request (see above) |
+| `NotFound` | No document (HTTP 404) |
+| `Deactivated` | The DID existed but was deactivated — a tombstoned `did:plc` (HTTP 410) |
+| `HttpError` | Any other unexpected status |
+| `NetworkError` | The host could not be reached, or broke off mid-response |
+| `Timeout` | No answer within `RequestTimeout` |
+| `ResponseTooLarge` | The response exceeded the cap |
+| `InvalidDocument` | Malformed JSON (including a `null` list entry), a body that does not decode, or an `id` other than the DID asked for |
+| `HandleNotFound` | A handle identifier resolved to no DID |
+| `HandleConflict` | The handle's authorities disagree |
+| `OperationRejected` | The PLC directory rejected a submitted operation |
 
-## did:web Resolution
+## The DID document model
 
-`did:web` identifiers are resolved by fetching a JSON document from the domain's well-known path:
-
-```csharp
-using ATProtoNet.Identity;
-
-var webResolver = new DidWebResolver();
-
-var doc = await webResolver.ResolveDidAsync("did:web:alice.example.com");
-// Fetches https://alice.example.com/.well-known/did.json
-
-Console.WriteLine($"Handle: {doc.GetHandle()}");
-Console.WriteLine($"PDS: {doc.GetPdsEndpoint()}");
-```
-
-### Security
-
-The `did:web` resolver includes several security protections:
-
-- **SSRF prevention** — IP addresses (private ranges, loopback, link-local, CGN) are blocked
-- **HTTPS enforcement** — Only HTTPS is used (localhost exception for development)
-- **Document validation** — The `id` field in the document must match the requested DID
-- **IPv6 bracket blocking** — All bracketed IP addresses are rejected
-
-### Error Types
-
-```csharp
-using ATProtoNet.Identity;
-
-try
-{
-    var doc = await webResolver.ResolveDidAsync("did:web:bad-host.example.com");
-}
-catch (DidWebException ex)
-{
-    switch (ex.Kind)
-    {
-        case DidWebErrorKind.InvalidDid:
-            Console.WriteLine("Invalid did:web format");
-            break;
-        case DidWebErrorKind.NotFound:
-            Console.WriteLine("DID document not found (404/410)");
-            break;
-        case DidWebErrorKind.HttpError:
-            Console.WriteLine($"HTTP error: {ex.Message}");
-            break;
-        case DidWebErrorKind.NetworkError:
-            Console.WriteLine($"Network error: {ex.Message}");
-            break;
-        case DidWebErrorKind.ParseError:
-            Console.WriteLine("Failed to parse DID document");
-            break;
-        case DidWebErrorKind.ValidationError:
-            Console.WriteLine("DID document ID mismatch");
-            break;
-    }
-}
-```
-
-## DID Document Model
-
-The `DidDocument` model represents a resolved DID document:
+`DidDocument` is immutable: resolvers cache and share documents.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Id` | `string` | The DID |
-| `Context` | `List<string>?` | The `@context` field. Omitted when serializing unless set — required when *publishing* a document (e.g. a `did:web` `/.well-known/did.json`), ignorable when consuming one |
-| `AlsoKnownAs` | `List<string>` | Alternative identifiers (handles) |
-| `VerificationMethod` | `List<VerificationMethod>` | Public keys |
-| `Service` | `List<ServiceEndpoint>` | Service endpoints |
+| `Id` | `Did` | The DID |
+| `Context` | `IReadOnlyList<string>?` | `@context`. A single string reads as one entry; inline context objects are skipped. Omitted when serializing unless set |
+| `AlsoKnownAs` | `IReadOnlyList<string>` | Alternative identifiers, including `at://handle` |
+| `VerificationMethod` | `IReadOnlyList<VerificationMethod>` | Public keys |
+| `Service` | `IReadOnlyList<DidDocumentService>` | Services; `Endpoint` is `null` for a structured endpoint |
 
-The three list properties default to empty rather than null, so they can be enumerated directly.
+The three lists are never `null`: a missing or `null` list reads as empty, and a `null` entry in
+one makes the document malformed.
 
-### Convenience Methods
+| Method | Returns |
+|---|---|
+| `GetHandle()` | The handle in the first `at://` entry — claimed, not verified; `null` if that entry is not a valid handle |
+| `GetSigningKey()` | The `#atproto` key as a `did:key` |
+| `GetVerificationKey(fragment)` | Any verification method's key as a `did:key` |
+| `GetServiceEndpoint(fragment, type?)` | A service's endpoint, when it is an absolute http(s) URL |
+| `TryGetServiceEndpoint(fragment, type, out endpoint)` | The same, telling `Absent` from `Malformed` |
+| `TryGetVerificationKey(fragment, out didKey)` | A key, telling `Absent` from `Malformed` (unknown type, missing or undecodable key material) |
+| `GetPdsEndpoint()` | The `#atproto_pds` endpoint of type `AtprotoPersonalDataServer` |
+
+Fragments match with or without their `#`, bare (`#atproto`) or DID-qualified
+(`did:plc:…#atproto`). As in the reference implementation, the first entry with a matching id is
+the one used: a later duplicate is never consulted, and a service whose type is not the one asked
+for is `Malformed` rather than skipped. The key methods accept every verification-method type AT Protocol uses:
+`Multikey`, whose value is already the `did:key` encoding, and the legacy
+`EcdsaSecp256k1VerificationKey2019` / `EcdsaSecp256r1VerificationKey2019` forms, whose value is
+a bare uncompressed point. `null` means the entry is absent or of a type the SDK does not
+understand; a `FormatException` means its key material is malformed.
+
+The `Get…` methods read an unusable entry as absent, which suits a lookup with a fallback (a space
+host falling back to the PDS). Where a published entry must be used or refused instead, the
+`TryGet…` methods return a `DidDocumentEntryStatus` — `Found`, `Absent` or `Malformed` — so a
+broken entry does not quietly fall through to the fallback.
+
+## The PLC directory
+
+`PlcClient` also reads a DID's history and the directory's export:
 
 ```csharp
-// Get the handle from alsoKnownAs
-string? handle = doc.GetHandle();
-// Extracts from "at://alice.bsky.social" format
+using var plc = new PlcClient(); // https://plc.directory, under the fetch policy
+var did = Did.Parse("did:plc:ewvi7nxzyoun6zhxrhs64oiz");
 
-// Get the PDS endpoint
-string? pdsUrl = doc.GetPdsEndpoint();
-// Finds the #atproto_pds service endpoint
+IReadOnlyList<PlcOperation> log = await plc.GetOperationLogAsync(did);
+IReadOnlyList<PlcAuditEntry> audit = await plc.GetAuditLogAsync(did); // with CIDs, times, nullification
+PlcOperation last = await plc.GetLastOperationAsync(did);
+PlcOperation state = await plc.GetPlcDataAsync(did); // current state, without type/prev/sig
+bool healthy = await plc.IsHealthyAsync();
 ```
 
-### Verification Methods
+A mirror follows every operation the directory accepts: page through `/export` by sequence
+number, then follow `/export/stream` over a WebSocket from where the pages ended.
 
 ```csharp
-foreach (var method in doc.VerificationMethod)
+long cursor = 0;
+IReadOnlyList<PlcAuditEntry> page;
+do
 {
-    Console.WriteLine($"ID: {method.Id}");         // e.g., "did:plc:abc#atproto"
-    Console.WriteLine($"Type: {method.Type}");      // e.g., "Multikey"
-    Console.WriteLine($"Controller: {method.Controller}");
-    Console.WriteLine($"Key: {method.PublicKeyMultibase}");
+    page = await plc.ExportAsync(after: cursor, count: PlcClient.MaxExportCount);
+    foreach (var entry in page)
+        Apply(entry);
+    if (page.Count > 0)
+        cursor = page[^1].Seq!.Value;
+} while (page.Count == PlcClient.MaxExportCount);
+
+await foreach (var entry in plc.StreamExportAsync(cursor))
+{
+    Apply(entry);
+    cursor = entry.Seq!.Value;
 }
 ```
 
-To get a key as a `did:key` — ready for `AtProtoCrypto.VerifySignature` — use the document
-helpers rather than reading `PublicKeyMultibase` directly. They accept every verification
-method type AT Protocol uses: `Multikey`, whose value is already the `did:key` encoding, and
-the legacy `EcdsaSecp256k1VerificationKey2019` / `EcdsaSecp256r1VerificationKey2019` forms,
-whose value is a bare uncompressed point that gets compressed and multicodec-tagged first.
+The stream ends quietly when the directory closes it normally or the connection drops; resume
+from the last cursor. A close with a reason throws `PlcExportStreamException`: `OutdatedCursor`
+(catch up with `ExportAsync` first), `FutureCursor` or `ConsumerTooSlow`.
+
+`PlcClient(HttpClient, Uri directoryUrl)` sends everything through your client, to the directory
+you name.
+
+## Delegating resolution to a service
+
+A client that should not resolve identities itself can ask its PDS or an AppView:
 
 ```csharp
-string? signingKey = doc.GetSigningKey();            // the #atproto repo-signing key
-string? spaceKey = doc.GetVerificationKey("#atproto_space");
-string? sameKey = doc.VerificationMethod[0].ToDidKey();
+IdentityInfo info = await client.Identity.ResolveIdentityAsync(AtIdentifier.Parse("atproto.com"));
+ResolveDidResponse doc = await client.Identity.ResolveDidAsync(Did.Parse("did:plc:…"));
+IdentityInfo refreshed = await client.Identity.RefreshIdentityAsync(AtIdentifier.Parse("atproto.com"));
 ```
 
-`null` means the entry is absent or its type is not one the SDK understands; a `FormatException`
-means the entry is present but its key material is malformed.
-
-### Service Endpoints
-
-```csharp
-foreach (var service in doc.Service)
-{
-    Console.WriteLine($"ID: {service.Id}");                    // e.g., "#atproto_pds"
-    Console.WriteLine($"Type: {service.Type}");                // e.g., "AtprotoPersonalDataServer"
-    Console.WriteLine($"Endpoint: {service.Endpoint}");        // e.g., "https://bsky.social"
-}
-```
-
-## Handle Resolution
-
-Resolve a handle to a DID (used internally by OAuth and identity resolution):
-
-```csharp
-// Via OAuth discovery (part of the OAuth flow)
-var discovery = new AuthorizationServerDiscovery(httpClient, logger);
-var did = await discovery.ResolveHandleToDidAsync("alice.bsky.social");
-```
-
-Handle resolution tries:
-1. HTTPS well-known: `GET https://alice.bsky.social/.well-known/atproto-did`
-2. DNS TXT fallback: `_atproto.alice.bsky.social`
+These trust the service's answer. Failures are `XrpcException`s with `XrpcErrors.HandleNotFound`,
+`DidNotFound` or `DidDeactivated`.
 
 ## Next Steps
 

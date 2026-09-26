@@ -26,6 +26,12 @@ public sealed partial record Handle : IIdentifier<Handle>
     private static partial Regex HandlePattern();
 
     /// <summary>
+    /// <c>handle.invalid</c>: what an account is shown as when its handle does not verify
+    /// bidirectionally. The <c>.invalid</c> TLD never resolves.
+    /// </summary>
+    public static Handle Invalid { get; } = new("handle.invalid");
+
+    /// <summary>
     /// The handle string value (normalized to lowercase).
     /// </summary>
     public string Value { get; }

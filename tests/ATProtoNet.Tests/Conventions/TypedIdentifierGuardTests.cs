@@ -14,11 +14,10 @@ namespace ATProtoNet.Tests.Conventions;
 /// (<c>did</c>, <c>uri</c>, <c>cid</c>, <c>createdAt</c> → <c>at</c>, …) against a list mined
 /// from the upstream Lexicons. A <see cref="string"/>, a string array or a string sequence under
 /// such a name fails, unless it is one of the <see cref="Exceptions"/>.</para>
-/// <para>The scan covers the Lexicon models and clients and the types around them. It leaves
-/// out code that is not a Lexicon surface: the identifier types themselves, transport,
-/// serialization, crypto and CAR/MST internals. DID documents and PLC operations
-/// (<c>ATProtoNet.Identity</c>) are reworked by #120; the OAuth session model
-/// (<c>ATProtoNet.Auth.OAuth</c>) and the token stores by #124.</para>
+/// <para>The scan covers the Lexicon models and clients and the types around them, including
+/// DID documents and PLC operations (<c>ATProtoNet.Identity</c>). It leaves out code that is not
+/// a Lexicon surface: transport, serialization, crypto, CAR/MST internals, and the OAuth protocol
+/// models of <c>ATProtoNet.Auth.OAuth</c>.</para>
 /// </remarks>
 public class TypedIdentifierGuardTests
 {
@@ -34,6 +33,7 @@ public class TypedIdentifierGuardTests
         "ATProtoNet",
         "ATProtoNet.Admin",
         "ATProtoNet.Auth",
+        "ATProtoNet.Identity",
         "ATProtoNet.Models",
         "ATProtoNet.Lexicon.*",
         "ATProtoNet.Spaces.*",

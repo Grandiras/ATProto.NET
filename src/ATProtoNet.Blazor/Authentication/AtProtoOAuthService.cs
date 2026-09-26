@@ -32,6 +32,7 @@ public sealed class AtProtoOAuthService : IOAuthClientProvider, IDisposable
     private readonly AtProtoOAuthServerOptions _serverOptions;
     private readonly ILogger<AtProtoOAuthService> _logger;
     private readonly ILogger<OAuthClient> _oauthClientLogger;
+    private readonly IIdentityResolver? _identityResolver;
     private volatile OAuthClient? _oauthClient;
     private HttpClient? _httpClient;
     private readonly object _lock = new();
@@ -42,11 +43,20 @@ public sealed class AtProtoOAuthService : IOAuthClientProvider, IDisposable
     /// <summary>
     /// Creates a new <see cref="AtProtoOAuthService"/>.
     /// </summary>
-    public AtProtoOAuthService(AtProtoOAuthServerOptions serverOptions, ILoggerFactory loggerFactory)
+    /// <param name="serverOptions">The OAuth server options.</param>
+    /// <param name="loggerFactory">Creates the service's loggers.</param>
+    /// <param name="identityResolver">
+    /// Resolves the handles and DIDs the login flow handles. Taken from dependency injection when
+    /// registered (see <c>AddAtProtoIdentity</c>); when <see langword="null"/>, the OAuth client
+    /// creates its own.
+    /// </param>
+    public AtProtoOAuthService(
+        AtProtoOAuthServerOptions serverOptions, ILoggerFactory loggerFactory, IIdentityResolver? identityResolver = null)
     {
         _serverOptions = serverOptions ?? throw new ArgumentNullException(nameof(serverOptions));
         _logger = loggerFactory.CreateLogger<AtProtoOAuthService>();
         _oauthClientLogger = loggerFactory.CreateLogger<OAuthClient>();
+        _identityResolver = identityResolver;
     }
 
     /// <summary>
@@ -104,6 +114,12 @@ public sealed class AtProtoOAuthService : IOAuthClientProvider, IDisposable
                 ClientMetadata = clientMetadata,
                 Scope = _serverOptions.Scopes,
                 HandleResolutionTimeout = _serverOptions.HandleResolutionTimeout,
+                IdentityResolver = _identityResolver,
+                AllowPrivateNetworks = _serverOptions.AllowPrivateNetworks,
+
+                // A caller-supplied client is theirs to secure and is used as is; without one,
+                // discovery fetches under the identity fetch policy.
+                MetadataHttpClient = _serverOptions.HttpClient,
             };
 
             // A caller-supplied client is theirs: don't touch its Timeout or headers, and

@@ -49,7 +49,7 @@ ATProto.NET is split into four runtime packages plus one `dotnet tool`. They lay
 ATProto.NET/
 ├── src/
 │   ├── ATProtoNet/                            # Core SDK
-│   │   ├── Identity/                          # Did, Handle, AtUri, Nsid, Tid, PlcClient
+│   │   ├── Identity/                          # Did, Handle, AtUri, Nsid, Tid; DID/handle resolvers, PlcClient
 │   │   ├── Auth/                              # AtProtoSession, IAtProtoSessionStore, ServiceAuthGenerator
 │   │   │   └── OAuth/                         # OAuth client, DPoP, PKCE, discovery
 │   │   ├── Crypto/                            # AtProtoCrypto, AtProtoKey (P-256 / K-256)

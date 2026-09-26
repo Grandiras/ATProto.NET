@@ -10,12 +10,20 @@ namespace ATProtoNet.Tests.Server.Spaces;
 /// A DID document resolver backed by a dictionary, so a test can publish exactly the key
 /// material and service entries it wants to verify against.
 /// </summary>
-public sealed class FakeDidDocumentResolver : ISpaceDidDocumentResolver
+/// <remarks>
+/// <see cref="Rotate"/> models a cache that predates a key rotation: resolution keeps returning
+/// the previous document until a refresh fetches the published one.
+/// </remarks>
+public sealed class FakeDidDocumentResolver : IDidResolver
 {
     private readonly Dictionary<string, DidDocument> _documents = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, DidDocument> _stale = new(StringComparer.Ordinal);
 
     /// <summary>How many times a document was resolved, for asserting on caching.</summary>
     public int ResolveCount { get; private set; }
+
+    /// <summary>How many times a document was refreshed past the cache.</summary>
+    public int RefreshCount { get; private set; }
 
     public FakeDidDocumentResolver Publish(string did, DidDocument document)
     {
@@ -23,36 +31,46 @@ public sealed class FakeDidDocumentResolver : ISpaceDidDocumentResolver
         return this;
     }
 
-    /// <summary>Publishes an ordinary account: one <c>#atproto</c> Multikey and a PDS endpoint.</summary>
-    public FakeDidDocumentResolver PublishAccount(string did, AtProtoKey key, string? pds = null)
+    /// <summary>
+    /// Publishes a new document for a DID while resolution keeps serving the current one, as a
+    /// cache would until it is refreshed.
+    /// </summary>
+    public FakeDidDocumentResolver Rotate(string did, DidDocument document)
     {
-        var document = new DidDocument
-        {
-            Id = did,
-            VerificationMethod =
-            [
-                new VerificationMethod
-                {
-                    Id = $"{did}#atproto",
-                    Type = "Multikey",
-                    Controller = did,
-                    PublicKeyMultibase = key.ToMultikey(),
-                },
-            ],
-        };
-
-        if (pds is not null)
-        {
-            document.Service.Add(new ServiceEndpoint
-            {
-                Id = "#atproto_pds",
-                Type = "AtprotoPersonalDataServer",
-                Endpoint = pds,
-            });
-        }
-
+        _stale[did] = _documents[did];
         return Publish(did, document);
     }
+
+    /// <summary>Publishes an ordinary account: one <c>#atproto</c> Multikey and a PDS endpoint.</summary>
+    public FakeDidDocumentResolver PublishAccount(string did, AtProtoKey key, string? pds = null) =>
+        Publish(did, AccountDocument(did, key, pds));
+
+    /// <summary>An ordinary account's document: one <c>#atproto</c> Multikey and a PDS endpoint.</summary>
+    public static DidDocument AccountDocument(string did, AtProtoKey key, string? pds = null) => new()
+    {
+        Id = ATProtoNet.Identity.Did.Parse(did),
+        VerificationMethod =
+        [
+            new VerificationMethod
+            {
+                Id = $"{did}#atproto",
+                Type = "Multikey",
+                Controller = did,
+                PublicKeyMultibase = key.ToMultikey(),
+            },
+        ],
+        Service = pds is null
+            ? []
+            :
+            [
+                new DidDocumentService
+                {
+                    Id = "#atproto_pds",
+                    Type = "AtprotoPersonalDataServer",
+                    Endpoint = pds,
+                },
+            ],
+    };
 
     /// <summary>
     /// Publishes an account whose key sits under a legacy <c>Ecdsa...VerificationKey2019</c>
@@ -65,7 +83,7 @@ public sealed class FakeDidDocumentResolver : ISpaceDidDocumentResolver
 
         return Publish(did, new DidDocument
         {
-            Id = did,
+            Id = ATProtoNet.Identity.Did.Parse(did),
             VerificationMethod =
             [
                 new VerificationMethod
@@ -83,9 +101,20 @@ public sealed class FakeDidDocumentResolver : ISpaceDidDocumentResolver
     {
         ResolveCount++;
 
+        if (_stale.TryGetValue(did.Value, out var stale))
+            return Task.FromResult(stale);
+
         return _documents.TryGetValue(did.Value, out var document)
             ? Task.FromResult(document)
-            : throw new SpaceVerificationException("NotAuthorized", $"No fixture for '{did}'.");
+            : Task.FromException<DidDocument>(
+                new DidResolutionException($"No fixture for '{did}'.", DidResolutionErrorKind.NotFound, did));
+    }
+
+    public Task<DidDocument> RefreshAsync(Did did, CancellationToken cancellationToken = default)
+    {
+        RefreshCount++;
+        _stale.Remove(did.Value);
+        return ResolveAsync(did, cancellationToken);
     }
 }
 

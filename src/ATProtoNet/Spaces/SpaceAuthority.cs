@@ -66,12 +66,15 @@ public static class SpaceAuthority
     /// service endpoint when no <c>#atproto_space_host</c> entry is published.
     /// </summary>
     /// <param name="didDocument">The authority's DID document.</param>
-    /// <returns>The host URL, or <see langword="null"/> when neither entry exists.</returns>
-    public static string? GetHostEndpoint(DidDocument didDocument)
+    /// <returns>
+    /// The host URL, or <see langword="null"/> when neither entry exists with an absolute http(s)
+    /// endpoint.
+    /// </returns>
+    public static Uri? GetHostEndpoint(DidDocument didDocument)
     {
         ArgumentNullException.ThrowIfNull(didDocument);
 
-        return FindService(didDocument, HostServiceId)
+        return didDocument.GetServiceEndpoint(HostServiceId)
             ?? didDocument.GetPdsEndpoint();
     }
 
@@ -83,14 +86,17 @@ public static class SpaceAuthority
     /// The service fragment (e.g. <c>#atproto_space_syncer</c>). When omitted, the space host
     /// entry is used.
     /// </param>
-    /// <returns>The endpoint URL, or <see langword="null"/> when the fragment is not published.</returns>
+    /// <returns>
+    /// The endpoint URL, or <see langword="null"/> when the fragment is not published with an
+    /// absolute http(s) endpoint.
+    /// </returns>
     /// <remarks>
     /// The space host is resolved the same way whether it is named or implied: through
     /// <see cref="GetHostEndpoint"/>, falling back to <c>#atproto_pds</c>. An authority on an
     /// ordinary PDS publishes no <c>#atproto_space_host</c> entry, and a notification addressed
     /// to <c>{authority}#atproto_space_host</c> must still reach it there.
     /// </remarks>
-    public static string? GetServiceEndpoint(DidDocument didDocument, string? serviceId)
+    public static Uri? GetServiceEndpoint(DidDocument didDocument, string? serviceId)
     {
         ArgumentNullException.ThrowIfNull(didDocument);
 
@@ -102,7 +108,7 @@ public static class SpaceAuthority
 
         return serviceId == HostServiceId
             ? GetHostEndpoint(didDocument)
-            : FindService(didDocument, serviceId);
+            : didDocument.GetServiceEndpoint(serviceId);
     }
 
     /// <summary>
@@ -128,13 +134,5 @@ public static class SpaceAuthority
         }
 
         return (did, fragment);
-    }
-
-    private static string? FindService(DidDocument didDocument, string fragment)
-    {
-        var service = didDocument.Service.FirstOrDefault(s =>
-            s.Id == fragment || s.Id == $"{didDocument.Id}{fragment}");
-
-        return string.IsNullOrEmpty(service?.Endpoint) ? null : service.Endpoint;
     }
 }

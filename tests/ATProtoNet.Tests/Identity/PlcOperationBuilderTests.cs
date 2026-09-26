@@ -7,12 +7,12 @@ namespace ATProtoNet.Tests.Identity;
 
 public sealed class PlcOperationBuilderTests
 {
-    private const string Handle = "alice.example.com";
+    private static readonly Handle AliceHandle = Handle.Parse("alice.example.com");
     private const string PdsEndpoint = "https://pds.example.com";
 
     private static JsonObject Genesis(AtProtoKey rotationKey, AtProtoKey signingKey) =>
         PlcOperationBuilder.CreateGenesisOperation(
-            [rotationKey.ToDidKey()], signingKey.ToDidKey(), Handle, PdsEndpoint);
+            [rotationKey.ToDidKey()], signingKey.ToDidKey(), AliceHandle, PdsEndpoint);
 
     // ── Genesis operation shape ──────────────────────────────
 
@@ -27,7 +27,7 @@ public sealed class PlcOperationBuilderTests
         Assert.Equal("plc_operation", op["type"]!.GetValue<string>());
         Assert.Equal(rotation.ToDidKey(), op["rotationKeys"]!.AsArray()[0]!.GetValue<string>());
         Assert.Equal(signing.ToDidKey(), op["verificationMethods"]!["atproto"]!.GetValue<string>());
-        Assert.Equal($"at://{Handle}", op["alsoKnownAs"]!.AsArray()[0]!.GetValue<string>());
+        Assert.Equal($"at://{AliceHandle}", op["alsoKnownAs"]!.AsArray()[0]!.GetValue<string>());
         Assert.Equal("AtprotoPersonalDataServer", op["services"]!["atproto_pds"]!["type"]!.GetValue<string>());
         Assert.Equal(PdsEndpoint, op["services"]!["atproto_pds"]!["endpoint"]!.GetValue<string>());
         Assert.Null(op["prev"]);
@@ -40,7 +40,7 @@ public sealed class PlcOperationBuilderTests
         using var signing = AtProtoCrypto.GenerateP256Key();
 
         var op = PlcOperationBuilder.CreateGenesisOperation(
-            [rotation.ToDidKey()], signing.ToDidKey(), Handle, "https://pds.example.com/");
+            [rotation.ToDidKey()], signing.ToDidKey(), AliceHandle, "https://pds.example.com/");
 
         Assert.Equal("https://pds.example.com", op["services"]!["atproto_pds"]!["endpoint"]!.GetValue<string>());
     }
@@ -50,7 +50,7 @@ public sealed class PlcOperationBuilderTests
     {
         using var signing = AtProtoCrypto.GenerateP256Key();
         Assert.Throws<ArgumentException>(() =>
-            PlcOperationBuilder.CreateGenesisOperation([], signing.ToDidKey(), Handle, PdsEndpoint));
+            PlcOperationBuilder.CreateGenesisOperation([], signing.ToDidKey(), AliceHandle, PdsEndpoint));
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public sealed class PlcOperationBuilderTests
         var keys = Enumerable.Range(0, 6).Select(_ => "did:key:zQ3shokFTS3brHcDQrn82RUDfCZESWL1ZdCEJwekUDPQiYBme").ToList();
 
         Assert.Throws<ArgumentException>(() =>
-            PlcOperationBuilder.CreateGenesisOperation(keys, signing.ToDidKey(), Handle, PdsEndpoint));
+            PlcOperationBuilder.CreateGenesisOperation(keys, signing.ToDidKey(), AliceHandle, PdsEndpoint));
     }
 
     // ── Signing and DID derivation ───────────────────────────
@@ -126,9 +126,8 @@ public sealed class PlcOperationBuilderTests
 
         var did = PlcOperationBuilder.Sign(Genesis(rotation, signing), rotation).Did;
 
-        Assert.StartsWith("did:plc:", did);
-        Assert.Equal(24, did["did:plc:".Length..].Length);
-        Assert.True(Did.TryParse(did, out _));
+        Assert.Equal("plc", did.Method);
+        Assert.Equal(24, did.MethodSpecificId.Length);
     }
 
     [Fact]
