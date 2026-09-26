@@ -53,7 +53,7 @@ internal sealed class WidgetHost : IAsyncDisposable
     {
         Store.SetAsync(PasswordSession(AccessJwt("a1"), "r1")).AsTask().GetAwaiter().GetResult();
         Authorization.SetAuthorized(AliceHandle.Value);
-        Authorization.SetClaims(new Claim(AtProtoClaimTypes.Did, Alice.Value));
+        Authorization.SetClaims(new Claim(AtProtoClaimTypes.Did, Alice.Value), new Claim(AtProtoClaimTypes.AuthMethod, "oauth"));
     }
 
     /// <summary>A post by Alice, as the AppView returns it.</summary>

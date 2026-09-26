@@ -82,10 +82,9 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
     {
         ArgumentNullException.ThrowIfNull(user);
 
-        var claim = user.FindFirst(AtProtoClaimTypes.Did)?.Value
-            ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        if (!Did.TryParse(claim, out var did))
+        // Only the user the OAuth login signed in: a service auth caller carries the same did
+        // claim, and must not get the account's stored session.
+        if (OAuthUser.DidOf(user) is not { } did)
             return null;
 
         var session = await _sessionStore.GetAsync(did, cancellationToken);

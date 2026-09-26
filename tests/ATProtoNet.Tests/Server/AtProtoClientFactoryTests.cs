@@ -4,6 +4,7 @@ using System.Text.Json;
 using ATProtoNet.Auth;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
+using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Services;
 using ATProtoNet.Tests.Auth;
 using Microsoft.Extensions.Logging;
@@ -34,7 +35,7 @@ public sealed class AtProtoClientFactoryTests : IDisposable
     public void Dispose() => _server.Dispose();
 
     private static ClaimsPrincipal User(string type, string value) =>
-        new(new ClaimsIdentity([new Claim(type, value)], "test"));
+        new(new ClaimsIdentity([new Claim(type, value)], "ATProto"));
 
     [Fact]
     public async Task CreateClientForUserAsync_ReturnsNull_WhenUserHasNoClaims()
@@ -210,6 +211,47 @@ public sealed class AtProtoClientFactoryTests : IDisposable
             X = jwk.GetProperty("x").GetString(),
             Y = jwk.GetProperty("y").GetString(),
         });
+    }
+
+    [Fact]
+    public async Task AServiceAuthCaller_DoesNotGetTheAccountsStoredSession()
+    {
+        // Service auth issues the same did claim for whoever holds a token naming that DID.
+        await _store.SetAsync(OAuthSession(NewDPoPKey()));
+        var caller = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(AtProtoClaimTypes.Did, Alice.Value), new Claim(AtProtoClaimTypes.Audience, "did:web:app.example.com#svc")],
+            AtProtoServiceAuthDefaults.AuthenticationScheme,
+            AtProtoClaimTypes.Did,
+            roleType: null));
+
+        Assert.Null(await _factory.CreateClientForUserAsync(caller));
+    }
+
+    [Fact]
+    public async Task APrincipalOfBothSchemes_GetsTheSignedInUsersSession()
+    {
+        await _store.SetAsync(OAuthSession(NewDPoPKey()));
+        var principal = new ClaimsPrincipal(
+        [
+            new ClaimsIdentity([new Claim(AtProtoClaimTypes.Did, "did:plc:bob")], AtProtoServiceAuthDefaults.AuthenticationScheme),
+            new ClaimsIdentity([new Claim(AtProtoClaimTypes.Did, Alice.Value)], "ATProto"),
+        ]);
+
+        await using var client = await _factory.CreateClientForUserAsync(principal);
+
+        Assert.Equal(Alice, client?.Did);
+    }
+
+    [Fact]
+    public async Task AnIdentityOfAnotherScheme_CountsWhenItSaysItIsTheOAuthUser()
+    {
+        await _store.SetAsync(OAuthSession(NewDPoPKey()));
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(AtProtoClaimTypes.Did, Alice.Value), new Claim(AtProtoClaimTypes.AuthMethod, "oauth")], "MyOwnLogin"));
+
+        await using var client = await _factory.CreateClientForUserAsync(principal);
+
+        Assert.Equal(Alice, client?.Did);
     }
 
     [Fact]

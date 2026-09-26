@@ -11,6 +11,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="ATProtoNet.Tests" />
+    <!-- The components find the signed-in user the way the client factory does. -->
+    <InternalsVisibleTo Include="ATProtoNet.Blazor" />
   </ItemGroup>
 
   <ItemGroup>

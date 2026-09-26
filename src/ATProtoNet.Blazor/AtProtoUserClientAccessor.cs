@@ -75,14 +75,7 @@ public sealed class AtProtoUserClientAccessor : IAsyncDisposable
         }
     }
 
-    private static Did? DidOf(ClaimsPrincipal user)
-    {
-        if (user.Identity?.IsAuthenticated != true)
-            return null;
-
-        var claim = user.FindFirst(AtProtoClaimTypes.Did)?.Value ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return Did.TryParse(claim, out var did) ? did : null;
-    }
+    private static Did? DidOf(ClaimsPrincipal user) => OAuthUser.DidOf(user);
 
     private async ValueTask ReleaseClientAsync()
     {

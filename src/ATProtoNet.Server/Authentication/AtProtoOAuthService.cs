@@ -345,10 +345,8 @@ public sealed class AtProtoOAuthService : IDisposable
         ArgumentNullException.ThrowIfNull(context);
 
         var sessionStore = context.RequestServices?.GetService<IAtProtoSessionStore>();
-        var claim = context.User.FindFirst(AtProtoClaimTypes.Did)?.Value
-            ?? context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        if (sessionStore is not null && Did.TryParse(claim, out var did))
+        // Only the user this login signed in: not a service auth caller naming the same DID.
+        if (sessionStore is not null && OAuthUser.DidOf(context.User) is { } did)
         {
             AtProtoSession? session;
             await using (await AcquireRefreshLeaseAsync(did, cancellationToken))
@@ -583,7 +581,7 @@ public sealed class AtProtoOAuthService : IDisposable
             new(AtProtoClaimTypes.Handle, verified ? session.Handle.Value : session.Did.Value),
             new(AtProtoClaimTypes.HandleVerified, verified ? "true" : "false"),
             new(AtProtoClaimTypes.PdsUrl, session.ServiceEndpoint.OriginalString),
-            new(AtProtoClaimTypes.AuthMethod, "oauth"),
+            new(AtProtoClaimTypes.AuthMethod, OAuthUser.AuthMethod),
         ];
     }
 
@@ -613,7 +611,7 @@ public sealed class AtProtoOAuthService : IDisposable
         var claims = _serverOptions.ClaimsFactory is not null
             ? _serverOptions.ClaimsFactory(session).ToList()
             : CreateDefaultClaims(session);
-        return new ClaimsPrincipal(new ClaimsIdentity(claims, "ATProto"));
+        return new ClaimsPrincipal(new ClaimsIdentity(claims, OAuthUser.IdentityType));
     }
 
     private AuthenticationProperties CreateAuthenticationProperties() => new()

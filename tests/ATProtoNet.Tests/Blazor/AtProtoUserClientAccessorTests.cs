@@ -24,7 +24,7 @@ public sealed class AtProtoUserClientAccessorTests : IDisposable
     public void Dispose() => _server.Dispose();
 
     private static ClaimsPrincipal User(Did did) =>
-        new(new ClaimsIdentity([new Claim(AtProtoClaimTypes.Did, did.Value)], "test"));
+        new(new ClaimsIdentity([new Claim(AtProtoClaimTypes.Did, did.Value)], "ATProto"));
 
     private void ServeSessions()
     {
@@ -52,7 +52,18 @@ public sealed class AtProtoUserClientAccessorTests : IDisposable
     [Fact]
     public async Task AUserWithoutADidClaim_HasNoClient()
     {
-        _state.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.Name, "alice")], "test"));
+        _state.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.Name, "alice")], "ATProto"));
+        await using var accessor = new AtProtoUserClientAccessor(_state, _factory);
+
+        Assert.Null(await accessor.GetClientAsync());
+        await _factory.DidNotReceiveWithAnyArgs().CreateClientForUserAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task AServiceAuthCaller_HasNoClient()
+    {
+        _state.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(AtProtoClaimTypes.Did, Alice.Value)], AtProtoServiceAuthDefaults.AuthenticationScheme));
         await using var accessor = new AtProtoUserClientAccessor(_state, _factory);
 
         Assert.Null(await accessor.GetClientAsync());

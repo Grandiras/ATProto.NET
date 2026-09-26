@@ -120,8 +120,16 @@ public interface IAtProtoClientFactory
 ```
 
 Returns `null` when:
-- The user has no `did` claim (not authenticated)
-- No session is stored for the user's DID (not logged in via OAuth, signed out, or expired)
+- The principal carries no user of the OAuth login: an authenticated identity the login issued
+  (authentication type `ATProto`), or one with an `auth_method` claim of `oauth`, holding a `did`
+  (or `ClaimTypes.NameIdentifier`) claim
+- No session is stored for the user's DID (signed out, or expired)
+
+Identities of other schemes are ignored. Service auth in particular issues the same `did` claim
+for whoever holds a token naming that DID, and such a caller must not act through the account's
+stored OAuth session; on an endpoint that accepts both schemes, the factory still returns the
+cookie user's client, or none. A principal you build yourself counts when it carries
+`auth_method` = `oauth` (`AtProtoClaimTypes.AuthMethod`).
 
 The clients refresh under the `ISessionRefreshCoordinator` that `AddAtProtoServer()` registers:
 when two requests for the same user both find the access token about to expire, one refreshes and

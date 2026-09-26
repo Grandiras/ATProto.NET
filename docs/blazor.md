@@ -192,7 +192,9 @@ constants on `AtProtoClaimTypes` (`ATProtoNet.Server.Authentication`):
 ### Custom Claims
 
 Override the default claims by providing a `ClaimsFactory`. Keep a `did` (or
-`ClaimTypes.NameIdentifier`) claim: the client factory and sign-out find the user's session by it.
+`ClaimTypes.NameIdentifier`) claim: the client factory, the widgets and sign-out find the user's
+session by it. They only look at the identity the login issues (authentication type `ATProto`),
+never at a service auth identity carrying the same claim.
 
 ```csharp
 builder.Services.AddAtProtoAuthentication(options =>

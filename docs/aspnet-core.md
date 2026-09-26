@@ -65,8 +65,10 @@ builder.Services.AddAuthorization();
 app.MapXrpcEndpoints().RequireServiceAuth();
 ```
 
-Both put the caller's DID in the `did` claim (`AtProtoClaimTypes.Did`). A service does not accept
-its users' PDS access tokens: they are meant for the PDS alone.
+Both put the caller's DID in the `did` claim (`AtProtoClaimTypes.Did`), but only the OAuth login's
+identity reaches the account's stored session through `IAtProtoClientFactory`: a service auth
+token is good for the one method it names, not for acting as the account. A service does not
+accept its users' PDS access tokens: they are meant for the PDS alone.
 
 ## Controller Example: Custom App
 

@@ -245,6 +245,28 @@ public sealed class AtProtoOAuthCallbackBindingTests : IDisposable
     }
 
     [Fact]
+    public async Task LogoutAsync_ForAServiceAuthCaller_LeavesTheAccountsSessionAlone()
+    {
+        var store = new InMemoryAtProtoSessionStore();
+        await store.SetAsync(OAuthSession(NewDPoPKey(), revocationEndpoint: RevocationEndpoint));
+        using var service = Service();
+        var services = new ServiceCollection();
+        services.AddSingleton(_auth);
+        services.AddSingleton<IAtProtoSessionStore>(store);
+        var context = new DefaultHttpContext
+        {
+            RequestServices = services.BuildServiceProvider(),
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                [new Claim(AtProtoClaimTypes.Did, Alice.Value)], AtProtoServiceAuthDefaults.AuthenticationScheme)),
+        };
+
+        await service.LogoutAsync(context);
+
+        Assert.NotNull(await store.GetAsync(Alice));
+        Assert.Empty(_server.To("/oauth/revoke"));
+    }
+
+    [Fact]
     public async Task LogoutAsync_WaitsForARefreshUnderWay_ThenRemovesAndRevokesTheSession()
     {
         // A refresh holding the account's lock finishes before the session is removed, and one
@@ -268,7 +290,7 @@ public sealed class AtProtoOAuthCallbackBindingTests : IDisposable
         var context = new DefaultHttpContext
         {
             RequestServices = services.BuildServiceProvider(),
-            User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(AtProtoClaimTypes.Did, Alice.Value)], "test")),
+            User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(AtProtoClaimTypes.Did, Alice.Value)], "ATProto")),
         };
 
         var refreshing = await coordinator.AcquireAsync(Alice);
