@@ -70,6 +70,18 @@ public enum StreamDropReason
 
     /// <summary>A commit whose CIDs or signature did not verify.</summary>
     VerificationFailed,
+
+    /// <summary>
+    /// An event no newer than the last one verified for its repository, such as a replay after a
+    /// reconnect (with <see cref="TypedFirehoseConsumerOptions.SyncVerifier"/>).
+    /// </summary>
+    Stale,
+
+    /// <summary>
+    /// An authentic event for a repository whose chain of commits is broken, which must be fetched
+    /// again before its events are delivered (with <see cref="TypedFirehoseConsumerOptions.SyncVerifier"/>).
+    /// </summary>
+    Desynchronized,
 }
 
 /// <summary>An event a stream consumer skipped, reported to <see cref="StreamConsumerOptions.OnEventDropped"/>.</summary>

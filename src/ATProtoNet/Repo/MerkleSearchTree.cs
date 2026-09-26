@@ -269,21 +269,40 @@ public sealed class MerkleSearchTree
         var separator = -1;
         for (var i = 0; i < key.Length; i++)
         {
-            var c = key[i];
-            if (c == '/')
-            {
-                if (separator >= 0)
-                    return false;
-                separator = i;
-            }
-            else if (!(c is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9')
-                       or '_' or '~' or '-' or ':' or '.'))
-            {
+            if (!IsKeyChar(key[i], i, ref separator))
                 return false;
-            }
         }
 
         return separator > 0 && separator < key.Length - 1;
+    }
+
+    /// <summary><see cref="IsValidKey(string)"/> over the bytes a tree node holds, without decoding them.</summary>
+    internal static bool IsValidKey(ReadOnlySpan<byte> key)
+    {
+        if (key.Length == 0 || key.Length > MaxKeyLength)
+            return false;
+
+        var separator = -1;
+        for (var i = 0; i < key.Length; i++)
+        {
+            if (!IsKeyChar((char)key[i], i, ref separator))
+                return false;
+        }
+
+        return separator > 0 && separator < key.Length - 1;
+    }
+
+    private static bool IsKeyChar(char c, int index, ref int separator)
+    {
+        if (c == '/')
+        {
+            if (separator >= 0)
+                return false;
+            separator = index;
+            return true;
+        }
+
+        return c is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or '_' or '~' or '-' or ':' or '.';
     }
 
     // ── Building ─────────────────────────────────────────────

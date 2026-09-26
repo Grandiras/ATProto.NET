@@ -24,10 +24,29 @@ internal delegate IAsyncEnumerable<StreamSocketMessage> StreamConnector(
     Uri endpoint, StreamSocketOptions options, CancellationToken cancellationToken);
 
 /// <summary>
+/// A connection the client also writes to: the Tap channel acknowledges events over it.
+/// </summary>
+internal interface IDuplexStreamSocket : IAsyncDisposable
+{
+    /// <summary>
+    /// Reads the next whole message, or returns <see langword="null"/> once the server has closed
+    /// the connection. The returned bytes are valid until the next call.
+    /// </summary>
+    ValueTask<StreamSocketMessage?> ReceiveAsync(CancellationToken cancellationToken);
+
+    /// <summary>Sends one text message. At most one send may run at a time.</summary>
+    ValueTask SendTextAsync(ReadOnlyMemory<byte> utf8, CancellationToken cancellationToken);
+}
+
+/// <summary>Opens a connection the client can write to. The seam the Tap channel takes, so tests can script it.</summary>
+internal delegate ValueTask<IDuplexStreamSocket> DuplexStreamConnector(
+    Uri endpoint, StreamSocketOptions options, CancellationToken cancellationToken);
+
+/// <summary>
 /// The one WebSocket client behind every event stream: connects, reassembles fragmented messages
 /// into a reused buffer, and closes the socket when the reader is done with it.
 /// </summary>
-internal sealed class StreamSocket : IAsyncDisposable
+internal sealed class StreamSocket : IDuplexStreamSocket
 {
     /// <summary>
     /// The largest message accepted. A firehose commit carries at most 2 MB of blocks, so this is
@@ -46,6 +65,10 @@ internal sealed class StreamSocket : IAsyncDisposable
 
     /// <summary>The default <see cref="StreamConnector"/>: a real WebSocket connection.</summary>
     public static StreamConnector Connector { get; } = ReadAllAsync;
+
+    /// <summary>The default <see cref="DuplexStreamConnector"/>: a real WebSocket connection.</summary>
+    public static DuplexStreamConnector DuplexConnector { get; } =
+        async (endpoint, options, cancellationToken) => await ConnectAsync(endpoint, options, cancellationToken).ConfigureAwait(false);
 
     /// <summary>
     /// Connects to <paramref name="endpoint"/>.
@@ -118,6 +141,10 @@ internal sealed class StreamSocket : IAsyncDisposable
             }
         }
     }
+
+    /// <summary>Sends one text message. At most one send may run at a time.</summary>
+    public ValueTask SendTextAsync(ReadOnlyMemory<byte> utf8, CancellationToken cancellationToken) =>
+        _socket.SendAsync(utf8, WebSocketMessageType.Text, endOfMessage: true, cancellationToken);
 
     /// <summary>Closes the connection, if it is open, and releases the socket.</summary>
     public async ValueTask DisposeAsync()

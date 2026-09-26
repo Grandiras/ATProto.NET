@@ -72,9 +72,10 @@ internal static class DagCborLink
         if (reader.PeekState() != CborReaderState.ByteString)
             throw new FormatException("A CID link (tag 42) must wrap a byte string.");
 
-        var bytes = reader.ReadByteString();
+        // Sliced from the input rather than read into an array first: one allocation per link.
+        var bytes = reader.ReadDefiniteLengthByteString().Span;
         ValidatePrefix(bytes);
-        return bytes[1..];
+        return bytes[1..].ToArray();
     }
 
     /// <summary>

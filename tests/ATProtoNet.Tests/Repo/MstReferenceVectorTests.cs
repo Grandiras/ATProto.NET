@@ -17,7 +17,7 @@ namespace ATProtoNet.Tests.Repo;
 public sealed class MstReferenceVectorTests
 {
     /// <summary>The leaf value every reference vector maps its keys to.</summary>
-    private static readonly byte[] Leaf =
+    internal static readonly byte[] Leaf =
         CidComputation.DecodeCidString("bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454");
 
     private static string Root(MerkleSearchTree tree) => CidComputation.EncodeCidToString(tree.ComputeRootCid());
@@ -241,7 +241,7 @@ public sealed class MstReferenceVectorTests
 
     // ── atproto-interop-tests: firehose/commit-proof-fixtures.json ──
 
-    private sealed record CommitProofFixture(
+    internal sealed record CommitProofFixture(
         string Comment,
         string[] Keys,
         string[] Adds,
@@ -250,7 +250,7 @@ public sealed class MstReferenceVectorTests
         string RootAfter,
         string[] BlocksInProof);
 
-    private static readonly CommitProofFixture[] CommitProofFixtures =
+    internal static readonly CommitProofFixture[] CommitProofFixtures =
     [
         new(
             "two deep split",
@@ -384,7 +384,7 @@ public sealed class MstReferenceVectorTests
     /// The deterministic key set the reference trees were built from: a 64-bit LCG whose state
     /// is spelled out as a 13-character rkey, cycling through four collections.
     /// </summary>
-    private static List<string> GeneratedKeys(ulong seed, int count)
+    internal static List<string> GeneratedKeys(ulong seed, int count)
     {
         const string alphabet = "234567abcdefghijklmnopqrstuvwxyz";
         string[] collections = ["app.bsky.feed.post", "app.bsky.feed.like", "app.bsky.graph.follow", "com.example.record"];
@@ -409,7 +409,7 @@ public sealed class MstReferenceVectorTests
     }
 
     /// <summary>The value of the <paramref name="index"/>th generated key: the CID of <c>{"i": index}</c>.</summary>
-    private static byte[] GeneratedValue(int index)
+    internal static byte[] GeneratedValue(int index)
     {
         var writer = new CborWriter(CborConformanceMode.Canonical);
         writer.WriteStartMap(1);

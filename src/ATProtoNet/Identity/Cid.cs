@@ -141,6 +141,9 @@ public sealed record Cid : IIdentifier<Cid>
     /// <returns>A new 36-byte array.</returns>
     public byte[] ToBytes() => (byte[])_bytes.Clone();
 
+    /// <summary>The binary form, without the copy <see cref="ToBytes"/> makes.</summary>
+    internal ReadOnlySpan<byte> AsSpan() => _bytes;
+
     /// <summary>
     /// Implicitly converts a <see cref="Cid"/> to its <see cref="string"/> representation.
     /// </summary>

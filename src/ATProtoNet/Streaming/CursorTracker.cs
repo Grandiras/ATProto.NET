@@ -26,6 +26,7 @@ internal sealed class CursorTracker
 
     private long? _current;
     private long? _saved;
+    private long _persistLimit = long.MaxValue;
     private int _sinceSave;
     private Task? _saving;
     private bool _saveAgain;
@@ -67,6 +68,17 @@ internal sealed class CursorTracker
     {
         lock (_gate)
             _current = position;
+    }
+
+    /// <summary>
+    /// Caps the position saved at <paramref name="limit"/>, or lifts the cap when null. A consumer
+    /// sets it below events it has taken off the stream but not yet delivered, so a restart
+    /// replays them rather than resuming past them. <see cref="Current"/> is not capped.
+    /// </summary>
+    public void SetPersistLimit(long? limit)
+    {
+        lock (_gate)
+            _persistLimit = limit ?? long.MaxValue;
     }
 
     /// <summary>
@@ -116,11 +128,18 @@ internal sealed class CursorTracker
 
         long? position;
         lock (_gate)
-            position = _current == _saved ? null : _current;
+        {
+            position = Persistable();
+            if (position == _saved)
+                position = null;
+        }
 
         if (position is { } final)
             await SaveAsync(final).ConfigureAwait(false);
     }
+
+    /// <summary>The position a save may record: <see cref="Current"/>, capped by the persist limit. Call under the lock.</summary>
+    private long? Persistable() => _current is { } current ? Math.Min(current, _persistLimit) : null;
 
     private async Task SaveLoopAsync()
     {
@@ -128,7 +147,7 @@ internal sealed class CursorTracker
         {
             long position;
             lock (_gate)
-                position = _current!.Value;
+                position = Persistable()!.Value;
 
             await SaveAsync(position).ConfigureAwait(false);
 

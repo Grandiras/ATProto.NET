@@ -98,7 +98,8 @@ public static class RecordEventExtensions
     /// </summary>
     /// <remarks>
     /// The blocks are read, not verified: verify the commit first
-    /// (<see cref="TypedFirehoseConsumerOptions.Verifier"/>) if the records must be authentic. An
+    /// (<see cref="TypedFirehoseConsumerOptions.Verifier"/> or
+    /// <see cref="TypedFirehoseConsumerOptions.SyncVerifier"/>) if the records must be authentic. An
     /// operation whose path is not a valid <c>collection/rkey</c> is skipped, and one whose record
     /// block is missing or does not decode has a null <see cref="FirehoseRecordEvent.Record"/>.
     /// </remarks>

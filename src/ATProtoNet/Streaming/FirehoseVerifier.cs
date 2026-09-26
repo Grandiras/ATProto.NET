@@ -13,7 +13,8 @@ namespace ATProtoNet.Streaming;
 /// <remarks>
 /// <para>It does not invert the commit's operations against the previous MST root
 /// (<c>prevData</c>), so it does not prove that the operations listed are the ones the signed
-/// commit made.</para>
+/// commit made, nor that no commit was missed. <see cref="RepoSyncVerifier"/> does both: the
+/// Sync 1.1 checks.</para>
 /// <para>Signature verification reads each account's signing key from its DID document, so the
 /// resolver must cache: a firehose carries thousands of commits a second from far fewer
 /// accounts. The default one does, and a cached key costs no network at all. Keep the cache

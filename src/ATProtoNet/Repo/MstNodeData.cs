@@ -36,8 +36,12 @@ internal sealed class MstNodeData
     public byte[] ToBytes()
     {
         // Every map is written in canonical key order by hand ("e" < "l"; "k" < "p" < "t" < "v"),
-        // so the writer need not buffer and re-sort it.
-        var writer = new CborWriter(CborConformanceMode.Lax);
+        // so the writer need not buffer and re-sort it. Sized up front, so encoding a node (which
+        // inverting every firehose commit does several times) does not grow the buffer step by step.
+        var size = 48;
+        foreach (var entry in Entries)
+            size += entry.KeySuffix.Length + 96;
+        var writer = new CborWriter(CborConformanceMode.Lax, initialCapacity: size);
 
         writer.WriteStartMap(2);
         writer.WriteTextString("e");
@@ -91,22 +95,17 @@ internal sealed class MstNodeData
         var mapLen = reader.ReadStartMap()
                     ?? throw new FormatException("MST node must be a definite-length map.");
 
+        // Keys are compared as bytes rather than read as strings: a firehose consumer decodes
+        // every node of every commit it inverts, and a string per field adds up.
         for (var i = 0; i < mapLen; i++)
         {
-            var key = reader.ReadTextString();
-            switch (key)
-            {
-                case "e":
-                    entries = ReadEntries(reader);
-                    break;
-                case "l":
-                    left = DagCborLink.ReadNullable(reader);
-                    break;
-                default:
-                    // Skip unknown fields
-                    reader.SkipValue();
-                    break;
-            }
+            var key = reader.ReadDefiniteLengthTextStringBytes().Span;
+            if (key.SequenceEqual("e"u8))
+                entries = ReadEntries(reader);
+            else if (key.SequenceEqual("l"u8))
+                left = DagCborLink.ReadNullable(reader);
+            else
+                reader.SkipValue();
         }
 
         reader.ReadEndMap();
@@ -142,25 +141,17 @@ internal sealed class MstNodeData
 
             for (var j = 0; j < entryMapLen; j++)
             {
-                var field = reader.ReadTextString();
-                switch (field)
-                {
-                    case "p":
-                        prefixLen = reader.ReadInt64();
-                        break;
-                    case "k":
-                        keySuffix = reader.ReadByteString();
-                        break;
-                    case "v":
-                        value = DagCborLink.Read(reader);
-                        break;
-                    case "t":
-                        tree = DagCborLink.ReadNullable(reader);
-                        break;
-                    default:
-                        reader.SkipValue();
-                        break;
-                }
+                var field = reader.ReadDefiniteLengthTextStringBytes().Span;
+                if (field.SequenceEqual("p"u8))
+                    prefixLen = reader.ReadInt64();
+                else if (field.SequenceEqual("k"u8))
+                    keySuffix = reader.ReadByteString();
+                else if (field.SequenceEqual("v"u8))
+                    value = DagCborLink.Read(reader);
+                else if (field.SequenceEqual("t"u8))
+                    tree = DagCborLink.ReadNullable(reader);
+                else
+                    reader.SkipValue();
             }
 
             reader.ReadEndMap();

@@ -46,7 +46,8 @@ If you want a map of how the packages compose, see **[Architecture](architecture
 - [XRPC Endpoint Handlers](xrpc-handlers.md) — server-side XRPC endpoints with DI
 
 ### Advanced
-- [Firehose Streaming](firehose.md) — real-time event streaming, typed consumers, verification
+- [Firehose Streaming](firehose.md) — real-time event streaming, typed consumers, Sync 1.1 verification and resync
+- [Tap](tap.md) — a client for Tap, Bluesky's Sync 1.1 consumer and backfill service: channel, admin API, webhooks
 - [Jetstream Streaming](jetstream.md) — JSON event streaming with server-side collection/DID/kind filtering, on both the v1 and v2 wire protocols, plus the v2 archive (historical replay and snapshots)
 - [Cryptography](crypto.md) — key generation, signing, multikey encoding, service auth
 - [Lexicon Code Generator](lexicon-codegen.md) — generate C# from Lexicons (and vice versa)

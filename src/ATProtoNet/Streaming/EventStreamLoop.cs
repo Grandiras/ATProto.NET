@@ -37,6 +37,21 @@ internal abstract class EventStreamHandler<T> where T : class
     {
     }
 
+    /// <summary>
+    /// <see cref="Delivered"/>, for a handler that has to await what it records.
+    /// </summary>
+    public virtual ValueTask DeliveredAsync(T message, CancellationToken cancellationToken)
+    {
+        Delivered(message);
+        return ValueTask.CompletedTask;
+    }
+
+    /// <summary>
+    /// A message the handler has ready that did not come from the frame just read, such as work it
+    /// finished in the background; delivered before the next frame is read. Null when there is none.
+    /// </summary>
+    public virtual ValueTask<T?> NextPendingAsync(CancellationToken cancellationToken) => default;
+
     /// <summary>A frame was skipped because it could not be read.</summary>
     public abstract void Dropped(StreamDropReason reason, long? cursor, string? detail);
 }
@@ -93,6 +108,23 @@ internal static class EventStreamLoop
                 {
                     while (!cancellationToken.IsCancellationRequested)
                     {
+                        T? pending;
+                        try
+                        {
+                            pending = await handler.NextPendingAsync(cancellationToken).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                        {
+                            break;
+                        }
+
+                        if (pending is not null)
+                        {
+                            yield return pending;
+                            await handler.DeliveredAsync(pending, cancellationToken).ConfigureAwait(false);
+                            continue;
+                        }
+
                         StreamSocketMessage frame;
                         try
                         {
@@ -136,7 +168,7 @@ internal static class EventStreamLoop
                             continue;
 
                         yield return message;
-                        handler.Delivered(message);
+                        await handler.DeliveredAsync(message, cancellationToken).ConfigureAwait(false);
                     }
                 }
                 finally
