@@ -20,6 +20,7 @@ public sealed class AtProtoUserClientAccessorTests : IDisposable
     private readonly StubServer _server = new() { Respond = _ => JsonResponse("{}") };
     private readonly TestAuthenticationState _state = new();
     private readonly IAtProtoClientFactory _factory = Substitute.For<IAtProtoClientFactory>();
+    private readonly InMemoryAtProtoSessionStore _sessions = new();
 
     public void Dispose() => _server.Dispose();
 
@@ -28,6 +29,9 @@ public sealed class AtProtoUserClientAccessorTests : IDisposable
 
     private void ServeSessions()
     {
+        foreach (var did in new[] { Alice, Did.Parse("did:plc:bob") })
+            _sessions.SetAsync(PasswordSession(AccessJwt("a1"), "r1") with { Did = did }).AsTask().Wait();
+
         _factory.CreateClientForUserAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>())
             .Returns(call => ClientForAsync(call.Arg<ClaimsPrincipal>()!));
     }
@@ -43,7 +47,7 @@ public sealed class AtProtoUserClientAccessorTests : IDisposable
     [Fact]
     public async Task SignedOut_ReturnsNullWithoutAskingTheFactory()
     {
-        await using var accessor = new AtProtoUserClientAccessor(_state, _factory);
+        await using var accessor = new AtProtoUserClientAccessor(_state, _factory, _sessions);
 
         Assert.Null(await accessor.GetClientAsync());
         await _factory.DidNotReceiveWithAnyArgs().CreateClientForUserAsync(default!, default);
@@ -53,7 +57,7 @@ public sealed class AtProtoUserClientAccessorTests : IDisposable
     public async Task AUserWithoutADidClaim_HasNoClient()
     {
         _state.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.Name, "alice")], "ATProto"));
-        await using var accessor = new AtProtoUserClientAccessor(_state, _factory);
+        await using var accessor = new AtProtoUserClientAccessor(_state, _factory, _sessions);
 
         Assert.Null(await accessor.GetClientAsync());
         await _factory.DidNotReceiveWithAnyArgs().CreateClientForUserAsync(default!, default);
@@ -64,7 +68,7 @@ public sealed class AtProtoUserClientAccessorTests : IDisposable
     {
         _state.User = new ClaimsPrincipal(new ClaimsIdentity(
             [new Claim(AtProtoClaimTypes.Did, Alice.Value)], AtProtoServiceAuthDefaults.AuthenticationScheme));
-        await using var accessor = new AtProtoUserClientAccessor(_state, _factory);
+        await using var accessor = new AtProtoUserClientAccessor(_state, _factory, _sessions);
 
         Assert.Null(await accessor.GetClientAsync());
         await _factory.DidNotReceiveWithAnyArgs().CreateClientForUserAsync(default!, default);
@@ -75,7 +79,7 @@ public sealed class AtProtoUserClientAccessorTests : IDisposable
     {
         ServeSessions();
         _state.User = User(Alice);
-        await using var accessor = new AtProtoUserClientAccessor(_state, _factory);
+        await using var accessor = new AtProtoUserClientAccessor(_state, _factory, _sessions);
 
         var first = await accessor.GetClientAsync();
         var second = await accessor.GetClientAsync();
@@ -90,7 +94,7 @@ public sealed class AtProtoUserClientAccessorTests : IDisposable
     {
         ServeSessions();
         _state.User = User(Alice);
-        await using var accessor = new AtProtoUserClientAccessor(_state, _factory);
+        await using var accessor = new AtProtoUserClientAccessor(_state, _factory, _sessions);
         var alice = (await accessor.GetClientAsync())!;
 
         _state.User = User(Did.Parse("did:plc:bob"));
@@ -105,7 +109,7 @@ public sealed class AtProtoUserClientAccessorTests : IDisposable
     {
         ServeSessions();
         _state.User = User(Alice);
-        await using var accessor = new AtProtoUserClientAccessor(_state, _factory);
+        await using var accessor = new AtProtoUserClientAccessor(_state, _factory, _sessions);
         var client = (await accessor.GetClientAsync())!;
 
         _state.User = new ClaimsPrincipal(new ClaimsIdentity());
@@ -119,7 +123,7 @@ public sealed class AtProtoUserClientAccessorTests : IDisposable
     {
         ServeSessions();
         _state.User = User(Alice);
-        await using var accessor = new AtProtoUserClientAccessor(_state, _factory);
+        await using var accessor = new AtProtoUserClientAccessor(_state, _factory, _sessions);
         var first = (await accessor.GetClientAsync())!;
         await first.LogoutAsync();
 
@@ -130,11 +134,27 @@ public sealed class AtProtoUserClientAccessorTests : IDisposable
     }
 
     [Fact]
+    public async Task ASessionSignedOutElsewhere_IsNoLongerHandedOut()
+    {
+        // Another tab or request signed the user out: the store no longer holds the session,
+        // while this client's copy would stay usable until its access token expired.
+        ServeSessions();
+        _state.User = User(Alice);
+        await using var accessor = new AtProtoUserClientAccessor(_state, _factory, _sessions);
+        var client = (await accessor.GetClientAsync())!;
+
+        await _sessions.RemoveAsync(Alice);
+
+        Assert.Null(await accessor.GetClientAsync());
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => client.TryRestoreSessionAsync(Alice));
+    }
+
+    [Fact]
     public async Task DisposeAsync_DisposesTheClient()
     {
         ServeSessions();
         _state.User = User(Alice);
-        var accessor = new AtProtoUserClientAccessor(_state, _factory);
+        var accessor = new AtProtoUserClientAccessor(_state, _factory, _sessions);
         var client = (await accessor.GetClientAsync())!;
 
         await accessor.DisposeAsync();

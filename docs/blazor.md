@@ -353,9 +353,12 @@ Or with role-based authorization using a custom `ClaimsFactory`:
 user's client from `AtProtoUserClientAccessor`, a scoped service `AddAtProtoBlazor()` registers:
 it creates the client through `IAtProtoClientFactory` from the authentication state on first use,
 shares it among the components of the circuit (or of a server-rendered request), replaces it when
-the user changes, and disposes it with the scope. When nobody is signed in, or no session is stored
-for the user, the widgets say so instead of calling anything. Your own components can inject the
-accessor too:
+the user changes, and disposes it with the scope. Each call checks that the session store still
+holds the user's session, so a sign-out in another tab or request takes effect in a long-lived
+circuit at once. When nobody is signed in, or no session is stored for the user, the widgets say so
+instead of calling anything, and try again when the authentication state changes (with
+`AddCascadingAuthenticationState()`) or their parent renders them again. Your own components can
+inject the accessor too:
 
 ```razor
 @inject AtProtoUserClientAccessor UserClient
@@ -387,8 +390,9 @@ accessor too:
 | `OnLike` | `EventCallback<PostView>` | — | Replaces the posts' own like behaviour |
 | `CssClass` | `string?` | — | Extra class on the container |
 
-The feed loads again only when `FeedSource` or `PageSize` changes. Give a `FeedView` a new `@key`
-to start it afresh, for example after the user posts.
+Once loaded, the feed loads again only when `FeedSource`, `PageSize` or the authentication state
+changes; a load that failed, or found nobody signed in, is tried again the next time the parent
+renders it. Give a `FeedView` a new `@key` to start it afresh, for example after the user posts.
 
 ### Post Card
 

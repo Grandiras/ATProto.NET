@@ -81,9 +81,15 @@ else
     /// <summary>Optional CSS class.</summary>
     [Parameter] public string? CssClass { get; set; }
 
+    /// <summary>
+    /// The authentication state, when the app cascades it: a new one (a sign-in, a sign-out) loads
+    /// the feed again.
+    /// </summary>
+    [CascadingParameter] private Task<AuthenticationState>? AuthenticationState { get; set; }
+
     private List<FeedViewPost> _feedItems = [];
-    private FeedSource? _loadedSource;
-    private int _loadedPageSize;
+    private (FeedSource Source, int PageSize, Task<AuthenticationState>? Auth)? _requested;
+    private bool _loaded;
     private string? _cursor;
     private string? _error;
     private bool _loading;
@@ -94,13 +100,13 @@ else
     {
         ArgumentNullException.ThrowIfNull(FeedSource);
 
-        // A parent re-rendering passes the same parameters again; only a new source or page size
-        // is a new feed.
-        if (FeedSource == _loadedSource && PageSize == _loadedPageSize)
+        // A parent re-rendering passes the same parameters again: the feed loads again only when
+        // they change, or when the last attempt did not load it (signed out, or failed).
+        var request = (FeedSource, PageSize, AuthenticationState);
+        if (_requested == request && (_loading || _loaded))
             return;
 
-        _loadedSource = FeedSource;
-        _loadedPageSize = PageSize;
+        _requested = request;
         await ReloadAsync();
     }
 
@@ -108,6 +114,7 @@ else
     {
         _feedItems = [];
         _cursor = null;
+        _loaded = false;
         await LoadPageAsync(cursor: null);
     }
 
@@ -143,6 +150,7 @@ else
 
             _feedItems.AddRange(response.Feed);
             _cursor = response.Cursor;
+            _loaded = true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

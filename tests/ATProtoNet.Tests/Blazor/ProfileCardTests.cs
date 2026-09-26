@@ -71,6 +71,34 @@ public sealed class ProfileCardTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task SigningInWhileTheCardAskedToSignIn_LoadsTheProfile()
+    {
+        await using var host = new WidgetHost(signedIn: false);
+        host.Server.Respond = _ => JsonResponse(ProfileJson);
+        var cut = host.Context.Render<ProfileCard>(p => p.Add(x => x.Actor, AtIdentifier.Parse("bob.test")));
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find(".atproto-profile-error")));
+
+        host.SignIn();
+
+        cut.WaitForAssertion(() => Assert.Equal("Bob", cut.Find(".atproto-profile-displayname").TextContent));
+    }
+
+    [Fact]
+    public void AFailedLoad_IsRetriedWhenTheParentRendersAgain()
+    {
+        var fail = true;
+        _host.Server.Respond = _ => fail ? XrpcError("InternalServerError") : JsonResponse(ProfileJson);
+        var actor = AtIdentifier.Parse("bob.test");
+        var cut = _host.Context.Render<ProfileCard>(p => p.Add(x => x.Actor, actor));
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find(".atproto-profile-error")));
+
+        fail = false;
+        cut.Render(p => p.Add(x => x.Actor, actor));
+
+        cut.WaitForAssertion(() => Assert.Equal("Bob", cut.Find(".atproto-profile-displayname").TextContent));
+    }
+
+    [Fact]
     public void NeitherProfileNorActor_RendersNothing()
     {
         var cut = _host.Context.Render<ProfileCard>();

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ATProtoNet.Auth;
 using ATProtoNet.Identity;
 using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Services;
@@ -14,8 +15,10 @@ namespace ATProtoNet.Blazor;
 /// <remarks>
 /// <para>Registered as a scoped service by
 /// <see cref="AtProtoBlazorServiceCollectionExtensions.AddAtProtoBlazor"/>. The client is created
-/// on first use and kept while the same account stays signed in; when the user changes, signs
-/// out, or the session ends, the next call creates it again (or returns
+/// on first use and kept while the same account stays signed in and the session store still holds
+/// its session: every call reads the store, so a session signed out elsewhere (another tab, another
+/// request) or ended by a refused refresh stops being handed out. When the user changes, signs out,
+/// or the session ends, the next call creates the client again (or returns
 /// <see langword="null"/>). It is disposed with the scope.</para>
 /// <para>A circuit can live for hours; the client refreshes its session as it needs to, under the
 /// factory's refresh coordinator, so it keeps working alongside the requests and circuits that
@@ -25,6 +28,7 @@ public sealed class AtProtoUserClientAccessor : IAsyncDisposable
 {
     private readonly AuthenticationStateProvider _authenticationState;
     private readonly IAtProtoClientFactory _factory;
+    private readonly IAtProtoSessionStore _sessionStore;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private AtProtoClient? _client;
     private bool _disposed;
@@ -32,10 +36,13 @@ public sealed class AtProtoUserClientAccessor : IAsyncDisposable
     /// <summary>Creates the accessor.</summary>
     /// <param name="authenticationState">The authentication state of the circuit or request.</param>
     /// <param name="factory">Creates the client from the user's stored session.</param>
-    public AtProtoUserClientAccessor(AuthenticationStateProvider authenticationState, IAtProtoClientFactory factory)
+    /// <param name="sessionStore">The store the factory reads, checked for the session on every call.</param>
+    public AtProtoUserClientAccessor(
+        AuthenticationStateProvider authenticationState, IAtProtoClientFactory factory, IAtProtoSessionStore sessionStore)
     {
         _authenticationState = authenticationState ?? throw new ArgumentNullException(nameof(authenticationState));
         _factory = factory ?? throw new ArgumentNullException(nameof(factory));
+        _sessionStore = sessionStore ?? throw new ArgumentNullException(nameof(sessionStore));
     }
 
     /// <summary>
@@ -61,7 +68,15 @@ public sealed class AtProtoUserClientAccessor : IAsyncDisposable
             ObjectDisposedException.ThrowIf(_disposed, this);
 
             if (_client is { IsAuthenticated: true } current && did is not null && current.Did == did)
-                return current;
+            {
+                // Signed out elsewhere: the client's own copy stays valid until its access token
+                // expires, and must not outlive the sign-out that long.
+                if (await _sessionStore.GetAsync(did, cancellationToken) is not null)
+                    return current;
+
+                await ReleaseClientAsync();
+                return null;
+            }
 
             await ReleaseClientAsync();
             if (did is not null)

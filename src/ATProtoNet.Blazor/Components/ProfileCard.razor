@@ -92,8 +92,14 @@ else if (_error is not null)
     /// <summary>Optional child content rendered at the bottom of the card.</summary>
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
+    /// <summary>
+    /// The authentication state, when the app cascades it: a new one (a sign-in, a sign-out)
+    /// fetches the profile again.
+    /// </summary>
+    [CascadingParameter] private Task<AuthenticationState>? AuthenticationState { get; set; }
+
     private ProfileViewDetailed? _loaded;
-    private AtIdentifier? _loadedActor;
+    private (AtIdentifier Actor, Task<AuthenticationState>? Auth)? _requested;
     private bool _loading;
     private string? _error;
 
@@ -105,15 +111,19 @@ else if (_error is not null)
         if (Profile is not null || Actor is null)
         {
             _loaded = null;
-            _loadedActor = null;
+            _requested = null;
             _error = null;
             return;
         }
 
-        if (Actor == _loadedActor)
+        // Fetched again only for another actor or authentication state, or when the last attempt
+        // did not load it (signed out, or failed).
+        var request = (Actor, AuthenticationState);
+        if (_requested == request && (_loading || _loaded is not null))
             return;
 
-        var actor = _loadedActor = Actor;
+        _requested = request;
+        var actor = Actor;
         _loaded = null;
         _error = null;
         _loading = true;
@@ -123,7 +133,7 @@ else if (_error is not null)
             var client = await UserClient.GetClientAsync();
             var profile = client is null ? null : await client.Bsky.Actor.GetProfileAsync(actor);
 
-            if (actor != Actor)
+            if (_requested != request)
                 return;
 
             _loaded = profile;
@@ -133,12 +143,12 @@ else if (_error is not null)
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             Logger.LogWarning(ex, "Loading the profile of {Actor} failed", actor);
-            if (actor == Actor)
+            if (_requested == request)
                 _error = "Couldn't load the profile.";
         }
         finally
         {
-            if (actor == Actor)
+            if (_requested == request)
                 _loading = false;
         }
     }

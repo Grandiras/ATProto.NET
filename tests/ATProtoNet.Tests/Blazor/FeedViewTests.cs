@@ -128,6 +128,33 @@ public sealed class FeedViewTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task SigningInWhileTheFeedAskedToSignIn_LoadsIt()
+    {
+        await using var host = new WidgetHost(signedIn: false);
+        host.Server.Respond = _ => FeedResponse(null, PostJson("p1", "hello"));
+        var cut = host.Context.Render<FeedView>();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find(".atproto-feed-signed-out")));
+
+        host.SignIn();
+
+        cut.WaitForAssertion(() => Assert.Single(cut.FindAll("article.atproto-post")));
+    }
+
+    [Fact]
+    public void AFailedLoad_IsRetriedWhenTheParentRendersAgain()
+    {
+        var fail = true;
+        _host.Server.Respond = _ => fail ? XrpcError("InternalServerError") : FeedResponse(null, PostJson("p1", "back"));
+        var cut = _host.Context.Render<FeedView>();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find(".atproto-feed-error")));
+
+        fail = false;
+        cut.Render(p => p.Add(x => x.FeedSource, FeedSource.Timeline));
+
+        cut.WaitForAssertion(() => Assert.Single(cut.FindAll("article.atproto-post")));
+    }
+
+    [Fact]
     public async Task SignedInWithoutAStoredSession_AsksToSignIn()
     {
         await _host.Store.RemoveAsync(Alice);
