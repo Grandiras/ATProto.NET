@@ -36,17 +36,4 @@ public sealed class HostingClient
         return _xrpc.QueryAsync<GetAccountHistoryResponse>(
             "tools.ozone.hosting.getAccountHistory", parameters, cancellationToken: cancellationToken);
     }
-
-    /// <summary>Enumerate an account's whole history on its host, fetching pages as needed.</summary>
-    /// <param name="did">The account's DID.</param>
-    /// <param name="events">Only these kinds of event (see <see cref="AccountHistoryEventType"/>).</param>
-    /// <param name="pageSize">Events per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<AccountHistoryEvent> EnumerateAccountHistoryAsync(
-        Did did,
-        IEnumerable<string>? events = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<GetAccountHistoryResponse, AccountHistoryEvent>(
-            (cursor, ct) => GetAccountHistoryAsync(did, events, pageSize, cursor, ct),
-            cancellationToken);
 }

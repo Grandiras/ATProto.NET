@@ -141,15 +141,19 @@ public class PaginationTests : IDisposable
     }
 
     [Fact]
-    public async Task EnumerateBlobsAsync_WalksEveryPage()
+    public async Task EnumerateAsync_OverAnEndpointWithNoDedicatedEnumerator_WalksEveryPage()
     {
+        // The public one-liner every removed `Enumerate*` wrapper is replaced by.
         _stub.Fallback(request => HttpStub.JsonResponse(request.Query.Contains("cursor=")
             ? $$"""{"cids":["{{Cid1}}"]}"""
             : $$"""{"cursor":"next","cids":["{{Cid1}}","{{Cid1}}"]}"""));
 
         var cids = new List<Cid>();
-        await foreach (var cid in _client.Sync.EnumerateBlobsAsync(Did.Parse(DidText)))
+        await foreach (var cid in Pagination.EnumerateAsync<ATProtoNet.Lexicon.Com.AtProto.Sync.ListBlobsResponse, Cid>(
+            (cursor, ct) => _client.Sync.ListBlobsAsync(Did.Parse(DidText), cursor: cursor, cancellationToken: ct)))
+        {
             cids.Add(cid);
+        }
 
         Assert.Equal(3, cids.Count);
         Assert.All(cids, cid => Assert.Equal(Cid1, cid.Value));

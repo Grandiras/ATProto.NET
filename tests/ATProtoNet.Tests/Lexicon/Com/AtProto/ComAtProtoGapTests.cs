@@ -116,18 +116,6 @@ public sealed class ComAtProtoGapTests : IDisposable
     }
 
     [Fact]
-    public async Task EnumerateSearchAccountsAsync_FollowsTheCursor()
-    {
-        _stub.On("com.atproto.admin.searchAccounts", $$"""{"cursor":"next","accounts":[{"did":"{{DidText}}","handle":"a.test","indexedAt":"2026-01-01T00:00:00.000Z"}]}""");
-        _stub.On("com.atproto.admin.searchAccounts", """{"accounts":[{"did":"did:plc:bbbbbbbbbbbbbbbbbbbbbbbb","handle":"b.test","indexedAt":"2026-01-01T00:00:00.000Z"}]}""");
-
-        var accounts = await _client.Admin.EnumerateSearchAccountsAsync(pageSize: 1).ToListAsync();
-
-        Assert.Equal(["a.test", "b.test"], accounts.Select(a => a.Handle.Value));
-        Assert.Contains("cursor=next", Last.Query);
-    }
-
-    [Fact]
     public async Task UpdateAccountSigningKeyAsync_PostsTheDidAndKey()
     {
         await _client.Admin.UpdateAccountSigningKeyAsync(Did.Parse(DidText), Did.Parse(KeyText));

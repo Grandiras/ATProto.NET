@@ -72,23 +72,15 @@ public abstract class ChatMemberKind : LexObject;
 /// A member kind whose <c>$type</c> this SDK version does not model. It keeps the raw object and
 /// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownChatMemberKind : ChatMemberKind, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownChatMemberKind(string type, JsonElement raw) : ChatMemberKind, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown member kind from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownChatMemberKind(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>A member of a direct conversation (<c>chat.bsky.actor.defs#directConvoMember</c>).</summary>

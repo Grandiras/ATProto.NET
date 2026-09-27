@@ -270,9 +270,9 @@ await pds.RestoreAccountAsync(did);
 await pds.DeleteAccountAsync(did);                // permanent
 ```
 
-`SearchAccountsAsync(email: …)` / `EnumerateSearchAccountsAsync` find accounts by email address
-on a [Tranquil PDS](#tranquil-pds); the reference PDS does not implement
-`com.atproto.admin.searchAccounts` and answers with an error.
+`SearchAccountsAsync(email: …)` finds accounts by email address on a [Tranquil PDS](#tranquil-pds);
+the reference PDS does not implement `com.atproto.admin.searchAccounts` and answers with an error.
+Walk every page with `Pagination.EnumerateAsync`.
 
 For endpoints these wrappers do not cover, `pds.Admin` and `pds.Server` expose the raw
 `com.atproto.admin.*` and `com.atproto.server.*` clients with the admin credentials
@@ -280,11 +280,17 @@ already applied:
 
 <!-- snippet: PdsAdminClient pds; -->
 ```csharp
+using ATProtoNet.Http;
+using ATProtoNet.Lexicon.Com.AtProto.Admin;
+
 var invites = await pds.Admin.GetInviteCodesAsync(sort: "recent", limit: 50);
 await pds.Admin.DisableAccountInvitesAsync(Did.Parse("did:plc:..."));
 
-await foreach (var code in pds.Admin.EnumerateInviteCodesAsync())
+await foreach (var code in Pagination.EnumerateAsync<GetInviteCodesResponse, InviteCode>(
+    (cursor, ct) => pds.Admin.GetInviteCodesAsync(sort: "recent", cursor: cursor, cancellationToken: ct)))
+{
     Console.WriteLine($"{code.Code}: {code.Available} uses left");
+}
 ```
 
 Under the hood the admin client carries HTTP Basic admin auth on its own XRPC transport, separate

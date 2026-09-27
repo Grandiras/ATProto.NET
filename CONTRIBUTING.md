@@ -163,10 +163,13 @@ These rules apply to every model and client method generated from, or written ag
 
 - Every cursored response implements `ICursorPage<T>`, with `Items` implemented explicitly over the
   Lexicon-named list so the wire shape does not change.
-- `List*` / `Get*` / `Search*` return one page. `Enumerate*` returns `IAsyncEnumerable<T>`, takes
-  `int? pageSize = null` (`null` is the server default), and goes through the internal
-  `Http/Pagination.EnumerateAsync`, which stops on a `null`, empty or repeated cursor. Do not write
-  another cursor loop.
+- `List*` / `Get*` / `Search*` return one page. The public `Http.Pagination.EnumerateAsync<TPage, T>`
+  walks any of them, stopping on a `null`, empty or repeated cursor; do not write another cursor
+  loop. Only add a dedicated `Enumerate*` wrapper for an endpoint a tracking issue explicitly asks
+  for (the SDK keeps 13 of them, see `docs/migrating-to-0.7.md`) — everything else is one line at
+  the call site: `Pagination.EnumerateAsync<TPage, T>((cursor, ct) => client.X.GetYAsync(..., cursor,
+  ct))`. A kept `Enumerate*` returns `IAsyncEnumerable<T>` and takes `int? pageSize = null` (`null`
+  is the server default) instead of `limit`/`cursor`.
 
 **Before and after**
 

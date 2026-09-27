@@ -59,17 +59,6 @@ public sealed class AdminClient
             "com.atproto.admin.searchAccounts", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>Enumerate every account matching a search, fetching pages as needed.</summary>
-    /// <param name="email">The email address to match.</param>
-    /// <param name="pageSize">Accounts per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<AccountInfo> EnumerateSearchAccountsAsync(
-        string? email = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<SearchAccountsResponse, AccountInfo>(
-            (cursor, ct) => SearchAccountsAsync(email, pageSize, cursor, ct),
-            cancellationToken);
-
     /// <summary>Get the status of a subject (account, record, or blob).</summary>
     /// <param name="did">The account DID, for an account subject (or a blob's owner).</param>
     /// <param name="uri">The record's AT URI, for a record subject.</param>
@@ -108,7 +97,7 @@ public sealed class AdminClient
     public async Task DeleteAccountAsync(
         Did did, CancellationToken cancellationToken = default)
     {
-        var request = new AdminDeleteAccountRequest { Did = did };
+        var request = new AdminDeleteAccountRequest(Did: did);
         await _xrpc.ProcedureAsync(
             "com.atproto.admin.deleteAccount", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
@@ -120,7 +109,7 @@ public sealed class AdminClient
         Did account, string? note = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new DisableAccountInvitesRequest { Account = account, Note = note };
+        var request = new AccountInvitesRequest(account, note);
         await _xrpc.ProcedureAsync(
             "com.atproto.admin.disableAccountInvites", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
@@ -132,7 +121,7 @@ public sealed class AdminClient
         Did account, string? note = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new EnableAccountInvitesRequest { Account = account, Note = note };
+        var request = new AccountInvitesRequest(account, note);
         await _xrpc.ProcedureAsync(
             "com.atproto.admin.enableAccountInvites", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
@@ -144,7 +133,7 @@ public sealed class AdminClient
         AtIdentifier account, string email,
         CancellationToken cancellationToken = default)
     {
-        var request = new UpdateAccountEmailRequest { Account = account, Email = email };
+        var request = new UpdateAccountEmailRequest(Account: account, Email: email);
         await _xrpc.ProcedureAsync(
             "com.atproto.admin.updateAccountEmail", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
@@ -156,7 +145,7 @@ public sealed class AdminClient
         Did did, Handle handle,
         CancellationToken cancellationToken = default)
     {
-        var request = new UpdateAccountHandleRequest { Did = did, Handle = handle };
+        var request = new UpdateAccountHandleRequest(Did: did, Handle: handle);
         await _xrpc.ProcedureAsync(
             "com.atproto.admin.updateAccountHandle", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
@@ -168,7 +157,7 @@ public sealed class AdminClient
         Did did, string password,
         CancellationToken cancellationToken = default)
     {
-        var request = new UpdateAccountPasswordRequest { Did = did, Password = password };
+        var request = new UpdateAccountPasswordRequest(Did: did, Password: password);
         await _xrpc.ProcedureAsync(
             "com.atproto.admin.updateAccountPassword", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
@@ -183,7 +172,7 @@ public sealed class AdminClient
         Did did, Did signingKey,
         CancellationToken cancellationToken = default)
     {
-        var request = new UpdateAccountSigningKeyRequest { Did = did, SigningKey = signingKey };
+        var request = new UpdateAccountSigningKeyRequest(Did: did, SigningKey: signingKey);
         await _xrpc.ProcedureAsync(
             "com.atproto.admin.updateAccountSigningKey", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
@@ -195,7 +184,7 @@ public sealed class AdminClient
         IEnumerable<string>? codes = null, IEnumerable<string>? accounts = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new DisableInviteCodesRequest { Codes = codes?.ToList(), Accounts = accounts?.ToList() };
+        var request = new DisableInviteCodesRequest(Codes: codes?.ToList(), Accounts: accounts?.ToList());
         await _xrpc.ProcedureAsync(
             "com.atproto.admin.disableInviteCodes", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
@@ -216,15 +205,4 @@ public sealed class AdminClient
         return _xrpc.QueryAsync<GetInviteCodesResponse>(
             "com.atproto.admin.getInviteCodes", parameters, cancellationToken: cancellationToken);
     }
-
-    /// <summary>Enumerate every invite code on the server, fetching pages as needed.</summary>
-    /// <param name="sort">The order: <c>recent</c> (the default) or <c>usage</c>.</param>
-    /// <param name="pageSize">Codes per request (1-500); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<InviteCode> EnumerateInviteCodesAsync(
-        string? sort = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<GetInviteCodesResponse, InviteCode>(
-            (cursor, ct) => GetInviteCodesAsync(sort, pageSize, cursor, ct),
-            cancellationToken);
 }

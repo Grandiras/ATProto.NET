@@ -114,16 +114,6 @@ public sealed class LexiconGeneratorProgramTests : IDisposable
         Assert.Contains("Unknown command: 'generate'", error);
     }
 
-    [Fact]
-    public async Task Main_Migrate_ExplainsWhyItWasRemoved()
-    {
-        var (exitCode, _, error) = await RunAsync("migrate", "--baseline", "a", "--current", "b");
-
-        Assert.Equal(1, exitCode);
-        Assert.Contains("'migrate' was removed", error);
-        Assert.Contains("new NSID", error);
-    }
-
     [Theory]
     [InlineData("csharp")]
     [InlineData("lexicon")]
@@ -618,19 +608,6 @@ public sealed class LexiconGeneratorProgramTests : IDisposable
         Assert.Equal(1, exitCode);
         Assert.Contains("Publish failed: ", error);
         Assert.Contains("Invalid identifier or password", error);
-    }
-
-    [Theory]
-    [InlineData("--output")]
-    [InlineData("--baseline")]
-    [InlineData("--assembly")]
-    [InlineData("--no-bump")]
-    public async Task Publish_OptionOfTheOldCommand_ExplainsTheNewOne(string option)
-    {
-        var (exitCode, _, error) = await RunAsync("publish", option, _root);
-
-        Assert.Equal(1, exitCode);
-        Assert.Contains("publish now writes the schemas to your repository on a PDS", error);
     }
 
     // ──────────────────────────────────────────────────────────

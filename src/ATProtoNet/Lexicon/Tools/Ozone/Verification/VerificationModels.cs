@@ -136,12 +136,8 @@ public sealed class RevokeError : LexObject
 // ─── Request / Response Models ───
 
 /// <summary>Request body for tools.ozone.verification.grantVerifications.</summary>
-internal sealed class GrantVerificationsRequest
-{
-    /// <summary>The accounts to verify.</summary>
-    [JsonPropertyName("verifications")]
-    public required IReadOnlyList<VerificationInput> Verifications { get; init; }
-}
+internal sealed record GrantVerificationsRequest(
+    [property: JsonPropertyName("verifications")] IReadOnlyList<VerificationInput> Verifications);
 
 /// <summary>Response from tools.ozone.verification.grantVerifications.</summary>
 public sealed class GrantVerificationsResponse
@@ -156,33 +152,21 @@ public sealed class GrantVerificationsResponse
 }
 
 /// <summary>Response from tools.ozone.verification.listVerifications.</summary>
-public sealed class ListVerificationsResponse : ICursorPage<VerificationView>
+public sealed record ListVerificationsResponse : CursorPage<VerificationView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The verifications.</summary>
     [JsonPropertyName("verifications")]
     public required IReadOnlyList<VerificationView> Verifications { get; init; }
 
-    IReadOnlyList<VerificationView> ICursorPage<VerificationView>.Items => Verifications;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<VerificationView> Items => Verifications;
 }
 
 /// <summary>Request body for tools.ozone.verification.revokeVerifications.</summary>
-internal sealed class RevokeVerificationsRequest
-{
-    /// <summary>The verification records to revoke.</summary>
-    [JsonPropertyName("uris")]
-    public required IReadOnlyList<AtUri> Uris { get; init; }
-
-    /// <summary>Why they are revoked.</summary>
-    [JsonPropertyName("revokeReason")]
-    public string? RevokeReason { get; init; }
-}
+internal sealed record RevokeVerificationsRequest(
+    [property: JsonPropertyName("uris")] IReadOnlyList<AtUri> Uris,
+    [property: JsonPropertyName("revokeReason")] string? RevokeReason = null);
 
 /// <summary>Response from tools.ozone.verification.revokeVerifications.</summary>
 public sealed class RevokeVerificationsResponse

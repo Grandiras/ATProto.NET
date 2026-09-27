@@ -27,23 +27,15 @@ public abstract class ModerationSubject : LexObject;
 /// A moderation subject whose <c>$type</c> this SDK version does not model. It keeps the raw object
 /// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownModerationSubject : ModerationSubject, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownModerationSubject(string type, JsonElement raw) : ModerationSubject, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown moderation subject from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownModerationSubject(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>A repository (account) as a moderation subject (<c>com.atproto.admin.defs#repoRef</c>).</summary>
@@ -114,33 +106,11 @@ public sealed class ConvoSubject : ModerationSubject
 }
 
 /// <summary>Request body for creating a moderation report.</summary>
-internal sealed class CreateReportRequest
-{
-    /// <summary>
-    /// The reason type for the report. Common values:
-    /// "com.atproto.moderation.defs#reasonSpam",
-    /// "com.atproto.moderation.defs#reasonViolation",
-    /// "com.atproto.moderation.defs#reasonMisleading",
-    /// "com.atproto.moderation.defs#reasonSexual",
-    /// "com.atproto.moderation.defs#reasonRude",
-    /// "com.atproto.moderation.defs#reasonOther",
-    /// "com.atproto.moderation.defs#reasonAppeal"
-    /// </summary>
-    [JsonPropertyName("reasonType")]
-    public required string ReasonType { get; init; }
-
-    /// <summary>Optional free-text reason.</summary>
-    [JsonPropertyName("reason")]
-    public string? Reason { get; init; }
-
-    /// <summary>The subject being reported.</summary>
-    [JsonPropertyName("subject")]
-    public required ModerationSubject Subject { get; init; }
-
-    /// <summary>The tool that filed the report.</summary>
-    [JsonPropertyName("modTool")]
-    public ModTool? ModTool { get; init; }
-}
+internal sealed record CreateReportRequest(
+    [property: JsonPropertyName("reasonType")] [property: JsonPropertyOrder(0)] string ReasonType,
+    [property: JsonPropertyName("subject")] [property: JsonPropertyOrder(2)] ModerationSubject Subject,
+    [property: JsonPropertyName("reason")] [property: JsonPropertyOrder(1)] string? Reason = null,
+    [property: JsonPropertyName("modTool")] [property: JsonPropertyOrder(3)] ModTool? ModTool = null);
 
 /// <summary>The tool a report was filed with (<c>com.atproto.moderation.createReport#modTool</c>).</summary>
 public sealed class ModTool : LexObject

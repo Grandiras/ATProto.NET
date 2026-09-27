@@ -342,15 +342,8 @@ public sealed class ListItemView : LexObject
 // ── API responses ────────────────────────────────────────────
 
 /// <summary>Response from getFollowers.</summary>
-public sealed class GetFollowersResponse : ICursorPage<ProfileView>
+public sealed record GetFollowersResponse : CursorPage<ProfileView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The profile of the account whose followers these are.</summary>
     [JsonPropertyName("subject")]
     public required ProfileView Subject { get; init; }
@@ -359,19 +352,14 @@ public sealed class GetFollowersResponse : ICursorPage<ProfileView>
     [JsonPropertyName("followers")]
     public required IReadOnlyList<ProfileView> Followers { get; init; }
 
-    IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Followers;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ProfileView> Items => Followers;
 }
 
 /// <summary>Response from getFollows.</summary>
-public sealed class GetFollowsResponse : ICursorPage<ProfileView>
+public sealed record GetFollowsResponse : CursorPage<ProfileView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The profile of the account whose follows these are.</summary>
     [JsonPropertyName("subject")]
     public required ProfileView Subject { get; init; }
@@ -380,113 +368,85 @@ public sealed class GetFollowsResponse : ICursorPage<ProfileView>
     [JsonPropertyName("follows")]
     public required IReadOnlyList<ProfileView> Follows { get; init; }
 
-    IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Follows;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ProfileView> Items => Follows;
 }
 
 /// <summary>Response from getBlocks.</summary>
-public sealed class GetBlocksResponse : ICursorPage<ProfileView>
+public sealed record GetBlocksResponse : CursorPage<ProfileView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The blocked profiles.</summary>
     [JsonPropertyName("blocks")]
     public required IReadOnlyList<ProfileView> Blocks { get; init; }
 
-    IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Blocks;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ProfileView> Items => Blocks;
 }
 
 /// <summary>Response from getLists.</summary>
-public sealed class GetListsResponse : ICursorPage<ListView>
+public sealed record GetListsResponse : CursorPage<ListView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The lists.</summary>
     [JsonPropertyName("lists")]
     public required IReadOnlyList<ListView> Lists { get; init; }
 
-    IReadOnlyList<ListView> ICursorPage<ListView>.Items => Lists;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ListView> Items => Lists;
 }
 
 /// <summary>Response from getList.</summary>
-public sealed class GetListResponse : ICursorPage<ListItemView>
+public sealed record GetListResponse : CursorPage<ListItemView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The list.</summary>
     [JsonPropertyName("list")]
     public required ListView List { get; init; }
 
     /// <summary>The members of the list.</summary>
     [JsonPropertyName("items")]
-    public required IReadOnlyList<ListItemView> Items { get; init; }
+    public required IReadOnlyList<ListItemView> Members { get; init; }
 
-    IReadOnlyList<ListItemView> ICursorPage<ListItemView>.Items => Items;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ListItemView> Items => Members;
 }
 
 /// <summary>Response from getMutes.</summary>
-public sealed class GetMutesResponse : ICursorPage<ProfileView>
+public sealed record GetMutesResponse : CursorPage<ProfileView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The muted profiles.</summary>
     [JsonPropertyName("mutes")]
     public required IReadOnlyList<ProfileView> Mutes { get; init; }
 
-    IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Mutes;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ProfileView> Items => Mutes;
 }
 
 /// <summary>Response from getListMutes.</summary>
-public sealed class GetListMutesResponse : ICursorPage<ListView>
+public sealed record GetListMutesResponse : CursorPage<ListView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The lists.</summary>
     [JsonPropertyName("lists")]
     public required IReadOnlyList<ListView> Lists { get; init; }
 
-    IReadOnlyList<ListView> ICursorPage<ListView>.Items => Lists;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ListView> Items => Lists;
 }
 
 /// <summary>Response from getListBlocks.</summary>
-public sealed class GetListBlocksResponse : ICursorPage<ListView>
+public sealed record GetListBlocksResponse : CursorPage<ListView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The lists.</summary>
     [JsonPropertyName("lists")]
     public required IReadOnlyList<ListView> Lists { get; init; }
 
-    IReadOnlyList<ListView> ICursorPage<ListView>.Items => Lists;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ListView> Items => Lists;
 }
 
 /// <summary>Response from getSuggestedFollowsByActor.</summary>
@@ -507,28 +467,13 @@ public sealed class GetSuggestedFollowsByActorResponse
 }
 
 /// <summary>Request body for muteActor / unmuteActor.</summary>
-internal sealed class MuteActorRequest
-{
-    /// <summary>The DID or handle of the actor to mute.</summary>
-    [JsonPropertyName("actor")]
-    public required AtIdentifier Actor { get; init; }
-
-    /// <summary>Whether the mute covers only the actor's reposts (muteActor only).</summary>
-    [JsonPropertyName("onlyReposts")]
-    public bool? OnlyReposts { get; init; }
-
-    /// <summary>Whether the mute covers only the actor's quote posts (muteActor only).</summary>
-    [JsonPropertyName("onlyQuoteposts")]
-    public bool? OnlyQuoteposts { get; init; }
-}
+internal sealed record MuteActorRequest(
+    [property: JsonPropertyName("actor")] AtIdentifier Actor,
+    [property: JsonPropertyName("onlyReposts")] bool? OnlyReposts = null,
+    [property: JsonPropertyName("onlyQuoteposts")] bool? OnlyQuoteposts = null);
 
 /// <summary>Request body for muteActorList / unmuteActorList.</summary>
-internal sealed class MuteActorListRequest
-{
-    /// <summary>The AT-URI of the list to mute.</summary>
-    [JsonPropertyName("list")]
-    public required AtUri List { get; init; }
-}
+internal sealed record MuteActorListRequest([property: JsonPropertyName("list")] AtUri List);
 
 // ── Starter pack records & views ─────────────────────────────
 
@@ -682,23 +627,15 @@ public abstract class RelationshipEntry : LexObject;
 /// A relationship entry whose <c>$type</c> this SDK version does not model. It keeps the raw
 /// object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownRelationshipEntry : RelationshipEntry, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownRelationshipEntry(string type, JsonElement raw) : RelationshipEntry, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown relationship entry from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownRelationshipEntry(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>The relationship between the queried actor and another account.</summary>
@@ -766,24 +703,19 @@ public sealed class GetRelationshipsResponse
 }
 
 /// <summary>Response from getKnownFollowers.</summary>
-public sealed class GetKnownFollowersResponse : ICursorPage<ProfileView>
+public sealed record GetKnownFollowersResponse : CursorPage<ProfileView>
 {
     /// <summary>The profile of the account whose known followers these are.</summary>
     [JsonPropertyName("subject")]
     public required ProfileView Subject { get; init; }
 
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The follower profiles.</summary>
     [JsonPropertyName("followers")]
     public required IReadOnlyList<ProfileView> Followers { get; init; }
 
-    IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Followers;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ProfileView> Items => Followers;
 }
 
 /// <summary>Response from getStarterPack.</summary>
@@ -803,49 +735,32 @@ public sealed class GetStarterPacksResponse
 }
 
 /// <summary>Response from getActorStarterPacks.</summary>
-public sealed class GetActorStarterPacksResponse : ICursorPage<StarterPackViewBasic>
+public sealed record GetActorStarterPacksResponse : CursorPage<StarterPackViewBasic>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The starter packs.</summary>
     [JsonPropertyName("starterPacks")]
     public required IReadOnlyList<StarterPackViewBasic> StarterPacks { get; init; }
 
-    IReadOnlyList<StarterPackViewBasic> ICursorPage<StarterPackViewBasic>.Items => StarterPacks;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<StarterPackViewBasic> Items => StarterPacks;
 }
 
 /// <summary>Response from searchStarterPacks.</summary>
-public sealed class SearchStarterPacksResponse : ICursorPage<StarterPackViewBasic>
+public sealed record SearchStarterPacksResponse : CursorPage<StarterPackViewBasic>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The starter packs.</summary>
     [JsonPropertyName("starterPacks")]
     public required IReadOnlyList<StarterPackViewBasic> StarterPacks { get; init; }
 
-    IReadOnlyList<StarterPackViewBasic> ICursorPage<StarterPackViewBasic>.Items => StarterPacks;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<StarterPackViewBasic> Items => StarterPacks;
 }
 
 /// <summary>Response from searchStarterPacksV2, which returns full starter pack views.</summary>
-public sealed class SearchStarterPacksV2Response : ICursorPage<StarterPackView>
+public sealed record SearchStarterPacksV2Response : CursorPage<StarterPackView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>An estimate of the number of matching starter packs, possibly rounded or truncated.</summary>
     [JsonPropertyName("hitsTotal")]
     public int? HitsTotal { get; init; }
@@ -854,7 +769,9 @@ public sealed class SearchStarterPacksV2Response : ICursorPage<StarterPackView>
     [JsonPropertyName("starterPacks")]
     public required IReadOnlyList<StarterPackView> StarterPacks { get; init; }
 
-    IReadOnlyList<StarterPackView> ICursorPage<StarterPackView>.Items => StarterPacks;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<StarterPackView> Items => StarterPacks;
 }
 
 /// <summary>
@@ -873,20 +790,15 @@ public sealed class ListWithMembership : LexObject
 }
 
 /// <summary>Response from getListsWithMembership.</summary>
-public sealed class GetListsWithMembershipResponse : ICursorPage<ListWithMembership>
+public sealed record GetListsWithMembershipResponse : CursorPage<ListWithMembership>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The viewer's lists, each with the actor's membership.</summary>
     [JsonPropertyName("listsWithMembership")]
     public required IReadOnlyList<ListWithMembership> ListsWithMembership { get; init; }
 
-    IReadOnlyList<ListWithMembership> ICursorPage<ListWithMembership>.Items => ListsWithMembership;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ListWithMembership> Items => ListsWithMembership;
 }
 
 /// <summary>
@@ -908,27 +820,17 @@ public sealed class StarterPackWithMembership : LexObject
 }
 
 /// <summary>Response from getStarterPacksWithMembership.</summary>
-public sealed class GetStarterPacksWithMembershipResponse : ICursorPage<StarterPackWithMembership>
+public sealed record GetStarterPacksWithMembershipResponse : CursorPage<StarterPackWithMembership>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The viewer's starter packs, each with the actor's membership.</summary>
     [JsonPropertyName("starterPacksWithMembership")]
     public required IReadOnlyList<StarterPackWithMembership> StarterPacksWithMembership { get; init; }
 
-    IReadOnlyList<StarterPackWithMembership> ICursorPage<StarterPackWithMembership>.Items =>
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<StarterPackWithMembership> Items =>
         StarterPacksWithMembership;
 }
 
 /// <summary>Request body for muteThread / unmuteThread.</summary>
-internal sealed class MuteThreadRequest
-{
-    /// <summary>The AT-URI of the root post of the thread to mute.</summary>
-    [JsonPropertyName("root")]
-    public required AtUri Root { get; init; }
-}
+internal sealed record MuteThreadRequest([property: JsonPropertyName("root")] AtUri Root);

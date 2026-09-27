@@ -118,23 +118,15 @@ public abstract class DraftGalleryItem : LexObject;
 /// A draft gallery item whose <c>$type</c> this SDK version does not model. It keeps the raw
 /// object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownDraftGalleryItem : DraftGalleryItem, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownDraftGalleryItem(string type, JsonElement raw) : DraftGalleryItem, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown gallery item from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownDraftGalleryItem(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>An image in a draft post or gallery (<c>app.bsky.draft.defs#draftEmbedImage</c>).</summary>
@@ -216,12 +208,7 @@ internal sealed class DraftWithId
 // ── API requests and responses ───────────────────────────────
 
 /// <summary>Request body for createDraft.</summary>
-internal sealed class CreateDraftRequest
-{
-    /// <summary>The draft to store.</summary>
-    [JsonPropertyName("draft")]
-    public required Draft Draft { get; init; }
-}
+internal sealed record CreateDraftRequest([property: JsonPropertyName("draft")] Draft Draft);
 
 /// <summary>Response from createDraft.</summary>
 internal sealed class CreateDraftResponse
@@ -232,36 +219,21 @@ internal sealed class CreateDraftResponse
 }
 
 /// <summary>Request body for updateDraft.</summary>
-internal sealed class UpdateDraftRequest
-{
-    /// <summary>The draft and the identifier it is stored under.</summary>
-    [JsonPropertyName("draft")]
-    public required DraftWithId Draft { get; init; }
-}
+internal sealed record UpdateDraftRequest([property: JsonPropertyName("draft")] DraftWithId Draft);
 
 /// <summary>Request body for deleteDraft.</summary>
-internal sealed class DeleteDraftRequest
-{
-    /// <summary>The identifier of the draft to delete.</summary>
-    [JsonPropertyName("id")]
-    public required Tid Id { get; init; }
-}
+internal sealed record DeleteDraftRequest([property: JsonPropertyName("id")] Tid Id);
 
 /// <summary>Response from getDrafts.</summary>
-public sealed class GetDraftsResponse : ICursorPage<DraftView>
+public sealed record GetDraftsResponse : CursorPage<DraftView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The drafts.</summary>
     [JsonPropertyName("drafts")]
     public required IReadOnlyList<DraftView> Drafts { get; init; }
 
-    IReadOnlyList<DraftView> ICursorPage<DraftView>.Items => Drafts;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<DraftView> Items => Drafts;
 }
 
 /// <summary>

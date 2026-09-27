@@ -223,20 +223,6 @@ public class ConvoClientTests : IDisposable
     }
 
     [Fact]
-    public async Task EnumerateConvosAsync_WalksPagesWithTheFiltersAndPageSize()
-    {
-        _stub.On("chat.bsky.convo.listConvos", JsonBody(new { cursor = "page-2", convos = new[] { Convo("convo-1") } }));
-        _stub.On("chat.bsky.convo.listConvos", JsonBody(new { convos = new[] { Convo("convo-2") } }));
-
-        var convos = await _convo.EnumerateConvosAsync(status: "request", pageSize: 1).ToListAsync();
-
-        Assert.Equal(["convo-1", "convo-2"], convos.Select(c => c.Id));
-        Assert.Equal(
-            ["?status=request&limit=1", "?status=request&limit=1&cursor=page-2"],
-            _stub.To("chat.bsky.convo.listConvos").Select(r => $"?{Uri.UnescapeDataString(r.Query)}"));
-    }
-
-    [Fact]
     public async Task EnumerateMessagesAsync_RepeatedCursor_StopsInsteadOfLooping()
     {
         var requests = 0;
@@ -256,19 +242,6 @@ public class ConvoClientTests : IDisposable
         Assert.Equal(["msg-1", "msg-2"], messages.Select(m => Assert.IsType<DeletedMessageView>(m).Id));
     }
 
-    [Fact]
-    public async Task EnumerateLogAsync_StopsWhenTheLogHasNoNewerEntries()
-    {
-        _stub.On("chat.bsky.convo.getLog",
-            """{"cursor":"rev-5","logs":[{"$type":"chat.bsky.convo.defs#logBeginConvo","rev":"rev-5","convoId":"convo-1"}]}""");
-        _stub.On("chat.bsky.convo.getLog", JsonBody(new { cursor = "rev-5", logs = Array.Empty<object>() }));
-
-        var entries = await _convo.EnumerateLogAsync().ToListAsync();
-
-        var entry = Assert.IsType<LogBeginConvo>(Assert.Single(entries));
-        Assert.Equal(("rev-5", "convo-1"), (entry.Rev, entry.ConvoId));
-        Assert.Equal(["", "?cursor=rev-5"], _stub.To("chat.bsky.convo.getLog").Select(r => $"{(r.Query.Length == 0 ? "" : "?")}{Uri.UnescapeDataString(r.Query)}"));
-    }
 
     // ──────────────────────────────────────────────────────────
     //  Group-era endpoints
@@ -319,22 +292,6 @@ public class ConvoClientTests : IDisposable
     }
 
     [Fact]
-    public async Task EnumerateConvoRequestsAsync_WalksPages()
-    {
-        _stub.On("chat.bsky.convo.listConvoRequests",
-            """{"cursor":"page-2","requests":[{"$type":"chat.bsky.convo.defs#convoView","id":"convo-1","rev":"r","members":[],"muted":false,"unreadCount":0}]}""");
-        _stub.On("chat.bsky.convo.listConvoRequests",
-            """{"requests":[{"$type":"chat.bsky.convo.defs#convoView","id":"convo-2","rev":"r","members":[],"muted":false,"unreadCount":0}]}""");
-
-        var requests = await _convo.EnumerateConvoRequestsAsync(pageSize: 1).ToListAsync();
-
-        Assert.Equal(["convo-1", "convo-2"], requests.Select(r => Assert.IsType<ConvoView>(r).Id));
-        Assert.Equal(
-            ["?limit=1", "?limit=1&cursor=page-2"],
-            _stub.To("chat.bsky.convo.listConvoRequests").Select(r => $"?{Uri.UnescapeDataString(r.Query)}"));
-    }
-
-    [Fact]
     public async Task GetConvoMembersAsync_GroupMembers_ReadsTheirKinds()
     {
         _stub.On("chat.bsky.convo.getConvoMembers",
@@ -362,19 +319,6 @@ public class ConvoClientTests : IDisposable
             m => Assert.IsType<PastGroupConvoMember>(m.Kind));
     }
 
-    [Fact]
-    public async Task EnumerateConvoMembersAsync_WalksPagesForTheConvo()
-    {
-        _stub.On("chat.bsky.convo.getConvoMembers", """{"cursor":"page-2","members":[{"did":"did:plc:user1","handle":"alice.bsky.social"}]}""");
-        _stub.On("chat.bsky.convo.getConvoMembers", """{"members":[{"did":"did:plc:user2","handle":"bob.bsky.social"}]}""");
-
-        var members = await _convo.EnumerateConvoMembersAsync("convo-1", pageSize: 1).ToListAsync();
-
-        Assert.Equal(["did:plc:user1", "did:plc:user2"], members.Select(m => m.Did.ToString()));
-        Assert.Equal(
-            ["?convoId=convo-1&limit=1", "?convoId=convo-1&limit=1&cursor=page-2"],
-            _stub.To("chat.bsky.convo.getConvoMembers").Select(r => $"?{Uri.UnescapeDataString(r.Query)}"));
-    }
 
     [Theory]
     [InlineData("lockConvo", "locked")]

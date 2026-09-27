@@ -109,17 +109,6 @@ public sealed class StandardSiteClient
         return ListAsync<PublicationRecord>(repo, PublicationCollection, limit, cursor, cancellationToken);
     }
 
-    /// <summary>Enumerate every publication record in a repository, fetching pages as needed.</summary>
-    /// <param name="repo">The DID or handle of the repo owner.</param>
-    /// <param name="pageSize">Records per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<RecordView<PublicationRecord>> EnumeratePublicationsAsync(
-        AtIdentifier repo,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<RecordPage<PublicationRecord>, RecordView<PublicationRecord>>(
-            (cursor, ct) => ListPublicationsAsync(repo, pageSize, cursor, ct),
-            cancellationToken);
-
     // ── Documents ────────────────────────────────────────────
 
     /// <summary>Create a document record.</summary>
@@ -200,17 +189,6 @@ public sealed class StandardSiteClient
         return ListAsync<DocumentRecord>(repo, DocumentCollection, limit, cursor, cancellationToken);
     }
 
-    /// <summary>Enumerate every document record in a repository, fetching pages as needed.</summary>
-    /// <param name="repo">The DID or handle of the repo owner.</param>
-    /// <param name="pageSize">Records per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<RecordView<DocumentRecord>> EnumerateDocumentsAsync(
-        AtIdentifier repo,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<RecordPage<DocumentRecord>, RecordView<DocumentRecord>>(
-            (cursor, ct) => ListDocumentsAsync(repo, pageSize, cursor, ct),
-            cancellationToken);
-
     // ── Subscriptions ────────────────────────────────────────
 
     /// <summary>Subscribe to a publication.</summary>
@@ -275,17 +253,6 @@ public sealed class StandardSiteClient
         return ListAsync<SubscriptionRecord>(repo, SubscriptionCollection, limit, cursor, cancellationToken);
     }
 
-    /// <summary>Enumerate every subscription record in a repository, fetching pages as needed.</summary>
-    /// <param name="repo">The DID or handle of the subscriber.</param>
-    /// <param name="pageSize">Records per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<RecordView<SubscriptionRecord>> EnumerateSubscriptionsAsync(
-        AtIdentifier repo,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<RecordPage<SubscriptionRecord>, RecordView<SubscriptionRecord>>(
-            (cursor, ct) => ListSubscriptionsAsync(repo, pageSize, cursor, ct),
-            cancellationToken);
-
     // ── Recommendations ──────────────────────────────────────
 
     /// <summary>Recommend a document.</summary>
@@ -349,17 +316,6 @@ public sealed class StandardSiteClient
     {
         return ListAsync<RecommendRecord>(repo, RecommendCollection, limit, cursor, cancellationToken);
     }
-
-    /// <summary>Enumerate every recommendation record in a repository, fetching pages as needed.</summary>
-    /// <param name="repo">The DID or handle of the recommending account.</param>
-    /// <param name="pageSize">Records per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<RecordView<RecommendRecord>> EnumerateRecommendationsAsync(
-        AtIdentifier repo,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<RecordPage<RecommendRecord>, RecordView<RecommendRecord>>(
-            (cursor, ct) => ListRecommendationsAsync(repo, pageSize, cursor, ct),
-            cancellationToken);
 
     private Task<RecordPage<T>> ListAsync<T>(
         AtIdentifier repo, Nsid collection, int? limit, string? cursor, CancellationToken cancellationToken)

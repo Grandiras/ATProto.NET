@@ -107,9 +107,9 @@ public sealed class Label : LexObject
 /// <summary>One page of a cursor-paginated XRPC response.</summary>
 /// <typeparam name="T">The type of the page's items.</typeparam>
 /// <remarks>
-/// Every cursored response model implements this, with <see cref="Items"/> implemented
-/// explicitly over its Lexicon-named list (<c>records</c>, <c>repos</c>, <c>cids</c>, …) so the
-/// wire shape is unchanged. The <c>Enumerate*</c> methods walk the pages for you.
+/// Every cursored response model implements this, most by deriving from
+/// <see cref="CursorPage{T}"/>. <see cref="ATProtoNet.Http.Pagination.EnumerateAsync{TPage, T}"/>
+/// walks the pages for you.
 /// </remarks>
 public interface ICursorPage<out T>
 {
@@ -118,4 +118,25 @@ public interface ICursorPage<out T>
 
     /// <summary>The cursor for the next page, or <see langword="null"/> when this is the last page.</summary>
     string? Cursor { get; }
+}
+
+/// <summary>
+/// A page of results with a cursor for the next one. Every <c>com.atproto.*</c>, Bluesky, chat and
+/// Ozone response with a Lexicon <c>cursor</c> derives from this instead of redeclaring it, and
+/// overrides <see cref="Items"/> to project its own Lexicon-named list (<c>records</c>,
+/// <c>repos</c>, <c>cids</c>, …) — the wire shape is unchanged, one property per response.
+/// </summary>
+/// <typeparam name="T">The type of the page's items.</typeparam>
+public abstract record CursorPage<T> : ICursorPage<T>
+{
+    /// <summary>
+    /// Pagination cursor; pass this back on the next request to continue where this page ended.
+    /// <see langword="null"/> when there are no further results.
+    /// </summary>
+    [JsonPropertyName("cursor")]
+    public string? Cursor { get; init; }
+
+    /// <inheritdoc />
+    [JsonIgnore]
+    public abstract IReadOnlyList<T> Items { get; }
 }

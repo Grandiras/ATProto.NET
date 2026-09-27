@@ -276,22 +276,6 @@ public class PdsAdminClientTests : IDisposable
     }
 
     [Fact]
-    public async Task EnumerateSearchAccountsAsync_FetchesEveryPage()
-    {
-        _stub.On("com.atproto.admin.searchAccounts", """
-            {"cursor":"c2","accounts":[{"did":"did:plc:alice","handle":"alice.example.com","indexedAt":"2026-07-25T00:00:00.000Z"}]}
-            """);
-        _stub.On("com.atproto.admin.searchAccounts", """
-            {"accounts":[{"did":"did:plc:bob","handle":"bob.example.com","indexedAt":"2026-07-25T00:00:00.000Z"}]}
-            """);
-
-        var accounts = await _client.EnumerateSearchAccountsAsync(pageSize: 1).ToListAsync();
-
-        Assert.Equal(["alice.example.com", "bob.example.com"], accounts.Select(a => a.Handle.Value));
-        Assert.Contains("cursor=c2", _stub.To("com.atproto.admin.searchAccounts").Last().Query);
-    }
-
-    [Fact]
     public async Task TakedownAccountAsync_SendsRepoRefWithTakedownApplied()
     {
         _stub.On("com.atproto.admin.updateSubjectStatus", """{"subject":{"$type":"com.atproto.admin.defs#repoRef","did":"did:plc:alice"}}""");

@@ -34,23 +34,15 @@ public abstract class SimpleSpaceUserPolicy : LexObject;
 /// A user policy whose <c>$type</c> this SDK version does not model. It keeps the raw object and
 /// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownSimpleSpaceUserPolicy : SimpleSpaceUserPolicy, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownSimpleSpaceUserPolicy(string type, JsonElement raw) : SimpleSpaceUserPolicy, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown user policy from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownSimpleSpaceUserPolicy(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>Any user is authorized.</summary>
@@ -105,23 +97,15 @@ public abstract class SimpleSpaceAppAccess : LexObject;
 /// An app access policy whose <c>$type</c> this SDK version does not model. It keeps the raw
 /// object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownSimpleSpaceAppAccess : SimpleSpaceAppAccess, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownSimpleSpaceAppAccess(string type, JsonElement raw) : SimpleSpaceAppAccess, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown app access policy from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownSimpleSpaceAppAccess(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>
@@ -338,20 +322,15 @@ public sealed class SimpleSpaceMember : LexObject
 }
 
 /// <summary>Response from <c>listMembers</c>.</summary>
-public sealed class ListSimpleSpaceMembersResponse : ICursorPage<SimpleSpaceMember>
+public sealed record ListSimpleSpaceMembersResponse : CursorPage<SimpleSpaceMember>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The current members.</summary>
     [JsonPropertyName("members")]
     public required IReadOnlyList<SimpleSpaceMember> Members { get; init; }
 
-    IReadOnlyList<SimpleSpaceMember> ICursorPage<SimpleSpaceMember>.Items => Members;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<SimpleSpaceMember> Items => Members;
 }
 
 // ── com.atproto.simplespace.checkUserAccess ──────────────────

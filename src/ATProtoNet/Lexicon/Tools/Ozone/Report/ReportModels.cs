@@ -209,23 +209,15 @@ public abstract class ReportActivity : LexObject;
 /// A report activity whose <c>$type</c> this SDK version does not model. It keeps the raw object
 /// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownReportActivity : ReportActivity, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownReportActivity(string type, JsonElement raw) : ReportActivity, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown report activity from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownReportActivity(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>The report was routed to a queue.</summary>
@@ -339,38 +331,6 @@ public sealed class ReportActivityView : LexObject
 
 // ─── Statistics ───
 
-/// <summary>Report statistics for the current day (<c>tools.ozone.report.defs#liveStats</c>).</summary>
-public sealed class LiveStats : LexObject
-{
-    /// <summary>The reports not closed yet.</summary>
-    [JsonPropertyName("pendingCount")]
-    public int? PendingCount { get; init; }
-
-    /// <summary>The reports closed today.</summary>
-    [JsonPropertyName("actionedCount")]
-    public int? ActionedCount { get; init; }
-
-    /// <summary>The reports escalated today.</summary>
-    [JsonPropertyName("escalatedCount")]
-    public int? EscalatedCount { get; init; }
-
-    /// <summary>The reports received today.</summary>
-    [JsonPropertyName("inboundCount")]
-    public int? InboundCount { get; init; }
-
-    /// <summary>The percentage of received reports that were actioned, rounded.</summary>
-    [JsonPropertyName("actionRate")]
-    public int? ActionRate { get; init; }
-
-    /// <summary>The average time in seconds from a report's creation (or assignment) to its close.</summary>
-    [JsonPropertyName("avgHandlingTimeSec")]
-    public int? AvgHandlingTimeSec { get; init; }
-
-    /// <summary>When the statistics were computed.</summary>
-    [JsonPropertyName("lastUpdated")]
-    public AtDatetime? LastUpdated { get; init; }
-}
-
 /// <summary>Report statistics for one past day (<c>tools.ozone.report.defs#historicalStats</c>).</summary>
 public sealed class HistoricalStats : LexObject
 {
@@ -481,52 +441,21 @@ public sealed class ReportFilter
 // ─── Request / Response Models ───
 
 /// <summary>Request body for tools.ozone.report.assignModerator.</summary>
-internal sealed class AssignModeratorRequest
-{
-    /// <summary>The report to assign.</summary>
-    [JsonPropertyName("reportId")]
-    public required long ReportId { get; init; }
-
-    /// <summary>The queue to make the assignment on.</summary>
-    [JsonPropertyName("queueId")]
-    public long? QueueId { get; init; }
-
-    /// <summary>The moderator to assign; the caller when unset.</summary>
-    [JsonPropertyName("did")]
-    public Did? Did { get; init; }
-
-    /// <summary>Whether the assignment never expires.</summary>
-    [JsonPropertyName("isPermanent")]
-    public bool? IsPermanent { get; init; }
-}
+internal sealed record AssignModeratorRequest(
+    [property: JsonPropertyName("reportId")] long ReportId,
+    [property: JsonPropertyName("queueId")] long? QueueId = null,
+    [property: JsonPropertyName("did")] Did? Did = null,
+    [property: JsonPropertyName("isPermanent")] bool? IsPermanent = null);
 
 /// <summary>Request body for tools.ozone.report.unassignModerator.</summary>
-internal sealed class UnassignModeratorRequest
-{
-    /// <summary>The report to unassign.</summary>
-    [JsonPropertyName("reportId")]
-    public required long ReportId { get; init; }
-}
+internal sealed record UnassignModeratorRequest([property: JsonPropertyName("reportId")] long ReportId);
 
 /// <summary>Request body for tools.ozone.report.closeReports.</summary>
-internal sealed class CloseReportsRequest
-{
-    /// <summary>The subject whose reports to close: an account's DID, or a record's AT URI.</summary>
-    [JsonPropertyName("subject")]
-    public required string Subject { get; init; }
-
-    /// <summary>Only reports of these reason types.</summary>
-    [JsonPropertyName("reportTypes")]
-    public IReadOnlyList<string>? ReportTypes { get; init; }
-
-    /// <summary>A note for moderators, recorded on each close activity.</summary>
-    [JsonPropertyName("internalNote")]
-    public string? InternalNote { get; init; }
-
-    /// <summary>Whether an automated process is closing the reports.</summary>
-    [JsonPropertyName("isAutomated")]
-    public bool? IsAutomated { get; init; }
-}
+internal sealed record CloseReportsRequest(
+    [property: JsonPropertyName("subject")] string Subject,
+    [property: JsonPropertyName("reportTypes")] IReadOnlyList<string>? ReportTypes = null,
+    [property: JsonPropertyName("internalNote")] string? InternalNote = null,
+    [property: JsonPropertyName("isAutomated")] bool? IsAutomated = null);
 
 /// <summary>Response from tools.ozone.report.closeReports.</summary>
 public sealed class CloseReportsResponse
@@ -541,32 +470,13 @@ public sealed class CloseReportsResponse
 }
 
 /// <summary>Request body for tools.ozone.report.createActivity.</summary>
-internal sealed class CreateActivityRequest
-{
-    /// <summary>The report to record the activity on.</summary>
-    [JsonPropertyName("reportId")]
-    public long? ReportId { get; init; }
-
-    /// <summary>The moderation event whose report to record the activity on.</summary>
-    [JsonPropertyName("eventId")]
-    public long? EventId { get; init; }
-
-    /// <summary>What happened.</summary>
-    [JsonPropertyName("activity")]
-    public required ReportActivity Activity { get; init; }
-
-    /// <summary>A note for moderators only.</summary>
-    [JsonPropertyName("internalNote")]
-    public string? InternalNote { get; init; }
-
-    /// <summary>A note the reporter may see.</summary>
-    [JsonPropertyName("publicNote")]
-    public string? PublicNote { get; init; }
-
-    /// <summary>Whether an automated process is recording the activity.</summary>
-    [JsonPropertyName("isAutomated")]
-    public bool? IsAutomated { get; init; }
-}
+internal sealed record CreateActivityRequest(
+    [property: JsonPropertyName("activity")] [property: JsonPropertyOrder(2)] ReportActivity Activity,
+    [property: JsonPropertyName("reportId")] [property: JsonPropertyOrder(0)] long? ReportId = null,
+    [property: JsonPropertyName("eventId")] [property: JsonPropertyOrder(1)] long? EventId = null,
+    [property: JsonPropertyName("internalNote")] [property: JsonPropertyOrder(3)] string? InternalNote = null,
+    [property: JsonPropertyName("publicNote")] [property: JsonPropertyOrder(4)] string? PublicNote = null,
+    [property: JsonPropertyName("isAutomated")] [property: JsonPropertyOrder(5)] bool? IsAutomated = null);
 
 /// <summary>Response from tools.ozone.report.createActivity.</summary>
 public sealed class CreateActivityResponse
@@ -577,37 +487,27 @@ public sealed class CreateActivityResponse
 }
 
 /// <summary>Response from tools.ozone.report.getAssignments.</summary>
-public sealed class GetAssignmentsResponse : ICursorPage<AssignmentView>
+public sealed record GetAssignmentsResponse : CursorPage<AssignmentView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The assignments.</summary>
     [JsonPropertyName("assignments")]
     public required IReadOnlyList<AssignmentView> Assignments { get; init; }
 
-    IReadOnlyList<AssignmentView> ICursorPage<AssignmentView>.Items => Assignments;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<AssignmentView> Items => Assignments;
 }
 
 /// <summary>Response from tools.ozone.report.getHistoricalStats.</summary>
-public sealed class GetHistoricalStatsResponse : ICursorPage<HistoricalStats>
+public sealed record GetHistoricalStatsResponse : CursorPage<HistoricalStats>
 {
     /// <summary>The daily statistics, newest first.</summary>
     [JsonPropertyName("stats")]
     public required IReadOnlyList<HistoricalStats> Stats { get; init; }
 
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
-    IReadOnlyList<HistoricalStats> ICursorPage<HistoricalStats>.Items => Stats;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<HistoricalStats> Items => Stats;
 }
 
 /// <summary>Response from tools.ozone.report.getLatestReport.</summary>
@@ -623,75 +523,50 @@ public sealed class GetLiveStatsResponse
 {
     /// <summary>The statistics.</summary>
     [JsonPropertyName("stats")]
-    public required LiveStats Stats { get; init; }
+    public required QueueStats Stats { get; init; }
 }
 
 /// <summary>Response from tools.ozone.report.listActivities.</summary>
-public sealed class ListActivitiesResponse : ICursorPage<ReportActivityView>
+public sealed record ListActivitiesResponse : CursorPage<ReportActivityView>
 {
     /// <summary>The report's activities, most recent first.</summary>
     [JsonPropertyName("activities")]
     public required IReadOnlyList<ReportActivityView> Activities { get; init; }
 
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
-    IReadOnlyList<ReportActivityView> ICursorPage<ReportActivityView>.Items => Activities;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ReportActivityView> Items => Activities;
 }
 
 /// <summary>Response from tools.ozone.report.queryActivities.</summary>
-public sealed class QueryActivitiesResponse : ICursorPage<ReportActivityView>
+public sealed record QueryActivitiesResponse : CursorPage<ReportActivityView>
 {
     /// <summary>The activities.</summary>
     [JsonPropertyName("activities")]
     public required IReadOnlyList<ReportActivityView> Activities { get; init; }
 
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
-    IReadOnlyList<ReportActivityView> ICursorPage<ReportActivityView>.Items => Activities;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ReportActivityView> Items => Activities;
 }
 
 /// <summary>Response from tools.ozone.report.queryReports.</summary>
-public sealed class QueryReportsResponse : ICursorPage<ReportView>
+public sealed record QueryReportsResponse : CursorPage<ReportView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The reports.</summary>
     [JsonPropertyName("reports")]
     public required IReadOnlyList<ReportView> Reports { get; init; }
 
-    IReadOnlyList<ReportView> ICursorPage<ReportView>.Items => Reports;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ReportView> Items => Reports;
 }
 
 /// <summary>Request body for tools.ozone.report.reassignQueue.</summary>
-internal sealed class ReassignQueueRequest
-{
-    /// <summary>The report to move.</summary>
-    [JsonPropertyName("reportId")]
-    public required long ReportId { get; init; }
-
-    /// <summary>The queue to move it to; <c>-1</c> for none.</summary>
-    [JsonPropertyName("queueId")]
-    public required long QueueId { get; init; }
-
-    /// <summary>A note for moderators, recorded on the queue activity.</summary>
-    [JsonPropertyName("comment")]
-    public string? Comment { get; init; }
-}
+internal sealed record ReassignQueueRequest(
+    [property: JsonPropertyName("reportId")] long ReportId,
+    [property: JsonPropertyName("queueId")] long QueueId,
+    [property: JsonPropertyName("comment")] string? Comment = null);
 
 /// <summary>Response from tools.ozone.report.reassignQueue.</summary>
 public sealed class ReassignQueueResponse
@@ -702,17 +577,7 @@ public sealed class ReassignQueueResponse
 }
 
 /// <summary>Request body for tools.ozone.report.refreshStats.</summary>
-internal sealed class RefreshStatsRequest
-{
-    /// <summary>The first day to recompute.</summary>
-    [JsonPropertyName("startDate")]
-    public required DateOnly StartDate { get; init; }
-
-    /// <summary>The last day to recompute.</summary>
-    [JsonPropertyName("endDate")]
-    public required DateOnly EndDate { get; init; }
-
-    /// <summary>Only these queues' statistics.</summary>
-    [JsonPropertyName("queueIds")]
-    public IReadOnlyList<long>? QueueIds { get; init; }
-}
+internal sealed record RefreshStatsRequest(
+    [property: JsonPropertyName("startDate")] DateOnly StartDate,
+    [property: JsonPropertyName("endDate")] DateOnly EndDate,
+    [property: JsonPropertyName("queueIds")] IReadOnlyList<long>? QueueIds = null);

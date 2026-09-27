@@ -406,18 +406,6 @@ public sealed class PdsAdminClient : IDisposable
         CancellationToken cancellationToken = default) =>
         AdminCallAsync(ct => Admin.SearchAccountsAsync(email, limit, cursor, ct), cancellationToken);
 
-    /// <summary>Enumerate every account on this PDS matching a search, fetching pages as needed.</summary>
-    /// <remarks>Served where <see cref="SearchAccountsAsync"/> is.</remarks>
-    /// <param name="email">The email address to match.</param>
-    /// <param name="pageSize">Accounts per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<AccountInfo> EnumerateSearchAccountsAsync(
-        string? email = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<SearchAccountsResponse, AccountInfo>(
-            (cursor, ct) => SearchAccountsAsync(email, pageSize, cursor, ct),
-            cancellationToken);
-
     /// <summary>Permanently delete an account and its repository.</summary>
     /// <param name="did">The account DID.</param>
     public Task DeleteAccountAsync(Did did, CancellationToken cancellationToken = default)

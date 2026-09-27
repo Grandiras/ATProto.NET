@@ -316,42 +316,4 @@ public sealed class OzoneReportClientTests : IDisposable
         Assert.Equal("tools.ozone.report.defs#futureActivity", Assert.IsType<UnknownReportActivity>(view.Activity).Type);
     }
 
-    public static TheoryData<string> Enumerators => ["reports", "assignments", "activities", "reportActivities", "historicalStats"];
-
-    [Theory]
-    [MemberData(nameof(Enumerators))]
-    public async Task Enumerate_WalksPagesWithPageSize(string listing)
-    {
-        var (nsid, list, item, enumerate) = listing switch
-        {
-            "reports" => ("tools.ozone.report.queryReports", "reports", Report,
-                Count(Reports.EnumerateReportsAsync(ReportStatus.Open, pageSize: 2))),
-            "assignments" => ("tools.ozone.report.getAssignments", "assignments", Assignment,
-                Count(Reports.EnumerateAssignmentsAsync(pageSize: 2))),
-            "activities" => ("tools.ozone.report.queryActivities", "activities", Activity,
-                Count(Reports.EnumerateActivitiesAsync(pageSize: 2))),
-            "reportActivities" => ("tools.ozone.report.listActivities", "activities", Activity,
-                Count(Reports.EnumerateReportActivitiesAsync(42, pageSize: 2))),
-            "historicalStats" => ("tools.ozone.report.getHistoricalStats", "stats", """{"date":"2026-09-01"}""",
-                Count(Reports.EnumerateHistoricalStatsAsync(pageSize: 2))),
-            _ => throw new ArgumentOutOfRangeException(nameof(listing)),
-        };
-        _ozone.Respond($$"""{"cursor":"c1","{{list}}":[{{item}}]}""");
-        _ozone.Respond($$"""{"{{list}}":[{{item}}]}""");
-
-        Assert.Equal(2, await enumerate());
-
-        Assert.All(_ozone.Requests, r => Assert.Equal(nsid, r.Nsid));
-        Assert.All(_ozone.Requests, r => Assert.Contains("limit=2", r.Query));
-        Assert.DoesNotContain("cursor=", _ozone.Requests[0].Query);
-        Assert.Contains("cursor=c1", _ozone.Requests[1].Query);
-    }
-
-    private static Func<Task<int>> Count<T>(IAsyncEnumerable<T> items) => async () =>
-    {
-        var count = 0;
-        await foreach (var _ in items)
-            count++;
-        return count;
-    };
 }

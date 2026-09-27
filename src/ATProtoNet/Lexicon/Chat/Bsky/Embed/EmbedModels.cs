@@ -23,23 +23,15 @@ public abstract class MessageEmbed : LexObject;
 /// A message embed whose <c>$type</c> this SDK version does not model. It keeps the raw object and
 /// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownMessageEmbed : MessageEmbed, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownMessageEmbed(string type, JsonElement raw) : MessageEmbed, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown message embed from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownMessageEmbed(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>A record, such as a post, embedded in a message (<c>app.bsky.embed.record</c>).</summary>
@@ -75,23 +67,15 @@ public abstract class MessageEmbedView : LexObject;
 /// A message embed view whose <c>$type</c> this SDK version does not model. It keeps the raw object
 /// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownMessageEmbedView : MessageEmbedView, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownMessageEmbedView(string type, JsonElement raw) : MessageEmbedView, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown message embed view from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownMessageEmbedView(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>The view of a record embedded in a message (<c>app.bsky.embed.record#view</c>).</summary>

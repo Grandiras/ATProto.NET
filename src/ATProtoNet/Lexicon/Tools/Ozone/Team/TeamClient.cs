@@ -27,7 +27,7 @@ public sealed class TeamClient
         Did did,
         CancellationToken cancellationToken = default)
     {
-        var request = new DeleteMemberRequest { Did = did };
+        var request = new DeleteMemberRequest(Did: did);
         await _xrpc.ProcedureAsync(
             "tools.ozone.team.deleteMember", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
@@ -55,21 +55,6 @@ public sealed class TeamClient
         return _xrpc.QueryAsync<ListMembersResponse>(
             "tools.ozone.team.listMembers", parameters, cancellationToken: cancellationToken);
     }
-
-    /// <summary>Enumerate every team member, fetching pages as needed.</summary>
-    /// <param name="q">Only members whose handle or display name matches this search term.</param>
-    /// <param name="disabled">Only disabled, or only enabled, members.</param>
-    /// <param name="roles">Only members with one of these roles (see <see cref="TeamMemberRole"/>).</param>
-    /// <param name="pageSize">Members per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<TeamMember> EnumerateMembersAsync(
-        string? q = null,
-        bool? disabled = null,
-        IEnumerable<string>? roles = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<ListMembersResponse, TeamMember>(
-            (cursor, ct) => ListMembersAsync(q, disabled, roles, pageSize, cursor, ct),
-            cancellationToken);
 
     /// <summary>Update a team member's role or status.</summary>
     /// <param name="request">The member's DID and the changes.</param>

@@ -110,17 +110,6 @@ public sealed class FeedClient
             "app.bsky.feed.getFeed", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>Enumerate a custom (algorithmic) feed, fetching pages as needed.</summary>
-    /// <param name="feed">The AT-URI of the feed generator record.</param>
-    /// <param name="pageSize">Posts per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<FeedViewPost> EnumerateFeedAsync(
-        AtUri feed,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<FeedResponse, FeedViewPost>(
-            (cursor, ct) => GetFeedAsync(feed, pageSize, cursor, ct),
-            cancellationToken);
-
     /// <summary>Get one page of a list feed (recent posts by the list's members).</summary>
     /// <param name="list">The AT-URI of the list.</param>
     /// <param name="limit">Max posts per page (1-100, default 50).</param>
@@ -139,17 +128,6 @@ public sealed class FeedClient
         return _xrpc.QueryAsync<FeedResponse>(
             "app.bsky.feed.getListFeed", parameters, cancellationToken: cancellationToken);
     }
-
-    /// <summary>Enumerate a list feed, fetching pages as needed.</summary>
-    /// <param name="list">The AT-URI of the list.</param>
-    /// <param name="pageSize">Posts per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<FeedViewPost> EnumerateListFeedAsync(
-        AtUri list,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<FeedResponse, FeedViewPost>(
-            (cursor, ct) => GetListFeedAsync(list, pageSize, cursor, ct),
-            cancellationToken);
 
     /// <summary>Get one page of the posts an actor has liked.</summary>
     /// <param name="actor">Handle or DID of the actor.</param>
@@ -233,17 +211,6 @@ public sealed class FeedClient
             "app.bsky.feed.getLikes", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>Enumerate the likes on a post (or other subject), fetching pages as needed.</summary>
-    /// <param name="uri">The AT-URI of the liked subject.</param>
-    /// <param name="cid">Optional CID of a specific version of the subject.</param>
-    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<LikeInfo> EnumerateLikesAsync(
-        AtUri uri, Cid? cid = null, int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<GetLikesResponse, LikeInfo>(
-            (cursor, ct) => GetLikesAsync(uri, cid, pageSize, cursor, ct),
-            cancellationToken);
-
     /// <summary>Get one page of the accounts that reposted a post.</summary>
     /// <param name="uri">The AT-URI of the post.</param>
     /// <param name="cid">Optional CID of a specific version of the post.</param>
@@ -263,17 +230,6 @@ public sealed class FeedClient
             "app.bsky.feed.getRepostedBy", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>Enumerate the accounts that reposted a post, fetching pages as needed.</summary>
-    /// <param name="uri">The AT-URI of the post.</param>
-    /// <param name="cid">Optional CID of a specific version of the post.</param>
-    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<ProfileView> EnumerateRepostedByAsync(
-        AtUri uri, Cid? cid = null, int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<GetRepostedByResponse, ProfileView>(
-            (cursor, ct) => GetRepostedByAsync(uri, cid, pageSize, cursor, ct),
-            cancellationToken);
-
     /// <summary>Get one page of the posts that quote a given post.</summary>
     /// <param name="uri">The AT-URI of the quoted post.</param>
     /// <param name="cid">Optional CID of a specific version of the post.</param>
@@ -292,17 +248,6 @@ public sealed class FeedClient
         return _xrpc.QueryAsync<GetQuotesResponse>(
             "app.bsky.feed.getQuotes", parameters, cancellationToken: cancellationToken);
     }
-
-    /// <summary>Enumerate the posts that quote a given post, fetching pages as needed.</summary>
-    /// <param name="uri">The AT-URI of the quoted post.</param>
-    /// <param name="cid">Optional CID of a specific version of the post.</param>
-    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<PostView> EnumerateQuotesAsync(
-        AtUri uri, Cid? cid = null, int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<GetQuotesResponse, PostView>(
-            (cursor, ct) => GetQuotesAsync(uri, cid, pageSize, cursor, ct),
-            cancellationToken);
 
     // ── Feed Generators ──────────────────────────────────────
 
@@ -345,16 +290,6 @@ public sealed class FeedClient
             "app.bsky.feed.getActorFeeds", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>Enumerate the feed generators an actor created, fetching pages as needed.</summary>
-    /// <param name="actor">Handle or DID of the actor.</param>
-    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<GeneratorView> EnumerateActorFeedsAsync(
-        AtIdentifier actor, int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<GetActorFeedsResponse, GeneratorView>(
-            (cursor, ct) => GetActorFeedsAsync(actor, pageSize, cursor, ct),
-            cancellationToken);
-
     /// <summary>Get one page of suggested feeds.</summary>
     /// <param name="limit">Max results per page (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor.</param>
@@ -369,14 +304,6 @@ public sealed class FeedClient
         return _xrpc.QueryAsync<GetSuggestedFeedsResponse>(
             "app.bsky.feed.getSuggestedFeeds", parameters, cancellationToken: cancellationToken);
     }
-
-    /// <summary>Enumerate every suggested feed, fetching pages as needed.</summary>
-    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<GeneratorView> EnumerateSuggestedFeedsAsync(
-        int? pageSize = null, CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<GetSuggestedFeedsResponse, GeneratorView>(
-            (cursor, ct) => GetSuggestedFeedsAsync(pageSize, cursor, ct),
-            cancellationToken);
 
     /// <summary>Describe the feed generator service.</summary>
     public Task<DescribeFeedGeneratorResponse> DescribeFeedGeneratorAsync(
@@ -453,38 +380,6 @@ public sealed class FeedClient
             "app.bsky.feed.searchPosts", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>Enumerate every post matching a search, fetching pages as needed.</summary>
-    /// <param name="q">Search query string.</param>
-    /// <param name="sort">Sort order: "top" or "latest".</param>
-    /// <param name="since">Filter to posts at or after this time: a datetime, or just an ISO date
-    /// (<c>YYYY-MM-DD</c>).</param>
-    /// <param name="until">Filter to posts before this time: a datetime, or just an ISO date
-    /// (<c>YYYY-MM-DD</c>).</param>
-    /// <param name="mentions">Filter to posts mentioning this account.</param>
-    /// <param name="author">Filter to posts by this account.</param>
-    /// <param name="lang">Filter by language (BCP-47).</param>
-    /// <param name="domain">Filter by domain in post links.</param>
-    /// <param name="url">Filter by URL in post links.</param>
-    /// <param name="tags">Only posts with all of these hashtags (without <c>#</c>).</param>
-    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<PostView> EnumerateSearchPostsAsync(
-        string q,
-        string? sort = null,
-        string? since = null,
-        string? until = null,
-        AtIdentifier? mentions = null,
-        AtIdentifier? author = null,
-        string? lang = null,
-        string? domain = null,
-        string? url = null,
-        IEnumerable<string>? tags = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<SearchPostsResponse, PostView>(
-            (cursor, ct) => SearchPostsAsync(
-                q, sort, since, until, mentions, author, lang, domain, url, tags, pageSize, cursor, ct),
-            cancellationToken);
-
     /// <summary>
     /// Search posts by a query, filters, or both (<c>app.bsky.feed.searchPostsV2</c>), one page
     /// at a time.
@@ -544,24 +439,6 @@ public sealed class FeedClient
             "app.bsky.feed.searchPostsV2", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate every post matching a <see cref="SearchPostsV2Async"/> search, fetching pages as
-    /// needed.
-    /// </summary>
-    /// <param name="query">The search text; a query or at least one filter is required.</param>
-    /// <param name="filters">What to include and exclude.</param>
-    /// <param name="sort">The ranking (see <see cref="PostSearchSort"/>).</param>
-    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<PostView> EnumerateSearchPostsV2Async(
-        string? query = null,
-        PostSearchFilters? filters = null,
-        string? sort = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<SearchPostsV2Response, PostView>(
-            (cursor, ct) => SearchPostsV2Async(query, filters, sort, pageSize, cursor, ct),
-            cancellationToken);
-
     // ── Feed feedback ────────────────────────────────────────
 
     /// <summary>
@@ -583,7 +460,7 @@ public sealed class FeedClient
     {
         ArgumentNullException.ThrowIfNull(interactions);
 
-        var request = new SendInteractionsRequest { Feed = feed, Interactions = [.. interactions] };
+        var request = new SendInteractionsRequest(Feed: feed, Interactions: [.. interactions]);
         var options = feedGenerator is null
             ? null
             : new XrpcCallOptions { Proxy = ServiceProxy.Build(feedGenerator.Value, ServiceProxy.BskyFeedGenerator) };

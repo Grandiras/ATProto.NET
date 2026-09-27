@@ -167,33 +167,4 @@ public sealed class OzoneQueueClientTests : IDisposable
             _ozone.Sent.IsQuery("tools.ozone.queue.getAssignments").Query);
         Assert.Equal(Did.Parse(ModDid), Assert.Single(page.Assignments).Did);
     }
-
-    [Theory]
-    [InlineData("queues")]
-    [InlineData("assignments")]
-    public async Task Enumerate_WalksPagesWithPageSize(string listing)
-    {
-        var (nsid, item) = listing == "queues"
-            ? ("tools.ozone.queue.listQueues", QueueJson)
-            : ("tools.ozone.queue.getAssignments", AssignmentJson);
-        _ozone.Respond($$"""{"cursor":"c1","{{listing}}":[{{item}}]}""");
-        _ozone.Respond($$"""{"{{listing}}":[{{item}}]}""");
-
-        var count = 0;
-        if (listing == "queues")
-        {
-            await foreach (var _ in Queues.EnumerateQueuesAsync(pageSize: 2))
-                count++;
-        }
-        else
-        {
-            await foreach (var _ in Queues.EnumerateAssignmentsAsync(pageSize: 2))
-                count++;
-        }
-
-        Assert.Equal(2, count);
-        Assert.All(_ozone.Requests, r => Assert.Equal(nsid, r.Nsid));
-        Assert.All(_ozone.Requests, r => Assert.Contains("limit=2", r.Query));
-        Assert.Contains("cursor=c1", _ozone.Requests[1].Query);
-    }
 }

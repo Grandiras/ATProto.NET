@@ -272,11 +272,39 @@ The typed identifiers came with one convention for every client method (see
   the server's default. `RecordCollection<T>.EnumerateAsync` / `EnumerateFromAsync` used 100; pass
   `pageSize: 100` to keep it. `JetstreamArchiveClient.ListAllSegmentsAsync` is
   `EnumerateSegmentsAsync`.
+- **Only 13 `Enumerate*` helpers remain** — the ones the tracking issues named, plus the ones
+  0.6 already had: `RecordCollection<T>.EnumerateAsync` / `EnumerateFromAsync`,
+  `RepoClient.EnumerateRecordsAsync`, `SimpleSpaceClient.EnumerateMembersAsync`,
+  `SpaceClient.EnumerateReposAsync` / `EnumerateRecordsAsync`,
+  `JetstreamArchiveClient.EnumerateSegmentsAsync`, `FeedClient.EnumerateTimelineAsync` /
+  `EnumerateAuthorFeedAsync` / `EnumerateActorLikesAsync`, `GraphClient.EnumerateFollowersAsync` /
+  `EnumerateFollowsAsync` / `EnumerateListMembersAsync`, `NotificationClient.EnumerateNotificationsAsync`,
+  `ConvoClient.EnumerateMessagesAsync` and `BookmarkClient.EnumerateBookmarksAsync`. Every other
+  `Enumerate*` / `ListAll*` wrapper (feeds, blocks, mutes, lists, starter packs, convos, Ozone's
+  queues, reports, sets, team, safelink, `sync`, `label`, `admin`, `standard-site`, …) is gone; the
+  `Http.Pagination` class behind all of them is now **public**, so any endpoint's `GetXAsync(...,
+  cursor, cancellationToken)` walks with one line:
+  `Pagination.EnumerateAsync<GetFooResponse, FooView>((cursor, ct) => client.Foo.GetFooAsync(id,
+  cursor: cursor, cancellationToken: ct))`.
 - **`ICursoredResponse` is replaced by `ICursorPage<T>`**, which every cursored response and
   `RecordPage<T>` implements, and **model collections are `IReadOnlyList<T>`** (they were
   `List<T>`). Copy a list you need to change: `[.. response.Records]`. Method inputs take
   `IEnumerable<T>` (`ApplyWritesAsync`, `DisableInviteCodesAsync`, `QueryLabelsAsync`, …), and
   `GetInviteCodesResponse.Codes` is typed as `InviteCode` instead of `JsonElement`.
+- **`ProfileViewBasic` ⊂ `ProfileView` ⊂ `ProfileViewDetailed` by inheritance**, and
+  `GetSessionResponse` is the base of `SessionResponse` the same way, instead of each redeclaring
+  the fields it shares with the others. `is ProfileView` now also matches a `ProfileViewDetailed`
+  (`is ProfileViewBasic` matches all three). Migration: recompile; where the distinction matters,
+  match the most specific type first or check a property unique to that view.
+- **`Tools.Ozone.Report.LiveStats` is gone.** `GetLiveStatsResponse.Stats` is
+  `Tools.Ozone.Queue.QueueStats`, which was already structurally identical. Migration: replace
+  `LiveStats` with `QueueStats`.
+- **The 72 cursored responses derive from `Models.CursorPage<T>`** instead of implementing
+  `ICursorPage<T>` by hand, and are `sealed record`s rather than `sealed class`es. `Items` is a
+  public `override`, so `response.Items` works without a cast to `ICursorPage<T>`; the wire shape
+  is unchanged. `GraphClient.GetListAsync`'s response renames `Items` to `Members`, since the
+  Lexicon's own `items` field collided with the new override. Migration: recompile; read
+  `GetListResponse.Members` in place of `Items`.
 - **Single-use request bodies are internal.** A request type that only one client method built is
   internal, and the method takes its fields as parameters: `CreateRecordRequest`,
   `PutRecordRequest`, `DeleteRecordRequest`, `ApplyWritesRequest`, `CreateSessionRequest`,
@@ -694,14 +722,12 @@ These follow the Lexicons now, where 0.6 had fields that were never on the wire:
   `EnumerateNotificationsAsync` take `reasons` instead of both, and `GetUnreadCountAsync` drops
   `priority`: upstream ignores `priority`, and since 2026-09-21 answers `seenAt` on
   `listNotifications` with an error. Remove the arguments.
-- **New Lexicon parameters shift positional arguments.** `SearchPostsAsync` /
-  `EnumerateSearchPostsAsync` take `IEnumerable<string>? tags` where they took `string? tag`; `sort`
-  precedes `limit` in `GetFollowersAsync` / `GetFollowsAsync` and their enumerators; `purposes`
-  precedes `limit` in `GetListsAsync` / `EnumerateListsAsync`; `MuteActorAsync`,
-  `CreateReportAsync`, `DeactivateAccountAsync`, `QueryEventsAsync` / `EnumerateEventsAsync`,
-  `ListMembersAsync` / `EnumerateMembersAsync` and `QuerySetsAsync` / `EnumerateSetsAsync` gain the
-  inputs and filters their Lexicons define before the paging arguments or the token. Name the
-  arguments after the first.
+- **New Lexicon parameters shift positional arguments.** `SearchPostsAsync` takes
+  `IEnumerable<string>? tags` where it took `string? tag`; `sort` precedes `limit` in
+  `GetFollowersAsync` / `GetFollowsAsync` and their enumerators; `purposes` precedes `limit` in
+  `GetListsAsync`; `MuteActorAsync`, `CreateReportAsync`, `DeactivateAccountAsync`,
+  `QueryEventsAsync`, `ListMembersAsync` and `QuerySetsAsync` gain the inputs and filters their
+  Lexicons define before the paging arguments or the token. Name the arguments after the first.
 - **`VideoClient.UploadVideoAsync` uploads in parts and waits for processing.** It runs the
   multipart flow (`startUpload`, `uploadPart`, `finishUpload`), retries transient failures, polls
   the job and returns the completed `JobStatus`, whose `Blob` goes into a `VideoEmbed`; a failed job
@@ -709,10 +735,9 @@ These follow the Lexicons now, where 0.6 had fields that were never on the wire:
   polling loop, or call `UploadVideoInOneRequestAsync` for the old single-request behaviour. See
   [Video Upload](video.md).
 - **Chat names follow the Lexicon.** `GetConvoAvailabilityResponse.CanConvo` is `CanChat`,
-  `ListConvosAsync` / `EnumerateConvosAsync` take `string? readState` (`"unread"`) instead of
-  `bool? readOnly`, and `ConvoView.Opened` and `AcceptConvoResponse.Convo` are removed.
-  `ListConvosAsync` / `EnumerateConvosAsync` also take `kind` and `lockStatus` before `limit` /
-  `pageSize`: pass the paging arguments by name.
+  `ListConvosAsync` takes `string? readState` (`"unread"`) instead of `bool? readOnly`, and
+  `ConvoView.Opened` and `AcceptConvoResponse.Convo` are removed. `ListConvosAsync` also takes
+  `kind` and `lockStatus` before `limit` / `cursor`: pass the paging arguments by name.
 - **`ConvoClient.UpdateAllReadAsync` returns `UpdateAllReadResponse`** with the `UpdatedCount`, and
   takes an optional `status`. Existing `await`s compile unchanged; recompile.
 - **Chat log entries and message embeds are typed.** `ConvoLogEntry` is the abstract base of one
@@ -730,9 +755,8 @@ These follow the Lexicons now, where 0.6 had fields that were never on the wire:
   were used.
 - **Ozone's review queue is `QueryStatusesAsync`.** `QuerySubjectsAsync`, `EnumerateSubjectsAsync`
   and `QuerySubjectsResponse` called `tools.ozone.moderation.querySubjects`, which never existed.
-  `QueryStatusesAsync` / `EnumerateStatusesAsync` take every filter of `queryStatuses` in a
-  `SubjectStatusFilter` (`Takendown` and `Appealed` are booleans) and return
-  `QueryStatusesResponse.SubjectStatuses`.
+  `QueryStatusesAsync` takes every filter of `queryStatuses` in a `SubjectStatusFilter`
+  (`Takendown` and `Appealed` are booleans) and returns `QueryStatusesResponse.SubjectStatuses`.
 - **`SignatureClient.SearchAccountsAsync` takes signature values and returns account views**:
   `values` is `IEnumerable<string>` (pass the `SigDetail.Value`s), and `SearchAccountsResponse.Accounts`
   and `RelatedAccount.Account` are `AccountInfo`; `AccountResult` is removed.
@@ -1298,6 +1322,11 @@ See [Lexicon Code Generator](lexicon-codegen.md).
   no record migration to run. Keep published copies under version control, gate changes with
   `atproto-lexgen diff --strict`, and publish with
   `atproto-lexgen publish --input <dir> --identifier <handle>` and `ATPROTO_PASSWORD`.
+- **The `migrate` and old-`publish`-option messages explaining the removal above are themselves
+  removed**, now that the removal has shipped: `atproto-lexgen migrate` and
+  `publish --output`/`--baseline`/`--assembly`/`--no-bump` fail with the same generic "Unknown
+  command"/"Unknown option" every other unrecognized one does, instead of the specific explanation.
+  Run with `--help` for the current commands and options.
 - **Unused `atproto-lexgen` helpers are removed**: `CSharpEmitter.Emit(LexiconDocument)` (use
   `EmitAll([document])`), `LexiconEmitter.JsonOptions` (use `LexiconJson.WriteOptions`), and
   `TypeMapper.GetLexiconType`, `InferStringFormat`, `ToCamelCase`, `NsidToFilePath` and

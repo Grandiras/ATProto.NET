@@ -236,15 +236,20 @@ public sealed class OzoneModerationToolingTests : IDisposable
     }
 
     [Fact]
-    public async Task EnumerateScheduledActionsAsync_SendsEachCursorInTheBody()
+    public async Task ListScheduledActionsAsync_PagedThroughPagination_SendsEachCursorInTheBody()
     {
+        // Unlike every other listing, scheduled actions is a procedure: the cursor travels in the
+        // JSON body, not the query string.
         var action = $$"""{"id":1,"action":"takedown","did":"{{UserDid}}","createdBy":"{{ModDid}}","createdAt":"2026-09-01T00:00:00.000Z","status":"pending"}""";
         _ozone.Respond($$"""{"cursor":"c1","actions":[{{action}}]}""");
         _ozone.Respond($$"""{"actions":[{{action}}]}""");
 
         var count = 0;
-        await foreach (var _ in Moderation.EnumerateScheduledActionsAsync([ScheduledActionStatus.Pending], pageSize: 1))
+        await foreach (var _ in ATProtoNet.Http.Pagination.EnumerateAsync<ListScheduledActionsResponse, ScheduledActionView>(
+            (cursor, ct) => Moderation.ListScheduledActionsAsync([ScheduledActionStatus.Pending], limit: 1, cursor: cursor, cancellationToken: ct)))
+        {
             count++;
+        }
 
         Assert.Equal(2, count);
         Assert.False(_ozone.Requests[0].Json.TryGetProperty("cursor", out _));

@@ -77,23 +77,15 @@ public abstract class ConvoRequestView : LexObject;
 /// A conversation request entry whose <c>$type</c> this SDK version does not model. It keeps the
 /// raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownConvoRequestView : ConvoRequestView, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownConvoRequestView(string type, JsonElement raw) : ConvoRequestView, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown conversation request entry from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownConvoRequestView(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>A conversation, direct or group, as the viewer sees it (<c>chat.bsky.convo.defs#convoView</c>).</summary>
@@ -163,23 +155,15 @@ public abstract class ConvoKind : LexObject;
 /// A conversation kind whose <c>$type</c> this SDK version does not model. It keeps the raw object
 /// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownConvoKind : ConvoKind, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownConvoKind(string type, JsonElement raw) : ConvoKind, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown conversation kind from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownConvoKind(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>A conversation between two accounts (<c>chat.bsky.convo.defs#directConvo</c>).</summary>
@@ -240,23 +224,15 @@ public abstract class ConvoLastReaction : LexObject;
 /// A latest-reaction variant whose <c>$type</c> this SDK version does not model. It keeps the raw
 /// object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownConvoLastReaction : ConvoLastReaction, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownConvoLastReaction(string type, JsonElement raw) : ConvoLastReaction, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown latest-reaction variant from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownConvoLastReaction(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>A reaction together with the message it is on (<c>chat.bsky.convo.defs#messageAndReactionView</c>).</summary>
@@ -345,23 +321,15 @@ public abstract class ConvoMessage : LexObject;
 /// A message whose <c>$type</c> this SDK version does not model. It keeps the raw object and
 /// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownConvoMessage : ConvoMessage, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownConvoMessage(string type, JsonElement raw) : ConvoMessage, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown message from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownConvoMessage(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>A message a member sent (<c>chat.bsky.convo.defs#messageView</c>).</summary>
@@ -531,23 +499,15 @@ public abstract class SystemMessageData : LexObject;
 /// A system message event whose <c>$type</c> this SDK version does not model. It keeps the raw
 /// object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownSystemMessageData : SystemMessageData, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownSystemMessageData(string type, JsonElement raw) : SystemMessageData, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown system message event from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownSystemMessageData(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>A member was added to the group (<c>#systemMessageDataAddMember</c>).</summary>
@@ -1035,16 +995,9 @@ public sealed class LogReadJoinRequests : ConvoLogEntry;
 // ── Request models ───────────────────────────────────────
 
 /// <summary>Request body for chat.bsky.convo.sendMessage.</summary>
-internal sealed class SendMessageRequest
-{
-    /// <summary>The identifier of the conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
-
-    /// <summary>The message.</summary>
-    [JsonPropertyName("message")]
-    public required MessageInput Message { get; init; }
-}
+internal sealed record SendMessageRequest(
+    [property: JsonPropertyName("convoId")] string ConvoId,
+    [property: JsonPropertyName("message")] MessageInput Message);
 
 /// <summary>Input for a message to be sent.</summary>
 public sealed class MessageInput : LexObject
@@ -1090,154 +1043,54 @@ public sealed class BatchMessageItem : LexObject
 }
 
 /// <summary>Request body for chat.bsky.convo.sendMessageBatch.</summary>
-internal sealed class SendMessageBatchRequest
-{
-    /// <summary>The messages to send.</summary>
-    [JsonPropertyName("items")]
-    public required IReadOnlyList<BatchMessageItem> Items { get; init; }
-}
+internal sealed record SendMessageBatchRequest(
+    [property: JsonPropertyName("items")] IReadOnlyList<BatchMessageItem> Items);
 
 /// <summary>Request body for chat.bsky.convo.deleteMessageForSelf.</summary>
-internal sealed class DeleteMessageForSelfRequest
-{
-    /// <summary>The identifier of the conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
+internal sealed record DeleteMessageForSelfRequest(
+    [property: JsonPropertyName("convoId")] string ConvoId,
+    [property: JsonPropertyName("messageId")] string MessageId);
 
-    /// <summary>The identifier of the message.</summary>
-    [JsonPropertyName("messageId")]
-    public required string MessageId { get; init; }
-}
-
-/// <summary>Request body for chat.bsky.convo.leaveConvo.</summary>
-internal sealed class LeaveConvoRequest
-{
-    /// <summary>The identifier of the conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
-}
-
-/// <summary>Request body for chat.bsky.convo.muteConvo.</summary>
-internal sealed class MuteConvoRequest
-{
-    /// <summary>The identifier of the conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
-}
-
-/// <summary>Request body for chat.bsky.convo.unmuteConvo.</summary>
-internal sealed class UnmuteConvoRequest
-{
-    /// <summary>The identifier of the conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
-}
-
-/// <summary>Request body for chat.bsky.convo.lockConvo.</summary>
-internal sealed class LockConvoRequest
-{
-    /// <summary>The identifier of the conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
-}
-
-/// <summary>Request body for chat.bsky.convo.unlockConvo.</summary>
-internal sealed class UnlockConvoRequest
-{
-    /// <summary>The identifier of the conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
-}
+/// <summary>
+/// Request body for the 10 endpoints across <c>chat.bsky.convo.*</c> and <c>chat.bsky.group.*</c>
+/// that take only a conversation identifier: <c>leaveConvo</c>, <c>muteConvo</c>,
+/// <c>unmuteConvo</c>, <c>lockConvo</c>, <c>unlockConvo</c>, <c>acceptConvo</c>,
+/// <c>enableJoinLink</c>, <c>disableJoinLink</c>, <c>withdrawJoinRequest</c> and
+/// <c>updateJoinRequestsRead</c>.
+/// </summary>
+internal sealed record ConvoIdRequest([property: JsonPropertyName("convoId")] string ConvoId);
 
 /// <summary>Request body for chat.bsky.convo.updateRead.</summary>
-internal sealed class UpdateReadRequest
-{
-    /// <summary>The identifier of the conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
-
-    /// <summary>The identifier of the message.</summary>
-    [JsonPropertyName("messageId")]
-    public string? MessageId { get; init; }
-}
+internal sealed record UpdateReadRequest(
+    [property: JsonPropertyName("convoId")] string ConvoId,
+    [property: JsonPropertyName("messageId")] string? MessageId = null);
 
 /// <summary>Request body for chat.bsky.convo.updateAllRead.</summary>
-internal sealed class UpdateAllReadRequest
-{
-    /// <summary>Only conversations with this status (<c>request</c> or <c>accepted</c>).</summary>
-    [JsonPropertyName("status")]
-    public string? Status { get; init; }
-}
+internal sealed record UpdateAllReadRequest([property: JsonPropertyName("status")] string? Status = null);
 
-/// <summary>Request body for chat.bsky.convo.acceptConvo.</summary>
-internal sealed class AcceptConvoRequest
-{
-    /// <summary>The identifier of the conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
-}
-
-/// <summary>Request body for chat.bsky.convo.addReaction.</summary>
-internal sealed class AddReactionRequest
-{
-    /// <summary>The identifier of the conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
-
-    /// <summary>The identifier of the message.</summary>
-    [JsonPropertyName("messageId")]
-    public required string MessageId { get; init; }
-
-    /// <summary>The reaction emoji.</summary>
-    [JsonPropertyName("value")]
-    public required string Value { get; init; }
-}
-
-/// <summary>Request body for chat.bsky.convo.removeReaction.</summary>
-internal sealed class RemoveReactionRequest
-{
-    /// <summary>The identifier of the conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
-
-    /// <summary>The identifier of the message.</summary>
-    [JsonPropertyName("messageId")]
-    public required string MessageId { get; init; }
-
-    /// <summary>The record value.</summary>
-    [JsonPropertyName("value")]
-    public required string Value { get; init; }
-}
+/// <summary>Request body for chat.bsky.convo.addReaction and chat.bsky.convo.removeReaction.</summary>
+internal sealed record ConvoReactionRequest(
+    [property: JsonPropertyName("convoId")] string ConvoId,
+    [property: JsonPropertyName("messageId")] string MessageId,
+    [property: JsonPropertyName("value")] string Value);
 
 // ── Response models ──────────────────────────────────────
 
 /// <summary>Response from chat.bsky.convo.listConvos.</summary>
-public sealed class ListConvosResponse : ICursorPage<ConvoView>
+public sealed record ListConvosResponse : CursorPage<ConvoView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The conversations.</summary>
     [JsonPropertyName("convos")]
     public required IReadOnlyList<ConvoView> Convos { get; init; }
 
-    IReadOnlyList<ConvoView> ICursorPage<ConvoView>.Items => Convos;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ConvoView> Items => Convos;
 }
 
 /// <summary>Response from chat.bsky.convo.listConvoRequests.</summary>
-public sealed class ListConvoRequestsResponse : ICursorPage<ConvoRequestView>
+public sealed record ListConvoRequestsResponse : CursorPage<ConvoRequestView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>
     /// The requests: incoming conversation requests (<see cref="ConvoView"/>) and the viewer's own
     /// group join requests (<see cref="JoinRequestConvoView"/>).
@@ -1245,7 +1098,9 @@ public sealed class ListConvoRequestsResponse : ICursorPage<ConvoRequestView>
     [JsonPropertyName("requests")]
     public required IReadOnlyList<ConvoRequestView> Requests { get; init; }
 
-    IReadOnlyList<ConvoRequestView> ICursorPage<ConvoRequestView>.Items => Requests;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ConvoRequestView> Items => Requests;
 }
 
 /// <summary>Response from chat.bsky.convo.getConvo.</summary>
@@ -1280,20 +1135,15 @@ public sealed class GetConvoAvailabilityResponse
 /// Response from chat.bsky.convo.getConvoMembers; chat.bsky.moderation.getConvoMembers answers
 /// the same shape.
 /// </summary>
-public sealed class GetConvoMembersResponse : ICursorPage<ChatMemberView>
+public sealed record GetConvoMembersResponse : CursorPage<ChatMemberView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The members.</summary>
     [JsonPropertyName("members")]
     public required IReadOnlyList<ChatMemberView> Members { get; init; }
 
-    IReadOnlyList<ChatMemberView> ICursorPage<ChatMemberView>.Items => Members;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ChatMemberView> Items => Members;
 }
 
 /// <summary>Response from chat.bsky.convo.getUnreadCounts.</summary>
@@ -1312,15 +1162,8 @@ public sealed class GetUnreadCountsResponse
 }
 
 /// <summary>Response from chat.bsky.convo.getMessages.</summary>
-public sealed class GetMessagesResponse : ICursorPage<ConvoMessage>
+public sealed record GetMessagesResponse : CursorPage<ConvoMessage>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>
     /// The messages: <see cref="MessageView"/>, <see cref="DeletedMessageView"/> and, in groups,
     /// <see cref="SystemMessageView"/>.
@@ -1335,7 +1178,9 @@ public sealed class GetMessagesResponse : ICursorPage<ConvoMessage>
     [JsonPropertyName("relatedProfiles")]
     public IReadOnlyList<ChatMemberView>? RelatedProfiles { get; init; }
 
-    IReadOnlyList<ConvoMessage> ICursorPage<ConvoMessage>.Items => Messages;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ConvoMessage> Items => Messages;
 }
 
 /// <summary>Response from chat.bsky.convo.sendMessageBatch.</summary>
@@ -1394,18 +1239,13 @@ internal sealed class MessageOutput
 }
 
 /// <summary>Response from chat.bsky.convo.getLog.</summary>
-public sealed class GetLogResponse : ICursorPage<ConvoLogEntry>
+public sealed record GetLogResponse : CursorPage<ConvoLogEntry>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The conversation log entries.</summary>
     [JsonPropertyName("logs")]
     public required IReadOnlyList<ConvoLogEntry> Logs { get; init; }
 
-    IReadOnlyList<ConvoLogEntry> ICursorPage<ConvoLogEntry>.Items => Logs;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ConvoLogEntry> Items => Logs;
 }

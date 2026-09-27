@@ -27,13 +27,11 @@ public sealed class ModerationClient
         ModTool? modTool = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new CreateReportRequest
-        {
-            ReasonType = reasonType,
-            Subject = subject,
-            Reason = reason,
-            ModTool = modTool,
-        };
+        var request = new CreateReportRequest(
+            ReasonType: reasonType,
+            Subject: subject,
+            Reason: reason,
+            ModTool: modTool);
 
         return _xrpc.ProcedureAsync<CreateReportResponse>(
             "com.atproto.moderation.createReport", request, cancellationToken: cancellationToken);

@@ -113,12 +113,17 @@ foreach (var entry in docs.Records)
 }
 ```
 
-`EnumerateDocumentsAsync` fetches the pages for you (as do `EnumeratePublicationsAsync`,
-`EnumerateSubscriptionsAsync` and `EnumerateRecommendationsAsync`):
+`Pagination.EnumerateAsync` fetches the pages for you, for `ListDocumentsAsync` and every other
+`List*Async` on this client:
 
 ```csharp
-await foreach (var entry in client.Site.EnumerateDocumentsAsync(Did.Parse("did:plc:abc123")))
+using ATProtoNet.Http;
+
+await foreach (var entry in Pagination.EnumerateAsync<RecordPage<DocumentRecord>, RecordView<DocumentRecord>>(
+    (cursor, ct) => client.Site.ListDocumentsAsync(Did.Parse("did:plc:abc123"), cursor: cursor, cancellationToken: ct)))
+{
     Console.WriteLine($"{entry.RecordKey}: {entry.Value.Title}");
+}
 ```
 
 ### Get a Document
@@ -194,7 +199,8 @@ var created = await client.Site.CreateRecommendationAsync(client.Did!, new Recom
     CreatedAt = AtDatetime.Now(),
 });
 
-await foreach (var entry in client.Site.EnumerateRecommendationsAsync(client.Did!))
+await foreach (var entry in Pagination.EnumerateAsync<RecordPage<RecommendRecord>, RecordView<RecommendRecord>>(
+    (cursor, ct) => client.Site.ListRecommendationsAsync(client.Did!, cursor: cursor, cancellationToken: ct)))
 {
     var doc = await client.Site.GetDocumentAsync(entry.Value.Document);
     Console.WriteLine($"Recommended: {doc.Value.Title}");

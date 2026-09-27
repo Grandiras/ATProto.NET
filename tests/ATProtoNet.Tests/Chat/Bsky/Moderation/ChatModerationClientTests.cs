@@ -140,22 +140,6 @@ public class ChatModerationClientTests : IDisposable
     }
 
     [Fact]
-    public async Task EnumerateConvoMembersAsync_WalksPages()
-    {
-        _stub.On("chat.bsky.moderation.getConvoMembers",
-            """{"cursor":"page-2","members":[{"did":"did:plc:alice","handle":"alice.bsky.social"}]}""");
-        _stub.On("chat.bsky.moderation.getConvoMembers",
-            """{"members":[{"did":"did:plc:bob","handle":"bob.bsky.social"}]}""");
-
-        var members = await _moderation.EnumerateConvoMembersAsync("convo-1", pageSize: 1).ToListAsync();
-
-        Assert.Equal(["alice.bsky.social", "bob.bsky.social"], members.Select(m => m.Handle.ToString()));
-        Assert.Equal(
-            ["?convoId=convo-1&limit=1", "?convoId=convo-1&limit=1&cursor=page-2"],
-            _stub.To("chat.bsky.moderation.getConvoMembers").Select(r => $"?{r.Query}"));
-    }
-
-    [Fact]
     public async Task UpdateActorAccessAsync_PostsTheActorAccessAndRef()
     {
         _stub.On("chat.bsky.moderation.updateActorAccess", "");

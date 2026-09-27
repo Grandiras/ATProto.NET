@@ -45,19 +45,6 @@ public sealed class GraphSurfaceTests : IDisposable
     }
 
     [Fact]
-    public async Task EnumerateListsWithMembershipAsync_FollowsTheCursor()
-    {
-        _handler
-            .On("app.bsky.graph.getListsWithMembership", $$"""{"cursor":"n","listsWithMembership":[{"list":{{ListViewJson}}}]}""")
-            .On("app.bsky.graph.getListsWithMembership", $$"""{"listsWithMembership":[{"list":{{ListViewJson}}}]}""");
-
-        var lists = await _client.Bsky.Graph.EnumerateListsWithMembershipAsync(Did.Parse(BobDid)).ToListAsync();
-
-        Assert.Equal(2, lists.Count);
-        Assert.Equal([$"actor={BobDid}", $"actor={BobDid}&cursor=n"], _handler.Requests.Select(r => Uri.UnescapeDataString(r.Query)));
-    }
-
-    [Fact]
     public async Task GetStarterPacksWithMembershipAsync_BindsMembership()
     {
         _handler.On("app.bsky.graph.getStarterPacksWithMembership", $$"""
@@ -74,18 +61,6 @@ public sealed class GraphSurfaceTests : IDisposable
     }
 
     [Fact]
-    public async Task EnumerateStarterPacksWithMembershipAsync_FollowsTheCursor()
-    {
-        _handler
-            .On("app.bsky.graph.getStarterPacksWithMembership", $$"""{"cursor":"n","starterPacksWithMembership":[{"starterPack":{{StarterPackViewJson}}}]}""")
-            .On("app.bsky.graph.getStarterPacksWithMembership", $$"""{"starterPacksWithMembership":[{"starterPack":{{StarterPackViewJson}}}]}""");
-
-        var packs = await _client.Bsky.Graph.EnumerateStarterPacksWithMembershipAsync(Did.Parse(BobDid), pageSize: 1).ToListAsync();
-
-        Assert.Equal(2, packs.Count);
-    }
-
-    [Fact]
     public async Task SearchStarterPacksV2Async_ReturnsFullViewsAndHits()
     {
         _handler.On("app.bsky.graph.searchStarterPacksV2", $$"""{"cursor":"25","hitsTotal":40,"starterPacks":[{{StarterPackViewJson}}]}""");
@@ -97,18 +72,5 @@ public sealed class GraphSurfaceTests : IDisposable
         var pack = Assert.Single(page.StarterPacks);
         Assert.Equal("alice.test", pack.Creator.Handle.Value);
         Assert.Equal("app.bsky.graph.defs#referencelist", pack.List!.Purpose);
-    }
-
-    [Fact]
-    public async Task EnumerateSearchStarterPacksV2Async_FollowsTheCursor()
-    {
-        _handler
-            .On("app.bsky.graph.searchStarterPacksV2", $$"""{"cursor":"25","starterPacks":[{{StarterPackViewJson}}]}""")
-            .On("app.bsky.graph.searchStarterPacksV2", $$"""{"starterPacks":[{{StarterPackViewJson}}]}""");
-
-        var packs = await _client.Bsky.Graph.EnumerateSearchStarterPacksV2Async("science").ToListAsync();
-
-        Assert.Equal(2, packs.Count);
-        Assert.Equal(["q=science", "q=science&cursor=25"], _handler.Requests.Select(r => r.Query));
     }
 }

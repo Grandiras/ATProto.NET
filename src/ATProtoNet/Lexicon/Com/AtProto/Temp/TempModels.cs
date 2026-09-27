@@ -37,23 +37,15 @@ public abstract class HandleAvailabilityResult : LexObject;
 /// A handle availability result whose <c>$type</c> this SDK version does not model. It keeps the
 /// raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownHandleAvailabilityResult : HandleAvailabilityResult, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownHandleAvailabilityResult(string type, JsonElement raw) : HandleAvailabilityResult, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown result from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownHandleAvailabilityResult(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>The handle is available.</summary>
@@ -110,19 +102,10 @@ internal sealed class DereferenceScopeResponse
 // ── com.atproto.temp.requestPhoneVerification ────────────────
 
 /// <summary>Request body for requestPhoneVerification.</summary>
-internal sealed class RequestPhoneVerificationRequest
-{
-    /// <summary>The phone number to send the code to.</summary>
-    [JsonPropertyName("phoneNumber")]
-    public required string PhoneNumber { get; init; }
-}
+internal sealed record RequestPhoneVerificationRequest(
+    [property: JsonPropertyName("phoneNumber")] string PhoneNumber);
 
 // ── com.atproto.temp.revokeAccountCredentials ────────────────
 
 /// <summary>Request body for revokeAccountCredentials.</summary>
-internal sealed class RevokeAccountCredentialsRequest
-{
-    /// <summary>The account whose credentials to revoke.</summary>
-    [JsonPropertyName("account")]
-    public required AtIdentifier Account { get; init; }
-}
+internal sealed record RevokeAccountCredentialsRequest([property: JsonPropertyName("account")] AtIdentifier Account);

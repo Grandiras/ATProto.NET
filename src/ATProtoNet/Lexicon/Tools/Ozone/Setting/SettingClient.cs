@@ -44,24 +44,6 @@ public sealed class SettingClient
             "tools.ozone.setting.listOptions", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>Enumerate every setting matching the filters, fetching pages as needed.</summary>
-    /// <param name="scope">
-    /// Whose settings: <see cref="SettingScope.Instance"/> (the server default) or
-    /// <see cref="SettingScope.Personal"/>.
-    /// </param>
-    /// <param name="prefix">Only settings whose key starts with this prefix.</param>
-    /// <param name="keys">Only these settings (at most 100); ignored with <paramref name="prefix"/>.</param>
-    /// <param name="pageSize">Settings per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<SettingOption> EnumerateOptionsAsync(
-        string? scope = null,
-        string? prefix = null,
-        IEnumerable<Nsid>? keys = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<ListOptionsResponse, SettingOption>(
-            (cursor, ct) => ListOptionsAsync(scope, prefix, keys, pageSize, cursor, ct),
-            cancellationToken);
-
     /// <summary>Create a setting or replace its value.</summary>
     /// <param name="key">The setting's key.</param>
     /// <param name="scope">Whom the setting applies to (see <see cref="SettingScope"/>).</param>
@@ -76,14 +58,12 @@ public sealed class SettingClient
         string? managerRole = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new UpsertOptionRequest
-        {
-            Key = key,
-            Scope = scope,
-            Value = value,
-            Description = description,
-            ManagerRole = managerRole,
-        };
+        var request = new UpsertOptionRequest(
+            Key: key,
+            Scope: scope,
+            Value: value,
+            Description: description,
+            ManagerRole: managerRole);
         return _xrpc.ProcedureAsync<UpsertOptionResponse>(
             "tools.ozone.setting.upsertOption", request, cancellationToken: cancellationToken);
     }
@@ -96,7 +76,7 @@ public sealed class SettingClient
         string scope,
         CancellationToken cancellationToken = default)
     {
-        var request = new RemoveOptionsRequest { Keys = [.. keys], Scope = scope };
+        var request = new RemoveOptionsRequest(Keys: [.. keys], Scope: scope);
         return _xrpc.ProcedureAsync(
             "tools.ozone.setting.removeOptions", request, cancellationToken: cancellationToken);
     }

@@ -42,23 +42,15 @@ public abstract class AccountHistoryDetails : LexObject;
 /// Account history details whose <c>$type</c> this SDK version does not model. They keep the raw
 /// object and write it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownAccountHistoryDetails : AccountHistoryDetails, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownAccountHistoryDetails(string type, JsonElement raw) : AccountHistoryDetails, IUnknownUnionVariant
 {
-    /// <summary>Creates unknown account history details from their discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownAccountHistoryDetails(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>The account was created.</summary>
@@ -120,18 +112,13 @@ public static class AccountHistoryEventType
 }
 
 /// <summary>Response from tools.ozone.hosting.getAccountHistory.</summary>
-public sealed class GetAccountHistoryResponse : ICursorPage<AccountHistoryEvent>
+public sealed record GetAccountHistoryResponse : CursorPage<AccountHistoryEvent>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The events.</summary>
     [JsonPropertyName("events")]
     public required IReadOnlyList<AccountHistoryEvent> Events { get; init; }
 
-    IReadOnlyList<AccountHistoryEvent> ICursorPage<AccountHistoryEvent>.Items => Events;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<AccountHistoryEvent> Items => Events;
 }

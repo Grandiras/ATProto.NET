@@ -78,23 +78,15 @@ public abstract class ThreadItemValue : LexObject;
 /// A thread item value whose <c>$type</c> this SDK version does not model. It keeps the raw
 /// object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownThreadItemValue : ThreadItemValue, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownThreadItemValue(string type, JsonElement raw) : ThreadItemValue, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown thread item value from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownThreadItemValue(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>A post in a flat thread (<c>app.bsky.unspecced.defs#threadItemPost</c>).</summary>

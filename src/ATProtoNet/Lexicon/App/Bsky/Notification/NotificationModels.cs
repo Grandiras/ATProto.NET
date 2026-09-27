@@ -54,15 +54,8 @@ public sealed class NotificationView : LexObject
 }
 
 /// <summary>Response from listNotifications.</summary>
-public sealed class ListNotificationsResponse : ICursorPage<NotificationView>
+public sealed record ListNotificationsResponse : CursorPage<NotificationView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The notifications.</summary>
     [JsonPropertyName("notifications")]
     public required IReadOnlyList<NotificationView> Notifications { get; init; }
@@ -76,7 +69,9 @@ public sealed class ListNotificationsResponse : ICursorPage<NotificationView>
     [JsonPropertyName("seenAt")]
     public AtDatetime? SeenAt { get; init; }
 
-    IReadOnlyList<NotificationView> ICursorPage<NotificationView>.Items => Notifications;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<NotificationView> Items => Notifications;
 }
 
 // ── getUnreadCount ───────────────────────────────────────────
@@ -92,12 +87,7 @@ public sealed class GetUnreadCountResponse
 // ── updateSeen ───────────────────────────────────────────────
 
 /// <summary>Request body for updateSeen.</summary>
-internal sealed class UpdateSeenRequest
-{
-    /// <summary>The timestamp to mark notifications seen up to.</summary>
-    [JsonPropertyName("seenAt")]
-    public required AtDatetime SeenAt { get; init; }
-}
+internal sealed record UpdateSeenRequest([property: JsonPropertyName("seenAt")] AtDatetime SeenAt);
 
 // ── registerPush ─────────────────────────────────────────────
 
@@ -126,24 +116,11 @@ public sealed class RegisterPushRequest
 }
 
 /// <summary>Request body for unregisterPush.</summary>
-internal sealed class UnregisterPushRequest
-{
-    /// <summary>The DID of the push service.</summary>
-    [JsonPropertyName("serviceDid")]
-    public required Did ServiceDid { get; init; }
-
-    /// <summary>The push notification token.</summary>
-    [JsonPropertyName("token")]
-    public required string Token { get; init; }
-
-    /// <summary>The push platform.</summary>
-    [JsonPropertyName("platform")]
-    public required string Platform { get; init; }
-
-    /// <summary>The application identifier the push token belongs to.</summary>
-    [JsonPropertyName("appId")]
-    public required string AppId { get; init; }
-}
+internal sealed record UnregisterPushRequest(
+    [property: JsonPropertyName("serviceDid")] Did ServiceDid,
+    [property: JsonPropertyName("token")] string Token,
+    [property: JsonPropertyName("platform")] string Platform,
+    [property: JsonPropertyName("appId")] string AppId);
 
 /// <summary>
 /// Known push platforms, for <see cref="RegisterPushRequest.Platform"/> and
@@ -361,33 +338,21 @@ internal sealed class PutPreferencesV2Response
 // ── Activity subscriptions ───────────────────────────────────
 
 /// <summary>Response from listActivitySubscriptions.</summary>
-public sealed class ListActivitySubscriptionsResponse : ICursorPage<ProfileView>
+public sealed record ListActivitySubscriptionsResponse : CursorPage<ProfileView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The accounts the viewer is subscribed to.</summary>
     [JsonPropertyName("subscriptions")]
     public required IReadOnlyList<ProfileView> Subscriptions { get; init; }
 
-    IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Subscriptions;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ProfileView> Items => Subscriptions;
 }
 
 /// <summary>Request body for putActivitySubscription.</summary>
-internal sealed class PutActivitySubscriptionRequest
-{
-    /// <summary>The account to subscribe to.</summary>
-    [JsonPropertyName("subject")]
-    public required Did Subject { get; init; }
-
-    /// <summary>Which of its activity to be notified of.</summary>
-    [JsonPropertyName("activitySubscription")]
-    public required ActivitySubscription ActivitySubscription { get; init; }
-}
+internal sealed record PutActivitySubscriptionRequest(
+    [property: JsonPropertyName("subject")] Did Subject,
+    [property: JsonPropertyName("activitySubscription")] ActivitySubscription ActivitySubscription);
 
 /// <summary>Response from putActivitySubscription.</summary>
 public sealed class PutActivitySubscriptionResponse

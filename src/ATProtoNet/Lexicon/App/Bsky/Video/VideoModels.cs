@@ -113,32 +113,13 @@ public sealed class UploadVideoResponse
 // ── Multipart upload ─────────────────────────────────────────
 
 /// <summary>Request body for startUpload.</summary>
-internal sealed class StartUploadRequest
-{
-    /// <summary>The exact size of the whole video, in bytes.</summary>
-    [JsonPropertyName("sizeBytes")]
-    public required long SizeBytes { get; init; }
-
-    /// <summary>The video's MIME type.</summary>
-    [JsonPropertyName("mimeType")]
-    public required string MimeType { get; init; }
-
-    /// <summary>The file name, if the client has one.</summary>
-    [JsonPropertyName("name")]
-    public string? Name { get; init; }
-
-    /// <summary>The advisory duration in milliseconds.</summary>
-    [JsonPropertyName("durationMs")]
-    public long? DurationMs { get; init; }
-
-    /// <summary>The advisory width in pixels.</summary>
-    [JsonPropertyName("width")]
-    public int? Width { get; init; }
-
-    /// <summary>The advisory height in pixels.</summary>
-    [JsonPropertyName("height")]
-    public int? Height { get; init; }
-}
+internal sealed record StartUploadRequest(
+    [property: JsonPropertyName("sizeBytes")] long SizeBytes,
+    [property: JsonPropertyName("mimeType")] string MimeType,
+    [property: JsonPropertyName("name")] string? Name = null,
+    [property: JsonPropertyName("durationMs")] long? DurationMs = null,
+    [property: JsonPropertyName("width")] int? Width = null,
+    [property: JsonPropertyName("height")] int? Height = null);
 
 /// <summary>Response from startUpload: how to split the video, and until when the session is open.</summary>
 public sealed class StartUploadResponse
@@ -172,13 +153,8 @@ public sealed class UploadPartResponse
     public required long SizeBytes { get; init; }
 }
 
-/// <summary>Request body for finishUpload.</summary>
-internal sealed class FinishUploadRequest
-{
-    /// <summary>The upload session to finish.</summary>
-    [JsonPropertyName("jobId")]
-    public required string JobId { get; init; }
-}
+/// <summary>Request body for finishUpload and abortUpload.</summary>
+internal sealed record JobIdRequest([property: JsonPropertyName("jobId")] string JobId);
 
 /// <summary>Response from finishUpload.</summary>
 public sealed class FinishUploadResponse
@@ -234,14 +210,6 @@ public sealed class GetUploadStatusResponse
     /// <summary>Why the session failed, when it did.</summary>
     [JsonPropertyName("failureReason")]
     public string? FailureReason { get; init; }
-}
-
-/// <summary>Request body for abortUpload.</summary>
-internal sealed class AbortUploadRequest
-{
-    /// <summary>The upload session to abort.</summary>
-    [JsonPropertyName("jobId")]
-    public required string JobId { get; init; }
 }
 
 /// <summary>

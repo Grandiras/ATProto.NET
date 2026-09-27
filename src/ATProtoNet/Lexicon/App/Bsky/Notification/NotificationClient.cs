@@ -69,7 +69,7 @@ public sealed class NotificationClient
     public async Task UpdateSeenAsync(
         AtDatetime seenAt, CancellationToken cancellationToken = default)
     {
-        var request = new UpdateSeenRequest { SeenAt = seenAt };
+        var request = new UpdateSeenRequest(SeenAt: seenAt);
         await _xrpc.ProcedureAsync(
             "app.bsky.notification.updateSeen", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
@@ -100,13 +100,11 @@ public sealed class NotificationClient
         string appId,
         CancellationToken cancellationToken = default)
     {
-        var request = new UnregisterPushRequest
-        {
-            ServiceDid = serviceDid,
-            Token = token,
-            Platform = platform,
-            AppId = appId,
-        };
+        var request = new UnregisterPushRequest(
+            ServiceDid: serviceDid,
+            Token: token,
+            Platform: platform,
+            AppId: appId);
 
         return _xrpc.ProcedureAsync(
             "app.bsky.notification.unregisterPush", request, cancellationToken: cancellationToken);
@@ -152,17 +150,6 @@ public sealed class NotificationClient
             "app.bsky.notification.listActivitySubscriptions", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate the accounts whose activity the authenticated account is subscribed to,
-    /// fetching pages as needed.
-    /// </summary>
-    /// <param name="pageSize">Accounts per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<ProfileView> EnumerateActivitySubscriptionsAsync(
-        int? pageSize = null, CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<ListActivitySubscriptionsResponse, ProfileView>(
-            (cursor, ct) => ListActivitySubscriptionsAsync(pageSize, cursor, ct),
-            cancellationToken);
-
     /// <summary>Subscribe to an account's posts, replies, or both; with both off, unsubscribe.</summary>
     /// <param name="subject">The account.</param>
     /// <param name="post">Whether to be notified of the account's posts.</param>
@@ -171,11 +158,9 @@ public sealed class NotificationClient
     public Task<PutActivitySubscriptionResponse> PutActivitySubscriptionAsync(
         Did subject, bool post, bool reply, CancellationToken cancellationToken = default)
     {
-        var request = new PutActivitySubscriptionRequest
-        {
-            Subject = subject,
-            ActivitySubscription = new ActivitySubscription { Post = post, Reply = reply },
-        };
+        var request = new PutActivitySubscriptionRequest(
+            Subject: subject,
+            ActivitySubscription: new ActivitySubscription { Post = post, Reply = reply });
 
         return _xrpc.ProcedureAsync<PutActivitySubscriptionResponse>(
             "app.bsky.notification.putActivitySubscription", request, cancellationToken: cancellationToken);

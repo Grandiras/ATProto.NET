@@ -69,12 +69,7 @@ public sealed class AddMemberRequest
 }
 
 /// <summary>Request to delete a team member.</summary>
-internal sealed class DeleteMemberRequest
-{
-    /// <summary>The DID (decentralized identifier) of the account.</summary>
-    [JsonPropertyName("did")]
-    public required Did Did { get; init; }
-}
+internal sealed record DeleteMemberRequest([property: JsonPropertyName("did")] Did Did);
 
 /// <summary>Request to update a team member.</summary>
 public sealed class UpdateMemberRequest
@@ -93,18 +88,13 @@ public sealed class UpdateMemberRequest
 }
 
 /// <summary>Response from listMembers.</summary>
-public sealed class ListMembersResponse : ICursorPage<TeamMember>
+public sealed record ListMembersResponse : CursorPage<TeamMember>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The members.</summary>
     [JsonPropertyName("members")]
     public required IReadOnlyList<TeamMember> Members { get; init; }
 
-    IReadOnlyList<TeamMember> ICursorPage<TeamMember>.Items => Members;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<TeamMember> Items => Members;
 }

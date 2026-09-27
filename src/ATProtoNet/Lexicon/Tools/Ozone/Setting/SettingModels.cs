@@ -65,45 +65,24 @@ public static class SettingScope
 // ─── Request / Response Models ───
 
 /// <summary>Response from tools.ozone.setting.listOptions.</summary>
-public sealed class ListOptionsResponse : ICursorPage<SettingOption>
+public sealed record ListOptionsResponse : CursorPage<SettingOption>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The settings.</summary>
     [JsonPropertyName("options")]
     public required IReadOnlyList<SettingOption> Options { get; init; }
 
-    IReadOnlyList<SettingOption> ICursorPage<SettingOption>.Items => Options;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<SettingOption> Items => Options;
 }
 
 /// <summary>Request body for tools.ozone.setting.upsertOption.</summary>
-internal sealed class UpsertOptionRequest
-{
-    /// <summary>The setting's key.</summary>
-    [JsonPropertyName("key")]
-    public required Nsid Key { get; init; }
-
-    /// <summary>Whom the setting applies to.</summary>
-    [JsonPropertyName("scope")]
-    public required string Scope { get; init; }
-
-    /// <summary>The setting's value.</summary>
-    [JsonPropertyName("value")]
-    public required JsonElement Value { get; init; }
-
-    /// <summary>A description of the setting.</summary>
-    [JsonPropertyName("description")]
-    public string? Description { get; init; }
-
-    /// <summary>The lowest team role that may change the setting.</summary>
-    [JsonPropertyName("managerRole")]
-    public string? ManagerRole { get; init; }
-}
+internal sealed record UpsertOptionRequest(
+    [property: JsonPropertyName("key")] Nsid Key,
+    [property: JsonPropertyName("scope")] string Scope,
+    [property: JsonPropertyName("value")] JsonElement Value,
+    [property: JsonPropertyName("description")] string? Description = null,
+    [property: JsonPropertyName("managerRole")] string? ManagerRole = null);
 
 /// <summary>Response from tools.ozone.setting.upsertOption.</summary>
 public sealed class UpsertOptionResponse
@@ -114,13 +93,6 @@ public sealed class UpsertOptionResponse
 }
 
 /// <summary>Request body for tools.ozone.setting.removeOptions.</summary>
-internal sealed class RemoveOptionsRequest
-{
-    /// <summary>The keys of the settings to remove.</summary>
-    [JsonPropertyName("keys")]
-    public required IReadOnlyList<Nsid> Keys { get; init; }
-
-    /// <summary>Whom the settings apply to.</summary>
-    [JsonPropertyName("scope")]
-    public required string Scope { get; init; }
-}
+internal sealed record RemoveOptionsRequest(
+    [property: JsonPropertyName("keys")] IReadOnlyList<Nsid> Keys,
+    [property: JsonPropertyName("scope")] string Scope);

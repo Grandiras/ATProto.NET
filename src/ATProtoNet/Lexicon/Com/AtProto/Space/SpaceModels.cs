@@ -60,20 +60,15 @@ public sealed class SpaceView : LexObject
 }
 
 /// <summary>Response from <c>listSpaces</c>.</summary>
-public sealed class ListSpacesResponse : ICursorPage<SpaceView>
+public sealed record ListSpacesResponse : CursorPage<SpaceView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The spaces.</summary>
     [JsonPropertyName("spaces")]
     public required IReadOnlyList<SpaceView> Spaces { get; init; }
 
-    IReadOnlyList<SpaceView> ICursorPage<SpaceView>.Items => Spaces;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<SpaceView> Items => Spaces;
 }
 
 // ── com.atproto.space.listRepos ──────────────────────────────
@@ -102,20 +97,15 @@ public sealed class SpaceRepoView : LexObject
 }
 
 /// <summary>Response from <c>listRepos</c>: a space's writer set.</summary>
-public sealed class ListSpaceReposResponse : ICursorPage<SpaceRepoView>
+public sealed record ListSpaceReposResponse : CursorPage<SpaceRepoView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The repos that hold data in the space.</summary>
     [JsonPropertyName("repos")]
     public required IReadOnlyList<SpaceRepoView> Repos { get; init; }
 
-    IReadOnlyList<SpaceRepoView> ICursorPage<SpaceRepoView>.Items => Repos;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<SpaceRepoView> Items => Repos;
 }
 
 // ── com.atproto.space.getRecord / listRecords ────────────────
@@ -160,39 +150,29 @@ public sealed class SpaceRecordView : LexObject
 }
 
 /// <summary>Response from <c>listRecords</c>.</summary>
-public sealed class ListSpaceRecordsResponse : ICursorPage<SpaceRecordView>
+public sealed record ListSpaceRecordsResponse : CursorPage<SpaceRecordView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The records.</summary>
     [JsonPropertyName("records")]
     public required IReadOnlyList<SpaceRecordView> Records { get; init; }
 
-    IReadOnlyList<SpaceRecordView> ICursorPage<SpaceRecordView>.Items => Records;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<SpaceRecordView> Items => Records;
 }
 
 // ── com.atproto.space.listBlobs ──────────────────────────────
 
 /// <summary>Response from <c>listBlobs</c>.</summary>
-public sealed class ListSpaceBlobsResponse : ICursorPage<Cid>
+public sealed record ListSpaceBlobsResponse : CursorPage<Cid>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The CIDs of the blobs referenced by the repo's records in this space.</summary>
     [JsonPropertyName("cids")]
     public required IReadOnlyList<Cid> Cids { get; init; }
 
-    IReadOnlyList<Cid> ICursorPage<Cid>.Items => Cids;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<Cid> Items => Cids;
 }
 
 // ── com.atproto.space.getLatestCommit ────────────────────────
@@ -247,7 +227,7 @@ public sealed class SpaceRepoOpEntry : LexObject
 }
 
 /// <summary>Response from <c>listRepoOps</c>.</summary>
-public sealed class ListSpaceRepoOpsResponse : ICursorPage<SpaceRepoOpEntry>
+public sealed record ListSpaceRepoOpsResponse : CursorPage<SpaceRepoOpEntry>
 {
     /// <summary>The operations after the requested revision, in order.</summary>
     [JsonPropertyName("ops")]
@@ -260,14 +240,9 @@ public sealed class ListSpaceRepoOpsResponse : ICursorPage<SpaceRepoOpEntry>
     [JsonPropertyName("commit")]
     public SignedSpaceCommit? Commit { get; init; }
 
-    /// <summary>
-    /// Pass as <c>cursor</c> to fetch the next page. Absent once the response reaches the head
-    /// of the oplog.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
-    IReadOnlyList<SpaceRepoOpEntry> ICursorPage<SpaceRepoOpEntry>.Items => Ops;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<SpaceRepoOpEntry> Items => Ops;
 }
 
 // ── com.atproto.space.createRecord / putRecord / deleteRecord ──
@@ -283,89 +258,38 @@ public static class SpaceValidationStatus
 }
 
 /// <summary>Request body for <c>createRecord</c>.</summary>
-internal sealed class CreateSpaceRecordRequest
-{
-    /// <summary>Reference to the space.</summary>
-    [JsonPropertyName("space")]
-    public required SpaceUri Space { get; init; }
-
-    /// <summary>The DID of the repo to write to (the authenticated member).</summary>
-    [JsonPropertyName("repo")]
-    public required Did Repo { get; init; }
-
-    /// <summary>The NSID of the record collection.</summary>
-    [JsonPropertyName("collection")]
-    public required Nsid Collection { get; init; }
-
-    /// <summary>The record key. Generated by the host when omitted.</summary>
-    [JsonPropertyName("rkey")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public RecordKey? Rkey { get; init; }
-
-    /// <summary>
-    /// <see langword="false"/> to skip Lexicon schema validation, <see langword="true"/> to
-    /// require it, or <see langword="null"/> to validate only for known Lexicons.
-    /// </summary>
-    [JsonPropertyName("validate")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public bool? Validate { get; init; }
-
-    /// <summary>The record itself. Must contain a <c>$type</c> field.</summary>
-    [JsonPropertyName("record")]
-    public required object Record { get; init; }
-}
+internal sealed record CreateSpaceRecordRequest(
+    [property: JsonPropertyName("space")] [property: JsonPropertyOrder(0)] SpaceUri Space,
+    [property: JsonPropertyName("repo")] [property: JsonPropertyOrder(1)] Did Repo,
+    [property: JsonPropertyName("collection")] [property: JsonPropertyOrder(2)] Nsid Collection,
+    [property: JsonPropertyName("record")] [property: JsonPropertyOrder(5)] object Record,
+    [property: JsonPropertyName("rkey")]
+    [property: JsonPropertyOrder(3)]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    RecordKey? Rkey = null,
+    [property: JsonPropertyName("validate")]
+    [property: JsonPropertyOrder(4)]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    bool? Validate = null);
 
 /// <summary>Request body for <c>putRecord</c>.</summary>
-internal sealed class PutSpaceRecordRequest
-{
-    /// <summary>Reference to the space.</summary>
-    [JsonPropertyName("space")]
-    public required SpaceUri Space { get; init; }
-
-    /// <summary>The DID of the repo to write to (the authenticated member).</summary>
-    [JsonPropertyName("repo")]
-    public required Did Repo { get; init; }
-
-    /// <summary>The NSID of the record collection.</summary>
-    [JsonPropertyName("collection")]
-    public required Nsid Collection { get; init; }
-
-    /// <summary>The record key.</summary>
-    [JsonPropertyName("rkey")]
-    public required RecordKey Rkey { get; init; }
-
-    /// <summary>
-    /// <see langword="false"/> to skip Lexicon schema validation, <see langword="true"/> to
-    /// require it, or <see langword="null"/> to validate only for known Lexicons.
-    /// </summary>
-    [JsonPropertyName("validate")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public bool? Validate { get; init; }
-
-    /// <summary>The record to write.</summary>
-    [JsonPropertyName("record")]
-    public required object Record { get; init; }
-}
+internal sealed record PutSpaceRecordRequest(
+    [property: JsonPropertyName("space")] [property: JsonPropertyOrder(0)] SpaceUri Space,
+    [property: JsonPropertyName("repo")] [property: JsonPropertyOrder(1)] Did Repo,
+    [property: JsonPropertyName("collection")] [property: JsonPropertyOrder(2)] Nsid Collection,
+    [property: JsonPropertyName("rkey")] [property: JsonPropertyOrder(3)] RecordKey Rkey,
+    [property: JsonPropertyName("record")] [property: JsonPropertyOrder(5)] object Record,
+    [property: JsonPropertyName("validate")]
+    [property: JsonPropertyOrder(4)]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    bool? Validate = null);
 
 /// <summary>Request body for <c>deleteRecord</c>.</summary>
-internal sealed class DeleteSpaceRecordRequest
-{
-    /// <summary>Reference to the space.</summary>
-    [JsonPropertyName("space")]
-    public required SpaceUri Space { get; init; }
-
-    /// <summary>The DID of the repo to delete from (the authenticated member).</summary>
-    [JsonPropertyName("repo")]
-    public required Did Repo { get; init; }
-
-    /// <summary>The NSID of the record collection.</summary>
-    [JsonPropertyName("collection")]
-    public required Nsid Collection { get; init; }
-
-    /// <summary>The record key.</summary>
-    [JsonPropertyName("rkey")]
-    public required RecordKey Rkey { get; init; }
-}
+internal sealed record DeleteSpaceRecordRequest(
+    [property: JsonPropertyName("space")] SpaceUri Space,
+    [property: JsonPropertyName("repo")] Did Repo,
+    [property: JsonPropertyName("collection")] Nsid Collection,
+    [property: JsonPropertyName("rkey")] RecordKey Rkey);
 
 /// <summary>Result of a single-record write into a space.</summary>
 public sealed class SpaceWriteResult
@@ -432,29 +356,14 @@ public sealed class SpaceDeleteOp : SpaceWriteOp
 }
 
 /// <summary>Request body for <c>applyWrites</c>.</summary>
-internal sealed class ApplySpaceWritesRequest
-{
-    /// <summary>Reference to the space.</summary>
-    [JsonPropertyName("space")]
-    public required SpaceUri Space { get; init; }
-
-    /// <summary>The DID of the repo to write to (the authenticated member).</summary>
-    [JsonPropertyName("repo")]
-    public required Did Repo { get; init; }
-
-    /// <summary>
-    /// <see langword="false"/> to skip Lexicon schema validation across all operations,
-    /// <see langword="true"/> to require it, or <see langword="null"/> to validate only for
-    /// known Lexicons.
-    /// </summary>
-    [JsonPropertyName("validate")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public bool? Validate { get; init; }
-
-    /// <summary>The operations, applied atomically.</summary>
-    [JsonPropertyName("writes")]
-    public required IReadOnlyList<SpaceWriteOp> Writes { get; init; }
-}
+internal sealed record ApplySpaceWritesRequest(
+    [property: JsonPropertyName("space")] [property: JsonPropertyOrder(0)] SpaceUri Space,
+    [property: JsonPropertyName("repo")] [property: JsonPropertyOrder(1)] Did Repo,
+    [property: JsonPropertyName("writes")] [property: JsonPropertyOrder(3)] IReadOnlyList<SpaceWriteOp> Writes,
+    [property: JsonPropertyName("validate")]
+    [property: JsonPropertyOrder(2)]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    bool? Validate = null);
 
 /// <summary>One entry in an <c>applyWrites</c> result, in the order the writes were given.</summary>
 public sealed class SpaceWriteOpResult : LexObject
@@ -552,12 +461,7 @@ public sealed class NotifyWriteRequest
 }
 
 /// <summary>Request body for <c>notifySpaceDeleted</c>.</summary>
-internal sealed class NotifySpaceDeletedRequest
-{
-    /// <summary>Reference to the deleted space.</summary>
-    [JsonPropertyName("space")]
-    public required SpaceUri Space { get; init; }
-}
+internal sealed record NotifySpaceDeletedRequest([property: JsonPropertyName("space")] SpaceUri Space);
 
 // ── Errors ───────────────────────────────────────────────────
 

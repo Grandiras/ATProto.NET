@@ -183,15 +183,13 @@ public sealed class VideoClient
         int? height = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new StartUploadRequest
-        {
-            SizeBytes = sizeBytes,
-            MimeType = mimeType,
-            Name = name,
-            DurationMs = durationMs,
-            Width = width,
-            Height = height,
-        };
+        var request = new StartUploadRequest(
+            SizeBytes: sizeBytes,
+            MimeType: mimeType,
+            Name: name,
+            DurationMs: durationMs,
+            Width: width,
+            Height: height);
 
         return _xrpc.ProcedureAsync<StartUploadResponse>(
             "app.bsky.video.startUpload", request, cancellationToken: cancellationToken);
@@ -225,7 +223,7 @@ public sealed class VideoClient
     public Task<FinishUploadResponse> FinishUploadAsync(
         string jobId, CancellationToken cancellationToken = default)
     {
-        var request = new FinishUploadRequest { JobId = jobId };
+        var request = new JobIdRequest(jobId);
         return _xrpc.ProcedureAsync<FinishUploadResponse>(
             "app.bsky.video.finishUpload", request, cancellationToken: cancellationToken);
     }
@@ -248,7 +246,7 @@ public sealed class VideoClient
     public Task<AbortUploadResponse> AbortUploadAsync(
         string jobId, CancellationToken cancellationToken = default)
     {
-        var request = new AbortUploadRequest { JobId = jobId };
+        var request = new JobIdRequest(jobId);
         return _xrpc.ProcedureAsync<AbortUploadResponse>(
             "app.bsky.video.abortUpload", request, cancellationToken: cancellationToken);
     }
@@ -268,7 +266,8 @@ public sealed class VideoClient
 
         var partSize = Math.Min(session.PartSizeBytes, size);
         if (partSize > Array.MaxLength)
-            throw new VideoUploadException($"The video service's part size of {partSize} bytes is too large to buffer.");
+            throw new VideoUploadException(
+                $"The video service's part size of {partSize} bytes is too large to buffer.");
 
         return (int)partSize;
     }

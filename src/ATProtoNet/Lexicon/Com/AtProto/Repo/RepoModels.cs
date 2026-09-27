@@ -7,32 +7,13 @@ using ATProtoNet.Serialization;
 namespace ATProtoNet.Lexicon.Com.AtProto.Repo;
 
 /// <summary>Request body for com.atproto.repo.createRecord.</summary>
-internal sealed class CreateRecordRequest
-{
-    /// <summary>The handle or DID of the repo (account).</summary>
-    [JsonPropertyName("repo")]
-    public required AtIdentifier Repo { get; init; }
-
-    /// <summary>The NSID of the record collection.</summary>
-    [JsonPropertyName("collection")]
-    public required Nsid Collection { get; init; }
-
-    /// <summary>The record key. If not specified, the server will generate one.</summary>
-    [JsonPropertyName("rkey")]
-    public RecordKey? Rkey { get; init; }
-
-    /// <summary>Flag for opt-in/out of Lexicon schema validation.</summary>
-    [JsonPropertyName("validate")]
-    public bool? Validate { get; init; }
-
-    /// <summary>The record data to create.</summary>
-    [JsonPropertyName("record")]
-    public required object Record { get; init; }
-
-    /// <summary>Compare and swap with the previous commit rev.</summary>
-    [JsonPropertyName("swapCommit")]
-    public Cid? SwapCommit { get; init; }
-}
+internal sealed record CreateRecordRequest(
+    [property: JsonPropertyName("repo")] [property: JsonPropertyOrder(0)] AtIdentifier Repo,
+    [property: JsonPropertyName("collection")] [property: JsonPropertyOrder(1)] Nsid Collection,
+    [property: JsonPropertyName("record")] [property: JsonPropertyOrder(4)] object Record,
+    [property: JsonPropertyName("rkey")] [property: JsonPropertyOrder(2)] RecordKey? Rkey = null,
+    [property: JsonPropertyName("validate")] [property: JsonPropertyOrder(3)] bool? Validate = null,
+    [property: JsonPropertyName("swapCommit")] [property: JsonPropertyOrder(5)] Cid? SwapCommit = null);
 
 /// <summary>
 /// Response from com.atproto.repo.createRecord, and from com.atproto.repo.putRecord, whose output
@@ -81,72 +62,22 @@ internal sealed class GetRecordResponse<T>
 }
 
 /// <summary>Request body for com.atproto.repo.putRecord.</summary>
-internal sealed class PutRecordRequest
-{
-    /// <summary>The handle or DID of the repository.</summary>
-    [JsonPropertyName("repo")]
-    public required AtIdentifier Repo { get; init; }
-
-    /// <summary>The NSID of the collection the record belongs to (e.g. <c>app.bsky.feed.post</c>).</summary>
-    [JsonPropertyName("collection")]
-    public required Nsid Collection { get; init; }
-
-    /// <summary>The record key identifying the record within its collection.</summary>
-    [JsonPropertyName("rkey")]
-    public required RecordKey Rkey { get; init; }
-
-    /// <summary>Whether the server should validate the record against its Lexicon schema.</summary>
-    [JsonPropertyName("validate")]
-    public bool? Validate { get; init; }
-
-    /// <summary>The record value to write.</summary>
-    [JsonPropertyName("record")]
-    public required object Record { get; init; }
-
-    /// <summary>
-    /// Compare-and-swap guard: the CID the record must currently be at for the write to succeed.
-    /// Pass <see langword="null"/> to require that the record does not exist.
-    /// </summary>
-    [JsonPropertyName("swapRecord")]
-    public Cid? SwapRecord { get; init; }
-
-    /// <summary>
-    /// Compare-and-swap guard: the commit CID the repository must currently be at for the write to
-    /// succeed.
-    /// </summary>
-    [JsonPropertyName("swapCommit")]
-    public Cid? SwapCommit { get; init; }
-}
+internal sealed record PutRecordRequest(
+    [property: JsonPropertyName("repo")] [property: JsonPropertyOrder(0)] AtIdentifier Repo,
+    [property: JsonPropertyName("collection")] [property: JsonPropertyOrder(1)] Nsid Collection,
+    [property: JsonPropertyName("rkey")] [property: JsonPropertyOrder(2)] RecordKey Rkey,
+    [property: JsonPropertyName("record")] [property: JsonPropertyOrder(4)] object Record,
+    [property: JsonPropertyName("validate")] [property: JsonPropertyOrder(3)] bool? Validate = null,
+    [property: JsonPropertyName("swapRecord")] [property: JsonPropertyOrder(5)] Cid? SwapRecord = null,
+    [property: JsonPropertyName("swapCommit")] [property: JsonPropertyOrder(6)] Cid? SwapCommit = null);
 
 /// <summary>Request body for com.atproto.repo.deleteRecord.</summary>
-internal sealed class DeleteRecordRequest
-{
-    /// <summary>The handle or DID of the repository.</summary>
-    [JsonPropertyName("repo")]
-    public required AtIdentifier Repo { get; init; }
-
-    /// <summary>The NSID of the collection the record belongs to (e.g. <c>app.bsky.feed.post</c>).</summary>
-    [JsonPropertyName("collection")]
-    public required Nsid Collection { get; init; }
-
-    /// <summary>The record key identifying the record within its collection.</summary>
-    [JsonPropertyName("rkey")]
-    public required RecordKey Rkey { get; init; }
-
-    /// <summary>
-    /// Compare-and-swap guard: the CID the record must currently be at for the write to succeed.
-    /// Pass <see langword="null"/> to require that the record does not exist.
-    /// </summary>
-    [JsonPropertyName("swapRecord")]
-    public Cid? SwapRecord { get; init; }
-
-    /// <summary>
-    /// Compare-and-swap guard: the commit CID the repository must currently be at for the write to
-    /// succeed.
-    /// </summary>
-    [JsonPropertyName("swapCommit")]
-    public Cid? SwapCommit { get; init; }
-}
+internal sealed record DeleteRecordRequest(
+    [property: JsonPropertyName("repo")] AtIdentifier Repo,
+    [property: JsonPropertyName("collection")] Nsid Collection,
+    [property: JsonPropertyName("rkey")] RecordKey Rkey,
+    [property: JsonPropertyName("swapRecord")] Cid? SwapRecord = null,
+    [property: JsonPropertyName("swapCommit")] Cid? SwapCommit = null);
 
 /// <summary>Response from com.atproto.repo.deleteRecord.</summary>
 public sealed class DeleteRecordResponse
@@ -157,20 +88,15 @@ public sealed class DeleteRecordResponse
 }
 
 /// <summary>Response from com.atproto.repo.listRecords.</summary>
-public sealed class ListRecordsResponse : ICursorPage<RecordEntry>
+public sealed record ListRecordsResponse : CursorPage<RecordEntry>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The records in this page of results.</summary>
     [JsonPropertyName("records")]
     public IReadOnlyList<RecordEntry> Records { get; init; } = [];
 
-    IReadOnlyList<RecordEntry> ICursorPage<RecordEntry>.Items => Records;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<RecordEntry> Items => Records;
 }
 
 /// <summary>
@@ -241,27 +167,11 @@ public sealed class UploadBlobResponse
 }
 
 /// <summary>Request body for com.atproto.repo.applyWrites.</summary>
-internal sealed class ApplyWritesRequest
-{
-    /// <summary>The handle or DID of the repository.</summary>
-    [JsonPropertyName("repo")]
-    public required AtIdentifier Repo { get; init; }
-
-    /// <summary>Whether the server should validate the record against its Lexicon schema.</summary>
-    [JsonPropertyName("validate")]
-    public bool? Validate { get; init; }
-
-    /// <summary>The write operations to apply atomically.</summary>
-    [JsonPropertyName("writes")]
-    public required IReadOnlyList<ApplyWriteOperation> Writes { get; init; }
-
-    /// <summary>
-    /// Compare-and-swap guard: the commit CID the repository must currently be at for the write to
-    /// succeed.
-    /// </summary>
-    [JsonPropertyName("swapCommit")]
-    public Cid? SwapCommit { get; init; }
-}
+internal sealed record ApplyWritesRequest(
+    [property: JsonPropertyName("repo")] [property: JsonPropertyOrder(0)] AtIdentifier Repo,
+    [property: JsonPropertyName("writes")] [property: JsonPropertyOrder(2)] IReadOnlyList<ApplyWriteOperation> Writes,
+    [property: JsonPropertyName("validate")] [property: JsonPropertyOrder(1)] bool? Validate = null,
+    [property: JsonPropertyName("swapCommit")] [property: JsonPropertyOrder(3)] Cid? SwapCommit = null);
 
 /// <summary>A single write operation in an applyWrites batch.</summary>
 /// <remarks>The Lexicon marks this union closed, so an unrecognized <c>$type</c> is an error.</remarks>
@@ -347,20 +257,15 @@ public sealed class ApplyWriteResult : LexObject
 }
 
 /// <summary>Response from com.atproto.repo.listMissingBlobs.</summary>
-public sealed class ListMissingBlobsResponse : ICursorPage<MissingBlob>
+public sealed record ListMissingBlobsResponse : CursorPage<MissingBlob>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The blob references.</summary>
     [JsonPropertyName("blobs")]
     public IReadOnlyList<MissingBlob> Blobs { get; init; } = [];
 
-    IReadOnlyList<MissingBlob> ICursorPage<MissingBlob>.Items => Blobs;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<MissingBlob> Items => Blobs;
 }
 
 /// <summary>A blob referenced by a record that has not been uploaded yet.</summary>

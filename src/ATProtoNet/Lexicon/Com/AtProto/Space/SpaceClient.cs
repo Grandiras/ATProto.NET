@@ -118,19 +118,6 @@ public sealed class SpaceClient
             "com.atproto.space.listSpaces", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>Enumerates every space the authenticated user holds a repo in, fetching pages as needed.</summary>
-    /// <param name="type">Filter to spaces of this type.</param>
-    /// <param name="did">Filter to spaces under this authority DID.</param>
-    /// <param name="pageSize">Spaces per request (1–100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<SpaceView> EnumerateSpacesAsync(
-        Nsid? type = null,
-        Did? did = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<ListSpacesResponse, SpaceView>(
-            (cursor, ct) => ListSpacesAsync(type, did, pageSize, cursor, ct),
-            cancellationToken);
-
     /// <summary>
     /// Lists one page of the repos that hold data in a space — the writer set. Served by the
     /// space host.
@@ -415,28 +402,6 @@ public sealed class SpaceClient
             "com.atproto.space.listBlobs", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerates the CIDs of every blob referenced by an account's records within a space,
-    /// fetching pages as needed.
-    /// </summary>
-    /// <param name="repo">The DID of the account.</param>
-    /// <param name="since">Optional revision of the permissioned repo to list blobs since.</param>
-    /// <param name="pageSize">CIDs per request (1–1000); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<Cid> EnumerateBlobsAsync(
-        SpaceUri space,
-        Did repo,
-        Tid? since = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(space);
-        ArgumentNullException.ThrowIfNull(repo);
-
-        return Pagination.EnumerateAsync<ListSpaceBlobsResponse, Cid>(
-            (cursor, ct) => ListBlobsAsync(space, repo, since, pageSize, cursor, ct),
-            cancellationToken);
-    }
-
     // ── Writes ───────────────────────────────────────────────
 
     /// <summary>Creates a record in the caller's permissioned repo for a space.</summary>
@@ -460,15 +425,13 @@ public sealed class SpaceClient
         ArgumentNullException.ThrowIfNull(collection);
         ArgumentNullException.ThrowIfNull(record);
 
-        var request = new CreateSpaceRecordRequest
-        {
-            Space = space,
-            Repo = repo,
-            Collection = collection,
-            Rkey = rkey,
-            Validate = validate,
-            Record = record,
-        };
+        var request = new CreateSpaceRecordRequest(
+            Space: space,
+            Repo: repo,
+            Collection: collection,
+            Rkey: rkey,
+            Validate: validate,
+            Record: record);
 
         return _xrpc.ProcedureAsync<SpaceWriteResult>(
             "com.atproto.space.createRecord", request, cancellationToken: cancellationToken);
@@ -495,15 +458,13 @@ public sealed class SpaceClient
         ArgumentNullException.ThrowIfNull(rkey);
         ArgumentNullException.ThrowIfNull(record);
 
-        var request = new PutSpaceRecordRequest
-        {
-            Space = space,
-            Repo = repo,
-            Collection = collection,
-            Rkey = rkey,
-            Validate = validate,
-            Record = record,
-        };
+        var request = new PutSpaceRecordRequest(
+            Space: space,
+            Repo: repo,
+            Collection: collection,
+            Rkey: rkey,
+            Validate: validate,
+            Record: record);
 
         return _xrpc.ProcedureAsync<SpaceWriteResult>(
             "com.atproto.space.putRecord", request, cancellationToken: cancellationToken);
@@ -528,13 +489,7 @@ public sealed class SpaceClient
         ArgumentNullException.ThrowIfNull(collection);
         ArgumentNullException.ThrowIfNull(rkey);
 
-        var request = new DeleteSpaceRecordRequest
-        {
-            Space = space,
-            Repo = repo,
-            Collection = collection,
-            Rkey = rkey,
-        };
+        var request = new DeleteSpaceRecordRequest(Space: space, Repo: repo, Collection: collection, Rkey: rkey);
 
         await _xrpc.ProcedureAsync(
             "com.atproto.space.deleteRecord", request, cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -570,13 +525,7 @@ public sealed class SpaceClient
         ArgumentNullException.ThrowIfNull(repo);
         ArgumentNullException.ThrowIfNull(writes);
 
-        var request = new ApplySpaceWritesRequest
-        {
-            Space = space,
-            Repo = repo,
-            Validate = validate,
-            Writes = [.. writes],
-        };
+        var request = new ApplySpaceWritesRequest(Space: space, Repo: repo, Validate: validate, Writes: [.. writes]);
 
         return _xrpc.ProcedureAsync<ApplySpaceWritesResponse>(
             "com.atproto.space.applyWrites", request, cancellationToken: cancellationToken);
@@ -660,7 +609,7 @@ public sealed class SpaceClient
     {
         ArgumentNullException.ThrowIfNull(space);
 
-        var request = new NotifySpaceDeletedRequest { Space = space };
+        var request = new NotifySpaceDeletedRequest(Space: space);
         await _xrpc.ProcedureAsync(
             "com.atproto.space.notifySpaceDeleted", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }

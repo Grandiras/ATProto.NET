@@ -31,6 +31,7 @@ PDS's subject status use too; import that namespace alongside `ATProtoNet.Lexico
 The samples on this page use these namespaces:
 
 ```csharp
+using ATProtoNet.Http;
 using ATProtoNet.Lexicon.Com.AtProto.Moderation;
 using ATProtoNet.Lexicon.Tools.Ozone.Communication;
 using ATProtoNet.Lexicon.Tools.Ozone.Hosting;
@@ -98,7 +99,8 @@ foreach (var evt in events.Events)
 }
 
 // Every matching event, fetching pages as needed
-await foreach (var evt in client.Ozone.Moderation.EnumerateEventsAsync(subject: "did:plc:abc123"))
+await foreach (var evt in Pagination.EnumerateAsync<ATProtoNet.Lexicon.Tools.Ozone.Moderation.QueryEventsResponse, ModEventView>(
+    (cursor, ct) => client.Ozone.Moderation.QueryEventsAsync(subject: "did:plc:abc123", cursor: cursor, cancellationToken: ct)))
 {
     Console.WriteLine($"{evt.Id} by {evt.CreatedBy}");
 }
@@ -119,12 +121,14 @@ foreach (var status in page.SubjectStatuses)
 }
 
 // The whole escalated queue, highest priority first
-await foreach (var status in client.Ozone.Moderation.EnumerateStatusesAsync(new SubjectStatusFilter
+var filter = new SubjectStatusFilter
 {
     ReviewState = SubjectReviewState.Escalated,
     Takendown = false,
     SortField = "priorityScore",
-}))
+};
+await foreach (var status in Pagination.EnumerateAsync<QueryStatusesResponse, SubjectStatusView>(
+    (cursor, ct) => client.Ozone.Moderation.QueryStatusesAsync(filter, cursor: cursor, cancellationToken: ct)))
 {
     Console.WriteLine($"{status.Subject}: {status.PriorityScore}");
 }
@@ -173,8 +177,11 @@ var preferences = await client.Ozone.Moderation.GetAccountPreferencesAsync(Did.P
 ```csharp
 var results = await client.Ozone.Moderation.SearchReposAsync(q: "spam");
 
-await foreach (var repo in client.Ozone.Moderation.EnumerateReposAsync(q: "spam"))
+await foreach (var repo in Pagination.EnumerateAsync<SearchReposResponse, RepoView>(
+    (cursor, ct) => client.Ozone.Moderation.SearchReposAsync(q: "spam", cursor: cursor, cancellationToken: ct)))
+{
     Console.WriteLine(repo.Handle);
+}
 ```
 
 ### Scheduled Actions
@@ -196,8 +203,11 @@ foreach (var failure in scheduled.Failed)
     Console.WriteLine($"{failure.Subject}: {failure.Error}");
 
 // Pending actions, then cancel them for one account
-await foreach (var action in client.Ozone.Moderation.EnumerateScheduledActionsAsync([ScheduledActionStatus.Pending]))
+await foreach (var action in Pagination.EnumerateAsync<ListScheduledActionsResponse, ScheduledActionView>(
+    (cursor, ct) => client.Ozone.Moderation.ListScheduledActionsAsync([ScheduledActionStatus.Pending], cursor: cursor, cancellationToken: ct)))
+{
     Console.WriteLine($"{action.Did}: {action.Action} at {action.ExecuteAt}");
+}
 
 await client.Ozone.Moderation.CancelScheduledActionsAsync([Did.Parse("did:plc:abc")], "Appeal granted");
 ```
@@ -216,13 +226,15 @@ report on a subject. A report moves through `ReportStatus` values (`open`, `queu
 var page = await client.Ozone.Report.QueryReportsAsync(ReportStatus.Open, limit: 25);
 
 // Every open spam report on posts, oldest first
-await foreach (var report in client.Ozone.Report.EnumerateReportsAsync(ReportStatus.Open, new ReportFilter
+var reportFilter = new ReportFilter
 {
     ReportTypes = [ReportReasons.MisleadingSpam, ReportReasons.Spam],
     SubjectType = ReportSubjectType.Record,
     Collections = [Nsid.Parse("app.bsky.feed.post")],
     SortDirection = "asc",
-}))
+};
+await foreach (var report in Pagination.EnumerateAsync<QueryReportsResponse, ReportView>(
+    (cursor, ct) => client.Ozone.Report.QueryReportsAsync(ReportStatus.Open, reportFilter, cursor: cursor, cancellationToken: ct)))
 {
     Console.WriteLine($"#{report.Id} {report.ReportType} on {report.Subject.Subject} by {report.ReportedBy}");
 }
@@ -251,8 +263,11 @@ await client.Ozone.Report.CreateActivityAsync(42, new NoteActivity(), publicNote
 await client.Ozone.Report.CreateActivityForEventAsync(eventId: 7, new CloseActivity());
 
 // One report's history, most recent first
-await foreach (var activity in client.Ozone.Report.EnumerateReportActivitiesAsync(42))
+await foreach (var activity in Pagination.EnumerateAsync<ListActivitiesResponse, ReportActivityView>(
+    (cursor, ct) => client.Ozone.Report.ListActivitiesAsync(42, cursor: cursor, cancellationToken: ct)))
+{
     Console.WriteLine($"{activity.CreatedAt} {activity.Activity.GetType().Name} by {activity.CreatedBy}");
+}
 
 // Every activity across reports, for a poller
 var recent = await client.Ozone.Report.QueryActivitiesAsync(
@@ -284,8 +299,9 @@ var live = await client.Ozone.Report.GetLiveStatsAsync(queueId: 4);
 Console.WriteLine($"{live.Stats.PendingCount} pending, {live.Stats.ActionRate}% actioned");
 
 // Daily snapshots, newest first
-await foreach (var day in client.Ozone.Report.EnumerateHistoricalStatsAsync(
-    startDate: AtDatetime.FromDateTimeOffset(DateTimeOffset.UtcNow.AddDays(-30))))
+await foreach (var day in Pagination.EnumerateAsync<GetHistoricalStatsResponse, HistoricalStats>(
+    (cursor, ct) => client.Ozone.Report.GetHistoricalStatsAsync(
+        startDate: AtDatetime.FromDateTimeOffset(DateTimeOffset.UtcNow.AddDays(-30)), cursor: cursor, cancellationToken: ct)))
 {
     Console.WriteLine($"{day.Date}: {day.InboundCount} in, {day.ActionedCount} closed");
 }
@@ -308,8 +324,11 @@ var created = await client.Ozone.Queue.CreateQueueAsync(
     reportTypes: [ReportReasons.MisleadingSpam, ReportReasons.Spam],
     recommendedPolicies: ["spam"]);
 
-await foreach (var queue in client.Ozone.Queue.EnumerateQueuesAsync(enabled: true))
+await foreach (var queue in Pagination.EnumerateAsync<ATProtoNet.Lexicon.Tools.Ozone.Queue.ListQueuesResponse, ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueView>(
+    (cursor, ct) => client.Ozone.Queue.ListQueuesAsync(enabled: true, cursor: cursor, cancellationToken: ct)))
+{
     Console.WriteLine($"{queue.Name}: {queue.Stats.PendingCount} pending");
+}
 
 await client.Ozone.Queue.UpdateQueueAsync(created.Queue.Id, enabled: false);
 
@@ -319,8 +338,11 @@ var routed = await client.Ozone.Queue.RouteReportsAsync(startReportId: 1000, end
 
 // Who works which queue
 await client.Ozone.Queue.AssignModeratorAsync(created.Queue.Id, Did.Parse("did:plc:mod"));
-await foreach (var assignment in client.Ozone.Queue.EnumerateAssignmentsAsync(queueIds: [created.Queue.Id]))
+await foreach (var assignment in Pagination.EnumerateAsync<ATProtoNet.Lexicon.Tools.Ozone.Queue.GetAssignmentsResponse, ATProtoNet.Lexicon.Tools.Ozone.Queue.AssignmentView>(
+    (cursor, ct) => client.Ozone.Queue.GetAssignmentsAsync(queueIds: [created.Queue.Id], cursor: cursor, cancellationToken: ct)))
+{
     Console.WriteLine($"{assignment.Did} since {assignment.StartAt}");
+}
 
 // Delete it, moving its reports to another queue (or to none)
 await client.Ozone.Queue.DeleteQueueAsync(created.Queue.Id, migrateToQueueId: 5);
@@ -365,8 +387,11 @@ await client.Ozone.Team.AddMemberAsync(new AddMemberRequest
 
 // List team members, one page or all of them
 var members = await client.Ozone.Team.ListMembersAsync();
-await foreach (var member in client.Ozone.Team.EnumerateMembersAsync())
+await foreach (var member in Pagination.EnumerateAsync<ListMembersResponse, TeamMember>(
+    (cursor, ct) => client.Ozone.Team.ListMembersAsync(cursor: cursor, cancellationToken: ct)))
+{
     Console.WriteLine($"{member.Did}: {member.Role}");
+}
 
 // Update a member's role
 await client.Ozone.Team.UpdateMemberAsync(new UpdateMemberRequest
@@ -398,13 +423,19 @@ await client.Ozone.Set.AddValuesAsync(
 
 // Get one page of a set's values, or all of them
 var values = await client.Ozone.Set.GetValuesAsync(name: "blocked-domains");
-await foreach (var value in client.Ozone.Set.EnumerateValuesAsync("blocked-domains"))
+await foreach (var value in Pagination.EnumerateAsync<GetValuesResponse, string>(
+    (cursor, ct) => client.Ozone.Set.GetValuesAsync("blocked-domains", cursor: cursor, cancellationToken: ct)))
+{
     Console.WriteLine(value);
+}
 
 // Query sets, one page or all of them
 var sets = await client.Ozone.Set.QuerySetsAsync();
-await foreach (var set in client.Ozone.Set.EnumerateSetsAsync())
+await foreach (var set in Pagination.EnumerateAsync<QuerySetsResponse, OzoneSetView>(
+    (cursor, ct) => client.Ozone.Set.QuerySetsAsync(cursor: cursor, cancellationToken: ct)))
+{
     Console.WriteLine($"{set.Name}: {set.SetSize} values");
+}
 
 // Remove values
 await client.Ozone.Set.DeleteValuesAsync(
@@ -442,8 +473,11 @@ await client.Ozone.Setting.UpsertOptionAsync(
     JsonSerializer.SerializeToElement(new { order = new[] { "spam", "harassment" } }),
     managerRole: TeamMemberRole.Admin);
 
-await foreach (var option in client.Ozone.Setting.EnumerateOptionsAsync(SettingScope.Instance, prefix: "tools.ozone.setting.client"))
+await foreach (var option in Pagination.EnumerateAsync<ListOptionsResponse, SettingOption>(
+    (cursor, ct) => client.Ozone.Setting.ListOptionsAsync(SettingScope.Instance, prefix: "tools.ozone.setting.client", cursor: cursor, cancellationToken: ct)))
+{
     Console.WriteLine($"{option.Key} = {option.Value}");
+}
 
 await client.Ozone.Setting.RemoveOptionsAsync([Nsid.Parse("tools.ozone.setting.client.queueOrder")], SettingScope.Instance);
 ```
@@ -457,15 +491,21 @@ await client.Ozone.Safelink.AddRuleAsync(
     "scam.example.com", SafelinkPatternType.Domain, SafelinkActionType.Block, SafelinkReasonType.Phishing,
     comment: "Credential phishing");
 
-await foreach (var rule in client.Ozone.Safelink.EnumerateRulesAsync(actions: [SafelinkActionType.Block]))
+await foreach (var rule in Pagination.EnumerateAsync<QueryRulesResponse, UrlRule>(
+    (cursor, ct) => client.Ozone.Safelink.QueryRulesAsync(actions: [SafelinkActionType.Block], cursor: cursor, cancellationToken: ct)))
+{
     Console.WriteLine($"{rule.Url} ({rule.Pattern}): {rule.Reason}");
+}
 
 await client.Ozone.Safelink.UpdateRuleAsync(
     "scam.example.com", SafelinkPatternType.Domain, SafelinkActionType.Warn, SafelinkReasonType.Phishing);
 await client.Ozone.Safelink.RemoveRuleAsync("scam.example.com", SafelinkPatternType.Domain, "False positive");
 
-await foreach (var change in client.Ozone.Safelink.EnumerateEventsAsync(urls: ["scam.example.com"]))
+await foreach (var change in Pagination.EnumerateAsync<ATProtoNet.Lexicon.Tools.Ozone.Safelink.QueryEventsResponse, SafelinkEvent>(
+    (cursor, ct) => client.Ozone.Safelink.QueryEventsAsync(urls: ["scam.example.com"], cursor: cursor, cancellationToken: ct)))
+{
     Console.WriteLine($"{change.CreatedAt} {change.EventType} by {change.CreatedBy}");
+}
 ```
 
 ## Verifications
@@ -484,8 +524,11 @@ var granted = await client.Ozone.Verification.GrantVerificationsAsync(
     },
 ]);
 
-await foreach (var verification in client.Ozone.Verification.EnumerateVerificationsAsync(isRevoked: false))
+await foreach (var verification in Pagination.EnumerateAsync<ListVerificationsResponse, VerificationView>(
+    (cursor, ct) => client.Ozone.Verification.ListVerificationsAsync(isRevoked: false, cursor: cursor, cancellationToken: ct)))
+{
     Console.WriteLine($"{verification.Handle} verified by {verification.Issuer}");
+}
 
 await client.Ozone.Verification.RevokeVerificationsAsync(
     granted.Verifications.Select(v => v.Uri), revokeReason: "Handle changed");
@@ -497,8 +540,10 @@ What the account's host recorded: creation, email and handle changes, email conf
 changes.
 
 ```csharp
-await foreach (var entry in client.Ozone.Hosting.EnumerateAccountHistoryAsync(
-    Did.Parse("did:plc:abc"), events: [AccountHistoryEventType.HandleUpdated, AccountHistoryEventType.EmailUpdated]))
+await foreach (var entry in Pagination.EnumerateAsync<GetAccountHistoryResponse, AccountHistoryEvent>(
+    (cursor, ct) => client.Ozone.Hosting.GetAccountHistoryAsync(
+        Did.Parse("did:plc:abc"), events: [AccountHistoryEventType.HandleUpdated, AccountHistoryEventType.EmailUpdated],
+        cursor: cursor, cancellationToken: ct)))
 {
     var change = entry.Details switch
     {

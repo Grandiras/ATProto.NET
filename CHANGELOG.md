@@ -163,6 +163,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The client factory's default session store is in memory, with a warning at startup** — `WithClientFactory()` registers `InMemoryAtProtoSessionStore` unless a store is chosen, and logs a warning when the host starts; `AddAtProtoServer()` wrote every user's tokens to `{LocalApplicationData}/ATProtoNet/tokens` without being asked. Migration: choose the store — `WithFileSessionStore()` for the old behaviour, `WithEfCoreSessionStore<TContext>()` or `WithSessionStore<T>()`, or `WithInMemorySessionStore()` to keep memory without the warning (#136)
 - **Every options class goes through `IOptions<T>` and is validated when the host starts** — `AtProtoClientOptions`, `AtProtoOAuthServerOptions`, `FileSessionStoreOptions`, `IdentityResolverOptions`, `SpaceServerOptions` and `PdsAdminOptions` bind from configuration with `services.Configure<T>(section)`, and a bad value (an instance URL that is not an absolute http(s) URL, OAuth scopes without `atproto`, a non-positive timeout, a PDS admin client without its URL or password, a space authority without `ServiceDid`…) stops `StartAsync` with an `OptionsValidationException` naming it. The callbacks passed to `AddAtProto`, `WithOAuth`, `WithFileSessionStore`, `AddAtProtoIdentity`, `AddAtProtoSpaces` and `AddAtProtoPdsAdmin` run after configuration bound to the options (by `AddAtProtoClient()`, `AddAtProtoPdsAdmin()` or `Configure<T>(section)`), whichever order the calls are made in, so code wins. Two behaviours change with it: every `AddAtProtoIdentity(configure)` and `AddAtProtoSpaces(configure)` call now applies, in order, where the first call's options used to win and the others were dropped; `AddAtProtoPdsAdmin()` reports a missing setting at startup instead of throwing `InvalidOperationException` from the registration call, and a space authority without `ServiceDid` fails options validation instead of throwing `InvalidOperationException` from its startup check. Migration: configure identity and spaces wherever convenient; catch `OptionsValidationException` where the old exceptions were caught (#136)
 
+- **`ProfileViewBasic` ⊂ `ProfileView` ⊂ `ProfileViewDetailed` by inheritance** instead of each
+  redeclaring the fields it shares with the others. `is ProfileView` now also matches a
+  `ProfileViewDetailed` (and `is ProfileViewBasic` matches all three); match the most specific type
+  first, or check a property unique to the view wanted, where that matters. `GetSessionResponse` is
+  now the base of `SessionResponse` (which adds `AccessJwt`/`RefreshJwt`) the same way. Public
+  members and the wire shape are otherwise unchanged. Migration: recompile; reorder a `switch` or
+  chained `is` over these types so the most specific pattern comes first (#180)
+- **`Tools.Ozone.Report.LiveStats` is gone — `GetLiveStatsResponse.Stats` is `Tools.Ozone.Queue.QueueStats`.**
+  The two types were structurally identical (`tools.ozone.report.defs#liveStats` and
+  `tools.ozone.queue.defs#queueStats` define the same shape); one now serves both. Migration:
+  replace `LiveStats` with `ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueStats` (#180)
+- **Cursored responses derive from `Models.CursorPage<T>`** instead of implementing
+  `ICursorPage<T>` and redeclaring `Cursor` each — the 72 `com.atproto.*`, Bluesky, chat and Ozone
+  responses with a Lexicon `cursor` are `sealed record`s now (were `sealed class`es), and `Items`
+  is a public `override` instead of an explicit interface implementation, so `page.Items` no longer
+  needs a cast to `ICursorPage<T>`. The wire shape is unchanged (`Items` carries `[JsonIgnore]`).
+  `GraphClient.GetListAsync`'s response renames its `Items` property to `Members`, since the
+  Lexicon's own `items` field collided with the new `Items` override. Migration: recompile; replace
+  `((ICursorPage<T>)response).Items` with `response.Items`; read `GetListResponse.Members` (#180)
+- **`Enumerate*` trimmed to 13, and `Http.Pagination` is public.** Every `Enumerate*` helper the
+  tracking issues did not name and 0.6 did not have is removed — feeds, blocks, mutes, lists,
+  starter packs, convos, groups, Ozone's queues, reports, sets, settings, safelink, team,
+  verifications, hosting, `sync`, `label` and `admin` search/invite codes lose their wrapper.
+  `RecordCollection<T>.EnumerateAsync`/`EnumerateFromAsync`, `RepoClient.EnumerateRecordsAsync`,
+  `SimpleSpaceClient.EnumerateMembersAsync`, `SpaceClient.EnumerateReposAsync`/`EnumerateRecordsAsync`,
+  `JetstreamArchiveClient.EnumerateSegmentsAsync`, `FeedClient.EnumerateTimelineAsync`/
+  `EnumerateAuthorFeedAsync`/`EnumerateActorLikesAsync`, `GraphClient.EnumerateFollowersAsync`/
+  `EnumerateFollowsAsync`/`EnumerateListMembersAsync`, `NotificationClient.EnumerateNotificationsAsync`,
+  `ConvoClient.EnumerateMessagesAsync` and `BookmarkClient.EnumerateBookmarksAsync` stay.
+  `ATProtoNet.Http.Pagination`, the cursor-walking loop every one of them used, is now public.
+  Migration: `Pagination.EnumerateAsync<TPage, T>((cursor, ct) => client.X.GetYAsync(..., cursor,
+  cancellationToken: ct))` replaces a removed helper (#180)
+
 ### Added
 
 - **`TidGenerator`** — mints TIDs that strictly increase and never repeat, per the TID spec: one clock identifier per generator (random unless given) and a microsecond timestamp that advances by one when the clock has not moved or steps back. It is thread-safe and takes a `TimeProvider` for tests; `Tid.Next()` and `RecordKey.NewTid()` use a process-wide instance. (#114)
@@ -272,6 +305,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`atproto-lexgen`: the `migrate` command and `publish`'s legacy-option messages are gone.**
+  `migrate` was already a stub that only explained its own removal; `publish --output`/`--baseline`/
+  `--assembly`/`--no-bump` explained they belonged to the old file-copying `publish`. Both now fail
+  the same way any unrecognized command or option does. `publish --input`/`--identifier`/`--pds`/
+  `--force`/`--password` and every other command's options are unchanged. Migration: run with
+  `--help` for the current command and option list; `diff --strict` still catches breaking Lexicon
+  changes (#180)
+- **22 structurally-identical internal request DTOs merge into 9 shared positional records** —
+  the 10 endpoints across `chat.bsky.convo.*`/`group.*` that take only a `convoId`
+  (`leaveConvo`, `muteConvo`, `unmuteConvo`, `lockConvo`, `unlockConvo`, `acceptConvo`,
+  `enableJoinLink`, `disableJoinLink`, `withdrawJoinRequest`, `updateJoinRequestsRead`), plus
+  `addReaction`/`removeReaction`, `addMembers`/`removeMembers`,
+  `approveJoinRequest`/`rejectJoinRequest`, `tools.ozone.set` add/deleteValues,
+  `tools.ozone.queue` assign/unassignModerator, `com.atproto.admin` disable/enableAccountInvites,
+  `app.bsky.video` finish/abortUpload, and `com.atproto.sync` notifyOfUpdate/requestCrawl. Internal
+  API only; `LexiconDriftTests.Allowlists` gets a `DefOf` entry per merged type. (#180)
+- **The remaining 80 single-purpose internal request DTOs are one-line positional records**,
+  replacing an 8+-line class each. Where a field's Lexicon position isn't already
+  constructor-parameter order (required parameters must precede optional ones), an explicit
+  `JsonPropertyOrder` keeps the wire order unchanged. Internal API only. (#180)
+- **`atproto-lexgen`'s 6 commands share one option-parsing loop** instead of each hand-rolling a
+  `for`/`switch` over `args`. Behavior and every error message are unchanged. (#180)
+- **The 38 straightforward `Unknown*` union variants use the primary-constructor form.** `UnknownEmbed(string type, JsonElement raw) : EmbedBase, IUnknownUnionVariant` replaces the 8-line constructor + two properties each used to declare; a new `UnknownUnionVariant.RequireType` joins `RequireObject` for the validation both did inline. Public API and wire format are unchanged. The two variants that also read fields from their base type (`UnknownConvoLogEntry`, `UnknownChatModerationEvent`) keep their explicit constructors. (#180)
 - **Shared build settings are set once** — the target framework, nullable reference types, implicit usings and the package metadata now come from `Directory.Build.props`, with `src/`, `tests/` and `samples/` layers for documentation files and `IsPackable`, instead of being repeated in every project file. The published package metadata is unchanged apart from the two dependencies above (#110)
 - **Aspire hosting: one shared base for the two PDS container resources.** `AtProtoPdsContainerResource` and `AtProtoTranquilPdsContainerResource` now derive from `AtProtoPdsContainerResourceBase` (`HttpEndpointName`, `HealthCheckPath`, `JwtSecretParameter`, `ConnectionStringExpression`), so one AppHost helper constrained to the base covers either server. Every `With*` method and all Tranquil support are kept, and both servers produce the same environment, mounts, endpoints and publish manifest as before. (#116)
 - **`MerkleSearchTree.SerializeProof` returns the reference covering proof** (#111) — besides the path to each key it now includes the nodes on the paths to the key's immediate neighbours, exactly as `getCoveringProof` in the reference implementation does. Relays need those nodes to replay a `#commit` in reverse; the result is a superset of the previous path-only proof

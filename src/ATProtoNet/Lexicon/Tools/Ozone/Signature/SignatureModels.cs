@@ -37,35 +37,25 @@ public sealed class FindCorrelationResponse
 }
 
 /// <summary>Response from searchAccounts.</summary>
-public sealed class SearchAccountsResponse : ICursorPage<AccountInfo>
+public sealed record SearchAccountsResponse : CursorPage<AccountInfo>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The accounts.</summary>
     [JsonPropertyName("accounts")]
     public required IReadOnlyList<AccountInfo> Accounts { get; init; }
 
-    IReadOnlyList<AccountInfo> ICursorPage<AccountInfo>.Items => Accounts;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<AccountInfo> Items => Accounts;
 }
 
 /// <summary>Response from findRelatedAccounts.</summary>
-public sealed class FindRelatedAccountsResponse : ICursorPage<RelatedAccount>
+public sealed record FindRelatedAccountsResponse : CursorPage<RelatedAccount>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The accounts.</summary>
     [JsonPropertyName("accounts")]
     public required IReadOnlyList<RelatedAccount> Accounts { get; init; }
 
-    IReadOnlyList<RelatedAccount> ICursorPage<RelatedAccount>.Items => Accounts;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<RelatedAccount> Items => Accounts;
 }

@@ -41,16 +41,9 @@ public sealed class ChatPreference : LexObject
 }
 
 /// <summary>Request body for chat.bsky.notification.putPreferences.</summary>
-internal sealed class PutPreferencesRequest
-{
-    /// <summary>The preference for accepted conversations, or <see langword="null"/> to keep it.</summary>
-    [JsonPropertyName("chat")]
-    public ChatPreference? Chat { get; init; }
-
-    /// <summary>The preference for conversation requests, or <see langword="null"/> to keep it.</summary>
-    [JsonPropertyName("chatRequest")]
-    public ChatPreference? ChatRequest { get; init; }
-}
+internal sealed record PutPreferencesRequest(
+    [property: JsonPropertyName("chat")] ChatPreference? Chat = null,
+    [property: JsonPropertyName("chatRequest")] ChatPreference? ChatRequest = null);
 
 /// <summary>The output of chat.bsky.notification.getPreferences, which the client unwraps.</summary>
 internal sealed class GetPreferencesResponse

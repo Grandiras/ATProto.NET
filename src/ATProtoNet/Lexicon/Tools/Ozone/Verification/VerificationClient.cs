@@ -23,7 +23,7 @@ public sealed class VerificationClient
         IEnumerable<VerificationInput> verifications,
         CancellationToken cancellationToken = default)
     {
-        var request = new GrantVerificationsRequest { Verifications = [.. verifications] };
+        var request = new GrantVerificationsRequest(Verifications: [.. verifications]);
         return _xrpc.ProcedureAsync<GrantVerificationsResponse>(
             "tools.ozone.verification.grantVerifications", request, cancellationToken: cancellationToken);
     }
@@ -37,7 +37,7 @@ public sealed class VerificationClient
         string? revokeReason = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new RevokeVerificationsRequest { Uris = [.. uris], RevokeReason = revokeReason };
+        var request = new RevokeVerificationsRequest(Uris: [.. uris], RevokeReason: revokeReason);
         return _xrpc.ProcedureAsync<RevokeVerificationsResponse>(
             "tools.ozone.verification.revokeVerifications", request, cancellationToken: cancellationToken);
     }
@@ -74,26 +74,4 @@ public sealed class VerificationClient
         return _xrpc.QueryAsync<ListVerificationsResponse>(
             "tools.ozone.verification.listVerifications", parameters, cancellationToken: cancellationToken);
     }
-
-    /// <summary>Enumerate every verification matching the filters, fetching pages as needed.</summary>
-    /// <param name="subjects">Only verifications of these accounts (at most 100).</param>
-    /// <param name="issuers">Only verifications from these issuers (at most 100).</param>
-    /// <param name="createdAfter">Only verifications created after this time.</param>
-    /// <param name="createdBefore">Only verifications created before this time.</param>
-    /// <param name="isRevoked">Only revoked (or only unrevoked) verifications; <see langword="null"/> for both.</param>
-    /// <param name="sortDirection">The sort direction by creation time: <c>asc</c> or <c>desc</c> (the default).</param>
-    /// <param name="pageSize">Verifications per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<VerificationView> EnumerateVerificationsAsync(
-        IEnumerable<Did>? subjects = null,
-        IEnumerable<Did>? issuers = null,
-        AtDatetime? createdAfter = null,
-        AtDatetime? createdBefore = null,
-        bool? isRevoked = null,
-        string? sortDirection = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<ListVerificationsResponse, VerificationView>(
-            (cursor, ct) => ListVerificationsAsync(
-                subjects, issuers, createdAfter, createdBefore, isRevoked, sortDirection, pageSize, cursor, ct),
-            cancellationToken);
 }

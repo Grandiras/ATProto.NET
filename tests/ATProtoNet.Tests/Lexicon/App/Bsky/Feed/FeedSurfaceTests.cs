@@ -123,22 +123,6 @@ public sealed class FeedSurfaceTests : IDisposable
     }
 
     [Fact]
-    public async Task EnumerateSearchPostsV2Async_KeepsFiltersAcrossPages()
-    {
-        _handler
-            .On("app.bsky.feed.searchPostsV2", $$"""{"cursor":"p2","posts":[{{PostViewJson}}]}""")
-            .On("app.bsky.feed.searchPostsV2", $$"""{"posts":[{{PostViewJson}}]}""");
-
-        var posts = await _client.Bsky.Feed.EnumerateSearchPostsV2Async(
-            "q", new PostSearchFilters { HasVideo = true }, pageSize: 1).ToListAsync();
-
-        Assert.Equal(2, posts.Count);
-        Assert.Equal(
-            ["query=q&hasVideo=true&limit=1", "query=q&hasVideo=true&limit=1&cursor=p2"],
-            _handler.Requests.Select(r => r.Query));
-    }
-
-    [Fact]
     public async Task SendInteractionsAsync_PostsTheInteractions()
     {
         _handler.On("app.bsky.feed.sendInteractions", "{}");

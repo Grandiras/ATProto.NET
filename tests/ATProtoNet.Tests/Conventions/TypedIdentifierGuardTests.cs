@@ -66,10 +66,6 @@ public class TypedIdentifierGuardTests
             "No Lexicon format: a datetime or a bare ISO date (YYYY-MM-DD).",
         ["ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.SearchPostsAsync(until)"] =
             "No Lexicon format: a datetime or a bare ISO date (YYYY-MM-DD).",
-        ["ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.EnumerateSearchPostsAsync(since)"] =
-            "No Lexicon format: a datetime or a bare ISO date (YYYY-MM-DD).",
-        ["ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.EnumerateSearchPostsAsync(until)"] =
-            "No Lexicon format: a datetime or a bare ISO date (YYYY-MM-DD).",
         ["ATProtoNet.Lexicon.App.Bsky.Feed.PostSearchFilters.Since"] =
             "No Lexicon format: a datetime or a bare ISO date (YYYY-MM-DD).",
         ["ATProtoNet.Lexicon.App.Bsky.Feed.PostSearchFilters.Until"] =
@@ -103,7 +99,6 @@ public class TypedIdentifierGuardTests
         ["ATProtoNet.Streaming.ChatModerationEventConsumer.LastRev"] = ChatRev,
 
         ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.ModerationClient.QueryEventsAsync(subject)"] = OzoneSubjectFilter,
-        ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.ModerationClient.EnumerateEventsAsync(subject)"] = OzoneSubjectFilter,
         ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.SubjectStatusFilter.Subject"] = OzoneSubjectFilter,
         ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.SubjectStatusFilter.IgnoreSubjects"] = OzoneSubjectFilter,
         ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.ModerationClient.GetSubjectsAsync(subjects)"] = OzoneSubjectFilter,
@@ -118,7 +113,6 @@ public class TypedIdentifierGuardTests
         ["ATProtoNet.Lexicon.Tools.Ozone.Moderation.SubjectStatusView.AgeAssuranceUpdatedBy"] =
             "No Lexicon format: who last changed the state, `admin` or `user`.",
         ["ATProtoNet.Lexicon.Tools.Ozone.Set.SetClient.QuerySetsAsync(sortBy)"] = OzoneSetSort,
-        ["ATProtoNet.Lexicon.Tools.Ozone.Set.SetClient.EnumerateSetsAsync(sortBy)"] = OzoneSetSort,
         ["ATProtoNet.Lexicon.Tools.Ozone.Communication.CommunicationTemplateView.Subject"] =
             "The email's subject line.",
         ["ATProtoNet.Lexicon.Tools.Ozone.Communication.CreateTemplateRequest.Subject"] =

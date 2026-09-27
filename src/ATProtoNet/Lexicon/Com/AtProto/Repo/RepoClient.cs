@@ -35,15 +35,13 @@ public sealed class RepoClient
         Cid? swapCommit = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new CreateRecordRequest
-        {
-            Repo = repo,
-            Collection = collection,
-            Record = record,
-            Rkey = rkey,
-            Validate = validate,
-            SwapCommit = swapCommit,
-        };
+        var request = new CreateRecordRequest(
+            Repo: repo,
+            Collection: collection,
+            Record: record,
+            Rkey: rkey,
+            Validate: validate,
+            SwapCommit: swapCommit);
 
         var response = await _xrpc.ProcedureAsync<RecordWriteResponse>(
             "com.atproto.repo.createRecord", request, cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -145,16 +143,14 @@ public sealed class RepoClient
         Cid? swapCommit = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new PutRecordRequest
-        {
-            Repo = repo,
-            Collection = collection,
-            Rkey = rkey,
-            Record = record,
-            Validate = validate,
-            SwapRecord = swapRecord,
-            SwapCommit = swapCommit,
-        };
+        var request = new PutRecordRequest(
+            Repo: repo,
+            Collection: collection,
+            Rkey: rkey,
+            Record: record,
+            Validate: validate,
+            SwapRecord: swapRecord,
+            SwapCommit: swapCommit);
 
         var response = await _xrpc.ProcedureAsync<RecordWriteResponse>(
             "com.atproto.repo.putRecord", request, cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -176,14 +172,12 @@ public sealed class RepoClient
         Cid? swapCommit = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new DeleteRecordRequest
-        {
-            Repo = repo,
-            Collection = collection,
-            Rkey = rkey,
-            SwapRecord = swapRecord,
-            SwapCommit = swapCommit,
-        };
+        var request = new DeleteRecordRequest(
+            Repo: repo,
+            Collection: collection,
+            Rkey: rkey,
+            SwapRecord: swapRecord,
+            SwapCommit: swapCommit);
 
         return _xrpc.ProcedureAsync<DeleteRecordResponse>(
             "com.atproto.repo.deleteRecord", request, cancellationToken: cancellationToken);
@@ -341,7 +335,7 @@ public sealed class RepoClient
     /// <para>The CAR is what <c>com.atproto.sync.getRepo</c> exports (see
     /// <see cref="Sync.SyncClient.GetRepoAsync"/>): one root, the signed commit. The new PDS
     /// verifies it, applies the records it holds, and signs a new commit of its own; blobs are
-    /// uploaded separately (<see cref="EnumerateMissingBlobsAsync"/> lists them).</para>
+    /// uploaded separately (<see cref="ListMissingBlobsAsync"/> lists them).</para>
     /// <para>The body is read from the stream's current position, and the stream is not disposed.
     /// Pass a seekable stream (a file, or a <see cref="MemoryStream"/>): its length goes out as
     /// the <c>Content-Length</c> the Lexicon asks for, and the call can be retried after a DPoP
@@ -365,13 +359,11 @@ public sealed class RepoClient
         Cid? swapCommit = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new ApplyWritesRequest
-        {
-            Repo = repo,
-            Writes = [.. writes],
-            Validate = validate,
-            SwapCommit = swapCommit,
-        };
+        var request = new ApplyWritesRequest(
+            Repo: repo,
+            Writes: [.. writes],
+            Validate: validate,
+            SwapCommit: swapCommit);
 
         return _xrpc.ProcedureAsync<ApplyWritesResponse>(
             "com.atproto.repo.applyWrites", request, cancellationToken: cancellationToken);
@@ -395,15 +387,6 @@ public sealed class RepoClient
         return _xrpc.QueryAsync<ListMissingBlobsResponse>(
             "com.atproto.repo.listMissingBlobs", parameters, cancellationToken: cancellationToken);
     }
-
-    /// <summary>Enumerate every missing blob, fetching pages as needed.</summary>
-    /// <param name="pageSize">Blobs per request (1-1000); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<MissingBlob> EnumerateMissingBlobsAsync(
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<ListMissingBlobsResponse, MissingBlob>(
-            (cursor, ct) => ListMissingBlobsAsync(pageSize, cursor, ct),
-            cancellationToken);
 
     private const string CreateRecordNsid = "com.atproto.repo.createRecord";
     private const string PutRecordNsid = "com.atproto.repo.putRecord";

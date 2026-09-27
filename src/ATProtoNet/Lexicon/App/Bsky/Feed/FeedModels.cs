@@ -238,23 +238,15 @@ public sealed class ThreadgateListRule : ThreadgateRule
 /// A threadgate rule whose <c>$type</c> this SDK version does not model. It keeps the raw object
 /// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownThreadgateRule : ThreadgateRule, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownThreadgateRule(string type, JsonElement raw) : ThreadgateRule, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown threadgate rule from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownThreadgateRule(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>
@@ -273,23 +265,15 @@ public sealed class PostgateDisableRule : PostgateEmbeddingRule;
 /// A postgate rule whose <c>$type</c> this SDK version does not model. It keeps the raw object
 /// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownPostgateEmbeddingRule : PostgateEmbeddingRule, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownPostgateEmbeddingRule(string type, JsonElement raw) : PostgateEmbeddingRule, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown postgate rule from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownPostgateEmbeddingRule(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 // ── Feed generator record ────────────────────────────────────
@@ -363,23 +347,15 @@ public abstract class PostEntry : LexObject;
 /// A post entry whose <c>$type</c> this SDK version does not model. It keeps the raw object and
 /// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownPostEntry : PostEntry, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownPostEntry(string type, JsonElement raw) : PostEntry, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown post entry from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownPostEntry(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>A full post view as returned by feed endpoints.</summary>
@@ -580,23 +556,15 @@ public sealed class ReasonPin : FeedReason;
 /// A feed reason whose <c>$type</c> this SDK version does not model. It keeps the raw object and
 /// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownFeedReason : FeedReason, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownFeedReason(string type, JsonElement raw) : FeedReason, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown feed reason from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownFeedReason(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>Reply context within a feed view.</summary>
@@ -632,23 +600,15 @@ public abstract class ThreadNode : PostEntry;
 /// A thread node whose <c>$type</c> this SDK version does not model. It keeps the raw object and
 /// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownThreadNode : ThreadNode, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownThreadNode(string type, JsonElement raw) : ThreadNode, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown thread node from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownThreadNode(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>A post in a thread tree.</summary>
@@ -805,20 +765,15 @@ public sealed class GeneratorViewerState : LexObject
 // ── API response types ───────────────────────────────────────
 
 /// <summary>Response from getTimeline / getAuthorFeed / getFeed / getListFeed.</summary>
-public sealed class FeedResponse : ICursorPage<FeedViewPost>
+public sealed record FeedResponse : CursorPage<FeedViewPost>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The feed items.</summary>
     [JsonPropertyName("feed")]
     public required IReadOnlyList<FeedViewPost> Feed { get; init; }
 
-    IReadOnlyList<FeedViewPost> ICursorPage<FeedViewPost>.Items => Feed;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<FeedViewPost> Items => Feed;
 }
 
 /// <summary>Response from getPostThread.</summary>
@@ -842,15 +797,8 @@ public sealed class GetPostsResponse
 }
 
 /// <summary>Response from getLikes.</summary>
-public sealed class GetLikesResponse : ICursorPage<LikeInfo>
+public sealed record GetLikesResponse : CursorPage<LikeInfo>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
     public required AtUri Uri { get; init; }
@@ -863,7 +811,9 @@ public sealed class GetLikesResponse : ICursorPage<LikeInfo>
     [JsonPropertyName("likes")]
     public required IReadOnlyList<LikeInfo> Likes { get; init; }
 
-    IReadOnlyList<LikeInfo> ICursorPage<LikeInfo>.Items => Likes;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<LikeInfo> Items => Likes;
 }
 
 /// <summary>A single like info entry.</summary>
@@ -883,15 +833,8 @@ public sealed class LikeInfo : LexObject
 }
 
 /// <summary>Response from getRepostedBy.</summary>
-public sealed class GetRepostedByResponse : ICursorPage<ProfileView>
+public sealed record GetRepostedByResponse : CursorPage<ProfileView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
     public required AtUri Uri { get; init; }
@@ -904,19 +847,14 @@ public sealed class GetRepostedByResponse : ICursorPage<ProfileView>
     [JsonPropertyName("repostedBy")]
     public required IReadOnlyList<ProfileView> RepostedBy { get; init; }
 
-    IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => RepostedBy;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ProfileView> Items => RepostedBy;
 }
 
 /// <summary>Response from getQuotes.</summary>
-public sealed class GetQuotesResponse : ICursorPage<PostView>
+public sealed record GetQuotesResponse : CursorPage<PostView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
     [JsonPropertyName("uri")]
     public required AtUri Uri { get; init; }
@@ -929,7 +867,9 @@ public sealed class GetQuotesResponse : ICursorPage<PostView>
     [JsonPropertyName("posts")]
     public required IReadOnlyList<PostView> Posts { get; init; }
 
-    IReadOnlyList<PostView> ICursorPage<PostView>.Items => Posts;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<PostView> Items => Posts;
 }
 
 /// <summary>Response from getFeedGenerator.</summary>
@@ -957,49 +897,32 @@ public sealed class GetFeedGeneratorsResponse
 }
 
 /// <summary>Response from getActorFeeds.</summary>
-public sealed class GetActorFeedsResponse : ICursorPage<GeneratorView>
+public sealed record GetActorFeedsResponse : CursorPage<GeneratorView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The feed generators.</summary>
     [JsonPropertyName("feeds")]
     public required IReadOnlyList<GeneratorView> Feeds { get; init; }
 
-    IReadOnlyList<GeneratorView> ICursorPage<GeneratorView>.Items => Feeds;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<GeneratorView> Items => Feeds;
 }
 
 /// <summary>Response from getSuggestedFeeds.</summary>
-public sealed class GetSuggestedFeedsResponse : ICursorPage<GeneratorView>
+public sealed record GetSuggestedFeedsResponse : CursorPage<GeneratorView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The feed generators.</summary>
     [JsonPropertyName("feeds")]
     public required IReadOnlyList<GeneratorView> Feeds { get; init; }
 
-    IReadOnlyList<GeneratorView> ICursorPage<GeneratorView>.Items => Feeds;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<GeneratorView> Items => Feeds;
 }
 
 /// <summary>Response from searchPosts.</summary>
-public sealed class SearchPostsResponse : ICursorPage<PostView>
+public sealed record SearchPostsResponse : CursorPage<PostView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The total number of matching results, when the server reports it.</summary>
     [JsonPropertyName("hitsTotal")]
     public int? HitsTotal { get; init; }
@@ -1008,7 +931,9 @@ public sealed class SearchPostsResponse : ICursorPage<PostView>
     [JsonPropertyName("posts")]
     public required IReadOnlyList<PostView> Posts { get; init; }
 
-    IReadOnlyList<PostView> ICursorPage<PostView>.Items => Posts;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<PostView> Items => Posts;
 }
 
 /// <summary>
@@ -1135,15 +1060,8 @@ public static class SearchQueryLanguage
 }
 
 /// <summary>Response from searchPostsV2.</summary>
-public sealed class SearchPostsV2Response : ICursorPage<PostView>
+public sealed record SearchPostsV2Response : CursorPage<PostView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>An estimate of the number of matching posts, possibly rounded or truncated.</summary>
     [JsonPropertyName("hitsTotal")]
     public int? HitsTotal { get; init; }
@@ -1159,7 +1077,9 @@ public sealed class SearchPostsV2Response : ICursorPage<PostView>
     [JsonPropertyName("detectedQueryLanguages")]
     public IReadOnlyList<string>? DetectedQueryLanguages { get; init; }
 
-    IReadOnlyList<PostView> ICursorPage<PostView>.Items => Posts;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<PostView> Items => Posts;
 }
 
 // ── sendInteractions ─────────────────────────────────────────
@@ -1228,16 +1148,11 @@ public static class InteractionEvent
 }
 
 /// <summary>Request body for sendInteractions.</summary>
-internal sealed class SendInteractionsRequest
-{
-    /// <summary>The feed the items came from.</summary>
-    [JsonPropertyName("feed")]
-    public AtUri? Feed { get; init; }
-
-    /// <summary>The interactions.</summary>
-    [JsonPropertyName("interactions")]
-    public required IReadOnlyList<Interaction> Interactions { get; init; }
-}
+internal sealed record SendInteractionsRequest(
+    [property: JsonPropertyName("interactions")]
+    [property: JsonPropertyOrder(1)]
+    IReadOnlyList<Interaction> Interactions,
+    [property: JsonPropertyName("feed")] [property: JsonPropertyOrder(0)] AtUri? Feed = null);
 
 /// <summary>Response from describeFeedGenerator.</summary>
 public sealed class DescribeFeedGeneratorResponse
@@ -1264,15 +1179,8 @@ public sealed class DescribeFeedGeneratorFeed : LexObject
 }
 
 /// <summary>Response from getFeedSkeleton (for feed generators).</summary>
-public sealed class GetFeedSkeletonResponse : ICursorPage<SkeletonFeedPost>
+public sealed record GetFeedSkeletonResponse : CursorPage<SkeletonFeedPost>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The feed items.</summary>
     [JsonPropertyName("feed")]
     public required IReadOnlyList<SkeletonFeedPost> Feed { get; init; }
@@ -1284,7 +1192,9 @@ public sealed class GetFeedSkeletonResponse : ICursorPage<SkeletonFeedPost>
     [JsonPropertyName("reqId")]
     public string? ReqId { get; init; }
 
-    IReadOnlyList<SkeletonFeedPost> ICursorPage<SkeletonFeedPost>.Items => Feed;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<SkeletonFeedPost> Items => Feed;
 }
 
 /// <summary>A skeleton feed post (just a URI reference, used by feed generators).</summary>
@@ -1331,21 +1241,13 @@ public sealed class SkeletonReasonPin : SkeletonReason;
 /// A skeleton reason whose <c>$type</c> this SDK version does not model. It keeps the raw object
 /// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownSkeletonReason : SkeletonReason, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownSkeletonReason(string type, JsonElement raw) : SkeletonReason, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown skeleton reason from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownSkeletonReason(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }

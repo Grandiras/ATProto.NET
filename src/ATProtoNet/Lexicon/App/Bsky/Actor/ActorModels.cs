@@ -12,8 +12,16 @@ namespace ATProtoNet.Lexicon.App.Bsky.Actor;
 
 // ── Profile types ────────────────────────────────────────────
 
-/// <summary>Detailed profile view (returned by getProfile).</summary>
-public sealed class ProfileViewDetailed : LexObject
+/// <summary>
+/// Minimal profile view (used inline in posts, etc.). The base of <see cref="ProfileView"/> and
+/// <see cref="ProfileViewDetailed"/>, which add fields rather than repeat these.
+/// </summary>
+/// <remarks>
+/// Because they share this base, <c>actor is ProfileViewBasic</c> also matches a
+/// <see cref="ProfileView"/> or <see cref="ProfileViewDetailed"/>; match on the most specific type
+/// first, or on <see cref="LexObject.ExtensionData"/> / a property unique to the view wanted.
+/// </remarks>
+public class ProfileViewBasic : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
@@ -27,21 +35,71 @@ public sealed class ProfileViewDetailed : LexObject
     [JsonPropertyName("displayName")]
     public string? DisplayName { get; init; }
 
-    /// <summary>A free-text description.</summary>
-    [JsonPropertyName("description")]
-    public string? Description { get; init; }
-
     /// <summary>Free-form pronouns text.</summary>
     [JsonPropertyName("pronouns")]
     public string? Pronouns { get; init; }
 
-    /// <summary>A website URI shown on the profile.</summary>
-    [JsonPropertyName("website")]
-    public string? Website { get; init; }
-
     /// <summary>The avatar image.</summary>
     [JsonPropertyName("avatar")]
     public string? Avatar { get; init; }
+
+    /// <summary>
+    /// Counts and settings for what the account has published or allows: lists, feed generators,
+    /// starter packs, a labeler, chat and activity subscriptions.
+    /// </summary>
+    [JsonPropertyName("associated")]
+    public ProfileAssociated? Associated { get; init; }
+
+    /// <summary>The requesting account's relationship to this subject.</summary>
+    [JsonPropertyName("viewer")]
+    public ViewerState? Viewer { get; init; }
+
+    /// <summary>The labels applied to this subject.</summary>
+    [JsonPropertyName("labels")]
+    public IReadOnlyList<Label>? Labels { get; init; }
+
+    /// <summary>Timestamp of creation.</summary>
+    [JsonPropertyName("createdAt")]
+    public AtDatetime? CreatedAt { get; init; }
+
+    /// <summary>The account's verification state, from verifications by trusted verifiers.</summary>
+    [JsonPropertyName("verification")]
+    public VerificationState? Verification { get; init; }
+
+    /// <summary>The account's current status, such as being live.</summary>
+    [JsonPropertyName("status")]
+    public StatusView? Status { get; init; }
+
+    /// <summary>Debug information the appview attaches for internal development; its shape is not specified.</summary>
+    [JsonPropertyName("debug")]
+    public JsonElement? Debug { get; init; }
+}
+
+/// <summary>
+/// Profile view (used in actor lists, follows, etc.), adding a description and index time over
+/// <see cref="ProfileViewBasic"/>. The base of <see cref="ProfileViewDetailed"/>; see its remarks
+/// about matching on the most specific type.
+/// </summary>
+public class ProfileView : ProfileViewBasic
+{
+    /// <summary>A free-text description.</summary>
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
+
+    /// <summary>Timestamp at which the app view indexed this data.</summary>
+    [JsonPropertyName("indexedAt")]
+    public AtDatetime? IndexedAt { get; init; }
+}
+
+/// <summary>
+/// Detailed profile view (returned by getProfile), adding counts, the website, banner, pinned
+/// post and starter pack over <see cref="ProfileView"/>.
+/// </summary>
+public sealed class ProfileViewDetailed : ProfileView
+{
+    /// <summary>A website URI shown on the profile.</summary>
+    [JsonPropertyName("website")]
+    public string? Website { get; init; }
 
     /// <summary>The banner image.</summary>
     [JsonPropertyName("banner")]
@@ -59,166 +117,13 @@ public sealed class ProfileViewDetailed : LexObject
     [JsonPropertyName("postsCount")]
     public int? PostsCount { get; init; }
 
-    /// <summary>
-    /// Counts and settings for what the account has published or allows: lists, feed generators,
-    /// starter packs, a labeler, chat and activity subscriptions.
-    /// </summary>
-    [JsonPropertyName("associated")]
-    public ProfileAssociated? Associated { get; init; }
-
     /// <summary>The starter pack the account joined through, if any.</summary>
     [JsonPropertyName("joinedViaStarterPack")]
     public StarterPackViewBasic? JoinedViaStarterPack { get; init; }
 
-    /// <summary>Timestamp at which the app view indexed this data.</summary>
-    [JsonPropertyName("indexedAt")]
-    public AtDatetime? IndexedAt { get; init; }
-
-    /// <summary>Timestamp of creation.</summary>
-    [JsonPropertyName("createdAt")]
-    public AtDatetime? CreatedAt { get; init; }
-
-    /// <summary>The requesting account's relationship to this subject.</summary>
-    [JsonPropertyName("viewer")]
-    public ViewerState? Viewer { get; init; }
-
-    /// <summary>The labels applied to this subject.</summary>
-    [JsonPropertyName("labels")]
-    public IReadOnlyList<Label>? Labels { get; init; }
-
     /// <summary>A reference to the post pinned to the profile.</summary>
     [JsonPropertyName("pinnedPost")]
     public StrongRef? PinnedPost { get; init; }
-
-    /// <summary>The account's verification state, from verifications by trusted verifiers.</summary>
-    [JsonPropertyName("verification")]
-    public VerificationState? Verification { get; init; }
-
-    /// <summary>The account's current status, such as being live.</summary>
-    [JsonPropertyName("status")]
-    public StatusView? Status { get; init; }
-
-    /// <summary>Debug information the appview attaches for internal development; its shape is not specified.</summary>
-    [JsonPropertyName("debug")]
-    public JsonElement? Debug { get; init; }
-}
-
-/// <summary>Basic profile view (used in actor lists, follows, etc.).</summary>
-public sealed class ProfileView : LexObject
-{
-    /// <summary>The DID (decentralized identifier) of the account.</summary>
-    [JsonPropertyName("did")]
-    public required Did Did { get; init; }
-
-    /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
-    [JsonPropertyName("handle")]
-    public required Handle Handle { get; init; }
-
-    /// <summary>The human-readable display name.</summary>
-    [JsonPropertyName("displayName")]
-    public string? DisplayName { get; init; }
-
-    /// <summary>A free-text description.</summary>
-    [JsonPropertyName("description")]
-    public string? Description { get; init; }
-
-    /// <summary>Free-form pronouns text.</summary>
-    [JsonPropertyName("pronouns")]
-    public string? Pronouns { get; init; }
-
-    /// <summary>The avatar image.</summary>
-    [JsonPropertyName("avatar")]
-    public string? Avatar { get; init; }
-
-    /// <summary>
-    /// Counts and settings for what the account has published or allows: lists, feed generators,
-    /// starter packs, a labeler, chat and activity subscriptions.
-    /// </summary>
-    [JsonPropertyName("associated")]
-    public ProfileAssociated? Associated { get; init; }
-
-    /// <summary>Timestamp at which the app view indexed this data.</summary>
-    [JsonPropertyName("indexedAt")]
-    public AtDatetime? IndexedAt { get; init; }
-
-    /// <summary>Timestamp of creation.</summary>
-    [JsonPropertyName("createdAt")]
-    public AtDatetime? CreatedAt { get; init; }
-
-    /// <summary>The requesting account's relationship to this subject.</summary>
-    [JsonPropertyName("viewer")]
-    public ViewerState? Viewer { get; init; }
-
-    /// <summary>The labels applied to this subject.</summary>
-    [JsonPropertyName("labels")]
-    public IReadOnlyList<Label>? Labels { get; init; }
-
-    /// <summary>The account's verification state, from verifications by trusted verifiers.</summary>
-    [JsonPropertyName("verification")]
-    public VerificationState? Verification { get; init; }
-
-    /// <summary>The account's current status, such as being live.</summary>
-    [JsonPropertyName("status")]
-    public StatusView? Status { get; init; }
-
-    /// <summary>Debug information the appview attaches for internal development; its shape is not specified.</summary>
-    [JsonPropertyName("debug")]
-    public JsonElement? Debug { get; init; }
-}
-
-/// <summary>Minimal profile view (used inline in posts, etc.).</summary>
-public sealed class ProfileViewBasic : LexObject
-{
-    /// <summary>The DID (decentralized identifier) of the account.</summary>
-    [JsonPropertyName("did")]
-    public required Did Did { get; init; }
-
-    /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
-    [JsonPropertyName("handle")]
-    public required Handle Handle { get; init; }
-
-    /// <summary>The human-readable display name.</summary>
-    [JsonPropertyName("displayName")]
-    public string? DisplayName { get; init; }
-
-    /// <summary>Free-form pronouns text.</summary>
-    [JsonPropertyName("pronouns")]
-    public string? Pronouns { get; init; }
-
-    /// <summary>The avatar image.</summary>
-    [JsonPropertyName("avatar")]
-    public string? Avatar { get; init; }
-
-    /// <summary>
-    /// Counts and settings for what the account has published or allows: lists, feed generators,
-    /// starter packs, a labeler, chat and activity subscriptions.
-    /// </summary>
-    [JsonPropertyName("associated")]
-    public ProfileAssociated? Associated { get; init; }
-
-    /// <summary>The requesting account's relationship to this subject.</summary>
-    [JsonPropertyName("viewer")]
-    public ViewerState? Viewer { get; init; }
-
-    /// <summary>The labels applied to this subject.</summary>
-    [JsonPropertyName("labels")]
-    public IReadOnlyList<Label>? Labels { get; init; }
-
-    /// <summary>Timestamp of creation.</summary>
-    [JsonPropertyName("createdAt")]
-    public AtDatetime? CreatedAt { get; init; }
-
-    /// <summary>The account's verification state, from verifications by trusted verifiers.</summary>
-    [JsonPropertyName("verification")]
-    public VerificationState? Verification { get; init; }
-
-    /// <summary>The account's current status, such as being live.</summary>
-    [JsonPropertyName("status")]
-    public StatusView? Status { get; init; }
-
-    /// <summary>Debug information the appview attaches for internal development; its shape is not specified.</summary>
-    [JsonPropertyName("debug")]
-    public JsonElement? Debug { get; init; }
 }
 
 /// <summary>Viewer relationship state between the authenticated user and a viewed actor.</summary>
@@ -490,12 +395,8 @@ public sealed class GetPreferencesResponse
 }
 
 /// <summary>Request for putPreferences.</summary>
-internal sealed class PutPreferencesRequest
-{
-    /// <summary>The account's preferences, one object per kind.</summary>
-    [JsonPropertyName("preferences")]
-    public required IReadOnlyList<Preference> Preferences { get; init; }
-}
+internal sealed record PutPreferencesRequest(
+    [property: JsonPropertyName("preferences")] IReadOnlyList<Preference> Preferences);
 
 /// <summary>
 /// One of an account's preferences (the open <c>app.bsky.actor.defs#preferences</c> union). A
@@ -529,23 +430,15 @@ public abstract class Preference : LexObject;
 /// A preference whose <c>$type</c> this SDK version does not model. It keeps the raw object and
 /// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownPreference : Preference, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownPreference(string type, JsonElement raw) : Preference, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown preference from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownPreference(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>Whether adult content is shown (<c>#adultContentPref</c>).</summary>
@@ -836,15 +729,8 @@ public sealed class LiveEventPreferences : Preference
 // ── Suggestions / Search ─────────────────────────────────────
 
 /// <summary>Response from getSuggestions.</summary>
-public sealed class GetSuggestionsResponse : ICursorPage<ProfileView>
+public sealed record GetSuggestionsResponse : CursorPage<ProfileView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The actors.</summary>
     [JsonPropertyName("actors")]
     public required IReadOnlyList<ProfileView> Actors { get; init; }
@@ -853,24 +739,21 @@ public sealed class GetSuggestionsResponse : ICursorPage<ProfileView>
     [JsonPropertyName("recIdStr")]
     public string? RecIdStr { get; init; }
 
-    IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Actors;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ProfileView> Items => Actors;
 }
 
 /// <summary>Response from searchActors.</summary>
-public sealed class SearchActorsResponse : ICursorPage<ProfileView>
+public sealed record SearchActorsResponse : CursorPage<ProfileView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The actors.</summary>
     [JsonPropertyName("actors")]
     public required IReadOnlyList<ProfileView> Actors { get; init; }
 
-    IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Actors;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ProfileView> Items => Actors;
 }
 
 /// <summary>Response from searchActorsTypeahead (autocomplete).</summary>

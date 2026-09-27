@@ -75,7 +75,7 @@ public sealed class TempClient
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(phoneNumber);
 
-        var request = new RequestPhoneVerificationRequest { PhoneNumber = phoneNumber };
+        var request = new RequestPhoneVerificationRequest(PhoneNumber: phoneNumber);
         await _xrpc.ProcedureAsync(
             "com.atproto.temp.requestPhoneVerification", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
@@ -89,7 +89,7 @@ public sealed class TempClient
     {
         ArgumentNullException.ThrowIfNull(account);
 
-        var request = new RevokeAccountCredentialsRequest { Account = account };
+        var request = new RevokeAccountCredentialsRequest(Account: account);
         await _xrpc.ProcedureAsync(
             "com.atproto.temp.revokeAccountCredentials", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }

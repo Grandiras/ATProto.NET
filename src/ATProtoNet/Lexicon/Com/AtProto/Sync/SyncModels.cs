@@ -70,20 +70,15 @@ public sealed class GetLatestCommitResponse
 // ── com.atproto.sync.listBlobs ───────────────────────────────
 
 /// <summary>Response from listBlobs.</summary>
-public sealed class ListBlobsResponse : ICursorPage<Cid>
+public sealed record ListBlobsResponse : CursorPage<Cid>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The CIDs.</summary>
     [JsonPropertyName("cids")]
     public required IReadOnlyList<Cid> Cids { get; init; }
 
-    IReadOnlyList<Cid> ICursorPage<Cid>.Items => Cids;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<Cid> Items => Cids;
 }
 
 // ── com.atproto.sync.listRepos ───────────────────────────────
@@ -113,39 +108,21 @@ public sealed class RepoInfo : LexObject
 }
 
 /// <summary>Response from listRepos.</summary>
-public sealed class ListReposResponse : ICursorPage<RepoInfo>
+public sealed record ListReposResponse : CursorPage<RepoInfo>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The repositories.</summary>
     [JsonPropertyName("repos")]
     public required IReadOnlyList<RepoInfo> Repos { get; init; }
 
-    IReadOnlyList<RepoInfo> ICursorPage<RepoInfo>.Items => Repos;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<RepoInfo> Items => Repos;
 }
 
 // ── com.atproto.sync.notifyOfUpdate / requestCrawl ───────────
 
-/// <summary>Request body for notifyOfUpdate.</summary>
-internal sealed class NotifyOfUpdateRequest
-{
-    /// <summary>The hostname of the host to crawl or that was updated.</summary>
-    [JsonPropertyName("hostname")]
-    public required string Hostname { get; init; }
-}
-
-/// <summary>Request body for requestCrawl.</summary>
-internal sealed class RequestCrawlRequest
-{
-    /// <summary>The hostname of the host to crawl or that was updated.</summary>
-    [JsonPropertyName("hostname")]
-    public required string Hostname { get; init; }
-}
+/// <summary>Request body for notifyOfUpdate and requestCrawl.</summary>
+internal sealed record HostnameRequest([property: JsonPropertyName("hostname")] string Hostname);
 
 // ── com.atproto.sync.getRepoStatus ───────────────────────────
 
@@ -195,20 +172,15 @@ public sealed class HostInfo : LexObject
 }
 
 /// <summary>Response from listHosts. Enumerates upstream hosts consumed by a relay.</summary>
-public sealed class ListHostsResponse : ICursorPage<HostInfo>
+public sealed record ListHostsResponse : CursorPage<HostInfo>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The upstream hosts known to this relay.</summary>
     [JsonPropertyName("hosts")]
     public required IReadOnlyList<HostInfo> Hosts { get; init; }
 
-    IReadOnlyList<HostInfo> ICursorPage<HostInfo>.Items => Hosts;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<HostInfo> Items => Hosts;
 }
 
 // ── com.atproto.sync.getHostStatus ───────────────────────────
@@ -247,20 +219,15 @@ public sealed class CollectionRepoInfo : LexObject
 /// Response from listReposByCollection. Enumerates DIDs that have records
 /// with a given collection NSID.
 /// </summary>
-public sealed class ListReposByCollectionResponse : ICursorPage<CollectionRepoInfo>
+public sealed record ListReposByCollectionResponse : CursorPage<CollectionRepoInfo>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The repositories.</summary>
     [JsonPropertyName("repos")]
     public required IReadOnlyList<CollectionRepoInfo> Repos { get; init; }
 
-    IReadOnlyList<CollectionRepoInfo> ICursorPage<CollectionRepoInfo>.Items => Repos;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<CollectionRepoInfo> Items => Repos;
 }
 
 // ── com.atproto.sync.subscribeRepos (event stream messages) ──

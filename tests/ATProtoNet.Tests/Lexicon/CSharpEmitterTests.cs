@@ -132,22 +132,6 @@ public class CSharpEmitterTests
         """;
 
     [Fact]
-    public void Emit_AnyDocument_ProducesBalancedBraces()
-    {
-        var files = EmitAll(RecipeDefs, RecipeRecord);
-
-        Assert.NotEmpty(files);
-        foreach (var (path, content) in files)
-        {
-            Assert.Equal(content.Count(c => c == '{'), content.Count(c => c == '}'));
-            // File-scoped namespace — nothing may be appended after the last type.
-            Assert.DoesNotContain("\n}\n\n}", content);
-            Assert.Contains("namespace Mise.Core.Lexicon.Exchange.Recipe;", content);
-            Assert.False(string.IsNullOrWhiteSpace(path));
-        }
-    }
-
-    [Fact]
     public void Emit_BlobPropertyNamedLikeEnclosingType_RenamesMember()
     {
         var recipe = EmitAll(RecipeDefs, RecipeRecord)["Exchange/Recipe/Recipe.g.cs"];

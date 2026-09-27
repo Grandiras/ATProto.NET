@@ -110,17 +110,4 @@ public sealed class DraftClientTests : IDisposable
         Assert.Equal("app.bsky.draft.defs#draftEmbedFutureThing", Assert.IsType<UnknownDraftGalleryItem>(post.EmbedGallery.Items[1]).Type);
     }
 
-    [Fact]
-    public async Task EnumerateDraftsAsync_FollowsTheCursor()
-    {
-        const string view = """{"id":"3lwinfmsd2k2h","createdAt":"2026-09-20T10:00:00.000Z","updatedAt":"2026-09-20T10:00:00.000Z","draft":{"posts":[{"text":"x"}]}}""";
-        _handler
-            .On("app.bsky.draft.getDrafts", $$"""{"cursor":"n","drafts":[{{view}}]}""")
-            .On("app.bsky.draft.getDrafts", $$"""{"drafts":[{{view}}]}""");
-
-        var drafts = await _client.Bsky.Draft.EnumerateDraftsAsync(pageSize: 1).ToListAsync();
-
-        Assert.Equal(2, drafts.Count);
-        Assert.Equal(["limit=1", "limit=1&cursor=n"], _handler.Requests.Select(r => r.Query));
-    }
 }

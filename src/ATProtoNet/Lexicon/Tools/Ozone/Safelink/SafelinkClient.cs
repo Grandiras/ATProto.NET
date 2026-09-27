@@ -34,15 +34,13 @@ public sealed class SafelinkClient
         Did? createdBy = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new AddRuleRequest
-        {
-            Url = url,
-            Pattern = pattern,
-            Action = action,
-            Reason = reason,
-            Comment = comment,
-            CreatedBy = createdBy,
-        };
+        var request = new AddRuleRequest(
+            Url: url,
+            Pattern: pattern,
+            Action: action,
+            Reason: reason,
+            Comment: comment,
+            CreatedBy: createdBy);
         return _xrpc.ProcedureAsync<SafelinkEvent>(
             "tools.ozone.safelink.addRule", request, cancellationToken: cancellationToken);
     }
@@ -65,15 +63,13 @@ public sealed class SafelinkClient
         Did? createdBy = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new AddRuleRequest
-        {
-            Url = url,
-            Pattern = pattern,
-            Action = action,
-            Reason = reason,
-            Comment = comment,
-            CreatedBy = createdBy,
-        };
+        var request = new AddRuleRequest(
+            Url: url,
+            Pattern: pattern,
+            Action: action,
+            Reason: reason,
+            Comment: comment,
+            CreatedBy: createdBy);
         return _xrpc.ProcedureAsync<SafelinkEvent>(
             "tools.ozone.safelink.updateRule", request, cancellationToken: cancellationToken);
     }
@@ -92,13 +88,7 @@ public sealed class SafelinkClient
         Did? createdBy = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new RemoveRuleRequest
-        {
-            Url = url,
-            Pattern = pattern,
-            Comment = comment,
-            CreatedBy = createdBy,
-        };
+        var request = new RemoveRuleRequest(Url: url, Pattern: pattern, Comment: comment, CreatedBy: createdBy);
         return _xrpc.ProcedureAsync<SafelinkEvent>(
             "tools.ozone.safelink.removeRule", request, cancellationToken: cancellationToken);
     }
@@ -123,41 +113,18 @@ public sealed class SafelinkClient
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new QueryRulesRequest
-        {
-            Urls = urls is null ? null : [.. urls],
-            PatternType = patternType,
-            Actions = actions is null ? null : [.. actions],
-            Reason = reason,
-            CreatedBy = createdBy,
-            SortDirection = sortDirection,
-            Limit = limit,
-            Cursor = cursor,
-        };
+        var request = new QueryRulesRequest(
+            Urls: urls is null ? null : [.. urls],
+            PatternType: patternType,
+            Actions: actions is null ? null : [.. actions],
+            Reason: reason,
+            CreatedBy: createdBy,
+            SortDirection: sortDirection,
+            Limit: limit,
+            Cursor: cursor);
         return _xrpc.ProcedureAsync<QueryRulesResponse>(
             "tools.ozone.safelink.queryRules", request, cancellationToken: cancellationToken);
     }
-
-    /// <summary>Enumerate every URL safety rule matching the filters, fetching pages as needed.</summary>
-    /// <param name="urls">Only rules on these URLs or domains.</param>
-    /// <param name="patternType">Only rules of this pattern type (see <see cref="SafelinkPatternType"/>).</param>
-    /// <param name="actions">Only rules with these actions (see <see cref="SafelinkActionType"/>).</param>
-    /// <param name="reason">Only rules with this reason (see <see cref="SafelinkReasonType"/>).</param>
-    /// <param name="createdBy">Only rules added by this moderator.</param>
-    /// <param name="sortDirection">The sort direction: <c>asc</c> or <c>desc</c> (the default).</param>
-    /// <param name="pageSize">Rules per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<UrlRule> EnumerateRulesAsync(
-        IEnumerable<string>? urls = null,
-        string? patternType = null,
-        IEnumerable<string>? actions = null,
-        string? reason = null,
-        Did? createdBy = null,
-        string? sortDirection = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<QueryRulesResponse, UrlRule>(
-            (cursor, ct) => QueryRulesAsync(urls, patternType, actions, reason, createdBy, sortDirection, pageSize, cursor, ct),
-            cancellationToken);
 
     /// <summary>Query one page of the URL safety audit log.</summary>
     /// <param name="urls">Only events on these URLs or domains.</param>
@@ -173,30 +140,13 @@ public sealed class SafelinkClient
         string? cursor = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new QueryEventsRequest
-        {
-            Urls = urls is null ? null : [.. urls],
-            PatternType = patternType,
-            SortDirection = sortDirection,
-            Limit = limit,
-            Cursor = cursor,
-        };
+        var request = new QueryEventsRequest(
+            Urls: urls is null ? null : [.. urls],
+            PatternType: patternType,
+            SortDirection: sortDirection,
+            Limit: limit,
+            Cursor: cursor);
         return _xrpc.ProcedureAsync<QueryEventsResponse>(
             "tools.ozone.safelink.queryEvents", request, cancellationToken: cancellationToken);
     }
-
-    /// <summary>Enumerate every URL safety audit event matching the filters, fetching pages as needed.</summary>
-    /// <param name="urls">Only events on these URLs or domains.</param>
-    /// <param name="patternType">Only events on rules of this pattern type (see <see cref="SafelinkPatternType"/>).</param>
-    /// <param name="sortDirection">The sort direction: <c>asc</c> or <c>desc</c> (the default).</param>
-    /// <param name="pageSize">Events per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<SafelinkEvent> EnumerateEventsAsync(
-        IEnumerable<string>? urls = null,
-        string? patternType = null,
-        string? sortDirection = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<QueryEventsResponse, SafelinkEvent>(
-            (cursor, ct) => QueryEventsAsync(urls, patternType, sortDirection, pageSize, cursor, ct),
-            cancellationToken);
 }

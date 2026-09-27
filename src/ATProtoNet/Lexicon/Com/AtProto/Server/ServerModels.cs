@@ -5,27 +5,53 @@ using ATProtoNet.Models;
 namespace ATProtoNet.Lexicon.Com.AtProto.Server;
 
 /// <summary>Request body for com.atproto.server.createSession.</summary>
-internal sealed class CreateSessionRequest
+internal sealed record CreateSessionRequest(
+    [property: JsonPropertyName("identifier")] string Identifier,
+    [property: JsonPropertyName("password")] string Password,
+    [property: JsonPropertyName("authFactorToken")] string? AuthFactorToken = null,
+    [property: JsonPropertyName("allowTakendown")] bool? AllowTakendown = null);
+
+/// <summary>Response from com.atproto.server.getSession. The base of <see cref="SessionResponse"/>.</summary>
+public class GetSessionResponse
 {
-    /// <summary>Handle or other identifier supported by the server for the authenticating user.</summary>
-    [JsonPropertyName("identifier")]
-    public required string Identifier { get; init; }
+    /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
+    [JsonPropertyName("handle")]
+    public required Handle Handle { get; init; }
 
-    /// <summary>The password for the account.</summary>
-    [JsonPropertyName("password")]
-    public required string Password { get; init; }
+    /// <summary>The DID (decentralized identifier) of the account.</summary>
+    [JsonPropertyName("did")]
+    public required Did Did { get; init; }
 
-    /// <summary>Email auth factor token, if email authentication is enabled.</summary>
-    [JsonPropertyName("authFactorToken")]
-    public string? AuthFactorToken { get; init; }
+    /// <summary>The email address of the account.</summary>
+    [JsonPropertyName("email")]
+    public string? Email { get; init; }
 
-    /// <summary>Whether a taken-down account may sign in, to a session that can only migrate or export it.</summary>
-    [JsonPropertyName("allowTakendown")]
-    public bool? AllowTakendown { get; init; }
+    /// <summary>Whether the email address has been confirmed.</summary>
+    [JsonPropertyName("emailConfirmed")]
+    public bool? EmailConfirmed { get; init; }
+
+    /// <summary>Whether email is enabled as a second authentication factor.</summary>
+    [JsonPropertyName("emailAuthFactor")]
+    public bool? EmailAuthFactor { get; init; }
+
+    /// <summary>The DID document for the account, as returned by the PDS.</summary>
+    [JsonPropertyName("didDoc")]
+    public object? DidDoc { get; init; }
+
+    /// <summary>Whether the account is active (not deactivated, suspended, or taken down).</summary>
+    [JsonPropertyName("active")]
+    public bool? Active { get; init; }
+
+    /// <summary>The hosting status of the account, if it is not active.</summary>
+    [JsonPropertyName("status")]
+    public string? Status { get; init; }
 }
 
-/// <summary>Response from com.atproto.server.createSession and com.atproto.server.refreshSession.</summary>
-public sealed class SessionResponse
+/// <summary>
+/// Response from com.atproto.server.createSession and com.atproto.server.refreshSession: a
+/// <see cref="GetSessionResponse"/> plus the token pair.
+/// </summary>
+public sealed class SessionResponse : GetSessionResponse
 {
     /// <summary>The access JWT used to authenticate subsequent requests.</summary>
     [JsonPropertyName("accessJwt")]
@@ -34,74 +60,6 @@ public sealed class SessionResponse
     /// <summary>The refresh JWT used to obtain a new access token.</summary>
     [JsonPropertyName("refreshJwt")]
     public string RefreshJwt { get; init; } = string.Empty;
-
-    /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
-    [JsonPropertyName("handle")]
-    public required Handle Handle { get; init; }
-
-    /// <summary>The DID (decentralized identifier) of the account.</summary>
-    [JsonPropertyName("did")]
-    public required Did Did { get; init; }
-
-    /// <summary>The DID document for the account, as returned by the PDS.</summary>
-    [JsonPropertyName("didDoc")]
-    public object? DidDoc { get; init; }
-
-    /// <summary>The email address of the account.</summary>
-    [JsonPropertyName("email")]
-    public string? Email { get; init; }
-
-    /// <summary>Whether the email address has been confirmed.</summary>
-    [JsonPropertyName("emailConfirmed")]
-    public bool? EmailConfirmed { get; init; }
-
-    /// <summary>Whether email is enabled as a second authentication factor.</summary>
-    [JsonPropertyName("emailAuthFactor")]
-    public bool? EmailAuthFactor { get; init; }
-
-    /// <summary>Whether the account is active (not deactivated, suspended, or taken down).</summary>
-    [JsonPropertyName("active")]
-    public bool? Active { get; init; }
-
-    /// <summary>The hosting status of the account, if it is not active.</summary>
-    [JsonPropertyName("status")]
-    public string? Status { get; init; }
-}
-
-/// <summary>Response from com.atproto.server.getSession.</summary>
-public sealed class GetSessionResponse
-{
-    /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
-    [JsonPropertyName("handle")]
-    public required Handle Handle { get; init; }
-
-    /// <summary>The DID (decentralized identifier) of the account.</summary>
-    [JsonPropertyName("did")]
-    public required Did Did { get; init; }
-
-    /// <summary>The email address of the account.</summary>
-    [JsonPropertyName("email")]
-    public string? Email { get; init; }
-
-    /// <summary>Whether the email address has been confirmed.</summary>
-    [JsonPropertyName("emailConfirmed")]
-    public bool? EmailConfirmed { get; init; }
-
-    /// <summary>Whether email is enabled as a second authentication factor.</summary>
-    [JsonPropertyName("emailAuthFactor")]
-    public bool? EmailAuthFactor { get; init; }
-
-    /// <summary>The DID document for the account, as returned by the PDS.</summary>
-    [JsonPropertyName("didDoc")]
-    public object? DidDoc { get; init; }
-
-    /// <summary>Whether the account is active (not deactivated, suspended, or taken down).</summary>
-    [JsonPropertyName("active")]
-    public bool? Active { get; init; }
-
-    /// <summary>The hosting status of the account, if it is not active.</summary>
-    [JsonPropertyName("status")]
-    public string? Status { get; init; }
 }
 
 /// <summary>Request body for com.atproto.server.createAccount.</summary>
@@ -169,12 +127,8 @@ public sealed class CreateAccountResponse
 }
 
 /// <summary>Request body for deactivateAccount.</summary>
-internal sealed class DeactivateAccountRequest
-{
-    /// <summary>How long the server should keep the deactivated account before deleting it.</summary>
-    [JsonPropertyName("deleteAfter")]
-    public AtDatetime? DeleteAfter { get; init; }
-}
+internal sealed record DeactivateAccountRequest(
+    [property: JsonPropertyName("deleteAfter")] AtDatetime? DeleteAfter = null);
 
 /// <summary>Request body for com.atproto.server.deleteAccount.</summary>
 public sealed class DeleteAccountRequest
@@ -245,16 +199,9 @@ public sealed class ServerContact : LexObject
 }
 
 /// <summary>Request body for com.atproto.server.createAppPassword.</summary>
-internal sealed class CreateAppPasswordRequest
-{
-    /// <summary>A name identifying what the app password is used for.</summary>
-    [JsonPropertyName("name")]
-    public required string Name { get; init; }
-
-    /// <summary>Whether the app password is privileged (may access chat and other restricted endpoints).</summary>
-    [JsonPropertyName("privileged")]
-    public bool? Privileged { get; init; }
-}
+internal sealed record CreateAppPasswordRequest(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("privileged")] bool? Privileged = null);
 
 /// <summary>Response from com.atproto.server.createAppPassword.</summary>
 public sealed class AppPassword : LexObject
@@ -301,36 +248,17 @@ public sealed class AppPasswordInfo : LexObject
 }
 
 /// <summary>Request body for com.atproto.server.requestPasswordReset.</summary>
-internal sealed class RequestPasswordResetRequest
-{
-    /// <summary>The email address of the account.</summary>
-    [JsonPropertyName("email")]
-    public required string Email { get; init; }
-}
+internal sealed record RequestPasswordResetRequest([property: JsonPropertyName("email")] string Email);
 
 /// <summary>Request body for com.atproto.server.resetPassword.</summary>
-internal sealed class ResetPasswordRequest
-{
-    /// <summary>The reset token emailed to the account holder.</summary>
-    [JsonPropertyName("token")]
-    public required string Token { get; init; }
-
-    /// <summary>The new password.</summary>
-    [JsonPropertyName("password")]
-    public required string Password { get; init; }
-}
+internal sealed record ResetPasswordRequest(
+    [property: JsonPropertyName("token")] string Token,
+    [property: JsonPropertyName("password")] string Password);
 
 /// <summary>Request body for com.atproto.server.confirmEmail.</summary>
-internal sealed class ConfirmEmailRequest
-{
-    /// <summary>The email address of the account.</summary>
-    [JsonPropertyName("email")]
-    public required string Email { get; init; }
-
-    /// <summary>The confirmation token emailed to the account holder.</summary>
-    [JsonPropertyName("token")]
-    public required string Token { get; init; }
-}
+internal sealed record ConfirmEmailRequest(
+    [property: JsonPropertyName("email")] string Email,
+    [property: JsonPropertyName("token")] string Token);
 
 /// <summary>Request body for com.atproto.server.updateEmail.</summary>
 public sealed class UpdateEmailRequest
@@ -365,16 +293,9 @@ public sealed class GetServiceAuthResponse
 }
 
 /// <summary>Request body for com.atproto.server.createInviteCode.</summary>
-internal sealed class CreateInviteCodeRequest
-{
-    /// <summary>The number of times each code may be used.</summary>
-    [JsonPropertyName("useCount")]
-    public required int UseCount { get; init; }
-
-    /// <summary>The DID of the account the code is issued to.</summary>
-    [JsonPropertyName("forAccount")]
-    public Did? ForAccount { get; init; }
-}
+internal sealed record CreateInviteCodeRequest(
+    [property: JsonPropertyName("useCount")] int UseCount,
+    [property: JsonPropertyName("forAccount")] Did? ForAccount = null);
 
 /// <summary>The response from creating a single invite code.</summary>
 public sealed class CreateInviteCodeResponse
@@ -482,20 +403,10 @@ public sealed class InviteCodeUse : LexObject
 }
 
 /// <summary>Request body for com.atproto.server.revokeAppPassword.</summary>
-internal sealed class RevokeAppPasswordRequest
-{
-    /// <summary>The name.</summary>
-    [JsonPropertyName("name")]
-    public required string Name { get; init; }
-}
+internal sealed record RevokeAppPasswordRequest([property: JsonPropertyName("name")] string Name);
 
 /// <summary>Request body for com.atproto.server.reserveSigningKey.</summary>
-internal sealed class ReserveSigningKeyRequest
-{
-    /// <summary>The DID (decentralized identifier) of the account.</summary>
-    [JsonPropertyName("did")]
-    public Did? Did { get; init; }
-}
+internal sealed record ReserveSigningKeyRequest([property: JsonPropertyName("did")] Did? Did = null);
 
 /// <summary>The response from reserving a repository signing key.</summary>
 public sealed class ReserveSigningKeyResponse

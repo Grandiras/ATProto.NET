@@ -26,36 +26,36 @@ public class OpenUnionTests
 
     // Deliberately awkward bytes: a non-canonical number, an escaped character and inner
     // whitespace would all change if the object were re-encoded instead of copied.
+    private const string FutureType = "xrpc.doesNotExist.defs#futureVariant";
+
     private static string UnknownObject(string type) =>
         $$$"""{"$type":"{{{type}}}","weight":1.50,"label":"caf\u00e9", "nested":{"list":[1,2,3]}}""";
 
-    public static TheoryData<Type, string> OpenUnionBases() => new()
+    /// <summary>Every open union base in the SDK, found by <see cref="AtProtoUnionAttribute"/> rather than a hand-picked list.</summary>
+    public static TheoryData<Type> OpenUnionBases()
     {
-        { typeof(EmbedBase), "app.bsky.embed.future" },
-        { typeof(EmbedView), "app.bsky.embed.future#view" },
-        { typeof(GalleryItem), "app.bsky.embed.gallery#video" },
-        { typeof(GalleryViewItem), "app.bsky.embed.gallery#viewVideo" },
-        { typeof(FacetFeature), "app.bsky.richtext.facet#future" },
-        { typeof(ThreadNode), "app.bsky.feed.defs#threadFuture" },
-        { typeof(ReportModeration.ModerationSubject), "chat.bsky.convo.defs#futureRef" },
-        { typeof(OzoneModeration.ModEventType), "tools.ozone.moderation.defs#futureEvent" },
-        { typeof(OzoneModeration.ModerationSubjectView), "tools.ozone.moderation.defs#convoView" },
-        { typeof(OzoneModeration.ScheduledAction), "tools.ozone.moderation.scheduleAction#label" },
-        { typeof(OzoneReport.ReportActivity), "tools.ozone.report.defs#futureActivity" },
-        { typeof(OzoneHosting.AccountHistoryDetails), "tools.ozone.hosting.getAccountHistory#futureChange" },
-    };
+        var data = new TheoryData<Type>();
+        foreach (var type in typeof(AtProtoClient).Assembly.GetTypes()
+            .Where(t => t.GetCustomAttribute<AtProtoUnionAttribute>() is { UnknownVariant: not null })
+            .OrderBy(t => t.FullName, StringComparer.Ordinal))
+        {
+            data.Add(type);
+        }
+
+        return data;
+    }
 
     [Theory]
     [MemberData(nameof(OpenUnionBases))]
-    public void Deserialize_UnknownVariant_ReadsAsUnknownAndWritesBackByteForByte(Type unionBase, string type)
+    public void Deserialize_UnknownVariant_ReadsAsUnknownAndWritesBackByteForByte(Type unionBase)
     {
-        var json = UnknownObject(type);
+        var json = UnknownObject(FutureType);
 
         var value = JsonSerializer.Deserialize(json, unionBase, Options);
 
         var unknown = Assert.IsAssignableFrom<IUnknownUnionVariant>(value);
         Assert.StartsWith("Unknown", value!.GetType().Name);
-        Assert.Equal(type, unknown.Type);
+        Assert.Equal(FutureType, unknown.Type);
         Assert.Equal(json, unknown.Raw.GetRawText());
         Assert.Null(((LexObject)value).ExtensionData);
         Assert.Equal(json, JsonSerializer.Serialize(value, unionBase, Options));
@@ -63,14 +63,14 @@ public class OpenUnionTests
 
     [Theory]
     [MemberData(nameof(OpenUnionBases))]
-    public void Serialize_UnknownVariantAsItsOwnType_WritesRaw(Type unionBase, string type)
+    public void Serialize_UnknownVariantAsItsOwnType_WritesRaw(Type unionBase)
     {
-        var json = UnknownObject(type);
+        var json = UnknownObject(FutureType);
         var value = JsonSerializer.Deserialize(json, unionBase, Options)!;
 
         Assert.Equal(json, JsonSerializer.Serialize(value, value.GetType(), Options));
         var reread = (IUnknownUnionVariant)JsonSerializer.Deserialize(json, value.GetType(), Options)!;
-        Assert.Equal(type, reread.Type);
+        Assert.Equal(FutureType, reread.Type);
     }
 
     [Fact]

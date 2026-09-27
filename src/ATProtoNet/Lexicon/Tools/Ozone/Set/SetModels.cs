@@ -41,56 +41,27 @@ public sealed class UpsertSetRequest
 }
 
 /// <summary>Request to delete a set.</summary>
-internal sealed class DeleteSetRequest
-{
-    /// <summary>The name.</summary>
-    [JsonPropertyName("name")]
-    public required string Name { get; init; }
-}
+internal sealed record DeleteSetRequest([property: JsonPropertyName("name")] string Name);
 
-/// <summary>Request to add values to a set.</summary>
-internal sealed class AddValuesRequest
-{
-    /// <summary>The name of the set.</summary>
-    [JsonPropertyName("name")]
-    public required string Name { get; init; }
-
-    /// <summary>The values to add to the set.</summary>
-    [JsonPropertyName("values")]
-    public required IReadOnlyList<string> Values { get; init; }
-}
-
-/// <summary>Request to delete values from a set.</summary>
-internal sealed class DeleteValuesRequest
-{
-    /// <summary>The name of the set.</summary>
-    [JsonPropertyName("name")]
-    public required string Name { get; init; }
-
-    /// <summary>The values to remove from the set.</summary>
-    [JsonPropertyName("values")]
-    public required IReadOnlyList<string> Values { get; init; }
-}
+/// <summary>Request to add values to, or delete values from, a set.</summary>
+internal sealed record SetValuesRequest(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("values")] IReadOnlyList<string> Values);
 
 /// <summary>Response from querySets.</summary>
-public sealed class QuerySetsResponse : ICursorPage<OzoneSetView>
+public sealed record QuerySetsResponse : CursorPage<OzoneSetView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The sets.</summary>
     [JsonPropertyName("sets")]
     public required IReadOnlyList<OzoneSetView> Sets { get; init; }
 
-    IReadOnlyList<OzoneSetView> ICursorPage<OzoneSetView>.Items => Sets;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<OzoneSetView> Items => Sets;
 }
 
 /// <summary>Response from getValues.</summary>
-public sealed class GetValuesResponse : ICursorPage<string>
+public sealed record GetValuesResponse : CursorPage<string>
 {
     /// <summary>The set.</summary>
     [JsonPropertyName("set")]
@@ -100,12 +71,7 @@ public sealed class GetValuesResponse : ICursorPage<string>
     [JsonPropertyName("values")]
     public required IReadOnlyList<string> Values { get; init; }
 
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
-    IReadOnlyList<string> ICursorPage<string>.Items => Values;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<string> Items => Values;
 }

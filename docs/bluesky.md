@@ -144,7 +144,8 @@ foreach (var item in timeline.Feed)
 `PostSearchFilters` of includes and excludes (authors, mentions, domains, URLs, embedded records,
 hashtags, languages, media, replies, thread, date range, `Following`, `QueryLanguage`). A list
 matches any of its entries; the filters combine. The response has `HitsTotal` and
-`DetectedQueryLanguages`; `EnumerateSearchPostsV2Async` walks every page.
+`DetectedQueryLanguages`; walk every page with
+[`Pagination.EnumerateAsync`](../CONTRIBUTING.md#lexicon-models-and-clients).
 
 ```csharp continued
 var results = await client.Bsky.Feed.SearchPostsV2Async("atproto", new PostSearchFilters
@@ -193,9 +194,9 @@ await client.Bsky.Bookmark.DeleteBookmarkAsync(post.Uri);
 ## Drafts
 
 `Draft.CreateDraftAsync(draft)` stores a `Draft` of one or more `DraftPost`s and returns its `Tid`;
-`UpdateDraftAsync(id, draft)`, `DeleteDraftAsync(id)`, `GetDraftsAsync` and `EnumerateDraftsAsync`
-manage them. Draft media are on-device paths (`DraftEmbedLocalRef`), so they only resolve on the
-device that made the draft. `DraftErrors.DraftLimitReached` marks a full account.
+`UpdateDraftAsync(id, draft)`, `DeleteDraftAsync(id)` and `GetDraftsAsync` manage them. Draft media
+are on-device paths (`DraftEmbedLocalRef`), so they only resolve on the device that made the draft.
+`DraftErrors.DraftLimitReached` marks a full account.
 
 ## Notifications
 
@@ -205,8 +206,8 @@ device that made the draft. `DraftErrors.DraftLimitReached` marks a full account
   kind. `PutPreferencesV2Async(new PutPreferencesV2Request { Like = … })` changes the ones set and
   returns all of them.
 - `PutActivitySubscriptionAsync(did, post, reply)` subscribes to an account's posts and replies
-  (both `false` unsubscribes); `ListActivitySubscriptionsAsync` / `EnumerateActivitySubscriptionsAsync`
-  list the accounts subscribed to. Who may subscribe to an account is its
+  (both `false` unsubscribes); `ListActivitySubscriptionsAsync` lists the accounts subscribed to.
+  Who may subscribe to an account is its
   `NotificationDeclarationRecord` (`app.bsky.notification.declaration`, key `self`).
 - `UnregisterPushAsync(serviceDid, token, platform, appId)` undoes `RegisterPushAsync`.
 

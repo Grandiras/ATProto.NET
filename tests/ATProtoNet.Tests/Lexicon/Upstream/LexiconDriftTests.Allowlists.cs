@@ -69,6 +69,24 @@ public partial class LexiconDriftTests
         [typeof(AtProto.Admin.AccountInfo)] = "com.atproto.admin.defs#accountView",
         [typeof(AtProto.Admin.SubjectStatusDetail)] = "com.atproto.admin.defs#statusAttr",
         [typeof(AtProto.Admin.AdminDeleteAccountRequest)] = "com.atproto.admin.deleteAccount#input",
+        // disableAccountInvites and enableAccountInvites share one request shape.
+        [typeof(AtProto.Admin.AccountInvitesRequest)] = "com.atproto.admin.disableAccountInvites#input",
+        // notifyOfUpdate and requestCrawl share one request shape.
+        [typeof(AtProto.Sync.HostnameRequest)] = "com.atproto.sync.requestCrawl#input",
+        // addValues and deleteValues share one request shape.
+        [typeof(Ozone.Set.SetValuesRequest)] = "tools.ozone.set.addValues#input",
+        // assignModerator and unassignModerator share one request shape.
+        [typeof(Ozone.Queue.QueueModeratorRequest)] = "tools.ozone.queue.assignModerator#input",
+        // addMembers and removeMembers share one request shape.
+        [typeof(Chat.Group.GroupMembersRequest)] = "chat.bsky.group.addMembers#input",
+        // approveJoinRequest and rejectJoinRequest share one request shape.
+        [typeof(Chat.Group.GroupMemberRequest)] = "chat.bsky.group.approveJoinRequest#input",
+        // The 10 convo/group endpoints that take only a convoId share one request shape.
+        [typeof(Chat.Convo.ConvoIdRequest)] = "chat.bsky.convo.leaveConvo#input",
+        // addReaction and removeReaction share one request shape.
+        [typeof(Chat.Convo.ConvoReactionRequest)] = "chat.bsky.convo.addReaction#input",
+        // finishUpload and abortUpload share one request shape.
+        [typeof(Bsky.Video.JobIdRequest)] = "app.bsky.video.finishUpload#input",
         [typeof(AtProto.Label.LabelsEvent)] = "com.atproto.label.subscribeLabels#labels",
         [typeof(AtProto.Label.LabelInfoEvent)] = "com.atproto.label.subscribeLabels#info",
         // createRecord and putRecord share one output shape.
@@ -116,6 +134,8 @@ public partial class LexiconDriftTests
     {
         [typeof(DataModel.BlobRef)] = "The data model's blob, not a Lexicon def.",
         [typeof(DataModel.CidLink)] = "The data model's CID link, not a Lexicon def.",
+        [typeof(DataModel.CursorPage<>)] =
+            "The base every cursored response derives from, holding the cursor every one has; the derived responses are checked one by one.",
         [typeof(AtProto.Lexicon.LexiconPermissionSet)] =
             "A permission-set definition: part of the Lexicon language, which is not itself described in Lexicon.",
         [typeof(AtProto.Lexicon.LexiconPermission)] =

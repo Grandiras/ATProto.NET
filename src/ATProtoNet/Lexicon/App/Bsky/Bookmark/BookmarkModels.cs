@@ -29,40 +29,23 @@ public sealed class BookmarkView : LexObject
 // ── API requests and responses ───────────────────────────────
 
 /// <summary>Request body for createBookmark.</summary>
-internal sealed class CreateBookmarkRequest
-{
-    /// <summary>The AT-URI of the post to bookmark.</summary>
-    [JsonPropertyName("uri")]
-    public required AtUri Uri { get; init; }
-
-    /// <summary>The CID of the post version to bookmark.</summary>
-    [JsonPropertyName("cid")]
-    public required Cid Cid { get; init; }
-}
+internal sealed record CreateBookmarkRequest(
+    [property: JsonPropertyName("uri")] AtUri Uri,
+    [property: JsonPropertyName("cid")] Cid Cid);
 
 /// <summary>Request body for deleteBookmark.</summary>
-internal sealed class DeleteBookmarkRequest
-{
-    /// <summary>The AT-URI of the bookmarked post.</summary>
-    [JsonPropertyName("uri")]
-    public required AtUri Uri { get; init; }
-}
+internal sealed record DeleteBookmarkRequest([property: JsonPropertyName("uri")] AtUri Uri);
 
 /// <summary>Response from getBookmarks.</summary>
-public sealed class GetBookmarksResponse : ICursorPage<BookmarkView>
+public sealed record GetBookmarksResponse : CursorPage<BookmarkView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The bookmarks, newest first.</summary>
     [JsonPropertyName("bookmarks")]
     public required IReadOnlyList<BookmarkView> Bookmarks { get; init; }
 
-    IReadOnlyList<BookmarkView> ICursorPage<BookmarkView>.Items => Bookmarks;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<BookmarkView> Items => Bookmarks;
 }
 
 /// <summary>

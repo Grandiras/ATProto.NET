@@ -180,19 +180,6 @@ public sealed class SyncClient
             "com.atproto.sync.listBlobs", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>Enumerate every blob CID held by a repository, fetching pages as needed.</summary>
-    /// <param name="did">The DID of the repository.</param>
-    /// <param name="since">Optional revision: list only blobs added since it.</param>
-    /// <param name="pageSize">CIDs per request (1-1000); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<Cid> EnumerateBlobsAsync(
-        Did did,
-        Tid? since = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<ListBlobsResponse, Cid>(
-            (cursor, ct) => ListBlobsAsync(did, since, pageSize, cursor, ct),
-            cancellationToken);
-
     /// <summary>List one page of the repositories hosted on a PDS.</summary>
     /// <param name="limit">Maximum number of results per page (1-1000, default 500).</param>
     /// <param name="cursor">Pagination cursor.</param>
@@ -209,21 +196,12 @@ public sealed class SyncClient
             "com.atproto.sync.listRepos", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>Enumerate every repository hosted on a PDS, fetching pages as needed.</summary>
-    /// <param name="pageSize">Repositories per request (1-1000); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<RepoInfo> EnumerateReposAsync(
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<ListReposResponse, RepoInfo>(
-            (cursor, ct) => ListReposAsync(pageSize, cursor, ct),
-            cancellationToken);
-
     /// <summary>Notify a relay/crawler that this PDS has new data.</summary>
     [Obsolete("Deprecated upstream: use RequestCrawlAsync.")]
     public async Task NotifyOfUpdateAsync(
         string hostname, CancellationToken cancellationToken = default)
     {
-        var request = new NotifyOfUpdateRequest { Hostname = hostname };
+        var request = new HostnameRequest(hostname);
         await _xrpc.ProcedureAsync(
             "com.atproto.sync.notifyOfUpdate", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
@@ -232,7 +210,7 @@ public sealed class SyncClient
     public async Task RequestCrawlAsync(
         string hostname, CancellationToken cancellationToken = default)
     {
-        var request = new RequestCrawlRequest { Hostname = hostname };
+        var request = new HostnameRequest(hostname);
         await _xrpc.ProcedureAsync(
             "com.atproto.sync.requestCrawl", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
@@ -269,18 +247,6 @@ public sealed class SyncClient
             "com.atproto.sync.listHosts", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate every upstream host this service consumes from, fetching pages as needed.
-    /// Implemented by relays.
-    /// </summary>
-    /// <param name="pageSize">Hosts per request (1-1000); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<HostInfo> EnumerateHostsAsync(
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<ListHostsResponse, HostInfo>(
-            (cursor, ct) => ListHostsAsync(pageSize, cursor, ct),
-            cancellationToken);
-
     /// <summary>Get information about a specified upstream host. Implemented by relays.</summary>
     /// <param name="hostname">Hostname of the host (e.g., PDS or relay) being queried.</param>
     public Task<GetHostStatusResponse> GetHostStatusAsync(
@@ -312,17 +278,6 @@ public sealed class SyncClient
         return _xrpc.QueryAsync<ListReposByCollectionResponse>(
             "com.atproto.sync.listReposByCollection", parameters, cancellationToken: cancellationToken);
     }
-
-    /// <summary>Enumerate every DID which has records in the given collection, fetching pages as needed.</summary>
-    /// <param name="collection">The collection NSID to filter by.</param>
-    /// <param name="pageSize">Repositories per request (1-2000); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<CollectionRepoInfo> EnumerateReposByCollectionAsync(
-        Nsid collection,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<ListReposByCollectionResponse, CollectionRepoInfo>(
-            (cursor, ct) => ListReposByCollectionAsync(collection, pageSize, cursor, ct),
-            cancellationToken);
 
     /// <summary>
     /// Reads a binary response into memory, or returns <see langword="null"/> once it is known to

@@ -28,7 +28,7 @@ public sealed class BookmarkClient
     /// </exception>
     public Task CreateBookmarkAsync(AtUri uri, Cid cid, CancellationToken cancellationToken = default)
     {
-        var request = new CreateBookmarkRequest { Uri = uri, Cid = cid };
+        var request = new CreateBookmarkRequest(Uri: uri, Cid: cid);
         return _xrpc.ProcedureAsync(
             "app.bsky.bookmark.createBookmark", request, cancellationToken: cancellationToken);
     }
@@ -37,7 +37,7 @@ public sealed class BookmarkClient
     /// <param name="uri">The AT-URI of the bookmarked post.</param>
     public Task DeleteBookmarkAsync(AtUri uri, CancellationToken cancellationToken = default)
     {
-        var request = new DeleteBookmarkRequest { Uri = uri };
+        var request = new DeleteBookmarkRequest(Uri: uri);
         return _xrpc.ProcedureAsync(
             "app.bsky.bookmark.deleteBookmark", request, cancellationToken: cancellationToken);
     }

@@ -38,15 +38,11 @@ public sealed class ServerClient
         string identifier, string password, string? authFactorToken = null, bool allowTakendown = false,
         CancellationToken cancellationToken = default)
     {
-        var request = new CreateSessionRequest
-        {
-            Identifier = identifier,
-            Password = password,
-            AuthFactorToken = authFactorToken,
-
-            // Sent only when asked for, so the request stays what a server predating the field expects.
-            AllowTakendown = allowTakendown ? true : null,
-        };
+        // AllowTakendown is sent only when asked for, so the request stays what a server
+        // predating the field expects.
+        var request = new CreateSessionRequest(
+            Identifier: identifier, Password: password, AuthFactorToken: authFactorToken,
+            AllowTakendown: allowTakendown ? true : null);
 
         return _xrpc.ProcedureWithTokenAsync<SessionResponse>(
             "com.atproto.server.createSession", request, bearerToken: null, cancellationToken);
@@ -109,7 +105,7 @@ public sealed class ServerClient
         CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync<AppPassword>(
             "com.atproto.server.createAppPassword",
-            new CreateAppPasswordRequest { Name = name, Privileged = privileged },
+            new CreateAppPasswordRequest(Name: name, Privileged: privileged),
             cancellationToken: cancellationToken);
 
     /// <summary>List all app passwords for the current account.</summary>
@@ -119,22 +115,22 @@ public sealed class ServerClient
     /// <summary>Revoke an app password by name.</summary>
     public Task RevokeAppPasswordAsync(string name, CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync("com.atproto.server.revokeAppPassword",
-            new RevokeAppPasswordRequest { Name = name }, cancellationToken: cancellationToken);
+            new RevokeAppPasswordRequest(name), cancellationToken: cancellationToken);
 
     /// <summary>Request a password reset email.</summary>
     public Task RequestPasswordResetAsync(string email, CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync("com.atproto.server.requestPasswordReset",
-            new RequestPasswordResetRequest { Email = email }, cancellationToken: cancellationToken);
+            new RequestPasswordResetRequest(email), cancellationToken: cancellationToken);
 
     /// <summary>Reset password using a token received via email.</summary>
     public Task ResetPasswordAsync(string token, string password, CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync("com.atproto.server.resetPassword",
-            new ResetPasswordRequest { Token = token, Password = password }, cancellationToken: cancellationToken);
+            new ResetPasswordRequest(Token: token, Password: password), cancellationToken: cancellationToken);
 
     /// <summary>Confirm an email address with a token.</summary>
     public Task ConfirmEmailAsync(string email, string token, CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync("com.atproto.server.confirmEmail",
-            new ConfirmEmailRequest { Email = email, Token = token }, cancellationToken: cancellationToken);
+            new ConfirmEmailRequest(Email: email, Token: token), cancellationToken: cancellationToken);
 
     /// <summary>Request an email confirmation code.</summary>
     public Task RequestEmailConfirmationAsync(CancellationToken cancellationToken = default) =>
@@ -171,7 +167,7 @@ public sealed class ServerClient
         CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync<CreateInviteCodeResponse>(
             "com.atproto.server.createInviteCode",
-            new CreateInviteCodeRequest { UseCount = useCount, ForAccount = forAccount },
+            new CreateInviteCodeRequest(UseCount: useCount, ForAccount: forAccount),
             cancellationToken: cancellationToken);
 
     /// <summary>Create multiple invite codes.</summary>

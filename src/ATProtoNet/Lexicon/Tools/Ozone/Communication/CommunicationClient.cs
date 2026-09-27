@@ -26,7 +26,7 @@ public sealed class CommunicationClient
         string id,
         CancellationToken cancellationToken = default)
     {
-        var request = new DeleteTemplateRequest { Id = id };
+        var request = new DeleteTemplateRequest(Id: id);
         await _xrpc.ProcedureAsync(
             "tools.ozone.communication.deleteTemplate", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }

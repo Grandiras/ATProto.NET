@@ -36,23 +36,4 @@ public sealed class LabelClient
         return _xrpc.QueryAsync<QueryLabelsResponse>(
             "com.atproto.label.queryLabels", parameters, cancellationToken: cancellationToken);
     }
-
-    /// <summary>Enumerate every label matching the patterns, fetching pages as needed.</summary>
-    /// <param name="uriPatterns">AT-URI patterns to match against label subjects.
-    /// Supports prefix matching with '*' at the end.</param>
-    /// <param name="sources">Optional list of labeler DIDs to filter by.</param>
-    /// <param name="pageSize">Labels per request (1-250); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<Models.Label> EnumerateLabelsAsync(
-        IEnumerable<string> uriPatterns,
-        IEnumerable<Did>? sources = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default)
-    {
-        // Materialized once: the sequences are read again for every page.
-        var patterns = uriPatterns.ToList();
-        var sourceList = sources?.ToList();
-        return Pagination.EnumerateAsync<QueryLabelsResponse, Models.Label>(
-            (cursor, ct) => QueryLabelsAsync(patterns, sourceList, pageSize, cursor, ct),
-            cancellationToken);
-    }
 }

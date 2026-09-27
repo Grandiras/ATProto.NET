@@ -31,13 +31,11 @@ public sealed class AgeAssuranceClient
         string? regionCode = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new BeginRequest
-        {
-            Email = email,
-            Language = language,
-            CountryCode = countryCode,
-            RegionCode = regionCode,
-        };
+        var request = new BeginRequest(
+            Email: email,
+            Language: language,
+            CountryCode: countryCode,
+            RegionCode: regionCode);
 
         return _xrpc.ProcedureAsync<AgeAssuranceState>(
             "app.bsky.ageassurance.begin", request, cancellationToken: cancellationToken);

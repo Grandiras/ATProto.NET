@@ -26,7 +26,7 @@ public sealed class SetClient
         string name,
         CancellationToken cancellationToken = default)
     {
-        var request = new DeleteSetRequest { Name = name };
+        var request = new DeleteSetRequest(Name: name);
         await _xrpc.ProcedureAsync(
             "tools.ozone.set.deleteSet", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
@@ -39,7 +39,7 @@ public sealed class SetClient
         IEnumerable<string> values,
         CancellationToken cancellationToken = default)
     {
-        var request = new AddValuesRequest { Name = name, Values = [.. values] };
+        var request = new SetValuesRequest(name, [.. values]);
         await _xrpc.ProcedureAsync(
             "tools.ozone.set.addValues", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
@@ -52,7 +52,7 @@ public sealed class SetClient
         IEnumerable<string> values,
         CancellationToken cancellationToken = default)
     {
-        var request = new DeleteValuesRequest { Name = name, Values = [.. values] };
+        var request = new SetValuesRequest(name, [.. values]);
         await _xrpc.ProcedureAsync(
             "tools.ozone.set.deleteValues", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
@@ -74,17 +74,6 @@ public sealed class SetClient
         return _xrpc.QueryAsync<GetValuesResponse>(
             "tools.ozone.set.getValues", parameters, cancellationToken: cancellationToken);
     }
-
-    /// <summary>Enumerate every value in a named set, fetching pages as needed.</summary>
-    /// <param name="name">The set's name.</param>
-    /// <param name="pageSize">Values per request (1-1000); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<string> EnumerateValuesAsync(
-        string name,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<GetValuesResponse, string>(
-            (cursor, ct) => GetValuesAsync(name, pageSize, cursor, ct),
-            cancellationToken);
 
     /// <summary>Query one page of sets.</summary>
     /// <param name="namePrefix">Only sets whose name starts with this prefix.</param>
@@ -109,19 +98,4 @@ public sealed class SetClient
         return _xrpc.QueryAsync<QuerySetsResponse>(
             "tools.ozone.set.querySets", parameters, cancellationToken: cancellationToken);
     }
-
-    /// <summary>Enumerate every set, fetching pages as needed.</summary>
-    /// <param name="namePrefix">Only sets whose name starts with this prefix.</param>
-    /// <param name="sortBy">The field to sort by: <c>name</c> (the default), <c>createdAt</c> or <c>updatedAt</c>.</param>
-    /// <param name="sortDirection">The sort direction: <c>asc</c> (the default) or <c>desc</c>.</param>
-    /// <param name="pageSize">Sets per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<OzoneSetView> EnumerateSetsAsync(
-        string? namePrefix = null,
-        string? sortBy = null,
-        string? sortDirection = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<QuerySetsResponse, OzoneSetView>(
-            (cursor, ct) => QuerySetsAsync(namePrefix, sortBy, sortDirection, pageSize, cursor, ct),
-            cancellationToken);
 }

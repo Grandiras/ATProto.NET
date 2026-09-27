@@ -14,6 +14,7 @@ Message embeds (`MessageRecordEmbed`, `JoinLinkEmbed` and their views) are in `A
 The samples on this page use these namespaces:
 
 ```csharp
+using ATProtoNet.Http;
 using ATProtoNet.Lexicon.App.Bsky.RichText;
 using ATProtoNet.Lexicon.Chat.Bsky.Actor;
 using ATProtoNet.Lexicon.Chat.Bsky.Convo;
@@ -74,8 +75,10 @@ if (result.Cursor is not null)
 }
 
 // Or let the SDK fetch the pages; filter by status, read state, kind and lock status
-await foreach (var convo in client.Chat.Convo.EnumerateConvosAsync(
-    status: ConvoStatus.Accepted, kind: ConvoKinds.Group, lockStatus: ConvoLockStatus.Unlocked))
+await foreach (var convo in Pagination.EnumerateAsync<ListConvosResponse, ConvoView>(
+    (cursor, ct) => client.Chat.Convo.ListConvosAsync(
+        status: ConvoStatus.Accepted, kind: ConvoKinds.Group, lockStatus: ConvoLockStatus.Unlocked,
+        cursor: cursor, cancellationToken: ct)))
 {
     Console.WriteLine(convo.Id);
 }
@@ -89,7 +92,8 @@ open: a kind a newer chat service adds reads as `UnknownConvoKind` instead of fa
 
 ```csharp
 // Incoming conversation requests, and the group join requests you made
-await foreach (var request in client.Chat.Convo.EnumerateConvoRequestsAsync())
+await foreach (var request in Pagination.EnumerateAsync<ListConvoRequestsResponse, ConvoRequestView>(
+    (cursor, ct) => client.Chat.Convo.ListConvoRequestsAsync(cursor: cursor, cancellationToken: ct)))
 {
     switch (request)
     {
@@ -131,11 +135,12 @@ var convo = await client.Chat.Convo.GetConvoAsync(convoId: "convo-id-here");
 ### Members
 
 `ConvoView.Members` lists both members of a direct conversation, but only the notable members of a
-group. List all of them with `GetConvoMembersAsync` / `EnumerateConvoMembersAsync`. A member's
-`Kind` says how it belongs to the conversation:
+group. List all of them by walking `GetConvoMembersAsync`. A member's `Kind` says how it belongs to
+the conversation:
 
 ```csharp
-await foreach (var member in client.Chat.Convo.EnumerateConvoMembersAsync("convo-id"))
+await foreach (var member in Pagination.EnumerateAsync<GetConvoMembersResponse, ChatMemberView>(
+    (cursor, ct) => client.Chat.Convo.GetConvoMembersAsync("convo-id", cursor: cursor, cancellationToken: ct)))
 {
     var role = member.Kind switch
     {
@@ -329,8 +334,11 @@ await client.Chat.Convo.LockConvoAsync(group.Id);
 await client.Chat.Convo.UnlockConvoAsync(group.Id);
 
 // The groups you share with someone
-await foreach (var shared in client.Chat.Group.EnumerateMutualGroupsAsync(Did.Parse("did:plc:alice")))
+await foreach (var shared in Pagination.EnumerateAsync<ListMutualGroupsResponse, ConvoView>(
+    (cursor, ct) => client.Chat.Group.ListMutualGroupsAsync(Did.Parse("did:plc:alice"), cursor: cursor, cancellationToken: ct)))
+{
     Console.WriteLine(((GroupConvo)shared.Kind!).Name);
+}
 ```
 
 ### Join Links
@@ -388,7 +396,8 @@ if (result.Status == RequestJoinStatus.Joined)
 await client.Chat.Group.WithdrawJoinRequestAsync(convoId);
 
 // The owner's side
-await foreach (var request in client.Chat.Group.EnumerateJoinRequestsAsync(group.Id))
+await foreach (var request in Pagination.EnumerateAsync<ListJoinRequestsResponse, JoinRequestView>(
+    (cursor, ct) => client.Chat.Group.ListJoinRequestsAsync(group.Id, cursor: cursor, cancellationToken: ct)))
 {
     if (request.RequestedBy.Handle.ToString().EndsWith(".example.com"))
         await client.Chat.Group.ApproveJoinRequestAsync(group.Id, request.RequestedBy.Did);
@@ -408,7 +417,7 @@ count as `UnreadJoinRequestCount`.
   and `UnlockConvoAsync` fails with `ConvoLockedByModeration`.
 - **Moderation services** reach conversations they are not a member of through
   `client.Chat.Moderation` (`chat.bsky.moderation.*`): `GetConvoAsync` / `GetConvosAsync` (a
-  `ModerationConvoView`, without viewer data), `EnumerateConvoMembersAsync`,
+  `ModerationConvoView`, without viewer data), `GetConvoMembersAsync`,
   `GetMessageContextAsync` (a reported message with the messages around it),
   `GetActorMetadataAsync` (an account's activity) and `UpdateActorAccessAsync` (revoke or restore
   chat access). The chat service answers these only for moderation services, so unlike the rest of
@@ -475,7 +484,8 @@ The log reports every change to your conversations as a typed entry. Each has a 
 `Rev`; switch on the entry to handle the ones you care about:
 
 ```csharp
-await foreach (var entry in client.Chat.Convo.EnumerateLogAsync())
+await foreach (var entry in Pagination.EnumerateAsync<GetLogResponse, ConvoLogEntry>(
+    (cursor, ct) => client.Chat.Convo.GetLogAsync(cursor: cursor, cancellationToken: ct)))
 {
     switch (entry)
     {

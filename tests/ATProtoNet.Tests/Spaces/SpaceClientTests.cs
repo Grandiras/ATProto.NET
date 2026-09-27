@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
@@ -170,7 +171,8 @@ public sealed class SpaceClientTests : IDisposable
         Assert.Equal(2, await CountRequestsAsync(
             "com.atproto.space.listSpaces",
             $$"""{"spaces":[{"uri":"{{Space}}"}],"cursor":"same"}""",
-            () => Space_.EnumerateSpacesAsync()));
+            () => Pagination.EnumerateAsync<ListSpacesResponse, SpaceView>(
+                (cursor, ct) => Space_.ListSpacesAsync(cursor: cursor, cancellationToken: ct))));
         Assert.Equal(2, await CountRequestsAsync(
             "com.atproto.space.listRepos",
             $$"""{"repos":[{"did":"{{Repo}}","rev":"3l6oveex3ii2l","hash":{"$bytes":"AQID"} }],"cursor":"same"}""",
@@ -182,7 +184,8 @@ public sealed class SpaceClientTests : IDisposable
         Assert.Equal(2, await CountRequestsAsync(
             "com.atproto.space.listBlobs",
             $$"""{"cids":["{{Cid1}}"],"cursor":"same"}""",
-            () => Space_.EnumerateBlobsAsync(Space, Repo)));
+            () => Pagination.EnumerateAsync<ListSpaceBlobsResponse, Cid>(
+                (cursor, ct) => Space_.ListBlobsAsync(Space, Repo, cursor: cursor, cancellationToken: ct))));
         Assert.Equal(2, await CountRequestsAsync(
             "com.atproto.simplespace.listMembers",
             $$"""{"members":[{"did":"{{Repo}}","read":true,"write":true}],"cursor":"same"}""",

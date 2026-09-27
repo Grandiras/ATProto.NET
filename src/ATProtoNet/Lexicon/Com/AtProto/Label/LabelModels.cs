@@ -7,20 +7,15 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Label;
 // ── com.atproto.label.queryLabels ────────────────────────────
 
 /// <summary>Response from queryLabels.</summary>
-public sealed class QueryLabelsResponse : ICursorPage<Models.Label>
+public sealed record QueryLabelsResponse : CursorPage<Models.Label>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The labels applied to this subject.</summary>
     [JsonPropertyName("labels")]
     public required IReadOnlyList<Models.Label> Labels { get; init; }
 
-    IReadOnlyList<Models.Label> ICursorPage<Models.Label>.Items => Labels;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<Models.Label> Items => Labels;
 }
 
 // ── com.atproto.label.subscribeLabels (event stream) ─────────

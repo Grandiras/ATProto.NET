@@ -101,12 +101,7 @@ public sealed class UpdateTemplateRequest
 }
 
 /// <summary>Request to delete a communication template.</summary>
-internal sealed class DeleteTemplateRequest
-{
-    /// <summary>The identifier of the template to delete.</summary>
-    [JsonPropertyName("id")]
-    public required string Id { get; init; }
-}
+internal sealed record DeleteTemplateRequest([property: JsonPropertyName("id")] string Id);
 
 /// <summary>Response from listTemplates.</summary>
 public sealed class ListTemplatesResponse

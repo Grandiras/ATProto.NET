@@ -56,23 +56,6 @@ public sealed class ConvoClient
             "chat.bsky.convo.listConvos", parameters, options: ChatProxy, cancellationToken: cancellationToken);
     }
 
-    /// <summary>Enumerates every conversation of the authenticated user, fetching pages as needed.</summary>
-    /// <param name="readState">Only conversations in this read state (see <see cref="ConvoReadState"/>).</param>
-    /// <param name="status">Only conversations with this status (see <see cref="ConvoStatus"/>).</param>
-    /// <param name="kind">Only conversations of this kind (see <see cref="ConvoKinds"/>).</param>
-    /// <param name="lockStatus">Only conversations with this lock status (see <see cref="ConvoLockStatus"/>).</param>
-    /// <param name="pageSize">Conversations per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<ConvoView> EnumerateConvosAsync(
-        string? readState = null,
-        string? status = null,
-        string? kind = null,
-        string? lockStatus = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<ListConvosResponse, ConvoView>(
-            (cursor, ct) => ListConvosAsync(readState, status, kind, lockStatus, pageSize, cursor, ct),
-            cancellationToken);
-
     /// <summary>
     /// Lists one page of the viewer's requests: incoming conversation requests, and the group join
     /// requests the viewer made.
@@ -91,19 +74,6 @@ public sealed class ConvoClient
         return _xrpc.QueryAsync<ListConvoRequestsResponse>(
             "chat.bsky.convo.listConvoRequests", parameters, options: ChatProxy, cancellationToken: cancellationToken);
     }
-
-    /// <summary>Enumerates every request of the viewer, fetching pages as needed.</summary>
-    /// <param name="pageSize">Requests per call (1-100); <see langword="null"/> for the server default.</param>
-    /// <returns>
-    /// Incoming conversation requests (<see cref="ConvoView"/>) and the viewer's group join requests
-    /// (<see cref="Group.JoinRequestConvoView"/>).
-    /// </returns>
-    public IAsyncEnumerable<ConvoRequestView> EnumerateConvoRequestsAsync(
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<ListConvoRequestsResponse, ConvoRequestView>(
-            (cursor, ct) => ListConvoRequestsAsync(pageSize, cursor, ct),
-            cancellationToken);
 
     /// <summary>Counts the unlocked, unmuted conversations with something unread.</summary>
     /// <param name="includeGroupChats">
@@ -181,17 +151,6 @@ public sealed class ConvoClient
             "chat.bsky.convo.getConvoMembers", parameters, options: ChatProxy, cancellationToken: cancellationToken);
     }
 
-    /// <summary>Enumerates every member of a conversation, fetching pages as needed.</summary>
-    /// <param name="convoId">The conversation's identifier.</param>
-    /// <param name="pageSize">Members per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<ChatMemberView> EnumerateConvoMembersAsync(
-        string convoId,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<GetConvoMembersResponse, ChatMemberView>(
-            (cursor, ct) => GetConvoMembersAsync(convoId, pageSize, cursor, ct),
-            cancellationToken);
-
     // ── Messages ─────────────────────────────────────────────
 
     /// <summary>Gets one page of the messages in a conversation.</summary>
@@ -235,11 +194,7 @@ public sealed class ConvoClient
         string convoId, MessageInput message,
         CancellationToken cancellationToken = default)
     {
-        var request = new SendMessageRequest
-        {
-            ConvoId = convoId,
-            Message = message,
-        };
+        var request = new SendMessageRequest(ConvoId: convoId, Message: message);
 
         return _xrpc.ProcedureAsync<MessageView>(
             "chat.bsky.convo.sendMessage", request, options: ChatProxy,
@@ -252,7 +207,7 @@ public sealed class ConvoClient
         IEnumerable<BatchMessageItem> items,
         CancellationToken cancellationToken = default)
     {
-        var request = new SendMessageBatchRequest { Items = [.. items] };
+        var request = new SendMessageBatchRequest(Items: [.. items]);
 
         return _xrpc.ProcedureAsync<SendMessageBatchResponse>(
             "chat.bsky.convo.sendMessageBatch", request, options: ChatProxy,
@@ -266,11 +221,7 @@ public sealed class ConvoClient
         string convoId, string messageId,
         CancellationToken cancellationToken = default)
     {
-        var request = new DeleteMessageForSelfRequest
-        {
-            ConvoId = convoId,
-            MessageId = messageId,
-        };
+        var request = new DeleteMessageForSelfRequest(ConvoId: convoId, MessageId: messageId);
 
         return _xrpc.ProcedureAsync<DeletedMessageView>(
             "chat.bsky.convo.deleteMessageForSelf", request, options: ChatProxy,
@@ -285,7 +236,7 @@ public sealed class ConvoClient
         string convoId,
         CancellationToken cancellationToken = default)
     {
-        var request = new LeaveConvoRequest { ConvoId = convoId };
+        var request = new ConvoIdRequest(convoId);
 
         return _xrpc.ProcedureAsync<LeaveConvoResponse>(
             "chat.bsky.convo.leaveConvo", request, options: ChatProxy,
@@ -299,7 +250,7 @@ public sealed class ConvoClient
         string convoId,
         CancellationToken cancellationToken = default)
     {
-        var request = new MuteConvoRequest { ConvoId = convoId };
+        var request = new ConvoIdRequest(convoId);
 
         var output = await _xrpc.ProcedureAsync<ConvoOutput>(
             "chat.bsky.convo.muteConvo", request, options: ChatProxy,
@@ -314,7 +265,7 @@ public sealed class ConvoClient
         string convoId,
         CancellationToken cancellationToken = default)
     {
-        var request = new UnmuteConvoRequest { ConvoId = convoId };
+        var request = new ConvoIdRequest(convoId);
 
         var output = await _xrpc.ProcedureAsync<ConvoOutput>(
             "chat.bsky.convo.unmuteConvo", request, options: ChatProxy,
@@ -330,11 +281,7 @@ public sealed class ConvoClient
         string convoId, string? messageId = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new UpdateReadRequest
-        {
-            ConvoId = convoId,
-            MessageId = messageId,
-        };
+        var request = new UpdateReadRequest(ConvoId: convoId, MessageId: messageId);
 
         var output = await _xrpc.ProcedureAsync<ConvoOutput>(
             "chat.bsky.convo.updateRead", request, options: ChatProxy,
@@ -352,7 +299,7 @@ public sealed class ConvoClient
         CancellationToken cancellationToken = default)
     {
         // Always a JSON body, even an empty one: the method declares an application/json input.
-        var request = new UpdateAllReadRequest { Status = status };
+        var request = new UpdateAllReadRequest(Status: status);
 
         return _xrpc.ProcedureAsync<UpdateAllReadResponse>(
             "chat.bsky.convo.updateAllRead", request, options: ChatProxy,
@@ -365,7 +312,7 @@ public sealed class ConvoClient
         string convoId,
         CancellationToken cancellationToken = default)
     {
-        var request = new AcceptConvoRequest { ConvoId = convoId };
+        var request = new ConvoIdRequest(convoId);
 
         return _xrpc.ProcedureAsync<AcceptConvoResponse>(
             "chat.bsky.convo.acceptConvo", request, options: ChatProxy,
@@ -379,7 +326,7 @@ public sealed class ConvoClient
         string convoId,
         CancellationToken cancellationToken = default)
     {
-        var request = new LockConvoRequest { ConvoId = convoId };
+        var request = new ConvoIdRequest(convoId);
 
         var output = await _xrpc.ProcedureAsync<ConvoOutput>(
             "chat.bsky.convo.lockConvo", request, options: ChatProxy,
@@ -397,7 +344,7 @@ public sealed class ConvoClient
         string convoId,
         CancellationToken cancellationToken = default)
     {
-        var request = new UnlockConvoRequest { ConvoId = convoId };
+        var request = new ConvoIdRequest(convoId);
 
         var output = await _xrpc.ProcedureAsync<ConvoOutput>(
             "chat.bsky.convo.unlockConvo", request, options: ChatProxy,
@@ -416,12 +363,7 @@ public sealed class ConvoClient
         string convoId, string messageId, string value,
         CancellationToken cancellationToken = default)
     {
-        var request = new AddReactionRequest
-        {
-            ConvoId = convoId,
-            MessageId = messageId,
-            Value = value,
-        };
+        var request = new ConvoReactionRequest(convoId, messageId, value);
 
         var output = await _xrpc.ProcedureAsync<MessageOutput>(
             "chat.bsky.convo.addReaction", request, options: ChatProxy,
@@ -438,12 +380,7 @@ public sealed class ConvoClient
         string convoId, string messageId, string value,
         CancellationToken cancellationToken = default)
     {
-        var request = new RemoveReactionRequest
-        {
-            ConvoId = convoId,
-            MessageId = messageId,
-            Value = value,
-        };
+        var request = new ConvoReactionRequest(convoId, messageId, value);
 
         var output = await _xrpc.ProcedureAsync<MessageOutput>(
             "chat.bsky.convo.removeReaction", request, options: ChatProxy,
@@ -465,14 +402,4 @@ public sealed class ConvoClient
         return _xrpc.QueryAsync<GetLogResponse>(
             "chat.bsky.convo.getLog", parameters, options: ChatProxy, cancellationToken: cancellationToken);
     }
-
-    /// <summary>
-    /// Enumerates the conversation log, fetching pages until the chat service has no newer
-    /// entries.
-    /// </summary>
-    public IAsyncEnumerable<ConvoLogEntry> EnumerateLogAsync(
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<GetLogResponse, ConvoLogEntry>(
-            (cursor, ct) => GetLogAsync(cursor, ct),
-            cancellationToken);
 }

@@ -86,20 +86,15 @@ public sealed class GetAccountInfosResponse
 // ── com.atproto.admin.searchAccounts ─────────────────────────
 
 /// <summary>Response from searchAccounts.</summary>
-public sealed class SearchAccountsResponse : ICursorPage<AccountInfo>
+public sealed record SearchAccountsResponse : CursorPage<AccountInfo>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The matching accounts.</summary>
     [JsonPropertyName("accounts")]
     public required IReadOnlyList<AccountInfo> Accounts { get; init; }
 
-    IReadOnlyList<AccountInfo> ICursorPage<AccountInfo>.Items => Accounts;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<AccountInfo> Items => Accounts;
 }
 
 // ── com.atproto.admin.getSubjectStatus ───────────────────────
@@ -205,110 +200,46 @@ public sealed class SendEmailResponse
 // ── com.atproto.admin account management ─────────────────────
 
 /// <summary>Request body for admin deleteAccount.</summary>
-internal sealed class AdminDeleteAccountRequest
-{
-    /// <summary>The DID (decentralized identifier) of the account.</summary>
-    [JsonPropertyName("did")]
-    public required Did Did { get; init; }
-}
+internal sealed record AdminDeleteAccountRequest([property: JsonPropertyName("did")] Did Did);
 
-/// <summary>Request body for disableAccountInvites.</summary>
-internal sealed class DisableAccountInvitesRequest
-{
-    /// <summary>The DID of the account.</summary>
-    [JsonPropertyName("account")]
-    public required Did Account { get; init; }
-
-    /// <summary>An optional free-text note recorded with the action.</summary>
-    [JsonPropertyName("note")]
-    public string? Note { get; init; }
-}
-
-/// <summary>Request body for enableAccountInvites.</summary>
-internal sealed class EnableAccountInvitesRequest
-{
-    /// <summary>The DID of the account.</summary>
-    [JsonPropertyName("account")]
-    public required Did Account { get; init; }
-
-    /// <summary>An optional free-text note recorded with the action.</summary>
-    [JsonPropertyName("note")]
-    public string? Note { get; init; }
-}
+/// <summary>Request body for disableAccountInvites and enableAccountInvites.</summary>
+internal sealed record AccountInvitesRequest(
+    [property: JsonPropertyName("account")] Did Account,
+    [property: JsonPropertyName("note")] string? Note = null);
 
 /// <summary>Request body for updateAccountEmail.</summary>
-internal sealed class UpdateAccountEmailRequest
-{
-    /// <summary>The DID or handle of the account.</summary>
-    [JsonPropertyName("account")]
-    public required AtIdentifier Account { get; init; }
-
-    /// <summary>The email address of the account.</summary>
-    [JsonPropertyName("email")]
-    public required string Email { get; init; }
-}
+internal sealed record UpdateAccountEmailRequest(
+    [property: JsonPropertyName("account")] AtIdentifier Account,
+    [property: JsonPropertyName("email")] string Email);
 
 /// <summary>Request body for updateAccountHandle.</summary>
-internal sealed class UpdateAccountHandleRequest
-{
-    /// <summary>The DID (decentralized identifier) of the account.</summary>
-    [JsonPropertyName("did")]
-    public required Did Did { get; init; }
-
-    /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
-    [JsonPropertyName("handle")]
-    public required Handle Handle { get; init; }
-}
+internal sealed record UpdateAccountHandleRequest(
+    [property: JsonPropertyName("did")] Did Did,
+    [property: JsonPropertyName("handle")] Handle Handle);
 
 /// <summary>Request body for updateAccountPassword.</summary>
-internal sealed class UpdateAccountPasswordRequest
-{
-    /// <summary>The DID (decentralized identifier) of the account.</summary>
-    [JsonPropertyName("did")]
-    public required Did Did { get; init; }
-
-    /// <summary>The account password.</summary>
-    [JsonPropertyName("password")]
-    public required string Password { get; init; }
-}
+internal sealed record UpdateAccountPasswordRequest(
+    [property: JsonPropertyName("did")] Did Did,
+    [property: JsonPropertyName("password")] string Password);
 
 /// <summary>Request body for updateAccountSigningKey.</summary>
-internal sealed class UpdateAccountSigningKeyRequest
-{
-    /// <summary>The DID (decentralized identifier) of the account.</summary>
-    [JsonPropertyName("did")]
-    public required Did Did { get; init; }
-
-    /// <summary>The new signing key, as a <c>did:key</c>.</summary>
-    [JsonPropertyName("signingKey")]
-    public required Did SigningKey { get; init; }
-}
+internal sealed record UpdateAccountSigningKeyRequest(
+    [property: JsonPropertyName("did")] Did Did,
+    [property: JsonPropertyName("signingKey")] Did SigningKey);
 
 /// <summary>Request body for disableInviteCodes.</summary>
-internal sealed class DisableInviteCodesRequest
-{
-    /// <summary>The invite codes.</summary>
-    [JsonPropertyName("codes")]
-    public IReadOnlyList<string>? Codes { get; init; }
-
-    /// <summary>The accounts.</summary>
-    [JsonPropertyName("accounts")]
-    public IReadOnlyList<string>? Accounts { get; init; }
-}
+internal sealed record DisableInviteCodesRequest(
+    [property: JsonPropertyName("codes")] IReadOnlyList<string>? Codes = null,
+    [property: JsonPropertyName("accounts")] IReadOnlyList<string>? Accounts = null);
 
 /// <summary>Response from getInviteCodes.</summary>
-public sealed class GetInviteCodesResponse : ICursorPage<InviteCode>
+public sealed record GetInviteCodesResponse : CursorPage<InviteCode>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The invite codes.</summary>
     [JsonPropertyName("codes")]
     public required IReadOnlyList<InviteCode> Codes { get; init; }
 
-    IReadOnlyList<InviteCode> ICursorPage<InviteCode>.Items => Codes;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<InviteCode> Items => Codes;
 }

@@ -157,11 +157,16 @@ BlobRef fromBytes = await client.Repo.UploadBlobAsync(bytes, "application/pdf");
 ### List Missing Blobs
 
 ```csharp
+using ATProtoNet.Http;
+
 var missing = await client.Repo.ListMissingBlobsAsync(limit: 100);
 
 // Or every page
-await foreach (var blob in client.Repo.EnumerateMissingBlobsAsync())
+await foreach (var blob in Pagination.EnumerateAsync<ListMissingBlobsResponse, MissingBlob>(
+    (cursor, ct) => client.Repo.ListMissingBlobsAsync(cursor: cursor, cancellationToken: ct)))
+{
     Console.WriteLine(blob.Cid);
+}
 ```
 
 ## Batch Operations
@@ -230,7 +235,7 @@ read it with `CarReader.FromStreamAsync` and call `VerifyAllBlockCids()` before 
 
 Moving an account to a new PDS includes loading its repository there. `Repo.ImportRepoAsync`
 uploads a CAR (as `Sync.GetRepoAsync` exports it) into the signed-in account; blobs follow
-separately, listed by `Repo.EnumerateMissingBlobsAsync`:
+separately, listed by `Repo.ListMissingBlobsAsync`:
 
 <!-- snippet: AtProtoClient oldClient, newClient; Did did; string path; -->
 ```csharp

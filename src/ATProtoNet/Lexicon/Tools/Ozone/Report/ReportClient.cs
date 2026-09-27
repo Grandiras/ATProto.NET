@@ -56,19 +56,6 @@ public sealed class ReportClient
             "tools.ozone.report.queryReports", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>Enumerate every report a filter matches, fetching pages as needed.</summary>
-    /// <param name="status">Only reports in this status (see <see cref="ReportStatus"/>).</param>
-    /// <param name="filter">The other filters and the order; <see langword="null"/> for the defaults.</param>
-    /// <param name="pageSize">Reports per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<ReportView> EnumerateReportsAsync(
-        string status,
-        ReportFilter? filter = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<QueryReportsResponse, ReportView>(
-            (cursor, ct) => QueryReportsAsync(status, filter, pageSize, cursor, ct),
-            cancellationToken);
-
     /// <summary>
     /// Close every open report on a subject, without acting on the subject: for automated flows
     /// that resolve reports. Reports whose status cannot move to closed are skipped.
@@ -84,13 +71,11 @@ public sealed class ReportClient
         bool? isAutomated = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new CloseReportsRequest
-        {
-            Subject = subject,
-            ReportTypes = reportTypes is null ? null : [.. reportTypes],
-            InternalNote = internalNote,
-            IsAutomated = isAutomated,
-        };
+        var request = new CloseReportsRequest(
+            Subject: subject,
+            ReportTypes: reportTypes is null ? null : [.. reportTypes],
+            InternalNote: internalNote,
+            IsAutomated: isAutomated);
         return _xrpc.ProcedureAsync<CloseReportsResponse>(
             "tools.ozone.report.closeReports", request, cancellationToken: cancellationToken);
     }
@@ -109,7 +94,7 @@ public sealed class ReportClient
         string? comment = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new ReassignQueueRequest { ReportId = reportId, QueueId = queueId, Comment = comment };
+        var request = new ReassignQueueRequest(ReportId: reportId, QueueId: queueId, Comment: comment);
         return _xrpc.ProcedureAsync<ReassignQueueResponse>(
             "tools.ozone.report.reassignQueue", request, cancellationToken: cancellationToken);
     }
@@ -133,13 +118,11 @@ public sealed class ReportClient
         bool? isPermanent = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new AssignModeratorRequest
-        {
-            ReportId = reportId,
-            Did = did,
-            QueueId = queueId,
-            IsPermanent = isPermanent,
-        };
+        var request = new AssignModeratorRequest(
+            ReportId: reportId,
+            Did: did,
+            QueueId: queueId,
+            IsPermanent: isPermanent);
         return _xrpc.ProcedureAsync<AssignmentView>(
             "tools.ozone.report.assignModerator", request, cancellationToken: cancellationToken);
     }
@@ -152,7 +135,7 @@ public sealed class ReportClient
         long reportId,
         CancellationToken cancellationToken = default)
     {
-        var request = new UnassignModeratorRequest { ReportId = reportId };
+        var request = new UnassignModeratorRequest(ReportId: reportId);
         return _xrpc.ProcedureAsync<AssignmentView>(
             "tools.ozone.report.unassignModerator", request, cancellationToken: cancellationToken);
     }
@@ -181,21 +164,6 @@ public sealed class ReportClient
             "tools.ozone.report.getAssignments", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>Enumerate every report assignment matching the filters, fetching pages as needed.</summary>
-    /// <param name="reportIds">Only assignments of these reports (at most 50).</param>
-    /// <param name="dids">Only assignments of these moderators (at most 50).</param>
-    /// <param name="onlyActive">Only active assignments; the server default is <see langword="true"/>.</param>
-    /// <param name="pageSize">Assignments per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<AssignmentView> EnumerateAssignmentsAsync(
-        IEnumerable<long>? reportIds = null,
-        IEnumerable<Did>? dids = null,
-        bool? onlyActive = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<GetAssignmentsResponse, AssignmentView>(
-            (cursor, ct) => GetAssignmentsAsync(reportIds, dids, onlyActive, pageSize, cursor, ct),
-            cancellationToken);
-
     /// <summary>
     /// Record an activity on a report. An activity that changes the report's status (such as a
     /// <see cref="CloseActivity"/>) checks the transition and moves the report in the same step.
@@ -216,14 +184,12 @@ public sealed class ReportClient
         bool? isAutomated = null,
         CancellationToken cancellationToken = default) =>
         SendActivityAsync(
-            new CreateActivityRequest
-            {
-                ReportId = reportId,
-                Activity = activity,
-                InternalNote = internalNote,
-                PublicNote = publicNote,
-                IsAutomated = isAutomated,
-            },
+            new CreateActivityRequest(
+                ReportId: reportId,
+                Activity: activity,
+                InternalNote: internalNote,
+                PublicNote: publicNote,
+                IsAutomated: isAutomated),
             cancellationToken);
 
     /// <summary>
@@ -247,14 +213,12 @@ public sealed class ReportClient
         bool? isAutomated = null,
         CancellationToken cancellationToken = default) =>
         SendActivityAsync(
-            new CreateActivityRequest
-            {
-                EventId = eventId,
-                Activity = activity,
-                InternalNote = internalNote,
-                PublicNote = publicNote,
-                IsAutomated = isAutomated,
-            },
+            new CreateActivityRequest(
+                EventId: eventId,
+                Activity: activity,
+                InternalNote: internalNote,
+                PublicNote: publicNote,
+                IsAutomated: isAutomated),
             cancellationToken);
 
     private Task<CreateActivityResponse> SendActivityAsync(
@@ -279,17 +243,6 @@ public sealed class ReportClient
         return _xrpc.QueryAsync<ListActivitiesResponse>(
             "tools.ozone.report.listActivities", parameters, cancellationToken: cancellationToken);
     }
-
-    /// <summary>Enumerate every activity on a report, most recent first, fetching pages as needed.</summary>
-    /// <param name="reportId">The report.</param>
-    /// <param name="pageSize">Activities per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<ReportActivityView> EnumerateReportActivitiesAsync(
-        long reportId,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<ListActivitiesResponse, ReportActivityView>(
-            (cursor, ct) => ListActivitiesAsync(reportId, pageSize, cursor, ct),
-            cancellationToken);
 
     /// <summary>
     /// Query one page of activities across all reports, ordered by creation time: for pollers
@@ -322,28 +275,6 @@ public sealed class ReportClient
         return _xrpc.QueryAsync<QueryActivitiesResponse>(
             "tools.ozone.report.queryActivities", parameters, cancellationToken: cancellationToken);
     }
-
-    /// <summary>
-    /// Enumerate every activity across all reports that matches the filters, fetching pages as
-    /// needed.
-    /// </summary>
-    /// <param name="activityTypes">
-    /// Only activities of these types, such as <c>closeActivity</c> or <c>escalationActivity</c>.
-    /// </param>
-    /// <param name="createdAfter">Only activities created at or after this time.</param>
-    /// <param name="createdBefore">Only activities created at or before this time.</param>
-    /// <param name="sortDirection">The sort direction: <c>asc</c> or <c>desc</c> (the default).</param>
-    /// <param name="pageSize">Activities per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<ReportActivityView> EnumerateActivitiesAsync(
-        IEnumerable<string>? activityTypes = null,
-        AtDatetime? createdAfter = null,
-        AtDatetime? createdBefore = null,
-        string? sortDirection = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<QueryActivitiesResponse, ReportActivityView>(
-            (cursor, ct) => QueryActivitiesAsync(activityTypes, createdAfter, createdBefore, sortDirection, pageSize, cursor, ct),
-            cancellationToken);
 
     /// <summary>Get report statistics for the current day. Leave every filter out for the totals.</summary>
     /// <param name="queueId">Only reports in this queue; <c>-1</c> for reports in no queue.</param>
@@ -393,25 +324,6 @@ public sealed class ReportClient
             "tools.ozone.report.getHistoricalStats", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>Enumerate the daily report statistics, newest first, fetching pages as needed.</summary>
-    /// <param name="queueId">Only reports in this queue; <c>-1</c> for reports in no queue.</param>
-    /// <param name="moderatorDid">Only reports handled by this moderator.</param>
-    /// <param name="reportTypes">Only reports of these reason types.</param>
-    /// <param name="startDate">The earliest day to include.</param>
-    /// <param name="endDate">The latest day to include.</param>
-    /// <param name="pageSize">Days per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<HistoricalStats> EnumerateHistoricalStatsAsync(
-        long? queueId = null,
-        Did? moderatorDid = null,
-        IEnumerable<string>? reportTypes = null,
-        AtDatetime? startDate = null,
-        AtDatetime? endDate = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<GetHistoricalStatsResponse, HistoricalStats>(
-            (cursor, ct) => GetHistoricalStatsAsync(queueId, moderatorDid, reportTypes, startDate, endDate, pageSize, cursor, ct),
-            cancellationToken);
-
     /// <summary>
     /// Recompute the daily report statistics for a range of days, to backfill after a failure or a
     /// data correction.
@@ -425,12 +337,10 @@ public sealed class ReportClient
         IEnumerable<long>? queueIds = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new RefreshStatsRequest
-        {
-            StartDate = startDate,
-            EndDate = endDate,
-            QueueIds = queueIds is null ? null : [.. queueIds],
-        };
+        var request = new RefreshStatsRequest(
+            StartDate: startDate,
+            EndDate: endDate,
+            QueueIds: queueIds is null ? null : [.. queueIds]);
         return _xrpc.ProcedureAsync(
             "tools.ozone.report.refreshStats", request, cancellationToken: cancellationToken);
     }

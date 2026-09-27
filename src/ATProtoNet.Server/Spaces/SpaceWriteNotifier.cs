@@ -162,7 +162,7 @@ public sealed class SpaceWriteNotifier
         ArgumentNullException.ThrowIfNull(space);
 
         // Only the authority deletes a space, so its own registration has nothing to learn.
-        var body = new NotifySpaceDeletedRequest { Space = space };
+        var body = new NotifySpaceDeletedRequest(space);
         return FanOutAsync(space, space.Authority, NotifySpaceDeleted, body, includeAuthority: false, cancellationToken);
     }
 

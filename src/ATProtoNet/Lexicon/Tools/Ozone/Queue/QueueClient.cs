@@ -44,15 +44,13 @@ public sealed class QueueClient
         IEnumerable<string>? recommendedPolicies = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new CreateQueueRequest
-        {
-            Name = name,
-            SubjectTypes = subjectTypes is null ? null : [.. subjectTypes],
-            Collection = collection,
-            ReportTypes = reportTypes is null ? null : [.. reportTypes],
-            Description = description,
-            RecommendedPolicies = recommendedPolicies is null ? null : [.. recommendedPolicies],
-        };
+        var request = new CreateQueueRequest(
+            Name: name,
+            SubjectTypes: subjectTypes is null ? null : [.. subjectTypes],
+            Collection: collection,
+            ReportTypes: reportTypes is null ? null : [.. reportTypes],
+            Description: description,
+            RecommendedPolicies: recommendedPolicies is null ? null : [.. recommendedPolicies]);
         return _xrpc.ProcedureAsync<CreateQueueResponse>(
             "tools.ozone.queue.createQueue", request, cancellationToken: cancellationToken);
     }
@@ -72,14 +70,12 @@ public sealed class QueueClient
         IEnumerable<string>? recommendedPolicies = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new UpdateQueueRequest
-        {
-            QueueId = queueId,
-            Name = name,
-            Enabled = enabled,
-            Description = description,
-            RecommendedPolicies = recommendedPolicies is null ? null : [.. recommendedPolicies],
-        };
+        var request = new UpdateQueueRequest(
+            QueueId: queueId,
+            Name: name,
+            Enabled: enabled,
+            Description: description,
+            RecommendedPolicies: recommendedPolicies is null ? null : [.. recommendedPolicies]);
         return _xrpc.ProcedureAsync<UpdateQueueResponse>(
             "tools.ozone.queue.updateQueue", request, cancellationToken: cancellationToken);
     }
@@ -94,7 +90,7 @@ public sealed class QueueClient
         long? migrateToQueueId = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new DeleteQueueRequest { QueueId = queueId, MigrateToQueueId = migrateToQueueId };
+        var request = new DeleteQueueRequest(QueueId: queueId, MigrateToQueueId: migrateToQueueId);
         return _xrpc.ProcedureAsync<DeleteQueueResponse>(
             "tools.ozone.queue.deleteQueue", request, cancellationToken: cancellationToken);
     }
@@ -126,23 +122,6 @@ public sealed class QueueClient
             "tools.ozone.queue.listQueues", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>Enumerate every queue matching the filters, fetching pages as needed.</summary>
-    /// <param name="enabled">Only active (or only inactive) queues; <see langword="null"/> for all.</param>
-    /// <param name="subjectType">Only queues that take this kind of subject (see <see cref="Report.ReportSubjectType"/>).</param>
-    /// <param name="collection">Only queues for this collection.</param>
-    /// <param name="reportTypes">Only queues that take any of these report reason types (at most 10).</param>
-    /// <param name="pageSize">Queues per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<QueueView> EnumerateQueuesAsync(
-        bool? enabled = null,
-        string? subjectType = null,
-        Nsid? collection = null,
-        IEnumerable<string>? reportTypes = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<ListQueuesResponse, QueueView>(
-            (cursor, ct) => ListQueuesAsync(enabled, subjectType, collection, reportTypes, pageSize, cursor, ct),
-            cancellationToken);
-
     /// <summary>Route the reports in a range of identifiers to the queues that match them.</summary>
     /// <param name="startReportId">The first report to route.</param>
     /// <param name="endReportId">The last report to route; the range must span fewer than 5,000 reports.</param>
@@ -152,7 +131,7 @@ public sealed class QueueClient
         long endReportId,
         CancellationToken cancellationToken = default)
     {
-        var request = new RouteReportsRequest { StartReportId = startReportId, EndReportId = endReportId };
+        var request = new RouteReportsRequest(StartReportId: startReportId, EndReportId: endReportId);
         return _xrpc.ProcedureAsync<RouteReportsResponse>(
             "tools.ozone.queue.routeReports", request, cancellationToken: cancellationToken);
     }
@@ -166,7 +145,7 @@ public sealed class QueueClient
         Did did,
         CancellationToken cancellationToken = default)
     {
-        var request = new AssignModeratorRequest { QueueId = queueId, Did = did };
+        var request = new QueueModeratorRequest(queueId, did);
         return _xrpc.ProcedureAsync<AssignmentView>(
             "tools.ozone.queue.assignModerator", request, cancellationToken: cancellationToken);
     }
@@ -180,7 +159,7 @@ public sealed class QueueClient
         Did did,
         CancellationToken cancellationToken = default)
     {
-        var request = new UnassignModeratorRequest { QueueId = queueId, Did = did };
+        var request = new QueueModeratorRequest(queueId, did);
         return _xrpc.ProcedureAsync(
             "tools.ozone.queue.unassignModerator", request, cancellationToken: cancellationToken);
     }
@@ -208,21 +187,6 @@ public sealed class QueueClient
         return _xrpc.QueryAsync<GetAssignmentsResponse>(
             "tools.ozone.queue.getAssignments", parameters, cancellationToken: cancellationToken);
     }
-
-    /// <summary>Enumerate every queue assignment matching the filters, fetching pages as needed.</summary>
-    /// <param name="queueIds">Only assignments to these queues.</param>
-    /// <param name="dids">Only assignments of these moderators.</param>
-    /// <param name="onlyActive">Only active assignments; the server default is <see langword="true"/>.</param>
-    /// <param name="pageSize">Assignments per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<AssignmentView> EnumerateAssignmentsAsync(
-        IEnumerable<long>? queueIds = null,
-        IEnumerable<Did>? dids = null,
-        bool? onlyActive = null,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<GetAssignmentsResponse, AssignmentView>(
-            (cursor, ct) => GetAssignmentsAsync(queueIds, dids, onlyActive, pageSize, cursor, ct),
-            cancellationToken);
 
     private static string FormatId(long id) => id.ToString(CultureInfo.InvariantCulture);
 }

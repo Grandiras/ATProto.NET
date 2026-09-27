@@ -106,20 +106,6 @@ public class GroupClientTests : IDisposable
         Assert.Equal("convo-1", Assert.Single(page.Convos).Id);
     }
 
-    [Fact]
-    public async Task EnumerateMutualGroupsAsync_WalksPages()
-    {
-        _stub.On("chat.bsky.group.listMutualGroups", $$"""{"cursor":"page-2","convos":[{{GroupConvoJson}}]}""");
-        _stub.On("chat.bsky.group.listMutualGroups", $$"""{"convos":[{{GroupConvoJson}}]}""");
-
-        var convos = await _group.EnumerateMutualGroupsAsync(Alice, pageSize: 1).ToListAsync();
-
-        Assert.Equal(2, convos.Count);
-        Assert.Equal(
-            ["?subject=did:plc:alice&limit=1", "?subject=did:plc:alice&limit=1&cursor=page-2"],
-            _stub.To("chat.bsky.group.listMutualGroups").Select(r => $"?{Uri.UnescapeDataString(r.Query)}"));
-    }
-
     // ──────────────────────────────────────────────────────────
     //  Join links
     // ──────────────────────────────────────────────────────────
@@ -250,27 +236,6 @@ public class GroupClientTests : IDisposable
         Assert.Equal(AtDatetime.Parse("2026-06-01T12:05:00.000Z"), request.RequestedAt);
     }
 
-    [Fact]
-    public async Task EnumerateJoinRequestsAsync_WalksPages()
-    {
-        _stub.On("chat.bsky.group.listJoinRequests",
-            """
-            {"cursor":"page-2","requests":[{"convoId":"convo-1","requestedAt":"2026-06-01T12:05:00.000Z",
-              "requestedBy":{"did":"did:plc:alice","handle":"x.bsky.social"}}]}
-            """);
-        _stub.On("chat.bsky.group.listJoinRequests",
-            """
-            {"requests":[{"convoId":"convo-1","requestedAt":"2026-06-01T12:05:00.000Z",
-              "requestedBy":{"did":"did:plc:bob","handle":"x.bsky.social"}}]}
-            """);
-
-        var requests = await _group.EnumerateJoinRequestsAsync("convo-1", pageSize: 1).ToListAsync();
-
-        Assert.Equal([Alice, Bob], requests.Select(r => r.RequestedBy.Did));
-        Assert.Equal(
-            ["?convoId=convo-1&limit=1", "?convoId=convo-1&limit=1&cursor=page-2"],
-            _stub.To("chat.bsky.group.listJoinRequests").Select(r => $"?{r.Query}"));
-    }
 
     [Fact]
     public async Task ApproveJoinRequestAsync_PostsTheMember_ReturnsTheGroup()

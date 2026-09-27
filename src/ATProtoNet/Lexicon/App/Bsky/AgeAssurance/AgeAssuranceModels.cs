@@ -139,23 +139,15 @@ public abstract class AgeAssuranceRule : LexObject;
 /// An age assurance rule whose <c>$type</c> this SDK version does not model. It keeps the raw
 /// object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownAgeAssuranceRule : AgeAssuranceRule, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownAgeAssuranceRule(string type, JsonElement raw) : AgeAssuranceRule, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown rule from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownAgeAssuranceRule(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>The rule that applies when no other does.</summary>
@@ -241,24 +233,11 @@ public sealed class AccountOlderThanRule : AgeAssuranceRule
 // ── API requests and responses ───────────────────────────────
 
 /// <summary>Request body for begin.</summary>
-internal sealed class BeginRequest
-{
-    /// <summary>The address to send the age assurance instructions to.</summary>
-    [JsonPropertyName("email")]
-    public required string Email { get; init; }
-
-    /// <summary>The language to communicate in.</summary>
-    [JsonPropertyName("language")]
-    public required string Language { get; init; }
-
-    /// <summary>The ISO 3166-1 alpha-2 code of the user's country.</summary>
-    [JsonPropertyName("countryCode")]
-    public required string CountryCode { get; init; }
-
-    /// <summary>The ISO 3166-2 code of the user's region, if any.</summary>
-    [JsonPropertyName("regionCode")]
-    public string? RegionCode { get; init; }
-}
+internal sealed record BeginRequest(
+    [property: JsonPropertyName("email")] string Email,
+    [property: JsonPropertyName("language")] string Language,
+    [property: JsonPropertyName("countryCode")] string CountryCode,
+    [property: JsonPropertyName("regionCode")] string? RegionCode = null);
 
 /// <summary>Response from getState.</summary>
 public sealed class GetStateResponse

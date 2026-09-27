@@ -48,23 +48,15 @@ public abstract class ModEventType : LexObject;
 /// A moderation event whose <c>$type</c> this SDK version does not model. It keeps the raw object
 /// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownModEvent : ModEventType, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownModEvent(string type, JsonElement raw) : ModEventType, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown moderation event from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownModEvent(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>A moderation event that takes the subject down.</summary>
@@ -713,23 +705,15 @@ public abstract class SubjectHosting : LexObject;
 /// A hosting status whose <c>$type</c> this SDK version does not model. It keeps the raw object
 /// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownSubjectHosting : SubjectHosting, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownSubjectHosting(string type, JsonElement raw) : SubjectHosting, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown hosting status from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownSubjectHosting(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>An account's hosting status.</summary>
@@ -884,23 +868,15 @@ public abstract class ModerationSubjectView : LexObject;
 /// A subject view whose <c>$type</c> this SDK version does not model. It keeps the raw object
 /// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownModerationSubjectView : ModerationSubjectView, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownModerationSubjectView(string type, JsonElement raw) : ModerationSubjectView, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown subject view from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownModerationSubjectView(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>An account Ozone does not know.</summary>
@@ -996,23 +972,15 @@ public abstract class BlobDetails : LexObject;
 /// Blob details whose <c>$type</c> this SDK version does not model. They keep the raw object and
 /// write it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownBlobDetails : BlobDetails, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownBlobDetails(string type, JsonElement raw) : BlobDetails, IUnknownUnionVariant
 {
-    /// <summary>Creates unknown blob details from their discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownBlobDetails(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>The dimensions of an image blob.</summary>
@@ -1373,23 +1341,15 @@ public abstract class ScheduledAction : LexObject;
 /// A scheduled action whose <c>$type</c> this SDK version does not model. It keeps the raw object
 /// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownScheduledAction : ScheduledAction, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownScheduledAction(string type, JsonElement raw) : ScheduledAction, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown scheduled action from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownScheduledAction(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>A takedown to run later.</summary>
@@ -1599,37 +1559,27 @@ public sealed class ReportAction : LexObject
 }
 
 /// <summary>Response from tools.ozone.moderation.queryEvents.</summary>
-public sealed class QueryEventsResponse : ICursorPage<ModEventView>
+public sealed record QueryEventsResponse : CursorPage<ModEventView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The moderation events.</summary>
     [JsonPropertyName("events")]
     public required IReadOnlyList<ModEventView> Events { get; init; }
 
-    IReadOnlyList<ModEventView> ICursorPage<ModEventView>.Items => Events;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ModEventView> Items => Events;
 }
 
 /// <summary>Response from tools.ozone.moderation.queryStatuses (the review queue).</summary>
-public sealed class QueryStatusesResponse : ICursorPage<SubjectStatusView>
+public sealed record QueryStatusesResponse : CursorPage<SubjectStatusView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The subjects' moderation statuses.</summary>
     [JsonPropertyName("subjectStatuses")]
     public required IReadOnlyList<SubjectStatusView> SubjectStatuses { get; init; }
 
-    IReadOnlyList<SubjectStatusView> ICursorPage<SubjectStatusView>.Items => SubjectStatuses;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<SubjectStatusView> Items => SubjectStatuses;
 }
 
 /// <summary>
@@ -1789,20 +1739,15 @@ public sealed class SubjectStatusFilter
 }
 
 /// <summary>Response from tools.ozone.moderation.searchRepos.</summary>
-public sealed class SearchReposResponse : ICursorPage<RepoView>
+public sealed record SearchReposResponse : CursorPage<RepoView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The repositories.</summary>
     [JsonPropertyName("repos")]
     public required IReadOnlyList<RepoView> Repos { get; init; }
 
-    IReadOnlyList<RepoView> ICursorPage<RepoView>.Items => Repos;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<RepoView> Items => Repos;
 }
 
 /// <summary>Response from tools.ozone.moderation.getAccountPreferences.</summary>
@@ -1860,82 +1805,35 @@ public sealed class GetReporterStatsResponse
 }
 
 /// <summary>Request body for tools.ozone.moderation.scheduleAction.</summary>
-internal sealed class ScheduleActionRequest
-{
-    /// <summary>The action to schedule.</summary>
-    [JsonPropertyName("action")]
-    public required ScheduledAction Action { get; init; }
-
-    /// <summary>The accounts to schedule it for.</summary>
-    [JsonPropertyName("subjects")]
-    public required IReadOnlyList<Did> Subjects { get; init; }
-
-    /// <summary>The moderator scheduling it.</summary>
-    [JsonPropertyName("createdBy")]
-    public required Did CreatedBy { get; init; }
-
-    /// <summary>When it runs.</summary>
-    [JsonPropertyName("scheduling")]
-    public required SchedulingConfig Scheduling { get; init; }
-
-    /// <summary>The tool scheduling it, passed on to the event it emits.</summary>
-    [JsonPropertyName("modTool")]
-    public ModTool? ModTool { get; init; }
-}
+internal sealed record ScheduleActionRequest(
+    [property: JsonPropertyName("action")] ScheduledAction Action,
+    [property: JsonPropertyName("subjects")] IReadOnlyList<Did> Subjects,
+    [property: JsonPropertyName("createdBy")] Did CreatedBy,
+    [property: JsonPropertyName("scheduling")] SchedulingConfig Scheduling,
+    [property: JsonPropertyName("modTool")] ModTool? ModTool = null);
 
 /// <summary>Request body for tools.ozone.moderation.listScheduledActions.</summary>
-internal sealed class ListScheduledActionsRequest
-{
-    /// <summary>Only actions scheduled to run after this time.</summary>
-    [JsonPropertyName("startsAfter")]
-    public AtDatetime? StartsAfter { get; init; }
-
-    /// <summary>Only actions scheduled to run before this time.</summary>
-    [JsonPropertyName("endsBefore")]
-    public AtDatetime? EndsBefore { get; init; }
-
-    /// <summary>Only actions for these accounts.</summary>
-    [JsonPropertyName("subjects")]
-    public IReadOnlyList<Did>? Subjects { get; init; }
-
-    /// <summary>Only actions in these statuses.</summary>
-    [JsonPropertyName("statuses")]
-    public required IReadOnlyList<string> Statuses { get; init; }
-
-    /// <summary>Maximum number of actions.</summary>
-    [JsonPropertyName("limit")]
-    public int? Limit { get; init; }
-
-    /// <summary>Pagination cursor from a previous response.</summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-}
+internal sealed record ListScheduledActionsRequest(
+    [property: JsonPropertyName("statuses")] [property: JsonPropertyOrder(3)] IReadOnlyList<string> Statuses,
+    [property: JsonPropertyName("startsAfter")] [property: JsonPropertyOrder(0)] AtDatetime? StartsAfter = null,
+    [property: JsonPropertyName("endsBefore")] [property: JsonPropertyOrder(1)] AtDatetime? EndsBefore = null,
+    [property: JsonPropertyName("subjects")] [property: JsonPropertyOrder(2)] IReadOnlyList<Did>? Subjects = null,
+    [property: JsonPropertyName("limit")] [property: JsonPropertyOrder(4)] int? Limit = null,
+    [property: JsonPropertyName("cursor")] [property: JsonPropertyOrder(5)] string? Cursor = null);
 
 /// <summary>Response from tools.ozone.moderation.listScheduledActions.</summary>
-public sealed class ListScheduledActionsResponse : ICursorPage<ScheduledActionView>
+public sealed record ListScheduledActionsResponse : CursorPage<ScheduledActionView>
 {
     /// <summary>The scheduled actions.</summary>
     [JsonPropertyName("actions")]
     public required IReadOnlyList<ScheduledActionView> Actions { get; init; }
 
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
-    IReadOnlyList<ScheduledActionView> ICursorPage<ScheduledActionView>.Items => Actions;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ScheduledActionView> Items => Actions;
 }
 
 /// <summary>Request body for tools.ozone.moderation.cancelScheduledActions.</summary>
-internal sealed class CancelScheduledActionsRequest
-{
-    /// <summary>The accounts whose pending actions to cancel.</summary>
-    [JsonPropertyName("subjects")]
-    public required IReadOnlyList<Did> Subjects { get; init; }
-
-    /// <summary>Why they are cancelled.</summary>
-    [JsonPropertyName("comment")]
-    public string? Comment { get; init; }
-}
+internal sealed record CancelScheduledActionsRequest(
+    [property: JsonPropertyName("subjects")] IReadOnlyList<Did> Subjects,
+    [property: JsonPropertyName("comment")] string? Comment = null);

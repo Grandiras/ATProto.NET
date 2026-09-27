@@ -3,8 +3,14 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Http;
 
-/// <summary>The one cursor-pagination loop behind every <c>Enumerate*</c> method.</summary>
-internal static class Pagination
+/// <summary>The cursor-pagination loop behind every <c>Enumerate*</c> method, and the one-liner for any endpoint that doesn't have one.</summary>
+/// <remarks>
+/// Most endpoint clients expose a <c>GetXAsync(..., cursor, cancellationToken)</c> method but no
+/// dedicated <c>EnumerateXAsync</c>. Walk it with <see cref="EnumerateAsync{TPage, T}"/> directly:
+/// <c>Pagination.EnumerateAsync&lt;GetFooResponse, FooView&gt;((cursor, ct) =&gt;
+/// client.Foo.GetFooAsync(id, cursor: cursor, cancellationToken: ct))</c>.
+/// </remarks>
+public static class Pagination
 {
     /// <summary>
     /// Fetches pages until the server stops returning a new cursor, yielding each page's items

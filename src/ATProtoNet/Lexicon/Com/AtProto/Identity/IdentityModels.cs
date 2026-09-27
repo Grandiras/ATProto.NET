@@ -48,22 +48,12 @@ public sealed class ResolveDidResponse
 // ── com.atproto.identity.refreshIdentity ─────────────────────
 
 /// <summary>Request body for refreshIdentity.</summary>
-internal sealed class RefreshIdentityRequest
-{
-    /// <summary>The DID or handle to refresh.</summary>
-    [JsonPropertyName("identifier")]
-    public required AtIdentifier Identifier { get; init; }
-}
+internal sealed record RefreshIdentityRequest([property: JsonPropertyName("identifier")] AtIdentifier Identifier);
 
 // ── com.atproto.identity.updateHandle ────────────────────────
 
 /// <summary>Request body for updateHandle.</summary>
-internal sealed class UpdateHandleRequest
-{
-    /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
-    [JsonPropertyName("handle")]
-    public required Handle Handle { get; init; }
-}
+internal sealed record UpdateHandleRequest([property: JsonPropertyName("handle")] Handle Handle);
 
 // ── com.atproto.identity.getRecommendedDidCredentials ────────
 

@@ -81,23 +81,15 @@ public abstract class JoinLinkPreview : LexObject;
 /// A join link preview whose <c>$type</c> this SDK version does not model. It keeps the raw object
 /// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownJoinLinkPreview : JoinLinkPreview, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownJoinLinkPreview(string type, JsonElement raw) : JoinLinkPreview, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown join link preview from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownJoinLinkPreview(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>
@@ -229,148 +221,43 @@ public sealed class JoinRequestConvoView : ConvoRequestView
 // ── Request models ───────────────────────────────────────
 
 /// <summary>Request body for chat.bsky.group.createGroup.</summary>
-internal sealed class CreateGroupRequest
-{
-    /// <summary>The members to add besides the owner.</summary>
-    [JsonPropertyName("members")]
-    public required IReadOnlyList<Did> Members { get; init; }
-
-    /// <summary>The group's display name.</summary>
-    [JsonPropertyName("name")]
-    public required string Name { get; init; }
-}
+internal sealed record CreateGroupRequest(
+    [property: JsonPropertyName("members")] IReadOnlyList<Did> Members,
+    [property: JsonPropertyName("name")] string Name);
 
 /// <summary>Request body for chat.bsky.group.editGroup.</summary>
-internal sealed class EditGroupRequest
-{
-    /// <summary>The identifier of the group's conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
+internal sealed record EditGroupRequest(
+    [property: JsonPropertyName("convoId")] string ConvoId,
+    [property: JsonPropertyName("name")] string Name);
 
-    /// <summary>The group's new display name.</summary>
-    [JsonPropertyName("name")]
-    public required string Name { get; init; }
-}
-
-/// <summary>Request body for chat.bsky.group.addMembers.</summary>
-internal sealed class AddMembersRequest
-{
-    /// <summary>The identifier of the group's conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
-
-    /// <summary>The accounts to add.</summary>
-    [JsonPropertyName("members")]
-    public required IReadOnlyList<Did> Members { get; init; }
-}
-
-/// <summary>Request body for chat.bsky.group.removeMembers.</summary>
-internal sealed class RemoveMembersRequest
-{
-    /// <summary>The identifier of the group's conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
-
-    /// <summary>The members to remove.</summary>
-    [JsonPropertyName("members")]
-    public required IReadOnlyList<Did> Members { get; init; }
-}
+/// <summary>Request body for chat.bsky.group.addMembers and chat.bsky.group.removeMembers.</summary>
+internal sealed record GroupMembersRequest(
+    [property: JsonPropertyName("convoId")] string ConvoId,
+    [property: JsonPropertyName("members")] IReadOnlyList<Did> Members);
 
 /// <summary>Request body for chat.bsky.group.createJoinLink.</summary>
-internal sealed class CreateJoinLinkRequest
-{
-    /// <summary>The identifier of the group's conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
-
-    /// <summary>Whether the owner must approve each request to join.</summary>
-    [JsonPropertyName("requireApproval")]
-    public bool? RequireApproval { get; init; }
-
-    /// <summary>Who may use the link.</summary>
-    [JsonPropertyName("joinRule")]
-    public required string JoinRule { get; init; }
-}
+internal sealed record CreateJoinLinkRequest(
+    [property: JsonPropertyName("convoId")] [property: JsonPropertyOrder(0)] string ConvoId,
+    [property: JsonPropertyName("joinRule")] [property: JsonPropertyOrder(2)] string JoinRule,
+    [property: JsonPropertyName("requireApproval")] [property: JsonPropertyOrder(1)] bool? RequireApproval = null);
 
 /// <summary>Request body for chat.bsky.group.editJoinLink.</summary>
-internal sealed class EditJoinLinkRequest
-{
-    /// <summary>The identifier of the group's conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
+internal sealed record EditJoinLinkRequest(
+    [property: JsonPropertyName("convoId")] string ConvoId,
+    [property: JsonPropertyName("requireApproval")] bool? RequireApproval = null,
+    [property: JsonPropertyName("joinRule")] string? JoinRule = null);
 
-    /// <summary>Whether the owner must approve each request to join.</summary>
-    [JsonPropertyName("requireApproval")]
-    public bool? RequireApproval { get; init; }
-
-    /// <summary>Who may use the link.</summary>
-    [JsonPropertyName("joinRule")]
-    public string? JoinRule { get; init; }
-}
-
-/// <summary>Request body for chat.bsky.group.enableJoinLink.</summary>
-internal sealed class EnableJoinLinkRequest
-{
-    /// <summary>The identifier of the group's conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
-}
-
-/// <summary>Request body for chat.bsky.group.disableJoinLink.</summary>
-internal sealed class DisableJoinLinkRequest
-{
-    /// <summary>The identifier of the group's conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
-}
+// enableJoinLink and disableJoinLink also take only a convoId: see ConvoIdRequest.
 
 /// <summary>Request body for chat.bsky.group.requestJoin.</summary>
-internal sealed class RequestJoinRequest
-{
-    /// <summary>The join link's code.</summary>
-    [JsonPropertyName("code")]
-    public required string Code { get; init; }
-}
+internal sealed record RequestJoinRequest([property: JsonPropertyName("code")] string Code);
 
-/// <summary>Request body for chat.bsky.group.approveJoinRequest.</summary>
-internal sealed class ApproveJoinRequestRequest
-{
-    /// <summary>The identifier of the group's conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
+/// <summary>Request body for chat.bsky.group.approveJoinRequest and chat.bsky.group.rejectJoinRequest.</summary>
+internal sealed record GroupMemberRequest(
+    [property: JsonPropertyName("convoId")] string ConvoId,
+    [property: JsonPropertyName("member")] Did Member);
 
-    /// <summary>The account whose request to approve.</summary>
-    [JsonPropertyName("member")]
-    public required Did Member { get; init; }
-}
-
-/// <summary>Request body for chat.bsky.group.rejectJoinRequest.</summary>
-internal sealed class RejectJoinRequestRequest
-{
-    /// <summary>The identifier of the group's conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
-
-    /// <summary>The account whose request to reject.</summary>
-    [JsonPropertyName("member")]
-    public required Did Member { get; init; }
-}
-
-/// <summary>Request body for chat.bsky.group.withdrawJoinRequest.</summary>
-internal sealed class WithdrawJoinRequestRequest
-{
-    /// <summary>The identifier of the group's conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
-}
-
-/// <summary>Request body for chat.bsky.group.updateJoinRequestsRead.</summary>
-internal sealed class UpdateJoinRequestsReadRequest
-{
-    /// <summary>The identifier of the group's conversation.</summary>
-    [JsonPropertyName("convoId")]
-    public required string ConvoId { get; init; }
-}
+// withdrawJoinRequest and updateJoinRequestsRead also take only a convoId: see ConvoIdRequest.
 
 // ── Response models ──────────────────────────────────────
 
@@ -387,20 +274,15 @@ public sealed class AddMembersResponse
 }
 
 /// <summary>Response from chat.bsky.group.listMutualGroups.</summary>
-public sealed class ListMutualGroupsResponse : ICursorPage<ConvoView>
+public sealed record ListMutualGroupsResponse : CursorPage<ConvoView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The groups both the viewer and the account are members of.</summary>
     [JsonPropertyName("convos")]
     public required IReadOnlyList<ConvoView> Convos { get; init; }
 
-    IReadOnlyList<ConvoView> ICursorPage<ConvoView>.Items => Convos;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<ConvoView> Items => Convos;
 }
 
 /// <summary>Response from chat.bsky.group.getJoinLinkPreviews.</summary>
@@ -427,20 +309,15 @@ public sealed class RequestJoinResponse
 }
 
 /// <summary>Response from chat.bsky.group.listJoinRequests.</summary>
-public sealed class ListJoinRequestsResponse : ICursorPage<JoinRequestView>
+public sealed record ListJoinRequestsResponse : CursorPage<JoinRequestView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The pending requests.</summary>
     [JsonPropertyName("requests")]
     public required IReadOnlyList<JoinRequestView> Requests { get; init; }
 
-    IReadOnlyList<JoinRequestView> ICursorPage<JoinRequestView>.Items => Requests;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<JoinRequestView> Items => Requests;
 }
 
 /// <summary>

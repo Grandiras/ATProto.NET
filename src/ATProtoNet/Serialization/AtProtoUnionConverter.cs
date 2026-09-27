@@ -248,6 +248,13 @@ internal static class UnknownUnionVariant
         return raw.Clone();
     }
 
+    /// <summary>Validates the <c>$type</c> discriminator of an unknown variant.</summary>
+    public static string RequireType(string type, [CallerArgumentExpression(nameof(type))] string? paramName = null)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(type, paramName);
+        return type;
+    }
+
     /// <summary>Writes the variant's original bytes, so escapes and number formatting survive unchanged.</summary>
     public static void WriteRaw(Utf8JsonWriter writer, IUnknownUnionVariant variant)
         => writer.WriteRawValue(JsonMarshal.GetRawUtf8Value(variant.Raw), skipInputValidation: true);

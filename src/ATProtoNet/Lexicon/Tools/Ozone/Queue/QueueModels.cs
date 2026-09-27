@@ -64,7 +64,11 @@ public sealed class QueueView : LexObject
     public required QueueStats Stats { get; init; }
 }
 
-/// <summary>Statistics about a queue's reports (<c>tools.ozone.queue.defs#queueStats</c>).</summary>
+/// <summary>
+/// Statistics about a queue's, or the whole instance's, reports
+/// (<c>tools.ozone.queue.defs#queueStats</c>, reused for <c>tools.ozone.report.defs#liveStats</c>,
+/// whose shape is identical).
+/// </summary>
 public sealed class QueueStats : LexObject
 {
     /// <summary>The reports in <c>open</c> status.</summary>
@@ -90,7 +94,7 @@ public sealed class QueueStats : LexObject
     [JsonPropertyName("actionRate")]
     public int? ActionRate { get; init; }
 
-    /// <summary>The average time in seconds from a report's creation to its close.</summary>
+    /// <summary>The average time in seconds from a report's creation (or assignment) to its close.</summary>
     [JsonPropertyName("avgHandlingTimeSec")]
     public int? AvgHandlingTimeSec { get; init; }
 
@@ -130,32 +134,13 @@ public sealed class AssignmentView : LexObject
 // ─── Request / Response Models ───
 
 /// <summary>Request body for tools.ozone.queue.createQueue.</summary>
-internal sealed class CreateQueueRequest
-{
-    /// <summary>The queue's display name.</summary>
-    [JsonPropertyName("name")]
-    public required string Name { get; init; }
-
-    /// <summary>The kinds of subject the queue takes.</summary>
-    [JsonPropertyName("subjectTypes")]
-    public IReadOnlyList<string>? SubjectTypes { get; init; }
-
-    /// <summary>The collection the queue takes record subjects from.</summary>
-    [JsonPropertyName("collection")]
-    public Nsid? Collection { get; init; }
-
-    /// <summary>The report reason types the queue takes.</summary>
-    [JsonPropertyName("reportTypes")]
-    public IReadOnlyList<string>? ReportTypes { get; init; }
-
-    /// <summary>A description of the queue.</summary>
-    [JsonPropertyName("description")]
-    public string? Description { get; init; }
-
-    /// <summary>The policies to recommend when actioning the queue's reports.</summary>
-    [JsonPropertyName("recommendedPolicies")]
-    public IReadOnlyList<string>? RecommendedPolicies { get; init; }
-}
+internal sealed record CreateQueueRequest(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("subjectTypes")] IReadOnlyList<string>? SubjectTypes = null,
+    [property: JsonPropertyName("collection")] Nsid? Collection = null,
+    [property: JsonPropertyName("reportTypes")] IReadOnlyList<string>? ReportTypes = null,
+    [property: JsonPropertyName("description")] string? Description = null,
+    [property: JsonPropertyName("recommendedPolicies")] IReadOnlyList<string>? RecommendedPolicies = null);
 
 /// <summary>Response from tools.ozone.queue.createQueue.</summary>
 public sealed class CreateQueueResponse
@@ -166,28 +151,12 @@ public sealed class CreateQueueResponse
 }
 
 /// <summary>Request body for tools.ozone.queue.updateQueue.</summary>
-internal sealed class UpdateQueueRequest
-{
-    /// <summary>The queue to update.</summary>
-    [JsonPropertyName("queueId")]
-    public required long QueueId { get; init; }
-
-    /// <summary>The new display name.</summary>
-    [JsonPropertyName("name")]
-    public string? Name { get; init; }
-
-    /// <summary>Whether the queue is active.</summary>
-    [JsonPropertyName("enabled")]
-    public bool? Enabled { get; init; }
-
-    /// <summary>The new description.</summary>
-    [JsonPropertyName("description")]
-    public string? Description { get; init; }
-
-    /// <summary>The policies to recommend when actioning the queue's reports.</summary>
-    [JsonPropertyName("recommendedPolicies")]
-    public IReadOnlyList<string>? RecommendedPolicies { get; init; }
-}
+internal sealed record UpdateQueueRequest(
+    [property: JsonPropertyName("queueId")] long QueueId,
+    [property: JsonPropertyName("name")] string? Name = null,
+    [property: JsonPropertyName("enabled")] bool? Enabled = null,
+    [property: JsonPropertyName("description")] string? Description = null,
+    [property: JsonPropertyName("recommendedPolicies")] IReadOnlyList<string>? RecommendedPolicies = null);
 
 /// <summary>Response from tools.ozone.queue.updateQueue.</summary>
 public sealed class UpdateQueueResponse
@@ -198,16 +167,9 @@ public sealed class UpdateQueueResponse
 }
 
 /// <summary>Request body for tools.ozone.queue.deleteQueue.</summary>
-internal sealed class DeleteQueueRequest
-{
-    /// <summary>The queue to delete.</summary>
-    [JsonPropertyName("queueId")]
-    public required long QueueId { get; init; }
-
-    /// <summary>The queue to move its reports to.</summary>
-    [JsonPropertyName("migrateToQueueId")]
-    public long? MigrateToQueueId { get; init; }
-}
+internal sealed record DeleteQueueRequest(
+    [property: JsonPropertyName("queueId")] long QueueId,
+    [property: JsonPropertyName("migrateToQueueId")] long? MigrateToQueueId = null);
 
 /// <summary>Response from tools.ozone.queue.deleteQueue.</summary>
 public sealed class DeleteQueueResponse
@@ -222,74 +184,38 @@ public sealed class DeleteQueueResponse
 }
 
 /// <summary>Response from tools.ozone.queue.listQueues.</summary>
-public sealed class ListQueuesResponse : ICursorPage<QueueView>
+public sealed record ListQueuesResponse : CursorPage<QueueView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The queues.</summary>
     [JsonPropertyName("queues")]
     public required IReadOnlyList<QueueView> Queues { get; init; }
 
-    IReadOnlyList<QueueView> ICursorPage<QueueView>.Items => Queues;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<QueueView> Items => Queues;
 }
 
-/// <summary>Request body for tools.ozone.queue.assignModerator.</summary>
-internal sealed class AssignModeratorRequest
-{
-    /// <summary>The queue.</summary>
-    [JsonPropertyName("queueId")]
-    public required long QueueId { get; init; }
-
-    /// <summary>The moderator to assign.</summary>
-    [JsonPropertyName("did")]
-    public required Did Did { get; init; }
-}
-
-/// <summary>Request body for tools.ozone.queue.unassignModerator.</summary>
-internal sealed class UnassignModeratorRequest
-{
-    /// <summary>The queue.</summary>
-    [JsonPropertyName("queueId")]
-    public required long QueueId { get; init; }
-
-    /// <summary>The moderator to unassign.</summary>
-    [JsonPropertyName("did")]
-    public required Did Did { get; init; }
-}
+/// <summary>Request body for tools.ozone.queue.assignModerator and tools.ozone.queue.unassignModerator.</summary>
+internal sealed record QueueModeratorRequest(
+    [property: JsonPropertyName("queueId")] long QueueId,
+    [property: JsonPropertyName("did")] Did Did);
 
 /// <summary>Response from tools.ozone.queue.getAssignments.</summary>
-public sealed class GetAssignmentsResponse : ICursorPage<AssignmentView>
+public sealed record GetAssignmentsResponse : CursorPage<AssignmentView>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
-    [JsonPropertyName("cursor")]
-    public string? Cursor { get; init; }
-
     /// <summary>The assignments.</summary>
     [JsonPropertyName("assignments")]
     public required IReadOnlyList<AssignmentView> Assignments { get; init; }
 
-    IReadOnlyList<AssignmentView> ICursorPage<AssignmentView>.Items => Assignments;
+    /// <inheritdoc />
+    [JsonIgnore]
+    public override IReadOnlyList<AssignmentView> Items => Assignments;
 }
 
 /// <summary>Request body for tools.ozone.queue.routeReports.</summary>
-internal sealed class RouteReportsRequest
-{
-    /// <summary>The first report to route.</summary>
-    [JsonPropertyName("startReportId")]
-    public required long StartReportId { get; init; }
-
-    /// <summary>The last report to route.</summary>
-    [JsonPropertyName("endReportId")]
-    public required long EndReportId { get; init; }
-}
+internal sealed record RouteReportsRequest(
+    [property: JsonPropertyName("startReportId")] long StartReportId,
+    [property: JsonPropertyName("endReportId")] long EndReportId);
 
 /// <summary>Response from tools.ozone.queue.routeReports.</summary>
 public sealed class RouteReportsResponse

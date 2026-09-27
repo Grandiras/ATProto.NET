@@ -119,20 +119,6 @@ public sealed class ChatModerationClient
             "chat.bsky.moderation.getConvoMembers", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerates every member of a conversation, fetching pages as needed; the moderator need not
-    /// be a member.
-    /// </summary>
-    /// <param name="convoId">The conversation's identifier.</param>
-    /// <param name="pageSize">Members per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<ChatMemberView> EnumerateConvoMembersAsync(
-        string convoId,
-        int? pageSize = null,
-        CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<GetConvoMembersResponse, ChatMemberView>(
-            (cursor, ct) => GetConvoMembersAsync(convoId, pageSize, cursor, ct),
-            cancellationToken);
-
     /// <summary>Allows or revokes an account's access to chat.</summary>
     /// <param name="actor">The account.</param>
     /// <param name="allowAccess">Whether the account may use chat.</param>
@@ -145,12 +131,7 @@ public sealed class ChatModerationClient
         string? reference = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new UpdateActorAccessRequest
-        {
-            Actor = actor,
-            AllowAccess = allowAccess,
-            Ref = reference,
-        };
+        var request = new UpdateActorAccessRequest(Actor: actor, AllowAccess: allowAccess, Ref: reference);
 
         return _xrpc.ProcedureAsync(
             "chat.bsky.moderation.updateActorAccess", request, cancellationToken: cancellationToken);

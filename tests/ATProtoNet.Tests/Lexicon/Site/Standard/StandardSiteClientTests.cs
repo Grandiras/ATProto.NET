@@ -326,43 +326,6 @@ public class StandardSiteClientTests : IDisposable
         Assert.Equal("r1", body.GetProperty("rkey").GetString());
     }
 
-    [Fact]
-    public async Task EnumerateRecommendationsAsync_ReturnsTypedRecordsAcrossPages()
-    {
-        var pageCount = 0;
-        _stub.Fallback(_ =>
-        {
-            pageCount++;
-            return JsonResponse(new
-            {
-                cursor = pageCount == 1 ? "page-2" : null,
-                records = new[]
-                {
-                    new
-                    {
-                        uri = $"at://did:plc:fan/site.standard.graph.recommend/r{pageCount}",
-                        cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm",
-                        value = new
-                        {
-                            document = $"at://did:plc:author/site.standard.document/doc{pageCount}",
-                            createdAt = "2026-09-25T10:00:00.000Z",
-                        },
-                    },
-                },
-            });
-        });
-
-        var documents = new List<string>();
-        await foreach (var recommendation in _site.EnumerateRecommendationsAsync(Did.Parse("did:plc:fan"), pageSize: 1))
-            documents.Add(recommendation.Value.Document.Value);
-
-        Assert.Equal(
-            ["at://did:plc:author/site.standard.document/doc1", "at://did:plc:author/site.standard.document/doc2"],
-            documents);
-        var queries = _stub.Requests.Select(r => Uri.UnescapeDataString(r.Query)).ToList();
-        Assert.Contains("collection=site.standard.graph.recommend", queries[0]);
-        Assert.Contains("cursor=page-2", queries[1]);
-    }
 
     // ──────────────────────────────────────────────────────────
     //  Typed listings and AT URI overloads
@@ -419,39 +382,6 @@ public class StandardSiteClientTests : IDisposable
             () => _site.ListSubscriptionsAsync(Did.Parse("did:plc:sub")));
     }
 
-    [Fact]
-    public async Task EnumeratePublicationsAsync_WalksPagesWithThePageSize()
-    {
-        var pageCount = 0;
-        _stub.Fallback(_ =>
-        {
-            pageCount++;
-            var rkey = $"p{pageCount}";
-            return JsonResponse(new
-            {
-                cursor = pageCount == 1 ? "page-2" : null,
-                records = new[]
-                {
-                    new
-                    {
-                        uri = $"at://did:plc:test/site.standard.publication/{rkey}",
-                        cid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm",
-                        value = new { url = "https://myblog.example.com", name = rkey },
-                    },
-                },
-            });
-        });
-
-        var names = new List<string>();
-        await foreach (var publication in _site.EnumeratePublicationsAsync(Did.Parse("did:plc:test"), pageSize: 1))
-            names.Add(publication.Value.Name);
-
-        Assert.Equal(["p1", "p2"], names);
-        var queries = _stub.Requests.Select(r => Uri.UnescapeDataString(r.Query)).ToList();
-        Assert.Equal(2, queries.Count);
-        Assert.Contains("limit=1", queries[0]);
-        Assert.Contains("cursor=page-2", queries[1]);
-    }
 
     [Fact]
     public async Task GetPublicationAsync_ByAtUri_QueriesItsParts()

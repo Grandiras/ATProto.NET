@@ -26,7 +26,7 @@ public sealed class DraftClient
     {
         ArgumentNullException.ThrowIfNull(draft);
 
-        var request = new CreateDraftRequest { Draft = draft };
+        var request = new CreateDraftRequest(Draft: draft);
         var response = await _xrpc.ProcedureAsync<CreateDraftResponse>(
             "app.bsky.draft.createDraft", request, cancellationToken: cancellationToken).ConfigureAwait(false);
         return response.Id;
@@ -39,7 +39,7 @@ public sealed class DraftClient
     {
         ArgumentNullException.ThrowIfNull(draft);
 
-        var request = new UpdateDraftRequest { Draft = new DraftWithId { Id = id, Draft = draft } };
+        var request = new UpdateDraftRequest(Draft: new DraftWithId { Id = id, Draft = draft });
         return _xrpc.ProcedureAsync(
             "app.bsky.draft.updateDraft", request, cancellationToken: cancellationToken);
     }
@@ -48,7 +48,7 @@ public sealed class DraftClient
     /// <param name="id">The draft's identifier.</param>
     public Task DeleteDraftAsync(Tid id, CancellationToken cancellationToken = default)
     {
-        var request = new DeleteDraftRequest { Id = id };
+        var request = new DeleteDraftRequest(Id: id);
         return _xrpc.ProcedureAsync(
             "app.bsky.draft.deleteDraft", request, cancellationToken: cancellationToken);
     }
@@ -66,12 +66,4 @@ public sealed class DraftClient
         return _xrpc.QueryAsync<GetDraftsResponse>(
             "app.bsky.draft.getDrafts", parameters, cancellationToken: cancellationToken);
     }
-
-    /// <summary>Enumerate the authenticated account's drafts, fetching pages as needed.</summary>
-    /// <param name="pageSize">Drafts per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<DraftView> EnumerateDraftsAsync(
-        int? pageSize = null, CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<GetDraftsResponse, DraftView>(
-            (cursor, ct) => GetDraftsAsync(pageSize, cursor, ct),
-            cancellationToken);
 }

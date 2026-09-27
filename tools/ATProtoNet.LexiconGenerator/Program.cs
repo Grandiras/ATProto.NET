@@ -122,9 +122,6 @@ public static class Program
                 "diff" => RunDiffCommand(args[1..], context),
                 "publish" => await RunPublishCommand(args[1..], context, cancellationToken),
                 "resolve" => await RunResolveCommand(args[1..], context, cancellationToken),
-                "migrate" => Error(context,
-                    "'migrate' was removed. Lexicon evolution rules leave nothing to migrate: new fields are optional, " +
-                    "and a breaking change needs a new NSID. Use 'diff --strict' to catch breaking changes."),
                 _ => Error(context, $"Unknown command: '{args[0]}'. Run with --help for usage."),
             };
         }
@@ -145,25 +142,17 @@ public static class Program
         string? outputDir = null;
         var namespacePrefix = "ATProtoNet.Lexicon";
 
-        for (var i = 0; i < args.Length; i++)
-        {
-            switch (args[i])
+        if (ParseOptions(args, context, PrintCSharpHelp, options: new Dictionary<string, Func<string, string?>>
             {
-                case "--input" or "-i" when i + 1 < args.Length:
-                    inputDir = args[++i];
-                    break;
-                case "--output" or "-o" when i + 1 < args.Length:
-                    outputDir = args[++i];
-                    break;
-                case "--namespace" or "-n" when i + 1 < args.Length:
-                    namespacePrefix = args[++i];
-                    break;
-                case "--help" or "-h":
-                    PrintCSharpHelp(context.Out);
-                    return 0;
-                default:
-                    return Error(context, $"Unknown option: '{args[i]}'");
-            }
+                ["--input"] = v => { inputDir = v; return null; },
+                ["-i"] = v => { inputDir = v; return null; },
+                ["--output"] = v => { outputDir = v; return null; },
+                ["-o"] = v => { outputDir = v; return null; },
+                ["--namespace"] = v => { namespacePrefix = v; return null; },
+                ["-n"] = v => { namespacePrefix = v; return null; },
+            }) is { } exitCode)
+        {
+            return exitCode;
         }
 
         if (inputDir is null)
@@ -206,22 +195,15 @@ public static class Program
         string? assemblyPath = null;
         string? outputDir = null;
 
-        for (var i = 0; i < args.Length; i++)
-        {
-            switch (args[i])
+        if (ParseOptions(args, context, PrintLexiconHelp, options: new Dictionary<string, Func<string, string?>>
             {
-                case "--assembly" or "-a" when i + 1 < args.Length:
-                    assemblyPath = args[++i];
-                    break;
-                case "--output" or "-o" when i + 1 < args.Length:
-                    outputDir = args[++i];
-                    break;
-                case "--help" or "-h":
-                    PrintLexiconHelp(context.Out);
-                    return 0;
-                default:
-                    return Error(context, $"Unknown option: '{args[i]}'");
-            }
+                ["--assembly"] = v => { assemblyPath = v; return null; },
+                ["-a"] = v => { assemblyPath = v; return null; },
+                ["--output"] = v => { outputDir = v; return null; },
+                ["-o"] = v => { outputDir = v; return null; },
+            }) is { } exitCode)
+        {
+            return exitCode;
         }
 
         if (assemblyPath is null)
@@ -278,22 +260,18 @@ public static class Program
         string? inputDir = null;
         var strict = false;
 
-        for (var i = 0; i < args.Length; i++)
-        {
-            switch (args[i])
+        if (ParseOptions(args, context, PrintLintHelp,
+            options: new Dictionary<string, Func<string, string?>>
             {
-                case "--input" or "-i" when i + 1 < args.Length:
-                    inputDir = args[++i];
-                    break;
-                case "--strict":
-                    strict = true;
-                    break;
-                case "--help" or "-h":
-                    PrintLintHelp(context.Out);
-                    return 0;
-                default:
-                    return Error(context, $"Unknown option: '{args[i]}'");
-            }
+                ["--input"] = v => { inputDir = v; return null; },
+                ["-i"] = v => { inputDir = v; return null; },
+            },
+            flags: new Dictionary<string, Func<string?>>
+            {
+                ["--strict"] = () => { strict = true; return null; },
+            }) is { } exitCode)
+        {
+            return exitCode;
         }
 
         if (inputDir is null)
@@ -329,28 +307,22 @@ public static class Program
         string? currentAssembly = null;
         var strict = false;
 
-        for (var i = 0; i < args.Length; i++)
-        {
-            switch (args[i])
+        if (ParseOptions(args, context, PrintDiffHelp,
+            options: new Dictionary<string, Func<string, string?>>
             {
-                case "--baseline" or "-b" when i + 1 < args.Length:
-                    baselineDir = args[++i];
-                    break;
-                case "--current" or "-c" when i + 1 < args.Length:
-                    currentDir = args[++i];
-                    break;
-                case "--assembly" or "-a" when i + 1 < args.Length:
-                    currentAssembly = args[++i];
-                    break;
-                case "--strict":
-                    strict = true;
-                    break;
-                case "--help" or "-h":
-                    PrintDiffHelp(context.Out);
-                    return 0;
-                default:
-                    return Error(context, $"Unknown option: '{args[i]}'");
-            }
+                ["--baseline"] = v => { baselineDir = v; return null; },
+                ["-b"] = v => { baselineDir = v; return null; },
+                ["--current"] = v => { currentDir = v; return null; },
+                ["-c"] = v => { currentDir = v; return null; },
+                ["--assembly"] = v => { currentAssembly = v; return null; },
+                ["-a"] = v => { currentAssembly = v; return null; },
+            },
+            flags: new Dictionary<string, Func<string?>>
+            {
+                ["--strict"] = () => { strict = true; return null; },
+            }) is { } exitCode)
+        {
+            return exitCode;
         }
 
         if (baselineDir is null)
@@ -435,36 +407,27 @@ public static class Program
         string? pds = null;
         var force = false;
 
-        for (var i = 0; i < args.Length; i++)
-        {
-            switch (args[i])
+        string? PasswordOnCommandLine() =>
+            "Passwords are not taken on the command line, where they end up in shell history and process lists. " +
+            $"Set {PasswordVariable} (an app password), or run interactively to be prompted.";
+
+        if (ParseOptions(args, context, PrintPublishHelp,
+            options: new Dictionary<string, Func<string, string?>>
             {
-                case "--input" or "-i" when i + 1 < args.Length:
-                    inputDir = args[++i];
-                    break;
-                case "--identifier" or "-u" when i + 1 < args.Length:
-                    identifier = args[++i];
-                    break;
-                case "--pds" when i + 1 < args.Length:
-                    pds = args[++i];
-                    break;
-                case "--force":
-                    force = true;
-                    break;
-                case "--help" or "-h":
-                    PrintPublishHelp(context.Out);
-                    return 0;
-                case "--password" or "-p":
-                    return Error(context,
-                        $"Passwords are not taken on the command line, where they end up in shell history and process lists. " +
-                        $"Set {PasswordVariable} (an app password), or run interactively to be prompted.");
-                case "--output" or "-o" or "--baseline" or "-b" or "--assembly" or "-a" or "--no-bump":
-                    return Error(context,
-                        $"'{args[i]}' belonged to the old publish, which copied files into a directory. publish now writes " +
-                        "the schemas to your repository on a PDS; see 'atproto-lexgen publish --help'.");
-                default:
-                    return Error(context, $"Unknown option: '{args[i]}'");
-            }
+                ["--input"] = v => { inputDir = v; return null; },
+                ["-i"] = v => { inputDir = v; return null; },
+                ["--identifier"] = v => { identifier = v; return null; },
+                ["-u"] = v => { identifier = v; return null; },
+                ["--pds"] = v => { pds = v; return null; },
+            },
+            flags: new Dictionary<string, Func<string?>>
+            {
+                ["--force"] = () => { force = true; return null; },
+                ["--password"] = PasswordOnCommandLine,
+                ["-p"] = PasswordOnCommandLine,
+            }) is { } exitCode)
+        {
+            return exitCode;
         }
 
         if (inputDir is null)
@@ -580,28 +543,22 @@ public static class Program
         Did? authority = null;
         string? outputDir = null;
 
-        for (var i = 0; i < args.Length; i++)
-        {
-            switch (args[i])
+        if (ParseOptions(args, context, PrintResolveHelp,
+            options: new Dictionary<string, Func<string, string?>>
             {
-                case "--did" when i + 1 < args.Length:
-                    if (!Did.TryParse(args[++i], out authority))
-                        return Error(context, $"--did must be a DID, not '{args[i]}'.");
-                    break;
-                case "--output" or "-o" when i + 1 < args.Length:
-                    outputDir = args[++i];
-                    break;
-                case "--help" or "-h":
-                    PrintResolveHelp(context.Out);
-                    return 0;
-                case var value when !value.StartsWith('-'):
-                    if (!Nsid.TryParse(value, out var nsid))
-                        return Error(context, $"'{value}' is not an NSID.");
-                    nsids.Add(nsid);
-                    break;
-                default:
-                    return Error(context, $"Unknown option: '{args[i]}'");
-            }
+                ["--did"] = v => Did.TryParse(v, out authority) ? null : $"--did must be a DID, not '{v}'.",
+                ["--output"] = v => { outputDir = v; return null; },
+                ["-o"] = v => { outputDir = v; return null; },
+            },
+            positional: value =>
+            {
+                if (!Nsid.TryParse(value, out var nsid))
+                    return $"'{value}' is not an NSID.";
+                nsids.Add(nsid);
+                return null;
+            }) is { } exitCode)
+        {
+            return exitCode;
         }
 
         if (nsids.Count == 0)
@@ -715,6 +672,63 @@ public static class Program
     {
         context.Error.WriteLine($"Error: {message}");
         return 1;
+    }
+
+    /// <summary>
+    /// The <c>for</c>/<c>switch</c> loop every command's options went through by hand: matches each
+    /// argument against <paramref name="options"/> (consumes the next argument) or
+    /// <paramref name="flags"/> (does not), prints <paramref name="printHelp"/> and exits 0 on
+    /// <c>--help</c>/<c>-h</c>, and passes anything left that does not start with <c>-</c> to
+    /// <paramref name="positional"/> when given. A handler returns an error message to fail the
+    /// command, or <see langword="null"/> to keep parsing; an argument nothing recognizes fails
+    /// with "Unknown option".
+    /// </summary>
+    /// <returns>The exit code to return immediately, or <see langword="null"/> to keep going.</returns>
+    private static int? ParseOptions(
+        string[] args,
+        CommandContext context,
+        Action<TextWriter> printHelp,
+        IReadOnlyDictionary<string, Func<string, string?>>? options = null,
+        IReadOnlyDictionary<string, Func<string?>>? flags = null,
+        Func<string, string?>? positional = null)
+    {
+        for (var i = 0; i < args.Length; i++)
+        {
+            var arg = args[i];
+            if (arg is "--help" or "-h")
+            {
+                printHelp(context.Out);
+                return 0;
+            }
+
+            if (flags is not null && flags.TryGetValue(arg, out var setFlag))
+            {
+                var flagError = setFlag();
+                if (flagError is not null)
+                    return Error(context, flagError);
+                continue;
+            }
+
+            if (options is not null && options.TryGetValue(arg, out var setValue) && i + 1 < args.Length)
+            {
+                var valueError = setValue(args[++i]);
+                if (valueError is not null)
+                    return Error(context, valueError);
+                continue;
+            }
+
+            if (positional is not null && !arg.StartsWith('-'))
+            {
+                var positionalError = positional(arg);
+                if (positionalError is not null)
+                    return Error(context, positionalError);
+                continue;
+            }
+
+            return Error(context, $"Unknown option: '{arg}'");
+        }
+
+        return null;
     }
 
     // ──────────────────────────────────────────────────────────

@@ -55,7 +55,7 @@ public sealed class ActorClient
     public async Task PutPreferencesAsync(
         IEnumerable<Preference> preferences, CancellationToken cancellationToken = default)
     {
-        var request = new PutPreferencesRequest { Preferences = [.. preferences] };
+        var request = new PutPreferencesRequest(Preferences: [.. preferences]);
         await _xrpc.ProcedureAsync(
             "app.bsky.actor.putPreferences", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
@@ -75,14 +75,6 @@ public sealed class ActorClient
             "app.bsky.actor.getSuggestions", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>Enumerate every suggested account to follow, fetching pages as needed.</summary>
-    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<ProfileView> EnumerateSuggestionsAsync(
-        int? pageSize = null, CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<GetSuggestionsResponse, ProfileView>(
-            (cursor, ct) => GetSuggestionsAsync(pageSize, cursor, ct),
-            cancellationToken);
-
     /// <summary>Search for actors matching a query string, one page at a time.</summary>
     /// <param name="q">Search query.</param>
     /// <param name="limit">Max results per page (1-100, default 25).</param>
@@ -101,15 +93,6 @@ public sealed class ActorClient
         return _xrpc.QueryAsync<SearchActorsResponse>(
             "app.bsky.actor.searchActors", parameters, cancellationToken: cancellationToken);
     }
-
-    /// <summary>Enumerate every actor matching a query string, fetching pages as needed.</summary>
-    /// <param name="q">Search query.</param>
-    /// <param name="pageSize">Results per request (1-100); <see langword="null"/> for the server default.</param>
-    public IAsyncEnumerable<ProfileView> EnumerateSearchActorsAsync(
-        string q, int? pageSize = null, CancellationToken cancellationToken = default) =>
-        Pagination.EnumerateAsync<SearchActorsResponse, ProfileView>(
-            (cursor, ct) => SearchActorsAsync(q, pageSize, cursor, ct),
-            cancellationToken);
 
     /// <summary>Search for actors with typeahead (autocomplete).</summary>
     /// <param name="q">Search query prefix.</param>

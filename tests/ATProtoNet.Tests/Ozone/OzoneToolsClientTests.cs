@@ -127,8 +127,9 @@ public sealed class OzoneToolsClientTests : IDisposable
     [Theory]
     [InlineData("rules")]
     [InlineData("events")]
-    public async Task SafelinkEnumerate_SendsEachCursorInTheBody(string listing)
+    public async Task SafelinkPagination_SendsEachCursorInTheBody(string listing)
     {
+        // Safelink's listings are procedures: the cursor travels in the JSON body, not the query string.
         var item = listing == "events"
             ? SafelinkEventJson
             : $$"""{"url":"u","pattern":"url","action":"warn","reason":"none","createdBy":"{{ModDid}}","createdAt":"2026-09-01T00:00:00.000Z","updatedAt":"2026-09-01T00:00:00.000Z"}""";
@@ -138,13 +139,19 @@ public sealed class OzoneToolsClientTests : IDisposable
         var count = 0;
         if (listing == "events")
         {
-            await foreach (var _ in _ozone.Client.Ozone.Safelink.EnumerateEventsAsync(pageSize: 2))
+            await foreach (var _ in ATProtoNet.Http.Pagination.EnumerateAsync<ATProtoNet.Lexicon.Tools.Ozone.Safelink.QueryEventsResponse, SafelinkEvent>(
+                (cursor, ct) => _ozone.Client.Ozone.Safelink.QueryEventsAsync(limit: 2, cursor: cursor, cancellationToken: ct)))
+            {
                 count++;
+            }
         }
         else
         {
-            await foreach (var _ in _ozone.Client.Ozone.Safelink.EnumerateRulesAsync(pageSize: 2))
+            await foreach (var _ in ATProtoNet.Http.Pagination.EnumerateAsync<QueryRulesResponse, UrlRule>(
+                (cursor, ct) => _ozone.Client.Ozone.Safelink.QueryRulesAsync(limit: 2, cursor: cursor, cancellationToken: ct)))
+            {
                 count++;
+            }
         }
 
         Assert.Equal(2, count);
@@ -204,21 +211,6 @@ public sealed class OzoneToolsClientTests : IDisposable
         Assert.Equal(
             """{"keys":["tools.ozone.setting.client.queues"],"scope":"personal"}""",
             _ozone.Sent.IsProcedure("tools.ozone.setting.removeOptions").Body);
-    }
-
-    [Fact]
-    public async Task EnumerateOptionsAsync_WalksPagesWithPageSize()
-    {
-        _ozone.Respond($$"""{"cursor":"c1","options":[{{OptionJson}}]}""");
-        _ozone.Respond($$"""{"options":[{{OptionJson}}]}""");
-
-        var count = 0;
-        await foreach (var _ in _ozone.Client.Ozone.Setting.EnumerateOptionsAsync(prefix: "tools.ozone.setting.client", pageSize: 2))
-            count++;
-
-        Assert.Equal(2, count);
-        Assert.All(_ozone.Requests, r => Assert.Contains("prefix=tools.ozone.setting.client", r.Query));
-        Assert.Contains("cursor=c1", _ozone.Requests[1].Query);
     }
 
     // ─── Verification ───
@@ -295,21 +287,6 @@ public sealed class OzoneToolsClientTests : IDisposable
         Assert.Equal("x", verification.RevokeReason);
     }
 
-    [Fact]
-    public async Task EnumerateVerificationsAsync_WalksPagesWithPageSize()
-    {
-        _ozone.Respond($$"""{"cursor":"c1","verifications":[{{VerificationJson}}]}""");
-        _ozone.Respond($$"""{"verifications":[{{VerificationJson}}]}""");
-
-        var count = 0;
-        await foreach (var _ in _ozone.Client.Ozone.Verification.EnumerateVerificationsAsync(pageSize: 2))
-            count++;
-
-        Assert.Equal(2, count);
-        Assert.All(_ozone.Requests, r => Assert.Contains("limit=2", r.Query));
-        Assert.Contains("cursor=c1", _ozone.Requests[1].Query);
-    }
-
     // ─── Hosting ───
 
     [Fact]
@@ -342,22 +319,5 @@ public sealed class OzoneToolsClientTests : IDisposable
         Assert.IsType<PasswordUpdated>(page.Events[2].Details);
         Assert.IsType<UnknownAccountHistoryDetails>(page.Events[3].Details);
         Assert.Equal("admin", page.Events[3].CreatedBy);
-    }
-
-    [Fact]
-    public async Task EnumerateAccountHistoryAsync_WalksPagesWithPageSize()
-    {
-        const string Event = """{"details":{"$type":"tools.ozone.hosting.getAccountHistory#passwordUpdated"},"createdBy":"user","createdAt":"2026-09-01T00:00:00.000Z"}""";
-        _ozone.Respond($$"""{"cursor":"c1","events":[{{Event}}]}""");
-        _ozone.Respond($$"""{"events":[{{Event}}]}""");
-
-        var count = 0;
-        await foreach (var _ in _ozone.Client.Ozone.Hosting.EnumerateAccountHistoryAsync(Did.Parse(UserDid), pageSize: 2))
-            count++;
-
-        Assert.Equal(2, count);
-        Assert.All(_ozone.Requests, r => Assert.Contains($"did={UserDid}", r.Query));
-        Assert.All(_ozone.Requests, r => Assert.Contains("limit=2", r.Query));
-        Assert.Contains("cursor=c1", _ozone.Requests[1].Query);
     }
 }

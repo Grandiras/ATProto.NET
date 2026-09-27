@@ -48,23 +48,15 @@ public abstract class ModerationConvoKind : LexObject;
 /// A conversation kind whose <c>$type</c> this SDK version does not model. It keeps the raw object
 /// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
 /// </summary>
-public sealed class UnknownModerationConvoKind : ModerationConvoKind, IUnknownUnionVariant
+/// <param name="type">The object's <c>$type</c>.</param>
+/// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
+public sealed class UnknownModerationConvoKind(string type, JsonElement raw) : ModerationConvoKind, IUnknownUnionVariant
 {
-    /// <summary>Creates an unknown conversation kind from its discriminator and raw object.</summary>
-    /// <param name="type">The object's <c>$type</c>.</param>
-    /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
-    public UnknownModerationConvoKind(string type, JsonElement raw)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(type);
-        Type = type;
-        Raw = UnknownUnionVariant.RequireObject(raw);
-    }
+    /// <inheritdoc/>
+    public string Type { get; } = UnknownUnionVariant.RequireType(type);
 
     /// <inheritdoc/>
-    public string Type { get; }
-
-    /// <inheritdoc/>
-    public JsonElement Raw { get; }
+    public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
 /// <summary>A direct conversation, for moderation (<c>chat.bsky.moderation.defs#directConvo</c>).</summary>
@@ -133,20 +125,10 @@ public sealed class ChatActorMetadata : LexObject
 // ── Request and response models ──────────────────────────
 
 /// <summary>Request body for chat.bsky.moderation.updateActorAccess.</summary>
-internal sealed class UpdateActorAccessRequest
-{
-    /// <summary>The account.</summary>
-    [JsonPropertyName("actor")]
-    public required Did Actor { get; init; }
-
-    /// <summary>Whether the account may use chat.</summary>
-    [JsonPropertyName("allowAccess")]
-    public required bool AllowAccess { get; init; }
-
-    /// <summary>A reference the moderation service records with the change.</summary>
-    [JsonPropertyName("ref")]
-    public string? Ref { get; init; }
-}
+internal sealed record UpdateActorAccessRequest(
+    [property: JsonPropertyName("actor")] Did Actor,
+    [property: JsonPropertyName("allowAccess")] bool AllowAccess,
+    [property: JsonPropertyName("ref")] string? Ref = null);
 
 /// <summary>Response from chat.bsky.moderation.getActorMetadata.</summary>
 public sealed class GetActorMetadataResponse

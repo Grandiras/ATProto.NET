@@ -367,31 +367,9 @@ public class ConvoModelsTests
         Assert.Equal(("", ""), (unknown.Rev, unknown.ConvoId));
     }
 
-    public static TheoryData<Type, Type, string> UnknownVariants => new()
-    {
-        { typeof(ConvoKind), typeof(UnknownConvoKind), "chat.bsky.convo.defs#channelConvo" },
-        { typeof(ChatMemberKind), typeof(UnknownChatMemberKind), "chat.bsky.actor.defs#guestConvoMember" },
-        { typeof(ConvoMessage), typeof(UnknownConvoMessage), "chat.bsky.convo.defs#pollMessageView" },
-        { typeof(ConvoLastReaction), typeof(UnknownConvoLastReaction), "chat.bsky.convo.defs#reactionOnlyView" },
-        { typeof(SystemMessageData), typeof(UnknownSystemMessageData), "chat.bsky.convo.defs#systemMessageDataPin" },
-        { typeof(ConvoRequestView), typeof(UnknownConvoRequestView), "chat.bsky.group.defs#inviteConvoView" },
-        { typeof(MessageEmbed), typeof(UnknownMessageEmbed), "chat.bsky.embed.poll" },
-        { typeof(MessageEmbedView), typeof(UnknownMessageEmbedView), "chat.bsky.embed.poll#view" },
-        { typeof(JoinLinkPreview), typeof(UnknownJoinLinkPreview), "chat.bsky.group.defs#expiredJoinLinkPreviewView" },
-    };
-
-    [Theory]
-    [MemberData(nameof(UnknownVariants))]
-    public void Deserialize_UnknownVariant_KeepsTheRawObjectAndWritesItBackUnchanged(Type union, Type unknown, string type)
-    {
-        var json = $$"""{"extra":{"n":1.50},"$type":"{{type}}","note":"caf\u00e9"}""";
-
-        var value = JsonSerializer.Deserialize(json, union, Options)!;
-
-        Assert.IsType(unknown, value);
-        Assert.Equal(type, ((IUnknownUnionVariant)value).Type);
-        Assert.Equal(json, JsonSerializer.Serialize(value, union, Options));
-    }
+    // The general "unknown $type reads back byte-for-byte" behavior for every open union,
+    // including these chat/convo ones, is covered once by
+    // OpenUnionTests.Deserialize_UnknownVariant_ReadsAsUnknownAndWritesBackByteForByte.
 
     private static void AssertJsonEqual(JsonElement expected, JsonElement actual) =>
         Assert.True(JsonElement.DeepEquals(expected, actual),

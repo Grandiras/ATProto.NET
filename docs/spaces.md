@@ -78,6 +78,9 @@ The simplest case needs no credential machinery at all. A personal-data space is
 user's own DID, so their PDS is both the space host and the repo host, and OAuth is enough.
 
 ```csharp
+using ATProtoNet.Http;
+using ATProtoNet.Lexicon.Com.AtProto.Space;
+
 // Create a space on the user's own PDS. simplespace is the space-management
 // implementation every PDS is required to support.
 var created = await client.SimpleSpace.CreateSpaceAsync(
@@ -92,8 +95,11 @@ await foreach (var record in client.Space.EnumerateRecordsAsync(space, client.Di
     Console.WriteLine(record.Path);
 
 // Spaces the user has written data to — note: written to, not "is a member of".
-await foreach (var view in client.Space.EnumerateSpacesAsync(type: Nsid.Parse("com.example.bookmarks")))
+await foreach (var view in Pagination.EnumerateAsync<ListSpacesResponse, SpaceView>(
+    (cursor, ct) => client.Space.ListSpacesAsync(type: Nsid.Parse("com.example.bookmarks"), cursor: cursor, cancellationToken: ct)))
+{
     Console.WriteLine(view.Uri);
+}
 ```
 
 Batch writes land under a single revision, which is how a syncer recognises them as one atomic

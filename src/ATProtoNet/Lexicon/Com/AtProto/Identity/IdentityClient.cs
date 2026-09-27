@@ -85,7 +85,7 @@ public sealed class IdentityClient
     {
         ArgumentNullException.ThrowIfNull(identifier);
 
-        var request = new RefreshIdentityRequest { Identifier = identifier };
+        var request = new RefreshIdentityRequest(Identifier: identifier);
         return _xrpc.ProcedureAsync<IdentityInfo>(
             "com.atproto.identity.refreshIdentity", request, cancellationToken: cancellationToken);
     }
@@ -95,7 +95,7 @@ public sealed class IdentityClient
     public async Task UpdateHandleAsync(
         Handle handle, CancellationToken cancellationToken = default)
     {
-        var request = new UpdateHandleRequest { Handle = handle };
+        var request = new UpdateHandleRequest(Handle: handle);
         await _xrpc.ProcedureAsync(
             "com.atproto.identity.updateHandle", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }

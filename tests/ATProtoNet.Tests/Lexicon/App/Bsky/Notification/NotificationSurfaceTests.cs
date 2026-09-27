@@ -103,19 +103,6 @@ public sealed class NotificationSurfaceTests : IDisposable
     }
 
     [Fact]
-    public async Task EnumerateActivitySubscriptionsAsync_FollowsTheCursor()
-    {
-        _handler
-            .On("app.bsky.notification.listActivitySubscriptions", $$"""{"cursor":"n","subscriptions":[{{BobProfileJson}}]}""")
-            .On("app.bsky.notification.listActivitySubscriptions", $$"""{"subscriptions":[{{BobProfileJson}}]}""");
-
-        var subscriptions = await _client.Bsky.Notification.EnumerateActivitySubscriptionsAsync().ToListAsync();
-
-        Assert.Equal(2, subscriptions.Count);
-        Assert.Equal(["", "cursor=n"], _handler.Requests.Select(r => r.Query));
-    }
-
-    [Fact]
     public async Task PutActivitySubscriptionAsync_PostsSubjectAndSubscription()
     {
         _handler.On("app.bsky.notification.putActivitySubscription", $$$"""{"subject":"{{{BobDid}}}","activitySubscription":{"post":true,"reply":false}}""");
