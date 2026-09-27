@@ -356,7 +356,7 @@ public sealed class CSharpEmitter
         sb.AppendLine("    public static IReadOnlyDictionary<string, string>? LocalizedNames => Declaration.LocalizedNames;");
         sb.AppendLine();
         sb.AppendLine("    /// <summary>The default collection set for a bare <c>space:</c> grant of this type.</summary>");
-        sb.AppendLine("    public static IReadOnlyList<string> Collections => Declaration.Collections;");
+        sb.AppendLine("    public static IReadOnlyList<ATProtoNet.Identity.Nsid> Collections => Declaration.Collections;");
         sb.AppendLine("}");
         sb.AppendLine();
     }

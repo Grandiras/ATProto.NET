@@ -168,7 +168,7 @@ holder around the SDK's `SpaceTypeDeclaration` instead of a class:
 }
 ```
 
-```csharp partial
+```csharp
 using ATProtoNet.Spaces;
 
 public static class ForumSpace
@@ -190,7 +190,7 @@ public static class ForumSpace
     public static string Key => Declaration.Key;
     public static string Name => Declaration.Name;
     public static IReadOnlyDictionary<string, string>? LocalizedNames => Declaration.LocalizedNames;
-    public static IReadOnlyList<string> Collections => Declaration.Collections;
+    public static IReadOnlyList<ATProtoNet.Identity.Nsid> Collections => Declaration.Collections;
 }
 ```
 

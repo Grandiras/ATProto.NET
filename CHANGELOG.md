@@ -413,6 +413,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`services.AddAtProto()` handed out a new, unconfigured `AtProtoClient` on every resolution** — `AddHttpClient<AtProtoClient>()` claimed the service as a transient typed client, so the configured singleton was never registered: each resolution got a fresh client for `https://bsky.social`, whatever `InstanceUrl` said, and a login on one was gone on the next. It is now one singleton built from the options (#136)
 - **The PDS health check reported `Unhealthy` whatever it was registered as** — `AddAtProtoClient()` registers `atproto-pds` as `Degraded`, but an unreachable PDS answered `Unhealthy`; `AtProtoPdsHealthCheck` now reports the registration's failure status (#136)
 - **Registering the PDS health check twice broke `/health`** — calling `AddAtProtoClient()` twice registered `atproto-pds` twice, and the health check service threw on the first check; `WithHealthCheck()` (which `AddAtProtoClient()` uses) now replaces a check of the same name (#136)
+- **`atproto-lexgen csharp` space types compile** — a `"type": "space"` def's generated `Collections` forwarder was declared `IReadOnlyList<string>` while `SpaceTypeDeclaration.Collections` is `IReadOnlyList<Nsid>`, so every generated space holder failed with CS0266. It is now `IReadOnlyList<ATProtoNet.Identity.Nsid>`. The emitter's tests only compared emitted text; `CSharpEmitterCompileTests` now compiles a representative set of generated Lexicons with Roslyn and asserts there are no error diagnostics (#141)
 
 ### Removed
 

@@ -33,7 +33,7 @@ public class CSharpEmitterTests
         return (files, emitter.Warnings);
     }
 
-    private const string RecipeDefs = """
+    internal const string RecipeDefs = """
         {
           "lexicon": 1,
           "id": "exchange.recipe.defs",
@@ -65,7 +65,7 @@ public class CSharpEmitterTests
         }
         """;
 
-    private const string RecipeRecord = """
+    internal const string RecipeRecord = """
         {
           "lexicon": 1,
           "id": "exchange.recipe.recipe",
@@ -378,7 +378,7 @@ public class CSharpEmitterTests
 
     // ── Space type declarations ──────────────────────────────
 
-    private const string ForumSpace = """
+    internal const string ForumSpace = """
         {
           "lexicon": 1,
           "id": "com.atmoboards.forum",
@@ -602,7 +602,7 @@ public class CSharpEmitterTests
 
     // ── Permission sets ──────────────────────────────────────
 
-    private const string AuthBasicSet = """
+    internal const string AuthBasicSet = """
         {
           "lexicon": 1,
           "id": "com.example.lexicon.authBasic",
