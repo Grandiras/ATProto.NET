@@ -2,7 +2,6 @@ using System.Text;
 using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
 using ATProtoNet.Repo;
-using ATProtoNet.Streaming;
 
 namespace ATProtoNet.Tests.Repo;
 
@@ -60,10 +59,10 @@ public sealed class RepoCommitTests
         Assert.StartsWith("bafyrei", signed.Cid.Value);
     }
 
-    // ── Interop with the firehose verifier ───────────────────
+    // ── Interop with the verifiers ───────────────────────────
 
     [Fact]
-    public void Sign_SignedViewExtractedByFirehoseVerifierMatchesTheUnsignedEncoding()
+    public void Sign_TheVerifiersSplicedViewMatchesTheUnsignedEncoding()
     {
         // This is the contract that makes a commit federatable: a relay recovers the signed
         // bytes by stripping `sig` from the encoded block, so that splice must reproduce
@@ -72,12 +71,11 @@ public sealed class RepoCommitTests
         var commit = NewCommit();
         var signed = commit.Sign(key);
 
-        var view = FirehoseVerifier.ExtractSignedView(signed.Bytes);
+        var view = CommitBlock.Read(signed.Bytes);
 
-        Assert.NotNull(view);
-        Assert.Equal(commit.EncodeUnsigned(), view!.Value.UnsignedBytes);
-        Assert.Equal(signed.Signature, view.Value.SigBytes);
-        Assert.True(key.Verify(view.Value.UnsignedBytes, view.Value.SigBytes!));
+        Assert.Equal(commit.EncodeUnsigned(), view.Unsigned);
+        Assert.Equal(signed.Signature, view.Signature);
+        Assert.True(key.Verify(view.Unsigned, view.Signature));
     }
 
     [Fact]

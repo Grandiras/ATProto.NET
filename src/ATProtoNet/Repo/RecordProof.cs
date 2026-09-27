@@ -1,9 +1,7 @@
-using System.Formats.Cbor;
 using System.Text;
 using System.Text.Json;
 using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
-using ATProtoNet.Streaming;
 
 namespace ATProtoNet.Repo;
 
@@ -57,30 +55,21 @@ public static class RecordProof
         ArgumentNullException.ThrowIfNull(rkey);
         ArgumentException.ThrowIfNullOrWhiteSpace(signingKey);
 
+        CommitBlock commit;
         CarReader reader;
         try
         {
-            reader = CarReader.FromBytes(car, verifyBlockCids: true);
+            commit = CommitBlock.FromCar(car, out reader);
         }
         catch (FormatException ex)
         {
-            throw new RepoVerificationException($"The record proof is not a valid CAR file: {ex.Message}", ex);
+            throw new RepoVerificationException($"The record proof is not valid: {ex.Message}", ex);
         }
 
-        return VerifyBlocks(reader, did, collection, rkey, signingKey);
-    }
+        if (reader.Roots.Count != 1)
+            throw new RepoVerificationException($"A record proof has one root, the commit; this one has {reader.Roots.Count}.");
 
-    /// <summary>Verifies a parsed proof whose block CIDs <see cref="CarReader.FromBytes"/> has already checked.</summary>
-    private static VerifiedRecord VerifyBlocks(CarReader car, Did did, Nsid collection, RecordKey rkey, string signingKey)
-    {
-        if (car.Roots.Count != 1)
-            throw new RepoVerificationException($"A record proof has one root, the commit; this one has {car.Roots.Count}.");
-
-        var commitCid = car.Roots[0];
-        var commitBlock = car.FindBlock(commitCid)
-            ?? throw new RepoVerificationException("The record proof does not include its commit block.");
-
-        var commit = ReadCommit(commitBlock.Data);
+        var commitCid = reader.Roots[0];
         if (commit.Did != did.Value)
             throw new RepoVerificationException($"The record proof is for the repository {commit.Did}, not {did}.");
 
@@ -94,12 +83,12 @@ public static class RecordProof
             throw new RepoVerificationException($"The commit's revision '{commit.Rev}' is not a TID.");
 
         var uri = AtUri.Create(did, collection, rkey);
-        var committed = Identity.Cid.Parse(CidComputation.EncodeCidToString(commitCid));
-        var recordCid = FindInTree(car, commit.Data, $"{collection}/{rkey}");
+        var committed = Identity.Cid.FromBytes(commitCid);
+        var recordCid = FindInTree(reader, commit.Data, $"{collection}/{rkey}");
         if (recordCid is null)
             return new VerifiedRecord(uri, committed, rev, null, null);
 
-        var recordBlock = car.FindBlock(recordCid)
+        var recordBlock = reader.FindBlock(recordCid)
             ?? throw new RepoVerificationException($"The record proof does not include the record block for {uri}.");
 
         if (recordCid.Length < 2 || recordCid[1] != DagCborCodec)
@@ -119,7 +108,7 @@ public static class RecordProof
             throw new RepoVerificationException($"The record block for {uri} is not a map.");
 
         return new VerifiedRecord(
-            uri, committed, rev, Identity.Cid.Parse(CidComputation.EncodeCidToString(recordCid)), value);
+            uri, committed, rev, Identity.Cid.FromBytes(recordCid), value);
     }
 
     /// <summary>
@@ -152,9 +141,11 @@ public static class RecordProof
                 ?? throw new RepoVerificationException($"The record proof is incomplete: it lacks tree node {cidText}.");
 
             MstNodeData node;
+            byte[][] keys;
             try
             {
                 node = MstNodeData.FromBytes(block.Data);
+                keys = node.ReadKeys(lower, upper);
             }
             catch (FormatException ex)
             {
@@ -179,7 +170,6 @@ public static class RecordProof
                 continue;
             }
 
-            var keys = ReadKeys(node, cidText, lower, upper);
             var nodeLayer = MstKeyDepth.ComputeDepth(keys[0]);
             foreach (var entryKey in keys)
             {
@@ -188,10 +178,10 @@ public static class RecordProof
             }
 
             var index = 0;
-            while (index < keys.Count && keys[index].AsSpan().SequenceCompareTo(target) < 0)
+            while (index < keys.Length && keys[index].AsSpan().SequenceCompareTo(target) < 0)
                 index++;
 
-            if (index < keys.Count && keys[index].AsSpan().SequenceEqual(target))
+            if (index < keys.Length && keys[index].AsSpan().SequenceEqual(target))
                 return node.Entries[index].Value;
 
             var subtree = index == 0 ? node.Left : node.Entries[index - 1].Tree;
@@ -200,99 +190,13 @@ public static class RecordProof
 
             if (index > 0)
                 lower = keys[index - 1];
-            if (index < keys.Count)
+            if (index < keys.Length)
                 upper = keys[index];
 
             cid = subtree;
             layer = nodeLayer;
         }
     }
-
-    /// <summary>
-    /// Rebuilds a node's keys from their prefix compression, and checks that they are valid MST
-    /// keys, strictly increasing, and between <paramref name="lower"/> and <paramref name="upper"/>.
-    /// </summary>
-    private static List<byte[]> ReadKeys(MstNodeData node, string cidText, byte[]? lower, byte[]? upper)
-    {
-        var keys = new List<byte[]>(node.Entries.Count);
-        byte[] previous = [];
-        foreach (var entry in node.Entries)
-        {
-            // MstNodeData has already bounded the prefix by the previous key's length.
-            var key = new byte[entry.PrefixLength + entry.KeySuffix.Length];
-            previous.AsSpan(0, entry.PrefixLength).CopyTo(key);
-            entry.KeySuffix.CopyTo(key.AsSpan(entry.PrefixLength));
-
-            if (!MerkleSearchTree.IsValidKey(Encoding.Latin1.GetString(key)))
-                throw new RepoVerificationException($"Tree node {cidText} holds an invalid key.");
-
-            var floor = keys.Count > 0 ? keys[^1] : lower;
-            if ((floor is not null && key.AsSpan().SequenceCompareTo(floor) <= 0)
-                || (upper is not null && key.AsSpan().SequenceCompareTo(upper) >= 0))
-            {
-                throw new RepoVerificationException($"Tree node {cidText} holds keys out of order.");
-            }
-
-            keys.Add(key);
-            previous = key;
-        }
-
-        return keys;
-    }
-
-    /// <summary>Reads the fields of a signed commit block that verification needs.</summary>
-    private static Commit ReadCommit(byte[] block)
-    {
-        var signed = FirehoseVerifier.ExtractSignedView(block)
-            ?? throw new RepoVerificationException("The commit block is not a signed commit.");
-
-        string? did = null;
-        string? rev = null;
-        byte[]? data = null;
-        long? version = null;
-        try
-        {
-            var reader = new CborReader(block, CborConformanceMode.Lax);
-            var count = reader.ReadStartMap()
-                ?? throw new RepoVerificationException("The commit block is not a definite-length map.");
-
-            for (var i = 0; i < count; i++)
-            {
-                switch (reader.ReadTextString())
-                {
-                    case "did":
-                        did = reader.ReadTextString();
-                        break;
-                    case "rev":
-                        rev = reader.ReadTextString();
-                        break;
-                    case "data":
-                        data = DagCborLink.Read(reader);
-                        break;
-                    case "version":
-                        version = reader.ReadInt64();
-                        break;
-                    default:
-                        reader.SkipValue();
-                        break;
-                }
-            }
-        }
-        catch (Exception ex) when (ex is CborContentException or InvalidOperationException or OverflowException or FormatException)
-        {
-            throw new RepoVerificationException($"The commit block is malformed: {ex.Message}", ex);
-        }
-
-        if (did is null || rev is null || data is null || version is null)
-            throw new RepoVerificationException("The commit block lacks a did, rev, data or version field.");
-
-        if (version != RepoCommit.CurrentVersion)
-            throw new RepoVerificationException($"The commit is version {version}; only version {RepoCommit.CurrentVersion} is supported.");
-
-        return new Commit(did, rev, data, signed.UnsignedBytes, signed.SigBytes!);
-    }
-
-    private sealed record Commit(string Did, string Rev, byte[] Data, byte[] Unsigned, byte[] Signature);
 }
 
 /// <summary>

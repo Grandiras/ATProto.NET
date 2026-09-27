@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Text;
 
 namespace ATProtoNet.Repo;
@@ -90,7 +91,7 @@ public sealed class MerkleSearchTree
         ArgumentNullException.ThrowIfNull(key);
         ArgumentNullException.ThrowIfNull(value);
 
-        if (!IsValidKey(key))
+        if (!IsValidKey(key.AsSpan()))
             throw new ArgumentException($"Not a valid MST key: '{key}'.", nameof(key));
         if (_entries.ContainsKey(key))
             throw new ArgumentException($"Key already exists in MST: {key}", nameof(key));
@@ -201,8 +202,7 @@ public sealed class MerkleSearchTree
         ArgumentNullException.ThrowIfNull(blocks);
 
         var tree = new MerkleSearchTree();
-        string? lastKey = null;
-        tree.Load(rootCid, blocks, 0, ref lastKey);
+        tree.Load(rootCid, blocks, 0, lower: null, upper: null);
         tree._loadedRoot = rootCid.ToArray();
         return tree;
     }
@@ -237,52 +237,33 @@ public sealed class MerkleSearchTree
     }
 
     /// <summary>
-    /// Whether <paramref name="key"/> is a valid MST key: <c>collection/rkey</c>, both non-empty,
-    /// drawn from <c>A-Z a-z 0-9 _ ~ - : .</c>, at most 1024 characters in all.
+    /// Whether <paramref name="key"/>, as characters or as the bytes a tree node holds, is a valid
+    /// MST key: <c>collection/rkey</c>, both non-empty, drawn from <c>A-Z a-z 0-9 _ ~ - : .</c>, at
+    /// most 1024 characters in all.
     /// </summary>
     /// <remarks>Mirrors <c>isValidMstKey</c> in the reference implementation.</remarks>
-    internal static bool IsValidKey(string key)
+    internal static bool IsValidKey<T>(ReadOnlySpan<T> key) where T : IBinaryInteger<T>
     {
-        if (key.Length == 0 || key.Length > MaxKeyLength)
+        if (key.Length is 0 or > MaxKeyLength)
             return false;
 
         var separator = -1;
         for (var i = 0; i < key.Length; i++)
         {
-            if (!IsKeyChar(key[i], i, ref separator))
+            var c = int.CreateTruncating(key[i]);
+            if (c == '/')
+            {
+                if (separator >= 0)
+                    return false;
+                separator = i;
+            }
+            else if (c is not ((>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or '_' or '~' or '-' or ':' or '.'))
+            {
                 return false;
+            }
         }
 
         return separator > 0 && separator < key.Length - 1;
-    }
-
-    /// <summary><see cref="IsValidKey(string)"/> over the bytes a tree node holds, without decoding them.</summary>
-    internal static bool IsValidKey(ReadOnlySpan<byte> key)
-    {
-        if (key.Length == 0 || key.Length > MaxKeyLength)
-            return false;
-
-        var separator = -1;
-        for (var i = 0; i < key.Length; i++)
-        {
-            if (!IsKeyChar((char)key[i], i, ref separator))
-                return false;
-        }
-
-        return separator > 0 && separator < key.Length - 1;
-    }
-
-    private static bool IsKeyChar(char c, int index, ref int separator)
-    {
-        if (c == '/')
-        {
-            if (separator >= 0)
-                return false;
-            separator = index;
-            return true;
-        }
-
-        return c is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or '_' or '~' or '-' or ':' or '.';
     }
 
     // ── Building ─────────────────────────────────────────────
@@ -464,7 +445,7 @@ public sealed class MerkleSearchTree
 
     // ── Loading ──────────────────────────────────────────────
 
-    private void Load(byte[] cid, Func<string, byte[]?> blocks, int depth, ref string? lastKey)
+    private void Load(byte[] cid, Func<string, byte[]?> blocks, int depth, byte[]? lower, byte[]? upper)
     {
         if (depth > MaxTreeDepth)
             throw new FormatException($"MST is deeper than the maximum of {MaxTreeDepth} layers.");
@@ -476,40 +457,22 @@ public sealed class MerkleSearchTree
         var node = MstNodeData.FromBytes(data);
 
         // Only the root of an empty tree has neither entries nor a left link. Refusing any other
-        // such node means every subtree holds at least one key, so the ordering check below also
-        // stops a crafted tree from linking one subtree many times over.
+        // such node means every subtree holds at least one key, so the ranges below also stop a
+        // crafted tree from linking one subtree many times over: it cannot fit two of them.
         if (depth > 0 && node.Entries.Count == 0 && node.Left is null)
             throw new FormatException($"MST node {cidString} is empty.");
 
+        // Each subtree holds the keys between the entries around it, so an in-order walk sees
+        // every key in strictly increasing (byte, and for valid keys ordinal) order.
+        var keys = node.ReadKeys(lower, upper);
         if (node.Left is not null)
-            Load(node.Left, blocks, depth + 1, ref lastKey);
+            Load(node.Left, blocks, depth + 1, lower, keys.Length > 0 ? keys[0] : upper);
 
-        byte[] previous = [];
-        foreach (var entry in node.Entries)
+        for (var i = 0; i < keys.Length; i++)
         {
-            // MstNodeData has already bounded the prefix by the previous key's length.
-            var keyBytes = new byte[entry.PrefixLength + entry.KeySuffix.Length];
-            previous.AsSpan(0, entry.PrefixLength).CopyTo(keyBytes);
-            entry.KeySuffix.CopyTo(keyBytes.AsSpan(entry.PrefixLength));
-
-            // Latin-1 maps each byte to one char, so anything outside the ASCII key alphabet
-            // survives decoding and is refused by the key check rather than silently replaced.
-            var key = Encoding.Latin1.GetString(keyBytes);
-            if (!IsValidKey(key))
-                throw new FormatException($"MST node {cidString} holds an invalid key: '{key}'.");
-
-            // An in-order walk must see strictly increasing keys. Checking that here also means a
-            // subtree linked twice fails on its first repeated key rather than being walked again.
-            // Ordinal order is byte order for the ASCII keys the check above lets through.
-            if (lastKey is not null && string.CompareOrdinal(key, lastKey) <= 0)
-                throw new FormatException($"MST keys are out of order: '{key}' follows '{lastKey}'.");
-
-            _entries.Add(key, new Leaf(entry.Value, MstKeyDepth.ComputeDepth(key)));
-            lastKey = key;
-            previous = keyBytes;
-
-            if (entry.Tree is not null)
-                Load(entry.Tree, blocks, depth + 1, ref lastKey);
+            _entries.Add(Encoding.ASCII.GetString(keys[i]), new Leaf(node.Entries[i].Value, MstKeyDepth.ComputeDepth(keys[i])));
+            if (node.Entries[i].Tree is { } tree)
+                Load(tree, blocks, depth + 1, keys[i], i + 1 < keys.Length ? keys[i + 1] : upper);
         }
     }
 

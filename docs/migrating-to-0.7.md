@@ -806,10 +806,8 @@ See [Identity Resolution](did-resolution.md).
   `InvalidDocument`, and `InvalidOperation` is `OperationRejected`.
 - **DID resolvers implement `IDidResolver`, and their consumers take it.** `DidResolver`,
   `PlcClient` and `DidWebResolver` resolve with `ResolveAsync(Did)` instead of
-  `ResolveDidAsync(string)`; `FirehoseVerifier(IDidResolver)` and
-  `SpaceCredentialProvider(…, IDidResolver? didResolver)` replace the `DidResolver` overloads, and the
-  parameterless `FirehoseVerifier()` is `FirehoseVerifier(IdentityResolverOptions? options = null)`.
-  Pass a `CachingDidResolver`.
+  `ResolveDidAsync(string)`, and `SpaceCredentialProvider(…, IDidResolver? didResolver)` replaces
+  the `DidResolver` overload. Pass a `CachingDidResolver`.
 - **`PlcClient` takes an explicit directory URL and typed arguments.** `PlcClient(string)` is
   `PlcClient(IdentityResolverOptions?)` and `PlcClient(HttpClient)` is `PlcClient(HttpClient, Uri
   directoryUrl, IdentityResolverOptions?)`; the client's `BaseAddress` is no longer read. Every
@@ -1056,17 +1054,22 @@ See [Firehose Streaming](firehose.md) and [Jetstream Streaming](jetstream.md).
 - **Firehose construction leaves `AtProtoClient`.** `CreateFirehoseClient`,
   `CreateFirehoseConsumer`, `AtProtoClientOptions.RelayUrl`, `AtProtoClientBuilder.WithRelayUrl` and
   the Aspire `AtProtoClientSettings.RelayUrl` are removed; a relay subscription needs no user session.
-  Construct `new FirehoseClient("wss://bsky.network", logger)`, or a `TypedFirehoseConsumer`.
+  Construct a `TypedFirehoseConsumer` with the relay's URL.
 - **`FirehoseConsumer` and `FirehoseFrame` are removed; `TypedFirehoseConsumer` reconnects itself.**
-  It parses each frame once, and is no longer `IDisposable`. `FirehoseClient.SubscribeAsync` yields
-  parsed `FirehoseMessage`s and `SubscribeLabelsAsync` yields `LabelStreamMessage`s; `FirehoseClient`
-  and `JetstreamClient` are `IAsyncDisposable` instead of `IDisposable`, and `DisconnectAsync` is
-  removed (disposing, or cancelling, ends the subscription). `await using` the clients, and drop
-  `Dispose` calls on the consumers.
+  It parses each frame once, and is no longer `IDisposable`: drop `Dispose` calls on the consumers.
+- **`FirehoseClient` and `JetstreamClient` are removed: the consumers read every stream.**
+  `FirehoseClient.SubscribeAsync(cursor)` is `TypedFirehoseConsumer.ConsumeAsync(cursor)`,
+  `SubscribeLabelsAsync(cursor)` is `LabelStreamConsumer.ConsumeAsync(cursor)`, and
+  `JetstreamClient.SubscribeAsync(cursor)` is `JetstreamConsumer.ConsumeAsync(cursor)`, all over one
+  connect-and-reconnect loop. For one connection and no more, set
+  `Reconnect = new StreamReconnectPolicy { MaxAttempts = 0 }`: the enumeration then ends with an
+  `EventStreamException` when the connection does. The consumers are not disposable; cancel the
+  token to stop one. A Jetstream consumer drops the event its cursor names, which the server
+  replays.
 - **Stream consumers share `StreamConsumerOptions` and a `StreamReconnectPolicy`.**
-  `TypedFirehoseConsumerOptions` and `JetstreamConsumerOptions` derive from `StreamConsumerOptions`
-  (`ServiceUrl`, `CursorStore`, `StreamId`, `CursorPersistInterval`, `Reconnect`, `Logger`,
-  `OnStreamError`, `OnEventDropped`). `ReconnectDelay` and `MaxReconnectAttempts` (with `-1` for
+  `TypedFirehoseConsumerOptions` and `JetstreamConsumerOptions` derive from
+  `CursorStreamConsumerOptions` (`CursorStore`, `StreamId`, `CursorPersistInterval`), which extends
+  `StreamConsumerOptions` (`ServiceUrl`, `Reconnect`, `Logger`, `OnStreamError`, `OnEventDropped`). `ReconnectDelay` and `MaxReconnectAttempts` (with `-1` for
   unlimited) are replaced by `Reconnect`: exponential backoff from `InitialDelay` (5 s) to `MaxDelay`
   (30 s) for at most `MaxAttempts` (10, `null` for unlimited) consecutive failures.
 - **A consumer whose reconnect attempts run out throws** an `EventStreamException` whose
@@ -1078,7 +1081,12 @@ See [Firehose Streaming](firehose.md) and [Jetstream Streaming](jetstream.md).
   `StoreCursorAsync`), shared by the firehose, label and Jetstream consumers;
   `InMemoryFirehoseCursorStore` is `InMemoryStreamCursorStore`.
 - **`TypedFirehoseConsumerOptions.VerifySignatures` is removed, and `CollectionFilter` is an
-  `IReadOnlySet<Nsid>`.** A consumer verifies signatures exactly when it has a `Verifier`.
+  `IReadOnlySet<Nsid>`.** A consumer verifies signatures exactly when it has a `SyncVerifier`.
+- **`FirehoseVerifier` is removed**, with `VerificationResult`. `RepoSyncVerifier` checks a
+  commit's signature and CIDs too, and that no commit of the repository was missed: set
+  `TypedFirehoseConsumerOptions.SyncVerifier = new RepoSyncVerifier()`, which keeps each
+  repository's state in memory unless given a store, and `Resync` to fetch a repository whose
+  chain breaks. `VerifyCids = true` still checks CIDs alone, without the network.
 - **Firehose messages follow the current `subscribeRepos` Lexicon.** `HandleEvent` and
   `TombstoneEvent`, removed upstream, are gone: handle `#identity` and `#account` instead. `Seq` and
   `Time` move from `FirehoseMessage` to a new `FirehoseEvent` base of `CommitEvent`, `SyncEvent`,
@@ -1112,7 +1120,7 @@ using ATProtoNet.Streaming;
 var consumer = new TypedFirehoseConsumer(new TypedFirehoseConsumerOptions
 {
     ServiceUrl = "wss://bsky.network",
-    Verifier = new FirehoseVerifier(),   // verifies signatures and CIDs
+    SyncVerifier = new RepoSyncVerifier(),   // verifies signatures, CIDs and the Sync 1.1 chain
     CollectionFilter = new HashSet<Nsid> { Nsid.Parse("app.bsky.feed.post") },
     Reconnect = new StreamReconnectPolicy { InitialDelay = TimeSpan.FromSeconds(5), MaxAttempts = null },
     CursorStore = new InMemoryStreamCursorStore(),
@@ -1149,7 +1157,12 @@ catch (EventStreamException ex)
   `JetstreamArchiveException`, with `StatusCode`, `Error`, `RetryAfter` and `IsRetryable`, and derives
   from the new `EventStreamException`. `JetstreamStreamError` is replaced by `EventStreamError`, so
   `OnStreamError` is an `Action<EventStreamError>` and `JetstreamFrame.Error` an
-  `EventStreamError?`; `JetstreamClient` throws on an error frame instead of ending normally.
+  `EventStreamError?`.
+- **`JetstreamReplayConsumer` is configured by its options alone.** The
+  `(options, archiveClient)` constructor is removed: the replay builds its archive client from
+  `JetstreamArchiveOptions` (`ApiKey`, `ServiceUrl`, `HttpClient`, `MaxRetryAttempts`,
+  `MaxRetryDelay`). `JetstreamArchiveOptions.AfterSeq` is removed too: pass the resume position to
+  `ReplayAsync(afterSeq)`.
 - **`JetstreamDictionaryClient` is folded into `JetstreamArchiveClient`**, as
   `GetZstdDictionaryAsync(id)`, which sends no API key.
 - **`JetstreamEventParser` keeps `ParseFrame(ReadOnlyMemory<byte>, JetstreamProtocol)`**; the `Parse`
@@ -1195,6 +1208,8 @@ See [Low-Level Repo API](low-level-repo.md#repository-data-structures).
 - **`DagCborDecoder.DecodeToNode`, `DagCborEncoder.ComputeCid` and `CarBlock.DataLength` are
   removed**: use `JsonSerializer.SerializeToNode(DagCborDecoder.Decode(bytes))`,
   `CidComputation.ComputeForDagCbor(bytes)` and `block.Data.Length`.
+- **`DagCborDecoder.TryValidate` is removed**: `DagCborDecoder.Decode` refuses the same malformed
+  input with a `FormatException`, though it does not check map key order.
 
 <!-- snippet: byte[] bytes; -->
 ```csharp

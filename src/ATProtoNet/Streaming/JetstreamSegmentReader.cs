@@ -130,7 +130,7 @@ public sealed class JetstreamArchiveRow
                 record = DagCborDecoder.Decode(Payload);
                 cid = CidComputation.ComputeForDagCbor(Payload.Span);
             }
-            catch (Exception ex) when (EventStreamFrame.IsMalformed(ex) || ex is NotSupportedException)
+            catch (Exception ex) when (DagCborDecoder.IsMalformed(ex) || ex is NotSupportedException)
             {
                 record = null;
                 cid = null;

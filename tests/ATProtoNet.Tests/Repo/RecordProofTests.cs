@@ -4,7 +4,6 @@ using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
 using ATProtoNet.Repo;
 using ATProtoNet.Serialization;
-using ATProtoNet.Streaming;
 
 namespace ATProtoNet.Tests.Repo;
 
@@ -166,7 +165,7 @@ public sealed class RecordProofTests
     {
         var reader = CarReader.FromBytes(Reference.PresentCar);
         var commit = reader.GetRootBlock()!;
-        var signature = FirehoseVerifier.ExtractSignedView(commit.Data)!.Value.SigBytes!;
+        var signature = CommitBlock.Read(commit.Data).Signature;
         var at = commit.Data.AsSpan().IndexOf(signature);
         var altered = Flip(commit.Data, at + 10);
         var alteredCid = CidComputation.ComputeBinaryForDagCbor(altered);

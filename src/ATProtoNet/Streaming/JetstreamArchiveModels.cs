@@ -48,13 +48,6 @@ public sealed class JetstreamArchiveOptions
     public required IJetstreamBlockDecompressor BlockDecompressor { get; init; }
 
     /// <summary>
-    /// Start the backfill after this sequence number; events at or below it are not delivered.
-    /// When null, a cursor from <see cref="StreamConsumerOptions.CursorStore"/> is used,
-    /// and failing that the replay starts at the beginning of the archive.
-    /// </summary>
-    public long? AfterSeq { get; init; }
-
-    /// <summary>
     /// Stop the backfill at this sequence number; events above it are not delivered.
     /// Implies <see cref="SnapshotOnly"/> semantics for the upper bound — there is nothing to
     /// cut over into above a fixed ceiling, so setting it with

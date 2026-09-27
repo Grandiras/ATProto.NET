@@ -325,9 +325,14 @@ public class JetstreamArchiveClientTests
     }
 
     [Fact]
-    public void ArchiveHostIsDerivedFromTheWebSocketUrl()
-        => Assert.Equal("https://jetstream.us-east.bsky.network/",
-            JetstreamArchiveClient.ToHttpUrl(JetstreamEndpoints.UsEast));
+    public async Task ArchiveHostIsDerivedFromTheWebSocketUrl()
+    {
+        var handler = new ScriptedHandler().Bytes([1]);
+
+        await Create(handler).GetBlockAsync("seg_0.jss", 0);
+
+        Assert.Equal("https://jetstream.us-east.bsky.network", handler.Requests[0].RequestUri!.GetLeftPart(UriPartial.Authority));
+    }
 
     /// <summary>A response body that dies part-way through, the way a cut-off download does.</summary>
     private sealed class FailingStream(byte[] prefix) : Stream

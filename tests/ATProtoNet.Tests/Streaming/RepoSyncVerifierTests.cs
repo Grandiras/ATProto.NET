@@ -346,6 +346,26 @@ public sealed class RepoSyncVerifierTests : IDisposable
         AssertOutcome(RepoSyncOutcome.Invalid, result);
     }
 
+    [Fact]
+    public async Task VerifySyncAsync_SignedCommitWhoseDataIsNotACid_IsInvalidRatherThanThrowing()
+    {
+        // Anyone with a repository's signing key can sign any data link; it must not end the consumer.
+        using var verifier = Verifier();
+        var rev = Tid.Parse("3jzfcijpj2z2a");
+        var signed = new RepoCommit { Did = _repo.Did.Value, Data = [0x01, 0x71, 0x12, 0x20, 0x00], Rev = rev.Value }.Sign(_repo.Key);
+
+        var result = await verifier.VerifySyncAsync(new SyncEvent
+        {
+            Seq = 1,
+            Did = _repo.Did,
+            Rev = rev,
+            Blocks = CarWriter.Write(signed.BinaryCid, [new CarBlock(signed.BinaryCid, signed.Bytes)]),
+        });
+
+        AssertOutcome(RepoSyncOutcome.Invalid, result);
+        Assert.Contains("data is not a CID", result.Reason);
+    }
+
     // ── The checklist, one rule at a time ────────────────────
 
     public static TheoryData<string, string> Tampered => new()

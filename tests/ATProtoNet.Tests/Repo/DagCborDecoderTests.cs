@@ -167,51 +167,12 @@ public class DagCborDecoderTests
     }
 
     [Fact]
-    public void TryValidate_DeepNesting_ReturnsFalseRatherThanOverflowing()
+    public void IsMalformed_CountsWhatTheBytesCauseAndNotABug()
     {
-        Assert.False(DagCborDecoder.TryValidate(NestedArrays(100_000, 0x01), out var error));
-        Assert.NotNull(error);
-    }
-
-    [Fact]
-    public void TryValidate_ValidCbor_ReturnsTrue()
-    {
-        var writer = new CborWriter(CborConformanceMode.Canonical);
-        writer.WriteStartMap(1);
-        writer.WriteTextString("a");
-        writer.WriteInt32(1);
-        writer.WriteEndMap();
-        var bytes = writer.Encode();
-
-        Assert.True(DagCborDecoder.TryValidate(bytes, out var error));
-        Assert.Null(error);
-    }
-
-    [Fact]
-    public void TryValidate_UnsortedKeys_ReturnsFalse()
-    {
-        // Use Lax mode to write unsorted keys
-        var writer = new CborWriter(CborConformanceMode.Lax);
-        writer.WriteStartMap(2);
-        writer.WriteTextString("b");
-        writer.WriteInt32(2);
-        writer.WriteTextString("a");
-        writer.WriteInt32(1);
-        writer.WriteEndMap();
-        var bytes = writer.Encode();
-
-        Assert.False(DagCborDecoder.TryValidate(bytes, out var error));
-        Assert.Contains("sorted", error!);
-    }
-
-    [Fact]
-    public void TryValidate_FloatValue_ReturnsFalse()
-    {
-        var writer = new CborWriter(CborConformanceMode.Lax);
-        writer.WriteDouble(1.5);
-        var bytes = writer.Encode();
-
-        Assert.False(DagCborDecoder.TryValidate(bytes, out var error));
-        Assert.Contains("float", error!, StringComparison.OrdinalIgnoreCase);
+        Assert.True(DagCborDecoder.IsMalformed(new CborContentException("x")));
+        Assert.True(DagCborDecoder.IsMalformed(new ArgumentException("Invalid DID: 'x'.")));
+        Assert.True(DagCborDecoder.IsMalformed(new ArgumentOutOfRangeException("length")));
+        Assert.False(DagCborDecoder.IsMalformed(new ArgumentNullException("value")));
+        Assert.False(DagCborDecoder.IsMalformed(new NullReferenceException()));
     }
 }

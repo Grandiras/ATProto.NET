@@ -156,7 +156,7 @@ public sealed class JetstreamArchiveClient : IDisposable
         ILogger? logger = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(serviceUrl);
-        _baseUri = new Uri(ToHttpUrl(serviceUrl), UriKind.Absolute);
+        _baseUri = AtProtoHttp.WithScheme(new Uri(serviceUrl.TrimEnd('/') + "/", UriKind.Absolute), webSocket: false);
         _http = httpClient ?? AtProtoHttp.CreateClient();
         _ownsHttpClient = httpClient is null;
         _apiKey = apiKey;
@@ -565,16 +565,6 @@ public sealed class JetstreamArchiveClient : IDisposable
         Endpoint(GetBlockPath, new XrpcParams().Add("segment", segment).Add("blockIndex", blockIndex));
 
     private Uri Endpoint(string path, XrpcParams query) => new(_baseUri, path + query.ToQueryString());
-
-    internal static string ToHttpUrl(string serviceUrl)
-    {
-        var url = serviceUrl.TrimEnd('/');
-        if (url.StartsWith("wss://", StringComparison.OrdinalIgnoreCase))
-            url = "https://" + url["wss://".Length..];
-        else if (url.StartsWith("ws://", StringComparison.OrdinalIgnoreCase))
-            url = "http://" + url["ws://".Length..];
-        return url + "/";
-    }
 
     /// <inheritdoc/>
     public void Dispose()

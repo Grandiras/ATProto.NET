@@ -1,7 +1,6 @@
 using System.Text.Json;
 using ATProtoNet.Crypto;
 using ATProtoNet.Repo;
-using ATProtoNet.Streaming;
 
 namespace ATProtoNet.Tests.Repo;
 
@@ -55,9 +54,8 @@ public sealed class RepoWritePathTests
         Assert.NotNull(commitBlock);
 
         // The signature covers the commit with its `sig` removed, as a relay recomputes it.
-        var view = FirehoseVerifier.ExtractSignedView(commitBlock.Data);
-        Assert.NotNull(view);
-        Assert.True(key.Verify(view.Value.UnsignedBytes, view.Value.SigBytes!));
+        var view = CommitBlock.Read(commitBlock.Data);
+        Assert.True(key.Verify(view.Unsigned, view.Signature));
 
         var commitJson = DagCborDecoder.Decode(commitBlock.Data);
         Assert.Equal(Did, commitJson.GetProperty("did").GetString());

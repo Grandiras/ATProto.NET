@@ -182,7 +182,6 @@ public class JetstreamArchiveTests
                 ApiKey = TestConfig.JetstreamApiKey,
                 BlockDecompressor = new ZstdBlockDecompressor(),
                 // One segment's worth of history, so the test spends a bounded number of bytes.
-                AfterSeq = segment.MinSeq == 0 ? 0 : segment.MinSeq - 1,
                 BeforeSeq = segment.MaxSeq,
                 SnapshotOnly = true,
             },
@@ -191,7 +190,7 @@ public class JetstreamArchiveTests
         using (consumer)
         {
             var events = new List<JetstreamEvent>();
-            await foreach (var evt in consumer.ReplayAsync(cancellationToken: cts.Token))
+            await foreach (var evt in consumer.ReplayAsync(segment.MinSeq == 0 ? 0 : segment.MinSeq - 1, cts.Token))
             {
                 events.Add(evt);
                 if (events.Count == 25)

@@ -56,7 +56,7 @@ internal static class EventStreamFrame
             bodyOffset = frame.Length - reader.BytesRemaining;
             return bodyOffset < frame.Length;
         }
-        catch (Exception ex) when (IsMalformed(ex))
+        catch (Exception ex) when (DagCborDecoder.IsMalformed(ex))
         {
             return false;
         }
@@ -89,7 +89,7 @@ internal static class EventStreamFrame
 
             return string.IsNullOrEmpty(error) ? null : new EventStreamError(error, message);
         }
-        catch (Exception ex) when (IsMalformed(ex))
+        catch (Exception ex) when (DagCborDecoder.IsMalformed(ex))
         {
             return null;
         }
@@ -116,7 +116,7 @@ internal static class EventStreamFrame
                 reader.SkipValue();
             }
         }
-        catch (Exception ex) when (IsMalformed(ex))
+        catch (Exception ex) when (DagCborDecoder.IsMalformed(ex))
         {
         }
 
@@ -155,17 +155,56 @@ internal static class EventStreamFrame
 
             return JsonSerializer.Deserialize<T>(buffer.WrittenSpan, AtProtoJsonDefaults.Options);
         }
-        catch (Exception ex) when (IsMalformed(ex) || ex is JsonException or FormatException)
+        catch (Exception ex) when (DagCborDecoder.IsMalformed(ex) || ex is JsonException)
         {
             return null;
         }
     }
+}
+
+/// <summary>
+/// A handler of the AT Protocol event streams (firehose, labels, chat moderation), whose frames
+/// are an <see cref="EventStreamFrame"/> header and body.
+/// </summary>
+internal abstract class CborEventStreamHandler<T>(StreamConsumerOptions options) : EventStreamHandler<T>(options)
+    where T : class
+{
+    public sealed override async ValueTask<(T? Message, EventStreamError? Error)> ReadAsync(
+        StreamSocketMessage message, CancellationToken cancellationToken)
+    {
+        var frame = message.Data;
+        if (!EventStreamFrame.TryReadHeader(frame, out var op, out var type, out var bodyOffset))
+        {
+            Dropped(StreamDropReason.Malformed, null, "The frame header could not be read.");
+            return default;
+        }
+
+        var body = frame[bodyOffset..];
+        if (op == EventStreamFrame.ErrorOp)
+            return (null, EventStreamFrame.ReadError(body) ?? new EventStreamError("Unknown", null));
+
+        if (op != EventStreamFrame.MessageOp || string.IsNullOrEmpty(type))
+        {
+            Dropped(StreamDropReason.Malformed, EventStreamFrame.ReadSeq(body), $"Unexpected frame op {op}.");
+            return default;
+        }
+
+        return (await HandleAsync(type, body, cancellationToken).ConfigureAwait(false), null);
+    }
 
     /// <summary>
-    /// What <see cref="CborReader"/> throws for input that is not well-formed, or not the shape
-    /// being read: never a bug in the caller.
+    /// Turns an <c>op = 1</c> frame into a message to deliver, or returns null to skip it, having
+    /// recorded any position the frame carried.
     /// </summary>
-    public static bool IsMalformed(Exception ex) =>
-        ex is CborContentException or InvalidOperationException or FormatException or OverflowException
-            or ArgumentException;
+    /// <param name="type">The header's <c>t</c>.</param>
+    /// <param name="body">The frame body; valid only until this call returns.</param>
+    protected abstract ValueTask<T?> HandleAsync(string type, ReadOnlyMemory<byte> body, CancellationToken cancellationToken);
+
+    /// <summary>The endpoint of the XRPC subscription <paramref name="nsid"/>, resuming after <paramref name="cursor"/>.</summary>
+    protected static Uri Endpoint(string serviceUrl, string nsid, string? cursor) =>
+        new($"{serviceUrl.TrimEnd('/')}/xrpc/{nsid}" + (cursor is null ? string.Empty : $"?cursor={Uri.EscapeDataString(cursor)}"));
+
+    /// <inheritdoc cref="Endpoint(string, string, string?)"/>
+    protected static Uri Endpoint(string serviceUrl, string nsid, long? cursor) =>
+        Endpoint(serviceUrl, nsid, cursor?.ToString(System.Globalization.CultureInfo.InvariantCulture));
 }

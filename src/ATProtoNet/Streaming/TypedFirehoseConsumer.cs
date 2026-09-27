@@ -3,22 +3,14 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Sync;
+using ATProtoNet.Repo;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Streaming;
 
 /// <summary>Configuration options for the typed firehose consumer.</summary>
-public sealed class TypedFirehoseConsumerOptions : StreamConsumerOptions
+public sealed class TypedFirehoseConsumerOptions : CursorStreamConsumerOptions
 {
-    /// <summary>
-    /// Verifies every commit's signature, and its blocks against their CIDs, when set. Its DID
-    /// cache is invalidated on each <c>#identity</c> event. A commit that fails is dropped and
-    /// reported to <see cref="StreamConsumerOptions.OnEventDropped"/>. Set this or
-    /// <see cref="SyncVerifier"/>, not both.
-    /// </summary>
-    public FirehoseVerifier? Verifier { get; init; }
-
     /// <summary>
     /// Verifies every <c>#commit</c> and <c>#sync</c> event inductively (Sync 1.1) when set: each
     /// commit's signature, blocks and operations, and that it chains on the repository's previous
@@ -44,9 +36,9 @@ public sealed class TypedFirehoseConsumerOptions : StreamConsumerOptions
     public RepoResyncOptions? Resync { get; init; }
 
     /// <summary>
-    /// Whether to check the blocks of commit and sync events against their CIDs when no
-    /// <see cref="Verifier"/> is set: a local check, with no network access. With a verifier this
-    /// is implied. Default: false.
+    /// Whether to check the blocks of commit and sync events against their CIDs: a local check,
+    /// with no network access, that a relay did not alter them. A <see cref="SyncVerifier"/> does
+    /// this and more. Default: false.
     /// </summary>
     public bool VerifyCids { get; init; }
 
@@ -62,8 +54,6 @@ public sealed class TypedFirehoseConsumerOptions : StreamConsumerOptions
     internal override void Validate()
     {
         base.Validate();
-        if (Verifier is not null && SyncVerifier is not null)
-            throw new ArgumentException("Set either Verifier or SyncVerifier: the sync verifier checks signatures itself.", nameof(SyncVerifier));
         if (Resync is not null)
         {
             if (SyncVerifier is null)
@@ -75,7 +65,7 @@ public sealed class TypedFirehoseConsumerOptions : StreamConsumerOptions
 
 /// <summary>
 /// A reconnecting firehose consumer (<c>com.atproto.sync.subscribeRepos</c>) that parses frames
-/// into typed <see cref="FirehoseMessage"/> objects, with collection filtering, CID and signature
+/// into typed <see cref="FirehoseMessage"/> objects, with collection filtering, CID or Sync 1.1
 /// verification, and persistent cursor storage.
 /// </summary>
 /// <remarks>
@@ -85,15 +75,8 @@ public sealed class TypedFirehoseConsumerOptions : StreamConsumerOptions
 /// <para>With a <see cref="TypedFirehoseConsumerOptions.SyncVerifier"/>, each repository's commits
 /// are verified as a chain (Sync 1.1), and with <see cref="TypedFirehoseConsumerOptions.Resync"/> a
 /// repository whose chain breaks is fetched again and delivered as a <see cref="RepoResyncEvent"/>.</para>
-/// <para>Delivery is <b>at-least-once</b>: an event's position is recorded when the caller asks for
-/// the next one, and the cursor is saved every
-/// <see cref="StreamConsumerOptions.CursorPersistInterval"/> events and when the enumeration ends,
-/// so events after the last saved cursor may be delivered again after a restart. Events a filter
-/// or a failed verification skips still move the cursor.</para>
-/// <para>Cancelling the token ends the enumeration normally. An error frame is reported to
-/// <see cref="StreamConsumerOptions.OnStreamError"/>; the consumer reconnects after a retryable
-/// one and throws an <see cref="EventStreamException"/> for one that is not (<c>FutureCursor</c>),
-/// and when <see cref="StreamConsumerOptions.Reconnect"/> gives up.</para>
+/// <para>Delivery, cancellation and errors follow <see cref="StreamConsumerOptions"/>. For a single
+/// connection, set <see cref="StreamReconnectPolicy.MaxAttempts"/> to 0.</para>
 /// </remarks>
 /// <example>
 /// <code>
@@ -115,8 +98,6 @@ public sealed class TypedFirehoseConsumer
 {
     private readonly TypedFirehoseConsumerOptions _options;
     private readonly StreamConnector _connector;
-    private readonly ILogger _logger;
-    private readonly CollectionMatcher? _filter;
     private CursorTracker? _cursor;
 
     /// <summary>Create a typed firehose consumer.</summary>
@@ -133,8 +114,6 @@ public sealed class TypedFirehoseConsumer
         options.Validate();
         _options = options;
         _connector = connector;
-        _logger = options.Logger ?? NullLogger.Instance;
-        _filter = options.CollectionFilter is { Count: > 0 } collections ? new CollectionMatcher(collections) : null;
     }
 
     /// <summary>
@@ -145,7 +124,7 @@ public sealed class TypedFirehoseConsumer
 
     /// <summary>Consume typed firehose events with parsing, filtering, and optional verification.</summary>
     /// <param name="cursor">The sequence number to resume after. When null, the stored cursor is used
-    /// if there is a <see cref="StreamConsumerOptions.CursorStore"/>, and the live stream otherwise.</param>
+    /// if there is a <see cref="CursorStreamConsumerOptions.CursorStore"/>, and the live stream otherwise.</param>
     /// <param name="cancellationToken">Cancellation token to stop consuming.</param>
     /// <exception cref="EventStreamException">The relay sent an error that reconnecting cannot fix,
     /// such as <c>FutureCursor</c>, or every reconnect attempt the policy allows failed.</exception>
@@ -153,178 +132,26 @@ public sealed class TypedFirehoseConsumer
         long? cursor = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var tracker = new CursorTracker(
-            _options.CursorStore, _options.ResolvedStreamId, _options.CursorPersistInterval, _logger);
+        if (await CursorTracker.StartAsync(_options, cursor, cancellationToken).ConfigureAwait(false) is not { } tracker)
+            yield break;
+
         _cursor = tracker;
-
-        var start = cursor;
-        if (start is null)
+        var handler = new Handler(_options, tracker);
+        await using (tracker.ConfigureAwait(false))
+        await using (handler.ConfigureAwait(false))
         {
-            try
-            {
-                start = await tracker.LoadAsync(cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                yield break;
-            }
-
-            if (start.HasValue)
-                _logger.LogInformation("Resuming the firehose from stored cursor {Cursor}", start.Value);
-        }
-
-        tracker.Start(start);
-
-        var resync = _options.Resync is { } resyncOptions
-            ? new RepoResyncCoordinator(_options.SyncVerifier!, resyncOptions, _options.ServiceUrl, tracker.SetPersistLimit, _logger)
-            : null;
-
-        try
-        {
-            var handler = new Handler(this, tracker, resync);
-            await foreach (var message in EventStreamLoop.RunAsync(
-                handler, _connector, _options.Reconnect, _logger, _options.OnStreamError, cancellationToken)
-                .ConfigureAwait(false))
-            {
+            await foreach (var message in EventStreamLoop.RunAsync(handler, _connector, cancellationToken).ConfigureAwait(false))
                 yield return message;
-            }
-        }
-        finally
-        {
-            if (resync is not null)
-                await resync.DisposeAsync().ConfigureAwait(false);
-            await tracker.FlushAsync().ConfigureAwait(false);
         }
     }
 
-    /// <summary>
-    /// Filters and verifies one parsed message. Returns whether it is delivered. A sync-verified
-    /// event's state is recorded at once.
-    /// </summary>
-    internal ValueTask<bool> AcceptAsync(FirehoseMessage message, CancellationToken cancellationToken)
-        => AcceptAsync(message, handler: null, cancellationToken);
-
-    /// <summary>
-    /// Filters and verifies one parsed message. Returns whether it is delivered; the state of a
-    /// sync-verified event it delivers is recorded by <paramref name="handler"/> on delivery.
-    /// </summary>
-    private async ValueTask<bool> AcceptAsync(FirehoseMessage message, Handler? handler, CancellationToken cancellationToken)
+    private sealed class Handler : CborEventStreamHandler<FirehoseMessage>, IAsyncDisposable
     {
-        if (_options.SyncVerifier is { } syncVerifier)
-        {
-            switch (message)
-            {
-                case CommitEvent commit:
-                    var commitResult = await syncVerifier.VerifyCommitAsync(commit, cancellationToken).ConfigureAwait(false);
-                    return await AcceptSyncedAsync(syncVerifier, commit, commitResult, _filter?.Matches(commit) ?? true, handler, cancellationToken)
-                        .ConfigureAwait(false);
+        private readonly TypedFirehoseConsumerOptions _options;
+        private readonly CursorTracker _cursor;
+        private readonly CollectionMatcher? _filter;
+        private readonly RepoResyncCoordinator? _resync;
 
-                case SyncEvent syncEvent:
-                    var syncResult = await syncVerifier.VerifySyncAsync(syncEvent, cancellationToken).ConfigureAwait(false);
-                    return await AcceptSyncedAsync(syncVerifier, syncEvent, syncResult, matches: true, handler, cancellationToken)
-                        .ConfigureAwait(false);
-
-                case IdentityEvent identity:
-                    await syncVerifier.InvalidateIdentityAsync(identity.Did, cancellationToken).ConfigureAwait(false);
-                    return true;
-            }
-        }
-
-        switch (message)
-        {
-            case CommitEvent commit:
-                if (_filter is not null && !_filter.Matches(commit))
-                    return false;
-
-                // The signature check verifies every block against its CID as well, so the CAR is
-                // parsed and hashed once however many checks are on.
-                var result = _options.Verifier is { } verifier
-                    ? await verifier.VerifySignatureAsync(commit, cancellationToken).ConfigureAwait(false)
-                    : _options.VerifyCids ? FirehoseVerifier.VerifyCid(commit) : null;
-                if (result is { IsValid: false })
-                {
-                    _logger.LogWarning("Verification failed for commit {Seq} from {Repo}: {Error}",
-                        commit.Seq, commit.Repo, result.Error);
-                    Drop(StreamDropReason.VerificationFailed, commit.Seq, result.Error);
-                    return false;
-                }
-
-                return true;
-
-            case SyncEvent sync:
-                if (_options.VerifyCids || _options.Verifier is not null)
-                {
-                    var cids = FirehoseVerifier.VerifyCid(sync);
-                    if (!cids.IsValid)
-                    {
-                        _logger.LogWarning("CID verification failed for sync event {Seq} from {Did}: {Error}",
-                            sync.Seq, sync.Did, cids.Error);
-                        Drop(StreamDropReason.VerificationFailed, sync.Seq, cids.Error);
-                        return false;
-                    }
-                }
-
-                return true;
-
-            case IdentityEvent identity:
-                // The account's handle or keys changed: the verifier must not go on checking its
-                // commits against a cached document.
-                if (_options.Verifier is not null)
-                    await _options.Verifier.InvalidateIdentityAsync(identity.Did, cancellationToken).ConfigureAwait(false);
-                return true;
-
-            default:
-                return true;
-        }
-    }
-
-    /// <summary>Acts on a <see cref="RepoSyncVerifier"/> outcome. Returns whether the event is delivered.</summary>
-    private async ValueTask<bool> AcceptSyncedAsync(
-        RepoSyncVerifier sync, FirehoseEvent evt, RepoSyncResult result, bool matches, Handler? handler,
-        CancellationToken cancellationToken)
-    {
-        switch (result.Outcome)
-        {
-            case RepoSyncOutcome.Valid:
-                // A commit the filter skips still moves its repository's chain on.
-                if (!matches || handler is null)
-                    await sync.ApplyAsync(result, cancellationToken).ConfigureAwait(false);
-                else
-                    handler.ApplyOnDelivery(evt, result.State!);
-                return matches;
-
-            case RepoSyncOutcome.Stale:
-                Drop(StreamDropReason.Stale, evt.Seq, $"{result.Did}: {result.Reason}");
-                return false;
-
-            case RepoSyncOutcome.Desynchronized:
-                // Held events are delivered after the repository's snapshot, not dropped.
-                if (handler?.Resync is { } resync && await resync.HoldAsync(evt, result, cancellationToken).ConfigureAwait(false))
-                    return false;
-
-                Drop(StreamDropReason.Desynchronized, evt.Seq, $"{result.Did}: {result.Reason}");
-                return false;
-
-            default:
-                _logger.LogWarning("Verification failed for event {Seq} from {Did}: {Error}", evt.Seq, result.Did, result.Reason);
-                Drop(StreamDropReason.VerificationFailed, evt.Seq, $"{result.Did}: {result.Reason}");
-                return false;
-        }
-    }
-
-    private void Drop(StreamDropReason reason, long? cursor, string? detail)
-    {
-        _logger.LogDebug("Dropped firehose event {Cursor} ({Reason}): {Detail}", cursor, reason, detail);
-        _options.OnEventDropped?.Invoke(new DroppedStreamEvent(reason, cursor, detail));
-    }
-
-    private static Uri Endpoint(string serviceUrl, long? cursor) =>
-        new($"{serviceUrl.TrimEnd('/')}/xrpc/com.atproto.sync.subscribeRepos" +
-            (cursor is { } value ? $"?cursor={value}" : string.Empty));
-
-    private sealed class Handler(TypedFirehoseConsumer owner, CursorTracker cursor, RepoResyncCoordinator? resync)
-        : EventStreamHandler<FirehoseMessage>
-    {
         // The repository state the message being delivered moves to, recorded once the caller
         // asks for the next message: recording it earlier would skip the message after a crash.
         private FirehoseMessage? _pendingMessage;
@@ -333,50 +160,53 @@ public sealed class TypedFirehoseConsumer
         // A held event being delivered: it keeps the saved cursor below it until the caller moves on.
         private FirehoseEvent? _deliveringHeld;
 
-        public RepoResyncCoordinator? Resync => resync;
+        public Handler(TypedFirehoseConsumerOptions options, CursorTracker cursor)
+            : base(options)
+        {
+            _options = options;
+            _cursor = cursor;
+            _filter = options.CollectionFilter is { Count: > 0 } collections ? new CollectionMatcher(collections) : null;
+            _resync = options.Resync is { } resync
+                ? new RepoResyncCoordinator(options.SyncVerifier!, resync, options.ServiceUrl, cursor.SetPersistLimit, Logger)
+                : null;
+        }
 
         public override string Stream => "firehose";
 
-        public void ApplyOnDelivery(FirehoseMessage message, RepoSyncState state)
-        {
-            _pendingMessage = message;
-            _pendingState = state;
-        }
-
         public override ValueTask<(Uri Endpoint, StreamSocketOptions Options)> ConnectAsync(CancellationToken cancellationToken) =>
-            ValueTask.FromResult((Endpoint(owner._options.ServiceUrl, cursor.Current), default(StreamSocketOptions)));
+            ValueTask.FromResult((Endpoint(_options.ServiceUrl, "com.atproto.sync.subscribeRepos", _cursor.Current), default(StreamSocketOptions)));
 
         public override async ValueTask<FirehoseMessage?> NextPendingAsync(CancellationToken cancellationToken)
         {
-            if (resync is null)
+            if (_resync is null)
                 return null;
 
-            while (await resync.NextAsync(cancellationToken).ConfigureAwait(false) is { } pending)
+            while (await _resync.NextAsync(cancellationToken).ConfigureAwait(false) is { } pending)
             {
                 switch (pending)
                 {
                     case RepoResyncCoordinator.Snapshot snapshot:
-                        ApplyOnDelivery(snapshot.Message, snapshot.State);
+                        (_pendingMessage, _pendingState) = (snapshot.Message, snapshot.State);
                         return snapshot.Message;
 
                     case RepoResyncCoordinator.Held held:
                         // Verified again now that the snapshot is in: it must chain on it.
-                        if (await owner.AcceptAsync(held.Event, this, cancellationToken).ConfigureAwait(false))
+                        if (await AcceptAsync(held.Event, cancellationToken).ConfigureAwait(false))
                         {
                             _deliveringHeld = held.Event;
                             return held.Event;
                         }
 
-                        resync.Release(held.Event.Seq);
+                        _resync.Release(held.Event.Seq);
                         break;
 
                     case RepoResyncCoordinator.Abandoned abandoned:
-                        owner.Drop(StreamDropReason.Desynchronized, abandoned.Event.Seq, abandoned.Reason);
-                        resync.Release(abandoned.Event.Seq);
+                        Report(StreamDropReason.Desynchronized, abandoned.Event.Seq, abandoned.Reason);
+                        _resync.Release(abandoned.Event.Seq);
                         break;
 
                     case RepoResyncCoordinator.Refetch refetch:
-                        await resync.RefetchAsync(refetch, cancellationToken).ConfigureAwait(false);
+                        await _resync.RefetchAsync(refetch, cancellationToken).ConfigureAwait(false);
                         break;
                 }
             }
@@ -384,33 +214,14 @@ public sealed class TypedFirehoseConsumer
             return null;
         }
 
-        public override async ValueTask DeliveredAsync(FirehoseMessage message, CancellationToken cancellationToken)
-        {
-            Delivered(message);
-            if (ReferenceEquals(message, _pendingMessage) && _pendingState is { } state)
-            {
-                _pendingMessage = null;
-                _pendingState = null;
-
-                // Not cancelled with the enumeration: the caller has already processed the message.
-                await owner._options.SyncVerifier!.StateStore.SetAsync(state, CancellationToken.None).ConfigureAwait(false);
-            }
-
-            if (_deliveringHeld is { } held && ReferenceEquals(message, held))
-            {
-                _deliveringHeld = null;
-                resync?.Release(held.Seq);
-            }
-        }
-
-        public override async ValueTask<FirehoseMessage?> HandleAsync(
+        protected override async ValueTask<FirehoseMessage?> HandleAsync(
             string type, ReadOnlyMemory<byte> body, CancellationToken cancellationToken)
         {
             // With a sync verifier every commit is verified, so none can be skipped unread.
-            if (owner._filter is not null && owner._options.SyncVerifier is null && type == "#commit")
+            if (_filter is not null && _options.SyncVerifier is null && type == "#commit")
             {
                 // Read the paths before deserializing, so commits nobody asked for cost a scan.
-                if (!owner._filter.TryScan(body, out var seq, out var matches))
+                if (!_filter.TryScan(body, out var seq, out var matches))
                 {
                     Dropped(StreamDropReason.Malformed, EventStreamFrame.ReadSeq(body), "#commit");
                     return null;
@@ -418,7 +229,7 @@ public sealed class TypedFirehoseConsumer
 
                 if (!matches)
                 {
-                    cursor.Advance(seq);
+                    _cursor.Advance(seq);
                     return null;
                 }
             }
@@ -433,29 +244,152 @@ public sealed class TypedFirehoseConsumer
             }
 
             // A relay replaying from an inclusive cursor, or rewinding, must not redeliver.
-            if (message is FirehoseEvent sequenced && sequenced.Seq <= cursor.Current)
+            if (message is FirehoseEvent sequenced && sequenced.Seq <= _cursor.Current)
                 return null;
 
-            if (await owner.AcceptAsync(message, this, cancellationToken).ConfigureAwait(false))
+            if (await AcceptAsync(message, cancellationToken).ConfigureAwait(false))
                 return message;
 
             if (message is FirehoseEvent dropped)
-                cursor.Advance(dropped.Seq);
+                _cursor.Advance(dropped.Seq);
             return null;
         }
 
-        public override void Delivered(FirehoseMessage message)
+        public override async ValueTask DeliveredAsync(FirehoseMessage message, CancellationToken cancellationToken)
         {
             if (message is FirehoseEvent sequenced)
-                cursor.Advance(sequenced.Seq);
+                _cursor.Advance(sequenced.Seq);
+
+            if (ReferenceEquals(message, _pendingMessage) && _pendingState is { } state)
+            {
+                (_pendingMessage, _pendingState) = (null, null);
+
+                // Not cancelled with the enumeration: the caller has already processed the message.
+                await _options.SyncVerifier!.StateStore.SetAsync(state, CancellationToken.None).ConfigureAwait(false);
+            }
+
+            if (_deliveringHeld is { } held && ReferenceEquals(message, held))
+            {
+                _deliveringHeld = null;
+                _resync?.Release(held.Seq);
+            }
         }
 
-        public override void Dropped(StreamDropReason reason, long? position, string? detail)
+        public override void Dropped(StreamDropReason reason, long? cursor, string? detail)
         {
-            if (position is { } value)
-                cursor.Advance(value);
-            owner.Drop(reason, position, detail);
+            if (cursor is { } position)
+                _cursor.Advance(position);
+            Report(reason, cursor, detail);
         }
+
+        /// <summary>Reports a skipped event without moving the cursor, which the caller does or must not do.</summary>
+        private void Report(StreamDropReason reason, long? cursor, string? detail) => base.Dropped(reason, cursor, detail);
+
+        /// <summary>
+        /// Filters and verifies one parsed message. Returns whether it is delivered; the state of a
+        /// sync-verified event it delivers is recorded on delivery.
+        /// </summary>
+        private async ValueTask<bool> AcceptAsync(FirehoseMessage message, CancellationToken cancellationToken)
+        {
+            if (_options.SyncVerifier is { } syncVerifier)
+            {
+                switch (message)
+                {
+                    case CommitEvent commit:
+                        var commitResult = await syncVerifier.VerifyCommitAsync(commit, cancellationToken).ConfigureAwait(false);
+                        return await AcceptSyncedAsync(syncVerifier, commit, commitResult, _filter?.Matches(commit) ?? true, cancellationToken)
+                            .ConfigureAwait(false);
+
+                    case SyncEvent syncEvent:
+                        var syncResult = await syncVerifier.VerifySyncAsync(syncEvent, cancellationToken).ConfigureAwait(false);
+                        return await AcceptSyncedAsync(syncVerifier, syncEvent, syncResult, matches: true, cancellationToken)
+                            .ConfigureAwait(false);
+
+                    case IdentityEvent identity:
+                        // The account's keys may have changed: its next commit must not be checked
+                        // against a cached document.
+                        await syncVerifier.InvalidateIdentityAsync(identity.Did, cancellationToken).ConfigureAwait(false);
+                        return true;
+                }
+            }
+
+            switch (message)
+            {
+                case CommitEvent commit:
+                    if (_filter is not null && !_filter.Matches(commit))
+                        return false;
+                    return !_options.VerifyCids || CidsVerify(commit.Seq, commit.Repo, commit.Blocks);
+
+                case SyncEvent sync:
+                    return !_options.VerifyCids || CidsVerify(sync.Seq, sync.Did, sync.Blocks);
+
+                default:
+                    return true;
+            }
+        }
+
+        /// <summary>Acts on a <see cref="RepoSyncVerifier"/> outcome. Returns whether the event is delivered.</summary>
+        private async ValueTask<bool> AcceptSyncedAsync(
+            RepoSyncVerifier sync, FirehoseEvent evt, RepoSyncResult result, bool matches, CancellationToken cancellationToken)
+        {
+            switch (result.Outcome)
+            {
+                case RepoSyncOutcome.Valid:
+                    // A commit the filter skips still moves its repository's chain on.
+                    if (!matches)
+                        await sync.ApplyAsync(result, cancellationToken).ConfigureAwait(false);
+                    else
+                        (_pendingMessage, _pendingState) = (evt, result.State!);
+                    return matches;
+
+                case RepoSyncOutcome.Stale:
+                    Report(StreamDropReason.Stale, evt.Seq, $"{result.Did}: {result.Reason}");
+                    return false;
+
+                case RepoSyncOutcome.Desynchronized:
+                    // Held events are delivered after the repository's snapshot, not dropped.
+                    if (_resync is not null && await _resync.HoldAsync(evt, result, cancellationToken).ConfigureAwait(false))
+                        return false;
+
+                    Report(StreamDropReason.Desynchronized, evt.Seq, $"{result.Did}: {result.Reason}");
+                    return false;
+
+                default:
+                    Logger.LogWarning("Verification failed for event {Seq} from {Did}: {Error}", evt.Seq, result.Did, result.Reason);
+                    Report(StreamDropReason.VerificationFailed, evt.Seq, $"{result.Did}: {result.Reason}");
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// Checks every block of an event's CAR against its CID, failing closed on a codec other
+        /// than dag-cbor or raw, which could otherwise carry blocks past the check. Reports the
+        /// event when they do not verify.
+        /// </summary>
+        private bool CidsVerify(long seq, Did did, byte[]? blocks)
+        {
+            string error;
+            try
+            {
+                if (blocks is { Length: > 0 })
+                {
+                    CarReader.FromBytes(blocks, verifyBlockCids: true);
+                    return true;
+                }
+
+                error = "The event carries no blocks.";
+            }
+            catch (FormatException ex)
+            {
+                error = $"The event's blocks do not verify: {ex.Message}";
+            }
+
+            Logger.LogWarning("CID verification failed for event {Seq} from {Did}: {Error}", seq, did, error);
+            Report(StreamDropReason.VerificationFailed, seq, error);
+            return false;
+        }
+
+        public ValueTask DisposeAsync() => _resync?.DisposeAsync() ?? ValueTask.CompletedTask;
     }
 
     /// <summary>Matches commits against a collection filter, on parsed events or straight from the CBOR body.</summary>
@@ -525,7 +459,7 @@ public sealed class TypedFirehoseConsumer
                     }
                 }
             }
-            catch (Exception ex) when (EventStreamFrame.IsMalformed(ex))
+            catch (Exception ex) when (DagCborDecoder.IsMalformed(ex))
             {
                 return false;
             }

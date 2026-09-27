@@ -14,12 +14,8 @@ public sealed record EventStreamError(string Error, string? Message);
 /// <see cref="StreamReconnectPolicy"/> gave up.
 /// </summary>
 /// <remarks>
-/// <para>Cancelling the token passed to a subscription is not a failure: the enumeration ends
-/// normally, without this exception or an <see cref="OperationCanceledException"/>.</para>
-/// <para>A consumer that reconnects handles a retryable failure itself (logging it, and reporting
-/// error frames to <c>OnStreamError</c>) and throws only when reconnecting cannot help or its
-/// attempts are exhausted. A single-connection client (<see cref="FirehoseClient"/>,
-/// <see cref="JetstreamClient"/>) throws for every error frame.</para>
+/// When a consumer throws it, and when it handles a failure itself, is described on
+/// <see cref="StreamConsumerOptions"/>.
 /// </remarks>
 public class EventStreamException : AtProtoException
 {

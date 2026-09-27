@@ -2,7 +2,7 @@
 
 ATProto.NET supports [Jetstream](https://github.com/bluesky-social/jetstream), the JSON alternative to the binary [firehose](firehose.md). Jetstream's key advantage is **server-side filtering**: the server only sends events for the collections and DIDs you ask for, so tailing a niche collection costs almost no bandwidth — where the binary firehose always delivers the whole network's commit stream.
 
-> **⚠ Not cryptographically verifiable.** Jetstream events are plain JSON without MST proofs or commit signatures. Unlike `TypedFirehoseConsumer` (which verifies CIDs and signatures when given a `Verifier`), a Jetstream consumer must trust the Jetstream instance. For canonical state, re-fetch records via `com.atproto.repo.getRecord`. Use the binary firehose when verification matters.
+> **⚠ Not cryptographically verifiable.** Jetstream events are plain JSON without MST proofs or commit signatures. Unlike `TypedFirehoseConsumer` (which verifies CIDs, and signatures with a `SyncVerifier`), a Jetstream consumer must trust the Jetstream instance. For canonical state, re-fetch records via `com.atproto.repo.getRecord`. Use the binary firehose when verification matters.
 
 ## Basic Usage
 
@@ -10,7 +10,7 @@ ATProto.NET supports [Jetstream](https://github.com/bluesky-social/jetstream), t
 using ATProtoNet.Lexicon.Com.AtProto.Sync;   // RepoOpAction
 using ATProtoNet.Streaming;
 
-await using var client = new JetstreamClient(new JetstreamConsumerOptions
+var consumer = new JetstreamConsumer(new JetstreamConsumerOptions
 {
     ServiceUrl = JetstreamEndpoints.UsEast,
     Protocol = JetstreamProtocol.V2,
@@ -18,14 +18,14 @@ await using var client = new JetstreamClient(new JetstreamConsumerOptions
     WantedKinds = [JetstreamEventKind.Commit],
 });
 
-await foreach (var evt in client.SubscribeAsync())
+await foreach (var evt in consumer.ConsumeAsync())
 {
     if (evt is JetstreamCommitEvent commit)
         Console.WriteLine($"{commit.Operation} {commit.Uri}");
 }
 ```
 
-`JetstreamClient` manages a single connection with no reconnect logic: the enumeration ends when the server closes the connection, and throws a `JetstreamException` when the server refuses the subscription or sends an error frame. Each frame is parsed straight from the socket's receive buffer. For production use, prefer `JetstreamConsumer` (below).
+`JetstreamConsumer` reconnects, persists its cursor, and suppresses the events a reconnect replays ([below](#reconnect-and-cursor-persistence)); each frame is parsed straight from the socket's receive buffer. It delivers, and fails, as every stream consumer does: see [Delivery, cursors and errors](firehose.md#delivery-cursors-and-errors). For one connection and no more, set `Reconnect = new StreamReconnectPolicy { MaxAttempts = 0 }`; the enumeration then ends with an `EventStreamException` when the connection does.
 
 ## Protocol Versions
 
@@ -109,9 +109,9 @@ The three filters are independent and ANDed. The one trap: **a collection filter
 
 Setting `WantedCollections` while `WantedKinds` excludes `Commit` is a filter that could never apply, and throws `ArgumentException` before the socket opens rather than getting an HTTP 400 back.
 
-## Managed Consumer (Reconnect + Cursor Persistence)
+## Reconnect and Cursor Persistence
 
-`JetstreamConsumer` mirrors `TypedFirehoseConsumer` ergonomics — both take their shared settings from `StreamConsumerOptions`: automatic reconnection with a `StreamReconnectPolicy`, cursor persistence through the same `IStreamCursorStore` interface, and duplicate suppression across reconnects.
+`JetstreamConsumer` mirrors `TypedFirehoseConsumer` ergonomics — both take their shared settings from `CursorStreamConsumerOptions`: automatic reconnection with a `StreamReconnectPolicy`, cursor persistence through the same `IStreamCursorStore` interface, and duplicate suppression across reconnects.
 
 <!-- snippet: IStreamCursorStore myCursorStore; System.Func<JetstreamEvent, Task> IndexAsync; -->
 ```csharp
@@ -185,7 +185,7 @@ var options = new JetstreamConsumerOptions
 };
 ```
 
-An error frame ends the connection with a `JetstreamException` whose `Error` names it. `JetstreamConsumer` reconnects after a retryable one (`ConsumerTooSlow`) and throws one that is not (`FutureCursor`); `JetstreamClient` always throws it.
+An error frame ends the connection with a `JetstreamException` whose `Error` names it. `JetstreamConsumer` reconnects after a retryable one (`ConsumerTooSlow`) and throws one that is not (`FutureCursor`).
 
 ## Ingestion Loop Pattern
 

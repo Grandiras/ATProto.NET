@@ -15,9 +15,7 @@ public class TypedFirehoseConsumerTests
         int? maxReconnects = 0,
         IReadOnlySet<Nsid>? filter = null,
         bool verifyCids = false,
-        FirehoseVerifier? verifier = null,
-        List<DroppedStreamEvent>? dropped = null,
-        List<EventStreamError>? errors = null) => new()
+        List<DroppedStreamEvent>? dropped = null) => new()
     {
         ServiceUrl = Relay,
         CursorStore = store,
@@ -25,9 +23,7 @@ public class TypedFirehoseConsumerTests
         Reconnect = StreamTestExtensions.Immediate(maxReconnects),
         CollectionFilter = filter,
         VerifyCids = verifyCids,
-        Verifier = verifier,
         OnEventDropped = dropped is null ? null : dropped.Add,
-        OnStreamError = errors is null ? null : errors.Add,
     };
 
     private static HashSet<Nsid> Posts => [Nsid.Parse("app.bsky.feed.post")];
@@ -40,7 +36,6 @@ public class TypedFirehoseConsumerTests
         Assert.False(options.VerifyCids);
         Assert.Null(options.CollectionFilter);
         Assert.Null(options.CursorStore);
-        Assert.Null(options.Verifier);
         Assert.Equal(100, options.CursorPersistInterval);
         Assert.Equal(TimeSpan.FromSeconds(5), options.Reconnect.InitialDelay);
         Assert.Equal(TimeSpan.FromSeconds(30), options.Reconnect.MaxDelay);
@@ -127,44 +122,6 @@ public class TypedFirehoseConsumerTests
     }
 
     [Fact]
-    public async Task ConsumeAsync_Break_SavesTheCursorOfTheLastHandledEvent()
-    {
-        // The final save runs in finally, so leaving the loop early keeps the position. The event
-        // being handled when the caller broke out is not recorded: at-least-once.
-        var store = new InMemoryStreamCursorStore();
-        var connector = new ScriptedConnector().Connection(IdentityFrame(10), IdentityFrame(11), IdentityFrame(12));
-        var consumer = new TypedFirehoseConsumer(Options(store), connector.Connect);
-
-        await foreach (var message in consumer.ConsumeAsync(cancellationToken: TestContext.Current.CancellationToken))
-        {
-            if (((IdentityEvent)message).Seq == 11)
-                break;
-        }
-
-        Assert.Equal(10, await store.GetCursorAsync(Relay));
-    }
-
-    [Fact]
-    public async Task ConsumeAsync_Cancellation_EndsNormallyAndSavesTheCursor()
-    {
-        var store = new InMemoryStreamCursorStore();
-        var connector = new ScriptedConnector().Connection(IdentityFrame(10), IdentityFrame(11), IdentityFrame(12));
-        var consumer = new TypedFirehoseConsumer(Options(store, maxReconnects: null), connector.Connect);
-        using var cts = new CancellationTokenSource();
-
-        var seen = new List<long>();
-        await foreach (var message in consumer.ConsumeAsync(cancellationToken: cts.Token))
-        {
-            seen.Add(((IdentityEvent)message).Seq);
-            if (seen.Count == 2)
-                cts.Cancel();
-        }
-
-        Assert.Equal([10L, 11L], seen);
-        Assert.Equal(11, await store.GetCursorAsync(Relay));
-    }
-
-    [Fact]
     public async Task ConsumeAsync_ResumesFromTheStoredCursor_AndAnExplicitCursorWins()
     {
         var store = new InMemoryStreamCursorStore();
@@ -172,9 +129,9 @@ public class TypedFirehoseConsumerTests
         var connector = new ScriptedConnector().Connection().Connection();
 
         await new TypedFirehoseConsumer(Options(store), connector.Connect).ConsumeAsync().DrainAsync();
-        await new TypedFirehoseConsumer(Options(store), connector.Connect).ConsumeAsync(cursor: 7).DrainAsync();
+        await new TypedFirehoseConsumer(Options(store), connector.Connect).ConsumeAsync(cursor: 0).DrainAsync();
 
-        Assert.Equal(["41", "7"], connector.Cursors);
+        Assert.Equal(["41", "0"], connector.Cursors);
     }
 
     [Fact]
@@ -189,58 +146,6 @@ public class TypedFirehoseConsumerTests
 
         Assert.Equal([1L, 2L, 3L], messages.Cast<IdentityEvent>().Select(e => e.Seq));
         Assert.Equal([null, "2"], connector.Cursors.Take(2));
-    }
-
-    [Fact]
-    public async Task ConsumeAsync_ReconnectAttemptsExhausted_Throws()
-    {
-        var failure = new System.Net.WebSockets.WebSocketException("reset");
-        var connector = new ScriptedConnector()
-            .Connection(IdentityFrame(1))
-            .Failing(failure)
-            .Failing(failure);
-        var consumer = new TypedFirehoseConsumer(Options(maxReconnects: 2), connector.Connect);
-
-        var ex = await Assert.ThrowsAsync<EventStreamException>(async () =>
-        {
-            await foreach (var _ in consumer.ConsumeAsync(cancellationToken: TestContext.Current.CancellationToken))
-            {
-            }
-        });
-
-        Assert.Same(failure, ex.InnerException);
-        Assert.Equal(3, connector.Endpoints.Count);
-    }
-
-    [Fact]
-    public async Task ConsumeAsync_FutureCursorErrorFrame_ThrowsAndIsReported()
-    {
-        var errors = new List<EventStreamError>();
-        var connector = new ScriptedConnector().Connection(Error("FutureCursor", "cursor is ahead"));
-        var consumer = new TypedFirehoseConsumer(Options(maxReconnects: null, errors: errors), connector.Connect);
-
-        var ex = await Assert.ThrowsAsync<EventStreamException>(() => consumer.ConsumeAsync(cursor: 999).DrainAsync());
-
-        Assert.Equal(EventStreamErrors.FutureCursor, ex.Error);
-        Assert.False(ex.IsRetryable);
-        Assert.Equal([new EventStreamError("FutureCursor", "cursor is ahead")], errors);
-        Assert.Single(connector.Endpoints);
-    }
-
-    [Fact]
-    public async Task ConsumeAsync_ConsumerTooSlowErrorFrame_ReconnectsFromTheLastCursor()
-    {
-        var errors = new List<EventStreamError>();
-        var connector = new ScriptedConnector()
-            .Connection(IdentityFrame(5), Error("ConsumerTooSlow"))
-            .Connection(IdentityFrame(6));
-        var consumer = new TypedFirehoseConsumer(Options(maxReconnects: 1, errors: errors), connector.Connect);
-
-        var messages = await consumer.ConsumeAsync().DrainAsync();
-
-        Assert.Equal([5L, 6L], messages.Cast<IdentityEvent>().Select(e => e.Seq));
-        Assert.Equal("ConsumerTooSlow", Assert.Single(errors).Error);
-        Assert.Equal("5", connector.Cursors.ElementAt(1));
     }
 
     [Fact]
@@ -262,35 +167,21 @@ public class TypedFirehoseConsumerTests
         Assert.Equal(2, consumer.LastSeq);
     }
 
-    [Fact]
-    public async Task ConsumeAsync_WithAVerifier_DropsACommitThatFailsVerification()
+    [Theory]
+    [InlineData(new byte[] { 1, 2, 3 }, "do not verify")]
+    [InlineData(new byte[0], "no blocks")]
+    public async Task ConsumeAsync_VerifyCids_DropsACommitWhoseBlocksDoNotVerify(byte[] blocks, string reason)
     {
-        // A verifier verifies exactly when it is set: the blocks here are not a CAR, so the commit
-        // cannot verify and must not be delivered.
         var dropped = new List<DroppedStreamEvent>();
-        using var verifier = new FirehoseVerifier(new UnreachableResolver());
         var connector = new ScriptedConnector().Connection(
-            Commit(1, blocks: [1, 2, 3], paths: "app.bsky.feed.post/3jzfcijpj2z2a"),
+            Commit(1, blocks: blocks, paths: "app.bsky.feed.post/3jzfcijpj2z2a"),
             IdentityFrame(2));
-        var consumer = new TypedFirehoseConsumer(Options(verifier: verifier, dropped: dropped), connector.Connect);
-
-        var messages = await consumer.ConsumeAsync().DrainAsync();
-
-        Assert.IsType<IdentityEvent>(Assert.Single(messages));
-        Assert.Equal(StreamDropReason.VerificationFailed, Assert.Single(dropped).Reason);
-        Assert.Equal(1, dropped[0].Cursor);
-    }
-
-    [Fact]
-    public async Task ConsumeAsync_VerifyCids_DropsACommitWhoseBlocksDoNotVerify()
-    {
-        var dropped = new List<DroppedStreamEvent>();
-        var connector = new ScriptedConnector().Connection(
-            Commit(1, blocks: [1, 2, 3], paths: "app.bsky.feed.post/3jzfcijpj2z2a"));
         var consumer = new TypedFirehoseConsumer(Options(verifyCids: true, dropped: dropped), connector.Connect);
 
-        Assert.Empty(await consumer.ConsumeAsync().DrainAsync());
+        Assert.IsType<IdentityEvent>(Assert.Single(await consumer.ConsumeAsync().DrainAsync()));
         Assert.Equal(StreamDropReason.VerificationFailed, Assert.Single(dropped).Reason);
+        Assert.Equal(1, dropped[0].Cursor);
+        Assert.Contains(reason, dropped[0].Detail);
     }
 
     [Fact]
@@ -301,16 +192,5 @@ public class TypedFirehoseConsumerTests
         var consumer = new TypedFirehoseConsumer(Options(), connector.Connect);
 
         Assert.Single(await consumer.ConsumeAsync().DrainAsync());
-    }
-
-    private sealed class UnreachableResolver : IDidResolver
-    {
-        public Task<DidDocument> ResolveAsync(Did did, CancellationToken cancellationToken = default)
-            => throw new InvalidOperationException("The CID check fails first.");
-
-        public Task<DidDocument> RefreshAsync(Did did, CancellationToken cancellationToken = default)
-            => throw new InvalidOperationException("The CID check fails first.");
-
-        public Task InvalidateAsync(Did did, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }

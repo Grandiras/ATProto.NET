@@ -147,7 +147,7 @@ public sealed class RepoSyncVerifier : IDisposable
         if (CheckOperations(commit, car, block) is { } opsError)
             return Invalid(did, commit.Rev, opsError);
 
-        var data = ToCid(block.Data);
+        var data = Cid.FromBytes(block.Data);
         var next = new RepoSyncState(did, commit.Rev, data, RepoSyncStatus.Synchronized);
         if (state is null)
             return new RepoSyncResult(RepoSyncOutcome.Valid, did, commit.Rev, data, next, null);
@@ -200,7 +200,7 @@ public sealed class RepoSyncVerifier : IDisposable
         if (await VerifySignatureAsync(did, block, cancellationToken).ConfigureAwait(false) is { } signatureError)
             return Invalid(did, sync.Rev, signatureError);
 
-        var data = ToCid(block.Data);
+        var data = Cid.FromBytes(block.Data);
         var next = new RepoSyncState(did, sync.Rev, data, RepoSyncStatus.Synchronized);
         if (state is null)
             return new RepoSyncResult(RepoSyncOutcome.Valid, did, sync.Rev, data, next, null);
@@ -358,46 +358,11 @@ public sealed class RepoSyncVerifier : IDisposable
 
         try
         {
-            car = CarReader.FromBytes(blocks, verifyBlockCids: true);
-        }
-        catch (FormatException ex)
-        {
-            error = $"The event's blocks are not a valid CAR: {ex.Message}";
-            return false;
-        }
-
-        if (car.Roots.Count == 0)
-        {
-            error = "The event's CAR names no root.";
-            return false;
-        }
-
-        var root = car.Roots[0];
-        if (expectedCommit is not null && !expectedCommit.AsSpan().SequenceEqual(root))
-        {
-            error = $"The CAR's root is not the event's commit {expectedCommit}.";
-            return false;
-        }
-
-        if (car.FindBlock(root) is not { } commitBlock)
-        {
-            error = "The event's blocks do not include the commit block.";
-            return false;
-        }
-
-        try
-        {
-            block = CommitBlock.Read(commitBlock.Data);
+            block = CommitBlock.FromCar(blocks, out car, expectedCommit);
         }
         catch (FormatException ex)
         {
             error = ex.Message;
-            return false;
-        }
-
-        if (block.Version != RepoCommit.CurrentVersion)
-        {
-            error = $"The commit is version {block.Version}; only version {RepoCommit.CurrentVersion} is supported.";
             return false;
         }
 
@@ -551,12 +516,10 @@ public sealed class RepoSyncVerifier : IDisposable
     {
         var slash = path.IndexOf('/');
         return slash > 0
-            && MerkleSearchTree.IsValidKey(path)
+            && MerkleSearchTree.IsValidKey(path.AsSpan())
             && Nsid.TryParse(path[..slash], out _)
             && RecordKey.TryParse(path[(slash + 1)..], out _);
     }
-
-    private static Cid ToCid(byte[] binary) => Cid.Parse(CidComputation.EncodeCidToString(binary));
 
     private static string Describe(RepoSyncStatus status) => status switch
     {

@@ -11,10 +11,13 @@ namespace ATProtoNet.Streaming;
 /// <param name="IsBinary">Whether the message was a binary frame rather than text.</param>
 internal readonly record struct StreamSocketMessage(ReadOnlyMemory<byte> Data, bool IsBinary);
 
-/// <summary>What a connection sends with its WebSocket upgrade.</summary>
+/// <summary>How a connection is opened, and the largest message it accepts.</summary>
 /// <param name="SubProtocol">The subprotocol to request, if any.</param>
 /// <param name="Authorization">The <c>Authorization</c> header value, if any.</param>
-internal readonly record struct StreamSocketOptions(string? SubProtocol = null, string? Authorization = null);
+/// <param name="Invoker">The HTTP stack to upgrade through, such as one that enforces an address policy; by default the socket's own.</param>
+/// <param name="MaxMessageBytes">The largest message accepted; by default <see cref="StreamSocket.MaxMessageBytes"/>.</param>
+internal readonly record struct StreamSocketOptions(
+    string? SubProtocol = null, string? Authorization = null, HttpMessageInvoker? Invoker = null, int? MaxMessageBytes = null);
 
 /// <summary>
 /// Opens a connection and reads its messages until the server closes it. The seam the stream
@@ -57,9 +60,14 @@ internal sealed class StreamSocket : IDuplexStreamSocket
     private static readonly TimeSpan CloseTimeout = TimeSpan.FromSeconds(2);
 
     private readonly ClientWebSocket _socket;
+    private readonly int _maxMessageBytes;
     private byte[] _buffer = new byte[InitialBufferBytes];
 
-    private StreamSocket(ClientWebSocket socket) => _socket = socket;
+    private StreamSocket(ClientWebSocket socket, int maxMessageBytes)
+    {
+        _socket = socket;
+        _maxMessageBytes = maxMessageBytes;
+    }
 
     /// <summary>The default <see cref="StreamConnector"/>: a real WebSocket connection.</summary>
     public static StreamConnector Connector { get; } = ReadAllAsync;
@@ -76,6 +84,7 @@ internal sealed class StreamSocket : IDuplexStreamSocket
     {
         var socket = new ClientWebSocket();
         socket.Options.CollectHttpResponseDetails = true;
+        socket.Options.SetRequestHeader("User-Agent", Http.AtProtoHttp.DefaultUserAgent);
         if (options.SubProtocol is { } subProtocol)
             socket.Options.AddSubProtocol(subProtocol);
         if (options.Authorization is { } authorization)
@@ -83,8 +92,8 @@ internal sealed class StreamSocket : IDuplexStreamSocket
 
         try
         {
-            await socket.ConnectAsync(endpoint, cancellationToken).ConfigureAwait(false);
-            return new StreamSocket(socket);
+            await socket.ConnectAsync(endpoint, options.Invoker, cancellationToken).ConfigureAwait(false);
+            return new StreamSocket(socket, options.MaxMessageBytes ?? MaxMessageBytes);
         }
         catch (WebSocketException ex)
         {
@@ -106,6 +115,10 @@ internal sealed class StreamSocket : IDuplexStreamSocket
     /// Reads the next whole message, or returns <see langword="null"/> once the server has closed
     /// the connection. The returned bytes are valid until the next call.
     /// </summary>
+    /// <exception cref="EventStreamException">
+    /// The server closed the connection abnormally and gave a reason, which is the
+    /// <see cref="EventStreamException.Error"/>; or a message was too large.
+    /// </exception>
     public async ValueTask<StreamSocketMessage?> ReceiveAsync(CancellationToken cancellationToken)
     {
         while (true)
@@ -115,14 +128,19 @@ internal sealed class StreamSocket : IDuplexStreamSocket
             {
                 if (length == _buffer.Length)
                 {
-                    if (length >= MaxMessageBytes)
-                        throw new EventStreamException($"A message exceeded {MaxMessageBytes} bytes.");
-                    Array.Resize(ref _buffer, Math.Min(MaxMessageBytes, length * 2));
+                    if (length >= _maxMessageBytes)
+                        throw new EventStreamException($"A message exceeded {_maxMessageBytes} bytes.");
+                    Array.Resize(ref _buffer, Math.Min(_maxMessageBytes, length * 2));
                 }
 
                 var result = await _socket.ReceiveAsync(_buffer.AsMemory(length), cancellationToken).ConfigureAwait(false);
                 if (result.MessageType == WebSocketMessageType.Close)
+                {
+                    // A reason is how a service without error frames (the PLC export) says why.
+                    if (_socket.CloseStatus is not WebSocketCloseStatus.NormalClosure && _socket.CloseStatusDescription is { Length: > 0 } reason)
+                        throw new EventStreamException($"The server closed the connection: {reason}.", error: reason);
                     return null;
+                }
 
                 length += result.Count;
                 if (!result.EndOfMessage)

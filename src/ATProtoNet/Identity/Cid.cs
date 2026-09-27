@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
+using ATProtoNet.Repo;
 using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Identity;
@@ -78,48 +79,26 @@ public sealed record Cid : IIdentifier<Cid>
             return false;
 
         Span<byte> bytes = stackalloc byte[BinaryLength];
-        if (!TryDecodeBase32Lower(span[1..], bytes))
-            return false;
-
-        if (bytes[0] != CidVersion1
-            || bytes[1] is not ((byte)CidCodec.Raw or (byte)CidCodec.DagCbor)
-            || bytes[2] != Sha256
-            || bytes[3] != DigestLength)
+        if (!Base32Lower.TryDecode(span[1..], bytes) || !IsValid(bytes))
             return false;
 
         result = new Cid(text ?? span.ToString(), bytes.ToArray());
         return true;
     }
 
-    /// <summary>
-    /// Decodes unpadded RFC 4648 base32 in lower case, requiring the canonical encoding: the
-    /// unused bits of the final character must be zero, so each CID has one string form.
-    /// </summary>
-    private static bool TryDecodeBase32Lower(ReadOnlySpan<char> chars, Span<byte> bytes)
-    {
-        int buffer = 0, bits = 0, at = 0;
-        foreach (var c in chars)
-        {
-            int value = c switch
-            {
-                >= 'a' and <= 'z' => c - 'a',
-                >= '2' and <= '7' => c - '2' + 26,
-                _ => -1,
-            };
-            if (value < 0)
-                return false;
+    /// <summary>Creates a CID from its binary form, as <see cref="ToBytes"/> returns it.</summary>
+    /// <exception cref="ArgumentException">The bytes are not a valid atproto CID.</exception>
+    internal static Cid FromBytes(ReadOnlySpan<byte> bytes) => IsValid(bytes)
+        ? new Cid(Base32Lower.EncodeWithPrefix('b', bytes), bytes.ToArray())
+        : throw IIdentifier<Cid>.InvalidValue(Convert.ToHexStringLower(bytes), "binary CID");
 
-            buffer = ((buffer << 5) | value) & 0xFFF;
-            bits += 5;
-            if (bits >= 8)
-            {
-                bits -= 8;
-                bytes[at++] = (byte)(buffer >> bits);
-            }
-        }
-
-        return (buffer & ((1 << bits) - 1)) == 0;
-    }
+    /// <summary>Whether <paramref name="bytes"/> is the binary form of a CID this type accepts.</summary>
+    internal static bool IsValid(ReadOnlySpan<byte> bytes) =>
+        bytes.Length == BinaryLength
+        && bytes[0] == CidVersion1
+        && bytes[1] is ((byte)CidCodec.Raw or (byte)CidCodec.DagCbor)
+        && bytes[2] == Sha256
+        && bytes[3] == DigestLength;
 
     /// <summary>Returns the binary form of the CID: version, codec, multihash header and digest.</summary>
     /// <returns>A new 36-byte array.</returns>

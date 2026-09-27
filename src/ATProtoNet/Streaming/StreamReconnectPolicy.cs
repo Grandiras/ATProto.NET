@@ -8,14 +8,9 @@ namespace ATProtoNet.Streaming;
 /// consecutive failed attempts.
 /// </summary>
 /// <remarks>
-/// <para>The attempt count resets whenever a connection delivers a frame, so a consumer that runs
-/// for days survives any number of isolated drops. When <see cref="MaxAttempts"/> consecutive
-/// attempts fail, <c>ConsumeAsync</c> throws an <see cref="EventStreamException"/> whose
-/// <see cref="Exception.InnerException"/> is the last failure, rather than completing as if the
-/// stream had ended.</para>
-/// <para>A failure that reconnecting cannot fix is thrown at once, whatever the policy: an error
-/// frame such as <c>FutureCursor</c>, or a subscription the server refused before the WebSocket
-/// upgrade (see <see cref="EventStreamException.IsRetryable"/>).</para>
+/// The attempt count resets whenever a connection delivers a frame, so a consumer that runs for
+/// days survives any number of isolated drops. What happens when the attempts run out, and which
+/// failures are not retried at all, is described on <see cref="StreamConsumerOptions"/>.
 /// </remarks>
 public sealed record StreamReconnectPolicy
 {
@@ -27,7 +22,8 @@ public sealed record StreamReconnectPolicy
 
     /// <summary>
     /// How many consecutive reconnect attempts may fail before the consumer gives up, or
-    /// <see langword="null"/> to reconnect forever. <c>0</c> never reconnects. Default: 10.
+    /// <see langword="null"/> to reconnect forever. <c>0</c> never reconnects: the end of the first
+    /// connection, however clean, then throws an <see cref="EventStreamException"/>. Default: 10.
     /// </summary>
     public int? MaxAttempts { get; init; } = 10;
 

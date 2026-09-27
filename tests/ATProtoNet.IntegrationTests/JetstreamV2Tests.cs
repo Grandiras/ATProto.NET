@@ -1,3 +1,4 @@
+using System.Net.WebSockets;
 using ATProtoNet.Streaming;
 
 namespace ATProtoNet.IntegrationTests;
@@ -17,6 +18,9 @@ public class JetstreamV2Tests
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
 
+    /// <summary>One connection, no reconnect: each test reads what it needs and leaves.</summary>
+    private static readonly StreamReconnectPolicy NoReconnect = new() { MaxAttempts = 0 };
+
     private static JetstreamConsumerOptions V2Options(
         IReadOnlyList<JetstreamEventKind>? kinds = null,
         IReadOnlyList<string>? collections = null) => new()
@@ -25,16 +29,17 @@ public class JetstreamV2Tests
             Protocol = JetstreamProtocol.V2,
             WantedKinds = kinds,
             WantedCollections = collections,
+            Reconnect = NoReconnect,
         };
 
     [RequiresFact(IntegrationRequirement.Jetstream)]
     public async Task SubscribeAsync_V2_DeliversParsedEventsWithSequenceCursors()
     {
         using var cts = new CancellationTokenSource(Timeout);
-        await using var client = new JetstreamClient(V2Options(kinds: [JetstreamEventKind.Commit]));
+        var client = new JetstreamConsumer(V2Options(kinds: [JetstreamEventKind.Commit]));
 
         var events = new List<JetstreamEvent>();
-        await foreach (var evt in client.SubscribeAsync(cancellationToken: cts.Token))
+        await foreach (var evt in client.ConsumeAsync(cancellationToken: cts.Token))
         {
             events.Add(evt);
             if (events.Count == 5)
@@ -64,12 +69,12 @@ public class JetstreamV2Tests
     public async Task SubscribeAsync_V2_FiltersCommitsByCollection()
     {
         using var cts = new CancellationTokenSource(Timeout);
-        await using var client = new JetstreamClient(V2Options(
+        var client = new JetstreamConsumer(V2Options(
             kinds: [JetstreamEventKind.Commit],
             collections: ["app.bsky.feed.post"]));
 
         var commits = new List<JetstreamCommitEvent>();
-        await foreach (var evt in client.SubscribeAsync(cancellationToken: cts.Token))
+        await foreach (var evt in client.ConsumeAsync(cancellationToken: cts.Token))
         {
             commits.Add(Assert.IsType<JetstreamCommitEvent>(evt));
             if (commits.Count == 3)
@@ -86,30 +91,36 @@ public class JetstreamV2Tests
         using var cts = new CancellationTokenSource(Timeout);
         var options = V2Options(kinds: [JetstreamEventKind.Commit]);
 
-        long cursor;
-        string did;
-        await using (var live = new JetstreamClient(options))
-        {
-            var first = await FirstEventAsync(live, null, cts.Token);
-            cursor = first.Cursor!.Value;
-            did = first.Did.ToString();
-        }
+        var first = await FirstEventAsync(new JetstreamConsumer(options), null, cts.Token);
 
         // A v2 cursor names an event the server replays rather than a position to resume
-        // after — which is why JetstreamConsumer reconnects at the last sequence it delivered
-        // and ignores ReconnectRewind.
-        await using var replay = new JetstreamClient(options);
-        var replayed = await FirstEventAsync(replay, cursor, cts.Token);
+        // after — which is why the consumer reconnects at the last sequence it delivered and
+        // skips it. The consumer hides the replay, so read the wire itself.
+        using var socket = new ClientWebSocket();
+        socket.Options.AddSubProtocol("xrpc.v1.json");
+        await socket.ConnectAsync(
+            new Uri($"{TestConfig.JetstreamUrl.TrimEnd('/')}/xrpc/network.bsky.jetstream.subscribeEvents?kinds=commit&cursor={first.Cursor}"),
+            cts.Token);
+        var buffer = new byte[1 << 20];
+        var length = 0;
+        ValueWebSocketReceiveResult received;
+        do
+        {
+            received = await socket.ReceiveAsync(buffer.AsMemory(length), cts.Token);
+            length += received.Count;
+        }
+        while (!received.EndOfMessage);
+        var replayed = JetstreamEventParser.ParseFrame(buffer.AsMemory(0, length), JetstreamProtocol.V2).Event;
 
-        Assert.Equal(cursor, replayed.Cursor);
-        Assert.Equal(did, replayed.Did.ToString());
+        Assert.Equal(first.Cursor, replayed?.Cursor);
+        Assert.Equal(first.Did, replayed?.Did);
     }
 
     [RequiresFact(IntegrationRequirement.Jetstream)]
     public async Task SubscribeAsync_V2_WithCursorBelowRetentionFloor_ThrowsConnectException()
     {
         using var cts = new CancellationTokenSource(Timeout);
-        await using var client = new JetstreamClient(V2Options());
+        var client = new JetstreamConsumer(V2Options());
 
         var ex = await Assert.ThrowsAsync<JetstreamException>(async () =>
             await FirstEventAsync(client, 1, cts.Token));
@@ -129,8 +140,9 @@ public class JetstreamV2Tests
             Protocol = JetstreamProtocol.V2,
             ZstdDictionaryId = 1, // Far below any dictionary the server has ever trained
             Decompressor = new UnusedDecompressor(),
+            Reconnect = NoReconnect,
         };
-        await using var client = new JetstreamClient(options);
+        var client = new JetstreamConsumer(options);
 
         var ex = await Assert.ThrowsAsync<JetstreamException>(async () =>
             await FirstEventAsync(client, null, cts.Token));
@@ -174,7 +186,7 @@ public class JetstreamV2Tests
     {
         using var cts = new CancellationTokenSource(Timeout);
         var since = DateTimeOffset.UtcNow.AddMinutes(-5);
-        await using var client = new JetstreamClient(V2Options(kinds: [JetstreamEventKind.Commit]));
+        var client = new JetstreamConsumer(V2Options(kinds: [JetstreamEventKind.Commit]));
 
         // A cursor of 10^15 or more is a unix-microseconds seek, how a v1 cursor carries over.
         var evt = await FirstEventAsync(client, JetstreamCursor.FromTimestamp(since), cts.Token);
@@ -200,10 +212,11 @@ public class JetstreamV2Tests
     public async Task SubscribeAsync_V1_AgainstAV2Host_StillParsesAndCarriesACursor()
     {
         using var cts = new CancellationTokenSource(Timeout);
-        await using var client = new JetstreamClient(new JetstreamConsumerOptions
+        var client = new JetstreamConsumer(new JetstreamConsumerOptions
         {
             ServiceUrl = TestConfig.JetstreamUrl,
             WantedCollections = ["app.bsky.feed.post"],
+            Reconnect = NoReconnect,
         });
 
         var evt = await FirstEventAsync(client, null, cts.Token);
@@ -216,9 +229,9 @@ public class JetstreamV2Tests
     }
 
     private static async Task<JetstreamEvent> FirstEventAsync(
-        JetstreamClient client, long? cursor, CancellationToken cancellationToken)
+        JetstreamConsumer client, long? cursor, CancellationToken cancellationToken)
     {
-        await foreach (var evt in client.SubscribeAsync(cursor, cancellationToken))
+        await foreach (var evt in client.ConsumeAsync(cursor, cancellationToken))
             return evt;
 
         throw new InvalidOperationException("Jetstream closed the stream without delivering an event.");

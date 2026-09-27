@@ -65,7 +65,7 @@ ATProto.NET/
 │   │   ├── Repo/                                # CAR, MerkleSearchTree, DAG-CBOR, CIDs, commits, Sync 1.1 verifier
 │   │   ├── Serialization/                       # JSON defaults, union converters, LexiconTypeRegistry
 │   │   ├── Spaces/                              # SpaceUri, LtHash, commits, credentials, SpaceSyncer
-│   │   ├── Streaming/                           # FirehoseClient, TypedFirehoseConsumer, Jetstream, label streams
+│   │   ├── Streaming/                           # TypedFirehoseConsumer, Jetstream, label streams, the shared stream loop
 │   │   ├── Tap/                                 # TapClient
 │   │   └── Lexicon/
 │   │       ├── Com/AtProto/                     # Admin, Identity, Label, Lexicon, Moderation, Repo, Server, SimpleSpace, Space, Sync, Temp

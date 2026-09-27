@@ -26,8 +26,7 @@ public sealed record QueryLabelsResponse : CursorPage<Models.Label>
 /// </summary>
 /// <remarks>
 /// The event-stream frame header names the variant (<c>#labels</c>, <c>#info</c>); the body
-/// carries no <c>$type</c>. <see cref="Streaming.FirehoseClient.SubscribeLabelsAsync"/> and
-/// <see cref="Streaming.LabelStreamConsumer"/> read both.
+/// carries no <c>$type</c>. <see cref="Streaming.LabelStreamConsumer"/> reads both.
 /// </remarks>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
 [JsonDerivedType(typeof(LabelsEvent), "#labels")]

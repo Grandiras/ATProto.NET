@@ -8,7 +8,7 @@ namespace ATProtoNet.Repo;
 /// An AT Protocol repository commit — the signed root object of a repo, referencing the
 /// MST root through its <c>data</c> field.
 /// <para>
-/// This is the producer counterpart to <see cref="ATProtoNet.Streaming.FirehoseVerifier"/>:
+/// This is the producer counterpart to <see cref="ATProtoNet.Streaming.RepoSyncVerifier"/>:
 /// build a commit, sign it with the account's repo signing key, and the resulting block is
 /// what <c>com.atproto.sync.getRepo</c> serves as the CAR root and what relays verify.
 /// </para>
@@ -115,10 +115,10 @@ public sealed record SignedRepoCommit(
     byte[] BinaryCid)
 {
     /// <summary>The commit CID as a base32 string (<c>bafyrei…</c>).</summary>
-    public Cid Cid => Identity.Cid.Parse(CidComputation.EncodeCidToString(BinaryCid));
+    public Cid Cid => Identity.Cid.FromBytes(BinaryCid);
 
     /// <summary>The MST root CID as a base32 string.</summary>
-    public Cid DataCid => Identity.Cid.Parse(CidComputation.EncodeCidToString(Data));
+    public Cid DataCid => Identity.Cid.FromBytes(Data);
 
     /// <summary>
     /// Verifies this commit's signature against a public key. Used by tests and by any

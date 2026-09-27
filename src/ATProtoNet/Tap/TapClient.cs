@@ -2,9 +2,9 @@ using System.Buffers;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
-using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Text.Json;
+using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Serialization;
 using ATProtoNet.Streaming;
@@ -13,12 +13,14 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Tap;
 
-/// <summary>Configures a <see cref="TapClient"/>.</summary>
-public sealed class TapClientOptions
+/// <summary>
+/// Configures a <see cref="TapClient"/>. <see cref="StreamConsumerOptions.ServiceUrl"/> is the Tap
+/// instance's base URL, e.g. <c>http://localhost:2480</c>; the channel's settings apply to
+/// <see cref="TapChannel"/>, which reports a message that is not a valid Tap event to
+/// <see cref="StreamConsumerOptions.OnEventDropped"/>.
+/// </summary>
+public sealed class TapClientOptions : StreamConsumerOptions
 {
-    /// <summary>The Tap instance's base URL, e.g. <c>http://localhost:2480</c>.</summary>
-    public required Uri ServiceUrl { get; init; }
-
     /// <summary>
     /// The admin password the instance was started with (<c>TAP_ADMIN_PASSWORD</c>), sent as HTTP
     /// Basic auth (<c>admin:password</c>) on every request and on the channel. Null when the
@@ -32,14 +34,13 @@ public sealed class TapClientOptions
     /// </summary>
     public HttpClient? HttpClient { get; init; }
 
-    /// <summary>How the channel reconnects after its connection drops, and when to give up.</summary>
-    public StreamReconnectPolicy Reconnect { get; init; } = new();
-
-    /// <summary>Invoked for every channel message that is not a valid Tap event. It is skipped, and not acknowledged.</summary>
-    public Action<Exception>? OnError { get; init; }
-
-    /// <summary>Optional logger.</summary>
-    public ILogger? Logger { get; init; }
+    /// <inheritdoc/>
+    internal override void Validate()
+    {
+        base.Validate();
+        if (!Uri.TryCreate(ServiceUrl, UriKind.Absolute, out var url) || url.Scheme is not ("http" or "https"))
+            throw new ArgumentException("Invalid URL, expected http:// or https://", nameof(ServiceUrl));
+    }
 }
 
 /// <summary>
@@ -81,7 +82,7 @@ public sealed class TapClient : IDisposable
     /// <param name="serviceUrl">The Tap instance's base URL, e.g. <c>http://localhost:2480</c>.</param>
     /// <param name="adminPassword">The instance's admin password, if it has one.</param>
     public TapClient(Uri serviceUrl, string? adminPassword = null)
-        : this(new TapClientOptions { ServiceUrl = serviceUrl, AdminPassword = adminPassword })
+        : this(new TapClientOptions { ServiceUrl = serviceUrl?.OriginalString!, AdminPassword = adminPassword })
     {
     }
 
@@ -95,13 +96,10 @@ public sealed class TapClient : IDisposable
     internal TapClient(TapClientOptions options, DuplexStreamConnector connector)
     {
         ArgumentNullException.ThrowIfNull(options);
-        ArgumentNullException.ThrowIfNull(options.ServiceUrl);
-        if (!options.ServiceUrl.IsAbsoluteUri || options.ServiceUrl.Scheme is not ("http" or "https"))
-            throw new ArgumentException("Invalid URL, expected http:// or https://", nameof(options));
-        ArgumentNullException.ThrowIfNull(options.Reconnect);
-        options.Reconnect.Validate();
+        options.Validate();
 
         _options = options;
+        ServiceUrl = new Uri(options.ServiceUrl);
         _connector = connector;
         _ownsHttpClient = options.HttpClient is null;
         _httpClient = options.HttpClient ?? new HttpClient();
@@ -109,7 +107,7 @@ public sealed class TapClient : IDisposable
     }
 
     /// <summary>The Tap instance's base URL.</summary>
-    public Uri ServiceUrl => _options.ServiceUrl;
+    public Uri ServiceUrl { get; }
 
     /// <summary>
     /// The <c>Authorization</c> header value for Tap's admin auth: HTTP Basic with the user
@@ -176,23 +174,11 @@ public sealed class TapClient : IDisposable
     /// Several channels may be open at once; Tap shares events out among them, keeping each
     /// repository's events in order.
     /// </remarks>
-    public TapChannel OpenChannel()
-    {
-        var builder = new UriBuilder(_options.ServiceUrl)
-        {
-            Scheme = _options.ServiceUrl.Scheme == Uri.UriSchemeHttps ? "wss" : "ws",
-            Path = "/channel",
-            Query = string.Empty,
-        };
-
-        return new TapChannel(
-            builder.Uri,
-            new StreamSocketOptions(Authorization: _authorization),
-            _connector,
-            _options.Reconnect,
-            _options.OnError,
-            _options.Logger ?? NullLogger.Instance);
-    }
+    public TapChannel OpenChannel() => new(
+        new Uri(AtProtoHttp.WithScheme(ServiceUrl, webSocket: true), "/channel"),
+        new StreamSocketOptions(Authorization: _authorization),
+        _connector,
+        _options);
 
     private async Task PostDidsAsync(string path, IEnumerable<Did> dids, string what, CancellationToken cancellationToken)
     {
@@ -219,7 +205,7 @@ public sealed class TapClient : IDisposable
 
     private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, HttpContent? content, CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(method, new Uri(_options.ServiceUrl, path)) { Content = content };
+        using var request = new HttpRequestMessage(method, new Uri(ServiceUrl, path)) { Content = content };
         if (_authorization is not null)
             request.Headers.TryAddWithoutValidation("Authorization", _authorization);
 
@@ -229,7 +215,7 @@ public sealed class TapClient : IDisposable
         }
         catch (HttpRequestException ex)
         {
-            throw new TapException($"Could not reach Tap at {_options.ServiceUrl.GetLeftPart(UriPartial.Authority)}: {ex.Message}", null, ex);
+            throw new TapException($"Could not reach Tap at {ServiceUrl.GetLeftPart(UriPartial.Authority)}: {ex.Message}", null, ex);
         }
     }
 
@@ -284,42 +270,31 @@ public sealed class TapClient : IDisposable
 /// <para>An acknowledgement made while the connection is down is sent once it reconnects;
 /// acknowledging twice is harmless. With Tap's fire-and-forget mode (<c>TAP_DISABLE_ACKS</c>)
 /// acknowledgements are ignored.</para>
-/// <para>The channel reconnects after its connection drops, per
-/// <see cref="TapClientOptions.Reconnect"/>, until the token is cancelled. A Tap instance that
-/// refuses the connection, such as one in webhook mode, ends the enumeration with an
-/// <see cref="EventStreamException"/>.</para>
+/// <para>Reconnecting, cancellation and errors follow <see cref="StreamConsumerOptions"/>; a Tap
+/// instance that refuses the connection, such as one in webhook mode, ends the enumeration with an
+/// <see cref="EventStreamException"/>. A message that is not a valid event is skipped, and not
+/// acknowledged, so Tap sends it again: a newer SDK version may understand it.</para>
 /// </remarks>
 public sealed class TapChannel
 {
-    private readonly Uri _endpoint;
     private readonly StreamSocketOptions _socketOptions;
     private readonly DuplexStreamConnector _connector;
-    private readonly StreamReconnectPolicy _reconnect;
-    private readonly Action<Exception>? _onError;
-    private readonly ILogger _logger;
+    private readonly TapClientOptions _options;
     private readonly SemaphoreSlim _sendLock = new(1, 1);
     private readonly HashSet<long> _pendingAcks = [];
     private IDuplexStreamSocket? _socket;
     private int _reading;
 
-    internal TapChannel(
-        Uri endpoint,
-        StreamSocketOptions socketOptions,
-        DuplexStreamConnector connector,
-        StreamReconnectPolicy reconnect,
-        Action<Exception>? onError,
-        ILogger logger)
+    internal TapChannel(Uri endpoint, StreamSocketOptions socketOptions, DuplexStreamConnector connector, TapClientOptions options)
     {
-        _endpoint = endpoint;
+        Endpoint = endpoint;
         _socketOptions = socketOptions;
         _connector = connector;
-        _reconnect = reconnect;
-        _onError = onError;
-        _logger = logger;
+        _options = options;
     }
 
     /// <summary>The channel's WebSocket URL.</summary>
-    public Uri Endpoint => _endpoint;
+    public Uri Endpoint { get; }
 
     /// <summary>Reads events until the token is cancelled, reconnecting as the connection drops.</summary>
     /// <param name="cancellationToken">Cancellation token; cancelling ends the enumeration normally.</param>
@@ -334,88 +309,34 @@ public sealed class TapChannel
 
         try
         {
-            var backoff = new ReconnectBackoff(_reconnect, _logger, "Tap channel");
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                Exception? failure = null;
-                IDuplexStreamSocket? socket = null;
-                try
-                {
-                    socket = await _connector(_endpoint, _socketOptions, cancellationToken).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    yield break;
-                }
-                catch (Exception ex)
-                {
-                    failure = ex;
-                }
-
-                if (socket is not null)
-                {
-                    await using (socket.ConfigureAwait(false))
-                    {
-                        await AttachAsync(socket).ConfigureAwait(false);
-                        try
-                        {
-                            while (true)
-                            {
-                                StreamSocketMessage message;
-                                try
-                                {
-                                    if (await socket.ReceiveAsync(cancellationToken).ConfigureAwait(false) is not { } received)
-                                        break;
-                                    message = received;
-                                }
-                                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                                {
-                                    break;
-                                }
-                                catch (Exception ex)
-                                {
-                                    failure = ex;
-                                    break;
-                                }
-
-                                backoff.Reset();
-
-                                TapEvent evt;
-                                try
-                                {
-                                    evt = TapEvent.Parse(message.Data.Span);
-                                }
-                                catch (FormatException ex)
-                                {
-                                    // Not acknowledged: Tap resends it, which a newer SDK version may understand.
-                                    _logger.LogWarning(ex, "Skipping a Tap channel message that is not a valid event");
-                                    _onError?.Invoke(ex);
-                                    continue;
-                                }
-
-                                yield return evt;
-                            }
-                        }
-                        finally
-                        {
-                            Interlocked.CompareExchange(ref _socket, null, socket);
-                        }
-                    }
-                }
-
-                if (cancellationToken.IsCancellationRequested)
-                    yield break;
-
-                if (failure is EventStreamException { IsRetryable: false })
-                    ExceptionDispatchInfo.Throw(failure);
-
-                if (!await backoff.WaitAsync(failure, cancellationToken).ConfigureAwait(false))
-                    yield break;
-            }
+            await foreach (var evt in EventStreamLoop.RunAsync(new Handler(this), ConnectAsync, cancellationToken).ConfigureAwait(false))
+                yield return evt;
         }
         finally
         {
             Volatile.Write(ref _reading, 0);
+        }
+    }
+
+    /// <summary>
+    /// Opens a connection and reads it, with acknowledgements going to it while it is open.
+    /// </summary>
+    private async IAsyncEnumerable<StreamSocketMessage> ConnectAsync(
+        Uri endpoint, StreamSocketOptions options, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var socket = await _connector(endpoint, options, cancellationToken).ConfigureAwait(false);
+        await using (socket.ConfigureAwait(false))
+        {
+            await AttachAsync(socket).ConfigureAwait(false);
+            try
+            {
+                while (await socket.ReceiveAsync(cancellationToken).ConfigureAwait(false) is { } message)
+                    yield return message;
+            }
+            finally
+            {
+                Interlocked.CompareExchange(ref _socket, null, socket);
+            }
         }
     }
 
@@ -500,13 +421,36 @@ public sealed class TapChannel
         catch (Exception ex) when (ex is System.Net.WebSockets.WebSocketException or ObjectDisposedException or InvalidOperationException or IOException)
         {
             // The connection died under the send: the next one carries the acknowledgement.
-            _logger.LogDebug(ex, "Could not send the acknowledgement of Tap event {Id}; it waits for the next connection", id);
+            (_options.Logger ?? NullLogger.Instance).LogDebug(ex, "Could not send the acknowledgement of Tap event {Id}; it waits for the next connection", id);
             return false;
         }
     }
 
     /// <summary>The acknowledgement <c>@atproto/tap</c> sends: <c>{"type":"ack","id":…}</c>.</summary>
     internal static byte[] AckMessage(long id) => Encoding.UTF8.GetBytes($$"""{"type":"ack","id":{{id}}}""");
+
+    private sealed class Handler(TapChannel channel) : EventStreamHandler<TapEvent>(channel._options)
+    {
+        public override string Stream => "Tap channel";
+
+        public override ValueTask<(Uri Endpoint, StreamSocketOptions Options)> ConnectAsync(CancellationToken cancellationToken) =>
+            ValueTask.FromResult((channel.Endpoint, channel._socketOptions));
+
+        public override ValueTask<(TapEvent? Message, EventStreamError? Error)> ReadAsync(
+            StreamSocketMessage message, CancellationToken cancellationToken)
+        {
+            try
+            {
+                return ValueTask.FromResult<(TapEvent?, EventStreamError?)>((TapEvent.Parse(message.Data.Span), null));
+            }
+            catch (FormatException ex)
+            {
+                Logger.LogWarning(ex, "Skipping a Tap channel message that is not a valid event");
+                Options.OnEventDropped?.Invoke(new DroppedStreamEvent(StreamDropReason.Malformed, null, ex.Message));
+                return default;
+            }
+        }
+    }
 }
 
 /// <summary>A Tap admin request failed.</summary>

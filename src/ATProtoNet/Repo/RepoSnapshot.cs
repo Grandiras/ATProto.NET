@@ -29,7 +29,7 @@ public sealed class RepoSnapshot
         Commit = commit;
         CommitBlock = block;
         Rev = rev;
-        Data = Cid.Parse(CidComputation.EncodeCidToString(block.Data));
+        Data = Cid.FromBytes(block.Data);
         Tree = tree;
         _car = car;
     }
@@ -67,7 +67,7 @@ public sealed class RepoSnapshot
             {
                 var slash = path.IndexOf('/');
                 if (Nsid.TryParse(path[..slash], out var collection) && RecordKey.TryParse(path[(slash + 1)..], out var rkey))
-                    yield return new RepoSnapshotRecord(path, collection, rkey, Cid.Parse(CidComputation.EncodeCidToString(cid)));
+                    yield return new RepoSnapshotRecord(path, collection, rkey, Cid.FromBytes(cid));
             }
         }
     }
@@ -126,37 +126,19 @@ public sealed class RepoSnapshot
     {
         ArgumentNullException.ThrowIfNull(did);
 
+        CommitBlock block;
         CarReader reader;
         try
         {
-            reader = CarReader.FromBytes(car, verifyBlockCids: true);
+            block = CommitBlock.FromCar(car, out reader);
         }
         catch (FormatException ex)
         {
-            throw new RepoVerificationException($"The repository export is not a valid CAR file: {ex.Message}", ex);
-        }
-
-        if (reader.Roots.Count == 0)
-            throw new RepoVerificationException("The repository export names no root commit.");
-
-        var commitCid = reader.Roots[0];
-        var commitBlock = reader.FindBlock(commitCid)
-            ?? throw new RepoVerificationException("The repository export does not include its commit block.");
-
-        CommitBlock block;
-        try
-        {
-            block = CommitBlock.Read(commitBlock.Data);
-        }
-        catch (FormatException ex)
-        {
-            throw new RepoVerificationException(ex.Message, ex);
+            throw new RepoVerificationException($"The repository export is not valid: {ex.Message}", ex);
         }
 
         if (!string.Equals(block.Did, did.Value, StringComparison.Ordinal))
             throw new RepoVerificationException($"The repository export is for {block.Did}, not {did}.");
-        if (block.Version != RepoCommit.CurrentVersion)
-            throw new RepoVerificationException($"The commit is version {block.Version}; only version {RepoCommit.CurrentVersion} is supported.");
         if (!Tid.TryParse(block.Rev, out var rev))
             throw new RepoVerificationException($"The commit's revision '{block.Rev}' is not a TID.");
 
@@ -172,7 +154,7 @@ public sealed class RepoSnapshot
             throw new RepoVerificationException($"The repository's tree is malformed: {ex.Message}", ex);
         }
 
-        return new RepoSnapshot(did, Cid.Parse(CidComputation.EncodeCidToString(commitCid)), block, rev, tree, reader);
+        return new RepoSnapshot(did, Cid.FromBytes(reader.Roots[0]), block, rev, tree, reader);
     }
 }
 

@@ -114,6 +114,29 @@ internal static class AtProtoHttp
         return true;
     }
 
+    /// <summary>
+    /// The same URL with its scheme switched between http(s) and ws(s), keeping it secure or not:
+    /// a service serves its WebSocket and HTTP endpoints on one host. Any other scheme is kept.
+    /// </summary>
+    internal static Uri WithScheme(Uri url, bool webSocket)
+    {
+        bool secure;
+        switch (url.Scheme)
+        {
+            case "https" or "wss":
+                secure = true;
+                break;
+            case "http" or "ws":
+                secure = false;
+                break;
+            default:
+                return url;
+        }
+
+        var scheme = webSocket ? (secure ? "wss" : "ws") : (secure ? Uri.UriSchemeHttps : Uri.UriSchemeHttp);
+        return url.Scheme == scheme ? url : new UriBuilder(url) { Scheme = scheme, Port = url.IsDefaultPort ? -1 : url.Port }.Uri;
+    }
+
     private static bool IsHttp(Uri url) =>
         url.IsAbsoluteUri && (url.Scheme == Uri.UriSchemeHttps || url.Scheme == Uri.UriSchemeHttp);
 

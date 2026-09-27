@@ -8,10 +8,10 @@ using static ATProtoNet.Tests.Streaming.EventStreamFrames;
 namespace ATProtoNet.Tests.Streaming;
 
 /// <summary>
-/// The single-connection <see cref="FirehoseClient"/>, the label stream, and the chat moderation
-/// stream, over scripted connections.
+/// The connect, read and reconnect loop every stream consumer shares (through the firehose
+/// consumer, the simplest), the label and chat moderation streams, over scripted connections.
 /// </summary>
-public class EventStreamClientTests
+public class EventStreamLoopTests
 {
     private const string Labeler = "wss://labeler.test";
 
@@ -44,77 +44,155 @@ public class EventStreamClientTests
         writer.WriteEndMap();
     });
 
-    // ── FirehoseClient ───────────────────────────────────────
+    // ── The loop ─────────────────────────────────────────────
 
-    [Fact]
-    public async Task SubscribeAsync_YieldsTypedMessagesAndEndsWhenTheServerCloses()
-    {
-        var connector = new ScriptedConnector().Connection(IdentityFrame(1), Unknown("#new", 2), IdentityFrame(3));
-        await using var client = new FirehoseClient("wss://relay.test/", logger: null, connector.Connect);
+    private const string Relay = "wss://relay.test";
 
-        var messages = await client.SubscribeAsync(cursor: 0, TestContext.Current.CancellationToken).DrainAsync();
-
-        Assert.Equal([1L, 3L], messages.Cast<IdentityEvent>().Select(e => e.Seq));
-        Assert.Equal("wss://relay.test/xrpc/com.atproto.sync.subscribeRepos?cursor=0", connector.Endpoints.Single().ToString());
-    }
-
-    [Fact]
-    public async Task SubscribeAsync_ErrorFrame_ThrowsTheTypedError()
-    {
-        var connector = new ScriptedConnector().Connection(IdentityFrame(1), Error("ConsumerTooSlow", "keep up"));
-        await using var client = new FirehoseClient("wss://relay.test", logger: null, connector.Connect);
-
-        var seen = new List<FirehoseMessage>();
-        var ex = await Assert.ThrowsAsync<EventStreamException>(async () =>
+    private static TypedFirehoseConsumer Firehose(
+        ScriptedConnector connector,
+        int? maxReconnects = 0,
+        IStreamCursorStore? store = null,
+        List<EventStreamError>? errors = null) => new(
+        new TypedFirehoseConsumerOptions
         {
-            await foreach (var message in client.SubscribeAsync(cancellationToken: TestContext.Current.CancellationToken))
-                seen.Add(message);
+            ServiceUrl = Relay,
+            CursorStore = store,
+            Reconnect = StreamTestExtensions.Immediate(maxReconnects),
+            OnStreamError = errors is null ? null : errors.Add,
+        },
+        connector.Connect);
+
+    [Theory]
+    [InlineData("break", 10L)]
+    [InlineData("cancel", 11L)]
+    [InlineData("throw", 12L)]
+    public async Task ConsumeAsync_HoweverItEnds_SavesTheCursorOfTheLastHandledEvent(string end, long saved)
+    {
+        // The event being handled when the caller broke out is not recorded: at-least-once.
+        var store = new InMemoryStreamCursorStore();
+        var connector = new ScriptedConnector()
+            .Connection(IdentityFrame(10), IdentityFrame(11), IdentityFrame(12))
+            .Failing(new EventStreamException("refused", statusCode: 400));
+        var consumer = Firehose(connector, maxReconnects: null, store: store);
+        using var cts = new CancellationTokenSource();
+
+        var ex = await Record.ExceptionAsync(async () =>
+        {
+            await foreach (var message in consumer.ConsumeAsync(cancellationToken: cts.Token))
+            {
+                var seq = ((IdentityEvent)message).Seq;
+                if (end == "break" && seq == 11)
+                    break;
+                if (end == "cancel" && seq == 11)
+                    await cts.CancelAsync();
+            }
         });
 
-        Assert.Single(seen);
-        Assert.Equal(EventStreamErrors.ConsumerTooSlow, ex.Error);
-        Assert.True(ex.IsRetryable);
+        // Cancelling ends the enumeration normally; the refused reconnect throws.
+        Assert.Equal(end == "throw", ex is EventStreamException);
+        Assert.Equal(saved, await store.GetCursorAsync(Relay, TestContext.Current.CancellationToken));
     }
 
-    [Fact]
-    public async Task SubscribeAsync_EachSubscriptionOwnsItsConnection()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ConsumeAsync_AttemptsExhausted_ThrowsWithTheLastFailureRatherThanEndingLikeTheStream(bool failing)
     {
-        var connector = new ScriptedConnector().Connection(IdentityFrame(1)).Connection(IdentityFrame(2));
-        await using var client = new FirehoseClient("wss://relay.test", logger: null, connector.Connect);
+        var failure = new System.Net.WebSockets.WebSocketException("reset");
+        var connector = new ScriptedConnector().Connection(IdentityFrame(1));
+        if (failing)
+            connector.Failing(failure).Failing(failure);
 
-        var first = await client.SubscribeAsync(cancellationToken: TestContext.Current.CancellationToken).DrainAsync();
-        var second = await client.SubscribeAsync(cancellationToken: TestContext.Current.CancellationToken).DrainAsync();
-
-        Assert.Single(first);
-        Assert.Single(second);
-        Assert.Equal(2, connector.Endpoints.Count);
-    }
-
-    [Fact]
-    public async Task DisposeAsync_EndsRunningSubscriptionsAndRefusesNewOnes()
-    {
-        var connector = new ScriptedConnector().Connection(IdentityFrame(1), IdentityFrame(2), IdentityFrame(3));
-        var client = new FirehoseClient("wss://relay.test", logger: null, connector.Connect);
-
-        var seen = new List<FirehoseMessage>();
-        await foreach (var message in client.SubscribeAsync(cancellationToken: TestContext.Current.CancellationToken))
+        var messages = new List<FirehoseMessage>();
+        var ex = await Assert.ThrowsAsync<EventStreamException>(async () =>
         {
-            seen.Add(message);
-            await client.DisposeAsync();
-        }
+            await foreach (var message in Firehose(connector, maxReconnects: 2).ConsumeAsync(cancellationToken: TestContext.Current.CancellationToken))
+                messages.Add(message);
+        });
 
-        Assert.Single(seen);
-        await Assert.ThrowsAsync<ObjectDisposedException>(
-            () => client.SubscribeAsync(cancellationToken: TestContext.Current.CancellationToken).DrainAsync());
+        Assert.Single(messages);
+        Assert.Equal(failing ? failure : null, ex.InnerException);
+        Assert.Equal(3, connector.Endpoints.Count);
     }
 
     [Fact]
-    public async Task SubscribeLabelsAsync_ParsesLabelsAndInfo()
+    public async Task ConsumeAsync_AConnectionThatDelivers_ResetsTheAttemptCount()
+    {
+        // Two drops in a row would exhaust one attempt, but each connection delivers first.
+        var connector = new ScriptedConnector()
+            .Connection(IdentityFrame(1))
+            .Connection(IdentityFrame(2))
+            .Connection(IdentityFrame(3));
+
+        var messages = await Firehose(connector, maxReconnects: 1).ConsumeAsync().DrainAsync();
+
+        Assert.Equal([1L, 2L, 3L], messages.Cast<IdentityEvent>().Select(e => e.Seq));
+    }
+
+    [Fact]
+    public async Task ConsumeAsync_FailedConnection_IsRetried()
+    {
+        var connector = new ScriptedConnector()
+            .Failing(new InvalidOperationException("connect refused"))
+            .Connection(IdentityFrame(1));
+
+        var messages = await Firehose(connector, maxReconnects: 1).ConsumeAsync().DrainAsync();
+
+        Assert.Single(messages);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(EventStreamErrors.FutureCursor)]
+    public async Task ConsumeAsync_FailureThatCannotBeRetried_ThrowsAtOnce(string? errorFrame)
+    {
+        // A cursor ahead of the relay, or a subscription it refused, fails the same way forever.
+        var errors = new List<EventStreamError>();
+        var connector = new ScriptedConnector();
+        if (errorFrame is null)
+            connector.Failing(new EventStreamException("refused", statusCode: 400));
+        else
+            connector.Connection(Error(errorFrame, "cursor is ahead"));
+
+        var ex = await Assert.ThrowsAsync<EventStreamException>(async () =>
+        {
+            await foreach (var _ in Firehose(connector, maxReconnects: null, errors: errors).ConsumeAsync(cursor: 999, TestContext.Current.CancellationToken))
+            {
+            }
+        });
+
+        Assert.False(ex.IsRetryable);
+        Assert.Equal(errorFrame, ex.Error);
+        Assert.Equal(errorFrame is null ? [] : [new EventStreamError(errorFrame, "cursor is ahead")], errors);
+        Assert.Single(connector.Endpoints);
+    }
+
+    [Fact]
+    public async Task ConsumeAsync_RetryableErrorFrame_IsReportedAndReconnectsFromTheLastCursor()
+    {
+        var errors = new List<EventStreamError>();
+        var connector = new ScriptedConnector()
+            .Connection(IdentityFrame(5), Error("ConsumerTooSlow"))
+            .Connection(IdentityFrame(6));
+
+        var messages = await Firehose(connector, maxReconnects: 1, errors: errors).ConsumeAsync().DrainAsync();
+
+        Assert.Equal([5L, 6L], messages.Cast<IdentityEvent>().Select(e => e.Seq));
+        Assert.Equal("ConsumerTooSlow", Assert.Single(errors).Error);
+        Assert.Equal("5", connector.Cursors.ElementAt(1));
+    }
+
+    // ── LabelStreamConsumer ──────────────────────────────────
+
+    [Fact]
+    public async Task LabelStreamConsumer_ParsesLabelsAndInfo()
     {
         var connector = new ScriptedConnector().Connection(Labels(7, "spam", "!hide"), Info("OutdatedCursor"));
-        await using var client = new FirehoseClient(Labeler, logger: null, connector.Connect);
+        var consumer = new LabelStreamConsumer(
+            new LabelStreamConsumerOptions { ServiceUrl = Labeler, Reconnect = StreamTestExtensions.Immediate(0) },
+            connector.Connect);
 
-        var messages = await client.SubscribeLabelsAsync(cancellationToken: TestContext.Current.CancellationToken).DrainAsync();
+        var messages = await consumer.ConsumeAsync(cancellationToken: TestContext.Current.CancellationToken).DrainAsync();
 
         var labels = Assert.IsType<LabelsEvent>(messages[0]);
         Assert.Equal(7, labels.Seq);
@@ -123,8 +201,6 @@ public class EventStreamClientTests
         Assert.Equal("OutdatedCursor", Assert.IsType<LabelInfoEvent>(messages[1]).Name);
         Assert.Equal("wss://labeler.test/xrpc/com.atproto.label.subscribeLabels", connector.Endpoints.Single().ToString());
     }
-
-    // ── LabelStreamConsumer ──────────────────────────────────
 
     [Fact]
     public async Task LabelStreamConsumer_ResumesAndPersistsTheSequenceNumber()

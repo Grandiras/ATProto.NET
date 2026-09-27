@@ -129,11 +129,7 @@ public static class CidComputation
         return cid.Value == expected.Value;
     }
 
-    private static Cid ComputeCid(ReadOnlySpan<byte> data, byte codec)
-    {
-        var binaryBytes = ComputeBinaryCid(data, codec);
-        return Cid.Parse(EncodeCidToString(binaryBytes));
-    }
+    private static Cid ComputeCid(ReadOnlySpan<byte> data, byte codec) => Cid.FromBytes(ComputeBinaryCid(data, codec));
 
     private static byte[] ComputeBinaryCid(ReadOnlySpan<byte> data, byte codec)
     {
@@ -219,41 +215,42 @@ internal static class Base32Lower
     /// <summary>Number of base32 characters <paramref name="byteCount"/> bytes encode to.</summary>
     private static int EncodedLength(int byteCount) => (byteCount * 8 + 4) / 5;
 
-    public static byte[] Decode(ReadOnlySpan<char> encoded)
+    /// <summary>Decodes canonical base32 (see <see cref="TryDecode"/>).</summary>
+    /// <exception cref="FormatException">The text is not canonical unpadded lower-case base32.</exception>
+    public static byte[] Decode(ReadOnlySpan<char> chars)
     {
-        if (encoded.IsEmpty) return [];
+        var bytes = new byte[chars.Length * 5 / 8];
+        return TryDecode(chars, bytes) ? bytes : throw new FormatException("The text is not canonical unpadded lower-case base32.");
+    }
 
-        // Strip any padding
-        int length = encoded.Length;
-        while (length > 0 && encoded[length - 1] == '=')
-            length--;
-
-        var result = new byte[length * 5 / 8];
-        int resultIndex = 0;
-        int buffer = 0;
-        int bitsLeft = 0;
-
-        for (int i = 0; i < length; i++)
+    /// <summary>
+    /// Decodes unpadded base32 in lower case into <paramref name="bytes"/>, which must hold
+    /// <c>chars.Length * 5 / 8</c> bytes. Only the canonical encoding is accepted: no character
+    /// left over and the unused bits of the last one zero, so each value has one string form.
+    /// </summary>
+    public static bool TryDecode(ReadOnlySpan<char> chars, Span<byte> bytes)
+    {
+        int buffer = 0, bits = 0, at = 0;
+        foreach (var c in chars)
         {
-            var c = encoded[i];
             int value = c switch
             {
                 >= 'a' and <= 'z' => c - 'a',
-                >= 'A' and <= 'Z' => c - 'A',
                 >= '2' and <= '7' => c - '2' + 26,
-                _ => throw new FormatException($"Invalid base32 character: '{c}'"),
+                _ => -1,
             };
+            if (value < 0)
+                return false;
 
-            buffer = (buffer << 5) | value;
-            bitsLeft += 5;
-
-            if (bitsLeft >= 8)
+            buffer = ((buffer << 5) | value) & 0xFFF;
+            bits += 5;
+            if (bits >= 8)
             {
-                bitsLeft -= 8;
-                result[resultIndex++] = (byte)(buffer >> bitsLeft);
+                bits -= 8;
+                bytes[at++] = (byte)(buffer >> bits);
             }
         }
 
-        return result[..resultIndex];
+        return bits < 5 && (buffer & ((1 << bits) - 1)) == 0;
     }
 }

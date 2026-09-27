@@ -288,7 +288,7 @@ public sealed class CarReader
                 version ?? throw new FormatException("CAR header has no 'version'."),
                 roots);
         }
-        catch (Exception ex) when (ex is CborContentException or InvalidOperationException or OverflowException)
+        catch (Exception ex) when (DagCborDecoder.IsMalformed(ex))
         {
             throw new FormatException($"Invalid CAR header: {ex.Message}", ex);
         }

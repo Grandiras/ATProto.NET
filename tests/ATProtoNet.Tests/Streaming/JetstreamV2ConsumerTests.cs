@@ -20,63 +20,26 @@ public class JetstreamV2ConsumerTests
         Operation = RepoOpAction.Create,
     };
 
-    /// <summary>
-    /// Scripted connection factory: each call pops the next "connection", records the cursor
-    /// it was asked to resume from, and yields that connection's events.
-    /// </summary>
-    private sealed class ScriptedSource
-    {
-        private readonly Queue<Func<IAsyncEnumerable<JetstreamEvent>>> _connections = new();
-
-        public List<long?> ObservedCursors { get; } = [];
-
-        public ScriptedSource Connection(params JetstreamEvent[] events)
-        {
-            _connections.Enqueue(() => Yield(events));
-            return this;
-        }
-
-        public ScriptedSource FailingConnection(Exception exception)
-        {
-            _connections.Enqueue(() => Throw(exception));
-            return this;
-        }
-
-        public IAsyncEnumerable<JetstreamEvent> Connect(long? cursor, CancellationToken ct)
-        {
-            ObservedCursors.Add(cursor);
-            return _connections.Count > 0 ? _connections.Dequeue()() : Yield([]);
-        }
-
-        private static async IAsyncEnumerable<JetstreamEvent> Yield(JetstreamEvent[] events)
-        {
-            foreach (var evt in events)
-            {
-                await Task.Yield();
-                yield return evt;
-            }
-        }
-
-        private static async IAsyncEnumerable<JetstreamEvent> Throw(Exception exception)
-        {
-            await Task.Yield();
-            throw exception;
-#pragma warning disable CS0162 // Unreachable, but required to make this an iterator.
-            yield break;
-#pragma warning restore CS0162
-        }
-    }
-
     private static JetstreamConsumerOptions Options(
         IStreamCursorStore? store = null,
         int persistInterval = 100,
-        int maxReconnects = 0) => new()
+        int maxReconnects = 0,
+        string serviceUrl = StreamId,
+        Action<EventStreamError>? onStreamError = null,
+        Action<JetstreamInfo>? onInfo = null,
+        Action<DroppedStreamEvent>? onDropped = null,
+        IJetstreamDecompressor? decompressor = null) => new()
     {
-        ServiceUrl = StreamId,
+        ServiceUrl = serviceUrl,
         Protocol = JetstreamProtocol.V2,
         CursorStore = store,
         CursorPersistInterval = persistInterval,
         Reconnect = JetstreamConsumerTests.Reconnect(maxReconnects),
+        OnStreamError = onStreamError,
+        OnInfo = onInfo,
+        OnEventDropped = onDropped,
+        Decompressor = decompressor,
+        ZstdDictionaryId = decompressor is null ? null : 3,
     };
 
     private static Task<List<JetstreamEvent>> DrainAsync(JetstreamConsumer consumer, long? cursor = null)
@@ -85,7 +48,7 @@ public class JetstreamV2ConsumerTests
     [Fact]
     public async Task ConsumeAsync_TracksLastSequenceNumber()
     {
-        var source = new ScriptedSource().Connection(Commit(100), Commit(200), Commit(300));
+        var source = new ScriptedJetstream(JetstreamProtocol.V2).Connection(Commit(100), Commit(200), Commit(300));
         var consumer = new JetstreamConsumer(Options(), source.Connect);
 
         var events = await DrainAsync(consumer);
@@ -98,7 +61,7 @@ public class JetstreamV2ConsumerTests
     public async Task ConsumeAsync_Reconnect_ResumesAtLastSequenceNumberWithoutRewind()
     {
         // The v2 cursor is replayed inclusively, so rewinding it would only widen the overlap.
-        var source = new ScriptedSource()
+        var source = new ScriptedJetstream(JetstreamProtocol.V2)
             .Connection(Commit(100))
             .Connection(Commit(101));
         var consumer = new JetstreamConsumer(Options(maxReconnects: 1), source.Connect);
@@ -111,7 +74,7 @@ public class JetstreamV2ConsumerTests
     [Fact]
     public async Task ConsumeAsync_Reconnect_SkipsInclusivelyReplayedEvent()
     {
-        var source = new ScriptedSource()
+        var source = new ScriptedJetstream(JetstreamProtocol.V2)
             .Connection(Commit(100), Commit(200))
             // Reconnecting at 200 replays 200 itself, per the inclusive cursor.
             .Connection(Commit(200), Commit(300));
@@ -126,7 +89,7 @@ public class JetstreamV2ConsumerTests
     public async Task ConsumeAsync_PersistsSequenceNumberNotTimestamp()
     {
         var store = new InMemoryStreamCursorStore();
-        var source = new ScriptedSource().Connection(Commit(100), Commit(200), Commit(300));
+        var source = new ScriptedJetstream(JetstreamProtocol.V2).Connection(Commit(100), Commit(200), Commit(300));
         var consumer = new JetstreamConsumer(Options(store, persistInterval: 2), source.Connect);
 
         await DrainAsync(consumer);
@@ -138,13 +101,29 @@ public class JetstreamV2ConsumerTests
     public async Task ConsumeAsync_ResumesFromStoredSequenceNumber()
     {
         var store = new InMemoryStreamCursorStore();
-        await store.StoreCursorAsync(StreamId, 24664288881);
-        var source = new ScriptedSource().Connection(Commit(24664288882));
+        await store.StoreCursorAsync(StreamId, 24664288881, TestContext.Current.CancellationToken);
+        var source = new ScriptedJetstream(JetstreamProtocol.V2).Connection(Commit(24664288881), Commit(24664288882));
         var consumer = new JetstreamConsumer(Options(store), source.Connect);
 
-        await DrainAsync(consumer);
+        var events = await DrainAsync(consumer);
 
+        // The stored cursor is replayed inclusively, and dropped as already delivered.
+        Assert.Equal([24664288882L], events.Select(e => e.Cursor!.Value));
         Assert.Equal([24664288881L], source.ObservedCursors);
+    }
+
+    [Fact]
+    public async Task ConsumeAsync_RejectedSubscription_PersistsProgressBeforeThrowing()
+    {
+        var store = new InMemoryStreamCursorStore();
+        var source = new ScriptedJetstream(JetstreamProtocol.V2)
+            .Connection(Commit(100))
+            .FailingConnection(new EventStreamException("cursor too old", statusCode: 400));
+        var consumer = new JetstreamConsumer(Options(store, maxReconnects: -1), source.Connect);
+
+        await Assert.ThrowsAsync<JetstreamException>(() => DrainAsync(consumer));
+
+        Assert.Equal(100L, await store.GetCursorAsync(StreamId, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -161,7 +140,7 @@ public class JetstreamV2ConsumerTests
             Rkey = RecordKey.Parse("3l3qo2vuowo2b"),
             Operation = RepoOpAction.Create,
         };
-        var source = new ScriptedSource().Connection(seqless);
+        var source = new ScriptedJetstream(JetstreamProtocol.V2).Connection(seqless);
         var consumer = new JetstreamConsumer(Options(store, persistInterval: 1), source.Connect);
 
         var events = await DrainAsync(consumer);
@@ -171,52 +150,153 @@ public class JetstreamV2ConsumerTests
     }
 
     [Fact]
-    public async Task ConsumeAsync_RetryableConnectFailure_Reconnects()
+    public async Task ConsumeAsync_RejectedSubscription_ThrowsAJetstreamExceptionInsteadOfLooping()
     {
-        var source = new ScriptedSource()
-            .FailingConnection(new JetstreamException("rate limited", statusCode: 429))
-            .Connection(Commit(100));
-        var consumer = new JetstreamConsumer(Options(maxReconnects: 1), source.Connect);
+        // CursorTooOld: reconnecting with the same cursor can only fail the same way, and
+        // dropping the cursor would silently skip the gap the caller must backfill.
+        var source = new ScriptedJetstream(JetstreamProtocol.V2)
+            .FailingConnection(new EventStreamException("refused", statusCode: 400));
+        var consumer = new JetstreamConsumer(Options(maxReconnects: -1), source.Connect);
+
+        var ex = await Assert.ThrowsAsync<JetstreamException>(() => DrainAsync(consumer, cursor: 1));
+
+        Assert.Equal(400, ex.StatusCode);
+        Assert.False(ex.IsRetryable);
+        Assert.Single(source.ObservedCursors);
+    }
+
+    [Theory]
+    [InlineData(EventStreamErrors.ConsumerTooSlow)]
+    [InlineData(EventStreamErrors.FutureCursor)]
+    public async Task ConsumeAsync_ErrorFrame_IsReportedAndThrownAsAJetstreamExceptionUnlessRetryable(string error)
+    {
+        var errors = new List<EventStreamError>();
+        var source = new ScriptedJetstream(JetstreamProtocol.V2)
+            .Frames(JetstreamFrames.Commit(Commit(100), JetstreamProtocol.V2), JetstreamFrames.Error(error, "stopping"))
+            .Connection(Commit(101));
+        var consumer = new JetstreamConsumer(Options(maxReconnects: 1, onStreamError: errors.Add), source.Connect);
+
+        var events = new List<JetstreamEvent>();
+        var ex = await Record.ExceptionAsync(async () =>
+        {
+            await foreach (var evt in consumer.ConsumeAsync(cancellationToken: TestContext.Current.CancellationToken))
+                events.Add(evt);
+        });
+
+        Assert.Equal([new EventStreamError(error, "stopping")], errors);
+        if (error == EventStreamErrors.FutureCursor)
+        {
+            Assert.Equal(error, Assert.IsType<JetstreamException>(ex).Error);
+            Assert.Equal([100L], events.Select(e => e.Cursor!.Value));
+        }
+        else
+        {
+            // Reconnected from the last event, then gave up when the script ran out.
+            Assert.IsType<EventStreamException>(ex);
+            Assert.Equal([100L, 101L], events.Select(e => e.Cursor!.Value));
+            Assert.Equal(100L, source.ObservedCursors[1]);
+        }
+    }
+
+    [Fact]
+    public async Task ConsumeAsync_InfoFrames_AreReportedOutOfBandOverTheV2Subprotocol()
+    {
+        var infos = new List<JetstreamInfo>();
+        var source = new ScriptedJetstream(JetstreamProtocol.V2).Frames(
+            JetstreamFrames.Commit(Commit(1), JetstreamProtocol.V2),
+            JetstreamFrames.Info("OutdatedCursor"),
+            JetstreamFrames.Commit(Commit(2), JetstreamProtocol.V2));
+        var consumer = new JetstreamConsumer(Options(serviceUrl: "https://jetstream.test", onInfo: infos.Add), source.Connect);
+
+        var events = await DrainAsync(consumer, cursor: 0);
+
+        Assert.Equal([1L, 2L], events.Select(e => e.Cursor!.Value));
+        Assert.Equal("OutdatedCursor", Assert.Single(infos).Name);
+        Assert.Equal("wss://jetstream.test/xrpc/network.bsky.jetstream.subscribeEvents?cursor=0", source.Endpoints[0].ToString());
+        Assert.Equal("xrpc.v1.json", source.Options[0].SubProtocol);
+    }
+
+    [Fact]
+    public async Task ConsumeAsync_ReadsEachFrameStraightFromTheReceiveBuffer()
+    {
+        // The socket reuses its buffer for the next message, so an event must not keep a
+        // reference to it.
+        var buffer = JetstreamFrames.Commit(Commit(5), JetstreamProtocol.V2);
+        var source = new ScriptedJetstream(JetstreamProtocol.V2).Frames(buffer);
+        var consumer = new JetstreamConsumer(Options(), source.Connect);
+
+        var events = await DrainAsync(consumer);
+        Array.Clear(buffer);
+
+        var commit = Assert.IsType<JetstreamCommitEvent>(Assert.Single(events));
+        Assert.Equal("app.bsky.feed.post", commit.Collection.Value);
+    }
+
+    [Fact]
+    public async Task ConsumeAsync_UnreadableFrame_IsSkippedAndReported()
+    {
+        var dropped = new List<DroppedStreamEvent>();
+        var source = new ScriptedJetstream(JetstreamProtocol.V2)
+            .Frames("{not json"u8.ToArray(), JetstreamFrames.Commit(Commit(3), JetstreamProtocol.V2));
+        var consumer = new JetstreamConsumer(Options(onDropped: dropped.Add), source.Connect);
 
         var events = await DrainAsync(consumer);
 
         Assert.Single(events);
+        Assert.Equal(StreamDropReason.Malformed, Assert.Single(dropped).Reason);
     }
 
     [Fact]
-    public async Task ConsumeAsync_RejectedSubscription_ThrowsInsteadOfLooping()
+    public async Task ConsumeAsync_BinaryFrame_GoesThroughTheDecompressor()
     {
-        // CursorTooOld: reconnecting with the same cursor can only fail the same way, and
-        // dropping the cursor would silently skip the gap the caller must backfill.
-        var source = new ScriptedSource()
-            .FailingConnection(new JetstreamException("cursor too old", statusCode: 400));
-        var consumer = new JetstreamConsumer(Options(maxReconnects: -1), source.Connect);
+        var decompressor = new ReversingDecompressor();
+        var source = new ScriptedJetstream(JetstreamProtocol.V2)
+            .Frames(JetstreamFrames.Commit(Commit(9), JetstreamProtocol.V2).Reverse().ToArray());
+        var consumer = new JetstreamConsumer(Options(decompressor: decompressor), source.Connect);
 
-        var ex = await Assert.ThrowsAsync<JetstreamException>(() => DrainAsync(consumer));
+        var events = await DrainAsync(consumer);
 
-        Assert.Equal(400, ex.StatusCode);
-        Assert.Single(source.ObservedCursors);
+        Assert.Equal(9, Assert.Single(events).Cursor);
+        Assert.Equal(1, decompressor.Calls);
     }
 
     [Fact]
-    public async Task ConsumeAsync_RejectedSubscription_PersistsProgressBeforeThrowing()
+    public async Task ConsumeAsync_FrameThatDoesNotDecompress_FailsTheConnectionAndReconnects()
     {
-        var store = new InMemoryStreamCursorStore();
-        var source = new ScriptedSource()
-            .Connection(Commit(100))
-            .FailingConnection(new JetstreamException("cursor too old", statusCode: 400));
-        var consumer = new JetstreamConsumer(Options(store, maxReconnects: -1), source.Connect);
+        // A corrupt frame, or one made with another dictionary: reconnecting from the last cursor
+        // fetches it again, where skipping it would lose it, or every frame after a dictionary change.
+        var good = JetstreamFrames.Commit(Commit(9), JetstreamProtocol.V2).Reverse().ToArray();
+        var source = new ScriptedJetstream(JetstreamProtocol.V2)
+            .Frames(good, [0xFF, 0xFF])
+            .Frames(good, JetstreamFrames.Commit(Commit(10), JetstreamProtocol.V2).Reverse().ToArray());
+        var consumer = new JetstreamConsumer(Options(maxReconnects: 1, decompressor: new ReversingDecompressor()), source.Connect);
 
-        await Assert.ThrowsAsync<JetstreamException>(() => DrainAsync(consumer));
+        var events = await DrainAsync(consumer);
 
-        Assert.Equal(100L, await store.GetCursorAsync(StreamId));
+        Assert.Equal([9L, 10L], events.Select(e => e.Cursor!.Value));
+        Assert.Equal([null, 9L, 10L], source.ObservedCursors);
+    }
+
+    private sealed class ReversingDecompressor : IJetstreamDecompressor
+    {
+        public int Calls { get; private set; }
+
+        public byte[] Decompress(ReadOnlySpan<byte> frame)
+        {
+            Calls++;
+            if (frame.SequenceEqual((ReadOnlySpan<byte>)[0xFF, 0xFF]))
+                throw new InvalidDataException("Not a zstd frame.");
+            var copy = frame.ToArray();
+            Array.Reverse(copy);
+            return copy;
+        }
     }
 
     [Fact]
     public async Task ConsumeAsync_SequenceCursor_SkipsTheInclusiveReplayOfIt()
     {
         // The server replays ?cursor=N inclusively, and N is the last event already handled.
-        var source = new ScriptedSource().Connection(Commit(100), Commit(101));
+        var source = new ScriptedJetstream(JetstreamProtocol.V2).Connection(Commit(100), Commit(101));
         var consumer = new JetstreamConsumer(Options(), source.Connect);
 
         var events = await DrainAsync(consumer, cursor: 100);
@@ -231,7 +311,7 @@ public class JetstreamV2ConsumerTests
         // event, since sequence numbers are far below it.
         var seek = JetstreamCursor.FromTimestamp(new DateTimeOffset(2026, 9, 25, 0, 0, 0, TimeSpan.Zero));
         var store = new InMemoryStreamCursorStore();
-        var source = new ScriptedSource().Connection(Commit(100), Commit(101));
+        var source = new ScriptedJetstream(JetstreamProtocol.V2).Connection(Commit(100), Commit(101));
         var consumer = new JetstreamConsumer(Options(store), source.Connect);
 
         var events = await DrainAsync(consumer, cursor: seek);
@@ -245,7 +325,7 @@ public class JetstreamV2ConsumerTests
     public async Task ConsumeAsync_TimestampCursor_ReconnectsBySequenceNumber()
     {
         var seek = JetstreamCursor.FromTimestamp(new DateTimeOffset(2026, 9, 25, 0, 0, 0, TimeSpan.Zero));
-        var source = new ScriptedSource()
+        var source = new ScriptedJetstream(JetstreamProtocol.V2)
             .Connection(Commit(100))
             .Connection(Commit(100), Commit(101));
         var consumer = new JetstreamConsumer(Options(maxReconnects: 1), source.Connect);
@@ -261,7 +341,7 @@ public class JetstreamV2ConsumerTests
     public async Task ConsumeAsync_TimestampSeekBeforeAnyEvent_ReconnectsWithTheTimestamp()
     {
         var seek = JetstreamCursor.FromTimestamp(new DateTimeOffset(2026, 9, 25, 0, 0, 0, TimeSpan.Zero));
-        var source = new ScriptedSource()
+        var source = new ScriptedJetstream(JetstreamProtocol.V2)
             .FailingConnection(new InvalidOperationException("reset"))
             .Connection(Commit(100));
         var consumer = new JetstreamConsumer(Options(maxReconnects: 1), source.Connect);
@@ -279,7 +359,7 @@ public class JetstreamV2ConsumerTests
         const long v1Cursor = 1_725_911_162_329_308;
         var store = new InMemoryStreamCursorStore();
         await store.StoreCursorAsync(StreamId, v1Cursor);
-        var source = new ScriptedSource().Connection(Commit(24664288882));
+        var source = new ScriptedJetstream(JetstreamProtocol.V2).Connection(Commit(24664288882));
         var consumer = new JetstreamConsumer(Options(store), source.Connect);
 
         var events = await DrainAsync(consumer);
@@ -287,35 +367,6 @@ public class JetstreamV2ConsumerTests
         Assert.Single(events);
         Assert.Equal([v1Cursor], source.ObservedCursors);
         Assert.Equal(24664288882L, await store.GetCursorAsync(StreamId));
-    }
-
-    [Fact]
-    public async Task ConsumeAsync_RetryableErrorFrame_Reconnects()
-    {
-        var source = new ScriptedSource()
-            .FailingConnection(new JetstreamException("too slow", error: EventStreamErrors.ConsumerTooSlow))
-            .Connection(Commit(100));
-        var consumer = new JetstreamConsumer(Options(maxReconnects: 1), source.Connect);
-
-        var events = await DrainAsync(consumer);
-
-        // The connection the error ended, the reconnect that delivered, and one more that the
-        // scripted source leaves empty.
-        Assert.Single(events);
-        Assert.Equal(3, source.ObservedCursors.Count);
-    }
-
-    [Fact]
-    public async Task ConsumeAsync_FutureCursorErrorFrame_Throws()
-    {
-        var source = new ScriptedSource()
-            .FailingConnection(new JetstreamException("ahead", error: EventStreamErrors.FutureCursor));
-        var consumer = new JetstreamConsumer(Options(maxReconnects: -1), source.Connect);
-
-        var ex = await Assert.ThrowsAsync<JetstreamException>(() => DrainAsync(consumer));
-
-        Assert.Equal(EventStreamErrors.FutureCursor, ex.Error);
-        Assert.Single(source.ObservedCursors);
     }
 
     [Theory]

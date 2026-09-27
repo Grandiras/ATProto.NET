@@ -484,8 +484,8 @@ Console.WriteLine(signed.Cid);        // commit CID
 bool ok = signed.Verify(signingKey);  // check the signature round-trips
 ```
 
-`EncodeUnsigned()` returns exactly the bytes that get signed — a byte-for-byte prefix of the signed
-encoding, which is what makes `FirehoseVerifier.ExtractSignedView` able to recover them.
+`EncodeUnsigned()` returns exactly the bytes that get signed — the signed encoding without its
+`sig` field, byte for byte, which is how a verifier recovers them from the signed block.
 
 Write the commit and its blocks out as a CAR file with `CarWriter` (see
 [CAR Files](#car-files)).

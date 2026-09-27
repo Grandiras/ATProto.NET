@@ -1,4 +1,5 @@
 using System.Formats.Cbor;
+using System.Text;
 
 namespace ATProtoNet.Repo;
 
@@ -31,37 +32,88 @@ internal sealed class MstNodeData
     /// <summary>Serializes this node to deterministic DAG-CBOR bytes.</summary>
     public byte[] ToBytes()
     {
-        // Every map is written in canonical key order by hand ("e" < "l"; "k" < "p" < "t" < "v"),
-        // so the writer need not buffer and re-sort it. Sized up front, so encoding a node (which
-        // inverting every firehose commit does several times) does not grow the buffer step by step.
+        // Sized up front, so encoding a node does not grow the buffer step by step.
         var size = 48;
         foreach (var entry in Entries)
             size += entry.KeySuffix.Length + 96;
         var writer = new CborWriter(CborConformanceMode.Lax, initialCapacity: size);
 
-        writer.WriteStartMap(2);
-        writer.WriteTextString("e");
-        writer.WriteStartArray(Entries.Count);
+        WriteStart(writer, Entries.Count);
         foreach (var entry in Entries)
-        {
-            writer.WriteStartMap(4);
-            writer.WriteTextString("k");
-            writer.WriteByteString(entry.KeySuffix);
-            writer.WriteTextString("p");
-            writer.WriteInt32(entry.PrefixLength);
-            writer.WriteTextString("t");
-            DagCborLink.WriteNullable(writer, entry.Tree);
-            writer.WriteTextString("v");
-            DagCborLink.Write(writer, entry.Value);
-            writer.WriteEndMap();
-        }
-        writer.WriteEndArray();
-
-        writer.WriteTextString("l");
-        DagCborLink.WriteNullable(writer, Left);
-        writer.WriteEndMap();
+            WriteEntry(writer, entry.PrefixLength, entry.KeySuffix, entry.Tree, entry.Value);
+        WriteEnd(writer, Left);
 
         return writer.Encode();
+    }
+
+    // A node is written in three steps, so a tree can encode its nodes straight from its own
+    // entries. Every map is in canonical key order by hand ("e" < "l"; "k" < "p" < "t" < "v"), so
+    // the writer need not buffer and re-sort it.
+
+    /// <summary>Starts a node of <paramref name="entries"/> entries.</summary>
+    internal static void WriteStart(CborWriter writer, int entries)
+    {
+        writer.WriteStartMap(2);
+        writer.WriteTextString("e");
+        writer.WriteStartArray(entries);
+    }
+
+    /// <summary>Writes one entry: its key after the prefix it shares with the previous one, its right subtree and its value.</summary>
+    internal static void WriteEntry(CborWriter writer, int prefixLength, ReadOnlySpan<byte> keySuffix, byte[]? tree, byte[] value)
+    {
+        writer.WriteStartMap(4);
+        writer.WriteTextString("k");
+        writer.WriteByteString(keySuffix);
+        writer.WriteTextString("p");
+        writer.WriteInt32(prefixLength);
+        writer.WriteTextString("t");
+        DagCborLink.WriteNullable(writer, tree);
+        writer.WriteTextString("v");
+        DagCborLink.Write(writer, value);
+        writer.WriteEndMap();
+    }
+
+    /// <summary>Ends a node with its left subtree.</summary>
+    internal static void WriteEnd(CborWriter writer, byte[]? left)
+    {
+        writer.WriteEndArray();
+        writer.WriteTextString("l");
+        DagCborLink.WriteNullable(writer, left);
+        writer.WriteEndMap();
+    }
+
+    /// <summary>
+    /// Rebuilds the entries' keys from their prefix compression, checking that each is a valid MST
+    /// key and that they increase strictly between <paramref name="lower"/> and
+    /// <paramref name="upper"/>: the range the parent leaves this node, when it has one.
+    /// </summary>
+    /// <exception cref="FormatException">A key is not valid, or out of order.</exception>
+    public byte[][] ReadKeys(byte[]? lower, byte[]? upper)
+    {
+        var keys = new byte[Entries.Count][];
+        for (var i = 0; i < keys.Length; i++)
+        {
+            // FromBytes has already bounded the prefix by the previous key's length.
+            var entry = Entries[i];
+            var key = new byte[entry.PrefixLength + entry.KeySuffix.Length];
+            if (i > 0)
+                keys[i - 1].AsSpan(0, entry.PrefixLength).CopyTo(key);
+            entry.KeySuffix.CopyTo(key.AsSpan(entry.PrefixLength));
+
+            if (!MerkleSearchTree.IsValidKey<byte>(key))
+                throw new FormatException($"The MST node holds an invalid key: '{Encoding.Latin1.GetString(key)}'.");
+
+            var floor = i > 0 ? keys[i - 1] : lower;
+            if ((floor is not null && key.AsSpan().SequenceCompareTo(floor) <= 0)
+                || (upper is not null && key.AsSpan().SequenceCompareTo(upper) >= 0))
+            {
+                throw new FormatException($"The MST node holds keys out of order: '{Encoding.ASCII.GetString(key)}'.");
+            }
+
+            keys[i] = key;
+        }
+
+        return keys;
     }
 
     /// <summary>Deserializes an MST node from DAG-CBOR bytes.</summary>
@@ -75,7 +127,7 @@ internal sealed class MstNodeData
         {
             return Read(new CborReader(data, CborConformanceMode.Lax));
         }
-        catch (Exception ex) when (ex is CborContentException or InvalidOperationException or OverflowException)
+        catch (Exception ex) when (DagCborDecoder.IsMalformed(ex))
         {
             throw new FormatException($"Invalid MST node: {ex.Message}", ex);
         }

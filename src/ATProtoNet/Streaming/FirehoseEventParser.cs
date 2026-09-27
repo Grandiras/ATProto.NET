@@ -8,8 +8,8 @@ namespace ATProtoNet.Streaming;
 /// </summary>
 /// <remarks>
 /// A frame is two concatenated DAG-CBOR values: a header <c>{op, t}</c> naming the message type
-/// (<c>#commit</c>, <c>#identity</c>, …) and the message body. <see cref="FirehoseClient"/> and
-/// <see cref="TypedFirehoseConsumer"/> parse for you; use this for frames read some other way.
+/// (<c>#commit</c>, <c>#identity</c>, …) and the message body. <see cref="TypedFirehoseConsumer"/>
+/// parses for you; use this for frames read some other way.
 /// </remarks>
 public static class FirehoseEventParser
 {

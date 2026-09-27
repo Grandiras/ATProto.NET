@@ -1,3 +1,4 @@
+using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using ATProtoNet.Repo;
@@ -16,74 +17,45 @@ namespace ATProtoNet.Streaming;
 /// <see cref="RepoResyncEvent"/>. The repository's events that arrive meanwhile are verified and
 /// held; once the snapshot is delivered they follow it in order, so nothing between the snapshot
 /// and the live stream is lost. The cursor is not saved past a held event until it is delivered,
-/// so a process that stops in between replays it. Repositories the state store lists as not synchronized, left over
-/// from an earlier run or marked for fetching, are picked up every <see cref="ScanInterval"/>.</para>
-/// <para>Everything is bounded. <see cref="MaxConcurrency"/> repositories are fetched or held
-/// fetched at once, each at most <see cref="MaxRepoBytes"/>, so fetched exports take at most
-/// about <c>(MaxConcurrency + 1) × MaxRepoBytes</c> of memory, the one being delivered included;
-/// <see cref="MaxPendingRepos"/> more wait for a turn, and <see cref="MaxHeldEventsPerRepo"/> and
-/// <see cref="MaxHeldBytes"/> bound the events held meanwhile. A repository over a limit is fetched
-/// again later rather than growing memory.</para>
+/// so a process that stops in between replays it. Repositories the state store lists as not
+/// synchronized, left over from an earlier run or marked for fetching, are picked up every
+/// minute.</para>
+/// <para>Everything is bounded. Four repositories are fetched or held fetched at once, each export
+/// at most 256 MiB, so fetched exports take at most about 1.25 GiB of memory, the one being
+/// delivered included; 1,000 more wait for a turn, and the events held meanwhile are bounded at
+/// 1,000 per repository and 64 MiB in all. A repository over a limit is fetched again later rather
+/// than growing memory, one whose fetch failed waits a minute before the next attempt, and each
+/// download may take five minutes.</para>
 /// </remarks>
 public sealed class RepoResyncOptions
 {
     /// <summary>
     /// Where to fetch repositories from, in order: the first that returns a verified export at
-    /// least as new as the event that broke the chain wins. Default: the relay
-    /// (<see cref="Upstream"/>), then the account's PDS, as the sync spec recommends.
+    /// least as new as the event that broke the chain wins. Default: the relay (the consumer's
+    /// <see cref="StreamConsumerOptions.ServiceUrl"/> over <c>https</c>), then the account's PDS, as
+    /// the sync spec recommends, both over public addresses only.
     /// </summary>
     public IReadOnlyList<IRepoFetcher>? Fetchers { get; init; }
 
-    /// <summary>
-    /// The host to ask first when <see cref="Fetchers"/> is not set. Default: the consumer's
-    /// <see cref="StreamConsumerOptions.ServiceUrl"/> over <c>https</c> (<c>wss://bsky.network</c>
-    /// becomes <c>https://bsky.network</c>).
-    /// </summary>
-    public Uri? Upstream { get; init; }
+    // The limits the remarks describe; tests shorten them.
+    internal int MaxConcurrency { get; init; } = 4;
 
-    /// <summary>
-    /// Whether the default fetchers may connect to private and loopback addresses, and over plain
-    /// <c>http</c>: for a development PDS on the local network. Default: false.
-    /// </summary>
-    public bool AllowPrivateNetworks { get; init; }
+    internal int MaxPendingRepos { get; init; } = 1_000;
 
-    /// <summary>
-    /// How many repositories are fetched at once, counting fetched ones not yet delivered, each of
-    /// which holds its whole export in memory. Default: 4.
-    /// </summary>
-    public int MaxConcurrency { get; init; } = 4;
+    internal long MaxRepoBytes { get; init; } = 256L * 1024 * 1024;
 
-    /// <summary>How many repositories may wait for a fetch; more stay desynchronized until a scan. Default: 1,000.</summary>
-    public int MaxPendingRepos { get; init; } = 1_000;
+    internal TimeSpan FetchTimeout { get; init; } = RepoDownload.DefaultTimeout;
 
-    /// <summary>The largest repository export accepted. Default: 256 MiB.</summary>
-    public long MaxRepoBytes { get; init; } = 256L * 1024 * 1024;
+    internal int MaxHeldEventsPerRepo { get; init; } = 1_000;
 
-    /// <summary>How long one download may take, reading the whole body included. Default: 5 minutes.</summary>
-    public TimeSpan FetchTimeout { get; init; } = TimeSpan.FromMinutes(5);
+    internal long MaxHeldBytes { get; init; } = 64L * 1024 * 1024;
 
-    /// <summary>How many of one repository's events are held while it is fetched. Default: 1,000.</summary>
-    public int MaxHeldEventsPerRepo { get; init; } = 1_000;
+    internal TimeSpan RetryDelay { get; init; } = TimeSpan.FromMinutes(1);
 
-    /// <summary>How many bytes of blocks all held events may take together. Default: 64 MiB.</summary>
-    public long MaxHeldBytes { get; init; } = 64L * 1024 * 1024;
-
-    /// <summary>How long a repository whose fetch failed waits before the next attempt. Default: 1 minute.</summary>
-    public TimeSpan RetryDelay { get; init; } = TimeSpan.FromMinutes(1);
-
-    /// <summary>How often the state store is scanned for repositories to fetch. Default: 1 minute.</summary>
-    public TimeSpan ScanInterval { get; init; } = TimeSpan.FromMinutes(1);
+    internal TimeSpan ScanInterval { get; init; } = TimeSpan.FromMinutes(1);
 
     internal void Validate()
     {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaxConcurrency, nameof(MaxConcurrency));
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaxPendingRepos, nameof(MaxPendingRepos));
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaxRepoBytes, nameof(MaxRepoBytes));
-        ArgumentOutOfRangeException.ThrowIfNegative(MaxHeldEventsPerRepo, nameof(MaxHeldEventsPerRepo));
-        ArgumentOutOfRangeException.ThrowIfNegative(MaxHeldBytes, nameof(MaxHeldBytes));
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(FetchTimeout, TimeSpan.Zero, nameof(FetchTimeout));
-        ArgumentOutOfRangeException.ThrowIfLessThan(RetryDelay, TimeSpan.Zero, nameof(RetryDelay));
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(ScanInterval, TimeSpan.Zero, nameof(ScanInterval));
         if (Fetchers is { Count: 0 })
             throw new ArgumentException("At least one fetcher is needed.", nameof(Fetchers));
     }
@@ -131,7 +103,6 @@ internal sealed class RepoResyncCoordinator : IAsyncDisposable
     private readonly TimeProvider _timeProvider;
     private readonly SemaphoreSlim _concurrency;
     private readonly CancellationTokenSource _stopping = new();
-    private readonly HttpClient? _ownedClient;
 
     // Touched only on the consumer's loop.
     private readonly Dictionary<Did, Job> _jobs = [];
@@ -179,12 +150,11 @@ internal sealed class RepoResyncCoordinator : IAsyncDisposable
         }
         else
         {
-            _ownedClient = RepoDownload.CreateClient(options.AllowPrivateNetworks, options.FetchTimeout);
-            var list = new List<IRepoFetcher>(2);
-            if ((options.Upstream ?? UpstreamOf(serviceUrl)) is { } upstream)
-                list.Add(new HostRepoFetcher(upstream, _ownedClient, options.AllowPrivateNetworks));
-            list.Add(new PdsRepoFetcher(verifier.DidResolver, _ownedClient, options.AllowPrivateNetworks));
-            _fetchers = list;
+            var defaults = new List<IRepoFetcher>(2);
+            if (UpstreamOf(serviceUrl) is { } upstream)
+                defaults.Add(new HostRepoFetcher(upstream));
+            defaults.Add(new PdsRepoFetcher(verifier.DidResolver));
+            _fetchers = defaults;
         }
     }
 
@@ -204,20 +174,10 @@ internal sealed class RepoResyncCoordinator : IAsyncDisposable
     internal sealed record Refetch(Did Did, Tid? MinRev, string Reason) : Pending;
 
     /// <summary>The http(s) form of the firehose's WebSocket URL: the relay to ask first.</summary>
-    internal static Uri? UpstreamOf(string serviceUrl)
-    {
-        if (!Uri.TryCreate(serviceUrl, UriKind.Absolute, out var uri))
-            return null;
-
-        var scheme = uri.Scheme switch
-        {
-            "wss" or "https" => Uri.UriSchemeHttps,
-            "ws" or "http" => Uri.UriSchemeHttp,
-            _ => null,
-        };
-
-        return scheme is null ? null : new UriBuilder(uri) { Scheme = scheme, Port = uri.IsDefaultPort ? -1 : uri.Port, Path = "/", Query = "" }.Uri;
-    }
+    internal static Uri? UpstreamOf(string serviceUrl) =>
+        Uri.TryCreate(serviceUrl, UriKind.Absolute, out var uri) && AtProtoHttp.WithScheme(uri, webSocket: false) is { Scheme: "https" or "http" } http
+            ? new Uri(http.GetLeftPart(UriPartial.Authority) + "/")
+            : null;
 
     /// <summary>
     /// Takes an event whose repository is desynchronized: starts fetching the repository if nothing
@@ -520,7 +480,6 @@ internal sealed class RepoResyncCoordinator : IAsyncDisposable
 
         _stopping.Dispose();
         _concurrency.Dispose();
-        _ownedClient?.Dispose();
     }
 
     private sealed class Job(Did did, Tid? minRev, string? reason)

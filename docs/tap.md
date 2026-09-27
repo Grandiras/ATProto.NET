@@ -65,9 +65,9 @@ Several channels may be open at once, from one process or many; Tap shares event
 
 ### Reconnecting and errors
 
-The channel reconnects when its connection drops, per `TapClientOptions.Reconnect` (the same `StreamReconnectPolicy` the firehose consumers use), until the token is cancelled; cancelling ends the enumeration normally. A Tap instance that refuses the connection outright, such as one in webhook mode or with a different admin password, ends it with an `EventStreamException` carrying the HTTP status.
+The channel reconnects when its connection drops, per `TapClientOptions.Reconnect`, as every stream consumer does (see [Delivery, cursors and errors](firehose.md#delivery-cursors-and-errors)); cancelling ends the enumeration normally. A Tap instance that refuses the connection outright, such as one in webhook mode or with a different admin password, ends it with an `EventStreamException` carrying the HTTP status.
 
-A message that is not a valid event (malformed, or of a type this SDK version does not model) is reported to `TapClientOptions.OnError` and skipped without being acknowledged, so Tap sends it again.
+A message that is not a valid event (malformed, or of a type this SDK version does not model) is reported to `TapClientOptions.OnEventDropped` and skipped without being acknowledged, so Tap sends it again.
 
 ## Admin endpoints
 

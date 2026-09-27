@@ -101,7 +101,6 @@ public class JetstreamReplayConsumerTests
         IReadOnlyList<string>? dids = null,
         IReadOnlyList<JetstreamEventKind>? kinds = null,
         IStreamCursorStore? cursorStore = null,
-        long? afterSeq = null,
         long? beforeSeq = null,
         bool snapshotOnly = true,
         int parallelism = 4,
@@ -118,7 +117,6 @@ public class JetstreamReplayConsumerTests
             {
                 ApiKey = "test-key",
                 BlockDecompressor = new PassThroughDecompressor(),
-                AfterSeq = afterSeq,
                 BeforeSeq = beforeSeq,
                 SnapshotOnly = snapshotOnly,
                 DownloadParallelism = parallelism,
@@ -420,6 +418,23 @@ public class JetstreamReplayConsumerTests
     }
 
     [Fact]
+    public async Task BoundedSnapshot_RunAgainWithItsStore_EndsWithNothingToRead()
+    {
+        // BeforeSeq is inclusive, so a finished snapshot leaves the store at exactly BeforeSeq.
+        var store = new InMemoryStreamCursorStore();
+        var archive = new FakeArchive().Plan(5, 5, FakeArchive.WholeSegment("seg_0.jss", 0, 1, 5));
+        archive.Segments["seg_0.jss"] = Segment([[Row.Commit(1), Row.Commit(5)]]);
+
+        var first = await ReplayAsync(Options(archive, cursorStore: store, beforeSeq: 5));
+        var second = await ReplayAsync(Options(archive, cursorStore: store, beforeSeq: 5));
+
+        Assert.Equal([1L, 5L], first.Select(e => e.Cursor!.Value));
+        Assert.Empty(second);
+        Assert.Single(archive.PlanRequests);
+        Assert.Equal(5, await store.GetCursorAsync(JetstreamEndpoints.UsEast, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public void BeforeSeq_RequiresSnapshotMode()
     {
         var options = Options(new FakeArchive(), beforeSeq: 100, snapshotOnly: false);
@@ -450,39 +465,6 @@ public class JetstreamReplayConsumerTests
         Operation = ATProtoNet.Lexicon.Com.AtProto.Sync.RepoOpAction.Create,
     };
 
-    /// <summary>
-    /// A replay consumer whose live tail is scripted: each connection the live consumer opens
-    /// takes the next script, and the cursor it asked for is recorded.
-    /// </summary>
-    private static JetstreamReplayConsumer Replay(
-        JetstreamConsumerOptions options, List<long?> liveCursors, params Func<IAsyncEnumerable<JetstreamEvent>>[] connections)
-    {
-        var queue = new Queue<Func<IAsyncEnumerable<JetstreamEvent>>>(connections);
-        return new JetstreamReplayConsumer(options, archiveClient: null, live => new JetstreamConsumer(live, (cursor, _) =>
-        {
-            liveCursors.Add(cursor);
-            return queue.Count > 0 ? queue.Dequeue()() : Events();
-        }));
-    }
-
-    private static async IAsyncEnumerable<JetstreamEvent> Events(params JetstreamEvent[] events)
-    {
-        foreach (var evt in events)
-        {
-            await Task.Yield();
-            yield return evt;
-        }
-    }
-
-    private static async IAsyncEnumerable<JetstreamEvent> Refused()
-    {
-        await Task.Yield();
-        throw new JetstreamException("cursor too old", statusCode: 400, error: "CursorTooOld");
-#pragma warning disable CS0162 // Unreachable, but required to make this an iterator.
-        yield break;
-#pragma warning restore CS0162
-    }
-
     private static JetstreamConsumerOptions ReplayOptions(FakeArchive archive, IStreamCursorStore? store = null)
     {
         var options = Options(archive, cursorStore: store, snapshotOnly: false);
@@ -502,9 +484,8 @@ public class JetstreamReplayConsumerTests
     {
         var archive = new FakeArchive().Plan(20, 20, FakeArchive.WholeSegment("seg_0.jss", 0, 1, 20));
         archive.Segments["seg_0.jss"] = Segment([[Row.Commit(19), Row.Commit(20)]]);
-        var liveCursors = new List<long?>();
-        using var consumer = Replay(ReplayOptions(archive), liveCursors,
-            () => Events(LiveCommit(20), LiveCommit(21), LiveCommit(22)));
+        var live = new ScriptedJetstream(JetstreamProtocol.V2).Connection(LiveCommit(20), LiveCommit(21), LiveCommit(22));
+        using var consumer = new JetstreamReplayConsumer(ReplayOptions(archive), live.Connect);
 
         var events = new List<JetstreamEvent>();
         var phases = new List<bool>();
@@ -524,7 +505,7 @@ public class JetstreamReplayConsumerTests
         // The tip is replayed inclusively by the socket; the one already delivered is dropped.
         Assert.Equal([19L, 20L, 21L, 22L], events.Select(e => e.Cursor!.Value));
         Assert.Equal([true, true, false, false], phases);
-        Assert.Equal(20L, liveCursors[0]);
+        Assert.Equal(20L, live.ObservedCursors[0]);
         Assert.Equal(22L, consumer.LastCursor);
     }
 
@@ -536,10 +517,10 @@ public class JetstreamReplayConsumerTests
             .Plan(30, 30, FakeArchive.WholeSegment("seg_1.jss", 1, 21, 30));
         archive.Segments["seg_0.jss"] = Segment([[Row.Commit(20)]]);
         archive.Segments["seg_1.jss"] = Segment([[Row.Commit(25)]]);
-        var liveCursors = new List<long?>();
-        using var consumer = Replay(ReplayOptions(archive), liveCursors,
-            Refused,
-            () => Events(LiveCommit(31)));
+        var live = new ScriptedJetstream(JetstreamProtocol.V2)
+            .FailingConnection(new EventStreamException("refused: CursorTooOld", statusCode: 400))
+            .Connection(LiveCommit(31));
+        using var consumer = new JetstreamReplayConsumer(ReplayOptions(archive), live.Connect);
 
         var events = new List<JetstreamEvent>();
         try
@@ -552,7 +533,7 @@ public class JetstreamReplayConsumerTests
         }
 
         Assert.Equal([20L, 25L, 31L], events.Select(e => e.Cursor!.Value));
-        Assert.Equal([20L, 30L], liveCursors.Take(2));
+        Assert.Equal([20L, 30L], live.ObservedCursors.Take(2));
         using var second = JsonDocument.Parse(archive.PlanRequests[1]);
         Assert.Equal(20, second.RootElement.GetProperty("afterSeq").GetInt64());
     }

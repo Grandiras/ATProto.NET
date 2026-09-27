@@ -1,5 +1,8 @@
 using System.Formats.Cbor;
+using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Text;
+using System.Text.Json.Nodes;
 using System.Web;
 using ATProtoNet.Repo;
 using ATProtoNet.Streaming;
@@ -166,6 +169,92 @@ internal sealed class ScriptedConnector
         yield break;
 #pragma warning restore CS0162
     }
+}
+
+/// <summary>Builds Jetstream wire frames: v1's bare event objects, or v2's envelopes.</summary>
+internal static class JetstreamFrames
+{
+    /// <summary>A commit event as the server sends it on <paramref name="protocol"/>.</summary>
+    public static byte[] Commit(JetstreamCommitEvent commit, JetstreamProtocol protocol)
+    {
+        var fields = new JsonObject
+        {
+            ["rev"] = "3l3qo2vutsw2b",
+            ["operation"] = commit.Operation.ToString().ToLowerInvariant(),
+            ["collection"] = commit.Collection.Value,
+            ["rkey"] = commit.Rkey.Value,
+        };
+
+        JsonObject frame;
+        if (protocol == JetstreamProtocol.V2)
+        {
+            fields["$type"] = "network.bsky.jetstream.subscribeEvents#commit";
+            fields["did"] = commit.Did.Value;
+            fields["time"] = DateTime.UnixEpoch.AddTicks(commit.TimeUs * 10)
+                .ToString("yyyy-MM-dd'T'HH:mm:ss.ffffff'Z'", CultureInfo.InvariantCulture);
+            if (commit.Cursor is { } seq)
+                fields["seq"] = seq;
+            frame = new JsonObject { ["$type"] = "message", ["payload"] = fields };
+        }
+        else
+        {
+            frame = new JsonObject { ["did"] = commit.Did.Value, ["time_us"] = commit.TimeUs, ["kind"] = "commit", ["commit"] = fields };
+            if (commit.Cursor is { } cursor)
+                frame["cursor"] = cursor;
+        }
+
+        return Encoding.UTF8.GetBytes(frame.ToJsonString());
+    }
+
+    /// <summary>A v2 error frame.</summary>
+    public static byte[] Error(string error, string? message = null) =>
+        Encoding.UTF8.GetBytes(new JsonObject { ["$type"] = "error", ["error"] = error, ["message"] = message }.ToJsonString());
+
+    /// <summary>A v2 advisory <c>#info</c> frame.</summary>
+    public static byte[] Info(string name) => Encoding.UTF8.GetBytes(new JsonObject
+    {
+        ["$type"] = "message",
+        ["payload"] = new JsonObject { ["$type"] = "network.bsky.jetstream.subscribeEvents#info", ["name"] = name },
+    }.ToJsonString());
+}
+
+/// <summary>
+/// A scripted Jetstream: each connection replays the next scripted events (or frames, or a
+/// failure), and the cursor each connection asked for is recorded.
+/// </summary>
+internal sealed class ScriptedJetstream(JetstreamProtocol protocol = JetstreamProtocol.V1)
+{
+    private readonly ScriptedConnector _connector = new();
+
+    public List<long?> ObservedCursors =>
+        [.. _connector.Cursors.Select(c => c is null ? (long?)null : long.Parse(c, CultureInfo.InvariantCulture))];
+
+    public int ConnectionCount => _connector.Endpoints.Count;
+
+    public List<Uri> Endpoints => _connector.Endpoints;
+
+    public List<StreamSocketOptions> Options => _connector.Options;
+
+    public ScriptedJetstream Connection(params JetstreamCommitEvent[] events)
+    {
+        _connector.Connection([.. events.Select(e => JetstreamFrames.Commit(e, protocol))]);
+        return this;
+    }
+
+    public ScriptedJetstream Frames(params byte[][] frames)
+    {
+        _connector.Connection(frames);
+        return this;
+    }
+
+    public ScriptedJetstream FailingConnection(Exception exception)
+    {
+        _connector.Failing(exception);
+        return this;
+    }
+
+    public IAsyncEnumerable<StreamSocketMessage> Connect(Uri endpoint, StreamSocketOptions options, CancellationToken ct) =>
+        _connector.Connect(endpoint, options, ct);
 }
 
 internal static class StreamTestExtensions

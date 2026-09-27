@@ -1,54 +1,43 @@
 # Firehose Streaming
 
-ATProto.NET reads the AT Protocol event streams over WebSocket: the repository stream (`com.atproto.sync.subscribeRepos`, the firehose) of a relay or PDS, and a labeler's label stream (`com.atproto.label.subscribeLabels`). There are two levels of API: a single-connection client, and reconnecting consumers with filtering, verification and cursor persistence.
+ATProto.NET reads the AT Protocol event streams over WebSocket: the repository stream (`com.atproto.sync.subscribeRepos`, the firehose) of a relay or PDS, and a labeler's label stream (`com.atproto.label.subscribeLabels`). Each has a consumer that reconnects, persists its cursor, and filters or verifies what it delivers.
 
 ## Basic Usage
 
-`FirehoseClient` reads one connection and parses each frame into a typed `FirehoseMessage`:
+`TypedFirehoseConsumer` parses each frame into a typed `FirehoseMessage`:
 
 ```csharp
 using ATProtoNet.Streaming;
 using ATProtoNet.Lexicon.Com.AtProto.Sync;   // CommitEvent, SyncEvent, IdentityEvent, AccountEvent, InfoEvent
 
-await using var firehose = new FirehoseClient("wss://bsky.network");
+var consumer = new TypedFirehoseConsumer(new TypedFirehoseConsumerOptions
+{
+    ServiceUrl = "wss://bsky.network",
+    Logger = logger,
+});
 
-await foreach (var message in firehose.SubscribeAsync())
+await foreach (var message in consumer.ConsumeAsync())
 {
     if (message is CommitEvent commit)
         Console.WriteLine($"{commit.Seq}: {commit.Repo} at {commit.Time}");
 }
 ```
 
-The enumeration ends when the relay closes the connection or the token is cancelled, and throws an `EventStreamException` when the relay sends an error frame. It does not reconnect: use `TypedFirehoseConsumer` for that. Each call to `SubscribeAsync` opens its own connection, and disposing the client ends them all.
+Stream consumers are independent of `AtProtoClient`: a relay subscription needs no session, and one process often reads the firehose without signing anyone in. `ServiceUrl` is any relay, or a PDS for its own repositories.
 
-## With Cursor (Resume)
+To read one connection and no more, set `Reconnect = new StreamReconnectPolicy { MaxAttempts = 0 }`. The enumeration then ends with an `EventStreamException` when the connection does, whose `InnerException` is the failure, if there was one.
 
-Every message except `#info` is a `FirehoseEvent`, whose `Seq` is the stream position. Pass the last one you handled back as the cursor to resume after it:
+## Delivery, cursors and errors
 
-<!-- snippet: FirehoseClient firehose; System.Func<long?> LoadLastSequence; System.Action<FirehoseMessage> ProcessMessage; System.Action<long> SaveLastSequence; -->
-```csharp
-long? lastSeq = LoadLastSequence();
+Every consumer in `ATProtoNet.Streaming` — the firehose, label, Jetstream and chat moderation consumers, and the Tap channel — delivers the same way, as `StreamConsumerOptions` describes.
 
-await foreach (var message in firehose.SubscribeAsync(cursor: lastSeq))
-{
-    ProcessMessage(message);
+**Cancellation** ends the enumeration normally: no `OperationCanceledException` is thrown, and the consumer saves its cursor on the way out.
 
-    if (message is FirehoseEvent sequenced)
-        SaveLastSequence(sequenced.Seq);
-}
-```
-
-`TypedFirehoseConsumer` does this for you, through an `IStreamCursorStore`.
-
-## Cancellation
-
-Cancelling the token ends the enumeration normally: no `OperationCanceledException` is thrown, and the consumers save their cursor on the way out. This holds for every stream client and consumer in `ATProtoNet.Streaming`.
-
-<!-- snippet: FirehoseClient firehose; System.Action<FirehoseMessage> ProcessMessage; -->
+<!-- snippet: TypedFirehoseConsumer consumer; System.Action<FirehoseMessage> ProcessMessage; -->
 ```csharp
 using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
 
-await foreach (var message in firehose.SubscribeAsync(cancellationToken: cts.Token))
+await foreach (var message in consumer.ConsumeAsync(cancellationToken: cts.Token))
 {
     ProcessMessage(message);
 }
@@ -56,81 +45,7 @@ await foreach (var message in firehose.SubscribeAsync(cancellationToken: cts.Tok
 Console.WriteLine("Streaming stopped");
 ```
 
-## Constructing Streaming Clients
-
-Streaming clients are independent of `AtProtoClient`: a relay subscription needs no session, and one process often reads the firehose without signing anyone in. Construct them with the service URL:
-
-```csharp
-// A single connection
-await using var firehoseClient = new FirehoseClient("wss://bsky.network", logger);
-
-// A reconnecting, typed consumer
-var consumer = new TypedFirehoseConsumer(new TypedFirehoseConsumerOptions
-{
-    ServiceUrl = "wss://bsky.network",
-    Logger = logger,
-});
-```
-
-## Typed Firehose Consumer
-
-`TypedFirehoseConsumer` is the highest-level API. It reconnects, parses each frame once, filters by collection, verifies CIDs and signatures (or the full Sync 1.1 chain, see [Verifying the firehose](#verifying-the-firehose-sync-11)), and persists its cursor.
-
-```csharp
-using ATProtoNet.Identity;
-using ATProtoNet.Streaming;
-using ATProtoNet.Lexicon.Com.AtProto.Sync;
-
-var consumer = new TypedFirehoseConsumer(new TypedFirehoseConsumerOptions
-{
-    ServiceUrl = "wss://bsky.network",
-    CollectionFilter = new HashSet<Nsid> { Nsid.Parse("app.bsky.feed.post") },
-    CursorStore = new InMemoryStreamCursorStore(),
-    VerifyCids = true,
-    Reconnect = new StreamReconnectPolicy { MaxAttempts = null },   // reconnect forever
-    CursorPersistInterval = 100,
-});
-
-await foreach (var msg in consumer.ConsumeAsync())
-{
-    if (msg is CommitEvent commit)
-    {
-        Console.WriteLine($"Commit from {commit.Repo}");
-        foreach (var op in commit.Ops ?? [])
-            Console.WriteLine($"  {op.Action} {op.Path}");
-    }
-}
-```
-
-### Configuration Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `ServiceUrl` | `string` | (required) | Relay/PDS WebSocket URL |
-| `CollectionFilter` | `IReadOnlySet<Nsid>?` | `null` | Only deliver commits with an operation in these collections |
-| `CursorStore` | `IStreamCursorStore?` | `null` | Persistent cursor storage |
-| `StreamId` | `string?` | Service URL | Key for cursor storage |
-| `Verifier` | `FirehoseVerifier?` | `null` | Verifies every commit's signature and blocks when set; its cache is invalidated on every `#identity` event |
-| `SyncVerifier` | `RepoSyncVerifier?` | `null` | Verifies every `#commit` and `#sync` inductively (Sync 1.1) and delivers only events that chain; set this or `Verifier` |
-| `Resync` | `RepoResyncOptions?` | `null` | With `SyncVerifier`, fetches repositories whose chain breaks and delivers them as `RepoResyncEvent`s |
-| `VerifyCids` | `bool` | `false` | Without a `Verifier`, check commit and sync blocks against their CIDs (local only) |
-| `CursorPersistInterval` | `int` | `100` | Events between cursor saves |
-| `Reconnect` | `StreamReconnectPolicy` | 5 s → 30 s, 10 attempts | Reconnect backoff and when to give up |
-| `OnStreamError` | `Action<EventStreamError>?` | `null` | Every error frame the relay sends |
-| `OnEventDropped` | `Action<DroppedStreamEvent>?` | `null` | Every event skipped as unreadable, of an unknown type, failing verification, stale, or for a desynchronized repository |
-| `Logger` | `ILogger?` | `null` | Logging |
-
-### Filtering and parsing
-
-A `CollectionFilter` is applied before a commit is parsed: the consumer reads the operation paths straight from the frame's CBOR, and a commit with no operation in the filtered collections is skipped without being deserialized. Most of a firehose consumer's CPU goes into commits it then drops, so a narrow filter makes the consumer far cheaper. A commit without operations, and every non-commit event, always passes. With a `SyncVerifier` every commit has to be verified to keep its repository's chain, so the filter then only decides which verified commits are delivered.
-
-### Verification
-
-Set a `Verifier` and every commit is verified: its signature against the account's signing key, and every block of its CAR against its CID, in a single pass over the CAR. `VerifyCids` is the local-only check for when there is no verifier. A commit that fails is dropped and reported to `OnEventDropped` with `StreamDropReason.VerificationFailed`. `#sync` events have their blocks checked against their CIDs when either is set.
-
-A signature shows a commit is authentic, not that you have every commit. For that, set a `SyncVerifier` instead: see [Verifying the firehose](#verifying-the-firehose-sync-11).
-
-### Cursor Persistence
+### Cursor persistence
 
 The cursor moves past every event the stream carries, including the ones a filter or a failed verification drops, so a rarely matching filter does not replay everything since its last match after a restart. An event you receive is recorded once you ask for the next one, so delivery is **at-least-once**: the event being handled when the process stops may be delivered again.
 
@@ -180,7 +95,7 @@ public class FileStreamCursorStore(string directory) : IStreamCursorStore
 
 The count resets whenever a connection delivers a frame. When the attempts run out, `ConsumeAsync` **throws** an `EventStreamException` whose `InnerException` is the last failure, rather than ending as though the stream had finished.
 
-Relays end a stream with an error frame (`op = -1`) such as `ConsumerTooSlow` or `FutureCursor`. Each is reported to `OnStreamError`; the consumer then reconnects from its cursor when the error is retryable (`ConsumerTooSlow`), and throws when it is not (`FutureCursor`, whose cursor is ahead of the relay and would fail the same way forever):
+Relays end a stream with an error frame (`op = -1`) such as `ConsumerTooSlow` or `FutureCursor`. Each is reported to `OnStreamError`; the consumer then reconnects from its cursor when the error is retryable (`ConsumerTooSlow`), and throws when it is not (`FutureCursor`, whose cursor is ahead of the relay and would fail the same way forever). A subscription the server refuses before the WebSocket upgrade (an HTTP 4xx other than 408 and 429) is not retried either:
 
 <!-- snippet: TypedFirehoseConsumer consumer; System.Func<FirehoseMessage, Task> HandleAsync; -->
 ```csharp
@@ -198,6 +113,61 @@ catch (EventStreamException ex)
     logger.LogError(ex, "The firehose failed ({Error}, HTTP {Status})", ex.Error, ex.StatusCode);
 }
 ```
+
+## Typed Firehose Consumer
+
+`TypedFirehoseConsumer` is the highest-level API. It reconnects, parses each frame once, filters by collection, checks CIDs or verifies the full Sync 1.1 chain (see [Verifying the firehose](#verifying-the-firehose-sync-11)), and persists its cursor.
+
+```csharp
+using ATProtoNet.Identity;
+using ATProtoNet.Streaming;
+using ATProtoNet.Lexicon.Com.AtProto.Sync;
+
+var consumer = new TypedFirehoseConsumer(new TypedFirehoseConsumerOptions
+{
+    ServiceUrl = "wss://bsky.network",
+    CollectionFilter = new HashSet<Nsid> { Nsid.Parse("app.bsky.feed.post") },
+    CursorStore = new InMemoryStreamCursorStore(),
+    VerifyCids = true,
+    Reconnect = new StreamReconnectPolicy { MaxAttempts = null },   // reconnect forever
+    CursorPersistInterval = 100,
+});
+
+await foreach (var msg in consumer.ConsumeAsync())
+{
+    if (msg is CommitEvent commit)
+    {
+        Console.WriteLine($"Commit from {commit.Repo}");
+        foreach (var op in commit.Ops ?? [])
+            Console.WriteLine($"  {op.Action} {op.Path}");
+    }
+}
+```
+
+### Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `ServiceUrl` | `string` | (required) | Relay/PDS WebSocket URL |
+| `CollectionFilter` | `IReadOnlySet<Nsid>?` | `null` | Only deliver commits with an operation in these collections |
+| `CursorStore` | `IStreamCursorStore?` | `null` | Persistent cursor storage |
+| `StreamId` | `string?` | Service URL | Key for cursor storage |
+| `SyncVerifier` | `RepoSyncVerifier?` | `null` | Verifies every `#commit` and `#sync` inductively (Sync 1.1) and delivers only events that chain |
+| `Resync` | `RepoResyncOptions?` | `null` | With `SyncVerifier`, fetches repositories whose chain breaks and delivers them as `RepoResyncEvent`s |
+| `VerifyCids` | `bool` | `false` | Check commit and sync blocks against their CIDs (local only) |
+| `CursorPersistInterval` | `int` | `100` | Events between cursor saves |
+| `Reconnect` | `StreamReconnectPolicy` | 5 s → 30 s, 10 attempts | Reconnect backoff and when to give up |
+| `OnStreamError` | `Action<EventStreamError>?` | `null` | Every error frame the relay sends |
+| `OnEventDropped` | `Action<DroppedStreamEvent>?` | `null` | Every event skipped as unreadable, of an unknown type, failing verification, stale, or for a desynchronized repository |
+| `Logger` | `ILogger?` | `null` | Logging |
+
+### Filtering and parsing
+
+A `CollectionFilter` is applied before a commit is parsed: the consumer reads the operation paths straight from the frame's CBOR, and a commit with no operation in the filtered collections is skipped without being deserialized. Most of a firehose consumer's CPU goes into commits it then drops, so a narrow filter makes the consumer far cheaper. A commit without operations, and every non-commit event, always passes. With a `SyncVerifier` every commit has to be verified to keep its repository's chain, so the filter then only decides which verified commits are delivered.
+
+### Verification
+
+`VerifyCids` checks every block of a `#commit` or `#sync` event's CAR against its CID: a local check, with no network access, that the blocks are the ones the CIDs name. An event that fails is dropped and reported to `OnEventDropped` with `StreamDropReason.VerificationFailed`. To check signatures too, and that you have every commit, set a `SyncVerifier`: see [Verifying the firehose](#verifying-the-firehose-sync-11).
 
 ### Dropped events
 
@@ -282,9 +252,9 @@ Without `Resync`, a desynchronized repository stays that way: its events are dro
 3. It delivers a `RepoResyncEvent`. Reconcile against `Snapshot.Records`: a record you lack was created, one whose CID differs was updated, one you hold that the snapshot lacks was deleted.
 4. The repository's events that arrived during the fetch were verified and held; they follow the snapshot in order, so nothing between the snapshot and the live stream is lost. The cursor is not saved past a held event until it has been delivered, so a process that stops in between sees it again.
 
-Everything is bounded (`RepoResyncOptions`): `MaxConcurrency` repositories fetched or fetched-and-waiting at once (4), each export at most `MaxRepoBytes` (256 MiB), so exports take at most about `(MaxConcurrency + 1) × MaxRepoBytes` of memory; `MaxPendingRepos` more wait for a turn (1,000), and `MaxHeldEventsPerRepo` (1,000) and `MaxHeldBytes` (64 MiB) bound the events held meanwhile. A repository over a limit is fetched again later, and one whose fetch fails waits `RetryDelay` before the next attempt. The default fetchers only connect to public addresses; set `AllowPrivateNetworks` for a development PDS, or pass your own `IRepoFetcher`s, such as a mirror, as `Fetchers`.
+Everything is bounded: four repositories are fetched, or fetched and waiting, at once, each export at most 256 MiB, so exports take at most about 1.25 GiB of memory; 1,000 more wait for a turn, and the events held meanwhile are bounded at 1,000 per repository and 64 MiB in all. A repository over a limit is fetched again later, one whose fetch fails waits a minute before the next attempt, and each download may take five minutes. The default fetchers only connect to public addresses over HTTPS. For a development PDS, or a mirror, pass your own `IRepoFetcher`s as `RepoResyncOptions.Fetchers`: `new HostRepoFetcher(host, httpClient)` and `new PdsRepoFetcher(resolver, httpClient)` use the client you give them as is.
 
-Repositories the store lists as not synchronized are picked up every `ScanInterval`: ones left over from a run that stopped mid-fetch, and ones you mark yourself. To backfill a repository you have not seen on the firehose, for example one found through `com.atproto.sync.listReposByCollection`, mark it:
+Repositories the store lists as not synchronized are picked up every minute: ones left over from a run that stopped mid-fetch, and ones you mark yourself. To backfill a repository you have not seen on the firehose, for example one found through `com.atproto.sync.listReposByCollection`, mark it:
 
 <!-- snippet: RepoSyncVerifier verifier; Did did; -->
 ```csharp
@@ -315,14 +285,16 @@ To keep the table in a context of your own, call `RepoSyncStateDbContext.Configu
 
 Verification is dominated by the signature check. On the captured frames in the test suite (one thread of a Ryzen 5 7600X, Release build):
 
-| Commit | `FirehoseVerifier` (signature and CIDs) | `RepoSyncVerifier` (the whole checklist) |
-|---|---|---|
-| 1 operation, 3.3 KB of blocks | 234 µs, 9.5 KB allocated | 259 µs, 30 KB allocated |
-| 3 operations, 10 KB of blocks | 224 µs, 20 KB allocated | 304 µs, 74 KB allocated |
+| Commit | `RepoSyncVerifier` (the whole checklist) |
+|---|---|
+| 1 operation, 3.3 KB of blocks | 259 µs, 30 KB allocated |
+| 3 operations, 10 KB of blocks | 304 µs, 74 KB allocated |
 
 ### Using the verifier directly
 
 `VerifyCommitAsync` and `VerifySyncAsync` return a `RepoSyncResult`: its `Outcome` (`Valid`, `Stale`, `Invalid` or `Desynchronized`), the `Reason`, and for a valid event the `State` it moves the repository to. A valid event's state is recorded only by `ApplyAsync`, which you call once the event is processed; a desynchronizing event is recorded at once. Verify and apply one repository's events in stream order, and pass every `#identity` event to `InvalidateIdentityAsync`.
+
+A relay carries thousands of commits a second from far fewer accounts, so signing keys come from a cached DID document (`RepoSyncVerifierOptions.DidResolver`, by default a `CachingDidResolver` of the verifier's own): a cache hit costs no network at all. Two rules keep the cache correct, as the sync spec requires. An `#identity` event drops the account's cached document, so its next commit is checked against a freshly resolved key; the consumer does this for you. And a signature that fails against a cached key is checked once more against a refreshed document before the event is refused; refreshes of one DID are rate-limited (`DidCacheOptions.MinRefreshInterval`), so a stream of forged commits does not turn into a directory request each. See [Identity Resolution](did-resolution.md) for the cache's lifetimes and the fetch policy.
 
 The verifier does not track account hosting status (`#account` events) or check which host is authoritative for an account; a relay applies both before events reach you.
 
@@ -396,11 +368,11 @@ foreach (var change in commit.GetRecordEvents())
     Index(change);
 ```
 
-The blocks are read, not verified: set a `Verifier` or a `SyncVerifier` on the consumer if the records must be authentic.
+The blocks are read, not verified: set a `SyncVerifier` on the consumer if the records must be authentic.
 
 ## Label Streams
 
-A labeler publishes its labels on `com.atproto.label.subscribeLabels`. `FirehoseClient.SubscribeLabelsAsync` reads one connection; `LabelStreamConsumer` reconnects and persists the cursor, with the same options, policy and error handling as the firehose consumer:
+A labeler publishes its labels on `com.atproto.label.subscribeLabels`. `LabelStreamConsumer` reads it, with the same options, policy and error handling as the firehose consumer:
 
 ```csharp
 using ATProtoNet.Lexicon.Com.AtProto.Label;
@@ -425,81 +397,12 @@ Messages are a `LabelsEvent` (`Seq`, the cursor, and `Labels`) or a `LabelInfoEv
 
 Set `Verifier = new LabelVerifier(resolver)` on the options to check every label's signature against its labeler's `#atproto_label` key. Each `LabelsEvent` then carries `Verification`, one result per label; labels that fail are still delivered, so filter on `result.IsValid`. See [Labeler Services](labeler.md#verifying-labels).
 
-## Commit Verification
-
-`FirehoseVerifier` verifies firehose commits: that every block of the CAR matches its CID, and that the commit is signed by the account's current key. It does not invert the operations against the previous MST root (`prevData`) or chain commits; `RepoSyncVerifier` does ([Verifying the firehose](#verifying-the-firehose-sync-11)).
-
-### CID Verification
-
-Verify that block CIDs match their content (local-only, no network access):
-
-<!-- snippet: CommitEvent commitEvent; -->
-```csharp
-using ATProtoNet.Streaming;
-
-var result = FirehoseVerifier.VerifyCid(commitEvent);
-
-if (result.IsValid)
-{
-    Console.WriteLine("CID integrity verified");
-}
-else
-{
-    Console.WriteLine($"Verification failed: {result.Error}");
-}
-```
-
-### Signature Verification
-
-Verify commit signatures against the signing key in the author's DID document; this checks every block's CID as well:
-
-<!-- snippet: CommitEvent commitEvent; -->
-```csharp
-using var verifier = new FirehoseVerifier(); // its own CachingDidResolver
-
-var result = await verifier.VerifySignatureAsync(commitEvent);
-
-if (result.IsValid)
-{
-    Console.WriteLine("Signature verified against DID signing key");
-}
-
-// Or share a resolver (and its cache) with the rest of the application
-var sharedResolver = new CachingDidResolver();
-using var verifier2 = new FirehoseVerifier(sharedResolver);
-```
-
-A relay carries thousands of commits a second from far fewer accounts, so keys come from a
-cached DID document: a cache hit costs no network at all, and the parsed key is cached as well.
-Pass a `CachingDidResolver` (or any caching `IDidResolver`) to the second constructor — an
-uncached resolver makes a directory request per commit.
-
-Two rules keep the cache correct, as the sync spec requires:
-
-- **`#identity` events invalidate.** Call `verifier.InvalidateIdentityAsync(did)` for each one, so
-  the account's next commit is checked against a freshly resolved key. `TypedFirehoseConsumer`
-  does this whenever it has a `Verifier`.
-- **A failed signature refetches once.** A signature that does not verify against the cached key
-  is checked again against a refreshed document before it is reported as bad. Refreshes of one
-  DID are rate-limited (`DidCacheOptions.MinRefreshInterval`), so a stream of forged commits
-  does not turn into a directory request each.
-
-See [Identity Resolution](did-resolution.md) for the cache's lifetimes and the fetch policy.
-
 ## Firehose Endpoints
 
 | Endpoint | Description |
 |----------|-------------|
 | `wss://bsky.network` | Bluesky relay (all events) |
 | `wss://your-pds:3000` | Direct PDS subscription |
-
-## Custom Relay URL
-
-Pass any relay (or a PDS, for its own repositories) to the constructor:
-
-```csharp
-await using var firehose = new FirehoseClient("wss://custom-relay.example.com");
-```
 
 ## Use Cases
 

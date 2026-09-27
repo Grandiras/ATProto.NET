@@ -83,7 +83,7 @@ internal sealed class PartialMerkleSearchTree
     private static byte[] Key(string key)
     {
         ArgumentNullException.ThrowIfNull(key);
-        if (!MerkleSearchTree.IsValidKey(key))
+        if (!MerkleSearchTree.IsValidKey(key.AsSpan()))
             throw new ArgumentException($"Not a valid MST key: '{key}'.", nameof(key));
         return Encoding.ASCII.GetBytes(key);
     }
@@ -104,35 +104,18 @@ internal sealed class PartialMerkleSearchTree
         if (nodeData.Left is not null)
             node.Entries.Add(new Entry { ChildCid = nodeData.Left });
 
-        // MstNodeData has already bounded each prefix by the previous key's length.
-        byte[] previous = [];
+        var keys = nodeData.ReadKeys(lower, upper);
         var height = -1;
-        foreach (var entry in nodeData.Entries)
+        for (var i = 0; i < keys.Length; i++)
         {
-            var key = new byte[entry.PrefixLength + entry.KeySuffix.Length];
-            previous.AsSpan(0, entry.PrefixLength).CopyTo(key);
-            entry.KeySuffix.CopyTo(key.AsSpan(entry.PrefixLength));
-
-            if (!MerkleSearchTree.IsValidKey(key))
-                throw new FormatException($"MST node {Name()} holds an invalid key.");
-
-            var floor = previous.Length > 0 ? previous : lower;
-            if ((floor is not null && key.AsSpan().SequenceCompareTo(floor) <= 0)
-                || (upper is not null && key.AsSpan().SequenceCompareTo(upper) >= 0))
-            {
-                throw new FormatException($"MST node {Name()} holds keys out of order.");
-            }
-
-            var keyHeight = Height(key);
+            var keyHeight = Height(keys[i]);
             if (height >= 0 && keyHeight != height)
                 throw new FormatException($"MST node {Name()} holds keys of different layers.");
             height = keyHeight;
 
-            node.Entries.Add(new Entry { Key = key, Value = entry.Value });
-            if (entry.Tree is not null)
-                node.Entries.Add(new Entry { ChildCid = entry.Tree });
-
-            previous = key;
+            node.Entries.Add(new Entry { Key = keys[i], Value = nodeData.Entries[i].Value });
+            if (nodeData.Entries[i].Tree is { } tree)
+                node.Entries.Add(new Entry { ChildCid = tree });
         }
 
         if (height < 0)
@@ -625,11 +608,8 @@ internal sealed class PartialMerkleSearchTree
                     values++;
             }
 
-            // {e: [{k, p, t, v}], l}, keys in canonical order, as MstNodeData writes it.
             writer.Reset();
-            writer.WriteStartMap(2);
-            writer.WriteTextString("e");
-            writer.WriteStartArray(values);
+            MstNodeData.WriteStart(writer, values);
 
             byte[] previous = [];
             for (var i = 0; i < Entries.Count; i++)
@@ -647,23 +627,11 @@ internal sealed class PartialMerkleSearchTree
                 var prefix = previous.AsSpan().CommonPrefixLength(key);
                 var tree = i + 1 < Entries.Count && Entries[i + 1].IsChild ? Entries[++i].ChildCid : null;
 
-                writer.WriteStartMap(4);
-                writer.WriteTextString("k");
-                writer.WriteByteString(key.AsSpan(prefix));
-                writer.WriteTextString("p");
-                writer.WriteInt32(prefix);
-                writer.WriteTextString("t");
-                DagCborLink.WriteNullable(writer, tree);
-                writer.WriteTextString("v");
-                DagCborLink.Write(writer, entry.Value!);
-                writer.WriteEndMap();
+                MstNodeData.WriteEntry(writer, prefix, key.AsSpan(prefix), tree, entry.Value!);
                 previous = key;
             }
 
-            writer.WriteEndArray();
-            writer.WriteTextString("l");
-            DagCborLink.WriteNullable(writer, Entries is [{ IsChild: true } first, ..] ? first.ChildCid : null);
-            writer.WriteEndMap();
+            MstNodeData.WriteEnd(writer, Entries is [{ IsChild: true } first, ..] ? first.ChildCid : null);
 
             var buffer = ArrayPool<byte>.Shared.Rent(writer.BytesWritten);
             try

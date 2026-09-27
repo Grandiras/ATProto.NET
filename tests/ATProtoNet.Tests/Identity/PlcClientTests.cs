@@ -3,10 +3,13 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json.Nodes;
 using ATProtoNet.Identity;
+using ATProtoNet.Streaming;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.TestHost;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 namespace ATProtoNet.Tests.Identity;
@@ -311,14 +314,14 @@ public class PlcClientTests
             socket.CloseAsync(WebSocketCloseStatus.PolicyViolation, "OutdatedCursor", default));
         var client = server.Client;
 
-        var ex = await Assert.ThrowsAsync<PlcExportStreamException>(async () =>
+        var ex = await Assert.ThrowsAsync<EventStreamException>(async () =>
         {
             await foreach (var _ in client.StreamExportAsync(cursor: 1))
             {
             }
         });
 
-        Assert.Equal("OutdatedCursor", ex.CloseReason);
+        Assert.Equal("OutdatedCursor", ex.Error);
     }
 
     [Fact]
@@ -327,7 +330,7 @@ public class PlcClientTests
         Uri? connected = null;
         using var client = new PlcClient(new HttpClient(), new Uri("http://localhost:2582"))
         {
-            ConnectWebSocket = (url, _) =>
+            Connector = (url, _, _) =>
             {
                 connected = url;
                 throw new WebSocketException("stop");
@@ -360,10 +363,14 @@ public class PlcClientTests
         Assert.Equal(new Uri("http://localhost:2582/"), client.DirectoryUrl);
     }
 
+    /// <summary>
+    /// A directory on the loopback interface, and a client for <c>plc.test</c> whose stream goes
+    /// there, through the SDK's own WebSocket.
+    /// </summary>
     private static async Task<StreamServer> StreamServerAsync(Func<HttpContext, WebSocket, Task> serve)
     {
         var builder = WebApplication.CreateSlimBuilder();
-        builder.WebHost.UseTestServer();
+        builder.WebHost.UseKestrel().UseUrls("http://127.0.0.1:0");
         var app = builder.Build();
         app.UseWebSockets();
         app.Map("/export/stream", async context =>
@@ -373,11 +380,11 @@ public class PlcClientTests
         });
         await app.StartAsync();
 
-        var testServer = app.GetTestServer();
+        var address = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.First();
         var client = new PlcClient(new HttpClient(), new Uri("https://plc.test/"))
         {
-            ConnectWebSocket = (url, ct) =>
-                testServer.CreateWebSocketClient().ConnectAsync(new Uri("ws://localhost" + url.PathAndQuery), ct),
+            Connector = (url, options, ct) =>
+                StreamSocket.Connector(new Uri(address.Replace("http://", "ws://") + url.PathAndQuery), options, ct),
         };
 
         return new StreamServer(app, client);

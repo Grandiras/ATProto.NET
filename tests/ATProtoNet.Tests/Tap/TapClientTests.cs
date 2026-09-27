@@ -299,10 +299,10 @@ public sealed class TapClientTests
     [Fact]
     public async Task ReadAllAsync_InvalidMessage_IsReportedAndSkipped()
     {
-        var errors = new List<Exception>();
+        var dropped = new List<DroppedStreamEvent>();
         var socket = new FakeSocket("""{"id":1,"type":"commit"}""", CreateEvent);
         using var tap = new TapClient(
-            new TapClientOptions { ServiceUrl = new Uri("http://localhost:2480"), OnError = errors.Add },
+            new TapClientOptions { ServiceUrl = "http://localhost:2480", OnEventDropped = dropped.Add },
             new FakeConnector(socket).Connect);
         var channel = tap.OpenChannel();
 
@@ -312,7 +312,7 @@ public sealed class TapClientTests
             break;
         }
 
-        Assert.IsType<FormatException>(Assert.Single(errors));
+        Assert.Equal(StreamDropReason.Malformed, Assert.Single(dropped).Reason);
         Assert.Empty(socket.Sent);
     }
 
@@ -352,7 +352,7 @@ public sealed class TapClientTests
     private static TapClient Client(HttpMessageHandler handler, string? password = null, FakeConnector? connector = null) => new(
         new TapClientOptions
         {
-            ServiceUrl = new Uri("http://localhost:2480"),
+            ServiceUrl = "http://localhost:2480",
             AdminPassword = password,
             HttpClient = new HttpClient(handler),
             Reconnect = StreamTestExtensions.Immediate(3),

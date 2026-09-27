@@ -88,7 +88,7 @@ Two operations keep a cache honest:
   last fetch of that DID, failed or not, is at least `MinRefreshInterval` old; within it the
   cached document (or the remembered failure) is returned.
 
-`FirehoseVerifier`, `SpaceSyncer` and the space-server verifiers all follow this pattern
+`RepoSyncVerifier`, `SpaceSyncer` and the space-server verifiers all follow this pattern
 already. Both methods have default implementations on `IDidResolver`, so a resolver that caches
 nothing needs neither.
 
@@ -326,8 +326,9 @@ await foreach (var entry in plc.StreamExportAsync(cursor))
 ```
 
 The stream ends quietly when the directory closes it normally or the connection drops; resume
-from the last cursor. A close with a reason throws `PlcExportStreamException`: `OutdatedCursor`
-(catch up with `ExportAsync` first), `FutureCursor` or `ConsumerTooSlow`.
+from the last cursor. A close with a reason throws an `EventStreamException` whose `Error` is the
+reason: `OutdatedCursor` (catch up with `ExportAsync` first), `FutureCursor` or `ConsumerTooSlow`.
+So does a stream that cannot be opened.
 
 `PlcClient(HttpClient, Uri directoryUrl)` sends everything through your client, to the directory
 you name.

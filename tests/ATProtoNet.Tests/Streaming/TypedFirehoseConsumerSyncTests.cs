@@ -203,20 +203,6 @@ public sealed class TypedFirehoseConsumerSyncTests : IDisposable
     }
 
     [Fact]
-    public void Options_VerifierAndSyncVerifier_AreExclusive()
-    {
-        using var verifier = Verifier();
-        using var firehoseVerifier = new FirehoseVerifier(_resolver);
-
-        Assert.Throws<ArgumentException>(() => new TypedFirehoseConsumer(new TypedFirehoseConsumerOptions
-        {
-            ServiceUrl = "wss://relay.example.com",
-            Verifier = firehoseVerifier,
-            SyncVerifier = verifier,
-        }));
-    }
-
-    [Fact]
     public void Options_ResyncWithoutSyncVerifier_Throws()
     {
         Assert.Throws<ArgumentException>(() => new TypedFirehoseConsumer(new TypedFirehoseConsumerOptions

@@ -32,13 +32,13 @@ namespace ATProtoNet.Streaming;
 /// below the pinned tip is retried
 /// (<see cref="JetstreamArchiveOptions.MaxStalledPlanAttempts"/>) and then fails with a
 /// <see cref="JetstreamException"/> rather than cutting over across the hole.</para>
-/// <para>Delivery is <b>at-least-once and folded, not filtered</b>: every matching event arrives in
-/// sequence order, including creates a later delete supersedes, and events after the last persisted
-/// cursor are redelivered when a new process resumes. Fold into idempotent writes keyed on the
-/// record's <c>at://</c> URI; an account event with <c>Active = false</c>, or a
+/// <para>Delivery, cancellation and errors follow <see cref="StreamConsumerOptions"/>, and delivery
+/// is <b>folded, not filtered</b>: every matching event arrives in sequence order, including
+/// creates a later delete supersedes. Fold into idempotent writes keyed on the record's
+/// <c>at://</c> URI; an account event with <c>Active = false</c>, or a
 /// <see cref="JetstreamSyncEvent"/>, removes all of that account's records. Account-level events
 /// carry no collection and are delivered even to a collection-filtered consumer, exactly as on the
-/// live tail. Cancelling the token ends the enumeration normally.</para>
+/// live tail.</para>
 /// <para>Requires <see cref="JetstreamProtocol.V2"/> — v1 has no archive.</para>
 /// </remarks>
 /// <example>
@@ -69,9 +69,8 @@ public sealed class JetstreamReplayConsumer : IDisposable
     private readonly JetstreamConsumerOptions _options;
     private readonly JetstreamArchiveOptions _archive;
     private readonly JetstreamArchiveClient _client;
-    private readonly bool _ownsClient;
     private readonly ILogger _logger;
-    private readonly Func<JetstreamConsumerOptions, JetstreamConsumer> _liveFactory;
+    private readonly StreamConnector _liveConnector;
     private bool _disposed;
 
     /// <summary>The sequence number of the last event delivered, or null before the first one.</summary>
@@ -86,42 +85,22 @@ public sealed class JetstreamReplayConsumer : IDisposable
     /// and <see cref="JetstreamConsumerOptions.Archive"/> must be set.</param>
     /// <exception cref="ArgumentException">The options cannot describe a replay.</exception>
     public JetstreamReplayConsumer(JetstreamConsumerOptions options)
-        : this(options, archiveClient: null)
+        : this(options, StreamSocket.Connector)
     {
     }
 
-    /// <summary>Create a replay consumer over an existing archive client.</summary>
-    /// <param name="options">Consumer configuration.</param>
-    /// <param name="archiveClient">The archive client to plan and download with. When null, one is
-    /// built from <see cref="JetstreamConsumerOptions.Archive"/> and disposed with this
-    /// instance.</param>
-    /// <exception cref="ArgumentException">The options cannot describe a replay.</exception>
-    public JetstreamReplayConsumer(JetstreamConsumerOptions options, JetstreamArchiveClient? archiveClient)
-        : this(options, archiveClient, live => new JetstreamConsumer(live))
-    {
-    }
-
-    internal JetstreamReplayConsumer(
-        JetstreamConsumerOptions options,
-        JetstreamArchiveClient? archiveClient,
-        Func<JetstreamConsumerOptions, JetstreamConsumer> liveFactory)
+    internal JetstreamReplayConsumer(JetstreamConsumerOptions options, StreamConnector liveConnector)
     {
         ArgumentNullException.ThrowIfNull(options);
         _options = options;
         _archive = Validate(options);
         _logger = options.Logger ?? NullLogger.Instance;
-        _liveFactory = liveFactory;
-
-        _client = archiveClient ?? new JetstreamArchiveClient(
-            _archive.ServiceUrl ?? options.ServiceUrl,
-            _archive.ApiKey,
-            _archive.HttpClient,
-            options.Logger)
+        _liveConnector = liveConnector;
+        _client = new JetstreamArchiveClient(_archive.ServiceUrl ?? options.ServiceUrl, _archive.ApiKey, _archive.HttpClient, options.Logger)
         {
             MaxRetryAttempts = _archive.MaxRetryAttempts,
             MaxRetryDelay = _archive.MaxRetryDelay,
         };
-        _ownsClient = archiveClient is null;
     }
 
     /// <summary>
@@ -129,9 +108,8 @@ public sealed class JetstreamReplayConsumer : IDisposable
     /// <see cref="JetstreamArchiveOptions.SnapshotOnly"/> is set.
     /// </summary>
     /// <param name="afterSeq">Resume position: events at or below this sequence number are not
-    /// delivered. When null, <see cref="JetstreamArchiveOptions.AfterSeq"/> is used, then the
-    /// <see cref="StreamConsumerOptions.CursorStore"/>, and failing both the replay starts at
-    /// the beginning of the archive.</param>
+    /// delivered. When null, the <see cref="CursorStreamConsumerOptions.CursorStore"/> is read, and
+    /// failing that the replay starts at the beginning of the archive.</param>
     /// <exception cref="ArgumentException">The resume position is a timestamp cursor
     /// (<see cref="JetstreamCursor"/>): the archive is addressed by sequence number only.</exception>
     /// <exception cref="JetstreamException">An archive request failed unrecoverably, the plan
@@ -145,25 +123,10 @@ public sealed class JetstreamReplayConsumer : IDisposable
         long? afterSeq = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var tracker = new CursorTracker(
-            _options.CursorStore, _options.ResolvedStreamId, _options.CursorPersistInterval, _logger);
+        if (await CursorTracker.StartAsync(_options, afterSeq, cancellationToken).ConfigureAwait(false) is not { } tracker)
+            yield break;
 
-        var start = afterSeq ?? _archive.AfterSeq;
-        if (start is null)
-        {
-            try
-            {
-                start = await tracker.LoadAsync(cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                yield break;
-            }
-
-            if (start.HasValue)
-                _logger.LogInformation("Resuming Jetstream replay from stored cursor {Cursor}", start.Value);
-        }
-
+        var start = tracker.Current;
         if (start is { } resume && JetstreamCursor.IsTimestamp(resume))
             throw new ArgumentException(
                 $"The Jetstream archive is addressed by sequence number, and {resume} is a timestamp cursor. " +
@@ -171,12 +134,14 @@ public sealed class JetstreamReplayConsumer : IDisposable
                 "with JetstreamConsumer.",
                 nameof(afterSeq));
 
-        tracker.Start(start);
-
         // Persist whatever was delivered on every exit path — a cancelled backfill included, so a
         // restart resumes near where it stopped rather than at the last interval boundary.
-        try
+        await using (tracker.ConfigureAwait(false))
         {
+            // BeforeSeq is inclusive: a finished snapshot resumes at it, with nothing left to read.
+            if (start >= _archive.BeforeSeq)
+                yield break;
+
             for (var attempt = 0; ; attempt++)
             {
                 // Backfill: plan, download, decode, filter — everything sealed up to the pinned tip.
@@ -220,7 +185,7 @@ public sealed class JetstreamReplayConsumer : IDisposable
                 var cutover = tip ?? LastCursor ?? start ?? 0;
                 JetstreamException? refused = null;
 
-                var live = _liveFactory(_options).ConsumeAsync(cutover, cancellationToken)
+                var live = new JetstreamConsumer(_options, _liveConnector).ConsumeAsync(cutover, cancellationToken)
                     .GetAsyncEnumerator(cancellationToken);
                 try
                 {
@@ -271,10 +236,6 @@ public sealed class JetstreamReplayConsumer : IDisposable
                 _logger.LogWarning(refused,
                     "Jetstream refused the cutover at {Tip}; re-planning from {Cursor}", cutover, start);
             }
-        }
-        finally
-        {
-            await tracker.FlushAsync().ConfigureAwait(false);
         }
     }
 
@@ -557,12 +518,6 @@ public sealed class JetstreamReplayConsumer : IDisposable
                 "set SnapshotOnly = true alongside it.",
                 nameof(options));
 
-        if (archive.AfterSeq is not null && archive.BeforeSeq is not null
-            && archive.AfterSeq >= archive.BeforeSeq)
-            throw new ArgumentException(
-                $"AfterSeq ({archive.AfterSeq}) must be below BeforeSeq ({archive.BeforeSeq}).",
-                nameof(options));
-
         return archive;
     }
 
@@ -571,8 +526,7 @@ public sealed class JetstreamReplayConsumer : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        if (_ownsClient)
-            _client.Dispose();
+        _client.Dispose();
     }
 
     /// <summary>One planned download: a whole segment, or a single block within one.</summary>

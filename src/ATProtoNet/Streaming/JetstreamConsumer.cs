@@ -1,13 +1,12 @@
-using System.Runtime.ExceptionServices;
 using System.Runtime.CompilerServices;
+using ATProtoNet.Http;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Streaming;
 
 /// <summary>
-/// A managed Jetstream consumer that handles reconnection, cursor persistence,
-/// and duplicate suppression across reconnects.
+/// A Jetstream consumer that handles reconnection, cursor persistence, and duplicate suppression
+/// across reconnects.
 /// </summary>
 /// <remarks>
 /// <para>How it resumes depends on <see cref="JetstreamConsumerOptions.Protocol"/>. On
@@ -19,17 +18,12 @@ namespace ATProtoNet.Streaming;
 /// <see cref="LastCursor"/> exactly and filters out the one replayed event. A v2 start cursor of
 /// 10^15 or more is a timestamp seek (<see cref="JetstreamCursor"/>), which is how a stored v1
 /// cursor carries over; the consumer resumes by sequence number from the first event.</para>
-/// <para>A subscription the server rejects before the WebSocket upgrade — a cursor below the
-/// retention floor, a retired zstd dictionary, a malformed filter — is not retried: the
-/// <see cref="JetstreamException"/> is rethrown, because reconnecting with the same
-/// request would loop forever and silently skip the gap. Neither is an error frame that is not
-/// retryable; one that is (<c>ConsumerTooSlow</c>) is reported to
-/// <see cref="StreamConsumerOptions.OnStreamError"/> and followed by a reconnect.</para>
-/// <para>Delivery is <b>at-least-once</b>: an event's position is recorded when the caller asks
-/// for the next one, and the cursor is saved every
-/// <see cref="StreamConsumerOptions.CursorPersistInterval"/> events and when the enumeration ends,
-/// so events after the last saved cursor may be delivered again when resuming from the store.
-/// Processing must be idempotent. Cancelling the token ends the enumeration normally.</para>
+/// <para>Delivery, cancellation and errors follow <see cref="StreamConsumerOptions"/>. A
+/// subscription the server rejects before the WebSocket upgrade (a cursor below the retention
+/// floor, a retired zstd dictionary, a malformed filter) is not retried: reconnecting with the
+/// same request would loop forever, and dropping the cursor would silently skip the gap. Failures
+/// are thrown as a <see cref="JetstreamException"/>. For a single connection, set
+/// <see cref="StreamReconnectPolicy.MaxAttempts"/> to 0.</para>
 /// <para>Jetstream events carry no MST proofs or signatures and cannot be cryptographically
 /// verified — see <see cref="JetstreamEvent"/>.</para>
 /// </remarks>
@@ -52,9 +46,14 @@ namespace ATProtoNet.Streaming;
 /// </example>
 public sealed class JetstreamConsumer
 {
+    /// <summary>The v2 endpoint path — the subscription Lexicon's canonical XRPC route.</summary>
+    private const string V2Path = "/xrpc/network.bsky.jetstream.subscribeEvents";
+
+    /// <summary>The WebSocket subprotocol the v2 wire is framed under (atproto proposal 0015).</summary>
+    private const string V2SubProtocol = "xrpc.v1.json";
+
     private readonly JetstreamConsumerOptions _options;
-    private readonly ILogger _logger;
-    private readonly Func<long?, CancellationToken, IAsyncEnumerable<JetstreamEvent>> _connectionFactory;
+    private readonly StreamConnector _connector;
 
     /// <summary>The <c>time_us</c> of the last delivered event. The reconnect cursor base on
     /// <see cref="JetstreamProtocol.V1"/>.</summary>
@@ -65,23 +64,26 @@ public sealed class JetstreamConsumer
     /// carrying one has been delivered.</summary>
     public long? LastCursor { get; private set; }
 
-    /// <summary>Create a managed Jetstream consumer.</summary>
+    /// <summary>Create a Jetstream consumer.</summary>
     /// <param name="options">Consumer configuration.</param>
     /// <exception cref="ArgumentException">The options are not valid.</exception>
     public JetstreamConsumer(JetstreamConsumerOptions options)
-        : this(options, (cursor, ct) => SubscribeOnce(options, cursor, ct))
+        : this(options, StreamSocket.Connector)
     {
     }
 
-    internal JetstreamConsumer(
-        JetstreamConsumerOptions options,
-        Func<long?, CancellationToken, IAsyncEnumerable<JetstreamEvent>> connectionFactory)
+    internal JetstreamConsumer(JetstreamConsumerOptions options, StreamConnector connector)
     {
         ArgumentNullException.ThrowIfNull(options);
         options.Validate();
         _options = options;
-        _logger = options.Logger ?? NullLogger.Instance;
-        _connectionFactory = connectionFactory;
+
+        // Decompressing is part of reading the connection: a frame that does not decompress
+        // (corrupt, or made with another dictionary) fails the connection, which reconnects from
+        // the last cursor, rather than being skipped as if it were one unreadable event.
+        _connector = options.Decompressor is { } decompressor
+            ? (endpoint, socketOptions, ct) => Decompress(connector(endpoint, socketOptions, ct), decompressor, ct)
+            : connector;
     }
 
     /// <summary>Consume Jetstream events with automatic reconnection and cursor persistence.</summary>
@@ -98,135 +100,140 @@ public sealed class JetstreamConsumer
         long? cursor = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var v2 = _options.Protocol == JetstreamProtocol.V2;
-        var tracker = new CursorTracker(
-            _options.CursorStore, _options.ResolvedStreamId, _options.CursorPersistInterval, _logger);
+        if (await CursorTracker.StartAsync(_options, cursor, cancellationToken).ConfigureAwait(false) is not { } tracker)
+            yield break;
 
-        var startCursor = cursor;
-        if (startCursor is null)
+        await using (tracker.ConfigureAwait(false))
         {
-            try
+            await foreach (var evt in EventStreamLoop.RunAsync(new Handler(this, tracker), _connector, cancellationToken)
+                .ConfigureAwait(false))
             {
-                startCursor = await tracker.LoadAsync(cancellationToken).ConfigureAwait(false);
+                yield return evt;
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                yield break;
-            }
-
-            if (startCursor.HasValue)
-                _logger.LogInformation("Resuming Jetstream from stored cursor {Cursor}", startCursor.Value);
-        }
-
-        // A v2 sequence cursor is replayed inclusively, so it is also the floor below which events
-        // were already delivered. A timestamp seek is only a server-side position, no floor for
-        // the sequence numbers that follow: the first event sets that.
-        var timestampSeek = v2 && startCursor is { } start && JetstreamCursor.IsTimestamp(start);
-        tracker.Start(timestampSeek ? null : startCursor);
-        var seqFloor = v2 && !timestampSeek ? startCursor : null;
-
-        var rewindMicros = (long)_options.ReconnectRewind.TotalMicroseconds;
-        var backoff = new ReconnectBackoff(_options.Reconnect, _logger, "Jetstream");
-        var firstConnection = true;
-
-        try
-        {
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                // v2 cursors are sequence numbers replayed inclusively, so there is nothing to
-                // rewind past; v1 cursors are timestamps, which need the in-flight overlap.
-                var resumeCursor = v2 ? LastCursor : LastTimeUs is { } last ? last - rewindMicros : null;
-                var connectCursor = firstConnection ? startCursor : resumeCursor ?? startCursor;
-                firstConnection = false;
-
-                Exception? failure = null;
-                var enumerator = _connectionFactory(connectCursor, cancellationToken)
-                    .GetAsyncEnumerator(cancellationToken);
-                try
-                {
-                    while (!cancellationToken.IsCancellationRequested)
-                    {
-                        JetstreamEvent evt;
-                        try
-                        {
-                            if (!await enumerator.MoveNextAsync().ConfigureAwait(false))
-                                break;
-                            evt = enumerator.Current;
-                        }
-                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                        {
-                            break;
-                        }
-                        catch (Exception ex)
-                        {
-                            failure = ex;
-                            break;
-                        }
-
-                        backoff.Reset();
-
-                        // Skip events the server replayed that were already delivered.
-                        if (v2)
-                        {
-                            if (seqFloor.HasValue && evt.Cursor is { } seq && seq <= seqFloor.Value)
-                                continue;
-                        }
-                        else if (LastTimeUs.HasValue && evt.TimeUs <= LastTimeUs.Value)
-                        {
-                            continue;
-                        }
-
-                        LastTimeUs = evt.TimeUs;
-                        if (evt.Cursor is { } eventCursor)
-                            LastCursor = seqFloor = eventCursor;
-
-                        yield return evt;
-
-                        // Recorded once the caller asks for the next event, having handled this one.
-                        if (StoredCursor(evt) is { } stored)
-                            tracker.Advance(stored);
-                    }
-                }
-                finally
-                {
-                    await enumerator.DisposeAsync().ConfigureAwait(false);
-                }
-
-                if (cancellationToken.IsCancellationRequested)
-                    break;
-
-                if (failure is EventStreamException { IsRetryable: false })
-                    ExceptionDispatchInfo.Throw(failure);
-
-                if (!await backoff.WaitAsync(failure, cancellationToken).ConfigureAwait(false))
-                    break;
-            }
-        }
-        finally
-        {
-            await tracker.FlushAsync().ConfigureAwait(false);
         }
     }
 
-    /// <summary>
-    /// The value to persist for an event: its sequence number on
-    /// <see cref="JetstreamProtocol.V2"/>, its <c>time_us</c> on
-    /// <see cref="JetstreamProtocol.V1"/>. Null when a v2 event carried no sequence number,
-    /// which would otherwise store a resume position the server cannot honour.
-    /// </summary>
-    private long? StoredCursor(JetstreamEvent evt)
-        => _options.Protocol == JetstreamProtocol.V2 ? evt.Cursor : evt.TimeUs;
-
-    private static async IAsyncEnumerable<JetstreamEvent> SubscribeOnce(
-        JetstreamConsumerOptions options,
-        long? cursor,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
+    private static async IAsyncEnumerable<StreamSocketMessage> Decompress(
+        IAsyncEnumerable<StreamSocketMessage> messages, IJetstreamDecompressor decompressor, [EnumeratorCancellation] CancellationToken ct)
     {
-        var client = new JetstreamClient(options);
-        await using (client.ConfigureAwait(false))
+        await foreach (var message in messages.WithCancellation(ct).ConfigureAwait(false))
+            yield return message.IsBinary ? new StreamSocketMessage(decompressor.Decompress(message.Data.Span), IsBinary: false) : message;
+    }
+
+    /// <summary>The subscription endpoint for <paramref name="options"/>, resuming at <paramref name="cursor"/>.</summary>
+    internal static Uri Endpoint(JetstreamConsumerOptions options, long? cursor)
+    {
+        options.Validate();
+        var v2 = options.Protocol == JetstreamProtocol.V2;
+        var baseUrl = AtProtoHttp.WithScheme(new Uri(options.ServiceUrl), webSocket: true).GetLeftPart(UriPartial.Path).TrimEnd('/');
+
+        var query = new XrpcParams()
+            .AddAll(v2 ? "collections" : "wantedCollections", options.WantedCollections)
+            .AddAll(v2 ? "dids" : "wantedDids", options.WantedDids?.Select(did => did.Value))
+            .AddAll("kinds", v2 ? options.WantedKinds?.Select(JetstreamKinds.Name) : null)
+            .Add("cursor", cursor)
+            .Add("maxMessageSizeBytes", options.MaxMessageSizeBytes);
+
+        if (options.Decompressor is not null)
         {
-            await foreach (var evt in client.SubscribeAsync(cursor, cancellationToken).ConfigureAwait(false))
-                yield return evt;
+            if (v2)
+                query.Add("zstdDictionary", options.ZstdDictionaryId);
+            else
+                query.Add("compress", "true");
         }
+
+        return new Uri($"{baseUrl}{(v2 ? V2Path : "/subscribe")}{query.ToQueryString()}");
+    }
+
+    private sealed class Handler : EventStreamHandler<JetstreamEvent>
+    {
+        private readonly JetstreamConsumer _owner;
+        private readonly CursorTracker _cursor;
+        private readonly bool _v2;
+        private readonly long? _start;
+        private long? _seqFloor;
+        private bool _connected;
+
+        public Handler(JetstreamConsumer owner, CursorTracker cursor)
+            : base(owner._options)
+        {
+            _owner = owner;
+            _cursor = cursor;
+            _v2 = owner._options.Protocol == JetstreamProtocol.V2;
+            _start = cursor.Current;
+
+            // A v2 sequence cursor is replayed inclusively, so it is also the floor below which
+            // events were already delivered. A timestamp seek is only a server-side position, no
+            // floor for the sequence numbers that follow: the first event sets that.
+            var timestampSeek = _v2 && _start is { } start && JetstreamCursor.IsTimestamp(start);
+            if (timestampSeek)
+                cursor.Start(null);
+            _seqFloor = _v2 && !timestampSeek ? _start : null;
+        }
+
+        public override string Stream => "Jetstream";
+
+        public override ValueTask<(Uri Endpoint, StreamSocketOptions Options)> ConnectAsync(CancellationToken cancellationToken)
+        {
+            // v2 cursors are sequence numbers replayed inclusively, so there is nothing to rewind
+            // past; v1 cursors are timestamps, which need the in-flight overlap.
+            var resume = _v2
+                ? _owner.LastCursor
+                : _owner.LastTimeUs - (long)_owner._options.ReconnectRewind.TotalMicroseconds;
+            var cursor = _connected ? resume ?? _start : _start;
+            _connected = true;
+
+            return ValueTask.FromResult((
+                Endpoint(_owner._options, cursor),
+                new StreamSocketOptions(SubProtocol: _v2 ? V2SubProtocol : null)));
+        }
+
+        public override ValueTask<(JetstreamEvent? Message, EventStreamError? Error)> ReadAsync(
+            StreamSocketMessage message, CancellationToken cancellationToken)
+        {
+            // Parsed straight from the receive buffer: only a compressed frame is copied, by the
+            // decompressor.
+            var frame = JetstreamEventParser.Parse(message.Data, _owner._options.Protocol, out var dropped);
+            if (dropped is { } reason)
+                Dropped(reason, null, null);
+
+            if (frame.Error is { } error)
+                return ValueTask.FromResult<(JetstreamEvent?, EventStreamError?)>((null, error));
+
+            if (frame.Info is { } info)
+            {
+                Logger.LogInformation("Jetstream info {Name}: {Message}", info.Name, info.Message);
+                _owner._options.OnInfo?.Invoke(info);
+            }
+
+            if (frame.Event is not { } evt)
+                return default;
+
+            // Skip events the server replayed that were already delivered.
+            if (_v2
+                ? _seqFloor is { } floor && evt.Cursor is { } seq && seq <= floor
+                : _owner.LastTimeUs is { } last && evt.TimeUs <= last)
+            {
+                return default;
+            }
+
+            _owner.LastTimeUs = evt.TimeUs;
+            if (evt.Cursor is { } eventCursor)
+                _owner.LastCursor = _seqFloor = eventCursor;
+
+            return ValueTask.FromResult<(JetstreamEvent?, EventStreamError?)>((evt, null));
+        }
+
+        // A v2 event without a sequence number is not recorded: the server could not resume from it.
+        public override void Delivered(JetstreamEvent message)
+        {
+            if ((_v2 ? message.Cursor : message.TimeUs) is { } position)
+                _cursor.Advance(position);
+        }
+
+        public override Exception Failed(Exception failure) =>
+            failure is EventStreamException { } refused and not JetstreamException
+                ? new JetstreamException(refused.Message, refused.StatusCode, refused.Error, innerException: refused)
+                : failure;
     }
 }

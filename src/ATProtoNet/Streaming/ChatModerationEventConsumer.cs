@@ -1,16 +1,15 @@
 using System.Runtime.CompilerServices;
 using ATProtoNet.Lexicon.Chat.Bsky.Moderation;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Streaming;
 
-/// <summary>Configuration options for <see cref="ChatModerationEventConsumer"/>.</summary>
-public sealed class ChatModerationEventConsumerOptions
+/// <summary>
+/// Configuration options for <see cref="ChatModerationEventConsumer"/>.
+/// <see cref="StreamConsumerOptions.ServiceUrl"/> is the chat service's WebSocket URL, e.g.
+/// <c>wss://api.bsky.chat</c>.
+/// </summary>
+public sealed class ChatModerationEventConsumerOptions : StreamConsumerOptions
 {
-    /// <summary>The chat service's WebSocket URL, e.g. <c>wss://api.bsky.chat</c>.</summary>
-    public required string ServiceUrl { get; init; }
-
     /// <summary>
     /// Returns the bearer token for the next connection. It is called before every connection,
     /// reconnects included, so it can hand out a fresh short-lived service-auth token: one whose
@@ -19,20 +18,12 @@ public sealed class ChatModerationEventConsumerOptions
     /// </summary>
     public required Func<CancellationToken, ValueTask<string>> GetAccessTokenAsync { get; init; }
 
-    /// <summary>How to reconnect after the connection drops, and when to give up.</summary>
-    public StreamReconnectPolicy Reconnect { get; init; } = new();
-
-    /// <summary>Optional logger.</summary>
-    public ILogger? Logger { get; init; }
-
-    /// <summary>
-    /// Invoked for every error frame the service sends before closing the stream, such as
-    /// <c>ConsumerTooSlow</c>.
-    /// </summary>
-    public Action<EventStreamError>? OnStreamError { get; init; }
-
-    /// <summary>Invoked for every frame the consumer skips because it cannot be read.</summary>
-    public Action<DroppedStreamEvent>? OnEventDropped { get; init; }
+    /// <inheritdoc/>
+    internal override void Validate()
+    {
+        base.Validate();
+        ArgumentNullException.ThrowIfNull(GetAccessTokenAsync, nameof(GetAccessTokenAsync));
+    }
 }
 
 /// <summary>
@@ -47,10 +38,8 @@ public sealed class ChatModerationEventConsumerOptions
 /// <para>The cursor is the <see cref="ChatModerationEvent.Rev"/> of the last event delivered, which
 /// the consumer resumes after when it reconnects. It is not persisted: store
 /// <see cref="LastRev"/> (or each event's <c>Rev</c>) yourself and pass it back to
-/// <see cref="ConsumeAsync"/> after a restart. Delivery is at-least-once.</para>
-/// <para>Cancelling the token ends the enumeration normally. The consumer throws an
-/// <see cref="EventStreamException"/> for an error reconnecting cannot fix, and when
-/// <see cref="ChatModerationEventConsumerOptions.Reconnect"/> gives up.</para>
+/// <see cref="ConsumeAsync"/> after a restart. Delivery, cancellation and errors otherwise follow
+/// <see cref="StreamConsumerOptions"/>.</para>
 /// </remarks>
 /// <example>
 /// <code>
@@ -77,7 +66,6 @@ public sealed class ChatModerationEventConsumer
 
     private readonly ChatModerationEventConsumerOptions _options;
     private readonly StreamConnector _connector;
-    private readonly ILogger _logger;
     private string? _lastRev;
 
     /// <summary>Create a chat moderation event consumer.</summary>
@@ -91,13 +79,9 @@ public sealed class ChatModerationEventConsumer
     internal ChatModerationEventConsumer(ChatModerationEventConsumerOptions options, StreamConnector connector)
     {
         ArgumentNullException.ThrowIfNull(options);
-        ArgumentException.ThrowIfNullOrWhiteSpace(options.ServiceUrl, nameof(options.ServiceUrl));
-        ArgumentNullException.ThrowIfNull(options.GetAccessTokenAsync, nameof(options.GetAccessTokenAsync));
-        ArgumentNullException.ThrowIfNull(options.Reconnect, nameof(options.Reconnect));
-        options.Reconnect.Validate();
+        options.Validate();
         _options = options;
         _connector = connector;
-        _logger = options.Logger ?? NullLogger.Instance;
     }
 
     /// <summary>The revision of the last event delivered, or null before the first.</summary>
@@ -115,30 +99,26 @@ public sealed class ChatModerationEventConsumer
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         Volatile.Write(ref _lastRev, null);
-        var handler = new Handler(this, cursor);
 
-        await foreach (var evt in EventStreamLoop.RunAsync(
-            handler, _connector, _options.Reconnect, _logger, _options.OnStreamError, cancellationToken)
+        await foreach (var evt in EventStreamLoop.RunAsync(new Handler(this, cursor), _connector, cancellationToken)
             .ConfigureAwait(false))
         {
             yield return evt;
         }
     }
 
-    private sealed class Handler(ChatModerationEventConsumer owner, string? start) : EventStreamHandler<ChatModerationEvent>
+    private sealed class Handler(ChatModerationEventConsumer owner, string? start)
+        : CborEventStreamHandler<ChatModerationEvent>(owner._options)
     {
         public override string Stream => "chat moderation stream";
 
         public override async ValueTask<(Uri Endpoint, StreamSocketOptions Options)> ConnectAsync(CancellationToken cancellationToken)
         {
             var token = await owner._options.GetAccessTokenAsync(cancellationToken).ConfigureAwait(false);
-            var cursor = owner.LastRev ?? start;
-            var endpoint = new Uri($"{owner._options.ServiceUrl.TrimEnd('/')}/xrpc/{Nsid}" +
-                (cursor is null ? string.Empty : $"?cursor={Uri.EscapeDataString(cursor)}"));
-            return (endpoint, new StreamSocketOptions(Authorization: $"Bearer {token}"));
+            return (Endpoint(Options.ServiceUrl, Nsid, owner.LastRev ?? start), new StreamSocketOptions(Authorization: $"Bearer {token}"));
         }
 
-        public override ValueTask<ChatModerationEvent?> HandleAsync(
+        protected override ValueTask<ChatModerationEvent?> HandleAsync(
             string type, ReadOnlyMemory<byte> body, CancellationToken cancellationToken)
         {
             // Frame headers name the variant relative to the subscription; the union is keyed by
@@ -155,12 +135,6 @@ public sealed class ChatModerationEventConsumer
         {
             if (!string.IsNullOrEmpty(message.Rev))
                 Volatile.Write(ref owner._lastRev, message.Rev);
-        }
-
-        public override void Dropped(StreamDropReason reason, long? cursor, string? detail)
-        {
-            owner._logger.LogDebug("Skipped chat moderation frame ({Reason}): {Detail}", reason, detail);
-            owner._options.OnEventDropped?.Invoke(new DroppedStreamEvent(reason, cursor, detail));
         }
     }
 }

@@ -81,6 +81,18 @@ public class AtProtoHttpTests
     }
 
     [Theory]
+    [InlineData("https://bsky.network", true, "wss://bsky.network/")]
+    [InlineData("http://localhost:2480/channel?x=1", true, "ws://localhost:2480/channel?x=1")]
+    [InlineData("wss://relay.example.com:8443/", false, "https://relay.example.com:8443/")]
+    [InlineData("ws://localhost:2583", false, "http://localhost:2583/")]
+    [InlineData("wss://bsky.network", true, "wss://bsky.network/")]
+    [InlineData("ftp://example.com", true, "ftp://example.com/")]
+    public void WithScheme_SwitchesBetweenHttpAndWebSocketKeepingTheRest(string url, bool webSocket, string expected)
+    {
+        Assert.Equal(expected, AtProtoHttp.WithScheme(new Uri(url), webSocket).AbsoluteUri);
+    }
+
+    [Theory]
     [InlineData("https://pds.example.com/base?x=1")]
     [InlineData("https://pds.example.com/?x=1")]
     [InlineData("https://pds.example.com?x=1")]

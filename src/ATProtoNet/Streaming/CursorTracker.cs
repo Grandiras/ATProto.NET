@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Streaming;
 
@@ -13,10 +14,10 @@ namespace ATProtoNet.Streaming;
 /// <para>Saves run in the background, at most one at a time: when one is due while another is
 /// still running, the running one saves again with the newest value when it finishes. A slow
 /// store therefore never blocks the read loop, which a server would disconnect as too slow.
-/// <see cref="FlushAsync"/> waits for that and saves the final position; consumers call it from
-/// <c>finally</c>, so a <c>break</c>, a cancellation and an exception all keep it.</para>
+/// <see cref="FlushAsync"/> waits for that and saves the final position; consumers dispose the
+/// tracker with their enumeration, so a <c>break</c>, a cancellation and an exception all keep it.</para>
 /// </remarks>
-internal sealed class CursorTracker
+internal sealed class CursorTracker : IAsyncDisposable
 {
     private readonly IStreamCursorStore? _store;
     private readonly string _streamId;
@@ -37,6 +38,35 @@ internal sealed class CursorTracker
         _streamId = streamId;
         _persistInterval = Math.Max(1, persistInterval);
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Starts the tracker of one consumer run: resuming after <paramref name="cursor"/>, or after the
+    /// stored cursor when it is null. Returns null when <paramref name="cancellationToken"/> is
+    /// cancelled while the stored cursor is loaded.
+    /// </summary>
+    public static async ValueTask<CursorTracker?> StartAsync(
+        CursorStreamConsumerOptions options, long? cursor, CancellationToken cancellationToken)
+    {
+        var logger = options.Logger ?? NullLogger.Instance;
+        var tracker = new CursorTracker(options.CursorStore, options.ResolvedStreamId, options.CursorPersistInterval, logger);
+        if (cursor is null)
+        {
+            try
+            {
+                cursor = await tracker.LoadAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return null;
+            }
+
+            if (cursor is { } stored)
+                logger.LogInformation("Resuming {StreamId} from stored cursor {Cursor}", options.ResolvedStreamId, stored);
+        }
+
+        tracker.Start(cursor);
+        return tracker;
     }
 
     /// <summary>The last position the stream passed, or null before the first one.</summary>
@@ -137,6 +167,9 @@ internal sealed class CursorTracker
         if (position is { } final)
             await SaveAsync(final).ConfigureAwait(false);
     }
+
+    /// <inheritdoc cref="FlushAsync"/>
+    public ValueTask DisposeAsync() => FlushAsync();
 
     /// <summary>The position a save may record: <see cref="Current"/>, capped by the persist limit. Call under the lock.</summary>
     private long? Persistable() => _current is { } current ? Math.Min(current, _persistLimit) : null;

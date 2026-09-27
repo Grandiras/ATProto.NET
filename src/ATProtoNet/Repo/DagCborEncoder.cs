@@ -2,6 +2,7 @@ using System.Formats.Cbor;
 using System.Text;
 using System.Text.Json;
 using ATProtoNet.Identity;
+using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Repo;
 
@@ -190,10 +191,7 @@ public static class DagCborEncoder
             if (propertyCount > 1) return false;
         }
 
-        var base64 = bytesValue.GetString()!;
-        // AT Protocol allows optional padding
-        var bytes = Convert.FromBase64String(PadBase64(base64));
-        writer.WriteByteString(bytes);
+        writer.WriteByteString(LexBase64.Decode(bytesValue.GetString()!));
 
         return true;
     }
@@ -223,12 +221,5 @@ public static class DagCborEncoder
                 "Floating point numbers are not allowed in the AT Protocol data model. " +
                 "Use integers, strings, or bytes instead.");
         }
-    }
-
-    private static string PadBase64(string base64)
-    {
-        var remainder = base64.Length % 4;
-        if (remainder == 0) return base64;
-        return base64 + new string('=', 4 - remainder);
     }
 }

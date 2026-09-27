@@ -14,7 +14,6 @@ AtProtoException                        (ATProtoNet)          catch-all for SDK 
 ├── XrpcResponseFormatException         (ATProtoNet.Http)     2xx whose body does not match the Lexicon
 ├── OAuthException                      (ATProtoNet.Auth.OAuth)
 ├── DidResolutionException              (ATProtoNet.Identity)  an identity did not resolve
-├── PlcExportStreamException            (ATProtoNet.Identity)  the PLC export stream closed with a reason
 ├── LexiconResolutionException          (ATProtoNet.Lexicon.Com.AtProto.Lexicon)
 ├── RepoVerificationException           (ATProtoNet.Repo)     a record proof or repository export did not verify
 ├── RepoFetchException                  (ATProtoNet.Streaming)  a resync could not fetch a repository
@@ -23,7 +22,7 @@ AtProtoException                        (ATProtoNet)          catch-all for SDK 
 ├── SpaceRepoVerificationException      (ATProtoNet.Spaces)
 ├── TapException                        (ATProtoNet.Tap)
 ├── VideoUploadException                (ATProtoNet.Lexicon.App.Bsky.Video)  video processing failed
-└── EventStreamException                (ATProtoNet.Streaming)  an event stream failed: error frame, refused subscription, exhausted reconnects
+└── EventStreamException                (ATProtoNet.Streaming)  an event stream failed: error frame, refused subscription, exhausted reconnects, a PLC export stream closed with a reason
     └── JetstreamException              (ATProtoNet.Streaming)
 ```
 

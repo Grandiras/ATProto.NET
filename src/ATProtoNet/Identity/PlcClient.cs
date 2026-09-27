@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Net;
 using System.Net.WebSockets;
 using System.Runtime.CompilerServices;
@@ -7,8 +6,10 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using ATProtoNet.Auth.OAuth;
+using ATProtoNet.Http;
 using ATProtoNet.Lexicon.Com.AtProto.Identity;
 using ATProtoNet.Serialization;
+using ATProtoNet.Streaming;
 
 namespace ATProtoNet.Identity;
 
@@ -87,8 +88,8 @@ public sealed class PlcClient : IDidResolver, IDisposable
     /// <summary>The directory's base URL, ending in <c>/</c>.</summary>
     public Uri DirectoryUrl { get; }
 
-    /// <summary>Connects the export stream's WebSocket. Tests replace it to reach an in-process server.</summary>
-    internal Func<Uri, CancellationToken, Task<WebSocket>>? ConnectWebSocket { get; set; }
+    /// <summary>Opens the export stream's WebSocket. Tests replace it to reach an in-process server.</summary>
+    internal StreamConnector Connector { get; set; } = StreamSocket.Connector;
 
     /// <summary>Resolves a <c>did:plc</c> identifier to its DID document.</summary>
     /// <param name="did">The DID (e.g. <c>did:plc:ewvi7nxzyoun6zhxrhs64oiz</c>).</param>
@@ -294,15 +295,15 @@ public sealed class PlcClient : IDidResolver, IDisposable
     /// </param>
     /// <param name="cancellationToken">Cancellation token. Cancelling ends the stream.</param>
     /// <returns>The entries, in sequence order.</returns>
-    /// <exception cref="PlcExportStreamException">
-    /// Thrown when the directory closes the stream with a reason, such as a cursor it can no
-    /// longer serve. See <see cref="PlcExportStreamException.CloseReason"/>.
+    /// <exception cref="EventStreamException">
+    /// The stream could not be opened, or the directory closed it with a reason, which is the
+    /// <see cref="EventStreamException.Error"/>: <c>OutdatedCursor</c> (the cursor predates its
+    /// retention window; catch up with <see cref="ExportAsync"/>), <c>FutureCursor</c> (the cursor
+    /// is ahead of the directory) or <c>ConsumerTooSlow</c> (reconnect from the last cursor).
     /// </exception>
     /// <remarks>
     /// The stream ends without an exception when the directory closes it normally or the
-    /// connection drops; resume from the last <see cref="PlcAuditEntry.Seq"/> received. A cursor
-    /// older than the directory's retention window is refused with <c>OutdatedCursor</c>:
-    /// catch up with <see cref="ExportAsync"/> first.
+    /// connection drops; resume from the last <see cref="PlcAuditEntry.Seq"/> received.
     /// </remarks>
     public async IAsyncEnumerable<PlcAuditEntry> StreamExportAsync(
         long? cursor = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -310,123 +311,39 @@ public sealed class PlcClient : IDidResolver, IDisposable
         if (cursor is not null)
             ArgumentOutOfRangeException.ThrowIfNegative(cursor.Value, nameof(cursor));
 
-        var builder = new UriBuilder(new Uri(DirectoryUrl, "export/stream"))
-        {
-            Scheme = DirectoryUrl.Scheme == Uri.UriSchemeHttps ? "wss" : "ws",
-            Port = DirectoryUrl.IsDefaultPort ? -1 : DirectoryUrl.Port,
-            Query = cursor is { } value ? $"cursor={value.ToString(System.Globalization.CultureInfo.InvariantCulture)}" : "",
-        };
-        var url = builder.Uri;
+        var url = AtProtoHttp.WithScheme(
+            new Uri(DirectoryUrl, "export/stream" + (cursor is { } value ? $"?cursor={value.ToString(System.Globalization.CultureInfo.InvariantCulture)}" : "")),
+            webSocket: true);
 
-        using var socket = await ConnectAsync(url, cancellationToken).ConfigureAwait(false);
-        var buffer = ArrayPool<byte>.Shared.Rent(16 * 1024);
+        // The owned client's handler carries the identity fetch policy; a caller's client is used
+        // as is, as for every other request.
+        using var invoker = _ownsHttpClient
+            ? new HttpMessageInvoker(IdentityNetworkPolicy.SharedHandler(_options.AllowPrivateNetworks), disposeHandler: false)
+            : null;
+        var options = new StreamSocketOptions(Invoker: invoker ?? _httpClient, MaxMessageBytes: MaxStreamMessageBytes);
+
+        var messages = Connector(url, options, cancellationToken).GetAsyncEnumerator(cancellationToken);
         try
         {
-            while (!cancellationToken.IsCancellationRequested)
+            while (true)
             {
-                var message = await ReceiveMessageAsync(socket, buffer, url, cancellationToken).ConfigureAwait(false);
-                if (message is null)
+                try
+                {
+                    if (!await messages.MoveNextAsync().ConfigureAwait(false))
+                        break;
+                }
+                catch (Exception ex) when (ex is WebSocketException || (ex is OperationCanceledException && cancellationToken.IsCancellationRequested))
+                {
+                    // A dropped connection ends the stream; the caller resumes from its cursor.
                     break;
+                }
 
-                yield return Deserialize<PlcAuditEntry>(message.Value.Span, url, did: null);
+                yield return Deserialize<PlcAuditEntry>(messages.Current.Data.Span, url, did: null);
             }
         }
         finally
         {
-            ArrayPool<byte>.Shared.Return(buffer);
-            if (socket.State == WebSocketState.Open)
-            {
-                try
-                {
-                    using var closeBudget = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                    await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, closeBudget.Token)
-                        .ConfigureAwait(false);
-                }
-                catch (Exception ex) when (ex is WebSocketException or OperationCanceledException)
-                {
-                    // The stream is over either way.
-                }
-            }
-        }
-    }
-
-    private async Task<WebSocket> ConnectAsync(Uri url, CancellationToken cancellationToken)
-    {
-        if (ConnectWebSocket is not null)
-            return await ConnectWebSocket(url, cancellationToken).ConfigureAwait(false);
-
-        var socket = new ClientWebSocket();
-        socket.Options.SetRequestHeader("User-Agent", Http.AtProtoHttp.DefaultUserAgent);
-        try
-        {
-            // The owned client's handler carries the identity fetch policy; a caller's client is
-            // used as is, as for every other request.
-            using var invoker = _ownsHttpClient
-                ? new HttpMessageInvoker(IdentityNetworkPolicy.SharedHandler(_options.AllowPrivateNetworks), disposeHandler: false)
-                : null;
-            await socket.ConnectAsync(url, (HttpMessageInvoker?)invoker ?? _httpClient, cancellationToken).ConfigureAwait(false);
-            return socket;
-        }
-        catch (Exception ex) when (ex is WebSocketException or HttpRequestException)
-        {
-            socket.Dispose();
-            throw new DidResolutionException(
-                $"Could not open the PLC export stream at {url.Host}: {ex.Message}",
-                IdentityNetworkPolicy.IsBlocked(ex) ? DidResolutionErrorKind.Blocked : DidResolutionErrorKind.NetworkError,
-                did: null, ex);
-        }
-        catch
-        {
-            socket.Dispose();
-            throw;
-        }
-    }
-
-    /// <summary>Reads one whole text message, or returns <see langword="null"/> when the stream is over.</summary>
-    private static async Task<ReadOnlyMemory<byte>?> ReceiveMessageAsync(
-        WebSocket socket, byte[] buffer, Uri url, CancellationToken cancellationToken)
-    {
-        using var message = new MemoryStream();
-        while (true)
-        {
-            WebSocketReceiveResult result;
-            try
-            {
-                result = await socket.ReceiveAsync(buffer, cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                return null;
-            }
-            catch (WebSocketException)
-            {
-                // A dropped connection ends the stream; the caller resumes from its cursor.
-                return null;
-            }
-
-            if (result.MessageType == WebSocketMessageType.Close)
-            {
-                var reason = socket.CloseStatusDescription;
-                if (socket.CloseStatus is not WebSocketCloseStatus.NormalClosure && !string.IsNullOrEmpty(reason))
-                {
-                    throw new PlcExportStreamException(
-                        $"The PLC directory at {url.Host} closed the export stream: {reason}.",
-                        reason, socket.CloseStatus);
-                }
-
-                return null;
-            }
-
-            message.Write(buffer, 0, result.Count);
-            if (message.Length > MaxStreamMessageBytes)
-            {
-                throw new PlcExportStreamException(
-                    $"The PLC export stream at {url.Host} sent a message over {MaxStreamMessageBytes} bytes.",
-                    closeReason: null, closeStatus: null);
-            }
-
-            if (result.EndOfMessage)
-                return message.ToArray();
+            await messages.DisposeAsync().ConfigureAwait(false);
         }
     }
 
@@ -584,29 +501,4 @@ public sealed class PlcAuditEntry
     /// </summary>
     [JsonPropertyName("seq")]
     public long? Seq { get; init; }
-}
-
-/// <summary>Thrown when a PLC directory closes its export stream with a reason.</summary>
-public sealed class PlcExportStreamException : AtProtoException
-{
-    /// <summary>Creates an exception.</summary>
-    /// <param name="message">A description of what went wrong.</param>
-    /// <param name="closeReason">The reason the directory gave, if any.</param>
-    /// <param name="closeStatus">The WebSocket close status, if the directory closed the stream.</param>
-    public PlcExportStreamException(string message, string? closeReason, WebSocketCloseStatus? closeStatus)
-        : base(message)
-    {
-        CloseReason = closeReason;
-        CloseStatus = closeStatus;
-    }
-
-    /// <summary>
-    /// The reason the directory gave: <c>OutdatedCursor</c> (the cursor predates its retention
-    /// window; catch up with <see cref="PlcClient.ExportAsync"/>), <c>FutureCursor</c> (the cursor
-    /// is ahead of the directory) or <c>ConsumerTooSlow</c> (reconnect from the last cursor).
-    /// </summary>
-    public string? CloseReason { get; }
-
-    /// <summary>The WebSocket close status, if the directory closed the stream.</summary>
-    public WebSocketCloseStatus? CloseStatus { get; }
 }

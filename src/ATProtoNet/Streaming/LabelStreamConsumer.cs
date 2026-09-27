@@ -1,8 +1,6 @@
 using System.Runtime.CompilerServices;
 using ATProtoNet.Labeling;
 using ATProtoNet.Lexicon.Com.AtProto.Label;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Streaming;
 
@@ -10,7 +8,7 @@ namespace ATProtoNet.Streaming;
 /// Configuration options for <see cref="LabelStreamConsumer"/>. <see cref="StreamConsumerOptions.ServiceUrl"/>
 /// is the labeler's WebSocket URL.
 /// </summary>
-public sealed class LabelStreamConsumerOptions : StreamConsumerOptions
+public sealed class LabelStreamConsumerOptions : CursorStreamConsumerOptions
 {
     /// <summary>
     /// Verifies the signature of every label the stream delivers, against its issuer's
@@ -32,14 +30,8 @@ public sealed class LabelStreamConsumerOptions : StreamConsumerOptions
 /// </summary>
 /// <remarks>
 /// <para>It delivers <see cref="LabelsEvent"/> messages, whose <see cref="LabelsEvent.Seq"/> is the
-/// cursor, and <see cref="LabelInfoEvent"/> notices such as <c>OutdatedCursor</c>. Delivery is
-/// <b>at-least-once</b>: an event's position is recorded when the caller asks for the next one, and
-/// saved every <see cref="StreamConsumerOptions.CursorPersistInterval"/> events and when the
-/// enumeration ends.</para>
-/// <para>Cancelling the token ends the enumeration normally. An error frame is reported to
-/// <see cref="StreamConsumerOptions.OnStreamError"/>; the consumer reconnects after a retryable one
-/// and throws an <see cref="EventStreamException"/> for one that is not (<c>FutureCursor</c>), and
-/// when <see cref="StreamConsumerOptions.Reconnect"/> gives up.</para>
+/// cursor, and <see cref="LabelInfoEvent"/> notices such as <c>OutdatedCursor</c>. Delivery,
+/// cancellation and errors follow <see cref="StreamConsumerOptions"/>.</para>
 /// <para>With a <see cref="LabelStreamConsumerOptions.Verifier"/>, every <see cref="LabelsEvent"/>
 /// carries the outcome of verifying each of its labels in <see cref="LabelsEvent.Verification"/>.</para>
 /// </remarks>
@@ -62,7 +54,6 @@ public sealed class LabelStreamConsumer
 {
     private readonly LabelStreamConsumerOptions _options;
     private readonly StreamConnector _connector;
-    private readonly ILogger _logger;
     private CursorTracker? _cursor;
 
     /// <summary>Create a label stream consumer.</summary>
@@ -79,7 +70,6 @@ public sealed class LabelStreamConsumer
         options.Validate();
         _options = options;
         _connector = connector;
-        _logger = options.Logger ?? NullLogger.Instance;
     }
 
     /// <summary>
@@ -90,7 +80,7 @@ public sealed class LabelStreamConsumer
 
     /// <summary>Consume the label stream with automatic reconnection and cursor persistence.</summary>
     /// <param name="cursor">The sequence number to resume after. When null, the stored cursor is used
-    /// if there is a <see cref="StreamConsumerOptions.CursorStore"/>, and the live stream otherwise.</param>
+    /// if there is a <see cref="CursorStreamConsumerOptions.CursorStore"/>, and the live stream otherwise.</param>
     /// <param name="cancellationToken">Cancellation token to stop consuming.</param>
     /// <exception cref="EventStreamException">The labeler sent an error that reconnecting cannot
     /// fix, or every reconnect attempt the policy allows failed.</exception>
@@ -98,120 +88,78 @@ public sealed class LabelStreamConsumer
         long? cursor = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var tracker = new CursorTracker(
-            _options.CursorStore, _options.ResolvedStreamId, _options.CursorPersistInterval, _logger);
+        if (await CursorTracker.StartAsync(_options, cursor, cancellationToken).ConfigureAwait(false) is not { } tracker)
+            yield break;
+
         _cursor = tracker;
-
-        var start = cursor;
-        if (start is null)
+        await using (tracker.ConfigureAwait(false))
         {
-            try
-            {
-                start = await tracker.LoadAsync(cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                yield break;
-            }
-        }
-
-        tracker.Start(start);
-        var serviceUrl = _options.ServiceUrl.TrimEnd('/');
-
-        try
-        {
-            var handler = new LabelStreamHandler(
-                () => new Uri($"{serviceUrl}/xrpc/com.atproto.label.subscribeLabels" +
-                    (tracker.Current is { } value ? $"?cursor={value}" : string.Empty)),
-                _logger,
-                tracker,
-                _options.OnEventDropped,
-                _options.Verifier);
-
-            await foreach (var message in EventStreamLoop.RunAsync(
-                handler, _connector, _options.Reconnect, _logger, _options.OnStreamError, cancellationToken)
+            await foreach (var message in EventStreamLoop.RunAsync(new Handler(_options, tracker), _connector, cancellationToken)
                 .ConfigureAwait(false))
             {
                 yield return message;
             }
         }
-        finally
-        {
-            await tracker.FlushAsync().ConfigureAwait(false);
-        }
-    }
-}
-
-/// <summary>
-/// Reads label stream frames: <c>#labels</c> and <c>#info</c>. With a cursor tracker it records
-/// each event's position; without one it serves a single connection.
-/// </summary>
-internal sealed class LabelStreamHandler(
-    Func<Uri> endpoint,
-    ILogger logger,
-    CursorTracker? cursor = null,
-    Action<DroppedStreamEvent>? onDropped = null,
-    LabelVerifier? verifier = null) : EventStreamHandler<LabelStreamMessage>
-{
-    public LabelStreamHandler(Uri endpoint, ILogger logger)
-        : this(() => endpoint, logger)
-    {
     }
 
-    public override string Stream => "label stream";
-
-    public override ValueTask<(Uri Endpoint, StreamSocketOptions Options)> ConnectAsync(CancellationToken cancellationToken) =>
-        ValueTask.FromResult((endpoint(), default(StreamSocketOptions)));
-
-    public override async ValueTask<LabelStreamMessage?> HandleAsync(
-        string type, ReadOnlyMemory<byte> body, CancellationToken cancellationToken)
+    /// <summary>Reads label stream frames, <c>#labels</c> and <c>#info</c>, recording each event's position.</summary>
+    private sealed class Handler(LabelStreamConsumerOptions options, CursorTracker cursor)
+        : CborEventStreamHandler<LabelStreamMessage>(options)
     {
-        LabelStreamMessage? message = type switch
-        {
-            "#labels" => EventStreamFrame.Deserialize<LabelsEvent>(body),
-            "#info" => EventStreamFrame.Deserialize<LabelInfoEvent>(body),
-            _ => null,
-        };
+        private readonly LabelVerifier? _verifier = options.Verifier;
 
-        if (message is null)
-        {
-            Dropped(type is "#labels" or "#info" ? StreamDropReason.Malformed : StreamDropReason.UnknownType,
-                EventStreamFrame.ReadSeq(body), type);
-        }
-        else if (message is LabelsEvent labels)
-        {
-            // Already delivered: a replay from an inclusive cursor.
-            if (cursor is not null && labels.Seq <= cursor.Current)
-                return null;
+        public override string Stream => "label stream";
 
-            if (verifier is not null)
-                return await VerifyAsync(labels, verifier, cancellationToken).ConfigureAwait(false);
+        public override ValueTask<(Uri Endpoint, StreamSocketOptions Options)> ConnectAsync(CancellationToken cancellationToken) =>
+            ValueTask.FromResult((Endpoint(Options.ServiceUrl, "com.atproto.label.subscribeLabels", cursor.Current), default(StreamSocketOptions)));
+
+        protected override async ValueTask<LabelStreamMessage?> HandleAsync(
+            string type, ReadOnlyMemory<byte> body, CancellationToken cancellationToken)
+        {
+            LabelStreamMessage? message = type switch
+            {
+                "#labels" => EventStreamFrame.Deserialize<LabelsEvent>(body),
+                "#info" => EventStreamFrame.Deserialize<LabelInfoEvent>(body),
+                _ => null,
+            };
+
+            if (message is null)
+            {
+                Dropped(type is "#labels" or "#info" ? StreamDropReason.Malformed : StreamDropReason.UnknownType,
+                    EventStreamFrame.ReadSeq(body), type);
+            }
+            else if (message is LabelsEvent labels)
+            {
+                // Already delivered: a replay from an inclusive cursor.
+                if (labels.Seq <= cursor.Current)
+                    return null;
+
+                if (_verifier is { } verifier)
+                {
+                    return new LabelsEvent
+                    {
+                        Seq = labels.Seq,
+                        Labels = labels.Labels,
+                        ExtensionData = labels.ExtensionData,
+                        Verification = await verifier.VerifyAllAsync(labels.Labels, cancellationToken).ConfigureAwait(false),
+                    };
+                }
+            }
+
+            return message;
         }
 
-        return message;
-    }
+        public override void Delivered(LabelStreamMessage message)
+        {
+            if (message is LabelsEvent labels)
+                cursor.Advance(labels.Seq);
+        }
 
-    private static async Task<LabelsEvent> VerifyAsync(
-        LabelsEvent labels, LabelVerifier verifier, CancellationToken cancellationToken) => new()
-    {
-        Seq = labels.Seq,
-        Labels = labels.Labels,
-        ExtensionData = labels.ExtensionData,
-        Verification = await verifier.VerifyAllAsync(labels.Labels, cancellationToken).ConfigureAwait(false),
-    };
-
-    public override void Delivered(LabelStreamMessage message)
-    {
-        if (message is LabelsEvent labels)
-            cursor?.Advance(labels.Seq);
-    }
-
-    public override void Dropped(StreamDropReason reason, long? position, string? detail)
-    {
-        if (position is { } value)
-            cursor?.Advance(value);
-
-        logger.LogDebug("Skipped label stream frame {Cursor} ({Reason}): {Detail}", position, reason, detail);
-        onDropped?.Invoke(new DroppedStreamEvent(reason, position, detail));
+        public override void Dropped(StreamDropReason reason, long? position, string? detail)
+        {
+            if (position is { } value)
+                cursor.Advance(value);
+            base.Dropped(reason, position, detail);
+        }
     }
 }

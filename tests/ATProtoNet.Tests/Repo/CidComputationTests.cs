@@ -1,3 +1,4 @@
+using ATProtoNet.Identity;
 using ATProtoNet.Repo;
 
 namespace ATProtoNet.Tests.Repo;
@@ -38,6 +39,27 @@ public class CidComputationTests
         // Decode back
         var decodedBytes = CidComputation.DecodeCidString(cidString);
         Assert.Equal(binaryBytes, decodedBytes);
+    }
+
+    [Theory]
+    [InlineData("bAFKREIHDWDCEFGH4DQKJV67UZCMW7OJEE6XEDZDETOJUZJEVTENXQUVYKU")]    // Upper case
+    [InlineData("bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvykv")]   // Non-zero padding bits
+    [InlineData("bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku=")]  // Padded
+    [InlineData("bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvykuq")]  // A character left over
+    [InlineData("bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvy1u")]   // Not base32
+    public void DecodeCidString_NonCanonicalBase32_IsRefused(string value)
+    {
+        Assert.False(CidComputation.TryDecodeCidString(value, out _));
+        Assert.Throws<FormatException>(() => CidComputation.DecodeCidString(value));
+    }
+
+    [Fact]
+    public void CidFromBytes_RoundTripsTheBinaryForm()
+    {
+        var cid = CidComputation.ComputeForDagCbor([0xA0]);
+
+        Assert.Equal(cid, Cid.FromBytes(cid.ToBytes()));
+        Assert.Throws<ArgumentException>(() => Cid.FromBytes(cid.ToBytes()[..35]));
     }
 
     [Fact]

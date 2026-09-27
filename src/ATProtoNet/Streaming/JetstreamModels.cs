@@ -6,8 +6,7 @@ using ATProtoNet.Serialization;
 namespace ATProtoNet.Streaming;
 
 /// <summary>
-/// Configuration options for <see cref="JetstreamClient"/>, <see cref="JetstreamConsumer"/> and
-/// <see cref="JetstreamReplayConsumer"/>.
+/// Configuration options for <see cref="JetstreamConsumer"/> and <see cref="JetstreamReplayConsumer"/>.
 /// </summary>
 /// <remarks>
 /// <see cref="StreamConsumerOptions.ServiceUrl"/> is the Jetstream host URL without the endpoint
@@ -15,7 +14,7 @@ namespace ATProtoNet.Streaming;
 /// to <c>ws(s)</c> automatically. See <see cref="JetstreamEndpoints"/> for the public
 /// Bluesky-operated instances.
 /// </remarks>
-public sealed class JetstreamConsumerOptions : StreamConsumerOptions
+public sealed class JetstreamConsumerOptions : CursorStreamConsumerOptions
 {
     private const int MaxWantedCollections = 100;
     private const int MaxWantedDids = 10_000;
@@ -59,8 +58,8 @@ public sealed class JetstreamConsumerOptions : StreamConsumerOptions
     /// sync events flow regardless. A commits-only stream therefore needs
     /// <c>WantedKinds = [JetstreamEventKind.Commit]</c> as well. Setting
     /// <see cref="WantedCollections"/> while this list excludes
-    /// <see cref="JetstreamEventKind.Commit"/> is rejected by the server, and by
-    /// <see cref="JetstreamClient"/> before it connects.
+    /// <see cref="JetstreamEventKind.Commit"/> is rejected by the server, and by the consumers
+    /// before they connect.
     /// </remarks>
     public IReadOnlyList<JetstreamEventKind>? WantedKinds { get; init; }
 
@@ -104,9 +103,8 @@ public sealed class JetstreamConsumerOptions : StreamConsumerOptions
     /// <summary>
     /// Configuration for the v2 archive — the HTTP replay endpoints behind
     /// <see cref="JetstreamReplayConsumer"/>. Required by that consumer and ignored by the
-    /// live-only <see cref="JetstreamClient"/> and <see cref="JetstreamConsumer"/>, so one options
-    /// object configures a backfill and the live tail it cuts over into with a single set of
-    /// filters.
+    /// live-only <see cref="JetstreamConsumer"/>, so one options object configures a backfill and
+    /// the live tail it cuts over into with a single set of filters.
     /// </summary>
     /// <remarks>
     /// <see cref="JetstreamProtocol.V2"/> only: v1 has no archive.

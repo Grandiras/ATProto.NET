@@ -780,10 +780,6 @@ ATProtoNet.Identity.PlcClient.ResolveAsync(ATProtoNet.Identity.Did! did, System.
 ATProtoNet.Identity.PlcClient.StreamExportAsync(long? cursor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<ATProtoNet.Identity.PlcAuditEntry!>!
 ATProtoNet.Identity.PlcClient.SubmitOperationAsync(ATProtoNet.Identity.Did! did, System.Text.Json.Nodes.JsonObject! operation, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Identity.Did!>!
 ATProtoNet.Identity.PlcClient.SubmitOperationAsync(ATProtoNet.Identity.PlcSignedOperation! operation, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Identity.Did!>!
-ATProtoNet.Identity.PlcExportStreamException
-ATProtoNet.Identity.PlcExportStreamException.CloseReason.get -> string?
-ATProtoNet.Identity.PlcExportStreamException.CloseStatus.get -> System.Net.WebSockets.WebSocketCloseStatus?
-ATProtoNet.Identity.PlcExportStreamException.PlcExportStreamException(string! message, string? closeReason, System.Net.WebSockets.WebSocketCloseStatus? closeStatus) -> void
 ATProtoNet.Identity.PlcOperation
 ATProtoNet.Identity.PlcOperation.AlsoKnownAs.get -> System.Collections.Generic.IReadOnlyList<string!>?
 ATProtoNet.Identity.PlcOperation.AlsoKnownAs.init -> void
@@ -7246,16 +7242,14 @@ ATProtoNet.Streaming.ChatModerationEventConsumerOptions
 ATProtoNet.Streaming.ChatModerationEventConsumerOptions.ChatModerationEventConsumerOptions() -> void
 ATProtoNet.Streaming.ChatModerationEventConsumerOptions.GetAccessTokenAsync.get -> System.Func<System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<string!>>!
 ATProtoNet.Streaming.ChatModerationEventConsumerOptions.GetAccessTokenAsync.init -> void
-ATProtoNet.Streaming.ChatModerationEventConsumerOptions.Logger.get -> Microsoft.Extensions.Logging.ILogger?
-ATProtoNet.Streaming.ChatModerationEventConsumerOptions.Logger.init -> void
-ATProtoNet.Streaming.ChatModerationEventConsumerOptions.OnEventDropped.get -> System.Action<ATProtoNet.Streaming.DroppedStreamEvent!>?
-ATProtoNet.Streaming.ChatModerationEventConsumerOptions.OnEventDropped.init -> void
-ATProtoNet.Streaming.ChatModerationEventConsumerOptions.OnStreamError.get -> System.Action<ATProtoNet.Streaming.EventStreamError!>?
-ATProtoNet.Streaming.ChatModerationEventConsumerOptions.OnStreamError.init -> void
-ATProtoNet.Streaming.ChatModerationEventConsumerOptions.Reconnect.get -> ATProtoNet.Streaming.StreamReconnectPolicy!
-ATProtoNet.Streaming.ChatModerationEventConsumerOptions.Reconnect.init -> void
-ATProtoNet.Streaming.ChatModerationEventConsumerOptions.ServiceUrl.get -> string!
-ATProtoNet.Streaming.ChatModerationEventConsumerOptions.ServiceUrl.init -> void
+ATProtoNet.Streaming.CursorStreamConsumerOptions
+ATProtoNet.Streaming.CursorStreamConsumerOptions.CursorPersistInterval.get -> int
+ATProtoNet.Streaming.CursorStreamConsumerOptions.CursorPersistInterval.init -> void
+ATProtoNet.Streaming.CursorStreamConsumerOptions.CursorStore.get -> ATProtoNet.Streaming.IStreamCursorStore?
+ATProtoNet.Streaming.CursorStreamConsumerOptions.CursorStore.init -> void
+ATProtoNet.Streaming.CursorStreamConsumerOptions.CursorStreamConsumerOptions() -> void
+ATProtoNet.Streaming.CursorStreamConsumerOptions.StreamId.get -> string?
+ATProtoNet.Streaming.CursorStreamConsumerOptions.StreamId.init -> void
 ATProtoNet.Streaming.DroppedStreamEvent
 ATProtoNet.Streaming.DroppedStreamEvent.<Clone>$() -> ATProtoNet.Streaming.DroppedStreamEvent!
 ATProtoNet.Streaming.DroppedStreamEvent.Cursor.get -> long?
@@ -7282,11 +7276,6 @@ ATProtoNet.Streaming.EventStreamException.Error.get -> string?
 ATProtoNet.Streaming.EventStreamException.EventStreamException(string! message, string? error = null, int? statusCode = null, System.Exception? innerException = null) -> void
 ATProtoNet.Streaming.EventStreamException.IsRetryable.get -> bool
 ATProtoNet.Streaming.EventStreamException.StatusCode.get -> int?
-ATProtoNet.Streaming.FirehoseClient
-ATProtoNet.Streaming.FirehoseClient.DisposeAsync() -> System.Threading.Tasks.ValueTask
-ATProtoNet.Streaming.FirehoseClient.FirehoseClient(string! serviceUrl, Microsoft.Extensions.Logging.ILogger? logger = null) -> void
-ATProtoNet.Streaming.FirehoseClient.SubscribeAsync(long? cursor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<ATProtoNet.Lexicon.Com.AtProto.Sync.FirehoseMessage!>!
-ATProtoNet.Streaming.FirehoseClient.SubscribeLabelsAsync(long? cursor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<ATProtoNet.Lexicon.Com.AtProto.Label.LabelStreamMessage!>!
 ATProtoNet.Streaming.FirehoseEventParser
 ATProtoNet.Streaming.FirehoseRecordEvent
 ATProtoNet.Streaming.FirehoseRecordEvent.Cid.get -> ATProtoNet.Identity.Cid?
@@ -7310,12 +7299,6 @@ ATProtoNet.Streaming.FirehoseRecordEvent.Rkey.init -> void
 ATProtoNet.Streaming.FirehoseRecordEvent.Seq.get -> long
 ATProtoNet.Streaming.FirehoseRecordEvent.Seq.init -> void
 ATProtoNet.Streaming.FirehoseRecordEvent.Uri.get -> ATProtoNet.Identity.AtUri!
-ATProtoNet.Streaming.FirehoseVerifier
-ATProtoNet.Streaming.FirehoseVerifier.Dispose() -> void
-ATProtoNet.Streaming.FirehoseVerifier.FirehoseVerifier(ATProtoNet.Identity.IDidResolver! didResolver) -> void
-ATProtoNet.Streaming.FirehoseVerifier.FirehoseVerifier(ATProtoNet.Identity.IdentityResolverOptions? options = null) -> void
-ATProtoNet.Streaming.FirehoseVerifier.InvalidateIdentityAsync(ATProtoNet.Identity.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
-ATProtoNet.Streaming.FirehoseVerifier.VerifySignatureAsync(ATProtoNet.Lexicon.Com.AtProto.Sync.CommitEvent! commit, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Streaming.VerificationResult!>!
 ATProtoNet.Streaming.HostRepoFetcher
 ATProtoNet.Streaming.HostRepoFetcher.FetchAsync(ATProtoNet.Identity.Did! did, long maxBytes, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<byte[]?>!
 ATProtoNet.Streaming.HostRepoFetcher.HostRepoFetcher(System.Uri! host, System.Net.Http.HttpClient? httpClient = null) -> void
@@ -7382,8 +7365,6 @@ ATProtoNet.Streaming.JetstreamArchiveClient.PlanSnapshotAsync(ATProtoNet.Streami
 ATProtoNet.Streaming.JetstreamArchiveClient.ProbeBlockAsync(string! segment, int blockIndex, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Streaming.JetstreamArchiveProbe!>!
 ATProtoNet.Streaming.JetstreamArchiveClient.ProbeSegmentAsync(string! name, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Streaming.JetstreamArchiveProbe!>!
 ATProtoNet.Streaming.JetstreamArchiveOptions
-ATProtoNet.Streaming.JetstreamArchiveOptions.AfterSeq.get -> long?
-ATProtoNet.Streaming.JetstreamArchiveOptions.AfterSeq.init -> void
 ATProtoNet.Streaming.JetstreamArchiveOptions.ApiKey.get -> string?
 ATProtoNet.Streaming.JetstreamArchiveOptions.ApiKey.init -> void
 ATProtoNet.Streaming.JetstreamArchiveOptions.BeforeSeq.get -> long?
@@ -7457,10 +7438,6 @@ ATProtoNet.Streaming.JetstreamBlockRange.First.init -> void
 ATProtoNet.Streaming.JetstreamBlockRange.JetstreamBlockRange(int First, int Last) -> void
 ATProtoNet.Streaming.JetstreamBlockRange.Last.get -> int
 ATProtoNet.Streaming.JetstreamBlockRange.Last.init -> void
-ATProtoNet.Streaming.JetstreamClient
-ATProtoNet.Streaming.JetstreamClient.DisposeAsync() -> System.Threading.Tasks.ValueTask
-ATProtoNet.Streaming.JetstreamClient.JetstreamClient(ATProtoNet.Streaming.JetstreamConsumerOptions! options) -> void
-ATProtoNet.Streaming.JetstreamClient.SubscribeAsync(long? cursor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<ATProtoNet.Streaming.JetstreamEvent!>!
 ATProtoNet.Streaming.JetstreamCommitEvent
 ATProtoNet.Streaming.JetstreamCommitEvent.Cid.get -> ATProtoNet.Identity.Cid?
 ATProtoNet.Streaming.JetstreamCommitEvent.Cid.init -> void
@@ -7577,7 +7554,6 @@ ATProtoNet.Streaming.JetstreamReplayConsumer
 ATProtoNet.Streaming.JetstreamReplayConsumer.Dispose() -> void
 ATProtoNet.Streaming.JetstreamReplayConsumer.IsBackfilling.get -> bool
 ATProtoNet.Streaming.JetstreamReplayConsumer.JetstreamReplayConsumer(ATProtoNet.Streaming.JetstreamConsumerOptions! options) -> void
-ATProtoNet.Streaming.JetstreamReplayConsumer.JetstreamReplayConsumer(ATProtoNet.Streaming.JetstreamConsumerOptions! options, ATProtoNet.Streaming.JetstreamArchiveClient? archiveClient) -> void
 ATProtoNet.Streaming.JetstreamReplayConsumer.LastCursor.get -> long?
 ATProtoNet.Streaming.JetstreamReplayConsumer.ReplayAsync(long? afterSeq = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<ATProtoNet.Streaming.JetstreamEvent!>!
 ATProtoNet.Streaming.JetstreamSegmentDownload
@@ -7708,29 +7684,9 @@ ATProtoNet.Streaming.RepoResyncEvent.RepoResyncEvent() -> void
 ATProtoNet.Streaming.RepoResyncEvent.Snapshot.get -> ATProtoNet.Repo.RepoSnapshot!
 ATProtoNet.Streaming.RepoResyncEvent.Snapshot.init -> void
 ATProtoNet.Streaming.RepoResyncOptions
-ATProtoNet.Streaming.RepoResyncOptions.AllowPrivateNetworks.get -> bool
-ATProtoNet.Streaming.RepoResyncOptions.AllowPrivateNetworks.init -> void
-ATProtoNet.Streaming.RepoResyncOptions.FetchTimeout.get -> System.TimeSpan
-ATProtoNet.Streaming.RepoResyncOptions.FetchTimeout.init -> void
 ATProtoNet.Streaming.RepoResyncOptions.Fetchers.get -> System.Collections.Generic.IReadOnlyList<ATProtoNet.Streaming.IRepoFetcher!>?
 ATProtoNet.Streaming.RepoResyncOptions.Fetchers.init -> void
-ATProtoNet.Streaming.RepoResyncOptions.MaxConcurrency.get -> int
-ATProtoNet.Streaming.RepoResyncOptions.MaxConcurrency.init -> void
-ATProtoNet.Streaming.RepoResyncOptions.MaxHeldBytes.get -> long
-ATProtoNet.Streaming.RepoResyncOptions.MaxHeldBytes.init -> void
-ATProtoNet.Streaming.RepoResyncOptions.MaxHeldEventsPerRepo.get -> int
-ATProtoNet.Streaming.RepoResyncOptions.MaxHeldEventsPerRepo.init -> void
-ATProtoNet.Streaming.RepoResyncOptions.MaxPendingRepos.get -> int
-ATProtoNet.Streaming.RepoResyncOptions.MaxPendingRepos.init -> void
-ATProtoNet.Streaming.RepoResyncOptions.MaxRepoBytes.get -> long
-ATProtoNet.Streaming.RepoResyncOptions.MaxRepoBytes.init -> void
 ATProtoNet.Streaming.RepoResyncOptions.RepoResyncOptions() -> void
-ATProtoNet.Streaming.RepoResyncOptions.RetryDelay.get -> System.TimeSpan
-ATProtoNet.Streaming.RepoResyncOptions.RetryDelay.init -> void
-ATProtoNet.Streaming.RepoResyncOptions.ScanInterval.get -> System.TimeSpan
-ATProtoNet.Streaming.RepoResyncOptions.ScanInterval.init -> void
-ATProtoNet.Streaming.RepoResyncOptions.Upstream.get -> System.Uri?
-ATProtoNet.Streaming.RepoResyncOptions.Upstream.init -> void
 ATProtoNet.Streaming.RepoSyncOutcome
 ATProtoNet.Streaming.RepoSyncOutcome.Desynchronized = 3 -> ATProtoNet.Streaming.RepoSyncOutcome
 ATProtoNet.Streaming.RepoSyncOutcome.Invalid = 2 -> ATProtoNet.Streaming.RepoSyncOutcome
@@ -7782,10 +7738,6 @@ ATProtoNet.Streaming.RepoSyncVerifierOptions.StateStore.init -> void
 ATProtoNet.Streaming.RepoSyncVerifierOptions.TimeProvider.get -> System.TimeProvider?
 ATProtoNet.Streaming.RepoSyncVerifierOptions.TimeProvider.init -> void
 ATProtoNet.Streaming.StreamConsumerOptions
-ATProtoNet.Streaming.StreamConsumerOptions.CursorPersistInterval.get -> int
-ATProtoNet.Streaming.StreamConsumerOptions.CursorPersistInterval.init -> void
-ATProtoNet.Streaming.StreamConsumerOptions.CursorStore.get -> ATProtoNet.Streaming.IStreamCursorStore?
-ATProtoNet.Streaming.StreamConsumerOptions.CursorStore.init -> void
 ATProtoNet.Streaming.StreamConsumerOptions.Logger.get -> Microsoft.Extensions.Logging.ILogger?
 ATProtoNet.Streaming.StreamConsumerOptions.Logger.init -> void
 ATProtoNet.Streaming.StreamConsumerOptions.OnEventDropped.get -> System.Action<ATProtoNet.Streaming.DroppedStreamEvent!>?
@@ -7797,8 +7749,6 @@ ATProtoNet.Streaming.StreamConsumerOptions.Reconnect.init -> void
 ATProtoNet.Streaming.StreamConsumerOptions.ServiceUrl.get -> string!
 ATProtoNet.Streaming.StreamConsumerOptions.ServiceUrl.init -> void
 ATProtoNet.Streaming.StreamConsumerOptions.StreamConsumerOptions() -> void
-ATProtoNet.Streaming.StreamConsumerOptions.StreamId.get -> string?
-ATProtoNet.Streaming.StreamConsumerOptions.StreamId.init -> void
 ATProtoNet.Streaming.StreamDropReason
 ATProtoNet.Streaming.StreamDropReason.Desynchronized = 4 -> ATProtoNet.Streaming.StreamDropReason
 ATProtoNet.Streaming.StreamDropReason.Malformed = 0 -> ATProtoNet.Streaming.StreamDropReason
@@ -7827,13 +7777,8 @@ ATProtoNet.Streaming.TypedFirehoseConsumerOptions.Resync.init -> void
 ATProtoNet.Streaming.TypedFirehoseConsumerOptions.SyncVerifier.get -> ATProtoNet.Streaming.RepoSyncVerifier?
 ATProtoNet.Streaming.TypedFirehoseConsumerOptions.SyncVerifier.init -> void
 ATProtoNet.Streaming.TypedFirehoseConsumerOptions.TypedFirehoseConsumerOptions() -> void
-ATProtoNet.Streaming.TypedFirehoseConsumerOptions.Verifier.get -> ATProtoNet.Streaming.FirehoseVerifier?
-ATProtoNet.Streaming.TypedFirehoseConsumerOptions.Verifier.init -> void
 ATProtoNet.Streaming.TypedFirehoseConsumerOptions.VerifyCids.get -> bool
 ATProtoNet.Streaming.TypedFirehoseConsumerOptions.VerifyCids.init -> void
-ATProtoNet.Streaming.VerificationResult
-ATProtoNet.Streaming.VerificationResult.Error.get -> string?
-ATProtoNet.Streaming.VerificationResult.IsValid.get -> bool
 ATProtoNet.Tap.TapChannel
 ATProtoNet.Tap.TapChannel.AckAsync(ATProtoNet.Tap.TapEvent! evt, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 ATProtoNet.Tap.TapChannel.AckAsync(long id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
@@ -7854,14 +7799,6 @@ ATProtoNet.Tap.TapClientOptions.AdminPassword.get -> string?
 ATProtoNet.Tap.TapClientOptions.AdminPassword.init -> void
 ATProtoNet.Tap.TapClientOptions.HttpClient.get -> System.Net.Http.HttpClient?
 ATProtoNet.Tap.TapClientOptions.HttpClient.init -> void
-ATProtoNet.Tap.TapClientOptions.Logger.get -> Microsoft.Extensions.Logging.ILogger?
-ATProtoNet.Tap.TapClientOptions.Logger.init -> void
-ATProtoNet.Tap.TapClientOptions.OnError.get -> System.Action<System.Exception!>?
-ATProtoNet.Tap.TapClientOptions.OnError.init -> void
-ATProtoNet.Tap.TapClientOptions.Reconnect.get -> ATProtoNet.Streaming.StreamReconnectPolicy!
-ATProtoNet.Tap.TapClientOptions.Reconnect.init -> void
-ATProtoNet.Tap.TapClientOptions.ServiceUrl.get -> System.Uri!
-ATProtoNet.Tap.TapClientOptions.ServiceUrl.init -> void
 ATProtoNet.Tap.TapClientOptions.TapClientOptions() -> void
 ATProtoNet.Tap.TapEvent
 ATProtoNet.Tap.TapEvent.Id.get -> long
@@ -8791,7 +8728,6 @@ override ATProtoNet.Streaming.RepoSyncState.ToString() -> string!
 override ATProtoNet.Streaming.StreamReconnectPolicy.Equals(object? obj) -> bool
 override ATProtoNet.Streaming.StreamReconnectPolicy.GetHashCode() -> int
 override ATProtoNet.Streaming.StreamReconnectPolicy.ToString() -> string!
-override ATProtoNet.Streaming.VerificationResult.ToString() -> string!
 override sealed ATProtoNet.Auth.AtProtoSession.ToString() -> string!
 override sealed ATProtoNet.Auth.OAuthSession.Equals(ATProtoNet.Auth.AtProtoSession? other) -> bool
 override sealed ATProtoNet.Auth.PasswordSession.Equals(ATProtoNet.Auth.AtProtoSession? other) -> bool
@@ -9202,7 +9138,6 @@ static ATProtoNet.Repo.CidComputation.EncodeCidToString(System.ReadOnlySpan<byte
 static ATProtoNet.Repo.CidComputation.TryDecodeCidString(string? cidString, out byte[]? cidBytes) -> bool
 static ATProtoNet.Repo.CidComputation.Verify(ATProtoNet.Identity.Cid! cid, System.ReadOnlySpan<byte> data, bool isDagCbor = true) -> bool
 static ATProtoNet.Repo.DagCborDecoder.Decode(System.ReadOnlyMemory<byte> data) -> System.Text.Json.JsonElement
-static ATProtoNet.Repo.DagCborDecoder.TryValidate(System.ReadOnlyMemory<byte> data, out string? error) -> bool
 static ATProtoNet.Repo.DagCborEncoder.Encode(System.Text.Json.JsonElement element) -> byte[]!
 static ATProtoNet.Repo.DagCborEncoder.Encode(object! value, System.Text.Json.JsonSerializerOptions? options = null) -> byte[]!
 static ATProtoNet.Repo.DagCborEncoder.EncodeWithCid(System.Text.Json.JsonElement element) -> (byte[]! Bytes, ATProtoNet.Identity.Cid! Cid)
@@ -9270,8 +9205,6 @@ static ATProtoNet.Streaming.DroppedStreamEvent.operator ==(ATProtoNet.Streaming.
 static ATProtoNet.Streaming.EventStreamError.operator !=(ATProtoNet.Streaming.EventStreamError? left, ATProtoNet.Streaming.EventStreamError? right) -> bool
 static ATProtoNet.Streaming.EventStreamError.operator ==(ATProtoNet.Streaming.EventStreamError? left, ATProtoNet.Streaming.EventStreamError? right) -> bool
 static ATProtoNet.Streaming.FirehoseEventParser.Parse(System.ReadOnlyMemory<byte> frame) -> ATProtoNet.Lexicon.Com.AtProto.Sync.FirehoseMessage?
-static ATProtoNet.Streaming.FirehoseVerifier.VerifyCid(ATProtoNet.Lexicon.Com.AtProto.Sync.CommitEvent! commit) -> ATProtoNet.Streaming.VerificationResult!
-static ATProtoNet.Streaming.FirehoseVerifier.VerifyCid(ATProtoNet.Lexicon.Com.AtProto.Sync.SyncEvent! syncEvent) -> ATProtoNet.Streaming.VerificationResult!
 static ATProtoNet.Streaming.JetstreamArchiveProbe.operator !=(ATProtoNet.Streaming.JetstreamArchiveProbe? left, ATProtoNet.Streaming.JetstreamArchiveProbe? right) -> bool
 static ATProtoNet.Streaming.JetstreamArchiveProbe.operator ==(ATProtoNet.Streaming.JetstreamArchiveProbe? left, ATProtoNet.Streaming.JetstreamArchiveProbe? right) -> bool
 static ATProtoNet.Streaming.JetstreamBlockRange.operator !=(ATProtoNet.Streaming.JetstreamBlockRange? left, ATProtoNet.Streaming.JetstreamBlockRange? right) -> bool
