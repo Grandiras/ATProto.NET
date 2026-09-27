@@ -1,5 +1,6 @@
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Http;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Auth.OAuth;
 
@@ -28,7 +29,7 @@ public class SecurityTests
         var ex = await Assert.ThrowsAsync<OAuthException>(() => discovery.ResolveFromIdentifierAsync(did));
 
         Assert.Equal("invalid_did", ex.Error);
-        Assert.Equal(0, handler.Count);
+        Assert.Empty(handler.Requests);
     }
 
     [Fact]
@@ -40,7 +41,7 @@ public class SecurityTests
             () => discovery.ResolveFromIdentifierAsync("did:key:z6Mkfriq1MqLBoPWecGoDLjguo1sB9brj6wT3qZ5BxkKpuP6"));
 
         Assert.Equal("unsupported_did_method", ex.Error);
-        Assert.Equal(0, handler.Count);
+        Assert.Empty(handler.Requests);
     }
 
     [Theory]
@@ -64,7 +65,7 @@ public class SecurityTests
         var ex = await Assert.ThrowsAsync<OAuthException>(() => discovery.ResolveFromIdentifierAsync(identifier));
 
         Assert.Contains(ex.Error, new[] { "invalid_handle", "invalid_did" });
-        Assert.Equal(0, handler.Count);
+        Assert.Empty(handler.Requests);
     }
 
     /// <summary>
@@ -73,14 +74,14 @@ public class SecurityTests
     /// </summary>
     /// <remarks>
     /// These tests assert that a refused identifier reaches <em>no</em> request at all
-    /// (<c>handler.Count == 0</c>), which is the property under test. Wiring every transport to
+    /// (<c>handler.Requests.Count == 0</c>), which is the property under test. Wiring every transport to
     /// one inert stub means that if the SSRF guard ever regressed, the test would fail on an
     /// unexpected request recorded by the stub instead of a real socket reaching
     /// <c>169.254.169.254</c> or a private address from inside the test run.
     /// </remarks>
-    private static (AuthorizationServerDiscovery Discovery, Identity.ScriptedHandler Handler) CreateDiscovery()
+    private static (AuthorizationServerDiscovery Discovery, HttpStub Handler) CreateDiscovery()
     {
-        var handler = new Identity.ScriptedHandler(_ => Identity.ScriptedHandler.Status(System.Net.HttpStatusCode.NotFound));
+        var handler = new HttpStub().Fallback(_ => HttpStub.Status(System.Net.HttpStatusCode.NotFound));
         var httpClient = new HttpClient(handler, disposeHandler: false);
         var options = new ATProtoNet.Identity.IdentityResolverOptions
         {
@@ -112,7 +113,7 @@ public class SecurityTests
     {
         // SetServiceUrl only validates and stores the URI — it never sends anything — so a
         // handler with nothing scripted is enough, and fails loudly if that ever stops holding.
-        using var httpClient = new HttpClient(new Identity.ScriptedHandler(_ =>
+        using var httpClient = new HttpClient(new HttpStub().Fallback(_ =>
             throw new InvalidOperationException("SetServiceUrl should not send a request.")));
         var xrpc = new XrpcClient(httpClient, new Uri("https://example.com/"));
 
@@ -128,7 +129,7 @@ public class SecurityTests
     [InlineData("http://[::1]:5000")]
     public void SetServiceUrl_AcceptsValidUrls(string url)
     {
-        using var httpClient = new HttpClient(new Identity.ScriptedHandler(_ =>
+        using var httpClient = new HttpClient(new HttpStub().Fallback(_ =>
             throw new InvalidOperationException("SetServiceUrl should not send a request.")));
         var xrpc = new XrpcClient(httpClient, new Uri("https://example.com/"));
 

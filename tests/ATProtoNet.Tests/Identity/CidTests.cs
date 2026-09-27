@@ -3,6 +3,11 @@ using ATProtoNet.Repo;
 
 namespace ATProtoNet.Tests.Identity;
 
+/// <summary>
+/// What <see cref="Cid"/> adds to the shared identifier contract (<see cref="IdentifierContractTests"/>)
+/// and the interop syntax fixtures (<see cref="SyntaxInteropTests"/>): the atproto-blessed subset,
+/// its codec and digest, and the binary form.
+/// </summary>
 public class CidTests
 {
     // The empty MST node, {"e":[],"l":null}: a DRISL CID every atproto implementation shares.
@@ -63,55 +68,15 @@ public class CidTests
     [Theory]
     [InlineData("hello")]                                                           // Regression: accepted before
     [InlineData("BAFKREIHDWDCEFGH4DQKJV67UZCMW7OJEE6XEDZDETOJUZJEVTENXQUVYKU")]    // Upper case
-    [InlineData("QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR")]                // CIDv0
     [InlineData("bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku")]   // dag-pb codec
     [InlineData("bafyr4ihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku")]   // BLAKE3 hash
     [InlineData("bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvykv")]   // Non-zero padding bits
     [InlineData("bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyk")]    // Truncated
     [InlineData("bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku=")]  // Padded
     [InlineData("bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvy1u")]   // Not base32
-    [InlineData("")]
     public void TryParse_NotABlessedCid_ReturnsFalse(string value)
     {
         Assert.False(Cid.TryParse(value, out _));
         Assert.ThrowsAny<ArgumentException>(() => Cid.Parse(value));
-    }
-
-    [Fact]
-    public void Parse_Null_ThrowsArgumentNullException()
-    {
-        Assert.Throws<ArgumentNullException>(() => Cid.Parse(null!));
-        Assert.False(Cid.TryParse(null, out _));
-    }
-
-    [Fact]
-    public void Equality_SameValue_AreEqual()
-    {
-        var a = Cid.Parse(EmptyRaw);
-        var b = Cid.Parse(EmptyRaw);
-
-        Assert.Equal(a, b);
-        Assert.True(a == b);
-        Assert.Equal(a.GetHashCode(), b.GetHashCode());
-        Assert.NotEqual(a, Cid.Parse(EmptyMstNode));
-    }
-
-    [Fact]
-    public void CompareTo_IsOrdinal()
-    {
-        var raw = Cid.Parse(EmptyRaw);
-        var dagCbor = Cid.Parse(EmptyMstNode);
-
-        Assert.Equal(Math.Sign(string.CompareOrdinal(EmptyRaw, EmptyMstNode)), Math.Sign(raw.CompareTo(dagCbor)));
-    }
-
-    [Fact]
-    public void Conversions_RoundTripThroughString()
-    {
-        var cid = (Cid)EmptyRaw;
-        string value = cid;
-
-        Assert.Equal(EmptyRaw, value);
-        Assert.ThrowsAny<ArgumentException>(() => (Cid)"hello");
     }
 }

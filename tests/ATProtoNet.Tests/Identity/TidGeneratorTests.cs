@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using ATProtoNet.Identity;
+using Microsoft.Extensions.Time.Testing;
+using NSubstitute;
 
 namespace ATProtoNet.Tests.Identity;
 
@@ -9,7 +11,7 @@ public class TidGeneratorTests
     public void Next_SpecExampleInstantAndClockId_ProducesSpecExampleTid()
     {
         // 3jzfcijpj2z2a, the TID spec's example, is 2023-06-30T15:03:01.887007Z with clock id 6.
-        var clock = new ManualTimeProvider(DateTimeOffset.UnixEpoch.AddTicks(1_688_137_381_887_007 * 10));
+        var clock = new FakeTimeProvider(DateTimeOffset.UnixEpoch.AddTicks(1_688_137_381_887_007 * 10));
         var generator = new TidGenerator(clockId: 6, timeProvider: clock);
 
         Assert.Equal("3jzfcijpj2z2a", generator.Next().Value);
@@ -59,7 +61,7 @@ public class TidGeneratorTests
     [Fact]
     public void Next_FrozenClock_AdvancesOneMicrosecondPerCall()
     {
-        var clock = new ManualTimeProvider(new DateTimeOffset(2026, 9, 24, 12, 0, 0, TimeSpan.Zero));
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 9, 24, 12, 0, 0, TimeSpan.Zero));
         var generator = new TidGenerator(clockId: 42, timeProvider: clock);
 
         var first = generator.Next().ToInt64();
@@ -73,11 +75,12 @@ public class TidGeneratorTests
     [Fact]
     public void Next_ClockStepsBackwards_StillIncreases()
     {
-        var clock = new ManualTimeProvider(new DateTimeOffset(2026, 9, 24, 12, 0, 0, TimeSpan.Zero));
+        // FakeTimeProvider refuses to go back in time, which is the point here.
+        var start = new DateTimeOffset(2026, 9, 24, 12, 0, 0, TimeSpan.Zero);
+        var clock = Substitute.For<TimeProvider>();
+        clock.GetUtcNow().Returns(start, start.AddSeconds(-5));
         var generator = new TidGenerator(timeProvider: clock);
         var before = generator.Next();
-
-        clock.Now -= TimeSpan.FromSeconds(5);
         var after = generator.Next();
 
         Assert.True(after.CompareTo(before) > 0);
@@ -87,7 +90,7 @@ public class TidGeneratorTests
     public void Next_ClockAdvances_EncodesClockTimeAndClockId()
     {
         var instant = new DateTimeOffset(2026, 9, 24, 12, 0, 0, TimeSpan.Zero).AddTicks(1230);
-        var clock = new ManualTimeProvider(instant);
+        var clock = new FakeTimeProvider(instant);
         var generator = new TidGenerator(clockId: 1023, timeProvider: clock);
 
         var value = generator.Next().ToInt64();
@@ -124,16 +127,9 @@ public class TidGeneratorTests
     [Fact]
     public void Next_TimestampBeyond53Bits_Throws()
     {
-        var clock = new ManualTimeProvider(DateTimeOffset.MaxValue);
+        var clock = new FakeTimeProvider(DateTimeOffset.MaxValue);
         var generator = new TidGenerator(timeProvider: clock);
 
         Assert.Throws<InvalidOperationException>(() => generator.Next());
-    }
-
-    private sealed class ManualTimeProvider(DateTimeOffset now) : TimeProvider
-    {
-        public DateTimeOffset Now { get; set; } = now;
-
-        public override DateTimeOffset GetUtcNow() => Now;
     }
 }

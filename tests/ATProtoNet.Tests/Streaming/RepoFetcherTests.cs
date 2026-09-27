@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using ATProtoNet.Identity;
 using ATProtoNet.Streaming;
-using ATProtoNet.Tests.Identity;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Streaming;
 
@@ -27,7 +27,7 @@ public sealed class RepoFetcherTests
     [Fact]
     public async Task HostRepoFetcher_AsksGetRepoForTheDid()
     {
-        var handler = new ScriptedHandler(_ => CarResponse(Car));
+        var handler = new HttpStub().Fallback(_ => CarResponse(Car));
         var fetcher = new HostRepoFetcher(new Uri("https://bsky.network"), new HttpClient(handler));
 
         var car = await fetcher.FetchAsync(Repo, 1024);
@@ -35,29 +35,29 @@ public sealed class RepoFetcherTests
         Assert.Equal(Car, car);
         Assert.Equal(
             "https://bsky.network/xrpc/com.atproto.sync.getRepo?did=did%3Aplc%3Asynctestrepoaaaaaaaaaaaa",
-            Assert.Single(handler.Requests).AbsoluteUri);
+            Assert.Single(handler.Uris).AbsoluteUri);
     }
 
     [Fact]
     public async Task HostRepoFetcher_RelayRedirect_IsFollowedToThePds()
     {
-        var handler = new ScriptedHandler(request => request.RequestUri!.Host == "bsky.network"
+        var handler = new HttpStub().Fallback(request => request.Uri.Host == "bsky.network"
             ? Redirect("https://pds.example.com/xrpc/com.atproto.sync.getRepo?did=" + Repo)
             : CarResponse(Car));
         var fetcher = new HostRepoFetcher(new Uri("https://bsky.network"), new HttpClient(handler));
 
         Assert.Equal(Car, await fetcher.FetchAsync(Repo, 1024));
-        Assert.Equal(["bsky.network", "pds.example.com"], handler.Requests.Select(r => r.Host));
+        Assert.Equal(["bsky.network", "pds.example.com"], handler.Uris.Select(r => r.Host));
     }
 
     [Fact]
     public async Task HostRepoFetcher_EndlessRedirects_Throw()
     {
-        var handler = new ScriptedHandler(_ => Redirect("https://bsky.network/xrpc/com.atproto.sync.getRepo"));
+        var handler = new HttpStub().Fallback(_ => Redirect("https://bsky.network/xrpc/com.atproto.sync.getRepo"));
         var fetcher = new HostRepoFetcher(new Uri("https://bsky.network"), new HttpClient(handler));
 
         await Assert.ThrowsAsync<RepoFetchException>(() => fetcher.FetchAsync(Repo, 1024));
-        Assert.Equal(4, handler.Count);
+        Assert.Equal(4, handler.Requests.Count);
     }
 
     [Theory]
@@ -65,7 +65,7 @@ public sealed class RepoFetcherTests
     [InlineData(HttpStatusCode.BadRequest)]
     public async Task HostRepoFetcher_HostWithoutTheRepository_ReturnsNull(HttpStatusCode status)
     {
-        var fetcher = new HostRepoFetcher(new Uri("https://bsky.network"), new HttpClient(new ScriptedHandler(_ => ScriptedHandler.Status(status))));
+        var fetcher = new HostRepoFetcher(new Uri("https://bsky.network"), new HttpClient(new HttpStub().Fallback(_ => HttpStub.Status(status))));
 
         Assert.Null(await fetcher.FetchAsync(Repo, 1024));
     }
@@ -74,7 +74,7 @@ public sealed class RepoFetcherTests
     public async Task HostRepoFetcher_ServerError_Throws()
     {
         var fetcher = new HostRepoFetcher(new Uri("https://bsky.network"),
-            new HttpClient(new ScriptedHandler(_ => ScriptedHandler.Status(HttpStatusCode.BadGateway))));
+            new HttpClient(new HttpStub().Fallback(_ => HttpStub.Status(HttpStatusCode.BadGateway))));
 
         var ex = await Assert.ThrowsAsync<RepoFetchException>(() => fetcher.FetchAsync(Repo, 1024));
         Assert.Contains("502", ex.Message);
@@ -84,7 +84,7 @@ public sealed class RepoFetcherTests
     public async Task HostRepoFetcher_DeclaredLengthOverTheLimit_Throws()
     {
         var fetcher = new HostRepoFetcher(new Uri("https://bsky.network"),
-            new HttpClient(new ScriptedHandler(_ => CarResponse(new byte[100], declared: 100))));
+            new HttpClient(new HttpStub().Fallback(_ => CarResponse(new byte[100], declared: 100))));
 
         await Assert.ThrowsAsync<RepoFetchException>(() => fetcher.FetchAsync(Repo, 99));
     }
@@ -94,7 +94,7 @@ public sealed class RepoFetcherTests
     {
         var content = new StreamContent(new MemoryStream(new byte[200_000]));
         var fetcher = new HostRepoFetcher(new Uri("https://bsky.network"),
-            new HttpClient(new ScriptedHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = content })));
+            new HttpClient(new HttpStub().Fallback(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = content })));
 
         await Assert.ThrowsAsync<RepoFetchException>(() => fetcher.FetchAsync(Repo, 100_000));
     }
@@ -103,7 +103,7 @@ public sealed class RepoFetcherTests
     public async Task HostRepoFetcher_BodyTricklingPastTheTimeout_Throws()
     {
         // The headers arrive at once; the body then trickles for five seconds.
-        var client = new HttpClient(new ScriptedHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        var client = new HttpClient(new HttpStub().Fallback(_ => new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StreamContent(new TricklingStream(bytes: 50, delay: TimeSpan.FromMilliseconds(100))),
         }))
@@ -122,7 +122,7 @@ public sealed class RepoFetcherTests
     [Fact]
     public async Task HostRepoFetcher_CallerCancels_IsCancellationNotAFailure()
     {
-        var client = new HttpClient(new ScriptedHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        var client = new HttpClient(new HttpStub().Fallback(_ => new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StreamContent(new TricklingStream(bytes: 50, delay: TimeSpan.FromMilliseconds(100))),
         }))
@@ -143,7 +143,7 @@ public sealed class RepoFetcherTests
         var content = new ByteArrayContent(Car);
         content.Headers.ContentLength = 3L * 1024 * 1024 * 1024;
         var fetcher = new HostRepoFetcher(new Uri("https://bsky.network"),
-            new HttpClient(new ScriptedHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = content })));
+            new HttpClient(new HttpStub().Fallback(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = content })));
 
         Assert.Equal(Car, await fetcher.FetchAsync(Repo, 4L * 1024 * 1024 * 1024));
     }
@@ -199,19 +199,19 @@ public sealed class RepoFetcherTests
     [Fact]
     public async Task PdsRepoFetcher_AsksThePdsTheDidDocumentNames()
     {
-        var resolver = new StubDidResolver().Add(Repo, "did:key:zQ3shunBKsXixLxKtC5qeSG9E4J5RkGN57im31pcTzbNQnm5w", "https://pds.example.com");
-        var handler = new ScriptedHandler(_ => CarResponse(Car));
+        var resolver = new StubDidResolver().Publish(Repo, "did:key:zQ3shunBKsXixLxKtC5qeSG9E4J5RkGN57im31pcTzbNQnm5w", "https://pds.example.com");
+        var handler = new HttpStub().Fallback(_ => CarResponse(Car));
         var fetcher = new PdsRepoFetcher(resolver, new HttpClient(handler));
 
         Assert.Equal(Car, await fetcher.FetchAsync(Repo, 1024));
-        Assert.Equal("pds.example.com", Assert.Single(handler.Requests).Host);
+        Assert.Equal("pds.example.com", Assert.Single(handler.Uris).Host);
     }
 
     [Fact]
     public async Task PdsRepoFetcher_NoPds_Throws()
     {
-        var resolver = new StubDidResolver().Add(Repo, "did:key:zQ3shunBKsXixLxKtC5qeSG9E4J5RkGN57im31pcTzbNQnm5w", pds: null);
-        var fetcher = new PdsRepoFetcher(resolver, new HttpClient(new ScriptedHandler(_ => CarResponse(Car))));
+        var resolver = new StubDidResolver().Publish(Repo, "did:key:zQ3shunBKsXixLxKtC5qeSG9E4J5RkGN57im31pcTzbNQnm5w", pds: null);
+        var fetcher = new PdsRepoFetcher(resolver, new HttpClient(new HttpStub().Fallback(_ => CarResponse(Car))));
 
         await Assert.ThrowsAsync<RepoFetchException>(() => fetcher.FetchAsync(Repo, 1024));
     }
@@ -219,7 +219,7 @@ public sealed class RepoFetcherTests
     [Fact]
     public async Task PdsRepoFetcher_UnresolvableDid_Throws()
     {
-        var fetcher = new PdsRepoFetcher(new StubDidResolver(), new HttpClient(new ScriptedHandler(_ => CarResponse(Car))));
+        var fetcher = new PdsRepoFetcher(new StubDidResolver(), new HttpClient(new HttpStub().Fallback(_ => CarResponse(Car))));
 
         await Assert.ThrowsAsync<RepoFetchException>(() => fetcher.FetchAsync(Repo, 1024));
     }

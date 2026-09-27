@@ -5,6 +5,7 @@ using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Spaces;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.AspNetCore.Http;
 using NSubstitute;
 
@@ -28,15 +29,15 @@ public class SpaceIdentityRefreshTests
     {
         using var oldKey = AtProtoCrypto.GenerateP256Key();
         using var newKey = AtProtoCrypto.GenerateP256Key();
-        var resolver = new FakeDidDocumentResolver()
+        var resolver = new StubDidResolver()
             .PublishAccount(UserDid, oldKey)
-            .Rotate(UserDid, FakeDidDocumentResolver.AccountDocument(UserDid, newKey));
+            .Rotate(UserDid, StubDidResolver.AccountDocument(UserDid, newKey));
         var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var verified = await verifier.VerifyAsync(DelegationToken(newKey), Space);
 
         Assert.Equal(UserDid, verified.UserDid);
-        Assert.Equal(1, resolver.RefreshCount);
+        Assert.Equal(1, resolver.Refreshes);
     }
 
     [Fact]
@@ -44,13 +45,13 @@ public class SpaceIdentityRefreshTests
     {
         using var userKey = AtProtoCrypto.GenerateP256Key();
         using var forger = AtProtoCrypto.GenerateP256Key();
-        var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
+        var resolver = new StubDidResolver().PublishAccount(UserDid, userKey);
         var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var ex = await Assert.ThrowsAsync<SpaceVerificationException>(() => verifier.VerifyAsync(DelegationToken(forger), Space));
 
         Assert.Equal(SpaceErrors.InvalidDelegationToken, ex.Error);
-        Assert.Equal(1, resolver.RefreshCount);
+        Assert.Equal(1, resolver.Refreshes);
     }
 
     [Fact]
@@ -58,7 +59,7 @@ public class SpaceIdentityRefreshTests
     {
         // Only a signature failure is something a newer document could change.
         using var userKey = AtProtoCrypto.GenerateP256Key();
-        var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
+        var resolver = new StubDidResolver().PublishAccount(UserDid, userKey);
         var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
         var expired = SpaceTokens.Create(
             SpaceTokenType.Delegation, UserDid, Space.Value, userKey, audience: Space.HostAudience,
@@ -66,14 +67,14 @@ public class SpaceIdentityRefreshTests
 
         await Assert.ThrowsAsync<SpaceVerificationException>(() => verifier.VerifyAsync(expired, Space));
 
-        Assert.Equal(0, resolver.RefreshCount);
+        Assert.Equal(0, resolver.Refreshes);
     }
 
     [Fact]
     public async Task DelegationToken_IssuerThatDoesNotResolve_IsARefusal()
     {
         using var userKey = AtProtoCrypto.GenerateP256Key();
-        var verifier = new SpaceDelegationTokenVerifier(new FakeDidDocumentResolver(), new InMemoryJtiReplayStore());
+        var verifier = new SpaceDelegationTokenVerifier(new StubDidResolver(), new InMemoryJtiReplayStore());
 
         var ex = await Assert.ThrowsAsync<SpaceVerificationException>(() => verifier.VerifyAsync(DelegationToken(userKey), Space));
 
@@ -104,9 +105,9 @@ public class SpaceIdentityRefreshTests
         using var oldKey = AtProtoCrypto.GenerateP256Key();
         using var newKey = AtProtoCrypto.GenerateP256Key();
         using var dpop = new TestDPoPKey();
-        var resolver = new FakeDidDocumentResolver()
+        var resolver = new StubDidResolver()
             .PublishAccount(AuthorityDid, oldKey)
-            .Rotate(AuthorityDid, FakeDidDocumentResolver.AccountDocument(AuthorityDid, newKey));
+            .Rotate(AuthorityDid, StubDidResolver.AccountDocument(AuthorityDid, newKey));
         var verifier = new SpaceCredentialVerifier(resolver, new DPoPProofValidator(new InMemoryJtiReplayStore()));
         const string url = "https://host.example.com/xrpc/com.atproto.space.listRecords";
         var credential = SpaceTokens.Create(
@@ -115,6 +116,6 @@ public class SpaceIdentityRefreshTests
         var verified = await verifier.VerifyAsync(credential, dpop.Proof("GET", url, accessToken: credential), "GET", url, Space);
 
         Assert.Equal(Space, verified.Space);
-        Assert.Equal(1, resolver.RefreshCount);
+        Assert.Equal(1, resolver.Refreshes);
     }
 }

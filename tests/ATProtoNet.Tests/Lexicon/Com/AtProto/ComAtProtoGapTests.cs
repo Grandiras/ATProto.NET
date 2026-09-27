@@ -7,8 +7,8 @@ namespace ATProtoNet.Tests.Lexicon.Com.AtProto;
 
 /// <summary>
 /// <c>com.atproto.repo.importRepo</c>'s stream upload, and <c>checkHandleAvailability</c>'s union
-/// result. The other <c>com.atproto.admin</c> and <c>com.atproto.temp</c> gap methods are covered
-/// by <see cref="ATProtoNet.Tests.Lexicon.EndpointRequestTests"/>.
+/// result. The other <c>com.atproto.admin</c> and <c>com.atproto.temp</c> gap methods are rows in
+/// <see cref="EndpointRequestTests"/>.
 /// </summary>
 public sealed class ComAtProtoGapTests : IDisposable
 {
@@ -18,48 +18,22 @@ public sealed class ComAtProtoGapTests : IDisposable
 
     public void Dispose() => _fixture.Dispose();
 
-    private HttpStub.RecordedRequest Last => _fixture.Last;
-
-    // ──────────────────────────────────────────────────────────
-    //  com.atproto.repo.importRepo
-    // ──────────────────────────────────────────────────────────
-
-    [Fact]
-    public async Task ImportRepoAsync_PostsTheCarWithItsLength()
+    [Theory]
+    [InlineData(0, true, 8L)]
+    [InlineData(2, true, 6L)] // starts at the stream's position
+    [InlineData(0, false, null)] // a stream that cannot report its length goes chunked
+    public async Task ImportRepoAsync_PostsTheCarFromTheStreamsPosition(int position, bool seekable, long? contentLength)
     {
         byte[] car = [0x3a, 0xa2, 0x65, 0x72, 0x6f, 0x6f, 0x74, 0x73];
-        using var stream = new MemoryStream(car);
+        using var stream = seekable ? new MemoryStream(car) : new NonSeekableStream(car);
+        stream.Position = position;
 
         await _fixture.Client.Repo.ImportRepoAsync(stream);
 
-        Assert.Equal(HttpMethod.Post, Last.Method);
-        Assert.Equal("/xrpc/com.atproto.repo.importRepo", Last.Path);
-        Assert.Equal("application/vnd.ipld.car", Last.ContentType);
-        Assert.Equal(car.Length, Last.ContentLength);
-        Assert.Equal(car, Last.Body);
-    }
-
-    [Fact]
-    public async Task ImportRepoAsync_StartsAtTheStreamsPosition()
-    {
-        using var stream = new MemoryStream([0xff, 0xff, 0x01, 0x02]);
-        stream.Position = 2;
-
-        await _fixture.Client.Repo.ImportRepoAsync(stream);
-
-        Assert.Equal(2, Last.ContentLength);
-        Assert.Equal([0x01, 0x02], Last.Body);
-    }
-
-    [Fact]
-    public async Task ImportRepoAsync_NonSeekableStream_IsSentChunked()
-    {
-        using var stream = new NonSeekableStream([0x01, 0x02, 0x03]);
-
-        await _fixture.Client.Repo.ImportRepoAsync(stream);
-
-        Assert.Null(Last.ContentLength);
-        Assert.Equal([0x01, 0x02, 0x03], Last.Body);
+        var request = _fixture.AssertPost("com.atproto.repo.importRepo");
+        Assert.Equal("application/vnd.ipld.car", request.ContentType);
+        Assert.Equal(contentLength, request.ContentLength);
+        Assert.Equal(car[position..], request.Body);
     }
 
     [Fact]
@@ -74,65 +48,35 @@ public sealed class ComAtProtoGapTests : IDisposable
         Assert.Equal("InvalidRequest", ex.Error);
     }
 
-    // com.atproto.admin.searchAccounts and .updateAccountSigningKey are covered by
-    // ATProtoNet.Tests.Lexicon.EndpointRequestTests.
-
-    // ──────────────────────────────────────────────────────────
-    //  com.atproto.temp
-    // ──────────────────────────────────────────────────────────
-
     [Fact]
-    public async Task CheckHandleAvailabilityAsync_Available_ReadsTheResult()
+    public async Task CheckHandleAvailabilityAsync_SendsEveryParameter()
     {
-        _fixture.Fallback("""
-            {"handle":"alice.bsky.social","result":{"$type":"com.atproto.temp.checkHandleAvailability#resultAvailable"}}
-            """);
+        _fixture.Fallback("""{"handle":"alice.bsky.social","result":{"$type":"com.atproto.temp.checkHandleAvailability#resultAvailable"}}""");
 
-        var response = await _fixture.Client.Temp.CheckHandleAvailabilityAsync(
+        await _fixture.Client.Temp.CheckHandleAvailabilityAsync(
             Handle.Parse("alice.bsky.social"), "a@example.com", AtDatetime.Parse("1990-01-01T00:00:00.000Z"));
 
-        Assert.Equal(HttpMethod.Get, Last.Method);
-        Assert.Equal(
-            "/xrpc/com.atproto.temp.checkHandleAvailability?handle=alice.bsky.social&email=a@example.com&birthDate=1990-01-01T00:00:00.000Z",
-            $"{Last.Path}?{Uri.UnescapeDataString(Last.Query)}");
-        Assert.True(response.IsAvailable);
-        Assert.IsType<HandleAvailable>(response.Result);
+        _fixture.AssertGet(
+            "com.atproto.temp.checkHandleAvailability",
+            "handle=alice.bsky.social&email=a@example.com&birthDate=1990-01-01T00:00:00.000Z");
     }
 
-    [Fact]
-    public async Task CheckHandleAvailabilityAsync_Unavailable_ReadsTheSuggestions()
+    [Theory]
+    [InlineData("resultAvailable", "", typeof(HandleAvailable), true)]
+    [InlineData("resultUnavailable", ""","suggestions":[{"handle":"alice1.bsky.social","method":"append-number"}]""", typeof(HandleUnavailable), false)]
+    [InlineData("resultReserved", ""","until":"2027" """, typeof(UnknownHandleAvailabilityResult), false)]
+    public async Task CheckHandleAvailabilityAsync_ReadsTheResultVariant(string def, string fields, Type expected, bool available)
     {
-        _fixture.Fallback("""
-            {"handle":"alice.bsky.social","result":{"$type":"com.atproto.temp.checkHandleAvailability#resultUnavailable",
-              "suggestions":[{"handle":"alice1.bsky.social","method":"append-number"},{"handle":"alice-x.bsky.social","method":"append-word"}]}}
-            """);
+        _fixture.Fallback(
+            $$$"""{"handle":"alice.bsky.social","result":{"$type":"com.atproto.temp.checkHandleAvailability#{{{def}}}"{{{fields}}}}}""");
 
         var response = await _fixture.Client.Temp.CheckHandleAvailabilityAsync(Handle.Parse("alice.bsky.social"));
 
-        Assert.False(response.IsAvailable);
-        var unavailable = Assert.IsType<HandleUnavailable>(response.Result);
-        Assert.Equal(["alice1.bsky.social", "alice-x.bsky.social"], unavailable.Suggestions.Select(s => s.Handle.Value));
-        Assert.Equal("append-number", unavailable.Suggestions[0].Method);
-        Assert.Equal("/xrpc/com.atproto.temp.checkHandleAvailability?handle=alice.bsky.social", $"{Last.Path}?{Last.Query}");
+        Assert.IsType(expected, response.Result);
+        Assert.Equal(available, response.IsAvailable);
+        if (response.Result is HandleUnavailable unavailable)
+            Assert.Equal(("alice1.bsky.social", "append-number"), (unavailable.Suggestions[0].Handle.Value, unavailable.Suggestions[0].Method));
     }
-
-    [Fact]
-    public async Task CheckHandleAvailabilityAsync_UnknownResult_IsKeptRaw()
-    {
-        _fixture.Fallback("""
-            {"handle":"alice.bsky.social","result":{"$type":"com.atproto.temp.checkHandleAvailability#resultReserved","until":"2027"}}
-            """);
-
-        var response = await _fixture.Client.Temp.CheckHandleAvailabilityAsync(Handle.Parse("alice.bsky.social"));
-
-        var unknown = Assert.IsType<UnknownHandleAvailabilityResult>(response.Result);
-        Assert.Equal("com.atproto.temp.checkHandleAvailability#resultReserved", unknown.Type);
-        Assert.Equal("2027", unknown.Raw.GetProperty("until").GetString());
-        Assert.False(response.IsAvailable);
-    }
-
-    // checkSignupQueue, dereferenceScope, requestPhoneVerification and revokeAccountCredentials
-    // are covered by ATProtoNet.Tests.Lexicon.EndpointRequestTests.
 
     /// <summary>A stream that cannot report its length, like a download being passed straight on.</summary>
     private sealed class NonSeekableStream(byte[] data) : MemoryStream(data)

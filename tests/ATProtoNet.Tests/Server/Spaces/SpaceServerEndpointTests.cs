@@ -11,6 +11,7 @@ using ATProtoNet.Serialization;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Server.Xrpc;
 using ATProtoNet.Spaces;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
@@ -33,7 +34,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     private readonly AtProtoKey _authorityKey = AtProtoCrypto.GenerateP256Key();
     private readonly AtProtoKey _memberKey = AtProtoCrypto.GenerateP256Key();
     private readonly AtProtoKey _strangerKey = AtProtoCrypto.GenerateP256Key();
-    private readonly FakeDidDocumentResolver _resolver = new();
+    private readonly StubDidResolver _resolver = new();
     private readonly InMemorySimpleSpaceStore _simpleSpaceStore = new();
     private readonly StubCallerResolver _caller = new();
     private readonly StubRepoHost _repoHost = new();

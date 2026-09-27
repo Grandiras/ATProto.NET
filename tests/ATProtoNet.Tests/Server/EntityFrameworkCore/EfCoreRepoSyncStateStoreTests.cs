@@ -6,6 +6,7 @@ using ATProtoNet.Tests.TestSupport;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 namespace ATProtoNet.Tests.Server.EntityFrameworkCore;
 
@@ -15,7 +16,7 @@ namespace ATProtoNet.Tests.Server.EntityFrameworkCore;
 /// </summary>
 public sealed class EfCoreRepoSyncStateStoreTests : RepoSyncStateStoreContractTests, IAsyncLifetime
 {
-    private readonly ManualClock _clock = new();
+    private readonly FakeTimeProvider _clock = new();
     private SqliteConnection _connection = null!;
     private DbContextOptions<RepoSyncStateDbContext> _options = null!;
 

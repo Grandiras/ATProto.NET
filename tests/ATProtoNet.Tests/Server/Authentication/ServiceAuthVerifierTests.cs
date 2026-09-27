@@ -5,7 +5,8 @@ using ATProtoNet.Identity;
 using ATProtoNet.Server.Authentication;
 using ATProtoNet.Spaces;
 using ATProtoNet.Tests.Identity;
-using ATProtoNet.Tests.Server.Spaces;
+using ATProtoNet.Tests.TestSupport;
+using Microsoft.Extensions.Time.Testing;
 
 namespace ATProtoNet.Tests.Server.Authentication;
 
@@ -21,8 +22,8 @@ public sealed class ServiceAuthVerifierTests : IDisposable
     private static readonly string[] Audiences = [Audience];
 
     private readonly AtProtoKey _key = AtProtoCrypto.GenerateK256Key();
-    private readonly ManualClock _clock = new();
-    private readonly FakeDidDocumentResolver _resolver = new();
+    private readonly FakeTimeProvider _clock = new();
+    private readonly StubDidResolver _resolver = new();
     private readonly InMemoryJtiReplayStore _replay = new();
 
     public ServiceAuthVerifierTests() => _resolver.PublishAccount(Caller, _key);
@@ -240,7 +241,7 @@ public sealed class ServiceAuthVerifierTests : IDisposable
     public async Task VerifyAsync_AllowedKidForAnotherKey_VerifiesAgainstThatKey()
     {
         using var labelKey = AtProtoCrypto.GenerateP256Key();
-        var document = FakeDidDocumentResolver.AccountDocument(Caller, _key);
+        var document = StubDidResolver.AccountDocument(Caller, _key);
         _resolver.Publish(Caller, new DidDocument
         {
             Id = document.Id,
@@ -463,19 +464,19 @@ public sealed class ServiceAuthVerifierTests : IDisposable
         var ex = await RefusedAsync(Token(signer: other));
 
         Assert.Equal(ServiceAuthErrors.BadJwtSignature, ex.Error);
-        Assert.Equal(1, _resolver.RefreshCount);
+        Assert.Equal(1, _resolver.Refreshes);
     }
 
     [Fact]
     public async Task VerifyAsync_KeyRotatedSinceTheCachedDocument_VerifiesAgainstTheRefreshedOne()
     {
         using var rotated = AtProtoCrypto.GenerateK256Key();
-        _resolver.Rotate(Caller, FakeDidDocumentResolver.AccountDocument(Caller, rotated));
+        _resolver.Rotate(Caller, StubDidResolver.AccountDocument(Caller, rotated));
 
         var verified = await Verifier().VerifyAsync(Token(signer: rotated), Audiences, GetFeedSkeleton);
 
         Assert.Equal(Caller, verified.Issuer);
-        Assert.Equal(1, _resolver.RefreshCount);
+        Assert.Equal(1, _resolver.Refreshes);
     }
 
     [Fact]
@@ -483,7 +484,7 @@ public sealed class ServiceAuthVerifierTests : IDisposable
     {
         await Verifier().VerifyAsync(Token(), Audiences, GetFeedSkeleton);
 
-        Assert.Equal(0, _resolver.RefreshCount);
+        Assert.Equal(0, _resolver.Refreshes);
     }
 
     [Fact]

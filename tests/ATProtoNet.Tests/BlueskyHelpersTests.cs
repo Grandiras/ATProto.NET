@@ -1,10 +1,10 @@
 using System.Net;
-using System.Text;
 using System.Text.Json;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Feed;
 using ATProtoNet.Models;
+using ATProtoNet.Tests.TestSupport;
 using RichTextBuilder = ATProtoNet.Lexicon.App.Bsky.RichText.RichTextBuilder;
 
 namespace ATProtoNet.Tests;
@@ -29,85 +29,38 @@ public sealed class BlueskyHelpersTests
          "createdAt":"2024-01-01T00:00:00.000Z","futureField":{"x":1}}
         """;
 
-    private sealed class FakePds : HttpMessageHandler
+    private const string GetRecord = "com.atproto.repo.getRecord";
+    private const string PutRecord = "com.atproto.repo.putRecord";
+    private const string CreateRecord = "com.atproto.repo.createRecord";
+    private const string DeleteRecord = "com.atproto.repo.deleteRecord";
+
+    /// <summary>
+    /// A client signed in to a PDS that stores <paramref name="profile"/> (none when null), refuses
+    /// the first <paramref name="conflicts"/> profile writes with <c>InvalidSwap</c>, and answers
+    /// every created record with its own collection.
+    /// </summary>
+    private static async Task<(AtProtoClient Client, HttpStub Pds)> LoggedInAsync(string? profile = null, int conflicts = 0)
     {
-        public string? Profile { get; set; }
+        var pds = new HttpStub()
+            .On("com.atproto.server.createSession", $$"""{"did":"{{DidText}}","handle":"alice.test","accessJwt":"a","refreshJwt":"r"}""")
+            .On(GetRecord, _ => profile is null
+                ? HttpStub.ErrorResponse(HttpStatusCode.BadRequest, "RecordNotFound", "Could not locate record")
+                : HttpStub.JsonResponse($$"""{"uri":"at://{{DidText}}/app.bsky.actor.profile/self","cid":"bafyreid6erjndi5bsjevws6dtsmi76ag5mmcerfo6cfhb2vpv6wuygrvve","value":{{profile}}}"""))
+            .On(DeleteRecord, "{}")
+            .On(CreateRecord, request => HttpStub.JsonResponse(
+                $$"""{"uri":"at://{{DidText}}/{{request.JsonBody.GetProperty("collection").GetString()}}/3l2abc","cid":"{{PostCid}}","commit":{"cid":"{{PostCid}}","rev":"3l2abcdefgh22"},"validationStatus":"valid"}"""));
+        for (var i = 0; i < conflicts; i++)
+            pds.On(PutRecord, HttpStatusCode.BadRequest, """{"error":"InvalidSwap","message":"Record was at bafyreidhormwlyipxyuuzqc6mspskhovsiybzk76rtn5fnr264hhotls3u"}""");
+        pds.On(PutRecord, $$"""{"uri":"at://{{DidText}}/app.bsky.actor.profile/self","cid":"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi"}""");
 
-        public string ProfileCid { get; set; } = "bafyreid6erjndi5bsjevws6dtsmi76ag5mmcerfo6cfhb2vpv6wuygrvve";
-
-        public Queue<HttpStatusCode> PutOutcomes { get; } = new();
-
-        public List<JsonElement> Puts { get; } = [];
-
-        public List<JsonElement> Creates { get; } = [];
-
-        public List<JsonElement> Deletes { get; } = [];
-
-        public int Gets { get; private set; }
-
-        public int Requests { get; private set; }
-
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
-        {
-            Requests++;
-            var path = request.RequestUri!.AbsolutePath;
-            if (path.EndsWith("com.atproto.server.createSession", StringComparison.Ordinal))
-                return Json(HttpStatusCode.OK, $$"""{"did":"{{DidText}}","handle":"alice.test","accessJwt":"a","refreshJwt":"r"}""");
-
-            if (path.EndsWith("com.atproto.repo.getRecord", StringComparison.Ordinal))
-            {
-                Gets++;
-                return Profile is null
-                    ? Json(HttpStatusCode.BadRequest, """{"error":"RecordNotFound","message":"Could not locate record"}""")
-                    : Json(HttpStatusCode.OK, $$"""{"uri":"at://{{DidText}}/app.bsky.actor.profile/self","cid":"{{ProfileCid}}","value":{{Profile}}}""");
-            }
-
-            if (path.EndsWith("com.atproto.repo.putRecord", StringComparison.Ordinal))
-            {
-                Puts.Add(await BodyAsync(request, ct));
-
-                if (PutOutcomes.TryDequeue(out var outcome) && outcome != HttpStatusCode.OK)
-                    return Json(outcome, """{"error":"InvalidSwap","message":"Record was at bafyreidhormwlyipxyuuzqc6mspskhovsiybzk76rtn5fnr264hhotls3u"}""");
-
-                return Json(HttpStatusCode.OK, $$"""{"uri":"at://{{DidText}}/app.bsky.actor.profile/self","cid":"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi"}""");
-            }
-
-            if (path.EndsWith("com.atproto.repo.createRecord", StringComparison.Ordinal))
-            {
-                var body = await BodyAsync(request, ct);
-                Creates.Add(body);
-                var collection = body.GetProperty("collection").GetString();
-                return Json(HttpStatusCode.OK, $$"""{"uri":"at://{{DidText}}/{{collection}}/3l2abc","cid":"{{PostCid}}","commit":{"cid":"{{PostCid}}","rev":"3l2abcdefgh22"},"validationStatus":"valid"}""");
-            }
-
-            if (path.EndsWith("com.atproto.repo.deleteRecord", StringComparison.Ordinal))
-            {
-                Deletes.Add(await BodyAsync(request, ct));
-                return Json(HttpStatusCode.OK, "{}");
-            }
-
-            return Json(HttpStatusCode.NotFound, """{"error":"MethodNotImplemented"}""");
-        }
-
-        private static async Task<JsonElement> BodyAsync(HttpRequestMessage request, CancellationToken ct)
-        {
-            using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));
-            return body.RootElement.Clone();
-        }
-
-        private static HttpResponseMessage Json(HttpStatusCode status, string body)
-            => new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
-    }
-
-    private static async Task<(AtProtoClient Client, FakePds Pds)> LoggedInAsync()
-    {
-        var pds = new FakePds();
         var client = new AtProtoClient(
             new AtProtoClientOptions { InstanceUrl = "https://pds.example.com", AutoRefreshSession = false },
             new HttpClient(pds));
         await client.LoginAsync("alice.test", "password");
         return (client, pds);
     }
+
+    private static List<JsonElement> Bodies(HttpStub pds, string nsid) => [.. pds.To(nsid).Select(r => r.JsonBody)];
 
     private static readonly StrongRef Post = new() { Uri = AtUri.Parse(PostUri), Cid = Cid.Parse(PostCid) };
 
@@ -123,14 +76,14 @@ public sealed class BlueskyHelpersTests
 
         var posted = await client.Bsky.PostAsync("hello");
 
-        var body = Assert.Single(pds.Creates);
+        var body = Assert.Single(Bodies(pds, CreateRecord));
         Assert.Equal(DidText, body.GetProperty("repo").GetString());
         Assert.Equal("app.bsky.feed.post", body.GetProperty("collection").GetString());
         var record = body.GetProperty("record");
         Assert.Equal("app.bsky.feed.post", record.GetProperty("$type").GetString());
         Assert.Equal("hello", record.GetProperty("text").GetString());
         Assert.False(record.TryGetProperty("facets", out var _));
-        Assert.True(record.TryGetProperty("createdAt", out var _));
+        Assert.Matches(@"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$", record.GetProperty("createdAt").GetString());
 
         Assert.Equal("3l2abc", posted.RecordKey);
         Assert.Equal(Tid.Parse("3l2abcdefgh22"), posted.Commit?.Rev);
@@ -152,7 +105,7 @@ public sealed class BlueskyHelpersTests
             CreatedAt = AtDatetime.Parse("2026-01-02T03:04:05.000Z"),
         });
 
-        var record = Assert.Single(pds.Creates).GetProperty("record");
+        var record = Assert.Single(Bodies(pds, CreateRecord)).GetProperty("record");
         Assert.Equal("Hi #atproto", record.GetProperty("text").GetString());
         var facet = Assert.Single(record.GetProperty("facets").EnumerateArray());
         Assert.Equal(3, facet.GetProperty("index").GetProperty("byteStart").GetInt32());
@@ -162,33 +115,28 @@ public sealed class BlueskyHelpersTests
         Assert.Equal("2026-01-02T03:04:05.000Z", record.GetProperty("createdAt").GetString());
     }
 
-    [Fact]
-    public async Task LikeAsync_WritesALikeOfTheSubject()
+    [Theory]
+    [InlineData("app.bsky.feed.like", $$"""{"uri":"{{PostUri}}","cid":"{{PostCid}}"}""")]
+    [InlineData("app.bsky.feed.repost", $$"""{"uri":"{{PostUri}}","cid":"{{PostCid}}"}""")]
+    [InlineData("app.bsky.graph.follow", "\"did:plc:bob\"")]
+    public async Task SubjectHelpers_WriteTheirRecordAboutTheSubject(string collection, string subject)
     {
         var (client, pds) = await LoggedInAsync();
         using var _ = client;
 
-        var like = await client.Bsky.LikeAsync(Post);
+        var written = collection switch
+        {
+            "app.bsky.feed.like" => await client.Bsky.LikeAsync(Post),
+            "app.bsky.feed.repost" => await client.Bsky.RepostAsync(Post),
+            _ => await client.Bsky.FollowAsync(Did.Parse("did:plc:bob")),
+        };
 
-        var body = Assert.Single(pds.Creates);
-        Assert.Equal("app.bsky.feed.like", body.GetProperty("collection").GetString());
-        var subject = body.GetProperty("record").GetProperty("subject");
-        Assert.Equal(PostUri, subject.GetProperty("uri").GetString());
-        Assert.Equal(PostCid, subject.GetProperty("cid").GetString());
-        Assert.Equal(Nsid.Parse("app.bsky.feed.like"), like.Uri.Collection);
-    }
-
-    [Fact]
-    public async Task RepostAsync_WritesARepostOfTheSubject()
-    {
-        var (client, pds) = await LoggedInAsync();
-        using var _ = client;
-
-        await client.Bsky.RepostAsync(new RecordRef(AtUri.Parse(PostUri), Cid.Parse(PostCid)).ToStrongRef());
-
-        var body = Assert.Single(pds.Creates);
-        Assert.Equal("app.bsky.feed.repost", body.GetProperty("collection").GetString());
-        Assert.Equal(PostUri, body.GetProperty("record").GetProperty("subject").GetProperty("uri").GetString());
+        var body = Assert.Single(Bodies(pds, CreateRecord));
+        Assert.Equal(collection, body.GetProperty("collection").GetString());
+        var record = body.GetProperty("record");
+        Assert.Equal(collection, record.GetProperty("$type").GetString());
+        Assert.True(JsonElement.DeepEquals(JsonDocument.Parse(subject).RootElement, record.GetProperty("subject")), record.GetRawText());
+        Assert.Equal(Nsid.Parse(collection), written.Uri.Collection);
     }
 
     [Fact]
@@ -199,7 +147,7 @@ public sealed class BlueskyHelpersTests
 
         await client.Bsky.DeleteRecordAsync(AtUri.Parse($"at://{DidText}/app.bsky.feed.like/3l2xyz"));
 
-        var body = Assert.Single(pds.Deletes);
+        var body = Assert.Single(Bodies(pds, DeleteRecord));
         Assert.Equal(DidText, body.GetProperty("repo").GetString());
         Assert.Equal("app.bsky.feed.like", body.GetProperty("collection").GetString());
         Assert.Equal("3l2xyz", body.GetProperty("rkey").GetString());
@@ -212,12 +160,12 @@ public sealed class BlueskyHelpersTests
     {
         var (client, pds) = await LoggedInAsync();
         using var _ = client;
-        var before = pds.Requests;
+        var before = pds.Requests.Count;
 
         var ex = await Assert.ThrowsAsync<ArgumentException>(() => client.Bsky.DeleteRecordAsync(AtUri.Parse(uri)));
 
         Assert.Equal("uri", ex.ParamName);
-        Assert.Equal(before, pds.Requests);
+        Assert.Equal(before, pds.Requests.Count);
     }
 
     [Fact]
@@ -243,16 +191,15 @@ public sealed class BlueskyHelpersTests
     [Fact]
     public async Task UpdateProfileAsync_ChangesOneField_KeepsEveryOtherFieldIncludingUnknownOnes()
     {
-        var (client, pds) = await LoggedInAsync();
+        var (client, pds) = await LoggedInAsync(StoredProfile);
         using var _ = client;
-        pds.Profile = StoredProfile;
 
         var written = await client.Bsky.UpdateProfileAsync(p => p.Description = "new bio");
 
         Assert.Equal("bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi", written.Cid);
         Assert.Equal("self", written.RecordKey);
 
-        var put = Assert.Single(pds.Puts);
+        var put = Assert.Single(Bodies(pds, PutRecord));
         var record = put.GetProperty("record");
         using var expected = JsonDocument.Parse(StoredProfile.Replace("old bio", "new bio"));
         Assert.True(JsonElement.DeepEquals(expected.RootElement, record), record.GetRawText());
@@ -262,13 +209,12 @@ public sealed class BlueskyHelpersTests
     [Fact]
     public async Task UpdateProfileAsync_SettingNull_RemovesTheField()
     {
-        var (client, pds) = await LoggedInAsync();
+        var (client, pds) = await LoggedInAsync(StoredProfile);
         using var _ = client;
-        pds.Profile = StoredProfile;
 
         await client.Bsky.UpdateProfileAsync(p => p.PinnedPost = null);
 
-        var record = Assert.Single(pds.Puts).GetProperty("record");
+        var record = Assert.Single(Bodies(pds, PutRecord)).GetProperty("record");
         Assert.False(record.TryGetProperty("pinnedPost", out var _));
         Assert.Equal("she/her", record.GetProperty("pronouns").GetString());
     }
@@ -276,10 +222,8 @@ public sealed class BlueskyHelpersTests
     [Fact]
     public async Task UpdateProfileAsync_ConcurrentWrite_RereadsAndRetries()
     {
-        var (client, pds) = await LoggedInAsync();
+        var (client, pds) = await LoggedInAsync(StoredProfile, conflicts: 1);
         using var _ = client;
-        pds.Profile = StoredProfile;
-        pds.PutOutcomes.Enqueue(HttpStatusCode.BadRequest);
         var calls = 0;
 
         await client.Bsky.UpdateProfileAsync(p =>
@@ -289,25 +233,22 @@ public sealed class BlueskyHelpersTests
         });
 
         Assert.Equal(2, calls);
-        Assert.Equal(2, pds.Gets);
-        Assert.Equal(2, pds.Puts.Count);
-        Assert.Equal("Alice 2", pds.Puts[1].GetProperty("record").GetProperty("displayName").GetString());
+        Assert.Equal(2, pds.To(GetRecord).Count());
+        Assert.Equal(2, Bodies(pds, PutRecord).Count);
+        Assert.Equal("Alice 2", Bodies(pds, PutRecord)[1].GetProperty("record").GetProperty("displayName").GetString());
     }
 
     [Fact]
     public async Task UpdateProfileAsync_PersistentConflict_GivesUpAfterThreeAttempts()
     {
-        var (client, pds) = await LoggedInAsync();
+        var (client, pds) = await LoggedInAsync(StoredProfile, conflicts: 5);
         using var _ = client;
-        pds.Profile = StoredProfile;
-        for (var i = 0; i < 5; i++)
-            pds.PutOutcomes.Enqueue(HttpStatusCode.BadRequest);
 
         var ex = await Assert.ThrowsAsync<XrpcException>(
             () => client.Bsky.UpdateProfileAsync(p => p.DisplayName = "x"));
 
         Assert.True(ex.Is(XrpcErrors.InvalidSwap));
-        Assert.Equal(3, pds.Puts.Count);
+        Assert.Equal(3, Bodies(pds, PutRecord).Count);
     }
 
     [Fact]
@@ -327,7 +268,7 @@ public sealed class BlueskyHelpersTests
         Assert.NotNull(seen.CreatedAt);
         Assert.Null(seen.ExtensionData);
 
-        var put = Assert.Single(pds.Puts);
+        var put = Assert.Single(Bodies(pds, PutRecord));
         Assert.False(put.TryGetProperty("swapRecord", out var _));
         Assert.Equal("app.bsky.actor.profile", put.GetProperty("record").GetProperty("$type").GetString());
         Assert.Equal("Alice", put.GetProperty("record").GetProperty("displayName").GetString());

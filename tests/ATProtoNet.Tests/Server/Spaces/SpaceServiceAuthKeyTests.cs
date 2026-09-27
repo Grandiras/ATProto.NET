@@ -25,7 +25,7 @@ public sealed class SpaceServiceAuthKeyTests : IDisposable
 
     private readonly AtProtoKey _accountKey = AtProtoCrypto.GenerateP256Key();
     private readonly AtProtoKey _spaceKey = AtProtoCrypto.GenerateP256Key();
-    private readonly FakeDidDocumentResolver _resolver = new();
+    private readonly StubDidResolver _resolver = new();
     private readonly HttpStub _handler = new HttpStub().Fallback("""{"authorized":true}""");
 
     public SpaceServiceAuthKeyTests()

@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using ATProtoNet.Streaming;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Streaming;
 
@@ -19,7 +20,7 @@ public sealed class TypedFirehoseConsumerSyncTests : IDisposable
     private readonly List<DroppedStreamEvent> _dropped = [];
     private readonly List<RepoSyncResult> _desynchronized = [];
 
-    public TypedFirehoseConsumerSyncTests() => _resolver.Add(_repo.Did, _repo.SigningKey);
+    public TypedFirehoseConsumerSyncTests() => _resolver.Publish(_repo.Did, _repo.SigningKey);
 
     public void Dispose() => _repo.Dispose();
 
@@ -485,7 +486,7 @@ public sealed class TypedFirehoseConsumerSyncTests : IDisposable
     public async Task ConsumeAsync_FetchedSnapshotNotYetTaken_KeepsItsConcurrencySlot()
     {
         using var other = new SyncTestRepo("did:plc:othersynctestrepoaaaaaaa");
-        _resolver.Add(other.Did, other.SigningKey);
+        _resolver.Publish(other.Did, other.SigningKey);
         using var verifier = Verifier();
 
         var a1 = _repo.Create();

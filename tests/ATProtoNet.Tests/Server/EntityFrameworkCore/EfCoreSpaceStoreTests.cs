@@ -7,6 +7,7 @@ using ATProtoNet.Spaces;
 using ATProtoNet.Tests.TestSupport;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Time.Testing;
 
 namespace ATProtoNet.Tests.Server.EntityFrameworkCore;
 
@@ -139,7 +140,7 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
     {
         // The contract only checks that an already-lapsed registration is excluded; this exercises
         // the EF store's own clock injection to show one that lapses while it is being watched.
-        var clock = new FakeClock(DateTimeOffset.Parse("2026-08-21T12:00:00Z", null));
+        var clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-08-21T12:00:00Z", null));
         var store = new EfCoreSpaceAuthorityStore<SpaceDbContext>(new Factory(_options), clock);
 
         await store.RegisterNotifyAsync(Space, "did:web:syncer#s", clock.GetUtcNow().AddDays(7));
@@ -211,14 +212,5 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
         : IDbContextFactory<ReversedRevisionContext>
     {
         public ReversedRevisionContext CreateDbContext() => new(options);
-    }
-
-    private sealed class FakeClock(DateTimeOffset now) : TimeProvider
-    {
-        private DateTimeOffset _now = now;
-
-        public override DateTimeOffset GetUtcNow() => _now;
-
-        public void Advance(TimeSpan by) => _now = _now.Add(by);
     }
 }

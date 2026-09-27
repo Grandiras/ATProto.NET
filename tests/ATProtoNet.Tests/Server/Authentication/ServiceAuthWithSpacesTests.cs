@@ -11,7 +11,6 @@ using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Server.Xrpc;
 using ATProtoNet.Spaces;
-using ATProtoNet.Tests.Server.Spaces;
 using ATProtoNet.Tests.TestSupport;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -33,7 +32,7 @@ public sealed class ServiceAuthWithSpacesTests : IAsyncDisposable
     private const string MemberDid = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa";
 
     private readonly AtProtoKey _authorityKey = AtProtoCrypto.GenerateP256Key();
-    private readonly FakeDidDocumentResolver _resolver = new();
+    private readonly StubDidResolver _resolver = new();
     private readonly InMemoryJtiReplayStore _replay = new();
     private readonly InMemorySimpleSpaceStore _spaces = new();
     private readonly ServiceAuthGenerator _member;

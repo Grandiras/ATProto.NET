@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Formats.Cbor;
 using System.Text.Json;
 using ATProtoNet.Crypto;
@@ -7,6 +6,7 @@ using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using ATProtoNet.Repo;
 using ATProtoNet.Streaming;
 using ATProtoNet.Tests.Identity;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Streaming;
 
@@ -226,59 +226,6 @@ internal sealed class SyncTestRepo : IDisposable
     public void Dispose() => Key.Dispose();
 }
 
-/// <summary>Serves fixed DID documents and counts how often it was asked.</summary>
-internal sealed class StubDidResolver : IDidResolver
-{
-    private readonly ConcurrentDictionary<Did, string> _keys = new();
-    private readonly ConcurrentDictionary<Did, string?> _pds = new();
-    private int _resolves;
-    private int _refreshes;
-    private int _invalidations;
-
-    public int Resolves => Volatile.Read(ref _resolves);
-
-    public int Refreshes => Volatile.Read(ref _refreshes);
-
-    public int Invalidations => Volatile.Read(ref _invalidations);
-
-    /// <summary>A key the next refresh (not a cached resolve) serves instead.</summary>
-    public ConcurrentDictionary<Did, string> RotatedKeys { get; } = new();
-
-    public StubDidResolver Add(Did did, string signingKey, string? pds = "https://pds.example.com")
-    {
-        _keys[did] = signingKey;
-        _pds[did] = pds;
-        return this;
-    }
-
-    public Task<DidDocument> ResolveAsync(Did did, CancellationToken cancellationToken = default)
-    {
-        Interlocked.Increment(ref _resolves);
-        return Task.FromResult(Document(did, _keys));
-    }
-
-    public Task<DidDocument> RefreshAsync(Did did, CancellationToken cancellationToken = default)
-    {
-        Interlocked.Increment(ref _refreshes);
-        if (RotatedKeys.TryGetValue(did, out var rotated))
-            _keys[did] = rotated;
-        return Task.FromResult(Document(did, _keys));
-    }
-
-    public Task InvalidateAsync(Did did, CancellationToken cancellationToken = default)
-    {
-        Interlocked.Increment(ref _invalidations);
-        return Task.CompletedTask;
-    }
-
-    private DidDocument Document(Did did, ConcurrentDictionary<Did, string> keys)
-    {
-        if (!keys.TryGetValue(did, out var key))
-            throw new DidResolutionException($"{did} is not known.", DidResolutionErrorKind.NotFound, did);
-        return DidDocs.Parse(did.Value, pds: _pds.GetValueOrDefault(did), signingKey: key);
-    }
-}
-
 /// <summary>Encodes repository events as the wire frames a relay sends.</summary>
 internal static class SyncFrames
 {
@@ -407,7 +354,7 @@ internal static class LiveFrames
     {
         var resolver = new StubDidResolver();
         foreach (var (did, key) in Loaded.Value.Keys)
-            resolver.Add(did, key, Loaded.Value.Pds.GetValueOrDefault(did));
+            resolver.Publish(did, key, Loaded.Value.Pds.GetValueOrDefault(did));
         return resolver;
     }
 

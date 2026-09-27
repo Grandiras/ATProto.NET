@@ -6,6 +6,7 @@ using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Lexicon;
 using ATProtoNet.Server;
 using ATProtoNet.Tests.Identity;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -72,7 +73,7 @@ public sealed class LexiconResolverTests
         Assert.Null(resolved.Schema.GetPermissionSet());
 
         Assert.Collection(
-            handler.Requests,
+            handler.Uris,
             dns => Assert.Equal($"https://dns.google/resolve?name={DnsName}&type=TXT", dns.AbsoluteUri),
             pds => Assert.Equal(
                 $"https://pds.example.com/xrpc/com.atproto.sync.getRecord?did={Authority}&collection=com.atproto.lexicon.schema&rkey={Post}",
@@ -146,7 +147,7 @@ public sealed class LexiconResolverTests
         var resolved = await resolver.ResolveAsync(Post, Authority);
 
         Assert.Equal(Post, resolved.Schema.Id);
-        Assert.DoesNotContain(handler.Requests, uri => uri.Host == "dns.google");
+        Assert.DoesNotContain(handler.Uris, uri => uri.Host == "dns.google");
     }
 
     // ──────────────────────────────────────────────────────────
@@ -158,20 +159,20 @@ public sealed class LexiconResolverTests
     {
         // _lexicon.feed.example.app is the only name asked: not _lexicon.example.app, not the
         // name with the NSID's name segment added.
-        using var resolver = Create(_ => ScriptedHandler.Json("{\"Status\":3}"), out var handler);
+        using var resolver = Create(_ => HttpStub.JsonResponse("{\"Status\":3}"), out var handler);
 
         var ex = await Assert.ThrowsAsync<LexiconResolutionException>(
             () => resolver.ResolveAsync(Nsid.Parse("app.example.feed.post")));
 
         Assert.Equal(LexiconResolutionErrorKind.AuthorityNotFound, ex.Kind);
-        var request = Assert.Single(handler.Requests);
+        var request = Assert.Single(handler.Uris);
         Assert.Contains("name=_lexicon.feed.example.app&", request.Query);
     }
 
     [Fact]
     public async Task ResolveAuthorityAsync_OtherTxtRecordsAround_TakesTheDidOne()
     {
-        using var resolver = Create(_ => ScriptedHandler.TxtAnswer("\"v=spf1 -all\"", $"\"did={Authority}\""), out _);
+        using var resolver = Create(_ => HttpStub.TxtAnswer("\"v=spf1 -all\"", $"\"did={Authority}\""), out _);
 
         Assert.Equal(Authority, await resolver.ResolveAuthorityAsync(Post));
     }
@@ -180,7 +181,7 @@ public sealed class LexiconResolverTests
     public async Task ResolveAuthorityAsync_SplitCharacterStrings_AreJoined()
     {
         var did = Authority.Value;
-        using var resolver = Create(_ => ScriptedHandler.TxtAnswer($"\"did={did[..12]}\" \"{did[12..]}\""), out _);
+        using var resolver = Create(_ => HttpStub.TxtAnswer($"\"did={did[..12]}\" \"{did[12..]}\""), out _);
 
         Assert.Equal(Authority, await resolver.ResolveAuthorityAsync(Post));
     }
@@ -192,7 +193,7 @@ public sealed class LexiconResolverTests
     [InlineData("\"did=not-a-did\"")]
     public async Task ResolveAuthorityAsync_NotExactlyOneDid_IsNoAuthority(params string[] records)
     {
-        using var resolver = Create(_ => ScriptedHandler.TxtAnswer(records), out _);
+        using var resolver = Create(_ => HttpStub.TxtAnswer(records), out _);
 
         var ex = await Assert.ThrowsAsync<LexiconResolutionException>(() => resolver.ResolveAuthorityAsync(Post));
 
@@ -202,7 +203,7 @@ public sealed class LexiconResolverTests
     [Fact]
     public async Task ResolveAuthorityAsync_DnsEndpointFails_IsResolutionFailed()
     {
-        using var resolver = Create(_ => ScriptedHandler.Status(HttpStatusCode.InternalServerError), out _);
+        using var resolver = Create(_ => HttpStub.Status(HttpStatusCode.InternalServerError), out _);
 
         var ex = await Assert.ThrowsAsync<LexiconResolutionException>(() => resolver.ResolveAuthorityAsync(Post));
 
@@ -218,7 +219,7 @@ public sealed class LexiconResolverTests
 
         Assert.Equal(LexiconResolutionErrorKind.ResolutionFailed, ex.Kind);
         Assert.Contains(nameof(IdentityResolverOptions.DnsOverHttpsUrl), ex.Message);
-        Assert.Equal(0, handler.Count);
+        Assert.Empty(handler.Requests);
     }
 
     [Fact]
@@ -230,7 +231,7 @@ public sealed class LexiconResolverTests
 
         await resolver.ResolveAuthorityAsync(Post);
 
-        Assert.Equal("cloudflare-dns.com", Assert.Single(handler.Requests).Host);
+        Assert.Equal("cloudflare-dns.com", Assert.Single(handler.Uris).Host);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -264,16 +265,16 @@ public sealed class LexiconResolverTests
 
         Assert.Equal(LexiconResolutionErrorKind.ResolutionFailed, ex.Kind);
         Assert.Contains(message, ex.Message);
-        Assert.DoesNotContain(handler.Requests, uri => uri.AbsolutePath.StartsWith("/xrpc/", StringComparison.Ordinal));
+        Assert.DoesNotContain(handler.Uris, uri => uri.AbsolutePath.StartsWith("/xrpc/", StringComparison.Ordinal));
     }
 
     [Fact]
     public async Task ResolveAsync_PdsAnswersRecordNotFound_IsNotFound()
     {
         using var resolver = Create(
-            request => request.RequestUri!.Host == "dns.google"
-                ? ScriptedHandler.TxtAnswer($"\"did={Authority}\"")
-                : ScriptedHandler.Json("{\"error\":\"RecordNotFound\",\"message\":\"Could not locate record\"}", HttpStatusCode.BadRequest),
+            request => request.Uri.Host == "dns.google"
+                ? HttpStub.TxtAnswer($"\"did={Authority}\"")
+                : HttpStub.JsonResponse("{\"error\":\"RecordNotFound\",\"message\":\"Could not locate record\"}", HttpStatusCode.BadRequest),
             out _);
 
         var ex = await Assert.ThrowsAsync<LexiconResolutionException>(() => resolver.ResolveAsync(Post));
@@ -285,9 +286,9 @@ public sealed class LexiconResolverTests
     public async Task ResolveAsync_PdsFails_IsResolutionFailed()
     {
         using var resolver = Create(
-            request => request.RequestUri!.Host == "dns.google"
-                ? ScriptedHandler.TxtAnswer($"\"did={Authority}\"")
-                : ScriptedHandler.Json("{\"error\":\"RepoTakendown\"}", HttpStatusCode.BadRequest),
+            request => request.Uri.Host == "dns.google"
+                ? HttpStub.TxtAnswer($"\"did={Authority}\"")
+                : HttpStub.JsonResponse("{\"error\":\"RepoTakendown\"}", HttpStatusCode.BadRequest),
             out _);
 
         var ex = await Assert.ThrowsAsync<LexiconResolutionException>(() => resolver.ResolveAsync(Post));
@@ -301,9 +302,9 @@ public sealed class LexiconResolverTests
     {
         using var resolver = new LexiconResolver(
             _didResolver,
-            new HttpClient(new ScriptedHandler((request, ct) => request.RequestUri!.Host == "dns.google"
-                ? Task.FromResult(ScriptedHandler.TxtAnswer($"\"did={Authority}\""))
-                : ScriptedHandler.Never(ct))),
+            new HttpClient(new HttpStub().Fallback((request, ct) => request.Uri.Host == "dns.google"
+                ? Task.FromResult(HttpStub.TxtAnswer($"\"did={Authority}\""))
+                : HttpStub.Never(ct))),
             new IdentityResolverOptions { RequestTimeout = TimeSpan.FromMilliseconds(200) });
 
         var ex = await Assert.ThrowsAsync<LexiconResolutionException>(() => resolver.ResolveAsync(Post));
@@ -373,7 +374,7 @@ public sealed class LexiconResolverTests
         using var resolver = Create(Network(), out var handler);
 
         await Assert.ThrowsAsync<ArgumentException>(() => resolver.ResolveIncludeScopeAsync(scope));
-        Assert.Equal(0, handler.Count);
+        Assert.Empty(handler.Requests);
     }
 
     [Fact]
@@ -392,23 +393,23 @@ public sealed class LexiconResolverTests
     // ──────────────────────────────────────────────────────────
 
     private LexiconResolver Create(
-        Func<HttpRequestMessage, HttpResponseMessage> respond,
-        out ScriptedHandler handler,
+        Func<HttpStub.RecordedRequest, HttpResponseMessage> respond,
+        out HttpStub handler,
         IdentityResolverOptions? options = null)
     {
-        handler = new ScriptedHandler(respond);
+        handler = new HttpStub().Fallback(respond);
         return new LexiconResolver(_didResolver, new HttpClient(handler), options);
     }
 
     /// <summary>The network of the vector: the authority's DNS record and its PDS serving the proofs.</summary>
-    private static Func<HttpRequestMessage, HttpResponseMessage> Network() => request =>
+    private static Func<HttpStub.RecordedRequest, HttpResponseMessage> Network() => request =>
     {
-        var uri = request.RequestUri!;
+        var uri = request.Uri;
         if (uri.Host is "dns.google" or "cloudflare-dns.com")
         {
             return uri.Query.Contains($"name={DnsName}&", StringComparison.Ordinal)
-                ? ScriptedHandler.TxtAnswer($"\"did={Authority}\"")
-                : ScriptedHandler.Json("{\"Status\":3}");
+                ? HttpStub.TxtAnswer($"\"did={Authority}\"")
+                : HttpStub.JsonResponse("{\"Status\":3}");
         }
 
         if (uri.Host == "pds.example.com" && uri.AbsolutePath == "/xrpc/com.atproto.sync.getRecord")
@@ -420,7 +421,7 @@ public sealed class LexiconResolverTests
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = car };
         }
 
-        return ScriptedHandler.Status(HttpStatusCode.NotFound);
+        return HttpStub.Status(HttpStatusCode.NotFound);
     };
 
     private static JsonElement Reference(Nsid nsid) =>

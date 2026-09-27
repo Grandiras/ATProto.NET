@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using ATProtoNet.Identity;
 using ATProtoNet.Streaming;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -38,9 +39,9 @@ public class PlcClientTests
 
         """;
 
-    private static (PlcClient Client, ScriptedHandler Handler) Create(Func<HttpRequestMessage, HttpResponseMessage> respond)
+    private static (PlcClient Client, HttpStub Handler) Create(Func<HttpStub.RecordedRequest, HttpResponseMessage> respond)
     {
-        var handler = new ScriptedHandler(respond);
+        var handler = new HttpStub().Fallback(respond);
         return (new PlcClient(new HttpClient(handler), Directory), handler);
     }
 
@@ -51,12 +52,12 @@ public class PlcClientTests
     {
         // A bare "did:plc:…" parses as an absolute URI with the scheme "did"; it must not escape
         // the directory.
-        var (client, handler) = Create(_ => ScriptedHandler.Json(DidDocs.AtprotoDotCom));
+        var (client, handler) = Create(_ => HttpStub.JsonResponse(DidDocs.AtprotoDotCom));
         using var _ = client;
 
         var document = await client.ResolveAsync(TestDid);
 
-        Assert.Equal(new Uri("https://plc.directory/did:plc:ewvi7nxzyoun6zhxrhs64oiz"), Assert.Single(handler.Requests));
+        Assert.Equal(new Uri("https://plc.directory/did:plc:ewvi7nxzyoun6zhxrhs64oiz"), Assert.Single(handler.Uris));
         Assert.Equal(TestDid, document.Id);
         Assert.Equal(Handle.Parse("atproto.com"), document.GetHandle());
         Assert.Equal(new Uri("https://enoki.us-east.host.bsky.network"), document.GetPdsEndpoint());
@@ -65,12 +66,12 @@ public class PlcClientTests
     [Fact]
     public async Task ResolveAsync_DirectoryWithAPathPrefix_KeepsThePrefix()
     {
-        var handler = new ScriptedHandler(_ => ScriptedHandler.Json(DidDocs.AtprotoDotCom));
+        var handler = new HttpStub().Fallback(_ => HttpStub.JsonResponse(DidDocs.AtprotoDotCom));
         using var client = new PlcClient(new HttpClient(handler), new Uri("https://mirror.example.com/plc"));
 
         await client.ResolveAsync(TestDid);
 
-        Assert.Equal(new Uri("https://mirror.example.com/plc/did:plc:ewvi7nxzyoun6zhxrhs64oiz"), Assert.Single(handler.Requests));
+        Assert.Equal(new Uri("https://mirror.example.com/plc/did:plc:ewvi7nxzyoun6zhxrhs64oiz"), Assert.Single(handler.Uris));
     }
 
     [Theory]
@@ -79,7 +80,7 @@ public class PlcClientTests
     [InlineData(HttpStatusCode.ServiceUnavailable, DidResolutionErrorKind.HttpError)]
     public async Task ResolveAsync_ErrorStatus_IsReportedByKind(HttpStatusCode status, DidResolutionErrorKind expected)
     {
-        var (client, _) = Create(_ => ScriptedHandler.Json("{}", status));
+        var (client, _) = Create(_ => HttpStub.JsonResponse("{}", status));
         using var __ = client;
 
         var ex = await Assert.ThrowsAsync<DidResolutionException>(() => client.ResolveAsync(TestDid));
@@ -90,7 +91,7 @@ public class PlcClientTests
     [Fact]
     public async Task ResolveAsync_DocumentForAnotherDid_IsRefused()
     {
-        var (client, _) = Create(_ => ScriptedHandler.Json(DidDocs.Json("did:plc:zzzzzzzzzzzzzzzzzzzzzzzz")));
+        var (client, _) = Create(_ => HttpStub.JsonResponse(DidDocs.Json("did:plc:zzzzzzzzzzzzzzzzzzzzzzzz")));
         using var __ = client;
 
         var ex = await Assert.ThrowsAsync<DidResolutionException>(() => client.ResolveAsync(TestDid));
@@ -101,13 +102,13 @@ public class PlcClientTests
     [Fact]
     public async Task ResolveAsync_NotAPlcDid_IsUnsupported()
     {
-        var (client, handler) = Create(_ => ScriptedHandler.Json("{}"));
+        var (client, handler) = Create(_ => HttpStub.JsonResponse("{}"));
         using var _ = client;
 
         var ex = await Assert.ThrowsAsync<DidResolutionException>(() => client.ResolveAsync(Did.Parse("did:web:example.com")));
 
         Assert.Equal(DidResolutionErrorKind.UnsupportedMethod, ex.Kind);
-        Assert.Equal(0, handler.Count);
+        Assert.Empty(handler.Requests);
     }
 
     // ── Logs and state ───────────────────────────────────────
@@ -115,12 +116,12 @@ public class PlcClientTests
     [Fact]
     public async Task GetAuditLogAsync_ParsesEveryEntry()
     {
-        var (client, handler) = Create(_ => ScriptedHandler.Json(AuditLogJson));
+        var (client, handler) = Create(_ => HttpStub.JsonResponse(AuditLogJson));
         using var _ = client;
 
         var entries = await client.GetAuditLogAsync(TestDid);
 
-        Assert.Equal(new Uri("https://plc.directory/did:plc:ewvi7nxzyoun6zhxrhs64oiz/log/audit"), Assert.Single(handler.Requests));
+        Assert.Equal(new Uri("https://plc.directory/did:plc:ewvi7nxzyoun6zhxrhs64oiz/log/audit"), Assert.Single(handler.Uris));
         Assert.Equal(2, entries.Count);
         Assert.All(entries, e => Assert.Equal(TestDid, e.Did));
         Assert.Equal(Cid.Parse("bafyreibfvkh3n6odvdpwj54j4xxdsgnn4zo5utbyf7z7nfbyikhtygzjcq"), entries[0].Cid);
@@ -139,12 +140,12 @@ public class PlcClientTests
     {
         var operations = System.Text.Json.JsonSerializer.Serialize(
             JsonNode.Parse(AuditLogJson)!.AsArray().Select(e => e!["operation"]!.DeepClone()).ToArray());
-        var (client, handler) = Create(_ => ScriptedHandler.Json(operations));
+        var (client, handler) = Create(_ => HttpStub.JsonResponse(operations));
         using var _ = client;
 
         var log = await client.GetOperationLogAsync(TestDid);
 
-        Assert.Equal(new Uri("https://plc.directory/did:plc:ewvi7nxzyoun6zhxrhs64oiz/log"), Assert.Single(handler.Requests));
+        Assert.Equal(new Uri("https://plc.directory/did:plc:ewvi7nxzyoun6zhxrhs64oiz/log"), Assert.Single(handler.Uris));
         Assert.Equal(2, log.Count);
         Assert.Equal(2, log[1].RotationKeys!.Count);
         Assert.Equal("did:key:zQ3shXjHeiBuRCKmM36cuYnm7YEMzhGnCmCyW92sRJ9pribSF", log[1].VerificationMethods!["atproto"]);
@@ -154,24 +155,24 @@ public class PlcClientTests
     public async Task GetLastOperationAsync_ReadsTheLatestOperation()
     {
         var last = JsonNode.Parse(AuditLogJson)!.AsArray()[1]!["operation"]!.ToJsonString();
-        var (client, handler) = Create(_ => ScriptedHandler.Json(last));
+        var (client, handler) = Create(_ => HttpStub.JsonResponse(last));
         using var _ = client;
 
         var operation = await client.GetLastOperationAsync(TestDid);
 
-        Assert.Equal(new Uri("https://plc.directory/did:plc:ewvi7nxzyoun6zhxrhs64oiz/log/last"), Assert.Single(handler.Requests));
+        Assert.Equal(new Uri("https://plc.directory/did:plc:ewvi7nxzyoun6zhxrhs64oiz/log/last"), Assert.Single(handler.Uris));
         Assert.Equal("lRDLz1RRcauzDos9LZ0Q5bi3YzJXbpgrUpZ51e__tdg89xYgHiWWtnKcrAJanBMkgW0uloD40TYWMVXyZWi4mw", operation.Sig);
     }
 
     [Fact]
     public async Task GetPlcDataAsync_ReadsTheCurrentState()
     {
-        var (client, handler) = Create(_ => ScriptedHandler.Json(DataJson));
+        var (client, handler) = Create(_ => HttpStub.JsonResponse(DataJson));
         using var _ = client;
 
         var data = await client.GetPlcDataAsync(TestDid);
 
-        Assert.Equal(new Uri("https://plc.directory/did:plc:ewvi7nxzyoun6zhxrhs64oiz/data"), Assert.Single(handler.Requests));
+        Assert.Equal(new Uri("https://plc.directory/did:plc:ewvi7nxzyoun6zhxrhs64oiz/data"), Assert.Single(handler.Uris));
         Assert.Null(data.Type);
         Assert.Null(data.Sig);
         Assert.Equal("did:key:zQ3shunBKsXixLxKtC5qeSG9E4J5RkGN57im31pcTzbNQnm5w", data.VerificationMethods!["atproto"]);
@@ -181,7 +182,7 @@ public class PlcClientTests
     [Fact]
     public async Task GetPlcDataAsync_Tombstoned_IsDeactivated()
     {
-        var (client, _) = Create(_ => ScriptedHandler.Json("{\"message\":\"DID not available\"}", HttpStatusCode.Gone));
+        var (client, _) = Create(_ => HttpStub.JsonResponse("{\"message\":\"DID not available\"}", HttpStatusCode.Gone));
         using var __ = client;
 
         var ex = await Assert.ThrowsAsync<DidResolutionException>(() => client.GetPlcDataAsync(TestDid));
@@ -192,7 +193,7 @@ public class PlcClientTests
     [Fact]
     public async Task GetAuditLogAsync_Malformed_IsInvalidDocument()
     {
-        var (client, _) = Create(_ => ScriptedHandler.Json("{\"not\":\"a list\"}"));
+        var (client, _) = Create(_ => HttpStub.JsonResponse("{\"not\":\"a list\"}"));
         using var __ = client;
 
         var ex = await Assert.ThrowsAsync<DidResolutionException>(() => client.GetAuditLogAsync(TestDid));
@@ -205,11 +206,11 @@ public class PlcClientTests
     [InlineData(HttpStatusCode.ServiceUnavailable, false)]
     public async Task IsHealthyAsync_ReflectsTheHealthEndpoint(HttpStatusCode status, bool expected)
     {
-        var (client, handler) = Create(_ => ScriptedHandler.Json("{\"version\":\"0.3.0\"}", status));
+        var (client, handler) = Create(_ => HttpStub.JsonResponse("{\"version\":\"0.3.0\"}", status));
         using var _ = client;
 
         Assert.Equal(expected, await client.IsHealthyAsync());
-        Assert.Equal(new Uri("https://plc.directory/_health"), Assert.Single(handler.Requests));
+        Assert.Equal(new Uri("https://plc.directory/_health"), Assert.Single(handler.Uris));
     }
 
     [Fact]
@@ -230,7 +231,7 @@ public class PlcClientTests
         var (client, handler) = Create(request =>
         {
             method = request.Method;
-            return ScriptedHandler.Json("{}");
+            return HttpStub.JsonResponse("{}");
         });
         using var _ = client;
 
@@ -238,13 +239,13 @@ public class PlcClientTests
 
         Assert.Equal(TestDid, did);
         Assert.Equal(HttpMethod.Post, method);
-        Assert.Equal(new Uri("https://plc.directory/did:plc:ewvi7nxzyoun6zhxrhs64oiz"), Assert.Single(handler.Requests));
+        Assert.Equal(new Uri("https://plc.directory/did:plc:ewvi7nxzyoun6zhxrhs64oiz"), Assert.Single(handler.Uris));
     }
 
     [Fact]
     public async Task SubmitOperationAsync_Rejected_SurfacesTheDirectorysMessage()
     {
-        var (client, _) = Create(_ => ScriptedHandler.Json("{\"message\":\"Invalid signature on op\"}", HttpStatusCode.BadRequest));
+        var (client, _) = Create(_ => HttpStub.JsonResponse("{\"message\":\"Invalid signature on op\"}", HttpStatusCode.BadRequest));
         using var __ = client;
 
         var ex = await Assert.ThrowsAsync<DidResolutionException>(
@@ -259,12 +260,12 @@ public class PlcClientTests
     [Fact]
     public async Task ExportAsync_ParsesTheSequencedJsonLines()
     {
-        var (client, handler) = Create(_ => ScriptedHandler.Json(ExportJsonLines));
+        var (client, handler) = Create(_ => HttpStub.JsonResponse(ExportJsonLines));
         using var _ = client;
 
         var entries = await client.ExportAsync(after: 0, count: 2);
 
-        Assert.Equal(new Uri("https://plc.directory/export?after=0&count=2"), Assert.Single(handler.Requests));
+        Assert.Equal(new Uri("https://plc.directory/export?after=0&count=2"), Assert.Single(handler.Uris));
         Assert.Equal(2, entries.Count);
         Assert.Equal([1L, 2L], entries.Select(e => e.Seq!.Value));
         Assert.All(entries, e => Assert.Equal("sequenced_op", e.Type));
@@ -279,11 +280,11 @@ public class PlcClientTests
     [InlineData(0L, 1001)]
     public async Task ExportAsync_OutOfRangeArguments_Throw(long after, int? count)
     {
-        var (client, handler) = Create(_ => ScriptedHandler.Json(""));
+        var (client, handler) = Create(_ => HttpStub.JsonResponse(""));
         using var _ = client;
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => client.ExportAsync(after, count));
-        Assert.Equal(0, handler.Count);
+        Assert.Empty(handler.Requests);
     }
 
     [Fact]

@@ -6,7 +6,9 @@ using ATProtoNet.Tests.TestSupport;
 namespace ATProtoNet.Tests.Lexicon.Com.AtProto;
 
 /// <summary>
-/// The typed com.atproto surface: identifiers go out as their strings and come back parsed.
+/// The typed com.atproto surface: identifiers go out as their strings and come back parsed, and
+/// a response with an invalid one is a format error. The AT URI overloads' request shapes are
+/// rows in <see cref="EndpointRequestTests"/>.
 /// </summary>
 public class TypedRepoClientTests : IDisposable
 {
@@ -18,11 +20,7 @@ public class TypedRepoClientTests : IDisposable
 
     private readonly XrpcTestClient _fixture = new();
 
-    public TypedRepoClientTests() => _fixture.Fallback("{}");
-
     public void Dispose() => _fixture.Dispose();
-
-    private HttpStub.RecordedRequest Last => _fixture.Last;
 
     [Fact]
     public async Task CreateRecordAsync_WritesIdentifiersAsStringsAndParsesTheResponse()
@@ -32,38 +30,12 @@ public class TypedRepoClientTests : IDisposable
         var created = await _fixture.Client.Repo.CreateRecordAsync(
             Alice, Notes, new { text = "hi" }, RecordKey.Parse("3k2la"), swapCommit: Cid.Parse(CidText));
 
-        var body = Last.JsonBody;
-        Assert.Equal(DidText, body.GetProperty("repo").GetString());
-        Assert.Equal("com.example.note", body.GetProperty("collection").GetString());
-        Assert.Equal("3k2la", body.GetProperty("rkey").GetString());
-        Assert.Equal(CidText, body.GetProperty("swapCommit").GetString());
-
+        _fixture.AssertPost(
+            "com.atproto.repo.createRecord",
+            $$"""{"repo":"{{DidText}}","collection":"com.example.note","rkey":"3k2la","record":{"text":"hi"},"swapCommit":"{{CidText}}"}""");
         Assert.Equal(RecordKey.Parse("3k2la"), created.Uri.RecordKey);
         Assert.Equal(CidText, created.Cid.Value);
         Assert.Equal(Tid.Parse("3k2la2bcd5e2a"), created.Commit!.Rev);
-    }
-
-    [Fact]
-    public async Task GetRecordAsync_ByAtUri_SplitsTheUriIntoItsParameters()
-    {
-        _fixture.Fallback($$$"""{"uri":"at://{{{DidText}}}/com.example.note/n1","value":{}}""");
-
-        var record = await _fixture.Client.Repo.GetRecordAsync(AtUri.Parse($"at://{DidText}/com.example.note/n1"));
-
-        Assert.Equal(
-            $"https://pds.example.com/xrpc/com.atproto.repo.getRecord?repo={DidText}&collection=com.example.note&rkey=n1",
-            Uri.UnescapeDataString(Last.Uri.ToString()));
-        Assert.Null(record.Cid);
-    }
-
-    [Fact]
-    public async Task DeleteRecordAsync_ByAtUri_SendsItsParts()
-    {
-        await _fixture.Client.Repo.DeleteRecordAsync(AtUri.Parse($"at://{DidText}/com.example.note/n1"));
-
-        var body = Last.JsonBody;
-        Assert.Equal(DidText, body.GetProperty("repo").GetString());
-        Assert.Equal("n1", body.GetProperty("rkey").GetString());
     }
 
     [Fact]
@@ -72,19 +44,6 @@ public class TypedRepoClientTests : IDisposable
         await Assert.ThrowsAsync<ArgumentException>(
             () => _fixture.Client.Repo.GetRecordAsync(AtUri.Parse($"at://{DidText}/com.example.note")));
         Assert.Empty(_fixture.Requests);
-    }
-
-    [Fact]
-    public async Task ListRecordsAsync_SendsFiltersLimitAndCursor()
-    {
-        _fixture.Fallback("""{"records":[]}""");
-
-        await _fixture.Client.Repo.ListRecordsAsync(Alice, Notes, reverse: true, limit: 5, cursor: "c");
-
-        var query = Uri.UnescapeDataString(Last.Query);
-        Assert.Contains("limit=5", query);
-        Assert.Contains("cursor=c", query);
-        Assert.Contains("reverse=true", query);
     }
 
     [Fact]
@@ -107,7 +66,7 @@ public class TypedRepoClientTests : IDisposable
             new RecordSubject { Uri = AtUri.Parse($"at://{DidText}/com.example.note/n1"), Cid = Cid.Parse(CidText) },
             ReportReasons.Spam);
 
-        var subject = Last.JsonBody.GetProperty("subject");
+        var subject = _fixture.Last.JsonBody.GetProperty("subject");
         Assert.Equal("com.atproto.repo.strongRef", subject.GetProperty("$type").GetString());
         Assert.Equal(CidText, subject.GetProperty("cid").GetString());
         Assert.Equal(Alice, report.ReportedBy);

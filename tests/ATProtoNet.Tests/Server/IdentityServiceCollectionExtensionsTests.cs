@@ -1,7 +1,7 @@
 using ATProtoNet.Identity;
 using ATProtoNet.Server;
 using ATProtoNet.Server.Spaces;
-using ATProtoNet.Tests.Server.Spaces;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -132,7 +132,7 @@ public class IdentityServiceCollectionExtensionsTests
         using var userKey = ATProtoNet.Crypto.AtProtoCrypto.GenerateP256Key();
         var userDid = Did.Parse("did:plc:aaaaaaaaaaaaaaaaaaaaaaaa");
         var space = ATProtoNet.Spaces.SpaceUri.Parse("at://did:plc:bbbbbbbbbbbbbbbbbbbbbbbb/space/com.example.forum/default");
-        var fake = new FakeDidDocumentResolver().PublishAccount(userDid, userKey);
+        var fake = new StubDidResolver().PublishAccount(userDid, userKey);
 
         var services = new ServiceCollection()
             .AddKeyedSingleton<IDidResolver>(SpaceServerExtensions.DidResolverKey, fake)
@@ -143,6 +143,6 @@ public class IdentityServiceCollectionExtensionsTests
             ATProtoNet.Spaces.SpaceTokenType.Delegation, userDid, space.Value, userKey, audience: space.HostAudience);
         await provider.GetRequiredService<SpaceDelegationTokenVerifier>().VerifyAsync(token, space);
 
-        Assert.Equal(1, fake.ResolveCount);
+        Assert.Equal(1, fake.Resolves);
     }
 }

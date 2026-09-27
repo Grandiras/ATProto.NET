@@ -42,79 +42,9 @@ public sealed class VideoUploadTests : IDisposable
     //  Endpoints
     // ──────────────────────────────────────────────────────────
 
-    [Fact]
-    public async Task StartUploadAsync_PostsSizeTypeAndAdvisoryFields()
-    {
-        _handler.On(Start, """{"jobId":"job-1","partSizeBytes":8388608,"partCount":3,"expiresAt":"2026-09-25T13:00:00.000Z"}""");
-
-        var session = await Video.StartUploadAsync(
-            20_000_000, "video/mp4", name: "clip.mp4", durationMs: 61_000, width: 1920, height: 1080);
-
-        Assert.Equal(
-            """{"sizeBytes":20000000,"mimeType":"video/mp4","name":"clip.mp4","durationMs":61000,"width":1920,"height":1080}""",
-            Assert.Single(_handler.Requests).BodyText);
-        Assert.Equal("job-1", session.JobId);
-        Assert.Equal(8_388_608, session.PartSizeBytes);
-        Assert.Equal(3, session.PartCount);
-        Assert.Equal("2026-09-25T13:00:00.000Z", session.ExpiresAt.ToString());
-    }
-
-    [Fact]
-    public async Task UploadPartAsync_SendsOctetStreamWithJobAndPartNumber()
-    {
-        _handler.On(Part, """{"partNumber":2,"sizeBytes":4}""");
-
-        var stored = await Video.UploadPartAsync("job-1", 2, new MemoryStream([1, 2, 3, 4]));
-
-        var request = Assert.Single(_handler.Requests);
-        Assert.Equal(HttpMethod.Post, request.Method);
-        Assert.Equal("jobId=job-1&partNumber=2", request.Query);
-        Assert.Equal("application/octet-stream", request.ContentType);
-        Assert.Equal(4, request.ContentLength);
-        Assert.Equal([1, 2, 3, 4], request.Body);
-        Assert.Equal(2, stored.PartNumber);
-        Assert.Equal(4, stored.SizeBytes);
-    }
-
-    [Fact]
-    public async Task FinishUploadAsync_BindsTheProcessingJob()
-    {
-        _handler.On(Finish, $$$"""{"completedJobId":"job-9","jobStatus":{"jobId":"job-9","did":"{{{AliceDid}}}","state":"JOB_STATE_ENCODING","progress":10}}""");
-
-        var finished = await Video.FinishUploadAsync("job-1");
-
-        Assert.Equal("""{"jobId":"job-1"}""", Assert.Single(_handler.Requests).BodyText);
-        Assert.Equal("job-9", finished.CompletedJobId);
-        Assert.Equal(JobState.Encoding, finished.JobStatus.State);
-        Assert.Equal(10, finished.JobStatus.Progress);
-    }
-
-    [Fact]
-    public async Task GetUploadStatusAsync_BindsTheSession()
-    {
-        _handler.On("app.bsky.video.getUploadStatus", """{"jobId":"job-1","partSizeBytes":5242880,"partCount":3,"receivedParts":[1,3],"expiresAt":"2026-09-25T13:00:00.000Z","state":"failed","failureReason":"parts missing at expiry"}""");
-
-        var status = await Video.GetUploadStatusAsync("job-1");
-
-        Assert.Equal("jobId=job-1", Assert.Single(_handler.Requests).Query);
-        Assert.Equal(HttpMethod.Get, _handler.Requests[0].Method);
-        Assert.Equal([1, 3], status.ReceivedParts);
-        Assert.Equal(UploadState.Failed, status.State);
-        Assert.Equal("parts missing at expiry", status.FailureReason);
-        Assert.Null(status.JobStatus);
-    }
-
-    [Fact]
-    public async Task AbortUploadAsync_BindsTheOutcome()
-    {
-        _handler.On(Abort, """{"state":"completed","completedJobId":"job-9"}""");
-
-        var outcome = await Video.AbortUploadAsync("job-1");
-
-        Assert.Equal("""{"jobId":"job-1"}""", Assert.Single(_handler.Requests).BodyText);
-        Assert.Equal(UploadState.Completed, outcome.State);
-        Assert.Equal("job-9", outcome.CompletedJobId);
-    }
+    // startUpload and getUploadStatus are rows in ATProtoNet.Tests.Lexicon.EndpointRequestTests;
+    // uploadPart, finishUpload and abortUpload are asserted request by request by the
+    // UploadVideoAsync tests below, which drive them.
 
     [Fact]
     public async Task UploadVideoInOneRequestAsync_SendsTheWholeVideo()

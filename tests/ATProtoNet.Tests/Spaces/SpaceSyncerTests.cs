@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text;
 using System.Text.Json;
 using ATProtoNet.Crypto;
 using ATProtoNet.Http;
@@ -7,8 +6,9 @@ using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Serialization;
 using ATProtoNet.Spaces;
-using ATProtoNet.Tests.Server.Spaces;
 using Microsoft.Extensions.Logging.Abstractions;
+
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Spaces;
 
@@ -28,13 +28,13 @@ public class SpaceSyncerTests : IDisposable
 
     public SpaceSyncerTests()
     {
-        _httpClient = new HttpClient(_host) { BaseAddress = new Uri("https://repo.example.com/") };
+        _httpClient = new HttpClient(_host.Stub) { BaseAddress = new Uri("https://repo.example.com/") };
         _xrpc = new XrpcClient(_httpClient, _httpClient.BaseAddress!, NullLogger.Instance);
         _xrpc.SetTokens("credential");
         _client = new SpaceClient(_xrpc);
     }
 
-    private readonly FakeDidDocumentResolver _resolver = new();
+    private readonly StubDidResolver _resolver = new();
 
     private SpaceSyncer CreateSyncer()
     {
@@ -99,7 +99,7 @@ public class SpaceSyncerTests : IDisposable
 
         await CreateSyncer().SyncRepoAsync(_client, new SpaceRepoCursor(Repo, Tid.Parse("3l6oveex3ii23"), default));
 
-        Assert.Contains("since=3l6oveex3ii23", _host.LastQuery, StringComparison.Ordinal);
+        Assert.Contains("since=3l6oveex3ii23", _host.Stub.Last.Query, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -336,7 +336,7 @@ public class SpaceSyncerTests : IDisposable
             () => CreateSyncer().SyncRepoAsync(_client, new SpaceRepoCursor(Repo)));
 
         // One refetch before the signature is declared bad; the key it found was the same.
-        Assert.Equal(1, _resolver.RefreshCount);
+        Assert.Equal(1, _resolver.Refreshes);
     }
 
     [Theory]
@@ -359,7 +359,7 @@ public class SpaceSyncerTests : IDisposable
             () => new SpaceSyncer(_space, _store, _resolver).SyncRepoAsync(_client, new SpaceRepoCursor(Repo)));
 
         Assert.Contains("publishes no usable AT Protocol signing key", ex.Message, StringComparison.Ordinal);
-        Assert.Equal(0, _resolver.RefreshCount);
+        Assert.Equal(0, _resolver.Refreshes);
     }
 
     [Fact]
@@ -367,7 +367,7 @@ public class SpaceSyncerTests : IDisposable
     {
         using var rotated = AtProtoCrypto.GenerateP256Key();
         var syncer = CreateSyncer();
-        _resolver.Rotate(Repo.Value, FakeDidDocumentResolver.AccountDocument(Repo.Value, rotated));
+        _resolver.Rotate(Repo.Value, StubDidResolver.AccountDocument(Repo.Value, rotated));
 
         var record = Record("com.example.n", "a", "x");
         var commit = SpaceRepoCommit
@@ -378,7 +378,7 @@ public class SpaceSyncerTests : IDisposable
         var result = await syncer.SyncRepoAsync(_client, new SpaceRepoCursor(Repo));
 
         Assert.Equal(SpaceSyncOutcome.UpToDate, result.Outcome);
-        Assert.Equal(1, _resolver.RefreshCount);
+        Assert.Equal(1, _resolver.Refreshes);
     }
 
     [Theory]
@@ -496,8 +496,22 @@ public class SpaceSyncerTests : IDisposable
         }
     }
 
-    private sealed class StubHost : HttpMessageHandler
+    /// <summary>A space host on an <see cref="HttpStub"/>, answering from what the test last set.</summary>
+    private sealed class StubHost : IDisposable
     {
+        public StubHost()
+        {
+            Stub.On("com.atproto.space.listRepoOps", _ => HttpStub.JsonResponse(Ops, OpsStatus));
+            Stub.Fallback(_ => CarStatus != HttpStatusCode.OK
+                ? HttpStub.JsonResponse(CarError, CarStatus)
+                : new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = UndeclaredLength ? new UnsizedContent(Car ?? []) : new ByteArrayContent(Car ?? []),
+                });
+        }
+
+        public HttpStub Stub { get; } = new();
+
         public string Ops { get; set; } = """{"ops":[]}""";
 
         public HttpStatusCode OpsStatus { get; set; } = HttpStatusCode.OK;
@@ -511,34 +525,7 @@ public class SpaceSyncerTests : IDisposable
         /// <summary>Sends the CAR without a <c>Content-Length</c>, as a chunked response would.</summary>
         public bool UndeclaredLength { get; set; }
 
-        public string LastQuery { get; private set; } = "";
-
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            LastQuery = request.RequestUri!.Query;
-
-            if (request.RequestUri.AbsolutePath.EndsWith("listRepoOps", StringComparison.Ordinal))
-            {
-                return Task.FromResult(new HttpResponseMessage(OpsStatus)
-                {
-                    Content = new StringContent(Ops, Encoding.UTF8, "application/json"),
-                });
-            }
-
-            if (CarStatus != HttpStatusCode.OK)
-            {
-                return Task.FromResult(new HttpResponseMessage(CarStatus)
-                {
-                    Content = new StringContent(CarError, Encoding.UTF8, "application/json"),
-                });
-            }
-
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = UndeclaredLength ? new UnsizedContent(Car ?? []) : new ByteArrayContent(Car ?? []),
-            });
-        }
+        public void Dispose() => Stub.Dispose();
     }
 
     /// <summary>A body whose length is not known up front.</summary>

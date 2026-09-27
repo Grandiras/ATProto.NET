@@ -8,6 +8,7 @@ using ATProtoNet.Serialization;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Server.Xrpc;
 using ATProtoNet.Spaces;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
@@ -44,7 +45,7 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
                     services.AddRouting();
                     services.AddKeyedSingleton<IDidResolver>(
                         SpaceServerExtensions.DidResolverKey,
-                        new FakeDidDocumentResolver().PublishAccount(Owner, _authorityKey, BaseUrl));
+                        new StubDidResolver().PublishAccount(Owner, _authorityKey, BaseUrl));
                     services.AddSingleton<ISimpleSpaceStore>(_store);
                     services.AddSingleton<ISpaceCallerResolver>(_caller);
 

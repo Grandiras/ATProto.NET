@@ -1,5 +1,4 @@
 using System.Text.Json;
-using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
@@ -149,67 +148,12 @@ public sealed class SpaceClientTests : IDisposable
         Assert.Equal("more", response.Cursor);
     }
 
-    [Fact]
-    public async Task EnumerateRecordsAsync_FollowsPaginationAndStops()
-    {
-        _fixture
-            .On("com.atproto.space.listRecords", $$"""{"records":[{"collection":"com.example.n","rkey":"a","cid":"{{Cid1}}"}],"cursor":"next"}""")
-            .On("com.atproto.space.listRecords", $$"""{"records":[{"collection":"com.example.n","rkey":"b","cid":"{{Cid2}}"}]}""");
-
-        var records = new List<SpaceRecordView>();
-        await foreach (var record in Space_.EnumerateRecordsAsync(Space, Repo))
-            records.Add(record);
-
-        Assert.Equal(["com.example.n/a", "com.example.n/b"], records.Select(r => r.Path));
-    }
+    // Every Enumerate* helper's cursor, items and repeated-cursor stop: PaginationTests' enumerator theory.
 
     [Fact]
-    public async Task Enumerators_HostRepeatingItsCursor_StopAfterTheRepeat()
-    {
-        // Every page carries items and the same cursor. The loops these enumerators used to run
-        // stopped only on an empty page, so such a host was asked for the same page forever.
-        Assert.Equal(2, await CountRequestsAsync(
-            "com.atproto.space.listSpaces",
-            $$"""{"spaces":[{"uri":"{{Space}}"}],"cursor":"same"}""",
-            () => Pagination.EnumerateAsync<ListSpacesResponse, SpaceView>(
-                (cursor, ct) => Space_.ListSpacesAsync(cursor: cursor, cancellationToken: ct))));
-        Assert.Equal(2, await CountRequestsAsync(
-            "com.atproto.space.listRepos",
-            $$"""{"repos":[{"did":"{{Repo}}","rev":"3l6oveex3ii2l","hash":{"$bytes":"AQID"} }],"cursor":"same"}""",
-            () => Space_.EnumerateReposAsync(Space)));
-        Assert.Equal(2, await CountRequestsAsync(
-            "com.atproto.space.listRecords",
-            $$"""{"records":[{"collection":"com.example.n","rkey":"a","cid":"{{Cid1}}"}],"cursor":"same"}""",
-            () => Space_.EnumerateRecordsAsync(Space, Repo)));
-        Assert.Equal(2, await CountRequestsAsync(
-            "com.atproto.space.listBlobs",
-            $$"""{"cids":["{{Cid1}}"],"cursor":"same"}""",
-            () => Pagination.EnumerateAsync<ListSpaceBlobsResponse, Cid>(
-                (cursor, ct) => Space_.ListBlobsAsync(Space, Repo, cursor: cursor, cancellationToken: ct))));
-        Assert.Equal(2, await CountRequestsAsync(
-            "com.atproto.simplespace.listMembers",
-            $$"""{"members":[{"did":"{{Repo}}","read":true,"write":true}],"cursor":"same"}""",
-            () => SimpleSpace.EnumerateMembersAsync(Space)));
-    }
-
-    /// <summary>
-    /// Serves <paramref name="page"/> to every request to <paramref name="nsid"/> and counts the
-    /// requests an enumeration makes, giving up after a few pages so a regression fails rather
-    /// than hangs.
-    /// </summary>
-    private async Task<int> CountRequestsAsync<T>(string nsid, string page, Func<IAsyncEnumerable<T>> enumerate)
-    {
-        _fixture.On(nsid, page);
-
-        var items = 0;
-        await foreach (var _ in enumerate())
-        {
-            if (++items > 10)
-                break;
-        }
-
-        return _fixture.To(nsid).Count();
-    }
+    public void SpaceRecordView_Path_IsCollectionSlashRecordKey() =>
+        Assert.Equal("com.example.n/a", JsonSerializer.Deserialize<SpaceRecordView>(
+            $$"""{"collection":"com.example.n","rkey":"a","cid":"{{Cid1}}"}""", AtProtoJsonDefaults.Options)!.Path);
 
     // ── Writes ───────────────────────────────────────────────────
 

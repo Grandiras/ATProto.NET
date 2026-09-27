@@ -1,6 +1,7 @@
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Lexicon;
 using ATProtoNet.Tests.Identity;
+using Microsoft.Extensions.Time.Testing;
 
 namespace ATProtoNet.Tests.Lexicon.Com.AtProto;
 
@@ -12,7 +13,7 @@ public sealed class CachingLexiconResolverTests
 {
     private static readonly Nsid Post = Nsid.Parse("com.example.lexicon.post");
 
-    private readonly ManualClock _clock = new();
+    private readonly FakeTimeProvider _clock = new();
     private readonly CountingResolver _inner = new();
 
     [Fact]

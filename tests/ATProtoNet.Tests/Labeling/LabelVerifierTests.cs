@@ -4,7 +4,7 @@ using ATProtoNet.Identity;
 using ATProtoNet.Labeling;
 using ATProtoNet.Models;
 using ATProtoNet.Serialization;
-using ATProtoNet.Tests.Server.Spaces;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Labeling;
 
@@ -48,7 +48,7 @@ public sealed class LabelVerifierTests : IDisposable
     [Fact]
     public async Task VerifyAsync_SignedWithThePublishedLabelKey_IsValid()
     {
-        var resolver = new FakeDidDocumentResolver().Publish(Labeler, LabelerDocument(Labeler, _labelKey, _accountKey));
+        var resolver = new StubDidResolver().Publish(Labeler, LabelerDocument(Labeler, _labelKey, _accountKey));
         var verifier = new LabelVerifier(resolver);
 
         var result = await verifier.VerifyAsync(Signed(), TestContext.Current.CancellationToken);
@@ -56,7 +56,7 @@ public sealed class LabelVerifierTests : IDisposable
         Assert.True(result.IsValid);
         Assert.Equal(_labelKey.ToDidKey(), result.SigningKey);
         Assert.Null(result.Error);
-        Assert.Equal(0, resolver.RefreshCount);
+        Assert.Equal(0, resolver.Refreshes);
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public sealed class LabelVerifierTests : IDisposable
     {
         var document = JsonSerializer.Deserialize<DidDocument>(
             LabelSigningInteropTests.BlueskyModerationDocument, AtProtoJsonDefaults.Options)!;
-        var resolver = new FakeDidDocumentResolver().Publish(LabelSigningInteropTests.BlueskyModerationDid, document);
+        var resolver = new StubDidResolver().Publish(LabelSigningInteropTests.BlueskyModerationDid, document);
         var verifier = new LabelVerifier(resolver);
 
         var results = await verifier.VerifyAllAsync(
@@ -85,7 +85,7 @@ public sealed class LabelVerifierTests : IDisposable
     public async Task VerifyAsync_SignedWithTheAccountKey_IsNotValid()
     {
         // #atproto signs repos; a label must be signed with the key published for labels.
-        var resolver = new FakeDidDocumentResolver().Publish(Labeler, LabelerDocument(Labeler, _labelKey, _accountKey));
+        var resolver = new StubDidResolver().Publish(Labeler, LabelerDocument(Labeler, _labelKey, _accountKey));
         var verifier = new LabelVerifier(resolver);
 
         var result = await verifier.VerifyAsync(Signed(_accountKey), TestContext.Current.CancellationToken);
@@ -97,21 +97,21 @@ public sealed class LabelVerifierTests : IDisposable
     [Fact]
     public async Task VerifyAsync_NoLabelKeyPublished_DoesNotFallBackToTheAccountKey()
     {
-        var resolver = new FakeDidDocumentResolver().Publish(Labeler, LabelerDocument(Labeler, labelKey: null, _accountKey));
+        var resolver = new StubDidResolver().Publish(Labeler, LabelerDocument(Labeler, labelKey: null, _accountKey));
         var verifier = new LabelVerifier(resolver);
 
         var result = await verifier.VerifyAsync(Signed(_accountKey), TestContext.Current.CancellationToken);
 
         Assert.Equal(LabelVerificationStatus.NoLabelKey, result.Status);
         Assert.Null(result.SigningKey);
-        Assert.Equal(1, resolver.RefreshCount);
+        Assert.Equal(1, resolver.Refreshes);
     }
 
     [Fact]
     public async Task VerifyAsync_KeyRotatedSinceCached_RefetchesOnceAndVerifies()
     {
         using var rotated = AtProtoCrypto.GenerateP256Key();
-        var resolver = new FakeDidDocumentResolver()
+        var resolver = new StubDidResolver()
             .Publish(Labeler, LabelerDocument(Labeler, _labelKey))
             .Rotate(Labeler, LabelerDocument(Labeler, rotated));
         var verifier = new LabelVerifier(resolver);
@@ -120,13 +120,13 @@ public sealed class LabelVerifierTests : IDisposable
 
         Assert.True(result.IsValid);
         Assert.Equal(rotated.ToDidKey(), result.SigningKey);
-        Assert.Equal(1, resolver.RefreshCount);
+        Assert.Equal(1, resolver.Refreshes);
     }
 
     [Fact]
     public async Task VerifyAsync_LabelKeyPublishedSinceCached_RefetchesAndVerifies()
     {
-        var resolver = new FakeDidDocumentResolver()
+        var resolver = new StubDidResolver()
             .Publish(Labeler, LabelerDocument(Labeler, labelKey: null, _accountKey))
             .Rotate(Labeler, LabelerDocument(Labeler, _labelKey, _accountKey));
         var verifier = new LabelVerifier(resolver);
@@ -134,27 +134,27 @@ public sealed class LabelVerifierTests : IDisposable
         var result = await verifier.VerifyAsync(Signed(), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsValid);
-        Assert.Equal(1, resolver.RefreshCount);
+        Assert.Equal(1, resolver.Refreshes);
     }
 
     [Fact]
     public async Task VerifyAsync_SignedBeforeARotation_IsInvalidAfterOneRefetch()
     {
         using var rotated = AtProtoCrypto.GenerateP256Key();
-        var resolver = new FakeDidDocumentResolver().Publish(Labeler, LabelerDocument(Labeler, rotated));
+        var resolver = new StubDidResolver().Publish(Labeler, LabelerDocument(Labeler, rotated));
         var verifier = new LabelVerifier(resolver);
 
         var result = await verifier.VerifyAsync(Signed(_labelKey), TestContext.Current.CancellationToken);
 
         Assert.Equal(LabelVerificationStatus.InvalidSignature, result.Status);
         Assert.Equal(rotated.ToDidKey(), result.SigningKey);
-        Assert.Equal(1, resolver.RefreshCount);
+        Assert.Equal(1, resolver.Refreshes);
     }
 
     [Fact]
     public async Task VerifyAsync_TamperedLabel_IsInvalid()
     {
-        var resolver = new FakeDidDocumentResolver().Publish(Labeler, LabelerDocument(Labeler, _labelKey));
+        var resolver = new StubDidResolver().Publish(Labeler, LabelerDocument(Labeler, _labelKey));
         var verifier = new LabelVerifier(resolver);
         var signed = Signed();
         var tampered = new Label
@@ -175,7 +175,7 @@ public sealed class LabelVerifierTests : IDisposable
     [Fact]
     public async Task VerifyAsync_MalformedLabelKey_ReportsNoLabelKey()
     {
-        var resolver = new FakeDidDocumentResolver().Publish(Labeler, new DidDocument
+        var resolver = new StubDidResolver().Publish(Labeler, new DidDocument
         {
             Id = Did.Parse(Labeler),
             VerificationMethod =
@@ -199,7 +199,7 @@ public sealed class LabelVerifierTests : IDisposable
     [Fact]
     public async Task VerifyAsync_IssuerDoesNotResolve_ReportsTheResolutionError()
     {
-        var verifier = new LabelVerifier(new FakeDidDocumentResolver());
+        var verifier = new LabelVerifier(new StubDidResolver());
 
         var result = await verifier.VerifyAsync(Signed(), TestContext.Current.CancellationToken);
 
@@ -210,7 +210,7 @@ public sealed class LabelVerifierTests : IDisposable
     [Fact]
     public async Task VerifyAsync_UnsignedOrUnversioned_ResolvesNothing()
     {
-        var resolver = new FakeDidDocumentResolver().Publish(Labeler, LabelerDocument(Labeler, _labelKey));
+        var resolver = new StubDidResolver().Publish(Labeler, LabelerDocument(Labeler, _labelKey));
         var verifier = new LabelVerifier(resolver);
         var signed = Signed();
         var unsigned = new Label { Version = 1, Src = signed.Src, Uri = signed.Uri, Val = signed.Val, Cts = signed.Cts };
@@ -221,13 +221,13 @@ public sealed class LabelVerifierTests : IDisposable
         Assert.Equal(
             [LabelVerificationStatus.Unsigned, LabelVerificationStatus.UnsupportedVersion],
             results.Select(r => r.Status));
-        Assert.Equal(0, resolver.ResolveCount);
+        Assert.Equal(0, resolver.Resolves);
     }
 
     [Fact]
     public async Task VerifyAllAsync_KeepsTheOrderAndEveryLabel()
     {
-        var resolver = new FakeDidDocumentResolver().Publish(Labeler, LabelerDocument(Labeler, _labelKey));
+        var resolver = new StubDidResolver().Publish(Labeler, LabelerDocument(Labeler, _labelKey));
         var verifier = new LabelVerifier(resolver);
         using var otherKey = AtProtoCrypto.GenerateP256Key();
         var labels = new[] { Signed(value: "a"), Signed(otherKey, "b"), Signed(value: "c") };
@@ -241,15 +241,9 @@ public sealed class LabelVerifierTests : IDisposable
     [Fact]
     public async Task VerifyAsync_Cancelled_Throws()
     {
-        var verifier = new LabelVerifier(new CancellingResolver());
+        var verifier = new LabelVerifier(new StubDidResolver((_, ct) => Task.FromCanceled<DidDocument>(ct)));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => verifier.VerifyAsync(Signed(), new CancellationToken(canceled: true)));
-    }
-
-    private sealed class CancellingResolver : IDidResolver
-    {
-        public Task<DidDocument> ResolveAsync(Did did, CancellationToken cancellationToken = default) =>
-            Task.FromCanceled<DidDocument>(cancellationToken);
     }
 }

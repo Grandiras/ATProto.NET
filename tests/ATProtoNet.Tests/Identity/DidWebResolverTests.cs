@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using ATProtoNet.Identity;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Identity;
 
@@ -12,22 +13,22 @@ public class DidWebResolverTests
 {
     private static readonly Did ExampleDid = Did.Parse("did:web:example.com");
 
-    private static (DidWebResolver Resolver, ScriptedHandler Handler) Create(
-        Func<HttpRequestMessage, HttpResponseMessage> respond, IdentityResolverOptions? options = null)
+    private static (DidWebResolver Resolver, HttpStub Handler) Create(
+        Func<HttpStub.RecordedRequest, HttpResponseMessage> respond, IdentityResolverOptions? options = null)
     {
-        var handler = new ScriptedHandler(respond);
+        var handler = new HttpStub().Fallback(respond);
         return (new DidWebResolver(new HttpClient(handler), options), handler);
     }
 
     [Fact]
     public async Task ResolveAsync_ValidDocument_FetchesTheWellKnownUrlAndParses()
     {
-        var (resolver, handler) = Create(_ => ScriptedHandler.Json(DidDocs.Json("did:web:example.com", "example.com")));
+        var (resolver, handler) = Create(_ => HttpStub.JsonResponse(DidDocs.Json("did:web:example.com", "example.com")));
         using var _ = resolver;
 
         var document = await resolver.ResolveAsync(ExampleDid);
 
-        Assert.Equal(new Uri("https://example.com/.well-known/did.json"), Assert.Single(handler.Requests));
+        Assert.Equal(new Uri("https://example.com/.well-known/did.json"), Assert.Single(handler.Uris));
         Assert.Equal(ExampleDid, document.Id);
         Assert.Equal(new Uri("https://pds.example.com"), document.GetPdsEndpoint());
         Assert.Equal(Handle.Parse("example.com"), document.GetHandle());
@@ -38,7 +39,7 @@ public class DidWebResolverTests
     {
         // Exactly as @atproto/identity compares: otherwise every casing of a did:web is a
         // separate DID that resolves, and a signer can choose which one it signs as.
-        var (resolver, _) = Create(_ => ScriptedHandler.Json(DidDocs.Json("did:web:example.com")));
+        var (resolver, _) = Create(_ => HttpStub.JsonResponse(DidDocs.Json("did:web:example.com")));
         using var __ = resolver;
 
         var ex = await Assert.ThrowsAsync<DidResolutionException>(
@@ -50,7 +51,7 @@ public class DidWebResolverTests
     [Fact]
     public async Task ResolveAsync_ASpellingThatIsTheDocumentsOwnId_IsAccepted()
     {
-        var (resolver, _) = Create(_ => ScriptedHandler.Json(DidDocs.Json("did:web:Example.COM")));
+        var (resolver, _) = Create(_ => HttpStub.JsonResponse(DidDocs.Json("did:web:Example.COM")));
         using var __ = resolver;
 
         var document = await resolver.ResolveAsync(Did.Parse("did:web:Example.COM"));
@@ -65,7 +66,7 @@ public class DidWebResolverTests
     [InlineData(HttpStatusCode.Found, DidResolutionErrorKind.HttpError)]
     public async Task ResolveAsync_ErrorStatus_IsReportedByKind(HttpStatusCode status, DidResolutionErrorKind expected)
     {
-        var (resolver, _) = Create(_ => ScriptedHandler.Status(status));
+        var (resolver, _) = Create(_ => HttpStub.Status(status));
         using var __ = resolver;
 
         var ex = await Assert.ThrowsAsync<DidResolutionException>(() => resolver.ResolveAsync(ExampleDid));
@@ -81,7 +82,7 @@ public class DidWebResolverTests
     [InlineData("null")]
     public async Task ResolveAsync_UnusableDocument_IsInvalidDocument(string body)
     {
-        var (resolver, _) = Create(_ => ScriptedHandler.Json(body));
+        var (resolver, _) = Create(_ => HttpStub.JsonResponse(body));
         using var __ = resolver;
 
         var ex = await Assert.ThrowsAsync<DidResolutionException>(() => resolver.ResolveAsync(ExampleDid));
@@ -114,7 +115,7 @@ public class DidWebResolverTests
     [Fact]
     public async Task ResolveAsync_HostNeverAnswers_TimesOutWithinTheRequestTimeout()
     {
-        var handler = new ScriptedHandler((_, ct) => ScriptedHandler.Never(ct));
+        var handler = new HttpStub().Fallback((_, ct) => HttpStub.Never(ct));
         using var resolver = new DidWebResolver(
             new HttpClient(handler), new IdentityResolverOptions { RequestTimeout = TimeSpan.FromMilliseconds(200) });
 
@@ -126,7 +127,7 @@ public class DidWebResolverTests
     [Fact]
     public async Task ResolveAsync_CallerCancels_PropagatesCancellation()
     {
-        var handler = new ScriptedHandler((_, ct) => ScriptedHandler.Never(ct));
+        var handler = new HttpStub().Fallback((_, ct) => HttpStub.Never(ct));
         using var resolver = new DidWebResolver(new HttpClient(handler));
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
 
@@ -150,12 +151,12 @@ public class DidWebResolverTests
     [InlineData("did:web:localhost%3A2583")]
     public async Task ResolveAsync_RefusedIdentifier_SendsNoRequest(string did)
     {
-        var (resolver, handler) = Create(_ => ScriptedHandler.Json("{}"));
+        var (resolver, handler) = Create(_ => HttpStub.JsonResponse("{}"));
         using var _ = resolver;
 
         await Assert.ThrowsAsync<DidResolutionException>(() => resolver.ResolveAsync(Did.Parse(did)));
 
-        Assert.Equal(0, handler.Count);
+        Assert.Empty(handler.Requests);
     }
 
     // ── DidResolver ──────────────────────────────────────────
@@ -174,10 +175,10 @@ public class DidWebResolverTests
     [Fact]
     public async Task DidResolver_DispatchesOnTheMethod()
     {
-        var handler = new ScriptedHandler(request => request.RequestUri!.Host switch
+        var handler = new HttpStub().Fallback(request => request.Uri.Host switch
         {
-            "plc.example.com" => ScriptedHandler.Json(DidDocs.AtprotoDotCom),
-            _ => ScriptedHandler.Json(DidDocs.Json("did:web:example.com")),
+            "plc.example.com" => HttpStub.JsonResponse(DidDocs.AtprotoDotCom),
+            _ => HttpStub.JsonResponse(DidDocs.Json("did:web:example.com")),
         });
         using var http = new HttpClient(handler);
         using var plc = new PlcClient(http, new Uri("https://plc.example.com"));
@@ -192,6 +193,6 @@ public class DidWebResolverTests
                 new Uri("https://plc.example.com/did:plc:ewvi7nxzyoun6zhxrhs64oiz"),
                 new Uri("https://example.com/.well-known/did.json"),
             ],
-            handler.Requests);
+            handler.Uris);
     }
 }

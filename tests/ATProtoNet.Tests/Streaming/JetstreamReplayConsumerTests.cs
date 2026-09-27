@@ -1,8 +1,8 @@
 using System.Net;
-using System.Text;
 using System.Text.Json;
 using ATProtoNet.Identity;
 using ATProtoNet.Streaming;
+using ATProtoNet.Tests.TestSupport;
 using static ATProtoNet.Tests.Streaming.JetstreamSegmentFixture;
 
 namespace ATProtoNet.Tests.Streaming;
@@ -10,17 +10,46 @@ namespace ATProtoNet.Tests.Streaming;
 public class JetstreamReplayConsumerTests
 {
     /// <summary>
-    /// A stand-in archive: <c>planSnapshot</c> answers from a scripted queue of pages, and
-    /// <c>getSegment</c> / <c>getBlock</c> serve bytes built by <see cref="JetstreamSegmentFixture"/>.
+    /// A stand-in archive on an <see cref="HttpStub"/>: <c>planSnapshot</c> answers from a scripted
+    /// queue of pages, and <c>getSegment</c> / <c>getBlock</c> serve bytes built by
+    /// <see cref="JetstreamSegmentFixture"/>.
     /// </summary>
-    private sealed class FakeArchive : HttpMessageHandler
+    private sealed class FakeArchive
     {
         private readonly Queue<object> _plans = new();
 
+        public FakeArchive()
+        {
+            Stub.On("network.bsky.jetstream.planSnapshot", _ => HttpStub.JsonResponse(JsonSerializer.Serialize(
+                _plans.TryDequeue(out var plan) ? plan : new { plannedThroughSeq = 0L, sealedTipSeq = 0L, segments = Array.Empty<object>() })));
+            Stub.On("network.bsky.jetstream.getSegment", request =>
+                Segments.TryGetValue(request.Parameters["name"]!, out var bytes) ? Bytes(bytes) : NotFound("SegmentNotFound"));
+            Stub.On("network.bsky.jetstream.getBlock", request =>
+                Blocks.TryGetValue((request.Parameters["segment"]!, int.Parse(request.Parameters["blockIndex"]!)), out var frame)
+                    ? Bytes(frame)
+                    : NotFound("BlockNotFound"));
+
+            static HttpResponseMessage Bytes(byte[] bytes) => new(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes) };
+
+            static HttpResponseMessage NotFound(string error) => HttpStub.JsonResponse($$"""{"error":"{{error}}"}""", HttpStatusCode.BadRequest);
+        }
+
+        public HttpStub Stub { get; } = new();
+
         public Dictionary<string, byte[]> Segments { get; } = [];
         public Dictionary<(string Segment, int Block), byte[]> Blocks { get; } = [];
-        public List<string> PlanRequests { get; } = [];
-        public List<string> Downloads { get; } = [];
+
+        /// <summary>The body of every <c>planSnapshot</c> request, in order.</summary>
+        public List<string> PlanRequests => [.. Stub.To("network.bsky.jetstream.planSnapshot").Select(r => r.BodyText)];
+
+        /// <summary>Every segment (<c>name</c>) and block (<c>name#index</c>) downloaded, in order.</summary>
+        public List<string> Downloads =>
+        [
+            .. Stub.Requests.Where(r => r.Nsid is "network.bsky.jetstream.getSegment" or "network.bsky.jetstream.getBlock")
+                .Select(r => r.Nsid == "network.bsky.jetstream.getSegment"
+                    ? r.Parameters["name"]!
+                    : $"{r.Parameters["segment"]}#{r.Parameters["blockIndex"]}"),
+        ];
 
         public FakeArchive Plan(long plannedThroughSeq, long sealedTipSeq, params object[] segments)
         {
@@ -48,51 +77,6 @@ public class JetstreamReplayConsumerTests
             mode = "blocks",
             blocks = ranges.Select(r => new { first = r.First, last = r.Last }).ToArray(),
         };
-
-        protected override async Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            var uri = request.RequestUri!;
-            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
-
-            if (uri.AbsolutePath.EndsWith("planSnapshot", StringComparison.Ordinal))
-            {
-                PlanRequests.Add(await request.Content!.ReadAsStringAsync(cancellationToken));
-                var plan = _plans.Count > 0
-                    ? _plans.Dequeue()
-                    : new { plannedThroughSeq = 0L, sealedTipSeq = 0L, segments = Array.Empty<object>() };
-
-                return new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent(JsonSerializer.Serialize(plan), Encoding.UTF8, "application/json"),
-                };
-            }
-
-            if (uri.AbsolutePath.EndsWith("getSegment", StringComparison.Ordinal))
-            {
-                var name = query["name"]!;
-                Downloads.Add(name);
-                return Segments.TryGetValue(name, out var bytes)
-                    ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes) }
-                    : NotFound("SegmentNotFound");
-            }
-
-            if (uri.AbsolutePath.EndsWith("getBlock", StringComparison.Ordinal))
-            {
-                var key = (query["segment"]!, int.Parse(query["blockIndex"]!));
-                Downloads.Add($"{key.Item1}#{key.Item2}");
-                return Blocks.TryGetValue(key, out var frame)
-                    ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(frame) }
-                    : NotFound("BlockNotFound");
-            }
-
-            return NotFound("MethodNotImplemented");
-
-            static HttpResponseMessage NotFound(string error) => new(HttpStatusCode.BadRequest)
-            {
-                Content = new StringContent($$"""{"error":"{{error}}"}""", Encoding.UTF8, "application/json"),
-            };
-        }
     }
 
     private static JetstreamConsumerOptions Options(
@@ -120,7 +104,7 @@ public class JetstreamReplayConsumerTests
                 BeforeSeq = beforeSeq,
                 SnapshotOnly = snapshotOnly,
                 DownloadParallelism = parallelism,
-                HttpClient = new HttpClient(archive),
+                HttpClient = new HttpClient(archive.Stub),
                 MaxRetryAttempts = 1,
                 MaxRetryDelay = TimeSpan.Zero,
                 MaxStalledPlanAttempts = stalledPlanAttempts,

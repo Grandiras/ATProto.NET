@@ -8,6 +8,7 @@ using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 using static ATProtoNet.Tests.Auth.SessionKit;
 
@@ -109,7 +110,7 @@ public sealed class OAuthStateStoreTests : IDisposable
     [Fact]
     public async Task InMemory_ExpiredEntries_AreDroppedAsNewOnesArrive()
     {
-        var clock = new ManualClock();
+        var clock = new FakeTimeProvider();
         var store = new InMemoryOAuthStateStore(timeProvider: clock);
         await store.SetAsync(Pending("old", expiresAt: clock.GetUtcNow().AddMinutes(10)));
 
@@ -144,7 +145,7 @@ public sealed class OAuthStateStoreTests : IDisposable
     [Fact]
     public async Task StartAuthorization_ReturnsWhereToGoAndUntilWhen()
     {
-        var clock = new ManualClock();
+        var clock = new FakeTimeProvider();
         using var oauth = Client(time: clock);
 
         var authorization = await oauth.StartAuthorizationAsync(AliceHandle.Value, RedirectUri);
@@ -197,7 +198,7 @@ public sealed class OAuthStateStoreTests : IDisposable
     [Fact]
     public async Task Complete_AfterTheLifetime_IsStateExpired()
     {
-        var clock = new ManualClock();
+        var clock = new FakeTimeProvider();
         using var oauth = Client(new InMemoryOAuthStateStore(timeProvider: clock), clock);
         var authorization = await oauth.StartAuthorizationAsync(AliceHandle.Value, RedirectUri);
 

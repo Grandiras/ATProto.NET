@@ -1,10 +1,10 @@
 using System.Net;
-using System.Text;
 using System.Text.Json;
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
 using ATProtoNet.Spaces;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Spaces;
 
@@ -24,7 +24,7 @@ public sealed class SpaceCredentialMintTests : IDisposable
     {
         _client = new AtProtoClient(
             new AtProtoClientOptions { InstanceUrl = "https://pds.example.com", AutoRefreshSession = false },
-            new HttpClient(_network));
+            new HttpClient(_network.Stub));
     }
 
     public void Dispose()
@@ -43,7 +43,7 @@ public sealed class SpaceCredentialMintTests : IDisposable
                 HostResolver = (_, _) => Task.FromResult(AuthorityHost),
                 RenewalWindow = renewalWindow ?? TimeSpan.FromMinutes(5),
             },
-            new HttpClient(_network));
+            new HttpClient(_network.Stub));
 
     [Fact]
     public async Task GetCredentialAsync_ConcurrentCallersForOneSpace_ShareOneMint()
@@ -172,12 +172,20 @@ public sealed class SpaceCredentialMintTests : IDisposable
     /// A PDS that hands out delegation tokens and an authority that mints credentials bound to
     /// whatever key the request's DPoP proof carries.
     /// </summary>
-    private sealed class FakeSpaceNetwork : HttpMessageHandler
+    private sealed class FakeSpaceNetwork : IDisposable
     {
         private readonly AtProtoKey _authorityKey = AtProtoCrypto.GenerateP256Key();
         private readonly Dictionary<string, TaskCompletionSource> _gates = [];
         private readonly Dictionary<string, TaskCompletionSource> _started = [];
         private readonly Dictionary<string, int> _mints = [];
+
+        public FakeSpaceNetwork()
+        {
+            Stub.On("com.atproto.space.getDelegationToken", """{"token":"delegation"}""");
+            Stub.On("com.atproto.space.getSpaceCredential", MintAsync);
+        }
+
+        public HttpStub Stub { get; } = new();
 
         public TimeSpan Lifetime { get; set; } = TimeSpan.FromHours(2);
 
@@ -210,19 +218,9 @@ public sealed class SpaceCredentialMintTests : IDisposable
             }
         }
 
-        protected override async Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
+        private async Task<HttpResponseMessage> MintAsync(HttpStub.RecordedRequest request, CancellationToken cancellationToken)
         {
-            var path = request.RequestUri!.AbsolutePath;
-
-            if (path.EndsWith("com.atproto.space.getDelegationToken", StringComparison.Ordinal))
-                return Json("""{"token":"delegation"}""");
-
-            if (!path.EndsWith("com.atproto.space.getSpaceCredential", StringComparison.Ordinal))
-                return new HttpResponseMessage(HttpStatusCode.NotFound);
-
-            using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancellationToken));
-            var space = SpaceUri.Parse(body.RootElement.GetProperty("space").GetString()!);
+            var space = SpaceUri.Parse(request.JsonBody.GetProperty("space").GetString()!);
 
             lock (_mints)
                 _mints[space.Value] = _mints.GetValueOrDefault(space.Value) + 1;
@@ -235,12 +233,7 @@ public sealed class SpaceCredentialMintTests : IDisposable
                 await gate.Task.WaitAsync(cancellationToken);
 
             if (Refuse)
-            {
-                return new HttpResponseMessage(HttpStatusCode.Forbidden)
-                {
-                    Content = new StringContent("""{"error":"NotAuthorized","message":"no"}""", Encoding.UTF8, "application/json"),
-                };
-            }
+                return HttpStub.JsonResponse("""{"error":"NotAuthorized","message":"no"}""", HttpStatusCode.Forbidden);
 
             var proofHeader = TestJws.DecodeJson(request.Headers.GetValues("DPoP").Single(), 0);
             var jwk = proofHeader.GetProperty("jwk").Deserialize<JsonWebKey>()!;
@@ -249,19 +242,13 @@ public sealed class SpaceCredentialMintTests : IDisposable
                 SpaceTokenType.Credential, Authority, space.Value, _authorityKey,
                 dpopThumbprint: DPoP.Thumbprint(jwk), lifetime: Lifetime);
 
-            return Json(JsonSerializer.Serialize(new { credential }));
+            return HttpStub.JsonResponse(JsonSerializer.Serialize(new { credential }));
         }
 
-        private static HttpResponseMessage Json(string json) => new(HttpStatusCode.OK)
+        public void Dispose()
         {
-            Content = new StringContent(json, Encoding.UTF8, "application/json"),
-        };
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-                _authorityKey.Dispose();
-            base.Dispose(disposing);
+            _authorityKey.Dispose();
+            Stub.Dispose();
         }
     }
 }

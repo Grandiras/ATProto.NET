@@ -4,6 +4,7 @@ using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Spaces;
 using ATProtoNet.Tests.Identity;
+using Microsoft.Extensions.Time.Testing;
 
 namespace ATProtoNet.Tests.Server.Spaces;
 
@@ -18,7 +19,7 @@ public class SpaceClientKeyCacheTests
     private static readonly Did AuthorityDid = Did.Parse("did:plc:bbbbbbbbbbbbbbbbbbbbbbbb");
     private static string Audience => SpaceAuthority.HostAudience(AuthorityDid);
 
-    private readonly ManualClock _clock = new(DateTimeOffset.UtcNow);
+    private readonly FakeTimeProvider _clock = new(DateTimeOffset.UtcNow);
     private readonly CountingResolver _resolver = new();
 
     private SpaceClientAttestationVerifier CreateVerifier(TimeSpan? cacheLifetime = null) =>

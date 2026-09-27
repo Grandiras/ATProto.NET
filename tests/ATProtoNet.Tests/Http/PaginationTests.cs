@@ -1,7 +1,10 @@
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Models;
+using ATProtoNet.Spaces;
+using ATProtoNet.Streaming;
 using ATProtoNet.Tests.TestSupport;
+using static ATProtoNet.Tests.Lexicon.App.Bsky.BskyFixtures;
 
 namespace ATProtoNet.Tests.Http;
 
@@ -10,91 +13,46 @@ namespace ATProtoNet.Tests.Http;
 /// </summary>
 public class PaginationTests : IDisposable
 {
-    private const string DidText = "did:plc:ewvi7nxzyoun6zhxrhs64oiz";
-    private const string Cid1 = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm";
+    private const string DidText = TestIds.ModDid;
 
-    private readonly HttpStub _stub = new();
-    private readonly HttpClient _httpClient;
-    private readonly AtProtoClient _client;
+    private readonly XrpcTestClient _fixture = new();
 
-    public PaginationTests()
-    {
-        _httpClient = new HttpClient(_stub);
-        _client = new AtProtoClient(
-            new AtProtoClientOptions { InstanceUrl = "https://pds.example.com", AutoRefreshSession = false },
-            _httpClient, null, null);
-    }
-
-    public void Dispose()
-    {
-        _client.Dispose();
-        _httpClient.Dispose();
-        _stub.Dispose();
-        GC.SuppressFinalize(this);
-    }
+    public void Dispose() => _fixture.Dispose();
 
     private sealed record Page(IReadOnlyList<int> Items, string? Cursor) : ICursorPage<int>;
 
-    private static async Task<(List<int> Items, List<string?> Requested)> Walk(params Page[] pages)
+    /// <summary>
+    /// The pages a server hands back in turn (the last one repeats), each <c>items</c> with the
+    /// <c>cursor</c> of the same index, and what the loop should yield and ask for.
+    /// </summary>
+    public static TheoryData<string, int[][], string?[], int[], string?[]> Walks() => new()
     {
+        { "follows cursors until null", [[1, 2], [3], [4]], ["a", "b", null], [1, 2, 3, 4], [null, "a", "b"] },
+        { "an empty cursor ends it", [[1], [2]], ["a", ""], [1, 2], [null, "a"] },
+        // The server hands back the same cursor forever; before the guard this never ended.
+        { "a repeated cursor ends it", [[1], [2]], ["same", "same"], [1, 2], [null, "same"] },
+        { "a cursor cycle ends it", [[1], [2], [3], [4]], ["a", "b", "a", "b"], [1, 2, 3], [null, "a", "b"] },
+        { "an empty page with a cursor goes on", [[], [1]], ["a", null], [1], [null, "a"] },
+    };
+
+    [Theory]
+    [MemberData(nameof(Walks))]
+    public async Task EnumerateAsync_Walk_YieldsEveryItemAndStopsAtTheRightPage(
+        string name, int[][] items, string?[] cursors, int[] expectedItems, string?[] expectedRequests)
+    {
+        _ = name;
         var requested = new List<string?>();
-        var items = new List<int>();
         var next = 0;
-        await foreach (var item in Pagination.EnumerateAsync<Page, int>((cursor, _) =>
+
+        var read = await Pagination.EnumerateAsync<Page, int>((cursor, _) =>
         {
             requested.Add(cursor);
-            return Task.FromResult(pages[Math.Min(next++, pages.Length - 1)]);
-        }))
-        {
-            items.Add(item);
-        }
+            var i = Math.Min(next++, items.Length - 1);
+            return Task.FromResult(new Page(items[i], cursors[i]));
+        }).ToListAsync();
 
-        return (items, requested);
-    }
-
-    [Fact]
-    public async Task EnumerateAsync_FollowsCursorsUntilNull()
-    {
-        var (items, requested) = await Walk(new Page([1, 2], "a"), new Page([3], "b"), new Page([4], null));
-
-        Assert.Equal([1, 2, 3, 4], items);
-        Assert.Equal([null, "a", "b"], requested);
-    }
-
-    [Fact]
-    public async Task EnumerateAsync_EmptyCursor_Stops()
-    {
-        var (items, requested) = await Walk(new Page([1], "a"), new Page([2], ""));
-
-        Assert.Equal([1, 2], items);
-        Assert.Equal(2, requested.Count);
-    }
-
-    [Fact]
-    public async Task EnumerateAsync_RepeatedCursor_StopsInsteadOfLoopingForever()
-    {
-        // The server hands back the same cursor forever; before the guard this never ended.
-        var (items, requested) = await Walk(new Page([1], "same"), new Page([2], "same"));
-
-        Assert.Equal([1, 2], items);
-        Assert.Equal([null, "same"], requested);
-    }
-
-    [Fact]
-    public async Task EnumerateAsync_CursorCycle_Stops()
-    {
-        var (_, requested) = await Walk(
-            new Page([1], "a"), new Page([2], "b"), new Page([3], "a"), new Page([4], "b"));
-
-        Assert.Equal([null, "a", "b"], requested);
-    }
-
-    [Fact]
-    public async Task EnumerateAsync_EmptyPageWithCursor_KeepsGoing()
-    {
-        var (items, _) = await Walk(new Page([], "a"), new Page([1], null));
-
-        Assert.Equal([1], items);
+        Assert.Equal(expectedItems, read);
+        Assert.Equal(expectedRequests, requested);
     }
 
     [Fact]
@@ -122,58 +80,117 @@ public class PaginationTests : IDisposable
     }
 
     [Fact]
-    public async Task EnumerateRecordsAsync_ServerRepeatsItsCursor_EndsAfterTwoRequests()
-    {
-        _stub.Fallback($$$"""{"cursor":"c1","records":[{"uri":"at://{{{DidText}}}/com.example.note/1","cid":"{{{Cid1}}}","value":{}}]}""");
-
-        var records = new List<ATProtoNet.Lexicon.Com.AtProto.Repo.RecordEntry>();
-        await foreach (var record in _client.Repo.EnumerateRecordsAsync(
-            Did.Parse(DidText), Nsid.Parse("com.example.note"), pageSize: 10))
-        {
-            records.Add(record);
-        }
-
-        Assert.Equal(2, records.Count);
-        Assert.Equal(2, _stub.Requests.Count);
-        Assert.DoesNotContain("cursor=", _stub.Requests[0].Query);
-        Assert.Contains("cursor=c1", _stub.Requests[1].Query);
-        Assert.Contains("limit=10", _stub.Requests[0].Query);
-    }
-
-    [Fact]
     public async Task EnumerateAsync_OverAnEndpointWithNoDedicatedEnumerator_WalksEveryPage()
     {
         // The public one-liner every removed `Enumerate*` wrapper is replaced by.
-        _stub.Fallback(request => HttpStub.JsonResponse(request.Query.Contains("cursor=")
-            ? $$"""{"cids":["{{Cid1}}"]}"""
-            : $$"""{"cursor":"next","cids":["{{Cid1}}","{{Cid1}}"]}"""));
+        _fixture.Fallback(request => HttpStub.JsonResponse(request.Query.Contains("cursor=")
+            ? $$"""{"cids":["{{PostCid}}"]}"""
+            : $$"""{"cursor":"next","cids":["{{PostCid}}","{{PostCid}}"]}"""));
 
-        var cids = new List<Cid>();
-        await foreach (var cid in Pagination.EnumerateAsync<ATProtoNet.Lexicon.Com.AtProto.Sync.ListBlobsResponse, Cid>(
-            (cursor, ct) => _client.Sync.ListBlobsAsync(Did.Parse(DidText), cursor: cursor, cancellationToken: ct)))
-        {
-            cids.Add(cid);
-        }
+        var cids = await Pagination.EnumerateAsync<ATProtoNet.Lexicon.Com.AtProto.Sync.ListBlobsResponse, Cid>(
+            (cursor, ct) => _fixture.Client.Sync.ListBlobsAsync(Did.Parse(DidText), cursor: cursor, cancellationToken: ct)).ToListAsync();
 
         Assert.Equal(3, cids.Count);
-        Assert.All(cids, cid => Assert.Equal(Cid1, cid.Value));
-        Assert.Equal(2, _stub.Requests.Count);
+        Assert.All(cids, cid => Assert.Equal(PostCid, cid.Value));
+        Assert.Equal(2, _fixture.Requests.Count);
     }
 
     [Fact]
     public async Task EnumerateAsync_OnARecordCollection_UsesThePaginator()
     {
-        _stub.Fallback(request => HttpStub.JsonResponse(request.Nsid == "com.atproto.server.createSession"
+        _fixture.Fallback(request => HttpStub.JsonResponse(request.Nsid == "com.atproto.server.createSession"
             ? $$"""{"did":"{{DidText}}","handle":"alice.test","accessJwt":"a","refreshJwt":"r"}"""
-            : $$$"""{"cursor":"same","records":[{"uri":"at://{{{DidText}}}/com.example.note/1","cid":"{{{Cid1}}}","value":{"text":"hi"}}]}"""));
-        await _client.LoginAsync("alice.test", "password");
+            : $$$"""{"cursor":"same","records":[{"uri":"at://{{{DidText}}}/com.example.note/1","cid":"{{{PostCid}}}","value":{"text":"hi"}}]}"""));
+        await _fixture.Client.LoginAsync("alice.test", "password");
 
-        var notes = new List<RecordView<Note>>();
-        await foreach (var note in _client.GetCollection<Note>(Nsid.Parse("com.example.note")).EnumerateAsync())
-            notes.Add(note);
+        var notes = await _fixture.Client.GetCollection<Note>(Nsid.Parse("com.example.note")).EnumerateAsync().ToListAsync();
 
         Assert.Equal(2, notes.Count);
         Assert.Equal("1", notes[0].RecordKey.Value);
+    }
+
+    /// <summary>
+    /// Every dedicated <c>Enumerate*</c> helper, as (the method it pages, a page of one item, the
+    /// query of its first request, the enumeration with a page size of 2 over a client or the
+    /// stub's <see cref="HttpClient"/>).
+    /// </summary>
+    public static TheoryData<string, string, string, Func<AtProtoClient, HttpClient, IAsyncEnumerable<object>>> Enumerators()
+    {
+        var alice = Did.Parse(DidText);
+        var space = SpaceUri.Parse($"at://{DidText}/space/com.atmoboards.forum/default");
+        var feed = $$"""{"feed":[{"post":{{PostViewJson}}}]}""";
+
+        return new()
+        {
+            { "app.bsky.feed.getTimeline", feed, "limit=2", (c, _) => c.Bsky.Feed.EnumerateTimelineAsync(pageSize: 2) },
+            { "app.bsky.feed.getAuthorFeed", feed, $"actor={DidText}&limit=2", (c, _) => c.Bsky.Feed.EnumerateAuthorFeedAsync(alice, pageSize: 2) },
+            { "app.bsky.feed.getActorLikes", feed, $"actor={DidText}&limit=2", (c, _) => c.Bsky.Feed.EnumerateActorLikesAsync(alice, pageSize: 2) },
+            {
+                "app.bsky.graph.getFollowers", $$"""{"subject":{{BobProfileJson}},"followers":[{{BobProfileJson}}]}""",
+                $"actor={DidText}&limit=2", (c, _) => c.Bsky.Graph.EnumerateFollowersAsync(alice, pageSize: 2)
+            },
+            {
+                "app.bsky.graph.getFollows", $$"""{"subject":{{BobProfileJson}},"follows":[{{BobProfileJson}}]}""",
+                $"actor={DidText}&limit=2", (c, _) => c.Bsky.Graph.EnumerateFollowsAsync(alice, pageSize: 2)
+            },
+            {
+                "app.bsky.graph.getList", $$"""{"list":{{ListViewJson}},"items":[{{ListItemViewJson}}]}""",
+                $"list={ListUri}&limit=2", (c, _) => c.Bsky.Graph.EnumerateListMembersAsync(AtUri.Parse(ListUri), pageSize: 2)
+            },
+            {
+                "app.bsky.notification.listNotifications", $$"""
+                {"notifications":[{"uri":"at://{{DidText}}/app.bsky.feed.like/3k2lb","cid":"{{PostCid}}","author":{{AliceBasicJson}},
+                  "reason":"reply","record":{},"isRead":false,"indexedAt":"2024-05-01T12:00:00.000Z"}]}
+                """,
+                "reasons=reply&limit=2", (c, _) => c.Bsky.Notification.EnumerateNotificationsAsync(["reply"], pageSize: 2)
+            },
+            {
+                "app.bsky.bookmark.getBookmarks", $$$"""{"bookmarks":[{"subject":{"uri":"{{{PostUri}}}","cid":"{{{PostCid}}}"},"item":{{{PostViewJson}}}}]}""",
+                "limit=2", (c, _) => c.Bsky.Bookmark.EnumerateBookmarksAsync(pageSize: 2)
+            },
+            {
+                "com.atproto.repo.listRecords", $$$"""{"records":[{"uri":"at://{{{DidText}}}/com.example.note/1","cid":"{{{PostCid}}}","value":{}}]}""",
+                $"repo={DidText}&collection=com.example.note&limit=2", (c, _) => c.Repo.EnumerateRecordsAsync(alice, Nsid.Parse("com.example.note"), pageSize: 2)
+            },
+            {
+                "com.atproto.space.listRepos", $$"""{"repos":[{"did":"{{DidText}}","rev":"3l6oveex3ii2l","hash":{"$bytes":"AQID"} }]}""",
+                $"space={space}&limit=2", (c, _) => c.Space.EnumerateReposAsync(space, pageSize: 2)
+            },
+            {
+                "com.atproto.space.listRecords", $$"""{"records":[{"collection":"com.example.n","rkey":"a","cid":"{{PostCid}}"}]}""",
+                $"space={space}&repo={DidText}&limit=2", (c, _) => c.Space.EnumerateRecordsAsync(space, alice, pageSize: 2)
+            },
+            {
+                "com.atproto.simplespace.listMembers", $$"""{"members":[{"did":"{{DidText}}","read":true,"write":true}]}""",
+                $"space={space}&limit=2", (c, _) => c.SimpleSpace.EnumerateMembersAsync(space, pageSize: 2)
+            },
+            {
+                "chat.bsky.convo.getMessages", """
+                {"messages":[{"$type":"chat.bsky.convo.defs#deletedMessageView","id":"m","rev":"r","sender":{"did":"did:plc:user1"},"sentAt":"2026-06-01T12:00:00.000Z"}]}
+                """,
+                "convoId=convo-1&limit=2", (c, _) => c.Chat.Convo.EnumerateMessagesAsync("convo-1", pageSize: 2)
+            },
+            {
+                "network.bsky.jetstream.listSegments", """{"segments":[{"name":"seg_0.jss","index":0,"checksum":"0123456789abcdef"}]}""",
+                "limit=2", (_, http) => new JetstreamArchiveClient(JetstreamEndpoints.UsEast, apiKey: null, http).EnumerateSegmentsAsync(pageSize: 2)
+            },
+        };
+    }
+
+    [Theory]
+    [MemberData(nameof(Enumerators))]
+    public async Task Enumerator_PassesItsCursor_ReadsItsItems_StopsOnARepeatedCursor(
+        string nsid, string page, string firstQuery, Func<AtProtoClient, HttpClient, IAsyncEnumerable<object>> enumerate)
+    {
+        // Every page carries the same cursor. Regression: some of these loops used to stop only on
+        // an empty page, so such a host was asked for the same page forever; the cap turns that
+        // into a failure rather than a hang.
+        _fixture.On(nsid, "{\"cursor\":\"c2\"," + page.TrimStart()[1..]);
+
+        var read = await enumerate(_fixture.Client, _fixture.Http).Take(10).ToListAsync();
+
+        Assert.Equal(2, read.Count);
+        Assert.Equal([firstQuery, $"{firstQuery}&cursor=c2"], _fixture.To(nsid).Select(r => Uri.UnescapeDataString(r.Query)));
     }
 
     private sealed class Note

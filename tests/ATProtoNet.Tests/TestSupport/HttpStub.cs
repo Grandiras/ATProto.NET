@@ -21,12 +21,12 @@ internal sealed class HttpStub : HttpMessageHandler
 {
     private readonly Lock _gate = new();
 
-    private readonly Dictionary<string, Queue<Func<RecordedRequest, HttpResponseMessage>>> _routes =
+    private readonly Dictionary<string, Queue<Func<RecordedRequest, CancellationToken, Task<HttpResponseMessage>>>> _routes =
         new(StringComparer.Ordinal);
 
     private readonly List<RecordedRequest> _requests = [];
 
-    private Func<RecordedRequest, HttpResponseMessage>? _fallback;
+    private Func<RecordedRequest, CancellationToken, Task<HttpResponseMessage>>? _fallback;
 
     /// <summary>
     /// An artificial delay before every response, applied before the route is even looked up.
@@ -43,6 +43,9 @@ internal sealed class HttpStub : HttpMessageHandler
                 return [.. _requests];
         }
     }
+
+    /// <summary>Every request's URI, in the order the requests arrived.</summary>
+    public IReadOnlyList<Uri> Uris => [.. Requests.Select(r => r.Uri)];
 
     /// <summary>The most recent request, for a test that only cares about the last call it made.</summary>
     public RecordedRequest Last => Requests[^1];
@@ -108,12 +111,16 @@ internal sealed class HttpStub : HttpMessageHandler
     }
 
     /// <summary>Queues a response for a method or path.</summary>
-    public HttpStub On(string nsidOrPath, Func<RecordedRequest, HttpResponseMessage> respond)
+    public HttpStub On(string nsidOrPath, Func<RecordedRequest, HttpResponseMessage> respond) =>
+        On(nsidOrPath, (request, _) => Task.FromResult(respond(request)));
+
+    /// <summary>Queues a response for a method or path that is produced asynchronously, for a host that stalls or streams.</summary>
+    public HttpStub On(string nsidOrPath, Func<RecordedRequest, CancellationToken, Task<HttpResponseMessage>> respond)
     {
         lock (_gate)
         {
             if (!_routes.TryGetValue(nsidOrPath, out var queue))
-                _routes[nsidOrPath] = queue = new Queue<Func<RecordedRequest, HttpResponseMessage>>();
+                _routes[nsidOrPath] = queue = new Queue<Func<RecordedRequest, CancellationToken, Task<HttpResponseMessage>>>();
             queue.Enqueue(respond);
         }
         return this;
@@ -131,7 +138,11 @@ internal sealed class HttpStub : HttpMessageHandler
     /// test that exercises a cross-cutting concern (headers, retries, timeouts) across many
     /// endpoints without caring which one a given call names.
     /// </summary>
-    public HttpStub Fallback(Func<RecordedRequest, HttpResponseMessage> respond)
+    public HttpStub Fallback(Func<RecordedRequest, HttpResponseMessage> respond) =>
+        Fallback((request, _) => Task.FromResult(respond(request)));
+
+    /// <summary>Answers any unscripted request asynchronously, for a host that stalls or streams.</summary>
+    public HttpStub Fallback(Func<RecordedRequest, CancellationToken, Task<HttpResponseMessage>> respond)
     {
         lock (_gate)
             _fallback = respond;
@@ -146,6 +157,26 @@ internal sealed class HttpStub : HttpMessageHandler
     {
         Content = new StringContent(json, Encoding.UTF8, "application/json"),
     };
+
+    /// <summary>A plain-text response.</summary>
+    public static HttpResponseMessage Text(string body) =>
+        new(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "text/plain") };
+
+    /// <summary>A response with a status and an empty body.</summary>
+    public static HttpResponseMessage Status(HttpStatusCode status) => new(status) { Content = new StringContent("") };
+
+    /// <summary>A DNS-over-HTTPS JSON answer carrying TXT records, each already in presentation form.</summary>
+    public static HttpResponseMessage TxtAnswer(params string[] records) =>
+        JsonResponse("{\"Status\":0,\"Answer\":[" +
+             string.Join(',', records.Select(r => $"{{\"type\":16,\"data\":{JsonSerializer.Serialize(r)}}}")) +
+             "]}");
+
+    /// <summary>A host that accepts the request and never answers, until the request is cancelled.</summary>
+    public static async Task<HttpResponseMessage> Never(CancellationToken cancellationToken)
+    {
+        await Task.Delay(Timeout.Infinite, cancellationToken);
+        throw new InvalidOperationException("Unreachable.");
+    }
 
     /// <summary>An XRPC error response.</summary>
     public static HttpResponseMessage ErrorResponse(HttpStatusCode status, string error, string? message = null) => new(status)
@@ -183,7 +214,7 @@ internal sealed class HttpStub : HttpMessageHandler
             body,
             request.Headers);
 
-        Func<RecordedRequest, HttpResponseMessage> respond;
+        Func<RecordedRequest, CancellationToken, Task<HttpResponseMessage>> respond;
         lock (_gate)
         {
             _requests.Add(recorded);
@@ -205,7 +236,9 @@ internal sealed class HttpStub : HttpMessageHandler
             }
         }
 
-        return respond(recorded);
+        var response = await respond(recorded, cancellationToken);
+        response.RequestMessage ??= request;
+        return response;
     }
 
     /// <summary>One request as the stub saw it.</summary>

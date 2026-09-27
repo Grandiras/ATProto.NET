@@ -2,7 +2,9 @@ using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Tests.Identity;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 namespace ATProtoNet.Tests.Server.Spaces;
 
@@ -20,7 +22,7 @@ public class SpaceServerRegistrationTests
     {
         // An hour behind: a proof minted now is dated in the future by the registered clock.
         var services = new ServiceCollection();
-        services.AddSingleton<TimeProvider>(new ManualClock(DateTimeOffset.UtcNow.AddHours(-1)));
+        services.AddSingleton<TimeProvider>(new FakeTimeProvider(DateTimeOffset.UtcNow.AddHours(-1)));
         services.AddAtProtoSpaces(o => o.ServiceDid = Did.Parse("did:web:pds.example.com"));
         using var provider = services.BuildServiceProvider();
         using var key = new TestDPoPKey();
@@ -34,7 +36,7 @@ public class SpaceServerRegistrationTests
     [Fact]
     public void AddAtProtoSpaces_VerifiersResolveThroughTheSpaceServersOwnResolver()
     {
-        var resolver = new FakeDidDocumentResolver();
+        var resolver = new StubDidResolver();
         var services = new ServiceCollection();
         services.AddKeyedSingleton<IDidResolver>(SpaceServerExtensions.DidResolverKey, resolver);
         services.AddAtProtoSpaces(o => o.ServiceDid = Did.Parse("did:web:pds.example.com"));
@@ -50,7 +52,7 @@ public class SpaceServerRegistrationTests
         var signer = new TestAccountSigner { Fail = true };
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddKeyedSingleton<IDidResolver>(SpaceServerExtensions.DidResolverKey, new FakeDidDocumentResolver());
+        services.AddKeyedSingleton<IDidResolver>(SpaceServerExtensions.DidResolverKey, new StubDidResolver());
         services.AddSingleton<ISpaceAccountSigner>(signer);
         services.AddAtProtoSpaces(o => o.ServiceDid = Did.Parse("did:web:pds.example.com"))
             .AddSpaceAuthority<InMemorySpaceAuthorityStore>(serviceKey);

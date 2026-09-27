@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Tests.Identity;
+using Microsoft.Extensions.Time.Testing;
 
 namespace ATProtoNet.Tests.Server.Spaces;
 
@@ -426,7 +427,7 @@ public class DPoPProofValidatorTests
     {
         // Its jti is kept until iat + ProofLifetime, so from that instant on the proof itself
         // must be refused: one tick of overlap was a window for a replay after the sweep.
-        var clock = new ManualClock();
+        var clock = new FakeTimeProvider();
         var validator = new DPoPProofValidator(new InMemoryJtiReplayStore(clock), new SpaceServerOptions(), clock);
         using var key = new TestDPoPKey();
         var proof = key.Proof("GET", Url, issuedAt: clock.GetUtcNow());

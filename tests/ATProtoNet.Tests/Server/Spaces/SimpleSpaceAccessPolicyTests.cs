@@ -2,6 +2,7 @@ using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Spaces;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Server.Spaces;
 
@@ -303,7 +304,7 @@ public class SimpleSpaceAccessPolicyTests
         // Proposal 0016 makes a malformed #atproto_space_host an error; reaching the managing app
         // through one is an unreachable app, which is a refusal — not a 500.
         var appDid = ATProtoNet.Identity.Did.Parse("did:web:app.example.com");
-        var resolver = new FakeDidDocumentResolver().Publish(appDid, new DidDocument
+        var resolver = new StubDidResolver().Publish(appDid, new DidDocument
         {
             Id = appDid,
             Service = [new DidDocumentService { Id = "#atproto_space_host", Type = "AtprotoSpaceHost", Endpoint = "http://app.example.com" }],

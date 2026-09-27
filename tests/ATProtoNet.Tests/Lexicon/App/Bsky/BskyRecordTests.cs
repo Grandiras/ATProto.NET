@@ -2,15 +2,17 @@ using System.Text.Json;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Actor;
 using ATProtoNet.Lexicon.App.Bsky.Embed;
+using ATProtoNet.Lexicon.App.Bsky.Feed;
 using ATProtoNet.Lexicon.App.Bsky.Graph;
+using ATProtoNet.Lexicon.App.Bsky.Notification;
 using ATProtoNet.Serialization;
 using static ATProtoNet.Tests.Lexicon.App.Bsky.BskyFixtures;
 
 namespace ATProtoNet.Tests.Lexicon.App.Bsky;
 
 /// <summary>
-/// The records added for #127: they read what the network writes, keep fields they do not
-/// declare, and write their <c>$type</c>.
+/// The app.bsky records: they read what the network writes, keep fields they do not declare, and
+/// write their <c>$type</c> (most were added for #127).
 /// </summary>
 public class BskyRecordTests
 {
@@ -68,14 +70,15 @@ public class BskyRecordTests
             JsonSerializer.Serialize(record, AtProtoJsonDefaults.Options));
     }
 
-    [Fact]
-    public void ContentVisibilityDeclarationRecord_RoundTrips()
+    [Theory]
+    // Valid but not canonical (no milliseconds): rewriting it would change the record's CID.
+    [InlineData(typeof(PostRecord), """{"$type":"app.bsky.feed.post","text":"hi","createdAt":"2024-01-01T00:00:00Z"}""")]
+    [InlineData(typeof(NotificationDeclarationRecord), """{"$type":"app.bsky.notification.declaration","allowSubscriptions":"mutuals"}""")]
+    [InlineData(typeof(ContentVisibilityDeclarationRecord), """{"$type":"app.bsky.actor.contentVisibilityDeclaration","hideFromAlgorithmicRecommendations":true}""")]
+    public void Record_RoundTrip_WritesBackTheSameText(Type type, string json)
     {
-        const string json = """{"$type":"app.bsky.actor.contentVisibilityDeclaration","hideFromAlgorithmicRecommendations":true}""";
+        var record = JsonSerializer.Deserialize(json, type, AtProtoJsonDefaults.Options)!;
 
-        var record = JsonSerializer.Deserialize<ContentVisibilityDeclarationRecord>(json, AtProtoJsonDefaults.Options)!;
-
-        Assert.True(record.HideFromAlgorithmicRecommendations);
-        Assert.Equal(json, JsonSerializer.Serialize(record, AtProtoJsonDefaults.Options));
+        Assert.Equal(json, JsonSerializer.Serialize(record, type, AtProtoJsonDefaults.Options));
     }
 }

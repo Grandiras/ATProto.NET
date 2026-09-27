@@ -8,13 +8,13 @@ using ATProtoNet.Identity;
 using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Xrpc;
 using ATProtoNet.Tests.Identity;
-using ATProtoNet.Tests.Server.Spaces;
 using ATProtoNet.Tests.TestSupport;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 namespace ATProtoNet.Tests.Server.Authentication;
 
@@ -96,7 +96,7 @@ public sealed class ServiceAuthSchemeTests : IDisposable
     private const string Caller = "did:plc:callercallercallercaller";
     private const string Audience = "did:web:feed.example.com#bsky_fg";
 
-    private readonly FakeDidDocumentResolver _resolver = new();
+    private readonly StubDidResolver _resolver = new();
     private readonly InMemoryJtiReplayStore _replay = new();
     private readonly ServiceAuthGenerator _generator;
 
@@ -383,10 +383,10 @@ public sealed class ServiceAuthSchemeTests : IDisposable
 
     public static TheoryData<string, Action<AtProtoServiceAuthOptions>, string?> VerifierSettings => new()
     {
-        { "defaults, 70 s ahead", o => o.TimeProvider = new ManualClock(DateTimeOffset.UtcNow.AddSeconds(70)), null },
+        { "defaults, 70 s ahead", o => o.TimeProvider = new FakeTimeProvider(DateTimeOffset.UtcNow.AddSeconds(70)), null },
         { "ClockSkew", o =>
             {
-                o.TimeProvider = new ManualClock(DateTimeOffset.UtcNow.AddSeconds(70));
+                o.TimeProvider = new FakeTimeProvider(DateTimeOffset.UtcNow.AddSeconds(70));
                 o.Verifier.ClockSkew = TimeSpan.FromSeconds(5);
             }, ServiceAuthErrors.JwtExpired },
         { "MaxTokenLifetime", o => o.Verifier.MaxTokenLifetime = TimeSpan.FromSeconds(20), ServiceAuthErrors.BadJwt },

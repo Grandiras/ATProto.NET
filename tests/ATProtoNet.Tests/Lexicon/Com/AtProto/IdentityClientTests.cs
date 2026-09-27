@@ -7,8 +7,8 @@ using ATProtoNet.Tests.TestSupport;
 namespace ATProtoNet.Tests.Lexicon.Com.AtProto;
 
 /// <summary>
-/// <c>com.atproto.identity.resolveIdentity</c>, <c>resolveDid</c> and <c>refreshIdentity</c>:
-/// delegating resolution to a service.
+/// <c>com.atproto.identity.resolveIdentity</c>: delegating resolution to a service. <c>resolveDid</c>
+/// and <c>refreshIdentity</c> are rows in <see cref="EndpointRequestTests"/>.
 /// </summary>
 public class IdentityClientTests : IDisposable
 {
@@ -61,30 +61,5 @@ public class IdentityClientTests : IDisposable
             () => _fixture.Client.Identity.ResolveIdentityAsync(AtIdentifier.Parse("nobody.example.com")));
 
         Assert.True(ex.Is(XrpcErrors.HandleNotFound));
-    }
-
-    [Fact]
-    public async Task ResolveDidAsync_SendsTheDidAndParsesTheDocument()
-    {
-        _fixture.Fallback($$"""{"didDoc":{{DidDocs.AtprotoDotCom}}}""");
-
-        var response = await _fixture.Client.Identity.ResolveDidAsync(Did.Parse(DidText));
-
-        Assert.Equal(
-            $"https://pds.example.com/xrpc/com.atproto.identity.resolveDid?did={DidText}",
-            Uri.UnescapeDataString(Last.Uri.ToString()));
-        Assert.Equal("did:key:zQ3shunBKsXixLxKtC5qeSG9E4J5RkGN57im31pcTzbNQnm5w", response.DidDoc.GetSigningKey());
-    }
-
-    [Fact]
-    public async Task RefreshIdentityAsync_PostsTheIdentifier()
-    {
-        _fixture.Fallback(IdentityInfoJson);
-
-        var info = await _fixture.Client.Identity.RefreshIdentityAsync(AtIdentifier.Parse(DidText));
-
-        Assert.Equal("https://pds.example.com/xrpc/com.atproto.identity.refreshIdentity", Last.Uri.ToString());
-        Assert.Equal(DidText, Last.JsonBody.GetProperty("identifier").GetString());
-        Assert.Equal(Handle.Parse("atproto.com"), info.Handle);
     }
 }

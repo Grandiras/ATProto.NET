@@ -7,9 +7,11 @@ using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Spaces;
 using ATProtoNet.Tests.Identity;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 
 namespace ATProtoNet.Tests.Server.Spaces;
@@ -27,7 +29,7 @@ public class SpaceDelegationTokenVerifierTests
     public async Task VerifyAsync_ValidToken_ReturnsTheDelegatingUser()
     {
         using var userKey = AtProtoCrypto.GenerateP256Key();
-        var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
+        var resolver = new StubDidResolver().PublishAccount(UserDid, userKey);
         var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var space = Space();
@@ -45,7 +47,7 @@ public class SpaceDelegationTokenVerifierTests
     {
         // A delegation token is minted in the user's name, and a space's participants are DIDs.
         using var userKey = AtProtoCrypto.GenerateP256Key();
-        var verifier = new SpaceDelegationTokenVerifier(new FakeDidDocumentResolver(), new InMemoryJtiReplayStore());
+        var verifier = new SpaceDelegationTokenVerifier(new StubDidResolver(), new InMemoryJtiReplayStore());
 
         var space = Space();
         var jwt = SpaceTokens.Create(
@@ -64,7 +66,7 @@ public class SpaceDelegationTokenVerifierTests
         // authority cannot present it there, because the audience is derived from the token's own
         // subject rather than taken from the request.
         using var userKey = AtProtoCrypto.GenerateP256Key();
-        var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
+        var resolver = new StubDidResolver().PublishAccount(UserDid, userKey);
         var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var space = Space();
@@ -85,7 +87,7 @@ public class SpaceDelegationTokenVerifierTests
     public async Task VerifyAsync_TokenForAnotherSpace_IsRejected()
     {
         using var userKey = AtProtoCrypto.GenerateP256Key();
-        var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
+        var resolver = new StubDidResolver().PublishAccount(UserDid, userKey);
         var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var minted = SpaceUri.Parse($"at://{AuthorityDid}/space/com.atmoboards.forum/other");
@@ -99,7 +101,7 @@ public class SpaceDelegationTokenVerifierTests
     public async Task VerifyAsync_SameTokenTwice_IsRejectedTheSecondTime()
     {
         using var userKey = AtProtoCrypto.GenerateP256Key();
-        var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
+        var resolver = new StubDidResolver().PublishAccount(UserDid, userKey);
         var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var space = Space();
@@ -117,7 +119,7 @@ public class SpaceDelegationTokenVerifierTests
     {
         using var publishedKey = AtProtoCrypto.GenerateP256Key();
         using var attackerKey = AtProtoCrypto.GenerateP256Key();
-        var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, publishedKey);
+        var resolver = new StubDidResolver().PublishAccount(UserDid, publishedKey);
         var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var space = Space();
@@ -131,7 +133,7 @@ public class SpaceDelegationTokenVerifierTests
     public async Task VerifyAsync_ExpiredToken_IsRejected()
     {
         using var userKey = AtProtoCrypto.GenerateP256Key();
-        var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
+        var resolver = new StubDidResolver().PublishAccount(UserDid, userKey);
         var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var space = Space();
@@ -154,7 +156,7 @@ public class SpaceDelegationTokenVerifierTests
         // dated far ahead would stay replayable — and would hold its jti in the replay store —
         // for exactly as long as it claims, so it is refused instead.
         using var userKey = AtProtoCrypto.GenerateP256Key();
-        var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
+        var resolver = new StubDidResolver().PublishAccount(UserDid, userKey);
         var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var space = Space();
@@ -178,7 +180,7 @@ public class SpaceDelegationTokenVerifierTests
         // bare uncompressed point. A key the SDK can read is a key this verifier must accept.
         var ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var userKey = new AtProtoKey(ecdsa, KeyCurve.P256);
-        var resolver = new FakeDidDocumentResolver().PublishLegacyAccount(UserDid, "#atproto", ecdsa);
+        var resolver = new StubDidResolver().PublishLegacyAccount(UserDid, "#atproto", ecdsa);
         var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var space = Space();
@@ -210,7 +212,7 @@ public class SpaceDelegationTokenVerifierTests
             ],
         };
 
-        var resolver = new FakeDidDocumentResolver().Publish(UserDid, document);
+        var resolver = new StubDidResolver().Publish(UserDid, document);
         var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var space = Space();
@@ -229,7 +231,7 @@ public class SpaceDelegationTokenVerifierTests
     {
         // The typ header is what keeps the three token classes from being interchangeable.
         using var userKey = AtProtoCrypto.GenerateP256Key();
-        var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
+        var resolver = new StubDidResolver().PublishAccount(UserDid, userKey);
         var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
 
         var space = Space();
@@ -245,9 +247,9 @@ public class SpaceDelegationTokenVerifierTests
         // A token is accepted until exp plus the clock skew, so its jti must be kept that long;
         // kept only until exp, the sweep dropped it while the token still verified.
         var start = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-        var clock = new ManualClock(start);
+        var clock = new FakeTimeProvider(start);
         using var userKey = AtProtoCrypto.GenerateP256Key();
-        var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
+        var resolver = new StubDidResolver().PublishAccount(UserDid, userKey);
         var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore(clock), timeProvider: clock);
 
         var space = Space();
@@ -265,7 +267,7 @@ public class SpaceDelegationTokenVerifierTests
     public async Task VerifyAsync_JtiOfOnlyWhitespace_IsRefusedNotThrown()
     {
         using var userKey = AtProtoCrypto.GenerateP256Key();
-        var resolver = new FakeDidDocumentResolver().PublishAccount(UserDid, userKey);
+        var resolver = new StubDidResolver().PublishAccount(UserDid, userKey);
         var verifier = new SpaceDelegationTokenVerifier(resolver, new InMemoryJtiReplayStore());
         var space = Space();
         var now = DateTimeOffset.UtcNow;
@@ -291,7 +293,7 @@ public class SpaceDelegationTokenVerifierTests
     public async Task VerifyAsync_MalformedToken_IsInvalidDelegationToken(string jwt)
     {
         // How each segment decodes is JwtTests'; this pins that a failure is this verifier's error.
-        var verifier = new SpaceDelegationTokenVerifier(new FakeDidDocumentResolver(), new InMemoryJtiReplayStore());
+        var verifier = new SpaceDelegationTokenVerifier(new StubDidResolver(), new InMemoryJtiReplayStore());
 
         var ex = await Assert.ThrowsAsync<SpaceVerificationException>(() => verifier.VerifyAsync(jwt, Space()));
 
@@ -319,7 +321,7 @@ public class SpaceCredentialVerifierTests
     {
         using var authorityKey = AtProtoCrypto.GenerateP256Key();
         using var dpop = new TestDPoPKey();
-        var resolver = new FakeDidDocumentResolver().PublishAccount(AuthorityDid, authorityKey);
+        var resolver = new StubDidResolver().PublishAccount(AuthorityDid, authorityKey);
         var verifier = CreateVerifier(resolver);
 
         var space = Space();
@@ -340,7 +342,7 @@ public class SpaceCredentialVerifierTests
         // issuer — so nobody but a space's authority can mint credentials for it.
         using var impostorKey = AtProtoCrypto.GenerateP256Key();
         using var dpop = new TestDPoPKey();
-        var resolver = new FakeDidDocumentResolver().PublishAccount(ImpostorDid, impostorKey);
+        var resolver = new StubDidResolver().PublishAccount(ImpostorDid, impostorKey);
         var verifier = CreateVerifier(resolver);
 
         var space = Space();
@@ -359,7 +361,7 @@ public class SpaceCredentialVerifierTests
     {
         using var authorityKey = AtProtoCrypto.GenerateP256Key();
         using var dpop = new TestDPoPKey();
-        var resolver = new FakeDidDocumentResolver().PublishAccount(AuthorityDid, authorityKey);
+        var resolver = new StubDidResolver().PublishAccount(AuthorityDid, authorityKey);
         var verifier = CreateVerifier(resolver);
 
         var granted = SpaceUri.Parse($"at://{AuthorityDid}/space/com.atmoboards.forum/other");
@@ -379,7 +381,7 @@ public class SpaceCredentialVerifierTests
         using var authorityKey = AtProtoCrypto.GenerateP256Key();
         using var holder = new TestDPoPKey();
         using var thief = new TestDPoPKey();
-        var resolver = new FakeDidDocumentResolver().PublishAccount(AuthorityDid, authorityKey);
+        var resolver = new StubDidResolver().PublishAccount(AuthorityDid, authorityKey);
         var verifier = CreateVerifier(resolver);
 
         var space = Space();
@@ -419,7 +421,7 @@ public class SpaceCredentialVerifierTests
             ],
         };
 
-        var resolver = new FakeDidDocumentResolver().Publish(AuthorityDid, document);
+        var resolver = new StubDidResolver().Publish(AuthorityDid, document);
         var verifier = CreateVerifier(resolver);
 
         var space = Space();
@@ -447,7 +449,7 @@ public class SpaceCredentialVerifierTests
         using var spaceKey = new AtProtoKey(ecdsa, KeyCurve.P256);
         using var dpop = new TestDPoPKey();
 
-        var resolver = new FakeDidDocumentResolver()
+        var resolver = new StubDidResolver()
             .PublishLegacyAccount(AuthorityDid, SpaceAuthority.SigningKeyId, ecdsa);
         var verifier = CreateVerifier(resolver);
 
@@ -655,7 +657,7 @@ public class SpaceClientAttestationVerifierTests
     public async Task VerifyAsync_ReplayedAfterExpiryButWithinTheSkew_IsStillRefused()
     {
         var start = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-        var clock = new ManualClock(start);
+        var clock = new FakeTimeProvider(start);
         using var key = new TestDPoPKey();
         var resolver = new FakeClientMetadataResolver().Publish(ClientId, key.ToJsonWebKey("key-1"));
         var verifier = new SpaceClientAttestationVerifier(resolver, new InMemoryJtiReplayStore(clock), timeProvider: clock);
@@ -683,7 +685,7 @@ public class NotifyWriteServiceAuthTests
 
     private static NotifyWriteEndpoint Endpoint(AtProtoKey writerKey, SpaceServerOptions? options = null) =>
         new(
-            new FakeDidDocumentResolver().PublishAccount(WriterDid, writerKey),
+            new StubDidResolver().PublishAccount(WriterDid, writerKey),
             new InMemoryJtiReplayStore(),
             Substitute.For<ISpaceAuthorityStore>(),
             Substitute.For<ISpaceAccessPolicy>(),
@@ -784,9 +786,9 @@ public class NotifyWriteServiceAuthTests
         using var authorityKey = AtProtoCrypto.GenerateP256Key();
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddSingleton<TimeProvider>(new ManualClock(DateTimeOffset.UtcNow.AddSeconds(70)));
+        services.AddSingleton<TimeProvider>(new FakeTimeProvider(DateTimeOffset.UtcNow.AddSeconds(70)));
         services.AddKeyedSingleton<IDidResolver>(
-            SpaceServerExtensions.DidResolverKey, new FakeDidDocumentResolver().PublishAccount(WriterDid, key));
+            SpaceServerExtensions.DidResolverKey, new StubDidResolver().PublishAccount(WriterDid, key));
         services
             .AddAtProtoSpaces(o =>
             {

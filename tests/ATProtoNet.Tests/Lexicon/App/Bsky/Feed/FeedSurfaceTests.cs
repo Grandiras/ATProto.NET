@@ -6,27 +6,21 @@ using static ATProtoNet.Tests.Lexicon.App.Bsky.BskyFixtures;
 namespace ATProtoNet.Tests.Lexicon.App.Bsky.Feed;
 
 /// <summary>
-/// app.bsky.feed.searchPostsV2 and app.bsky.feed.sendInteractions.
+/// app.bsky.feed.searchPostsV2's full parameter set and sendInteractions' proxying. Their plain
+/// request shapes are rows in <see cref="EndpointRequestTests"/>.
 /// </summary>
 public sealed class FeedSurfaceTests : IDisposable
 {
-    private readonly HttpStub _handler = new();
-    private readonly AtProtoClient _client;
+    private readonly XrpcTestClient _fixture = new();
 
-    public FeedSurfaceTests() => _client = _handler.CreateClient();
-
-    public void Dispose()
-    {
-        _client.Dispose();
-        _handler.Dispose();
-    }
+    public void Dispose() => _fixture.Dispose();
 
     [Fact]
     public async Task SearchPostsV2Async_SendsEveryFilterUnderItsLexiconName()
     {
-        _handler.On("app.bsky.feed.searchPostsV2", """{"posts":[]}""");
+        _fixture.On("app.bsky.feed.searchPostsV2", """{"posts":[]}""");
 
-        await _client.Bsky.Feed.SearchPostsV2Async(
+        await _fixture.Client.Bsky.Feed.SearchPostsV2Async(
             "東京 ramen",
             new PostSearchFilters
             {
@@ -60,103 +54,33 @@ public sealed class FeedSurfaceTests : IDisposable
             limit: 30,
             cursor: "c1");
 
-        var request = Assert.Single(_handler.Requests);
-        var query = request.Parameters;
-        Assert.Equal("東京 ramen", query["query"]);
-        Assert.Equal("recent", query["sort"]);
-        Assert.Equal([AliceDid, "bob.test"], request.ValuesOf("authors"));
-        Assert.Equal([BobDid], request.ValuesOf("mentions"));
-        Assert.Equal(["example.com"], request.ValuesOf("domains"));
-        Assert.Equal(["https://example.com/a"], request.ValuesOf("urls"));
-        Assert.Equal([OtherPostUri], request.ValuesOf("embeddedAtUris"));
-        Assert.Equal(["food", "tokyo"], request.ValuesOf("hashtags"));
-        Assert.Equal(["spam.test"], request.ValuesOf("excludeAuthors"));
-        Assert.Equal(["noise.test"], request.ValuesOf("excludeMentions"));
-        Assert.Equal(["bad.example"], request.ValuesOf("excludeDomains"));
-        Assert.Equal(["https://bad.example/x"], request.ValuesOf("excludeUrls"));
-        Assert.Equal([PostUri], request.ValuesOf("excludeEmbeddedAtUris"));
-        Assert.Equal(["ad"], request.ValuesOf("excludeHashtags"));
-        Assert.Equal("2026-01-01", query["since"]);
-        Assert.Equal("2026-09-01T00:00:00Z", query["until"]);
-        Assert.Equal("true", query["allTime"]);
-        Assert.Equal(["ja", "en"], request.ValuesOf("languages"));
-        Assert.Equal(["de"], request.ValuesOf("excludeLanguages"));
-        Assert.Equal("true", query["hasMedia"]);
-        Assert.Equal("false", query["hasVideo"]);
-        Assert.Equal(PostUri, query["replyParentUri"]);
-        Assert.Equal(OtherPostUri, query["threadRootUri"]);
-        Assert.Equal("false", query["excludeReplies"]);
-        Assert.Equal("true", query["repliesOnly"]);
-        Assert.Equal("true", query["following"]);
-        Assert.Equal("ja", query["queryLanguage"]);
-        Assert.Equal("30", query["limit"]);
-        Assert.Equal("c1", query["cursor"]);
+        var request = _fixture.AssertGet(
+            "app.bsky.feed.searchPostsV2",
+            $"query=東京 ramen&sort=recent&authors={AliceDid}&authors=bob.test&mentions={BobDid}&domains=example.com&urls=https://example.com/a" +
+            $"&embeddedAtUris={OtherPostUri}&hashtags=food&hashtags=tokyo&excludeAuthors=spam.test&excludeMentions=noise.test" +
+            $"&excludeDomains=bad.example&excludeUrls=https://bad.example/x&excludeEmbeddedAtUris={PostUri}&excludeHashtags=ad" +
+            "&since=2026-01-01&until=2026-09-01T00:00:00Z&allTime=true&languages=ja&languages=en&excludeLanguages=de" +
+            $"&hasMedia=true&hasVideo=false&replyParentUri={PostUri}&threadRootUri={OtherPostUri}&excludeReplies=false" +
+            "&repliesOnly=true&following=true&queryLanguage=ja&limit=30&cursor=c1");
 
-        // Every upstream parameter is sent, and nothing else.
+        // Every upstream parameter is sent (the drift test checks the other direction for every call).
         var upstream = Upstream.UpstreamLexicons.Instance.Documents["app.bsky.feed.searchPostsV2"]
             .GetProperty("defs").GetProperty("main").GetProperty("parameters").GetProperty("properties")
             .EnumerateObject().Select(p => p.Name).Order(StringComparer.Ordinal);
-        Assert.Equal(upstream, query.AllKeys.OfType<string>().Order(StringComparer.Ordinal));
+        Assert.Equal(upstream, request.Parameters.AllKeys.OfType<string>().Order(StringComparer.Ordinal));
     }
 
-    [Fact]
-    public async Task SearchPostsV2Async_FiltersOnly_SendsNoQuery()
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("did:web:feeds.example.com", "did:web:feeds.example.com#bsky_fg")]
+    public async Task SendInteractionsAsync_ProxiesToTheFeedGeneratorOnlyWhenGiven(string? feedGenerator, string? proxy)
     {
-        _handler.On("app.bsky.feed.searchPostsV2", """{"posts":[]}""");
+        _fixture.On("app.bsky.feed.sendInteractions", "{}");
 
-        await _client.Bsky.Feed.SearchPostsV2Async(filters: new PostSearchFilters { Hashtags = ["atproto"] });
-
-        Assert.Equal("hashtags=atproto", Assert.Single(_handler.Requests).Query);
-    }
-
-    [Fact]
-    public async Task SearchPostsV2Async_BindsHitsAndDetectedLanguages()
-    {
-        _handler.On("app.bsky.feed.searchPostsV2", $$"""{"cursor":"25","hitsTotal":1200,"posts":[{{PostViewJson}}],"detectedQueryLanguages":["ja"]}""");
-
-        var page = await _client.Bsky.Feed.SearchPostsV2Async("東京");
-
-        Assert.Equal("25", page.Cursor);
-        Assert.Equal(1200, page.HitsTotal);
-        Assert.Equal(PostUri, Assert.Single(page.Posts).Uri.Value);
-        Assert.Equal([SearchQueryLanguage.Japanese], page.DetectedQueryLanguages);
-    }
-
-    [Fact]
-    public async Task SendInteractionsAsync_PostsTheInteractions()
-    {
-        _handler.On("app.bsky.feed.sendInteractions", "{}");
-
-        await _client.Bsky.Feed.SendInteractionsAsync(
-            [
-                new Interaction
-                {
-                    Item = AtUri.Parse(PostUri),
-                    Event = InteractionEvent.RequestLess,
-                    FeedContext = "ctx-1",
-                    ReqId = "req-1",
-                },
-                new Interaction { Item = AtUri.Parse(OtherPostUri), Event = InteractionEvent.Seen },
-            ],
-            feed: AtUri.Parse($"at://{AliceDid}/app.bsky.feed.generator/discover"));
-
-        var request = Assert.Single(_handler.Requests);
-        Assert.Equal(HttpMethod.Post, request.Method);
-        Assert.Null(request.Proxy);
-        Assert.Equal(
-            $$"""{"feed":"at://{{AliceDid}}/app.bsky.feed.generator/discover","interactions":[{"item":"{{PostUri}}","event":"app.bsky.feed.defs#requestLess","feedContext":"ctx-1","reqId":"req-1"},{"item":"{{OtherPostUri}}","event":"app.bsky.feed.defs#interactionSeen"}]}""",
-            request.BodyText);
-    }
-
-    [Fact]
-    public async Task SendInteractionsAsync_WithFeedGenerator_ProxiesToIt()
-    {
-        _handler.On("app.bsky.feed.sendInteractions", "{}");
-
-        await _client.Bsky.Feed.SendInteractionsAsync(
+        await _fixture.Client.Bsky.Feed.SendInteractionsAsync(
             [new Interaction { Item = AtUri.Parse(PostUri), Event = InteractionEvent.Like }],
-            feedGenerator: Did.Parse("did:web:feeds.example.com"));
+            feedGenerator: feedGenerator is null ? null : Did.Parse(feedGenerator));
 
-        Assert.Equal("did:web:feeds.example.com#bsky_fg", Assert.Single(_handler.Requests).Proxy);
+        Assert.Equal(proxy, Assert.Single(_fixture.Requests).Proxy);
     }
 }

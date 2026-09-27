@@ -1,6 +1,7 @@
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Spaces;
+using Microsoft.Extensions.Time.Testing;
 
 namespace ATProtoNet.Tests.Server.Spaces;
 
@@ -165,7 +166,7 @@ public class DPoPInteropTests
     [Fact]
     public async Task RfcResourceRequestProof_Validates()
     {
-        var clock = new FixedClock(DateTimeOffset.FromUnixTimeSeconds(RfcResourceIssuedAt + 1));
+        var clock = new FakeTimeProvider(DateTimeOffset.FromUnixTimeSeconds(RfcResourceIssuedAt + 1));
         var replay = new InMemoryJtiReplayStore(clock);
 
         var proof = await new DPoPProofValidator(replay, new SpaceServerOptions(), clock).ValidateAsync(
@@ -184,7 +185,7 @@ public class DPoPInteropTests
     [Fact]
     public async Task RfcResourceRequestProof_PresentedWithAnotherAccessToken_IsRejected()
     {
-        var clock = new FixedClock(DateTimeOffset.FromUnixTimeSeconds(RfcResourceIssuedAt + 1));
+        var clock = new FakeTimeProvider(DateTimeOffset.FromUnixTimeSeconds(RfcResourceIssuedAt + 1));
 
         await Assert.ThrowsAsync<SpaceVerificationException>(() => CreateValidator(clock).ValidateAsync(
             RfcResourceProof,
@@ -197,15 +198,10 @@ public class DPoPInteropTests
     [Fact]
     public async Task RfcTokenRequestProof_Validates()
     {
-        var clock = new FixedClock(DateTimeOffset.FromUnixTimeSeconds(RfcTokenIssuedAt + 1));
+        var clock = new FakeTimeProvider(DateTimeOffset.FromUnixTimeSeconds(RfcTokenIssuedAt + 1));
 
         var proof = await CreateValidator(clock).ValidateAsync(RfcTokenRequestProof, "POST", RfcTokenUrl);
 
         Assert.Equal(RfcThumbprint, proof.KeyThumbprint);
-    }
-
-    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
-    {
-        public override DateTimeOffset GetUtcNow() => now;
     }
 }

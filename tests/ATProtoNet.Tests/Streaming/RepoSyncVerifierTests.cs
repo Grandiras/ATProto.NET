@@ -4,6 +4,8 @@ using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using ATProtoNet.Repo;
 using ATProtoNet.Streaming;
 using ATProtoNet.Tests.Identity;
+using ATProtoNet.Tests.TestSupport;
+using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 
 namespace ATProtoNet.Tests.Streaming;
@@ -19,7 +21,7 @@ public sealed class RepoSyncVerifierTests : IDisposable
     private readonly InMemoryRepoSyncStateStore _store = new();
     private readonly List<RepoSyncResult> _desynchronized = [];
 
-    public RepoSyncVerifierTests() => _resolver.Add(_repo.Did, _repo.SigningKey);
+    public RepoSyncVerifierTests() => _resolver.Publish(_repo.Did, _repo.SigningKey);
 
     public void Dispose() => _repo.Dispose();
 
@@ -155,7 +157,7 @@ public sealed class RepoSyncVerifierTests : IDisposable
         using var impostor = AtProtoCrypto.GenerateK256Key();
         var resolver = new StubDidResolver();
         var commit = LiveFrames.Commit("chain-first");
-        resolver.Add(commit.Repo, impostor.ToDidKey());
+        resolver.Publish(commit.Repo, impostor.ToDidKey());
         using var verifier = Verifier(resolver: resolver);
 
         var result = await Process(verifier, commit);
@@ -478,7 +480,7 @@ public sealed class RepoSyncVerifierTests : IDisposable
     [Fact]
     public async Task VerifyCommitAsync_RevisionInTheFuture_IsInvalid()
     {
-        var clock = new ManualClock(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
         using var verifier = Verifier(clock);
 
         var soon = await Process(verifier, _repo.Create(new CommitTweaks { RevMicros = clock.GetUtcNow().AddMinutes(4).ToUnixTimeMilliseconds() * 1000 }));
@@ -530,7 +532,7 @@ public sealed class RepoSyncVerifierTests : IDisposable
         await Process(verifier, _repo.Create());
 
         using var rotated = AtProtoCrypto.GenerateK256Key();
-        _resolver.RotatedKeys[_repo.Did] = rotated.ToDidKey();
+        _resolver.Rotate(_repo.Did, rotated.ToDidKey());
         _repo.Key = rotated;
 
         var result = await Process(verifier, _repo.Create());

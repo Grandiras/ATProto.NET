@@ -1,56 +1,8 @@
-using System.Collections.Concurrent;
 using System.Net;
 using System.Text;
 using ATProtoNet.Identity;
 
 namespace ATProtoNet.Tests.Identity;
-
-/// <summary>Answers each request with a scripted response, and records what was asked.</summary>
-public sealed class ScriptedHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> respond)
-    : HttpMessageHandler
-{
-    private readonly ConcurrentQueue<Uri> _requests = new();
-
-    public ScriptedHandler(Func<HttpRequestMessage, HttpResponseMessage> respond)
-        : this((request, _) => Task.FromResult(respond(request)))
-    {
-    }
-
-    /// <summary>Every request URI, in the order the requests were sent.</summary>
-    public IReadOnlyList<Uri> Requests => [.. _requests];
-
-    /// <summary>How many requests reached the handler: the network calls a real client would have made.</summary>
-    public int Count => _requests.Count;
-
-    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-    {
-        _requests.Enqueue(request.RequestUri!);
-        var response = await respond(request, cancellationToken);
-        response.RequestMessage ??= request;
-        return response;
-    }
-
-    public static HttpResponseMessage Json(string body, HttpStatusCode status = HttpStatusCode.OK) =>
-        new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
-
-    public static HttpResponseMessage Text(string body) =>
-        new(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "text/plain") };
-
-    public static HttpResponseMessage Status(HttpStatusCode status) => new(status) { Content = new StringContent("") };
-
-    /// <summary>A DNS-over-HTTPS JSON answer carrying TXT records, each already in presentation form.</summary>
-    public static HttpResponseMessage TxtAnswer(params string[] records) =>
-        Json("{\"Status\":0,\"Answer\":[" +
-             string.Join(',', records.Select(r => $"{{\"type\":16,\"data\":{System.Text.Json.JsonSerializer.Serialize(r)}}}")) +
-             "]}");
-
-    /// <summary>A host that accepts the request and never answers, until the request is cancelled.</summary>
-    public static async Task<HttpResponseMessage> Never(CancellationToken cancellationToken)
-    {
-        await Task.Delay(Timeout.Infinite, cancellationToken);
-        throw new InvalidOperationException("Unreachable.");
-    }
-}
 
 /// <summary>
 /// A raw HTTP/1.1 server on a loopback port, answering every connection with a canned response,
@@ -124,21 +76,6 @@ public sealed class LoopbackServer : IDisposable
     }
 
     public void Dispose() => _listener.Stop();
-}
-
-/// <summary>A clock that moves only when told to.</summary>
-public sealed class ManualClock(DateTimeOffset start) : TimeProvider
-{
-    private DateTimeOffset _now = start;
-
-    public ManualClock()
-        : this(new DateTimeOffset(2026, 9, 25, 12, 0, 0, TimeSpan.Zero))
-    {
-    }
-
-    public override DateTimeOffset GetUtcNow() => _now;
-
-    public void Advance(TimeSpan by) => _now = _now.Add(by);
 }
 
 /// <summary>DID documents as a directory would serve them.</summary>

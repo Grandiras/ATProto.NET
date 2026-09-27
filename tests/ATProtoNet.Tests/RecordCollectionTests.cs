@@ -118,11 +118,12 @@ public class RecordCollectionTests
     // ──────────────────────────────────────────────────────────
 
     [Fact]
-    public void GetCollection_WithoutNsid_UsesTheDeclaredCollection()
+    public void GetCollection_WithoutOrWithTheDeclaredNsid_UsesTheDeclaredCollection()
     {
         using var client = new AtProtoClient();
 
         Assert.Equal(TodoItem.Collection, client.GetCollection<TodoItem>().Collection);
+        Assert.Equal(TodoItem.Collection, client.GetCollection<TodoItem>(Nsid.Parse("com.example.todo.item")).Collection);
         Assert.Equal(
             Nsid.Parse("com.example.bookmarks.bookmark"),
             client.GetCollection<BookmarkRecord>().Collection);
@@ -137,16 +138,6 @@ public class RecordCollectionTests
         Assert.Equal("app.bsky.graph.follow", client.GetCollection<FollowRecord>().Collection.Value);
         Assert.Throws<ArgumentException>(
             () => client.GetCollection<PostRecord>(Nsid.Parse("app.bsky.feed.like")));
-    }
-
-    [Fact]
-    public void GetCollection_WithTheDeclaredNsid_Succeeds()
-    {
-        using var client = new AtProtoClient();
-
-        var todos = client.GetCollection<TodoItem>(Nsid.Parse("com.example.todo.item"));
-
-        Assert.Equal(TodoItem.Collection, todos.Collection);
     }
 
     [Fact]
@@ -238,28 +229,11 @@ public class RecordCollectionTests
     //  RecordPage
     // ──────────────────────────────────────────────────────────
 
-    [Fact]
-    public void RecordPage_HasMore_TrueWhenCursorPresent()
+    [Theory]
+    [InlineData("nextpage", true)]
+    [InlineData(null, false)]
+    public void RecordPage_HasMore_IsWhetherThereIsACursor(string? cursor, bool hasMore)
     {
-        var page = new RecordPage<TodoItem>
-        {
-            Records = [],
-            Cursor = "nextpage",
-        };
-
-        Assert.True(page.HasMore);
+        Assert.Equal(hasMore, new RecordPage<TodoItem> { Records = [], Cursor = cursor }.HasMore);
     }
-
-    [Fact]
-    public void RecordPage_HasMore_FalseWhenNoCursor()
-    {
-        var page = new RecordPage<TodoItem>
-        {
-            Records = [],
-            Cursor = null,
-        };
-
-        Assert.False(page.HasMore);
-    }
-
 }

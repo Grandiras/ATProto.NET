@@ -4,6 +4,8 @@ using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Spaces;
 using ATProtoNet.Tests.Identity;
+using ATProtoNet.Tests.TestSupport;
+using Microsoft.Extensions.Time.Testing;
 
 namespace ATProtoNet.Tests.Server.Spaces;
 
@@ -21,7 +23,7 @@ public class SpaceCredentialCacheTests
     private static SpaceUri Space(string skey = "default", Did? authority = null) =>
         SpaceUri.Parse($"at://{authority ?? AuthorityDid}/space/com.atmoboards.forum/{skey}");
 
-    private readonly ManualClock _clock = new(DateTimeOffset.UtcNow);
+    private readonly FakeTimeProvider _clock = new(DateTimeOffset.UtcNow);
 
     private SpaceCredentialVerifier CreateVerifier(IDidResolver resolver, SpaceServerOptions? options = null)
     {
@@ -38,7 +40,7 @@ public class SpaceCredentialCacheTests
     {
         using var authorityKey = AtProtoCrypto.GenerateP256Key();
         using var dpop = new TestDPoPKey();
-        var verifier = CreateVerifier(new FakeDidDocumentResolver().PublishAccount(AuthorityDid.Value, authorityKey));
+        var verifier = CreateVerifier(new StubDidResolver().PublishAccount(AuthorityDid.Value, authorityKey));
         var credential = Credential(authorityKey, dpop);
 
         await verifier.VerifyAsync(credential, Proof(dpop, credential), "GET", Url, Space());
@@ -55,7 +57,7 @@ public class SpaceCredentialCacheTests
     {
         using var authorityKey = AtProtoCrypto.GenerateP256Key();
         using var dpop = new TestDPoPKey();
-        var verifier = CreateVerifier(new FakeDidDocumentResolver().PublishAccount(AuthorityDid.Value, authorityKey));
+        var verifier = CreateVerifier(new StubDidResolver().PublishAccount(AuthorityDid.Value, authorityKey));
         var credential = Credential(authorityKey, dpop);
         var proof = Proof(dpop, credential);
 
@@ -71,7 +73,7 @@ public class SpaceCredentialCacheTests
         using var authorityKey = AtProtoCrypto.GenerateP256Key();
         using var holder = new TestDPoPKey();
         using var thief = new TestDPoPKey();
-        var verifier = CreateVerifier(new FakeDidDocumentResolver().PublishAccount(AuthorityDid.Value, authorityKey));
+        var verifier = CreateVerifier(new StubDidResolver().PublishAccount(AuthorityDid.Value, authorityKey));
         var credential = Credential(authorityKey, holder);
 
         await verifier.VerifyAsync(credential, Proof(holder, credential), "GET", Url, Space());
@@ -85,7 +87,7 @@ public class SpaceCredentialCacheTests
     {
         using var authorityKey = AtProtoCrypto.GenerateP256Key();
         using var dpop = new TestDPoPKey();
-        var verifier = CreateVerifier(new FakeDidDocumentResolver().PublishAccount(AuthorityDid.Value, authorityKey));
+        var verifier = CreateVerifier(new StubDidResolver().PublishAccount(AuthorityDid.Value, authorityKey));
         var credential = Credential(authorityKey, dpop);
 
         await verifier.VerifyAsync(credential, Proof(dpop, credential), "GET", Url, Space());
@@ -101,7 +103,7 @@ public class SpaceCredentialCacheTests
     {
         using var authorityKey = AtProtoCrypto.GenerateP256Key();
         using var dpop = new TestDPoPKey();
-        var verifier = CreateVerifier(new FakeDidDocumentResolver().PublishAccount(AuthorityDid.Value, authorityKey));
+        var verifier = CreateVerifier(new StubDidResolver().PublishAccount(AuthorityDid.Value, authorityKey));
         var credential = Credential(authorityKey, dpop, lifetime: TimeSpan.FromMinutes(1));
 
         await verifier.VerifyAsync(credential, Proof(dpop, credential), "GET", Url, Space());
@@ -124,7 +126,7 @@ public class SpaceCredentialCacheTests
         using var oldKey = AtProtoCrypto.GenerateP256Key();
         using var newKey = AtProtoCrypto.GenerateP256Key();
         using var dpop = new TestDPoPKey();
-        var resolver = new FakeDidDocumentResolver().PublishAccount(AuthorityDid.Value, oldKey);
+        var resolver = new StubDidResolver().PublishAccount(AuthorityDid.Value, oldKey);
         var verifier = CreateVerifier(resolver);
         var credential = Credential(oldKey, dpop);
 
@@ -147,14 +149,14 @@ public class SpaceCredentialCacheTests
         using var cachedHolder = new TestDPoPKey();
         using var freshHolder = new TestDPoPKey();
         using var rotatedHolder = new TestDPoPKey();
-        var resolver = new FakeDidDocumentResolver().PublishAccount(AuthorityDid.Value, oldKey);
+        var resolver = new StubDidResolver().PublishAccount(AuthorityDid.Value, oldKey);
         var verifier = CreateVerifier(resolver);
         var cached = Credential(oldKey, cachedHolder);
         await verifier.VerifyAsync(cached, Proof(cachedHolder, cached), "GET", Url, Space());
 
         // Rotated but still served stale: an old-key credential verifies whether cached or new,
         // however long the entry has existed.
-        resolver.Rotate(AuthorityDid.Value, FakeDidDocumentResolver.AccountDocument(AuthorityDid.Value, newKey));
+        resolver.Rotate(AuthorityDid.Value, StubDidResolver.AccountDocument(AuthorityDid.Value, newKey));
         _clock.Advance(TimeSpan.FromMinutes(9));
         await verifier.VerifyAsync(cached, Proof(cachedHolder, cached), "GET", Url, Space());
         var fresh = Credential(oldKey, freshHolder);
@@ -176,7 +178,7 @@ public class SpaceCredentialCacheTests
     {
         using var authorityKey = AtProtoCrypto.GenerateP256Key();
         using var dpop = new TestDPoPKey();
-        var resolver = new FakeDidDocumentResolver().PublishAccount(AuthorityDid.Value, authorityKey);
+        var resolver = new StubDidResolver().PublishAccount(AuthorityDid.Value, authorityKey);
         var verifier = CreateVerifier(resolver);
         var credential = Credential(authorityKey, dpop);
 
@@ -195,7 +197,7 @@ public class SpaceCredentialCacheTests
         using var authorityKey = AtProtoCrypto.GenerateP256Key();
         using var dpop = new TestDPoPKey();
         var verifier = CreateVerifier(
-            new FakeDidDocumentResolver().PublishAccount(AuthorityDid.Value, authorityKey),
+            new StubDidResolver().PublishAccount(AuthorityDid.Value, authorityKey),
             new SpaceServerOptions { VerifiedCredentialCacheCapacity = 0 });
         var credential = Credential(authorityKey, dpop);
 
@@ -267,7 +269,7 @@ public class SpaceCredentialCacheTests
         using var authorityKey = AtProtoCrypto.GenerateP256Key();
         using var impostorKey = AtProtoCrypto.GenerateP256Key();
         using var dpop = new TestDPoPKey();
-        var verifier = CreateVerifier(new FakeDidDocumentResolver().PublishAccount(AuthorityDid.Value, authorityKey));
+        var verifier = CreateVerifier(new StubDidResolver().PublishAccount(AuthorityDid.Value, authorityKey));
         var forged = Credential(impostorKey, dpop);
 
         await Assert.ThrowsAsync<SpaceVerificationException>(
@@ -278,9 +280,9 @@ public class SpaceCredentialCacheTests
         Assert.Equal(0, verifier.CachedCount);
     }
 
-    private static (FakeDidDocumentResolver Resolver, List<(Did Did, AtProtoKey Key)> Keys) Authorities(int count)
+    private static (StubDidResolver Resolver, List<(Did Did, AtProtoKey Key)> Keys) Authorities(int count)
     {
-        var resolver = new FakeDidDocumentResolver();
+        var resolver = new StubDidResolver();
         var keys = new List<(Did, AtProtoKey)>();
         for (var i = 0; i < count; i++)
         {

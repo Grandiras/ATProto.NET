@@ -1,7 +1,9 @@
 using ATProtoNet.Identity;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 
 namespace ATProtoNet.Tests.Identity;
@@ -15,8 +17,26 @@ public class CachingDidResolverTests
     private static readonly Did Alice = Did.Parse("did:plc:aaaaaaaaaaaaaaaaaaaaaaaa");
     private static readonly Did Bob = Did.Parse("did:plc:bbbbbbbbbbbbbbbbbbbbbbbb");
 
-    private readonly ManualClock _clock = new();
-    private readonly CountingResolver _inner = new();
+    private readonly FakeTimeProvider _clock = new();
+    private readonly StubDidResolver _inner;
+
+    // What the inner resolver does next: a document for the current version (its handle), a
+    // scripted failure or exception, and optionally only once the gate opens.
+    private int _version;
+    private DidResolutionErrorKind? _fail;
+    private Exception? _throw;
+    private TaskCompletionSource? _gate;
+
+    public CachingDidResolverTests() => _inner = new StubDidResolver(async (did, _) =>
+    {
+        if (_gate is { } gate)
+            await gate.Task;
+        if (_throw is { } exception)
+            throw exception;
+        if (_fail is { } kind)
+            throw new DidResolutionException("scripted failure", kind, did);
+        return DidDocs.Parse(did.Value, handle: $"v{_version}.example.com");
+    });
 
     private CachingDidResolver Create(DidCacheOptions? options = null, IDistributedCache? distributed = null) =>
         new(_inner, options ?? new DidCacheOptions(), distributed, _clock);
@@ -41,7 +61,7 @@ public class CachingDidResolverTests
     {
         using var cache = Create();
         var original = await cache.ResolveAsync(Alice);
-        _inner.Version++;
+        _version++;
 
         _clock.Advance(TimeSpan.FromHours(2));
         var served = await cache.ResolveAsync(Alice);
@@ -57,7 +77,7 @@ public class CachingDidResolverTests
     {
         using var cache = Create();
         var original = await cache.ResolveAsync(Alice);
-        _inner.Version++;
+        _version++;
 
         _clock.Advance(TimeSpan.FromDays(1) + TimeSpan.FromSeconds(1));
         var refetched = await cache.ResolveAsync(Alice);
@@ -73,7 +93,7 @@ public class CachingDidResolverTests
         var lifetime = TimeSpan.FromMinutes(5);
         using var cache = Create(new DidCacheOptions { StaleAfter = lifetime, ExpireAfter = lifetime });
         var original = await cache.ResolveAsync(Alice);
-        _inner.Version++;
+        _version++;
 
         _clock.Advance(lifetime - TimeSpan.FromSeconds(1));
         Assert.Same(original, await cache.ResolveAsync(Alice));
@@ -92,7 +112,7 @@ public class CachingDidResolverTests
         using var cache = Create();
         var original = await cache.ResolveAsync(Alice);
 
-        _inner.Fail = DidResolutionErrorKind.NetworkError;
+        _fail = DidResolutionErrorKind.NetworkError;
         _clock.Advance(TimeSpan.FromHours(2));
         Assert.Same(original, await cache.ResolveAsync(Alice));
         await _inner.WaitForCallsAsync(Alice, 2);
@@ -114,7 +134,7 @@ public class CachingDidResolverTests
     public async Task ResolveAsync_Failure_IsRememberedForTheFailureTtl()
     {
         using var cache = Create();
-        _inner.Fail = DidResolutionErrorKind.NotFound;
+        _fail = DidResolutionErrorKind.NotFound;
 
         var first = await Assert.ThrowsAsync<DidResolutionException>(() => cache.ResolveAsync(Alice));
         var second = await Assert.ThrowsAsync<DidResolutionException>(() => cache.ResolveAsync(Alice));
@@ -124,7 +144,7 @@ public class CachingDidResolverTests
         Assert.NotSame(first, second);
         Assert.Equal(1, _inner.Calls(Alice));
 
-        _inner.Fail = null;
+        _fail = null;
         _clock.Advance(TimeSpan.FromMinutes(1));
         await cache.ResolveAsync(Alice);
         Assert.Equal(2, _inner.Calls(Alice));
@@ -134,10 +154,10 @@ public class CachingDidResolverTests
     public async Task ResolveAsync_UnexpectedException_IsNotRemembered()
     {
         using var cache = Create();
-        _inner.Throw = new InvalidOperationException("bug");
+        _throw = new InvalidOperationException("bug");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => cache.ResolveAsync(Alice));
-        _inner.Throw = null;
+        _throw = null;
         await cache.ResolveAsync(Alice);
 
         Assert.Equal(2, _inner.Calls(Alice));
@@ -149,11 +169,11 @@ public class CachingDidResolverTests
     public async Task ResolveAsync_ConcurrentMisses_ShareOneFetch()
     {
         using var cache = Create();
-        _inner.Gate = new TaskCompletionSource();
+        _gate = new TaskCompletionSource();
 
         var callers = Enumerable.Range(0, 32).Select(_ => cache.ResolveAsync(Alice)).ToArray();
         await _inner.WaitForCallsAsync(Alice, 1);
-        _inner.Gate.SetResult();
+        _gate.SetResult();
         var documents = await Task.WhenAll(callers);
 
         Assert.Equal(1, _inner.Calls(Alice));
@@ -164,14 +184,14 @@ public class CachingDidResolverTests
     public async Task ResolveAsync_OneCallerCancels_TheSharedFetchCompletesForTheOthers()
     {
         using var cache = Create();
-        _inner.Gate = new TaskCompletionSource();
+        _gate = new TaskCompletionSource();
         using var cts = new CancellationTokenSource();
 
         var cancelled = cache.ResolveAsync(Alice, cts.Token);
         var patient = cache.ResolveAsync(Alice);
         await _inner.WaitForCallsAsync(Alice, 1);
         await cts.CancelAsync();
-        _inner.Gate.SetResult();
+        _gate.SetResult();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => cancelled);
         Assert.Equal(Alice, (await patient).Id);
@@ -199,15 +219,15 @@ public class CachingDidResolverTests
     public async Task InvalidateAsync_DuringAFetch_DiscardsItsResult()
     {
         using var cache = Create();
-        _inner.Gate = new TaskCompletionSource();
+        _gate = new TaskCompletionSource();
         var inFlight = cache.ResolveAsync(Alice);
         await _inner.WaitForCallsAsync(Alice, 1);
 
         // The fetch began before the identity changed, so what it returns may be the old document.
         await cache.InvalidateAsync(Alice);
-        _inner.Gate.SetResult();
+        _gate.SetResult();
         await inFlight;
-        _inner.Gate = null;
+        _gate = null;
         await cache.ResolveAsync(Alice);
 
         Assert.Equal(2, _inner.Calls(Alice));
@@ -218,7 +238,7 @@ public class CachingDidResolverTests
     {
         using var cache = Create();
         var original = await cache.ResolveAsync(Alice);
-        _inner.Version++;
+        _version++;
         _clock.Advance(TimeSpan.FromMinutes(1));
 
         var refreshed = await cache.RefreshAsync(Alice);
@@ -348,50 +368,5 @@ public class CachingDidResolverTests
         }
 
         Assert.Fail("The condition never held.");
-    }
-
-    /// <summary>Resolves any DID to a fresh document instance, counting and optionally gating calls.</summary>
-    private sealed class CountingResolver : IDidResolver
-    {
-        private readonly Dictionary<Did, int> _calls = new();
-
-        public int Version { get; set; }
-
-        public DidResolutionErrorKind? Fail { get; set; }
-
-        public Exception? Throw { get; set; }
-
-        public TaskCompletionSource? Gate { get; set; }
-
-        public int Calls(Did did)
-        {
-            lock (_calls)
-                return _calls.GetValueOrDefault(did);
-        }
-
-        public async Task WaitForCallsAsync(Did did, int count)
-        {
-            for (var i = 0; i < 500 && Calls(did) < count; i++)
-                await Task.Delay(10);
-
-            Assert.True(Calls(did) >= count, $"Expected {count} calls for {did}, saw {Calls(did)}.");
-        }
-
-        public async Task<DidDocument> ResolveAsync(Did did, CancellationToken cancellationToken = default)
-        {
-            lock (_calls)
-                _calls[did] = _calls.GetValueOrDefault(did) + 1;
-
-            if (Gate is { } gate)
-                await gate.Task;
-
-            if (Throw is { } exception)
-                throw exception;
-
-            if (Fail is { } kind)
-                throw new DidResolutionException("scripted failure", kind, did);
-
-            return DidDocs.Parse(did.Value, handle: $"v{Version}.example.com");
-        }
     }
 }

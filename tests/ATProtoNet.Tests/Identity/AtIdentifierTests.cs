@@ -2,104 +2,32 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Tests.Identity;
 
+/// <summary>
+/// What <see cref="AtIdentifier"/> adds to the shared identifier contract
+/// (<see cref="IdentifierContractTests"/>) and the interop syntax fixtures
+/// (<see cref="SyntaxInteropTests"/>): which of the two it holds.
+/// </summary>
 public class AtIdentifierTests
 {
-    [Fact]
-    public void Parse_Did_CreatesDidIdentifier()
+    [Theory]
+    [InlineData("did:plc:abc123", true)]
+    [InlineData("alice.bsky.social", false)]
+    public void Parse_KnowsWhetherItIsADidOrAHandle(string value, bool isDid)
     {
-        var id = AtIdentifier.Parse("did:plc:abc123");
+        var id = AtIdentifier.Parse(value);
 
-        Assert.True(id.IsDid);
-        Assert.False(id.IsHandle);
-        Assert.NotNull(id.Did);
-        Assert.Equal("did:plc:abc123", id.Value);
+        Assert.Equal((isDid, !isDid), (id.IsDid, id.IsHandle));
+        Assert.Equal(value, isDid ? id.Did!.Value : id.Handle!.Value);
+        Assert.Equal(value, id.Value);
     }
 
     [Fact]
-    public void Parse_Handle_CreatesHandleIdentifier()
-    {
-        var id = AtIdentifier.Parse("alice.bsky.social");
-
-        Assert.False(id.IsDid);
-        Assert.True(id.IsHandle);
-        Assert.NotNull(id.Handle);
-        Assert.Equal("alice.bsky.social", id.Value);
-    }
-
-    [Fact]
-    public void FromDid_Wraps_Did()
+    public void FromDidAndFromHandle_WrapTheirIdentifier()
     {
         var did = Did.Parse("did:plc:abc123");
-        var id = AtIdentifier.FromDid(did);
-
-        Assert.True(id.IsDid);
-        Assert.Equal(did, id.Did);
-    }
-
-    [Fact]
-    public void FromHandle_Wraps_Handle()
-    {
         var handle = Handle.Parse("alice.bsky.social");
-        var id = AtIdentifier.FromHandle(handle);
 
-        Assert.True(id.IsHandle);
-        Assert.Equal(handle, id.Handle);
-    }
-
-    [Fact]
-    public void TryParse_ValidDid_Succeeds()
-    {
-        var result = AtIdentifier.TryParse("did:plc:abc123", out var id);
-        Assert.True(result);
-        Assert.NotNull(id);
-        Assert.True(id.IsDid);
-    }
-
-    [Fact]
-    public void TryParse_ValidHandle_Succeeds()
-    {
-        var result = AtIdentifier.TryParse("alice.bsky.social", out var id);
-        Assert.True(result);
-        Assert.NotNull(id);
-        Assert.True(id.IsHandle);
-    }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData(" ")]
-    public void TryParse_Invalid_ReturnsFalse(string? value)
-    {
-        var result = AtIdentifier.TryParse(value, out var id);
-        Assert.False(result);
-        Assert.Null(id);
-    }
-
-    [Fact]
-    public void Equality_SameDidValues_AreEqual()
-    {
-        var a = AtIdentifier.Parse("did:plc:abc123");
-        var b = AtIdentifier.Parse("did:plc:abc123");
-
-        Assert.Equal(a, b);
-        Assert.True(a == b);
-    }
-
-    [Fact]
-    public void Equality_SameHandleValues_AreEqual()
-    {
-        var a = AtIdentifier.Parse("alice.bsky.social");
-        var b = AtIdentifier.Parse("ALICE.bsky.social");
-
-        Assert.Equal(a, b);
-    }
-
-    [Fact]
-    public void Equality_DifferentTypes_AreNotEqual()
-    {
-        var a = AtIdentifier.Parse("did:plc:abc123");
-        var b = AtIdentifier.Parse("alice.bsky.social");
-
-        Assert.NotEqual(a, b);
+        Assert.Equal(did, AtIdentifier.FromDid(did).Did);
+        Assert.Equal(handle, AtIdentifier.FromHandle(handle).Handle);
     }
 }

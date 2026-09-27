@@ -3,8 +3,9 @@ using System.Text.Json.Nodes;
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Identity;
 using ATProtoNet.Tests.Auth;
-using ATProtoNet.Tests.Identity;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 using static ATProtoNet.Tests.Auth.SessionKit;
 
@@ -37,15 +38,15 @@ public class AuthorizationServerMetadataValidationTests
         return json.ToJsonString();
     }
 
-    private static (AuthorizationServerDiscovery Discovery, ScriptedHandler Handler) Discovery(
+    private static (AuthorizationServerDiscovery Discovery, HttpStub Handler) Discovery(
         string resourceMetadata, string serverMetadata, bool allowPrivateNetworks = false)
     {
-        var handler = new ScriptedHandler(request =>
-            request.RequestUri!.AbsolutePath.EndsWith("/.well-known/oauth-protected-resource", StringComparison.Ordinal)
-                ? ScriptedHandler.Json(resourceMetadata)
-                : request.RequestUri.AbsolutePath.EndsWith("/.well-known/oauth-authorization-server", StringComparison.Ordinal)
-                    ? ScriptedHandler.Json(serverMetadata)
-                    : ScriptedHandler.Status(HttpStatusCode.NotFound));
+        var handler = new HttpStub().Fallback(request =>
+            request.Uri.AbsolutePath.EndsWith("/.well-known/oauth-protected-resource", StringComparison.Ordinal)
+                ? HttpStub.JsonResponse(resourceMetadata)
+                : request.Uri.AbsolutePath.EndsWith("/.well-known/oauth-authorization-server", StringComparison.Ordinal)
+                    ? HttpStub.JsonResponse(serverMetadata)
+                    : HttpStub.Status(HttpStatusCode.NotFound));
         var discovery = new AuthorizationServerDiscovery(
             new HttpClient(handler), NullLogger.Instance, Substitute.For<IIdentityResolver>(), allowPrivateNetworks);
         return (discovery, handler);
@@ -175,7 +176,7 @@ public class AuthorizationServerMetadataValidationTests
         var ex = await Assert.ThrowsAsync<OAuthException>(() => discovery.ResolveAuthorizationServerAsync(PdsUrl));
 
         Assert.Equal("invalid_resource_metadata", ex.Error);
-        Assert.Equal(1, handler.Count); // the authorization server was never asked
+        Assert.Single(handler.Requests); // the authorization server was never asked
     }
 
     [Fact]
@@ -268,7 +269,7 @@ public class AuthorizationServerMetadataValidationTests
         await discovery.ResolveAuthorizationServerAsync(PdsUrl);
         await discovery.FetchAuthorizationServerMetadataAsync(Issuer);
 
-        Assert.Equal(2, handler.Count);
+        Assert.Equal(2, handler.Requests.Count);
     }
 
     [Fact]
@@ -287,10 +288,10 @@ public class AuthorizationServerMetadataValidationTests
     public async Task AFailedFetch_IsNotCached()
     {
         var calls = 0;
-        var handler = new ScriptedHandler(_ =>
+        var handler = new HttpStub().Fallback(_ =>
             Interlocked.Increment(ref calls) == 1
-                ? ScriptedHandler.Status(HttpStatusCode.ServiceUnavailable)
-                : ScriptedHandler.Json(ResourceMetadata()));
+                ? HttpStub.Status(HttpStatusCode.ServiceUnavailable)
+                : HttpStub.JsonResponse(ResourceMetadata()));
         using var discovery = new AuthorizationServerDiscovery(
             new HttpClient(handler), NullLogger.Instance, Substitute.For<IIdentityResolver>());
 
@@ -306,10 +307,10 @@ public class AuthorizationServerMetadataValidationTests
     public async Task AServerWithoutResourceMetadata_IsTriedAsAnAuthorizationServer()
     {
         const string entryway = "https://entryway.example.com";
-        var handler = new ScriptedHandler(request => request.RequestUri!.AbsolutePath switch
+        var handler = new HttpStub().Fallback(request => request.Uri.AbsolutePath switch
         {
-            "/.well-known/oauth-authorization-server" => ScriptedHandler.Json(AuthorizationServerMetadataJson(entryway)),
-            _ => ScriptedHandler.Status(HttpStatusCode.NotFound),
+            "/.well-known/oauth-authorization-server" => HttpStub.JsonResponse(AuthorizationServerMetadataJson(entryway)),
+            _ => HttpStub.Status(HttpStatusCode.NotFound),
         });
         using var discovery = new AuthorizationServerDiscovery(
             new HttpClient(handler), NullLogger.Instance, Substitute.For<IIdentityResolver>());
@@ -322,18 +323,18 @@ public class AuthorizationServerMetadataValidationTests
     [Fact]
     public async Task ResolveFromServerUrlAsync_APds_FetchesItsResourceMetadataOnce()
     {
-        var handler = new ScriptedHandler(request => request.RequestUri!.AbsolutePath switch
+        var handler = new HttpStub().Fallback(request => request.Uri.AbsolutePath switch
         {
-            "/.well-known/oauth-protected-resource" => ScriptedHandler.Json(ResourceMetadata()),
-            "/.well-known/oauth-authorization-server" => ScriptedHandler.Json(ServerMetadata()),
-            _ => ScriptedHandler.Status(HttpStatusCode.NotFound),
+            "/.well-known/oauth-protected-resource" => HttpStub.JsonResponse(ResourceMetadata()),
+            "/.well-known/oauth-authorization-server" => HttpStub.JsonResponse(ServerMetadata()),
+            _ => HttpStub.Status(HttpStatusCode.NotFound),
         });
 
         // A clock past the cache lifetime at every reading, so nothing the cache holds hides a fetch.
         using var discovery = new AuthorizationServerDiscovery(
             new HttpClient(handler), NullLogger.Instance, Substitute.For<IIdentityResolver>())
         {
-            TimeProvider = new RacingClock(),
+            TimeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch.AddHours(1)) { AutoAdvanceAmount = TimeSpan.FromHours(1) },
         };
 
         var metadata = await discovery.ResolveFromServerUrlAsync(PdsUrl, CancellationToken.None);
@@ -341,22 +342,13 @@ public class AuthorizationServerMetadataValidationTests
         Assert.Equal(Issuer, metadata.Issuer);
         Assert.Equal(
             ["/.well-known/oauth-protected-resource", "/.well-known/oauth-authorization-server"],
-            handler.Requests.Select(uri => uri.AbsolutePath));
-    }
-
-    /// <summary>A clock that moves an hour on with every reading.</summary>
-    private sealed class RacingClock : TimeProvider
-    {
-        private long _hours;
-
-        public override DateTimeOffset GetUtcNow() =>
-            DateTimeOffset.UnixEpoch.AddHours(Interlocked.Increment(ref _hours));
+            handler.Uris.Select(uri => uri.AbsolutePath));
     }
 
     [Fact]
     public async Task AServerThatIsNeither_ReportsThePdsFailure()
     {
-        var handler = new ScriptedHandler(_ => ScriptedHandler.Status(HttpStatusCode.NotFound));
+        var handler = new HttpStub().Fallback(_ => HttpStub.Status(HttpStatusCode.NotFound));
         using var discovery = new AuthorizationServerDiscovery(
             new HttpClient(handler), NullLogger.Instance, Substitute.For<IIdentityResolver>());
 

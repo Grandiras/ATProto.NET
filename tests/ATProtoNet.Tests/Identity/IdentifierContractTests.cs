@@ -92,12 +92,20 @@ public class IdentifierContractTests
         Assert.Equal(AtIdentifier.Parse("did:plc:abc123"), (AtIdentifier)"did:plc:abc123");
         Assert.Equal(Nsid.Parse("app.bsky.feed.post"), (Nsid)"app.bsky.feed.post");
         Assert.Equal(RecordKey.Self, (RecordKey)"self");
+        Assert.Equal(Tid.Parse("3jzfcijpj2z2a"), (Tid)"3jzfcijpj2z2a");
+        Assert.Equal(
+            Cid.Parse("bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku"),
+            (Cid)"bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku");
+        Assert.Equal(AtUri.Parse("at://did:plc:abc123/app.bsky.feed.post/3k2la"), (AtUri)"at://did:plc:abc123/app.bsky.feed.post/3k2la");
         Assert.Equal(
             SpaceUri.Parse("at://did:plc:abc123/space/com.example.forum/a"),
             (SpaceUri)"at://did:plc:abc123/space/com.example.forum/a");
 
         Assert.ThrowsAny<ArgumentException>(() => (Nsid)"app.bsky");
         Assert.ThrowsAny<ArgumentException>(() => (RecordKey)"..");
+        Assert.ThrowsAny<ArgumentException>(() => (Tid)"zzzzzzzzzzzzz");
+        Assert.ThrowsAny<ArgumentException>(() => (Cid)"hello");
+        Assert.ThrowsAny<ArgumentException>(() => (AtUri)"at://did:plc:abc123/");
         Assert.ThrowsAny<ArgumentException>(() => (AtIdentifier)"@");
         Assert.ThrowsAny<ArgumentException>(() => (SpaceRecordUri)"at://did:plc:abc123/space/com.example.forum/a");
     }

@@ -29,7 +29,7 @@ public class SimpleSpaceManagingAppClientTests
     private SimpleSpaceManagingAppClient CreateClient(
         string endpoint = "https://app.example.com", ISpaceAccountSigner? accountSigner = null, Did? serviceDid = null)
     {
-        var resolver = new FakeDidDocumentResolver().Publish(AppDid, new DidDocument
+        var resolver = new StubDidResolver().Publish(AppDid, new DidDocument
         {
             Id = AppDid,
             Service =

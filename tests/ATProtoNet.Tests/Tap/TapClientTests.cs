@@ -7,6 +7,7 @@ using ATProtoNet.Streaming;
 using ATProtoNet.Tap;
 using ATProtoNet.Tests.Identity;
 using ATProtoNet.Tests.Streaming;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Tap;
 
@@ -106,36 +107,36 @@ public sealed class TapClientTests
     [Fact]
     public async Task AddReposAsync_PostsTheDidsWithAdminAuth()
     {
-        var handler = new CapturingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var handler = new HttpStub().Fallback(_ => new HttpResponseMessage(HttpStatusCode.OK));
         using var tap = Client(handler, "secret");
 
         await tap.AddReposAsync([ATProtoNet.Identity.Did.Parse(Did), ATProtoNet.Identity.Did.Parse("did:web:example.com")]);
 
         var request = Assert.Single(handler.Requests);
-        Assert.Equal("POST", request.Method);
-        Assert.Equal("http://localhost:2480/repos/add", request.Uri);
+        Assert.Equal(HttpMethod.Post, request.Method);
+        Assert.Equal("http://localhost:2480/repos/add", request.Uri.AbsoluteUri);
         Assert.Equal("Basic YWRtaW46c2VjcmV0", request.Authorization);
         Assert.Equal("application/json", request.ContentType);
-        Assert.Equal($$"""{"dids":["{{Did}}","did:web:example.com"]}""", request.Body);
+        Assert.Equal($$"""{"dids":["{{Did}}","did:web:example.com"]}""", request.BodyText);
     }
 
     [Fact]
     public async Task RemoveReposAsync_PostsToRemove()
     {
-        var handler = new CapturingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var handler = new HttpStub().Fallback(_ => new HttpResponseMessage(HttpStatusCode.OK));
         using var tap = Client(handler);
 
         await tap.RemoveReposAsync([ATProtoNet.Identity.Did.Parse(Did)]);
 
         var request = Assert.Single(handler.Requests);
-        Assert.Equal("http://localhost:2480/repos/remove", request.Uri);
+        Assert.Equal("http://localhost:2480/repos/remove", request.Uri.AbsoluteUri);
         Assert.Null(request.Authorization);
     }
 
     [Fact]
     public async Task AddReposAsync_Refused_ThrowsWithTheStatus()
     {
-        using var tap = Client(new CapturingHandler(_ => ScriptedHandler.Json("""{"error":"Unauthorized"}""", HttpStatusCode.Unauthorized)));
+        using var tap = Client(new HttpStub().Fallback(_ => HttpStub.JsonResponse("""{"error":"Unauthorized"}""", HttpStatusCode.Unauthorized)));
 
         var ex = await Assert.ThrowsAsync<TapException>(() => tap.AddReposAsync([ATProtoNet.Identity.Did.Parse(Did)]));
 
@@ -145,12 +146,12 @@ public sealed class TapClientTests
     [Fact]
     public async Task ResolveDidAsync_ReadsTheDocument()
     {
-        var handler = new CapturingHandler(_ => ScriptedHandler.Json(DidDocs.AtprotoDotCom));
+        var handler = new HttpStub().Fallback(_ => HttpStub.JsonResponse(DidDocs.AtprotoDotCom));
         using var tap = Client(handler);
 
         var document = await tap.ResolveDidAsync(ATProtoNet.Identity.Did.Parse(Did));
 
-        Assert.Equal($"http://localhost:2480/resolve/{Did}", Assert.Single(handler.Requests).Uri);
+        Assert.Equal($"http://localhost:2480/resolve/{Did}", Assert.Single(handler.Requests).Uri.AbsoluteUri);
         Assert.Equal(ATProtoNet.Identity.Did.Parse(Did), document!.Id);
         Assert.Equal(new Uri("https://enoki.us-east.host.bsky.network"), document.GetPdsEndpoint());
     }
@@ -158,7 +159,7 @@ public sealed class TapClientTests
     [Fact]
     public async Task ResolveDidAsync_NotFound_ReturnsNull()
     {
-        using var tap = Client(new CapturingHandler(_ => ScriptedHandler.Json("""{"message":"DID not found"}""", HttpStatusCode.NotFound)));
+        using var tap = Client(new HttpStub().Fallback(_ => HttpStub.JsonResponse("""{"message":"DID not found"}""", HttpStatusCode.NotFound)));
 
         Assert.Null(await tap.ResolveDidAsync(ATProtoNet.Identity.Did.Parse(Did)));
     }
@@ -167,13 +168,13 @@ public sealed class TapClientTests
     public async Task GetRepoInfoAsync_ActiveRepository()
     {
         // As cmd/tap's handleInfoRepo writes it (Go sorts map keys).
-        var handler = new CapturingHandler(_ => ScriptedHandler.Json(
+        var handler = new HttpStub().Fallback(_ => HttpStub.JsonResponse(
             $$"""{"did":"{{Did}}","error":"","handle":"atproto.com","records":1234,"retries":0,"rev":"3mwgncs2p2324","state":"active"}"""));
         using var tap = Client(handler);
 
         var info = await tap.GetRepoInfoAsync(ATProtoNet.Identity.Did.Parse(Did));
 
-        Assert.Equal($"http://localhost:2480/info/{Did}", Assert.Single(handler.Requests).Uri);
+        Assert.Equal($"http://localhost:2480/info/{Did}", Assert.Single(handler.Requests).Uri.AbsoluteUri);
         Assert.Equal(Handle.Parse("atproto.com"), info.Handle);
         Assert.Equal("active", info.State);
         Assert.Equal(Tid.Parse("3mwgncs2p2324"), info.Rev);
@@ -185,7 +186,7 @@ public sealed class TapClientTests
     [Fact]
     public async Task GetRepoInfoAsync_PendingRepository_HasNoRevisionOrHandle()
     {
-        using var tap = Client(new CapturingHandler(_ => ScriptedHandler.Json(
+        using var tap = Client(new HttpStub().Fallback(_ => HttpStub.JsonResponse(
             $$"""{"did":"{{Did}}","error":"failed to resolve DID","handle":"","records":0,"retries":3,"rev":"","state":"error"}""")));
 
         var info = await tap.GetRepoInfoAsync(ATProtoNet.Identity.Did.Parse(Did));
@@ -199,7 +200,7 @@ public sealed class TapClientTests
     [Fact]
     public async Task GetRepoInfoAsync_Untracked_ThrowsNotFound()
     {
-        using var tap = Client(new CapturingHandler(_ => ScriptedHandler.Json("""{"message":"repo not found"}""", HttpStatusCode.NotFound)));
+        using var tap = Client(new HttpStub().Fallback(_ => HttpStub.JsonResponse("""{"message":"repo not found"}""", HttpStatusCode.NotFound)));
 
         var ex = await Assert.ThrowsAsync<TapException>(() => tap.GetRepoInfoAsync(ATProtoNet.Identity.Did.Parse(Did)));
 
@@ -231,7 +232,7 @@ public sealed class TapClientTests
     {
         var socket = new FakeSocket(CreateEvent, IdentityEvent);
         var connector = new FakeConnector(socket);
-        using var tap = Client(new CapturingHandler(_ => new HttpResponseMessage()), "secret", connector);
+        using var tap = Client(new HttpStub().Fallback(_ => new HttpResponseMessage()), "secret", connector);
         var channel = tap.OpenChannel();
 
         var seen = new List<TapEvent>();
@@ -253,7 +254,7 @@ public sealed class TapClientTests
     public async Task AckAsync_WithoutAConnection_IsSentOnceOneOpens()
     {
         var socket = new FakeSocket(CreateEvent);
-        using var tap = Client(new CapturingHandler(_ => new HttpResponseMessage()), connector: new FakeConnector(socket));
+        using var tap = Client(new HttpStub().Fallback(_ => new HttpResponseMessage()), connector: new FakeConnector(socket));
         var channel = tap.OpenChannel();
 
         await channel.AckAsync(7);
@@ -272,7 +273,7 @@ public sealed class TapClientTests
         var first = new FakeSocket(CreateEvent) { FailAfterMessages = true };
         var second = new FakeSocket(IdentityEvent);
         var connector = new FakeConnector(first, second);
-        using var tap = Client(new CapturingHandler(_ => new HttpResponseMessage()), connector: connector);
+        using var tap = Client(new HttpStub().Fallback(_ => new HttpResponseMessage()), connector: connector);
         var channel = tap.OpenChannel();
 
         var seen = new List<TapEvent>();
@@ -320,7 +321,7 @@ public sealed class TapClientTests
     public async Task ReadAllAsync_RefusedUpgrade_Throws()
     {
         var connector = new FakeConnector(new EventStreamException("websocket not available in webhook mode", statusCode: 400));
-        using var tap = Client(new CapturingHandler(_ => new HttpResponseMessage()), connector: connector);
+        using var tap = Client(new HttpStub().Fallback(_ => new HttpResponseMessage()), connector: connector);
 
         var ex = await Assert.ThrowsAsync<EventStreamException>(async () =>
         {
@@ -337,7 +338,7 @@ public sealed class TapClientTests
     {
         using var cts = new CancellationTokenSource();
         var socket = new FakeSocket(CreateEvent) { StayOpen = true };
-        using var tap = Client(new CapturingHandler(_ => new HttpResponseMessage()), connector: new FakeConnector(socket));
+        using var tap = Client(new HttpStub().Fallback(_ => new HttpResponseMessage()), connector: new FakeConnector(socket));
 
         var seen = 0;
         await foreach (var _ in tap.OpenChannel().ReadAllAsync(cts.Token))
@@ -358,24 +359,6 @@ public sealed class TapClientTests
             Reconnect = StreamTestExtensions.Immediate(3),
         },
         (connector ?? new FakeConnector()).Connect);
-
-    /// <summary>Records each request with its body.</summary>
-    private sealed class CapturingHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
-    {
-        public List<(string Method, string Uri, string? Authorization, string? ContentType, string? Body)> Requests { get; } = [];
-
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
-            Requests.Add((
-                request.Method.Method,
-                request.RequestUri!.AbsoluteUri,
-                request.Headers.TryGetValues("Authorization", out var auth) ? auth.Single() : null,
-                request.Content?.Headers.ContentType?.MediaType,
-                body));
-            return respond(request);
-        }
-    }
 
     /// <summary>Hands out scripted sockets, or a scripted failure, one per connection.</summary>
     private sealed class FakeConnector(params object[] connections)

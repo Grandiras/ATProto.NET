@@ -101,30 +101,6 @@ public sealed class LexiconLinterTests
     }
 
     [Fact]
-    public void Lint_RpcAudAndInheritAudTogether_IsAnError()
-    {
-        var diagnostics = LintSet("""{ "type": "permission", "resource": "rpc", "aud": "*", "inheritAud": true, "lxm": ["com.example.feed.get"] }""");
-
-        AssertError(diagnostics, "cannot both be set");
-    }
-
-    [Fact]
-    public void Lint_RpcWithoutAudOrInheritAud_IsAnError()
-    {
-        var diagnostics = LintSet("""{ "type": "permission", "resource": "rpc", "lxm": ["com.example.feed.get"] }""");
-
-        AssertError(diagnostics, "'aud' is required unless 'inheritAud' is true");
-    }
-
-    [Fact]
-    public void Lint_RpcWithAServiceDid_IsAnError()
-    {
-        var diagnostics = LintSet("""{ "type": "permission", "resource": "rpc", "aud": "did:web:api.example.com#svc", "lxm": ["com.example.feed.get"] }""");
-
-        AssertError(diagnostics, "'aud' must be '*' in a permission set");
-    }
-
-    [Fact]
     public void Lint_RepoActions_MustBeKnownAndUnique()
     {
         var diagnostics = LintSet("""{ "type": "permission", "resource": "repo", "collection": ["com.example.feed.post"], "action": ["create", "Delete", "create"] }""");
@@ -139,6 +115,9 @@ public sealed class LexiconLinterTests
     [InlineData("""{ "type": "permission", "resource": "rpc", "aud": "*" }""", "'lxm' is required")]
     [InlineData("""{ "type": "permission", "resource": "repo", "collection": ["not an nsid"] }""", "is not an NSID")]
     [InlineData("""{ "type": "permission" }""", "'resource' is required")]
+    [InlineData("""{ "type": "permission", "resource": "rpc", "aud": "*", "inheritAud": true, "lxm": ["com.example.feed.get"] }""", "cannot both be set")]
+    [InlineData("""{ "type": "permission", "resource": "rpc", "lxm": ["com.example.feed.get"] }""", "'aud' is required unless 'inheritAud' is true")]
+    [InlineData("""{ "type": "permission", "resource": "rpc", "aud": "did:web:api.example.com#svc", "lxm": ["com.example.feed.get"] }""", "'aud' must be '*' in a permission set")]
     [InlineData("""{ "type": "scope", "resource": "repo", "collection": ["com.example.feed.post"] }""", "'type' must be 'permission'")]
     public void Lint_MalformedPermission_IsAnError(string permission, string fragment)
     {

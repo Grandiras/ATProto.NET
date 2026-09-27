@@ -4,6 +4,7 @@ using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Spaces;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Server.Spaces;
 
@@ -89,7 +90,7 @@ public class SpaceTokenKeyIdTests
     {
         using var authorityKey = AtProtoCrypto.GenerateP256Key();
         using var dpop = new TestDPoPKey();
-        var verifier = CredentialVerifier(new FakeDidDocumentResolver().PublishAccount(AuthorityDid.Value, authorityKey));
+        var verifier = CredentialVerifier(new StubDidResolver().PublishAccount(AuthorityDid.Value, authorityKey));
         var now = DateTimeOffset.UtcNow;
 
         var credential = TestJws.Mint(
@@ -118,7 +119,7 @@ public class SpaceTokenKeyIdTests
     {
         using var authorityKey = AtProtoCrypto.GenerateP256Key();
         using var dpop = new TestDPoPKey();
-        var verifier = CredentialVerifier(new FakeDidDocumentResolver().PublishAccount(AuthorityDid.Value, authorityKey));
+        var verifier = CredentialVerifier(new StubDidResolver().PublishAccount(AuthorityDid.Value, authorityKey));
 
         var credential = Credential(authorityKey, dpop, kid);
 
@@ -135,7 +136,7 @@ public class SpaceTokenKeyIdTests
         // exactly the entry the kid names, so the account key is never tried.
         using var authorityKey = AtProtoCrypto.GenerateP256Key();
         using var dpop = new TestDPoPKey();
-        var resolver = new FakeDidDocumentResolver().PublishAccount(AuthorityDid.Value, authorityKey);
+        var resolver = new StubDidResolver().PublishAccount(AuthorityDid.Value, authorityKey);
         var verifier = CredentialVerifier(resolver);
 
         var credential = Credential(authorityKey, dpop, SpaceAuthority.SigningKeyId);
@@ -146,7 +147,7 @@ public class SpaceTokenKeyIdTests
         Assert.Contains("#atproto_space", ex.Message, StringComparison.Ordinal);
 
         // A key the named entry does not provide is a refusal, not a reason to refetch.
-        Assert.Equal(0, resolver.RefreshCount);
+        Assert.Equal(0, resolver.Refreshes);
     }
 
     [Fact]
@@ -155,7 +156,7 @@ public class SpaceTokenKeyIdTests
         using var accountKey = AtProtoCrypto.GenerateP256Key();
         using var spaceKey = AtProtoCrypto.GenerateP256Key();
         using var dpop = new TestDPoPKey();
-        var verifier = CredentialVerifier(new FakeDidDocumentResolver().Publish(
+        var verifier = CredentialVerifier(new StubDidResolver().Publish(
             AuthorityDid.Value, TwoKeyDocument(accountKey.ToMultikey(), spaceKey.ToMultikey())));
 
         var credential = Credential(accountKey, dpop, "#atproto");
@@ -171,7 +172,7 @@ public class SpaceTokenKeyIdTests
     {
         using var accountKey = AtProtoCrypto.GenerateP256Key();
         using var dpop = new TestDPoPKey();
-        var resolver = new FakeDidDocumentResolver().Publish(
+        var resolver = new StubDidResolver().Publish(
             AuthorityDid.Value, TwoKeyDocument(accountKey.ToMultikey(), spaceMultibase: null));
         var verifier = CredentialVerifier(resolver);
 
@@ -181,11 +182,11 @@ public class SpaceTokenKeyIdTests
             () => verifier.VerifyAsync(credential, dpop.Proof("GET", Url, accessToken: credential), "GET", Url, Space));
 
         Assert.Contains("malformed", ex.Message, StringComparison.Ordinal);
-        Assert.Equal(0, resolver.RefreshCount);
+        Assert.Equal(0, resolver.Refreshes);
     }
 
     private static SpaceDelegationTokenVerifier DelegationVerifier(AtProtoKey userKey) =>
-        new(new FakeDidDocumentResolver().PublishAccount(UserDid.Value, userKey), new InMemoryJtiReplayStore());
+        new(new StubDidResolver().PublishAccount(UserDid.Value, userKey), new InMemoryJtiReplayStore());
 
     private static SpaceCredentialVerifier CredentialVerifier(IDidResolver resolver) =>
         new(resolver, new DPoPProofValidator(new InMemoryJtiReplayStore()));

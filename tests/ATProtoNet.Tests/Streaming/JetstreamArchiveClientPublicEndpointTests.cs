@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using ATProtoNet.Aspire;
 using ATProtoNet.Streaming;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace ATProtoNet.Tests.Streaming;
@@ -14,25 +15,6 @@ namespace ATProtoNet.Tests.Streaming;
 /// </summary>
 public class JetstreamArchiveClientPublicEndpointTests
 {
-    private sealed class CapturingHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
-    {
-        public List<HttpRequestMessage> Requests { get; } = [];
-
-        public CapturingHandler(HttpStatusCode status, HttpContent content)
-            : this(_ => new HttpResponseMessage(status) { Content = content })
-        {
-        }
-
-        public HttpRequestMessage? Last => Requests.Count > 0 ? Requests[^1] : null;
-
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            Requests.Add(request);
-            return Task.FromResult(respond(request));
-        }
-    }
-
     /// <summary>A minimal zstd structured dictionary header: magic, then the dictionary ID.</summary>
     private static byte[] Dictionary(int id, uint magic = 0xEC30A437)
     {
@@ -42,12 +24,12 @@ public class JetstreamArchiveClientPublicEndpointTests
         return bytes;
     }
 
-    private static (JetstreamArchiveClient Client, CapturingHandler Handler) Create(
+    private static (JetstreamArchiveClient Client, HttpStub Handler) Create(
         HttpStatusCode status, HttpContent content, string serviceUrl = JetstreamEndpoints.UsEast)
-        => Create(new CapturingHandler(status, content), serviceUrl);
+        => Create(new HttpStub().Fallback(_ => new HttpResponseMessage(status) { Content = content }), serviceUrl);
 
-    private static (JetstreamArchiveClient Client, CapturingHandler Handler) Create(
-        CapturingHandler handler, string serviceUrl = JetstreamEndpoints.UsEast)
+    private static (JetstreamArchiveClient Client, HttpStub Handler) Create(
+        HttpStub handler, string serviceUrl = JetstreamEndpoints.UsEast)
         => (new JetstreamArchiveClient(serviceUrl, "secret-key", new HttpClient(handler)) { MaxRetryAttempts = 0 }, handler);
 
     [Fact]
@@ -72,9 +54,9 @@ public class JetstreamArchiveClientPublicEndpointTests
 
         Assert.Equal(
             "https://jetstream.us-east.bsky.network/xrpc/network.bsky.jetstream.getZstdDictionary",
-            handler.Last?.RequestUri?.ToString());
+            handler.Last.Uri.ToString());
         // The endpoint is public: the metered archive's key is not sent to it.
-        Assert.Null(handler.Last?.Headers.Authorization);
+        Assert.Null(handler.Last.Headers.Authorization);
     }
 
     [Fact]
@@ -84,7 +66,7 @@ public class JetstreamArchiveClientPublicEndpointTests
 
         await client.GetZstdDictionaryAsync(7, TestContext.Current.CancellationToken);
 
-        Assert.Equal("?id=7", handler.Last?.RequestUri?.Query);
+        Assert.Equal("?id=7", handler.Last.Uri.Query);
     }
 
     [Fact]
@@ -96,8 +78,8 @@ public class JetstreamArchiveClientPublicEndpointTests
 
         await client.GetZstdDictionaryAsync(cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.Equal("http", handler.Last?.RequestUri?.Scheme);
-        Assert.Equal("localhost:6008", handler.Last?.RequestUri?.Authority);
+        Assert.Equal("http", handler.Last.Uri.Scheme);
+        Assert.Equal("localhost:6008", handler.Last.Uri.Authority);
     }
 
     [Fact]
@@ -147,8 +129,8 @@ public class JetstreamArchiveClientPublicEndpointTests
         var health = await client.GetHealthAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal("v2.3.1", health.Version);
-        Assert.Equal("https://jetstream.us-east.bsky.network/xrpc/_health", handler.Last?.RequestUri?.ToString());
-        Assert.Null(handler.Last?.Headers.Authorization);
+        Assert.Equal("https://jetstream.us-east.bsky.network/xrpc/_health", handler.Last.Uri.ToString());
+        Assert.Null(handler.Last.Headers.Authorization);
     }
 
     [Fact]
@@ -164,7 +146,7 @@ public class JetstreamArchiveClientPublicEndpointTests
     [Fact]
     public async Task ProbeSegmentAsync_SendsAHeadRequestAndReadsSizeAndETag()
     {
-        var handler = new CapturingHandler(_ =>
+        var handler = new HttpStub().Fallback(_ =>
         {
             var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent([]) };
             response.Content.Headers.ContentLength = 123_456_789;
@@ -177,15 +159,15 @@ public class JetstreamArchiveClientPublicEndpointTests
 
         Assert.Equal(123_456_789, probe.ContentLength);
         Assert.Equal("0123456789abcdef", probe.ETag);
-        Assert.Equal(HttpMethod.Head, handler.Last?.Method);
-        Assert.Equal("?name=seg_000000002a.jss", handler.Last?.RequestUri?.Query);
-        Assert.Equal("Bearer", handler.Last?.Headers.Authorization?.Scheme);
+        Assert.Equal(HttpMethod.Head, handler.Last.Method);
+        Assert.Equal("?name=seg_000000002a.jss", handler.Last.Uri.Query);
+        Assert.Equal("Bearer", handler.Last.Headers.Authorization?.Scheme);
     }
 
     [Fact]
     public async Task ProbeBlockAsync_NamesTheBlock()
     {
-        var handler = new CapturingHandler(_ =>
+        var handler = new HttpStub().Fallback(_ =>
         {
             var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent([]) };
             response.Content.Headers.ContentLength = 4096;
@@ -197,9 +179,9 @@ public class JetstreamArchiveClientPublicEndpointTests
 
         Assert.Equal(4096, probe.ContentLength);
         Assert.Null(probe.ETag);
-        Assert.Equal(HttpMethod.Head, handler.Last?.Method);
-        Assert.Equal("/xrpc/network.bsky.jetstream.getBlock", handler.Last?.RequestUri?.AbsolutePath);
-        Assert.Equal("?segment=seg_000000002a.jss&blockIndex=3", handler.Last?.RequestUri?.Query);
+        Assert.Equal(HttpMethod.Head, handler.Last.Method);
+        Assert.Equal("/xrpc/network.bsky.jetstream.getBlock", handler.Last.Uri.AbsolutePath);
+        Assert.Equal("?segment=seg_000000002a.jss&blockIndex=3", handler.Last.Uri.Query);
     }
 
     [Fact]

@@ -2,7 +2,7 @@ using System.Net;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Lexicon;
-using ATProtoNet.Tests.Identity;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Lexicon.Com.AtProto;
 
@@ -31,13 +31,13 @@ public sealed class LexiconClientTests
     [Fact]
     public async Task ResolveLexiconAsync_SendsTheNsidAndParsesTheSchema()
     {
-        using var client = Create(_ => ScriptedHandler.Json(ResolvedJson), out var handler);
+        using var client = Create(_ => HttpStub.JsonResponse(ResolvedJson), out var handler);
 
         var resolved = await client.Lexicon.ResolveLexiconAsync(Post);
 
         Assert.Equal(
             "https://pds.example.com/xrpc/com.atproto.lexicon.resolveLexicon?nsid=com.example.lexicon.post",
-            Assert.Single(handler.Requests).AbsoluteUri);
+            Assert.Single(handler.Uris).AbsoluteUri);
         Assert.Equal(Post, resolved.Schema.Id);
         Assert.Equal("record", resolved.Schema.MainType);
         Assert.Equal(Cid.Parse("bafyreibleucvt34j2gzwyzpamdn4vcqvwoheqhqdhn57qqivqkgfjwvfdy"), resolved.Cid);
@@ -48,7 +48,7 @@ public sealed class LexiconClientTests
     public async Task ResolveAsync_LexiconNotFound_IsNotFound()
     {
         using var client = Create(
-            _ => ScriptedHandler.Json("{\"error\":\"LexiconNotFound\"}", HttpStatusCode.BadRequest), out _);
+            _ => HttpStub.JsonResponse("{\"error\":\"LexiconNotFound\"}", HttpStatusCode.BadRequest), out _);
         ILexiconResolver resolver = client.Lexicon;
 
         var ex = await Assert.ThrowsAsync<LexiconResolutionException>(() => resolver.ResolveAsync(Post));
@@ -60,7 +60,7 @@ public sealed class LexiconClientTests
     [Fact]
     public async Task ResolveAsync_ServiceAnswersForAnotherNsid_IsInvalidRecord()
     {
-        using var client = Create(_ => ScriptedHandler.Json(ResolvedJson), out _);
+        using var client = Create(_ => HttpStub.JsonResponse(ResolvedJson), out _);
         ILexiconResolver resolver = client.Lexicon;
 
         var ex = await Assert.ThrowsAsync<LexiconResolutionException>(
@@ -72,7 +72,7 @@ public sealed class LexiconClientTests
     [Fact]
     public async Task ResolveAsync_ServiceFails_IsResolutionFailed()
     {
-        using var client = Create(_ => ScriptedHandler.Status(HttpStatusCode.BadGateway), out _);
+        using var client = Create(_ => HttpStub.Status(HttpStatusCode.BadGateway), out _);
         ILexiconResolver resolver = client.Lexicon;
 
         var ex = await Assert.ThrowsAsync<LexiconResolutionException>(() => resolver.ResolveAsync(Post));
@@ -80,9 +80,9 @@ public sealed class LexiconClientTests
         Assert.Equal(LexiconResolutionErrorKind.ResolutionFailed, ex.Kind);
     }
 
-    private static AtProtoClient Create(Func<HttpRequestMessage, HttpResponseMessage> respond, out ScriptedHandler handler)
+    private static AtProtoClient Create(Func<HttpStub.RecordedRequest, HttpResponseMessage> respond, out HttpStub handler)
     {
-        handler = new ScriptedHandler(respond);
+        handler = new HttpStub().Fallback(respond);
         return new AtProtoClient(
             new AtProtoClientOptions { InstanceUrl = "https://pds.example.com", AutoRefreshSession = false },
             new HttpClient(handler));

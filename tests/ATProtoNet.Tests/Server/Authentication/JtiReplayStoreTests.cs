@@ -5,6 +5,7 @@ using ATProtoNet.Tests.Identity;
 using ATProtoNet.Tests.TestSupport;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 namespace ATProtoNet.Tests.Server.Authentication;
 
@@ -19,7 +20,7 @@ public class InMemoryJtiReplayStoreTests : JtiReplayStoreContractTests
     [Fact]
     public async Task TryConsumeAsync_ExpiredEntries_AreSweptOut()
     {
-        var clock = new ManualClock();
+        var clock = new FakeTimeProvider();
         var store = new InMemoryJtiReplayStore(clock);
 
         await store.TryConsumeAsync("did:plc:a", "short", clock.GetUtcNow().AddSeconds(30));
@@ -39,7 +40,7 @@ public class InMemoryJtiReplayStoreTests : JtiReplayStoreContractTests
     {
         // The sweep at 60.2 s must drop the entry that expired at 10 s and keep the one that must
         // outlive 60.5 s, and the replay check runs only once that sweep has finished.
-        var clock = new ManualClock();
+        var clock = new FakeTimeProvider();
         var start = clock.GetUtcNow();
         var store = new InMemoryJtiReplayStore(clock);
         await store.TryConsumeAsync("did:plc:a", "old", start.AddSeconds(10));
@@ -56,7 +57,7 @@ public class InMemoryJtiReplayStoreTests : JtiReplayStoreContractTests
     [Fact]
     public async Task TryConsumeAsync_WhenASweepIsDue_DoesNotWaitForIt()
     {
-        var clock = new ManualClock();
+        var clock = new FakeTimeProvider();
         var store = new InMemoryJtiReplayStore(clock);
         for (var i = 0; i < 1000; i++)
             await store.TryConsumeAsync("did:plc:a", $"n{i}", clock.GetUtcNow().AddSeconds(30));

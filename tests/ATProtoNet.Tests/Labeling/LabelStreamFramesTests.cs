@@ -4,8 +4,8 @@ using ATProtoNet.Labeling;
 using ATProtoNet.Lexicon.Com.AtProto.Label;
 using ATProtoNet.Models;
 using ATProtoNet.Streaming;
-using ATProtoNet.Tests.Server.Spaces;
 using ATProtoNet.Tests.Streaming;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Labeling;
 
@@ -88,7 +88,7 @@ public sealed class LabelStreamFramesTests
         using var impostor = AtProtoCrypto.GenerateP256Key();
         var signer = new LabelSigner(Did.Parse(labelerDid), key);
         var forged = new LabelSigner(Did.Parse(labelerDid), impostor);
-        var resolver = new FakeDidDocumentResolver()
+        var resolver = new StubDidResolver()
             .Publish(labelerDid, LabelVerifierTests.LabelerDocument(labelerDid, key));
 
         var connector = new ScriptedConnector().Connection(

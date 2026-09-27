@@ -4,6 +4,7 @@ using ATProtoNet.Tests.Identity;
 using ATProtoNet.Tests.TestSupport;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Time.Testing;
 
 namespace ATProtoNet.Tests.Server.EntityFrameworkCore;
 
@@ -47,7 +48,7 @@ public sealed class EfCoreJtiReplayStoreTests : JtiReplayStoreContractTests, IAs
         // 60.2 s that deleted "60 or earlier" dropped it while its token was still accepted.
         // The sweep that consumption starts must have finished before the replay is checked, and
         // must have run: it drops the entry that expired at 10 s.
-        var clock = new ManualClock();
+        var clock = new FakeTimeProvider();
         var start = clock.GetUtcNow();
         var store = new EfCoreJtiReplayStore<JtiReplayDbContext>(new Factory(_options), clock);
         await store.TryConsumeAsync("did:plc:a", "old", start.AddSeconds(10));

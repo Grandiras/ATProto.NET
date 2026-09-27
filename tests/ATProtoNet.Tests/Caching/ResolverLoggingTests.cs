@@ -4,6 +4,7 @@ using ATProtoNet.Lexicon.Com.AtProto.Lexicon;
 using ATProtoNet.Tests.Identity;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 
 namespace ATProtoNet.Tests.Caching;
@@ -17,7 +18,7 @@ public class ResolverLoggingTests
     private static readonly Did Alice = Did.Parse("did:plc:aaaaaaaaaaaaaaaaaaaaaaaa");
     private static readonly Nsid Post = Nsid.Parse("com.example.post");
 
-    private readonly ManualClock _clock = new();
+    private readonly FakeTimeProvider _clock = new();
     private readonly StructuredLogger _logger = new();
 
     [Fact]

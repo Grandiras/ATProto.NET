@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Text;
 using ATProtoNet.Identity;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Identity;
 
@@ -17,21 +18,21 @@ public class HandleResolverTests
     private const string WellKnownPath = "/.well-known/atproto-did";
 
     private static HandleResolver Create(
-        Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> respond,
-        out ScriptedHandler handler,
+        Func<HttpStub.RecordedRequest, CancellationToken, Task<HttpResponseMessage>> respond,
+        out HttpStub handler,
         IdentityResolverOptions? options = null)
     {
-        handler = new ScriptedHandler(respond);
+        handler = new HttpStub().Fallback(respond);
         return new HandleResolver(new HttpClient(handler), options ?? new IdentityResolverOptions
         {
             HandleResolutionTimeout = TimeSpan.FromSeconds(5),
         });
     }
 
-    private static bool IsWellKnown(HttpRequestMessage request) =>
-        request.RequestUri!.AbsolutePath == WellKnownPath;
+    private static bool IsWellKnown(HttpStub.RecordedRequest request) =>
+        request.Uri.AbsolutePath == WellKnownPath;
 
-    private static bool IsDns(HttpRequestMessage request) => request.RequestUri!.Host == "dns.google";
+    private static bool IsDns(HttpStub.RecordedRequest request) => request.Uri.Host == "dns.google";
 
     // ── Sources and agreement ────────────────────────────────
 
@@ -39,20 +40,20 @@ public class HandleResolverTests
     public async Task ResolveAsync_BothAuthoritiesAgree_ReturnsTheDid()
     {
         using var resolver = Create((request, _) => Task.FromResult(IsWellKnown(request)
-            ? ScriptedHandler.Text($"{AliceDid}\n")
-            : ScriptedHandler.TxtAnswer($"\"did={AliceDid}\"")), out var handler);
+            ? HttpStub.Text($"{AliceDid}\n")
+            : HttpStub.TxtAnswer($"\"did={AliceDid}\"")), out var handler);
 
         Assert.Equal(AliceDid, await resolver.ResolveAsync(Alice));
-        Assert.Contains(new Uri("https://alice.example.com/.well-known/atproto-did"), handler.Requests);
-        Assert.Contains(new Uri("https://dns.google/resolve?name=_atproto.alice.example.com&type=TXT"), handler.Requests);
+        Assert.Contains(new Uri("https://alice.example.com/.well-known/atproto-did"), handler.Uris);
+        Assert.Contains(new Uri("https://dns.google/resolve?name=_atproto.alice.example.com&type=TXT"), handler.Uris);
     }
 
     [Fact]
     public async Task ResolveAsync_OnlyHttpsAnswers_UsesIt()
     {
         using var resolver = Create((request, _) => Task.FromResult(IsWellKnown(request)
-            ? ScriptedHandler.Text(AliceDid.Value)
-            : ScriptedHandler.Json("{\"Status\":3}")), out _);
+            ? HttpStub.Text(AliceDid.Value)
+            : HttpStub.JsonResponse("{\"Status\":3}")), out _);
 
         Assert.Equal(AliceDid, await resolver.ResolveAsync(Alice));
     }
@@ -61,8 +62,8 @@ public class HandleResolverTests
     public async Task ResolveAsync_OnlyDnsAnswers_UsesIt()
     {
         using var resolver = Create((request, _) => Task.FromResult(IsWellKnown(request)
-            ? ScriptedHandler.Status(HttpStatusCode.NotFound)
-            : ScriptedHandler.TxtAnswer($"\"did={AliceDid}\"")), out _);
+            ? HttpStub.Status(HttpStatusCode.NotFound)
+            : HttpStub.TxtAnswer($"\"did={AliceDid}\"")), out _);
 
         Assert.Equal(AliceDid, await resolver.ResolveAsync(Alice));
     }
@@ -71,8 +72,8 @@ public class HandleResolverTests
     public async Task ResolveAsync_AuthoritiesDisagree_FailsClosed()
     {
         using var resolver = Create((request, _) => Task.FromResult(IsWellKnown(request)
-            ? ScriptedHandler.Text("did:plc:impostorimpostorimpostor")
-            : ScriptedHandler.TxtAnswer($"\"did={AliceDid}\"")), out _);
+            ? HttpStub.Text("did:plc:impostorimpostorimpostor")
+            : HttpStub.TxtAnswer($"\"did={AliceDid}\"")), out _);
 
         var ex = await Assert.ThrowsAsync<DidResolutionException>(() => resolver.ResolveAsync(Alice));
 
@@ -83,8 +84,8 @@ public class HandleResolverTests
     public async Task ResolveAsync_DnsPublishesTwoDistinctDids_FailsClosed()
     {
         using var resolver = Create((request, _) => Task.FromResult(IsWellKnown(request)
-            ? ScriptedHandler.Status(HttpStatusCode.NotFound)
-            : ScriptedHandler.TxtAnswer($"\"did={AliceDid}\"", "\"did=did:plc:bbbbbbbbbbbbbbbbbbbbbbbb\"")), out _);
+            ? HttpStub.Status(HttpStatusCode.NotFound)
+            : HttpStub.TxtAnswer($"\"did={AliceDid}\"", "\"did=did:plc:bbbbbbbbbbbbbbbbbbbbbbbb\"")), out _);
 
         var ex = await Assert.ThrowsAsync<DidResolutionException>(() => resolver.ResolveAsync(Alice));
 
@@ -95,8 +96,8 @@ public class HandleResolverTests
     public async Task ResolveAsync_DnsRecordSplitIntoCharacterStrings_IsReassembled()
     {
         using var resolver = Create((request, _) => Task.FromResult(IsWellKnown(request)
-            ? ScriptedHandler.Status(HttpStatusCode.NotFound)
-            : ScriptedHandler.TxtAnswer("\"v=spf1 -all\"", "\"did=did:plc:aaaa\" \"aaaaaaaaaaaaaaaaaaaa\"")), out _);
+            ? HttpStub.Status(HttpStatusCode.NotFound)
+            : HttpStub.TxtAnswer("\"v=spf1 -all\"", "\"did=did:plc:aaaa\" \"aaaaaaaaaaaaaaaaaaaa\"")), out _);
 
         Assert.Equal(AliceDid, await resolver.ResolveAsync(Alice));
     }
@@ -104,7 +105,7 @@ public class HandleResolverTests
     [Fact]
     public async Task ResolveAsync_NeitherAnswers_ReturnsNull()
     {
-        using var resolver = Create((_, _) => Task.FromResult(ScriptedHandler.Status(HttpStatusCode.NotFound)), out _);
+        using var resolver = Create((_, _) => Task.FromResult(HttpStub.Status(HttpStatusCode.NotFound)), out _);
 
         Assert.Null(await resolver.ResolveAsync(Alice));
     }
@@ -116,8 +117,8 @@ public class HandleResolverTests
     {
         using var resolver = Create(
             (request, ct) => IsWellKnown(request)
-                ? ScriptedHandler.Never(ct)
-                : Task.FromResult(ScriptedHandler.TxtAnswer($"\"did={AliceDid}\"")),
+                ? HttpStub.Never(ct)
+                : Task.FromResult(HttpStub.TxtAnswer($"\"did={AliceDid}\"")),
             out _,
             new IdentityResolverOptions { HandleResolutionTimeout = TimeSpan.FromMilliseconds(300) });
 
@@ -132,7 +133,7 @@ public class HandleResolverTests
     public async Task ResolveAsync_BothHang_ReturnsNullWithinTheBudget()
     {
         using var resolver = Create(
-            (_, ct) => ScriptedHandler.Never(ct),
+            (_, ct) => HttpStub.Never(ct),
             out _,
             new IdentityResolverOptions { HandleResolutionTimeout = TimeSpan.FromMilliseconds(300) });
 
@@ -144,7 +145,7 @@ public class HandleResolverTests
     [Fact]
     public async Task ResolveAsync_CallerCancels_Propagates()
     {
-        using var resolver = Create((_, ct) => ScriptedHandler.Never(ct), out _);
+        using var resolver = Create((_, ct) => HttpStub.Never(ct), out _);
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => resolver.ResolveAsync(Alice, cts.Token));
@@ -157,26 +158,26 @@ public class HandleResolverTests
     {
         using var resolver = Create(
             (request, _) => Task.FromResult(IsWellKnown(request)
-                ? ScriptedHandler.Status(HttpStatusCode.NotFound)
-                : ScriptedHandler.TxtAnswer($"\"did={AliceDid}\"")),
+                ? HttpStub.Status(HttpStatusCode.NotFound)
+                : HttpStub.TxtAnswer($"\"did={AliceDid}\"")),
             out var handler,
             new IdentityResolverOptions { DnsOverHttpsUrl = new Uri("https://cloudflare-dns.com/dns-query") });
 
         Assert.Equal(AliceDid, await resolver.ResolveAsync(Alice));
-        Assert.Contains(new Uri("https://cloudflare-dns.com/dns-query?name=_atproto.alice.example.com&type=TXT"), handler.Requests);
-        Assert.DoesNotContain(handler.Requests, r => r.Host == "dns.google");
+        Assert.Contains(new Uri("https://cloudflare-dns.com/dns-query?name=_atproto.alice.example.com&type=TXT"), handler.Uris);
+        Assert.DoesNotContain(handler.Uris, r => r.Host == "dns.google");
     }
 
     [Fact]
     public async Task ResolveAsync_DnsDisabled_ResolvesOverHttpsOnly()
     {
         using var resolver = Create(
-            (_, _) => Task.FromResult(ScriptedHandler.Text(AliceDid.Value)),
+            (_, _) => Task.FromResult(HttpStub.Text(AliceDid.Value)),
             out var handler,
             new IdentityResolverOptions { DnsOverHttpsUrl = null });
 
         Assert.Equal(AliceDid, await resolver.ResolveAsync(Alice));
-        Assert.Equal(new Uri("https://alice.example.com/.well-known/atproto-did"), Assert.Single(handler.Requests));
+        Assert.Equal(new Uri("https://alice.example.com/.well-known/atproto-did"), Assert.Single(handler.Uris));
     }
 
     [Fact]
@@ -192,10 +193,10 @@ public class HandleResolverTests
     [InlineData("alice.test")]
     public async Task ResolveAsync_ReservedTld_SendsNoRequest(string handle)
     {
-        using var resolver = Create((_, _) => Task.FromResult(ScriptedHandler.Text(AliceDid.Value)), out var handler);
+        using var resolver = Create((_, _) => Task.FromResult(HttpStub.Text(AliceDid.Value)), out var handler);
 
         Assert.Null(await resolver.ResolveAsync(Handle.Parse(handle)));
-        Assert.Equal(0, handler.Count);
+        Assert.Empty(handler.Requests);
     }
 
     // ── well-known hardening ─────────────────────────────────
@@ -206,11 +207,11 @@ public class HandleResolverTests
         using var resolver = Create((request, _) =>
         {
             if (!IsWellKnown(request))
-                return Task.FromResult(ScriptedHandler.Status(HttpStatusCode.NotFound));
+                return Task.FromResult(HttpStub.Status(HttpStatusCode.NotFound));
 
             // What a followed cross-host redirect looks like: a 200 whose final request URI is no
             // longer the handle's domain.
-            var response = ScriptedHandler.Text("did:plc:attackerattackerattacker");
+            var response = HttpStub.Text("did:plc:attackerattackerattacker");
             response.RequestMessage = new HttpRequestMessage(HttpMethod.Get, $"https://attacker.example{WellKnownPath}");
             return Task.FromResult(response);
         }, out _);
@@ -225,8 +226,8 @@ public class HandleResolverTests
     public async Task ResolveAsync_WellKnownBodyIsNotADid_IsIgnored(string body)
     {
         using var resolver = Create((request, _) => Task.FromResult(IsWellKnown(request)
-            ? ScriptedHandler.Text(body)
-            : ScriptedHandler.Status(HttpStatusCode.NotFound)), out _);
+            ? HttpStub.Text(body)
+            : HttpStub.Status(HttpStatusCode.NotFound)), out _);
 
         Assert.Null(await resolver.ResolveAsync(Alice));
     }
@@ -241,7 +242,7 @@ public class HandleResolverTests
         using var resolver = Create((request, _) =>
         {
             if (!IsWellKnown(request))
-                return Task.FromResult(ScriptedHandler.Status(HttpStatusCode.NotFound));
+                return Task.FromResult(HttpStub.Status(HttpStatusCode.NotFound));
 
             // Trailing whitespace is trimmed from the answer, so only the length differs.
             var bytes = Encoding.UTF8.GetBytes(AliceDid.Value + new string(' ', bodyBytes - AliceDid.Value.Length));

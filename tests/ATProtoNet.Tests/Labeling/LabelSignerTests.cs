@@ -5,6 +5,7 @@ using ATProtoNet.Labeling;
 using ATProtoNet.Models;
 using ATProtoNet.Serialization;
 using ATProtoNet.Tests.Identity;
+using Microsoft.Extensions.Time.Testing;
 
 namespace ATProtoNet.Tests.Labeling;
 
@@ -41,7 +42,7 @@ public sealed class LabelSignerTests : IDisposable
     [Fact]
     public void Sign_Subject_StampsTheCurrentTimeAndSetsTheFields()
     {
-        var clock = new ManualClock(DateTimeOffset.Parse("2026-09-26T12:34:56.789Z"));
+        var clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-09-26T12:34:56.789Z"));
         var cid = Cid.Parse("bafyreifxykqhed72s26cr4i64rxvrtofeqrly3j4vjzbkvo3ckkjbxjqtq");
         var expires = AtDatetime.Parse("2026-10-26T00:00:00.000Z");
         var signer = new LabelSigner(Labeler, _key, clock);

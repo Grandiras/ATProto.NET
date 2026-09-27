@@ -3,6 +3,7 @@ using System.Text;
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Identity;
 using ATProtoNet.Tests.Identity;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
@@ -96,13 +97,13 @@ public class MetadataFetchPolicyTests
     [InlineData("ftp://pds.example.com")]
     public async Task FetchMetadata_UnusableUrl_IsRefusedWithoutARequest(string url)
     {
-        var handler = new ScriptedHandler(_ => ScriptedHandler.Json("{}"));
+        var handler = new HttpStub().Fallback(_ => HttpStub.JsonResponse("{}"));
         using var discovery = new AuthorizationServerDiscovery(new HttpClient(handler), NullLogger.Instance, Substitute.For<IIdentityResolver>());
 
         var ex = await Assert.ThrowsAsync<OAuthException>(() => discovery.FetchProtectedResourceMetadataAsync(url));
 
         Assert.Equal("invalid_server_url", ex.Error);
-        Assert.Equal(0, handler.Count);
+        Assert.Empty(handler.Requests);
     }
 
     [Fact]
@@ -120,34 +121,34 @@ public class MetadataFetchPolicyTests
 
     // ── What comes back ──────────────────────────────────────
 
-    public static TheoryData<string, Func<HttpRequestMessage, HttpResponseMessage>> Failures => new()
+    public static TheoryData<string, Func<HttpResponseMessage>> Failures => new()
     {
-        { "metadata_fetch_failed", _ => ScriptedHandler.Status(HttpStatusCode.InternalServerError) },
-        { "metadata_fetch_failed", _ => ScriptedHandler.Json("{\"x\":\"" + new string('a', 70 * 1024) + "\"}") },
+        { "metadata_fetch_failed", () => HttpStub.Status(HttpStatusCode.InternalServerError) },
+        { "metadata_fetch_failed", () => HttpStub.JsonResponse("{\"x\":\"" + new string('a', 70 * 1024) + "\"}") },
         {
-            "metadata_fetch_failed", _ => new HttpResponseMessage(HttpStatusCode.Found)
+            "metadata_fetch_failed", () => new HttpResponseMessage(HttpStatusCode.Found)
             {
                 Headers = { Location = new Uri("https://elsewhere.example.net/.well-known/oauth-protected-resource") },
                 Content = new StringContent(""),
             }
         },
         {
-            "metadata_fetch_failed", _ => new HttpResponseMessage(HttpStatusCode.OK)
+            "metadata_fetch_failed", () => new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent("{}", Encoding.UTF8, "application/json"),
                 RequestMessage = new HttpRequestMessage(HttpMethod.Get, "https://elsewhere.example.net/.well-known/oauth-protected-resource"),
             }
         },
-        { "invalid_metadata", _ => ScriptedHandler.Json("{\"authorization_servers\":") },
-        { "invalid_metadata", _ => ScriptedHandler.Json("[1,2,3]") },
+        { "invalid_metadata", () => HttpStub.JsonResponse("{\"authorization_servers\":") },
+        { "invalid_metadata", () => HttpStub.JsonResponse("[1,2,3]") },
     };
 
     [Theory]
     [MemberData(nameof(Failures))]
-    public async Task FetchMetadata_UnusableAnswer_IsAnOAuthException(string error, Func<HttpRequestMessage, HttpResponseMessage> respond)
+    public async Task FetchMetadata_UnusableAnswer_IsAnOAuthException(string error, Func<HttpResponseMessage> respond)
     {
         using var discovery = new AuthorizationServerDiscovery(
-            new HttpClient(new ScriptedHandler(respond)), NullLogger.Instance, Substitute.For<IIdentityResolver>());
+            new HttpClient(new HttpStub().Fallback(_ => respond())), NullLogger.Instance, Substitute.For<IIdentityResolver>());
 
         var ex = await Assert.ThrowsAsync<OAuthException>(() => discovery.FetchProtectedResourceMetadataAsync("https://pds.example.com"));
 

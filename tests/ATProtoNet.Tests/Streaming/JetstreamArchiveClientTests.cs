@@ -1,69 +1,40 @@
 using System.Net;
 using System.Net.Http.Headers;
-using System.Text;
 using System.Text.Json;
 using ATProtoNet.Streaming;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Streaming;
 
 public class JetstreamArchiveClientTests
 {
-    /// <summary>Serves a scripted queue of responses and records what was asked for.</summary>
-    private sealed class ScriptedHandler : HttpMessageHandler
-    {
-        private readonly Queue<Func<HttpRequestMessage, HttpResponseMessage>> _responses = new();
+    private const string PlanSnapshot = "network.bsky.jetstream.planSnapshot";
+    private const string ListSegments = "network.bsky.jetstream.listSegments";
+    private const string GetSegment = "network.bsky.jetstream.getSegment";
+    private const string GetBlock = "network.bsky.jetstream.getBlock";
 
-        public List<HttpRequestMessage> Requests { get; } = [];
-        public List<string> Bodies { get; } = [];
+    private static Func<HttpStub.RecordedRequest, HttpResponseMessage> Json(object payload) =>
+        _ => HttpStub.JsonResponse(JsonSerializer.Serialize(payload));
 
-        public ScriptedHandler Json(object payload, HttpStatusCode status = HttpStatusCode.OK)
-            => Respond(_ => new HttpResponseMessage(status)
-            {
-                Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"),
-            });
+    private static Func<HttpStub.RecordedRequest, HttpResponseMessage> Bytes(byte[] payload) =>
+        _ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(payload) };
 
-        public ScriptedHandler Bytes(byte[] payload, HttpStatusCode status = HttpStatusCode.OK)
-            => Respond(_ => new HttpResponseMessage(status) { Content = new ByteArrayContent(payload) });
-
-        public ScriptedHandler Error(HttpStatusCode status, string error, TimeSpan? retryAfter = null)
-            => Respond(_ =>
-            {
-                var response = new HttpResponseMessage(status)
-                {
-                    Content = new StringContent($$"""{"error":"{{error}}"}""", Encoding.UTF8, "application/json"),
-                };
-                if (retryAfter is { } delay)
-                    response.Headers.RetryAfter = new RetryConditionHeaderValue(delay);
-                return response;
-            });
-
-        public ScriptedHandler Respond(Func<HttpRequestMessage, HttpResponseMessage> factory)
+    private static Func<HttpStub.RecordedRequest, HttpResponseMessage> Error(HttpStatusCode status, string error, TimeSpan? retryAfter = null) =>
+        _ =>
         {
-            _responses.Enqueue(factory);
-            return this;
-        }
+            var response = HttpStub.JsonResponse($$"""{"error":"{{error}}"}""", status);
+            if (retryAfter is { } delay)
+                response.Headers.RetryAfter = new RetryConditionHeaderValue(delay);
+            return response;
+        };
 
-        protected override async Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            Requests.Add(request);
-            Bodies.Add(request.Content is null
-                ? string.Empty
-                : await request.Content.ReadAsStringAsync(cancellationToken));
-
-            return _responses.Count > 0
-                ? _responses.Dequeue()(request)
-                : new HttpResponseMessage(HttpStatusCode.NotFound) { Content = new StringContent("{}") };
-        }
-    }
-
-    private static JetstreamArchiveClient Create(ScriptedHandler handler, string? apiKey = "test-key")
+    private static JetstreamArchiveClient Create(HttpStub handler, string? apiKey = "test-key")
         => new(JetstreamEndpoints.UsEast, apiKey, new HttpClient(handler)) { MaxRetryAttempts = 2, MaxRetryDelay = TimeSpan.Zero };
 
     [Fact]
     public async Task PlanSnapshotAsync_PostsTheFilterAndParsesThePlan()
     {
-        var handler = new ScriptedHandler().Json(new
+        var handler = new HttpStub().On(PlanSnapshot, Json(new
         {
             plannedThroughSeq = 400,
             sealedTipSeq = 900,
@@ -76,7 +47,7 @@ public class JetstreamArchiveClientTests
                       blocks = new[] { new { first = 3, last = 5 } } },
             },
             stats = new { segmentsExamined = 9, segmentsMatched = 2, blocksMatched = 3, entries = 4 },
-        });
+        }));
 
         var plan = await Create(handler).PlanSnapshotAsync(new JetstreamSnapshotRequest
         {
@@ -85,11 +56,11 @@ public class JetstreamArchiveClientTests
             AfterSeq = 99,
         });
 
-        Assert.Equal("POST", handler.Requests[0].Method.Method);
-        Assert.EndsWith("/xrpc/network.bsky.jetstream.planSnapshot", handler.Requests[0].RequestUri!.AbsolutePath);
+        Assert.Equal(HttpMethod.Post, handler.Requests[0].Method);
+        Assert.EndsWith("/xrpc/network.bsky.jetstream.planSnapshot", handler.Requests[0].Uri.AbsolutePath);
         Assert.Equal("Bearer test-key", handler.Requests[0].Headers.Authorization!.ToString());
 
-        var body = JsonDocument.Parse(handler.Bodies[0]).RootElement;
+        var body = JsonDocument.Parse(handler.Requests[0].BodyText).RootElement;
         Assert.Equal("app.bsky.feed.*", body.GetProperty("collections")[0].GetString());
         Assert.Equal(99, body.GetProperty("afterSeq").GetInt64());
         // An unset bound must be omitted, not sent as null — the server validates the shape.
@@ -105,7 +76,7 @@ public class JetstreamArchiveClientTests
     [Fact]
     public async Task PlannedSegment_AnUnknownModeFallsBackToWholeSegmentDownload()
     {
-        var handler = new ScriptedHandler().Json(new
+        var handler = new HttpStub().On(PlanSnapshot, Json(new
         {
             plannedThroughSeq = 1,
             sealedTipSeq = 1,
@@ -114,82 +85,50 @@ public class JetstreamArchiveClientTests
                 new { name = "seg.jss", index = 0, checksum = "0123456789abcdef",
                       minSeq = 0, maxSeq = 1, mode = "something-new" },
             },
-        });
+        }));
 
         var plan = await Create(handler).PlanSnapshotAsync(new JetstreamSnapshotRequest());
 
         Assert.Equal(JetstreamSegmentDownloadMode.Segment, plan.Segments[0].DownloadMode);
     }
 
-    [Fact]
-    public async Task EnumerateSegmentsAsync_FollowsThePaginationCursor()
-    {
-        var handler = new ScriptedHandler()
-            .Json(new
-            {
-                cursor = "page-2",
-                segments = new[] { Segment("seg_0.jss", 0) },
-            })
-            .Json(new
-            {
-                segments = new[] { Segment("seg_1.jss", 1) },
-            });
-
-        var segments = new List<JetstreamSegmentInfo>();
-        await foreach (var segment in Create(handler).EnumerateSegmentsAsync(pageSize: 1))
-            segments.Add(segment);
-
-        Assert.Equal(["seg_0.jss", "seg_1.jss"], segments.Select(s => s.Name));
-        Assert.Contains("limit=1", handler.Requests[0].RequestUri!.Query);
-        Assert.Contains("cursor=page-2", handler.Requests[1].RequestUri!.Query);
-        Assert.Equal(4096, segments[0].EventCount);
-
-        static object Segment(string name, int index) => new
-        {
-            name,
-            index,
-            sizeBytes = 1234,
-            checksum = "0123456789abcdef",
-            eventCount = 4096,
-            minSeq = 1,
-            maxSeq = 2,
-            minWitnessedAt = 3,
-            maxWitnessedAt = 4,
-        };
-    }
+    // EnumerateSegmentsAsync's cursor and repeated-cursor stop: the enumerator theory in Http/PaginationTests.
 
     [Fact]
-    public async Task EnumerateSegmentsAsync_ServerRepeatingItsCursor_StopsAfterTheRepeat()
+    public async Task ListSegmentsAsync_ReadsEachSegmentsFields()
     {
-        // Each page carries a segment and the same cursor. The loop this enumerator used to run
-        // stopped only on an empty page, so such a server was asked for the same page forever.
-        var handler = new ScriptedHandler();
-        for (var i = 0; i < 5; i++)
+        var handler = new HttpStub().On(ListSegments, Json(new
         {
-            handler.Json(new
+            cursor = "page-2",
+            segments = new[]
             {
-                cursor = "same",
-                segments = new[] { new { name = $"seg_{i}.jss", index = i, checksum = "0123456789abcdef" } },
-            });
-        }
+                new
+                {
+                    name = "seg_0.jss", index = 0, sizeBytes = 1234, checksum = "0123456789abcdef", eventCount = 4096,
+                    minSeq = 1, maxSeq = 2, minWitnessedAt = 3, maxWitnessedAt = 4,
+                },
+            },
+        }));
 
-        var segments = new List<JetstreamSegmentInfo>();
-        await foreach (var segment in Create(handler).EnumerateSegmentsAsync())
-            segments.Add(segment);
+        var page = await Create(handler).ListSegmentsAsync(limit: 1);
 
-        Assert.Equal(2, handler.Requests.Count);
-        Assert.Equal(["seg_0.jss", "seg_1.jss"], segments.Select(s => s.Name));
+        var segment = Assert.Single(page.Segments);
+        Assert.Equal(
+            ("seg_0.jss", 1234L, 4096L, 1L, 2L, 3L, 4L),
+            (segment.Name, segment.SizeBytes, segment.EventCount, segment.MinSeq, segment.MaxSeq, segment.MinWitnessedAt, segment.MaxWitnessedAt));
+        Assert.Equal("page-2", page.Cursor);
+        Assert.Equal("limit=1", handler.Last.Query);
     }
 
     [Fact]
     public async Task GetBlockAsync_RequestsTheSegmentAndBlockIndex()
     {
-        var handler = new ScriptedHandler().Bytes([1, 2, 3]);
+        var handler = new HttpStub().On(GetBlock, Bytes([1, 2, 3]));
 
         var frame = await Create(handler).GetBlockAsync("seg_0000000002.jss", 7);
 
         Assert.Equal([1, 2, 3], frame);
-        var query = handler.Requests[0].RequestUri!.Query;
+        var query = handler.Requests[0].Uri.Query;
         Assert.Contains("segment=seg_0000000002.jss", query);
         Assert.Contains("blockIndex=7", query);
     }
@@ -197,7 +136,7 @@ public class JetstreamArchiveClientTests
     [Fact]
     public async Task GetSegmentAsync_SendsARangeHeaderWhenResuming()
     {
-        var handler = new ScriptedHandler().Respond(_ =>
+        var handler = new HttpStub().On(GetSegment, _ =>
         {
             var response = new HttpResponseMessage(HttpStatusCode.PartialContent)
             {
@@ -219,12 +158,12 @@ public class JetstreamArchiveClientTests
     {
         // Running out of metered quota mid-download closes the stream cleanly; the bytes already
         // received are intact and are not re-charged when the rest is fetched with a Range.
-        var handler = new ScriptedHandler()
-            .Respond(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        var handler = new HttpStub()
+            .On(GetSegment, _ => new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StreamContent(new FailingStream([1, 2, 3])),
             })
-            .Respond(_ => new HttpResponseMessage(HttpStatusCode.PartialContent)
+            .On(GetSegment, _ => new HttpResponseMessage(HttpStatusCode.PartialContent)
             {
                 Content = new ByteArrayContent([4, 5]),
             });
@@ -243,12 +182,12 @@ public class JetstreamArchiveClientTests
     {
         // A proxy that drops the Range header answers 200 with the whole file; appending it to
         // what we already have would produce a segment with a duplicated prefix.
-        var handler = new ScriptedHandler()
-            .Respond(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        var handler = new HttpStub()
+            .On(GetSegment, _ => new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StreamContent(new FailingStream([1, 2, 3])),
             })
-            .Bytes([1, 2, 3, 4, 5]);
+            .On(GetSegment, Bytes([1, 2, 3, 4, 5]));
 
         using var destination = new MemoryStream();
         var written = await Create(handler).DownloadSegmentAsync("seg_0.jss", destination);
@@ -260,9 +199,9 @@ public class JetstreamArchiveClientTests
     [Fact]
     public async Task ByteQuotaExhaustion_IsRetriedAfterTheRequestedDelay()
     {
-        var handler = new ScriptedHandler()
-            .Error(HttpStatusCode.TooManyRequests, "byte limit exceeded", TimeSpan.FromSeconds(30))
-            .Bytes([7]);
+        var handler = new HttpStub()
+            .On(GetBlock, Error(HttpStatusCode.TooManyRequests, "byte limit exceeded", TimeSpan.FromSeconds(30)))
+            .On(GetBlock, Bytes([7]));
 
         var frame = await Create(handler).GetBlockAsync("seg_0.jss", 0);
 
@@ -273,10 +212,10 @@ public class JetstreamArchiveClientTests
     [Fact]
     public async Task ByteQuotaExhaustion_SurfacesTheRetryAfterOnceAttemptsRunOut()
     {
-        var handler = new ScriptedHandler()
-            .Error(HttpStatusCode.TooManyRequests, "byte limit exceeded", TimeSpan.FromSeconds(30))
-            .Error(HttpStatusCode.TooManyRequests, "byte limit exceeded", TimeSpan.FromSeconds(30))
-            .Error(HttpStatusCode.TooManyRequests, "byte limit exceeded", TimeSpan.FromSeconds(30));
+        var handler = new HttpStub()
+            .On(GetBlock, Error(HttpStatusCode.TooManyRequests, "byte limit exceeded", TimeSpan.FromSeconds(30)))
+            .On(GetBlock, Error(HttpStatusCode.TooManyRequests, "byte limit exceeded", TimeSpan.FromSeconds(30)))
+            .On(GetBlock, Error(HttpStatusCode.TooManyRequests, "byte limit exceeded", TimeSpan.FromSeconds(30)));
 
         var ex = await Assert.ThrowsAsync<JetstreamException>(
             () => Create(handler).GetBlockAsync("seg_0.jss", 0));
@@ -290,9 +229,9 @@ public class JetstreamArchiveClientTests
     [Fact]
     public async Task AnInvalidBearerCredential_IsNotRetried()
     {
-        var handler = new ScriptedHandler()
-            .Error(HttpStatusCode.Unauthorized, "invalid bearer credential")
-            .Bytes([7]);
+        var handler = new HttpStub()
+            .On(GetBlock, Error(HttpStatusCode.Unauthorized, "invalid bearer credential"))
+            .On(GetBlock, Bytes([7]));
 
         var ex = await Assert.ThrowsAsync<JetstreamException>(
             () => Create(handler).GetBlockAsync("seg_0.jss", 0));
@@ -305,7 +244,7 @@ public class JetstreamArchiveClientTests
     [Fact]
     public async Task SegmentNotFound_IsReportedWithItsErrorName()
     {
-        var handler = new ScriptedHandler().Error(HttpStatusCode.BadRequest, "SegmentNotFound");
+        var handler = new HttpStub().On(GetBlock, Error(HttpStatusCode.BadRequest, "SegmentNotFound"));
 
         var ex = await Assert.ThrowsAsync<JetstreamException>(
             () => Create(handler).GetBlockAsync("missing.jss", 0));
@@ -317,7 +256,7 @@ public class JetstreamArchiveClientTests
     [Fact]
     public async Task NoApiKey_SendsNoAuthorizationHeader()
     {
-        var handler = new ScriptedHandler().Bytes([1]);
+        var handler = new HttpStub().On(GetBlock, Bytes([1]));
 
         await Create(handler, apiKey: null).GetBlockAsync("seg_0.jss", 0);
 
@@ -327,11 +266,11 @@ public class JetstreamArchiveClientTests
     [Fact]
     public async Task ArchiveHostIsDerivedFromTheWebSocketUrl()
     {
-        var handler = new ScriptedHandler().Bytes([1]);
+        var handler = new HttpStub().On(GetBlock, Bytes([1]));
 
         await Create(handler).GetBlockAsync("seg_0.jss", 0);
 
-        Assert.Equal("https://jetstream.us-east.bsky.network", handler.Requests[0].RequestUri!.GetLeftPart(UriPartial.Authority));
+        Assert.Equal("https://jetstream.us-east.bsky.network", handler.Requests[0].Uri.GetLeftPart(UriPartial.Authority));
     }
 
     /// <summary>A response body that dies part-way through, the way a cut-off download does.</summary>

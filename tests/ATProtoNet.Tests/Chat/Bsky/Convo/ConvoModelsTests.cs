@@ -186,24 +186,6 @@ public class ConvoModelsTests
         Assert.Equal("msg-0", Assert.IsType<DeletedMessageView>(message.ReplyTo).Id);
     }
 
-    [Fact]
-    public void Deserialize_GetMessagesPage_ReadsEveryMessageKindAndRelatedProfiles()
-    {
-        const string json =
-            $$"""
-            {"cursor":"c","messages":[{{Message}},{{DeletedMessage}},{{SystemMessage}}],
-             "relatedProfiles":[{{Owner}},{{Alice}}]}
-            """;
-
-        var page = JsonSerializer.Deserialize<GetMessagesResponse>(json, Options)!;
-
-        Assert.Collection(page.Messages,
-            m => Assert.Equal("hello", Assert.IsType<MessageView>(m).Text),
-            m => Assert.IsType<DeletedMessageView>(m),
-            m => Assert.IsType<SystemMessageDataAddMember>(Assert.IsType<SystemMessageView>(m).Data));
-        Assert.Equal(["owner.bsky.social", "alice.bsky.social"], page.RelatedProfiles!.Select(p => p.Handle.ToString()));
-    }
-
     [Theory]
     [InlineData("systemMessageDataAddMember", ""","member":{"did":"did:plc:alice"},"role":"standard","addedBy":{"did":"did:plc:owner"}""", typeof(SystemMessageDataAddMember))]
     [InlineData("systemMessageDataRemoveMember", ""","member":{"did":"did:plc:alice"},"removedBy":{"did":"did:plc:owner"}""", typeof(SystemMessageDataRemoveMember))]
@@ -226,20 +208,6 @@ public class ConvoModelsTests
         Assert.IsType(expected, data);
         Assert.Null(data.ExtensionData);
         AssertJsonEqual(JsonDocument.Parse(json).RootElement, JsonSerializer.SerializeToElement(data, Options));
-    }
-
-    [Fact]
-    public void Deserialize_SystemMessageDataMemberJoin_ReadsWhoApproved()
-    {
-        const string json =
-            """
-            {"$type":"chat.bsky.convo.defs#systemMessageDataMemberJoin","member":{"did":"did:plc:alice"},
-             "role":"standard","approvedBy":{"did":"did:plc:owner"}}
-            """;
-
-        var join = Assert.IsType<SystemMessageDataMemberJoin>(JsonSerializer.Deserialize<SystemMessageData>(json, Options));
-
-        Assert.Equal(Did.Parse("did:plc:owner"), join.ApprovedBy!.Did);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -326,19 +294,6 @@ public class ConvoModelsTests
         Assert.Equal(upstream, covered);
     }
 
-    [Fact]
-    public void Deserialize_LogAddReaction_ReadsTheMessageReactionAndProfiles()
-    {
-        var json =
-            $$"""{"$type":"chat.bsky.convo.defs#logAddReaction","rev":"r","convoId":"convo-1"{{WithMessage}},"reaction":{{Reaction}}{{Profiles}}}""";
-
-        var entry = Assert.IsType<LogAddReaction>(JsonSerializer.Deserialize<ConvoLogEntry>(json, Options));
-
-        Assert.Equal("msg-1", Assert.IsType<MessageView>(entry.Message).Id);
-        Assert.Equal("👍", entry.Reaction.Value);
-        Assert.Equal(2, entry.RelatedProfiles!.Count);
-    }
-
     // ──────────────────────────────────────────────────────────
     //  Unknown variants
     // ──────────────────────────────────────────────────────────
@@ -370,6 +325,20 @@ public class ConvoModelsTests
     // The general "unknown $type reads back byte-for-byte" behavior for every open union,
     // including these chat/convo ones, is covered once by
     // OpenUnionTests.Deserialize_UnknownVariant_ReadsAsUnknownAndWritesBackByteForByte.
+
+    [Fact]
+    public void ChatDeclarationRecord_WithGroupInvites_WritesTheLexiconShape()
+    {
+        var record = new ChatDeclarationRecord
+        {
+            AllowIncoming = ChatAllowIncoming.Following,
+            AllowGroupInvites = ChatAllowIncoming.None,
+        };
+
+        Assert.Equal(
+            """{"$type":"chat.bsky.actor.declaration","allowIncoming":"following","allowGroupInvites":"none"}""",
+            JsonSerializer.Serialize(record, Options));
+    }
 
     private static void AssertJsonEqual(JsonElement expected, JsonElement actual) =>
         Assert.True(JsonElement.DeepEquals(expected, actual),

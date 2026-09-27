@@ -43,7 +43,7 @@ public class SpaceWriteNotifierTests
         var store = new InMemorySpaceAuthorityStore();
 
         // The authority is an ordinary account: an #atproto_pds entry and no #atproto_space_host.
-        var resolver = new FakeDidDocumentResolver()
+        var resolver = new StubDidResolver()
             .Publish(SyncerDid, SyncerDocument())
             .PublishAccount(AuthorityDid, AtProtoCrypto.GenerateP256Key(), AuthorityPds);
         var handler = new HttpStub().Fallback(_ => new HttpResponseMessage(status));
@@ -130,7 +130,7 @@ public class SpaceWriteNotifierTests
         // and still completes: a subscriber's failure is an undelivered notification.
         var attacker = Did.Parse("did:web:attacker.example.com");
         var store = new InMemorySpaceAuthorityStore();
-        var resolver = new FakeDidDocumentResolver()
+        var resolver = new StubDidResolver()
             .Publish(SyncerDid, SyncerDocument())
             .Publish(attacker, JsonSerializer.Deserialize<DidDocument>(attackerDocument, ATProtoNet.Serialization.AtProtoJsonDefaults.Options)!)
             .PublishAccount(AuthorityDid, AtProtoCrypto.GenerateP256Key(), AuthorityPds);
@@ -167,7 +167,7 @@ public class SpaceWriteNotifierTests
         // A space host whose #atproto_space_host is not an https AtprotoSpaceHost entry.
         var host = Did.Parse("did:web:broken.example.com");
         var store = new InMemorySpaceAuthorityStore();
-        var resolver = new FakeDidDocumentResolver().Publish(host, new DidDocument
+        var resolver = new StubDidResolver().Publish(host, new DidDocument
         {
             Id = host,
             Service = [new DidDocumentService { Id = "#atproto_space_host", Type = "AtprotoSpaceHost", Endpoint = "http://broken.example.com" }],
@@ -295,7 +295,7 @@ public class SpaceWriteNotifierTests
 
         var notifier = new SpaceWriteNotifier(
             store,
-            new FakeDidDocumentResolver(),
+            new StubDidResolver(),
             new ServiceAuthGenerator(HostDid, AtProtoCrypto.GenerateP256Key()),
             new HttpClient(new HttpStub().Fallback(_ => new HttpResponseMessage(HttpStatusCode.OK))));
 

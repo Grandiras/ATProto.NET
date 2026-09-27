@@ -4,50 +4,18 @@ namespace ATProtoNet.Tests.Http;
 
 public class ServiceProxyTests
 {
-    [Fact]
-    public void Build_DidWithFragment_ReturnsCorrectHeader()
+    [Theory]
+    [InlineData("#bsky_appview")]
+    [InlineData("bsky_appview")] // the '#' is added when missing
+    public void Build_DidAndServiceId_ReturnsTheHeader(string serviceId)
     {
-        var result = ServiceProxy.Build("did:web:api.bsky.app", "#bsky_appview");
-        Assert.Equal("did:web:api.bsky.app#bsky_appview", result);
+        Assert.Equal("did:web:api.bsky.app#bsky_appview", ServiceProxy.Build("did:web:api.bsky.app", serviceId));
     }
 
     [Fact]
-    public void Build_DidWithoutHashPrefix_AddsHash()
-    {
-        var result = ServiceProxy.Build("did:web:api.bsky.app", "bsky_appview");
-        Assert.Equal("did:web:api.bsky.app#bsky_appview", result);
-    }
-
-    [Fact]
-    public void Build_NullDid_Throws()
+    public void Build_NullArguments_Throw()
     {
         Assert.Throws<ArgumentNullException>(() => ServiceProxy.Build(null!, "#bsky_appview"));
-    }
-
-    [Fact]
-    public void Build_NullServiceId_Throws()
-    {
         Assert.Throws<ArgumentNullException>(() => ServiceProxy.Build("did:web:example.com", null!));
-    }
-
-    [Fact]
-    public void BskyAppViewHeader_HasCorrectValue()
-    {
-        Assert.Equal("did:web:api.bsky.app#bsky_appview", ServiceProxy.BskyAppViewHeader);
-    }
-
-    [Fact]
-    public void BskyChatHeader_HasCorrectValue()
-    {
-        Assert.Equal("did:web:api.bsky.chat#bsky_chat", ServiceProxy.BskyChatHeader);
-    }
-
-    [Fact]
-    public void WellKnownConstants_AreCorrect()
-    {
-        Assert.Equal("#bsky_appview", ServiceProxy.BskyAppView);
-        Assert.Equal("#bsky_chat", ServiceProxy.BskyChat);
-        Assert.Equal("#atproto_labeler", ServiceProxy.AtProtoLabeler);
-        Assert.Equal("#atproto_pds", ServiceProxy.AtProtoPds);
     }
 }

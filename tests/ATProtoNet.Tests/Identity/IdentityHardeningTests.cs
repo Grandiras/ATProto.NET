@@ -3,7 +3,9 @@ using System.Text;
 using System.Text.Json;
 using ATProtoNet.Identity;
 using ATProtoNet.Serialization;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Time.Testing;
 
 namespace ATProtoNet.Tests.Identity;
 
@@ -63,7 +65,7 @@ public class IdentityHardeningTests
     [Fact]
     public async Task HandleResolver_WellKnownBodyCutShort_IsNoAnswer()
     {
-        var handler = new ScriptedHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new BrokenStream()) });
+        var handler = new HttpStub().Fallback(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new BrokenStream()) });
         using var handles = new HandleResolver(new HttpClient(handler), new IdentityResolverOptions { DnsOverHttpsUrl = null });
 
         Assert.Null(await handles.ResolveAsync(Handle.Parse("alice.example.com")));
@@ -73,7 +75,7 @@ public class IdentityHardeningTests
     public async Task IdentityResolver_HandleResolverThatThrows_IsHandleInvalidNotAFailure()
     {
         var did = Did.Parse("did:plc:ewvi7nxzyoun6zhxrhs64oiz");
-        var dids = new StaticResolver(DidDocs.Parse(did.Value, handle: "alice.example.com"));
+        var dids = new StubDidResolver().Publish(did.Value, DidDocs.Parse(did.Value, handle: "alice.example.com"));
         using var identity = new IdentityResolver(dids, new ThrowingHandleResolver(new IOException("reset")));
 
         var resolved = await identity.ResolveAsync(AtIdentifier.FromDid(did));
@@ -85,7 +87,7 @@ public class IdentityHardeningTests
     [Fact]
     public async Task IdentityResolver_HandleInputWhoseResolverThrows_IsHandleNotFound()
     {
-        using var identity = new IdentityResolver(new StaticResolver(null), new ThrowingHandleResolver(new IOException("reset")));
+        using var identity = new IdentityResolver(new StubDidResolver(), new ThrowingHandleResolver(new IOException("reset")));
 
         var ex = await Assert.ThrowsAsync<DidResolutionException>(
             () => identity.ResolveAsync(AtIdentifier.Parse("alice.example.com")));
@@ -120,7 +122,7 @@ public class IdentityHardeningTests
     [Fact]
     public async Task DidWeb_DocumentWithANullEntry_IsAnInvalidDocument()
     {
-        var handler = new ScriptedHandler(_ => ScriptedHandler.Json("""{"id":"did:web:example.com","service":[null]}"""));
+        var handler = new HttpStub().Fallback(_ => HttpStub.JsonResponse("""{"id":"did:web:example.com","service":[null]}"""));
         using var web = new DidWebResolver(new HttpClient(handler));
 
         var ex = await Assert.ThrowsAsync<DidResolutionException>(() => web.ResolveAsync(Did.Parse("did:web:example.com")));
@@ -143,9 +145,9 @@ public class IdentityHardeningTests
     public async Task RefreshAsync_AfterAFailedRefresh_TheFloorStillHolds()
     {
         var did = Did.Parse("did:plc:ewvi7nxzyoun6zhxrhs64oiz");
-        var clock = new ManualClock();
+        var clock = new FakeTimeProvider();
         var calls = 0;
-        var inner = new DelegateResolver(d => ++calls == 1
+        var inner = new StubDidResolver((d, _) => ++calls == 1
             ? Task.FromResult(DidDocs.Parse(d.Value))
             : Task.FromException<DidDocument>(new DidResolutionException("boom", DidResolutionErrorKind.HttpError, d)));
         using var cache = new CachingDidResolver(inner, new DidCacheOptions(), null, clock);
@@ -190,7 +192,7 @@ public class IdentityHardeningTests
     [Fact]
     public async Task DidWeb_CallersClientThatFollowedARedirect_IsRefused()
     {
-        var handler = new ScriptedHandler(request => new HttpResponseMessage(HttpStatusCode.OK)
+        var handler = new HttpStub().Fallback(request => new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(DidDocs.Json("did:web:example.com")),
             RequestMessage = new HttpRequestMessage(HttpMethod.Get, "https://elsewhere.example.net/did.json"),
@@ -210,15 +212,15 @@ public class IdentityHardeningTests
     public async Task HandleWellKnown_OnlySameHostHttpsRedirectsAreFollowed(string location, bool followed)
     {
         var did = Did.Parse("did:plc:aaaaaaaaaaaaaaaaaaaaaaaa");
-        var handler = new ScriptedHandler(request => request.RequestUri!.AbsolutePath == "/.well-known/atproto-did"
+        var handler = new HttpStub().Fallback(request => request.Uri.AbsolutePath == "/.well-known/atproto-did"
             ? new HttpResponseMessage(HttpStatusCode.Found) { Headers = { Location = new Uri(location) }, Content = new StringContent("") }
-            : ScriptedHandler.Text(did.Value));
+            : HttpStub.Text(did.Value));
         using var handles = new HandleResolver(new HttpClient(handler), new IdentityResolverOptions { DnsOverHttpsUrl = null });
 
         var resolved = await handles.ResolveAsync(Handle.Parse("alice.example.com"));
 
         Assert.Equal(followed ? did : null, resolved);
-        Assert.Equal(followed ? 2 : 1, handler.Count);
+        Assert.Equal(followed ? 2 : 1, handler.Requests.Count);
     }
 
     // ── Invalidation against a late distributed write ────────
@@ -230,7 +232,7 @@ public class IdentityHardeningTests
         var shared = new GatedDistributedCache();
         var oldKey = "did:key:zQ3shunBKsXixLxKtC5qeSG9E4J5RkGN57im31pcTzbNQnm5w";
         using var cache = new CachingDidResolver(
-            new StaticResolver(DidDocs.Parse(did.Value, signingKey: oldKey)), new DidCacheOptions(), shared);
+            new StubDidResolver().Publish(did.Value, DidDocs.Parse(did.Value, signingKey: oldKey)), new DidCacheOptions(), shared);
 
         await cache.ResolveAsync(did);     // stored in memory; the shared write is held back
         await cache.InvalidateAsync(did);  // an #identity event: memory and shared copy dropped
@@ -266,15 +268,10 @@ public class IdentityHardeningTests
     public async Task Failures_DoNotEvictDocuments()
     {
         var good = Enumerable.Range(0, 2).Select(i => Did.Parse($"did:plc:good{(char)('a' + i)}aaaaaaaaaaaaaaaaaaa")).ToArray();
-        var calls = new Dictionary<Did, int>();
-        var inner = new DelegateResolver(d =>
-        {
-            lock (calls)
-                calls[d] = calls.GetValueOrDefault(d) + 1;
-            return good.Contains(d)
+        var inner = new StubDidResolver((d, _) =>
+            good.Contains(d)
                 ? Task.FromResult(DidDocs.Parse(d.Value))
-                : Task.FromException<DidDocument>(new DidResolutionException("no", DidResolutionErrorKind.NotFound, d));
-        });
+                : Task.FromException<DidDocument>(new DidResolutionException("no", DidResolutionErrorKind.NotFound, d)));
         using var cache = new CachingDidResolver(inner, new DidCacheOptions { Capacity = 2, FailureCapacity = 3 });
 
         foreach (var did in good)
@@ -284,7 +281,7 @@ public class IdentityHardeningTests
         foreach (var did in good)
             await cache.ResolveAsync(did);
 
-        Assert.All(good, did => Assert.Equal(1, calls[did]));
+        Assert.All(good, did => Assert.Equal(1, inner.Calls(did)));
         Assert.Equal(2, cache.DocumentCount);
         Assert.Equal(5, cache.Count);
     }
@@ -294,13 +291,13 @@ public class IdentityHardeningTests
     {
         var inFlight = 0;
         var peak = 0;
-        var handler = new ScriptedHandler(async (_, ct) =>
+        var handler = new HttpStub().Fallback(async (_, ct) =>
         {
             var now = Interlocked.Increment(ref inFlight);
             InterlockedMax(ref peak, now);
             await Task.Delay(50, ct);
             Interlocked.Decrement(ref inFlight);
-            return ScriptedHandler.Json("{}");
+            return HttpStub.JsonResponse("{}");
         });
         using var client = new HttpClient(handler);
 
@@ -318,19 +315,6 @@ public class IdentityHardeningTests
                Interlocked.CompareExchange(ref target, value, current) != current)
         {
         }
-    }
-
-    private sealed class StaticResolver(DidDocument? document) : IDidResolver
-    {
-        public Task<DidDocument> ResolveAsync(Did did, CancellationToken cancellationToken = default) =>
-            document is null
-                ? Task.FromException<DidDocument>(new DidResolutionException("none", DidResolutionErrorKind.NotFound, did))
-                : Task.FromResult(document);
-    }
-
-    private sealed class DelegateResolver(Func<Did, Task<DidDocument>> resolve) : IDidResolver
-    {
-        public Task<DidDocument> ResolveAsync(Did did, CancellationToken cancellationToken = default) => resolve(did);
     }
 
     private sealed class ThrowingHandleResolver(Exception exception) : IHandleResolver
