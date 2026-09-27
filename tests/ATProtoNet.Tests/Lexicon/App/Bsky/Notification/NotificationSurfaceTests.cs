@@ -42,20 +42,7 @@ public sealed class NotificationSurfaceTests : IDisposable
         _handler.Dispose();
     }
 
-    [Fact]
-    public async Task UnregisterPushAsync_PostsTheRegistration()
-    {
-        _handler.On("app.bsky.notification.unregisterPush", "{}");
-
-        await _client.Bsky.Notification.UnregisterPushAsync(
-            Did.Parse("did:web:api.bsky.app"), "device-token", PushPlatform.Ios, "xyz.blueskyweb.app");
-
-        var request = Assert.Single(_handler.Requests);
-        Assert.Equal(HttpMethod.Post, request.Method);
-        Assert.Equal(
-            """{"serviceDid":"did:web:api.bsky.app","token":"device-token","platform":"ios","appId":"xyz.blueskyweb.app"}""",
-            request.BodyText);
-    }
+    // unregisterPush is covered by ATProtoNet.Tests.Lexicon.EndpointRequestTests.
 
     [Fact]
     public async Task GetPreferencesAsync_BindsEveryPreference()
@@ -90,32 +77,8 @@ public sealed class NotificationSurfaceTests : IDisposable
         Assert.Equal(NotificationInclude.Follows, preferences.Like.Include);
     }
 
-    [Fact]
-    public async Task ListActivitySubscriptionsAsync_BindsProfiles()
-    {
-        _handler.On("app.bsky.notification.listActivitySubscriptions", $$"""{"cursor":"n","subscriptions":[{{BobProfileJson}}]}""");
-
-        var page = await _client.Bsky.Notification.ListActivitySubscriptionsAsync(limit: 5);
-
-        Assert.Equal("limit=5", Assert.Single(_handler.Requests).Query);
-        Assert.Equal("n", page.Cursor);
-        Assert.Equal(BobDid, Assert.Single(page.Subscriptions).Did.Value);
-    }
-
-    [Fact]
-    public async Task PutActivitySubscriptionAsync_PostsSubjectAndSubscription()
-    {
-        _handler.On("app.bsky.notification.putActivitySubscription", $$$"""{"subject":"{{{BobDid}}}","activitySubscription":{"post":true,"reply":false}}""");
-
-        var stored = await _client.Bsky.Notification.PutActivitySubscriptionAsync(Did.Parse(BobDid), post: true, reply: false);
-
-        Assert.Equal(
-            $$$"""{"subject":"{{{BobDid}}}","activitySubscription":{"post":true,"reply":false}}""",
-            Assert.Single(_handler.Requests).BodyText);
-        Assert.Equal(BobDid, stored.Subject.Value);
-        Assert.True(stored.ActivitySubscription!.Post);
-        Assert.False(stored.ActivitySubscription.Reply);
-    }
+    // listActivitySubscriptions and putActivitySubscription's basic case are covered by
+    // ATProtoNet.Tests.Lexicon.EndpointRequestTests.
 
     [Fact]
     public async Task PutActivitySubscriptionAsync_Removed_HasNoSubscription()

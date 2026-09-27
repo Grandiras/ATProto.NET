@@ -8,33 +8,25 @@ using ATProtoNet.Lexicon.Chat.Bsky.Embed;
 using ATProtoNet.Lexicon.Chat.Bsky.Group;
 using ATProtoNet.Models;
 using ATProtoNet.Tests.TestSupport;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Tests.Chat.Bsky.Convo;
 
 public class ConvoClientTests : IDisposable
 {
-    private readonly HttpStub _stub = new();
-    private readonly HttpClient _httpClient;
-    private readonly XrpcClient _xrpc;
-    private readonly ConvoClient _convo;
+    private readonly XrpcTestClient _fixture = new();
 
-    public ConvoClientTests()
-    {
-        _httpClient = new HttpClient(_stub) { BaseAddress = new Uri("https://pds.example.com/") };
-        _xrpc = new XrpcClient(_httpClient, _httpClient.BaseAddress!, NullLogger.Instance);
-        _xrpc.SetTokens("test-token");
-        _convo = new ConvoClient(_xrpc);
-    }
+    private ConvoClient Convo => _fixture.Client.Chat.Convo;
+
+    public void Dispose() => _fixture.Dispose();
 
     [Fact]
     public async Task ListConvos_SendsCorrectRequest()
     {
-        _stub.On("chat.bsky.convo.listConvos", JsonBody(new { convos = Array.Empty<object>() }));
+        _fixture.On("chat.bsky.convo.listConvos", HttpStub.Json(new { convos = Array.Empty<object>() }));
 
-        var result = await _convo.ListConvosAsync(limit: 10, cursor: "abc");
+        var result = await Convo.ListConvosAsync(limit: 10, cursor: "abc");
 
-        var request = Assert.Single(_stub.To("chat.bsky.convo.listConvos"));
+        var request = Assert.Single(_fixture.To("chat.bsky.convo.listConvos"));
         Assert.Contains("limit=10", request.Query);
         Assert.Contains("cursor=abc", request.Query);
         Assert.Equal(ServiceProxy.BskyChatHeader, request.Proxy);
@@ -45,14 +37,14 @@ public class ConvoClientTests : IDisposable
     [Fact]
     public async Task GetConvo_SendsCorrectRequest()
     {
-        _stub.On("chat.bsky.convo.getConvo", JsonBody(new
+        _fixture.On("chat.bsky.convo.getConvo", HttpStub.Json(new
         {
             convo = new { id = "convo-1", rev = "rev-1", members = Array.Empty<object>(), muted = false, unreadCount = 0 },
         }));
 
-        var result = await _convo.GetConvoAsync("convo-1");
+        var result = await Convo.GetConvoAsync("convo-1");
 
-        var request = Assert.Single(_stub.To("chat.bsky.convo.getConvo"));
+        var request = Assert.Single(_fixture.To("chat.bsky.convo.getConvo"));
         Assert.Contains("convoId=convo-1", request.Query);
         Assert.Equal(ServiceProxy.BskyChatHeader, request.Proxy);
         Assert.Equal("convo-1", result.Convo.Id);
@@ -61,7 +53,7 @@ public class ConvoClientTests : IDisposable
     [Fact]
     public async Task SendMessage_PostsWithProxy()
     {
-        _stub.On("chat.bsky.convo.sendMessage", JsonBody(new
+        _fixture.On("chat.bsky.convo.sendMessage", HttpStub.Json(new
         {
             id = "msg-1",
             rev = "rev-1",
@@ -70,9 +62,9 @@ public class ConvoClientTests : IDisposable
             sentAt = "2024-01-01T00:00:00Z",
         }));
 
-        var result = await _convo.SendMessageAsync("convo-1", new MessageInput { Text = "Hello!" });
+        var result = await Convo.SendMessageAsync("convo-1", new MessageInput { Text = "Hello!" });
 
-        var request = Assert.Single(_stub.To("chat.bsky.convo.sendMessage"));
+        var request = Assert.Single(_fixture.To("chat.bsky.convo.sendMessage"));
         Assert.Equal(HttpMethod.Post, request.Method);
         Assert.Equal(ServiceProxy.BskyChatHeader, request.Proxy);
         Assert.Contains("convo-1", request.BodyText);
@@ -84,37 +76,28 @@ public class ConvoClientTests : IDisposable
     [Fact]
     public async Task MuteConvo_PostsWithProxy()
     {
-        _stub.On("chat.bsky.convo.muteConvo", JsonBody(new
+        _fixture.On("chat.bsky.convo.muteConvo", HttpStub.Json(new
         {
             convo = new { id = "convo-1", rev = "rev-2", members = Array.Empty<object>(), muted = true, unreadCount = 0 },
         }));
 
-        var result = await _convo.MuteConvoAsync("convo-1");
+        var result = await Convo.MuteConvoAsync("convo-1");
 
-        var request = Assert.Single(_stub.To("chat.bsky.convo.muteConvo"));
+        var request = Assert.Single(_fixture.To("chat.bsky.convo.muteConvo"));
         Assert.Equal(ServiceProxy.BskyChatHeader, request.Proxy);
         Assert.True(result.Muted);
     }
 
-    [Fact]
-    public async Task UpdateAllRead_PostsWithProxy()
-    {
-        _stub.On("chat.bsky.convo.updateAllRead", JsonBody(new { updatedCount = 0 }));
-
-        await _convo.UpdateAllReadAsync();
-
-        var request = Assert.Single(_stub.To("chat.bsky.convo.updateAllRead"));
-        Assert.Equal(ServiceProxy.BskyChatHeader, request.Proxy);
-    }
+    // UpdateAllReadAsync is covered by ATProtoNet.Tests.Lexicon.EndpointRequestTests.
 
     [Fact]
     public async Task GetMessages_SendsCorrectRequest()
     {
-        _stub.On("chat.bsky.convo.getMessages", JsonBody(new { messages = Array.Empty<object>() }));
+        _fixture.On("chat.bsky.convo.getMessages", HttpStub.Json(new { messages = Array.Empty<object>() }));
 
-        var result = await _convo.GetMessagesAsync("convo-1", limit: 25);
+        var result = await Convo.GetMessagesAsync("convo-1", limit: 25);
 
-        var request = Assert.Single(_stub.To("chat.bsky.convo.getMessages"));
+        var request = Assert.Single(_fixture.To("chat.bsky.convo.getMessages"));
         Assert.Contains("convoId=convo-1", request.Query);
         Assert.Contains("limit=25", request.Query);
         Assert.NotNull(result);
@@ -123,11 +106,11 @@ public class ConvoClientTests : IDisposable
     [Fact]
     public async Task GetLog_SendsCorrectRequest()
     {
-        _stub.On("chat.bsky.convo.getLog", JsonBody(new { logs = Array.Empty<object>() }));
+        _fixture.On("chat.bsky.convo.getLog", HttpStub.Json(new { logs = Array.Empty<object>() }));
 
-        var result = await _convo.GetLogAsync(cursor: "cur123");
+        var result = await Convo.GetLogAsync(cursor: "cur123");
 
-        var request = Assert.Single(_stub.To("chat.bsky.convo.getLog"));
+        var request = Assert.Single(_fixture.To("chat.bsky.convo.getLog"));
         Assert.Contains("cursor=cur123", request.Query);
         Assert.Empty(result.Logs);
     }
@@ -135,7 +118,7 @@ public class ConvoClientTests : IDisposable
     [Fact]
     public async Task AddReaction_PostsWithProxy()
     {
-        _stub.On("chat.bsky.convo.addReaction", JsonBody(new
+        _fixture.On("chat.bsky.convo.addReaction", HttpStub.Json(new
         {
             message = new
             {
@@ -145,9 +128,9 @@ public class ConvoClientTests : IDisposable
             },
         }));
 
-        await _convo.AddReactionAsync("convo-1", "msg-1", "❤️");
+        await Convo.AddReactionAsync("convo-1", "msg-1", "❤️");
 
-        var request = Assert.Single(_stub.To("chat.bsky.convo.addReaction"));
+        var request = Assert.Single(_fixture.To("chat.bsky.convo.addReaction"));
         Assert.Equal(ServiceProxy.BskyChatHeader, request.Proxy);
         Assert.Contains("convo-1", request.BodyText);
         Assert.Contains("msg-1", request.BodyText);
@@ -157,25 +140,25 @@ public class ConvoClientTests : IDisposable
     public async Task ProxyHeader_DoesNotAffectOtherXrpcCalls()
     {
         // Verify that the chat proxy header is per-request and doesn't leak to other calls.
-        _stub.On("chat.bsky.convo.listConvos", JsonBody(new { convos = Array.Empty<object>() }));
-        _stub.On("app.bsky.feed.getTimeline", "{}");
+        _fixture.On("chat.bsky.convo.listConvos", HttpStub.Json(new { convos = Array.Empty<object>() }));
+        _fixture.On("app.bsky.feed.getTimeline", "{}");
 
-        await _convo.ListConvosAsync();
-        Assert.Equal(ServiceProxy.BskyChatHeader, Assert.Single(_stub.To("chat.bsky.convo.listConvos")).Proxy);
+        await Convo.ListConvosAsync();
+        Assert.Equal(ServiceProxy.BskyChatHeader, Assert.Single(_fixture.To("chat.bsky.convo.listConvos")).Proxy);
 
-        await _xrpc.QueryAsync<object>("app.bsky.feed.getTimeline");
-        Assert.Null(Assert.Single(_stub.To("app.bsky.feed.getTimeline")).Proxy);
+        await _fixture.Client.QueryAsync<object>(Nsid.Parse("app.bsky.feed.getTimeline"));
+        Assert.Null(Assert.Single(_fixture.To("app.bsky.feed.getTimeline")).Proxy);
     }
 
     [Fact]
     public async Task ListConvosAsync_FiltersThenPaging_SendsEveryParameter()
     {
-        _stub.On("chat.bsky.convo.listConvos", JsonBody(new { convos = Array.Empty<object>() }));
+        _fixture.On("chat.bsky.convo.listConvos", HttpStub.Json(new { convos = Array.Empty<object>() }));
 
-        await _convo.ListConvosAsync(
+        await Convo.ListConvosAsync(
             ConvoReadState.Unread, ConvoStatus.Accepted, ConvoKinds.Group, ConvoLockStatus.LockedPermanently, 10, "abc");
 
-        var request = Assert.Single(_stub.To("chat.bsky.convo.listConvos"));
+        var request = Assert.Single(_fixture.To("chat.bsky.convo.listConvos"));
         Assert.Equal(
             "readState=unread&status=accepted&kind=group&lockStatus=locked-permanently&limit=10&cursor=abc",
             Uri.UnescapeDataString(request.Query));
@@ -184,7 +167,7 @@ public class ConvoClientTests : IDisposable
     [Fact]
     public async Task GetConvoForMembersAsync_TypedDids_SendsOneParameterEach()
     {
-        _stub.On("chat.bsky.convo.getConvoForMembers", JsonBody(new
+        _fixture.On("chat.bsky.convo.getConvoForMembers", HttpStub.Json(new
         {
             convo = new
             {
@@ -196,10 +179,10 @@ public class ConvoClientTests : IDisposable
             },
         }));
 
-        var result = await _convo.GetConvoForMembersAsync(
+        var result = await Convo.GetConvoForMembersAsync(
             [Did.Parse("did:plc:user1"), Did.Parse("did:plc:user2")]);
 
-        var request = Assert.Single(_stub.To("chat.bsky.convo.getConvoForMembers"));
+        var request = Assert.Single(_fixture.To("chat.bsky.convo.getConvoForMembers"));
         Assert.Equal("members=did:plc:user1&members=did:plc:user2", Uri.UnescapeDataString(request.Query));
         Assert.Equal(Did.Parse("did:plc:user1"), result.Convo.Members[0].Did);
         Assert.Equal(Handle.Parse("alice.bsky.social"), result.Convo.Members[0].Handle);
@@ -208,16 +191,16 @@ public class ConvoClientTests : IDisposable
     [Fact]
     public async Task SendMessageBatchAsync_AnySequence_SendsEveryItem()
     {
-        _stub.On("chat.bsky.convo.sendMessageBatch", JsonBody(new { items = Array.Empty<object>() }));
+        _fixture.On("chat.bsky.convo.sendMessageBatch", HttpStub.Json(new { items = Array.Empty<object>() }));
 
         var items = Enumerable.Range(1, 3).Select(i => new BatchMessageItem
         {
             ConvoId = $"convo-{i}",
             Message = new MessageInput { Text = $"#{i}" },
         });
-        await _convo.SendMessageBatchAsync(items);
+        await Convo.SendMessageBatchAsync(items);
 
-        var request = Assert.Single(_stub.To("chat.bsky.convo.sendMessageBatch"));
+        var request = Assert.Single(_fixture.To("chat.bsky.convo.sendMessageBatch"));
         using var body = JsonDocument.Parse(request.BodyText);
         Assert.Equal(3, body.RootElement.GetProperty("items").GetArrayLength());
     }
@@ -226,7 +209,7 @@ public class ConvoClientTests : IDisposable
     public async Task EnumerateMessagesAsync_RepeatedCursor_StopsInsteadOfLooping()
     {
         var requests = 0;
-        _stub.On("chat.bsky.convo.getMessages", _ =>
+        _fixture.On("chat.bsky.convo.getMessages", _ =>
         {
             requests++;
             return HttpStub.JsonResponse(
@@ -236,12 +219,11 @@ public class ConvoClientTests : IDisposable
                 """);
         });
 
-        var messages = await _convo.EnumerateMessagesAsync("convo-1").ToListAsync();
+        var messages = await Convo.EnumerateMessagesAsync("convo-1").ToListAsync();
 
         Assert.Equal(2, requests);
         Assert.Equal(["msg-1", "msg-2"], messages.Select(m => Assert.IsType<DeletedMessageView>(m).Id));
     }
-
 
     // ──────────────────────────────────────────────────────────
     //  Group-era endpoints
@@ -250,11 +232,11 @@ public class ConvoClientTests : IDisposable
     [Fact]
     public async Task GetUnreadCountsAsync_ExcludingGroups_SendsTheFlagAndReadsBothCounts()
     {
-        _stub.On("chat.bsky.convo.getUnreadCounts", """{"unreadAcceptedConvos":100,"unreadRequestConvos":3}""");
+        _fixture.On("chat.bsky.convo.getUnreadCounts", """{"unreadAcceptedConvos":100,"unreadRequestConvos":3}""");
 
-        var counts = await _convo.GetUnreadCountsAsync(includeGroupChats: false);
+        var counts = await Convo.GetUnreadCountsAsync(includeGroupChats: false);
 
-        var request = Assert.Single(_stub.To("chat.bsky.convo.getUnreadCounts"));
+        var request = Assert.Single(_fixture.To("chat.bsky.convo.getUnreadCounts"));
         Assert.Equal("includeGroupChats=false", Uri.UnescapeDataString(request.Query));
         Assert.Equal(ServiceProxy.BskyChatHeader, request.Proxy);
         Assert.Equal((100, 3), (counts.UnreadAcceptedConvos, counts.UnreadRequestConvos));
@@ -263,7 +245,7 @@ public class ConvoClientTests : IDisposable
     [Fact]
     public async Task ListConvoRequestsAsync_MixedRequests_ReadsConvosAndJoinRequests()
     {
-        _stub.On("chat.bsky.convo.listConvoRequests",
+        _fixture.On("chat.bsky.convo.listConvoRequests",
             """
             {"cursor":"next","requests":[
               {"$type":"chat.bsky.convo.defs#convoView","id":"convo-1","rev":"rev-1","muted":false,"unreadCount":1,"status":"request",
@@ -275,9 +257,9 @@ public class ConvoClientTests : IDisposable
               {"$type":"chat.bsky.group.defs#futureRequestView","convoId":"convo-3"}]}
             """);
 
-        var page = await _convo.ListConvoRequestsAsync(limit: 3, cursor: "abc");
+        var page = await Convo.ListConvoRequestsAsync(limit: 3, cursor: "abc");
 
-        var request = Assert.Single(_stub.To("chat.bsky.convo.listConvoRequests"));
+        var request = Assert.Single(_fixture.To("chat.bsky.convo.listConvoRequests"));
         Assert.Equal("limit=3&cursor=abc", Uri.UnescapeDataString(request.Query));
         Assert.Equal("next", page.Cursor);
         Assert.Collection(page.Requests,
@@ -294,7 +276,7 @@ public class ConvoClientTests : IDisposable
     [Fact]
     public async Task GetConvoMembersAsync_GroupMembers_ReadsTheirKinds()
     {
-        _stub.On("chat.bsky.convo.getConvoMembers",
+        _fixture.On("chat.bsky.convo.getConvoMembers",
             """
             {"members":[
               {"did":"did:plc:owner","handle":"owner.bsky.social","kind":{"$type":"chat.bsky.actor.defs#groupConvoMember","role":"owner"}},
@@ -304,9 +286,9 @@ public class ConvoClientTests : IDisposable
               {"did":"did:plc:user2","handle":"bob.bsky.social","kind":{"$type":"chat.bsky.actor.defs#pastGroupConvoMember"}}]}
             """);
 
-        var page = await _convo.GetConvoMembersAsync("convo-1", limit: 3);
+        var page = await Convo.GetConvoMembersAsync("convo-1", limit: 3);
 
-        var request = Assert.Single(_stub.To("chat.bsky.convo.getConvoMembers"));
+        var request = Assert.Single(_fixture.To("chat.bsky.convo.getConvoMembers"));
         Assert.Equal("convoId=convo-1&limit=3", Uri.UnescapeDataString(request.Query));
         Assert.Collection(page.Members,
             m => Assert.Equal(ChatMemberRole.Owner, Assert.IsType<GroupConvoMember>(m.Kind).Role),
@@ -319,14 +301,13 @@ public class ConvoClientTests : IDisposable
             m => Assert.IsType<PastGroupConvoMember>(m.Kind));
     }
 
-
     [Theory]
     [InlineData("lockConvo", "locked")]
     [InlineData("unlockConvo", "unlocked")]
     public async Task LockAndUnlockConvoAsync_PostTheConvoIdAndUnwrapTheGroup(string method, string lockStatus)
     {
         var nsid = $"chat.bsky.convo.{method}";
-        _stub.On(nsid,
+        _fixture.On(nsid,
             """
             {"convo":{"id":"convo-1","rev":"rev-2","members":[],"muted":false,"unreadCount":0,
               "kind":{"$type":"chat.bsky.convo.defs#groupConvo","name":"Book club","memberCount":3,"memberLimit":100,
@@ -334,10 +315,10 @@ public class ConvoClientTests : IDisposable
             """.Replace("LOCK_STATUS", lockStatus));
 
         var convo = method == "lockConvo"
-            ? await _convo.LockConvoAsync("convo-1")
-            : await _convo.UnlockConvoAsync("convo-1");
+            ? await Convo.LockConvoAsync("convo-1")
+            : await Convo.UnlockConvoAsync("convo-1");
 
-        var request = Assert.Single(_stub.To(nsid));
+        var request = Assert.Single(_fixture.To(nsid));
         Assert.Equal("""{"convoId":"convo-1"}""", request.BodyText);
         Assert.Equal(ServiceProxy.BskyChatHeader, request.Proxy);
         Assert.Equal(lockStatus, Assert.IsType<GroupConvo>(convo.Kind).LockStatus);
@@ -346,14 +327,14 @@ public class ConvoClientTests : IDisposable
     [Fact]
     public async Task SendMessageAsync_ReplyEmbedAndFacets_WritesTheLexiconShape()
     {
-        _stub.On("chat.bsky.convo.sendMessage",
+        _fixture.On("chat.bsky.convo.sendMessage",
             """
             {"id":"msg-2","rev":"rev-2","text":"join us @alice","sender":{"did":"did:plc:owner"},"sentAt":"2026-06-01T12:00:00.000Z",
              "replyTo":{"$type":"chat.bsky.convo.defs#messageView","id":"msg-1","rev":"rev-1","text":"hi",
                         "sender":{"did":"did:plc:user1"},"sentAt":"2026-06-01T11:59:00.000Z"}}
             """);
 
-        var sent = await _convo.SendMessageAsync("convo-1", new MessageInput
+        var sent = await Convo.SendMessageAsync("convo-1", new MessageInput
         {
             Text = "join us @alice",
             Facets =
@@ -375,7 +356,7 @@ public class ConvoClientTests : IDisposable
               "embed":{"$type":"chat.bsky.embed.joinLink","code":"abc123"},
               "replyTo":{"messageId":"msg-1"}}}
             """;
-        var request = Assert.Single(_stub.To("chat.bsky.convo.sendMessage"));
+        var request = Assert.Single(_fixture.To("chat.bsky.convo.sendMessage"));
         Assert.True(
             JsonElement.DeepEquals(JsonDocument.Parse(expected).RootElement, JsonDocument.Parse(request.BodyText).RootElement),
             request.BodyText);
@@ -385,10 +366,10 @@ public class ConvoClientTests : IDisposable
     [Fact]
     public async Task SendMessageAsync_QuotedPost_WritesARecordEmbed()
     {
-        _stub.On("chat.bsky.convo.sendMessage",
+        _fixture.On("chat.bsky.convo.sendMessage",
             """{"id":"msg-1","rev":"rev-1","text":"look","sender":{"did":"did:plc:owner"},"sentAt":"2026-06-01T12:00:00.000Z"}""");
 
-        await _convo.SendMessageAsync("convo-1", new MessageInput
+        await Convo.SendMessageAsync("convo-1", new MessageInput
         {
             Text = "look",
             Embed = new MessageRecordEmbed
@@ -401,23 +382,10 @@ public class ConvoClientTests : IDisposable
             },
         });
 
-        var request = Assert.Single(_stub.To("chat.bsky.convo.sendMessage"));
+        var request = Assert.Single(_fixture.To("chat.bsky.convo.sendMessage"));
         using var body = JsonDocument.Parse(request.BodyText);
         var embed = body.RootElement.GetProperty("message").GetProperty("embed");
         Assert.Equal("app.bsky.embed.record", embed.GetProperty("$type").GetString());
         Assert.Equal("at://did:plc:user1/app.bsky.feed.post/3lq5a2kxzqc2a", embed.GetProperty("record").GetProperty("uri").GetString());
     }
-
-    private static object Convo(string id) => new
-    {
-        id,
-        rev = "rev-1",
-        members = Array.Empty<object>(),
-        muted = false,
-        unreadCount = 0,
-    };
-
-    private static string JsonBody(object body) => JsonSerializer.Serialize(body);
-
-    public void Dispose() => _httpClient.Dispose();
 }

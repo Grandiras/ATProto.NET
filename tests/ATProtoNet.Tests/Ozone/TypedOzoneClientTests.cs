@@ -13,7 +13,7 @@ namespace ATProtoNet.Tests.Ozone;
 /// </summary>
 public sealed class TypedOzoneClientTests : IDisposable
 {
-    private const string ModDid = "did:plc:ewvi7nxzyoun6zhxrhs64oiz";
+    private const string ModDid = TestIds.ModDid;
     private const string CidText = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm";
 
     private readonly XrpcTestClient _fixture = new(instanceUrl: "https://ozone.example.com");
@@ -134,18 +134,8 @@ public sealed class TypedOzoneClientTests : IDisposable
         Assert.Equal("admin_token", Assert.Single(page.Members).LastUpdatedBy);
     }
 
-    [Fact]
-    public async Task FindRelatedAccountsAsync_LimitThenCursor_SendsBoth()
-    {
-        _fixture.On("tools.ozone.signature.findRelatedAccounts", """{"accounts":[]}""");
-
-        await Client.Ozone.Signature.FindRelatedAccountsAsync(Did.Parse(ModDid), 10, "c");
-
-        var query = Uri.UnescapeDataString(_fixture.To("tools.ozone.signature.findRelatedAccounts").Single().Uri.Query);
-        Assert.Contains($"did={ModDid}", query);
-        Assert.Contains("limit=10", query);
-        Assert.Contains("cursor=c", query);
-    }
+    // FindRelatedAccountsAsync's did+limit+cursor query is covered by
+    // ATProtoNet.Tests.Lexicon.EndpointRequestTests.
 
     [Fact]
     public async Task SearchAccountsAsync_IsAQueryWithOneValuesParameterEach()

@@ -172,6 +172,12 @@ public partial class LexiconDriftTests
         "The meta-schema declares only 'lexicon'; the Lexicon spec's publication section has a schema record carry the fields of a Lexicon file.";
 
     /// <summary>
+    /// Query-parameter keys a call site sends that are not an upstream parameter, keyed
+    /// <c>nsid:key</c>, and why.
+    /// </summary>
+    private static readonly Dictionary<string, string> QueryParamAllowlist = new(StringComparer.Ordinal);
+
+    /// <summary>
     /// Upstream properties a model deliberately does not declare, keyed like
     /// <see cref="UnknownProperties"/>, and why. They still round-trip through
     /// <c>LexObject.ExtensionData</c>.

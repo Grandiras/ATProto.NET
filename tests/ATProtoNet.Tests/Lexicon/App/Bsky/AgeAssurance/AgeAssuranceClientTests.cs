@@ -16,20 +16,7 @@ public sealed class AgeAssuranceClientTests : IDisposable
         _handler.Dispose();
     }
 
-    [Fact]
-    public async Task BeginAsync_PostsTheInitiation_ReturnsTheState()
-    {
-        _handler.On("app.bsky.ageassurance.begin", """{"lastInitiatedAt":"2026-09-25T10:00:00.000Z","status":"pending","access":"unknown"}""");
-
-        var state = await _client.Bsky.AgeAssurance.BeginAsync("alice@example.com", "en", "GB");
-
-        Assert.Equal(
-            """{"email":"alice@example.com","language":"en","countryCode":"GB"}""",
-            Assert.Single(_handler.Requests).BodyText);
-        Assert.Equal(AgeAssuranceStatus.Pending, state.Status);
-        Assert.Equal(AgeAssuranceAccess.Unknown, state.Access);
-        Assert.Equal("2026-09-25T10:00:00.000Z", state.LastInitiatedAt?.ToString());
-    }
+    // BeginAsync is covered by ATProtoNet.Tests.Lexicon.EndpointRequestTests.
 
     [Fact]
     public async Task GetConfigAsync_BindsRegionsAndEveryRuleKind()

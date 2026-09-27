@@ -3,6 +3,7 @@ using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.App.Bsky.Actor;
 using ATProtoNet.Lexicon.Tools.Ozone.Moderation;
 using ATProtoNet.Serialization;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Ozone;
 
@@ -12,7 +13,7 @@ namespace ATProtoNet.Tests.Ozone;
 /// </summary>
 public sealed class OzoneModerationToolingTests : IDisposable
 {
-    private const string ModDid = "did:plc:ewvi7nxzyoun6zhxrhs64oiz";
+    private const string ModDid = TestIds.ModDid;
     private const string UserDid = "did:plc:z72i7hdynmk6r22z27h6tvur";
     private const string CidText = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm";
     private const string PostUri = $"at://{UserDid}/app.bsky.feed.post/3k2la";
@@ -20,16 +21,16 @@ public sealed class OzoneModerationToolingTests : IDisposable
     private const string Repo =
         $$$"""{"did":"{{{UserDid}}}","handle":"user.example.com","relatedRecords":[],"indexedAt":"2026-09-01T00:00:00.000Z","moderation":{}}""";
 
-    private readonly OzoneTestClient _ozone = new();
+    private readonly XrpcTestClient _fixture = new(instanceUrl: "https://ozone.example.com");
 
-    private ModerationClient Moderation => _ozone.Client.Ozone.Moderation;
+    private ModerationClient Moderation => _fixture.Client.Ozone.Moderation;
 
-    public void Dispose() => _ozone.Dispose();
+    public void Dispose() => _fixture.Dispose();
 
     [Fact]
     public async Task GetAccountPreferencesAsync_SendsTheDid_ReadsTypedPreferences()
     {
-        _ozone.Respond("""
+        _fixture.On("tools.ozone.moderation.getAccountPreferences", """
             {"preferences":[
               {"$type":"app.bsky.actor.defs#adultContentPref","enabled":true},
               {"$type":"app.bsky.actor.defs#futurePref","x":1}
@@ -38,7 +39,7 @@ public sealed class OzoneModerationToolingTests : IDisposable
 
         var result = await Moderation.GetAccountPreferencesAsync(Did.Parse(UserDid));
 
-        Assert.Equal($"?did={UserDid}", _ozone.Sent.IsQuery("tools.ozone.moderation.getAccountPreferences").Query);
+        _fixture.AssertGet("tools.ozone.moderation.getAccountPreferences", $"did={UserDid}");
         Assert.True(Assert.IsType<AdultContentPreference>(result.Preferences[0]).Enabled);
         Assert.IsType<UnknownPreference>(result.Preferences[1]);
     }
@@ -46,7 +47,7 @@ public sealed class OzoneModerationToolingTests : IDisposable
     [Fact]
     public async Task GetReposAsync_OneDidParameterEach_ReadsDetailAndNotFound()
     {
-        _ozone.Respond($$$"""
+        _fixture.On("tools.ozone.moderation.getRepos", $$$"""
             {"repos":[
               {"$type":"tools.ozone.moderation.defs#repoViewDetail",
                "did":"{{{UserDid}}}","handle":"user.example.com","relatedRecords":[],"indexedAt":"2026-09-01T00:00:00.000Z","moderation":{}},
@@ -56,9 +57,7 @@ public sealed class OzoneModerationToolingTests : IDisposable
 
         var result = await Moderation.GetReposAsync([Did.Parse(UserDid), Did.Parse(ModDid)]);
 
-        Assert.Equal(
-            $"?dids={UserDid}&dids={ModDid}",
-            _ozone.Sent.IsQuery("tools.ozone.moderation.getRepos").Query);
+        _fixture.AssertGet("tools.ozone.moderation.getRepos", $"dids={UserDid}&dids={ModDid}");
         Assert.Equal(Handle.Parse("user.example.com"), Assert.IsType<RepoViewDetail>(result.Repos[0]).Handle);
         Assert.Equal(Did.Parse(ModDid), Assert.IsType<RepoViewNotFound>(result.Repos[1]).Did);
     }
@@ -67,7 +66,7 @@ public sealed class OzoneModerationToolingTests : IDisposable
     public async Task GetRecordsAsync_OneUriParameterEach_ReadsDetailAndNotFound()
     {
         const string MissingUri = $"at://{UserDid}/app.bsky.feed.post/3k2lb";
-        _ozone.Respond($$"""
+        _fixture.On("tools.ozone.moderation.getRecords", $$"""
             {"records":[
               {"$type":"tools.ozone.moderation.defs#recordViewDetail",
                "uri":"{{PostUri}}","cid":"{{CidText}}","value":{"text":"hi"},"blobs":[],
@@ -78,9 +77,7 @@ public sealed class OzoneModerationToolingTests : IDisposable
 
         var result = await Moderation.GetRecordsAsync([AtUri.Parse(PostUri), AtUri.Parse(MissingUri)]);
 
-        Assert.Equal(
-            $"?uris={PostUri}&uris={MissingUri}",
-            _ozone.Sent.IsQuery("tools.ozone.moderation.getRecords").Query);
+        _fixture.AssertGet("tools.ozone.moderation.getRecords", $"uris={PostUri}&uris={MissingUri}");
         Assert.Equal(Cid.Parse(CidText), Assert.IsType<RecordViewDetail>(result.Records[0]).Cid);
         Assert.Equal(AtUri.Parse(MissingUri), Assert.IsType<RecordViewNotFound>(result.Records[1]).Uri);
     }
@@ -88,7 +85,7 @@ public sealed class OzoneModerationToolingTests : IDisposable
     [Fact]
     public async Task GetSubjectsAsync_SendsEachSubject_ReadsTheSubjectViews()
     {
-        _ozone.Respond($$"""
+        _fixture.On("tools.ozone.moderation.getSubjects", $$"""
             {"subjects":[{
               "type":"account","subject":"{{UserDid}}",
               "status":{"id":3,"subject":{"$type":"com.atproto.admin.defs#repoRef","did":"{{UserDid}}"},
@@ -101,9 +98,7 @@ public sealed class OzoneModerationToolingTests : IDisposable
 
         var result = await Moderation.GetSubjectsAsync([UserDid, PostUri]);
 
-        Assert.Equal(
-            $"?subjects={UserDid}&subjects={PostUri}",
-            _ozone.Sent.IsQuery("tools.ozone.moderation.getSubjects").Query);
+        _fixture.AssertGet("tools.ozone.moderation.getSubjects", $"subjects={UserDid}&subjects={PostUri}");
         var subject = Assert.Single(result.Subjects);
         Assert.Equal("account", subject.Type);
         Assert.Equal(SubjectReviewState.Open, subject.Status!.ReviewState);
@@ -112,49 +107,12 @@ public sealed class OzoneModerationToolingTests : IDisposable
         Assert.Null(subject.Record);
     }
 
-    [Fact]
-    public async Task GetAccountTimelineAsync_SendsTheDid_ReadsTheDays()
-    {
-        _ozone.Respond("""
-            {"timeline":[{"day":"2026-09-01","summary":[
-              {"eventSubjectType":"account","eventType":"tools.ozone.moderation.defs#modEventTakedown","count":1},
-              {"eventSubjectType":"account","eventType":"tools.ozone.hosting.getAccountHistory#handleUpdated","count":2}
-            ]}]}
-            """);
-
-        var result = await Moderation.GetAccountTimelineAsync(Did.Parse(UserDid));
-
-        Assert.Equal($"?did={UserDid}", _ozone.Sent.IsQuery("tools.ozone.moderation.getAccountTimeline").Query);
-        var day = Assert.Single(result.Timeline);
-        Assert.Equal("2026-09-01", day.Day);
-        Assert.Equal(2, day.Summary[1].Count);
-        Assert.Equal("tools.ozone.hosting.getAccountHistory#handleUpdated", day.Summary[1].EventType);
-    }
-
-    [Fact]
-    public async Task GetReporterStatsAsync_SendsEachDid_ReadsTheCounts()
-    {
-        _ozone.Respond($$"""
-            {"stats":[{"did":"{{UserDid}}","accountReportCount":1,"recordReportCount":2,"reportedAccountCount":3,
-              "reportedRecordCount":4,"takendownAccountCount":5,"takendownRecordCount":6,
-              "labeledAccountCount":7,"labeledRecordCount":8}]}
-            """);
-
-        var result = await Moderation.GetReporterStatsAsync([Did.Parse(UserDid), Did.Parse(ModDid)]);
-
-        Assert.Equal(
-            $"?dids={UserDid}&dids={ModDid}",
-            _ozone.Sent.IsQuery("tools.ozone.moderation.getReporterStats").Query);
-        var stats = Assert.Single(result.Stats);
-        Assert.Equal(Did.Parse(UserDid), stats.Did);
-        Assert.Equal(4, stats.ReportedRecordCount);
-        Assert.Equal(8, stats.LabeledRecordCount);
-    }
+    // getAccountTimeline and getReporterStats are covered by ATProtoNet.Tests.Lexicon.EndpointRequestTests.
 
     [Fact]
     public async Task ScheduleActionAsync_PostsTheTypedTakedownAndItsWindow()
     {
-        _ozone.Respond($$"""
+        _fixture.On("tools.ozone.moderation.scheduleAction", $$"""
             {"succeeded":["{{UserDid}}"],"failed":[{"subject":"{{ModDid}}","error":"Already scheduled","errorCode":"Conflict"}]}
             """);
 
@@ -169,7 +127,7 @@ public sealed class OzoneModerationToolingTests : IDisposable
             Did.Parse(ModDid),
             new ModTool { Name = "ozone/workspace" });
 
-        var body = _ozone.Sent.IsProcedure("tools.ozone.moderation.scheduleAction").Json;
+        var body = _fixture.AssertPost("tools.ozone.moderation.scheduleAction").JsonBody;
         var action = body.GetProperty("action");
         Assert.Equal("tools.ozone.moderation.scheduleAction#takedown", action.GetProperty("$type").GetString());
         Assert.Equal("ban wave", action.GetProperty("comment").GetString());
@@ -189,7 +147,7 @@ public sealed class OzoneModerationToolingTests : IDisposable
     [Fact]
     public async Task ListScheduledActionsAsync_PostsTheFiltersInTheBody_ReadsTheActions()
     {
-        _ozone.Respond($$"""
+        _fixture.On("tools.ozone.moderation.listScheduledActions", $$"""
             {"cursor":"c1","actions":[{
               "id":9,"action":"takedown","eventData":{"comment":"ban wave"},"did":"{{UserDid}}",
               "executeAt":"2026-10-01T00:00:00.000Z","createdBy":"{{ModDid}}","createdAt":"2026-09-01T00:00:00.000Z",
@@ -203,7 +161,7 @@ public sealed class OzoneModerationToolingTests : IDisposable
             limit: 10,
             cursor: "c0");
 
-        var body = _ozone.Sent.IsProcedure("tools.ozone.moderation.listScheduledActions").Json;
+        var body = _fixture.AssertPost("tools.ozone.moderation.listScheduledActions").JsonBody;
         Assert.Equal("pending", body.GetProperty("statuses")[0].GetString());
         Assert.Equal("executed", body.GetProperty("statuses")[1].GetString());
         Assert.Equal(UserDid, body.GetProperty("subjects")[0].GetString());
@@ -222,13 +180,13 @@ public sealed class OzoneModerationToolingTests : IDisposable
     [Fact]
     public async Task CancelScheduledActionsAsync_PostsTheSubjectsAndComment()
     {
-        _ozone.Respond($$"""
+        _fixture.On("tools.ozone.moderation.cancelScheduledActions", $$"""
             {"succeeded":["{{UserDid}}"],"failed":[{"did":"{{ModDid}}","error":"Nothing pending"}]}
             """);
 
         var result = await Moderation.CancelScheduledActionsAsync([Did.Parse(UserDid), Did.Parse(ModDid)], "appeal granted");
 
-        var body = _ozone.Sent.IsProcedure("tools.ozone.moderation.cancelScheduledActions").Json;
+        var body = _fixture.AssertPost("tools.ozone.moderation.cancelScheduledActions").JsonBody;
         Assert.Equal(ModDid, body.GetProperty("subjects")[1].GetString());
         Assert.Equal("appeal granted", body.GetProperty("comment").GetString());
         Assert.Equal(Did.Parse(UserDid), Assert.Single(result.Succeeded));
@@ -241,8 +199,8 @@ public sealed class OzoneModerationToolingTests : IDisposable
         // Unlike every other listing, scheduled actions is a procedure: the cursor travels in the
         // JSON body, not the query string.
         var action = $$"""{"id":1,"action":"takedown","did":"{{UserDid}}","createdBy":"{{ModDid}}","createdAt":"2026-09-01T00:00:00.000Z","status":"pending"}""";
-        _ozone.Respond($$"""{"cursor":"c1","actions":[{{action}}]}""");
-        _ozone.Respond($$"""{"actions":[{{action}}]}""");
+        _fixture.On("tools.ozone.moderation.listScheduledActions", $$"""{"cursor":"c1","actions":[{{action}}]}""");
+        _fixture.On("tools.ozone.moderation.listScheduledActions", $$"""{"actions":[{{action}}]}""");
 
         var count = 0;
         await foreach (var _ in ATProtoNet.Http.Pagination.EnumerateAsync<ListScheduledActionsResponse, ScheduledActionView>(
@@ -252,9 +210,10 @@ public sealed class OzoneModerationToolingTests : IDisposable
         }
 
         Assert.Equal(2, count);
-        Assert.False(_ozone.Requests[0].Json.TryGetProperty("cursor", out _));
-        Assert.Equal("c1", _ozone.Requests[1].Json.GetProperty("cursor").GetString());
-        Assert.All(_ozone.Requests, r => Assert.Equal(1, r.Json.GetProperty("limit").GetInt32()));
+        var requests = _fixture.To("tools.ozone.moderation.listScheduledActions").ToList();
+        Assert.False(requests[0].JsonBody.TryGetProperty("cursor", out _));
+        Assert.Equal("c1", requests[1].JsonBody.GetProperty("cursor").GetString());
+        Assert.All(requests, r => Assert.Equal(1, r.JsonBody.GetProperty("limit").GetInt32()));
     }
 
     // ─── The eleven event types added to the union ───
@@ -292,7 +251,7 @@ public sealed class OzoneModerationToolingTests : IDisposable
     [Fact]
     public async Task QueryEventsAsync_EventsOzoneRecordsItself_ReadTyped()
     {
-        _ozone.Respond($$"""
+        _fixture.On("tools.ozone.moderation.queryEvents", $$"""
             {"events":[
               {"id":1,"event":{"$type":"tools.ozone.moderation.defs#accountEvent","active":false,"status":"deactivated","timestamp":"2026-09-01T00:00:00.000Z"},
                "subject":{"$type":"com.atproto.admin.defs#repoRef","did":"{{UserDid}}"},"subjectBlobCids":[],"createdBy":"{{ModDid}}","createdAt":"2026-09-01T00:00:00.000Z"},
@@ -318,7 +277,7 @@ public sealed class OzoneModerationToolingTests : IDisposable
     public async Task QueryEventsAsync_MuteReporterWithoutDuration_ReadsAsAPermanentMute()
     {
         // durationInHours is optional upstream; a permanent reporter mute omits it.
-        _ozone.Respond($$"""
+        _fixture.On("tools.ozone.moderation.queryEvents", $$"""
             {"events":[{"id":4,"event":{"$type":"tools.ozone.moderation.defs#modEventMuteReporter","comment":"report spam"},
              "subject":{"$type":"com.atproto.admin.defs#repoRef","did":"{{UserDid}}"},"subjectBlobCids":[],
              "createdBy":"{{ModDid}}","createdAt":"2026-09-01T00:00:00.000Z"}]}

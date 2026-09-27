@@ -20,29 +20,7 @@ public sealed class BookmarkClientTests : IDisposable
         _handler.Dispose();
     }
 
-    [Fact]
-    public async Task CreateBookmarkAsync_PostsUriAndCid()
-    {
-        _handler.On("app.bsky.bookmark.createBookmark", "{}");
-
-        await _client.Bsky.Bookmark.CreateBookmarkAsync(AtUri.Parse(PostUri), Cid.Parse(PostCid));
-
-        var request = Assert.Single(_handler.Requests);
-        Assert.Equal(HttpMethod.Post, request.Method);
-        Assert.Equal($$"""{"uri":"{{PostUri}}","cid":"{{PostCid}}"}""", request.BodyText);
-    }
-
-    [Fact]
-    public async Task DeleteBookmarkAsync_PostsUri()
-    {
-        _handler.On("app.bsky.bookmark.deleteBookmark", "{}");
-
-        await _client.Bsky.Bookmark.DeleteBookmarkAsync(AtUri.Parse(PostUri));
-
-        var request = Assert.Single(_handler.Requests);
-        Assert.Equal(HttpMethod.Post, request.Method);
-        Assert.Equal($$"""{"uri":"{{PostUri}}"}""", request.BodyText);
-    }
+    // createBookmark and deleteBookmark are covered by ATProtoNet.Tests.Lexicon.EndpointRequestTests.
 
     [Fact]
     public async Task GetBookmarksAsync_BindsEveryItemVariant()

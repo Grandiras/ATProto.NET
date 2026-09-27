@@ -399,6 +399,8 @@ public sealed class VideoUploadTests : IDisposable
     {
         var time = new ManualTime();
         using var http = new HttpClient(_handler, disposeHandler: false);
+        // Not XrpcTestClient/AtProtoClient: neither plumbs a custom TimeProvider to the retry
+        // delay (AtProtoClient's internal test constructor only feeds it to session refresh).
         var video = new VideoClient(new XrpcClient(http, new Uri("https://pds.example.com/")) { TimeProvider = time });
 
         ScriptSession(partSize: 8, partCount: 1);

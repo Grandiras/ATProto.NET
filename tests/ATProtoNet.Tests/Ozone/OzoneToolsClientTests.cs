@@ -6,6 +6,7 @@ using ATProtoNet.Lexicon.Tools.Ozone.Safelink;
 using ATProtoNet.Lexicon.Tools.Ozone.Setting;
 using ATProtoNet.Lexicon.Tools.Ozone.Team;
 using ATProtoNet.Lexicon.Tools.Ozone.Verification;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Ozone;
 
@@ -15,7 +16,7 @@ namespace ATProtoNet.Tests.Ozone;
 /// </summary>
 public sealed class OzoneToolsClientTests : IDisposable
 {
-    private const string ModDid = "did:plc:ewvi7nxzyoun6zhxrhs64oiz";
+    private const string ModDid = TestIds.ModDid;
     private const string UserDid = "did:plc:z72i7hdynmk6r22z27h6tvur";
     private const string VerificationUri = $"at://{ModDid}/app.bsky.graph.verification/3lndpmyzszx2b";
 
@@ -35,24 +36,24 @@ public sealed class OzoneToolsClientTests : IDisposable
          "subjectRepo":{"$type":"tools.ozone.moderation.defs#repoViewNotFound","did":"{{{UserDid}}}"}}
         """;
 
-    private readonly OzoneTestClient _ozone = new();
+    private readonly XrpcTestClient _fixture = new(instanceUrl: "https://ozone.example.com");
 
-    public void Dispose() => _ozone.Dispose();
+    public void Dispose() => _fixture.Dispose();
 
     // ─── Safelink ───
 
     [Fact]
     public async Task AddRuleAsync_PostsTheRule_ReadsTheAuditEvent()
     {
-        _ozone.Respond(SafelinkEventJson);
+        _fixture.On("tools.ozone.safelink.addRule", SafelinkEventJson);
 
-        var result = await _ozone.Client.Ozone.Safelink.AddRuleAsync(
+        var result = await _fixture.Client.Ozone.Safelink.AddRuleAsync(
             "scam.example.com", SafelinkPatternType.Domain, SafelinkActionType.Block, SafelinkReasonType.Phishing,
             comment: "reported");
 
-        Assert.Equal(
-            """{"url":"scam.example.com","pattern":"domain","action":"block","reason":"phishing","comment":"reported"}""",
-            _ozone.Sent.IsProcedure("tools.ozone.safelink.addRule").Body);
+        _fixture.AssertPost(
+            "tools.ozone.safelink.addRule",
+            """{"url":"scam.example.com","pattern":"domain","action":"block","reason":"phishing","comment":"reported"}""");
         Assert.Equal(SafelinkEventType.AddRule, result.EventType);
         Assert.Equal(Did.Parse(ModDid), result.CreatedBy);
     }
@@ -60,46 +61,36 @@ public sealed class OzoneToolsClientTests : IDisposable
     [Fact]
     public async Task UpdateRuleAsync_PostsTheRule()
     {
-        _ozone.Respond(SafelinkEventJson.Replace("addRule", "updateRule", StringComparison.Ordinal));
+        _fixture.On("tools.ozone.safelink.updateRule", SafelinkEventJson.Replace("addRule", "updateRule", StringComparison.Ordinal));
 
-        var result = await _ozone.Client.Ozone.Safelink.UpdateRuleAsync(
+        var result = await _fixture.Client.Ozone.Safelink.UpdateRuleAsync(
             "https://scam.example.com/x", SafelinkPatternType.Url, SafelinkActionType.Warn, SafelinkReasonType.Spam,
             createdBy: Did.Parse(ModDid));
 
-        Assert.Equal(
-            $$"""{"url":"https://scam.example.com/x","pattern":"url","action":"warn","reason":"spam","createdBy":"{{ModDid}}"}""",
-            _ozone.Sent.IsProcedure("tools.ozone.safelink.updateRule").Body);
+        _fixture.AssertPost(
+            "tools.ozone.safelink.updateRule",
+            $$"""{"url":"https://scam.example.com/x","pattern":"url","action":"warn","reason":"spam","createdBy":"{{ModDid}}"}""");
         Assert.Equal(SafelinkEventType.UpdateRule, result.EventType);
     }
 
-    [Fact]
-    public async Task RemoveRuleAsync_PostsUrlAndPattern()
-    {
-        _ozone.Respond(SafelinkEventJson.Replace("addRule", "removeRule", StringComparison.Ordinal));
-
-        await _ozone.Client.Ozone.Safelink.RemoveRuleAsync("scam.example.com", SafelinkPatternType.Domain, "false positive");
-
-        Assert.Equal(
-            """{"url":"scam.example.com","pattern":"domain","comment":"false positive"}""",
-            _ozone.Sent.IsProcedure("tools.ozone.safelink.removeRule").Body);
-    }
+    // removeRule is covered by ATProtoNet.Tests.Lexicon.EndpointRequestTests.
 
     [Fact]
     public async Task QueryRulesAsync_PostsTheFilters_ReadsTheRules()
     {
-        _ozone.Respond($$"""
+        _fixture.On("tools.ozone.safelink.queryRules", $$"""
             {"cursor":"c1","rules":[{"url":"scam.example.com","pattern":"domain","action":"block","reason":"phishing",
               "createdBy":"{{ModDid}}","createdAt":"2026-09-01T00:00:00.000Z","updatedAt":"2026-09-02T00:00:00.000Z"}]}
             """);
 
-        var page = await _ozone.Client.Ozone.Safelink.QueryRulesAsync(
+        var page = await _fixture.Client.Ozone.Safelink.QueryRulesAsync(
             urls: ["scam.example.com"],
             actions: [SafelinkActionType.Block, SafelinkActionType.Warn],
             createdBy: Did.Parse(ModDid),
             limit: 10,
             cursor: "c0");
 
-        var body = _ozone.Sent.IsProcedure("tools.ozone.safelink.queryRules").Json;
+        var body = _fixture.AssertPost("tools.ozone.safelink.queryRules").JsonBody;
         Assert.Equal("scam.example.com", body.GetProperty("urls")[0].GetString());
         Assert.Equal("warn", body.GetProperty("actions")[1].GetString());
         Assert.Equal(ModDid, body.GetProperty("createdBy").GetString());
@@ -113,14 +104,12 @@ public sealed class OzoneToolsClientTests : IDisposable
     [Fact]
     public async Task QueryEventsAsync_PostsTheFilters_ReadsTheEvents()
     {
-        _ozone.Respond($$"""{"events":[{{SafelinkEventJson}}]}""");
+        _fixture.On("tools.ozone.safelink.queryEvents", $$"""{"events":[{{SafelinkEventJson}}]}""");
 
-        var page = await _ozone.Client.Ozone.Safelink.QueryEventsAsync(
+        var page = await _fixture.Client.Ozone.Safelink.QueryEventsAsync(
             patternType: SafelinkPatternType.Domain, sortDirection: "asc", limit: 5);
 
-        Assert.Equal(
-            """{"limit":5,"patternType":"domain","sortDirection":"asc"}""",
-            _ozone.Sent.IsProcedure("tools.ozone.safelink.queryEvents").Body);
+        _fixture.AssertPost("tools.ozone.safelink.queryEvents", """{"limit":5,"patternType":"domain","sortDirection":"asc"}""");
         Assert.Equal(3L, Assert.Single(page.Events).Id);
     }
 
@@ -133,14 +122,15 @@ public sealed class OzoneToolsClientTests : IDisposable
         var item = listing == "events"
             ? SafelinkEventJson
             : $$"""{"url":"u","pattern":"url","action":"warn","reason":"none","createdBy":"{{ModDid}}","createdAt":"2026-09-01T00:00:00.000Z","updatedAt":"2026-09-01T00:00:00.000Z"}""";
-        _ozone.Respond($$"""{"cursor":"c1","{{listing}}":[{{item}}]}""");
-        _ozone.Respond($$"""{"{{listing}}":[{{item}}]}""");
+        var nsid = listing == "events" ? "tools.ozone.safelink.queryEvents" : "tools.ozone.safelink.queryRules";
+        _fixture.On(nsid, $$"""{"cursor":"c1","{{listing}}":[{{item}}]}""");
+        _fixture.On(nsid, $$"""{"{{listing}}":[{{item}}]}""");
 
         var count = 0;
         if (listing == "events")
         {
             await foreach (var _ in ATProtoNet.Http.Pagination.EnumerateAsync<ATProtoNet.Lexicon.Tools.Ozone.Safelink.QueryEventsResponse, SafelinkEvent>(
-                (cursor, ct) => _ozone.Client.Ozone.Safelink.QueryEventsAsync(limit: 2, cursor: cursor, cancellationToken: ct)))
+                (cursor, ct) => _fixture.Client.Ozone.Safelink.QueryEventsAsync(limit: 2, cursor: cursor, cancellationToken: ct)))
             {
                 count++;
             }
@@ -148,16 +138,17 @@ public sealed class OzoneToolsClientTests : IDisposable
         else
         {
             await foreach (var _ in ATProtoNet.Http.Pagination.EnumerateAsync<QueryRulesResponse, UrlRule>(
-                (cursor, ct) => _ozone.Client.Ozone.Safelink.QueryRulesAsync(limit: 2, cursor: cursor, cancellationToken: ct)))
+                (cursor, ct) => _fixture.Client.Ozone.Safelink.QueryRulesAsync(limit: 2, cursor: cursor, cancellationToken: ct)))
             {
                 count++;
             }
         }
 
         Assert.Equal(2, count);
-        Assert.False(_ozone.Requests[0].Json.TryGetProperty("cursor", out _));
-        Assert.Equal("c1", _ozone.Requests[1].Json.GetProperty("cursor").GetString());
-        Assert.All(_ozone.Requests, r => Assert.Equal(2, r.Json.GetProperty("limit").GetInt32()));
+        var requests = _fixture.To(nsid).ToList();
+        Assert.False(requests[0].JsonBody.TryGetProperty("cursor", out _));
+        Assert.Equal("c1", requests[1].JsonBody.GetProperty("cursor").GetString());
+        Assert.All(requests, r => Assert.Equal(2, r.JsonBody.GetProperty("limit").GetInt32()));
     }
 
     // ─── Setting ───
@@ -165,16 +156,16 @@ public sealed class OzoneToolsClientTests : IDisposable
     [Fact]
     public async Task ListOptionsAsync_SendsTheFilters_ReadsTheOptions()
     {
-        _ozone.Respond($$"""{"cursor":"c1","options":[{{OptionJson}}]}""");
+        _fixture.On("tools.ozone.setting.listOptions", $$"""{"cursor":"c1","options":[{{OptionJson}}]}""");
 
-        var page = await _ozone.Client.Ozone.Setting.ListOptionsAsync(
+        var page = await _fixture.Client.Ozone.Setting.ListOptionsAsync(
             SettingScope.Personal,
             keys: [Nsid.Parse("tools.ozone.setting.client.queues"), Nsid.Parse("tools.ozone.setting.client.tags")],
             limit: 10);
 
-        Assert.Equal(
-            "?limit=10&scope=personal&keys=tools.ozone.setting.client.queues&keys=tools.ozone.setting.client.tags",
-            _ozone.Sent.IsQuery("tools.ozone.setting.listOptions").Query);
+        _fixture.AssertGet(
+            "tools.ozone.setting.listOptions",
+            "limit=10&scope=personal&keys=tools.ozone.setting.client.queues&keys=tools.ozone.setting.client.tags");
         var option = Assert.Single(page.Options);
         Assert.Equal(Nsid.Parse("tools.ozone.setting.client.queues"), option.Key);
         Assert.Equal("spam", option.Value.GetProperty("order")[0].GetString());
@@ -185,44 +176,33 @@ public sealed class OzoneToolsClientTests : IDisposable
     [Fact]
     public async Task UpsertOptionAsync_PostsTheValueAsIs()
     {
-        _ozone.Respond($$"""{"option":{{OptionJson}}}""");
+        _fixture.On("tools.ozone.setting.upsertOption", $$"""{"option":{{OptionJson}}}""");
 
-        var result = await _ozone.Client.Ozone.Setting.UpsertOptionAsync(
+        var result = await _fixture.Client.Ozone.Setting.UpsertOptionAsync(
             Nsid.Parse("tools.ozone.setting.client.queues"),
             SettingScope.Instance,
             JsonSerializer.SerializeToElement(new { order = new[] { "spam" } }),
             description: "Queue order",
             managerRole: TeamMemberRole.Admin);
 
-        Assert.Equal(
-            """{"key":"tools.ozone.setting.client.queues","scope":"instance","value":{"order":["spam"]},"description":"Queue order","managerRole":"tools.ozone.team.defs#roleAdmin"}""",
-            _ozone.Sent.IsProcedure("tools.ozone.setting.upsertOption").Body);
+        _fixture.AssertPost(
+            "tools.ozone.setting.upsertOption",
+            """{"key":"tools.ozone.setting.client.queues","scope":"instance","value":{"order":["spam"]},"description":"Queue order","managerRole":"tools.ozone.team.defs#roleAdmin"}""");
         Assert.Equal(Did.Parse(ModDid), result.Option.LastUpdatedBy);
     }
 
-    [Fact]
-    public async Task RemoveOptionsAsync_PostsKeysAndScope()
-    {
-        _ozone.Respond("{}");
-
-        await _ozone.Client.Ozone.Setting.RemoveOptionsAsync(
-            [Nsid.Parse("tools.ozone.setting.client.queues")], SettingScope.Personal);
-
-        Assert.Equal(
-            """{"keys":["tools.ozone.setting.client.queues"],"scope":"personal"}""",
-            _ozone.Sent.IsProcedure("tools.ozone.setting.removeOptions").Body);
-    }
+    // removeOptions is covered by ATProtoNet.Tests.Lexicon.EndpointRequestTests.
 
     // ─── Verification ───
 
     [Fact]
     public async Task GrantVerificationsAsync_PostsTheInputs_ReadsCreatedAndFailed()
     {
-        _ozone.Respond($$"""
+        _fixture.On("tools.ozone.verification.grantVerifications", $$"""
             {"verifications":[{{VerificationJson}}],"failedVerifications":[{"error":"Handle mismatch","subject":"{{ModDid}}"}]}
             """);
 
-        var result = await _ozone.Client.Ozone.Verification.GrantVerificationsAsync(
+        var result = await _fixture.Client.Ozone.Verification.GrantVerificationsAsync(
         [
             new VerificationInput { Subject = Did.Parse(UserDid), Handle = Handle.Parse("user.example.com"), DisplayName = "User" },
             new VerificationInput
@@ -234,7 +214,7 @@ public sealed class OzoneToolsClientTests : IDisposable
             },
         ]);
 
-        var body = _ozone.Sent.IsProcedure("tools.ozone.verification.grantVerifications").Json;
+        var body = _fixture.AssertPost("tools.ozone.verification.grantVerifications").JsonBody;
         var first = body.GetProperty("verifications")[0];
         Assert.Equal(UserDid, first.GetProperty("subject").GetString());
         Assert.Equal("user.example.com", first.GetProperty("handle").GetString());
@@ -251,14 +231,14 @@ public sealed class OzoneToolsClientTests : IDisposable
     [Fact]
     public async Task RevokeVerificationsAsync_PostsUrisAndReason()
     {
-        _ozone.Respond($$"""{"revokedVerifications":["{{VerificationUri}}"],"failedRevocations":[]}""");
+        _fixture.On("tools.ozone.verification.revokeVerifications", $$"""{"revokedVerifications":["{{VerificationUri}}"],"failedRevocations":[]}""");
 
-        var result = await _ozone.Client.Ozone.Verification.RevokeVerificationsAsync(
+        var result = await _fixture.Client.Ozone.Verification.RevokeVerificationsAsync(
             [AtUri.Parse(VerificationUri)], "handle changed");
 
-        Assert.Equal(
-            $$"""{"uris":["{{VerificationUri}}"],"revokeReason":"handle changed"}""",
-            _ozone.Sent.IsProcedure("tools.ozone.verification.revokeVerifications").Body);
+        _fixture.AssertPost(
+            "tools.ozone.verification.revokeVerifications",
+            $$"""{"uris":["{{VerificationUri}}"],"revokeReason":"handle changed"}""");
         Assert.Equal(AtUri.Parse(VerificationUri), Assert.Single(result.RevokedVerifications));
         Assert.Empty(result.FailedRevocations);
     }
@@ -266,22 +246,22 @@ public sealed class OzoneToolsClientTests : IDisposable
     [Fact]
     public async Task ListVerificationsAsync_SendsTheFilters_ReadsTheVerifications()
     {
-        _ozone.Respond($$"""
+        _fixture.On("tools.ozone.verification.listVerifications", $$"""
             {"verifications":[{"issuer":"{{ModDid}}","uri":"{{VerificationUri}}","subject":"{{UserDid}}",
               "handle":"user.example.com","displayName":"User","createdAt":"2026-09-01T00:00:00.000Z",
               "revokeReason":"x","revokedAt":"2026-09-02T00:00:00.000Z","revokedBy":"{{ModDid}}"}]}
             """);
 
-        var page = await _ozone.Client.Ozone.Verification.ListVerificationsAsync(
+        var page = await _fixture.Client.Ozone.Verification.ListVerificationsAsync(
             subjects: [Did.Parse(UserDid)],
             issuers: [Did.Parse(ModDid)],
             createdAfter: AtDatetime.Parse("2026-08-01T00:00:00.000Z"),
             isRevoked: true,
             limit: 10);
 
-        Assert.Equal(
-            $"?limit=10&createdAfter=2026-08-01T00:00:00.000Z&issuers={ModDid}&subjects={UserDid}&isRevoked=true",
-            _ozone.Sent.IsQuery("tools.ozone.verification.listVerifications").Query);
+        _fixture.AssertGet(
+            "tools.ozone.verification.listVerifications",
+            $"limit=10&createdAfter=2026-08-01T00:00:00.000Z&issuers={ModDid}&subjects={UserDid}&isRevoked=true");
         var verification = Assert.Single(page.Verifications);
         Assert.Equal(Did.Parse(ModDid), verification.RevokedBy);
         Assert.Equal("x", verification.RevokeReason);
@@ -292,7 +272,7 @@ public sealed class OzoneToolsClientTests : IDisposable
     [Fact]
     public async Task GetAccountHistoryAsync_SendsDidAndEventKinds_ReadsTypedDetails()
     {
-        _ozone.Respond("""
+        _fixture.On("tools.ozone.hosting.getAccountHistory", """
             {"cursor":"c1","events":[
               {"details":{"$type":"tools.ozone.hosting.getAccountHistory#accountCreated","email":"a@example.com","handle":"user.example.com"},
                "createdBy":"user","createdAt":"2026-09-01T00:00:00.000Z"},
@@ -305,15 +285,15 @@ public sealed class OzoneToolsClientTests : IDisposable
             ]}
             """);
 
-        var page = await _ozone.Client.Ozone.Hosting.GetAccountHistoryAsync(
+        var page = await _fixture.Client.Ozone.Hosting.GetAccountHistoryAsync(
             Did.Parse(UserDid),
             [AccountHistoryEventType.AccountCreated, AccountHistoryEventType.HandleUpdated],
             limit: 10,
             cursor: "c0");
 
-        Assert.Equal(
-            $"?did={UserDid}&events=accountCreated&events=handleUpdated&cursor=c0&limit=10",
-            _ozone.Sent.IsQuery("tools.ozone.hosting.getAccountHistory").Query);
+        _fixture.AssertGet(
+            "tools.ozone.hosting.getAccountHistory",
+            $"did={UserDid}&events=accountCreated&events=handleUpdated&cursor=c0&limit=10");
         Assert.Equal("a@example.com", Assert.IsType<AccountCreated>(page.Events[0].Details).Email);
         Assert.Equal(Handle.Parse("new.example.com"), Assert.IsType<HandleUpdated>(page.Events[1].Details).Handle);
         Assert.IsType<PasswordUpdated>(page.Events[2].Details);

@@ -56,15 +56,7 @@ public sealed class UnspeccedClientTests : IDisposable
             Assert.IsType<UnknownThreadItemValue>(response.Thread[4].Value).Type);
     }
 
-    [Fact]
-    public async Task GetPostThreadV2Async_Defaults_SendOnlyTheAnchor()
-    {
-        _handler.On("app.bsky.unspecced.getPostThreadV2", """{"thread":[],"hasOtherReplies":false}""");
-
-        await _client.Bsky.Unspecced.GetPostThreadV2Async(AtUri.Parse(PostUri));
-
-        Assert.Equal($"anchor={PostUri}", Uri.UnescapeDataString(Assert.Single(_handler.Requests).Query));
-    }
+    // GetPostThreadV2Async's defaults (anchor only) is covered by ATProtoNet.Tests.Lexicon.EndpointRequestTests.
 
     [Fact]
     public async Task GetPostThreadOtherV2Async_BindsTheHiddenReplies()

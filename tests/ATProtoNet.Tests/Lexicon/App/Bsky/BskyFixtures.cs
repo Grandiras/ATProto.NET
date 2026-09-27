@@ -1,3 +1,5 @@
+using ATProtoNet.Tests.TestSupport;
+
 namespace ATProtoNet.Tests.Lexicon.App.Bsky;
 
 /// <summary>
@@ -6,7 +8,7 @@ namespace ATProtoNet.Tests.Lexicon.App.Bsky;
 /// </summary>
 internal static class BskyFixtures
 {
-    public const string AliceDid = "did:plc:ewvi7nxzyoun6zhxrhs64oiz";
+    public const string AliceDid = TestIds.ModDid;
     public const string BobDid = "did:plc:yk4dd2qkboz2yv6tpubpc6co";
     public const string PostCid = "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm";
     public const string OtherCid = "bafyreihbiojjvlzlrn664jgdgql7cexcd62h5ltxuhjulvutjbmbt253h4";

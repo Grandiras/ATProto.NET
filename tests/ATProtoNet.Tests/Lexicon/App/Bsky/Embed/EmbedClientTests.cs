@@ -48,16 +48,6 @@ public sealed class EmbedClientTests : IDisposable
         Assert.Equal("site.standard.publication", response.AssociatedRecords![1].GetProperty("$type").GetString());
     }
 
-    [Fact]
-    public async Task GetEmbedExternalViewAsync_NothingResolved_IsEmpty()
-    {
-        _handler.On("app.bsky.embed.getEmbedExternalView", "{}");
-
-        var response = await _client.Bsky.Embed.GetEmbedExternalViewAsync(
-            "https://example.com", [AtUri.Parse(DocumentUri)]);
-
-        Assert.Null(response.View);
-        Assert.Null(response.AssociatedRefs);
-        Assert.Null(response.AssociatedRecords);
-    }
+    // GetEmbedExternalViewAsync's "nothing resolved" case is covered by
+    // ATProtoNet.Tests.Lexicon.EndpointRequestTests.
 }

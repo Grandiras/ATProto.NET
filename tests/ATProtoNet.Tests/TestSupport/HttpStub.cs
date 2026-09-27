@@ -44,8 +44,58 @@ internal sealed class HttpStub : HttpMessageHandler
         }
     }
 
+    /// <summary>The most recent request, for a test that only cares about the last call it made.</summary>
+    public RecordedRequest Last => Requests[^1];
+
     /// <summary>The requests to one method or path.</summary>
     public IEnumerable<RecordedRequest> To(string nsidOrPath) => Requests.Where(r => r.Key == nsidOrPath);
+
+    /// <summary>
+    /// Asserts exactly one request reached a method or path with the given HTTP method — and, if
+    /// given, the exact <c>atproto-proxy</c> header — and returns it.
+    /// </summary>
+    public RecordedRequest AssertCall(string nsidOrPath, HttpMethod method, string? proxy = null)
+    {
+        var request = Assert.Single(To(nsidOrPath));
+        Assert.Equal(method, request.Method);
+        if (proxy is not null)
+            Assert.Equal(proxy, request.Proxy);
+        return request;
+    }
+
+    /// <summary>
+    /// <see cref="AssertCall"/> for a GET, additionally asserting the exact (unescaped)
+    /// query string; empty for none.
+    /// </summary>
+    public RecordedRequest AssertGet(string nsidOrPath, string expectedQuery = "", string? proxy = null)
+    {
+        var request = AssertCall(nsidOrPath, HttpMethod.Get, proxy);
+        Assert.Equal(expectedQuery, Uri.UnescapeDataString(request.Query));
+        return request;
+    }
+
+    /// <summary>
+    /// <see cref="AssertCall"/> for a POST, additionally asserting the body as JSON (property
+    /// order does not matter) when <paramref name="expectedBody"/> is given.
+    /// </summary>
+    public RecordedRequest AssertPost(string nsidOrPath, string? expectedBody = null, string? proxy = null)
+    {
+        var request = AssertCall(nsidOrPath, HttpMethod.Post, proxy);
+        if (expectedBody is not null)
+        {
+            Assert.True(
+                JsonElement.DeepEquals(JsonDocument.Parse(expectedBody).RootElement, JsonDocument.Parse(request.BodyText).RootElement),
+                $"expected {expectedBody}\nactual   {request.BodyText}");
+        }
+
+        return request;
+    }
+
+    /// <summary>
+    /// Serializes an anonymous object for a canned response or an expected body, property names
+    /// exactly as declared — so write them camelCase, matching the wire.
+    /// </summary>
+    public static string Json(object body) => JsonSerializer.Serialize(body);
 
     /// <summary>
     /// Forgets every request recorded so far — for a test that signs in (or otherwise sets up

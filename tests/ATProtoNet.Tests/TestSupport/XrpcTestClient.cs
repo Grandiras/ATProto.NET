@@ -1,3 +1,4 @@
+using System.Net.Http;
 using ATProtoNet.Auth;
 
 namespace ATProtoNet.Tests.TestSupport;
@@ -56,11 +57,43 @@ internal sealed class XrpcTestClient : IDisposable
         return this;
     }
 
+    /// <summary>Answers any unscripted request with a 200 JSON response. See <see cref="HttpStub.Fallback(string)"/>.</summary>
+    public XrpcTestClient Fallback(string json)
+    {
+        Stub.Fallback(json);
+        return this;
+    }
+
+    /// <summary>Answers any unscripted request. See <see cref="HttpStub.Fallback(Func{HttpStub.RecordedRequest, HttpResponseMessage})"/>.</summary>
+    public XrpcTestClient Fallback(Func<HttpStub.RecordedRequest, HttpResponseMessage> respond)
+    {
+        Stub.Fallback(respond);
+        return this;
+    }
+
+    /// <summary>Forgets every request recorded so far. See <see cref="HttpStub.ClearRequests"/>.</summary>
+    public void ClearRequests() => Stub.ClearRequests();
+
     /// <summary>Every request the stub saw, in order.</summary>
     public IReadOnlyList<HttpStub.RecordedRequest> Requests => Stub.Requests;
 
     /// <summary>The requests to one method or path.</summary>
     public IEnumerable<HttpStub.RecordedRequest> To(string nsidOrPath) => Stub.To(nsidOrPath);
+
+    /// <summary>The most recent request. See <see cref="HttpStub.Last"/>.</summary>
+    public HttpStub.RecordedRequest Last => Stub.Last;
+
+    /// <summary>See <see cref="HttpStub.AssertCall"/>.</summary>
+    public HttpStub.RecordedRequest AssertCall(string nsidOrPath, HttpMethod method, string? proxy = null) =>
+        Stub.AssertCall(nsidOrPath, method, proxy);
+
+    /// <summary>See <see cref="HttpStub.AssertGet"/>.</summary>
+    public HttpStub.RecordedRequest AssertGet(string nsidOrPath, string expectedQuery = "", string? proxy = null) =>
+        Stub.AssertGet(nsidOrPath, expectedQuery, proxy);
+
+    /// <summary>See <see cref="HttpStub.AssertPost"/>.</summary>
+    public HttpStub.RecordedRequest AssertPost(string nsidOrPath, string? expectedBody = null, string? proxy = null) =>
+        Stub.AssertPost(nsidOrPath, expectedBody, proxy);
 
     public void Dispose()
     {

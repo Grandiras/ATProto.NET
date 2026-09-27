@@ -1,10 +1,8 @@
-using System.Text.Json;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Chat.Bsky.Convo;
 using ATProtoNet.Lexicon.Chat.Bsky.Group;
 using ATProtoNet.Tests.TestSupport;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Tests.Chat.Bsky.Group;
 
@@ -32,17 +30,11 @@ public class GroupClientTests : IDisposable
     private static readonly Did Alice = Did.Parse("did:plc:alice");
     private static readonly Did Bob = Did.Parse("did:plc:bob");
 
-    private readonly HttpStub _stub = new();
-    private readonly HttpClient _httpClient;
-    private readonly GroupClient _group;
+    private readonly XrpcTestClient _fixture = new();
 
-    public GroupClientTests()
-    {
-        _httpClient = new HttpClient(_stub) { BaseAddress = new Uri("https://pds.example.com/") };
-        var xrpc = new XrpcClient(_httpClient, _httpClient.BaseAddress!, NullLogger.Instance);
-        xrpc.SetTokens("test-token");
-        _group = new GroupClient(xrpc);
-    }
+    private GroupClient Group => _fixture.Client.Chat.Group;
+
+    public void Dispose() => _fixture.Dispose();
 
     // ──────────────────────────────────────────────────────────
     //  Groups and membership
@@ -51,9 +43,9 @@ public class GroupClientTests : IDisposable
     [Fact]
     public async Task CreateGroupAsync_PostsNameAndMembers_ReturnsTheGroup()
     {
-        _stub.On("chat.bsky.group.createGroup", $$"""{"convo":{{GroupConvoJson}}}""");
+        _fixture.On("chat.bsky.group.createGroup", $$"""{"convo":{{GroupConvoJson}}}""");
 
-        var convo = await _group.CreateGroupAsync("Book club", [Alice, Bob]);
+        var convo = await Group.CreateGroupAsync("Book club", [Alice, Bob]);
 
         AssertPost("chat.bsky.group.createGroup", """{"members":["did:plc:alice","did:plc:bob"],"name":"Book club"}""");
         Assert.Equal("Book club", Assert.IsType<GroupConvo>(convo.Kind).Name);
@@ -62,9 +54,9 @@ public class GroupClientTests : IDisposable
     [Fact]
     public async Task EditGroupAsync_PostsTheNewName_ReturnsTheGroup()
     {
-        _stub.On("chat.bsky.group.editGroup", $$"""{"convo":{{GroupConvoJson}}}""");
+        _fixture.On("chat.bsky.group.editGroup", $$"""{"convo":{{GroupConvoJson}}}""");
 
-        var convo = await _group.EditGroupAsync("convo-1", "Book club");
+        var convo = await Group.EditGroupAsync("convo-1", "Book club");
 
         AssertPost("chat.bsky.group.editGroup", """{"convoId":"convo-1","name":"Book club"}""");
         Assert.Equal("convo-1", convo.Id);
@@ -73,10 +65,10 @@ public class GroupClientTests : IDisposable
     [Fact]
     public async Task AddMembersAsync_PostsTheMembers_ReadsTheAddedProfiles()
     {
-        _stub.On("chat.bsky.group.addMembers",
+        _fixture.On("chat.bsky.group.addMembers",
             $$"""{"convo":{{GroupConvoJson}},"addedMembers":[{"did":"did:plc:alice","handle":"alice.bsky.social"}]}""");
 
-        var result = await _group.AddMembersAsync("convo-1", [Alice]);
+        var result = await Group.AddMembersAsync("convo-1", [Alice]);
 
         AssertPost("chat.bsky.group.addMembers", """{"convoId":"convo-1","members":["did:plc:alice"]}""");
         Assert.Equal("convo-1", result.Convo.Id);
@@ -86,9 +78,9 @@ public class GroupClientTests : IDisposable
     [Fact]
     public async Task RemoveMembersAsync_PostsTheMembers_ReturnsTheGroup()
     {
-        _stub.On("chat.bsky.group.removeMembers", $$"""{"convo":{{GroupConvoJson}}}""");
+        _fixture.On("chat.bsky.group.removeMembers", $$"""{"convo":{{GroupConvoJson}}}""");
 
-        var convo = await _group.RemoveMembersAsync("convo-1", [Alice, Bob]);
+        var convo = await Group.RemoveMembersAsync("convo-1", [Alice, Bob]);
 
         AssertPost("chat.bsky.group.removeMembers", """{"convoId":"convo-1","members":["did:plc:alice","did:plc:bob"]}""");
         Assert.Equal(1, Assert.IsType<GroupConvo>(convo.Kind).MemberCount);
@@ -97,9 +89,9 @@ public class GroupClientTests : IDisposable
     [Fact]
     public async Task ListMutualGroupsAsync_SendsTheSubjectAndPaging_ReadsThePage()
     {
-        _stub.On("chat.bsky.group.listMutualGroups", $$"""{"cursor":"next","convos":[{{GroupConvoJson}}]}""");
+        _fixture.On("chat.bsky.group.listMutualGroups", $$"""{"cursor":"next","convos":[{{GroupConvoJson}}]}""");
 
-        var page = await _group.ListMutualGroupsAsync(Alice, limit: 10, cursor: "abc");
+        var page = await Group.ListMutualGroupsAsync(Alice, limit: 10, cursor: "abc");
 
         AssertGet("chat.bsky.group.listMutualGroups", "subject=did:plc:alice&limit=10&cursor=abc");
         Assert.Equal("next", page.Cursor);
@@ -113,9 +105,9 @@ public class GroupClientTests : IDisposable
     [Fact]
     public async Task CreateJoinLinkAsync_PostsTheRuleAndApproval_ReturnsTheLink()
     {
-        _stub.On("chat.bsky.group.createJoinLink", $$"""{"joinLink":{{JoinLinkJson}}}""");
+        _fixture.On("chat.bsky.group.createJoinLink", $$"""{"joinLink":{{JoinLinkJson}}}""");
 
-        var link = await _group.CreateJoinLinkAsync("convo-1", JoinRule.FollowedByOwner, requireApproval: true);
+        var link = await Group.CreateJoinLinkAsync("convo-1", JoinRule.FollowedByOwner, requireApproval: true);
 
         AssertPost("chat.bsky.group.createJoinLink", """{"convoId":"convo-1","requireApproval":true,"joinRule":"followedByOwner"}""");
         Assert.Equal(("abc123", JoinLinkEnabledStatus.Enabled, JoinRule.FollowedByOwner), (link.Code, link.EnabledStatus, link.JoinRule));
@@ -126,9 +118,9 @@ public class GroupClientTests : IDisposable
     [Fact]
     public async Task CreateJoinLinkAsync_WithoutApproval_LeavesItToTheServer()
     {
-        _stub.On("chat.bsky.group.createJoinLink", $$"""{"joinLink":{{JoinLinkJson}}}""");
+        _fixture.On("chat.bsky.group.createJoinLink", $$"""{"joinLink":{{JoinLinkJson}}}""");
 
-        await _group.CreateJoinLinkAsync("convo-1", JoinRule.Anyone);
+        await Group.CreateJoinLinkAsync("convo-1", JoinRule.Anyone);
 
         AssertPost("chat.bsky.group.createJoinLink", """{"convoId":"convo-1","joinRule":"anyone"}""");
     }
@@ -136,9 +128,9 @@ public class GroupClientTests : IDisposable
     [Fact]
     public async Task EditJoinLinkAsync_OnlyTheChangedSetting_SendsOnlyIt()
     {
-        _stub.On("chat.bsky.group.editJoinLink", $$"""{"joinLink":{{JoinLinkJson}}}""");
+        _fixture.On("chat.bsky.group.editJoinLink", $$"""{"joinLink":{{JoinLinkJson}}}""");
 
-        var link = await _group.EditJoinLinkAsync("convo-1", requireApproval: false);
+        var link = await Group.EditJoinLinkAsync("convo-1", requireApproval: false);
 
         AssertPost("chat.bsky.group.editJoinLink", """{"convoId":"convo-1","requireApproval":false}""");
         Assert.Equal("abc123", link.Code);
@@ -150,11 +142,11 @@ public class GroupClientTests : IDisposable
     public async Task EnableAndDisableJoinLinkAsync_PostTheConvoId_ReturnTheLink(string method)
     {
         var nsid = $"chat.bsky.group.{method}";
-        _stub.On(nsid, $$"""{"joinLink":{{JoinLinkJson}}}""");
+        _fixture.On(nsid, $$"""{"joinLink":{{JoinLinkJson}}}""");
 
         var link = method == "enableJoinLink"
-            ? await _group.EnableJoinLinkAsync("convo-1")
-            : await _group.DisableJoinLinkAsync("convo-1");
+            ? await Group.EnableJoinLinkAsync("convo-1")
+            : await Group.DisableJoinLinkAsync("convo-1");
 
         AssertPost(nsid, """{"convoId":"convo-1"}""");
         Assert.Equal("abc123", link.Code);
@@ -163,7 +155,7 @@ public class GroupClientTests : IDisposable
     [Fact]
     public async Task GetJoinLinkPreviewsAsync_SendsEachCode_ReadsEachPreviewKind()
     {
-        _stub.On("chat.bsky.group.getJoinLinkPreviews",
+        _fixture.On("chat.bsky.group.getJoinLinkPreviews",
             """
             {"joinLinkPreviews":[
               {"$type":"chat.bsky.group.defs#joinLinkPreviewView","convoId":"convo-1","code":"abc123","name":"Book club",
@@ -173,7 +165,7 @@ public class GroupClientTests : IDisposable
               {"$type":"chat.bsky.group.defs#invalidJoinLinkPreviewView","code":"nope"}]}
             """);
 
-        var result = await _group.GetJoinLinkPreviewsAsync(["abc123", "off456", "nope"]);
+        var result = await Group.GetJoinLinkPreviewsAsync(["abc123", "off456", "nope"]);
 
         AssertGet("chat.bsky.group.getJoinLinkPreviews", "codes=abc123&codes=off456&codes=nope");
         Assert.Collection(result.JoinLinkPreviews,
@@ -189,9 +181,9 @@ public class GroupClientTests : IDisposable
     [Fact]
     public async Task RequestJoinAsync_LinkWithoutApproval_ReturnsTheJoinedGroup()
     {
-        _stub.On("chat.bsky.group.requestJoin", $$"""{"status":"joined","convo":{{GroupConvoJson}}}""");
+        _fixture.On("chat.bsky.group.requestJoin", $$"""{"status":"joined","convo":{{GroupConvoJson}}}""");
 
-        var result = await _group.RequestJoinAsync("abc123");
+        var result = await Group.RequestJoinAsync("abc123");
 
         AssertPost("chat.bsky.group.requestJoin", """{"code":"abc123"}""");
         Assert.Equal(RequestJoinStatus.Joined, result.Status);
@@ -201,34 +193,27 @@ public class GroupClientTests : IDisposable
     [Fact]
     public async Task RequestJoinAsync_LinkNeedingApproval_IsPending()
     {
-        _stub.On("chat.bsky.group.requestJoin", """{"status":"pending"}""");
+        _fixture.On("chat.bsky.group.requestJoin", """{"status":"pending"}""");
 
-        var result = await _group.RequestJoinAsync("abc123");
+        var result = await Group.RequestJoinAsync("abc123");
 
         Assert.Equal(RequestJoinStatus.Pending, result.Status);
         Assert.Null(result.Convo);
     }
 
-    [Fact]
-    public async Task WithdrawJoinRequestAsync_PostsTheConvoId()
-    {
-        _stub.On("chat.bsky.group.withdrawJoinRequest", "{}");
-
-        await _group.WithdrawJoinRequestAsync("convo-1");
-
-        AssertPost("chat.bsky.group.withdrawJoinRequest", """{"convoId":"convo-1"}""");
-    }
+    // WithdrawJoinRequestAsync, RejectJoinRequestAsync and UpdateJoinRequestsReadAsync (all
+    // ack-only) are covered by ATProtoNet.Tests.Lexicon.EndpointRequestTests.
 
     [Fact]
     public async Task ListJoinRequestsAsync_SendsTheConvoAndPaging_ReadsTheRequests()
     {
-        _stub.On("chat.bsky.group.listJoinRequests",
+        _fixture.On("chat.bsky.group.listJoinRequests",
             """
             {"cursor":"next","requests":[{"convoId":"convo-1","requestedAt":"2026-06-01T12:05:00.000Z",
               "requestedBy":{"did":"did:plc:alice","handle":"alice.bsky.social"}}]}
             """);
 
-        var page = await _group.ListJoinRequestsAsync("convo-1", limit: 5, cursor: "abc");
+        var page = await Group.ListJoinRequestsAsync("convo-1", limit: 5, cursor: "abc");
 
         AssertGet("chat.bsky.group.listJoinRequests", "convoId=convo-1&limit=5&cursor=abc");
         var request = Assert.Single(page.Requests);
@@ -236,59 +221,22 @@ public class GroupClientTests : IDisposable
         Assert.Equal(AtDatetime.Parse("2026-06-01T12:05:00.000Z"), request.RequestedAt);
     }
 
-
     [Fact]
     public async Task ApproveJoinRequestAsync_PostsTheMember_ReturnsTheGroup()
     {
-        _stub.On("chat.bsky.group.approveJoinRequest", $$"""{"convo":{{GroupConvoJson}}}""");
+        _fixture.On("chat.bsky.group.approveJoinRequest", $$"""{"convo":{{GroupConvoJson}}}""");
 
-        var convo = await _group.ApproveJoinRequestAsync("convo-1", Alice);
+        var convo = await Group.ApproveJoinRequestAsync("convo-1", Alice);
 
         AssertPost("chat.bsky.group.approveJoinRequest", """{"convoId":"convo-1","member":"did:plc:alice"}""");
         Assert.Equal("convo-1", convo.Id);
-    }
-
-    [Fact]
-    public async Task RejectJoinRequestAsync_PostsTheMember()
-    {
-        _stub.On("chat.bsky.group.rejectJoinRequest", "{}");
-
-        await _group.RejectJoinRequestAsync("convo-1", Alice);
-
-        AssertPost("chat.bsky.group.rejectJoinRequest", """{"convoId":"convo-1","member":"did:plc:alice"}""");
-    }
-
-    [Fact]
-    public async Task UpdateJoinRequestsReadAsync_PostsTheConvoId()
-    {
-        _stub.On("chat.bsky.group.updateJoinRequestsRead", "{}");
-
-        await _group.UpdateJoinRequestsReadAsync("convo-1");
-
-        AssertPost("chat.bsky.group.updateJoinRequestsRead", """{"convoId":"convo-1"}""");
     }
 
     // ──────────────────────────────────────────────────────────
     //  Helpers
     // ──────────────────────────────────────────────────────────
 
-    private void AssertPost(string nsid, string expectedBody)
-    {
-        var request = Assert.Single(_stub.To(nsid));
-        Assert.Equal(HttpMethod.Post, request.Method);
-        Assert.Equal(ServiceProxy.BskyChatHeader, request.Proxy);
-        Assert.True(
-            JsonElement.DeepEquals(JsonDocument.Parse(expectedBody).RootElement, JsonDocument.Parse(request.BodyText).RootElement),
-            $"expected {expectedBody}\nactual   {request.BodyText}");
-    }
+    private void AssertPost(string nsid, string expectedBody) => _fixture.AssertPost(nsid, expectedBody, ServiceProxy.BskyChatHeader);
 
-    private void AssertGet(string nsid, string expectedQuery)
-    {
-        var request = Assert.Single(_stub.To(nsid));
-        Assert.Equal(HttpMethod.Get, request.Method);
-        Assert.Equal(expectedQuery, Uri.UnescapeDataString(request.Query));
-        Assert.Equal(ServiceProxy.BskyChatHeader, request.Proxy);
-    }
-
-    public void Dispose() => _httpClient.Dispose();
+    private void AssertGet(string nsid, string expectedQuery) => _fixture.AssertGet(nsid, expectedQuery, ServiceProxy.BskyChatHeader);
 }

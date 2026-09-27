@@ -69,6 +69,29 @@ public partial class LexiconDriftTests
             string.Join("\n  ", failures));
     }
 
+    [Fact]
+    public void ParamCalls_KeysAreUpstreamParameters()
+    {
+        var calls = SdkSource.ParamCalls;
+        Assert.True(calls.Count > 100, $"Only {calls.Count} query-parameter call sites found; is the scan still matching?");
+
+        var failures = new List<string>();
+        foreach (var call in calls.Where(c => !IsNotUpstream(c.Nsid)))
+        {
+            var known = Upstream.TryGetObject($"{call.Nsid}#params", out var schema)
+                ? UpstreamLexicons.PropertiesOf(schema)
+                : new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var key in call.Keys)
+            {
+                if (!known.Contains(key) && !QueryParamAllowlist.ContainsKey($"{call.Nsid}:{key}"))
+                    failures.Add($"{call.Nsid}:{key}: not an upstream parameter ({call.Location})");
+            }
+        }
+
+        Assert.True(failures.Count == 0, "Query-parameter keys that do not match upstream:\n  " + string.Join("\n  ", failures));
+    }
+
     // ──────────────────────────────────────────────────────────
     //  Models
     // ──────────────────────────────────────────────────────────
@@ -162,6 +185,19 @@ public partial class LexiconDriftTests
                     !KnownValueConstants(c.Class).Contains(v) && Matches(key, $"{ShortName(c.Class)}:{v}")));
             if (!match)
                 stale.Add($"MissingKnownValues[{key}]");
+        }
+
+        foreach (var key in QueryParamAllowlist.Keys)
+        {
+            var nsid = key[..key.LastIndexOf(':')];
+            var wantedKey = key[(key.LastIndexOf(':') + 1)..];
+            var known = Upstream.TryGetObject($"{nsid}#params", out var schema)
+                ? UpstreamLexicons.PropertiesOf(schema)
+                : new HashSet<string>(StringComparer.Ordinal);
+            var sent = SdkSource.ParamCalls.Any(c => c.Nsid == nsid && c.Keys.Contains(wantedKey));
+
+            if (!sent || known.Contains(wantedKey))
+                stale.Add($"QueryParamAllowlist[{key}]");
         }
 
         Assert.True(stale.Count == 0, "Remove these stale allow-list entries:\n  " + string.Join("\n  ", stale));

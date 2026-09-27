@@ -61,27 +61,7 @@ public sealed class DraftClientTests : IDisposable
             Assert.Single(_handler.Requests).BodyText);
     }
 
-    [Fact]
-    public async Task UpdateDraftAsync_WrapsTheDraftWithItsId()
-    {
-        _handler.On("app.bsky.draft.updateDraft", "{}");
-
-        await _client.Bsky.Draft.UpdateDraftAsync(Tid.Parse(DraftId), new DraftModel { Posts = [new DraftPost { Text = "edited" }] });
-
-        Assert.Equal(
-            """{"draft":{"id":"3lwinfmsd2k2h","draft":{"posts":[{"text":"edited"}]}}}""",
-            Assert.Single(_handler.Requests).BodyText);
-    }
-
-    [Fact]
-    public async Task DeleteDraftAsync_PostsTheId()
-    {
-        _handler.On("app.bsky.draft.deleteDraft", "{}");
-
-        await _client.Bsky.Draft.DeleteDraftAsync(Tid.Parse(DraftId));
-
-        Assert.Equal($$"""{"id":"{{DraftId}}"}""", Assert.Single(_handler.Requests).BodyText);
-    }
+    // UpdateDraftAsync and DeleteDraftAsync are covered by ATProtoNet.Tests.Lexicon.EndpointRequestTests.
 
     [Fact]
     public async Task GetDraftsAsync_BindsDraftViews()

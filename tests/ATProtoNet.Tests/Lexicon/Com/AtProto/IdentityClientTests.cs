@@ -12,40 +12,25 @@ namespace ATProtoNet.Tests.Lexicon.Com.AtProto;
 /// </summary>
 public class IdentityClientTests : IDisposable
 {
-    private const string DidText = "did:plc:ewvi7nxzyoun6zhxrhs64oiz";
+    private const string DidText = TestIds.ModDid;
 
     private static readonly string IdentityInfoJson =
         $$"""{"did":"{{DidText}}","handle":"atproto.com","didDoc":{{DidDocs.AtprotoDotCom}}}""";
 
-    private readonly HttpStub _stub = new();
-    private readonly HttpClient _httpClient;
-    private readonly AtProtoClient _client;
+    private readonly XrpcTestClient _fixture = new();
 
-    public IdentityClientTests()
-    {
-        _stub.Fallback("{}");
-        _httpClient = new HttpClient(_stub);
-        _client = new AtProtoClient(
-            new AtProtoClientOptions { InstanceUrl = "https://pds.example.com", AutoRefreshSession = false },
-            _httpClient, null, null);
-    }
+    public IdentityClientTests() => _fixture.Fallback("{}");
 
-    public void Dispose()
-    {
-        _client.Dispose();
-        _httpClient.Dispose();
-        _stub.Dispose();
-        GC.SuppressFinalize(this);
-    }
+    public void Dispose() => _fixture.Dispose();
 
-    private HttpStub.RecordedRequest Last => _stub.Requests[^1];
+    private HttpStub.RecordedRequest Last => _fixture.Last;
 
     [Fact]
     public async Task ResolveIdentityAsync_SendsTheIdentifierAndParsesTheIdentity()
     {
-        _stub.Fallback(IdentityInfoJson);
+        _fixture.Fallback(IdentityInfoJson);
 
-        var info = await _client.Identity.ResolveIdentityAsync(AtIdentifier.Parse("atproto.com"));
+        var info = await _fixture.Client.Identity.ResolveIdentityAsync(AtIdentifier.Parse("atproto.com"));
 
         Assert.Equal(
             "https://pds.example.com/xrpc/com.atproto.identity.resolveIdentity?identifier=atproto.com",
@@ -59,9 +44,9 @@ public class IdentityClientTests : IDisposable
     [Fact]
     public async Task ResolveIdentityAsync_UnverifiedHandle_IsHandleInvalid()
     {
-        _stub.Fallback(IdentityInfoJson.Replace("\"handle\":\"atproto.com\"", "\"handle\":\"handle.invalid\"", StringComparison.Ordinal));
+        _fixture.Fallback(IdentityInfoJson.Replace("\"handle\":\"atproto.com\"", "\"handle\":\"handle.invalid\"", StringComparison.Ordinal));
 
-        var info = await _client.Identity.ResolveIdentityAsync(AtIdentifier.Parse(DidText));
+        var info = await _fixture.Client.Identity.ResolveIdentityAsync(AtIdentifier.Parse(DidText));
 
         Assert.Equal(Handle.Invalid, info.Handle);
     }
@@ -69,11 +54,11 @@ public class IdentityClientTests : IDisposable
     [Fact]
     public async Task ResolveIdentityAsync_HandleNotFound_SurfacesTheLexiconError()
     {
-        _stub.Fallback(_ => HttpStub.JsonResponse(
+        _fixture.Fallback(_ => HttpStub.JsonResponse(
             """{"error":"HandleNotFound","message":"Unable to resolve handle"}""", HttpStatusCode.BadRequest));
 
         var ex = await Assert.ThrowsAnyAsync<XrpcException>(
-            () => _client.Identity.ResolveIdentityAsync(AtIdentifier.Parse("nobody.example.com")));
+            () => _fixture.Client.Identity.ResolveIdentityAsync(AtIdentifier.Parse("nobody.example.com")));
 
         Assert.True(ex.Is(XrpcErrors.HandleNotFound));
     }
@@ -81,9 +66,9 @@ public class IdentityClientTests : IDisposable
     [Fact]
     public async Task ResolveDidAsync_SendsTheDidAndParsesTheDocument()
     {
-        _stub.Fallback($$"""{"didDoc":{{DidDocs.AtprotoDotCom}}}""");
+        _fixture.Fallback($$"""{"didDoc":{{DidDocs.AtprotoDotCom}}}""");
 
-        var response = await _client.Identity.ResolveDidAsync(Did.Parse(DidText));
+        var response = await _fixture.Client.Identity.ResolveDidAsync(Did.Parse(DidText));
 
         Assert.Equal(
             $"https://pds.example.com/xrpc/com.atproto.identity.resolveDid?did={DidText}",
@@ -94,9 +79,9 @@ public class IdentityClientTests : IDisposable
     [Fact]
     public async Task RefreshIdentityAsync_PostsTheIdentifier()
     {
-        _stub.Fallback(IdentityInfoJson);
+        _fixture.Fallback(IdentityInfoJson);
 
-        var info = await _client.Identity.RefreshIdentityAsync(AtIdentifier.Parse(DidText));
+        var info = await _fixture.Client.Identity.RefreshIdentityAsync(AtIdentifier.Parse(DidText));
 
         Assert.Equal("https://pds.example.com/xrpc/com.atproto.identity.refreshIdentity", Last.Uri.ToString());
         Assert.Equal(DidText, Last.JsonBody.GetProperty("identifier").GetString());

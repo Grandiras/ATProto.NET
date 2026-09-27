@@ -2,6 +2,7 @@ using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Moderation;
 using ATProtoNet.Lexicon.Tools.Ozone.Queue;
 using ATProtoNet.Lexicon.Tools.Ozone.Report;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Ozone;
 
@@ -11,7 +12,7 @@ namespace ATProtoNet.Tests.Ozone;
 /// </summary>
 public sealed class OzoneQueueClientTests : IDisposable
 {
-    private const string ModDid = "did:plc:ewvi7nxzyoun6zhxrhs64oiz";
+    private const string ModDid = TestIds.ModDid;
 
     private const string QueueJson = $$$"""
         {"id":4,"name":"Post spam","subjectTypes":["record"],"collection":"app.bsky.feed.post",
@@ -24,16 +25,16 @@ public sealed class OzoneQueueClientTests : IDisposable
     private const string AssignmentJson =
         $$"""{"id":8,"did":"{{ModDid}}","queue":{{QueueJson}},"startAt":"2026-09-01T00:00:00.000Z"}""";
 
-    private readonly OzoneTestClient _ozone = new();
+    private readonly XrpcTestClient _fixture = new(instanceUrl: "https://ozone.example.com");
 
-    private QueueClient Queues => _ozone.Client.Ozone.Queue;
+    private QueueClient Queues => _fixture.Client.Ozone.Queue;
 
-    public void Dispose() => _ozone.Dispose();
+    public void Dispose() => _fixture.Dispose();
 
     [Fact]
     public async Task CreateQueueAsync_PostsTheCriteria_ReadsTheQueue()
     {
-        _ozone.Respond($$"""{"queue":{{QueueJson}}}""");
+        _fixture.On("tools.ozone.queue.createQueue", $$"""{"queue":{{QueueJson}}}""");
 
         var result = await Queues.CreateQueueAsync(
             "Post spam",
@@ -43,7 +44,7 @@ public sealed class OzoneQueueClientTests : IDisposable
             "Spammy posts",
             ["spam"]);
 
-        var body = _ozone.Sent.IsProcedure("tools.ozone.queue.createQueue").Json;
+        var body = _fixture.AssertPost("tools.ozone.queue.createQueue").JsonBody;
         Assert.Equal("Post spam", body.GetProperty("name").GetString());
         Assert.Equal("record", body.GetProperty("subjectTypes")[0].GetString());
         Assert.Equal("app.bsky.feed.post", body.GetProperty("collection").GetString());
@@ -61,44 +62,30 @@ public sealed class OzoneQueueClientTests : IDisposable
     [Fact]
     public async Task CreateQueueAsync_OnlyAName_SendsOnlyTheName()
     {
-        _ozone.Respond($$"""{"queue":{{QueueJson}}}""");
+        _fixture.On("tools.ozone.queue.createQueue", $$"""{"queue":{{QueueJson}}}""");
 
         await Queues.CreateQueueAsync("Manual");
 
-        Assert.Equal("""{"name":"Manual"}""", _ozone.Sent.Body);
+        _fixture.AssertPost("tools.ozone.queue.createQueue", """{"name":"Manual"}""");
     }
 
     [Fact]
     public async Task UpdateQueueAsync_PostsTheChanges()
     {
-        _ozone.Respond($$"""{"queue":{{QueueJson}}}""");
+        _fixture.On("tools.ozone.queue.updateQueue", $$"""{"queue":{{QueueJson}}}""");
 
         var result = await Queues.UpdateQueueAsync(4, enabled: false, description: "Paused");
 
-        Assert.Equal(
-            """{"queueId":4,"enabled":false,"description":"Paused"}""",
-            _ozone.Sent.IsProcedure("tools.ozone.queue.updateQueue").Body);
+        _fixture.AssertPost("tools.ozone.queue.updateQueue", """{"queueId":4,"enabled":false,"description":"Paused"}""");
         Assert.True(result.Queue.Enabled);
     }
 
-    [Fact]
-    public async Task DeleteQueueAsync_PostsTheMigrationTarget()
-    {
-        _ozone.Respond("""{"deleted":true,"reportsMigrated":12}""");
-
-        var result = await Queues.DeleteQueueAsync(4, migrateToQueueId: 5);
-
-        Assert.Equal(
-            """{"queueId":4,"migrateToQueueId":5}""",
-            _ozone.Sent.IsProcedure("tools.ozone.queue.deleteQueue").Body);
-        Assert.True(result.Deleted);
-        Assert.Equal(12, result.ReportsMigrated);
-    }
+    // deleteQueue (its response check too) is covered by ATProtoNet.Tests.Lexicon.EndpointRequestTests.
 
     [Fact]
     public async Task ListQueuesAsync_SendsTheFilters_ReadsTheQueues()
     {
-        _ozone.Respond($$"""{"cursor":"c1","queues":[{{QueueJson}}]}""");
+        _fixture.On("tools.ozone.queue.listQueues", $$"""{"cursor":"c1","queues":[{{QueueJson}}]}""");
 
         var page = await Queues.ListQueuesAsync(
             enabled: true,
@@ -107,64 +94,37 @@ public sealed class OzoneQueueClientTests : IDisposable
             reportTypes: [ReportReasons.MisleadingSpam],
             limit: 10);
 
-        Assert.Equal(
-            "?enabled=true&subjectType=record&collection=app.bsky.feed.post" +
-            "&reportTypes=tools.ozone.report.defs#reasonMisleadingSpam&limit=10",
-            _ozone.Sent.IsQuery("tools.ozone.queue.listQueues").Query);
+        _fixture.AssertGet(
+            "tools.ozone.queue.listQueues",
+            "enabled=true&subjectType=record&collection=app.bsky.feed.post" +
+            "&reportTypes=tools.ozone.report.defs#reasonMisleadingSpam&limit=10");
         Assert.Equal("c1", page.Cursor);
         Assert.Equal("Post spam", Assert.Single(page.Queues).Name);
     }
 
-    [Fact]
-    public async Task RouteReportsAsync_PostsTheRange_ReadsTheCounts()
-    {
-        _ozone.Respond("""{"assigned":40,"unmatched":2}""");
-
-        var result = await Queues.RouteReportsAsync(1000, 1999);
-
-        Assert.Equal(
-            """{"startReportId":1000,"endReportId":1999}""",
-            _ozone.Sent.IsProcedure("tools.ozone.queue.routeReports").Body);
-        Assert.Equal(40, result.Assigned);
-        Assert.Equal(2, result.Unmatched);
-    }
+    // routeReports and unassignModerator (ack-only) are covered by
+    // ATProtoNet.Tests.Lexicon.EndpointRequestTests.
 
     [Fact]
     public async Task AssignModeratorAsync_PostsQueueAndDid_ReadsTheAssignment()
     {
-        _ozone.Respond(AssignmentJson);
+        _fixture.On("tools.ozone.queue.assignModerator", AssignmentJson);
 
         var assignment = await Queues.AssignModeratorAsync(4, Did.Parse(ModDid));
 
-        Assert.Equal(
-            $$"""{"queueId":4,"did":"{{ModDid}}"}""",
-            _ozone.Sent.IsProcedure("tools.ozone.queue.assignModerator").Body);
+        _fixture.AssertPost("tools.ozone.queue.assignModerator", $$"""{"queueId":4,"did":"{{ModDid}}"}""");
         Assert.Equal(8L, assignment.Id);
         Assert.Equal(4L, assignment.Queue.Id);
     }
 
     [Fact]
-    public async Task UnassignModeratorAsync_PostsQueueAndDid()
-    {
-        _ozone.Respond("{}");
-
-        await Queues.UnassignModeratorAsync(4, Did.Parse(ModDid));
-
-        Assert.Equal(
-            $$"""{"queueId":4,"did":"{{ModDid}}"}""",
-            _ozone.Sent.IsProcedure("tools.ozone.queue.unassignModerator").Body);
-    }
-
-    [Fact]
     public async Task GetAssignmentsAsync_SendsEachQueueAndDid()
     {
-        _ozone.Respond($$"""{"assignments":[{{AssignmentJson}}]}""");
+        _fixture.On("tools.ozone.queue.getAssignments", $$"""{"assignments":[{{AssignmentJson}}]}""");
 
         var page = await Queues.GetAssignmentsAsync([4, 5], [Did.Parse(ModDid)], onlyActive: true, limit: 20, cursor: "c0");
 
-        Assert.Equal(
-            $"?onlyActive=true&queueIds=4&queueIds=5&dids={ModDid}&limit=20&cursor=c0",
-            _ozone.Sent.IsQuery("tools.ozone.queue.getAssignments").Query);
+        _fixture.AssertGet("tools.ozone.queue.getAssignments", $"onlyActive=true&queueIds=4&queueIds=5&dids={ModDid}&limit=20&cursor=c0");
         Assert.Equal(Did.Parse(ModDid), Assert.Single(page.Assignments).Did);
     }
 }

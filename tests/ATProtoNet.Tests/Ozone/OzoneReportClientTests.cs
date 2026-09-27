@@ -4,6 +4,7 @@ using ATProtoNet.Lexicon.Com.AtProto.Moderation;
 using ATProtoNet.Lexicon.Tools.Ozone.Report;
 using ATProtoNet.Lexicon.Tools.Ozone.Team;
 using ATProtoNet.Serialization;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Ozone;
 
@@ -13,7 +14,7 @@ namespace ATProtoNet.Tests.Ozone;
 /// </summary>
 public sealed class OzoneReportClientTests : IDisposable
 {
-    private const string ModDid = "did:plc:ewvi7nxzyoun6zhxrhs64oiz";
+    private const string ModDid = TestIds.ModDid;
     private const string UserDid = "did:plc:z72i7hdynmk6r22z27h6tvur";
     private const string PostUri = $"at://{UserDid}/app.bsky.feed.post/3k2la";
 
@@ -38,20 +39,20 @@ public sealed class OzoneReportClientTests : IDisposable
          "internalNote":"dupe","meta":{"assignmentId":11},"isAutomated":false,"createdBy":"{{ModDid}}","createdAt":"2026-09-01T00:00:00.000Z"}
         """;
 
-    private readonly OzoneTestClient _ozone = new();
+    private readonly XrpcTestClient _fixture = new(instanceUrl: "https://ozone.example.com");
 
-    private ReportClient Reports => _ozone.Client.Ozone.Report;
+    private ReportClient Reports => _fixture.Client.Ozone.Report;
 
-    public void Dispose() => _ozone.Dispose();
+    public void Dispose() => _fixture.Dispose();
 
     [Fact]
     public async Task GetReportAsync_SendsTheId_ReadsTheReport()
     {
-        _ozone.Respond(Report);
+        _fixture.On("tools.ozone.report.getReport", Report);
 
         var report = await Reports.GetReportAsync(42);
 
-        Assert.Equal("?id=42", _ozone.Sent.IsQuery("tools.ozone.report.getReport").Query);
+        _fixture.AssertGet("tools.ozone.report.getReport", "id=42");
         Assert.Equal(42L, report.Id);
         Assert.Equal(ReportStatus.Open, report.Status);
         Assert.Equal(ReportReasons.MisleadingSpam, report.ReportType);
@@ -65,18 +66,18 @@ public sealed class OzoneReportClientTests : IDisposable
     [Fact]
     public async Task GetLatestReportAsync_SendsNoParameters_ReadsTheReport()
     {
-        _ozone.Respond($$"""{"report":{{Report}}}""");
+        _fixture.On("tools.ozone.report.getLatestReport", $$"""{"report":{{Report}}}""");
 
         var result = await Reports.GetLatestReportAsync();
 
-        Assert.Equal("", _ozone.Sent.IsQuery("tools.ozone.report.getLatestReport").Query);
+        _fixture.AssertGet("tools.ozone.report.getLatestReport");
         Assert.Equal(7L, result.Report.EventId);
     }
 
     [Fact]
     public async Task QueryReportsAsync_StatusAndFilter_GoOutAsQueryParameters()
     {
-        _ozone.Respond($$"""{"cursor":"c1","reports":[{{Report}}]}""");
+        _fixture.On("tools.ozone.report.queryReports", $$"""{"cursor":"c1","reports":[{{Report}}]}""");
 
         var page = await Reports.QueryReportsAsync(
             ReportStatus.Open,
@@ -96,11 +97,11 @@ public sealed class OzoneReportClientTests : IDisposable
             limit: 25,
             cursor: "c0");
 
-        Assert.Equal(
-            "?queueId=-1&reportTypes=tools.ozone.report.defs#reasonMisleadingSpam&reportTypes=com.atproto.moderation.defs#reasonSpam" +
+        _fixture.AssertGet(
+            "tools.ozone.report.queryReports",
+            "queueId=-1&reportTypes=tools.ozone.report.defs#reasonMisleadingSpam&reportTypes=com.atproto.moderation.defs#reasonSpam" +
             $"&status=open&did={UserDid}&subjectType=record&collections=app.bsky.feed.post&reportedAfter=2026-09-01T00:00:00.000Z" +
-            $"&isMuted=true&assignedTo={ModDid}&sortField=updatedAt&sortDirection=asc&limit=25&cursor=c0",
-            _ozone.Sent.IsQuery("tools.ozone.report.queryReports").Query);
+            $"&isMuted=true&assignedTo={ModDid}&sortField=updatedAt&sortDirection=asc&limit=25&cursor=c0");
         Assert.Equal("c1", page.Cursor);
         Assert.Equal(42L, Assert.Single(page.Reports).Id);
     }
@@ -108,22 +109,22 @@ public sealed class OzoneReportClientTests : IDisposable
     [Fact]
     public async Task QueryReportsAsync_NoFilter_SendsOnlyTheStatus()
     {
-        _ozone.Respond("""{"reports":[]}""");
+        _fixture.On("tools.ozone.report.queryReports", """{"reports":[]}""");
 
         await Reports.QueryReportsAsync(ReportStatus.Escalated);
 
-        Assert.Equal("?status=escalated", _ozone.Sent.Query);
+        _fixture.AssertGet("tools.ozone.report.queryReports", "status=escalated");
     }
 
     [Fact]
     public async Task CloseReportsAsync_PostsTheSubjectAndTypes_ReadsTheClosedIds()
     {
-        _ozone.Respond("""{"closedCount":2,"reportIds":[42,43]}""");
+        _fixture.On("tools.ozone.report.closeReports", """{"closedCount":2,"reportIds":[42,43]}""");
 
         var result = await Reports.CloseReportsAsync(
             PostUri, [ReportReasons.MisleadingSpam], internalNote: "resolved upstream", isAutomated: true);
 
-        var body = _ozone.Sent.IsProcedure("tools.ozone.report.closeReports").Json;
+        var body = _fixture.AssertPost("tools.ozone.report.closeReports").JsonBody;
         Assert.Equal(PostUri, body.GetProperty("subject").GetString());
         Assert.Equal(ReportReasons.MisleadingSpam, body.GetProperty("reportTypes")[0].GetString());
         Assert.Equal("resolved upstream", body.GetProperty("internalNote").GetString());
@@ -135,11 +136,11 @@ public sealed class OzoneReportClientTests : IDisposable
     [Fact]
     public async Task ReassignQueueAsync_PostsReportQueueAndComment()
     {
-        _ozone.Respond($$"""{"report":{{Report}}}""");
+        _fixture.On("tools.ozone.report.reassignQueue", $$"""{"report":{{Report}}}""");
 
         var result = await Reports.ReassignQueueAsync(42, -1, "wrong queue");
 
-        var body = _ozone.Sent.IsProcedure("tools.ozone.report.reassignQueue").Json;
+        var body = _fixture.AssertPost("tools.ozone.report.reassignQueue").JsonBody;
         Assert.Equal(42, body.GetProperty("reportId").GetInt64());
         Assert.Equal(-1, body.GetProperty("queueId").GetInt64());
         Assert.Equal("wrong queue", body.GetProperty("comment").GetString());
@@ -149,11 +150,11 @@ public sealed class OzoneReportClientTests : IDisposable
     [Fact]
     public async Task AssignModeratorAsync_PostsTheAssignment_ReadsTheAssignmentView()
     {
-        _ozone.Respond(Assignment);
+        _fixture.On("tools.ozone.report.assignModerator", Assignment);
 
         var assignment = await Reports.AssignModeratorAsync(42, Did.Parse(ModDid), queueId: 4, isPermanent: true);
 
-        var body = _ozone.Sent.IsProcedure("tools.ozone.report.assignModerator").Json;
+        var body = _fixture.AssertPost("tools.ozone.report.assignModerator").JsonBody;
         Assert.Equal(42, body.GetProperty("reportId").GetInt64());
         Assert.Equal(ModDid, body.GetProperty("did").GetString());
         Assert.Equal(4, body.GetProperty("queueId").GetInt64());
@@ -166,45 +167,34 @@ public sealed class OzoneReportClientTests : IDisposable
     [Fact]
     public async Task AssignModeratorAsync_OnlyTheReport_LeavesTheRestToTheServer()
     {
-        _ozone.Respond(Assignment);
+        _fixture.On("tools.ozone.report.assignModerator", Assignment);
 
         await Reports.AssignModeratorAsync(42);
 
-        Assert.Equal("""{"reportId":42}""", _ozone.Sent.Body);
+        _fixture.AssertPost("tools.ozone.report.assignModerator", """{"reportId":42}""");
     }
 
-    [Fact]
-    public async Task UnassignModeratorAsync_PostsTheReport()
-    {
-        _ozone.Respond(Assignment);
-
-        var assignment = await Reports.UnassignModeratorAsync(42);
-
-        Assert.Equal("""{"reportId":42}""", _ozone.Sent.IsProcedure("tools.ozone.report.unassignModerator").Body);
-        Assert.Equal(42L, assignment.ReportId);
-    }
+    // unassignModerator is covered by ATProtoNet.Tests.Lexicon.EndpointRequestTests.
 
     [Fact]
     public async Task GetAssignmentsAsync_SendsEachIdAndDid()
     {
-        _ozone.Respond($$"""{"cursor":"c1","assignments":[{{Assignment}}]}""");
+        _fixture.On("tools.ozone.report.getAssignments", $$"""{"cursor":"c1","assignments":[{{Assignment}}]}""");
 
         var page = await Reports.GetAssignmentsAsync([42, 43], [Did.Parse(ModDid)], onlyActive: false, limit: 5);
 
-        Assert.Equal(
-            $"?onlyActive=false&reportIds=42&reportIds=43&dids={ModDid}&limit=5",
-            _ozone.Sent.IsQuery("tools.ozone.report.getAssignments").Query);
+        _fixture.AssertGet("tools.ozone.report.getAssignments", $"onlyActive=false&reportIds=42&reportIds=43&dids={ModDid}&limit=5");
         Assert.Equal(Did.Parse(ModDid), Assert.Single(page.Assignments).Did);
     }
 
     [Fact]
     public async Task CreateActivityAsync_PostsTheTypedActivityForTheReport()
     {
-        _ozone.Respond($$"""{"activity":{{Activity}}}""");
+        _fixture.On("tools.ozone.report.createActivity", $$"""{"activity":{{Activity}}}""");
 
         var result = await Reports.CreateActivityAsync(42, new CloseActivity(), internalNote: "dupe", publicNote: "thanks");
 
-        var body = _ozone.Sent.IsProcedure("tools.ozone.report.createActivity").Json;
+        var body = _fixture.AssertPost("tools.ozone.report.createActivity").JsonBody;
         Assert.Equal(42, body.GetProperty("reportId").GetInt64());
         Assert.False(body.TryGetProperty("eventId", out _));
         Assert.Equal("tools.ozone.report.defs#closeActivity", body.GetProperty("activity").GetProperty("$type").GetString());
@@ -219,11 +209,11 @@ public sealed class OzoneReportClientTests : IDisposable
     [Fact]
     public async Task CreateActivityForEventAsync_SendsTheEventInsteadOfTheReport()
     {
-        _ozone.Respond($$"""{"activity":{{Activity}}}""");
+        _fixture.On("tools.ozone.report.createActivity", $$"""{"activity":{{Activity}}}""");
 
         await Reports.CreateActivityForEventAsync(7, new NoteActivity(), internalNote: "seen");
 
-        var body = _ozone.Sent.IsProcedure("tools.ozone.report.createActivity").Json;
+        var body = _fixture.AssertPost("tools.ozone.report.createActivity").JsonBody;
         Assert.Equal(7, body.GetProperty("eventId").GetInt64());
         Assert.False(body.TryGetProperty("reportId", out _));
         Assert.Equal("tools.ozone.report.defs#noteActivity", body.GetProperty("activity").GetProperty("$type").GetString());
@@ -232,18 +222,18 @@ public sealed class OzoneReportClientTests : IDisposable
     [Fact]
     public async Task ListActivitiesAsync_SendsTheReport_ReadsTheActivities()
     {
-        _ozone.Respond($$"""{"cursor":"c1","activities":[{{Activity}}]}""");
+        _fixture.On("tools.ozone.report.listActivities", $$"""{"cursor":"c1","activities":[{{Activity}}]}""");
 
         var page = await Reports.ListActivitiesAsync(42, limit: 10, cursor: "c0");
 
-        Assert.Equal("?reportId=42&limit=10&cursor=c0", _ozone.Sent.IsQuery("tools.ozone.report.listActivities").Query);
+        _fixture.AssertGet("tools.ozone.report.listActivities", "reportId=42&limit=10&cursor=c0");
         Assert.IsType<CloseActivity>(Assert.Single(page.Activities).Activity);
     }
 
     [Fact]
     public async Task QueryActivitiesAsync_SendsTheFilters()
     {
-        _ozone.Respond($$"""{"activities":[{{Activity}}]}""");
+        _fixture.On("tools.ozone.report.queryActivities", $$"""{"activities":[{{Activity}}]}""");
 
         await Reports.QueryActivitiesAsync(
             ["closeActivity", "escalationActivity"],
@@ -251,24 +241,24 @@ public sealed class OzoneReportClientTests : IDisposable
             sortDirection: "asc",
             limit: 50);
 
-        Assert.Equal(
-            "?activityTypes=closeActivity&activityTypes=escalationActivity&createdAfter=2026-09-01T00:00:00.000Z&sortDirection=asc&limit=50",
-            _ozone.Sent.IsQuery("tools.ozone.report.queryActivities").Query);
+        _fixture.AssertGet(
+            "tools.ozone.report.queryActivities",
+            "activityTypes=closeActivity&activityTypes=escalationActivity&createdAfter=2026-09-01T00:00:00.000Z&sortDirection=asc&limit=50");
     }
 
     [Fact]
     public async Task GetLiveStatsAsync_SendsTheFilters_ReadsTheStats()
     {
-        _ozone.Respond("""
+        _fixture.On("tools.ozone.report.getLiveStats", """
             {"stats":{"pendingCount":12,"actionedCount":30,"escalatedCount":2,"inboundCount":40,"actionRate":75,
                       "avgHandlingTimeSec":300,"lastUpdated":"2026-09-01T12:00:00.000Z"}}
             """);
 
         var result = await Reports.GetLiveStatsAsync(4, Did.Parse(ModDid), [ReportReasons.MisleadingSpam]);
 
-        Assert.Equal(
-            $"?queueId=4&moderatorDid={ModDid}&reportTypes=tools.ozone.report.defs#reasonMisleadingSpam",
-            _ozone.Sent.IsQuery("tools.ozone.report.getLiveStats").Query);
+        _fixture.AssertGet(
+            "tools.ozone.report.getLiveStats",
+            $"queueId=4&moderatorDid={ModDid}&reportTypes=tools.ozone.report.defs#reasonMisleadingSpam");
         Assert.Equal(75, result.Stats.ActionRate);
         Assert.Equal("2026-09-01T12:00:00.000Z", result.Stats.LastUpdated.ToString());
     }
@@ -276,7 +266,7 @@ public sealed class OzoneReportClientTests : IDisposable
     [Fact]
     public async Task GetHistoricalStatsAsync_SendsTheRange_ReadsTheDays()
     {
-        _ozone.Respond("""
+        _fixture.On("tools.ozone.report.getHistoricalStats", """
             {"stats":[{"date":"2026-09-01","computedAt":"2026-09-02T00:00:00.000Z","inboundCount":40}],"cursor":"c1"}
             """);
 
@@ -285,26 +275,16 @@ public sealed class OzoneReportClientTests : IDisposable
             endDate: AtDatetime.Parse("2026-09-01T00:00:00.000Z"),
             limit: 30);
 
-        Assert.Equal(
-            "?startDate=2026-08-01T00:00:00.000Z&endDate=2026-09-01T00:00:00.000Z&limit=30",
-            _ozone.Sent.IsQuery("tools.ozone.report.getHistoricalStats").Query);
+        _fixture.AssertGet(
+            "tools.ozone.report.getHistoricalStats",
+            "startDate=2026-08-01T00:00:00.000Z&endDate=2026-09-01T00:00:00.000Z&limit=30");
         var day = Assert.Single(page.Stats);
         Assert.Equal("2026-09-01", day.Date);
         Assert.Equal(40, day.InboundCount);
         Assert.Null(day.ActionRate);
     }
 
-    [Fact]
-    public async Task RefreshStatsAsync_PostsCalendarDates()
-    {
-        _ozone.Respond("{}");
-
-        await Reports.RefreshStatsAsync(new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 31), [4, -1]);
-
-        Assert.Equal(
-            """{"startDate":"2026-08-01","endDate":"2026-08-31","queueIds":[4,-1]}""",
-            _ozone.Sent.IsProcedure("tools.ozone.report.refreshStats").Body);
-    }
+    // refreshStats is covered by ATProtoNet.Tests.Lexicon.EndpointRequestTests.
 
     [Fact]
     public void ReportActivity_UnknownType_ReadsAsUnknownActivity()
@@ -315,5 +295,4 @@ public sealed class OzoneReportClientTests : IDisposable
 
         Assert.Equal("tools.ozone.report.defs#futureActivity", Assert.IsType<UnknownReportActivity>(view.Activity).Type);
     }
-
 }
