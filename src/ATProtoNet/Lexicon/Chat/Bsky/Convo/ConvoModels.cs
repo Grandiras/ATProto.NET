@@ -584,8 +584,8 @@ public sealed class UnknownConvoLogEntry : ConvoLogEntry, IUnknownUnionVariant
         ArgumentException.ThrowIfNullOrEmpty(type);
         Type = type;
         Raw = UnknownUnionVariant.RequireObject(raw);
-        Rev = StringProperty(Raw, "rev");
-        ConvoId = StringProperty(Raw, "convoId");
+        Rev = Raw.GetStringOrNull("rev") ?? "";
+        ConvoId = Raw.GetStringOrNull("convoId") ?? "";
     }
 
     // Not wire properties: the SDK writes an unknown variant as its Raw object.
@@ -597,11 +597,6 @@ public sealed class UnknownConvoLogEntry : ConvoLogEntry, IUnknownUnionVariant
     /// <inheritdoc/>
     [JsonIgnore]
     public JsonElement Raw { get; }
-
-    private static string StringProperty(JsonElement raw, string name) =>
-        raw.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
-            ? value.GetString()!
-            : "";
 }
 
 /// <summary>A conversation with the viewer started, direct or group; also sent to a member added to a group (<c>#logBeginConvo</c>).</summary>

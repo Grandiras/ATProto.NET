@@ -11,10 +11,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// Registers the space server: the credential verifiers, and the XRPC endpoints for a space
-/// authority, a repo host, or both.
-/// </summary>
+/// <summary>Registers the space server: the credential verifiers, and the XRPC endpoints for a space authority, a repo host, or both.</summary>
 /// <remarks>
 /// <para>The two halves are registered separately because they are separate services in
 /// practice. A PDS is a repo host for its accounts and — through
@@ -44,16 +41,10 @@ public static class SpaceServerExtensions
     /// <summary>The named <see cref="HttpClient"/> the space server's outbound calls use.</summary>
     public const string HttpClientName = "AtProtoSpaces";
 
-    /// <summary>
-    /// The service key of the <see cref="IDidResolver"/> the space server resolves DID documents
-    /// through: a cache of its own, configured by <see cref="SpaceServerOptions.DidCache"/>.
-    /// </summary>
+    /// <summary>The service key of the <see cref="IDidResolver"/> the space server resolves DID documents through: a cache of its own, configured by <see cref="SpaceServerOptions.DidCache"/>.</summary>
     public const string DidResolverKey = "ATProtoNet.Server.Spaces";
 
-    /// <summary>
-    /// Registers the credential verification layer: DPoP proof, delegation token, space
-    /// credential and client attestation verification.
-    /// </summary>
+    /// <summary>Registers the credential verification layer: DPoP proof, delegation token, space credential and client attestation verification.</summary>
     /// <param name="services">The service collection.</param>
     /// <param name="configure">Configures <see cref="SpaceServerOptions"/>.</param>
     /// <returns>The service collection for chaining.</returns>
@@ -122,7 +113,7 @@ public static class SpaceServerExtensions
         return services;
     }
 
-    /// <summary>The checks <see cref="AddAtProtoSpaces"/> runs on the options when the host starts.</summary>
+    // The checks AddAtProtoSpaces runs on the options when the host starts.
     internal static void ValidateOptions(SpaceServerOptions options)
     {
         if (!string.IsNullOrEmpty(options.PublicBaseUrl))
@@ -140,10 +131,7 @@ public static class SpaceServerExtensions
             ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, TimeSpan.Zero, name);
     }
 
-    /// <summary>
-    /// Registers the space-authority endpoints: <c>getSpaceCredential</c>, <c>listRepos</c>,
-    /// <c>registerNotify</c>, <c>unregisterNotify</c>, and <c>notifyWrite</c>.
-    /// </summary>
+    /// <summary>Registers the space-authority endpoints: <c>getSpaceCredential</c>, <c>listRepos</c>, <c>registerNotify</c>, <c>unregisterNotify</c>, and <c>notifyWrite</c>.</summary>
     /// <typeparam name="TStore">The authority's state store.</typeparam>
     /// <param name="services">The service collection.</param>
     /// <param name="signingKey">
@@ -237,14 +225,11 @@ public static class SpaceServerExtensions
         return services;
     }
 
-    /// <summary>
-    /// Builds the generator outbound service auth falls back to: signed as the service DID with
-    /// its <c>#atproto</c> key.
-    /// </summary>
-    /// <exception cref="InvalidOperationException">
-    /// No service DID is configured, or credentials use a dedicated <c>#atproto_space</c> key and
-    /// neither a service auth key nor an account signer was supplied.
-    /// </exception>
+    // Builds the generator outbound service auth falls back to: signed as the service DID with its
+    // #atproto key.
+    //
+    // Throws InvalidOperationException: No service DID is configured, or credentials use a dedicated
+    // #atproto_space key and neither a service auth key nor an account signer was supplied.
     internal static ServiceAuthGenerator CreateServiceAuth(
         SpaceServerOptions options, AtProtoKey signingKey, AtProtoKey? serviceAuthKey, bool hasAccountSigner)
     {
@@ -278,10 +263,7 @@ public static class SpaceServerExtensions
         options.CredentialKeyId is { } keyId &&
         string.Equals(keyId.TrimStart('#'), SpaceAuthority.SigningKeyId.TrimStart('#'), StringComparison.Ordinal);
 
-    /// <summary>
-    /// Registers the <c>com.atproto.simplespace</c> endpoints and its access policy — the
-    /// space-management baseline every PDS must support.
-    /// </summary>
+    /// <summary>Registers the <c>com.atproto.simplespace</c> endpoints and its access policy — the space-management baseline every PDS must support.</summary>
     /// <typeparam name="TStore">The store holding the spaces and their member lists.</typeparam>
     /// <param name="services">The service collection.</param>
     /// <returns>The service collection for chaining.</returns>
@@ -318,11 +300,7 @@ public static class SpaceServerExtensions
         return services;
     }
 
-    /// <summary>
-    /// Registers the repo-host endpoints: <c>getRecord</c>, <c>listRecords</c>,
-    /// <c>getLatestCommit</c>, <c>getRepo</c>, <c>listRepoOps</c>, <c>getBlob</c>, and
-    /// <c>listBlobs</c>.
-    /// </summary>
+    /// <summary>Registers the repo-host endpoints: <c>getRecord</c>, <c>listRecords</c>, <c>getLatestCommit</c>, <c>getRepo</c>, <c>listRepoOps</c>, <c>getBlob</c>, and <c>listBlobs</c>.</summary>
     /// <typeparam name="THost">The implementation serving this host's permissioned repos.</typeparam>
     /// <param name="services">The service collection.</param>
     /// <returns>The service collection for chaining.</returns>

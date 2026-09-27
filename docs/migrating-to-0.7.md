@@ -245,6 +245,9 @@ string text = record.Uri;   // identifiers convert to string implicitly
   `createdAt`, `indexedAt`, `usedAt`, `cts`, `exp`, `seenAt`, `sentAt` and the rest. Set with
   `AtDatetime.Now()`, `AtDatetime.Parse("…")` or `AtDatetime.FromDateTimeOffset(value)`; read with
   `.Value` / `.TryGetValue(out …)`, or `.ToString()` for the text.
+- **`AtProtoJsonDefaults.FormatTimestamp` and `NowTimestamp` are removed.** Use
+  `AtDatetime.FromDateTime(dateTime).ToString()` (a `DateTimeKind.Unspecified` value is taken as
+  UTC) and `AtDatetime.Now().ToString()`, or pass the `AtDatetime` itself.
 - **`RichTextBuilder.Mention` takes `(Handle, Did)`**, `ServiceAuthGenerator` a `Did` and an `Nsid`
   (see [Service auth](#service-auth)), and `PlcOperationBuilder.CreateGenesisOperation` a `Handle`.
 
@@ -574,9 +577,9 @@ See [Custom XRPC Endpoints](custom-xrpc.md).
 - **Queries take `XrpcParams`, procedures a typed input.** `QueryAsync<TOut>(Nsid, XrpcParams?,
   XrpcCallOptions?, CancellationToken)`; `ProcedureAsync<T>(nsid, object? body, …)` is replaced by
   `ProcedureAsync<TIn, TOut>(nsid, input, parameters?, options?, …)`, `ProcedureAsync<TIn>(nsid,
-  input, …)` and `ProcedureAsync(nsid, parameters?, …)`. An anonymous object or dictionary as query
-  parameters still works through a `QueryAsync<TOut>(Nsid, object, …)` overload, now marked
-  `[RequiresUnreferencedCode]`.
+  input, …)` and `ProcedureAsync(nsid, parameters?, …)`. Query parameters are no longer taken as an
+  anonymous object or a dictionary, which needed reflection: build an `XrpcParams`, one `Add` per
+  property (`new XrpcParams { { "limit", 25 }, { "cursor", cursor } }`) and `AddAll` for an array.
 - **`XrpcCallOptions` comes before the cancellation token** (`Proxy`, `AcceptLabelers`, `Headers`,
   `Timeout`, for one call). A call that passed the token positionally as the third argument passes
   it by name, `cancellationToken: ct`; since procedures now take `parameters` third, pass options by
@@ -800,6 +803,10 @@ See [Identity Resolution](did-resolution.md).
   take the first entry with a matching id, and `TryGetServiceEndpoint` and `TryGetVerificationKey`
   tell an absent entry from a malformed one. Build documents with object initializers, and read
   `GetPdsEndpoint()?.OriginalString` where a string was used.
+- **`GetSigningKey()` and `GetVerificationKey(fragment)` return `null` for key material that does not
+  decode**, instead of throwing `FormatException`, so a broken entry reads like an absent one.
+  `SpaceAuthority.GetSigningKey` does the same for a broken `#atproto` fallback. Where the two must
+  be told apart, call `TryGetVerificationKey`.
 - **`DidResolutionException` replaces `PlcException` and `DidWebException`.** Every resolver throws
   it — network failures, timeouts and bodies that break off included — with a
   `DidResolutionErrorKind`: `Tombstoned` is `Deactivated`, `ParseError` and `ValidationError` are

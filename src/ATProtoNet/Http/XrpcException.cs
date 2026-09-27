@@ -2,10 +2,7 @@ using System.Net;
 
 namespace ATProtoNet.Http;
 
-/// <summary>
-/// A named XRPC error: the <c>{"error", "message"}</c> body an XRPC service answers a failed
-/// call with, together with its HTTP status.
-/// </summary>
+/// <summary>A named XRPC error: the <c>{"error", "message"}</c> body an XRPC service answers a failed call with, together with its HTTP status.</summary>
 /// <remarks>
 /// <para>XRPC does not signal failure with a bare status code. Every error response carries an
 /// error <em>name</em> — a Lexicon declares the names a method may answer with — and that name,
@@ -65,17 +62,10 @@ public class XrpcException : AtProtoException
         Nsid = nsid;
     }
 
-    /// <summary>
-    /// The NSID of the method that failed. Set on the client side; <see langword="null"/> for an
-    /// error an endpoint handler raises.
-    /// </summary>
+    /// <summary>The NSID of the method that failed. Set on the client side; <see langword="null"/> for an error an endpoint handler raises.</summary>
     public string? Nsid { get; }
 
-    /// <summary>
-    /// The XRPC error name. When a response carried no error envelope — a proxy's HTML error
-    /// page, say — this is the generic name for its status, such as
-    /// <see cref="XrpcErrors.InternalServerError"/> for a 500.
-    /// </summary>
+    /// <summary>The XRPC error name. When a response carried no error envelope — a proxy's HTML error page, say — this is the generic name for its status, such as <see cref="XrpcErrors.InternalServerError"/> for a 500.</summary>
     public string Error { get; }
 
     /// <summary>The human-readable description from the error body, if it carried one.</summary>
@@ -87,12 +77,7 @@ public class XrpcException : AtProtoException
     /// <summary>The raw response body, when the client read one.</summary>
     public string? ResponseBody { get; init; }
 
-    /// <summary>
-    /// On the client, the headers of the failed response — <c>WWW-Authenticate</c>,
-    /// <c>Retry-After</c>, <c>RateLimit-*</c>. On the server, extra headers to write with the
-    /// error, such as the <c>WWW-Authenticate</c> a DPoP-authenticated endpoint owes a rejected
-    /// request.
-    /// </summary>
+    /// <summary>On the client, the headers of the failed response — <c>WWW-Authenticate</c>, <c>Retry-After</c>, <c>RateLimit-*</c>. On the server, extra headers to write with the error, such as the <c>WWW-Authenticate</c> a DPoP-authenticated endpoint owes a rejected request.</summary>
     public IDictionary<string, string> Headers { get; } =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
@@ -106,10 +91,7 @@ public class XrpcException : AtProtoException
         (string.IsNullOrEmpty(message) ? "." : $": {message}");
 }
 
-/// <summary>
-/// The service refused a call because the client exceeded a rate limit (HTTP 429), and waiting
-/// it out was not possible within <see cref="XrpcRateLimitOptions"/>.
-/// </summary>
+/// <summary>The service refused a call because the client exceeded a rate limit (HTTP 429), and waiting it out was not possible within <see cref="XrpcRateLimitOptions"/>.</summary>
 /// <remarks>
 /// The client retries a 429 on its own, up to <see cref="XrpcRateLimitOptions.MaxRetries"/>
 /// times, as long as the wait the service asks for fits in
@@ -137,21 +119,14 @@ public sealed class XrpcRateLimitException : XrpcException
         RateLimit = rateLimit;
     }
 
-    /// <summary>
-    /// How long the service asked the client to wait, from <c>Retry-After</c> or, failing that,
-    /// <c>RateLimit-Reset</c>. <see langword="null"/> when the response carried neither.
-    /// </summary>
+    /// <summary>How long the service asked the client to wait, from <c>Retry-After</c> or, failing that, <c>RateLimit-Reset</c>. <see langword="null"/> when the response carried neither.</summary>
     public TimeSpan? RetryAfter { get; }
 
     /// <summary>The <c>RateLimit-*</c> headers of the response, if it sent any.</summary>
     public RateLimitInfo? RateLimit { get; }
 }
 
-/// <summary>
-/// The service rejected the call's credentials: an HTTP 401, or one of the token errors a PDS
-/// answers with a 400 (<see cref="XrpcErrors.ExpiredToken"/>,
-/// <see cref="XrpcErrors.InvalidToken"/>).
-/// </summary>
+/// <summary>The service rejected the call's credentials: an HTTP 401, or one of the token errors a PDS answers with a 400 (<see cref="XrpcErrors.ExpiredToken"/>, <see cref="XrpcErrors.InvalidToken"/>).</summary>
 /// <remarks>
 /// An expired access token is the common case, and refreshing the session recovers it. A DPoP
 /// nonce challenge (<c>use_dpop_nonce</c>) never surfaces here: the client answers it by
@@ -170,10 +145,7 @@ public sealed class XrpcAuthenticationException : XrpcException
     }
 }
 
-/// <summary>
-/// A service answered an XRPC call with a success status but a body that does not deserialize
-/// into the type the method's Lexicon describes.
-/// </summary>
+/// <summary>A service answered an XRPC call with a success status but a body that does not deserialize into the type the method's Lexicon describes.</summary>
 /// <remarks>
 /// This is a contract violation by the service (or a model the SDK has wrong), not an XRPC
 /// error, so it carries no error name. The <see cref="Exception.InnerException"/> is the

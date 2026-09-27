@@ -60,14 +60,14 @@ public static class JetstreamEventParser
 
         // Every v2 frame is a self-describing envelope: a "message" wrapping one lexicon
         // message under "payload", or a terminal "error".
-        var envelope = JetstreamEvents.GetString(root, "$type");
+        var envelope = root.GetStringOrNull("$type");
 
         if (envelope == "error")
         {
-            var name = JetstreamEvents.GetString(root, "error");
+            var name = root.GetStringOrNull("error");
             return name is null
                 ? default
-                : new JetstreamFrame(null, null, new EventStreamError(name, JetstreamEvents.GetString(root, "message")));
+                : new JetstreamFrame(null, null, new EventStreamError(name, root.GetStringOrNull("message")));
         }
 
         if (envelope != "message")
@@ -80,7 +80,7 @@ public static class JetstreamEventParser
         if (!root.TryGetProperty("payload", out var payload) || payload.ValueKind != JsonValueKind.Object)
             return default;
 
-        var type = JetstreamEvents.GetString(payload, "$type");
+        var type = payload.GetStringOrNull("$type");
         if (type is null)
             return default;
 
@@ -91,13 +91,13 @@ public static class JetstreamEventParser
 
         if (kind == "info")
         {
-            var name = JetstreamEvents.GetString(payload, "name");
+            var name = payload.GetStringOrNull("name");
             return name is null
                 ? default
                 : new JetstreamFrame(null, new JetstreamInfo
                 {
                     Name = name,
-                    Message = JetstreamEvents.GetString(payload, "message"),
+                    Message = payload.GetStringOrNull("message"),
                 }, null);
         }
 
@@ -115,7 +115,7 @@ public static class JetstreamEventParser
             return null;
 
         var timeUs = (time.UtcDateTime - DateTime.UnixEpoch).Ticks / 10;
-        var cursor = JetstreamEvents.GetInt64(payload, "seq");
+        var cursor = payload.GetInt64OrNull("seq");
 
         return kind switch
         {
@@ -139,13 +139,13 @@ public static class JetstreamEventParser
 
         if (JetstreamEvents.ParseDid(root) is not { } did)
             return null;
-        if (JetstreamEvents.GetInt64(root, "time_us") is not { } timeUs)
+        if (root.GetInt64OrNull("time_us") is not { } timeUs)
             return null;
 
         // A v2 host serving the v1 wire adds its sequence number as "cursor"; a legacy host omits it.
-        var cursor = JetstreamEvents.GetInt64(root, "cursor");
+        var cursor = root.GetInt64OrNull("cursor");
 
-        switch (JetstreamEvents.GetString(root, "kind"))
+        switch (root.GetStringOrNull("kind"))
         {
             case "commit":
                 return Nested(root, "commit") is { } commit ? ParseCommit(commit, did, timeUs, cursor) : null;
@@ -167,13 +167,13 @@ public static class JetstreamEventParser
     private static JetstreamCommitEvent? ParseCommit(JsonElement commit, Did did, long timeUs, long? cursor)
     {
         // A commit whose path does not parse names no record a consumer could act on.
-        if (!Nsid.TryParse(JetstreamEvents.GetString(commit, "collection"), out var collection))
+        if (!Nsid.TryParse(commit.GetStringOrNull("collection"), out var collection))
             return null;
-        if (!RecordKey.TryParse(JetstreamEvents.GetString(commit, "rkey"), out var rkey))
+        if (!RecordKey.TryParse(commit.GetStringOrNull("rkey"), out var rkey))
             return null;
 
         RepoOpAction operation;
-        switch (JetstreamEvents.GetString(commit, "operation"))
+        switch (commit.GetStringOrNull("operation"))
         {
             case "create": operation = RepoOpAction.Create; break;
             case "update": operation = RepoOpAction.Update; break;
@@ -182,7 +182,7 @@ public static class JetstreamEventParser
         }
 
         // An unparseable CID is dropped rather than the event: the record data is still usable.
-        Cid.TryParse(JetstreamEvents.GetString(commit, "cid"), out var cid);
+        Cid.TryParse(commit.GetStringOrNull("cid"), out var cid);
 
         return JetstreamEvents.Commit(
             did, timeUs, cursor, collection, rkey, operation,
@@ -227,8 +227,8 @@ internal static class JetstreamEvents
         Cursor = cursor,
         // A handle that does not parse is dropped rather than the event: the DID is still what a
         // consumer needs to re-resolve the identity.
-        Handle = fields is { } identity && Handle.TryParse(GetString(identity, "handle"), out var handle) ? handle : null,
-        Seq = fields is { } withSeq ? GetInt64(withSeq, "seq") : null,
+        Handle = fields is { } identity && Handle.TryParse(identity.GetStringOrNull("handle"), out var handle) ? handle : null,
+        Seq = fields is { } withSeq ? withSeq.GetInt64OrNull("seq") : null,
         Time = fields is { } withTime ? ParseDatetime(withTime, "time") : null,
     };
 
@@ -245,8 +245,8 @@ internal static class JetstreamEvents
             TimeUs = timeUs,
             Cursor = cursor,
             Active = active.GetBoolean(),
-            Status = GetString(fields, "status"),
-            Seq = GetInt64(fields, "seq"),
+            Status = fields.GetStringOrNull("status"),
+            Seq = fields.GetInt64OrNull("seq"),
             Time = ParseDatetime(fields, "time"),
         };
     }
@@ -259,7 +259,7 @@ internal static class JetstreamEvents
         if (fields is { } sync
             && sync.TryGetProperty("blocks", out var blocksProp)
             && blocksProp.ValueKind == JsonValueKind.Object
-            && GetString(blocksProp, "$bytes") is { } base64)
+            && blocksProp.GetStringOrNull("$bytes") is { } base64)
         {
             try
             {
@@ -276,34 +276,23 @@ internal static class JetstreamEvents
             Did = did,
             TimeUs = timeUs,
             Cursor = cursor,
-            Rev = Tid.TryParse((fields is { } withRev ? GetString(withRev, "rev") : null) ?? fallbackRev, out var rev)
+            Rev = Tid.TryParse((fields is { } withRev ? withRev.GetStringOrNull("rev") : null) ?? fallbackRev, out var rev)
                 ? rev
                 : null,
             Blocks = blocks,
-            Seq = fields is { } withSeq ? GetInt64(withSeq, "seq") : null,
+            Seq = fields is { } withSeq ? withSeq.GetInt64OrNull("seq") : null,
             Time = fields is { } withTime ? ParseDatetime(withTime, "time") : null,
         };
     }
 
     public static Did? ParseDid(JsonElement element)
-        => Did.TryParse(GetString(element, "did"), out var did) ? did : null;
-
-    public static string? GetString(JsonElement element, string name)
-        => element.TryGetProperty(name, out var prop) && prop.ValueKind == JsonValueKind.String
-            ? prop.GetString()
-            : null;
-
-    public static long? GetInt64(JsonElement element, string name)
-        => element.TryGetProperty(name, out var prop) && prop.ValueKind == JsonValueKind.Number
-            && prop.TryGetInt64(out var number)
-            ? number
-            : null;
+        => Did.TryParse(element.GetStringOrNull("did"), out var did) ? did : null;
 
     // Optional metadata that does not parse is dropped rather than the event carrying it.
     public static Tid? ParseTid(JsonElement element, string name)
-        => Tid.TryParse(GetString(element, name), out var tid) ? tid : null;
+        => Tid.TryParse(element.GetStringOrNull(name), out var tid) ? tid : null;
 
     // Read leniently, as the JSON converter reads a datetime: the text is kept either way.
     public static AtDatetime? ParseDatetime(JsonElement element, string name)
-        => GetString(element, name) is { } text ? AtDatetime.FromWire(text) : null;
+        => element.GetStringOrNull(name) is { } text ? AtDatetime.FromWire(text) : null;
 }

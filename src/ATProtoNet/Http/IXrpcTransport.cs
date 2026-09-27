@@ -3,10 +3,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Http;
 
-/// <summary>
-/// Sends XRPC calls the way an <see cref="AtProtoClient"/> does: to its service, with its
-/// installed session (refreshed when it expires), its rate-limit handling and its error model.
-/// </summary>
+/// <summary>Sends XRPC calls the way an <see cref="AtProtoClient"/> does: to its service, with its installed session (refreshed when it expires), its rate-limit handling and its error model.</summary>
 /// <remarks>
 /// <para>This is the seam for Lexicons the SDK does not ship. A package for another namespace
 /// builds its sub-client on <see cref="AtProtoClient.Transport"/>, so its calls share the
@@ -91,10 +88,7 @@ public interface IXrpcTransport
         XrpcCallOptions? options = null,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Calls an XRPC procedure (HTTP POST) whose input is binary, such as a blob upload, and
-    /// reads its JSON output.
-    /// </summary>
+    /// <summary>Calls an XRPC procedure (HTTP POST) whose input is binary, such as a blob upload, and reads its JSON output.</summary>
     /// <typeparam name="TOut">The output type.</typeparam>
     /// <param name="nsid">The method NSID.</param>
     /// <param name="data">

@@ -4,11 +4,7 @@ using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// An <see cref="ISpaceAuthorityStore"/> that takes a space's <em>existence</em> from an
-/// <see cref="ISimpleSpaceStore"/> and keeps only the writer set and the notification
-/// registrations of its own.
-/// </summary>
+/// <summary>An <see cref="ISpaceAuthorityStore"/> that takes a space's <em>existence</em> from an <see cref="ISimpleSpaceStore"/> and keeps only the writer set and the notification registrations of its own.</summary>
 /// <remarks>
 /// <para>The two stores answer different questions. Which spaces this service hosts, and which
 /// have been deleted, is space-management state — <c>com.atproto.simplespace</c> owns it, and

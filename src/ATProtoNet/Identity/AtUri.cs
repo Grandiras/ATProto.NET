@@ -4,11 +4,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// Represents an AT URI, the URI scheme for addressing records in the AT Protocol.
-/// Format: at://&lt;authority&gt;/&lt;collection&gt;/&lt;rkey&gt;
-/// Examples: at://did:plc:xxx/app.bsky.feed.post/3k2la, at://alice.bsky.social/app.bsky.actor.profile/self
-/// </summary>
+/// <summary>Represents an AT URI, the URI scheme for addressing records in the AT Protocol. Format: at://&lt;authority&gt;/&lt;collection&gt;/&lt;rkey&gt; Examples: at://did:plc:xxx/app.bsky.feed.post/3k2la, at://alice.bsky.social/app.bsky.actor.profile/self</summary>
 /// <remarks>
 /// <para>Parsing follows the restricted AT URI syntax that Lexicon <c>at-uri</c> fields use:
 /// <c>at://AUTHORITY[/COLLECTION[/RKEY]]</c>, where the authority is a DID or handle, the
@@ -28,10 +24,7 @@ public sealed record AtUri : IIdentifier<AtUri>
     /// <summary>The authority part (DID or handle), as written in the URI.</summary>
     public string Authority { get; }
 
-    /// <summary>
-    /// The authority parsed as an <see cref="AtIdentifier"/>. A handle authority is lower-cased
-    /// here, as <see cref="Handle"/> always is.
-    /// </summary>
+    /// <summary>The authority parsed as an <see cref="AtIdentifier"/>. A handle authority is lower-cased here, as <see cref="Handle"/> always is.</summary>
     public AtIdentifier Repo { get; }
 
     /// <summary>The collection NSID, if present.</summary>

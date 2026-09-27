@@ -3,20 +3,13 @@ namespace ATProtoNet.Identity;
 /// <summary>Why an identity could not be resolved.</summary>
 public enum DidResolutionErrorKind
 {
-    /// <summary>
-    /// The identifier is not one AT Protocol resolves: a path-based <c>did:web</c>, a port on a
-    /// host other than <c>localhost</c>, an IP address where a hostname belongs.
-    /// </summary>
+    /// <summary>The identifier is not one AT Protocol resolves: a path-based <c>did:web</c>, a port on a host other than <c>localhost</c>, an IP address where a hostname belongs.</summary>
     InvalidDid,
 
     /// <summary>The DID method is neither <c>did:plc</c> nor <c>did:web</c>.</summary>
     UnsupportedMethod,
 
-    /// <summary>
-    /// The identity fetch policy refused the request: plain HTTP, <c>localhost</c>, or a host that
-    /// resolves to a loopback, private, link-local or CGNAT address. See
-    /// <see cref="IdentityResolverOptions.AllowPrivateNetworks"/>.
-    /// </summary>
+    /// <summary>The identity fetch policy refused the request: plain HTTP, <c>localhost</c>, or a host that resolves to a loopback, private, link-local or CGNAT address. See <see cref="IdentityResolverOptions.AllowPrivateNetworks"/>.</summary>
     Blocked,
 
     /// <summary>No DID document exists (HTTP 404).</summary>
@@ -37,19 +30,13 @@ public enum DidResolutionErrorKind
     /// <summary>The response was larger than the resolver accepts.</summary>
     ResponseTooLarge,
 
-    /// <summary>
-    /// The response was not a usable DID document: malformed JSON, or an <c>id</c> other than the
-    /// DID that was asked for.
-    /// </summary>
+    /// <summary>The response was not a usable DID document: malformed JSON, or an <c>id</c> other than the DID that was asked for.</summary>
     InvalidDocument,
 
     /// <summary>Neither DNS nor HTTPS resolved the handle to a DID.</summary>
     HandleNotFound,
 
-    /// <summary>
-    /// The handle's DNS and HTTPS answers name different DIDs, or its DNS answer names more than
-    /// one. Resolution fails closed rather than picking one.
-    /// </summary>
+    /// <summary>The handle's DNS and HTTPS answers name different DIDs, or its DNS answer names more than one. Resolution fails closed rather than picking one.</summary>
     HandleConflict,
 
     /// <summary>The PLC directory rejected a submitted operation.</summary>

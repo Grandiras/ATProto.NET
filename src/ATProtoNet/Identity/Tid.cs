@@ -5,12 +5,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// Represents a Timestamp Identifier (TID) used as record keys and repository revisions in
-/// AT Protocol. A TID encodes a 64-bit integer — microseconds since the UNIX epoch in the top
-/// 53 bits (below a zero high bit) and a clock identifier in the bottom 10 — as 13
-/// base32-sortable characters.
-/// </summary>
+/// <summary>Represents a Timestamp Identifier (TID) used as record keys and repository revisions in AT Protocol. A TID encodes a 64-bit integer — microseconds since the UNIX epoch in the top 53 bits (below a zero high bit) and a clock identifier in the bottom 10 — as 13 base32-sortable characters.</summary>
 /// <remarks>
 /// Equality and ordering are ordinal on <see cref="Value"/>, which agrees with the numeric
 /// order of <see cref="ToInt64"/>.
@@ -57,10 +52,7 @@ public sealed partial record Tid : IIdentifier<Tid>
         return result is not null;
     }
 
-    /// <summary>
-    /// Generates a new TID from the process-wide <see cref="TidGenerator"/>. Successive calls
-    /// return strictly increasing values, including across threads.
-    /// </summary>
+    /// <summary>Generates a new TID from the process-wide <see cref="TidGenerator"/>. Successive calls return strictly increasing values, including across threads.</summary>
     /// <returns>A new TID.</returns>
     public static Tid Next() => TidGenerator.Shared.Next();
 
@@ -68,10 +60,7 @@ public sealed partial record Tid : IIdentifier<Tid>
     /// <returns>The value of <see cref="Next"/>.</returns>
     public static string NextString() => Next().Value;
 
-    /// <summary>
-    /// Creates a TID from its raw 64-bit value: microseconds since the UNIX epoch in the top
-    /// 53 bits, a clock identifier in the bottom 10.
-    /// </summary>
+    /// <summary>Creates a TID from its raw 64-bit value: microseconds since the UNIX epoch in the top 53 bits, a clock identifier in the bottom 10.</summary>
     /// <param name="value">The raw TID value. The high bit must be clear.</param>
     /// <returns>The TID encoding <paramref name="value"/>.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="value"/> is negative.</exception>
@@ -81,10 +70,7 @@ public sealed partial record Tid : IIdentifier<Tid>
         return new Tid(Encode(value));
     }
 
-    /// <summary>
-    /// Gets the raw 64-bit value this TID encodes. Ordinal string comparison of two TIDs and
-    /// numeric comparison of their values always agree, since the encoding is base32-sortable.
-    /// </summary>
+    /// <summary>Gets the raw 64-bit value this TID encodes. Ordinal string comparison of two TIDs and numeric comparison of their values always agree, since the encoding is base32-sortable.</summary>
     /// <returns>The raw TID value.</returns>
     public long ToInt64()
     {

@@ -4,61 +4,56 @@ using ATProtoNet.Http;
 
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// The SSRF policy behind every identity fetch: a <c>did:web</c> document, a PLC directory
-/// lookup, a handle's <c>/.well-known/atproto-did</c> and the DNS-over-HTTPS query.
-/// </summary>
-/// <remarks>
-/// <para>Identity hosts come from identifiers anyone can mint, and the services that resolve
-/// them — a space server checking a token, a firehose consumer, an OAuth login — do it on behalf
-/// of whoever sent the identifier. Without a policy, <c>did:web:internal.corp%3A6379</c> is a
-/// request into the resolver's own network.</para>
-/// <para>The address check runs in the connect callback, after DNS, against every address the
-/// name resolved to, and the connection is made to those same addresses. Checking the name or a
-/// URL instead would let a public-looking name that resolves to <c>10.0.0.1</c> through, and
-/// resolving twice would let a rebinding DNS server answer differently the second time.</para>
-/// <para>A proxy would make the checked address the proxy's rather than the target's, so the
-/// hardened handler never uses one.</para>
-/// <para>Redirects are not followed: a DID document, a PLC answer or OAuth metadata that
-/// redirects elsewhere is refused, as <c>@atproto/identity</c> refuses it
-/// (<c>redirect: 'error'</c>). The one caller that accepts a redirect, a handle's well-known,
-/// follows same-host redirects itself.</para>
-/// </remarks>
+// The SSRF policy behind every identity fetch: a did:web document, a PLC directory lookup, a handle's
+// /.well-known/atproto-did and the DNS-over-HTTPS query.
+//
+// Identity hosts come from identifiers anyone can mint, and the services that resolve them — a space
+// server checking a token, a firehose consumer, an OAuth login — do it on behalf of whoever sent the
+// identifier. Without a policy, did:web:internal.corp%3A6379 is a request into the resolver's own
+// network.
+//
+// The address check runs in the connect callback, after DNS, against every address the name resolved to,
+// and the connection is made to those same addresses. Checking the name or a URL instead would let a
+// public-looking name that resolves to 10.0.0.1 through, and resolving twice would let a rebinding DNS
+// server answer differently the second time.
+//
+// A proxy would make the checked address the proxy's rather than the target's, so the hardened handler
+// never uses one.
+//
+// Redirects are not followed: a DID document, a PLC answer or OAuth metadata that redirects elsewhere is
+// refused, as @atproto/identity refuses it (redirect: 'error'). The one caller that accepts a redirect,
+// a handle's well-known, follows same-host redirects itself.
 internal static class IdentityNetworkPolicy
 {
-    /// <summary>How long establishing a connection to an identity host may take.</summary>
+    // How long establishing a connection to an identity host may take.
     internal static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(5);
 
     private static readonly Lazy<HttpMessageHandler> Hardened = new(() => CreateHandler(allowPrivateNetworks: false));
     private static readonly Lazy<HttpMessageHandler> Development = new(() => CreateHandler(allowPrivateNetworks: true));
 
-    /// <summary>
-    /// The shared handler for the given policy. SDK-owned identity clients are created over it and
-    /// never dispose it, so they share one connection pool.
-    /// </summary>
+    // The shared handler for the given policy. SDK-owned identity clients are created over it and never
+    // dispose it, so they share one connection pool.
     internal static HttpMessageHandler SharedHandler(bool allowPrivateNetworks) =>
         allowPrivateNetworks ? Development.Value : Hardened.Value;
 
-    /// <summary>Creates an <see cref="HttpClient"/> over <see cref="SharedHandler"/>.</summary>
-    internal static HttpClient CreateClient(bool allowPrivateNetworks)
+    // Creates an HttpClient over SharedHandler.
+    //
+    // timeout: The client's timeout. Default: 30 seconds, a backstop behind each fetch's own budget.
+    internal static HttpClient CreateClient(bool allowPrivateNetworks, TimeSpan? timeout = null)
     {
         var client = new HttpClient(SharedHandler(allowPrivateNetworks), disposeHandler: false)
         {
-            // Each fetch is bounded by its own budget; this is only the backstop.
-            Timeout = TimeSpan.FromSeconds(30),
+            Timeout = timeout ?? TimeSpan.FromSeconds(30),
         };
         client.DefaultRequestHeaders.UserAgent.TryParseAdd(AtProtoHttp.DefaultUserAgent);
         return client;
     }
 
-    /// <summary>
-    /// Creates a primary handler that enforces the policy, or, with
-    /// <paramref name="allowPrivateNetworks"/>, one that only carries the connection settings.
-    /// </summary>
-    /// <remarks>
-    /// Where sockets are unavailable (Blazor WebAssembly) the browser makes the connection and no
-    /// address check is possible; the platform handler is returned.
-    /// </remarks>
+    // Creates a primary handler that enforces the policy, or, with allowPrivateNetworks, one that only
+    // carries the connection settings.
+    //
+    // Where sockets are unavailable (Blazor WebAssembly) the browser makes the connection and no address
+    // check is possible; the platform handler is returned.
     internal static HttpMessageHandler CreateHandler(bool allowPrivateNetworks)
     {
         if (!SocketsHttpHandler.IsSupported)
@@ -82,11 +77,9 @@ internal static class IdentityNetworkPolicy
         return handler;
     }
 
-    /// <summary>
-    /// Whether an address is public unicast: not loopback, private, link-local, CGNAT, multicast,
-    /// documentation, benchmarking or otherwise reserved. IPv4 carried in IPv6 (mapped or NAT64)
-    /// is judged by the IPv4 address.
-    /// </summary>
+    // Whether an address is public unicast: not loopback, private, link-local, CGNAT, multicast,
+    // documentation, benchmarking or otherwise reserved. IPv4 carried in IPv6 (mapped or NAT64) is
+    // judged by the IPv4 address.
     internal static bool IsPublicAddress(IPAddress address)
     {
         ArgumentNullException.ThrowIfNull(address);
@@ -173,7 +166,7 @@ internal static class IdentityNetworkPolicy
         }
     }
 
-    /// <summary>Whether a request failed because the policy refused its connection.</summary>
+    // Whether a request failed because the policy refused its connection.
     internal static bool IsBlocked(Exception exception)
     {
         for (Exception? current = exception; current is not null; current = current.InnerException)
@@ -184,35 +177,7 @@ internal static class IdentityNetworkPolicy
 
         return false;
     }
-
-    /// <summary>
-    /// Validates the URL of a configured identity service (a PLC directory, a DNS-over-HTTPS
-    /// endpoint): absolute, <c>https</c> unless the development opt-out is set, and free of a
-    /// query or fragment.
-    /// </summary>
-    /// <returns>The URL, normalized with a trailing <c>/</c>.</returns>
-    /// <exception cref="ArgumentException">The URL is not acceptable.</exception>
-    internal static Uri ValidateServiceUrl(Uri url, bool allowPrivateNetworks, string paramName)
-    {
-        ArgumentNullException.ThrowIfNull(url, paramName);
-
-        if (!url.IsAbsoluteUri || (url.Scheme != Uri.UriSchemeHttps && url.Scheme != Uri.UriSchemeHttp))
-            throw new ArgumentException($"'{url}' is not an absolute http(s) URL.", paramName);
-
-        if (url.Scheme != Uri.UriSchemeHttps && !allowPrivateNetworks)
-        {
-            throw new ArgumentException(
-                $"Identity service URL '{url}' must use HTTPS. Plain HTTP needs the development opt-out " +
-                $"({nameof(IdentityResolverOptions)}.{nameof(IdentityResolverOptions.AllowPrivateNetworks)}).",
-                paramName);
-        }
-
-        if (url.Query.Length > 0 || url.Fragment.Length > 0)
-            throw new ArgumentException($"Identity service URL '{url}' must not have a query or fragment.", paramName);
-
-        return AtProtoHttp.NormalizeBaseUrl(url);
-    }
 }
 
-/// <summary>A connection the identity fetch policy refused.</summary>
+// A connection the identity fetch policy refused.
 internal sealed class IdentityFetchBlockedException(string message) : IOException(message);

@@ -67,7 +67,6 @@ ATProtoNet.AtProtoClient.ProcedureAsync(ATProtoNet.Identity.Nsid! nsid, ATProtoN
 ATProtoNet.AtProtoClient.ProcedureAsync<TIn, TOut>(ATProtoNet.Identity.Nsid! nsid, TIn input, ATProtoNet.Http.XrpcParams? parameters = null, ATProtoNet.Http.XrpcCallOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<TOut>!
 ATProtoNet.AtProtoClient.ProcedureAsync<TIn>(ATProtoNet.Identity.Nsid! nsid, TIn input, ATProtoNet.Http.XrpcParams? parameters = null, ATProtoNet.Http.XrpcCallOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 ATProtoNet.AtProtoClient.QueryAsync<TOut>(ATProtoNet.Identity.Nsid! nsid, ATProtoNet.Http.XrpcParams? parameters = null, ATProtoNet.Http.XrpcCallOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<TOut>!
-ATProtoNet.AtProtoClient.QueryAsync<TOut>(ATProtoNet.Identity.Nsid! nsid, object! parameters, ATProtoNet.Http.XrpcCallOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<TOut>!
 ATProtoNet.AtProtoClient.RefreshSessionAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 ATProtoNet.AtProtoClient.Repo.get -> ATProtoNet.Lexicon.Com.AtProto.Repo.RepoClient!
 ATProtoNet.AtProtoClient.ResumeSessionAsync(ATProtoNet.Auth.AtProtoSession! session, ATProtoNet.Auth.OAuth.OAuthClient? oauthClient = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Auth.AtProtoSession!>!
@@ -9151,8 +9150,6 @@ static ATProtoNet.Repo.RepoSnapshotRecord.operator ==(ATProtoNet.Repo.RepoSnapsh
 static ATProtoNet.Repo.SignedRepoCommit.operator !=(ATProtoNet.Repo.SignedRepoCommit? left, ATProtoNet.Repo.SignedRepoCommit? right) -> bool
 static ATProtoNet.Repo.SignedRepoCommit.operator ==(ATProtoNet.Repo.SignedRepoCommit? left, ATProtoNet.Repo.SignedRepoCommit? right) -> bool
 static ATProtoNet.Serialization.AtProtoJsonDefaults.ApplyRecordTypeDiscriminator(System.Text.Json.Serialization.Metadata.JsonTypeInfo! typeInfo) -> void
-static ATProtoNet.Serialization.AtProtoJsonDefaults.FormatTimestamp(System.DateTime dateTime) -> string!
-static ATProtoNet.Serialization.AtProtoJsonDefaults.NowTimestamp() -> string!
 static ATProtoNet.Serialization.AtProtoJsonDefaults.Options.get -> System.Text.Json.JsonSerializerOptions!
 static ATProtoNet.Serialization.LexiconTypeRegistry.Instance.get -> ATProtoNet.Serialization.LexiconTypeRegistry!
 static ATProtoNet.Spaces.SignedSpaceCommit.FromDagCbor(System.ReadOnlyMemory<byte> dagCbor) -> ATProtoNet.Spaces.SignedSpaceCommit!

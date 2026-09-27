@@ -251,18 +251,6 @@ public class SpaceSyncerTests : IDisposable
         Assert.Equal(SpaceSyncOutcome.Recovered, result.Outcome);
     }
 
-    [Theory]
-    [InlineData(null, 0)]
-    [InlineData(0L, 0)]
-    [InlineData(4096L, 4096)]
-    [InlineData(long.MaxValue, SpaceSyncer.MaxInitialCapacity)]
-    public void InitialCapacity_IsTheDeclaredLengthUpToTheCap(long? contentLength, int expected)
-    {
-        // A host's Content-Length is a hint: it sizes the first allocation, but a claimed
-        // gigabyte cannot make the syncer allocate one before a byte arrives.
-        Assert.Equal(expected, SpaceSyncer.InitialCapacity(contentLength));
-    }
-
     [Fact]
     public async Task SyncRepoAsync_WhenTheOplogCannotServeSince_RecoversInFull()
     {
@@ -349,6 +337,29 @@ public class SpaceSyncerTests : IDisposable
 
         // One refetch before the signature is declared bad; the key it found was the same.
         Assert.Equal(1, _resolver.RefreshCount);
+    }
+
+    [Theory]
+    [InlineData(null, null)]                                                  // no #atproto entry
+    [InlineData("EcdsaSecp256k1VerificationKey2019", "z1111111111111111111")] // an entry that does not decode
+    public async Task SyncRepoAsync_AuthorPublishingNoUsableKey_IsRefusedWithoutARefresh(string? type, string? multibase)
+    {
+        // Only a failed signature refetches the author's document; a document with no key to
+        // verify against is refused as it stands.
+        _resolver.Publish(Repo.Value, new DidDocument
+        {
+            Id = Repo,
+            VerificationMethod = type is null ? [] : [new VerificationMethod { Id = $"{Repo}#atproto", Type = type, PublicKeyMultibase = multibase }],
+        });
+        var record = Record("com.example.n", "a", "x");
+        var commit = SignOver("3l6oveex3ii24", (record.Collection, record.Rkey, record.Cid));
+        _host.Ops = OpsJson(commit, cursor: null, CreateOp("3l6oveex3ii24", "com.example.n", "a", record.Cid));
+
+        var ex = await Assert.ThrowsAsync<SpaceRepoVerificationException>(
+            () => new SpaceSyncer(_space, _store, _resolver).SyncRepoAsync(_client, new SpaceRepoCursor(Repo)));
+
+        Assert.Contains("publishes no usable AT Protocol signing key", ex.Message, StringComparison.Ordinal);
+        Assert.Equal(0, _resolver.RefreshCount);
     }
 
     [Fact]

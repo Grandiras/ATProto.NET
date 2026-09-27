@@ -44,16 +44,11 @@ public sealed class SpaceTypeDeclaration
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Description { get; init; }
 
-    /// <summary>
-    /// The recommended space key type, in the same vocabulary as a record key type
-    /// (e.g. <c>tid</c>, <c>any</c>, <c>literal:self</c>).
-    /// </summary>
+    /// <summary>The recommended space key type, in the same vocabulary as a record key type (e.g. <c>tid</c>, <c>any</c>, <c>literal:self</c>).</summary>
     [JsonPropertyName("key")]
     public required string Key { get; init; }
 
-    /// <summary>
-    /// The human-readable name shown to users on OAuth consent screens. The space proposal sets no length limit.
-    /// </summary>
+    /// <summary>The human-readable name shown to users on OAuth consent screens. The space proposal sets no length limit.</summary>
     [JsonPropertyName("name")]
     public required string Name { get; init; }
 

@@ -4,10 +4,7 @@ using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// Signs the space server's outbound service auth as an account this service hosts, rather than
-/// as the service itself.
-/// </summary>
+/// <summary>Signs the space server's outbound service auth as an account this service hosts, rather than as the service itself.</summary>
 /// <remarks>
 /// <para>Some space calls are only accepted from a particular account. The reference space
 /// authority accepts <c>com.atproto.space.notifyWrite</c> only when its <c>iss</c> is the writer
@@ -52,10 +49,7 @@ namespace ATProtoNet.Server.Spaces;
 /// </example>
 public interface ISpaceAccountSigner
 {
-    /// <summary>
-    /// Returns a generator that signs as <paramref name="account"/>, or <see langword="null"/>
-    /// when this service holds no key for it.
-    /// </summary>
+    /// <summary>Returns a generator that signs as <paramref name="account"/>, or <see langword="null"/> when this service holds no key for it.</summary>
     /// <param name="account">The account the call must come from.</param>
     /// <returns>
     /// A generator whose <see cref="ServiceAuthGenerator.ServiceDid"/> is
@@ -66,21 +60,16 @@ public interface ISpaceAccountSigner
     ValueTask<ServiceAuthGenerator?> GetSignerAsync(Did account, CancellationToken cancellationToken = default);
 }
 
-/// <summary>
-/// Picks the generator an outbound call is signed with: the account's own, when an
-/// <see cref="ISpaceAccountSigner"/> holds one, and the service's otherwise.
-/// </summary>
+// Picks the generator an outbound call is signed with: the account's own, when an ISpaceAccountSigner
+// holds one, and the service's otherwise.
 internal static class SpaceAccountSigning
 {
-    /// <summary>
-    /// Returns the account's generator, or <paramref name="serviceAuth"/> when there is no
-    /// account signer, it holds no key for the account, or it fails.
-    /// </summary>
-    /// <remarks>
-    /// A signer that fails is not a reason to drop the call: the service key is what the call
-    /// would have carried without one, and a receiver that insists on the account refuses it,
-    /// which a best-effort notification or a refused access check already handles.
-    /// </remarks>
+    // Returns the account's generator, or serviceAuth when there is no account signer, it holds no key
+    // for the account, or it fails.
+    //
+    // A signer that fails is not a reason to drop the call: the service key is what the call would have
+    // carried without one, and a receiver that insists on the account refuses it, which a best-effort
+    // notification or a refused access check already handles.
     public static async ValueTask<ServiceAuthGenerator> ChooseAsync(
         ISpaceAccountSigner? accountSigner,
         ServiceAuthGenerator serviceAuth,

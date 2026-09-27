@@ -5,11 +5,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// A Lexicon <c>datetime</c> value: an RFC 3339 timestamp that keeps the exact text it was
-/// read or created from, so a record written back re-serializes byte for byte and keeps its
-/// CID.
-/// </summary>
+/// <summary>A Lexicon <c>datetime</c> value: an RFC 3339 timestamp that keeps the exact text it was read or created from, so a record written back re-serializes byte for byte and keeps its CID.</summary>
 /// <remarks>
 /// <para><b>Strict construction, lenient reading.</b> <see cref="Parse"/> and
 /// <see cref="TryParse"/> accept only valid atproto datetimes (checked against the
@@ -72,10 +68,7 @@ public readonly record struct AtDatetime : ISpanParsable<AtDatetime>, IComparabl
         Valid,
     }
 
-    /// <summary>
-    /// Whether the text is a valid atproto datetime. Always <see langword="true"/> for a value
-    /// created from code; a value read from the wire may not be.
-    /// </summary>
+    /// <summary>Whether the text is a valid atproto datetime. Always <see langword="true"/> for a value created from code; a value read from the wire may not be.</summary>
     public bool IsValid => _state == State.Valid;
 
     /// <summary>The instant the text denotes, in the offset it was written with.</summary>
@@ -93,10 +86,7 @@ public readonly record struct AtDatetime : ISpanParsable<AtDatetime>, IComparabl
             ? "An uninitialized AtDatetime has no value."
             : $"'{_text}' does not denote an instant a DateTimeOffset can represent.");
 
-    /// <summary>
-    /// Gets the instant the text denotes, when it denotes one <see cref="DateTimeOffset"/> can
-    /// represent.
-    /// </summary>
+    /// <summary>Gets the instant the text denotes, when it denotes one <see cref="DateTimeOffset"/> can represent.</summary>
     /// <param name="value">The instant, in the offset it was written with.</param>
     /// <returns>
     /// <see langword="true"/> for every valid value in the <see cref="DateTimeOffset"/> range
@@ -125,10 +115,7 @@ public readonly record struct AtDatetime : ISpanParsable<AtDatetime>, IComparabl
     /// <returns>The current time.</returns>
     public static AtDatetime Now() => FromDateTimeOffset(DateTimeOffset.UtcNow);
 
-    /// <summary>
-    /// Creates the canonical atproto datetime for an instant: UTC, millisecond precision,
-    /// <c>yyyy-MM-ddTHH:mm:ss.fffZ</c> in the invariant culture.
-    /// </summary>
+    /// <summary>Creates the canonical atproto datetime for an instant: UTC, millisecond precision, <c>yyyy-MM-ddTHH:mm:ss.fffZ</c> in the invariant culture.</summary>
     /// <param name="value">The instant. Sub-millisecond precision is truncated.</param>
     /// <returns>The datetime.</returns>
     /// <remarks>
@@ -147,10 +134,7 @@ public readonly record struct AtDatetime : ISpanParsable<AtDatetime>, IComparabl
         return new AtDatetime(text, utc.Ticks + Year1Ticks, 0, State.Valid);
     }
 
-    /// <summary>
-    /// Creates the canonical atproto datetime for a <see cref="DateTime"/>, as
-    /// <see cref="FromDateTimeOffset"/> does.
-    /// </summary>
+    /// <summary>Creates the canonical atproto datetime for a <see cref="DateTime"/>, as <see cref="FromDateTimeOffset"/> does.</summary>
     /// <param name="value">
     /// The date and time. <see cref="DateTimeKind.Local"/> is converted to UTC;
     /// <see cref="DateTimeKind.Unspecified"/> is taken to be UTC already.
@@ -206,10 +190,7 @@ public readonly record struct AtDatetime : ISpanParsable<AtDatetime>, IComparabl
     private static FormatException InvalidFormat(string value) =>
         new($"'{value}' is not a valid atproto datetime.");
 
-    /// <summary>
-    /// Reads a datetime off the wire without ever rejecting it: invalid text is kept, with
-    /// <see cref="IsValid"/> <see langword="false"/>.
-    /// </summary>
+    // Reads a datetime off the wire without ever rejecting it: invalid text is kept, with IsValid false.
     internal static AtDatetime FromWire(string text)
     {
         if (TryCreate(text, text, out var result))
@@ -229,11 +210,9 @@ public readonly record struct AtDatetime : ISpanParsable<AtDatetime>, IComparabl
         return new AtDatetime(text, 0, 0, State.Unreadable);
     }
 
-    /// <summary>
-    /// Validates the atproto datetime syntax — RFC 3339 restricted to what ISO 8601 also
-    /// allows: an upper-case <c>T</c>, seconds precision or finer, and a mandatory time zone
-    /// that is <c>Z</c> or <c>±HH:MM</c> but not <c>-00:00</c> — and then the calendar.
-    /// </summary>
+    // Validates the atproto datetime syntax — RFC 3339 restricted to what ISO 8601 also allows: an
+    // upper-case T, seconds precision or finer, and a mandatory time zone that is Z or ±HH:MM but not
+    // -00:00 — and then the calendar.
     private static bool TryCreate(ReadOnlySpan<char> s, string? text, out AtDatetime result)
     {
         result = default;
@@ -392,10 +371,7 @@ public readonly record struct AtDatetime : ISpanParsable<AtDatetime>, IComparabl
     /// <param name="right">The second value.</param>
     public static bool operator >=(AtDatetime left, AtDatetime right) => left.CompareTo(right) >= 0;
 
-    /// <summary>
-    /// The text exactly as it was read or created, or an empty string for the
-    /// <see langword="default"/> value.
-    /// </summary>
+    /// <summary>The text exactly as it was read or created, or an empty string for the <see langword="default"/> value.</summary>
     /// <returns>The datetime text.</returns>
     public override string ToString() => _text ?? string.Empty;
 

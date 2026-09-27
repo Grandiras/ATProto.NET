@@ -161,6 +161,29 @@ public sealed class DidDocumentKeyTests
         Assert.Null(document.GetVerificationKey("#atproto_space"));
     }
 
+    [Fact]
+    public void GetSigningKey_KeyMaterialThatDoesNotDecode_ReturnsNullRatherThanThrowing()
+    {
+        // The document is anyone's to publish: a broken key reads as no usable key, which every
+        // verifier refuses, rather than an exception each caller has to catch.
+        var document = new DidDocument
+        {
+            Id = ATProtoNet.Identity.Did.Parse(Did),
+            VerificationMethod =
+            [
+                new()
+                {
+                    Id = $"{Did}#atproto",
+                    Type = "EcdsaSecp256k1VerificationKey2019",
+                    PublicKeyMultibase = "z" + AtProtoCrypto.Base58Encode(new byte[40]),
+                },
+            ],
+        };
+
+        Assert.Null(document.GetSigningKey());
+        Assert.Equal(DidDocumentEntryStatus.Malformed, document.TryGetVerificationKey("#atproto", out _));
+    }
+
     // ── Space authority lookup ───────────────────────────────
 
     [Fact]

@@ -1,16 +1,13 @@
 namespace ATProtoNet.Serialization;
 
-/// <summary>
-/// Base64 as the AT Protocol data model uses it for <c>bytes</c>: the standard alphabet, and
-/// padding optional on read.
-/// </summary>
+// Base64 as the AT Protocol data model uses it for bytes: the standard alphabet, and padding optional on
+// read.
 internal static class LexBase64
 {
-    /// <summary>
-    /// Decodes standard base64 with or without trailing <c>=</c> padding. The data model specifies
-    /// unpadded output, which <see cref="Convert.FromBase64String"/> rejects on its own.
-    /// </summary>
-    /// <exception cref="FormatException"><paramref name="base64"/> is not valid base64.</exception>
+    // Decodes standard base64 with or without trailing = padding. The data model specifies unpadded
+    // output, which Convert.FromBase64String rejects on its own.
+    //
+    // Throws FormatException: base64 is not valid base64.
     public static byte[] Decode(string base64)
     {
         ArgumentNullException.ThrowIfNull(base64);

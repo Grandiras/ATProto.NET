@@ -3,10 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace ATProtoNet.Serialization;
 
-/// <summary>
-/// Converts a <see cref="byte"/> array to and from the AT Protocol JSON data model's
-/// representation of a Lexicon <c>bytes</c> value: <c>{ "$bytes": "&lt;base64&gt;" }</c>.
-/// </summary>
+/// <summary>Converts a <see cref="byte"/> array to and from the AT Protocol JSON data model's representation of a Lexicon <c>bytes</c> value: <c>{ "$bytes": "&lt;base64&gt;" }</c>.</summary>
 /// <remarks>
 /// <para>Lexicon <c>bytes</c> is a first-class CBOR byte string, and the JSON data model wraps
 /// it in a single-key object rather than emitting a bare string, so that a byte string and a

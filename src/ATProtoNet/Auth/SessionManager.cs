@@ -5,6 +5,7 @@ using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Server;
+using ATProtoNet.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Auth;

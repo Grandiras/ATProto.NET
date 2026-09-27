@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Runtime.CompilerServices;
 using ATProtoNet.Auth;
@@ -39,10 +38,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet;
 
-/// <summary>
-/// The main AT Protocol client. Build custom AT Protocol applications,
-/// or interact with Bluesky and any atproto-compatible service.
-/// </summary>
+/// <summary>The main AT Protocol client. Build custom AT Protocol applications, or interact with Bluesky and any atproto-compatible service.</summary>
 /// <remarks>
 /// <para>Construct it with <see cref="AtProtoClient(AtProtoClientOptions?, HttpClient?, IAtProtoSessionStore?, ILogger{AtProtoClient}?)"/>
 /// or register it via dependency injection with <c>services.AddAtProto()</c>.</para>
@@ -104,7 +100,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     {
     }
 
-    /// <summary>Create a new client with full configuration and a clock, for tests.</summary>
+    // Create a new client with full configuration and a clock, for tests.
     internal AtProtoClient(
         AtProtoClientOptions options,
         HttpClient? httpClient,
@@ -210,25 +206,16 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <summary>com.atproto.moderation.* — moderation reporting.</summary>
     public ModerationClient Moderation { get; }
 
-    /// <summary>
-    /// com.atproto.space.* — the permissioned data protocol: spaces, permissioned repos,
-    /// and their sync.
-    /// </summary>
+    /// <summary>com.atproto.space.* — the permissioned data protocol: spaces, permissioned repos, and their sync.</summary>
     public SpaceClient Space { get; }
 
     /// <summary>com.atproto.simplespace.* — the space-management implementation every PDS supports.</summary>
     public SimpleSpaceClient SimpleSpace { get; }
 
-    /// <summary>
-    /// com.atproto.temp.* — methods upstream marks temporary: handle availability, the signup
-    /// queue, OAuth scope references.
-    /// </summary>
+    /// <summary>com.atproto.temp.* — methods upstream marks temporary: handle availability, the signup queue, OAuth scope references.</summary>
     public TempClient Temp { get; }
 
-    /// <summary>
-    /// com.atproto.lexicon.* — Lexicon resolution through the service. To resolve and verify
-    /// schemas locally, use <see cref="LexiconResolver"/>.
-    /// </summary>
+    /// <summary>com.atproto.lexicon.* — Lexicon resolution through the service. To resolve and verify schemas locally, use <see cref="LexiconResolver"/>.</summary>
     public LexiconClient Lexicon { get; }
 
     /// <summary>app.bsky.* — Bluesky social application APIs.</summary>
@@ -245,10 +232,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
     // ── Custom Lexicon support ───────────────────────────────
 
-    /// <summary>
-    /// Get a strongly-typed <see cref="RecordCollection{T}"/> for a record type that names its
-    /// collection. This is the primary API for building custom AT Protocol applications.
-    /// </summary>
+    /// <summary>Get a strongly-typed <see cref="RecordCollection{T}"/> for a record type that names its collection. This is the primary API for building custom AT Protocol applications.</summary>
     /// <typeparam name="T">Your record type, declaring its collection through <see cref="IAtProtoRecord"/>.</typeparam>
     /// <returns>A typed collection providing Create, Get, Find, Put, Delete, List, and Enumerate operations.</returns>
     /// <example>
@@ -289,11 +273,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         return new RecordCollection<T>(this, collection);
     }
 
-    /// <summary>
-    /// The XRPC transport the sub-clients send through: this client's service and session.
-    /// Build a sub-client for a Lexicon the SDK does not ship on it, so its calls sign in,
-    /// refresh and sign out with this client.
-    /// </summary>
+    /// <summary>The XRPC transport the sub-clients send through: this client's service and session. Build a sub-client for a Lexicon the SDK does not ship on it, so its calls sign in, refresh and sign out with this client.</summary>
     /// <example>
     /// <code>
     /// public sealed class TodoClient(IXrpcTransport transport)
@@ -330,35 +310,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         CancellationToken cancellationToken = default) =>
         Transport.QueryAsync<TOut>(nsid, parameters, options, cancellationToken);
 
-    /// <summary>
-    /// Call a custom XRPC query (HTTP GET) with its parameters given as an object: an anonymous
-    /// type or a dictionary.
-    /// </summary>
-    /// <typeparam name="TOut">The expected output type.</typeparam>
-    /// <param name="nsid">The method NSID (e.g., "com.example.todo.listItems").</param>
-    /// <param name="parameters">
-    /// The parameters: each public property (or dictionary entry) is one, a sequence value is
-    /// sent as a repeated key, timestamps go out as ISO 8601 UTC and enums by their JSON names.
-    /// </param>
-    /// <param name="options">Optional per-call settings: proxy, labelers, headers, timeout.</param>
-    /// <remarks>
-    /// The properties are read by reflection, so this overload is not trim-safe; the
-    /// <see cref="XrpcParams"/> overload is.
-    /// </remarks>
-    /// <exception cref="XrpcException">The service answered with an XRPC error.</exception>
-    /// <exception cref="XrpcResponseFormatException">The response is not a <typeparamref name="TOut"/>.</exception>
-    [RequiresUnreferencedCode(XrpcParams.AnonymousParametersWarning)]
-    public Task<TOut> QueryAsync<TOut>(
-        Nsid nsid,
-        object parameters,
-        XrpcCallOptions? options = null,
-        CancellationToken cancellationToken = default) =>
-        Transport.QueryAsync<TOut>(nsid, XrpcParams.From(parameters), options, cancellationToken);
-
-    /// <summary>
-    /// Call a custom XRPC procedure (HTTP POST) endpoint defined by your Lexicon and read its
-    /// output.
-    /// </summary>
+    /// <summary>Call a custom XRPC procedure (HTTP POST) endpoint defined by your Lexicon and read its output.</summary>
     /// <typeparam name="TIn">The input type.</typeparam>
     /// <typeparam name="TOut">The expected output type.</typeparam>
     /// <param name="nsid">The method NSID (e.g., "com.example.todo.updateStatus").</param>
@@ -416,10 +368,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
     // ── Session state ────────────────────────────────────────
 
-    /// <summary>
-    /// The installed session — a <see cref="PasswordSession"/> or an <see cref="OAuthSession"/> —
-    /// or <see langword="null"/> when signed out. Each refresh replaces it with a new value.
-    /// </summary>
+    /// <summary>The installed session — a <see cref="PasswordSession"/> or an <see cref="OAuthSession"/> — or <see langword="null"/> when signed out. Each refresh replaces it with a new value.</summary>
     public AtProtoSession? Session => _sessions.Session;
 
     /// <summary>Whether a session is installed.</summary>
@@ -431,10 +380,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <summary>The handle of the authenticated account, or null.</summary>
     public Handle? Handle => Session?.Handle;
 
-    /// <summary>
-    /// Raised after the session changes: installed (<see cref="AtProtoSessionChange.Created"/>),
-    /// refreshed, expired because its refresh token was refused, or signed out.
-    /// </summary>
+    /// <summary>Raised after the session changes: installed (<see cref="AtProtoSessionChange.Created"/>), refreshed, expired because its refresh token was refused, or signed out.</summary>
     /// <remarks>
     /// Handlers run synchronously on the thread that made the change, after the client has
     /// released its session lock, so a handler may call back into the client. An exception a
@@ -443,26 +389,15 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// </remarks>
     public event EventHandler<AtProtoSessionChangedEventArgs>? SessionChanged;
 
-    /// <summary>
-    /// The latest repository revision (TID) received from the service via the
-    /// <c>Atproto-Repo-Rev</c> response header. Indicates how up-to-date
-    /// the service is with the authenticated account's repository. A header value that is not a
-    /// TID reads as <see langword="null"/>.
-    /// </summary>
+    /// <summary>The latest repository revision (TID) received from the service via the <c>Atproto-Repo-Rev</c> response header. Indicates how up-to-date the service is with the authenticated account's repository. A header value that is not a TID reads as <see langword="null"/>.</summary>
     public Tid? LatestRepoRev => Tid.TryParse(_xrpc.LatestRepoRev, out var rev) ? rev : null;
 
-    /// <summary>
-    /// The latest rate limit information parsed from HTTP response headers.
-    /// Updated after every XRPC request.
-    /// </summary>
+    /// <summary>The latest rate limit information parsed from HTTP response headers. Updated after every XRPC request.</summary>
     public RateLimitInfo? LatestRateLimitInfo => _xrpc.LatestRateLimitInfo;
 
     // ── Service Proxying ─────────────────────────────────────
 
-    /// <summary>
-    /// Sets the default <c>atproto-proxy</c> header for all subsequent XRPC requests.
-    /// When set, the PDS will proxy requests to the specified service.
-    /// </summary>
+    /// <summary>Sets the default <c>atproto-proxy</c> header for all subsequent XRPC requests. When set, the PDS will proxy requests to the specified service.</summary>
     /// <remarks>
     /// This is a client-wide default, applied to authenticated and unauthenticated calls alike
     /// (but not to the session calls — sign-in, refresh, sign-out — which address the PDS
@@ -479,10 +414,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <summary>Clears the default <c>atproto-proxy</c> header.</summary>
     public void ClearProxy() => _xrpc.ClearProxy();
 
-    /// <summary>
-    /// Sets the subscribed labeler DIDs. When set, all XRPC requests include the
-    /// <c>atproto-accept-labelers</c> header so the server returns labels from these labelers.
-    /// </summary>
+    /// <summary>Sets the subscribed labeler DIDs. When set, all XRPC requests include the <c>atproto-accept-labelers</c> header so the server returns labels from these labelers.</summary>
     /// <remarks>
     /// A client-wide default, sent with or without a session. To vary it per call, pass
     /// <see cref="XrpcCallOptions.AcceptLabelers"/> instead.
@@ -498,10 +430,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
     // ── Authentication ───────────────────────────────────────
 
-    /// <summary>
-    /// Sign in with a password or app password (<c>com.atproto.server.createSession</c>) and
-    /// install the session.
-    /// </summary>
+    /// <summary>Sign in with a password or app password (<c>com.atproto.server.createSession</c>) and install the session.</summary>
     /// <param name="identifier">The account's handle, DID or email address.</param>
     /// <param name="password">The password or app password.</param>
     /// <param name="authFactorToken">The emailed second-factor token, when the account needs one.</param>
@@ -555,10 +484,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         return session;
     }
 
-    /// <summary>
-    /// Create an account (<c>com.atproto.server.createAccount</c>) and install the session the
-    /// service returns for it.
-    /// </summary>
+    /// <summary>Create an account (<c>com.atproto.server.createAccount</c>) and install the session the service returns for it.</summary>
     /// <param name="request">The account to create.</param>
     /// <returns>The new account's session.</returns>
     /// <remarks>
@@ -590,11 +516,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         return session;
     }
 
-    /// <summary>
-    /// Install a session you already hold — the <see cref="OAuthAuthorizationResult.Session"/> that
-    /// <see cref="OAuthClient.CompleteAuthorizationAsync"/> returns, or one saved earlier — as it
-    /// is, without contacting the service.
-    /// </summary>
+    /// <summary>Install a session you already hold — the <see cref="OAuthAuthorizationResult.Session"/> that <see cref="OAuthClient.CompleteAuthorizationAsync"/> returns, or one saved earlier — as it is, without contacting the service.</summary>
     /// <param name="session">The session. It replaces any installed session, of either kind.</param>
     /// <param name="oauthClient">
     /// For an <see cref="OAuthSession"/>, the <see cref="OAuthClient"/> that issued it, which
@@ -617,10 +539,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         CancellationToken cancellationToken = default) =>
         await _sessions.InstallAsync(session, oauthClient, persist: true, cancellationToken).ConfigureAwait(false);
 
-    /// <summary>
-    /// Install a saved session and check it with the service (<c>com.atproto.server.getSession</c>),
-    /// refreshing it if the access token has expired.
-    /// </summary>
+    /// <summary>Install a saved session and check it with the service (<c>com.atproto.server.getSession</c>), refreshing it if the access token has expired.</summary>
     /// <param name="session">The saved session.</param>
     /// <param name="oauthClient">For an <see cref="OAuthSession"/>, the <see cref="OAuthClient"/> that issued it.</param>
     /// <returns>
@@ -669,10 +588,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         return current;
     }
 
-    /// <summary>
-    /// Install the session of <paramref name="did"/> from the session store, if it holds one,
-    /// without contacting the service.
-    /// </summary>
+    /// <summary>Install the session of <paramref name="did"/> from the session store, if it holds one, without contacting the service.</summary>
     /// <param name="did">The account to restore.</param>
     /// <param name="oauthClient">For an <see cref="OAuthSession"/>, the <see cref="OAuthClient"/> that issued it.</param>
     /// <returns>Whether a session was found and installed.</returns>
@@ -696,17 +612,16 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         return true;
     }
 
-    /// <summary>
-    /// Installs a session read from the session store, as <see cref="TryRestoreSessionAsync"/>
-    /// does, with its DPoP key already loaded: the server integration's client factory keeps the
-    /// imported key of each account rather than importing it for every request.
-    /// </summary>
-    /// <param name="session">The stored session.</param>
-    /// <param name="oauthClient">For an <see cref="OAuthSession"/>, the <see cref="OAuthClient"/> that issued it.</param>
-    /// <param name="dpop">
-    /// For an <see cref="OAuthSession"/>, a key object for its <see cref="OAuthSession.DPoPKey"/>,
-    /// which the client takes over; <see langword="null"/> imports the key.
-    /// </param>
+    // Installs a session read from the session store, as TryRestoreSessionAsync does, with its DPoP key
+    // already loaded: the server integration's client factory keeps the imported key of each account
+    // rather than importing it for every request.
+    //
+    // session: The stored session.
+    //
+    // oauthClient: For an OAuthSession, the OAuthClient that issued it.
+    //
+    // dpop: For an OAuthSession, a key object for its OAuthSession.DPoPKey, which the client takes over;
+    // null imports the key.
     internal async Task InstallStoredSessionAsync(
         AtProtoSession session, OAuthClient? oauthClient, DPoPProofGenerator? dpop, CancellationToken cancellationToken)
     {
@@ -715,11 +630,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         await _sessions.InstallAsync(session, oauthClient, persist: false, cancellationToken, dpop).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Refresh the session's tokens now: a password session through
-    /// <c>com.atproto.server.refreshSession</c>, an OAuth session through its authorization
-    /// server. Calls made concurrently share one refresh.
-    /// </summary>
+    /// <summary>Refresh the session's tokens now: a password session through <c>com.atproto.server.refreshSession</c>, an OAuth session through its authorization server. Calls made concurrently share one refresh.</summary>
     /// <remarks>
     /// With <see cref="AtProtoClientOptions.AutoRefreshSession"/> on (the default) this is
     /// rarely needed: the client refreshes before the access token expires, and again when the
@@ -736,11 +647,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     public Task RefreshSessionAsync(CancellationToken cancellationToken = default) =>
         _sessions.RefreshAsync(cancellationToken);
 
-    /// <summary>
-    /// Sign out: remove the session from the client and its store, then end it at the service —
-    /// <c>com.atproto.server.deleteSession</c> for a password session, token revocation
-    /// (RFC 7009) for an OAuth session.
-    /// </summary>
+    /// <summary>Sign out: remove the session from the client and its store, then end it at the service — <c>com.atproto.server.deleteSession</c> for a password session, token revocation (RFC 7009) for an OAuth session.</summary>
     /// <param name="cancellationToken">
     /// Cancels the wait for the session lock and the call to the service; the local teardown and
     /// the store removal complete regardless.
@@ -758,11 +665,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
 
     // ── Dynamic PDS ──────────────────────────────────────────
 
-    /// <summary>
-    /// Points the client at another service — typically the user's PDS — at runtime. Call this
-    /// before <see cref="LoginAsync"/> when the user selects a different PDS; installing a
-    /// session moves the client to the session's service for you.
-    /// </summary>
+    /// <summary>Points the client at another service — typically the user's PDS — at runtime. Call this before <see cref="LoginAsync"/> when the user selects a different PDS; installing a session moves the client to the session's service for you.</summary>
     /// <remarks>
     /// Safe on a client that has already sent requests, and on an <see cref="HttpClient"/> shared
     /// with other clients: the URL is held by this client, not written to the HttpClient.
@@ -779,27 +682,23 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         _logger.LogInformation("Switched service to {ServiceUrl}", _xrpc.ServiceUrl);
     }
 
-    /// <summary>
-    /// The service this client sends requests to: <see cref="AtProtoClientOptions.InstanceUrl"/>
-    /// until <see cref="SetServiceUrl"/> or an installed session changes it.
-    /// </summary>
+    /// <summary>The service this client sends requests to: <see cref="AtProtoClientOptions.InstanceUrl"/> until <see cref="SetServiceUrl"/> or an installed session changes it.</summary>
     public Uri ServiceUrl => _xrpc.ServiceUrl;
 
     // ── Private helpers ──────────────────────────────────────
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
 
-    /// <summary>The logger, for the helpers that act on the client's behalf.</summary>
+    // The logger, for the helpers that act on the client's behalf.
     internal ILogger Logger => _logger;
 
-    /// <summary>The <see cref="HttpClient"/> the client sends with.</summary>
+    // The HttpClient the client sends with.
     internal HttpClient HttpClient => _httpClient;
 
-    /// <summary>
-    /// The installed session, for a call that acts on the signed-in account; read once, so the
-    /// caller works with one account even when the session changes meanwhile.
-    /// </summary>
-    /// <exception cref="XrpcAuthenticationException">No session is installed.</exception>
+    // The installed session, for a call that acts on the signed-in account; read once, so the caller
+    // works with one account even when the session changes meanwhile.
+    //
+    // Throws XrpcAuthenticationException: No session is installed.
     internal AtProtoSession RequireSession() =>
         _sessions.Session ?? throw new XrpcAuthenticationException(
             XrpcErrors.AuthenticationRequired,
@@ -807,17 +706,14 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             HttpStatusCode.Unauthorized,
             nsid: null);
 
-    /// <summary>The DID of the installed session's account.</summary>
-    /// <exception cref="XrpcAuthenticationException">No session is installed.</exception>
+    // The DID of the installed session's account.
+    //
+    // Throws XrpcAuthenticationException: No session is installed.
     internal Did RequireDid() => RequireSession().Did;
 
     // ── Disposal ─────────────────────────────────────────────
 
-    /// <summary>
-    /// Releases the client, first waiting for a token exchange already under way to finish and
-    /// be stored (bounded by the exchange's 30-second limit). This is the preferred way to
-    /// dispose it.
-    /// </summary>
+    /// <summary>Releases the client, first waiting for a token exchange already under way to finish and be stored (bounded by the exchange's 30-second limit). This is the preferred way to dispose it.</summary>
     /// <remarks>
     /// The session stays valid at the service (dispose is not sign-out; call
     /// <see cref="LogoutAsync"/> for that) and in the session store. The client disposes what it
@@ -835,11 +731,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             _httpClient.Dispose();
     }
 
-    /// <summary>
-    /// Releases the client without waiting. A token exchange already under way still finishes
-    /// and is stored in the background, since abandoning it could leave the store with a spent
-    /// refresh token; the DPoP key it uses is released once it is done.
-    /// </summary>
+    /// <summary>Releases the client without waiting. A token exchange already under way still finishes and is stored in the background, since abandoning it could leave the store with a spent refresh token; the DPoP key it uses is released once it is done.</summary>
     /// <remarks>Prefer <see cref="DisposeAsync"/>; see there for what is and is not disposed.</remarks>
     public void Dispose()
     {
@@ -911,18 +803,11 @@ public sealed partial class BlueskyClients
     /// <summary>app.bsky.embed.* — resolving records into external embed views.</summary>
     public EmbedClient Embed { get; }
 
-    /// <summary>
-    /// app.bsky.unspecced.* — endpoints the Bluesky app uses before they are specified, which
-    /// may change without notice.
-    /// </summary>
+    /// <summary>app.bsky.unspecced.* — endpoints the Bluesky app uses before they are specified, which may change without notice.</summary>
     public UnspeccedClient Unspecced { get; }
 }
 
-/// <summary>
-/// Groups the Bluesky Chat sub-clients.
-/// Their requests are automatically proxied to the chat service via the <c>atproto-proxy</c>
-/// header, except <see cref="Moderation"/>'s. Requires the <c>transition:chat.bsky</c> OAuth scope.
-/// </summary>
+/// <summary>Groups the Bluesky Chat sub-clients. Their requests are automatically proxied to the chat service via the <c>atproto-proxy</c> header, except <see cref="Moderation"/>'s. Requires the <c>transition:chat.bsky</c> OAuth scope.</summary>
 public sealed class ChatClients
 {
     internal ChatClients(
@@ -958,10 +843,7 @@ public sealed class ChatClients
 /// <summary>Configuration options for <see cref="AtProtoClient"/>.</summary>
 public sealed class AtProtoClientOptions
 {
-    /// <summary>
-    /// The base URL of the PDS or service instance.
-    /// Default: "https://bsky.social"
-    /// </summary>
+    /// <summary>The base URL of the PDS or service instance. Default: "https://bsky.social"</summary>
     /// <remarks>
     /// <para>This is always the service the client starts with, even when it is given an
     /// <see cref="HttpClient"/> that has a <see cref="HttpClient.BaseAddress"/>: the SDK
@@ -971,30 +853,17 @@ public sealed class AtProtoClientOptions
     /// </remarks>
     public string InstanceUrl { get; set; } = "https://bsky.social";
 
-    /// <summary>
-    /// The <c>User-Agent</c> header sent with every request. Default:
-    /// <c>ATProtoNet/&lt;version&gt;</c>. Set it to identify your application; set it to
-    /// <see langword="null"/> to send none of the SDK's own, leaving any default of the
-    /// <see cref="HttpClient"/> in place.
-    /// </summary>
+    /// <summary>The <c>User-Agent</c> header sent with every request. Default: <c>ATProtoNet/&lt;version&gt;</c>. Set it to identify your application; set it to <see langword="null"/> to send none of the SDK's own, leaving any default of the <see cref="HttpClient"/> in place.</summary>
     /// <remarks>
     /// The header is set on each request rather than on the <see cref="HttpClient"/>, so
     /// clients sharing one <see cref="HttpClient"/> can each send their own.
     /// </remarks>
     public string? UserAgent { get; set; } = AtProtoHttp.DefaultUserAgent;
 
-    /// <summary>
-    /// How HTTP 429 (Too Many Requests) is retried: how many times, and the longest wait
-    /// accepted before the call throws <see cref="XrpcRateLimitException"/> instead.
-    /// </summary>
+    /// <summary>How HTTP 429 (Too Many Requests) is retried: how many times, and the longest wait accepted before the call throws <see cref="XrpcRateLimitException"/> instead.</summary>
     public XrpcRateLimitOptions RateLimit { get; set; } = new();
 
-    /// <summary>
-    /// Whether the client refreshes the session by itself: before a request when the access
-    /// token is about to expire, and once more when the service answers that it has
-    /// (<c>ExpiredToken</c>, or a DPoP <c>invalid_token</c> challenge), resending the request.
-    /// Default: true.
-    /// </summary>
+    /// <summary>Whether the client refreshes the session by itself: before a request when the access token is about to expire, and once more when the service answers that it has (<c>ExpiredToken</c>, or a DPoP <c>invalid_token</c> challenge), resending the request. Default: true.</summary>
     /// <remarks>
     /// With it off, requests carry whatever token is installed, and an expired one fails with
     /// <see cref="XrpcAuthenticationException"/> until <see cref="AtProtoClient.RefreshSessionAsync"/>
@@ -1002,20 +871,10 @@ public sealed class AtProtoClientOptions
     /// </remarks>
     public bool AutoRefreshSession { get; set; } = true;
 
-    /// <summary>
-    /// Whether to also refresh on a timer shortly before the access token expires, even when no
-    /// request is being made, so an idle client's session (and its stored copy) stays current.
-    /// Needs <see cref="AutoRefreshSession"/>. Default: false — refreshing on demand covers every
-    /// request.
-    /// </summary>
+    /// <summary>Whether to also refresh on a timer shortly before the access token expires, even when no request is being made, so an idle client's session (and its stored copy) stays current. Needs <see cref="AutoRefreshSession"/>. Default: false — refreshing on demand covers every request.</summary>
     public bool BackgroundRefresh { get; set; }
 
-    /// <summary>
-    /// Coordinates this client's refreshes with the other clients that share its session store,
-    /// so an account's single-use refresh token is spent once (see
-    /// <see cref="ISessionRefreshCoordinator"/>). Used only when the client has a session store.
-    /// Default: <see langword="null"/>, for a client that is the only one acting for its account.
-    /// </summary>
+    /// <summary>Coordinates this client's refreshes with the other clients that share its session store, so an account's single-use refresh token is spent once (see <see cref="ISessionRefreshCoordinator"/>). Used only when the client has a session store. Default: <see langword="null"/>, for a client that is the only one acting for its account.</summary>
     /// <remarks>
     /// Give every client that shares the store the same coordinator. The server integration's
     /// client factory does this for its per-request clients.

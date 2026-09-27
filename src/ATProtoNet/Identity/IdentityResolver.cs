@@ -40,10 +40,7 @@ public sealed class IdentityResolver : IIdentityResolver, IDisposable
         _owned = owned;
     }
 
-    /// <summary>
-    /// Creates a resolver with the SDK's defaults: a <see cref="CachingDidResolver"/> over a
-    /// <see cref="DidResolver"/>, and a <see cref="HandleResolver"/>, all owned by the result.
-    /// </summary>
+    /// <summary>Creates a resolver with the SDK's defaults: a <see cref="CachingDidResolver"/> over a <see cref="DidResolver"/>, and a <see cref="HandleResolver"/>, all owned by the result.</summary>
     /// <param name="options">Resolver options. Defaults apply when omitted.</param>
     /// <param name="logger">Optional logger.</param>
     /// <returns>The resolver. Dispose it to release its clients.</returns>

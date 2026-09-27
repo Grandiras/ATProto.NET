@@ -1,15 +1,11 @@
 using System.Formats.Cbor;
-using System.Security.Cryptography;
 using System.Text;
 using ATProtoNet.Crypto;
 using ATProtoNet.Models;
 
 namespace ATProtoNet.Labeling;
 
-/// <summary>
-/// The <see href="https://atproto.com/specs/label#signature-and-validation">label signature</see>
-/// primitives: the bytes a label's signature covers, and checking a signature against a known key.
-/// </summary>
+/// <summary>The <see href="https://atproto.com/specs/label#signature-and-validation">label signature</see> primitives: the bytes a label's signature covers, and checking a signature against a known key.</summary>
 /// <remarks>
 /// <para>A label is signed over its DRISL (deterministic DAG-CBOR) encoding without the
 /// <c>sig</c> field: SHA-256 of those bytes, signed with the labeler's <c>#atproto_label</c> key,
@@ -75,8 +71,9 @@ public static class LabelSigning
             : LabelVerificationStatus.InvalidSignature;
     }
 
-    /// <summary>Checks what can be checked without a key, and encodes the signed bytes.</summary>
-    /// <returns>Why the label cannot verify, or <see langword="null"/> when it is worth a key.</returns>
+    // Checks what can be checked without a key, and encodes the signed bytes.
+    //
+    // Returns: Why the label cannot verify, or null when it is worth a key.
     internal static LabelVerificationStatus? Prepare(Label label, out byte[] bytes)
     {
         bytes = [];
@@ -101,22 +98,9 @@ public static class LabelSigning
         }
     }
 
-    /// <summary>Verifies a signature, reading key material this platform cannot use as a failure.</summary>
-    internal static bool VerifyWith(string didKey, byte[] bytes, byte[] signature)
-    {
-        try
-        {
-            return AtProtoCrypto.VerifySignature(didKey, bytes, signature);
-        }
-        catch (Exception ex) when (
-            ex is ArgumentException or FormatException or NotSupportedException or CryptographicException)
-        {
-            return false;
-        }
-    }
-
-    /// <summary>Encodes a label as DRISL, with or without its signature.</summary>
-    /// <exception cref="ArgumentException">See <see cref="GetSigningBytes"/>.</exception>
+    // Encodes a label as DRISL, with or without its signature.
+    //
+    // Throws ArgumentException: See GetSigningBytes.
     internal static byte[] Encode(Label label, bool includeSignature)
     {
         var writer = new CborWriter(CborConformanceMode.Lax);
@@ -124,8 +108,9 @@ public static class LabelSigning
         return writer.Encode();
     }
 
-    /// <summary>Writes a label as a DRISL map, with or without its signature.</summary>
-    /// <exception cref="ArgumentException">See <see cref="GetSigningBytes"/>.</exception>
+    // Writes a label as a DRISL map, with or without its signature.
+    //
+    // Throws ArgumentException: See GetSigningBytes.
     internal static void Write(CborWriter writer, Label label, bool includeSignature)
     {
         // Required by the Lexicon, and by the model; a label built around the model's contract
@@ -194,6 +179,6 @@ public static class LabelSigning
         }
     }
 
-    /// <summary>The UTF-8 length of a label value, as the Lexicon's <c>maxLength</c> counts it.</summary>
+    // The UTF-8 length of a label value, as the Lexicon's maxLength counts it.
     internal static int ValueLength(string value) => Encoding.UTF8.GetByteCount(value);
 }

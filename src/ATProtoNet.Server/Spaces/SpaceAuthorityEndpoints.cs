@@ -11,20 +11,18 @@ using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// Serves <c>com.atproto.space.getSpaceCredential</c>: the credential exchange, and the only
-/// point at which a space authority decides who may read a space.
-/// </summary>
-/// <remarks>
-/// <para>The exchange takes a delegation token minted by the requesting user's PDS and a DPoP
-/// proof, optionally alongside a client attestation, and returns a credential bound to the key
-/// that signed the proof. Everything downstream of it — every repo host in the space — trusts
-/// this decision and does not revisit it, which is why all of the policy lives here.</para>
-/// <para>Refusals are attributed deliberately. <c>AppNotAuthorized</c> is what tells a client
-/// holding an attestation to retry with it, since whether a space gates on app identity is not
-/// advertised anywhere; a space that does not wish to disclose which perimeter failed answers
-/// <c>NotAuthorized</c> instead, which a client does not retry.</para>
-/// </remarks>
+// Serves com.atproto.space.getSpaceCredential: the credential exchange, and the only point at which a
+// space authority decides who may read a space.
+//
+// The exchange takes a delegation token minted by the requesting user's PDS and a DPoP proof, optionally
+// alongside a client attestation, and returns a credential bound to the key that signed the proof.
+// Everything downstream of it — every repo host in the space — trusts this decision and does not revisit
+// it, which is why all of the policy lives here.
+//
+// Refusals are attributed deliberately. AppNotAuthorized is what tells a client holding an attestation
+// to retry with it, since whether a space gates on app identity is not advertised anywhere; a space that
+// does not wish to disclose which perimeter failed answers NotAuthorized instead, which a client does
+// not retry.
 [AuthenticatesItself]
 internal sealed class GetSpaceCredentialEndpoint(
     SpaceRequestAuthenticator authenticator,
@@ -83,15 +81,13 @@ internal sealed class GetSpaceCredentialEndpoint(
     }
 }
 
-/// <summary>Serves <c>com.atproto.space.listRepos</c>: a space's writer set.</summary>
-/// <remarks>
-/// The writer set is the <em>sync boundary</em>, not an access-control list. It enumerates the
-/// accounts that have written at least one record and that the space's write policy admitted —
-/// never the broader set allowed to write, and never readers; the protocol does not enumerate
-/// readers at all. It is also only what this authority claims, kept current by the write
-/// notifications it has accepted; a listed account's repo host is the source of truth, which is
-/// what the per-entry revision is for.
-/// </remarks>
+// Serves com.atproto.space.listRepos: a space's writer set.
+//
+// The writer set is the sync boundary, not an access-control list. It enumerates the accounts that have
+// written at least one record and that the space's write policy admitted — never the broader set allowed
+// to write, and never readers; the protocol does not enumerate readers at all. It is also only what this
+// authority claims, kept current by the write notifications it has accepted; a listed account's repo
+// host is the source of truth, which is what the per-entry revision is for.
 [AuthenticatesItself]
 internal sealed class ListSpaceReposEndpoint(SpaceRequestAuthenticator authenticator, ISpaceAuthorityStore store)
     : IXrpcQuery<ListSpaceReposParameters, ListSpaceReposResponse>
@@ -111,7 +107,7 @@ internal sealed class ListSpaceReposEndpoint(SpaceRequestAuthenticator authentic
             space, SpaceRequestValidation.Limit(parameters.Limit), parameters.Cursor, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Refuses a request for a space this authority does not gate, or has deleted.</summary>
+    // Refuses a request for a space this authority does not gate, or has deleted.
     internal static async Task RequireLiveSpaceAsync(
         ISpaceAuthorityStore store, SpaceUri space, CancellationToken cancellationToken)
     {
@@ -129,14 +125,12 @@ internal sealed class ListSpaceReposEndpoint(SpaceRequestAuthenticator authentic
     };
 }
 
-/// <summary>Serves <c>com.atproto.space.registerNotify</c>: a syncer subscribing to a space's writes.</summary>
-/// <remarks>
-/// Notifications are the latency optimization, not the correctness guarantee. They carry no
-/// record data — only that a repo reached a new revision and hash — and are best-effort: a
-/// dropped one is not a lost write, because the syncer's periodic sweep over
-/// <c>listRepos</c> catches it. That is why the registration merely has to be recorded, and why
-/// letting one lapse is not an error.
-/// </remarks>
+// Serves com.atproto.space.registerNotify: a syncer subscribing to a space's writes.
+//
+// Notifications are the latency optimization, not the correctness guarantee. They carry no record data —
+// only that a repo reached a new revision and hash — and are best-effort: a dropped one is not a lost
+// write, because the syncer's periodic sweep over listRepos catches it. That is why the registration
+// merely has to be recorded, and why letting one lapse is not an error.
 [AuthenticatesItself]
 internal sealed class RegisterNotifyEndpoint(
     SpaceRequestAuthenticator authenticator,
@@ -170,13 +164,12 @@ internal sealed class RegisterNotifyEndpoint(
     }
 }
 
-/// <summary>Serves <c>com.atproto.space.unregisterNotify</c>.</summary>
-/// <remarks>
-/// As in the reference authority, any caller with a credential for the space may remove any
-/// registration in it: a credential names the space and the reading client, not a subscriber
-/// service, so there is nothing to match <c>service</c> against. A removed syncer loses only
-/// latency — its <c>listRepos</c> sweep still catches every write — and its next renewal restores it.
-/// </remarks>
+// Serves com.atproto.space.unregisterNotify.
+//
+// As in the reference authority, any caller with a credential for the space may remove any registration
+// in it: a credential names the space and the reading client, not a subscriber service, so there is
+// nothing to match service against. A removed syncer loses only latency — its listRepos sweep still
+// catches every write — and its next renewal restores it.
 [AuthenticatesItself]
 internal sealed class UnregisterNotifyEndpoint(SpaceRequestAuthenticator authenticator, ISpaceAuthorityStore store)
     : IXrpcProcedureVoid<UnregisterNotifyRequest>
@@ -199,31 +192,26 @@ internal sealed class UnregisterNotifyEndpoint(SpaceRequestAuthenticator authent
     }
 }
 
-/// <summary>
-/// Serves <c>com.atproto.space.notifyWrite</c>: a repo host telling this authority that one of
-/// its repos advanced.
-/// </summary>
-/// <remarks>
-/// <para>This is what keeps <c>listRepos</c> current, and it is how an account joins the writer
-/// set at all — the set is the accounts that have written at least one record <em>and</em> that
-/// the space's write policy admits, and this notification is the authority's only evidence of the
-/// first.</para>
-/// <para>It is authenticated with <em>service auth</em> rather than with a space credential:
-/// the caller is the writer's PDS, not an application acting for a user. The token is checked by
-/// <see cref="ServiceAuthVerifier"/> under <see cref="SpaceServerOptions.ClockSkew"/> and
-/// <see cref="SpaceServerOptions.MaxSingleUseTokenLifetime"/>, and a refusal is answered as
-/// <see cref="SpaceErrors.NotAuthorized"/>. As in the reference implementation, the token's
-/// <c>iss</c> must be the writer itself — a PDS signs it with the account's own key
-/// (<see cref="ISpaceAccountSigner"/> on an SDK host) — so no service can advance another
-/// account's revision in the writer set, however its DID document describes it. The token may
-/// address this authority by its bare DID (what the reference implementation sends), as
-/// <c>{authority}#atproto_space_host</c>, or by <see cref="SpaceServerOptions.ServiceDid"/>.</para>
-/// <para>The writer is then put to the access policy as a <see cref="SpaceAccessKind.Write"/>.
-/// One it refuses is answered with 403 and neither recorded nor forwarded — refusing a write
-/// notification does not stop anyone writing to their own repo, only this authority listing and
-/// relaying it. One it admits is recorded, and forwarded in the background to every service
-/// registered for the space.</para>
-/// </remarks>
+// Serves com.atproto.space.notifyWrite: a repo host telling this authority that one of its repos
+// advanced.
+//
+// This is what keeps listRepos current, and it is how an account joins the writer set at all — the set
+// is the accounts that have written at least one record and that the space's write policy admits, and
+// this notification is the authority's only evidence of the first.
+//
+// It is authenticated with service auth rather than with a space credential: the caller is the writer's
+// PDS, not an application acting for a user. The token is checked by ServiceAuthVerifier under
+// SpaceServerOptions.ClockSkew and SpaceServerOptions.MaxSingleUseTokenLifetime, and a refusal is
+// answered as SpaceErrors.NotAuthorized. As in the reference implementation, the token's iss must be the
+// writer itself — a PDS signs it with the account's own key (ISpaceAccountSigner on an SDK host) — so no
+// service can advance another account's revision in the writer set, however its DID document describes
+// it. The token may address this authority by its bare DID (what the reference implementation sends), as
+// {authority}#atproto_space_host, or by SpaceServerOptions.ServiceDid.
+//
+// The writer is then put to the access policy as a SpaceAccessKind.Write. One it refuses is answered
+// with 403 and neither recorded nor forwarded — refusing a write notification does not stop anyone
+// writing to their own repo, only this authority listing and relaying it. One it admits is recorded, and
+// forwarded in the background to every service registered for the space.
 [AuthenticatesItself]
 internal sealed class NotifyWriteEndpoint(
     [FromKeyedServices(SpaceServerExtensions.DidResolverKey)] IDidResolver resolver,
@@ -295,7 +283,7 @@ internal sealed class NotifyWriteEndpoint(
         _ = notifier?.ForwardWriteAsync(space, repo, rev, hash);
     }
 
-    /// <summary>Verifies the request's service auth, reporting a refusal as <see cref="SpaceErrors.NotAuthorized"/>.</summary>
+    // Verifies the request's service auth, reporting a refusal as SpaceErrors.NotAuthorized.
     internal async Task<VerifiedServiceAuth> VerifyCallerAsync(
         HttpContext context, SpaceUri space, CancellationToken cancellationToken)
     {

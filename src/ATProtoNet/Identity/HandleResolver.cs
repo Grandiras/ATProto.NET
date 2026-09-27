@@ -1,13 +1,11 @@
 using System.Text;
+using ATProtoNet.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// Resolves handles through their own authorities: the <c>_atproto.&lt;handle&gt;</c> DNS TXT
-/// record, queried over DNS-over-HTTPS, and <c>https://&lt;handle&gt;/.well-known/atproto-did</c>.
-/// </summary>
+/// <summary>Resolves handles through their own authorities: the <c>_atproto.&lt;handle&gt;</c> DNS TXT record, queried over DNS-over-HTTPS, and <c>https://&lt;handle&gt;/.well-known/atproto-did</c>.</summary>
 /// <remarks>
 /// <para>Both lookups run concurrently under one
 /// <see cref="IdentityResolverOptions.HandleResolutionTimeout"/> budget, so a handle domain that
@@ -66,7 +64,7 @@ public sealed class HandleResolver : IHandleResolver, IDisposable
         _options = options ?? new IdentityResolverOptions();
         _options.Validate();
         _dnsOverHttpsUrl = _options.DnsOverHttpsUrl is { } doh
-            ? IdentityNetworkPolicy.ValidateServiceUrl(doh, _options.AllowPrivateNetworks, nameof(options))
+            ? AtProtoHttp.ValidateServiceUrl(doh, nameof(options), allowInsecure: _options.AllowPrivateNetworks, allowLoopback: false)
             : null;
         _ownsHttpClient = ownsHttpClient;
         _httpClient = httpClient ?? IdentityNetworkPolicy.CreateClient(_options.AllowPrivateNetworks);
@@ -118,21 +116,16 @@ public sealed class HandleResolver : IHandleResolver, IDisposable
         return httpsDid ?? dnsDid;
     }
 
-    /// <summary>
-    /// Whether a handle's TLD is one that resolves: the reserved ones never do, and <c>.test</c>
-    /// only under the development opt-out.
-    /// </summary>
+    // Whether a handle's TLD is one that resolves: the reserved ones never do, and .test only under the
+    // development opt-out.
     internal static bool IsResolvable(Handle handle, bool allowPrivateNetworks)
     {
         var tld = handle.Value[(handle.Value.LastIndexOf('.') + 1)..];
         return !ReservedTlds.Contains(tld) && (allowPrivateNetworks || tld != "test");
     }
 
-    /// <summary>
-    /// Resolves via <c>/.well-known/atproto-did</c>. Every failure, including the budget running
-    /// out and a host that misbehaves in any way, is "no answer"; only the caller cancelling
-    /// propagates.
-    /// </summary>
+    // Resolves via /.well-known/atproto-did. Every failure, including the budget running out and a host
+    // that misbehaves in any way, is "no answer"; only the caller cancelling propagates.
     private async Task<Did?> ResolveViaHttpsAsync(Handle handle, CancellationToken attemptToken, CancellationToken callerToken)
     {
         // Built up front so the host is compared in the same (punycode) form the response reports.
@@ -187,11 +180,8 @@ public sealed class HandleResolver : IHandleResolver, IDisposable
         }
     }
 
-    /// <summary>
-    /// Resolves via the <c>_atproto</c> TXT record. Every failure is "no answer", except several
-    /// distinct <c>did=</c> values, which the spec treats as a failed resolution rather than a
-    /// choice to make.
-    /// </summary>
+    // Resolves via the _atproto TXT record. Every failure is "no answer", except several distinct did=
+    // values, which the spec treats as a failed resolution rather than a choice to make.
     private async Task<Did?> ResolveViaDnsAsync(
         Handle handle, Uri endpoint, CancellationToken attemptToken, CancellationToken callerToken)
     {

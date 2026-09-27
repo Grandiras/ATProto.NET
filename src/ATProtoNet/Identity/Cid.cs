@@ -86,13 +86,14 @@ public sealed record Cid : IIdentifier<Cid>
         return true;
     }
 
-    /// <summary>Creates a CID from its binary form, as <see cref="ToBytes"/> returns it.</summary>
-    /// <exception cref="ArgumentException">The bytes are not a valid atproto CID.</exception>
+    // Creates a CID from its binary form, as ToBytes returns it.
+    //
+    // Throws ArgumentException: The bytes are not a valid atproto CID.
     internal static Cid FromBytes(ReadOnlySpan<byte> bytes) => IsValid(bytes)
         ? new Cid(Base32Lower.EncodeWithPrefix('b', bytes), bytes.ToArray())
         : throw IIdentifier<Cid>.InvalidValue(Convert.ToHexStringLower(bytes), "binary CID");
 
-    /// <summary>Whether <paramref name="bytes"/> is the binary form of a CID this type accepts.</summary>
+    // Whether bytes is the binary form of a CID this type accepts.
     internal static bool IsValid(ReadOnlySpan<byte> bytes) =>
         bytes.Length == BinaryLength
         && bytes[0] == CidVersion1
@@ -104,7 +105,7 @@ public sealed record Cid : IIdentifier<Cid>
     /// <returns>A new 36-byte array.</returns>
     public byte[] ToBytes() => (byte[])_bytes.Clone();
 
-    /// <summary>The binary form, without the copy <see cref="ToBytes"/> makes.</summary>
+    // The binary form, without the copy ToBytes makes.
     internal ReadOnlySpan<byte> AsSpan() => _bytes;
 
     /// <summary>Implicitly converts a <see cref="Cid"/> to its <see cref="string"/> representation.</summary>

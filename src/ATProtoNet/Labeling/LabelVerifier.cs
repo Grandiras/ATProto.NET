@@ -1,3 +1,4 @@
+using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
 using ATProtoNet.Models;
 
@@ -12,28 +13,16 @@ public enum LabelVerificationStatus
     /// <summary>The label carries no signature.</summary>
     Unsigned,
 
-    /// <summary>
-    /// The label's <c>ver</c> is missing or not 1, the only version defined. A signed label must
-    /// carry it.
-    /// </summary>
+    /// <summary>The label's <c>ver</c> is missing or not 1, the only version defined. A signed label must carry it.</summary>
     UnsupportedVersion,
 
-    /// <summary>
-    /// The label lacks a field every label carries, or holds text that cannot be encoded, so no
-    /// signature can cover it.
-    /// </summary>
+    /// <summary>The label lacks a field every label carries, or holds text that cannot be encoded, so no signature can cover it.</summary>
     Malformed,
 
-    /// <summary>
-    /// The issuer's DID document publishes no <c>#atproto_label</c> key, or one this SDK cannot
-    /// read, even after a refetch.
-    /// </summary>
+    /// <summary>The issuer's DID document publishes no <c>#atproto_label</c> key, or one this SDK cannot read, even after a refetch.</summary>
     NoLabelKey,
 
-    /// <summary>
-    /// The issuer's DID (the label's <c>src</c>) could not be resolved. See
-    /// <see cref="LabelVerificationResult.Error"/>.
-    /// </summary>
+    /// <summary>The issuer's DID (the label's <c>src</c>) could not be resolved. See <see cref="LabelVerificationResult.Error"/>.</summary>
     IssuerUnresolved,
 
     /// <summary>The signature does not verify against the issuer's current key, even after a refetch.</summary>
@@ -56,31 +45,20 @@ public sealed class LabelVerificationResult
     /// <summary>Whether the signature verified.</summary>
     public bool IsValid => Status == LabelVerificationStatus.Valid;
 
-    /// <summary>
-    /// The issuer's <c>#atproto_label</c> key the signature was checked against, as a
-    /// <c>did:key</c>, or <see langword="null"/> when none was reached.
-    /// </summary>
+    /// <summary>The issuer's <c>#atproto_label</c> key the signature was checked against, as a <c>did:key</c>, or <see langword="null"/> when none was reached.</summary>
     public string? SigningKey { get; init; }
 
-    /// <summary>
-    /// Why the issuer could not be resolved, when <see cref="Status"/> is
-    /// <see cref="LabelVerificationStatus.IssuerUnresolved"/>.
-    /// </summary>
+    /// <summary>Why the issuer could not be resolved, when <see cref="Status"/> is <see cref="LabelVerificationStatus.IssuerUnresolved"/>.</summary>
     public DidResolutionException? Error { get; init; }
 }
 
-/// <summary>
-/// Verifies labels against the <c>#atproto_label</c> key their issuer's DID document publishes,
-/// as the <see href="https://atproto.com/specs/label">label spec</see> asks of a service that
-/// receives labels from another.
-/// </summary>
+/// <summary>Verifies labels against the <c>#atproto_label</c> key their issuer's DID document publishes, as the <see href="https://atproto.com/specs/label">label spec</see> asks of a service that receives labels from another.</summary>
 /// <remarks>
 /// <para>The issuer is the label's <c>src</c>, resolved through the <see cref="IDidResolver"/>.
 /// A signature that fails against the cached document's key is retried once against a refetched
-/// document, since the labeler may have rotated its key: the re-resolution the spec asks for. A
-/// caching resolver rate-limits refetches per DID, so a stream of forged labels cannot turn into
-/// a directory request each; use one (<see cref="CachingDidResolver"/>, or the resolver
-/// <c>AddAtProtoIdentity()</c> registers).</para>
+/// document (<see cref="IDidResolver.RefreshAsync"/>), since the labeler may have rotated its key.
+/// Use a caching resolver (<see cref="CachingDidResolver"/>, or the one
+/// <c>AddAtProtoIdentity()</c> registers), which rate-limits those refetches.</para>
 /// <para>Verification reports rather than throws: every outcome is a
 /// <see cref="LabelVerificationStatus"/>, and only cancellation escapes. What to do with a label
 /// that did not verify is the caller's choice.</para>
@@ -121,27 +99,16 @@ public sealed class LabelVerifier
         if (LabelSigning.Prepare(label, out var bytes) is { } refused)
             return Result(label, refused);
 
-        var signature = label.Sig!;
-        string? key;
+        (bool Verified, string? Key) result;
         try
         {
-            key = await ResolveKeyAsync(label.Src, refresh: false, cancellationToken).ConfigureAwait(false);
-            if (key is not null && LabelSigning.VerifyWith(key, bytes, signature))
-                return Result(label, LabelVerificationStatus.Valid, key);
-
-            // The cached document may predate a key rotation, or the key's publication: refetch
-            // once before refusing.
-            var refreshed = await ResolveKeyAsync(label.Src, refresh: true, cancellationToken).ConfigureAwait(false);
-            if (refreshed is null)
-                return Result(label, LabelVerificationStatus.NoLabelKey);
-
-            if (!string.Equals(refreshed, key, StringComparison.Ordinal) &&
-                LabelSigning.VerifyWith(refreshed, bytes, signature))
-            {
-                return Result(label, LabelVerificationStatus.Valid, refreshed);
-            }
-
-            return Result(label, LabelVerificationStatus.InvalidSignature, refreshed);
+            result = await _resolver.VerifyWithRefreshAsync(
+                label.Src,
+                static document => document.TryGetVerificationKey(DidDocument.LabelKeyId, out var key) == DidDocumentEntryStatus.Found
+                    ? key
+                    : null,
+                key => AtProtoCrypto.TryVerifySignature(key, bytes, label.Sig),
+                cancellationToken).ConfigureAwait(false);
         }
         catch (DidResolutionException ex)
         {
@@ -152,6 +119,14 @@ public sealed class LabelVerifier
                 Error = ex,
             };
         }
+
+        var status = result switch
+        {
+            { Verified: true } => LabelVerificationStatus.Valid,
+            { Key: null } => LabelVerificationStatus.NoLabelKey,
+            _ => LabelVerificationStatus.InvalidSignature,
+        };
+        return Result(label, status, result.Key);
     }
 
     /// <summary>Verifies each of a set of labels, such as a <c>queryLabels</c> page.</summary>
@@ -171,21 +146,6 @@ public sealed class LabelVerifier
             results.Add(await VerifyAsync(label, cancellationToken).ConfigureAwait(false));
 
         return results;
-    }
-
-    /// <summary>
-    /// The issuer's label key, or <see langword="null"/> when its document publishes none, or one
-    /// this SDK cannot read.
-    /// </summary>
-    private async Task<string?> ResolveKeyAsync(Did issuer, bool refresh, CancellationToken cancellationToken)
-    {
-        var document = refresh
-            ? await _resolver.RefreshAsync(issuer, cancellationToken).ConfigureAwait(false)
-            : await _resolver.ResolveAsync(issuer, cancellationToken).ConfigureAwait(false);
-
-        return document.TryGetVerificationKey(DidDocument.LabelKeyId, out var key) == DidDocumentEntryStatus.Found
-            ? key
-            : null;
     }
 
     private static LabelVerificationResult Result(Label label, LabelVerificationStatus status, string? key = null) =>

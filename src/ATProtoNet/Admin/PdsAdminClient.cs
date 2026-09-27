@@ -9,10 +9,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Admin;
 
-/// <summary>
-/// Administrative client for a PDS you operate — the counterpart to
-/// <see cref="AtProtoClient"/>, which acts on behalf of a user.
-/// </summary>
+/// <summary>Administrative client for a PDS you operate — the counterpart to <see cref="AtProtoClient"/>, which acts on behalf of a user.</summary>
 /// <remarks>
 /// <para>
 /// Authenticates in whichever way the server expects — see
@@ -144,10 +141,7 @@ public sealed class PdsAdminClient : IDisposable
     /// <summary>How this client authenticates against the server's admin endpoints.</summary>
     public PdsAdminAuthentication Authentication { get; }
 
-    /// <summary>
-    /// The raw <c>com.atproto.admin.*</c> client, carrying the admin credentials.
-    /// Use it for endpoints this class does not wrap.
-    /// </summary>
+    /// <summary>The raw <c>com.atproto.admin.*</c> client, carrying the admin credentials. Use it for endpoints this class does not wrap.</summary>
     /// <remarks>
     /// Under <see cref="PdsAdminAuthentication.AdminAccount"/> the credentials are a
     /// session token, which this client obtains on demand — call
@@ -156,19 +150,13 @@ public sealed class PdsAdminClient : IDisposable
     /// </remarks>
     public AdminClient Admin { get; }
 
-    /// <summary>
-    /// The raw <c>com.atproto.server.*</c> client, carrying the admin credentials.
-    /// Use it for endpoints this class does not wrap.
-    /// </summary>
+    /// <summary>The raw <c>com.atproto.server.*</c> client, carrying the admin credentials. Use it for endpoints this class does not wrap.</summary>
     /// <inheritdoc cref="Admin" path="/remarks"/>
     public ServerClient Server { get; }
 
     // ── Admin authentication ─────────────────────────────────
 
-    /// <summary>
-    /// Signs in as the administrator account when that is how this PDS authenticates
-    /// administrators, and does nothing otherwise.
-    /// </summary>
+    /// <summary>Signs in as the administrator account when that is how this PDS authenticates administrators, and does nothing otherwise.</summary>
     /// <remarks>
     /// <para>
     /// Every method on this class that calls an admin endpoint does this first, so it
@@ -212,16 +200,12 @@ public sealed class PdsAdminClient : IDisposable
         }
     }
 
-    /// <summary>
-    /// Runs an admin call with a session in place, signing in again and retrying once if
-    /// the server rejects the one it had.
-    /// </summary>
-    /// <remarks>
-    /// Access tokens expire, and this client is long-lived by design — registered as a
-    /// typed <see cref="HttpClient"/>, it may outlive several of them. Re-authenticating
-    /// on rejection is cheaper than tracking expiry, and is a no-op for a PDS
-    /// authenticated by password, whose credentials never go stale.
-    /// </remarks>
+    // Runs an admin call with a session in place, signing in again and retrying once if the server
+    // rejects the one it had.
+    //
+    // Access tokens expire, and this client is long-lived by design — registered as a typed HttpClient,
+    // it may outlive several of them. Re-authenticating on rejection is cheaper than tracking expiry,
+    // and is a no-op for a PDS authenticated by password, whose credentials never go stale.
     private async Task<T> AdminCallAsync<T>(
         Func<CancellationToken, Task<T>> call,
         CancellationToken cancellationToken)
@@ -241,7 +225,6 @@ public sealed class PdsAdminClient : IDisposable
         }
     }
 
-    /// <inheritdoc cref="AdminCallAsync{T}"/>
     private async Task AdminCallAsync(
         Func<CancellationToken, Task> call,
         CancellationToken cancellationToken)
@@ -268,10 +251,7 @@ public sealed class PdsAdminClient : IDisposable
 
     // ── Server ───────────────────────────────────────────────
 
-    /// <summary>
-    /// Describe the PDS — its DID, available user domains, and whether signups
-    /// require an invite code.
-    /// </summary>
+    /// <summary>Describe the PDS — its DID, available user domains, and whether signups require an invite code.</summary>
     public Task<DescribeServerResponse> DescribeServerAsync(CancellationToken cancellationToken = default) =>
         _publicXrpc.QueryAsync<DescribeServerResponse>(
             "com.atproto.server.describeServer", cancellationToken: cancellationToken);
@@ -323,10 +303,7 @@ public sealed class PdsAdminClient : IDisposable
 
     // ── Accounts ─────────────────────────────────────────────
 
-    /// <summary>
-    /// Create an account on the PDS, minting an invite code first when the server
-    /// requires one and the caller did not supply it.
-    /// </summary>
+    /// <summary>Create an account on the PDS, minting an invite code first when the server requires one and the caller did not supply it.</summary>
     /// <remarks>
     /// Signup itself is a public endpoint, so this works before the client has any admin
     /// authority — which is what makes it usable to register the administrator account
@@ -489,10 +466,7 @@ public sealed class PdsAdminClient : IDisposable
 
     // ── Clients for the accounts this PDS hosts ──────────────
 
-    /// <summary>
-    /// Create an <see cref="AtProtoClient"/> pointed at this PDS, for acting on
-    /// behalf of one of its accounts.
-    /// </summary>
+    /// <summary>Create an <see cref="AtProtoClient"/> pointed at this PDS, for acting on behalf of one of its accounts.</summary>
     /// <remarks>
     /// The returned client is unauthenticated — call
     /// <see cref="AtProtoClient.LoginAsync"/> or

@@ -4,29 +4,28 @@ using System.Text.Json.Serialization;
 
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// TXT lookups over a DNS-over-HTTPS JSON API (<c>?name=…&amp;type=TXT</c>, as Google and
-/// Cloudflare serve it): the <c>_atproto</c> record of a handle and the <c>_lexicon</c> record of
-/// an NSID authority.
-/// </summary>
-/// <remarks>.NET has no TXT lookup of its own, so both go through the configured endpoint.</remarks>
+// TXT lookups over a DNS-over-HTTPS JSON API (?name=…&type=TXT, as Google and Cloudflare serve it): the
+// _atproto record of a handle and the _lexicon record of an NSID authority.
+//
+// .NET has no TXT lookup of its own, so both go through the configured endpoint.
 internal static class DnsTxtLookup
 {
     private const int MaxDnsResponseBytes = 64 * 1024;
 
-    /// <summary>
-    /// Queries the TXT records at <paramref name="name"/>, each reassembled from its
-    /// character-strings.
-    /// </summary>
-    /// <param name="client">The client to send with, under the identity fetch policy.</param>
-    /// <param name="endpoint">The DNS-over-HTTPS endpoint.</param>
-    /// <param name="name">
-    /// The name to query. Built from an identifier whose syntax has already been validated, so it
-    /// is safe to put in the query string as is.
-    /// </param>
-    /// <param name="timeout">The budget for the query, or <see cref="Timeout.InfiniteTimeSpan"/>.</param>
-    /// <returns>The records, or <see langword="null"/> when the endpoint answered with an HTTP error.</returns>
-    /// <exception cref="DidResolutionException">The query failed or the answer is malformed.</exception>
+    // Queries the TXT records at name, each reassembled from its character-strings.
+    //
+    // client: The client to send with, under the identity fetch policy.
+    //
+    // endpoint: The DNS-over-HTTPS endpoint.
+    //
+    // name: The name to query. Built from an identifier whose syntax has already been validated, so it
+    // is safe to put in the query string as is.
+    //
+    // timeout: The budget for the query, or Timeout.InfiniteTimeSpan.
+    //
+    // Returns: The records, or null when the endpoint answered with an HTTP error.
+    //
+    // Throws DidResolutionException: The query failed or the answer is malformed.
     internal static async Task<IReadOnlyList<string>?> QueryAsync(
         HttpClient client, Uri endpoint, string name, TimeSpan timeout, CancellationToken cancellationToken)
     {
@@ -63,10 +62,8 @@ internal static class DnsTxtLookup
         return records;
     }
 
-    /// <summary>
-    /// Reassembles a TXT record's text from the JSON API's presentation form, where each
-    /// character-string is quoted and a long record may be split into several.
-    /// </summary>
+    // Reassembles a TXT record's text from the JSON API's presentation form, where each character-string
+    // is quoted and a long record may be split into several.
     private static string JoinCharacterStrings(string data)
     {
         data = data.Trim();

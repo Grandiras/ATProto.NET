@@ -5,11 +5,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// Represents a Decentralized Identifier (DID) as specified in the AT Protocol.
-/// DIDs are the permanent, long-term identifiers for accounts.
-/// Examples: did:plc:z72i7hdynmk6r22z27h6tvur, did:web:example.com
-/// </summary>
+/// <summary>Represents a Decentralized Identifier (DID) as specified in the AT Protocol. DIDs are the permanent, long-term identifiers for accounts. Examples: did:plc:z72i7hdynmk6r22z27h6tvur, did:web:example.com</summary>
 /// <remarks>
 /// Equality and ordering are ordinal on <see cref="Value"/>. Validation follows the atproto
 /// DID syntax, which is stricter than W3C DID syntax: it is checked against the

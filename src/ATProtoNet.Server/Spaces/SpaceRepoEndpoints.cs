@@ -8,26 +8,24 @@ using Microsoft.AspNetCore.Http;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// The shared shape of the repo-host read endpoints: verify the credential, then serve the
-/// (space, repo) pair it names.
-/// </summary>
-/// <remarks>
-/// The credential is checked against the space the <em>request</em> names, so a credential for
-/// one space cannot be used to read another even on a host that serves both. Nothing else is
-/// re-decided here — the authority already made the access decision, and a repo host holds no
-/// state with which to second-guess it.
-/// </remarks>
-/// <typeparam name="TParams">The endpoint's query parameters.</typeparam>
+// The shared shape of the repo-host read endpoints: verify the credential, then serve the (space, repo)
+// pair it names.
+//
+// The credential is checked against the space the request names, so a credential for one space cannot be
+// used to read another even on a host that serves both. Nothing else is re-decided here — the authority
+// already made the access decision, and a repo host holds no state with which to second-guess it.
+//
+// TParams: The endpoint's query parameters.
 [AuthenticatesItself]
 internal abstract class SpaceRepoEndpointBase<TParams>(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
     where TParams : SpaceRepoParameters
 {
-    /// <summary>The repos this service holds.</summary>
+    // The repos this service holds.
     protected ISpaceRepoHost RepoHost { get; } = repoHost;
 
-    /// <summary>Validates the addressing parameters and authenticates the request against them.</summary>
-    /// <returns>The space and repo the request addresses.</returns>
+    // Validates the addressing parameters and authenticates the request against them.
+    //
+    // Returns: The space and repo the request addresses.
     protected async Task<(SpaceUri Space, Did Repo)> AuthenticateAsync(
         TParams parameters, HttpContext context, CancellationToken cancellationToken)
     {
@@ -41,16 +39,15 @@ internal abstract class SpaceRepoEndpointBase<TParams>(SpaceRequestAuthenticator
         return (space, repo);
     }
 
-    /// <summary>The error a repo host answers with when it holds nothing for a (space, repo) pair.</summary>
-    /// <remarks>
-    /// It deliberately does not distinguish "member who has never written" from "not a member":
-    /// the protocol carries no reader set, and saying more would leak membership.
-    /// </remarks>
+    // The error a repo host answers with when it holds nothing for a (space, repo) pair.
+    //
+    // It deliberately does not distinguish "member who has never written" from "not a member": the
+    // protocol carries no reader set, and saying more would leak membership.
     protected static XrpcException RepoNotFound(SpaceUri space, Did repo) =>
         new(SpaceErrors.RepoNotFound, $"'{repo}' holds no repo in {space}.", HttpStatusCode.NotFound);
 }
 
-/// <summary>Serves <c>com.atproto.space.getRecord</c>.</summary>
+// Serves com.atproto.space.getRecord.
 internal sealed class GetSpaceRecordEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
     : SpaceRepoEndpointBase<GetSpaceRecordParameters>(authenticator, repoHost),
       IXrpcQuery<GetSpaceRecordParameters, GetSpaceRecordResponse>
@@ -72,7 +69,7 @@ internal sealed class GetSpaceRecordEndpoint(SpaceRequestAuthenticator authentic
     }
 }
 
-/// <summary>Serves <c>com.atproto.space.listRecords</c>.</summary>
+// Serves com.atproto.space.listRecords.
 internal sealed class ListSpaceRecordsEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
     : SpaceRepoEndpointBase<ListSpaceRecordsParameters>(authenticator, repoHost),
       IXrpcQuery<ListSpaceRecordsParameters, ListSpaceRecordsResponse>
@@ -96,7 +93,7 @@ internal sealed class ListSpaceRecordsEndpoint(SpaceRequestAuthenticator authent
     }
 }
 
-/// <summary>Serves <c>com.atproto.space.getLatestCommit</c>.</summary>
+// Serves com.atproto.space.getLatestCommit.
 internal sealed class GetSpaceLatestCommitEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
     : SpaceRepoEndpointBase<GetSpaceLatestCommitParameters>(authenticator, repoHost),
       IXrpcQuery<GetSpaceLatestCommitParameters, GetSpaceLatestCommitResponse>
@@ -115,7 +112,7 @@ internal sealed class GetSpaceLatestCommitEndpoint(SpaceRequestAuthenticator aut
     }
 }
 
-/// <summary>Serves <c>com.atproto.space.listRepoOps</c>.</summary>
+// Serves com.atproto.space.listRepoOps.
 internal sealed class ListSpaceRepoOpsEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
     : SpaceRepoEndpointBase<ListSpaceRepoOpsParameters>(authenticator, repoHost),
       IXrpcQuery<ListSpaceRepoOpsParameters, ListSpaceRepoOpsResponse>
@@ -139,7 +136,7 @@ internal sealed class ListSpaceRepoOpsEndpoint(SpaceRequestAuthenticator authent
     }
 }
 
-/// <summary>Serves <c>com.atproto.space.listBlobs</c>.</summary>
+// Serves com.atproto.space.listBlobs.
 internal sealed class ListSpaceBlobsEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
     : SpaceRepoEndpointBase<ListSpaceBlobsParameters>(authenticator, repoHost),
       IXrpcQuery<ListSpaceBlobsParameters, ListSpaceBlobsResponse>
@@ -161,12 +158,12 @@ internal sealed class ListSpaceBlobsEndpoint(SpaceRequestAuthenticator authentic
     }
 }
 
-/// <summary>Serves <c>com.atproto.space.getRepo</c>: an account's whole permissioned repo as a CAR.</summary>
+// Serves com.atproto.space.getRepo: an account's whole permissioned repo as a CAR.
 internal sealed class GetSpaceRepoEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
     : SpaceRepoEndpointBase<GetSpaceRepoParameters>(authenticator, repoHost),
       IXrpcBlobQuery<GetSpaceRepoParameters>
 {
-    /// <summary>The content type a repo CAR is served as.</summary>
+    // The content type a repo CAR is served as.
     public const string CarContentType = "application/vnd.ipld.car";
 
     public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.GetRepo);
@@ -186,7 +183,7 @@ internal sealed class GetSpaceRepoEndpoint(SpaceRequestAuthenticator authenticat
     }
 }
 
-/// <summary>Serves <c>com.atproto.space.getBlob</c>: a blob referenced from a permissioned record.</summary>
+// Serves com.atproto.space.getBlob: a blob referenced from a permissioned record.
 internal sealed class GetSpaceBlobEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
     : SpaceRepoEndpointBase<GetSpaceBlobParameters>(authenticator, repoHost),
       IXrpcBlobQuery<GetSpaceBlobParameters>

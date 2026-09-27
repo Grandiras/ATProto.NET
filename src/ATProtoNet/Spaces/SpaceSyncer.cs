@@ -1,4 +1,5 @@
 using System.Net;
+using System.Runtime.ExceptionServices;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
@@ -10,16 +11,10 @@ namespace ATProtoNet.Spaces;
 /// <summary>Why a sync pass ended where it did.</summary>
 public enum SpaceSyncOutcome
 {
-    /// <summary>
-    /// The repo advanced incrementally and its digest now matches the signed commit, so the
-    /// local copy is exactly current.
-    /// </summary>
+    /// <summary>The repo advanced incrementally and its digest now matches the signed commit, so the local copy is exactly current.</summary>
     UpToDate,
 
-    /// <summary>
-    /// Operations were applied but the response did not reach the head of the oplog, so the
-    /// caller should sync again to continue.
-    /// </summary>
+    /// <summary>Operations were applied but the response did not reach the head of the oplog, so the caller should sync again to continue.</summary>
     /// <remarks>
     /// Only reported when the pass has somewhere left to go — it either applied operations or
     /// the host offered a continuation cursor. A page carrying neither is
@@ -63,10 +58,7 @@ public sealed record SpaceSyncResult(
     IReadOnlyList<SpaceRepoOpEntry> Ops,
     VerifiedSpaceRepo? RecoveredRepo);
 
-/// <summary>
-/// The local state a syncer keeps for one repo: where it has read up to, and a running set hash
-/// over what it holds.
-/// </summary>
+/// <summary>The local state a syncer keeps for one repo: where it has read up to, and a running set hash over what it holds.</summary>
 /// <remarks>
 /// The set hash is the whole point. It is the same digest the repo host maintains, so comparing
 /// the two says whether the local copy is exactly current — without transferring the repo, and
@@ -171,10 +163,7 @@ public sealed class SpaceSyncer
         _logger = logger ?? NullLogger.Instance;
     }
 
-    /// <summary>
-    /// The largest full repo download <see cref="RecoverAsync"/> accepts, in bytes. Defaults to
-    /// 256 MiB.
-    /// </summary>
+    /// <summary>The largest full repo download <see cref="RecoverAsync"/> accepts, in bytes. Defaults to 256 MiB.</summary>
     /// <remarks>
     /// A download is held in memory whole, because it is verified — commit, index and every
     /// record — before any of it replaces the local copy. A host that declares a longer body is
@@ -196,10 +185,7 @@ public sealed class SpaceSyncer
 
     private long _maxRepoSize = 256L * 1024 * 1024;
 
-    /// <summary>
-    /// Advances one repo as far as it can, recovering in full if the operation log cannot carry
-    /// the copy forward.
-    /// </summary>
+    /// <summary>Advances one repo as far as it can, recovering in full if the operation log cannot carry the copy forward.</summary>
     /// <param name="client">A client for the repo's host, authenticated for this space.</param>
     /// <param name="cursor">The local state for this repo. Updated in place.</param>
     /// <param name="pageSize">Operations to request per page.</param>
@@ -279,17 +265,13 @@ public sealed class SpaceSyncer
         return await RecoverAsync(client, cursor, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Answers a pass whose oplog page carried nothing at all — no operations, no commit, and no
-    /// continuation cursor — which means the host holds no repo state to build a commit over.
-    /// </summary>
-    /// <remarks>
-    /// An account that has never written to a space has no repo state, and the host builds the
-    /// commit from that state, so <c>listRepoOps</c> answers with an empty page rather than
-    /// refusing the read: whether an account holds a repo is not something the oplog discloses.
-    /// A syncer walking a member list, rather than the writer set <c>listRepos</c> returns, is
-    /// what reaches this.
-    /// </remarks>
+    // Answers a pass whose oplog page carried nothing at all — no operations, no commit, and no
+    // continuation cursor — which means the host holds no repo state to build a commit over.
+    //
+    // An account that has never written to a space has no repo state, and the host builds the commit
+    // from that state, so listRepoOps answers with an empty page rather than refusing the read: whether
+    // an account holds a repo is not something the oplog discloses. A syncer walking a member list,
+    // rather than the writer set listRepos returns, is what reaches this.
     private async Task<SpaceSyncResult> NothingToCommitAsync(
         SpaceClient client, SpaceRepoCursor cursor, CancellationToken cancellationToken)
     {
@@ -309,10 +291,7 @@ public sealed class SpaceSyncer
         return await RecoverAsync(client, cursor, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Rebuilds a local copy from a full repo download, verifying the whole thing before
-    /// replacing what is held.
-    /// </summary>
+    /// <summary>Rebuilds a local copy from a full repo download, verifying the whole thing before replacing what is held.</summary>
     /// <param name="client">A client for the repo's host, authenticated for this space.</param>
     /// <param name="cursor">The local state for this repo. Reset in place.</param>
     public async Task<SpaceSyncResult> RecoverAsync(
@@ -338,13 +317,10 @@ public sealed class SpaceSyncer
                     $"The repo download declares {response.ContentLength} bytes, over the {limit}-byte limit (MaxRepoSize).");
             }
 
-            // Sized from the declared length up front, and verified from the stream's own buffer
-            // rather than a copy of it. The declared length is only a hint from the host, so it
-            // sizes the first allocation up to a cap and the buffer grows past that as data comes,
-            // up to the limit whatever was declared.
-            var buffer = new MemoryStream(InitialCapacity(response.ContentLength));
-            await CopyBoundedAsync(response.Content, buffer, limit, cancellationToken).ConfigureAwait(false);
-            car = buffer.GetBuffer().AsMemory(0, (int)buffer.Length);
+            // Verified from the read buffer itself rather than a copy of it.
+            car = await response.Content.ReadBoundedAsync(limit, response.ContentLength, cancellationToken).ConfigureAwait(false)
+                ?? throw new SpaceRepoVerificationException(
+                    $"The repo download exceeds the {limit}-byte limit (MaxRepoSize).");
         }
         catch (XrpcException ex) when (IsMissingRepo(ex))
         {
@@ -362,95 +338,50 @@ public sealed class SpaceSyncer
         return new SpaceSyncResult(SpaceSyncOutcome.Recovered, repo.Commit.Rev, repo.Commit, [], repo);
     }
 
-    /// <summary>
-    /// Copies a download into <paramref name="destination"/>, refusing it once it passes
-    /// <paramref name="limit"/> bytes.
-    /// </summary>
-    private static async Task CopyBoundedAsync(
-        Stream source, MemoryStream destination, long limit, CancellationToken cancellationToken)
-    {
-        var chunk = System.Buffers.ArrayPool<byte>.Shared.Rent(81920);
-        try
-        {
-            int read;
-            while ((read = await source.ReadAsync(chunk, cancellationToken).ConfigureAwait(false)) > 0)
-            {
-                if (destination.Length + read > limit)
-                {
-                    throw new SpaceRepoVerificationException(
-                        $"The repo download exceeds the {limit}-byte limit (MaxRepoSize).");
-                }
-
-                destination.Write(chunk, 0, read);
-            }
-        }
-        finally
-        {
-            System.Buffers.ArrayPool<byte>.Shared.Return(chunk);
-        }
-    }
-
-    /// <summary>
-    /// The first allocation for a repo download: its declared length, up to
-    /// <see cref="MaxInitialCapacity"/>, so a host cannot make a syncer allocate a large buffer
-    /// just by claiming a large body.
-    /// </summary>
-    internal static int InitialCapacity(long? contentLength) =>
-        contentLength is > 0 ? (int)Math.Min(contentLength.Value, MaxInitialCapacity) : 0;
-
-    /// <summary>The most a repo download's declared length may pre-allocate.</summary>
-    internal const int MaxInitialCapacity = 32 * 1024 * 1024;
-
-    /// <summary>
-    /// Runs a verification against the author's signing key, and once more against a refreshed
-    /// document if it fails: a cached document may predate a key rotation, and the sync spec asks
-    /// for exactly one refetch before a signature is declared bad.
-    /// </summary>
-    /// <param name="author">The author whose key signs what is verified.</param>
-    /// <param name="verify">The verification, throwing <see cref="SpaceRepoVerificationException"/> on failure.</param>
+    // Runs a verification against the author's #atproto key, through
+    // DidResolverExtensions.VerifyWithRefreshAsync. A space commit is signed with the account's own key,
+    // like a public one; a #atproto_space entry is a space authority's credential key and plays no part
+    // here.
+    //
+    // author: The author whose key signs what is verified.
+    //
+    // verify: The verification, throwing SpaceRepoVerificationException on failure.
     private async Task<T> VerifyWithKeyRefreshAsync<T>(
         Did author, Func<string, T> verify, CancellationToken cancellationToken)
     {
-        var didKey = SigningKey(author, await _didResolver.ResolveAsync(author, cancellationToken).ConfigureAwait(false));
-        try
-        {
-            return verify(didKey);
-        }
-        catch (SpaceRepoVerificationException)
-        {
-            var refreshed = SigningKey(author, await _didResolver.RefreshAsync(author, cancellationToken).ConfigureAwait(false));
-            if (string.Equals(refreshed, didKey, StringComparison.Ordinal))
-                throw;
+        var verified = default(T)!;
+        SpaceRepoVerificationException? failure = null;
+        var result = await _didResolver.VerifyWithRefreshAsync(
+            author,
+            document => document.GetSigningKey()
+                ?? throw new SpaceRepoVerificationException($"'{author}' publishes no usable AT Protocol signing key."),
+            key =>
+            {
+                if (failure is not null)
+                    _logger.LogInformation("The signing key of {Repo} changed; verifying against the new one.", author);
 
-            _logger.LogInformation("The signing key of {Repo} changed; verifying against the new one.", author);
-            return verify(refreshed);
-        }
+                try
+                {
+                    verified = verify(key);
+                    return true;
+                }
+                catch (SpaceRepoVerificationException ex)
+                {
+                    failure = ex;
+                    return false;
+                }
+            },
+            cancellationToken).ConfigureAwait(false);
+
+        if (!result.Verified)
+            ExceptionDispatchInfo.Throw(failure!);
+
+        return verified;
     }
 
-    /// <summary>
-    /// The author's repo signing key: a space commit is signed with the account's own
-    /// <c>#atproto</c> key, like a public one. A <c>#atproto_space</c> entry is a space
-    /// <em>authority's</em> credential key and plays no part here.
-    /// </summary>
-    private static string SigningKey(Did author, DidDocument document)
-    {
-        try
-        {
-            return document.GetSigningKey()
-                ?? throw new SpaceRepoVerificationException($"'{author}' publishes no AT Protocol signing key.");
-        }
-        catch (FormatException ex)
-        {
-            throw new SpaceRepoVerificationException(
-                $"'{author}' publishes an AT Protocol signing key that is malformed: {ex.Message}", ex);
-        }
-    }
-
-    /// <summary>
-    /// Whether the host rejected the request itself — a <c>since</c> it cannot serve, a filter it
-    /// will not honour — as opposed to failing to serve it. Only the former is repaired by a full
-    /// download; a 429 or a 5xx is transient and belongs to the caller's retry policy.
-    /// </summary>
+    // Whether the host rejected the request itself — a since it cannot serve, a filter it will not
+    // honour — as opposed to failing to serve it. Only the former is repaired by a full download; a 429
+    // or a 5xx is transient and belongs to the caller's retry policy.
     private static bool IsUnusableOplog(XrpcException exception) =>
         (int)exception.StatusCode is >= 400 and < 500 &&
         exception.StatusCode is not HttpStatusCode.TooManyRequests
@@ -490,10 +421,7 @@ public interface ISpaceRepoStore
     /// </remarks>
     Task ReplaceAsync(SpaceUri space, Did repo, VerifiedSpaceRepo contents, CancellationToken cancellationToken);
 
-    /// <summary>
-    /// Drops everything held for one repo, because the account no longer holds one in this space
-    /// or is no longer served.
-    /// </summary>
+    /// <summary>Drops everything held for one repo, because the account no longer holds one in this space or is no longer served.</summary>
     /// <param name="repo">The DID of the account.</param>
     Task DropAsync(SpaceUri space, Did repo, CancellationToken cancellationToken);
 }

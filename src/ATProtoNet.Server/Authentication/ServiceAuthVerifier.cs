@@ -1,10 +1,10 @@
 using System.Net;
-using System.Security.Cryptography;
 using System.Text.Json;
 using ATProtoNet.Auth;
 using ATProtoNet.Crypto;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
+using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Server.Authentication;
 
@@ -14,22 +14,13 @@ public sealed class VerifiedServiceAuth
     /// <summary>The account or service the call is made as: the token's <c>iss</c>.</summary>
     public required Did Issuer { get; init; }
 
-    /// <summary>
-    /// The audience it addressed: one of the accepted values, a DID with or without a service
-    /// fragment.
-    /// </summary>
+    /// <summary>The audience it addressed: one of the accepted values, a DID with or without a service fragment.</summary>
     public required string Audience { get; init; }
 
-    /// <summary>
-    /// The XRPC method it was scoped to (<c>lxm</c>), or <see langword="null"/> when it named
-    /// none, which only a call binding no method lets through.
-    /// </summary>
+    /// <summary>The XRPC method it was scoped to (<c>lxm</c>), or <see langword="null"/> when it named none, which only a call binding no method lets through.</summary>
     public Nsid? Method { get; init; }
 
-    /// <summary>
-    /// The verification method in the issuer's DID document the signature verified against: the
-    /// token's <c>kid</c>, or <c>#atproto</c> when it named none.
-    /// </summary>
+    /// <summary>The verification method in the issuer's DID document the signature verified against: the token's <c>kid</c>, or <c>#atproto</c> when it named none.</summary>
     public required string KeyId { get; init; }
 
     /// <summary>The token's <c>jti</c>, now spent.</summary>
@@ -42,19 +33,13 @@ public sealed class VerifiedServiceAuth
     public required DateTimeOffset ExpiresAt { get; init; }
 }
 
-/// <summary>
-/// How strictly <see cref="ServiceAuthVerifier"/> checks a token, beyond the audience and method
-/// each call names.
-/// </summary>
+/// <summary>How strictly <see cref="ServiceAuthVerifier"/> checks a token, beyond the audience and method each call names.</summary>
 public sealed class ServiceAuthVerifierOptions
 {
     /// <summary>The key a token names when it carries no <c>kid</c>.</summary>
     public const string DefaultKeyId = DidDocument.SigningKeyId;
 
-    /// <summary>
-    /// The verification methods a token may be signed with, as <c>kid</c> fragments. Defaults to
-    /// just <c>#atproto</c>, the account signing key.
-    /// </summary>
+    /// <summary>The verification methods a token may be signed with, as <c>kid</c> fragments. Defaults to just <c>#atproto</c>, the account signing key.</summary>
     /// <remarks>
     /// The spec requires a receiver to accept only the key types its use case calls for, so that
     /// a key registered for one purpose cannot sign for another. Add, say,
@@ -62,21 +47,14 @@ public sealed class ServiceAuthVerifierOptions
     /// </remarks>
     public ISet<string> AllowedKeyIds { get; } = new HashSet<string>(StringComparer.Ordinal) { DefaultKeyId };
 
-    /// <summary>
-    /// How far the issuer's clock may disagree with this one: a token is accepted for this long
-    /// past its <c>exp</c>, and with an <c>iat</c> or <c>nbf</c> this far ahead. Defaults to 30
-    /// seconds.
-    /// </summary>
+    /// <summary>How far the issuer's clock may disagree with this one: a token is accepted for this long past its <c>exp</c>, and with an <c>iat</c> or <c>nbf</c> this far ahead. Defaults to 30 seconds.</summary>
     /// <remarks>
     /// Its <c>jti</c> is kept in the <see cref="IJtiReplayStore"/> for as long: until <c>exp</c>
     /// plus this skew, the last moment the token is accepted.
     /// </remarks>
     public TimeSpan ClockSkew { get; set; } = TimeSpan.FromSeconds(30);
 
-    /// <summary>
-    /// The furthest ahead of now a token's <c>exp</c> may sit, and the furthest back its
-    /// <c>iat</c> may. Defaults to five minutes.
-    /// </summary>
+    /// <summary>The furthest ahead of now a token's <c>exp</c> may sit, and the furthest back its <c>iat</c> may. Defaults to five minutes.</summary>
     /// <remarks>
     /// The <c>exp</c> is the issuer's choice, and any DID can sign. Bounding it bounds how long a
     /// captured token stays usable at all, and how long its <c>jti</c> occupies the
@@ -86,9 +64,8 @@ public sealed class ServiceAuthVerifierOptions
     /// </remarks>
     public TimeSpan MaxTokenLifetime { get; set; } = TimeSpan.FromMinutes(5);
 
-    /// <exception cref="ArgumentException">
-    /// An allowed key ID is not a <c>#fragment</c>, none is allowed, or a duration is out of range.
-    /// </exception>
+    // Throws ArgumentException: An allowed key ID is not a #fragment, none is allowed, or a duration is
+    // out of range.
     internal void Validate()
     {
         if (AllowedKeyIds.Count == 0)
@@ -112,10 +89,7 @@ public sealed class ServiceAuthVerifierOptions
     }
 }
 
-/// <summary>
-/// The XRPC error names a refused service auth token is answered with: the ones the reference
-/// <c>@atproto/xrpc-server</c> uses, so callers see the same names from any AT Protocol service.
-/// </summary>
+/// <summary>The XRPC error names a refused service auth token is answered with: the ones the reference <c>@atproto/xrpc-server</c> uses, so callers see the same names from any AT Protocol service.</summary>
 public static class ServiceAuthErrors
 {
     /// <summary>The token is malformed, lacks a required claim, or cannot be used again.</summary>
@@ -140,10 +114,7 @@ public static class ServiceAuthErrors
     public const string BadJwtSignature = "BadJwtSignature";
 }
 
-/// <summary>
-/// A service auth token was refused. Answered as HTTP 401 with one of the
-/// <see cref="ServiceAuthErrors"/> names.
-/// </summary>
+/// <summary>A service auth token was refused. Answered as HTTP 401 with one of the <see cref="ServiceAuthErrors"/> names.</summary>
 /// <remarks>
 /// It is an <see cref="XrpcException"/>, so an XRPC endpoint that verifies a token itself and
 /// lets the failure escape answers with the error envelope rather than a 500. The message says
@@ -173,17 +144,12 @@ public sealed class ServiceAuthException : XrpcException
     }
 }
 
-/// <summary>
-/// Verifies AT Protocol
-/// <see href="https://atproto.com/specs/xrpc#inter-service-authentication-jwt">service auth</see>
-/// tokens: the JWTs an account's PDS, or another service, signs to call a service as that
-/// account.
-/// </summary>
+/// <summary>Verifies AT Protocol <see href="https://atproto.com/specs/xrpc#inter-service-authentication-jwt">service auth</see> tokens: the JWTs an account's PDS, or another service, signs to call a service as that account.</summary>
 /// <remarks>
 /// <para>The <c>jti</c> is spent last, once every other check has passed, so a forged token
 /// cannot burn the identifier of a genuine one. A signature that fails against the cached key is
-/// retried once against a refreshed DID document; the resolver rate-limits refreshes. As in the
-/// reference implementation, a high-S signature is accepted: a bearer token is not
+/// retried once against a refreshed DID document (<see cref="IDidResolver.RefreshAsync"/>). As in
+/// the reference implementation, a high-S signature is accepted: a bearer token is not
 /// content-addressed.</para>
 /// <para>This is the check behind <c>AddAtProtoServiceAuth()</c>; call it directly to verify a
 /// token that does not arrive as an ASP.NET Core request.</para>
@@ -449,40 +415,19 @@ public sealed class ServiceAuthVerifier
         return (issuedAt, expiresAt);
     }
 
+    // Verifies the token's signature against the issuer's keyId key, through
+    // DidResolverExtensions.VerifyWithRefreshAsync.
     private async Task VerifySignatureAsync(
         Did issuer, string keyId, string algorithm, DecodedJwt decoded, CancellationToken cancellationToken)
     {
-        var key = await ResolveKeyAsync(issuer, keyId, refresh: false, cancellationToken).ConfigureAwait(false);
-        if (key is not null && Verify(key, algorithm, decoded))
-            return;
-
-        // The cached document may predate a key rotation, or the key's publication: refetch once
-        // before refusing.
-        var refreshed = await ResolveKeyAsync(issuer, keyId, refresh: true, cancellationToken).ConfigureAwait(false);
-        if (refreshed is null)
-        {
-            throw Refuse(
-                ServiceAuthErrors.BadJwtSignature,
-                $"'{issuer}' publishes no usable '{keyId}' verification method to verify against.");
-        }
-
-        if (string.Equals(refreshed, key, StringComparison.Ordinal) || !Verify(refreshed, algorithm, decoded))
-            throw Refuse(ServiceAuthErrors.BadJwtSignature, "The service auth token's signature does not verify.");
-    }
-
-    /// <summary>
-    /// The issuer's key named <paramref name="keyId"/>, or <see langword="null"/> when its document
-    /// publishes none, or one this SDK cannot read.
-    /// </summary>
-    private async Task<string?> ResolveKeyAsync(
-        Did issuer, string keyId, bool refresh, CancellationToken cancellationToken)
-    {
-        DidDocument document;
+        (bool Verified, string? Key) result;
         try
         {
-            document = refresh
-                ? await _resolver.RefreshAsync(issuer, cancellationToken).ConfigureAwait(false)
-                : await _resolver.ResolveAsync(issuer, cancellationToken).ConfigureAwait(false);
+            result = await _resolver.VerifyWithRefreshAsync(
+                issuer,
+                document => document.GetVerificationKey(keyId),
+                key => AtProtoCrypto.TryVerifyJwtSignature(key, algorithm, decoded.SigningInput, decoded.Signature),
+                cancellationToken).ConfigureAwait(false);
         }
         catch (DidResolutionException ex)
         {
@@ -492,29 +437,14 @@ public sealed class ServiceAuthVerifier
                 ServiceAuthErrors.BadJwtIss, $"Could not resolve the issuer '{issuer}'.", ex);
         }
 
-        try
-        {
-            return document.GetVerificationKey(keyId);
-        }
-        catch (FormatException)
-        {
-            // The issuer's own document is broken, which is no more usable than absent.
-            return null;
-        }
-    }
+        if (result.Verified)
+            return;
 
-    private static bool Verify(string key, string algorithm, DecodedJwt decoded)
-    {
-        try
-        {
-            return AtProtoCrypto.VerifyJwtSignature(key, algorithm, decoded.SigningInput, decoded.Signature);
-        }
-        catch (Exception ex) when (
-            ex is ArgumentException or FormatException or NotSupportedException or CryptographicException)
-        {
-            // Key material the document publishes but this platform cannot use.
-            return false;
-        }
+        throw result.Key is null
+            ? Refuse(
+                ServiceAuthErrors.BadJwtSignature,
+                $"'{issuer}' publishes no usable '{keyId}' verification method to verify against.")
+            : Refuse(ServiceAuthErrors.BadJwtSignature, "The service auth token's signature does not verify.");
     }
 
     private static ServiceAuthException Refuse(string error, string message) => new(error, message);

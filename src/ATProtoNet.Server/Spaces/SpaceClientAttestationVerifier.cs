@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using ATProtoNet.Auth.OAuth;
+using ATProtoNet.Caching;
+using ATProtoNet.Http;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Server.Authentication;
 using ATProtoNet.Spaces;
@@ -31,10 +33,7 @@ public interface ISpaceClientMetadataResolver
     Task<IReadOnlyList<JsonWebKey>> ResolveKeysAsync(string clientId, CancellationToken cancellationToken = default);
 }
 
-/// <summary>
-/// The default <see cref="ISpaceClientMetadataResolver"/>: fetches <c>client-metadata.json</c>
-/// over HTTPS and follows its <c>jwks_uri</c> when the keys are not inline.
-/// </summary>
+/// <summary>The default <see cref="ISpaceClientMetadataResolver"/>: fetches <c>client-metadata.json</c> over HTTPS and follows its <c>jwks_uri</c> when the keys are not inline.</summary>
 public sealed class HttpSpaceClientMetadataResolver : ISpaceClientMetadataResolver
 {
     private readonly HttpClient _httpClient;
@@ -149,14 +148,13 @@ public sealed class HttpSpaceClientMetadataResolver : ISpaceClientMetadataResolv
 /// </remarks>
 public sealed class SpaceClientAttestationVerifier
 {
-    private const int ClientKeyCacheCapacity = 1024;
     private static readonly TimeSpan MinRefetchInterval = TimeSpan.FromSeconds(30);
 
     private readonly ISpaceClientMetadataResolver _metadataResolver;
     private readonly IJtiReplayStore _replayStore;
     private readonly SpaceServerOptions _options;
     private readonly TimeProvider _timeProvider;
-    private readonly ConcurrentDictionary<string, ClientKeys> _clientKeys = new(StringComparer.Ordinal);
+    private readonly LruCache<string, ClientKeys> _clientKeys = new(1024, StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, Lazy<Task<IReadOnlyList<JsonWebKey>>>> _fetches = new(StringComparer.Ordinal);
 
     /// <summary>Creates a verifier.</summary>
@@ -270,32 +268,21 @@ public sealed class SpaceClientAttestationVerifier
         return (await FetchKeysAsync(clientId, now, cancellationToken).ConfigureAwait(false), false);
     }
 
-    /// <summary>Whether the last fetch for a client, however it ended, is at least 30 seconds old.</summary>
+    // Whether the last fetch for a client, however it ended, is at least 30 seconds old.
     private bool IsFetchDue(string clientId, DateTimeOffset now) =>
-        !_clientKeys.TryGetValue(clientId, out var entry) || now - entry.AttemptedAt >= MinRefetchInterval;
+        !_clientKeys.TryPeek(clientId, out var entry) || now - entry.AttemptedAt >= MinRefetchInterval;
 
-    /// <summary>
-    /// Fetches a client's keys, sharing one fetch among concurrent callers, and records the
-    /// attempt whether it succeeds or not.
-    /// </summary>
+    // Fetches a client's keys, sharing one fetch among concurrent callers, and records the attempt
+    // whether it succeeds or not.
     private async Task<IReadOnlyList<JsonWebKey>> FetchKeysAsync(
         string clientId, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var caching = _options.ClientMetadataCacheLifetime > TimeSpan.Zero;
         if (caching)
         {
-            // Past the bound, start over rather than track recency: the working set is the apps
-            // that attested in the last few minutes, and it refills on their next request.
-            if (_clientKeys.Count >= ClientKeyCacheCapacity)
-                _clientKeys.Clear();
-
             // Recorded before the fetch, so requests arriving while it runs, or after it fails,
-            // do not start another.
-            _clientKeys.AddOrUpdate(
-                clientId,
-                static (_, at) => new ClientKeys(null, at, at),
-                static (_, existing, at) => existing with { AttemptedAt = at },
-                now);
+            // do not start another. In one step: a fetch that lands meanwhile keeps its keys.
+            _clientKeys.AddOrUpdate(clientId, new ClientKeys(null, now, now), existing => existing with { AttemptedAt = now });
         }
 
         // Not tied to one caller's cancellation, since others may be waiting on the same fetch;
@@ -305,7 +292,7 @@ public sealed class SpaceClientAttestationVerifier
 
         var keys = await fetch.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
         if (caching)
-            _clientKeys[clientId] = new ClientKeys(keys, now, now);
+            _clientKeys.Set(clientId, new ClientKeys(keys, now, now));
         return keys;
     }
 
@@ -322,7 +309,7 @@ public sealed class SpaceClientAttestationVerifier
         }
     }
 
-    /// <summary>Checks the attestation against a key set, returning the refusal rather than throwing it.</summary>
+    // Checks the attestation against a key set, returning the refusal rather than throwing it.
     private static SpaceVerificationException? Check(IReadOnlyList<JsonWebKey> keys, SpaceToken parsed)
     {
         try
@@ -357,9 +344,7 @@ public sealed class SpaceClientAttestationVerifier
     private static SpaceVerificationException Invalid(string message) =>
         new(SpaceErrors.InvalidClientAttestation, message);
 
-    /// <summary>
-    /// What is known of a client's keys: the last set fetched (none if every fetch failed), when it
-    /// was fetched, and when a fetch was last attempted.
-    /// </summary>
+    // What is known of a client's keys: the last set fetched (none if every fetch failed), when it was
+    // fetched, and when a fetch was last attempted.
     private sealed record ClientKeys(IReadOnlyList<JsonWebKey>? Keys, DateTimeOffset FetchedAt, DateTimeOffset AttemptedAt);
 }

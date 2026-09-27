@@ -35,10 +35,7 @@ namespace ATProtoNet.Serialization;
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
 public sealed class AtProtoUnionAttribute : Attribute
 {
-    /// <summary>
-    /// Marks a closed union. Set <see cref="Closed"/> to <see langword="true"/>; an open union
-    /// must use the <see cref="AtProtoUnionAttribute(Type)"/> overload instead.
-    /// </summary>
+    /// <summary>Marks a closed union. Set <see cref="Closed"/> to <see langword="true"/>; an open union must use the <see cref="AtProtoUnionAttribute(Type)"/> overload instead.</summary>
     public AtProtoUnionAttribute()
     {
     }
@@ -57,10 +54,7 @@ public sealed class AtProtoUnionAttribute : Attribute
     /// <summary>The variant an unrecognized <c>$type</c> deserializes to, or <see langword="null"/> for a closed union.</summary>
     public Type? UnknownVariant { get; }
 
-    /// <summary>
-    /// Whether the Lexicon marks the union <c>"closed": true</c>, so that an unrecognized <c>$type</c>
-    /// is an error rather than an <see cref="UnknownVariant"/>.
-    /// </summary>
+    /// <summary>Whether the Lexicon marks the union <c>"closed": true</c>, so that an unrecognized <c>$type</c> is an error rather than an <see cref="UnknownVariant"/>.</summary>
     public bool Closed { get; set; }
 }
 

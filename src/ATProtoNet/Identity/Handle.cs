@@ -5,11 +5,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// Represents an AT Protocol Handle (domain name identifier).
-/// Handles are human-readable identifiers that map to DIDs.
-/// Examples: alice.bsky.social, bob.example.com
-/// </summary>
+/// <summary>Represents an AT Protocol Handle (domain name identifier). Handles are human-readable identifiers that map to DIDs. Examples: alice.bsky.social, bob.example.com</summary>
 /// <remarks>
 /// Parsing strips one leading <c>@</c> (common user input) and lower-cases the handle, so
 /// <see cref="Value"/> is always normalized and equality and ordering are ordinal on it.
@@ -25,10 +21,7 @@ public sealed partial record Handle : IIdentifier<Handle>
     [GeneratedRegex(@"^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\z")]
     private static partial Regex HandlePattern();
 
-    /// <summary>
-    /// <c>handle.invalid</c>: what an account is shown as when its handle does not verify
-    /// bidirectionally. The <c>.invalid</c> TLD never resolves.
-    /// </summary>
+    /// <summary><c>handle.invalid</c>: what an account is shown as when its handle does not verify bidirectionally. The <c>.invalid</c> TLD never resolves.</summary>
     public static Handle Invalid { get; } = new("handle.invalid");
 
     /// <summary>The handle string value (normalized to lowercase).</summary>
@@ -56,10 +49,7 @@ public sealed partial record Handle : IIdentifier<Handle>
     static bool IIdentifier<Handle>.TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out Handle? result) =>
         TryCreate(span, text, out result);
 
-    /// <summary>
-    /// Whether <paramref name="span"/> is a handle exactly as written: no <c>@</c> prefix is
-    /// stripped. Case is not significant.
-    /// </summary>
+    // Whether span is a handle exactly as written: no @ prefix is stripped. Case is not significant.
     internal static bool IsValidSyntax(ReadOnlySpan<char> span) =>
         span.Length <= MaxLength && HandlePattern().IsMatch(span);
 

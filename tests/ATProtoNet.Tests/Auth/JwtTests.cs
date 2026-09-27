@@ -4,6 +4,7 @@ using System.Text.Json;
 using ATProtoNet.Auth;
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Crypto;
+using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Tests.Auth;
 

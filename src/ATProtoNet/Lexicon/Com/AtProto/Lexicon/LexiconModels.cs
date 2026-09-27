@@ -46,10 +46,7 @@ public sealed class LexiconSchemaRecord : LexObject, IAtProtoRecord
     /// <summary>The <c>type</c> of the <c>main</c> definition (<c>record</c>, <c>query</c>, <c>permission-set</c>, …), or <see langword="null"/> when there is none.</summary>
     [JsonIgnore]
     public string? MainType =>
-        Defs is not null && Defs.TryGetValue("main", out var main) && main.ValueKind == JsonValueKind.Object &&
-        main.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.String
-            ? type.GetString()
-            : null;
+        Defs is not null && Defs.TryGetValue("main", out var main) ? main.GetStringOrNull("type") : null;
 
     /// <summary>The <c>main</c> definition as a permission set.</summary>
     /// <returns>The permission set, or <see langword="null"/> when <c>main</c> is not one.</returns>

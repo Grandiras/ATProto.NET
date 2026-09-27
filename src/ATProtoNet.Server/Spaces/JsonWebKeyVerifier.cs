@@ -1,47 +1,45 @@
-using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using ATProtoNet.Auth;
 using ATProtoNet.Auth.OAuth;
+using ATProtoNet.Caching;
 using ATProtoNet.Crypto;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// Verifies a JWS signature against an elliptic-curve JWK, and computes the RFC 7638 thumbprint
-/// a DPoP binding is expressed in.
-/// </summary>
-/// <remarks>
-/// <para>This accepts high-S ECDSA signatures, unlike the SDK's verification of AT Protocol
-/// <em>repository</em> signatures, which rejects them as malleable. That rule is an AT Protocol
-/// rule, not a JWS one: a DPoP proof and a client attestation are ordinary <c>ES256</c> JWS,
-/// produced by generic JOSE libraries that do no such normalization, and rejecting half of them
-/// would be a conformance bug rather than a hardening measure. Nothing here depends on signature
-/// non-malleability — a proof is bound to its <c>jti</c> and its <c>htu</c>, not to the bytes of
-/// its signature.</para>
-/// <para>Only EC keys are handled. AT Protocol's two curves are P-256 and secp256k1, and the
-/// space flow's tokens use one of them.</para>
-/// <para>Importing a key costs about as much as verifying with it, and a DPoP key signs every
-/// request its credential is presented on. So a key is imported and checked once, then kept by
-/// thumbprint as a <c>did:key</c>, and verification goes through the SDK's cache of imported
-/// keys. A thumbprint is a hash of the key itself, so an entry never goes stale; the bound only
-/// limits memory.</para>
-/// </remarks>
+// Verifies a JWS signature against an elliptic-curve JWK, and computes the RFC 7638 thumbprint a DPoP
+// binding is expressed in.
+//
+// This accepts high-S ECDSA signatures, unlike the SDK's verification of AT Protocol repository
+// signatures, which rejects them as malleable. That rule is an AT Protocol rule, not a JWS one: a DPoP
+// proof and a client attestation are ordinary ES256 JWS, produced by generic JOSE libraries that do no
+// such normalization, and rejecting half of them would be a conformance bug rather than a hardening
+// measure. Nothing here depends on signature non-malleability — a proof is bound to its jti and its htu,
+// not to the bytes of its signature.
+//
+// Only EC keys are handled. AT Protocol's two curves are P-256 and secp256k1, and the space flow's
+// tokens use one of them.
+//
+// Importing a key costs about as much as verifying with it, and a DPoP key signs every request its
+// credential is presented on. So a key is imported and checked once, then kept by thumbprint as a
+// did:key, and verification goes through the SDK's cache of imported keys. A thumbprint is a hash of the
+// key itself, so an entry never goes stale; the bound only limits memory.
 internal static class JsonWebKeyVerifier
 {
-    private const int KeyCacheCapacity = 1024;
-
     // thumbprint → did:key of a JWK that imported cleanly.
-    private static readonly ConcurrentDictionary<string, string> Keys = new(StringComparer.Ordinal);
+    private static readonly LruCache<string, string> Keys = new(1024, StringComparer.Ordinal);
 
-    /// <summary>
-    /// Verifies a JWS signature against a JWK: one embedded in a DPoP proof, or one published in
-    /// a client's JWKS.
-    /// </summary>
-    /// <param name="algorithm">The JWS <c>alg</c>, which must agree with the key's curve.</param>
-    /// <param name="signingInput">The bytes the signature covers.</param>
-    /// <param name="signature">The signature in IEEE P1363 form.</param>
-    /// <param name="fail">Builds the exception thrown when the key itself is unusable.</param>
-    /// <param name="thumbprint">The key's thumbprint, when the caller already computed it.</param>
+    // Verifies a JWS signature against a JWK: one embedded in a DPoP proof, or one published in a
+    // client's JWKS.
+    //
+    // algorithm: The JWS alg, which must agree with the key's curve.
+    //
+    // signingInput: The bytes the signature covers.
+    //
+    // signature: The signature in IEEE P1363 form.
+    //
+    // fail: Builds the exception thrown when the key itself is unusable.
+    //
+    // thumbprint: The key's thumbprint, when the caller already computed it.
     public static bool Verify(
         JsonWebKey key,
         string algorithm,
@@ -64,39 +62,24 @@ internal static class JsonWebKeyVerifier
         if (!Keys.TryGetValue(thumbprint, out var didKey))
         {
             didKey = Import(key, curve, fail);
-
-            // Past the bound, start over rather than track recency: the working set is the keys
-            // presented in the last few minutes, and it refills from the next request each.
-            if (Keys.Count >= KeyCacheCapacity)
-                Keys.Clear();
-            Keys[thumbprint] = didKey;
+            Keys.Set(thumbprint, didKey);
         }
 
-        try
-        {
-            return AtProtoCrypto.VerifyJwtSignature(didKey, algorithm, signingInput, signature);
-        }
-        catch (Exception ex) when (ex is CryptographicException or FormatException)
-        {
-            // JWS carries an ECDSA signature as a fixed-width r || s concatenation. One of the
-            // wrong length — a DER-encoded one, or a truncated one — is a rejected signature
-            // rather than a server fault.
-            return false;
-        }
+        // JWS carries an ECDSA signature as a fixed-width r || s concatenation. One of the wrong
+        // length — a DER-encoded one, or a truncated one — is a rejected signature rather than a
+        // server fault.
+        return AtProtoCrypto.TryVerifyJwtSignature(didKey, algorithm, signingInput, signature);
     }
 
-    /// <summary>
-    /// Computes a JWK's thumbprint per
-    /// <see href="https://www.rfc-editor.org/rfc/rfc7638">RFC 7638</see>: SHA-256 over the
-    /// canonical JSON of the key's required members, in lexicographic order, base64url-encoded.
-    /// </summary>
-    /// <param name="fail">Builds the exception thrown when the key is not a usable EC key.</param>
-    /// <remarks>
-    /// For an EC key the required members are exactly <c>crv</c>, <c>kty</c>, <c>x</c>, and
-    /// <c>y</c>, so any other member a proof carries — <c>kid</c>, <c>use</c>, <c>alg</c> — is
-    /// excluded and cannot be used to make one key present two thumbprints. The computation is
-    /// the one the SDK's own proof generator uses, so a client and this server always agree.
-    /// </remarks>
+    // Computes a JWK's thumbprint per RFC 7638 (https://www.rfc-editor.org/rfc/rfc7638): SHA-256 over
+    // the canonical JSON of the key's required members, in lexicographic order, base64url-encoded.
+    //
+    // For an EC key the required members are exactly crv, kty, x, and y, so any other member a proof
+    // carries — kid, use, alg — is excluded and cannot be used to make one key present two thumbprints.
+    // The computation is the one the SDK's own proof generator uses, so a client and this server always
+    // agree.
+    //
+    // fail: Builds the exception thrown when the key is not a usable EC key.
     public static string ComputeThumbprint(JsonWebKey jwk, Func<string, SpaceVerificationException> fail)
     {
         if (jwk.Kty != "EC")
@@ -128,14 +111,10 @@ internal static class JsonWebKeyVerifier
         };
     }
 
-    /// <summary>
-    /// Imports a JWK once, which checks the point lies on its curve, and returns the equivalent
-    /// <c>did:key</c>.
-    /// </summary>
-    /// <remarks>
-    /// The check matters: a <c>did:key</c> keeps only X and the parity of Y, so a JWK whose Y is
-    /// off the curve would otherwise verify as the valid point sharing its X.
-    /// </remarks>
+    // Imports a JWK once, which checks the point lies on its curve, and returns the equivalent did:key.
+    //
+    // The check matters: a did:key keeps only X and the parity of Y, so a JWK whose Y is off the curve
+    // would otherwise verify as the valid point sharing its X.
     private static string Import(JsonWebKey key, KeyCurve curve, Func<string, SpaceVerificationException> fail)
     {
         if (key.X is null || key.Y is null)

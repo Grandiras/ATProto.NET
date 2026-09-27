@@ -62,17 +62,13 @@ public sealed partial class DidWebResolver : IDidResolver, IDisposable
             _httpClient, url, did, _options.MaxDidDocumentBytes, _options.RequestTimeout, cancellationToken);
     }
 
-    /// <summary>
-    /// Builds the URL a <c>did:web</c> document is fetched from, enforcing AT Protocol's
-    /// <c>did:web</c> rules and the policy's host rules.
-    /// </summary>
-    /// <exception cref="DidResolutionException">
-    /// <see cref="DidResolutionErrorKind.UnsupportedMethod"/> for another method,
-    /// <see cref="DidResolutionErrorKind.InvalidDid"/> for a path, a port on a host other than
-    /// <c>localhost</c>, an IP address or a malformed host, and
-    /// <see cref="DidResolutionErrorKind.Blocked"/> for <c>localhost</c> without the development
-    /// opt-out.
-    /// </exception>
+    // Builds the URL a did:web document is fetched from, enforcing AT Protocol's did:web rules and the
+    // policy's host rules.
+    //
+    // Throws DidResolutionException: DidResolutionErrorKind.UnsupportedMethod for another method,
+    // DidResolutionErrorKind.InvalidDid for a path, a port on a host other than localhost, an IP address
+    // or a malformed host, and DidResolutionErrorKind.Blocked for localhost without the development
+    // opt-out.
     internal static Uri BuildResolutionUrl(Did did, bool allowPrivateNetworks)
     {
         if (did.Method != "web")

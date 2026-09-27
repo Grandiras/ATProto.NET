@@ -19,10 +19,7 @@ namespace ATProtoNet.Http;
 /// </example>
 public sealed record XrpcCallOptions
 {
-    /// <summary>
-    /// The <c>atproto-proxy</c> header for this call: a service DID and endpoint fragment, such
-    /// as <see cref="ServiceProxy.BskyChatHeader"/>.
-    /// </summary>
+    /// <summary>The <c>atproto-proxy</c> header for this call: a service DID and endpoint fragment, such as <see cref="ServiceProxy.BskyChatHeader"/>.</summary>
     /// <remarks>
     /// Precedence: a value set here is always sent. When it is <see langword="null"/>, the
     /// client-wide default from <see cref="AtProtoClient.SetProxy"/> is sent instead, if there
@@ -32,11 +29,7 @@ public sealed record XrpcCallOptions
     /// </remarks>
     public string? Proxy { get; init; }
 
-    /// <summary>
-    /// The labelers whose labels the service should apply to this call's response, sent as the
-    /// <c>atproto-accept-labelers</c> header. Each entry is a labeler DID, optionally followed by
-    /// <c>;redact</c>.
-    /// </summary>
+    /// <summary>The labelers whose labels the service should apply to this call's response, sent as the <c>atproto-accept-labelers</c> header. Each entry is a labeler DID, optionally followed by <c>;redact</c>.</summary>
     /// <remarks>
     /// Precedence as for <see cref="Proxy"/>: a list set here is always used, and an empty one
     /// sends no header even when the client has a default. <see langword="null"/> falls back to
@@ -45,26 +38,14 @@ public sealed record XrpcCallOptions
     /// </remarks>
     public IReadOnlyList<string>? AcceptLabelers { get; init; }
 
-    /// <summary>
-    /// Additional request headers. They are added after the SDK's own, so they can override
-    /// <c>User-Agent</c>, <c>atproto-proxy</c> and <c>atproto-accept-labelers</c>, but not
-    /// <c>Authorization</c> or <c>DPoP</c>, which belong to the session and are rejected.
-    /// </summary>
+    /// <summary>Additional request headers. They are added after the SDK's own, so they can override <c>User-Agent</c>, <c>atproto-proxy</c> and <c>atproto-accept-labelers</c>, but not <c>Authorization</c> or <c>DPoP</c>, which belong to the session and are rejected.</summary>
     public IReadOnlyDictionary<string, string>? Headers { get; init; }
 
-    /// <summary>
-    /// A deadline for this call, from sending the request to reading the whole response (for a
-    /// download, to receiving the response headers). On expiry the call throws
-    /// <see cref="TimeoutException"/>. The <see cref="HttpClient.Timeout"/> of the underlying
-    /// client still applies to each attempt on its own.
-    /// </summary>
+    /// <summary>A deadline for this call, from sending the request to reading the whole response (for a download, to receiving the response headers). On expiry the call throws <see cref="TimeoutException"/>. The <see cref="HttpClient.Timeout"/> of the underlying client still applies to each attempt on its own.</summary>
     public TimeSpan? Timeout { get; init; }
 
-    /// <summary>
-    /// Marks a call addressed to the service itself: the client-wide <c>atproto-proxy</c> and
-    /// <c>atproto-accept-labelers</c> defaults are not applied to it, while a per-call
-    /// <see cref="Proxy"/> or <see cref="AcceptLabelers"/> still wins when set. The SDK sets it
-    /// on the session calls, which must reach the account's own PDS.
-    /// </summary>
+    // Marks a call addressed to the service itself: the client-wide atproto-proxy and
+    // atproto-accept-labelers defaults are not applied to it, while a per-call Proxy or AcceptLabelers
+    // still wins when set. The SDK sets it on the session calls, which must reach the account's own PDS.
     internal bool IsDirect { get; init; }
 }

@@ -15,18 +15,12 @@ namespace ATProtoNet.Server.Spaces;
 /// </remarks>
 public interface ISpaceCallerResolver
 {
-    /// <summary>
-    /// Returns the DID of the authenticated account, or <see langword="null"/> when the request
-    /// carries no session.
-    /// </summary>
+    /// <summary>Returns the DID of the authenticated account, or <see langword="null"/> when the request carries no session.</summary>
     /// <param name="context">The HTTP context.</param>
     Did? GetCallerDid(HttpContext context);
 }
 
-/// <summary>
-/// The default <see cref="ISpaceCallerResolver"/>: reads the DID from the request's
-/// <see cref="ClaimsPrincipal"/>.
-/// </summary>
+/// <summary>The default <see cref="ISpaceCallerResolver"/>: reads the DID from the request's <see cref="ClaimsPrincipal"/>.</summary>
 /// <remarks>
 /// <para>It looks for a <c>did</c> claim first — <see cref="Authentication.AtProtoClaimTypes.Did"/>,
 /// which the OAuth login and service auth issue — and falls back to
@@ -55,10 +49,10 @@ public sealed class ClaimsSpaceCallerResolver : ISpaceCallerResolver
     }
 }
 
-/// <summary>Helpers shared by the endpoints that authenticate a caller rather than a credential.</summary>
+// Helpers shared by the endpoints that authenticate a caller rather than a credential.
 internal static class SpaceCallerResolverExtensions
 {
-    /// <summary>Returns the caller's DID, or throws an authentication failure.</summary>
+    // Returns the caller's DID, or throws an authentication failure.
     public static Did RequireCallerDid(this ISpaceCallerResolver resolver, HttpContext context) =>
         resolver.GetCallerDid(context)
         ?? throw new SpaceVerificationException(

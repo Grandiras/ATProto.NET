@@ -6,10 +6,7 @@ using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// An in-process <see cref="ISpaceAuthorityStore"/>: the writer set and the notification
-/// registrations, held in memory.
-/// </summary>
+/// <summary>An in-process <see cref="ISpaceAuthorityStore"/>: the writer set and the notification registrations, held in memory.</summary>
 /// <remarks>
 /// Intended for tests, samples, and single-instance development. Losing the writer set on a
 /// restart is not catastrophic — it is only what the authority <em>claims</em>, and a

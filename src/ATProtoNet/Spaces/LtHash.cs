@@ -101,10 +101,7 @@ public sealed class LtHash : IEquatable<LtHash>
         return this;
     }
 
-    /// <summary>
-    /// Returns the full <see cref="StateBytes"/>-byte state, for persistence. A repo host keeps
-    /// this so it can update the hash incrementally; only <see cref="Digest"/> travels on the wire.
-    /// </summary>
+    /// <summary>Returns the full <see cref="StateBytes"/>-byte state, for persistence. A repo host keeps this so it can update the hash incrementally; only <see cref="Digest"/> travels on the wire.</summary>
     public byte[] GetState()
     {
         var state = new byte[StateBytes];
@@ -127,10 +124,7 @@ public sealed class LtHash : IEquatable<LtHash>
             BinaryPrimitives.ReverseEndianness(_lanes, lanes);
     }
 
-    /// <summary>
-    /// Returns <c>sha256(state)</c>, the 32-byte digest carried in a commit's
-    /// <see cref="SignedSpaceCommit.Hash"/>.
-    /// </summary>
+    /// <summary>Returns <c>sha256(state)</c>, the 32-byte digest carried in a commit's <see cref="SignedSpaceCommit.Hash"/>.</summary>
     public byte[] Digest()
     {
         Span<byte> state = stackalloc byte[StateBytes];

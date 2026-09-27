@@ -42,10 +42,7 @@ public sealed class SpaceCredential : IDisposable
     /// <summary>When the credential expires.</summary>
     public DateTimeOffset ExpiresAt => Token.ExpiresAt;
 
-    /// <summary>
-    /// The key the credential is bound to, which signs the DPoP proof on every request made
-    /// with it.
-    /// </summary>
+    /// <summary>The key the credential is bound to, which signs the DPoP proof on every request made with it.</summary>
     /// <remarks>
     /// A fresh keypair is generated per credential and need only outlive it — it is disposed
     /// along with the credential.
@@ -70,10 +67,7 @@ public sealed class SpaceCredential : IDisposable
 /// <summary>Configuration for a <see cref="SpaceCredentialProvider"/>.</summary>
 public sealed class SpaceCredentialOptions
 {
-    /// <summary>
-    /// Produces the application's client attestation for a given space host audience, or
-    /// <see langword="null"/> when the application is a public client.
-    /// </summary>
+    /// <summary>Produces the application's client attestation for a given space host audience, or <see langword="null"/> when the application is a public client.</summary>
     /// <remarks>
     /// <para>A space that gates on app identity requires one; a space with open app access does
     /// not, and there is no way to tell in advance. The provider therefore asks without an
@@ -88,10 +82,7 @@ public sealed class SpaceCredentialOptions
     /// <summary>How long before expiry a cached credential is renewed. Defaults to five minutes.</summary>
     public TimeSpan RenewalWindow { get; init; } = TimeSpan.FromMinutes(5);
 
-    /// <summary>
-    /// Resolves a space authority or repo host DID to its endpoint. Supply this to override DID
-    /// document resolution, e.g. to point a test at a local PDS.
-    /// </summary>
+    /// <summary>Resolves a space authority or repo host DID to its endpoint. Supply this to override DID document resolution, e.g. to point a test at a local PDS.</summary>
     public Func<Did, CancellationToken, Task<string>>? HostResolver { get; init; }
 }
 
@@ -180,10 +171,7 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
         _logger = logger ?? NullLogger.Instance;
     }
 
-    /// <summary>
-    /// Returns a credential for a space, minting one if none is cached or the cached one is
-    /// about to expire.
-    /// </summary>
+    /// <summary>Returns a credential for a space, minting one if none is cached or the cached one is about to expire.</summary>
     /// <param name="space">The space to read.</param>
     /// <param name="forceRenew">Discard any cached credential and mint a fresh one.</param>
     /// <exception cref="SpaceCredentialException">Thrown when the authority refuses to issue one.</exception>
@@ -215,10 +203,8 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
         return await mint.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// The one mint in flight for a space: stores its credential and retires the one it replaces,
-    /// then steps aside for the next.
-    /// </summary>
+    // The one mint in flight for a space: stores its credential and retires the one it replaces, then
+    // steps aside for the next.
     private async Task<SpaceCredential> MintAndStoreAsync(SpaceUri space, SpaceCredential? seen, bool forceRenew)
     {
         try
@@ -256,16 +242,13 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
     private bool IsFresh(SpaceCredential? credential) =>
         credential is not null && !credential.IsExpired(DateTimeOffset.UtcNow + _options.RenewalWindow);
 
-    /// <summary>
-    /// Keeps a replaced credential for the readers still holding it, and disposes the ones that
-    /// have expired, which no reader can use any more.
-    /// </summary>
-    /// <remarks>
-    /// A renewed credential does not invalidate the readers already holding the old one — they
-    /// keep signing with its key until they are done — so it is not disposed on the spot. Once
-    /// it has expired every host refuses it anyway, and its key can go. That bounds what is kept
-    /// to about one credential per space, rather than one per renewal for the provider's life.
-    /// </remarks>
+    // Keeps a replaced credential for the readers still holding it, and disposes the ones that have
+    // expired, which no reader can use any more.
+    //
+    // A renewed credential does not invalidate the readers already holding the old one — they keep
+    // signing with its key until they are done — so it is not disposed on the spot. Once it has expired
+    // every host refuses it anyway, and its key can go. That bounds what is kept to about one credential
+    // per space, rather than one per renewal for the provider's life.
     private void RetireLocked(SpaceCredential replaced)
     {
         _superseded.Add(replaced);
@@ -279,7 +262,7 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
         }
     }
 
-    /// <summary>The number of replaced credentials still kept for their readers, for tests.</summary>
+    // The number of replaced credentials still kept for their readers, for tests.
     internal int SupersededCount
     {
         get
@@ -321,10 +304,7 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
         return await CreateReaderAsync(space, host, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Resolves the endpoint that answers for a DID: its <c>#atproto_space_host</c> service
-    /// entry, or its PDS when it publishes none.
-    /// </summary>
+    /// <summary>Resolves the endpoint that answers for a DID: its <c>#atproto_space_host</c> service entry, or its PDS when it publishes none.</summary>
     /// <param name="did">The DID to resolve.</param>
     /// <exception cref="SpaceCredentialException">
     /// Thrown when the DID publishes no endpoint, or one that is not an absolute http(s) URL free
@@ -422,10 +402,8 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
         }
     }
 
-    /// <summary>
-    /// Performs one <c>getSpaceCredential</c> exchange. Returns <see langword="null"/> when the
-    /// authority refused on app-identity grounds, which is the signal to retry with an attestation.
-    /// </summary>
+    // Performs one getSpaceCredential exchange. Returns null when the authority refused on app-identity
+    // grounds, which is the signal to retry with an attestation.
     private async Task<GetSpaceCredentialResponse?> ExchangeAsync(
         SpaceUri space,
         Uri endpoint,
@@ -549,20 +527,13 @@ public sealed class SpaceReader : IDisposable
     /// <summary>The <c>com.atproto.simplespace.*</c> endpoints on this host.</summary>
     public Lexicon.Com.AtProto.SimpleSpace.SimpleSpaceClient SimpleSpace { get; }
 
-    /// <summary>
-    /// Releases nothing: the reader borrows its provider's <see cref="HttpClient"/> and
-    /// credential, which the provider disposes. Kept so a reader can be scoped with
-    /// <c>using</c> as the provider's examples do.
-    /// </summary>
+    /// <summary>Releases nothing: the reader borrows its provider's <see cref="HttpClient"/> and credential, which the provider disposes. Kept so a reader can be scoped with <c>using</c> as the provider's examples do.</summary>
     public void Dispose()
     {
     }
 }
 
-/// <summary>
-/// Thrown when a space credential cannot be obtained, or the authority issues one that does not
-/// match what was asked for.
-/// </summary>
+/// <summary>Thrown when a space credential cannot be obtained, or the authority issues one that does not match what was asked for.</summary>
 public sealed class SpaceCredentialException : AtProtoException
 {
     /// <summary>Creates a new exception with the given message and optional XRPC error name.</summary>

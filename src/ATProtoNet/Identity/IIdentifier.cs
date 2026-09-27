@@ -2,30 +2,26 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// The parsing contract shared by the string-backed identifier types. Each type states its
-/// validation once, in <see cref="TryCreate"/>; this interface derives the
-/// <see cref="IParsable{TSelf}"/> and <see cref="ISpanParsable{TSelf}"/> members from it, and
-/// the one JSON converter for all identifiers binds to it.
-/// </summary>
-/// <typeparam name="TSelf">The identifier type.</typeparam>
+// The parsing contract shared by the string-backed identifier types. Each type states its validation
+// once, in TryCreate; this interface derives the IParsable and ISpanParsable members from it, and the
+// one JSON converter for all identifiers binds to it.
+//
+// TSelf: The identifier type.
 internal interface IIdentifier<TSelf> : ISpanParsable<TSelf>, IEquatable<TSelf>, IComparable<TSelf>
     where TSelf : class, IIdentifier<TSelf>
 {
-    /// <summary>Validates <paramref name="span"/> and, when it is valid, creates the identifier.</summary>
-    /// <param name="span">The candidate text.</param>
-    /// <param name="text">
-    /// The same text as a string when the caller already holds one, so a valid value can be
-    /// stored without copying it; <see langword="null"/> when only the span is available.
-    /// </param>
-    /// <param name="result">The identifier on success.</param>
+    // Validates span and, when it is valid, creates the identifier.
+    //
+    // span: The candidate text.
+    //
+    // text: The same text as a string when the caller already holds one, so a valid value can be stored
+    // without copying it; null when only the span is available.
+    //
+    // result: The identifier on success.
     static abstract bool TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out TSelf? result);
 
-    /// <summary>
-    /// The exception a public <c>Parse(string)</c> throws for <paramref name="value"/>:
-    /// <see cref="ArgumentNullException"/> for <see langword="null"/>, otherwise
-    /// <see cref="ArgumentException"/> naming the identifier <paramref name="kind"/>.
-    /// </summary>
+    // The exception a public Parse(string) throws for value: ArgumentNullException for null, otherwise
+    // ArgumentException naming the identifier kind.
     static ArgumentException InvalidValue(string? value, string kind) => value is null
         ? new ArgumentNullException(nameof(value))
         : new ArgumentException($"Invalid {kind}: '{value}'.", nameof(value));

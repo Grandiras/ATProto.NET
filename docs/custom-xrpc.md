@@ -70,17 +70,6 @@ var everything = await client.QueryAsync<SearchResult>(Nsid.Parse("com.example.t
 
 Values are formatted for the wire: booleans as `true`/`false`, numbers in the invariant culture, `DateTimeOffset` as ISO 8601 UTC (`2026-09-24T12:00:00.000Z`), enums by their JSON names, identifier types (`Did`, `AtUri`, `Nsid`, …) and an `AtDatetime` as their text, and `AddAll` as a repeated key.
 
-An anonymous object or a dictionary also works, as a convenience overload: each property is one
-parameter, a sequence is a repeated key, and `DateTime` values go out as ISO 8601 UTC. It reads the
-object's properties by reflection, so it is marked `[RequiresUnreferencedCode]`; prefer
-`XrpcParams` in trimmed or AOT-compiled apps.
-
-```csharp
-var result = await client.QueryAsync<SearchResult>(
-    Nsid.Parse("com.example.todo.search"),
-    new { limit = 25, cursor = "abc", includeArchived = true });
-```
-
 ### Per-call options
 
 Every custom call takes an optional `XrpcCallOptions`, which applies to that one call and overrides the client's defaults for it — safe on a client shared between concurrent callers:

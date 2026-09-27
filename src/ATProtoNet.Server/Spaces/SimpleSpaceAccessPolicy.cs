@@ -200,10 +200,7 @@ public interface ISimpleSpaceManagingAppClient
         CancellationToken cancellationToken = default);
 }
 
-/// <summary>
-/// The default <see cref="ISimpleSpaceManagingAppClient"/>: resolves the managing app's endpoint
-/// from its DID document and calls it with service auth.
-/// </summary>
+/// <summary>The default <see cref="ISimpleSpaceManagingAppClient"/>: resolves the managing app's endpoint from its DID document and calls it with service auth.</summary>
 /// <remarks>
 /// <para>The service auth token is addressed to the managing app's service identifier exactly as
 /// the policy names it — <c>did:web:app.example.com#forum</c>, fragment and all — because that

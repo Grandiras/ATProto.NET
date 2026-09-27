@@ -41,10 +41,7 @@ public sealed record VerifiedSpaceRepo(
     IReadOnlyList<KeyValuePair<string, Cid>> Index,
     IReadOnlyList<SpaceRepoRecord> Records);
 
-/// <summary>
-/// Serializes and verifies a permissioned repo in its CAR form, as served by
-/// <c>com.atproto.space.getRepo</c>.
-/// </summary>
+/// <summary>Serializes and verifies a permissioned repo in its CAR form, as served by <c>com.atproto.space.getRepo</c>.</summary>
 /// <remarks>
 /// <para>The CAR declares <b>two</b> roots, in order: the signed commit, then a DAG-CBOR index
 /// mapping <c>{collection}/{rkey}</c> to each record's CID. The record blocks follow, in the
@@ -221,11 +218,10 @@ public static class SpaceRepoCar
         return new VerifiedSpaceRepo(commit, index, records);
     }
 
-    /// <summary>
-    /// Decodes the index block into path/CID pairs, preserving the CAR's own order so that the
-    /// record blocks can be matched against it positionally.
-    /// </summary>
-    /// <param name="paths">Each entry's path, parsed, in the same order.</param>
+    // Decodes the index block into path/CID pairs, preserving the CAR's own order so that the record
+    // blocks can be matched against it positionally.
+    //
+    // paths: Each entry's path, parsed, in the same order.
     private static List<KeyValuePair<string, Cid>> DecodeIndex(
         ReadOnlyMemory<byte> indexBlock, out List<(Nsid Collection, RecordKey Rkey)> paths)
     {
@@ -268,10 +264,8 @@ public static class SpaceRepoCar
         return index;
     }
 
-    /// <summary>
-    /// Splits an index key into its collection and record key: exactly one <c>/</c>, with a
-    /// valid NSID before it and a valid record key after it.
-    /// </summary>
+    // Splits an index key into its collection and record key: exactly one /, with a valid NSID before it
+    // and a valid record key after it.
     private static (Nsid Collection, RecordKey Rkey) ParsePath(string path)
     {
         var separator = path.IndexOf('/');
@@ -286,10 +280,8 @@ public static class SpaceRepoCar
         return (collection, rkey);
     }
 
-    /// <summary>
-    /// Whether a record block is a single map in strict DAG-CBOR: no indefinite lengths, no
-    /// non-shortest forms, canonical key order, and no tag but a CID link.
-    /// </summary>
+    // Whether a record block is a single map in strict DAG-CBOR: no indefinite lengths, no non-shortest
+    // forms, canonical key order, and no tag but a CID link.
     private static bool IsRecordMap(ReadOnlyMemory<byte> block, out string? error) =>
         SpaceRecordCbor.TryValidateRecord(block, out error);
 }

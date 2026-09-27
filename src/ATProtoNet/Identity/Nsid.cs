@@ -5,10 +5,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// Represents a Namespaced Identifier (NSID) used to identify Lexicon schemas.
-/// Format: segment.segment.name (e.g., com.atproto.repo.createRecord)
-/// </summary>
+/// <summary>Represents a Namespaced Identifier (NSID) used to identify Lexicon schemas. Format: segment.segment.name (e.g., com.atproto.repo.createRecord)</summary>
 /// <remarks>Equality and ordering are ordinal on <see cref="Value"/>.</remarks>
 [JsonConverter(typeof(IdentifierJsonConverter<Nsid>))]
 public sealed partial record Nsid : IIdentifier<Nsid>

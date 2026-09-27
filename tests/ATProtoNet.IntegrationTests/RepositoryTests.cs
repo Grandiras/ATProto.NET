@@ -24,7 +24,7 @@ public class RepositoryTests
         {
             ["$type"] = "app.bsky.feed.post",
             ["text"] = $"Integration test post {Guid.NewGuid():N}",
-            ["createdAt"] = ATProtoNet.Serialization.AtProtoJsonDefaults.NowTimestamp(),
+            ["createdAt"] = AtDatetime.Now().ToString(),
         };
 
         var createResult = await client.Repo.CreateRecordAsync(
@@ -61,7 +61,7 @@ public class RepositoryTests
         {
             ["$type"] = "app.bsky.feed.post",
             ["text"] = text,
-            ["createdAt"] = ATProtoNet.Serialization.AtProtoJsonDefaults.NowTimestamp(),
+            ["createdAt"] = AtDatetime.Now().ToString(),
         });
         var rkey = created.Uri.RecordKey!;
 

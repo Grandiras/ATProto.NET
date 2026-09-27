@@ -4,23 +4,17 @@ using System.Text.Json;
 using ATProtoNet.Auth;
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
+using ATProtoNet.Serialization;
 using ATProtoNet.Server.Authentication;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// A DPoP proof that has been parsed and verified, per
-/// <see href="https://www.rfc-editor.org/rfc/rfc9449">RFC 9449</see>.
-/// </summary>
+/// <summary>A DPoP proof that has been parsed and verified, per <see href="https://www.rfc-editor.org/rfc/rfc9449">RFC 9449</see>.</summary>
 public sealed class DPoPProof
 {
     internal DPoPProof(string keyThumbprint) => KeyThumbprint = keyThumbprint;
 
-    /// <summary>
-    /// The RFC 7638 thumbprint of the proof's own embedded <c>jwk</c>: what a credential's
-    /// <c>cnf.jkt</c> is compared against, and on the credential exchange what the new credential
-    /// is bound to.
-    /// </summary>
+    /// <summary>The RFC 7638 thumbprint of the proof's own embedded <c>jwk</c>: what a credential's <c>cnf.jkt</c> is compared against, and on the credential exchange what the new credential is bound to.</summary>
     public string KeyThumbprint { get; }
 }
 
@@ -95,10 +89,8 @@ public sealed class DPoPProofValidator
             accessToken is null ? null : DPoP.AccessTokenHash(accessToken),
             cancellationToken);
 
-    /// <summary>
-    /// Verifies a proof, given the <c>ath</c> the credential it accompanies hashes to, for a
-    /// caller that already holds the hash.
-    /// </summary>
+    // Verifies a proof, given the ath the credential it accompanies hashes to, for a caller that already
+    // holds the hash.
     internal async Task<DPoPProof> ValidateWithHashAsync(
         string proofJwt,
         string httpMethod,

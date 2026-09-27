@@ -4,10 +4,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// Represents an AT Protocol identifier that can be either a DID or a Handle.
-/// Used in scenarios where either identifier type is accepted (e.g., API parameters).
-/// </summary>
+/// <summary>Represents an AT Protocol identifier that can be either a DID or a Handle. Used in scenarios where either identifier type is accepted (e.g., API parameters).</summary>
 /// <remarks>
 /// A DID always starts with <c>did:</c> and a handle cannot contain a colon, so the two never
 /// overlap. Equality and ordering are ordinal on <see cref="Value"/>.
@@ -60,10 +57,7 @@ public sealed record AtIdentifier : IIdentifier<AtIdentifier>
         return new AtIdentifier(handle);
     }
 
-    /// <summary>
-    /// Parses a string as an AT identifier (either DID or Handle).
-    /// A handle is normalized as by <see cref="Identity.Handle.Parse"/>.
-    /// </summary>
+    /// <summary>Parses a string as an AT identifier (either DID or Handle). A handle is normalized as by <see cref="Identity.Handle.Parse"/>.</summary>
     /// <param name="value">The DID or handle.</param>
     /// <returns>The parsed identifier.</returns>
     /// <exception cref="ArgumentException">Thrown if the value is neither a valid DID nor a valid handle.</exception>
@@ -82,10 +76,8 @@ public sealed record AtIdentifier : IIdentifier<AtIdentifier>
     static bool IIdentifier<AtIdentifier>.TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out AtIdentifier? result) =>
         TryCreate(span, text, out result);
 
-    /// <summary>
-    /// Parses an identifier exactly as written, as the authority of an AT URI requires: the
-    /// <c>@</c> prefix <see cref="Identity.Handle.Parse"/> tolerates in user input is rejected.
-    /// </summary>
+    // Parses an identifier exactly as written, as the authority of an AT URI requires: the @ prefix
+    // Handle.Parse tolerates in user input is rejected.
     internal static bool TryCreateStrict(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out AtIdentifier? result)
     {
         if (span.StartsWith('@'))

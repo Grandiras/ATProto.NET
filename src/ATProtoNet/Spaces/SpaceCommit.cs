@@ -10,10 +10,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Spaces;
 
-/// <summary>
-/// A signed commit over the current state of a permissioned repo
-/// (<c>com.atproto.space.defs#signedCommit</c>).
-/// </summary>
+/// <summary>A signed commit over the current state of a permissioned repo (<c>com.atproto.space.defs#signedCommit</c>).</summary>
 /// <remarks>
 /// <para>A commit is a short digest a syncer can compare against its own copy without
 /// re-reading the repo. Unlike a public repository's commit it is deliberately
@@ -31,10 +28,7 @@ public sealed class SignedSpaceCommit : Models.LexObject
     /// <summary>The commit format version currently defined by the protocol.</summary>
     public const int CurrentVersion = 1;
 
-    /// <summary>
-    /// Commit format version, currently <see cref="CurrentVersion"/>. Corresponds to the
-    /// version carried in the <c>atproto-space-v1</c> context protocol tag.
-    /// </summary>
+    /// <summary>Commit format version, currently <see cref="CurrentVersion"/>. Corresponds to the version carried in the <c>atproto-space-v1</c> context protocol tag.</summary>
     [JsonPropertyName("ver")]
     public required int Ver { get; init; }
 
@@ -43,26 +37,17 @@ public sealed class SignedSpaceCommit : Models.LexObject
     [JsonConverter(typeof(LexBytesJsonConverter))]
     public required byte[] Hash { get; init; }
 
-    /// <summary>
-    /// Per-signature input keying material: 32 random bytes, freshly generated for each reader
-    /// a commit is served to.
-    /// </summary>
+    /// <summary>Per-signature input keying material: 32 random bytes, freshly generated for each reader a commit is served to.</summary>
     [JsonPropertyName("ikm")]
     [JsonConverter(typeof(LexBytesJsonConverter))]
     public required byte[] Ikm { get; init; }
 
-    /// <summary>
-    /// The author's signature over the commit context. Does <b>not</b> cover
-    /// <see cref="Hash"/> — see the remarks on <see cref="SignedSpaceCommit"/>.
-    /// </summary>
+    /// <summary>The author's signature over the commit context. Does <b>not</b> cover <see cref="Hash"/> — see the remarks on <see cref="SignedSpaceCommit"/>.</summary>
     [JsonPropertyName("sig")]
     [JsonConverter(typeof(LexBytesJsonConverter))]
     public required byte[] Sig { get; init; }
 
-    /// <summary>
-    /// <c>HMAC-SHA256</c> over <see cref="Hash"/>, keyed by <c>HKDF-Expand</c> of
-    /// <see cref="Ikm"/> with the context as <c>info</c>. Binds the digest to this commit's context.
-    /// </summary>
+    /// <summary><c>HMAC-SHA256</c> over <see cref="Hash"/>, keyed by <c>HKDF-Expand</c> of <see cref="Ikm"/> with the context as <c>info</c>. Binds the digest to this commit's context.</summary>
     [JsonPropertyName("mac")]
     [JsonConverter(typeof(LexBytesJsonConverter))]
     public required byte[] Mac { get; init; }
@@ -71,10 +56,7 @@ public sealed class SignedSpaceCommit : Models.LexObject
     [JsonPropertyName("rev")]
     public required Tid Rev { get; init; }
 
-    /// <summary>
-    /// Encodes the commit as a DAG-CBOR block, the form it takes as the first root of a
-    /// serialized repo.
-    /// </summary>
+    /// <summary>Encodes the commit as a DAG-CBOR block, the form it takes as the first root of a serialized repo.</summary>
     public byte[] ToDagCbor() =>
         DagCborEncoder.Encode(JsonSerializer.SerializeToElement(this, SpaceJson.Options));
 
@@ -98,10 +80,7 @@ public sealed class SignedSpaceCommit : Models.LexObject
     }
 }
 
-/// <summary>
-/// The context a commit's signature and MAC are both domain-separated by:
-/// the space, the author, and the revision.
-/// </summary>
+/// <summary>The context a commit's signature and MAC are both domain-separated by: the space, the author, and the revision.</summary>
 /// <param name="Space">The space the repo belongs to.</param>
 /// <param name="Author">The DID of the account whose repo it is.</param>
 /// <param name="Rev">The commit revision.</param>
@@ -170,10 +149,7 @@ public readonly record struct SpaceCommitContext(SpaceUri Space, Did Author, Tid
 /// <param name="Prev">The record's previous CID, or <see langword="null"/> for a create.</param>
 public readonly record struct SpaceRepoOp(Nsid Collection, RecordKey Rkey, Cid? Cid, Cid? Prev);
 
-/// <summary>
-/// The running <see cref="LtHash"/> over a permissioned repo's records, and the commit that
-/// summarizes it.
-/// </summary>
+/// <summary>The running <see cref="LtHash"/> over a permissioned repo's records, and the commit that summarizes it.</summary>
 /// <remarks>
 /// <para>A repo host maintains one of these per hosted repo and updates it on every write. A
 /// syncer maintains its own alongside its copy of the repo; when the two digests agree, the
@@ -215,10 +191,7 @@ public sealed class SpaceRepoCommit
         return commit;
     }
 
-    /// <summary>
-    /// Folds a repo index — <c>{collection}/{rkey}</c> to record CID — into a fresh commit, so
-    /// the index can be checked against a signed commit without reading a single record.
-    /// </summary>
+    /// <summary>Folds a repo index — <c>{collection}/{rkey}</c> to record CID — into a fresh commit, so the index can be checked against a signed commit without reading a single record.</summary>
     /// <param name="index">The index, as carried by the second root of a serialized repo.</param>
     public static SpaceRepoCommit FromIndex(IEnumerable<KeyValuePair<string, Cid>> index)
     {
@@ -259,10 +232,7 @@ public sealed class SpaceRepoCommit
         return this;
     }
 
-    /// <summary>
-    /// Applies one operation-log entry: removes the previous version if there was one, adds the
-    /// new version unless the operation was a delete.
-    /// </summary>
+    /// <summary>Applies one operation-log entry: removes the previous version if there was one, adds the new version unless the operation was a delete.</summary>
     /// <param name="op">The operation.</param>
     /// <returns>This instance, for chaining.</returns>
     public SpaceRepoCommit ApplyOp(SpaceRepoOp op)
@@ -286,10 +256,7 @@ public sealed class SpaceRepoCommit
         return this;
     }
 
-    /// <summary>
-    /// The 32-byte digest of the repo's current contents — what a commit carries as its
-    /// <see cref="SignedSpaceCommit.Hash"/>.
-    /// </summary>
+    /// <summary>The 32-byte digest of the repo's current contents — what a commit carries as its <see cref="SignedSpaceCommit.Hash"/>.</summary>
     public byte[] Digest() => SetHash.Digest();
 
     /// <summary>Whether this repo's contents match a signed commit's digest.</summary>
@@ -361,14 +328,7 @@ public static class SpaceCommitVerifier
         if (!CryptographicOperations.FixedTimeEquals(mac, commit.Mac))
             return false;
 
-        try
-        {
-            return AtProtoCrypto.VerifySignature(didKey, encodedContext, commit.Sig);
-        }
-        catch (Exception ex) when (ex is ArgumentException or FormatException or CryptographicException)
-        {
-            return false;
-        }
+        return AtProtoCrypto.TryVerifySignature(didKey, encodedContext, commit.Sig);
     }
 
     /// <summary>Computes a commit's MAC: <c>HMAC-SHA256(HKDF-Expand(ikm, ctx, 32), hash)</c>.</summary>
@@ -406,7 +366,7 @@ public sealed class SpaceRepoVerificationException : AtProtoException
     }
 }
 
-/// <summary>JSON options for permissioned-space structures that round-trip through DAG-CBOR.</summary>
+// JSON options for permissioned-space structures that round-trip through DAG-CBOR.
 internal static class SpaceJson
 {
     internal static JsonSerializerOptions Options { get; } = new()

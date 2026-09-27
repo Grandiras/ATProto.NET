@@ -7,23 +7,22 @@ using System.Runtime.Intrinsics;
 
 namespace ATProtoNet.Crypto;
 
-/// <summary>BLAKE3 in extendable-output (XOF) mode.</summary>
-/// <remarks>
-/// <para>Only the unkeyed hash mode is implemented, which is the only mode the AT Protocol
-/// uses: permissioned-space <see cref="Spaces.LtHash"/> expands each set element to 2048 bytes
-/// with BLAKE3 XOF. Keyed hashing and key derivation are deliberately absent.</para>
-/// <para>The input side is the reference construction — a chunk state feeding a
-/// chaining-value stack — computed one block at a time. The output side is where LtHash spends
-/// its time (32 output blocks per element), and XOF output blocks differ only in their counter,
-/// so they are compressed 8 at a time with <see cref="Vector256{T}"/> (or 4 with
-/// <see cref="Vector128{T}"/>), one block per vector lane. The compression function is written
-/// once, generic over the lane type, so every path runs the same rounds. Hosts without
-/// hardware vectors take the scalar path, and every byte/word conversion is explicitly
-/// little-endian, so the output does not depend on the host.</para>
-/// <para>Not a general-purpose hashing API, and not exposed as one: it exists so the SDK
-/// carries no third-party cryptography dependency for the one primitive .NET does not ship.
-/// Nothing is allocated on the heap.</para>
-/// </remarks>
+// BLAKE3 in extendable-output (XOF) mode.
+//
+// Only the unkeyed hash mode is implemented, which is the only mode the AT Protocol uses:
+// permissioned-space Spaces.LtHash expands each set element to 2048 bytes with BLAKE3 XOF. Keyed hashing
+// and key derivation are deliberately absent.
+//
+// The input side is the reference construction — a chunk state feeding a chaining-value stack — computed
+// one block at a time. The output side is where LtHash spends its time (32 output blocks per element),
+// and XOF output blocks differ only in their counter, so they are compressed 8 at a time with Vector256
+// (or 4 with Vector128), one block per vector lane. The compression function is written once, generic
+// over the lane type, so every path runs the same rounds. Hosts without hardware vectors take the scalar
+// path, and every byte/word conversion is explicitly little-endian, so the output does not depend on the
+// host.
+//
+// Not a general-purpose hashing API, and not exposed as one: it exists so the SDK carries no third-party
+// cryptography dependency for the one primitive .NET does not ship. Nothing is allocated on the heap.
 internal static class Blake3
 {
     internal const int OutLen = 32;
@@ -42,22 +41,17 @@ internal static class Blake3
     private const uint Iv0 = 0x6A09E667, Iv1 = 0xBB67AE85, Iv2 = 0x3C6EF372, Iv3 = 0xA54FF53A;
     private const uint Iv4 = 0x510E527F, Iv5 = 0x9B05688C, Iv6 = 0x1F83D9AB, Iv7 = 0x5BE0CD19;
 
-    /// <summary>The widest output-block batch the host computes in hardware: 8, 4 or 1.</summary>
+    // The widest output-block batch the host computes in hardware: 8, 4 or 1.
     internal static int MaxParallelism =>
         Vector256.IsHardwareAccelerated ? 8 : Vector128.IsHardwareAccelerated ? 4 : 1;
 
-    /// <summary>
-    /// Hashes <paramref name="input"/> and fills <paramref name="output"/> with that many
-    /// bytes of the extended output. A 32-byte <paramref name="output"/> is the standard digest.
-    /// </summary>
+    // Hashes input and fills output with that many bytes of the extended output. A 32-byte output is the
+    // standard digest.
     internal static void HashExtended(ReadOnlySpan<byte> input, Span<byte> output)
         => HashExtended(input, output, MaxParallelism);
 
-    /// <summary>
-    /// <see cref="HashExtended(ReadOnlySpan{byte}, Span{byte})"/> with the output batch width
-    /// capped at <paramref name="parallelism"/> (1, 4 or 8), so each path can be tested on any
-    /// host. The result does not depend on it.
-    /// </summary>
+    // HashExtended with the output batch width capped at parallelism (1, 4 or 8), so each path can be
+    // tested on any host. The result does not depend on it.
     internal static void HashExtended(ReadOnlySpan<byte> input, Span<byte> output, int parallelism)
     {
         if (parallelism is not (1 or 4 or 8))
@@ -67,7 +61,7 @@ internal static class Blake3
         Squeeze(in root, output, parallelism);
     }
 
-    /// <summary>Returns the standard 32-byte BLAKE3 digest of <paramref name="input"/>.</summary>
+    // Returns the standard 32-byte BLAKE3 digest of input.
     internal static byte[] Hash(ReadOnlySpan<byte> input)
     {
         var output = new byte[OutLen];
@@ -77,10 +71,8 @@ internal static class Blake3
 
     // ── Tree ─────────────────────────────────────────────────
 
-    /// <summary>
-    /// A node's compression inputs, held back so the node can be finalized either as an
-    /// interior chaining value or, if it turns out to be the root, as extendable output.
-    /// </summary>
+    // A node's compression inputs, held back so the node can be finalized either as an interior chaining
+    // value or, if it turns out to be the root, as extendable output.
     private struct Node
     {
         public ChainingValue InputCv;
@@ -90,10 +82,8 @@ internal static class Blake3
         public uint Flags;
     }
 
-    /// <summary>
-    /// Compresses every block of a chunk but the last, which stays in the returned node: only
-    /// it carries <see cref="ChunkEnd"/>, and <see cref="Root"/> too if the chunk is the root.
-    /// </summary>
+    // Compresses every block of a chunk but the last, which stays in the returned node: only it carries
+    // ChunkEnd, and Root too if the chunk is the root.
     private static Node ChunkNode(ReadOnlySpan<byte> chunk, ulong chunkCounter)
     {
         Debug.Assert(chunk.Length <= ChunkLen);
@@ -131,7 +121,7 @@ internal static class Blake3
     private static ChainingValue ChainingValueOf(in Node node)
         => CompressToChainingValue(in node.InputCv, in node.Block, node.Counter, node.BlockLen, node.Flags);
 
-    /// <summary>Builds the chunk tree over an input of more than one chunk and returns its root.</summary>
+    // Builds the chunk tree over an input of more than one chunk and returns its root.
     private static Node TreeRoot(ReadOnlySpan<byte> input)
     {
         Debug.Assert(input.Length > ChunkLen);
@@ -171,11 +161,9 @@ internal static class Blake3
         return root;
     }
 
-    /// <summary>
-    /// Fills <paramref name="output"/> from the root node. Each 64-byte output block is a
-    /// fresh compression at an incrementing counter, which is what makes BLAKE3 a XOF, and
-    /// what lets several blocks be computed side by side.
-    /// </summary>
+    // Fills output from the root node. Each 64-byte output block is a fresh compression at an
+    // incrementing counter, which is what makes BLAKE3 a XOF, and what lets several blocks be computed
+    // side by side.
     private static void Squeeze(in Node root, Span<byte> output, int parallelism)
     {
         var flags = root.Flags | Root;
@@ -243,7 +231,7 @@ internal static class Blake3
         cv[4] = Iv4; cv[5] = Iv5; cv[6] = Iv6; cv[7] = Iv7;
     }
 
-    /// <summary>Reads up to one block as little-endian words, zero-padding a short final block.</summary>
+    // Reads up to one block as little-endian words, zero-padding a short final block.
     private static void LoadBlock(ReadOnlySpan<byte> bytes, out Words16<uint> words)
     {
         Debug.Assert(bytes.Length <= BlockLen);
@@ -267,20 +255,16 @@ internal static class Blake3
             words[i] = BinaryPrimitives.ReadUInt32LittleEndian(bytes.Slice(i * 4, 4));
     }
 
-    /// <summary>
-    /// The compression function over <typeparamref name="TLanes"/>.Count blocks that share
-    /// every input except the counter, which is <c>counter</c>, <c>counter + 1</c>, … in
-    /// successive lanes. With one lane it is the plain scalar compression.
-    /// </summary>
-    /// <remarks>
-    /// The state and message live in locals rather than buffers, so that the JIT can keep
-    /// them in registers.
-    /// </remarks>
+    // The compression function over TLanes.Count blocks that share every input except the counter, which
+    // is counter, counter + 1, … in successive lanes. With one lane it is the plain scalar compression.
+    //
+    // The state and message live in locals rather than buffers, so that the JIT can keep them in
+    // registers.
     private static class Compressor<TLanes, T>
         where TLanes : ILanes<T>
         where T : struct
     {
-        /// <summary>Compresses and returns all 16 output words: the first 8 are the chaining value.</summary>
+        // Compresses and returns all 16 output words: the first 8 are the chaining value.
         public static void Compress(
             in ChainingValue cv, in Words16<uint> block, ulong counter, uint blockLen, uint flags,
             out Words16<T> output)
@@ -343,10 +327,8 @@ internal static class Blake3
             output[15] = TLanes.Xor(v15, TLanes.Broadcast(cv[7]));
         }
 
-        /// <summary>
-        /// Writes each lane's 16 output words as one little-endian 64-byte block. Lane
-        /// <c>i</c> of every word belongs to block <c>i</c>, so this is a transpose.
-        /// </summary>
+        // Writes each lane's 16 output words as one little-endian 64-byte block. Lane i of every word
+        // belongs to block i, so this is a transpose.
         public static void Store(in Words16<T> words, Span<byte> destination)
         {
             Span<uint> column = stackalloc uint[8];
@@ -364,19 +346,19 @@ internal static class Blake3
 
     // ── Lane types ───────────────────────────────────────────
 
-    /// <summary>The word arithmetic of the compression function, over one or more lanes.</summary>
+    // The word arithmetic of the compression function, over one or more lanes.
     private interface ILanes<T> where T : struct
     {
         static abstract int Count { get; }
 
         static abstract T Broadcast(uint value);
 
-        /// <summary>Per-lane block counters <c>counter + lane</c>, split into low and high words.</summary>
+        // Per-lane block counters counter + lane, split into low and high words.
         static abstract void Counters(ulong counter, out T low, out T high);
 
         static abstract T Xor(T left, T right);
 
-        /// <summary>The quarter-round mixing function.</summary>
+        // The quarter-round mixing function.
         static abstract void G(ref T a, ref T b, ref T c, ref T d, T mx, T my);
 
         static abstract void CopyTo(T value, Span<uint> destination);

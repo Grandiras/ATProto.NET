@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using ATProtoNet.Auth;
 using ATProtoNet.Crypto;
+using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Spaces;
 
@@ -13,27 +14,17 @@ namespace ATProtoNet.Spaces;
 /// </remarks>
 public enum SpaceTokenType
 {
-    /// <summary>
-    /// Minted by a user's PDS, proving an application is acting on that user's behalf.
-    /// Single-use, 60 seconds, addressed to the space authority.
-    /// </summary>
+    /// <summary>Minted by a user's PDS, proving an application is acting on that user's behalf. Single-use, 60 seconds, addressed to the space authority.</summary>
     /// <remarks>
     /// It asserts <em>only</em> the user-to-app delegation. Whether the user is a member of the
     /// space is the authority's determination, and the token says nothing about it.
     /// </remarks>
     Delegation,
 
-    /// <summary>
-    /// Issued by a space authority in exchange for a delegation token. Multi-use, two hours,
-    /// with no audience — it is presented to every repo host in the space — and bound to the
-    /// holder's key through its <c>cnf.jkt</c> claim.
-    /// </summary>
+    /// <summary>Issued by a space authority in exchange for a delegation token. Multi-use, two hours, with no audience — it is presented to every repo host in the space — and bound to the holder's key through its <c>cnf.jkt</c> claim.</summary>
     Credential,
 
-    /// <summary>
-    /// Signed by an application's own client authentication key, proving the application's
-    /// identity to a space authority. Required only when a space gates on app identity.
-    /// </summary>
+    /// <summary>Signed by an application's own client authentication key, proving the application's identity to a space authority. Required only when a space gates on app identity.</summary>
     ClientAttestation,
 }
 
@@ -319,10 +310,7 @@ public static class SpaceTokens
             signature);
     }
 
-    /// <summary>
-    /// Checks a parsed token's expiry and the claims the caller pins, and verifies its signature
-    /// against the issuer's key.
-    /// </summary>
+    /// <summary>Checks a parsed token's expiry and the claims the caller pins, and verifies its signature against the issuer's key.</summary>
     /// <param name="token">A token from <see cref="Parse"/>, whose <c>iss</c> and <c>kid</c> name the key to check.</param>
     /// <param name="issuerDidKey">The issuer's signing key as a <c>did:key</c> string.</param>
     /// <param name="expectedAudience">The audience this service answers to, or <see langword="null"/> to skip the check.</param>
@@ -385,9 +373,7 @@ public sealed class SpaceTokenException : AtProtoException
     {
     }
 
-    /// <summary>
-    /// Whether the token failed on its signature, the one failure a key refreshed from the
-    /// issuer's DID document can change.
-    /// </summary>
+    // Whether the token failed on its signature, the one failure a key refreshed from the issuer's DID
+    // document can change.
     internal bool IsSignatureFailure { get; init; }
 }

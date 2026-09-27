@@ -9,25 +9,22 @@ using Microsoft.AspNetCore.Http;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// The shared shape of the <c>com.atproto.simplespace</c> administration endpoints: an
-/// authenticated account acting on a space it owns.
-/// </summary>
-/// <remarks>
-/// These are administered over the owner's own OAuth session rather than with a space
-/// credential — creating a space is what happens before any credential for it can exist — and
-/// every one of them is scoped to the caller's own DID. A space's authority is its owner's DID,
-/// so an account can only ever create spaces under itself.
-/// </remarks>
+// The shared shape of the com.atproto.simplespace administration endpoints: an authenticated account
+// acting on a space it owns.
+//
+// These are administered over the owner's own OAuth session rather than with a space credential —
+// creating a space is what happens before any credential for it can exist — and every one of them is
+// scoped to the caller's own DID. A space's authority is its owner's DID, so an account can only ever
+// create spaces under itself.
 internal abstract class SimpleSpaceEndpointBase(ISpaceCallerResolver callerResolver, ISimpleSpaceStore store)
 {
-    /// <summary>Identifies the authenticated account.</summary>
+    // Identifies the authenticated account.
     protected ISpaceCallerResolver CallerResolver { get; } = callerResolver;
 
-    /// <summary>The spaces and member lists this authority holds.</summary>
+    // The spaces and member lists this authority holds.
     protected ISimpleSpaceStore Store { get; } = store;
 
-    /// <summary>Loads a space the caller owns, or throws.</summary>
+    // Loads a space the caller owns, or throws.
     protected async Task<SimpleSpaceRecord> RequireOwnedSpaceAsync(
         SpaceUri? spaceValue, HttpContext context, CancellationToken cancellationToken)
     {
@@ -45,12 +42,12 @@ internal abstract class SimpleSpaceEndpointBase(ISpaceCallerResolver callerResol
             : throw NotFound(uri);
     }
 
-    /// <summary>The error a <c>simplespace</c> method answers with for a space the caller may not see.</summary>
+    // The error a simplespace method answers with for a space the caller may not see.
     protected static XrpcException NotFound(SpaceUri space) =>
         new(SimpleSpaceErrors.SpaceNotFound, $"No such space: {space}.", HttpStatusCode.NotFound);
 }
 
-/// <summary>Serves <c>com.atproto.simplespace.createSpace</c>.</summary>
+// Serves com.atproto.simplespace.createSpace.
 internal sealed class CreateSimpleSpaceEndpoint(ISpaceCallerResolver callerResolver, ISimpleSpaceStore store)
     : SimpleSpaceEndpointBase(callerResolver, store),
       IXrpcProcedure<CreateSimpleSpaceRequest, CreateSimpleSpaceResponse>
@@ -88,10 +85,8 @@ internal sealed class CreateSimpleSpaceEndpoint(ISpaceCallerResolver callerResol
     private static XrpcException Missing(string name) =>
         new(XrpcErrors.InvalidRequest, $"The \"{name}\" field is required.");
 
-    /// <summary>
-    /// Rejects a policy variant this host does not implement — one a newer schema added, which
-    /// reads as an <c>Unknown…</c> variant — rather than storing one it could not enforce.
-    /// </summary>
+    // Rejects a policy variant this host does not implement — one a newer schema added, which reads as
+    // an Unknown… variant — rather than storing one it could not enforce.
     internal static void RequireSupported(
         SimpleSpaceUserPolicy? readPolicy, SimpleSpaceUserPolicy? writePolicy, SimpleSpaceAppAccess? appAccess)
     {
@@ -123,7 +118,7 @@ internal sealed class CreateSimpleSpaceEndpoint(ISpaceCallerResolver callerResol
         variant is Serialization.IUnknownUnionVariant unknown ? unknown.Type : variant.GetType().Name;
 }
 
-/// <summary>Serves <c>com.atproto.simplespace.updateSpace</c>.</summary>
+// Serves com.atproto.simplespace.updateSpace.
 internal sealed class UpdateSimpleSpaceEndpoint(ISpaceCallerResolver callerResolver, ISimpleSpaceStore store)
     : SimpleSpaceEndpointBase(callerResolver, store), IXrpcProcedureVoid<UpdateSimpleSpaceRequest>
 {
@@ -149,16 +144,14 @@ internal sealed class UpdateSimpleSpaceEndpoint(ISpaceCallerResolver callerResol
     }
 }
 
-/// <summary>Serves <c>com.atproto.simplespace.deleteSpace</c>.</summary>
-/// <remarks>
-/// Deleting a space stops the authority issuing credentials for it and deletes the authority's
-/// own repo in it. Other members' repos are <em>not</em> deleted: a member's records are the
-/// member's own data, and deleting the space does not entitle the authority to destroy them —
-/// they simply become unreadable to everyone but the member's own account. Registered syncers
-/// are told to drop their copies when a <see cref="SpaceWriteNotifier"/> is registered; one that
-/// is never told learns on its next credential renewal, which answers
-/// <see cref="SpaceErrors.SpaceDeleted"/>.
-/// </remarks>
+// Serves com.atproto.simplespace.deleteSpace.
+//
+// Deleting a space stops the authority issuing credentials for it and deletes the authority's own repo
+// in it. Other members' repos are not deleted: a member's records are the member's own data, and
+// deleting the space does not entitle the authority to destroy them — they simply become unreadable to
+// everyone but the member's own account. Registered syncers are told to drop their copies when a
+// SpaceWriteNotifier is registered; one that is never told learns on its next credential renewal, which
+// answers SpaceErrors.SpaceDeleted.
 internal sealed class DeleteSimpleSpaceEndpoint(
     ISpaceCallerResolver callerResolver, ISimpleSpaceStore store, SpaceWriteNotifier? notifier = null)
     : SimpleSpaceEndpointBase(callerResolver, store), IXrpcProcedureVoid<DeleteSimpleSpaceRequest>
@@ -190,7 +183,7 @@ internal sealed class DeleteSimpleSpaceEndpoint(
     }
 }
 
-/// <summary>Serves <c>com.atproto.simplespace.getSpace</c>.</summary>
+// Serves com.atproto.simplespace.getSpace.
 internal sealed class GetSimpleSpaceEndpoint(
     ISpaceCallerResolver callerResolver, ISimpleSpaceStore store, SpaceRequestAuthenticator authenticator)
     : SimpleSpaceEndpointBase(callerResolver, store), IXrpcQuery<GetSimpleSpaceParameters, GetSimpleSpaceResponse>
@@ -224,12 +217,11 @@ internal sealed class GetSimpleSpaceEndpoint(
     }
 }
 
-/// <summary>Serves <c>com.atproto.simplespace.putMember</c>.</summary>
-/// <remarks>
-/// An upsert: both access flags are replaced every time. Clearing a member's read flag stops the
-/// authority minting <em>new</em> credentials for them, as removal does; clearing the write flag
-/// stops it recording their writes and forwarding their notifications from the next one on.
-/// </remarks>
+// Serves com.atproto.simplespace.putMember.
+//
+// An upsert: both access flags are replaced every time. Clearing a member's read flag stops the
+// authority minting new credentials for them, as removal does; clearing the write flag stops it
+// recording their writes and forwarding their notifications from the next one on.
 internal sealed class PutSimpleSpaceMemberEndpoint(ISpaceCallerResolver callerResolver, ISimpleSpaceStore store)
     : SimpleSpaceEndpointBase(callerResolver, store), IXrpcProcedureVoid<PutSimpleSpaceMemberRequest>
 {
@@ -247,12 +239,10 @@ internal sealed class PutSimpleSpaceMemberEndpoint(ISpaceCallerResolver callerRe
     }
 }
 
-/// <summary>Serves <c>com.atproto.simplespace.removeMember</c>.</summary>
-/// <remarks>
-/// Removing a member stops the authority minting <em>new</em> credentials for them. One already
-/// issued stays valid until it expires, and records they wrote remain their own data in their
-/// own repo.
-/// </remarks>
+// Serves com.atproto.simplespace.removeMember.
+//
+// Removing a member stops the authority minting new credentials for them. One already issued stays valid
+// until it expires, and records they wrote remain their own data in their own repo.
 internal sealed class RemoveSimpleSpaceMemberEndpoint(ISpaceCallerResolver callerResolver, ISimpleSpaceStore store)
     : SimpleSpaceEndpointBase(callerResolver, store), IXrpcProcedureVoid<RemoveSimpleSpaceMemberRequest>
 {
@@ -270,12 +260,11 @@ internal sealed class RemoveSimpleSpaceMemberEndpoint(ISpaceCallerResolver calle
     }
 }
 
-/// <summary>Serves <c>com.atproto.simplespace.listMembers</c>.</summary>
-/// <remarks>
-/// The member list is host-internal state, so it is served — with each member's read and write
-/// access — to the space's owner and to nobody else. It is never enumerated to the network —
-/// <c>listRepos</c> returns the writers the write policy admitted, not the member list.
-/// </remarks>
+// Serves com.atproto.simplespace.listMembers.
+//
+// The member list is host-internal state, so it is served — with each member's read and write access —
+// to the space's owner and to nobody else. It is never enumerated to the network — listRepos returns the
+// writers the write policy admitted, not the member list.
 internal sealed class ListSimpleSpaceMembersEndpoint(ISpaceCallerResolver callerResolver, ISimpleSpaceStore store)
     : SimpleSpaceEndpointBase(callerResolver, store),
       IXrpcQuery<ListSimpleSpaceMembersParameters, ListSimpleSpaceMembersResponse>

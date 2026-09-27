@@ -118,7 +118,7 @@ public sealed class TapRecordEvent : TapEvent, IRecordEvent
             "delete" => RepoOpAction.Delete,
             var action => throw new FormatException($"Tap record action '{action}' is not supported."),
         },
-        Cid = record.TryGetProperty("cid", out var cid) && cid.ValueKind == JsonValueKind.String ? Cid.Parse(cid.GetString()!) : null,
+        Cid = record.GetStringOrNull("cid") is { } cid ? Cid.Parse(cid) : null,
         Record = record.TryGetProperty("record", out var value) && value.ValueKind == JsonValueKind.Object ? value : null,
         Live = record.GetProperty("live").GetBoolean(),
     };

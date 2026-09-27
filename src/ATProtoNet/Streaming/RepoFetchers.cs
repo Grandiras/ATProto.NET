@@ -42,7 +42,7 @@ public sealed class HostRepoFetcher : IRepoFetcher
     /// SDK's identity fetches do, with a 5-minute timeout.
     /// </param>
     public HostRepoFetcher(Uri host, HttpClient? httpClient = null)
-        : this(host, httpClient ?? RepoDownload.CreateClient(allowPrivateNetworks: false, RepoDownload.DefaultTimeout), allowHttp: httpClient is not null)
+        : this(host, httpClient ?? IdentityNetworkPolicy.CreateClient(allowPrivateNetworks: false, RepoDownload.DefaultTimeout), allowHttp: httpClient is not null)
     {
     }
 
@@ -83,7 +83,7 @@ public sealed class PdsRepoFetcher : IRepoFetcher
     /// URL comes from a document anyone can publish), with a 5-minute timeout.
     /// </param>
     public PdsRepoFetcher(IDidResolver didResolver, HttpClient? httpClient = null)
-        : this(didResolver, httpClient ?? RepoDownload.CreateClient(allowPrivateNetworks: false, RepoDownload.DefaultTimeout), allowHttp: httpClient is not null)
+        : this(didResolver, httpClient ?? IdentityNetworkPolicy.CreateClient(allowPrivateNetworks: false, RepoDownload.DefaultTimeout), allowHttp: httpClient is not null)
     {
     }
 
@@ -137,20 +137,6 @@ internal static class RepoDownload
     internal static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes(5);
 
     private const int MaxRedirects = 3;
-
-    // The most a download's buffer starts at, whatever length the host declares.
-    private const int InitialBufferBytes = 1024 * 1024;
-
-    // A client over the SDK's SSRF-hardened handler, or one allowing private networks for development.
-    internal static HttpClient CreateClient(bool allowPrivateNetworks, TimeSpan timeout)
-    {
-        var client = new HttpClient(IdentityNetworkPolicy.SharedHandler(allowPrivateNetworks), disposeHandler: false)
-        {
-            Timeout = timeout,
-        };
-        client.DefaultRequestHeaders.UserAgent.TryParseAdd(AtProtoHttp.DefaultUserAgent);
-        return client;
-    }
 
     // Downloads did's export from host, following redirects, within the client's HttpClient.Timeout for
     // the whole download: the response is read as it streams in, which HttpClient.Timeout alone does not
@@ -215,49 +201,22 @@ internal static class RepoDownload
                 if (!response.IsSuccessStatusCode)
                     throw new RepoFetchException($"{uri.Host} answered HTTP {(int)response.StatusCode} for {did}.");
 
-                if (response.Content.Headers.ContentLength > maxBytes)
-                    throw new RepoFetchException($"{did}'s repository is larger than {maxBytes} bytes.");
+                #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
+                await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+                #pragma warning restore CA2007
 
-                return await ReadBoundedAsync(response.Content, response.Content.Headers.ContentLength, maxBytes, did, cancellationToken)
-                    .ConfigureAwait(false);
+                ReadOnlyMemory<byte>? body;
+                try
+                {
+                    body = await stream.ReadBoundedAsync(maxBytes, response.Content.Headers.ContentLength, cancellationToken).ConfigureAwait(false);
+                }
+                catch (IOException ex)
+                {
+                    throw new RepoFetchException($"The download of {did}'s repository broke off: {ex.Message}", ex);
+                }
+
+                return body?.ToArray() ?? throw new RepoFetchException($"{did}'s repository is larger than {maxBytes} bytes.");
             }
-        }
-    }
-
-    private static async Task<byte[]> ReadBoundedAsync(
-        HttpContent content, long? declared, long maxBytes, Did did, CancellationToken cancellationToken)
-    {
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var stream = await content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
-
-        // A declared length sizes the buffer up to 1 MiB and no further: the header is the host's
-        // word, so a larger claim must not reserve memory before the bytes arrive.
-        using var buffer = new MemoryStream((int)Math.Min(declared ?? 0, InitialBufferBytes));
-        var chunk = new byte[81920];
-        while (true)
-        {
-            int read;
-            try
-            {
-                read = await stream.ReadAsync(chunk, cancellationToken).ConfigureAwait(false);
-            }
-            catch (IOException ex)
-            {
-                throw new RepoFetchException($"The download of {did}'s repository broke off: {ex.Message}", ex);
-            }
-
-            if (read == 0)
-            {
-                return buffer.Length == buffer.Capacity && buffer.TryGetBuffer(out var whole) && whole.Offset == 0
-                    ? whole.Array!
-                    : buffer.ToArray();
-            }
-
-            if (buffer.Length + read > maxBytes)
-                throw new RepoFetchException($"{did}'s repository is larger than {maxBytes} bytes.");
-
-            buffer.Write(chunk, 0, read);
         }
     }
 }

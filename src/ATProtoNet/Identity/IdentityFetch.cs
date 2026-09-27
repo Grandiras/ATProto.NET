@@ -1,33 +1,33 @@
 using System.Net;
 using System.Text.Json;
-using ATProtoNet.Auth.OAuth;
+using ATProtoNet.Http;
 using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// The one request path every identity fetch takes: a per-fetch budget, a capped body, and
-/// failures reported as <see cref="DidResolutionException"/>.
-/// </summary>
+// The one request path every identity fetch takes: a per-fetch budget, a capped body, and failures
+// reported as DidResolutionException.
 internal static class IdentityFetch
 {
-    /// <summary>The <c>Accept</c> header for a DID document.</summary>
+    // The Accept header for a DID document.
     internal const string DidDocumentMediaTypes = "application/did+ld+json, application/json";
 
-    /// <summary>
-    /// The most identity fetches in flight at once, process-wide. Resolution is driven by
-    /// identifiers other parties choose, so without a ceiling a burst of distinct DIDs or handles
-    /// becomes a burst of outbound connections; past it, a fetch waits within its own budget.
-    /// </summary>
+    // The most identity fetches in flight at once, process-wide. Resolution is driven by identifiers
+    // other parties choose, so without a ceiling a burst of distinct DIDs or handles becomes a burst of
+    // outbound connections; past it, a fetch waits within its own budget.
     internal const int MaxConcurrentFetches = 64;
 
     private static readonly SemaphoreSlim FetchSlots = new(MaxConcurrentFetches, MaxConcurrentFetches);
 
-    /// <summary>The outcome of a fetch that got an answer.</summary>
-    /// <param name="Status">The final status.</param>
-    /// <param name="Body">The body of a success response; empty otherwise.</param>
-    /// <param name="FinalUri">The URL that answered, after any redirects the client followed.</param>
-    /// <param name="Location">The <c>Location</c> of a redirect response, resolved against the request URL.</param>
+    // The outcome of a fetch that got an answer.
+    //
+    // Status: The final status.
+    //
+    // Body: The body of a success response; empty otherwise.
+    //
+    // FinalUri: The URL that answered, after any redirects the client followed.
+    //
+    // Location: The Location of a redirect response, resolved against the request URL.
     internal readonly record struct Result(HttpStatusCode Status, ReadOnlyMemory<byte> Body, Uri? FinalUri, Uri? Location)
     {
         public bool IsSuccess => (int)Status is >= 200 and < 300;
@@ -35,12 +35,13 @@ internal static class IdentityFetch
         public bool IsRedirect => (int)Status is 301 or 302 or 303 or 307 or 308;
     }
 
-    /// <summary>GETs <paramref name="url"/>, reading a success body up to <paramref name="maxBytes"/>.</summary>
-    /// <exception cref="DidResolutionException">
-    /// The policy refused the connection, the host was unreachable or broke off, the budget ran
-    /// out (waiting for a fetch slot included), or the body was over the cap or would not decode.
-    /// </exception>
-    /// <exception cref="OperationCanceledException">The caller cancelled.</exception>
+    // GETs url, reading a success body up to maxBytes.
+    //
+    // Throws DidResolutionException: The policy refused the connection, the host was unreachable or
+    // broke off, the budget ran out (waiting for a fetch slot included), or the body was over the cap or
+    // would not decode.
+    //
+    // Throws OperationCanceledException: The caller cancelled.
     internal static async Task<Result> GetAsync(
         HttpClient client,
         Uri url,
@@ -126,11 +127,10 @@ internal static class IdentityFetch
         }
     }
 
-    /// <summary>
-    /// Fetches and validates a DID document: 404 and 410 are reported as such, and the document
-    /// must parse and name <paramref name="did"/> as its <c>id</c>.
-    /// </summary>
-    /// <exception cref="DidResolutionException">Resolution failed.</exception>
+    // Fetches and validates a DID document: 404 and 410 are reported as such, and the document must
+    // parse and name did as its id.
+    //
+    // Throws DidResolutionException: Resolution failed.
     internal static async Task<DidDocument> GetDidDocumentAsync(
         HttpClient client, Uri url, Did did, int maxBytes, TimeSpan timeout, CancellationToken cancellationToken)
     {
@@ -184,16 +184,12 @@ internal static class IdentityFetch
         return document;
     }
 
-    /// <summary>
-    /// Whether a document's <c>id</c> is exactly the DID asked for, as <c>@atproto/identity</c>
-    /// compares it.
-    /// </summary>
-    /// <remarks>
-    /// A <c>did:web</c> embeds a DNS host, which DNS matches case-insensitively, so every casing of
-    /// one fetches the same document. Accepting the document for all of them would give one
-    /// identity as many spellings, and a signer could pick whichever it liked as its <c>iss</c>, a
-    /// different principal name each time. Held to its own <c>id</c>, a document answers for one.
-    /// </remarks>
+    // Whether a document's id is exactly the DID asked for, as @atproto/identity compares it.
+    //
+    // A did:web embeds a DNS host, which DNS matches case-insensitively, so every casing of one fetches
+    // the same document. Accepting the document for all of them would give one identity as many
+    // spellings, and a signer could pick whichever it liked as its iss, a different principal name each
+    // time. Held to its own id, a document answers for one.
     internal static bool IdsMatch(Did documentId, Did requested) =>
         string.Equals(documentId.Value, requested.Value, StringComparison.Ordinal);
 }

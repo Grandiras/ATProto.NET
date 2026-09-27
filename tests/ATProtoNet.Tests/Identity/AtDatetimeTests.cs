@@ -94,15 +94,6 @@ public class AtDatetimeTests
         Assert.Equal(new DateTimeOffset(local).UtcDateTime, datetime.Value.UtcDateTime);
     }
 
-    [Fact]
-    public void FormatTimestamp_Unspecified_IsTakenAsUtcAsDocumented()
-    {
-        var formatted = AtProtoJsonDefaults.FormatTimestamp(
-            new DateTime(2026, 9, 24, 12, 30, 45, 123, DateTimeKind.Unspecified));
-
-        Assert.Equal("2026-09-24T12:30:45.123Z", formatted);
-    }
-
     [Theory]
     [InlineData("th-TH")] // Thai Buddhist calendar: the year would be 2569
     [InlineData("ar-SA")]

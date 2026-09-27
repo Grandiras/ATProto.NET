@@ -89,7 +89,7 @@ public sealed class LexiconResolver : ILexiconResolver, IDisposable
         _options = options ?? new IdentityResolverOptions();
         _options.Validate();
         _dnsOverHttpsUrl = _options.DnsOverHttpsUrl is { } doh
-            ? IdentityNetworkPolicy.ValidateServiceUrl(doh, _options.AllowPrivateNetworks, nameof(options))
+            ? AtProtoHttp.ValidateServiceUrl(doh, nameof(options), allowInsecure: _options.AllowPrivateNetworks, allowLoopback: false)
             : null;
         _ownsHttpClient = ownsHttpClient;
         _httpClient = httpClient ?? IdentityNetworkPolicy.CreateClient(_options.AllowPrivateNetworks);

@@ -16,10 +16,7 @@ namespace ATProtoNet.Server.Spaces;
 /// </param>
 public sealed record SpaceNotifySubscriber(string Service, DateTimeOffset ExpiresAt);
 
-/// <summary>
-/// The state a space <em>authority</em> keeps: which repos hold data in each space, and who has
-/// asked to be told when they advance.
-/// </summary>
+/// <summary>The state a space <em>authority</em> keeps: which repos hold data in each space, and who has asked to be told when they advance.</summary>
 /// <remarks>
 /// <para>Notably absent is the member list. Membership is a space-management concern
 /// (<see cref="ISimpleSpaceStore"/> in the baseline implementation), not a protocol structure —
@@ -35,10 +32,7 @@ public interface ISpaceAuthorityStore
     /// <summary>Reports whether a space exists, and whether it has been deleted.</summary>
     Task<SpaceAccessOutcome> GetSpaceStateAsync(SpaceUri space, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Lists the accounts that hold data in a space — the sync boundary, not an access-control
-    /// list.
-    /// </summary>
+    /// <summary>Lists the accounts that hold data in a space — the sync boundary, not an access-control list.</summary>
     /// <param name="limit">Maximum number of results.</param>
     /// <param name="cursor">Pagination cursor from a previous page.</param>
     Task<ListSpaceReposResponse> ListReposAsync(
@@ -55,10 +49,7 @@ public interface ISpaceAuthorityStore
     Task RecordWriteAsync(
         SpaceUri space, Did repoDid, Tid rev, byte[] hash, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Registers a service to receive a space's write notifications, or renews an existing
-    /// registration.
-    /// </summary>
+    /// <summary>Registers a service to receive a space's write notifications, or renews an existing registration.</summary>
     /// <param name="service">The subscriber's service identifier.</param>
     /// <param name="expiresAt">When the registration lapses.</param>
     Task RegisterNotifyAsync(

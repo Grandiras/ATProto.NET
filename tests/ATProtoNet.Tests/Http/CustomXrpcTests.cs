@@ -86,16 +86,6 @@ public sealed class CustomXrpcTests : IDisposable
     }
 
     [Fact]
-    public async Task QueryAsync_WithAnAnonymousObject_SendsTheSameParameters()
-    {
-        _body = """{"items":[]}""";
-
-        await _client.QueryAsync<ListItemsOutput>(ListItems, new { limit = 25, reverse = true, tag = new[] { "x", "y" } });
-
-        Assert.EndsWith("?limit=25&reverse=true&tag=x&tag=y", Assert.Single(_stub.To("com.example.todo.listItems")).Uri.AbsoluteUri);
-    }
-
-    [Fact]
     public async Task ProcedureAsyncWithOutput_PostsTheInputAndReadsTheOutput()
     {
         _body = """{"status":"done"}""";

@@ -6,10 +6,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// What a verified credential-mint request establishes: which user, which app, and which key the
-/// credential about to be minted must be bound to.
-/// </summary>
+/// <summary>What a verified credential-mint request establishes: which user, which app, and which key the credential about to be minted must be bound to.</summary>
 /// <param name="Delegation">The verified delegation token.</param>
 /// <param name="Proof">
 /// The verified DPoP proof. Its
@@ -84,10 +81,7 @@ public sealed class SpaceRequestAuthenticator
         _options = options ?? new SpaceServerOptions();
     }
 
-    /// <summary>
-    /// Verifies a <c>getSpaceCredential</c> request: its delegation token, its DPoP proof, and
-    /// its client attestation when it presented one.
-    /// </summary>
+    /// <summary>Verifies a <c>getSpaceCredential</c> request: its delegation token, its DPoP proof, and its client attestation when it presented one.</summary>
     /// <param name="context">The HTTP context.</param>
     /// <param name="clientAttestation">
     /// The <c>clientAttestation</c> field from the request body, or <see langword="null"/>.
@@ -170,10 +164,8 @@ public sealed class SpaceRequestAuthenticator
             cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// The URL a DPoP proof presented on this request must name, honouring
-    /// <see cref="SpaceServerOptions.PublicBaseUrl"/>.
-    /// </summary>
+    // The URL a DPoP proof presented on this request must name, honouring
+    // SpaceServerOptions.PublicBaseUrl.
     private string BuildRequestUri(HttpContext context)
     {
         var request = context.Request;

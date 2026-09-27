@@ -2,10 +2,7 @@ using System.Security.Cryptography;
 
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// Generates TIDs that are strictly increasing and never repeat, as the TID spec requires of
-/// a generator. Safe to share across threads.
-/// </summary>
+/// <summary>Generates TIDs that are strictly increasing and never repeat, as the TID spec requires of a generator. Safe to share across threads.</summary>
 /// <remarks>
 /// <para>Each generator fixes one 10-bit clock identifier for its lifetime and combines it with
 /// a microsecond timestamp. When the clock has not advanced since the previous TID — several
@@ -46,7 +43,7 @@ public sealed class TidGenerator
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
-    /// <summary>The process-wide generator behind <see cref="Tid.Next"/>.</summary>
+    // The process-wide generator behind Tid.Next.
     internal static TidGenerator Shared { get; } = new();
 
     /// <summary>The clock identifier in the low 10 bits of every TID this generator returns.</summary>

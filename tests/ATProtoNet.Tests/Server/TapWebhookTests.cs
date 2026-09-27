@@ -1,11 +1,13 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Runtime.InteropServices;
 using System.Text;
 using ATProtoNet.Server.Tap;
 using ATProtoNet.Tap;
 using ATProtoNet.Tests.TestSupport;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -129,6 +131,21 @@ public sealed class TapWebhookTests : IAsyncDisposable
 
         Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
         Assert.Empty(_received);
+    }
+
+    [Fact]
+    public async Task ReadBodyAsync_DeclaredLength_ReservesNothingBeforeTheBytesArrive()
+    {
+        // A sender that declares 4 MiB and sends a few bytes must not get a buffer sized to its claim.
+        var context = new DefaultHttpContext();
+        context.Request.ContentLength = 4 * 1024 * 1024;
+        context.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(Event));
+
+        var body = await TapWebhookExtensions.ReadBodyAsync(context.Request, 4 * 1024 * 1024, CancellationToken.None);
+
+        Assert.Equal(Event, Encoding.UTF8.GetString(body!.Value.Span));
+        Assert.True(MemoryMarshal.TryGetArray(body.Value, out var buffer));
+        Assert.True(buffer.Array!.Length <= 64 * 1024, $"{buffer.Array.Length} bytes were reserved.");
     }
 
     [Fact]

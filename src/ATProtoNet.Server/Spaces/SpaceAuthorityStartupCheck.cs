@@ -4,11 +4,8 @@ using Microsoft.Extensions.Hosting;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// Builds the space authority's service auth generator when the host starts, so a key
-/// configuration that cannot sign acceptable service auth fails there rather than at the first
-/// outbound notification.
-/// </summary>
+// Builds the space authority's service auth generator when the host starts, so a key configuration that
+// cannot sign acceptable service auth fails there rather than at the first outbound notification.
 internal sealed class SpaceAuthorityStartupCheck(IServiceProvider services) : IHostedService
 {
     public Task StartAsync(CancellationToken cancellationToken)

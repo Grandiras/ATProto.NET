@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using ATProtoNet.Http;
 using ATProtoNet.Identity;
 
 namespace ATProtoNet.Tests.Identity;
@@ -164,11 +165,13 @@ public class IdentityFetchPolicyTests
     [MemberData(nameof(ServiceUrls))]
     public void ValidateServiceUrl_Table_MatchesPolicy(string url, bool allowPrivateNetworks, bool accepted)
     {
+        Uri Validate() => AtProtoHttp.ValidateServiceUrl(
+            new Uri(url), "url", allowInsecure: allowPrivateNetworks, allowLoopback: false);
+
         if (accepted)
-            IdentityNetworkPolicy.ValidateServiceUrl(new Uri(url), allowPrivateNetworks, "url");
+            Validate();
         else
-            Assert.Throws<ArgumentException>(
-                () => IdentityNetworkPolicy.ValidateServiceUrl(new Uri(url), allowPrivateNetworks, "url"));
+            Assert.Throws<ArgumentException>(Validate);
     }
 
     // ─── Handles ─────────────────────────────────────────────

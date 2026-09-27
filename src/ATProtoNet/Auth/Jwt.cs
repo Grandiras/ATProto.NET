@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Crypto;
+using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Auth;
 
@@ -245,55 +246,4 @@ internal static class Jwt
         error = null;
         return true;
     }
-}
-
-// JSON reading helpers for token claims.
-internal static class JsonElementExtensions
-{
-    private static readonly long s_minUnixSeconds = DateTimeOffset.MinValue.ToUnixTimeSeconds();
-    private static readonly long s_maxUnixSeconds = DateTimeOffset.MaxValue.ToUnixTimeSeconds();
-
-    // Reads a JWT NumericDate member (exp, iat): whole seconds since the Unix epoch.
-    //
-    // The value is whatever the token's signer wrote, so one that cannot be represented is a malformed
-    // token to refuse, not an ArgumentOutOfRangeException to let escape.
-    //
-    // element: The claims object to read from.
-    //
-    // name: The member name.
-    //
-    // value: The instant, or null when element has no such member.
-    //
-    // Returns: true when the member is absent or holds a usable NumericDate; false when it holds anything
-    // else, including an integer outside the years 1 to 9999 that DateTimeOffset can represent.
-    public static bool TryGetNumericDate(this JsonElement element, string name, out DateTimeOffset? value)
-    {
-        value = null;
-        if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty(name, out var member))
-            return true;
-
-        if (member.ValueKind != JsonValueKind.Number ||
-            !member.TryGetInt64(out var seconds) ||
-            seconds < s_minUnixSeconds ||
-            seconds > s_maxUnixSeconds)
-        {
-            return false;
-        }
-
-        value = DateTimeOffset.FromUnixTimeSeconds(seconds);
-        return true;
-    }
-
-    // Reads a string member, or returns null when element is not an object, has no such member, or the
-    // member is not a string.
-    //
-    // element: The object to read from.
-    //
-    // name: The member name.
-    public static string? GetStringOrNull(this JsonElement element, string name) =>
-        element.ValueKind == JsonValueKind.Object &&
-        element.TryGetProperty(name, out var value) &&
-        value.ValueKind == JsonValueKind.String
-            ? value.GetString()
-            : null;
 }

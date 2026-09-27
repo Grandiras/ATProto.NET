@@ -7,17 +7,10 @@ namespace ATProtoNet.Server.Spaces;
 /// <summary>What an authority is being asked to allow.</summary>
 public enum SpaceAccessKind
 {
-    /// <summary>
-    /// Reading the space: whether to mint a credential. Asked by <c>getSpaceCredential</c>, on
-    /// behalf of an application that may have attested.
-    /// </summary>
+    /// <summary>Reading the space: whether to mint a credential. Asked by <c>getSpaceCredential</c>, on behalf of an application that may have attested.</summary>
     Read,
 
-    /// <summary>
-    /// Writing to the space: whether to track the writer in the writer set and forward its write
-    /// notifications. Asked by <c>notifyWrite</c>, on behalf of the writer's repo host — which
-    /// is not an application and never attests.
-    /// </summary>
+    /// <summary>Writing to the space: whether to track the writer in the writer set and forward its write notifications. Asked by <c>notifyWrite</c>, on behalf of the writer's repo host — which is not an application and never attests.</summary>
     Write,
 }
 
@@ -52,10 +45,7 @@ public enum SpaceAccessOutcome
     /// <summary>Refused on the basis of the requesting user.</summary>
     UserNotAuthorized,
 
-    /// <summary>
-    /// Refused on the basis of the requesting app. A client that has an attestation available
-    /// retries with one on seeing this, so it is also how a space says "attest and ask again".
-    /// </summary>
+    /// <summary>Refused on the basis of the requesting app. A client that has an attestation available retries with one on seeing this, so it is also how a space says "attest and ask again".</summary>
     AppNotAuthorized,
 
     /// <summary>Refused without attributing the refusal to either perimeter.</summary>
@@ -90,10 +80,7 @@ public sealed record SpaceAccessDecision(SpaceAccessOutcome Outcome, string? Rea
     };
 }
 
-/// <summary>
-/// Decides whether a space authority mints a credential for a given user and app, and whether it
-/// tracks a given writer.
-/// </summary>
+/// <summary>Decides whether a space authority mints a credential for a given user and app, and whether it tracks a given writer.</summary>
 /// <remarks>
 /// <para>The permissioned data protocol deliberately does not specify this. Who may read a space
 /// belongs to a <em>space-management implementation</em> sitting above the protocol, identified
@@ -114,10 +101,7 @@ public sealed record SpaceAccessDecision(SpaceAccessOutcome Outcome, string? Rea
 /// </remarks>
 public interface ISpaceAccessPolicy
 {
-    /// <summary>
-    /// Evaluates a credential request or a write notification, as
-    /// <see cref="SpaceAccessRequest.Access"/> says.
-    /// </summary>
+    /// <summary>Evaluates a credential request or a write notification, as <see cref="SpaceAccessRequest.Access"/> says.</summary>
     Task<SpaceAccessDecision> EvaluateAsync(
         SpaceAccessRequest request, CancellationToken cancellationToken = default);
 }

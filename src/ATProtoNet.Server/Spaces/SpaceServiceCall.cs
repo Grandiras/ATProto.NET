@@ -6,19 +6,16 @@ using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>An outbound XRPC call from the space server to another service, signed with service auth.</summary>
+// An outbound XRPC call from the space server to another service, signed with service auth.
 internal static class SpaceServiceCall
 {
-    /// <summary>
-    /// The URL of <paramref name="nsid"/> at the service <paramref name="service"/> identifies
-    /// (<c>did</c> or <c>did#fragment</c>), or <see langword="null"/> when its DID document
-    /// publishes no usable endpoint for it.
-    /// </summary>
-    /// <remarks>
-    /// A <c>#atproto_space_host</c> fragment falls back to <c>#atproto_pds</c>, so an authority on
-    /// an ordinary PDS, which publishes no such entry, is still reached.
-    /// </remarks>
-    /// <exception cref="FormatException">The service publishes a malformed <c>#atproto_space_host</c> entry.</exception>
+    // The URL of nsid at the service service identifies (did or did#fragment), or null when its DID
+    // document publishes no usable endpoint for it.
+    //
+    // A #atproto_space_host fragment falls back to #atproto_pds, so an authority on an ordinary PDS,
+    // which publishes no such entry, is still reached.
+    //
+    // Throws FormatException: The service publishes a malformed #atproto_space_host entry.
     public static async Task<Uri?> ResolveAsync(
         IDidResolver resolver, string service, Nsid nsid, CancellationToken cancellationToken)
     {
@@ -31,7 +28,7 @@ internal static class SpaceServiceCall
             : null;
     }
 
-    /// <summary>Sends <paramref name="request"/> with a service auth token for <paramref name="audience"/> and <paramref name="nsid"/>.</summary>
+    // Sends request with a service auth token for audience and nsid.
     public static Task<HttpResponseMessage> SendAsync(
         HttpClient client,
         HttpRequestMessage request,

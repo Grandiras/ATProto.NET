@@ -266,8 +266,8 @@ one makes the document malformed.
 | Method | Returns |
 |---|---|
 | `GetHandle()` | The handle in the first `at://` entry — claimed, not verified; `null` if that entry is not a valid handle |
-| `GetSigningKey()` | The `#atproto` key as a `did:key` |
-| `GetVerificationKey(fragment)` | Any verification method's key as a `did:key` |
+| `GetSigningKey()` | The `#atproto` key as a `did:key`; `null` if none is published or it does not decode |
+| `GetVerificationKey(fragment)` | Any verification method's key as a `did:key`, the same way |
 | `GetServiceEndpoint(fragment, type?)` | A service's endpoint, when it is an absolute http(s) URL |
 | `TryGetServiceEndpoint(fragment, type, out endpoint)` | The same, telling `Absent` from `Malformed` |
 | `TryGetVerificationKey(fragment, out didKey)` | A key, telling `Absent` from `Malformed` (unknown type, missing or undecodable key material) |

@@ -13,19 +13,19 @@ namespace ATProtoNet.Crypto;
 /// </summary>
 public static class AtProtoCrypto
 {
-    /// <summary>Length of a SEC1 compressed point on either supported curve.</summary>
+    // Length of a SEC1 compressed point on either supported curve.
     private const int CompressedKeyLength = 33;
 
-    /// <summary>Length of an IEEE P1363 (<c>r || s</c>) signature on either supported curve.</summary>
+    // Length of an IEEE P1363 (r || s) signature on either supported curve.
     private const int SignatureLength = 64;
 
-    /// <summary>A did:key multikey: a 2-byte multicodec prefix and a compressed point.</summary>
+    // A did:key multikey: a 2-byte multicodec prefix and a compressed point.
     private const int MultikeyLength = 2 + CompressedKeyLength;
 
     // Base58 Bitcoin alphabet
     private const string Base58Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
-    /// <summary>Base58 digit value of each ASCII character, or -1.</summary>
+    // Base58 digit value of each ASCII character, or -1.
     private static readonly sbyte[] s_base58Digits = CreateBase58Digits();
 
     /// <summary>Generates a new P-256 (NIST secp256r1) key pair for signing.</summary>
@@ -110,11 +110,10 @@ public static class AtProtoCrypto
         return CreatePublicKey(parameters, curve);
     }
 
-    /// <summary>
-    /// Parses a <c>did:key</c> to its curve and decompressed public point. The point is
-    /// validated to lie on the curve but not yet imported into a platform key.
-    /// </summary>
-    /// <exception cref="FormatException">Thrown when the did:key is malformed.</exception>
+    // Parses a did:key to its curve and decompressed public point. The point is validated to lie on the
+    // curve but not yet imported into a platform key.
+    //
+    // Throws FormatException: Thrown when the did:key is malformed.
     internal static ECParameters ParseDidKey(string didKey, out KeyCurve curve)
     {
         ArgumentNullException.ThrowIfNull(didKey);
@@ -147,7 +146,7 @@ public static class AtProtoCrypto
         return PublicKeyParameters(bytes[2..length], info);
     }
 
-    /// <summary>Imports a public point as a verification-only key.</summary>
+    // Imports a public point as a verification-only key.
     internal static AtProtoKey CreatePublicKey(ECParameters parameters, KeyCurve curve)
         => new(ECDsa.Create(parameters), curve);
 
@@ -200,7 +199,7 @@ public static class AtProtoCrypto
         return CompressPoint(publicKey[1..33], yIsOdd: (publicKey[64] & 1) == 1);
     }
 
-    /// <summary>SEC1 point compression: X, with the parity of Y in the prefix byte.</summary>
+    // SEC1 point compression: X, with the parity of Y in the prefix byte.
     internal static byte[] CompressPoint(ReadOnlySpan<byte> x, bool yIsOdd)
     {
         var compressed = new byte[CompressedKeyLength];
@@ -209,16 +208,14 @@ public static class AtProtoCrypto
         return compressed;
     }
 
-    /// <summary>Decodes a multibase string to its raw bytes.</summary>
-    /// <remarks>
-    /// Only <c>z</c> (base58btc) is supported — the encoding every AT Protocol DID document
-    /// uses for <c>publicKeyMultibase</c>, in both the <c>Multikey</c> and the legacy
-    /// <c>Ecdsa...VerificationKey2019</c> forms.
-    /// </remarks>
+    // Decodes a multibase string to its raw bytes.
+    //
+    // Only z (base58btc) is supported — the encoding every AT Protocol DID document uses for
+    // publicKeyMultibase, in both the Multikey and the legacy Ecdsa...VerificationKey2019 forms.
     internal static byte[] MultibaseToBytes(string multibase)
         => Base58DecodeToArray(MultibasePayload(multibase));
 
-    /// <summary>The base58btc payload of a <c>z</c>-prefixed multibase string.</summary>
+    // The base58btc payload of a z-prefixed multibase string.
     private static ReadOnlySpan<char> MultibasePayload(string multibase)
     {
         if (string.IsNullOrEmpty(multibase))
@@ -242,28 +239,62 @@ public static class AtProtoCrypto
     public static bool VerifySignature(string didKey, ReadOnlySpan<byte> message, ReadOnlySpan<byte> signature)
         => DidKeyCache.Shared.Verify(didKey, message, signature);
 
-    /// <summary>
-    /// Verifies a JWT's signature against a <c>did:key</c>, as the reference implementation checks
-    /// a service auth token: the header's <c>alg</c> must be the one the key's curve signs with,
-    /// and a high-S signature is accepted.
-    /// </summary>
-    /// <param name="didKey">The signer's did:key.</param>
-    /// <param name="algorithm">The token's <c>alg</c> header.</param>
-    /// <param name="signingInput">The <c>{header}.{payload}</c> bytes the signature covers.</param>
-    /// <param name="signature">The <c>r || s</c> signature.</param>
-    /// <returns><c>true</c> if the signature is valid.</returns>
-    /// <remarks>
-    /// Low-S is what keeps a signature over content-addressed data from having a second valid
-    /// form. A bearer token is not content-addressed, and generic JOSE signers (WebCrypto among
-    /// them) emit high-S about half the time, so <c>@atproto/xrpc-server</c> accepts either form
-    /// on a JWT.
-    /// </remarks>
-    /// <exception cref="FormatException">Thrown when the did:key is malformed.</exception>
+    // Verifies a JWT's signature against a did:key, as the reference implementation checks a service
+    // auth token: the header's alg must be the one the key's curve signs with, and a high-S signature is
+    // accepted.
+    //
+    // Low-S is what keeps a signature over content-addressed data from having a second valid form. A
+    // bearer token is not content-addressed, and generic JOSE signers (WebCrypto among them) emit high-S
+    // about half the time, so @atproto/xrpc-server accepts either form on a JWT.
+    //
+    // didKey: The signer's did:key.
+    //
+    // algorithm: The token's alg header.
+    //
+    // signingInput: The {header}.{payload} bytes the signature covers.
+    //
+    // signature: The r || s signature.
+    //
+    // Returns: true if the signature is valid.
+    //
+    // Throws FormatException: Thrown when the did:key is malformed.
     internal static bool VerifyJwtSignature(
         string didKey, string algorithm, ReadOnlySpan<byte> signingInput, ReadOnlySpan<byte> signature)
         => DidKeyCache.Shared.VerifyJws(didKey, algorithm, signingInput, signature);
 
-    /// <summary>Encodes a 33-byte compressed public key as a base58btc multikey string.</summary>
+    // VerifySignature, reading a key or signature that cannot be used — a malformed did:key, a curve
+    // this platform lacks — as a failed verification rather than an exception: the key comes from a
+    // document anyone can publish.
+    internal static bool TryVerifySignature(string didKey, ReadOnlySpan<byte> message, ReadOnlySpan<byte> signature)
+    {
+        try
+        {
+            return VerifySignature(didKey, message, signature);
+        }
+        catch (Exception ex) when (IsUnusableKey(ex))
+        {
+            return false;
+        }
+    }
+
+    // VerifyJwtSignature, as non-throwing as TryVerifySignature.
+    internal static bool TryVerifyJwtSignature(
+        string didKey, string algorithm, ReadOnlySpan<byte> signingInput, ReadOnlySpan<byte> signature)
+    {
+        try
+        {
+            return VerifyJwtSignature(didKey, algorithm, signingInput, signature);
+        }
+        catch (Exception ex) when (IsUnusableKey(ex))
+        {
+            return false;
+        }
+    }
+
+    private static bool IsUnusableKey(Exception ex) =>
+        ex is ArgumentException or FormatException or NotSupportedException or CryptographicException;
+
+    // Encodes a 33-byte compressed public key as a base58btc multikey string.
     internal static string ToMultikey(ReadOnlySpan<byte> compressedPublicKey, KeyCurve curve)
     {
         var info = CurveInfo.For(curve);
@@ -274,10 +305,8 @@ public static class AtProtoCrypto
         return "z" + Base58Encode(encoded);
     }
 
-    /// <summary>
-    /// Decompresses an EC point from compressed SEC1 form.
-    /// Computes Y from X using the curve equation y² = x³ + ax + b (mod p).
-    /// </summary>
+    // Decompresses an EC point from compressed SEC1 form. Computes Y from X using the curve equation y²
+    // = x³ + ax + b (mod p).
     private static ECPoint DecompressPoint(ReadOnlySpan<byte> compressed, CurveInfo curve)
     {
         if (compressed.Length != CompressedKeyLength)
@@ -308,10 +337,8 @@ public static class AtProtoCrypto
         return new ECPoint { X = compressed[1..].ToArray(), Y = yBytes };
     }
 
-    /// <summary>
-    /// Everything this SDK needs to know about one of its two curves, computed once. Both have
-    /// 32-byte field elements and a prime modulus p ≡ 3 (mod 4).
-    /// </summary>
+    // Everything this SDK needs to know about one of its two curves, computed once. Both have 32-byte
+    // field elements and a prime modulus p ≡ 3 (mod 4).
     private sealed class CurveInfo
     {
         public static readonly CurveInfo P256 = new(
@@ -357,10 +384,9 @@ public static class AtProtoCrypto
 
         public string OidValue { get; }
 
-        /// <summary>The two bytes of the curve's multicodec varint, which prefix a multikey.</summary>
+        // The two bytes of the curve's multicodec varint, which prefix a multikey.
         public byte Multicodec0 { get; }
 
-        /// <inheritdoc cref="Multicodec0"/>
         public byte Multicodec1 { get; }
 
         public BigInteger P { get; }
@@ -369,16 +395,16 @@ public static class AtProtoCrypto
 
         public BigInteger B { get; }
 
-        /// <summary>(p + 1) / 4, the exponent of a modular square root when p ≡ 3 (mod 4).</summary>
+        // (p + 1) / 4, the exponent of a modular square root when p ≡ 3 (mod 4).
         public BigInteger SqrtExponent { get; }
 
-        /// <summary>The group order n.</summary>
+        // The group order n.
         public BigInteger Order { get; }
 
-        /// <summary>n as 32 big-endian bytes: no signature scalar may reach it.</summary>
+        // n as 32 big-endian bytes: no signature scalar may reach it.
         public byte[] OrderBytes { get; }
 
-        /// <summary>n / 2 as 32 big-endian bytes: the largest S a low-S signature may carry.</summary>
+        // n / 2 as 32 big-endian bytes: the largest S a low-S signature may carry.
         public byte[] HalfOrder { get; }
 
         public static CurveInfo For(KeyCurve curve) => curve switch
@@ -405,7 +431,7 @@ public static class AtProtoCrypto
             => new(Convert.FromHexString(hex), isUnsigned: true, isBigEndian: true);
     }
 
-    /// <summary>Base58 Bitcoin encoding (no check).</summary>
+    // Base58 Bitcoin encoding (no check).
     internal static string Base58Encode(ReadOnlySpan<byte> data)
     {
         // Count leading zeros
@@ -449,7 +475,7 @@ public static class AtProtoCrypto
         return false;
     }
 
-    /// <summary>Base58 Bitcoin decoding (no check).</summary>
+    // Base58 Bitcoin decoding (no check).
     internal static byte[] Base58Decode(string encoded)
         => string.IsNullOrEmpty(encoded) ? [] : Base58DecodeToArray(encoded);
 
@@ -460,13 +486,12 @@ public static class AtProtoCrypto
         return buffer[..Base58Decode(encoded, buffer)].ToArray();
     }
 
-    /// <summary>Base58 Bitcoin decoding (no check) into <paramref name="destination"/>.</summary>
-    /// <returns>The number of bytes written.</returns>
-    /// <exception cref="FormatException">
-    /// Thrown for a character outside the alphabet, or when the value does not fit in
-    /// <paramref name="destination"/>. The work is bounded by the destination size, however
-    /// long the input.
-    /// </exception>
+    // Base58 Bitcoin decoding (no check) into destination.
+    //
+    // Returns: The number of bytes written.
+    //
+    // Throws FormatException: Thrown for a character outside the alphabet, or when the value does not
+    // fit in destination. The work is bounded by the destination size, however long the input.
     internal static int Base58Decode(ReadOnlySpan<char> encoded, Span<byte> destination)
     {
         // Each leading '1' is a leading zero byte.
@@ -521,25 +546,20 @@ public static class AtProtoCrypto
         return digits;
     }
 
-    /// <summary>
-    /// Returns <c>true</c> if the S component of an IEEE P1363 signature is in low-S form
-    /// (S ≤ half-order), as required by the AT Protocol.
-    /// </summary>
+    // Returns true if the S component of an IEEE P1363 signature is in low-S form (S ≤ half-order), as
+    // required by the AT Protocol.
     internal static bool IsLowS(ReadOnlySpan<byte> signature, KeyCurve curve)
     {
         var halfLen = signature.Length / 2;
         return CompareBigEndianUnsigned(signature[halfLen..], CurveInfo.For(curve).HalfOrder) <= 0;
     }
 
-    /// <summary>
-    /// Whether both scalars of an IEEE P1363 <c>r || s</c> signature lie in [1, n − 1], the only
-    /// values an ECDSA signature can carry.
-    /// </summary>
-    /// <remarks>
-    /// A signature arriving on the wire is attacker-chosen bytes. Anything outside the range is
-    /// refused here, before it reaches arithmetic that assumes it (<see cref="NormalizeLowSSignature"/>)
-    /// or a platform verifier that may throw on it rather than answer <see langword="false"/>.
-    /// </remarks>
+    // Whether both scalars of an IEEE P1363 r || s signature lie in [1, n − 1], the only values an ECDSA
+    // signature can carry.
+    //
+    // A signature arriving on the wire is attacker-chosen bytes. Anything outside the range is refused
+    // here, before it reaches arithmetic that assumes it (NormalizeLowSSignature) or a platform verifier
+    // that may throw on it rather than answer false.
     internal static bool HasScalarsInRange(ReadOnlySpan<byte> signature, KeyCurve curve)
     {
         var order = CurveInfo.For(curve).OrderBytes;
@@ -550,17 +570,12 @@ public static class AtProtoCrypto
             scalar.ContainsAnyExcept((byte)0) && CompareBigEndianUnsigned(scalar, order) < 0;
     }
 
-    /// <summary>
-    /// Whether <paramref name="signature"/> has the IEEE P1363 length of both supported curves.
-    /// A DER-encoded signature, which atproto does not allow, never does.
-    /// </summary>
+    // Whether signature has the IEEE P1363 length of both supported curves. A DER-encoded signature,
+    // which atproto does not allow, never does.
     internal static bool HasSignatureLength(ReadOnlySpan<byte> signature) => signature.Length == SignatureLength;
 
-    /// <summary>
-    /// Normalizes an ECDSA signature to use low-S form as required by AT Protocol.
-    /// In low-S form, S must be ≤ (curve order) / 2.
-    /// If S > half-order, replaces S with (order - S).
-    /// </summary>
+    // Normalizes an ECDSA signature to use low-S form as required by AT Protocol. In low-S form, S must
+    // be ≤ (curve order) / 2. If S > half-order, replaces S with (order - S).
     internal static byte[] NormalizeLowSSignature(byte[] signature, KeyCurve curve)
     {
         var halfLen = signature.Length / 2;
@@ -589,10 +604,8 @@ public static class AtProtoCrypto
         return signature;
     }
 
-    /// <summary>
-    /// Compares two big-endian unsigned byte sequences.
-    /// Returns negative if a &lt; b, 0 if equal, positive if a &gt; b.
-    /// </summary>
+    // Compares two big-endian unsigned byte sequences. Returns negative if a < b, 0 if equal, positive
+    // if a > b.
     private static int CompareBigEndianUnsigned(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
     {
         // Pad to same length by comparing from most significant byte
@@ -620,7 +633,7 @@ public enum KeyCurve
 
 internal static class KeyCurveExtensions
 {
-    /// <summary>The JWS <c>alg</c> for signatures made with a key on this curve.</summary>
+    // The JWS alg for signatures made with a key on this curve.
     internal static string JwsAlgorithm(this KeyCurve curve) => curve switch
     {
         KeyCurve.P256 => "ES256",
@@ -629,10 +642,7 @@ internal static class KeyCurveExtensions
     };
 }
 
-/// <summary>
-/// An AT Protocol signing key wrapping an ECDsa instance with curve metadata.
-/// Supports signing, verification, and multikey/did:key encoding.
-/// </summary>
+/// <summary>An AT Protocol signing key wrapping an ECDsa instance with curve metadata. Supports signing, verification, and multikey/did:key encoding.</summary>
 public sealed class AtProtoKey : IDisposable
 {
     private readonly ECDsa _key;
@@ -647,10 +657,7 @@ public sealed class AtProtoKey : IDisposable
         Curve = curve;
     }
 
-    /// <summary>
-    /// Signs the given data bytes using SHA-256 + ECDSA.
-    /// Returns the signature in IEEE P1363 format (r || s concatenation), with low-S normalization.
-    /// </summary>
+    /// <summary>Signs the given data bytes using SHA-256 + ECDSA. Returns the signature in IEEE P1363 format (r || s concatenation), with low-S normalization.</summary>
     /// <param name="data">The data to sign (will be SHA-256 hashed internally).</param>
     /// <returns>The signature bytes.</returns>
     public byte[] Sign(ReadOnlySpan<byte> data)
@@ -665,10 +672,7 @@ public sealed class AtProtoKey : IDisposable
         return AtProtoCrypto.NormalizeLowSSignature(signature, Curve);
     }
 
-    /// <summary>
-    /// Verifies a signature against data bytes.
-    /// Rejects high-S signatures (signature malleability) per AT Protocol spec.
-    /// </summary>
+    /// <summary>Verifies a signature against data bytes. Rejects high-S signatures (signature malleability) per AT Protocol spec.</summary>
     /// <param name="data">The original data that was signed.</param>
     /// <param name="signature">The signature in IEEE P1363 format (r || s).</param>
     /// <returns><c>true</c> if the signature is valid and uses low-S form.</returns>
@@ -701,11 +705,10 @@ public sealed class AtProtoKey : IDisposable
         return AtProtoCrypto.CompressPoint(q.X, yIsOdd: (q.Y![^1] & 1) == 1);
     }
 
-    /// <summary>
-    /// Exports the key's parameters: the public point, and the private scalar when
-    /// <paramref name="includePrivateParameters"/> is set.
-    /// </summary>
-    /// <exception cref="CryptographicException">The private scalar was asked for and this is a public key.</exception>
+    // Exports the key's parameters: the public point, and the private scalar when
+    // includePrivateParameters is set.
+    //
+    // Throws CryptographicException: The private scalar was asked for and this is a public key.
     internal ECParameters ExportParameters(bool includePrivateParameters)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);

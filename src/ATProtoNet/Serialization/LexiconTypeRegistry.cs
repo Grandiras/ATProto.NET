@@ -6,10 +6,7 @@ using System.Text.Json.Serialization.Metadata;
 
 namespace ATProtoNet.Serialization;
 
-/// <summary>
-/// The runtime registry of Lexicon union variants that <see cref="AtProtoJsonDefaults.Options"/>, and
-/// therefore every SDK client, consults alongside the <c>[JsonDerivedType]</c> attributes on a union base.
-/// </summary>
+/// <summary>The runtime registry of Lexicon union variants that <see cref="AtProtoJsonDefaults.Options"/>, and therefore every SDK client, consults alongside the <c>[JsonDerivedType]</c> attributes on a union base.</summary>
 /// <remarks>
 /// <para>Use it to add a variant to a union you do not own, such as a custom embed on the SDK's
 /// <c>EmbedBase</c>. Register at startup, before the first (de)serialization that involves the variant:</para>
@@ -98,10 +95,7 @@ public sealed class LexiconTypeRegistry : ILexiconTypeRegistrar
     public void LoadPlugin<TPlugin>() where TPlugin : ILexiconPlugin, new()
         => new TPlugin().Register(this);
 
-    /// <summary>
-    /// Gets the variants registered at runtime for a union base. Variants declared with
-    /// <c>[JsonDerivedType]</c> on the base are not included.
-    /// </summary>
+    /// <summary>Gets the variants registered at runtime for a union base. Variants declared with <c>[JsonDerivedType]</c> on the base are not included.</summary>
     /// <param name="baseType">The union base type.</param>
     /// <returns>The registered (discriminator, variant type) pairs, ordered by discriminator.</returns>
     public IReadOnlyList<(string Discriminator, Type DerivedType)> GetUnionVariants(Type baseType)
@@ -138,21 +132,19 @@ public sealed class LexiconTypeRegistry : ILexiconTypeRegistrar
         return false;
     }
 
-    /// <summary>Contract modifier behind <see cref="AtProtoJsonDefaults.Options"/>'s union handling.</summary>
-    /// <remarks>
-    /// <list type="bullet">
-    /// <item><description>An <see cref="AtProtoUnionAttribute"/> base is converted by
-    /// <see cref="AtProtoUnionConverterFactory"/>. Its <c>[JsonDerivedType]</c> attributes stay so that
-    /// plain options still read the known variants, but <c>System.Text.Json</c> refuses polymorphism
-    /// metadata on a type with a custom converter, so it is removed here.</description></item>
-    /// <item><description>A variant of such a base gets a leading <c>$type</c> property that is
-    /// written but never read. Writing emits the discriminator whether the variant is serialized
-    /// through its base or on its own; reading matches the incoming <c>$type</c> to it and discards
-    /// it, so it never lands in <see cref="Models.LexObject.ExtensionData"/>.</description></item>
-    /// <item><description>A plain <see cref="JsonPolymorphicAttribute"/> base gets its registered
-    /// variants added to its polymorphism options.</description></item>
-    /// </list>
-    /// </remarks>
+    // Contract modifier behind AtProtoJsonDefaults.Options's union handling.
+    //
+    // - An AtProtoUnionAttribute base is converted by AtProtoUnionConverterFactory. Its
+    // [JsonDerivedType] attributes stay so that plain options still read the known variants, but
+    // System.Text.Json refuses polymorphism metadata on a type with a custom converter, so it is removed
+    // here.
+    //
+    // - A variant of such a base gets a leading $type property that is written but never read. Writing
+    // emits the discriminator whether the variant is serialized through its base or on its own; reading
+    // matches the incoming $type to it and discards it, so it never lands in LexObject.ExtensionData.
+    //
+    // - A plain JsonPolymorphicAttribute base gets its registered variants added to its polymorphism
+    // options.
     internal void ApplyUnionContracts(JsonTypeInfo typeInfo)
     {
         var type = typeInfo.Type;

@@ -4,13 +4,12 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Serialization;
 
-/// <summary>Reads and writes an identifier type as its JSON string form.</summary>
-/// <remarks>
-/// An invalid value fails as a <see cref="JsonException"/>, which the serializer completes with
-/// the JSON path and position of the offending string; the <see cref="FormatException"/> it
-/// wraps names the value and the expected type.
-/// </remarks>
-/// <typeparam name="T">The identifier type.</typeparam>
+// Reads and writes an identifier type as its JSON string form.
+//
+// An invalid value fails as a JsonException, which the serializer completes with the JSON path and
+// position of the offending string; the FormatException it wraps names the value and the expected type.
+//
+// T: The identifier type.
 internal sealed class IdentifierJsonConverter<T> : JsonConverter<T>
     where T : class, IIdentifier<T>
 {
@@ -31,12 +30,10 @@ internal sealed class IdentifierJsonConverter<T> : JsonConverter<T>
         writer.WriteStringValue(value.ToString());
 }
 
-/// <summary>Reads and writes an <see cref="AtDatetime"/> as its JSON string, exactly as written.</summary>
-/// <remarks>
-/// Reading never rejects a string, so one malformed timestamp does not fail a whole response;
-/// the value keeps the text and reports <see cref="AtDatetime.IsValid"/> <see langword="false"/>.
-/// A token that is not a string is an error.
-/// </remarks>
+// Reads and writes an AtDatetime as its JSON string, exactly as written.
+//
+// Reading never rejects a string, so one malformed timestamp does not fail a whole response; the value
+// keeps the text and reports AtDatetime.IsValid false. A token that is not a string is an error.
 internal sealed class AtDatetimeJsonConverter : JsonConverter<AtDatetime>
 {
     public override AtDatetime Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)

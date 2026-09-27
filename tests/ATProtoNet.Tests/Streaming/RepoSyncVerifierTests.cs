@@ -4,6 +4,7 @@ using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using ATProtoNet.Repo;
 using ATProtoNet.Streaming;
 using ATProtoNet.Tests.Identity;
+using NSubstitute;
 
 namespace ATProtoNet.Tests.Streaming;
 
@@ -497,6 +498,29 @@ public sealed class RepoSyncVerifierTests : IDisposable
 
         AssertOutcome(RepoSyncOutcome.Invalid, result);
         Assert.Contains("identity", result.Reason);
+    }
+
+    [Theory]
+    [InlineData(null, null)]                                                  // no #atproto entry
+    [InlineData("EcdsaSecp256k1VerificationKey2019", "z1111111111111111111")] // an entry that does not decode
+    public async Task VerifyCommitAsync_AccountPublishingNoUsableKey_IsInvalidAfterOneRefresh(string? type, string? multibase)
+    {
+        var did = _repo.Did;
+        var document = new DidDocument
+        {
+            Id = did,
+            VerificationMethod = type is null ? [] : [new VerificationMethod { Id = $"{did}#atproto", Type = type, PublicKeyMultibase = multibase }],
+        };
+        var resolver = Substitute.For<IDidResolver>();
+        resolver.ResolveAsync(did, Arg.Any<CancellationToken>()).Returns(document);
+        resolver.RefreshAsync(did, Arg.Any<CancellationToken>()).Returns(document);
+        using var verifier = Verifier(resolver: resolver);
+
+        var result = await Process(verifier, _repo.Create());
+
+        AssertOutcome(RepoSyncOutcome.Invalid, result);
+        Assert.Equal("The account publishes no usable atproto signing key.", result.Reason);
+        await resolver.Received(1).RefreshAsync(did, Arg.Any<CancellationToken>());
     }
 
     [Fact]

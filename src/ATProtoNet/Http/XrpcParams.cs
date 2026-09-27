@@ -1,8 +1,6 @@
 using System.Collections;
 using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using System.Reflection;
 using System.Text.Json;
 using ATProtoNet.Identity;
 using ATProtoNet.Serialization;
@@ -36,17 +34,9 @@ namespace ATProtoNet.Http;
 /// </example>
 public sealed class XrpcParams : IEnumerable<KeyValuePair<string, string>>
 {
-    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> PropertyCache = new();
     private static readonly ConcurrentDictionary<Enum, string> EnumNames = new();
 
     private readonly List<KeyValuePair<string, string>> _pairs = [];
-
-    /// <summary>
-    /// Why the parameter-object entry points are not trim-safe: they read the object's public
-    /// properties by reflection.
-    /// </summary>
-    internal const string AnonymousParametersWarning =
-        "Reads the parameter object's properties by reflection, which trimming can remove. Pass an XrpcParams instead.";
 
     /// <summary>The number of pairs added.</summary>
     public int Count => _pairs.Count;
@@ -75,18 +65,12 @@ public sealed class XrpcParams : IEnumerable<KeyValuePair<string, string>>
     public XrpcParams Add(string key, DateTimeOffset? value) =>
         Add(key, value is null ? null : FormatTimestamp(value.Value));
 
-    /// <summary>
-    /// Appends any other formattable value — in the invariant culture, or by its JSON name for
-    /// an enum — ignoring nulls.
-    /// </summary>
+    /// <summary>Appends any other formattable value — in the invariant culture, or by its JSON name for an enum — ignoring nulls.</summary>
     public XrpcParams Add<T>(string key, T? value)
         where T : struct, ISpanFormattable =>
         Add(key, value is null ? null : FormatScalar(value.Value));
 
-    /// <summary>
-    /// Appends one parameter per element, all sharing <paramref name="key"/>.
-    /// A null or empty sequence contributes nothing.
-    /// </summary>
+    /// <summary>Appends one parameter per element, all sharing <paramref name="key"/>. A null or empty sequence contributes nothing.</summary>
     public XrpcParams AddAll(string key, IEnumerable<string>? values)
     {
         if (values is not null)
@@ -98,10 +82,8 @@ public sealed class XrpcParams : IEnumerable<KeyValuePair<string, string>>
         return this;
     }
 
-    /// <summary>
-    /// The parameters as a percent-encoded query string with repeated keys for arrays, prefixed
-    /// with <c>?</c>, or an empty string when there are none.
-    /// </summary>
+    // The parameters as a percent-encoded query string with repeated keys for arrays, prefixed with ?,
+    // or an empty string when there are none.
     internal string ToQueryString()
     {
         if (_pairs.Count == 0)
@@ -119,79 +101,9 @@ public sealed class XrpcParams : IEnumerable<KeyValuePair<string, string>>
         return query.ToString();
     }
 
-    /// <summary>
-    /// Converts a loosely typed parameter object — an anonymous type, a dictionary, or a pair
-    /// sequence — into parameters, or returns <see langword="null"/> when there is nothing to
-    /// send. A property whose value is a non-string sequence expands into one pair per element.
-    /// </summary>
-    [RequiresUnreferencedCode(AnonymousParametersWarning)]
-    internal static XrpcParams? From(object? parameters)
-    {
-        switch (parameters)
-        {
-            case null:
-                return null;
-            case XrpcParams already:
-                return already;
-        }
-
-        var result = new XrpcParams();
-
-        switch (parameters)
-        {
-            case IEnumerable<KeyValuePair<string, string?>> pairs:
-                foreach (var (key, value) in pairs)
-                    result.Add(key, value);
-                break;
-
-            case IDictionary dictionary:
-                foreach (DictionaryEntry entry in dictionary)
-                {
-                    if (entry.Key?.ToString() is { } key)
-                        result.AddValue(key, entry.Value);
-                }
-
-                break;
-
-            default:
-                var properties = PropertyCache.GetOrAdd(
-                    parameters.GetType(),
-                    static type => type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                        .Where(p => p.GetIndexParameters().Length == 0)
-                        .ToArray());
-
-                foreach (var property in properties)
-                    result.AddValue(property.Name, property.GetValue(parameters));
-                break;
-        }
-
-        return result.Count > 0 ? result : null;
-    }
-
-    private void AddValue(string key, object? value)
-    {
-        switch (value)
-        {
-            case null:
-                return;
-            case string s:
-                Add(key, s);
-                return;
-            case IEnumerable items:
-                foreach (var item in items)
-                    AddValue(key, item);
-                return;
-            default:
-                Add(key, FormatScalar(value));
-                return;
-        }
-    }
-
-    /// <summary>
-    /// Renders a scalar for the wire. Everything formattable goes through the invariant culture,
-    /// so a client running under, say, <c>de-DE</c> does not send <c>1,5</c> where the server
-    /// expects <c>1.5</c>, nor a localized date where it expects ISO 8601.
-    /// </summary>
+    // Renders a scalar for the wire. Everything formattable goes through the invariant culture, so a
+    // client running under, say, de-DE does not send 1,5 where the server expects 1.5, nor a localized
+    // date where it expects ISO 8601.
     internal static string? FormatScalar(object value) => value switch
     {
         bool b => FormatBoolean(b),
@@ -207,11 +119,8 @@ public sealed class XrpcParams : IEnumerable<KeyValuePair<string, string>>
     private static string FormatTimestamp(DateTimeOffset value) =>
         AtDatetime.FromDateTimeOffset(value).ToString();
 
-    /// <summary>
-    /// An enum's name as the SDK's JSON serializer writes it, so a query parameter and a body
-    /// field of the same enum agree — camelCase by default, or whatever
-    /// <c>[JsonStringEnumMemberName]</c> says.
-    /// </summary>
+    // An enum's name as the SDK's JSON serializer writes it, so a query parameter and a body field of
+    // the same enum agree — camelCase by default, or whatever [JsonStringEnumMemberName] says.
     private static string FormatEnum(Enum value)
     {
         var element = JsonSerializer.SerializeToElement(value, value.GetType(), AtProtoJsonDefaults.Options);

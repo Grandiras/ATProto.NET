@@ -1,3 +1,4 @@
+using ATProtoNet.Caching;
 using ATProtoNet.Identity;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -22,14 +23,7 @@ public sealed class CachingLexiconResolver : ILexiconResolver, IDisposable
 {
     private readonly ILexiconResolver _inner;
     private readonly bool _ownsInner;
-    private readonly LexiconCacheOptions _options;
-    private readonly TimeProvider _time;
-    private readonly ILogger _logger;
-
-    private readonly Lock _lock = new();
-    private readonly Dictionary<Nsid, LinkedListNode<Entry>> _entries = new();
-    private readonly LinkedList<Entry> _recency = new(); // most recently used first
-    private readonly Dictionary<Nsid, Fetch> _inflight = new();
+    private readonly ResolutionCache<Nsid, ResolvedLexicon, LexiconResolutionException> _cache;
 
     /// <summary>Creates a cache over <paramref name="inner"/>.</summary>
     /// <param name="inner">The resolver schemas are resolved through. The caller owns it.</param>
@@ -57,59 +51,34 @@ public sealed class CachingLexiconResolver : ILexiconResolver, IDisposable
 
         _inner = inner;
         _ownsInner = ownsInner;
-        _options = options ?? new LexiconCacheOptions();
-        _options.Validate();
-        _time = timeProvider ?? TimeProvider.System;
-        _logger = logger ?? NullLogger.Instance;
+        options ??= new LexiconCacheOptions();
+        options.Validate();
+
+        // Schemas and failures share one capacity. The inner resolver bounds each resolution.
+        var log = logger ?? NullLogger.Instance;
+        _cache = new ResolutionCache<Nsid, ResolvedLexicon, LexiconResolutionException>(
+            nsid => _inner.ResolveAsync(nsid, CancellationToken.None),
+            static cached => new LexiconResolutionException(cached.Message, cached.Nsid, cached.Kind, cached),
+            options.Capacity,
+            failureCapacity: null,
+            options.StaleAfter,
+            options.ExpireAfter,
+            options.FailureTtl,
+            timeProvider ?? TimeProvider.System,
+            refreshFailed: (nsid, ex) => log.LogInformation(ex, "Refreshing Lexicon {Nsid} failed; serving the cached schema.", nsid));
     }
 
     /// <summary>The number of schemas and remembered failures held.</summary>
-    internal int Count
-    {
-        get
-        {
-            lock (_lock)
-                return _entries.Count;
-        }
-    }
+    internal int Count => _cache.Count;
 
     /// <summary>Whether a resolution of <paramref name="nsid"/> is under way.</summary>
-    internal bool IsResolving(Nsid nsid)
-    {
-        lock (_lock)
-            return _inflight.ContainsKey(nsid);
-    }
+    internal bool IsResolving(Nsid nsid) => _cache.IsFetching(nsid);
 
     /// <inheritdoc/>
     public Task<ResolvedLexicon> ResolveAsync(Nsid nsid, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(nsid);
-
-        var now = _time.GetUtcNow();
-        lock (_lock)
-        {
-            if (_entries.TryGetValue(nsid, out var node))
-            {
-                _recency.Remove(node);
-                _recency.AddFirst(node);
-
-                var entry = node.Value;
-                var age = now - entry.FetchedAt;
-                if (entry.Error is { } error)
-                {
-                    if (age < _options.FailureTtl)
-                        return Task.FromException<ResolvedLexicon>(Rethrow(error));
-                }
-                else if (age < _options.ExpireAfter)
-                {
-                    if (age >= _options.StaleAfter && now >= entry.RetryAfter)
-                        _ = StartFetchLocked(nsid);
-                    return Task.FromResult(entry.Value!);
-                }
-            }
-
-            return StartFetchLocked(nsid).WaitAsync(cancellationToken);
-        }
+        return _cache.GetAsync(nsid, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -117,146 +86,18 @@ public sealed class CachingLexiconResolver : ILexiconResolver, IDisposable
     /// A resolution already under way for the NSID is detached: its callers still get its result,
     /// but it is not stored.
     /// </remarks>
-    public Task InvalidateAsync(Nsid nsid, CancellationToken cancellationToken = default)
+    public async Task InvalidateAsync(Nsid nsid, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(nsid);
-
-        lock (_lock)
-        {
-            if (_entries.Remove(nsid, out var node))
-                _recency.Remove(node);
-
-            if (_inflight.Remove(nsid, out var fetch))
-                fetch.Detached = true;
-        }
-
-        return _inner.InvalidateAsync(nsid, cancellationToken);
+        await _cache.InvalidateAsync(nsid, cancellationToken).ConfigureAwait(false);
+        await _inner.InvalidateAsync(nsid, cancellationToken).ConfigureAwait(false);
     }
-
-    /// <summary>Returns the resolution under way for an NSID, or starts one. Call under the lock.</summary>
-    private Task<ResolvedLexicon> StartFetchLocked(Nsid nsid)
-    {
-        if (_inflight.TryGetValue(nsid, out var existing))
-            return existing.Completion.Task;
-
-        var fetch = new Fetch();
-        _inflight.Add(nsid, fetch);
-
-        // Every caller may have given up (or it is a background refresh nobody awaits), so the
-        // outcome is observed here once, and a failure never surfaces as an unobserved exception.
-        _ = fetch.Completion.Task.ContinueWith(
-            static t => _ = t.Exception,
-            CancellationToken.None,
-            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
-
-        _ = Task.Run(() => RunFetchAsync(nsid, fetch));
-        return fetch.Completion.Task;
-    }
-
-    private async Task RunFetchAsync(Nsid nsid, Fetch fetch)
-    {
-        ResolvedLexicon resolved;
-        try
-        {
-            // Not a caller's token: the resolution is shared. The inner resolver bounds it.
-            resolved = await _inner.ResolveAsync(nsid, CancellationToken.None).ConfigureAwait(false);
-        }
-        catch (LexiconResolutionException ex)
-        {
-            var now = _time.GetUtcNow();
-            lock (_lock)
-            {
-                if (Complete(nsid, fetch))
-                {
-                    // A schema still inside its lifetime outlives a failed refresh, as the
-                    // permission specification asks; the next attempt waits out FailureTtl.
-                    if (_entries.TryGetValue(nsid, out var node) && node.Value.Error is null &&
-                        now - node.Value.FetchedAt < _options.ExpireAfter)
-                    {
-                        _logger.LogInformation(ex, "Refreshing Lexicon {Nsid} failed; serving the cached schema.", nsid);
-                        node.Value = node.Value with { RetryAfter = now + _options.FailureTtl };
-                    }
-                    else
-                    {
-                        Store(new Entry(nsid, null, ex, now, default));
-                    }
-                }
-            }
-
-            fetch.Completion.SetException(ex);
-            return;
-        }
-        catch (Exception ex)
-        {
-            // Not a resolution outcome (a bug, or a cancellation in the inner resolver): nothing
-            // is remembered, and the next request tries again.
-            lock (_lock)
-                Complete(nsid, fetch);
-
-            fetch.Completion.SetException(ex);
-            return;
-        }
-
-        lock (_lock)
-        {
-            if (Complete(nsid, fetch))
-                Store(new Entry(nsid, resolved, null, _time.GetUtcNow(), default));
-        }
-
-        fetch.Completion.SetResult(resolved);
-    }
-
-    /// <summary>Retires a fetch. Returns whether its outcome may be stored. Call under the lock.</summary>
-    private bool Complete(Nsid nsid, Fetch fetch)
-    {
-        if (_inflight.TryGetValue(nsid, out var current) && ReferenceEquals(current, fetch))
-            _inflight.Remove(nsid);
-
-        return !fetch.Detached;
-    }
-
-    /// <summary>Stores an entry as the most recently used, evicting the least. Call under the lock.</summary>
-    private void Store(Entry entry)
-    {
-        if (_entries.Remove(entry.Nsid, out var old))
-            _recency.Remove(old);
-
-        _entries.Add(entry.Nsid, _recency.AddFirst(entry));
-        if (_entries.Count > _options.Capacity)
-        {
-            var last = _recency.Last!;
-            _recency.RemoveLast();
-            _entries.Remove(last.Value.Nsid);
-        }
-    }
-
-    /// <summary>A fresh exception for a remembered failure: one instance thrown on several threads at once would have its stack trace rewritten under each of them.</summary>
-    private static LexiconResolutionException Rethrow(LexiconResolutionException cached) =>
-        new(cached.Message, cached.Nsid, cached.Kind, cached);
 
     /// <inheritdoc/>
     public void Dispose()
     {
         if (_ownsInner && _inner is IDisposable disposable)
             disposable.Dispose();
-    }
-
-    /// <summary>A cached schema, or a remembered failure.</summary>
-    private sealed record Entry(
-        Nsid Nsid,
-        ResolvedLexicon? Value,
-        LexiconResolutionException? Error,
-        DateTimeOffset FetchedAt,
-        DateTimeOffset RetryAfter);
-
-    /// <summary>One resolution in flight, and whether an invalidation detached it.</summary>
-    private sealed class Fetch
-    {
-        public TaskCompletionSource<ResolvedLexicon> Completion { get; } =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public bool Detached { get; set; }
     }
 }
 

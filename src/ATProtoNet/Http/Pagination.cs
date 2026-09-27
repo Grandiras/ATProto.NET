@@ -12,10 +12,7 @@ namespace ATProtoNet.Http;
 /// </remarks>
 public static class Pagination
 {
-    /// <summary>
-    /// Fetches pages until the server stops returning a new cursor, yielding each page's items
-    /// as it arrives.
-    /// </summary>
+    /// <summary>Fetches pages until the server stops returning a new cursor, yielding each page's items as it arrives.</summary>
     /// <typeparam name="TPage">The page type.</typeparam>
     /// <typeparam name="T">The item type.</typeparam>
     /// <param name="fetchPage">

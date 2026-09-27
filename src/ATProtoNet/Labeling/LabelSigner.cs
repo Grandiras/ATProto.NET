@@ -4,11 +4,7 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Labeling;
 
-/// <summary>
-/// Signs a labeler's labels with its <c>#atproto_label</c> key, as the
-/// <see href="https://atproto.com/specs/label">label spec</see> requires of every label a service
-/// hands to another.
-/// </summary>
+/// <summary>Signs a labeler's labels with its <c>#atproto_label</c> key, as the <see href="https://atproto.com/specs/label">label spec</see> requires of every label a service hands to another.</summary>
 /// <remarks>
 /// <para>A signed label carries <c>ver</c> 1 and a low-S <c>sig</c> over the rest of its fields
 /// (<see cref="LabelSigning.GetSigningBytes"/>). As the reference labeler (<c>@atproto/ozone</c>)
@@ -53,10 +49,7 @@ public sealed class LabelSigner
     /// <summary>The labeler's DID: the <c>src</c> of every label this signs.</summary>
     public Did Labeler { get; }
 
-    /// <summary>
-    /// The public half of the signing key as a <c>did:key</c>: what the labeler's DID document
-    /// must publish as <c>#atproto_label</c> for its labels to verify.
-    /// </summary>
+    /// <summary>The public half of the signing key as a <c>did:key</c>: what the labeler's DID document must publish as <c>#atproto_label</c> for its labels to verify.</summary>
     public string SigningKey { get; }
 
     /// <summary>Creates and signs a label, stamped with the current time.</summary>

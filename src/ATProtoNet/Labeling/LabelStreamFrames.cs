@@ -3,10 +3,7 @@ using ATProtoNet.Lexicon.Com.AtProto.Label;
 
 namespace ATProtoNet.Labeling;
 
-/// <summary>
-/// Encodes the frames of a labeler's <c>com.atproto.label.subscribeLabels</c> event stream, for a
-/// service that emits one.
-/// </summary>
+/// <summary>Encodes the frames of a labeler's <c>com.atproto.label.subscribeLabels</c> event stream, for a service that emits one.</summary>
 /// <remarks>
 /// <para>Each frame is one binary WebSocket message: a DRISL header (<c>{t, op}</c>) followed by
 /// a DRISL body, as the <see href="https://atproto.com/specs/event-stream">event stream spec</see>

@@ -239,7 +239,7 @@ public class XrpcTransportTests : IDisposable
 
         await Task.WhenAll(Enumerable.Range(0, 50).Select(i => client.QueryAsync<JsonElement>(
             Nsid.Parse("com.example.ping"),
-            new { i },
+            new XrpcParams().Add("i", i),
             new XrpcCallOptions { Proxy = $"did:web:svc{i}.example#svc" })));
 
         Assert.All(_stub.Requests, r =>
@@ -356,6 +356,23 @@ public class XrpcTransportTests : IDisposable
             Nsid.Parse("com.example.slow"),
             options: new XrpcCallOptions { Timeout = TimeSpan.FromSeconds(20) },
             cancellationToken: cts.Token));
+    }
+
+    [Theory]
+    [InlineData(false, "image/png")]
+    [InlineData(true, " ")]
+    public async Task UploadAsync_InvalidArguments_FaultTheTaskRatherThanThrowing(bool withStream, string mimeType)
+    {
+        // Every transport call reports failure through its task, so a caller that starts several
+        // and awaits them together sees this one fail with the rest.
+        using var client = CreateClient();
+        using var data = new MemoryStream([1, 2, 3]);
+
+        var upload = client.Transport.UploadAsync<JsonElement>(
+            Nsid.Parse("com.example.upload"), withStream ? data : null!, mimeType);
+
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => upload);
+        Assert.Empty(_stub.Requests);
     }
 
     // ──────────────────────────────────────────────────────────

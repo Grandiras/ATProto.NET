@@ -5,11 +5,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// Represents a record key used to identify individual records within a collection.
-/// Record keys have specific restrictions on allowed characters and patterns.
-/// Common patterns: "self" (singleton), TID (timestamp-based), or custom strings.
-/// </summary>
+/// <summary>Represents a record key used to identify individual records within a collection. Record keys have specific restrictions on allowed characters and patterns. Common patterns: "self" (singleton), TID (timestamp-based), or custom strings.</summary>
 /// <remarks>Record keys are case-sensitive; equality and ordering are ordinal on <see cref="Value"/>.</remarks>
 [JsonConverter(typeof(IdentifierJsonConverter<RecordKey>))]
 public sealed partial record RecordKey : IIdentifier<RecordKey>

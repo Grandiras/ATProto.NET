@@ -2,34 +2,30 @@ using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using ATProtoNet.Auth;
-using ATProtoNet.Auth.OAuth;
+using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Http;
 
-/// <summary>The parts of an XRPC error body clients act on.</summary>
-/// <param name="Error">The <c>error</c> name, if the body was an XRPC error envelope.</param>
-/// <param name="Message">The <c>message</c>, if present.</param>
-/// <param name="Body">The raw body text, if it could be read.</param>
+// The parts of an XRPC error body clients act on.
+//
+// Error: The error name, if the body was an XRPC error envelope.
+//
+// Message: The message, if present.
+//
+// Body: The raw body text, if it could be read.
 internal readonly record struct XrpcErrorBody(string? Error, string? Message, string? Body);
 
-/// <summary>
-/// Reads what XRPC responses say about failures and limits: the error envelope, the
-/// <c>RateLimit-*</c> headers, and how long a 429 asks the client to wait.
-/// </summary>
+// Reads what XRPC responses say about failures and limits: the error envelope, the RateLimit-* headers,
+// and how long a 429 asks the client to wait.
 internal static class XrpcResponseReader
 {
-    /// <summary>
-    /// The most of an error body that is read. An XRPC envelope is a few hundred bytes; a body
-    /// past this is no envelope, and the service chose its size.
-    /// </summary>
+    // The most of an error body that is read. An XRPC envelope is a few hundred bytes; a body past this
+    // is no envelope, and the service chose its size.
     internal const int MaxErrorBodyBytes = 64 * 1024;
 
-    /// <summary>
-    /// Reads the <c>{"error", "message"}</c> envelope out of a failed response. A body that is
-    /// not one — a proxy's HTML error page, or anything over <see cref="MaxErrorBodyBytes"/> —
-    /// yields nulls rather than throwing, since the status alone still says what happened.
-    /// </summary>
+    // Reads the {"error", "message"} envelope out of a failed response. A body that is not one — a
+    // proxy's HTML error page, or anything over MaxErrorBodyBytes — yields nulls rather than throwing,
+    // since the status alone still says what happened.
     internal static async Task<XrpcErrorBody> ReadErrorAsync(
         HttpResponseMessage response, CancellationToken cancellationToken)
     {
@@ -46,7 +42,7 @@ internal static class XrpcResponseReader
         return bytes is { } body ? ParseError(Encoding.UTF8.GetString(body.Span)) : default;
     }
 
-    /// <summary>Extracts the error envelope from a body already read.</summary>
+    // Extracts the error envelope from a body already read.
     internal static XrpcErrorBody ParseError(string? body)
     {
         if (string.IsNullOrWhiteSpace(body))
@@ -64,11 +60,8 @@ internal static class XrpcResponseReader
         }
     }
 
-    /// <summary>
-    /// Builds the exception for a failed XRPC response: <see cref="XrpcRateLimitException"/>
-    /// for a 429, <see cref="XrpcAuthenticationException"/> for rejected credentials, and
-    /// <see cref="XrpcException"/> otherwise.
-    /// </summary>
+    // Builds the exception for a failed XRPC response: XrpcRateLimitException for a 429,
+    // XrpcAuthenticationException for rejected credentials, and XrpcException otherwise.
     internal static XrpcException CreateException(
         HttpResponseMessage response, string nsid, XrpcErrorBody body, DateTimeOffset now)
     {
@@ -96,18 +89,14 @@ internal static class XrpcResponseReader
         return exception;
     }
 
-    /// <summary>
-    /// Whether a failure rejects the credentials rather than the request. A PDS answers an
-    /// expired or invalid access token with a 400 and a token error name, not a 401.
-    /// </summary>
+    // Whether a failure rejects the credentials rather than the request. A PDS answers an expired or
+    // invalid access token with a 400 and a token error name, not a 401.
     private static bool IsAuthenticationFailure(HttpStatusCode status, string error) =>
         status == HttpStatusCode.Unauthorized ||
         error is XrpcErrors.ExpiredToken or XrpcErrors.InvalidToken;
 
-    /// <summary>
-    /// Parses the <c>RateLimit-Limit</c>, <c>-Remaining</c> and <c>-Reset</c> headers, or
-    /// returns <see langword="null"/> when the response carries none of them.
-    /// </summary>
+    // Parses the RateLimit-Limit, -Remaining and -Reset headers, or returns null when the response
+    // carries none of them.
     internal static RateLimitInfo? ParseRateLimit(HttpResponseMessage response)
     {
         var limit = GetInt64(response, "RateLimit-Limit");
@@ -125,11 +114,9 @@ internal static class XrpcResponseReader
         };
     }
 
-    /// <summary>
-    /// How long a response asks the client to wait before retrying: <c>Retry-After</c>, in
-    /// seconds or as an HTTP date, otherwise the time until <c>RateLimit-Reset</c>. Never
-    /// negative; <see langword="null"/> when the response names no wait.
-    /// </summary>
+    // How long a response asks the client to wait before retrying: Retry-After, in seconds or as an HTTP
+    // date, otherwise the time until RateLimit-Reset. Never negative; null when the response names no
+    // wait.
     internal static TimeSpan? GetRequestedDelay(HttpResponseMessage response, DateTimeOffset now)
     {
         TimeSpan? delay = null;

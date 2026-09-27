@@ -190,8 +190,8 @@ public sealed class UnknownChatModerationEvent : ChatModerationEvent, IUnknownUn
         ArgumentException.ThrowIfNullOrEmpty(type);
         Type = type;
         Raw = UnknownUnionVariant.RequireObject(raw);
-        Rev = StringProperty(Raw, "rev") ?? "";
-        CreatedAt = StringProperty(Raw, "createdAt") is { } createdAt ? AtDatetime.FromWire(createdAt) : default;
+        Rev = Raw.GetStringOrNull("rev") ?? "";
+        CreatedAt = Raw.GetStringOrNull("createdAt") is { } createdAt ? AtDatetime.FromWire(createdAt) : default;
     }
 
     // Not wire properties: the SDK writes an unknown variant as its Raw object.
@@ -203,11 +203,6 @@ public sealed class UnknownChatModerationEvent : ChatModerationEvent, IUnknownUn
     /// <inheritdoc/>
     [JsonIgnore]
     public JsonElement Raw { get; }
-
-    private static string? StringProperty(JsonElement raw, string name) =>
-        raw.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
-            ? value.GetString()
-            : null;
 }
 
 /// <summary>The first message was sent in a conversation (<c>#eventConvoFirstMessage</c>).</summary>

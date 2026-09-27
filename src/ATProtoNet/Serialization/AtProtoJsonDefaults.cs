@@ -2,7 +2,6 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
-using ATProtoNet.Identity;
 
 namespace ATProtoNet.Serialization;
 
@@ -25,27 +24,7 @@ public static class AtProtoJsonDefaults
     /// </remarks>
     public static JsonSerializerOptions Options { get; } = CreateOptions();
 
-    /// <summary>
-    /// Formats a <see cref="DateTime"/> as an AT Protocol-compliant ISO 8601 timestamp
-    /// with millisecond precision and UTC "Z" suffix (e.g. "2024-01-15T12:30:45.123Z").
-    /// </summary>
-    /// <param name="dateTime">
-    /// The date/time value. <see cref="DateTimeKind.Local"/> is converted to UTC;
-    /// <see cref="DateTimeKind.Unspecified"/> is taken to be UTC already.
-    /// </param>
-    /// <returns>An AT Protocol-compliant timestamp string.</returns>
-    /// <remarks>
-    /// The same text as <see cref="AtDatetime.FromDateTime"/>, which model properties use.
-    /// </remarks>
-    public static string FormatTimestamp(DateTime dateTime) => AtDatetime.FromDateTime(dateTime).ToString();
-
-    /// <summary>Gets the current UTC time formatted as an AT Protocol-compliant timestamp.</summary>
-    public static string NowTimestamp() => AtDatetime.Now().ToString();
-
-    /// <summary>
-    /// Contract modifier that guarantees every <see cref="AtProtoRecord"/>-derived type
-    /// serializes its Lexicon type identifier as exactly one <c>$type</c> property.
-    /// </summary>
+    /// <summary>Contract modifier that guarantees every <see cref="AtProtoRecord"/>-derived type serializes its Lexicon type identifier as exactly one <c>$type</c> property.</summary>
     /// <param name="typeInfo">The type contract being built.</param>
     /// <remarks>
     /// <para><see cref="System.Text.Json"/> does not inherit <see cref="JsonPropertyNameAttribute"/>
@@ -102,11 +81,9 @@ public static class AtProtoJsonDefaults
             discriminator.Name = "$type";
     }
 
-    /// <summary>
-    /// Determines whether a contract property is <see cref="AtProtoRecord.Type"/> or an override
-    /// of it — matching on the virtual slot rather than the name, so an unrelated <c>Type</c>
-    /// member declared by a consumer record is left alone.
-    /// </summary>
+    // Determines whether a contract property is AtProtoRecord.Type or an override of it — matching on
+    // the virtual slot rather than the name, so an unrelated Type member declared by a consumer record
+    // is left alone.
     private static bool IsTypeDiscriminator(JsonPropertyInfo property)
     {
         if (property.AttributeProvider is not PropertyInfo member

@@ -3,32 +3,31 @@ using ATProtoNet.Repo;
 
 namespace ATProtoNet.Spaces;
 
-/// <summary>
-/// Checks that a record block from a space repo is one map in the strict DAG-CBOR subset
-/// (DRISL) records are hashed in.
-/// </summary>
-/// <remarks>
-/// <para>The block's CID already matched, so its bytes are exactly what the author wrote; this
-/// decides whether they are a record at all. A lenient decoder would accept encodings that no
-/// conforming writer produces — an indefinite length, an integer in a longer form than it needs,
-/// an arbitrary tag — and each is a second byte form of the same value, which a record's content
-/// address exists to rule out.</para>
-/// <para>The reader runs in <see cref="CborConformanceMode.Canonical"/> mode, which rejects
-/// indefinite lengths, non-shortest integers and lengths, invalid UTF-8, and map keys that repeat
-/// or are out of the length-first order DAG-CBOR sorts them in. On top of that it allows only
-/// text-string keys, tag 42 over a byte string that starts with the <c>0x00</c> multibase
-/// prefix (a CID link), and no floats or simple values other than <c>true</c>, <c>false</c> and
-/// <c>null</c>.</para>
-/// </remarks>
+// Checks that a record block from a space repo is one map in the strict DAG-CBOR subset (DRISL) records
+// are hashed in.
+//
+// The block's CID already matched, so its bytes are exactly what the author wrote; this decides whether
+// they are a record at all. A lenient decoder would accept encodings that no conforming writer produces
+// — an indefinite length, an integer in a longer form than it needs, an arbitrary tag — and each is a
+// second byte form of the same value, which a record's content address exists to rule out.
+//
+// The reader runs in CborConformanceMode.Canonical mode, which rejects indefinite lengths, non-shortest
+// integers and lengths, invalid UTF-8, and map keys that repeat or are out of the length-first order
+// DAG-CBOR sorts them in. On top of that it allows only text-string keys, tag 42 over a byte string that
+// starts with the 0x00 multibase prefix (a CID link), and no floats or simple values other than true,
+// false and null.
 internal static class SpaceRecordCbor
 {
-    /// <summary>The CBOR tag DAG-CBOR marks a CID link with.</summary>
+    // The CBOR tag DAG-CBOR marks a CID link with.
     private const ulong CidTag = 42;
 
-    /// <summary>Validates <paramref name="block"/> as a single record map.</summary>
-    /// <param name="block">The record block.</param>
-    /// <param name="error">Why the block is not a record, when it is not.</param>
-    /// <returns>Whether the block is a record map.</returns>
+    // Validates block as a single record map.
+    //
+    // block: The record block.
+    //
+    // error: Why the block is not a record, when it is not.
+    //
+    // Returns: Whether the block is a record map.
     public static bool TryValidateRecord(ReadOnlyMemory<byte> block, out string? error)
     {
         // Major type 5 is a map; the reader rejects an indefinite-length one below, but a record
@@ -53,7 +52,7 @@ internal static class SpaceRecordCbor
             error = null;
             return true;
         }
-        catch (Exception ex) when (ex is CborContentException or InvalidOperationException or FormatException or OverflowException)
+        catch (Exception ex) when (DagCborDecoder.IsMalformed(ex))
         {
             error = ex.Message;
             return false;

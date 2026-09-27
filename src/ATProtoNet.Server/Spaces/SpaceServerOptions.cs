@@ -4,10 +4,7 @@ using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// Configuration for the space server: who this service is, and how strictly it evaluates the
-/// tokens presented to it.
-/// </summary>
+/// <summary>Configuration for the space server: who this service is, and how strictly it evaluates the tokens presented to it.</summary>
 /// <remarks>
 /// A space authority needs <see cref="ServiceDid"/> (checked when the host starts) and a
 /// credential signing key, which is supplied to <see cref="SpaceCredentialIssuer"/> rather than
@@ -15,10 +12,7 @@ namespace ATProtoNet.Server.Spaces;
 /// </remarks>
 public sealed class SpaceServerOptions
 {
-    /// <summary>
-    /// This service's DID: the space authority's DID when acting as one, and the issuer of its
-    /// outbound service auth.
-    /// </summary>
+    /// <summary>This service's DID: the space authority's DID when acting as one, and the issuer of its outbound service auth.</summary>
     public Did? ServiceDid { get; set; }
 
     /// <summary>The externally reachable base URL of this service, e.g. <c>https://pds.example.com</c>.</summary>
@@ -30,29 +24,20 @@ public sealed class SpaceServerOptions
     /// </remarks>
     public string? PublicBaseUrl { get; set; }
 
-    /// <summary>
-    /// How far a DPoP proof's <c>iat</c> may sit from this service's clock, and so how long its
-    /// <c>jti</c> is remembered. Default: 5 minutes.
-    /// </summary>
+    /// <summary>How far a DPoP proof's <c>iat</c> may sit from this service's clock, and so how long its <c>jti</c> is remembered. Default: 5 minutes.</summary>
     public TimeSpan ProofLifetime { get; set; } = TimeSpan.FromMinutes(5);
 
     /// <summary>Tolerance of the token expiry checks. Default: <see cref="SpaceTokens.DefaultClockSkew"/>.</summary>
     public TimeSpan ClockSkew { get; set; } = SpaceTokens.DefaultClockSkew;
 
-    /// <summary>
-    /// The furthest ahead of now a single-use token's <c>exp</c> may sit: a delegation token, a
-    /// client attestation or a service auth token. Default: 5 minutes.
-    /// </summary>
+    /// <summary>The furthest ahead of now a single-use token's <c>exp</c> may sit: a delegation token, a client attestation or a service auth token. Default: 5 minutes.</summary>
     /// <remarks>
     /// The <c>exp</c> is the signer's choice. Bounding it bounds how long a captured token stays
     /// replayable, and how long its <c>jti</c> occupies the <see cref="IJtiReplayStore"/>.
     /// </remarks>
     public TimeSpan MaxSingleUseTokenLifetime { get; set; } = TimeSpan.FromMinutes(5);
 
-    /// <summary>
-    /// The cache in front of the DID documents this service verifies tokens against. Default: a
-    /// hard 5-minute lifetime.
-    /// </summary>
+    /// <summary>The cache in front of the DID documents this service verifies tokens against. Default: a hard 5-minute lifetime.</summary>
     /// <remarks>
     /// <para>A cached document is how long a key its owner has rotated away keeps verifying. A
     /// space server rarely follows the firehose's <c>#identity</c> events, so this lifetime bounds
@@ -71,20 +56,13 @@ public sealed class SpaceServerOptions
         ExpireAfter = TimeSpan.FromMinutes(5),
     };
 
-    /// <summary>
-    /// The lifetime of the credentials this authority issues. Default:
-    /// <see cref="SpaceTokens.DefaultCredentialLifetime"/> (two hours).
-    /// </summary>
+    /// <summary>The lifetime of the credentials this authority issues. Default: <see cref="SpaceTokens.DefaultCredentialLifetime"/> (two hours).</summary>
     public TimeSpan CredentialLifetime { get; set; } = SpaceTokens.DefaultCredentialLifetime;
 
     /// <summary>How long a <c>registerNotify</c> registration lasts before it must be renewed. Default: 7 days.</summary>
     public TimeSpan NotifyRegistrationLifetime { get; set; } = TimeSpan.FromDays(7);
 
-    /// <summary>
-    /// The verification method this authority's credentials are signed with, sent as their
-    /// <c>kid</c>: <see cref="SpaceAuthority.SigningKeyId"/> (<c>#atproto_space</c>) or, when
-    /// unset, <c>#atproto</c>, which lets an ordinary account be an authority.
-    /// </summary>
+    /// <summary>The verification method this authority's credentials are signed with, sent as their <c>kid</c>: <see cref="SpaceAuthority.SigningKeyId"/> (<c>#atproto_space</c>) or, when unset, <c>#atproto</c>, which lets an ordinary account be an authority.</summary>
     /// <remarks>
     /// A reader verifies a credential against exactly the entry its <c>kid</c> names, so an
     /// authority signing with a dedicated <c>#atproto_space</c> key must say so here.
@@ -99,20 +77,17 @@ public sealed class SpaceServerOptions
 
     internal TimeSpan ClientMetadataCacheLifetime { get; set; } = TimeSpan.FromMinutes(5);
 
-    /// <summary>Whether a single-use token's <c>exp</c> sits inside <see cref="MaxSingleUseTokenLifetime"/>, allowing for <see cref="ClockSkew"/>.</summary>
+    // Whether a single-use token's exp sits inside MaxSingleUseTokenLifetime, allowing for ClockSkew.
     internal bool IsWithinSingleUseWindow(DateTimeOffset expiresAt, DateTimeOffset now) =>
         expiresAt <= now + MaxSingleUseTokenLifetime + ClockSkew;
 
-    /// <summary>
-    /// How long a single-use token's <c>jti</c> must stay in the <see cref="IJtiReplayStore"/>:
-    /// until the token stops being accepted. Delegation tokens and client attestations are checked
-    /// with <see cref="SpaceTokens.DefaultClockSkew"/> and service auth with <see cref="ClockSkew"/>;
-    /// the larger covers either.
-    /// </summary>
+    // How long a single-use token's jti must stay in the IJtiReplayStore: until the token stops being
+    // accepted. Delegation tokens and client attestations are checked with SpaceTokens.DefaultClockSkew
+    // and service auth with ClockSkew; the larger covers either.
     internal DateTimeOffset ReplayRetention(DateTimeOffset expiresAt) =>
         expiresAt + (ClockSkew > SpaceTokens.DefaultClockSkew ? ClockSkew : SpaceTokens.DefaultClockSkew);
 
-    /// <summary>The absolute URL a DPoP proof's <c>htu</c> is compared against, honouring <see cref="PublicBaseUrl"/>.</summary>
+    // The absolute URL a DPoP proof's htu is compared against, honouring PublicBaseUrl.
     internal string BuildRequestUri(string requestScheme, string requestHost, string path) =>
         string.IsNullOrEmpty(PublicBaseUrl)
             ? $"{requestScheme}://{requestHost}{path}"

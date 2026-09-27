@@ -108,11 +108,12 @@ public sealed class SpaceDelegationTokenVerifier
         var keyId = SpaceDidResolution.RequireKeyId(
             parsed.KeyId, SpaceDidResolution.DelegationKeyIds, SpaceErrors.InvalidDelegationToken);
 
-        var verified = await SpaceDidResolution.VerifyWithKeyRefreshAsync(
-            refresh => _resolver.ResolveKeyAsync(
-                userDid, keyId, SpaceErrors.InvalidDelegationToken, refresh, cancellationToken),
+        var (verified, _, _) = await _resolver.VerifyTokenAsync(
+            userDid,
+            keyId,
+            SpaceErrors.InvalidDelegationToken,
             issuerKey => SpaceTokens.Verify(parsed, issuerKey, expectedAudience, space, _timeProvider.GetUtcNow()),
-            SpaceErrors.InvalidDelegationToken).ConfigureAwait(false);
+            cancellationToken).ConfigureAwait(false);
 
         // A delegation token lives 60 seconds; its issuer chooses the `exp` it actually carries,
         // so one dated far ahead is refused rather than remembered until then.

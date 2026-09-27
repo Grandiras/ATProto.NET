@@ -43,10 +43,7 @@ public sealed record SpaceUri : IIdentifier<SpaceUri>
     /// <summary>The space type: an NSID naming the modality of the space.</summary>
     public Nsid SpaceType { get; }
 
-    /// <summary>
-    /// The space key, distinguishing spaces of the same type under the same authority.
-    /// Carries the same syntax requirements as a record key.
-    /// </summary>
+    /// <summary>The space key, distinguishing spaces of the same type under the same authority. Carries the same syntax requirements as a record key.</summary>
     public RecordKey Skey { get; }
 
     private SpaceUri(string value, Did authority, Nsid spaceType, RecordKey skey)
@@ -98,11 +95,7 @@ public sealed record SpaceUri : IIdentifier<SpaceUri>
     static bool IIdentifier<SpaceUri>.TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out SpaceUri? result) =>
         TryParse(text ?? span.ToString(), out result);
 
-    /// <summary>
-    /// Whether a string carries the <c>space</c> marker, and so addresses permissioned data
-    /// rather than a public repository record. Checks only for the marker — use
-    /// <see cref="TryParse"/> to validate the URI itself.
-    /// </summary>
+    /// <summary>Whether a string carries the <c>space</c> marker, and so addresses permissioned data rather than a public repository record. Checks only for the marker — use <see cref="TryParse"/> to validate the URI itself.</summary>
     /// <param name="value">The candidate URI string.</param>
     public static bool IsSpaceUri([NotNullWhen(true)] string? value)
     {
@@ -124,10 +117,7 @@ public sealed record SpaceUri : IIdentifier<SpaceUri>
     public SpaceRecordUri Record(Did author, Nsid collection, RecordKey rkey) =>
         SpaceRecordUri.Create(this, author, collection, rkey);
 
-    /// <summary>
-    /// The service identifier a delegation token or client attestation names as its audience
-    /// when addressing this space's authority as the space host.
-    /// </summary>
+    /// <summary>The service identifier a delegation token or client attestation names as its audience when addressing this space's authority as the space host.</summary>
     /// <remarks>
     /// This is the <em>audience</em>, not necessarily where requests are sent. An authority that
     /// publishes no <c>#atproto_space_host</c> service entry is still reached at its
@@ -159,11 +149,8 @@ public sealed record SpaceUri : IIdentifier<SpaceUri>
     /// <exception cref="ArgumentException">Thrown when <paramref name="value"/> is not a valid space URI.</exception>
     public static explicit operator SpaceUri(string value) => Parse(value);
 
-    /// <summary>
-    /// Splits a space URI into its leading three components plus whatever follows, without
-    /// validating the trailing part. Shared by both URI types so the space-ref grammar is
-    /// stated once.
-    /// </summary>
+    // Splits a space URI into its leading three components plus whatever follows, without validating the
+    // trailing part. Shared by both URI types so the space-ref grammar is stated once.
     internal static bool TrySplit(
         [NotNullWhen(true)] string? value,
         [NotNullWhen(true)] out Did? authority,
@@ -208,10 +195,7 @@ public sealed record SpaceUri : IIdentifier<SpaceUri>
     }
 }
 
-/// <summary>
-/// The URI of a record within a permissioned space:
-/// <c>at://{authority}/space/{spaceType}/{skey}/{author}/{collection}/{rkey}</c>.
-/// </summary>
+/// <summary>The URI of a record within a permissioned space: <c>at://{authority}/space/{spaceType}/{skey}/{author}/{collection}/{rkey}</c>.</summary>
 /// <remarks>
 /// Authority in permissioned data splits in two. The URI's authority is the space authority —
 /// the DID that gates access — while the record's authority remains the
@@ -299,10 +283,7 @@ public sealed record SpaceRecordUri : IIdentifier<SpaceRecordUri>
     static bool IIdentifier<SpaceRecordUri>.TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out SpaceRecordUri? result) =>
         TryParse(text ?? span.ToString(), out result);
 
-    /// <summary>
-    /// The record's path within its repo, <c>{collection}/{rkey}</c> — the key side of a
-    /// permissioned repo's key/value mapping, and the prefix of its set-hash element.
-    /// </summary>
+    /// <summary>The record's path within its repo, <c>{collection}/{rkey}</c> — the key side of a permissioned repo's key/value mapping, and the prefix of its set-hash element.</summary>
     public string Path => $"{Collection}/{Rkey}";
 
     /// <inheritdoc/>

@@ -16,11 +16,7 @@ public sealed class XrpcRateLimitOptions
     private int _maxRetries = 3;
     private TimeSpan _maxDelay = TimeSpan.FromSeconds(30);
 
-    /// <summary>
-    /// How many times one call is retried after a 429. Default: 3. Zero disables retrying, for
-    /// an <see cref="HttpClient"/> whose own pipeline already retries (a resilience handler, for
-    /// example).
-    /// </summary>
+    /// <summary>How many times one call is retried after a 429. Default: 3. Zero disables retrying, for an <see cref="HttpClient"/> whose own pipeline already retries (a resilience handler, for example).</summary>
     /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
     public int MaxRetries
     {

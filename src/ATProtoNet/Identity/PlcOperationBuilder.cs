@@ -110,11 +110,7 @@ public static class PlcOperationBuilder
         return new PlcSignedOperation(DeriveDid(signedCbor), signed, signedCbor);
     }
 
-    /// <summary>
-    /// Derives a <c>did:plc</c> identifier from a signed genesis operation.
-    /// The DID is <c>did:plc:</c> followed by the first 24 characters of the base32-lower
-    /// encoding of the SHA-256 hash of the operation's DAG-CBOR encoding.
-    /// </summary>
+    /// <summary>Derives a <c>did:plc</c> identifier from a signed genesis operation. The DID is <c>did:plc:</c> followed by the first 24 characters of the base32-lower encoding of the SHA-256 hash of the operation's DAG-CBOR encoding.</summary>
     /// <param name="signedOperationCbor">DAG-CBOR bytes of the signed genesis operation.</param>
     public static Did DeriveDid(ReadOnlySpan<byte> signedOperationCbor)
     {

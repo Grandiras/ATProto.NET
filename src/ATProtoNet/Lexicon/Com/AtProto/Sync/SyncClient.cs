@@ -95,17 +95,17 @@ public sealed class SyncClient
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(signingKey);
 
-        byte[] car;
+        ReadOnlyMemory<byte> car;
         #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
         await using (var response = await GetRecordAsync(did, collection, rkey, cancellationToken).ConfigureAwait(false))
         #pragma warning restore CA2007
         {
-            car = await ReadBoundedAsync(response, MaxRecordProofBytes, cancellationToken).ConfigureAwait(false)
+            car = await response.Content.ReadBoundedAsync(MaxRecordProofBytes, response.ContentLength, cancellationToken).ConfigureAwait(false)
                 ?? throw new RepoVerificationException(
                     $"The record proof for {did}/{collection}/{rkey} is larger than {MaxRecordProofBytes} bytes.");
         }
 
-        return RecordProof.Verify(car, did, collection, rkey, signingKey);
+        return RecordProof.Verify(car.Span, did, collection, rkey, signingKey);
     }
 
     /// <summary>Download blocks from a repository by CID — records or MST nodes — as a CAR file.</summary>
@@ -254,34 +254,5 @@ public sealed class SyncClient
 
         return _xrpc.QueryAsync<ListReposByCollectionResponse>(
             "com.atproto.sync.listReposByCollection", parameters, cancellationToken: cancellationToken);
-    }
-
-    // Reads a binary response into memory, or returns null once it is known to exceed maxBytes.
-    private static async Task<byte[]?> ReadBoundedAsync(
-        XrpcStreamResponse response, int maxBytes, CancellationToken cancellationToken)
-    {
-        if (response.ContentLength > maxBytes)
-            return null;
-
-        // Sized from the declared length when there is one; the byte of headroom is how an
-        // overlong body (a chunked one, or a declared length that lied) shows itself.
-        var buffer = new byte[Math.Min((response.ContentLength ?? 16 * 1024) + 1, maxBytes + 1L)];
-        var read = 0;
-        while (true)
-        {
-            if (read == buffer.Length)
-            {
-                if (read > maxBytes)
-                    return null;
-
-                Array.Resize(ref buffer, (int)Math.Min(buffer.Length * 2L, maxBytes + 1L));
-            }
-
-            var n = await response.Content.ReadAsync(buffer.AsMemory(read), cancellationToken).ConfigureAwait(false);
-            if (n == 0)
-                return buffer[..read];
-
-            read += n;
-        }
     }
 }

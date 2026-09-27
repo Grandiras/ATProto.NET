@@ -27,11 +27,7 @@ public sealed class DidDocument
     /// <summary>The verification method fragment of a labeler's label signing key.</summary>
     public const string LabelKeyId = "#atproto_label";
 
-    /// <summary>
-    /// The JSON-LD context. Omitted when serializing unless set — required when <em>publishing</em>
-    /// a document (e.g. a <c>did:web</c> <c>/.well-known/did.json</c>), ignorable when consuming
-    /// one. A single string is read as a one-entry list, and inline context objects are skipped.
-    /// </summary>
+    /// <summary>The JSON-LD context. Omitted when serializing unless set — required when <em>publishing</em> a document (e.g. a <c>did:web</c> <c>/.well-known/did.json</c>), ignorable when consuming one. A single string is read as a one-entry list, and inline context objects are skipped.</summary>
     [JsonPropertyName("@context")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonConverter(typeof(StringListConverter))]
@@ -41,10 +37,7 @@ public sealed class DidDocument
     [JsonPropertyName("id")]
     public required Did Id { get; init; }
 
-    /// <summary>
-    /// Alternate identifiers, including the account's handle as <c>at://handle</c>. A JSON
-    /// <c>null</c> reads as an empty list, and a <c>null</c> entry fails deserialization.
-    /// </summary>
+    /// <summary>Alternate identifiers, including the account's handle as <c>at://handle</c>. A JSON <c>null</c> reads as an empty list, and a <c>null</c> entry fails deserialization.</summary>
     [JsonPropertyName("alsoKnownAs")]
     [JsonConverter(typeof(NonNullListConverter<string>))]
     public IReadOnlyList<string> AlsoKnownAs
@@ -53,10 +46,7 @@ public sealed class DidDocument
         init => _alsoKnownAs = value ?? [];
     }
 
-    /// <summary>
-    /// The public keys published for this DID. A JSON <c>null</c> reads as an empty list, and a
-    /// <c>null</c> entry fails deserialization.
-    /// </summary>
+    /// <summary>The public keys published for this DID. A JSON <c>null</c> reads as an empty list, and a <c>null</c> entry fails deserialization.</summary>
     [JsonPropertyName("verificationMethod")]
     [JsonConverter(typeof(NonNullListConverter<VerificationMethod>))]
     public IReadOnlyList<VerificationMethod> VerificationMethod
@@ -65,10 +55,7 @@ public sealed class DidDocument
         init => _verificationMethod = value ?? [];
     }
 
-    /// <summary>
-    /// The services published for this DID. A JSON <c>null</c> reads as an empty list, and a
-    /// <c>null</c> entry fails deserialization.
-    /// </summary>
+    /// <summary>The services published for this DID. A JSON <c>null</c> reads as an empty list, and a <c>null</c> entry fails deserialization.</summary>
     [JsonPropertyName("service")]
     [JsonConverter(typeof(NonNullListConverter<DidDocumentService>))]
     public IReadOnlyList<DidDocumentService> Service
@@ -82,10 +69,7 @@ public sealed class DidDocument
     private readonly IReadOnlyList<VerificationMethod> _verificationMethod = [];
     private readonly IReadOnlyList<DidDocumentService> _service = [];
 
-    /// <summary>
-    /// The handle this document claims: the first <c>at://</c> entry of <see cref="AlsoKnownAs"/>,
-    /// when it is a syntactically valid handle.
-    /// </summary>
+    /// <summary>The handle this document claims: the first <c>at://</c> entry of <see cref="AlsoKnownAs"/>, when it is a syntactically valid handle.</summary>
     /// <returns>
     /// The claimed handle, or <see langword="null"/> when the document claims none or its first
     /// <c>at://</c> entry is not a valid handle.
@@ -114,29 +98,40 @@ public sealed class DidDocument
     }
 
     /// <summary>The account's repo signing key (<c>#atproto</c>) as a <c>did:key</c>.</summary>
-    /// <returns>The signing key, or <see langword="null"/> when the document publishes none.</returns>
-    /// <exception cref="FormatException">Thrown when the entry's key material is malformed.</exception>
+    /// <returns>
+    /// The signing key, or <see langword="null"/> when the document publishes none it can be read
+    /// from, as <see cref="GetVerificationKey"/> reads it.
+    /// </returns>
     public string? GetSigningKey() => GetVerificationKey(SigningKeyId);
 
-    /// <summary>
-    /// A verification method's public key as a <c>did:key</c>, whichever of the
-    /// verification-method types AT Protocol uses the document publishes it under.
-    /// </summary>
+    /// <summary>A verification method's public key as a <c>did:key</c>, whichever of the verification-method types AT Protocol uses the document publishes it under.</summary>
     /// <param name="fragment">
     /// The verification method fragment, with or without its leading <c>#</c> (e.g. <c>#atproto</c>).
     /// Both the bare fragment and the DID-qualified form are matched.
     /// </param>
     /// <returns>
     /// The key as a <c>did:key</c> string, or <see langword="null"/> when no entry with that id is
-    /// published or its type is not one this SDK understands.
+    /// published, its type is not one this SDK understands, or its key material does not decode.
     /// </returns>
-    /// <exception cref="FormatException">Thrown when the entry's key material is malformed.</exception>
-    public string? GetVerificationKey(string fragment) => FindVerificationMethod(fragment)?.ToDidKey();
+    /// <remarks>
+    /// A <c>Multikey</c> value is already a <c>did:key</c> and is passed through undecoded; a
+    /// verification against it fails if it is not a key. <see cref="TryGetVerificationKey"/>
+    /// decodes it, and tells an absent entry from an unusable one.
+    /// </remarks>
+    public string? GetVerificationKey(string fragment)
+    {
+        var method = FindVerificationMethod(fragment);
+        try
+        {
+            return method?.ToDidKey();
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
 
-    /// <summary>
-    /// Looks a verification method up strictly: tells an entry that is absent from one that is
-    /// published but unusable.
-    /// </summary>
+    /// <summary>Looks a verification method up strictly: tells an entry that is absent from one that is published but unusable.</summary>
     /// <param name="fragment">
     /// The verification method fragment, with or without its leading <c>#</c>. Both the bare
     /// fragment and the DID-qualified form are matched.
@@ -187,10 +182,7 @@ public sealed class DidDocument
     public Uri? GetServiceEndpoint(string fragment, string? type = null) =>
         TryGetServiceEndpoint(fragment, type, out var endpoint) == DidDocumentEntryStatus.Found ? endpoint : null;
 
-    /// <summary>
-    /// Looks a service up strictly: tells an entry that is absent from one that is published but
-    /// unusable.
-    /// </summary>
+    /// <summary>Looks a service up strictly: tells an entry that is absent from one that is published but unusable.</summary>
     /// <param name="fragment">
     /// The service fragment, with or without its leading <c>#</c>. Both the bare fragment and the
     /// DID-qualified form are matched.
@@ -266,10 +258,8 @@ public sealed class DidDocument
           id.StartsWith(Id.Value, StringComparison.Ordinal) &&
           id.EndsWith(fragment, StringComparison.Ordinal)));
 
-    /// <summary>
-    /// Reads a list that DID Core requires to hold values: <c>null</c> reads as an empty list,
-    /// and a <c>null</c> entry is malformed.
-    /// </summary>
+    // Reads a list that DID Core requires to hold values: null reads as an empty list, and a null entry
+    // is malformed.
     private sealed class NonNullListConverter<T> : JsonConverter<IReadOnlyList<T>>
     {
         public override bool HandleNull => true;
@@ -303,10 +293,8 @@ public sealed class DidDocument
         }
     }
 
-    /// <summary>
-    /// Reads <c>@context</c>, which JSON-LD allows as a string, an array, or an array mixing
-    /// strings with inline context objects.
-    /// </summary>
+    // Reads @context, which JSON-LD allows as a string, an array, or an array mixing strings with inline
+    // context objects.
     private sealed class StringListConverter : JsonConverter<IReadOnlyList<string>?>
     {
         public override IReadOnlyList<string>? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
@@ -427,10 +415,7 @@ public sealed class DidDocumentService
     [JsonPropertyName("type")]
     public required string Type { get; init; }
 
-    /// <summary>
-    /// The endpoint URL as published. <see langword="null"/> when the document carries a
-    /// structured endpoint (a map or a list, which DID Core allows and AT Protocol does not use).
-    /// </summary>
+    /// <summary>The endpoint URL as published. <see langword="null"/> when the document carries a structured endpoint (a map or a list, which DID Core allows and AT Protocol does not use).</summary>
     /// <remarks>Read it through <see cref="DidDocument.GetServiceEndpoint"/>, which validates it.</remarks>
     [JsonPropertyName("serviceEndpoint")]
     [JsonConverter(typeof(StringOrNullConverter))]

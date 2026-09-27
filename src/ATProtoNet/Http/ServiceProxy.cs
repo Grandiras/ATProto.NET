@@ -38,16 +38,10 @@ public static class ServiceProxy
     /// <summary>Bluesky Chat service DID (<c>did:web:api.bsky.chat</c>).</summary>
     public const string BskyChatDid = "did:web:api.bsky.chat";
 
-    /// <summary>
-    /// Pre-built proxy header value for the Bluesky App View:
-    /// <c>did:web:api.bsky.app#bsky_appview</c>.
-    /// </summary>
+    /// <summary>Pre-built proxy header value for the Bluesky App View: <c>did:web:api.bsky.app#bsky_appview</c>.</summary>
     public const string BskyAppViewHeader = $"{BskyAppViewDid}{BskyAppView}";
 
-    /// <summary>
-    /// Pre-built proxy header value for the Bluesky Chat service:
-    /// <c>did:web:api.bsky.chat#bsky_chat</c>.
-    /// </summary>
+    /// <summary>Pre-built proxy header value for the Bluesky Chat service: <c>did:web:api.bsky.chat#bsky_chat</c>.</summary>
     public const string BskyChatHeader = $"{BskyChatDid}{BskyChat}";
 
     /// <summary>Constructs an <c>atproto-proxy</c> header value from a service DID and service endpoint identifier.</summary>

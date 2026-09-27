@@ -36,10 +36,7 @@ public interface IDidResolver
     Task InvalidateAsync(Did did, CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
 
-/// <summary>
-/// Resolves a handle to the DID it names, through the handle's own authorities: the
-/// <c>_atproto</c> DNS TXT record and <c>https://&lt;handle&gt;/.well-known/atproto-did</c>.
-/// </summary>
+/// <summary>Resolves a handle to the DID it names, through the handle's own authorities: the <c>_atproto</c> DNS TXT record and <c>https://&lt;handle&gt;/.well-known/atproto-did</c>.</summary>
 /// <remarks>
 /// A handle resolving to a DID is only half of a verified handle; the DID document must also
 /// claim the handle. <see cref="IIdentityResolver"/> checks both directions.
@@ -58,10 +55,7 @@ public interface IHandleResolver
 /// <summary>Resolves an account identifier, a DID or a handle, to a verified identity.</summary>
 public interface IIdentityResolver
 {
-    /// <summary>
-    /// Resolves a DID or a handle to the account's DID document, its bidirectionally verified
-    /// handle and its PDS.
-    /// </summary>
+    /// <summary>Resolves a DID or a handle to the account's DID document, its bidirectionally verified handle and its PDS.</summary>
     /// <param name="identifier">A DID or a handle.</param>
     /// <returns>The identity.</returns>
     /// <exception cref="DidResolutionException">
@@ -70,10 +64,7 @@ public interface IIdentityResolver
     /// </exception>
     Task<ResolvedIdentity> ResolveAsync(AtIdentifier identifier, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Resolves a DID as <see cref="ResolveAsync"/> does, but from a DID document fetched afresh:
-    /// no cached copy, however recent, is used, and the fetched one replaces it.
-    /// </summary>
+    /// <summary>Resolves a DID as <see cref="ResolveAsync"/> does, but from a DID document fetched afresh: no cached copy, however recent, is used, and the fetched one replaces it.</summary>
     /// <returns>The identity.</returns>
     /// <exception cref="DidResolutionException">Thrown when the DID cannot be resolved.</exception>
     /// <remarks>

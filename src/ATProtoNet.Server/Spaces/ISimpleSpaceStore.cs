@@ -28,10 +28,7 @@ public sealed record SimpleSpaceRecord(
     SimpleSpaceAppAccess AppAccess,
     bool Deleted = false);
 
-/// <summary>
-/// The state <c>com.atproto.simplespace</c> keeps: the spaces an authority hosts, and each
-/// space's member list.
-/// </summary>
+/// <summary>The state <c>com.atproto.simplespace</c> keeps: the spaces an authority hosts, and each space's member list.</summary>
 /// <remarks>
 /// <para>The member list is host-internal state, consulted at credential-mint time under a
 /// member-list read policy and on each write notification under a member-list write policy. Each

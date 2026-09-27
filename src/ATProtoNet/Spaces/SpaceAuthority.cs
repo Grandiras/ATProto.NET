@@ -30,10 +30,7 @@ public static class SpaceAuthority
     /// <summary>The DID document service type published for a space host.</summary>
     public const string HostServiceType = "AtprotoSpaceHost";
 
-    /// <summary>
-    /// The service identifier used as the <c>aud</c> of a delegation token or client attestation
-    /// addressed to a space authority acting as the space host.
-    /// </summary>
+    /// <summary>The service identifier used as the <c>aud</c> of a delegation token or client attestation addressed to a space authority acting as the space host.</summary>
     /// <param name="authorityDid">The space authority's DID.</param>
     /// <remarks>
     /// This is the audience, not necessarily the endpoint: an authority that publishes no
@@ -46,16 +43,16 @@ public static class SpaceAuthority
         return $"{authorityDid}{HostServiceId}";
     }
 
-    /// <summary>
-    /// Extracts the <c>did:key</c> a space's credentials are verified against, falling back to
-    /// the account's <c>#atproto</c> signing key when no <c>#atproto_space</c> entry is published.
-    /// </summary>
+    /// <summary>Extracts the <c>did:key</c> a space's credentials are verified against, falling back to the account's <c>#atproto</c> signing key when no <c>#atproto_space</c> entry is published.</summary>
     /// <param name="didDocument">The authority's DID document.</param>
-    /// <returns>The signing key as a <c>did:key</c> string, or <see langword="null"/> when neither entry exists.</returns>
+    /// <returns>
+    /// The signing key as a <c>did:key</c> string, or <see langword="null"/> when neither entry
+    /// exists or the <c>#atproto</c> one does not decode.
+    /// </returns>
     /// <exception cref="FormatException">
     /// Thrown when a <c>#atproto_space</c> entry is published but unusable: a type this SDK does
     /// not read, no key material, or key material that does not decode. The fallback applies only
-    /// to an absent entry. Also thrown when the <c>#atproto</c> key material is malformed.
+    /// to an absent entry.
     /// </exception>
     /// <remarks>
     /// Both the <c>Multikey</c> and the legacy <c>Ecdsa...VerificationKey2019</c> verification
@@ -74,10 +71,7 @@ public static class SpaceAuthority
         };
     }
 
-    /// <summary>
-    /// Extracts the space host endpoint, falling back to the account's <c>#atproto_pds</c>
-    /// service endpoint when no <c>#atproto_space_host</c> entry is published.
-    /// </summary>
+    /// <summary>Extracts the space host endpoint, falling back to the account's <c>#atproto_pds</c> service endpoint when no <c>#atproto_space_host</c> entry is published.</summary>
     /// <param name="didDocument">The authority's DID document.</param>
     /// <returns>
     /// The host URL, or <see langword="null"/> when no <c>#atproto_space_host</c> entry is
@@ -137,10 +131,7 @@ public static class SpaceAuthority
             : didDocument.GetServiceEndpoint(serviceId);
     }
 
-    /// <summary>
-    /// Splits a service identifier — a DID with an optional service fragment, as
-    /// <c>registerNotify</c> and <c>managingApp</c> carry — into its DID and fragment.
-    /// </summary>
+    /// <summary>Splits a service identifier — a DID with an optional service fragment, as <c>registerNotify</c> and <c>managingApp</c> carry — into its DID and fragment.</summary>
     /// <param name="serviceIdentifier">
     /// The identifier, e.g. <c>did:web:syncer.example.com#atproto_space_syncer</c>.
     /// </param>

@@ -9,17 +9,10 @@ public sealed class IdentityResolverOptions
     /// <summary>The DNS-over-HTTPS endpoint the SDK queries for handle TXT records by default.</summary>
     public static readonly Uri DefaultDnsOverHttpsUrl = new("https://dns.google/resolve");
 
-    /// <summary>
-    /// The PLC directory <c>did:plc</c> resolves against. Defaults to
-    /// <see cref="DefaultPlcDirectoryUrl"/>.
-    /// </summary>
+    /// <summary>The PLC directory <c>did:plc</c> resolves against. Defaults to <see cref="DefaultPlcDirectoryUrl"/>.</summary>
     public Uri PlcDirectoryUrl { get; set; } = DefaultPlcDirectoryUrl;
 
-    /// <summary>
-    /// The DNS-over-HTTPS endpoint queried for a handle's <c>_atproto</c> TXT record, speaking the
-    /// JSON API (<c>?name=…&amp;type=TXT</c>) that Google and Cloudflare serve. Defaults to
-    /// <see cref="DefaultDnsOverHttpsUrl"/>.
-    /// </summary>
+    /// <summary>The DNS-over-HTTPS endpoint queried for a handle's <c>_atproto</c> TXT record, speaking the JSON API (<c>?name=…&amp;type=TXT</c>) that Google and Cloudflare serve. Defaults to <see cref="DefaultDnsOverHttpsUrl"/>.</summary>
     /// <remarks>
     /// .NET has no TXT lookup of its own, so DNS resolution of a handle goes through this
     /// endpoint, which therefore learns every handle resolved. Point it at a resolver you run or
@@ -28,16 +21,10 @@ public sealed class IdentityResolverOptions
     /// </remarks>
     public Uri? DnsOverHttpsUrl { get; set; } = DefaultDnsOverHttpsUrl;
 
-    /// <summary>
-    /// How long one DID document fetch may take, including reading the body. Defaults to five
-    /// seconds.
-    /// </summary>
+    /// <summary>How long one DID document fetch may take, including reading the body. Defaults to five seconds.</summary>
     public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(5);
 
-    /// <summary>
-    /// The budget shared by the concurrent DNS and HTTPS lookups of one handle resolution.
-    /// Defaults to five seconds.
-    /// </summary>
+    /// <summary>The budget shared by the concurrent DNS and HTTPS lookups of one handle resolution. Defaults to five seconds.</summary>
     /// <remarks>
     /// A handle's domain may be parked or firewalled and drop packets on port 443; the budget
     /// turns that into "no answer" after a few seconds instead of holding the caller.
@@ -94,38 +81,23 @@ public sealed class DidCacheOptions
     /// <summary>The most documents held in memory. The least recently used goes first. Defaults to 10,000.</summary>
     public int Capacity { get; set; } = 10_000;
 
-    /// <summary>
-    /// How long a document is served without being refreshed. After that it is still served, and
-    /// refreshed in the background. Defaults to one hour.
-    /// </summary>
+    /// <summary>How long a document is served without being refreshed. After that it is still served, and refreshed in the background. Defaults to one hour.</summary>
     public TimeSpan StaleAfter { get; set; } = TimeSpan.FromHours(1);
 
-    /// <summary>
-    /// How long a document may be served at all. After that it is refetched before use. Defaults
-    /// to one day.
-    /// </summary>
+    /// <summary>How long a document may be served at all. After that it is refetched before use. Defaults to one day.</summary>
     public TimeSpan ExpireAfter { get; set; } = TimeSpan.FromDays(1);
 
-    /// <summary>
-    /// How long a failed resolution is remembered, so a DID that does not resolve (or a caller
-    /// naming bogus DIDs) does not cost a fetch per request. Defaults to one minute.
-    /// </summary>
+    /// <summary>How long a failed resolution is remembered, so a DID that does not resolve (or a caller naming bogus DIDs) does not cost a fetch per request. Defaults to one minute.</summary>
     public TimeSpan FailureTtl { get; set; } = TimeSpan.FromMinutes(1);
 
-    /// <summary>
-    /// The most failed resolutions remembered, the least recently used going first. Defaults to
-    /// 1,000.
-    /// </summary>
+    /// <summary>The most failed resolutions remembered, the least recently used going first. Defaults to 1,000.</summary>
     /// <remarks>
     /// Failures are held apart from documents, so a stream of DIDs that do not resolve — which
     /// anyone can send — evicts other failures, never the documents of DIDs that do.
     /// </remarks>
     public int FailureCapacity { get; set; } = 1_000;
 
-    /// <summary>
-    /// The least time between two refetches forced by <see cref="IDidResolver.RefreshAsync"/> for
-    /// the same DID, counted from the last fetch attempt, failed or not. Defaults to 30 seconds.
-    /// </summary>
+    /// <summary>The least time between two refetches forced by <see cref="IDidResolver.RefreshAsync"/> for the same DID, counted from the last fetch attempt, failed or not. Defaults to 30 seconds.</summary>
     /// <remarks>
     /// A consumer refreshes when a signature fails against a cached key, and anyone can send a
     /// bad signature naming any DID; without a floor each one would cost a directory request.
@@ -133,11 +105,7 @@ public sealed class DidCacheOptions
     /// </remarks>
     public TimeSpan MinRefreshInterval { get; set; } = TimeSpan.FromSeconds(30);
 
-    /// <summary>
-    /// Whether dependency-injection registration backs the cache with the registered
-    /// <c>IDistributedCache</c>, so instances share resolved documents. Defaults to
-    /// <see langword="false"/>.
-    /// </summary>
+    /// <summary>Whether dependency-injection registration backs the cache with the registered <c>IDistributedCache</c>, so instances share resolved documents. Defaults to <see langword="false"/>.</summary>
     public bool UseDistributedCache { get; set; }
 
     /// <summary>The key prefix for documents in a distributed cache. Defaults to <c>atproto:did:</c>.</summary>

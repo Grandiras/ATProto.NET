@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using ATProtoNet.Http;
 using ATProtoNet.Tap;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -149,23 +150,23 @@ public static class TapWebhookExtensions
         if (context.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
             limit.MaxRequestBodySize = options.MaxBodyBytes;
 
-        byte[]? body;
+        ReadOnlyMemory<byte>? body;
         try
         {
-            body = await ReadBoundedAsync(context.Request.Body, options.MaxBodyBytes, context.RequestAborted).ConfigureAwait(false);
+            body = await ReadBodyAsync(context.Request, options.MaxBodyBytes, context.RequestAborted).ConfigureAwait(false);
         }
         catch (BadHttpRequestException ex) when (ex.StatusCode == StatusCodes.Status413PayloadTooLarge)
         {
             return TooLarge();
         }
 
-        if (body is null)
+        if (body is not { } bytes)
             return TooLarge();
 
         TapEvent evt;
         try
         {
-            evt = TapEvent.Parse(body);
+            evt = TapEvent.Parse(bytes.Span);
         }
         catch (FormatException ex)
         {
@@ -190,22 +191,11 @@ public static class TapWebhookExtensions
         return Results.Ok();
     }
 
+    // The body, or null past maxBytes. The declared length is the sender's word, so it sizes nothing:
+    // a delivery claiming megabytes reserves none before its bytes arrive.
+    internal static Task<ReadOnlyMemory<byte>?> ReadBodyAsync(HttpRequest request, long maxBytes, CancellationToken cancellationToken) =>
+        request.Body.ReadBoundedAsync(maxBytes, declaredLength: null, cancellationToken);
+
     private static IResult TooLarge() =>
         Results.Json(new { error = "PayloadTooLarge" }, statusCode: StatusCodes.Status413PayloadTooLarge);
-
-    // Reads the body, or returns null once it passes maxBytes.
-    private static async Task<byte[]?> ReadBoundedAsync(Stream body, long maxBytes, CancellationToken cancellationToken)
-    {
-        using var buffer = new MemoryStream();
-        var chunk = new byte[16 * 1024];
-        int read;
-        while ((read = await body.ReadAsync(chunk, cancellationToken).ConfigureAwait(false)) > 0)
-        {
-            if (buffer.Length + read > maxBytes)
-                return null;
-            buffer.Write(chunk, 0, read);
-        }
-
-        return buffer.ToArray();
-    }
 }

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using ATProtoNet.Identity;
+using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Auth;
 
@@ -53,20 +54,20 @@ internal static class AtProtoSessionJson
 
     private static OAuthSession ReadLegacyTokenData(JsonElement root)
     {
-        var did = Did.TryParse(Get(root, "did"), out var parsedDid)
+        var did = Did.TryParse(root.GetStringOrNull("did"), out var parsedDid)
             ? parsedDid
             : throw new JsonException("The stored token data has no valid 'did'.");
 
         // The old format kept the DID in place of an unverified handle.
-        var handle = GetBoolean(root, "isHandleVerified") == true && Handle.TryParse(Get(root, "handle"), out var verified)
+        var handle = root.GetBooleanOrNull("isHandleVerified") == true && Handle.TryParse(root.GetStringOrNull("handle"), out var verified)
             ? verified
             : Handle.Invalid;
 
-        var key = Get(root, "dPoPPrivateKey") ?? Get(root, "dpopPrivateKey")
+        var key = root.GetStringOrNull("dPoPPrivateKey") ?? root.GetStringOrNull("dpopPrivateKey")
             ?? throw new JsonException("The stored token data has no DPoP key.");
 
         DateTimeOffset? expiresAt = null;
-        if (GetInt32(root, "expiresIn") is { } expiresIn &&
+        if (root.GetInt32OrNull("expiresIn") is { } expiresIn &&
             root.TryGetProperty("tokenObtainedAt", out var obtained) &&
             obtained.TryGetDateTimeOffset(out var obtainedAt))
         {
@@ -78,31 +79,18 @@ internal static class AtProtoSessionJson
             Did = did,
             Handle = handle,
             ServiceEndpoint = RequireUri(root, "pdsUrl"),
-            AccessToken = Get(root, "accessToken") ?? throw new JsonException("The stored token data has no access token."),
-            RefreshToken = Get(root, "refreshToken"),
+            AccessToken = root.GetStringOrNull("accessToken") ?? throw new JsonException("The stored token data has no access token."),
+            RefreshToken = root.GetStringOrNull("refreshToken"),
             DPoPKey = Convert.FromBase64String(key),
-            Issuer = Get(root, "issuer") ?? throw new JsonException("The stored token data has no issuer."),
+            Issuer = root.GetStringOrNull("issuer") ?? throw new JsonException("The stored token data has no issuer."),
             TokenEndpoint = RequireUri(root, "tokenEndpoint"),
             ExpiresAt = expiresAt,
-            Scope = Get(root, "scope"),
+            Scope = root.GetStringOrNull("scope"),
         };
     }
 
-    private static string? Get(JsonElement root, string name) =>
-        root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
-
-    private static bool? GetBoolean(JsonElement root, string name) =>
-        root.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.True or JsonValueKind.False
-            ? value.GetBoolean()
-            : null;
-
-    private static int? GetInt32(JsonElement root, string name) =>
-        root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number)
-            ? number
-            : null;
-
     private static Uri RequireUri(JsonElement root, string name) =>
-        Uri.TryCreate(Get(root, name), UriKind.Absolute, out var uri)
+        Uri.TryCreate(root.GetStringOrNull(name), UriKind.Absolute, out var uri)
             ? uri
             : throw new JsonException($"The stored token data has no valid '{name}'.");
 }

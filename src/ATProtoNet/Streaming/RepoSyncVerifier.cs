@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Sync;
@@ -12,33 +11,20 @@ public sealed class RepoSyncVerifierOptions
     /// <summary>Where each repository's sync state is kept. Default: a new <see cref="InMemoryRepoSyncStateStore"/>.</summary>
     public IRepoSyncStateStore? StateStore { get; init; }
 
-    /// <summary>
-    /// Resolves signing keys. Default: the verifier's own <see cref="CachingDidResolver"/>. Pass a
-    /// caching resolver: an uncached one makes a directory request for every commit.
-    /// </summary>
+    /// <summary>Resolves signing keys. Default: the verifier's own <see cref="CachingDidResolver"/>. Pass a caching resolver: an uncached one makes a directory request for every commit.</summary>
     public IDidResolver? DidResolver { get; init; }
 
-    /// <summary>
-    /// How far a revision's timestamp may run ahead of this machine's clock before the event is
-    /// rejected as coming from the future. Default: 5 minutes, as the reference relay allows.
-    /// </summary>
+    /// <summary>How far a revision's timestamp may run ahead of this machine's clock before the event is rejected as coming from the future. Default: 5 minutes, as the reference relay allows.</summary>
     public TimeSpan MaxClockSkew { get; init; } = TimeSpan.FromMinutes(5);
 
     /// <summary>The clock revisions are checked against. Default: <see cref="TimeProvider.System"/>.</summary>
     public TimeProvider? TimeProvider { get; init; }
 
-    /// <summary>
-    /// Invoked when an event breaks a repository's chain or resets it, with the reason. It is not
-    /// invoked again for the events that follow while the repository stays desynchronized.
-    /// </summary>
+    /// <summary>Invoked when an event breaks a repository's chain or resets it, with the reason. It is not invoked again for the events that follow while the repository stays desynchronized.</summary>
     public Action<RepoSyncResult>? OnDesynchronized { get; init; }
 }
 
-/// <summary>
-/// Verifies firehose <c>#commit</c> and <c>#sync</c> events inductively, as Sync 1.1 specifies:
-/// each commit is checked on its own and against the repository's previous state, so a consumer
-/// knows it has every change to a repository rather than just authentic ones.
-/// </summary>
+/// <summary>Verifies firehose <c>#commit</c> and <c>#sync</c> events inductively, as Sync 1.1 specifies: each commit is checked on its own and against the repository's previous state, so a consumer knows it has every change to a repository rather than just authentic ones.</summary>
 /// <remarks>
 /// <para>A <c>#commit</c> passes when its CAR is well formed and every block matches its CID
 /// (at most 2,000,000 bytes and 200 operations), its commit block is the event's <c>commit</c> and
@@ -104,13 +90,10 @@ public sealed class RepoSyncVerifier : IDisposable
     /// <summary>Where each repository's sync state is kept.</summary>
     public IRepoSyncStateStore StateStore { get; }
 
-    /// <summary>The resolver signing keys come from.</summary>
+    // The resolver signing keys come from.
     internal IDidResolver DidResolver => _didResolver;
 
-    /// <summary>
-    /// Drops any cached DID document for an account, so its next event is verified against a
-    /// freshly resolved key. Call it for every <c>#identity</c> event.
-    /// </summary>
+    /// <summary>Drops any cached DID document for an account, so its next event is verified against a freshly resolved key. Call it for every <c>#identity</c> event.</summary>
     /// <param name="did">The account whose identity changed.</param>
     public Task InvalidateIdentityAsync(Did did, CancellationToken cancellationToken = default)
     {
@@ -217,10 +200,7 @@ public sealed class RepoSyncVerifier : IDisposable
             cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Records the state a <see cref="RepoSyncOutcome.Valid"/> event moved its repository to. Call
-    /// it once the event is processed; for any other outcome it does nothing.
-    /// </summary>
+    /// <summary>Records the state a <see cref="RepoSyncOutcome.Valid"/> event moved its repository to. Call it once the event is processed; for any other outcome it does nothing.</summary>
     /// <param name="result">The result of verifying the event.</param>
     public ValueTask ApplyAsync(RepoSyncResult result, CancellationToken cancellationToken = default)
     {
@@ -230,10 +210,8 @@ public sealed class RepoSyncVerifier : IDisposable
             : ValueTask.CompletedTask;
     }
 
-    /// <summary>
-    /// Sets a repository's status, keeping the revision and tree it was at, or recording neither
-    /// when it has no state.
-    /// </summary>
+    // Sets a repository's status, keeping the revision and tree it was at, or recording neither when it
+    // has no state.
     internal async ValueTask SetStatusAsync(Did did, RepoSyncStatus status, CancellationToken cancellationToken)
     {
         var state = await StateStore.GetAsync(did, cancellationToken).ConfigureAwait(false);
@@ -245,68 +223,30 @@ public sealed class RepoSyncVerifier : IDisposable
             cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Verifies a repository commit's signature against the account's signing key, refetching the
-    /// DID document once when it fails. Returns the reason it failed, or null.
-    /// </summary>
+    // Verifies a repository commit's signature against the account's #atproto key, through
+    // DidResolverExtensions.VerifyWithRefreshAsync. Returns the reason it failed, or null.
     internal async ValueTask<string?> VerifySignatureAsync(Did did, CommitBlock block, CancellationToken cancellationToken)
     {
-        string? key;
+        (bool Verified, string? Key) result;
         try
         {
-            key = SigningKey(await _didResolver.ResolveAsync(did, cancellationToken).ConfigureAwait(false));
+            result = await _didResolver.VerifyWithRefreshAsync(
+                did,
+                static document => document.GetSigningKey(),
+                key => AtProtoCrypto.TryVerifySignature(key, block.Unsigned, block.Signature),
+                cancellationToken).ConfigureAwait(false);
         }
         catch (DidResolutionException ex)
         {
             return $"The account's identity could not be resolved: {ex.Message}";
         }
 
-        if (key is not null && Verify(key, block))
-            return null;
-
-        // The cached document may predate a key rotation: refetch once before refusing. The
-        // resolver rate-limits refreshes, so forged commits cannot each cost a directory request.
-        string? refreshed;
-        try
+        return result switch
         {
-            refreshed = SigningKey(await _didResolver.RefreshAsync(did, cancellationToken).ConfigureAwait(false));
-        }
-        catch (DidResolutionException ex)
-        {
-            return $"The account's identity could not be resolved: {ex.Message}";
-        }
-
-        if (refreshed is null)
-            return "The account publishes no usable atproto signing key.";
-
-        return !string.Equals(refreshed, key, StringComparison.Ordinal) && Verify(refreshed, block)
-            ? null
-            : "The commit's signature does not verify against the account's signing key.";
-    }
-
-    private static string? SigningKey(DidDocument document)
-    {
-        try
-        {
-            return document.GetSigningKey();
-        }
-        catch (FormatException)
-        {
-            // A key the document publishes but that does not decode is no more usable than none.
-            return null;
-        }
-    }
-
-    private static bool Verify(string key, CommitBlock block)
-    {
-        try
-        {
-            return AtProtoCrypto.VerifySignature(key, block.Unsigned, block.Signature);
-        }
-        catch (Exception ex) when (ex is ArgumentException or FormatException or NotSupportedException or CryptographicException)
-        {
-            return false;
-        }
+            { Verified: true } => null,
+            { Key: null } => "The account publishes no usable atproto signing key.",
+            _ => "The commit's signature does not verify against the account's signing key.",
+        };
     }
 
     private async ValueTask<RepoSyncResult> DesynchronizeAsync(
@@ -333,10 +273,8 @@ public sealed class RepoSyncVerifier : IDisposable
         return false;
     }
 
-    /// <summary>
-    /// Reads an event's CAR, checking every block against its CID, and the commit block it
-    /// carries as its first root, checking the commit against the event.
-    /// </summary>
+    // Reads an event's CAR, checking every block against its CID, and the commit block it carries as its
+    // first root, checking the commit against the event.
     private bool TryReadCommit(
         byte[]? blocks, Cid? expectedCommit, Did did, Tid rev,
         out CarReader car, out CommitBlock block, out string error)
@@ -390,11 +328,9 @@ public sealed class RepoSyncVerifier : IDisposable
         return true;
     }
 
-    /// <summary>
-    /// Checks a commit's operations against its blocks: well formed, every created or updated
-    /// record present and in the tree, and, with <c>prevData</c>, inverting them lands on it.
-    /// Returns the reason they fail, or null.
-    /// </summary>
+    // Checks a commit's operations against its blocks: well formed, every created or updated record
+    // present and in the tree, and, with prevData, inverting them lands on it. Returns the reason they
+    // fail, or null.
     private static string? CheckOperations(CommitEvent commit, CarReader car, CommitBlock block)
     {
         var ops = commit.Ops ?? [];
@@ -496,7 +432,7 @@ public sealed class RepoSyncVerifier : IDisposable
         }
     }
 
-    /// <summary>Checks that a created or updated record is in the blocks, as DAG-CBOR of a legal size.</summary>
+    // Checks that a created or updated record is in the blocks, as DAG-CBOR of a legal size.
     private static string? CheckRecord(CarReader car, Cid cid, string path)
     {
         var bytes = cid.AsSpan();
@@ -511,7 +447,7 @@ public sealed class RepoSyncVerifier : IDisposable
             : null;
     }
 
-    /// <summary>Whether a path is <c>collection/rkey</c> with a valid NSID and record key.</summary>
+    // Whether a path is collection/rkey with a valid NSID and record key.
     private static bool IsValidPath(string path)
     {
         var slash = path.IndexOf('/');
@@ -541,25 +477,16 @@ public sealed class RepoSyncVerifier : IDisposable
 /// <summary>What <see cref="RepoSyncVerifier"/> made of an event.</summary>
 public enum RepoSyncOutcome
 {
-    /// <summary>
-    /// The event is authentic and chains on the repository's state: deliver it, then record its
-    /// state with <see cref="RepoSyncVerifier.ApplyAsync"/>.
-    /// </summary>
+    /// <summary>The event is authentic and chains on the repository's state: deliver it, then record its state with <see cref="RepoSyncVerifier.ApplyAsync"/>.</summary>
     Valid,
 
-    /// <summary>
-    /// The event is no newer than the last one seen for the repository, such as a replay after a
-    /// reconnect: ignore it.
-    /// </summary>
+    /// <summary>The event is no newer than the last one seen for the repository, such as a replay after a reconnect: ignore it.</summary>
     Stale,
 
     /// <summary>The event failed verification: reject it. The repository's state is unchanged.</summary>
     Invalid,
 
-    /// <summary>
-    /// The event is authentic, but the repository's chain is broken, by this event or earlier:
-    /// its records must be fetched again before its events are processed.
-    /// </summary>
+    /// <summary>The event is authentic, but the repository's chain is broken, by this event or earlier: its records must be fetched again before its events are processed.</summary>
     Desynchronized,
 }
 
@@ -591,11 +518,7 @@ public sealed class RepoSyncResult
     /// <summary>The MST root of the event's signed commit, once its blocks were read.</summary>
     public Cid? Data { get; }
 
-    /// <summary>
-    /// For a <see cref="RepoSyncOutcome.Valid"/> event, the state it moves the repository to, which
-    /// <see cref="RepoSyncVerifier.ApplyAsync"/> records; otherwise the repository's current state,
-    /// or null when it has none.
-    /// </summary>
+    /// <summary>For a <see cref="RepoSyncOutcome.Valid"/> event, the state it moves the repository to, which <see cref="RepoSyncVerifier.ApplyAsync"/> records; otherwise the repository's current state, or null when it has none.</summary>
     public RepoSyncState? State { get; }
 
     /// <summary>Why the event is not valid, or null when it is.</summary>

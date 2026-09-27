@@ -5,7 +5,6 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Http;
 using ATProtoNet.Lexicon.Com.AtProto.Identity;
 using ATProtoNet.Serialization;
@@ -38,10 +37,7 @@ public sealed class PlcClient : IDidResolver, IDisposable
     private readonly bool _ownsHttpClient;
     private readonly IdentityResolverOptions _options;
 
-    /// <summary>
-    /// Creates a client for <see cref="IdentityResolverOptions.PlcDirectoryUrl"/> with its own
-    /// <see cref="HttpClient"/> under the SDK's identity fetch policy.
-    /// </summary>
+    /// <summary>Creates a client for <see cref="IdentityResolverOptions.PlcDirectoryUrl"/> with its own <see cref="HttpClient"/> under the SDK's identity fetch policy.</summary>
     /// <param name="options">Resolver options. Defaults apply when omitted.</param>
     /// <exception cref="ArgumentException">
     /// The directory URL is not HTTPS and <see cref="IdentityResolverOptions.AllowPrivateNetworks"/>
@@ -51,16 +47,13 @@ public sealed class PlcClient : IDidResolver, IDisposable
     {
         _options = options ?? new IdentityResolverOptions();
         _options.Validate();
-        DirectoryUrl = IdentityNetworkPolicy.ValidateServiceUrl(
-            _options.PlcDirectoryUrl, _options.AllowPrivateNetworks, nameof(options));
+        DirectoryUrl = AtProtoHttp.ValidateServiceUrl(
+            _options.PlcDirectoryUrl, nameof(options), allowInsecure: _options.AllowPrivateNetworks, allowLoopback: false);
         _httpClient = IdentityNetworkPolicy.CreateClient(_options.AllowPrivateNetworks);
         _ownsHttpClient = true;
     }
 
-    /// <summary>
-    /// Creates a client for an explicit directory that sends its requests through
-    /// <paramref name="httpClient"/>.
-    /// </summary>
+    /// <summary>Creates a client for an explicit directory that sends its requests through <paramref name="httpClient"/>.</summary>
     /// <param name="httpClient">
     /// The client to use, which the caller owns. It is used as is, so it is also how one trusted
     /// private mirror is reached without the development opt-out.
@@ -80,7 +73,7 @@ public sealed class PlcClient : IDidResolver, IDisposable
 
         _options = options ?? new IdentityResolverOptions();
         _options.Validate();
-        DirectoryUrl = IdentityNetworkPolicy.ValidateServiceUrl(directoryUrl, allowPrivateNetworks: true, nameof(directoryUrl));
+        DirectoryUrl = AtProtoHttp.ValidateServiceUrl(directoryUrl, nameof(directoryUrl), allowInsecure: true);
         _httpClient = httpClient;
         _ownsHttpClient = false;
     }
@@ -88,7 +81,7 @@ public sealed class PlcClient : IDidResolver, IDisposable
     /// <summary>The directory's base URL, ending in <c>/</c>.</summary>
     public Uri DirectoryUrl { get; }
 
-    /// <summary>Opens the export stream's WebSocket. Tests replace it to reach an in-process server.</summary>
+    // Opens the export stream's WebSocket. Tests replace it to reach an in-process server.
     internal StreamConnector Connector { get; set; } = StreamSocket.Connector;
 
     /// <summary>Resolves a <c>did:plc</c> identifier to its DID document.</summary>
@@ -105,10 +98,7 @@ public sealed class PlcClient : IDidResolver, IDisposable
             _httpClient, DidUrl(did, null), did, _options.MaxDidDocumentBytes, _options.RequestTimeout, cancellationToken);
     }
 
-    /// <summary>
-    /// Gets a DID's operation log: the chain of signed operations that produced its current state,
-    /// nullified ones excluded.
-    /// </summary>
+    /// <summary>Gets a DID's operation log: the chain of signed operations that produced its current state, nullified ones excluded.</summary>
     /// <returns>The operations, oldest first.</returns>
     /// <exception cref="DidResolutionException">Thrown when the request fails.</exception>
     public Task<IReadOnlyList<PlcOperation>> GetOperationLogAsync(
@@ -118,10 +108,7 @@ public sealed class PlcClient : IDidResolver, IDisposable
         return GetJsonAsync<IReadOnlyList<PlcOperation>>(DidUrl(did, "log"), did, MaxLogBytes, cancellationToken);
     }
 
-    /// <summary>
-    /// Gets a DID's audit log: every operation the directory accepted, with its CID, time and
-    /// whether a later operation nullified it.
-    /// </summary>
+    /// <summary>Gets a DID's audit log: every operation the directory accepted, with its CID, time and whether a later operation nullified it.</summary>
     /// <returns>The entries, oldest first.</returns>
     /// <exception cref="DidResolutionException">Thrown when the request fails.</exception>
     public Task<IReadOnlyList<PlcAuditEntry>> GetAuditLogAsync(
@@ -140,10 +127,7 @@ public sealed class PlcClient : IDidResolver, IDisposable
         return GetJsonAsync<PlcOperation>(DidUrl(did, "log/last"), did, _options.MaxDidDocumentBytes, cancellationToken);
     }
 
-    /// <summary>
-    /// Gets a DID's current PLC state: its rotation keys, verification methods, handles and
-    /// services, in operation form without <c>type</c>, <c>prev</c> or <c>sig</c>.
-    /// </summary>
+    /// <summary>Gets a DID's current PLC state: its rotation keys, verification methods, handles and services, in operation form without <c>type</c>, <c>prev</c> or <c>sig</c>.</summary>
     /// <returns>The current state.</returns>
     /// <exception cref="DidResolutionException">Thrown when the request fails.</exception>
     public Task<PlcOperation> GetPlcDataAsync(Did did, CancellationToken cancellationToken = default)
@@ -169,10 +153,7 @@ public sealed class PlcClient : IDidResolver, IDisposable
         return SubmitOperationAsync(operation.Did, operation.Operation, cancellationToken);
     }
 
-    /// <summary>
-    /// Submits a signed PLC operation under an explicit DID. Use this for update operations,
-    /// where the DID is the existing one rather than a hash of the operation.
-    /// </summary>
+    /// <summary>Submits a signed PLC operation under an explicit DID. Use this for update operations, where the DID is the existing one rather than a hash of the operation.</summary>
     /// <param name="did">The DID to submit under.</param>
     /// <param name="operation">The signed operation JSON.</param>
     /// <returns>The DID the operation was submitted under.</returns>
@@ -233,10 +214,7 @@ public sealed class PlcClient : IDidResolver, IDisposable
         }
     }
 
-    /// <summary>
-    /// Reads one page of the directory's sequenced export: every operation it accepted, in
-    /// sequence order.
-    /// </summary>
+    /// <summary>Reads one page of the directory's sequenced export: every operation it accepted, in sequence order.</summary>
     /// <param name="after">
     /// The <see cref="PlcAuditEntry.Seq"/> to continue after. <c>0</c> starts at the beginning.
     /// </param>
@@ -285,10 +263,7 @@ public sealed class PlcClient : IDidResolver, IDisposable
         return entries;
     }
 
-    /// <summary>
-    /// Follows the directory's export stream (<c>/export/stream</c>): operations as the directory
-    /// accepts them, over a WebSocket.
-    /// </summary>
+    /// <summary>Follows the directory's export stream (<c>/export/stream</c>): operations as the directory accepts them, over a WebSocket.</summary>
     /// <param name="cursor">
     /// The <see cref="PlcAuditEntry.Seq"/> to resume after. <see langword="null"/> streams only
     /// operations accepted after connecting.
@@ -423,16 +398,10 @@ public sealed class PlcClient : IDidResolver, IDisposable
     }
 }
 
-/// <summary>
-/// A PLC operation: a signed state transition for a DID, or, from
-/// <see cref="PlcClient.GetPlcDataAsync"/>, the state the latest one produced.
-/// </summary>
+/// <summary>A PLC operation: a signed state transition for a DID, or, from <see cref="PlcClient.GetPlcDataAsync"/>, the state the latest one produced.</summary>
 public sealed class PlcOperation
 {
-    /// <summary>
-    /// The operation type: <c>plc_operation</c>, <c>plc_tombstone</c>, or the legacy
-    /// <c>create</c>. <see langword="null"/> on a state read.
-    /// </summary>
+    /// <summary>The operation type: <c>plc_operation</c>, <c>plc_tombstone</c>, or the legacy <c>create</c>. <see langword="null"/> on a state read.</summary>
     [JsonPropertyName("type")]
     public string? Type { get; init; }
 
@@ -464,10 +433,7 @@ public sealed class PlcOperation
 /// <summary>An operation as the directory recorded it: from a DID's audit log, or from the export.</summary>
 public sealed class PlcAuditEntry
 {
-    /// <summary>
-    /// The entry type: <c>sequenced_op</c> in the sequenced export, <see langword="null"/> in an
-    /// audit log.
-    /// </summary>
+    /// <summary>The entry type: <c>sequenced_op</c> in the sequenced export, <see langword="null"/> in an audit log.</summary>
     [JsonPropertyName("type")]
     public string? Type { get; init; }
 
@@ -475,7 +441,7 @@ public sealed class PlcAuditEntry
     [JsonPropertyName("did")]
     public required Did Did { get; init; }
 
-    /// <summary>The operation.</summary>
+    /// <summary>The signed operation the directory recorded.</summary>
     [JsonPropertyName("operation")]
     public required PlcOperation Operation { get; init; }
 
@@ -483,10 +449,7 @@ public sealed class PlcAuditEntry
     [JsonPropertyName("cid")]
     public required Cid Cid { get; init; }
 
-    /// <summary>
-    /// Whether a later operation nullified this one. <see langword="null"/> in the sequenced
-    /// export, which does not report it.
-    /// </summary>
+    /// <summary>Whether a later operation nullified this one. <see langword="null"/> in the sequenced export, which does not report it.</summary>
     [JsonPropertyName("nullified")]
     public bool? Nullified { get; init; }
 
@@ -494,11 +457,7 @@ public sealed class PlcAuditEntry
     [JsonPropertyName("createdAt")]
     public required DateTimeOffset CreatedAt { get; init; }
 
-    /// <summary>
-    /// The directory's sequence number for the operation, strictly increasing; the cursor for
-    /// <see cref="PlcClient.ExportAsync"/> and <see cref="PlcClient.StreamExportAsync"/>.
-    /// <see langword="null"/> in an audit log.
-    /// </summary>
+    /// <summary>The directory's sequence number for the operation, strictly increasing; the cursor for <see cref="PlcClient.ExportAsync"/> and <see cref="PlcClient.StreamExportAsync"/>. <see langword="null"/> in an audit log.</summary>
     [JsonPropertyName("seq")]
     public long? Seq { get; init; }
 }

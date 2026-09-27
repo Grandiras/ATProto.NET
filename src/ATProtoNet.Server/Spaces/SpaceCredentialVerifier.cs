@@ -1,4 +1,5 @@
 using ATProtoNet.Auth.OAuth;
+using ATProtoNet.Caching;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Spaces;
@@ -41,10 +42,10 @@ public sealed class SpaceCredentialVerifier
     private readonly SpaceServerOptions _options;
     private readonly TimeProvider _timeProvider;
 
-    // ath (base64url SHA-256 of the credential) → entry, with recency most recent first.
+    // ath (base64url SHA-256 of the credential) → entry; the lock keeps the per-authority counts
+    // in step with it. Null when caching is off.
     private readonly object _lock = new();
-    private readonly Dictionary<string, LinkedListNode<CachedCredential>> _entries = new(StringComparer.Ordinal);
-    private readonly LinkedList<CachedCredential> _recency = new();
+    private readonly LruCache<string, CachedCredential>? _entries;
     private readonly Dictionary<Did, int> _perAuthority = new();
     private int _signatureChecks;
 
@@ -70,19 +71,14 @@ public sealed class SpaceCredentialVerifier
         _proofValidator = proofValidator;
         _options = options ?? new SpaceServerOptions();
         _timeProvider = timeProvider ?? TimeProvider.System;
+        if (_options.VerifiedCredentialCacheCapacity > 0)
+            _entries = new LruCache<string, CachedCredential>(_options.VerifiedCredentialCacheCapacity, StringComparer.Ordinal);
     }
 
-    /// <summary>The number of verified credentials currently remembered, for diagnostics and tests.</summary>
-    internal int CachedCount
-    {
-        get
-        {
-            lock (_lock)
-                return _entries.Count;
-        }
-    }
+    // The number of verified credentials currently remembered, for diagnostics and tests.
+    internal int CachedCount => _entries?.Count ?? 0;
 
-    /// <summary>How many credential signatures have been checked, for tests.</summary>
+    // How many credential signatures have been checked, for tests.
     internal int SignatureChecks => Volatile.Read(ref _signatureChecks);
 
     /// <summary>Verifies a credential and the proof presented with it.</summary>
@@ -177,33 +173,24 @@ public sealed class SpaceCredentialVerifier
         var keyId = SpaceDidResolution.RequireKeyId(
             parsed.KeyId, SpaceDidResolution.CredentialKeyIds, SpaceErrors.NotAuthorized);
 
-        // The key and document of the last resolution are the ones the signature verified against:
-        // a refreshed key is only tried after the cached one failed.
-        string? key = null;
-        DidDocument? document = null;
-        var verified = await SpaceDidResolution.VerifyWithKeyRefreshAsync(
-            async refresh =>
-            {
-                (key, document) = await _resolver.ResolveKeyWithDocumentAsync(
-                    space.Authority, keyId, SpaceErrors.NotAuthorized, refresh, cancellationToken).ConfigureAwait(false);
-                return key;
-            },
+        var (verified, key, document) = await _resolver.VerifyTokenAsync(
+            space.Authority,
+            keyId,
+            SpaceErrors.NotAuthorized,
             authorityKey =>
             {
                 Interlocked.Increment(ref _signatureChecks);
                 return SpaceTokens.Verify(parsed, authorityKey, expectedAudience: null, expectedSubject: space, now);
             },
-            SpaceErrors.NotAuthorized).ConfigureAwait(false);
+            cancellationToken).ConfigureAwait(false);
 
-        var entry = new CachedCredential(accessTokenHash, verified, space, keyId, key!, document!);
+        var entry = new CachedCredential(accessTokenHash, verified, space, keyId, key, document);
         Remember(entry);
         return entry;
     }
 
-    /// <summary>
-    /// Whether the authority still publishes the key a cached credential was verified against,
-    /// as the DID document a fresh verification would use right now says.
-    /// </summary>
+    // Whether the authority still publishes the key a cached credential was verified against, as the DID
+    // document a fresh verification would use right now says.
     private async Task<bool> IsKeyCurrentAsync(CachedCredential entry, CancellationToken cancellationToken)
     {
         var document = await _resolver.ResolveOrRefuseAsync(entry.Space.Authority, refresh: false, cancellationToken).ConfigureAwait(false);
@@ -213,17 +200,7 @@ public sealed class SpaceCredentialVerifier
         if (ReferenceEquals(document, entry.Document))
             return true;
 
-        string? key;
-        try
-        {
-            key = document.GetVerificationKey(entry.KeyId);
-        }
-        catch (FormatException)
-        {
-            return false;
-        }
-
-        if (!string.Equals(key, entry.DidKey, StringComparison.Ordinal))
+        if (!string.Equals(document.GetVerificationKey(entry.KeyId), entry.DidKey, StringComparison.Ordinal))
             return false;
 
         entry.Document = document;
@@ -232,55 +209,48 @@ public sealed class SpaceCredentialVerifier
 
     private CachedCredential? Lookup(string accessTokenHash, DateTimeOffset now)
     {
+        if (_entries is null)
+            return null;
+
         lock (_lock)
         {
-            if (!_entries.TryGetValue(accessTokenHash, out var node))
+            if (!_entries.TryGetValue(accessTokenHash, out var entry))
                 return null;
 
-            if (node.Value.Token.IsExpired(now))
+            if (entry.Token.IsExpired(now))
             {
-                RemoveLocked(node);
+                _entries.Remove(accessTokenHash);
+                Removed(entry);
                 return null;
             }
 
-            _recency.Remove(node);
-            _recency.AddFirst(node);
-            return node.Value;
+            return entry;
         }
     }
 
     private void Remember(CachedCredential entry)
     {
-        var capacity = _options.VerifiedCredentialCacheCapacity;
-        if (capacity <= 0)
+        if (_entries is null)
             return;
 
-        var quota = Math.Max(1, capacity / 4);
+        var quota = Math.Max(1, _entries.Capacity / 4);
         var authority = entry.Space.Authority;
 
         lock (_lock)
         {
-            if (_entries.TryGetValue(entry.Key, out var existing))
-                RemoveLocked(existing);
+            if (_entries.Remove(entry.Key, out var existing))
+                Removed(existing);
 
             // One authority displaces only its own entries past its share; everyone else's
             // steadily used credentials stay put.
-            if (_perAuthority.GetValueOrDefault(authority) >= quota)
+            if (_perAuthority.GetValueOrDefault(authority) >= quota &&
+                _entries.RemoveLeastRecent(cached => cached.Space.Authority == authority) is { } own)
             {
-                for (var node = _recency.Last; node is not null; node = node.Previous)
-                {
-                    if (node.Value.Space.Authority == authority)
-                    {
-                        RemoveLocked(node);
-                        break;
-                    }
-                }
+                Removed(own.Value);
             }
 
-            if (_entries.Count >= capacity)
-                RemoveLocked(_recency.Last!);
-
-            _entries[entry.Key] = _recency.AddFirst(entry);
+            if (_entries.Set(entry.Key, entry) is { } evicted)
+                Removed(evicted.Value);
             _perAuthority[authority] = _perAuthority.GetValueOrDefault(authority) + 1;
         }
     }
@@ -289,17 +259,15 @@ public sealed class SpaceCredentialVerifier
     {
         lock (_lock)
         {
-            if (_entries.TryGetValue(entry.Key, out var node) && ReferenceEquals(node.Value, entry))
-                RemoveLocked(node);
+            if (_entries!.Remove(entry.Key, entry))
+                Removed(entry);
         }
     }
 
-    private void RemoveLocked(LinkedListNode<CachedCredential> node)
+    // Counts a credential out of its authority's share. Call under the lock.
+    private void Removed(CachedCredential entry)
     {
-        _recency.Remove(node);
-        _entries.Remove(node.Value.Key);
-
-        var authority = node.Value.Space.Authority;
+        var authority = entry.Space.Authority;
         var count = _perAuthority.GetValueOrDefault(authority) - 1;
         if (count > 0)
             _perAuthority[authority] = count;
@@ -313,7 +281,7 @@ public sealed class SpaceCredentialVerifier
     private static SpaceVerificationException WrongSpace(SpaceUri granted, SpaceUri requested) =>
         Invalid($"The credential grants {granted}, not the requested {requested}.");
 
-    /// <summary>A verified credential, and the key and document it verified against.</summary>
+    // A verified credential, and the key and document it verified against.
     private sealed class CachedCredential(
         string key, SpaceToken token, SpaceUri space, string keyId, string didKey, DidDocument document)
     {
@@ -323,12 +291,12 @@ public sealed class SpaceCredentialVerifier
 
         public SpaceUri Space { get; } = space;
 
-        /// <summary>The verification-method fragment the credential's <c>kid</c> named.</summary>
+        // The verification-method fragment the credential's kid named.
         public string KeyId { get; } = keyId;
 
         public string DidKey { get; } = didKey;
 
-        /// <summary>The newest document seen to still publish <see cref="DidKey"/>.</summary>
+        // The newest document seen to still publish DidKey.
         public DidDocument Document
         {
             get => Volatile.Read(ref _document);

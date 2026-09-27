@@ -7,10 +7,8 @@ using System.Text.Json.Serialization;
 
 namespace ATProtoNet.Serialization;
 
-/// <summary>
-/// The shape of one <see cref="AtProtoUnionAttribute"/> base: its declared variants, its unknown
-/// variant, and whether it is closed. Built once per base type by reflection.
-/// </summary>
+// The shape of one AtProtoUnionAttribute base: its declared variants, its unknown variant, and whether
+// it is closed. Built once per base type by reflection.
 internal sealed class AtProtoUnionShape
 {
     private static readonly ConcurrentDictionary<Type, AtProtoUnionShape?> Shapes = new();
@@ -38,19 +36,20 @@ internal sealed class AtProtoUnionShape
 
     public Type? UnknownVariant { get; }
 
-    /// <summary>Variants declared with <see cref="JsonDerivedTypeAttribute"/>, by discriminator.</summary>
+    // Variants declared with JsonDerivedTypeAttribute, by discriminator.
     public IReadOnlyDictionary<string, Type> Variants { get; }
 
-    /// <summary>The inverse of <see cref="Variants"/>.</summary>
+    // The inverse of Variants.
     public IReadOnlyDictionary<Type, string> Discriminators { get; }
 
-    /// <summary>Returns the shape of <paramref name="type"/>, or <see langword="null"/> when it is not a union base.</summary>
-    /// <exception cref="InvalidOperationException">The type is marked but declared inconsistently.</exception>
+    // Returns the shape of type, or null when it is not a union base.
+    //
+    // Throws InvalidOperationException: The type is marked but declared inconsistently.
     public static AtProtoUnionShape? Get(Type type) => Shapes.GetOrAdd(type, Create);
 
     public object CreateUnknown(string type, JsonElement raw) => _unknownConstructor!.Invoke([type, raw]);
 
-    /// <summary>Walks the base classes of <paramref name="variant"/> for the union base it belongs to.</summary>
+    // Walks the base classes of variant for the union base it belongs to.
     public static AtProtoUnionShape? FindOwner(Type variant)
     {
         for (var type = variant.BaseType; type is not null && type != typeof(object); type = type.BaseType)
@@ -110,7 +109,7 @@ internal sealed class AtProtoUnionShape
         => new($"The Lexicon union base '{type.FullName}' {problem}.");
 }
 
-/// <summary>Supplies the converters for <see cref="AtProtoUnionAttribute"/> bases and their unknown variants.</summary>
+// Supplies the converters for AtProtoUnionAttribute bases and their unknown variants.
 internal sealed class AtProtoUnionConverterFactory(LexiconTypeRegistry registry) : JsonConverterFactory
 {
     public override bool CanConvert(Type typeToConvert)
@@ -131,16 +130,13 @@ internal sealed class AtProtoUnionConverterFactory(LexiconTypeRegistry registry)
     }
 }
 
-/// <summary>
-/// Reads a union by its <c>$type</c>, wherever it sits in the object, and writes a variant through
-/// its own contract, which leads with <c>$type</c>.
-/// </summary>
-/// <remarks>
-/// Resolution order: the variants declared on the base, then the registry (consulted on every
-/// miss, so a registration takes effect even after this converter was built), then the unknown
-/// variant. A closed union resolves its declared variants only — the registry refuses variants
-/// for one — and anything else is an error.
-/// </remarks>
+// Reads a union by its $type, wherever it sits in the object, and writes a variant through its own
+// contract, which leads with $type.
+//
+// Resolution order: the variants declared on the base, then the registry (consulted on every miss, so a
+// registration takes effect even after this converter was built), then the unknown variant. A closed
+// union resolves its declared variants only — the registry refuses variants for one — and anything else
+// is an error.
 internal sealed class AtProtoUnionConverter<TBase>(AtProtoUnionShape shape, LexiconTypeRegistry registry)
     : JsonConverter<TBase>
     where TBase : class
@@ -184,11 +180,9 @@ internal sealed class AtProtoUnionConverter<TBase>(AtProtoUnionShape shape, Lexi
         JsonSerializer.Serialize(writer, value, options.GetTypeInfo(variant));
     }
 
-    /// <summary>
-    /// Finds the object's top-level <c>$type</c> on a copy of the reader. The serializer buffers a
-    /// whole value before handing it to a converter that cannot resume, so the scan never runs out
-    /// of data. The appview often puts <c>$type</c> last.
-    /// </summary>
+    // Finds the object's top-level $type on a copy of the reader. The serializer buffers a whole value
+    // before handing it to a converter that cannot resume, so the scan never runs out of data. The
+    // appview often puts $type last.
     private static string? ReadDiscriminator(Utf8JsonReader reader)
     {
         while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
@@ -211,7 +205,7 @@ internal sealed class AtProtoUnionConverter<TBase>(AtProtoUnionShape shape, Lexi
     }
 }
 
-/// <summary>Reads and writes an <see cref="IUnknownUnionVariant"/> that is not declared as its union base.</summary>
+// Reads and writes an IUnknownUnionVariant that is not declared as its union base.
 internal sealed class UnknownUnionVariantConverter<TUnknown> : JsonConverter<TUnknown>
     where TUnknown : class, IUnknownUnionVariant
 {
@@ -232,14 +226,12 @@ internal sealed class UnknownUnionVariantConverter<TUnknown> : JsonConverter<TUn
         => UnknownUnionVariant.WriteRaw(writer, value);
 }
 
-/// <summary>Helpers shared by the SDK's <c>Unknown*</c> union variants.</summary>
+// Helpers shared by the SDK's Unknown* union variants.
 internal static class UnknownUnionVariant
 {
-    /// <summary>
-    /// Validates the raw object of an unknown variant and detaches it from any
-    /// <see cref="JsonDocument"/> the caller may dispose. Elements the serializer produced are already
-    /// detached, so for them this copies nothing.
-    /// </summary>
+    // Validates the raw object of an unknown variant and detaches it from any JsonDocument the caller
+    // may dispose. Elements the serializer produced are already detached, so for them this copies
+    // nothing.
     public static JsonElement RequireObject(JsonElement raw, [CallerArgumentExpression(nameof(raw))] string? paramName = null)
     {
         if (raw.ValueKind != JsonValueKind.Object)
@@ -248,14 +240,14 @@ internal static class UnknownUnionVariant
         return raw.Clone();
     }
 
-    /// <summary>Validates the <c>$type</c> discriminator of an unknown variant.</summary>
+    // Validates the $type discriminator of an unknown variant.
     public static string RequireType(string type, [CallerArgumentExpression(nameof(type))] string? paramName = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(type, paramName);
         return type;
     }
 
-    /// <summary>Writes the variant's original bytes, so escapes and number formatting survive unchanged.</summary>
+    // Writes the variant's original bytes, so escapes and number formatting survive unchanged.
     public static void WriteRaw(Utf8JsonWriter writer, IUnknownUnionVariant variant)
         => writer.WriteRawValue(JsonMarshal.GetRawUtf8Value(variant.Raw), skipInputValidation: true);
 }

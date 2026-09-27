@@ -1,5 +1,6 @@
-using System.Collections.Concurrent;
 using System.Text.Json;
+using ATProtoNet.Caching;
+using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Serialization;
 using Microsoft.Extensions.Logging;
@@ -28,7 +29,7 @@ internal sealed class AuthorizationServerDiscovery : IDisposable
     private const int MaxMetadataBytes = 64 * 1024;
     private static readonly TimeSpan MetadataTimeout = TimeSpan.FromSeconds(10);
 
-    /// <summary>The most metadata documents cached.</summary>
+    // The most metadata documents cached.
     private const int MetadataCacheCapacity = 256;
 
     private readonly HttpClient _metadataClient;
@@ -39,7 +40,7 @@ internal sealed class AuthorizationServerDiscovery : IDisposable
     private readonly JsonSerializerOptions _jsonOptions;
 
     // The raw documents, not the deserialized models: those are mutable and handed to callers.
-    private readonly ConcurrentDictionary<string, CachedDocument> _metadataCache = new(StringComparer.Ordinal);
+    private readonly LruCache<string, CachedDocument> _metadataCache = new(MetadataCacheCapacity, StringComparer.Ordinal);
 
     // A supplied client is used as is and not owned: the address check lives in the SDK's own
     // handler, while the URL rules and the body cap still apply. Without one, and without a
@@ -84,17 +85,12 @@ internal sealed class AuthorizationServerDiscovery : IDisposable
         return (pds.OriginalString, metadata, identity.Did.Value);
     }
 
-    /// <summary>
-    /// Resolves an identity, reporting failure as the <see cref="OAuthException"/> the OAuth flow
-    /// raises.
-    /// </summary>
+    // Resolves an identity, reporting failure as the OAuthException the OAuth flow raises.
     internal Task<ResolvedIdentity> ResolveIdentityAsync(AtIdentifier identifier, CancellationToken cancellationToken) =>
         MapFailureAsync(IdentityResolver.ResolveAsync(identifier, cancellationToken));
 
-    /// <summary>
-    /// Resolves a DID from a document fetched afresh (<see cref="IIdentityResolver.ResolveUncachedAsync"/>),
-    /// reporting failure as <see cref="ResolveIdentityAsync"/> does.
-    /// </summary>
+    // Resolves a DID from a document fetched afresh (IIdentityResolver.ResolveUncachedAsync), reporting
+    // failure as ResolveIdentityAsync does.
     internal Task<ResolvedIdentity> ResolveIdentityUncachedAsync(Did did, CancellationToken cancellationToken) =>
         MapFailureAsync(IdentityResolver.ResolveUncachedAsync(did, cancellationToken));
 
@@ -117,10 +113,8 @@ internal sealed class AuthorizationServerDiscovery : IDisposable
         }
     }
 
-    /// <summary>
-    /// Parses a sign-in identifier (a handle or DID, optionally <c>at://</c>-prefixed), reporting
-    /// a malformed one as <c>invalid_handle</c> or <c>invalid_did</c>.
-    /// </summary>
+    // Parses a sign-in identifier (a handle or DID, optionally at://-prefixed), reporting a malformed
+    // one as invalid_handle or invalid_did.
     internal static AtIdentifier ParseIdentifier(string identifier)
     {
         if (string.IsNullOrWhiteSpace(identifier))
@@ -146,11 +140,8 @@ internal sealed class AuthorizationServerDiscovery : IDisposable
         string pdsUrl, CancellationToken cancellationToken = default) =>
         ResolveAuthorizationServerAsync(pdsUrl, bypassCache: false, cancellationToken);
 
-    /// <summary>
-    /// <see cref="ResolveAuthorizationServerAsync(string, CancellationToken)"/>, fetching both
-    /// documents afresh when <paramref name="bypassCache"/> is set, as confirming an account's
-    /// authorization server requires.
-    /// </summary>
+    // ResolveAuthorizationServerAsync, fetching both documents afresh when bypassCache is set, as
+    // confirming an account's authorization server requires.
     internal async Task<AuthorizationServerMetadata> ResolveAuthorizationServerAsync(
         string pdsUrl, bool bypassCache, CancellationToken cancellationToken)
     {
@@ -158,10 +149,8 @@ internal sealed class AuthorizationServerDiscovery : IDisposable
         return await ResolveAuthorizationServerAsync(resource, bypassCache, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// The authorization server of a resource whose protected-resource metadata has been read:
-    /// its metadata, which must list the resource when it lists any.
-    /// </summary>
+    // The authorization server of a resource whose protected-resource metadata has been read: its
+    // metadata, which must list the resource when it lists any.
     private async Task<AuthorizationServerMetadata> ResolveAuthorizationServerAsync(
         (string Resource, string Issuer) resource, bool bypassCache, CancellationToken cancellationToken)
     {
@@ -180,14 +169,12 @@ internal sealed class AuthorizationServerDiscovery : IDisposable
         return metadata;
     }
 
-    /// <summary>
-    /// Resolves the URL a sign-in starts from: a PDS, through its protected-resource metadata, or
-    /// failing that an authorization server (an entryway) that serves no protected-resource
-    /// metadata, which is then its own issuer.
-    /// </summary>
-    /// <exception cref="OAuthException">
-    /// Neither worked; the error is the PDS resolution's, as the URL is a PDS in the usual case.
-    /// </exception>
+    // Resolves the URL a sign-in starts from: a PDS, through its protected-resource metadata, or failing
+    // that an authorization server (an entryway) that serves no protected-resource metadata, which is
+    // then its own issuer.
+    //
+    // Throws OAuthException: Neither worked; the error is the PDS resolution's, as the URL is a PDS in
+    // the usual case.
     internal async Task<AuthorizationServerMetadata> ResolveFromServerUrlAsync(
         string serverUrl, CancellationToken cancellationToken)
     {
@@ -215,11 +202,10 @@ internal sealed class AuthorizationServerDiscovery : IDisposable
         return await ResolveAuthorizationServerAsync(resource, bypassCache: false, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Fetches and validates the metadata of the authorization server whose issuer is
-    /// <paramref name="issuer"/>, afresh when <paramref name="bypassCache"/> is set.
-    /// </summary>
-    /// <exception cref="OAuthException">The metadata cannot be fetched or fails validation.</exception>
+    // Fetches and validates the metadata of the authorization server whose issuer is issuer, afresh when
+    // bypassCache is set.
+    //
+    // Throws OAuthException: The metadata cannot be fetched or fails validation.
     internal async Task<AuthorizationServerMetadata> GetAuthorizationServerMetadataAsync(
         string issuer, bool bypassCache, CancellationToken cancellationToken)
     {
@@ -229,11 +215,10 @@ internal sealed class AuthorizationServerDiscovery : IDisposable
         return metadata;
     }
 
-    /// <summary>
-    /// Reads a PDS's protected-resource metadata and checks it as the reference client does: it
-    /// describes this PDS, and names exactly one authorization server, by a canonical issuer.
-    /// </summary>
-    /// <returns>The resource as the metadata names it, and its authorization server's issuer.</returns>
+    // Reads a PDS's protected-resource metadata and checks it as the reference client does: it describes
+    // this PDS, and names exactly one authorization server, by a canonical issuer.
+    //
+    // Returns: The resource as the metadata names it, and its authorization server's issuer.
     private async Task<(string Resource, string Issuer)> ResolveResourceAsync(
         string pdsUrl, bool bypassCache, CancellationToken cancellationToken)
     {
@@ -292,8 +277,9 @@ internal sealed class AuthorizationServerDiscovery : IDisposable
         Uri baseUrl;
         try
         {
-            baseUrl = IdentityNetworkPolicy.ValidateServiceUrl(
-                new Uri(NormalizeUrl(serverUrl), UriKind.Absolute), _allowPrivateNetworks, nameof(serverUrl));
+            baseUrl = AtProtoHttp.ValidateServiceUrl(
+                new Uri(NormalizeUrl(serverUrl), UriKind.Absolute), nameof(serverUrl),
+                allowInsecure: _allowPrivateNetworks, allowLoopback: false);
         }
         catch (Exception ex) when (ex is ArgumentException or UriFormatException)
         {
@@ -314,10 +300,8 @@ internal sealed class AuthorizationServerDiscovery : IDisposable
         }
     }
 
-    /// <summary>
-    /// Returns a metadata document from the cache, or fetches it (always, with
-    /// <paramref name="bypassCache"/>) and caches what it fetched.
-    /// </summary>
+    // Returns a metadata document from the cache, or fetches it (always, with bypassCache) and caches
+    // what it fetched.
     private async Task<ReadOnlyMemory<byte>> GetMetadataDocumentAsync(Uri url, bool bypassCache, CancellationToken cancellationToken)
     {
         var key = url.AbsoluteUri;
@@ -343,31 +327,8 @@ internal sealed class AuthorizationServerDiscovery : IDisposable
         if (!result.IsSuccess)
             throw new OAuthException($"{url} answered HTTP {(int)result.Status}.", "metadata_fetch_failed");
 
-        CacheMetadataDocument(key, result.Body);
+        _metadataCache.Set(key, new CachedDocument(result.Body, TimeProvider.GetUtcNow() + MetadataCacheLifetime));
         return result.Body;
-    }
-
-    private void CacheMetadataDocument(string key, ReadOnlyMemory<byte> body)
-    {
-        var now = TimeProvider.GetUtcNow();
-        _metadataCache[key] = new CachedDocument(body, now + MetadataCacheLifetime);
-        if (_metadataCache.Count <= MetadataCacheCapacity)
-            return;
-
-        foreach (var (candidate, document) in _metadataCache)
-        {
-            if (document.ExpiresAt <= now)
-                _metadataCache.TryRemove(candidate, out _);
-        }
-
-        // Still over: the URLs come from logins anyone can start, so no entry is worth more than
-        // another.
-        foreach (var candidate in _metadataCache.Keys)
-        {
-            if (_metadataCache.Count <= MetadataCacheCapacity)
-                break;
-            _metadataCache.TryRemove(candidate, out _);
-        }
     }
 
     private void ValidateAuthorizationServerMetadata(AuthorizationServerMetadata metadata, string expectedIssuer)
@@ -421,27 +382,20 @@ internal sealed class AuthorizationServerDiscovery : IDisposable
         }
     }
 
-    /// <summary>
-    /// Whether <paramref name="value"/> is usable as an authorization server endpoint: an absolute
-    /// <c>https</c> URL (or <c>http</c> under the development opt-out) naming a host, with no
-    /// userinfo, query or fragment.
-    /// </summary>
+    // Whether value is usable as an authorization server endpoint: an absolute https URL (or http under
+    // the development opt-out) naming a host, with no userinfo, query or fragment.
     internal static bool IsEndpoint(string value, bool allowPrivateNetworks) =>
         !value.Contains('?') && !value.Contains('#') &&
         Uri.TryCreate(value, UriKind.Absolute, out var uri) && IsEndpoint(uri, allowPrivateNetworks);
 
-    /// <inheritdoc cref="IsEndpoint(string, bool)"/>
     internal static bool IsEndpoint(Uri uri, bool allowPrivateNetworks) =>
         uri.IsAbsoluteUri &&
         (uri.Scheme == Uri.UriSchemeHttps || (allowPrivateNetworks && uri.Scheme == Uri.UriSchemeHttp)) &&
         !string.IsNullOrEmpty(uri.Host) &&
         uri.UserInfo.Length == 0 && uri.Query.Length == 0 && uri.Fragment.Length == 0;
 
-    /// <summary>
-    /// Whether <paramref name="value"/> is an issuer identifier in canonical form: an endpoint URL
-    /// (see <see cref="IsEndpoint(string, bool)"/>) with a lower-case scheme and host, no default
-    /// port and no trailing <c>/</c>, as the reference client requires.
-    /// </summary>
+    // Whether value is an issuer identifier in canonical form: an endpoint URL (see IsEndpoint) with a
+    // lower-case scheme and host, no default port and no trailing /, as the reference client requires.
     internal static bool IsCanonicalIssuer(string? value, bool allowPrivateNetworks)
     {
         if (value is null || !IsEndpoint(value, allowPrivateNetworks))
@@ -452,10 +406,8 @@ internal sealed class AuthorizationServerDiscovery : IDisposable
         return string.Equals(value, canonical, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// Whether a protected resource's <c>resource</c> is the PDS its metadata was fetched from:
-    /// the same scheme, host, port and path, a trailing <c>/</c> aside.
-    /// </summary>
+    // Whether a protected resource's resource is the PDS its metadata was fetched from: the same scheme,
+    // host, port and path, a trailing / aside.
     internal static bool ResourceMatches(string? resource, string pdsUrl)
     {
         if (resource is null ||
@@ -494,11 +446,7 @@ internal sealed class AuthorizationServerDiscovery : IDisposable
 /// <summary>Exception thrown for OAuth-specific errors.</summary>
 public sealed class OAuthException : AtProtoException
 {
-    /// <summary>
-    /// The error code: an OAuth <c>error</c> value the authorization server returned (such as
-    /// <c>invalid_grant</c>), or one the SDK assigns to a client-side failure (such as
-    /// <c>invalid_state</c> or <c>issuer_mismatch</c>).
-    /// </summary>
+    /// <summary>The error code: an OAuth <c>error</c> value the authorization server returned (such as <c>invalid_grant</c>), or one the SDK assigns to a client-side failure (such as <c>invalid_state</c> or <c>issuer_mismatch</c>).</summary>
     public string Error { get; }
 
     /// <summary>Creates a new OAuth exception.</summary>

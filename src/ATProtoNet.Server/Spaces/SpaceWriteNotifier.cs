@@ -100,10 +100,7 @@ public sealed class SpaceWriteNotifier
         return FanOutAsync(space, repoDid, NotifyWrite, body, includeAuthority: true, cancellationToken);
     }
 
-    /// <summary>
-    /// Forwards a write notification this authority accepted to the services registered for the
-    /// space, in the background.
-    /// </summary>
+    /// <summary>Forwards a write notification this authority accepted to the services registered for the space, in the background.</summary>
     /// <param name="repoDid">The DID of the account whose repo advanced.</param>
     /// <param name="rev">The revision of the write.</param>
     /// <param name="hash">The repo's commit hash after the write.</param>
@@ -165,10 +162,7 @@ public sealed class SpaceWriteNotifier
         return FanOutAsync(space, space.Authority, NotifySpaceDeleted, body, includeAuthority: false, cancellationToken);
     }
 
-    /// <summary>
-    /// Registers a space's own authority as a subscriber for a repo's writes, if it is not the
-    /// repo's owner.
-    /// </summary>
+    /// <summary>Registers a space's own authority as a subscriber for a repo's writes, if it is not the repo's owner.</summary>
     /// <param name="space">The space being written into.</param>
     /// <param name="repoDid">The account doing the writing.</param>
     /// <param name="lifetime">How long the registration lasts. Defaults to 30 days.</param>
@@ -206,11 +200,15 @@ public sealed class SpaceWriteNotifier
         return true;
     }
 
-    /// <summary>Delivers one notification to every subscriber of a space.</summary>
-    /// <param name="issuer">The account the notification speaks for, which it is signed as when possible.</param>
-    /// <param name="nsid">The method being called.</param>
-    /// <param name="body">The request body.</param>
-    /// <param name="includeAuthority">Whether the space's own authority subscription is delivered to.</param>
+    // Delivers one notification to every subscriber of a space.
+    //
+    // issuer: The account the notification speaks for, which it is signed as when possible.
+    //
+    // nsid: The method being called.
+    //
+    // body: The request body.
+    //
+    // includeAuthority: Whether the space's own authority subscription is delivered to.
     private async Task<int> FanOutAsync<TBody>(
         SpaceUri space, Did issuer, Nsid nsid, TBody body, bool includeAuthority, CancellationToken cancellationToken)
     {
@@ -229,34 +227,26 @@ public sealed class SpaceWriteNotifier
         return results.Count(delivered => delivered);
     }
 
-    /// <summary>
-    /// The <c>aud</c> a delivery is addressed to: the identifier the subscriber registered,
-    /// except for the space's own authority host, which the reference authority expects to be
-    /// addressed by its bare DID.
-    /// </summary>
+    // The aud a delivery is addressed to: the identifier the subscriber registered, except for the
+    // space's own authority host, which the reference authority expects to be addressed by its bare DID.
     private static string Audience(SpaceUri space, string service) =>
         string.Equals(service, SpaceAuthority.HostAudience(space.Authority), StringComparison.Ordinal)
             ? space.Authority.Value
             : service;
 
-    /// <summary>
-    /// Whether a service identifier names the space's own authority as its space host — bare, or
-    /// as <c>#atproto_space_host</c>, both of which resolve to the same endpoint.
-    /// </summary>
+    // Whether a service identifier names the space's own authority as its space host — bare, or as
+    // #atproto_space_host, both of which resolve to the same endpoint.
     private static bool IsAuthority(SpaceUri space, string service) =>
         string.Equals(service, space.Authority.Value, StringComparison.Ordinal) ||
         string.Equals(service, SpaceAuthority.HostAudience(space.Authority), StringComparison.Ordinal);
 
-    /// <summary>
-    /// Whether an exception is a delivery failure to be logged and dropped, rather than a
-    /// cancellation the caller asked for and must see.
-    /// </summary>
-    /// <remarks>
-    /// Anything a subscriber's DID document or endpoint can make go wrong is a failed delivery to
-    /// that subscriber: the document is written by whoever registered it, so letting one of its
-    /// failures escape would let a single subscriber stop <c>deleteSpace</c> for everyone. An
-    /// HttpClient timeout surfaces as a cancellation nobody requested, and counts too.
-    /// </remarks>
+    // Whether an exception is a delivery failure to be logged and dropped, rather than a cancellation
+    // the caller asked for and must see.
+    //
+    // Anything a subscriber's DID document or endpoint can make go wrong is a failed delivery to that
+    // subscriber: the document is written by whoever registered it, so letting one of its failures
+    // escape would let a single subscriber stop deleteSpace for everyone. An HttpClient timeout surfaces
+    // as a cancellation nobody requested, and counts too.
     private static bool IsDeliveryFailure(Exception exception, CancellationToken cancellationToken) =>
         exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested;
 
