@@ -1,9 +1,10 @@
 # Blazor Integration
 
-ATProto.NET's Blazor support has two halves: the OAuth cookie login, which lives in
-`ATProtoNet.Server` and works for any ASP.NET Core application, and the components in
-`ATProtoNet.Blazor` — a login form, and widgets that read and write as the signed-in user.
-Authentication uses standard cookie-based auth — no custom `AuthenticationStateProvider` needed.
+`ATProtoNet.Blazor` has the components of a Blazor application whose users sign in with their AT
+Protocol account: a login form, and widgets that read and write as the signed-in user. The sign-in
+itself is the [OAuth cookie login](oauth.md#hosted-login-aspnet-core) of `ATProtoNet.Server`, which
+the package brings along and which works for any ASP.NET Core application. Authentication uses
+standard cookie-based auth — no custom `AuthenticationStateProvider` needed.
 
 ## Installation
 
@@ -61,31 +62,10 @@ app.MapAtProtoOAuth();
 app.Run();
 ```
 
-This maps four HTTP endpoints:
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/atproto/login?handle=...` | GET | Starts OAuth flow, redirects to authorization server |
-| `/atproto/callback` | GET | Handles OAuth callback, issues cookie, redirects to returnUrl |
-| `/atproto/relay?code=...` | GET | Issues the cookie on the login's origin when the callback arrived on another loopback origin (development) |
-| `/atproto/logout` | POST | Removes and revokes the session, clears cookie, redirects to post-logout URL |
-
-### Login CSRF protection
-
-The OAuth `state` parameter ties the callback to a pending authorization, not to a browser: on
-its own, anyone who could get a victim to open a completed callback URL could sign them in as
-whoever started that login. `/atproto/login` closes that gap itself, without any application
-code: it gives the browser a random value in an HttpOnly, `SameSite=Lax` cookie (`Secure`, with
-the `__Host-` prefix, on HTTPS) and keeps only its hash with the pending authorization; `/atproto/callback`
-requires the same cookie, checks it against that hash, and deletes it once the login completes. A
-callback that arrives without the matching cookie is refused (`login_not_bound`) and its tokens
-are revoked. `returnUrl` is kept server-side with the pending authorization rather than in a
-cookie, and only ever a local path (`/…`, never `//` or `/\`, which browsers can treat as another
-host) — anything else falls back to `DefaultReturnUrl`. The callback only ever redirects to that
-return URL, or to the relay on the login's own loopback origin (`AtProtoOAuthCallbackResult`); a
-relayed login nobody redeems within two minutes has its tokens revoked. See
-[OAuth: State Parameter](oauth.md#state-parameter) for the same mechanism from the core client's
-side.
+`MapAtProtoOAuth()` maps the login's endpoints (`/atproto/login`, `/atproto/callback`,
+`/atproto/relay` and `/atproto/logout`). Their options, the claims the login issues, the login's
+CSRF protection, and development and production client metadata are on
+[OAuth: Hosted Login](oauth.md#hosted-login-aspnet-core).
 
 ## Login Form
 
@@ -174,167 +154,8 @@ Standard Blazor `<AuthorizeView>` works automatically after login:
 </AuthorizeView>
 ```
 
-### Available Claims
-
-After login, the following claims are set on the user's `ClaimsPrincipal`. The names are
-constants on `AtProtoClaimTypes` (`ATProtoNet.Server.Authentication`):
-
-| Claim | Description | Example |
-|-------|-------------|---------|
-| `ClaimTypes.NameIdentifier` | The user's DID | `did:plc:abc123` |
-| `ClaimTypes.Name` | The user's handle, or `handle.invalid` when it does not verify | `alice.bsky.social` |
-| `did` (`Did`) | The user's DID | `did:plc:abc123` |
-| `handle` (`Handle`) | The user's handle, or the DID when it does not verify | `alice.bsky.social` |
-| `handle_verified` (`HandleVerified`) | `"true"` or `"false"` | `true` |
-| `pds_url` (`PdsUrl`) | The user's PDS URL | `https://bsky.social` |
-| `auth_method` (`AuthMethod`) | Always `"oauth"` | `oauth` |
-
-### Custom Claims
-
-Override the default claims by providing a `ClaimsFactory`. Keep a `did` (or
-`ClaimTypes.NameIdentifier`) claim: the client factory, the widgets and sign-out find the user's
-session by it. They only look at the identity the login issues (authentication type `ATProto`),
-never at a service auth identity carrying the same claim.
-
-```csharp
-builder.Services.AddAtProto().WithOAuth(options =>
-{
-    // session is the OAuthSession the callback produced
-    options.ClaimsFactory = session => new[]
-    {
-        new Claim(ClaimTypes.NameIdentifier, session.Did.Value),
-        new Claim(AtProtoClaimTypes.Did, session.Did.Value),
-        new Claim(ClaimTypes.Name, session.Handle.Value),
-        new Claim(ClaimTypes.Role, session.Did.Value == "did:plc:myadmindid" ? "Admin" : "User"),
-    };
-});
-```
-
-## Configuration
-
-### AtProtoOAuthServerOptions
-
-`AtProtoOAuthServerOptions` (`ATProtoNet.Server.Authentication`) configures the login. It goes
-through `IOptions<T>`, so it also binds from configuration
-(`builder.Services.Configure<AtProtoOAuthServerOptions>(section)`), and a bad value stops the host
-at startup:
-
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `RoutePrefix` | `string` | `"/atproto"` | Route prefix for OAuth endpoints |
-| `CookieScheme` | `string` | `"Cookies"` | Cookie authentication scheme name |
-| `DefaultReturnUrl` | `string` | `"/"` | Default redirect after login |
-| `PostLogoutRedirectUri` | `string` | `"/"` | Redirect after logout |
-| `LoginPath` | `string` | `"/login"` | Redirect target on OAuth errors, with an `error` code |
-| `Scopes` | `string` | `"atproto transition:generic"` | OAuth scopes to request |
-| `ClientName` | `string?` | — | App name shown on consent page |
-| `BaseUrl` | `string?` | — | Explicit base URL: the callback is `{BaseUrl}{RoutePrefix}/callback` |
-| `ClientMetadata` | `OAuthClientMetadata?` | — | Explicit client metadata (for production) |
-| `ClientKeys` | `IList<OAuthClientKey>` | empty | Keys of a confidential (`private_key_jwt`) client; needs `ClientMetadata` |
-| `ServeClientMetadata` | `bool` | `false` | Serve `ClientMetadata` at the path of its `client_id`, and the public keys at the path of its `jwks_uri` |
-| `ClaimsFactory` | `Func<OAuthSession, IEnumerable<Claim>>?` | — | Custom claims factory |
-| `CookieExpiration` | `TimeSpan` | 7 days | Cookie lifetime |
-| `IsPersistent` | `bool` | `true` | Persist cookie across sessions |
-| `HttpClient` | `HttpClient?` | — | Client used for OAuth discovery, pushed authorization, token and revocation requests. Caller-owned: used as is, its `Timeout` is untouched and it is not disposed with the service. Without it, the named client `AtProtoOAuthExtensions.HttpClientName` is used |
-| `HttpClientTimeout` | `TimeSpan` | 30 s | Timeout of the OAuth `HttpClient`. Ignored when `HttpClient` is set |
-| `HandleResolutionTimeout` | `TimeSpan` | 5 s | Budget per handle-resolution round. `Timeout.InfiniteTimeSpan` disables it |
-| `AllowPrivateNetworks` | `bool` | `false` | Development opt-out for a local PDS or PLC: plain HTTP and private addresses in discovery and identity resolution. Never set it where users can name any handle, DID or PDS |
-
-The login's `OAuthClient` (`AtProtoOAuthService.Client`) is built from these options alone and
-registered as the `OAuthClient` singleton, which the client factory refreshes and revokes sessions
-with.
-
-Without `HttpClient`, every request to a PDS or an authorization server (metadata, pushed
-authorization, token, refresh, revocation) goes out through the named client
-`AtProtoOAuthExtensions.HttpClientName` under the identity fetch policy (public addresses only, no
-redirects; see [OAuth](oauth.md#fetch-policy)). Handlers added to that name (logging, telemetry)
-apply, but never add one that retries: codes and refresh tokens are single-use and DPoP proofs are
-refused when replayed. Its primary handler connects directly and never through a proxy — the policy checks the address it connects to, and a proxy
-would make that the proxy's address rather than the target's. An application that must reach the
-internet through an egress proxy supplies its own `HttpClient` (which is then used as is, proxy
-included) and relies on the proxy to keep requests off private addresses. A supplied `HttpClient`
-carries every one of those requests as is.
-
-Pending logins are limited per remote address, grouping an IPv6 address by its /64 (see
-[OAuth](oauth.md#pending-authorizations)), so one address flooding `/atproto/login` only displaces
-its own. Behind a reverse proxy or load balancer, that address is the proxy's unless the
-application restores the client's with `app.UseForwardedHeaders()` (with the proxy listed in
-`KnownProxies`/`KnownNetworks`) before `MapAtProtoOAuth()` runs — otherwise every user behind it
-shares one requester's limit. To share pending logins between instances, or keep them across a
-restart, register a state store; the service takes it from dependency injection:
-
-```csharp
-builder.Services.AddStackExchangeRedisCache(options => options.Configuration = "localhost:6379");
-builder.Services.AddSingleton<IOAuthStateStore>(sp => new DistributedCacheOAuthStateStore(
-    sp.GetRequiredService<IDistributedCache>(),
-    new DistributedCacheOAuthStateStoreOptions
-    {
-        Protect = protector.Protect,      // an IDataProtector: the entries hold DPoP private keys
-        Unprotect = protector.Unprotect,
-    }));
-```
-
-### Handle resolution timeouts
-
-Handle resolution talks to a host named by the user (`https://<handle>/.well-known/atproto-did`), which may be parked or firewalled and silently drop traffic on port 443. The SDK runs that lookup alongside the DNS-over-HTTPS TXT lookup and bounds both with `HandleResolutionTimeout`, so a dead handle domain costs a few seconds instead of the `HttpClient` timeout. When an `IIdentityResolver` is registered (`AddAtProtoIdentity`), the service uses it instead, and its own options apply. Raise it for slow networks, or lower it for a snappier sign-in:
-
-```csharp
-builder.Services.AddAtProto().WithOAuth(options =>
-{
-    options.HandleResolutionTimeout = TimeSpan.FromSeconds(3);
-    options.HttpClientTimeout = TimeSpan.FromSeconds(20);
-});
-```
-
-### Development (Loopback Client)
-
-For development, the library auto-generates [loopback client metadata](https://atproto.com/specs/oauth#localhost-client-development). Just call `WithOAuth()` without explicit `ClientMetadata`:
-
-```csharp
-builder.Services.AddAtProto().WithOAuth(options =>
-{
-    options.ClientName = "My Dev App";
-});
-```
-
-The `client_id` is `http://localhost?redirect_uri=...&scope=...`, with the callback on the
-server's plain HTTP address on `127.0.0.1` (a `localhost` or any-address binding counts), or on
-`BaseUrl` when that is set. It is fixed by the server's address rather than taken from a request,
-so after a restart the stored sessions still refresh. Bind a plain HTTP address, such as
-`http://127.0.0.1:5000` in `launchSettings.json`, even when the browser uses HTTPS: loopback
-clients call back over HTTP, and the login relays the cookie to the browser's origin. Without one
-(and without `BaseUrl`), the login fails with an `InvalidOperationException` saying so. The client
-is built when a login or a stored session first needs it, after the server has started, so
-resolving the client factory earlier is fine.
-
-### Production
-
-For production, host a [client metadata JSON document](https://drafts.aaronpk.com/draft-parecki-oauth-client-id-metadata-document/) at a public HTTPS URL and provide it explicitly; `ServeClientMetadata` has `MapAtProtoOAuth()` serve it at its `client_id`:
-
-```csharp
-builder.Services.AddAtProto().WithOAuth(options =>
-{
-    options.ClientMetadata = new OAuthClientMetadata
-    {
-        ClientId = "https://myapp.example.com/oauth-client-metadata.json",
-        ClientName = "My App",
-        ClientUri = "https://myapp.example.com",
-        RedirectUris = ["https://myapp.example.com/atproto/callback"],
-        GrantTypes = ["authorization_code", "refresh_token"],
-        ResponseTypes = ["code"],
-        Scope = "atproto transition:generic",
-        TokenEndpointAuthMethod = "none",
-        ApplicationType = "web",
-        DpopBoundAccessTokens = true,
-    };
-    options.BaseUrl = "https://myapp.example.com";
-    options.ServeClientMetadata = true;   // serves GET /oauth-client-metadata.json
-});
-```
-
-A confidential client adds its `ClientKeys`; with a `JwksUri` in the metadata and
-`ServeClientMetadata` on, `MapAtProtoOAuth()` serves their public halves there too. See
-[OAuth: Hosted Login](oauth.md#production-configuration).
+The claims (`AtProtoClaimTypes`), and how to replace them with a `ClaimsFactory`, are listed on
+[OAuth: Claims](oauth.md#claims).
 
 ## Protecting Pages
 
@@ -467,7 +288,7 @@ takes a `CssClass` for its container.
 
 `WithClientFactory()` registers `IAtProtoClientFactory` and the `IAtProtoSessionStore` it reads,
 which API endpoints and services use to create authenticated `AtProtoClient` instances for
-logged-in users. See [server.md](server.md) for full documentation, and for choosing the store.
+signed-in users. See [Acting as the Signed-In User](server.md), also for choosing the store.
 
 ## Examples
 

@@ -8,51 +8,52 @@ ATProto.NET is a .NET 10 SDK for the [AT Protocol](https://atproto.com) — the 
 2. **[Custom Lexicon Records](custom-records.md)** — the SDK's headline feature: define your own record types and use `RecordCollection<T>` for typed CRUD.
 3. **Pick your integration** — [ASP.NET Core](aspnet-core.md), [Blazor](blazor.md), [Aspire](aspire.md), or run a [managed PDS](managed-pds.md).
 
-If you want a map of how the packages compose, see **[Architecture](architecture.md)**.
+Upgrading from 0.6? Read **[Migrating to 0.7](migrating-to-0.7.md)**. For a map of how the packages compose, see **[Architecture](architecture.md)**. Every type and method is documented in its XML comments, which IntelliSense shows.
 
 ## Guides
 
 ### Core Concepts
 - [AT Protocol Overview](at-protocol-overview.md) — DIDs, handles, repositories, Lexicons
-- [Identity Types](identity-types.md) — `Did`, `Handle`, `AtUri`, `Nsid`, `Tid`, `RecordKey`, `Cid`
-- [Identity Resolution](did-resolution.md) — DID and handle resolvers, caching, and the SSRF fetch policy
-- [Session Management](session-management.md) — authentication, token refresh, custom persistence
-- [OAuth Authentication](oauth.md) — DPoP, PAR, PKCE, dynamic PDS selection
-- [Error Handling](error-handling.md) — XRPC errors, HTTP exceptions, retry patterns
+- [Identity Types](identity-types.md) — `Did`, `Handle`, `AtUri`, `Nsid`, `Tid`, `RecordKey`, `Cid`, `AtDatetime`
+- [Identity Resolution](did-resolution.md) — DID and handle resolvers, caching, the SSRF fetch policy, and resolving lexicons
+- [Session Management](session-management.md) — sessions, refresh, persistence with `IAtProtoSessionStore`, sign-out
+- [OAuth Authentication](oauth.md) — DPoP, PAR, PKCE, scopes, and the hosted login for ASP.NET Core
+- [Error Handling](error-handling.md) — the `XrpcException` family, rate limits, retry patterns
 
 ### Building Your Own App
-- [Custom Lexicon Records](custom-records.md) — `RecordCollection<T>` for typed CRUD
-- [Custom XRPC Endpoints](custom-xrpc.md) — call your own query / procedure methods
+- [Custom Lexicon Records](custom-records.md) — `RecordCollection<T>` for typed CRUD, unions and unknown fields
+- [Custom XRPC Endpoints](custom-xrpc.md) — call your own query / procedure methods, and build sub-clients for other Lexicons
 - [Batch Operations](batch-operations.md) — `ApplyWrites` for atomic multi-record operations
+- [Blob Upload](blob-upload.md) — upload images, files, binary data
 - [Spaces (Permissioned Data)](spaces.md) — the access-controlled data protocol: spaces, permissioned repos, credentials, sync, and [serving a space](spaces.md#serving-a-space)
 - [Testing Against a Real Space Host](testing-spaces.md) — standing up a permissioned-data PDS for the space integration tests
-- [Blob Upload](blob-upload.md) — upload images, files, binary data
 
 ### Bluesky Features
-- [Chat & Direct Messages](chat.md) — `chat.bsky` DMs
+- [Bluesky](bluesky.md) — posting, likes and follows, profiles, feeds, threads, search, bookmarks, notifications
+- [Chat & Direct Messages](chat.md) — `chat.bsky` direct and group chats
 - [Video Upload](video.md) — `app.bsky.video` upload and processing
 - [Labeler Services](labeler.md) — label definitions, labeler info, header management, and signing, verifying and serving labels
 - [Ozone Moderation](ozone.md) — `tools.ozone` moderation client
-
-### Integration
-- [ASP.NET Core](aspnet-core.md) — dependency injection, authentication, controllers
-- [Server Integration](server.md) — `IAtProtoClientFactory`, token store, backend AT Proto access
-- [Blazor](blazor.md) — components, cookie-based OAuth login, interactive apps
-- [Aspire](aspire.md) — the client from configuration, health checks, and keeping service-default retries off the SDK
 - [Standard.site](standard-site.md) — long-form publishing integration
 
-### Building Servers
-- [Managed PDS](managed-pds.md) — run the Bluesky PDS container and administer it from .NET
-- [XRPC Endpoint Handlers](xrpc-handlers.md) — server-side XRPC endpoints with DI
+### ASP.NET Core and Blazor
+- [ASP.NET Core](aspnet-core.md) — the `AddAtProto()` builder, options, HTTP handlers, authentication, controllers
+- [Acting as the Signed-In User](server.md) — `IAtProtoClientFactory` and the session stores
+- [Blazor](blazor.md) — the login form and the widgets that act as the signed-in user
+- [Aspire](aspire.md) — the client from configuration, health checks, and keeping service-default retries off the SDK
+- [XRPC Endpoint Handlers](xrpc-handlers.md) — serve `/xrpc/{nsid}` endpoints, and accept service auth from other services
+
+### Running Servers
+- [Managed PDS](managed-pds.md) — run the Bluesky or Tranquil PDS container and administer it from .NET
 
 ### Advanced
 - [Firehose Streaming](firehose.md) — real-time event streaming, typed consumers, Sync 1.1 verification and resync
 - [Tap](tap.md) — a client for Tap, Bluesky's Sync 1.1 consumer and backfill service: channel, admin API, webhooks
 - [Jetstream Streaming](jetstream.md) — JSON event streaming with server-side collection/DID/kind filtering, on both the v1 and v2 wire protocols, plus the v2 archive (historical replay and snapshots)
-- [Cryptography](crypto.md) — key generation, signing, multikey encoding, service auth
-- [Lexicon Code Generator](lexicon-codegen.md) — generate C# from Lexicons (and vice versa)
-- [Low-Level Repo API](low-level-repo.md) — direct `RepoClient`, MST, DAG-CBOR, CAR files
+- [Cryptography](crypto.md) — key generation, signing, multikey encoding, service auth tokens
+- [Low-Level Repo API](low-level-repo.md) — direct `RepoClient`, verified reads, DAG-CBOR, CIDs, CAR files, the MST, commits
+- [Lexicon Code Generator](lexicon-codegen.md) — generate C# from Lexicons (and vice versa), lint, diff, publish and resolve
 
 ### Reference
 - [Architecture](architecture.md) — package layering, source tree, conventions
-- [API Reference](api-reference.md) — complete public API surface
+- [Migrating to 0.7](migrating-to-0.7.md) — every breaking change of 0.7, with before and after

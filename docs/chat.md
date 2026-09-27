@@ -11,6 +11,18 @@ ATProto.NET provides full Bluesky chat support, direct and group, via the `chat.
 | `client.Chat.Moderation` | `chat.bsky.moderation.*`: for moderation services | `ATProtoNet.Lexicon.Chat.Bsky.Moderation` |
 
 Message embeds (`MessageRecordEmbed`, `JoinLinkEmbed` and their views) are in `ATProtoNet.Lexicon.Chat.Bsky.Embed`.
+The samples on this page use these namespaces:
+
+```csharp
+using ATProtoNet.Lexicon.App.Bsky.RichText;
+using ATProtoNet.Lexicon.Chat.Bsky.Actor;
+using ATProtoNet.Lexicon.Chat.Bsky.Convo;
+using ATProtoNet.Lexicon.Chat.Bsky.Embed;
+using ATProtoNet.Lexicon.Chat.Bsky.Group;
+using ATProtoNet.Lexicon.Chat.Bsky.Notification;
+using ATProtoNet.Models;
+using ATProtoNet.Streaming;
+```
 
 ## Prerequisites
 
@@ -156,12 +168,15 @@ var (text, facets) = new RichTextBuilder()
     .Mention(Handle.Parse("bob.bsky.social"), Did.Parse("did:plc:bob"))
     .Build();
 
+// A post to quote, from a feed or a RecordRef of your own
+var post = (await client.Bsky.Feed.GetPostsAsync([AtUri.Parse("at://did:plc:bob/app.bsky.feed.post/3l6oveex3ii2l")])).Posts[0];
+
 await client.Chat.Convo.SendMessageAsync("convo-id", new MessageInput
 {
     Text = text,
     Facets = facets,
     // Quote a post: a MessageRecordEmbed. Share a group: a JoinLinkEmbed { Code = … }.
-    Embed = new MessageRecordEmbed { Record = new StrongRef { Uri = postUri, Cid = postCid } },
+    Embed = new MessageRecordEmbed { Record = new StrongRef { Uri = post.Uri, Cid = post.Cid } },
     // Reply to a message in the same conversation
     ReplyTo = new MessageReplyRef { MessageId = "message-id" },
 });
@@ -303,7 +318,7 @@ Each member is added with a request they accept like any conversation request, a
 whose `ChatDeclarationRecord.AllowGroupInvites` allows it can be added. `CreateGroupAsync` is not
 idempotent: every call creates a new group.
 
-```csharp
+```csharp continued
 // Owner only
 await client.Chat.Group.AddMembersAsync(group.Id, [Did.Parse("did:plc:carol")]);
 await client.Chat.Group.RemoveMembersAsync(group.Id, [Did.Parse("did:plc:bob")]);
@@ -323,6 +338,7 @@ await foreach (var shared in client.Chat.Group.EnumerateMutualGroupsAsync(Did.Pa
 A group has at most one join link. Its `JoinRule` says who may use it (`JoinRule.Anyone` or
 `JoinRule.FollowedByOwner`), and with `requireApproval` the owner approves each request:
 
+<!-- snippet: ConvoView group; string otherConvoId; -->
 ```csharp
 var link = await client.Chat.Group.CreateJoinLinkAsync(
     group.Id, JoinRule.FollowedByOwner, requireApproval: true);
@@ -361,6 +377,7 @@ foreach (var preview in previews.JoinLinkPreviews)
 
 ### Join Requests
 
+<!-- snippet: ConvoView group; string convoId; -->
 ```csharp
 // Joining: you are in at once, or the owner has to approve
 var result = await client.Chat.Group.RequestJoinAsync("abc123");
@@ -418,12 +435,16 @@ a `ChatModerationEvent` (`ConvoFirstMessageEvent`, `GroupChatCreatedEvent`,
 `ChatAcceptedEvent`, `RateLimitExceededEvent`, …), and one this SDK does not model reads as
 `UnknownChatModerationEvent`.
 
+<!-- snippet: string? savedRev; System.Func<string, Did, Task> ReviewAsync; -->
 ```csharp
+using ATProtoNet.Lexicon.Chat.Bsky.Moderation;
+
 var consumer = new ChatModerationEventConsumer(new ChatModerationEventConsumerOptions
 {
     ServiceUrl = "wss://api.bsky.chat",
-    GetAccessTokenAsync = ct => MintServiceAuthAsync(
-        audience: "did:web:api.bsky.chat", lxm: "chat.bsky.moderation.subscribeModEvents", ct),
+    // A service auth token for the chat service, bound to the method, minted by the moderator's PDS
+    GetAccessTokenAsync = async ct => (await client.Server.GetServiceAuthAsync(
+        "did:web:api.bsky.chat", Nsid.Parse("chat.bsky.moderation.subscribeModEvents"), cancellationToken: ct)).Token,
 });
 
 // ChatModerationEventConsumer.BeginningCursor replays from the start; null starts live.
@@ -435,7 +456,7 @@ await foreach (var evt in consumer.ConsumeAsync(cursor: savedRev, stoppingToken)
             await ReviewAsync(added.ConvoId, added.SubjectDid);
             break;
         case RateLimitExceededEvent limited:
-            metrics.RateLimited(limited.ActorDid, limited.Endpoint);
+            logger.LogWarning("{Actor} hit the rate limit of {Endpoint}", limited.ActorDid, limited.Endpoint);
             break;
     }
 
@@ -522,14 +543,14 @@ var record = new ChatDeclarationRecord
 };
 
 // Allow messages only from people you follow, and no group invitations
-var record = new ChatDeclarationRecord
+var followingOnly = new ChatDeclarationRecord
 {
     AllowIncoming = ChatAllowIncoming.Following,
     AllowGroupInvites = ChatAllowIncoming.None,
 };
 
 // Disable incoming messages
-var record = new ChatDeclarationRecord
+var closed = new ChatDeclarationRecord
 {
     AllowIncoming = ChatAllowIncoming.None,
 };
@@ -548,5 +569,5 @@ The exception is `client.Chat.Moderation`, which follows the client-wide proxy (
 
 ## Next Steps
 
-- [API Reference](api-reference.md) — The chat sub-clients
+- The XML documentation (IntelliSense) of the `client.Chat` sub-clients lists every method
 - [OAuth Authentication](oauth.md) — Request the `transition:chat.bsky` scope

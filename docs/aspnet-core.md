@@ -1,6 +1,17 @@
 # ASP.NET Core Integration
 
-ATProto.NET provides first-class ASP.NET Core integration through the `ATProtoNet.Server` package.
+`ATProtoNet.Server` wires the SDK into an ASP.NET Core application: an `AtProtoClient` from
+dependency injection, the OAuth cookie login, per-user clients, service auth for calls from other
+services, and XRPC endpoints of your own. This page covers the registration; each feature has its
+own page:
+
+| Feature | Page |
+|---------|------|
+| Sign users in with their AT Protocol account | [OAuth: Hosted Login](oauth.md#hosted-login-aspnet-core) |
+| Call AT Protocol APIs as the signed-in user, and where their sessions are kept | [Acting as the Signed-In User](server.md) |
+| Serve `/xrpc/{nsid}` endpoints, and accept service auth from other services | [XRPC Endpoint Handlers](xrpc-handlers.md) |
+| Blazor components | [Blazor](blazor.md) |
+| Aspire service defaults and health checks | [.NET Aspire](aspire.md) |
 
 ## Installation
 
@@ -8,62 +19,93 @@ ATProto.NET provides first-class ASP.NET Core integration through the `ATProtoNe
 dotnet add package ATProtoNet.Server
 ```
 
-## Service Registration
+The package depends on nothing beyond the ASP.NET Core shared framework. The EF Core stores are in
+`ATProtoNet.Server.EntityFrameworkCore`.
+
+## The AtProto Builder
 
 `AddAtProto()` registers an `AtProtoClient` and returns an `IAtProtoBuilder`, which the rest of the
-registration hangs off (see [Server Integration](server.md#the-atproto-builder)).
-
-### Singleton Client
-
-Register a single shared `AtProtoClient`:
+registration hangs off:
 
 ```csharp
-// Program.cs
-builder.Services.AddAtProto(options =>
-{
-    options.InstanceUrl = "https://your-pds.example.com";
-});
+using ATProtoNet.Server;
+using ATProtoNet.Server.Authentication;
+
+builder.Services.AddAtProto(options => options.InstanceUrl = "https://your-pds.example.com")
+    .WithOAuth()
+    .WithClientFactory()
+    .WithFileSessionStore()
+    .WithHealthCheck();
 ```
 
-The options go through `IOptions<AtProtoClientOptions>`, so they also bind from configuration, and
-an `InstanceUrl` that is not an absolute http(s) URL stops the host at startup:
+| Method | Registers |
+|--------|-----------|
+| `AddAtProto(o => …)` | `AtProtoClient` (singleton), configured by `AtProtoClientOptions` |
+| `.WithLifetime(ServiceLifetime.Scoped)` | the `AtProtoClient` with another lifetime (one per request) |
+| `.WithOAuth(o => …)` | the hosted OAuth login: `AtProtoOAuthService` and its `OAuthClient` (`ATProtoNet.Server.Authentication`) |
+| `.WithClientFactory()` | `IAtProtoClientFactory`, the `ISessionRefreshCoordinator`, and an in-memory store by default |
+| `.WithInMemorySessionStore()` / `.WithFileSessionStore(…)` / `.WithEfCoreSessionStore<T>()` / `.WithSessionStore<T>()` | the session store (`WithEfCoreSessionStore` is in `ATProtoNet.Server.EntityFrameworkCore`); see [Session stores](server.md#session-stores) |
+| `.WithHealthCheck()` | a health check calling `describeServer` through the `AtProtoClient` |
+| `.Services` | the service collection |
+| `.HttpClient` | the `IHttpClientBuilder` of the named client (`AtProtoServiceCollectionExtensions.HttpClientName`, `"ATProtoNet"`) every `AtProtoClient` of the registration sends with |
+
+The Aspire `builder.AddAtProtoClient()` returns the same builder (see [.NET Aspire](aspire.md)).
+
+### Options and configuration
+
+Every options class (`AtProtoClientOptions`, `AtProtoOAuthServerOptions`, `FileSessionStoreOptions`,
+and those of `AddAtProtoIdentity`, `AddAtProtoSpaces` and `AddAtProtoPdsAdmin`) goes through
+`IOptions<T>`: it binds from configuration, and a bad value (an `InstanceUrl` that is not an
+absolute http(s) URL, OAuth scopes without `atproto`, …) stops the host when it starts with an
+`OptionsValidationException` rather than failing the first request. The callbacks you pass
+(`AddAtProto(o => …)`, `WithOAuth(o => …)`, …) run after the bound configuration, whichever order
+the calls are made in, so code wins.
 
 ```csharp
-builder.Services.AddAtProto();
+using ATProtoNet.Server.TokenStore;
+
+builder.Services.AddAtProto()
+    .WithOAuth()
+    .WithClientFactory()
+    .WithFileSessionStore();
+
 builder.Services.Configure<AtProtoClientOptions>(builder.Configuration.GetSection("AtProto"));
+builder.Services.Configure<AtProtoOAuthServerOptions>(builder.Configuration.GetSection("AtProto:OAuth"));
+builder.Services.Configure<FileSessionStoreOptions>(builder.Configuration.GetSection("AtProto:Sessions"));
 ```
 
-### Custom Session Store
+### The registered client
 
-The client writes its session to the registered store, so it survives a restart. The store is a
-singleton; one over a database takes an `IDbContextFactory` rather than a `DbContext` (see
-[Custom Implementation](server.md#custom-implementation)):
+The `AtProtoClient` of `AddAtProto()` is one account's client: a bot, a service account, or a
+back end that signs in with an app password. It is a singleton unless `WithLifetime` says
+otherwise, and it writes its session to the registered store, so a restart can resume it:
 
 ```csharp
-builder.Services.AddAtProto(options =>
-{
-    options.InstanceUrl = "https://your-pds.example.com";
-})
-.WithSessionStore<DatabaseSessionStore>();
+builder.Services.AddAtProto(options => options.InstanceUrl = "https://your-pds.example.com")
+    .WithFileSessionStore();
 ```
 
-### Scoped Client (Per-Request)
+For many users signed in with OAuth, use the client factory instead, which builds a client per
+request from each user's stored session; see [Acting as the Signed-In User](server.md).
 
-For multi-user scenarios where each request has its own session:
-
-```csharp
-builder.Services.AddAtProto(options =>
-{
-    options.InstanceUrl = "https://your-pds.example.com";
-})
-.WithLifetime(ServiceLifetime.Scoped);
-```
-
-### HTTP Handlers
+### HTTP handlers and resilience
 
 Every client of the registration sends through one named `HttpClient`, whose builder is
-`IAtProtoBuilder.HttpClient`. Add logging or telemetry handlers there, but not a handler that
-retries on its own: see [HTTP handlers and resilience](server.md#http-handlers-and-resilience).
+`IAtProtoBuilder.HttpClient`. Add logging, telemetry or proxy handlers there. Do **not** add a
+handler that retries on its own. The SDK already retries a `429` (`AtProtoClientOptions.RateLimit`),
+refreshes an expired session, and signs a fresh DPoP proof for every attempt; a retry below it
+sends a non-idempotent `POST` twice (a `createRecord` becomes two records) and resends the request
+with the DPoP proof it already carries. A proof is single-use: the server refuses one it has seen,
+and one it did not track would be exactly the replay DPoP is meant to stop. The same goes for the
+OAuth login's own client (`AtProtoOAuthExtensions.HttpClientName`), whose authorization codes and
+refresh tokens are single-use.
+
+The builder's client is shared by the registered `AtProtoClient` and the client factory's per-user
+clients, which sign every request of an OAuth session with a DPoP proof, so no retry policy is safe
+on it, not even one limited to `GET`. For transient server errors, retry above the SDK, where every
+attempt is a new request with a new proof (see [Error Handling](error-handling.md#retry-pattern)).
+Aspire service defaults add a retrying handler to every client; [remove it](aspire.md#resilience)
+from the SDK's clients.
 
 ## Authentication
 
@@ -71,8 +113,7 @@ retries on its own: see [HTTP handlers and resilience](server.md#http-handlers-a
 
 - **Users**, with the OAuth cookie login: `AddAtProto().WithOAuth()` and `MapAtProtoOAuth()`
   sign a user in with their AT Protocol account and an ordinary authentication cookie (see
-  [OAuth: Hosted Login](oauth.md#hosted-login-aspnet-core) and the
-  [multi-user pattern](#multi-user-pattern-oauth) below).
+  [OAuth: Hosted Login](oauth.md#hosted-login-aspnet-core)).
 - **Other services and apps**, with service auth: `AddAuthentication().AddAtProtoServiceAuth(...)`
   verifies the service auth token a feed generator, labeler, AppView or PDS-proxied app sends, bound
   to the XRPC method it calls (see
@@ -80,6 +121,7 @@ retries on its own: see [HTTP handlers and resilience](server.md#http-handlers-a
 
 ```csharp
 using ATProtoNet.Server.Authentication;
+using ATProtoNet.Server.Xrpc;
 
 builder.Services.AddAuthentication()
     .AddAtProtoServiceAuth(o => o.Audiences.Add("did:web:api.example.com#my_service"));
@@ -95,27 +137,38 @@ accept its users' PDS access tokens: they are meant for the PDS alone.
 
 ## Controller Example: Custom App
 
+A service account's todo list, kept in its own repository. `TodoItem` is a custom record type (see
+[Custom Lexicon Records](custom-records.md)):
+
 ```csharp
+using Microsoft.AspNetCore.Mvc;
+
+public class TodoItem : AtProtoRecord, IAtProtoRecord
+{
+    public static Nsid Collection { get; } = Nsid.Parse("com.example.todo.item");
+    public override string Type => Collection;
+
+    [JsonPropertyName("title")] public string Title { get; set; } = "";
+    [JsonPropertyName("completed")] public bool Completed { get; set; }
+}
+
 [ApiController]
 [Route("api/todos")]
-public class TodoController : ControllerBase
+public class TodoController(AtProtoClient client) : ControllerBase
 {
-    private readonly AtProtoClient _client;
-
-    public TodoController(AtProtoClient client) => _client = client;
+    private readonly RecordCollection<TodoItem> _todos = client.GetCollection<TodoItem>();
 
     [HttpGet]
     public async Task<IActionResult> List([FromQuery] int limit = 50, [FromQuery] string? cursor = null)
     {
-        var todos = _client.GetCollection<TodoItem>();
-        var page = await todos.ListAsync(limit: limit, cursor: cursor);
+        var page = await _todos.ListAsync(limit: limit, cursor: cursor);
 
         return Ok(new
         {
             items = page.Records.Select(r => new
             {
-                key = r.RecordKey,
-                uri = r.Uri,
+                key = r.RecordKey.Value,
+                uri = r.Uri.Value,
                 title = r.Value.Title,
                 completed = r.Value.Completed,
             }),
@@ -127,37 +180,31 @@ public class TodoController : ControllerBase
     [HttpGet("{key}")]
     public async Task<IActionResult> Get(string key)
     {
-        var todos = _client.GetCollection<TodoItem>();
-
-        var item = await todos.FindAsync(RecordKey.Parse(key));
+        var item = await _todos.FindAsync(RecordKey.Parse(key));
         return item is null ? NotFound() : Ok(item.Value);
     }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] TodoItem item)
     {
-        var todos = _client.GetCollection<TodoItem>();
-        var created = await todos.CreateAsync(item);
+        var created = await _todos.CreateAsync(item);
 
         return CreatedAtAction(nameof(Get),
-            new { key = created.RecordKey },
-            new { uri = created.Uri, key = created.RecordKey });
+            new { key = created.RecordKey.Value },
+            new { uri = created.Uri.Value, key = created.RecordKey.Value });
     }
 
     [HttpPut("{key}")]
     public async Task<IActionResult> Update(string key, [FromBody] TodoItem item)
     {
-        var todos = _client.GetCollection<TodoItem>();
-        var updated = await todos.PutAsync(RecordKey.Parse(key), item);
-
-        return Ok(new { uri = updated.Uri, cid = updated.Cid });
+        var updated = await _todos.PutAsync(RecordKey.Parse(key), item);
+        return Ok(new { uri = updated.Uri.Value, cid = updated.Cid.Value });
     }
 
     [HttpDelete("{key}")]
     public async Task<IActionResult> Delete(string key)
     {
-        var todos = _client.GetCollection<TodoItem>();
-        await todos.DeleteAsync(RecordKey.Parse(key));
+        await _todos.DeleteAsync(RecordKey.Parse(key));
         return NoContent();
     }
 }
@@ -166,31 +213,27 @@ public class TodoController : ControllerBase
 ## Minimal API Example
 
 ```csharp
+using ATProtoNet.Server;
+
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddAtProto(options =>
-{
-    options.InstanceUrl = "https://your-pds.example.com";
-});
+builder.Services.AddAtProto(options => options.InstanceUrl = "https://your-pds.example.com");
 
 var app = builder.Build();
 
-// Login on startup
+// Sign the service account in on startup
 var client = app.Services.GetRequiredService<AtProtoClient>();
 await client.LoginAsync("service-account.example.com", "app-password");
 
 var todos = client.GetCollection<TodoItem>();
 
 app.MapGet("/todos", async (int? limit, string? cursor) =>
-{
-    var page = await todos.ListAsync(limit: limit ?? 50, cursor: cursor);
-    return Results.Ok(page);
-});
+    Results.Ok(await todos.ListAsync(limit: limit ?? 50, cursor: cursor)));
 
 app.MapPost("/todos", async (TodoItem item) =>
 {
     var created = await todos.CreateAsync(item);
-    return Results.Created(created.Uri, created);
+    return Results.Created(created.Uri.Value, created);
 });
 
 app.Run();
@@ -198,57 +241,30 @@ app.Run();
 
 ## Multi-User Pattern (App Password)
 
-For apps where each user authenticates with app passwords (not OAuth):
+For apps where each user authenticates with an app password (not OAuth), register a client per
+request and install the user's session on it:
 
 ```csharp
-// Create a per-request client
-builder.Services.AddAtProto(options =>
-{
-    options.InstanceUrl = "https://your-pds.example.com";
-})
-.WithLifetime(ServiceLifetime.Scoped);
+using ATProtoNet.Auth;
+using ATProtoNet.Server;
 
-// Middleware to authenticate the AT Protocol session from a cookie/header
+builder.Services.AddAtProto(options => options.InstanceUrl = "https://your-pds.example.com")
+    .WithLifetime(ServiceLifetime.Scoped);
+
+var app = builder.Build();
+
+// Install the AT Protocol session this request carries (kept server-side in a real app)
 app.Use(async (context, next) =>
 {
     var sessionJson = context.Request.Cookies["atproto_session"];
-    if (sessionJson is not null)
+    if (sessionJson is not null && JsonSerializer.Deserialize<AtProtoSession>(sessionJson) is { } session)
     {
-        var session = JsonSerializer.Deserialize<AtProtoSession>(sessionJson);
         var client = context.RequestServices.GetRequiredService<AtProtoClient>();
-        await client.ApplySessionAsync(session!); // no request; refreshes on demand
+        await client.ApplySessionAsync(session);   // no request; refreshes on demand
     }
     await next();
 });
 ```
 
-## Multi-User Pattern (OAuth)
-
-For apps with OAuth-based user login (recommended), use `IAtProtoClientFactory`
-from the Server package, which handles DPoP keys, token storage, refresh coordination and per-user
-client creation:
-
-```csharp
-using ATProtoNet.Server;
-using ATProtoNet.Server.Authentication;
-
-builder.Services.AddAuthentication("Cookies").AddCookie();
-builder.Services.AddAtProto()
-    .WithOAuth()                // OAuth cookie login
-    .WithClientFactory()        // Client factory + refresh coordinator
-    .WithFileSessionStore();    // Session store (in memory, with a startup warning, by default)
-
-app.MapAtProtoOAuth();
-
-// In endpoints or services:
-app.MapGet("/api/profile", async (ClaimsPrincipal user, IAtProtoClientFactory factory) =>
-{
-    await using var client = await factory.CreateClientForUserAsync(user);
-    if (client is null) return Results.Unauthorized();
-
-    var profile = await client.Bsky.Actor.GetProfileAsync(client.Session!.Did);
-    return Results.Ok(profile);
-}).RequireAuthorization();
-```
-
-See [Server Integration](server.md) for full documentation on `IAtProtoClientFactory`, `IAtProtoSessionStore`, and custom session store implementations.
+For users signed in with OAuth (recommended), use `WithClientFactory()` and
+`IAtProtoClientFactory` instead; see [Acting as the Signed-In User](server.md).

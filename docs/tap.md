@@ -29,19 +29,20 @@ using var tap = new TapClient(new Uri("http://localhost:2480"), adminPassword: "
 await tap.AddReposAsync([Did.Parse("did:plc:ewvi7nxzyoun6zhxrhs64oiz")]);
 
 var channel = tap.OpenChannel();
-await foreach (var evt in channel.ReadAllAsync(stoppingToken))
+await foreach (var evt in channel.ReadAllAsync(cancellationToken))
 {
     switch (evt)
     {
+        case TapRecordEvent record when record.Operation == RepoOpAction.Delete:
+            Console.WriteLine($"deleted {record.Uri}");
+            break;
+
         case TapRecordEvent record:
-            if (record.Operation == RepoOpAction.Delete)
-                await index.RemoveAsync(record.Uri);
-            else
-                await index.UpsertAsync(record.Uri, record.Cid, record.GetRecord<PostRecord>());
+            Console.WriteLine($"{record.Uri} ({record.Cid}): {record.GetRecord<PostRecord>()?.Text}");
             break;
 
         case TapIdentityEvent identity:
-            await accounts.UpdateAsync(identity.Did, identity.Handle, identity.IsActive, identity.Status);
+            Console.WriteLine($"{identity.Did} is {identity.Handle}, active: {identity.IsActive} ({identity.Status})");
             break;
     }
 
@@ -89,18 +90,28 @@ With `TAP_WEBHOOK_URL` set, Tap POSTs each event to that URL as JSON, with the a
 using ATProtoNet.Server.Tap;
 using ATProtoNet.Tap;
 
-app.MapTapWebhook("/tap/webhook", async (evt, ct) =>
+app.MapTapWebhook("/tap/webhook", (evt, ct) =>
 {
     if (evt is TapRecordEvent record)
-        await index.ApplyAsync(record, ct);
+        Console.WriteLine($"{record.Operation} {record.Uri}");
+    return Task.CompletedTask;
 }, options => options.AdminPassword = builder.Configuration["Tap:AdminPassword"]);
 ```
 
 Or register a handler class and map it by type; it is resolved from the request's services:
 
 ```csharp
-builder.Services.AddScoped<IndexingTapHandler>();   // : ITapEventHandler
-app.MapTapWebhook<IndexingTapHandler>("/tap/webhook", o => o.AdminPassword = tapPassword);
+builder.Services.AddScoped<IndexingTapHandler>();
+app.MapTapWebhook<IndexingTapHandler>("/tap/webhook", o => o.AdminPassword = builder.Configuration["Tap:AdminPassword"]);
+
+public sealed class IndexingTapHandler(ILogger<IndexingTapHandler> logger) : ITapEventHandler
+{
+    public Task HandleAsync(TapEvent evt, CancellationToken cancellationToken)
+    {
+        logger.LogInformation("Tap event {Event}", evt);
+        return Task.CompletedTask;
+    }
+}
 ```
 
 The endpoint:

@@ -1,0 +1,72 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Compiles every ```csharp block of README.md and docs/*.md (see
+       ATProtoNet.DocSnippets.Generator), so a sample that drifts from the API breaks the build.
+       Nothing here runs: samples that need a network only have to compile. -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <!-- CI does not fail on warnings, so a sample calling an [Obsolete] member must be an error. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Samples use preview-free C# only; keep the language the SDK builds with. -->
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- tests/Directory.Build.props adds a global `using Xunit;` this project has no use for. -->
+    <Using Remove="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="..\..\README.md" />
+    <AdditionalFiles Include="..\..\docs\*.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Providers the storage samples configure. Keep them on the version
+         ATProtoNet.Server.EntityFrameworkCore references. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
+    <!-- RemoveAllResilienceHandlers, which the Aspire samples call on the SDK's clients. -->
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.8.0" />
+    <!-- The replay store the Spaces guide shows over Redis, and the zstd decompressor the
+         Jetstream guide plugs into the SDK's seams: both are the application's dependencies. -->
+    <PackageReference Include="StackExchange.Redis" Version="2.13.17" />
+    <PackageReference Include="ZstdSharp.Port" Version="0.8.6" />
+    <!-- The custom-XRPC guide shows a sub-client's test substituting the transport. -->
+    <PackageReference Include="NSubstitute" Version="6.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ATProtoNet.DocSnippets.Generator\ATProtoNet.DocSnippets.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\src\ATProtoNet\ATProtoNet.csproj" />
+    <ProjectReference Include="..\..\src\ATProtoNet.Aspire.Hosting\ATProtoNet.Aspire.Hosting.csproj" />
+    <ProjectReference Include="..\..\src\ATProtoNet.Server\ATProtoNet.Server.csproj" />
+    <ProjectReference Include="..\..\src\ATProtoNet.Server.EntityFrameworkCore\ATProtoNet.Server.EntityFrameworkCore.csproj" />
+    <ProjectReference Include="..\..\src\ATProtoNet.Blazor\ATProtoNet.Blazor.csproj" />
+    <ProjectReference Include="..\..\tools\ATProtoNet.LexiconGenerator\ATProtoNet.LexiconGenerator.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- What a web application has in scope without asking (Microsoft.NET.Sdk.Web's implicit
+         usings), plus the namespaces nearly every sample uses. A sample that needs any other
+         namespace says so with its own `using`. -->
+    <Using Include="Microsoft.AspNetCore.Builder" />
+    <Using Include="Microsoft.AspNetCore.Hosting" />
+    <Using Include="Microsoft.AspNetCore.Http" />
+    <Using Include="Microsoft.AspNetCore.Routing" />
+    <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Hosting" />
+    <Using Include="Microsoft.Extensions.Logging" />
+    <Using Include="System.Net.Http.Json" />
+    <Using Include="System.Text.Json" />
+    <Using Include="System.Text.Json.Serialization" />
+    <Using Include="ATProtoNet" />
+    <Using Include="ATProtoNet.Identity" />
+  </ItemGroup>
+
+</Project>

@@ -7,6 +7,8 @@
     <Project Path="src/ATProtoNet/ATProtoNet.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/ATProtoNet.DocSnippets/ATProtoNet.DocSnippets.csproj" />
+    <Project Path="tests/ATProtoNet.DocSnippets.Generator/ATProtoNet.DocSnippets.Generator.csproj" />
     <Project Path="tests/ATProtoNet.IntegrationTests/ATProtoNet.IntegrationTests.csproj" />
     <Project Path="tests/ATProtoNet.Tests/ATProtoNet.Tests.csproj" />
   </Folder>

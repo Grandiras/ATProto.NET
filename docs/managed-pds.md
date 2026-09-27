@@ -34,6 +34,10 @@ dotnet add package ATProtoNet.Aspire.Hosting
 In your AppHost:
 
 ```csharp
+using Aspire.Hosting;
+using Aspire.Hosting.ApplicationModel;
+using ATProtoNet.Aspire.Hosting;
+
 var builder = DistributedApplication.CreateBuilder(args);
 
 var pds = builder.AddAtProtoPds("pds");
@@ -88,6 +92,7 @@ key the server rejects.
 
 Supply your own for anything beyond local development:
 
+<!-- snippet: IDistributedApplicationBuilder builder; -->
 ```csharp
 var adminPassword = builder.AddParameter("pds-admin", secret: true);
 var rotationKey = builder.AddParameter("pds-rotation-key", secret: true);
@@ -99,6 +104,7 @@ var pds = builder.AddAtProtoPds("pds")
 
 ### Configuration
 
+<!-- snippet: IDistributedApplicationBuilder builder; -->
 ```csharp
 var pds = builder.AddAtProtoPds("pds", port: 3000, tag: "0.4")
     .WithHostname("pds.example.com")           // PDS_HOSTNAME — required when publishing
@@ -113,6 +119,23 @@ var pds = builder.AddAtProtoPds("pds", port: 3000, tag: "0.4")
     .WithDataBindMount("./pds-data")           // host directory instead of a volume
     .WithProductionMode();                     // PDS_DEV_MODE=false
 ```
+
+| Method | Description |
+|--------|-------------|
+| `AddAtProtoPds(name, port?, tag?)` | Add a PDS container with optional port and image tag |
+| `WithAtProtoPds(pds)` | *(on a project)* reference the PDS, supply admin configuration, and wait for its health check |
+| `WithHostname(hostname)` | Set the PDS hostname (`PDS_HOSTNAME`); also takes a `ParameterResource` |
+| `WithHandleDomains(domains)` | Set the domains new handles may be created under |
+| `WithPlcUrl(url)` | Set the PLC directory URL |
+| `WithAppView(url, did?)` | Configure Bluesky app view URL and DID |
+| `WithCrawlers(crawlers)` | Set relay crawler URLs |
+| `WithProductionMode()` | Disable dev mode for production deployments |
+| `WithInviteCodeRequired()` | Gate signups behind invite codes |
+| `WithBlobUploadLimit(bytes)` | Set max blob upload size (default: 5 MB) |
+| `WithReportService(url, did?)` | Configure moderation/report service |
+| `WithEmail(smtpUrl, fromAddress)` | Configure SMTP email settings |
+| `WithAdminPassword(param)` / `WithJwtSecret(param)` / `WithPlcRotationKey(param)` | Supply secrets instead of the generated parameters |
+| `WithDataVolume(name?)` / `WithDataBindMount(path)` | Replace the default `/pds` data mount |
 
 `WithDataVolume` and `WithDataBindMount` each replace the default data mount rather than
 adding to it — two mounts on `/pds` are rejected by the container runtime, and the PDS
@@ -154,6 +177,7 @@ alive until shutdown.
 Outside Aspire, set the same two configuration keys yourself, or construct the client
 directly:
 
+<!-- snippet: string adminPassword; -->
 ```csharp
 using var pds = new PdsAdminClient("https://pds.example.com", adminPassword);
 ```
@@ -186,6 +210,8 @@ the PDS with TLS, or opt in yourself once you are satisfied the hop is private:
 ### Creating accounts
 
 ```csharp
+public record SignupForm(string Username, string Email, string Password);
+
 app.MapPost("/signup", async (SignupForm form, PdsAdminClient pds) =>
 {
     var account = await pds.CreateAccountAsync(new CreateAccountRequest
@@ -207,6 +233,7 @@ a public endpoint.
 The response carries `AccessJwt` and `RefreshJwt`, a ready-to-use session for the new
 account:
 
+<!-- snippet: PdsAdminClient pds; ATProtoNet.Lexicon.Com.AtProto.Server.CreateAccountResponse account; -->
 ```csharp
 using ATProtoNet.Auth;
 
@@ -223,6 +250,7 @@ await client.ApplySessionAsync(new PasswordSession
 
 ### Managing accounts
 
+<!-- snippet: PdsAdminClient pds; string newPassword; -->
 ```csharp
 var server = await pds.DescribeServerAsync();     // DID, handle domains, invite policy
 
@@ -250,6 +278,7 @@ For endpoints these wrappers do not cover, `pds.Admin` and `pds.Server` expose t
 `com.atproto.admin.*` and `com.atproto.server.*` clients with the admin credentials
 already applied:
 
+<!-- snippet: PdsAdminClient pds; -->
 ```csharp
 var invites = await pds.Admin.GetInviteCodesAsync(sort: "recent", limit: 50);
 await pds.Admin.DisableAccountInvitesAsync(Did.Parse("did:plc:..."));
@@ -290,6 +319,7 @@ Tranquil stores its repositories in PostgreSQL, so `AddAtProtoTranquilPds` also 
 `{name}-postgres` server with a persistent data volume and a `{name}-db` database on it.
 To use one you already have:
 
+<!-- snippet: IDistributedApplicationBuilder builder; -->
 ```csharp
 var shared = builder.AddPostgres("postgres").AddDatabase("pds-db");
 
@@ -388,6 +418,7 @@ undecryptable. Override any of them with `WithJwtSecret`, `WithDPoPSecret`,
 
 ### Configuration
 
+<!-- snippet: IDistributedApplicationBuilder builder; IResourceBuilder<ParameterResource> smtpPassword; -->
 ```csharp
 var pds = builder.AddAtProtoTranquilPds("pds", port: 3000)
     .WithHostname("pds.example.com")            // PDS_HOSTNAME — required when publishing
@@ -403,10 +434,30 @@ var pds = builder.AddAtProtoTranquilPds("pds", port: 3000)
     .WithDevelopmentMode(false);
 ```
 
+| Method | Description |
+|--------|-------------|
+| `AddAtProtoTranquilPds(name, port?, tag?)` | Add a Tranquil PDS container, plus the PostgreSQL server it needs |
+| `WithAtProtoTranquilPds(pds)` | *(on a project)* reference the PDS, supply admin configuration, and wait for its health check |
+| `WithDatabase(database)` / `WithDatabaseUrl(url)` | Use an existing PostgreSQL database instead of the generated one |
+| `WithAdminAccount(handle, password?)` | Name the account the server is administered through |
+| `WithDevelopmentMode(enabled?)` | Turn the local-development relaxations on or off |
+| `WithHostname(hostname)` / `WithHandleDomains(domains)` | Public hostname and handle domains |
+| `WithJwtSecret(param)` / `WithDPoPSecret(param)` / `WithMasterKey(param)` | Supply secrets instead of the generated parameters |
+| `WithPlcRecoveryKey(didKey)` | Register an operator-held PLC recovery key (a *public* `did:key`) |
+| `WithBlobVolume(name?)` / `WithBlobBindMount(path)` / `WithS3BlobStorage(bucket, endpoint?)` | Where blobs are stored |
+| `WithPlcUrl(url)` / `WithCrawlers(urls)` / `WithReportService(url, did?)` / `WithBlobUploadLimit(bytes)` / `WithInviteCodeRequired(required?)` / `WithEmail(from, host, port?, user?, password?)` | As for the reference PDS |
+
 `WithPlcRecoveryKey` is not the reference PDS's `WithPlcRotationKey`: Tranquil keeps
 signing PLC operations with each account's own key and adds this one to the rotation keys
 purely so the operator can recover an identity, so it takes a public `did:key` rather than
 a hex private key.
+
+### Helpers for both servers
+
+Both resources derive from `AtProtoPdsContainerResourceBase`. `WithHostname` and `WithJwtSecret`
+are the same generic methods for either server and return the concrete builder, so they chain into
+the server-specific ones. Write your own AppHost helpers against the base type
+(`where T : AtProtoPdsContainerResourceBase`) to cover both.
 
 ## Without Aspire
 
@@ -430,6 +481,7 @@ Keep the JWT secret and rotation key stable across restarts if you reuse the vol
 Tranquil needs a PostgreSQL server alongside it; its repository ships a
 `docker-compose.prod.yaml` that runs both. Point the client at it with:
 
+<!-- snippet: string adminAccountPassword; -->
 ```csharp
 using var pds = new PdsAdminClient(
     new PdsAdminOptions
@@ -446,7 +498,7 @@ using var pds = new PdsAdminClient(
 ## See also
 
 - [.NET Aspire Integration](aspire.md) — the client bound from configuration, and its health check
-- [Server Integration](server.md) — token store and per-user client factory
+- [ASP.NET Core](aspnet-core.md) — registering the SDK in the project the PDS serves
 - [`samples/ManagedPdsSample`](../samples/ManagedPdsSample) — signup API built on `PdsAdminClient`
 - [`samples/ManagedPdsSample.AppHost`](../samples/ManagedPdsSample.AppHost) — the Aspire AppHost wiring it to a PDS container
 - [PDS deployment docs](https://github.com/bluesky-social/pds) — the upstream reference implementation

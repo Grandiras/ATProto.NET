@@ -39,41 +39,41 @@ await client.Repo.ApplyWritesAsync(
 
 ### Create
 
-```csharp
-new ApplyWriteCreate
+```csharp continued
+var create = new ApplyWriteCreate
 {
     Collection = todos,
     Rkey = RecordKey.Parse("optional-custom-key"),  // Optional: server generates TID if omitted
     Value = new TodoItem { Title = "New task" },
-}
+};
 ```
 
 ### Update
 
-```csharp
-new ApplyWriteUpdate
+```csharp continued
+var update = new ApplyWriteUpdate
 {
     Collection = todos,
     Rkey = RecordKey.Parse("existing-key"),
     Value = new TodoItem { Title = "Updated task", Completed = true },
-}
+};
 ```
 
 ### Delete
 
-```csharp
-new ApplyWriteDelete
+```csharp continued
+var delete = new ApplyWriteDelete
 {
     Collection = todos,
     Rkey = RecordKey.Parse("key-to-delete"),
-}
+};
 ```
 
 ## Atomic Operations Across Collections
 
 You can mix operations across different collections in the same atomic commit:
 
-```csharp
+```csharp continued
 await client.Repo.ApplyWritesAsync(client.Did!,
 [
     // Create a project
@@ -105,30 +105,43 @@ Use `swapCommit` for compare-and-swap on the repository state:
 server last reported on `client.LatestRepoRev`, and every write response carries a `Commit` with the
 new `Cid` and `Rev`:
 
-```csharp
+```csharp continued
 var created = await client.Repo.CreateRecordAsync(
     client.Did!, todos, new TodoItem { Title = "First" });
 
 await client.Repo.ApplyWritesAsync(
     client.Did!,
-    operations,
+    [update, delete],
     swapCommit: created.Commit?.Cid  // Fails if the repo moved on since that commit
 );
 ```
 
 ## Error Handling
 
+A batch is atomic: when it fails, nothing was written. A `swapCommit` that no longer matches fails
+with `XrpcErrors.InvalidSwap` (the repository changed in between: read again and retry); any other
+failure is an `XrpcException` naming its error. See [Error Handling](error-handling.md).
+
+## The record types on this page
+
+`TodoItem` and `Project` are custom record types (see [Custom Lexicon Records](custom-records.md)):
+
 ```csharp
-try
+public class TodoItem : AtProtoRecord, IAtProtoRecord
 {
-    await client.Repo.ApplyWritesAsync(client.Did!, operations);
+    public static Nsid Collection { get; } = Nsid.Parse("com.example.todo.item");
+    public override string Type => Collection;
+
+    [JsonPropertyName("title")] public string Title { get; set; } = "";
+    [JsonPropertyName("completed")] public bool Completed { get; set; }
+    [JsonPropertyName("projectId")] public string? ProjectId { get; set; }
 }
-catch (XrpcException ex) when (ex.Is(XrpcErrors.InvalidSwap))
+
+public class Project : AtProtoRecord, IAtProtoRecord
 {
-    // Repository was modified concurrently
-}
-catch (XrpcException ex)
-{
-    Console.WriteLine($"Batch failed: {ex.Error} — {ex.ErrorMessage}");
+    public static Nsid Collection { get; } = Nsid.Parse("com.example.todo.project");
+    public override string Type => Collection;
+
+    [JsonPropertyName("name")] public string Name { get; set; } = "";
 }
 ```

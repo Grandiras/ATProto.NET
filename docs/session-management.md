@@ -31,10 +31,10 @@ Refreshing a session never mutates it: the client installs a new value. Read the
 `client.Session`, or subscribe to `SessionChanged`.
 
 ```csharp
-client.IsAuthenticated  // bool
-client.Did              // Did?
-client.Handle           // Handle?
-client.Session          // AtProtoSession? — a PasswordSession or an OAuthSession
+bool signedIn = client.IsAuthenticated;
+Did? did = client.Did;
+Handle? handle = client.Handle;
+AtProtoSession? session = client.Session;   // a PasswordSession or an OAuthSession
 
 if (client.Session is PasswordSession { Email: { } email })
     Console.WriteLine(email);
@@ -50,10 +50,10 @@ if (client.Session is PasswordSession { Email: { } email })
 var session = await client.LoginAsync("alice.example.com", "app-password");
 
 // Two-factor: the service answers AuthFactorTokenRequired, and the user gets an email.
-var session = await client.LoginAsync("alice.example.com", "app-password", authFactorToken: "123456");
+session = await client.LoginAsync("alice.example.com", "app-password", authFactorToken: "123456");
 
 // A taken-down account (AccountTakedown) can still sign in to migrate or export its data.
-var session = await client.LoginAsync("alice.example.com", "password", allowTakendown: true);
+session = await client.LoginAsync("alice.example.com", "password", allowTakendown: true);
 ```
 
 The request goes to `client.ServiceUrl` (`AtProtoClientOptions.InstanceUrl` by default). When that is
@@ -64,6 +64,8 @@ HTTP publishes the address it believes it has, which is usually not the one you 
 ### A new account
 
 ```csharp
+using ATProtoNet.Lexicon.Com.AtProto.Server;   // CreateAccountRequest
+
 var session = await client.CreateAccountAndLoginAsync(new CreateAccountRequest
 {
     Handle = Handle.Parse("alice.example.com"),
@@ -74,6 +76,7 @@ var session = await client.CreateAccountAndLoginAsync(new CreateAccountRequest
 
 ### OAuth
 
+<!-- snippet: ATProtoNet.Auth.OAuth.OAuthClient oauthClient; string code, state, issuer; -->
 ```csharp
 var session = await oauthClient.CompleteAuthorizationAsync(code, state, issuer);
 await client.ApplySessionAsync(session, oauthClient);
@@ -143,7 +146,7 @@ access token, fails the refresh instead of being installed.
 Give the client an `IAtProtoSessionStore` and it keeps the store current: it writes every session it
 installs and every refreshed version, and removes the session on sign-out or expiry.
 
-```csharp
+```csharp partial
 public interface IAtProtoSessionStore
 {
     ValueTask<AtProtoSession?> GetAsync(Did did, CancellationToken ct = default);
@@ -156,12 +159,17 @@ public interface IAtProtoSessionStore
 |----------------|---------|-------|
 | `InMemoryAtProtoSessionStore` | `ATProtoNet` | Process memory; lost on exit |
 | `FileAtProtoSessionStore` | `ATProtoNet.Server` | One file per account, encrypted with Data Protection |
-| `EfCoreAtProtoSessionStore<TContext>` | `ATProtoNet.Server` | A database table, encrypted with Data Protection |
+| `EfCoreAtProtoSessionStore<TContext>` | `ATProtoNet.Server.EntityFrameworkCore` | A database table, encrypted with Data Protection |
 
 Sessions serialize with `System.Text.Json` as `AtProtoSession`, a `$kind` member telling the two kinds
-apart, so a custom store is a few lines:
+apart, so a custom store is a few lines. (Registering the Server stores in dependency injection is
+covered in [Session stores](server.md#session-stores).)
 
 ```csharp
+using System.Security.Cryptography;
+using System.Text;
+using ATProtoNet.Auth;
+
 public sealed class FileSessionStore(string directory) : IAtProtoSessionStore
 {
     public async ValueTask<AtProtoSession?> GetAsync(Did did, CancellationToken ct = default)
@@ -205,6 +213,7 @@ Three ways to install a session you saved earlier:
 | `ApplySessionAsync(session, oauthClient?)` | No | Yes |
 | `TryRestoreSessionAsync(did, oauthClient?)` | No | No (it reads from the store) |
 
+<!-- snippet: IAtProtoSessionStore store; Did savedDid; -->
 ```csharp
 var client = new AtProtoClient(sessionStore: store);
 
@@ -244,6 +253,7 @@ token the service already considers invalid is not a failure.
 
 ## Session events
 
+<!-- snippet: System.Action<AtProtoSession> Save; System.Action<Did> Forget; -->
 ```csharp
 client.SessionChanged += (_, e) =>
 {
@@ -308,6 +318,7 @@ covers the clients of one process, and the server
 integration's client factory uses the one `WithClientFactory()` registers; several processes on one
 store need a distributed lock behind the interface.
 
+<!-- snippet: HttpClient http; IAtProtoSessionStore store; -->
 ```csharp
 var coordinator = new InProcessSessionRefreshCoordinator();   // one for every client of the store
 var client = new AtProtoClient(new AtProtoClientOptions { RefreshCoordinator = coordinator }, http, store);
@@ -335,4 +346,4 @@ Disposing is not signing out: the session stays valid at the service and in the 
 
 For per-user clients on a server, `IAtProtoClientFactory` builds a client per request from the
 session store, refreshing on demand and writing rotated tokens back. See
-[Server Integration](server.md) and [ASP.NET Core Integration](aspnet-core.md).
+[Acting as the Signed-In User](server.md) and [ASP.NET Core Integration](aspnet-core.md).

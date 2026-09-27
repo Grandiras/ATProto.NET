@@ -36,6 +36,9 @@ dotnet build
 dotnet test tests/ATProtoNet.Tests/
 ```
 
+The build also compiles every C# sample in `README.md` and `docs/` (see [Documentation](#documentation)),
+so a change that breaks one shows up as a build error at its Markdown line.
+
 **Integration tests** (requires a local PDS):
 
 ```bash
@@ -59,23 +62,32 @@ ATPROTO_PDS_ADMIN_PASSWORD=admin-pass \
 dotnet test tests/ATProtoNet.IntegrationTests/
 ```
 
-To run against an existing account instead (a hosted PDS where account provisioning isn't
-available, say), set `ATPROTO_TEST_HANDLE` / `ATPROTO_TEST_PASSWORD` — when both are present,
-`AuthenticatedClientFixture` signs in with them instead of provisioning one.
+Each integration test declares what it needs with `[RequiresFact(IntegrationRequirement.X)]` and is
+skipped when the environment does not provide it:
+
+| Requirement | Environment |
+|-------------|-------------|
+| `Pds` | `ATPROTO_PDS_ADMIN_PASSWORD` (and `ATPROTO_PDS_URL`, default `http://localhost:2583`): the tests provision their own account. `ATPROTO_TEST_HANDLE` / `ATPROTO_TEST_PASSWORD` optionally name an existing one instead |
+| `Bluesky` | the above, plus `ATPROTO_HAS_BLUESKY=true` for a PDS with Bluesky app-view services |
+| `PdsAdmin` | `ATPROTO_PDS_ADMIN_PASSWORD`; the tests provision their own accounts |
+| `Jetstream` | `ATPROTO_TEST_JETSTREAM=true` and outbound internet (`ATPROTO_JETSTREAM_URL` overrides the host) |
+| `JetstreamArchive` | the above, plus `ATPROTO_JETSTREAM_API_KEY` |
+| `Spaces` | `ATPROTO_TEST_SPACES=true`, `ATPROTO_PDS_ADMIN_PASSWORD` and `ATPROTO_PLC_URL`, against a PDS serving the permissioned-data alpha (`ATPROTO_SPACES_PDS_URL`); see [Testing against a real space host](docs/testing-spaces.md) |
 
 ## How to Contribute
 
 ### Reporting Bugs
 
 1. Check existing issues to avoid duplicates
-2. Use the **Bug Report** issue template
-3. Include: .NET version, OS, steps to reproduce, expected vs actual behavior
+2. On Forgejo, use the **Bug Report** issue template. On GitHub, which has no templates, give the
+   same information: a description, steps to reproduce, the expected and the actual behaviour, the
+   ATProtoNet, .NET and OS versions, and the PDS version where it matters
 
 ### Suggesting Features
 
-1. Open a discussion or issue using the **Feature Request** template
-2. Describe the use case and proposed API surface
-3. Consider backward compatibility
+1. On Forgejo, use the **Feature Request** issue template. On GitHub, cover the same ground: a
+   summary, the use case, the proposed API or behaviour, and the alternatives you considered
+2. Consider backward compatibility
 
 ### Submitting Code
 
@@ -209,9 +221,14 @@ public sealed class ListBlobsResponse : ICursorPage<Cid>
 ### Architecture
 
 - **ATProtoNet** — Core SDK, zero ASP.NET dependency
-- **ATProtoNet.Server** — ASP.NET Core integration (DI, OAuth cookie login, service auth)
+- **ATProtoNet.Server** — ASP.NET Core integration (DI, OAuth cookie login, service auth, XRPC
+  endpoints, the space server, the Aspire client), nothing beyond the ASP.NET Core shared framework
 - **ATProtoNet.Server.EntityFrameworkCore** — EF Core stores for the server package
 - **ATProtoNet.Blazor** — Blazor components acting as the signed-in user
+- **ATProtoNet.Aspire.Hosting** — PDS containers (Bluesky and Tranquil) in an Aspire AppHost
+- **`atproto-lexgen`** (`tools/ATProtoNet.LexiconGenerator`) — the Lexicon CLI
+
+See [Architecture](docs/architecture.md) for how they layer.
 
 ### Testing
 
@@ -230,28 +247,71 @@ public sealed class ListBlobsResponse : ICursorPage<Cid>
   - `fix: handle null CID in record response`
   - `docs: update custom records guide`
   - `test: add integration tests for firehose`
+- Add a bullet to `## [Unreleased]` in `CHANGELOG.md` in the same commit, for anything that changes
+  behaviour, public API or the build: a **bold title** and 1–3 sentences, ending with the issue
+  number; a breaking change adds a one-line migration note.
+
+### Documentation
+
+The documentation is in `docs/` (listed in [`docs/index.md`](docs/index.md)) and `README.md`. When
+you change or remove an API, update the pages that name it.
+
+Every ` ```csharp ` block is compiled: `tests/ATProtoNet.DocSnippets`, built with the solution, turns
+each one into code through a source generator (`tests/ATProtoNet.DocSnippets.Generator`), with
+`#line` directives pointing back at the Markdown, so a sample that no longer matches the API fails
+the build at its own line. How a block is compiled:
+
+- Type declarations go into a namespace shared by the page's blocks, so a later block can use a
+  type an earlier one declared. Statements go into a method, and members with an access modifier
+  into a class of their own. A `using` in any block applies to the whole page.
+- A block may use the variables that `tests/ATProtoNet.DocSnippets/SnippetContext.cs` declares, as
+  if from the surrounding code: `client` (a signed-in `AtProtoClient`), `builder`, `services`,
+  `app`, `configuration`, `logger`, `httpClient`, `args`, and `ct` / `cancellationToken` /
+  `stoppingToken`. Anything else it needs from around it, it declares in an HTML comment on the line
+  before the fence, which Markdown does not render:
+
+  ````markdown
+  <!-- snippet: OAuthClient oauthClient; string code, state; -->
+  ```csharp
+  var session = await oauthClient.CompleteAuthorizationAsync(code, state, issuer: null);
+  ```
+  ````
+
+- Words after `csharp` on the fence change how a block is compiled: `continued` puts it in the same
+  method as the block before it, so it sees that block's variables; `partial` leaves out a fragment
+  that cannot compile on its own; `before` leaves out the migration guide's code for an API that no
+  longer exists. Use `partial` sparingly: a compiled sample is one that cannot go stale.
+
+Check the docs on their own with `dotnet build tests/ATProtoNet.DocSnippets/`.
 
 ## Project Structure
 
 ```
 ATProto.NET/
 ├── src/
-│   ├── ATProtoNet/              # Core SDK
-│   │   ├── Http/                # XRPC client, HTTP helpers
-│   │   ├── Identity/            # DID, Handle, AtUri, etc.
-│   │   ├── Lexicon/             # AT Proto lexicon implementations
-│   │   ├── Models/              # Shared model types
-│   │   ├── Serialization/       # JSON converters
-│   │   └── Streaming/           # Firehose / WebSocket
-│   ├── ATProtoNet.Server/       # ASP.NET Core integration
-│   ├── ATProtoNet.Server.EntityFrameworkCore/  # EF Core stores
-│   └── ATProtoNet.Blazor/       # Blazor components
+│   ├── ATProtoNet/                              # Core SDK
+│   │   ├── Auth/                                # Sessions, session stores, OAuth client
+│   │   ├── Http/                                # XRPC transport, XrpcException family
+│   │   ├── Identity/                            # Did, Handle, AtUri, …; DID and handle resolution
+│   │   ├── Lexicon/                             # AT Proto Lexicon clients and models
+│   │   ├── Repo/                                # CAR, MST, DAG-CBOR, commits
+│   │   ├── Spaces/                              # Permissioned data
+│   │   └── Streaming/                           # Firehose, Jetstream, label streams
+│   ├── ATProtoNet.Server/                       # ASP.NET Core integration
+│   ├── ATProtoNet.Server.EntityFrameworkCore/   # EF Core stores
+│   ├── ATProtoNet.Blazor/                       # Blazor components
+│   └── ATProtoNet.Aspire.Hosting/               # Aspire AppHost PDS resources
+├── tools/ATProtoNet.LexiconGenerator/           # atproto-lexgen
 ├── tests/
-│   ├── ATProtoNet.Tests/        # Unit tests
-│   └── ATProtoNet.IntegrationTests/  # Integration tests
-├── docs/                        # Documentation
-└── samples/                     # Example projects
+│   ├── ATProtoNet.Tests/                        # Unit tests
+│   ├── ATProtoNet.IntegrationTests/             # Integration tests
+│   ├── ATProtoNet.DocSnippets/                  # Compiles the documentation's C# samples
+│   └── ATProtoNet.DocSnippets.Generator/        # …through this source generator
+├── docs/                                        # Documentation
+└── samples/                                     # Example projects
 ```
+
+The full tree is in [Architecture](docs/architecture.md#source-tree).
 
 ## License
 

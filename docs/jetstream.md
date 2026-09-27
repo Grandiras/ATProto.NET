@@ -7,6 +7,7 @@ ATProto.NET supports [Jetstream](https://github.com/bluesky-social/jetstream), t
 ## Basic Usage
 
 ```csharp
+using ATProtoNet.Lexicon.Com.AtProto.Sync;   // RepoOpAction
 using ATProtoNet.Streaming;
 
 await using var client = new JetstreamClient(new JetstreamConsumerOptions
@@ -46,10 +47,10 @@ Prefer v2 for anything new: the sequence-number cursor is exact where a timestam
 `JetstreamEndpoints` names the public Bluesky-operated instances:
 
 ```csharp
-JetstreamEndpoints.UsEast        // wss://jetstream.us-east.bsky.network — v2 (also serves v1)
-JetstreamEndpoints.UsWest        // wss://jetstream.us-west.bsky.network — v2 (also serves v1)
-JetstreamEndpoints.LegacyUsEast1 // wss://jetstream1.us-east.bsky.network — v1 only
-JetstreamEndpoints.LegacyUsEast2 // …and LegacyUsWest1 / LegacyUsWest2
+var usEast = JetstreamEndpoints.UsEast;          // wss://jetstream.us-east.bsky.network — v2 (also serves v1)
+var usWest = JetstreamEndpoints.UsWest;          // wss://jetstream.us-west.bsky.network — v2 (also serves v1)
+var legacy = JetstreamEndpoints.LegacyUsEast1;   // wss://jetstream1.us-east.bsky.network — v1 only
+var legacy2 = JetstreamEndpoints.LegacyUsEast2;  // …and LegacyUsWest1 / LegacyUsWest2
 ```
 
 Only the two v2 hosts serve v2; the legacy hosts answer `/xrpc/…` with a 404. Both host generations serve v1, so pointing an existing v1 configuration at `JetstreamEndpoints.UsEast` is safe.
@@ -74,7 +75,10 @@ All events carry:
 
 Typed record access uses the SDK's serialization defaults (`AtProtoJsonDefaults.Options`), including union variants registered in `LexiconTypeRegistry`:
 
+<!-- snippet: JetstreamEvent evt; -->
 ```csharp
+using ATProtoNet.Lexicon.App.Bsky.Feed;   // PostRecord
+
 if (evt is JetstreamCommitEvent { Operation: not RepoOpAction.Delete } commit)
 {
     var post = commit.GetRecord<PostRecord>();
@@ -109,6 +113,7 @@ Setting `WantedCollections` while `WantedKinds` excludes `Commit` is a filter th
 
 `JetstreamConsumer` mirrors `TypedFirehoseConsumer` ergonomics — both take their shared settings from `StreamConsumerOptions`: automatic reconnection with a `StreamReconnectPolicy`, cursor persistence through the same `IStreamCursorStore` interface, and duplicate suppression across reconnects.
 
+<!-- snippet: IStreamCursorStore myCursorStore; System.Func<JetstreamEvent, Task> IndexAsync; -->
 ```csharp
 var consumer = new JetstreamConsumer(new JetstreamConsumerOptions
 {
@@ -135,6 +140,7 @@ Details worth knowing:
 - **A rejected subscription is not retried.** v2 validates before the WebSocket upgrade: a cursor below the retention floor (36 h on the Bluesky instances), a retired zstd dictionary, or a malformed filter comes back as an HTTP 400. `ConsumeAsync` throws a `JetstreamException` rather than reconnecting, because retrying the same request would loop forever and dropping the cursor would silently skip the gap. Catch it and re-read the missing range from the repos you care about.
 - **Cancellation ends the loop normally**, with the cursor saved; no `OperationCanceledException` is thrown.
 
+<!-- snippet: JetstreamConsumer consumer; System.Func<JetstreamEvent, Task> IndexAsync; long? lastDurableCursor; System.Func<long?, CancellationToken, Task> BackfillAsync; -->
 ```csharp
 try
 {
@@ -152,6 +158,7 @@ catch (JetstreamException ex) when (!ex.IsRetryable)
 
 On v2 a cursor below 10^15 is a sequence number, and one at or above it is a unix-microseconds timestamp (any time after September 2001): the server seeks to the first retained event witnessed at or after that time. `JetstreamCursor.FromTimestamp` builds one, and refuses a time early enough to be read as a sequence number:
 
+<!-- snippet: JetstreamConsumer consumer; System.Func<JetstreamEvent, Task> IndexAsync; -->
 ```csharp
 // Everything from the last hour, then the live tail.
 await foreach (var evt in consumer.ConsumeAsync(JetstreamCursor.FromTimestamp(DateTimeOffset.UtcNow.AddHours(-1))))
@@ -174,7 +181,7 @@ var options = new JetstreamConsumerOptions
     // Advisory: e.g. OutdatedCursor, when a timestamp cursor was clamped up to the floor.
     OnInfo = info => logger.LogInformation("Jetstream {Name}: {Message}", info.Name, info.Message),
     // Terminal: e.g. ConsumerTooSlow. The server closes the stream.
-    OnStreamError = error => metrics.StreamError(error.Error),
+    OnStreamError = error => logger.LogWarning("Jetstream {Error}: {Message}", error.Error, error.Message),
 };
 ```
 
@@ -182,8 +189,20 @@ An error frame ends the connection with a `JetstreamException` whose `Error` nam
 
 ## Ingestion Loop Pattern
 
-A typical indexer backing a custom appview:
+A typical indexer backing a custom appview, over an index of its own:
 
+```csharp
+public interface IAppViewIndex
+{
+    Task RemoveAsync(AtUri uri);
+    Task UpsertAsync(AtUri uri, Cid? cid, JsonElement? record);
+    Task UpdateHandleAsync(Did did, Handle? handle);
+    Task HideAccountAsync(Did did);
+    Task ResyncAsync(Did did);
+}
+```
+
+<!-- snippet: JetstreamConsumer consumer; IAppViewIndex index; -->
 ```csharp
 await foreach (var evt in consumer.ConsumeAsync(cancellationToken: stoppingToken))
 {
@@ -267,6 +286,7 @@ The live tail is only one of three ways to consume Jetstream v2. The v2 hosts al
 
 Replay is what an indexer actually needs: *the records that already exist* **and** *every new one*, with no gap at the seam.
 
+<!-- snippet: IStreamCursorStore myCursorStore; System.Func<JetstreamEvent, Task> IndexAsync; -->
 ```csharp
 var consumer = new JetstreamReplayConsumer(new JetstreamConsumerOptions
 {
@@ -345,13 +365,14 @@ public sealed class ZstdBlockDecompressor : IJetstreamBlockDecompressor
 
 `JetstreamArchiveClient` wraps the four archive endpoints for mirrors and other tooling (plus the dictionary and health endpoints), and `JetstreamSegmentReader` decodes the `.jss` format on its own:
 
+<!-- snippet: string apiKey; IJetstreamBlockDecompressor decompressor; -->
 ```csharp
 using var archive = new JetstreamArchiveClient(JetstreamEndpoints.UsEast, apiKey);
 
 await foreach (var segment in archive.EnumerateSegmentsAsync())
 {
     // name, index, sizeBytes, checksum, eventCount, minSeq/maxSeq, minWitnessedAt/maxWitnessedAt
-    if (Mirror.HasCurrent(segment.Name, segment.Checksum))
+    if (File.Exists(segment.Name + "." + segment.Checksum))   // the mirror already has this version
         continue;
 
     await using var file = File.Create(segment.Name);
@@ -374,6 +395,7 @@ Two behaviours worth designing around:
 
 Metering counts response bytes, and a `HEAD` request has none. `ProbeSegmentAsync` and `ProbeBlockAsync` ask for the size and ETag of a segment or block without downloading it — to budget a download, or to check a mirror is current:
 
+<!-- snippet: JetstreamArchiveClient archive; -->
 ```csharp
 var probe = await archive.ProbeSegmentAsync("seg_000000002a.jss");
 Console.WriteLine($"{probe.ContentLength} bytes, ETag {probe.ETag}");
@@ -384,6 +406,8 @@ Console.WriteLine($"{probe.ContentLength} bytes, ETag {probe.ETag}");
 `GetHealthAsync` calls the instance's public `/xrpc/_health` endpoint and returns its version. In an ASP.NET Core app, `ATProtoNet.Server` registers it as a health check:
 
 ```csharp
+using ATProtoNet.Aspire;   // JetstreamHealthCheckExtensions, in the ATProtoNet.Server package
+
 builder.Services.AddHealthChecks()
     .AddJetstream(JetstreamEndpoints.UsEast);   // name "jetstream" by default
 ```

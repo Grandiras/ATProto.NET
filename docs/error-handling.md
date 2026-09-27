@@ -9,12 +9,20 @@ AtProtoException                        (ATProtoNet)          catch-all for SDK 
 ├── XrpcException                       (ATProtoNet.Http)     a service answered with an XRPC error
 │   ├── XrpcRateLimitException          (ATProtoNet.Http)     429 that could not be waited out
 │   ├── XrpcAuthenticationException     (ATProtoNet.Http)     401, ExpiredToken, InvalidToken
+│   ├── ServiceAuthException            (ATProtoNet.Server.Authentication)  server side: a service auth token was refused
 │   └── SpaceVerificationException      (ATProtoNet.Server.Spaces)  server side: a space credential did not verify
 ├── XrpcResponseFormatException         (ATProtoNet.Http)     2xx whose body does not match the Lexicon
 ├── OAuthException                      (ATProtoNet.Auth.OAuth)
+├── DidResolutionException              (ATProtoNet.Identity)  an identity did not resolve
+├── PlcExportStreamException            (ATProtoNet.Identity)  the PLC export stream closed with a reason
+├── LexiconResolutionException          (ATProtoNet.Lexicon.Com.AtProto.Lexicon)
+├── RepoVerificationException           (ATProtoNet.Repo)     a record proof or repository export did not verify
+├── RepoFetchException                  (ATProtoNet.Streaming)  a resync could not fetch a repository
 ├── SpaceCredentialException            (ATProtoNet.Spaces)
 ├── SpaceTokenException                 (ATProtoNet.Spaces)
 ├── SpaceRepoVerificationException      (ATProtoNet.Spaces)
+├── TapException                        (ATProtoNet.Tap)
+├── VideoUploadException                (ATProtoNet.Lexicon.App.Bsky.Video)  video processing failed
 └── EventStreamException                (ATProtoNet.Streaming)  an event stream failed: error frame, refused subscription, exhausted reconnects
     └── JetstreamException              (ATProtoNet.Streaming)
 ```
@@ -31,7 +39,7 @@ What the SDK does **not** wrap:
 | `TimeoutException` | A per-call `XrpcCallOptions.Timeout` expired |
 | `HttpRequestException` | No response arrived at all (DNS, connection refused, TLS). Any response, even a 500, becomes an `XrpcException` |
 
-> Identity resolution reports every failure, network ones included, as `DidResolutionException`, with a `Kind` naming what went wrong — see [Identity Resolution](did-resolution.md#errors).
+> Identity resolution reports every failure, network ones included, as `DidResolutionException`, with a `Kind` naming what went wrong — see [Identity Resolution](did-resolution.md#errors). The codes an `OAuthException` carries in `Error` are listed in [OAuth: Error Codes](oauth.md#error-codes), and the stream failures in [Firehose: Reconnecting and errors](firehose.md#reconnecting-and-errors).
 
 ## XrpcException
 
@@ -39,10 +47,13 @@ Every non-success XRPC response throws `XrpcException` (or one of its subtypes):
 
 ```csharp
 using ATProtoNet.Http;
+using ATProtoNet.Lexicon.App.Bsky.Actor;
+
+var profiles = client.GetCollection<ProfileRecord>();   // any RecordCollection<T> or client call
 
 try
 {
-    var item = await todos.GetAsync(RecordKey.Parse("nonexistent-key"));
+    var item = await profiles.GetAsync(RecordKey.Parse("nonexistent-key"));
 }
 catch (XrpcException ex)
 {
@@ -63,10 +74,13 @@ catch (XrpcException ex)
 
 Branch on the error name, not the status code — a Lexicon declares the names its method may answer with, and several share a status. `XrpcErrors` has constants for the common ones:
 
-```csharp
+```csharp continued
+var profile = await profiles.GetAsync(RecordKey.Parse("self"));
+profile.Value.DisplayName = "Alice";
+
 try
 {
-    await todos.PutAsync(RecordKey.Parse("key"), updatedItem, swapRecord: item.Cid);
+    await profiles.PutAsync(RecordKey.Parse("self"), profile.Value, swapRecord: profile.Cid);
 }
 catch (XrpcException ex) when (ex.Is(XrpcErrors.InvalidSwap))
 {
@@ -134,6 +148,10 @@ var client = new AtProtoClient(new AtProtoClientOptions
 When the service asks for a longer wait than `MaxDelay` (a daily window on `createSession`, for example), or the retries run out, the call throws `XrpcRateLimitException` straight away:
 
 ```csharp
+try
+{
+    await client.LoginAsync("alice.example.com", "app-password");
+}
 catch (XrpcRateLimitException ex)
 {
     Console.WriteLine($"Try again in {ex.RetryAfter}");
@@ -150,6 +168,8 @@ A success status with a body that does not deserialize into the method's respons
 ## Per-call timeouts
 
 ```csharp
+using ATProtoNet.Lexicon.App.Bsky.Feed;
+
 try
 {
     var feed = await client.QueryAsync<FeedResponse>(
@@ -174,8 +194,7 @@ so one handler covers both, for password and OAuth sessions alike:
 ```csharp
 try
 {
-    var todos = client.GetCollection<TodoItem>();
-    await todos.CreateAsync(new TodoItem { Title = "Test" });
+    await client.Bsky.PostAsync("Hello");
 }
 catch (XrpcAuthenticationException ex) when (ex.Is(XrpcErrors.AuthenticationRequired))
 {
@@ -187,8 +206,9 @@ catch (XrpcAuthenticationException ex) when (ex.Is(XrpcErrors.AuthenticationRequ
 
 Use `FindAsync` to read a record that may be absent without a try/catch: it returns `null` only for `RecordNotFound`, and `ExistsAsync` is `FindAsync(...) is not null`. Any other error (a malformed key, an unavailable repo) still throws.
 
+<!-- snippet: RecordCollection<ProfileRecord> profiles; -->
 ```csharp
-bool exists = await todos.ExistsAsync(RecordKey.Parse("some-key"));
+bool hasProfile = await profiles.ExistsAsync(RecordKey.Parse("self"));
 ```
 
 ## Retry pattern
@@ -199,6 +219,8 @@ wrapper above the SDK does the rest: each attempt is a new request with a fresh 
 only calls that are safe to repeat, since a `502` does not say whether a write went through:
 
 ```csharp
+using System.Net;
+
 async Task<T> WithRetryAsync<T>(Func<Task<T>> operation, int maxRetries = 3)
 {
     for (var attempt = 0; ; attempt++)
@@ -221,14 +243,5 @@ async Task<T> WithRetryAsync<T>(Func<Task<T>> operation, int maxRetries = 3)
 
 ## Hosting XRPC endpoints
 
-The same `XrpcException` is what an endpoint hosted with `ATProtoNet.Server` throws to answer with a named error. The routing writes the `{"error", "message"}` body, the status and any `Headers`:
-
-```csharp
-using ATProtoNet.Http;
-
-throw new XrpcException(XrpcErrors.RecordNotFound, "No such todo.", HttpStatusCode.NotFound);
-
-var ex = new XrpcException(XrpcErrors.AuthenticationRequired, "Proof expired.", HttpStatusCode.Unauthorized);
-ex.Headers["WWW-Authenticate"] = "DPoP error=\"invalid_dpop_proof\"";
-throw ex;
-```
+The same `XrpcException` is what an endpoint hosted with `ATProtoNet.Server` throws to answer with
+a named error; see [XRPC Endpoint Handlers: Errors](xrpc-handlers.md#errors).

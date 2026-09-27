@@ -16,6 +16,7 @@ var alice = Did.Parse("did:plc:abc123");
 
 ### Create Record
 
+<!-- snippet: Nsid collection; -->
 ```csharp
 var response = await client.Repo.CreateRecordAsync(
     repo: client.Did!,
@@ -36,6 +37,7 @@ Console.WriteLine($"CID: {response.Cid}");               // Cid
 
 ### Get Record (Untyped)
 
+<!-- snippet: Nsid collection; Did alice; -->
 ```csharp
 var response = await client.Repo.GetRecordAsync(
     repo: alice,
@@ -52,6 +54,7 @@ var same = await client.Repo.GetRecordAsync(
 
 ### Get Record (Typed)
 
+<!-- snippet: Did alice; -->
 ```csharp
 var response = await client.Repo.GetRecordAsync<TodoItem>(
     repo: alice,
@@ -63,6 +66,7 @@ Console.WriteLine(response.Value.Title);
 
 ### Put Record
 
+<!-- snippet: Nsid collection; Cid existingCid; -->
 ```csharp
 var response = await client.Repo.PutRecordAsync(
     repo: client.Did!,
@@ -76,6 +80,7 @@ var response = await client.Repo.PutRecordAsync(
 
 ### Delete Record
 
+<!-- snippet: Nsid collection; AtUri recordUri; -->
 ```csharp
 var response = await client.Repo.DeleteRecordAsync(
     repo: client.Did!,
@@ -92,6 +97,7 @@ await client.Repo.DeleteRecordAsync(recordUri);
 
 One page at a time. Filters come before `limit` and `cursor`:
 
+<!-- snippet: Nsid collection; Did alice; -->
 ```csharp
 var response = await client.Repo.ListRecordsAsync(
     repo: alice,
@@ -111,6 +117,7 @@ foreach (var entry in response.Records)
 `Enumerate*` methods fetch the pages for you. They stop when the server returns no cursor, an
 empty one, or one it already returned:
 
+<!-- snippet: Nsid collection; -->
 ```csharp
 await foreach (var entry in client.Repo.EnumerateRecordsAsync(client.Did!, collection))
 {
@@ -120,6 +127,7 @@ await foreach (var entry in client.Repo.EnumerateRecordsAsync(client.Did!, colle
 
 ## Repository Info
 
+<!-- snippet: Did alice; -->
 ```csharp
 var info = await client.Repo.DescribeRepoAsync(alice);
 
@@ -132,15 +140,18 @@ Console.WriteLine($"Collections: {string.Join(", ", info.Collections)}");
 
 ### Upload
 
+<!-- snippet: Stream stream; byte[] bytes; -->
 ```csharp
+using ATProtoNet.Models;   // BlobRef
+
 // From file
-var result = await client.Repo.UploadBlobAsync("/path/to/file.jpg", "image/jpeg");
+BlobRef fromFile = await client.Repo.UploadBlobAsync("/path/to/file.jpg", "image/jpeg");
 
 // From stream
-var result = await client.Repo.UploadBlobAsync(stream, "image/png");
+BlobRef fromStream = await client.Repo.UploadBlobAsync(stream, "image/png");
 
 // From bytes
-var result = await client.Repo.UploadBlobAsync(bytes, "application/pdf");
+BlobRef fromBytes = await client.Repo.UploadBlobAsync(bytes, "application/pdf");
 ```
 
 ### List Missing Blobs
@@ -156,6 +167,8 @@ await foreach (var blob in client.Repo.EnumerateMissingBlobsAsync())
 ## Batch Operations
 
 ```csharp
+using ATProtoNet.Lexicon.Com.AtProto.Repo;
+
 var todos = Nsid.Parse("com.example.todo.item");
 
 var response = await client.Repo.ApplyWritesAsync(
@@ -189,6 +202,7 @@ the record with its proof (`com.atproto.sync.getRecord`: the signed commit, the 
 path to the record, and the record) and checks it against the account's signing key, so the answer
 holds whichever server delivered it:
 
+<!-- snippet: DidDocument didDocument; Did did; -->
 ```csharp
 using ATProtoNet.Repo;
 
@@ -218,6 +232,7 @@ Moving an account to a new PDS includes loading its repository there. `Repo.Impo
 uploads a CAR (as `Sync.GetRepoAsync` exports it) into the signed-in account; blobs follow
 separately, listed by `Repo.EnumerateMissingBlobsAsync`:
 
+<!-- snippet: AtProtoClient oldClient, newClient; Did did; string path; -->
 ```csharp
 // On the old PDS: export to a file, so the upload can send a Content-Length and be retried.
 await using (var export = await oldClient.Sync.GetRepoAsync(did))
@@ -228,6 +243,207 @@ await using (var file = File.Create(path))
 await using var car = File.OpenRead(path);
 await newClient.Repo.ImportRepoAsync(car);
 ```
+
+## Repository Data Structures
+
+A repository is a Merkle Search Tree of DAG-CBOR records, addressed by CID, signed by a commit, and
+shipped as a CAR file. `ATProtoNet.Repo` reads and writes each layer.
+
+### DAG-CBOR
+
+Deterministic CBOR encoding/decoding for AT Protocol data:
+
+#### Encoding
+
+<!-- snippet: JsonElement jsonElement; -->
+```csharp
+using ATProtoNet.Repo;
+
+// Encode a JSON element to DAG-CBOR
+byte[] encoded = DagCborEncoder.Encode(jsonElement);
+```
+
+DAG-CBOR encoding rules:
+- Map keys are sorted canonically: shorter keys first, keys of equal length by their UTF-8 bytes
+- A repeated map key is rejected
+- `$link` properties are encoded as CID tag 42
+- `$bytes` properties are encoded as CBOR byte strings
+- Floats are rejected (AT Protocol doesn't use them)
+
+#### Decoding
+
+<!-- snippet: byte[] cborBytes; -->
+```csharp
+// Decode DAG-CBOR bytes back to JSON
+JsonElement decoded = DagCborDecoder.Decode(cborBytes);
+```
+
+Anything that is not well-formed DAG-CBOR in the AT Protocol data model — malformed CBOR, a float,
+a non-string map key, a malformed CID link, or nesting deeper than 64 levels — throws
+`FormatException`. The depth limit keeps hostile input from overflowing the stack.
+
+### CID Computation
+
+Compute Content Identifiers (CIDv1) for AT Protocol data:
+
+<!-- snippet: byte[] dagCborBytes, blobBytes; string candidate; -->
+```csharp
+using ATProtoNet.Repo;
+
+// Compute a CIDv1 from DAG-CBOR encoded data
+Cid cid = CidComputation.ComputeForDagCbor(dagCborBytes);
+
+// …or for raw binary (blobs)
+Cid blobCid = CidComputation.ComputeForRaw(blobBytes);
+
+// The binary form, as CAR files and commit objects carry it
+byte[] binaryCid = CidComputation.ComputeBinaryForDagCbor(dagCborBytes);
+
+// Verify a CID matches its content
+bool matches = CidComputation.Verify(cid, dagCborBytes);
+
+// String ↔ binary conversion
+byte[] decoded = CidComputation.DecodeCidString("bafyrei…");
+string encoded = CidComputation.EncodeCidToString(decoded);
+
+// Non-throwing variant
+if (CidComputation.TryDecodeCidString(candidate, out var bytes))
+    Console.WriteLine($"{bytes.Length} bytes");
+```
+
+CID computation uses SHA-256 with DAG-CBOR (0x71) or raw (0x55) codecs.
+
+### CAR Files
+
+Parse Content Addressable aRchive (CAR v1) files — used by `com.atproto.sync.getRepo`:
+
+<!-- snippet: byte[] carData, binaryCid; -->
+```csharp
+using ATProtoNet.Repo;
+
+// Parse from bytes
+var car = CarReader.FromBytes(carData);
+
+// Access root CIDs (binary form)
+foreach (var root in car.Roots)
+    Console.WriteLine($"Root: {CidComputation.EncodeCidToString(root)}");
+
+// Enumerate blocks
+foreach (var block in car.Blocks)
+    Console.WriteLine($"Block {block.CidHex}: {block.Data.Length} bytes");
+
+// Look up a specific block by binary CID, or grab the root block directly
+CarBlock? found = car.FindBlock(binaryCid);
+CarBlock? rootBlock = car.GetRootBlock();
+```
+
+Pass `verifyBlockCids: true` to `FromBytes` (or call `VerifyAllBlockCids()`) to check that every
+block hashes to the CID it is filed under.
+
+A malformed CAR throws `FormatException`: a truncated or oversized length prefix, a header that is
+not a DAG-CBOR `{roots, version}` map, a root that is not a CID link, or a block addressed by a
+CIDv0 (AT Protocol uses CIDv1 only). Every length is checked before it is used, so hostile input
+cannot trigger huge allocations or overflow the stack.
+
+#### From Stream
+
+```csharp
+using var stream = File.OpenRead("repo.car");
+var car = await CarReader.FromStreamAsync(stream);
+```
+
+#### Writing CAR files
+
+`CarWriter` is the producer counterpart — it takes the block map `MerkleSearchTree.Serialize()`
+returns, or an explicit `CarBlock` sequence:
+
+<!-- snippet: MerkleSearchTree mst; -->
+```csharp
+var (rootCid, blocks) = mst.Serialize();
+
+byte[] car = CarWriter.Write(rootCid, blocks);
+
+// Or stream it out
+await using var file = File.Create("repo.car");
+await CarWriter.WriteToAsync(file, [rootCid], blocks.Select(
+    kv => new CarBlock(CidComputation.DecodeCidString(kv.Key), kv.Value)));
+```
+
+### Merkle Search Tree (MST)
+
+Full in-memory MST implementation for AT Protocol repository data structure:
+
+Keys are repo paths (`collection/rkey`) and values are **binary** record CIDs. A key must be a valid
+MST key — one `/` between two non-empty segments of `A-Z a-z 0-9 _ ~ - : .`, at most 1024
+characters — or `Add` throws `ArgumentException`.
+
+<!-- snippet: byte[] record1, record2, record3, newCid; -->
+```csharp
+using ATProtoNet.Repo;
+
+// Create a new MST
+var mst = MerkleSearchTree.Create();
+
+// Add entries — values are binary CIDs
+mst.Add("com.example.todo.item/3k2la7r", CidComputation.ComputeBinaryForDagCbor(record1));
+mst.Add("com.example.todo.item/3k2lb8s", CidComputation.ComputeBinaryForDagCbor(record2));
+mst.Add("app.bsky.feed.post/3k2lc9t", CidComputation.ComputeBinaryForDagCbor(record3));
+
+// Look up an entry
+byte[]? foundCid = mst.Get("com.example.todo.item/3k2la7r");
+
+// Update an entry
+mst.Update("com.example.todo.item/3k2la7r", newCid);
+
+// Delete an entry
+mst.Delete("com.example.todo.item/3k2la7r");
+
+// Get all entries, or just the count
+var entries = mst.GetEntries();
+int count = mst.Count;
+
+// Compute the root CID (binary)
+byte[] rootCid = mst.ComputeRootCid();
+
+// Serialize to a block store: root CID + blocks keyed by base32 CID string
+var (root, blocks) = mst.Serialize();
+var restored = MerkleSearchTree.Deserialize(root, cid => blocks.GetValueOrDefault(cid));
+
+// Confirm the loaded blocks are the canonical tree for their entries
+bool isValid = restored.Validate();
+```
+
+`MerkleSearchTree.Create(entries)` builds a tree from an existing key/value set in one call.
+
+The tree keeps its entries as a sorted set and derives the node structure from them on demand, so
+any sequence of `Add`/`Update`/`Delete` calls produces exactly the root a bulk build of the same
+entries produces — the root every other AT Protocol implementation computes. Root CIDs are pinned
+against the reference implementation's test vectors.
+
+`Deserialize` reads untrusted blocks defensively and throws `FormatException` for a missing or
+malformed node, an invalid or out-of-order key, a prefix length outside the previous key, or a tree
+deeper than 64 layers. It does not re-hash the blocks: read them with `verifyBlockCids: true`, and
+call `Validate()`, which rebuilds the tree from its entries and throws `InvalidOperationException`
+if the result is not the root it was loaded from.
+
+#### Covering Proofs
+
+`SerializeProof(keys)` emits the covering proof a firehose `#commit` carries for the keys it
+touched: the root plus, for each key, the nodes on the path to it and to its immediate neighbours,
+exactly as the reference implementation's `getCoveringProof` computes them. That is what lets a relay
+replay the operations in reverse against the proof. Keys that are absent (deletions) contribute the
+nodes around where they were, which is what proves the absence:
+
+<!-- snippet: MerkleSearchTree mst; -->
+```csharp
+var (proofRoot, proofBlocks) = mst.SerializeProof(["com.example.todo.item/3k2la7r"]);
+byte[] car = CarWriter.Write(proofRoot, proofBlocks);
+```
+
+#### Key Depth
+
+Each key's layer in the tree is the number of leading zero 2-bit chunks of its SHA-256 hash
+(fanout 4). The tree computes it internally.
 
 ## Authoring Repository Data
 
@@ -240,6 +456,7 @@ you *produce* the structures a PDS serves — useful for tests, for a service th
 `RepoCommit` builds and signs the commit block that sits at the root of a repository's CAR file, and
 that relays verify:
 
+<!-- snippet: MerkleSearchTree mst; -->
 ```csharp
 using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
@@ -266,7 +483,7 @@ bool ok = signed.Verify(signingKey);  // check the signature round-trips
 encoding, which is what makes `FirehoseVerifier.ExtractSignedView` able to recover them.
 
 Write the commit and its blocks out as a CAR file with `CarWriter` (see
-[Cryptography → CAR Files](crypto.md#car-files)).
+[CAR Files](#car-files)).
 
 ### did:plc genesis operations
 
@@ -314,3 +531,17 @@ Use `RepoClient` directly when you need:
 - Access to response metadata beyond what `RecordCollection<T>` exposes
 
 For most custom app scenarios, prefer `RecordCollection<T>` — see [Custom Records](custom-records.md).
+
+## The record type on this page
+
+`TodoItem` is a custom record type (see [Custom Lexicon Records](custom-records.md)):
+
+```csharp
+public class TodoItem : AtProtoRecord, IAtProtoRecord
+{
+    public static Nsid Collection { get; } = Nsid.Parse("com.example.todo.item");
+    public override string Type => Collection;
+
+    [JsonPropertyName("title")] public string Title { get; set; } = "";
+}
+```

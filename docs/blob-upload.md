@@ -7,6 +7,8 @@ Upload images, files, and binary data to a PDS for use in records.
 `UploadBlobAsync` returns the `BlobRef` itself — store it on a record to reference the uploaded data.
 
 ```csharp
+using ATProtoNet.Models;   // BlobRef
+
 // From a file path
 BlobRef blob = await client.Repo.UploadBlobAsync(
     filePath: "/path/to/image.jpg",
@@ -37,7 +39,7 @@ BlobRef blob = await client.Repo.UploadBlobAsync(
 ### From Byte Array
 
 ```csharp
-byte[] imageBytes = await DownloadImageAsync(url);
+byte[] imageBytes = await httpClient.GetByteArrayAsync("https://example.com/photo.jpg");
 BlobRef blob = await client.Repo.UploadBlobAsync(
     imageBytes,
     "image/jpeg");
@@ -80,7 +82,7 @@ await photos.CreateAsync(new PhotoRecord
 
 ## Download Blobs
 
-```csharp
+```csharp continued
 await using var blob = await client.Sync.GetBlobAsync(
     Did.Parse("did:plc:abc123"),
     uploaded.Ref!.Link);   // a BlobRef's CID, or Cid.Parse("bafkrei…")

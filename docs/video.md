@@ -11,6 +11,10 @@ and bytes per account; `GetUploadLimitsAsync` reports what is left.
 returns the finished job. Its `Blob` goes into a `VideoEmbed`:
 
 ```csharp
+using ATProtoNet.Http;
+using ATProtoNet.Lexicon.App.Bsky.Embed;
+using ATProtoNet.Lexicon.App.Bsky.Video;
+
 await using var video = File.OpenRead("my-video.mp4");
 
 var job = await client.Bsky.Video.UploadVideoAsync(video, "video/mp4");
@@ -45,10 +49,11 @@ before it is finished, the session is aborted, which releases its share of the d
 If processing fails, `UploadVideoAsync` throws a `VideoUploadException` whose `FailureCode` says
 why:
 
-```csharp
+```csharp continued
 try
 {
-    var job = await client.Bsky.Video.UploadVideoAsync(video, "video/mp4");
+    video.Position = 0;
+    await client.Bsky.Video.UploadVideoAsync(video, "video/mp4");
 }
 catch (XrpcException ex) when (ex.Is(VideoErrors.VideoTooLarge))
 {
@@ -73,9 +78,13 @@ catch (VideoUploadException ex) when (ex.FailureCode == JobFailureCode.Validatio
 `VideoUploadOptions` tunes the upload:
 
 ```csharp
+// A download is a stream that cannot seek: its length comes from the response
+using var response = await httpClient.GetAsync("https://example.com/holiday.mp4", HttpCompletionOption.ResponseHeadersRead);
+await using var stream = await response.Content.ReadAsStreamAsync();
+
 var job = await client.Bsky.Video.UploadVideoAsync(stream, "video/mp4", new VideoUploadOptions
 {
-    Length = contentLength,                 // required for a stream that cannot seek
+    Length = response.Content.Headers.ContentLength,   // required for a stream that cannot seek
     FileName = "holiday.mp4",
     Duration = TimeSpan.FromSeconds(95),    // advisory: lets the service reject early
     Width = 1920,
@@ -98,13 +107,15 @@ endpoints below.
 The steps are available on their own, for resumable uploads or progress reporting:
 
 ```csharp
-var session = await client.Bsky.Video.StartUploadAsync(sizeBytes, "video/mp4", name: "clip.mp4");
+await using var file = File.OpenRead("clip.mp4");
+var session = await client.Bsky.Video.StartUploadAsync(file.Length, "video/mp4", name: "clip.mp4");
 
+var buffer = new byte[session.PartSizeBytes];
 for (var part = 1; part <= session.PartCount; part++)
 {
     // Each part is PartSizeBytes long, except the last, which holds the rest.
-    await using var chunk = OpenPart(part);
-    await client.Bsky.Video.UploadPartAsync(session.JobId, part, chunk);
+    var length = await file.ReadAtLeastAsync(buffer, buffer.Length, throwOnEndOfStream: false);
+    await client.Bsky.Video.UploadPartAsync(session.JobId, part, new MemoryStream(buffer, 0, length));
 }
 
 var finished = await client.Bsky.Video.FinishUploadAsync(session.JobId);
@@ -170,4 +181,4 @@ Console.WriteLine($"Remaining daily videos: {limits.RemainingDailyVideos}");
 ## Next Steps
 
 - [Blob Upload](blob-upload.md) — Upload images and other files
-- [API Reference](api-reference.md) — Complete VideoClient methods
+- The XML documentation (IntelliSense) of `VideoClient` lists every method

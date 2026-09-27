@@ -47,21 +47,18 @@ Without `detailed: true`, deserialize into `LabelerView` instead — it carries 
 using ATProtoNet.Lexicon.App.Bsky.Labeler;
 
 // System labels: clients apply them whatever the viewer's settings
-StandardLabelValues.Hide              // "!hide"
-StandardLabelValues.Warn              // "!warn"
-StandardLabelValues.NoUnauthenticated // "!no-unauthenticated"
+string[] system = [StandardLabelValues.Hide, StandardLabelValues.Warn, StandardLabelValues.NoUnauthenticated];
+// "!hide", "!warn", "!no-unauthenticated"
 
 // Content and account labels
-StandardLabelValues.Porn
-StandardLabelValues.Sexual
-StandardLabelValues.Nudity
-StandardLabelValues.GraphicMedia
-StandardLabelValues.Bot
+string[] content =
+[
+    StandardLabelValues.Porn, StandardLabelValues.Sexual, StandardLabelValues.Nudity,
+    StandardLabelValues.GraphicMedia, StandardLabelValues.Bot,
+];
 
 // Applied by Bluesky's moderation service
-StandardLabelValues.Spam
-StandardLabelValues.Impersonation
-StandardLabelValues.Misleading
+string[] bluesky = [StandardLabelValues.Spam, StandardLabelValues.Impersonation, StandardLabelValues.Misleading];
 ```
 
 `Gore`, `ContentWarning` and `NotAvailable` are obsolete: none is a global label value, and
@@ -181,6 +178,7 @@ DAG-CBOR) encoding without `sig`, hashed with SHA-256 and signed with the key th
 document publishes as `#atproto_label`. `LabelSigner` does this, with the same low-S signatures
 repository commits use:
 
+<!-- snippet: byte[] pkcs8Bytes; -->
 ```csharp
 using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
@@ -228,6 +226,7 @@ A service that receives labels from another should verify them. `LabelVerifier` 
 label's `src` and checks the signature against its `#atproto_label` key. When the check fails
 against a cached document, it refetches the document once, in case the labeler rotated its key:
 
+<!-- snippet: IDidResolver resolver; Label label; System.Action<Label> Apply; -->
 ```csharp
 using ATProtoNet.Labeling;
 
@@ -264,6 +263,7 @@ a later negation retracted it.
 
 `VerifyAllAsync` verifies a page and keeps the order:
 
+<!-- snippet: LabelVerifier verifier; System.Action<Label> Apply; -->
 ```csharp
 var page = await client.Label.QueryLabelsAsync(["at://did:plc:alice/*"]);
 foreach (var result in await verifier.VerifyAllAsync(page.Labels))
@@ -278,7 +278,11 @@ foreach (var result in await verifier.VerifyAllAsync(page.Labels))
 Give `LabelStreamConsumer` a verifier, and each `LabelsEvent` carries `Verification`, one result per
 label in the same order. Labels that fail are still delivered, so you decide what to do with them:
 
+<!-- snippet: IStreamCursorStore cursorStore; IDidResolver resolver; System.Action<Label> Apply; -->
 ```csharp
+using ATProtoNet.Lexicon.Com.AtProto.Label;   // LabelsEvent
+using ATProtoNet.Streaming;
+
 var consumer = new LabelStreamConsumer(new LabelStreamConsumerOptions
 {
     ServiceUrl = "wss://mod.bsky.app",
@@ -310,12 +314,13 @@ almost always share one issuer, and a refetch is rate-limited per DID.
 [XRPC endpoint hosting](xrpc-handlers.md). Implement `ILabelSource` over your label storage and
 register the endpoint:
 
+<!-- snippet: Did labelerDid; ATProtoNet.Crypto.AtProtoKey labelKey; -->
 ```csharp
 using ATProtoNet.Labeling;
 using ATProtoNet.Server.Labeling;
 using ATProtoNet.Server.Xrpc;
 
-builder.Services.AddSingleton<ILabelSource, MyLabelSource>();
+builder.Services.AddSingleton<ILabelSource, InMemoryLabelSource>();   // below
 builder.Services.AddSingleton(new LabelSigner(labelerDid, labelKey)); // optional
 builder.Services.AddXrpcEndpoint<QueryLabelsEndpoint>();
 
@@ -331,6 +336,11 @@ into its own query (a prefix pattern is a `LIKE 'prefix%'`); one that keeps labe
 call `LabelQuery.Matches(label)`, which applies the patterns and sources:
 
 ```csharp
+using System.Globalization;
+using ATProtoNet.Lexicon.Com.AtProto.Label;
+using ATProtoNet.Models;
+using ATProtoNet.Server.Labeling;
+
 public sealed class InMemoryLabelSource : ILabelSource
 {
     private readonly List<Label> _labels = []; // in the order they were issued
@@ -375,9 +385,20 @@ returns without a signature. Storing signatures saves signing on every query.
 
 The XRPC hosting does not serve WebSocket subscriptions, so hosting the stream is up to you.
 `LabelStreamFrames` encodes its frames, header and body together, ready to send as one binary
-WebSocket message:
+WebSocket message. Over a label log of your own:
 
 ```csharp
+public interface ILabelLog
+{
+    long LatestSeq { get; }
+    IAsyncEnumerable<(long Seq, IReadOnlyList<Label> Labels)> ReadFromAsync(long? cursor, CancellationToken ct);
+}
+```
+
+<!-- snippet: ILabelLog store; -->
+```csharp
+using System.Net.WebSockets;
+
 app.UseWebSockets();
 app.Map("/xrpc/com.atproto.label.subscribeLabels", async context =>
 {
@@ -414,4 +435,4 @@ backfill from a cursor, and dropping a consumer that falls too far behind are th
 
 - [Ozone Moderation](ozone.md) — Full moderation toolkit
 - [Service Authentication](crypto.md) — Service auth JWT for labeler services
-- [API Reference](api-reference.md) — Complete LabelerClient methods
+- The XML documentation (IntelliSense) of `LabelerClient`, `LabelSigner` and `LabelVerifier` lists every member

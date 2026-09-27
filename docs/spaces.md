@@ -42,14 +42,17 @@ Record: at://{authority}/space/{spaceType}/{skey}/{author}/{collection}/{rkey}
 ```
 
 ```csharp
+using ATProtoNet.Spaces;
+
 var space = SpaceUri.Parse("at://did:plc:abc123/space/com.atmoboards.forum/default");
 
-space.Authority;   // did:plc:abc123 — the DID that gates access
-space.SpaceType;   // com.atmoboards.forum — the modality
-space.Skey;        // default
+Console.WriteLine(space.Authority);   // did:plc:abc123 — the DID that gates access
+Console.WriteLine(space.SpaceType);   // com.atmoboards.forum — the modality
+Console.WriteLine(space.Skey);        // default
 
+var authorDid = Did.Parse("did:plc:alice");
 var record = space.Record(authorDid, Nsid.Parse("com.atmoboards.thread"), RecordKey.Parse("3l6oveex3ii2l"));
-record.Path;       // com.atmoboards.thread/3l6oveex3ii2l
+Console.WriteLine(record.Path);       // com.atmoboards.thread/3l6oveex3ii2l
 ```
 
 The components are typed — `Authority` and a record's `Author` are `Did`s, `SpaceType` and
@@ -96,7 +99,10 @@ await foreach (var view in client.Space.EnumerateSpacesAsync(type: Nsid.Parse("c
 Batch writes land under a single revision, which is how a syncer recognises them as one atomic
 change:
 
+<!-- snippet: SpaceUri space; object first, second; -->
 ```csharp
+using ATProtoNet.Lexicon.Com.AtProto.Space;
+
 var bookmark = Nsid.Parse("com.example.bookmark");
 
 await client.Space.ApplyWritesAsync(space, client.Did!,
@@ -119,6 +125,8 @@ serve them, because they are unauthenticated: `com.atproto.sync.listBlobs` omits
 Access is granted by space **type**, which is the consent boundary:
 
 ```csharp
+using ATProtoNet.Auth.OAuth;
+
 var scope = AtProtoScopes.Combine(
     AtProtoScopes.AtProto,
     AtProtoScopes.Space("com.example.bookmarks"),                        // the user's own bookmarks
@@ -154,7 +162,7 @@ manage-only grant that touches no records at all cannot be expressed.
 
 ```csharp
 // Administer the user's forums without being able to read other members' records.
-AtProtoScopes.Space("com.atmoboards.forum", authority: "*",
+var manageOnly = AtProtoScopes.Space("com.atmoboards.forum", authority: "*",
     actions: SpaceAction.ReadSelf,
     manage: SpaceManage.Update | SpaceManage.Delete);
 // → space:com.atmoboards.forum?authority=*&action=read_self&manage=update&manage=delete
@@ -170,12 +178,13 @@ A space type NSID resolves to a Lexicon definition with `"type": "space"`. It na
 so every space is some specific kind of space rather than a generic container — and supplies the
 human-readable name a consent screen shows in place of the raw NSID.
 
+<!-- snippet: JsonElement lexiconJson; -->
 ```csharp
 var declaration = SpaceTypeDeclaration.FromLexicon(lexiconJson)!;
 
-declaration.Name;             // "AtmoBoards Forum" — shown on consent screens
-declaration.GetName("es");    // "Foro AtmoBoards"
-declaration.Collections;      // the default collection set for a bare space: scope
+Console.WriteLine(declaration.Name);            // "AtmoBoards Forum" — shown on consent screens
+Console.WriteLine(declaration.GetName("es"));   // "Foro AtmoBoards"
+var collections = declaration.Collections;      // the default collection set for a bare space: scope
 ```
 
 `Collections` is a recommendation, not a constraint. Any collection may be written to any space; the
@@ -245,6 +254,7 @@ Whether a space requires a client attestation is not advertised. The provider as
 and retries with one only if the authority refuses on app grounds, so configuring a factory costs
 nothing against spaces that do not need it:
 
+<!-- snippet: string clientId; ATProtoNet.Crypto.AtProtoKey clientKey; -->
 ```csharp
 var provider = new SpaceCredentialProvider(client, new SpaceCredentialOptions
 {
@@ -273,13 +283,15 @@ public random bytes. A reader in the sync flow gets full authenticity and integr
 a leaked commit can compute a valid MAC for any digest they like, so it proves nothing about the
 repo's contents.
 
+<!-- snippet: IEnumerable<(Nsid Collection, RecordKey Rkey, Cid Cid)> records; SpaceUri space; Did authorDid; Tid rev; ATProtoNet.Crypto.AtProtoKey signingKey; string authorDidKey; -->
 ```csharp
 var repo = SpaceRepoCommit.FromRecords(records);
-var commit = repo.Sign(new SpaceCommitContext(space, authorDid, rev), signingKey);
+var context = new SpaceCommitContext(space, authorDid, rev);
+var commit = repo.Sign(context, signingKey);
 
 // A reader verifies authenticity and integrity, then compares digests.
 if (SpaceCommitVerifier.Verify(commit, context, authorDidKey) && repo.Matches(commit))
-    // the local copy is exactly current
+    Console.WriteLine("The local copy is exactly current");
 ```
 
 A fresh nonce is generated on every `Sign`, so two commits over identical state differ — that is
@@ -294,6 +306,7 @@ each repo host and keeps its own copy current.
 Implement `ISpaceRepoStore` over whatever store you already have, and `SpaceSyncer` drives the
 protocol:
 
+<!-- snippet: SpaceUri space; ISpaceRepoStore myStore; IDidResolver didResolver; Did writerDid; Tid? savedRev; byte[]? savedState; SpaceCredentialProvider provider; System.Action<Tid?, byte[]> Persist; -->
 ```csharp
 // A CachingDidResolver: every pass verifies at least one commit against its author's key.
 var syncer = new SpaceSyncer(space, myStore, didResolver);
@@ -370,6 +383,7 @@ repo's current revision, a periodic sweep can compare revisions and re-sync only
 
 Rather than polling, a syncer registers for notifications:
 
+<!-- snippet: SpaceReader reader; SpaceUri space; -->
 ```csharp
 await reader.Space.RegisterNotifyAsync(space, "did:web:syncer.example.com#atproto_space_syncer");
 ```
@@ -394,6 +408,8 @@ may read one. Those belong to a *space-management implementation* sitting above 
 against it without standing up a bespoke space service.
 
 ```csharp
+using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
+
 var created = await client.SimpleSpace.CreateSpaceAsync(
     Nsid.Parse("com.atmoboards.forum"),
     skey: RecordKey.Parse("default"),
@@ -456,6 +472,7 @@ including derived state.
 A syncer that misses the notification learns on its next credential renewal, which answers
 `SpaceDeleted`:
 
+<!-- snippet: SpaceCredentialProvider provider; SpaceUri space; System.Action<SpaceUri> DropEverythingFor; -->
 ```csharp
 try
 {
@@ -510,16 +527,20 @@ Everything above reads a space. `ATProtoNet.Server` serves one — as a **space 
 **repo host**, or as both, which is what a PDS is. The endpoints are ordinary XRPC handlers, so
 `MapXrpcEndpoints()` maps them alongside an application's own.
 
+<!-- snippet: ATProtoNet.Crypto.AtProtoKey credentialSigningKey; -->
 ```csharp
+using ATProtoNet.Server.Spaces;
+using ATProtoNet.Server.Xrpc;
+
 builder.Services
     .AddAtProtoSpaces(options =>
     {
         options.ServiceDid = Did.Parse("did:web:pds.example.com");
         options.PublicBaseUrl = "https://pds.example.com";   // what a DPoP proof's htu names
     })
-    .AddSpaceAuthority<MyAuthorityStore>(credentialSigningKey)  // getSpaceCredential, listRepos, …
-    .AddSimpleSpace<MySimpleSpaceStore>()                       // com.atproto.simplespace.*
-    .AddSpaceRepoHost<MyRepoHost>();                            // getRecord, getRepo, listRepoOps, …
+    .AddSpaceAuthority<InMemorySpaceAuthorityStore>(credentialSigningKey)  // getSpaceCredential, listRepos, …
+    .AddSimpleSpace<InMemorySimpleSpaceStore>()                            // com.atproto.simplespace.*
+    .AddSpaceRepoHost<MyRepoHost>();                                       // getRecord, getRepo, listRepoOps, …
 
 app.MapXrpcEndpoints();
 ```
@@ -660,10 +681,14 @@ host.
 
 The durable stores are in the `ATProtoNet.Server.EntityFrameworkCore` package:
 
+<!-- snippet: ATProtoNet.Crypto.AtProtoKey credentialSigningKey; -->
 ```csharp
+using ATProtoNet.Server.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+
 // A relational database for the state that has to outlive the process.
 builder.Services.AddDbContextFactory<SpaceDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("spaces")));
+    options.UseSqlite(builder.Configuration.GetConnectionString("spaces")));
 
 builder.Services
     .AddAtProtoSpaces(options => { /* … */ })
@@ -699,17 +724,22 @@ policy they had for both reading and writing, and existing members keep both kin
 matches the reference implementation's own `003-space-access` migration:
 
 ```csharp
-protected override void Up(MigrationBuilder migrationBuilder)
-{
-    // Keep the column types EF generated for your provider; only the data steps are added.
-    migrationBuilder.AddColumn<string>(name: "ReadPolicy", table: "AtProtoSimpleSpaces", nullable: false, defaultValue: "");
-    migrationBuilder.AddColumn<string>(name: "WritePolicy", table: "AtProtoSimpleSpaces", nullable: false, defaultValue: "");
-    migrationBuilder.Sql("""UPDATE "AtProtoSimpleSpaces" SET "ReadPolicy" = "Policy", "WritePolicy" = "Policy" """);
-    migrationBuilder.DropColumn(name: "Policy", table: "AtProtoSimpleSpaces");
+using Microsoft.EntityFrameworkCore.Migrations;
 
-    // Existing members could read and had their writes tracked; keep it that way.
-    migrationBuilder.AddColumn<bool>(name: "Read", table: "AtProtoSimpleSpaceMembers", nullable: false, defaultValue: true);
-    migrationBuilder.AddColumn<bool>(name: "Write", table: "AtProtoSimpleSpaceMembers", nullable: false, defaultValue: true);
+public partial class SimpleSpaceReadWriteAccess : Migration
+{
+    protected override void Up(MigrationBuilder migrationBuilder)
+    {
+        // Keep the column types EF generated for your provider; only the data steps are added.
+        migrationBuilder.AddColumn<string>(name: "ReadPolicy", table: "AtProtoSimpleSpaces", nullable: false, defaultValue: "");
+        migrationBuilder.AddColumn<string>(name: "WritePolicy", table: "AtProtoSimpleSpaces", nullable: false, defaultValue: "");
+        migrationBuilder.Sql("""UPDATE "AtProtoSimpleSpaces" SET "ReadPolicy" = "Policy", "WritePolicy" = "Policy" """);
+        migrationBuilder.DropColumn(name: "Policy", table: "AtProtoSimpleSpaces");
+
+        // Existing members could read and had their writes tracked; keep it that way.
+        migrationBuilder.AddColumn<bool>(name: "Read", table: "AtProtoSimpleSpaceMembers", nullable: false, defaultValue: true);
+        migrationBuilder.AddColumn<bool>(name: "Write", table: "AtProtoSimpleSpaceMembers", nullable: false, defaultValue: true);
+    }
 }
 ```
 
@@ -754,6 +784,8 @@ Register it with `Replace`, so it wins over the in-process default whichever run
 service auth too, which shares the store):
 
 ```csharp
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
 builder.Services.AddSingleton<IConnectionMultiplexer>(
     _ => ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("redis")!));
 builder.Services.Replace(ServiceDescriptor.Singleton<IJtiReplayStore, RedisJtiReplayStore>());
@@ -791,6 +823,8 @@ trusts it afterwards and has no state with which to revisit it. Its write decisi
 forwarded. `ISpaceAccessPolicy` answers both, told which by `SpaceAccessRequest.Access`:
 
 ```csharp
+using ATProtoNet.Server.Spaces;
+
 public sealed class ForumPolicy : ISpaceAccessPolicy
 {
     public async Task<SpaceAccessDecision> EvaluateAsync(SpaceAccessRequest request, CancellationToken ct)
@@ -807,6 +841,10 @@ public sealed class ForumPolicy : ISpaceAccessPolicy
             ? SpaceAccessDecision.Granted
             : SpaceAccessDecision.Refuse(SpaceAccessOutcome.UserNotAuthorized);
     }
+
+    // The forum's own membership rules.
+    private static Task<bool> IsSubscriberAsync(Did user, CancellationToken ct) => Task.FromResult(true);
+    private static Task<bool> IsContributorAsync(Did user, CancellationToken ct) => Task.FromResult(false);
 }
 ```
 
@@ -827,7 +865,7 @@ the app into an open space.
 `ISpaceRepoHost` is seven methods over whatever store already holds the records. The handlers do
 the verification, the addressing, and the error names; the implementation only reads.
 
-```csharp
+```csharp partial
 public sealed class MyRepoHost : ISpaceRepoHost
 {
     public async Task<Stream?> GetRepoAsync(SpaceUri space, Did repo, bool excludeValues, CancellationToken ct)
@@ -872,12 +910,12 @@ An authority that signs credentials with a dedicated `#atproto_space` key
 auth only from an `#atproto` key — so it passes its `#atproto` key as well, or has the signer answer
 for its DID. The host refuses to start with neither.
 
-```csharp
+```csharp partial
 builder.Services.AddAtProtoSpaces(o => { o.ServiceDid = authorityDid; o.CredentialKeyId = "#atproto_space"; })
     .AddSpaceAuthority<MyAuthorityStore>(spaceKey, serviceAuthKey: atprotoKey);
 ```
 
-```csharp
+```csharp partial
 public sealed class ActorStoreSigner(IActorStore actors) : ISpaceAccountSigner
 {
     public async ValueTask<ServiceAuthGenerator?> GetSignerAsync(Did account, CancellationToken ct) =>
@@ -887,7 +925,7 @@ public sealed class ActorStoreSigner(IActorStore actors) : ISpaceAccountSigner
 builder.Services.AddSingleton<ISpaceAccountSigner, ActorStoreSigner>();
 ```
 
-```csharp
+```csharp partial
 // On a repo host, after a write into a space anchored on someone else's DID.
 await notifier.EnsureAuthoritySubscribedAsync(space, repoDid, ct);
 await notifier.NotifyWriteAsync(space, repoDid, rev, hash, ct);

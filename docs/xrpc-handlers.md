@@ -62,28 +62,18 @@ A handler implements exactly one of these interfaces. Queries map to `GET`, proc
 
 ### Query (GET)
 
-For read-only operations:
+For read-only operations. A query without parameters is the `GetStatusEndpoint` above; one with
+parameters binds them from the query string into a class of its own:
 
 ```csharp
-// Without parameters
-public class GetStatusEndpoint : IXrpcQuery<StatusOutput>
-{
-    public static Nsid Nsid { get; } = Nsid.Parse("com.example.getStatus");
-
-    public Task<StatusOutput> HandleAsync(HttpContext context, CancellationToken ct)
-    {
-        return Task.FromResult(new StatusOutput { Status = "ok" });
-    }
-}
-
-// With query parameters
 public class SearchEndpoint : IXrpcQuery<SearchParams, SearchOutput>
 {
     public static Nsid Nsid { get; } = Nsid.Parse("com.example.search");
 
     public Task<SearchOutput> HandleAsync(SearchParams parameters, HttpContext context, CancellationToken ct)
     {
-        var results = DoSearch(parameters.Query, parameters.Limit, parameters.Authors);
+        // parameters.Query, parameters.Limit and parameters.Authors come from the query string
+        IReadOnlyList<AtUri> results = [];
         return Task.FromResult(new SearchOutput { Results = results });
     }
 }
@@ -98,6 +88,12 @@ public class SearchParams
 
     [JsonPropertyName("authors")]
     public IReadOnlyList<Did>? Authors { get; init; }
+}
+
+public class SearchOutput
+{
+    [JsonPropertyName("results")]
+    public required IReadOnlyList<AtUri> Results { get; init; }
 }
 ```
 
@@ -127,7 +123,7 @@ A value that does not bind answers `400 InvalidRequest` naming the parameter:
 
 For write operations:
 
-```csharp
+```csharp partial
 // With input and output
 public class CreateItemEndpoint : IXrpcProcedure<CreateItemInput, CreateItemOutput>
 {
@@ -172,7 +168,7 @@ body arrives as a stream, unbuffered; its size is bounded by the server's reques
 (Kestrel's `MaxRequestBodySize`, or `[RequestSizeLimit]` on the handler class), and reading past it
 answers `413 PayloadTooLarge`.
 
-```csharp
+```csharp partial
 public class UploadBlobEndpoint : IXrpcBlobProcedure<UploadBlobOutput>
 {
     public static Nsid Nsid { get; } = Nsid.Parse("com.example.uploadBlob");
@@ -208,7 +204,7 @@ A blob procedure without a `Content-Type` answers `400 InvalidRequest`.
 
 ```csharp
 builder.Services.AddXrpcEndpoint<GetStatusEndpoint>();
-builder.Services.AddXrpcEndpoint<CreateItemEndpoint>();
+builder.Services.AddXrpcEndpoint<SearchEndpoint>();
 ```
 
 ### Assembly Scanning
@@ -247,7 +243,7 @@ app.MapXrpcEndpoints()
 Attributes on a handler class become that endpoint's metadata, so `[Authorize]`,
 `[AllowAnonymous]`, `[EnableRateLimiting]` and `[RequestSizeLimit]` apply per handler:
 
-```csharp
+```csharp partial
 [AllowAnonymous] // reachable even though the group requires authorization
 public class DescribeServerEndpoint : IXrpcQuery<DescribeServerOutput> { /* ... */ }
 
@@ -311,16 +307,26 @@ the NSID of the endpoint it reached, so the handler needs no check of its own; t
 the principal's name:
 
 ```csharp
+using ATProtoNet.Lexicon.App.Bsky.Feed;   // GetFeedSkeletonResponse
+
 [RequireServiceAuth]
-public sealed class GetFeedSkeletonEndpoint : IXrpcQuery<FeedSkeletonParams, FeedSkeletonOutput>
+public sealed class GetFeedSkeletonEndpoint : IXrpcQuery<FeedSkeletonParams, GetFeedSkeletonResponse>
 {
     public static Nsid Nsid { get; } = Nsid.Parse("app.bsky.feed.getFeedSkeleton");
 
-    public Task<FeedSkeletonOutput> HandleAsync(FeedSkeletonParams parameters, HttpContext context, CancellationToken ct)
+    public Task<GetFeedSkeletonResponse> HandleAsync(FeedSkeletonParams parameters, HttpContext context, CancellationToken ct)
     {
         var viewer = Did.Parse(context.User.Identity!.Name!); // also the "did" claim
-        // …
+        IReadOnlyList<SkeletonFeedPost> posts = [];            // the viewer's feed
+        return Task.FromResult(new GetFeedSkeletonResponse { Feed = posts });
     }
+}
+
+public sealed class FeedSkeletonParams
+{
+    [JsonPropertyName("feed")] public required AtUri Feed { get; init; }
+    [JsonPropertyName("limit")] public int? Limit { get; init; }
+    [JsonPropertyName("cursor")] public string? Cursor { get; init; }
 }
 ```
 
@@ -398,7 +404,8 @@ Every exception an endpoint throws is answered with the XRPC error envelope:
 using System.Net;
 using ATProtoNet.Http;
 
-throw new XrpcException(XrpcErrors.RecordNotFound, $"No profile for {parameters.Actor}.", HttpStatusCode.NotFound);
+var actor = Did.Parse("did:plc:ewvi7nxzyoun6zhxrhs64oiz");
+throw new XrpcException(XrpcErrors.RecordNotFound, $"No profile for {actor}.", HttpStatusCode.NotFound);
 ```
 
 ```json
@@ -408,12 +415,20 @@ throw new XrpcException(XrpcErrors.RecordNotFound, $"No profile for {parameters.
 }
 ```
 
+Add headers to the response through `Headers`, such as a DPoP challenge:
+
+```csharp
+var ex = new XrpcException(XrpcErrors.AuthenticationRequired, "Proof expired.", HttpStatusCode.Unauthorized);
+ex.Headers["WWW-Authenticate"] = "DPoP error=\"invalid_dpop_proof\"";
+throw ex;
+```
+
 ## Dependency Injection
 
 Endpoint handlers are registered as scoped services and resolved per request, so you can inject
 services:
 
-```csharp
+```csharp partial
 public class GetProfileEndpoint : IXrpcQuery<ProfileParams, ProfileOutput>
 {
     private readonly IProfileService _profiles;
@@ -435,33 +450,9 @@ public class GetProfileEndpoint : IXrpcQuery<ProfileParams, ProfileOutput>
 }
 ```
 
-## Upgrading from 0.6
-
-Endpoints declare their NSID once, as a static property. Delete the `[XrpcEndpoint(Nsid = …)]`
-attribute and turn the instance property into a static one:
-
-```csharp
-// 0.6
-[XrpcEndpoint(Nsid = "com.example.getStatus")]
-public class GetStatusEndpoint : IXrpcQuery<StatusOutput>
-{
-    public string Nsid => "com.example.getStatus";
-    // ...
-}
-
-// 0.7
-public class GetStatusEndpoint : IXrpcQuery<StatusOutput>
-{
-    public static Nsid Nsid { get; } = Nsid.Parse("com.example.getStatus");
-    // ...
-}
-```
-
-`MapXrpcEndpoints()` now returns a `RouteGroupBuilder` rather than the `IEndpointRouteBuilder` it
-was called on; code that chained other `Map…` calls onto its result calls them on the app instead.
-
 ## Next Steps
 
-- [Managed PDS](managed-pds.md) — run the Bluesky PDS container and administer it
-- [Server Integration](server.md) — Backend AT Proto access patterns
-- [ASP.NET Core](aspnet-core.md) — DI integration
+- [ASP.NET Core](aspnet-core.md) — the rest of the registration
+- [Error Handling](error-handling.md) — the `XrpcException` family, client side
+- [Labeler Services](labeler.md#serving-labels) — `queryLabels` and `subscribeLabels` served by the SDK
+- [Spaces: Serving a space](spaces.md#serving-a-space) — the space server's endpoints

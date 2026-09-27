@@ -181,7 +181,7 @@ request forgery the policy exists to stop. To reach one trusted private PLC mirr
 the policy for everything else, give `PlcClient` your own `HttpClient`:
 
 ```csharp
-var plc = new PlcClient(myHttpClient, new Uri("https://plc.internal.example"));
+var plc = new PlcClient(httpClient, new Uri("https://plc.internal.example"));
 var didResolver = new CachingDidResolver(new DidResolver(plc, new DidWebResolver()));
 ```
 
@@ -195,7 +195,9 @@ SDK's handler, while the identifier rules (hostname-only `did:web`, HTTPS) still
 singletons, so every consumer in the container shares one cache:
 
 ```csharp
-builder.Services.AddStackExchangeRedisCache(o => o.Configuration = "localhost");
+using ATProtoNet.Server;
+
+builder.Services.AddDistributedMemoryCache();   // or AddStackExchangeRedisCache, shared across instances
 builder.Services.AddAtProtoIdentity(o =>
 {
     o.Cache.UseDistributedCache = true;
@@ -218,6 +220,7 @@ Every resolver throws `DidResolutionException`, an `AtProtoException`, including
 failure or a timeout, so a caller turning an unresolvable identity into its own error has one
 thing to catch:
 
+<!-- snippet: IDidResolver didResolver; Did did; -->
 ```csharp
 try
 {
@@ -302,6 +305,7 @@ bool healthy = await plc.IsHealthyAsync();
 A mirror follows every operation the directory accepts: page through `/export` by sequence
 number, then follow `/export/stream` over a WebSocket from where the pages ended.
 
+<!-- snippet: PlcClient plc; System.Action<PlcAuditEntry> Apply; -->
 ```csharp
 long cursor = 0;
 IReadOnlyList<PlcAuditEntry> page;
@@ -333,6 +337,8 @@ you name.
 A client that should not resolve identities itself can ask its PDS or an AppView:
 
 ```csharp
+using ATProtoNet.Lexicon.Com.AtProto.Identity;
+
 IdentityInfo info = await client.Identity.ResolveIdentityAsync(AtIdentifier.Parse("atproto.com"));
 ResolveDidResponse doc = await client.Identity.ResolveDidAsync(Did.Parse("did:plc:…"));
 IdentityInfo refreshed = await client.Identity.RefreshIdentityAsync(AtIdentifier.Parse("atproto.com"));
@@ -405,13 +411,17 @@ A permission set is a Lexicon whose `main` definition is a `permission-set`. An 
 fails a login whose `include:` scope names a set it cannot resolve, so an app can check its sets up
 front:
 
+<!-- snippet: ILexiconResolver lexicons; -->
 ```csharp
+using ATProtoNet.Auth.OAuth;
+
 LexiconPermissionSet set = await lexicons.ResolvePermissionSetAsync(
     Nsid.Parse(AtProtoScopes.PermissionSets.FullApp));
 Console.WriteLine(set.Title);
 
 // Or straight from the scope string you are about to request.
-await lexicons.ResolveIncludeScopeAsync(AtProtoScopes.Include(AtProtoScopes.PermissionSets.FullApp, aud));
+await lexicons.ResolveIncludeScopeAsync(
+    AtProtoScopes.Include(AtProtoScopes.PermissionSets.FullApp, AtProtoScopes.BlueskyAppView));
 ```
 
 Both throw `LexiconResolutionException` — `NotPermissionSet` when the Lexicon is something else.

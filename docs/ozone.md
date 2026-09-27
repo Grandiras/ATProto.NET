@@ -28,6 +28,20 @@ filter of `QueryEventsAsync`, `SubjectStatusFilter` and `ReportFilter`, `GetSubj
 Subjects (`RepoSubject`, `RecordSubject`, `MessageSubject`, `ConvoSubject`) are the variants of the
 one `ModerationSubject` union in `ATProtoNet.Lexicon.Com.AtProto.Moderation`, which reports and a
 PDS's subject status use too; import that namespace alongside `ATProtoNet.Lexicon.Tools.Ozone.Moderation`.
+The samples on this page use these namespaces:
+
+```csharp
+using ATProtoNet.Lexicon.Com.AtProto.Moderation;
+using ATProtoNet.Lexicon.Tools.Ozone.Communication;
+using ATProtoNet.Lexicon.Tools.Ozone.Hosting;
+using ATProtoNet.Lexicon.Tools.Ozone.Moderation;
+using ATProtoNet.Lexicon.Tools.Ozone.Report;
+using ATProtoNet.Lexicon.Tools.Ozone.Safelink;
+using ATProtoNet.Lexicon.Tools.Ozone.Set;
+using ATProtoNet.Lexicon.Tools.Ozone.Setting;
+using ATProtoNet.Lexicon.Tools.Ozone.Team;
+using ATProtoNet.Lexicon.Tools.Ozone.Verification;
+```
 
 ## Moderation
 
@@ -542,4 +556,4 @@ Ozone also records events on its own, which read back from `QueryEventsAsync` an
 ## Next Steps
 
 - [Labeler Services](labeler.md) — Custom label definitions and labeler service support
-- [API Reference](api-reference.md) — Complete Ozone client methods
+- The XML documentation (IntelliSense) of the `client.Ozone` sub-clients lists every method

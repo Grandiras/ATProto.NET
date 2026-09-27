@@ -31,13 +31,9 @@ did:plc:z72i7hdynmk6r22z27h6tvur
 did:web:alice.example.com
 ```
 
-DIDs never change, even if the user changes their handle or moves to a different PDS.
-
-```csharp
-var did = Did.Parse("did:plc:z72i7hdynmk6r22z27h6tvur");
-Console.WriteLine(did.Method);             // "plc"
-Console.WriteLine(did.MethodSpecificId);   // "z72i7hdynmk6r22z27h6tvur"
-```
+DIDs never change, even if the user changes their handle or moves to a different PDS. In the
+SDK a DID is a [`Did`](identity-types.md#did), and resolving one to its DID document is covered in
+[Identity Resolution](did-resolution.md).
 
 ### Handle
 
@@ -48,12 +44,8 @@ alice.bsky.social
 bob.example.com
 ```
 
-Handles map to DIDs via DNS or HTTP resolution. They can change.
-
-```csharp
-var handle = Handle.Parse("alice.example.com");
-// Handles are normalized to lowercase, @ prefix stripped
-```
+Handles map to DIDs via DNS or HTTP resolution. They can change. In the SDK a handle is a
+[`Handle`](identity-types.md#handle).
 
 ### Repository
 
@@ -77,7 +69,7 @@ Repository (did:plc:abc123)
 
 A **Lexicon** is a schema definition for AT Protocol data types and API methods. It uses a Lexicon JSON schema format.
 
-Each Lexicon has an **NSID** (Namespaced Identifier):
+Each Lexicon has an **NSID** (Namespaced Identifier), an [`Nsid`](identity-types.md#nsid-namespaced-identifier) in the SDK:
 
 ```
 com.atproto.repo.createRecord    ← Protocol-level method
@@ -85,27 +77,14 @@ app.bsky.feed.post               ← Bluesky record type
 com.example.todo.item            ← Your custom record type
 ```
 
-```csharp
-var nsid = Nsid.Parse("com.example.todo.item");
-Console.WriteLine(nsid.Authority);  // "com.example.todo"
-Console.WriteLine(nsid.Name);       // "item"
-```
-
 ### AT URI
 
-A URI scheme identifying a specific record:
+A URI scheme identifying a specific record, an [`AtUri`](identity-types.md#aturi) in the SDK:
 
 ```
 at://did:plc:abc123/com.example.todo.item/3k2la7r
      ───────────── ──────────────────────── ───────
      authority      collection               record key
-```
-
-```csharp
-var uri = AtUri.Parse("at://did:plc:abc/com.example.todo.item/3k2la");
-Console.WriteLine(uri.Authority);    // "did:plc:abc"
-Console.WriteLine(uri.Collection);   // "com.example.todo.item"
-Console.WriteLine(uri.RecordKey);    // "3k2la"
 ```
 
 ### TID (Timestamp Identifier)
@@ -116,12 +95,9 @@ A 13-character, base32-sortable identifier used as the default record key:
 3k2la7rxjgs2t
 ```
 
-TIDs encode a microsecond timestamp and a clock ID. `Tid.Next()` returns strictly increasing values, so TIDs from one process never repeat and sort chronologically.
-
-```csharp
-var tid = Tid.Next();  // Generate a new TID
-Console.WriteLine(tid.Value);  // "3k2la7rxjgs2t"
-```
+TIDs encode a microsecond timestamp and a clock ID. `Tid.Next()` returns strictly increasing
+values, so TIDs from one process never repeat and sort chronologically (see
+[`Tid`](identity-types.md#tid-timestamp-identifier)).
 
 ### Record Key
 
@@ -131,10 +107,7 @@ The unique key for a record within a collection. Usually a TID, but can be:
 - A literal: `self` (used by profile records)
 - A custom string following AT Protocol naming rules
 
-```csharp
-var rkey = RecordKey.Parse("self");
-var rkey2 = RecordKey.NewTid();  // Generate a TID-based key
-```
+In the SDK a record key is a [`RecordKey`](identity-types.md#recordkey).
 
 ### CID (Content Identifier)
 
@@ -144,7 +117,8 @@ A hash-based content identifier for a specific version of a record:
 bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm
 ```
 
-Used for content addressing and optimistic concurrency (CAS operations).
+Used for content addressing and optimistic concurrency (CAS operations). In the SDK a CID is a
+[`Cid`](identity-types.md#cid-content-identifier).
 
 ## XRPC
 
@@ -165,13 +139,20 @@ ATProto.NET handles all of this internally — you work with typed C# APIs.
 
 ## Authentication
 
-AT Protocol uses JWT-based session authentication:
+A client acts for an account with one of two kinds of session:
 
-1. **Login** with handle + password → receive access + refresh tokens
-2. **Access token** is sent with each request (short-lived, ~2 hours)
-3. **Refresh token** is used to get new access tokens (longer-lived)
+- **OAuth** (recommended for anything user-facing): the user signs in at their own PDS's
+  authorization server, and the app receives DPoP-bound tokens — it never sees the password. See
+  [OAuth Authentication](oauth.md).
+- **Password sessions**: sign in with a handle and an app password, and receive an access and a
+  refresh JWT. Simple, and right for bots, scripts and services acting as their own account.
 
-ATProto.NET handles token management automatically when `AutoRefreshSession` is enabled (the default).
+Either way the access token is short-lived and the refresh token single-use. ATProto.NET refreshes
+on demand (`AutoRefreshSession`, on by default); see [Session Management](session-management.md).
+
+Services calling one another on a user's behalf use **service auth**: a short-lived JWT signed with
+the account's key and bound to one method (see
+[Serving XRPC to other services](xrpc-handlers.md#serving-xrpc-to-other-services)).
 
 ## Further Reading
 

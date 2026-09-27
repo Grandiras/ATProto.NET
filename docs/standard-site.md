@@ -130,12 +130,12 @@ Console.WriteLine(doc.Value.Title);
 
 ### Update a Document
 
-```csharp
+```csharp continued
 await client.Site.PutDocumentAsync(client.Did!, RecordKey.Parse("doc-key"), new DocumentRecord
 {
     Site = $"at://{client.Did}/site.standard.publication/self",
     Title = "Updated: Getting Started with ATProto.NET",
-    PublishedAt = originalPublishedAt,
+    PublishedAt = doc.Value.PublishedAt,   // keep the original publication date
     UpdatedAt = AtDatetime.Now(),
     Path = "/getting-started",
     Tags = ["atproto", "dotnet", "tutorial", "updated"],
@@ -236,4 +236,4 @@ var theirDocs = await client.Site.ListDocumentsAsync(Did.Parse("did:plc:someonee
 ## Next Steps
 
 - [Custom Lexicon Records](custom-records.md) — Build your own record types
-- [API Reference](api-reference.md) — Complete StandardSiteClient methods
+- The XML documentation (IntelliSense) of `StandardSiteClient` lists every method

@@ -168,7 +168,9 @@ holder around the SDK's `SpaceTypeDeclaration` instead of a class:
 }
 ```
 
-```csharp
+```csharp partial
+using ATProtoNet.Spaces;
+
 public static class ForumSpace
 {
     public const string Nsid = "com.atmoboards.forum";
@@ -178,7 +180,11 @@ public static class ForumSpace
         Key = "any",
         Name = "AtmoBoards Forum",
         LocalizedNames = new Dictionary<string, string> { ["es"] = "Foro AtmoBoards" },
-        Collections = [ "com.atmoboards.thread", "com.atmoboards.reply" ],
+        Collections =
+        [
+            ATProtoNet.Identity.Nsid.Parse("com.atmoboards.thread"),
+            ATProtoNet.Identity.Nsid.Parse("com.atmoboards.reply"),
+        ],
     };
 
     public static string Key => Declaration.Key;
@@ -188,9 +194,11 @@ public static class ForumSpace
 }
 ```
 
-```csharp
-AtProtoScopes.Space(ForumSpace.Nsid, authority: "*");   // space:com.atmoboards.forum?authority=*
-consentScreen.Title = ForumSpace.Declaration.GetName(userLanguage);
+```csharp partial
+using ATProtoNet.Auth.OAuth;
+
+var scope = AtProtoScopes.Space(ForumSpace.Nsid, authority: "*");   // space:com.atmoboards.forum?authority=*
+var title = ForumSpace.Declaration.GetName("es");                   // "Foro AtmoBoards"
 ```
 
 `key`, `name`, and `collections` are `required` on `SpaceTypeDeclaration`, so a declaration that
@@ -242,6 +250,8 @@ public static class AuthFull
 ```
 
 ```csharp
+using ATProtoNet.Auth.OAuth;
+
 var scope = AtProtoScopes.Combine(
     AtProtoScopes.AtProto,
     AuthFull.Include("did:web:todo.example.com#todo_service"));
@@ -385,11 +395,8 @@ authority's signing key (see [Resolving lexicons](did-resolution.md#resolving-le
 
 ## Removed: `migrate`
 
-`atproto-lexgen migrate` was removed in 0.7.0. It transformed local JSON files between schema
-"revisions" with add/remove/rename operations, and scaffolded stubs from a diff that it only printed.
-The Lexicon evolution rules leave nothing for it to do: new fields must be optional, fields are never
-removed, renamed or retyped, and a breaking change needs a new NSID — so records written under one
-revision of a schema stay valid under the next. Use `diff --strict` in CI to keep it that way.
+`atproto-lexgen migrate` was removed in 0.7.0: the Lexicon evolution rules leave no record migration
+to run. Use `diff --strict` in CI instead; see [Migrating to 0.7](migrating-to-0.7.md#lexicon-tooling).
 
 ## Lexicon Plugin Packages
 

@@ -25,6 +25,7 @@ The enumeration ends when the relay closes the connection or the token is cancel
 
 Every message except `#info` is a `FirehoseEvent`, whose `Seq` is the stream position. Pass the last one you handled back as the cursor to resume after it:
 
+<!-- snippet: FirehoseClient firehose; System.Func<long?> LoadLastSequence; System.Action<FirehoseMessage> ProcessMessage; System.Action<long> SaveLastSequence; -->
 ```csharp
 long? lastSeq = LoadLastSequence();
 
@@ -43,6 +44,7 @@ await foreach (var message in firehose.SubscribeAsync(cursor: lastSeq))
 
 Cancelling the token ends the enumeration normally: no `OperationCanceledException` is thrown, and the consumers save their cursor on the way out. This holds for every stream client and consumer in `ATProtoNet.Streaming`.
 
+<!-- snippet: FirehoseClient firehose; System.Action<FirehoseMessage> ProcessMessage; -->
 ```csharp
 using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
 
@@ -180,6 +182,7 @@ The count resets whenever a connection delivers a frame. When the attempts run o
 
 Relays end a stream with an error frame (`op = -1`) such as `ConsumerTooSlow` or `FutureCursor`. Each is reported to `OnStreamError`; the consumer then reconnects from its cursor when the error is retryable (`ConsumerTooSlow`), and throws when it is not (`FutureCursor`, whose cursor is ahead of the relay and would fail the same way forever):
 
+<!-- snippet: TypedFirehoseConsumer consumer; System.Func<FirehoseMessage, Task> HandleAsync; -->
 ```csharp
 try
 {
@@ -201,7 +204,11 @@ catch (EventStreamException ex)
 A frame that cannot be read — malformed CBOR, a missing required field, or an identifier that does not parse (a `repo` that is not a DID, a `commit` that is not a CID) — is skipped, and so is a message type this SDK version does not model. The cursor still moves past it. `OnEventDropped` reports each one, with its `Reason`, its `Cursor` when it could be read, and a `Detail`:
 
 ```csharp
-OnEventDropped = drop => metrics.Dropped(drop.Reason.ToString()),
+var options = new TypedFirehoseConsumerOptions
+{
+    ServiceUrl = "wss://bsky.network",
+    OnEventDropped = drop => logger.LogWarning("Dropped a frame at {Cursor}: {Reason} {Detail}", drop.Cursor, drop.Reason, drop.Detail),
+};
 ```
 
 With a `SyncVerifier`, two more reasons appear: `Stale`, for an event no newer than the last one verified for its repository (a replay), and `Desynchronized`, for an authentic event of a repository whose chain is broken. Their `Detail` starts with the repository's DID.
@@ -244,7 +251,7 @@ var consumer = new TypedFirehoseConsumer(new TypedFirehoseConsumerOptions
     ServiceUrl = "wss://bsky.network",
     SyncVerifier = verifier,
     Resync = new RepoResyncOptions(),   // fetch broken repositories again
-    CursorStore = cursorStore,
+    CursorStore = new InMemoryStreamCursorStore(),
 });
 
 await foreach (var message in consumer.ConsumeAsync(cancellationToken: stoppingToken))
@@ -253,12 +260,12 @@ await foreach (var message in consumer.ConsumeAsync(cancellationToken: stoppingT
     {
         case CommitEvent commit:
             foreach (var change in commit.GetRecordEvents())
-                await index.ApplyAsync(change);
+                Console.WriteLine($"{change.Operation} {change.Uri}");
             break;
 
         case RepoResyncEvent resync:
             // The repository's whole, verified contents: reconcile what you hold for it.
-            await index.ReconcileAsync(resync.Did, resync.Snapshot.Records, resync.Snapshot.GetRecord);
+            Console.WriteLine($"{resync.Did} resynchronized at {resync.Snapshot.Rev}");
             break;
     }
 }
@@ -279,6 +286,7 @@ Everything is bounded (`RepoResyncOptions`): `MaxConcurrency` repositories fetch
 
 Repositories the store lists as not synchronized are picked up every `ScanInterval`: ones left over from a run that stopped mid-fetch, and ones you mark yourself. To backfill a repository you have not seen on the firehose, for example one found through `com.atproto.sync.listReposByCollection`, mark it:
 
+<!-- snippet: RepoSyncVerifier verifier; Did did; -->
 ```csharp
 await verifier.StateStore.SetAsync(new RepoSyncState(did, Rev: null, Data: null, RepoSyncStatus.Desynchronized));
 ```
@@ -290,7 +298,10 @@ await verifier.StateStore.SetAsync(new RepoSyncState(did, Rev: null, Data: null,
 `IRepoSyncStateStore` keeps each repository's last revision, tree root and status. `InMemoryRepoSyncStateStore` is fast and forgets everything on restart, after which each repository starts a new chain at its next commit. The `ATProtoNet.Server.EntityFrameworkCore` package has an EF Core store that survives restarts:
 
 ```csharp
-builder.Services.AddDbContextFactory<RepoSyncStateDbContext>(o => o.UseNpgsql(connectionString));
+using ATProtoNet.Server.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+
+builder.Services.AddDbContextFactory<RepoSyncStateDbContext>(o => o.UseSqlite("Data Source=sync.db"));
 builder.Services.AddAtProtoEfCoreRepoSyncStateStore<RepoSyncStateDbContext>();
 
 // later
@@ -319,6 +330,7 @@ The verifier does not track account hosting status (`#account` events) or check 
 
 `FirehoseEventParser` decodes a raw CBOR firehose frame read some other way:
 
+<!-- snippet: byte[] frameBytes; -->
 ```csharp
 FirehoseMessage? message = FirehoseEventParser.Parse(frameBytes);
 ```
@@ -368,17 +380,20 @@ All but `InfoEvent` derive from `FirehoseEvent`, which carries `Seq` and `Time`.
 
 `commit.GetRecordEvents()` splits a commit into one `FirehoseRecordEvent` per operation, with the collection and record key parsed and the record decoded from the commit's blocks into the JSON data model. It implements `IRecordEvent`, as `JetstreamCommitEvent` does, so indexing code can take either stream:
 
+<!-- snippet: CommitEvent commit; -->
 ```csharp
-async Task IndexAsync(IRecordEvent change)
+using ATProtoNet.Lexicon.App.Bsky.Feed;   // PostRecord
+
+void Index(IRecordEvent change)
 {
     if (change.Operation == RepoOpAction.Delete)
-        await index.RemoveAsync(change.Uri);
+        Console.WriteLine($"deleted {change.Uri}");
     else
-        await index.UpsertAsync(change.Uri, change.Cid, change.GetRecord<PostRecord>());
+        Console.WriteLine($"{change.Uri} ({change.Cid}): {change.GetRecord<PostRecord>()?.Text}");
 }
 
 foreach (var change in commit.GetRecordEvents())
-    await IndexAsync(change);
+    Index(change);
 ```
 
 The blocks are read, not verified: set a `Verifier` or a `SyncVerifier` on the consumer if the records must be authentic.
@@ -393,7 +408,7 @@ using ATProtoNet.Lexicon.Com.AtProto.Label;
 var labels = new LabelStreamConsumer(new LabelStreamConsumerOptions
 {
     ServiceUrl = "wss://mod.bsky.app",
-    CursorStore = cursorStore,
+    CursorStore = new InMemoryStreamCursorStore(),
 });
 
 await foreach (var message in labels.ConsumeAsync(cancellationToken: stoppingToken))
@@ -418,6 +433,7 @@ Set `Verifier = new LabelVerifier(resolver)` on the options to check every label
 
 Verify that block CIDs match their content (local-only, no network access):
 
+<!-- snippet: CommitEvent commitEvent; -->
 ```csharp
 using ATProtoNet.Streaming;
 
@@ -437,6 +453,7 @@ else
 
 Verify commit signatures against the signing key in the author's DID document; this checks every block's CID as well:
 
+<!-- snippet: CommitEvent commitEvent; -->
 ```csharp
 using var verifier = new FirehoseVerifier(); // its own CachingDidResolver
 
@@ -448,7 +465,8 @@ if (result.IsValid)
 }
 
 // Or share a resolver (and its cache) with the rest of the application
-using var verifier2 = new FirehoseVerifier(myCachingDidResolver);
+var sharedResolver = new CachingDidResolver();
+using var verifier2 = new FirehoseVerifier(sharedResolver);
 ```
 
 A relay carries thousands of commits a second from far fewer accounts, so keys come from a

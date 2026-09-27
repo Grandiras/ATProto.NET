@@ -66,20 +66,21 @@ public class TodoItem : AtProtoRecord, IAtProtoRecord
 > the plain `override` above and nothing else. For different settings, copy those options
 > (`new JsonSerializerOptions(AtProtoJsonDefaults.Options) { WriteIndented = true }`), which keeps
 > it. If you build `JsonSerializerOptions` from scratch instead, add the modifier so you get the
-> same guarantee:
->
-> ```csharp
-> var options = new JsonSerializerOptions
-> {
->     TypeInfoResolver = new DefaultJsonTypeInfoResolver
->     {
->         Modifiers = { AtProtoJsonDefaults.ApplyRecordTypeDiscriminator },
->     },
-> };
-> ```
->
-> Without it, the record writes both `"$type"` (from the base member) and a stray `"type"` (from your
-> override).
+> same guarantee. Without it, the record writes both `"$type"` (from the base member) and a stray
+> `"type"` (from your override):
+
+```csharp
+using System.Text.Json.Serialization.Metadata;
+using ATProtoNet.Serialization;
+
+var options = new JsonSerializerOptions
+{
+    TypeInfoResolver = new DefaultJsonTypeInfoResolver
+    {
+        Modifiers = { AtProtoJsonDefaults.ApplyRecordTypeDiscriminator },
+    },
+};
+```
 
 ### Using Plain C# Classes
 
@@ -121,10 +122,14 @@ When the collection is only known at run time, or the type does not implement `I
 pass it explicitly. A type that does declare a collection refuses any other one with an
 `ArgumentException`, so a record never lands in a collection its `$type` does not match:
 
-```csharp
-using ATProtoNet.Identity;
+```csharp continued
+var notes = client.GetCollection<Note>(Nsid.Parse(configuration["Notes:Collection"]!));
 
-var notes = client.GetCollection<Note>(Nsid.Parse(settings.NotesCollection));
+public class Note
+{
+    [JsonPropertyName("text")]
+    public string Text { get; set; } = "";
+}
 ```
 
 Collections, record keys, CIDs and AT URIs are typed (`Nsid`, `RecordKey`, `Cid`, `AtUri`; see
@@ -135,7 +140,7 @@ already typed; parse a literal with `RecordKey.Parse("…")`.
 
 ### Create
 
-```csharp
+```csharp continued
 var created = await todos.CreateAsync(new TodoItem
 {
     Title = "Buy groceries",
@@ -157,15 +162,15 @@ a value you set is kept.
 
 The server generates a TID-based record key. You can also specify one:
 
-```csharp
-var created = await todos.CreateAsync(
+```csharp continued
+var withKey = await todos.CreateAsync(
     new TodoItem { Title = "Custom key" },
     rkey: RecordKey.Parse("my-custom-key"));
 ```
 
 ### Read
 
-```csharp
+```csharp continued
 var item = await todos.GetAsync(created.RecordKey);
 
 Console.WriteLine($"Title: {item.Value.Title}");
@@ -179,7 +184,7 @@ deserialized once, straight from the response. `GetAsync` throws `XrpcException`
 `RecordNotFound` when there is no such record; when absence is an expected answer, use
 `FindAsync`, which returns `null` instead:
 
-```csharp
+```csharp continued
 var maybe = await todos.FindAsync(RecordKey.Parse("maybe-there"));
 if (maybe is null)
     Console.WriteLine("Not created yet");
@@ -191,7 +196,7 @@ Only `RecordNotFound` means absent: a malformed key or a missing repository stil
 
 `PutAsync` is an upsert — it creates the record if it doesn't exist, or replaces it if it does:
 
-```csharp
+```csharp continued
 await todos.PutAsync(created.RecordKey, new TodoItem
 {
     Title = "Buy groceries",
@@ -200,24 +205,27 @@ await todos.PutAsync(created.RecordKey, new TodoItem
 });
 ```
 
-For optimistic concurrency, pass the expected CID:
+For optimistic concurrency, pass the CID of the version you read:
 
-```csharp
+```csharp continued
+var current = await todos.GetAsync(created.RecordKey);
+current.Value.Priority = 1;
+
 await todos.PutAsync(
     created.RecordKey,
-    updatedItem,
-    swapRecord: item.Cid);  // Fails if record was modified since read
+    current.Value,
+    swapRecord: current.Cid);  // Fails if the record was modified since it was read
 ```
 
 ### Delete
 
-```csharp
+```csharp continued
 await todos.DeleteAsync(created.RecordKey);
 ```
 
 ### Check Existence
 
-```csharp
+```csharp continued
 bool exists = await todos.ExistsAsync(RecordKey.Parse("some-record-key")); // FindAsync(...) is not null
 ```
 
@@ -225,7 +233,7 @@ bool exists = await todos.ExistsAsync(RecordKey.Parse("some-record-key")); // Fi
 
 ### Paginated Listing
 
-```csharp
+```csharp continued
 var page = await todos.ListAsync(limit: 25);
 
 foreach (var record in page.Records)
@@ -244,7 +252,7 @@ if (page.HasMore)
 
 For iterating over all records with automatic pagination:
 
-```csharp
+```csharp continued
 await foreach (var record in todos.EnumerateAsync())
 {
     Console.WriteLine($"{record.RecordKey}: {record.Value.Title}");
@@ -261,22 +269,22 @@ Enumeration stops when the server returns no cursor, an empty one, or one it alr
 
 ### Reverse Order
 
-```csharp
-var page = await todos.ListAsync(limit: 25, reverse: true);
+```csharp continued
+var newestFirst = await todos.ListAsync(limit: 25, reverse: true);
 ```
 
 ## Reading Other Users' Data
 
 One of the key features of AT Protocol is that records are public by default. You can read records from any user's repository:
 
-```csharp
+```csharp continued
 var other = Did.Parse("did:plc:otherperson");
 
 // Read a specific record from another user (FindFromAsync returns null when it is absent)
-var item = await todos.GetFromAsync(other, RecordKey.Parse("record-key"));
+var theirs = await todos.GetFromAsync(other, RecordKey.Parse("record-key"));
 
 // List records from another user
-var page = await todos.ListFromAsync(other, limit: 50);
+var theirPage = await todos.ListFromAsync(other, limit: 50);
 
 // Enumerate all of their records
 await foreach (var record in todos.EnumerateFromAsync(other))
@@ -295,12 +303,13 @@ await client.LoginAsync("alice.example.com", "app-password");
 // Different apps, same account, different collections
 var todos = client.GetCollection<TodoItem>();
 var bookmarks = client.GetCollection<Bookmark>();
-var notes = client.GetCollection<Note>();
+var notes = client.GetCollection<Note>(Nsid.Parse("com.example.notes.note"));
 var recipes = client.GetCollection<Recipe>();
 
 // Each collection is independent
 await todos.CreateAsync(new TodoItem { Title = "Cook dinner" });
 await recipes.CreateAsync(new Recipe { Name = "Pasta Carbonara" });
+await bookmarks.CreateAsync(new Bookmark { Url = "https://atproto.com", Title = "AT Protocol" });
 ```
 
 ## Record Type Design Guidelines
@@ -349,16 +358,16 @@ record you read and write back keeps its CID, and it writes the canonical form
 (`yyyy-MM-ddTHH:mm:ss.fffZ`) for values you create:
 
 ```csharp
-[JsonPropertyName("dueDate")]
-public AtDatetime? DueDate { get; set; }
+// TodoItem declares [JsonPropertyName("dueDate")] public AtDatetime? DueDate { get; set; }
+var todo = new TodoItem { Title = "File taxes" };
 
 // Set like this:
-record.DueDate = AtDatetime.Now();
-record.DueDate = AtDatetime.FromDateTimeOffset(DateTimeOffset.UtcNow.AddDays(3));
-record.DueDate = AtDatetime.Parse("2024-06-15T14:30:00.000Z");
+todo.DueDate = AtDatetime.Now();
+todo.DueDate = AtDatetime.FromDateTimeOffset(DateTimeOffset.UtcNow.AddDays(3));
+todo.DueDate = AtDatetime.Parse("2024-06-15T14:30:00.000Z");
 
 // Read it back:
-if (record.DueDate?.TryGetValue(out var due) == true)
+if (todo.DueDate?.TryGetValue(out var due) == true)
     Console.WriteLine(due.LocalDateTime);
 ```
 
@@ -392,10 +401,14 @@ public class Comment : AtProtoRecord, IAtProtoRecord
 First upload, then reference:
 
 ```csharp
+using ATProtoNet.Models;   // BlobRef, StrongRef
+
 // Upload a blob
-var blobResponse = await client.Repo.UploadBlobAsync(
+BlobRef image = await client.Repo.UploadBlobAsync(
     filePath: "/path/to/image.jpg",
     mimeType: "image/jpeg");
+
+await client.GetCollection<PhotoRecord>().CreateAsync(new PhotoRecord { Image = image, Caption = "Sunset" });
 
 // Reference it in your record
 public class PhotoRecord : AtProtoRecord, IAtProtoRecord
@@ -460,12 +473,27 @@ public sealed class UnknownAttribution(string type, JsonElement raw)
     public string Type { get; } = type;
     public JsonElement Raw { get; } = raw;
 }
+
+public class Recipe : AtProtoRecord, IAtProtoRecord
+{
+    public static Nsid Collection { get; } = Nsid.Parse("com.example.recipe.recipe");
+
+    public override string Type => Collection;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = "";
+
+    [JsonPropertyName("attribution")]
+    public RecipeAttribution? Attribution { get; set; }
+}
 ```
 
 A `switch` over the base should handle the unknown arm. The compiler won't insist, since the
 base isn't sealed:
 
 ```csharp
+var recipe = (await client.GetCollection<Recipe>().GetAsync(RecordKey.Parse("carbonara"))).Value;
+
 var credit = recipe.Attribution switch
 {
     AuthorAttribution a => a.Did,
@@ -487,7 +515,7 @@ Behavior worth knowing:
 - The SDK's Bluesky, chat, Ozone and `com.atproto` unions follow this pattern, each with an
   `Unknown{Base}` variant: `UnknownEmbed`, `UnknownEmbedView`, `UnknownFacetFeature`,
   `UnknownThreadNode`, `UnknownModEvent`, `UnknownConvoLogEntry` and so on. The Spaces models
-  don't yet.
+  do too (`UnknownSimpleSpaceUserPolicy`, `UnknownSimpleSpaceAppAccess`).
 - A plain `[JsonPolymorphic]` base still works. It keeps `System.Text.Json`'s own, strict
   behavior, so an unknown `$type` fails the whole response.
 
@@ -497,8 +525,16 @@ To add a variant to a union declared elsewhere, such as your own embed type on t
 `EmbedBase`, register it once at startup:
 
 ```csharp
+using ATProtoNet.Lexicon.App.Bsky.Embed;
+
 LexiconTypeRegistry.Instance
     .RegisterUnionVariant<EmbedBase, RecipeEmbed>("com.example.recipe.embed");
+
+public sealed class RecipeEmbed : EmbedBase
+{
+    [JsonPropertyName("recipe")]
+    public required StrongRef Recipe { get; init; }
+}
 ```
 
 That is all it takes. `AtProtoJsonDefaults.Options`, which every SDK client, `RecordCollection<T>`
@@ -523,11 +559,14 @@ Every SDK model of a Lexicon record or object derives from `LexObject`, and so d
 lands there on read and is written back after the declared ones:
 
 ```csharp
-// A newer app wrote "priority", which this TodoItem doesn't declare.
+// A newer app wrote "effort", which this TodoItem doesn't declare.
+var todos = client.GetCollection<TodoItem>();
+var rkey = RecordKey.Parse("3k2la7rxjgs2t");
+
 var item = await todos.GetAsync(rkey);
 item.Value.Completed = true;
 
-await todos.PutAsync(rkey, item.Value, swapRecord: item.Cid); // "priority" is still there
+await todos.PutAsync(rkey, item.Value, swapRecord: item.Cid); // "effort" is still there
 ```
 
 - `ExtensionData` stays `null` when there is nothing extra, so a model that matches the wire
@@ -546,33 +585,11 @@ didn't touch survives, including ones this SDK version doesn't know about.
 
 ## Error Handling
 
-```csharp
-using ATProtoNet.Http;
-
-try
-{
-    var item = await todos.GetAsync(RecordKey.Parse("nonexistent-key"));
-}
-catch (XrpcException ex) when (ex.Is(XrpcErrors.RecordNotFound))
-{
-    Console.WriteLine("Record does not exist"); // or use FindAsync, which returns null
-}
-catch (XrpcAuthenticationException)
-{
-    Console.WriteLine("Sign in first: own-repository calls need a session");
-}
-catch (XrpcException ex)
-{
-    Console.WriteLine($"XRPC Error: {ex.Error} — {ex.ErrorMessage}");
-    Console.WriteLine($"Status: {ex.StatusCode}");
-}
-```
-
-## Next Steps
-
-- [Custom XRPC Endpoints](custom-xrpc.md) — Define and call custom Lexicon methods
-- [Batch Operations](batch-operations.md) — Atomic multi-record writes
-- [Blob Upload](blob-upload.md) — Upload images and files
+A failed call throws `XrpcException`, whose `Error` names the failure (`RecordNotFound`,
+`InvalidSwap`, …); a call on your own repository without a session throws
+`XrpcAuthenticationException` before sending anything. Use `FindAsync` to read a record that may be
+absent without a `try`/`catch`. The exceptions, the error names and a retry pattern are on
+[Error Handling](error-handling.md).
 
 ## Distributing Lexicons as NuGet Packages
 
@@ -587,7 +604,7 @@ public class MyAppLexicons : ILexiconPlugin
 {
     public void Register(ILexiconTypeRegistrar registrar)
     {
-        registrar.RegisterUnionVariant<EmbedBase, CustomEmbed>("com.example.embed.custom");
+        registrar.RegisterUnionVariant<EmbedBase, RecipeEmbed>("com.example.recipe.embed");
     }
 }
 ```
@@ -600,3 +617,9 @@ LexiconTypeRegistry.Instance.LoadPlugin<MyAppLexicons>();
 
 From then on every SDK client reads and writes the plugin's variants, alongside the ones the SDK
 declares.
+
+## Next Steps
+
+- [Custom XRPC Endpoints](custom-xrpc.md) — Define and call custom Lexicon methods
+- [Batch Operations](batch-operations.md) — Atomic multi-record writes
+- [Blob Upload](blob-upload.md) — Upload images and files

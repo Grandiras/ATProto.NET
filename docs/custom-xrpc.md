@@ -9,6 +9,8 @@ Use `QueryAsync<TOut>` for Lexicon query methods. The method name is an `Nsid` (
 and the parameters an `XrpcParams` (from `ATProtoNet.Http`):
 
 ```csharp
+using ATProtoNet.Http;
+
 // Define your output type
 public class SearchResult
 {
@@ -46,6 +48,9 @@ foreach (var item in result.Items)
 a `null` value is left out:
 
 ```csharp
+string? cursor = null;
+var did = Did.Parse("did:plc:abc123");
+
 var parameters = new XrpcParams
 {
     { "limit", 25 },
@@ -57,10 +62,10 @@ var fluent = new XrpcParams()
     .Add("actor", did)                     // identifier types pass as their string value
     .AddAll("tags", ["work", "home"]);     // an array parameter: tags=work&tags=home
 
-var result = await client.QueryAsync<MyResult>(Nsid.Parse("com.example.mymethod"), parameters);
+var result = await client.QueryAsync<SearchResult>(Nsid.Parse("com.example.todo.search"), parameters);
 
 // No parameters
-var stats = await client.QueryAsync<MyResult>(Nsid.Parse("com.example.getStats"));
+var everything = await client.QueryAsync<SearchResult>(Nsid.Parse("com.example.todo.search"));
 ```
 
 Values are formatted for the wire: booleans as `true`/`false`, numbers in the invariant culture, `DateTimeOffset` as ISO 8601 UTC (`2026-09-24T12:00:00.000Z`), enums by their JSON names, identifier types (`Did`, `AtUri`, `Nsid`, …) and an `AtDatetime` as their text, and `AddAll` as a repeated key.
@@ -71,8 +76,8 @@ object's properties by reflection, so it is marked `[RequiresUnreferencedCode]`;
 `XrpcParams` in trimmed or AOT-compiled apps.
 
 ```csharp
-var result = await client.QueryAsync<MyResult>(
-    Nsid.Parse("com.example.mymethod"),
+var result = await client.QueryAsync<SearchResult>(
+    Nsid.Parse("com.example.todo.search"),
     new { limit = 25, cursor = "abc", includeArchived = true });
 ```
 
@@ -81,14 +86,16 @@ var result = await client.QueryAsync<MyResult>(
 Every custom call takes an optional `XrpcCallOptions`, which applies to that one call and overrides the client's defaults for it — safe on a client shared between concurrent callers:
 
 ```csharp
-var labels = await client.QueryAsync<QueryLabelsResult>(
+using ATProtoNet.Lexicon.Com.AtProto.Label;
+
+var labels = await client.QueryAsync<QueryLabelsResponse>(
     Nsid.Parse("com.atproto.label.queryLabels"),
     new XrpcParams().AddAll("uriPatterns", ["at://did:plc:alice/*"]),
     new XrpcCallOptions
     {
         Proxy = "did:plc:labeler#atproto_labeler",        // atproto-proxy
         AcceptLabelers = ["did:plc:labeler;redact"],      // atproto-accept-labelers
-        Headers = new Dictionary<string, string> { ["X-Trace-Id"] = traceId },
+        Headers = new Dictionary<string, string> { ["X-Trace-Id"] = "trace-42" },
         Timeout = TimeSpan.FromSeconds(5),                // throws TimeoutException on expiry
     });
 ```
@@ -141,6 +148,12 @@ await client.ProcedureAsync(Nsid.Parse("com.example.todo.resetAll"));
 
 // No input, but query parameters
 await client.ProcedureAsync(Nsid.Parse("com.example.todo.resetAll"), new XrpcParams().Add("dryRun", true));
+
+public class CleanupInput
+{
+    [JsonPropertyName("daysOld")]
+    public int DaysOld { get; init; }
+}
 ```
 
 ## Building a sub-client for another Lexicon
@@ -235,6 +248,8 @@ is as cheap as the transport it wraps, so create it where it is needed or keep o
 Because the transport is an interface, the sub-client's own tests can substitute it:
 
 ```csharp
+using NSubstitute;
+
 var transport = Substitute.For<IXrpcTransport>();
 transport.QueryAsync<ListItemsOutput>(Arg.Any<Nsid>(), Arg.Any<XrpcParams?>(), Arg.Any<XrpcCallOptions?>(), Arg.Any<CancellationToken>())
     .Returns(new ListItemsOutput());
@@ -251,7 +266,7 @@ revision of the Lexicon adds. See [Custom Lexicon Records](custom-records.md) fo
 
 A typical custom AT Protocol app uses both records and custom methods:
 
-```csharp
+```csharp partial
 // Record CRUD via collections (TodoItem and Project implement IAtProtoRecord)
 var todos = client.GetCollection<TodoItem>();
 var projects = client.GetCollection<Project>();
@@ -269,48 +284,15 @@ await client.ProcedureAsync(
 
 ## Low-Level Repository Calls
 
-For advanced scenarios, you can use the `RepoClient` or `ServerClient` directly:
-
-```csharp
-// Direct repo operations: returns a RecordRef (URI, CID, commit)
-var written = await client.Repo.CreateRecordAsync(
-    repo: client.Did!,
-    collection: Nsid.Parse("com.example.myapp.record"),
-    record: new { foo = "bar", count = 42 });
-
-// Read it back, typed or as raw JSON: a RecordView<T>
-var raw = await client.Repo.GetRecordAsync(written.Uri);
-Console.WriteLine(raw.Value.GetProperty("count").GetInt32());
-
-// Direct server operations
-var session = await client.Server.GetSessionAsync();
-```
+`client.Repo` and `client.Server` are the `com.atproto.repo.*` and `com.atproto.server.*`
+sub-clients, for untyped records, `swapCommit`, and anything `RecordCollection<T>` does not cover;
+see [Low-Level Repo API](low-level-repo.md).
 
 ## Error Handling
 
-```csharp
-try
-{
-    var result = await client.QueryAsync<MyResult>(
-        Nsid.Parse("com.example.mymethod"), new XrpcParams().Add("limit", 10));
-}
-catch (XrpcException ex) when (ex.Is("TodoListFull"))
-{
-    // An error name your Lexicon declares
-}
-catch (XrpcException ex)
-{
-    // Any other XRPC error response
-    Console.WriteLine($"Error: {ex.Error}");
-    Console.WriteLine($"Message: {ex.ErrorMessage}");
-    Console.WriteLine($"Status: {ex.StatusCode}");
-}
-catch (XrpcResponseFormatException ex)
-{
-    // The service answered 2xx with a body that is not a MyResult
-    Console.WriteLine($"{ex.Nsid}: {ex.Message}");
-}
-```
+A failed call throws `XrpcException`; match an error name your Lexicon declares with
+`ex.Is("TodoListFull")`. A `2xx` whose body does not deserialize into your output type throws
+`XrpcResponseFormatException`. See [Error Handling](error-handling.md).
 
 ## Next Steps
 

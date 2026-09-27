@@ -74,6 +74,7 @@ One AT Protocol account can power many such apps — todos, bookmarks, recipes, 
 | Install, configure the client, and authenticate | [Getting Started](docs/getting-started.md) |
 | Build your own AT Protocol app with custom records | [Custom Lexicon Records](docs/custom-records.md) |
 | Use OAuth (recommended for user-facing apps) | [OAuth Authentication](docs/oauth.md) |
+| Post, read feeds, follow, bookmark on Bluesky | [Bluesky](docs/bluesky.md) |
 | Wire AT Proto into an ASP.NET / Blazor backend | [ASP.NET Core](docs/aspnet-core.md), [Blazor](docs/blazor.md) |
 | Store private, gated, or group data | [Spaces (Permissioned Data)](docs/spaces.md) |
 | Consume the firehose with typed events | [Firehose Streaming](docs/firehose.md) |
@@ -81,6 +82,7 @@ One AT Protocol account can power many such apps — todos, bookmarks, recipes, 
 | Index a few collections cheaply over JSON | [Jetstream Streaming](docs/jetstream.md) |
 | Backfill history, then keep tailing live | [Jetstream Historical Replay](docs/jetstream.md#historical-replay-v2-archive) |
 | Run your own PDS | [Managed PDS](docs/managed-pds.md) |
+| Upgrade from 0.6 | [Migrating to 0.7](docs/migrating-to-0.7.md) |
 | Understand how the packages compose | [Architecture](docs/architecture.md) |
 | Everything else | [docs/index.md](docs/index.md) |
 

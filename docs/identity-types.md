@@ -30,15 +30,15 @@ if (Did.TryParse("did:plc:abc", out var parsed))
     Console.WriteLine(parsed);
 
 // Properties
-did.Method              // "plc"
-did.MethodSpecificId    // "z72i7hdynmk6r22z27h6tvur"
+Console.WriteLine(did.Method);  // "plc"
+Console.WriteLine(did.MethodSpecificId);  // "z72i7hdynmk6r22z27h6tvur"
 
 // Conversion
 string s = did;                    // Implicit to string
 Did d = (Did)"did:plc:abc123";    // Explicit from string
 
 // Equality
-did == Did.Parse("did:plc:z72i7hdynmk6r22z27h6tvur")  // true
+Console.WriteLine(did == Did.Parse("did:plc:z72i7hdynmk6r22z27h6tvur"));  // true
 ```
 
 ### Validation Rules
@@ -55,15 +55,15 @@ A human-readable domain-name identifier.
 var handle = Handle.Parse("alice.bsky.social");
 
 // Normalization
-Handle.Parse("Alice.Bsky.Social").Value   // "alice.bsky.social" (lowercased)
-Handle.Parse("@alice.bsky.social").Value  // "alice.bsky.social" (@ stripped)
+Console.WriteLine(Handle.Parse("Alice.Bsky.Social").Value);  // "alice.bsky.social" (lowercased)
+Console.WriteLine(Handle.Parse("@alice.bsky.social").Value);  // "alice.bsky.social" (@ stripped)
 
 // Properties
-handle.Value    // "alice.bsky.social"
+Console.WriteLine(handle.Value);  // "alice.bsky.social"
 
 // Validation
-Handle.TryParse("not valid!", out _)   // false
-Handle.TryParse("a]b.com", out _)      // false
+Console.WriteLine(Handle.TryParse("not valid!", out _));  // false
+Console.WriteLine(Handle.TryParse("a]b.com", out _));  // false
 ```
 
 ### Validation Rules
@@ -99,10 +99,10 @@ Identifies a Lexicon type or method.
 ```csharp
 var nsid = Nsid.Parse("com.example.todo.item");
 
-nsid.Authority    // "com.example.todo" (reversed domain)
-nsid.Name         // "item"
-nsid.Segments     // ["com", "example", "todo", "item"]
-nsid.Value        // "com.example.todo.item"
+Console.WriteLine(nsid.Authority);  // "com.example.todo" (reversed domain)
+Console.WriteLine(nsid.Name);  // "item"
+Console.WriteLine(nsid.Segments);  // ["com", "example", "todo", "item"]
+Console.WriteLine(nsid.Value);  // "com.example.todo.item"
 ```
 
 ### Validation Rules
@@ -118,14 +118,14 @@ An AT Protocol URI, referencing a specific record or collection.
 ```csharp
 var uri = AtUri.Parse("at://did:plc:abc/com.example.todo.item/3k2la");
 
-uri.Authority    // "did:plc:abc" (string, as written)
-uri.Repo         // AtIdentifier: the authority as a DID or (lower-cased) handle
-uri.Collection   // Nsid? "com.example.todo.item"
-uri.RecordKey    // RecordKey? "3k2la"
+Console.WriteLine(uri.Authority);  // "did:plc:abc" (string, as written)
+Console.WriteLine(uri.Repo);  // AtIdentifier: the authority as a DID or (lower-cased) handle
+Console.WriteLine(uri.Collection);  // Nsid? "com.example.todo.item"
+Console.WriteLine(uri.RecordKey);  // RecordKey? "3k2la"
 
 // Collection-level URI (no record key)
 var collUri = AtUri.Parse("at://did:plc:abc/com.example.todo.item");
-collUri.RecordKey  // null
+Console.WriteLine(collUri.RecordKey);  // null
 
 // Create from components: an AtIdentifier (DID or handle), then an optional Nsid and RecordKey
 var created = AtUri.Create(
@@ -149,7 +149,7 @@ A 13-character, base32-sortable identifier. Used as the default record key forma
 var tid = Tid.Next();          // Generate a new TID
 string s = Tid.NextString();   // …or straight to its string form
 
-tid.Value      // "3k2la7rxjgs2t" (13 chars)
+Console.WriteLine(tid.Value);  // "3k2la7rxjgs2t" (13 chars)
 
 // Parse
 var parsed = Tid.Parse("3k2la7rxjgs2t");
@@ -190,7 +190,7 @@ A validated record key for use in AT URIs and API calls.
 var rkey = RecordKey.Parse("3k2la7rxjgs2t");
 
 // Special constant
-RecordKey.Self  // "self" — used by profile records
+var self = RecordKey.Self;  // "self" — used by profile records
 
 // Generate a new TID-based key
 var generated = RecordKey.NewTid();
@@ -207,10 +207,10 @@ A content-addressed hash identifier for a specific record version or blob.
 
 ```csharp
 var cid = Cid.Parse("bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm");
-cid.Value    // The full CID string
-cid.Codec    // CidCodec.DagCbor (records, commits, MST nodes) or CidCodec.Raw (blobs)
-cid.Digest   // ReadOnlyMemory<byte>: the 32-byte SHA-256 digest
-cid.ToBytes() // The 36-byte binary CID
+Console.WriteLine(cid.Value);  // The full CID string
+Console.WriteLine(cid.Codec);  // CidCodec.DagCbor (records, commits, MST nodes) or CidCodec.Raw (blobs)
+Console.WriteLine(cid.Digest);  // ReadOnlyMemory<byte>: the 32-byte SHA-256 digest
+Console.WriteLine(cid.ToBytes());  // The 36-byte binary CID
 ```
 
 Only the CID form the atproto data model allows is accepted: CIDv1, codec DRISL/DAG-CBOR (`0x71`)
@@ -229,10 +229,10 @@ var fromDto = AtDatetime.FromDateTimeOffset(DateTimeOffset.UtcNow);
 var fromDt = AtDatetime.FromDateTime(DateTime.UtcNow);        // Unspecified is taken as UTC
 var parsed = AtDatetime.Parse("1985-04-12T23:20:50.123-07:00"); // kept exactly as written
 
-parsed.IsValid                  // true: a valid atproto datetime
-parsed.Value                    // DateTimeOffset, in the offset it was written with
-parsed.TryGetValue(out var dto) // false when there is no instant to read
-parsed.ToString()               // "1985-04-12T23:20:50.123-07:00"
+Console.WriteLine(parsed.IsValid);  // true: a valid atproto datetime
+Console.WriteLine(parsed.Value);  // DateTimeOffset, in the offset it was written with
+Console.WriteLine(parsed.TryGetValue(out var dto));  // false when there is no instant to read
+Console.WriteLine(parsed.ToString());  // "1985-04-12T23:20:50.123-07:00"
 ```
 
 - **Strict construction.** `Parse`/`TryParse` accept only valid atproto datetimes (checked against
@@ -254,8 +254,8 @@ The `com.atproto.*` and `app.bsky.*` models and clients, `RecordCollection<T>` a
 take and return these types wherever the Lexicon field or parameter has an identifier or `datetime`
 format: `repo`/`actor` is an `AtIdentifier`, `collection` an `Nsid`, `rkey` a `RecordKey`,
 `cid`/`swapRecord`/`swapCommit` a `Cid`, `uri` an `AtUri`, and `createdAt`/`indexedAt` an
-`AtDatetime`. The `chat.bsky.*`, `tools.ozone.*`, `site.standard.*`, spaces and streaming surfaces
-follow.
+`AtDatetime`. The `chat.bsky.*`, `tools.ozone.*`, `site.standard.*`, Spaces and streaming models
+are typed the same way.
 
 - Values from the API are already typed, so passing them on needs no conversion.
 - Parse string literals at the edge, once: `Did.Parse("did:plc:…")`, `Nsid.Parse("com.example.todo.item")`.
@@ -269,6 +269,7 @@ follow.
 
 All identity types serialize/deserialize automatically with `System.Text.Json`:
 
+<!-- snippet: Did did; Handle handle; Nsid nsid; AtUri uri; -->
 ```csharp
 using ATProtoNet.Serialization;
 

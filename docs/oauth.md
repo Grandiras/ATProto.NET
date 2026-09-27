@@ -47,6 +47,7 @@ the consent screen instead of the whole URL.
 
 You can also serve the document straight from the `OAuthClientMetadata` you configure below — `ToJson()` omits unset optional fields, which authorization servers require (a `"jwks_uri": null` is rejected with `invalid_client_metadata`; *absent* and *null* are not the same thing):
 
+<!-- snippet: ATProtoNet.Auth.OAuth.OAuthOptions oauthOptions; -->
 ```csharp
 app.MapGet("/oauth-client-metadata.json", () =>
     Results.Content(oauthOptions.ClientMetadata.ToJson(), "application/json"));
@@ -82,9 +83,9 @@ The `Scope` you request must match the client metadata's. See [Scopes](#scopes) 
 
 ### 3. Create the OAuthClient
 
-```csharp
-var logger = loggerFactory.CreateLogger<OAuthClient>();
-using var oauthClient = new OAuthClient(oauthOptions, logger);
+```csharp continued
+using var loggerFactory = LoggerFactory.Create(logging => logging.AddConsole());
+using var oauthClient = new OAuthClient(oauthOptions, loggerFactory.CreateLogger<OAuthClient>());
 ```
 
 Every request the client makes to a PDS or an authorization server goes out under the SDK's fetch
@@ -109,7 +110,7 @@ weeks.
 
 2. Publish its public half in the client metadata and hand the key to the client:
 
-   ```csharp
+   ```csharp continued
    var oauthOptions = new OAuthOptions
    {
        ClientMetadata = new OAuthClientMetadata
@@ -175,19 +176,23 @@ See the [`samples/ServerIntegrationSample`](../samples/ServerIntegrationSample/)
 
 ### Step 1: Start Authorization
 
+<!-- snippet: ATProtoNet.Auth.OAuth.OAuthClient oauthClient; -->
 ```csharp
-// The identifier can be a handle, DID, or server URL
-var authorization = await oauthClient.StartAuthorizationAsync(
-    identifier: "alice.bsky.social",
-    redirectUri: "https://myapp.example.com/oauth/callback",
-    new OAuthAuthorizationOptions
-    {
-        // Who is signing in: pending logins are limited per requester (see below)
-        RequesterId = httpContext.Connection.RemoteIpAddress?.ToString(),
-    });
+app.MapGet("/login", async (string handle, HttpContext httpContext) =>
+{
+    // The identifier can be a handle, DID, or server URL
+    var authorization = await oauthClient.StartAuthorizationAsync(
+        identifier: handle,
+        redirectUri: "https://myapp.example.com/oauth/callback",
+        new OAuthAuthorizationOptions
+        {
+            // Who is signing in: pending logins are limited per requester (see below)
+            RequesterId = OAuthAuthorizationOptions.RequesterIdFor(httpContext.Connection.RemoteIpAddress),
+        });
 
-// Redirect the user; the callback will carry authorization.State back
-return Results.Redirect(authorization.AuthorizationUrl.AbsoluteUri);
+    // Redirect the user; the callback will carry authorization.State back
+    return Results.Redirect(authorization.AuthorizationUrl.AbsoluteUri);
+});
 ```
 
 The result is an `OAuthAuthorizationRequest`: the `AuthorizationUrl`, the `State`, and `ExpiresAt`,
@@ -211,15 +216,16 @@ learned at the callback.
 
 When the user is redirected back, your callback receives `code`, `state`, and `iss` query parameters:
 
+<!-- snippet: ATProtoNet.Auth.OAuth.OAuthClient oauthClient; -->
 ```csharp
-// In your callback handler
-var session = await oauthClient.CompleteAuthorizationAsync(
-    code: queryParams["code"],
-    state: queryParams["state"],
-    issuer: queryParams["iss"]);
+app.MapGet("/oauth/callback", async (string code, string state, string iss) =>
+{
+    var session = await oauthClient.CompleteAuthorizationAsync(code, state, issuer: iss);
 
-Console.WriteLine($"Authenticated as {session.Handle} ({session.Did})");
-Console.WriteLine($"PDS: {session.ServiceEndpoint}");
+    Console.WriteLine($"Authenticated as {session.Handle} ({session.Did})");
+    Console.WriteLine($"PDS: {session.ServiceEndpoint}");
+    return Results.Redirect("/");
+});
 ```
 
 The result is an `OAuthSession`: an immutable value holding the account's DID and PDS, the tokens,
@@ -242,6 +248,7 @@ login began at an entryway.
 
 Install the session on an `AtProtoClient`, together with the `OAuthClient` that issued it:
 
+<!-- snippet: ATProtoNet.Auth.OAuth.OAuthClient oauthClient; ATProtoNet.Auth.OAuthSession session; ATProtoNet.Auth.IAtProtoSessionStore sessionStore; -->
 ```csharp
 await using var client = new AtProtoClient(
     sessionStore: sessionStore);   // optional: keeps a persisted copy current
@@ -282,6 +289,7 @@ used), the session has ended: the client removes it and throws `OAuthException`.
 
 To resume after a restart, restore the session from your store and hand the `OAuthClient` over again:
 
+<!-- snippet: ATProtoNet.Auth.OAuth.OAuthClient oauthClient; Did did; -->
 ```csharp
 if (await client.TryRestoreSessionAsync(did, oauthClient))
     Console.WriteLine($"Welcome back, {client.Handle}");
@@ -331,6 +339,7 @@ use `AtProtoScopes.Identity("handle")` or `AtProtoScopes.Identity("*")`.
 
 Users on the AT Protocol can use any PDS. Rather than hardcoding a PDS URL, resolve the user's PDS dynamically:
 
+<!-- snippet: ATProtoNet.Auth.OAuth.OAuthClient oauthClient; -->
 ```csharp
 // Set PDS URL at runtime
 client.SetServiceUrl(new Uri("https://custom-pds.example.com"));
@@ -344,7 +353,8 @@ var authorization = await oauthClient.StartAuthorizationAsync(
 ## Hosted Login (ASP.NET Core)
 
 `ATProtoNet.Server` runs the whole flow for an ASP.NET Core application (MVC, Razor Pages, minimal
-APIs or Blazor) and signs the user in with a standard authentication cookie.
+APIs or Blazor) and signs the user in with a standard authentication cookie. No custom
+`AuthenticationStateProvider` or token handling is needed.
 
 ### Setup
 
@@ -366,32 +376,23 @@ app.UseAuthorization();
 app.MapAtProtoOAuth();  // Maps /atproto/login, /atproto/callback, /atproto/relay, /atproto/logout
 ```
 
+`MapAtProtoOAuth()` maps four endpoints under `RoutePrefix`:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/atproto/login?handle=...` | GET | Starts the OAuth flow, redirects to the authorization server |
+| `/atproto/callback` | GET | Handles the OAuth callback, issues the cookie, redirects to the return URL |
+| `/atproto/relay?code=...` | GET | Issues the cookie on the login's origin when the callback arrived on another loopback origin (development) |
+| `/atproto/logout` | POST | Removes and revokes the session, clears the cookie, redirects to `PostLogoutRedirectUri` |
+
 `WithOAuth()` registers `AtProtoOAuthService` and its `OAuthClient`, built from the options
 alone, as singletons. The client factory refreshes the sessions it restores with that
 `OAuthClient`, which it resolves when a client first needs it, so a process that has just
 restarted refreshes the sessions it stored before. With an OAuth flow of your own, register your
 `OAuthClient` as a singleton instead, and the factory uses it.
 
-`AtProtoOAuthServerOptions` goes through `IOptions<T>`: bind it from configuration with
-`builder.Services.Configure<AtProtoOAuthServerOptions>(builder.Configuration.GetSection("AtProto:OAuth"))`
-(everything but `ClientKeys` and `ClaimsFactory`, which are set in code), and a mistake (scopes
-without `atproto`, a `RoutePrefix` or `LoginPath` that is not a local path, `ClientKeys` without
-`ClientMetadata`, `ServeClientMetadata` with nothing to serve…) stops the host at startup.
-
-The login sends its discovery, PAR, token and revocation requests with the named `HttpClient`
-`AtProtoOAuthExtensions.HttpClientName` (`"ATProtoNet.OAuth"`), which `WithOAuth()` gives the
-identity fetch policy (public addresses only, no redirects) and `HttpClientTimeout`. Add logging or
-telemetry handlers to it with `builder.Services.AddHttpClient(AtProtoOAuthExtensions.HttpClientName)`,
-but no handler that retries: an authorization code and a refresh token are single-use, and a DPoP
-proof sent twice is refused. Aspire service defaults add a retrying one to every client; remove it
-with `.RemoveAllResilienceHandlers()` on that builder.
-
 For Blazor, the `ATProtoNet.Blazor` package adds a `LoginForm` component that submits to the
-login endpoint, and widgets that act as the signed-in user (see [blazor.md](blazor.md)):
-
-```razor
-<LoginForm ReturnUrl="/" ShowPdsOption="true" />
-```
+login endpoint, and widgets that act as the signed-in user (see [Blazor](blazor.md)).
 
 ### OAuth Flow
 
@@ -414,30 +415,181 @@ message: the `OAuthException.Error` (`invalid_handle`, `login_not_bound`, `inval
 authorization server's own error code (`access_denied`, …), or `login_failed` for anything else,
 which is logged. `LoginForm` turns the codes into messages.
 
-### Available Claims
-
-After login, these claims are available on `context.User`; the names are constants on
-`AtProtoClaimTypes`:
-
-| Claim | Description |
-|-------|-------------|
-| `ClaimTypes.NameIdentifier` | User's DID |
-| `ClaimTypes.Name` | User's handle, or `handle.invalid` when it did not verify |
-| `did` (`AtProtoClaimTypes.Did`) | User's DID |
-| `handle` (`AtProtoClaimTypes.Handle`) | User's handle, or the DID when it did not verify |
-| `handle_verified` (`AtProtoClaimTypes.HandleVerified`) | `"true"` or `"false"` |
-| `pds_url` (`AtProtoClaimTypes.PdsUrl`) | User's PDS URL |
-| `auth_method` (`AtProtoClaimTypes.AuthMethod`) | Always `"oauth"` |
-
 With `WithClientFactory()` registered, the callback stores the `OAuthSession` in the
 `IAtProtoSessionStore`, and `/atproto/logout` removes it and revokes it at the authorization
-server. Without it the login only signs users in, and keeps no tokens. Both take the account's refresh lock (see [Refreshing Across Requests](#refreshing-across-requests)),
-so neither interleaves with a refresh.
+server. Without it the login only signs users in, and keeps no tokens. Both take the account's
+refresh lock (see [Refreshing Across Requests](#refreshing-across-requests)), so neither
+interleaves with a refresh.
+
+### Login CSRF protection
+
+The OAuth `state` parameter ties the callback to a pending authorization, not to a browser: on
+its own, anyone who could get a victim to open a completed callback URL could sign them in as
+whoever started that login. `/atproto/login` closes that gap itself, without any application
+code: it gives the browser a random value in an HttpOnly, `SameSite=Lax` cookie (`Secure`, with
+the `__Host-` prefix, on HTTPS) and keeps only its hash with the pending authorization; `/atproto/callback`
+requires the same cookie, checks it against that hash, and deletes it once the login completes. A
+callback that arrives without the matching cookie is refused (`login_not_bound`) and its tokens
+are revoked. `returnUrl` is kept server-side with the pending authorization rather than in a
+cookie, and only ever a local path (`/…`, never `//` or `/\`, which browsers can treat as another
+host) — anything else falls back to `DefaultReturnUrl`.
+
+### Claims
+
+After login, these claims are on the user's `ClaimsPrincipal`; the names are constants on
+`AtProtoClaimTypes` (`ATProtoNet.Server.Authentication`):
+
+| Claim | Description | Example |
+|-------|-------------|---------|
+| `ClaimTypes.NameIdentifier` | The user's DID | `did:plc:abc123` |
+| `ClaimTypes.Name` | The user's handle, or `handle.invalid` when it does not verify | `alice.bsky.social` |
+| `did` (`Did`) | The user's DID | `did:plc:abc123` |
+| `handle` (`Handle`) | The user's handle, or the DID when it does not verify | `alice.bsky.social` |
+| `handle_verified` (`HandleVerified`) | `"true"` or `"false"` | `true` |
+| `pds_url` (`PdsUrl`) | The user's PDS URL | `https://bsky.social` |
+| `auth_method` (`AuthMethod`) | Always `"oauth"` | `oauth` |
+
+Replace them with a `ClaimsFactory`. Keep a `did` (or `ClaimTypes.NameIdentifier`) claim: the
+client factory, the Blazor widgets and sign-out find the user's session by it. They only look at
+the identity the login issues (authentication type `ATProto`), never at a service auth identity
+carrying the same claim.
+
+```csharp
+using System.Security.Claims;
+
+builder.Services.AddAtProto().WithOAuth(options =>
+{
+    // session is the OAuthSession the callback produced
+    options.ClaimsFactory = session =>
+    [
+        new Claim(ClaimTypes.NameIdentifier, session.Did.Value),
+        new Claim(AtProtoClaimTypes.Did, session.Did.Value),
+        new Claim(ClaimTypes.Name, session.Handle.Value),
+        new Claim(ClaimTypes.Role, session.Did.Value == "did:plc:myadmindid" ? "Admin" : "User"),
+    ];
+});
+```
+
+### Options
+
+`AtProtoOAuthServerOptions` (`ATProtoNet.Server.Authentication`) configures the login. It goes
+through `IOptions<T>`: bind it from configuration with
+`builder.Services.Configure<AtProtoOAuthServerOptions>(builder.Configuration.GetSection("AtProto:OAuth"))`
+(everything but `ClientKeys` and `ClaimsFactory`, which are set in code), and a mistake (scopes
+without `atproto`, a `RoutePrefix` or `LoginPath` that is not a local path, `ClientKeys` without
+`ClientMetadata`, `ServeClientMetadata` with nothing to serve…) stops the host at startup.
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `RoutePrefix` | `string` | `"/atproto"` | Route prefix for OAuth endpoints |
+| `CookieScheme` | `string` | `"Cookies"` | Cookie authentication scheme name |
+| `DefaultReturnUrl` | `string` | `"/"` | Default redirect after login |
+| `PostLogoutRedirectUri` | `string` | `"/"` | Redirect after logout |
+| `LoginPath` | `string` | `"/login"` | Redirect target on OAuth errors, with an `error` code |
+| `Scopes` | `string` | `"atproto transition:generic"` | OAuth scopes to request |
+| `ClientName` | `string?` | — | App name shown on consent page |
+| `BaseUrl` | `string?` | — | Explicit base URL: the callback is `{BaseUrl}{RoutePrefix}/callback` |
+| `ClientMetadata` | `OAuthClientMetadata?` | — | Explicit client metadata (for production) |
+| `ClientKeys` | `IList<OAuthClientKey>` | empty | Keys of a confidential (`private_key_jwt`) client; needs `ClientMetadata` |
+| `ServeClientMetadata` | `bool` | `false` | Serve `ClientMetadata` at the path of its `client_id`, and the public keys at the path of its `jwks_uri` |
+| `ClaimsFactory` | `Func<OAuthSession, IEnumerable<Claim>>?` | — | Custom claims factory |
+| `CookieExpiration` | `TimeSpan` | 7 days | Cookie lifetime |
+| `IsPersistent` | `bool` | `true` | Persist cookie across sessions |
+| `HttpClient` | `HttpClient?` | — | Client used for OAuth discovery, pushed authorization, token and revocation requests. Caller-owned: used as is, its `Timeout` is untouched and it is not disposed with the service. Without it, the named client `AtProtoOAuthExtensions.HttpClientName` is used |
+| `HttpClientTimeout` | `TimeSpan` | 30 s | Timeout of the OAuth `HttpClient`. Ignored when `HttpClient` is set |
+| `HandleResolutionTimeout` | `TimeSpan` | 5 s | Budget per handle-resolution round. `Timeout.InfiniteTimeSpan` disables it |
+| `AllowPrivateNetworks` | `bool` | `false` | Development opt-out for a local PDS or PLC: plain HTTP and private addresses in discovery and identity resolution. Never set it where users can name any handle, DID or PDS |
+
+The login's `OAuthClient` (`AtProtoOAuthService.Client`) is built from these options alone and
+registered as the `OAuthClient` singleton, which the client factory refreshes and revokes sessions
+with.
+
+#### Its HttpClient
+
+Without `HttpClient`, the login sends its discovery, PAR, token and revocation requests with the
+named `HttpClient` `AtProtoOAuthExtensions.HttpClientName` (`"ATProtoNet.OAuth"`), which
+`WithOAuth()` gives the identity fetch policy (public addresses only, no redirects; see
+[Fetch Policy](#fetch-policy)) and `HttpClientTimeout`. Add logging or telemetry handlers to it with
+`builder.Services.AddHttpClient(AtProtoOAuthExtensions.HttpClientName)`, but no handler that
+retries: an authorization code and a refresh token are single-use, and a DPoP proof sent twice is
+refused. Aspire service defaults add a retrying one to every client; remove it (see
+[.NET Aspire: Resilience](aspire.md#resilience)).
+
+Its primary handler connects directly and never through a proxy — the policy checks the address it
+connects to, and a proxy would make that the proxy's address rather than the target's. An
+application that must reach the internet through an egress proxy supplies its own `HttpClient`
+(which is then used as is, proxy included) and relies on the proxy to keep requests off private
+addresses.
+
+#### Pending logins
+
+Pending logins are limited per remote address, grouping an IPv6 address by its /64 (see
+[Pending Authorizations](#pending-authorizations)), so one address flooding `/atproto/login` only
+displaces its own. Behind a reverse proxy or load balancer, that address is the proxy's unless the
+application restores the client's with `app.UseForwardedHeaders()` (with the proxy listed in
+`KnownProxies`/`KnownNetworks`) before `MapAtProtoOAuth()` runs — otherwise every user behind it
+shares one requester's limit. To share pending logins between instances, or keep them across a
+restart, register a state store; the service takes it from dependency injection:
+
+```csharp
+using ATProtoNet.Auth.OAuth;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Caching.Distributed;
+
+builder.Services.AddSingleton<IOAuthStateStore>(sp =>
+{
+    // The entries hold DPoP private keys: protect them
+    var protector = sp.GetRequiredService<IDataProtectionProvider>().CreateProtector("MyApp.OAuthState");
+    return new DistributedCacheOAuthStateStore(
+        sp.GetRequiredService<IDistributedCache>(),
+        new DistributedCacheOAuthStateStoreOptions
+        {
+            Protect = protector.Protect,
+            Unprotect = protector.Unprotect,
+        });
+});
+```
+
+#### Handle resolution timeouts
+
+Handle resolution talks to a host named by the user (`https://<handle>/.well-known/atproto-did`),
+which may be parked or firewalled and silently drop traffic on port 443. The login runs that lookup
+alongside the DNS-over-HTTPS TXT lookup and bounds both with `HandleResolutionTimeout`, so a dead
+handle domain costs a few seconds instead of the `HttpClient` timeout. When an `IIdentityResolver`
+is registered (`AddAtProtoIdentity`), the service uses it instead, and its own options apply. Raise
+it for slow networks, or lower it for a snappier sign-in:
+
+```csharp
+builder.Services.AddAtProto().WithOAuth(options =>
+{
+    options.HandleResolutionTimeout = TimeSpan.FromSeconds(3);
+    options.HttpClientTimeout = TimeSpan.FromSeconds(20);
+});
+```
+
+### Development (Loopback Client)
+
+Without explicit `ClientMetadata`, the login uses a generated
+[loopback client](https://atproto.com/specs/oauth#localhost-client-development):
+
+```csharp
+builder.Services.AddAtProto().WithOAuth(options => options.ClientName = "My Dev App");
+```
+
+The `client_id` is `http://localhost?redirect_uri=...&scope=...`, with the callback on the
+server's plain HTTP address on `127.0.0.1` (a `localhost` or any-address binding counts), or on
+`BaseUrl` when that is set. It is fixed by the server's address rather than taken from a request,
+so after a restart the stored sessions still refresh. Bind a plain HTTP address, such as
+`http://127.0.0.1:5000` in `launchSettings.json`, even when the browser uses HTTPS: loopback
+clients call back over HTTP, and the login relays the cookie to the browser's origin. Without one
+(and without `BaseUrl`), the login fails with an `InvalidOperationException` saying so. The client
+is built when a login or a stored session first needs it, after the server has started, so
+resolving the client factory earlier is fine.
 
 ### Production Configuration
 
-For production, provide explicit client metadata instead of the auto-generated loopback client_id,
-and let `MapAtProtoOAuth()` serve it at its `client_id`:
+For production, provide explicit client metadata instead of the generated loopback client, and
+let `MapAtProtoOAuth()` serve it at its `client_id`:
 
 ```csharp
 builder.Services.AddAtProto().WithOAuth(options =>
@@ -458,6 +610,8 @@ builder.Services.AddAtProto().WithOAuth(options =>
 A confidential client adds its keys, and can have their public halves served at its `jwks_uri`:
 
 ```csharp
+byte[] pkcs8 = LoadClientKey();   // the key you generated once and keep as a secret
+
 builder.Services.AddAtProto().WithOAuth(options =>
 {
     options.ClientMetadata = new OAuthClientMetadata
@@ -473,11 +627,13 @@ builder.Services.AddAtProto().WithOAuth(options =>
     options.ClientKeys.Add(OAuthClientKey.Import("key-2026", pkcs8));  // new logins use the first key
     options.ServeClientMetadata = true;   // also GET /oauth/jwks.json
 });
+
+byte[] LoadClientKey() => File.ReadAllBytes("/run/secrets/oauth-client-key");
 ```
 
 Both documents are served with `Cache-Control: public, max-age=300`, so publish a new key at least
 five minutes before putting it first. See [Confidential Clients](#confidential-clients) for key
-rotation, and [blazor.md](blazor.md) for every option.
+rotation.
 
 ### Refreshing Across Requests
 
@@ -516,7 +672,7 @@ The authorization code flow uses PKCE with S256 challenge method. The code verif
 The state parameter is generated with 32 bytes of cryptographic randomness. It ties the callback
 to a pending authorization, and each state completes at most once. It does not tie the callback
 to the browser that started the login, so a web front end must bind the two itself; the hosted
-login does it with a cookie (see [blazor.md](blazor.md#login-csrf-protection)). Keep application data, such as
+login does it with a cookie (see [Login CSRF protection](#login-csrf-protection)). Keep application data, such as
 the return URL, with the pending authorization: `OAuthAuthorizationOptions.AppState` is handed
 back by `CompleteAuthorizationWithAppStateAsync`.
 
@@ -623,10 +779,11 @@ logins:
   and the browser binding still has to match. A distributed cache cannot count entries per
   requester: rate-limit the login endpoint in front of the application.
 
+<!-- snippet: Microsoft.Extensions.Caching.Distributed.IDistributedCache cache; Microsoft.AspNetCore.DataProtection.IDataProtector protector; ATProtoNet.Auth.OAuth.OAuthClientMetadata clientMetadata; -->
 ```csharp
 var oauthOptions = new OAuthOptions
 {
-    // …
+    ClientMetadata = clientMetadata,
     StateStore = new DistributedCacheOAuthStateStore(cache, new DistributedCacheOAuthStateStoreOptions
     {
         Protect = protector.Protect,
@@ -648,8 +805,9 @@ Handle → DID → PDS → Protected Resource Metadata → Authorization Server 
 `OAuthClient.StartAuthorizationAsync` walks the whole chain for you. The steps are public if you need
 them on their own:
 
+<!-- snippet: ATProtoNet.Identity.IIdentityResolver identityResolver; -->
 ```csharp
-var discovery = new AuthorizationServerDiscovery(httpClient: null, logger, identityResolver);
+using var discovery = new AuthorizationServerDiscovery(httpClient: null, logger, identityResolver);
 
 // Handle or DID → DID, PDS and authorization server metadata, as OAuthException on failure
 var (pdsUrl, metadata, did) = await discovery.ResolveFromIdentifierAsync("alice.bsky.social");
@@ -674,6 +832,7 @@ party such as an AppView is asked.
 Each OAuth session has its own ES256 (P-256) key pair, carried by the session as PKCS#8 bytes, so
 persisting the session persists the key:
 
+<!-- snippet: ATProtoNet.Auth.OAuthSession session; -->
 ```csharp
 ReadOnlyMemory<byte> keyBytes = session.DPoPKey;
 
@@ -689,6 +848,7 @@ AT Protocol DPoP proofs are ES256 only, so importing a key on any other curve (a
 
 OAuth-specific errors throw `OAuthException`:
 
+<!-- snippet: ATProtoNet.Auth.OAuth.OAuthClient oauthClient; string code, state, issuer; -->
 ```csharp
 try
 {
