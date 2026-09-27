@@ -415,6 +415,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`AtProtoClient`'s clock now reaches its XRPC transport** — the `TimeProvider` the client is built with was handed only to session refresh, so 429 back-off and rate-limit timing ran on the system clock. Retry delays now go through the client's clock. No effect on the public constructor, which uses the system clock (#187)
 - **A scoped `IJtiReplayStore` stopped the host under scope validation** — the startup warning about in-process stores resolved the replay store from the root provider, which scope validation (on in Development) refuses for a scoped store. It now reads the registrations and resolves no store (#180)
 - **`atproto-lexgen --version` reports the tool's real version** — it printed a hard-coded `1.0.0`; it now prints the assembly's informational version, and so does the `--help` banner (#110)
 - **The managing-app check sent `did=` where the Lexicon says `user`** — so every `ManagingAppPolicy` space refused everyone against a Lexicon-validating managing app such as bulletin. `checkUserAccess` now sends `user` and `access`, omits `clientId` on write checks, and addresses its service auth to the managing app's full service identifier (`did:web:…#forum`) rather than its bare DID (#113)

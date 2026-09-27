@@ -327,11 +327,12 @@ public sealed class VideoUploadTests : IDisposable
     [Fact]
     public async Task UploadVideoAsync_BacksOffExponentially()
     {
-        var time = new ManualTime();
+        var time = new InstantTimeProvider();
         using var http = new HttpClient(_handler, disposeHandler: false);
-        // Not XrpcTestClient/AtProtoClient: neither plumbs a custom TimeProvider to the retry
-        // delay (AtProtoClient's internal test constructor only feeds it to session refresh).
-        var video = new VideoClient(new XrpcClient(http, new Uri("https://pds.example.com/")) { TimeProvider = time });
+        using var client = new AtProtoClient(
+            new AtProtoClientOptions { InstanceUrl = "https://pds.example.com", AutoRefreshSession = false },
+            http, null, null, time);
+        var video = client.Bsky.Video;
 
         ScriptSession(partSize: 8, partCount: 1);
         _handler.On(Part, _ => ErrorResponse(HttpStatusCode.ServiceUnavailable, VideoErrors.ServiceOverloaded));
@@ -407,33 +408,5 @@ public sealed class VideoUploadTests : IDisposable
         public override void SetLength(long value) => throw new NotSupportedException();
 
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
-    }
-
-    /// <summary>A clock whose timers fire at once, recording each delay asked for.</summary>
-    private sealed class ManualTime : TimeProvider
-    {
-        public List<TimeSpan> Delays { get; } = [];
-
-        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
-        {
-            if (dueTime != Timeout.InfiniteTimeSpan)
-            {
-                Delays.Add(dueTime);
-                ThreadPool.QueueUserWorkItem(_ => callback(state));
-            }
-
-            return new NoopTimer();
-        }
-
-        private sealed class NoopTimer : ITimer
-        {
-            public bool Change(TimeSpan dueTime, TimeSpan period) => true;
-
-            public void Dispose()
-            {
-            }
-
-            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-        }
     }
 }

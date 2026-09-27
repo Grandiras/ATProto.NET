@@ -131,6 +131,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         {
             UserAgent = options.UserAgent,
             RateLimit = options.RateLimit,
+            TimeProvider = timeProvider,
         };
 
         Server = new ServerClient(_xrpc);

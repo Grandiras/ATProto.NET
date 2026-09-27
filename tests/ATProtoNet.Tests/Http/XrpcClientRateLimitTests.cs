@@ -232,6 +232,34 @@ public class XrpcClientRateLimitTests : IDisposable
     }
 
     [Fact]
+    public async Task AtProtoClient_BacksOffOnItsClock()
+    {
+        var callCount = 0;
+        _stub.On("com.example.ping", _ =>
+        {
+            callCount++;
+            return callCount <= 2 ? RateLimited(retryAfter: null) : HttpStub.JsonResponse("{}");
+        });
+
+        var time = new InstantTimeProvider();
+        using var client = new AtProtoClient(
+            new AtProtoClientOptions { AutoRefreshSession = false },
+            _httpClient,
+            null,
+            null,
+            time);
+
+        await client.QueryAsync<JsonElement>(Nsid.Parse("com.example.ping"));
+
+        // Exponential back-off, 1 s then 2 s, each with up to 10 % of jitter.
+        Assert.Equal(3, callCount);
+        Assert.Collection(
+            time.Delays,
+            d => Assert.InRange(d, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1.1)),
+            d => Assert.InRange(d, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2.2)));
+    }
+
+    [Fact]
     public async Task LatestRateLimitInfo_IsNullWhenNoHeaders()
     {
         _stub.On("com.atproto.server.describeServer", "{}");
