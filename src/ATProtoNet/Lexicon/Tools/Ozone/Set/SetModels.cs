@@ -31,7 +31,7 @@ public sealed class OzoneSetView : LexObject
 /// <summary>Request to create or update a set.</summary>
 public sealed class UpsertSetRequest
 {
-    /// <summary>The name.</summary>
+    /// <summary>The set's name (its identifier).</summary>
     [JsonPropertyName("name")]
     public required string Name { get; init; }
 
@@ -40,10 +40,8 @@ public sealed class UpsertSetRequest
     public string? Description { get; init; }
 }
 
-/// <summary>Request to delete a set.</summary>
 internal sealed record DeleteSetRequest([property: JsonPropertyName("name")] string Name);
 
-/// <summary>Request to add values to, or delete values from, a set.</summary>
 internal sealed record SetValuesRequest(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("values")] IReadOnlyList<string> Values);
@@ -51,7 +49,7 @@ internal sealed record SetValuesRequest(
 /// <summary>Response from querySets.</summary>
 public sealed record QuerySetsResponse : CursorPage<OzoneSetView>
 {
-    /// <summary>The sets.</summary>
+    /// <summary>This page's sets.</summary>
     [JsonPropertyName("sets")]
     public required IReadOnlyList<OzoneSetView> Sets { get; init; }
 
@@ -63,7 +61,7 @@ public sealed record QuerySetsResponse : CursorPage<OzoneSetView>
 /// <summary>Response from getValues.</summary>
 public sealed record GetValuesResponse : CursorPage<string>
 {
-    /// <summary>The set.</summary>
+    /// <summary>The set the values belong to.</summary>
     [JsonPropertyName("set")]
     public required OzoneSetView Set { get; init; }
 

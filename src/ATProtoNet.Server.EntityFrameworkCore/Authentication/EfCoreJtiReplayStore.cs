@@ -63,7 +63,7 @@ public sealed class EfCoreJtiReplayStore<TContext> : IJtiReplayStore
         _logger = logger ?? (ILogger)NullLogger.Instance;
     }
 
-    /// <summary>The most recent background sweep, for tests to wait on.</summary>
+    // The most recent background sweep, for tests to wait on.
     internal Task LastSweep => _sweeps.Last;
 
     /// <inheritdoc/>

@@ -39,7 +39,7 @@ namespace ATProtoNet.Server.Authentication;
 /// </remarks>
 public static class AtProtoOAuthExtensions
 {
-    /// <summary>The error code of a login that failed for a reason other than an <see cref="OAuthException"/>.</summary>
+    // The error code of a login that failed for a reason other than an OAuthException.
     internal const string LoginFailedError = "login_failed";
 
     /// <summary>
@@ -133,7 +133,7 @@ public static class AtProtoOAuthExtensions
         return builder;
     }
 
-    /// <summary>The checks <see cref="WithOAuth"/> runs on the options when the host starts.</summary>
+    // The checks WithOAuth runs on the options when the host starts.
     internal static void ValidateOptions(AtProtoOAuthServerOptions options)
     {
         RequireLocalPath(options.RoutePrefix, nameof(options.RoutePrefix));
@@ -324,7 +324,7 @@ public static class AtProtoOAuthExtensions
         return endpoints;
     }
 
-    /// <summary>Serves the client metadata at its <c>client_id</c>, and the key set at its <c>jwks_uri</c>.</summary>
+    // Serves the client metadata at its client_id, and the key set at its jwks_uri.
     private static void MapClientDocuments(IEndpointRouteBuilder endpoints, AtProtoOAuthServerOptions options)
     {
         var (metadataPath, keySetPath) = ClientDocumentPaths(options);
@@ -342,11 +342,10 @@ public static class AtProtoOAuthExtensions
         }
     }
 
-    /// <summary>
-    /// The paths <see cref="AtProtoOAuthServerOptions.ServeClientMetadata"/> serves the client's
-    /// documents at: its <c>client_id</c>'s, and its <c>jwks_uri</c>'s when it names one.
-    /// </summary>
-    /// <exception cref="InvalidOperationException">No client metadata is configured, or a URL cannot be served.</exception>
+    // The paths AtProtoOAuthServerOptions.ServeClientMetadata serves the client's documents at: its
+    // client_id's, and its jwks_uri's when it names one.
+    //
+    // Throws InvalidOperationException: No client metadata is configured, or a URL cannot be served.
     private static (string Metadata, string? KeySet) ClientDocumentPaths(AtProtoOAuthServerOptions options)
     {
         var metadata = options.ClientMetadata ?? throw new InvalidOperationException(
@@ -356,17 +355,15 @@ public static class AtProtoOAuthExtensions
             metadata.JwksUri is { } jwksUri ? DocumentPath(jwksUri, "jwks_uri") : null);
     }
 
-    /// <summary>
-    /// A client document, cacheable for <see cref="ClientDocumentMaxAge"/>: authorization servers
-    /// fetch it at every login, and a key added for rotation reaches them within that time.
-    /// </summary>
+    // A client document, cacheable for ClientDocumentMaxAge: authorization servers fetch it at every
+    // login, and a key added for rotation reaches them within that time.
     private static IResult Document(HttpContext context, string json)
     {
         context.Response.Headers.CacheControl = $"public, max-age={(int)ClientDocumentMaxAge.TotalSeconds}";
         return Results.Text(json, "application/json");
     }
 
-    /// <summary>How long the served client metadata and key set may be cached (5 minutes).</summary>
+    // How long the served client metadata and key set may be cached (5 minutes).
     internal static readonly TimeSpan ClientDocumentMaxAge = TimeSpan.FromMinutes(5);
 
     private static string DocumentPath(string url, string field)
@@ -399,10 +396,8 @@ public static class AtProtoOAuthExtensions
     private static IResult RedirectToLogin(AtProtoOAuthServerOptions options, string error) =>
         Results.Redirect($"{options.LoginPath.TrimEnd('/')}?error={Uri.EscapeDataString(error)}");
 
-    /// <summary>
-    /// An error code fit for the login URL: a short token of letters, digits, <c>_</c>, <c>-</c>
-    /// and <c>.</c>, as OAuth error codes are, and <see cref="LoginFailedError"/> otherwise.
-    /// </summary>
+    // An error code fit for the login URL: a short token of letters, digits, _, - and ., as OAuth error
+    // codes are, and LoginFailedError otherwise.
     internal static string ErrorCode(string? error)
     {
         if (string.IsNullOrEmpty(error) || error.Length > 64)

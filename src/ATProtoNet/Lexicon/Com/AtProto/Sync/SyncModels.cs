@@ -6,10 +6,7 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Sync;
 
 // ── com.atproto.sync.defs ────────────────────────────────────
 
-/// <summary>
-/// Known account hosting statuses as defined by the AT Protocol spec.
-/// Used by <c>getRepoStatus</c> and <c>#account</c> firehose events.
-/// </summary>
+/// <summary>Known account hosting statuses as defined by the AT Protocol spec. Used by <c>getRepoStatus</c> and <c>#account</c> firehose events.</summary>
 public static class AccountHostingStatus
 {
     /// <summary>The <c>takendown</c> account hosting status.</summary>
@@ -31,10 +28,7 @@ public static class AccountHostingStatus
     public const string Throttled = "throttled";
 }
 
-/// <summary>
-/// Known host statuses for relay upstream hosts.
-/// Used by <c>listHosts</c> and <c>getHostStatus</c>.
-/// </summary>
+/// <summary>Known host statuses for relay upstream hosts. Used by <c>listHosts</c> and <c>getHostStatus</c>.</summary>
 public static class HostStatus
 {
     /// <summary>The <c>active</c> host status.</summary>
@@ -72,7 +66,7 @@ public sealed class GetLatestCommitResponse
 /// <summary>Response from listBlobs.</summary>
 public sealed record ListBlobsResponse : CursorPage<Cid>
 {
-    /// <summary>The CIDs.</summary>
+    /// <summary>This page's CIDs.</summary>
     [JsonPropertyName("cids")]
     public required IReadOnlyList<Cid> Cids { get; init; }
 
@@ -121,7 +115,6 @@ public sealed record ListReposResponse : CursorPage<RepoInfo>
 
 // ── com.atproto.sync.notifyOfUpdate / requestCrawl ───────────
 
-/// <summary>Request body for notifyOfUpdate and requestCrawl.</summary>
 internal sealed record HostnameRequest([property: JsonPropertyName("hostname")] string Hostname);
 
 // ── com.atproto.sync.getRepoStatus ───────────────────────────
@@ -137,10 +130,7 @@ public sealed class GetRepoStatusResponse
     [JsonPropertyName("active")]
     public required bool Active { get; init; }
 
-    /// <summary>
-    /// If active=false, this optional field indicates a possible reason for why
-    /// the account is not active. See <see cref="AccountHostingStatus"/> for known values.
-    /// </summary>
+    /// <summary>If active=false, this optional field indicates a possible reason for why the account is not active. See <see cref="AccountHostingStatus"/> for known values.</summary>
     [JsonPropertyName("status")]
     public string? Status { get; init; }
 
@@ -215,10 +205,7 @@ public sealed class CollectionRepoInfo : LexObject
     public required Did Did { get; init; }
 }
 
-/// <summary>
-/// Response from listReposByCollection. Enumerates DIDs that have records
-/// with a given collection NSID.
-/// </summary>
+/// <summary>Response from listReposByCollection. Enumerates DIDs that have records with a given collection NSID.</summary>
 public sealed record ListReposByCollectionResponse : CursorPage<CollectionRepoInfo>
 {
     /// <summary>The repositories.</summary>
@@ -232,10 +219,7 @@ public sealed record ListReposByCollectionResponse : CursorPage<CollectionRepoIn
 
 // ── com.atproto.sync.subscribeRepos (event stream messages) ──
 
-/// <summary>
-/// A message of the <c>com.atproto.sync.subscribeRepos</c> event stream: a sequenced
-/// <see cref="FirehoseEvent"/>, or an <see cref="InfoEvent"/>.
-/// </summary>
+/// <summary>A message of the <c>com.atproto.sync.subscribeRepos</c> event stream: a sequenced <see cref="FirehoseEvent"/>, or an <see cref="InfoEvent"/>.</summary>
 /// <remarks>
 /// The event-stream frame header names the variant (<c>#commit</c>, <c>#identity</c>, …); the
 /// body carries no <c>$type</c>. <see cref="Streaming.FirehoseEventParser"/> reads both.
@@ -248,10 +232,7 @@ public sealed record ListReposByCollectionResponse : CursorPage<CollectionRepoIn
 [JsonDerivedType(typeof(InfoEvent), "#info")]
 public abstract class FirehoseMessage;
 
-/// <summary>
-/// A sequenced firehose message: every <c>subscribeRepos</c> variant except <c>#info</c>. Its
-/// <see cref="Seq"/> is the stream cursor.
-/// </summary>
+/// <summary>A sequenced firehose message: every <c>subscribeRepos</c> variant except <c>#info</c>. Its <see cref="Seq"/> is the stream cursor.</summary>
 public abstract class FirehoseEvent : FirehoseMessage
 {
     /// <summary>The stream sequence number of this event, and the cursor to resume after it.</summary>
@@ -282,10 +263,7 @@ public sealed class CommitEvent : FirehoseEvent
     [JsonPropertyName("since")]
     public Tid? Since { get; init; }
 
-    /// <summary>
-    /// Whether the commit was too large to include inline; the repository must be fetched
-    /// separately.
-    /// </summary>
+    /// <summary>Whether the commit was too large to include inline; the repository must be fetched separately.</summary>
     [JsonPropertyName("tooBig")]
     [Obsolete("Deprecated upstream: replaced by #sync events and data limits, and always false.")]
     public bool TooBig { get; init; }
@@ -303,11 +281,7 @@ public sealed class CommitEvent : FirehoseEvent
     [JsonPropertyName("ops")]
     public IReadOnlyList<RepoOp>? Ops { get; init; }
 
-    /// <summary>
-    /// The root CID of the MST tree for the previous commit (indicated by the 'since'
-    /// revision field). Corresponds to the 'data' field in the repo commit object.
-    /// Required for the 'inductive' version of firehose (Sync v1.1).
-    /// </summary>
+    /// <summary>The root CID of the MST tree for the previous commit (indicated by the 'since' revision field). Corresponds to the 'data' field in the repo commit object. Required for the 'inductive' version of firehose (Sync v1.1).</summary>
     [JsonPropertyName("prevData")]
     public Cid? PrevData { get; init; }
 
@@ -317,11 +291,7 @@ public sealed class CommitEvent : FirehoseEvent
     public IReadOnlyList<Cid>? Blobs { get; init; }
 }
 
-/// <summary>
-/// What a <see cref="RepoOp"/> did to its record: the known values of
-/// <c>com.atproto.sync.subscribeRepos#repoOp.action</c>. Jetstream's commit events carry the same
-/// value as <see cref="Streaming.JetstreamCommitEvent.Operation"/>.
-/// </summary>
+/// <summary>What a <see cref="RepoOp"/> did to its record: the known values of <c>com.atproto.sync.subscribeRepos#repoOp.action</c>. Jetstream's commit events carry the same value as <see cref="Streaming.JetstreamCommitEvent.Operation"/>.</summary>
 public enum RepoOpAction
 {
     /// <summary>A record was created.</summary>
@@ -349,20 +319,12 @@ public sealed class RepoOp
     [JsonPropertyName("cid")]
     public Cid? Cid { get; init; }
 
-    /// <summary>
-    /// For updates and deletes, the previous record CID (required for inductive firehose).
-    /// For creations, this field should not be defined.
-    /// </summary>
+    /// <summary>For updates and deletes, the previous record CID (required for inductive firehose). For creations, this field should not be defined.</summary>
     [JsonPropertyName("prev")]
     public Cid? Prev { get; init; }
 }
 
-/// <summary>
-/// A sync event from the firehose. Updates the repo to a new state without necessarily
-/// including that state on the firehose. Used to recover from broken commit streams,
-/// data loss incidents, or when the upstream host does not know recent state.
-/// New in Sync v1.1.
-/// </summary>
+/// <summary>A sync event from the firehose. Updates the repo to a new state without necessarily including that state on the firehose. Used to recover from broken commit streams, data loss incidents, or when the upstream host does not know recent state. New in Sync v1.1.</summary>
 public sealed class SyncEvent : FirehoseEvent
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -406,10 +368,7 @@ public sealed class AccountEvent : FirehoseEvent
     public string? Status { get; init; }
 }
 
-/// <summary>
-/// An informational message from the host, such as <c>OutdatedCursor</c> when the requested
-/// cursor predates its retention window. It is not sequenced and does not move the cursor.
-/// </summary>
+/// <summary>An informational message from the host, such as <c>OutdatedCursor</c> when the requested cursor predates its retention window. It is not sequenced and does not move the cursor.</summary>
 public sealed class InfoEvent : FirehoseMessage
 {
     /// <summary>The notice's name, such as <c>OutdatedCursor</c>.</summary>

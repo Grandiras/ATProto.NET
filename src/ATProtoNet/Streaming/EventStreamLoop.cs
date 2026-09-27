@@ -5,73 +5,62 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Streaming;
 
-/// <summary>
-/// What one stream consumer does with its messages. The shared <see cref="EventStreamLoop"/>
-/// handles connecting, error frames and reconnecting; the handler owns the position and turns
-/// messages into what it delivers.
-/// </summary>
+// What one stream consumer does with its messages. The shared EventStreamLoop handles connecting,
+// error frames and reconnecting; the handler owns the position and turns messages into what it
+// delivers.
 internal abstract class EventStreamHandler<T>(StreamConsumerOptions options) where T : class
 {
     public StreamConsumerOptions Options => options;
 
     public ILogger Logger { get; } = options.Logger ?? NullLogger.Instance;
 
-    /// <summary>The stream's name in log and exception messages, e.g. <c>firehose</c>.</summary>
+    // The stream's name in log and exception messages, e.g. firehose.
     public abstract string Stream { get; }
 
-    /// <summary>The endpoint and upgrade options for the next connection, from the current position.</summary>
+    // The endpoint and upgrade options for the next connection, from the current position.
     public abstract ValueTask<(Uri Endpoint, StreamSocketOptions Options)> ConnectAsync(CancellationToken cancellationToken);
 
-    /// <summary>
-    /// Reads one message into what to deliver, or null to skip it, having recorded any position it
-    /// carried; or into the error an error frame carries, which ends the connection.
-    /// </summary>
-    /// <param name="message">The message; its bytes are valid only until this call returns.</param>
+    // Reads one message into what to deliver, or null to skip it, having recorded any position it carried;
+    // or into the error an error frame carries, which ends the connection.
+    //
+    // message: The message; its bytes are valid only until this call returns.
     public abstract ValueTask<(T? Message, EventStreamError? Error)> ReadAsync(
         StreamSocketMessage message, CancellationToken cancellationToken);
 
-    /// <summary>
-    /// The caller took <paramref name="message"/> and asked for the next one, so its position may
-    /// be recorded: at-least-once delivery.
-    /// </summary>
+    // The caller took message and asked for the next one, so its position may be recorded: at-least-once
+    // delivery.
     public virtual void Delivered(T message)
     {
     }
 
-    /// <summary><see cref="Delivered"/>, for a handler that has to await what it records.</summary>
+    // Delivered, for a handler that has to await what it records.
     public virtual ValueTask DeliveredAsync(T message, CancellationToken cancellationToken)
     {
         Delivered(message);
         return ValueTask.CompletedTask;
     }
 
-    /// <summary>
-    /// A message the handler has ready that did not come from the frame just read, such as work it
-    /// finished in the background; delivered before the next frame is read. Null when there is none.
-    /// </summary>
+    // A message the handler has ready that did not come from the frame just read, such as work it finished
+    // in the background; delivered before the next frame is read. Null when there is none.
     public virtual ValueTask<T?> NextPendingAsync(CancellationToken cancellationToken) => default;
 
-    /// <summary>A message was skipped because it could not be delivered.</summary>
+    // A message was skipped because it could not be delivered.
     public virtual void Dropped(StreamDropReason reason, long? cursor, string? detail)
     {
         Logger.LogDebug("Skipped {Stream} message {Cursor} ({Reason}): {Detail}", Stream, cursor, reason, detail);
         Options.OnEventDropped?.Invoke(new DroppedStreamEvent(reason, cursor, detail));
     }
 
-    /// <summary>
-    /// The exception a failure ends the connection with: one the connection threw, or the
-    /// <see cref="EventStreamException"/> of an error frame.
-    /// </summary>
+    // The exception a failure ends the connection with: one the connection threw, or the
+    // EventStreamException of an error frame.
     public virtual Exception Failed(Exception failure) => failure;
 }
 
-/// <summary>
-/// The connect, read and reconnect loop every stream consumer runs, with the contract
-/// <see cref="StreamConsumerOptions"/> describes.
-/// </summary>
+// The connect, read and reconnect loop every stream consumer runs, with the contract
+// StreamConsumerOptions describes.
 internal static class EventStreamLoop
 {
-    /// <summary>Reads the stream through <paramref name="handler"/>, reconnecting per its options.</summary>
+    // Reads the stream through handler, reconnecting per its options.
     public static async IAsyncEnumerable<T> RunAsync<T>(
         EventStreamHandler<T> handler,
         StreamConnector connector,

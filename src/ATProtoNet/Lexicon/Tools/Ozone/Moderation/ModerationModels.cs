@@ -11,11 +11,7 @@ namespace ATProtoNet.Lexicon.Tools.Ozone.Moderation;
 
 // ─── Moderation Event Types ───
 
-/// <summary>
-/// Base moderation event that captures all event types emitted by Ozone (the open
-/// <c>tools.ozone.moderation.defs#modEventView.event</c> union). Ozone emits event types this SDK
-/// does not model; they read as <see cref="UnknownModEvent"/>.
-/// </summary>
+/// <summary>Base moderation event that captures all event types emitted by Ozone (the open <c>tools.ozone.moderation.defs#modEventView.event</c> union). Ozone emits event types this SDK does not model; they read as <see cref="UnknownModEvent"/>.</summary>
 [AtProtoUnion(typeof(UnknownModEvent))]
 [JsonDerivedType(typeof(ModEventTakedown), "tools.ozone.moderation.defs#modEventTakedown")]
 [JsonDerivedType(typeof(ModEventReverseTakedown), "tools.ozone.moderation.defs#modEventReverseTakedown")]
@@ -44,10 +40,7 @@ namespace ATProtoNet.Lexicon.Tools.Ozone.Moderation;
 [JsonDerivedType(typeof(CancelScheduledTakedownEvent), "tools.ozone.moderation.defs#cancelScheduledTakedownEvent")]
 public abstract class ModEventType : LexObject;
 
-/// <summary>
-/// A moderation event whose <c>$type</c> this SDK version does not model. It keeps the raw object
-/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A moderation event whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownModEvent(string type, JsonElement raw) : ModEventType, IUnknownUnionVariant
@@ -70,10 +63,7 @@ public sealed class ModEventTakedown : ModEventType
     [JsonPropertyName("durationInHours")]
     public int? DurationInHours { get; init; }
 
-    /// <summary>
-    /// Whether to also acknowledge every open report on the account's records, for an account
-    /// subject.
-    /// </summary>
+    /// <summary>Whether to also acknowledge every open report on the account's records, for an account subject.</summary>
     [JsonPropertyName("acknowledgeAccountSubjects")]
     public bool? AcknowledgeAccountSubjects { get; init; }
 
@@ -85,10 +75,7 @@ public sealed class ModEventTakedown : ModEventType
     [JsonPropertyName("severityLevel")]
     public string? SeverityLevel { get; init; }
 
-    /// <summary>
-    /// The services the takedown applies to: <c>appview</c> and/or <c>pds</c>; <see langword="null"/>
-    /// for both.
-    /// </summary>
+    /// <summary>The services the takedown applies to: <c>appview</c> and/or <c>pds</c>; <see langword="null"/> for both.</summary>
     [JsonPropertyName("targetServices")]
     public IReadOnlyList<string>? TargetServices { get; init; }
 
@@ -128,10 +115,7 @@ public sealed class ModEventAcknowledge : ModEventType
     [JsonPropertyName("comment")]
     public string? Comment { get; init; }
 
-    /// <summary>
-    /// Whether to also acknowledge every open report on the account's records, for an account
-    /// subject.
-    /// </summary>
+    /// <summary>Whether to also acknowledge every open report on the account's records, for an account subject.</summary>
     [JsonPropertyName("acknowledgeAccountSubjects")]
     public bool? AcknowledgeAccountSubjects { get; init; }
 }
@@ -316,27 +300,18 @@ public sealed class ModEventPriorityScore : ModEventType
     public required int Score { get; init; }
 }
 
-/// <summary>
-/// An account status change on the account's host, which Ozone records as it arrives from the
-/// network.
-/// </summary>
+/// <summary>An account status change on the account's host, which Ozone records as it arrives from the network.</summary>
 public sealed class AccountEvent : ModEventType
 {
     /// <summary>A free-text comment.</summary>
     [JsonPropertyName("comment")]
     public string? Comment { get; init; }
 
-    /// <summary>
-    /// Whether the account has a repository that can be fetched from the host that emitted the
-    /// event.
-    /// </summary>
+    /// <summary>Whether the account has a repository that can be fetched from the host that emitted the event.</summary>
     [JsonPropertyName("active")]
     public required bool Active { get; init; }
 
-    /// <summary>
-    /// The account's status when it is not active: <c>unknown</c>, <c>deactivated</c>,
-    /// <c>deleted</c>, <c>takendown</c>, <c>suspended</c> or <c>tombstoned</c>.
-    /// </summary>
+    /// <summary>The account's status when it is not active: <c>unknown</c>, <c>deactivated</c>, <c>deleted</c>, <c>takendown</c>, <c>suspended</c> or <c>tombstoned</c>.</summary>
     [JsonPropertyName("status")]
     public string? Status { get; init; }
 
@@ -345,10 +320,7 @@ public sealed class AccountEvent : ModEventType
     public required AtDatetime Timestamp { get; init; }
 }
 
-/// <summary>
-/// An identity change of the account (handle, PDS or tombstone), which Ozone records as it
-/// arrives from the network.
-/// </summary>
+/// <summary>An identity change of the account (handle, PDS or tombstone), which Ozone records as it arrives from the network.</summary>
 public sealed class IdentityEvent : ModEventType
 {
     /// <summary>A free-text comment.</summary>
@@ -439,10 +411,7 @@ public sealed class AgeAssuranceEvent : ModEventType
 /// <summary>A moderation event that overrides the account's age-assurance state.</summary>
 public sealed class AgeAssuranceOverrideEvent : ModEventType
 {
-    /// <summary>
-    /// The state to set: <c>assured</c>, <c>reset</c> (back to the original state) or
-    /// <c>blocked</c>.
-    /// </summary>
+    /// <summary>The state to set: <c>assured</c>, <c>reset</c> (back to the original state) or <c>blocked</c>.</summary>
     [JsonPropertyName("status")]
     public required string Status { get; init; }
 
@@ -680,10 +649,7 @@ public sealed class SubjectStatusView : LexObject
     [JsonPropertyName("accountStrike")]
     public AccountStrike? AccountStrike { get; init; }
 
-    /// <summary>
-    /// The account's age-assurance state: <c>pending</c>, <c>assured</c>, <c>unknown</c>,
-    /// <c>reset</c> or <c>blocked</c>.
-    /// </summary>
+    /// <summary>The account's age-assurance state: <c>pending</c>, <c>assured</c>, <c>unknown</c>, <c>reset</c> or <c>blocked</c>.</summary>
     [JsonPropertyName("ageAssuranceState")]
     public string? AgeAssuranceState { get; init; }
 
@@ -692,19 +658,13 @@ public sealed class SubjectStatusView : LexObject
     public string? AgeAssuranceUpdatedBy { get; init; }
 }
 
-/// <summary>
-/// A subject's hosting status (the open union behind <see cref="SubjectStatusView.Hosting"/>).
-/// A status this SDK does not model reads as <see cref="UnknownSubjectHosting"/>.
-/// </summary>
+/// <summary>A subject's hosting status (the open union behind <see cref="SubjectStatusView.Hosting"/>). A status this SDK does not model reads as <see cref="UnknownSubjectHosting"/>.</summary>
 [AtProtoUnion(typeof(UnknownSubjectHosting))]
 [JsonDerivedType(typeof(AccountHosting), "tools.ozone.moderation.defs#accountHosting")]
 [JsonDerivedType(typeof(RecordHosting), "tools.ozone.moderation.defs#recordHosting")]
 public abstract class SubjectHosting : LexObject;
 
-/// <summary>
-/// A hosting status whose <c>$type</c> this SDK version does not model. It keeps the raw object
-/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A hosting status whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownSubjectHosting(string type, JsonElement raw) : SubjectHosting, IUnknownUnionVariant
@@ -719,10 +679,7 @@ public sealed class UnknownSubjectHosting(string type, JsonElement raw) : Subjec
 /// <summary>An account's hosting status.</summary>
 public sealed class AccountHosting : SubjectHosting
 {
-    /// <summary>
-    /// The status: <c>takendown</c>, <c>suspended</c>, <c>deleted</c>, <c>deactivated</c> or
-    /// <c>unknown</c>.
-    /// </summary>
+    /// <summary>The status: <c>takendown</c>, <c>suspended</c>, <c>deleted</c>, <c>deactivated</c> or <c>unknown</c>.</summary>
     [JsonPropertyName("status")]
     public required string Status { get; init; }
 
@@ -791,10 +748,7 @@ public sealed class AccountStats : LexObject
     public int? TakedownCount { get; init; }
 }
 
-/// <summary>
-/// Moderation statistics about an account's records
-/// (<c>tools.ozone.moderation.defs#recordsStats</c>).
-/// </summary>
+/// <summary>Moderation statistics about an account's records (<c>tools.ozone.moderation.defs#recordsStats</c>).</summary>
 public sealed class RecordsStats : LexObject
 {
     /// <summary>The number of reports on the account's records.</summary>
@@ -850,13 +804,7 @@ public sealed class AccountStrike : LexObject
     public AtDatetime? LastStrikeAt { get; init; }
 }
 
-/// <summary>
-/// An account or record as Ozone sees it, or a marker that Ozone does not know it: what
-/// <see cref="ModerationClient.GetReposAsync"/> and <see cref="ModerationClient.GetRecordsAsync"/>
-/// return one of per requested subject. Where <see cref="ModerationSubject"/> refers to a subject,
-/// this is its hydrated view. A view this SDK does not model reads as
-/// <see cref="UnknownModerationSubjectView"/>.
-/// </summary>
+/// <summary>An account or record as Ozone sees it, or a marker that Ozone does not know it: what <see cref="ModerationClient.GetReposAsync"/> and <see cref="ModerationClient.GetRecordsAsync"/> return one of per requested subject. Where <see cref="ModerationSubject"/> refers to a subject, this is its hydrated view. A view this SDK does not model reads as <see cref="UnknownModerationSubjectView"/>.</summary>
 [AtProtoUnion(typeof(UnknownModerationSubjectView))]
 [JsonDerivedType(typeof(RepoViewDetail), "tools.ozone.moderation.defs#repoViewDetail")]
 [JsonDerivedType(typeof(RepoViewNotFound), "tools.ozone.moderation.defs#repoViewNotFound")]
@@ -864,10 +812,7 @@ public sealed class AccountStrike : LexObject
 [JsonDerivedType(typeof(RecordViewNotFound), "tools.ozone.moderation.defs#recordViewNotFound")]
 public abstract class ModerationSubjectView : LexObject;
 
-/// <summary>
-/// A subject view whose <c>$type</c> this SDK version does not model. It keeps the raw object
-/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A subject view whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownModerationSubjectView(string type, JsonElement raw) : ModerationSubjectView, IUnknownUnionVariant
@@ -959,19 +904,13 @@ public sealed class BlobView : LexObject
     public ModerationDetail? Moderation { get; init; }
 }
 
-/// <summary>
-/// Media details of a blob (the open union behind <see cref="BlobView.Details"/>). Details this
-/// SDK does not model read as <see cref="UnknownBlobDetails"/>.
-/// </summary>
+/// <summary>Media details of a blob (the open union behind <see cref="BlobView.Details"/>). Details this SDK does not model read as <see cref="UnknownBlobDetails"/>.</summary>
 [AtProtoUnion(typeof(UnknownBlobDetails))]
 [JsonDerivedType(typeof(ImageDetails), "tools.ozone.moderation.defs#imageDetails")]
 [JsonDerivedType(typeof(VideoDetails), "tools.ozone.moderation.defs#videoDetails")]
 public abstract class BlobDetails : LexObject;
 
-/// <summary>
-/// Blob details whose <c>$type</c> this SDK version does not model. They keep the raw object and
-/// write it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>Blob details whose <c>$type</c> this SDK version does not model. They keep the raw object and write it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownBlobDetails(string type, JsonElement raw) : BlobDetails, IUnknownUnionVariant
@@ -1127,10 +1066,7 @@ public sealed class RepoViewDetail : ModerationSubjectView
     public IReadOnlyList<JsonElement>? ThreatSignatures { get; init; }
 }
 
-/// <summary>
-/// Everything Ozone knows about one subject, from getSubjects
-/// (<c>tools.ozone.moderation.defs#subjectView</c>).
-/// </summary>
+/// <summary>Everything Ozone knows about one subject, from getSubjects (<c>tools.ozone.moderation.defs#subjectView</c>).</summary>
 public sealed class SubjectView : LexObject
 {
     /// <summary>The kind of subject: <c>account</c>, <c>record</c> or <c>chat</c>.</summary>
@@ -1149,10 +1085,7 @@ public sealed class SubjectView : LexObject
     [JsonPropertyName("repo")]
     public RepoViewDetail? Repo { get; init; }
 
-    /// <summary>
-    /// The account's profile view, in the shape the app view returns (an open union upstream
-    /// declares no variants for).
-    /// </summary>
+    /// <summary>The account's profile view, in the shape the app view returns (an open union upstream declares no variants for).</summary>
     [JsonPropertyName("profile")]
     public JsonElement? Profile { get; init; }
 
@@ -1201,10 +1134,7 @@ public sealed class ReporterStats : LexObject
     public required int LabeledRecordCount { get; init; }
 }
 
-/// <summary>
-/// One day of an account's history, from getAccountTimeline
-/// (<c>tools.ozone.moderation.getAccountTimeline#timelineItem</c>).
-/// </summary>
+/// <summary>One day of an account's history, from getAccountTimeline (<c>tools.ozone.moderation.getAccountTimeline#timelineItem</c>).</summary>
 public sealed class TimelineItem : LexObject
 {
     /// <summary>The day, as <c>YYYY-MM-DD</c>.</summary>
@@ -1216,21 +1146,14 @@ public sealed class TimelineItem : LexObject
     public required IReadOnlyList<TimelineItemSummary> Summary { get; init; }
 }
 
-/// <summary>
-/// How many events of one type an account had on one day
-/// (<c>tools.ozone.moderation.getAccountTimeline#timelineItemSummary</c>).
-/// </summary>
+/// <summary>How many events of one type an account had on one day (<c>tools.ozone.moderation.getAccountTimeline#timelineItemSummary</c>).</summary>
 public sealed class TimelineItemSummary : LexObject
 {
     /// <summary>What the events were about: <c>account</c>, <c>record</c> or <c>chat</c>.</summary>
     [JsonPropertyName("eventSubjectType")]
     public required string EventSubjectType { get; init; }
 
-    /// <summary>
-    /// The event type: a moderation event (<c>tools.ozone.moderation.defs#modEvent…</c> and the
-    /// other event defs), a PLC operation (<c>tools.ozone.moderation.defs#timelineEventPlc…</c>)
-    /// or an account history event (<c>tools.ozone.hosting.getAccountHistory#…</c>).
-    /// </summary>
+    /// <summary>The event type: a moderation event (<c>tools.ozone.moderation.defs#modEvent…</c> and the other event defs), a PLC operation (<c>tools.ozone.moderation.defs#timelineEventPlc…</c>) or an account history event (<c>tools.ozone.hosting.getAccountHistory#…</c>).</summary>
     [JsonPropertyName("eventType")]
     public required string EventType { get; init; }
 
@@ -1239,10 +1162,7 @@ public sealed class TimelineItemSummary : LexObject
     public required int Count { get; init; }
 }
 
-/// <summary>
-/// A moderation action scheduled to run later
-/// (<c>tools.ozone.moderation.defs#scheduledActionView</c>).
-/// </summary>
+/// <summary>A moderation action scheduled to run later (<c>tools.ozone.moderation.defs#scheduledActionView</c>).</summary>
 public sealed class ScheduledActionView : LexObject
 {
     /// <summary>The scheduled action's identifier.</summary>
@@ -1273,10 +1193,7 @@ public sealed class ScheduledActionView : LexObject
     [JsonPropertyName("executeUntil")]
     public AtDatetime? ExecuteUntil { get; init; }
 
-    /// <summary>
-    /// Whether the time is picked at random between <see cref="ExecuteAfter"/> and
-    /// <see cref="ExecuteUntil"/>.
-    /// </summary>
+    /// <summary>Whether the time is picked at random between <see cref="ExecuteAfter"/> and <see cref="ExecuteUntil"/>.</summary>
     [JsonPropertyName("randomizeExecution")]
     public bool? RandomizeExecution { get; init; }
 
@@ -1309,10 +1226,7 @@ public sealed class ScheduledActionView : LexObject
     public long? ExecutionEventId { get; init; }
 }
 
-/// <summary>
-/// The statuses of a scheduled action (<see cref="ScheduledActionView.Status"/>), for
-/// <see cref="ModerationClient.ListScheduledActionsAsync"/>.
-/// </summary>
+/// <summary>The statuses of a scheduled action (<see cref="ScheduledActionView.Status"/>), for <see cref="ModerationClient.ListScheduledActionsAsync"/>.</summary>
 public static class ScheduledActionStatus
 {
     /// <summary>Waiting to run.</summary>
@@ -1328,19 +1242,12 @@ public static class ScheduledActionStatus
     public const string Failed = "failed";
 }
 
-/// <summary>
-/// An action to schedule with <see cref="ModerationClient.ScheduleActionAsync"/> (the open
-/// <c>tools.ozone.moderation.scheduleAction#input.action</c> union). An action this SDK does not
-/// model reads as <see cref="UnknownScheduledAction"/>.
-/// </summary>
+/// <summary>An action to schedule with <see cref="ModerationClient.ScheduleActionAsync"/> (the open <c>tools.ozone.moderation.scheduleAction#input.action</c> union). An action this SDK does not model reads as <see cref="UnknownScheduledAction"/>.</summary>
 [AtProtoUnion(typeof(UnknownScheduledAction))]
 [JsonDerivedType(typeof(ScheduledTakedown), "tools.ozone.moderation.scheduleAction#takedown")]
 public abstract class ScheduledAction : LexObject;
 
-/// <summary>
-/// A scheduled action whose <c>$type</c> this SDK version does not model. It keeps the raw object
-/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A scheduled action whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownScheduledAction(string type, JsonElement raw) : ScheduledAction, IUnknownUnionVariant
@@ -1392,11 +1299,7 @@ public sealed class ScheduledTakedown : ScheduledAction
     public string? EmailSubject { get; init; }
 }
 
-/// <summary>
-/// When a scheduled action runs (<c>tools.ozone.moderation.scheduleAction#schedulingConfig</c>):
-/// at <see cref="ExecuteAt"/>, or at a random time between <see cref="ExecuteAfter"/> and
-/// <see cref="ExecuteUntil"/>.
-/// </summary>
+/// <summary>When a scheduled action runs (<c>tools.ozone.moderation.scheduleAction#schedulingConfig</c>): at <see cref="ExecuteAt"/>, or at a random time between <see cref="ExecuteAfter"/> and <see cref="ExecuteUntil"/>.</summary>
 public sealed class SchedulingConfig : LexObject
 {
     /// <summary>The exact time to run the action.</summary>
@@ -1412,10 +1315,7 @@ public sealed class SchedulingConfig : LexObject
     public AtDatetime? ExecuteUntil { get; init; }
 }
 
-/// <summary>
-/// Which accounts an action was scheduled for
-/// (<c>tools.ozone.moderation.scheduleAction#scheduledActionResults</c>).
-/// </summary>
+/// <summary>Which accounts an action was scheduled for (<c>tools.ozone.moderation.scheduleAction#scheduledActionResults</c>).</summary>
 public sealed class ScheduledActionResults : LexObject
 {
     /// <summary>The accounts the action was scheduled for.</summary>
@@ -1427,10 +1327,7 @@ public sealed class ScheduledActionResults : LexObject
     public required IReadOnlyList<FailedScheduling> Failed { get; init; }
 }
 
-/// <summary>
-/// An account an action could not be scheduled for
-/// (<c>tools.ozone.moderation.scheduleAction#failedScheduling</c>).
-/// </summary>
+/// <summary>An account an action could not be scheduled for (<c>tools.ozone.moderation.scheduleAction#failedScheduling</c>).</summary>
 public sealed class FailedScheduling : LexObject
 {
     /// <summary>The account.</summary>
@@ -1446,10 +1343,7 @@ public sealed class FailedScheduling : LexObject
     public string? ErrorCode { get; init; }
 }
 
-/// <summary>
-/// Which accounts' scheduled actions were cancelled
-/// (<c>tools.ozone.moderation.cancelScheduledActions#cancellationResults</c>).
-/// </summary>
+/// <summary>Which accounts' scheduled actions were cancelled (<c>tools.ozone.moderation.cancelScheduledActions#cancellationResults</c>).</summary>
 public sealed class CancellationResults : LexObject
 {
     /// <summary>The accounts whose pending actions were all cancelled.</summary>
@@ -1461,10 +1355,7 @@ public sealed class CancellationResults : LexObject
     public required IReadOnlyList<FailedCancellation> Failed { get; init; }
 }
 
-/// <summary>
-/// An account whose scheduled actions could not be cancelled
-/// (<c>tools.ozone.moderation.cancelScheduledActions#failedCancellation</c>).
-/// </summary>
+/// <summary>An account whose scheduled actions could not be cancelled (<c>tools.ozone.moderation.cancelScheduledActions#failedCancellation</c>).</summary>
 public sealed class FailedCancellation : LexObject
 {
     /// <summary>The account.</summary>
@@ -1523,10 +1414,7 @@ public sealed class EmitEventRequest
     [JsonPropertyName("modTool")]
     public ModTool? ModTool { get; init; }
 
-    /// <summary>
-    /// An identifier the caller chooses to make the call idempotent: a second event with the
-    /// same one fails with <c>DuplicateExternalId</c>.
-    /// </summary>
+    /// <summary>An identifier the caller chooses to make the call idempotent: a second event with the same one fails with <c>DuplicateExternalId</c>.</summary>
     [JsonPropertyName("externalId")]
     public string? ExternalId { get; init; }
 
@@ -1535,10 +1423,7 @@ public sealed class EmitEventRequest
     public ReportAction? ReportAction { get; init; }
 }
 
-/// <summary>
-/// What an emitted event does to the subject's reports
-/// (<c>tools.ozone.moderation.emitEvent#reportAction</c>).
-/// </summary>
+/// <summary>What an emitted event does to the subject's reports (<c>tools.ozone.moderation.emitEvent#reportAction</c>).</summary>
 public sealed class ReportAction : LexObject
 {
     /// <summary>The reports to act on, by identifier.</summary>
@@ -1582,10 +1467,7 @@ public sealed record QueryStatusesResponse : CursorPage<SubjectStatusView>
     public override IReadOnlyList<SubjectStatusView> Items => SubjectStatuses;
 }
 
-/// <summary>
-/// Which subject statuses <see cref="ModerationClient.QueryStatusesAsync"/> returns, and in what
-/// order. Every filter is optional; set only the ones you need.
-/// </summary>
+/// <summary>Which subject statuses <see cref="ModerationClient.QueryStatusesAsync"/> returns, and in what order. Every filter is optional; set only the ones you need.</summary>
 public sealed class SubjectStatusFilter
 {
     internal static SubjectStatusFilter None { get; } = new();
@@ -1674,25 +1556,16 @@ public sealed class SubjectStatusFilter
     /// <summary>Only accounts with at least this many active strikes.</summary>
     public int? MinStrikeCount { get; init; }
 
-    /// <summary>
-    /// Only accounts in this age-assurance state: <c>pending</c>, <c>assured</c>, <c>unknown</c>,
-    /// <c>reset</c> or <c>blocked</c>.
-    /// </summary>
+    /// <summary>Only accounts in this age-assurance state: <c>pending</c>, <c>assured</c>, <c>unknown</c>, <c>reset</c> or <c>blocked</c>.</summary>
     public string? AgeAssuranceState { get; init; }
 
-    /// <summary>
-    /// The field to sort by: <c>lastReportedAt</c> (the default), <c>lastReviewedAt</c>,
-    /// <c>reportedRecordsCount</c>, <c>takendownRecordsCount</c> or <c>priorityScore</c>.
-    /// </summary>
+    /// <summary>The field to sort by: <c>lastReportedAt</c> (the default), <c>lastReviewedAt</c>, <c>reportedRecordsCount</c>, <c>takendownRecordsCount</c> or <c>priorityScore</c>.</summary>
     public string? SortField { get; init; }
 
     /// <summary>The sort direction: <c>asc</c> or <c>desc</c> (the default).</summary>
     public string? SortDirection { get; init; }
 
-    /// <summary>
-    /// Split the queue into this many parts, so moderators can each work one; use with
-    /// <see cref="QueueIndex"/>.
-    /// </summary>
+    /// <summary>Split the queue into this many parts, so moderators can each work one; use with <see cref="QueueIndex"/>.</summary>
     public int? QueueCount { get; init; }
 
     /// <summary>Which part of a split queue to return, from 0.</summary>
@@ -1761,10 +1634,7 @@ public sealed class GetAccountPreferencesResponse
 /// <summary>Response from tools.ozone.moderation.getRepos.</summary>
 public sealed class GetReposResponse
 {
-    /// <summary>
-    /// One entry per requested DID: a <see cref="RepoViewDetail"/>, or a
-    /// <see cref="RepoViewNotFound"/> for an account Ozone does not know.
-    /// </summary>
+    /// <summary>One entry per requested DID: a <see cref="RepoViewDetail"/>, or a <see cref="RepoViewNotFound"/> for an account Ozone does not know.</summary>
     [JsonPropertyName("repos")]
     public required IReadOnlyList<ModerationSubjectView> Repos { get; init; }
 }
@@ -1772,10 +1642,7 @@ public sealed class GetReposResponse
 /// <summary>Response from tools.ozone.moderation.getRecords.</summary>
 public sealed class GetRecordsResponse
 {
-    /// <summary>
-    /// One entry per requested AT URI: a <see cref="RecordViewDetail"/>, or a
-    /// <see cref="RecordViewNotFound"/> for a record Ozone does not know.
-    /// </summary>
+    /// <summary>One entry per requested AT URI: a <see cref="RecordViewDetail"/>, or a <see cref="RecordViewNotFound"/> for a record Ozone does not know.</summary>
     [JsonPropertyName("records")]
     public required IReadOnlyList<ModerationSubjectView> Records { get; init; }
 }
@@ -1783,7 +1650,7 @@ public sealed class GetRecordsResponse
 /// <summary>Response from tools.ozone.moderation.getSubjects.</summary>
 public sealed class GetSubjectsResponse
 {
-    /// <summary>The subjects.</summary>
+    /// <summary>The requested subjects.</summary>
     [JsonPropertyName("subjects")]
     public required IReadOnlyList<SubjectView> Subjects { get; init; }
 }
@@ -1804,7 +1671,6 @@ public sealed class GetReporterStatsResponse
     public required IReadOnlyList<ReporterStats> Stats { get; init; }
 }
 
-/// <summary>Request body for tools.ozone.moderation.scheduleAction.</summary>
 internal sealed record ScheduleActionRequest(
     [property: JsonPropertyName("action")] ScheduledAction Action,
     [property: JsonPropertyName("subjects")] IReadOnlyList<Did> Subjects,
@@ -1812,7 +1678,6 @@ internal sealed record ScheduleActionRequest(
     [property: JsonPropertyName("scheduling")] SchedulingConfig Scheduling,
     [property: JsonPropertyName("modTool")] ModTool? ModTool = null);
 
-/// <summary>Request body for tools.ozone.moderation.listScheduledActions.</summary>
 internal sealed record ListScheduledActionsRequest(
     [property: JsonPropertyName("statuses")] [property: JsonPropertyOrder(3)] IReadOnlyList<string> Statuses,
     [property: JsonPropertyName("startsAfter")] [property: JsonPropertyOrder(0)] AtDatetime? StartsAfter = null,
@@ -1833,7 +1698,6 @@ public sealed record ListScheduledActionsResponse : CursorPage<ScheduledActionVi
     public override IReadOnlyList<ScheduledActionView> Items => Actions;
 }
 
-/// <summary>Request body for tools.ozone.moderation.cancelScheduledActions.</summary>
 internal sealed record CancelScheduledActionsRequest(
     [property: JsonPropertyName("subjects")] IReadOnlyList<Did> Subjects,
     [property: JsonPropertyName("comment")] string? Comment = null);

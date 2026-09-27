@@ -4,10 +4,7 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Safelink;
 
-/// <summary>
-/// A URL safety rule: what the app does with links to a URL or domain
-/// (<c>tools.ozone.safelink.defs#urlRule</c>).
-/// </summary>
+/// <summary>A URL safety rule: what the app does with links to a URL or domain (<c>tools.ozone.safelink.defs#urlRule</c>).</summary>
 public sealed class UrlRule : LexObject
 {
     /// <summary>The URL or domain the rule applies to.</summary>
@@ -93,10 +90,7 @@ public static class SafelinkPatternType
     public const string Url = "url";
 }
 
-/// <summary>
-/// What the app does with links a URL safety rule matches
-/// (<c>tools.ozone.safelink.defs#actionType</c>).
-/// </summary>
+/// <summary>What the app does with links a URL safety rule matches (<c>tools.ozone.safelink.defs#actionType</c>).</summary>
 public static class SafelinkActionType
 {
     /// <summary>Block the link.</summary>
@@ -140,10 +134,6 @@ public static class SafelinkEventType
 
 // ─── Request / Response Models ───
 
-/// <summary>
-/// Request body for tools.ozone.safelink.addRule and tools.ozone.safelink.updateRule, which take
-/// the same fields.
-/// </summary>
 internal sealed record AddRuleRequest(
     [property: JsonPropertyName("url")] string Url,
     [property: JsonPropertyName("pattern")] string Pattern,
@@ -152,14 +142,12 @@ internal sealed record AddRuleRequest(
     [property: JsonPropertyName("comment")] string? Comment = null,
     [property: JsonPropertyName("createdBy")] Did? CreatedBy = null);
 
-/// <summary>Request body for tools.ozone.safelink.removeRule.</summary>
 internal sealed record RemoveRuleRequest(
     [property: JsonPropertyName("url")] string Url,
     [property: JsonPropertyName("pattern")] string Pattern,
     [property: JsonPropertyName("comment")] string? Comment = null,
     [property: JsonPropertyName("createdBy")] Did? CreatedBy = null);
 
-/// <summary>Request body for tools.ozone.safelink.queryEvents.</summary>
 internal sealed record QueryEventsRequest(
     [property: JsonPropertyName("cursor")] string? Cursor = null,
     [property: JsonPropertyName("limit")] int? Limit = null,
@@ -170,7 +158,7 @@ internal sealed record QueryEventsRequest(
 /// <summary>Response from tools.ozone.safelink.queryEvents.</summary>
 public sealed record QueryEventsResponse : CursorPage<SafelinkEvent>
 {
-    /// <summary>The events.</summary>
+    /// <summary>This page's events.</summary>
     [JsonPropertyName("events")]
     public required IReadOnlyList<SafelinkEvent> Events { get; init; }
 
@@ -179,7 +167,6 @@ public sealed record QueryEventsResponse : CursorPage<SafelinkEvent>
     public override IReadOnlyList<SafelinkEvent> Items => Events;
 }
 
-/// <summary>Request body for tools.ozone.safelink.queryRules.</summary>
 internal sealed record QueryRulesRequest(
     [property: JsonPropertyName("cursor")] string? Cursor = null,
     [property: JsonPropertyName("limit")] int? Limit = null,
@@ -193,7 +180,7 @@ internal sealed record QueryRulesRequest(
 /// <summary>Response from tools.ozone.safelink.queryRules.</summary>
 public sealed record QueryRulesResponse : CursorPage<UrlRule>
 {
-    /// <summary>The rules.</summary>
+    /// <summary>This page's rules.</summary>
     [JsonPropertyName("rules")]
     public required IReadOnlyList<UrlRule> Rules { get; init; }
 

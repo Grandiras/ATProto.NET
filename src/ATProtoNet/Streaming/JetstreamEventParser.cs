@@ -30,7 +30,7 @@ public static class JetstreamEventParser
     public static JetstreamFrame ParseFrame(ReadOnlyMemory<byte> json, JetstreamProtocol protocol)
         => Parse(json, protocol, out _);
 
-    /// <summary>Parses a frame, and says why when it yields nothing.</summary>
+    // Parses a frame, and says why when it yields nothing.
     internal static JetstreamFrame Parse(ReadOnlyMemory<byte> json, JetstreamProtocol protocol, out StreamDropReason? dropped)
     {
         dropped = null;
@@ -161,11 +161,9 @@ public static class JetstreamEventParser
         }
     }
 
-    /// <summary>
-    /// Build a commit event from the element carrying the commit fields — the nested
-    /// <c>commit</c> object on v1, the whole payload on v2. Both wires name those fields
-    /// identically, so only the enclosing element differs.
-    /// </summary>
+    // Build a commit event from the element carrying the commit fields — the nested commit object on v1,
+    // the whole payload on v2. Both wires name those fields identically, so only the enclosing element
+    // differs.
     private static JetstreamCommitEvent? ParseCommit(JsonElement commit, Did did, long timeUs, long? cursor)
     {
         // A commit whose path does not parse names no record a consumer could act on.
@@ -201,12 +199,9 @@ public static class JetstreamEventParser
             : null;
 }
 
-/// <summary>
-/// Builds <see cref="JetstreamEvent"/>s the same way whether they come from the live wire or an
-/// archive segment. An identity, account or sync event's fields are read from the same object in
-/// both: the live frame nests the <c>subscribeRepos</c> message, and a segment row stores it as
-/// DAG-CBOR.
-/// </summary>
+// Builds JetstreamEvents the same way whether they come from the live wire or an archive segment. An
+// identity, account or sync event's fields are read from the same object in both: the live frame nests
+// the subscribeRepos message, and a segment row stores it as DAG-CBOR.
 internal static class JetstreamEvents
 {
     public static JetstreamCommitEvent Commit(
@@ -224,7 +219,7 @@ internal static class JetstreamEvents
         Record = record,
     };
 
-    /// <summary>An identity event; <paramref name="fields"/> may be missing, since only the DID is required.</summary>
+    // An identity event; fields may be missing, since only the DID is required.
     public static JetstreamIdentityEvent Identity(JsonElement? fields, Did did, long timeUs, long? cursor) => new()
     {
         Did = did,
@@ -237,7 +232,7 @@ internal static class JetstreamEvents
         Time = fields is { } withTime ? ParseDatetime(withTime, "time") : null,
     };
 
-    /// <summary>An account event, or null when <paramref name="fields"/> lacks the required <c>active</c>.</summary>
+    // An account event, or null when fields lacks the required active.
     public static JetstreamAccountEvent? Account(JsonElement fields, Did did, long timeUs, long? cursor)
     {
         if (!fields.TryGetProperty("active", out var active)
@@ -256,7 +251,7 @@ internal static class JetstreamEvents
         };
     }
 
-    /// <summary>A sync event; <paramref name="fallbackRev"/> is used when the fields carry no <c>rev</c>.</summary>
+    // A sync event; fallbackRev is used when the fields carry no rev.
     public static JetstreamSyncEvent Sync(JsonElement? fields, Did did, long timeUs, long? cursor, string? fallbackRev)
     {
         byte[]? blocks = null;

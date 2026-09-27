@@ -9,51 +9,47 @@ using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Auth;
 
-/// <summary>
-/// The session of one <see cref="AtProtoClient"/>: installs it, keeps it refreshed and
-/// persisted, and signs it out.
-/// </summary>
-/// <remarks>
-/// <para>The session is one immutable <see cref="State"/>, published through a volatile field.
-/// The credentials requests carry are published with the service they belong to as one value
-/// (<see cref="XrpcClient.SetSession"/>), so a request never sees half of a change. Transitions
-/// (install, refresh, sign-out) are serialized by one lock and publish a new state; nothing is
-/// mutated in place.</para>
-/// <para>The credentials instance is the session's generation. A refresh is single-flight:
-/// callers that saw the same credentials share one refresh, and a caller that finds the
-/// credentials replaced by the time it would refresh (another call refreshed, or a new session
-/// was installed) refreshes nothing. That is what keeps concurrent callers from spending a
-/// single-use refresh token twice. A rejected call is only ever resent with credentials of the
-/// same account on the same service.</para>
-/// <para>Once a token exchange has started, nothing cancels it but its own time limit, and its
-/// result is stored whatever happens to the caller or the client: an authorization server
-/// rotates the refresh token as soon as it answers, so an exchange abandoned halfway would leave
-/// the store holding a token that is already spent. Cancelling a call, or disposing the client,
-/// only stops the waiting.</para>
-/// <para>With a <see cref="ISessionRefreshCoordinator"/> and a store, a refresh also runs under
-/// the account's lock among every client sharing the store, and starts by reading the store: a
-/// session another client has refreshed meanwhile is taken up instead of being exchanged again,
-/// and one the store no longer holds was signed out. The result is stored before the lock is
-/// released, so the next client reads it. Every other store change (a session installed, its
-/// account details updated, an expired one forgotten, a sign-out) takes the same lock, so none
-/// interleaves with a refresh: a sign-out waits for a refresh under way and then removes its
-/// result too, instead of the refresh writing the session back afterwards.</para>
-/// </remarks>
+// The session of one AtProtoClient: installs it, keeps it refreshed and persisted, and signs it out.
+//
+// The session is one immutable State, published through a volatile field. The credentials requests
+// carry are published with the service they belong to as one value (XrpcClient.SetSession), so a
+// request never sees half of a change. Transitions (install, refresh, sign-out) are serialized by one
+// lock and publish a new state; nothing is mutated in place.
+//
+// The credentials instance is the session's generation. A refresh is single-flight: callers that saw
+// the same credentials share one refresh, and a caller that finds the credentials replaced by the time
+// it would refresh (another call refreshed, or a new session was installed) refreshes nothing. That is
+// what keeps concurrent callers from spending a single-use refresh token twice. A rejected call is
+// only ever resent with credentials of the same account on the same service.
+//
+// Once a token exchange has started, nothing cancels it but its own time limit, and its result is
+// stored whatever happens to the caller or the client: an authorization server rotates the refresh
+// token as soon as it answers, so an exchange abandoned halfway would leave the store holding a token
+// that is already spent. Cancelling a call, or disposing the client, only stops the waiting.
+//
+// With a ISessionRefreshCoordinator and a store, a refresh also runs under the account's lock among
+// every client sharing the store, and starts by reading the store: a session another client has
+// refreshed meanwhile is taken up instead of being exchanged again, and one the store no longer holds
+// was signed out. The result is stored before the lock is released, so the next client reads it. Every
+// other store change (a session installed, its account details updated, an expired one forgotten, a
+// sign-out) takes the same lock, so none interleaves with a refresh: a sign-out waits for a refresh
+// under way and then removes its result too, instead of the refresh writing the session back
+// afterwards.
 internal sealed class SessionManager : IXrpcSessionHandler
 {
-    /// <summary>How long before its expiry an access token is refreshed.</summary>
+    // How long before its expiry an access token is refreshed.
     internal static readonly TimeSpan RefreshSkew = TimeSpan.FromSeconds(60);
 
-    /// <summary>The longest a token exchange may take.</summary>
+    // The longest a token exchange may take.
     private static readonly TimeSpan RefreshTimeout = TimeSpan.FromSeconds(30);
 
-    /// <summary>The longest single timer delay; a later expiry is reached in steps.</summary>
+    // The longest single timer delay; a later expiry is reached in steps.
     private static readonly TimeSpan MaxTimerDelay = TimeSpan.FromDays(7);
 
-    /// <summary>The first wait before a failed background refresh is retried; it doubles per failure.</summary>
+    // The first wait before a failed background refresh is retried; it doubles per failure.
     private static readonly TimeSpan BackgroundRetryDelay = TimeSpan.FromSeconds(30);
 
-    /// <summary>The longest wait between background refresh retries.</summary>
+    // The longest wait between background refresh retries.
     private static readonly TimeSpan MaxBackgroundRetryDelay = TimeSpan.FromMinutes(10);
 
     private readonly XrpcClient _xrpc;
@@ -100,31 +96,31 @@ internal sealed class SessionManager : IXrpcSessionHandler
         _backgroundRefresh = backgroundRefresh;
     }
 
-    /// <summary>The installed session, or <see langword="null"/>.</summary>
+    // The installed session, or null.
     internal AtProtoSession? Session => _state?.Session;
 
-    /// <summary>The session store, if the client has one.</summary>
+    // The session store, if the client has one.
     internal IAtProtoSessionStore? Store => _store;
 
     // ── Install ──────────────────────────────────────────────
 
-    /// <summary>Installs a session, replacing any installed one, and points the client at its service.</summary>
-    /// <param name="oauthClient">For an OAuth session, the client that refreshes it; when
-    /// <see langword="null"/>, the one the previous OAuth session had is kept.</param>
-    /// <param name="persist">Write the session to the store.</param>
-    /// <param name="cancellationToken">
-    /// Cancels the wait for the session lock. Once the session is installed, the store write
-    /// completes regardless, so the store and the event agree with the client.
-    /// </param>
-    /// <param name="key">
-    /// For an OAuth session, its DPoP key already loaded, which the manager takes over (and
-    /// disposes if the session is refused); <see langword="null"/> imports the session's key.
-    /// </param>
-    /// <returns>The credentials the installed session publishes.</returns>
-    /// <exception cref="ArgumentException">
-    /// The session's service endpoint is not an acceptable service URL, or its DPoP key is not a
-    /// P-256 PKCS#8 key. The client is left as it was.
-    /// </exception>
+    // Installs a session, replacing any installed one, and points the client at its service.
+    //
+    // oauthClient: For an OAuth session, the client that refreshes it; when null, the one the previous
+    // OAuth session had is kept.
+    //
+    // persist: Write the session to the store.
+    //
+    // cancellationToken: Cancels the wait for the session lock. Once the session is installed, the store
+    // write completes regardless, so the store and the event agree with the client.
+    //
+    // key: For an OAuth session, its DPoP key already loaded, which the manager takes over (and disposes
+    // if the session is refused); null imports the session's key.
+    //
+    // Returns: The credentials the installed session publishes.
+    //
+    // Throws ArgumentException: The session's service endpoint is not an acceptable service URL, or its
+    // DPoP key is not a P-256 PKCS#8 key. The client is left as it was.
     internal async Task<XrpcCredentials> InstallAsync(
         AtProtoSession session, OAuthClient? oauthClient, bool persist, CancellationToken cancellationToken,
         DPoPProofGenerator? key = null)
@@ -190,13 +186,11 @@ internal sealed class SessionManager : IXrpcSessionHandler
         return credentials;
     }
 
-    /// <summary>
-    /// Replaces the installed session's account details (handle, email, status) with what
-    /// <c>getSession</c> reported, keeping its credentials. Applies to password sessions only:
-    /// an OAuth session's handle was verified at sign-in, which the service's word does not
-    /// improve on.
-    /// </summary>
-    /// <returns>The session now installed.</returns>
+    // Replaces the installed session's account details (handle, email, status) with what getSession
+    // reported, keeping its credentials. Applies to password sessions only: an OAuth session's handle was
+    // verified at sign-in, which the service's word does not improve on.
+    //
+    // Returns: The session now installed.
     internal async Task<AtProtoSession?> UpdateAccountAsync(GetSessionResponse account, CancellationToken cancellationToken)
     {
         AtProtoSessionChangedEventArgs? change = null;
@@ -251,12 +245,12 @@ internal sealed class SessionManager : IXrpcSessionHandler
         return current;
     }
 
-    /// <summary>
-    /// Removes the session installed with <paramref name="installed"/> (or a refreshed version of
-    /// it) because the service rejected it, as a refused refresh does.
-    /// </summary>
-    /// <param name="installed">The credentials the session was installed with.</param>
-    /// <param name="error">The rejection.</param>
+    // Removes the session installed with installed (or a refreshed version of it) because the service
+    // rejected it, as a refused refresh does.
+    //
+    // installed: The credentials the session was installed with.
+    //
+    // error: The rejection.
     internal async Task ExpireAsync(XrpcCredentials installed, Exception error)
     {
         AtProtoSessionChangedEventArgs? change = null;
@@ -277,15 +271,15 @@ internal sealed class SessionManager : IXrpcSessionHandler
 
     // ── Refresh ──────────────────────────────────────────────
 
-    /// <summary>Refreshes the installed session now.</summary>
-    /// <exception cref="InvalidOperationException">No session is installed.</exception>
+    // Refreshes the installed session now.
+    //
+    // Throws InvalidOperationException: No session is installed.
     internal Task RefreshAsync(CancellationToken cancellationToken)
     {
         var state = _state ?? throw new InvalidOperationException("No session to refresh. Sign in first.");
         return RefreshAsync(state.Credentials, cancellationToken);
     }
 
-    /// <inheritdoc/>
     public ValueTask BeforeSendAsync(CancellationToken cancellationToken)
     {
         var state = _state;
@@ -314,7 +308,6 @@ internal sealed class SessionManager : IXrpcSessionHandler
         }
     }
 
-    /// <inheritdoc/>
     public async Task<XrpcCredentials?> TryRecoverAsync(XrpcCredentials rejected, CancellationToken cancellationToken)
     {
         var state = _state;
@@ -337,18 +330,13 @@ internal sealed class SessionManager : IXrpcSessionHandler
             : null;
     }
 
-    /// <summary>
-    /// Whether <paramref name="current"/> are credentials of the account, on the service, that
-    /// <paramref name="earlier"/> were: the only credentials a call made with the earlier ones may
-    /// be resent with.
-    /// </summary>
+    // Whether current are credentials of the account, on the service, that earlier were: the only
+    // credentials a call made with the earlier ones may be resent with.
     private static bool SameSession(XrpcCredentials current, XrpcCredentials earlier) =>
         current.Account is { } account && account == earlier.Account && Equals(current.Service, earlier.Service);
 
-    /// <summary>
-    /// Refreshes the session whose generation is <paramref name="observed"/>, joining a refresh
-    /// of it already under way. Completes without refreshing when the session has moved on.
-    /// </summary>
+    // Refreshes the session whose generation is observed, joining a refresh of it already under way.
+    // Completes without refreshing when the session has moved on.
     private Task RefreshAsync(XrpcCredentials observed, CancellationToken cancellationToken)
     {
         RefreshOperation operation;
@@ -504,10 +492,8 @@ internal sealed class SessionManager : IXrpcSessionHandler
         }
     }
 
-    /// <summary>
-    /// Waits for the account's refresh lease: as long as a token exchange may take elsewhere, and
-    /// only until this client is disposed.
-    /// </summary>
+    // Waits for the account's refresh lease: as long as a token exchange may take elsewhere, and only
+    // until this client is disposed.
     private async Task<IAsyncDisposable> AcquireRefreshLeaseAsync(Did did)
     {
         using var deadline = new CancellationTokenSource(RefreshTimeout, _time);
@@ -523,16 +509,12 @@ internal sealed class SessionManager : IXrpcSessionHandler
         }
     }
 
-    /// <summary>
-    /// Waits for the account's lease before the store is changed outside a refresh (a session
-    /// installed, updated, expired or signed out), so the change and another client's refresh do
-    /// not interleave: a refresh under way stores its result first. Returns at once without a
-    /// coordinator.
-    /// </summary>
-    /// <remarks>
-    /// Not cancelled, since the store change it guards completes regardless. After the refresh
-    /// time limit the change goes ahead without the lease, as it would with no coordinator.
-    /// </remarks>
+    // Waits for the account's lease before the store is changed outside a refresh (a session installed,
+    // updated, expired or signed out), so the change and another client's refresh do not interleave: a
+    // refresh under way stores its result first. Returns at once without a coordinator.
+    //
+    // Not cancelled, since the store change it guards completes regardless. After the refresh time limit
+    // the change goes ahead without the lease, as it would with no coordinator.
     private async Task<IAsyncDisposable> AcquireStoreLeaseAsync(Did did)
     {
         if (_coordinator is null)
@@ -552,7 +534,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
         }
     }
 
-    /// <summary>Reads the account's session from the store, or <see langword="null"/> when that fails.</summary>
+    // Reads the account's session from the store, or null when that fails.
     private async Task<AtProtoSession?> ReadStoredQuietlyAsync(Did did)
     {
         try
@@ -566,11 +548,8 @@ internal sealed class SessionManager : IXrpcSessionHandler
         }
     }
 
-    /// <summary>
-    /// Whether <paramref name="stored"/> is a later copy of <paramref name="current"/> that another
-    /// client stored after refreshing it: the same account and kind, other tokens, and for an
-    /// OAuth session the same grant (its DPoP key).
-    /// </summary>
+    // Whether stored is a later copy of current that another client stored after refreshing it: the same
+    // account and kind, other tokens, and for an OAuth session the same grant (its DPoP key).
     private static bool IsLaterCopy(AtProtoSession stored, AtProtoSession current) =>
         stored.Did == current.Did &&
         !SameGeneration(stored, current) &&
@@ -581,7 +560,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
             _ => false,
         };
 
-    /// <summary>Reads the account's session from the store, within the refresh time limit.</summary>
+    // Reads the account's session from the store, within the refresh time limit.
     private async Task<AtProtoSession?> ReadStoredAsync(Did did)
     {
         using var deadline = new CancellationTokenSource(RefreshTimeout, _time);
@@ -596,20 +575,15 @@ internal sealed class SessionManager : IXrpcSessionHandler
         }
     }
 
-    /// <summary>
-    /// Whether <paramref name="stored"/> carries the same tokens as <paramref name="current"/>:
-    /// no other client has refreshed or replaced the session since this one read it.
-    /// </summary>
+    // Whether stored carries the same tokens as current: no other client has refreshed or replaced the
+    // session since this one read it.
     private static bool SameGeneration(AtProtoSession stored, AtProtoSession current) =>
         stored.GetType() == current.GetType() &&
         string.Equals(stored.AccessCredential, current.AccessCredential, StringComparison.Ordinal) &&
         string.Equals(RefreshCredential(stored), RefreshCredential(current), StringComparison.Ordinal);
 
-    /// <summary>
-    /// Takes up the session another client stored for this account, with the transition lock
-    /// held, instead of refreshing: its refresh token is the live one, and this client's copy is
-    /// already spent.
-    /// </summary>
+    // Takes up the session another client stored for this account, with the transition lock held, instead
+    // of refreshing: its refresh token is the live one, and this client's copy is already spent.
     private AtProtoSessionChangedEventArgs Adopt(State state, AtProtoSession stored)
     {
         // The same grant keeps its key; a new sign-in of the account brings its own.
@@ -646,7 +620,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
         return new AtProtoSessionChangedEventArgs(AtProtoSessionChange.Refreshed, stored, state.Session);
     }
 
-    /// <summary>The token that refreshes a session, which identifies its generation.</summary>
+    // The token that refreshes a session, which identifies its generation.
     private static string? RefreshCredential(AtProtoSession session) => session switch
     {
         PasswordSession password => password.RefreshJwt,
@@ -690,11 +664,9 @@ internal sealed class SessionManager : IXrpcSessionHandler
         }
     }
 
-    /// <summary>
-    /// Whether a refresh failure means the refresh token itself was refused, so no later
-    /// attempt can succeed: the PDS rejecting the refresh JWT, or the authorization server
-    /// answering <c>invalid_grant</c> (expired, revoked or already used).
-    /// </summary>
+    // Whether a refresh failure means the refresh token itself was refused, so no later attempt can
+    // succeed: the PDS rejecting the refresh JWT, or the authorization server answering invalid_grant
+    // (expired, revoked or already used).
     private static bool IsSessionEnded(Exception exception) => exception switch
     {
         XrpcAuthenticationException => true,
@@ -707,13 +679,14 @@ internal sealed class SessionManager : IXrpcSessionHandler
 
     // ── Expiry and sign-out ──────────────────────────────────
 
-    /// <summary>
-    /// Drops a session the service no longer accepts, with the transition lock held: from the
-    /// client, and from the store if the store still holds this copy.
-    /// </summary>
-    /// <param name="state">The session to drop.</param>
-    /// <param name="error">Why it is dropped.</param>
-    /// <param name="leaseHeld">Whether the caller holds the account's refresh lease already.</param>
+    // Drops a session the service no longer accepts, with the transition lock held: from the client, and
+    // from the store if the store still holds this copy.
+    //
+    // state: The session to drop.
+    //
+    // error: Why it is dropped.
+    //
+    // leaseHeld: Whether the caller holds the account's refresh lease already.
     private async Task<AtProtoSessionChangedEventArgs> ExpireLockedAsync(State state, Exception error, bool leaseHeld)
     {
         _logger.LogWarning(error, "The session of {Did} is no longer accepted and has expired", state.Session.Did);
@@ -734,11 +707,9 @@ internal sealed class SessionManager : IXrpcSessionHandler
         return new AtProtoSessionChangedEventArgs(AtProtoSessionChange.Expired, null, state.Session, error);
     }
 
-    /// <summary>
-    /// Signs the session out: drops it from the client and the store first, then revokes it
-    /// at the service — <c>deleteSession</c> with the refresh JWT, or RFC 7009 revocation for
-    /// an OAuth session — and rethrows what failed.
-    /// </summary>
+    // Signs the session out: drops it from the client and the store first, then revokes it at the service
+    // — deleteSession with the refresh JWT, or RFC 7009 revocation for an OAuth session — and rethrows
+    // what failed.
     internal async Task LogoutAsync(CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
@@ -844,13 +815,12 @@ internal sealed class SessionManager : IXrpcSessionHandler
 
     // ── Publication, persistence, events ─────────────────────
 
-    /// <summary>
-    /// Makes <paramref name="next"/> the session: first the state that refreshes and recoveries
-    /// compare against, then the credentials requests carry together with their service, then
-    /// the background refresh schedule.
-    /// </summary>
-    /// <param name="next">The new state, or <see langword="null"/> to remove the session.</param>
-    /// <param name="serviceUrl">The service to move to, validated; <see langword="null"/> stays.</param>
+    // Makes next the session: first the state that refreshes and recoveries compare against, then the
+    // credentials requests carry together with their service, then the background refresh schedule.
+    //
+    // next: The new state, or null to remove the session.
+    //
+    // serviceUrl: The service to move to, validated; null stays.
     private void Publish(State? next, Uri? serviceUrl)
     {
         // A call reads the credentials after they are published, and by then this is the state
@@ -860,10 +830,8 @@ internal sealed class SessionManager : IXrpcSessionHandler
         ScheduleBackgroundRefresh(next);
     }
 
-    /// <summary>
-    /// Writes a session to the store. Not cancellable: it runs after the session has changed,
-    /// and a store left behind the client would hand a spent token to the next reader.
-    /// </summary>
+    // Writes a session to the store. Not cancellable: it runs after the session has changed, and a store
+    // left behind the client would hand a spent token to the next reader.
     private async Task PersistAsync(AtProtoSession session)
     {
         if (_store is null)
@@ -881,13 +849,11 @@ internal sealed class SessionManager : IXrpcSessionHandler
         }
     }
 
-    /// <summary>Removes a refused session from the store, if the store still holds that copy of it.</summary>
-    /// <remarks>
-    /// Another client sharing the store may have refreshed the same session first, stored the
-    /// new tokens, and so caused this client's refusal; removing the entry then would sign out a
-    /// session that is valid. A <see cref="ISessionRefreshCoordinator"/> keeps that from
-    /// happening among the clients it coordinates.
-    /// </remarks>
+    // Removes a refused session from the store, if the store still holds that copy of it.
+    //
+    // Another client sharing the store may have refreshed the same session first, stored the new tokens,
+    // and so caused this client's refusal; removing the entry then would sign out a session that is valid.
+    // A ISessionRefreshCoordinator keeps that from happening among the clients it coordinates.
     private async Task ForgetAsync(AtProtoSession refused)
     {
         if (_store is null)
@@ -922,10 +888,8 @@ internal sealed class SessionManager : IXrpcSessionHandler
 
     // ── Background refresh ───────────────────────────────────
 
-    /// <summary>
-    /// Arms the timer for <paramref name="state"/>: shortly before its expiry, or after
-    /// <paramref name="retryIn"/> when a background refresh failed.
-    /// </summary>
+    // Arms the timer for state: shortly before its expiry, or after retryIn when a background refresh
+    // failed.
     private void ScheduleBackgroundRefresh(State? state, TimeSpan? retryIn = null)
     {
         lock (_gate)
@@ -992,10 +956,8 @@ internal sealed class SessionManager : IXrpcSessionHandler
 
     // ── Lifetime ─────────────────────────────────────────────
 
-    /// <summary>
-    /// Stops refreshing without waiting. A token exchange already under way finishes and is
-    /// stored in the background; the DPoP key is released once it is done with it.
-    /// </summary>
+    // Stops refreshing without waiting. A token exchange already under way finishes and is stored in the
+    // background; the DPoP key is released once it is done with it.
     internal void Dispose()
     {
         if (!TryBeginDispose(out var timer, out var refresh))
@@ -1013,10 +975,8 @@ internal sealed class SessionManager : IXrpcSessionHandler
         }
     }
 
-    /// <summary>
-    /// Stops refreshing, and waits for a token exchange already under way to finish and be
-    /// stored (at most the exchange's time limit, plus the store write).
-    /// </summary>
+    // Stops refreshing, and waits for a token exchange already under way to finish and be stored (at most
+    // the exchange's time limit, plus the store write).
     internal async ValueTask DisposeAsync()
     {
         if (!TryBeginDispose(out var timer, out var refresh))
@@ -1077,24 +1037,21 @@ internal sealed class SessionManager : IXrpcSessionHandler
         }
     }
 
-    /// <summary>Reads the <c>exp</c> claim of a JWT without verifying it, for scheduling a refresh.</summary>
-    /// <returns>The expiry, or <see langword="null"/> for a token that is not a JWT or has none.</returns>
+    // Reads the exp claim of a JWT without verifying it, for scheduling a refresh.
+    //
+    // Returns: The expiry, or null for a token that is not a JWT or has none.
     internal static DateTimeOffset? ReadJwtExpiry(string token) =>
         Jwt.TryDecode(token, out var jwt, out _) && jwt.Payload.TryGetNumericDate("exp", out var exp) ? exp : null;
 
-    /// <summary>
-    /// The service a password session should use after <c>createSession</c> or
-    /// <c>refreshSession</c>: the <c>#atproto_pds</c> endpoint of the DID document the service
-    /// returned, when it is the account's own document and an HTTPS URL, and
-    /// <paramref name="current"/> otherwise.
-    /// </summary>
-    /// <remarks>
-    /// This is how signing in through an entryway (<c>bsky.social</c>) lands the session on the
-    /// account's PDS, as the reference client does. The move is only between HTTPS services: a
-    /// development PDS reached over plain HTTP publishes the address it believes it has, which
-    /// is usually not the one this process reaches it at. Only the <c>id</c> and the <c>service</c>
-    /// entries are read, so a malformed entry elsewhere does not keep the session on the entryway.
-    /// </remarks>
+    // The service a password session should use after createSession or refreshSession: the #atproto_pds
+    // endpoint of the DID document the service returned, when it is the account's own document and an
+    // HTTPS URL, and current otherwise.
+    //
+    // This is how signing in through an entryway (bsky.social) lands the session on the account's PDS, as
+    // the reference client does. The move is only between HTTPS services: a development PDS reached over
+    // plain HTTP publishes the address it believes it has, which is usually not the one this process
+    // reaches it at. Only the id and the service entries are read, so a malformed entry elsewhere does not
+    // keep the session on the entryway.
     internal static Uri ResolveServiceEndpoint(object? didDoc, Did did, Uri current)
     {
         if (didDoc is not JsonElement { ValueKind: JsonValueKind.Object } document ||
@@ -1122,21 +1079,22 @@ internal sealed class SessionManager : IXrpcSessionHandler
         return current;
     }
 
-    /// <summary>
-    /// The installed session, with the key object and refresher that belong to it and the
-    /// credentials derived from it.
-    /// </summary>
-    /// <param name="DPoP">The session's DPoP key, owned by the client, for an OAuth session.</param>
-    /// <param name="OAuthClient">The client that refreshes an OAuth session; not owned.</param>
-    /// <param name="Credentials">What requests carry, and the session's generation.</param>
+    // The installed session, with the key object and refresher that belong to it and the credentials
+    // derived from it.
+    //
+    // DPoP: The session's DPoP key, owned by the client, for an OAuth session.
+    //
+    // OAuthClient: The client that refreshes an OAuth session; not owned.
+    //
+    // Credentials: What requests carry, and the session's generation.
     private sealed record State(
         AtProtoSession Session, DPoPProofGenerator? DPoP, OAuthClient? OAuthClient, XrpcCredentials Credentials)
     {
-        /// <summary>The session's kind, DID and handle; never its credentials.</summary>
+        // The session's kind, DID and handle; never its credentials.
         public override string ToString() => $"State {{ Session = {Session} }}";
     }
 
-    /// <summary>One token exchange, shared by every caller that saw the same credentials.</summary>
+    // One token exchange, shared by every caller that saw the same credentials.
     private sealed class RefreshOperation(XrpcCredentials observed)
     {
         public XrpcCredentials Observed { get; } = observed;

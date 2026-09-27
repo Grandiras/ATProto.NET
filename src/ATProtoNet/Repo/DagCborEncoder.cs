@@ -117,16 +117,12 @@ public static class DagCborEncoder
         writer.WriteEndMap();
     }
 
-    /// <summary>
-    /// Canonical DRISL/DAG-CBOR map key order: the shorter key sorts first, and keys of
-    /// equal length sort by their UTF-8 bytes.
-    /// </summary>
-    /// <remarks>
-    /// Length-first, not plain bytewise. The two agree only when no two keys differ in
-    /// length, so a record carrying (say) both <c>text</c> and <c>langs</c> hashes to a
-    /// different CID under each — and only the length-first ordering matches what the rest
-    /// of the network computes.
-    /// </remarks>
+    // Canonical DRISL/DAG-CBOR map key order: the shorter key sorts first, and keys of equal length sort
+    // by their UTF-8 bytes.
+    //
+    // Length-first, not plain bytewise. The two agree only when no two keys differ in length, so a record
+    // carrying (say) both text and langs hashes to a different CID under each — and only the length-first
+    // ordering matches what the rest of the network computes.
     internal static int CompareCanonical(string a, string b)
     {
         // Keys are compared by their UTF-8 length. For the ASCII keys the AT Protocol data

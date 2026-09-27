@@ -2,19 +2,16 @@ using System.Security.Cryptography;
 
 namespace ATProtoNet.Repo;
 
-/// <summary>
-/// Computes the depth (layer) of a key in the Merkle Search Tree.
-/// <para>
-/// The depth is determined by SHA-256 hashing the key and counting leading
-/// zeros in 2-bit chunks (fanout of 4), as specified in the AT Protocol
-/// repository specification.
-/// </para>
-/// </summary>
+// Computes the depth (layer) of a key in the Merkle Search Tree. The depth is determined by SHA-256
+// hashing the key and counting leading zeros in 2-bit chunks (fanout of 4), as specified in the AT
+// Protocol repository specification.
 internal static class MstKeyDepth
 {
-    /// <summary>Computes the MST depth for a key (byte array).</summary>
-    /// <param name="key">The key bytes (typically UTF-8 encoded repo path).</param>
-    /// <returns>The depth (number of leading zero 2-bit pairs in the SHA-256 hash).</returns>
+    // Computes the MST depth for a key (byte array).
+    //
+    // key: The key bytes (typically UTF-8 encoded repo path).
+    //
+    // Returns: The depth (number of leading zero 2-bit pairs in the SHA-256 hash).
     public static int ComputeDepth(ReadOnlySpan<byte> key)
     {
         Span<byte> hash = stackalloc byte[32];
@@ -37,16 +34,16 @@ internal static class MstKeyDepth
         return depth; // All zeros (extremely unlikely)
     }
 
-    /// <summary>
-    /// The longest key, in UTF-8 bytes, that is encoded on the stack rather than the heap.
-    /// Repo paths are <c>collection/rkey</c>: an NSID caps at 317 bytes and a record key at
-    /// 512, so this covers every legal key with room to spare.
-    /// </summary>
+    // The longest key, in UTF-8 bytes, that is encoded on the stack rather than the heap. Repo paths are
+    // collection/rkey: an NSID caps at 317 bytes and a record key at 512, so this covers every legal key
+    // with room to spare.
     private const int MaxStackKeyBytes = 1024;
 
-    /// <summary>Computes the MST depth for a string key (UTF-8 encoded).</summary>
-    /// <param name="key">The key string (e.g., "app.bsky.feed.post/abc123").</param>
-    /// <returns>The depth.</returns>
+    // Computes the MST depth for a string key (UTF-8 encoded).
+    //
+    // key: The key string (e.g., "app.bsky.feed.post/abc123").
+    //
+    // Returns: The depth.
     public static int ComputeDepth(string key)
     {
         ArgumentNullException.ThrowIfNull(key);

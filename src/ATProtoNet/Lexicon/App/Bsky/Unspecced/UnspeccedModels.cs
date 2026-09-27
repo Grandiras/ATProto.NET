@@ -12,10 +12,7 @@ namespace ATProtoNet.Lexicon.App.Bsky.Unspecced;
 /// <summary>Response from getPostThreadV2.</summary>
 public sealed class GetPostThreadV2Response
 {
-    /// <summary>
-    /// The thread as a flat list, in display order. Each item's <see cref="ThreadItem.Depth"/>
-    /// places it: 0 is the anchor, parents are negative, replies positive.
-    /// </summary>
+    /// <summary>The thread as a flat list, in display order. Each item's <see cref="ThreadItem.Depth"/> places it: 0 is the anchor, parents are negative, replies positive.</summary>
     [JsonPropertyName("thread")]
     public required IReadOnlyList<ThreadItem> Thread { get; init; }
 
@@ -23,10 +20,7 @@ public sealed class GetPostThreadV2Response
     [JsonPropertyName("threadgate")]
     public ThreadgateView? Threadgate { get; init; }
 
-    /// <summary>
-    /// Whether the thread has further replies, such as ones hidden by the threadgate, that
-    /// <see cref="UnspeccedClient.GetPostThreadOtherV2Async"/> returns.
-    /// </summary>
+    /// <summary>Whether the thread has further replies, such as ones hidden by the threadgate, that <see cref="UnspeccedClient.GetPostThreadOtherV2Async"/> returns.</summary>
     [JsonPropertyName("hasOtherReplies")]
     public required bool HasOtherReplies { get; init; }
 }
@@ -39,10 +33,7 @@ public sealed class GetPostThreadOtherV2Response
     public required IReadOnlyList<ThreadItem> Thread { get; init; }
 }
 
-/// <summary>
-/// One item of a flat thread (<c>app.bsky.unspecced.getPostThreadV2#threadItem</c>, and the
-/// same shape in getPostThreadOtherV2).
-/// </summary>
+/// <summary>One item of a flat thread (<c>app.bsky.unspecced.getPostThreadV2#threadItem</c>, and the same shape in getPostThreadOtherV2).</summary>
 public sealed class ThreadItem : LexObject
 {
     /// <summary>The AT-URI of the post.</summary>
@@ -53,20 +44,12 @@ public sealed class ThreadItem : LexObject
     [JsonPropertyName("depth")]
     public required int Depth { get; init; }
 
-    /// <summary>
-    /// The post, or why it is not shown: a <see cref="ThreadItemPost"/>,
-    /// <see cref="ThreadItemNoUnauthenticated"/>, <see cref="ThreadItemNotFound"/> or
-    /// <see cref="ThreadItemBlocked"/>.
-    /// </summary>
+    /// <summary>The post, or why it is not shown: a <see cref="ThreadItemPost"/>, <see cref="ThreadItemNoUnauthenticated"/>, <see cref="ThreadItemNotFound"/> or <see cref="ThreadItemBlocked"/>.</summary>
     [JsonPropertyName("value")]
     public required ThreadItemValue Value { get; init; }
 }
 
-/// <summary>
-/// The content of a <see cref="ThreadItem"/> (the open union behind
-/// <see cref="ThreadItem.Value"/>). A variant this SDK does not model reads as
-/// <see cref="UnknownThreadItemValue"/>.
-/// </summary>
+/// <summary>The content of a <see cref="ThreadItem"/> (the open union behind <see cref="ThreadItem.Value"/>). A variant this SDK does not model reads as <see cref="UnknownThreadItemValue"/>.</summary>
 [AtProtoUnion(typeof(UnknownThreadItemValue))]
 [JsonDerivedType(typeof(ThreadItemPost), "app.bsky.unspecced.defs#threadItemPost")]
 [JsonDerivedType(typeof(ThreadItemNoUnauthenticated), "app.bsky.unspecced.defs#threadItemNoUnauthenticated")]
@@ -74,10 +57,7 @@ public sealed class ThreadItem : LexObject
 [JsonDerivedType(typeof(ThreadItemBlocked), "app.bsky.unspecced.defs#threadItemBlocked")]
 public abstract class ThreadItemValue : LexObject;
 
-/// <summary>
-/// A thread item value whose <c>$type</c> this SDK version does not model. It keeps the raw
-/// object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A thread item value whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownThreadItemValue(string type, JsonElement raw) : ThreadItemValue, IUnknownUnionVariant
@@ -92,7 +72,7 @@ public sealed class UnknownThreadItemValue(string type, JsonElement raw) : Threa
 /// <summary>A post in a flat thread (<c>app.bsky.unspecced.defs#threadItemPost</c>).</summary>
 public sealed class ThreadItemPost : ThreadItemValue
 {
-    /// <summary>The post.</summary>
+    /// <summary>The post itself.</summary>
     [JsonPropertyName("post")]
     public required PostView Post { get; init; }
 
@@ -125,10 +105,7 @@ public sealed class ThreadItemPost : ThreadItemValue
     public required bool MutedByViewer { get; init; }
 }
 
-/// <summary>
-/// A post shown only to signed-in viewers, whose author asked that logged-out visitors not see
-/// it (<c>app.bsky.unspecced.defs#threadItemNoUnauthenticated</c>).
-/// </summary>
+/// <summary>A post shown only to signed-in viewers, whose author asked that logged-out visitors not see it (<c>app.bsky.unspecced.defs#threadItemNoUnauthenticated</c>).</summary>
 public sealed class ThreadItemNoUnauthenticated : ThreadItemValue;
 
 /// <summary>A post that could not be found (<c>app.bsky.unspecced.defs#threadItemNotFound</c>).</summary>

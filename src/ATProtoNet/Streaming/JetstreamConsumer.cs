@@ -46,10 +46,10 @@ namespace ATProtoNet.Streaming;
 /// </example>
 public sealed class JetstreamConsumer
 {
-    /// <summary>The v2 endpoint path — the subscription Lexicon's canonical XRPC route.</summary>
+    // The v2 endpoint path — the subscription Lexicon's canonical XRPC route.
     private const string V2Path = "/xrpc/network.bsky.jetstream.subscribeEvents";
 
-    /// <summary>The WebSocket subprotocol the v2 wire is framed under (atproto proposal 0015).</summary>
+    // The WebSocket subprotocol the v2 wire is framed under (atproto proposal 0015).
     private const string V2SubProtocol = "xrpc.v1.json";
 
     private readonly JetstreamConsumerOptions _options;
@@ -120,7 +120,7 @@ public sealed class JetstreamConsumer
             yield return message.IsBinary ? new StreamSocketMessage(decompressor.Decompress(message.Data.Span), IsBinary: false) : message;
     }
 
-    /// <summary>The subscription endpoint for <paramref name="options"/>, resuming at <paramref name="cursor"/>.</summary>
+    // The subscription endpoint for options, resuming at cursor.
     internal static Uri Endpoint(JetstreamConsumerOptions options, long? cursor)
     {
         options.Validate();

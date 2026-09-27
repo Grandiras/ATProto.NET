@@ -4,10 +4,8 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Repo;
 
-/// <summary>
-/// The fields of a signed repository commit block that verification reads, with the bytes its
-/// signature covers.
-/// </summary>
+// The fields of a signed repository commit block that verification reads, with the bytes its signature
+// covers.
 internal sealed class CommitBlock
 {
     private CommitBlock(string did, string rev, byte[] data, byte[] unsigned, byte[] signature)
@@ -23,21 +21,19 @@ internal sealed class CommitBlock
 
     public string Rev { get; }
 
-    /// <summary>The binary CID of the commit's MST root.</summary>
+    // The binary CID of the commit's MST root.
     public byte[] Data { get; }
 
-    /// <summary>The commit without its <c>sig</c> field, byte for byte as the signer encoded it.</summary>
+    // The commit without its sig field, byte for byte as the signer encoded it.
     public byte[] Unsigned { get; }
 
     public byte[] Signature { get; }
 
-    /// <summary>
-    /// Reads a CAR whose first root (<c>car.Roots[0]</c>) is a signed commit, checking every block
-    /// against its CID, and the root against <paramref name="expectedRoot"/> when one is given.
-    /// </summary>
-    /// <exception cref="FormatException">
-    /// The CAR is malformed or lacks its commit, or the commit is not one <see cref="Read"/> accepts.
-    /// </exception>
+    // Reads a CAR whose first root (car.Roots[0]) is a signed commit, checking every block against its
+    // CID, and the root against expectedRoot when one is given.
+    //
+    // Throws FormatException: The CAR is malformed or lacks its commit, or the commit is not one Read
+    // accepts.
     public static CommitBlock FromCar(ReadOnlySpan<byte> bytes, out CarReader car, Cid? expectedRoot = null)
     {
         try
@@ -60,20 +56,17 @@ internal sealed class CommitBlock
         return Read(block.Data);
     }
 
-    /// <summary>Reads a commit block, splicing its <c>sig</c> field out in the same pass.</summary>
-    /// <remarks>
-    /// The signed bytes are the original encoding minus the <c>sig</c> pair, not a re-encoding:
-    /// integer widths, key order and link shapes must be exactly the signer's for the hash to
-    /// match. The strict reader refuses duplicate keys, which could otherwise show the verifier a
-    /// different field than the one the signature covers, and bytes after the map are refused: the
-    /// block's CID covers them but the signature does not, so they would let anyone mint new
-    /// commit CIDs for one signed commit.
-    /// </remarks>
-    /// <exception cref="FormatException">
-    /// The block is not a definite-length map, and nothing after it, carrying a <c>did</c>,
-    /// <c>rev</c>, <c>data</c> CID, <c>version</c> 3, a non-empty byte-string <c>sig</c>, and a
-    /// <c>prev</c> that is null or a CID when present.
-    /// </exception>
+    // Reads a commit block, splicing its sig field out in the same pass.
+    //
+    // The signed bytes are the original encoding minus the sig pair, not a re-encoding: integer widths,
+    // key order and link shapes must be exactly the signer's for the hash to match. The strict reader
+    // refuses duplicate keys, which could otherwise show the verifier a different field than the one the
+    // signature covers, and bytes after the map are refused: the block's CID covers them but the signature
+    // does not, so they would let anyone mint new commit CIDs for one signed commit.
+    //
+    // Throws FormatException: The block is not a definite-length map, and nothing after it, carrying a
+    // did, rev, data CID, version 3, a non-empty byte-string sig, and a prev that is null or a CID when
+    // present.
     public static CommitBlock Read(byte[] block)
     {
         ArgumentNullException.ThrowIfNull(block);
@@ -154,10 +147,8 @@ internal sealed class CommitBlock
         return new CommitBlock(did, rev, data, unsigned, signature);
     }
 
-    /// <summary>
-    /// Writes a CBOR map header for <paramref name="count"/> entries in its shortest form, as
-    /// DAG-CBOR requires, and returns its length.
-    /// </summary>
+    // Writes a CBOR map header for count entries in its shortest form, as DAG-CBOR requires, and returns
+    // its length.
     internal static int WriteMapHeader(Span<byte> destination, int count)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(count);

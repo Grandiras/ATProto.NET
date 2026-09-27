@@ -4,7 +4,6 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Server;
 
-/// <summary>Request body for com.atproto.server.createSession.</summary>
 internal sealed record CreateSessionRequest(
     [property: JsonPropertyName("identifier")] string Identifier,
     [property: JsonPropertyName("password")] string Password,
@@ -47,10 +46,7 @@ public class GetSessionResponse
     public string? Status { get; init; }
 }
 
-/// <summary>
-/// Response from com.atproto.server.createSession and com.atproto.server.refreshSession: a
-/// <see cref="GetSessionResponse"/> plus the token pair.
-/// </summary>
+/// <summary>Response from com.atproto.server.createSession and com.atproto.server.refreshSession: a <see cref="GetSessionResponse"/> plus the token pair.</summary>
 public sealed class SessionResponse : GetSessionResponse
 {
     /// <summary>The access JWT used to authenticate subsequent requests.</summary>
@@ -126,7 +122,6 @@ public sealed class CreateAccountResponse
     public object? DidDoc { get; init; }
 }
 
-/// <summary>Request body for deactivateAccount.</summary>
 internal sealed record DeactivateAccountRequest(
     [property: JsonPropertyName("deleteAfter")] AtDatetime? DeleteAfter = null);
 
@@ -198,7 +193,6 @@ public sealed class ServerContact : LexObject
     public string? Email { get; init; }
 }
 
-/// <summary>Request body for com.atproto.server.createAppPassword.</summary>
 internal sealed record CreateAppPasswordRequest(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("privileged")] bool? Privileged = null);
@@ -247,15 +241,12 @@ public sealed class AppPasswordInfo : LexObject
     public bool? Privileged { get; init; }
 }
 
-/// <summary>Request body for com.atproto.server.requestPasswordReset.</summary>
 internal sealed record RequestPasswordResetRequest([property: JsonPropertyName("email")] string Email);
 
-/// <summary>Request body for com.atproto.server.resetPassword.</summary>
 internal sealed record ResetPasswordRequest(
     [property: JsonPropertyName("token")] string Token,
     [property: JsonPropertyName("password")] string Password);
 
-/// <summary>Request body for com.atproto.server.confirmEmail.</summary>
 internal sealed record ConfirmEmailRequest(
     [property: JsonPropertyName("email")] string Email,
     [property: JsonPropertyName("token")] string Token);
@@ -292,7 +283,6 @@ public sealed class GetServiceAuthResponse
     public string Token { get; init; } = string.Empty;
 }
 
-/// <summary>Request body for com.atproto.server.createInviteCode.</summary>
 internal sealed record CreateInviteCodeRequest(
     [property: JsonPropertyName("useCount")] int UseCount,
     [property: JsonPropertyName("forAccount")] Did? ForAccount = null);
@@ -332,10 +322,7 @@ public sealed class CreateInviteCodesResponse
 /// <summary>The invite codes issued to one account.</summary>
 public sealed class AccountCodes : LexObject
 {
-    /// <summary>
-    /// The DID of the account the codes belong to, or <c>admin</c> for codes minted by the
-    /// server administrator.
-    /// </summary>
+    /// <summary>The DID of the account the codes belong to, or <c>admin</c> for codes minted by the server administrator.</summary>
     [JsonPropertyName("account")]
     public string Account { get; init; } = string.Empty;
 
@@ -367,17 +354,11 @@ public sealed class InviteCode : LexObject
     [JsonPropertyName("disabled")]
     public bool Disabled { get; init; }
 
-    /// <summary>
-    /// The DID of the account the code is issued to, or <c>admin</c> for a code minted by the
-    /// server administrator.
-    /// </summary>
+    /// <summary>The DID of the account the code is issued to, or <c>admin</c> for a code minted by the server administrator.</summary>
     [JsonPropertyName("forAccount")]
     public string ForAccount { get; init; } = string.Empty;
 
-    /// <summary>
-    /// The DID of the account that created the code, or <c>admin</c> for the server
-    /// administrator.
-    /// </summary>
+    /// <summary>The DID of the account that created the code, or <c>admin</c> for the server administrator.</summary>
     [JsonPropertyName("createdBy")]
     public string CreatedBy { get; init; } = string.Empty;
 
@@ -402,10 +383,8 @@ public sealed class InviteCodeUse : LexObject
     public required AtDatetime UsedAt { get; init; }
 }
 
-/// <summary>Request body for com.atproto.server.revokeAppPassword.</summary>
 internal sealed record RevokeAppPasswordRequest([property: JsonPropertyName("name")] string Name);
 
-/// <summary>Request body for com.atproto.server.reserveSigningKey.</summary>
 internal sealed record ReserveSigningKeyRequest([property: JsonPropertyName("did")] Did? Did = null);
 
 /// <summary>The response from reserving a repository signing key.</summary>

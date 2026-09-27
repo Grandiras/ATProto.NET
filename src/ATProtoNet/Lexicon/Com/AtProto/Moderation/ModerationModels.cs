@@ -8,13 +8,7 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Moderation;
 
 // ── com.atproto.moderation.createReport ──────────────────────
 
-/// <summary>
-/// What a moderation action is about: an account, a record, a blob, or a chat message or
-/// conversation. One union serves reports (<c>com.atproto.moderation.createReport</c>), a PDS's
-/// subject status (<c>com.atproto.admin.*SubjectStatus</c>) and Ozone's events and statuses
-/// (<c>tools.ozone.moderation.*</c>); each method accepts the variants its Lexicon lists, and a
-/// subject type this SDK does not model reads as <see cref="UnknownModerationSubject"/>.
-/// </summary>
+/// <summary>What a moderation action is about: an account, a record, a blob, or a chat message or conversation. One union serves reports (<c>com.atproto.moderation.createReport</c>), a PDS's subject status (<c>com.atproto.admin.*SubjectStatus</c>) and Ozone's events and statuses (<c>tools.ozone.moderation.*</c>); each method accepts the variants its Lexicon lists, and a subject type this SDK does not model reads as <see cref="UnknownModerationSubject"/>.</summary>
 [AtProtoUnion(typeof(UnknownModerationSubject))]
 [JsonDerivedType(typeof(RepoSubject), "com.atproto.admin.defs#repoRef")]
 [JsonDerivedType(typeof(RecordSubject), "com.atproto.repo.strongRef")]
@@ -23,10 +17,7 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Moderation;
 [JsonDerivedType(typeof(ConvoSubject), "chat.bsky.convo.defs#convoRef")]
 public abstract class ModerationSubject : LexObject;
 
-/// <summary>
-/// A moderation subject whose <c>$type</c> this SDK version does not model. It keeps the raw object
-/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A moderation subject whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownModerationSubject(string type, JsonElement raw) : ModerationSubject, IUnknownUnionVariant
@@ -58,10 +49,7 @@ public sealed class RecordSubject : ModerationSubject
     public required Cid Cid { get; init; }
 }
 
-/// <summary>
-/// A blob in an account's repository as a moderation subject
-/// (<c>com.atproto.admin.defs#repoBlobRef</c>).
-/// </summary>
+/// <summary>A blob in an account's repository as a moderation subject (<c>com.atproto.admin.defs#repoBlobRef</c>).</summary>
 public sealed class RepoBlobSubject : ModerationSubject
 {
     /// <summary>The DID of the account the blob belongs to.</summary>
@@ -105,7 +93,6 @@ public sealed class ConvoSubject : ModerationSubject
     public required string ConvoId { get; init; }
 }
 
-/// <summary>Request body for creating a moderation report.</summary>
 internal sealed record CreateReportRequest(
     [property: JsonPropertyName("reasonType")] [property: JsonPropertyOrder(0)] string ReasonType,
     [property: JsonPropertyName("subject")] [property: JsonPropertyOrder(2)] ModerationSubject Subject,
@@ -163,49 +150,28 @@ public sealed class CreateReportResponse
 /// </remarks>
 public static class ReportReasons
 {
-    /// <summary>
-    /// Spam: frequent unwanted promotion, replies or mentions
-    /// (<c>com.atproto.moderation.defs#reasonSpam</c>). Prefer <see cref="MisleadingSpam"/>.
-    /// </summary>
+    /// <summary>Spam: frequent unwanted promotion, replies or mentions (<c>com.atproto.moderation.defs#reasonSpam</c>). Prefer <see cref="MisleadingSpam"/>.</summary>
     public const string Spam = "com.atproto.moderation.defs#reasonSpam";
 
-    /// <summary>
-    /// A direct violation of server rules, laws or terms of service
-    /// (<c>com.atproto.moderation.defs#reasonViolation</c>). Prefer <see cref="RuleOther"/>.
-    /// </summary>
+    /// <summary>A direct violation of server rules, laws or terms of service (<c>com.atproto.moderation.defs#reasonViolation</c>). Prefer <see cref="RuleOther"/>.</summary>
     public const string Violation = "com.atproto.moderation.defs#reasonViolation";
 
-    /// <summary>
-    /// Misleading identity, affiliation or content
-    /// (<c>com.atproto.moderation.defs#reasonMisleading</c>). Prefer <see cref="MisleadingOther"/>.
-    /// </summary>
+    /// <summary>Misleading identity, affiliation or content (<c>com.atproto.moderation.defs#reasonMisleading</c>). Prefer <see cref="MisleadingOther"/>.</summary>
     public const string Misleading = "com.atproto.moderation.defs#reasonMisleading";
 
-    /// <summary>
-    /// Unwanted or mislabeled sexual content (<c>com.atproto.moderation.defs#reasonSexual</c>).
-    /// Prefer <see cref="SexualUnlabeled"/>.
-    /// </summary>
+    /// <summary>Unwanted or mislabeled sexual content (<c>com.atproto.moderation.defs#reasonSexual</c>). Prefer <see cref="SexualUnlabeled"/>.</summary>
     public const string Sexual = "com.atproto.moderation.defs#reasonSexual";
 
-    /// <summary>
-    /// Rude, harassing, explicit or otherwise unwelcoming behavior
-    /// (<c>com.atproto.moderation.defs#reasonRude</c>). Prefer <see cref="HarassmentOther"/>.
-    /// </summary>
+    /// <summary>Rude, harassing, explicit or otherwise unwelcoming behavior (<c>com.atproto.moderation.defs#reasonRude</c>). Prefer <see cref="HarassmentOther"/>.</summary>
     public const string Rude = "com.atproto.moderation.defs#reasonRude";
 
-    /// <summary>
-    /// A report that fits no other category (<c>com.atproto.moderation.defs#reasonOther</c>).
-    /// Prefer <see cref="OzoneOther"/>.
-    /// </summary>
+    /// <summary>A report that fits no other category (<c>com.atproto.moderation.defs#reasonOther</c>). Prefer <see cref="OzoneOther"/>.</summary>
     public const string Other = "com.atproto.moderation.defs#reasonOther";
 
     /// <summary>An appeal of a moderation action (<c>com.atproto.moderation.defs#reasonAppeal</c>).</summary>
     public const string Appeal = "com.atproto.moderation.defs#reasonAppeal";
 
-    /// <summary>
-    /// An appeal of a moderation action, in the granular set
-    /// (<c>tools.ozone.report.defs#reasonAppeal</c>).
-    /// </summary>
+    /// <summary>An appeal of a moderation action, in the granular set (<c>tools.ozone.report.defs#reasonAppeal</c>).</summary>
     public const string OzoneAppeal = "tools.ozone.report.defs#reasonAppeal";
 
     /// <summary>An issue none of the granular reasons covers (<c>tools.ozone.report.defs#reasonOther</c>).</summary>
@@ -225,10 +191,7 @@ public static class ReportReasons
     /// <summary>Glorification of violence (<c>tools.ozone.report.defs#reasonViolenceGlorification</c>).</summary>
     public const string ViolenceGlorification = "tools.ozone.report.defs#reasonViolenceGlorification";
 
-    /// <summary>
-    /// Extremist content (<c>tools.ozone.report.defs#reasonViolenceExtremistContent</c>). Goes
-    /// only to the app's moderation authority.
-    /// </summary>
+    /// <summary>Extremist content (<c>tools.ozone.report.defs#reasonViolenceExtremistContent</c>). Goes only to the app's moderation authority.</summary>
     public const string ViolenceExtremistContent = "tools.ozone.report.defs#reasonViolenceExtremistContent";
 
     /// <summary>Human trafficking (<c>tools.ozone.report.defs#reasonViolenceTrafficking</c>).</summary>
@@ -259,16 +222,10 @@ public static class ReportReasons
 
     // ─── Child safety ───
 
-    /// <summary>
-    /// Child sexual abuse material (<c>tools.ozone.report.defs#reasonChildSafetyCSAM</c>). Goes
-    /// only to the app's moderation authority.
-    /// </summary>
+    /// <summary>Child sexual abuse material (<c>tools.ozone.report.defs#reasonChildSafetyCSAM</c>). Goes only to the app's moderation authority.</summary>
     public const string ChildSafetyCsam = "tools.ozone.report.defs#reasonChildSafetyCSAM";
 
-    /// <summary>
-    /// Grooming or predatory behavior (<c>tools.ozone.report.defs#reasonChildSafetyGroom</c>).
-    /// Goes only to the app's moderation authority.
-    /// </summary>
+    /// <summary>Grooming or predatory behavior (<c>tools.ozone.report.defs#reasonChildSafetyGroom</c>). Goes only to the app's moderation authority.</summary>
     public const string ChildSafetyGroom = "tools.ozone.report.defs#reasonChildSafetyGroom";
 
     /// <summary>A privacy violation involving a minor (<c>tools.ozone.report.defs#reasonChildSafetyPrivacy</c>).</summary>
@@ -277,10 +234,7 @@ public static class ReportReasons
     /// <summary>Harassment or bullying of minors (<c>tools.ozone.report.defs#reasonChildSafetyHarassment</c>).</summary>
     public const string ChildSafetyHarassment = "tools.ozone.report.defs#reasonChildSafetyHarassment";
 
-    /// <summary>
-    /// Other child safety issues (<c>tools.ozone.report.defs#reasonChildSafetyOther</c>). Goes
-    /// only to the app's moderation authority.
-    /// </summary>
+    /// <summary>Other child safety issues (<c>tools.ozone.report.defs#reasonChildSafetyOther</c>). Goes only to the app's moderation authority.</summary>
     public const string ChildSafetyOther = "tools.ozone.report.defs#reasonChildSafetyOther";
 
     // ─── Harassment ───
@@ -325,10 +279,7 @@ public static class ReportReasons
     /// <summary>Hacking or system attacks (<c>tools.ozone.report.defs#reasonRuleSiteSecurity</c>).</summary>
     public const string RuleSiteSecurity = "tools.ozone.report.defs#reasonRuleSiteSecurity";
 
-    /// <summary>
-    /// Promoting or selling prohibited items or services
-    /// (<c>tools.ozone.report.defs#reasonRuleProhibitedSales</c>).
-    /// </summary>
+    /// <summary>Promoting or selling prohibited items or services (<c>tools.ozone.report.defs#reasonRuleProhibitedSales</c>).</summary>
     public const string RuleProhibitedSales = "tools.ozone.report.defs#reasonRuleProhibitedSales";
 
     /// <summary>A banned user returning (<c>tools.ozone.report.defs#reasonRuleBanEvasion</c>).</summary>

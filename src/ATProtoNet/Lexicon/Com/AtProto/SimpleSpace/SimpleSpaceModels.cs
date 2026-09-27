@@ -9,11 +9,7 @@ namespace ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 
 // ── com.atproto.simplespace.defs ─────────────────────────────
 
-/// <summary>
-/// How a <c>simplespace</c> authority decides whether to authorize a <em>user</em>: as a
-/// space's read policy, whether to mint them a credential; as its write policy, whether to track
-/// their writes and forward their write notifications.
-/// </summary>
+/// <summary>How a <c>simplespace</c> authority decides whether to authorize a <em>user</em>: as a space's read policy, whether to mint them a credential; as its write policy, whether to track their writes and forward their write notifications.</summary>
 /// <remarks>
 /// <para>For a read, the user must be authorized by the read policy <b>and</b> their app by the
 /// <see cref="SimpleSpaceAppAccess">app access policy</see> for a credential to be minted. A
@@ -30,10 +26,7 @@ namespace ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 [JsonDerivedType(typeof(ManagingAppPolicy), SimpleSpaceTypes.ManagingAppPolicy)]
 public abstract class SimpleSpaceUserPolicy : LexObject;
 
-/// <summary>
-/// A user policy whose <c>$type</c> this SDK version does not model. It keeps the raw object and
-/// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A user policy whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownSimpleSpaceUserPolicy(string type, JsonElement raw) : SimpleSpaceUserPolicy, IUnknownUnionVariant
@@ -48,10 +41,7 @@ public sealed class UnknownSimpleSpaceUserPolicy(string type, JsonElement raw) :
 /// <summary>Any user is authorized.</summary>
 public sealed class PublicPolicy : SimpleSpaceUserPolicy;
 
-/// <summary>
-/// Only users on the space's member list are authorized. This is the default for both the read
-/// and the write policy.
-/// </summary>
+/// <summary>Only users on the space's member list are authorized. This is the default for both the read and the write policy.</summary>
 /// <remarks>
 /// <para>Each member carries separate read and write access (see <see cref="SimpleSpaceMember"/>):
 /// under a member-list read policy a member is admitted to read when their <c>read</c> flag is
@@ -73,10 +63,7 @@ public sealed class MemberListPolicy : SimpleSpaceUserPolicy;
 /// </remarks>
 public sealed class ManagingAppPolicy : SimpleSpaceUserPolicy
 {
-    /// <summary>
-    /// Service identifier of the managing app: a DID with an optional service fragment
-    /// (e.g. <c>did:web:example.com#forum</c>).
-    /// </summary>
+    /// <summary>Service identifier of the managing app: a DID with an optional service fragment (e.g. <c>did:web:example.com#forum</c>).</summary>
     [JsonPropertyName("managingApp")]
     public required string ManagingApp { get; init; }
 }
@@ -93,10 +80,7 @@ public sealed class ManagingAppPolicy : SimpleSpaceUserPolicy
 [JsonDerivedType(typeof(AllowListAppAccess), SimpleSpaceTypes.AllowList)]
 public abstract class SimpleSpaceAppAccess : LexObject;
 
-/// <summary>
-/// An app access policy whose <c>$type</c> this SDK version does not model. It keeps the raw
-/// object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>An app access policy whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownSimpleSpaceAppAccess(string type, JsonElement raw) : SimpleSpaceAppAccess, IUnknownUnionVariant
@@ -108,10 +92,7 @@ public sealed class UnknownSimpleSpaceAppAccess(string type, JsonElement raw) : 
     public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
-/// <summary>
-/// Any application may access the space. This is the default, and requires no client
-/// attestation — so public clients work.
-/// </summary>
+/// <summary>Any application may access the space. This is the default, and requires no client attestation — so public clients work.</summary>
 public sealed class OpenAppAccess : SimpleSpaceAppAccess;
 
 /// <summary>Only the named clients may access the space.</summary>
@@ -145,19 +126,13 @@ public static class SimpleSpaceTypes
     public const string AllowList = "com.atproto.simplespace.defs#allowList";
 }
 
-/// <summary>
-/// The kinds of access <c>com.atproto.simplespace.checkUserAccess</c> asks a managing app about
-/// (the known values of its <c>access</c> parameter).
-/// </summary>
+/// <summary>The kinds of access <c>com.atproto.simplespace.checkUserAccess</c> asks a managing app about (the known values of its <c>access</c> parameter).</summary>
 public static class SimpleSpaceAccess
 {
     /// <summary>Whether the user may read the space. Asked when minting a credential.</summary>
     public const string Read = "read";
 
-    /// <summary>
-    /// Whether the authority should track the user's writes and forward their write
-    /// notifications. Asked when a write notification arrives.
-    /// </summary>
+    /// <summary>Whether the authority should track the user's writes and forward their write notifications. Asked when a write notification arrives.</summary>
     public const string Write = "write";
 }
 
@@ -166,17 +141,11 @@ public static class SimpleSpaceAccess
 /// <summary>Request body for <c>createSpace</c>.</summary>
 public sealed class CreateSimpleSpaceRequest
 {
-    /// <summary>
-    /// The NSID of the space type, describing the modality of the space
-    /// (e.g. <c>app.bsky.group</c>).
-    /// </summary>
+    /// <summary>The NSID of the space type, describing the modality of the space (e.g. <c>app.bsky.group</c>).</summary>
     [JsonPropertyName("type")]
     public required Nsid Type { get; init; }
 
-    /// <summary>
-    /// The space key, distinguishing multiple spaces of the same type under the same owner.
-    /// A TID is generated when omitted.
-    /// </summary>
+    /// <summary>The space key, distinguishing multiple spaces of the same type under the same owner. A TID is generated when omitted.</summary>
     [JsonPropertyName("skey")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RecordKey? Skey { get; init; }
@@ -185,10 +154,7 @@ public sealed class CreateSimpleSpaceRequest
     [JsonPropertyName("readPolicy")]
     public required SimpleSpaceUserPolicy ReadPolicy { get; init; }
 
-    /// <summary>
-    /// How the authority decides whether to track a user's writes and forward their write
-    /// notifications.
-    /// </summary>
+    /// <summary>How the authority decides whether to track a user's writes and forward their write notifications.</summary>
     [JsonPropertyName("writePolicy")]
     public required SimpleSpaceUserPolicy WritePolicy { get; init; }
 
@@ -251,10 +217,7 @@ public sealed class GetSimpleSpaceResponse
     [JsonPropertyName("readPolicy")]
     public required SimpleSpaceUserPolicy ReadPolicy { get; init; }
 
-    /// <summary>
-    /// How the authority decides whether to track a user's writes and forward their write
-    /// notifications.
-    /// </summary>
+    /// <summary>How the authority decides whether to track a user's writes and forward their write notifications.</summary>
     [JsonPropertyName("writePolicy")]
     public required SimpleSpaceUserPolicy WritePolicy { get; init; }
 
@@ -265,10 +228,7 @@ public sealed class GetSimpleSpaceResponse
 
 // ── com.atproto.simplespace.putMember / removeMember / listMembers ──
 
-/// <summary>
-/// Request body for <c>putMember</c>: adds a member, or replaces an existing member's read and
-/// write access.
-/// </summary>
+/// <summary>Request body for <c>putMember</c>: adds a member, or replaces an existing member's read and write access.</summary>
 public sealed class PutSimpleSpaceMemberRequest
 {
     /// <summary>Reference to the space.</summary>

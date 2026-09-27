@@ -4,7 +4,7 @@ namespace ATProtoNet.Server.Authentication;
 
 internal static class AuthorizationHeader
 {
-    /// <summary>Splits the request's <c>Authorization</c> header at its first space; false when it has none.</summary>
+    // Splits the request's Authorization header at its first space; false when it has none.
     public static bool TryRead(HttpRequest request, out string scheme, out string token)
     {
         var header = request.Headers.Authorization.ToString();
@@ -19,7 +19,7 @@ internal static class AuthorizationHeader
         return true;
     }
 
-    /// <summary>The non-empty token of an <c>Authorization: Bearer</c> header, or <see langword="null"/>.</summary>
+    // The non-empty token of an Authorization: Bearer header, or null.
     public static string? Bearer(HttpRequest request) =>
         TryRead(request, out var scheme, out var token)
         && string.Equals(scheme, "Bearer", StringComparison.OrdinalIgnoreCase)

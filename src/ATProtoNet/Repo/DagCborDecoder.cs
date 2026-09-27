@@ -41,10 +41,8 @@ public static class DagCborDecoder
         return JsonElement.ParseValue(ref jsonReader);
     }
 
-    /// <summary>
-    /// What <see cref="CborReader"/>, and the readers built on it, throw for input that is not
-    /// well-formed or not the shape being read: never a bug in the caller.
-    /// </summary>
+    // What CborReader, and the readers built on it, throw for input that is not well-formed or not the
+    // shape being read: never a bug in the caller.
     internal static bool IsMalformed(Exception ex) =>
         ex is CborContentException or InvalidOperationException or FormatException or OverflowException
             // Inside a parse, an ArgumentException comes from the bytes (an identifier that does not

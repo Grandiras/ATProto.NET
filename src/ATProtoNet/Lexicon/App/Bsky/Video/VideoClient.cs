@@ -4,10 +4,7 @@ using ATProtoNet.Http;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Video;
 
-/// <summary>
-/// Client for app.bsky.video.* XRPC endpoints.
-/// Handles video upload, processing status, and upload limits.
-/// </summary>
+/// <summary>Client for app.bsky.video.* XRPC endpoints. Handles video upload, processing status, and upload limits.</summary>
 /// <remarks>
 /// Video uploads are typically handled by a sidecar service (e.g., <c>https://video.bsky.app</c>)
 /// before the final blob is written to the PDS. Use <see cref="AtProtoClient.SetProxy"/> to
@@ -27,10 +24,7 @@ public sealed class VideoClient
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Upload a video in parts, wait for the service to process it, and return the finished job,
-    /// whose <see cref="JobStatus.Blob"/> goes into a video embed.
-    /// </summary>
+    /// <summary>Upload a video in parts, wait for the service to process it, and return the finished job, whose <see cref="JobStatus.Blob"/> goes into a video embed.</summary>
     /// <param name="data">
     /// The video, read once from its current position. A stream that cannot seek needs
     /// <see cref="VideoUploadOptions.Length"/>. The stream is not disposed.
@@ -129,11 +123,7 @@ public sealed class VideoClient
             .ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Upload a whole video in one request (<c>app.bsky.video.uploadVideo</c>) and return the
-    /// processing job without waiting for it. <see cref="UploadVideoAsync"/> uploads in parts,
-    /// with retries, and waits for processing.
-    /// </summary>
+    /// <summary>Upload a whole video in one request (<c>app.bsky.video.uploadVideo</c>) and return the processing job without waiting for it. <see cref="UploadVideoAsync"/> uploads in parts, with retries, and waits for processing.</summary>
     /// <param name="data">The video data stream.</param>
     /// <param name="mimeType">The MIME type (e.g., "video/mp4").</param>
     /// <returns>The initial job status for the upload.</returns>
@@ -238,10 +228,7 @@ public sealed class VideoClient
             "app.bsky.video.getUploadStatus", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Abort a multipart upload session that is still open, releasing its share of the daily
-    /// quota. A session that already ended keeps, and reports, its outcome.
-    /// </summary>
+    /// <summary>Abort a multipart upload session that is still open, releasing its share of the daily quota. A session that already ended keeps, and reports, its outcome.</summary>
     /// <param name="jobId">The upload session.</param>
     public Task<AbortUploadResponse> AbortUploadAsync(
         string jobId, CancellationToken cancellationToken = default)
@@ -251,10 +238,8 @@ public sealed class VideoClient
             "app.bsky.video.abortUpload", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Checks the service's plan against the declared size and returns the buffer size one part
-    /// needs. The size bounds the buffer, whatever part size the service names.
-    /// </summary>
+    // Checks the service's plan against the declared size and returns the buffer size one part needs. The
+    // size bounds the buffer, whatever part size the service names.
     private static int CheckPlan(StartUploadResponse session, long size)
     {
         if (session.PartSizeBytes <= 0 || session.PartCount != ((size - 1) / session.PartSizeBytes) + 1)
@@ -312,7 +297,7 @@ public sealed class VideoClient
         }
     }
 
-    /// <summary>Runs a call, retrying transient failures with exponential backoff.</summary>
+    // Runs a call, retrying transient failures with exponential backoff.
     private async Task<T> WithRetriesAsync<T>(
         Func<CancellationToken, Task<T>> call,
         RetryKind kind,
@@ -360,10 +345,8 @@ public sealed class VideoClient
         };
     }
 
-    /// <summary>
-    /// Aborts a session after a failure, so it stops counting against the daily quota. Best
-    /// effort: an open session also expires on its own.
-    /// </summary>
+    // Aborts a session after a failure, so it stops counting against the daily quota. Best effort: an open
+    // session also expires on its own.
     private async Task TryAbortAsync(string jobId)
     {
         try
@@ -376,16 +359,16 @@ public sealed class VideoClient
         }
     }
 
-    /// <summary>Which failures a call may be retried after.</summary>
+    // Which failures a call may be retried after.
     private enum RetryKind
     {
-        /// <summary>startUpload: only a refusal, since it is not idempotent.</summary>
+        // startUpload: only a refusal, since it is not idempotent.
         Start,
 
-        /// <summary>uploadPart, getJobStatus: any transient failure.</summary>
+        // uploadPart, getJobStatus: any transient failure.
         Idempotent,
 
-        /// <summary>finishUpload: any transient failure, and a finish already in progress.</summary>
+        // finishUpload: any transient failure, and a finish already in progress.
         Finish,
     }
 }

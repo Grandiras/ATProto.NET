@@ -52,7 +52,7 @@ public sealed class RepoSnapshot
     /// <summary>How many records the repository holds.</summary>
     public int Count => Tree.Count;
 
-    /// <summary>The commit block, for verifying its signature.</summary>
+    // The commit block, for verifying its signature.
     internal CommitBlock CommitBlock { get; }
 
     /// <summary>
@@ -118,10 +118,8 @@ public sealed class RepoSnapshot
         return snapshot;
     }
 
-    /// <summary>
-    /// Reads a repository export and verifies everything but the commit's signature, which the
-    /// caller checks against <see cref="CommitBlock"/>.
-    /// </summary>
+    // Reads a repository export and verifies everything but the commit's signature, which the caller
+    // checks against CommitBlock.
     internal static RepoSnapshot Read(ReadOnlySpan<byte> car, Did did)
     {
         ArgumentNullException.ThrowIfNull(did);

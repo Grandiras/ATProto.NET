@@ -7,26 +7,23 @@ using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Server.Xrpc;
 
-/// <summary>
-/// The one place a failed XRPC request becomes a response: every exception an endpoint raises is
-/// answered with the <c>{"error", "message"}</c> envelope XRPC clients branch on.
-/// </summary>
+// The one place a failed XRPC request becomes a response: every exception an endpoint raises is
+// answered with the {"error", "message"} envelope XRPC clients branch on.
 internal static partial class XrpcErrorResponse
 {
-    /// <summary>The log category unexpected handler failures are written under.</summary>
+    // The log category unexpected handler failures are written under.
     public const string LoggerCategory = "ATProtoNet.Server.Xrpc";
 
-    /// <summary>
-    /// Wraps an endpoint's delegate — a handler's, or the group's fallback — so that nothing it
-    /// throws reaches the host's own error page.
-    /// </summary>
-    /// <remarks>
-    /// Once the response has started — a blob that failed halfway — no envelope can be written,
-    /// so the exception propagates and the server aborts the response rather than let a truncated
-    /// body pass for a complete one.
-    /// </remarks>
-    /// <param name="invoke">The endpoint's delegate.</param>
-    /// <param name="logger">Where unexpected failures are logged.</param>
+    // Wraps an endpoint's delegate — a handler's, or the group's fallback — so that nothing it throws
+    // reaches the host's own error page.
+    //
+    // Once the response has started — a blob that failed halfway — no envelope can be written, so the
+    // exception propagates and the server aborts the response rather than let a truncated body pass for a
+    // complete one.
+    //
+    // invoke: The endpoint's delegate.
+    //
+    // logger: Where unexpected failures are logged.
     public static RequestDelegate Handle(RequestDelegate invoke, ILogger logger) =>
         async context =>
         {
@@ -40,19 +37,16 @@ internal static partial class XrpcErrorResponse
             }
         };
 
-    /// <summary>
-    /// Answers a request for <c>/xrpc/{nsid}</c> that no endpoint matched, as the reference
-    /// <c>xrpc-server</c> does: <c>InvalidRequest</c> for a segment that is not an NSID,
-    /// <c>405</c> naming the right method for a registered NSID called with the wrong one, and
-    /// <c>501 MethodNotImplemented</c> for any other NSID.
-    /// </summary>
-    /// <remarks>
-    /// A registered NSID never reaches this with its own method: the fallback is ordered after
-    /// every other endpoint. It does catch the wrong method, because routing prefers an endpoint
-    /// accepting any method over producing its own 405, so that answer is written here instead
-    /// — with the <c>Allow</c> header, and an XRPC body the client can read.
-    /// </remarks>
-    /// <param name="registrations">The endpoints mapped in the same group.</param>
+    // Answers a request for /xrpc/{nsid} that no endpoint matched, as the reference xrpc-server does:
+    // InvalidRequest for a segment that is not an NSID, 405 naming the right method for a registered NSID
+    // called with the wrong one, and 501 MethodNotImplemented for any other NSID.
+    //
+    // A registered NSID never reaches this with its own method: the fallback is ordered after every other
+    // endpoint. It does catch the wrong method, because routing prefers an endpoint accepting any method
+    // over producing its own 405, so that answer is written here instead — with the Allow header, and an
+    // XRPC body the client can read.
+    //
+    // registrations: The endpoints mapped in the same group.
     public static RequestDelegate Unmatched(IEnumerable<XrpcEndpointRegistration> registrations)
     {
         // Case-insensitive, as route matching of the registered paths is.
@@ -130,7 +124,7 @@ internal static partial class XrpcErrorResponse
     private static partial void LogUnhandled(ILogger logger, Exception exception, string method, string? path);
 }
 
-/// <summary>The XRPC error wire body: a name clients branch on, and a description for humans.</summary>
+// The XRPC error wire body: a name clients branch on, and a description for humans.
 internal sealed class XrpcErrorBody
 {
     [JsonPropertyName("error")]

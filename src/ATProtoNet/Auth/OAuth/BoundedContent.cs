@@ -1,22 +1,18 @@
 namespace ATProtoNet.Auth.OAuth;
 
-/// <summary>
-/// Reads response bodies whose size is chosen by whoever answers: documents fetched from a URL
-/// that came from untrusted input.
-/// </summary>
+// Reads response bodies whose size is chosen by whoever answers: documents fetched from a URL that
+// came from untrusted input.
 internal static class BoundedContent
 {
-    /// <summary>
-    /// Reads a response body into memory, or returns <see langword="null"/> once it is known to
-    /// exceed <paramref name="maxBytes"/>. At most <paramref name="maxBytes"/> + 1 bytes are read.
-    /// </summary>
-    /// <param name="content">The response content.</param>
-    /// <param name="maxBytes">The largest body accepted.</param>
-    /// <remarks>
-    /// A declared <c>Content-Length</c> over the ceiling is refused before anything is read. The
-    /// read enforces the ceiling as well, because a chunked body declares no length and a
-    /// declared one can be a lie.
-    /// </remarks>
+    // Reads a response body into memory, or returns null once it is known to exceed maxBytes. At most
+    // maxBytes + 1 bytes are read.
+    //
+    // A declared Content-Length over the ceiling is refused before anything is read. The read enforces the
+    // ceiling as well, because a chunked body declares no length and a declared one can be a lie.
+    //
+    // content: The response content.
+    //
+    // maxBytes: The largest body accepted.
     public static async Task<ReadOnlyMemory<byte>?> ReadBoundedAsync(
         this HttpContent content, int maxBytes, CancellationToken cancellationToken)
     {

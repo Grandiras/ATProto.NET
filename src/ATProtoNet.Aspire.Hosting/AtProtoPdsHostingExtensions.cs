@@ -154,15 +154,13 @@ public static class AtProtoPdsHostingExtensions
         return pds;
     }
 
-    /// <summary>Creates the parameter backing one of the PDS's hex-encoded secrets.</summary>
-    /// <remarks>
-    /// In run mode the value is generated as lowercase hex and persisted to the AppHost's
-    /// user secrets, so it stays stable across runs alongside the data volume. In publish
-    /// mode no default is attached: Aspire's manifest can only ask a deployment to generate
-    /// an alphanumeric string, and the PDS would reject one, so the value must be supplied
-    /// at deploy time (or through <see cref="WithJwtSecret{T}"/> /
-    /// <see cref="WithPlcRotationKey"/>) instead of being generated wrongly.
-    /// </remarks>
+    // Creates the parameter backing one of the PDS's hex-encoded secrets.
+    //
+    // In run mode the value is generated as lowercase hex and persisted to the AppHost's user secrets, so
+    // it stays stable across runs alongside the data volume. In publish mode no default is attached:
+    // Aspire's manifest can only ask a deployment to generate an alphanumeric string, and the PDS would
+    // reject one, so the value must be supplied at deploy time (or through WithJwtSecret{T} /
+    // WithPlcRotationKey) instead of being generated wrongly.
     private static ParameterResource CreateHexSecretParameter(
         IDistributedApplicationBuilder builder,
         string name,
@@ -219,12 +217,9 @@ public static class AtProtoPdsHostingExtensions
         });
     }
 
-    /// <summary>
-    /// The wiring <see cref="WithAtProtoPds{T}"/> and
-    /// <see cref="AtProtoTranquilPdsHostingExtensions.WithAtProtoTranquilPds{T}"/> share:
-    /// the PDS URL, the server-specific admin configuration, the run-mode plaintext
-    /// opt-in, and the wait on the PDS's health check.
-    /// </summary>
+    // The wiring WithAtProtoPds{T} and AtProtoTranquilPdsHostingExtensions.WithAtProtoTranquilPds{T}
+    // share: the PDS URL, the server-specific admin configuration, the run-mode plaintext opt-in, and the
+    // wait on the PDS's health check.
     internal static IResourceBuilder<T> WithPdsConfiguration<T, TPds>(
         IResourceBuilder<T> builder,
         IResourceBuilder<TPds> pds,
@@ -317,17 +312,11 @@ public static class AtProtoPdsHostingExtensions
         return builder;
     }
 
-    /// <summary>
-    /// Mounts <paramref name="source"/> at <paramref name="target"/>, replacing whatever
-    /// was mounted there before.
-    /// </summary>
-    /// <remarks>
-    /// Both <c>Add*</c> methods always mount a named volume at the server's storage
-    /// directory, so adding a second mount on the same destination would leave both
-    /// annotations in the container spec. Docker and Podman reject that outright
-    /// (Podman with <c>duplicate mount destination</c>), so the container
-    /// never starts.
-    /// </remarks>
+    // Mounts source at target, replacing whatever was mounted there before.
+    //
+    // Both Add* methods always mount a named volume at the server's storage directory, so adding a second
+    // mount on the same destination would leave both annotations in the container spec. Docker and Podman
+    // reject that outright (Podman with duplicate mount destination), so the container never starts.
     internal static IResourceBuilder<T> ReplaceStorageMount<T>(
         IResourceBuilder<T> builder,
         string source,

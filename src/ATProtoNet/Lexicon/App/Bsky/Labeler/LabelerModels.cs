@@ -32,17 +32,11 @@ public sealed class LabelerServiceRecord : LexObject, IAtProtoRecord
     [JsonPropertyName("createdAt")]
     public required AtDatetime CreatedAt { get; init; }
 
-    /// <summary>
-    /// The report reasons the labeler accepts (<c>com.atproto.moderation.defs#reasonType</c>
-    /// values); <see langword="null"/> for all.
-    /// </summary>
+    /// <summary>The report reasons the labeler accepts (<c>com.atproto.moderation.defs#reasonType</c> values); <see langword="null"/> for all.</summary>
     [JsonPropertyName("reasonTypes")]
     public IReadOnlyList<string>? ReasonTypes { get; init; }
 
-    /// <summary>
-    /// The kinds of subject the labeler accepts reports on: <c>account</c>, <c>record</c> or
-    /// <c>chat</c>; <see langword="null"/> for all.
-    /// </summary>
+    /// <summary>The kinds of subject the labeler accepts reports on: <c>account</c>, <c>record</c> or <c>chat</c>; <see langword="null"/> for all.</summary>
     [JsonPropertyName("subjectTypes")]
     public IReadOnlyList<string>? SubjectTypes { get; init; }
 
@@ -144,17 +138,11 @@ public sealed class LabelerViewDetailed : LexObject
     [JsonPropertyName("policies")]
     public required LabelerPolicies Policies { get; init; }
 
-    /// <summary>
-    /// The report reasons the labeler accepts (<c>com.atproto.moderation.defs#reasonType</c>
-    /// values); <see langword="null"/> for all.
-    /// </summary>
+    /// <summary>The report reasons the labeler accepts (<c>com.atproto.moderation.defs#reasonType</c> values); <see langword="null"/> for all.</summary>
     [JsonPropertyName("reasonTypes")]
     public IReadOnlyList<string>? ReasonTypes { get; init; }
 
-    /// <summary>
-    /// The kinds of subject the labeler accepts reports on: <c>account</c>, <c>record</c> or
-    /// <c>chat</c>; <see langword="null"/> for all.
-    /// </summary>
+    /// <summary>The kinds of subject the labeler accepts reports on: <c>account</c>, <c>record</c> or <c>chat</c>; <see langword="null"/> for all.</summary>
     [JsonPropertyName("subjectTypes")]
     public IReadOnlyList<string>? SubjectTypes { get; init; }
 
@@ -163,10 +151,7 @@ public sealed class LabelerViewDetailed : LexObject
     public IReadOnlyList<Nsid>? SubjectCollections { get; init; }
 }
 
-/// <summary>
-/// Basic view of a labeler service. Also a variant of <see cref="EmbeddedRecordView"/>, for a
-/// labeler embedded in a post.
-/// </summary>
+/// <summary>Basic view of a labeler service. Also a variant of <see cref="EmbeddedRecordView"/>, for a labeler embedded in a post.</summary>
 public sealed class LabelerView : EmbeddedRecordView
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
@@ -257,10 +242,7 @@ public static class LabelDefaultSetting
     public const string Hide = "hide";
 }
 
-/// <summary>
-/// Label values with a global meaning (<c>com.atproto.label.defs#labelValue</c>), plus some that
-/// Bluesky's moderation service applies.
-/// </summary>
+/// <summary>Label values with a global meaning (<c>com.atproto.label.defs#labelValue</c>), plus some that Bluesky's moderation service applies.</summary>
 /// <remarks>
 /// A value starting with <c>!</c> is a system label: clients apply its behavior regardless of the
 /// viewer's settings.

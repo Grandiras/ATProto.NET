@@ -3,10 +3,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Safelink;
 
-/// <summary>
-/// Client for tools.ozone.safelink.* endpoints: URL safety rules that block, warn on or allow
-/// links, and their audit log.
-/// </summary>
+/// <summary>Client for tools.ozone.safelink.* endpoints: URL safety rules that block, warn on or allow links, and their audit log.</summary>
 public sealed class SafelinkClient
 {
     private readonly XrpcClient _xrpc;

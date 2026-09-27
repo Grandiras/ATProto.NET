@@ -18,10 +18,7 @@ public sealed class UnspeccedClient
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Get a thread around an anchor post as a flat list, the way the Bluesky app shows threads:
-    /// the anchor's parents up to the root, then its replies, branching up to a depth.
-    /// </summary>
+    /// <summary>Get a thread around an anchor post as a flat list, the way the Bluesky app shows threads: the anchor's parents up to the root, then its replies, branching up to a depth.</summary>
     /// <param name="anchor">The AT-URI of the post to build the thread around; any post of the thread.</param>
     /// <param name="above">Whether to include the anchor's parents (default true).</param>
     /// <param name="below">How many levels of replies to include (0-20, default 6).</param>
@@ -49,11 +46,7 @@ public sealed class UnspeccedClient
             "app.bsky.unspecced.getPostThreadV2", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get the replies to an anchor post that <see cref="GetPostThreadV2Async"/> leaves out, such
-    /// as those the threadgate hides. Call it when that response's
-    /// <see cref="GetPostThreadV2Response.HasOtherReplies"/> is set.
-    /// </summary>
+    /// <summary>Get the replies to an anchor post that <see cref="GetPostThreadV2Async"/> leaves out, such as those the threadgate hides. Call it when that response's <see cref="GetPostThreadV2Response.HasOtherReplies"/> is set.</summary>
     /// <param name="anchor">The AT-URI of the anchor post.</param>
     public Task<GetPostThreadOtherV2Response> GetPostThreadOtherV2Async(
         AtUri anchor, CancellationToken cancellationToken = default)

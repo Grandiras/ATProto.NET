@@ -81,11 +81,9 @@ public sealed class AtProtoServiceAuthOptions : AuthenticationSchemeOptions
     }
 }
 
-/// <summary>
-/// Authenticates a request by the service auth token in its <c>Authorization: Bearer</c> header,
-/// binding the token to the XRPC method the endpoint serves — on an endpoint whose authorization
-/// asks for this scheme, and nowhere else.
-/// </summary>
+// Authenticates a request by the service auth token in its Authorization: Bearer header, binding the
+// token to the XRPC method the endpoint serves — on an endpoint whose authorization asks for this
+// scheme, and nowhere else.
 internal sealed class AtProtoServiceAuthHandler : AuthenticationHandler<AtProtoServiceAuthOptions>
 {
     private readonly IDidResolver _resolver;
@@ -158,11 +156,8 @@ internal sealed class AtProtoServiceAuthHandler : AuthenticationHandler<AtProtoS
         return AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme.Name));
     }
 
-    /// <summary>
-    /// Whether authorizing <paramref name="endpoint"/> authenticates with this scheme: the policy
-    /// the authorization middleware will evaluate names it, or names no scheme while this is the
-    /// default one.
-    /// </summary>
+    // Whether authorizing endpoint authenticates with this scheme: the policy the authorization middleware
+    // will evaluate names it, or names no scheme while this is the default one.
     private async Task<bool> RequiresThisSchemeAsync(Endpoint endpoint)
     {
         // An anonymous endpoint still has its policy's schemes authenticated, to populate the

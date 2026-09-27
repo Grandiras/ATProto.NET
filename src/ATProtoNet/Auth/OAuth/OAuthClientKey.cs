@@ -25,10 +25,10 @@ namespace ATProtoNet.Auth.OAuth;
 /// </remarks>
 public sealed class OAuthClientKey : IDisposable
 {
-    /// <summary>How long a client assertion is valid.</summary>
+    // How long a client assertion is valid.
     internal static readonly TimeSpan AssertionLifetime = TimeSpan.FromSeconds(60);
 
-    /// <summary>The only algorithm AT Protocol client assertions use.</summary>
+    // The only algorithm AT Protocol client assertions use.
     internal const string Algorithm = "ES256";
 
     private readonly AtProtoKey _key;
@@ -123,13 +123,13 @@ public sealed class OAuthClientKey : IDisposable
     /// </remarks>
     public byte[] ExportPrivateKey() => _key.ExportPrivateKey();
 
-    /// <summary>
-    /// Signs a client assertion (RFC 7523 section 3, as the AT Protocol profile uses it):
-    /// <c>iss</c> and <c>sub</c> the client id, <c>aud</c> the authorization server's issuer, a
-    /// fresh <c>jti</c>, and an <c>exp</c> <see cref="AssertionLifetime"/> after <c>iat</c>.
-    /// </summary>
-    /// <param name="audience">The issuer of the authorization server the assertion is for.</param>
-    /// <param name="now">The time the assertion is issued at.</param>
+    // Signs a client assertion (RFC 7523 section 3, as the AT Protocol profile uses it): iss and sub the
+    // client id, aud the authorization server's issuer, a fresh jti, and an exp AssertionLifetime after
+    // iat.
+    //
+    // audience: The issuer of the authorization server the assertion is for.
+    //
+    // now: The time the assertion is issued at.
     internal string CreateAssertion(string clientId, string audience, DateTimeOffset now)
     {
         var issuedAt = now.ToUnixTimeSeconds();
@@ -149,7 +149,7 @@ public sealed class OAuthClientKey : IDisposable
         return Jwt.Sign(_encodedHeader, payload.WrittenSpan, _key);
     }
 
-    /// <summary>Whether a published JWK is this key's public half.</summary>
+    // Whether a published JWK is this key's public half.
     internal bool Matches(JsonWebKey jwk) =>
         jwk.Kty == "EC" && jwk.Crv == "P-256" &&
         string.Equals(jwk.X, _x, StringComparison.Ordinal) &&

@@ -48,12 +48,9 @@ public sealed class FileAtProtoSessionStore : IAtProtoSessionStore
         RestrictToOwner(_directory, UnixFileMode.UserExecute);
     }
 
-    /// <summary>
-    /// Narrows a path to owner-only access on Unix. Data Protection already encrypts the
-    /// contents, but the file also reveals which accounts this host holds tokens for, and
-    /// the default umask would leave it group- and world-readable. No-op on Windows,
-    /// where the directory ACL governs.
-    /// </summary>
+    // Narrows a path to owner-only access on Unix. Data Protection already encrypts the contents, but the
+    // file also reveals which accounts this host holds tokens for, and the default umask would leave it
+    // group- and world-readable. No-op on Windows, where the directory ACL governs.
     private void RestrictToOwner(string path, UnixFileMode extra = default)
     {
         if (OperatingSystem.IsWindows())
@@ -137,10 +134,8 @@ public sealed class FileAtProtoSessionStore : IAtProtoSessionStore
         _logger.LogDebug("Removed the session of {Did}", did);
     }
 
-    /// <summary>
-    /// Reads a session file, or returns <see langword="null"/> when there is none. The file is
-    /// opened so that a write can replace it, and a removal delete it, while it is being read.
-    /// </summary>
+    // Reads a session file, or returns null when there is none. The file is opened so that a write can
+    // replace it, and a removal delete it, while it is being read.
     private static async Task<string?> TryReadFileAsync(string filePath, CancellationToken cancellationToken)
     {
         try

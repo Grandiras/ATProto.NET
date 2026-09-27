@@ -39,7 +39,7 @@ public interface IAtProtoBuilder
     IHttpClientBuilder HttpClient { get; }
 }
 
-/// <summary>The <see cref="IAtProtoBuilder"/> of one <c>AddAtProto()</c> call.</summary>
+// The IAtProtoBuilder of one AddAtProto() call.
 internal sealed class AtProtoBuilder(IServiceCollection services, IHttpClientBuilder httpClient) : IAtProtoBuilder
 {
     public IServiceCollection Services { get; } = services;

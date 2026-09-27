@@ -10,19 +10,19 @@ namespace ATProtoNet.Repo;
 /// </summary>
 public static class CidComputation
 {
-    /// <summary>CID version 1.</summary>
+    // CID version 1.
     private const byte CidVersion = 0x01;
 
-    /// <summary>DRISL/DAG-CBOR multicodec (0x71).</summary>
+    // DRISL/DAG-CBOR multicodec (0x71).
     private const byte DagCborCodec = 0x71;
 
-    /// <summary>Raw binary multicodec (0x55).</summary>
+    // Raw binary multicodec (0x55).
     private const byte RawCodec = 0x55;
 
-    /// <summary>SHA-256 multihash function code (0x12).</summary>
+    // SHA-256 multihash function code (0x12).
     private const byte Sha256Code = 0x12;
 
-    /// <summary>SHA-256 digest length (32 bytes = 0x20).</summary>
+    // SHA-256 digest length (32 bytes = 0x20).
     private const byte Sha256Length = 0x20;
 
     /// <summary>
@@ -150,10 +150,8 @@ public static class CidComputation
     }
 }
 
-/// <summary>
-/// Base32 lower-case encoding/decoding (RFC 4648) without padding.
-/// Used for CID string encoding in AT Protocol.
-/// </summary>
+// Base32 lower-case encoding/decoding (RFC 4648) without padding. Used for CID string encoding in AT
+// Protocol.
 internal static class Base32Lower
 {
     private const string Alphabet = "abcdefghijklmnopqrstuvwxyz234567";
@@ -161,15 +159,11 @@ internal static class Base32Lower
     public static string Encode(ReadOnlySpan<byte> data)
         => data.IsEmpty ? string.Empty : EncodeWithPrefix(null, data);
 
-    /// <summary>
-    /// Encodes <paramref name="data"/> as base32lower, optionally preceded by a single
-    /// multibase <paramref name="prefix"/> character.
-    /// </summary>
-    /// <remarks>
-    /// A CID encodes to 59 characters including its prefix, so the whole result is built on
-    /// the stack and the returned string is the only allocation. The prefix is folded in here
-    /// rather than concatenated by the caller, which would allocate a second string.
-    /// </remarks>
+    // Encodes data as base32lower, optionally preceded by a single multibase prefix character.
+    //
+    // A CID encodes to 59 characters including its prefix, so the whole result is built on the stack and
+    // the returned string is the only allocation. The prefix is folded in here rather than concatenated by
+    // the caller, which would allocate a second string.
     public static string EncodeWithPrefix(char? prefix, ReadOnlySpan<byte> data)
     {
         var length = (prefix is null ? 0 : 1) + EncodedLength(data.Length);
@@ -209,25 +203,24 @@ internal static class Base32Lower
         }
     }
 
-    /// <summary>Longest result built on the stack; a prefixed CID needs 59 characters.</summary>
+    // Longest result built on the stack; a prefixed CID needs 59 characters.
     private const int MaxStackChars = 128;
 
-    /// <summary>Number of base32 characters <paramref name="byteCount"/> bytes encode to.</summary>
+    // Number of base32 characters byteCount bytes encode to.
     private static int EncodedLength(int byteCount) => (byteCount * 8 + 4) / 5;
 
-    /// <summary>Decodes canonical base32 (see <see cref="TryDecode"/>).</summary>
-    /// <exception cref="FormatException">The text is not canonical unpadded lower-case base32.</exception>
+    // Decodes canonical base32 (see TryDecode).
+    //
+    // Throws FormatException: The text is not canonical unpadded lower-case base32.
     public static byte[] Decode(ReadOnlySpan<char> chars)
     {
         var bytes = new byte[chars.Length * 5 / 8];
         return TryDecode(chars, bytes) ? bytes : throw new FormatException("The text is not canonical unpadded lower-case base32.");
     }
 
-    /// <summary>
-    /// Decodes unpadded base32 in lower case into <paramref name="bytes"/>, which must hold
-    /// <c>chars.Length * 5 / 8</c> bytes. Only the canonical encoding is accepted: no character
-    /// left over and the unused bits of the last one zero, so each value has one string form.
-    /// </summary>
+    // Decodes unpadded base32 in lower case into bytes, which must hold chars.Length * 5 / 8 bytes. Only
+    // the canonical encoding is accepted: no character left over and the unused bits of the last one zero,
+    // so each value has one string form.
     public static bool TryDecode(ReadOnlySpan<char> chars, Span<byte> bytes)
     {
         int buffer = 0, bits = 0, at = 0;

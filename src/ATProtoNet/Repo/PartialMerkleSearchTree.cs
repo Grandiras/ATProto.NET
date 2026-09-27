@@ -4,41 +4,37 @@ using System.Text;
 
 namespace ATProtoNet.Repo;
 
-/// <summary>
-/// A Merkle Search Tree held as its nodes, where a subtree may be known only by its CID: the
-/// partial tree the blocks of a firehose <c>#commit</c> carry. Keys can be inserted and removed
-/// along the paths that are loaded, and the root recomputed, which is how a commit's operations
-/// are inverted and checked against the previous root (Sync 1.1).
-/// </summary>
-/// <remarks>
-/// <para>This mirrors the node-based tree of indigo's <c>atproto/repo/mst</c> (<c>node.go</c>,
-/// <c>node_insert.go</c>, <c>node_remove.go</c>), which the reference relay and Tap invert commits
-/// with, operation for operation, so a commit either implementation accepts this one accepts too.
-/// <see cref="MerkleSearchTree"/> is the whole-tree counterpart: it cannot hold a subtree it has not
-/// loaded.</para>
-/// <para>Loading checks the structure the blocks show: valid keys in strictly increasing order
-/// within the range the parent leaves, every key of a node on the node's layer, and each loaded
-/// child one layer below its parent.</para>
-/// </remarks>
+// A Merkle Search Tree held as its nodes, where a subtree may be known only by its CID: the partial
+// tree the blocks of a firehose #commit carry. Keys can be inserted and removed along the paths that
+// are loaded, and the root recomputed, which is how a commit's operations are inverted and checked
+// against the previous root (Sync 1.1).
+//
+// This mirrors the node-based tree of indigo's atproto/repo/mst (node.go, node_insert.go,
+// node_remove.go), which the reference relay and Tap invert commits with, operation for operation, so
+// a commit either implementation accepts this one accepts too. MerkleSearchTree is the whole-tree
+// counterpart: it cannot hold a subtree it has not loaded.
+//
+// Loading checks the structure the blocks show: valid keys in strictly increasing order within the
+// range the parent leaves, every key of a node on the node's layer, and each loaded child one layer
+// below its parent.
 internal sealed class PartialMerkleSearchTree
 {
     private Node _root;
 
-    /// <summary>Encodes every changed node in turn when the root is recomputed.</summary>
+    // Encodes every changed node in turn when the root is recomputed.
     private CborWriter? _writer;
 
     private PartialMerkleSearchTree(Node root) => _root = root;
 
-    /// <summary>
-    /// Loads the tree under <paramref name="rootCid"/>, following every child
-    /// <paramref name="blocks"/> has and leaving the rest as CID-only references.
-    /// </summary>
-    /// <param name="rootCid">The root node's CID.</param>
-    /// <param name="blocks">Looks up a block's bytes by binary CID; null when the block is absent.</param>
-    /// <exception cref="FormatException">
-    /// The root block is missing, a node does not decode, or the loaded nodes are not a
-    /// well-formed MST.
-    /// </exception>
+    // Loads the tree under rootCid, following every child blocks has and leaving the rest as CID-only
+    // references.
+    //
+    // rootCid: The root node's CID.
+    //
+    // blocks: Looks up a block's bytes by binary CID; null when the block is absent.
+    //
+    // Throws FormatException: The root block is missing, a node does not decode, or the loaded nodes are
+    // not a well-formed MST.
     public static PartialMerkleSearchTree Load(byte[] rootCid, Func<byte[], byte[]?> blocks)
     {
         ArgumentNullException.ThrowIfNull(rootCid);
@@ -49,15 +45,15 @@ internal sealed class PartialMerkleSearchTree
         return new PartialMerkleSearchTree(LoadNode(rootCid, data, blocks, 0, null, null, expectedHeight: -1));
     }
 
-    /// <summary>Reads the value stored under <paramref name="key"/>, or null when the key is absent.</summary>
-    /// <exception cref="PartialTreeException">The path to the key runs through a subtree that is not loaded.</exception>
+    // Reads the value stored under key, or null when the key is absent.
+    //
+    // Throws PartialTreeException: The path to the key runs through a subtree that is not loaded.
     public byte[]? Get(string key) => _root.Get(Key(key), -1);
 
-    /// <summary>
-    /// Adds or updates <paramref name="key"/> and returns the value it held before, or null when
-    /// it was absent. Setting the value it already holds changes nothing and returns that value.
-    /// </summary>
-    /// <exception cref="PartialTreeException">The change touches a subtree that is not loaded.</exception>
+    // Adds or updates key and returns the value it held before, or null when it was absent. Setting the
+    // value it already holds changes nothing and returns that value.
+    //
+    // Throws PartialTreeException: The change touches a subtree that is not loaded.
     public byte[]? Insert(string key, byte[] value)
     {
         ArgumentNullException.ThrowIfNull(value);
@@ -66,8 +62,9 @@ internal sealed class PartialMerkleSearchTree
         return previous;
     }
 
-    /// <summary>Removes <paramref name="key"/> and returns the value it held, or null when it was absent.</summary>
-    /// <exception cref="PartialTreeException">The change touches a subtree that is not loaded.</exception>
+    // Removes key and returns the value it held, or null when it was absent.
+    //
+    // Throws PartialTreeException: The change touches a subtree that is not loaded.
     public byte[]? Remove(string key)
     {
         var (root, previous) = _root.Remove(Key(key), -1);
@@ -75,7 +72,7 @@ internal sealed class PartialMerkleSearchTree
         return previous;
     }
 
-    /// <summary>The root CID of the tree as it stands, encoding every node changed since loading.</summary>
+    // The root CID of the tree as it stands, encoding every node changed since loading.
     public byte[] RootCid() => _root is { Stub: true, Dirty: false, Cid: { } cid }
         ? cid
         : _root.Encode(_writer ??= new CborWriter(CborConformanceMode.Lax, initialCapacity: 4096));
@@ -167,23 +164,21 @@ internal sealed class PartialMerkleSearchTree
 
     // ── Types ────────────────────────────────────────────────
 
-    /// <summary>
-    /// One item of a node, in key order: a key and its value, or a link to the subtree between
-    /// the keys around it. At most one link sits between two keys.
-    /// </summary>
+    // One item of a node, in key order: a key and its value, or a link to the subtree between the keys
+    // around it. At most one link sits between two keys.
     private sealed class Entry
     {
         public byte[]? Key { get; set; }
 
         public byte[]? Value { get; set; }
 
-        /// <summary>The subtree's CID, as loaded or last encoded.</summary>
+        // The subtree's CID, as loaded or last encoded.
         public byte[]? ChildCid { get; set; }
 
-        /// <summary>The subtree, when it is loaded or was built here.</summary>
+        // The subtree, when it is loaded or was built here.
         public Node? Child { get; set; }
 
-        /// <summary>Whether the link changed since <see cref="ChildCid"/> was computed.</summary>
+        // Whether the link changed since ChildCid was computed.
         public bool Dirty { get; set; }
 
         public bool IsValue => Key is not null && Value is not null;
@@ -195,19 +190,17 @@ internal sealed class PartialMerkleSearchTree
     {
         public List<Entry> Entries { get; init; } = [];
 
-        /// <summary>The node's layer, counted from zero at the bottom of the tree.</summary>
+        // The node's layer, counted from zero at the bottom of the tree.
         public int Height { get; set; }
 
-        /// <summary>Whether <see cref="Cid"/> is out of date.</summary>
+        // Whether Cid is out of date.
         public bool Dirty { get; set; }
 
-        /// <summary>The node's CID, as loaded or last encoded.</summary>
+        // The node's CID, as loaded or last encoded.
         public byte[]? Cid { get; set; }
 
-        /// <summary>
-        /// A node known only by its CID: what is left at the top of the tree when a removal
-        /// empties the root down to a link to a subtree that is not loaded.
-        /// </summary>
+        // A node known only by its CID: what is left at the top of the tree when a removal empties the root
+        // down to a link to a subtree that is not loaded.
         public bool Stub { get; init; }
 
         public bool IsEmpty => Entries.Count == 0;
@@ -237,7 +230,7 @@ internal sealed class PartialMerkleSearchTree
             return index >= 0 ? Entries[index].Value : null;
         }
 
-        /// <summary>The index of the value entry holding exactly <paramref name="key"/>, or -1.</summary>
+        // The index of the value entry holding exactly key, or -1.
         private int FindExistingEntry(byte[] key)
         {
             for (var i = 0; i < Entries.Count; i++)
@@ -249,7 +242,7 @@ internal sealed class PartialMerkleSearchTree
             return -1;
         }
 
-        /// <summary>The index of the child entry whose range covers <paramref name="key"/>, or -1.</summary>
+        // The index of the child entry whose range covers key, or -1.
         private int FindExistingChild(byte[] key)
         {
             var index = -1;
@@ -273,10 +266,8 @@ internal sealed class PartialMerkleSearchTree
             return index;
         }
 
-        /// <summary>
-        /// Where a new entry for <paramref name="key"/> goes: the index to insert at, and whether
-        /// the key falls inside the child entry at that index, which must then be split.
-        /// </summary>
+        // Where a new entry for key goes: the index to insert at, and whether the key falls inside the child
+        // entry at that index, which must then be split.
         private (int Index, bool Split) FindInsertionIndex(byte[] key)
         {
             if (Stub)
@@ -309,10 +300,8 @@ internal sealed class PartialMerkleSearchTree
             return (Entries.Count, false);
         }
 
-        /// <summary>
-        /// Whether <paramref name="key"/> sorts below every key under this node (-1), above every
-        /// one (1), or within their range (0).
-        /// </summary>
+        // Whether key sorts below every key under this node (-1), above every one (1), or within their range
+        // (0).
         private int CompareKey(byte[] key)
         {
             if (Stub)
@@ -402,7 +391,7 @@ internal sealed class PartialMerkleSearchTree
             return (this, null);
         }
 
-        /// <summary>Splits this node's entries at <paramref name="index"/>.</summary>
+        // Splits this node's entries at index.
         private (Node Left, Node Right) SplitEntries(int index)
         {
             if (index == 0 || index >= Entries.Count)
@@ -413,7 +402,7 @@ internal sealed class PartialMerkleSearchTree
             return (left, right);
         }
 
-        /// <summary>Splits this subtree into the parts below and above <paramref name="key"/>.</summary>
+        // Splits this subtree into the parts below and above key.
         private (Node Left, Node Right) Split(byte[] key)
         {
             if (IsEmpty)
@@ -436,7 +425,7 @@ internal sealed class PartialMerkleSearchTree
             return (left, right);
         }
 
-        /// <summary>Puts a new node above this one and inserts into that.</summary>
+        // Puts a new node above this one and inserts into that.
         private (Node Node, byte[]? Previous) InsertParent(byte[] key, byte[] value, int height)
         {
             var parent = IsEmpty
@@ -447,7 +436,7 @@ internal sealed class PartialMerkleSearchTree
             return parent.Insert(key, value, height);
         }
 
-        /// <summary>Inserts into the child that covers the key, or a new child when none does.</summary>
+        // Inserts into the child that covers the key, or a new child when none does.
         private (Node Node, byte[]? Previous) InsertChild(byte[] key, byte[] value, int height)
         {
             var existing = FindExistingChild(key);
@@ -583,11 +572,9 @@ internal sealed class PartialMerkleSearchTree
 
         // ── Encoding ─────────────────────────────────────────
 
-        /// <summary>
-        /// Encodes this node, after any changed subtree, and returns its CID. The bytes are those
-        /// <see cref="MstNodeData.ToBytes"/> writes, written straight from the entries into one
-        /// reused writer: only the CID is kept.
-        /// </summary>
+        // Encodes this node, after any changed subtree, and returns its CID. The bytes are those
+        // MstNodeData.ToBytes writes, written straight from the entries into one reused writer: only the CID
+        // is kept.
         public byte[] Encode(CborWriter writer)
         {
             if (Stub)
@@ -650,8 +637,6 @@ internal sealed class PartialMerkleSearchTree
     }
 }
 
-/// <summary>
-/// An operation on a <see cref="PartialMerkleSearchTree"/> needed a subtree the diff did not
-/// carry: the commit's blocks do not cover its operations.
-/// </summary>
+// An operation on a PartialMerkleSearchTree needed a subtree the diff did not carry: the commit's
+// blocks do not cover its operations.
 internal sealed class PartialTreeException() : FormatException("The MST is not complete: an operation reaches a subtree whose block is missing.");

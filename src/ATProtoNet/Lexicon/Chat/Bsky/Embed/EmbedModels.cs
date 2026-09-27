@@ -9,20 +9,13 @@ namespace ATProtoNet.Lexicon.Chat.Bsky.Embed;
 
 // ── Embeds a message is sent with (chat.bsky.convo.defs#messageInput.embed) ──
 
-/// <summary>
-/// Content embedded in a message being sent (the open <c>chat.bsky.convo.defs#messageInput.embed</c>
-/// union): a <see cref="MessageRecordEmbed"/> or a <see cref="JoinLinkEmbed"/>. An embed this SDK
-/// does not model reads as <see cref="UnknownMessageEmbed"/>.
-/// </summary>
+/// <summary>Content embedded in a message being sent (the open <c>chat.bsky.convo.defs#messageInput.embed</c> union): a <see cref="MessageRecordEmbed"/> or a <see cref="JoinLinkEmbed"/>. An embed this SDK does not model reads as <see cref="UnknownMessageEmbed"/>.</summary>
 [AtProtoUnion(typeof(UnknownMessageEmbed))]
 [JsonDerivedType(typeof(MessageRecordEmbed), "app.bsky.embed.record")]
 [JsonDerivedType(typeof(JoinLinkEmbed), "chat.bsky.embed.joinLink")]
 public abstract class MessageEmbed : LexObject;
 
-/// <summary>
-/// A message embed whose <c>$type</c> this SDK version does not model. It keeps the raw object and
-/// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A message embed whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownMessageEmbed(string type, JsonElement raw) : MessageEmbed, IUnknownUnionVariant
@@ -52,21 +45,13 @@ public sealed class JoinLinkEmbed : MessageEmbed
 
 // ── Embeds a message is read with (chat.bsky.convo.defs#messageView.embed) ──
 
-/// <summary>
-/// Content embedded in a message as the chat service shows it (the open
-/// <c>chat.bsky.convo.defs#messageView.embed</c> union): a <see cref="MessageRecordEmbedView"/> or a
-/// <see cref="JoinLinkEmbedView"/>. An embed view this SDK does not model reads as
-/// <see cref="UnknownMessageEmbedView"/>.
-/// </summary>
+/// <summary>Content embedded in a message as the chat service shows it (the open <c>chat.bsky.convo.defs#messageView.embed</c> union): a <see cref="MessageRecordEmbedView"/> or a <see cref="JoinLinkEmbedView"/>. An embed view this SDK does not model reads as <see cref="UnknownMessageEmbedView"/>.</summary>
 [AtProtoUnion(typeof(UnknownMessageEmbedView))]
 [JsonDerivedType(typeof(MessageRecordEmbedView), "app.bsky.embed.record#view")]
 [JsonDerivedType(typeof(JoinLinkEmbedView), "chat.bsky.embed.joinLink#view")]
 public abstract class MessageEmbedView : LexObject;
 
-/// <summary>
-/// A message embed view whose <c>$type</c> this SDK version does not model. It keeps the raw object
-/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A message embed view whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownMessageEmbedView(string type, JsonElement raw) : MessageEmbedView, IUnknownUnionVariant
@@ -81,10 +66,7 @@ public sealed class UnknownMessageEmbedView(string type, JsonElement raw) : Mess
 /// <summary>The view of a record embedded in a message (<c>app.bsky.embed.record#view</c>).</summary>
 public sealed class MessageRecordEmbedView : MessageEmbedView
 {
-    /// <summary>
-    /// The embedded record: an <see cref="EmbeddedRecord"/> for a post, a placeholder when it
-    /// cannot be shown, or the view of a feed generator, list, labeler or starter pack.
-    /// </summary>
+    /// <inheritdoc cref="RecordEmbedView.Record"/>
     [JsonPropertyName("record")]
     public required EmbeddedRecordView Record { get; init; }
 }
@@ -92,11 +74,7 @@ public sealed class MessageRecordEmbedView : MessageEmbedView
 /// <summary>The view of a join link embedded in a message (<c>chat.bsky.embed.joinLink#view</c>).</summary>
 public sealed class JoinLinkEmbedView : MessageEmbedView
 {
-    /// <summary>
-    /// The group behind the link: a <see cref="JoinLinkPreviewView"/>, or a
-    /// <see cref="DisabledJoinLinkPreviewView"/> or <see cref="InvalidJoinLinkPreviewView"/> when
-    /// the link cannot be used.
-    /// </summary>
+    /// <summary>The group behind the link: a <see cref="JoinLinkPreviewView"/>, or a <see cref="DisabledJoinLinkPreviewView"/> or <see cref="InvalidJoinLinkPreviewView"/> when the link cannot be used.</summary>
     [JsonPropertyName("joinLinkPreview")]
     public required JoinLinkPreview JoinLinkPreview { get; init; }
 }

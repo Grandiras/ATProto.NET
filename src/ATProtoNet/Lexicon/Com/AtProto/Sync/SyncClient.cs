@@ -4,17 +4,11 @@ using ATProtoNet.Repo;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Sync;
 
-/// <summary>
-/// Client for com.atproto.sync.* XRPC endpoints.
-/// Handles repository sync operations and blob retrieval.
-/// </summary>
+/// <summary>Client for com.atproto.sync.* XRPC endpoints. Handles repository sync operations and blob retrieval.</summary>
 public sealed class SyncClient
 {
-    /// <summary>
-    /// The largest record proof <see cref="GetVerifiedRecordAsync"/> reads. A proof is one record
-    /// and a few tree nodes, far below this; the ceiling only stops a hostile server from making
-    /// the client buffer without end.
-    /// </summary>
+    // The largest record proof GetVerifiedRecordAsync reads. A proof is one record and a few tree nodes,
+    // far below this; the ceiling only stops a hostile server from making the client buffer without end.
     private const int MaxRecordProofBytes = 16 * 1024 * 1024;
 
     private readonly XrpcClient _xrpc;
@@ -49,11 +43,7 @@ public sealed class SyncClient
             "com.atproto.sync.getBlob", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Download the blocks that prove a record's presence or absence in the current version of a
-    /// repository, as a CAR file: the signed commit, the tree nodes on the path to the record, and
-    /// the record itself when it exists.
-    /// </summary>
+    /// <summary>Download the blocks that prove a record's presence or absence in the current version of a repository, as a CAR file: the signed commit, the tree nodes on the path to the record, and the record itself when it exists.</summary>
     /// <remarks>
     /// <see cref="GetVerifiedRecordAsync"/> downloads and verifies the proof in one call; this
     /// returns the raw CAR, for example to pass on or verify later with
@@ -75,11 +65,7 @@ public sealed class SyncClient
             "com.atproto.sync.getRecord", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Download a record together with its proof, and verify the proof against the repository's
-    /// signed commit: the record is then known to be what the account committed, whichever server
-    /// delivered it.
-    /// </summary>
+    /// <summary>Download a record together with its proof, and verify the proof against the repository's signed commit: the record is then known to be what the account committed, whichever server delivered it.</summary>
     /// <remarks>
     /// The signing key must come from a source you trust for the account — its DID document,
     /// resolved from the PLC directory or the <c>did:web</c> host — rather than from the server
@@ -215,10 +201,7 @@ public sealed class SyncClient
             "com.atproto.sync.requestCrawl", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Get the hosting status for a repository on this server.
-    /// Expected to be implemented by PDS and Relay.
-    /// </summary>
+    /// <summary>Get the hosting status for a repository on this server. Expected to be implemented by PDS and Relay.</summary>
     /// <param name="did">The DID of the repo.</param>
     public Task<GetRepoStatusResponse> GetRepoStatusAsync(
         Did did, CancellationToken cancellationToken = default)
@@ -228,10 +211,7 @@ public sealed class SyncClient
             "com.atproto.sync.getRepoStatus", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// List one page of the upstream hosts (PDS or relay instances) that this service consumes
-    /// from. Implemented by relays.
-    /// </summary>
+    /// <summary>List one page of the upstream hosts (PDS or relay instances) that this service consumes from. Implemented by relays.</summary>
     /// <param name="limit">Maximum number of results per page (default 200, max 1000).</param>
     /// <param name="cursor">Pagination cursor.</param>
     public Task<ListHostsResponse> ListHostsAsync(
@@ -257,10 +237,7 @@ public sealed class SyncClient
             "com.atproto.sync.getHostStatus", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// List one page of the DIDs which have records in the given collection.
-    /// Useful for efficient backfill of specific record types. New in Sync v1.1.
-    /// </summary>
+    /// <summary>List one page of the DIDs which have records in the given collection. Useful for efficient backfill of specific record types. New in Sync v1.1.</summary>
     /// <param name="collection">The collection NSID to filter by.</param>
     /// <param name="limit">Maximum number of results per page (default 500, max 2000).</param>
     /// <param name="cursor">Pagination cursor.</param>
@@ -279,10 +256,7 @@ public sealed class SyncClient
             "com.atproto.sync.listReposByCollection", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Reads a binary response into memory, or returns <see langword="null"/> once it is known to
-    /// exceed <paramref name="maxBytes"/>.
-    /// </summary>
+    // Reads a binary response into memory, or returns null once it is known to exceed maxBytes.
     private static async Task<byte[]?> ReadBoundedAsync(
         XrpcStreamResponse response, int maxBytes, CancellationToken cancellationToken)
     {

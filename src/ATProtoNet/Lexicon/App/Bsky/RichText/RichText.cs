@@ -1,9 +1,6 @@
 namespace ATProtoNet.Lexicon.App.Bsky.RichText;
 
-/// <summary>
-/// Post text together with its facets: the mentions, links and hashtags, located by UTF-8 byte
-/// offsets into <see cref="Text"/>.
-/// </summary>
+/// <summary>Post text together with its facets: the mentions, links and hashtags, located by UTF-8 byte offsets into <see cref="Text"/>.</summary>
 /// <remarks>
 /// A plain <see cref="string"/> converts to rich text without facets, so
 /// <c>client.Bsky.PostAsync("hello")</c> works as is. <see cref="RichTextBuilder.Build"/> produces
@@ -13,7 +10,7 @@ namespace ATProtoNet.Lexicon.App.Bsky.RichText;
 /// <param name="Facets">The facets; empty when the text has none.</param>
 public sealed record RichText(string Text, IReadOnlyList<Facet> Facets)
 {
-    /// <summary>The text.</summary>
+    /// <summary>The post's text that <see cref="Facets"/> indexes into.</summary>
     public string Text { get; init; } = Text ?? throw new ArgumentNullException(nameof(Text));
 
     /// <summary>The facets; empty when the text has none.</summary>

@@ -3,10 +3,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Actor;
 
-/// <summary>
-/// Client for app.bsky.actor.* XRPC endpoints.
-/// Handles profile lookups, suggestions, search, and preferences.
-/// </summary>
+/// <summary>Client for app.bsky.actor.* XRPC endpoints. Handles profile lookups, suggestions, search, and preferences.</summary>
 public sealed class ActorClient
 {
     private readonly XrpcClient _xrpc;

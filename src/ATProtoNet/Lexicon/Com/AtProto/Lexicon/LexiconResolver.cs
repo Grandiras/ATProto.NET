@@ -33,12 +33,7 @@ public interface ILexiconResolver
     Task InvalidateAsync(Nsid nsid, CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
 
-/// <summary>
-/// Resolves Lexicon schemas as the Lexicon specification describes: the authority's
-/// <c>_lexicon</c> DNS TXT record names a DID, the DID document names a PDS and a signing key, and
-/// the schema is the <c>com.atproto.lexicon.schema</c> record keyed by the NSID in that repository,
-/// fetched with its proof and verified against the signing key.
-/// </summary>
+/// <summary>Resolves Lexicon schemas as the Lexicon specification describes: the authority's <c>_lexicon</c> DNS TXT record names a DID, the DID document names a PDS and a signing key, and the schema is the <c>com.atproto.lexicon.schema</c> record keyed by the NSID in that repository, fetched with its proof and verified against the signing key.</summary>
 /// <remarks>
 /// <para>Resolution is not hierarchical: <c>app.example.feed.post</c> is looked up at
 /// <c>_lexicon.feed.example.app</c> and nowhere else, and the record must name exactly one DID.
@@ -101,11 +96,7 @@ public sealed class LexiconResolver : ILexiconResolver, IDisposable
         _logger = logger ?? NullLogger.Instance;
     }
 
-    /// <summary>
-    /// The DNS name whose TXT record names the authority of <paramref name="nsid"/>:
-    /// <c>_lexicon.</c> followed by the NSID's domain authority, its segments reversed and the name
-    /// dropped (<c>app.example.feed.post</c> → <c>_lexicon.feed.example.app</c>).
-    /// </summary>
+    /// <summary>The DNS name whose TXT record names the authority of <paramref name="nsid"/>: <c>_lexicon.</c> followed by the NSID's domain authority, its segments reversed and the name dropped (<c>app.example.feed.post</c> → <c>_lexicon.feed.example.app</c>).</summary>
     /// <returns>The DNS name, in lowercase.</returns>
     public static string GetDnsName(Nsid nsid)
     {
@@ -123,10 +114,7 @@ public sealed class LexiconResolver : ILexiconResolver, IDisposable
         return await ResolveAsync(nsid, authority, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Looks up the DID that publishes the schemas of <paramref name="nsid"/>'s authority, from the
-    /// <c>_lexicon</c> TXT record at <see cref="GetDnsName"/>.
-    /// </summary>
+    /// <summary>Looks up the DID that publishes the schemas of <paramref name="nsid"/>'s authority, from the <c>_lexicon</c> TXT record at <see cref="GetDnsName"/>.</summary>
     /// <returns>The authority's DID.</returns>
     /// <exception cref="LexiconResolutionException">
     /// Thrown with <see cref="LexiconResolutionErrorKind.AuthorityNotFound"/> when the name has no
@@ -188,11 +176,7 @@ public sealed class LexiconResolver : ILexiconResolver, IDisposable
         return did;
     }
 
-    /// <summary>
-    /// Resolves <paramref name="nsid"/> from the repository of a known authority, skipping the DNS
-    /// lookup — for a schema whose <c>_lexicon</c> record is not published yet, or an authority
-    /// learned some other way.
-    /// </summary>
+    /// <summary>Resolves <paramref name="nsid"/> from the repository of a known authority, skipping the DNS lookup — for a schema whose <c>_lexicon</c> record is not published yet, or an authority learned some other way.</summary>
     /// <param name="nsid">The NSID of the schema.</param>
     /// <param name="authority">The DID whose repository holds the schema record.</param>
     /// <returns>The schema, verified against the authority's signing key.</returns>
@@ -280,12 +264,10 @@ public sealed class LexiconResolver : ILexiconResolver, IDisposable
         return Validate(nsid, verified.Uri, verified.Cid!, verified.Value!.Value);
     }
 
-    /// <summary>
-    /// Checks that a fetched record is a Lexicon schema for <paramref name="nsid"/>: a
-    /// <c>com.atproto.lexicon.schema</c> record of language version 1, whose <c>id</c> is the NSID
-    /// and that has definitions.
-    /// </summary>
-    /// <exception cref="LexiconResolutionException">Thrown with <see cref="LexiconResolutionErrorKind.InvalidRecord"/>.</exception>
+    // Checks that a fetched record is a Lexicon schema for nsid: a com.atproto.lexicon.schema record of
+    // language version 1, whose id is the NSID and that has definitions.
+    //
+    // Throws LexiconResolutionException: Thrown with LexiconResolutionErrorKind.InvalidRecord.
     internal static ResolvedLexicon Validate(Nsid nsid, AtUri uri, Cid cid, JsonElement value)
     {
         if (value.ValueKind != JsonValueKind.Object ||
@@ -309,7 +291,6 @@ public sealed class LexiconResolver : ILexiconResolver, IDisposable
         return Validate(nsid, uri, cid, schema);
     }
 
-    /// <inheritdoc cref="Validate(Nsid, AtUri, Cid, JsonElement)"/>
     internal static ResolvedLexicon Validate(Nsid nsid, AtUri uri, Cid cid, LexiconSchemaRecord? schema)
     {
         if (schema is null)
@@ -338,25 +319,16 @@ public sealed class LexiconResolver : ILexiconResolver, IDisposable
 /// <summary>Why a Lexicon schema could not be resolved.</summary>
 public enum LexiconResolutionErrorKind
 {
-    /// <summary>
-    /// The NSID's authority names no DID: its <c>_lexicon</c> DNS record is missing, names more than
-    /// one DID, or names something that is not a DID.
-    /// </summary>
+    /// <summary>The NSID's authority names no DID: its <c>_lexicon</c> DNS record is missing, names more than one DID, or names something that is not a DID.</summary>
     AuthorityNotFound,
 
-    /// <summary>
-    /// DNS, the authority's DID document or its PDS could not be reached, refused, or answered
-    /// with an error.
-    /// </summary>
+    /// <summary>DNS, the authority's DID document or its PDS could not be reached, refused, or answered with an error.</summary>
     ResolutionFailed,
 
     /// <summary>The authority publishes no schema for the NSID.</summary>
     NotFound,
 
-    /// <summary>
-    /// The record's proof does not verify, or it is not a Lexicon schema for the NSID (another
-    /// <c>$type</c> or <c>id</c>, an unknown language version, no definitions).
-    /// </summary>
+    /// <summary>The record's proof does not verify, or it is not a Lexicon schema for the NSID (another <c>$type</c> or <c>id</c>, an unknown language version, no definitions).</summary>
     InvalidRecord,
 
     /// <summary>The schema resolved, but its <c>main</c> definition is not a permission set.</summary>
@@ -387,10 +359,7 @@ public sealed class LexiconResolutionException : AtProtoException
     public LexiconResolutionErrorKind Kind { get; }
 }
 
-/// <summary>
-/// Permission-set lookups on an <see cref="ILexiconResolver"/>: checking that the set an
-/// <c>include:</c> scope names exists before asking for it.
-/// </summary>
+/// <summary>Permission-set lookups on an <see cref="ILexiconResolver"/>: checking that the set an <c>include:</c> scope names exists before asking for it.</summary>
 /// <remarks>
 /// An authorization server fails an authorization request whose <c>include:</c> scope names a
 /// set it cannot resolve, so a client can check its scopes up front — at startup, or in a test —
@@ -452,10 +421,8 @@ public static class LexiconResolverExtensions
         return resolver.ResolvePermissionSetAsync(ParseIncludeScope(scope), cancellationToken);
     }
 
-    /// <summary>
-    /// The NSID an <c>include</c> scope names, positionally (<c>include:&lt;nsid&gt;</c>) or as its
-    /// <c>nsid</c> parameter (<c>include?nsid=&lt;nsid&gt;</c>).
-    /// </summary>
+    // The NSID an include scope names, positionally (include:<nsid>) or as its nsid parameter
+    // (include?nsid=<nsid>).
     internal static Nsid ParseIncludeScope(string scope)
     {
         const string Resource = "include";

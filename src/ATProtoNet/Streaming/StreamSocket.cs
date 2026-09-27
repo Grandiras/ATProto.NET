@@ -3,56 +3,53 @@ using System.Runtime.CompilerServices;
 
 namespace ATProtoNet.Streaming;
 
-/// <summary>One whole WebSocket message.</summary>
-/// <param name="Data">
-/// The message bytes. They live in the socket's receive buffer and are valid only until the next
-/// message is read; parse or copy them before moving on.
-/// </param>
-/// <param name="IsBinary">Whether the message was a binary frame rather than text.</param>
+// One whole WebSocket message.
+//
+// Data: The message bytes. They live in the socket's receive buffer and are valid only until the next
+// message is read; parse or copy them before moving on.
+//
+// IsBinary: Whether the message was a binary frame rather than text.
 internal readonly record struct StreamSocketMessage(ReadOnlyMemory<byte> Data, bool IsBinary);
 
-/// <summary>How a connection is opened, and the largest message it accepts.</summary>
-/// <param name="SubProtocol">The subprotocol to request, if any.</param>
-/// <param name="Authorization">The <c>Authorization</c> header value, if any.</param>
-/// <param name="Invoker">The HTTP stack to upgrade through, such as one that enforces an address policy; by default the socket's own.</param>
-/// <param name="MaxMessageBytes">The largest message accepted; by default <see cref="StreamSocket.MaxMessageBytes"/>.</param>
+// How a connection is opened, and the largest message it accepts.
+//
+// SubProtocol: The subprotocol to request, if any.
+//
+// Authorization: The Authorization header value, if any.
+//
+// Invoker: The HTTP stack to upgrade through, such as one that enforces an address policy; by default
+// the socket's own.
+//
+// MaxMessageBytes: The largest message accepted; by default StreamSocket.MaxMessageBytes.
 internal readonly record struct StreamSocketOptions(
     string? SubProtocol = null, string? Authorization = null, HttpMessageInvoker? Invoker = null, int? MaxMessageBytes = null);
 
-/// <summary>
-/// Opens a connection and reads its messages until the server closes it. The seam the stream
-/// consumers take, so tests can script connections.
-/// </summary>
+// Opens a connection and reads its messages until the server closes it. The seam the stream consumers
+// take, so tests can script connections.
 internal delegate IAsyncEnumerable<StreamSocketMessage> StreamConnector(
     Uri endpoint, StreamSocketOptions options, CancellationToken cancellationToken);
 
-/// <summary>A connection the client also writes to: the Tap channel acknowledges events over it.</summary>
+// A connection the client also writes to: the Tap channel acknowledges events over it.
 internal interface IDuplexStreamSocket : IAsyncDisposable
 {
-    /// <summary>
-    /// Reads the next whole message, or returns <see langword="null"/> once the server has closed
-    /// the connection. The returned bytes are valid until the next call.
-    /// </summary>
+    // Reads the next whole message, or returns null once the server has closed the connection. The
+    // returned bytes are valid until the next call.
     ValueTask<StreamSocketMessage?> ReceiveAsync(CancellationToken cancellationToken);
 
-    /// <summary>Sends one text message. At most one send may run at a time.</summary>
+    // Sends one text message. At most one send may run at a time.
     ValueTask SendTextAsync(ReadOnlyMemory<byte> utf8, CancellationToken cancellationToken);
 }
 
-/// <summary>Opens a connection the client can write to. The seam the Tap channel takes, so tests can script it.</summary>
+// Opens a connection the client can write to. The seam the Tap channel takes, so tests can script it.
 internal delegate ValueTask<IDuplexStreamSocket> DuplexStreamConnector(
     Uri endpoint, StreamSocketOptions options, CancellationToken cancellationToken);
 
-/// <summary>
-/// The one WebSocket client behind every event stream: connects, reassembles fragmented messages
-/// into a reused buffer, and closes the socket when the reader is done with it.
-/// </summary>
+// The one WebSocket client behind every event stream: connects, reassembles fragmented messages into a
+// reused buffer, and closes the socket when the reader is done with it.
 internal sealed class StreamSocket : IDuplexStreamSocket
 {
-    /// <summary>
-    /// The largest message accepted. A firehose commit carries at most 2 MB of blocks, so this is
-    /// generous; it only stops a misbehaving server from growing the buffer without bound.
-    /// </summary>
+    // The largest message accepted. A firehose commit carries at most 2 MB of blocks, so this is generous;
+    // it only stops a misbehaving server from growing the buffer without bound.
     internal const int MaxMessageBytes = 64 * 1024 * 1024;
 
     private const int InitialBufferBytes = 64 * 1024;
@@ -69,16 +66,17 @@ internal sealed class StreamSocket : IDuplexStreamSocket
         _maxMessageBytes = maxMessageBytes;
     }
 
-    /// <summary>The default <see cref="StreamConnector"/>: a real WebSocket connection.</summary>
+    // The default StreamConnector: a real WebSocket connection.
     public static StreamConnector Connector { get; } = ReadAllAsync;
 
-    /// <summary>The default <see cref="DuplexStreamConnector"/>: a real WebSocket connection.</summary>
+    // The default DuplexStreamConnector: a real WebSocket connection.
     public static DuplexStreamConnector DuplexConnector { get; } =
         async (endpoint, options, cancellationToken) => await ConnectAsync(endpoint, options, cancellationToken).ConfigureAwait(false);
 
-    /// <summary>Connects to <paramref name="endpoint"/>.</summary>
-    /// <exception cref="EventStreamException">The server refused the upgrade; carries the HTTP status
-    /// when the transport reported one.</exception>
+    // Connects to endpoint.
+    //
+    // Throws EventStreamException: The server refused the upgrade; carries the HTTP status when the
+    // transport reported one.
     public static async Task<StreamSocket> ConnectAsync(
         Uri endpoint, StreamSocketOptions options, CancellationToken cancellationToken)
     {
@@ -111,14 +109,11 @@ internal sealed class StreamSocket : IDuplexStreamSocket
         }
     }
 
-    /// <summary>
-    /// Reads the next whole message, or returns <see langword="null"/> once the server has closed
-    /// the connection. The returned bytes are valid until the next call.
-    /// </summary>
-    /// <exception cref="EventStreamException">
-    /// The server closed the connection abnormally and gave a reason, which is the
-    /// <see cref="EventStreamException.Error"/>; or a message was too large.
-    /// </exception>
+    // Reads the next whole message, or returns null once the server has closed the connection. The
+    // returned bytes are valid until the next call.
+    //
+    // Throws EventStreamException: The server closed the connection abnormally and gave a reason, which is
+    // the EventStreamException.Error; or a message was too large.
     public async ValueTask<StreamSocketMessage?> ReceiveAsync(CancellationToken cancellationToken)
     {
         while (true)
@@ -156,11 +151,11 @@ internal sealed class StreamSocket : IDuplexStreamSocket
         }
     }
 
-    /// <summary>Sends one text message. At most one send may run at a time.</summary>
+    // Sends one text message. At most one send may run at a time.
     public ValueTask SendTextAsync(ReadOnlyMemory<byte> utf8, CancellationToken cancellationToken) =>
         _socket.SendAsync(utf8, WebSocketMessageType.Text, endOfMessage: true, cancellationToken);
 
-    /// <summary>Closes the connection, if it is open, and releases the socket.</summary>
+    // Closes the connection, if it is open, and releases the socket.
     public async ValueTask DisposeAsync()
     {
         if (_socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
@@ -181,7 +176,7 @@ internal sealed class StreamSocket : IDuplexStreamSocket
         _socket.Dispose();
     }
 
-    /// <summary>Connects, then yields every message until the server closes the connection.</summary>
+    // Connects, then yields every message until the server closes the connection.
     private static async IAsyncEnumerable<StreamSocketMessage> ReadAllAsync(
         Uri endpoint, StreamSocketOptions options, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
@@ -193,6 +188,6 @@ internal sealed class StreamSocket : IDuplexStreamSocket
         }
     }
 
-    /// <summary>The endpoint for a log or exception message, without its query (cursor, filters).</summary>
+    // The endpoint for a log or exception message, without its query (cursor, filters).
     private static string Redact(Uri endpoint) => endpoint.GetLeftPart(UriPartial.Path);
 }

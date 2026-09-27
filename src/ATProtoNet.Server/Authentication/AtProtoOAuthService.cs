@@ -30,10 +30,10 @@ namespace ATProtoNet.Server.Authentication;
 /// </remarks>
 public sealed class AtProtoOAuthService : IDisposable
 {
-    /// <summary>How long a relayed login waits to be redeemed on its own origin.</summary>
+    // How long a relayed login waits to be redeemed on its own origin.
     internal static readonly TimeSpan RelayLifetime = TimeSpan.FromMinutes(2);
 
-    /// <summary>The most relayed logins waiting at once; beyond it the oldest is revoked.</summary>
+    // The most relayed logins waiting at once; beyond it the oldest is revoked.
     internal const int MaxRelayEntries = 256;
 
     private readonly AtProtoOAuthServerOptions _serverOptions;
@@ -51,24 +51,19 @@ public sealed class AtProtoOAuthService : IDisposable
     private string? _loopbackCallbackUrl;
     private volatile bool _disposed;
 
-    /// <param name="httpClient">
-    /// The named client <see cref="AtProtoOAuthExtensions.HttpClientName"/>, not owned. Without
-    /// one, the OAuth client creates its own under the identity fetch policy.
-    /// </param>
-    /// <param name="identityResolver">The registered resolver; without one, the OAuth client creates its own.</param>
-    /// <param name="identityOptions">
-    /// The handle resolution budget and the development opt-out for private networks, for the OAuth
-    /// client's own resolver and its metadata requests.
-    /// </param>
-    /// <param name="server">
-    /// The server, whose plain HTTP address the development loopback client's callback uses when
-    /// neither <see cref="AtProtoOAuthServerOptions.BaseUrl"/> nor
-    /// <see cref="AtProtoOAuthServerOptions.ClientMetadata"/> is set.
-    /// </param>
-    /// <param name="refreshCoordinator">
-    /// The client factory's coordinator: storing a new session and signing out take the account's
-    /// lock too, so neither interleaves with a refresh.
-    /// </param>
+    // httpClient: The named client AtProtoOAuthExtensions.HttpClientName, not owned. Without one, the
+    // OAuth client creates its own under the identity fetch policy.
+    //
+    // identityResolver: The registered resolver; without one, the OAuth client creates its own.
+    //
+    // identityOptions: The handle resolution budget and the development opt-out for private networks, for
+    // the OAuth client's own resolver and its metadata requests.
+    //
+    // server: The server, whose plain HTTP address the development loopback client's callback uses when
+    // neither AtProtoOAuthServerOptions.BaseUrl nor AtProtoOAuthServerOptions.ClientMetadata is set.
+    //
+    // refreshCoordinator: The client factory's coordinator: storing a new session and signing out take the
+    // account's lock too, so neither interleaves with a refresh.
     internal AtProtoOAuthService(
         AtProtoOAuthServerOptions serverOptions,
         ILoggerFactory loggerFactory,
@@ -92,13 +87,13 @@ public sealed class AtProtoOAuthService : IDisposable
         _refreshCoordinator = refreshCoordinator;
     }
 
-    /// <summary>The coordinator a new session is stored under and a sign-out waits on.</summary>
+    // The coordinator a new session is stored under and a sign-out waits on.
     internal ISessionRefreshCoordinator? RefreshCoordinator => _refreshCoordinator;
 
-    /// <summary>The clock relayed logins expire by.</summary>
+    // The clock relayed logins expire by.
     internal TimeProvider TimeProvider { get; init; } = TimeProvider.System;
 
-    /// <summary>How many relayed logins are waiting to be redeemed.</summary>
+    // How many relayed logins are waiting to be redeemed.
     internal int PendingRelayCount => _relayCodes.Count;
 
     /// <summary>
@@ -403,10 +398,8 @@ public sealed class AtProtoOAuthService : IDisposable
         return entry.ReturnUrl;
     }
 
-    /// <summary>
-    /// Keeps a relay entry under a new one-time code until its expiry, when a session it still
-    /// holds is revoked, and returns the code.
-    /// </summary>
+    // Keeps a relay entry under a new one-time code until its expiry, when a session it still holds is
+    // revoked, and returns the code.
     internal string AddRelayEntry(RelayEntry entry)
     {
         var code = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
@@ -422,11 +415,8 @@ public sealed class AtProtoOAuthService : IDisposable
         return code;
     }
 
-    /// <summary>
-    /// Drops the relay entries whose time is up, revoking the sessions nobody came back for: a
-    /// relayed login holds tokens the authorization server has issued, and they would otherwise
-    /// stay live there.
-    /// </summary>
+    // Drops the relay entries whose time is up, revoking the sessions nobody came back for: a relayed
+    // login holds tokens the authorization server has issued, and they would otherwise stay live there.
     internal void CleanupExpiredRelayCodes()
     {
         var now = TimeProvider.GetUtcNow();
@@ -462,7 +452,7 @@ public sealed class AtProtoOAuthService : IDisposable
         }
     }
 
-    /// <summary>The callback URL a login started from <paramref name="context"/> registers.</summary>
+    // The callback URL a login started from context registers.
     private string CallbackUrl(HttpContext context)
     {
         if (!string.IsNullOrWhiteSpace(_serverOptions.BaseUrl))
@@ -482,11 +472,9 @@ public sealed class AtProtoOAuthService : IDisposable
         return _loopbackCallbackUrl!;
     }
 
-    /// <summary>
-    /// The development loopback client's callback: <see cref="AtProtoOAuthServerOptions.BaseUrl"/>,
-    /// or the server's plain HTTP address on a loopback IP, which AT Protocol loopback clients
-    /// require even when the browser uses HTTPS.
-    /// </summary>
+    // The development loopback client's callback: AtProtoOAuthServerOptions.BaseUrl, or the server's plain
+    // HTTP address on a loopback IP, which AT Protocol loopback clients require even when the browser uses
+    // HTTPS.
     private string LoopbackCallbackUrl()
     {
         if (!string.IsNullOrWhiteSpace(_serverOptions.BaseUrl))
@@ -505,11 +493,9 @@ public sealed class AtProtoOAuthService : IDisposable
             "example http://127.0.0.1:5000), set BaseUrl, or configure ClientMetadata for a client_id you publish.");
     }
 
-    /// <summary>
-    /// The loopback origin a server address is reached at over plain HTTP: <c>http://127.0.0.1:port</c>
-    /// for a loopback, <c>localhost</c> or any-address binding, <c>http://[::1]:port</c> for the
-    /// IPv6 loopback, and <see langword="null"/> for anything else.
-    /// </summary>
+    // The loopback origin a server address is reached at over plain HTTP: http://127.0.0.1:port for a
+    // loopback, localhost or any-address binding, http://[::1]:port for the IPv6 loopback, and null for
+    // anything else.
     internal static string? TryGetLoopbackHttpOrigin(string address)
     {
         const string scheme = "http://";
@@ -593,11 +579,8 @@ public sealed class AtProtoOAuthService : IDisposable
         AllowRefresh = true,
     };
 
-    /// <summary>
-    /// Stores the session server-side when an <see cref="IAtProtoSessionStore"/> is registered,
-    /// under the account's refresh lock, so a refresh of the account's previous session cannot
-    /// overwrite it.
-    /// </summary>
+    // Stores the session server-side when an IAtProtoSessionStore is registered, under the account's
+    // refresh lock, so a refresh of the account's previous session cannot overwrite it.
     private async Task StoreSessionAsync(HttpContext context, OAuthSession session, CancellationToken cancellationToken)
     {
         if (context.RequestServices?.GetService<IAtProtoSessionStore>() is { } sessionStore)
@@ -612,7 +595,7 @@ public sealed class AtProtoOAuthService : IDisposable
     private async ValueTask<IAsyncDisposable> AcquireRefreshLeaseAsync(Did did, CancellationToken cancellationToken) =>
         _refreshCoordinator is null ? NoLease.Instance : await _refreshCoordinator.AcquireAsync(did, cancellationToken).ConfigureAwait(false);
 
-    /// <summary>Revokes a session this service refuses to sign in with, best effort.</summary>
+    // Revokes a session this service refuses to sign in with, best effort.
     private async Task RevokeQuietlyAsync(OAuthClient client, OAuthSession session)
     {
         try
@@ -625,7 +608,7 @@ public sealed class AtProtoOAuthService : IDisposable
         }
     }
 
-    /// <summary>Revokes the session of a relayed login nobody redeemed, without waiting.</summary>
+    // Revokes the session of a relayed login nobody redeemed, without waiting.
     private void RevokeInBackground(OAuthSession? session, string reason)
     {
         if (session is null || _disposed || _oauthClient is not { } client)
@@ -645,21 +628,25 @@ public sealed class AtProtoOAuthService : IDisposable
         });
     }
 
-    /// <summary>
-    /// Stores the authentication result for a one-time cookie relay redirect,
-    /// allowing the SDK to issue the cookie on the user's actual browsing domain.
-    /// </summary>
-    /// <param name="Principal">The user to sign in.</param>
-    /// <param name="Properties">The authentication cookie's properties.</param>
-    /// <param name="ReturnUrl">Where to send the browser afterwards; a local URL.</param>
-    /// <param name="Expiry">When the relay code stops working.</param>
-    /// <param name="Session">The session to store once the browser is confirmed, if any.</param>
-    /// <param name="BindingHash">The hash of the binding cookie the redeeming browser must present.</param>
+    // Stores the authentication result for a one-time cookie relay redirect, allowing the SDK to issue the
+    // cookie on the user's actual browsing domain.
+    //
+    // Principal: The user to sign in.
+    //
+    // Properties: The authentication cookie's properties.
+    //
+    // ReturnUrl: Where to send the browser afterwards; a local URL.
+    //
+    // Expiry: When the relay code stops working.
+    //
+    // Session: The session to store once the browser is confirmed, if any.
+    //
+    // BindingHash: The hash of the binding cookie the redeeming browser must present.
     internal sealed record RelayEntry(
         ClaimsPrincipal Principal, AuthenticationProperties Properties,
         string ReturnUrl, DateTimeOffset Expiry, OAuthSession? Session, string BindingHash);
 
-    /// <summary>A waiting relay entry and the timer that expires it.</summary>
+    // A waiting relay entry and the timer that expires it.
     private sealed class RelayCode(RelayEntry entry)
     {
         public RelayEntry Entry { get; } = entry;

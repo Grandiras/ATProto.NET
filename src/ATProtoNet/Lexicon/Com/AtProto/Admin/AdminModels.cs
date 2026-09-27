@@ -102,10 +102,7 @@ public sealed record SearchAccountsResponse : CursorPage<AccountInfo>
 /// <summary>Response from getSubjectStatus.</summary>
 public sealed class GetSubjectStatusResponse
 {
-    /// <summary>
-    /// The subject the status applies to: a <see cref="RepoSubject"/>, <see cref="RecordSubject"/>
-    /// or <see cref="RepoBlobSubject"/>.
-    /// </summary>
+    /// <summary>The subject the status applies to: a <see cref="RepoSubject"/>, <see cref="RecordSubject"/> or <see cref="RepoBlobSubject"/>.</summary>
     [JsonPropertyName("subject")]
     public required ModerationSubject Subject { get; init; }
 
@@ -135,10 +132,7 @@ public sealed class SubjectStatusDetail : LexObject
 /// <summary>Request body for updateSubjectStatus.</summary>
 public sealed class UpdateSubjectStatusRequest
 {
-    /// <summary>
-    /// The subject to update: a <see cref="RepoSubject"/>, <see cref="RecordSubject"/> or
-    /// <see cref="RepoBlobSubject"/>.
-    /// </summary>
+    /// <summary>The subject to update: a <see cref="RepoSubject"/>, <see cref="RecordSubject"/> or <see cref="RepoBlobSubject"/>.</summary>
     [JsonPropertyName("subject")]
     public required ModerationSubject Subject { get; init; }
 
@@ -199,35 +193,28 @@ public sealed class SendEmailResponse
 
 // ── com.atproto.admin account management ─────────────────────
 
-/// <summary>Request body for admin deleteAccount.</summary>
 internal sealed record AdminDeleteAccountRequest([property: JsonPropertyName("did")] Did Did);
 
-/// <summary>Request body for disableAccountInvites and enableAccountInvites.</summary>
 internal sealed record AccountInvitesRequest(
     [property: JsonPropertyName("account")] Did Account,
     [property: JsonPropertyName("note")] string? Note = null);
 
-/// <summary>Request body for updateAccountEmail.</summary>
 internal sealed record UpdateAccountEmailRequest(
     [property: JsonPropertyName("account")] AtIdentifier Account,
     [property: JsonPropertyName("email")] string Email);
 
-/// <summary>Request body for updateAccountHandle.</summary>
 internal sealed record UpdateAccountHandleRequest(
     [property: JsonPropertyName("did")] Did Did,
     [property: JsonPropertyName("handle")] Handle Handle);
 
-/// <summary>Request body for updateAccountPassword.</summary>
 internal sealed record UpdateAccountPasswordRequest(
     [property: JsonPropertyName("did")] Did Did,
     [property: JsonPropertyName("password")] string Password);
 
-/// <summary>Request body for updateAccountSigningKey.</summary>
 internal sealed record UpdateAccountSigningKeyRequest(
     [property: JsonPropertyName("did")] Did Did,
     [property: JsonPropertyName("signingKey")] Did SigningKey);
 
-/// <summary>Request body for disableInviteCodes.</summary>
 internal sealed record DisableInviteCodesRequest(
     [property: JsonPropertyName("codes")] IReadOnlyList<string>? Codes = null,
     [property: JsonPropertyName("accounts")] IReadOnlyList<string>? Accounts = null);

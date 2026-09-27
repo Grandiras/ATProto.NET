@@ -20,10 +20,7 @@ public sealed record QueryLabelsResponse : CursorPage<Models.Label>
 
 // ── com.atproto.label.subscribeLabels (event stream) ─────────
 
-/// <summary>
-/// A message of the <c>com.atproto.label.subscribeLabels</c> event stream: a sequenced
-/// <see cref="LabelsEvent"/>, or a <see cref="LabelInfoEvent"/>.
-/// </summary>
+/// <summary>A message of the <c>com.atproto.label.subscribeLabels</c> event stream: a sequenced <see cref="LabelsEvent"/>, or a <see cref="LabelInfoEvent"/>.</summary>
 /// <remarks>
 /// The event-stream frame header names the variant (<c>#labels</c>, <c>#info</c>); the body
 /// carries no <c>$type</c>. <see cref="Streaming.LabelStreamConsumer"/> reads both.
@@ -44,11 +41,7 @@ public sealed class LabelsEvent : LabelStreamMessage
     [JsonPropertyName("labels")]
     public required IReadOnlyList<Models.Label> Labels { get; init; }
 
-    /// <summary>
-    /// The outcome of verifying each of <see cref="Labels"/>, in the same order, when the consumer
-    /// that read the event verifies (<see cref="Streaming.LabelStreamConsumerOptions.Verifier"/>);
-    /// otherwise <see langword="null"/>. Not part of the wire format.
-    /// </summary>
+    /// <summary>The outcome of verifying each of <see cref="Labels"/>, in the same order, when the consumer that read the event verifies (<see cref="Streaming.LabelStreamConsumerOptions.Verifier"/>); otherwise <see langword="null"/>. Not part of the wire format.</summary>
     /// <remarks>
     /// A label that did not verify is still delivered, in both lists: what to do with it is the
     /// caller's choice.
@@ -57,10 +50,7 @@ public sealed class LabelsEvent : LabelStreamMessage
     public IReadOnlyList<LabelVerificationResult>? Verification { get; init; }
 }
 
-/// <summary>
-/// An informational message from the labeler, such as <c>OutdatedCursor</c> when the requested
-/// cursor predates its retention window. It is not sequenced and does not move the cursor.
-/// </summary>
+/// <summary>An informational message from the labeler, such as <c>OutdatedCursor</c> when the requested cursor predates its retention window. It is not sequenced and does not move the cursor.</summary>
 public sealed class LabelInfoEvent : LabelStreamMessage
 {
     /// <summary>The notice's name, such as <c>OutdatedCursor</c>.</summary>

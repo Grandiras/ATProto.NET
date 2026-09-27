@@ -20,10 +20,7 @@ public sealed class LexiconClient : ILexiconResolver
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Asks the service to resolve an NSID to its published schema
-    /// (<c>com.atproto.lexicon.resolveLexicon</c>).
-    /// </summary>
+    /// <summary>Asks the service to resolve an NSID to its published schema (<c>com.atproto.lexicon.resolveLexicon</c>).</summary>
     /// <param name="nsid">The NSID of the schema.</param>
     /// <returns>The schema record, its AT URI and its CID, as the service reports them.</returns>
     /// <exception cref="XrpcException">
@@ -38,13 +35,10 @@ public sealed class LexiconClient : ILexiconResolver
             "com.atproto.lexicon.resolveLexicon", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <inheritdoc/>
-    /// <remarks>
-    /// Calls <see cref="ResolveLexiconAsync"/>, reporting <see cref="XrpcErrors.LexiconNotFound"/> as
-    /// <see cref="LexiconResolutionErrorKind.NotFound"/>, any other failure as
-    /// <see cref="LexiconResolutionErrorKind.ResolutionFailed"/>, and a schema that is not the one
-    /// asked for as <see cref="LexiconResolutionErrorKind.InvalidRecord"/>.
-    /// </remarks>
+    // Calls ResolveLexiconAsync, reporting XrpcErrors.LexiconNotFound as
+    // LexiconResolutionErrorKind.NotFound, any other failure as
+    // LexiconResolutionErrorKind.ResolutionFailed, and a schema that is not the one asked for as
+    // LexiconResolutionErrorKind.InvalidRecord.
     async Task<ResolvedLexicon> ILexiconResolver.ResolveAsync(Nsid nsid, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(nsid);

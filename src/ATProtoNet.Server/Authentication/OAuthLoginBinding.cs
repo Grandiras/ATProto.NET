@@ -8,14 +8,15 @@ using Microsoft.AspNetCore.Http;
 
 namespace ATProtoNet.Server.Authentication;
 
-/// <summary>
-/// What a login's callback needs from its start, kept server-side as the pending authorization's
-/// <see cref="OAuthAuthorizationOptions.AppState"/>: the origin the browser started on, where to
-/// send it afterwards, and a hash of the browser's binding cookie.
-/// </summary>
-/// <param name="Origin">The origin the login started on.</param>
-/// <param name="ReturnUrl">The local URL to return to, already checked with <see cref="OAuthLoginBinding.IsLocalUrl"/>.</param>
-/// <param name="BindingHash">The SHA-256 of the binding cookie's value, lower-case hex.</param>
+// What a login's callback needs from its start, kept server-side as the pending authorization's
+// OAuthAuthorizationOptions.AppState: the origin the browser started on, where to send it afterwards,
+// and a hash of the browser's binding cookie.
+//
+// Origin: The origin the login started on.
+//
+// ReturnUrl: The local URL to return to, already checked with OAuthLoginBinding.IsLocalUrl.
+//
+// BindingHash: The SHA-256 of the binding cookie's value, lower-case hex.
 internal sealed record OAuthLoginState(
     [property: JsonPropertyName("origin")] string Origin,
     [property: JsonPropertyName("returnUrl")] string? ReturnUrl,
@@ -23,14 +24,11 @@ internal sealed record OAuthLoginState(
 {
     public string Serialize() => JsonSerializer.Serialize(this);
 
-    /// <summary>
-    /// Reads the state back, checking it again: it comes from a state store, which may be shared
-    /// with other applications or tampered with, and decides where the browser is redirected.
-    /// </summary>
-    /// <returns>
-    /// The state, with a return URL that is not local dropped; <see langword="null"/> when there is
-    /// none, it is malformed, or its origin is not a bare <c>http</c> or <c>https</c> origin.
-    /// </returns>
+    // Reads the state back, checking it again: it comes from a state store, which may be shared with other
+    // applications or tampered with, and decides where the browser is redirected.
+    //
+    // Returns: The state, with a return URL that is not local dropped; null when there is none, it is
+    // malformed, or its origin is not a bare http or https origin.
     public static OAuthLoginState? TryParse(string? json)
     {
         if (string.IsNullOrEmpty(json))
@@ -52,10 +50,8 @@ internal sealed record OAuthLoginState(
         return OAuthLoginBinding.IsLocalUrl(state.ReturnUrl) ? state : state with { ReturnUrl = null };
     }
 
-    /// <summary>
-    /// Whether <paramref name="value"/> is an <c>http</c> or <c>https</c> origin and nothing more:
-    /// scheme, host and optional port, with no user info, path, query or fragment.
-    /// </summary>
+    // Whether value is an http or https origin and nothing more: scheme, host and optional port, with no
+    // user info, path, query or fragment.
     private static bool IsOrigin(string value)
     {
         if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) ||
@@ -69,26 +65,24 @@ internal sealed record OAuthLoginState(
     }
 }
 
-/// <summary>Binds a login to the browser that started it, and keeps its return URL local.</summary>
-/// <remarks>
-/// <para>The OAuth <c>state</c> ties a callback to a pending authorization, not to a browser.
-/// Without a binding, anyone could start a login for their own account and send the callback URL
-/// to someone else, whose browser would then be signed in as them. So the login endpoint gives
-/// the browser a random value in an HttpOnly, SameSite=Lax cookie and keeps only its hash with
-/// the pending authorization, and the callback (or, across loopback origins, the relay) accepts
-/// the login only from a browser presenting it.</para>
-/// <para>Over HTTPS the cookie carries the <c>__Host-</c> prefix, which a sibling subdomain cannot
-/// set, so the binding cannot be planted from one.</para>
-/// </remarks>
+// Binds a login to the browser that started it, and keeps its return URL local.
+//
+// The OAuth state ties a callback to a pending authorization, not to a browser. Without a binding,
+// anyone could start a login for their own account and send the callback URL to someone else, whose
+// browser would then be signed in as them. So the login endpoint gives the browser a random value in
+// an HttpOnly, SameSite=Lax cookie and keeps only its hash with the pending authorization, and the
+// callback (or, across loopback origins, the relay) accepts the login only from a browser presenting
+// it.
+//
+// Over HTTPS the cookie carries the __Host- prefix, which a sibling subdomain cannot set, so the
+// binding cannot be planted from one.
 internal static class OAuthLoginBinding
 {
     private const string SecureCookieName = "__Host-atproto-oauth-binding";
     private const string PlainCookieName = "atproto-oauth-binding";
 
-    /// <summary>
-    /// Gives the browser its binding cookie, reusing the value it already holds so that logins
-    /// started in two tabs both complete, and returns the value's hash.
-    /// </summary>
+    // Gives the browser its binding cookie, reusing the value it already holds so that logins started in
+    // two tabs both complete, and returns the value's hash.
     public static string Issue(HttpContext context)
     {
         var name = CookieName(context.Request);
@@ -100,7 +94,7 @@ internal static class OAuthLoginBinding
         return Hash(value);
     }
 
-    /// <summary>Whether the request carries the binding cookie whose hash is <paramref name="expectedHash"/>.</summary>
+    // Whether the request carries the binding cookie whose hash is expectedHash.
     public static bool Verify(HttpContext context, string expectedHash)
     {
         if (context.Request.Cookies[CookieName(context.Request)] is not { Length: > 0 } value)
@@ -110,15 +104,12 @@ internal static class OAuthLoginBinding
             Encoding.ASCII.GetBytes(Hash(value)), Encoding.ASCII.GetBytes(expectedHash));
     }
 
-    /// <summary>Removes the binding cookie once a login has completed.</summary>
+    // Removes the binding cookie once a login has completed.
     public static void Clear(HttpContext context) =>
         context.Response.Cookies.Delete(CookieName(context.Request), Options(context.Request, maxAge: null));
 
-    /// <summary>
-    /// Whether <paramref name="url"/> is a local URL, with ASP.NET Core's <c>IsLocalUrl</c> rules:
-    /// a path starting with a single <c>/</c> (not <c>//</c> or <c>/\</c>, which browsers treat as
-    /// another host), and no control characters.
-    /// </summary>
+    // Whether url is a local URL, with ASP.NET Core's IsLocalUrl rules: a path starting with a single /
+    // (not // or /\, which browsers treat as another host), and no control characters.
     public static bool IsLocalUrl(string? url)
     {
         if (string.IsNullOrEmpty(url) || url[0] != '/')
@@ -139,10 +130,8 @@ internal static class OAuthLoginBinding
         return true;
     }
 
-    /// <summary>
-    /// Whether an origin is a loopback one: the only kind a login may move between, from the
-    /// browser's <c>https://localhost</c> to a loopback client's <c>http://127.0.0.1</c> callback.
-    /// </summary>
+    // Whether an origin is a loopback one: the only kind a login may move between, from the browser's
+    // https://localhost to a loopback client's http://127.0.0.1 callback.
     public static bool IsLoopbackOrigin(string origin) =>
         Uri.TryCreate(origin, UriKind.Absolute, out var uri) &&
         (uri.IsLoopback || string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase));

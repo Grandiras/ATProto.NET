@@ -3,10 +3,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Server;
 
-/// <summary>
-/// Client for com.atproto.server.* XRPC endpoints.
-/// Handles session management, account creation, and server administration.
-/// </summary>
+/// <summary>Client for com.atproto.server.* XRPC endpoints. Handles session management, account creation, and server administration.</summary>
 /// <remarks>
 /// Like every Lexicon sub-client it is stateless: the session calls return the tokens they are
 /// given and take the ones they need, but never install or clear the client's session. To sign
@@ -22,11 +19,7 @@ public sealed class ServerClient
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Create an authentication session (sign in). The request carries no credentials, and the
-    /// tokens returned are not installed on the client; <see cref="AtProtoClient.LoginAsync"/>
-    /// does both.
-    /// </summary>
+    /// <summary>Create an authentication session (sign in). The request carries no credentials, and the tokens returned are not installed on the client; <see cref="AtProtoClient.LoginAsync"/> does both.</summary>
     /// <param name="identifier">The account's handle, DID or email address.</param>
     /// <param name="password">The password or app password.</param>
     /// <param name="authFactorToken">The emailed second-factor token, when the account needs one.</param>
@@ -48,10 +41,7 @@ public sealed class ServerClient
             "com.atproto.server.createSession", request, bearerToken: null, cancellationToken);
     }
 
-    /// <summary>
-    /// Exchange a refresh JWT for new session tokens. The refresh JWT is single-use: after this
-    /// call only the one returned is valid.
-    /// </summary>
+    /// <summary>Exchange a refresh JWT for new session tokens. The refresh JWT is single-use: after this call only the one returned is valid.</summary>
     /// <param name="refreshJwt">The session's refresh JWT.</param>
     public Task<SessionResponse> RefreshSessionAsync(string refreshJwt, CancellationToken cancellationToken = default)
     {
@@ -65,10 +55,7 @@ public sealed class ServerClient
         _xrpc.QueryAsync<GetSessionResponse>(
             "com.atproto.server.getSession", options: XrpcClient.Direct, cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Delete a session on the server (sign out), invalidating its refresh JWT. The client's own
-    /// session is left installed; <see cref="AtProtoClient.LogoutAsync"/> clears it as well.
-    /// </summary>
+    /// <summary>Delete a session on the server (sign out), invalidating its refresh JWT. The client's own session is left installed; <see cref="AtProtoClient.LogoutAsync"/> clears it as well.</summary>
     /// <param name="refreshJwt">The refresh JWT of the session to delete, as the Lexicon requires.</param>
     public Task DeleteSessionAsync(string refreshJwt, CancellationToken cancellationToken = default)
     {
@@ -77,11 +64,7 @@ public sealed class ServerClient
             "com.atproto.server.deleteSession", body: null, refreshJwt, cancellationToken);
     }
 
-    /// <summary>
-    /// Create a new account on the server. The request carries no credentials, and the session
-    /// returned is not installed on the client; <see cref="AtProtoClient.CreateAccountAndLoginAsync"/>
-    /// does that too.
-    /// </summary>
+    /// <summary>Create a new account on the server. The request carries no credentials, and the session returned is not installed on the client; <see cref="AtProtoClient.CreateAccountAndLoginAsync"/> does that too.</summary>
     /// <param name="request">The account to create.</param>
     public Task<CreateAccountResponse> CreateAccountAsync(
         CreateAccountRequest request,

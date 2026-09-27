@@ -7,11 +7,7 @@ using ATProtoNet.Lexicon.Site.Standard.Publication;
 
 namespace ATProtoNet.Lexicon.Site.Standard;
 
-/// <summary>
-/// Client for Standard.site lexicons — long-form publishing on AT Protocol.
-/// Provides convenience methods for managing publications, documents, subscriptions and
-/// recommendations using the underlying repo record operations.
-/// </summary>
+/// <summary>Client for Standard.site lexicons — long-form publishing on AT Protocol. Provides convenience methods for managing publications, documents, subscriptions and recommendations using the underlying repo record operations.</summary>
 public sealed class StandardSiteClient
 {
     private static readonly Nsid PublicationCollection = Nsid.Parse("site.standard.publication");
@@ -54,10 +50,7 @@ public sealed class StandardSiteClient
             cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get the publication record an AT URI names, such as a
-    /// <see cref="SubscriptionRecord.Publication"/>.
-    /// </summary>
+    /// <summary>Get the publication record an AT URI names, such as a <see cref="SubscriptionRecord.Publication"/>.</summary>
     /// <param name="uri">The publication's AT URI.</param>
     /// <exception cref="ArgumentException"><paramref name="uri"/> does not name a publication record.</exception>
     public Task<RecordView<PublicationRecord>> GetPublicationAsync(

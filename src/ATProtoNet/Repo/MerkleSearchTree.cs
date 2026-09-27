@@ -24,22 +24,18 @@ namespace ATProtoNet.Repo;
 /// </remarks>
 public sealed class MerkleSearchTree
 {
-    /// <summary>
-    /// Deepest node chain <see cref="Deserialize"/> follows. A layer is two bits of a SHA-256
-    /// leading-zero count, so a real tree of any size is a dozen layers deep at most.
-    /// </summary>
+    // Deepest node chain Deserialize follows. A layer is two bits of a SHA-256 leading-zero count, so a
+    // real tree of any size is a dozen layers deep at most.
     internal const int MaxTreeDepth = 64;
 
-    /// <summary>Longest valid MST key, in characters.</summary>
+    // Longest valid MST key, in characters.
     private const int MaxKeyLength = 1024;
 
-    /// <summary>Every entry, in key order. For valid (ASCII) keys ordinal order is byte order.</summary>
+    // Every entry, in key order. For valid (ASCII) keys ordinal order is byte order.
     private readonly SortedDictionary<string, Leaf> _entries = new(StringComparer.Ordinal);
 
-    /// <summary>
-    /// The root CID the tree was loaded from, kept until the first edit so that
-    /// <see cref="Validate"/> can compare the canonical rebuild against it.
-    /// </summary>
+    // The root CID the tree was loaded from, kept until the first edit so that Validate can compare the
+    // canonical rebuild against it.
     private byte[]? _loadedRoot;
 
     private MerkleSearchTree()
@@ -236,12 +232,10 @@ public sealed class MerkleSearchTree
         return true;
     }
 
-    /// <summary>
-    /// Whether <paramref name="key"/>, as characters or as the bytes a tree node holds, is a valid
-    /// MST key: <c>collection/rkey</c>, both non-empty, drawn from <c>A-Z a-z 0-9 _ ~ - : .</c>, at
-    /// most 1024 characters in all.
-    /// </summary>
-    /// <remarks>Mirrors <c>isValidMstKey</c> in the reference implementation.</remarks>
+    // Whether key, as characters or as the bytes a tree node holds, is a valid MST key: collection/rkey,
+    // both non-empty, drawn from A-Z a-z 0-9 _ ~ - : ., at most 1024 characters in all.
+    //
+    // Mirrors isValidMstKey in the reference implementation.
     internal static bool IsValidKey<T>(ReadOnlySpan<T> key) where T : IBinaryInteger<T>
     {
         if (key.Length is 0 or > MaxKeyLength)
@@ -268,17 +262,14 @@ public sealed class MerkleSearchTree
 
     // ── Building ─────────────────────────────────────────────
 
-    /// <summary>
-    /// Builds the canonical node structure for the current entries, with every node's bytes and
-    /// CID computed.
-    /// </summary>
-    /// <remarks>
-    /// Each key sits at the layer given by its hash (<see cref="MstKeyDepth"/>); the root is at the
-    /// highest layer present. A node holds the keys of its layer within its range, and the gaps
-    /// between them become subtrees one layer down. An empty gap is a null link rather than an
-    /// empty node, and a gap whose keys all sit further down is wrapped in an entry-less node per
-    /// skipped layer. The only empty node is the root of an empty tree.
-    /// </remarks>
+    // Builds the canonical node structure for the current entries, with every node's bytes and CID
+    // computed.
+    //
+    // Each key sits at the layer given by its hash (MstKeyDepth); the root is at the highest layer
+    // present. A node holds the keys of its layer within its range, and the gaps between them become
+    // subtrees one layer down. An empty gap is a null link rather than an empty node, and a gap whose keys
+    // all sit further down is wrapped in an entry-less node per skipped layer. The only empty node is the
+    // root of an empty tree.
     private Node Build()
     {
         var count = _entries.Count;
@@ -300,10 +291,8 @@ public sealed class MerkleSearchTree
         return BuildRange(keys, values, heights, 0, count, maxHeight) ?? Seal(new Node());
     }
 
-    /// <summary>
-    /// Builds the node for <c>[start, end)</c> at <paramref name="layer"/>, or <c>null</c> for an
-    /// empty range. Every key in the range sits at <paramref name="layer"/> or below.
-    /// </summary>
+    // Builds the node for [start, end) at layer, or null for an empty range. Every key in the range sits
+    // at layer or below.
     private static Node? BuildRange(string[] keys, byte[][] values, int[] heights, int start, int end, int layer)
     {
         if (start == end)
@@ -325,7 +314,7 @@ public sealed class MerkleSearchTree
         return Seal(node);
     }
 
-    /// <summary>Encodes <paramref name="node"/>, whose children are already sealed, and records its CID.</summary>
+    // Encodes node, whose children are already sealed, and records its CID.
     private static Node Seal(Node node)
     {
         var entries = new List<MstTreeEntry>(node.Entries.Count);
@@ -431,7 +420,7 @@ public sealed class MerkleSearchTree
         AddBlock(node, proof);
     }
 
-    /// <summary>Index of the first entry whose key is ≥ <paramref name="key"/>, or the child count.</summary>
+    // Index of the first entry whose key is ≥ key, or the child count.
     private static int FindGreaterOrEqualEntry(List<Child> children, string key)
     {
         for (var i = 0; i < children.Count; i++)
@@ -478,27 +467,27 @@ public sealed class MerkleSearchTree
 
     // ── Types ────────────────────────────────────────────────
 
-    /// <summary>A record CID and the layer its key hashes to.</summary>
+    // A record CID and the layer its key hashes to.
     private readonly record struct Leaf(byte[] Value, int Height);
 
-    /// <summary>An entry of a built node.</summary>
+    // An entry of a built node.
     private sealed class NodeEntry(string key, byte[] value)
     {
         public string Key { get; } = key;
 
         public byte[] Value { get; } = value;
 
-        /// <summary>The subtree between this entry and the next one.</summary>
+        // The subtree between this entry and the next one.
         public Node? Right { get; set; }
     }
 
-    /// <summary>A node's child in key order: either an entry or a subtree.</summary>
+    // A node's child in key order: either an entry or a subtree.
     private readonly record struct Child(string? Key, Node? Tree);
 
-    /// <summary>A node of the built tree, with its encoding.</summary>
+    // A node of the built tree, with its encoding.
     private sealed class Node
     {
-        /// <summary>The subtree before the first entry.</summary>
+        // The subtree before the first entry.
         public Node? Left { get; private set; }
 
         public List<NodeEntry> Entries { get; } = [];
@@ -507,7 +496,7 @@ public sealed class MerkleSearchTree
 
         public byte[] Cid { get; set; } = [];
 
-        /// <summary>Links <paramref name="subtree"/> after the last entry so far (or as the left subtree).</summary>
+        // Links subtree after the last entry so far (or as the left subtree).
         public void Attach(Node? subtree)
         {
             if (Entries.Count == 0)

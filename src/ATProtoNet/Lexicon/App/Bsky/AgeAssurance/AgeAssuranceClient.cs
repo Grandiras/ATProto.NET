@@ -2,10 +2,7 @@ using ATProtoNet.Http;
 
 namespace ATProtoNet.Lexicon.App.Bsky.AgeAssurance;
 
-/// <summary>
-/// Client for app.bsky.ageassurance.* XRPC endpoints: the age checks some jurisdictions require
-/// before an account may see all content.
-/// </summary>
+/// <summary>Client for app.bsky.ageassurance.* XRPC endpoints: the age checks some jurisdictions require before an account may see all content.</summary>
 public sealed class AgeAssuranceClient
 {
     private readonly XrpcClient _xrpc;
@@ -41,20 +38,14 @@ public sealed class AgeAssuranceClient
             "app.bsky.ageassurance.begin", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get the age assurance configuration: per region, the minimum age and the rules that
-    /// decide an account's access.
-    /// </summary>
+    /// <summary>Get the age assurance configuration: per region, the minimum age and the rules that decide an account's access.</summary>
     public Task<AgeAssuranceConfig> GetConfigAsync(CancellationToken cancellationToken = default)
     {
         return _xrpc.QueryAsync<AgeAssuranceConfig>(
             "app.bsky.ageassurance.getConfig", cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get the authenticated account's age assurance state, and what a client needs to compute
-    /// it itself.
-    /// </summary>
+    /// <summary>Get the authenticated account's age assurance state, and what a client needs to compute it itself.</summary>
     /// <param name="countryCode">The ISO 3166-1 alpha-2 code of the user's country.</param>
     /// <param name="regionCode">The ISO 3166-2 code of the user's region, if any.</param>
     public Task<GetStateResponse> GetStateAsync(

@@ -8,10 +8,7 @@ namespace ATProtoNet.Lexicon.App.Bsky.AgeAssurance;
 
 // ── State ────────────────────────────────────────────────────
 
-/// <summary>
-/// An account's age assurance state as the server computed it
-/// (<c>app.bsky.ageassurance.defs#state</c>).
-/// </summary>
+/// <summary>An account's age assurance state as the server computed it (<c>app.bsky.ageassurance.defs#state</c>).</summary>
 public sealed class AgeAssuranceState : LexObject
 {
     /// <summary>When the state was last updated.</summary>
@@ -27,10 +24,7 @@ public sealed class AgeAssuranceState : LexObject
     public required string Access { get; init; }
 }
 
-/// <summary>
-/// What a client needs to compute an account's age assurance state itself
-/// (<c>app.bsky.ageassurance.defs#stateMetadata</c>).
-/// </summary>
+/// <summary>What a client needs to compute an account's age assurance state itself (<c>app.bsky.ageassurance.defs#stateMetadata</c>).</summary>
 public sealed class AgeAssuranceStateMetadata : LexObject
 {
     /// <summary>When the account was created.</summary>
@@ -80,16 +74,10 @@ public sealed class AgeAssuranceConfig : LexObject
     public required IReadOnlyList<AgeAssuranceRegion> Regions { get; init; }
 }
 
-/// <summary>
-/// The age assurance configuration of one country or region
-/// (<c>app.bsky.ageassurance.defs#configRegion</c>).
-/// </summary>
+/// <summary>The age assurance configuration of one country or region (<c>app.bsky.ageassurance.defs#configRegion</c>).</summary>
 public sealed class AgeAssuranceRegion : LexObject
 {
-    /// <summary>
-    /// The platforms the configuration applies to (<c>web</c>, <c>ios</c>, <c>android</c>), or
-    /// <see langword="null"/> for all of them.
-    /// </summary>
+    /// <summary>The platforms the configuration applies to (<c>web</c>, <c>ios</c>, <c>android</c>), or <see langword="null"/> for all of them.</summary>
     [JsonPropertyName("platforms")]
     public IReadOnlyList<string>? Platforms { get; init; }
 
@@ -105,26 +93,16 @@ public sealed class AgeAssuranceRegion : LexObject
     [JsonPropertyName("minAccessAge")]
     public required int MinAccessAge { get; init; }
 
-    /// <summary>
-    /// Verification methods the region permits besides the third-party flow, which is always
-    /// available: <c>device</c> permits the platform's own age APIs.
-    /// </summary>
+    /// <summary>Verification methods the region permits besides the third-party flow, which is always available: <c>device</c> permits the platform's own age APIs.</summary>
     [JsonPropertyName("additionalVerificationMethods")]
     public IReadOnlyList<string>? AdditionalVerificationMethods { get; init; }
 
-    /// <summary>
-    /// The rules, in order: the first that matches decides the access. The last is a
-    /// <see cref="DefaultAgeRule"/>.
-    /// </summary>
+    /// <summary>The rules, in order: the first that matches decides the access. The last is a <see cref="DefaultAgeRule"/>.</summary>
     [JsonPropertyName("rules")]
     public required IReadOnlyList<AgeAssuranceRule> Rules { get; init; }
 }
 
-/// <summary>
-/// A rule of a region's age assurance configuration (the open union behind
-/// <see cref="AgeAssuranceRegion.Rules"/>). A rule this SDK does not model reads as
-/// <see cref="UnknownAgeAssuranceRule"/>.
-/// </summary>
+/// <summary>A rule of a region's age assurance configuration (the open union behind <see cref="AgeAssuranceRegion.Rules"/>). A rule this SDK does not model reads as <see cref="UnknownAgeAssuranceRule"/>.</summary>
 [AtProtoUnion(typeof(UnknownAgeAssuranceRule))]
 [JsonDerivedType(typeof(DefaultAgeRule), "app.bsky.ageassurance.defs#configRegionRuleDefault")]
 [JsonDerivedType(typeof(DeclaredOverAgeRule), "app.bsky.ageassurance.defs#configRegionRuleIfDeclaredOverAge")]
@@ -135,10 +113,7 @@ public sealed class AgeAssuranceRegion : LexObject
 [JsonDerivedType(typeof(AccountOlderThanRule), "app.bsky.ageassurance.defs#configRegionRuleIfAccountOlderThan")]
 public abstract class AgeAssuranceRule : LexObject;
 
-/// <summary>
-/// An age assurance rule whose <c>$type</c> this SDK version does not model. It keeps the raw
-/// object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>An age assurance rule whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownAgeAssuranceRule(string type, JsonElement raw) : AgeAssuranceRule, IUnknownUnionVariant
@@ -232,7 +207,6 @@ public sealed class AccountOlderThanRule : AgeAssuranceRule
 
 // ── API requests and responses ───────────────────────────────
 
-/// <summary>Request body for begin.</summary>
 internal sealed record BeginRequest(
     [property: JsonPropertyName("email")] string Email,
     [property: JsonPropertyName("language")] string Language,
@@ -251,10 +225,7 @@ public sealed class GetStateResponse
     public required AgeAssuranceStateMetadata Metadata { get; init; }
 }
 
-/// <summary>
-/// Error names <c>app.bsky.ageassurance.begin</c> declares, for matching with
-/// <see cref="Http.XrpcException.Is"/>.
-/// </summary>
+/// <summary>Error names <c>app.bsky.ageassurance.begin</c> declares, for matching with <see cref="Http.XrpcException.Is"/>.</summary>
 public static class AgeAssuranceErrors
 {
     /// <summary>The email address is not valid.</summary>

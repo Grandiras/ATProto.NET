@@ -23,10 +23,7 @@ public sealed class IdentityInfo : LexObject
     [JsonPropertyName("did")]
     public required Did Did { get; init; }
 
-    /// <summary>
-    /// The account's verified handle, or <c>handle.invalid</c> (<see cref="Handle.Invalid"/>) when
-    /// the handle did not bidirectionally match the DID document.
-    /// </summary>
+    /// <summary>The account's verified handle, or <c>handle.invalid</c> (<see cref="Handle.Invalid"/>) when the handle did not bidirectionally match the DID document.</summary>
     [JsonPropertyName("handle")]
     public required Handle Handle { get; init; }
 
@@ -47,12 +44,10 @@ public sealed class ResolveDidResponse
 
 // ── com.atproto.identity.refreshIdentity ─────────────────────
 
-/// <summary>Request body for refreshIdentity.</summary>
 internal sealed record RefreshIdentityRequest([property: JsonPropertyName("identifier")] AtIdentifier Identifier);
 
 // ── com.atproto.identity.updateHandle ────────────────────────
 
-/// <summary>Request body for updateHandle.</summary>
 internal sealed record UpdateHandleRequest([property: JsonPropertyName("handle")] Handle Handle);
 
 // ── com.atproto.identity.getRecommendedDidCredentials ────────

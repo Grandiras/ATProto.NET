@@ -37,18 +37,15 @@ public abstract class AtProtoPdsContainerResourceBase : ContainerResource, IReso
     /// </summary>
     public ParameterResource JwtSecretParameter { get; internal set; }
 
-    /// <summary>
-    /// The public hostname the PDS advertises: a literal string, or a
-    /// <see cref="ParameterResource"/> the deployment supplies.
-    /// </summary>
-    /// <remarks>
-    /// The hostname is the domain new handles are created under unless the server's handle
-    /// domains say otherwise, and on the reference PDS it also fixes the server's
-    /// <c>did:web</c> identity. A deployed PDS therefore cannot inherit the local default.
-    /// </remarks>
+    // The public hostname the PDS advertises: a literal string, or a ParameterResource the deployment
+    // supplies.
+    //
+    // The hostname is the domain new handles are created under unless the server's handle domains say
+    // otherwise, and on the reference PDS it also fixes the server's did:web identity. A deployed PDS
+    // therefore cannot inherit the local default.
     internal object Hostname { get; set; } = "localhost";
 
-    /// <summary>The environment variables this server reads the settings both servers share from.</summary>
+    // The environment variables this server reads the settings both servers share from.
     internal abstract SharedSettingNames Settings { get; }
 
     /// <summary>

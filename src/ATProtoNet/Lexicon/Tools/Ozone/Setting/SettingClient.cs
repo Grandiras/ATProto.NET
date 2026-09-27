@@ -4,10 +4,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Setting;
 
-/// <summary>
-/// Client for tools.ozone.setting.* endpoints: Ozone's key-value settings, for the whole instance
-/// or for one moderator.
-/// </summary>
+/// <summary>Client for tools.ozone.setting.* endpoints: Ozone's key-value settings, for the whole instance or for one moderator.</summary>
 public sealed class SettingClient
 {
     private readonly XrpcClient _xrpc;

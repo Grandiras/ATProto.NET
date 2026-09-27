@@ -100,13 +100,12 @@ public sealed class UpdateTemplateRequest
     public bool? Disabled { get; init; }
 }
 
-/// <summary>Request to delete a communication template.</summary>
 internal sealed record DeleteTemplateRequest([property: JsonPropertyName("id")] string Id);
 
 /// <summary>Response from listTemplates.</summary>
 public sealed class ListTemplatesResponse
 {
-    /// <summary>The communication templates.</summary>
+    /// <summary>All communication templates; this endpoint does not paginate.</summary>
     [JsonPropertyName("communicationTemplates")]
     public required IReadOnlyList<CommunicationTemplateView> CommunicationTemplates { get; init; }
 }

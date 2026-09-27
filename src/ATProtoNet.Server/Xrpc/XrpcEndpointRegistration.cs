@@ -9,21 +9,18 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ATProtoNet.Server.Xrpc;
 
-/// <summary>The XRPC endpoints registered on a service collection, in registration order.</summary>
+// The XRPC endpoints registered on a service collection, in registration order.
 internal sealed class XrpcEndpointRegistry
 {
     private readonly List<XrpcEndpointRegistration> _registrations = [];
 
     public IReadOnlyList<XrpcEndpointRegistration> Registrations => _registrations;
 
-    /// <summary>
-    /// Adds <paramref name="registration"/>. Registering a handler again is a no-op; a second
-    /// handler for an NSID that already has one is a configuration error.
-    /// </summary>
-    /// <remarks>
-    /// NSIDs are compared case-insensitively, because that is how routing matches the paths
-    /// they become: two NSIDs differing only in case would be one route.
-    /// </remarks>
+    // Adds registration. Registering a handler again is a no-op; a second handler for an NSID that already
+    // has one is a configuration error.
+    //
+    // NSIDs are compared case-insensitively, because that is how routing matches the paths they become:
+    // two NSIDs differing only in case would be one route.
     public void Add(XrpcEndpointRegistration registration)
     {
         foreach (var existing in _registrations)
@@ -43,10 +40,8 @@ internal sealed class XrpcEndpointRegistry
     }
 }
 
-/// <summary>
-/// One handler, resolved at registration into everything mapping it needs: its route, its HTTP
-/// method, the request delegate for its shape, and the metadata its class carries.
-/// </summary>
+// One handler, resolved at registration into everything mapping it needs: its route, its HTTP method,
+// the request delegate for its shape, and the metadata its class carries.
 internal sealed class XrpcEndpointRegistration
 {
     // One entry per endpoint interface. Each factory is generic over the handler and the
@@ -74,29 +69,26 @@ internal sealed class XrpcEndpointRegistration
         Metadata = metadata;
     }
 
-    /// <summary>The method served, and the route segment after <c>/xrpc/</c>.</summary>
+    // The method served, and the route segment after /xrpc/.
     public Nsid Nsid { get; }
 
-    /// <summary>The handler class, resolved from the request's services.</summary>
+    // The handler class, resolved from the request's services.
     public Type HandlerType { get; }
 
-    /// <summary><c>GET</c> for a query, <c>POST</c> for a procedure.</summary>
+    // GET for a query, POST for a procedure.
     public string HttpMethod { get; }
 
-    /// <summary>Binds the request, runs the handler, and writes its output. Errors propagate.</summary>
+    // Binds the request, runs the handler, and writes its output. Errors propagate.
     public RequestDelegate Invoke { get; }
 
-    /// <summary>
-    /// The handler class's attributes — <c>[Authorize]</c>, <c>[AllowAnonymous]</c>,
-    /// <c>[EnableRateLimiting]</c>, <c>[RequestSizeLimit]</c> — as endpoint metadata, followed by
-    /// the <see cref="XrpcMethodMetadata"/> naming the method.
-    /// </summary>
+    // The handler class's attributes — [Authorize], [AllowAnonymous], [EnableRateLimiting],
+    // [RequestSizeLimit] — as endpoint metadata, followed by the XrpcMethodMetadata naming the method.
     public object[] Metadata { get; }
 
-    /// <summary>Reads <typeparamref name="THandler"/>'s NSID and endpoint interface.</summary>
-    /// <exception cref="InvalidOperationException">
-    /// The handler implements no endpoint interface, or more than one, or its NSID is null.
-    /// </exception>
+    // Reads THandler's NSID and endpoint interface.
+    //
+    // Throws InvalidOperationException: The handler implements no endpoint interface, or more than one, or
+    // its NSID is null.
     public static XrpcEndpointRegistration Create<THandler>()
         where THandler : class, IXrpcEndpoint
     {
@@ -276,15 +268,14 @@ internal sealed class XrpcEndpointRegistration
     }
 }
 
-/// <summary>The contract the routing reads or writes <typeparamref name="T"/> with.</summary>
-/// <remarks>
-/// Resolved on first use, not at registration: a contract snapshots the union variants
-/// registered on <see cref="LexiconTypeRegistry"/>, and an application may register those after
-/// its endpoints.
-/// </remarks>
-/// <typeparam name="T">The type read or written.</typeparam>
+// The contract the routing reads or writes T with.
+//
+// Resolved on first use, not at registration: a contract snapshots the union variants registered on
+// LexiconTypeRegistry, and an application may register those after its endpoints.
+//
+// T: The type read or written.
 internal static class XrpcJson<T>
 {
-    /// <summary>The contract for <typeparamref name="T"/> under the SDK's serializer options.</summary>
+    // The contract for T under the SDK's serializer options.
     public static readonly JsonTypeInfo<T> TypeInfo = (JsonTypeInfo<T>)AtProtoJsonDefaults.Options.GetTypeInfo(typeof(T));
 }

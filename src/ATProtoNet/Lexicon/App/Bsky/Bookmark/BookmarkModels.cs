@@ -18,22 +18,17 @@ public sealed class BookmarkView : LexObject
     [JsonPropertyName("createdAt")]
     public AtDatetime? CreatedAt { get; init; }
 
-    /// <summary>
-    /// The bookmarked post: a <see cref="PostView"/>, or a <see cref="NotFoundPost"/> or
-    /// <see cref="BlockedPost"/> placeholder when it can no longer be shown.
-    /// </summary>
+    /// <summary>The bookmarked post: a <see cref="PostView"/>, or a <see cref="NotFoundPost"/> or <see cref="BlockedPost"/> placeholder when it can no longer be shown.</summary>
     [JsonPropertyName("item")]
     public required PostEntry Item { get; init; }
 }
 
 // ── API requests and responses ───────────────────────────────
 
-/// <summary>Request body for createBookmark.</summary>
 internal sealed record CreateBookmarkRequest(
     [property: JsonPropertyName("uri")] AtUri Uri,
     [property: JsonPropertyName("cid")] Cid Cid);
 
-/// <summary>Request body for deleteBookmark.</summary>
 internal sealed record DeleteBookmarkRequest([property: JsonPropertyName("uri")] AtUri Uri);
 
 /// <summary>Response from getBookmarks.</summary>
@@ -48,10 +43,7 @@ public sealed record GetBookmarksResponse : CursorPage<BookmarkView>
     public override IReadOnlyList<BookmarkView> Items => Bookmarks;
 }
 
-/// <summary>
-/// Error names the <c>app.bsky.bookmark.*</c> methods declare, for matching with
-/// <see cref="Http.XrpcException.Is"/>.
-/// </summary>
+/// <summary>Error names the <c>app.bsky.bookmark.*</c> methods declare, for matching with <see cref="Http.XrpcException.Is"/>.</summary>
 public static class BookmarkErrors
 {
     /// <summary>The URI names a collection that cannot be bookmarked; only posts can.</summary>

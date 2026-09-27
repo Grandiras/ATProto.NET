@@ -11,11 +11,7 @@ namespace ATProtoNet.Lexicon.Chat.Bsky.Moderation;
 
 // ── Conversations ────────────────────────────────────────
 
-/// <summary>
-/// A conversation as a moderator sees it (<c>chat.bsky.moderation.defs#convoView</c>). Unlike
-/// <see cref="ConvoView"/> it has no viewer data (mute, unread count, status, last message) and no
-/// members; list those with <see cref="ChatModerationClient.GetConvoMembersAsync"/>.
-/// </summary>
+/// <summary>A conversation as a moderator sees it (<c>chat.bsky.moderation.defs#convoView</c>). Unlike <see cref="ConvoView"/> it has no viewer data (mute, unread count, status, last message) and no members; list those with <see cref="ChatModerationClient.GetConvoMembersAsync"/>.</summary>
 public sealed class ModerationConvoView : LexObject
 {
     /// <summary>The identifier of the conversation.</summary>
@@ -26,28 +22,18 @@ public sealed class ModerationConvoView : LexObject
     [JsonPropertyName("rev")]
     public required string Rev { get; init; }
 
-    /// <summary>
-    /// What kind of conversation this is: a <see cref="ModerationDirectConvo"/> or a
-    /// <see cref="ModerationGroupConvo"/>.
-    /// </summary>
+    /// <summary>What kind of conversation this is: a <see cref="ModerationDirectConvo"/> or a <see cref="ModerationGroupConvo"/>.</summary>
     [JsonPropertyName("kind")]
     public ModerationConvoKind? Kind { get; init; }
 }
 
-/// <summary>
-/// The kind of a conversation, for moderation (the open
-/// <c>chat.bsky.moderation.defs#convoView.kind</c> union). A kind this SDK does not model reads as
-/// <see cref="UnknownModerationConvoKind"/>.
-/// </summary>
+/// <summary>The kind of a conversation, for moderation (the open <c>chat.bsky.moderation.defs#convoView.kind</c> union). A kind this SDK does not model reads as <see cref="UnknownModerationConvoKind"/>.</summary>
 [AtProtoUnion(typeof(UnknownModerationConvoKind))]
 [JsonDerivedType(typeof(ModerationDirectConvo), "chat.bsky.moderation.defs#directConvo")]
 [JsonDerivedType(typeof(ModerationGroupConvo), "chat.bsky.moderation.defs#groupConvo")]
 public abstract class ModerationConvoKind : LexObject;
 
-/// <summary>
-/// A conversation kind whose <c>$type</c> this SDK version does not model. It keeps the raw object
-/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A conversation kind whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownModerationConvoKind(string type, JsonElement raw) : ModerationConvoKind, IUnknownUnionVariant
@@ -62,10 +48,7 @@ public sealed class UnknownModerationConvoKind(string type, JsonElement raw) : M
 /// <summary>A direct conversation, for moderation (<c>chat.bsky.moderation.defs#directConvo</c>).</summary>
 public sealed class ModerationDirectConvo : ModerationConvoKind;
 
-/// <summary>
-/// A group conversation, for moderation (<c>chat.bsky.moderation.defs#groupConvo</c>). Unlike
-/// <see cref="GroupConvo"/> it has no viewer data, and always has the join request count.
-/// </summary>
+/// <summary>A group conversation, for moderation (<c>chat.bsky.moderation.defs#groupConvo</c>). Unlike <see cref="GroupConvo"/> it has no viewer data, and always has the join request count.</summary>
 public sealed class ModerationGroupConvo : ModerationConvoKind
 {
     /// <summary>When the group was created.</summary>
@@ -99,10 +82,7 @@ public sealed class ModerationGroupConvo : ModerationConvoKind
 
 // ── Actors ───────────────────────────────────────────────
 
-/// <summary>
-/// An account's chat activity over one period
-/// (<c>chat.bsky.moderation.getActorMetadata#metadata</c>).
-/// </summary>
+/// <summary>An account's chat activity over one period (<c>chat.bsky.moderation.getActorMetadata#metadata</c>).</summary>
 public sealed class ChatActorMetadata : LexObject
 {
     /// <summary>The number of messages the account sent.</summary>
@@ -124,7 +104,6 @@ public sealed class ChatActorMetadata : LexObject
 
 // ── Request and response models ──────────────────────────
 
-/// <summary>Request body for chat.bsky.moderation.updateActorAccess.</summary>
 internal sealed record UpdateActorAccessRequest(
     [property: JsonPropertyName("actor")] Did Actor,
     [property: JsonPropertyName("allowAccess")] bool AllowAccess,
@@ -149,10 +128,7 @@ public sealed class GetActorMetadataResponse
 /// <summary>Response from chat.bsky.moderation.getMessageContext.</summary>
 public sealed class GetMessageContextResponse
 {
-    /// <summary>
-    /// The message and those around it, oldest first: <see cref="MessageView"/> and
-    /// <see cref="SystemMessageView"/>.
-    /// </summary>
+    /// <summary>The message and those around it, oldest first: <see cref="MessageView"/> and <see cref="SystemMessageView"/>.</summary>
     [JsonPropertyName("messages")]
     public required IReadOnlyList<ConvoMessage> Messages { get; init; }
 }
@@ -165,22 +141,17 @@ public sealed class GetConvosResponse
     public required IReadOnlyList<ModerationConvoView> Convos { get; init; }
 }
 
-/// <summary>The output of chat.bsky.moderation.getConvo, which the client unwraps.</summary>
+// The output of chat.bsky.moderation.getConvo, which the client unwraps.
 internal sealed class GetConvoResponse
 {
-    /// <summary>The conversation.</summary>
+    // The conversation.
     [JsonPropertyName("convo")]
     public required ModerationConvoView Convo { get; init; }
 }
 
 // ── Moderation event stream (chat.bsky.moderation.subscribeModEvents) ──
 
-/// <summary>
-/// An event of the chat moderation stream (the open <c>chat.bsky.moderation.subscribeModEvents</c>
-/// message union), such as a <see cref="ConvoFirstMessageEvent"/> or a
-/// <see cref="GroupChatMemberAddedEvent"/>. Every event carries its revision and creation time; an
-/// event this SDK does not model reads as <see cref="UnknownChatModerationEvent"/>.
-/// </summary>
+/// <summary>An event of the chat moderation stream (the open <c>chat.bsky.moderation.subscribeModEvents</c> message union), such as a <see cref="ConvoFirstMessageEvent"/> or a <see cref="GroupChatMemberAddedEvent"/>. Every event carries its revision and creation time; an event this SDK does not model reads as <see cref="UnknownChatModerationEvent"/>.</summary>
 /// <remarks>
 /// Read the stream with <see cref="Streaming.ChatModerationEventConsumer"/>.
 /// </remarks>
@@ -198,10 +169,7 @@ internal sealed class GetConvoResponse
 [JsonDerivedType(typeof(RateLimitExceededEvent), "chat.bsky.moderation.subscribeModEvents#eventRateLimitExceeded")]
 public abstract class ChatModerationEvent : LexObject
 {
-    /// <summary>
-    /// The event's revision, an opaque string the chat service assigns; the stream cursor to
-    /// resume after it.
-    /// </summary>
+    /// <summary>The event's revision, an opaque string the chat service assigns; the stream cursor to resume after it.</summary>
     [JsonPropertyName("rev")]
     public required string Rev { get; init; }
 
@@ -210,17 +178,10 @@ public abstract class ChatModerationEvent : LexObject
     public required AtDatetime CreatedAt { get; init; }
 }
 
-/// <summary>
-/// A moderation event whose <c>$type</c> this SDK version does not model. It keeps the raw object;
-/// see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A moderation event whose <c>$type</c> this SDK version does not model. It keeps the raw object; see <see cref="IUnknownUnionVariant"/>.</summary>
 public sealed class UnknownChatModerationEvent : ChatModerationEvent, IUnknownUnionVariant
 {
-    /// <summary>
-    /// Creates an unknown event from its discriminator and raw object.
-    /// <see cref="ChatModerationEvent.Rev"/> and <see cref="ChatModerationEvent.CreatedAt"/> are
-    /// read from the object, and are empty when it lacks them.
-    /// </summary>
+    /// <summary>Creates an unknown event from its discriminator and raw object. <see cref="ChatModerationEvent.Rev"/> and <see cref="ChatModerationEvent.CreatedAt"/> are read from the object, and are empty when it lacks them.</summary>
     /// <param name="type">The object's <c>$type</c>.</param>
     /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
     [SetsRequiredMembers]
@@ -269,10 +230,7 @@ public sealed class ConvoFirstMessageEvent : ChatModerationEvent
     public required Did User { get; init; }
 }
 
-/// <summary>
-/// The group fields most moderation events share: the conversation, who acted, and the group's
-/// state at the time of the event.
-/// </summary>
+/// <summary>The group fields most moderation events share: the conversation, who acted, and the group's state at the time of the event.</summary>
 public abstract class GroupChatModerationEvent : ChatModerationEvent
 {
     /// <summary>The identifier of the conversation.</summary>
@@ -300,10 +258,7 @@ public abstract class GroupChatModerationEvent : ChatModerationEvent
     public required long GroupMemberCount { get; init; }
 }
 
-/// <summary>
-/// A group chat was created (<c>#eventGroupChatCreated</c>). <see cref="GroupChatModerationEvent.ActorDid"/>
-/// is the owner, and <see cref="GroupChatModerationEvent.GroupName"/> the name set at creation.
-/// </summary>
+/// <summary>A group chat was created (<c>#eventGroupChatCreated</c>). <see cref="GroupChatModerationEvent.ActorDid"/> is the owner, and <see cref="GroupChatModerationEvent.GroupName"/> the name set at creation.</summary>
 public sealed class GroupChatCreatedEvent : GroupChatModerationEvent
 {
     /// <summary>Everyone added when the group was created.</summary>
@@ -311,10 +266,7 @@ public sealed class GroupChatCreatedEvent : GroupChatModerationEvent
     public required IReadOnlyList<Did> InitialMemberDids { get; init; }
 }
 
-/// <summary>
-/// The owner added a member to a group chat, who starts in the request state
-/// (<c>#eventGroupChatMemberAdded</c>).
-/// </summary>
+/// <summary>The owner added a member to a group chat, who starts in the request state (<c>#eventGroupChatMemberAdded</c>).</summary>
 public sealed class GroupChatMemberAddedEvent : GroupChatModerationEvent
 {
     /// <summary>The member who was added.</summary>
@@ -330,11 +282,7 @@ public sealed class GroupChatMemberAddedEvent : GroupChatModerationEvent
     public required long RequestMembersCount { get; init; }
 }
 
-/// <summary>
-/// Someone joined a group chat through a join link that needs no approval
-/// (<c>#eventGroupChatMemberJoined</c>). <see cref="GroupChatModerationEvent.ActorDid"/> is the
-/// new member.
-/// </summary>
+/// <summary>Someone joined a group chat through a join link that needs no approval (<c>#eventGroupChatMemberJoined</c>). <see cref="GroupChatModerationEvent.ActorDid"/> is the new member.</summary>
 public sealed class GroupChatMemberJoinedEvent : GroupChatModerationEvent
 {
     /// <summary>The code of the join link used.</summary>
@@ -346,11 +294,7 @@ public sealed class GroupChatMemberJoinedEvent : GroupChatModerationEvent
     public required bool SubjectFollowsOwner { get; init; }
 }
 
-/// <summary>
-/// Someone asked to join a group chat through a join link that needs approval
-/// (<c>#eventGroupChatJoinRequest</c>). <see cref="GroupChatModerationEvent.ActorDid"/> is the
-/// requester.
-/// </summary>
+/// <summary>Someone asked to join a group chat through a join link that needs approval (<c>#eventGroupChatJoinRequest</c>). <see cref="GroupChatModerationEvent.ActorDid"/> is the requester.</summary>
 public sealed class GroupChatJoinRequestEvent : GroupChatModerationEvent
 {
     /// <summary>The code of the join link used.</summary>
@@ -378,11 +322,7 @@ public sealed class GroupChatJoinRequestRejectedEvent : GroupChatModerationEvent
     public required Did SubjectDid { get; init; }
 }
 
-/// <summary>
-/// A member left a group chat or was removed from it (<c>#eventGroupChatMemberLeft</c>).
-/// <see cref="GroupChatModerationEvent.ActorDid"/> is the member when they left, or the owner
-/// when they were removed.
-/// </summary>
+/// <summary>A member left a group chat or was removed from it (<c>#eventGroupChatMemberLeft</c>). <see cref="GroupChatModerationEvent.ActorDid"/> is the member when they left, or the owner when they were removed.</summary>
 public sealed class GroupChatMemberLeftEvent : GroupChatModerationEvent
 {
     /// <summary>The member who left or was removed.</summary>
@@ -397,11 +337,7 @@ public sealed class GroupChatMemberLeftEvent : GroupChatModerationEvent
 /// <summary>A group chat's metadata or status changed (<c>#eventGroupChatUpdated</c>).</summary>
 public sealed class GroupChatUpdatedEvent : GroupChatModerationEvent
 {
-    /// <summary>
-    /// What changed: <c>name_changed</c>, <c>locked</c>, <c>locked_permanently</c>,
-    /// <c>unlocked</c>, <c>join_link_created</c>, <c>join_link_disabled</c> or
-    /// <c>join_link_settings_changed</c>.
-    /// </summary>
+    /// <summary>What changed: <c>name_changed</c>, <c>locked</c>, <c>locked_permanently</c>, <c>unlocked</c>, <c>join_link_created</c>, <c>join_link_disabled</c> or <c>join_link_settings_changed</c>.</summary>
     [JsonPropertyName("updateType")]
     public required string UpdateType { get; init; }
 
@@ -413,10 +349,7 @@ public sealed class GroupChatUpdatedEvent : GroupChatModerationEvent
     [JsonPropertyName("newName")]
     public string? NewName { get; init; }
 
-    /// <summary>
-    /// Why the group was locked, when <see cref="UpdateType"/> is <c>locked</c>: for example
-    /// <c>owner_action</c>, <c>owner_left</c> or <c>label_applied</c>.
-    /// </summary>
+    /// <summary>Why the group was locked, when <see cref="UpdateType"/> is <c>locked</c>: for example <c>owner_action</c>, <c>owner_left</c> or <c>label_applied</c>.</summary>
     [JsonPropertyName("lockReason")]
     public string? LockReason { get; init; }
 
@@ -433,10 +366,7 @@ public sealed class GroupChatUpdatedEvent : GroupChatModerationEvent
     public bool? JoinLinkFollowersOnly { get; init; }
 }
 
-/// <summary>
-/// Someone accepted a conversation, explicitly or by sending a message
-/// (<c>#eventChatAccepted</c>). The group fields are present only for group conversations.
-/// </summary>
+/// <summary>Someone accepted a conversation, explicitly or by sending a message (<c>#eventChatAccepted</c>). The group fields are present only for group conversations.</summary>
 public sealed class ChatAcceptedEvent : ChatModerationEvent
 {
     /// <summary>The identifier of the conversation.</summary>

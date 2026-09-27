@@ -3,10 +3,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Verification;
 
-/// <summary>
-/// Client for tools.ozone.verification.* endpoints: the verifications (<c>app.bsky.graph.verification</c>
-/// records) the Ozone service issues as a trusted verifier.
-/// </summary>
+/// <summary>Client for tools.ozone.verification.* endpoints: the verifications (<c>app.bsky.graph.verification</c> records) the Ozone service issues as a trusted verifier.</summary>
 public sealed class VerificationClient
 {
     private readonly XrpcClient _xrpc;

@@ -31,10 +31,7 @@ public sealed class GroupClient
 
     // ── Groups and membership ────────────────────────────────
 
-    /// <summary>
-    /// Creates a group with the viewer as its owner. The members are added with a request they must
-    /// accept. Not idempotent: each call creates a new group, even with the same members.
-    /// </summary>
+    /// <summary>Creates a group with the viewer as its owner. The members are added with a request they must accept. Not idempotent: each call creates a new group, even with the same members.</summary>
     /// <param name="name">The group's display name (at most 50 graphemes).</param>
     /// <param name="members">
     /// The accounts to add besides the owner. Bluesky allows up to 100 members in all, owner
@@ -144,10 +141,7 @@ public sealed class GroupClient
         return output.JoinLink;
     }
 
-    /// <summary>
-    /// Changes the settings of the group's join link. Owner only. A setting left
-    /// <see langword="null"/> stays as it is.
-    /// </summary>
+    /// <summary>Changes the settings of the group's join link. Owner only. A setting left <see langword="null"/> stays as it is.</summary>
     /// <param name="convoId">The group's conversation identifier.</param>
     /// <param name="joinRule">Who may use the link (see <see cref="JoinRule"/>).</param>
     /// <param name="requireApproval">Whether the owner must approve each request to join.</param>
@@ -215,10 +209,7 @@ public sealed class GroupClient
 
     // ── Join requests ────────────────────────────────────────
 
-    /// <summary>
-    /// Joins a group through its join link or, when the link needs approval, asks the owner to let
-    /// the viewer in.
-    /// </summary>
+    /// <summary>Joins a group through its join link or, when the link needs approval, asks the owner to let the viewer in.</summary>
     /// <param name="code">The join link's code.</param>
     /// <returns>
     /// <see cref="RequestJoinStatus.Joined"/> with the group, or

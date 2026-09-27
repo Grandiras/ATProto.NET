@@ -65,32 +65,25 @@ public sealed class AtProtoTranquilPdsContainerResource(
     /// </remarks>
     public ParameterResource MasterKeyParameter { get; internal set; } = masterKey;
 
-    /// <summary>
-    /// The handle of the administrator account, or <c>null</c> to derive it from
-    /// <see cref="AtProtoPdsContainerResourceBase.Hostname"/>.
-    /// </summary>
+    // The handle of the administrator account, or null to derive it from
+    // AtProtoPdsContainerResourceBase.Hostname.
     internal object? AdminHandle { get; set; }
 
-    /// <summary>The <c>DATABASE_URL</c> the container is given — a <c>postgres://</c> URI.</summary>
+    // The DATABASE_URL the container is given — a postgres:// URI.
     internal object DatabaseUrl { get; set; } = string.Empty;
 
-    /// <summary>Whether the container starts with the local-development relaxations applied.</summary>
+    // Whether the container starts with the local-development relaxations applied.
     internal bool DevelopmentMode { get; set; }
 
     internal override SharedSettingNames Settings { get; } = new(
         "PLC_DIRECTORY_URL", "CRAWLERS", "INVITE_CODE_REQUIRED", "MAX_BLOB_SIZE",
         "REPORT_SERVICE_URL", "REPORT_SERVICE_DID");
 
-    /// <summary>
-    /// Resolves the administrator handle, deriving <c>pdsadmin.{hostname}</c> when none
-    /// was set explicitly.
-    /// </summary>
-    /// <remarks>
-    /// Derived rather than defaulted to a literal so that
-    /// <see cref="AtProtoPdsHostingExtensions.WithHostname{T}(IResourceBuilder{T}, string)"/>
-    /// alone leaves a usable handle: one under a domain the server actually issues
-    /// handles for.
-    /// </remarks>
+    // Resolves the administrator handle, deriving pdsadmin.{hostname} when none was set explicitly.
+    //
+    // Derived rather than defaulted to a literal so that
+    // AtProtoPdsHostingExtensions.WithHostname{T}(IResourceBuilder{T}, string) alone leaves a usable
+    // handle: one under a domain the server actually issues handles for.
     internal object ResolveAdminHandle() => (AdminHandle, Hostname) switch
     {
         ({ } handle, _) => handle,

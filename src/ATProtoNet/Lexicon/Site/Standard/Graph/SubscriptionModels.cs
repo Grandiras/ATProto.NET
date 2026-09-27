@@ -16,10 +16,7 @@ public sealed class SubscriptionRecord : LexObject, IAtProtoRecord
     [JsonPropertyName("$type")]
     public string Type => Collection;
 
-    /// <summary>
-    /// AT-URI reference to the publication record being subscribed to
-    /// (e.g. at://did:plc:abc123/site.standard.publication/xyz789).
-    /// </summary>
+    /// <summary>AT-URI reference to the publication record being subscribed to (e.g. at://did:plc:abc123/site.standard.publication/xyz789).</summary>
     [JsonPropertyName("publication")]
     public required AtUri Publication { get; init; }
 

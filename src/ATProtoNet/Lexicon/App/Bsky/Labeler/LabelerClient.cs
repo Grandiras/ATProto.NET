@@ -3,10 +3,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Labeler;
 
-/// <summary>
-/// Client for <c>app.bsky.labeler.*</c> XRPC endpoints.
-/// Handles fetching labeler service information and label definitions.
-/// </summary>
+/// <summary>Client for <c>app.bsky.labeler.*</c> XRPC endpoints. Handles fetching labeler service information and label definitions.</summary>
 public sealed class LabelerClient
 {
     private readonly XrpcClient _xrpc;

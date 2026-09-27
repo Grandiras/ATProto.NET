@@ -13,10 +13,7 @@ public sealed class HostingClient
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Get one page of an account's history on its host: account creation, email and handle
-    /// changes, email confirmation and password changes.
-    /// </summary>
+    /// <summary>Get one page of an account's history on its host: account creation, email and handle changes, email confirmation and password changes.</summary>
     /// <param name="did">The account's DID.</param>
     /// <param name="events">Only these kinds of event (see <see cref="AccountHistoryEventType"/>).</param>
     /// <param name="limit">Maximum number of events (1-100, default 50).</param>

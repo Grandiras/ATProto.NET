@@ -40,10 +40,7 @@ public sealed class SpaceClient
 
     // ── Credentials ──────────────────────────────────────────
 
-    /// <summary>
-    /// Mints a delegation token for a space, proving this application is acting on the user's
-    /// behalf. Served by the user's own PDS.
-    /// </summary>
+    /// <summary>Mints a delegation token for a space, proving this application is acting on the user's behalf. Served by the user's own PDS.</summary>
     /// <param name="space">The space the token is for.</param>
     /// <remarks>
     /// The token asserts only the user-to-app delegation; it says nothing about whether the
@@ -118,10 +115,7 @@ public sealed class SpaceClient
             "com.atproto.space.listSpaces", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Lists one page of the repos that hold data in a space — the writer set. Served by the
-    /// space host.
-    /// </summary>
+    /// <summary>Lists one page of the repos that hold data in a space — the writer set. Served by the space host.</summary>
     /// <param name="limit">Maximum number of results per page (1–1000, default 100).</param>
     /// <param name="cursor">Pagination cursor.</param>
     /// <remarks>
@@ -470,10 +464,7 @@ public sealed class SpaceClient
             "com.atproto.space.putRecord", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Deletes a record from the caller's permissioned repo, or ensures it does not exist.
-    /// Succeeds whether or not the record was present.
-    /// </summary>
+    /// <summary>Deletes a record from the caller's permissioned repo, or ensures it does not exist. Succeeds whether or not the record was present.</summary>
     /// <param name="repo">The DID of the repo to delete from (the authenticated member).</param>
     /// <param name="collection">The record collection NSID.</param>
     /// <param name="rkey">The record key.</param>
@@ -495,10 +486,7 @@ public sealed class SpaceClient
             "com.atproto.space.deleteRecord", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Deletes the record a space record URI names from the caller's permissioned repo, or
-    /// ensures it does not exist.
-    /// </summary>
+    /// <summary>Deletes the record a space record URI names from the caller's permissioned repo, or ensures it does not exist.</summary>
     /// <param name="uri">The record's URI. Its author must be the authenticated member.</param>
     public Task DeleteRecordAsync(SpaceRecordUri uri, CancellationToken cancellationToken = default)
     {

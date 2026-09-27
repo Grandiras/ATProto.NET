@@ -119,7 +119,7 @@ public sealed class JetstreamArchiveClient : IDisposable
     private const string GetZstdDictionaryPath = "xrpc/network.bsky.jetstream.getZstdDictionary";
     private const string HealthPath = "xrpc/_health";
 
-    /// <summary>The four-byte little-endian magic number a zstd structured dictionary starts with.</summary>
+    // The four-byte little-endian magic number a zstd structured dictionary starts with.
     private const uint DictionaryMagic = 0xEC30A437;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -447,10 +447,8 @@ public sealed class JetstreamArchiveClient : IDisposable
             response.Headers.ETag?.Tag.Trim('"'));
     }
 
-    /// <summary>
-    /// Send a request, retrying a metered <c>429</c> for as long as its <c>Retry-After</c> asks and
-    /// backing off exponentially on transient transport and 5xx failures.
-    /// </summary>
+    // Send a request, retrying a metered 429 for as long as its Retry-After asks and backing off
+    // exponentially on transient transport and 5xx failures.
     private async Task<HttpResponseMessage> SendWithRetryAsync(
         Func<HttpRequestMessage> requestFactory,
         HttpCompletionOption completionOption,
@@ -519,7 +517,7 @@ public sealed class JetstreamArchiveClient : IDisposable
             retryAfter);
     }
 
-    /// <summary>Whether a mid-download failure can be resumed with a <c>Range</c> request.</summary>
+    // Whether a mid-download failure can be resumed with a Range request.
     private static bool IsResumable(Exception ex) => ex switch
     {
         JetstreamException jetstream => jetstream.IsRetryable,
@@ -527,12 +525,10 @@ public sealed class JetstreamArchiveClient : IDisposable
         _ => false,
     };
 
-    /// <summary>
-    /// How long to wait before the next attempt: what the server asked for when it sent
-    /// <c>Retry-After</c>, otherwise an exponential backoff, both capped by
-    /// <see cref="MaxRetryDelay"/>. The metered quota refills continuously rather than at a
-    /// boundary, so a shorter wait than requested would just burn another 429.
-    /// </summary>
+    // How long to wait before the next attempt: what the server asked for when it sent Retry-After,
+    // otherwise an exponential backoff, both capped by MaxRetryDelay. The metered quota refills
+    // continuously rather than at a boundary, so a shorter wait than requested would just burn another
+    // 429.
     private TimeSpan RetryDelay(Exception ex, int attempt)
     {
         var requested = (ex as JetstreamException)?.RetryAfter;

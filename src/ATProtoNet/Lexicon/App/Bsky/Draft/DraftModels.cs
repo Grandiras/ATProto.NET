@@ -9,10 +9,7 @@ namespace ATProtoNet.Lexicon.App.Bsky.Draft;
 
 // ── Drafts ───────────────────────────────────────────────────
 
-/// <summary>
-/// A draft of a post or thread (<c>app.bsky.draft.defs#draft</c>). Media are referenced by
-/// on-device paths, so a draft's embeds are only usable on the device that made it.
-/// </summary>
+/// <summary>A draft of a post or thread (<c>app.bsky.draft.defs#draft</c>). Media are referenced by on-device paths, so a draft's embeds are only usable on the device that made it.</summary>
 public sealed class Draft : LexObject
 {
     /// <summary>The UUIDv4 identifier of the device that created the draft.</summary>
@@ -43,10 +40,7 @@ public sealed class Draft : LexObject
 /// <summary>One post of a draft (<c>app.bsky.draft.defs#draftPost</c>).</summary>
 public sealed class DraftPost : LexObject
 {
-    /// <summary>
-    /// The text (at most 1000 graphemes), which may be longer than a post allows, to be split
-    /// or shortened before publishing.
-    /// </summary>
+    /// <summary>The text (at most 1000 graphemes), which may be longer than a post allows, to be split or shortened before publishing.</summary>
     [JsonPropertyName("text")]
     public required string Text { get; init; }
 
@@ -75,10 +69,7 @@ public sealed class DraftPost : LexObject
     public IReadOnlyList<DraftEmbedRecord>? EmbedRecords { get; init; }
 }
 
-/// <summary>
-/// A reference to a file on the device that made a draft
-/// (<c>app.bsky.draft.defs#draftEmbedLocalRef</c>).
-/// </summary>
+/// <summary>A reference to a file on the device that made a draft (<c>app.bsky.draft.defs#draftEmbedLocalRef</c>).</summary>
 public sealed class DraftEmbedLocalRef : LexObject
 {
     /// <summary>The file's on-device path.</summary>
@@ -106,18 +97,12 @@ public sealed class DraftEmbedGallery : LexObject
     public required IReadOnlyList<DraftGalleryItem> Items { get; init; }
 }
 
-/// <summary>
-/// An item of a draft gallery (the open union behind <see cref="DraftEmbedGallery.Items"/>). An
-/// item type this SDK does not model reads as <see cref="UnknownDraftGalleryItem"/>.
-/// </summary>
+/// <summary>An item of a draft gallery (the open union behind <see cref="DraftEmbedGallery.Items"/>). An item type this SDK does not model reads as <see cref="UnknownDraftGalleryItem"/>.</summary>
 [AtProtoUnion(typeof(UnknownDraftGalleryItem))]
 [JsonDerivedType(typeof(DraftEmbedImage), "app.bsky.draft.defs#draftEmbedImage")]
 public abstract class DraftGalleryItem : LexObject;
 
-/// <summary>
-/// A draft gallery item whose <c>$type</c> this SDK version does not model. It keeps the raw
-/// object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A draft gallery item whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownDraftGalleryItem(string type, JsonElement raw) : DraftGalleryItem, IUnknownUnionVariant
@@ -180,7 +165,7 @@ public sealed class DraftView : LexObject
     [JsonPropertyName("id")]
     public required Tid Id { get; init; }
 
-    /// <summary>The draft.</summary>
+    /// <summary>The draft's content.</summary>
     [JsonPropertyName("draft")]
     public required Draft Draft { get; init; }
 
@@ -193,41 +178,37 @@ public sealed class DraftView : LexObject
     public required AtDatetime UpdatedAt { get; init; }
 }
 
-/// <summary>A draft with its identifier (<c>app.bsky.draft.defs#draftWithId</c>).</summary>
+// A draft with its identifier (app.bsky.draft.defs#draftWithId).
 internal sealed class DraftWithId
 {
-    /// <summary>The draft's identifier.</summary>
+    // The draft's identifier.
     [JsonPropertyName("id")]
     public required Tid Id { get; init; }
 
-    /// <summary>The draft.</summary>
+    // The draft.
     [JsonPropertyName("draft")]
     public required Draft Draft { get; init; }
 }
 
 // ── API requests and responses ───────────────────────────────
 
-/// <summary>Request body for createDraft.</summary>
 internal sealed record CreateDraftRequest([property: JsonPropertyName("draft")] Draft Draft);
 
-/// <summary>Response from createDraft.</summary>
 internal sealed class CreateDraftResponse
 {
-    /// <summary>The new draft's identifier.</summary>
+    // The new draft's identifier.
     [JsonPropertyName("id")]
     public required Tid Id { get; init; }
 }
 
-/// <summary>Request body for updateDraft.</summary>
 internal sealed record UpdateDraftRequest([property: JsonPropertyName("draft")] DraftWithId Draft);
 
-/// <summary>Request body for deleteDraft.</summary>
 internal sealed record DeleteDraftRequest([property: JsonPropertyName("id")] Tid Id);
 
 /// <summary>Response from getDrafts.</summary>
 public sealed record GetDraftsResponse : CursorPage<DraftView>
 {
-    /// <summary>The drafts.</summary>
+    /// <summary>This page's drafts.</summary>
     [JsonPropertyName("drafts")]
     public required IReadOnlyList<DraftView> Drafts { get; init; }
 
@@ -236,10 +217,7 @@ public sealed record GetDraftsResponse : CursorPage<DraftView>
     public override IReadOnlyList<DraftView> Items => Drafts;
 }
 
-/// <summary>
-/// Error names the <c>app.bsky.draft.*</c> methods declare, for matching with
-/// <see cref="Http.XrpcException.Is"/>.
-/// </summary>
+/// <summary>Error names the <c>app.bsky.draft.*</c> methods declare, for matching with <see cref="Http.XrpcException.Is"/>.</summary>
 public static class DraftErrors
 {
     /// <summary>The account already has as many drafts as it may.</summary>

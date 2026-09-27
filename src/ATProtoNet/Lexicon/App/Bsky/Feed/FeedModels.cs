@@ -12,10 +12,7 @@ namespace ATProtoNet.Lexicon.App.Bsky.Feed;
 
 // ── Post record (the actual repo record) ─────────────────────
 
-/// <summary>
-/// A Bluesky post record stored in the repository.
-/// Collection: app.bsky.feed.post
-/// </summary>
+/// <summary>A Bluesky post record stored in the repository. Collection: app.bsky.feed.post</summary>
 public sealed class PostRecord : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>app.bsky.feed.post</c>).</summary>
@@ -142,10 +139,7 @@ public sealed class RepostRecord : LexObject, IAtProtoRecord
 
 // ── Threadgate record ────────────────────────────────────────
 
-/// <summary>
-/// A threadgate record that controls who can reply to a thread.
-/// Collection: app.bsky.feed.threadgate
-/// </summary>
+/// <summary>A threadgate record that controls who can reply to a thread. Collection: app.bsky.feed.threadgate</summary>
 public sealed class ThreadgateRecord : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>app.bsky.feed.threadgate</c>).</summary>
@@ -159,10 +153,7 @@ public sealed class ThreadgateRecord : LexObject, IAtProtoRecord
     [JsonPropertyName("post")]
     public required AtUri Post { get; init; }
 
-    /// <summary>
-    /// The rules controlling who may reply. An empty list disables replies entirely; <see
-    /// langword="null"/> allows everyone.
-    /// </summary>
+    /// <summary>The rules controlling who may reply. An empty list disables replies entirely; <see langword="null"/> allows everyone.</summary>
     [JsonPropertyName("allow")]
     public IReadOnlyList<ThreadgateRule>? Allow { get; init; }
 
@@ -175,10 +166,7 @@ public sealed class ThreadgateRecord : LexObject, IAtProtoRecord
     public IReadOnlyList<AtUri>? HiddenReplies { get; init; }
 }
 
-/// <summary>
-/// A postgate record that controls embedding/quoting of a post.
-/// Collection: app.bsky.feed.postgate
-/// </summary>
+/// <summary>A postgate record that controls embedding/quoting of a post. Collection: app.bsky.feed.postgate</summary>
 public sealed class PostgateRecord : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>app.bsky.feed.postgate</c>).</summary>
@@ -205,11 +193,7 @@ public sealed class PostgateRecord : LexObject, IAtProtoRecord
     public required AtDatetime CreatedAt { get; init; }
 }
 
-/// <summary>
-/// A rule that allows some accounts to reply (the open union behind
-/// <see cref="ThreadgateRecord.Allow"/>). A rule this SDK does not model reads as
-/// <see cref="UnknownThreadgateRule"/>.
-/// </summary>
+/// <summary>A rule that allows some accounts to reply (the open union behind <see cref="ThreadgateRecord.Allow"/>). A rule this SDK does not model reads as <see cref="UnknownThreadgateRule"/>.</summary>
 [AtProtoUnion(typeof(UnknownThreadgateRule))]
 [JsonDerivedType(typeof(ThreadgateMentionRule), "app.bsky.feed.threadgate#mentionRule")]
 [JsonDerivedType(typeof(ThreadgateFollowerRule), "app.bsky.feed.threadgate#followerRule")]
@@ -234,10 +218,7 @@ public sealed class ThreadgateListRule : ThreadgateRule
     public required AtUri List { get; init; }
 }
 
-/// <summary>
-/// A threadgate rule whose <c>$type</c> this SDK version does not model. It keeps the raw object
-/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A threadgate rule whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownThreadgateRule(string type, JsonElement raw) : ThreadgateRule, IUnknownUnionVariant
@@ -249,11 +230,7 @@ public sealed class UnknownThreadgateRule(string type, JsonElement raw) : Thread
     public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
-/// <summary>
-/// A rule about who may quote a post (the open union behind
-/// <see cref="PostgateRecord.EmbeddingRules"/>). A rule this SDK does not model reads as
-/// <see cref="UnknownPostgateEmbeddingRule"/>.
-/// </summary>
+/// <summary>A rule about who may quote a post (the open union behind <see cref="PostgateRecord.EmbeddingRules"/>). A rule this SDK does not model reads as <see cref="UnknownPostgateEmbeddingRule"/>.</summary>
 [AtProtoUnion(typeof(UnknownPostgateEmbeddingRule))]
 [JsonDerivedType(typeof(PostgateDisableRule), "app.bsky.feed.postgate#disableRule")]
 public abstract class PostgateEmbeddingRule : LexObject;
@@ -261,10 +238,7 @@ public abstract class PostgateEmbeddingRule : LexObject;
 /// <summary>Disables quoting the post.</summary>
 public sealed class PostgateDisableRule : PostgateEmbeddingRule;
 
-/// <summary>
-/// A postgate rule whose <c>$type</c> this SDK version does not model. It keeps the raw object
-/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A postgate rule whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownPostgateEmbeddingRule(string type, JsonElement raw) : PostgateEmbeddingRule, IUnknownUnionVariant
@@ -327,12 +301,7 @@ public sealed class GeneratorRecord : LexObject, IAtProtoRecord
 
 // ── Post view types (returned from API) ──────────────────────
 
-/// <summary>
-/// A post as a view refers to it: the post itself, or a placeholder when it cannot be shown (the
-/// open union of <c>app.bsky.feed.defs#postView</c>, <c>#notFoundPost</c> and <c>#blockedPost</c>
-/// behind <see cref="Bookmark.BookmarkView.Item"/>). A variant this SDK does not model reads as
-/// <see cref="UnknownPostEntry"/>.
-/// </summary>
+/// <summary>A post as a view refers to it: the post itself, or a placeholder when it cannot be shown (the open union of <c>app.bsky.feed.defs#postView</c>, <c>#notFoundPost</c> and <c>#blockedPost</c> behind <see cref="Bookmark.BookmarkView.Item"/>). A variant this SDK does not model reads as <see cref="UnknownPostEntry"/>.</summary>
 /// <remarks>
 /// <see cref="ThreadNode"/> derives from it so that <see cref="NotFoundPost"/> and
 /// <see cref="BlockedPost"/> can be variants of both unions.
@@ -343,10 +312,7 @@ public sealed class GeneratorRecord : LexObject, IAtProtoRecord
 [JsonDerivedType(typeof(BlockedPost), "app.bsky.feed.defs#blockedPost")]
 public abstract class PostEntry : LexObject;
 
-/// <summary>
-/// A post entry whose <c>$type</c> this SDK version does not model. It keeps the raw object and
-/// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A post entry whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownPostEntry(string type, JsonElement raw) : PostEntry, IUnknownUnionVariant
@@ -493,7 +459,7 @@ public sealed class KnownLikers : LexObject
 /// <summary>A feed view item wrapping a post with optional reason (repost).</summary>
 public sealed class FeedViewPost : LexObject
 {
-    /// <summary>The post.</summary>
+    /// <summary>The post itself.</summary>
     [JsonPropertyName("post")]
     public required PostView Post { get; init; }
 
@@ -501,10 +467,7 @@ public sealed class FeedViewPost : LexObject
     [JsonPropertyName("reply")]
     public FeedReplyRef? Reply { get; init; }
 
-    /// <summary>
-    /// Why the post is in the feed when it is not there on its own: a <see cref="ReasonRepost"/>
-    /// or a <see cref="ReasonPin"/>.
-    /// </summary>
+    /// <summary>Why the post is in the feed when it is not there on its own: a <see cref="ReasonRepost"/> or a <see cref="ReasonPin"/>.</summary>
     [JsonPropertyName("reason")]
     public FeedReason? Reason { get; init; }
 
@@ -512,18 +475,12 @@ public sealed class FeedViewPost : LexObject
     [JsonPropertyName("feedContext")]
     public string? FeedContext { get; init; }
 
-    /// <summary>
-    /// The identifier of the request that produced the item, which the feed generator may ask
-    /// for back in interaction events.
-    /// </summary>
+    /// <summary>The identifier of the request that produced the item, which the feed generator may ask for back in interaction events.</summary>
     [JsonPropertyName("reqId")]
     public string? ReqId { get; init; }
 }
 
-/// <summary>
-/// Why a post appears in a feed (the open union behind <see cref="FeedViewPost.Reason"/>). A
-/// reason this SDK does not model reads as <see cref="UnknownFeedReason"/>.
-/// </summary>
+/// <summary>Why a post appears in a feed (the open union behind <see cref="FeedViewPost.Reason"/>). A reason this SDK does not model reads as <see cref="UnknownFeedReason"/>.</summary>
 [AtProtoUnion(typeof(UnknownFeedReason))]
 [JsonDerivedType(typeof(ReasonRepost), "app.bsky.feed.defs#reasonRepost")]
 [JsonDerivedType(typeof(ReasonPin), "app.bsky.feed.defs#reasonPin")]
@@ -552,10 +509,7 @@ public sealed class ReasonRepost : FeedReason
 /// <summary>The post is in the feed because the author pinned it.</summary>
 public sealed class ReasonPin : FeedReason;
 
-/// <summary>
-/// A feed reason whose <c>$type</c> this SDK version does not model. It keeps the raw object and
-/// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A feed reason whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownFeedReason(string type, JsonElement raw) : FeedReason, IUnknownUnionVariant
@@ -585,21 +539,14 @@ public sealed class FeedReplyRef : LexObject
 
 // ── Thread view ──────────────────────────────────────────────
 
-/// <summary>
-/// A thread view node (the open union behind <c>app.bsky.feed.getPostThread#thread</c> and a
-/// thread post's <c>parent</c> and <c>replies</c>). A node type this SDK does not model reads as
-/// <see cref="UnknownThreadNode"/>.
-/// </summary>
+/// <summary>A thread view node (the open union behind <c>app.bsky.feed.getPostThread#thread</c> and a thread post's <c>parent</c> and <c>replies</c>). A node type this SDK does not model reads as <see cref="UnknownThreadNode"/>.</summary>
 [AtProtoUnion(typeof(UnknownThreadNode))]
 [JsonDerivedType(typeof(ThreadViewPost), "app.bsky.feed.defs#threadViewPost")]
 [JsonDerivedType(typeof(NotFoundPost), "app.bsky.feed.defs#notFoundPost")]
 [JsonDerivedType(typeof(BlockedPost), "app.bsky.feed.defs#blockedPost")]
 public abstract class ThreadNode : PostEntry;
 
-/// <summary>
-/// A thread node whose <c>$type</c> this SDK version does not model. It keeps the raw object and
-/// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A thread node whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownThreadNode(string type, JsonElement raw) : ThreadNode, IUnknownUnionVariant
@@ -681,10 +628,7 @@ public sealed class BlockedAuthor : LexObject
 
 // ── Feed generator view ──────────────────────────────────────
 
-/// <summary>
-/// A feed generator view. Also a variant of <see cref="EmbeddedRecordView"/>, for a feed embedded
-/// in a post.
-/// </summary>
+/// <summary>A feed generator view. Also a variant of <see cref="EmbeddedRecordView"/>, for a feed embedded in a post.</summary>
 public sealed class GeneratorView : EmbeddedRecordView
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
@@ -791,7 +735,7 @@ public sealed class GetPostThreadResponse
 /// <summary>Response from getPosts.</summary>
 public sealed class GetPostsResponse
 {
-    /// <summary>The posts.</summary>
+    /// <summary>The requested posts.</summary>
     [JsonPropertyName("posts")]
     public required IReadOnlyList<PostView> Posts { get; init; }
 }
@@ -807,7 +751,7 @@ public sealed record GetLikesResponse : CursorPage<LikeInfo>
     [JsonPropertyName("cid")]
     public Cid? Cid { get; init; }
 
-    /// <summary>The likes.</summary>
+    /// <summary>This page's likes.</summary>
     [JsonPropertyName("likes")]
     public required IReadOnlyList<LikeInfo> Likes { get; init; }
 
@@ -863,7 +807,7 @@ public sealed record GetQuotesResponse : CursorPage<PostView>
     [JsonPropertyName("cid")]
     public Cid? Cid { get; init; }
 
-    /// <summary>The posts.</summary>
+    /// <summary>This page's posts.</summary>
     [JsonPropertyName("posts")]
     public required IReadOnlyList<PostView> Posts { get; init; }
 
@@ -927,7 +871,7 @@ public sealed record SearchPostsResponse : CursorPage<PostView>
     [JsonPropertyName("hitsTotal")]
     public int? HitsTotal { get; init; }
 
-    /// <summary>The posts.</summary>
+    /// <summary>This page's posts.</summary>
     [JsonPropertyName("posts")]
     public required IReadOnlyList<PostView> Posts { get; init; }
 
@@ -936,10 +880,7 @@ public sealed record SearchPostsResponse : CursorPage<PostView>
     public override IReadOnlyList<PostView> Items => Posts;
 }
 
-/// <summary>
-/// The filters of <see cref="FeedClient.SearchPostsV2Async"/>. Every filter is optional; a list
-/// matches a post that matches any of its entries, and the filters combine with AND.
-/// </summary>
+/// <summary>The filters of <see cref="FeedClient.SearchPostsV2Async"/>. Every filter is optional; a list matches a post that matches any of its entries, and the filters combine with AND.</summary>
 public sealed record PostSearchFilters
 {
     /// <summary>Only posts by one of these accounts.</summary>
@@ -978,16 +919,10 @@ public sealed record PostSearchFilters
     /// <summary>No posts tagged with any of these hashtags (without <c>#</c>).</summary>
     public IEnumerable<string>? ExcludeHashtags { get; init; }
 
-    /// <summary>
-    /// Only posts indexed at or after this time: a datetime, or just an ISO date
-    /// (<c>YYYY-MM-DD</c>).
-    /// </summary>
+    /// <summary>Only posts indexed at or after this time: a datetime, or just an ISO date (<c>YYYY-MM-DD</c>).</summary>
     public string? Since { get; init; }
 
-    /// <summary>
-    /// Only posts indexed before this time (default now): a datetime, or just an ISO date
-    /// (<c>YYYY-MM-DD</c>).
-    /// </summary>
+    /// <summary>Only posts indexed before this time (default now): a datetime, or just an ISO date (<c>YYYY-MM-DD</c>).</summary>
     public string? Until { get; init; }
 
     /// <summary>Search the whole index instead of the window of recent posts.</summary>
@@ -1020,10 +955,7 @@ public sealed record PostSearchFilters
     /// <summary>Only posts by accounts the viewer follows.</summary>
     public bool? Following { get; init; }
 
-    /// <summary>
-    /// The language analyzer to read the query with (see <see cref="SearchQueryLanguage"/>); the
-    /// server detects it when possible if unset.
-    /// </summary>
+    /// <summary>The language analyzer to read the query with (see <see cref="SearchQueryLanguage"/>); the server detects it when possible if unset.</summary>
     public string? QueryLanguage { get; init; }
 }
 
@@ -1037,10 +969,7 @@ public static class PostSearchSort
     public const string Top = "top";
 }
 
-/// <summary>
-/// Known query languages of <see cref="FeedClient.SearchPostsV2Async"/>: the scripts that need a
-/// dedicated analyzer.
-/// </summary>
+/// <summary>Known query languages of <see cref="FeedClient.SearchPostsV2Async"/>: the scripts that need a dedicated analyzer.</summary>
 public static class SearchQueryLanguage
 {
     /// <summary>Japanese.</summary>
@@ -1070,10 +999,7 @@ public sealed record SearchPostsV2Response : CursorPage<PostView>
     [JsonPropertyName("posts")]
     public required IReadOnlyList<PostView> Posts { get; init; }
 
-    /// <summary>
-    /// The languages detected in the query (see <see cref="SearchQueryLanguage"/>), for Chinese,
-    /// Japanese, Korean, Thai or Arabic text; empty or <see langword="null"/> otherwise.
-    /// </summary>
+    /// <summary>The languages detected in the query (see <see cref="SearchQueryLanguage"/>), for Chinese, Japanese, Korean, Thai or Arabic text; empty or <see langword="null"/> otherwise.</summary>
     [JsonPropertyName("detectedQueryLanguages")]
     public IReadOnlyList<string>? DetectedQueryLanguages { get; init; }
 
@@ -1084,10 +1010,7 @@ public sealed record SearchPostsV2Response : CursorPage<PostView>
 
 // ── sendInteractions ─────────────────────────────────────────
 
-/// <summary>
-/// Feedback about one feed item for the feed generator that served it
-/// (<c>app.bsky.feed.defs#interaction</c>).
-/// </summary>
+/// <summary>Feedback about one feed item for the feed generator that served it (<c>app.bsky.feed.defs#interaction</c>).</summary>
 public sealed class Interaction : LexObject
 {
     /// <summary>The AT-URI of the feed item, usually a post.</summary>
@@ -1147,7 +1070,6 @@ public static class InteractionEvent
     public const string Share = "app.bsky.feed.defs#interactionShare";
 }
 
-/// <summary>Request body for sendInteractions.</summary>
 internal sealed record SendInteractionsRequest(
     [property: JsonPropertyName("interactions")]
     [property: JsonPropertyOrder(1)]
@@ -1185,10 +1107,7 @@ public sealed record GetFeedSkeletonResponse : CursorPage<SkeletonFeedPost>
     [JsonPropertyName("feed")]
     public required IReadOnlyList<SkeletonFeedPost> Feed { get; init; }
 
-    /// <summary>
-    /// An identifier for the request, which the feed generator may ask for back in interaction
-    /// events.
-    /// </summary>
+    /// <summary>An identifier for the request, which the feed generator may ask for back in interaction events.</summary>
     [JsonPropertyName("reqId")]
     public string? ReqId { get; init; }
 
@@ -1204,10 +1123,7 @@ public sealed class SkeletonFeedPost : LexObject
     [JsonPropertyName("post")]
     public required AtUri Post { get; init; }
 
-    /// <summary>
-    /// Why the post is in the feed when it is not there on its own: a
-    /// <see cref="SkeletonReasonRepost"/> or a <see cref="SkeletonReasonPin"/>.
-    /// </summary>
+    /// <summary>Why the post is in the feed when it is not there on its own: a <see cref="SkeletonReasonRepost"/> or a <see cref="SkeletonReasonPin"/>.</summary>
     [JsonPropertyName("reason")]
     public SkeletonReason? Reason { get; init; }
 
@@ -1216,11 +1132,7 @@ public sealed class SkeletonFeedPost : LexObject
     public string? FeedContext { get; init; }
 }
 
-/// <summary>
-/// Why a post appears in a feed skeleton (the open union behind
-/// <see cref="SkeletonFeedPost.Reason"/>). A reason this SDK does not model reads as
-/// <see cref="UnknownSkeletonReason"/>.
-/// </summary>
+/// <summary>Why a post appears in a feed skeleton (the open union behind <see cref="SkeletonFeedPost.Reason"/>). A reason this SDK does not model reads as <see cref="UnknownSkeletonReason"/>.</summary>
 [AtProtoUnion(typeof(UnknownSkeletonReason))]
 [JsonDerivedType(typeof(SkeletonReasonRepost), "app.bsky.feed.defs#skeletonReasonRepost")]
 [JsonDerivedType(typeof(SkeletonReasonPin), "app.bsky.feed.defs#skeletonReasonPin")]
@@ -1237,10 +1149,7 @@ public sealed class SkeletonReasonRepost : SkeletonReason
 /// <summary>The post is in the skeleton because the author pinned it.</summary>
 public sealed class SkeletonReasonPin : SkeletonReason;
 
-/// <summary>
-/// A skeleton reason whose <c>$type</c> this SDK version does not model. It keeps the raw object
-/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A skeleton reason whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownSkeletonReason(string type, JsonElement raw) : SkeletonReason, IUnknownUnionVariant

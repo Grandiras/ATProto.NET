@@ -87,13 +87,11 @@ public sealed class RepoResyncEvent : FirehoseMessage
     public string? Reason { get; init; }
 }
 
-/// <summary>Runs the resynchronizations of one <see cref="TypedFirehoseConsumer.ConsumeAsync"/> run.</summary>
-/// <remarks>
-/// Every state change happens on the consumer's own loop, one event at a time: the background
-/// work only downloads and verifies, and posts what it found. That keeps a repository's events,
-/// its snapshot and the events held during the fetch in one order, with no locking around the
-/// state store.
-/// </remarks>
+// Runs the resynchronizations of one TypedFirehoseConsumer.ConsumeAsync run.
+//
+// Every state change happens on the consumer's own loop, one event at a time: the background work only
+// downloads and verifies, and posts what it found. That keeps a repository's events, its snapshot and
+// the events held during the fetch in one order, with no locking around the state store.
 internal sealed class RepoResyncCoordinator : IAsyncDisposable
 {
     private readonly RepoSyncVerifier _verifier;
@@ -110,11 +108,8 @@ internal sealed class RepoResyncCoordinator : IAsyncDisposable
     private readonly Queue<Pending> _ready = new();
     private readonly List<Task> _workers = [];
 
-    /// <summary>
-    /// The sequence numbers of events held and not yet delivered or dropped, counted, so the
-    /// cursor is never saved past the oldest: a process that stops before delivering them must
-    /// see them again.
-    /// </summary>
+    // The sequence numbers of events held and not yet delivered or dropped, counted, so the cursor is
+    // never saved past the oldest: a process that stops before delivering them must see them again.
     private readonly SortedDictionary<long, int> _undelivered = [];
     private readonly Action<long?> _persistLimit;
     private long _heldBytes;
@@ -123,15 +118,18 @@ internal sealed class RepoResyncCoordinator : IAsyncDisposable
     // Posted by the background fetches.
     private readonly System.Collections.Concurrent.ConcurrentQueue<Completion> _completions = new();
 
-    /// <param name="verifier">The consumer's sync verifier.</param>
-    /// <param name="options">The resync options.</param>
-    /// <param name="serviceUrl">The firehose's URL, which the default upstream is derived from.</param>
-    /// <param name="persistLimit">
-    /// Told the highest cursor position that may be saved while events are held, or null when
-    /// none are.
-    /// </param>
-    /// <param name="logger">The consumer's logger.</param>
-    /// <param name="timeProvider">The clock retries and scans are timed by.</param>
+    // verifier: The consumer's sync verifier.
+    //
+    // options: The resync options.
+    //
+    // serviceUrl: The firehose's URL, which the default upstream is derived from.
+    //
+    // persistLimit: Told the highest cursor position that may be saved while events are held, or null when
+    // none are.
+    //
+    // logger: The consumer's logger.
+    //
+    // timeProvider: The clock retries and scans are timed by.
     public RepoResyncCoordinator(
         RepoSyncVerifier verifier, RepoResyncOptions options, string serviceUrl, Action<long?> persistLimit,
         ILogger logger, TimeProvider? timeProvider = null)
@@ -158,31 +156,29 @@ internal sealed class RepoResyncCoordinator : IAsyncDisposable
         }
     }
 
-    /// <summary>What the consumer's loop has to deliver or process next.</summary>
+    // What the consumer's loop has to deliver or process next.
     internal abstract record Pending;
 
-    /// <summary>A finished resync, to deliver; <paramref name="State"/> is recorded once it is delivered.</summary>
+    // A finished resync, to deliver; State is recorded once it is delivered.
     internal sealed record Snapshot(RepoResyncEvent Message, RepoSyncState State) : Pending;
 
-    /// <summary>An event held during a resync, to verify again now that the snapshot is in.</summary>
+    // An event held during a resync, to verify again now that the snapshot is in.
     internal sealed record Held(FirehoseEvent Event) : Pending;
 
-    /// <summary>An event held for a fetch that failed, to report as dropped.</summary>
+    // An event held for a fetch that failed, to report as dropped.
     internal sealed record Abandoned(FirehoseEvent Event, string Reason) : Pending;
 
-    /// <summary>A repository whose held events overflowed: fetch it again, at least at <paramref name="MinRev"/>.</summary>
+    // A repository whose held events overflowed: fetch it again, at least at MinRev.
     internal sealed record Refetch(Did Did, Tid? MinRev, string Reason) : Pending;
 
-    /// <summary>The http(s) form of the firehose's WebSocket URL: the relay to ask first.</summary>
+    // The http(s) form of the firehose's WebSocket URL: the relay to ask first.
     internal static Uri? UpstreamOf(string serviceUrl) =>
         Uri.TryCreate(serviceUrl, UriKind.Absolute, out var uri) && AtProtoHttp.WithScheme(uri, webSocket: false) is { Scheme: "https" or "http" } http
             ? new Uri(http.GetLeftPart(UriPartial.Authority) + "/")
             : null;
 
-    /// <summary>
-    /// Takes an event whose repository is desynchronized: starts fetching the repository if nothing
-    /// is, and holds the event to replay after the snapshot. Returns whether the event was held.
-    /// </summary>
+    // Takes an event whose repository is desynchronized: starts fetching the repository if nothing is, and
+    // holds the event to replay after the snapshot. Returns whether the event was held.
     public async ValueTask<bool> HoldAsync(FirehoseEvent evt, RepoSyncResult result, CancellationToken cancellationToken)
     {
         var job = await EnsureJobAsync(result.Did, result.Rev ?? result.State?.Rev, result.Reason, cancellationToken).ConfigureAwait(false);
@@ -225,10 +221,8 @@ internal sealed class RepoResyncCoordinator : IAsyncDisposable
         return true;
     }
 
-    /// <summary>
-    /// A held event was delivered, dropped, or held again: it no longer stops the cursor from
-    /// being saved past it (unless held again, which counts it anew).
-    /// </summary>
+    // A held event was delivered, dropped, or held again: it no longer stops the cursor from being saved
+    // past it (unless held again, which counts it anew).
     public void Release(long seq)
     {
         if (!_undelivered.TryGetValue(seq, out var count))
@@ -253,10 +247,8 @@ internal sealed class RepoResyncCoordinator : IAsyncDisposable
         _persistLimit(limit);
     }
 
-    /// <summary>
-    /// The next thing the consumer's loop has to deliver or process: a finished resync, an event
-    /// held during one, or null when there is nothing. Scans the state store when a scan is due.
-    /// </summary>
+    // The next thing the consumer's loop has to deliver or process: a finished resync, an event held
+    // during one, or null when there is nothing. Scans the state store when a scan is due.
     public async ValueTask<Pending?> NextAsync(CancellationToken cancellationToken)
     {
         while (true)
@@ -280,7 +272,7 @@ internal sealed class RepoResyncCoordinator : IAsyncDisposable
         return null;
     }
 
-    /// <summary>Starts fetching a repository again after its held events overflowed.</summary>
+    // Starts fetching a repository again after its held events overflowed.
     public async ValueTask RefetchAsync(Refetch refetch, CancellationToken cancellationToken)
     {
         await _verifier.SetStatusAsync(refetch.Did, RepoSyncStatus.Desynchronized, cancellationToken).ConfigureAwait(false);
@@ -372,7 +364,7 @@ internal sealed class RepoResyncCoordinator : IAsyncDisposable
             _ready.Enqueue(new Refetch(job.Did, job.LatestRev, "Events overflowed while the repository was being fetched."));
     }
 
-    /// <summary>Downloads and verifies one repository, off the consumer's loop, and posts the outcome.</summary>
+    // Downloads and verifies one repository, off the consumer's loop, and posts the outcome.
     private async Task FetchAsync(Job job)
     {
         var token = _stopping.Token;
@@ -486,7 +478,7 @@ internal sealed class RepoResyncCoordinator : IAsyncDisposable
     {
         public Did Did { get; } = did;
 
-        /// <summary>The revision the snapshot must reach: that of the event that broke the chain.</summary>
+        // The revision the snapshot must reach: that of the event that broke the chain.
         public Tid? MinRev { get; } = minRev;
 
         public string? Reason { get; } = reason;
@@ -497,7 +489,7 @@ internal sealed class RepoResyncCoordinator : IAsyncDisposable
 
         public bool Overflowed { get; set; }
 
-        /// <summary>The newest revision of the events that arrived during the fetch, held or not.</summary>
+        // The newest revision of the events that arrived during the fetch, held or not.
         public Tid? LatestRev { get; set; }
     }
 

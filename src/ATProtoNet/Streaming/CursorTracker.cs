@@ -3,20 +3,18 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Streaming;
 
-/// <summary>
-/// The cursor of one consumer run: loads the stored position, moves it forward monotonically, and
-/// persists it through an <see cref="IStreamCursorStore"/>.
-/// </summary>
-/// <remarks>
-/// <para>Every event the stream passes advances the cursor, including the ones a filter or a
-/// failed verification drops. A filter that rarely matches must not leave the stored position at
-/// its last match, or a restart would replay everything since.</para>
-/// <para>Saves run in the background, at most one at a time: when one is due while another is
-/// still running, the running one saves again with the newest value when it finishes. A slow
-/// store therefore never blocks the read loop, which a server would disconnect as too slow.
-/// <see cref="FlushAsync"/> waits for that and saves the final position; consumers dispose the
-/// tracker with their enumeration, so a <c>break</c>, a cancellation and an exception all keep it.</para>
-/// </remarks>
+// The cursor of one consumer run: loads the stored position, moves it forward monotonically, and
+// persists it through an IStreamCursorStore.
+//
+// Every event the stream passes advances the cursor, including the ones a filter or a failed
+// verification drops. A filter that rarely matches must not leave the stored position at its last
+// match, or a restart would replay everything since.
+//
+// Saves run in the background, at most one at a time: when one is due while another is still running,
+// the running one saves again with the newest value when it finishes. A slow store therefore never
+// blocks the read loop, which a server would disconnect as too slow. FlushAsync waits for that and
+// saves the final position; consumers dispose the tracker with their enumeration, so a break, a
+// cancellation and an exception all keep it.
 internal sealed class CursorTracker : IAsyncDisposable
 {
     private readonly IStreamCursorStore? _store;
@@ -40,11 +38,8 @@ internal sealed class CursorTracker : IAsyncDisposable
         _logger = logger;
     }
 
-    /// <summary>
-    /// Starts the tracker of one consumer run: resuming after <paramref name="cursor"/>, or after the
-    /// stored cursor when it is null. Returns null when <paramref name="cancellationToken"/> is
-    /// cancelled while the stored cursor is loaded.
-    /// </summary>
+    // Starts the tracker of one consumer run: resuming after cursor, or after the stored cursor when it is
+    // null. Returns null when cancellationToken is cancelled while the stored cursor is loaded.
     public static async ValueTask<CursorTracker?> StartAsync(
         CursorStreamConsumerOptions options, long? cursor, CancellationToken cancellationToken)
     {
@@ -69,7 +64,7 @@ internal sealed class CursorTracker : IAsyncDisposable
         return tracker;
     }
 
-    /// <summary>The last position the stream passed, or null before the first one.</summary>
+    // The last position the stream passed, or null before the first one.
     public long? Current
     {
         get
@@ -79,7 +74,7 @@ internal sealed class CursorTracker : IAsyncDisposable
         }
     }
 
-    /// <summary>Loads the stored cursor, or null when there is no store or nothing stored.</summary>
+    // Loads the stored cursor, or null when there is no store or nothing stored.
     public async ValueTask<long?> LoadAsync(CancellationToken cancellationToken)
     {
         if (_store is null)
@@ -90,32 +85,26 @@ internal sealed class CursorTracker : IAsyncDisposable
         return stored;
     }
 
-    /// <summary>
-    /// Sets the floor the cursor only moves up from, without saving it: the position the run
-    /// resumes after.
-    /// </summary>
+    // Sets the floor the cursor only moves up from, without saving it: the position the run resumes after.
     public void Start(long? position)
     {
         lock (_gate)
             _current = position;
     }
 
-    /// <summary>
-    /// Caps the position saved at <paramref name="limit"/>, or lifts the cap when null. A consumer
-    /// sets it below events it has taken off the stream but not yet delivered, so a restart
-    /// replays them rather than resuming past them. <see cref="Current"/> is not capped.
-    /// </summary>
+    // Caps the position saved at limit, or lifts the cap when null. A consumer sets it below events it has
+    // taken off the stream but not yet delivered, so a restart replays them rather than resuming past
+    // them. Current is not capped.
     public void SetPersistLimit(long? limit)
     {
         lock (_gate)
             _persistLimit = limit ?? long.MaxValue;
     }
 
-    /// <summary>
-    /// Moves the cursor to <paramref name="position"/> when that is past the current one, and
-    /// starts a background save every <c>persistInterval</c> moves.
-    /// </summary>
-    /// <returns>Whether the position was new; false for one at or below the current cursor.</returns>
+    // Moves the cursor to position when that is past the current one, and starts a background save every
+    // persistInterval moves.
+    //
+    // Returns: Whether the position was new; false for one at or below the current cursor.
     public bool Advance(long position)
     {
         lock (_gate)
@@ -140,10 +129,8 @@ internal sealed class CursorTracker : IAsyncDisposable
         }
     }
 
-    /// <summary>
-    /// Waits for a background save, then saves the final position if it has not been saved.
-    /// Never throws: a failed save is logged, and the next run replays from the last saved one.
-    /// </summary>
+    // Waits for a background save, then saves the final position if it has not been saved. Never throws: a
+    // failed save is logged, and the next run replays from the last saved one.
     public async ValueTask FlushAsync()
     {
         if (_store is null)
@@ -168,10 +155,9 @@ internal sealed class CursorTracker : IAsyncDisposable
             await SaveAsync(final).ConfigureAwait(false);
     }
 
-    /// <inheritdoc cref="FlushAsync"/>
     public ValueTask DisposeAsync() => FlushAsync();
 
-    /// <summary>The position a save may record: <see cref="Current"/>, capped by the persist limit. Call under the lock.</summary>
+    // The position a save may record: Current, capped by the persist limit. Call under the lock.
     private long? Persistable() => _current is { } current ? Math.Min(current, _persistLimit) : null;
 
     private async Task SaveLoopAsync()

@@ -7,27 +7,31 @@ using Microsoft.Extensions.Primitives;
 
 namespace ATProtoNet.Server.Xrpc;
 
-/// <summary>Binds an XRPC query string to <typeparamref name="TParams"/> by the type of each property.</summary>
-/// <remarks>
-/// <para>XRPC carries an array parameter as a repeated key, so whether <c>?uris=a</c> is one
-/// string or a one-element list depends only on what the parameter is declared as. The plan below
-/// reads that from the serializer's own contract for <typeparamref name="TParams"/> — names,
-/// types, required members, custom converters — once per type.</para>
-/// <para>Each request writes the query straight into a UTF-8 buffer as the JSON object the
-/// contract expects (a collection always as an array, a boolean as a boolean, everything else as a
-/// string the property's converter parses) and deserializes it from there, so identifier types
-/// are validated by their own parsers and constructor-bound types bind as they do from a body.</para>
-/// </remarks>
-/// <typeparam name="TParams">The query parameters type.</typeparam>
+// Binds an XRPC query string to TParams by the type of each property.
+//
+// XRPC carries an array parameter as a repeated key, so whether ?uris=a is one string or a one-element
+// list depends only on what the parameter is declared as. The plan below reads that from the
+// serializer's own contract for TParams — names, types, required members, custom converters — once per
+// type.
+//
+// Each request writes the query straight into a UTF-8 buffer as the JSON object the contract expects
+// (a collection always as an array, a boolean as a boolean, everything else as a string the property's
+// converter parses) and deserializes it from there, so identifier types are validated by their own
+// parsers and constructor-bound types bind as they do from a body.
+//
+// TParams: The query parameters type.
 internal static class XrpcQueryBinder<TParams>
     where TParams : class
 {
     private static readonly Parameter[] Parameters = Plan(XrpcJson<TParams>.TypeInfo);
 
-    /// <summary>Binds <paramref name="query"/>, answering <c>InvalidRequest</c> for a value that does not.</summary>
-    /// <param name="query">The request's query string.</param>
-    /// <returns>The bound parameters.</returns>
-    /// <exception cref="XrpcException">A value is missing, repeated, or malformed.</exception>
+    // Binds query, answering InvalidRequest for a value that does not.
+    //
+    // query: The request's query string.
+    //
+    // Returns: The bound parameters.
+    //
+    // Throws XrpcException: A value is missing, repeated, or malformed.
     public static TParams Bind(IQueryCollection query)
     {
         var buffer = new ArrayBufferWriter<byte>(256);

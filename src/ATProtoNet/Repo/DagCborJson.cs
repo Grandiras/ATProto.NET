@@ -5,59 +5,50 @@ using System.Text.Json;
 
 namespace ATProtoNet.Repo;
 
-/// <summary>How <see cref="DagCborJson"/> renders the two DAG-CBOR kinds JSON has no type for.</summary>
+// How DagCborJson renders the two DAG-CBOR kinds JSON has no type for.
 internal enum DagCborJsonForm
 {
-    /// <summary>
-    /// The AT Protocol JSON data model: a CID becomes <c>{"$link": "bafy…"}</c> and a byte string
-    /// becomes <c>{"$bytes": "&lt;base64&gt;"}</c>, unpadded as the data model specifies.
-    /// </summary>
+    // The AT Protocol JSON data model: a CID becomes {"$link": "bafy…"} and a byte string becomes
+    // {"$bytes": "<base64>"}, unpadded as the data model specifies.
     Wrapped,
 
-    /// <summary>
-    /// The shape the firehose models bind from: a CID becomes its base32 string and a byte string
-    /// becomes a plain base64 string.
-    /// </summary>
+    // The shape the firehose models bind from: a CID becomes its base32 string and a byte string becomes a
+    // plain base64 string.
     Flattened,
 }
 
-/// <summary>Transcodes DAG-CBOR straight into a <see cref="Utf8JsonWriter"/> in one pass.</summary>
-/// <remarks>
-/// <para>This is the one DAG-CBOR→JSON walker in the SDK, shared by
-/// <see cref="DagCborDecoder.Decode"/> and the firehose frame parser. Writing into the JSON writer
-/// directly skips the intermediate <c>JsonNode</c> tree, and
-/// <see cref="Utf8JsonWriter.WriteBase64StringValue"/> puts byte strings on the wire without an
-/// intermediate string.</para>
-/// <para>The walk recurses once per container, and its input comes from relays and other
-/// untrusted peers, so nesting is capped at <see cref="MaxDepth"/>: without the cap a few
-/// kilobytes of nested arrays overflow the stack, which no <c>catch</c> can recover from.</para>
-/// </remarks>
+// Transcodes DAG-CBOR straight into a Utf8JsonWriter in one pass.
+//
+// This is the one DAG-CBOR→JSON walker in the SDK, shared by DagCborDecoder.Decode and the firehose
+// frame parser. Writing into the JSON writer directly skips the intermediate JsonNode tree, and
+// Utf8JsonWriter.WriteBase64StringValue puts byte strings on the wire without an intermediate string.
+//
+// The walk recurses once per container, and its input comes from relays and other untrusted peers, so
+// nesting is capped at MaxDepth: without the cap a few kilobytes of nested arrays overflow the stack,
+// which no catch can recover from.
 internal static class DagCborJson
 {
-    /// <summary>
-    /// The deepest JSON nesting the transcoder emits, counting the <c>$link</c>/<c>$bytes</c>
-    /// wrapper objects. Matches the <see cref="JsonSerializerOptions.MaxDepth"/> default, which
-    /// every consumer of the output parses with, so anything deeper could not be read anyway.
-    /// </summary>
+    // The deepest JSON nesting the transcoder emits, counting the $link/$bytes wrapper objects. Matches
+    // the JsonSerializerOptions.MaxDepth default, which every consumer of the output parses with, so
+    // anything deeper could not be read anyway.
     internal const int MaxDepth = 64;
 
-    /// <summary>Writes the next DAG-CBOR value as JSON.</summary>
-    /// <param name="reader">Positioned at the value.</param>
-    /// <param name="writer">Receives the value.</param>
-    /// <param name="form">How CIDs and byte strings are rendered.</param>
-    /// <param name="depth">
-    /// The JSON nesting depth of the container the value sits in: 0 for a root value, 1 for a
-    /// property of the root object, and so on.
-    /// </param>
-    /// <exception cref="FormatException">
-    /// The value is not in the AT Protocol data model (a float, a non-string map key, a malformed
-    /// CID link) or nests deeper than <see cref="MaxDepth"/>.
-    /// </exception>
-    /// <remarks>
-    /// Malformed CBOR also surfaces from <see cref="CborReader"/> itself, as
-    /// <see cref="CborContentException"/>, <see cref="InvalidOperationException"/> or
-    /// <see cref="OverflowException"/>; callers normalize those at their own boundary.
-    /// </remarks>
+    // Writes the next DAG-CBOR value as JSON.
+    //
+    // Malformed CBOR also surfaces from CborReader itself, as CborContentException,
+    // InvalidOperationException or OverflowException; callers normalize those at their own boundary.
+    //
+    // reader: Positioned at the value.
+    //
+    // writer: Receives the value.
+    //
+    // form: How CIDs and byte strings are rendered.
+    //
+    // depth: The JSON nesting depth of the container the value sits in: 0 for a root value, 1 for a
+    // property of the root object, and so on.
+    //
+    // Throws FormatException: The value is not in the AT Protocol data model (a float, a non-string map
+    // key, a malformed CID link) or nests deeper than MaxDepth.
     internal static void WriteValue(CborReader reader, Utf8JsonWriter writer, DagCborJsonForm form, int depth)
     {
         var state = reader.PeekState();
@@ -112,16 +103,18 @@ internal static class DagCborJson
         }
     }
 
-    /// <summary>
-    /// Writes the entries of the map at the reader as JSON properties of an object the caller has
-    /// already opened. The firehose parser uses this to write its <c>$type</c> discriminator
-    /// ahead of the body.
-    /// </summary>
-    /// <param name="reader">Positioned at the map.</param>
-    /// <param name="writer">Receives the properties.</param>
-    /// <param name="form">How CIDs and byte strings are rendered.</param>
-    /// <param name="depth">The depth of the object the properties are written into (1 for the root).</param>
-    /// <param name="skip">Returns <c>true</c> for a key whose entry is left out.</param>
+    // Writes the entries of the map at the reader as JSON properties of an object the caller has already
+    // opened. The firehose parser uses this to write its $type discriminator ahead of the body.
+    //
+    // reader: Positioned at the map.
+    //
+    // writer: Receives the properties.
+    //
+    // form: How CIDs and byte strings are rendered.
+    //
+    // depth: The depth of the object the properties are written into (1 for the root).
+    //
+    // skip: Returns true for a key whose entry is left out.
     internal static void WriteMapBody(
         CborReader reader, Utf8JsonWriter writer, DagCborJsonForm form, int depth, Func<string, bool>? skip = null)
     {
@@ -196,10 +189,8 @@ internal static class DagCborJson
         writer.WriteEndObject();
     }
 
-    /// <summary>
-    /// Writes <paramref name="bytes"/> as a base64 string without trailing <c>=</c>: the data
-    /// model's <c>$bytes</c> form. <see cref="Utf8JsonWriter.WriteBase64StringValue"/> always pads.
-    /// </summary>
+    // Writes bytes as a base64 string without trailing =: the data model's $bytes form.
+    // Utf8JsonWriter.WriteBase64StringValue always pads.
     private static void WriteUnpaddedBase64(Utf8JsonWriter writer, byte[] bytes)
     {
         // Two quotes around the encoding; the base64 alphabet needs no JSON escaping.

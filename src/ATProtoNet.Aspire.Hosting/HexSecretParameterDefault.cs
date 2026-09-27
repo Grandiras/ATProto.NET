@@ -4,15 +4,13 @@ using Aspire.Hosting.Publishing;
 
 namespace ATProtoNet.Aspire.Hosting;
 
-/// <summary>Generates a random lowercase hex string of a fixed byte length.</summary>
-/// <remarks>
-/// The PDS reads its JWT secret and PLC rotation key as hex, so the generated
-/// alphanumeric passwords Aspire produces by default are not usable for them.
-/// Combined with <c>persist: true</c>, values generated here are written to the
-/// AppHost's user secrets and stay stable across runs — which matters because the
-/// PDS data volume outlives any single run, and a rotation key that changed between
-/// runs would orphan the identities already stored in it.
-/// </remarks>
+// Generates a random lowercase hex string of a fixed byte length.
+//
+// The PDS reads its JWT secret and PLC rotation key as hex, so the generated alphanumeric passwords
+// Aspire produces by default are not usable for them. Combined with persist: true, values generated
+// here are written to the AppHost's user secrets and stay stable across runs — which matters because
+// the PDS data volume outlives any single run, and a rotation key that changed between runs would
+// orphan the identities already stored in it.
 internal sealed class HexSecretParameterDefault(int byteCount) : ParameterDefault
 {
     public override string GetDefaultValue() =>

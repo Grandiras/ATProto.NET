@@ -231,10 +231,7 @@ public sealed class CachingLexiconResolver : ILexiconResolver, IDisposable
         }
     }
 
-    /// <summary>
-    /// A fresh exception for a remembered failure: one instance thrown on several threads at once
-    /// would have its stack trace rewritten under each of them.
-    /// </summary>
+    /// <summary>A fresh exception for a remembered failure: one instance thrown on several threads at once would have its stack trace rewritten under each of them.</summary>
     private static LexiconResolutionException Rethrow(LexiconResolutionException cached) =>
         new(cached.Message, cached.Nsid, cached.Kind, cached);
 
@@ -269,23 +266,13 @@ public sealed class LexiconCacheOptions
     /// <summary>The most schemas and failures held. The least recently used goes first. Defaults to 1,000.</summary>
     public int Capacity { get; set; } = 1_000;
 
-    /// <summary>
-    /// How long a schema is served without being re-resolved. After that it is still served, and
-    /// re-resolved in the background. Defaults to five minutes.
-    /// </summary>
+    /// <summary>How long a schema is served without being re-resolved. After that it is still served, and re-resolved in the background. Defaults to five minutes.</summary>
     public TimeSpan StaleAfter { get; set; } = TimeSpan.FromMinutes(5);
 
-    /// <summary>
-    /// How long a schema may be served at all, including while re-resolution keeps failing. After
-    /// that it is resolved again before use. Defaults to 24 hours, the permission specification's
-    /// upper bound.
-    /// </summary>
+    /// <summary>How long a schema may be served at all, including while re-resolution keeps failing. After that it is resolved again before use. Defaults to 24 hours, the permission specification's upper bound.</summary>
     public TimeSpan ExpireAfter { get; set; } = TimeSpan.FromHours(24);
 
-    /// <summary>
-    /// How long a failed resolution is remembered, and how long a failed background refresh waits
-    /// before the next. Defaults to one minute.
-    /// </summary>
+    /// <summary>How long a failed resolution is remembered, and how long a failed background refresh waits before the next. Defaults to one minute.</summary>
     public TimeSpan FailureTtl { get; set; } = TimeSpan.FromMinutes(1);
 
     internal void Validate()

@@ -18,13 +18,11 @@ public sealed class CarReader
     private readonly IReadOnlyList<CarBlock> _blocks;
     private readonly CarHeader _header;
 
-    /// <summary>CID → block index, built on the first <see cref="FindBlock"/> call.</summary>
-    /// <remarks>
-    /// Resolving a repository's MST means one lookup per node, and a repo export runs to tens
-    /// of thousands of blocks — a linear scan per lookup makes the walk quadratic. The index is
-    /// deferred because plenty of callers only enumerate <see cref="Blocks"/> and never look
-    /// one up by CID.
-    /// </remarks>
+    // CID → block index, built on the first FindBlock call.
+    //
+    // Resolving a repository's MST means one lookup per node, and a repo export runs to tens of thousands
+    // of blocks — a linear scan per lookup makes the walk quadratic. The index is deferred because plenty
+    // of callers only enumerate Blocks and never look one up by CID.
     private Dictionary<byte[], CarBlock>? _index;
 
     /// <summary>The CAR header containing the file version and root CIDs.</summary>
@@ -194,10 +192,8 @@ public sealed class CarReader
             : null;
     }
 
-    /// <summary>
-    /// Compares CIDs by content rather than by array reference, and accepts a
-    /// <see cref="ReadOnlySpan{T}"/> as an alternate key so lookups need not copy.
-    /// </summary>
+    // Compares CIDs by content rather than by array reference, and accepts a ReadOnlySpan{T} as an
+    // alternate key so lookups need not copy.
     private sealed class CidComparer
         : IEqualityComparer<byte[]>, IAlternateEqualityComparer<ReadOnlySpan<byte>, byte[]>
     {
@@ -235,11 +231,10 @@ public sealed class CarReader
 
     // ── Header parsing ───────────────────────────────────────
 
-    /// <summary>Parses the DAG-CBOR header, <c>{"roots": [&lt;CID link&gt;, …], "version": 1}</c>.</summary>
-    /// <remarks>
-    /// <see cref="CborReader"/> walks nested values iteratively, so a hostile header of deeply
-    /// nested arrays under an unknown key is skipped rather than overflowing the stack.
-    /// </remarks>
+    // Parses the DAG-CBOR header, {"roots": [<CID link>, …], "version": 1}.
+    //
+    // CborReader walks nested values iteratively, so a hostile header of deeply nested arrays under an
+    // unknown key is skipped rather than overflowing the stack.
     private static CarHeader ParseHeader(byte[] cbor)
     {
         try
@@ -296,10 +291,8 @@ public sealed class CarReader
 
     // ── CID parsing ──────────────────────────────────────────
 
-    /// <summary>
-    /// Reads the CID at the start of a block section. <paramref name="data"/> ends where the
-    /// section does, so a CID claiming more bytes than the section holds is caught here.
-    /// </summary>
+    // Reads the CID at the start of a block section. data ends where the section does, so a CID claiming
+    // more bytes than the section holds is caught here.
     private static byte[] ParseCid(ReadOnlySpan<byte> data, ref int offset)
     {
         var cidStart = offset;
@@ -326,8 +319,9 @@ public sealed class CarReader
 
     // ── Unsigned varint (LEB128) ─────────────────────────────
 
-    /// <summary>Reads a multiformats unsigned varint: at most 9 bytes (63 bits), minimally encoded.</summary>
-    /// <exception cref="FormatException">The varint is truncated, too long, or not minimal.</exception>
+    // Reads a multiformats unsigned varint: at most 9 bytes (63 bits), minimally encoded.
+    //
+    // Throws FormatException: The varint is truncated, too long, or not minimal.
     internal static ulong ReadUvarint(ReadOnlySpan<byte> data, ref int offset)
     {
         const int MaxBytes = 9;

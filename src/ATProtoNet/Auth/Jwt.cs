@@ -9,39 +9,43 @@ using ATProtoNet.Crypto;
 
 namespace ATProtoNet.Auth;
 
-/// <summary>A compact JWS split into its parts and decoded, but not verified.</summary>
-/// <param name="Header">The JOSE header, always a JSON object.</param>
-/// <param name="Payload">The claims, always a JSON object.</param>
-/// <param name="SigningInput">The bytes the signature covers: <c>{header}.{payload}</c> exactly as sent.</param>
-/// <param name="Signature">The decoded signature.</param>
+// A compact JWS split into its parts and decoded, but not verified.
+//
+// Header: The JOSE header, always a JSON object.
+//
+// Payload: The claims, always a JSON object.
+//
+// SigningInput: The bytes the signature covers: {header}.{payload} exactly as sent.
+//
+// Signature: The decoded signature.
 internal readonly record struct DecodedJwt(
     JsonElement Header, JsonElement Payload, byte[] SigningInput, byte[] Signature);
 
-/// <summary>
-/// The compact JWS encoding shared by every JWT the SDK mints or reads: DPoP proofs, service
-/// auth tokens and space tokens.
-/// </summary>
-/// <remarks>
-/// Only the encoding lives here. Which claims a token must carry, what a verifier checks, and
-/// which exception a failure becomes stay with each token type, because they differ.
-/// </remarks>
+// The compact JWS encoding shared by every JWT the SDK mints or reads: DPoP proofs, service auth
+// tokens and space tokens.
+//
+// Only the encoding lives here. Which claims a token must carry, what a verifier checks, and which
+// exception a failure becomes stay with each token type, because they differ.
 internal static class Jwt
 {
-    /// <summary>An ES256 or ES256K signature: fixed-width <c>r || s</c>.</summary>
+    // An ES256 or ES256K signature: fixed-width r || s.
     private const int SignatureLength = 64;
 
     private static readonly SearchValues<char> s_base64UrlChars =
         SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_=");
 
-    /// <summary>
-    /// Serializes and base64url-encodes a JOSE header, for signers that reuse one header across
-    /// many tokens.
-    /// </summary>
-    /// <param name="type">The <c>typ</c>, or <see langword="null"/> for none.</param>
-    /// <param name="curve">The signing key's curve, which determines the <c>alg</c>.</param>
-    /// <param name="keyId">The <c>kid</c>, when the token names one.</param>
-    /// <param name="jwk">The public key to embed as <c>jwk</c>, as a DPoP proof does.</param>
-    /// <returns>The encoded header as ASCII bytes.</returns>
+    // Serializes and base64url-encodes a JOSE header, for signers that reuse one header across many
+    // tokens.
+    //
+    // type: The typ, or null for none.
+    //
+    // curve: The signing key's curve, which determines the alg.
+    //
+    // keyId: The kid, when the token names one.
+    //
+    // jwk: The public key to embed as jwk, as a DPoP proof does.
+    //
+    // Returns: The encoded header as ASCII bytes.
     public static byte[] EncodeHeader(string? type, KeyCurve curve, string? keyId = null, JsonWebKey? jwk = null)
     {
         var json = new ArrayBufferWriter<byte>(jwk is null ? 128 : 256);
@@ -69,10 +73,13 @@ internal static class Jwt
         return encoded;
     }
 
-    /// <summary>Signs a compact JWS: <c>{header}.{base64url(payload)}.{base64url(signature)}</c>.</summary>
-    /// <param name="encodedHeader">The header from <see cref="EncodeHeader"/>.</param>
-    /// <param name="payload">The claims as UTF-8 JSON.</param>
-    /// <param name="key">The signing key. Its curve must be the one the header was encoded for.</param>
+    // Signs a compact JWS: {header}.{base64url(payload)}.{base64url(signature)}.
+    //
+    // encodedHeader: The header from EncodeHeader.
+    //
+    // payload: The claims as UTF-8 JSON.
+    //
+    // key: The signing key. Its curve must be the one the header was encoded for.
     public static string Sign(ReadOnlySpan<byte> encodedHeader, ReadOnlySpan<byte> payload, AtProtoKey key)
     {
         var signingLength = encodedHeader.Length + 1 + Base64Url.GetEncodedLength(payload.Length);
@@ -101,10 +108,7 @@ internal static class Jwt
         }
     }
 
-    /// <summary>
-    /// Writes a fresh <c>jti</c> claim: 128 bits from the system CSPRNG, as 32 lower-case hex
-    /// characters.
-    /// </summary>
+    // Writes a fresh jti claim: 128 bits from the system CSPRNG, as 32 lower-case hex characters.
     public static void WriteTokenId(Utf8JsonWriter writer)
     {
         Span<byte> random = stackalloc byte[16];
@@ -115,31 +119,29 @@ internal static class Jwt
         writer.WriteString("jti"u8, hex);
     }
 
-    /// <summary>The longest <c>jti</c> a verifier accepts: the width of the EF Core replay table's column.</summary>
+    // The longest jti a verifier accepts: the width of the EF Core replay table's column.
     public const int MaxTokenIdLength = 255;
 
-    /// <summary>
-    /// Whether an inbound token's <c>jti</c> can be spent in a replay store: present, not only
-    /// whitespace, free of control characters, and at most <see cref="MaxTokenIdLength"/> long.
-    /// </summary>
-    /// <remarks>
-    /// The value is the token signer's choice. Anything a store would refuse to key on has to be
-    /// refused here as a malformed token, or it surfaces from the store as a server fault.
-    /// </remarks>
-    /// <param name="tokenId">The <c>jti</c> claim, or <see langword="null"/> when there is none.</param>
+    // Whether an inbound token's jti can be spent in a replay store: present, not only whitespace, free of
+    // control characters, and at most MaxTokenIdLength long.
+    //
+    // The value is the token signer's choice. Anything a store would refuse to key on has to be refused
+    // here as a malformed token, or it surfaces from the store as a server fault.
+    //
+    // tokenId: The jti claim, or null when there is none.
     public static bool IsUsableTokenId([NotNullWhen(true)] string? tokenId) =>
         !string.IsNullOrWhiteSpace(tokenId) &&
         tokenId.Length <= MaxTokenIdLength &&
         !tokenId.AsSpan().ContainsAnyInRange('\0', '\x1f') &&
         !tokenId.AsSpan().ContainsAnyInRange('\x7f', '\x9f');
 
-    /// <summary>
-    /// The payload's <c>jti</c>, or the exception <paramref name="refuse"/> builds from why it is
-    /// missing or not <see cref="IsUsableTokenId">usable</see>.
-    /// </summary>
-    /// <param name="payload">The token's claims.</param>
-    /// <param name="token">What the token is, for the message: "service auth token", "DPoP proof".</param>
-    /// <param name="refuse">Builds the verifier's own refusal from a message.</param>
+    // The payload's jti, or the exception refuse builds from why it is missing or not usable.
+    //
+    // payload: The token's claims.
+    //
+    // token: What the token is, for the message: "service auth token", "DPoP proof".
+    //
+    // refuse: Builds the verifier's own refusal from a message.
     public static string RequireTokenId(JsonElement payload, string token, Func<string, Exception> refuse)
     {
         var tokenId = payload.GetStringOrNull("jti");
@@ -152,12 +154,13 @@ internal static class Jwt
                 $"The {token}'s \"jti\" must be printable, not only whitespace, and at most {MaxTokenIdLength} characters.");
     }
 
-    /// <summary>Splits a compact JWS and decodes its three parts, without verifying anything.</summary>
-    /// <param name="jwt">The token.</param>
-    /// <param name="token">The decoded token, on success.</param>
-    /// <param name="error">
-    /// Why the token is malformed, on failure, phrased to follow "Malformed {kind of token}: ".
-    /// </param>
+    // Splits a compact JWS and decodes its three parts, without verifying anything.
+    //
+    // jwt: The token.
+    //
+    // token: The decoded token, on success.
+    //
+    // error: Why the token is malformed, on failure, phrased to follow "Malformed {kind of token}: ".
     public static bool TryDecode(string jwt, out DecodedJwt token, [NotNullWhen(false)] out string? error)
     {
         token = default;
@@ -187,18 +190,17 @@ internal static class Jwt
         return true;
     }
 
-    /// <summary>
-    /// Decodes JOSE base64url (RFC 7515 section 2): the URL-safe alphabet, tolerating the
-    /// trailing padding RFC 7515 omits as long as it is correct.
-    /// </summary>
-    /// <param name="text">The encoded text.</param>
-    /// <param name="bytes">The decoded bytes, on success.</param>
-    /// <remarks>
-    /// Stricter than <see cref="Base64Url.DecodeFromChars(ReadOnlySpan{char})"/> on its own, which
-    /// skips whitespace: no JOSE value contains any, and accepting it would let one token be
-    /// spelled several ways. The standard alphabet's <c>+</c> and <c>/</c> and non-zero trailing
-    /// bits are rejected too, so every value has exactly one accepted encoding apart from padding.
-    /// </remarks>
+    // Decodes JOSE base64url (RFC 7515 section 2): the URL-safe alphabet, tolerating the trailing padding
+    // RFC 7515 omits as long as it is correct.
+    //
+    // Stricter than Base64Url.DecodeFromChars(ReadOnlySpan{char}) on its own, which skips whitespace: no
+    // JOSE value contains any, and accepting it would let one token be spelled several ways. The standard
+    // alphabet's + and / and non-zero trailing bits are rejected too, so every value has exactly one
+    // accepted encoding apart from padding.
+    //
+    // text: The encoded text.
+    //
+    // bytes: The decoded bytes, on success.
     public static bool TryDecodeBase64Url(ReadOnlySpan<char> text, [NotNullWhen(true)] out byte[]? bytes)
     {
         bytes = null;
@@ -245,27 +247,25 @@ internal static class Jwt
     }
 }
 
-/// <summary>JSON reading helpers for token claims.</summary>
+// JSON reading helpers for token claims.
 internal static class JsonElementExtensions
 {
     private static readonly long s_minUnixSeconds = DateTimeOffset.MinValue.ToUnixTimeSeconds();
     private static readonly long s_maxUnixSeconds = DateTimeOffset.MaxValue.ToUnixTimeSeconds();
 
-    /// <summary>Reads a JWT NumericDate member (<c>exp</c>, <c>iat</c>): whole seconds since the Unix epoch.</summary>
-    /// <param name="element">The claims object to read from.</param>
-    /// <param name="name">The member name.</param>
-    /// <param name="value">
-    /// The instant, or <see langword="null"/> when <paramref name="element"/> has no such member.
-    /// </param>
-    /// <returns>
-    /// <see langword="true"/> when the member is absent or holds a usable NumericDate;
-    /// <see langword="false"/> when it holds anything else, including an integer outside the years
-    /// 1 to 9999 that <see cref="DateTimeOffset"/> can represent.
-    /// </returns>
-    /// <remarks>
-    /// The value is whatever the token's signer wrote, so one that cannot be represented is a
-    /// malformed token to refuse, not an <see cref="ArgumentOutOfRangeException"/> to let escape.
-    /// </remarks>
+    // Reads a JWT NumericDate member (exp, iat): whole seconds since the Unix epoch.
+    //
+    // The value is whatever the token's signer wrote, so one that cannot be represented is a malformed
+    // token to refuse, not an ArgumentOutOfRangeException to let escape.
+    //
+    // element: The claims object to read from.
+    //
+    // name: The member name.
+    //
+    // value: The instant, or null when element has no such member.
+    //
+    // Returns: true when the member is absent or holds a usable NumericDate; false when it holds anything
+    // else, including an integer outside the years 1 to 9999 that DateTimeOffset can represent.
     public static bool TryGetNumericDate(this JsonElement element, string name, out DateTimeOffset? value)
     {
         value = null;
@@ -284,12 +284,12 @@ internal static class JsonElementExtensions
         return true;
     }
 
-    /// <summary>
-    /// Reads a string member, or returns <see langword="null"/> when <paramref name="element"/>
-    /// is not an object, has no such member, or the member is not a string.
-    /// </summary>
-    /// <param name="element">The object to read from.</param>
-    /// <param name="name">The member name.</param>
+    // Reads a string member, or returns null when element is not an object, has no such member, or the
+    // member is not a string.
+    //
+    // element: The object to read from.
+    //
+    // name: The member name.
     public static string? GetStringOrNull(this JsonElement element, string name) =>
         element.ValueKind == JsonValueKind.Object &&
         element.TryGetProperty(name, out var value) &&

@@ -51,11 +51,11 @@ public abstract record AtProtoSession
     [JsonPropertyName("expiresAt")]
     public DateTimeOffset? ExpiresAt { get; init; }
 
-    /// <summary>The token sent as the request credential.</summary>
+    // The token sent as the request credential.
     [JsonIgnore]
     internal abstract string AccessCredential { get; }
 
-    /// <summary>Whether the session holds what a refresh needs.</summary>
+    // Whether the session holds what a refresh needs.
     [JsonIgnore]
     internal abstract bool CanRefresh { get; }
 

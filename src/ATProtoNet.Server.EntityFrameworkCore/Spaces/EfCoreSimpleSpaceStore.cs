@@ -182,8 +182,9 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
         await TryPutMemberAsync(space, did.Value, read, write, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Inserts or updates one member row.</summary>
-    /// <returns><see langword="false"/> when the insert lost a race with another.</returns>
+    // Inserts or updates one member row.
+    //
+    // Returns: false when the insert lost a race with another.
     private async Task<bool> TryPutMemberAsync(
         SpaceUri space, string did, bool read, bool write, CancellationToken cancellationToken)
     {

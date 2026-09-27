@@ -30,10 +30,7 @@ public sealed class ChatNotificationClient
         return output.Preferences;
     }
 
-    /// <summary>
-    /// Sets the viewer's chat notification preferences. A preference left <see langword="null"/>
-    /// stays as it is.
-    /// </summary>
+    /// <summary>Sets the viewer's chat notification preferences. A preference left <see langword="null"/> stays as it is.</summary>
     /// <param name="chat">Notifications for messages in accepted conversations.</param>
     /// <param name="chatRequest">Notifications for conversation requests.</param>
     /// <returns>The preferences after the change.</returns>

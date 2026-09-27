@@ -5,10 +5,7 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Queue;
 
-/// <summary>
-/// A moderation queue: a named bucket that Ozone's queue router fills with the reports matching
-/// its criteria (<c>tools.ozone.queue.defs#queueView</c>).
-/// </summary>
+/// <summary>A moderation queue: a named bucket that Ozone's queue router fills with the reports matching its criteria (<c>tools.ozone.queue.defs#queueView</c>).</summary>
 public sealed class QueueView : LexObject
 {
     /// <summary>The queue's identifier.</summary>
@@ -64,11 +61,7 @@ public sealed class QueueView : LexObject
     public required QueueStats Stats { get; init; }
 }
 
-/// <summary>
-/// Statistics about a queue's, or the whole instance's, reports
-/// (<c>tools.ozone.queue.defs#queueStats</c>, reused for <c>tools.ozone.report.defs#liveStats</c>,
-/// whose shape is identical).
-/// </summary>
+/// <summary>Statistics about a queue's, or the whole instance's, reports (<c>tools.ozone.queue.defs#queueStats</c>, reused for <c>tools.ozone.report.defs#liveStats</c>, whose shape is identical).</summary>
 public sealed class QueueStats : LexObject
 {
     /// <summary>The reports in <c>open</c> status.</summary>
@@ -87,10 +80,7 @@ public sealed class QueueStats : LexObject
     [JsonPropertyName("inboundCount")]
     public int? InboundCount { get; init; }
 
-    /// <summary>
-    /// The percentage of received reports that were actioned, rounded; absent when none were
-    /// received.
-    /// </summary>
+    /// <summary>The percentage of received reports that were actioned, rounded; absent when none were received.</summary>
     [JsonPropertyName("actionRate")]
     public int? ActionRate { get; init; }
 
@@ -118,7 +108,7 @@ public sealed class AssignmentView : LexObject
     [JsonPropertyName("moderator")]
     public TeamMember? Moderator { get; init; }
 
-    /// <summary>The queue.</summary>
+    /// <summary>The queue the assignment belongs to.</summary>
     [JsonPropertyName("queue")]
     public required QueueView Queue { get; init; }
 
@@ -133,7 +123,6 @@ public sealed class AssignmentView : LexObject
 
 // ─── Request / Response Models ───
 
-/// <summary>Request body for tools.ozone.queue.createQueue.</summary>
 internal sealed record CreateQueueRequest(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("subjectTypes")] IReadOnlyList<string>? SubjectTypes = null,
@@ -150,7 +139,6 @@ public sealed class CreateQueueResponse
     public required QueueView Queue { get; init; }
 }
 
-/// <summary>Request body for tools.ozone.queue.updateQueue.</summary>
 internal sealed record UpdateQueueRequest(
     [property: JsonPropertyName("queueId")] long QueueId,
     [property: JsonPropertyName("name")] string? Name = null,
@@ -166,7 +154,6 @@ public sealed class UpdateQueueResponse
     public required QueueView Queue { get; init; }
 }
 
-/// <summary>Request body for tools.ozone.queue.deleteQueue.</summary>
 internal sealed record DeleteQueueRequest(
     [property: JsonPropertyName("queueId")] long QueueId,
     [property: JsonPropertyName("migrateToQueueId")] long? MigrateToQueueId = null);
@@ -186,7 +173,7 @@ public sealed class DeleteQueueResponse
 /// <summary>Response from tools.ozone.queue.listQueues.</summary>
 public sealed record ListQueuesResponse : CursorPage<QueueView>
 {
-    /// <summary>The queues.</summary>
+    /// <summary>This page's queues.</summary>
     [JsonPropertyName("queues")]
     public required IReadOnlyList<QueueView> Queues { get; init; }
 
@@ -195,7 +182,6 @@ public sealed record ListQueuesResponse : CursorPage<QueueView>
     public override IReadOnlyList<QueueView> Items => Queues;
 }
 
-/// <summary>Request body for tools.ozone.queue.assignModerator and tools.ozone.queue.unassignModerator.</summary>
 internal sealed record QueueModeratorRequest(
     [property: JsonPropertyName("queueId")] long QueueId,
     [property: JsonPropertyName("did")] Did Did);
@@ -203,7 +189,7 @@ internal sealed record QueueModeratorRequest(
 /// <summary>Response from tools.ozone.queue.getAssignments.</summary>
 public sealed record GetAssignmentsResponse : CursorPage<AssignmentView>
 {
-    /// <summary>The assignments.</summary>
+    /// <summary>This page's assignments.</summary>
     [JsonPropertyName("assignments")]
     public required IReadOnlyList<AssignmentView> Assignments { get; init; }
 
@@ -212,7 +198,6 @@ public sealed record GetAssignmentsResponse : CursorPage<AssignmentView>
     public override IReadOnlyList<AssignmentView> Items => Assignments;
 }
 
-/// <summary>Request body for tools.ozone.queue.routeReports.</summary>
 internal sealed record RouteReportsRequest(
     [property: JsonPropertyName("startReportId")] long StartReportId,
     [property: JsonPropertyName("endReportId")] long EndReportId);

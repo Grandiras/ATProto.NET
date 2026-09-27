@@ -4,10 +4,7 @@ using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 
-/// <summary>
-/// Client for <c>com.atproto.simplespace.*</c> — the space-management implementation every PDS
-/// must support.
-/// </summary>
+/// <summary>Client for <c>com.atproto.simplespace.*</c> — the space-management implementation every PDS must support.</summary>
 /// <remarks>
 /// <para>The permissioned data protocol deliberately does not specify how spaces are created or
 /// how an authority decides who may read one. Those belong to a space-management implementation
@@ -75,10 +72,7 @@ public sealed class SimpleSpaceClient
             "com.atproto.simplespace.createSpace", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Updates a space's configuration. Omitted arguments are left unchanged; a supplied one
-    /// replaces that policy wholesale.
-    /// </summary>
+    /// <summary>Updates a space's configuration. Omitted arguments are left unchanged; a supplied one replaces that policy wholesale.</summary>
     /// <param name="space">The space to update.</param>
     /// <param name="readPolicy">The new read policy, or <see langword="null"/> to leave it.</param>
     /// <param name="writePolicy">The new write policy, or <see langword="null"/> to leave it.</param>
@@ -178,10 +172,7 @@ public sealed class SimpleSpaceClient
             "com.atproto.simplespace.removeMember", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Lists one page of a space's member list, with each member's read and write access. Must
-    /// be called on the space authority's PDS.
-    /// </summary>
+    /// <summary>Lists one page of a space's member list, with each member's read and write access. Must be called on the space authority's PDS.</summary>
     /// <param name="limit">Maximum number of results per page (1–1000, default 100).</param>
     /// <param name="cursor">Pagination cursor.</param>
     /// <remarks>

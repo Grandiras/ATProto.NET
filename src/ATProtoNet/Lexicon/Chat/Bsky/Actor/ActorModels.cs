@@ -17,25 +17,16 @@ public sealed class ChatDeclarationRecord : LexObject, IAtProtoRecord
     [JsonPropertyName("$type")]
     public string Type => Collection;
 
-    /// <summary>
-    /// Who may start a conversation with this account (<c>all</c>, <c>none</c>, or
-    /// <c>following</c>).
-    /// </summary>
+    /// <summary>Who may start a conversation with this account (<c>all</c>, <c>none</c>, or <c>following</c>).</summary>
     [JsonPropertyName("allowIncoming")]
     public required string AllowIncoming { get; init; }
 
-    /// <summary>
-    /// Who may add this account to a group conversation (<c>all</c>, <c>none</c>, or
-    /// <c>following</c>).
-    /// </summary>
+    /// <summary>Who may add this account to a group conversation (<c>all</c>, <c>none</c>, or <c>following</c>).</summary>
     [JsonPropertyName("allowGroupInvites")]
     public string? AllowGroupInvites { get; init; }
 }
 
-/// <summary>
-/// Known values of <see cref="ChatDeclarationRecord.AllowIncoming"/> and
-/// <see cref="ChatDeclarationRecord.AllowGroupInvites"/>.
-/// </summary>
+/// <summary>Known values of <see cref="ChatDeclarationRecord.AllowIncoming"/> and <see cref="ChatDeclarationRecord.AllowGroupInvites"/>.</summary>
 public static class ChatAllowIncoming
 {
     /// <summary>The <c>all</c> incoming-chat policy.</summary>
@@ -58,20 +49,14 @@ public static class ChatMemberRole
     public const string Standard = "standard";
 }
 
-/// <summary>
-/// A member's place in a conversation (the open <c>chat.bsky.actor.defs#profileViewBasic.kind</c>
-/// union). A kind this SDK does not model reads as <see cref="UnknownChatMemberKind"/>.
-/// </summary>
+/// <summary>A member's place in a conversation (the open <c>chat.bsky.actor.defs#profileViewBasic.kind</c> union). A kind this SDK does not model reads as <see cref="UnknownChatMemberKind"/>.</summary>
 [AtProtoUnion(typeof(UnknownChatMemberKind))]
 [JsonDerivedType(typeof(DirectConvoMember), "chat.bsky.actor.defs#directConvoMember")]
 [JsonDerivedType(typeof(GroupConvoMember), "chat.bsky.actor.defs#groupConvoMember")]
 [JsonDerivedType(typeof(PastGroupConvoMember), "chat.bsky.actor.defs#pastGroupConvoMember")]
 public abstract class ChatMemberKind : LexObject;
 
-/// <summary>
-/// A member kind whose <c>$type</c> this SDK version does not model. It keeps the raw object and
-/// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A member kind whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownChatMemberKind(string type, JsonElement raw) : ChatMemberKind, IUnknownUnionVariant

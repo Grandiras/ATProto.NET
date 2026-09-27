@@ -5,10 +5,7 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Setting;
 
-/// <summary>
-/// One Ozone setting: a value under an NSID key, for the whole instance or for one moderator
-/// (<c>tools.ozone.setting.defs#option</c>).
-/// </summary>
+/// <summary>One Ozone setting: a value under an NSID key, for the whole instance or for one moderator (<c>tools.ozone.setting.defs#option</c>).</summary>
 public sealed class SettingOption : LexObject
 {
     /// <summary>The setting's key.</summary>
@@ -76,7 +73,6 @@ public sealed record ListOptionsResponse : CursorPage<SettingOption>
     public override IReadOnlyList<SettingOption> Items => Options;
 }
 
-/// <summary>Request body for tools.ozone.setting.upsertOption.</summary>
 internal sealed record UpsertOptionRequest(
     [property: JsonPropertyName("key")] Nsid Key,
     [property: JsonPropertyName("scope")] string Scope,
@@ -92,7 +88,6 @@ public sealed class UpsertOptionResponse
     public required SettingOption Option { get; init; }
 }
 
-/// <summary>Request body for tools.ozone.setting.removeOptions.</summary>
 internal sealed record RemoveOptionsRequest(
     [property: JsonPropertyName("keys")] IReadOnlyList<Nsid> Keys,
     [property: JsonPropertyName("scope")] string Scope);

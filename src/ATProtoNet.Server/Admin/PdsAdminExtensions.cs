@@ -139,10 +139,8 @@ public static class PdsAdminExtensions
         return services;
     }
 
-    /// <summary>
-    /// The configuration mistakes that would otherwise surface on the first admin call, long
-    /// after startup, with the configuration key to fix.
-    /// </summary>
+    // The configuration mistakes that would otherwise surface on the first admin call, long after startup,
+    // with the configuration key to fix.
     internal static void ValidateOptions(PdsAdminOptions options)
     {
         if (string.IsNullOrWhiteSpace(options.Url))

@@ -50,7 +50,6 @@ public sealed class TypedFirehoseConsumerOptions : CursorStreamConsumerOptions
     /// </summary>
     public IReadOnlySet<Nsid>? CollectionFilter { get; init; }
 
-    /// <inheritdoc/>
     internal override void Validate()
     {
         base.Validate();
@@ -282,13 +281,11 @@ public sealed class TypedFirehoseConsumer
             Report(reason, cursor, detail);
         }
 
-        /// <summary>Reports a skipped event without moving the cursor, which the caller does or must not do.</summary>
+        // Reports a skipped event without moving the cursor, which the caller does or must not do.
         private void Report(StreamDropReason reason, long? cursor, string? detail) => base.Dropped(reason, cursor, detail);
 
-        /// <summary>
-        /// Filters and verifies one parsed message. Returns whether it is delivered; the state of a
-        /// sync-verified event it delivers is recorded on delivery.
-        /// </summary>
+        // Filters and verifies one parsed message. Returns whether it is delivered; the state of a
+        // sync-verified event it delivers is recorded on delivery.
         private async ValueTask<bool> AcceptAsync(FirehoseMessage message, CancellationToken cancellationToken)
         {
             if (_options.SyncVerifier is { } syncVerifier)
@@ -328,7 +325,7 @@ public sealed class TypedFirehoseConsumer
             }
         }
 
-        /// <summary>Acts on a <see cref="RepoSyncVerifier"/> outcome. Returns whether the event is delivered.</summary>
+        // Acts on a RepoSyncVerifier outcome. Returns whether the event is delivered.
         private async ValueTask<bool> AcceptSyncedAsync(
             RepoSyncVerifier sync, FirehoseEvent evt, RepoSyncResult result, bool matches, CancellationToken cancellationToken)
         {
@@ -361,11 +358,9 @@ public sealed class TypedFirehoseConsumer
             }
         }
 
-        /// <summary>
-        /// Checks every block of an event's CAR against its CID, failing closed on a codec other
-        /// than dag-cbor or raw, which could otherwise carry blocks past the check. Reports the
-        /// event when they do not verify.
-        /// </summary>
+        // Checks every block of an event's CAR against its CID, failing closed on a codec other than dag-cbor
+        // or raw, which could otherwise carry blocks past the check. Reports the event when they do not
+        // verify.
         private bool CidsVerify(long seq, Did did, byte[]? blocks)
         {
             string error;
@@ -392,7 +387,7 @@ public sealed class TypedFirehoseConsumer
         public ValueTask DisposeAsync() => _resync?.DisposeAsync() ?? ValueTask.CompletedTask;
     }
 
-    /// <summary>Matches commits against a collection filter, on parsed events or straight from the CBOR body.</summary>
+    // Matches commits against a collection filter, on parsed events or straight from the CBOR body.
     private sealed class CollectionMatcher
     {
         private readonly HashSet<string> _collections;
@@ -419,10 +414,8 @@ public sealed class TypedFirehoseConsumer
             return false;
         }
 
-        /// <summary>
-        /// Reads a <c>#commit</c> body's <c>seq</c> and whether any <c>ops[].path</c> is in a
-        /// filtered collection, without deserializing it.
-        /// </summary>
+        // Reads a #commit body's seq and whether any ops[].path is in a filtered collection, without
+        // deserializing it.
         public bool TryScan(ReadOnlyMemory<byte> body, out long seq, out bool matches)
         {
             seq = 0;

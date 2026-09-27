@@ -39,7 +39,7 @@ public sealed class FindCorrelationResponse
 /// <summary>Response from searchAccounts.</summary>
 public sealed record SearchAccountsResponse : CursorPage<AccountInfo>
 {
-    /// <summary>The accounts.</summary>
+    /// <summary>This page's accounts.</summary>
     [JsonPropertyName("accounts")]
     public required IReadOnlyList<AccountInfo> Accounts { get; init; }
 
@@ -51,7 +51,7 @@ public sealed record SearchAccountsResponse : CursorPage<AccountInfo>
 /// <summary>Response from findRelatedAccounts.</summary>
 public sealed record FindRelatedAccountsResponse : CursorPage<RelatedAccount>
 {
-    /// <summary>The accounts.</summary>
+    /// <summary>This page's accounts.</summary>
     [JsonPropertyName("accounts")]
     public required IReadOnlyList<RelatedAccount> Accounts { get; init; }
 

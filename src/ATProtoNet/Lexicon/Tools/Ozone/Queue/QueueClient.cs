@@ -4,10 +4,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Queue;
 
-/// <summary>
-/// Client for tools.ozone.queue.* endpoints: custom moderation queues, the router that fills them
-/// with reports, and the moderators assigned to them.
-/// </summary>
+/// <summary>Client for tools.ozone.queue.* endpoints: custom moderation queues, the router that fills them with reports, and the moderators assigned to them.</summary>
 public sealed class QueueClient
 {
     private readonly XrpcClient _xrpc;
@@ -17,12 +14,7 @@ public sealed class QueueClient
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Create a moderation queue. The queue router fills a queue with the reports that match its
-    /// criteria; a queue without criteria only gets reports sent to it by hand, through
-    /// <c>modTool.meta.queueId</c> on an emitted event or with
-    /// <see cref="Report.ReportClient.ReassignQueueAsync"/>.
-    /// </summary>
+    /// <summary>Create a moderation queue. The queue router fills a queue with the reports that match its criteria; a queue without criteria only gets reports sent to it by hand, through <c>modTool.meta.queueId</c> on an emitted event or with <see cref="Report.ReportClient.ReassignQueueAsync"/>.</summary>
     /// <param name="name">The queue's display name, unique among queues.</param>
     /// <param name="subjectTypes">
     /// The kinds of subject the queue takes (see <see cref="Report.ReportSubjectType"/>).

@@ -4,30 +4,24 @@ using Microsoft.Extensions.Options;
 
 namespace ATProtoNet.Server;
 
-/// <summary>
-/// Registers the SDK's options classes the one way: through <see cref="IOptions{TOptions}"/>, so
-/// they bind from configuration like any other (<c>services.Configure&lt;T&gt;(section)</c>),
-/// validated when the host starts.
-/// </summary>
-/// <remarks>
-/// The callbacks passed to the registration methods are post-configurations: code runs after
-/// every configuration bound to the options, whichever order the calls were made in.
-/// </remarks>
+// Registers the SDK's options classes the one way: through IOptions{TOptions}, so they bind from
+// configuration like any other (services.Configure<T>(section)), validated when the host starts.
+//
+// The callbacks passed to the registration methods are post-configurations: code runs after every
+// configuration bound to the options, whichever order the calls were made in.
 internal static class AtProtoOptionsRegistration
 {
-    /// <summary>
-    /// Registers <typeparamref name="TOptions"/> with <paramref name="configure"/>, validated by
-    /// <paramref name="validate"/> when the host starts (and on first use without a host), and the
-    /// validated instance itself for the services that take it directly.
-    /// </summary>
-    /// <param name="services">The service collection.</param>
-    /// <param name="configure">
-    /// Configures the options after anything bound from configuration, so code wins whatever the
-    /// order of the calls; <see langword="null"/> adds nothing. Several calls apply in order.
-    /// </param>
-    /// <param name="validate">Throws an <see cref="ArgumentException"/> or
-    /// <see cref="InvalidOperationException"/> naming what is wrong.</param>
-    /// <returns>The options builder, for more configuration.</returns>
+    // Registers TOptions with configure, validated by validate when the host starts (and on first use
+    // without a host), and the validated instance itself for the services that take it directly.
+    //
+    // services: The service collection.
+    //
+    // configure: Configures the options after anything bound from configuration, so code wins whatever the
+    // order of the calls; null adds nothing. Several calls apply in order.
+    //
+    // validate: Throws an ArgumentException or InvalidOperationException naming what is wrong.
+    //
+    // Returns: The options builder, for more configuration.
     public static OptionsBuilder<TOptions> AddValidatedOptions<TOptions>(
         this IServiceCollection services, Action<TOptions>? configure, Action<TOptions> validate)
         where TOptions : class
@@ -44,7 +38,7 @@ internal static class AtProtoOptionsRegistration
         return options;
     }
 
-    /// <summary>A validator over a check that throws, reporting the exception's message.</summary>
+    // A validator over a check that throws, reporting the exception's message.
     private sealed class ThrowingOptionsValidator<TOptions>(Action<TOptions> validate) : IValidateOptions<TOptions>
         where TOptions : class
     {
@@ -62,14 +56,14 @@ internal static class AtProtoOptionsRegistration
         }
     }
 
-    /// <summary>Throws when <paramref name="value"/> is neither positive nor infinite.</summary>
+    // Throws when value is neither positive nor infinite.
     public static void RequirePositive(TimeSpan value, string name)
     {
         if (value != Timeout.InfiniteTimeSpan && value <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(name, value, "Must be positive, or Timeout.InfiniteTimeSpan.");
     }
 
-    /// <summary>Throws unless <paramref name="value"/> is an absolute <c>http</c> or <c>https</c> URL.</summary>
+    // Throws unless value is an absolute http or https URL.
     public static void RequireHttpUrl(string? value, string name)
     {
         if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) ||

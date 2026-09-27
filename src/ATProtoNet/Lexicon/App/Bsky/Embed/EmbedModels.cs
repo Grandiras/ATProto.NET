@@ -12,10 +12,7 @@ namespace ATProtoNet.Lexicon.App.Bsky.Embed;
 
 // ── Embed types (used as post embeds when creating records) ──
 
-/// <summary>
-/// Base type for embed objects attached to posts (the open <c>app.bsky.feed.post#embed</c> union).
-/// An embed type this SDK does not model reads as <see cref="UnknownEmbed"/>.
-/// </summary>
+/// <summary>Base type for embed objects attached to posts (the open <c>app.bsky.feed.post#embed</c> union). An embed type this SDK does not model reads as <see cref="UnknownEmbed"/>.</summary>
 [AtProtoUnion(typeof(UnknownEmbed))]
 [JsonDerivedType(typeof(ImagesEmbed), "app.bsky.embed.images")]
 [JsonDerivedType(typeof(ExternalEmbed), "app.bsky.embed.external")]
@@ -25,10 +22,7 @@ namespace ATProtoNet.Lexicon.App.Bsky.Embed;
 [JsonDerivedType(typeof(GalleryEmbed), "app.bsky.embed.gallery")]
 public abstract class EmbedBase : LexObject;
 
-/// <summary>
-/// An embed whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes
-/// it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>An embed whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownEmbed(string type, JsonElement raw) : EmbedBase, IUnknownUnionVariant
@@ -107,10 +101,7 @@ public sealed class ExternalInfo : LexObject
     [JsonPropertyName("thumb")]
     public BlobRef? Thumb { get; init; }
 
-    /// <summary>
-    /// Records the linked page is associated with, such as the <c>site.standard.document</c> it
-    /// publishes.
-    /// </summary>
+    /// <summary>Records the linked page is associated with, such as the <c>site.standard.document</c> it publishes.</summary>
     [JsonPropertyName("associatedRefs")]
     public IReadOnlyList<StrongRef>? AssociatedRefs { get; init; }
 }
@@ -134,10 +125,7 @@ public sealed class RecordWithMediaEmbed : EmbedBase
     [JsonPropertyName("record")]
     public required RecordEmbed Record { get; init; }
 
-    /// <summary>
-    /// The media: an <see cref="ImagesEmbed"/>, <see cref="VideoEmbed"/>, <see cref="ExternalEmbed"/>
-    /// or <see cref="GalleryEmbed"/>.
-    /// </summary>
+    /// <summary>The media: an <see cref="ImagesEmbed"/>, <see cref="VideoEmbed"/>, <see cref="ExternalEmbed"/> or <see cref="GalleryEmbed"/>.</summary>
     [JsonPropertyName("media")]
     public required EmbedBase Media { get; init; }
 }
@@ -163,10 +151,7 @@ public sealed class VideoEmbed : EmbedBase
     [JsonPropertyName("captions")]
     public IReadOnlyList<VideoCaption>? Captions { get; init; }
 
-    /// <summary>
-    /// How the video is presented: <c>default</c>, or <c>gif</c> for a looping, muted clip (see
-    /// <see cref="VideoPresentation"/>).
-    /// </summary>
+    /// <summary>How the video is presented: <c>default</c>, or <c>gif</c> for a looping, muted clip (see <see cref="VideoPresentation"/>).</summary>
     [JsonPropertyName("presentation")]
     public string? Presentation { get; init; }
 }
@@ -195,10 +180,7 @@ public sealed class VideoCaption : LexObject
 
 // ── app.bsky.embed.gallery ───────────────────────────────────
 
-/// <summary>
-/// A gallery embed: an assortment of media items. The Lexicon allows up to 20 items; clients should
-/// currently limit authoring to 10.
-/// </summary>
+/// <summary>A gallery embed: an assortment of media items. The Lexicon allows up to 20 items; clients should currently limit authoring to 10.</summary>
 public sealed class GalleryEmbed : EmbedBase
 {
     /// <summary>The media items, each of which may be of a different type.</summary>
@@ -206,10 +188,7 @@ public sealed class GalleryEmbed : EmbedBase
     public required IReadOnlyList<GalleryItem> Items { get; init; }
 }
 
-/// <summary>
-/// One media item in a <see cref="GalleryEmbed"/> (the open <c>app.bsky.embed.gallery#main.items</c>
-/// union). An item type this SDK does not model reads as <see cref="UnknownGalleryItem"/>.
-/// </summary>
+/// <summary>One media item in a <see cref="GalleryEmbed"/> (the open <c>app.bsky.embed.gallery#main.items</c> union). An item type this SDK does not model reads as <see cref="UnknownGalleryItem"/>.</summary>
 [AtProtoUnion(typeof(UnknownGalleryItem))]
 [JsonDerivedType(typeof(GalleryImage), "app.bsky.embed.gallery#image")]
 public abstract class GalleryItem : LexObject;
@@ -230,10 +209,7 @@ public sealed class GalleryImage : GalleryItem
     public required AspectRatio AspectRatio { get; init; }
 }
 
-/// <summary>
-/// A gallery item whose <c>$type</c> this SDK version does not model. It keeps the raw object and
-/// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A gallery item whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownGalleryItem(string type, JsonElement raw) : GalleryItem, IUnknownUnionVariant
@@ -247,11 +223,7 @@ public sealed class UnknownGalleryItem(string type, JsonElement raw) : GalleryIt
 
 // ── Embed view types (returned when reading posts) ───────────
 
-/// <summary>
-/// Base type for embedded content views returned by the appview (the open
-/// <c>app.bsky.feed.defs#postView.embed</c> union). An embed view this SDK does not model reads as
-/// <see cref="UnknownEmbedView"/>.
-/// </summary>
+/// <summary>Base type for embedded content views returned by the appview (the open <c>app.bsky.feed.defs#postView.embed</c> union). An embed view this SDK does not model reads as <see cref="UnknownEmbedView"/>.</summary>
 [AtProtoUnion(typeof(UnknownEmbedView))]
 [JsonDerivedType(typeof(ImagesView), "app.bsky.embed.images#view")]
 [JsonDerivedType(typeof(ExternalView), "app.bsky.embed.external#view")]
@@ -261,10 +233,7 @@ public sealed class UnknownGalleryItem(string type, JsonElement raw) : GalleryIt
 [JsonDerivedType(typeof(GalleryView), "app.bsky.embed.gallery#view")]
 public abstract class EmbedView : LexObject;
 
-/// <summary>
-/// An embed view whose <c>$type</c> this SDK version does not model. It keeps the raw object and
-/// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>An embed view whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownEmbedView(string type, JsonElement raw) : EmbedView, IUnknownUnionVariant
@@ -360,10 +329,7 @@ public sealed class ExternalViewInfo : LexObject
     public IReadOnlyList<ProfileViewBasic>? AssociatedProfiles { get; init; }
 }
 
-/// <summary>
-/// The publication or site linked content comes from
-/// (<c>app.bsky.embed.external#viewExternalSource</c>).
-/// </summary>
+/// <summary>The publication or site linked content comes from (<c>app.bsky.embed.external#viewExternalSource</c>).</summary>
 public sealed class ExternalViewSource : LexObject
 {
     /// <summary>URL of the source.</summary>
@@ -387,10 +353,7 @@ public sealed class ExternalViewSource : LexObject
     public ExternalViewSourceTheme? Theme { get; init; }
 }
 
-/// <summary>
-/// The colors of a linked content's source
-/// (<c>app.bsky.embed.external#viewExternalSourceTheme</c>).
-/// </summary>
+/// <summary>The colors of a linked content's source (<c>app.bsky.embed.external#viewExternalSourceTheme</c>).</summary>
 public sealed class ExternalViewSourceTheme : LexObject
 {
     /// <summary>The background color.</summary>
@@ -429,18 +392,12 @@ public sealed class ColorRgb : LexObject
 /// <summary>View of a quoted record embed.</summary>
 public sealed class RecordEmbedView : EmbedView
 {
-    /// <summary>
-    /// The embedded record: an <see cref="EmbeddedRecord"/> for a post, a placeholder when it
-    /// cannot be shown, or the view of a feed generator, list, labeler or starter pack.
-    /// </summary>
+    /// <summary>The embedded record: an <see cref="EmbeddedRecord"/> for a post, a placeholder when it cannot be shown, or the view of a feed generator, list, labeler or starter pack.</summary>
     [JsonPropertyName("record")]
     public required EmbeddedRecordView Record { get; init; }
 }
 
-/// <summary>
-/// The record a record embed shows (the open union behind <see cref="RecordEmbedView.Record"/>). A
-/// view this SDK does not model reads as <see cref="UnknownEmbeddedRecordView"/>.
-/// </summary>
+/// <summary>The record a record embed shows (the open union behind <see cref="RecordEmbedView.Record"/>). A view this SDK does not model reads as <see cref="UnknownEmbeddedRecordView"/>.</summary>
 [AtProtoUnion(typeof(UnknownEmbeddedRecordView))]
 [JsonDerivedType(typeof(EmbeddedRecord), "app.bsky.embed.record#viewRecord")]
 [JsonDerivedType(typeof(EmbeddedRecordNotFound), "app.bsky.embed.record#viewNotFound")]
@@ -452,10 +409,7 @@ public sealed class RecordEmbedView : EmbedView
 [JsonDerivedType(typeof(StarterPackViewBasic), "app.bsky.graph.defs#starterPackViewBasic")]
 public abstract class EmbeddedRecordView : LexObject;
 
-/// <summary>
-/// An embedded record view whose <c>$type</c> this SDK version does not model. It keeps the raw
-/// object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>An embedded record view whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownEmbeddedRecordView(string type, JsonElement raw) : EmbeddedRecordView, IUnknownUnionVariant
@@ -527,10 +481,7 @@ public sealed class EmbeddedRecordNotFound : EmbeddedRecordView
     public bool NotFound => true;
 }
 
-/// <summary>
-/// An embedded record whose author blocks, or is blocked by, the viewer
-/// (<c>app.bsky.embed.record#viewBlocked</c>).
-/// </summary>
+/// <summary>An embedded record whose author blocks, or is blocked by, the viewer (<c>app.bsky.embed.record#viewBlocked</c>).</summary>
 public sealed class EmbeddedRecordBlocked : EmbeddedRecordView
 {
     /// <summary>The AT-URI of the record.</summary>
@@ -546,10 +497,7 @@ public sealed class EmbeddedRecordBlocked : EmbeddedRecordView
     public required BlockedAuthor Author { get; init; }
 }
 
-/// <summary>
-/// An embedded post its author detached from the quoting post
-/// (<c>app.bsky.embed.record#viewDetached</c>).
-/// </summary>
+/// <summary>An embedded post its author detached from the quoting post (<c>app.bsky.embed.record#viewDetached</c>).</summary>
 public sealed class EmbeddedRecordDetached : EmbeddedRecordView
 {
     /// <summary>The AT-URI of the record.</summary>
@@ -596,10 +544,7 @@ public sealed class VideoView : EmbedView
     [JsonPropertyName("aspectRatio")]
     public AspectRatio? AspectRatio { get; init; }
 
-    /// <summary>
-    /// How the video is presented: <c>default</c>, or <c>gif</c> for a looping, muted clip (see
-    /// <see cref="VideoPresentation"/>).
-    /// </summary>
+    /// <summary>How the video is presented: <c>default</c>, or <c>gif</c> for a looping, muted clip (see <see cref="VideoPresentation"/>).</summary>
     [JsonPropertyName("presentation")]
     public string? Presentation { get; init; }
 }
@@ -612,10 +557,7 @@ public sealed class GalleryView : EmbedView
     public required IReadOnlyList<GalleryViewItem> Items { get; init; }
 }
 
-/// <summary>
-/// One media item in a <see cref="GalleryView"/> (the open <c>app.bsky.embed.gallery#view.items</c>
-/// union). An item view this SDK does not model reads as <see cref="UnknownGalleryViewItem"/>.
-/// </summary>
+/// <summary>One media item in a <see cref="GalleryView"/> (the open <c>app.bsky.embed.gallery#view.items</c> union). An item view this SDK does not model reads as <see cref="UnknownGalleryViewItem"/>.</summary>
 [AtProtoUnion(typeof(UnknownGalleryViewItem))]
 [JsonDerivedType(typeof(GalleryViewImage), "app.bsky.embed.gallery#viewImage")]
 public abstract class GalleryViewItem : LexObject;
@@ -640,10 +582,7 @@ public sealed class GalleryViewImage : GalleryViewItem
     public required AspectRatio AspectRatio { get; init; }
 }
 
-/// <summary>
-/// A gallery item view whose <c>$type</c> this SDK version does not model. It keeps the raw object
-/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A gallery item view whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownGalleryViewItem(string type, JsonElement raw) : GalleryViewItem, IUnknownUnionVariant
@@ -657,28 +596,18 @@ public sealed class UnknownGalleryViewItem(string type, JsonElement raw) : Galle
 
 // ── getEmbedExternalView ─────────────────────────────────────
 
-/// <summary>
-/// Response from getEmbedExternalView. Every property is <see langword="null"/> when no record
-/// resolved, or the records do not back the URL; render an ordinary link card then, and leave
-/// <see cref="ExternalInfo.AssociatedRefs"/> unset.
-/// </summary>
+/// <summary>Response from getEmbedExternalView. Every property is <see langword="null"/> when no record resolved, or the records do not back the URL; render an ordinary link card then, and leave <see cref="ExternalInfo.AssociatedRefs"/> unset.</summary>
 public sealed class GetEmbedExternalViewResponse
 {
     /// <summary>The hydrated external embed view, its <c>uri</c> the requested URL.</summary>
     [JsonPropertyName("view")]
     public ExternalView? View { get; init; }
 
-    /// <summary>
-    /// Strong references to the records behind the view, for the post's
-    /// <see cref="ExternalInfo.AssociatedRefs"/>.
-    /// </summary>
+    /// <summary>Strong references to the records behind the view, for the post's <see cref="ExternalInfo.AssociatedRefs"/>.</summary>
     [JsonPropertyName("associatedRefs")]
     public IReadOnlyList<StrongRef>? AssociatedRefs { get; init; }
 
-    /// <summary>
-    /// The records behind the view, such as a <c>site.standard.document</c> and its
-    /// publication, so that they need not be fetched again.
-    /// </summary>
+    /// <summary>The records behind the view, such as a <c>site.standard.document</c> and its publication, so that they need not be fetched again.</summary>
     [JsonPropertyName("associatedRecords")]
     public IReadOnlyList<JsonElement>? AssociatedRecords { get; init; }
 }

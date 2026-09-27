@@ -85,10 +85,8 @@ public static class TapWebhookExtensions
         return endpoints.MapPost(pattern, receive);
     }
 
-    /// <summary>
-    /// Whether an <c>Authorization</c> header carries Tap's admin credentials: HTTP Basic, user
-    /// <c>admin</c>, and <paramref name="password"/>, compared in constant time.
-    /// </summary>
+    // Whether an Authorization header carries Tap's admin credentials: HTTP Basic, user admin, and
+    // password, compared in constant time.
     internal static bool IsAuthorized(string? header, string password)
     {
         const string scheme = "Basic ";
@@ -195,7 +193,7 @@ public static class TapWebhookExtensions
     private static IResult TooLarge() =>
         Results.Json(new { error = "PayloadTooLarge" }, statusCode: StatusCodes.Status413PayloadTooLarge);
 
-    /// <summary>Reads the body, or returns null once it passes <paramref name="maxBytes"/>.</summary>
+    // Reads the body, or returns null once it passes maxBytes.
     private static async Task<byte[]?> ReadBoundedAsync(Stream body, long maxBytes, CancellationToken cancellationToken)
     {
         using var buffer = new MemoryStream();

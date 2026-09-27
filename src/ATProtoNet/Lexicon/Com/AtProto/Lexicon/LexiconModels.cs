@@ -8,10 +8,7 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Lexicon;
 
 // ── com.atproto.lexicon.schema ───────────────────────────────
 
-/// <summary>
-/// A Lexicon schema published as a record (<c>com.atproto.lexicon.schema</c>), keyed by its NSID
-/// in the repository its authority's <c>_lexicon</c> DNS record names.
-/// </summary>
+/// <summary>A Lexicon schema published as a record (<c>com.atproto.lexicon.schema</c>), keyed by its NSID in the repository its authority's <c>_lexicon</c> DNS record names.</summary>
 /// <remarks>
 /// The meta-schema only requires <see cref="Lexicon"/>; in practice the record carries the same
 /// fields as a Lexicon file. The definitions are kept as raw JSON: the schema language is not
@@ -46,10 +43,7 @@ public sealed class LexiconSchemaRecord : LexObject, IAtProtoRecord
     [JsonPropertyName("defs")]
     public IReadOnlyDictionary<string, JsonElement>? Defs { get; init; }
 
-    /// <summary>
-    /// The <c>type</c> of the <c>main</c> definition (<c>record</c>, <c>query</c>,
-    /// <c>permission-set</c>, …), or <see langword="null"/> when there is none.
-    /// </summary>
+    /// <summary>The <c>type</c> of the <c>main</c> definition (<c>record</c>, <c>query</c>, <c>permission-set</c>, …), or <see langword="null"/> when there is none.</summary>
     [JsonIgnore]
     public string? MainType =>
         Defs is not null && Defs.TryGetValue("main", out var main) && main.ValueKind == JsonValueKind.Object &&
@@ -69,10 +63,7 @@ public sealed class LexiconSchemaRecord : LexObject, IAtProtoRecord
 
 // ── com.atproto.lexicon.resolveLexicon ───────────────────────
 
-/// <summary>
-/// A resolved Lexicon schema: the schema record and where it was found. The output of
-/// <c>com.atproto.lexicon.resolveLexicon</c>, and of every <see cref="ILexiconResolver"/>.
-/// </summary>
+/// <summary>A resolved Lexicon schema: the schema record and where it was found. The output of <c>com.atproto.lexicon.resolveLexicon</c>, and of every <see cref="ILexiconResolver"/>.</summary>
 public sealed class ResolvedLexicon
 {
     /// <summary>The AT URI of the schema record.</summary>
@@ -90,10 +81,7 @@ public sealed class ResolvedLexicon
 
 // ── Permission sets (the permission-set definition type) ─────
 
-/// <summary>
-/// A permission set: a bundle of OAuth permissions an app requests with one
-/// <c>include:&lt;nsid&gt;</c> scope, published as the <c>main</c> definition of a Lexicon.
-/// </summary>
+/// <summary>A permission set: a bundle of OAuth permissions an app requests with one <c>include:&lt;nsid&gt;</c> scope, published as the <c>main</c> definition of a Lexicon.</summary>
 /// <remarks>
 /// See https://atproto.com/specs/permission#permission-sets. An authorization server ignores any
 /// permission in a set that names a resource or parameter it does not know, or that reaches
@@ -158,10 +146,7 @@ public sealed class LexiconPermission : LexObject
     [JsonPropertyName("aud")]
     public string? Aud { get; init; }
 
-    /// <summary>
-    /// <c>rpc</c>: whether the audience comes from the <c>aud</c> parameter of the
-    /// <c>include:</c> scope that requested the set.
-    /// </summary>
+    /// <summary><c>rpc</c>: whether the audience comes from the <c>aud</c> parameter of the <c>include:</c> scope that requested the set.</summary>
     [JsonPropertyName("inheritAud")]
     public bool? InheritAud { get; init; }
 }

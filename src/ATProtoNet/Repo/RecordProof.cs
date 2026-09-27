@@ -27,7 +27,7 @@ namespace ATProtoNet.Repo;
 /// </remarks>
 public static class RecordProof
 {
-    /// <summary>The CID codec of a DAG-CBOR block.</summary>
+    // The CID codec of a DAG-CBOR block.
     private const byte DagCborCodec = 0x71;
 
     /// <summary>Verifies a record proof and returns the record it proves, or proof that there is none.</summary>
@@ -111,18 +111,14 @@ public static class RecordProof
             uri, committed, rev, Identity.Cid.FromBytes(recordCid), value);
     }
 
-    /// <summary>
-    /// Follows <paramref name="key"/> down the tree from <paramref name="root"/> and returns the
-    /// record CID it maps to, or <see langword="null"/> when the path shows the key is absent.
-    /// </summary>
-    /// <remarks>
-    /// The walk is <c>MST.get</c> of the reference implementation: find the first entry at or after
-    /// the key, and if it is not the key, descend into the subtree just before it. On top of that
-    /// it checks that the path is one a well-formed tree can have: each node's keys are valid,
-    /// strictly increasing and inside the range the parent's entries leave for the subtree, all
-    /// share one layer, and each child sits exactly one layer below its parent (an entry-less node
-    /// only as such a step).
-    /// </remarks>
+    // Follows key down the tree from root and returns the record CID it maps to, or null when the path
+    // shows the key is absent.
+    //
+    // The walk is MST.get of the reference implementation: find the first entry at or after the key, and
+    // if it is not the key, descend into the subtree just before it. On top of that it checks that the
+    // path is one a well-formed tree can have: each node's keys are valid, strictly increasing and inside
+    // the range the parent's entries leave for the subtree, all share one layer, and each child sits
+    // exactly one layer below its parent (an entry-less node only as such a step).
     private static byte[]? FindInTree(CarReader car, byte[] root, string key)
     {
         var target = Encoding.ASCII.GetBytes(key);

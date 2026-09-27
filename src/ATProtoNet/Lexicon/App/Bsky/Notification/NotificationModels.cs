@@ -56,7 +56,7 @@ public sealed class NotificationView : LexObject
 /// <summary>Response from listNotifications.</summary>
 public sealed record ListNotificationsResponse : CursorPage<NotificationView>
 {
-    /// <summary>The notifications.</summary>
+    /// <summary>This page's notifications.</summary>
     [JsonPropertyName("notifications")]
     public required IReadOnlyList<NotificationView> Notifications { get; init; }
 
@@ -86,7 +86,6 @@ public sealed class GetUnreadCountResponse
 
 // ── updateSeen ───────────────────────────────────────────────
 
-/// <summary>Request body for updateSeen.</summary>
 internal sealed record UpdateSeenRequest([property: JsonPropertyName("seenAt")] AtDatetime SeenAt);
 
 // ── registerPush ─────────────────────────────────────────────
@@ -115,17 +114,13 @@ public sealed class RegisterPushRequest
     public bool? AgeRestricted { get; init; }
 }
 
-/// <summary>Request body for unregisterPush.</summary>
 internal sealed record UnregisterPushRequest(
     [property: JsonPropertyName("serviceDid")] Did ServiceDid,
     [property: JsonPropertyName("token")] string Token,
     [property: JsonPropertyName("platform")] string Platform,
     [property: JsonPropertyName("appId")] string AppId);
 
-/// <summary>
-/// Known push platforms, for <see cref="RegisterPushRequest.Platform"/> and
-/// <see cref="NotificationClient.UnregisterPushAsync"/>.
-/// </summary>
+/// <summary>Known push platforms, for <see cref="RegisterPushRequest.Platform"/> and <see cref="NotificationClient.UnregisterPushAsync"/>.</summary>
 public static class PushPlatform
 {
     /// <summary>Apple Push Notification service.</summary>
@@ -140,16 +135,10 @@ public static class PushPlatform
 
 // ── Preferences ──────────────────────────────────────────────
 
-/// <summary>
-/// The account's notification preferences, per notification kind
-/// (<c>app.bsky.notification.defs#preferences</c>).
-/// </summary>
+/// <summary>The account's notification preferences, per notification kind (<c>app.bsky.notification.defs#preferences</c>).</summary>
 public sealed class NotificationPreferences : LexObject
 {
-    /// <summary>
-    /// Chat notifications. Deprecated upstream in favor of the chat service's own preferences,
-    /// and read as a default value only, so it is not required here.
-    /// </summary>
+    /// <summary>Chat notifications. Deprecated upstream in favor of the chat service's own preferences, and read as a default value only, so it is not required here.</summary>
     [JsonPropertyName("chat")]
     [Obsolete("Deprecated upstream: chat notification preferences belong to the chat service.")]
     public ChatPreference? Chat { get; init; }
@@ -203,10 +192,7 @@ public sealed class NotificationPreferences : LexObject
     public required NotificationPreference Verified { get; init; }
 }
 
-/// <summary>
-/// Whether a kind of notification is listed and pushed
-/// (<c>app.bsky.notification.defs#preference</c>).
-/// </summary>
+/// <summary>Whether a kind of notification is listed and pushed (<c>app.bsky.notification.defs#preference</c>).</summary>
 public sealed class NotificationPreference : LexObject
 {
     /// <summary>Whether the notifications appear in the notification list.</summary>
@@ -218,10 +204,7 @@ public sealed class NotificationPreference : LexObject
     public required bool Push { get; init; }
 }
 
-/// <summary>
-/// Whether a kind of notification is listed and pushed, and from whom
-/// (<c>app.bsky.notification.defs#filterablePreference</c>).
-/// </summary>
+/// <summary>Whether a kind of notification is listed and pushed, and from whom (<c>app.bsky.notification.defs#filterablePreference</c>).</summary>
 public sealed class FilterablePreference : LexObject
 {
     /// <summary>Whose actions notify: see <see cref="NotificationInclude"/>.</summary>
@@ -259,18 +242,13 @@ public sealed class ChatPreference : LexObject
     public required bool Push { get; init; }
 }
 
-/// <summary>Response from getPreferences.</summary>
 internal sealed class GetPreferencesResponse
 {
-    /// <summary>The preferences.</summary>
     [JsonPropertyName("preferences")]
     public required NotificationPreferences Preferences { get; init; }
 }
 
-/// <summary>
-/// Request body for putPreferencesV2: the preferences to change. A <see langword="null"/>
-/// property keeps its current value.
-/// </summary>
+/// <summary>Request body for putPreferencesV2: the preferences to change. A <see langword="null"/> property keeps its current value.</summary>
 public sealed class PutPreferencesV2Request
 {
     /// <summary>Chat notifications. Deprecated upstream: the service does not keep the value.</summary>
@@ -327,10 +305,9 @@ public sealed class PutPreferencesV2Request
     public NotificationPreference? Verified { get; init; }
 }
 
-/// <summary>Response from putPreferencesV2.</summary>
 internal sealed class PutPreferencesV2Response
 {
-    /// <summary>The preferences after the change.</summary>
+    // The preferences after the change.
     [JsonPropertyName("preferences")]
     public required NotificationPreferences Preferences { get; init; }
 }
@@ -349,7 +326,6 @@ public sealed record ListActivitySubscriptionsResponse : CursorPage<ProfileView>
     public override IReadOnlyList<ProfileView> Items => Subscriptions;
 }
 
-/// <summary>Request body for putActivitySubscription.</summary>
 internal sealed record PutActivitySubscriptionRequest(
     [property: JsonPropertyName("subject")] Did Subject,
     [property: JsonPropertyName("activitySubscription")] ActivitySubscription ActivitySubscription);
@@ -366,10 +342,7 @@ public sealed class PutActivitySubscriptionResponse
     public ActivitySubscription? ActivitySubscription { get; init; }
 }
 
-/// <summary>
-/// The account's choice of who may subscribe to its activity. Collection:
-/// <c>app.bsky.notification.declaration</c>, record key <c>self</c>.
-/// </summary>
+/// <summary>The account's choice of who may subscribe to its activity. Collection: <c>app.bsky.notification.declaration</c>, record key <c>self</c>.</summary>
 public sealed class NotificationDeclarationRecord : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>app.bsky.notification.declaration</c>).</summary>
@@ -379,10 +352,7 @@ public sealed class NotificationDeclarationRecord : LexObject, IAtProtoRecord
     [JsonPropertyName("$type")]
     public string Type => Collection;
 
-    /// <summary>
-    /// Who may subscribe to the account's activity (see <see cref="AllowedSubscribers"/>). An
-    /// account without the record allows its followers.
-    /// </summary>
+    /// <summary>Who may subscribe to the account's activity (see <see cref="AllowedSubscribers"/>). An account without the record allows its followers.</summary>
     [JsonPropertyName("allowSubscriptions")]
     public required string AllowSubscriptions { get; init; }
 }
@@ -443,10 +413,7 @@ public static class NotificationReasons
     public const string ContactMatch = "contact-match";
 }
 
-/// <summary>
-/// Which of an account's activity the viewer is subscribed to
-/// (<c>app.bsky.notification.defs#activitySubscription</c>).
-/// </summary>
+/// <summary>Which of an account's activity the viewer is subscribed to (<c>app.bsky.notification.defs#activitySubscription</c>).</summary>
 public sealed class ActivitySubscription : LexObject
 {
     /// <summary>Whether the viewer is notified of the account's posts.</summary>

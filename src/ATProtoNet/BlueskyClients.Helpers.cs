@@ -18,7 +18,7 @@ public sealed partial class BlueskyClients
 
     private AtProtoClient _client = null!;
 
-    /// <summary>Connects the helpers to the client whose account they write to.</summary>
+    // Connects the helpers to the client whose account they write to.
     internal void Bind(AtProtoClient client) => _client = client;
 
     /// <summary>Create a post (<c>app.bsky.feed.post</c>) in the signed-in account's repository.</summary>
@@ -168,10 +168,8 @@ public sealed partial class BlueskyClients
         }
     }
 
-    /// <summary>
-    /// Reads the account's profile record and the CID to swap against, or a fresh record and
-    /// <see langword="null"/> when there is none.
-    /// </summary>
+    // Reads the account's profile record and the CID to swap against, or a fresh record and null when
+    // there is none.
     private async Task<(ProfileRecord Profile, Cid? Cid)> GetProfileRecordAsync(
         Did did, CancellationToken cancellationToken)
     {

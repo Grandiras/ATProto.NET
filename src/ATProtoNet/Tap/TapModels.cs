@@ -75,7 +75,6 @@ public sealed class TapRecordEvent : TapEvent, IRecordEvent
     /// <summary>The revision of the commit that changed the record.</summary>
     public required Tid Rev { get; init; }
 
-    /// <inheritdoc/>
     Tid? IRecordEvent.Rev => Rev;
 
     /// <inheritdoc/>

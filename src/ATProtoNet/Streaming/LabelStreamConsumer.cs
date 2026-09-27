@@ -102,7 +102,7 @@ public sealed class LabelStreamConsumer
         }
     }
 
-    /// <summary>Reads label stream frames, <c>#labels</c> and <c>#info</c>, recording each event's position.</summary>
+    // Reads label stream frames, #labels and #info, recording each event's position.
     private sealed class Handler(LabelStreamConsumerOptions options, CursorTracker cursor)
         : CborEventStreamHandler<LabelStreamMessage>(options)
     {

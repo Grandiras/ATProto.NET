@@ -99,7 +99,7 @@ public sealed class JetstreamArchiveRow
     public JetstreamEvent? ToEvent()
         => DidValue.TryParse(Did, out var did) ? ToEvent(did) : null;
 
-    /// <summary>Projects the row with its DID already parsed.</summary>
+    // Projects the row with its DID already parsed.
     internal JetstreamEvent? ToEvent(DidValue did) => Kind switch
     {
         JetstreamArchiveRowKind.Create or JetstreamArchiveRowKind.CreateResync => Commit(did, RepoOpAction.Create),
@@ -141,10 +141,8 @@ public sealed class JetstreamArchiveRow
             did, TimeUs, Seq, collection, rkey, operation, Tid.TryParse(Rev, out var rev) ? rev : null, cid, record);
     }
 
-    /// <summary>
-    /// Decode a non-commit payload — a CBOR <c>subscribeRepos</c> frame body — to JSON. It has
-    /// the same fields the live wire nests under <c>identity</c>, <c>account</c> or <c>sync</c>.
-    /// </summary>
+    // Decode a non-commit payload — a CBOR subscribeRepos frame body — to JSON. It has the same fields the
+    // live wire nests under identity, account or sync.
     private JsonElement? DecodePayload()
     {
         if (Payload.IsEmpty)
@@ -250,16 +248,14 @@ public sealed class JetstreamSegmentHeader
 /// </example>
 public static class JetstreamSegmentReader
 {
-    /// <summary>Bytes of fixed-width column data per event: seq, timestamps, kind, lengths.</summary>
+    // Bytes of fixed-width column data per event: seq, timestamps, kind, lengths.
     private const int FixedColumnBytesPerEvent = 8 + 8 + 8 + 1 + 1 + 2 + 1 + 1 + 4;
 
-    /// <summary>
-    /// A sanity ceiling on a block's event count, well above the ~4096 events a writer emits.
-    /// Guards a corrupt or hostile length prefix from driving a huge allocation.
-    /// </summary>
+    // A sanity ceiling on a block's event count, well above the ~4096 events a writer emits. Guards a
+    // corrupt or hostile length prefix from driving a huge allocation.
     private const int MaxEventsPerBlock = 1 << 22;
 
-    /// <summary>A sanity ceiling on one stored block frame (256 MiB), for the same reason.</summary>
+    // A sanity ceiling on one stored block frame (256 MiB), for the same reason.
     private const long MaxBlockFrameBytes = 256L * 1024 * 1024;
 
     /// <summary>Parse the 256-byte fixed header of a sealed segment.</summary>
@@ -325,19 +321,16 @@ public static class JetstreamSegmentReader
         return DecodeRows(block, filter: null, copyPayloads: true);
     }
 
-    /// <summary>
-    /// Decode an already-decompressed block body: an event count followed by the fixed-width
-    /// columns and then the concatenated variable-length ones.
-    /// </summary>
-    /// <exception cref="JetstreamException">The block is truncated or its columns do not add up.</exception>
+    // Decode an already-decompressed block body: an event count followed by the fixed-width columns and
+    // then the concatenated variable-length ones.
+    //
+    // Throws JetstreamException: The block is truncated or its columns do not add up.
     internal static IReadOnlyList<JetstreamArchiveRow> DecodeBlock(ReadOnlySpan<byte> block)
         => DecodeRows(block.ToArray(), filter: null, copyPayloads: true);
 
-    /// <summary>
-    /// Decode a block frame straight to events, applying <paramref name="filter"/> to the row
-    /// columns first: only rows that match are projected, which is where the cost is (DAG-CBOR to
-    /// JSON, and hashing the record for its CID).
-    /// </summary>
+    // Decode a block frame straight to events, applying filter to the row columns first: only rows that
+    // match are projected, which is where the cost is (DAG-CBOR to JSON, and hashing the record for its
+    // CID).
     internal static List<JetstreamEvent> DecodeEvents(
         ReadOnlySpan<byte> frame, IJetstreamBlockDecompressor decompressor, JetstreamArchiveRowFilter filter)
     {
@@ -522,12 +515,9 @@ public static class JetstreamSegmentReader
         }
     }
 
-    /// <summary>
-    /// Read a sealed segment's header, then yield each stored block frame (still compressed) in
-    /// order.
-    /// </summary>
-    /// <exception cref="JetstreamException">The segment is not a sealed <c>.jss</c> file, or is
-    /// truncated.</exception>
+    // Read a sealed segment's header, then yield each stored block frame (still compressed) in order.
+    //
+    // Throws JetstreamException: The segment is not a sealed .jss file, or is truncated.
     internal static async IAsyncEnumerable<byte[]> ReadBlockFramesAsync(
         Stream segment,
         [EnumeratorCancellation] CancellationToken cancellationToken)
@@ -576,10 +566,8 @@ public static class JetstreamSegmentReader
         }
     }
 
-    /// <summary>
-    /// Hands out one string per distinct UTF-8 value within a block, so the rows of a busy account
-    /// or collection share it instead of each decoding their own.
-    /// </summary>
+    // Hands out one string per distinct UTF-8 value within a block, so the rows of a busy account or
+    // collection share it instead of each decoding their own.
     private sealed class StringInterner
     {
         private readonly Dictionary<string, string> _strings = new(StringComparer.Ordinal);
@@ -610,11 +598,9 @@ public static class JetstreamSegmentReader
     }
 }
 
-/// <summary>
-/// The exact client-side filter the archive replay applies, mirroring the live tail's server-side
-/// semantics: DIDs and kinds constrain everything, collections constrain commit events only. It
-/// works on a row's columns, so rows are dropped before they are projected to events.
-/// </summary>
+// The exact client-side filter the archive replay applies, mirroring the live tail's server-side
+// semantics: DIDs and kinds constrain everything, collections constrain commit events only. It works
+// on a row's columns, so rows are dropped before they are projected to events.
 internal sealed class JetstreamArchiveRowFilter
 {
     private readonly HashSet<string>? _dids;
@@ -644,13 +630,13 @@ internal sealed class JetstreamArchiveRowFilter
         }
     }
 
-    /// <summary>Rows at or below this sequence number were delivered already.</summary>
+    // Rows at or below this sequence number were delivered already.
     public long AfterSeq { get; }
 
-    /// <summary>Rows above this sequence number belong to the live tail.</summary>
+    // Rows above this sequence number belong to the live tail.
     public long Ceiling { get; }
 
-    /// <summary>Whether a row's columns pass the sequence window and the filter.</summary>
+    // Whether a row's columns pass the sequence window and the filter.
     public bool Matches(long seq, JetstreamArchiveRowKind kind, string did, string collection)
     {
         if (seq <= AfterSeq || seq > Ceiling)

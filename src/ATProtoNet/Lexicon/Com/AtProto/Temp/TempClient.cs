@@ -3,11 +3,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Temp;
 
-/// <summary>
-/// Client for com.atproto.temp.* XRPC endpoints: methods upstream marks as temporary, which may
-/// change or be replaced — signup helpers, OAuth scope references and account credential
-/// revocation.
-/// </summary>
+/// <summary>Client for com.atproto.temp.* XRPC endpoints: methods upstream marks as temporary, which may change or be replaced — signup helpers, OAuth scope references and account credential revocation.</summary>
 /// <remarks>
 /// The deprecated <c>fetchLabels</c> (use <see cref="Label.LabelClient"/>) and the entryway-internal
 /// <c>addReservedHandle</c> are not covered.
@@ -40,10 +36,7 @@ public sealed class TempClient
             "com.atproto.temp.checkHandleAvailability", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Check where the signed-in account is in the signup queue, on a server that queues new
-    /// accounts before activating them.
-    /// </summary>
+    /// <summary>Check where the signed-in account is in the signup queue, on a server that queues new accounts before activating them.</summary>
     public Task<CheckSignupQueueResponse> CheckSignupQueueAsync(CancellationToken cancellationToken = default) =>
         _xrpc.QueryAsync<CheckSignupQueueResponse>(
             "com.atproto.temp.checkSignupQueue", cancellationToken: cancellationToken);
@@ -65,11 +58,7 @@ public sealed class TempClient
         return response.Scope;
     }
 
-    /// <summary>
-    /// Ask the server to text a verification code to a phone number, on a server that verifies
-    /// phone numbers at signup. The code is then passed as
-    /// <c>verificationCode</c> of <c>com.atproto.server.createAccount</c>.
-    /// </summary>
+    /// <summary>Ask the server to text a verification code to a phone number, on a server that verifies phone numbers at signup. The code is then passed as <c>verificationCode</c> of <c>com.atproto.server.createAccount</c>.</summary>
     /// <param name="phoneNumber">The phone number to send the code to.</param>
     public async Task RequestPhoneVerificationAsync(string phoneNumber, CancellationToken cancellationToken = default)
     {
@@ -80,10 +69,7 @@ public sealed class TempClient
             "com.atproto.temp.requestPhoneVerification", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Revoke an account's sessions, password and app passwords (moderator action). The account
-    /// can recover with a password reset.
-    /// </summary>
+    /// <summary>Revoke an account's sessions, password and app passwords (moderator action). The account can recover with a password reset.</summary>
     /// <param name="account">The account's DID or handle.</param>
     public async Task RevokeAccountCredentialsAsync(AtIdentifier account, CancellationToken cancellationToken = default)
     {

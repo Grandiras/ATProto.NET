@@ -14,10 +14,7 @@ namespace ATProtoNet.Lexicon.Chat.Bsky.Convo;
 
 // ── Known values ─────────────────────────────────────────
 
-/// <summary>
-/// Known values of <see cref="ConvoView.Status"/> (<c>chat.bsky.convo.defs#convoStatus</c>): the
-/// viewer's membership status, not the conversation's.
-/// </summary>
+/// <summary>Known values of <see cref="ConvoView.Status"/> (<c>chat.bsky.convo.defs#convoStatus</c>): the viewer's membership status, not the conversation's.</summary>
 public static class ConvoStatus
 {
     /// <summary>The conversation is in the viewer's request inbox.</summary>
@@ -27,10 +24,7 @@ public static class ConvoStatus
     public const string Accepted = "accepted";
 }
 
-/// <summary>
-/// Known values of the conversation kind filter (<c>chat.bsky.convo.defs#convoKind</c>). A
-/// conversation's own kind is <see cref="ConvoView.Kind"/>.
-/// </summary>
+/// <summary>Known values of the conversation kind filter (<c>chat.bsky.convo.defs#convoKind</c>). A conversation's own kind is <see cref="ConvoView.Kind"/>.</summary>
 public static class ConvoKinds
 {
     /// <summary>A conversation between two accounts.</summary>
@@ -62,21 +56,13 @@ public static class ConvoReadState
 
 // ── Conversations ────────────────────────────────────────
 
-/// <summary>
-/// An entry of <c>chat.bsky.convo.listConvoRequests</c>: a conversation request
-/// (<see cref="ConvoView"/>) or a group join request the viewer made
-/// (<see cref="JoinRequestConvoView"/>). An entry this SDK does not model reads as
-/// <see cref="UnknownConvoRequestView"/>.
-/// </summary>
+/// <summary>An entry of <c>chat.bsky.convo.listConvoRequests</c>: a conversation request (<see cref="ConvoView"/>) or a group join request the viewer made (<see cref="JoinRequestConvoView"/>). An entry this SDK does not model reads as <see cref="UnknownConvoRequestView"/>.</summary>
 [AtProtoUnion(typeof(UnknownConvoRequestView))]
 [JsonDerivedType(typeof(ConvoView), "chat.bsky.convo.defs#convoView")]
 [JsonDerivedType(typeof(JoinRequestConvoView), "chat.bsky.group.defs#joinRequestConvoView")]
 public abstract class ConvoRequestView : LexObject;
 
-/// <summary>
-/// A conversation request entry whose <c>$type</c> this SDK version does not model. It keeps the
-/// raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A conversation request entry whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownConvoRequestView(string type, JsonElement raw) : ConvoRequestView, IUnknownUnionVariant
@@ -99,18 +85,11 @@ public sealed class ConvoView : ConvoRequestView
     [JsonPropertyName("rev")]
     public required string Rev { get; init; }
 
-    /// <summary>
-    /// The members. A direct conversation lists both; a group lists only the notable ones (the
-    /// first few, the viewer, who added the viewer, and the authors of the last message and
-    /// reaction). Use <see cref="ConvoClient.GetConvoMembersAsync"/> for all of them.
-    /// </summary>
+    /// <summary>The members. A direct conversation lists both; a group lists only the notable ones (the first few, the viewer, who added the viewer, and the authors of the last message and reaction). Use <see cref="ConvoClient.GetConvoMembersAsync"/> for all of them.</summary>
     [JsonPropertyName("members")]
     public required IReadOnlyList<ChatMemberView> Members { get; init; }
 
-    /// <summary>
-    /// The most recent message: a <see cref="MessageView"/>, <see cref="DeletedMessageView"/> or
-    /// <see cref="SystemMessageView"/>.
-    /// </summary>
+    /// <summary>The most recent message: a <see cref="MessageView"/>, <see cref="DeletedMessageView"/> or <see cref="SystemMessageView"/>.</summary>
     [JsonPropertyName("lastMessage")]
     public ConvoMessage? LastMessage { get; init; }
 
@@ -122,10 +101,7 @@ public sealed class ConvoView : ConvoRequestView
     [JsonPropertyName("muted")]
     public bool Muted { get; init; }
 
-    /// <summary>
-    /// The viewer's membership status (see <see cref="ConvoStatus"/>): <c>request</c> or
-    /// <c>accepted</c>.
-    /// </summary>
+    /// <summary>The viewer's membership status (see <see cref="ConvoStatus"/>): <c>request</c> or <c>accepted</c>.</summary>
     [JsonPropertyName("status")]
     public string? Status { get; init; }
 
@@ -133,28 +109,18 @@ public sealed class ConvoView : ConvoRequestView
     [JsonPropertyName("unreadCount")]
     public int UnreadCount { get; init; }
 
-    /// <summary>
-    /// What kind of conversation this is: a <see cref="DirectConvo"/>, or a
-    /// <see cref="GroupConvo"/> with the group's name, size, lock status and join link.
-    /// </summary>
+    /// <summary>What kind of conversation this is: a <see cref="DirectConvo"/>, or a <see cref="GroupConvo"/> with the group's name, size, lock status and join link.</summary>
     [JsonPropertyName("kind")]
     public ConvoKind? Kind { get; init; }
 }
 
-/// <summary>
-/// The kind of a conversation and the data specific to it (the open
-/// <c>chat.bsky.convo.defs#convoView.kind</c> union). A kind this SDK does not model reads as
-/// <see cref="UnknownConvoKind"/>.
-/// </summary>
+/// <summary>The kind of a conversation and the data specific to it (the open <c>chat.bsky.convo.defs#convoView.kind</c> union). A kind this SDK does not model reads as <see cref="UnknownConvoKind"/>.</summary>
 [AtProtoUnion(typeof(UnknownConvoKind))]
 [JsonDerivedType(typeof(DirectConvo), "chat.bsky.convo.defs#directConvo")]
 [JsonDerivedType(typeof(GroupConvo), "chat.bsky.convo.defs#groupConvo")]
 public abstract class ConvoKind : LexObject;
 
-/// <summary>
-/// A conversation kind whose <c>$type</c> this SDK version does not model. It keeps the raw object
-/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A conversation kind whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownConvoKind(string type, JsonElement raw) : ConvoKind, IUnknownUnionVariant
@@ -188,10 +154,7 @@ public sealed class GroupConvo : ConvoKind
     [JsonPropertyName("lockStatus")]
     public required string LockStatus { get; init; }
 
-    /// <summary>
-    /// Whether <see cref="LockStatus"/> is forced by moderation (an inactive owner account or a
-    /// takedown) rather than set by the owner.
-    /// </summary>
+    /// <summary>Whether <see cref="LockStatus"/> is forced by moderation (an inactive owner account or a takedown) rather than set by the owner.</summary>
     [JsonPropertyName("lockStatusModerationOverride")]
     public required bool LockStatusModerationOverride { get; init; }
 
@@ -212,18 +175,12 @@ public sealed class GroupConvo : ConvoKind
     public int? UnreadJoinRequestCount { get; init; }
 }
 
-/// <summary>
-/// The latest reaction in a conversation (the open <c>chat.bsky.convo.defs#convoView.lastReaction</c>
-/// union). A variant this SDK does not model reads as <see cref="UnknownConvoLastReaction"/>.
-/// </summary>
+/// <summary>The latest reaction in a conversation (the open <c>chat.bsky.convo.defs#convoView.lastReaction</c> union). A variant this SDK does not model reads as <see cref="UnknownConvoLastReaction"/>.</summary>
 [AtProtoUnion(typeof(UnknownConvoLastReaction))]
 [JsonDerivedType(typeof(MessageAndReactionView), "chat.bsky.convo.defs#messageAndReactionView")]
 public abstract class ConvoLastReaction : LexObject;
 
-/// <summary>
-/// A latest-reaction variant whose <c>$type</c> this SDK version does not model. It keeps the raw
-/// object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A latest-reaction variant whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownConvoLastReaction(string type, JsonElement raw) : ConvoLastReaction, IUnknownUnionVariant
@@ -238,11 +195,11 @@ public sealed class UnknownConvoLastReaction(string type, JsonElement raw) : Con
 /// <summary>A reaction together with the message it is on (<c>chat.bsky.convo.defs#messageAndReactionView</c>).</summary>
 public sealed class MessageAndReactionView : ConvoLastReaction
 {
-    /// <summary>The message.</summary>
+    /// <summary>The message the reaction is on.</summary>
     [JsonPropertyName("message")]
     public required MessageView Message { get; init; }
 
-    /// <summary>The reaction.</summary>
+    /// <summary>The reaction on the message.</summary>
     [JsonPropertyName("reaction")]
     public required ReactionView Reaction { get; init; }
 }
@@ -266,10 +223,7 @@ public sealed class ChatMemberView : LexObject
     [JsonPropertyName("avatar")]
     public string? Avatar { get; init; }
 
-    /// <summary>
-    /// Counts and settings for what the account has published or allows, including who may chat
-    /// with it.
-    /// </summary>
+    /// <summary>Counts and settings for what the account has published or allows, including who may chat with it.</summary>
     [JsonPropertyName("associated")]
     public ProfileAssociated? Associated { get; init; }
 
@@ -293,23 +247,14 @@ public sealed class ChatMemberView : LexObject
     [JsonPropertyName("verification")]
     public VerificationState? Verification { get; init; }
 
-    /// <summary>
-    /// The member's place in the conversation: a <see cref="DirectConvoMember"/>, a current
-    /// <see cref="GroupConvoMember"/> with its role, or a <see cref="PastGroupConvoMember"/>.
-    /// </summary>
+    /// <summary>The member's place in the conversation: a <see cref="DirectConvoMember"/>, a current <see cref="GroupConvoMember"/> with its role, or a <see cref="PastGroupConvoMember"/>.</summary>
     [JsonPropertyName("kind")]
     public ChatMemberKind? Kind { get; init; }
 }
 
 // ── Messages ─────────────────────────────────────────────
 
-/// <summary>
-/// A message in a conversation (the open unions of <c>chat.bsky.convo.getMessages</c>,
-/// <c>#convoView.lastMessage</c>, <c>#messageView.replyTo</c> and the log entries): a
-/// <see cref="MessageView"/>, <see cref="DeletedMessageView"/>, <see cref="SystemMessageView"/>
-/// or <see cref="MessageBeforeUserJoinedGroupView"/>. Each of those unions allows a subset; a
-/// message this SDK does not model reads as <see cref="UnknownConvoMessage"/>.
-/// </summary>
+/// <summary>A message in a conversation (the open unions of <c>chat.bsky.convo.getMessages</c>, <c>#convoView.lastMessage</c>, <c>#messageView.replyTo</c> and the log entries): a <see cref="MessageView"/>, <see cref="DeletedMessageView"/>, <see cref="SystemMessageView"/> or <see cref="MessageBeforeUserJoinedGroupView"/>. Each of those unions allows a subset; a message this SDK does not model reads as <see cref="UnknownConvoMessage"/>.</summary>
 [AtProtoUnion(typeof(UnknownConvoMessage))]
 [JsonDerivedType(typeof(MessageView), "chat.bsky.convo.defs#messageView")]
 [JsonDerivedType(typeof(DeletedMessageView), "chat.bsky.convo.defs#deletedMessageView")]
@@ -317,10 +262,7 @@ public sealed class ChatMemberView : LexObject
 [JsonDerivedType(typeof(MessageBeforeUserJoinedGroupView), "chat.bsky.convo.defs#messageBeforeUserJoinedGroupView")]
 public abstract class ConvoMessage : LexObject;
 
-/// <summary>
-/// A message whose <c>$type</c> this SDK version does not model. It keeps the raw object and
-/// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A message whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownConvoMessage(string type, JsonElement raw) : ConvoMessage, IUnknownUnionVariant
@@ -351,10 +293,7 @@ public sealed class MessageView : ConvoMessage
     [JsonPropertyName("facets")]
     public IReadOnlyList<Facet>? Facets { get; init; }
 
-    /// <summary>
-    /// Embedded content: a <see cref="MessageRecordEmbedView"/> (such as a quoted post) or a
-    /// <see cref="JoinLinkEmbedView"/>.
-    /// </summary>
+    /// <summary>Embedded content: a <see cref="MessageRecordEmbedView"/> (such as a quoted post) or a <see cref="JoinLinkEmbedView"/>.</summary>
     [JsonPropertyName("embed")]
     public MessageEmbedView? Embed { get; init; }
 
@@ -362,12 +301,7 @@ public sealed class MessageView : ConvoMessage
     [JsonPropertyName("reactions")]
     public IReadOnlyList<ReactionView>? Reactions { get; init; }
 
-    /// <summary>
-    /// The message this one replies to: a <see cref="MessageView"/>, a
-    /// <see cref="DeletedMessageView"/>, or a <see cref="MessageBeforeUserJoinedGroupView"/> when
-    /// it predates the viewer joining the group. Only one level is embedded: its own
-    /// <see cref="ReplyTo"/> is never set.
-    /// </summary>
+    /// <summary>The message this one replies to: a <see cref="MessageView"/>, a <see cref="DeletedMessageView"/>, or a <see cref="MessageBeforeUserJoinedGroupView"/> when it predates the viewer joining the group. Only one level is embedded: its own <see cref="ReplyTo"/> is never set.</summary>
     [JsonPropertyName("replyTo")]
     public ConvoMessage? ReplyTo { get; init; }
 
@@ -400,11 +334,7 @@ public sealed class DeletedMessageView : ConvoMessage
     public required AtDatetime SentAt { get; init; }
 }
 
-/// <summary>
-/// Stands in for the message a reply answers when that message was sent before the viewer joined
-/// the group, so the viewer may not see it
-/// (<c>chat.bsky.convo.defs#messageBeforeUserJoinedGroupView</c>). It carries no message data.
-/// </summary>
+/// <summary>Stands in for the message a reply answers when that message was sent before the viewer joined the group, so the viewer may not see it (<c>chat.bsky.convo.defs#messageBeforeUserJoinedGroupView</c>). It carries no message data.</summary>
 public sealed class MessageBeforeUserJoinedGroupView : ConvoMessage;
 
 /// <summary>The sender of a message.</summary>
@@ -441,10 +371,7 @@ public sealed class ReactionViewSender : LexObject
 
 // ── System messages ──────────────────────────────────────
 
-/// <summary>
-/// A message the chat service adds to a group conversation when something happens to it, such as a
-/// member joining or the group being renamed (<c>chat.bsky.convo.defs#systemMessageView</c>).
-/// </summary>
+/// <summary>A message the chat service adds to a group conversation when something happens to it, such as a member joining or the group being renamed (<c>chat.bsky.convo.defs#systemMessageView</c>).</summary>
 public sealed class SystemMessageView : ConvoMessage
 {
     /// <summary>The identifier of the message.</summary>
@@ -464,10 +391,7 @@ public sealed class SystemMessageView : ConvoMessage
     public required SystemMessageData Data { get; init; }
 }
 
-/// <summary>
-/// An account a system message refers to (<c>chat.bsky.convo.defs#systemMessageReferredUser</c>).
-/// Its profile is in the response's related profiles.
-/// </summary>
+/// <summary>An account a system message refers to (<c>chat.bsky.convo.defs#systemMessageReferredUser</c>). Its profile is in the response's related profiles.</summary>
 public sealed class SystemMessageReferredUser : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -475,11 +399,7 @@ public sealed class SystemMessageReferredUser : LexObject
     public required Did Did { get; init; }
 }
 
-/// <summary>
-/// What a <see cref="SystemMessageView"/> reports (the open
-/// <c>chat.bsky.convo.defs#systemMessageView.data</c> union). An event this SDK does not model reads
-/// as <see cref="UnknownSystemMessageData"/>.
-/// </summary>
+/// <summary>What a <see cref="SystemMessageView"/> reports (the open <c>chat.bsky.convo.defs#systemMessageView.data</c> union). An event this SDK does not model reads as <see cref="UnknownSystemMessageData"/>.</summary>
 [AtProtoUnion(typeof(UnknownSystemMessageData))]
 [JsonDerivedType(typeof(SystemMessageDataAddMember), "chat.bsky.convo.defs#systemMessageDataAddMember")]
 [JsonDerivedType(typeof(SystemMessageDataRemoveMember), "chat.bsky.convo.defs#systemMessageDataRemoveMember")]
@@ -495,10 +415,7 @@ public sealed class SystemMessageReferredUser : LexObject
 [JsonDerivedType(typeof(SystemMessageDataDisableJoinLink), "chat.bsky.convo.defs#systemMessageDataDisableJoinLink")]
 public abstract class SystemMessageData : LexObject;
 
-/// <summary>
-/// A system message event whose <c>$type</c> this SDK version does not model. It keeps the raw
-/// object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A system message event whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownSystemMessageData(string type, JsonElement raw) : SystemMessageData, IUnknownUnionVariant
@@ -517,10 +434,7 @@ public sealed class SystemMessageDataAddMember : SystemMessageData
     [JsonPropertyName("member")]
     public required SystemMessageReferredUser Member { get; init; }
 
-    /// <summary>
-    /// The role the member was added with (see <see cref="ChatMemberRole"/>); the member's current
-    /// role may differ.
-    /// </summary>
+    /// <summary>The role the member was added with (see <see cref="ChatMemberRole"/>); the member's current role may differ.</summary>
     [JsonPropertyName("role")]
     public required string Role { get; init; }
 
@@ -548,10 +462,7 @@ public sealed class SystemMessageDataMemberJoin : SystemMessageData
     [JsonPropertyName("member")]
     public required SystemMessageReferredUser Member { get; init; }
 
-    /// <summary>
-    /// The role the member joined with (see <see cref="ChatMemberRole"/>); the member's current
-    /// role may differ.
-    /// </summary>
+    /// <summary>The role the member joined with (see <see cref="ChatMemberRole"/>); the member's current role may differ.</summary>
     [JsonPropertyName("role")]
     public required string Role { get; init; }
 
@@ -618,12 +529,7 @@ public sealed class SystemMessageDataDisableJoinLink : SystemMessageData;
 
 // ── Conversation log (chat.bsky.convo.getLog) ────────────
 
-/// <summary>
-/// An entry of the conversation log (the open <c>chat.bsky.convo.getLog</c> union), such as a
-/// <see cref="LogCreateMessage"/> or a <see cref="LogAddMember"/>. Every entry names its
-/// conversation and revision; an entry this SDK does not model reads as
-/// <see cref="UnknownConvoLogEntry"/>.
-/// </summary>
+/// <summary>An entry of the conversation log (the open <c>chat.bsky.convo.getLog</c> union), such as a <see cref="LogCreateMessage"/> or a <see cref="LogAddMember"/>. Every entry names its conversation and revision; an entry this SDK does not model reads as <see cref="UnknownConvoLogEntry"/>.</summary>
 [AtProtoUnion(typeof(UnknownConvoLogEntry))]
 [JsonDerivedType(typeof(LogBeginConvo), "chat.bsky.convo.defs#logBeginConvo")]
 [JsonDerivedType(typeof(LogAcceptConvo), "chat.bsky.convo.defs#logAcceptConvo")]
@@ -666,17 +572,10 @@ public abstract class ConvoLogEntry : LexObject
     public required string ConvoId { get; init; }
 }
 
-/// <summary>
-/// A log entry whose <c>$type</c> this SDK version does not model. It keeps the raw object and
-/// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A log entry whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 public sealed class UnknownConvoLogEntry : ConvoLogEntry, IUnknownUnionVariant
 {
-    /// <summary>
-    /// Creates an unknown log entry from its discriminator and raw object. <see cref="ConvoLogEntry.Rev"/>
-    /// and <see cref="ConvoLogEntry.ConvoId"/> are read from the object, and are empty when it lacks
-    /// them.
-    /// </summary>
+    /// <summary>Creates an unknown log entry from its discriminator and raw object. <see cref="ConvoLogEntry.Rev"/> and <see cref="ConvoLogEntry.ConvoId"/> are read from the object, and are empty when it lacks them.</summary>
     /// <param name="type">The object's <c>$type</c>.</param>
     /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
     [SetsRequiredMembers]
@@ -705,10 +604,7 @@ public sealed class UnknownConvoLogEntry : ConvoLogEntry, IUnknownUnionVariant
             : "";
 }
 
-/// <summary>
-/// A conversation with the viewer started, direct or group; also sent to a member added to a
-/// group (<c>#logBeginConvo</c>).
-/// </summary>
+/// <summary>A conversation with the viewer started, direct or group; also sent to a member added to a group (<c>#logBeginConvo</c>).</summary>
 public sealed class LogBeginConvo : ConvoLogEntry;
 
 /// <summary>The viewer accepted a conversation, which leaves the request inbox (<c>#logAcceptConvo</c>).</summary>
@@ -743,16 +639,10 @@ public sealed class LogDeleteMessage : ConvoLogEntry
     public required ConvoMessage Message { get; init; }
 }
 
-/// <summary>
-/// A conversation was read up to a message (<c>#logReadMessage</c>). Deprecated upstream in favour
-/// of <see cref="LogReadConvo"/>.
-/// </summary>
+/// <summary>A conversation was read up to a message (<c>#logReadMessage</c>). Deprecated upstream in favour of <see cref="LogReadConvo"/>.</summary>
 public sealed class LogReadMessage : ConvoLogEntry
 {
-    /// <summary>
-    /// The last message read: a <see cref="MessageView"/>, <see cref="DeletedMessageView"/> or
-    /// <see cref="SystemMessageView"/>.
-    /// </summary>
+    /// <summary>The last message read: a <see cref="MessageView"/>, <see cref="DeletedMessageView"/> or <see cref="SystemMessageView"/>.</summary>
     [JsonPropertyName("message")]
     public required ConvoMessage Message { get; init; }
 }
@@ -792,18 +682,12 @@ public sealed class LogRemoveReaction : ConvoLogEntry
 /// <summary>A conversation was read up to a message (<c>#logReadConvo</c>).</summary>
 public sealed class LogReadConvo : ConvoLogEntry
 {
-    /// <summary>
-    /// The last message read: a <see cref="MessageView"/>, <see cref="DeletedMessageView"/> or
-    /// <see cref="SystemMessageView"/>.
-    /// </summary>
+    /// <summary>The last message read: a <see cref="MessageView"/>, <see cref="DeletedMessageView"/> or <see cref="SystemMessageView"/>.</summary>
     [JsonPropertyName("message")]
     public required ConvoMessage Message { get; init; }
 }
 
-/// <summary>
-/// A member was added to a group (<c>#logAddMember</c>). The added member also gets a
-/// <see cref="LogBeginConvo"/>.
-/// </summary>
+/// <summary>A member was added to a group (<c>#logAddMember</c>). The added member also gets a <see cref="LogBeginConvo"/>.</summary>
 public sealed class LogAddMember : ConvoLogEntry
 {
     /// <summary>The system message, with <see cref="SystemMessageDataAddMember"/> data.</summary>
@@ -815,10 +699,7 @@ public sealed class LogAddMember : ConvoLogEntry
     public required IReadOnlyList<ChatMemberView> RelatedProfiles { get; init; }
 }
 
-/// <summary>
-/// A member was removed from a group (<c>#logRemoveMember</c>). The removed member gets a
-/// <see cref="LogLeaveConvo"/> instead.
-/// </summary>
+/// <summary>A member was removed from a group (<c>#logRemoveMember</c>). The removed member gets a <see cref="LogLeaveConvo"/> instead.</summary>
 public sealed class LogRemoveMember : ConvoLogEntry
 {
     /// <summary>The system message, with <see cref="SystemMessageDataRemoveMember"/> data.</summary>
@@ -830,10 +711,7 @@ public sealed class LogRemoveMember : ConvoLogEntry
     public required IReadOnlyList<ChatMemberView> RelatedProfiles { get; init; }
 }
 
-/// <summary>
-/// A member joined a group through its join link (<c>#logMemberJoin</c>). The new member also
-/// gets a <see cref="LogBeginConvo"/>.
-/// </summary>
+/// <summary>A member joined a group through its join link (<c>#logMemberJoin</c>). The new member also gets a <see cref="LogBeginConvo"/>.</summary>
 public sealed class LogMemberJoin : ConvoLogEntry
 {
     /// <summary>The system message, with <see cref="SystemMessageDataMemberJoin"/> data.</summary>
@@ -845,10 +723,7 @@ public sealed class LogMemberJoin : ConvoLogEntry
     public required IReadOnlyList<ChatMemberView> RelatedProfiles { get; init; }
 }
 
-/// <summary>
-/// A member left a group (<c>#logMemberLeave</c>). The member who left gets a
-/// <see cref="LogLeaveConvo"/> instead.
-/// </summary>
+/// <summary>A member left a group (<c>#logMemberLeave</c>). The member who left gets a <see cref="LogLeaveConvo"/> instead.</summary>
 public sealed class LogMemberLeave : ConvoLogEntry
 {
     /// <summary>The system message, with <see cref="SystemMessageDataMemberLeave"/> data.</summary>
@@ -936,10 +811,7 @@ public sealed class LogDisableJoinLink : ConvoLogEntry
     public required SystemMessageView Message { get; init; }
 }
 
-/// <summary>
-/// Someone asked to join a group the viewer owns (<c>#logIncomingJoinRequest</c>). Only the owner
-/// gets it.
-/// </summary>
+/// <summary>Someone asked to join a group the viewer owns (<c>#logIncomingJoinRequest</c>). Only the owner gets it.</summary>
 public sealed class LogIncomingJoinRequest : ConvoLogEntry
 {
     /// <summary>The account asking to join.</summary>
@@ -947,10 +819,7 @@ public sealed class LogIncomingJoinRequest : ConvoLogEntry
     public required ChatMemberView Member { get; init; }
 }
 
-/// <summary>
-/// The viewer approved a join request (<c>#logApproveJoinRequest</c>). Only the owner gets it; the
-/// new member gets a <see cref="LogBeginConvo"/>.
-/// </summary>
+/// <summary>The viewer approved a join request (<c>#logApproveJoinRequest</c>). Only the owner gets it; the new member gets a <see cref="LogBeginConvo"/>.</summary>
 public sealed class LogApproveJoinRequest : ConvoLogEntry
 {
     /// <summary>The account that asked to join.</summary>
@@ -969,10 +838,7 @@ public sealed class LogRejectJoinRequest : ConvoLogEntry
 /// <summary>The viewer asked to join a group (<c>#logOutgoingJoinRequest</c>). Only the requester gets it.</summary>
 public sealed class LogOutgoingJoinRequest : ConvoLogEntry;
 
-/// <summary>
-/// Someone withdrew their request to join a group the viewer owns
-/// (<c>#logWithdrawIncomingJoinRequest</c>). Only the owner gets it.
-/// </summary>
+/// <summary>Someone withdrew their request to join a group the viewer owns (<c>#logWithdrawIncomingJoinRequest</c>). Only the owner gets it.</summary>
 public sealed class LogWithdrawIncomingJoinRequest : ConvoLogEntry
 {
     /// <summary>The account that withdrew its request.</summary>
@@ -980,21 +846,14 @@ public sealed class LogWithdrawIncomingJoinRequest : ConvoLogEntry
     public required ChatMemberView Member { get; init; }
 }
 
-/// <summary>
-/// The viewer withdrew their own join request (<c>#logWithdrawOutgoingJoinRequest</c>). Only the
-/// requester gets it.
-/// </summary>
+/// <summary>The viewer withdrew their own join request (<c>#logWithdrawOutgoingJoinRequest</c>). Only the requester gets it.</summary>
 public sealed class LogWithdrawOutgoingJoinRequest : ConvoLogEntry;
 
-/// <summary>
-/// The group owner marked the join requests read (<c>#logReadJoinRequests</c>). Only the owner gets
-/// it.
-/// </summary>
+/// <summary>The group owner marked the join requests read (<c>#logReadJoinRequests</c>). Only the owner gets it.</summary>
 public sealed class LogReadJoinRequests : ConvoLogEntry;
 
 // ── Request models ───────────────────────────────────────
 
-/// <summary>Request body for chat.bsky.convo.sendMessage.</summary>
 internal sealed record SendMessageRequest(
     [property: JsonPropertyName("convoId")] string ConvoId,
     [property: JsonPropertyName("message")] MessageInput Message);
@@ -1010,10 +869,7 @@ public sealed class MessageInput : LexObject
     [JsonPropertyName("facets")]
     public IReadOnlyList<Facet>? Facets { get; init; }
 
-    /// <summary>
-    /// Embedded content: a <see cref="MessageRecordEmbed"/> (such as a quoted post) or a
-    /// <see cref="JoinLinkEmbed"/>.
-    /// </summary>
+    /// <summary>Embedded content: a <see cref="MessageRecordEmbed"/> (such as a quoted post) or a <see cref="JoinLinkEmbed"/>.</summary>
     [JsonPropertyName("embed")]
     public MessageEmbed? Embed { get; init; }
 
@@ -1037,38 +893,26 @@ public sealed class BatchMessageItem : LexObject
     [JsonPropertyName("convoId")]
     public required string ConvoId { get; init; }
 
-    /// <summary>The message.</summary>
+    /// <summary>The message content to send.</summary>
     [JsonPropertyName("message")]
     public required MessageInput Message { get; init; }
 }
 
-/// <summary>Request body for chat.bsky.convo.sendMessageBatch.</summary>
 internal sealed record SendMessageBatchRequest(
     [property: JsonPropertyName("items")] IReadOnlyList<BatchMessageItem> Items);
 
-/// <summary>Request body for chat.bsky.convo.deleteMessageForSelf.</summary>
 internal sealed record DeleteMessageForSelfRequest(
     [property: JsonPropertyName("convoId")] string ConvoId,
     [property: JsonPropertyName("messageId")] string MessageId);
 
-/// <summary>
-/// Request body for the 10 endpoints across <c>chat.bsky.convo.*</c> and <c>chat.bsky.group.*</c>
-/// that take only a conversation identifier: <c>leaveConvo</c>, <c>muteConvo</c>,
-/// <c>unmuteConvo</c>, <c>lockConvo</c>, <c>unlockConvo</c>, <c>acceptConvo</c>,
-/// <c>enableJoinLink</c>, <c>disableJoinLink</c>, <c>withdrawJoinRequest</c> and
-/// <c>updateJoinRequestsRead</c>.
-/// </summary>
 internal sealed record ConvoIdRequest([property: JsonPropertyName("convoId")] string ConvoId);
 
-/// <summary>Request body for chat.bsky.convo.updateRead.</summary>
 internal sealed record UpdateReadRequest(
     [property: JsonPropertyName("convoId")] string ConvoId,
     [property: JsonPropertyName("messageId")] string? MessageId = null);
 
-/// <summary>Request body for chat.bsky.convo.updateAllRead.</summary>
 internal sealed record UpdateAllReadRequest([property: JsonPropertyName("status")] string? Status = null);
 
-/// <summary>Request body for chat.bsky.convo.addReaction and chat.bsky.convo.removeReaction.</summary>
 internal sealed record ConvoReactionRequest(
     [property: JsonPropertyName("convoId")] string ConvoId,
     [property: JsonPropertyName("messageId")] string MessageId,
@@ -1091,10 +935,7 @@ public sealed record ListConvosResponse : CursorPage<ConvoView>
 /// <summary>Response from chat.bsky.convo.listConvoRequests.</summary>
 public sealed record ListConvoRequestsResponse : CursorPage<ConvoRequestView>
 {
-    /// <summary>
-    /// The requests: incoming conversation requests (<see cref="ConvoView"/>) and the viewer's own
-    /// group join requests (<see cref="JoinRequestConvoView"/>).
-    /// </summary>
+    /// <summary>The requests: incoming conversation requests (<see cref="ConvoView"/>) and the viewer's own group join requests (<see cref="JoinRequestConvoView"/>).</summary>
     [JsonPropertyName("requests")]
     public required IReadOnlyList<ConvoRequestView> Requests { get; init; }
 
@@ -1131,13 +972,10 @@ public sealed class GetConvoAvailabilityResponse
     public ConvoView? Convo { get; init; }
 }
 
-/// <summary>
-/// Response from chat.bsky.convo.getConvoMembers; chat.bsky.moderation.getConvoMembers answers
-/// the same shape.
-/// </summary>
+/// <summary>Response from chat.bsky.convo.getConvoMembers; chat.bsky.moderation.getConvoMembers answers the same shape.</summary>
 public sealed record GetConvoMembersResponse : CursorPage<ChatMemberView>
 {
-    /// <summary>The members.</summary>
+    /// <summary>This page's members.</summary>
     [JsonPropertyName("members")]
     public required IReadOnlyList<ChatMemberView> Members { get; init; }
 
@@ -1149,10 +987,7 @@ public sealed record GetConvoMembersResponse : CursorPage<ChatMemberView>
 /// <summary>Response from chat.bsky.convo.getUnreadCounts.</summary>
 public sealed class GetUnreadCountsResponse
 {
-    /// <summary>
-    /// Unlocked accepted conversations with unread messages or, for a group owner, unread join
-    /// requests. Capped at 100, which means more than 99.
-    /// </summary>
+    /// <summary>Unlocked accepted conversations with unread messages or, for a group owner, unread join requests. Capped at 100, which means more than 99.</summary>
     [JsonPropertyName("unreadAcceptedConvos")]
     public required int UnreadAcceptedConvos { get; init; }
 
@@ -1164,17 +999,11 @@ public sealed class GetUnreadCountsResponse
 /// <summary>Response from chat.bsky.convo.getMessages.</summary>
 public sealed record GetMessagesResponse : CursorPage<ConvoMessage>
 {
-    /// <summary>
-    /// The messages: <see cref="MessageView"/>, <see cref="DeletedMessageView"/> and, in groups,
-    /// <see cref="SystemMessageView"/>.
-    /// </summary>
+    /// <summary>The messages: <see cref="MessageView"/>, <see cref="DeletedMessageView"/> and, in groups, <see cref="SystemMessageView"/>.</summary>
     [JsonPropertyName("messages")]
     public required IReadOnlyList<ConvoMessage> Messages { get; init; }
 
-    /// <summary>
-    /// The profiles of everyone who wrote or reacted to the messages, and of the accounts the
-    /// system messages refer to.
-    /// </summary>
+    /// <summary>The profiles of everyone who wrote or reacted to the messages, and of the accounts the system messages refer to.</summary>
     [JsonPropertyName("relatedProfiles")]
     public IReadOnlyList<ChatMemberView>? RelatedProfiles { get; init; }
 
@@ -1219,21 +1048,19 @@ public sealed class UpdateAllReadResponse
     public required int UpdatedCount { get; init; }
 }
 
-/// <summary>
-/// The <c>{convo}</c> output of chat.bsky.convo.muteConvo, unmuteConvo, updateRead, lockConvo and
-/// unlockConvo, and of the chat.bsky.group methods that answer the group, which the clients unwrap.
-/// </summary>
+// The {convo} output of chat.bsky.convo.muteConvo, unmuteConvo, updateRead, lockConvo and unlockConvo,
+// and of the chat.bsky.group methods that answer the group, which the clients unwrap.
 internal sealed class ConvoOutput
 {
-    /// <summary>The conversation after the change.</summary>
+    // The conversation after the change.
     [JsonPropertyName("convo")]
     public required ConvoView Convo { get; init; }
 }
 
-/// <summary>The output of chat.bsky.convo.addReaction and removeReaction, which the client unwraps.</summary>
+// The output of chat.bsky.convo.addReaction and removeReaction, which the client unwraps.
 internal sealed class MessageOutput
 {
-    /// <summary>The message after the change.</summary>
+    // The message after the change.
     [JsonPropertyName("message")]
     public required MessageView Message { get; init; }
 }

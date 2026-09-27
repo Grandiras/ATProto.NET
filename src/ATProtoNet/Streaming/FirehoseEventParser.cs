@@ -36,14 +36,12 @@ public static class FirehoseEventParser
         return op == EventStreamFrame.MessageOp && type is not null ? ParseBody(type, body) : null;
     }
 
-    /// <summary>Whether this SDK version models the message type <paramref name="type"/>.</summary>
+    // Whether this SDK version models the message type type.
     internal static bool IsKnownType(string type) =>
         type is "#commit" or "#sync" or "#identity" or "#account" or "#info";
 
-    /// <summary>
-    /// Deserializes a message body of the given header type, or returns null when the type is not
-    /// modelled or the body does not bind.
-    /// </summary>
+    // Deserializes a message body of the given header type, or returns null when the type is not modelled
+    // or the body does not bind.
     internal static FirehoseMessage? ParseBody(string type, ReadOnlyMemory<byte> body) => type switch
     {
         "#commit" => EventStreamFrame.Deserialize<CommitEvent>(body),

@@ -18,7 +18,6 @@ public sealed class ChatModerationEventConsumerOptions : StreamConsumerOptions
     /// </summary>
     public required Func<CancellationToken, ValueTask<string>> GetAccessTokenAsync { get; init; }
 
-    /// <inheritdoc/>
     internal override void Validate()
     {
         base.Validate();

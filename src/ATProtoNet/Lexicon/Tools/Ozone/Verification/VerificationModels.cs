@@ -6,10 +6,7 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Verification;
 
-/// <summary>
-/// A verification the Ozone service issued, with its subject and issuer
-/// (<c>tools.ozone.verification.defs#verificationView</c>).
-/// </summary>
+/// <summary>A verification the Ozone service issued, with its subject and issuer (<c>tools.ozone.verification.defs#verificationView</c>).</summary>
 public sealed class VerificationView : LexObject
 {
     /// <summary>The DID of the account that issued the verification.</summary>
@@ -24,17 +21,11 @@ public sealed class VerificationView : LexObject
     [JsonPropertyName("subject")]
     public required Did Subject { get; init; }
 
-    /// <summary>
-    /// The verified account's handle when it was verified. The verification holds only while the
-    /// account's current handle still matches it.
-    /// </summary>
+    /// <summary>The verified account's handle when it was verified. The verification holds only while the account's current handle still matches it.</summary>
     [JsonPropertyName("handle")]
     public required Handle Handle { get; init; }
 
-    /// <summary>
-    /// The verified account's display name when it was verified. The verification holds only
-    /// while the current display name still matches it.
-    /// </summary>
+    /// <summary>The verified account's display name when it was verified. The verification holds only while the current display name still matches it.</summary>
     [JsonPropertyName("displayName")]
     public required string DisplayName { get; init; }
 
@@ -54,10 +45,7 @@ public sealed class VerificationView : LexObject
     [JsonPropertyName("revokedBy")]
     public Did? RevokedBy { get; init; }
 
-    /// <summary>
-    /// The verified account's profile view, in the shape the app view returns (an open union
-    /// upstream declares no variants for).
-    /// </summary>
+    /// <summary>The verified account's profile view, in the shape the app view returns (an open union upstream declares no variants for).</summary>
     [JsonPropertyName("subjectProfile")]
     public JsonElement? SubjectProfile { get; init; }
 
@@ -65,25 +53,16 @@ public sealed class VerificationView : LexObject
     [JsonPropertyName("issuerProfile")]
     public JsonElement? IssuerProfile { get; init; }
 
-    /// <summary>
-    /// The verified account as Ozone sees it: a <see cref="RepoViewDetail"/>, or a
-    /// <see cref="RepoViewNotFound"/>.
-    /// </summary>
+    /// <summary>The verified account as Ozone sees it: a <see cref="RepoViewDetail"/>, or a <see cref="RepoViewNotFound"/>.</summary>
     [JsonPropertyName("subjectRepo")]
     public ModerationSubjectView? SubjectRepo { get; init; }
 
-    /// <summary>
-    /// The issuer as Ozone sees it: a <see cref="RepoViewDetail"/>, or a
-    /// <see cref="RepoViewNotFound"/>.
-    /// </summary>
+    /// <summary>The issuer as Ozone sees it: a <see cref="RepoViewDetail"/>, or a <see cref="RepoViewNotFound"/>.</summary>
     [JsonPropertyName("issuerRepo")]
     public ModerationSubjectView? IssuerRepo { get; init; }
 }
 
-/// <summary>
-/// An account to verify, for <see cref="VerificationClient.GrantVerificationsAsync"/>
-/// (<c>tools.ozone.verification.grantVerifications#verificationInput</c>).
-/// </summary>
+/// <summary>An account to verify, for <see cref="VerificationClient.GrantVerificationsAsync"/> (<c>tools.ozone.verification.grantVerifications#verificationInput</c>).</summary>
 public sealed class VerificationInput : LexObject
 {
     /// <summary>The DID of the account to verify.</summary>
@@ -103,10 +82,7 @@ public sealed class VerificationInput : LexObject
     public AtDatetime? CreatedAt { get; init; }
 }
 
-/// <summary>
-/// An account that could not be verified
-/// (<c>tools.ozone.verification.grantVerifications#grantError</c>).
-/// </summary>
+/// <summary>An account that could not be verified (<c>tools.ozone.verification.grantVerifications#grantError</c>).</summary>
 public sealed class GrantError : LexObject
 {
     /// <summary>Why the verification failed.</summary>
@@ -118,10 +94,7 @@ public sealed class GrantError : LexObject
     public required Did Subject { get; init; }
 }
 
-/// <summary>
-/// A verification that could not be revoked
-/// (<c>tools.ozone.verification.revokeVerifications#revokeError</c>).
-/// </summary>
+/// <summary>A verification that could not be revoked (<c>tools.ozone.verification.revokeVerifications#revokeError</c>).</summary>
 public sealed class RevokeError : LexObject
 {
     /// <summary>The AT URI of the verification record.</summary>
@@ -135,7 +108,6 @@ public sealed class RevokeError : LexObject
 
 // ─── Request / Response Models ───
 
-/// <summary>Request body for tools.ozone.verification.grantVerifications.</summary>
 internal sealed record GrantVerificationsRequest(
     [property: JsonPropertyName("verifications")] IReadOnlyList<VerificationInput> Verifications);
 
@@ -154,7 +126,7 @@ public sealed class GrantVerificationsResponse
 /// <summary>Response from tools.ozone.verification.listVerifications.</summary>
 public sealed record ListVerificationsResponse : CursorPage<VerificationView>
 {
-    /// <summary>The verifications.</summary>
+    /// <summary>This page's verifications.</summary>
     [JsonPropertyName("verifications")]
     public required IReadOnlyList<VerificationView> Verifications { get; init; }
 
@@ -163,7 +135,6 @@ public sealed record ListVerificationsResponse : CursorPage<VerificationView>
     public override IReadOnlyList<VerificationView> Items => Verifications;
 }
 
-/// <summary>Request body for tools.ozone.verification.revokeVerifications.</summary>
 internal sealed record RevokeVerificationsRequest(
     [property: JsonPropertyName("uris")] IReadOnlyList<AtUri> Uris,
     [property: JsonPropertyName("revokeReason")] string? RevokeReason = null);

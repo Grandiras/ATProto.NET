@@ -3,10 +3,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Identity;
 
-/// <summary>
-/// Client for com.atproto.identity.* XRPC endpoints.
-/// Handles DID/handle resolution and PLC operations.
-/// </summary>
+/// <summary>Client for com.atproto.identity.* XRPC endpoints. Handles DID/handle resolution and PLC operations.</summary>
 public sealed class IdentityClient
 {
     private readonly XrpcClient _xrpc;
@@ -26,10 +23,7 @@ public sealed class IdentityClient
             "com.atproto.identity.resolveHandle", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Resolves a DID or a handle to a full identity: the DID document and the bidirectionally
-    /// verified handle, as the service resolved them (<c>com.atproto.identity.resolveIdentity</c>).
-    /// </summary>
+    /// <summary>Resolves a DID or a handle to a full identity: the DID document and the bidirectionally verified handle, as the service resolved them (<c>com.atproto.identity.resolveIdentity</c>).</summary>
     /// <param name="identifier">The DID or handle to resolve.</param>
     /// <returns>The identity. Its handle is <c>handle.invalid</c> when it did not verify.</returns>
     /// <exception cref="XrpcException">
@@ -50,10 +44,7 @@ public sealed class IdentityClient
             "com.atproto.identity.resolveIdentity", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Resolves a DID to its DID document, without verifying the handle
-    /// (<c>com.atproto.identity.resolveDid</c>).
-    /// </summary>
+    /// <summary>Resolves a DID to its DID document, without verifying the handle (<c>com.atproto.identity.resolveDid</c>).</summary>
     /// <param name="did">The DID to resolve.</param>
     /// <returns>The response carrying the document.</returns>
     /// <exception cref="XrpcException">
@@ -69,11 +60,7 @@ public sealed class IdentityClient
             "com.atproto.identity.resolveDid", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Asks the service to re-resolve an identity, dropping what it cached
-    /// (<c>com.atproto.identity.refreshIdentity</c>). The service may ignore the request or require
-    /// authentication, depending on its role and policy.
-    /// </summary>
+    /// <summary>Asks the service to re-resolve an identity, dropping what it cached (<c>com.atproto.identity.refreshIdentity</c>). The service may ignore the request or require authentication, depending on its role and policy.</summary>
     /// <param name="identifier">The DID or handle to refresh.</param>
     /// <returns>The identity as re-resolved.</returns>
     /// <exception cref="XrpcException">

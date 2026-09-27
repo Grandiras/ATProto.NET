@@ -4,10 +4,7 @@ using ATProtoNet.Lexicon.Com.AtProto.Server;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Admin;
 
-/// <summary>
-/// Client for com.atproto.admin.* XRPC endpoints.
-/// Requires admin/moderator authentication.
-/// </summary>
+/// <summary>Client for com.atproto.admin.* XRPC endpoints. Requires admin/moderator authentication.</summary>
 public sealed class AdminClient
 {
     private readonly XrpcClient _xrpc;

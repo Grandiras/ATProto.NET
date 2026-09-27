@@ -239,10 +239,8 @@ public sealed class JetstreamReplayConsumer : IDisposable
         }
     }
 
-    /// <summary>
-    /// Records an event as the last delivered. Returns false for one delivered already, which the
-    /// inclusive cutover cursor and an overlapping re-plan can both produce.
-    /// </summary>
+    // Records an event as the last delivered. Returns false for one delivered already, which the inclusive
+    // cutover cursor and an overlapping re-plan can both produce.
     private bool IsNew(JetstreamEvent evt)
     {
         if (evt.Cursor is not { } seq)
@@ -255,10 +253,8 @@ public sealed class JetstreamReplayConsumer : IDisposable
         return true;
     }
 
-    /// <summary>
-    /// Read everything sealed above <paramref name="afterSeq"/>, paging the plan until it reaches
-    /// the tip pinned by the first page.
-    /// </summary>
+    // Read everything sealed above afterSeq, paging the plan until it reaches the tip pinned by the first
+    // page.
     private async IAsyncEnumerable<JetstreamEvent> BackfillAsync(
         long afterSeq,
         Action<long> pinTip,
@@ -344,21 +340,17 @@ public sealed class JetstreamReplayConsumer : IDisposable
         }
     }
 
-    /// <summary>
-    /// How long to wait before re-planning a page that did not advance: exponential from a second,
-    /// capped by <see cref="JetstreamArchiveOptions.MaxRetryDelay"/>.
-    /// </summary>
+    // How long to wait before re-planning a page that did not advance: exponential from a second, capped
+    // by JetstreamArchiveOptions.MaxRetryDelay.
     private TimeSpan StallDelay(int attempt)
     {
         var delay = TimeSpan.FromSeconds(Math.Pow(2, Math.Min(attempt - 1, 6)));
         return delay < _archive.MaxRetryDelay ? delay : _archive.MaxRetryDelay;
     }
 
-    /// <summary>
-    /// Download and decode the planned work units — whole segments or single blocks — with
-    /// <see cref="JetstreamArchiveOptions.DownloadParallelism"/> in flight, and deliver their
-    /// events strictly in plan order so they stay sequence-ordered.
-    /// </summary>
+    // Download and decode the planned work units — whole segments or single blocks — with
+    // JetstreamArchiveOptions.DownloadParallelism in flight, and deliver their events strictly in plan
+    // order so they stay sequence-ordered.
     private async IAsyncEnumerable<JetstreamEvent> DownloadAsync(
         IReadOnlyList<JetstreamPlannedSegment> segments,
         JetstreamArchiveRowFilter filter,
@@ -446,7 +438,7 @@ public sealed class JetstreamReplayConsumer : IDisposable
         }
     }
 
-    /// <summary>Expand a plan page into download units, in sequence order.</summary>
+    // Expand a plan page into download units, in sequence order.
     private static IEnumerable<WorkUnit> WorkUnits(IReadOnlyList<JetstreamPlannedSegment> segments)
     {
         foreach (var segment in segments)
@@ -529,10 +521,10 @@ public sealed class JetstreamReplayConsumer : IDisposable
         _client.Dispose();
     }
 
-    /// <summary>One planned download: a whole segment, or a single block within one.</summary>
+    // One planned download: a whole segment, or a single block within one.
     private sealed record WorkUnit(JetstreamPlannedSegment Segment, int? BlockIndex);
 
-    /// <summary>A downloaded work unit: a decoded block's events, or a spooled segment file.</summary>
+    // A downloaded work unit: a decoded block's events, or a spooled segment file.
     private sealed class DownloadedUnit(List<JetstreamEvent>? events, FileStream? file) : IDisposable
     {
         public async IAsyncEnumerable<JetstreamEvent> ReadAsync(

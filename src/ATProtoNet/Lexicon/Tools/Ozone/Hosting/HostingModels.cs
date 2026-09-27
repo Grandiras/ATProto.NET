@@ -6,10 +6,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Hosting;
 
-/// <summary>
-/// One change to an account on its host, such as an email or handle update
-/// (<c>tools.ozone.hosting.getAccountHistory#event</c>).
-/// </summary>
+/// <summary>One change to an account on its host, such as an email or handle update (<c>tools.ozone.hosting.getAccountHistory#event</c>).</summary>
 public sealed class AccountHistoryEvent : LexObject
 {
     /// <summary>What changed.</summary>
@@ -25,11 +22,7 @@ public sealed class AccountHistoryEvent : LexObject
     public required AtDatetime CreatedAt { get; init; }
 }
 
-/// <summary>
-/// What changed in an account history event (the open
-/// <c>tools.ozone.hosting.getAccountHistory#event.details</c> union). A change this SDK does not
-/// model reads as <see cref="UnknownAccountHistoryDetails"/>.
-/// </summary>
+/// <summary>What changed in an account history event (the open <c>tools.ozone.hosting.getAccountHistory#event.details</c> union). A change this SDK does not model reads as <see cref="UnknownAccountHistoryDetails"/>.</summary>
 [AtProtoUnion(typeof(UnknownAccountHistoryDetails))]
 [JsonDerivedType(typeof(AccountCreated), "tools.ozone.hosting.getAccountHistory#accountCreated")]
 [JsonDerivedType(typeof(EmailUpdated), "tools.ozone.hosting.getAccountHistory#emailUpdated")]
@@ -38,10 +31,7 @@ public sealed class AccountHistoryEvent : LexObject
 [JsonDerivedType(typeof(HandleUpdated), "tools.ozone.hosting.getAccountHistory#handleUpdated")]
 public abstract class AccountHistoryDetails : LexObject;
 
-/// <summary>
-/// Account history details whose <c>$type</c> this SDK version does not model. They keep the raw
-/// object and write it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>Account history details whose <c>$type</c> this SDK version does not model. They keep the raw object and write it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownAccountHistoryDetails(string type, JsonElement raw) : AccountHistoryDetails, IUnknownUnionVariant
@@ -114,7 +104,7 @@ public static class AccountHistoryEventType
 /// <summary>Response from tools.ozone.hosting.getAccountHistory.</summary>
 public sealed record GetAccountHistoryResponse : CursorPage<AccountHistoryEvent>
 {
-    /// <summary>The events.</summary>
+    /// <summary>This page's events.</summary>
     [JsonPropertyName("events")]
     public required IReadOnlyList<AccountHistoryEvent> Events { get; init; }
 

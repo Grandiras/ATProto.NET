@@ -64,10 +64,8 @@ public sealed class DPoPProofGenerator : IDisposable
         _encodedHeader = Jwt.EncodeHeader(DPoP.TokenType, KeyCurve.P256, jwk: jwk);
     }
 
-    /// <summary>
-    /// A generator that signs with <paramref name="shared"/>'s key object without owning it:
-    /// disposing it stops it signing and leaves the key to its owner.
-    /// </summary>
+    // A generator that signs with shared's key object without owning it: disposing it stops it signing and
+    // leaves the key to its owner.
     private DPoPProofGenerator(DPoPProofGenerator shared)
     {
         _key = shared._key;
@@ -76,12 +74,11 @@ public sealed class DPoPProofGenerator : IDisposable
         _encodedHeader = shared._encodedHeader;
     }
 
-    /// <summary>
-    /// A generator over this one's key that its holder may dispose, as a client disposes the key
-    /// of a session it lets go, while this one keeps signing: importing a key costs far more
-    /// than signing with it, so a key shared by many short-lived clients is imported once.
-    /// </summary>
-    /// <exception cref="ObjectDisposedException">This generator is disposed.</exception>
+    // A generator over this one's key that its holder may dispose, as a client disposes the key of a
+    // session it lets go, while this one keeps signing: importing a key costs far more than signing with
+    // it, so a key shared by many short-lived clients is imported once.
+    //
+    // Throws ObjectDisposedException: This generator is disposed.
     internal DPoPProofGenerator CreateView()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);

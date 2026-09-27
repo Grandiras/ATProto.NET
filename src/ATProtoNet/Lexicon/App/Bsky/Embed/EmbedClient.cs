@@ -13,10 +13,7 @@ public sealed class EmbedClient
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Resolve the records behind a web page, such as a <c>site.standard.document</c> and its
-    /// publication, into an enhanced external embed.
-    /// </summary>
+    /// <summary>Resolve the records behind a web page, such as a <c>site.standard.document</c> and its publication, into an enhanced external embed.</summary>
     /// <param name="url">The page's canonical URL, typically the one pasted into the composer.</param>
     /// <param name="uris">The AT-URIs of the records that back the page (at most 4).</param>
     /// <returns>

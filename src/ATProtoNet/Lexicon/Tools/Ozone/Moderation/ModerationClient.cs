@@ -240,10 +240,7 @@ public sealed class ModerationClient
             "tools.ozone.moderation.getAccountTimeline", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get how several accounts' reports turned out: how many they filed, and how many led to a
-    /// takedown or a label.
-    /// </summary>
+    /// <summary>Get how several accounts' reports turned out: how many they filed, and how many led to a takedown or a label.</summary>
     /// <param name="dids">The reporters' DIDs (at most 100).</param>
     public Task<GetReporterStatsResponse> GetReporterStatsAsync(
         IEnumerable<Did> dids,

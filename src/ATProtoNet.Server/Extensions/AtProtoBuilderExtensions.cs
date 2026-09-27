@@ -110,10 +110,8 @@ public static class AtProtoBuilderExtensions
             sp.GetRequiredService<FileSessionStoreOptions>())));
     }
 
-    /// <summary>
-    /// Replaces the session store registration with <paramref name="store"/>, so the chosen store
-    /// wins over the default whichever order the registrations run in.
-    /// </summary>
+    // Replaces the session store registration with store, so the chosen store wins over the default
+    // whichever order the registrations run in.
     private static IAtProtoBuilder UseSessionStore(this IAtProtoBuilder builder, ServiceDescriptor store)
     {
         builder.Services.RemoveAll<IAtProtoSessionStore>();

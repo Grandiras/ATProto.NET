@@ -305,12 +305,9 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
         return live.Select(e => new SpaceNotifySubscriber(e.Service, e.ExpiresAt)).ToList();
     }
 
-    /// <summary>
-    /// Adds the space row when it is missing, mirroring the in-memory store's behaviour of
-    /// declaring a space on first use. The endpoints check
-    /// <see cref="GetSpaceStateAsync"/> before writing, so in practice this only matters to a
-    /// caller driving the store directly.
-    /// </summary>
+    // Adds the space row when it is missing, mirroring the in-memory store's behaviour of declaring a
+    // space on first use. The endpoints check GetSpaceStateAsync before writing, so in practice this only
+    // matters to a caller driving the store directly.
     private static async Task EnsureSpaceAsync(
         TContext context, string space, CancellationToken cancellationToken)
     {
@@ -321,14 +318,13 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
         spaces.Add(new SpaceEntity { Space = space });
     }
 
-    /// <summary>Applies a mutation and saves it, retrying once on a failed save.</summary>
-    /// <remarks>
-    /// Every write here is an upsert done as read-then-insert-or-update, so two instances acting
-    /// on the same row at once can both find nothing and both insert. The retry runs the whole
-    /// mutation again on a fresh context, which now sees the winner's row and takes the update
-    /// path. A second failure is not a race — a value too long for its column fails identically
-    /// both times — so it propagates rather than being swallowed.
-    /// </remarks>
+    // Applies a mutation and saves it, retrying once on a failed save.
+    //
+    // Every write here is an upsert done as read-then-insert-or-update, so two instances acting on the
+    // same row at once can both find nothing and both insert. The retry runs the whole mutation again on a
+    // fresh context, which now sees the winner's row and takes the update path. A second failure is not a
+    // race — a value too long for its column fails identically both times — so it propagates rather than
+    // being swallowed.
     private async Task MutateAsync(
         Func<TContext, CancellationToken, Task> mutate, CancellationToken cancellationToken)
     {

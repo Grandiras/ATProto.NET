@@ -65,22 +65,14 @@ public sealed class JoinLinkView : LexObject
     public required AtDatetime CreatedAt { get; init; }
 }
 
-/// <summary>
-/// What a join link code leads to (the open union of <c>chat.bsky.group.getJoinLinkPreviews</c>
-/// and <c>chat.bsky.embed.joinLink#view</c>): a <see cref="JoinLinkPreviewView"/>, or a
-/// <see cref="DisabledJoinLinkPreviewView"/> or <see cref="InvalidJoinLinkPreviewView"/>. A preview
-/// this SDK does not model reads as <see cref="UnknownJoinLinkPreview"/>.
-/// </summary>
+/// <summary>What a join link code leads to (the open union of <c>chat.bsky.group.getJoinLinkPreviews</c> and <c>chat.bsky.embed.joinLink#view</c>): a <see cref="JoinLinkPreviewView"/>, or a <see cref="DisabledJoinLinkPreviewView"/> or <see cref="InvalidJoinLinkPreviewView"/>. A preview this SDK does not model reads as <see cref="UnknownJoinLinkPreview"/>.</summary>
 [AtProtoUnion(typeof(UnknownJoinLinkPreview))]
 [JsonDerivedType(typeof(JoinLinkPreviewView), "chat.bsky.group.defs#joinLinkPreviewView")]
 [JsonDerivedType(typeof(DisabledJoinLinkPreviewView), "chat.bsky.group.defs#disabledJoinLinkPreviewView")]
 [JsonDerivedType(typeof(InvalidJoinLinkPreviewView), "chat.bsky.group.defs#invalidJoinLinkPreviewView")]
 public abstract class JoinLinkPreview : LexObject;
 
-/// <summary>
-/// A join link preview whose <c>$type</c> this SDK version does not model. It keeps the raw object
-/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A join link preview whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownJoinLinkPreview(string type, JsonElement raw) : JoinLinkPreview, IUnknownUnionVariant
@@ -92,10 +84,7 @@ public sealed class UnknownJoinLinkPreview(string type, JsonElement raw) : JoinL
     public JsonElement Raw { get; } = UnknownUnionVariant.RequireObject(raw);
 }
 
-/// <summary>
-/// The public preview of a group behind a join link, which may be shown even to signed-out viewers
-/// (<c>chat.bsky.group.defs#joinLinkPreviewView</c>).
-/// </summary>
+/// <summary>The public preview of a group behind a join link, which may be shown even to signed-out viewers (<c>chat.bsky.group.defs#joinLinkPreviewView</c>).</summary>
 public sealed class JoinLinkPreviewView : JoinLinkPreview
 {
     /// <summary>The identifier of the group's conversation.</summary>
@@ -139,10 +128,7 @@ public sealed class JoinLinkPreviewView : JoinLinkPreview
     public JoinLinkViewerState? Viewer { get; init; }
 }
 
-/// <summary>
-/// The preview of a disabled join link: only its code
-/// (<c>chat.bsky.group.defs#disabledJoinLinkPreviewView</c>).
-/// </summary>
+/// <summary>The preview of a disabled join link: only its code (<c>chat.bsky.group.defs#disabledJoinLinkPreviewView</c>).</summary>
 public sealed class DisabledJoinLinkPreviewView : JoinLinkPreview
 {
     /// <summary>The link's code.</summary>
@@ -150,10 +136,7 @@ public sealed class DisabledJoinLinkPreviewView : JoinLinkPreview
     public required string Code { get; init; }
 }
 
-/// <summary>
-/// The preview of a code that is not a join link: only the code
-/// (<c>chat.bsky.group.defs#invalidJoinLinkPreviewView</c>).
-/// </summary>
+/// <summary>The preview of a code that is not a join link: only the code (<c>chat.bsky.group.defs#invalidJoinLinkPreviewView</c>).</summary>
 public sealed class InvalidJoinLinkPreviewView : JoinLinkPreview
 {
     /// <summary>The code that was asked for.</summary>
@@ -187,10 +170,7 @@ public sealed class JoinRequestView : LexObject
     public required AtDatetime RequestedAt { get; init; }
 }
 
-/// <summary>
-/// A request to join a group, as the requester sees it, with enough of the group to list it
-/// (<c>chat.bsky.group.defs#joinRequestConvoView</c>).
-/// </summary>
+/// <summary>A request to join a group, as the requester sees it, with enough of the group to list it (<c>chat.bsky.group.defs#joinRequestConvoView</c>).</summary>
 public sealed class JoinRequestConvoView : ConvoRequestView
 {
     /// <summary>The identifier of the group's conversation.</summary>
@@ -220,28 +200,23 @@ public sealed class JoinRequestConvoView : ConvoRequestView
 
 // ── Request models ───────────────────────────────────────
 
-/// <summary>Request body for chat.bsky.group.createGroup.</summary>
 internal sealed record CreateGroupRequest(
     [property: JsonPropertyName("members")] IReadOnlyList<Did> Members,
     [property: JsonPropertyName("name")] string Name);
 
-/// <summary>Request body for chat.bsky.group.editGroup.</summary>
 internal sealed record EditGroupRequest(
     [property: JsonPropertyName("convoId")] string ConvoId,
     [property: JsonPropertyName("name")] string Name);
 
-/// <summary>Request body for chat.bsky.group.addMembers and chat.bsky.group.removeMembers.</summary>
 internal sealed record GroupMembersRequest(
     [property: JsonPropertyName("convoId")] string ConvoId,
     [property: JsonPropertyName("members")] IReadOnlyList<Did> Members);
 
-/// <summary>Request body for chat.bsky.group.createJoinLink.</summary>
 internal sealed record CreateJoinLinkRequest(
     [property: JsonPropertyName("convoId")] [property: JsonPropertyOrder(0)] string ConvoId,
     [property: JsonPropertyName("joinRule")] [property: JsonPropertyOrder(2)] string JoinRule,
     [property: JsonPropertyName("requireApproval")] [property: JsonPropertyOrder(1)] bool? RequireApproval = null);
 
-/// <summary>Request body for chat.bsky.group.editJoinLink.</summary>
 internal sealed record EditJoinLinkRequest(
     [property: JsonPropertyName("convoId")] string ConvoId,
     [property: JsonPropertyName("requireApproval")] bool? RequireApproval = null,
@@ -249,10 +224,8 @@ internal sealed record EditJoinLinkRequest(
 
 // enableJoinLink and disableJoinLink also take only a convoId: see ConvoIdRequest.
 
-/// <summary>Request body for chat.bsky.group.requestJoin.</summary>
 internal sealed record RequestJoinRequest([property: JsonPropertyName("code")] string Code);
 
-/// <summary>Request body for chat.bsky.group.approveJoinRequest and chat.bsky.group.rejectJoinRequest.</summary>
 internal sealed record GroupMemberRequest(
     [property: JsonPropertyName("convoId")] string ConvoId,
     [property: JsonPropertyName("member")] Did Member);
@@ -296,10 +269,7 @@ public sealed class GetJoinLinkPreviewsResponse
 /// <summary>Response from chat.bsky.group.requestJoin.</summary>
 public sealed class RequestJoinResponse
 {
-    /// <summary>
-    /// Whether the viewer joined or the request waits for approval (see
-    /// <see cref="RequestJoinStatus"/>).
-    /// </summary>
+    /// <summary>Whether the viewer joined or the request waits for approval (see <see cref="RequestJoinStatus"/>).</summary>
     [JsonPropertyName("status")]
     public required string Status { get; init; }
 
@@ -320,13 +290,11 @@ public sealed record ListJoinRequestsResponse : CursorPage<JoinRequestView>
     public override IReadOnlyList<JoinRequestView> Items => Requests;
 }
 
-/// <summary>
-/// The <c>{joinLink}</c> output of chat.bsky.group.createJoinLink, editJoinLink, enableJoinLink and
-/// disableJoinLink, which the client unwraps.
-/// </summary>
+// The {joinLink} output of chat.bsky.group.createJoinLink, editJoinLink, enableJoinLink and
+// disableJoinLink, which the client unwraps.
 internal sealed class JoinLinkOutput
 {
-    /// <summary>The join link after the change.</summary>
+    // The join link after the change.
     [JsonPropertyName("joinLink")]
     public required JoinLinkView JoinLink { get; init; }
 }

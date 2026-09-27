@@ -3,28 +3,22 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Auth;
 
-/// <summary>
-/// The JSON form the SDK's own session stores persist, and the reader that also accepts what
-/// their predecessors wrote.
-/// </summary>
+// The JSON form the SDK's own session stores persist, and the reader that also accepts what their
+// predecessors wrote.
 internal static class AtProtoSessionJson
 {
     // A hand-edited or re-serialized document may not put "$kind" first.
     private static readonly JsonSerializerOptions Options = new() { AllowOutOfOrderMetadataProperties = true };
 
-    /// <summary>Serializes a session with its <c>$kind</c> discriminator.</summary>
+    // Serializes a session with its $kind discriminator.
     public static string Serialize(AtProtoSession session) =>
         JsonSerializer.Serialize(session, Options);
 
-    /// <summary>
-    /// Reads a stored session: the current form, or the OAuth token data the 0.6 token stores
-    /// wrote (camel-cased <c>AtProtoTokenData</c>), so sessions persisted before the upgrade stay
-    /// signed in.
-    /// </summary>
-    /// <exception cref="JsonException">
-    /// The JSON is neither form, or holds a value no session can have (an unknown <c>$kind</c>, a
-    /// relative endpoint, a DPoP key that is not base64). A store treats it as corrupt.
-    /// </exception>
+    // Reads a stored session: the current form, or the OAuth token data the 0.6 token stores wrote
+    // (camel-cased AtProtoTokenData), so sessions persisted before the upgrade stay signed in.
+    //
+    // Throws JsonException: The JSON is neither form, or holds a value no session can have (an unknown
+    // $kind, a relative endpoint, a DPoP key that is not base64). A store treats it as corrupt.
     public static AtProtoSession Deserialize(string json)
     {
         AtProtoSession session;

@@ -68,7 +68,7 @@ public static class AtProtoServiceCollectionExtensions
         return new AtProtoBuilder(services, httpClient);
     }
 
-    /// <summary>Creates the registered <see cref="AtProtoClient"/>.</summary>
+    // Creates the registered AtProtoClient.
     internal static AtProtoClient CreateClient(IServiceProvider services) => new(
         services.GetRequiredService<IOptions<AtProtoClientOptions>>().Value,
         services.GetRequiredService<IHttpClientFactory>().CreateClient(HttpClientName),

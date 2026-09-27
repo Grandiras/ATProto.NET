@@ -40,10 +40,10 @@ public sealed class OAuthClient : IDisposable
     /// <summary>How long a started authorization waits for its callback (10 minutes).</summary>
     public static readonly TimeSpan AuthorizationLifetime = TimeSpan.FromMinutes(10);
 
-    /// <summary>The most of a response body read from an authorization server.</summary>
+    // The most of a response body read from an authorization server.
     private const int MaxResponseBytes = 64 * 1024;
 
-    /// <summary>The longest <c>state</c> looked up; the client's own are 43 characters.</summary>
+    // The longest state looked up; the client's own are 43 characters.
     private const int MaxStateLength = 256;
 
     private const string ClientAssertionType = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer";
@@ -106,16 +106,16 @@ public sealed class OAuthClient : IDisposable
 
     internal AuthorizationServerDiscovery Discovery => _discovery;
 
-    /// <summary>The client every request to a PDS or authorization server goes through.</summary>
+    // The client every request to a PDS or authorization server goes through.
     internal HttpClient HttpClient => _httpClient;
 
-    /// <summary>The <c>client_id</c> this client identifies itself with.</summary>
+    // The client_id this client identifies itself with.
     internal string ClientId => _options.ClientMetadata.ClientId;
 
-    /// <summary>The DPoP nonces of the authorization servers: the process-wide cache unless a test supplies one.</summary>
+    // The DPoP nonces of the authorization servers: the process-wide cache unless a test supplies one.
     internal DPoPNonceCache NonceCache { get; init; } = DPoPNonceCache.Shared;
 
-    /// <summary>The clock for expiry times and client assertions.</summary>
+    // The clock for expiry times and client assertions.
     internal TimeProvider TimeProvider { get; init; } = TimeProvider.System;
 
     /// <summary>
@@ -408,10 +408,7 @@ public sealed class OAuthClient : IDisposable
         return await RefreshAsync(session, dpop, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// <see cref="RefreshAsync(Auth.OAuthSession, CancellationToken)"/> with the session's DPoP
-    /// key already loaded.
-    /// </summary>
+    // RefreshAsync(Auth.OAuthSession, CancellationToken) with the session's DPoP key already loaded.
     internal async Task<Auth.OAuthSession> RefreshAsync(
         Auth.OAuthSession session,
         DPoPProofGenerator dpop,
@@ -492,10 +489,7 @@ public sealed class OAuthClient : IDisposable
         await RevokeAsync(session, dpop, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// <see cref="RevokeAsync(Auth.OAuthSession, CancellationToken)"/> with the session's DPoP
-    /// key already loaded.
-    /// </summary>
+    // RevokeAsync(Auth.OAuthSession, CancellationToken) with the session's DPoP key already loaded.
     internal async Task RevokeAsync(Auth.OAuthSession session, DPoPProofGenerator dpop, CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -537,12 +531,10 @@ public sealed class OAuthClient : IDisposable
         _logger.LogDebug("Revoked the OAuth session of {Did}", session.Did);
     }
 
-    /// <summary>
-    /// Revokes tokens the client has refused, best effort, as the reference client does: tokens
-    /// for another account or from the wrong server should not outlive the refusal. The refresh
-    /// token goes, which ends the grant; failing that, the access token. Nothing is thrown, and
-    /// without a known revocation endpoint nothing is sent.
-    /// </summary>
+    // Revokes tokens the client has refused, best effort, as the reference client does: tokens for another
+    // account or from the wrong server should not outlive the refusal. The refresh token goes, which ends
+    // the grant; failing that, the access token. Nothing is thrown, and without a known revocation
+    // endpoint nothing is sent.
     private async Task RevokeUnusableTokensAsync(
         OAuthTokenResponse tokens, Uri? endpoint, OAuthClientKey? clientKey, string issuer, DPoPProofGenerator dpop)
     {
@@ -577,11 +569,10 @@ public sealed class OAuthClient : IDisposable
     private DateTimeOffset? ExpiresAt(OAuthTokenResponse tokens) =>
         tokens.ExpiresIn is { } seconds && seconds > 0 ? TimeProvider.GetUtcNow().AddSeconds(seconds) : null;
 
-    /// <summary>
-    /// Checks a token response from the code exchange or a refresh: a DPoP-bound access token,
-    /// for <paramref name="expected"/> when given, with the <c>atproto</c> scope.
-    /// </summary>
-    /// <returns>The account the tokens are for.</returns>
+    // Checks a token response from the code exchange or a refresh: a DPoP-bound access token, for expected
+    // when given, with the atproto scope.
+    //
+    // Returns: The account the tokens are for.
     private static Did ValidateTokenResponse(OAuthTokenResponse tokens, Did? expected, string what)
     {
         // A success status with no usable token is as much a failure as an error body: storing
@@ -619,31 +610,29 @@ public sealed class OAuthClient : IDisposable
         return did;
     }
 
-    /// <summary>
-    /// POSTs a form to an authorization server endpoint with a DPoP proof and reads the answer:
-    /// the one path every authorization server request takes.
-    /// </summary>
-    /// <param name="endpoint">The endpoint, from validated metadata or a stored session.</param>
-    /// <param name="buildForm">
-    /// Builds the form; called for each attempt, so a client assertion is never sent twice.
-    /// </param>
-    /// <param name="dpop">The key the proof is signed with.</param>
-    /// <param name="operation">What the request is, for messages.</param>
-    /// <returns>The body of the successful response, or <see langword="null"/> when it is over the cap.</returns>
-    /// <remarks>
-    /// The proof carries the endpoint origin's latest nonce, and a <c>use_dpop_nonce</c> answer
-    /// that brings a fresh one is retried once with it (RFC 9449 section 8); every nonce a
-    /// response brings is remembered for the next request. Responses are read up to 64 KiB and
-    /// disposed, and the exchange as a whole, body included, is bounded by
-    /// <see cref="OAuthOptions.RequestTimeout"/>.
-    /// </remarks>
-    /// <exception cref="OAuthException">
-    /// The server answered with an error, carried as <see cref="OAuthException.Error"/>; the
-    /// endpoint is not one the client may send to (<c>invalid_server_url</c>); the exchange ran
-    /// out of time (<c>request_timeout</c>); or the connection or the body failed
-    /// (<c>request_failed</c>).
-    /// </exception>
-    /// <exception cref="OperationCanceledException">The caller cancelled.</exception>
+    // POSTs a form to an authorization server endpoint with a DPoP proof and reads the answer: the one
+    // path every authorization server request takes.
+    //
+    // The proof carries the endpoint origin's latest nonce, and a use_dpop_nonce answer that brings a
+    // fresh one is retried once with it (RFC 9449 section 8); every nonce a response brings is remembered
+    // for the next request. Responses are read up to 64 KiB and disposed, and the exchange as a whole,
+    // body included, is bounded by OAuthOptions.RequestTimeout.
+    //
+    // endpoint: The endpoint, from validated metadata or a stored session.
+    //
+    // buildForm: Builds the form; called for each attempt, so a client assertion is never sent twice.
+    //
+    // dpop: The key the proof is signed with.
+    //
+    // operation: What the request is, for messages.
+    //
+    // Returns: The body of the successful response, or null when it is over the cap.
+    //
+    // Throws OAuthException: The server answered with an error, carried as OAuthException.Error; the
+    // endpoint is not one the client may send to (invalid_server_url); the exchange ran out of time
+    // (request_timeout); or the connection or the body failed (request_failed).
+    //
+    // Throws OperationCanceledException: The caller cancelled.
     private async Task<ReadOnlyMemory<byte>?> PostFormWithDpopAsync(
         Uri endpoint,
         Func<Dictionary<string, string>> buildForm,
@@ -737,11 +726,8 @@ public sealed class OAuthClient : IDisposable
         }
     }
 
-    /// <summary>
-    /// <see cref="PostFormWithDpopAsync(Uri, Func{Dictionary{string, string}}, DPoPProofGenerator, string, CancellationToken)"/>,
-    /// reading the answer as <typeparamref name="T"/>; an answer that is not one is
-    /// <paramref name="invalidResponseError"/>.
-    /// </summary>
+    // PostFormWithDpopAsync(Uri, Func{Dictionary{string, string}}, DPoPProofGenerator, string,
+    // CancellationToken), reading the answer as T; an answer that is not one is invalidResponseError.
     private async Task<T> PostFormWithDpopAsync<T>(
         Uri endpoint,
         Func<Dictionary<string, string>> buildForm,
@@ -780,10 +766,8 @@ public sealed class OAuthClient : IDisposable
         }
     }
 
-    /// <summary>
-    /// Adds the client's identification to a form: its <c>client_id</c>, and for a confidential
-    /// client a fresh assertion for <paramref name="audience"/> signed with <paramref name="key"/>.
-    /// </summary>
+    // Adds the client's identification to a form: its client_id, and for a confidential client a fresh
+    // assertion for audience signed with key.
     private void AddClientAuthentication(Dictionary<string, string> form, OAuthClientKey? key, string audience)
     {
         var clientId = _options.ClientMetadata.ClientId;
@@ -796,10 +780,8 @@ public sealed class OAuthClient : IDisposable
         }
     }
 
-    /// <summary>
-    /// The key a new authorization is authenticated with: the first client key, for an
-    /// authorization server that accepts <c>private_key_jwt</c> with ES256; none for a public client.
-    /// </summary>
+    // The key a new authorization is authenticated with: the first client key, for an authorization server
+    // that accepts private_key_jwt with ES256; none for a public client.
     private OAuthClientKey? SelectClientKey(AuthorizationServerMetadata metadata)
     {
         if (_clientKeys.Length == 0)
@@ -816,10 +798,8 @@ public sealed class OAuthClient : IDisposable
         return _clientKeys[0];
     }
 
-    /// <summary>
-    /// The key a session's requests are authenticated with: the one its grant was issued to, or
-    /// none for a session of a public client.
-    /// </summary>
+    // The key a session's requests are authenticated with: the one its grant was issued to, or none for a
+    // session of a public client.
     private OAuthClientKey? ClientKeyOf(Auth.OAuthSession session) =>
         session.ClientKeyId is { } keyId ? FindClientKey(keyId) : null;
 
@@ -902,12 +882,10 @@ public sealed class OAuthClient : IDisposable
         }
     }
 
-    /// <summary>
-    /// Resolves the account and checks that its authorization server is
-    /// <paramref name="expectedIssuer"/>: the DID → PDS → authorization server chain must lead
-    /// back to the server that issued the tokens.
-    /// </summary>
-    /// <returns>The account's identity, with its PDS.</returns>
+    // Resolves the account and checks that its authorization server is expectedIssuer: the DID → PDS →
+    // authorization server chain must lead back to the server that issued the tokens.
+    //
+    // Returns: The account's identity, with its PDS.
     private async Task<ResolvedIdentity> VerifyIssuerAsync(
         Did did, string expectedIssuer, CancellationToken cancellationToken)
     {

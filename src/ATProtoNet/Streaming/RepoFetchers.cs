@@ -131,17 +131,17 @@ public sealed class RepoFetchException : AtProtoException
     }
 }
 
-/// <summary>The download behind the repository fetchers.</summary>
+// The download behind the repository fetchers.
 internal static class RepoDownload
 {
     internal static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes(5);
 
     private const int MaxRedirects = 3;
 
-    /// <summary>The most a download's buffer starts at, whatever length the host declares.</summary>
+    // The most a download's buffer starts at, whatever length the host declares.
     private const int InitialBufferBytes = 1024 * 1024;
 
-    /// <summary>A client over the SDK's SSRF-hardened handler, or one allowing private networks for development.</summary>
+    // A client over the SDK's SSRF-hardened handler, or one allowing private networks for development.
     internal static HttpClient CreateClient(bool allowPrivateNetworks, TimeSpan timeout)
     {
         var client = new HttpClient(IdentityNetworkPolicy.SharedHandler(allowPrivateNetworks), disposeHandler: false)
@@ -152,11 +152,9 @@ internal static class RepoDownload
         return client;
     }
 
-    /// <summary>
-    /// Downloads <paramref name="did"/>'s export from <paramref name="host"/>, following redirects,
-    /// within the client's <see cref="HttpClient.Timeout"/> for the whole download: the response
-    /// is read as it streams in, which <see cref="HttpClient.Timeout"/> alone does not cover.
-    /// </summary>
+    // Downloads did's export from host, following redirects, within the client's HttpClient.Timeout for
+    // the whole download: the response is read as it streams in, which HttpClient.Timeout alone does not
+    // cover.
     internal static async Task<byte[]?> GetRepoAsync(
         HttpClient client, Uri host, Did did, long maxBytes, bool allowHttp, CancellationToken cancellationToken)
     {

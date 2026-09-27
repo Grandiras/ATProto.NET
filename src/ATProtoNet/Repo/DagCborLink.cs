@@ -2,24 +2,21 @@ using System.Formats.Cbor;
 
 namespace ATProtoNet.Repo;
 
-/// <summary>
-/// Reads and writes DAG-CBOR CID links: CBOR tag 42 around a byte string holding the binary CID
-/// behind a single <c>0x00</c> (identity multibase) prefix byte.
-/// </summary>
-/// <remarks>
-/// Every encoder and decoder in the SDK goes through here, so the tag, the prefix byte and the
-/// error for a malformed link are defined once. Readers throw <see cref="FormatException"/>, which
-/// is what the parsers built on top promise for untrusted input.
-/// </remarks>
+// Reads and writes DAG-CBOR CID links: CBOR tag 42 around a byte string holding the binary CID behind
+// a single 0x00 (identity multibase) prefix byte.
+//
+// Every encoder and decoder in the SDK goes through here, so the tag, the prefix byte and the error
+// for a malformed link are defined once. Readers throw FormatException, which is what the parsers
+// built on top promise for untrusted input.
 internal static class DagCborLink
 {
-    /// <summary>The IPLD CBOR tag for a CID.</summary>
+    // The IPLD CBOR tag for a CID.
     internal const CborTag Tag = (CborTag)42;
 
-    /// <summary>Longest CID written through a stack buffer; an atproto CID is 36 bytes.</summary>
+    // Longest CID written through a stack buffer; an atproto CID is 36 bytes.
     private const int MaxStackCidBytes = 128;
 
-    /// <summary>Writes <paramref name="cid"/> (binary, without the multibase prefix) as a link.</summary>
+    // Writes cid (binary, without the multibase prefix) as a link.
     internal static void Write(CborWriter writer, ReadOnlySpan<byte> cid)
     {
         writer.WriteTag(Tag);
@@ -32,7 +29,7 @@ internal static class DagCborLink
         writer.WriteByteString(tagged);
     }
 
-    /// <summary>Writes <paramref name="cid"/> as a link, or CBOR <c>null</c> when it is absent.</summary>
+    // Writes cid as a link, or CBOR null when it is absent.
     internal static void WriteNullable(CborWriter writer, byte[]? cid)
     {
         if (cid is null)
@@ -41,16 +38,18 @@ internal static class DagCborLink
             Write(writer, cid);
     }
 
-    /// <summary>Reads a link, returning the binary CID without its multibase prefix.</summary>
-    /// <exception cref="FormatException">The next value is not a well-formed CID link.</exception>
+    // Reads a link, returning the binary CID without its multibase prefix.
+    //
+    // Throws FormatException: The next value is not a well-formed CID link.
     internal static byte[] Read(CborReader reader)
     {
         ReadTag(reader);
         return ReadPayload(reader);
     }
 
-    /// <summary>Reads a link or a CBOR <c>null</c>.</summary>
-    /// <exception cref="FormatException">The next value is neither <c>null</c> nor a well-formed CID link.</exception>
+    // Reads a link or a CBOR null.
+    //
+    // Throws FormatException: The next value is neither null nor a well-formed CID link.
     internal static byte[]? ReadNullable(CborReader reader)
     {
         if (reader.PeekState() == CborReaderState.Null)
@@ -62,11 +61,10 @@ internal static class DagCborLink
         return Read(reader);
     }
 
-    /// <summary>
-    /// Reads the byte string of a link whose tag the caller has already consumed, returning the
-    /// binary CID without its multibase prefix.
-    /// </summary>
-    /// <exception cref="FormatException">The payload is not a prefixed CID.</exception>
+    // Reads the byte string of a link whose tag the caller has already consumed, returning the binary CID
+    // without its multibase prefix.
+    //
+    // Throws FormatException: The payload is not a prefixed CID.
     internal static byte[] ReadPayload(CborReader reader)
     {
         if (reader.PeekState() != CborReaderState.ByteString)
@@ -78,11 +76,10 @@ internal static class DagCborLink
         return bytes[1..].ToArray();
     }
 
-    /// <summary>
-    /// Reads the byte string of a link whose tag the caller has already consumed, returning the
-    /// CID in its base32 string form.
-    /// </summary>
-    /// <exception cref="FormatException">The payload is not a prefixed CID.</exception>
+    // Reads the byte string of a link whose tag the caller has already consumed, returning the CID in its
+    // base32 string form.
+    //
+    // Throws FormatException: The payload is not a prefixed CID.
     internal static string ReadPayloadAsString(CborReader reader)
     {
         if (reader.PeekState() != CborReaderState.ByteString)

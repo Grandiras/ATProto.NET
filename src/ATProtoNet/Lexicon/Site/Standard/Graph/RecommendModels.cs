@@ -16,10 +16,7 @@ public sealed class RecommendRecord : LexObject, IAtProtoRecord
     [JsonPropertyName("$type")]
     public string Type => Collection;
 
-    /// <summary>
-    /// AT-URI reference to the document record being recommended
-    /// (e.g. at://did:plc:abc123/site.standard.document/xyz789).
-    /// </summary>
+    /// <summary>AT-URI reference to the document record being recommended (e.g. at://did:plc:abc123/site.standard.document/xyz789).</summary>
     [JsonPropertyName("document")]
     public required AtUri Document { get; init; }
 

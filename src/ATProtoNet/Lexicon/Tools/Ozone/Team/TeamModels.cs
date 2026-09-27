@@ -32,10 +32,7 @@ public sealed class TeamMember : LexObject
     [JsonPropertyName("updatedAt")]
     public AtDatetime? UpdatedAt { get; init; }
 
-    /// <summary>
-    /// Who last updated the member: a moderator's DID, or <c>admin_token</c> when an admin token
-    /// made the change.
-    /// </summary>
+    /// <summary>Who last updated the member: a moderator's DID, or <c>admin_token</c> when an admin token made the change.</summary>
     [JsonPropertyName("lastUpdatedBy")]
     public string? LastUpdatedBy { get; init; }
 }
@@ -68,7 +65,6 @@ public sealed class AddMemberRequest
     public required string Role { get; init; }
 }
 
-/// <summary>Request to delete a team member.</summary>
 internal sealed record DeleteMemberRequest([property: JsonPropertyName("did")] Did Did);
 
 /// <summary>Request to update a team member.</summary>
@@ -90,7 +86,7 @@ public sealed class UpdateMemberRequest
 /// <summary>Response from listMembers.</summary>
 public sealed record ListMembersResponse : CursorPage<TeamMember>
 {
-    /// <summary>The members.</summary>
+    /// <summary>This page's members.</summary>
     [JsonPropertyName("members")]
     public required IReadOnlyList<TeamMember> Members { get; init; }
 

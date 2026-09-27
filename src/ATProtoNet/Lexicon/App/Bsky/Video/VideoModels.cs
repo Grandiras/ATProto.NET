@@ -112,7 +112,6 @@ public sealed class UploadVideoResponse
 
 // ── Multipart upload ─────────────────────────────────────────
 
-/// <summary>Request body for startUpload.</summary>
 internal sealed record StartUploadRequest(
     [property: JsonPropertyName("sizeBytes")] long SizeBytes,
     [property: JsonPropertyName("mimeType")] string MimeType,
@@ -153,17 +152,12 @@ public sealed class UploadPartResponse
     public required long SizeBytes { get; init; }
 }
 
-/// <summary>Request body for finishUpload and abortUpload.</summary>
 internal sealed record JobIdRequest([property: JsonPropertyName("jobId")] string JobId);
 
 /// <summary>Response from finishUpload.</summary>
 public sealed class FinishUploadResponse
 {
-    /// <summary>
-    /// The processing job to poll with <see cref="VideoClient.GetJobStatusAsync"/>. When the
-    /// service recognizes a video it already processed, this is that video's job rather than the
-    /// upload's.
-    /// </summary>
+    /// <summary>The processing job to poll with <see cref="VideoClient.GetJobStatusAsync"/>. When the service recognizes a video it already processed, this is that video's job rather than the upload's.</summary>
     [JsonPropertyName("completedJobId")]
     public required string CompletedJobId { get; init; }
 
@@ -212,10 +206,7 @@ public sealed class GetUploadStatusResponse
     public string? FailureReason { get; init; }
 }
 
-/// <summary>
-/// Response from abortUpload: the session's final state, which is <see cref="UploadState.Aborted"/>
-/// unless it had already ended otherwise.
-/// </summary>
+/// <summary>Response from abortUpload: the session's final state, which is <see cref="UploadState.Aborted"/> unless it had already ended otherwise.</summary>
 public sealed class AbortUploadResponse
 {
     /// <summary>The session's state (see <see cref="UploadState"/>).</summary>
@@ -253,10 +244,7 @@ public static class UploadState
     public const string Expired = "expired";
 }
 
-/// <summary>
-/// Error names the <c>app.bsky.video.*</c> upload methods declare, for matching with
-/// <see cref="Http.XrpcException.Is"/>.
-/// </summary>
+/// <summary>Error names the <c>app.bsky.video.*</c> upload methods declare, for matching with <see cref="Http.XrpcException.Is"/>.</summary>
 public static class VideoErrors
 {
     /// <summary>The declared or detected MIME type is not supported.</summary>
@@ -317,19 +305,13 @@ public sealed record VideoUploadOptions
     /// <summary>The settings used when none are passed.</summary>
     public static VideoUploadOptions Default { get; } = new();
 
-    /// <summary>
-    /// The exact number of bytes to upload from the stream. Required for a stream that cannot
-    /// seek; by default, a seekable stream is uploaded from its position to its end.
-    /// </summary>
+    /// <summary>The exact number of bytes to upload from the stream. Required for a stream that cannot seek; by default, a seekable stream is uploaded from its position to its end.</summary>
     public long? Length { get; init; }
 
     /// <summary>The file name to declare to the service, if any.</summary>
     public string? FileName { get; init; }
 
-    /// <summary>
-    /// The video's duration, if known. The service uses it only to reject a video that is too
-    /// long before it is uploaded; it measures the video itself afterwards.
-    /// </summary>
+    /// <summary>The video's duration, if known. The service uses it only to reject a video that is too long before it is uploaded; it measures the video itself afterwards.</summary>
     public TimeSpan? Duration { get; init; }
 
     /// <summary>The video's width in pixels, if known. Advisory, like <see cref="Duration"/>.</summary>
@@ -338,29 +320,17 @@ public sealed record VideoUploadOptions
     /// <summary>The video's height in pixels, if known. Advisory, like <see cref="Duration"/>.</summary>
     public int? Height { get; init; }
 
-    /// <summary>
-    /// How many times to send each request before giving up on a transient failure: a lost
-    /// connection, a timeout, a 5xx or 429 response, or <see cref="VideoErrors.ServiceOverloaded"/>.
-    /// Default 4. Other errors are not retried, and neither is starting the session, which is
-    /// not idempotent, unless the service refused it with a 429 or
-    /// <see cref="VideoErrors.ServiceOverloaded"/>.
-    /// </summary>
+    /// <summary>How many times to send each request before giving up on a transient failure: a lost connection, a timeout, a 5xx or 429 response, or <see cref="VideoErrors.ServiceOverloaded"/>. Default 4. Other errors are not retried, and neither is starting the session, which is not idempotent, unless the service refused it with a 429 or <see cref="VideoErrors.ServiceOverloaded"/>.</summary>
     public int MaxAttempts { get; init; } = 4;
 
-    /// <summary>
-    /// The wait before the first retry. It doubles after each further failure, up to 30 seconds.
-    /// Default 1 second.
-    /// </summary>
+    /// <summary>The wait before the first retry. It doubles after each further failure, up to 30 seconds. Default 1 second.</summary>
     public TimeSpan RetryDelay { get; init; } = TimeSpan.FromSeconds(1);
 
     /// <summary>How long to wait between processing-status checks. Default 1 second.</summary>
     public TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(1);
 }
 
-/// <summary>
-/// A video upload that did not produce a usable video: its processing job failed, or ended
-/// without a blob, or the service answered with an inconsistent upload plan.
-/// </summary>
+/// <summary>A video upload that did not produce a usable video: its processing job failed, or ended without a blob, or the service answered with an inconsistent upload plan.</summary>
 /// <remarks>
 /// XRPC errors from the upload itself (a size limit, an expired session, …) surface as
 /// <see cref="Http.XrpcException"/>; match their names with <see cref="VideoErrors"/>.

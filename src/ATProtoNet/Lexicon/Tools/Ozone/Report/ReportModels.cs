@@ -12,10 +12,7 @@ namespace ATProtoNet.Lexicon.Tools.Ozone.Report;
 
 // ─── Reports ───
 
-/// <summary>
-/// One report: an individual instance of a subject being reported, as opposed to the subject's
-/// status, which aggregates its reports (<c>tools.ozone.report.defs#reportView</c>).
-/// </summary>
+/// <summary>One report: an individual instance of a subject being reported, as opposed to the subject's status, which aggregates its reports (<c>tools.ozone.report.defs#reportView</c>).</summary>
 public sealed class ReportView : LexObject
 {
     /// <summary>The report's identifier.</summary>
@@ -99,10 +96,7 @@ public sealed class ReportView : LexObject
     public bool? IsAutomated { get; init; }
 }
 
-/// <summary>
-/// The statuses of a report (<see cref="ReportView.Status"/>), for
-/// <see cref="ReportClient.QueryReportsAsync"/>.
-/// </summary>
+/// <summary>The statuses of a report (<see cref="ReportView.Status"/>), for <see cref="ReportClient.QueryReportsAsync"/>.</summary>
 public static class ReportStatus
 {
     /// <summary>Waiting for review.</summary>
@@ -121,10 +115,7 @@ public static class ReportStatus
     public const string Assigned = "assigned";
 }
 
-/// <summary>
-/// The kinds of subject a report or queue is about, for <see cref="ReportFilter.SubjectType"/> and
-/// the queues' <c>SubjectTypes</c>.
-/// </summary>
+/// <summary>The kinds of subject a report or queue is about, for <see cref="ReportFilter.SubjectType"/> and the queues' <c>SubjectTypes</c>.</summary>
 public static class ReportSubjectType
 {
     /// <summary>An account.</summary>
@@ -190,12 +181,7 @@ public sealed class AssignmentView : LexObject
 
 // ─── Activities ───
 
-/// <summary>
-/// What happened to a report (the open <c>tools.ozone.report.defs#reportActivityView.activity</c>
-/// union). Record one with <see cref="ReportClient.CreateActivityAsync"/>; an activity type that
-/// changes the report's status moves it to that status. An activity this SDK does not model reads
-/// as <see cref="UnknownReportActivity"/>.
-/// </summary>
+/// <summary>What happened to a report (the open <c>tools.ozone.report.defs#reportActivityView.activity</c> union). Record one with <see cref="ReportClient.CreateActivityAsync"/>; an activity type that changes the report's status moves it to that status. An activity this SDK does not model reads as <see cref="UnknownReportActivity"/>.</summary>
 [AtProtoUnion(typeof(UnknownReportActivity))]
 [JsonDerivedType(typeof(QueueActivity), "tools.ozone.report.defs#queueActivity")]
 [JsonDerivedType(typeof(AssignmentActivity), "tools.ozone.report.defs#assignmentActivity")]
@@ -205,10 +191,7 @@ public sealed class AssignmentView : LexObject
 [JsonDerivedType(typeof(NoteActivity), "tools.ozone.report.defs#noteActivity")]
 public abstract class ReportActivity : LexObject;
 
-/// <summary>
-/// A report activity whose <c>$type</c> this SDK version does not model. It keeps the raw object
-/// and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A report activity whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownReportActivity(string type, JsonElement raw) : ReportActivity, IUnknownUnionVariant
@@ -223,10 +206,7 @@ public sealed class UnknownReportActivity(string type, JsonElement raw) : Report
 /// <summary>The report was routed to a queue.</summary>
 public sealed class QueueActivity : ReportActivity
 {
-    /// <summary>
-    /// The report's status before the activity (see <see cref="ReportStatus"/>). The server fills
-    /// it in; leave it unset when recording an activity.
-    /// </summary>
+    /// <summary>The report's status before the activity (see <see cref="ReportStatus"/>). The server fills it in; leave it unset when recording an activity.</summary>
     [JsonPropertyName("previousStatus")]
     public string? PreviousStatus { get; init; }
 }
@@ -234,10 +214,7 @@ public sealed class QueueActivity : ReportActivity
 /// <summary>A moderator was assigned to the report.</summary>
 public sealed class AssignmentActivity : ReportActivity
 {
-    /// <summary>
-    /// The report's status before the activity (see <see cref="ReportStatus"/>). The server fills
-    /// it in; leave it unset when recording an activity.
-    /// </summary>
+    /// <summary>The report's status before the activity (see <see cref="ReportStatus"/>). The server fills it in; leave it unset when recording an activity.</summary>
     [JsonPropertyName("previousStatus")]
     public string? PreviousStatus { get; init; }
 }
@@ -245,10 +222,7 @@ public sealed class AssignmentActivity : ReportActivity
 /// <summary>The report was escalated.</summary>
 public sealed class EscalationActivity : ReportActivity
 {
-    /// <summary>
-    /// The report's status before the activity (see <see cref="ReportStatus"/>). The server fills
-    /// it in; leave it unset when recording an activity.
-    /// </summary>
+    /// <summary>The report's status before the activity (see <see cref="ReportStatus"/>). The server fills it in; leave it unset when recording an activity.</summary>
     [JsonPropertyName("previousStatus")]
     public string? PreviousStatus { get; init; }
 }
@@ -256,10 +230,7 @@ public sealed class EscalationActivity : ReportActivity
 /// <summary>The report was closed.</summary>
 public sealed class CloseActivity : ReportActivity
 {
-    /// <summary>
-    /// The report's status before the activity (see <see cref="ReportStatus"/>). The server fills
-    /// it in; leave it unset when recording an activity.
-    /// </summary>
+    /// <summary>The report's status before the activity (see <see cref="ReportStatus"/>). The server fills it in; leave it unset when recording an activity.</summary>
     [JsonPropertyName("previousStatus")]
     public string? PreviousStatus { get; init; }
 }
@@ -267,18 +238,12 @@ public sealed class CloseActivity : ReportActivity
 /// <summary>A closed report was reopened; valid only on a closed report.</summary>
 public sealed class ReopenActivity : ReportActivity
 {
-    /// <summary>
-    /// The report's status before the activity (see <see cref="ReportStatus"/>). The server fills
-    /// it in; leave it unset when recording an activity.
-    /// </summary>
+    /// <summary>The report's status before the activity (see <see cref="ReportStatus"/>). The server fills it in; leave it unset when recording an activity.</summary>
     [JsonPropertyName("previousStatus")]
     public string? PreviousStatus { get; init; }
 }
 
-/// <summary>
-/// A note on the report: the activity's internal note for moderators, its public note for the
-/// reporter, or both.
-/// </summary>
+/// <summary>A note on the report: the activity's internal note for moderators, its public note for the reporter, or both.</summary>
 public sealed class NoteActivity : ReportActivity;
 
 /// <summary>One activity on a report (<c>tools.ozone.report.defs#reportActivityView</c>).</summary>
@@ -369,10 +334,7 @@ public sealed class HistoricalStats : LexObject
 
 // ─── Filters ───
 
-/// <summary>
-/// Which reports <see cref="ReportClient.QueryReportsAsync"/> returns besides their status, and in
-/// what order. Every filter is optional; set only the ones you need.
-/// </summary>
+/// <summary>Which reports <see cref="ReportClient.QueryReportsAsync"/> returns besides their status, and in what order. Every filter is optional; set only the ones you need.</summary>
 public sealed class ReportFilter
 {
     internal static ReportFilter None { get; } = new();
@@ -386,19 +348,13 @@ public sealed class ReportFilter
     /// <summary>Only reports on this subject: an account's DID, or a record's AT URI.</summary>
     public string? Subject { get; init; }
 
-    /// <summary>
-    /// Only reports on this account or on any of its records. Unlike <see cref="Subject"/>, which
-    /// matches one account or one record, this covers both.
-    /// </summary>
+    /// <summary>Only reports on this account or on any of its records. Unlike <see cref="Subject"/>, which matches one account or one record, this covers both.</summary>
     public Did? Did { get; init; }
 
     /// <summary>Only reports on this kind of subject (see <see cref="ReportSubjectType"/>).</summary>
     public string? SubjectType { get; init; }
 
-    /// <summary>
-    /// Only reports on records in these collections (at most 20); ignored when
-    /// <see cref="SubjectType"/> is <c>account</c>.
-    /// </summary>
+    /// <summary>Only reports on records in these collections (at most 20); ignored when <see cref="SubjectType"/> is <c>account</c>.</summary>
     public IReadOnlyList<Nsid>? Collections { get; init; }
 
     /// <summary>Only reports filed after this time.</summary>
@@ -407,10 +363,7 @@ public sealed class ReportFilter
     /// <summary>Only reports filed before this time.</summary>
     public AtDatetime? ReportedBefore { get; init; }
 
-    /// <summary>
-    /// <see langword="true"/> for only muted reports, <see langword="false"/> (the server default)
-    /// for only unmuted ones.
-    /// </summary>
+    /// <summary><see langword="true"/> for only muted reports, <see langword="false"/> (the server default) for only unmuted ones.</summary>
     public bool? IsMuted { get; init; }
 
     /// <summary>Only reports permanently assigned to this moderator.</summary>
@@ -440,17 +393,14 @@ public sealed class ReportFilter
 
 // ─── Request / Response Models ───
 
-/// <summary>Request body for tools.ozone.report.assignModerator.</summary>
 internal sealed record AssignModeratorRequest(
     [property: JsonPropertyName("reportId")] long ReportId,
     [property: JsonPropertyName("queueId")] long? QueueId = null,
     [property: JsonPropertyName("did")] Did? Did = null,
     [property: JsonPropertyName("isPermanent")] bool? IsPermanent = null);
 
-/// <summary>Request body for tools.ozone.report.unassignModerator.</summary>
 internal sealed record UnassignModeratorRequest([property: JsonPropertyName("reportId")] long ReportId);
 
-/// <summary>Request body for tools.ozone.report.closeReports.</summary>
 internal sealed record CloseReportsRequest(
     [property: JsonPropertyName("subject")] string Subject,
     [property: JsonPropertyName("reportTypes")] IReadOnlyList<string>? ReportTypes = null,
@@ -469,7 +419,6 @@ public sealed class CloseReportsResponse
     public required IReadOnlyList<long> ReportIds { get; init; }
 }
 
-/// <summary>Request body for tools.ozone.report.createActivity.</summary>
 internal sealed record CreateActivityRequest(
     [property: JsonPropertyName("activity")] [property: JsonPropertyOrder(2)] ReportActivity Activity,
     [property: JsonPropertyName("reportId")] [property: JsonPropertyOrder(0)] long? ReportId = null,
@@ -489,7 +438,7 @@ public sealed class CreateActivityResponse
 /// <summary>Response from tools.ozone.report.getAssignments.</summary>
 public sealed record GetAssignmentsResponse : CursorPage<AssignmentView>
 {
-    /// <summary>The assignments.</summary>
+    /// <summary>This page's assignments.</summary>
     [JsonPropertyName("assignments")]
     public required IReadOnlyList<AssignmentView> Assignments { get; init; }
 
@@ -541,7 +490,7 @@ public sealed record ListActivitiesResponse : CursorPage<ReportActivityView>
 /// <summary>Response from tools.ozone.report.queryActivities.</summary>
 public sealed record QueryActivitiesResponse : CursorPage<ReportActivityView>
 {
-    /// <summary>The activities.</summary>
+    /// <summary>This page's activities.</summary>
     [JsonPropertyName("activities")]
     public required IReadOnlyList<ReportActivityView> Activities { get; init; }
 
@@ -553,7 +502,7 @@ public sealed record QueryActivitiesResponse : CursorPage<ReportActivityView>
 /// <summary>Response from tools.ozone.report.queryReports.</summary>
 public sealed record QueryReportsResponse : CursorPage<ReportView>
 {
-    /// <summary>The reports.</summary>
+    /// <summary>This page's reports.</summary>
     [JsonPropertyName("reports")]
     public required IReadOnlyList<ReportView> Reports { get; init; }
 
@@ -562,7 +511,6 @@ public sealed record QueryReportsResponse : CursorPage<ReportView>
     public override IReadOnlyList<ReportView> Items => Reports;
 }
 
-/// <summary>Request body for tools.ozone.report.reassignQueue.</summary>
 internal sealed record ReassignQueueRequest(
     [property: JsonPropertyName("reportId")] long ReportId,
     [property: JsonPropertyName("queueId")] long QueueId,
@@ -576,7 +524,6 @@ public sealed class ReassignQueueResponse
     public required ReportView Report { get; init; }
 }
 
-/// <summary>Request body for tools.ozone.report.refreshStats.</summary>
 internal sealed record RefreshStatsRequest(
     [property: JsonPropertyName("startDate")] DateOnly StartDate,
     [property: JsonPropertyName("endDate")] DateOnly EndDate,

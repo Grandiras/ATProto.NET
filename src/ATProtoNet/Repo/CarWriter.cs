@@ -102,7 +102,7 @@ public static class CarWriter
         }
     }
 
-    /// <summary>Encodes the DAG-CBOR CAR v1 header: <c>{"roots": [&lt;tag 42 CID&gt;, …], "version": 1}</c>.</summary>
+    // Encodes the DAG-CBOR CAR v1 header: {"roots": [<tag 42 CID>, …], "version": 1}.
     internal static byte[] EncodeHeader(IReadOnlyList<byte[]> roots)
     {
         var writer = new CborWriter(CborConformanceMode.Canonical);
@@ -137,7 +137,7 @@ public static class CarWriter
         return destination.WriteAsync(buffer.AsMemory(0, length), cancellationToken);
     }
 
-    /// <summary>Encodes an unsigned LEB128 varint into <paramref name="destination"/>, returning the byte count.</summary>
+    // Encodes an unsigned LEB128 varint into destination, returning the byte count.
     internal static int EncodeUvarint(ulong value, Span<byte> destination)
     {
         var index = 0;

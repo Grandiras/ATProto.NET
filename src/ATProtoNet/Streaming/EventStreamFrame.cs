@@ -6,26 +6,29 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Streaming;
 
-/// <summary>
-/// The framing every AT Protocol event stream shares (firehose, labels, chat moderation): a
-/// DAG-CBOR header <c>{op, t}</c> followed by a DAG-CBOR body. <c>op = 1</c> is a message whose
-/// type <c>t</c> names a variant of the subscription's union (<c>#commit</c>); <c>op = -1</c> is
-/// an error, whose body is <c>{error, message}</c>, after which the server closes the stream.
-/// </summary>
+// The framing every AT Protocol event stream shares (firehose, labels, chat moderation): a DAG-CBOR
+// header {op, t} followed by a DAG-CBOR body. op = 1 is a message whose type t names a variant of the
+// subscription's union (#commit); op = -1 is an error, whose body is {error, message}, after which the
+// server closes the stream.
 internal static class EventStreamFrame
 {
-    /// <summary>A regular message.</summary>
+    // A regular message.
     public const int MessageOp = 1;
 
-    /// <summary>An error; the server closes the stream after it.</summary>
+    // An error; the server closes the stream after it.
     public const int ErrorOp = -1;
 
-    /// <summary>Reads a frame's header.</summary>
-    /// <param name="frame">The whole frame.</param>
-    /// <param name="op">The header's <c>op</c>.</param>
-    /// <param name="type">The header's <c>t</c>, when present.</param>
-    /// <param name="bodyOffset">Where the body starts.</param>
-    /// <returns>Whether the header could be read.</returns>
+    // Reads a frame's header.
+    //
+    // frame: The whole frame.
+    //
+    // op: The header's op.
+    //
+    // type: The header's t, when present.
+    //
+    // bodyOffset: Where the body starts.
+    //
+    // Returns: Whether the header could be read.
     public static bool TryReadHeader(ReadOnlyMemory<byte> frame, out int op, out string? type, out int bodyOffset)
     {
         op = 0;
@@ -62,7 +65,7 @@ internal static class EventStreamFrame
         }
     }
 
-    /// <summary>Reads the body of an <c>op = -1</c> frame, or null when it names no error.</summary>
+    // Reads the body of an op = -1 frame, or null when it names no error.
     public static EventStreamError? ReadError(ReadOnlyMemory<byte> body)
     {
         try
@@ -95,10 +98,8 @@ internal static class EventStreamFrame
         }
     }
 
-    /// <summary>
-    /// Reads only the body's top-level <c>seq</c>, skipping everything else: the cheap way to keep
-    /// the cursor moving past a frame that is not parsed in full.
-    /// </summary>
+    // Reads only the body's top-level seq, skipping everything else: the cheap way to keep the cursor
+    // moving past a frame that is not parsed in full.
     public static long? ReadSeq(ReadOnlyMemory<byte> body)
     {
         try
@@ -123,12 +124,12 @@ internal static class EventStreamFrame
         return null;
     }
 
-    /// <summary>
-    /// Transcodes a body to JSON and deserializes it as <typeparamref name="T"/>, or returns null
-    /// when it does not bind: a missing required field, or an identifier that does not parse.
-    /// </summary>
-    /// <param name="body">The frame body.</param>
-    /// <param name="discriminator">A <c>$type</c> to write ahead of the body, for a union base.</param>
+    // Transcodes a body to JSON and deserializes it as T, or returns null when it does not bind: a missing
+    // required field, or an identifier that does not parse.
+    //
+    // body: The frame body.
+    //
+    // discriminator: A $type to write ahead of the body, for a union base.
     public static T? Deserialize<T>(ReadOnlyMemory<byte> body, string? discriminator = null) where T : class
     {
         try
@@ -162,10 +163,8 @@ internal static class EventStreamFrame
     }
 }
 
-/// <summary>
-/// A handler of the AT Protocol event streams (firehose, labels, chat moderation), whose frames
-/// are an <see cref="EventStreamFrame"/> header and body.
-/// </summary>
+// A handler of the AT Protocol event streams (firehose, labels, chat moderation), whose frames are an
+// EventStreamFrame header and body.
 internal abstract class CborEventStreamHandler<T>(StreamConsumerOptions options) : EventStreamHandler<T>(options)
     where T : class
 {
@@ -192,19 +191,18 @@ internal abstract class CborEventStreamHandler<T>(StreamConsumerOptions options)
         return (await HandleAsync(type, body, cancellationToken).ConfigureAwait(false), null);
     }
 
-    /// <summary>
-    /// Turns an <c>op = 1</c> frame into a message to deliver, or returns null to skip it, having
-    /// recorded any position the frame carried.
-    /// </summary>
-    /// <param name="type">The header's <c>t</c>.</param>
-    /// <param name="body">The frame body; valid only until this call returns.</param>
+    // Turns an op = 1 frame into a message to deliver, or returns null to skip it, having recorded any
+    // position the frame carried.
+    //
+    // type: The header's t.
+    //
+    // body: The frame body; valid only until this call returns.
     protected abstract ValueTask<T?> HandleAsync(string type, ReadOnlyMemory<byte> body, CancellationToken cancellationToken);
 
-    /// <summary>The endpoint of the XRPC subscription <paramref name="nsid"/>, resuming after <paramref name="cursor"/>.</summary>
+    // The endpoint of the XRPC subscription nsid, resuming after cursor.
     protected static Uri Endpoint(string serviceUrl, string nsid, string? cursor) =>
         new($"{serviceUrl.TrimEnd('/')}/xrpc/{nsid}" + (cursor is null ? string.Empty : $"?cursor={Uri.EscapeDataString(cursor)}"));
 
-    /// <inheritdoc cref="Endpoint(string, string, string?)"/>
     protected static Uri Endpoint(string serviceUrl, string nsid, long? cursor) =>
         Endpoint(serviceUrl, nsid, cursor?.ToString(System.Globalization.CultureInfo.InvariantCulture));
 }

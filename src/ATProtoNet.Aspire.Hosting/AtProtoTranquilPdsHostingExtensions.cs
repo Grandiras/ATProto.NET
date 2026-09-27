@@ -153,15 +153,12 @@ public static class AtProtoTranquilPdsHostingExtensions
         return pds;
     }
 
-    /// <summary>
-    /// Applies the settings a local Tranquil instance needs in order to be usable
-    /// without any of the infrastructure a real deployment has.
-    /// </summary>
-    /// <remarks>
-    /// These are set as defaults rather than fixed values: every one of them can be
-    /// overridden by a later <c>With*</c> call, because environment callbacks run in the
-    /// order they were added and the last write to a key wins.
-    /// </remarks>
+    // Applies the settings a local Tranquil instance needs in order to be usable without any of the
+    // infrastructure a real deployment has.
+    //
+    // These are set as defaults rather than fixed values: every one of them can be overridden by a later
+    // With* call, because environment callbacks run in the order they were added and the last write to a
+    // key wins.
     private static void ApplyDevelopmentDefaults(IDictionary<string, object> environment)
     {
         // Tranquil generates a bootstrap invite code on an empty instance and only
@@ -184,13 +181,11 @@ public static class AtProtoTranquilPdsHostingExtensions
         environment["DISABLE_RATE_LIMITING"] = "true";
     }
 
-    /// <summary>Creates the parameter backing one of Tranquil's secrets.</summary>
-    /// <remarks>
-    /// 48 characters, comfortably over the 32 Tranquil requires in production. Persisted
-    /// to the AppHost's user secrets when running locally so the value stays stable
-    /// across runs alongside the data volume; in publish mode the manifest carries a
-    /// <c>generate</c> block the deployment satisfies instead.
-    /// </remarks>
+    // Creates the parameter backing one of Tranquil's secrets.
+    //
+    // 48 characters, comfortably over the 32 Tranquil requires in production. Persisted to the AppHost's
+    // user secrets when running locally so the value stays stable across runs alongside the data volume;
+    // in publish mode the manifest carries a generate block the deployment satisfies instead.
     private static IResourceBuilder<ParameterResource> CreateSecretParameter(
         IDistributedApplicationBuilder builder,
         string name)
@@ -379,10 +374,8 @@ public static class AtProtoTranquilPdsHostingExtensions
         return builder;
     }
 
-    /// <summary>
-    /// Drops the PostgreSQL resources <see cref="AddAtProtoTranquilPds"/> created, along
-    /// with the wait on them, once the PDS has been pointed somewhere else.
-    /// </summary>
+    // Drops the PostgreSQL resources AddAtProtoTranquilPds created, along with the wait on them, once the
+    // PDS has been pointed somewhere else.
     private static void RemoveGeneratedDatabase(
         IResourceBuilder<AtProtoTranquilPdsContainerResource> builder)
     {

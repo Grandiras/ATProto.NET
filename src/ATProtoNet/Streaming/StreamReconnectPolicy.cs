@@ -27,7 +27,7 @@ public sealed record StreamReconnectPolicy
     /// </summary>
     public int? MaxAttempts { get; init; } = 10;
 
-    /// <summary>The delay before attempt <paramref name="attempt"/> (1-based), with up to 10 % jitter.</summary>
+    // The delay before attempt attempt (1-based), with up to 10 % jitter.
     internal TimeSpan DelayFor(int attempt)
     {
         var max = MaxDelay < InitialDelay ? InitialDelay : MaxDelay;
@@ -49,22 +49,18 @@ public sealed record StreamReconnectPolicy
     }
 }
 
-/// <summary>
-/// The reconnect state of one <c>ConsumeAsync</c> call: counts consecutive failed attempts and
-/// waits out the policy's delay between them.
-/// </summary>
+// The reconnect state of one ConsumeAsync call: counts consecutive failed attempts and waits out the
+// policy's delay between them.
 internal sealed class ReconnectBackoff(StreamReconnectPolicy policy, ILogger logger, string stream)
 {
     private int _attempts;
 
-    /// <summary>The connection delivered a frame: the next drop starts counting from zero.</summary>
+    // The connection delivered a frame: the next drop starts counting from zero.
     public void Reset() => _attempts = 0;
 
-    /// <summary>
-    /// Waits before the next attempt. Returns <see langword="false"/> when
-    /// <paramref name="cancellationToken"/> is cancelled.
-    /// </summary>
-    /// <exception cref="EventStreamException">Every attempt the policy allows has failed.</exception>
+    // Waits before the next attempt. Returns false when cancellationToken is cancelled.
+    //
+    // Throws EventStreamException: Every attempt the policy allows has failed.
     public async ValueTask<bool> WaitAsync(Exception? lastFailure, CancellationToken cancellationToken)
     {
         _attempts++;

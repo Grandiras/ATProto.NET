@@ -6,19 +6,16 @@ using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Server;
 
-/// <summary>
-/// Says once, at startup, which stores are still the in-process defaults a registration fell back
-/// to. Each is right for a single instance and silently wrong for two or across a restart, and
-/// nothing else would say so. A store the application registered itself, the in-memory one
-/// included, is a choice and is not warned about.
-/// </summary>
-/// <remarks>
-/// It reads the registrations rather than resolving the stores: a store may be scoped, and
-/// resolving one the application never uses has costs of its own.
-/// </remarks>
+// Says once, at startup, which stores are still the in-process defaults a registration fell back to.
+// Each is right for a single instance and silently wrong for two or across a restart, and nothing else
+// would say so. A store the application registered itself, the in-memory one included, is a choice and
+// is not warned about.
+//
+// It reads the registrations rather than resolving the stores: a store may be scoped, and resolving
+// one the application never uses has costs of its own.
 internal sealed class InMemoryDefaultsWarning(InMemoryFallbacks fallbacks, ILogger<InMemoryDefaultsWarning> logger) : IHostedService
 {
-    /// <summary>Registers <typeparamref name="TDefault"/> as the fallback for <typeparamref name="TService"/>, and the warning.</summary>
+    // Registers TDefault as the fallback for TService, and the warning.
     public static void TryAdd<TService, TDefault>(IServiceCollection services)
         where TService : class
         where TDefault : class, TService
@@ -68,15 +65,13 @@ internal sealed class InMemoryDefaultsWarning(InMemoryFallbacks fallbacks, ILogg
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }
 
-/// <summary>The fallback registrations made, and the collection they were made in.</summary>
+// The fallback registrations made, and the collection they were made in.
 internal sealed class InMemoryFallbacks(IServiceCollection services)
 {
     public List<ServiceDescriptor> Descriptors { get; } = [];
 
-    /// <summary>
-    /// Whether the fallback for <typeparamref name="T"/> is the registration the container
-    /// resolves: the last one for the type, as nothing registered later replaced it.
-    /// </summary>
+    // Whether the fallback for T is the registration the container resolves: the last one for the type, as
+    // nothing registered later replaced it.
     public bool IsInEffect<T>() =>
         services.LastOrDefault(d => d.ServiceType == typeof(T) && !d.IsKeyedService) is { } last &&
         Descriptors.Contains(last);

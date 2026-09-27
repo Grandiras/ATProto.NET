@@ -25,10 +25,7 @@ public sealed class ChatNotificationPreferences : LexObject
     public required ChatPreference ChatRequest { get; init; }
 }
 
-/// <summary>
-/// Which chat notifications to get, and whether to push them
-/// (<c>chat.bsky.notification.defs#chatPreference</c>).
-/// </summary>
+/// <summary>Which chat notifications to get, and whether to push them (<c>chat.bsky.notification.defs#chatPreference</c>).</summary>
 public sealed class ChatPreference : LexObject
 {
     /// <summary>Whose messages to notify about (see <see cref="ChatPreferenceInclude"/>).</summary>
@@ -40,23 +37,21 @@ public sealed class ChatPreference : LexObject
     public required bool Push { get; init; }
 }
 
-/// <summary>Request body for chat.bsky.notification.putPreferences.</summary>
 internal sealed record PutPreferencesRequest(
     [property: JsonPropertyName("chat")] ChatPreference? Chat = null,
     [property: JsonPropertyName("chatRequest")] ChatPreference? ChatRequest = null);
 
-/// <summary>The output of chat.bsky.notification.getPreferences, which the client unwraps.</summary>
+// The output of chat.bsky.notification.getPreferences, which the client unwraps.
 internal sealed class GetPreferencesResponse
 {
-    /// <summary>The preferences.</summary>
     [JsonPropertyName("preferences")]
     public required ChatNotificationPreferences Preferences { get; init; }
 }
 
-/// <summary>The output of chat.bsky.notification.putPreferences, which the client unwraps.</summary>
+// The output of chat.bsky.notification.putPreferences, which the client unwraps.
 internal sealed class PutPreferencesResponse
 {
-    /// <summary>The preferences after the change.</summary>
+    // The preferences after the change.
     [JsonPropertyName("preferences")]
     public required ChatNotificationPreferences Preferences { get; init; }
 }

@@ -6,7 +6,6 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Repo;
 
-/// <summary>Request body for com.atproto.repo.createRecord.</summary>
 internal sealed record CreateRecordRequest(
     [property: JsonPropertyName("repo")] [property: JsonPropertyOrder(0)] AtIdentifier Repo,
     [property: JsonPropertyName("collection")] [property: JsonPropertyOrder(1)] Nsid Collection,
@@ -15,53 +14,45 @@ internal sealed record CreateRecordRequest(
     [property: JsonPropertyName("validate")] [property: JsonPropertyOrder(3)] bool? Validate = null,
     [property: JsonPropertyName("swapCommit")] [property: JsonPropertyOrder(5)] Cid? SwapCommit = null);
 
-/// <summary>
-/// Response from com.atproto.repo.createRecord, and from com.atproto.repo.putRecord, whose output
-/// is the same shape. The client methods return it as a <see cref="RecordRef"/>.
-/// </summary>
+// Response from com.atproto.repo.createRecord, and from com.atproto.repo.putRecord, whose output is
+// the same shape. The client methods return it as a RecordRef.
 internal sealed class RecordWriteResponse
 {
-    /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
+    // The AT-URI of the record (at://did/collection/rkey).
     [JsonPropertyName("uri")]
     public required AtUri Uri { get; init; }
 
-    /// <summary>The CID (content identifier) of the record version.</summary>
+    // The CID (content identifier) of the record version.
     [JsonPropertyName("cid")]
     public required Cid Cid { get; init; }
 
-    /// <summary>The commit the write was applied in.</summary>
+    // The commit the write was applied in.
     [JsonPropertyName("commit")]
     public CommitMeta? Commit { get; init; }
 
-    /// <summary>
-    /// Whether the server validated the record against a known Lexicon (<c>valid</c> or
-    /// <c>unknown</c>).
-    /// </summary>
+    // Whether the server validated the record against a known Lexicon (valid or unknown).
     [JsonPropertyName("validationStatus")]
     public string? ValidationStatus { get; init; }
 }
 
-/// <summary>
-/// Response from com.atproto.repo.getRecord, with the value deserialized straight into
-/// <typeparamref name="T"/>; also one record of a typed com.atproto.repo.listRecords page. The
-/// client methods return it as a <see cref="RecordView{T}"/>.
-/// </summary>
+// Response from com.atproto.repo.getRecord, with the value deserialized straight into T; also one
+// record of a typed com.atproto.repo.listRecords page. The client methods return it as a
+// RecordView{T}.
 internal sealed class GetRecordResponse<T>
 {
-    /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
+    // The AT-URI of the record (at://did/collection/rkey).
     [JsonPropertyName("uri")]
     public required AtUri Uri { get; init; }
 
-    /// <summary>The CID (content identifier) of the record version.</summary>
+    // The CID (content identifier) of the record version.
     [JsonPropertyName("cid")]
     public Cid? Cid { get; init; }
 
-    /// <summary>The deserialised record value.</summary>
+    // The deserialised record value.
     [JsonPropertyName("value")]
     public T Value { get; init; } = default!;
 }
 
-/// <summary>Request body for com.atproto.repo.putRecord.</summary>
 internal sealed record PutRecordRequest(
     [property: JsonPropertyName("repo")] [property: JsonPropertyOrder(0)] AtIdentifier Repo,
     [property: JsonPropertyName("collection")] [property: JsonPropertyOrder(1)] Nsid Collection,
@@ -71,7 +62,6 @@ internal sealed record PutRecordRequest(
     [property: JsonPropertyName("swapRecord")] [property: JsonPropertyOrder(5)] Cid? SwapRecord = null,
     [property: JsonPropertyName("swapCommit")] [property: JsonPropertyOrder(6)] Cid? SwapCommit = null);
 
-/// <summary>Request body for com.atproto.repo.deleteRecord.</summary>
 internal sealed record DeleteRecordRequest(
     [property: JsonPropertyName("repo")] AtIdentifier Repo,
     [property: JsonPropertyName("collection")] Nsid Collection,
@@ -99,21 +89,16 @@ public sealed record ListRecordsResponse : CursorPage<RecordEntry>
     public override IReadOnlyList<RecordEntry> Items => Records;
 }
 
-/// <summary>
-/// Response from com.atproto.repo.listRecords, with each value deserialized straight into
-/// <typeparamref name="T"/>. <see cref="RecordCollection{T}"/> returns it as a
-/// <see cref="RecordPage{T}"/>.
-/// </summary>
+// Response from com.atproto.repo.listRecords, with each value deserialized straight into T.
+// RecordCollection{T} returns it as a RecordPage{T}.
 internal sealed class ListRecordsResponse<T>
 {
-    /// <summary>
-    /// Pagination cursor; pass this back on the next request to continue where this page ended.
-    /// <see langword="null"/> when there are no further results.
-    /// </summary>
+    // Pagination cursor; pass this back on the next request to continue where this page ended. null when
+    // there are no further results.
     [JsonPropertyName("cursor")]
     public string? Cursor { get; init; }
 
-    /// <summary>The records in this page of results.</summary>
+    // The records in this page of results.
     [JsonPropertyName("records")]
     public IReadOnlyList<GetRecordResponse<T>> Records { get; init; } = [];
 }
@@ -166,7 +151,6 @@ public sealed class UploadBlobResponse
     public BlobRef Blob { get; init; } = new();
 }
 
-/// <summary>Request body for com.atproto.repo.applyWrites.</summary>
 internal sealed record ApplyWritesRequest(
     [property: JsonPropertyName("repo")] [property: JsonPropertyOrder(0)] AtIdentifier Repo,
     [property: JsonPropertyName("writes")] [property: JsonPropertyOrder(2)] IReadOnlyList<ApplyWriteOperation> Writes,
@@ -248,10 +232,7 @@ public sealed class ApplyWriteResult : LexObject
     [JsonPropertyName("cid")]
     public Cid? Cid { get; init; }
 
-    /// <summary>
-    /// Whether the server validated the record against a known Lexicon (<c>valid</c> or
-    /// <c>unknown</c>).
-    /// </summary>
+    /// <summary>Whether the server validated the record against a known Lexicon (<c>valid</c> or <c>unknown</c>).</summary>
     [JsonPropertyName("validationStatus")]
     public string? ValidationStatus { get; init; }
 }

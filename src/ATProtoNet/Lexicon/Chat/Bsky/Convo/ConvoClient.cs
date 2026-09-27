@@ -56,10 +56,7 @@ public sealed class ConvoClient
             "chat.bsky.convo.listConvos", parameters, options: ChatProxy, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Lists one page of the viewer's requests: incoming conversation requests, and the group join
-    /// requests the viewer made.
-    /// </summary>
+    /// <summary>Lists one page of the viewer's requests: incoming conversation requests, and the group join requests the viewer made.</summary>
     /// <param name="limit">Maximum number of requests (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
     public Task<ListConvoRequestsResponse> ListConvoRequestsAsync(
@@ -129,10 +126,7 @@ public sealed class ConvoClient
             "chat.bsky.convo.getConvoAvailability", parameters, options: ChatProxy, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Gets one page of a conversation's members. <see cref="ConvoView.Members"/> lists only some
-    /// of a group's members.
-    /// </summary>
+    /// <summary>Gets one page of a conversation's members. <see cref="ConvoView.Members"/> lists only some of a group's members.</summary>
     /// <param name="convoId">The conversation's identifier.</param>
     /// <param name="limit">Maximum number of members (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
@@ -334,10 +328,7 @@ public sealed class ConvoClient
         return output.Convo;
     }
 
-    /// <summary>
-    /// Unlocks a group. Owner only; fails with <c>ConvoLockedByModeration</c> while moderation
-    /// holds the lock.
-    /// </summary>
+    /// <summary>Unlocks a group. Owner only; fails with <c>ConvoLockedByModeration</c> while moderation holds the lock.</summary>
     /// <param name="convoId">The group's conversation identifier.</param>
     /// <returns>The conversation after the change.</returns>
     public async Task<ConvoView> UnlockConvoAsync(

@@ -18,10 +18,7 @@ public sealed class DocumentRecord : LexObject, IAtProtoRecord
     [JsonPropertyName("$type")]
     public string Type => Collection;
 
-    /// <summary>
-    /// Points to a publication record (at://) or a publication URL (https://) for loose documents.
-    /// Avoid trailing slashes.
-    /// </summary>
+    /// <summary>Points to a publication record (at://) or a publication URL (https://) for loose documents. Avoid trailing slashes.</summary>
     [JsonPropertyName("site")]
     public required string Site { get; init; }
 
@@ -33,10 +30,7 @@ public sealed class DocumentRecord : LexObject, IAtProtoRecord
     [JsonPropertyName("publishedAt")]
     public required AtDatetime PublishedAt { get; init; }
 
-    /// <summary>
-    /// Combine with site or publication URL to construct a canonical URL.
-    /// Should include a leading slash.
-    /// </summary>
+    /// <summary>Combine with site or publication URL to construct a canonical URL. Should include a leading slash.</summary>
     [JsonPropertyName("path")]
     public string? Path { get; init; }
 
@@ -52,10 +46,7 @@ public sealed class DocumentRecord : LexObject, IAtProtoRecord
     [JsonPropertyName("content")]
     public JsonElement? Content { get; init; }
 
-    /// <summary>
-    /// Plaintext representation of the document's contents.
-    /// Should not contain markdown or other formatting.
-    /// </summary>
+    /// <summary>Plaintext representation of the document's contents. Should not contain markdown or other formatting.</summary>
     [JsonPropertyName("textContent")]
     public string? TextContent { get; init; }
 
@@ -75,10 +66,7 @@ public sealed class DocumentRecord : LexObject, IAtProtoRecord
     [JsonPropertyName("contributors")]
     public IReadOnlyList<DocumentContributor>? Contributors { get; init; }
 
-    /// <summary>
-    /// Open union describing how the document relates to external resources. Each entry must
-    /// specify a <c>$type</c>.
-    /// </summary>
+    /// <summary>Open union describing how the document relates to external resources. Each entry must specify a <c>$type</c>.</summary>
     [JsonPropertyName("links")]
     public JsonElement? Links { get; init; }
 

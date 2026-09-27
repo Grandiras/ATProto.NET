@@ -32,9 +32,9 @@ public sealed class AtProtoOAuthCallbackResult
     /// </summary>
     public bool IsRelay { get; }
 
-    /// <summary>A login completed on this origin, returning to <paramref name="returnUrl"/>.</summary>
+    // A login completed on this origin, returning to returnUrl.
     internal static AtProtoOAuthCallbackResult SignedIn(Did did, string returnUrl) => new(did, returnUrl, isRelay: false);
 
-    /// <summary>A login to finish on its own loopback origin, through <paramref name="relayUrl"/>.</summary>
+    // A login to finish on its own loopback origin, through relayUrl.
     internal static AtProtoOAuthCallbackResult Relayed(Did did, string relayUrl) => new(did, relayUrl, isRelay: true);
 }

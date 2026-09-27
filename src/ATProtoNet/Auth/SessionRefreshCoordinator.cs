@@ -46,7 +46,7 @@ public sealed class InProcessSessionRefreshCoordinator : ISessionRefreshCoordina
 {
     private readonly KeyedLock<Did> _locks = new();
 
-    /// <summary>How many accounts' locks are held or waited for.</summary>
+    // How many accounts' locks are held or waited for.
     internal int ActiveCount => _locks.Count;
 
     /// <inheritdoc/>
@@ -57,7 +57,7 @@ public sealed class InProcessSessionRefreshCoordinator : ISessionRefreshCoordina
     }
 }
 
-/// <summary>The lease when there is no coordinator: nothing to release.</summary>
+// The lease when there is no coordinator: nothing to release.
 internal sealed class NoLease : IAsyncDisposable
 {
     public static readonly NoLease Instance = new();

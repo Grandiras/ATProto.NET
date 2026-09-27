@@ -30,20 +30,14 @@ public sealed class FacetIndex : LexObject
     public int ByteEnd { get; init; }
 }
 
-/// <summary>
-/// Base type for facet features (the open <c>app.bsky.richtext.facet#main.features</c> union). A
-/// feature this SDK does not model reads as <see cref="UnknownFacetFeature"/>.
-/// </summary>
+/// <summary>Base type for facet features (the open <c>app.bsky.richtext.facet#main.features</c> union). A feature this SDK does not model reads as <see cref="UnknownFacetFeature"/>.</summary>
 [AtProtoUnion(typeof(UnknownFacetFeature))]
 [JsonDerivedType(typeof(MentionFeature), "app.bsky.richtext.facet#mention")]
 [JsonDerivedType(typeof(LinkFeature), "app.bsky.richtext.facet#link")]
 [JsonDerivedType(typeof(TagFeature), "app.bsky.richtext.facet#tag")]
 public abstract class FacetFeature : LexObject;
 
-/// <summary>
-/// A facet feature whose <c>$type</c> this SDK version does not model. It keeps the raw object and
-/// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A facet feature whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownFacetFeature(string type, JsonElement raw) : FacetFeature, IUnknownUnionVariant

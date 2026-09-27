@@ -12,10 +12,7 @@ namespace ATProtoNet.Lexicon.App.Bsky.Actor;
 
 // ── Profile types ────────────────────────────────────────────
 
-/// <summary>
-/// Minimal profile view (used inline in posts, etc.). The base of <see cref="ProfileView"/> and
-/// <see cref="ProfileViewDetailed"/>, which add fields rather than repeat these.
-/// </summary>
+/// <summary>Minimal profile view (used inline in posts, etc.). The base of <see cref="ProfileView"/> and <see cref="ProfileViewDetailed"/>, which add fields rather than repeat these.</summary>
 /// <remarks>
 /// Because they share this base, <c>actor is ProfileViewBasic</c> also matches a
 /// <see cref="ProfileView"/> or <see cref="ProfileViewDetailed"/>; match on the most specific type
@@ -43,10 +40,7 @@ public class ProfileViewBasic : LexObject
     [JsonPropertyName("avatar")]
     public string? Avatar { get; init; }
 
-    /// <summary>
-    /// Counts and settings for what the account has published or allows: lists, feed generators,
-    /// starter packs, a labeler, chat and activity subscriptions.
-    /// </summary>
+    /// <summary>Counts and settings for what the account has published or allows: lists, feed generators, starter packs, a labeler, chat and activity subscriptions.</summary>
     [JsonPropertyName("associated")]
     public ProfileAssociated? Associated { get; init; }
 
@@ -75,11 +69,7 @@ public class ProfileViewBasic : LexObject
     public JsonElement? Debug { get; init; }
 }
 
-/// <summary>
-/// Profile view (used in actor lists, follows, etc.), adding a description and index time over
-/// <see cref="ProfileViewBasic"/>. The base of <see cref="ProfileViewDetailed"/>; see its remarks
-/// about matching on the most specific type.
-/// </summary>
+/// <summary>Profile view (used in actor lists, follows, etc.), adding a description and index time over <see cref="ProfileViewBasic"/>. The base of <see cref="ProfileViewDetailed"/>; see its remarks about matching on the most specific type.</summary>
 public class ProfileView : ProfileViewBasic
 {
     /// <summary>A free-text description.</summary>
@@ -91,10 +81,7 @@ public class ProfileView : ProfileViewBasic
     public AtDatetime? IndexedAt { get; init; }
 }
 
-/// <summary>
-/// Detailed profile view (returned by getProfile), adding counts, the website, banner, pinned
-/// post and starter pack over <see cref="ProfileView"/>.
-/// </summary>
+/// <summary>Detailed profile view (returned by getProfile), adding counts, the website, banner, pinned post and starter pack over <see cref="ProfileView"/>.</summary>
 public sealed class ProfileViewDetailed : ProfileView
 {
     /// <summary>A website URI shown on the profile.</summary>
@@ -129,24 +116,15 @@ public sealed class ProfileViewDetailed : ProfileView
 /// <summary>Viewer relationship state between the authenticated user and a viewed actor.</summary>
 public sealed class ViewerState : LexObject
 {
-    /// <summary>
-    /// Whether the viewer has fully muted this account, directly or through a mute list. It is
-    /// <see langword="false"/> when the mute covers only reposts or quote posts.
-    /// </summary>
+    /// <summary>Whether the viewer has fully muted this account, directly or through a mute list. It is <see langword="false"/> when the mute covers only reposts or quote posts.</summary>
     [JsonPropertyName("muted")]
     public bool? Muted { get; init; }
 
-    /// <summary>
-    /// Whether the viewer has muted only this account's reposts. Exclusive with
-    /// <see cref="Muted"/>.
-    /// </summary>
+    /// <summary>Whether the viewer has muted only this account's reposts. Exclusive with <see cref="Muted"/>.</summary>
     [JsonPropertyName("mutedOnlyReposts")]
     public bool? MutedOnlyReposts { get; init; }
 
-    /// <summary>
-    /// Whether the viewer has muted only this account's quote posts. Exclusive with
-    /// <see cref="Muted"/>.
-    /// </summary>
+    /// <summary>Whether the viewer has muted only this account's quote posts. Exclusive with <see cref="Muted"/>.</summary>
     [JsonPropertyName("mutedOnlyQuoteposts")]
     public bool? MutedOnlyQuoteposts { get; init; }
 
@@ -178,10 +156,7 @@ public sealed class ViewerState : LexObject
     [JsonPropertyName("knownFollowers")]
     public KnownFollowers? KnownFollowers { get; init; }
 
-    /// <summary>
-    /// Which of the account's activity the viewer is subscribed to. Present only in selected
-    /// cases.
-    /// </summary>
+    /// <summary>Which of the account's activity the viewer is subscribed to. Present only in selected cases.</summary>
     [JsonPropertyName("activitySubscription")]
     public ActivitySubscription? ActivitySubscription { get; init; }
 }
@@ -233,17 +208,11 @@ public sealed class ProfileAssociated : LexObject
 /// <summary>An account's chat settings (<c>app.bsky.actor.defs#profileAssociatedChat</c>).</summary>
 public sealed class ProfileAssociatedChat : LexObject
 {
-    /// <summary>
-    /// Who may start a conversation: <c>all</c>, <c>none</c> or <c>following</c> (see
-    /// <see cref="Chat.Bsky.Actor.ChatAllowIncoming"/>).
-    /// </summary>
+    /// <summary>Who may start a conversation: <c>all</c>, <c>none</c> or <c>following</c> (see <see cref="Chat.Bsky.Actor.ChatAllowIncoming"/>).</summary>
     [JsonPropertyName("allowIncoming")]
     public required string AllowIncoming { get; init; }
 
-    /// <summary>
-    /// Who may add the account to a group conversation: <c>all</c>, <c>none</c> or
-    /// <c>following</c> (see <see cref="Chat.Bsky.Actor.ChatAllowIncoming"/>).
-    /// </summary>
+    /// <summary>Who may add the account to a group conversation: <c>all</c>, <c>none</c> or <c>following</c> (see <see cref="Chat.Bsky.Actor.ChatAllowIncoming"/>).</summary>
     [JsonPropertyName("allowGroupInvites")]
     public string? AllowGroupInvites { get; init; }
 }
@@ -260,10 +229,7 @@ public sealed class ProfileAssociatedGerm : LexObject
     public required string ShowButtonTo { get; init; }
 }
 
-/// <summary>
-/// Who may subscribe to an account's activity
-/// (<c>app.bsky.actor.defs#profileAssociatedActivitySubscription</c>).
-/// </summary>
+/// <summary>Who may subscribe to an account's activity (<c>app.bsky.actor.defs#profileAssociatedActivitySubscription</c>).</summary>
 public sealed class ProfileAssociatedActivitySubscription : LexObject
 {
     /// <summary>Who may subscribe: <c>followers</c>, <c>mutuals</c> or <c>none</c>.</summary>
@@ -274,10 +240,7 @@ public sealed class ProfileAssociatedActivitySubscription : LexObject
 /// <summary>An account's verification information (<c>app.bsky.actor.defs#verificationState</c>).</summary>
 public sealed class VerificationState : LexObject
 {
-    /// <summary>
-    /// The verifications trusted verifiers issued for the account. Verifications by untrusted
-    /// verifiers are not included.
-    /// </summary>
+    /// <summary>The verifications trusted verifiers issued for the account. Verifications by untrusted verifiers are not included.</summary>
     [JsonPropertyName("verifications")]
     public required IReadOnlyList<VerificationView> Verifications { get; init; }
 
@@ -318,10 +281,7 @@ public sealed class VerificationView : LexObject
     public required AtDatetime CreatedAt { get; init; }
 }
 
-/// <summary>
-/// Known values of <see cref="VerificationState.VerifiedStatus"/> and
-/// <see cref="VerificationState.TrustedVerifierStatus"/>.
-/// </summary>
+/// <summary>Known values of <see cref="VerificationState.VerifiedStatus"/> and <see cref="VerificationState.TrustedVerifierStatus"/>.</summary>
 public static class VerificationStatus
 {
     /// <summary>The account holds a valid verification, or is a valid trusted verifier.</summary>
@@ -394,15 +354,10 @@ public sealed class GetPreferencesResponse
     public required IReadOnlyList<Preference> Preferences { get; init; }
 }
 
-/// <summary>Request for putPreferences.</summary>
 internal sealed record PutPreferencesRequest(
     [property: JsonPropertyName("preferences")] IReadOnlyList<Preference> Preferences);
 
-/// <summary>
-/// One of an account's preferences (the open <c>app.bsky.actor.defs#preferences</c> union). A
-/// preference this SDK does not model reads as <see cref="UnknownPreference"/>, which
-/// <see cref="ActorClient.PutPreferencesAsync"/> writes back unchanged.
-/// </summary>
+/// <summary>One of an account's preferences (the open <c>app.bsky.actor.defs#preferences</c> union). A preference this SDK does not model reads as <see cref="UnknownPreference"/>, which <see cref="ActorClient.PutPreferencesAsync"/> writes back unchanged.</summary>
 /// <remarks>
 /// <c>putPreferences</c> replaces the whole set, so read the preferences, change the ones you
 /// need and put the full list back. The properties of each preference are settable for that.
@@ -426,10 +381,7 @@ internal sealed record PutPreferencesRequest(
 [JsonDerivedType(typeof(LiveEventPreferences), "app.bsky.actor.defs#liveEventPreferences")]
 public abstract class Preference : LexObject;
 
-/// <summary>
-/// A preference whose <c>$type</c> this SDK version does not model. It keeps the raw object and
-/// writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A preference whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownPreference(string type, JsonElement raw) : Preference, IUnknownUnionVariant
@@ -517,10 +469,7 @@ public sealed class PersonalDetailsPreference : Preference
     public AtDatetime? BirthDate { get; set; }
 }
 
-/// <summary>
-/// The age thresholds the account owner's declared birth date passes (<c>#declaredAgePref</c>).
-/// Read-only; its absence means no declaration was made.
-/// </summary>
+/// <summary>The age thresholds the account owner's declared birth date passes (<c>#declaredAgePref</c>). Read-only; its absence means no declaration was made.</summary>
 public sealed class DeclaredAgePreference : Preference
 {
     /// <summary>Whether the account owner declared they are over 13.</summary>
@@ -567,10 +516,7 @@ public sealed class FeedViewPreference : Preference
 /// <summary>How threads are shown (<c>#threadViewPref</c>).</summary>
 public sealed class ThreadViewPreference : Preference
 {
-    /// <summary>
-    /// The reply order: <c>oldest</c>, <c>newest</c>, <c>most-likes</c>, <c>random</c> or
-    /// <c>hotness</c>.
-    /// </summary>
+    /// <summary>The reply order: <c>oldest</c>, <c>newest</c>, <c>most-likes</c>, <c>random</c> or <c>hotness</c>.</summary>
     [JsonPropertyName("sort")]
     public string? Sort { get; set; }
 }
@@ -691,10 +637,7 @@ public sealed class LabelerPreferenceItem : LexObject
     public required Did Did { get; set; }
 }
 
-/// <summary>
-/// The default interaction settings for new posts (<c>#postInteractionSettingsPref</c>). Apps
-/// apply them when creating a post; they mirror the threadgate and postgate records.
-/// </summary>
+/// <summary>The default interaction settings for new posts (<c>#postInteractionSettingsPref</c>). Apps apply them when creating a post; they mirror the threadgate and postgate records.</summary>
 public sealed class PostInteractionSettingsPreference : Preference
 {
     /// <summary>Who may reply. An empty list allows no one; <see langword="null"/> allows everyone.</summary>
@@ -731,7 +674,7 @@ public sealed class LiveEventPreferences : Preference
 /// <summary>Response from getSuggestions.</summary>
 public sealed record GetSuggestionsResponse : CursorPage<ProfileView>
 {
-    /// <summary>The actors.</summary>
+    /// <summary>This page's actors.</summary>
     [JsonPropertyName("actors")]
     public required IReadOnlyList<ProfileView> Actors { get; init; }
 
@@ -747,7 +690,7 @@ public sealed record GetSuggestionsResponse : CursorPage<ProfileView>
 /// <summary>Response from searchActors.</summary>
 public sealed record SearchActorsResponse : CursorPage<ProfileView>
 {
-    /// <summary>The actors.</summary>
+    /// <summary>This page's actors.</summary>
     [JsonPropertyName("actors")]
     public required IReadOnlyList<ProfileView> Actors { get; init; }
 
@@ -759,7 +702,7 @@ public sealed record SearchActorsResponse : CursorPage<ProfileView>
 /// <summary>Response from searchActorsTypeahead (autocomplete).</summary>
 public sealed class SearchActorsTypeaheadResponse
 {
-    /// <summary>The actors.</summary>
+    /// <summary>The matching actors.</summary>
     [JsonPropertyName("actors")]
     public required IReadOnlyList<ProfileViewBasic> Actors { get; init; }
 }
@@ -822,10 +765,7 @@ public sealed class ProfileRecord : LexObject, IAtProtoRecord
     public AtDatetime? CreatedAt { get; set; }
 }
 
-/// <summary>
-/// An account's status, such as being live. Collection: app.bsky.actor.status, record key
-/// <c>self</c>. Profile views show it as <see cref="StatusView"/>.
-/// </summary>
+/// <summary>An account's status, such as being live. Collection: app.bsky.actor.status, record key <c>self</c>. Profile views show it as <see cref="StatusView"/>.</summary>
 public sealed class StatusRecord : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>app.bsky.actor.status</c>).</summary>
@@ -859,10 +799,7 @@ public static class ActorStatus
     public const string Live = "app.bsky.actor.status#live";
 }
 
-/// <summary>
-/// An account's choice about appearing in content discovery. Collection:
-/// app.bsky.actor.contentVisibilityDeclaration, record key <c>self</c>.
-/// </summary>
+/// <summary>An account's choice about appearing in content discovery. Collection: app.bsky.actor.contentVisibilityDeclaration, record key <c>self</c>.</summary>
 public sealed class ContentVisibilityDeclarationRecord : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>app.bsky.actor.contentVisibilityDeclaration</c>).</summary>
@@ -872,10 +809,7 @@ public sealed class ContentVisibilityDeclarationRecord : LexObject, IAtProtoReco
     [JsonPropertyName("$type")]
     public string Type => Collection;
 
-    /// <summary>
-    /// Whether the account asks that its posts be left out of algorithmic recommendations. An
-    /// account without the record counts as <see langword="false"/>.
-    /// </summary>
+    /// <summary>Whether the account asks that its posts be left out of algorithmic recommendations. An account without the record counts as <see langword="false"/>.</summary>
     [JsonPropertyName("hideFromAlgorithmicRecommendations")]
     public required bool HideFromAlgorithmicRecommendations { get; init; }
 }

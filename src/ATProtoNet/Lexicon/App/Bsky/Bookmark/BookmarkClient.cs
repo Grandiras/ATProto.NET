@@ -3,10 +3,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Bookmark;
 
-/// <summary>
-/// Client for app.bsky.bookmark.* XRPC endpoints: the authenticated account's private
-/// bookmarks.
-/// </summary>
+/// <summary>Client for app.bsky.bookmark.* XRPC endpoints: the authenticated account's private bookmarks.</summary>
 /// <remarks>
 /// Bookmarks are not repository records: the appview keeps them in private storage, so they are
 /// visible only to their owner. Only posts can be bookmarked.

@@ -24,19 +24,13 @@ public sealed class CheckHandleAvailabilityResponse
     public bool IsAvailable => Result is HandleAvailable;
 }
 
-/// <summary>
-/// Whether a handle is available: <see cref="HandleAvailable"/> or <see cref="HandleUnavailable"/>.
-/// A result this SDK does not model reads as <see cref="UnknownHandleAvailabilityResult"/>.
-/// </summary>
+/// <summary>Whether a handle is available: <see cref="HandleAvailable"/> or <see cref="HandleUnavailable"/>. A result this SDK does not model reads as <see cref="UnknownHandleAvailabilityResult"/>.</summary>
 [AtProtoUnion(typeof(UnknownHandleAvailabilityResult))]
 [JsonDerivedType(typeof(HandleAvailable), "com.atproto.temp.checkHandleAvailability#resultAvailable")]
 [JsonDerivedType(typeof(HandleUnavailable), "com.atproto.temp.checkHandleAvailability#resultUnavailable")]
 public abstract class HandleAvailabilityResult : LexObject;
 
-/// <summary>
-/// A handle availability result whose <c>$type</c> this SDK version does not model. It keeps the
-/// raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A handle availability result whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownHandleAvailabilityResult(string type, JsonElement raw) : HandleAvailabilityResult, IUnknownUnionVariant
@@ -91,21 +85,18 @@ public sealed class CheckSignupQueueResponse
 
 // ── com.atproto.temp.dereferenceScope ────────────────────────
 
-/// <summary>Response from dereferenceScope.</summary>
 internal sealed class DereferenceScopeResponse
 {
-    /// <summary>The full OAuth permission scope.</summary>
+    // The full OAuth permission scope.
     [JsonPropertyName("scope")]
     public required string Scope { get; init; }
 }
 
 // ── com.atproto.temp.requestPhoneVerification ────────────────
 
-/// <summary>Request body for requestPhoneVerification.</summary>
 internal sealed record RequestPhoneVerificationRequest(
     [property: JsonPropertyName("phoneNumber")] string PhoneNumber);
 
 // ── com.atproto.temp.revokeAccountCredentials ────────────────
 
-/// <summary>Request body for revokeAccountCredentials.</summary>
 internal sealed record RevokeAccountCredentialsRequest([property: JsonPropertyName("account")] AtIdentifier Account);

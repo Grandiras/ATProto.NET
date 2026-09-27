@@ -68,7 +68,7 @@ public sealed class ListRecord : LexObject, IAtProtoRecord
     [JsonPropertyName("purpose")]
     public required string Purpose { get; init; }
 
-    /// <summary>The name.</summary>
+    /// <summary>The list's display name.</summary>
     [JsonPropertyName("name")]
     public required string Name { get; init; }
 
@@ -135,10 +135,7 @@ public sealed class ListBlockRecord : LexObject, IAtProtoRecord
     public required AtDatetime CreatedAt { get; init; }
 }
 
-/// <summary>
-/// A request by its author to be left out of the public presentation of a reference list.
-/// Collection: app.bsky.graph.referencelistoptout, record key a TID.
-/// </summary>
+/// <summary>A request by its author to be left out of the public presentation of a reference list. Collection: app.bsky.graph.referencelistoptout, record key a TID.</summary>
 /// <remarks>
 /// The appview honors it only while the list's purpose is <see cref="ListPurpose.ReferenceList"/>,
 /// and indexes at most one per author and list.
@@ -161,10 +158,7 @@ public sealed class ReferenceListOptOutRecord : LexObject, IAtProtoRecord
     public required AtDatetime CreatedAt { get; init; }
 }
 
-/// <summary>
-/// A verification of one account by another. Collection: app.bsky.graph.verification, record key
-/// a TID.
-/// </summary>
+/// <summary>A verification of one account by another. Collection: app.bsky.graph.verification, record key a TID.</summary>
 /// <remarks>
 /// An app counts a verification only when it trusts its issuer, and only while the subject's
 /// current handle and display name still match the ones recorded here.
@@ -227,7 +221,7 @@ public sealed class ListView : EmbeddedRecordView
     [JsonPropertyName("creator")]
     public required ProfileView Creator { get; init; }
 
-    /// <summary>The name.</summary>
+    /// <summary>The list's display name.</summary>
     [JsonPropertyName("name")]
     public required string Name { get; init; }
 
@@ -291,7 +285,7 @@ public sealed class ListViewBasic : LexObject
     [JsonPropertyName("cid")]
     public required Cid Cid { get; init; }
 
-    /// <summary>The name.</summary>
+    /// <summary>The list's display name.</summary>
     [JsonPropertyName("name")]
     public required string Name { get; init; }
 
@@ -331,10 +325,7 @@ public sealed class ListItemView : LexObject
     [JsonPropertyName("subject")]
     public required ProfileView Subject { get; init; }
 
-    /// <summary>
-    /// <see langword="true"/> when the listed account opted out of the reference list; absent
-    /// otherwise.
-    /// </summary>
+    /// <summary><see langword="true"/> when the listed account opted out of the reference list; absent otherwise.</summary>
     [JsonPropertyName("subjectOptedOut")]
     public bool? SubjectOptedOut { get; init; }
 }
@@ -388,7 +379,7 @@ public sealed record GetBlocksResponse : CursorPage<ProfileView>
 /// <summary>Response from getLists.</summary>
 public sealed record GetListsResponse : CursorPage<ListView>
 {
-    /// <summary>The lists.</summary>
+    /// <summary>This page's lists.</summary>
     [JsonPropertyName("lists")]
     public required IReadOnlyList<ListView> Lists { get; init; }
 
@@ -400,7 +391,7 @@ public sealed record GetListsResponse : CursorPage<ListView>
 /// <summary>Response from getList.</summary>
 public sealed record GetListResponse : CursorPage<ListItemView>
 {
-    /// <summary>The list.</summary>
+    /// <summary>The list the page's members belong to.</summary>
     [JsonPropertyName("list")]
     public required ListView List { get; init; }
 
@@ -428,7 +419,7 @@ public sealed record GetMutesResponse : CursorPage<ProfileView>
 /// <summary>Response from getListMutes.</summary>
 public sealed record GetListMutesResponse : CursorPage<ListView>
 {
-    /// <summary>The lists.</summary>
+    /// <summary>This page's lists.</summary>
     [JsonPropertyName("lists")]
     public required IReadOnlyList<ListView> Lists { get; init; }
 
@@ -440,7 +431,7 @@ public sealed record GetListMutesResponse : CursorPage<ListView>
 /// <summary>Response from getListBlocks.</summary>
 public sealed record GetListBlocksResponse : CursorPage<ListView>
 {
-    /// <summary>The lists.</summary>
+    /// <summary>This page's lists.</summary>
     [JsonPropertyName("lists")]
     public required IReadOnlyList<ListView> Lists { get; init; }
 
@@ -466,13 +457,11 @@ public sealed class GetSuggestedFollowsByActorResponse
     public bool? IsFallback { get; init; }
 }
 
-/// <summary>Request body for muteActor / unmuteActor.</summary>
 internal sealed record MuteActorRequest(
     [property: JsonPropertyName("actor")] AtIdentifier Actor,
     [property: JsonPropertyName("onlyReposts")] bool? OnlyReposts = null,
     [property: JsonPropertyName("onlyQuoteposts")] bool? OnlyQuoteposts = null);
 
-/// <summary>Request body for muteActorList / unmuteActorList.</summary>
 internal sealed record MuteActorListRequest([property: JsonPropertyName("list")] AtUri List);
 
 // ── Starter pack records & views ─────────────────────────────
@@ -487,7 +476,7 @@ public sealed class StarterPackRecord : LexObject, IAtProtoRecord
     [JsonPropertyName("$type")]
     public string Type => Collection;
 
-    /// <summary>The name.</summary>
+    /// <summary>The starter pack's display name.</summary>
     [JsonPropertyName("name")]
     public required string Name { get; init; }
 
@@ -520,10 +509,7 @@ public sealed class StarterPackFeedItem : LexObject
     public required AtUri Uri { get; init; }
 }
 
-/// <summary>
-/// Basic view of a starter pack. Also a variant of <see cref="EmbeddedRecordView"/>, for a starter
-/// pack embedded in a post.
-/// </summary>
+/// <summary>Basic view of a starter pack. Also a variant of <see cref="EmbeddedRecordView"/>, for a starter pack embedded in a post.</summary>
 public sealed class StarterPackViewBasic : EmbeddedRecordView
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
@@ -613,20 +599,13 @@ public sealed class StarterPackView : LexObject
 
 // ── Relationship types ───────────────────────────────────────
 
-/// <summary>
-/// One entry of a <c>getRelationships</c> response: a <see cref="Relationship"/>, or a
-/// <see cref="NotFoundActor"/> for an account that could not be found. An entry this SDK does not
-/// model reads as <see cref="UnknownRelationshipEntry"/>.
-/// </summary>
+/// <summary>One entry of a <c>getRelationships</c> response: a <see cref="Relationship"/>, or a <see cref="NotFoundActor"/> for an account that could not be found. An entry this SDK does not model reads as <see cref="UnknownRelationshipEntry"/>.</summary>
 [AtProtoUnion(typeof(UnknownRelationshipEntry))]
 [JsonDerivedType(typeof(Relationship), "app.bsky.graph.defs#relationship")]
 [JsonDerivedType(typeof(NotFoundActor), "app.bsky.graph.defs#notFoundActor")]
 public abstract class RelationshipEntry : LexObject;
 
-/// <summary>
-/// A relationship entry whose <c>$type</c> this SDK version does not model. It keeps the raw
-/// object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.
-/// </summary>
+/// <summary>A relationship entry whose <c>$type</c> this SDK version does not model. It keeps the raw object and writes it back unchanged; see <see cref="IUnknownUnionVariant"/>.</summary>
 /// <param name="type">The object's <c>$type</c>.</param>
 /// <param name="raw">The complete JSON object, including <c>$type</c>.</param>
 public sealed class UnknownRelationshipEntry(string type, JsonElement raw) : RelationshipEntry, IUnknownUnionVariant
@@ -661,17 +640,11 @@ public sealed class Relationship : RelationshipEntry
     [JsonPropertyName("blockedBy")]
     public AtUri? BlockedBy { get; init; }
 
-    /// <summary>
-    /// The AT-URI of the actor's list-block record, if the actor blocks the other account through
-    /// a block list.
-    /// </summary>
+    /// <summary>The AT-URI of the actor's list-block record, if the actor blocks the other account through a block list.</summary>
     [JsonPropertyName("blockingByList")]
     public AtUri? BlockingByList { get; init; }
 
-    /// <summary>
-    /// The AT-URI of the other account's list-block record, if it blocks the actor through a
-    /// block list.
-    /// </summary>
+    /// <summary>The AT-URI of the other account's list-block record, if it blocks the actor through a block list.</summary>
     [JsonPropertyName("blockedByList")]
     public AtUri? BlockedByList { get; init; }
 }
@@ -721,7 +694,7 @@ public sealed record GetKnownFollowersResponse : CursorPage<ProfileView>
 /// <summary>Response from getStarterPack.</summary>
 public sealed class GetStarterPackResponse
 {
-    /// <summary>The starter pack.</summary>
+    /// <summary>The requested starter pack.</summary>
     [JsonPropertyName("starterPack")]
     public required StarterPackView StarterPack { get; init; }
 }
@@ -729,7 +702,7 @@ public sealed class GetStarterPackResponse
 /// <summary>Response from getStarterPacks.</summary>
 public sealed class GetStarterPacksResponse
 {
-    /// <summary>The starter packs.</summary>
+    /// <summary>The requested starter packs.</summary>
     [JsonPropertyName("starterPacks")]
     public required IReadOnlyList<StarterPackViewBasic> StarterPacks { get; init; }
 }
@@ -737,7 +710,7 @@ public sealed class GetStarterPacksResponse
 /// <summary>Response from getActorStarterPacks.</summary>
 public sealed record GetActorStarterPacksResponse : CursorPage<StarterPackViewBasic>
 {
-    /// <summary>The starter packs.</summary>
+    /// <summary>This page's starter packs.</summary>
     [JsonPropertyName("starterPacks")]
     public required IReadOnlyList<StarterPackViewBasic> StarterPacks { get; init; }
 
@@ -749,7 +722,7 @@ public sealed record GetActorStarterPacksResponse : CursorPage<StarterPackViewBa
 /// <summary>Response from searchStarterPacks.</summary>
 public sealed record SearchStarterPacksResponse : CursorPage<StarterPackViewBasic>
 {
-    /// <summary>The starter packs.</summary>
+    /// <summary>This page's starter packs.</summary>
     [JsonPropertyName("starterPacks")]
     public required IReadOnlyList<StarterPackViewBasic> StarterPacks { get; init; }
 
@@ -765,7 +738,7 @@ public sealed record SearchStarterPacksV2Response : CursorPage<StarterPackView>
     [JsonPropertyName("hitsTotal")]
     public int? HitsTotal { get; init; }
 
-    /// <summary>The starter packs.</summary>
+    /// <summary>This page's starter packs.</summary>
     [JsonPropertyName("starterPacks")]
     public required IReadOnlyList<StarterPackView> StarterPacks { get; init; }
 
@@ -774,13 +747,10 @@ public sealed record SearchStarterPacksV2Response : CursorPage<StarterPackView>
     public override IReadOnlyList<StarterPackView> Items => StarterPacks;
 }
 
-/// <summary>
-/// One of the viewer's lists, and whether an actor is on it
-/// (<c>app.bsky.graph.getListsWithMembership#listWithMembership</c>).
-/// </summary>
+/// <summary>One of the viewer's lists, and whether an actor is on it (<c>app.bsky.graph.getListsWithMembership#listWithMembership</c>).</summary>
 public sealed class ListWithMembership : LexObject
 {
-    /// <summary>The list.</summary>
+    /// <summary>The list, without the membership fields.</summary>
     [JsonPropertyName("list")]
     public required ListView List { get; init; }
 
@@ -801,20 +771,14 @@ public sealed record GetListsWithMembershipResponse : CursorPage<ListWithMembers
     public override IReadOnlyList<ListWithMembership> Items => ListsWithMembership;
 }
 
-/// <summary>
-/// One of the viewer's starter packs, and whether an actor is in it
-/// (<c>app.bsky.graph.getStarterPacksWithMembership#starterPackWithMembership</c>).
-/// </summary>
+/// <summary>One of the viewer's starter packs, and whether an actor is in it (<c>app.bsky.graph.getStarterPacksWithMembership#starterPackWithMembership</c>).</summary>
 public sealed class StarterPackWithMembership : LexObject
 {
-    /// <summary>The starter pack.</summary>
+    /// <summary>The starter pack, without the membership fields.</summary>
     [JsonPropertyName("starterPack")]
     public required StarterPackView StarterPack { get; init; }
 
-    /// <summary>
-    /// The actor's entry on the starter pack's list; <see langword="null"/> when the actor is not
-    /// in it.
-    /// </summary>
+    /// <summary>The actor's entry on the starter pack's list; <see langword="null"/> when the actor is not in it.</summary>
     [JsonPropertyName("listItem")]
     public ListItemView? ListItem { get; init; }
 }
@@ -832,5 +796,4 @@ public sealed record GetStarterPacksWithMembershipResponse : CursorPage<StarterP
         StarterPacksWithMembership;
 }
 
-/// <summary>Request body for muteThread / unmuteThread.</summary>
 internal sealed record MuteThreadRequest([property: JsonPropertyName("root")] AtUri Root);

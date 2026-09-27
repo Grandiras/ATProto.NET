@@ -4,11 +4,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Report;
 
-/// <summary>
-/// Client for tools.ozone.report.* endpoints: the report-centric workflow, where each report is
-/// reviewed on its own (queued, assigned, escalated, closed) rather than only through its
-/// subject's status.
-/// </summary>
+/// <summary>Client for tools.ozone.report.* endpoints: the report-centric workflow, where each report is reviewed on its own (queued, assigned, escalated, closed) rather than only through its subject's status.</summary>
 public sealed class ReportClient
 {
     private readonly XrpcClient _xrpc;
@@ -56,10 +52,7 @@ public sealed class ReportClient
             "tools.ozone.report.queryReports", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Close every open report on a subject, without acting on the subject: for automated flows
-    /// that resolve reports. Reports whose status cannot move to closed are skipped.
-    /// </summary>
+    /// <summary>Close every open report on a subject, without acting on the subject: for automated flows that resolve reports. Reports whose status cannot move to closed are skipped.</summary>
     /// <param name="subject">The subject: an account's DID (account reports) or a record's AT URI.</param>
     /// <param name="reportTypes">Only reports of these reason types; <see langword="null"/> for all.</param>
     /// <param name="internalNote">A note for moderators, recorded on each close activity.</param>
@@ -164,10 +157,7 @@ public sealed class ReportClient
             "tools.ozone.report.getAssignments", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Record an activity on a report. An activity that changes the report's status (such as a
-    /// <see cref="CloseActivity"/>) checks the transition and moves the report in the same step.
-    /// </summary>
+    /// <summary>Record an activity on a report. An activity that changes the report's status (such as a <see cref="CloseActivity"/>) checks the transition and moves the report in the same step.</summary>
     /// <param name="reportId">The report.</param>
     /// <param name="activity">What happened, such as a <see cref="NoteActivity"/>.</param>
     /// <param name="internalNote">A note for moderators only.</param>
@@ -192,11 +182,7 @@ public sealed class ReportClient
                 IsAutomated: isAutomated),
             cancellationToken);
 
-    /// <summary>
-    /// Record an activity on the report a moderation event created, when you have the event's
-    /// identifier rather than the report's. Otherwise the same as
-    /// <see cref="CreateActivityAsync(long, ReportActivity, string, string, bool?, CancellationToken)"/>.
-    /// </summary>
+    /// <summary>Record an activity on the report a moderation event created, when you have the event's identifier rather than the report's. Otherwise the same as <see cref="CreateActivityAsync(long, ReportActivity, string, string, bool?, CancellationToken)"/>.</summary>
     /// <param name="eventId">The moderation event that created the report.</param>
     /// <param name="activity">What happened, such as a <see cref="NoteActivity"/>.</param>
     /// <param name="internalNote">A note for moderators only.</param>
@@ -244,10 +230,7 @@ public sealed class ReportClient
             "tools.ozone.report.listActivities", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Query one page of activities across all reports, ordered by creation time: for pollers
-    /// that follow report activity. For one report's history use <see cref="ListActivitiesAsync"/>.
-    /// </summary>
+    /// <summary>Query one page of activities across all reports, ordered by creation time: for pollers that follow report activity. For one report's history use <see cref="ListActivitiesAsync"/>.</summary>
     /// <param name="activityTypes">
     /// Only activities of these types, such as <c>closeActivity</c> or <c>escalationActivity</c>.
     /// </param>
@@ -324,10 +307,7 @@ public sealed class ReportClient
             "tools.ozone.report.getHistoricalStats", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Recompute the daily report statistics for a range of days, to backfill after a failure or a
-    /// data correction.
-    /// </summary>
+    /// <summary>Recompute the daily report statistics for a range of days, to backfill after a failure or a data correction.</summary>
     /// <param name="startDate">The first day to recompute.</param>
     /// <param name="endDate">The last day to recompute.</param>
     /// <param name="queueIds">Only these queues' statistics; <see langword="null"/> for all.</param>

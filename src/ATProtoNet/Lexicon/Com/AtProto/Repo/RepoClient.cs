@@ -5,10 +5,7 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Repo;
 
-/// <summary>
-/// Client for com.atproto.repo.* XRPC endpoints.
-/// Handles CRUD operations on repository records.
-/// </summary>
+/// <summary>Client for com.atproto.repo.* XRPC endpoints. Handles CRUD operations on repository records.</summary>
 public sealed class RepoClient
 {
     private readonly XrpcClient _xrpc;
@@ -223,11 +220,9 @@ public sealed class RepoClient
             "com.atproto.repo.listRecords", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// <see cref="ListRecordsAsync(AtIdentifier, Nsid, bool?, int?, string?, CancellationToken)"/>
-    /// with each value deserialized straight into <typeparamref name="T"/>; a record that is not
-    /// one fails the page with <see cref="XrpcResponseFormatException"/>.
-    /// </summary>
+    // ListRecordsAsync(AtIdentifier, Nsid, bool?, int?, string?, CancellationToken) with each value
+    // deserialized straight into T; a record that is not one fails the page with
+    // XrpcResponseFormatException.
     internal async Task<RecordPage<T>> ListRecordsAsync<T>(
         AtIdentifier repo,
         Nsid collection,
@@ -289,10 +284,7 @@ public sealed class RepoClient
             "com.atproto.repo.describeRepo", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Upload a blob (binary data) to the server.
-    /// Returns a BlobRef that can be included in record data.
-    /// </summary>
+    /// <summary>Upload a blob (binary data) to the server. Returns a BlobRef that can be included in record data.</summary>
     /// <param name="data">The blob data stream.</param>
     /// <param name="mimeType">The MIME type (e.g., "image/png", "video/mp4").</param>
     public async Task<BlobRef> UploadBlobAsync(
@@ -327,10 +319,7 @@ public sealed class RepoClient
         return await UploadBlobAsync(stream, mimeType, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Import a repository from a CAR file into the signed-in account, the step of an account
-    /// migration that moves its records to the new PDS.
-    /// </summary>
+    /// <summary>Import a repository from a CAR file into the signed-in account, the step of an account migration that moves its records to the new PDS.</summary>
     /// <remarks>
     /// <para>The CAR is what <c>com.atproto.sync.getRepo</c> exports (see
     /// <see cref="Sync.SyncClient.GetRepoAsync"/>): one root, the signed commit. The new PDS
@@ -369,10 +358,7 @@ public sealed class RepoClient
             "com.atproto.repo.applyWrites", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// List one page of the blobs the account's records reference but that were never uploaded,
-    /// for example after a repository import.
-    /// </summary>
+    /// <summary>List one page of the blobs the account's records reference but that were never uploaded, for example after a repository import.</summary>
     /// <param name="limit">Maximum number of results (1-1000, default 500).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
     public Task<ListMissingBlobsResponse> ListMissingBlobsAsync(

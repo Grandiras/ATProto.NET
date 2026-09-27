@@ -46,7 +46,7 @@ public abstract class StreamConsumerOptions
     /// </summary>
     public Action<DroppedStreamEvent>? OnEventDropped { get; init; }
 
-    /// <summary>Throws for settings no consumer can run with.</summary>
+    // Throws for settings no consumer can run with.
     internal virtual void Validate()
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(ServiceUrl, nameof(ServiceUrl));
@@ -70,10 +70,9 @@ public abstract class CursorStreamConsumerOptions : StreamConsumerOptions
     /// <summary>How many events pass between two cursor saves, filtered ones included. Default: 100.</summary>
     public int CursorPersistInterval { get; init; } = 100;
 
-    /// <summary>The resolved stream identifier for cursor storage.</summary>
+    // The resolved stream identifier for cursor storage.
     internal string ResolvedStreamId => StreamId ?? ServiceUrl;
 
-    /// <inheritdoc/>
     internal override void Validate()
     {
         base.Validate();

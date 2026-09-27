@@ -34,7 +34,6 @@ public sealed class TapClientOptions : StreamConsumerOptions
     /// </summary>
     public HttpClient? HttpClient { get; init; }
 
-    /// <inheritdoc/>
     internal override void Validate()
     {
         base.Validate();
@@ -318,9 +317,7 @@ public sealed class TapChannel
         }
     }
 
-    /// <summary>
-    /// Opens a connection and reads it, with acknowledgements going to it while it is open.
-    /// </summary>
+    // Opens a connection and reads it, with acknowledgements going to it while it is open.
     private async IAsyncEnumerable<StreamSocketMessage> ConnectAsync(
         Uri endpoint, StreamSocketOptions options, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
@@ -374,7 +371,7 @@ public sealed class TapChannel
         }
     }
 
-    /// <summary>How many acknowledgements wait for a connection.</summary>
+    // How many acknowledgements wait for a connection.
     internal int PendingAcks
     {
         get
@@ -384,7 +381,7 @@ public sealed class TapChannel
         }
     }
 
-    /// <summary>Makes <paramref name="socket"/> the one acknowledgements go to, and sends those that waited for it.</summary>
+    // Makes socket the one acknowledgements go to, and sends those that waited for it.
     private async ValueTask AttachAsync(IDuplexStreamSocket socket)
     {
         await _sendLock.WaitAsync().ConfigureAwait(false);
@@ -426,7 +423,7 @@ public sealed class TapChannel
         }
     }
 
-    /// <summary>The acknowledgement <c>@atproto/tap</c> sends: <c>{"type":"ack","id":…}</c>.</summary>
+    // The acknowledgement @atproto/tap sends: {"type":"ack","id":…}.
     internal static byte[] AckMessage(long id) => Encoding.UTF8.GetBytes($$"""{"type":"ack","id":{{id}}}""");
 
     private sealed class Handler(TapChannel channel) : EventStreamHandler<TapEvent>(channel._options)

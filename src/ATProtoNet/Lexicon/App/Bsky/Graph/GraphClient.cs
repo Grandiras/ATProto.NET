@@ -4,10 +4,7 @@ using ATProtoNet.Lexicon.App.Bsky.Actor;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Graph;
 
-/// <summary>
-/// Client for app.bsky.graph.* XRPC endpoints.
-/// Handles follows, blocks, mutes, and lists.
-/// </summary>
+/// <summary>Client for app.bsky.graph.* XRPC endpoints. Handles follows, blocks, mutes, and lists.</summary>
 public sealed class GraphClient
 {
     private readonly XrpcClient _xrpc;
@@ -362,10 +359,7 @@ public sealed class GraphClient
             "app.bsky.graph.searchStarterPacks", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Search for starter packs, one page at a time, returning full starter pack views and an
-    /// estimate of the hit count.
-    /// </summary>
+    /// <summary>Search for starter packs, one page at a time, returning full starter pack views and an estimate of the hit count.</summary>
     /// <param name="query">Search query.</param>
     /// <param name="limit">Max results per page (1-100, default 25).</param>
     /// <param name="cursor">Pagination cursor.</param>
@@ -383,10 +377,7 @@ public sealed class GraphClient
 
     // ── Membership ───────────────────────────────────────────
 
-    /// <summary>
-    /// Get one page of the authenticated account's curation and moderation lists, each with
-    /// whether an actor is on it.
-    /// </summary>
+    /// <summary>Get one page of the authenticated account's curation and moderation lists, each with whether an actor is on it.</summary>
     /// <param name="actor">Handle or DID of the actor to check.</param>
     /// <param name="purposes">
     /// Only lists with these purposes, by short name: <c>modlist</c>, <c>curatelist</c>.
@@ -408,10 +399,7 @@ public sealed class GraphClient
             "app.bsky.graph.getListsWithMembership", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get one page of the authenticated account's starter packs, each with whether an actor is
-    /// in it.
-    /// </summary>
+    /// <summary>Get one page of the authenticated account's starter packs, each with whether an actor is in it.</summary>
     /// <param name="actor">Handle or DID of the actor to check.</param>
     /// <param name="limit">Max results per page (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor.</param>

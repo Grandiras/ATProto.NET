@@ -372,10 +372,8 @@ public static class AtProtoScopes
         return sb.ToString();
     }
 
-    /// <summary>
-    /// A wildcard <c>collection</c> absorbs the rest; otherwise the grammar normalizes the list
-    /// to a sorted, de-duplicated set.
-    /// </summary>
+    // A wildcard collection absorbs the rest; otherwise the grammar normalizes the list to a sorted,
+    // de-duplicated set.
     private static IEnumerable<string> NormalizeCollections(IReadOnlyList<string> collections)
     {
         if (collections.Contains("*"))
@@ -675,19 +673,14 @@ public static class AtProtoScopes
         return string.Join(' ', unique);
     }
 
-    /// <summary>
-    /// Encodes characters that have structural meaning in AT Protocol scope strings.
-    /// Specifically encodes <c>#</c> as <c>%23</c> (common in DID fragments).
-    /// </summary>
+    // Encodes characters that have structural meaning in AT Protocol scope strings. Specifically encodes #
+    // as %23 (common in DID fragments).
     private static string EncodeScopeValue(string value) =>
         value.Replace("#", "%23");
 
-    /// <summary>
-    /// Checks an <c>aud</c> the way the reference scope parser does: <c>*</c> where the
-    /// resource allows it, otherwise a DID with a service fragment, since a service is addressed
-    /// by its DID document entry, not by the DID alone. A fragment already encoded as
-    /// <c>%23</c> is accepted.
-    /// </summary>
+    // Checks an aud the way the reference scope parser does: * where the resource allows it, otherwise a
+    // DID with a service fragment, since a service is addressed by its DID document entry, not by the DID
+    // alone. A fragment already encoded as %23 is accepted.
     private static void ValidateAudience(string aud, bool allowWildcard)
     {
         if (aud == "*")

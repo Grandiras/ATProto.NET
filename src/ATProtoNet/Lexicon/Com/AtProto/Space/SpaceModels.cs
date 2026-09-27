@@ -12,10 +12,7 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Space;
 /// <summary>Response from <c>getDelegationToken</c>.</summary>
 public sealed class GetDelegationTokenResponse
 {
-    /// <summary>
-    /// A signed JWT delegation token, single-use and short-lived (60 seconds by default),
-    /// addressed to the space authority.
-    /// </summary>
+    /// <summary>A signed JWT delegation token, single-use and short-lived (60 seconds by default), addressed to the space authority.</summary>
     [JsonPropertyName("token")]
     public required string Token { get; init; }
 }
@@ -29,10 +26,7 @@ public sealed class GetSpaceCredentialRequest
     [JsonPropertyName("space")]
     public required SpaceUri Space { get; init; }
 
-    /// <summary>
-    /// Optional client attestation JWT establishing the app's identity. Required only when the
-    /// space gates on app identity.
-    /// </summary>
+    /// <summary>Optional client attestation JWT establishing the app's identity. Required only when the space gates on app identity.</summary>
     [JsonPropertyName("clientAttestation")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ClientAttestation { get; init; }
@@ -41,10 +35,7 @@ public sealed class GetSpaceCredentialRequest
 /// <summary>Response from <c>getSpaceCredential</c>.</summary>
 public sealed class GetSpaceCredentialResponse
 {
-    /// <summary>
-    /// A signed JWT space credential, bound through its <c>cnf.jkt</c> claim to the key that
-    /// signed the request's DPoP proof.
-    /// </summary>
+    /// <summary>A signed JWT space credential, bound through its <c>cnf.jkt</c> claim to the key that signed the request's DPoP proof.</summary>
     [JsonPropertyName("credential")]
     public required string Credential { get; init; }
 }
@@ -62,7 +53,7 @@ public sealed class SpaceView : LexObject
 /// <summary>Response from <c>listSpaces</c>.</summary>
 public sealed record ListSpacesResponse : CursorPage<SpaceView>
 {
-    /// <summary>The spaces.</summary>
+    /// <summary>This page's spaces.</summary>
     [JsonPropertyName("spaces")]
     public required IReadOnlyList<SpaceView> Spaces { get; init; }
 
@@ -80,17 +71,11 @@ public sealed class SpaceRepoView : LexObject
     [JsonPropertyName("did")]
     public required Did Did { get; init; }
 
-    /// <summary>
-    /// The repo's current revision, as last reported to the authority. May lag the repo host,
-    /// which is the source of truth.
-    /// </summary>
+    /// <summary>The repo's current revision, as last reported to the authority. May lag the repo host, which is the source of truth.</summary>
     [JsonPropertyName("rev")]
     public required Tid Rev { get; init; }
 
-    /// <summary>
-    /// The repo's current commit hash (<c>sha256</c> of the LtHash state), as last reported to
-    /// the authority.
-    /// </summary>
+    /// <summary>The repo's current commit hash (<c>sha256</c> of the LtHash state), as last reported to the authority.</summary>
     [JsonPropertyName("hash")]
     [JsonConverter(typeof(LexBytesJsonConverter))]
     public required byte[] Hash { get; init; }
@@ -152,7 +137,7 @@ public sealed class SpaceRecordView : LexObject
 /// <summary>Response from <c>listRecords</c>.</summary>
 public sealed record ListSpaceRecordsResponse : CursorPage<SpaceRecordView>
 {
-    /// <summary>The records.</summary>
+    /// <summary>This page's records.</summary>
     [JsonPropertyName("records")]
     public required IReadOnlyList<SpaceRecordView> Records { get; init; }
 
@@ -215,10 +200,7 @@ public sealed class SpaceRepoOpEntry : LexObject
     [JsonPropertyName("prev")]
     public Cid? Prev { get; init; }
 
-    /// <summary>
-    /// The record's current value, inlined for create and update operations. Omitted when
-    /// <c>excludeValues</c> was set, for deletes, or when a later operation superseded it.
-    /// </summary>
+    /// <summary>The record's current value, inlined for create and update operations. Omitted when <c>excludeValues</c> was set, for deletes, or when a later operation superseded it.</summary>
     [JsonPropertyName("value")]
     public JsonElement? Value { get; init; }
 
@@ -233,10 +215,7 @@ public sealed record ListSpaceRepoOpsResponse : CursorPage<SpaceRepoOpEntry>
     [JsonPropertyName("ops")]
     public required IReadOnlyList<SpaceRepoOpEntry> Ops { get; init; }
 
-    /// <summary>
-    /// The account's current signed commit. Included when the response reaches the head of the
-    /// oplog; omitted on backfill responses.
-    /// </summary>
+    /// <summary>The account's current signed commit. Included when the response reaches the head of the oplog; omitted on backfill responses.</summary>
     [JsonPropertyName("commit")]
     public SignedSpaceCommit? Commit { get; init; }
 
@@ -257,7 +236,6 @@ public static class SpaceValidationStatus
     public const string Unknown = "unknown";
 }
 
-/// <summary>Request body for <c>createRecord</c>.</summary>
 internal sealed record CreateSpaceRecordRequest(
     [property: JsonPropertyName("space")] [property: JsonPropertyOrder(0)] SpaceUri Space,
     [property: JsonPropertyName("repo")] [property: JsonPropertyOrder(1)] Did Repo,
@@ -272,7 +250,6 @@ internal sealed record CreateSpaceRecordRequest(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     bool? Validate = null);
 
-/// <summary>Request body for <c>putRecord</c>.</summary>
 internal sealed record PutSpaceRecordRequest(
     [property: JsonPropertyName("space")] [property: JsonPropertyOrder(0)] SpaceUri Space,
     [property: JsonPropertyName("repo")] [property: JsonPropertyOrder(1)] Did Repo,
@@ -284,7 +261,6 @@ internal sealed record PutSpaceRecordRequest(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     bool? Validate = null);
 
-/// <summary>Request body for <c>deleteRecord</c>.</summary>
 internal sealed record DeleteSpaceRecordRequest(
     [property: JsonPropertyName("space")] SpaceUri Space,
     [property: JsonPropertyName("repo")] Did Repo,
@@ -355,7 +331,6 @@ public sealed class SpaceDeleteOp : SpaceWriteOp
     public required RecordKey Rkey { get; init; }
 }
 
-/// <summary>Request body for <c>applyWrites</c>.</summary>
 internal sealed record ApplySpaceWritesRequest(
     [property: JsonPropertyName("space")] [property: JsonPropertyOrder(0)] SpaceUri Space,
     [property: JsonPropertyName("repo")] [property: JsonPropertyOrder(1)] Did Repo,
@@ -402,11 +377,7 @@ public sealed class RegisterNotifyRequest
     [JsonPropertyName("space")]
     public required SpaceUri Space { get; init; }
 
-    /// <summary>
-    /// Service identifier of the subscriber: a DID with an optional service fragment naming the
-    /// entry in its DID document to deliver to
-    /// (e.g. <c>did:web:syncer.example.com#atproto_space_syncer</c>).
-    /// </summary>
+    /// <summary>Service identifier of the subscriber: a DID with an optional service fragment naming the entry in its DID document to deliver to (e.g. <c>did:web:syncer.example.com#atproto_space_syncer</c>).</summary>
     [JsonPropertyName("service")]
     public required string Service { get; init; }
 }
@@ -414,10 +385,7 @@ public sealed class RegisterNotifyRequest
 /// <summary>Response from <c>registerNotify</c>.</summary>
 public sealed class RegisterNotifyResponse
 {
-    /// <summary>
-    /// When the registration expires. May be later than the expiry of the space credential the
-    /// request was authenticated with; renew before this time to stay subscribed.
-    /// </summary>
+    /// <summary>When the registration expires. May be later than the expiry of the space credential the request was authenticated with; renew before this time to stay subscribed.</summary>
     [JsonPropertyName("expiresAt")]
     public required AtDatetime ExpiresAt { get; init; }
 }
@@ -451,16 +419,12 @@ public sealed class NotifyWriteRequest
     [JsonPropertyName("rev")]
     public required Tid Rev { get; init; }
 
-    /// <summary>
-    /// The repo's current commit hash (<c>sha256</c> of the LtHash state) after the write.
-    /// Lets the space host maintain each repo's hash for <c>listRepos</c>.
-    /// </summary>
+    /// <summary>The repo's current commit hash (<c>sha256</c> of the LtHash state) after the write. Lets the space host maintain each repo's hash for <c>listRepos</c>.</summary>
     [JsonPropertyName("hash")]
     [JsonConverter(typeof(LexBytesJsonConverter))]
     public required byte[] Hash { get; init; }
 }
 
-/// <summary>Request body for <c>notifySpaceDeleted</c>.</summary>
 internal sealed record NotifySpaceDeletedRequest([property: JsonPropertyName("space")] SpaceUri Space);
 
 // ── Errors ───────────────────────────────────────────────────

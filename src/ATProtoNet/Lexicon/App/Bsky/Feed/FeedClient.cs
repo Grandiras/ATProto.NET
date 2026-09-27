@@ -4,10 +4,7 @@ using ATProtoNet.Lexicon.App.Bsky.Actor;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Feed;
 
-/// <summary>
-/// Client for app.bsky.feed.* XRPC endpoints.
-/// Handles timelines, feeds, posts, likes, reposts, and search.
-/// </summary>
+/// <summary>Client for app.bsky.feed.* XRPC endpoints. Handles timelines, feeds, posts, likes, reposts, and search.</summary>
 public sealed class FeedClient
 {
     private readonly XrpcClient _xrpc;
@@ -380,10 +377,7 @@ public sealed class FeedClient
             "app.bsky.feed.searchPosts", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Search posts by a query, filters, or both (<c>app.bsky.feed.searchPostsV2</c>), one page
-    /// at a time.
-    /// </summary>
+    /// <summary>Search posts by a query, filters, or both (<c>app.bsky.feed.searchPostsV2</c>), one page at a time.</summary>
     /// <param name="query">The search text; a query or at least one filter is required.</param>
     /// <param name="filters">What to include and exclude.</param>
     /// <param name="sort">The ranking (see <see cref="PostSearchSort"/>).</param>
@@ -441,11 +435,7 @@ public sealed class FeedClient
 
     // ── Feed feedback ────────────────────────────────────────
 
-    /// <summary>
-    /// Tell a feed generator how the viewer interacted with the items it served, such as
-    /// asking for more or less of an item. Generators that want this set
-    /// <see cref="GeneratorView.AcceptsInteractions"/>.
-    /// </summary>
+    /// <summary>Tell a feed generator how the viewer interacted with the items it served, such as asking for more or less of an item. Generators that want this set <see cref="GeneratorView.AcceptsInteractions"/>.</summary>
     /// <param name="feed">The feed the items came from.</param>
     /// <param name="feedGenerator">
     /// The DID of the feed generator service (<see cref="GeneratorView.Did"/>). When set, the call

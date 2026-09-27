@@ -3,10 +3,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.App.Bsky.RichText;
 
-/// <summary>
-/// Utility for building rich text with facets from a fluent API.
-/// Handles UTF-8 byte offset computation automatically.
-/// </summary>
+/// <summary>Utility for building rich text with facets from a fluent API. Handles UTF-8 byte offset computation automatically.</summary>
 public sealed class RichTextBuilder
 {
     private readonly StringBuilder _text = new();

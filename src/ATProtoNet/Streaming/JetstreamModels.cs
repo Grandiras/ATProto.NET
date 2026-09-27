@@ -130,7 +130,6 @@ public sealed class JetstreamConsumerOptions : CursorStreamConsumerOptions
     /// </summary>
     public Action<JetstreamInfo>? OnInfo { get; init; }
 
-    /// <inheritdoc/>
     internal override void Validate()
     {
         base.Validate();
@@ -220,10 +219,10 @@ public enum JetstreamEventKind
     Sync,
 }
 
-/// <summary>The wire names of <see cref="JetstreamEventKind"/>, shared by the live and archive filters.</summary>
+// The wire names of JetstreamEventKind, shared by the live and archive filters.
 internal static class JetstreamKinds
 {
-    /// <summary>The wire name of an event kind — the <c>$type</c> fragment the server filters on.</summary>
+    // The wire name of an event kind — the $type fragment the server filters on.
     public static string Name(JetstreamEventKind kind) => kind switch
     {
         JetstreamEventKind.Commit => "commit",

@@ -3,33 +3,33 @@ using System.Text;
 
 namespace ATProtoNet.Repo;
 
-/// <summary>Represents a single entry within an MST node, corresponding to the CBOR TreeEntry schema.</summary>
-/// <param name="PrefixLength">Count of bytes shared with the previous entry's key in this node.</param>
-/// <param name="KeySuffix">Remainder of the key after removing the shared prefix.</param>
-/// <param name="Value">CID link (binary) to the record data.</param>
-/// <param name="Tree">Optional CID link to a right sub-tree node.</param>
+// Represents a single entry within an MST node, corresponding to the CBOR TreeEntry schema.
+//
+// PrefixLength: Count of bytes shared with the previous entry's key in this node.
+//
+// KeySuffix: Remainder of the key after removing the shared prefix.
+//
+// Value: CID link (binary) to the record data.
+//
+// Tree: Optional CID link to a right sub-tree node.
 internal sealed record MstTreeEntry(int PrefixLength, byte[] KeySuffix, byte[] Value, byte[]? Tree);
 
-/// <summary>
-/// Represents a serialized MST node as stored in DAG-CBOR, with fields
-/// <c>l</c> (left subtree link) and <c>e</c> (entries array).
-/// </summary>
-/// <remarks>
-/// The wire schema is <c>{e: [{k, p, t, v}], l}</c>, with <c>l</c> and every <c>t</c> always
-/// present and written as CBOR <c>null</c> when there is no subtree. Omitting them instead
-/// changes every node's CID, so the tree no longer matches the one any other implementation
-/// computes for the same records.
-/// See: https://atproto.com/specs/repository#mst-structure
-/// </remarks>
+// Represents a serialized MST node as stored in DAG-CBOR, with fields l (left subtree link) and e
+// (entries array).
+//
+// The wire schema is {e: [{k, p, t, v}], l}, with l and every t always present and written as CBOR
+// null when there is no subtree. Omitting them instead changes every node's CID, so the tree no longer
+// matches the one any other implementation computes for the same records. See:
+// https://atproto.com/specs/repository#mst-structure
 internal sealed class MstNodeData
 {
-    /// <summary>Link to the left sub-tree node (nullable).</summary>
+    // Link to the left sub-tree node (nullable).
     public byte[]? Left { get; init; }
 
-    /// <summary>Ordered list of tree entries.</summary>
+    // Ordered list of tree entries.
     public required List<MstTreeEntry> Entries { get; init; }
 
-    /// <summary>Serializes this node to deterministic DAG-CBOR bytes.</summary>
+    // Serializes this node to deterministic DAG-CBOR bytes.
     public byte[] ToBytes()
     {
         // Sized up front, so encoding a node does not grow the buffer step by step.
@@ -50,7 +50,7 @@ internal sealed class MstNodeData
     // entries. Every map is in canonical key order by hand ("e" < "l"; "k" < "p" < "t" < "v"), so
     // the writer need not buffer and re-sort it.
 
-    /// <summary>Starts a node of <paramref name="entries"/> entries.</summary>
+    // Starts a node with the given number of entries.
     internal static void WriteStart(CborWriter writer, int entries)
     {
         writer.WriteStartMap(2);
@@ -58,7 +58,8 @@ internal sealed class MstNodeData
         writer.WriteStartArray(entries);
     }
 
-    /// <summary>Writes one entry: its key after the prefix it shares with the previous one, its right subtree and its value.</summary>
+    // Writes one entry: its key after the prefix it shares with the previous one, its right subtree and
+    // its value.
     internal static void WriteEntry(CborWriter writer, int prefixLength, ReadOnlySpan<byte> keySuffix, byte[]? tree, byte[] value)
     {
         writer.WriteStartMap(4);
@@ -73,7 +74,7 @@ internal sealed class MstNodeData
         writer.WriteEndMap();
     }
 
-    /// <summary>Ends a node with its left subtree.</summary>
+    // Ends a node with its left subtree.
     internal static void WriteEnd(CborWriter writer, byte[]? left)
     {
         writer.WriteEndArray();
@@ -82,12 +83,11 @@ internal sealed class MstNodeData
         writer.WriteEndMap();
     }
 
-    /// <summary>
-    /// Rebuilds the entries' keys from their prefix compression, checking that each is a valid MST
-    /// key and that they increase strictly between <paramref name="lower"/> and
-    /// <paramref name="upper"/>: the range the parent leaves this node, when it has one.
-    /// </summary>
-    /// <exception cref="FormatException">A key is not valid, or out of order.</exception>
+    // Rebuilds the entries' keys from their prefix compression, checking that each is a valid MST key and
+    // that they increase strictly between lower and upper: the range the parent leaves this node, when it
+    // has one.
+    //
+    // Throws FormatException: A key is not valid, or out of order.
     public byte[][] ReadKeys(byte[]? lower, byte[]? upper)
     {
         var keys = new byte[Entries.Count][];
@@ -116,11 +116,10 @@ internal sealed class MstNodeData
         return keys;
     }
 
-    /// <summary>Deserializes an MST node from DAG-CBOR bytes.</summary>
-    /// <exception cref="FormatException">
-    /// The bytes are not a well-formed MST node, including an entry whose prefix length is
-    /// negative or longer than the key before it.
-    /// </exception>
+    // Deserializes an MST node from DAG-CBOR bytes.
+    //
+    // Throws FormatException: The bytes are not a well-formed MST node, including an entry whose prefix
+    // length is negative or longer than the key before it.
     public static MstNodeData FromBytes(ReadOnlyMemory<byte> data)
     {
         try

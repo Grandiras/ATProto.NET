@@ -402,19 +402,14 @@ public sealed class RecordPage<T> : ICursorPage<RecordView<T>>
     IReadOnlyList<RecordView<T>> ICursorPage<RecordView<T>>.Items => Records;
 }
 
-/// <summary>
-/// What the record helpers share: splitting an AT URI into its record path, and the collection a
-/// record type declares.
-/// </summary>
+// What the record helpers share: splitting an AT URI into its record path, and the collection a record
+// type declares.
 internal static class RecordPaths
 {
-    /// <summary>The URI's record key, or <see cref="ArgumentException"/> when it names no record.</summary>
+    // The URI's record key, or ArgumentException when it names no record.
     public static RecordKey RecordKeyOf(AtUri uri) => PathOf(uri).Rkey;
 
-    /// <summary>
-    /// The URI's collection and record key, or <see cref="ArgumentException"/> when it names no
-    /// record.
-    /// </summary>
+    // The URI's collection and record key, or ArgumentException when it names no record.
     public static (Nsid Collection, RecordKey Rkey) PathOf(AtUri uri, string? paramName = "uri")
     {
         ArgumentNullException.ThrowIfNull(uri, paramName);
@@ -424,10 +419,7 @@ internal static class RecordPaths
                 $"'{uri}' does not name a record: it needs a collection and a record key.", paramName);
     }
 
-    /// <summary>
-    /// The collection <typeparamref name="T"/> declares through <see cref="IAtProtoRecord"/>, or
-    /// <see langword="null"/> when it does not implement it.
-    /// </summary>
+    // The collection T declares through IAtProtoRecord, or null when it does not implement it.
     public static Nsid? DeclaredCollection<T>() => DeclaredCollectionCache<T>.Value;
 
     private static class DeclaredCollectionCache<T>

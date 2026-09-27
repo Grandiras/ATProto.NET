@@ -79,7 +79,7 @@ public sealed class InMemoryJtiReplayStore : IJtiReplayStore
     /// <summary>The number of identifiers currently held, for diagnostics and tests.</summary>
     public int Count => _consumed.Count;
 
-    /// <summary>The most recent background sweep, for tests to wait on.</summary>
+    // The most recent background sweep, for tests to wait on.
     internal Task LastSweep => _sweeps.Last;
 
     /// <inheritdoc/>
@@ -106,10 +106,8 @@ public sealed class InMemoryJtiReplayStore : IJtiReplayStore
     }
 }
 
-/// <summary>
-/// Runs a replay store's expiry sweep at most once a minute, in the background, started by
-/// whichever call finds one due.
-/// </summary>
+// Runs a replay store's expiry sweep at most once a minute, in the background, started by whichever
+// call finds one due.
 internal sealed class SweepSchedule(TimeProvider timeProvider)
 {
     private static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
@@ -119,7 +117,7 @@ internal sealed class SweepSchedule(TimeProvider timeProvider)
 
     public Task Last => Volatile.Read(ref _last);
 
-    /// <summary>Starts <paramref name="sweep"/> with the current time, when one is due, without waiting for it.</summary>
+    // Starts sweep with the current time, when one is due, without waiting for it.
     public void RunIfDue(Func<DateTimeOffset, Task> sweep)
     {
         var now = timeProvider.GetUtcNow();
