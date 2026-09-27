@@ -22,9 +22,7 @@ public sealed class SpaceServerOptions
     /// </summary>
     public Did? ServiceDid { get; set; }
 
-    /// <summary>
-    /// The externally reachable base URL of this service, e.g. <c>https://pds.example.com</c>.
-    /// </summary>
+    /// <summary>The externally reachable base URL of this service, e.g. <c>https://pds.example.com</c>.</summary>
     /// <remarks>
     /// <para>A DPoP proof names the URL it was minted for in its <c>htu</c>, and the verifier
     /// compares that against the request <em>as received</em>. Behind a reverse proxy that is
@@ -204,9 +202,7 @@ public sealed class SpaceServerOptions
     internal DateTimeOffset ReplayRetention(DateTimeOffset expiresAt) =>
         expiresAt + (ClockSkew > SpaceTokens.DefaultClockSkew ? ClockSkew : SpaceTokens.DefaultClockSkew);
 
-    /// <summary>
-    /// Resolves this service's public request URI, honouring <see cref="PublicBaseUrl"/>.
-    /// </summary>
+    /// <summary>Resolves this service's public request URI, honouring <see cref="PublicBaseUrl"/>.</summary>
     /// <param name="requestScheme">The scheme the request arrived on.</param>
     /// <param name="requestHost">The host the request named.</param>
     /// <param name="path">The request path, including any path base.</param>

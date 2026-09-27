@@ -140,9 +140,7 @@ public sealed class JetstreamArchiveClient : IDisposable
     /// <summary>Ceiling on a single retry delay, including one the server asked for. Default: 5 minutes.</summary>
     public TimeSpan MaxRetryDelay { get; init; } = TimeSpan.FromMinutes(5);
 
-    /// <summary>
-    /// Create a Jetstream HTTP client.
-    /// </summary>
+    /// <summary>Create a Jetstream HTTP client.</summary>
     /// <param name="serviceUrl">The Jetstream host URL. <c>ws(s)</c> schemes are converted to
     /// <c>http(s)</c>, so the same value can configure this and
     /// <see cref="StreamConsumerOptions.ServiceUrl"/>.</param>
@@ -165,9 +163,7 @@ public sealed class JetstreamArchiveClient : IDisposable
         _logger = logger ?? NullLogger.Instance;
     }
 
-    /// <summary>
-    /// Build one page of a download plan for the requested DIDs, collections, and kinds.
-    /// </summary>
+    /// <summary>Build one page of a download plan for the requested DIDs, collections, and kinds.</summary>
     /// <remarks>
     /// The planner works from bloom filters and per-block summaries, so it has <b>no false
     /// negatives but may return blocks with no matching rows</b> — apply the exact filter to what
@@ -176,7 +172,6 @@ public sealed class JetstreamArchiveClient : IDisposable
     /// <c>afterSeq = <see cref="JetstreamSnapshotPlan.PlannedThroughSeq"/></c> always progresses.
     /// </remarks>
     /// <param name="request">The filter and sequence window to plan over.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="JetstreamException">The server refused the request.</exception>
     public async Task<JetstreamSnapshotPlan> PlanSnapshotAsync(
         JetstreamSnapshotRequest request,
@@ -191,17 +186,14 @@ public sealed class JetstreamArchiveClient : IDisposable
             },
             HttpCompletionOption.ResponseContentRead,
             authenticate: true,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
-        return await ReadJsonAsync<JetstreamSnapshotPlan>(response, cancellationToken);
+        return await ReadJsonAsync<JetstreamSnapshotPlan>(response, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// List one page of sealed segment files, in ascending index order.
-    /// </summary>
+    /// <summary>List one page of sealed segment files, in ascending index order.</summary>
     /// <param name="limit">Maximum number of segments to return (1–1000). Null uses the server default.</param>
     /// <param name="cursor">Pagination cursor from a previous page.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<JetstreamSegmentPage> ListSegmentsAsync(
         int? limit = null,
         string? cursor = null,
@@ -215,16 +207,13 @@ public sealed class JetstreamArchiveClient : IDisposable
             () => new HttpRequestMessage(HttpMethod.Get, Endpoint(ListSegmentsPath, query)),
             HttpCompletionOption.ResponseContentRead,
             authenticate: true,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
-        return await ReadJsonAsync<JetstreamSegmentPage>(response, cancellationToken);
+        return await ReadJsonAsync<JetstreamSegmentPage>(response, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Enumerate every sealed segment, following the pagination cursor to the end of the archive.
-    /// </summary>
+    /// <summary>Enumerate every sealed segment, following the pagination cursor to the end of the archive.</summary>
     /// <param name="pageSize">Segments per request (1–1000); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<JetstreamSegmentInfo> EnumerateSegmentsAsync(
         int? pageSize = null,
         CancellationToken cancellationToken = default) =>
@@ -232,13 +221,10 @@ public sealed class JetstreamArchiveClient : IDisposable
             (cursor, ct) => ListSegmentsAsync(pageSize, cursor, ct),
             cancellationToken);
 
-    /// <summary>
-    /// Open a sealed segment file for reading, optionally from a byte offset.
-    /// </summary>
+    /// <summary>Open a sealed segment file for reading, optionally from a byte offset.</summary>
     /// <param name="name">The segment filename (e.g. <c>seg_000000002a.jss</c>).</param>
     /// <param name="rangeStart">Byte offset to resume from, sent as an HTTP <c>Range</c> header.
     /// Null downloads the whole file.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The open response; dispose it when done.</returns>
     /// <exception cref="JetstreamException">The server refused the request (e.g.
     /// <c>SegmentNotFound</c>).</exception>
@@ -260,11 +246,11 @@ public sealed class JetstreamArchiveClient : IDisposable
             },
             HttpCompletionOption.ResponseHeadersRead,
             authenticate: true,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         try
         {
-            var content = await response.Content.ReadAsStreamAsync(cancellationToken);
+            var content = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
             return new JetstreamSegmentDownload(response, content);
         }
         catch
@@ -279,7 +265,6 @@ public sealed class JetstreamArchiveClient : IDisposable
     /// do not charge for: to plan a download, or to check a mirror is current.
     /// </summary>
     /// <param name="name">The segment filename.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="JetstreamException">The server refused the request (e.g.
     /// <c>SegmentNotFound</c>, or a status only when the server does not support <c>HEAD</c>).</exception>
     public Task<JetstreamArchiveProbe> ProbeSegmentAsync(string name, CancellationToken cancellationToken = default)
@@ -294,7 +279,6 @@ public sealed class JetstreamArchiveClient : IDisposable
     /// </summary>
     /// <param name="segment">The segment filename.</param>
     /// <param name="blockIndex">Zero-based block index within the segment.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="JetstreamException">The server refused the request (e.g.
     /// <c>BlockNotFound</c>).</exception>
     public Task<JetstreamArchiveProbe> ProbeBlockAsync(
@@ -319,7 +303,6 @@ public sealed class JetstreamArchiveClient : IDisposable
     /// <param name="name">The segment filename.</param>
     /// <param name="destination">A writable, seekable stream. Bytes already in it are treated as
     /// a partial download and resumed after.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The total number of bytes written by this call.</returns>
     public async Task<long> DownloadSegmentAsync(
         string name,
@@ -335,7 +318,7 @@ public sealed class JetstreamArchiveClient : IDisposable
         {
             try
             {
-                using var download = await GetSegmentAsync(name, written > 0 ? written : null, cancellationToken);
+                using var download = await GetSegmentAsync(name, written > 0 ? written : null, cancellationToken).ConfigureAwait(false);
 
                 if (written > 0 && !download.IsPartial)
                 {
@@ -346,9 +329,9 @@ public sealed class JetstreamArchiveClient : IDisposable
                 }
 
                 int read;
-                while ((read = await download.Content.ReadAsync(buffer, cancellationToken)) > 0)
+                while ((read = await download.Content.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
                 {
-                    await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                    await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
                     written += read;
                 }
 
@@ -360,7 +343,7 @@ public sealed class JetstreamArchiveClient : IDisposable
                 _logger.LogWarning(ex,
                     "Segment {Segment} download interrupted at byte {Offset}; resuming in {Delay}s",
                     name, written, delay.TotalSeconds);
-                await Task.Delay(delay, cancellationToken);
+                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
             }
         }
     }
@@ -372,7 +355,6 @@ public sealed class JetstreamArchiveClient : IDisposable
     /// </summary>
     /// <param name="segment">The segment filename.</param>
     /// <param name="blockIndex">Zero-based block index within the segment.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="JetstreamException">The server refused the request (e.g.
     /// <c>SegmentNotFound</c>, <c>BlockNotFound</c>).</exception>
     public async Task<byte[]> GetBlockAsync(
@@ -388,14 +370,12 @@ public sealed class JetstreamArchiveClient : IDisposable
             () => new HttpRequestMessage(HttpMethod.Get, uri),
             HttpCompletionOption.ResponseContentRead,
             authenticate: true,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
-        return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+        return await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Fetch the zstd dictionary that <see cref="JetstreamProtocol.V2"/> frame compression uses.
-    /// </summary>
+    /// <summary>Fetch the zstd dictionary that <see cref="JetstreamProtocol.V2"/> frame compression uses.</summary>
     /// <remarks>
     /// <para>Compressed v2 frames are dictionary-versioned: fetch the server's current dictionary,
     /// build an <see cref="IJetstreamDecompressor"/> with it, and opt in by setting both
@@ -409,7 +389,6 @@ public sealed class JetstreamArchiveClient : IDisposable
     /// </remarks>
     /// <param name="id">The dictionary ID to fetch. When null (the default), the server returns
     /// its current dictionary.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The dictionary bytes and the ID read out of them.</returns>
     /// <exception cref="JetstreamException">The server refused the request (e.g.
     /// <c>DictionaryNotFound</c>) or returned something that is not a zstd dictionary.</exception>
@@ -422,9 +401,9 @@ public sealed class JetstreamArchiveClient : IDisposable
             () => new HttpRequestMessage(HttpMethod.Get, uri),
             HttpCompletionOption.ResponseContentRead,
             authenticate: false,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
-        var data = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+        var data = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
 
         // A structured dictionary carries its own ID in its header, which is the same ID the
         // subscription's zstdDictionary parameter takes — so a bare "current dictionary" fetch
@@ -441,7 +420,6 @@ public sealed class JetstreamArchiveClient : IDisposable
     /// Ask the instance whether it is up (<c>GET /xrpc/_health</c>). The endpoint is public: no
     /// API key is sent. It is not retried, so a health check reports the first failure.
     /// </summary>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The server's report, including its version.</returns>
     /// <exception cref="JetstreamException">The server answered with an error status or a body
     /// that is not a health report.</exception>
@@ -449,11 +427,11 @@ public sealed class JetstreamArchiveClient : IDisposable
     public async Task<JetstreamHealth> GetHealthAsync(CancellationToken cancellationToken = default)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(_baseUri, HealthPath));
-        using var response = await _http.SendAsync(request, cancellationToken);
+        using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
-            throw await BuildFailureAsync(response, cancellationToken);
+            throw await BuildFailureAsync(response, cancellationToken).ConfigureAwait(false);
 
-        return await ReadJsonAsync<JetstreamHealth>(response, cancellationToken);
+        return await ReadJsonAsync<JetstreamHealth>(response, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<JetstreamArchiveProbe> ProbeAsync(Uri uri, CancellationToken cancellationToken)
@@ -462,7 +440,7 @@ public sealed class JetstreamArchiveClient : IDisposable
             () => new HttpRequestMessage(HttpMethod.Head, uri),
             HttpCompletionOption.ResponseHeadersRead,
             authenticate: true,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         return new JetstreamArchiveProbe(
             response.Content.Headers.ContentLength,
@@ -490,12 +468,12 @@ public sealed class JetstreamArchiveClient : IDisposable
                 if (authenticate && _apiKey is not null)
                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
 
-                response = await _http.SendAsync(request, completionOption, cancellationToken);
+                response = await _http.SendAsync(request, completionOption, cancellationToken).ConfigureAwait(false);
 
                 if (response.IsSuccessStatusCode)
                     return response;
 
-                failure = await BuildFailureAsync(response, cancellationToken);
+                failure = await BuildFailureAsync(response, cancellationToken).ConfigureAwait(false);
             }
             catch (HttpRequestException ex)
             {
@@ -514,7 +492,7 @@ public sealed class JetstreamArchiveClient : IDisposable
             var delay = RetryDelay(failure, attempt);
             _logger.LogWarning("Jetstream request failed ({Error}); retrying in {Delay}s",
                 failure.Message, delay.TotalSeconds);
-            await Task.Delay(delay, cancellationToken);
+            await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -523,7 +501,7 @@ public sealed class JetstreamArchiveClient : IDisposable
         CancellationToken cancellationToken)
     {
         var status = (int)response.StatusCode;
-        var (error, message, _) = await XrpcResponseReader.ReadErrorAsync(response, cancellationToken);
+        var (error, message, _) = await XrpcResponseReader.ReadErrorAsync(response, cancellationToken).ConfigureAwait(false);
         var retryAfter = XrpcResponseReader.GetRequestedDelay(response, DateTimeOffset.UtcNow);
 
         var description = status switch
@@ -569,7 +547,7 @@ public sealed class JetstreamArchiveClient : IDisposable
     {
         try
         {
-            return await response.Content.ReadFromJsonAsync<T>(JsonOptions, cancellationToken)
+            return await response.Content.ReadFromJsonAsync<T>(JsonOptions, cancellationToken).ConfigureAwait(false)
                 ?? throw new JetstreamException(
                     $"Jetstream returned an empty {typeof(T).Name} body.",
                     (int)response.StatusCode);

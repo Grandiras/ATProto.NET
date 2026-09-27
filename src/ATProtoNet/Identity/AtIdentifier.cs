@@ -15,33 +15,23 @@ namespace ATProtoNet.Identity;
 [JsonConverter(typeof(IdentifierJsonConverter<AtIdentifier>))]
 public sealed record AtIdentifier : IIdentifier<AtIdentifier>
 {
-    /// <summary>
-    /// The DID value, if this identifier is a DID.
-    /// </summary>
+    /// <summary>The DID value, if this identifier is a DID.</summary>
     public Did? Did { get; }
 
-    /// <summary>
-    /// The Handle value, if this identifier is a Handle.
-    /// </summary>
+    /// <summary>The Handle value, if this identifier is a Handle.</summary>
     public Handle? Handle { get; }
 
-    /// <summary>
-    /// Whether this identifier is a DID.
-    /// </summary>
+    /// <summary>Whether this identifier is a DID.</summary>
     [MemberNotNullWhen(true, nameof(Did))]
     [MemberNotNullWhen(false, nameof(Handle))]
     public bool IsDid => Did is not null;
 
-    /// <summary>
-    /// Whether this identifier is a Handle.
-    /// </summary>
+    /// <summary>Whether this identifier is a Handle.</summary>
     [MemberNotNullWhen(true, nameof(Handle))]
     [MemberNotNullWhen(false, nameof(Did))]
     public bool IsHandle => Handle is not null;
 
-    /// <summary>
-    /// The string value of the identifier.
-    /// </summary>
+    /// <summary>The string value of the identifier.</summary>
     public string Value => Did?.Value ?? Handle!.Value;
 
     private AtIdentifier(Did did)
@@ -54,10 +44,7 @@ public sealed record AtIdentifier : IIdentifier<AtIdentifier>
         Handle = handle;
     }
 
-    /// <summary>
-    /// Creates an AtIdentifier from a DID.
-    /// </summary>
-    /// <param name="did">The DID.</param>
+    /// <summary>Creates an AtIdentifier from a DID.</summary>
     /// <returns>An identifier wrapping <paramref name="did"/>.</returns>
     public static AtIdentifier FromDid(Did did)
     {
@@ -65,10 +52,7 @@ public sealed record AtIdentifier : IIdentifier<AtIdentifier>
         return new AtIdentifier(did);
     }
 
-    /// <summary>
-    /// Creates an AtIdentifier from a Handle.
-    /// </summary>
-    /// <param name="handle">The handle.</param>
+    /// <summary>Creates an AtIdentifier from a Handle.</summary>
     /// <returns>An identifier wrapping <paramref name="handle"/>.</returns>
     public static AtIdentifier FromHandle(Handle handle)
     {
@@ -88,9 +72,7 @@ public sealed record AtIdentifier : IIdentifier<AtIdentifier>
             ? identifier
             : throw IIdentifier<AtIdentifier>.InvalidValue(value, "AT identifier");
 
-    /// <summary>
-    /// Attempts to parse a string as an AT identifier without throwing.
-    /// </summary>
+    /// <summary>Attempts to parse a string as an AT identifier without throwing.</summary>
     /// <param name="value">The DID or handle.</param>
     /// <param name="identifier">The parsed identifier on success.</param>
     /// <returns><see langword="true"/> if <paramref name="value"/> is a valid DID or handle.</returns>
@@ -131,33 +113,25 @@ public sealed record AtIdentifier : IIdentifier<AtIdentifier>
         return result is not null;
     }
 
-    /// <summary>
-    /// Implicitly converts a <see cref="Did"/> to its <see cref="AtIdentifier"/> representation.
-    /// </summary>
+    /// <summary>Implicitly converts a <see cref="Did"/> to its <see cref="AtIdentifier"/> representation.</summary>
     /// <param name="did">The value to convert.</param>
     /// <returns>The converted value, or <see langword="null"/> for a <see langword="null"/> DID.</returns>
     [return: NotNullIfNotNull(nameof(did))]
     public static implicit operator AtIdentifier?(Did? did) => did is null ? null : new(did);
 
-    /// <summary>
-    /// Implicitly converts a <see cref="Handle"/> to its <see cref="AtIdentifier"/> representation.
-    /// </summary>
+    /// <summary>Implicitly converts a <see cref="Handle"/> to its <see cref="AtIdentifier"/> representation.</summary>
     /// <param name="handle">The value to convert.</param>
     /// <returns>The converted value, or <see langword="null"/> for a <see langword="null"/> handle.</returns>
     [return: NotNullIfNotNull(nameof(handle))]
     public static implicit operator AtIdentifier?(Handle? handle) => handle is null ? null : new(handle);
 
-    /// <summary>
-    /// Implicitly converts a <see cref="AtIdentifier"/> to its <see cref="string"/> representation.
-    /// </summary>
+    /// <summary>Implicitly converts a <see cref="AtIdentifier"/> to its <see cref="string"/> representation.</summary>
     /// <param name="id">The value to convert.</param>
     /// <returns>The converted value, or <see langword="null"/> for a <see langword="null"/> identifier.</returns>
     [return: NotNullIfNotNull(nameof(id))]
     public static implicit operator string?(AtIdentifier? id) => id?.Value;
 
-    /// <summary>
-    /// Explicitly converts a <see cref="string"/> to its <see cref="AtIdentifier"/> representation.
-    /// </summary>
+    /// <summary>Explicitly converts a <see cref="string"/> to its <see cref="AtIdentifier"/> representation.</summary>
     /// <param name="value">The value to convert.</param>
     /// <returns>The converted value.</returns>
     /// <exception cref="ArgumentException">Thrown if the value is neither a valid DID nor a valid handle.</exception>

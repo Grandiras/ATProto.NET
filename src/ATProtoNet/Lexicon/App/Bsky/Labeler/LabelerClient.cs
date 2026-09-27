@@ -16,12 +16,9 @@ public sealed class LabelerClient
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Fetches information about labeler services.
-    /// </summary>
+    /// <summary>Fetches information about labeler services.</summary>
     /// <param name="dids">The DIDs of the labeler services to query.</param>
     /// <param name="detailed">Whether to return detailed views (includes policies).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Service views for the requested labelers.</returns>
     public Task<GetLabelerServicesResponse> GetServicesAsync(
         IEnumerable<Did> dids,

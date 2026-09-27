@@ -34,7 +34,6 @@ public sealed class ServerClient
     /// Let a taken-down account sign in, to a session that can only migrate or export it. Without
     /// it the service refuses such an account with <c>AccountTakedown</c>.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<SessionResponse> CreateSessionAsync(
         string identifier, string password, string? authFactorToken = null, bool allowTakendown = false,
         CancellationToken cancellationToken = default)
@@ -58,7 +57,6 @@ public sealed class ServerClient
     /// call only the one returned is valid.
     /// </summary>
     /// <param name="refreshJwt">The session's refresh JWT.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<SessionResponse> RefreshSessionAsync(string refreshJwt, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(refreshJwt);
@@ -66,9 +64,7 @@ public sealed class ServerClient
             "com.atproto.server.refreshSession", body: null, refreshJwt, cancellationToken);
     }
 
-    /// <summary>
-    /// Get information about the current session.
-    /// </summary>
+    /// <summary>Get information about the current session.</summary>
     public Task<GetSessionResponse> GetSessionAsync(CancellationToken cancellationToken = default) =>
         _xrpc.QueryAsync<GetSessionResponse>(
             "com.atproto.server.getSession", options: XrpcClient.Direct, cancellationToken: cancellationToken);
@@ -78,7 +74,6 @@ public sealed class ServerClient
     /// session is left installed; <see cref="AtProtoClient.LogoutAsync"/> clears it as well.
     /// </summary>
     /// <param name="refreshJwt">The refresh JWT of the session to delete, as the Lexicon requires.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task DeleteSessionAsync(string refreshJwt, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(refreshJwt);
@@ -92,7 +87,6 @@ public sealed class ServerClient
     /// does that too.
     /// </summary>
     /// <param name="request">The account to create.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<CreateAccountResponse> CreateAccountAsync(
         CreateAccountRequest request,
         CancellationToken cancellationToken = default)
@@ -102,21 +96,15 @@ public sealed class ServerClient
             "com.atproto.server.createAccount", request, bearerToken: null, cancellationToken);
     }
 
-    /// <summary>
-    /// Delete an account. Requires a confirmation token.
-    /// </summary>
+    /// <summary>Delete an account. Requires a confirmation token.</summary>
     public Task DeleteAccountAsync(DeleteAccountRequest request, CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync("com.atproto.server.deleteAccount", request, cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Get a description of the server's configuration and capabilities.
-    /// </summary>
+    /// <summary>Get a description of the server's configuration and capabilities.</summary>
     public Task<DescribeServerResponse> DescribeServerAsync(CancellationToken cancellationToken = default) =>
         _xrpc.QueryAsync<DescribeServerResponse>("com.atproto.server.describeServer", cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Create a new app password for third-party application access.
-    /// </summary>
+    /// <summary>Create a new app password for third-party application access.</summary>
     public Task<AppPassword> CreateAppPasswordAsync(string name, bool? privileged = null,
         CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync<AppPassword>(
@@ -124,67 +112,48 @@ public sealed class ServerClient
             new CreateAppPasswordRequest { Name = name, Privileged = privileged },
             cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// List all app passwords for the current account.
-    /// </summary>
+    /// <summary>List all app passwords for the current account.</summary>
     public Task<ListAppPasswordsResponse> ListAppPasswordsAsync(CancellationToken cancellationToken = default) =>
         _xrpc.QueryAsync<ListAppPasswordsResponse>("com.atproto.server.listAppPasswords", cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Revoke an app password by name.
-    /// </summary>
+    /// <summary>Revoke an app password by name.</summary>
     public Task RevokeAppPasswordAsync(string name, CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync("com.atproto.server.revokeAppPassword",
             new RevokeAppPasswordRequest { Name = name }, cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Request a password reset email.
-    /// </summary>
+    /// <summary>Request a password reset email.</summary>
     public Task RequestPasswordResetAsync(string email, CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync("com.atproto.server.requestPasswordReset",
             new RequestPasswordResetRequest { Email = email }, cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Reset password using a token received via email.
-    /// </summary>
+    /// <summary>Reset password using a token received via email.</summary>
     public Task ResetPasswordAsync(string token, string password, CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync("com.atproto.server.resetPassword",
             new ResetPasswordRequest { Token = token, Password = password }, cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Confirm an email address with a token.
-    /// </summary>
+    /// <summary>Confirm an email address with a token.</summary>
     public Task ConfirmEmailAsync(string email, string token, CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync("com.atproto.server.confirmEmail",
             new ConfirmEmailRequest { Email = email, Token = token }, cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Request an email confirmation code.
-    /// </summary>
+    /// <summary>Request an email confirmation code.</summary>
     public Task RequestEmailConfirmationAsync(CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync("com.atproto.server.requestEmailConfirmation", cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Request an email update token.
-    /// </summary>
+    /// <summary>Request an email update token.</summary>
     public Task<RequestEmailUpdateResponse> RequestEmailUpdateAsync(CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync<RequestEmailUpdateResponse>("com.atproto.server.requestEmailUpdate", cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Update the email address for the current account.
-    /// </summary>
+    /// <summary>Update the email address for the current account.</summary>
     public Task UpdateEmailAsync(UpdateEmailRequest request, CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync("com.atproto.server.updateEmail", request, cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Get a service auth token for inter-service authentication.
-    /// </summary>
+    /// <summary>Get a service auth token for inter-service authentication.</summary>
     /// <param name="aud">
     /// The DID of the service the token is for, optionally with a <c>#serviceId</c> fragment.
     /// </param>
     /// <param name="lxm">The XRPC method to bind the token to, if any.</param>
     /// <param name="exp">When the token expires, in Unix epoch seconds.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetServiceAuthResponse> GetServiceAuthAsync(string aud, Nsid? lxm = null,
         int? exp = null, CancellationToken cancellationToken = default)
     {
@@ -195,12 +164,9 @@ public sealed class ServerClient
         return _xrpc.QueryAsync<GetServiceAuthResponse>("com.atproto.server.getServiceAuth", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Create an invite code.
-    /// </summary>
+    /// <summary>Create an invite code.</summary>
     /// <param name="useCount">How many accounts the code may create.</param>
     /// <param name="forAccount">The DID of the account to issue the code to, if any.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<CreateInviteCodeResponse> CreateInviteCodeAsync(int useCount, Did? forAccount = null,
         CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync<CreateInviteCodeResponse>(
@@ -208,16 +174,12 @@ public sealed class ServerClient
             new CreateInviteCodeRequest { UseCount = useCount, ForAccount = forAccount },
             cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Create multiple invite codes.
-    /// </summary>
+    /// <summary>Create multiple invite codes.</summary>
     public Task<CreateInviteCodesResponse> CreateInviteCodesAsync(CreateInviteCodesRequest request, CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync<CreateInviteCodesResponse>(
             "com.atproto.server.createInviteCodes", request, cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Get invite codes for the current account.
-    /// </summary>
+    /// <summary>Get invite codes for the current account.</summary>
     public Task<GetAccountInviteCodesResponse> GetAccountInviteCodesAsync(
         bool? includeUsed = null, bool? createAvailable = null,
         CancellationToken cancellationToken = default)
@@ -229,37 +191,27 @@ public sealed class ServerClient
             "com.atproto.server.getAccountInviteCodes", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Request a deletion token for account deletion.
-    /// </summary>
+    /// <summary>Request a deletion token for account deletion.</summary>
     public Task RequestAccountDeleteAsync(CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync("com.atproto.server.requestAccountDelete", cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Reserve a signing key for account creation.
-    /// </summary>
+    /// <summary>Reserve a signing key for account creation.</summary>
     /// <param name="did">The DID to reserve the key for, if it already exists.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ReserveSigningKeyResponse> ReserveSigningKeyAsync(Did? did = null, CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync<ReserveSigningKeyResponse>(
             "com.atproto.server.reserveSigningKey",
             new ReserveSigningKeyRequest { Did = did },
             cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Activate a deactivated account.
-    /// </summary>
+    /// <summary>Activate a deactivated account.</summary>
     public Task ActivateAccountAsync(CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync("com.atproto.server.activateAccount", cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Deactivate an account.
-    /// </summary>
+    /// <summary>Deactivate an account.</summary>
     /// <param name="deleteAfter">
     /// A recommendation to the server of how long to keep the deactivated account before deleting
     /// it.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task DeactivateAccountAsync(AtDatetime? deleteAfter = null, CancellationToken cancellationToken = default) =>
         // Always a JSON body, even an empty one: the reference PDS rejects this method without one.
         _xrpc.ProcedureAsync(
@@ -267,9 +219,7 @@ public sealed class ServerClient
             new DeactivateAccountRequest { DeleteAfter = deleteAfter },
             cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Check account status.
-    /// </summary>
+    /// <summary>Check account status.</summary>
     public Task<CheckAccountStatusResponse> CheckAccountStatusAsync(CancellationToken cancellationToken = default) =>
         _xrpc.QueryAsync<CheckAccountStatusResponse>("com.atproto.server.checkAccountStatus", cancellationToken: cancellationToken);
 }

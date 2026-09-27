@@ -7,18 +7,14 @@ using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// A client attestation that verified.
-/// </summary>
+/// <summary>A client attestation that verified.</summary>
 /// <param name="ClientId">
 /// The application's OAuth client ID — its <c>iss</c>, and the value an
 /// <c>AllowListAppAccess</c> policy is evaluated against.
 /// </param>
 public sealed record VerifiedClientAttestation(string ClientId);
 
-/// <summary>
-/// Resolves an OAuth <c>client_id</c> to the public keys its attestations verify against.
-/// </summary>
+/// <summary>Resolves an OAuth <c>client_id</c> to the public keys its attestations verify against.</summary>
 /// <remarks>
 /// In AT Protocol OAuth a <c>client_id</c> <em>is</em> the URL of the client's metadata
 /// document, so resolution is a fetch of that URL, followed by its <c>jwks_uri</c> when the keys
@@ -28,11 +24,8 @@ public sealed record VerifiedClientAttestation(string ClientId);
 /// </remarks>
 public interface ISpaceClientMetadataResolver
 {
-    /// <summary>
-    /// Resolves the keys published for a client ID.
-    /// </summary>
+    /// <summary>Resolves the keys published for a client ID.</summary>
     /// <param name="clientId">The OAuth client ID, which is the metadata document's URL.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The client's published signing keys.</returns>
     /// <exception cref="SpaceVerificationException">Thrown when the client publishes no usable keys.</exception>
     Task<IReadOnlyList<JsonWebKey>> ResolveKeysAsync(string clientId, CancellationToken cancellationToken = default);
@@ -47,9 +40,7 @@ public sealed class HttpSpaceClientMetadataResolver : ISpaceClientMetadataResolv
     private readonly HttpClient _httpClient;
     private readonly SpaceServerOptions _options;
 
-    /// <summary>
-    /// Creates a resolver.
-    /// </summary>
+    /// <summary>Creates a resolver.</summary>
     /// <param name="httpClient">The client used for the outbound fetches.</param>
     /// <param name="options">Server options; supplies the document size ceiling.</param>
     public HttpSpaceClientMetadataResolver(HttpClient httpClient, SpaceServerOptions? options = null)
@@ -76,7 +67,7 @@ public sealed class HttpSpaceClientMetadataResolver : ISpaceClientMetadataResolv
             throw Invalid($"Client ID '{clientId}' is not an https URL, so it publishes no attestation keys.");
         }
 
-        var metadata = await FetchAsync<OAuthClientMetadata>(metadataUri, "client metadata", cancellationToken);
+        var metadata = await FetchAsync<OAuthClientMetadata>(metadataUri, "client metadata", cancellationToken).ConfigureAwait(false);
 
         if (!string.Equals(metadata.ClientId, clientId, StringComparison.Ordinal))
         {
@@ -96,7 +87,7 @@ public sealed class HttpSpaceClientMetadataResolver : ISpaceClientMetadataResolv
             throw Invalid($"Client '{clientId}' publishes a jwks_uri that is not an https URL.");
         }
 
-        var jwks = await FetchAsync<JsonWebKeySet>(jwksUri, "JWKS", cancellationToken);
+        var jwks = await FetchAsync<JsonWebKeySet>(jwksUri, "JWKS", cancellationToken).ConfigureAwait(false);
 
         return jwks.Keys.Count > 0
             ? jwks.Keys
@@ -108,14 +99,14 @@ public sealed class HttpSpaceClientMetadataResolver : ISpaceClientMetadataResolv
         try
         {
             using var response = await _httpClient.GetAsync(
-                uri, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                uri, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
                 throw Invalid($"Fetching {what} from '{uri}' answered {(int)response.StatusCode}.");
 
             // The fetch is directed by the attestation, so it needs a ceiling whether or not the
             // server declares a length.
-            var body = await response.Content.ReadBoundedAsync(_options.MaxClientMetadataBytes, cancellationToken)
+            var body = await response.Content.ReadBoundedAsync(_options.MaxClientMetadataBytes, cancellationToken).ConfigureAwait(false)
                 ?? throw Invalid($"The {what} at '{uri}' exceeds {_options.MaxClientMetadataBytes} bytes.");
 
             return JsonSerializer.Deserialize<T>(body.Span, JsonOptions)
@@ -134,9 +125,7 @@ public sealed class HttpSpaceClientMetadataResolver : ISpaceClientMetadataResolv
         new(SpaceErrors.InvalidClientAttestation, message);
 }
 
-/// <summary>
-/// Verifies the client attestations presented to a space authority.
-/// </summary>
+/// <summary>Verifies the client attestations presented to a space authority.</summary>
 /// <remarks>
 /// <para>A client attestation establishes <em>which application</em> is acting, independently of
 /// which user it acts for. The two are presented together but signed by different parties and
@@ -171,9 +160,7 @@ public sealed class SpaceClientAttestationVerifier
     private readonly ConcurrentDictionary<string, ClientKeys> _clientKeys = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, Lazy<Task<IReadOnlyList<JsonWebKey>>>> _fetches = new(StringComparer.Ordinal);
 
-    /// <summary>
-    /// Creates a verifier.
-    /// </summary>
+    /// <summary>Creates a verifier.</summary>
     /// <param name="metadataResolver">Resolves a client ID to its published keys.</param>
     /// <param name="replayStore">The store that consumes each attestation's <c>jti</c>.</param>
     /// <param name="options">Server options; supplies the accepted attestation lifetime.</param>
@@ -193,15 +180,12 @@ public sealed class SpaceClientAttestationVerifier
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
-    /// <summary>
-    /// Verifies a client attestation.
-    /// </summary>
+    /// <summary>Verifies a client attestation.</summary>
     /// <param name="jwt">The attestation, from the <c>clientAttestation</c> request field.</param>
     /// <param name="expectedAudience">
     /// The audience this authority answers to:
     /// <see cref="SpaceAuthority.HostAudience"/> for its own DID.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="SpaceVerificationException">Thrown when any check fails.</exception>
     public async Task<VerifiedClientAttestation> VerifyAsync(
         string jwt, string expectedAudience, CancellationToken cancellationToken = default)
@@ -242,7 +226,7 @@ public sealed class SpaceClientAttestationVerifier
                 "this service accepts.");
         }
 
-        var (keys, cached) = await GetKeysAsync(parsed.Issuer, now, cancellationToken);
+        var (keys, cached) = await GetKeysAsync(parsed.Issuer, now, cancellationToken).ConfigureAwait(false);
         var failure = Check(keys, parsed);
 
         // A key the client has since rotated in is not in a remembered set yet. A refetch that
@@ -251,7 +235,7 @@ public sealed class SpaceClientAttestationVerifier
         {
             try
             {
-                failure = Check(await FetchKeysAsync(parsed.Issuer, now, cancellationToken), parsed);
+                failure = Check(await FetchKeysAsync(parsed.Issuer, now, cancellationToken).ConfigureAwait(false), parsed);
             }
             catch (SpaceVerificationException)
             {
@@ -262,7 +246,7 @@ public sealed class SpaceClientAttestationVerifier
             throw failure;
 
         if (!await _replayStore.TryConsumeAsync(
-                parsed.Issuer, parsed.TokenId!, _options.ReplayRetention(parsed.ExpiresAt), cancellationToken))
+                parsed.Issuer, parsed.TokenId!, _options.ReplayRetention(parsed.ExpiresAt), cancellationToken).ConfigureAwait(false))
         {
             throw Invalid("The client attestation has already been used; attestations are single-use.");
         }
@@ -284,7 +268,7 @@ public sealed class SpaceClientAttestationVerifier
                 throw Invalid($"The metadata of client '{clientId}' could not be fetched; try again later.");
         }
 
-        return (await FetchKeysAsync(clientId, now, cancellationToken), false);
+        return (await FetchKeysAsync(clientId, now, cancellationToken).ConfigureAwait(false), false);
     }
 
     /// <summary>Whether the last fetch for a client, however it ended, is at least 30 seconds old.</summary>
@@ -320,7 +304,7 @@ public sealed class SpaceClientAttestationVerifier
         var fetch = _fetches.GetOrAdd(
             clientId, id => new Lazy<Task<IReadOnlyList<JsonWebKey>>>(() => FetchSharedAsync(id)));
 
-        var keys = await fetch.Value.WaitAsync(cancellationToken);
+        var keys = await fetch.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
         if (caching)
             _clientKeys[clientId] = new ClientKeys(keys, now, now);
         return keys;
@@ -330,7 +314,7 @@ public sealed class SpaceClientAttestationVerifier
     {
         try
         {
-            return await _metadataResolver.ResolveKeysAsync(clientId, CancellationToken.None);
+            return await _metadataResolver.ResolveKeysAsync(clientId, CancellationToken.None).ConfigureAwait(false);
         }
         finally
         {

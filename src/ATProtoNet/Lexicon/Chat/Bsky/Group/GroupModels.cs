@@ -7,13 +7,9 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.Chat.Bsky.Group;
 
-// ──────────────────────────────────────────────────────────
-//  Known values
-// ──────────────────────────────────────────────────────────
+// ── Known values ─────────────────────────────────────────
 
-/// <summary>
-/// Known values of who may use a join link (<c>chat.bsky.group.defs#joinRule</c>).
-/// </summary>
+/// <summary>Known values of who may use a join link (<c>chat.bsky.group.defs#joinRule</c>).</summary>
 public static class JoinRule
 {
     /// <summary>Anyone with the link.</summary>
@@ -23,9 +19,7 @@ public static class JoinRule
     public const string FollowedByOwner = "followedByOwner";
 }
 
-/// <summary>
-/// Known values of <see cref="JoinLinkView.EnabledStatus"/> (<c>chat.bsky.group.defs#linkEnabledStatus</c>).
-/// </summary>
+/// <summary>Known values of <see cref="JoinLinkView.EnabledStatus"/> (<c>chat.bsky.group.defs#linkEnabledStatus</c>).</summary>
 public static class JoinLinkEnabledStatus
 {
     /// <summary>The link can be used to join.</summary>
@@ -35,9 +29,7 @@ public static class JoinLinkEnabledStatus
     public const string Disabled = "disabled";
 }
 
-/// <summary>
-/// Known values of <see cref="RequestJoinResponse.Status"/>.
-/// </summary>
+/// <summary>Known values of <see cref="RequestJoinResponse.Status"/>.</summary>
 public static class RequestJoinStatus
 {
     /// <summary>The viewer is now a member.</summary>
@@ -47,13 +39,9 @@ public static class RequestJoinStatus
     public const string Pending = "pending";
 }
 
-// ──────────────────────────────────────────────────────────
-//  Join links
-// ──────────────────────────────────────────────────────────
+// ── Join links ───────────────────────────────────────────
 
-/// <summary>
-/// A group's join link, as its owner and members see it (<c>chat.bsky.group.defs#joinLinkView</c>).
-/// </summary>
+/// <summary>A group's join link, as its owner and members see it (<c>chat.bsky.group.defs#joinLinkView</c>).</summary>
 public sealed class JoinLinkView : LexObject
 {
     /// <summary>The link's code.</summary>
@@ -181,9 +169,7 @@ public sealed class InvalidJoinLinkPreviewView : JoinLinkPreview
     public required string Code { get; init; }
 }
 
-/// <summary>
-/// The viewer's relationship to a join link (<c>chat.bsky.group.defs#joinLinkViewerState</c>).
-/// </summary>
+/// <summary>The viewer's relationship to a join link (<c>chat.bsky.group.defs#joinLinkViewerState</c>).</summary>
 public sealed class JoinLinkViewerState : LexObject
 {
     /// <summary>When the viewer asked to join, if the request is pending.</summary>
@@ -191,13 +177,9 @@ public sealed class JoinLinkViewerState : LexObject
     public AtDatetime? RequestedAt { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────
-//  Join requests
-// ──────────────────────────────────────────────────────────
+// ── Join requests ────────────────────────────────────────
 
-/// <summary>
-/// A request to join a group, as its owner sees it (<c>chat.bsky.group.defs#joinRequestView</c>).
-/// </summary>
+/// <summary>A request to join a group, as its owner sees it (<c>chat.bsky.group.defs#joinRequestView</c>).</summary>
 public sealed class JoinRequestView : LexObject
 {
     /// <summary>The identifier of the group's conversation.</summary>
@@ -244,9 +226,7 @@ public sealed class JoinRequestConvoView : ConvoRequestView
     public required JoinLinkViewerState Viewer { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────
-//  Request models
-// ──────────────────────────────────────────────────────────
+// ── Request models ───────────────────────────────────────
 
 /// <summary>Request body for chat.bsky.group.createGroup.</summary>
 internal sealed class CreateGroupRequest
@@ -392,13 +372,9 @@ internal sealed class UpdateJoinRequestsReadRequest
     public required string ConvoId { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────
-//  Response models
-// ──────────────────────────────────────────────────────────
+// ── Response models ──────────────────────────────────────
 
-/// <summary>
-/// Response from chat.bsky.group.addMembers.
-/// </summary>
+/// <summary>Response from chat.bsky.group.addMembers.</summary>
 public sealed class AddMembersResponse
 {
     /// <summary>The group after the change.</summary>
@@ -410,9 +386,7 @@ public sealed class AddMembersResponse
     public IReadOnlyList<ChatMemberView>? AddedMembers { get; init; }
 }
 
-/// <summary>
-/// Response from chat.bsky.group.listMutualGroups.
-/// </summary>
+/// <summary>Response from chat.bsky.group.listMutualGroups.</summary>
 public sealed class ListMutualGroupsResponse : ICursorPage<ConvoView>
 {
     /// <summary>
@@ -429,9 +403,7 @@ public sealed class ListMutualGroupsResponse : ICursorPage<ConvoView>
     IReadOnlyList<ConvoView> ICursorPage<ConvoView>.Items => Convos;
 }
 
-/// <summary>
-/// Response from chat.bsky.group.getJoinLinkPreviews.
-/// </summary>
+/// <summary>Response from chat.bsky.group.getJoinLinkPreviews.</summary>
 public sealed class GetJoinLinkPreviewsResponse
 {
     /// <summary>One preview per code asked for, in the same order.</summary>
@@ -439,9 +411,7 @@ public sealed class GetJoinLinkPreviewsResponse
     public required IReadOnlyList<JoinLinkPreview> JoinLinkPreviews { get; init; }
 }
 
-/// <summary>
-/// Response from chat.bsky.group.requestJoin.
-/// </summary>
+/// <summary>Response from chat.bsky.group.requestJoin.</summary>
 public sealed class RequestJoinResponse
 {
     /// <summary>
@@ -456,9 +426,7 @@ public sealed class RequestJoinResponse
     public ConvoView? Convo { get; init; }
 }
 
-/// <summary>
-/// Response from chat.bsky.group.listJoinRequests.
-/// </summary>
+/// <summary>Response from chat.bsky.group.listJoinRequests.</summary>
 public sealed class ListJoinRequestsResponse : ICursorPage<JoinRequestView>
 {
     /// <summary>

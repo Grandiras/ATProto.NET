@@ -33,9 +33,7 @@ public sealed class LabelSigner
     private readonly TimeProvider _timeProvider;
     private readonly Lock _lock = new();
 
-    /// <summary>
-    /// Creates a signer.
-    /// </summary>
+    /// <summary>Creates a signer.</summary>
     /// <param name="labeler">The labeler's DID: the <c>src</c> of every label this signs.</param>
     /// <param name="key">
     /// The private key the labeler's DID document publishes as <c>#atproto_label</c>.
@@ -61,9 +59,7 @@ public sealed class LabelSigner
     /// </summary>
     public string SigningKey { get; }
 
-    /// <summary>
-    /// Creates and signs a label, stamped with the current time.
-    /// </summary>
+    /// <summary>Creates and signs a label, stamped with the current time.</summary>
     /// <param name="subject">
     /// What is labelled: an <c>at://</c> URI for a record, or a DID for an account.
     /// </param>
@@ -86,9 +82,7 @@ public sealed class LabelSigner
             Exp = expiresAt,
         });
 
-    /// <summary>
-    /// Signs a label.
-    /// </summary>
+    /// <summary>Signs a label.</summary>
     /// <param name="label">
     /// The label, whose <c>src</c> must be <see cref="Labeler"/>. Any <c>sig</c> it carries is
     /// replaced.

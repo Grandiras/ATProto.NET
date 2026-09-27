@@ -12,9 +12,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.Chat.Bsky.Convo;
 
-// ──────────────────────────────────────────────────────────
-//  Known values
-// ──────────────────────────────────────────────────────────
+// ── Known values ─────────────────────────────────────────
 
 /// <summary>
 /// Known values of <see cref="ConvoView.Status"/> (<c>chat.bsky.convo.defs#convoStatus</c>): the
@@ -42,9 +40,7 @@ public static class ConvoKinds
     public const string Group = "group";
 }
 
-/// <summary>
-/// Known values of <see cref="GroupConvo.LockStatus"/> (<c>chat.bsky.convo.defs#convoLockStatus</c>).
-/// </summary>
+/// <summary>Known values of <see cref="GroupConvo.LockStatus"/> (<c>chat.bsky.convo.defs#convoLockStatus</c>).</summary>
 public static class ConvoLockStatus
 {
     /// <summary>Members may add messages and reactions.</summary>
@@ -57,18 +53,14 @@ public static class ConvoLockStatus
     public const string LockedPermanently = "locked-permanently";
 }
 
-/// <summary>
-/// Known values of the <c>readState</c> filter of <c>chat.bsky.convo.listConvos</c>.
-/// </summary>
+/// <summary>Known values of the <c>readState</c> filter of <c>chat.bsky.convo.listConvos</c>.</summary>
 public static class ConvoReadState
 {
     /// <summary>Only conversations with unread messages.</summary>
     public const string Unread = "unread";
 }
 
-// ──────────────────────────────────────────────────────────
-//  Conversations
-// ──────────────────────────────────────────────────────────
+// ── Conversations ────────────────────────────────────────
 
 /// <summary>
 /// An entry of <c>chat.bsky.convo.listConvoRequests</c>: a conversation request
@@ -104,9 +96,7 @@ public sealed class UnknownConvoRequestView : ConvoRequestView, IUnknownUnionVar
     public JsonElement Raw { get; }
 }
 
-/// <summary>
-/// A conversation, direct or group, as the viewer sees it (<c>chat.bsky.convo.defs#convoView</c>).
-/// </summary>
+/// <summary>A conversation, direct or group, as the viewer sees it (<c>chat.bsky.convo.defs#convoView</c>).</summary>
 public sealed class ConvoView : ConvoRequestView
 {
     /// <summary>The identifier of the conversation.</summary>
@@ -210,9 +200,7 @@ public sealed class GroupConvo : ConvoKind
     [JsonPropertyName("joinRequestCount")]
     public int? JoinRequestCount { get; init; }
 
-    /// <summary>
-    /// Whether the group accepts new messages and reactions (see <see cref="ConvoLockStatus"/>).
-    /// </summary>
+    /// <summary>Whether the group accepts new messages and reactions (see <see cref="ConvoLockStatus"/>).</summary>
     [JsonPropertyName("lockStatus")]
     public required string LockStatus { get; init; }
 
@@ -271,9 +259,7 @@ public sealed class UnknownConvoLastReaction : ConvoLastReaction, IUnknownUnionV
     public JsonElement Raw { get; }
 }
 
-/// <summary>
-/// A reaction together with the message it is on (<c>chat.bsky.convo.defs#messageAndReactionView</c>).
-/// </summary>
+/// <summary>A reaction together with the message it is on (<c>chat.bsky.convo.defs#messageAndReactionView</c>).</summary>
 public sealed class MessageAndReactionView : ConvoLastReaction
 {
     /// <summary>The message.</summary>
@@ -285,9 +271,7 @@ public sealed class MessageAndReactionView : ConvoLastReaction
     public required ReactionView Reaction { get; init; }
 }
 
-/// <summary>
-/// A chat member (actor profile) within a conversation.
-/// </summary>
+/// <summary>A chat member (actor profile) within a conversation.</summary>
 public sealed class ChatMemberView : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -341,9 +325,7 @@ public sealed class ChatMemberView : LexObject
     public ChatMemberKind? Kind { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────
-//  Messages
-// ──────────────────────────────────────────────────────────
+// ── Messages ─────────────────────────────────────────────
 
 /// <summary>
 /// A message in a conversation (the open unions of <c>chat.bsky.convo.getMessages</c>,
@@ -382,9 +364,7 @@ public sealed class UnknownConvoMessage : ConvoMessage, IUnknownUnionVariant
     public JsonElement Raw { get; }
 }
 
-/// <summary>
-/// A message a member sent (<c>chat.bsky.convo.defs#messageView</c>).
-/// </summary>
+/// <summary>A message a member sent (<c>chat.bsky.convo.defs#messageView</c>).</summary>
 public sealed class MessageView : ConvoMessage
 {
     /// <summary>The identifier of the message.</summary>
@@ -432,9 +412,7 @@ public sealed class MessageView : ConvoMessage
     public required AtDatetime SentAt { get; init; }
 }
 
-/// <summary>
-/// A deleted message placeholder (<c>chat.bsky.convo.defs#deletedMessageView</c>).
-/// </summary>
+/// <summary>A deleted message placeholder (<c>chat.bsky.convo.defs#deletedMessageView</c>).</summary>
 public sealed class DeletedMessageView : ConvoMessage
 {
     /// <summary>The identifier of the message.</summary>
@@ -461,9 +439,7 @@ public sealed class DeletedMessageView : ConvoMessage
 /// </summary>
 public sealed class MessageBeforeUserJoinedGroupView : ConvoMessage;
 
-/// <summary>
-/// The sender of a message.
-/// </summary>
+/// <summary>The sender of a message.</summary>
 public sealed class MessageSender : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -471,9 +447,7 @@ public sealed class MessageSender : LexObject
     public required Did Did { get; init; }
 }
 
-/// <summary>
-/// A reaction to a message (<c>chat.bsky.convo.defs#reactionView</c>).
-/// </summary>
+/// <summary>A reaction to a message (<c>chat.bsky.convo.defs#reactionView</c>).</summary>
 public sealed class ReactionView : LexObject
 {
     /// <summary>The reaction, a single emoji.</summary>
@@ -489,9 +463,7 @@ public sealed class ReactionView : LexObject
     public required AtDatetime CreatedAt { get; init; }
 }
 
-/// <summary>
-/// The account that added a reaction (<c>chat.bsky.convo.defs#reactionViewSender</c>).
-/// </summary>
+/// <summary>The account that added a reaction (<c>chat.bsky.convo.defs#reactionViewSender</c>).</summary>
 public sealed class ReactionViewSender : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -499,9 +471,7 @@ public sealed class ReactionViewSender : LexObject
     public required Did Did { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────
-//  System messages
-// ──────────────────────────────────────────────────────────
+// ── System messages ──────────────────────────────────────
 
 /// <summary>
 /// A message the chat service adds to a group conversation when something happens to it, such as a
@@ -686,9 +656,7 @@ public sealed class SystemMessageDataEnableJoinLink : SystemMessageData;
 /// <summary>The group's join link was disabled (<c>#systemMessageDataDisableJoinLink</c>).</summary>
 public sealed class SystemMessageDataDisableJoinLink : SystemMessageData;
 
-// ──────────────────────────────────────────────────────────
-//  Conversation log (chat.bsky.convo.getLog)
-// ──────────────────────────────────────────────────────────
+// ── Conversation log (chat.bsky.convo.getLog) ────────────
 
 /// <summary>
 /// An entry of the conversation log (the open <c>chat.bsky.convo.getLog</c> union), such as a
@@ -783,9 +751,7 @@ public sealed class UnknownConvoLogEntry : ConvoLogEntry, IUnknownUnionVariant
 /// </summary>
 public sealed class LogBeginConvo : ConvoLogEntry;
 
-/// <summary>
-/// The viewer accepted a conversation, which leaves the request inbox (<c>#logAcceptConvo</c>).
-/// </summary>
+/// <summary>The viewer accepted a conversation, which leaves the request inbox (<c>#logAcceptConvo</c>).</summary>
 public sealed class LogAcceptConvo : ConvoLogEntry;
 
 /// <summary>The viewer left a conversation (<c>#logLeaveConvo</c>).</summary>
@@ -1066,13 +1032,9 @@ public sealed class LogWithdrawOutgoingJoinRequest : ConvoLogEntry;
 /// </summary>
 public sealed class LogReadJoinRequests : ConvoLogEntry;
 
-// ──────────────────────────────────────────────────────────
-//  Request models
-// ──────────────────────────────────────────────────────────
+// ── Request models ───────────────────────────────────────
 
-/// <summary>
-/// Request body for chat.bsky.convo.sendMessage.
-/// </summary>
+/// <summary>Request body for chat.bsky.convo.sendMessage.</summary>
 internal sealed class SendMessageRequest
 {
     /// <summary>The identifier of the conversation.</summary>
@@ -1084,9 +1046,7 @@ internal sealed class SendMessageRequest
     public required MessageInput Message { get; init; }
 }
 
-/// <summary>
-/// Input for a message to be sent.
-/// </summary>
+/// <summary>Input for a message to be sent.</summary>
 public sealed class MessageInput : LexObject
 {
     /// <summary>The message text.</summary>
@@ -1109,9 +1069,7 @@ public sealed class MessageInput : LexObject
     public MessageReplyRef? ReplyTo { get; init; }
 }
 
-/// <summary>
-/// A reference to the message a new message replies to (<c>chat.bsky.convo.defs#replyRef</c>).
-/// </summary>
+/// <summary>A reference to the message a new message replies to (<c>chat.bsky.convo.defs#replyRef</c>).</summary>
 public sealed class MessageReplyRef : LexObject
 {
     /// <summary>The identifier of the message, in the same conversation.</summary>
@@ -1119,9 +1077,7 @@ public sealed class MessageReplyRef : LexObject
     public required string MessageId { get; init; }
 }
 
-/// <summary>
-/// A message within a batch send request.
-/// </summary>
+/// <summary>A message within a batch send request.</summary>
 public sealed class BatchMessageItem : LexObject
 {
     /// <summary>The identifier of the conversation.</summary>
@@ -1133,9 +1089,7 @@ public sealed class BatchMessageItem : LexObject
     public required MessageInput Message { get; init; }
 }
 
-/// <summary>
-/// Request body for chat.bsky.convo.sendMessageBatch.
-/// </summary>
+/// <summary>Request body for chat.bsky.convo.sendMessageBatch.</summary>
 internal sealed class SendMessageBatchRequest
 {
     /// <summary>The messages to send.</summary>
@@ -1143,9 +1097,7 @@ internal sealed class SendMessageBatchRequest
     public required IReadOnlyList<BatchMessageItem> Items { get; init; }
 }
 
-/// <summary>
-/// Request body for chat.bsky.convo.deleteMessageForSelf.
-/// </summary>
+/// <summary>Request body for chat.bsky.convo.deleteMessageForSelf.</summary>
 internal sealed class DeleteMessageForSelfRequest
 {
     /// <summary>The identifier of the conversation.</summary>
@@ -1157,9 +1109,7 @@ internal sealed class DeleteMessageForSelfRequest
     public required string MessageId { get; init; }
 }
 
-/// <summary>
-/// Request body for chat.bsky.convo.leaveConvo.
-/// </summary>
+/// <summary>Request body for chat.bsky.convo.leaveConvo.</summary>
 internal sealed class LeaveConvoRequest
 {
     /// <summary>The identifier of the conversation.</summary>
@@ -1167,9 +1117,7 @@ internal sealed class LeaveConvoRequest
     public required string ConvoId { get; init; }
 }
 
-/// <summary>
-/// Request body for chat.bsky.convo.muteConvo.
-/// </summary>
+/// <summary>Request body for chat.bsky.convo.muteConvo.</summary>
 internal sealed class MuteConvoRequest
 {
     /// <summary>The identifier of the conversation.</summary>
@@ -1177,9 +1125,7 @@ internal sealed class MuteConvoRequest
     public required string ConvoId { get; init; }
 }
 
-/// <summary>
-/// Request body for chat.bsky.convo.unmuteConvo.
-/// </summary>
+/// <summary>Request body for chat.bsky.convo.unmuteConvo.</summary>
 internal sealed class UnmuteConvoRequest
 {
     /// <summary>The identifier of the conversation.</summary>
@@ -1187,9 +1133,7 @@ internal sealed class UnmuteConvoRequest
     public required string ConvoId { get; init; }
 }
 
-/// <summary>
-/// Request body for chat.bsky.convo.lockConvo.
-/// </summary>
+/// <summary>Request body for chat.bsky.convo.lockConvo.</summary>
 internal sealed class LockConvoRequest
 {
     /// <summary>The identifier of the conversation.</summary>
@@ -1197,9 +1141,7 @@ internal sealed class LockConvoRequest
     public required string ConvoId { get; init; }
 }
 
-/// <summary>
-/// Request body for chat.bsky.convo.unlockConvo.
-/// </summary>
+/// <summary>Request body for chat.bsky.convo.unlockConvo.</summary>
 internal sealed class UnlockConvoRequest
 {
     /// <summary>The identifier of the conversation.</summary>
@@ -1207,9 +1149,7 @@ internal sealed class UnlockConvoRequest
     public required string ConvoId { get; init; }
 }
 
-/// <summary>
-/// Request body for chat.bsky.convo.updateRead.
-/// </summary>
+/// <summary>Request body for chat.bsky.convo.updateRead.</summary>
 internal sealed class UpdateReadRequest
 {
     /// <summary>The identifier of the conversation.</summary>
@@ -1221,9 +1161,7 @@ internal sealed class UpdateReadRequest
     public string? MessageId { get; init; }
 }
 
-/// <summary>
-/// Request body for chat.bsky.convo.updateAllRead.
-/// </summary>
+/// <summary>Request body for chat.bsky.convo.updateAllRead.</summary>
 internal sealed class UpdateAllReadRequest
 {
     /// <summary>Only conversations with this status (<c>request</c> or <c>accepted</c>).</summary>
@@ -1231,9 +1169,7 @@ internal sealed class UpdateAllReadRequest
     public string? Status { get; init; }
 }
 
-/// <summary>
-/// Request body for chat.bsky.convo.acceptConvo.
-/// </summary>
+/// <summary>Request body for chat.bsky.convo.acceptConvo.</summary>
 internal sealed class AcceptConvoRequest
 {
     /// <summary>The identifier of the conversation.</summary>
@@ -1241,9 +1177,7 @@ internal sealed class AcceptConvoRequest
     public required string ConvoId { get; init; }
 }
 
-/// <summary>
-/// Request body for chat.bsky.convo.addReaction.
-/// </summary>
+/// <summary>Request body for chat.bsky.convo.addReaction.</summary>
 internal sealed class AddReactionRequest
 {
     /// <summary>The identifier of the conversation.</summary>
@@ -1259,9 +1193,7 @@ internal sealed class AddReactionRequest
     public required string Value { get; init; }
 }
 
-/// <summary>
-/// Request body for chat.bsky.convo.removeReaction.
-/// </summary>
+/// <summary>Request body for chat.bsky.convo.removeReaction.</summary>
 internal sealed class RemoveReactionRequest
 {
     /// <summary>The identifier of the conversation.</summary>
@@ -1277,13 +1209,9 @@ internal sealed class RemoveReactionRequest
     public required string Value { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────
-//  Response models
-// ──────────────────────────────────────────────────────────
+// ── Response models ──────────────────────────────────────
 
-/// <summary>
-/// Response from chat.bsky.convo.listConvos.
-/// </summary>
+/// <summary>Response from chat.bsky.convo.listConvos.</summary>
 public sealed class ListConvosResponse : ICursorPage<ConvoView>
 {
     /// <summary>
@@ -1300,9 +1228,7 @@ public sealed class ListConvosResponse : ICursorPage<ConvoView>
     IReadOnlyList<ConvoView> ICursorPage<ConvoView>.Items => Convos;
 }
 
-/// <summary>
-/// Response from chat.bsky.convo.listConvoRequests.
-/// </summary>
+/// <summary>Response from chat.bsky.convo.listConvoRequests.</summary>
 public sealed class ListConvoRequestsResponse : ICursorPage<ConvoRequestView>
 {
     /// <summary>
@@ -1322,9 +1248,7 @@ public sealed class ListConvoRequestsResponse : ICursorPage<ConvoRequestView>
     IReadOnlyList<ConvoRequestView> ICursorPage<ConvoRequestView>.Items => Requests;
 }
 
-/// <summary>
-/// Response from chat.bsky.convo.getConvo.
-/// </summary>
+/// <summary>Response from chat.bsky.convo.getConvo.</summary>
 public sealed class GetConvoResponse
 {
     /// <summary>The conversation.</summary>
@@ -1332,9 +1256,7 @@ public sealed class GetConvoResponse
     public required ConvoView Convo { get; init; }
 }
 
-/// <summary>
-/// Response from chat.bsky.convo.getConvoForMembers.
-/// </summary>
+/// <summary>Response from chat.bsky.convo.getConvoForMembers.</summary>
 public sealed class GetConvoForMembersResponse
 {
     /// <summary>The conversation.</summary>
@@ -1342,9 +1264,7 @@ public sealed class GetConvoForMembersResponse
     public required ConvoView Convo { get; init; }
 }
 
-/// <summary>
-/// Response from chat.bsky.convo.getConvoAvailability.
-/// </summary>
+/// <summary>Response from chat.bsky.convo.getConvoAvailability.</summary>
 public sealed class GetConvoAvailabilityResponse
 {
     /// <summary>Whether the viewer may chat with the given members.</summary>
@@ -1376,9 +1296,7 @@ public sealed class GetConvoMembersResponse : ICursorPage<ChatMemberView>
     IReadOnlyList<ChatMemberView> ICursorPage<ChatMemberView>.Items => Members;
 }
 
-/// <summary>
-/// Response from chat.bsky.convo.getUnreadCounts.
-/// </summary>
+/// <summary>Response from chat.bsky.convo.getUnreadCounts.</summary>
 public sealed class GetUnreadCountsResponse
 {
     /// <summary>
@@ -1388,16 +1306,12 @@ public sealed class GetUnreadCountsResponse
     [JsonPropertyName("unreadAcceptedConvos")]
     public required int UnreadAcceptedConvos { get; init; }
 
-    /// <summary>
-    /// Unlocked conversation requests with unread messages. Capped at 100, which means more than 99.
-    /// </summary>
+    /// <summary>Unlocked conversation requests with unread messages. Capped at 100, which means more than 99.</summary>
     [JsonPropertyName("unreadRequestConvos")]
     public required int UnreadRequestConvos { get; init; }
 }
 
-/// <summary>
-/// Response from chat.bsky.convo.getMessages.
-/// </summary>
+/// <summary>Response from chat.bsky.convo.getMessages.</summary>
 public sealed class GetMessagesResponse : ICursorPage<ConvoMessage>
 {
     /// <summary>
@@ -1424,9 +1338,7 @@ public sealed class GetMessagesResponse : ICursorPage<ConvoMessage>
     IReadOnlyList<ConvoMessage> ICursorPage<ConvoMessage>.Items => Messages;
 }
 
-/// <summary>
-/// Response from chat.bsky.convo.sendMessageBatch.
-/// </summary>
+/// <summary>Response from chat.bsky.convo.sendMessageBatch.</summary>
 public sealed class SendMessageBatchResponse
 {
     /// <summary>The sent messages.</summary>
@@ -1434,9 +1346,7 @@ public sealed class SendMessageBatchResponse
     public required IReadOnlyList<MessageView> Items { get; init; }
 }
 
-/// <summary>
-/// Response from chat.bsky.convo.leaveConvo.
-/// </summary>
+/// <summary>Response from chat.bsky.convo.leaveConvo.</summary>
 public sealed class LeaveConvoResponse
 {
     /// <summary>The identifier of the conversation.</summary>
@@ -1448,21 +1358,15 @@ public sealed class LeaveConvoResponse
     public required string Rev { get; init; }
 }
 
-/// <summary>
-/// Response from chat.bsky.convo.acceptConvo.
-/// </summary>
+/// <summary>Response from chat.bsky.convo.acceptConvo.</summary>
 public sealed class AcceptConvoResponse
 {
-    /// <summary>
-    /// The conversation's revision after accepting it; absent when it was already accepted.
-    /// </summary>
+    /// <summary>The conversation's revision after accepting it; absent when it was already accepted.</summary>
     [JsonPropertyName("rev")]
     public string? Rev { get; init; }
 }
 
-/// <summary>
-/// Response from chat.bsky.convo.updateAllRead.
-/// </summary>
+/// <summary>Response from chat.bsky.convo.updateAllRead.</summary>
 public sealed class UpdateAllReadResponse
 {
     /// <summary>The number of conversations that were marked read.</summary>
@@ -1481,9 +1385,7 @@ internal sealed class ConvoOutput
     public required ConvoView Convo { get; init; }
 }
 
-/// <summary>
-/// The output of chat.bsky.convo.addReaction and removeReaction, which the client unwraps.
-/// </summary>
+/// <summary>The output of chat.bsky.convo.addReaction and removeReaction, which the client unwraps.</summary>
 internal sealed class MessageOutput
 {
     /// <summary>The message after the change.</summary>
@@ -1491,9 +1393,7 @@ internal sealed class MessageOutput
     public required MessageView Message { get; init; }
 }
 
-/// <summary>
-/// Response from chat.bsky.convo.getLog.
-/// </summary>
+/// <summary>Response from chat.bsky.convo.getLog.</summary>
 public sealed class GetLogResponse : ICursorPage<ConvoLogEntry>
 {
     /// <summary>

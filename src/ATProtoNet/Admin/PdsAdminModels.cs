@@ -1,5 +1,3 @@
-using ATProtoNet.Identity;
-
 namespace ATProtoNet.Admin;
 
 /// <summary>
@@ -25,9 +23,7 @@ public enum PdsAdminAuthentication
     AdminAccount = 1,
 }
 
-/// <summary>
-/// Configuration for a <see cref="PdsAdminClient"/>.
-/// </summary>
+/// <summary>Configuration for a <see cref="PdsAdminClient"/>.</summary>
 public sealed class PdsAdminOptions
 {
     /// <summary>
@@ -36,9 +32,7 @@ public sealed class PdsAdminOptions
     /// </summary>
     public required string Url { get; set; }
 
-    /// <summary>
-    /// The password the client authenticates with.
-    /// </summary>
+    /// <summary>The password the client authenticates with.</summary>
     /// <remarks>
     /// Under <see cref="PdsAdminAuthentication.AdminPassword"/> this is the server's
     /// <c>PDS_ADMIN_PASSWORD</c>. Under

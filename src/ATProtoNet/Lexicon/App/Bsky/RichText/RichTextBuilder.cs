@@ -13,9 +13,7 @@ public sealed class RichTextBuilder
     private readonly List<Facet> _facets = [];
     private int _byteOffset;
 
-    /// <summary>
-    /// Append plain text.
-    /// </summary>
+    /// <summary>Append plain text.</summary>
     public RichTextBuilder Text(string text)
     {
         _text.Append(text);
@@ -23,9 +21,7 @@ public sealed class RichTextBuilder
         return this;
     }
 
-    /// <summary>
-    /// Append a mention. Display text is "@handle".
-    /// </summary>
+    /// <summary>Append a mention. Display text is "@handle".</summary>
     /// <param name="handle">The handle to display (without @).</param>
     /// <param name="did">The DID of the mentioned user.</param>
     public RichTextBuilder Mention(Handle handle, Did did)
@@ -51,9 +47,7 @@ public sealed class RichTextBuilder
         return this;
     }
 
-    /// <summary>
-    /// Append a hyperlink.
-    /// </summary>
+    /// <summary>Append a hyperlink.</summary>
     /// <param name="displayText">The text displayed for the link.</param>
     /// <param name="uri">The URL to link to.</param>
     public RichTextBuilder Link(string displayText, string uri)
@@ -75,9 +69,7 @@ public sealed class RichTextBuilder
         return this;
     }
 
-    /// <summary>
-    /// Append a hashtag. Display text is "#tag".
-    /// </summary>
+    /// <summary>Append a hashtag. Display text is "#tag".</summary>
     /// <param name="tag">The tag text (without #).</param>
     public RichTextBuilder Tag(string tag)
     {
@@ -99,17 +91,13 @@ public sealed class RichTextBuilder
         return this;
     }
 
-    /// <summary>
-    /// Append a newline.
-    /// </summary>
+    /// <summary>Append a newline.</summary>
     public RichTextBuilder NewLine()
     {
         return Text("\n");
     }
 
-    /// <summary>
-    /// Build the rich text result.
-    /// </summary>
+    /// <summary>Build the rich text result.</summary>
     /// <returns>
     /// The text and its facets, which are empty when there are none. The facets are a snapshot:
     /// appending to the builder afterwards does not change them.

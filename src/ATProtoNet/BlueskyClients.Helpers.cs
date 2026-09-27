@@ -21,15 +21,12 @@ public sealed partial class BlueskyClients
     /// <summary>Connects the helpers to the client whose account they write to.</summary>
     internal void Bind(AtProtoClient client) => _client = client;
 
-    /// <summary>
-    /// Create a post (<c>app.bsky.feed.post</c>) in the signed-in account's repository.
-    /// </summary>
+    /// <summary>Create a post (<c>app.bsky.feed.post</c>) in the signed-in account's repository.</summary>
     /// <param name="text">
     /// The text, with its facets. A <see cref="string"/> converts to text without facets; build
     /// mentions, links and hashtags with <see cref="RichTextBuilder"/>.
     /// </param>
     /// <param name="options">The embed, reply, languages, labels and tags, if any.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A reference to the post.</returns>
     /// <exception cref="XrpcAuthenticationException">No session is installed.</exception>
     /// <example>
@@ -63,11 +60,8 @@ public sealed partial class BlueskyClients
         return _client.Repo.CreateRecordAsync(did, PostRecord.Collection, post, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Like a record (<c>app.bsky.feed.like</c>), typically a post.
-    /// </summary>
+    /// <summary>Like a record (<c>app.bsky.feed.like</c>), typically a post.</summary>
     /// <param name="subject">The version of the record to like: its URI and CID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A reference to the like; pass its <see cref="RecordRef.Uri"/> to <see cref="DeleteRecordAsync"/> to undo it.</returns>
     /// <exception cref="XrpcAuthenticationException">No session is installed.</exception>
     public Task<RecordRef> LikeAsync(StrongRef subject, CancellationToken cancellationToken = default)
@@ -79,11 +73,8 @@ public sealed partial class BlueskyClients
         return _client.Repo.CreateRecordAsync(did, LikeRecord.Collection, like, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Repost a post (<c>app.bsky.feed.repost</c>).
-    /// </summary>
+    /// <summary>Repost a post (<c>app.bsky.feed.repost</c>).</summary>
     /// <param name="subject">The version of the post to repost: its URI and CID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A reference to the repost; pass its <see cref="RecordRef.Uri"/> to <see cref="DeleteRecordAsync"/> to undo it.</returns>
     /// <exception cref="XrpcAuthenticationException">No session is installed.</exception>
     public Task<RecordRef> RepostAsync(StrongRef subject, CancellationToken cancellationToken = default)
@@ -95,11 +86,8 @@ public sealed partial class BlueskyClients
         return _client.Repo.CreateRecordAsync(did, RepostRecord.Collection, repost, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Follow an account (<c>app.bsky.graph.follow</c>).
-    /// </summary>
+    /// <summary>Follow an account (<c>app.bsky.graph.follow</c>).</summary>
     /// <param name="subject">The DID of the account to follow.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A reference to the follow; pass its <see cref="RecordRef.Uri"/> to <see cref="DeleteRecordAsync"/> to unfollow.</returns>
     /// <exception cref="XrpcAuthenticationException">No session is installed.</exception>
     public Task<RecordRef> FollowAsync(Did subject, CancellationToken cancellationToken = default)
@@ -119,7 +107,6 @@ public sealed partial class BlueskyClients
     /// The record's AT URI, such as <see cref="RecordRef.Uri"/>, <see cref="PostViewerState.Like"/>
     /// or <see cref="ViewerState.Following"/>. It must name a collection and a record key.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="ArgumentException"><paramref name="uri"/> does not name a record.</exception>
     /// <exception cref="XrpcAuthenticationException">No session is installed.</exception>
     public Task DeleteRecordAsync(AtUri uri, CancellationToken cancellationToken = default)
@@ -138,7 +125,6 @@ public sealed partial class BlueskyClients
     /// Setting a property to <see langword="null"/> removes the field. It may run more than once
     /// (see remarks), each time on a freshly read record.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A reference to the written profile record.</returns>
     /// <remarks>
     /// <para>Every field <paramref name="update"/> leaves alone is written back unchanged,
@@ -162,7 +148,7 @@ public sealed partial class BlueskyClients
 
         for (var attempt = 1; ; attempt++)
         {
-            var (profile, cid) = await GetProfileRecordAsync(did, cancellationToken);
+            var (profile, cid) = await GetProfileRecordAsync(did, cancellationToken).ConfigureAwait(false);
             update(profile);
 
             try
@@ -170,7 +156,7 @@ public sealed partial class BlueskyClients
                 return await _client.Repo.PutRecordAsync(
                     did, ProfileRecord.Collection, RecordKey.Self, profile,
                     swapRecord: cid,
-                    cancellationToken: cancellationToken);
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
             }
             catch (XrpcException ex) when (ex.Is(XrpcErrors.InvalidSwap)
                                            && attempt < MaxProfileUpdateAttempts)
@@ -192,7 +178,7 @@ public sealed partial class BlueskyClients
         try
         {
             var existing = await _client.Repo.GetRecordAsync<ProfileRecord>(
-                did, ProfileRecord.Collection, RecordKey.Self, cancellationToken: cancellationToken);
+                did, ProfileRecord.Collection, RecordKey.Self, cancellationToken: cancellationToken).ConfigureAwait(false);
 
             return (existing.Value, existing.Cid);
         }
@@ -203,9 +189,7 @@ public sealed partial class BlueskyClients
     }
 }
 
-/// <summary>
-/// The optional parts of a post created with <see cref="BlueskyClients.PostAsync"/>.
-/// </summary>
+/// <summary>The optional parts of a post created with <see cref="BlueskyClients.PostAsync"/>.</summary>
 public sealed record PostOptions
 {
     /// <summary>Embedded content: images, a link card, a quoted record, a video.</summary>

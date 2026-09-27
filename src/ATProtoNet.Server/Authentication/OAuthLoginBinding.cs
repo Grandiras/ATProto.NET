@@ -69,9 +69,7 @@ internal sealed record OAuthLoginState(
     }
 }
 
-/// <summary>
-/// Binds a login to the browser that started it, and keeps its return URL local.
-/// </summary>
+/// <summary>Binds a login to the browser that started it, and keeps its return URL local.</summary>
 /// <remarks>
 /// <para>The OAuth <c>state</c> ties a callback to a pending authorization, not to a browser.
 /// Without a binding, anyone could start a login for their own account and send the callback URL

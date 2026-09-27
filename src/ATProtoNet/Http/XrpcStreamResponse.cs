@@ -1,8 +1,6 @@
 namespace ATProtoNet.Http;
 
-/// <summary>
-/// A binary XRPC response — a blob, a repository CAR or a JSON Lines export — read as a stream.
-/// </summary>
+/// <summary>A binary XRPC response — a blob, a repository CAR or a JSON Lines export — read as a stream.</summary>
 /// <remarks>
 /// The response owns the underlying HTTP response and its connection. Dispose it once the
 /// <see cref="Content"/> has been read, or the connection stays checked out of the pool.
@@ -55,7 +53,7 @@ public sealed class XrpcStreamResponse : IAsyncDisposable, IDisposable
             return;
 
         _disposed = true;
-        await Content.DisposeAsync();
+        await Content.DisposeAsync().ConfigureAwait(false);
         _response.Dispose();
     }
 }

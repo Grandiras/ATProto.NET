@@ -6,9 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// What a delegation token that verified establishes.
-/// </summary>
+/// <summary>What a delegation token that verified establishes.</summary>
 /// <param name="Space">The space named by its <c>sub</c>.</param>
 /// <param name="UserDid">
 /// The user the requesting application is acting for — the token's <c>iss</c>.
@@ -20,9 +18,7 @@ namespace ATProtoNet.Server.Spaces;
 /// </remarks>
 public sealed record VerifiedDelegationToken(SpaceUri Space, Did UserDid);
 
-/// <summary>
-/// Verifies the delegation tokens presented to a space authority at credential-mint time.
-/// </summary>
+/// <summary>Verifies the delegation tokens presented to a space authority at credential-mint time.</summary>
 /// <remarks>
 /// <para>The audience check is the one that carries the weight. A delegation token's <c>aud</c>
 /// must equal <c>{authority}#atproto_space_host</c> for the authority named in its <em>own</em>
@@ -42,9 +38,7 @@ public sealed class SpaceDelegationTokenVerifier
     private readonly SpaceServerOptions _options;
     private readonly TimeProvider _timeProvider;
 
-    /// <summary>
-    /// Creates a verifier.
-    /// </summary>
+    /// <summary>Creates a verifier.</summary>
     /// <param name="resolver">
     /// Resolves the issuing account's DID document; a <see cref="CachingDidResolver"/>, since every
     /// request resolves one. Resolved from the container under
@@ -68,15 +62,12 @@ public sealed class SpaceDelegationTokenVerifier
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
-    /// <summary>
-    /// Verifies a delegation token.
-    /// </summary>
+    /// <summary>Verifies a delegation token.</summary>
     /// <param name="jwt">The token, as presented in the <c>Authorization: Bearer</c> header.</param>
     /// <param name="expectedSpace">
     /// The space the request names, which the token's <c>sub</c> must match. Pass
     /// <see langword="null"/> to take the space from the token instead.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="SpaceVerificationException">Thrown when any check fails.</exception>
     public async Task<VerifiedDelegationToken> VerifyAsync(
         string jwt, SpaceUri? expectedSpace = null, CancellationToken cancellationToken = default)
@@ -121,7 +112,7 @@ public sealed class SpaceDelegationTokenVerifier
             refresh => _resolver.ResolveKeyAsync(
                 userDid, keyId, SpaceErrors.InvalidDelegationToken, refresh, cancellationToken),
             issuerKey => SpaceTokens.Verify(parsed, issuerKey, expectedAudience, space, _timeProvider.GetUtcNow()),
-            SpaceErrors.InvalidDelegationToken);
+            SpaceErrors.InvalidDelegationToken).ConfigureAwait(false);
 
         // A delegation token lives 60 seconds; its issuer chooses the `exp` it actually carries,
         // so one dated far ahead is refused rather than remembered until then.
@@ -135,7 +126,7 @@ public sealed class SpaceDelegationTokenVerifier
         // Spent only once everything else has passed, so a forged token cannot burn the
         // identifier of one the legitimate holder is about to present.
         if (!await _replayStore.TryConsumeAsync(
-                verified.Issuer, verified.TokenId!, _options.ReplayRetention(verified.ExpiresAt), cancellationToken))
+                verified.Issuer, verified.TokenId!, _options.ReplayRetention(verified.ExpiresAt), cancellationToken).ConfigureAwait(false))
         {
             throw Invalid("The delegation token has already been used; delegation tokens are single-use.");
         }

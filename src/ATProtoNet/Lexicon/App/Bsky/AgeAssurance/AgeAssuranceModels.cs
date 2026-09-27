@@ -6,9 +6,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.App.Bsky.AgeAssurance;
 
-// ──────────────────────────────────────────────────────────────
-//  State
-// ──────────────────────────────────────────────────────────────
+// ── State ────────────────────────────────────────────────────
 
 /// <summary>
 /// An account's age assurance state as the server computed it
@@ -40,9 +38,7 @@ public sealed class AgeAssuranceStateMetadata : LexObject
     public AtDatetime? AccountCreatedAt { get; init; }
 }
 
-/// <summary>
-/// Known values of <see cref="AgeAssuranceState.Status"/>.
-/// </summary>
+/// <summary>Known values of <see cref="AgeAssuranceState.Status"/>.</summary>
 public static class AgeAssuranceStatus
 {
     /// <summary>The account has not been through age assurance.</summary>
@@ -58,9 +54,7 @@ public static class AgeAssuranceStatus
     public const string Blocked = "blocked";
 }
 
-/// <summary>
-/// Known values of <see cref="AgeAssuranceState.Access"/> and of a rule's granted access.
-/// </summary>
+/// <summary>Known values of <see cref="AgeAssuranceState.Access"/> and of a rule's granted access.</summary>
 public static class AgeAssuranceAccess
 {
     /// <summary>The access level is not known.</summary>
@@ -76,13 +70,9 @@ public static class AgeAssuranceAccess
     public const string Full = "full";
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Configuration
-// ──────────────────────────────────────────────────────────────
+// ── Configuration ────────────────────────────────────────────
 
-/// <summary>
-/// The age assurance configuration, per region (<c>app.bsky.ageassurance.defs#config</c>).
-/// </summary>
+/// <summary>The age assurance configuration, per region (<c>app.bsky.ageassurance.defs#config</c>).</summary>
 public sealed class AgeAssuranceConfig : LexObject
 {
     /// <summary>The configuration of each region that has one.</summary>
@@ -248,13 +238,9 @@ public sealed class AccountOlderThanRule : AgeAssuranceRule
     public required string Access { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  API requests and responses
-// ──────────────────────────────────────────────────────────────
+// ── API requests and responses ───────────────────────────────
 
-/// <summary>
-/// Request body for begin.
-/// </summary>
+/// <summary>Request body for begin.</summary>
 internal sealed class BeginRequest
 {
     /// <summary>The address to send the age assurance instructions to.</summary>
@@ -274,9 +260,7 @@ internal sealed class BeginRequest
     public string? RegionCode { get; init; }
 }
 
-/// <summary>
-/// Response from getState.
-/// </summary>
+/// <summary>Response from getState.</summary>
 public sealed class GetStateResponse
 {
     /// <summary>The state the server computed.</summary>

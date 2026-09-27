@@ -28,9 +28,7 @@ public sealed class FileAtProtoSessionStore : IAtProtoSessionStore
     private readonly ILogger<FileAtProtoSessionStore> _logger;
     private readonly KeyedLock<string> _writeLocks = new(StringComparer.Ordinal);
 
-    /// <summary>
-    /// Creates a new <see cref="FileAtProtoSessionStore"/>.
-    /// </summary>
+    /// <summary>Creates a new <see cref="FileAtProtoSessionStore"/>.</summary>
     /// <param name="dataProtectionProvider">Data protection provider for encrypting session files.</param>
     /// <param name="logger">Logger instance.</param>
     /// <param name="options">Options specifying the storage directory.</param>
@@ -80,13 +78,13 @@ public sealed class FileAtProtoSessionStore : IAtProtoSessionStore
         var filePath = GetFilePath(did);
         var encrypted = _protector.Protect(AtProtoSessionJson.Serialize(session));
 
-        await using (await _writeLocks.AcquireAsync(filePath, cancellationToken))
+        await using (await _writeLocks.AcquireAsync(filePath, cancellationToken).ConfigureAwait(false))
         {
             // Write to a sibling temp file and move it into place, so a crash or a
             // concurrent reader never observes a half-written token file — losing the
             // refresh token that way logs the user out with no way to recover it.
             var tempPath = filePath + ".tmp";
-            await File.WriteAllTextAsync(tempPath, encrypted, cancellationToken);
+            await File.WriteAllTextAsync(tempPath, encrypted, cancellationToken).ConfigureAwait(false);
             RestrictToOwner(tempPath);
             File.Move(tempPath, filePath, overwrite: true);
         }
@@ -100,7 +98,7 @@ public sealed class FileAtProtoSessionStore : IAtProtoSessionStore
         ArgumentNullException.ThrowIfNull(did);
 
         var filePath = GetFilePath(did);
-        var encrypted = await TryReadFileAsync(filePath, cancellationToken);
+        var encrypted = await TryReadFileAsync(filePath, cancellationToken).ConfigureAwait(false);
         if (encrypted is null)
             return null;
 
@@ -109,9 +107,9 @@ public sealed class FileAtProtoSessionStore : IAtProtoSessionStore
 
         // Removed only under the write lock, and only if it is still the unreadable copy: a
         // write may have replaced it since it was read.
-        await using (await _writeLocks.AcquireAsync(filePath, cancellationToken))
+        await using (await _writeLocks.AcquireAsync(filePath, cancellationToken).ConfigureAwait(false))
         {
-            encrypted = await TryReadFileAsync(filePath, cancellationToken);
+            encrypted = await TryReadFileAsync(filePath, cancellationToken).ConfigureAwait(false);
             if (encrypted is null)
                 return null;
 
@@ -133,7 +131,7 @@ public sealed class FileAtProtoSessionStore : IAtProtoSessionStore
 
         // Under the account's write lock: deleting concurrently with a write otherwise leaves
         // the just-written file behind and the logout ineffective.
-        await using (await _writeLocks.AcquireAsync(filePath, cancellationToken))
+        await using (await _writeLocks.AcquireAsync(filePath, cancellationToken).ConfigureAwait(false))
             TryDeleteFile(filePath);
 
         _logger.LogDebug("Removed the session of {Did}", did);
@@ -147,11 +145,13 @@ public sealed class FileAtProtoSessionStore : IAtProtoSessionStore
     {
         try
         {
+            #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
             await using var stream = new FileStream(
                 filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete,
                 bufferSize: 4096, FileOptions.Asynchronous);
+            #pragma warning restore CA2007
             using var reader = new StreamReader(stream);
-            return await reader.ReadToEndAsync(cancellationToken);
+            return await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
         {
@@ -199,9 +199,7 @@ public sealed class FileAtProtoSessionStore : IAtProtoSessionStore
     }
 }
 
-/// <summary>
-/// Configuration options for <see cref="FileAtProtoSessionStore"/>.
-/// </summary>
+/// <summary>Configuration options for <see cref="FileAtProtoSessionStore"/>.</summary>
 public sealed class FileSessionStoreOptions
 {
     /// <summary>

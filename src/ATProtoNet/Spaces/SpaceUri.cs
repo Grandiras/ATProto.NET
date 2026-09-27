@@ -5,9 +5,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Spaces;
 
-/// <summary>
-/// A reference to a permissioned space: <c>at://{authority}/space/{spaceType}/{skey}</c>.
-/// </summary>
+/// <summary>A reference to a permissioned space: <c>at://{authority}/space/{spaceType}/{skey}</c>.</summary>
 /// <remarks>
 /// <para>Permissioned data reuses the <c>at://</c> scheme rather than defining its own. The
 /// literal <c>space</c> marker sits where a collection NSID appears in a public AT-URI, and the
@@ -59,9 +57,7 @@ public sealed record SpaceUri : IIdentifier<SpaceUri>
         Skey = skey;
     }
 
-    /// <summary>
-    /// Builds a space URI from its three components.
-    /// </summary>
+    /// <summary>Builds a space URI from its three components.</summary>
     /// <param name="authority">The space authority DID.</param>
     /// <param name="spaceType">The space type NSID.</param>
     /// <param name="skey">The space key.</param>
@@ -74,9 +70,7 @@ public sealed record SpaceUri : IIdentifier<SpaceUri>
         return new SpaceUri($"{Scheme}{authority}/{Marker}/{spaceType}/{skey}", authority, spaceType, skey);
     }
 
-    /// <summary>
-    /// Parses a space URI.
-    /// </summary>
+    /// <summary>Parses a space URI.</summary>
     /// <param name="value">The URI string.</param>
     /// <exception cref="ArgumentException">
     /// Thrown when <paramref name="value"/> is not a valid space URI. A URI naming a record
@@ -85,9 +79,7 @@ public sealed record SpaceUri : IIdentifier<SpaceUri>
     public static SpaceUri Parse(string value) =>
         TryParse(value, out var uri) ? uri : throw IIdentifier<SpaceUri>.InvalidValue(value, "space URI");
 
-    /// <summary>
-    /// Attempts to parse a space URI, returning <see langword="false"/> rather than throwing.
-    /// </summary>
+    /// <summary>Attempts to parse a space URI, returning <see langword="false"/> rather than throwing.</summary>
     /// <param name="value">The URI string.</param>
     /// <param name="spaceUri">The parsed URI on success.</param>
     public static bool TryParse([NotNullWhen(true)] string? value, [NotNullWhen(true)] out SpaceUri? spaceUri)
@@ -125,9 +117,7 @@ public sealed record SpaceUri : IIdentifier<SpaceUri>
         return rest.SequenceEqual(Marker) || rest.StartsWith($"{Marker}/", StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// Builds the URI of a record within this space.
-    /// </summary>
+    /// <summary>Builds the URI of a record within this space.</summary>
     /// <param name="author">The DID of the record's author.</param>
     /// <param name="collection">The record collection NSID.</param>
     /// <param name="rkey">The record key.</param>
@@ -159,7 +149,6 @@ public sealed record SpaceUri : IIdentifier<SpaceUri>
     public override string ToString() => Value;
 
     /// <summary>Implicitly converts a space URI to its string form.</summary>
-    /// <param name="spaceUri">The space URI.</param>
     /// <returns>The URI string, or <see langword="null"/> for a <see langword="null"/> space URI.</returns>
     [return: NotNullIfNotNull(nameof(spaceUri))]
     public static implicit operator string?(SpaceUri? spaceUri) => spaceUri?.Value;
@@ -257,9 +246,7 @@ public sealed record SpaceRecordUri : IIdentifier<SpaceRecordUri>
         Rkey = rkey;
     }
 
-    /// <summary>
-    /// Builds a record URI from a space and the record's location within it.
-    /// </summary>
+    /// <summary>Builds a record URI from a space and the record's location within it.</summary>
     /// <param name="space">The space the record lives in.</param>
     /// <param name="author">The DID of the record's author.</param>
     /// <param name="collection">The record collection NSID.</param>
@@ -274,9 +261,7 @@ public sealed record SpaceRecordUri : IIdentifier<SpaceRecordUri>
         return new SpaceRecordUri($"{space.Value}/{author}/{collection}/{rkey}", space, author, collection, rkey);
     }
 
-    /// <summary>
-    /// Parses a space record URI.
-    /// </summary>
+    /// <summary>Parses a space record URI.</summary>
     /// <param name="value">The URI string.</param>
     /// <exception cref="ArgumentException">
     /// Thrown when <paramref name="value"/> is not a valid space record URI. A bare space ref is
@@ -285,9 +270,7 @@ public sealed record SpaceRecordUri : IIdentifier<SpaceRecordUri>
     public static SpaceRecordUri Parse(string value) =>
         TryParse(value, out var uri) ? uri : throw IIdentifier<SpaceRecordUri>.InvalidValue(value, "space record URI");
 
-    /// <summary>
-    /// Attempts to parse a space record URI, returning <see langword="false"/> rather than throwing.
-    /// </summary>
+    /// <summary>Attempts to parse a space record URI, returning <see langword="false"/> rather than throwing.</summary>
     /// <param name="value">The URI string.</param>
     /// <param name="recordUri">The parsed URI on success.</param>
     public static bool TryParse([NotNullWhen(true)] string? value, [NotNullWhen(true)] out SpaceRecordUri? recordUri)
@@ -336,7 +319,6 @@ public sealed record SpaceRecordUri : IIdentifier<SpaceRecordUri>
     public override string ToString() => Value;
 
     /// <summary>Implicitly converts a space record URI to its string form.</summary>
-    /// <param name="recordUri">The record URI.</param>
     /// <returns>The URI string, or <see langword="null"/> for a <see langword="null"/> record URI.</returns>
     [return: NotNullIfNotNull(nameof(recordUri))]
     public static implicit operator string?(SpaceRecordUri? recordUri) => recordUri?.Value;

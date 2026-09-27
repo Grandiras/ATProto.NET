@@ -8,13 +8,9 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Labeler;
 
-// ──────────────────────────────────────────────────────────
-//  Record types
-// ──────────────────────────────────────────────────────────
+// ── Record types ─────────────────────────────────────────
 
-/// <summary>
-/// Record type for <c>app.bsky.labeler.service</c> — declares a labeler service.
-/// </summary>
+/// <summary>Record type for <c>app.bsky.labeler.service</c> — declares a labeler service.</summary>
 public sealed class LabelerServiceRecord : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>app.bsky.labeler.service</c>).</summary>
@@ -50,16 +46,12 @@ public sealed class LabelerServiceRecord : LexObject, IAtProtoRecord
     [JsonPropertyName("subjectTypes")]
     public IReadOnlyList<string>? SubjectTypes { get; init; }
 
-    /// <summary>
-    /// The record collections the labeler accepts reports on; <see langword="null"/> for all.
-    /// </summary>
+    /// <summary>The record collections the labeler accepts reports on; <see langword="null"/> for all.</summary>
     [JsonPropertyName("subjectCollections")]
     public IReadOnlyList<Nsid>? SubjectCollections { get; init; }
 }
 
-/// <summary>
-/// Policy configuration for a labeler service.
-/// </summary>
+/// <summary>Policy configuration for a labeler service.</summary>
 public sealed class LabelerPolicies : LexObject
 {
     /// <summary>The label values this labeler may publish.</summary>
@@ -71,18 +63,14 @@ public sealed class LabelerPolicies : LexObject
     public IReadOnlyList<LabelValueDefinition>? LabelValueDefinitions { get; init; }
 }
 
-/// <summary>
-/// Custom label value definition published by a labeler.
-/// </summary>
+/// <summary>Custom label value definition published by a labeler.</summary>
 public sealed class LabelValueDefinition : LexObject
 {
     /// <summary>The label value identifier this definition describes.</summary>
     [JsonPropertyName("identifier")]
     public required string Identifier { get; init; }
 
-    /// <summary>
-    /// How prominently the label is surfaced (<c>inform</c>, <c>alert</c>, or <c>none</c>).
-    /// </summary>
+    /// <summary>How prominently the label is surfaced (<c>inform</c>, <c>alert</c>, or <c>none</c>).</summary>
     [JsonPropertyName("severity")]
     public required string Severity { get; init; }
 
@@ -90,9 +78,7 @@ public sealed class LabelValueDefinition : LexObject
     [JsonPropertyName("blurs")]
     public required string Blurs { get; init; }
 
-    /// <summary>
-    /// The default viewer setting for the label (<c>ignore</c>, <c>warn</c>, or <c>hide</c>).
-    /// </summary>
+    /// <summary>The default viewer setting for the label (<c>ignore</c>, <c>warn</c>, or <c>hide</c>).</summary>
     [JsonPropertyName("defaultSetting")]
     public string? DefaultSetting { get; init; }
 
@@ -105,9 +91,7 @@ public sealed class LabelValueDefinition : LexObject
     public required IReadOnlyList<LabelValueDefinitionStrings> Locales { get; init; }
 }
 
-/// <summary>
-/// Localized name and description for a label value definition.
-/// </summary>
+/// <summary>Localized name and description for a label value definition.</summary>
 public sealed class LabelValueDefinitionStrings : LexObject
 {
     /// <summary>The BCP-47 language tag these strings are in.</summary>
@@ -123,13 +107,9 @@ public sealed class LabelValueDefinitionStrings : LexObject
     public required string Description { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────
-//  View types
-// ──────────────────────────────────────────────────────────
+// ── View types ───────────────────────────────────────────
 
-/// <summary>
-/// Detailed view of a labeler service.
-/// </summary>
+/// <summary>Detailed view of a labeler service.</summary>
 public sealed class LabelerViewDetailed : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
@@ -178,9 +158,7 @@ public sealed class LabelerViewDetailed : LexObject
     [JsonPropertyName("subjectTypes")]
     public IReadOnlyList<string>? SubjectTypes { get; init; }
 
-    /// <summary>
-    /// The record collections the labeler accepts reports on; <see langword="null"/> for all.
-    /// </summary>
+    /// <summary>The record collections the labeler accepts reports on; <see langword="null"/> for all.</summary>
     [JsonPropertyName("subjectCollections")]
     public IReadOnlyList<Nsid>? SubjectCollections { get; init; }
 }
@@ -220,9 +198,7 @@ public sealed class LabelerView : EmbeddedRecordView
     public IReadOnlyList<Label>? Labels { get; init; }
 }
 
-/// <summary>
-/// Viewer state for a labeler service.
-/// </summary>
+/// <summary>Viewer state for a labeler service.</summary>
 public sealed class LabelerViewerState : LexObject
 {
     /// <summary>The AT-URI of the viewer's like record, if they have liked this.</summary>
@@ -230,13 +206,9 @@ public sealed class LabelerViewerState : LexObject
     public AtUri? Like { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────
-//  Response types
-// ──────────────────────────────────────────────────────────
+// ── Response types ───────────────────────────────────────
 
-/// <summary>
-/// Response from <c>app.bsky.labeler.getServices</c>.
-/// </summary>
+/// <summary>Response from <c>app.bsky.labeler.getServices</c>.</summary>
 public sealed class GetLabelerServicesResponse
 {
     /// <summary>The labeler service views.</summary>
@@ -244,13 +216,9 @@ public sealed class GetLabelerServicesResponse
     public required IReadOnlyList<JsonElement> Views { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────
-//  Label interpretation
-// ──────────────────────────────────────────────────────────
+// ── Label interpretation ─────────────────────────────────
 
-/// <summary>
-/// Well-known label severity levels.
-/// </summary>
+/// <summary>Well-known label severity levels.</summary>
 public static class LabelSeverity
 {
     /// <summary>The <c>inform</c> label severity.</summary>
@@ -263,9 +231,7 @@ public static class LabelSeverity
     public const string None = "none";
 }
 
-/// <summary>
-/// Well-known label blur behaviors.
-/// </summary>
+/// <summary>Well-known label blur behaviors.</summary>
 public static class LabelBlurs
 {
     /// <summary>Blurs the labelled content itself.</summary>
@@ -278,9 +244,7 @@ public static class LabelBlurs
     public const string None = "none";
 }
 
-/// <summary>
-/// Well-known label default settings.
-/// </summary>
+/// <summary>Well-known label default settings.</summary>
 public static class LabelDefaultSetting
 {
     /// <summary>The <c>ignore</c> label default setting.</summary>

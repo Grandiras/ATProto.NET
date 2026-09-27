@@ -6,44 +6,30 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Repo;
 
-/// <summary>
-/// Request body for com.atproto.repo.createRecord.
-/// </summary>
+/// <summary>Request body for com.atproto.repo.createRecord.</summary>
 internal sealed class CreateRecordRequest
 {
-    /// <summary>
-    /// The handle or DID of the repo (account).
-    /// </summary>
+    /// <summary>The handle or DID of the repo (account).</summary>
     [JsonPropertyName("repo")]
     public required AtIdentifier Repo { get; init; }
 
-    /// <summary>
-    /// The NSID of the record collection.
-    /// </summary>
+    /// <summary>The NSID of the record collection.</summary>
     [JsonPropertyName("collection")]
     public required Nsid Collection { get; init; }
 
-    /// <summary>
-    /// The record key. If not specified, the server will generate one.
-    /// </summary>
+    /// <summary>The record key. If not specified, the server will generate one.</summary>
     [JsonPropertyName("rkey")]
     public RecordKey? Rkey { get; init; }
 
-    /// <summary>
-    /// Flag for opt-in/out of Lexicon schema validation.
-    /// </summary>
+    /// <summary>Flag for opt-in/out of Lexicon schema validation.</summary>
     [JsonPropertyName("validate")]
     public bool? Validate { get; init; }
 
-    /// <summary>
-    /// The record data to create.
-    /// </summary>
+    /// <summary>The record data to create.</summary>
     [JsonPropertyName("record")]
     public required object Record { get; init; }
 
-    /// <summary>
-    /// Compare and swap with the previous commit rev.
-    /// </summary>
+    /// <summary>Compare and swap with the previous commit rev.</summary>
     [JsonPropertyName("swapCommit")]
     public Cid? SwapCommit { get; init; }
 }
@@ -94,18 +80,14 @@ internal sealed class GetRecordResponse<T>
     public T Value { get; init; } = default!;
 }
 
-/// <summary>
-/// Request body for com.atproto.repo.putRecord.
-/// </summary>
+/// <summary>Request body for com.atproto.repo.putRecord.</summary>
 internal sealed class PutRecordRequest
 {
     /// <summary>The handle or DID of the repository.</summary>
     [JsonPropertyName("repo")]
     public required AtIdentifier Repo { get; init; }
 
-    /// <summary>
-    /// The NSID of the collection the record belongs to (e.g. <c>app.bsky.feed.post</c>).
-    /// </summary>
+    /// <summary>The NSID of the collection the record belongs to (e.g. <c>app.bsky.feed.post</c>).</summary>
     [JsonPropertyName("collection")]
     public required Nsid Collection { get; init; }
 
@@ -136,18 +118,14 @@ internal sealed class PutRecordRequest
     public Cid? SwapCommit { get; init; }
 }
 
-/// <summary>
-/// Request body for com.atproto.repo.deleteRecord.
-/// </summary>
+/// <summary>Request body for com.atproto.repo.deleteRecord.</summary>
 internal sealed class DeleteRecordRequest
 {
     /// <summary>The handle or DID of the repository.</summary>
     [JsonPropertyName("repo")]
     public required AtIdentifier Repo { get; init; }
 
-    /// <summary>
-    /// The NSID of the collection the record belongs to (e.g. <c>app.bsky.feed.post</c>).
-    /// </summary>
+    /// <summary>The NSID of the collection the record belongs to (e.g. <c>app.bsky.feed.post</c>).</summary>
     [JsonPropertyName("collection")]
     public required Nsid Collection { get; init; }
 
@@ -170,9 +148,7 @@ internal sealed class DeleteRecordRequest
     public Cid? SwapCommit { get; init; }
 }
 
-/// <summary>
-/// Response from com.atproto.repo.deleteRecord.
-/// </summary>
+/// <summary>Response from com.atproto.repo.deleteRecord.</summary>
 public sealed class DeleteRecordResponse
 {
     /// <summary>The commit the write was applied in.</summary>
@@ -180,9 +156,7 @@ public sealed class DeleteRecordResponse
     public CommitMeta? Commit { get; init; }
 }
 
-/// <summary>
-/// Response from com.atproto.repo.listRecords.
-/// </summary>
+/// <summary>Response from com.atproto.repo.listRecords.</summary>
 public sealed class ListRecordsResponse : ICursorPage<RecordEntry>
 {
     /// <summary>
@@ -218,9 +192,7 @@ internal sealed class ListRecordsResponse<T>
     public IReadOnlyList<GetRecordResponse<T>> Records { get; init; } = [];
 }
 
-/// <summary>
-/// A single record entry in a list response.
-/// </summary>
+/// <summary>A single record entry in a list response.</summary>
 public sealed class RecordEntry : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
@@ -236,9 +208,7 @@ public sealed class RecordEntry : LexObject
     public JsonElement Value { get; init; }
 }
 
-/// <summary>
-/// Response from com.atproto.repo.describeRepo.
-/// </summary>
+/// <summary>Response from com.atproto.repo.describeRepo.</summary>
 public sealed class DescribeRepoResponse
 {
     /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
@@ -262,9 +232,7 @@ public sealed class DescribeRepoResponse
     public bool HandleIsCorrect { get; init; }
 }
 
-/// <summary>
-/// Response from com.atproto.repo.uploadBlob.
-/// </summary>
+/// <summary>Response from com.atproto.repo.uploadBlob.</summary>
 public sealed class UploadBlobResponse
 {
     /// <summary>The uploaded blob reference.</summary>
@@ -272,9 +240,7 @@ public sealed class UploadBlobResponse
     public BlobRef Blob { get; init; } = new();
 }
 
-/// <summary>
-/// Request body for com.atproto.repo.applyWrites.
-/// </summary>
+/// <summary>Request body for com.atproto.repo.applyWrites.</summary>
 internal sealed class ApplyWritesRequest
 {
     /// <summary>The handle or DID of the repository.</summary>
@@ -297,9 +263,7 @@ internal sealed class ApplyWritesRequest
     public Cid? SwapCommit { get; init; }
 }
 
-/// <summary>
-/// A single write operation in an applyWrites batch.
-/// </summary>
+/// <summary>A single write operation in an applyWrites batch.</summary>
 /// <remarks>The Lexicon marks this union closed, so an unrecognized <c>$type</c> is an error.</remarks>
 [AtProtoUnion(Closed = true)]
 [JsonDerivedType(typeof(ApplyWriteCreate), "com.atproto.repo.applyWrites#create")]
@@ -310,9 +274,7 @@ public abstract class ApplyWriteOperation : LexObject;
 /// <summary>A create operation within an <c>applyWrites</c> batch.</summary>
 public sealed class ApplyWriteCreate : ApplyWriteOperation
 {
-    /// <summary>
-    /// The NSID of the collection the record belongs to (e.g. <c>app.bsky.feed.post</c>).
-    /// </summary>
+    /// <summary>The NSID of the collection the record belongs to (e.g. <c>app.bsky.feed.post</c>).</summary>
     [JsonPropertyName("collection")]
     public required Nsid Collection { get; init; }
 
@@ -328,9 +290,7 @@ public sealed class ApplyWriteCreate : ApplyWriteOperation
 /// <summary>An update operation within an <c>applyWrites</c> batch.</summary>
 public sealed class ApplyWriteUpdate : ApplyWriteOperation
 {
-    /// <summary>
-    /// The NSID of the collection the record belongs to (e.g. <c>app.bsky.feed.post</c>).
-    /// </summary>
+    /// <summary>The NSID of the collection the record belongs to (e.g. <c>app.bsky.feed.post</c>).</summary>
     [JsonPropertyName("collection")]
     public required Nsid Collection { get; init; }
 
@@ -346,9 +306,7 @@ public sealed class ApplyWriteUpdate : ApplyWriteOperation
 /// <summary>A delete operation within an <c>applyWrites</c> batch.</summary>
 public sealed class ApplyWriteDelete : ApplyWriteOperation
 {
-    /// <summary>
-    /// The NSID of the collection the record belongs to (e.g. <c>app.bsky.feed.post</c>).
-    /// </summary>
+    /// <summary>The NSID of the collection the record belongs to (e.g. <c>app.bsky.feed.post</c>).</summary>
     [JsonPropertyName("collection")]
     public required Nsid Collection { get; init; }
 
@@ -357,9 +315,7 @@ public sealed class ApplyWriteDelete : ApplyWriteOperation
     public required RecordKey Rkey { get; init; }
 }
 
-/// <summary>
-/// Response from com.atproto.repo.applyWrites.
-/// </summary>
+/// <summary>Response from com.atproto.repo.applyWrites.</summary>
 public sealed class ApplyWritesResponse
 {
     /// <summary>The commit the write was applied in.</summary>
@@ -390,9 +346,7 @@ public sealed class ApplyWriteResult : LexObject
     public string? ValidationStatus { get; init; }
 }
 
-/// <summary>
-/// Response from com.atproto.repo.listMissingBlobs.
-/// </summary>
+/// <summary>Response from com.atproto.repo.listMissingBlobs.</summary>
 public sealed class ListMissingBlobsResponse : ICursorPage<MissingBlob>
 {
     /// <summary>
@@ -421,9 +375,7 @@ public sealed class MissingBlob : LexObject
     public required AtUri RecordUri { get; init; }
 }
 
-/// <summary>
-/// Commit metadata included in write operation responses.
-/// </summary>
+/// <summary>Commit metadata included in write operation responses.</summary>
 public sealed class CommitMeta : LexObject
 {
     /// <summary>The CID (content identifier) of the record version.</summary>

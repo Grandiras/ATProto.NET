@@ -2,9 +2,7 @@ using System.Net;
 
 namespace ATProtoNet.Http;
 
-/// <summary>
-/// XRPC error names, for matching with <see cref="XrpcException.Is"/>.
-/// </summary>
+/// <summary>XRPC error names, for matching with <see cref="XrpcException.Is"/>.</summary>
 /// <remarks>
 /// <para>The first group are the generic names XRPC assigns to HTTP statuses; a service answers
 /// with one of them when nothing more specific applies, and the client falls back to them for
@@ -110,9 +108,7 @@ public static class XrpcErrors
     /// <summary><c>resolveLexicon</c>: no Lexicon schema was resolved for the NSID.</summary>
     public const string LexiconNotFound = "LexiconNotFound";
 
-    /// <summary>
-    /// The generic name XRPC gives an HTTP status, used when a response carried no error body.
-    /// </summary>
+    /// <summary>The generic name XRPC gives an HTTP status, used when a response carried no error body.</summary>
     internal static string ForStatus(HttpStatusCode status) => (int)status switch
     {
         400 => InvalidRequest,

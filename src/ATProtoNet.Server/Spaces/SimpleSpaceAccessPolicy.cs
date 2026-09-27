@@ -8,9 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// The <c>com.atproto.simplespace</c> access policy: the baseline every PDS must implement.
-/// </summary>
+/// <summary>The <c>com.atproto.simplespace</c> access policy: the baseline every PDS must implement.</summary>
 /// <remarks>
 /// <para>A space carries three policies. For a <b>read</b> — a credential request — two
 /// perimeters are evaluated, and a credential is minted only when both pass. The <b>read
@@ -43,9 +41,7 @@ public sealed class SimpleSpaceAccessPolicy : ISpaceAccessPolicy
     private readonly ISimpleSpaceManagingAppClient _managingApp;
     private readonly ILogger _logger;
 
-    /// <summary>
-    /// Creates a policy.
-    /// </summary>
+    /// <summary>Creates a policy.</summary>
     /// <param name="store">The spaces and member lists this authority holds.</param>
     /// <param name="managingApp">Calls <c>checkUserAccess</c> for a managing-app policy.</param>
     /// <param name="logger">Optional logger.</param>
@@ -68,7 +64,7 @@ public sealed class SimpleSpaceAccessPolicy : ISpaceAccessPolicy
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var space = await _store.GetSpaceAsync(request.Space, cancellationToken);
+        var space = await _store.GetSpaceAsync(request.Space, cancellationToken).ConfigureAwait(false);
         if (space is null)
             return SpaceAccessDecision.Refuse(SpaceAccessOutcome.SpaceNotFound, "No such space.");
 
@@ -82,10 +78,10 @@ public sealed class SimpleSpaceAccessPolicy : ISpaceAccessPolicy
                 if (!app.IsGranted)
                     return app;
 
-                return await EvaluateUserAsync(space, space.ReadPolicy, request, cancellationToken);
+                return await EvaluateUserAsync(space, space.ReadPolicy, request, cancellationToken).ConfigureAwait(false);
 
             case SpaceAccessKind.Write:
-                return await EvaluateUserAsync(space, space.WritePolicy, request, cancellationToken);
+                return await EvaluateUserAsync(space, space.WritePolicy, request, cancellationToken).ConfigureAwait(false);
 
             default:
                 return SpaceAccessDecision.Refuse(
@@ -136,7 +132,7 @@ public sealed class SimpleSpaceAccessPolicy : ISpaceAccessPolicy
                 return SpaceAccessDecision.Granted;
 
             case MemberListPolicy:
-                var member = await _store.GetMemberAsync(space.Uri, request.UserDid, cancellationToken);
+                var member = await _store.GetMemberAsync(space.Uri, request.UserDid, cancellationToken).ConfigureAwait(false);
                 if (member is null)
                 {
                     return SpaceAccessDecision.Refuse(
@@ -159,7 +155,7 @@ public sealed class SimpleSpaceAccessPolicy : ISpaceAccessPolicy
                         request.UserDid,
                         request.Access,
                         write ? null : request.AttestedClientId,
-                        cancellationToken);
+                        cancellationToken).ConfigureAwait(false);
 
                     return authorized
                         ? SpaceAccessDecision.Granted
@@ -185,14 +181,10 @@ public sealed class SimpleSpaceAccessPolicy : ISpaceAccessPolicy
     }
 }
 
-/// <summary>
-/// Calls <c>com.atproto.simplespace.checkUserAccess</c> on a space's managing app.
-/// </summary>
+/// <summary>Calls <c>com.atproto.simplespace.checkUserAccess</c> on a space's managing app.</summary>
 public interface ISimpleSpaceManagingAppClient
 {
-    /// <summary>
-    /// Asks a managing app whether to authorize one user for one kind of access.
-    /// </summary>
+    /// <summary>Asks a managing app whether to authorize one user for one kind of access.</summary>
     /// <param name="managingApp">
     /// The managing app's service identifier: a DID with an optional service fragment.
     /// </param>
@@ -203,7 +195,6 @@ public interface ISimpleSpaceManagingAppClient
     /// The attested client ID, when a read request attested. Always <see langword="null"/> for a
     /// write check.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     Task<bool> CheckUserAccessAsync(
         string managingApp, SpaceUri space, Did userDid, SpaceAccessKind access, string? clientId,
         CancellationToken cancellationToken = default);
@@ -234,9 +225,7 @@ public sealed class SimpleSpaceManagingAppClient : ISimpleSpaceManagingAppClient
     private readonly ISpaceAccountSigner? _accountSigner;
     private readonly ILogger _logger;
 
-    /// <summary>
-    /// Creates a client.
-    /// </summary>
+    /// <summary>Creates a client.</summary>
     /// <param name="resolver">Resolves the managing app's endpoint.</param>
     /// <param name="serviceAuth">
     /// Signs the outbound service auth token as this service, when
@@ -284,7 +273,7 @@ public sealed class SimpleSpaceManagingAppClient : ISimpleSpaceManagingAppClient
         };
 
         var (did, fragment) = SpaceAuthority.ParseServiceIdentifier(managingApp);
-        var document = await _resolver.ResolveOrRefuseAsync(did, refresh: false, cancellationToken);
+        var document = await _resolver.ResolveOrRefuseAsync(did, refresh: false, cancellationToken).ConfigureAwait(false);
 
         Uri? endpoint;
         try
@@ -315,20 +304,20 @@ public sealed class SimpleSpaceManagingAppClient : ISimpleSpaceManagingAppClient
         var url = new Uri(baseUrl, $"xrpc/{SpaceNsids.CheckUserAccess}{query}");
 
         var signer = await SpaceAccountSigning.ChooseAsync(
-            _accountSigner, _serviceAuth, space.Authority, _logger, cancellationToken);
+            _accountSigner, _serviceAuth, space.Authority, _logger, cancellationToken).ConfigureAwait(false);
 
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
             "Bearer", signer.CreateToken(managingApp, CheckUserAccessNsid));
 
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
             throw new HttpRequestException(
                 $"Managing app '{managingApp}' answered {(int)response.StatusCode}.", null, response.StatusCode);
         }
 
-        var body = await response.Content.ReadFromJsonAsync<CheckUserAccessResponse>(cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<CheckUserAccessResponse>(cancellationToken).ConfigureAwait(false);
         return body?.Authorized ?? false;
     }
 }

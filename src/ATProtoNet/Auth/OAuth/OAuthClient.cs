@@ -61,9 +61,7 @@ public sealed class OAuthClient : IDisposable
 
     private bool _disposed;
 
-    /// <summary>
-    /// Creates a new OAuth client with the specified options.
-    /// </summary>
+    /// <summary>Creates a new OAuth client with the specified options.</summary>
     /// <param name="options">The client's configuration.</param>
     /// <param name="logger">An optional logger.</param>
     /// <exception cref="ArgumentException">
@@ -106,9 +104,7 @@ public sealed class OAuthClient : IDisposable
         _stateStore = options.StateStore ?? new InMemoryOAuthStateStore();
     }
 
-    /// <summary>
-    /// The authorization server discovery service.
-    /// </summary>
+    /// <summary>The authorization server discovery service.</summary>
     public AuthorizationServerDiscovery Discovery => _discovery;
 
     /// <summary>The client every request to a PDS or authorization server goes through.</summary>
@@ -136,7 +132,6 @@ public sealed class OAuthClient : IDisposable
     /// <param name="options">
     /// Where to sign in when the identifier should only be the login hint, and who is signing in.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The authorization URL, the <c>state</c> the callback will carry, and its expiry.</returns>
     /// <exception cref="ArgumentException">
     /// <paramref name="redirectUri"/> is not an absolute HTTPS URL (or HTTP on a loopback address),
@@ -182,21 +177,21 @@ public sealed class OAuthClient : IDisposable
 
         if (!string.IsNullOrWhiteSpace(options?.ServerUrl))
         {
-            metadata = await _discovery.ResolveFromServerUrlAsync(options.ServerUrl, cancellationToken);
+            metadata = await _discovery.ResolveFromServerUrlAsync(options.ServerUrl, cancellationToken).ConfigureAwait(false);
             loginHint = identifier;
         }
         else if (IsUrl(identifier))
         {
-            metadata = await _discovery.ResolveFromServerUrlAsync(identifier, cancellationToken);
+            metadata = await _discovery.ResolveFromServerUrlAsync(identifier, cancellationToken).ConfigureAwait(false);
         }
         else
         {
             identity = await _discovery.ResolveIdentityAsync(
-                AuthorizationServerDiscovery.ParseIdentifier(identifier), cancellationToken);
+                AuthorizationServerDiscovery.ParseIdentifier(identifier), cancellationToken).ConfigureAwait(false);
             var pds = identity.PdsEndpoint
                 ?? throw new OAuthException(
                     $"DID document for '{identity.Did}' does not contain an atproto PDS service.", "pds_not_found");
-            metadata = await _discovery.ResolveAuthorizationServerAsync(pds.OriginalString, cancellationToken);
+            metadata = await _discovery.ResolveAuthorizationServerAsync(pds.OriginalString, cancellationToken).ConfigureAwait(false);
             loginHint = identifier;
         }
 
@@ -231,7 +226,7 @@ public sealed class OAuthClient : IDisposable
             dpop,
             "Pushed authorization request",
             "par_failed",
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         if (string.IsNullOrEmpty(par.RequestUri))
             throw new OAuthException("The pushed authorization response carries no request_uri.", "par_failed");
@@ -255,7 +250,7 @@ public sealed class OAuthClient : IDisposable
             ExpiresAt = now + AuthorizationLifetime,
         };
 
-        await _stateStore.SetAsync(pending, cancellationToken);
+        await _stateStore.SetAsync(pending, cancellationToken).ConfigureAwait(false);
 
         _logger.LogDebug("OAuth authorization URL generated, state={State}", state);
 
@@ -270,7 +265,6 @@ public sealed class OAuthClient : IDisposable
     /// <param name="code">The authorization code from the callback.</param>
     /// <param name="state">The state parameter from the callback.</param>
     /// <param name="issuer">The issuer (iss) parameter from the callback.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// The session: the account's DID and PDS, its tokens and the DPoP key they are bound to.
     /// </returns>
@@ -297,7 +291,7 @@ public sealed class OAuthClient : IDisposable
         string state,
         string issuer,
         CancellationToken cancellationToken = default) =>
-        (await CompleteAuthorizationWithAppStateAsync(code, state, issuer, cancellationToken)).Session;
+        (await CompleteAuthorizationWithAppStateAsync(code, state, issuer, cancellationToken).ConfigureAwait(false)).Session;
 
     /// <summary>
     /// <see cref="CompleteAuthorizationAsync"/>, also returning the
@@ -306,7 +300,6 @@ public sealed class OAuthClient : IDisposable
     /// <param name="code">The authorization code from the callback.</param>
     /// <param name="state">The state parameter from the callback.</param>
     /// <param name="issuer">The issuer (iss) parameter from the callback.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The session and the application state.</returns>
     /// <exception cref="OAuthException">As <see cref="CompleteAuthorizationAsync"/>.</exception>
     public async Task<OAuthAuthorizationResult> CompleteAuthorizationWithAppStateAsync(
@@ -321,7 +314,7 @@ public sealed class OAuthClient : IDisposable
 
         // Step 1: the pending authorization, single use. A state no store could hold is not looked up.
         var pending = state is { Length: > 0 and <= MaxStateLength }
-            ? await _stateStore.TakeAsync(state, cancellationToken)
+            ? await _stateStore.TakeAsync(state, cancellationToken).ConfigureAwait(false)
             : null;
         if (pending is null)
             throw new OAuthException("Unknown or expired OAuth state parameter.", "invalid_state");
@@ -356,7 +349,7 @@ public sealed class OAuthClient : IDisposable
             dpop,
             "Token exchange",
             "token_error",
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         // Step 4: the account. The authoritative DID is the token response's `sub`, and the
         // issuer must be its authorization server now, not as some cache remembers it. A handle
@@ -367,11 +360,11 @@ public sealed class OAuthClient : IDisposable
         try
         {
             did = ValidateTokenResponse(tokens, pending.Did, "Token response");
-            identity = await VerifyIssuerAsync(did, pending.Issuer, cancellationToken);
+            identity = await VerifyIssuerAsync(did, pending.Issuer, cancellationToken).ConfigureAwait(false);
         }
         catch (OAuthException)
         {
-            await RevokeUnusableTokensAsync(tokens, pending.RevocationEndpoint, clientKey, pending.Issuer, dpop);
+            await RevokeUnusableTokensAsync(tokens, pending.RevocationEndpoint, clientKey, pending.Issuer, dpop).ConfigureAwait(false);
             throw;
         }
 
@@ -400,11 +393,8 @@ public sealed class OAuthClient : IDisposable
         return new OAuthAuthorizationResult(session, pending.AppState);
     }
 
-    /// <summary>
-    /// Exchanges the session's refresh token for new tokens, and returns the refreshed session.
-    /// </summary>
+    /// <summary>Exchanges the session's refresh token for new tokens, and returns the refreshed session.</summary>
     /// <param name="session">The session to refresh.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// The session with the new access token, its expiry, and the rotated refresh token. The old
     /// refresh token is spent: persist the result before anything else can refresh.
@@ -431,7 +421,7 @@ public sealed class OAuthClient : IDisposable
     {
         ArgumentNullException.ThrowIfNull(session);
         using var dpop = new DPoPProofGenerator(session.DPoPKey.ToArray());
-        return await RefreshAsync(session, dpop, cancellationToken);
+        return await RefreshAsync(session, dpop, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -455,7 +445,7 @@ public sealed class OAuthClient : IDisposable
         // The account may have moved to another authorization server since it signed in; the
         // refresh token goes only to the one authoritative for it now, confirmed from freshly
         // fetched documents, as in the reference client.
-        var identity = await VerifyIssuerAsync(session.Did, session.Issuer, cancellationToken);
+        var identity = await VerifyIssuerAsync(session.Did, session.Issuer, cancellationToken).ConfigureAwait(false);
 
         var tokens = await PostFormWithDpopAsync<OAuthTokenResponse>(
             session.TokenEndpoint,
@@ -472,7 +462,7 @@ public sealed class OAuthClient : IDisposable
             dpop,
             "Token refresh",
             "token_error",
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         // Tokens for another account, or without the atproto scope, must never replace the
         // session, even though the server has already rotated the refresh token; they are revoked.
@@ -482,7 +472,7 @@ public sealed class OAuthClient : IDisposable
         }
         catch (OAuthException)
         {
-            await RevokeUnusableTokensAsync(tokens, session.RevocationEndpoint, clientKey, session.Issuer, dpop);
+            await RevokeUnusableTokensAsync(tokens, session.RevocationEndpoint, clientKey, session.Issuer, dpop).ConfigureAwait(false);
             throw;
         }
 
@@ -504,7 +494,6 @@ public sealed class OAuthClient : IDisposable
     /// one revokes its access token.
     /// </summary>
     /// <param name="session">The session to revoke.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="OAuthException">The authorization server answered with an error.</exception>
     /// <remarks>
     /// <para>A server that publishes no <c>revocation_endpoint</c> has nothing to call, and this
@@ -516,7 +505,7 @@ public sealed class OAuthClient : IDisposable
     {
         ArgumentNullException.ThrowIfNull(session);
         using var dpop = new DPoPProofGenerator(session.DPoPKey.ToArray());
-        await RevokeAsync(session, dpop, cancellationToken);
+        await RevokeAsync(session, dpop, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -532,7 +521,7 @@ public sealed class OAuthClient : IDisposable
         var endpoint = session.RevocationEndpoint;
         if (endpoint is null)
         {
-            var metadata = await _discovery.GetAuthorizationServerMetadataAsync(session.Issuer, bypassCache: false, cancellationToken);
+            var metadata = await _discovery.GetAuthorizationServerMetadataAsync(session.Issuer, bypassCache: false, cancellationToken).ConfigureAwait(false);
             if (!Uri.TryCreate(metadata.RevocationEndpoint, UriKind.Absolute, out endpoint))
             {
                 _logger.LogInformation(
@@ -559,7 +548,7 @@ public sealed class OAuthClient : IDisposable
             },
             dpop,
             "Token revocation",
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         _logger.LogDebug("Revoked the OAuth session of {Did}", session.Did);
     }
@@ -592,7 +581,7 @@ public sealed class OAuthClient : IDisposable
                 },
                 dpop,
                 "Revoking refused tokens",
-                CancellationToken.None);
+                CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -656,7 +645,6 @@ public sealed class OAuthClient : IDisposable
     /// </param>
     /// <param name="dpop">The key the proof is signed with.</param>
     /// <param name="operation">What the request is, for messages.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The body of the successful response, or <see langword="null"/> when it is over the cap.</returns>
     /// <remarks>
     /// The proof carries the endpoint origin's latest nonce, and a <c>use_dpop_nonce</c> answer
@@ -695,7 +683,7 @@ public sealed class OAuthClient : IDisposable
 
         try
         {
-            return await SendFormWithDpopAsync(endpoint, buildForm, dpop, operation, budget.Token);
+            return await SendFormWithDpopAsync(endpoint, buildForm, dpop, operation, budget.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
@@ -732,13 +720,13 @@ public sealed class OAuthClient : IDisposable
             request.Headers.TryAddWithoutValidation(
                 "DPoP", dpop.GenerateProof("POST", endpoint.AbsoluteUri, NonceCache.Get(endpoint)));
 
-            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
             var freshNonce = NonceCache.Observe(endpoint, response);
 
             ReadOnlyMemory<byte>? body;
             try
             {
-                body = await response.Content.ReadBoundedAsync(MaxResponseBytes, cancellationToken);
+                body = await response.Content.ReadBoundedAsync(MaxResponseBytes, cancellationToken).ConfigureAwait(false);
             }
             catch (InvalidOperationException ex)
             {
@@ -779,7 +767,7 @@ public sealed class OAuthClient : IDisposable
         CancellationToken cancellationToken)
         where T : class
     {
-        var body = await PostFormWithDpopAsync(endpoint, buildForm, dpop, operation, cancellationToken)
+        var body = await PostFormWithDpopAsync(endpoint, buildForm, dpop, operation, cancellationToken).ConfigureAwait(false)
             ?? throw new OAuthException($"The {operation} response is larger than {MaxResponseBytes} bytes.", invalidResponseError);
 
         try
@@ -943,12 +931,12 @@ public sealed class OAuthClient : IDisposable
         {
             // No cache on this path: a copy from before the account moved would confirm the
             // server it left, which may be the one asking.
-            var identity = await _discovery.ResolveIdentityUncachedAsync(did, cancellationToken);
+            var identity = await _discovery.ResolveIdentityUncachedAsync(did, cancellationToken).ConfigureAwait(false);
             var pdsUrl = identity.PdsEndpoint
                 ?? throw new OAuthException(
                     $"DID document for '{did}' does not contain an atproto PDS service.", "pds_not_found");
             var metadata = await _discovery.ResolveAuthorizationServerAsync(
-                pdsUrl.OriginalString, bypassCache: true, cancellationToken);
+                pdsUrl.OriginalString, bypassCache: true, cancellationToken).ConfigureAwait(false);
 
             if (!string.Equals(metadata.Issuer, expectedIssuer, StringComparison.Ordinal))
             {

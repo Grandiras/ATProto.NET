@@ -6,14 +6,10 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Serialization;
 
-/// <summary>
-/// Provides configured JSON serializer options and helpers for AT Protocol data.
-/// </summary>
+/// <summary>Provides configured JSON serializer options and helpers for AT Protocol data.</summary>
 public static class AtProtoJsonDefaults
 {
-    /// <summary>
-    /// Gets the JSON serializer options every SDK client uses for AT Protocol data.
-    /// </summary>
+    /// <summary>Gets the JSON serializer options every SDK client uses for AT Protocol data.</summary>
     /// <remarks>
     /// <para>They carry the SDK's Lexicon semantics: <c>$type</c> is read wherever it appears in an
     /// object, <see cref="AtProtoUnionAttribute"/> unions resolve their variants (including those
@@ -43,9 +39,7 @@ public static class AtProtoJsonDefaults
     /// </remarks>
     public static string FormatTimestamp(DateTime dateTime) => AtDatetime.FromDateTime(dateTime).ToString();
 
-    /// <summary>
-    /// Gets the current UTC time formatted as an AT Protocol-compliant timestamp.
-    /// </summary>
+    /// <summary>Gets the current UTC time formatted as an AT Protocol-compliant timestamp.</summary>
     public static string NowTimestamp() => AtDatetime.Now().ToString();
 
     /// <summary>

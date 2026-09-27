@@ -10,11 +10,8 @@ namespace ATProtoNet.Server.Labeling;
 /// </summary>
 public interface ILabelSource
 {
-    /// <summary>
-    /// Finds the labels a <c>com.atproto.label.queryLabels</c> request asks for.
-    /// </summary>
+    /// <summary>Finds the labels a <c>com.atproto.label.queryLabels</c> request asks for.</summary>
     /// <param name="query">The validated request.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// Up to <see cref="LabelQuery.Limit"/> matching labels, oldest first, and a cursor that
     /// resumes after the last one, or <see langword="null"/> when there are no more.
@@ -31,9 +28,7 @@ public interface ILabelSource
     Task<QueryLabelsResponse> QueryLabelsAsync(LabelQuery query, CancellationToken cancellationToken = default);
 }
 
-/// <summary>
-/// A validated <c>com.atproto.label.queryLabels</c> request.
-/// </summary>
+/// <summary>A validated <c>com.atproto.label.queryLabels</c> request.</summary>
 public sealed class LabelQuery
 {
     /// <summary>The pattern that matches every subject.</summary>
@@ -58,10 +53,7 @@ public sealed class LabelQuery
     /// <summary>Whether a pattern matches every subject, so the subject need not be filtered on.</summary>
     public bool MatchesAllSubjects => UriPatterns.Contains(MatchAll, StringComparer.Ordinal);
 
-    /// <summary>
-    /// Whether a label matches the patterns and sources, for a source that filters in memory.
-    /// </summary>
-    /// <param name="label">The label.</param>
+    /// <summary>Whether a label matches the patterns and sources, for a source that filters in memory.</summary>
     /// <returns>Whether the label belongs in the response.</returns>
     public bool Matches(Label label)
     {

@@ -25,7 +25,6 @@ internal static class DnsTxtLookup
     /// is safe to put in the query string as is.
     /// </param>
     /// <param name="timeout">The budget for the query, or <see cref="Timeout.InfiniteTimeSpan"/>.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The records, or <see langword="null"/> when the endpoint answered with an HTTP error.</returns>
     /// <exception cref="DidResolutionException">The query failed or the answer is malformed.</exception>
     internal static async Task<IReadOnlyList<string>?> QueryAsync(

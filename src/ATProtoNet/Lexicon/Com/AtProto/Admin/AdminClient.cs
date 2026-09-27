@@ -17,11 +17,8 @@ public sealed class AdminClient
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Get detailed info about an account by DID.
-    /// </summary>
+    /// <summary>Get detailed info about an account by DID.</summary>
     /// <param name="did">The account DID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<AccountInfo> GetAccountInfoAsync(
         Did did, CancellationToken cancellationToken = default)
     {
@@ -30,11 +27,8 @@ public sealed class AdminClient
             "com.atproto.admin.getAccountInfo", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get info about multiple accounts by DIDs.
-    /// </summary>
+    /// <summary>Get info about multiple accounts by DIDs.</summary>
     /// <param name="dids">The account DIDs.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetAccountInfosResponse> GetAccountInfosAsync(
         IEnumerable<Did> dids, CancellationToken cancellationToken = default)
     {
@@ -44,9 +38,7 @@ public sealed class AdminClient
             "com.atproto.admin.getAccountInfos", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Search one page of the server's accounts, optionally by email address.
-    /// </summary>
+    /// <summary>Search one page of the server's accounts, optionally by email address.</summary>
     /// <remarks>
     /// Served by the Bluesky entryway (and through Ozone) and by some PDS implementations, such as
     /// Tranquil; the reference Bluesky PDS does not implement it.
@@ -54,7 +46,6 @@ public sealed class AdminClient
     /// <param name="email">The email address to match.</param>
     /// <param name="limit">Maximum number of results (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<SearchAccountsResponse> SearchAccountsAsync(
         string? email = null, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
@@ -68,12 +59,9 @@ public sealed class AdminClient
             "com.atproto.admin.searchAccounts", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate every account matching a search, fetching pages as needed.
-    /// </summary>
+    /// <summary>Enumerate every account matching a search, fetching pages as needed.</summary>
     /// <param name="email">The email address to match.</param>
     /// <param name="pageSize">Accounts per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<AccountInfo> EnumerateSearchAccountsAsync(
         string? email = null,
         int? pageSize = null,
@@ -82,13 +70,10 @@ public sealed class AdminClient
             (cursor, ct) => SearchAccountsAsync(email, pageSize, cursor, ct),
             cancellationToken);
 
-    /// <summary>
-    /// Get the status of a subject (account, record, or blob).
-    /// </summary>
+    /// <summary>Get the status of a subject (account, record, or blob).</summary>
     /// <param name="did">The account DID, for an account subject (or a blob's owner).</param>
     /// <param name="uri">The record's AT URI, for a record subject.</param>
     /// <param name="blob">The blob's CID, for a blob subject.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetSubjectStatusResponse> GetSubjectStatusAsync(
         Did? did = null, AtUri? uri = null, Cid? blob = null,
         CancellationToken cancellationToken = default)
@@ -102,9 +87,7 @@ public sealed class AdminClient
             "com.atproto.admin.getSubjectStatus", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Update the status (takedown, etc.) of a subject.
-    /// </summary>
+    /// <summary>Update the status (takedown, etc.) of a subject.</summary>
     public Task<UpdateSubjectStatusResponse> UpdateSubjectStatusAsync(
         UpdateSubjectStatusRequest request, CancellationToken cancellationToken = default)
     {
@@ -112,9 +95,7 @@ public sealed class AdminClient
             "com.atproto.admin.updateSubjectStatus", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Send an email to an account.
-    /// </summary>
+    /// <summary>Send an email to an account.</summary>
     public Task<SendEmailResponse> SendEmailAsync(
         SendEmailRequest request, CancellationToken cancellationToken = default)
     {
@@ -122,134 +103,107 @@ public sealed class AdminClient
             "com.atproto.admin.sendEmail", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Delete an account (admin action).
-    /// </summary>
+    /// <summary>Delete an account (admin action).</summary>
     /// <param name="did">The account DID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task DeleteAccountAsync(
         Did did, CancellationToken cancellationToken = default)
     {
         var request = new AdminDeleteAccountRequest { Did = did };
         await _xrpc.ProcedureAsync(
-            "com.atproto.admin.deleteAccount", request, cancellationToken: cancellationToken);
+            "com.atproto.admin.deleteAccount", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Disable invite code creation for an account.
-    /// </summary>
+    /// <summary>Disable invite code creation for an account.</summary>
     /// <param name="account">The account DID.</param>
     /// <param name="note">An optional note recorded with the action.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task DisableAccountInvitesAsync(
         Did account, string? note = null,
         CancellationToken cancellationToken = default)
     {
         var request = new DisableAccountInvitesRequest { Account = account, Note = note };
         await _xrpc.ProcedureAsync(
-            "com.atproto.admin.disableAccountInvites", request, cancellationToken: cancellationToken);
+            "com.atproto.admin.disableAccountInvites", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Enable invite code creation for an account.
-    /// </summary>
+    /// <summary>Enable invite code creation for an account.</summary>
     /// <param name="account">The account DID.</param>
     /// <param name="note">An optional note recorded with the action.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task EnableAccountInvitesAsync(
         Did account, string? note = null,
         CancellationToken cancellationToken = default)
     {
         var request = new EnableAccountInvitesRequest { Account = account, Note = note };
         await _xrpc.ProcedureAsync(
-            "com.atproto.admin.enableAccountInvites", request, cancellationToken: cancellationToken);
+            "com.atproto.admin.enableAccountInvites", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Update an account's email (admin action).
-    /// </summary>
+    /// <summary>Update an account's email (admin action).</summary>
     /// <param name="account">The account DID or handle.</param>
     /// <param name="email">The new email address.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task UpdateAccountEmailAsync(
         AtIdentifier account, string email,
         CancellationToken cancellationToken = default)
     {
         var request = new UpdateAccountEmailRequest { Account = account, Email = email };
         await _xrpc.ProcedureAsync(
-            "com.atproto.admin.updateAccountEmail", request, cancellationToken: cancellationToken);
+            "com.atproto.admin.updateAccountEmail", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Update an account's handle (admin action).
-    /// </summary>
+    /// <summary>Update an account's handle (admin action).</summary>
     /// <param name="did">The account DID.</param>
     /// <param name="handle">The new handle.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task UpdateAccountHandleAsync(
         Did did, Handle handle,
         CancellationToken cancellationToken = default)
     {
         var request = new UpdateAccountHandleRequest { Did = did, Handle = handle };
         await _xrpc.ProcedureAsync(
-            "com.atproto.admin.updateAccountHandle", request, cancellationToken: cancellationToken);
+            "com.atproto.admin.updateAccountHandle", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Update an account's password (admin action).
-    /// </summary>
+    /// <summary>Update an account's password (admin action).</summary>
     /// <param name="did">The account DID.</param>
     /// <param name="password">The new password.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task UpdateAccountPasswordAsync(
         Did did, string password,
         CancellationToken cancellationToken = default)
     {
         var request = new UpdateAccountPasswordRequest { Did = did, Password = password };
         await _xrpc.ProcedureAsync(
-            "com.atproto.admin.updateAccountPassword", request, cancellationToken: cancellationToken);
+            "com.atproto.admin.updateAccountPassword", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Replace the repository signing key in an account's DID document (admin action).
-    /// </summary>
+    /// <summary>Replace the repository signing key in an account's DID document (admin action).</summary>
     /// <remarks>
     /// Served by the Bluesky entryway; the reference PDS does not implement it.
     /// </remarks>
     /// <param name="did">The account DID.</param>
     /// <param name="signingKey">The new signing key, as a <c>did:key</c>.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task UpdateAccountSigningKeyAsync(
         Did did, Did signingKey,
         CancellationToken cancellationToken = default)
     {
         var request = new UpdateAccountSigningKeyRequest { Did = did, SigningKey = signingKey };
         await _xrpc.ProcedureAsync(
-            "com.atproto.admin.updateAccountSigningKey", request, cancellationToken: cancellationToken);
+            "com.atproto.admin.updateAccountSigningKey", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Disable invite codes.
-    /// </summary>
+    /// <summary>Disable invite codes.</summary>
     /// <param name="codes">The codes to disable.</param>
     /// <param name="accounts">The accounts whose codes to disable.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task DisableInviteCodesAsync(
         IEnumerable<string>? codes = null, IEnumerable<string>? accounts = null,
         CancellationToken cancellationToken = default)
     {
         var request = new DisableInviteCodesRequest { Codes = codes?.ToList(), Accounts = accounts?.ToList() };
         await _xrpc.ProcedureAsync(
-            "com.atproto.admin.disableInviteCodes", request, cancellationToken: cancellationToken);
+            "com.atproto.admin.disableInviteCodes", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Get one page of the server's invite codes.
-    /// </summary>
+    /// <summary>Get one page of the server's invite codes.</summary>
     /// <param name="sort">The order: <c>recent</c> (the default) or <c>usage</c>.</param>
     /// <param name="limit">Maximum number of results (1-500, default 100).</param>
     /// <param name="cursor">Pagination cursor.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetInviteCodesResponse> GetInviteCodesAsync(
         string? sort = null, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default)
@@ -263,12 +217,9 @@ public sealed class AdminClient
             "com.atproto.admin.getInviteCodes", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate every invite code on the server, fetching pages as needed.
-    /// </summary>
+    /// <summary>Enumerate every invite code on the server, fetching pages as needed.</summary>
     /// <param name="sort">The order: <c>recent</c> (the default) or <c>usage</c>.</param>
     /// <param name="pageSize">Codes per request (1-500); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<InviteCode> EnumerateInviteCodesAsync(
         string? sort = null,
         int? pageSize = null,

@@ -10,9 +10,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// Delivers a space's write and deletion notifications to the services registered for it.
-/// </summary>
+/// <summary>Delivers a space's write and deletion notifications to the services registered for it.</summary>
 /// <remarks>
 /// <para>There is no relay for permissioned data, so an application keeps its copy current by
 /// pulling from each repo host itself. Notifications are what stop that being a poll: they carry
@@ -48,9 +46,7 @@ public sealed class SpaceWriteNotifier
     private readonly ISpaceAccountSigner? _accountSigner;
     private readonly ILogger _logger;
 
-    /// <summary>
-    /// Creates a notifier.
-    /// </summary>
+    /// <summary>Creates a notifier.</summary>
     /// <param name="store">The authority's state, which holds the subscriber list.</param>
     /// <param name="resolver">Resolves each subscriber's delivery endpoint.</param>
     /// <param name="serviceAuth">
@@ -81,14 +77,10 @@ public sealed class SpaceWriteNotifier
         _logger = logger ?? (ILogger)NullLogger.Instance;
     }
 
-    /// <summary>
-    /// Fans a write notification out to every service registered for the space.
-    /// </summary>
-    /// <param name="space">The space.</param>
+    /// <summary>Fans a write notification out to every service registered for the space.</summary>
     /// <param name="repoDid">The DID of the account whose repo advanced.</param>
     /// <param name="rev">The revision of the write.</param>
     /// <param name="hash">The repo's commit hash after the write.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of subscribers the notification reached.</returns>
     /// <remarks>
     /// This is the repo host's half of the notification path. On a repo host the subscribers
@@ -113,7 +105,6 @@ public sealed class SpaceWriteNotifier
     /// Forwards a write notification this authority accepted to the services registered for the
     /// space, in the background.
     /// </summary>
-    /// <param name="space">The space.</param>
     /// <param name="repoDid">The DID of the account whose repo advanced.</param>
     /// <param name="rev">The revision of the write.</param>
     /// <param name="hash">The repo's commit hash after the write.</param>
@@ -146,7 +137,7 @@ public sealed class SpaceWriteNotifier
             try
             {
                 return await FanOutAsync(
-                    space, space.Authority, NotifyWrite, body, includeAuthority: false, CancellationToken.None);
+                    space, space.Authority, NotifyWrite, body, includeAuthority: false, CancellationToken.None).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -158,11 +149,8 @@ public sealed class SpaceWriteNotifier
         });
     }
 
-    /// <summary>
-    /// Tells every registered service that a space was deleted and its data should be dropped.
-    /// </summary>
+    /// <summary>Tells every registered service that a space was deleted and its data should be dropped.</summary>
     /// <param name="space">The deleted space.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of subscribers the notification reached.</returns>
     /// <remarks>
     /// A syncer that misses this learns on its next credential renewal, which answers
@@ -185,7 +173,6 @@ public sealed class SpaceWriteNotifier
     /// <param name="space">The space being written into.</param>
     /// <param name="repoDid">The account doing the writing.</param>
     /// <param name="lifetime">How long the registration lasts. Defaults to 30 days.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns><see langword="true"/> when a registration was added.</returns>
     /// <remarks>
     /// <para>Call this from a repo host on the first write into a shared space. Without it a
@@ -209,28 +196,26 @@ public sealed class SpaceWriteNotifier
             return false;
 
         var service = SpaceAuthority.HostAudience(space.Authority);
-        var subscribers = await _store.ListSubscribersAsync(space, cancellationToken);
+        var subscribers = await _store.ListSubscribersAsync(space, cancellationToken).ConfigureAwait(false);
         if (subscribers.Any(s => string.Equals(s.Service, service, StringComparison.Ordinal)))
             return false;
 
         await _store.RegisterNotifyAsync(
-            space, service, DateTimeOffset.UtcNow.Add(lifetime ?? TimeSpan.FromDays(30)), cancellationToken);
+            space, service, DateTimeOffset.UtcNow.Add(lifetime ?? TimeSpan.FromDays(30)), cancellationToken).ConfigureAwait(false);
 
         _logger.LogDebug("Registered {Service} for {Space} on the first write by {Repo}.", service, space, repoDid);
         return true;
     }
 
     /// <summary>Delivers one notification to every subscriber of a space.</summary>
-    /// <param name="space">The space.</param>
     /// <param name="issuer">The account the notification speaks for, which it is signed as when possible.</param>
     /// <param name="nsid">The method being called.</param>
     /// <param name="body">The request body.</param>
     /// <param name="includeAuthority">Whether the space's own authority subscription is delivered to.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     private async Task<int> FanOutAsync<TBody>(
         SpaceUri space, Did issuer, Nsid nsid, TBody body, bool includeAuthority, CancellationToken cancellationToken)
     {
-        var subscribers = await _store.ListSubscribersAsync(space, cancellationToken);
+        var subscribers = await _store.ListSubscribersAsync(space, cancellationToken).ConfigureAwait(false);
 
         if (!includeAuthority)
             subscribers = subscribers.Where(s => !IsAuthority(space, s.Service)).ToList();
@@ -238,9 +223,9 @@ public sealed class SpaceWriteNotifier
         if (subscribers.Count == 0)
             return 0;
 
-        var signer = await SpaceAccountSigning.ChooseAsync(_accountSigner, _serviceAuth, issuer, _logger, cancellationToken);
+        var signer = await SpaceAccountSigning.ChooseAsync(_accountSigner, _serviceAuth, issuer, _logger, cancellationToken).ConfigureAwait(false);
         var deliveries = subscribers.Select(s => DeliverAsync(space, s, signer, nsid, body, cancellationToken));
-        var results = await Task.WhenAll(deliveries);
+        var results = await Task.WhenAll(deliveries).ConfigureAwait(false);
 
         return results.Count(delivered => delivered);
     }
@@ -287,7 +272,7 @@ public sealed class SpaceWriteNotifier
         try
         {
             var (did, fragment) = SpaceAuthority.ParseServiceIdentifier(subscriber.Service);
-            var document = await _resolver.ResolveOrRefuseAsync(did, refresh: false, cancellationToken);
+            var document = await _resolver.ResolveOrRefuseAsync(did, refresh: false, cancellationToken).ConfigureAwait(false);
 
             // A #atproto_space_host fragment resolves with its #atproto_pds fallback, so an
             // authority on an ordinary PDS, which publishes no such entry, is still reached.
@@ -310,7 +295,7 @@ public sealed class SpaceWriteNotifier
             request.Headers.Authorization = new AuthenticationHeaderValue(
                 "Bearer", signer.CreateToken(Audience(space, subscriber.Service, did), nsid));
 
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
 
             if (response.IsSuccessStatusCode)
                 return true;

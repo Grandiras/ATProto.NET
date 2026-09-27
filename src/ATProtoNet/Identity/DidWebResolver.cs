@@ -3,9 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// Resolves <c>did:web</c> identifiers by fetching <c>https://&lt;host&gt;/.well-known/did.json</c>.
-/// </summary>
+/// <summary>Resolves <c>did:web</c> identifiers by fetching <c>https://&lt;host&gt;/.well-known/did.json</c>.</summary>
 /// <remarks>
 /// <para>AT Protocol supports hostname-level <c>did:web</c> only: a path-based DID
 /// (<c>did:web:example.com:user:alice</c>) is refused, and so is a port on any host but
@@ -25,9 +23,7 @@ public sealed partial class DidWebResolver : IDidResolver, IDisposable
     [GeneratedRegex(@"^(?=.{1,253}\z)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*\z", RegexOptions.IgnoreCase)]
     private static partial Regex HostnamePattern();
 
-    /// <summary>
-    /// Creates a resolver with its own client under the SDK's identity fetch policy.
-    /// </summary>
+    /// <summary>Creates a resolver with its own client under the SDK's identity fetch policy.</summary>
     /// <param name="options">Resolver options. Defaults apply when omitted.</param>
     public DidWebResolver(IdentityResolverOptions? options = null)
     {
@@ -37,9 +33,7 @@ public sealed partial class DidWebResolver : IDidResolver, IDisposable
         _ownsHttpClient = true;
     }
 
-    /// <summary>
-    /// Creates a resolver that sends its requests through <paramref name="httpClient"/>.
-    /// </summary>
+    /// <summary>Creates a resolver that sends its requests through <paramref name="httpClient"/>.</summary>
     /// <param name="httpClient">
     /// The client to use, which the caller owns. Its handler is used as is: the connection-level
     /// address check applies only to the SDK's own handler, while the identifier rules (hostname
@@ -55,11 +49,8 @@ public sealed partial class DidWebResolver : IDidResolver, IDisposable
         _ownsHttpClient = false;
     }
 
-    /// <summary>
-    /// Resolves a <c>did:web</c> identifier to its DID document.
-    /// </summary>
+    /// <summary>Resolves a <c>did:web</c> identifier to its DID document.</summary>
     /// <param name="did">The DID (e.g. <c>did:web:example.com</c>).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The document.</returns>
     /// <exception cref="DidResolutionException">Thrown when resolution fails.</exception>
     public Task<DidDocument> ResolveAsync(Did did, CancellationToken cancellationToken = default)

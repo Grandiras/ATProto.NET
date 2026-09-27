@@ -37,9 +37,7 @@ public sealed class FirehoseClient : IAsyncDisposable
     private readonly StreamConnector _connector;
     private readonly CancellationTokenSource _disposed = new();
 
-    /// <summary>
-    /// Create a client for the given relay, PDS or labeler.
-    /// </summary>
+    /// <summary>Create a client for the given relay, PDS or labeler.</summary>
     /// <param name="serviceUrl">The service's WebSocket URL (e.g., "wss://bsky.network").</param>
     /// <param name="logger">Optional logger.</param>
     public FirehoseClient(string serviceUrl, ILogger? logger = null)
@@ -55,9 +53,7 @@ public sealed class FirehoseClient : IAsyncDisposable
         _connector = connector;
     }
 
-    /// <summary>
-    /// Subscribe to the repository event stream (<c>com.atproto.sync.subscribeRepos</c>).
-    /// </summary>
+    /// <summary>Subscribe to the repository event stream (<c>com.atproto.sync.subscribeRepos</c>).</summary>
     /// <param name="cursor">The sequence number to resume after. If null, starts from the live
     /// stream (no backfill).</param>
     /// <param name="cancellationToken">Cancellation token to stop the subscription.</param>
@@ -68,9 +64,7 @@ public sealed class FirehoseClient : IAsyncDisposable
         CancellationToken cancellationToken = default)
         => SubscribeAsync(new RepoStreamHandler(Endpoint("com.atproto.sync.subscribeRepos", cursor), _logger), cancellationToken);
 
-    /// <summary>
-    /// Subscribe to a labeler's label stream (<c>com.atproto.label.subscribeLabels</c>).
-    /// </summary>
+    /// <summary>Subscribe to a labeler's label stream (<c>com.atproto.label.subscribeLabels</c>).</summary>
     /// <param name="cursor">The sequence number to resume after. If null, starts from the live
     /// stream.</param>
     /// <param name="cancellationToken">Cancellation token to stop the subscription.</param>

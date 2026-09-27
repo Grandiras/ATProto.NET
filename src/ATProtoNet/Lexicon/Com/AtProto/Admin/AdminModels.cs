@@ -7,13 +7,9 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Admin;
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.admin.getAccountInfo
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.admin.getAccountInfo ─────────────────────────
 
-/// <summary>
-/// Detailed account information returned by admin endpoints.
-/// </summary>
+/// <summary>Detailed account information returned by admin endpoints.</summary>
 public sealed class AccountInfo : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -28,9 +24,7 @@ public sealed class AccountInfo : LexObject
     [JsonPropertyName("email")]
     public string? Email { get; init; }
 
-    /// <summary>
-    /// Timestamp at which the email address was confirmed, if it has been.
-    /// </summary>
+    /// <summary>Timestamp at which the email address was confirmed, if it has been.</summary>
     [JsonPropertyName("emailConfirmedAt")]
     public AtDatetime? EmailConfirmedAt { get; init; }
 
@@ -54,28 +48,20 @@ public sealed class AccountInfo : LexObject
     [JsonPropertyName("inviteNote")]
     public string? InviteNote { get; init; }
 
-    /// <summary>
-    /// Selected records from the repository (such as the profile record) included for convenience.
-    /// </summary>
+    /// <summary>Selected records from the repository (such as the profile record) included for convenience.</summary>
     [JsonPropertyName("relatedRecords")]
     public IReadOnlyList<JsonElement>? RelatedRecords { get; init; }
 
-    /// <summary>
-    /// Timestamp at which the account was deactivated, if it is deactivated.
-    /// </summary>
+    /// <summary>Timestamp at which the account was deactivated, if it is deactivated.</summary>
     [JsonPropertyName("deactivatedAt")]
     public AtDatetime? DeactivatedAt { get; init; }
 
-    /// <summary>
-    /// Signals correlating this account with others (such as a shared IP or device).
-    /// </summary>
+    /// <summary>Signals correlating this account with others (such as a shared IP or device).</summary>
     [JsonPropertyName("threatSignatures")]
     public IReadOnlyList<ThreatSignature>? ThreatSignatures { get; init; }
 }
 
-/// <summary>
-/// A threat signature associated with an account.
-/// </summary>
+/// <summary>A threat signature associated with an account.</summary>
 public sealed class ThreatSignature : LexObject
 {
     /// <summary>The name of the account property the signature was derived from.</summary>
@@ -87,13 +73,9 @@ public sealed class ThreatSignature : LexObject
     public required string Value { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.admin.getAccountInfos
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.admin.getAccountInfos ────────────────────────
 
-/// <summary>
-/// Response from getAccountInfos (batch account lookup).
-/// </summary>
+/// <summary>Response from getAccountInfos (batch account lookup).</summary>
 public sealed class GetAccountInfosResponse
 {
     /// <summary>The account information records.</summary>
@@ -101,13 +83,9 @@ public sealed class GetAccountInfosResponse
     public required IReadOnlyList<AccountInfo> Infos { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.admin.searchAccounts
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.admin.searchAccounts ─────────────────────────
 
-/// <summary>
-/// Response from searchAccounts.
-/// </summary>
+/// <summary>Response from searchAccounts.</summary>
 public sealed class SearchAccountsResponse : ICursorPage<AccountInfo>
 {
     /// <summary>
@@ -124,13 +102,9 @@ public sealed class SearchAccountsResponse : ICursorPage<AccountInfo>
     IReadOnlyList<AccountInfo> ICursorPage<AccountInfo>.Items => Accounts;
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.admin.getSubjectStatus
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.admin.getSubjectStatus ───────────────────────
 
-/// <summary>
-/// Response from getSubjectStatus.
-/// </summary>
+/// <summary>Response from getSubjectStatus.</summary>
 public sealed class GetSubjectStatusResponse
 {
     /// <summary>
@@ -149,9 +123,7 @@ public sealed class GetSubjectStatusResponse
     public SubjectStatusDetail? Deactivated { get; init; }
 }
 
-/// <summary>
-/// Detailed status information for a subject (takedown, deactivated, etc.).
-/// </summary>
+/// <summary>Detailed status information for a subject (takedown, deactivated, etc.).</summary>
 public sealed class SubjectStatusDetail : LexObject
 {
     /// <summary>Whether the status is currently applied.</summary>
@@ -163,13 +135,9 @@ public sealed class SubjectStatusDetail : LexObject
     public string? Ref { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.admin.updateSubjectStatus
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.admin.updateSubjectStatus ────────────────────
 
-/// <summary>
-/// Request body for updateSubjectStatus.
-/// </summary>
+/// <summary>Request body for updateSubjectStatus.</summary>
 public sealed class UpdateSubjectStatusRequest
 {
     /// <summary>
@@ -188,9 +156,7 @@ public sealed class UpdateSubjectStatusRequest
     public SubjectStatusDetail? Deactivated { get; init; }
 }
 
-/// <summary>
-/// Response from updateSubjectStatus.
-/// </summary>
+/// <summary>Response from updateSubjectStatus.</summary>
 public sealed class UpdateSubjectStatusResponse
 {
     /// <summary>The subject that was updated.</summary>
@@ -202,13 +168,9 @@ public sealed class UpdateSubjectStatusResponse
     public SubjectStatusDetail? Takedown { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.admin.sendEmail
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.admin.sendEmail ──────────────────────────────
 
-/// <summary>
-/// Request body for sendEmail.
-/// </summary>
+/// <summary>Request body for sendEmail.</summary>
 public sealed class SendEmailRequest
 {
     /// <summary>The DID of the account receiving the email.</summary>
@@ -232,9 +194,7 @@ public sealed class SendEmailRequest
     public string? Comment { get; init; }
 }
 
-/// <summary>
-/// Response from sendEmail.
-/// </summary>
+/// <summary>Response from sendEmail.</summary>
 public sealed class SendEmailResponse
 {
     /// <summary>Whether the email was sent.</summary>
@@ -242,13 +202,9 @@ public sealed class SendEmailResponse
     public bool Sent { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.admin account management
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.admin account management ─────────────────────
 
-/// <summary>
-/// Request body for admin deleteAccount.
-/// </summary>
+/// <summary>Request body for admin deleteAccount.</summary>
 internal sealed class AdminDeleteAccountRequest
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -256,9 +212,7 @@ internal sealed class AdminDeleteAccountRequest
     public required Did Did { get; init; }
 }
 
-/// <summary>
-/// Request body for disableAccountInvites.
-/// </summary>
+/// <summary>Request body for disableAccountInvites.</summary>
 internal sealed class DisableAccountInvitesRequest
 {
     /// <summary>The DID of the account.</summary>
@@ -270,9 +224,7 @@ internal sealed class DisableAccountInvitesRequest
     public string? Note { get; init; }
 }
 
-/// <summary>
-/// Request body for enableAccountInvites.
-/// </summary>
+/// <summary>Request body for enableAccountInvites.</summary>
 internal sealed class EnableAccountInvitesRequest
 {
     /// <summary>The DID of the account.</summary>
@@ -284,9 +236,7 @@ internal sealed class EnableAccountInvitesRequest
     public string? Note { get; init; }
 }
 
-/// <summary>
-/// Request body for updateAccountEmail.
-/// </summary>
+/// <summary>Request body for updateAccountEmail.</summary>
 internal sealed class UpdateAccountEmailRequest
 {
     /// <summary>The DID or handle of the account.</summary>
@@ -298,9 +248,7 @@ internal sealed class UpdateAccountEmailRequest
     public required string Email { get; init; }
 }
 
-/// <summary>
-/// Request body for updateAccountHandle.
-/// </summary>
+/// <summary>Request body for updateAccountHandle.</summary>
 internal sealed class UpdateAccountHandleRequest
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -312,9 +260,7 @@ internal sealed class UpdateAccountHandleRequest
     public required Handle Handle { get; init; }
 }
 
-/// <summary>
-/// Request body for updateAccountPassword.
-/// </summary>
+/// <summary>Request body for updateAccountPassword.</summary>
 internal sealed class UpdateAccountPasswordRequest
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -326,9 +272,7 @@ internal sealed class UpdateAccountPasswordRequest
     public required string Password { get; init; }
 }
 
-/// <summary>
-/// Request body for updateAccountSigningKey.
-/// </summary>
+/// <summary>Request body for updateAccountSigningKey.</summary>
 internal sealed class UpdateAccountSigningKeyRequest
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -340,9 +284,7 @@ internal sealed class UpdateAccountSigningKeyRequest
     public required Did SigningKey { get; init; }
 }
 
-/// <summary>
-/// Request body for disableInviteCodes.
-/// </summary>
+/// <summary>Request body for disableInviteCodes.</summary>
 internal sealed class DisableInviteCodesRequest
 {
     /// <summary>The invite codes.</summary>
@@ -354,9 +296,7 @@ internal sealed class DisableInviteCodesRequest
     public IReadOnlyList<string>? Accounts { get; init; }
 }
 
-/// <summary>
-/// Response from getInviteCodes.
-/// </summary>
+/// <summary>Response from getInviteCodes.</summary>
 public sealed class GetInviteCodesResponse : ICursorPage<InviteCode>
 {
     /// <summary>

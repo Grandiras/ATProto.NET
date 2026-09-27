@@ -26,9 +26,7 @@ public sealed partial record Tid : IIdentifier<Tid>
     [GeneratedRegex(@"^[234567abcdefghij][234567abcdefghijklmnopqrstuvwxyz]{12}\z")]
     private static partial Regex TidPattern();
 
-    /// <summary>
-    /// The TID string value.
-    /// </summary>
+    /// <summary>The TID string value.</summary>
     public string Value { get; }
 
     private Tid(string value)
@@ -36,18 +34,14 @@ public sealed partial record Tid : IIdentifier<Tid>
         Value = value;
     }
 
-    /// <summary>
-    /// Creates a TID from a string value with validation.
-    /// </summary>
+    /// <summary>Creates a TID from a string value with validation.</summary>
     /// <param name="value">The TID string.</param>
     /// <returns>A validated TID.</returns>
     /// <exception cref="ArgumentException">Thrown if the value is not a valid TID.</exception>
     public static Tid Parse(string value) =>
         TryParse(value, out var tid) ? tid : throw IIdentifier<Tid>.InvalidValue(value, "TID");
 
-    /// <summary>
-    /// Attempts to create a TID from a string value without throwing.
-    /// </summary>
+    /// <summary>Attempts to create a TID from a string value without throwing.</summary>
     /// <param name="value">The TID string.</param>
     /// <param name="tid">The parsed TID on success.</param>
     /// <returns><see langword="true"/> if <paramref name="value"/> is a valid TID.</returns>
@@ -70,9 +64,7 @@ public sealed partial record Tid : IIdentifier<Tid>
     /// <returns>A new TID.</returns>
     public static Tid Next() => TidGenerator.Shared.Next();
 
-    /// <summary>
-    /// Gets the string value of the next TID, useful for record keys.
-    /// </summary>
+    /// <summary>Gets the string value of the next TID, useful for record keys.</summary>
     /// <returns>The value of <see cref="Next"/>.</returns>
     public static string NextString() => Next().Value;
 
@@ -114,17 +106,13 @@ public sealed partial record Tid : IIdentifier<Tid>
         return new string(chars);
     }
 
-    /// <summary>
-    /// Implicitly converts a <see cref="Tid"/> to its <see cref="string"/> representation.
-    /// </summary>
+    /// <summary>Implicitly converts a <see cref="Tid"/> to its <see cref="string"/> representation.</summary>
     /// <param name="tid">The value to convert.</param>
     /// <returns>The converted value, or <see langword="null"/> for a <see langword="null"/> TID.</returns>
     [return: NotNullIfNotNull(nameof(tid))]
     public static implicit operator string?(Tid? tid) => tid?.Value;
 
-    /// <summary>
-    /// Explicitly converts a <see cref="string"/> to its <see cref="Tid"/> representation.
-    /// </summary>
+    /// <summary>Explicitly converts a <see cref="string"/> to its <see cref="Tid"/> representation.</summary>
     /// <param name="value">The value to convert.</param>
     /// <returns>The converted value.</returns>
     /// <exception cref="ArgumentException">Thrown if the value is not a valid <see cref="Tid"/>.</exception>

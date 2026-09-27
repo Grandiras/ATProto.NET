@@ -3,9 +3,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Streaming;
 
-/// <summary>
-/// Where a repository's chain of verified commits stands: the sync spec's repo sync status.
-/// </summary>
+/// <summary>Where a repository's chain of verified commits stands: the sync spec's repo sync status.</summary>
 public enum RepoSyncStatus
 {
     /// <summary>
@@ -61,17 +59,13 @@ public interface IRepoSyncStateStore
 {
     /// <summary>Reads a repository's state, or null when there is none.</summary>
     /// <param name="did">The repository.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     ValueTask<RepoSyncState?> GetAsync(Did did, CancellationToken cancellationToken = default);
 
     /// <summary>Records a repository's state, replacing any it had.</summary>
-    /// <param name="state">The state.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     ValueTask SetAsync(RepoSyncState state, CancellationToken cancellationToken = default);
 
     /// <summary>Forgets a repository. Removing one that has no state does nothing.</summary>
     /// <param name="did">The repository.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     ValueTask RemoveAsync(Did did, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -79,7 +73,6 @@ public interface IRepoSyncStateStore
     /// <see cref="RepoSyncStatus.Synchronized"/>: the ones a resynchronization should fetch.
     /// </summary>
     /// <param name="limit">The most to return.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     ValueTask<IReadOnlyList<RepoSyncState>> ListUnsynchronizedAsync(int limit, CancellationToken cancellationToken = default);
 }
 

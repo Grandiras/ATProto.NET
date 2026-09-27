@@ -7,9 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Server;
 
-/// <summary>
-/// Registers the SDK's identity resolvers with dependency injection.
-/// </summary>
+/// <summary>Registers the SDK's identity resolvers with dependency injection.</summary>
 public static class IdentityServiceCollectionExtensions
 {
     /// <summary>

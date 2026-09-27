@@ -3,9 +3,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Auth;
 
-/// <summary>
-/// Persists sessions, one per account, keyed by DID.
-/// </summary>
+/// <summary>Persists sessions, one per account, keyed by DID.</summary>
 /// <remarks>
 /// <para>Give one to the <see cref="AtProtoClient"/> constructor
 /// and the client keeps it current: it writes each session it installs and every refreshed
@@ -22,20 +20,14 @@ public interface IAtProtoSessionStore
 {
     /// <summary>Reads the stored session of an account.</summary>
     /// <param name="did">The account's DID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The session, or <see langword="null"/> when none is stored.</returns>
     ValueTask<AtProtoSession?> GetAsync(Did did, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Stores a session, replacing any stored for the same account (<see cref="AtProtoSession.Did"/>).
-    /// </summary>
-    /// <param name="session">The session.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <summary>Stores a session, replacing any stored for the same account (<see cref="AtProtoSession.Did"/>).</summary>
     ValueTask SetAsync(AtProtoSession session, CancellationToken cancellationToken = default);
 
     /// <summary>Removes the stored session of an account, if there is one.</summary>
     /// <param name="did">The account's DID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     ValueTask RemoveAsync(Did did, CancellationToken cancellationToken = default);
 }
 

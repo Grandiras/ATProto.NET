@@ -29,23 +29,19 @@ public interface IXrpcTransport
     /// <param name="nsid">The method NSID.</param>
     /// <param name="parameters">The query parameters, if the method takes any.</param>
     /// <param name="options">Per-call settings: proxy, labelers, headers, timeout.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     Task<TOut> QueryAsync<TOut>(
         Nsid nsid,
         XrpcParams? parameters = null,
         XrpcCallOptions? options = null,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Calls an XRPC query (HTTP GET) whose output is binary, such as a blob or a CAR file.
-    /// </summary>
+    /// <summary>Calls an XRPC query (HTTP GET) whose output is binary, such as a blob or a CAR file.</summary>
     /// <param name="nsid">The method NSID.</param>
     /// <param name="parameters">The query parameters, if the method takes any.</param>
     /// <param name="options">
     /// Per-call settings; <see cref="XrpcCallOptions.Timeout"/> covers receiving the response
     /// headers.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The response body as a stream, which the caller disposes.</returns>
     Task<XrpcStreamResponse> DownloadAsync(
         Nsid nsid,
@@ -60,7 +56,6 @@ public interface IXrpcTransport
     /// <param name="input">The input; <see langword="null"/> sends no body.</param>
     /// <param name="parameters">The query parameters, if the method takes any.</param>
     /// <param name="options">Per-call settings: proxy, labelers, headers, timeout.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     Task<TOut> ProcedureAsync<TIn, TOut>(
         Nsid nsid,
         TIn input,
@@ -68,15 +63,12 @@ public interface IXrpcTransport
         XrpcCallOptions? options = null,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Calls an XRPC procedure (HTTP POST) with a JSON input, ignoring any output.
-    /// </summary>
+    /// <summary>Calls an XRPC procedure (HTTP POST) with a JSON input, ignoring any output.</summary>
     /// <typeparam name="TIn">The input type.</typeparam>
     /// <param name="nsid">The method NSID.</param>
     /// <param name="input">The input; <see langword="null"/> sends no body.</param>
     /// <param name="parameters">The query parameters, if the method takes any.</param>
     /// <param name="options">Per-call settings: proxy, labelers, headers, timeout.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     Task ProcedureAsync<TIn>(
         Nsid nsid,
         TIn input,
@@ -84,13 +76,10 @@ public interface IXrpcTransport
         XrpcCallOptions? options = null,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Calls an XRPC procedure (HTTP POST) that takes no input, ignoring any output.
-    /// </summary>
+    /// <summary>Calls an XRPC procedure (HTTP POST) that takes no input, ignoring any output.</summary>
     /// <param name="nsid">The method NSID.</param>
     /// <param name="parameters">The query parameters, if the method takes any.</param>
     /// <param name="options">Per-call settings: proxy, labelers, headers, timeout.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <remarks>
     /// Preferred over <see cref="ProcedureAsync{TIn}"/> when the second argument is an
     /// <see cref="XrpcParams"/>, which is never a procedure's input.
@@ -116,7 +105,6 @@ public interface IXrpcTransport
     /// <param name="mimeType">The body's MIME type, sent as <c>Content-Type</c>.</param>
     /// <param name="parameters">The query parameters, if the method takes any.</param>
     /// <param name="options">Per-call settings: proxy, labelers, headers, timeout.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     Task<TOut> UploadAsync<TOut>(
         Nsid nsid,
         Stream data,

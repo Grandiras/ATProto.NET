@@ -26,9 +26,7 @@ internal abstract class SpaceRepoEndpointBase<TParams>(SpaceRequestAuthenticator
     /// <summary>The repos this service holds.</summary>
     protected ISpaceRepoHost RepoHost { get; } = repoHost;
 
-    /// <summary>
-    /// Validates the addressing parameters and authenticates the request against them.
-    /// </summary>
+    /// <summary>Validates the addressing parameters and authenticates the request against them.</summary>
     /// <returns>The space and repo the request addresses.</returns>
     protected async Task<(SpaceUri Space, Did Repo)> AuthenticateAsync(
         TParams parameters, HttpContext context, CancellationToken cancellationToken)
@@ -38,7 +36,7 @@ internal abstract class SpaceRepoEndpointBase<TParams>(SpaceRequestAuthenticator
         var space = SpaceRequestValidation.RequireSpace(parameters.Space);
         var repo = SpaceRequestValidation.Require(parameters.Repo, "repo");
 
-        await authenticator.AuthenticateCredentialAsync(context, space, cancellationToken);
+        await authenticator.AuthenticateCredentialAsync(context, space, cancellationToken).ConfigureAwait(false);
 
         return (space, repo);
     }
@@ -62,11 +60,11 @@ internal sealed class GetSpaceRecordEndpoint(SpaceRequestAuthenticator authentic
     public async Task<GetSpaceRecordResponse> HandleAsync(
         GetSpaceRecordParameters parameters, HttpContext context, CancellationToken cancellationToken = default)
     {
-        var (space, repo) = await AuthenticateAsync(parameters, context, cancellationToken);
+        var (space, repo) = await AuthenticateAsync(parameters, context, cancellationToken).ConfigureAwait(false);
         var collection = SpaceRequestValidation.Require(parameters.Collection, "collection");
         var rkey = SpaceRequestValidation.Require(parameters.Rkey, "rkey");
 
-        return await RepoHost.GetRecordAsync(space, repo, collection, rkey, cancellationToken)
+        return await RepoHost.GetRecordAsync(space, repo, collection, rkey, cancellationToken).ConfigureAwait(false)
                ?? throw new XrpcException(
                    SpaceErrors.RecordNotFound,
                    $"No record at {collection}/{rkey}.",
@@ -84,7 +82,7 @@ internal sealed class ListSpaceRecordsEndpoint(SpaceRequestAuthenticator authent
     public async Task<ListSpaceRecordsResponse> HandleAsync(
         ListSpaceRecordsParameters parameters, HttpContext context, CancellationToken cancellationToken = default)
     {
-        var (space, repo) = await AuthenticateAsync(parameters, context, cancellationToken);
+        var (space, repo) = await AuthenticateAsync(parameters, context, cancellationToken).ConfigureAwait(false);
 
         return await RepoHost.ListRecordsAsync(
             space,
@@ -94,7 +92,7 @@ internal sealed class ListSpaceRecordsEndpoint(SpaceRequestAuthenticator authent
             parameters.ExcludeValues ?? false,
             SpaceRequestValidation.Limit(parameters.Limit),
             parameters.Cursor,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 }
 
@@ -108,9 +106,9 @@ internal sealed class GetSpaceLatestCommitEndpoint(SpaceRequestAuthenticator aut
     public async Task<GetSpaceLatestCommitResponse> HandleAsync(
         GetSpaceLatestCommitParameters parameters, HttpContext context, CancellationToken cancellationToken = default)
     {
-        var (space, repo) = await AuthenticateAsync(parameters, context, cancellationToken);
+        var (space, repo) = await AuthenticateAsync(parameters, context, cancellationToken).ConfigureAwait(false);
 
-        var commit = await RepoHost.GetLatestCommitAsync(space, repo, cancellationToken)
+        var commit = await RepoHost.GetLatestCommitAsync(space, repo, cancellationToken).ConfigureAwait(false)
                      ?? throw RepoNotFound(space, repo);
 
         return new GetSpaceLatestCommitResponse { Commit = commit };
@@ -127,7 +125,7 @@ internal sealed class ListSpaceRepoOpsEndpoint(SpaceRequestAuthenticator authent
     public async Task<ListSpaceRepoOpsResponse> HandleAsync(
         ListSpaceRepoOpsParameters parameters, HttpContext context, CancellationToken cancellationToken = default)
     {
-        var (space, repo) = await AuthenticateAsync(parameters, context, cancellationToken);
+        var (space, repo) = await AuthenticateAsync(parameters, context, cancellationToken).ConfigureAwait(false);
 
         return await RepoHost.ListRepoOpsAsync(
                    space,
@@ -136,7 +134,7 @@ internal sealed class ListSpaceRepoOpsEndpoint(SpaceRequestAuthenticator authent
                    parameters.ExcludeValues ?? false,
                    SpaceRequestValidation.Limit(parameters.Limit, defaultLimit: 100),
                    parameters.Cursor,
-                   cancellationToken)
+                   cancellationToken).ConfigureAwait(false)
                ?? throw RepoNotFound(space, repo);
     }
 }
@@ -151,7 +149,7 @@ internal sealed class ListSpaceBlobsEndpoint(SpaceRequestAuthenticator authentic
     public async Task<ListSpaceBlobsResponse> HandleAsync(
         ListSpaceBlobsParameters parameters, HttpContext context, CancellationToken cancellationToken = default)
     {
-        var (space, repo) = await AuthenticateAsync(parameters, context, cancellationToken);
+        var (space, repo) = await AuthenticateAsync(parameters, context, cancellationToken).ConfigureAwait(false);
 
         return await RepoHost.ListBlobsAsync(
             space,
@@ -159,13 +157,11 @@ internal sealed class ListSpaceBlobsEndpoint(SpaceRequestAuthenticator authentic
             parameters.Since,
             SpaceRequestValidation.Limit(parameters.Limit, defaultLimit: 500),
             parameters.Cursor,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 }
 
-/// <summary>
-/// Serves <c>com.atproto.space.getRepo</c>: an account's whole permissioned repo as a CAR.
-/// </summary>
+/// <summary>Serves <c>com.atproto.space.getRepo</c>: an account's whole permissioned repo as a CAR.</summary>
 internal sealed class GetSpaceRepoEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
     : SpaceRepoEndpointBase<GetSpaceRepoParameters>(authenticator, repoHost),
       IXrpcBlobQuery<GetSpaceRepoParameters>
@@ -178,10 +174,10 @@ internal sealed class GetSpaceRepoEndpoint(SpaceRequestAuthenticator authenticat
     public async Task<XrpcBlobResult> HandleAsync(
         GetSpaceRepoParameters parameters, HttpContext context, CancellationToken cancellationToken = default)
     {
-        var (space, repo) = await AuthenticateAsync(parameters, context, cancellationToken);
+        var (space, repo) = await AuthenticateAsync(parameters, context, cancellationToken).ConfigureAwait(false);
 
         var car = await RepoHost.GetRepoAsync(
-                      space, repo, parameters.ExcludeValues ?? false, cancellationToken)
+                      space, repo, parameters.ExcludeValues ?? false, cancellationToken).ConfigureAwait(false)
                   ?? throw RepoNotFound(space, repo);
 
         // Only what is left to read: a host handing back a shared, already-positioned stream
@@ -190,9 +186,7 @@ internal sealed class GetSpaceRepoEndpoint(SpaceRequestAuthenticator authenticat
     }
 }
 
-/// <summary>
-/// Serves <c>com.atproto.space.getBlob</c>: a blob referenced from a permissioned record.
-/// </summary>
+/// <summary>Serves <c>com.atproto.space.getBlob</c>: a blob referenced from a permissioned record.</summary>
 internal sealed class GetSpaceBlobEndpoint(SpaceRequestAuthenticator authenticator, ISpaceRepoHost repoHost)
     : SpaceRepoEndpointBase<GetSpaceBlobParameters>(authenticator, repoHost),
       IXrpcBlobQuery<GetSpaceBlobParameters>
@@ -202,10 +196,10 @@ internal sealed class GetSpaceBlobEndpoint(SpaceRequestAuthenticator authenticat
     public async Task<XrpcBlobResult> HandleAsync(
         GetSpaceBlobParameters parameters, HttpContext context, CancellationToken cancellationToken = default)
     {
-        var (space, repo) = await AuthenticateAsync(parameters, context, cancellationToken);
+        var (space, repo) = await AuthenticateAsync(parameters, context, cancellationToken).ConfigureAwait(false);
         var cid = SpaceRequestValidation.Require(parameters.Cid, "cid");
 
-        var blob = await RepoHost.GetBlobAsync(space, repo, cid, cancellationToken)
+        var blob = await RepoHost.GetBlobAsync(space, repo, cid, cancellationToken).ConfigureAwait(false)
                    ?? throw new XrpcException(
                        SpaceErrors.BlobNotFound,
                        $"'{repo}' references no blob {cid} in {space}.",

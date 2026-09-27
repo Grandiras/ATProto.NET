@@ -23,9 +23,7 @@ internal readonly record struct StreamSocketOptions(string? SubProtocol = null, 
 internal delegate IAsyncEnumerable<StreamSocketMessage> StreamConnector(
     Uri endpoint, StreamSocketOptions options, CancellationToken cancellationToken);
 
-/// <summary>
-/// A connection the client also writes to: the Tap channel acknowledges events over it.
-/// </summary>
+/// <summary>A connection the client also writes to: the Tap channel acknowledges events over it.</summary>
 internal interface IDuplexStreamSocket : IAsyncDisposable
 {
     /// <summary>
@@ -70,9 +68,7 @@ internal sealed class StreamSocket : IDuplexStreamSocket
     public static DuplexStreamConnector DuplexConnector { get; } =
         async (endpoint, options, cancellationToken) => await ConnectAsync(endpoint, options, cancellationToken).ConfigureAwait(false);
 
-    /// <summary>
-    /// Connects to <paramref name="endpoint"/>.
-    /// </summary>
+    /// <summary>Connects to <paramref name="endpoint"/>.</summary>
     /// <exception cref="EventStreamException">The server refused the upgrade; carries the HTTP status
     /// when the transport reported one.</exception>
     public static async Task<StreamSocket> ConnectAsync(

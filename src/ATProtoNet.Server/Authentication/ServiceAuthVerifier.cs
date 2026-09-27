@@ -8,9 +8,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Server.Authentication;
 
-/// <summary>
-/// A verified inter-service authentication token.
-/// </summary>
+/// <summary>A verified inter-service authentication token.</summary>
 public sealed class VerifiedServiceAuth
 {
     /// <summary>The account or service the call is made as: the token's <c>iss</c>.</summary>
@@ -197,9 +195,7 @@ public sealed class ServiceAuthVerifier
     private readonly TimeSpan _clockSkew;
     private readonly TimeSpan _maxTokenLifetime;
 
-    /// <summary>
-    /// Creates a verifier.
-    /// </summary>
+    /// <summary>Creates a verifier.</summary>
     /// <param name="resolver">
     /// Resolves the issuer's DID document. Use a caching one: every token resolves a document.
     /// </param>
@@ -253,9 +249,7 @@ public sealed class ServiceAuthVerifier
         _maxTokenLifetime = options.MaxTokenLifetime;
     }
 
-    /// <summary>
-    /// Verifies a service auth token and spends its <c>jti</c>.
-    /// </summary>
+    /// <summary>Verifies a service auth token and spends its <c>jti</c>.</summary>
     /// <param name="token">The token, as it followed <c>Bearer </c>.</param>
     /// <param name="acceptedAudiences">
     /// The <c>aud</c> values this service answers to; the token's must equal one of them exactly.
@@ -267,7 +261,6 @@ public sealed class ServiceAuthVerifier
     /// <see langword="null"/> only for a call that is not to an XRPC method; the <c>lxm</c> is then
     /// not checked, and is the caller's to judge from <see cref="VerifiedServiceAuth.Method"/>.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The verified token.</returns>
     /// <exception cref="ServiceAuthException">The token is refused.</exception>
     /// <exception cref="ArgumentException"><paramref name="acceptedAudiences"/> is empty.</exception>
@@ -355,10 +348,10 @@ public sealed class ServiceAuthVerifier
                 $"{Jwt.MaxTokenIdLength} characters.");
         }
 
-        await VerifySignatureAsync(issuer, keyId, algorithm, decoded, cancellationToken);
+        await VerifySignatureAsync(issuer, keyId, algorithm, decoded, cancellationToken).ConfigureAwait(false);
 
         // Kept until the token stops being accepted, which the skew puts past its exp.
-        if (!await _replayStore.TryConsumeAsync(issuer.Value, tokenId, expiresAt + _clockSkew, cancellationToken))
+        if (!await _replayStore.TryConsumeAsync(issuer.Value, tokenId, expiresAt + _clockSkew, cancellationToken).ConfigureAwait(false))
             throw Refuse(ServiceAuthErrors.BadJwt, "The service auth token has already been used.");
 
         return new VerifiedServiceAuth
@@ -492,13 +485,13 @@ public sealed class ServiceAuthVerifier
     private async Task VerifySignatureAsync(
         Did issuer, string keyId, string algorithm, DecodedJwt decoded, CancellationToken cancellationToken)
     {
-        var key = await ResolveKeyAsync(issuer, keyId, refresh: false, cancellationToken);
+        var key = await ResolveKeyAsync(issuer, keyId, refresh: false, cancellationToken).ConfigureAwait(false);
         if (key is not null && Verify(key, algorithm, decoded))
             return;
 
         // The cached document may predate a key rotation, or the key's publication: refetch once
         // before refusing.
-        var refreshed = await ResolveKeyAsync(issuer, keyId, refresh: true, cancellationToken);
+        var refreshed = await ResolveKeyAsync(issuer, keyId, refresh: true, cancellationToken).ConfigureAwait(false);
         if (refreshed is null)
         {
             throw Refuse(
@@ -521,8 +514,8 @@ public sealed class ServiceAuthVerifier
         try
         {
             document = refresh
-                ? await _resolver.RefreshAsync(issuer, cancellationToken)
-                : await _resolver.ResolveAsync(issuer, cancellationToken);
+                ? await _resolver.RefreshAsync(issuer, cancellationToken).ConfigureAwait(false)
+                : await _resolver.ResolveAsync(issuer, cancellationToken).ConfigureAwait(false);
         }
         catch (DidResolutionException ex)
         {

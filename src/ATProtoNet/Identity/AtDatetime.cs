@@ -78,9 +78,7 @@ public readonly record struct AtDatetime : ISpanParsable<AtDatetime>, IComparabl
     /// </summary>
     public bool IsValid => _state == State.Valid;
 
-    /// <summary>
-    /// The instant the text denotes, in the offset it was written with.
-    /// </summary>
+    /// <summary>The instant the text denotes, in the offset it was written with.</summary>
     /// <remarks>
     /// Precision is 100 ns; further fractional digits are truncated. An offset beyond the
     /// ±14:00 a <see cref="DateTimeOffset"/> can hold is normalized to UTC.
@@ -123,9 +121,7 @@ public readonly record struct AtDatetime : ISpanParsable<AtDatetime>, IComparabl
         return true;
     }
 
-    /// <summary>
-    /// The current time as a canonical atproto datetime (UTC, millisecond precision).
-    /// </summary>
+    /// <summary>The current time as a canonical atproto datetime (UTC, millisecond precision).</summary>
     /// <returns>The current time.</returns>
     public static AtDatetime Now() => FromDateTimeOffset(DateTimeOffset.UtcNow);
 
@@ -165,9 +161,7 @@ public readonly record struct AtDatetime : ISpanParsable<AtDatetime>, IComparabl
             ? new DateTimeOffset(value)
             : new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)));
 
-    /// <summary>
-    /// Parses a valid atproto datetime, keeping its text exactly as given.
-    /// </summary>
+    /// <summary>Parses a valid atproto datetime, keeping its text exactly as given.</summary>
     /// <param name="value">The datetime text.</param>
     /// <returns>The datetime.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
@@ -180,9 +174,7 @@ public readonly record struct AtDatetime : ISpanParsable<AtDatetime>, IComparabl
             : throw new ArgumentException($"Invalid datetime: '{value}'.", nameof(value));
     }
 
-    /// <summary>
-    /// Attempts to parse a valid atproto datetime, keeping its text exactly as given.
-    /// </summary>
+    /// <summary>Attempts to parse a valid atproto datetime, keeping its text exactly as given.</summary>
     /// <param name="value">The datetime text.</param>
     /// <param name="result">The datetime on success.</param>
     /// <returns><see langword="true"/> if <paramref name="value"/> is a valid atproto datetime.</returns>
@@ -348,9 +340,7 @@ public readonly record struct AtDatetime : ISpanParsable<AtDatetime>, IComparabl
         return days;
     }
 
-    /// <summary>
-    /// Whether two values have the same text.
-    /// </summary>
+    /// <summary>Whether two values have the same text.</summary>
     /// <param name="other">The value to compare with.</param>
     /// <returns><see langword="true"/> if the texts are ordinally equal.</returns>
     public bool Equals(AtDatetime other) => string.Equals(_text, other._text, StringComparison.Ordinal);
@@ -358,9 +348,7 @@ public readonly record struct AtDatetime : ISpanParsable<AtDatetime>, IComparabl
     /// <inheritdoc />
     public override int GetHashCode() => _text is null ? 0 : _text.GetHashCode(StringComparison.Ordinal);
 
-    /// <summary>
-    /// Compares by instant, then ordinally by text; values without an instant sort first.
-    /// </summary>
+    /// <summary>Compares by instant, then ordinally by text; values without an instant sort first.</summary>
     /// <param name="other">The value to compare with.</param>
     /// <returns>A negative number, zero or a positive number as this value sorts before, with or after <paramref name="other"/>.</returns>
     public int CompareTo(AtDatetime other)

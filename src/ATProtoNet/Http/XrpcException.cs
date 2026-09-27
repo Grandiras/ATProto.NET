@@ -20,9 +20,7 @@ namespace ATProtoNet.Http;
 /// </remarks>
 public class XrpcException : AtProtoException
 {
-    /// <summary>
-    /// Creates an XRPC error, as an endpoint handler raises one.
-    /// </summary>
+    /// <summary>Creates an XRPC error, as an endpoint handler raises one.</summary>
     /// <param name="error">The wire error name, e.g. <c>RecordNotFound</c>.</param>
     /// <param name="message">A human-readable description, if any.</param>
     /// <param name="statusCode">The HTTP status. Defaults to 400.</param>
@@ -31,9 +29,7 @@ public class XrpcException : AtProtoException
     {
     }
 
-    /// <summary>
-    /// Creates an XRPC error with an underlying cause.
-    /// </summary>
+    /// <summary>Creates an XRPC error with an underlying cause.</summary>
     /// <param name="error">The wire error name, e.g. <c>RecordNotFound</c>.</param>
     /// <param name="message">A human-readable description.</param>
     /// <param name="innerException">The underlying cause.</param>
@@ -47,9 +43,7 @@ public class XrpcException : AtProtoException
     {
     }
 
-    /// <summary>
-    /// Creates an XRPC error for a call to a named method, as the client raises one.
-    /// </summary>
+    /// <summary>Creates an XRPC error for a call to a named method, as the client raises one.</summary>
     /// <param name="error">The wire error name, e.g. <c>RecordNotFound</c>.</param>
     /// <param name="message">A human-readable description, if any.</param>
     /// <param name="statusCode">The HTTP status.</param>
@@ -125,9 +119,7 @@ public class XrpcException : AtProtoException
 /// </remarks>
 public sealed class XrpcRateLimitException : XrpcException
 {
-    /// <summary>
-    /// Creates a rate-limit error.
-    /// </summary>
+    /// <summary>Creates a rate-limit error.</summary>
     /// <param name="error">The wire error name, usually <see cref="XrpcErrors.RateLimitExceeded"/>.</param>
     /// <param name="message">A human-readable description, if any.</param>
     /// <param name="nsid">The method that was refused, if known.</param>
@@ -167,9 +159,7 @@ public sealed class XrpcRateLimitException : XrpcException
 /// </remarks>
 public sealed class XrpcAuthenticationException : XrpcException
 {
-    /// <summary>
-    /// Creates an authentication error.
-    /// </summary>
+    /// <summary>Creates an authentication error.</summary>
     /// <param name="error">The wire error name.</param>
     /// <param name="message">A human-readable description, if any.</param>
     /// <param name="statusCode">The HTTP status.</param>
@@ -191,9 +181,7 @@ public sealed class XrpcAuthenticationException : XrpcException
 /// </remarks>
 public sealed class XrpcResponseFormatException : AtProtoException
 {
-    /// <summary>
-    /// Creates a response-format error.
-    /// </summary>
+    /// <summary>Creates a response-format error.</summary>
     /// <param name="nsid">The method whose response did not match.</param>
     /// <param name="message">A description of the mismatch.</param>
     /// <param name="innerException">The underlying deserialization failure, if any.</param>

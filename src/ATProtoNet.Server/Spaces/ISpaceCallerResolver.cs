@@ -5,9 +5,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// Identifies the account an authenticated request is acting for.
-/// </summary>
+/// <summary>Identifies the account an authenticated request is acting for.</summary>
 /// <remarks>
 /// The <c>com.atproto.simplespace</c> procedures are administered by a space's owner over that
 /// account's ordinary OAuth session, not with a space credential — creating a space is what

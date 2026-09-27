@@ -27,16 +27,14 @@ internal abstract class SimpleSpaceEndpointBase(ISpaceCallerResolver callerResol
     /// <summary>The spaces and member lists this authority holds.</summary>
     protected ISimpleSpaceStore Store { get; } = store;
 
-    /// <summary>
-    /// Loads a space the caller owns, or throws.
-    /// </summary>
+    /// <summary>Loads a space the caller owns, or throws.</summary>
     protected async Task<SimpleSpaceRecord> RequireOwnedSpaceAsync(
         SpaceUri? spaceValue, HttpContext context, CancellationToken cancellationToken)
     {
         var uri = SpaceRequestValidation.RequireSpace(spaceValue);
         var caller = CallerResolver.RequireCallerDid(context);
 
-        var space = await Store.GetSpaceAsync(uri, cancellationToken);
+        var space = await Store.GetSpaceAsync(uri, cancellationToken).ConfigureAwait(false);
         if (space is null || space.Deleted)
             throw NotFound(uri);
 
@@ -79,7 +77,7 @@ internal sealed class CreateSimpleSpaceEndpoint(ISpaceCallerResolver callerResol
         RequireSupported(readPolicy, writePolicy, appAccess);
 
         var created = await Store.CreateSpaceAsync(
-            new SimpleSpaceRecord(uri, caller, readPolicy, writePolicy, appAccess), cancellationToken);
+            new SimpleSpaceRecord(uri, caller, readPolicy, writePolicy, appAccess), cancellationToken).ConfigureAwait(false);
 
         return created
             ? new CreateSimpleSpaceResponse { Uri = uri }
@@ -136,7 +134,7 @@ internal sealed class UpdateSimpleSpaceEndpoint(ISpaceCallerResolver callerResol
     {
         ArgumentNullException.ThrowIfNull(input);
 
-        var space = await RequireOwnedSpaceAsync(input.Space, context, cancellationToken);
+        var space = await RequireOwnedSpaceAsync(input.Space, context, cancellationToken).ConfigureAwait(false);
         CreateSimpleSpaceEndpoint.RequireSupported(input.ReadPolicy, input.WritePolicy, input.AppAccess);
 
         // Omitted fields are left unchanged; a supplied one replaces that policy wholesale.
@@ -147,7 +145,7 @@ internal sealed class UpdateSimpleSpaceEndpoint(ISpaceCallerResolver callerResol
                 WritePolicy = input.WritePolicy ?? space.WritePolicy,
                 AppAccess = input.AppAccess ?? space.AppAccess,
             },
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 }
 
@@ -175,7 +173,7 @@ internal sealed class DeleteSimpleSpaceEndpoint(
         var uri = SpaceRequestValidation.RequireSpace(input.Space);
         var caller = CallerResolver.RequireCallerDid(context);
 
-        var space = await Store.GetSpaceAsync(uri, cancellationToken);
+        var space = await Store.GetSpaceAsync(uri, cancellationToken).ConfigureAwait(false);
 
         // Idempotent: deleting a space that is already gone is a success, not a 404.
         if (space is null || space.Deleted)
@@ -186,9 +184,9 @@ internal sealed class DeleteSimpleSpaceEndpoint(
 
         // Notify before deleting, so the subscriber list is still readable.
         if (notifier is not null)
-            await notifier.NotifySpaceDeletedAsync(uri, cancellationToken);
+            await notifier.NotifySpaceDeletedAsync(uri, cancellationToken).ConfigureAwait(false);
 
-        await Store.DeleteSpaceAsync(uri, cancellationToken);
+        await Store.DeleteSpaceAsync(uri, cancellationToken).ConfigureAwait(false);
     }
 }
 
@@ -205,7 +203,7 @@ internal sealed class GetSimpleSpaceEndpoint(
         ArgumentNullException.ThrowIfNull(parameters);
 
         var uri = SpaceRequestValidation.RequireSpace(parameters.Space);
-        var space = await Store.GetSpaceAsync(uri, cancellationToken);
+        var space = await Store.GetSpaceAsync(uri, cancellationToken).ConfigureAwait(false);
         if (space is null || space.Deleted)
             throw NotFound(uri);
 
@@ -214,7 +212,7 @@ internal sealed class GetSimpleSpaceEndpoint(
         // space to it discloses nothing new.
         var caller = CallerResolver.GetCallerDid(context);
         if (space.Owner != caller)
-            await authenticator.AuthenticateCredentialAsync(context, uri, cancellationToken);
+            await authenticator.AuthenticateCredentialAsync(context, uri, cancellationToken).ConfigureAwait(false);
 
         return new GetSimpleSpaceResponse
         {
@@ -242,10 +240,10 @@ internal sealed class PutSimpleSpaceMemberEndpoint(ISpaceCallerResolver callerRe
     {
         ArgumentNullException.ThrowIfNull(input);
 
-        var space = await RequireOwnedSpaceAsync(input.Space, context, cancellationToken);
+        var space = await RequireOwnedSpaceAsync(input.Space, context, cancellationToken).ConfigureAwait(false);
         var did = SpaceRequestValidation.Require(input.Did, "did");
 
-        await Store.PutMemberAsync(space.Uri, did, input.Read, input.Write, cancellationToken);
+        await Store.PutMemberAsync(space.Uri, did, input.Read, input.Write, cancellationToken).ConfigureAwait(false);
     }
 }
 
@@ -265,10 +263,10 @@ internal sealed class RemoveSimpleSpaceMemberEndpoint(ISpaceCallerResolver calle
     {
         ArgumentNullException.ThrowIfNull(input);
 
-        var space = await RequireOwnedSpaceAsync(input.Space, context, cancellationToken);
+        var space = await RequireOwnedSpaceAsync(input.Space, context, cancellationToken).ConfigureAwait(false);
         var did = SpaceRequestValidation.Require(input.Did, "did");
 
-        await Store.RemoveMemberAsync(space.Uri, did, cancellationToken);
+        await Store.RemoveMemberAsync(space.Uri, did, cancellationToken).ConfigureAwait(false);
     }
 }
 
@@ -289,9 +287,9 @@ internal sealed class ListSimpleSpaceMembersEndpoint(ISpaceCallerResolver caller
     {
         ArgumentNullException.ThrowIfNull(parameters);
 
-        var space = await RequireOwnedSpaceAsync(parameters.Space, context, cancellationToken);
+        var space = await RequireOwnedSpaceAsync(parameters.Space, context, cancellationToken).ConfigureAwait(false);
 
         return await Store.ListMembersAsync(
-            space.Uri, SpaceRequestValidation.Limit(parameters.Limit), parameters.Cursor, cancellationToken);
+            space.Uri, SpaceRequestValidation.Limit(parameters.Limit), parameters.Cursor, cancellationToken).ConfigureAwait(false);
     }
 }

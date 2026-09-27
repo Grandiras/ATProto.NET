@@ -33,9 +33,7 @@ internal sealed class CommitBlock
 
     public byte[] Signature { get; }
 
-    /// <summary>
-    /// Reads a commit block.
-    /// </summary>
+    /// <summary>Reads a commit block.</summary>
     /// <exception cref="FormatException">
     /// The block is not a map carrying a <c>did</c>, <c>rev</c>, <c>data</c> link, <c>version</c>
     /// and a non-empty byte-string <c>sig</c>.

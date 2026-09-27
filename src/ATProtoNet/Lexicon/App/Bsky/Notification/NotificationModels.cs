@@ -7,13 +7,9 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Notification;
 
-// ──────────────────────────────────────────────────────────────
-//  listNotifications
-// ──────────────────────────────────────────────────────────────
+// ── listNotifications ────────────────────────────────────────
 
-/// <summary>
-/// A notification entry.
-/// </summary>
+/// <summary>A notification entry.</summary>
 public sealed class NotificationView : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
@@ -40,9 +36,7 @@ public sealed class NotificationView : LexObject
     [JsonPropertyName("record")]
     public required JsonElement Record { get; init; }
 
-    /// <summary>
-    /// The starter pack the notification is about, for a <c>starterpack-joined</c> notification.
-    /// </summary>
+    /// <summary>The starter pack the notification is about, for a <c>starterpack-joined</c> notification.</summary>
     [JsonPropertyName("starterPack")]
     public StarterPackViewBasic? StarterPack { get; init; }
 
@@ -59,9 +53,7 @@ public sealed class NotificationView : LexObject
     public IReadOnlyList<Label>? Labels { get; init; }
 }
 
-/// <summary>
-/// Response from listNotifications.
-/// </summary>
+/// <summary>Response from listNotifications.</summary>
 public sealed class ListNotificationsResponse : ICursorPage<NotificationView>
 {
     /// <summary>
@@ -87,13 +79,9 @@ public sealed class ListNotificationsResponse : ICursorPage<NotificationView>
     IReadOnlyList<NotificationView> ICursorPage<NotificationView>.Items => Notifications;
 }
 
-// ──────────────────────────────────────────────────────────────
-//  getUnreadCount
-// ──────────────────────────────────────────────────────────────
+// ── getUnreadCount ───────────────────────────────────────────
 
-/// <summary>
-/// Response from getUnreadCount.
-/// </summary>
+/// <summary>Response from getUnreadCount.</summary>
 public sealed class GetUnreadCountResponse
 {
     /// <summary>The number of unread notifications.</summary>
@@ -101,13 +89,9 @@ public sealed class GetUnreadCountResponse
     public int Count { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  updateSeen
-// ──────────────────────────────────────────────────────────────
+// ── updateSeen ───────────────────────────────────────────────
 
-/// <summary>
-/// Request body for updateSeen.
-/// </summary>
+/// <summary>Request body for updateSeen.</summary>
 internal sealed class UpdateSeenRequest
 {
     /// <summary>The timestamp to mark notifications seen up to.</summary>
@@ -115,13 +99,9 @@ internal sealed class UpdateSeenRequest
     public required AtDatetime SeenAt { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  registerPush
-// ──────────────────────────────────────────────────────────────
+// ── registerPush ─────────────────────────────────────────────
 
-/// <summary>
-/// Request body for registerPush.
-/// </summary>
+/// <summary>Request body for registerPush.</summary>
 public sealed class RegisterPushRequest
 {
     /// <summary>The DID of the service.</summary>
@@ -145,9 +125,7 @@ public sealed class RegisterPushRequest
     public bool? AgeRestricted { get; init; }
 }
 
-/// <summary>
-/// Request body for unregisterPush.
-/// </summary>
+/// <summary>Request body for unregisterPush.</summary>
 internal sealed class UnregisterPushRequest
 {
     /// <summary>The DID of the push service.</summary>
@@ -183,9 +161,7 @@ public static class PushPlatform
     public const string Web = "web";
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Preferences
-// ──────────────────────────────────────────────────────────────
+// ── Preferences ──────────────────────────────────────────────
 
 /// <summary>
 /// The account's notification preferences, per notification kind
@@ -284,9 +260,7 @@ public sealed class FilterablePreference : LexObject
     public required bool Push { get; init; }
 }
 
-/// <summary>
-/// Known values of <see cref="FilterablePreference.Include"/>.
-/// </summary>
+/// <summary>Known values of <see cref="FilterablePreference.Include"/>.</summary>
 public static class NotificationInclude
 {
     /// <summary>Everyone.</summary>
@@ -296,9 +270,7 @@ public static class NotificationInclude
     public const string Follows = "follows";
 }
 
-/// <summary>
-/// The deprecated chat notification preference (<c>app.bsky.notification.defs#chatPreference</c>).
-/// </summary>
+/// <summary>The deprecated chat notification preference (<c>app.bsky.notification.defs#chatPreference</c>).</summary>
 public sealed class ChatPreference : LexObject
 {
     /// <summary>Whose messages notify: <c>all</c> or <c>accepted</c>.</summary>
@@ -310,9 +282,7 @@ public sealed class ChatPreference : LexObject
     public required bool Push { get; init; }
 }
 
-/// <summary>
-/// Response from getPreferences.
-/// </summary>
+/// <summary>Response from getPreferences.</summary>
 internal sealed class GetPreferencesResponse
 {
     /// <summary>The preferences.</summary>
@@ -326,9 +296,7 @@ internal sealed class GetPreferencesResponse
 /// </summary>
 public sealed class PutPreferencesV2Request
 {
-    /// <summary>
-    /// Chat notifications. Deprecated upstream: the service does not keep the value.
-    /// </summary>
+    /// <summary>Chat notifications. Deprecated upstream: the service does not keep the value.</summary>
     [JsonPropertyName("chat")]
     [Obsolete("Deprecated upstream: set chat notification preferences on the chat service.")]
     public ChatPreference? Chat { get; init; }
@@ -382,9 +350,7 @@ public sealed class PutPreferencesV2Request
     public NotificationPreference? Verified { get; init; }
 }
 
-/// <summary>
-/// Response from putPreferencesV2.
-/// </summary>
+/// <summary>Response from putPreferencesV2.</summary>
 internal sealed class PutPreferencesV2Response
 {
     /// <summary>The preferences after the change.</summary>
@@ -392,13 +358,9 @@ internal sealed class PutPreferencesV2Response
     public required NotificationPreferences Preferences { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Activity subscriptions
-// ──────────────────────────────────────────────────────────────
+// ── Activity subscriptions ───────────────────────────────────
 
-/// <summary>
-/// Response from listActivitySubscriptions.
-/// </summary>
+/// <summary>Response from listActivitySubscriptions.</summary>
 public sealed class ListActivitySubscriptionsResponse : ICursorPage<ProfileView>
 {
     /// <summary>
@@ -415,9 +377,7 @@ public sealed class ListActivitySubscriptionsResponse : ICursorPage<ProfileView>
     IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Subscriptions;
 }
 
-/// <summary>
-/// Request body for putActivitySubscription.
-/// </summary>
+/// <summary>Request body for putActivitySubscription.</summary>
 internal sealed class PutActivitySubscriptionRequest
 {
     /// <summary>The account to subscribe to.</summary>
@@ -429,9 +389,7 @@ internal sealed class PutActivitySubscriptionRequest
     public required ActivitySubscription ActivitySubscription { get; init; }
 }
 
-/// <summary>
-/// Response from putActivitySubscription.
-/// </summary>
+/// <summary>Response from putActivitySubscription.</summary>
 public sealed class PutActivitySubscriptionResponse
 {
     /// <summary>The account subscribed to.</summary>
@@ -464,9 +422,7 @@ public sealed class NotificationDeclarationRecord : LexObject, IAtProtoRecord
     public required string AllowSubscriptions { get; init; }
 }
 
-/// <summary>
-/// Known values of <see cref="NotificationDeclarationRecord.AllowSubscriptions"/>.
-/// </summary>
+/// <summary>Known values of <see cref="NotificationDeclarationRecord.AllowSubscriptions"/>.</summary>
 public static class AllowedSubscribers
 {
     /// <summary>Followers may subscribe (the default without a record).</summary>
@@ -479,9 +435,7 @@ public static class AllowedSubscribers
     public const string None = "none";
 }
 
-/// <summary>
-/// Well-known notification reasons.
-/// </summary>
+/// <summary>Well-known notification reasons.</summary>
 public static class NotificationReasons
 {
     /// <summary>The <c>like</c> notification reason.</summary>

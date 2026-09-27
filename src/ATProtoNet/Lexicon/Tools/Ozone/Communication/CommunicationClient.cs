@@ -2,9 +2,7 @@ using ATProtoNet.Http;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Communication;
 
-/// <summary>
-/// Client for tools.ozone.communication.* endpoints.
-/// </summary>
+/// <summary>Client for tools.ozone.communication.* endpoints.</summary>
 public sealed class CommunicationClient
 {
     private readonly XrpcClient _xrpc;
@@ -14,44 +12,33 @@ public sealed class CommunicationClient
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Create a new email template.
-    /// </summary>
+    /// <summary>Create a new email template.</summary>
     /// <param name="request">The template.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<CommunicationTemplateView> CreateTemplateAsync(
         CreateTemplateRequest request,
         CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync<CommunicationTemplateView>(
             "tools.ozone.communication.createTemplate", request, cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Delete a communication template.
-    /// </summary>
+    /// <summary>Delete a communication template.</summary>
     /// <param name="id">The template's identifier.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task DeleteTemplateAsync(
         string id,
         CancellationToken cancellationToken = default)
     {
         var request = new DeleteTemplateRequest { Id = id };
         await _xrpc.ProcedureAsync(
-            "tools.ozone.communication.deleteTemplate", request, cancellationToken: cancellationToken);
+            "tools.ozone.communication.deleteTemplate", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// List all communication templates.
-    /// </summary>
+    /// <summary>List all communication templates.</summary>
     public Task<ListTemplatesResponse> ListTemplatesAsync(
         CancellationToken cancellationToken = default) =>
         _xrpc.QueryAsync<ListTemplatesResponse>(
             "tools.ozone.communication.listTemplates", cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Update an existing communication template.
-    /// </summary>
+    /// <summary>Update an existing communication template.</summary>
     /// <param name="request">The template's identifier and the fields to change.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<CommunicationTemplateView> UpdateTemplateAsync(
         UpdateTemplateRequest request,
         CancellationToken cancellationToken = default) =>

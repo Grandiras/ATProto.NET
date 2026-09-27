@@ -6,9 +6,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Moderation;
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.moderation.createReport
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.moderation.createReport ──────────────────────
 
 /// <summary>
 /// What a moderation action is about: an account, a record, a blob, or a chat message or
@@ -48,9 +46,7 @@ public sealed class UnknownModerationSubject : ModerationSubject, IUnknownUnionV
     public JsonElement Raw { get; }
 }
 
-/// <summary>
-/// A repository (account) as a moderation subject (<c>com.atproto.admin.defs#repoRef</c>).
-/// </summary>
+/// <summary>A repository (account) as a moderation subject (<c>com.atproto.admin.defs#repoRef</c>).</summary>
 public sealed class RepoSubject : ModerationSubject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -58,9 +54,7 @@ public sealed class RepoSubject : ModerationSubject
     public required Did Did { get; init; }
 }
 
-/// <summary>
-/// A record version as a moderation subject (<c>com.atproto.repo.strongRef</c>).
-/// </summary>
+/// <summary>A record version as a moderation subject (<c>com.atproto.repo.strongRef</c>).</summary>
 public sealed class RecordSubject : ModerationSubject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
@@ -91,9 +85,7 @@ public sealed class RepoBlobSubject : ModerationSubject
     public AtUri? RecordUri { get; init; }
 }
 
-/// <summary>
-/// A chat message as a moderation subject (<c>chat.bsky.convo.defs#messageRef</c>).
-/// </summary>
+/// <summary>A chat message as a moderation subject (<c>chat.bsky.convo.defs#messageRef</c>).</summary>
 public sealed class MessageSubject : ModerationSubject
 {
     /// <summary>The DID of the message's sender.</summary>
@@ -109,9 +101,7 @@ public sealed class MessageSubject : ModerationSubject
     public required string MessageId { get; init; }
 }
 
-/// <summary>
-/// A chat conversation as a moderation subject (<c>chat.bsky.convo.defs#convoRef</c>).
-/// </summary>
+/// <summary>A chat conversation as a moderation subject (<c>chat.bsky.convo.defs#convoRef</c>).</summary>
 public sealed class ConvoSubject : ModerationSubject
 {
     /// <summary>The DID of the account the conversation is reported for.</summary>
@@ -123,9 +113,7 @@ public sealed class ConvoSubject : ModerationSubject
     public required string ConvoId { get; init; }
 }
 
-/// <summary>
-/// Request body for creating a moderation report.
-/// </summary>
+/// <summary>Request body for creating a moderation report.</summary>
 internal sealed class CreateReportRequest
 {
     /// <summary>
@@ -154,9 +142,7 @@ internal sealed class CreateReportRequest
     public ModTool? ModTool { get; init; }
 }
 
-/// <summary>
-/// The tool a report was filed with (<c>com.atproto.moderation.createReport#modTool</c>).
-/// </summary>
+/// <summary>The tool a report was filed with (<c>com.atproto.moderation.createReport#modTool</c>).</summary>
 public sealed class ModTool : LexObject
 {
     /// <summary>The tool's name, such as <c>bsky-app/android</c> or <c>bsky-web/chrome</c>.</summary>
@@ -168,9 +154,7 @@ public sealed class ModTool : LexObject
     public JsonElement? Meta { get; init; }
 }
 
-/// <summary>
-/// Response from createReport.
-/// </summary>
+/// <summary>Response from createReport.</summary>
 public sealed class CreateReportResponse
 {
     /// <summary>The identifier of the report.</summary>
@@ -198,9 +182,7 @@ public sealed class CreateReportResponse
     public required AtDatetime CreatedAt { get; init; }
 }
 
-/// <summary>
-/// Well-known moderation report reason types (<c>com.atproto.moderation.defs#reasonType</c>).
-/// </summary>
+/// <summary>Well-known moderation report reason types (<c>com.atproto.moderation.defs#reasonType</c>).</summary>
 /// <remarks>
 /// Two sets: the original coarse <c>com.atproto.moderation.defs#reason*</c> reasons (<see cref="Spam"/>
 /// to <see cref="Appeal"/>), and the granular <c>tools.ozone.report.defs#reason*</c> reasons,
@@ -247,9 +229,7 @@ public static class ReportReasons
     /// </summary>
     public const string Other = "com.atproto.moderation.defs#reasonOther";
 
-    /// <summary>
-    /// An appeal of a moderation action (<c>com.atproto.moderation.defs#reasonAppeal</c>).
-    /// </summary>
+    /// <summary>An appeal of a moderation action (<c>com.atproto.moderation.defs#reasonAppeal</c>).</summary>
     public const string Appeal = "com.atproto.moderation.defs#reasonAppeal";
 
     /// <summary>
@@ -258,9 +238,7 @@ public static class ReportReasons
     /// </summary>
     public const string OzoneAppeal = "tools.ozone.report.defs#reasonAppeal";
 
-    /// <summary>
-    /// An issue none of the granular reasons covers (<c>tools.ozone.report.defs#reasonOther</c>).
-    /// </summary>
+    /// <summary>An issue none of the granular reasons covers (<c>tools.ozone.report.defs#reasonOther</c>).</summary>
     public const string OzoneOther = "tools.ozone.report.defs#reasonOther";
 
     // ─── Violence ───
@@ -323,14 +301,10 @@ public static class ReportReasons
     /// </summary>
     public const string ChildSafetyGroom = "tools.ozone.report.defs#reasonChildSafetyGroom";
 
-    /// <summary>
-    /// A privacy violation involving a minor (<c>tools.ozone.report.defs#reasonChildSafetyPrivacy</c>).
-    /// </summary>
+    /// <summary>A privacy violation involving a minor (<c>tools.ozone.report.defs#reasonChildSafetyPrivacy</c>).</summary>
     public const string ChildSafetyPrivacy = "tools.ozone.report.defs#reasonChildSafetyPrivacy";
 
-    /// <summary>
-    /// Harassment or bullying of minors (<c>tools.ozone.report.defs#reasonChildSafetyHarassment</c>).
-    /// </summary>
+    /// <summary>Harassment or bullying of minors (<c>tools.ozone.report.defs#reasonChildSafetyHarassment</c>).</summary>
     public const string ChildSafetyHarassment = "tools.ozone.report.defs#reasonChildSafetyHarassment";
 
     /// <summary>
@@ -353,9 +327,7 @@ public static class ReportReasons
     /// <summary>Doxxing (<c>tools.ozone.report.defs#reasonHarassmentDoxxing</c>).</summary>
     public const string HarassmentDoxxing = "tools.ozone.report.defs#reasonHarassmentDoxxing";
 
-    /// <summary>
-    /// Other harassing or hateful content (<c>tools.ozone.report.defs#reasonHarassmentOther</c>).
-    /// </summary>
+    /// <summary>Other harassing or hateful content (<c>tools.ozone.report.defs#reasonHarassmentOther</c>).</summary>
     public const string HarassmentOther = "tools.ozone.report.defs#reasonHarassmentOther";
 
     // ─── Misleading ───
@@ -372,9 +344,7 @@ public static class ReportReasons
     /// <summary>A scam (<c>tools.ozone.report.defs#reasonMisleadingScam</c>).</summary>
     public const string MisleadingScam = "tools.ozone.report.defs#reasonMisleadingScam";
 
-    /// <summary>
-    /// False information about elections (<c>tools.ozone.report.defs#reasonMisleadingElections</c>).
-    /// </summary>
+    /// <summary>False information about elections (<c>tools.ozone.report.defs#reasonMisleadingElections</c>).</summary>
     public const string MisleadingElections = "tools.ozone.report.defs#reasonMisleadingElections";
 
     /// <summary>Other misleading content (<c>tools.ozone.report.defs#reasonMisleadingOther</c>).</summary>
@@ -399,22 +369,16 @@ public static class ReportReasons
 
     // ─── Self-harm ───
 
-    /// <summary>
-    /// Content promoting or depicting self-harm (<c>tools.ozone.report.defs#reasonSelfHarmContent</c>).
-    /// </summary>
+    /// <summary>Content promoting or depicting self-harm (<c>tools.ozone.report.defs#reasonSelfHarmContent</c>).</summary>
     public const string SelfHarmContent = "tools.ozone.report.defs#reasonSelfHarmContent";
 
     /// <summary>Eating disorders (<c>tools.ozone.report.defs#reasonSelfHarmED</c>).</summary>
     public const string SelfHarmED = "tools.ozone.report.defs#reasonSelfHarmED";
 
-    /// <summary>
-    /// Dangerous challenges or activities (<c>tools.ozone.report.defs#reasonSelfHarmStunts</c>).
-    /// </summary>
+    /// <summary>Dangerous challenges or activities (<c>tools.ozone.report.defs#reasonSelfHarmStunts</c>).</summary>
     public const string SelfHarmStunts = "tools.ozone.report.defs#reasonSelfHarmStunts";
 
-    /// <summary>
-    /// Dangerous substances or drug abuse (<c>tools.ozone.report.defs#reasonSelfHarmSubstances</c>).
-    /// </summary>
+    /// <summary>Dangerous substances or drug abuse (<c>tools.ozone.report.defs#reasonSelfHarmSubstances</c>).</summary>
     public const string SelfHarmSubstances = "tools.ozone.report.defs#reasonSelfHarmSubstances";
 
     /// <summary>Other dangerous content (<c>tools.ozone.report.defs#reasonSelfHarmOther</c>).</summary>

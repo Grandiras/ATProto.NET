@@ -78,13 +78,9 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     private readonly ILogger<AtProtoClient> _logger;
     private int _disposed;
 
-    // ──────────────────────────────────────────────────────────
-    //  Construction
-    // ──────────────────────────────────────────────────────────
+    // ── Construction ─────────────────────────────────────────
 
-    /// <summary>
-    /// Create a client.
-    /// </summary>
+    /// <summary>Create a client.</summary>
     /// <param name="options">
     /// The client options; <see langword="null"/> uses the defaults, which address
     /// <c>https://bsky.social</c>.
@@ -108,9 +104,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     {
     }
 
-    /// <summary>
-    /// Create a new client with full configuration and a clock, for tests.
-    /// </summary>
+    /// <summary>Create a new client with full configuration and a clock, for tests.</summary>
     internal AtProtoClient(
         AtProtoClientOptions options,
         HttpClient? httpClient,
@@ -193,9 +187,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         Bsky.Bind(this);
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Sub-client properties
-    // ──────────────────────────────────────────────────────────
+    // ── Sub-client properties ────────────────────────────────
 
     /// <summary>com.atproto.server.* — session and account management.</summary>
     public ServerClient Server { get; }
@@ -224,9 +216,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// </summary>
     public SpaceClient Space { get; }
 
-    /// <summary>
-    /// com.atproto.simplespace.* — the space-management implementation every PDS supports.
-    /// </summary>
+    /// <summary>com.atproto.simplespace.* — the space-management implementation every PDS supports.</summary>
     public SimpleSpaceClient SimpleSpace { get; }
 
     /// <summary>
@@ -253,9 +243,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <summary>site.standard.* — Standard.site long-form publishing APIs.</summary>
     public StandardSiteClient Site { get; }
 
-    // ──────────────────────────────────────────────────────────
-    //  Custom Lexicon support
-    // ──────────────────────────────────────────────────────────
+    // ── Custom Lexicon support ───────────────────────────────
 
     /// <summary>
     /// Get a strongly-typed <see cref="RecordCollection{T}"/> for a record type that names its
@@ -272,9 +260,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     public RecordCollection<T> GetCollection<T>() where T : class, IAtProtoRecord =>
         new(this, T.Collection);
 
-    /// <summary>
-    /// Get a strongly-typed <see cref="RecordCollection{T}"/> for a collection chosen at run time.
-    /// </summary>
+    /// <summary>Get a strongly-typed <see cref="RecordCollection{T}"/> for a collection chosen at run time.</summary>
     /// <typeparam name="T">
     /// The record type: an <see cref="AtProtoRecord"/>, or any serializable class.
     /// </typeparam>
@@ -323,14 +309,11 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// </example>
     public IXrpcTransport Transport => _xrpc;
 
-    /// <summary>
-    /// Call a custom XRPC query (HTTP GET) endpoint defined by your Lexicon.
-    /// </summary>
+    /// <summary>Call a custom XRPC query (HTTP GET) endpoint defined by your Lexicon.</summary>
     /// <typeparam name="TOut">The expected output type.</typeparam>
     /// <param name="nsid">The method NSID (e.g., "com.example.todo.listItems").</param>
     /// <param name="parameters">The query parameters, if the method takes any.</param>
     /// <param name="options">Optional per-call settings: proxy, labelers, headers, timeout.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcException">The service answered with an XRPC error.</exception>
     /// <exception cref="XrpcResponseFormatException">The response is not a <typeparamref name="TOut"/>.</exception>
     /// <example>
@@ -358,7 +341,6 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// sent as a repeated key, timestamps go out as ISO 8601 UTC and enums by their JSON names.
     /// </param>
     /// <param name="options">Optional per-call settings: proxy, labelers, headers, timeout.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <remarks>
     /// The properties are read by reflection, so this overload is not trim-safe; the
     /// <see cref="XrpcParams"/> overload is.
@@ -383,7 +365,6 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <param name="input">The input, serialized as JSON; <see langword="null"/> sends none.</param>
     /// <param name="parameters">The query parameters, if the method takes any.</param>
     /// <param name="options">Optional per-call settings: proxy, labelers, headers, timeout.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcException">The service answered with an XRPC error.</exception>
     /// <exception cref="XrpcResponseFormatException">The response is not a <typeparamref name="TOut"/>.</exception>
     /// <example>
@@ -401,15 +382,12 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         CancellationToken cancellationToken = default) =>
         Transport.ProcedureAsync<TIn, TOut>(nsid, input, parameters, options, cancellationToken);
 
-    /// <summary>
-    /// Call a custom XRPC procedure (HTTP POST) that takes an input, ignoring any output.
-    /// </summary>
+    /// <summary>Call a custom XRPC procedure (HTTP POST) that takes an input, ignoring any output.</summary>
     /// <typeparam name="TIn">The input type.</typeparam>
     /// <param name="nsid">The method NSID.</param>
     /// <param name="input">The input, serialized as JSON; <see langword="null"/> sends none.</param>
     /// <param name="parameters">The query parameters, if the method takes any.</param>
     /// <param name="options">Optional per-call settings: proxy, labelers, headers, timeout.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcException">The service answered with an XRPC error.</exception>
     public Task ProcedureAsync<TIn>(
         Nsid nsid,
@@ -419,13 +397,10 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         CancellationToken cancellationToken = default) =>
         Transport.ProcedureAsync(nsid, input, parameters, options, cancellationToken);
 
-    /// <summary>
-    /// Call a custom XRPC procedure (HTTP POST) that takes no input, ignoring any output.
-    /// </summary>
+    /// <summary>Call a custom XRPC procedure (HTTP POST) that takes no input, ignoring any output.</summary>
     /// <param name="nsid">The method NSID.</param>
     /// <param name="parameters">The query parameters, if the method takes any.</param>
     /// <param name="options">Optional per-call settings: proxy, labelers, headers, timeout.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <remarks>
     /// Preferred over <see cref="ProcedureAsync{TIn}"/> when the second argument is an
     /// <see cref="XrpcParams"/>, which is never a procedure's input.
@@ -439,9 +414,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         CancellationToken cancellationToken = default) =>
         Transport.ProcedureAsync(nsid, parameters, options, cancellationToken);
 
-    // ──────────────────────────────────────────────────────────
-    //  Session state
-    // ──────────────────────────────────────────────────────────
+    // ── Session state ────────────────────────────────────────
 
     /// <summary>
     /// The installed session — a <see cref="PasswordSession"/> or an <see cref="OAuthSession"/> —
@@ -484,9 +457,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// </summary>
     public RateLimitInfo? LatestRateLimitInfo => _xrpc.LatestRateLimitInfo;
 
-    // ──────────────────────────────────────────────────────────
-    //  Service Proxying
-    // ──────────────────────────────────────────────────────────
+    // ── Service Proxying ─────────────────────────────────────
 
     /// <summary>
     /// Sets the default <c>atproto-proxy</c> header for all subsequent XRPC requests.
@@ -505,9 +476,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// </param>
     public void SetProxy(string proxyHeader) => _xrpc.SetProxy(proxyHeader);
 
-    /// <summary>
-    /// Clears the default <c>atproto-proxy</c> header.
-    /// </summary>
+    /// <summary>Clears the default <c>atproto-proxy</c> header.</summary>
     public void ClearProxy() => _xrpc.ClearProxy();
 
     /// <summary>
@@ -524,14 +493,10 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// </param>
     public void SetLabelers(params IEnumerable<string> labelerDids) => _xrpc.SetLabelers(labelerDids);
 
-    /// <summary>
-    /// Clears the subscribed labeler DIDs, removing the <c>atproto-accept-labelers</c> header.
-    /// </summary>
+    /// <summary>Clears the subscribed labeler DIDs, removing the <c>atproto-accept-labelers</c> header.</summary>
     public void ClearLabelers() => _xrpc.ClearLabelers();
 
-    // ──────────────────────────────────────────────────────────
-    //  Authentication
-    // ──────────────────────────────────────────────────────────
+    // ── Authentication ───────────────────────────────────────
 
     /// <summary>
     /// Sign in with a password or app password (<c>com.atproto.server.createSession</c>) and
@@ -545,7 +510,6 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// service limits to migrating or exporting the account. Without it the service refuses such
     /// an account with <see cref="XrpcErrors.AccountTakedown"/>.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The installed session.</returns>
     /// <remarks>
     /// The request goes to <see cref="ServiceUrl"/>. When that is an entryway such as
@@ -569,7 +533,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         _logger.LogInformation("Logging in as {Identifier}", identifier);
 
         var response = await Server.CreateSessionAsync(
-            identifier, password, authFactorToken, allowTakendown, cancellationToken);
+            identifier, password, authFactorToken, allowTakendown, cancellationToken).ConfigureAwait(false);
 
         var session = new PasswordSession
         {
@@ -586,7 +550,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             Status = response.Status,
         };
 
-        await _sessions.InstallAsync(session, oauthClient: null, persist: true, cancellationToken);
+        await _sessions.InstallAsync(session, oauthClient: null, persist: true, cancellationToken).ConfigureAwait(false);
         _logger.LogInformation("Logged in successfully as {Handle} ({Did})", session.Handle, session.Did);
         return session;
     }
@@ -596,7 +560,6 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// service returns for it.
     /// </summary>
     /// <param name="request">The account to create.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The new account's session.</returns>
     /// <remarks>
     /// <see cref="ServerClient.CreateAccountAsync"/> creates the account without signing in; this
@@ -609,7 +572,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         ArgumentNullException.ThrowIfNull(request);
         ThrowIfDisposed();
 
-        var response = await Server.CreateAccountAsync(request, cancellationToken);
+        var response = await Server.CreateAccountAsync(request, cancellationToken).ConfigureAwait(false);
 
         var session = new PasswordSession
         {
@@ -622,7 +585,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
             Email = request.Email,
         };
 
-        await _sessions.InstallAsync(session, oauthClient: null, persist: true, cancellationToken);
+        await _sessions.InstallAsync(session, oauthClient: null, persist: true, cancellationToken).ConfigureAwait(false);
         _logger.LogInformation("Created account {Handle} ({Did})", session.Handle, session.Did);
         return session;
     }
@@ -638,7 +601,6 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// kept; without any, the session works until its access token expires. The client does not
     /// take ownership of it.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <remarks>
     /// The client points itself at <see cref="AtProtoSession.ServiceEndpoint"/> and writes the
     /// session to its session store, if it has one. An access token that has expired is
@@ -652,7 +614,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         AtProtoSession session,
         OAuthClient? oauthClient = null,
         CancellationToken cancellationToken = default) =>
-        await _sessions.InstallAsync(session, oauthClient, persist: true, cancellationToken);
+        await _sessions.InstallAsync(session, oauthClient, persist: true, cancellationToken).ConfigureAwait(false);
 
     /// <summary>
     /// Install a saved session and check it with the service (<c>com.atproto.server.getSession</c>),
@@ -660,7 +622,6 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// </summary>
     /// <param name="session">The saved session.</param>
     /// <param name="oauthClient">For an <see cref="OAuthSession"/>, the <see cref="OAuthClient"/> that issued it.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// The session now installed: refreshed if it had to be, and for a password session with
     /// the account details the service reported.
@@ -685,22 +646,22 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         ArgumentNullException.ThrowIfNull(session);
         _logger.LogInformation("Resuming session for {Did}", session.Did);
 
-        var installed = await _sessions.InstallAsync(session, oauthClient, persist: true, cancellationToken);
+        var installed = await _sessions.InstallAsync(session, oauthClient, persist: true, cancellationToken).ConfigureAwait(false);
 
         // Through the ordinary pipeline, so an expired access token is refreshed and the call resent.
         GetSessionResponse account;
         try
         {
-            account = await Server.GetSessionAsync(cancellationToken);
+            account = await Server.GetSessionAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (XrpcAuthenticationException ex)
         {
             // Still rejected (InvalidToken, or refused again after a refresh): the session is dead.
-            await _sessions.ExpireAsync(installed, ex);
+            await _sessions.ExpireAsync(installed, ex).ConfigureAwait(false);
             throw;
         }
 
-        var current = await _sessions.UpdateAccountAsync(account, cancellationToken)
+        var current = await _sessions.UpdateAccountAsync(account, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("The session was signed out while it was being resumed.");
 
         _logger.LogInformation("Session resumed successfully for {Handle}", current.Handle);
@@ -713,7 +674,6 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// </summary>
     /// <param name="did">The account to restore.</param>
     /// <param name="oauthClient">For an <see cref="OAuthSession"/>, the <see cref="OAuthClient"/> that issued it.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Whether a session was found and installed.</returns>
     /// <exception cref="InvalidOperationException">The client has no session store.</exception>
     public async Task<bool> TryRestoreSessionAsync(
@@ -727,11 +687,11 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         var store = _sessions.Store ?? throw new InvalidOperationException(
             "No session store is configured. Pass one to the AtProtoClient constructor.");
 
-        var session = await store.GetAsync(did, cancellationToken);
+        var session = await store.GetAsync(did, cancellationToken).ConfigureAwait(false);
         if (session is null)
             return false;
 
-        await _sessions.InstallAsync(session, oauthClient, persist: false, cancellationToken);
+        await _sessions.InstallAsync(session, oauthClient, persist: false, cancellationToken).ConfigureAwait(false);
         return true;
     }
 
@@ -746,13 +706,12 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// For an <see cref="OAuthSession"/>, a key object for its <see cref="OAuthSession.DPoPKey"/>,
     /// which the client takes over; <see langword="null"/> imports the key.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     internal async Task InstallStoredSessionAsync(
         AtProtoSession session, OAuthClient? oauthClient, DPoPProofGenerator? dpop, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(session);
         ThrowIfDisposed();
-        await _sessions.InstallAsync(session, oauthClient, persist: false, cancellationToken, dpop);
+        await _sessions.InstallAsync(session, oauthClient, persist: false, cancellationToken, dpop).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -796,9 +755,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     public Task LogoutAsync(CancellationToken cancellationToken = default) =>
         _sessions.LogoutAsync(cancellationToken);
 
-    // ──────────────────────────────────────────────────────────
-    //  Dynamic PDS
-    // ──────────────────────────────────────────────────────────
+    // ── Dynamic PDS ──────────────────────────────────────────
 
     /// <summary>
     /// Points the client at another service — typically the user's PDS — at runtime. Call this
@@ -827,9 +784,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// </summary>
     public Uri ServiceUrl => _xrpc.ServiceUrl;
 
-    // ──────────────────────────────────────────────────────────
-    //  Private helpers
-    // ──────────────────────────────────────────────────────────
+    // ── Private helpers ──────────────────────────────────────
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
 
@@ -855,9 +810,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     /// <exception cref="XrpcAuthenticationException">No session is installed.</exception>
     internal Did RequireDid() => RequireSession().Did;
 
-    // ──────────────────────────────────────────────────────────
-    //  Disposal
-    // ──────────────────────────────────────────────────────────
+    // ── Disposal ─────────────────────────────────────────────
 
     /// <summary>
     /// Releases the client, first waiting for a token exchange already under way to finish and
@@ -876,7 +829,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
             return;
 
-        await _sessions.DisposeAsync();
+        await _sessions.DisposeAsync().ConfigureAwait(false);
         if (_ownsHttpClient)
             _httpClient.Dispose();
     }
@@ -898,9 +851,7 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     }
 }
 
-/// <summary>
-/// Groups the Bluesky application sub-clients.
-/// </summary>
+/// <summary>Groups the Bluesky application sub-clients.</summary>
 public sealed partial class BlueskyClients
 {
     internal BlueskyClients(
@@ -1003,9 +954,7 @@ public sealed class ChatClients
     public ChatModerationClient Moderation { get; }
 }
 
-/// <summary>
-/// Configuration options for <see cref="AtProtoClient"/>.
-/// </summary>
+/// <summary>Configuration options for <see cref="AtProtoClient"/>.</summary>
 public sealed class AtProtoClientOptions
 {
     /// <summary>

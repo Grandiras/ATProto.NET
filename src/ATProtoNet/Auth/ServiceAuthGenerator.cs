@@ -37,9 +37,7 @@ public sealed class ServiceAuthGenerator : IDisposable
     /// </summary>
     public string? KeyId { get; }
 
-    /// <summary>
-    /// Creates a new service auth generator.
-    /// </summary>
+    /// <summary>Creates a new service auth generator.</summary>
     /// <param name="serviceDid">
     /// The DID of this service (the <c>iss</c> claim). A <see cref="Did"/> never carries a
     /// fragment, which the spec no longer allows in <c>iss</c>; name a key other than
@@ -70,9 +68,7 @@ public sealed class ServiceAuthGenerator : IDisposable
         _encodedHeader = Jwt.EncodeHeader("JWT", signingKey.Curve, keyId);
     }
 
-    /// <summary>
-    /// Creates a service auth token for calling an XRPC method on another AT Protocol service.
-    /// </summary>
+    /// <summary>Creates a service auth token for calling an XRPC method on another AT Protocol service.</summary>
     /// <param name="audience">
     /// The target service (<c>aud</c>): its DID followed by the fragment naming the service entry
     /// in its DID document, e.g. <c>did:web:feed.example.com#bsky_fg</c> or

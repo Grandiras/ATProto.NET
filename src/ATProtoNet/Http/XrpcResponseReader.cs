@@ -7,9 +7,7 @@ using ATProtoNet.Auth.OAuth;
 
 namespace ATProtoNet.Http;
 
-/// <summary>
-/// The parts of an XRPC error body clients act on.
-/// </summary>
+/// <summary>The parts of an XRPC error body clients act on.</summary>
 /// <param name="Error">The <c>error</c> name, if the body was an XRPC error envelope.</param>
 /// <param name="Message">The <c>message</c>, if present.</param>
 /// <param name="Body">The raw body text, if it could be read.</param>
@@ -38,7 +36,7 @@ internal static class XrpcResponseReader
         ReadOnlyMemory<byte>? bytes;
         try
         {
-            bytes = await response.Content.ReadBoundedAsync(MaxErrorBodyBytes, cancellationToken);
+            bytes = await response.Content.ReadBoundedAsync(MaxErrorBodyBytes, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is HttpRequestException or IOException)
         {

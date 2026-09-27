@@ -53,9 +53,7 @@ public sealed class RepoCommit
         return writer.Encode();
     }
 
-    /// <summary>
-    /// Signs this commit with the repository's signing key and returns the encoded block.
-    /// </summary>
+    /// <summary>Signs this commit with the repository's signing key and returns the encoded block.</summary>
     /// <param name="signingKey">The account's repo signing key (P-256 or K-256).</param>
     /// <returns>The signed commit, with its DAG-CBOR bytes and CID.</returns>
     public SignedRepoCommit Sign(AtProtoKey signingKey)
@@ -97,9 +95,7 @@ public sealed class RepoCommit
     }
 }
 
-/// <summary>
-/// A signed repository commit together with its encoded DAG-CBOR block and CID.
-/// </summary>
+/// <summary>A signed repository commit together with its encoded DAG-CBOR block and CID.</summary>
 /// <param name="Did">The repository DID.</param>
 /// <param name="Version">The commit format version.</param>
 /// <param name="Data">Binary CID of the MST root.</param>

@@ -28,9 +28,7 @@ public sealed class TidGenerator
     private readonly TimeProvider _timeProvider;
     private long _lastTimestamp = -1;
 
-    /// <summary>
-    /// Creates a generator.
-    /// </summary>
+    /// <summary>Creates a generator.</summary>
     /// <param name="clockId">
     /// The clock identifier, from 0 to <see cref="MaxClockId"/>. Omit it to draw one at random.
     /// </param>
@@ -54,9 +52,7 @@ public sealed class TidGenerator
     /// <summary>The clock identifier in the low 10 bits of every TID this generator returns.</summary>
     public int ClockId { get; }
 
-    /// <summary>
-    /// Returns the next TID: greater than every TID this generator has returned before.
-    /// </summary>
+    /// <summary>Returns the next TID: greater than every TID this generator has returned before.</summary>
     /// <returns>A new TID.</returns>
     /// <exception cref="InvalidOperationException">
     /// The timestamp no longer fits the TID's 53 bits.

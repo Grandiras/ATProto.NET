@@ -7,9 +7,7 @@ using Microsoft.Extensions.Primitives;
 
 namespace ATProtoNet.Server.Xrpc;
 
-/// <summary>
-/// Binds an XRPC query string to <typeparamref name="TParams"/> by the type of each property.
-/// </summary>
+/// <summary>Binds an XRPC query string to <typeparamref name="TParams"/> by the type of each property.</summary>
 /// <remarks>
 /// <para>XRPC carries an array parameter as a repeated key, so whether <c>?uris=a</c> is one
 /// string or a one-element list depends only on what the parameter is declared as. The plan below
@@ -26,9 +24,7 @@ internal static class XrpcQueryBinder<TParams>
 {
     private static readonly Parameter[] Parameters = Plan(XrpcJson<TParams>.TypeInfo);
 
-    /// <summary>
-    /// Binds <paramref name="query"/>, answering <c>InvalidRequest</c> for a value that does not.
-    /// </summary>
+    /// <summary>Binds <paramref name="query"/>, answering <c>InvalidRequest</c> for a value that does not.</summary>
     /// <param name="query">The request's query string.</param>
     /// <returns>The bound parameters.</returns>
     /// <exception cref="XrpcException">A value is missing, repeated, or malformed.</exception>

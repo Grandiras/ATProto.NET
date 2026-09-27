@@ -5,13 +5,9 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Bookmark;
 
-// ──────────────────────────────────────────────────────────────
-//  Views
-// ──────────────────────────────────────────────────────────────
+// ── Views ────────────────────────────────────────────────────
 
-/// <summary>
-/// One of the viewer's bookmarks (<c>app.bsky.bookmark.defs#bookmarkView</c>).
-/// </summary>
+/// <summary>One of the viewer's bookmarks (<c>app.bsky.bookmark.defs#bookmarkView</c>).</summary>
 public sealed class BookmarkView : LexObject
 {
     /// <summary>A strong reference to the bookmarked record.</summary>
@@ -30,13 +26,9 @@ public sealed class BookmarkView : LexObject
     public required PostEntry Item { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  API requests and responses
-// ──────────────────────────────────────────────────────────────
+// ── API requests and responses ───────────────────────────────
 
-/// <summary>
-/// Request body for createBookmark.
-/// </summary>
+/// <summary>Request body for createBookmark.</summary>
 internal sealed class CreateBookmarkRequest
 {
     /// <summary>The AT-URI of the post to bookmark.</summary>
@@ -48,9 +40,7 @@ internal sealed class CreateBookmarkRequest
     public required Cid Cid { get; init; }
 }
 
-/// <summary>
-/// Request body for deleteBookmark.
-/// </summary>
+/// <summary>Request body for deleteBookmark.</summary>
 internal sealed class DeleteBookmarkRequest
 {
     /// <summary>The AT-URI of the bookmarked post.</summary>
@@ -58,9 +48,7 @@ internal sealed class DeleteBookmarkRequest
     public required AtUri Uri { get; init; }
 }
 
-/// <summary>
-/// Response from getBookmarks.
-/// </summary>
+/// <summary>Response from getBookmarks.</summary>
 public sealed class GetBookmarksResponse : ICursorPage<BookmarkView>
 {
     /// <summary>

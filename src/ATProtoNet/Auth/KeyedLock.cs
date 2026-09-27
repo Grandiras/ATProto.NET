@@ -38,7 +38,7 @@ internal sealed class KeyedLock<TKey>
 
         try
         {
-            await entry.Semaphore.WaitAsync(cancellationToken);
+            await entry.Semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
         catch
         {

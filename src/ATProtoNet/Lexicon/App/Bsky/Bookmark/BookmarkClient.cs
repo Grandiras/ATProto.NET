@@ -20,12 +20,9 @@ public sealed class BookmarkClient
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Bookmark a post.
-    /// </summary>
+    /// <summary>Bookmark a post.</summary>
     /// <param name="uri">The AT-URI of the post.</param>
     /// <param name="cid">The CID of the post version.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcException">
     /// <see cref="BookmarkErrors.UnsupportedCollection"/> when <paramref name="uri"/> is not a post.
     /// </exception>
@@ -36,11 +33,8 @@ public sealed class BookmarkClient
             "app.bsky.bookmark.createBookmark", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Remove the bookmark of a post.
-    /// </summary>
+    /// <summary>Remove the bookmark of a post.</summary>
     /// <param name="uri">The AT-URI of the bookmarked post.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task DeleteBookmarkAsync(AtUri uri, CancellationToken cancellationToken = default)
     {
         var request = new DeleteBookmarkRequest { Uri = uri };
@@ -48,12 +42,9 @@ public sealed class BookmarkClient
             "app.bsky.bookmark.deleteBookmark", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get one page of the authenticated account's bookmarks.
-    /// </summary>
+    /// <summary>Get one page of the authenticated account's bookmarks.</summary>
     /// <param name="limit">Max bookmarks per page (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetBookmarksResponse> GetBookmarksAsync(
         int? limit = null, string? cursor = null, CancellationToken cancellationToken = default)
     {
@@ -65,11 +56,8 @@ public sealed class BookmarkClient
             "app.bsky.bookmark.getBookmarks", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate the authenticated account's bookmarks, fetching pages as needed.
-    /// </summary>
+    /// <summary>Enumerate the authenticated account's bookmarks, fetching pages as needed.</summary>
     /// <param name="pageSize">Bookmarks per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<BookmarkView> EnumerateBookmarksAsync(
         int? pageSize = null, CancellationToken cancellationToken = default) =>
         Pagination.EnumerateAsync<GetBookmarksResponse, BookmarkView>(

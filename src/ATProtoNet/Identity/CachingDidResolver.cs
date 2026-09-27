@@ -7,9 +7,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// Caches the DID documents another <see cref="IDidResolver"/> resolves.
-/// </summary>
+/// <summary>Caches the DID documents another <see cref="IDidResolver"/> resolves.</summary>
 /// <remarks>
 /// <para>A document younger than <see cref="DidCacheOptions.StaleAfter"/> is served as is; one
 /// younger than <see cref="DidCacheOptions.ExpireAfter"/> is served while a background fetch
@@ -44,9 +42,7 @@ public sealed class CachingDidResolver : IDidResolver, IDisposable
     private readonly Dictionary<Did, Fetch> _inflight = new();
     private readonly Dictionary<Did, PendingWrite> _pendingWrites = new();
 
-    /// <summary>
-    /// Creates a cache over a new <see cref="DidResolver"/>, which it owns.
-    /// </summary>
+    /// <summary>Creates a cache over a new <see cref="DidResolver"/>, which it owns.</summary>
     /// <param name="options">
     /// Resolver options; <see cref="IdentityResolverOptions.Cache"/> configures the cache. Defaults
     /// apply when omitted.
@@ -56,9 +52,7 @@ public sealed class CachingDidResolver : IDidResolver, IDisposable
     {
     }
 
-    /// <summary>
-    /// Creates a cache over <paramref name="inner"/>.
-    /// </summary>
+    /// <summary>Creates a cache over <paramref name="inner"/>.</summary>
     /// <param name="inner">The resolver documents are fetched through. The caller owns it.</param>
     /// <param name="options">Cache options. Defaults apply when omitted.</param>
     /// <param name="distributedCache">An optional cache shared between instances.</param>
@@ -417,7 +411,6 @@ public sealed class CachingDidResolver : IDidResolver, IDisposable
     }
 
     /// <summary>A cached document, or a remembered failure.</summary>
-    /// <param name="Did">The DID.</param>
     /// <param name="Document">The document, when resolution succeeded.</param>
     /// <param name="Error">The failure, when it did not.</param>
     /// <param name="FetchedAt">When the document was fetched or the failure happened.</param>

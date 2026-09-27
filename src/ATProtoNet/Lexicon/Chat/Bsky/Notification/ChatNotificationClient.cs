@@ -21,15 +21,12 @@ public sealed class ChatNotificationClient
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Gets the viewer's chat notification preferences, or the defaults when none are set.
-    /// </summary>
-    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <summary>Gets the viewer's chat notification preferences, or the defaults when none are set.</summary>
     public async Task<ChatNotificationPreferences> GetPreferencesAsync(
         CancellationToken cancellationToken = default)
     {
         var output = await _xrpc.QueryAsync<GetPreferencesResponse>(
-            "chat.bsky.notification.getPreferences", options: ChatProxy, cancellationToken: cancellationToken);
+            "chat.bsky.notification.getPreferences", options: ChatProxy, cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.Preferences;
     }
 
@@ -39,7 +36,6 @@ public sealed class ChatNotificationClient
     /// </summary>
     /// <param name="chat">Notifications for messages in accepted conversations.</param>
     /// <param name="chatRequest">Notifications for conversation requests.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The preferences after the change.</returns>
     public async Task<ChatNotificationPreferences> PutPreferencesAsync(
         ChatPreference? chat = null,
@@ -50,7 +46,7 @@ public sealed class ChatNotificationClient
 
         var output = await _xrpc.ProcedureAsync<PutPreferencesResponse>(
             "chat.bsky.notification.putPreferences", request, options: ChatProxy,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.Preferences;
     }
 }

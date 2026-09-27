@@ -65,9 +65,7 @@ public sealed class JetstreamConsumer
     /// carrying one has been delivered.</summary>
     public long? LastCursor { get; private set; }
 
-    /// <summary>
-    /// Create a managed Jetstream consumer.
-    /// </summary>
+    /// <summary>Create a managed Jetstream consumer.</summary>
     /// <param name="options">Consumer configuration.</param>
     /// <exception cref="ArgumentException">The options are not valid.</exception>
     public JetstreamConsumer(JetstreamConsumerOptions options)
@@ -86,9 +84,7 @@ public sealed class JetstreamConsumer
         _connectionFactory = connectionFactory;
     }
 
-    /// <summary>
-    /// Consume Jetstream events with automatic reconnection and cursor persistence.
-    /// </summary>
+    /// <summary>Consume Jetstream events with automatic reconnection and cursor persistence.</summary>
     /// <param name="cursor">Initial cursor to resume from — a sequence number on
     /// <see cref="JetstreamProtocol.V2"/> (or a timestamp from <see cref="JetstreamCursor.FromTimestamp"/>),
     /// a unix-microseconds timestamp on <see cref="JetstreamProtocol.V1"/>. If null and a cursor

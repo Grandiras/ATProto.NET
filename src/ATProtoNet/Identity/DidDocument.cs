@@ -4,9 +4,7 @@ using ATProtoNet.Crypto;
 
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// A W3C DID document, as a <c>did:plc</c> directory or a <c>did:web</c> host serves it.
-/// </summary>
+/// <summary>A W3C DID document, as a <c>did:plc</c> directory or a <c>did:web</c> host serves it.</summary>
 /// <remarks>
 /// <para>Immutable: resolvers cache and share documents, so no consumer may change one another
 /// consumer is reading.</para>
@@ -115,9 +113,7 @@ public sealed class DidDocument
         return null;
     }
 
-    /// <summary>
-    /// The account's repo signing key (<c>#atproto</c>) as a <c>did:key</c>.
-    /// </summary>
+    /// <summary>The account's repo signing key (<c>#atproto</c>) as a <c>did:key</c>.</summary>
     /// <returns>The signing key, or <see langword="null"/> when the document publishes none.</returns>
     /// <exception cref="FormatException">Thrown when the entry's key material is malformed.</exception>
     public string? GetSigningKey() => GetVerificationKey(SigningKeyId);
@@ -178,9 +174,7 @@ public sealed class DidDocument
         }
     }
 
-    /// <summary>
-    /// The endpoint of a service entry, found by fragment and optionally by type.
-    /// </summary>
+    /// <summary>The endpoint of a service entry, found by fragment and optionally by type.</summary>
     /// <param name="fragment">
     /// The service fragment, with or without its leading <c>#</c> (e.g. <c>#atproto_pds</c>). Both
     /// the bare fragment and the DID-qualified form are matched.
@@ -387,9 +381,7 @@ public sealed class VerificationMethod
     [JsonPropertyName("publicKeyMultibase")]
     public string? PublicKeyMultibase { get; init; }
 
-    /// <summary>
-    /// Converts this method's key material to a <c>did:key</c>.
-    /// </summary>
+    /// <summary>Converts this method's key material to a <c>did:key</c>.</summary>
     /// <returns>
     /// The key as a <c>did:key</c> string, or <see langword="null"/> when the entry carries no key
     /// material or its <see cref="Type"/> is not one this SDK understands.

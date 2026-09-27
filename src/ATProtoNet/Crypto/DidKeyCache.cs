@@ -2,9 +2,7 @@ using System.Security.Cryptography;
 
 namespace ATProtoNet.Crypto;
 
-/// <summary>
-/// A bounded cache of parsed <c>did:key</c> public keys, for signature verification.
-/// </summary>
+/// <summary>A bounded cache of parsed <c>did:key</c> public keys, for signature verification.</summary>
 /// <remarks>
 /// <para>Parsing a did:key costs as much as verifying with it: base58, a modular square root
 /// to decompress the point, and a platform key import whose first use is slower still. The
@@ -189,9 +187,7 @@ internal sealed class DidKeyCache
             key.Dispose();
         }
 
-        /// <summary>
-        /// Disposes the idle keys. Keys rented at the time are disposed when they come back.
-        /// </summary>
+        /// <summary>Disposes the idle keys. Keys rented at the time are disposed when they come back.</summary>
         public void Evict()
         {
             AtProtoKey[] idle;

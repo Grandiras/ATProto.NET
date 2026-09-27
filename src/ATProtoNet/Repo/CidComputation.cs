@@ -1,5 +1,4 @@
 using System.Buffers;
-using System.Buffers.Binary;
 using System.Security.Cryptography;
 using ATProtoNet.Identity;
 
@@ -48,9 +47,7 @@ public static class CidComputation
         return ComputeCid(rawBytes, RawCodec);
     }
 
-    /// <summary>
-    /// Computes the binary CID bytes for DRISL-CBOR encoded data.
-    /// </summary>
+    /// <summary>Computes the binary CID bytes for DRISL-CBOR encoded data.</summary>
     /// <param name="dagCborBytes">The DRISL-CBOR encoded bytes.</param>
     /// <returns>The raw binary CID bytes (version + codec + multihash).</returns>
     public static byte[] ComputeBinaryForDagCbor(ReadOnlySpan<byte> dagCborBytes)
@@ -58,9 +55,7 @@ public static class CidComputation
         return ComputeBinaryCid(dagCborBytes, DagCborCodec);
     }
 
-    /// <summary>
-    /// Computes the binary CID bytes for raw binary data.
-    /// </summary>
+    /// <summary>Computes the binary CID bytes for raw binary data.</summary>
     /// <param name="rawBytes">The raw binary data.</param>
     /// <returns>The raw binary CID bytes (version + codec + multihash).</returns>
     public static byte[] ComputeBinaryForRaw(ReadOnlySpan<byte> rawBytes)
@@ -68,9 +63,7 @@ public static class CidComputation
         return ComputeBinaryCid(rawBytes, RawCodec);
     }
 
-    /// <summary>
-    /// Decodes a base32-encoded CID string (with 'b' prefix) to binary bytes.
-    /// </summary>
+    /// <summary>Decodes a base32-encoded CID string (with 'b' prefix) to binary bytes.</summary>
     /// <param name="cidString">The CID string (e.g., "bafyrei...").</param>
     /// <returns>The raw binary CID bytes.</returns>
     public static byte[] DecodeCidString(string cidString)
@@ -93,9 +86,7 @@ public static class CidComputation
         throw new ArgumentException($"Unsupported CID multibase prefix: '{cidString[0]}'", nameof(cidString));
     }
 
-    /// <summary>
-    /// Decodes a base32-encoded CID string without throwing on malformed input.
-    /// </summary>
+    /// <summary>Decodes a base32-encoded CID string without throwing on malformed input.</summary>
     /// <param name="cidString">The CID string (e.g., "bafyrei...").</param>
     /// <param name="cidBytes">The raw binary CID bytes on success.</param>
     /// <returns><c>true</c> if the string decoded successfully.</returns>
@@ -117,9 +108,7 @@ public static class CidComputation
         }
     }
 
-    /// <summary>
-    /// Encodes binary CID bytes to a base32lower string with 'b' prefix.
-    /// </summary>
+    /// <summary>Encodes binary CID bytes to a base32lower string with 'b' prefix.</summary>
     /// <param name="cidBytes">The raw binary CID bytes.</param>
     /// <returns>The base32lower-encoded CID string.</returns>
     public static string EncodeCidToString(ReadOnlySpan<byte> cidBytes)
@@ -129,9 +118,7 @@ public static class CidComputation
         return Base32Lower.EncodeWithPrefix('b', cidBytes);
     }
 
-    /// <summary>
-    /// Verifies that a CID matches the expected hash for the given data and codec.
-    /// </summary>
+    /// <summary>Verifies that a CID matches the expected hash for the given data and codec.</summary>
     /// <param name="cid">The CID to verify.</param>
     /// <param name="data">The data that was supposedly CID-referenced.</param>
     /// <param name="isDagCbor">Whether the data is DAG-CBOR encoded (true) or raw (false).</param>

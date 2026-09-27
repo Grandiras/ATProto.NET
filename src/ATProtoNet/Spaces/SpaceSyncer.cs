@@ -7,9 +7,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Spaces;
 
-/// <summary>
-/// Why a sync pass ended where it did.
-/// </summary>
+/// <summary>Why a sync pass ended where it did.</summary>
 public enum SpaceSyncOutcome
 {
     /// <summary>
@@ -30,9 +28,7 @@ public enum SpaceSyncOutcome
     /// </remarks>
     Partial,
 
-    /// <summary>
-    /// The oplog could not carry the copy forward and it was rebuilt from a full repo download.
-    /// </summary>
+    /// <summary>The oplog could not carry the copy forward and it was rebuilt from a full repo download.</summary>
     Recovered,
 
     /// <summary>The account holds no repo in this space, so there is nothing to sync.</summary>
@@ -45,9 +41,7 @@ public enum SpaceSyncOutcome
     NoRepo,
 }
 
-/// <summary>
-/// The result of one sync pass over one repo.
-/// </summary>
+/// <summary>The result of one sync pass over one repo.</summary>
 /// <param name="Outcome">Why the pass ended.</param>
 /// <param name="Rev">
 /// The revision the local copy now stands at, or <see langword="null"/> when the repo advanced
@@ -123,9 +117,7 @@ public sealed class SpaceRepoCursor
     }
 }
 
-/// <summary>
-/// Keeps a local copy of a space in sync by pulling directly from each member's repo host.
-/// </summary>
+/// <summary>Keeps a local copy of a space in sync by pulling directly from each member's repo host.</summary>
 /// <remarks>
 /// <para>There is no relay for permissioned data. Permissioned repos are non-rebroadcastable by
 /// construction, so no intermediary can collate a firehose of them, and an application pulls
@@ -152,9 +144,7 @@ public sealed class SpaceSyncer
     private readonly IDidResolver _didResolver;
     private readonly ILogger _logger;
 
-    /// <summary>
-    /// Creates a syncer for one space.
-    /// </summary>
+    /// <summary>Creates a syncer for one space.</summary>
     /// <param name="space">The space being synced.</param>
     /// <param name="store">The caller's copy of the space, which this drives.</param>
     /// <param name="didResolver">
@@ -213,7 +203,6 @@ public sealed class SpaceSyncer
     /// <param name="client">A client for the repo's host, authenticated for this space.</param>
     /// <param name="cursor">The local state for this repo. Updated in place.</param>
     /// <param name="pageSize">Operations to request per page.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<SpaceSyncResult> SyncRepoAsync(
         SpaceClient client,
         SpaceRepoCursor cursor,
@@ -228,7 +217,7 @@ public sealed class SpaceSyncer
         {
             page = await client.ListRepoOpsAsync(
                 _space, cursor.Repo, cursor.Rev, excludeValues: false, pageSize, cursor: null,
-                cancellationToken);
+                cancellationToken).ConfigureAwait(false);
         }
         catch (XrpcException ex) when (IsMissingRepo(ex))
         {
@@ -241,14 +230,14 @@ public sealed class SpaceSyncer
             // A throttled or broken host is a different matter and propagates: silently
             // downloading the whole repo because a PDS returned 429 would make things worse.
             _logger.LogDebug(ex, "Oplog unusable for {Repo} in {Space}; recovering in full.", cursor.Repo, _space);
-            return await RecoverAsync(client, cursor, cancellationToken);
+            return await RecoverAsync(client, cursor, cancellationToken).ConfigureAwait(false);
         }
 
         // Apply what arrived, then decide whether the result can be trusted.
         var applied = new List<SpaceRepoOpEntry>(page.Ops.Count);
         foreach (var op in page.Ops)
         {
-            await _store.ApplyAsync(_space, cursor.Repo, op, cancellationToken);
+            await _store.ApplyAsync(_space, cursor.Repo, op, cancellationToken).ConfigureAwait(false);
             cursor.Commit.ApplyOp(op.ToRepoOp());
             cursor.Rev = op.Rev;
             applied.Add(op);
@@ -262,7 +251,7 @@ public sealed class SpaceSyncer
         if (page.Commit is null)
         {
             return applied.Count == 0 && page.Cursor is null
-                ? await NothingToCommitAsync(client, cursor, cancellationToken)
+                ? await NothingToCommitAsync(client, cursor, cancellationToken).ConfigureAwait(false)
                 : new SpaceSyncResult(SpaceSyncOutcome.Partial, cursor.Rev, null, applied, null);
         }
 
@@ -273,7 +262,7 @@ public sealed class SpaceSyncer
                 ? true
                 : throw new SpaceRepoVerificationException(
                     $"The commit for {cursor.Repo} in {_space} failed verification."),
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         if (cursor.Commit.Matches(page.Commit))
         {
@@ -287,7 +276,7 @@ public sealed class SpaceSyncer
         _logger.LogInformation(
             "Local copy of {Repo} in {Space} diverged from its commit; recovering in full.", cursor.Repo, _space);
 
-        return await RecoverAsync(client, cursor, cancellationToken);
+        return await RecoverAsync(client, cursor, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -317,7 +306,7 @@ public sealed class SpaceSyncer
             "Oplog for {Repo} in {Space} carries no commit past {Rev}; recovering in full.",
             cursor.Repo, _space, cursor.Rev);
 
-        return await RecoverAsync(client, cursor, cancellationToken);
+        return await RecoverAsync(client, cursor, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -326,7 +315,6 @@ public sealed class SpaceSyncer
     /// </summary>
     /// <param name="client">A client for the repo's host, authenticated for this space.</param>
     /// <param name="cursor">The local state for this repo. Reset in place.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<SpaceSyncResult> RecoverAsync(
         SpaceClient client,
         SpaceRepoCursor cursor,
@@ -338,8 +326,10 @@ public sealed class SpaceSyncer
         ReadOnlyMemory<byte> car;
         try
         {
+            #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
             await using var response = await client.GetRepoAsync(
-                _space, cursor.Repo, excludeValues: null, cancellationToken);
+                _space, cursor.Repo, excludeValues: null, cancellationToken).ConfigureAwait(false);
+            #pragma warning restore CA2007
 
             var limit = _maxRepoSize;
             if (response.ContentLength > limit)
@@ -353,20 +343,20 @@ public sealed class SpaceSyncer
             // sizes the first allocation up to a cap and the buffer grows past that as data comes,
             // up to the limit whatever was declared.
             var buffer = new MemoryStream(InitialCapacity(response.ContentLength));
-            await CopyBoundedAsync(response.Content, buffer, limit, cancellationToken);
+            await CopyBoundedAsync(response.Content, buffer, limit, cancellationToken).ConfigureAwait(false);
             car = buffer.GetBuffer().AsMemory(0, (int)buffer.Length);
         }
         catch (XrpcException ex) when (IsMissingRepo(ex))
         {
-            await _store.DropAsync(_space, cursor.Repo, cancellationToken);
+            await _store.DropAsync(_space, cursor.Repo, cancellationToken).ConfigureAwait(false);
             cursor.Reset(new SpaceRepoCommit(), rev: null);
             return new SpaceSyncResult(SpaceSyncOutcome.NoRepo, null, null, [], null);
         }
 
         var repo = await VerifyWithKeyRefreshAsync(
-            cursor.Repo, didKey => SpaceRepoCar.Verify(car.Span, _space, cursor.Repo, didKey), cancellationToken);
+            cursor.Repo, didKey => SpaceRepoCar.Verify(car.Span, _space, cursor.Repo, didKey), cancellationToken).ConfigureAwait(false);
 
-        await _store.ReplaceAsync(_space, cursor.Repo, repo, cancellationToken);
+        await _store.ReplaceAsync(_space, cursor.Repo, repo, cancellationToken).ConfigureAwait(false);
         cursor.Reset(SpaceRepoCommit.FromIndex(repo.Index), repo.Commit.Rev);
 
         return new SpaceSyncResult(SpaceSyncOutcome.Recovered, repo.Commit.Rev, repo.Commit, [], repo);
@@ -383,7 +373,7 @@ public sealed class SpaceSyncer
         try
         {
             int read;
-            while ((read = await source.ReadAsync(chunk, cancellationToken)) > 0)
+            while ((read = await source.ReadAsync(chunk, cancellationToken).ConfigureAwait(false)) > 0)
             {
                 if (destination.Length + read > limit)
                 {
@@ -418,18 +408,17 @@ public sealed class SpaceSyncer
     /// </summary>
     /// <param name="author">The author whose key signs what is verified.</param>
     /// <param name="verify">The verification, throwing <see cref="SpaceRepoVerificationException"/> on failure.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     private async Task<T> VerifyWithKeyRefreshAsync<T>(
         Did author, Func<string, T> verify, CancellationToken cancellationToken)
     {
-        var didKey = SigningKey(author, await _didResolver.ResolveAsync(author, cancellationToken));
+        var didKey = SigningKey(author, await _didResolver.ResolveAsync(author, cancellationToken).ConfigureAwait(false));
         try
         {
             return verify(didKey);
         }
         catch (SpaceRepoVerificationException)
         {
-            var refreshed = SigningKey(author, await _didResolver.RefreshAsync(author, cancellationToken));
+            var refreshed = SigningKey(author, await _didResolver.RefreshAsync(author, cancellationToken).ConfigureAwait(false));
             if (string.Equals(refreshed, didKey, StringComparison.Ordinal))
                 throw;
 
@@ -475,9 +464,7 @@ public sealed class SpaceSyncer
             or SpaceErrors.RepoTakendown;
 }
 
-/// <summary>
-/// The caller's copy of a space, which a <see cref="SpaceSyncer"/> drives.
-/// </summary>
+/// <summary>The caller's copy of a space, which a <see cref="SpaceSyncer"/> drives.</summary>
 /// <remarks>
 /// A syncer owns the protocol — the oplog, the digest comparison, commit verification, the
 /// fallback to full recovery — and nothing about where the data lands. Implement this over
@@ -485,26 +472,18 @@ public sealed class SpaceSyncer
 /// </remarks>
 public interface ISpaceRepoStore
 {
-    /// <summary>
-    /// Applies one operation-log entry: a create, an update, or a delete.
-    /// </summary>
-    /// <param name="space">The space.</param>
+    /// <summary>Applies one operation-log entry: a create, an update, or a delete.</summary>
     /// <param name="repo">The DID of the account whose repo advanced.</param>
     /// <param name="op">
     /// The operation. <see cref="SpaceRepoOpEntry.Cid"/> is <see langword="null"/> for a delete;
     /// <see cref="SpaceRepoOpEntry.Value"/> is absent for a delete and when a later operation in
     /// the same response superseded it.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     Task ApplyAsync(SpaceUri space, Did repo, SpaceRepoOpEntry op, CancellationToken cancellationToken);
 
-    /// <summary>
-    /// Replaces everything held for one repo with a verified full download.
-    /// </summary>
-    /// <param name="space">The space.</param>
+    /// <summary>Replaces everything held for one repo with a verified full download.</summary>
     /// <param name="repo">The DID of the account whose repo was recovered.</param>
     /// <param name="contents">The verified repo.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <remarks>
     /// An implementation replacing an existing copy may diff <paramref name="contents"/> against
     /// what it holds and keep only what it is missing, rather than rewriting everything.
@@ -515,8 +494,6 @@ public interface ISpaceRepoStore
     /// Drops everything held for one repo, because the account no longer holds one in this space
     /// or is no longer served.
     /// </summary>
-    /// <param name="space">The space.</param>
     /// <param name="repo">The DID of the account.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     Task DropAsync(SpaceUri space, Did repo, CancellationToken cancellationToken);
 }

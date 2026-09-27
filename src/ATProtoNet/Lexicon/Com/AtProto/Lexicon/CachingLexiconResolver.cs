@@ -4,9 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Lexicon;
 
-/// <summary>
-/// Caches the schemas another <see cref="ILexiconResolver"/> resolves.
-/// </summary>
+/// <summary>Caches the schemas another <see cref="ILexiconResolver"/> resolves.</summary>
 /// <remarks>
 /// <para>The same model as <see cref="CachingDidResolver"/>: a schema younger than
 /// <see cref="LexiconCacheOptions.StaleAfter"/> is served as is; one younger than
@@ -33,9 +31,7 @@ public sealed class CachingLexiconResolver : ILexiconResolver, IDisposable
     private readonly LinkedList<Entry> _recency = new(); // most recently used first
     private readonly Dictionary<Nsid, Fetch> _inflight = new();
 
-    /// <summary>
-    /// Creates a cache over <paramref name="inner"/>.
-    /// </summary>
+    /// <summary>Creates a cache over <paramref name="inner"/>.</summary>
     /// <param name="inner">The resolver schemas are resolved through. The caller owns it.</param>
     /// <param name="options">Cache options. Defaults apply when omitted.</param>
     /// <param name="timeProvider">The clock. Defaults to the system clock.</param>
@@ -267,9 +263,7 @@ public sealed class CachingLexiconResolver : ILexiconResolver, IDisposable
     }
 }
 
-/// <summary>
-/// Configuration for a <see cref="CachingLexiconResolver"/>.
-/// </summary>
+/// <summary>Configuration for a <see cref="CachingLexiconResolver"/>.</summary>
 public sealed class LexiconCacheOptions
 {
     /// <summary>The most schemas and failures held. The least recently used goes first. Defaults to 1,000.</summary>

@@ -1,8 +1,6 @@
 namespace ATProtoNet;
 
-/// <summary>
-/// The base type of every exception the SDK raises on its own account.
-/// </summary>
+/// <summary>The base type of every exception the SDK raises on its own account.</summary>
 /// <remarks>
 /// <para>Catching it catches every protocol-level failure: an XRPC error answered by a service
 /// (<see cref="Http.XrpcException"/> and its subtypes), a response that does not match its

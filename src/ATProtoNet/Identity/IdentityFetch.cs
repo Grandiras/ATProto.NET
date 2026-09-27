@@ -35,9 +35,7 @@ internal static class IdentityFetch
         public bool IsRedirect => (int)Status is 301 or 302 or 303 or 307 or 308;
     }
 
-    /// <summary>
-    /// GETs <paramref name="url"/>, reading a success body up to <paramref name="maxBytes"/>.
-    /// </summary>
+    /// <summary>GETs <paramref name="url"/>, reading a success body up to <paramref name="maxBytes"/>.</summary>
     /// <exception cref="DidResolutionException">
     /// The policy refused the connection, the host was unreachable or broke off, the budget ran
     /// out (waiting for a fetch slot included), or the body was over the cap or would not decode.

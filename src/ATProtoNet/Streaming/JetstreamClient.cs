@@ -5,9 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Streaming;
 
-/// <summary>
-/// Client for consuming a Jetstream event stream over a single WebSocket connection.
-/// </summary>
+/// <summary>Client for consuming a Jetstream event stream over a single WebSocket connection.</summary>
 /// <remarks>
 /// <para>Jetstream is a JSON alternative to the binary firehose with <b>server-side</b>
 /// collection and DID filtering — ideal for indexing a small set of collections without
@@ -50,9 +48,7 @@ public sealed class JetstreamClient : IAsyncDisposable
     private readonly StreamConnector _connector;
     private readonly CancellationTokenSource _disposed = new();
 
-    /// <summary>
-    /// Create a Jetstream client.
-    /// </summary>
+    /// <summary>Create a Jetstream client.</summary>
     /// <param name="options">Subscription configuration.</param>
     /// <exception cref="ArgumentException">The options are not valid.</exception>
     public JetstreamClient(JetstreamConsumerOptions options)
@@ -69,9 +65,7 @@ public sealed class JetstreamClient : IAsyncDisposable
         _connector = connector;
     }
 
-    /// <summary>
-    /// Subscribe to the Jetstream event stream.
-    /// </summary>
+    /// <summary>Subscribe to the Jetstream event stream.</summary>
     /// <param name="cursor">Optional resume position: a sequence number on
     /// <see cref="JetstreamProtocol.V2"/>, where a value of 10^15 or more is read as a
     /// unix-microseconds timestamp instead (see <see cref="JetstreamCursor"/>), or a

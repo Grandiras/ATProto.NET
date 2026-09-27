@@ -78,9 +78,7 @@ public sealed class SignedSpaceCommit : Models.LexObject
     public byte[] ToDagCbor() =>
         DagCborEncoder.Encode(JsonSerializer.SerializeToElement(this, SpaceJson.Options));
 
-    /// <summary>
-    /// Decodes a commit from its DAG-CBOR block.
-    /// </summary>
+    /// <summary>Decodes a commit from its DAG-CBOR block.</summary>
     /// <param name="dagCbor">The encoded block.</param>
     /// <exception cref="SpaceRepoVerificationException">Thrown when the block is not a well-formed commit.</exception>
     public static SignedSpaceCommit FromDagCbor(ReadOnlyMemory<byte> dagCbor)
@@ -112,9 +110,7 @@ public readonly record struct SpaceCommitContext(SpaceUri Space, Did Author, Tid
     /// <summary>The fixed protocol tag that opens every encoded context.</summary>
     public const string ProtocolTag = "atproto-space-v1";
 
-    /// <summary>
-    /// Encodes the context for signing and for MAC derivation.
-    /// </summary>
+    /// <summary>Encodes the context for signing and for MAC derivation.</summary>
     /// <param name="ikm">The commit's per-signature nonce.</param>
     /// <remarks>
     /// <para>The encoding is the fixed protocol tag followed by each variable field prefixed
@@ -167,9 +163,7 @@ public readonly record struct SpaceCommitContext(SpaceUri Space, Did Author, Tid
     }
 }
 
-/// <summary>
-/// A single operation in a permissioned repo's operation log, as applied to a set hash.
-/// </summary>
+/// <summary>A single operation in a permissioned repo's operation log, as applied to a set hash.</summary>
 /// <param name="Collection">The record collection NSID.</param>
 /// <param name="Rkey">The record key.</param>
 /// <param name="Cid">The record's new CID, or <see langword="null"/> for a delete.</param>
@@ -298,9 +292,7 @@ public sealed class SpaceRepoCommit
     /// </summary>
     public byte[] Digest() => SetHash.Digest();
 
-    /// <summary>
-    /// Whether this repo's contents match a signed commit's digest.
-    /// </summary>
+    /// <summary>Whether this repo's contents match a signed commit's digest.</summary>
     /// <param name="commit">The commit to compare against.</param>
     /// <remarks>
     /// Verify the commit with <see cref="SpaceCommitVerifier"/> first — on its own this says
@@ -312,9 +304,7 @@ public sealed class SpaceRepoCommit
         return CryptographicOperations.FixedTimeEquals(SetHash.Digest(), commit.Hash);
     }
 
-    /// <summary>
-    /// Signs a commit over the repo's current contents.
-    /// </summary>
+    /// <summary>Signs a commit over the repo's current contents.</summary>
     /// <param name="context">The commit context. Its <see cref="SpaceCommitContext.Rev"/> becomes the commit's revision.</param>
     /// <param name="signingKey">The author's AT Protocol signing key.</param>
     /// <remarks>
@@ -342,14 +332,10 @@ public sealed class SpaceRepoCommit
     }
 }
 
-/// <summary>
-/// Verifies a permissioned repo's signed commit.
-/// </summary>
+/// <summary>Verifies a permissioned repo's signed commit.</summary>
 public static class SpaceCommitVerifier
 {
-    /// <summary>
-    /// Verifies a commit's signature (authenticity) and MAC (integrity).
-    /// </summary>
+    /// <summary>Verifies a commit's signature (authenticity) and MAC (integrity).</summary>
     /// <param name="commit">The commit to verify.</param>
     /// <param name="context">The context the commit should have been signed over.</param>
     /// <param name="didKey">The author's signing key as a <c>did:key</c> string.</param>
@@ -385,9 +371,7 @@ public static class SpaceCommitVerifier
         }
     }
 
-    /// <summary>
-    /// Computes a commit's MAC: <c>HMAC-SHA256(HKDF-Expand(ikm, ctx, 32), hash)</c>.
-    /// </summary>
+    /// <summary>Computes a commit's MAC: <c>HMAC-SHA256(HKDF-Expand(ikm, ctx, 32), hash)</c>.</summary>
     /// <param name="ikm">The commit's per-signature nonce, used directly as the pseudorandom key.</param>
     /// <param name="encodedContext">The encoded commit context, used as HKDF <c>info</c>.</param>
     /// <param name="hash">The repo digest being bound.</param>
@@ -404,9 +388,7 @@ public static class SpaceCommitVerifier
     }
 }
 
-/// <summary>
-/// Thrown when a serialized permissioned repo, or a commit within it, fails verification.
-/// </summary>
+/// <summary>Thrown when a serialized permissioned repo, or a commit within it, fails verification.</summary>
 public sealed class SpaceRepoVerificationException : AtProtoException
 {
     /// <summary>Creates a new exception with the given message.</summary>
@@ -424,9 +406,7 @@ public sealed class SpaceRepoVerificationException : AtProtoException
     }
 }
 
-/// <summary>
-/// JSON options for permissioned-space structures that round-trip through DAG-CBOR.
-/// </summary>
+/// <summary>JSON options for permissioned-space structures that round-trip through DAG-CBOR.</summary>
 internal static class SpaceJson
 {
     internal static JsonSerializerOptions Options { get; } = new()

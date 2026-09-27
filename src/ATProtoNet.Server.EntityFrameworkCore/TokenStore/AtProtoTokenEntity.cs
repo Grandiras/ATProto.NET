@@ -8,16 +8,12 @@ namespace ATProtoNet.Server.EntityFrameworkCore;
 /// </summary>
 public sealed class AtProtoTokenEntity
 {
-    /// <summary>
-    /// The user's DID (decentralized identifier). Primary key.
-    /// </summary>
+    /// <summary>The user's DID (decentralized identifier). Primary key.</summary>
     [Key]
     [MaxLength(2048)]
     public required string Did { get; set; }
 
-    /// <summary>
-    /// The encrypted, serialized session (JSON protected by Data Protection).
-    /// </summary>
+    /// <summary>The encrypted, serialized session (JSON protected by Data Protection).</summary>
     public required string EncryptedTokenData { get; set; }
 
     /// <summary>

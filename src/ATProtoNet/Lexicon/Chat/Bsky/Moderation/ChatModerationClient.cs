@@ -24,11 +24,8 @@ public sealed class ChatModerationClient
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Gets an account's chat activity over the last day, the last month and all time.
-    /// </summary>
+    /// <summary>Gets an account's chat activity over the last day, the last month and all time.</summary>
     /// <param name="actor">The account.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetActorMetadataResponse> GetActorMetadataAsync(
         Did actor,
         CancellationToken cancellationToken = default)
@@ -40,9 +37,7 @@ public sealed class ChatModerationClient
             "chat.bsky.moderation.getActorMetadata", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Gets a message with the messages around it, for reviewing a report.
-    /// </summary>
+    /// <summary>Gets a message with the messages around it, for reviewing a report.</summary>
     /// <param name="messageId">The message's identifier.</param>
     /// <param name="convoId">
     /// The conversation the message is in. Optional for now; upstream says it will become required.
@@ -59,7 +54,6 @@ public sealed class ChatModerationClient
     /// The most system messages to include between two returned messages (0-1000);
     /// <see langword="null"/> for the server default (10).
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetMessageContextResponse> GetMessageContextAsync(
         string messageId,
         string? convoId = null,
@@ -79,11 +73,8 @@ public sealed class ChatModerationClient
             "chat.bsky.moderation.getMessageContext", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Gets a conversation the moderator need not be a member of.
-    /// </summary>
+    /// <summary>Gets a conversation the moderator need not be a member of.</summary>
     /// <param name="convoId">The conversation's identifier.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<ModerationConvoView> GetConvoAsync(
         string convoId,
         CancellationToken cancellationToken = default)
@@ -92,15 +83,12 @@ public sealed class ChatModerationClient
             .Add("convoId", convoId);
 
         var output = await _xrpc.QueryAsync<GetConvoResponse>(
-            "chat.bsky.moderation.getConvo", parameters, cancellationToken: cancellationToken);
+            "chat.bsky.moderation.getConvo", parameters, cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.Convo;
     }
 
-    /// <summary>
-    /// Gets several conversations the moderator need not be a member of.
-    /// </summary>
+    /// <summary>Gets several conversations the moderator need not be a member of.</summary>
     /// <param name="convoIds">The conversations' identifiers (1-100); unknown ones are left out.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetConvosResponse> GetConvosAsync(
         IEnumerable<string> convoIds,
         CancellationToken cancellationToken = default)
@@ -112,13 +100,10 @@ public sealed class ChatModerationClient
             "chat.bsky.moderation.getConvos", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Gets one page of a conversation's members; the moderator need not be a member.
-    /// </summary>
+    /// <summary>Gets one page of a conversation's members; the moderator need not be a member.</summary>
     /// <param name="convoId">The conversation's identifier.</param>
     /// <param name="limit">Maximum number of members (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetConvoMembersResponse> GetConvoMembersAsync(
         string convoId,
         int? limit = null,
@@ -140,7 +125,6 @@ public sealed class ChatModerationClient
     /// </summary>
     /// <param name="convoId">The conversation's identifier.</param>
     /// <param name="pageSize">Members per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<ChatMemberView> EnumerateConvoMembersAsync(
         string convoId,
         int? pageSize = null,
@@ -149,16 +133,13 @@ public sealed class ChatModerationClient
             (cursor, ct) => GetConvoMembersAsync(convoId, pageSize, cursor, ct),
             cancellationToken);
 
-    /// <summary>
-    /// Allows or revokes an account's access to chat.
-    /// </summary>
+    /// <summary>Allows or revokes an account's access to chat.</summary>
     /// <param name="actor">The account.</param>
     /// <param name="allowAccess">Whether the account may use chat.</param>
     /// <param name="reference">
     /// The Lexicon's <c>ref</c>: a reference the moderation service records with the change, such
     /// as the moderation event behind it.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task UpdateActorAccessAsync(
         Did actor, bool allowAccess,
         string? reference = null,

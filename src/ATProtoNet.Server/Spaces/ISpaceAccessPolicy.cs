@@ -21,9 +21,7 @@ public enum SpaceAccessKind
     Write,
 }
 
-/// <summary>
-/// A request for access to a space, as it reaches the authority's policy.
-/// </summary>
+/// <summary>A request for access to a space, as it reaches the authority's policy.</summary>
 /// <param name="Space">The space being asked for.</param>
 /// <param name="UserDid">The user the requesting application is acting for, or the writer.</param>
 /// <param name="AttestedClientId">
@@ -64,9 +62,7 @@ public enum SpaceAccessOutcome
     NotAuthorized,
 }
 
-/// <summary>
-/// The authority's answer to an access request.
-/// </summary>
+/// <summary>The authority's answer to an access request.</summary>
 /// <param name="Outcome">Whether to grant, and why not when not.</param>
 /// <param name="Reason">An operator-facing description. Never returned to the caller.</param>
 public sealed record SpaceAccessDecision(SpaceAccessOutcome Outcome, string? Reason = null)
@@ -77,9 +73,7 @@ public sealed record SpaceAccessDecision(SpaceAccessOutcome Outcome, string? Rea
     /// <summary>Whether the request was granted.</summary>
     public bool IsGranted => Outcome == SpaceAccessOutcome.Granted;
 
-    /// <summary>
-    /// Refuses a request.
-    /// </summary>
+    /// <summary>Refuses a request.</summary>
     /// <param name="outcome">Which perimeter refused.</param>
     /// <param name="reason">An operator-facing description.</param>
     public static SpaceAccessDecision Refuse(SpaceAccessOutcome outcome, string? reason = null) =>
@@ -124,8 +118,6 @@ public interface ISpaceAccessPolicy
     /// Evaluates a credential request or a write notification, as
     /// <see cref="SpaceAccessRequest.Access"/> says.
     /// </summary>
-    /// <param name="request">The request.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     Task<SpaceAccessDecision> EvaluateAsync(
         SpaceAccessRequest request, CancellationToken cancellationToken = default);
 }

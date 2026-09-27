@@ -16,9 +16,7 @@ namespace ATProtoNet.Aspire.Hosting;
 /// </remarks>
 public abstract class AtProtoPdsContainerResourceBase : ContainerResource, IResourceWithConnectionString
 {
-    /// <summary>
-    /// The name of the HTTP endpoint exposed by the PDS container.
-    /// </summary>
+    /// <summary>The name of the HTTP endpoint exposed by the PDS container.</summary>
     public const string HttpEndpointName = "http";
 
     /// <summary>

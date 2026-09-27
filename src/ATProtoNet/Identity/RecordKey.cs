@@ -19,14 +19,10 @@ public sealed partial record RecordKey : IIdentifier<RecordKey>
     [GeneratedRegex(@"^[A-Za-z0-9._:~-]{1,512}\z")]
     private static partial Regex RecordKeyPattern();
 
-    /// <summary>
-    /// A well-known record key for singleton records (e.g., profile records).
-    /// </summary>
+    /// <summary>A well-known record key for singleton records (e.g., profile records).</summary>
     public static readonly RecordKey Self = new("self");
 
-    /// <summary>
-    /// The record key string value.
-    /// </summary>
+    /// <summary>The record key string value.</summary>
     public string Value { get; }
 
     private RecordKey(string value)
@@ -34,18 +30,14 @@ public sealed partial record RecordKey : IIdentifier<RecordKey>
         Value = value;
     }
 
-    /// <summary>
-    /// Creates a RecordKey from a string value with validation.
-    /// </summary>
+    /// <summary>Creates a RecordKey from a string value with validation.</summary>
     /// <param name="value">The record key string.</param>
     /// <returns>A validated record key.</returns>
     /// <exception cref="ArgumentException">Thrown if the value is not a valid record key.</exception>
     public static RecordKey Parse(string value) =>
         TryParse(value, out var key) ? key : throw IIdentifier<RecordKey>.InvalidValue(value, "record key");
 
-    /// <summary>
-    /// Attempts to create a RecordKey from a string value without throwing.
-    /// </summary>
+    /// <summary>Attempts to create a RecordKey from a string value without throwing.</summary>
     /// <param name="value">The record key string.</param>
     /// <param name="recordKey">The parsed record key on success.</param>
     /// <returns><see langword="true"/> if <paramref name="value"/> is a valid record key.</returns>
@@ -63,23 +55,17 @@ public sealed partial record RecordKey : IIdentifier<RecordKey>
         return result is not null;
     }
 
-    /// <summary>
-    /// Creates a new TID-based record key from the process-wide <see cref="TidGenerator"/>.
-    /// </summary>
+    /// <summary>Creates a new TID-based record key from the process-wide <see cref="TidGenerator"/>.</summary>
     /// <returns>A TID record key; successive calls return increasing keys.</returns>
     public static RecordKey NewTid() => new(Tid.Next().Value);
 
-    /// <summary>
-    /// Implicitly converts a <see cref="RecordKey"/> to its <see cref="string"/> representation.
-    /// </summary>
+    /// <summary>Implicitly converts a <see cref="RecordKey"/> to its <see cref="string"/> representation.</summary>
     /// <param name="key">The value to convert.</param>
     /// <returns>The converted value, or <see langword="null"/> for a <see langword="null"/> key.</returns>
     [return: NotNullIfNotNull(nameof(key))]
     public static implicit operator string?(RecordKey? key) => key?.Value;
 
-    /// <summary>
-    /// Explicitly converts a <see cref="string"/> to its <see cref="RecordKey"/> representation.
-    /// </summary>
+    /// <summary>Explicitly converts a <see cref="string"/> to its <see cref="RecordKey"/> representation.</summary>
     /// <param name="value">The value to convert.</param>
     /// <returns>The converted value.</returns>
     /// <exception cref="ArgumentException">Thrown if the value is not a valid <see cref="RecordKey"/>.</exception>

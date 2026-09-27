@@ -5,9 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Streaming;
 
-/// <summary>
-/// Configuration options for <see cref="ChatModerationEventConsumer"/>.
-/// </summary>
+/// <summary>Configuration options for <see cref="ChatModerationEventConsumer"/>.</summary>
 public sealed class ChatModerationEventConsumerOptions
 {
     /// <summary>The chat service's WebSocket URL, e.g. <c>wss://api.bsky.chat</c>.</summary>
@@ -82,9 +80,7 @@ public sealed class ChatModerationEventConsumer
     private readonly ILogger _logger;
     private string? _lastRev;
 
-    /// <summary>
-    /// Create a chat moderation event consumer.
-    /// </summary>
+    /// <summary>Create a chat moderation event consumer.</summary>
     /// <param name="options">Consumer configuration.</param>
     /// <exception cref="ArgumentException">The options are not valid.</exception>
     public ChatModerationEventConsumer(ChatModerationEventConsumerOptions options)
@@ -107,9 +103,7 @@ public sealed class ChatModerationEventConsumer
     /// <summary>The revision of the last event delivered, or null before the first.</summary>
     public string? LastRev => Volatile.Read(ref _lastRev);
 
-    /// <summary>
-    /// Consume the moderation event stream with automatic reconnection.
-    /// </summary>
+    /// <summary>Consume the moderation event stream with automatic reconnection.</summary>
     /// <param name="cursor">The revision to resume after: an event's <see cref="ChatModerationEvent.Rev"/>,
     /// or <see cref="BeginningCursor"/> to replay from the beginning. Null starts from the live
     /// stream.</param>

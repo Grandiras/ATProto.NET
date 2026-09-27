@@ -6,13 +6,9 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Site.Standard.Document;
 
-// ──────────────────────────────────────────────────────────────
-//  Document record
-// ──────────────────────────────────────────────────────────────
+// ── Document record ──────────────────────────────────────────
 
-/// <summary>
-/// Represents a Standard.site document — an individual published document or blog post.
-/// </summary>
+/// <summary>Represents a Standard.site document — an individual published document or blog post.</summary>
 public sealed class DocumentRecord : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>site.standard.document</c>).</summary>
@@ -52,9 +48,7 @@ public sealed class DocumentRecord : LexObject, IAtProtoRecord
     [JsonPropertyName("coverImage")]
     public BlobRef? CoverImage { get; init; }
 
-    /// <summary>
-    /// Open union used to define the record's content. Each entry must specify a $type.
-    /// </summary>
+    /// <summary>Open union used to define the record's content. Each entry must specify a $type.</summary>
     [JsonPropertyName("content")]
     public JsonElement? Content { get; init; }
 
@@ -93,9 +87,7 @@ public sealed class DocumentRecord : LexObject, IAtProtoRecord
     public SelfLabels? Labels { get; init; }
 }
 
-/// <summary>
-/// A contributor to a document (<c>site.standard.document#contributor</c>).
-/// </summary>
+/// <summary>A contributor to a document (<c>site.standard.document#contributor</c>).</summary>
 public sealed class DocumentContributor : LexObject
 {
     /// <summary>The contributor's DID.</summary>

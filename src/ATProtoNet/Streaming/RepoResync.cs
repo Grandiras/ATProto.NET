@@ -115,9 +115,7 @@ public sealed class RepoResyncEvent : FirehoseMessage
     public string? Reason { get; init; }
 }
 
-/// <summary>
-/// Runs the resynchronizations of one <see cref="TypedFirehoseConsumer.ConsumeAsync"/> run.
-/// </summary>
+/// <summary>Runs the resynchronizations of one <see cref="TypedFirehoseConsumer.ConsumeAsync"/> run.</summary>
 /// <remarks>
 /// Every state change happens on the consumer's own loop, one event at a time: the background
 /// work only downloads and verifies, and posts what it found. That keeps a repository's events,

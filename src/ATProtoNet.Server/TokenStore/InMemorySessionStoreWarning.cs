@@ -5,9 +5,7 @@ using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Server.TokenStore;
 
-/// <summary>
-/// Says once, at startup, when the users' sessions are kept in the in-memory default store.
-/// </summary>
+/// <summary>Says once, at startup, when the users' sessions are kept in the in-memory default store.</summary>
 /// <remarks>
 /// The default keeps an application that never chose a store from writing tokens anywhere on
 /// disk, but it loses every user's session on a restart, and a second instance never sees them;

@@ -16,11 +16,8 @@ public sealed class IdentityClient
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Resolve a handle (domain name) to a DID.
-    /// </summary>
+    /// <summary>Resolve a handle (domain name) to a DID.</summary>
     /// <param name="handle">The handle to resolve.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ResolveHandleResponse> ResolveHandleAsync(
         Handle handle, CancellationToken cancellationToken = default)
     {
@@ -34,7 +31,6 @@ public sealed class IdentityClient
     /// verified handle, as the service resolved them (<c>com.atproto.identity.resolveIdentity</c>).
     /// </summary>
     /// <param name="identifier">The DID or handle to resolve.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The identity. Its handle is <c>handle.invalid</c> when it did not verify.</returns>
     /// <exception cref="XrpcException">
     /// Thrown with <see cref="XrpcErrors.HandleNotFound"/>, <see cref="XrpcErrors.DidNotFound"/> or
@@ -59,7 +55,6 @@ public sealed class IdentityClient
     /// (<c>com.atproto.identity.resolveDid</c>).
     /// </summary>
     /// <param name="did">The DID to resolve.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The response carrying the document.</returns>
     /// <exception cref="XrpcException">
     /// Thrown with <see cref="XrpcErrors.DidNotFound"/> or <see cref="XrpcErrors.DidDeactivated"/>
@@ -80,7 +75,6 @@ public sealed class IdentityClient
     /// authentication, depending on its role and policy.
     /// </summary>
     /// <param name="identifier">The DID or handle to refresh.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The identity as re-resolved.</returns>
     /// <exception cref="XrpcException">
     /// Thrown with <see cref="XrpcErrors.HandleNotFound"/>, <see cref="XrpcErrors.DidNotFound"/> or
@@ -96,22 +90,17 @@ public sealed class IdentityClient
             "com.atproto.identity.refreshIdentity", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Update the handle for the currently authenticated account.
-    /// </summary>
+    /// <summary>Update the handle for the currently authenticated account.</summary>
     /// <param name="handle">The new handle.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task UpdateHandleAsync(
         Handle handle, CancellationToken cancellationToken = default)
     {
         var request = new UpdateHandleRequest { Handle = handle };
         await _xrpc.ProcedureAsync(
-            "com.atproto.identity.updateHandle", request, cancellationToken: cancellationToken);
+            "com.atproto.identity.updateHandle", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Get recommended DID credentials for account migration.
-    /// </summary>
+    /// <summary>Get recommended DID credentials for account migration.</summary>
     public Task<GetRecommendedDidCredentialsResponse> GetRecommendedDidCredentialsAsync(
         CancellationToken cancellationToken = default)
     {
@@ -120,20 +109,16 @@ public sealed class IdentityClient
             cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Request an email token for signing a PLC operation.
-    /// </summary>
+    /// <summary>Request an email token for signing a PLC operation.</summary>
     public async Task RequestPlcOperationSignatureAsync(
         CancellationToken cancellationToken = default)
     {
         await _xrpc.ProcedureAsync(
             "com.atproto.identity.requestPlcOperationSignature",
-            new { }, cancellationToken: cancellationToken);
+            new { }, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Sign a PLC operation with the server's rotation key.
-    /// </summary>
+    /// <summary>Sign a PLC operation with the server's rotation key.</summary>
     public Task<SignPlcOperationResponse> SignPlcOperationAsync(
         SignPlcOperationRequest request, CancellationToken cancellationToken = default)
     {
@@ -141,13 +126,11 @@ public sealed class IdentityClient
             "com.atproto.identity.signPlcOperation", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Submit a signed PLC operation to the PLC directory.
-    /// </summary>
+    /// <summary>Submit a signed PLC operation to the PLC directory.</summary>
     public async Task SubmitPlcOperationAsync(
         SubmitPlcOperationRequest request, CancellationToken cancellationToken = default)
     {
         await _xrpc.ProcedureAsync(
-            "com.atproto.identity.submitPlcOperation", request, cancellationToken: cancellationToken);
+            "com.atproto.identity.submitPlcOperation", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 }

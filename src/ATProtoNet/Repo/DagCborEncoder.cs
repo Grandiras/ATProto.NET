@@ -31,9 +31,7 @@ public static class DagCborEncoder
         return writer.Encode();
     }
 
-    /// <summary>
-    /// Encodes an object (via JSON serialization) into DRISL-CBOR bytes.
-    /// </summary>
+    /// <summary>Encodes an object (via JSON serialization) into DRISL-CBOR bytes.</summary>
     /// <param name="value">The object to encode.</param>
     /// <param name="options">Optional JSON serializer options.</param>
     /// <returns>The deterministic CBOR-encoded bytes.</returns>
@@ -43,9 +41,7 @@ public static class DagCborEncoder
         return Encode(json);
     }
 
-    /// <summary>
-    /// Encodes a value to DRISL-CBOR and computes its CID in one step.
-    /// </summary>
+    /// <summary>Encodes a value to DRISL-CBOR and computes its CID in one step.</summary>
     /// <param name="element">The JSON element to encode.</param>
     /// <returns>A tuple of (CBOR bytes, CID).</returns>
     public static (byte[] Bytes, Cid Cid) EncodeWithCid(JsonElement element)

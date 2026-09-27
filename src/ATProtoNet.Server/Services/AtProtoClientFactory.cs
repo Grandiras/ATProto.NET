@@ -37,15 +37,12 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
     private readonly ConcurrentDictionary<Did, CachedKey> _keys = new();
     private int _warnedNoOAuthClient;
 
-    /// <summary>
-    /// Creates a new <see cref="AtProtoClientFactory"/>.
-    /// </summary>
+    /// <summary>Creates a new <see cref="AtProtoClientFactory"/>.</summary>
     /// <param name="sessionStore">Store of the users' sessions.</param>
     /// <param name="httpClientFactory">
     /// Creates the <see cref="HttpClient"/> the clients send with, the one named
     /// <see cref="AtProtoServiceCollectionExtensions.HttpClientName"/>.
     /// </param>
-    /// <param name="loggerFactory">Logger factory.</param>
     /// <param name="oauthClient">
     /// The <see cref="OAuthClient"/> that refreshes and revokes OAuth sessions: the one the hosted
     /// login registers (<c>WithOAuth()</c>), or your own registered in dependency
@@ -73,7 +70,6 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
     /// </summary>
     /// <param name="sessionStore">Store of the users' sessions.</param>
     /// <param name="httpClientFactory">Creates the clients' <see cref="HttpClient"/>.</param>
-    /// <param name="loggerFactory">Logger factory.</param>
     /// <param name="oauthClient">Resolves the <see cref="OAuthClient"/> on first use.</param>
     /// <param name="refreshCoordinator">Coordinates the clients' refreshes.</param>
     /// <param name="clientOptions">
@@ -119,7 +115,7 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
         if (OAuthUser.DidOf(user) is not { } did)
             return null;
 
-        var session = await _sessionStore.GetAsync(did, cancellationToken);
+        var session = await _sessionStore.GetAsync(did, cancellationToken).ConfigureAwait(false);
         if (session is null)
         {
             // Signed out: whatever key material is cached for the account goes too.
@@ -149,7 +145,7 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
         {
             var key = session is OAuthSession oauth ? KeyFor(oauth) : null;
             var oauthClient = session is OAuthSession ? _oauthClient() : null;
-            await client.InstallStoredSessionAsync(session, oauthClient, key, cancellationToken);
+            await client.InstallStoredSessionAsync(session, oauthClient, key, cancellationToken).ConfigureAwait(false);
 
             if (session is OAuthSession && oauthClient is null && Interlocked.Exchange(ref _warnedNoOAuthClient, 1) == 0)
             {

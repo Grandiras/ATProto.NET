@@ -37,7 +37,6 @@ internal static class JsonWebKeyVerifier
     /// Verifies a JWS signature against a JWK: one embedded in a DPoP proof, or one published in
     /// a client's JWKS.
     /// </summary>
-    /// <param name="key">The key.</param>
     /// <param name="algorithm">The JWS <c>alg</c>, which must agree with the key's curve.</param>
     /// <param name="signingInput">The bytes the signature covers.</param>
     /// <param name="signature">The signature in IEEE P1363 form.</param>
@@ -91,7 +90,6 @@ internal static class JsonWebKeyVerifier
     /// <see href="https://www.rfc-editor.org/rfc/rfc7638">RFC 7638</see>: SHA-256 over the
     /// canonical JSON of the key's required members, in lexicographic order, base64url-encoded.
     /// </summary>
-    /// <param name="jwk">The JWK.</param>
     /// <param name="fail">Builds the exception thrown when the key is not a usable EC key.</param>
     /// <remarks>
     /// For an EC key the required members are exactly <c>crv</c>, <c>kty</c>, <c>x</c>, and

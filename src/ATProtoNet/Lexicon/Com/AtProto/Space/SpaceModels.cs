@@ -7,9 +7,7 @@ using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Space;
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.space.getDelegationToken
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.space.getDelegationToken ─────────────────────
 
 /// <summary>Response from <c>getDelegationToken</c>.</summary>
 public sealed class GetDelegationTokenResponse
@@ -22,9 +20,7 @@ public sealed class GetDelegationTokenResponse
     public required string Token { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.space.getSpaceCredential
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.space.getSpaceCredential ─────────────────────
 
 /// <summary>Request body for <c>getSpaceCredential</c>.</summary>
 public sealed class GetSpaceCredentialRequest
@@ -53,9 +49,7 @@ public sealed class GetSpaceCredentialResponse
     public required string Credential { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.space.listSpaces
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.space.listSpaces ─────────────────────────────
 
 /// <summary>A space the authenticated user holds a repo in.</summary>
 public sealed class SpaceView : LexObject
@@ -82,9 +76,7 @@ public sealed class ListSpacesResponse : ICursorPage<SpaceView>
     IReadOnlyList<SpaceView> ICursorPage<SpaceView>.Items => Spaces;
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.space.listRepos
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.space.listRepos ──────────────────────────────
 
 /// <summary>A repo that holds data in a space, as claimed by the space authority.</summary>
 public sealed class SpaceRepoView : LexObject
@@ -126,9 +118,7 @@ public sealed class ListSpaceReposResponse : ICursorPage<SpaceRepoView>
     IReadOnlyList<SpaceRepoView> ICursorPage<SpaceRepoView>.Items => Repos;
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.space.getRecord / listRecords
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.space.getRecord / listRecords ────────────────
 
 /// <summary>Response from <c>getRecord</c>.</summary>
 public sealed class GetSpaceRecordResponse
@@ -161,9 +151,7 @@ public sealed class SpaceRecordView : LexObject
     [JsonPropertyName("cid")]
     public required Cid Cid { get; init; }
 
-    /// <summary>
-    /// The record's value. Inlined by default; omitted when <c>excludeValues</c> was set.
-    /// </summary>
+    /// <summary>The record's value. Inlined by default; omitted when <c>excludeValues</c> was set.</summary>
     [JsonPropertyName("value")]
     public JsonElement? Value { get; init; }
 
@@ -188,9 +176,7 @@ public sealed class ListSpaceRecordsResponse : ICursorPage<SpaceRecordView>
     IReadOnlyList<SpaceRecordView> ICursorPage<SpaceRecordView>.Items => Records;
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.space.listBlobs
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.space.listBlobs ──────────────────────────────
 
 /// <summary>Response from <c>listBlobs</c>.</summary>
 public sealed class ListSpaceBlobsResponse : ICursorPage<Cid>
@@ -209,9 +195,7 @@ public sealed class ListSpaceBlobsResponse : ICursorPage<Cid>
     IReadOnlyList<Cid> ICursorPage<Cid>.Items => Cids;
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.space.getLatestCommit
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.space.getLatestCommit ────────────────────────
 
 /// <summary>Response from <c>getLatestCommit</c>.</summary>
 public sealed class GetSpaceLatestCommitResponse
@@ -221,13 +205,9 @@ public sealed class GetSpaceLatestCommitResponse
     public required SignedSpaceCommit Commit { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.space.listRepoOps
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.space.listRepoOps ────────────────────────────
 
-/// <summary>
-/// A single operation in a permissioned repo's oplog.
-/// </summary>
+/// <summary>A single operation in a permissioned repo's oplog.</summary>
 /// <remarks>
 /// <see cref="Cid"/> is <see langword="null"/> for a delete and <see cref="Prev"/> is
 /// <see langword="null"/> for a create. Operations sharing a <see cref="Rev"/> were applied
@@ -290,9 +270,7 @@ public sealed class ListSpaceRepoOpsResponse : ICursorPage<SpaceRepoOpEntry>
     IReadOnlyList<SpaceRepoOpEntry> ICursorPage<SpaceRepoOpEntry>.Items => Ops;
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.space.createRecord / putRecord / deleteRecord
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.space.createRecord / putRecord / deleteRecord ──
 
 /// <summary>Known values for a write's <c>validationStatus</c>.</summary>
 public static class SpaceValidationStatus
@@ -405,9 +383,7 @@ public sealed class SpaceWriteResult
     public string? ValidationStatus { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.space.applyWrites
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.space.applyWrites ────────────────────────────
 
 /// <summary>Base type for the operations in an <c>applyWrites</c> batch.</summary>
 /// <remarks>The Lexicon marks this union closed, so an unrecognized <c>$type</c> is an error.</remarks>
@@ -508,9 +484,7 @@ public sealed class ApplySpaceWritesResponse
     public IReadOnlyList<SpaceWriteOpResult>? Results { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.space.registerNotify / unregisterNotify
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.space.registerNotify / unregisterNotify ──────
 
 /// <summary>Request body for <c>registerNotify</c>.</summary>
 public sealed class RegisterNotifyRequest
@@ -551,9 +525,7 @@ public sealed class UnregisterNotifyRequest
     public required string Service { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.space.notifyWrite / notifySpaceDeleted
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.space.notifyWrite / notifySpaceDeleted ───────
 
 /// <summary>Request body for <c>notifyWrite</c>.</summary>
 public sealed class NotifyWriteRequest
@@ -587,13 +559,9 @@ internal sealed class NotifySpaceDeletedRequest
     public required SpaceUri Space { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Errors
-// ──────────────────────────────────────────────────────────────
+// ── Errors ───────────────────────────────────────────────────
 
-/// <summary>
-/// The named errors the <c>com.atproto.space.*</c> endpoints return.
-/// </summary>
+/// <summary>The named errors the <c>com.atproto.space.*</c> endpoints return.</summary>
 /// <remarks>
 /// <para><see cref="RepoNotFound"/> deliberately does not distinguish a member that has never
 /// written from an account that is not a member at all — the protocol carries no reader set, so

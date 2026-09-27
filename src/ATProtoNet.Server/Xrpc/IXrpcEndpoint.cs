@@ -3,9 +3,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace ATProtoNet.Server.Xrpc;
 
-/// <summary>
-/// The base of every XRPC endpoint handler: the Lexicon method it serves.
-/// </summary>
+/// <summary>The base of every XRPC endpoint handler: the Lexicon method it serves.</summary>
 /// <remarks>
 /// A handler implements exactly one of the shapes below, which decides the HTTP method and how
 /// the request and response are carried. The NSID is static so the routing can read it at
@@ -47,28 +45,20 @@ public interface IXrpcQuery<TParams, TOutput> : IXrpcEndpoint
     where TParams : class
     where TOutput : class
 {
-    /// <summary>
-    /// Handle the query request.
-    /// </summary>
+    /// <summary>Handle the query request.</summary>
     /// <param name="parameters">The bound query parameters.</param>
     /// <param name="context">The HTTP context for accessing auth, headers, etc.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The response object.</returns>
     Task<TOutput> HandleAsync(TParams parameters, HttpContext context, CancellationToken cancellationToken = default);
 }
 
-/// <summary>
-/// An XRPC query endpoint with no parameters.
-/// </summary>
+/// <summary>An XRPC query endpoint with no parameters.</summary>
 /// <typeparam name="TOutput">The response type.</typeparam>
 public interface IXrpcQuery<TOutput> : IXrpcEndpoint
     where TOutput : class
 {
-    /// <summary>
-    /// Handle the query request.
-    /// </summary>
+    /// <summary>Handle the query request.</summary>
     /// <param name="context">The HTTP context.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The response object.</returns>
     Task<TOutput> HandleAsync(HttpContext context, CancellationToken cancellationToken = default);
 }
@@ -83,12 +73,9 @@ public interface IXrpcProcedure<TInput, TOutput> : IXrpcEndpoint
     where TInput : class
     where TOutput : class
 {
-    /// <summary>
-    /// Handle the procedure request.
-    /// </summary>
+    /// <summary>Handle the procedure request.</summary>
     /// <param name="input">The deserialized request body.</param>
     /// <param name="context">The HTTP context.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The response object.</returns>
     Task<TOutput> HandleAsync(TInput input, HttpContext context, CancellationToken cancellationToken = default);
 }
@@ -101,28 +88,20 @@ public interface IXrpcProcedure<TInput, TOutput> : IXrpcEndpoint
 public interface IXrpcProcedure<TOutput> : IXrpcEndpoint
     where TOutput : class
 {
-    /// <summary>
-    /// Handle the procedure request.
-    /// </summary>
+    /// <summary>Handle the procedure request.</summary>
     /// <param name="context">The HTTP context.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The response object.</returns>
     Task<TOutput> HandleAsync(HttpContext context, CancellationToken cancellationToken = default);
 }
 
-/// <summary>
-/// An XRPC procedure endpoint with no output (returns HTTP 200 with no body).
-/// </summary>
+/// <summary>An XRPC procedure endpoint with no output (returns HTTP 200 with no body).</summary>
 /// <typeparam name="TInput">The request body type.</typeparam>
 public interface IXrpcProcedureVoid<TInput> : IXrpcEndpoint
     where TInput : class
 {
-    /// <summary>
-    /// Handle the procedure request.
-    /// </summary>
+    /// <summary>Handle the procedure request.</summary>
     /// <param name="input">The deserialized request body.</param>
     /// <param name="context">The HTTP context.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task that completes when the procedure has run.</returns>
     Task HandleAsync(TInput input, HttpContext context, CancellationToken cancellationToken = default);
 }
@@ -134,18 +113,13 @@ public interface IXrpcProcedureVoid<TInput> : IXrpcEndpoint
 /// </summary>
 public interface IXrpcProcedureVoid : IXrpcEndpoint
 {
-    /// <summary>
-    /// Handle the procedure request.
-    /// </summary>
+    /// <summary>Handle the procedure request.</summary>
     /// <param name="context">The HTTP context.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task that completes when the procedure has run.</returns>
     Task HandleAsync(HttpContext context, CancellationToken cancellationToken = default);
 }
 
-/// <summary>
-/// The body of a binary XRPC request: the bytes, and what they are.
-/// </summary>
+/// <summary>The body of a binary XRPC request: the bytes, and what they are.</summary>
 /// <param name="Content">
 /// The request body, read as it arrives. It is not buffered, and belongs to the request: read it
 /// within the handler, and do not dispose it.
@@ -168,27 +142,20 @@ public sealed record XrpcBlobInput(Stream Content, string ContentType, long? Con
 public interface IXrpcBlobProcedure<TOutput> : IXrpcEndpoint
     where TOutput : class
 {
-    /// <summary>
-    /// Handle the procedure request.
-    /// </summary>
+    /// <summary>Handle the procedure request.</summary>
     /// <param name="input">The request body and its content type.</param>
     /// <param name="context">The HTTP context.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The response object.</returns>
     Task<TOutput> HandleAsync(XrpcBlobInput input, HttpContext context, CancellationToken cancellationToken = default);
 }
 
-/// <summary>
-/// The body of a binary XRPC response: the bytes, and what they are.
-/// </summary>
+/// <summary>The body of a binary XRPC response: the bytes, and what they are.</summary>
 /// <param name="Content">The response body. The routing disposes it after writing.</param>
 /// <param name="ContentType">The MIME type, e.g. <c>application/vnd.ipld.car</c>.</param>
 /// <param name="ContentLength">The body length when known, so the response can be sized.</param>
 public sealed record XrpcBlobResult(Stream Content, string ContentType, long? ContentLength = null);
 
-/// <summary>
-/// An XRPC query endpoint that answers with bytes rather than JSON (HTTP GET at /xrpc/{nsid}).
-/// </summary>
+/// <summary>An XRPC query endpoint that answers with bytes rather than JSON (HTTP GET at /xrpc/{nsid}).</summary>
 /// <remarks>
 /// Lexicon methods whose output is an <c>encoding</c> other than <c>application/json</c> —
 /// <c>getBlob</c>, <c>getRepo</c>, and the CAR-serving sync methods — implement this instead of
@@ -199,12 +166,9 @@ public sealed record XrpcBlobResult(Stream Content, string ContentType, long? Co
 public interface IXrpcBlobQuery<TParams> : IXrpcEndpoint
     where TParams : class
 {
-    /// <summary>
-    /// Handle the query request.
-    /// </summary>
+    /// <summary>Handle the query request.</summary>
     /// <param name="parameters">The bound query parameters.</param>
     /// <param name="context">The HTTP context for accessing auth, headers, etc.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The response body and its content type.</returns>
     Task<XrpcBlobResult> HandleAsync(TParams parameters, HttpContext context, CancellationToken cancellationToken = default);
 }

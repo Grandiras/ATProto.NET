@@ -2,13 +2,10 @@ using ATProtoNet.Crypto;
 using ATProtoNet.Server.Spaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace ATProtoNet.Server.EntityFrameworkCore;
 
-/// <summary>
-/// Registers the EF Core-backed space server stores.
-/// </summary>
+/// <summary>Registers the EF Core-backed space server stores.</summary>
 /// <remarks>
 /// <para>Each of these replaces one of the in-process defaults
 /// <see cref="SpaceServerExtensions.AddAtProtoSpaces"/> falls back to, and can be called in any

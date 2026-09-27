@@ -7,9 +7,7 @@ using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.simplespace.defs
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.simplespace.defs ─────────────────────────────
 
 /// <summary>
 /// How a <c>simplespace</c> authority decides whether to authorize a <em>user</em>: as a
@@ -73,9 +71,7 @@ public sealed class PublicPolicy : SimpleSpaceUserPolicy;
 /// </remarks>
 public sealed class MemberListPolicy : SimpleSpaceUserPolicy;
 
-/// <summary>
-/// The managing app is asked, per request, whether to authorize each user.
-/// </summary>
+/// <summary>The managing app is asked, per request, whether to authorize each user.</summary>
 /// <remarks>
 /// The authority calls <c>com.atproto.simplespace.checkUserAccess</c> on the managing app,
 /// passing the space, the user, and the kind of access being checked — <c>read</c> at
@@ -93,9 +89,7 @@ public sealed class ManagingAppPolicy : SimpleSpaceUserPolicy
     public required string ManagingApp { get; init; }
 }
 
-/// <summary>
-/// How a <c>simplespace</c> authority decides whether to authorize a requesting <em>app</em>.
-/// </summary>
+/// <summary>How a <c>simplespace</c> authority decides whether to authorize a requesting <em>app</em>.</summary>
 /// <remarks>
 /// <para>It applies to reads only. A write notification comes from the writer's repo host, which
 /// presents no client attestation, so it is judged by the write policy alone.</para>
@@ -136,9 +130,7 @@ public sealed class UnknownSimpleSpaceAppAccess : SimpleSpaceAppAccess, IUnknown
 /// </summary>
 public sealed class OpenAppAccess : SimpleSpaceAppAccess;
 
-/// <summary>
-/// Only the named clients may access the space.
-/// </summary>
+/// <summary>Only the named clients may access the space.</summary>
 /// <remarks>
 /// The list is evaluated against the <em>attested</em> client ID — the <c>iss</c> of a verified
 /// client attestation — so it is enforceable rather than advisory.
@@ -185,9 +177,7 @@ public static class SimpleSpaceAccess
     public const string Write = "write";
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.simplespace.createSpace
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.simplespace.createSpace ──────────────────────
 
 /// <summary>Request body for <c>createSpace</c>.</summary>
 public sealed class CreateSimpleSpaceRequest
@@ -231,9 +221,7 @@ public sealed class CreateSimpleSpaceResponse
     public required SpaceUri Uri { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.simplespace.updateSpace / deleteSpace
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.simplespace.updateSpace / deleteSpace ────────
 
 /// <summary>Request body for <c>updateSpace</c>. Omitted fields are left unchanged.</summary>
 public sealed class UpdateSimpleSpaceRequest
@@ -266,9 +254,7 @@ public sealed class DeleteSimpleSpaceRequest
     public required SpaceUri Space { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.simplespace.getSpace
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.simplespace.getSpace ─────────────────────────
 
 /// <summary>Response from <c>getSpace</c>: a space and its configuration.</summary>
 public sealed class GetSimpleSpaceResponse
@@ -293,9 +279,7 @@ public sealed class GetSimpleSpaceResponse
     public required SimpleSpaceAppAccess AppAccess { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.simplespace.putMember / removeMember / listMembers
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.simplespace.putMember / removeMember / listMembers ──
 
 /// <summary>
 /// Request body for <c>putMember</c>: adds a member, or replaces an existing member's read and
@@ -370,9 +354,7 @@ public sealed class ListSimpleSpaceMembersResponse : ICursorPage<SimpleSpaceMemb
     IReadOnlyList<SimpleSpaceMember> ICursorPage<SimpleSpaceMember>.Items => Members;
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.simplespace.checkUserAccess
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.simplespace.checkUserAccess ──────────────────
 
 /// <summary>Response from <c>checkUserAccess</c>, served by a space's managing app.</summary>
 public sealed class CheckUserAccessResponse
@@ -382,9 +364,7 @@ public sealed class CheckUserAccessResponse
     public required bool Authorized { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Errors
-// ──────────────────────────────────────────────────────────────
+// ── Errors ───────────────────────────────────────────────────
 
 /// <summary>The named errors the <c>com.atproto.simplespace.*</c> endpoints return.</summary>
 public static class SimpleSpaceErrors

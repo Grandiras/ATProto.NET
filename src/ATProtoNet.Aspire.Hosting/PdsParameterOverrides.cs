@@ -2,9 +2,7 @@ using Aspire.Hosting.ApplicationModel;
 
 namespace ATProtoNet.Aspire.Hosting;
 
-/// <summary>
-/// Shared plumbing for the <c>With*</c> overrides on both PDS resources.
-/// </summary>
+/// <summary>Shared plumbing for the <c>With*</c> overrides on both PDS resources.</summary>
 internal static class PdsParameterOverrides
 {
     /// <summary>

@@ -65,7 +65,6 @@ public class SpaceDbContext : DbContext
     /// Applies every space entity configuration: the authority's, <c>simplespace</c>'s, and the
     /// replay table's.
     /// </summary>
-    /// <param name="modelBuilder">The model builder.</param>
     public static void ConfigureSpaceModel(ModelBuilder modelBuilder)
     {
         ConfigureSpaceAuthorityModel(modelBuilder);
@@ -77,7 +76,6 @@ public class SpaceDbContext : DbContext
     /// Applies the configuration <see cref="EfCoreSpaceAuthorityStore{TContext}"/> needs: the
     /// spaces, their writer sets, and their notification registrations.
     /// </summary>
-    /// <param name="modelBuilder">The model builder.</param>
     public static void ConfigureSpaceAuthorityModel(ModelBuilder modelBuilder)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);
@@ -121,7 +119,6 @@ public class SpaceDbContext : DbContext
     /// Applies the configuration <see cref="EfCoreSimpleSpaceStore{TContext}"/> needs: the
     /// spaces and their member lists.
     /// </summary>
-    /// <param name="modelBuilder">The model builder.</param>
     public static void ConfigureSimpleSpaceModel(ModelBuilder modelBuilder)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);

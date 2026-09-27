@@ -39,9 +39,7 @@ internal static class DPoP
         return uri.GetComponents(UriComponents.SchemeAndServer | UriComponents.Path, UriFormat.UriEscaped);
     }
 
-    /// <summary>
-    /// Computes the <c>ath</c> claim: the base64url SHA-256 hash of an access token.
-    /// </summary>
+    /// <summary>Computes the <c>ath</c> claim: the base64url SHA-256 hash of an access token.</summary>
     /// <param name="accessToken">The access token the proof accompanies.</param>
     public static string AccessTokenHash(string accessToken)
     {

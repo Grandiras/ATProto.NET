@@ -20,9 +20,7 @@ internal static class EventStreamFrame
     /// <summary>An error; the server closes the stream after it.</summary>
     public const int ErrorOp = -1;
 
-    /// <summary>
-    /// Reads a frame's header.
-    /// </summary>
+    /// <summary>Reads a frame's header.</summary>
     /// <param name="frame">The whole frame.</param>
     /// <param name="op">The header's <c>op</c>.</param>
     /// <param name="type">The header's <c>t</c>, when present.</param>

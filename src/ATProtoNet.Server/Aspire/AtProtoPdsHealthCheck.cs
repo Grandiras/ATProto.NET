@@ -14,9 +14,7 @@ public sealed class AtProtoPdsHealthCheck : IHealthCheck
 {
     private readonly AtProtoClient _client;
 
-    /// <summary>
-    /// Creates a new <see cref="AtProtoPdsHealthCheck"/> for the given client.
-    /// </summary>
+    /// <summary>Creates a new <see cref="AtProtoPdsHealthCheck"/> for the given client.</summary>
     /// <param name="client">The AT Protocol client whose PDS connectivity is checked.</param>
     public AtProtoPdsHealthCheck(AtProtoClient client)
     {
@@ -30,7 +28,7 @@ public sealed class AtProtoPdsHealthCheck : IHealthCheck
     {
         try
         {
-            var description = await _client.Server.DescribeServerAsync(cancellationToken);
+            var description = await _client.Server.DescribeServerAsync(cancellationToken).ConfigureAwait(false);
 
             if (description is not null)
             {

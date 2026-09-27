@@ -33,9 +33,7 @@ public abstract record AtProtoSession
     [JsonPropertyName("did")]
     public required Did Did { get; init; }
 
-    /// <summary>
-    /// The account's handle; <c>handle.invalid</c> when it could not be verified.
-    /// </summary>
+    /// <summary>The account's handle; <c>handle.invalid</c> when it could not be verified.</summary>
     [JsonPropertyName("handle")]
     public required Handle Handle { get; init; }
 
@@ -75,9 +73,7 @@ public sealed record PasswordSession : AtProtoSession
     [JsonPropertyName("accessJwt")]
     public required string AccessJwt { get; init; }
 
-    /// <summary>
-    /// The refresh JWT, which obtains a new access JWT and signs the session out.
-    /// </summary>
+    /// <summary>The refresh JWT, which obtains a new access JWT and signs the session out.</summary>
     [JsonPropertyName("refreshJwt")]
     public required string RefreshJwt { get; init; }
 
@@ -93,9 +89,7 @@ public sealed record PasswordSession : AtProtoSession
     [JsonPropertyName("emailAuthFactor")]
     public bool? EmailAuthFactor { get; init; }
 
-    /// <summary>
-    /// Whether the account is active (not deactivated, suspended, or taken down).
-    /// </summary>
+    /// <summary>Whether the account is active (not deactivated, suspended, or taken down).</summary>
     [JsonPropertyName("active")]
     public bool? Active { get; init; }
 
@@ -108,9 +102,7 @@ public sealed record PasswordSession : AtProtoSession
     internal override bool CanRefresh => !string.IsNullOrEmpty(RefreshJwt);
 }
 
-/// <summary>
-/// A session from an AT Protocol OAuth authorization, authorized with DPoP-bound tokens.
-/// </summary>
+/// <summary>A session from an AT Protocol OAuth authorization, authorized with DPoP-bound tokens.</summary>
 /// <remarks>
 /// It holds the DPoP private key as PKCS#8 bytes rather than a key object, so it owns nothing
 /// that needs disposing: <see cref="AtProtoClient"/> builds (and disposes) its own key object
@@ -166,9 +158,7 @@ public sealed record OAuthSession : AtProtoSession
     internal override bool CanRefresh => !string.IsNullOrEmpty(RefreshToken);
 }
 
-/// <summary>
-/// What happened to the session of an <see cref="AtProtoClient"/>.
-/// </summary>
+/// <summary>What happened to the session of an <see cref="AtProtoClient"/>.</summary>
 public enum AtProtoSessionChange
 {
     /// <summary>A session was installed: by a login, or by applying or resuming one.</summary>
@@ -190,9 +180,7 @@ public enum AtProtoSessionChange
     Removed,
 }
 
-/// <summary>
-/// Describes a change to the session of an <see cref="AtProtoClient"/>.
-/// </summary>
+/// <summary>Describes a change to the session of an <see cref="AtProtoClient"/>.</summary>
 public sealed class AtProtoSessionChangedEventArgs : EventArgs
 {
     /// <summary>Creates the event arguments.</summary>
@@ -224,8 +212,6 @@ public sealed class AtProtoSessionChangedEventArgs : EventArgs
     /// <summary>The session installed before the change, if there was one.</summary>
     public AtProtoSession? Previous { get; }
 
-    /// <summary>
-    /// For <see cref="AtProtoSessionChange.Expired"/>, the refresh failure that ended the session.
-    /// </summary>
+    /// <summary>For <see cref="AtProtoSessionChange.Expired"/>, the refresh failure that ended the session.</summary>
     public Exception? Error { get; }
 }

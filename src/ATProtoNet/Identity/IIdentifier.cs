@@ -12,9 +12,7 @@ namespace ATProtoNet.Identity;
 internal interface IIdentifier<TSelf> : ISpanParsable<TSelf>, IEquatable<TSelf>, IComparable<TSelf>
     where TSelf : class, IIdentifier<TSelf>
 {
-    /// <summary>
-    /// Validates <paramref name="span"/> and, when it is valid, creates the identifier.
-    /// </summary>
+    /// <summary>Validates <paramref name="span"/> and, when it is valid, creates the identifier.</summary>
     /// <param name="span">The candidate text.</param>
     /// <param name="text">
     /// The same text as a string when the caller already holds one, so a valid value can be

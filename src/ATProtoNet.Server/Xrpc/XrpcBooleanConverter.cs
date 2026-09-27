@@ -3,9 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace ATProtoNet.Server.Xrpc;
 
-/// <summary>
-/// Reads a boolean from either a JSON boolean or the string a query string carries.
-/// </summary>
+/// <summary>Reads a boolean from either a JSON boolean or the string a query string carries.</summary>
 /// <remarks>
 /// The XRPC routing binds a <see cref="bool"/> query parameter from <c>?excludeValues=true</c>
 /// without it. It is for a model that is also read from JSON where a boolean may arrive as text,

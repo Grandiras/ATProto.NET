@@ -34,9 +34,7 @@ public sealed class SimpleSpaceAuthorityStore : ISpaceAuthorityStore
     private readonly ISpaceAuthorityStore _inner;
     private readonly ISimpleSpaceStore _spaces;
 
-    /// <summary>
-    /// Creates the bridge.
-    /// </summary>
+    /// <summary>Creates the bridge.</summary>
     /// <param name="inner">The store holding the writer set and the notification registrations.</param>
     /// <param name="spaces">The space-management store that knows which spaces exist.</param>
     public SimpleSpaceAuthorityStore(ISpaceAuthorityStore inner, ISimpleSpaceStore spaces)
@@ -57,13 +55,13 @@ public sealed class SimpleSpaceAuthorityStore : ISpaceAuthorityStore
     {
         ArgumentNullException.ThrowIfNull(space);
 
-        var record = await _spaces.GetSpaceAsync(space, cancellationToken);
+        var record = await _spaces.GetSpaceAsync(space, cancellationToken).ConfigureAwait(false);
         if (record is not null)
             return record.Deleted ? SpaceAccessOutcome.SpaceDeleted : SpaceAccessOutcome.Granted;
 
         // Not a simplespace space. It may still be one of a bespoke space type declared to the
         // authority store directly, so this is a fall-through rather than a refusal.
-        return await _inner.GetSpaceStateAsync(space, cancellationToken);
+        return await _inner.GetSpaceStateAsync(space, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>

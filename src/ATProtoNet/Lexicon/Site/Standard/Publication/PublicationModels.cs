@@ -5,13 +5,9 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Site.Standard.Publication;
 
-// ──────────────────────────────────────────────────────────────
-//  Publication record
-// ──────────────────────────────────────────────────────────────
+// ── Publication record ───────────────────────────────────────
 
-/// <summary>
-/// Represents a Standard.site publication — a collection of documents published to the web.
-/// </summary>
+/// <summary>Represents a Standard.site publication — a collection of documents published to the web.</summary>
 public sealed class PublicationRecord : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>site.standard.publication</c>).</summary>
@@ -50,9 +46,7 @@ public sealed class PublicationRecord : LexObject, IAtProtoRecord
     public SelfLabels? Labels { get; init; }
 }
 
-/// <summary>
-/// Platform-specific preferences for a publication.
-/// </summary>
+/// <summary>Platform-specific preferences for a publication.</summary>
 public sealed class PublicationPreferences : LexObject
 {
     /// <summary>Whether the publication should appear in discovery feeds.</summary>
@@ -60,13 +54,9 @@ public sealed class PublicationPreferences : LexObject
     public bool? ShowInDiscover { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Theme
-// ──────────────────────────────────────────────────────────────
+// ── Theme ────────────────────────────────────────────────────
 
-/// <summary>
-/// Simplified publication theme with four color roles (site.standard.theme.basic).
-/// </summary>
+/// <summary>Simplified publication theme with four color roles (site.standard.theme.basic).</summary>
 public sealed class BasicTheme : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>site.standard.theme.basic</c>).</summary>
@@ -93,9 +83,7 @@ public sealed class BasicTheme : LexObject, IAtProtoRecord
     public required ThemeColorRgb AccentForeground { get; init; }
 }
 
-/// <summary>
-/// An RGB color (site.standard.theme.color#rgb). Values 0-255.
-/// </summary>
+/// <summary>An RGB color (site.standard.theme.color#rgb). Values 0-255.</summary>
 public sealed class ThemeColorRgb : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>site.standard.theme.color#rgb</c>).</summary>
@@ -115,9 +103,7 @@ public sealed class ThemeColorRgb : LexObject
     public required int B { get; init; }
 }
 
-/// <summary>
-/// An RGBA color (site.standard.theme.color#rgba). RGB values 0-255, alpha 0-100.
-/// </summary>
+/// <summary>An RGBA color (site.standard.theme.color#rgba). RGB values 0-255, alpha 0-100.</summary>
 public sealed class ThemeColorRgba : LexObject
 {
     /// <summary>The Lexicon type discriminator (<c>site.standard.theme.color#rgba</c>).</summary>

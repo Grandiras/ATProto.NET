@@ -10,7 +10,6 @@ namespace ATProtoNet.Lexicon.App.Bsky.RichText;
 /// one with the offsets computed. <c>with { Text = … }</c> keeps the facets as they are, so change
 /// both together.
 /// </remarks>
-/// <param name="Text">The text.</param>
 /// <param name="Facets">The facets; empty when the text has none.</param>
 public sealed record RichText(string Text, IReadOnlyList<Facet> Facets)
 {
@@ -21,14 +20,12 @@ public sealed record RichText(string Text, IReadOnlyList<Facet> Facets)
     public IReadOnlyList<Facet> Facets { get; init; } = Facets ?? throw new ArgumentNullException(nameof(Facets));
 
     /// <summary>Creates rich text without facets.</summary>
-    /// <param name="text">The text.</param>
     public RichText(string text)
         : this(text, [])
     {
     }
 
     /// <summary>Converts plain text to rich text without facets.</summary>
-    /// <param name="text">The text.</param>
     public static implicit operator RichText(string text) => new(text);
 
     /// <summary>The text, without its facets.</summary>

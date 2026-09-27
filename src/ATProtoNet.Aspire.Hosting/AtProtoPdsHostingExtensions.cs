@@ -3,9 +3,7 @@ using Aspire.Hosting.ApplicationModel;
 
 namespace ATProtoNet.Aspire.Hosting;
 
-/// <summary>
-/// Extension methods for adding an AT Protocol PDS container to a .NET Aspire application.
-/// </summary>
+/// <summary>Extension methods for adding an AT Protocol PDS container to a .NET Aspire application.</summary>
 /// <remarks>
 /// Hosts the reference Bluesky PDS, plus the configuration shared with
 /// <see cref="AtProtoTranquilPdsHostingExtensions"/>: the <c>AtProto__Pds__*</c> keys a
@@ -66,9 +64,7 @@ public static class AtProtoPdsHostingExtensions
     /// </summary>
     public const string AllowInsecureHttpConfigurationKey = "AtProto__Pds__AllowInsecureHttp";
 
-    /// <summary>
-    /// Adds the official Bluesky PDS container (<c>ghcr.io/bluesky-social/pds</c>) to the application.
-    /// </summary>
+    /// <summary>Adds the official Bluesky PDS container (<c>ghcr.io/bluesky-social/pds</c>) to the application.</summary>
     /// <remarks>
     /// <para>
     /// The container starts in dev mode with a persistent data volume and generated
@@ -158,9 +154,7 @@ public static class AtProtoPdsHostingExtensions
         return pds;
     }
 
-    /// <summary>
-    /// Creates the parameter backing one of the PDS's hex-encoded secrets.
-    /// </summary>
+    /// <summary>Creates the parameter backing one of the PDS's hex-encoded secrets.</summary>
     /// <remarks>
     /// In run mode the value is generated as lowercase hex and persisted to the AppHost's
     /// user secrets, so it stays stable across runs alongside the data volume. In publish
@@ -255,9 +249,7 @@ public static class AtProtoPdsHostingExtensions
         return waitForHealthy ? builder.WaitFor(pds) : builder;
     }
 
-    /// <summary>
-    /// Sets the public hostname for the PDS container (<c>PDS_HOSTNAME</c>).
-    /// </summary>
+    /// <summary>Sets the public hostname for the PDS container (<c>PDS_HOSTNAME</c>).</summary>
     /// <remarks>
     /// <para>
     /// Unless the server's handle domains say otherwise, the hostname is the domain new
@@ -287,9 +279,7 @@ public static class AtProtoPdsHostingExtensions
         return builder;
     }
 
-    /// <summary>
-    /// Sets the public hostname for the PDS container from a parameter.
-    /// </summary>
+    /// <summary>Sets the public hostname for the PDS container from a parameter.</summary>
     /// <typeparam name="T">The PDS resource type.</typeparam>
     /// <param name="builder">The PDS resource builder.</param>
     /// <param name="hostname">The parameter holding the public hostname.</param>
@@ -306,9 +296,7 @@ public static class AtProtoPdsHostingExtensions
         return builder;
     }
 
-    /// <summary>
-    /// Uses a specific JWT signing secret instead of the generated one.
-    /// </summary>
+    /// <summary>Uses a specific JWT signing secret instead of the generated one.</summary>
     /// <remarks>
     /// The reference PDS reads the secret as hex; Tranquil takes an opaque string of at
     /// least 32 characters.
@@ -379,9 +367,7 @@ public static class AtProtoPdsHostingExtensions
         return builder.WithEnvironment("PDS_SERVICE_HANDLE_DOMAINS", string.Join(",", domains));
     }
 
-    /// <summary>
-    /// Uses a specific admin password instead of the generated one.
-    /// </summary>
+    /// <summary>Uses a specific admin password instead of the generated one.</summary>
     /// <param name="builder">The PDS resource builder.</param>
     /// <param name="adminPassword">The parameter holding the admin password.</param>
     /// <returns>The resource builder for chaining.</returns>
@@ -396,9 +382,7 @@ public static class AtProtoPdsHostingExtensions
         return builder;
     }
 
-    /// <summary>
-    /// Uses a specific PLC rotation key instead of the generated one.
-    /// </summary>
+    /// <summary>Uses a specific PLC rotation key instead of the generated one.</summary>
     /// <param name="builder">The PDS resource builder.</param>
     /// <param name="plcRotationKey">
     /// The parameter holding a hex-encoded secp256k1 private key.
@@ -415,9 +399,7 @@ public static class AtProtoPdsHostingExtensions
         return builder;
     }
 
-    /// <summary>
-    /// Stores the PDS data in a host directory instead of the default named volume.
-    /// </summary>
+    /// <summary>Stores the PDS data in a host directory instead of the default named volume.</summary>
     /// <remarks>
     /// On an SELinux host (Fedora, RHEL) the directory needs the container label before
     /// the PDS can write to it, or it exits with <c>SqliteError: unable to open database
@@ -438,9 +420,7 @@ public static class AtProtoPdsHostingExtensions
         return ReplaceStorageMount(builder, path, DataTarget, isBindMount: true);
     }
 
-    /// <summary>
-    /// Stores the PDS data in a named volume, replacing the default one.
-    /// </summary>
+    /// <summary>Stores the PDS data in a named volume, replacing the default one.</summary>
     /// <param name="builder">The PDS resource builder.</param>
     /// <param name="name">The volume name. Defaults to <c>{resource name}-data</c>.</param>
     /// <returns>The resource builder for chaining.</returns>
@@ -467,12 +447,8 @@ public static class AtProtoPdsHostingExtensions
         return builder.WithEnvironment("PDS_DID_PLC_URL", plcUrl);
     }
 
-    /// <summary>
-    /// Configures the Bluesky app view URL and optional DID for the PDS.
-    /// </summary>
+    /// <summary>Configures the Bluesky app view URL and optional DID for the PDS.</summary>
     /// <param name="builder">The PDS resource builder.</param>
-    /// <param name="appViewUrl">The app view URL.</param>
-    /// <param name="appViewDid">The app view DID.</param>
     /// <returns>The resource builder for chaining.</returns>
     public static IResourceBuilder<AtProtoPdsContainerResource> WithAppView(
         this IResourceBuilder<AtProtoPdsContainerResource> builder,
@@ -489,9 +465,7 @@ public static class AtProtoPdsHostingExtensions
         return builder;
     }
 
-    /// <summary>
-    /// Configures the relay crawler URLs for the PDS.
-    /// </summary>
+    /// <summary>Configures the relay crawler URLs for the PDS.</summary>
     /// <param name="builder">The PDS resource builder.</param>
     /// <param name="crawlers">A comma-separated list of relay URLs.</param>
     /// <returns>The resource builder for chaining.</returns>
@@ -502,9 +476,7 @@ public static class AtProtoPdsHostingExtensions
         return builder.WithEnvironment("PDS_CRAWLERS", crawlers);
     }
 
-    /// <summary>
-    /// Disables dev mode, requiring proper PLC directory, app view, and relay configuration.
-    /// </summary>
+    /// <summary>Disables dev mode, requiring proper PLC directory, app view, and relay configuration.</summary>
     /// <param name="builder">The PDS resource builder.</param>
     /// <returns>The resource builder for chaining.</returns>
     public static IResourceBuilder<AtProtoPdsContainerResource> WithProductionMode(
@@ -541,12 +513,8 @@ public static class AtProtoPdsHostingExtensions
         return builder.WithEnvironment("PDS_BLOB_UPLOAD_LIMIT", maxBytes.ToString());
     }
 
-    /// <summary>
-    /// Configures the moderation / report service URL and DID for the PDS.
-    /// </summary>
+    /// <summary>Configures the moderation / report service URL and DID for the PDS.</summary>
     /// <param name="builder">The PDS resource builder.</param>
-    /// <param name="reportServiceUrl">The report service URL.</param>
-    /// <param name="reportServiceDid">The report service DID.</param>
     /// <returns>The resource builder for chaining.</returns>
     public static IResourceBuilder<AtProtoPdsContainerResource> WithReportService(
         this IResourceBuilder<AtProtoPdsContainerResource> builder,
@@ -563,9 +531,7 @@ public static class AtProtoPdsHostingExtensions
         return builder;
     }
 
-    /// <summary>
-    /// Configures SMTP email settings for the PDS.
-    /// </summary>
+    /// <summary>Configures SMTP email settings for the PDS.</summary>
     /// <param name="builder">The PDS resource builder.</param>
     /// <param name="smtpUrl">The SMTP connection URL.</param>
     /// <param name="fromAddress">The address outgoing mail is sent from.</param>

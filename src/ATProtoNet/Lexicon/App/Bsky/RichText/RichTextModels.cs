@@ -6,9 +6,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.App.Bsky.RichText;
 
-/// <summary>
-/// A rich-text facet annotation applied to a range of bytes in text.
-/// </summary>
+/// <summary>A rich-text facet annotation applied to a range of bytes in text.</summary>
 public sealed class Facet : LexObject
 {
     /// <summary>The byte range this facet annotates (UTF-8 byte offsets).</summary>
@@ -20,9 +18,7 @@ public sealed class Facet : LexObject
     public required IReadOnlyList<FacetFeature> Features { get; init; }
 }
 
-/// <summary>
-/// Byte range within UTF-8 encoded text.
-/// </summary>
+/// <summary>Byte range within UTF-8 encoded text.</summary>
 public sealed class FacetIndex : LexObject
 {
     /// <summary>Start byte offset (inclusive).</summary>
@@ -67,9 +63,7 @@ public sealed class UnknownFacetFeature : FacetFeature, IUnknownUnionVariant
     public JsonElement Raw { get; }
 }
 
-/// <summary>
-/// A mention of another user.
-/// </summary>
+/// <summary>A mention of another user.</summary>
 public sealed class MentionFeature : FacetFeature
 {
     /// <summary>The DID of the mentioned user.</summary>
@@ -77,9 +71,7 @@ public sealed class MentionFeature : FacetFeature
     public required Did Did { get; init; }
 }
 
-/// <summary>
-/// A hyperlink to an external URL.
-/// </summary>
+/// <summary>A hyperlink to an external URL.</summary>
 public sealed class LinkFeature : FacetFeature
 {
     /// <summary>The URL being linked to.</summary>
@@ -87,9 +79,7 @@ public sealed class LinkFeature : FacetFeature
     public required string Uri { get; init; }
 }
 
-/// <summary>
-/// A hashtag reference.
-/// </summary>
+/// <summary>A hashtag reference.</summary>
 public sealed class TagFeature : FacetFeature
 {
     /// <summary>The tag text (without the # prefix).</summary>

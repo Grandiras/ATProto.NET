@@ -57,7 +57,6 @@ public interface ISpaceAccountSigner
     /// when this service holds no key for it.
     /// </summary>
     /// <param name="account">The account the call must come from.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// A generator whose <see cref="ServiceAuthGenerator.ServiceDid"/> is
     /// <paramref name="account"/>, signing with the key its DID document publishes at
@@ -95,7 +94,7 @@ internal static class SpaceAccountSigning
         ServiceAuthGenerator? signer;
         try
         {
-            signer = await accountSigner.GetSignerAsync(account, cancellationToken);
+            signer = await accountSigner.GetSignerAsync(account, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {

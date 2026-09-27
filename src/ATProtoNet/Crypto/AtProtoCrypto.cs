@@ -28,9 +28,7 @@ public static class AtProtoCrypto
     /// <summary>Base58 digit value of each ASCII character, or -1.</summary>
     private static readonly sbyte[] s_base58Digits = CreateBase58Digits();
 
-    /// <summary>
-    /// Generates a new P-256 (NIST secp256r1) key pair for signing.
-    /// </summary>
+    /// <summary>Generates a new P-256 (NIST secp256r1) key pair for signing.</summary>
     /// <returns>An <see cref="AtProtoKey"/> wrapping the ECDsa key pair.</returns>
     public static AtProtoKey GenerateP256Key()
     {
@@ -38,9 +36,7 @@ public static class AtProtoCrypto
         return new AtProtoKey(ecdsa, KeyCurve.P256);
     }
 
-    /// <summary>
-    /// Generates a new K-256 (secp256k1) key pair for signing.
-    /// </summary>
+    /// <summary>Generates a new K-256 (secp256k1) key pair for signing.</summary>
     /// <returns>An <see cref="AtProtoKey"/> wrapping the ECDsa key pair.</returns>
     /// <exception cref="PlatformNotSupportedException">
     /// Thrown when the platform does not support secp256k1 (macOS without OpenSSL).
@@ -60,9 +56,7 @@ public static class AtProtoCrypto
         }
     }
 
-    /// <summary>
-    /// Imports a private key from PKCS#8 format.
-    /// </summary>
+    /// <summary>Imports a private key from PKCS#8 format.</summary>
     /// <param name="pkcs8PrivateKey">The PKCS#8-encoded private key bytes.</param>
     /// <param name="curve">The curve the key belongs to.</param>
     /// <returns>An <see cref="AtProtoKey"/> wrapping the imported key pair.</returns>
@@ -85,9 +79,7 @@ public static class AtProtoCrypto
         return new AtProtoKey(ecdsa, curve);
     }
 
-    /// <summary>
-    /// Imports a public key from its compressed (SEC1) representation.
-    /// </summary>
+    /// <summary>Imports a public key from its compressed (SEC1) representation.</summary>
     /// <param name="compressedPublicKey">33-byte compressed public key (0x02/0x03 prefix).</param>
     /// <param name="curve">The curve the key belongs to.</param>
     /// <returns>An <see cref="AtProtoKey"/> for verification only (no private key).</returns>
@@ -99,9 +91,7 @@ public static class AtProtoCrypto
         return CreatePublicKey(PublicKeyParameters(compressedPublicKey, CurveInfo.For(curve)), curve);
     }
 
-    /// <summary>
-    /// Parses a <c>did:key</c> identifier and returns the public key.
-    /// </summary>
+    /// <summary>Parses a <c>did:key</c> identifier and returns the public key.</summary>
     /// <param name="didKey">A DID in <c>did:key:z...</c> format.</param>
     /// <returns>The parsed <see cref="AtProtoKey"/> (public key only).</returns>
     /// <exception cref="FormatException">Thrown when the did:key is malformed.</exception>
@@ -111,9 +101,7 @@ public static class AtProtoCrypto
         return CreatePublicKey(parameters, curve);
     }
 
-    /// <summary>
-    /// Parses a multikey string (<c>z</c>-prefixed base58btc-encoded multicodec key).
-    /// </summary>
+    /// <summary>Parses a multikey string (<c>z</c>-prefixed base58btc-encoded multicodec key).</summary>
     /// <param name="multikey">The multikey string starting with 'z'.</param>
     /// <returns>The parsed <see cref="AtProtoKey"/> (public key only).</returns>
     public static AtProtoKey FromMultikey(string multikey)
@@ -170,9 +158,7 @@ public static class AtProtoCrypto
             Q = DecompressPoint(compressedPublicKey, curve),
         };
 
-    /// <summary>
-    /// Formats a raw public key as a <c>did:key</c> identifier.
-    /// </summary>
+    /// <summary>Formats a raw public key as a <c>did:key</c> identifier.</summary>
     /// <param name="publicKey">
     /// The public key in SEC1 form — either 33-byte compressed (<c>0x02</c>/<c>0x03</c> prefix)
     /// or 65-byte uncompressed (<c>0x04 || X || Y</c>), which is compressed first.
@@ -188,9 +174,7 @@ public static class AtProtoCrypto
     public static string FormatDidKey(ReadOnlySpan<byte> publicKey, KeyCurve curve)
         => $"did:key:{ToMultikey(CompressPublicKey(publicKey), curve)}";
 
-    /// <summary>
-    /// Compresses a public key point to its 33-byte SEC1 compressed form.
-    /// </summary>
+    /// <summary>Compresses a public key point to its 33-byte SEC1 compressed form.</summary>
     /// <param name="publicKey">
     /// A 65-byte uncompressed point (<c>0x04 || X || Y</c>), or an already-compressed 33-byte
     /// point, which is returned as-is.
@@ -225,9 +209,7 @@ public static class AtProtoCrypto
         return compressed;
     }
 
-    /// <summary>
-    /// Decodes a multibase string to its raw bytes.
-    /// </summary>
+    /// <summary>Decodes a multibase string to its raw bytes.</summary>
     /// <remarks>
     /// Only <c>z</c> (base58btc) is supported — the encoding every AT Protocol DID document
     /// uses for <c>publicKeyMultibase</c>, in both the <c>Multikey</c> and the legacy
@@ -248,9 +230,7 @@ public static class AtProtoCrypto
         return multibase.AsSpan(1);
     }
 
-    /// <summary>
-    /// Verifies a signature against message bytes using a <c>did:key</c>.
-    /// </summary>
+    /// <summary>Verifies a signature against message bytes using a <c>did:key</c>.</summary>
     /// <param name="didKey">The signer's did:key.</param>
     /// <param name="message">The raw message bytes that were signed. Do NOT pre-hash; this method hashes with SHA-256 internally.</param>
     /// <param name="signature">The signature bytes (IEEE P1363 format — r || s concatenation).</param>
@@ -283,9 +263,7 @@ public static class AtProtoCrypto
         string didKey, string algorithm, ReadOnlySpan<byte> signingInput, ReadOnlySpan<byte> signature)
         => DidKeyCache.Shared.VerifyJws(didKey, algorithm, signingInput, signature);
 
-    /// <summary>
-    /// Encodes a 33-byte compressed public key as a base58btc multikey string.
-    /// </summary>
+    /// <summary>Encodes a 33-byte compressed public key as a base58btc multikey string.</summary>
     internal static string ToMultikey(ReadOnlySpan<byte> compressedPublicKey, KeyCurve curve)
     {
         var info = CurveInfo.For(curve);

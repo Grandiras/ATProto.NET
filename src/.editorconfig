@@ -1,0 +1,14 @@
+# Library-only analyzer settings (not tests or samples).
+
+[*.cs]
+# Library code must not assume a synchronization context: ASP.NET Core has none, but
+# Blazor Server, WPF and MAUI hosts do, and resuming on it needlessly risks deadlocks
+# and costs a thread hop. Every await in src/ needs ConfigureAwait(false).
+dotnet_diagnostic.CA2007.severity = error
+# An unused using is dead weight in a public SDK's source.
+dotnet_diagnostic.IDE0005.severity = warning
+# RS0026/RS0027 flag the SDK's existing overloads-with-optional-parameters pattern (constructors
+# and XRPC call sites taking a trailing CancellationToken, say). Redesigning that is unrelated to
+# tracking the public API surface (RS0016/RS0017), which is what these files are for.
+dotnet_diagnostic.RS0026.severity = silent
+dotnet_diagnostic.RS0027.severity = silent

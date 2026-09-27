@@ -80,9 +80,7 @@ public sealed class JetstreamReplayConsumer : IDisposable
     /// <summary>Whether the consumer is still reading the archive rather than the live tail.</summary>
     public bool IsBackfilling { get; private set; }
 
-    /// <summary>
-    /// Create a replay consumer.
-    /// </summary>
+    /// <summary>Create a replay consumer.</summary>
     /// <param name="options">Consumer configuration.
     /// <see cref="JetstreamConsumerOptions.Protocol"/> must be <see cref="JetstreamProtocol.V2"/>
     /// and <see cref="JetstreamConsumerOptions.Archive"/> must be set.</param>
@@ -92,9 +90,7 @@ public sealed class JetstreamReplayConsumer : IDisposable
     {
     }
 
-    /// <summary>
-    /// Create a replay consumer over an existing archive client.
-    /// </summary>
+    /// <summary>Create a replay consumer over an existing archive client.</summary>
     /// <param name="options">Consumer configuration.</param>
     /// <param name="archiveClient">The archive client to plan and download with. When null, one is
     /// built from <see cref="JetstreamConsumerOptions.Archive"/> and disposed with this
@@ -136,7 +132,6 @@ public sealed class JetstreamReplayConsumer : IDisposable
     /// delivered. When null, <see cref="JetstreamArchiveOptions.AfterSeq"/> is used, then the
     /// <see cref="StreamConsumerOptions.CursorStore"/>, and failing both the replay starts at
     /// the beginning of the archive.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="ArgumentException">The resume position is a timestamp cursor
     /// (<see cref="JetstreamCursor"/>): the archive is addressed by sequence number only.</exception>
     /// <exception cref="JetstreamException">An archive request failed unrecoverably, the plan

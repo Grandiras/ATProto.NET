@@ -24,9 +24,7 @@ public sealed class AtProtoPdsContainerResource(
     /// </summary>
     public ParameterResource AdminPasswordParameter { get; internal set; } = adminPassword;
 
-    /// <summary>
-    /// The hex-encoded secp256k1 private key this PDS uses as its PLC rotation key.
-    /// </summary>
+    /// <summary>The hex-encoded secp256k1 private key this PDS uses as its PLC rotation key.</summary>
     /// <remarks>
     /// Changing this key strands the <c>did:plc</c> identities already created on the
     /// server, which is why it is persisted to the AppHost's user secrets rather than

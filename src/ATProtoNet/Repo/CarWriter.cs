@@ -17,9 +17,7 @@ namespace ATProtoNet.Repo;
 /// </remarks>
 public static class CarWriter
 {
-    /// <summary>
-    /// Encodes a CAR v1 file with a single root.
-    /// </summary>
+    /// <summary>Encodes a CAR v1 file with a single root.</summary>
     /// <param name="root">Binary CID of the root block (as produced by <see cref="CidComputation.ComputeBinaryForDagCbor"/>).</param>
     /// <param name="blocks">
     /// The blocks to include, keyed by their base32 CID string (<c>bafyrei…</c>) — the key
@@ -34,18 +32,14 @@ public static class CarWriter
         return Write([root], blocks.Select(kv => new CarBlock(CidComputation.DecodeCidString(kv.Key), kv.Value)));
     }
 
-    /// <summary>
-    /// Encodes a CAR v1 file with a single root from an explicit block sequence.
-    /// </summary>
+    /// <summary>Encodes a CAR v1 file with a single root from an explicit block sequence.</summary>
     /// <param name="root">Binary CID of the root block.</param>
     /// <param name="blocks">The blocks to include, in write order.</param>
     /// <returns>The complete CAR file bytes.</returns>
     public static byte[] Write(byte[] root, IEnumerable<CarBlock> blocks)
         => Write([root], blocks);
 
-    /// <summary>
-    /// Encodes a CAR v1 file.
-    /// </summary>
+    /// <summary>Encodes a CAR v1 file.</summary>
     /// <param name="roots">Binary CIDs of the root blocks. May be empty.</param>
     /// <param name="blocks">The blocks to include, in write order.</param>
     /// <returns>The complete CAR file bytes.</returns>
@@ -59,9 +53,7 @@ public static class CarWriter
         return stream.ToArray();
     }
 
-    /// <summary>
-    /// Writes a CAR v1 file to a stream without buffering the whole archive in memory.
-    /// </summary>
+    /// <summary>Writes a CAR v1 file to a stream without buffering the whole archive in memory.</summary>
     /// <param name="destination">The stream to write to.</param>
     /// <param name="roots">Binary CIDs of the root blocks.</param>
     /// <param name="blocks">The blocks to include, in write order.</param>
@@ -83,13 +75,10 @@ public static class CarWriter
         }
     }
 
-    /// <summary>
-    /// Writes a CAR v1 file to a stream asynchronously.
-    /// </summary>
+    /// <summary>Writes a CAR v1 file to a stream asynchronously.</summary>
     /// <param name="destination">The stream to write to.</param>
     /// <param name="roots">Binary CIDs of the root blocks.</param>
     /// <param name="blocks">The blocks to include, in write order.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public static async Task WriteToAsync(
         Stream destination,
         IReadOnlyList<byte[]> roots,
@@ -113,9 +102,7 @@ public static class CarWriter
         }
     }
 
-    /// <summary>
-    /// Encodes the DAG-CBOR CAR v1 header: <c>{"roots": [&lt;tag 42 CID&gt;, …], "version": 1}</c>.
-    /// </summary>
+    /// <summary>Encodes the DAG-CBOR CAR v1 header: <c>{"roots": [&lt;tag 42 CID&gt;, …], "version": 1}</c>.</summary>
     internal static byte[] EncodeHeader(IReadOnlyList<byte[]> roots)
     {
         var writer = new CborWriter(CborConformanceMode.Canonical);
@@ -150,9 +137,7 @@ public static class CarWriter
         return destination.WriteAsync(buffer.AsMemory(0, length), cancellationToken);
     }
 
-    /// <summary>
-    /// Encodes an unsigned LEB128 varint into <paramref name="destination"/>, returning the byte count.
-    /// </summary>
+    /// <summary>Encodes an unsigned LEB128 varint into <paramref name="destination"/>, returning the byte count.</summary>
     internal static int EncodeUvarint(ulong value, Span<byte> destination)
     {
         var index = 0;

@@ -184,9 +184,7 @@ public static class AtProtoTranquilPdsHostingExtensions
         environment["DISABLE_RATE_LIMITING"] = "true";
     }
 
-    /// <summary>
-    /// Creates the parameter backing one of Tranquil's secrets.
-    /// </summary>
+    /// <summary>Creates the parameter backing one of Tranquil's secrets.</summary>
     /// <remarks>
     /// 48 characters, comfortably over the 32 Tranquil requires in production. Persisted
     /// to the AppHost's user secrets when running locally so the value stays stable
@@ -269,9 +267,7 @@ public static class AtProtoTranquilPdsHostingExtensions
         });
     }
 
-    /// <summary>
-    /// Names the account this PDS is administered through, and optionally sets its password.
-    /// </summary>
+    /// <summary>Names the account this PDS is administered through, and optionally sets its password.</summary>
     /// <remarks>
     /// <para>
     /// Defaults to <c>pdsadmin.{hostname}</c> with a generated password. The handle must
@@ -339,9 +335,7 @@ public static class AtProtoTranquilPdsHostingExtensions
         return builder.WaitFor(database);
     }
 
-    /// <summary>
-    /// Points this PDS at a PostgreSQL server outside the application model.
-    /// </summary>
+    /// <summary>Points this PDS at a PostgreSQL server outside the application model.</summary>
     /// <remarks>
     /// The URL is passed to Tranquil verbatim as <c>DATABASE_URL</c>, so it must be a
     /// <c>postgres://user:password@host:port/database</c> URI with any reserved
@@ -436,9 +430,7 @@ public static class AtProtoTranquilPdsHostingExtensions
         return builder.WithEnvironment("PDS_USER_HANDLE_DOMAINS", string.Join(",", domains));
     }
 
-    /// <summary>
-    /// Uses a specific DPoP proof validation secret instead of the generated one.
-    /// </summary>
+    /// <summary>Uses a specific DPoP proof validation secret instead of the generated one.</summary>
     /// <param name="builder">The PDS resource builder.</param>
     /// <param name="dpopSecret">The parameter holding the DPoP secret (at least 32 characters).</param>
     /// <returns>The resource builder for chaining.</returns>
@@ -453,9 +445,7 @@ public static class AtProtoTranquilPdsHostingExtensions
         return builder;
     }
 
-    /// <summary>
-    /// Uses a specific key-encryption master key instead of the generated one.
-    /// </summary>
+    /// <summary>Uses a specific key-encryption master key instead of the generated one.</summary>
     /// <remarks>
     /// Changing this value on a server that already has accounts makes their signing keys
     /// undecryptable.
@@ -474,9 +464,7 @@ public static class AtProtoTranquilPdsHostingExtensions
         return builder;
     }
 
-    /// <summary>
-    /// Registers an operator-held PLC recovery key, as a public <c>did:key</c>.
-    /// </summary>
+    /// <summary>Registers an operator-held PLC recovery key, as a public <c>did:key</c>.</summary>
     /// <remarks>
     /// Unlike the reference PDS, Tranquil keeps signing PLC operations with each account's
     /// own key; this key is added to the rotation keys so the operator can recover an
@@ -495,9 +483,7 @@ public static class AtProtoTranquilPdsHostingExtensions
         return builder.WithEnvironment("PLC_ROTATION_KEY", recoveryKey);
     }
 
-    /// <summary>
-    /// Stores the PDS's blobs in a host directory instead of the default named volume.
-    /// </summary>
+    /// <summary>Stores the PDS's blobs in a host directory instead of the default named volume.</summary>
     /// <remarks>
     /// On an SELinux host (Fedora, RHEL) the directory needs the container label before
     /// the PDS can write to it. Aspire mounts without relabelling, so run
@@ -517,9 +503,7 @@ public static class AtProtoTranquilPdsHostingExtensions
         return AtProtoPdsHostingExtensions.ReplaceStorageMount(builder, path, BlobTarget, isBindMount: true);
     }
 
-    /// <summary>
-    /// Stores the PDS's blobs in a named volume, replacing the default one.
-    /// </summary>
+    /// <summary>Stores the PDS's blobs in a named volume, replacing the default one.</summary>
     /// <param name="builder">The PDS resource builder.</param>
     /// <param name="name">The volume name. Defaults to <c>{resource name}-blobs</c>.</param>
     /// <returns>The resource builder for chaining.</returns>
@@ -533,9 +517,7 @@ public static class AtProtoTranquilPdsHostingExtensions
             builder, name ?? $"{builder.Resource.Name}-blobs", BlobTarget, isBindMount: false);
     }
 
-    /// <summary>
-    /// Stores blobs in an S3 bucket instead of on disk.
-    /// </summary>
+    /// <summary>Stores blobs in an S3 bucket instead of on disk.</summary>
     /// <param name="builder">The PDS resource builder.</param>
     /// <param name="bucket">The bucket name.</param>
     /// <param name="endpoint">An optional custom S3 endpoint URL.</param>
@@ -574,9 +556,7 @@ public static class AtProtoTranquilPdsHostingExtensions
         return builder.WithEnvironment("PLC_DIRECTORY_URL", plcUrl);
     }
 
-    /// <summary>
-    /// Configures the relay / crawler notification URLs for the PDS.
-    /// </summary>
+    /// <summary>Configures the relay / crawler notification URLs for the PDS.</summary>
     /// <param name="builder">The PDS resource builder.</param>
     /// <param name="crawlers">A comma-separated list of relay URLs.</param>
     /// <returns>The resource builder for chaining.</returns>
@@ -587,9 +567,7 @@ public static class AtProtoTranquilPdsHostingExtensions
         return builder.WithEnvironment("CRAWLERS", crawlers);
     }
 
-    /// <summary>
-    /// Requires an invite code for signups.
-    /// </summary>
+    /// <summary>Requires an invite code for signups.</summary>
     /// <remarks>
     /// Tranquil's own default is <c>true</c>; running locally,
     /// <see cref="AddAtProtoTranquilPds"/> turns it off so the first account can be
@@ -621,12 +599,8 @@ public static class AtProtoTranquilPdsHostingExtensions
         return builder.WithEnvironment("MAX_BLOB_SIZE", maxBytes.ToString());
     }
 
-    /// <summary>
-    /// Configures the moderation / report service URL and DID for the PDS.
-    /// </summary>
+    /// <summary>Configures the moderation / report service URL and DID for the PDS.</summary>
     /// <param name="builder">The PDS resource builder.</param>
-    /// <param name="reportServiceUrl">The report service URL.</param>
-    /// <param name="reportServiceDid">The report service DID.</param>
     /// <returns>The resource builder for chaining.</returns>
     public static IResourceBuilder<AtProtoTranquilPdsContainerResource> WithReportService(
         this IResourceBuilder<AtProtoTranquilPdsContainerResource> builder,
@@ -643,9 +617,7 @@ public static class AtProtoTranquilPdsHostingExtensions
         return builder;
     }
 
-    /// <summary>
-    /// Configures outgoing mail for the PDS, relayed through an SMTP smarthost.
-    /// </summary>
+    /// <summary>Configures outgoing mail for the PDS, relayed through an SMTP smarthost.</summary>
     /// <remarks>
     /// With mail configured, accounts can verify an email address, which is what
     /// Tranquil's login gate looks for — so this is what lets
@@ -688,9 +660,7 @@ public static class AtProtoTranquilPdsHostingExtensions
         return builder;
     }
 
-    /// <summary>
-    /// Turns the local-development relaxations on or off explicitly.
-    /// </summary>
+    /// <summary>Turns the local-development relaxations on or off explicitly.</summary>
     /// <remarks>
     /// <para>
     /// On, the container gets <c>INVITE_CODE_REQUIRED=false</c>,

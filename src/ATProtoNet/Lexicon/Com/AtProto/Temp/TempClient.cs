@@ -21,13 +21,10 @@ public sealed class TempClient
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Check whether a handle is available for signup, getting suggestions when it is not.
-    /// </summary>
+    /// <summary>Check whether a handle is available for signup, getting suggestions when it is not.</summary>
     /// <param name="handle">The handle to check; also the seed for suggestions.</param>
     /// <param name="email">The user's email address, which the server may use for suggestions.</param>
     /// <param name="birthDate">The user's birth date, which the server may use for suggestions.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<CheckHandleAvailabilityResponse> CheckHandleAvailabilityAsync(
         Handle handle,
         string? email = null,
@@ -47,20 +44,16 @@ public sealed class TempClient
     /// Check where the signed-in account is in the signup queue, on a server that queues new
     /// accounts before activating them.
     /// </summary>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<CheckSignupQueueResponse> CheckSignupQueueAsync(CancellationToken cancellationToken = default) =>
         _xrpc.QueryAsync<CheckSignupQueueResponse>(
             "com.atproto.temp.checkSignupQueue", cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Expand an OAuth scope reference (<c>ref:…</c>) into the full permission scope it stands for.
-    /// </summary>
+    /// <summary>Expand an OAuth scope reference (<c>ref:…</c>) into the full permission scope it stands for.</summary>
     /// <remarks>
     /// An authorization server may hand a resource server a short reference in place of a long
     /// scope string; this is how the resource server looks the scope up.
     /// </remarks>
     /// <param name="scope">The scope reference, starting with <c>ref:</c>.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The full OAuth permission scope.</returns>
     public async Task<string> DereferenceScopeAsync(string scope, CancellationToken cancellationToken = default)
     {
@@ -68,7 +61,7 @@ public sealed class TempClient
 
         var parameters = new XrpcParams().Add("scope", scope);
         var response = await _xrpc.QueryAsync<DereferenceScopeResponse>(
-            "com.atproto.temp.dereferenceScope", parameters, cancellationToken: cancellationToken);
+            "com.atproto.temp.dereferenceScope", parameters, cancellationToken: cancellationToken).ConfigureAwait(false);
         return response.Scope;
     }
 
@@ -78,14 +71,13 @@ public sealed class TempClient
     /// <c>verificationCode</c> of <c>com.atproto.server.createAccount</c>.
     /// </summary>
     /// <param name="phoneNumber">The phone number to send the code to.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task RequestPhoneVerificationAsync(string phoneNumber, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(phoneNumber);
 
         var request = new RequestPhoneVerificationRequest { PhoneNumber = phoneNumber };
         await _xrpc.ProcedureAsync(
-            "com.atproto.temp.requestPhoneVerification", request, cancellationToken: cancellationToken);
+            "com.atproto.temp.requestPhoneVerification", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -93,13 +85,12 @@ public sealed class TempClient
     /// can recover with a password reset.
     /// </summary>
     /// <param name="account">The account's DID or handle.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task RevokeAccountCredentialsAsync(AtIdentifier account, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(account);
 
         var request = new RevokeAccountCredentialsRequest { Account = account };
         await _xrpc.ProcedureAsync(
-            "com.atproto.temp.revokeAccountCredentials", request, cancellationToken: cancellationToken);
+            "com.atproto.temp.revokeAccountCredentials", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 }

@@ -13,7 +13,6 @@
 //   2. Sync — the set-hash comparison that tells a syncer whether its copy is current.
 //   3. Shared reads — the credential exchange that reaches another member's repo.
 
-using System.Text.Json;
 using ATProtoNet;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.SimpleSpace;

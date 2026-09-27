@@ -2,9 +2,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Server.Authentication;
 
-/// <summary>
-/// A completed OAuth callback: whom it signed in, and where the browser goes next.
-/// </summary>
+/// <summary>A completed OAuth callback: whom it signed in, and where the browser goes next.</summary>
 /// <remarks>
 /// Only <see cref="AtProtoOAuthService"/> creates one, so <see cref="RedirectUrl"/> is always a
 /// destination the service chose: never a URL taken from the request.

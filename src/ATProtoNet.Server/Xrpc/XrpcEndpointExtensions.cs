@@ -1,6 +1,5 @@
 using System.Reflection;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -9,17 +8,13 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Server.Xrpc;
 
-/// <summary>
-/// Extension methods for registering and mapping XRPC endpoint handlers.
-/// </summary>
+/// <summary>Extension methods for registering and mapping XRPC endpoint handlers.</summary>
 public static class XrpcEndpointExtensions
 {
     private static readonly MethodInfo AddEndpointMethod =
         typeof(XrpcEndpointExtensions).GetMethod(nameof(AddXrpcEndpoint))!;
 
-    /// <summary>
-    /// Registers a single XRPC endpoint handler in the DI container.
-    /// </summary>
+    /// <summary>Registers a single XRPC endpoint handler in the DI container.</summary>
     /// <typeparam name="THandler">
     /// The handler: a class implementing exactly one of the XRPC endpoint interfaces
     /// (<see cref="IXrpcQuery{TParams, TOutput}"/>, <see cref="IXrpcProcedure{TInput, TOutput}"/>, …).

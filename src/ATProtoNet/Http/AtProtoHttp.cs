@@ -3,9 +3,7 @@ using System.Net;
 
 namespace ATProtoNet.Http;
 
-/// <summary>
-/// HTTP plumbing shared by every client the SDK creates for itself.
-/// </summary>
+/// <summary>HTTP plumbing shared by every client the SDK creates for itself.</summary>
 internal static class AtProtoHttp
 {
     /// <summary>
@@ -77,9 +75,7 @@ internal static class AtProtoHttp
         return NormalizeBaseUrl(new Uri(url, UriKind.Absolute));
     }
 
-    /// <summary>
-    /// Normalizes a service base URL to an absolute URI whose path ends in <c>/</c>.
-    /// </summary>
+    /// <summary>Normalizes a service base URL to an absolute URI whose path ends in <c>/</c>.</summary>
     /// <remarks>
     /// The result is built from scheme, authority and path; a URL that is not http(s), or has a
     /// query or fragment, is refused, as by <see cref="NormalizeBaseUrl(string)"/>.

@@ -50,9 +50,7 @@ public static class ServiceProxy
     /// </summary>
     public const string BskyChatHeader = $"{BskyChatDid}{BskyChat}";
 
-    /// <summary>
-    /// Constructs an <c>atproto-proxy</c> header value from a service DID and service endpoint identifier.
-    /// </summary>
+    /// <summary>Constructs an <c>atproto-proxy</c> header value from a service DID and service endpoint identifier.</summary>
     /// <param name="did">The DID of the target service (e.g., <c>did:web:api.bsky.app</c>).</param>
     /// <param name="serviceId">The service endpoint fragment identifier (e.g., <c>#bsky_appview</c>).
     /// The leading <c>#</c> is added automatically if not present.</param>

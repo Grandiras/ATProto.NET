@@ -3,9 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace ATProtoNet.Serialization;
 
-/// <summary>
-/// Marks an abstract class as the base of a Lexicon union, discriminated by <c>$type</c>.
-/// </summary>
+/// <summary>Marks an abstract class as the base of a Lexicon union, discriminated by <c>$type</c>.</summary>
 /// <remarks>
 /// <para>Declare the variants you know with <see cref="JsonDerivedTypeAttribute"/> on the base, using the
 /// discriminator the Lexicon defines (<c>&lt;nsid&gt;#&lt;defName&gt;</c>, or the bare NSID for a
@@ -66,9 +64,7 @@ public sealed class AtProtoUnionAttribute : Attribute
     public bool Closed { get; set; }
 }
 
-/// <summary>
-/// A union variant whose <c>$type</c> the SDK did not recognize when it read the data.
-/// </summary>
+/// <summary>A union variant whose <c>$type</c> the SDK did not recognize when it read the data.</summary>
 /// <remarks>
 /// <para>Every open union in the SDK has one, named <c>Unknown{Base}</c>. It holds the whole object
 /// as it arrived, <c>$type</c> included, and serializing it writes <see cref="Raw"/> back

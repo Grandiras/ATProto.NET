@@ -35,9 +35,7 @@ public sealed class SettingOption : LexObject
     [JsonPropertyName("updatedAt")]
     public AtDatetime? UpdatedAt { get; init; }
 
-    /// <summary>
-    /// The lowest team role that may change the setting (see <c>TeamMemberRole</c>).
-    /// </summary>
+    /// <summary>The lowest team role that may change the setting (see <c>TeamMemberRole</c>).</summary>
     [JsonPropertyName("managerRole")]
     public string? ManagerRole { get; init; }
 
@@ -54,9 +52,7 @@ public sealed class SettingOption : LexObject
     public required Did LastUpdatedBy { get; init; }
 }
 
-/// <summary>
-/// Whom a setting applies to (<see cref="SettingOption.Scope"/>).
-/// </summary>
+/// <summary>Whom a setting applies to (<see cref="SettingOption.Scope"/>).</summary>
 public static class SettingScope
 {
     /// <summary>The whole Ozone instance.</summary>
@@ -68,9 +64,7 @@ public static class SettingScope
 
 // ─── Request / Response Models ───
 
-/// <summary>
-/// Response from tools.ozone.setting.listOptions.
-/// </summary>
+/// <summary>Response from tools.ozone.setting.listOptions.</summary>
 public sealed class ListOptionsResponse : ICursorPage<SettingOption>
 {
     /// <summary>
@@ -87,9 +81,7 @@ public sealed class ListOptionsResponse : ICursorPage<SettingOption>
     IReadOnlyList<SettingOption> ICursorPage<SettingOption>.Items => Options;
 }
 
-/// <summary>
-/// Request body for tools.ozone.setting.upsertOption.
-/// </summary>
+/// <summary>Request body for tools.ozone.setting.upsertOption.</summary>
 internal sealed class UpsertOptionRequest
 {
     /// <summary>The setting's key.</summary>
@@ -113,9 +105,7 @@ internal sealed class UpsertOptionRequest
     public string? ManagerRole { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.setting.upsertOption.
-/// </summary>
+/// <summary>Response from tools.ozone.setting.upsertOption.</summary>
 public sealed class UpsertOptionResponse
 {
     /// <summary>The setting as stored.</summary>
@@ -123,9 +113,7 @@ public sealed class UpsertOptionResponse
     public required SettingOption Option { get; init; }
 }
 
-/// <summary>
-/// Request body for tools.ozone.setting.removeOptions.
-/// </summary>
+/// <summary>Request body for tools.ozone.setting.removeOptions.</summary>
 internal sealed class RemoveOptionsRequest
 {
     /// <summary>The keys of the settings to remove.</summary>

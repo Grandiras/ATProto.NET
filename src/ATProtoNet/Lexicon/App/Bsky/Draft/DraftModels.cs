@@ -7,9 +7,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Draft;
 
-// ──────────────────────────────────────────────────────────────
-//  Drafts
-// ──────────────────────────────────────────────────────────────
+// ── Drafts ───────────────────────────────────────────────────
 
 /// <summary>
 /// A draft of a post or thread (<c>app.bsky.draft.defs#draft</c>). Media are referenced by
@@ -42,9 +40,7 @@ public sealed class Draft : LexObject
     public IReadOnlyList<ThreadgateRule>? ThreadgateAllow { get; init; }
 }
 
-/// <summary>
-/// One post of a draft (<c>app.bsky.draft.defs#draftPost</c>).
-/// </summary>
+/// <summary>One post of a draft (<c>app.bsky.draft.defs#draftPost</c>).</summary>
 public sealed class DraftPost : LexObject
 {
     /// <summary>
@@ -90,9 +86,7 @@ public sealed class DraftEmbedLocalRef : LexObject
     public required string Path { get; init; }
 }
 
-/// <summary>
-/// A caption track of a draft video (<c>app.bsky.draft.defs#draftEmbedCaption</c>).
-/// </summary>
+/// <summary>A caption track of a draft video (<c>app.bsky.draft.defs#draftEmbedCaption</c>).</summary>
 public sealed class DraftEmbedCaption : LexObject
 {
     /// <summary>The caption language (BCP-47).</summary>
@@ -104,9 +98,7 @@ public sealed class DraftEmbedCaption : LexObject
     public required string Content { get; init; }
 }
 
-/// <summary>
-/// A gallery in a draft post (<c>app.bsky.draft.defs#draftEmbedGallery</c>).
-/// </summary>
+/// <summary>A gallery in a draft post (<c>app.bsky.draft.defs#draftEmbedGallery</c>).</summary>
 public sealed class DraftEmbedGallery : LexObject
 {
     /// <summary>The gallery's items (at most 20; clients offer 10).</summary>
@@ -145,9 +137,7 @@ public sealed class UnknownDraftGalleryItem : DraftGalleryItem, IUnknownUnionVar
     public JsonElement Raw { get; }
 }
 
-/// <summary>
-/// An image in a draft post or gallery (<c>app.bsky.draft.defs#draftEmbedImage</c>).
-/// </summary>
+/// <summary>An image in a draft post or gallery (<c>app.bsky.draft.defs#draftEmbedImage</c>).</summary>
 public sealed class DraftEmbedImage : DraftGalleryItem
 {
     /// <summary>The image file on the device.</summary>
@@ -159,9 +149,7 @@ public sealed class DraftEmbedImage : DraftGalleryItem
     public string? Alt { get; init; }
 }
 
-/// <summary>
-/// A video in a draft post (<c>app.bsky.draft.defs#draftEmbedVideo</c>).
-/// </summary>
+/// <summary>A video in a draft post (<c>app.bsky.draft.defs#draftEmbedVideo</c>).</summary>
 public sealed class DraftEmbedVideo : LexObject
 {
     /// <summary>The video file on the device.</summary>
@@ -177,9 +165,7 @@ public sealed class DraftEmbedVideo : LexObject
     public IReadOnlyList<DraftEmbedCaption>? Captions { get; init; }
 }
 
-/// <summary>
-/// A link card in a draft post (<c>app.bsky.draft.defs#draftEmbedExternal</c>).
-/// </summary>
+/// <summary>A link card in a draft post (<c>app.bsky.draft.defs#draftEmbedExternal</c>).</summary>
 public sealed class DraftEmbedExternal : LexObject
 {
     /// <summary>The linked URL.</summary>
@@ -187,9 +173,7 @@ public sealed class DraftEmbedExternal : LexObject
     public required string Uri { get; init; }
 }
 
-/// <summary>
-/// A quoted record in a draft post (<c>app.bsky.draft.defs#draftEmbedRecord</c>).
-/// </summary>
+/// <summary>A quoted record in a draft post (<c>app.bsky.draft.defs#draftEmbedRecord</c>).</summary>
 public sealed class DraftEmbedRecord : LexObject
 {
     /// <summary>A strong reference to the quoted record.</summary>
@@ -197,9 +181,7 @@ public sealed class DraftEmbedRecord : LexObject
     public required StrongRef Record { get; init; }
 }
 
-/// <summary>
-/// A stored draft (<c>app.bsky.draft.defs#draftView</c>).
-/// </summary>
+/// <summary>A stored draft (<c>app.bsky.draft.defs#draftView</c>).</summary>
 public sealed class DraftView : LexObject
 {
     /// <summary>The draft's identifier.</summary>
@@ -219,9 +201,7 @@ public sealed class DraftView : LexObject
     public required AtDatetime UpdatedAt { get; init; }
 }
 
-/// <summary>
-/// A draft with its identifier (<c>app.bsky.draft.defs#draftWithId</c>).
-/// </summary>
+/// <summary>A draft with its identifier (<c>app.bsky.draft.defs#draftWithId</c>).</summary>
 internal sealed class DraftWithId
 {
     /// <summary>The draft's identifier.</summary>
@@ -233,13 +213,9 @@ internal sealed class DraftWithId
     public required Draft Draft { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  API requests and responses
-// ──────────────────────────────────────────────────────────────
+// ── API requests and responses ───────────────────────────────
 
-/// <summary>
-/// Request body for createDraft.
-/// </summary>
+/// <summary>Request body for createDraft.</summary>
 internal sealed class CreateDraftRequest
 {
     /// <summary>The draft to store.</summary>
@@ -247,9 +223,7 @@ internal sealed class CreateDraftRequest
     public required Draft Draft { get; init; }
 }
 
-/// <summary>
-/// Response from createDraft.
-/// </summary>
+/// <summary>Response from createDraft.</summary>
 internal sealed class CreateDraftResponse
 {
     /// <summary>The new draft's identifier.</summary>
@@ -257,9 +231,7 @@ internal sealed class CreateDraftResponse
     public required Tid Id { get; init; }
 }
 
-/// <summary>
-/// Request body for updateDraft.
-/// </summary>
+/// <summary>Request body for updateDraft.</summary>
 internal sealed class UpdateDraftRequest
 {
     /// <summary>The draft and the identifier it is stored under.</summary>
@@ -267,9 +239,7 @@ internal sealed class UpdateDraftRequest
     public required DraftWithId Draft { get; init; }
 }
 
-/// <summary>
-/// Request body for deleteDraft.
-/// </summary>
+/// <summary>Request body for deleteDraft.</summary>
 internal sealed class DeleteDraftRequest
 {
     /// <summary>The identifier of the draft to delete.</summary>
@@ -277,9 +247,7 @@ internal sealed class DeleteDraftRequest
     public required Tid Id { get; init; }
 }
 
-/// <summary>
-/// Response from getDrafts.
-/// </summary>
+/// <summary>Response from getDrafts.</summary>
 public sealed class GetDraftsResponse : ICursorPage<DraftView>
 {
     /// <summary>

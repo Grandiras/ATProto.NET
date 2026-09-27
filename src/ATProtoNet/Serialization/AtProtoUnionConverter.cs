@@ -50,9 +50,7 @@ internal sealed class AtProtoUnionShape
 
     public object CreateUnknown(string type, JsonElement raw) => _unknownConstructor!.Invoke([type, raw]);
 
-    /// <summary>
-    /// Walks the base classes of <paramref name="variant"/> for the union base it belongs to.
-    /// </summary>
+    /// <summary>Walks the base classes of <paramref name="variant"/> for the union base it belongs to.</summary>
     public static AtProtoUnionShape? FindOwner(Type variant)
     {
         for (var type = variant.BaseType; type is not null && type != typeof(object); type = type.BaseType)
@@ -112,9 +110,7 @@ internal sealed class AtProtoUnionShape
         => new($"The Lexicon union base '{type.FullName}' {problem}.");
 }
 
-/// <summary>
-/// Supplies the converters for <see cref="AtProtoUnionAttribute"/> bases and their unknown variants.
-/// </summary>
+/// <summary>Supplies the converters for <see cref="AtProtoUnionAttribute"/> bases and their unknown variants.</summary>
 internal sealed class AtProtoUnionConverterFactory(LexiconTypeRegistry registry) : JsonConverterFactory
 {
     public override bool CanConvert(Type typeToConvert)

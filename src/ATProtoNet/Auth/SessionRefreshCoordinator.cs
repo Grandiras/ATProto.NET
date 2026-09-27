@@ -53,6 +53,6 @@ public sealed class InProcessSessionRefreshCoordinator : ISessionRefreshCoordina
     public async ValueTask<IAsyncDisposable> AcquireAsync(Did did, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(did);
-        return await _locks.AcquireAsync(did, cancellationToken);
+        return await _locks.AcquireAsync(did, cancellationToken).ConfigureAwait(false);
     }
 }

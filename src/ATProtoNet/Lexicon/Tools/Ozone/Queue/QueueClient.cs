@@ -34,7 +34,6 @@ public sealed class QueueClient
     /// <param name="reportTypes">The report reason types the queue takes (at most 25).</param>
     /// <param name="description">A description of the queue.</param>
     /// <param name="recommendedPolicies">The policies to recommend when actioning the queue's reports.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcException"><c>InvalidRecommendedPolicies</c> or <c>ConflictingQueue</c>.</exception>
     public Task<CreateQueueResponse> CreateQueueAsync(
         string name,
@@ -58,15 +57,12 @@ public sealed class QueueClient
             "tools.ozone.queue.createQueue", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Change a queue's name, description, recommended policies or whether it is active.
-    /// </summary>
+    /// <summary>Change a queue's name, description, recommended policies or whether it is active.</summary>
     /// <param name="queueId">The queue.</param>
     /// <param name="name">The new display name.</param>
     /// <param name="enabled">Whether the queue is active.</param>
     /// <param name="description">The new description.</param>
     /// <param name="recommendedPolicies">The policies to recommend when actioning the queue's reports.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcException"><c>InvalidRecommendedPolicies</c>.</exception>
     public Task<UpdateQueueResponse> UpdateQueueAsync(
         long queueId,
@@ -88,14 +84,11 @@ public sealed class QueueClient
             "tools.ozone.queue.updateQueue", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Delete a queue, moving its reports to another queue or to none.
-    /// </summary>
+    /// <summary>Delete a queue, moving its reports to another queue or to none.</summary>
     /// <param name="queueId">The queue.</param>
     /// <param name="migrateToQueueId">
     /// The queue to move its reports to; <see langword="null"/> leaves them in no queue.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<DeleteQueueResponse> DeleteQueueAsync(
         long queueId,
         long? migrateToQueueId = null,
@@ -106,16 +99,13 @@ public sealed class QueueClient
             "tools.ozone.queue.deleteQueue", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// List one page of the queues, with their statistics.
-    /// </summary>
+    /// <summary>List one page of the queues, with their statistics.</summary>
     /// <param name="enabled">Only active (or only inactive) queues; <see langword="null"/> for all.</param>
     /// <param name="subjectType">Only queues that take this kind of subject (see <see cref="Report.ReportSubjectType"/>).</param>
     /// <param name="collection">Only queues for this collection.</param>
     /// <param name="reportTypes">Only queues that take any of these report reason types (at most 10).</param>
     /// <param name="limit">Maximum number of queues (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ListQueuesResponse> ListQueuesAsync(
         bool? enabled = null,
         string? subjectType = null,
@@ -136,15 +126,12 @@ public sealed class QueueClient
             "tools.ozone.queue.listQueues", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate every queue matching the filters, fetching pages as needed.
-    /// </summary>
+    /// <summary>Enumerate every queue matching the filters, fetching pages as needed.</summary>
     /// <param name="enabled">Only active (or only inactive) queues; <see langword="null"/> for all.</param>
     /// <param name="subjectType">Only queues that take this kind of subject (see <see cref="Report.ReportSubjectType"/>).</param>
     /// <param name="collection">Only queues for this collection.</param>
     /// <param name="reportTypes">Only queues that take any of these report reason types (at most 10).</param>
     /// <param name="pageSize">Queues per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<QueueView> EnumerateQueuesAsync(
         bool? enabled = null,
         string? subjectType = null,
@@ -156,12 +143,9 @@ public sealed class QueueClient
             (cursor, ct) => ListQueuesAsync(enabled, subjectType, collection, reportTypes, pageSize, cursor, ct),
             cancellationToken);
 
-    /// <summary>
-    /// Route the reports in a range of identifiers to the queues that match them.
-    /// </summary>
+    /// <summary>Route the reports in a range of identifiers to the queues that match them.</summary>
     /// <param name="startReportId">The first report to route.</param>
     /// <param name="endReportId">The last report to route; the range must span fewer than 5,000 reports.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcException"><c>OutOfRange</c> when the range is too wide.</exception>
     public Task<RouteReportsResponse> RouteReportsAsync(
         long startReportId,
@@ -173,12 +157,9 @@ public sealed class QueueClient
             "tools.ozone.queue.routeReports", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Assign a moderator to a queue.
-    /// </summary>
+    /// <summary>Assign a moderator to a queue.</summary>
     /// <param name="queueId">The queue.</param>
     /// <param name="did">The moderator.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcException"><c>InvalidAssignment</c>.</exception>
     public Task<AssignmentView> AssignModeratorAsync(
         long queueId,
@@ -190,12 +171,9 @@ public sealed class QueueClient
             "tools.ozone.queue.assignModerator", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Remove a moderator's assignment to a queue.
-    /// </summary>
+    /// <summary>Remove a moderator's assignment to a queue.</summary>
     /// <param name="queueId">The queue.</param>
     /// <param name="did">The moderator.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcException"><c>InvalidAssignment</c>.</exception>
     public Task UnassignModeratorAsync(
         long queueId,
@@ -207,15 +185,12 @@ public sealed class QueueClient
             "tools.ozone.queue.unassignModerator", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get one page of moderators' queue assignments.
-    /// </summary>
+    /// <summary>Get one page of moderators' queue assignments.</summary>
     /// <param name="queueIds">Only assignments to these queues.</param>
     /// <param name="dids">Only assignments of these moderators.</param>
     /// <param name="onlyActive">Only active assignments; the server default is <see langword="true"/>.</param>
     /// <param name="limit">Maximum number of assignments (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetAssignmentsResponse> GetAssignmentsAsync(
         IEnumerable<long>? queueIds = null,
         IEnumerable<Did>? dids = null,
@@ -234,14 +209,11 @@ public sealed class QueueClient
             "tools.ozone.queue.getAssignments", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate every queue assignment matching the filters, fetching pages as needed.
-    /// </summary>
+    /// <summary>Enumerate every queue assignment matching the filters, fetching pages as needed.</summary>
     /// <param name="queueIds">Only assignments to these queues.</param>
     /// <param name="dids">Only assignments of these moderators.</param>
     /// <param name="onlyActive">Only active assignments; the server default is <see langword="true"/>.</param>
     /// <param name="pageSize">Assignments per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<AssignmentView> EnumerateAssignmentsAsync(
         IEnumerable<long>? queueIds = null,
         IEnumerable<Did>? dids = null,

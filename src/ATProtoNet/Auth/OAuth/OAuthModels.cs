@@ -53,9 +53,7 @@ public sealed class AuthorizationServerMetadata
     [JsonPropertyName("dpop_signing_alg_values_supported")]
     public List<string> DpopSigningAlgValuesSupported { get; set; } = [];
 
-    /// <summary>
-    /// Whether the authorization server returns the <c>iss</c> parameter in responses.
-    /// </summary>
+    /// <summary>Whether the authorization server returns the <c>iss</c> parameter in responses.</summary>
     [JsonPropertyName("authorization_response_iss_parameter_supported")]
     public bool AuthorizationResponseIssParameterSupported { get; set; }
 
@@ -63,9 +61,7 @@ public sealed class AuthorizationServerMetadata
     [JsonPropertyName("require_pushed_authorization_requests")]
     public bool RequirePushedAuthorizationRequests { get; set; }
 
-    /// <summary>
-    /// Whether the authorization server supports AT Protocol client-ID metadata documents.
-    /// </summary>
+    /// <summary>Whether the authorization server supports AT Protocol client-ID metadata documents.</summary>
     [JsonPropertyName("client_id_metadata_document_supported")]
     public bool ClientIdMetadataDocumentSupported { get; set; }
 
@@ -151,9 +147,7 @@ public sealed class OAuthClientMetadata
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? PolicyUri { get; set; }
 
-    /// <summary>
-    /// Whether access tokens are DPoP-bound. Always <see langword="true"/> for AT Protocol.
-    /// </summary>
+    /// <summary>Whether access tokens are DPoP-bound. Always <see langword="true"/> for AT Protocol.</summary>
     [JsonPropertyName("dpop_bound_access_tokens")]
     public bool DpopBoundAccessTokens { get; set; } = true;
 
@@ -173,15 +167,11 @@ public sealed class OAuthClientMetadata
     [JsonPropertyName("scope")]
     public string Scope { get; set; } = AtProtoScopes.Default;
 
-    /// <summary>
-    /// How the client authenticates to the token endpoint (<c>none</c> or <c>private_key_jwt</c>).
-    /// </summary>
+    /// <summary>How the client authenticates to the token endpoint (<c>none</c> or <c>private_key_jwt</c>).</summary>
     [JsonPropertyName("token_endpoint_auth_method")]
     public string TokenEndpointAuthMethod { get; set; } = "none";
 
-    /// <summary>
-    /// The signing algorithm used for <c>private_key_jwt</c> client authentication.
-    /// </summary>
+    /// <summary>The signing algorithm used for <c>private_key_jwt</c> client authentication.</summary>
     [JsonPropertyName("token_endpoint_auth_signing_alg")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? TokenEndpointAuthSigningAlg { get; set; }
@@ -218,9 +208,7 @@ public sealed class OAuthClientMetadata
     };
 }
 
-/// <summary>
-/// JSON Web Key Set wrapper.
-/// </summary>
+/// <summary>JSON Web Key Set wrapper.</summary>
 public sealed class JsonWebKeySet
 {
     /// <summary>The keys in the set.</summary>
@@ -228,9 +216,7 @@ public sealed class JsonWebKeySet
     public List<JsonWebKey> Keys { get; set; } = [];
 }
 
-/// <summary>
-/// A JSON Web Key (JWK).
-/// </summary>
+/// <summary>A JSON Web Key (JWK).</summary>
 public sealed class JsonWebKey
 {
     /// <summary>The key type (<c>EC</c>, <c>RSA</c>, …).</summary>
@@ -268,9 +254,7 @@ public sealed class JsonWebKey
     public string? Alg { get; set; }
 }
 
-/// <summary>
-/// Response from a Pushed Authorization Request (PAR).
-/// </summary>
+/// <summary>Response from a Pushed Authorization Request (PAR).</summary>
 public sealed class PushedAuthorizationResponse
 {
     /// <summary>The request URI to pass to the authorization endpoint.</summary>
@@ -282,9 +266,7 @@ public sealed class PushedAuthorizationResponse
     public int ExpiresIn { get; set; }
 }
 
-/// <summary>
-/// OAuth token response from the token endpoint.
-/// </summary>
+/// <summary>OAuth token response from the token endpoint.</summary>
 public sealed class OAuthTokenResponse
 {
     /// <summary>The access token.</summary>
@@ -312,9 +294,7 @@ public sealed class OAuthTokenResponse
     public string? Sub { get; set; }
 }
 
-/// <summary>
-/// Error response from OAuth endpoints.
-/// </summary>
+/// <summary>Error response from OAuth endpoints.</summary>
 public sealed class OAuthErrorResponse
 {
     /// <summary>The OAuth error code (for example <c>invalid_grant</c>).</summary>
@@ -326,9 +306,7 @@ public sealed class OAuthErrorResponse
     public string? ErrorDescription { get; set; }
 }
 
-/// <summary>
-/// Options for configuring the AT Protocol OAuth client.
-/// </summary>
+/// <summary>Options for configuring the AT Protocol OAuth client.</summary>
 public sealed class OAuthOptions
 {
     /// <summary>
@@ -426,9 +404,7 @@ public sealed class OAuthOptions
     public IList<OAuthClientKey> ClientKeys { get; set; } = [];
 }
 
-/// <summary>
-/// Options for one <see cref="OAuthClient.StartAuthorizationAsync"/> call.
-/// </summary>
+/// <summary>Options for one <see cref="OAuthClient.StartAuthorizationAsync"/> call.</summary>
 public sealed class OAuthAuthorizationOptions
 {
     /// <summary>
@@ -491,13 +467,10 @@ public sealed class OAuthAuthorizationOptions
 /// A completed authorization: the session, and the application data the authorization was
 /// started with.
 /// </summary>
-/// <param name="Session">The session.</param>
 /// <param name="AppState">The <see cref="OAuthAuthorizationOptions.AppState"/> the authorization was started with.</param>
 public sealed record OAuthAuthorizationResult(OAuthSession Session, string? AppState);
 
-/// <summary>
-/// A started authorization: where to send the user, and the state its callback will carry.
-/// </summary>
+/// <summary>A started authorization: where to send the user, and the state its callback will carry.</summary>
 /// <param name="AuthorizationUrl">The authorization server's authorization endpoint, with the
 /// pushed request's <c>request_uri</c> and the <c>client_id</c>. Redirect the user to its
 /// <see cref="Uri.AbsoluteUri"/>.</param>

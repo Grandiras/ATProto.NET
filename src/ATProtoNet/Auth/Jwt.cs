@@ -9,9 +9,7 @@ using ATProtoNet.Crypto;
 
 namespace ATProtoNet.Auth;
 
-/// <summary>
-/// A compact JWS split into its parts and decoded, but not verified.
-/// </summary>
+/// <summary>A compact JWS split into its parts and decoded, but not verified.</summary>
 /// <param name="Header">The JOSE header, always a JSON object.</param>
 /// <param name="Payload">The claims, always a JSON object.</param>
 /// <param name="SigningInput">The bytes the signature covers: <c>{header}.{payload}</c> exactly as sent.</param>
@@ -70,9 +68,7 @@ internal static class Jwt
         return encoded;
     }
 
-    /// <summary>
-    /// Signs a compact JWS: <c>{header}.{base64url(payload)}.{base64url(signature)}</c>.
-    /// </summary>
+    /// <summary>Signs a compact JWS: <c>{header}.{base64url(payload)}.{base64url(signature)}</c>.</summary>
     /// <param name="encodedHeader">The header from <see cref="EncodeHeader"/>.</param>
     /// <param name="payload">The claims as UTF-8 JSON.</param>
     /// <param name="key">The signing key. Its curve must be the one the header was encoded for.</param>
@@ -136,9 +132,7 @@ internal static class Jwt
         !tokenId.AsSpan().ContainsAnyInRange('\0', '\x1f') &&
         !tokenId.AsSpan().ContainsAnyInRange('\x7f', '\x9f');
 
-    /// <summary>
-    /// Splits a compact JWS and decodes its three parts, without verifying anything.
-    /// </summary>
+    /// <summary>Splits a compact JWS and decodes its three parts, without verifying anything.</summary>
     /// <param name="jwt">The token.</param>
     /// <param name="token">The decoded token, on success.</param>
     /// <param name="error">
@@ -237,9 +231,7 @@ internal static class JsonElementExtensions
     private static readonly long s_minUnixSeconds = DateTimeOffset.MinValue.ToUnixTimeSeconds();
     private static readonly long s_maxUnixSeconds = DateTimeOffset.MaxValue.ToUnixTimeSeconds();
 
-    /// <summary>
-    /// Reads a JWT NumericDate member (<c>exp</c>, <c>iat</c>): whole seconds since the Unix epoch.
-    /// </summary>
+    /// <summary>Reads a JWT NumericDate member (<c>exp</c>, <c>iat</c>): whole seconds since the Unix epoch.</summary>
     /// <param name="element">The claims object to read from.</param>
     /// <param name="name">The member name.</param>
     /// <param name="value">

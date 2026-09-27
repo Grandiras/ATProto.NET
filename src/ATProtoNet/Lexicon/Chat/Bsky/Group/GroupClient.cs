@@ -29,9 +29,7 @@ public sealed class GroupClient
         _xrpc = xrpc;
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Groups and membership
-    // ──────────────────────────────────────────────────────────
+    // ── Groups and membership ────────────────────────────────
 
     /// <summary>
     /// Creates a group with the viewer as its owner. The members are added with a request they must
@@ -42,7 +40,6 @@ public sealed class GroupClient
     /// The accounts to add besides the owner. Bluesky allows up to 100 members in all, owner
     /// included.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The new group.</returns>
     public async Task<ConvoView> CreateGroupAsync(
         string name, IEnumerable<Did> members,
@@ -52,16 +49,13 @@ public sealed class GroupClient
 
         var output = await _xrpc.ProcedureAsync<ConvoOutput>(
             "chat.bsky.group.createGroup", request, options: ChatProxy,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.Convo;
     }
 
-    /// <summary>
-    /// Renames a group. Owner only.
-    /// </summary>
+    /// <summary>Renames a group. Owner only.</summary>
     /// <param name="convoId">The group's conversation identifier.</param>
     /// <param name="name">The group's new display name (at most 50 graphemes).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The group after the change.</returns>
     public async Task<ConvoView> EditGroupAsync(
         string convoId, string name,
@@ -71,16 +65,13 @@ public sealed class GroupClient
 
         var output = await _xrpc.ProcedureAsync<ConvoOutput>(
             "chat.bsky.group.editGroup", request, options: ChatProxy,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.Convo;
     }
 
-    /// <summary>
-    /// Adds members to a group. Owner only. Each is added with a request they must accept.
-    /// </summary>
+    /// <summary>Adds members to a group. Owner only. Each is added with a request they must accept.</summary>
     /// <param name="convoId">The group's conversation identifier.</param>
     /// <param name="members">The accounts to add (at least one).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<AddMembersResponse> AddMembersAsync(
         string convoId, IEnumerable<Did> members,
         CancellationToken cancellationToken = default)
@@ -92,12 +83,9 @@ public sealed class GroupClient
             cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Removes members from a group. Owner only.
-    /// </summary>
+    /// <summary>Removes members from a group. Owner only.</summary>
     /// <param name="convoId">The group's conversation identifier.</param>
     /// <param name="members">The members to remove (at least one).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The group after the change.</returns>
     public async Task<ConvoView> RemoveMembersAsync(
         string convoId, IEnumerable<Did> members,
@@ -107,17 +95,14 @@ public sealed class GroupClient
 
         var output = await _xrpc.ProcedureAsync<ConvoOutput>(
             "chat.bsky.group.removeMembers", request, options: ChatProxy,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.Convo;
     }
 
-    /// <summary>
-    /// Lists one page of the groups both the viewer and another account are members of.
-    /// </summary>
+    /// <summary>Lists one page of the groups both the viewer and another account are members of.</summary>
     /// <param name="subject">The other account.</param>
     /// <param name="limit">Maximum number of groups (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ListMutualGroupsResponse> ListMutualGroupsAsync(
         Did subject,
         int? limit = null,
@@ -139,7 +124,6 @@ public sealed class GroupClient
     /// </summary>
     /// <param name="subject">The other account.</param>
     /// <param name="pageSize">Groups per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<ConvoView> EnumerateMutualGroupsAsync(
         Did subject,
         int? pageSize = null,
@@ -148,20 +132,15 @@ public sealed class GroupClient
             (cursor, ct) => ListMutualGroupsAsync(subject, pageSize, cursor, ct),
             cancellationToken);
 
-    // ──────────────────────────────────────────────────────────
-    //  Join links
-    // ──────────────────────────────────────────────────────────
+    // ── Join links ───────────────────────────────────────────
 
-    /// <summary>
-    /// Creates the group's join link. Owner only. A group has at most one enabled link.
-    /// </summary>
+    /// <summary>Creates the group's join link. Owner only. A group has at most one enabled link.</summary>
     /// <param name="convoId">The group's conversation identifier.</param>
     /// <param name="joinRule">Who may use the link (see <see cref="JoinRule"/>).</param>
     /// <param name="requireApproval">
     /// Whether the owner must approve each request to join; <see langword="null"/> for the server
     /// default (no approval).
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The new link.</returns>
     public async Task<JoinLinkView> CreateJoinLinkAsync(
         string convoId, string joinRule,
@@ -177,7 +156,7 @@ public sealed class GroupClient
 
         var output = await _xrpc.ProcedureAsync<JoinLinkOutput>(
             "chat.bsky.group.createJoinLink", request, options: ChatProxy,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.JoinLink;
     }
 
@@ -188,7 +167,6 @@ public sealed class GroupClient
     /// <param name="convoId">The group's conversation identifier.</param>
     /// <param name="joinRule">Who may use the link (see <see cref="JoinRule"/>).</param>
     /// <param name="requireApproval">Whether the owner must approve each request to join.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The link after the change.</returns>
     public async Task<JoinLinkView> EditJoinLinkAsync(
         string convoId,
@@ -205,15 +183,12 @@ public sealed class GroupClient
 
         var output = await _xrpc.ProcedureAsync<JoinLinkOutput>(
             "chat.bsky.group.editJoinLink", request, options: ChatProxy,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.JoinLink;
     }
 
-    /// <summary>
-    /// Enables the group's disabled join link again, with its old code. Owner only.
-    /// </summary>
+    /// <summary>Enables the group's disabled join link again, with its old code. Owner only.</summary>
     /// <param name="convoId">The group's conversation identifier.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The link after the change.</returns>
     public async Task<JoinLinkView> EnableJoinLinkAsync(
         string convoId,
@@ -223,15 +198,12 @@ public sealed class GroupClient
 
         var output = await _xrpc.ProcedureAsync<JoinLinkOutput>(
             "chat.bsky.group.enableJoinLink", request, options: ChatProxy,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.JoinLink;
     }
 
-    /// <summary>
-    /// Disables the group's join link. Owner only.
-    /// </summary>
+    /// <summary>Disables the group's join link. Owner only.</summary>
     /// <param name="convoId">The group's conversation identifier.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The link after the change.</returns>
     public async Task<JoinLinkView> DisableJoinLinkAsync(
         string convoId,
@@ -241,15 +213,12 @@ public sealed class GroupClient
 
         var output = await _xrpc.ProcedureAsync<JoinLinkOutput>(
             "chat.bsky.group.disableJoinLink", request, options: ChatProxy,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.JoinLink;
     }
 
-    /// <summary>
-    /// Gets the public previews of the groups behind join link codes. Works signed out, too.
-    /// </summary>
+    /// <summary>Gets the public previews of the groups behind join link codes. Works signed out, too.</summary>
     /// <param name="codes">The link codes (1-50).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// One preview per code, in the same order: a <see cref="JoinLinkPreviewView"/>, or a
     /// <see cref="DisabledJoinLinkPreviewView"/> or <see cref="InvalidJoinLinkPreviewView"/>.
@@ -265,16 +234,13 @@ public sealed class GroupClient
             "chat.bsky.group.getJoinLinkPreviews", parameters, options: ChatProxy, cancellationToken: cancellationToken);
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Join requests
-    // ──────────────────────────────────────────────────────────
+    // ── Join requests ────────────────────────────────────────
 
     /// <summary>
     /// Joins a group through its join link or, when the link needs approval, asks the owner to let
     /// the viewer in.
     /// </summary>
     /// <param name="code">The join link's code.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// <see cref="RequestJoinStatus.Joined"/> with the group, or
     /// <see cref="RequestJoinStatus.Pending"/>.
@@ -290,11 +256,8 @@ public sealed class GroupClient
             cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Withdraws the viewer's pending request to join a group.
-    /// </summary>
+    /// <summary>Withdraws the viewer's pending request to join a group.</summary>
     /// <param name="convoId">The group's conversation identifier.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task WithdrawJoinRequestAsync(
         string convoId,
         CancellationToken cancellationToken = default)
@@ -306,13 +269,10 @@ public sealed class GroupClient
             cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Lists one page of the pending requests to join a group. Owner only.
-    /// </summary>
+    /// <summary>Lists one page of the pending requests to join a group. Owner only.</summary>
     /// <param name="convoId">The group's conversation identifier.</param>
     /// <param name="limit">Maximum number of requests (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ListJoinRequestsResponse> ListJoinRequestsAsync(
         string convoId,
         int? limit = null,
@@ -328,12 +288,9 @@ public sealed class GroupClient
             "chat.bsky.group.listJoinRequests", parameters, options: ChatProxy, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerates every pending request to join a group, fetching pages as needed. Owner only.
-    /// </summary>
+    /// <summary>Enumerates every pending request to join a group, fetching pages as needed. Owner only.</summary>
     /// <param name="convoId">The group's conversation identifier.</param>
     /// <param name="pageSize">Join requests per call (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<JoinRequestView> EnumerateJoinRequestsAsync(
         string convoId,
         int? pageSize = null,
@@ -342,12 +299,9 @@ public sealed class GroupClient
             (cursor, ct) => ListJoinRequestsAsync(convoId, pageSize, cursor, ct),
             cancellationToken);
 
-    /// <summary>
-    /// Approves a request to join a group. Owner only.
-    /// </summary>
+    /// <summary>Approves a request to join a group. Owner only.</summary>
     /// <param name="convoId">The group's conversation identifier.</param>
     /// <param name="member">The account whose request to approve.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The group after the change.</returns>
     public async Task<ConvoView> ApproveJoinRequestAsync(
         string convoId, Did member,
@@ -357,16 +311,13 @@ public sealed class GroupClient
 
         var output = await _xrpc.ProcedureAsync<ConvoOutput>(
             "chat.bsky.group.approveJoinRequest", request, options: ChatProxy,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.Convo;
     }
 
-    /// <summary>
-    /// Rejects a request to join a group. Owner only.
-    /// </summary>
+    /// <summary>Rejects a request to join a group. Owner only.</summary>
     /// <param name="convoId">The group's conversation identifier.</param>
     /// <param name="member">The account whose request to reject.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task RejectJoinRequestAsync(
         string convoId, Did member,
         CancellationToken cancellationToken = default)
@@ -378,11 +329,8 @@ public sealed class GroupClient
             cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Marks all of a group's join requests read. Owner only.
-    /// </summary>
+    /// <summary>Marks all of a group's join requests read. Owner only.</summary>
     /// <param name="convoId">The group's conversation identifier.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task UpdateJoinRequestsReadAsync(
         string convoId,
         CancellationToken cancellationToken = default)

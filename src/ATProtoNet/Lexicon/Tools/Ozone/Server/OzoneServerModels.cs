@@ -4,9 +4,7 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Server;
 
-/// <summary>
-/// Ozone server configuration.
-/// </summary>
+/// <summary>Ozone server configuration.</summary>
 public sealed class OzoneServerConfig : LexObject
 {
     /// <summary>Configuration of the app view service Ozone talks to.</summary>
@@ -34,9 +32,7 @@ public sealed class OzoneServerConfig : LexObject
     public Did? VerifierDid { get; init; }
 }
 
-/// <summary>
-/// A service endpoint configuration.
-/// </summary>
+/// <summary>A service endpoint configuration.</summary>
 public sealed class ServiceConfig : LexObject
 {
     /// <summary>The service URL.</summary>
@@ -44,9 +40,7 @@ public sealed class ServiceConfig : LexObject
     public string? Url { get; init; }
 }
 
-/// <summary>
-/// Viewer-specific config (current user's role).
-/// </summary>
+/// <summary>Viewer-specific config (current user's role).</summary>
 public sealed class OzoneViewerConfig : LexObject
 {
     /// <summary>The viewer's team role (see <see cref="Team.TeamMemberRole"/>).</summary>

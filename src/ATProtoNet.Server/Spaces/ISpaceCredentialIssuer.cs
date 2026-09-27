@@ -3,9 +3,7 @@ using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// Mints the space credentials this authority issues.
-/// </summary>
+/// <summary>Mints the space credentials this authority issues.</summary>
 /// <remarks>
 /// Separate from <see cref="ISpaceAccessPolicy"/> because the two answer different questions and
 /// tend to live in different places: the policy is application logic, while this holds the
@@ -13,15 +11,12 @@ namespace ATProtoNet.Server.Spaces;
 /// </remarks>
 public interface ISpaceCredentialIssuer
 {
-    /// <summary>
-    /// Mints a credential for a space, bound to the key that signed the request's DPoP proof.
-    /// </summary>
+    /// <summary>Mints a credential for a space, bound to the key that signed the request's DPoP proof.</summary>
     /// <param name="space">The space the credential reads.</param>
     /// <param name="dpopThumbprint">
     /// The RFC 7638 thumbprint of the requester's key, copied into the credential's
     /// <c>cnf.jkt</c>. This is what stops the credential being a bearer token.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The signed credential JWT.</returns>
     Task<string> IssueAsync(
         SpaceUri space, string dpopThumbprint, CancellationToken cancellationToken = default);
@@ -45,9 +40,7 @@ public sealed class SpaceCredentialIssuer : ISpaceCredentialIssuer
     private readonly AtProtoKey _signingKey;
     private readonly SpaceServerOptions _options;
 
-    /// <summary>
-    /// Creates an issuer.
-    /// </summary>
+    /// <summary>Creates an issuer.</summary>
     /// <param name="signingKey">The authority's credential signing key.</param>
     /// <param name="options">
     /// Server options. <see cref="SpaceServerOptions.ServiceDid"/> is required and becomes the

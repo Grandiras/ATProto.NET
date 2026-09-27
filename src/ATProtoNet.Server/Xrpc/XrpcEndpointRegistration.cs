@@ -93,9 +93,7 @@ internal sealed class XrpcEndpointRegistration
     /// </summary>
     public object[] Metadata { get; }
 
-    /// <summary>
-    /// Reads <typeparamref name="THandler"/>'s NSID and endpoint interface.
-    /// </summary>
+    /// <summary>Reads <typeparamref name="THandler"/>'s NSID and endpoint interface.</summary>
     /// <exception cref="InvalidOperationException">
     /// The handler implements no endpoint interface, or more than one, or its NSID is null.
     /// </exception>
@@ -153,8 +151,8 @@ internal sealed class XrpcEndpointRegistration
         async context =>
         {
             var parameters = XrpcQueryBinder<TParams>.Bind(context.Request.Query);
-            var output = await Handler<THandler>(context).HandleAsync(parameters, context, context.RequestAborted);
-            await WriteJsonAsync(context, output);
+            var output = await Handler<THandler>(context).HandleAsync(parameters, context, context.RequestAborted).ConfigureAwait(false);
+            await WriteJsonAsync(context, output).ConfigureAwait(false);
         };
 
     private static RequestDelegate QueryWithoutParameters<THandler, TOutput>()
@@ -162,8 +160,8 @@ internal sealed class XrpcEndpointRegistration
         where TOutput : class =>
         async context =>
         {
-            var output = await Handler<THandler>(context).HandleAsync(context, context.RequestAborted);
-            await WriteJsonAsync(context, output);
+            var output = await Handler<THandler>(context).HandleAsync(context, context.RequestAborted).ConfigureAwait(false);
+            await WriteJsonAsync(context, output).ConfigureAwait(false);
         };
 
     private static RequestDelegate BlobQuery<THandler, TParams>()
@@ -172,17 +170,19 @@ internal sealed class XrpcEndpointRegistration
         async context =>
         {
             var parameters = XrpcQueryBinder<TParams>.Bind(context.Request.Query);
-            var blob = await Handler<THandler>(context).HandleAsync(parameters, context, context.RequestAborted);
+            var blob = await Handler<THandler>(context).HandleAsync(parameters, context, context.RequestAborted).ConfigureAwait(false);
 
             // Streamed rather than buffered: a repo CAR is arbitrarily large.
+            #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
             await using var content = blob.Content;
+            #pragma warning restore CA2007
 
             var response = context.Response;
             response.ContentType = blob.ContentType;
             if (blob.ContentLength is { } length)
                 response.ContentLength = length;
 
-            await content.CopyToAsync(response.Body, context.RequestAborted);
+            await content.CopyToAsync(response.Body, context.RequestAborted).ConfigureAwait(false);
         };
 
     private static RequestDelegate Procedure<THandler, TInput, TOutput>()
@@ -191,9 +191,9 @@ internal sealed class XrpcEndpointRegistration
         where TOutput : class =>
         async context =>
         {
-            var input = await ReadJsonBodyAsync<TInput>(context);
-            var output = await Handler<THandler>(context).HandleAsync(input, context, context.RequestAborted);
-            await WriteJsonAsync(context, output);
+            var input = await ReadJsonBodyAsync<TInput>(context).ConfigureAwait(false);
+            var output = await Handler<THandler>(context).HandleAsync(input, context, context.RequestAborted).ConfigureAwait(false);
+            await WriteJsonAsync(context, output).ConfigureAwait(false);
         };
 
     private static RequestDelegate ProcedureWithoutInput<THandler, TOutput>()
@@ -201,8 +201,8 @@ internal sealed class XrpcEndpointRegistration
         where TOutput : class =>
         async context =>
         {
-            var output = await Handler<THandler>(context).HandleAsync(context, context.RequestAborted);
-            await WriteJsonAsync(context, output);
+            var output = await Handler<THandler>(context).HandleAsync(context, context.RequestAborted).ConfigureAwait(false);
+            await WriteJsonAsync(context, output).ConfigureAwait(false);
         };
 
     private static RequestDelegate ProcedureVoid<THandler, TInput>()
@@ -210,8 +210,8 @@ internal sealed class XrpcEndpointRegistration
         where TInput : class =>
         async context =>
         {
-            var input = await ReadJsonBodyAsync<TInput>(context);
-            await Handler<THandler>(context).HandleAsync(input, context, context.RequestAborted);
+            var input = await ReadJsonBodyAsync<TInput>(context).ConfigureAwait(false);
+            await Handler<THandler>(context).HandleAsync(input, context, context.RequestAborted).ConfigureAwait(false);
         };
 
     private static RequestDelegate ProcedureVoidWithoutInput<THandler>()
@@ -228,8 +228,8 @@ internal sealed class XrpcEndpointRegistration
                 throw new XrpcException(XrpcErrors.InvalidRequest, "Request encoding (Content-Type) required but not provided.");
 
             var input = new XrpcBlobInput(request.Body, request.ContentType, request.ContentLength);
-            var output = await Handler<THandler>(context).HandleAsync(input, context, context.RequestAborted);
-            await WriteJsonAsync(context, output);
+            var output = await Handler<THandler>(context).HandleAsync(input, context, context.RequestAborted).ConfigureAwait(false);
+            await WriteJsonAsync(context, output).ConfigureAwait(false);
         };
 
     // ── Shared steps ──────────────────────────────────────────
@@ -252,7 +252,7 @@ internal sealed class XrpcEndpointRegistration
 
         try
         {
-            return await request.ReadFromJsonAsync(XrpcJson<TInput>.TypeInfo, context.RequestAborted)
+            return await request.ReadFromJsonAsync(XrpcJson<TInput>.TypeInfo, context.RequestAborted).ConfigureAwait(false)
                    ?? throw new XrpcException(XrpcErrors.InvalidRequest, "Request body is required.");
         }
         catch (JsonException ex)

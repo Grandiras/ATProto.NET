@@ -26,17 +26,12 @@ public sealed class StandardSiteClient
         _repo = repo;
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Publications
-    // ──────────────────────────────────────────────────────────
+    // ── Publications ─────────────────────────────────────────
 
-    /// <summary>
-    /// Create a publication record.
-    /// </summary>
+    /// <summary>Create a publication record.</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
     /// <param name="record">The publication record to create.</param>
     /// <param name="rkey">Optional record key.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<RecordRef> CreatePublicationAsync(
         AtIdentifier repo,
         PublicationRecord record,
@@ -47,12 +42,9 @@ public sealed class StandardSiteClient
             cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get a publication record.
-    /// </summary>
+    /// <summary>Get a publication record.</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
     /// <param name="rkey">The record key.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<RecordView<PublicationRecord>> GetPublicationAsync(
         AtIdentifier repo,
         RecordKey rkey,
@@ -67,7 +59,6 @@ public sealed class StandardSiteClient
     /// <see cref="SubscriptionRecord.Publication"/>.
     /// </summary>
     /// <param name="uri">The publication's AT URI.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="ArgumentException"><paramref name="uri"/> does not name a publication record.</exception>
     public Task<RecordView<PublicationRecord>> GetPublicationAsync(
         AtUri uri,
@@ -77,14 +68,11 @@ public sealed class StandardSiteClient
         return GetPublicationAsync(uri.Repo, rkey, cancellationToken);
     }
 
-    /// <summary>
-    /// Update a publication record (put/upsert).
-    /// </summary>
+    /// <summary>Update a publication record (put/upsert).</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
     /// <param name="rkey">The record key.</param>
     /// <param name="record">The publication record to write.</param>
     /// <param name="swapRecord">Optional compare-and-swap guard: the CID the record must be at.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<RecordRef> PutPublicationAsync(
         AtIdentifier repo,
         RecordKey rkey,
@@ -96,12 +84,9 @@ public sealed class StandardSiteClient
             swapRecord: swapRecord, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Delete a publication record.
-    /// </summary>
+    /// <summary>Delete a publication record.</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
     /// <param name="rkey">The record key.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<DeleteRecordResponse> DeletePublicationAsync(
         AtIdentifier repo,
         RecordKey rkey,
@@ -111,13 +96,10 @@ public sealed class StandardSiteClient
             cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// List one page of the publication records in a repository.
-    /// </summary>
+    /// <summary>List one page of the publication records in a repository.</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
     /// <param name="limit">Maximum number of records (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<RecordPage<PublicationRecord>> ListPublicationsAsync(
         AtIdentifier repo,
         int? limit = null,
@@ -127,12 +109,9 @@ public sealed class StandardSiteClient
         return ListAsync<PublicationRecord>(repo, PublicationCollection, limit, cursor, cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate every publication record in a repository, fetching pages as needed.
-    /// </summary>
+    /// <summary>Enumerate every publication record in a repository, fetching pages as needed.</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
     /// <param name="pageSize">Records per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<RecordView<PublicationRecord>> EnumeratePublicationsAsync(
         AtIdentifier repo,
         int? pageSize = null,
@@ -141,17 +120,12 @@ public sealed class StandardSiteClient
             (cursor, ct) => ListPublicationsAsync(repo, pageSize, cursor, ct),
             cancellationToken);
 
-    // ──────────────────────────────────────────────────────────
-    //  Documents
-    // ──────────────────────────────────────────────────────────
+    // ── Documents ────────────────────────────────────────────
 
-    /// <summary>
-    /// Create a document record.
-    /// </summary>
+    /// <summary>Create a document record.</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
     /// <param name="record">The document record to create.</param>
     /// <param name="rkey">Optional record key.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<RecordRef> CreateDocumentAsync(
         AtIdentifier repo,
         DocumentRecord record,
@@ -162,12 +136,9 @@ public sealed class StandardSiteClient
             cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get a document record.
-    /// </summary>
+    /// <summary>Get a document record.</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
     /// <param name="rkey">The record key.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<RecordView<DocumentRecord>> GetDocumentAsync(
         AtIdentifier repo,
         RecordKey rkey,
@@ -177,11 +148,8 @@ public sealed class StandardSiteClient
             cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get the document record an AT URI names.
-    /// </summary>
+    /// <summary>Get the document record an AT URI names.</summary>
     /// <param name="uri">The document's AT URI.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="ArgumentException"><paramref name="uri"/> does not name a document record.</exception>
     public Task<RecordView<DocumentRecord>> GetDocumentAsync(
         AtUri uri,
@@ -191,14 +159,11 @@ public sealed class StandardSiteClient
         return GetDocumentAsync(uri.Repo, rkey, cancellationToken);
     }
 
-    /// <summary>
-    /// Update a document record (put/upsert).
-    /// </summary>
+    /// <summary>Update a document record (put/upsert).</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
     /// <param name="rkey">The record key.</param>
     /// <param name="record">The document record to write.</param>
     /// <param name="swapRecord">Optional compare-and-swap guard: the CID the record must be at.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<RecordRef> PutDocumentAsync(
         AtIdentifier repo,
         RecordKey rkey,
@@ -210,12 +175,9 @@ public sealed class StandardSiteClient
             swapRecord: swapRecord, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Delete a document record.
-    /// </summary>
+    /// <summary>Delete a document record.</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
     /// <param name="rkey">The record key.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<DeleteRecordResponse> DeleteDocumentAsync(
         AtIdentifier repo,
         RecordKey rkey,
@@ -225,13 +187,10 @@ public sealed class StandardSiteClient
             cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// List one page of the document records in a repository.
-    /// </summary>
+    /// <summary>List one page of the document records in a repository.</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
     /// <param name="limit">Maximum number of records (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<RecordPage<DocumentRecord>> ListDocumentsAsync(
         AtIdentifier repo,
         int? limit = null,
@@ -241,12 +200,9 @@ public sealed class StandardSiteClient
         return ListAsync<DocumentRecord>(repo, DocumentCollection, limit, cursor, cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate every document record in a repository, fetching pages as needed.
-    /// </summary>
+    /// <summary>Enumerate every document record in a repository, fetching pages as needed.</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
     /// <param name="pageSize">Records per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<RecordView<DocumentRecord>> EnumerateDocumentsAsync(
         AtIdentifier repo,
         int? pageSize = null,
@@ -255,17 +211,12 @@ public sealed class StandardSiteClient
             (cursor, ct) => ListDocumentsAsync(repo, pageSize, cursor, ct),
             cancellationToken);
 
-    // ──────────────────────────────────────────────────────────
-    //  Subscriptions
-    // ──────────────────────────────────────────────────────────
+    // ── Subscriptions ────────────────────────────────────────
 
-    /// <summary>
-    /// Subscribe to a publication.
-    /// </summary>
+    /// <summary>Subscribe to a publication.</summary>
     /// <param name="repo">The DID or handle of the subscriber.</param>
     /// <param name="record">The subscription record.</param>
     /// <param name="rkey">Optional record key.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<RecordRef> CreateSubscriptionAsync(
         AtIdentifier repo,
         SubscriptionRecord record,
@@ -276,12 +227,9 @@ public sealed class StandardSiteClient
             cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get a subscription record.
-    /// </summary>
+    /// <summary>Get a subscription record.</summary>
     /// <param name="repo">The DID or handle of the subscriber.</param>
     /// <param name="rkey">The record key.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<RecordView<SubscriptionRecord>> GetSubscriptionAsync(
         AtIdentifier repo,
         RecordKey rkey,
@@ -291,11 +239,8 @@ public sealed class StandardSiteClient
             cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get the subscription record an AT URI names.
-    /// </summary>
+    /// <summary>Get the subscription record an AT URI names.</summary>
     /// <param name="uri">The subscription's AT URI.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="ArgumentException"><paramref name="uri"/> does not name a subscription record.</exception>
     public Task<RecordView<SubscriptionRecord>> GetSubscriptionAsync(
         AtUri uri,
@@ -305,12 +250,9 @@ public sealed class StandardSiteClient
         return GetSubscriptionAsync(uri.Repo, rkey, cancellationToken);
     }
 
-    /// <summary>
-    /// Unsubscribe from a publication (delete the subscription record).
-    /// </summary>
+    /// <summary>Unsubscribe from a publication (delete the subscription record).</summary>
     /// <param name="repo">The DID or handle of the subscriber.</param>
     /// <param name="rkey">The record key.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<DeleteRecordResponse> DeleteSubscriptionAsync(
         AtIdentifier repo,
         RecordKey rkey,
@@ -320,13 +262,10 @@ public sealed class StandardSiteClient
             cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// List one page of the subscription records in a repository.
-    /// </summary>
+    /// <summary>List one page of the subscription records in a repository.</summary>
     /// <param name="repo">The DID or handle of the subscriber.</param>
     /// <param name="limit">Maximum number of records (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<RecordPage<SubscriptionRecord>> ListSubscriptionsAsync(
         AtIdentifier repo,
         int? limit = null,
@@ -336,12 +275,9 @@ public sealed class StandardSiteClient
         return ListAsync<SubscriptionRecord>(repo, SubscriptionCollection, limit, cursor, cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate every subscription record in a repository, fetching pages as needed.
-    /// </summary>
+    /// <summary>Enumerate every subscription record in a repository, fetching pages as needed.</summary>
     /// <param name="repo">The DID or handle of the subscriber.</param>
     /// <param name="pageSize">Records per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<RecordView<SubscriptionRecord>> EnumerateSubscriptionsAsync(
         AtIdentifier repo,
         int? pageSize = null,
@@ -350,17 +286,12 @@ public sealed class StandardSiteClient
             (cursor, ct) => ListSubscriptionsAsync(repo, pageSize, cursor, ct),
             cancellationToken);
 
-    // ──────────────────────────────────────────────────────────
-    //  Recommendations
-    // ──────────────────────────────────────────────────────────
+    // ── Recommendations ──────────────────────────────────────
 
-    /// <summary>
-    /// Recommend a document.
-    /// </summary>
+    /// <summary>Recommend a document.</summary>
     /// <param name="repo">The DID or handle of the recommending account.</param>
     /// <param name="record">The recommendation record.</param>
     /// <param name="rkey">Optional record key; a TID is generated when omitted.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<RecordRef> CreateRecommendationAsync(
         AtIdentifier repo,
         RecommendRecord record,
@@ -371,12 +302,9 @@ public sealed class StandardSiteClient
             cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get a recommendation record.
-    /// </summary>
+    /// <summary>Get a recommendation record.</summary>
     /// <param name="repo">The DID or handle of the recommending account.</param>
     /// <param name="rkey">The record key.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<RecordView<RecommendRecord>> GetRecommendationAsync(
         AtIdentifier repo,
         RecordKey rkey,
@@ -386,11 +314,8 @@ public sealed class StandardSiteClient
             cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get the recommendation record an AT URI names.
-    /// </summary>
+    /// <summary>Get the recommendation record an AT URI names.</summary>
     /// <param name="uri">The recommendation's AT URI.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="ArgumentException"><paramref name="uri"/> does not name a recommendation record.</exception>
     public Task<RecordView<RecommendRecord>> GetRecommendationAsync(
         AtUri uri,
@@ -400,12 +325,9 @@ public sealed class StandardSiteClient
         return GetRecommendationAsync(uri.Repo, rkey, cancellationToken);
     }
 
-    /// <summary>
-    /// Withdraw a recommendation (delete the recommendation record).
-    /// </summary>
+    /// <summary>Withdraw a recommendation (delete the recommendation record).</summary>
     /// <param name="repo">The DID or handle of the recommending account.</param>
     /// <param name="rkey">The record key.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<DeleteRecordResponse> DeleteRecommendationAsync(
         AtIdentifier repo,
         RecordKey rkey,
@@ -415,13 +337,10 @@ public sealed class StandardSiteClient
             cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// List one page of the recommendation records in a repository.
-    /// </summary>
+    /// <summary>List one page of the recommendation records in a repository.</summary>
     /// <param name="repo">The DID or handle of the recommending account.</param>
     /// <param name="limit">Maximum number of records (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<RecordPage<RecommendRecord>> ListRecommendationsAsync(
         AtIdentifier repo,
         int? limit = null,
@@ -431,12 +350,9 @@ public sealed class StandardSiteClient
         return ListAsync<RecommendRecord>(repo, RecommendCollection, limit, cursor, cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate every recommendation record in a repository, fetching pages as needed.
-    /// </summary>
+    /// <summary>Enumerate every recommendation record in a repository, fetching pages as needed.</summary>
     /// <param name="repo">The DID or handle of the recommending account.</param>
     /// <param name="pageSize">Records per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<RecordView<RecommendRecord>> EnumerateRecommendationsAsync(
         AtIdentifier repo,
         int? pageSize = null,

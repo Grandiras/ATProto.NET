@@ -4,9 +4,7 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Signature;
 
-/// <summary>
-/// A signature correlation result.
-/// </summary>
+/// <summary>A signature correlation result.</summary>
 public sealed class SigDetail : LexObject
 {
     /// <summary>The name of the account property the signature was derived from.</summary>
@@ -18,9 +16,7 @@ public sealed class SigDetail : LexObject
     public required string Value { get; init; }
 }
 
-/// <summary>
-/// A related account.
-/// </summary>
+/// <summary>A related account.</summary>
 public sealed class RelatedAccount : LexObject
 {
     /// <summary>The related account.</summary>
@@ -32,9 +28,7 @@ public sealed class RelatedAccount : LexObject
     public IReadOnlyList<SigDetail>? Similarities { get; init; }
 }
 
-/// <summary>
-/// Response from findCorrelation.
-/// </summary>
+/// <summary>Response from findCorrelation.</summary>
 public sealed class FindCorrelationResponse
 {
     /// <summary>The correlated signature values.</summary>
@@ -42,9 +36,7 @@ public sealed class FindCorrelationResponse
     public required IReadOnlyList<SigDetail> Details { get; init; }
 }
 
-/// <summary>
-/// Response from searchAccounts.
-/// </summary>
+/// <summary>Response from searchAccounts.</summary>
 public sealed class SearchAccountsResponse : ICursorPage<AccountInfo>
 {
     /// <summary>
@@ -61,9 +53,7 @@ public sealed class SearchAccountsResponse : ICursorPage<AccountInfo>
     IReadOnlyList<AccountInfo> ICursorPage<AccountInfo>.Items => Accounts;
 }
 
-/// <summary>
-/// Response from findRelatedAccounts.
-/// </summary>
+/// <summary>Response from findRelatedAccounts.</summary>
 public sealed class FindRelatedAccountsResponse : ICursorPage<RelatedAccount>
 {
     /// <summary>

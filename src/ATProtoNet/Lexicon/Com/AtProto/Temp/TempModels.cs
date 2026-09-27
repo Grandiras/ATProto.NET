@@ -6,22 +6,16 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Temp;
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.temp.checkHandleAvailability
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.temp.checkHandleAvailability ─────────────────
 
-/// <summary>
-/// Response from checkHandleAvailability: whether a handle is free, and if not, suggestions.
-/// </summary>
+/// <summary>Response from checkHandleAvailability: whether a handle is free, and if not, suggestions.</summary>
 public sealed class CheckHandleAvailabilityResponse
 {
     /// <summary>The handle that was checked.</summary>
     [JsonPropertyName("handle")]
     public required Handle Handle { get; init; }
 
-    /// <summary>
-    /// <see cref="HandleAvailable"/>, or <see cref="HandleUnavailable"/> with suggestions.
-    /// </summary>
+    /// <summary><see cref="HandleAvailable"/>, or <see cref="HandleUnavailable"/> with suggestions.</summary>
     [JsonPropertyName("result")]
     public required HandleAvailabilityResult Result { get; init; }
 
@@ -73,9 +67,7 @@ public sealed class HandleUnavailable : HandleAvailabilityResult
     public required IReadOnlyList<HandleSuggestion> Suggestions { get; init; }
 }
 
-/// <summary>
-/// An available handle the server suggests in place of a taken one.
-/// </summary>
+/// <summary>An available handle the server suggests in place of a taken one.</summary>
 public sealed class HandleSuggestion : LexObject
 {
     /// <summary>The suggested handle.</summary>
@@ -87,13 +79,9 @@ public sealed class HandleSuggestion : LexObject
     public required string Method { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.temp.checkSignupQueue
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.temp.checkSignupQueue ────────────────────────
 
-/// <summary>
-/// Response from checkSignupQueue: where the signed-in account is in the signup queue.
-/// </summary>
+/// <summary>Response from checkSignupQueue: where the signed-in account is in the signup queue.</summary>
 public sealed class CheckSignupQueueResponse
 {
     /// <summary>Whether the account has been activated.</summary>
@@ -109,13 +97,9 @@ public sealed class CheckSignupQueueResponse
     public long? EstimatedTimeMs { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.temp.dereferenceScope
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.temp.dereferenceScope ────────────────────────
 
-/// <summary>
-/// Response from dereferenceScope.
-/// </summary>
+/// <summary>Response from dereferenceScope.</summary>
 internal sealed class DereferenceScopeResponse
 {
     /// <summary>The full OAuth permission scope.</summary>
@@ -123,13 +107,9 @@ internal sealed class DereferenceScopeResponse
     public required string Scope { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.temp.requestPhoneVerification
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.temp.requestPhoneVerification ────────────────
 
-/// <summary>
-/// Request body for requestPhoneVerification.
-/// </summary>
+/// <summary>Request body for requestPhoneVerification.</summary>
 internal sealed class RequestPhoneVerificationRequest
 {
     /// <summary>The phone number to send the code to.</summary>
@@ -137,13 +117,9 @@ internal sealed class RequestPhoneVerificationRequest
     public required string PhoneNumber { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.temp.revokeAccountCredentials
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.temp.revokeAccountCredentials ────────────────
 
-/// <summary>
-/// Request body for revokeAccountCredentials.
-/// </summary>
+/// <summary>Request body for revokeAccountCredentials.</summary>
 internal sealed class RevokeAccountCredentialsRequest
 {
     /// <summary>The account whose credentials to revoke.</summary>

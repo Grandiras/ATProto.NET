@@ -1,8 +1,6 @@
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// The Lexicon NSIDs the space server implements, grouped by who serves them.
-/// </summary>
+/// <summary>The Lexicon NSIDs the space server implements, grouped by who serves them.</summary>
 public static class SpaceNsids
 {
     // ── Served by a repo host ─────────────────────────────────

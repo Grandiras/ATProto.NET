@@ -4,9 +4,7 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Communication;
 
-/// <summary>
-/// A communication template used for moderation emails.
-/// </summary>
+/// <summary>A communication template used for moderation emails.</summary>
 public sealed class CommunicationTemplateView : LexObject
 {
     /// <summary>The identifier of the template.</summary>
@@ -46,9 +44,7 @@ public sealed class CommunicationTemplateView : LexObject
     public required AtDatetime UpdatedAt { get; init; }
 }
 
-/// <summary>
-/// Request to create a communication template.
-/// </summary>
+/// <summary>Request to create a communication template.</summary>
 public sealed class CreateTemplateRequest
 {
     /// <summary>The name of the template.</summary>
@@ -72,9 +68,7 @@ public sealed class CreateTemplateRequest
     public Did? CreatedBy { get; init; }
 }
 
-/// <summary>
-/// Request to update a communication template.
-/// </summary>
+/// <summary>Request to update a communication template.</summary>
 public sealed class UpdateTemplateRequest
 {
     /// <summary>The identifier of the template to update.</summary>
@@ -106,9 +100,7 @@ public sealed class UpdateTemplateRequest
     public bool? Disabled { get; init; }
 }
 
-/// <summary>
-/// Request to delete a communication template.
-/// </summary>
+/// <summary>Request to delete a communication template.</summary>
 internal sealed class DeleteTemplateRequest
 {
     /// <summary>The identifier of the template to delete.</summary>
@@ -116,9 +108,7 @@ internal sealed class DeleteTemplateRequest
     public required string Id { get; init; }
 }
 
-/// <summary>
-/// Response from listTemplates.
-/// </summary>
+/// <summary>Response from listTemplates.</summary>
 public sealed class ListTemplatesResponse
 {
     /// <summary>The communication templates.</summary>

@@ -6,9 +6,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Lexicon;
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.lexicon.schema
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.lexicon.schema ───────────────────────────────
 
 /// <summary>
 /// A Lexicon schema published as a record (<c>com.atproto.lexicon.schema</c>), keyed by its NSID
@@ -59,9 +57,7 @@ public sealed class LexiconSchemaRecord : LexObject, IAtProtoRecord
             ? type.GetString()
             : null;
 
-    /// <summary>
-    /// The <c>main</c> definition as a permission set.
-    /// </summary>
+    /// <summary>The <c>main</c> definition as a permission set.</summary>
     /// <returns>The permission set, or <see langword="null"/> when <c>main</c> is not one.</returns>
     /// <exception cref="JsonException">The <c>main</c> definition is a permission set but is malformed.</exception>
     public LexiconPermissionSet? GetPermissionSet() =>
@@ -71,9 +67,7 @@ public sealed class LexiconSchemaRecord : LexObject, IAtProtoRecord
             : null;
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.lexicon.resolveLexicon
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.lexicon.resolveLexicon ───────────────────────
 
 /// <summary>
 /// A resolved Lexicon schema: the schema record and where it was found. The output of
@@ -94,9 +88,7 @@ public sealed class ResolvedLexicon
     public required LexiconSchemaRecord Schema { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Permission sets (the permission-set definition type)
-// ──────────────────────────────────────────────────────────────
+// ── Permission sets (the permission-set definition type) ─────
 
 /// <summary>
 /// A permission set: a bundle of OAuth permissions an app requests with one
@@ -137,9 +129,7 @@ public sealed class LexiconPermissionSet : LexObject
     public required IReadOnlyList<LexiconPermission> Permissions { get; init; }
 }
 
-/// <summary>
-/// One permission of a <see cref="LexiconPermissionSet"/>, in its Lexicon form.
-/// </summary>
+/// <summary>One permission of a <see cref="LexiconPermissionSet"/>, in its Lexicon form.</summary>
 /// <remarks>
 /// Values are kept as published, not parsed into identifier types: a set may carry permissions an
 /// authorization server has to ignore (a wildcard, an unknown resource), and those must not make

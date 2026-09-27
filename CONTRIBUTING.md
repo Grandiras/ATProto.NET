@@ -104,6 +104,14 @@ available, say), set `ATPROTO_TEST_HANDLE` / `ATPROTO_TEST_PASSWORD` — when bo
 - Enable nullable reference types everywhere
 - XML-document all public APIs
 
+### Public API tracking
+
+Every packable project (all of `src/` except `ATProtoNet.Aspire.Hosting`'s tool dependency,
+`tools/ATProtoNet.LexiconGenerator`, which has none) declares its surface in `PublicAPI.Shipped.txt`
+and `PublicAPI.Unshipped.txt`. Adding, changing or removing a public member goes in
+`PublicAPI.Unshipped.txt` in the same commit (RS0016/RS0017 fail the build otherwise); a release
+moves `Unshipped`'s entries into `Shipped` and empties `Unshipped`.
+
 ### Naming
 
 - Follow [.NET naming conventions](https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/identifier-names)

@@ -7,9 +7,7 @@ using System.Runtime.Intrinsics;
 
 namespace ATProtoNet.Crypto;
 
-/// <summary>
-/// BLAKE3 in extendable-output (XOF) mode.
-/// </summary>
+/// <summary>BLAKE3 in extendable-output (XOF) mode.</summary>
 /// <remarks>
 /// <para>Only the unkeyed hash mode is implemented, which is the only mode the AT Protocol
 /// uses: permissioned-space <see cref="Spaces.LtHash"/> expands each set element to 2048 bytes
@@ -77,9 +75,7 @@ internal static class Blake3
         return output;
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Tree
-    // ──────────────────────────────────────────────────────────
+    // ── Tree ─────────────────────────────────────────────────
 
     /// <summary>
     /// A node's compression inputs, held back so the node can be finalized either as an
@@ -228,9 +224,7 @@ internal static class Blake3
         }
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Compression function
-    // ──────────────────────────────────────────────────────────
+    // ── Compression function ─────────────────────────────────
 
     private static ChainingValue CompressToChainingValue(
         in ChainingValue cv, in Words16<uint> block, ulong counter, uint blockLen, uint flags)
@@ -368,9 +362,7 @@ internal static class Blake3
         }
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Lane types
-    // ──────────────────────────────────────────────────────────
+    // ── Lane types ───────────────────────────────────────────
 
     /// <summary>The word arithmetic of the compression function, over one or more lanes.</summary>
     private interface ILanes<T> where T : struct
@@ -496,9 +488,7 @@ internal static class Blake3
             => Vector256.ShiftRightLogical(value, count) | Vector256.ShiftLeft(value, 32 - count);
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Fixed-size buffers (stack-only, bounds-checked)
-    // ──────────────────────────────────────────────────────────
+    // ── Fixed-size buffers (stack-only, bounds-checked) ──────
 
     [InlineArray(8)]
     private struct ChainingValue

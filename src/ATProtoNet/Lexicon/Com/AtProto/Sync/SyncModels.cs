@@ -1,13 +1,10 @@
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using ATProtoNet.Identity;
 using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Sync;
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.sync.defs
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.sync.defs ────────────────────────────────────
 
 /// <summary>
 /// Known account hosting statuses as defined by the AT Protocol spec.
@@ -56,13 +53,9 @@ public static class HostStatus
     public const string Banned = "banned";
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.sync.getLatestCommit
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.sync.getLatestCommit ─────────────────────────
 
-/// <summary>
-/// Response from getLatestCommit.
-/// </summary>
+/// <summary>Response from getLatestCommit.</summary>
 public sealed class GetLatestCommitResponse
 {
     /// <summary>The CID of the latest commit.</summary>
@@ -74,13 +67,9 @@ public sealed class GetLatestCommitResponse
     public required Tid Rev { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.sync.listBlobs
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.sync.listBlobs ───────────────────────────────
 
-/// <summary>
-/// Response from listBlobs.
-/// </summary>
+/// <summary>Response from listBlobs.</summary>
 public sealed class ListBlobsResponse : ICursorPage<Cid>
 {
     /// <summary>
@@ -97,13 +86,9 @@ public sealed class ListBlobsResponse : ICursorPage<Cid>
     IReadOnlyList<Cid> ICursorPage<Cid>.Items => Cids;
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.sync.listRepos
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.sync.listRepos ───────────────────────────────
 
-/// <summary>
-/// A single repo entry from listRepos.
-/// </summary>
+/// <summary>A single repo entry from listRepos.</summary>
 public sealed class RepoInfo : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -118,9 +103,7 @@ public sealed class RepoInfo : LexObject
     [JsonPropertyName("rev")]
     public required Tid Rev { get; init; }
 
-    /// <summary>
-    /// Whether the account is active (not deactivated, suspended, or taken down).
-    /// </summary>
+    /// <summary>Whether the account is active (not deactivated, suspended, or taken down).</summary>
     [JsonPropertyName("active")]
     public bool? Active { get; init; }
 
@@ -129,9 +112,7 @@ public sealed class RepoInfo : LexObject
     public string? Status { get; init; }
 }
 
-/// <summary>
-/// Response from listRepos.
-/// </summary>
+/// <summary>Response from listRepos.</summary>
 public sealed class ListReposResponse : ICursorPage<RepoInfo>
 {
     /// <summary>
@@ -148,13 +129,9 @@ public sealed class ListReposResponse : ICursorPage<RepoInfo>
     IReadOnlyList<RepoInfo> ICursorPage<RepoInfo>.Items => Repos;
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.sync.notifyOfUpdate / requestCrawl
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.sync.notifyOfUpdate / requestCrawl ───────────
 
-/// <summary>
-/// Request body for notifyOfUpdate.
-/// </summary>
+/// <summary>Request body for notifyOfUpdate.</summary>
 internal sealed class NotifyOfUpdateRequest
 {
     /// <summary>The hostname of the host to crawl or that was updated.</summary>
@@ -162,9 +139,7 @@ internal sealed class NotifyOfUpdateRequest
     public required string Hostname { get; init; }
 }
 
-/// <summary>
-/// Request body for requestCrawl.
-/// </summary>
+/// <summary>Request body for requestCrawl.</summary>
 internal sealed class RequestCrawlRequest
 {
     /// <summary>The hostname of the host to crawl or that was updated.</summary>
@@ -172,22 +147,16 @@ internal sealed class RequestCrawlRequest
     public required string Hostname { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.sync.getRepoStatus
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.sync.getRepoStatus ───────────────────────────
 
-/// <summary>
-/// Response from getRepoStatus. Returns the hosting status for a repository.
-/// </summary>
+/// <summary>Response from getRepoStatus. Returns the hosting status for a repository.</summary>
 public sealed class GetRepoStatusResponse
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
     public required Did Did { get; init; }
 
-    /// <summary>
-    /// Whether the account is active (not deactivated, suspended, or taken down).
-    /// </summary>
+    /// <summary>Whether the account is active (not deactivated, suspended, or taken down).</summary>
     [JsonPropertyName("active")]
     public required bool Active { get; init; }
 
@@ -198,50 +167,34 @@ public sealed class GetRepoStatusResponse
     [JsonPropertyName("status")]
     public string? Status { get; init; }
 
-    /// <summary>
-    /// The current rev of the repo, if active=true.
-    /// </summary>
+    /// <summary>The current rev of the repo, if active=true.</summary>
     [JsonPropertyName("rev")]
     public Tid? Rev { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.sync.listHosts
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.sync.listHosts ───────────────────────────────
 
-/// <summary>
-/// Information about an upstream host (PDS or relay) consumed by a relay.
-/// </summary>
+/// <summary>Information about an upstream host (PDS or relay) consumed by a relay.</summary>
 public sealed class HostInfo : LexObject
 {
-    /// <summary>
-    /// Hostname of the server (not a URL, no scheme).
-    /// </summary>
+    /// <summary>Hostname of the server (not a URL, no scheme).</summary>
     [JsonPropertyName("hostname")]
     public required string Hostname { get; init; }
 
-    /// <summary>
-    /// Recent repo stream event sequence number.
-    /// </summary>
+    /// <summary>Recent repo stream event sequence number.</summary>
     [JsonPropertyName("seq")]
     public long? Seq { get; init; }
 
-    /// <summary>
-    /// Number of accounts associated with this host.
-    /// </summary>
+    /// <summary>Number of accounts associated with this host.</summary>
     [JsonPropertyName("accountCount")]
     public int? AccountCount { get; init; }
 
-    /// <summary>
-    /// Status of the host. See <see cref="HostStatus"/> for known values.
-    /// </summary>
+    /// <summary>Status of the host. See <see cref="HostStatus"/> for known values.</summary>
     [JsonPropertyName("status")]
     public string? Status { get; init; }
 }
 
-/// <summary>
-/// Response from listHosts. Enumerates upstream hosts consumed by a relay.
-/// </summary>
+/// <summary>Response from listHosts. Enumerates upstream hosts consumed by a relay.</summary>
 public sealed class ListHostsResponse : ICursorPage<HostInfo>
 {
     /// <summary>
@@ -258,45 +211,31 @@ public sealed class ListHostsResponse : ICursorPage<HostInfo>
     IReadOnlyList<HostInfo> ICursorPage<HostInfo>.Items => Hosts;
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.sync.getHostStatus
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.sync.getHostStatus ───────────────────────────
 
-/// <summary>
-/// Response from getHostStatus. Returns information about a specified upstream host.
-/// </summary>
+/// <summary>Response from getHostStatus. Returns information about a specified upstream host.</summary>
 public sealed class GetHostStatusResponse
 {
     /// <summary>The hostname of the host to crawl or that was updated.</summary>
     [JsonPropertyName("hostname")]
     public required string Hostname { get; init; }
 
-    /// <summary>
-    /// Recent repo stream event sequence number.
-    /// </summary>
+    /// <summary>Recent repo stream event sequence number.</summary>
     [JsonPropertyName("seq")]
     public long? Seq { get; init; }
 
-    /// <summary>
-    /// Number of accounts on the server associated with the upstream host.
-    /// </summary>
+    /// <summary>Number of accounts on the server associated with the upstream host.</summary>
     [JsonPropertyName("accountCount")]
     public int? AccountCount { get; init; }
 
-    /// <summary>
-    /// Status of the host. See <see cref="HostStatus"/> for known values.
-    /// </summary>
+    /// <summary>Status of the host. See <see cref="HostStatus"/> for known values.</summary>
     [JsonPropertyName("status")]
     public string? Status { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.sync.listReposByCollection
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.sync.listReposByCollection ───────────────────
 
-/// <summary>
-/// A repo entry from listReposByCollection (DID only).
-/// </summary>
+/// <summary>A repo entry from listReposByCollection (DID only).</summary>
 public sealed class CollectionRepoInfo : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -324,9 +263,7 @@ public sealed class ListReposByCollectionResponse : ICursorPage<CollectionRepoIn
     IReadOnlyList<CollectionRepoInfo> ICursorPage<CollectionRepoInfo>.Items => Repos;
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.sync.subscribeRepos (event stream messages)
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.sync.subscribeRepos (event stream messages) ──
 
 /// <summary>
 /// A message of the <c>com.atproto.sync.subscribeRepos</c> event stream: a sequenced
@@ -359,9 +296,7 @@ public abstract class FirehoseEvent : FirehoseMessage
     public AtDatetime? Time { get; init; }
 }
 
-/// <summary>
-/// A commit event from the firehose. Indicates a repository commit.
-/// </summary>
+/// <summary>A commit event from the firehose. Indicates a repository commit.</summary>
 public sealed class CommitEvent : FirehoseEvent
 {
     /// <summary>The DID of the repository the commit belongs to.</summary>
@@ -432,9 +367,7 @@ public enum RepoOpAction
     Delete,
 }
 
-/// <summary>
-/// A single operation within a commit.
-/// </summary>
+/// <summary>A single operation within a commit.</summary>
 public sealed class RepoOp
 {
     /// <summary>What the operation did to the record.</summary>
@@ -478,9 +411,7 @@ public sealed class SyncEvent : FirehoseEvent
     public required Tid Rev { get; init; }
 }
 
-/// <summary>
-/// An identity event – a DID document was updated.
-/// </summary>
+/// <summary>An identity event – a DID document was updated.</summary>
 public sealed class IdentityEvent : FirehoseEvent
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -492,18 +423,14 @@ public sealed class IdentityEvent : FirehoseEvent
     public Handle? Handle { get; init; }
 }
 
-/// <summary>
-/// An account status event.
-/// </summary>
+/// <summary>An account status event.</summary>
 public sealed class AccountEvent : FirehoseEvent
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
     [JsonPropertyName("did")]
     public required Did Did { get; init; }
 
-    /// <summary>
-    /// Whether the account is active (not deactivated, suspended, or taken down).
-    /// </summary>
+    /// <summary>Whether the account is active (not deactivated, suspended, or taken down).</summary>
     [JsonPropertyName("active")]
     public bool Active { get; init; }
 

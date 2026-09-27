@@ -41,9 +41,7 @@ public sealed class HandleResolver : IHandleResolver, IDisposable
     private readonly Uri? _dnsOverHttpsUrl;
     private readonly ILogger _logger;
 
-    /// <summary>
-    /// Creates a resolver with its own client under the SDK's identity fetch policy.
-    /// </summary>
+    /// <summary>Creates a resolver with its own client under the SDK's identity fetch policy.</summary>
     /// <param name="options">Resolver options. Defaults apply when omitted.</param>
     /// <param name="logger">Optional logger.</param>
     public HandleResolver(IdentityResolverOptions? options = null, ILogger? logger = null)
@@ -51,9 +49,7 @@ public sealed class HandleResolver : IHandleResolver, IDisposable
     {
     }
 
-    /// <summary>
-    /// Creates a resolver that sends its requests through <paramref name="httpClient"/>.
-    /// </summary>
+    /// <summary>Creates a resolver that sends its requests through <paramref name="httpClient"/>.</summary>
     /// <param name="httpClient">
     /// The client to use, which the caller owns. Its handler is used as is: the connection-level
     /// address check applies only to the SDK's own handler.

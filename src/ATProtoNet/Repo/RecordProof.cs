@@ -32,9 +32,7 @@ public static class RecordProof
     /// <summary>The CID codec of a DAG-CBOR block.</summary>
     private const byte DagCborCodec = 0x71;
 
-    /// <summary>
-    /// Verifies a record proof and returns the record it proves, or proof that there is none.
-    /// </summary>
+    /// <summary>Verifies a record proof and returns the record it proves, or proof that there is none.</summary>
     /// <param name="car">The CAR file, as <c>com.atproto.sync.getRecord</c> returned it.</param>
     /// <param name="did">The repository the proof must be for.</param>
     /// <param name="collection">The record's collection.</param>
@@ -72,9 +70,7 @@ public static class RecordProof
         return VerifyBlocks(reader, did, collection, rkey, signingKey);
     }
 
-    /// <summary>
-    /// Verifies a parsed proof whose block CIDs <see cref="CarReader.FromBytes"/> has already checked.
-    /// </summary>
+    /// <summary>Verifies a parsed proof whose block CIDs <see cref="CarReader.FromBytes"/> has already checked.</summary>
     private static VerifiedRecord VerifyBlocks(CarReader car, Did did, Nsid collection, RecordKey rkey, string signingKey)
     {
         if (car.Roots.Count != 1)
@@ -337,9 +333,7 @@ public sealed class VerifiedRecord
     public JsonElement? Value { get; }
 }
 
-/// <summary>
-/// Thrown when repository data — a record proof, a commit or the tree under it — fails verification.
-/// </summary>
+/// <summary>Thrown when repository data — a record proof, a commit or the tree under it — fails verification.</summary>
 public sealed class RepoVerificationException : AtProtoException
 {
     /// <summary>Creates a new exception with the given message.</summary>

@@ -1,8 +1,6 @@
 namespace ATProtoNet.Http;
 
-/// <summary>
-/// How the client handles HTTP 429 (Too Many Requests).
-/// </summary>
+/// <summary>How the client handles HTTP 429 (Too Many Requests).</summary>
 /// <remarks>
 /// <para>On a 429 the client waits as long as the service asks — <c>Retry-After</c> in seconds
 /// or as an HTTP date, otherwise until <c>RateLimit-Reset</c> — plus a little jitter, and
@@ -34,9 +32,7 @@ public sealed class XrpcRateLimitOptions
         }
     }
 
-    /// <summary>
-    /// The longest single wait the client accepts before retrying. Default: 30 seconds.
-    /// </summary>
+    /// <summary>The longest single wait the client accepts before retrying. Default: 30 seconds.</summary>
     /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
     public TimeSpan MaxDelay
     {

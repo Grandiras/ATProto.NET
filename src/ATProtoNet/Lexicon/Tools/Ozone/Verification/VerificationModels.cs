@@ -135,9 +135,7 @@ public sealed class RevokeError : LexObject
 
 // ─── Request / Response Models ───
 
-/// <summary>
-/// Request body for tools.ozone.verification.grantVerifications.
-/// </summary>
+/// <summary>Request body for tools.ozone.verification.grantVerifications.</summary>
 internal sealed class GrantVerificationsRequest
 {
     /// <summary>The accounts to verify.</summary>
@@ -145,9 +143,7 @@ internal sealed class GrantVerificationsRequest
     public required IReadOnlyList<VerificationInput> Verifications { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.verification.grantVerifications.
-/// </summary>
+/// <summary>Response from tools.ozone.verification.grantVerifications.</summary>
 public sealed class GrantVerificationsResponse
 {
     /// <summary>The verifications created.</summary>
@@ -159,9 +155,7 @@ public sealed class GrantVerificationsResponse
     public required IReadOnlyList<GrantError> FailedVerifications { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.verification.listVerifications.
-/// </summary>
+/// <summary>Response from tools.ozone.verification.listVerifications.</summary>
 public sealed class ListVerificationsResponse : ICursorPage<VerificationView>
 {
     /// <summary>
@@ -178,9 +172,7 @@ public sealed class ListVerificationsResponse : ICursorPage<VerificationView>
     IReadOnlyList<VerificationView> ICursorPage<VerificationView>.Items => Verifications;
 }
 
-/// <summary>
-/// Request body for tools.ozone.verification.revokeVerifications.
-/// </summary>
+/// <summary>Request body for tools.ozone.verification.revokeVerifications.</summary>
 internal sealed class RevokeVerificationsRequest
 {
     /// <summary>The verification records to revoke.</summary>
@@ -192,9 +184,7 @@ internal sealed class RevokeVerificationsRequest
     public string? RevokeReason { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.verification.revokeVerifications.
-/// </summary>
+/// <summary>Response from tools.ozone.verification.revokeVerifications.</summary>
 public sealed class RevokeVerificationsResponse
 {
     /// <summary>The verification records revoked.</summary>

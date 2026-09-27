@@ -2,9 +2,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Auth;
 
-/// <summary>
-/// The value syntax of service auth tokens, shared by the generator and the server-side verifier.
-/// </summary>
+/// <summary>The value syntax of service auth tokens, shared by the generator and the server-side verifier.</summary>
 internal static class ServiceAuthSyntax
 {
     /// <summary>

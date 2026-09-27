@@ -4,9 +4,7 @@ using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// A space as <c>com.atproto.simplespace</c> stores it.
-/// </summary>
+/// <summary>A space as <c>com.atproto.simplespace</c> stores it.</summary>
 /// <param name="Uri">The space.</param>
 /// <param name="Owner">The DID of the account that created it, and the only one that may administer it.</param>
 /// <param name="ReadPolicy">How the authority decides whether to authorize a user to read the space.</param>
@@ -46,72 +44,43 @@ public sealed record SimpleSpaceRecord(
 /// </remarks>
 public interface ISimpleSpaceStore
 {
-    /// <summary>
-    /// Reads a space's configuration.
-    /// </summary>
-    /// <param name="space">The space.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <summary>Reads a space's configuration.</summary>
     /// <returns>The space, or <see langword="null"/> when it has never existed.</returns>
     Task<SimpleSpaceRecord?> GetSpaceAsync(SpaceUri space, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Creates a space.
-    /// </summary>
+    /// <summary>Creates a space.</summary>
     /// <param name="space">The space to create.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns><see langword="false"/> when a space with this owner, type, and key already exists.</returns>
     Task<bool> CreateSpaceAsync(SimpleSpaceRecord space, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Replaces a space's configuration.
-    /// </summary>
+    /// <summary>Replaces a space's configuration.</summary>
     /// <param name="space">The space, with its new configuration.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     Task UpdateSpaceAsync(SimpleSpaceRecord space, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Marks a space deleted. Idempotent.
-    /// </summary>
-    /// <param name="space">The space.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <summary>Marks a space deleted. Idempotent.</summary>
     Task DeleteSpaceAsync(SpaceUri space, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Adds a member, or replaces an existing member's access. Both flags are replaced.
-    /// </summary>
+    /// <summary>Adds a member, or replaces an existing member's access. Both flags are replaced.</summary>
     /// <param name="space">The space. A space that does not exist is left alone.</param>
     /// <param name="did">The member's DID.</param>
     /// <param name="read">Whether the member may read under a member-list read policy.</param>
     /// <param name="write">Whether the member's writes are tracked under a member-list write policy.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     Task PutMemberAsync(
         SpaceUri space, Did did, bool read, bool write, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Removes a member. Idempotent.
-    /// </summary>
-    /// <param name="space">The space.</param>
+    /// <summary>Removes a member. Idempotent.</summary>
     /// <param name="did">The member's DID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     Task RemoveMemberAsync(SpaceUri space, Did did, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Reads one account's entry on a space's member list.
-    /// </summary>
-    /// <param name="space">The space.</param>
+    /// <summary>Reads one account's entry on a space's member list.</summary>
     /// <param name="did">The account's DID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The member and their access, or <see langword="null"/> when they are not on the list.</returns>
     Task<SimpleSpaceMember?> GetMemberAsync(
         SpaceUri space, Did did, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Lists a space's members and their access, for the owner's own administration.
-    /// </summary>
-    /// <param name="space">The space.</param>
+    /// <summary>Lists a space's members and their access, for the owner's own administration.</summary>
     /// <param name="limit">Maximum number of results.</param>
     /// <param name="cursor">Pagination cursor.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     Task<ListSimpleSpaceMembersResponse> ListMembersAsync(
         SpaceUri space, int limit, string? cursor, CancellationToken cancellationToken = default);
 }

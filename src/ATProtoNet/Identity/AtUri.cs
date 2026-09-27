@@ -22,14 +22,10 @@ public sealed record AtUri : IIdentifier<AtUri>
     private const string Scheme = "at://";
     private const int MaxLength = 8 * 1024;
 
-    /// <summary>
-    /// The full AT URI string value.
-    /// </summary>
+    /// <summary>The full AT URI string value.</summary>
     public string Value { get; }
 
-    /// <summary>
-    /// The authority part (DID or handle), as written in the URI.
-    /// </summary>
+    /// <summary>The authority part (DID or handle), as written in the URI.</summary>
     public string Authority { get; }
 
     /// <summary>
@@ -38,14 +34,10 @@ public sealed record AtUri : IIdentifier<AtUri>
     /// </summary>
     public AtIdentifier Repo { get; }
 
-    /// <summary>
-    /// The collection NSID, if present.
-    /// </summary>
+    /// <summary>The collection NSID, if present.</summary>
     public Nsid? Collection { get; }
 
-    /// <summary>
-    /// The record key, if present.
-    /// </summary>
+    /// <summary>The record key, if present.</summary>
     public RecordKey? RecordKey { get; }
 
     private AtUri(string value, string authority, AtIdentifier repo, Nsid? collection, RecordKey? recordKey)
@@ -57,18 +49,14 @@ public sealed record AtUri : IIdentifier<AtUri>
         RecordKey = recordKey;
     }
 
-    /// <summary>
-    /// Creates an AT URI from a string value with validation.
-    /// </summary>
+    /// <summary>Creates an AT URI from a string value with validation.</summary>
     /// <param name="value">The AT URI string.</param>
     /// <returns>A validated AT URI.</returns>
     /// <exception cref="ArgumentException">Thrown if the value is not a valid AT URI.</exception>
     public static AtUri Parse(string value) =>
         TryParse(value, out var uri) ? uri : throw IIdentifier<AtUri>.InvalidValue(value, "AT URI");
 
-    /// <summary>
-    /// Attempts to create an AT URI from a string value without throwing.
-    /// </summary>
+    /// <summary>Attempts to create an AT URI from a string value without throwing.</summary>
     /// <param name="value">The AT URI string.</param>
     /// <param name="atUri">The parsed AT URI on success.</param>
     /// <returns><see langword="true"/> if <paramref name="value"/> is a valid AT URI.</returns>
@@ -121,9 +109,7 @@ public sealed record AtUri : IIdentifier<AtUri>
         return true;
     }
 
-    /// <summary>
-    /// Creates a new AT URI from components.
-    /// </summary>
+    /// <summary>Creates a new AT URI from components.</summary>
     /// <param name="repo">The repository: a DID or handle.</param>
     /// <param name="collection">The collection NSID, if any.</param>
     /// <param name="rkey">The record key, if any. It requires a <paramref name="collection"/>.</param>
@@ -146,17 +132,13 @@ public sealed record AtUri : IIdentifier<AtUri>
         return new AtUri(value, repo.Value, repo, collection, rkey);
     }
 
-    /// <summary>
-    /// Implicitly converts a <see cref="AtUri"/> to its <see cref="string"/> representation.
-    /// </summary>
+    /// <summary>Implicitly converts a <see cref="AtUri"/> to its <see cref="string"/> representation.</summary>
     /// <param name="atUri">The value to convert.</param>
     /// <returns>The converted value, or <see langword="null"/> for a <see langword="null"/> URI.</returns>
     [return: NotNullIfNotNull(nameof(atUri))]
     public static implicit operator string?(AtUri? atUri) => atUri?.Value;
 
-    /// <summary>
-    /// Explicitly converts a <see cref="string"/> to its <see cref="AtUri"/> representation.
-    /// </summary>
+    /// <summary>Explicitly converts a <see cref="string"/> to its <see cref="AtUri"/> representation.</summary>
     /// <param name="value">The value to convert.</param>
     /// <returns>The converted value.</returns>
     /// <exception cref="ArgumentException">Thrown if the value is not a valid <see cref="AtUri"/>.</exception>

@@ -4,13 +4,9 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Label;
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.label.queryLabels
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.label.queryLabels ────────────────────────────
 
-/// <summary>
-/// Response from queryLabels.
-/// </summary>
+/// <summary>Response from queryLabels.</summary>
 public sealed class QueryLabelsResponse : ICursorPage<Models.Label>
 {
     /// <summary>
@@ -27,9 +23,7 @@ public sealed class QueryLabelsResponse : ICursorPage<Models.Label>
     IReadOnlyList<Models.Label> ICursorPage<Models.Label>.Items => Labels;
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.label.subscribeLabels (event stream)
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.label.subscribeLabels (event stream) ─────────
 
 /// <summary>
 /// A message of the <c>com.atproto.label.subscribeLabels</c> event stream: a sequenced
@@ -45,9 +39,7 @@ public sealed class QueryLabelsResponse : ICursorPage<Models.Label>
 [JsonDerivedType(typeof(LabelInfoEvent), "#info")]
 public abstract class LabelStreamMessage : LexObject;
 
-/// <summary>
-/// Labels (and negations) a labeler emitted: the <c>#labels</c> message of the label stream.
-/// </summary>
+/// <summary>Labels (and negations) a labeler emitted: the <c>#labels</c> message of the label stream.</summary>
 public sealed class LabelsEvent : LabelStreamMessage
 {
     /// <summary>The stream sequence number of this event, and the cursor to resume after it.</summary>

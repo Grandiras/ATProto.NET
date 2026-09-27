@@ -14,9 +14,7 @@ internal abstract class EventStreamHandler<T> where T : class
     /// <summary>The stream's name in log and exception messages, e.g. <c>firehose</c>.</summary>
     public abstract string Stream { get; }
 
-    /// <summary>
-    /// The endpoint and upgrade options for the next connection, from the current position.
-    /// </summary>
+    /// <summary>The endpoint and upgrade options for the next connection, from the current position.</summary>
     public abstract ValueTask<(Uri Endpoint, StreamSocketOptions Options)> ConnectAsync(
         CancellationToken cancellationToken);
 
@@ -26,7 +24,6 @@ internal abstract class EventStreamHandler<T> where T : class
     /// </summary>
     /// <param name="type">The header's <c>t</c>.</param>
     /// <param name="body">The frame body; valid only until this call returns.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public abstract ValueTask<T?> HandleAsync(string type, ReadOnlyMemory<byte> body, CancellationToken cancellationToken);
 
     /// <summary>
@@ -37,9 +34,7 @@ internal abstract class EventStreamHandler<T> where T : class
     {
     }
 
-    /// <summary>
-    /// <see cref="Delivered"/>, for a handler that has to await what it records.
-    /// </summary>
+    /// <summary><see cref="Delivered"/>, for a handler that has to await what it records.</summary>
     public virtual ValueTask DeliveredAsync(T message, CancellationToken cancellationToken)
     {
         Delivered(message);
@@ -56,9 +51,7 @@ internal abstract class EventStreamHandler<T> where T : class
     public abstract void Dropped(StreamDropReason reason, long? cursor, string? detail);
 }
 
-/// <summary>
-/// The connect, read and reconnect loop of the AT Protocol event streams.
-/// </summary>
+/// <summary>The connect, read and reconnect loop of the AT Protocol event streams.</summary>
 internal static class EventStreamLoop
 {
     /// <summary>

@@ -17,26 +17,18 @@ namespace ATProtoNet.Streaming;
 /// </remarks>
 public interface IStreamCursorStore
 {
-    /// <summary>
-    /// Gets the last stored cursor for a stream.
-    /// </summary>
+    /// <summary>Gets the last stored cursor for a stream.</summary>
     /// <param name="streamId">The stream's identifier, such as the service URL.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The stored cursor, or <see langword="null"/> when none has been stored.</returns>
     ValueTask<long?> GetCursorAsync(string streamId, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Stores the cursor for a stream, replacing the previous one.
-    /// </summary>
+    /// <summary>Stores the cursor for a stream, replacing the previous one.</summary>
     /// <param name="streamId">The stream's identifier.</param>
     /// <param name="cursor">The cursor to resume after.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     ValueTask StoreCursorAsync(string streamId, long cursor, CancellationToken cancellationToken = default);
 }
 
-/// <summary>
-/// An in-memory cursor store for development and tests. Cursors are lost when the process exits.
-/// </summary>
+/// <summary>An in-memory cursor store for development and tests. Cursors are lost when the process exits.</summary>
 public sealed class InMemoryStreamCursorStore : IStreamCursorStore
 {
     private readonly ConcurrentDictionary<string, long> _cursors = new(StringComparer.Ordinal);

@@ -6,9 +6,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace ATProtoNet.Server.EntityFrameworkCore;
 
-/// <summary>
-/// One repository's Sync 1.1 state, as <see cref="EfCoreRepoSyncStateStore{TContext}"/> keeps it.
-/// </summary>
+/// <summary>One repository's Sync 1.1 state, as <see cref="EfCoreRepoSyncStateStore{TContext}"/> keeps it.</summary>
 public sealed class RepoSyncStateEntity
 {
     /// <summary>The repository's DID. The primary key.</summary>
@@ -68,7 +66,6 @@ public class RepoSyncStateDbContext : DbContext
     /// Applies the configuration <see cref="EfCoreRepoSyncStateStore{TContext}"/> needs: the
     /// <c>AtProtoRepoSyncStates</c> table.
     /// </summary>
-    /// <param name="modelBuilder">The model builder.</param>
     public static void ConfigureRepoSyncStateModel(ModelBuilder modelBuilder)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);
@@ -90,9 +87,7 @@ public class RepoSyncStateDbContext : DbContext
     }
 }
 
-/// <summary>
-/// Registers the EF Core-backed <see cref="IRepoSyncStateStore"/>.
-/// </summary>
+/// <summary>Registers the EF Core-backed <see cref="IRepoSyncStateStore"/>.</summary>
 public static class RepoSyncStateStoreExtensions
 {
     /// <summary>

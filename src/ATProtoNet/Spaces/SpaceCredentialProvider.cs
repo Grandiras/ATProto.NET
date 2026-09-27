@@ -11,9 +11,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Spaces;
 
-/// <summary>
-/// A space credential together with the key it is bound to.
-/// </summary>
+/// <summary>A space credential together with the key it is bound to.</summary>
 /// <remarks>
 /// The credential is not a bearer token. It grants read access to a whole space and is presented
 /// to every repo host in it, so as a bearer token it would be a shared secret — a host given one
@@ -69,9 +67,7 @@ public sealed class SpaceCredential : IDisposable
     }
 }
 
-/// <summary>
-/// Configuration for a <see cref="SpaceCredentialProvider"/>.
-/// </summary>
+/// <summary>Configuration for a <see cref="SpaceCredentialProvider"/>.</summary>
 public sealed class SpaceCredentialOptions
 {
     /// <summary>
@@ -89,9 +85,7 @@ public sealed class SpaceCredentialOptions
     /// </remarks>
     public Func<string, CancellationToken, Task<string>>? ClientAttestationFactory { get; init; }
 
-    /// <summary>
-    /// How long before expiry a cached credential is renewed. Defaults to five minutes.
-    /// </summary>
+    /// <summary>How long before expiry a cached credential is renewed. Defaults to five minutes.</summary>
     public TimeSpan RenewalWindow { get; init; } = TimeSpan.FromMinutes(5);
 
     /// <summary>
@@ -101,9 +95,7 @@ public sealed class SpaceCredentialOptions
     public Func<Did, CancellationToken, Task<string>>? HostResolver { get; init; }
 }
 
-/// <summary>
-/// Obtains and caches space credentials, and hands out readers bound to individual repo hosts.
-/// </summary>
+/// <summary>Obtains and caches space credentials, and hands out readers bound to individual repo hosts.</summary>
 /// <remarks>
 /// <para>This runs the credential flow end to end. The application asks the user's PDS for a
 /// <see cref="SpaceTokenType.Delegation">delegation token</see>, presents it to the space
@@ -153,9 +145,7 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
     private readonly CancellationTokenSource _disposing = new();
     private volatile bool _disposed;
 
-    /// <summary>
-    /// Creates a provider that mints delegation tokens through <paramref name="client"/>'s session.
-    /// </summary>
+    /// <summary>Creates a provider that mints delegation tokens through <paramref name="client"/>'s session.</summary>
     /// <param name="client">
     /// An authenticated client for the acting user's PDS. Its session must hold a covering
     /// <c>space:</c> scope with a <c>read</c> grant, which is what confers
@@ -196,7 +186,6 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
     /// </summary>
     /// <param name="space">The space to read.</param>
     /// <param name="forceRenew">Discard any cached credential and mint a fresh one.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="SpaceCredentialException">Thrown when the authority refuses to issue one.</exception>
     /// <remarks>
     /// <para>Concurrent callers for one space share a single mint, and its outcome: they all get
@@ -223,7 +212,7 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
             space.Value,
             _ => new Lazy<Task<SpaceCredential>>(() => MintAndStoreAsync(space, seen, forceRenew)));
 
-        return await mint.Value.WaitAsync(cancellationToken);
+        return await mint.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -240,7 +229,7 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
             if (IsFresh(current) && (!forceRenew || !ReferenceEquals(current, seen)))
                 return current!;
 
-            var credential = await MintAsync(space, _disposing.Token);
+            var credential = await MintAsync(space, _disposing.Token).ConfigureAwait(false);
 
             lock (_state)
             {
@@ -300,12 +289,9 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
         }
     }
 
-    /// <summary>
-    /// Creates a reader for one repo host, authenticated with this space's credential.
-    /// </summary>
+    /// <summary>Creates a reader for one repo host, authenticated with this space's credential.</summary>
     /// <param name="space">The space to read.</param>
     /// <param name="hostUrl">The repo host's base URL.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A reader the caller is responsible for disposing.</returns>
     /// <exception cref="ArgumentException">
     /// <paramref name="hostUrl"/> is not an absolute http(s) URL, or has a query or fragment.
@@ -318,24 +304,21 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
         if (!AtProtoHttp.TryNormalizeBaseUrl(hostUrl, out _))
             throw new ArgumentException($"'{hostUrl}' is not an absolute http(s) URL without a query or fragment.", nameof(hostUrl));
 
-        var credential = await GetCredentialAsync(space, cancellationToken: cancellationToken);
+        var credential = await GetCredentialAsync(space, cancellationToken: cancellationToken).ConfigureAwait(false);
         return new SpaceReader(hostUrl, credential, _httpClient, _logger);
     }
 
-    /// <summary>
-    /// Resolves an account's repo host from its DID document and creates a reader for it.
-    /// </summary>
+    /// <summary>Resolves an account's repo host from its DID document and creates a reader for it.</summary>
     /// <param name="space">The space to read.</param>
     /// <param name="repoDid">The DID of the account whose repo is to be read.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A reader the caller is responsible for disposing.</returns>
     public async Task<SpaceReader> CreateReaderForRepoAsync(
         SpaceUri space, Did repoDid, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(repoDid);
 
-        var host = await ResolveHostAsync(repoDid, cancellationToken);
-        return await CreateReaderAsync(space, host, cancellationToken);
+        var host = await ResolveHostAsync(repoDid, cancellationToken).ConfigureAwait(false);
+        return await CreateReaderAsync(space, host, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -343,7 +326,6 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
     /// entry, or its PDS when it publishes none.
     /// </summary>
     /// <param name="did">The DID to resolve.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="SpaceCredentialException">
     /// Thrown when the DID publishes no endpoint, or one that is not an absolute http(s) URL free
     /// of a query and fragment, or a <c>#atproto_space_host</c> entry that is malformed (which
@@ -354,12 +336,12 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
         ArgumentNullException.ThrowIfNull(did);
 
         if (_options.HostResolver is not null)
-            return await _options.HostResolver(did, cancellationToken);
+            return await _options.HostResolver(did, cancellationToken).ConfigureAwait(false);
 
         Identity.DidDocument document;
         try
         {
-            document = await _didResolver.ResolveAsync(did, cancellationToken);
+            document = await _didResolver.ResolveAsync(did, cancellationToken).ConfigureAwait(false);
         }
         catch (DidResolutionException ex)
         {
@@ -391,7 +373,7 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
 
     private async Task<SpaceCredential> MintAsync(SpaceUri space, CancellationToken cancellationToken)
     {
-        var authorityHost = await ResolveHostAsync(space.Authority, cancellationToken);
+        var authorityHost = await ResolveHostAsync(space.Authority, cancellationToken).ConfigureAwait(false);
         var endpoint = new Uri(
             AtProtoHttp.NormalizeBaseUrl(authorityHost),
             "xrpc/com.atproto.space.getSpaceCredential");
@@ -402,13 +384,13 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
         {
             // Whether the space gates on app identity is not advertised, so ask without an
             // attestation first and add one only if the authority refuses on app grounds.
-            var response = await ExchangeAsync(space, endpoint, key, clientAttestation: null, cancellationToken);
+            var response = await ExchangeAsync(space, endpoint, key, clientAttestation: null, cancellationToken).ConfigureAwait(false);
 
             if (response is null && _options.ClientAttestationFactory is not null)
             {
-                var attestation = await _options.ClientAttestationFactory(space.HostAudience, cancellationToken);
+                var attestation = await _options.ClientAttestationFactory(space.HostAudience, cancellationToken).ConfigureAwait(false);
                 _logger.LogDebug("Space {Space} gates on client identity; retrying with a client attestation.", space);
-                response = await ExchangeAsync(space, endpoint, key, attestation, cancellationToken);
+                response = await ExchangeAsync(space, endpoint, key, attestation, cancellationToken).ConfigureAwait(false);
             }
 
             if (response is null)
@@ -452,7 +434,7 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
         CancellationToken cancellationToken)
     {
         // Single-use and 60 seconds long, so it is fetched immediately before the exchange.
-        var delegation = await _client.Space.GetDelegationTokenAsync(space, cancellationToken);
+        var delegation = await _client.Space.GetDelegationTokenAsync(space, cancellationToken).ConfigureAwait(false);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
         {
@@ -467,16 +449,16 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
         request.Headers.TryAddWithoutValidation(
             "DPoP", key.GenerateProof(HttpMethod.Post.Method, endpoint.ToString()));
 
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
 
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<GetSpaceCredentialResponse>(
-                AtProtoJsonDefaults.Options, cancellationToken)
+                AtProtoJsonDefaults.Options, cancellationToken).ConfigureAwait(false)
                 ?? throw new SpaceCredentialException("The authority returned an empty credential response.");
         }
 
-        var error = (await XrpcResponseReader.ReadErrorAsync(response, cancellationToken)).Error;
+        var error = (await XrpcResponseReader.ReadErrorAsync(response, cancellationToken).ConfigureAwait(false)).Error;
 
         if (string.Equals(error, SpaceErrors.AppNotAuthorized, StringComparison.Ordinal) &&
             clientAttestation is null)
@@ -527,9 +509,7 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
     }
 }
 
-/// <summary>
-/// Reads a space from one repo host, authenticated with a space credential rather than OAuth.
-/// </summary>
+/// <summary>Reads a space from one repo host, authenticated with a space credential rather than OAuth.</summary>
 /// <remarks>
 /// <para>Every request carries <c>Authorization: DPoP &lt;credential&gt;</c> together with a proof
 /// signed by the credential's bound key and naming this host, so the credential cannot be
@@ -600,9 +580,7 @@ public sealed class SpaceCredentialException : AtProtoException
     {
     }
 
-    /// <summary>
-    /// The XRPC error name the authority returned, if any. See <see cref="SpaceErrors"/>.
-    /// </summary>
+    /// <summary>The XRPC error name the authority returned, if any. See <see cref="SpaceErrors"/>.</summary>
     /// <remarks>
     /// <see cref="SpaceErrors.SpaceDeleted"/> is the durable signal that a space is gone: a
     /// syncer that missed the deletion notification learns it here, on its next renewal, and

@@ -18,11 +18,8 @@ public sealed class ReportClient
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Get one report.
-    /// </summary>
+    /// <summary>Get one report.</summary>
     /// <param name="id">The report's identifier.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcException"><c>NotFound</c> when there is no such report.</exception>
     public Task<ReportView> GetReportAsync(
         long id,
@@ -33,24 +30,18 @@ public sealed class ReportClient
             "tools.ozone.report.getReport", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get the most recent report.
-    /// </summary>
-    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <summary>Get the most recent report.</summary>
     /// <exception cref="XrpcException"><c>NotFound</c> when there are no reports.</exception>
     public Task<GetLatestReportResponse> GetLatestReportAsync(
         CancellationToken cancellationToken = default) =>
         _xrpc.QueryAsync<GetLatestReportResponse>(
             "tools.ozone.report.getLatestReport", cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Query one page of reports.
-    /// </summary>
+    /// <summary>Query one page of reports.</summary>
     /// <param name="status">Only reports in this status (see <see cref="ReportStatus"/>).</param>
     /// <param name="filter">The other filters and the order; <see langword="null"/> for the defaults.</param>
     /// <param name="limit">Maximum number of reports (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<QueryReportsResponse> QueryReportsAsync(
         string status,
         ReportFilter? filter = null,
@@ -65,13 +56,10 @@ public sealed class ReportClient
             "tools.ozone.report.queryReports", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate every report a filter matches, fetching pages as needed.
-    /// </summary>
+    /// <summary>Enumerate every report a filter matches, fetching pages as needed.</summary>
     /// <param name="status">Only reports in this status (see <see cref="ReportStatus"/>).</param>
     /// <param name="filter">The other filters and the order; <see langword="null"/> for the defaults.</param>
     /// <param name="pageSize">Reports per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<ReportView> EnumerateReportsAsync(
         string status,
         ReportFilter? filter = null,
@@ -89,7 +77,6 @@ public sealed class ReportClient
     /// <param name="reportTypes">Only reports of these reason types; <see langword="null"/> for all.</param>
     /// <param name="internalNote">A note for moderators, recorded on each close activity.</param>
     /// <param name="isAutomated">Whether an automated process is closing the reports.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<CloseReportsResponse> CloseReportsAsync(
         string subject,
         IEnumerable<string>? reportTypes = null,
@@ -108,13 +95,10 @@ public sealed class ReportClient
             "tools.ozone.report.closeReports", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Move a report to another queue, or out of every queue, recording a queue activity.
-    /// </summary>
+    /// <summary>Move a report to another queue, or out of every queue, recording a queue activity.</summary>
     /// <param name="reportId">The report.</param>
     /// <param name="queueId">The queue to move it to; <c>-1</c> for none.</param>
     /// <param name="comment">A note for moderators, recorded on the queue activity.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcException">
     /// <c>ReportNotFound</c>, <c>ReportClosed</c>, <c>AlreadyInTargetQueue</c>, <c>QueueNotFound</c>
     /// or <c>QueueDisabled</c>.
@@ -130,9 +114,7 @@ public sealed class ReportClient
             "tools.ozone.report.reassignQueue", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Assign a report to a moderator: the caller by default; admins may assign anyone.
-    /// </summary>
+    /// <summary>Assign a report to a moderator: the caller by default; admins may assign anyone.</summary>
     /// <param name="reportId">The report.</param>
     /// <param name="did">The moderator; <see langword="null"/> for the caller.</param>
     /// <param name="queueId">
@@ -140,7 +122,6 @@ public sealed class ReportClient
     /// assignment.
     /// </param>
     /// <param name="isPermanent">Whether the assignment never expires.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcException">
     /// <c>AlreadyAssigned</c> when another moderator holds a permanent assignment, or
     /// <c>InvalidAssignment</c>.
@@ -163,11 +144,8 @@ public sealed class ReportClient
             "tools.ozone.report.assignModerator", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Remove a report's assignment.
-    /// </summary>
+    /// <summary>Remove a report's assignment.</summary>
     /// <param name="reportId">The report.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The ended assignment.</returns>
     /// <exception cref="XrpcException"><c>InvalidAssignment</c>.</exception>
     public Task<AssignmentView> UnassignModeratorAsync(
@@ -179,15 +157,12 @@ public sealed class ReportClient
             "tools.ozone.report.unassignModerator", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get one page of report assignments.
-    /// </summary>
+    /// <summary>Get one page of report assignments.</summary>
     /// <param name="reportIds">Only assignments of these reports (at most 50).</param>
     /// <param name="dids">Only assignments of these moderators (at most 50).</param>
     /// <param name="onlyActive">Only active assignments; the server default is <see langword="true"/>.</param>
     /// <param name="limit">Maximum number of assignments (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetAssignmentsResponse> GetAssignmentsAsync(
         IEnumerable<long>? reportIds = null,
         IEnumerable<Did>? dids = null,
@@ -206,14 +181,11 @@ public sealed class ReportClient
             "tools.ozone.report.getAssignments", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate every report assignment matching the filters, fetching pages as needed.
-    /// </summary>
+    /// <summary>Enumerate every report assignment matching the filters, fetching pages as needed.</summary>
     /// <param name="reportIds">Only assignments of these reports (at most 50).</param>
     /// <param name="dids">Only assignments of these moderators (at most 50).</param>
     /// <param name="onlyActive">Only active assignments; the server default is <see langword="true"/>.</param>
     /// <param name="pageSize">Assignments per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<AssignmentView> EnumerateAssignmentsAsync(
         IEnumerable<long>? reportIds = null,
         IEnumerable<Did>? dids = null,
@@ -233,7 +205,6 @@ public sealed class ReportClient
     /// <param name="internalNote">A note for moderators only.</param>
     /// <param name="publicNote">A note the reporter may see.</param>
     /// <param name="isAutomated">Whether an automated process is recording the activity.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcException">
     /// <c>ReportNotFound</c>, <c>InvalidStateTransition</c> or <c>AlreadyInTargetState</c>.
     /// </exception>
@@ -265,7 +236,6 @@ public sealed class ReportClient
     /// <param name="internalNote">A note for moderators only.</param>
     /// <param name="publicNote">A note the reporter may see.</param>
     /// <param name="isAutomated">Whether an automated process is recording the activity.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcException">
     /// <c>ReportNotFound</c>, <c>InvalidStateTransition</c> or <c>AlreadyInTargetState</c>.
     /// </exception>
@@ -292,13 +262,10 @@ public sealed class ReportClient
         _xrpc.ProcedureAsync<CreateActivityResponse>(
             "tools.ozone.report.createActivity", request, cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// List one page of a report's activities, most recent first.
-    /// </summary>
+    /// <summary>List one page of a report's activities, most recent first.</summary>
     /// <param name="reportId">The report.</param>
     /// <param name="limit">Maximum number of activities (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ListActivitiesResponse> ListActivitiesAsync(
         long reportId,
         int? limit = null,
@@ -313,12 +280,9 @@ public sealed class ReportClient
             "tools.ozone.report.listActivities", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate every activity on a report, most recent first, fetching pages as needed.
-    /// </summary>
+    /// <summary>Enumerate every activity on a report, most recent first, fetching pages as needed.</summary>
     /// <param name="reportId">The report.</param>
     /// <param name="pageSize">Activities per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<ReportActivityView> EnumerateReportActivitiesAsync(
         long reportId,
         int? pageSize = null,
@@ -339,7 +303,6 @@ public sealed class ReportClient
     /// <param name="sortDirection">The sort direction: <c>asc</c> or <c>desc</c> (the default).</param>
     /// <param name="limit">Maximum number of activities (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<QueryActivitiesResponse> QueryActivitiesAsync(
         IEnumerable<string>? activityTypes = null,
         AtDatetime? createdAfter = null,
@@ -371,7 +334,6 @@ public sealed class ReportClient
     /// <param name="createdBefore">Only activities created at or before this time.</param>
     /// <param name="sortDirection">The sort direction: <c>asc</c> or <c>desc</c> (the default).</param>
     /// <param name="pageSize">Activities per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<ReportActivityView> EnumerateActivitiesAsync(
         IEnumerable<string>? activityTypes = null,
         AtDatetime? createdAfter = null,
@@ -383,13 +345,10 @@ public sealed class ReportClient
             (cursor, ct) => QueryActivitiesAsync(activityTypes, createdAfter, createdBefore, sortDirection, pageSize, cursor, ct),
             cancellationToken);
 
-    /// <summary>
-    /// Get report statistics for the current day. Leave every filter out for the totals.
-    /// </summary>
+    /// <summary>Get report statistics for the current day. Leave every filter out for the totals.</summary>
     /// <param name="queueId">Only reports in this queue; <c>-1</c> for reports in no queue.</param>
     /// <param name="moderatorDid">Only reports handled by this moderator.</param>
     /// <param name="reportTypes">Only reports of these reason types.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetLiveStatsResponse> GetLiveStatsAsync(
         long? queueId = null,
         Did? moderatorDid = null,
@@ -404,9 +363,7 @@ public sealed class ReportClient
             "tools.ozone.report.getLiveStats", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get one page of daily report statistics, newest first.
-    /// </summary>
+    /// <summary>Get one page of daily report statistics, newest first.</summary>
     /// <param name="queueId">Only reports in this queue; <c>-1</c> for reports in no queue.</param>
     /// <param name="moderatorDid">Only reports handled by this moderator.</param>
     /// <param name="reportTypes">Only reports of these reason types.</param>
@@ -414,7 +371,6 @@ public sealed class ReportClient
     /// <param name="endDate">The latest day to include.</param>
     /// <param name="limit">Maximum number of days (1-100, default 30).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetHistoricalStatsResponse> GetHistoricalStatsAsync(
         long? queueId = null,
         Did? moderatorDid = null,
@@ -437,16 +393,13 @@ public sealed class ReportClient
             "tools.ozone.report.getHistoricalStats", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate the daily report statistics, newest first, fetching pages as needed.
-    /// </summary>
+    /// <summary>Enumerate the daily report statistics, newest first, fetching pages as needed.</summary>
     /// <param name="queueId">Only reports in this queue; <c>-1</c> for reports in no queue.</param>
     /// <param name="moderatorDid">Only reports handled by this moderator.</param>
     /// <param name="reportTypes">Only reports of these reason types.</param>
     /// <param name="startDate">The earliest day to include.</param>
     /// <param name="endDate">The latest day to include.</param>
     /// <param name="pageSize">Days per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<HistoricalStats> EnumerateHistoricalStatsAsync(
         long? queueId = null,
         Did? moderatorDid = null,
@@ -466,7 +419,6 @@ public sealed class ReportClient
     /// <param name="startDate">The first day to recompute.</param>
     /// <param name="endDate">The last day to recompute.</param>
     /// <param name="queueIds">Only these queues' statistics; <see langword="null"/> for all.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task RefreshStatsAsync(
         DateOnly startDate,
         DateOnly endDate,

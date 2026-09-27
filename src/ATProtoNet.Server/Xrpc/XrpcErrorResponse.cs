@@ -32,11 +32,11 @@ internal static partial class XrpcErrorResponse
         {
             try
             {
-                await invoke(context);
+                await invoke(context).ConfigureAwait(false);
             }
             catch (Exception exception) when (!context.Response.HasStarted)
             {
-                await WriteAsync(context, exception, logger);
+                await WriteAsync(context, exception, logger).ConfigureAwait(false);
             }
         };
 

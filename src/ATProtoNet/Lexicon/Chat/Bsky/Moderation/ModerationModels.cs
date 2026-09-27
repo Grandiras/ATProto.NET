@@ -9,9 +9,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.Chat.Bsky.Moderation;
 
-// ──────────────────────────────────────────────────────────
-//  Conversations
-// ──────────────────────────────────────────────────────────
+// ── Conversations ────────────────────────────────────────
 
 /// <summary>
 /// A conversation as a moderator sees it (<c>chat.bsky.moderation.defs#convoView</c>). Unlike
@@ -90,9 +88,7 @@ public sealed class ModerationGroupConvo : ModerationConvoKind
     [JsonPropertyName("joinRequestCount")]
     public required int JoinRequestCount { get; init; }
 
-    /// <summary>
-    /// Whether the group accepts new messages and reactions (see <see cref="ConvoLockStatus"/>).
-    /// </summary>
+    /// <summary>Whether the group accepts new messages and reactions (see <see cref="ConvoLockStatus"/>).</summary>
     [JsonPropertyName("lockStatus")]
     public required string LockStatus { get; init; }
 
@@ -109,9 +105,7 @@ public sealed class ModerationGroupConvo : ModerationConvoKind
     public required string Name { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────
-//  Actors
-// ──────────────────────────────────────────────────────────
+// ── Actors ───────────────────────────────────────────────
 
 /// <summary>
 /// An account's chat activity over one period
@@ -136,9 +130,7 @@ public sealed class ChatActorMetadata : LexObject
     public required int ConvosStarted { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────
-//  Request and response models
-// ──────────────────────────────────────────────────────────
+// ── Request and response models ──────────────────────────
 
 /// <summary>Request body for chat.bsky.moderation.updateActorAccess.</summary>
 internal sealed class UpdateActorAccessRequest
@@ -156,9 +148,7 @@ internal sealed class UpdateActorAccessRequest
     public string? Ref { get; init; }
 }
 
-/// <summary>
-/// Response from chat.bsky.moderation.getActorMetadata.
-/// </summary>
+/// <summary>Response from chat.bsky.moderation.getActorMetadata.</summary>
 public sealed class GetActorMetadataResponse
 {
     /// <summary>The account's activity over the last day.</summary>
@@ -174,9 +164,7 @@ public sealed class GetActorMetadataResponse
     public required ChatActorMetadata All { get; init; }
 }
 
-/// <summary>
-/// Response from chat.bsky.moderation.getMessageContext.
-/// </summary>
+/// <summary>Response from chat.bsky.moderation.getMessageContext.</summary>
 public sealed class GetMessageContextResponse
 {
     /// <summary>
@@ -187,9 +175,7 @@ public sealed class GetMessageContextResponse
     public required IReadOnlyList<ConvoMessage> Messages { get; init; }
 }
 
-/// <summary>
-/// Response from chat.bsky.moderation.getConvos.
-/// </summary>
+/// <summary>Response from chat.bsky.moderation.getConvos.</summary>
 public sealed class GetConvosResponse
 {
     /// <summary>The conversations found; unknown identifiers are left out.</summary>
@@ -205,9 +191,7 @@ internal sealed class GetConvoResponse
     public required ModerationConvoView Convo { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────
-//  Moderation event stream (chat.bsky.moderation.subscribeModEvents)
-// ──────────────────────────────────────────────────────────
+// ── Moderation event stream (chat.bsky.moderation.subscribeModEvents) ──
 
 /// <summary>
 /// An event of the chat moderation stream (the open <c>chat.bsky.moderation.subscribeModEvents</c>
@@ -283,9 +267,7 @@ public sealed class UnknownChatModerationEvent : ChatModerationEvent, IUnknownUn
             : null;
 }
 
-/// <summary>
-/// The first message was sent in a conversation (<c>#eventConvoFirstMessage</c>).
-/// </summary>
+/// <summary>The first message was sent in a conversation (<c>#eventConvoFirstMessage</c>).</summary>
 public sealed class ConvoFirstMessageEvent : ChatModerationEvent
 {
     /// <summary>The identifier of the conversation.</summary>
@@ -398,9 +380,7 @@ public sealed class GroupChatJoinRequestEvent : GroupChatModerationEvent
     public required bool SubjectFollowsOwner { get; init; }
 }
 
-/// <summary>
-/// The owner approved a join request (<c>#eventGroupChatJoinRequestApproved</c>).
-/// </summary>
+/// <summary>The owner approved a join request (<c>#eventGroupChatJoinRequestApproved</c>).</summary>
 public sealed class GroupChatJoinRequestApprovedEvent : GroupChatModerationEvent
 {
     /// <summary>The member whose request was approved.</summary>
@@ -408,9 +388,7 @@ public sealed class GroupChatJoinRequestApprovedEvent : GroupChatModerationEvent
     public required Did SubjectDid { get; init; }
 }
 
-/// <summary>
-/// The owner rejected a join request (<c>#eventGroupChatJoinRequestRejected</c>).
-/// </summary>
+/// <summary>The owner rejected a join request (<c>#eventGroupChatJoinRequestRejected</c>).</summary>
 public sealed class GroupChatJoinRequestRejectedEvent : GroupChatModerationEvent
 {
     /// <summary>The account whose request was rejected.</summary>
@@ -434,9 +412,7 @@ public sealed class GroupChatMemberLeftEvent : GroupChatModerationEvent
     public required string LeaveMethod { get; init; }
 }
 
-/// <summary>
-/// A group chat's metadata or status changed (<c>#eventGroupChatUpdated</c>).
-/// </summary>
+/// <summary>A group chat's metadata or status changed (<c>#eventGroupChatUpdated</c>).</summary>
 public sealed class GroupChatUpdatedEvent : GroupChatModerationEvent
 {
     /// <summary>
@@ -510,9 +486,7 @@ public sealed class ChatAcceptedEvent : ChatModerationEvent
     public long? GroupMemberCount { get; init; }
 }
 
-/// <summary>
-/// An account exceeded a rate limit (<c>#eventRateLimitExceeded</c>).
-/// </summary>
+/// <summary>An account exceeded a rate limit (<c>#eventRateLimitExceeded</c>).</summary>
 public sealed class RateLimitExceededEvent : ChatModerationEvent
 {
     /// <summary>The account that hit the limit.</summary>

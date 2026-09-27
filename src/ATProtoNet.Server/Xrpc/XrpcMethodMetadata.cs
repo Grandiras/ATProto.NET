@@ -2,9 +2,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Server.Xrpc;
 
-/// <summary>
-/// Endpoint metadata naming the XRPC method an endpoint serves.
-/// </summary>
+/// <summary>Endpoint metadata naming the XRPC method an endpoint serves.</summary>
 /// <remarks>
 /// <see cref="XrpcEndpointExtensions.MapXrpcEndpoints"/> attaches it to every endpoint it maps,
 /// which is how <c>AddAtProtoServiceAuth()</c> binds a token's <c>lxm</c> to the method called.

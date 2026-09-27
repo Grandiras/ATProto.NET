@@ -45,10 +45,7 @@ public sealed class AtProtoUserClientAccessor : IAsyncDisposable
         _sessionStore = sessionStore ?? throw new ArgumentNullException(nameof(sessionStore));
     }
 
-    /// <summary>
-    /// Returns the client acting as the signed-in user.
-    /// </summary>
-    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <summary>Returns the client acting as the signed-in user.</summary>
     /// <returns>
     /// The client, or <see langword="null"/> when nobody is signed in, the user carries no DID
     /// claim, or no session is stored for them (signed out elsewhere, say). Do not dispose it:
@@ -59,10 +56,10 @@ public sealed class AtProtoUserClientAccessor : IAsyncDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var user = (await _authenticationState.GetAuthenticationStateAsync()).User;
+        var user = (await _authenticationState.GetAuthenticationStateAsync().ConfigureAwait(false)).User;
         var did = DidOf(user);
 
-        await _gate.WaitAsync(cancellationToken);
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
@@ -71,16 +68,16 @@ public sealed class AtProtoUserClientAccessor : IAsyncDisposable
             {
                 // Signed out elsewhere: the client's own copy stays valid until its access token
                 // expires, and must not outlive the sign-out that long.
-                if (await _sessionStore.GetAsync(did, cancellationToken) is not null)
+                if (await _sessionStore.GetAsync(did, cancellationToken).ConfigureAwait(false) is not null)
                     return current;
 
-                await ReleaseClientAsync();
+                await ReleaseClientAsync().ConfigureAwait(false);
                 return null;
             }
 
-            await ReleaseClientAsync();
+            await ReleaseClientAsync().ConfigureAwait(false);
             if (did is not null)
-                _client = await _factory.CreateClientForUserAsync(user, cancellationToken);
+                _client = await _factory.CreateClientForUserAsync(user, cancellationToken).ConfigureAwait(false);
 
             return _client;
         }
@@ -97,21 +94,21 @@ public sealed class AtProtoUserClientAccessor : IAsyncDisposable
         var client = _client;
         _client = null;
         if (client is not null)
-            await client.DisposeAsync();
+            await client.DisposeAsync().ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
     /// <remarks>Waits for a refresh the client has under way to be stored.</remarks>
     public async ValueTask DisposeAsync()
     {
-        await _gate.WaitAsync();
+        await _gate.WaitAsync().ConfigureAwait(false);
         try
         {
             if (_disposed)
                 return;
 
             _disposed = true;
-            await ReleaseClientAsync();
+            await ReleaseClientAsync().ConfigureAwait(false);
         }
         finally
         {

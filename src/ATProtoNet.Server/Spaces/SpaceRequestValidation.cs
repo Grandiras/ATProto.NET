@@ -3,9 +3,7 @@ using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// Parameter validation shared by the space endpoint handlers.
-/// </summary>
+/// <summary>Parameter validation shared by the space endpoint handlers.</summary>
 /// <remarks>
 /// <para>Every failure here is an <c>InvalidRequest</c> — the request is malformed, and saying so
 /// discloses nothing, because none of these checks consult any state. Anything that <em>would</em>
@@ -39,9 +37,7 @@ internal static class SpaceRequestValidation
             ? throw new XrpcException(XrpcErrors.InvalidRequest, $"The \"{name}\" parameter is required.")
             : value;
 
-    /// <summary>
-    /// Clamps a page size into the Lexicon's declared range, defaulting when unset.
-    /// </summary>
+    /// <summary>Clamps a page size into the Lexicon's declared range, defaulting when unset.</summary>
     /// <param name="value">The requested limit.</param>
     /// <param name="defaultLimit">The default when none was requested.</param>
     /// <param name="maxLimit">The largest page this method serves.</param>

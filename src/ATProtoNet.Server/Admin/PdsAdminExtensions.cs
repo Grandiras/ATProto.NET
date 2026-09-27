@@ -96,9 +96,7 @@ public static class PdsAdminExtensions
         return builder;
     }
 
-    /// <summary>
-    /// Registers a <see cref="PdsAdminClient"/> as a typed <see cref="HttpClient"/> with explicit options.
-    /// </summary>
+    /// <summary>Registers a <see cref="PdsAdminClient"/> as a typed <see cref="HttpClient"/> with explicit options.</summary>
     /// <param name="services">The service collection.</param>
     /// <param name="options">The PDS URL and admin credentials, copied into the registration.</param>
     /// <returns>The service collection for chaining.</returns>
@@ -117,9 +115,7 @@ public static class PdsAdminExtensions
         return services.AddPdsAdminClient(target => CopyOptions(options, target));
     }
 
-    /// <summary>
-    /// Registers a <see cref="PdsAdminClient"/> as a typed <see cref="HttpClient"/> for the given PDS.
-    /// </summary>
+    /// <summary>Registers a <see cref="PdsAdminClient"/> as a typed <see cref="HttpClient"/> for the given PDS.</summary>
     /// <param name="services">The service collection.</param>
     /// <param name="pdsUrl">The PDS base URL.</param>
     /// <param name="adminPassword">The server's admin password.</param>

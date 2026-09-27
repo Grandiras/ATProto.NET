@@ -33,9 +33,7 @@ public static class AtProtoServiceAuthDefaults
 /// </summary>
 public sealed class AtProtoServiceAuthOptions : AuthenticationSchemeOptions
 {
-    /// <summary>
-    /// The <c>aud</c> values this service answers to. Required.
-    /// </summary>
+    /// <summary>The <c>aud</c> values this service answers to. Required.</summary>
     /// <remarks>
     /// <para>The spec's form is this service's DID with the fragment of its service entry, e.g.
     /// <c>did:web:feed.example.com#bsky_fg</c>. Add the bare DID as well only while callers still
@@ -151,7 +149,7 @@ internal sealed class AtProtoServiceAuthHandler : AuthenticationHandler<AtProtoS
         // a space server's notifyWrite does — including when the authentication middleware runs
         // this as the default scheme on every request.
         var endpoint = Context.GetEndpoint();
-        if (endpoint is null || !await RequiresThisSchemeAsync(endpoint))
+        if (endpoint is null || !await RequiresThisSchemeAsync(endpoint).ConfigureAwait(false))
             return AuthenticateResult.NoResult();
 
         // A token is valid for the one method it names, so an endpoint that serves none has
@@ -172,7 +170,7 @@ internal sealed class AtProtoServiceAuthHandler : AuthenticationHandler<AtProtoS
         VerifiedServiceAuth verified;
         try
         {
-            verified = await verifier.VerifyAsync(token, audiences, method, Context.RequestAborted);
+            verified = await verifier.VerifyAsync(token, audiences, method, Context.RequestAborted).ConfigureAwait(false);
         }
         catch (ServiceAuthException ex)
         {
@@ -213,7 +211,7 @@ internal sealed class AtProtoServiceAuthHandler : AuthenticationHandler<AtProtoS
         var policy = await AuthorizationPolicy.CombineAsync(
             policies,
             endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>(),
-            endpoint.Metadata.GetOrderedMetadata<AuthorizationPolicy>());
+            endpoint.Metadata.GetOrderedMetadata<AuthorizationPolicy>()).ConfigureAwait(false);
 
         if (policy is null)
             return false;
@@ -222,7 +220,7 @@ internal sealed class AtProtoServiceAuthHandler : AuthenticationHandler<AtProtoS
             return policy.AuthenticationSchemes.Contains(Scheme.Name, StringComparer.Ordinal);
 
         var schemes = Context.RequestServices.GetRequiredService<IAuthenticationSchemeProvider>();
-        var defaultScheme = await schemes.GetDefaultAuthenticateSchemeAsync();
+        var defaultScheme = await schemes.GetDefaultAuthenticateSchemeAsync().ConfigureAwait(false);
         return string.Equals(defaultScheme?.Name, Scheme.Name, StringComparison.Ordinal);
     }
 
@@ -230,7 +228,7 @@ internal sealed class AtProtoServiceAuthHandler : AuthenticationHandler<AtProtoS
     {
         // Only a refusal of the token itself is described to the caller; anything else that
         // failed authentication is this service's own business.
-        var result = await HandleAuthenticateOnceSafeAsync();
+        var result = await HandleAuthenticateOnceSafeAsync().ConfigureAwait(false);
         var (error, message) = result.Failure is ServiceAuthException refusal
             ? (refusal.Error, refusal.ErrorMessage ?? refusal.Error)
             : (XrpcErrors.AuthenticationRequired, "Authentication Required");
@@ -240,7 +238,7 @@ internal sealed class AtProtoServiceAuthHandler : AuthenticationHandler<AtProtoS
         await Response.WriteAsJsonAsync(
             new XrpcErrorBody { Error = error, Message = message },
             XrpcJson<XrpcErrorBody>.TypeInfo,
-            cancellationToken: Context.RequestAborted);
+            cancellationToken: Context.RequestAborted).ConfigureAwait(false);
     }
 
     protected override Task HandleForbiddenAsync(AuthenticationProperties properties)

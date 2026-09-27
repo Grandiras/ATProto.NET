@@ -10,27 +10,19 @@ namespace ATProtoNet.Models;
 /// </summary>
 public sealed class BlobRef
 {
-    /// <summary>
-    /// The type discriminator. Always "blob".
-    /// </summary>
+    /// <summary>The type discriminator. Always "blob".</summary>
     [JsonPropertyName("$type")]
     public string Type { get; init; } = "blob";
 
-    /// <summary>
-    /// Content-addressed reference to the blob data.
-    /// </summary>
+    /// <summary>Content-addressed reference to the blob data.</summary>
     [JsonPropertyName("ref")]
     public CidLink? Ref { get; init; }
 
-    /// <summary>
-    /// MIME type of the blob.
-    /// </summary>
+    /// <summary>MIME type of the blob.</summary>
     [JsonPropertyName("mimeType")]
     public string MimeType { get; init; } = string.Empty;
 
-    /// <summary>
-    /// Size of the blob in bytes.
-    /// </summary>
+    /// <summary>Size of the blob in bytes.</summary>
     [JsonPropertyName("size")]
     public long Size { get; init; }
 }
@@ -41,15 +33,11 @@ public sealed class BlobRef
 /// </summary>
 public sealed class CidLink
 {
-    /// <summary>
-    /// The linked CID.
-    /// </summary>
+    /// <summary>The linked CID.</summary>
     [JsonPropertyName("$link")]
     public required Cid Link { get; init; }
 
-    /// <summary>
-    /// Creates a CidLink from a CID.
-    /// </summary>
+    /// <summary>Creates a CidLink from a CID.</summary>
     public static CidLink FromCid(Cid cid) => new() { Link = cid };
 }
 
@@ -59,39 +47,27 @@ public sealed class CidLink
 /// </summary>
 public sealed class StrongRef : LexObject
 {
-    /// <summary>
-    /// The AT URI of the record.
-    /// </summary>
+    /// <summary>The AT URI of the record.</summary>
     [JsonPropertyName("uri")]
     public required AtUri Uri { get; init; }
 
-    /// <summary>
-    /// The CID of the specific version of the record.
-    /// </summary>
+    /// <summary>The CID of the specific version of the record.</summary>
     [JsonPropertyName("cid")]
     public required Cid Cid { get; init; }
 }
 
-/// <summary>
-/// Represents labels applied to content for moderation/classification.
-/// </summary>
+/// <summary>Represents labels applied to content for moderation/classification.</summary>
 public sealed class Label : LexObject
 {
-    /// <summary>
-    /// The version of the label format.
-    /// </summary>
+    /// <summary>The version of the label format.</summary>
     [JsonPropertyName("ver")]
     public int? Version { get; init; }
 
-    /// <summary>
-    /// DID of the labeler who created this label.
-    /// </summary>
+    /// <summary>DID of the labeler who created this label.</summary>
     [JsonPropertyName("src")]
     public required Did Src { get; init; }
 
-    /// <summary>
-    /// The subject being labeled: an AT URI for a record, or a DID for an account.
-    /// </summary>
+    /// <summary>The subject being labeled: an AT URI for a record, or a DID for an account.</summary>
     /// <remarks>
     /// The Lexicon format is the generic <c>uri</c>, not <c>at-uri</c>, because an account
     /// label's subject is a bare DID; the property stays a <see cref="string"/>.
@@ -99,33 +75,23 @@ public sealed class Label : LexObject
     [JsonPropertyName("uri")]
     public required string Uri { get; init; }
 
-    /// <summary>
-    /// CID of the version of the subject, if applicable.
-    /// </summary>
+    /// <summary>CID of the version of the subject, if applicable.</summary>
     [JsonPropertyName("cid")]
     public Cid? Cid { get; init; }
 
-    /// <summary>
-    /// The label value/name (e.g., "nsfw", "spam").
-    /// </summary>
+    /// <summary>The label value/name (e.g., "nsfw", "spam").</summary>
     [JsonPropertyName("val")]
     public required string Val { get; init; }
 
-    /// <summary>
-    /// Whether this is a negation label (removes a previous label).
-    /// </summary>
+    /// <summary>Whether this is a negation label (removes a previous label).</summary>
     [JsonPropertyName("neg")]
     public bool? Neg { get; init; }
 
-    /// <summary>
-    /// Timestamp when the label was created.
-    /// </summary>
+    /// <summary>Timestamp when the label was created.</summary>
     [JsonPropertyName("cts")]
     public required AtDatetime Cts { get; init; }
 
-    /// <summary>
-    /// Timestamp when the label expires, if applicable.
-    /// </summary>
+    /// <summary>Timestamp when the label expires, if applicable.</summary>
     [JsonPropertyName("exp")]
     public AtDatetime? Exp { get; init; }
 
@@ -138,9 +104,7 @@ public sealed class Label : LexObject
     public byte[]? Sig { get; init; }
 }
 
-/// <summary>
-/// One page of a cursor-paginated XRPC response.
-/// </summary>
+/// <summary>One page of a cursor-paginated XRPC response.</summary>
 /// <typeparam name="T">The type of the page's items.</typeparam>
 /// <remarks>
 /// Every cursored response model implements this, with <see cref="Items"/> implemented
@@ -149,13 +113,9 @@ public sealed class Label : LexObject
 /// </remarks>
 public interface ICursorPage<out T>
 {
-    /// <summary>
-    /// The items on this page.
-    /// </summary>
+    /// <summary>The items on this page.</summary>
     IReadOnlyList<T> Items { get; }
 
-    /// <summary>
-    /// The cursor for the next page, or <see langword="null"/> when this is the last page.
-    /// </summary>
+    /// <summary>The cursor for the next page, or <see langword="null"/> when this is the last page.</summary>
     string? Cursor { get; }
 }

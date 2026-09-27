@@ -62,9 +62,7 @@ public sealed class TapWebhookOptions
 /// <param name="Error">Why it is not a Tap event.</param>
 public sealed record TapUnreadableEvent(byte[] Body, FormatException Error);
 
-/// <summary>
-/// Maps an ASP.NET Core endpoint that receives Tap's webhook delivery mode (<c>TAP_WEBHOOK_URL</c>).
-/// </summary>
+/// <summary>Maps an ASP.NET Core endpoint that receives Tap's webhook delivery mode (<c>TAP_WEBHOOK_URL</c>).</summary>
 /// <remarks>
 /// <para>Tap POSTs each event as JSON, with the admin password as HTTP Basic auth, and counts it
 /// delivered once the endpoint answers with a 2xx; any other answer is retried with backoff. The
@@ -206,7 +204,7 @@ public static class TapWebhookExtensions
         byte[]? body;
         try
         {
-            body = await ReadBoundedAsync(context.Request.Body, options.MaxBodyBytes, context.RequestAborted);
+            body = await ReadBoundedAsync(context.Request.Body, options.MaxBodyBytes, context.RequestAborted).ConfigureAwait(false);
         }
         catch (BadHttpRequestException ex) when (ex.StatusCode == StatusCodes.Status413PayloadTooLarge)
         {
@@ -240,7 +238,7 @@ public static class TapWebhookExtensions
 
         try
         {
-            await handler(evt, context.RequestAborted);
+            await handler(evt, context.RequestAborted).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !context.RequestAborted.IsCancellationRequested)
         {
@@ -261,7 +259,7 @@ public static class TapWebhookExtensions
         using var buffer = new MemoryStream();
         var chunk = new byte[16 * 1024];
         int read;
-        while ((read = await body.ReadAsync(chunk, cancellationToken)) > 0)
+        while ((read = await body.ReadAsync(chunk, cancellationToken).ConfigureAwait(false)) > 0)
         {
             if (buffer.Length + read > maxBytes)
                 return null;

@@ -3,9 +3,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Draft;
 
-/// <summary>
-/// Client for app.bsky.draft.* XRPC endpoints: the authenticated account's post drafts.
-/// </summary>
+/// <summary>Client for app.bsky.draft.* XRPC endpoints: the authenticated account's post drafts.</summary>
 /// <remarks>
 /// Drafts are not repository records: the appview keeps them in private storage, visible only to
 /// their owner, and may cap how many an account holds.
@@ -19,11 +17,7 @@ public sealed class DraftClient
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Store a new draft.
-    /// </summary>
-    /// <param name="draft">The draft.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <summary>Store a new draft.</summary>
     /// <returns>The new draft's identifier.</returns>
     /// <exception cref="XrpcException">
     /// <see cref="DraftErrors.DraftLimitReached"/> when the account has as many drafts as it may.
@@ -38,12 +32,9 @@ public sealed class DraftClient
         return response.Id;
     }
 
-    /// <summary>
-    /// Replace a stored draft. An identifier that names no draft is silently ignored.
-    /// </summary>
+    /// <summary>Replace a stored draft. An identifier that names no draft is silently ignored.</summary>
     /// <param name="id">The draft's identifier.</param>
     /// <param name="draft">The draft's new content.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task UpdateDraftAsync(Tid id, Draft draft, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(draft);
@@ -53,11 +44,8 @@ public sealed class DraftClient
             "app.bsky.draft.updateDraft", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Delete a draft.
-    /// </summary>
+    /// <summary>Delete a draft.</summary>
     /// <param name="id">The draft's identifier.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task DeleteDraftAsync(Tid id, CancellationToken cancellationToken = default)
     {
         var request = new DeleteDraftRequest { Id = id };
@@ -65,12 +53,9 @@ public sealed class DraftClient
             "app.bsky.draft.deleteDraft", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get one page of the authenticated account's drafts.
-    /// </summary>
+    /// <summary>Get one page of the authenticated account's drafts.</summary>
     /// <param name="limit">Max drafts per page (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetDraftsResponse> GetDraftsAsync(
         int? limit = null, string? cursor = null, CancellationToken cancellationToken = default)
     {
@@ -82,11 +67,8 @@ public sealed class DraftClient
             "app.bsky.draft.getDrafts", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate the authenticated account's drafts, fetching pages as needed.
-    /// </summary>
+    /// <summary>Enumerate the authenticated account's drafts, fetching pages as needed.</summary>
     /// <param name="pageSize">Drafts per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<DraftView> EnumerateDraftsAsync(
         int? pageSize = null, CancellationToken cancellationToken = default) =>
         Pagination.EnumerateAsync<GetDraftsResponse, DraftView>(

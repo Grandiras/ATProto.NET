@@ -6,9 +6,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace ATProtoNet.Server.EntityFrameworkCore;
 
-/// <summary>
-/// A single-use token identifier this service has already accepted.
-/// </summary>
+/// <summary>A single-use token identifier this service has already accepted.</summary>
 /// <remarks>
 /// The primary key is <c>(Issuer, TokenId, ExpiresAt)</c>, matching how
 /// <see cref="IJtiReplayStore"/> is keyed: the uniqueness of that key <em>is</em> the replay
@@ -75,7 +73,6 @@ public class JtiReplayDbContext : DbContext
     /// Applies the configuration <see cref="EfCoreJtiReplayStore{TContext}"/> needs: the
     /// <c>AtProtoJtiReplay</c> table.
     /// </summary>
-    /// <param name="modelBuilder">The model builder.</param>
     public static void ConfigureJtiReplayModel(ModelBuilder modelBuilder)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);
@@ -94,9 +91,7 @@ public class JtiReplayDbContext : DbContext
     }
 }
 
-/// <summary>
-/// Registers the EF Core-backed <see cref="IJtiReplayStore"/>.
-/// </summary>
+/// <summary>Registers the EF Core-backed <see cref="IJtiReplayStore"/>.</summary>
 public static class JtiReplayStoreExtensions
 {
     /// <summary>

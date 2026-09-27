@@ -106,14 +106,9 @@ internal sealed class SessionManager : IXrpcSessionHandler
     /// <summary>The session store, if the client has one.</summary>
     internal IAtProtoSessionStore? Store => _store;
 
-    // ──────────────────────────────────────────────────────────
-    //  Install
-    // ──────────────────────────────────────────────────────────
+    // ── Install ──────────────────────────────────────────────
 
-    /// <summary>
-    /// Installs a session, replacing any installed one, and points the client at its service.
-    /// </summary>
-    /// <param name="session">The session.</param>
+    /// <summary>Installs a session, replacing any installed one, and points the client at its service.</summary>
     /// <param name="oauthClient">For an OAuth session, the client that refreshes it; when
     /// <see langword="null"/>, the one the previous OAuth session had is kept.</param>
     /// <param name="persist">Write the session to the store.</param>
@@ -150,7 +145,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
             else if (dpop is not null)
                 throw new ArgumentException("Only an OAuth session has a DPoP key.", nameof(key));
 
-            await _transition.WaitAsync(cancellationToken);
+            await _transition.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
                 ThrowIfDisposed();
@@ -174,8 +169,8 @@ internal sealed class SessionManager : IXrpcSessionHandler
                 // another client cannot write its result over this one afterwards.
                 if (persist)
                 {
-                    await using (await AcquireStoreLeaseAsync(session.Did))
-                        await PersistAsync(session);
+                    await using (await AcquireStoreLeaseAsync(session.Did).ConfigureAwait(false))
+                        await PersistAsync(session).ConfigureAwait(false);
                 }
 
                 change = new AtProtoSessionChangedEventArgs(AtProtoSessionChange.Created, session, previous?.Session);
@@ -207,7 +202,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
         AtProtoSessionChangedEventArgs? change = null;
         AtProtoSession? current;
 
-        await _transition.WaitAsync(cancellationToken);
+        await _transition.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             var state = _state;
@@ -233,12 +228,12 @@ internal sealed class SessionManager : IXrpcSessionHandler
                     // The store is written only while it still holds these tokens: another client
                     // may have refreshed the session, or signed it out, since this one read it, and
                     // new account details are not worth undoing either.
-                    await using (await AcquireStoreLeaseAsync(updated.Did))
+                    await using (await AcquireStoreLeaseAsync(updated.Did).ConfigureAwait(false))
                     {
                         if (_coordinator is null ||
-                            await ReadStoredQuietlyAsync(updated.Did) is { } stored && SameGeneration(stored, password))
+                            await ReadStoredQuietlyAsync(updated.Did).ConfigureAwait(false) is { } stored && SameGeneration(stored, password))
                         {
-                            await PersistAsync(updated);
+                            await PersistAsync(updated).ConfigureAwait(false);
                         }
                     }
 
@@ -266,11 +261,11 @@ internal sealed class SessionManager : IXrpcSessionHandler
     {
         AtProtoSessionChangedEventArgs? change = null;
 
-        await _transition.WaitAsync();
+        await _transition.WaitAsync().ConfigureAwait(false);
         try
         {
             if (_state is { } state && SameSession(state.Credentials, installed))
-                change = await ExpireLockedAsync(state, error, leaseHeld: false);
+                change = await ExpireLockedAsync(state, error, leaseHeld: false).ConfigureAwait(false);
         }
         finally
         {
@@ -280,9 +275,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
         Raise(change);
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Refresh
-    // ──────────────────────────────────────────────────────────
+    // ── Refresh ──────────────────────────────────────────────
 
     /// <summary>Refreshes the installed session now.</summary>
     /// <exception cref="InvalidOperationException">No session is installed.</exception>
@@ -309,7 +302,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
     {
         try
         {
-            await RefreshAsync(state.Credentials, cancellationToken);
+            await RefreshAsync(state.Credentials, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException && _state is not null && expiresAt > _time.GetUtcNow())
         {
@@ -336,7 +329,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
         if (!_autoRefresh || !CanRefresh(state))
             return null;
 
-        await RefreshAsync(rejected, cancellationToken);
+        await RefreshAsync(rejected, cancellationToken).ConfigureAwait(false);
 
         return _state is { } current && !ReferenceEquals(current.Credentials, rejected) &&
                SameSession(current.Credentials, rejected)
@@ -387,7 +380,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
         Exception? failure = null;
         try
         {
-            await RefreshCoreAsync(operation.Observed);
+            await RefreshCoreAsync(operation.Observed).ConfigureAwait(false);
         }
         catch (OperationCanceledException ex) when (_lifetime.IsCancellationRequested)
         {
@@ -422,7 +415,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
     private async Task RefreshCoreAsync(XrpcCredentials observed)
     {
         // Disposal cancels the wait for a turn, and only that (see the class remarks).
-        await _transition.WaitAsync(_lifetime.Token);
+        await _transition.WaitAsync(_lifetime.Token).ConfigureAwait(false);
 
         AtProtoSessionChangedEventArgs? change = null;
         IAsyncDisposable? lease = null;
@@ -434,11 +427,11 @@ internal sealed class SessionManager : IXrpcSessionHandler
 
             if (_coordinator is not null)
             {
-                lease = await AcquireRefreshLeaseAsync(state.Session.Did);
+                lease = await AcquireRefreshLeaseAsync(state.Session.Did).ConfigureAwait(false);
 
                 // Read under the lease: what the store holds now is what the last client to
                 // refresh this account left there.
-                var stored = await ReadStoredAsync(state.Session.Did);
+                var stored = await ReadStoredAsync(state.Session.Did).ConfigureAwait(false);
                 if (stored is null || stored.Did != state.Session.Did)
                 {
                     var signedOut = new XrpcAuthenticationException(
@@ -446,7 +439,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
                         "The session was signed out: the session store no longer holds it.",
                         HttpStatusCode.Unauthorized,
                         nsid: null);
-                    change = await ExpireLockedAsync(state, signedOut, leaseHeld: true);
+                    change = await ExpireLockedAsync(state, signedOut, leaseHeld: true).ConfigureAwait(false);
                     throw signedOut;
                 }
 
@@ -462,11 +455,11 @@ internal sealed class SessionManager : IXrpcSessionHandler
             {
                 try
                 {
-                    refreshed = await ExchangeAsync(state, deadline.Token);
+                    refreshed = await ExchangeAsync(state, deadline.Token).ConfigureAwait(false);
                 }
                 catch (Exception ex) when (IsSessionEnded(ex))
                 {
-                    change = await ExpireLockedAsync(state, ex, leaseHeld: lease is not null);
+                    change = await ExpireLockedAsync(state, ex, leaseHeld: lease is not null).ConfigureAwait(false);
                     throw;
                 }
                 catch (OperationCanceledException ex) when (deadline.IsCancellationRequested)
@@ -496,7 +489,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
             Publish(
                 state with { Session = refreshed, Credentials = Credentials(refreshed, state.DPoP, serviceUrl) },
                 moved ? serviceUrl : null);
-            await PersistAsync(refreshed);
+            await PersistAsync(refreshed).ConfigureAwait(false);
 
             _logger.LogDebug("Refreshed the session of {Did}", refreshed.Did);
             change = new AtProtoSessionChangedEventArgs(AtProtoSessionChange.Refreshed, refreshed, state.Session);
@@ -504,7 +497,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
         finally
         {
             if (lease is not null)
-                await lease.DisposeAsync();
+                await lease.DisposeAsync().ConfigureAwait(false);
 
             _transition.Release();
             Raise(change);
@@ -521,7 +514,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
         using var wait = CancellationTokenSource.CreateLinkedTokenSource(deadline.Token, _lifetime.Token);
         try
         {
-            return await _coordinator!.AcquireAsync(did, wait.Token);
+            return await _coordinator!.AcquireAsync(did, wait.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException ex) when (deadline.IsCancellationRequested && !_lifetime.IsCancellationRequested)
         {
@@ -548,7 +541,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
         using var deadline = new CancellationTokenSource(RefreshTimeout, _time);
         try
         {
-            return await _coordinator.AcquireAsync(did, deadline.Token);
+            return await _coordinator.AcquireAsync(did, deadline.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (deadline.IsCancellationRequested)
         {
@@ -564,7 +557,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
     {
         try
         {
-            return await ReadStoredAsync(did);
+            return await ReadStoredAsync(did).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -602,7 +595,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
         using var deadline = new CancellationTokenSource(RefreshTimeout, _time);
         try
         {
-            return await _store!.GetAsync(did, deadline.Token);
+            return await _store!.GetAsync(did, deadline.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException ex) when (deadline.IsCancellationRequested)
         {
@@ -675,7 +668,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
         {
             case PasswordSession password:
             {
-                var response = await _server.RefreshSessionAsync(password.RefreshJwt, cancellationToken);
+                var response = await _server.RefreshSessionAsync(password.RefreshJwt, cancellationToken).ConfigureAwait(false);
                 return password with
                 {
                     Handle = response.Handle,
@@ -697,7 +690,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
                     "An OAuth session is refreshed by the OAuthClient that issued it, and none was given. " +
                     "Pass it to ApplySessionAsync, ResumeSessionAsync or TryRestoreSessionAsync.");
 
-                return await client.RefreshAsync(oauth, state.DPoP!, cancellationToken);
+                return await client.RefreshAsync(oauth, state.DPoP!, cancellationToken).ConfigureAwait(false);
             }
 
             default:
@@ -720,9 +713,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
     private static bool CanRefresh(State state) =>
         state.Session.CanRefresh && (state.Session is not OAuthSession || state.OAuthClient is not null);
 
-    // ──────────────────────────────────────────────────────────
-    //  Expiry and sign-out
-    // ──────────────────────────────────────────────────────────
+    // ── Expiry and sign-out ──────────────────────────────────
 
     /// <summary>
     /// Drops a session the service no longer accepts, with the transition lock held: from the
@@ -740,12 +731,12 @@ internal sealed class SessionManager : IXrpcSessionHandler
 
         if (leaseHeld)
         {
-            await ForgetAsync(state.Session);
+            await ForgetAsync(state.Session).ConfigureAwait(false);
         }
         else
         {
-            await using (await AcquireStoreLeaseAsync(state.Session.Did))
-                await ForgetAsync(state.Session);
+            await using (await AcquireStoreLeaseAsync(state.Session.Did).ConfigureAwait(false))
+                await ForgetAsync(state.Session).ConfigureAwait(false);
         }
 
         return new AtProtoSessionChangedEventArgs(AtProtoSessionChange.Expired, null, state.Session, error);
@@ -763,7 +754,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
         var failures = new List<Exception>(2);
         State? state;
 
-        await _transition.WaitAsync(cancellationToken);
+        await _transition.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             state = _state;
@@ -787,15 +778,15 @@ internal sealed class SessionManager : IXrpcSessionHandler
                     // Under the account's lease: a refresh by another client finishes and stores
                     // its result first, and is then removed with the rest, instead of writing the
                     // session back once it has been signed out.
-                    await using (await AcquireStoreLeaseAsync(state.Session.Did))
+                    await using (await AcquireStoreLeaseAsync(state.Session.Did).ConfigureAwait(false))
                     {
-                        if (_coordinator is not null && await ReadStoredQuietlyAsync(state.Session.Did) is { } stored &&
+                        if (_coordinator is not null && await ReadStoredQuietlyAsync(state.Session.Did).ConfigureAwait(false) is { } stored &&
                             IsLaterCopy(stored, state.Session))
                         {
                             revoked = state with { Session = stored };
                         }
 
-                        await _store.RemoveAsync(state.Session.Did, CancellationToken.None);
+                        await _store.RemoveAsync(state.Session.Did, CancellationToken.None).ConfigureAwait(false);
                     }
                 }
                 catch (Exception ex)
@@ -807,7 +798,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
 
             try
             {
-                await RevokeAsync(revoked, cancellationToken);
+                await RevokeAsync(revoked, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -839,7 +830,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
             case PasswordSession { RefreshJwt.Length: > 0 } password:
                 try
                 {
-                    await _server.DeleteSessionAsync(password.RefreshJwt, cancellationToken);
+                    await _server.DeleteSessionAsync(password.RefreshJwt, cancellationToken).ConfigureAwait(false);
                 }
                 catch (XrpcAuthenticationException ex)
                 {
@@ -849,7 +840,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
                 break;
 
             case OAuthSession oauth when state.OAuthClient is { } client:
-                await client.RevokeAsync(oauth, state.DPoP!, cancellationToken);
+                await client.RevokeAsync(oauth, state.DPoP!, cancellationToken).ConfigureAwait(false);
                 break;
 
             case OAuthSession:
@@ -859,9 +850,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
         }
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Publication, persistence, events
-    // ──────────────────────────────────────────────────────────
+    // ── Publication, persistence, events ─────────────────────
 
     /// <summary>
     /// Makes <paramref name="next"/> the session: first the state that refreshes and recoveries
@@ -890,7 +879,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
 
         try
         {
-            await _store.SetAsync(session, CancellationToken.None);
+            await _store.SetAsync(session, CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -900,9 +889,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
         }
     }
 
-    /// <summary>
-    /// Removes a refused session from the store, if the store still holds that copy of it.
-    /// </summary>
+    /// <summary>Removes a refused session from the store, if the store still holds that copy of it.</summary>
     /// <remarks>
     /// Another client sharing the store may have refreshed the same session first, stored the
     /// new tokens, and so caused this client's refusal; removing the entry then would sign out a
@@ -916,9 +903,9 @@ internal sealed class SessionManager : IXrpcSessionHandler
 
         try
         {
-            var stored = await _store.GetAsync(refused.Did, CancellationToken.None);
+            var stored = await _store.GetAsync(refused.Did, CancellationToken.None).ConfigureAwait(false);
             if (stored is not null && string.Equals(RefreshCredential(stored), RefreshCredential(refused), StringComparison.Ordinal))
-                await _store.RemoveAsync(refused.Did, CancellationToken.None);
+                await _store.RemoveAsync(refused.Did, CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -941,9 +928,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
         }
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Background refresh
-    // ──────────────────────────────────────────────────────────
+    // ── Background refresh ───────────────────────────────────
 
     /// <summary>
     /// Arms the timer for <paramref name="state"/>: shortly before its expiry, or after
@@ -986,7 +971,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
 
         try
         {
-            await RefreshAsync(state.Credentials, _lifetime.Token);
+            await RefreshAsync(state.Credentials, _lifetime.Token).ConfigureAwait(false);
         }
         catch (Exception) when (_disposed)
         {
@@ -1013,9 +998,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
         }
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Lifetime
-    // ──────────────────────────────────────────────────────────
+    // ── Lifetime ─────────────────────────────────────────────
 
     /// <summary>
     /// Stops refreshing without waiting. A token exchange already under way finishes and is
@@ -1048,13 +1031,13 @@ internal sealed class SessionManager : IXrpcSessionHandler
             return;
 
         if (timer is not null)
-            await timer.DisposeAsync();
+            await timer.DisposeAsync().ConfigureAwait(false);
 
         if (refresh is not null)
         {
             try
             {
-                await refresh;
+                await refresh.ConfigureAwait(false);
             }
             catch
             {
@@ -1085,9 +1068,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, typeof(AtProtoClient));
 
-    // ──────────────────────────────────────────────────────────
-    //  Helpers
-    // ──────────────────────────────────────────────────────────
+    // ── Helpers ──────────────────────────────────────────────
 
     private static XrpcCredentials Credentials(AtProtoSession session, DPoPProofGenerator? dpop, Uri serviceUrl) =>
         new(session.AccessCredential, RefreshToken: null, dpop) { Account = session.Did, Service = serviceUrl };
@@ -1104,9 +1085,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
         }
     }
 
-    /// <summary>
-    /// Reads the <c>exp</c> claim of a JWT without verifying it, for scheduling a refresh.
-    /// </summary>
+    /// <summary>Reads the <c>exp</c> claim of a JWT without verifying it, for scheduling a refresh.</summary>
     /// <returns>The expiry, or <see langword="null"/> for a token that is not a JWT or has none.</returns>
     internal static DateTimeOffset? ReadJwtExpiry(string token)
     {
@@ -1171,7 +1150,6 @@ internal sealed class SessionManager : IXrpcSessionHandler
     /// The installed session, with the key object and refresher that belong to it and the
     /// credentials derived from it.
     /// </summary>
-    /// <param name="Session">The session.</param>
     /// <param name="DPoP">The session's DPoP key, owned by the client, for an OAuth session.</param>
     /// <param name="OAuthClient">The client that refreshes an OAuth session; not owned.</param>
     /// <param name="Credentials">What requests carry, and the session's generation.</param>

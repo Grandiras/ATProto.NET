@@ -27,9 +27,7 @@ public sealed class FirehoseVerifier : IDisposable
     private readonly IDidResolver _didResolver;
     private readonly bool _ownsResolver;
 
-    /// <summary>
-    /// Creates a verifier over its own <see cref="CachingDidResolver"/>.
-    /// </summary>
+    /// <summary>Creates a verifier over its own <see cref="CachingDidResolver"/>.</summary>
     /// <param name="options">Resolver options. Defaults apply when omitted.</param>
     public FirehoseVerifier(IdentityResolverOptions? options = null)
     {
@@ -37,9 +35,7 @@ public sealed class FirehoseVerifier : IDisposable
         _ownsResolver = true;
     }
 
-    /// <summary>
-    /// Creates a verifier over an existing DID resolver, which the caller owns.
-    /// </summary>
+    /// <summary>Creates a verifier over an existing DID resolver, which the caller owns.</summary>
     /// <param name="didResolver">
     /// Resolves signing keys. Pass a <see cref="CachingDidResolver"/>: an uncached resolver makes a
     /// directory request for every commit.
@@ -55,7 +51,6 @@ public sealed class FirehoseVerifier : IDisposable
     /// freshly resolved key. Call it for every <c>#identity</c> event.
     /// </summary>
     /// <param name="did">The account whose identity changed.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task InvalidateIdentityAsync(Did did, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(did);
@@ -81,7 +76,6 @@ public sealed class FirehoseVerifier : IDisposable
     /// Performs: serialize unsigned commit as DAG-CBOR → SHA-256 → verify ECDSA signature.
     /// </summary>
     /// <param name="commit">The commit event with blocks.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A verification result.</returns>
     public async Task<VerificationResult> VerifySignatureAsync(
         CommitEvent commit, CancellationToken cancellationToken = default)
@@ -114,7 +108,7 @@ public sealed class FirehoseVerifier : IDisposable
             if (sigBytes is null || sigBytes.Length == 0)
                 return VerificationResult.Failure("Commit has empty signature");
 
-            var didDoc = await _didResolver.ResolveAsync(commit.Repo, cancellationToken);
+            var didDoc = await _didResolver.ResolveAsync(commit.Repo, cancellationToken).ConfigureAwait(false);
             var signingKey = didDoc.GetSigningKey();
             if (signingKey is null)
                 return VerificationResult.Failure($"No atproto signing key found for {commit.Repo}");
@@ -129,7 +123,7 @@ public sealed class FirehoseVerifier : IDisposable
             // The cached document may predate a key rotation: refetch once before declaring the
             // signature bad. The resolver rate-limits refreshes, so forged commits cannot turn
             // into a directory request each.
-            var refreshedKey = (await _didResolver.RefreshAsync(commit.Repo, cancellationToken)).GetSigningKey();
+            var refreshedKey = (await _didResolver.RefreshAsync(commit.Repo, cancellationToken).ConfigureAwait(false)).GetSigningKey();
             if (refreshedKey is not null &&
                 !string.Equals(refreshedKey, signingKey, StringComparison.Ordinal) &&
                 AtProtoCrypto.VerifySignature(refreshedKey, unsignedCborBytes, sigBytes))
@@ -145,9 +139,7 @@ public sealed class FirehoseVerifier : IDisposable
         }
     }
 
-    /// <summary>
-    /// Verifies a sync event's CID integrity.
-    /// </summary>
+    /// <summary>Verifies a sync event's CID integrity.</summary>
     /// <param name="syncEvent">The sync event with blocks.</param>
     /// <returns>A verification result.</returns>
     public static VerificationResult VerifyCid(SyncEvent syncEvent)
@@ -351,9 +343,7 @@ public sealed class FirehoseVerifier : IDisposable
     }
 }
 
-/// <summary>
-/// Represents the result of a firehose verification operation.
-/// </summary>
+/// <summary>Represents the result of a firehose verification operation.</summary>
 public sealed class VerificationResult
 {
     /// <summary>Whether the verification passed.</summary>

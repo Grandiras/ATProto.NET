@@ -4,13 +4,9 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Site.Standard.Graph;
 
-// ──────────────────────────────────────────────────────────────
-//  Subscription record
-// ──────────────────────────────────────────────────────────────
+// ── Subscription record ──────────────────────────────────────
 
-/// <summary>
-/// Represents a Standard.site subscription — a follow relationship to a publication.
-/// </summary>
+/// <summary>Represents a Standard.site subscription — a follow relationship to a publication.</summary>
 public sealed class SubscriptionRecord : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>site.standard.graph.subscription</c>).</summary>

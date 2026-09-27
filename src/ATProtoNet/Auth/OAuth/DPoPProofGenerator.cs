@@ -33,17 +33,13 @@ public sealed class DPoPProofGenerator : IDisposable
     /// </summary>
     public string KeyThumbprint => _thumbprint;
 
-    /// <summary>
-    /// Creates a new DPoP proof generator with a freshly generated ES256 (P-256) keypair.
-    /// </summary>
+    /// <summary>Creates a new DPoP proof generator with a freshly generated ES256 (P-256) keypair.</summary>
     public DPoPProofGenerator()
         : this(ECDsa.Create(ECCurve.NamedCurves.nistP256))
     {
     }
 
-    /// <summary>
-    /// Creates a DPoP proof generator from an existing exported key (for session resumption).
-    /// </summary>
+    /// <summary>Creates a DPoP proof generator from an existing exported key (for session resumption).</summary>
     /// <param name="exportedKey">The PKCS#8 private key bytes.</param>
     /// <exception cref="ArgumentException">The key is not a P-256 key.</exception>
     /// <exception cref="CryptographicException">The bytes are not a PKCS#8 private key.</exception>
@@ -92,9 +88,7 @@ public sealed class DPoPProofGenerator : IDisposable
         return new DPoPProofGenerator(this);
     }
 
-    /// <summary>
-    /// Exports the private key in PKCS#8 format for persistence.
-    /// </summary>
+    /// <summary>Exports the private key in PKCS#8 format for persistence.</summary>
     /// <remarks>
     /// <b>Security warning:</b> The exported key bytes are unencrypted. Store them in a
     /// secure location (e.g. OS keychain, encrypted database, DPAPI-protected storage).
@@ -107,9 +101,7 @@ public sealed class DPoPProofGenerator : IDisposable
         return _key.ExportPrivateKey();
     }
 
-    /// <summary>
-    /// Generates a DPoP proof JWT for a token request to the Authorization Server.
-    /// </summary>
+    /// <summary>Generates a DPoP proof JWT for a token request to the Authorization Server.</summary>
     /// <param name="httpMethod">The HTTP method (e.g., "POST").</param>
     /// <param name="url">The full request URL. Its query, fragment and userinfo are left out of the proof.</param>
     /// <param name="nonce">The server-provided DPoP nonce, or null if not yet known.</param>

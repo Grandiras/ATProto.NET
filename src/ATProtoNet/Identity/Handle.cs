@@ -31,9 +31,7 @@ public sealed partial record Handle : IIdentifier<Handle>
     /// </summary>
     public static Handle Invalid { get; } = new("handle.invalid");
 
-    /// <summary>
-    /// The handle string value (normalized to lowercase).
-    /// </summary>
+    /// <summary>The handle string value (normalized to lowercase).</summary>
     public string Value { get; }
 
     private Handle(string value)
@@ -41,18 +39,14 @@ public sealed partial record Handle : IIdentifier<Handle>
         Value = value;
     }
 
-    /// <summary>
-    /// Creates a Handle from a string value with validation.
-    /// </summary>
+    /// <summary>Creates a Handle from a string value with validation.</summary>
     /// <param name="value">The handle, optionally prefixed with <c>@</c>.</param>
     /// <returns>A validated, lower-cased handle.</returns>
     /// <exception cref="ArgumentException">Thrown if the value is not a valid handle.</exception>
     public static Handle Parse(string value) =>
         TryParse(value, out var handle) ? handle : throw IIdentifier<Handle>.InvalidValue(value, "handle");
 
-    /// <summary>
-    /// Attempts to create a Handle from a string value without throwing.
-    /// </summary>
+    /// <summary>Attempts to create a Handle from a string value without throwing.</summary>
     /// <param name="value">The handle, optionally prefixed with <c>@</c>.</param>
     /// <param name="handle">The parsed, lower-cased handle on success.</param>
     /// <returns><see langword="true"/> if <paramref name="value"/> is a valid handle.</returns>
@@ -88,17 +82,13 @@ public sealed partial record Handle : IIdentifier<Handle>
         return true;
     }
 
-    /// <summary>
-    /// Implicitly converts a <see cref="Handle"/> to its <see cref="string"/> representation.
-    /// </summary>
+    /// <summary>Implicitly converts a <see cref="Handle"/> to its <see cref="string"/> representation.</summary>
     /// <param name="handle">The value to convert.</param>
     /// <returns>The converted value, or <see langword="null"/> for a <see langword="null"/> handle.</returns>
     [return: NotNullIfNotNull(nameof(handle))]
     public static implicit operator string?(Handle? handle) => handle?.Value;
 
-    /// <summary>
-    /// Explicitly converts a <see cref="string"/> to its <see cref="Handle"/> representation.
-    /// </summary>
+    /// <summary>Explicitly converts a <see cref="string"/> to its <see cref="Handle"/> representation.</summary>
     /// <param name="value">The value to convert.</param>
     /// <returns>The converted value.</returns>
     /// <exception cref="ArgumentException">Thrown if the value is not a valid <see cref="Handle"/>.</exception>

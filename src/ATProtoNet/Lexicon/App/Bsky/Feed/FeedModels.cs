@@ -10,9 +10,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Feed;
 
-// ──────────────────────────────────────────────────────────────
-//  Post record (the actual repo record)
-// ──────────────────────────────────────────────────────────────
+// ── Post record (the actual repo record) ─────────────────────
 
 /// <summary>
 /// A Bluesky post record stored in the repository.
@@ -60,9 +58,7 @@ public sealed class PostRecord : LexObject, IAtProtoRecord
     public required AtDatetime CreatedAt { get; init; }
 }
 
-/// <summary>
-/// Reply reference linking to parent and root posts.
-/// </summary>
+/// <summary>Reply reference linking to parent and root posts.</summary>
 public sealed class ReplyRef : LexObject
 {
     /// <summary>The root post of the thread.</summary>
@@ -74,14 +70,10 @@ public sealed class ReplyRef : LexObject
     public required StrongRef Parent { get; init; }
 }
 
-/// <summary>
-/// Self-applied content labels for a post.
-/// </summary>
+/// <summary>Self-applied content labels for a post.</summary>
 public sealed class SelfLabels : LexObject
 {
-    /// <summary>
-    /// The Lexicon type discriminator (<c>com.atproto.label.defs#selfLabels</c>).
-    /// </summary>
+    /// <summary>The Lexicon type discriminator (<c>com.atproto.label.defs#selfLabels</c>).</summary>
     [JsonPropertyName("$type")]
     public string Type => "com.atproto.label.defs#selfLabels";
 
@@ -90,9 +82,7 @@ public sealed class SelfLabels : LexObject
     public required IReadOnlyList<SelfLabelValue> Values { get; init; }
 }
 
-/// <summary>
-/// A single self-label value.
-/// </summary>
+/// <summary>A single self-label value.</summary>
 public sealed class SelfLabelValue : LexObject
 {
     /// <summary>The label value.</summary>
@@ -100,13 +90,9 @@ public sealed class SelfLabelValue : LexObject
     public required string Val { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Like record
-// ──────────────────────────────────────────────────────────────
+// ── Like record ──────────────────────────────────────────────
 
-/// <summary>
-/// A like record. Collection: app.bsky.feed.like
-/// </summary>
+/// <summary>A like record. Collection: app.bsky.feed.like</summary>
 public sealed class LikeRecord : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>app.bsky.feed.like</c>).</summary>
@@ -124,20 +110,14 @@ public sealed class LikeRecord : LexObject, IAtProtoRecord
     [JsonPropertyName("createdAt")]
     public required AtDatetime CreatedAt { get; init; }
 
-    /// <summary>
-    /// The repost through which the account came to the post, when it liked a repost.
-    /// </summary>
+    /// <summary>The repost through which the account came to the post, when it liked a repost.</summary>
     [JsonPropertyName("via")]
     public StrongRef? Via { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Repost record
-// ──────────────────────────────────────────────────────────────
+// ── Repost record ────────────────────────────────────────────
 
-/// <summary>
-/// A repost record. Collection: app.bsky.feed.repost
-/// </summary>
+/// <summary>A repost record. Collection: app.bsky.feed.repost</summary>
 public sealed class RepostRecord : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>app.bsky.feed.repost</c>).</summary>
@@ -155,16 +135,12 @@ public sealed class RepostRecord : LexObject, IAtProtoRecord
     [JsonPropertyName("createdAt")]
     public required AtDatetime CreatedAt { get; init; }
 
-    /// <summary>
-    /// The repost through which the account came to the post, when it reposted a repost.
-    /// </summary>
+    /// <summary>The repost through which the account came to the post, when it reposted a repost.</summary>
     [JsonPropertyName("via")]
     public StrongRef? Via { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Threadgate record
-// ──────────────────────────────────────────────────────────────
+// ── Threadgate record ────────────────────────────────────────
 
 /// <summary>
 /// A threadgate record that controls who can reply to a thread.
@@ -316,13 +292,9 @@ public sealed class UnknownPostgateEmbeddingRule : PostgateEmbeddingRule, IUnkno
     public JsonElement Raw { get; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Feed generator record
-// ──────────────────────────────────────────────────────────────
+// ── Feed generator record ────────────────────────────────────
 
-/// <summary>
-/// A feed generator record. Collection: app.bsky.feed.generator
-/// </summary>
+/// <summary>A feed generator record. Collection: app.bsky.feed.generator</summary>
 public sealed class GeneratorRecord : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>app.bsky.feed.generator</c>).</summary>
@@ -369,9 +341,7 @@ public sealed class GeneratorRecord : LexObject, IAtProtoRecord
     public required AtDatetime CreatedAt { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Post view types (returned from API)
-// ──────────────────────────────────────────────────────────────
+// ── Post view types (returned from API) ──────────────────────
 
 /// <summary>
 /// A post as a view refers to it: the post itself, or a placeholder when it cannot be shown (the
@@ -412,9 +382,7 @@ public sealed class UnknownPostEntry : PostEntry, IUnknownUnionVariant
     public JsonElement Raw { get; }
 }
 
-/// <summary>
-/// A full post view as returned by feed endpoints.
-/// </summary>
+/// <summary>A full post view as returned by feed endpoints.</summary>
 public sealed class PostView : PostEntry
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
@@ -478,9 +446,7 @@ public sealed class PostView : PostEntry
     public JsonElement? Debug { get; init; }
 }
 
-/// <summary>
-/// A post's threadgate as the appview renders it (<c>app.bsky.feed.defs#threadgateView</c>).
-/// </summary>
+/// <summary>A post's threadgate as the appview renders it (<c>app.bsky.feed.defs#threadgateView</c>).</summary>
 public sealed class ThreadgateView : LexObject
 {
     /// <summary>The AT-URI of the threadgate record.</summary>
@@ -500,9 +466,7 @@ public sealed class ThreadgateView : LexObject
     public IReadOnlyList<ListViewBasic>? Lists { get; init; }
 }
 
-/// <summary>
-/// Viewer state for a post (like/repost status).
-/// </summary>
+/// <summary>Viewer state for a post (like/repost status).</summary>
 public sealed class PostViewerState : LexObject
 {
     /// <summary>AT-URI of the viewer's like record, if liked.</summary>
@@ -538,9 +502,7 @@ public sealed class PostViewerState : LexObject
     public KnownLikers? KnownLikers { get; init; }
 }
 
-/// <summary>
-/// Accounts the viewer follows that liked a post (<c>app.bsky.feed.defs#knownLikers</c>).
-/// </summary>
+/// <summary>Accounts the viewer follows that liked a post (<c>app.bsky.feed.defs#knownLikers</c>).</summary>
 public sealed class KnownLikers : LexObject
 {
     /// <summary>How many accounts the viewer follows liked the post.</summary>
@@ -552,9 +514,7 @@ public sealed class KnownLikers : LexObject
     public required IReadOnlyList<ProfileViewBasic> Actors { get; init; }
 }
 
-/// <summary>
-/// A feed view item wrapping a post with optional reason (repost).
-/// </summary>
+/// <summary>A feed view item wrapping a post with optional reason (repost).</summary>
 public sealed class FeedViewPost : LexObject
 {
     /// <summary>The post.</summary>
@@ -572,9 +532,7 @@ public sealed class FeedViewPost : LexObject
     [JsonPropertyName("reason")]
     public FeedReason? Reason { get; init; }
 
-    /// <summary>
-    /// An opaque context string the feed generator may pass back in interaction events.
-    /// </summary>
+    /// <summary>An opaque context string the feed generator may pass back in interaction events.</summary>
     [JsonPropertyName("feedContext")]
     public string? FeedContext { get; init; }
 
@@ -641,9 +599,7 @@ public sealed class UnknownFeedReason : FeedReason, IUnknownUnionVariant
     public JsonElement Raw { get; }
 }
 
-/// <summary>
-/// Reply context within a feed view.
-/// </summary>
+/// <summary>Reply context within a feed view.</summary>
 public sealed class FeedReplyRef : LexObject
 {
     /// <summary>The root post of the thread.</summary>
@@ -659,9 +615,7 @@ public sealed class FeedReplyRef : LexObject
     public ProfileViewBasic? GrandparentAuthor { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Thread view
-// ──────────────────────────────────────────────────────────────
+// ── Thread view ──────────────────────────────────────────────
 
 /// <summary>
 /// A thread view node (the open union behind <c>app.bsky.feed.getPostThread#thread</c> and a
@@ -697,9 +651,7 @@ public sealed class UnknownThreadNode : ThreadNode, IUnknownUnionVariant
     public JsonElement Raw { get; }
 }
 
-/// <summary>
-/// A post in a thread tree.
-/// </summary>
+/// <summary>A post in a thread tree.</summary>
 public sealed class ThreadViewPost : ThreadNode
 {
     /// <summary>The post at this node of the thread.</summary>
@@ -719,9 +671,7 @@ public sealed class ThreadViewPost : ThreadNode
     public ThreadContext? ThreadContext { get; init; }
 }
 
-/// <summary>
-/// Context about a post's place in its thread (<c>app.bsky.feed.defs#threadContext</c>).
-/// </summary>
+/// <summary>Context about a post's place in its thread (<c>app.bsky.feed.defs#threadContext</c>).</summary>
 public sealed class ThreadContext : LexObject
 {
     /// <summary>The AT-URI of the thread root author's like of the post, if they liked it.</summary>
@@ -729,25 +679,19 @@ public sealed class ThreadContext : LexObject
     public AtUri? RootAuthorLike { get; init; }
 }
 
-/// <summary>
-/// A not-found post placeholder in a thread.
-/// </summary>
+/// <summary>A not-found post placeholder in a thread.</summary>
 public sealed class NotFoundPost : ThreadNode
 {
     /// <summary>The AT-URI of the post that could not be found.</summary>
     [JsonPropertyName("uri")]
     public required AtUri Uri { get; init; }
 
-    /// <summary>
-    /// Always <see langword="true"/>; marks the referenced subject as unavailable.
-    /// </summary>
+    /// <summary>Always <see langword="true"/>; marks the referenced subject as unavailable.</summary>
     [JsonPropertyName("notFound")]
     public bool NotFound => true;
 }
 
-/// <summary>
-/// A blocked post placeholder in a thread.
-/// </summary>
+/// <summary>A blocked post placeholder in a thread.</summary>
 public sealed class BlockedPost : ThreadNode
 {
     /// <summary>The AT-URI of the blocked post.</summary>
@@ -763,9 +707,7 @@ public sealed class BlockedPost : ThreadNode
     public required BlockedAuthor Author { get; init; }
 }
 
-/// <summary>
-/// The author of a blocked post (<c>app.bsky.feed.defs#blockedAuthor</c>).
-/// </summary>
+/// <summary>The author of a blocked post (<c>app.bsky.feed.defs#blockedAuthor</c>).</summary>
 public sealed class BlockedAuthor : LexObject
 {
     /// <summary>The DID of the author.</summary>
@@ -777,9 +719,7 @@ public sealed class BlockedAuthor : LexObject
     public ViewerState? Viewer { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Feed generator view
-// ──────────────────────────────────────────────────────────────
+// ── Feed generator view ──────────────────────────────────────
 
 /// <summary>
 /// A feed generator view. Also a variant of <see cref="EmbeddedRecordView"/>, for a feed embedded
@@ -844,9 +784,7 @@ public sealed class GeneratorView : EmbeddedRecordView
     public required AtDatetime IndexedAt { get; init; }
 }
 
-/// <summary>
-/// Known values of <see cref="GeneratorView.ContentMode"/> and <see cref="GeneratorRecord.ContentMode"/>.
-/// </summary>
+/// <summary>Known values of <see cref="GeneratorView.ContentMode"/> and <see cref="GeneratorRecord.ContentMode"/>.</summary>
 public static class FeedContentMode
 {
     /// <summary>The feed declares no particular content.</summary>
@@ -856,9 +794,7 @@ public static class FeedContentMode
     public const string Video = "app.bsky.feed.defs#contentModeVideo";
 }
 
-/// <summary>
-/// Viewer state for a feed generator.
-/// </summary>
+/// <summary>Viewer state for a feed generator.</summary>
 public sealed class GeneratorViewerState : LexObject
 {
     /// <summary>The AT-URI of the viewer's like record, if they have liked this.</summary>
@@ -866,13 +802,9 @@ public sealed class GeneratorViewerState : LexObject
     public AtUri? Like { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  API response types
-// ──────────────────────────────────────────────────────────────
+// ── API response types ───────────────────────────────────────
 
-/// <summary>
-/// Response from getTimeline / getAuthorFeed / getFeed / getListFeed.
-/// </summary>
+/// <summary>Response from getTimeline / getAuthorFeed / getFeed / getListFeed.</summary>
 public sealed class FeedResponse : ICursorPage<FeedViewPost>
 {
     /// <summary>
@@ -889,9 +821,7 @@ public sealed class FeedResponse : ICursorPage<FeedViewPost>
     IReadOnlyList<FeedViewPost> ICursorPage<FeedViewPost>.Items => Feed;
 }
 
-/// <summary>
-/// Response from getPostThread.
-/// </summary>
+/// <summary>Response from getPostThread.</summary>
 public sealed class GetPostThreadResponse
 {
     /// <summary>The thread rooted at the requested post.</summary>
@@ -903,9 +833,7 @@ public sealed class GetPostThreadResponse
     public ThreadgateView? Threadgate { get; init; }
 }
 
-/// <summary>
-/// Response from getPosts.
-/// </summary>
+/// <summary>Response from getPosts.</summary>
 public sealed class GetPostsResponse
 {
     /// <summary>The posts.</summary>
@@ -913,9 +841,7 @@ public sealed class GetPostsResponse
     public required IReadOnlyList<PostView> Posts { get; init; }
 }
 
-/// <summary>
-/// Response from getLikes.
-/// </summary>
+/// <summary>Response from getLikes.</summary>
 public sealed class GetLikesResponse : ICursorPage<LikeInfo>
 {
     /// <summary>
@@ -940,9 +866,7 @@ public sealed class GetLikesResponse : ICursorPage<LikeInfo>
     IReadOnlyList<LikeInfo> ICursorPage<LikeInfo>.Items => Likes;
 }
 
-/// <summary>
-/// A single like info entry.
-/// </summary>
+/// <summary>A single like info entry.</summary>
 public sealed class LikeInfo : LexObject
 {
     /// <summary>Timestamp at which the app view indexed this data.</summary>
@@ -958,9 +882,7 @@ public sealed class LikeInfo : LexObject
     public required ProfileView Actor { get; init; }
 }
 
-/// <summary>
-/// Response from getRepostedBy.
-/// </summary>
+/// <summary>Response from getRepostedBy.</summary>
 public sealed class GetRepostedByResponse : ICursorPage<ProfileView>
 {
     /// <summary>
@@ -985,9 +907,7 @@ public sealed class GetRepostedByResponse : ICursorPage<ProfileView>
     IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => RepostedBy;
 }
 
-/// <summary>
-/// Response from getQuotes.
-/// </summary>
+/// <summary>Response from getQuotes.</summary>
 public sealed class GetQuotesResponse : ICursorPage<PostView>
 {
     /// <summary>
@@ -1012,9 +932,7 @@ public sealed class GetQuotesResponse : ICursorPage<PostView>
     IReadOnlyList<PostView> ICursorPage<PostView>.Items => Posts;
 }
 
-/// <summary>
-/// Response from getFeedGenerator.
-/// </summary>
+/// <summary>Response from getFeedGenerator.</summary>
 public sealed class GetFeedGeneratorResponse
 {
     /// <summary>The feed generator view.</summary>
@@ -1030,9 +948,7 @@ public sealed class GetFeedGeneratorResponse
     public bool IsValid { get; init; }
 }
 
-/// <summary>
-/// Response from getFeedGenerators.
-/// </summary>
+/// <summary>Response from getFeedGenerators.</summary>
 public sealed class GetFeedGeneratorsResponse
 {
     /// <summary>The feed generators.</summary>
@@ -1040,9 +956,7 @@ public sealed class GetFeedGeneratorsResponse
     public required IReadOnlyList<GeneratorView> Feeds { get; init; }
 }
 
-/// <summary>
-/// Response from getActorFeeds.
-/// </summary>
+/// <summary>Response from getActorFeeds.</summary>
 public sealed class GetActorFeedsResponse : ICursorPage<GeneratorView>
 {
     /// <summary>
@@ -1059,9 +973,7 @@ public sealed class GetActorFeedsResponse : ICursorPage<GeneratorView>
     IReadOnlyList<GeneratorView> ICursorPage<GeneratorView>.Items => Feeds;
 }
 
-/// <summary>
-/// Response from getSuggestedFeeds.
-/// </summary>
+/// <summary>Response from getSuggestedFeeds.</summary>
 public sealed class GetSuggestedFeedsResponse : ICursorPage<GeneratorView>
 {
     /// <summary>
@@ -1078,9 +990,7 @@ public sealed class GetSuggestedFeedsResponse : ICursorPage<GeneratorView>
     IReadOnlyList<GeneratorView> ICursorPage<GeneratorView>.Items => Feeds;
 }
 
-/// <summary>
-/// Response from searchPosts.
-/// </summary>
+/// <summary>Response from searchPosts.</summary>
 public sealed class SearchPostsResponse : ICursorPage<PostView>
 {
     /// <summary>
@@ -1192,9 +1102,7 @@ public sealed record PostSearchFilters
     public string? QueryLanguage { get; init; }
 }
 
-/// <summary>
-/// Known values of the <c>sort</c> parameter of <see cref="FeedClient.SearchPostsV2Async"/>.
-/// </summary>
+/// <summary>Known values of the <c>sort</c> parameter of <see cref="FeedClient.SearchPostsV2Async"/>.</summary>
 public static class PostSearchSort
 {
     /// <summary>Newest first.</summary>
@@ -1226,9 +1134,7 @@ public static class SearchQueryLanguage
     public const string Arabic = "ar";
 }
 
-/// <summary>
-/// Response from searchPostsV2.
-/// </summary>
+/// <summary>Response from searchPostsV2.</summary>
 public sealed class SearchPostsV2Response : ICursorPage<PostView>
 {
     /// <summary>
@@ -1256,9 +1162,7 @@ public sealed class SearchPostsV2Response : ICursorPage<PostView>
     IReadOnlyList<PostView> ICursorPage<PostView>.Items => Posts;
 }
 
-// ──────────────────────────────────────────────────────────────
-//  sendInteractions
-// ──────────────────────────────────────────────────────────────
+// ── sendInteractions ─────────────────────────────────────────
 
 /// <summary>
 /// Feedback about one feed item for the feed generator that served it
@@ -1274,9 +1178,7 @@ public sealed class Interaction : LexObject
     [JsonPropertyName("event")]
     public string? Event { get; init; }
 
-    /// <summary>
-    /// The item's <see cref="FeedViewPost.FeedContext"/>, passed back to the generator.
-    /// </summary>
+    /// <summary>The item's <see cref="FeedViewPost.FeedContext"/>, passed back to the generator.</summary>
     [JsonPropertyName("feedContext")]
     public string? FeedContext { get; init; }
 
@@ -1285,9 +1187,7 @@ public sealed class Interaction : LexObject
     public string? ReqId { get; init; }
 }
 
-/// <summary>
-/// Known values of <see cref="Interaction.Event"/>.
-/// </summary>
+/// <summary>Known values of <see cref="Interaction.Event"/>.</summary>
 public static class InteractionEvent
 {
     /// <summary>The viewer asked to see less content like the item.</summary>
@@ -1327,9 +1227,7 @@ public static class InteractionEvent
     public const string Share = "app.bsky.feed.defs#interactionShare";
 }
 
-/// <summary>
-/// Request body for sendInteractions.
-/// </summary>
+/// <summary>Request body for sendInteractions.</summary>
 internal sealed class SendInteractionsRequest
 {
     /// <summary>The feed the items came from.</summary>
@@ -1341,9 +1239,7 @@ internal sealed class SendInteractionsRequest
     public required IReadOnlyList<Interaction> Interactions { get; init; }
 }
 
-/// <summary>
-/// Response from describeFeedGenerator.
-/// </summary>
+/// <summary>Response from describeFeedGenerator.</summary>
 public sealed class DescribeFeedGeneratorResponse
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -1359,9 +1255,7 @@ public sealed class DescribeFeedGeneratorResponse
     public JsonElement? Links { get; init; }
 }
 
-/// <summary>
-/// Feed description within describeFeedGenerator.
-/// </summary>
+/// <summary>Feed description within describeFeedGenerator.</summary>
 public sealed class DescribeFeedGeneratorFeed : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
@@ -1369,9 +1263,7 @@ public sealed class DescribeFeedGeneratorFeed : LexObject
     public required AtUri Uri { get; init; }
 }
 
-/// <summary>
-/// Response from getFeedSkeleton (for feed generators).
-/// </summary>
+/// <summary>Response from getFeedSkeleton (for feed generators).</summary>
 public sealed class GetFeedSkeletonResponse : ICursorPage<SkeletonFeedPost>
 {
     /// <summary>
@@ -1395,9 +1287,7 @@ public sealed class GetFeedSkeletonResponse : ICursorPage<SkeletonFeedPost>
     IReadOnlyList<SkeletonFeedPost> ICursorPage<SkeletonFeedPost>.Items => Feed;
 }
 
-/// <summary>
-/// A skeleton feed post (just a URI reference, used by feed generators).
-/// </summary>
+/// <summary>A skeleton feed post (just a URI reference, used by feed generators).</summary>
 public sealed class SkeletonFeedPost : LexObject
 {
     /// <summary>The AT-URI of the post.</summary>
@@ -1411,9 +1301,7 @@ public sealed class SkeletonFeedPost : LexObject
     [JsonPropertyName("reason")]
     public SkeletonReason? Reason { get; init; }
 
-    /// <summary>
-    /// An opaque context string the feed generator may pass back in interaction events.
-    /// </summary>
+    /// <summary>An opaque context string the feed generator may pass back in interaction events.</summary>
     [JsonPropertyName("feedContext")]
     public string? FeedContext { get; init; }
 }

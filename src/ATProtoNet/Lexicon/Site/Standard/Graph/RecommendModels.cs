@@ -4,13 +4,9 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Site.Standard.Graph;
 
-// ──────────────────────────────────────────────────────────────
-//  Recommend record
-// ──────────────────────────────────────────────────────────────
+// ── Recommend record ─────────────────────────────────────────
 
-/// <summary>
-/// Represents a Standard.site recommendation — an account recommending a document.
-/// </summary>
+/// <summary>Represents a Standard.site recommendation — an account recommending a document.</summary>
 public sealed class RecommendRecord : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>site.standard.graph.recommend</c>).</summary>

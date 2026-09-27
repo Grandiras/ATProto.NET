@@ -52,10 +52,10 @@ internal sealed class GetSpaceCredentialEndpoint(
         }
 
         var auth = await authenticator.AuthenticateCredentialRequestAsync(
-            context, input.ClientAttestation, space, cancellationToken);
+            context, input.ClientAttestation, space, cancellationToken).ConfigureAwait(false);
 
         var decision = await policy.EvaluateAsync(
-            new SpaceAccessRequest(space, auth.UserDid, auth.AttestedClientId, SpaceAccessKind.Read), cancellationToken);
+            new SpaceAccessRequest(space, auth.UserDid, auth.AttestedClientId, SpaceAccessKind.Read), cancellationToken).ConfigureAwait(false);
 
         if (!decision.IsGranted)
         {
@@ -71,7 +71,7 @@ internal sealed class GetSpaceCredentialEndpoint(
                 HttpStatusCode.Forbidden);
         }
 
-        var credential = await issuer.IssueAsync(space, auth.Proof.KeyThumbprint, cancellationToken);
+        var credential = await issuer.IssueAsync(space, auth.Proof.KeyThumbprint, cancellationToken).ConfigureAwait(false);
 
         logger.LogDebug(
             "Issued a credential for {Space} to {User} (app {App})",
@@ -81,9 +81,7 @@ internal sealed class GetSpaceCredentialEndpoint(
     }
 }
 
-/// <summary>
-/// Serves <c>com.atproto.space.listRepos</c>: a space's writer set.
-/// </summary>
+/// <summary>Serves <c>com.atproto.space.listRepos</c>: a space's writer set.</summary>
 /// <remarks>
 /// The writer set is the <em>sync boundary</em>, not an access-control list. It enumerates the
 /// accounts that have written at least one record and that the space's write policy admitted —
@@ -104,20 +102,18 @@ internal sealed class ListSpaceReposEndpoint(SpaceRequestAuthenticator authentic
         ArgumentNullException.ThrowIfNull(parameters);
 
         var space = SpaceRequestValidation.RequireSpace(parameters.Space);
-        await authenticator.AuthenticateCredentialAsync(context, space, cancellationToken);
-        await RequireLiveSpaceAsync(store, space, cancellationToken);
+        await authenticator.AuthenticateCredentialAsync(context, space, cancellationToken).ConfigureAwait(false);
+        await RequireLiveSpaceAsync(store, space, cancellationToken).ConfigureAwait(false);
 
         return await store.ListReposAsync(
-            space, SpaceRequestValidation.Limit(parameters.Limit), parameters.Cursor, cancellationToken);
+            space, SpaceRequestValidation.Limit(parameters.Limit), parameters.Cursor, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Refuses a request for a space this authority does not gate, or has deleted.
-    /// </summary>
+    /// <summary>Refuses a request for a space this authority does not gate, or has deleted.</summary>
     internal static async Task RequireLiveSpaceAsync(
         ISpaceAuthorityStore store, SpaceUri space, CancellationToken cancellationToken)
     {
-        var state = await store.GetSpaceStateAsync(space, cancellationToken);
+        var state = await store.GetSpaceStateAsync(space, cancellationToken).ConfigureAwait(false);
         if (state != SpaceAccessOutcome.Granted)
             throw SpaceStateError(space, state);
     }
@@ -131,9 +127,7 @@ internal sealed class ListSpaceReposEndpoint(SpaceRequestAuthenticator authentic
     };
 }
 
-/// <summary>
-/// Serves <c>com.atproto.space.registerNotify</c>: a syncer subscribing to a space's writes.
-/// </summary>
+/// <summary>Serves <c>com.atproto.space.registerNotify</c>: a syncer subscribing to a space's writes.</summary>
 /// <remarks>
 /// Notifications are the latency optimization, not the correctness guarantee. They carry no
 /// record data — only that a repo reached a new revision and hash — and are best-effort: a
@@ -161,14 +155,14 @@ internal sealed class RegisterNotifyEndpoint(
         var space = SpaceRequestValidation.RequireSpace(input.Space);
         var service = SpaceRequestValidation.RequireServiceIdentifier(input.Service, "service");
 
-        await authenticator.AuthenticateCredentialAsync(context, space, cancellationToken);
-        await ListSpaceReposEndpoint.RequireLiveSpaceAsync(store, space, cancellationToken);
+        await authenticator.AuthenticateCredentialAsync(context, space, cancellationToken).ConfigureAwait(false);
+        await ListSpaceReposEndpoint.RequireLiveSpaceAsync(store, space, cancellationToken).ConfigureAwait(false);
 
         // The registration may outlive the credential the request was authenticated with, which
         // is the point: a syncer holds a subscription across credential renewals rather than
         // re-registering every two hours.
         var expiresAt = _timeProvider.GetUtcNow().Add(options.NotifyRegistrationLifetime);
-        await store.RegisterNotifyAsync(space, service, expiresAt, cancellationToken);
+        await store.RegisterNotifyAsync(space, service, expiresAt, cancellationToken).ConfigureAwait(false);
 
         return new RegisterNotifyResponse { ExpiresAt = AtDatetime.FromDateTimeOffset(expiresAt) };
     }
@@ -195,11 +189,11 @@ internal sealed class UnregisterNotifyEndpoint(SpaceRequestAuthenticator authent
         var space = SpaceRequestValidation.RequireSpace(input.Space);
         var service = SpaceRequestValidation.RequireServiceIdentifier(input.Service, "service");
 
-        await authenticator.AuthenticateCredentialAsync(context, space, cancellationToken);
+        await authenticator.AuthenticateCredentialAsync(context, space, cancellationToken).ConfigureAwait(false);
 
         // Idempotent, and deliberately unconditional on the space's state: a syncer unsubscribing
         // from a space that has since been deleted is exactly the case that must not fail.
-        await store.UnregisterNotifyAsync(space, service, cancellationToken);
+        await store.UnregisterNotifyAsync(space, service, cancellationToken).ConfigureAwait(false);
     }
 }
 
@@ -249,7 +243,7 @@ internal sealed class NotifyWriteEndpoint(
         var rev = SpaceRequestValidation.Require(input.Rev, "rev");
         var hash = input.Hash ?? throw new XrpcException(XrpcErrors.InvalidRequest, "The \"hash\" field is required.");
 
-        var caller = await serviceAuth.VerifyAsync(context, AcceptedAudiences(space), Nsid, cancellationToken);
+        var caller = await serviceAuth.VerifyAsync(context, AcceptedAudiences(space), Nsid, cancellationToken).ConfigureAwait(false);
 
         // The signer is the writer and nobody else. A service listing an endpoint at the writer's
         // PDS origin proves nothing: any DID document can name any URL.
@@ -261,11 +255,11 @@ internal sealed class NotifyWriteEndpoint(
                 HttpStatusCode.Forbidden);
         }
 
-        await ListSpaceReposEndpoint.RequireLiveSpaceAsync(store, space, cancellationToken);
+        await ListSpaceReposEndpoint.RequireLiveSpaceAsync(store, space, cancellationToken).ConfigureAwait(false);
 
         // No attested client: the caller is the writer's repo host, not an application.
         var decision = await policy.EvaluateAsync(
-            new SpaceAccessRequest(space, repo, AttestedClientId: null, SpaceAccessKind.Write), cancellationToken);
+            new SpaceAccessRequest(space, repo, AttestedClientId: null, SpaceAccessKind.Write), cancellationToken).ConfigureAwait(false);
 
         if (!decision.IsGranted)
         {
@@ -282,7 +276,7 @@ internal sealed class NotifyWriteEndpoint(
                 HttpStatusCode.Forbidden);
         }
 
-        await store.RecordWriteAsync(space, repo, rev, hash, cancellationToken);
+        await store.RecordWriteAsync(space, repo, rev, hash, cancellationToken).ConfigureAwait(false);
 
         // Not awaited: neither the writer's repo host nor this request waits on downstream
         // syncers, whose deliveries are best-effort anyway.

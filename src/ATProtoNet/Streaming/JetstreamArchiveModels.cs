@@ -4,9 +4,7 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Streaming;
 
-/// <summary>
-/// Decompresses a zstd frame stored inside a Jetstream sealed segment (<c>.jss</c>).
-/// </summary>
+/// <summary>Decompresses a zstd frame stored inside a Jetstream sealed segment (<c>.jss</c>).</summary>
 /// <remarks>
 /// <para>Segment blocks — and the segment's collection index — are stored as plain zstd frames
 /// with content checksums enabled and <b>no dictionary</b>, unlike the dictionary-compressed
@@ -46,9 +44,7 @@ public sealed class JetstreamArchiveOptions
     /// </summary>
     public string? ApiKey { get; init; }
 
-    /// <summary>
-    /// Decompressor for the zstd frames inside a segment. Required — the SDK bundles no zstd.
-    /// </summary>
+    /// <summary>Decompressor for the zstd frames inside a segment. Required — the SDK bundles no zstd.</summary>
     public required IJetstreamBlockDecompressor BlockDecompressor { get; init; }
 
     /// <summary>

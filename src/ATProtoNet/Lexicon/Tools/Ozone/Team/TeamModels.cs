@@ -5,9 +5,7 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Team;
 
-/// <summary>
-/// A team member in the Ozone moderation service.
-/// </summary>
+/// <summary>A team member in the Ozone moderation service.</summary>
 public sealed class TeamMember : LexObject
 {
     /// <summary>The DID of the team member.</summary>
@@ -42,9 +40,7 @@ public sealed class TeamMember : LexObject
     public string? LastUpdatedBy { get; init; }
 }
 
-/// <summary>
-/// Team member role constants.
-/// </summary>
+/// <summary>Team member role constants.</summary>
 public static class TeamMemberRole
 {
     /// <summary>The <c>tools.ozone.team.defs#roleAdmin</c> team member role.</summary>
@@ -60,9 +56,7 @@ public static class TeamMemberRole
     public const string Verifier = "tools.ozone.team.defs#roleVerifier";
 }
 
-/// <summary>
-/// Request to add a team member.
-/// </summary>
+/// <summary>Request to add a team member.</summary>
 public sealed class AddMemberRequest
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -74,9 +68,7 @@ public sealed class AddMemberRequest
     public required string Role { get; init; }
 }
 
-/// <summary>
-/// Request to delete a team member.
-/// </summary>
+/// <summary>Request to delete a team member.</summary>
 internal sealed class DeleteMemberRequest
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -84,9 +76,7 @@ internal sealed class DeleteMemberRequest
     public required Did Did { get; init; }
 }
 
-/// <summary>
-/// Request to update a team member.
-/// </summary>
+/// <summary>Request to update a team member.</summary>
 public sealed class UpdateMemberRequest
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -102,9 +92,7 @@ public sealed class UpdateMemberRequest
     public required string Role { get; init; }
 }
 
-/// <summary>
-/// Response from listMembers.
-/// </summary>
+/// <summary>Response from listMembers.</summary>
 public sealed class ListMembersResponse : ICursorPage<TeamMember>
 {
     /// <summary>

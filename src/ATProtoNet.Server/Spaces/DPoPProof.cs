@@ -63,9 +63,7 @@ public sealed class DPoPProof
     public DateTimeOffset IssuedAt { get; }
 }
 
-/// <summary>
-/// Verifies the DPoP proofs presented alongside space credentials.
-/// </summary>
+/// <summary>Verifies the DPoP proofs presented alongside space credentials.</summary>
 /// <remarks>
 /// <para>A space credential reads a whole space and is presented to every repo host in it, so as
 /// a bearer token it would be a shared secret: a host given one in order to serve its own repo
@@ -106,9 +104,7 @@ public sealed class DPoPProofValidator
     private readonly SpaceServerOptions _options;
     private readonly TimeProvider _timeProvider;
 
-    /// <summary>
-    /// Creates a validator.
-    /// </summary>
+    /// <summary>Creates a validator.</summary>
     /// <param name="replayStore">The store that consumes each proof's <c>jti</c>.</param>
     /// <param name="options">Server options; supplies the proof lifetime.</param>
     /// <param name="timeProvider">The clock. Defaults to the system clock.</param>
@@ -124,9 +120,7 @@ public sealed class DPoPProofValidator
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
-    /// <summary>
-    /// Verifies a proof against the request it arrived on.
-    /// </summary>
+    /// <summary>Verifies a proof against the request it arrived on.</summary>
     /// <param name="proofJwt">The <c>DPoP</c> header value.</param>
     /// <param name="httpMethod">The HTTP method as received.</param>
     /// <param name="requestUri">
@@ -144,7 +138,6 @@ public sealed class DPoPProofValidator
     /// The credential presented on the request, whose hash <c>ath</c> must match, or
     /// <see langword="null"/> on the credential exchange, whose proof must carry no <c>ath</c>.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="SpaceVerificationException">Thrown when any check fails.</exception>
     public Task<DPoPProof> ValidateAsync(
         string proofJwt,
@@ -290,7 +283,7 @@ public sealed class DPoPProofValidator
 
         // Consumed last, and only once everything else has passed, so a forged proof cannot burn
         // the identifier of one a legitimate holder is about to present.
-        if (!await _replayStore.TryConsumeAsync(thumbprint, tokenId, issuedAt + _options.ProofLifetime, cancellationToken))
+        if (!await _replayStore.TryConsumeAsync(thumbprint, tokenId, issuedAt + _options.ProofLifetime, cancellationToken).ConfigureAwait(false))
             throw Invalid("The DPoP proof has already been used.");
 
         return new DPoPProof(proofJwt, algorithm, thumbprint, tokenId, method, uri, issuedAt);

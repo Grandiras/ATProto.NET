@@ -7,9 +7,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.Chat.Bsky.Embed;
 
-// ──────────────────────────────────────────────────────────────
-//  Embeds a message is sent with (chat.bsky.convo.defs#messageInput.embed)
-// ──────────────────────────────────────────────────────────────
+// ── Embeds a message is sent with (chat.bsky.convo.defs#messageInput.embed) ──
 
 /// <summary>
 /// Content embedded in a message being sent (the open <c>chat.bsky.convo.defs#messageInput.embed</c>
@@ -44,9 +42,7 @@ public sealed class UnknownMessageEmbed : MessageEmbed, IUnknownUnionVariant
     public JsonElement Raw { get; }
 }
 
-/// <summary>
-/// A record, such as a post, embedded in a message (<c>app.bsky.embed.record</c>).
-/// </summary>
+/// <summary>A record, such as a post, embedded in a message (<c>app.bsky.embed.record</c>).</summary>
 public sealed class MessageRecordEmbed : MessageEmbed
 {
     /// <summary>A strong reference to the record.</summary>
@@ -54,9 +50,7 @@ public sealed class MessageRecordEmbed : MessageEmbed
     public required StrongRef Record { get; init; }
 }
 
-/// <summary>
-/// A group's join link embedded in a message (<c>chat.bsky.embed.joinLink</c>).
-/// </summary>
+/// <summary>A group's join link embedded in a message (<c>chat.bsky.embed.joinLink</c>).</summary>
 public sealed class JoinLinkEmbed : MessageEmbed
 {
     /// <summary>The join link's code.</summary>
@@ -64,9 +58,7 @@ public sealed class JoinLinkEmbed : MessageEmbed
     public required string Code { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Embeds a message is read with (chat.bsky.convo.defs#messageView.embed)
-// ──────────────────────────────────────────────────────────────
+// ── Embeds a message is read with (chat.bsky.convo.defs#messageView.embed) ──
 
 /// <summary>
 /// Content embedded in a message as the chat service shows it (the open
@@ -102,9 +94,7 @@ public sealed class UnknownMessageEmbedView : MessageEmbedView, IUnknownUnionVar
     public JsonElement Raw { get; }
 }
 
-/// <summary>
-/// The view of a record embedded in a message (<c>app.bsky.embed.record#view</c>).
-/// </summary>
+/// <summary>The view of a record embedded in a message (<c>app.bsky.embed.record#view</c>).</summary>
 public sealed class MessageRecordEmbedView : MessageEmbedView
 {
     /// <summary>
@@ -115,9 +105,7 @@ public sealed class MessageRecordEmbedView : MessageEmbedView
     public required EmbeddedRecordView Record { get; init; }
 }
 
-/// <summary>
-/// The view of a join link embedded in a message (<c>chat.bsky.embed.joinLink#view</c>).
-/// </summary>
+/// <summary>The view of a join link embedded in a message (<c>chat.bsky.embed.joinLink#view</c>).</summary>
 public sealed class JoinLinkEmbedView : MessageEmbedView
 {
     /// <summary>

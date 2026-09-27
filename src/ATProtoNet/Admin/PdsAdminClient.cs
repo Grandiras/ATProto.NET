@@ -57,9 +57,7 @@ public sealed class PdsAdminClient : IDisposable
     private bool _hasAdminSession;
     private bool _disposed;
 
-    /// <summary>
-    /// Create an admin client for the given PDS.
-    /// </summary>
+    /// <summary>Create an admin client for the given PDS.</summary>
     /// <param name="pdsUrl">The PDS base URL. Must be HTTPS unless it is a loopback address.</param>
     /// <param name="adminPassword">The server's admin password.</param>
     public PdsAdminClient(string pdsUrl, string adminPassword)
@@ -67,9 +65,7 @@ public sealed class PdsAdminClient : IDisposable
     {
     }
 
-    /// <summary>
-    /// Create an admin client with full configuration.
-    /// </summary>
+    /// <summary>Create an admin client with full configuration.</summary>
     /// <param name="options">Connection and credential options.</param>
     /// <param name="httpClient">
     /// An externally managed <see cref="HttpClient"/> (e.g. from <c>IHttpClientFactory</c>).
@@ -142,14 +138,10 @@ public sealed class PdsAdminClient : IDisposable
         Server = new ServerClient(_adminXrpc);
     }
 
-    /// <summary>
-    /// The base URL of the PDS being administered.
-    /// </summary>
+    /// <summary>The base URL of the PDS being administered.</summary>
     public Uri PdsUrl { get; }
 
-    /// <summary>
-    /// How this client authenticates against the server's admin endpoints.
-    /// </summary>
+    /// <summary>How this client authenticates against the server's admin endpoints.</summary>
     public PdsAdminAuthentication Authentication { get; }
 
     /// <summary>
@@ -171,9 +163,7 @@ public sealed class PdsAdminClient : IDisposable
     /// <inheritdoc cref="Admin" path="/remarks"/>
     public ServerClient Server { get; }
 
-    // ──────────────────────────────────────────────────────────
-    //  Admin authentication
-    // ──────────────────────────────────────────────────────────
+    // ── Admin authentication ─────────────────────────────────
 
     /// <summary>
     /// Signs in as the administrator account when that is how this PDS authenticates
@@ -193,7 +183,6 @@ public sealed class PdsAdminClient : IDisposable
     /// account on an empty instance as an administrator.
     /// </para>
     /// </remarks>
-    /// <param name="cancellationToken">A cancellation token.</param>
     public async Task EnsureAdminSessionAsync(CancellationToken cancellationToken = default)
     {
         if (Authentication != PdsAdminAuthentication.AdminAccount || _hasAdminSession)
@@ -201,7 +190,7 @@ public sealed class PdsAdminClient : IDisposable
             return;
         }
 
-        await _sessionLock.WaitAsync(cancellationToken);
+        await _sessionLock.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
@@ -211,7 +200,7 @@ public sealed class PdsAdminClient : IDisposable
             }
 
             var session = await Server.CreateSessionAsync(
-                _adminIdentifier, _adminPassword, cancellationToken: cancellationToken);
+                _adminIdentifier, _adminPassword, cancellationToken: cancellationToken).ConfigureAwait(false);
 
             _adminXrpc.SetTokens(session.AccessJwt);
             _hasAdminSession = true;
@@ -237,18 +226,18 @@ public sealed class PdsAdminClient : IDisposable
         Func<CancellationToken, Task<T>> call,
         CancellationToken cancellationToken)
     {
-        await EnsureAdminSessionAsync(cancellationToken);
+        await EnsureAdminSessionAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
-            return await call(cancellationToken);
+            return await call(cancellationToken).ConfigureAwait(false);
         }
         catch (XrpcException ex) when (ShouldReauthenticate(ex))
         {
             _logger.LogDebug("PDS administrator session rejected; signing in again");
             InvalidateAdminSession();
-            await EnsureAdminSessionAsync(cancellationToken);
-            return await call(cancellationToken);
+            await EnsureAdminSessionAsync(cancellationToken).ConfigureAwait(false);
+            return await call(cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -260,10 +249,10 @@ public sealed class PdsAdminClient : IDisposable
         await AdminCallAsync<object?>(
             async ct =>
             {
-                await call(ct);
+                await call(ct).ConfigureAwait(false);
                 return null;
             },
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 
     private bool ShouldReauthenticate(XrpcException exception) =>
@@ -277,9 +266,7 @@ public sealed class PdsAdminClient : IDisposable
         _adminXrpc.ClearTokens();
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Server
-    // ──────────────────────────────────────────────────────────
+    // ── Server ───────────────────────────────────────────────
 
     /// <summary>
     /// Describe the PDS — its DID, available user domains, and whether signups
@@ -289,16 +276,11 @@ public sealed class PdsAdminClient : IDisposable
         _publicXrpc.QueryAsync<DescribeServerResponse>(
             "com.atproto.server.describeServer", cancellationToken: cancellationToken);
 
-    // ──────────────────────────────────────────────────────────
-    //  Invite codes
-    // ──────────────────────────────────────────────────────────
+    // ── Invite codes ─────────────────────────────────────────
 
-    /// <summary>
-    /// Mint an invite code.
-    /// </summary>
+    /// <summary>Mint an invite code.</summary>
     /// <param name="useCount">How many accounts the code may create. Default: 1.</param>
     /// <param name="forAccount">An optional DID to attribute the code to.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The generated invite code.</returns>
     public async Task<string> CreateInviteCodeAsync(
         int useCount = 1,
@@ -308,18 +290,15 @@ public sealed class PdsAdminClient : IDisposable
         ArgumentOutOfRangeException.ThrowIfLessThan(useCount, 1);
 
         var response = await AdminCallAsync(
-            ct => Server.CreateInviteCodeAsync(useCount, forAccount, ct), cancellationToken);
+            ct => Server.CreateInviteCodeAsync(useCount, forAccount, ct), cancellationToken).ConfigureAwait(false);
 
         return response.Code;
     }
 
-    /// <summary>
-    /// Mint several invite codes in one call.
-    /// </summary>
+    /// <summary>Mint several invite codes in one call.</summary>
     /// <param name="codeCount">How many codes to generate.</param>
     /// <param name="useCount">How many accounts each code may create. Default: 1.</param>
     /// <param name="forAccounts">Optional DIDs to attribute the codes to.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
     public async Task<IReadOnlyList<string>> CreateInviteCodesAsync(
         int codeCount,
         int useCount = 1,
@@ -337,14 +316,12 @@ public sealed class PdsAdminClient : IDisposable
         };
 
         var response = await AdminCallAsync(
-            ct => Server.CreateInviteCodesAsync(request, ct), cancellationToken);
+            ct => Server.CreateInviteCodesAsync(request, ct), cancellationToken).ConfigureAwait(false);
 
         return response.Codes.SelectMany(c => c.Codes).ToList();
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Accounts
-    // ──────────────────────────────────────────────────────────
+    // ── Accounts ─────────────────────────────────────────────
 
     /// <summary>
     /// Create an account on the PDS, minting an invite code first when the server
@@ -362,7 +339,6 @@ public sealed class PdsAdminClient : IDisposable
     /// must fall under one of the PDS's available user domains (see
     /// <see cref="DescribeServerAsync"/>), and the reference PDS requires an email address.
     /// </param>
-    /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>
     /// The new account's DID and handle, along with a session (access and refresh
     /// tokens) the account holder can be signed in with immediately.
@@ -378,11 +354,11 @@ public sealed class PdsAdminClient : IDisposable
 
         if (request.InviteCode is null)
         {
-            var server = await DescribeServerAsync(cancellationToken);
+            var server = await DescribeServerAsync(cancellationToken).ConfigureAwait(false);
 
             if (server.InviteCodeRequired == true)
             {
-                request = CopyWithInviteCode(request, await CreateInviteCodeAsync(cancellationToken: cancellationToken));
+                request = CopyWithInviteCode(request, await CreateInviteCodeAsync(cancellationToken: cancellationToken).ConfigureAwait(false));
                 _logger.LogDebug("Minted invite code for new account {Handle}", request.Handle);
             }
         }
@@ -391,7 +367,7 @@ public sealed class PdsAdminClient : IDisposable
         return await _publicXrpc.ProcedureAsync<CreateAccountResponse>(
             "com.atproto.server.createAccount",
             request,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     private static CreateAccountRequest CopyWithInviteCode(CreateAccountRequest request, string inviteCode) => new()
@@ -407,20 +383,15 @@ public sealed class PdsAdminClient : IDisposable
         PlcOp = request.PlcOp,
     };
 
-    /// <summary>
-    /// Get detailed information about an account.
-    /// </summary>
+    /// <summary>Get detailed information about an account.</summary>
     /// <param name="did">The account DID.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
     public Task<AccountInfo> GetAccountAsync(Did did, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(did);
         return AdminCallAsync(ct => Admin.GetAccountInfoAsync(did, ct), cancellationToken);
     }
 
-    /// <summary>
-    /// Search one page of the accounts on this PDS, optionally by email address.
-    /// </summary>
+    /// <summary>Search one page of the accounts on this PDS, optionally by email address.</summary>
     /// <remarks>
     /// A Tranquil PDS serves <c>com.atproto.admin.searchAccounts</c>; the reference Bluesky PDS
     /// does not, and the call fails with an <see cref="XrpcException"/> there.
@@ -428,7 +399,6 @@ public sealed class PdsAdminClient : IDisposable
     /// <param name="email">The email address to match.</param>
     /// <param name="limit">Maximum number of results (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
     public Task<SearchAccountsResponse> SearchAccountsAsync(
         string? email = null,
         int? limit = null,
@@ -436,13 +406,10 @@ public sealed class PdsAdminClient : IDisposable
         CancellationToken cancellationToken = default) =>
         AdminCallAsync(ct => Admin.SearchAccountsAsync(email, limit, cursor, ct), cancellationToken);
 
-    /// <summary>
-    /// Enumerate every account on this PDS matching a search, fetching pages as needed.
-    /// </summary>
+    /// <summary>Enumerate every account on this PDS matching a search, fetching pages as needed.</summary>
     /// <remarks>Served where <see cref="SearchAccountsAsync"/> is.</remarks>
     /// <param name="email">The email address to match.</param>
     /// <param name="pageSize">Accounts per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
     public IAsyncEnumerable<AccountInfo> EnumerateSearchAccountsAsync(
         string? email = null,
         int? pageSize = null,
@@ -451,23 +418,17 @@ public sealed class PdsAdminClient : IDisposable
             (cursor, ct) => SearchAccountsAsync(email, pageSize, cursor, ct),
             cancellationToken);
 
-    /// <summary>
-    /// Permanently delete an account and its repository.
-    /// </summary>
+    /// <summary>Permanently delete an account and its repository.</summary>
     /// <param name="did">The account DID.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
     public Task DeleteAccountAsync(Did did, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(did);
         return AdminCallAsync(ct => Admin.DeleteAccountAsync(did, ct), cancellationToken);
     }
 
-    /// <summary>
-    /// Take an account down, making its content unavailable.
-    /// </summary>
+    /// <summary>Take an account down, making its content unavailable.</summary>
     /// <param name="did">The account DID.</param>
     /// <param name="reference">An optional moderation reference recorded with the takedown.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
     public Task TakedownAccountAsync(
         Did did,
         string? reference = null,
@@ -484,11 +445,8 @@ public sealed class PdsAdminClient : IDisposable
         return AdminCallAsync(ct => Admin.UpdateSubjectStatusAsync(request, ct), cancellationToken);
     }
 
-    /// <summary>
-    /// Reverse a takedown, restoring the account's content.
-    /// </summary>
+    /// <summary>Reverse a takedown, restoring the account's content.</summary>
     /// <param name="did">The account DID.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
     public Task RestoreAccountAsync(Did did, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(did);
@@ -502,12 +460,9 @@ public sealed class PdsAdminClient : IDisposable
         return AdminCallAsync(ct => Admin.UpdateSubjectStatusAsync(request, ct), cancellationToken);
     }
 
-    /// <summary>
-    /// Change an account's handle.
-    /// </summary>
+    /// <summary>Change an account's handle.</summary>
     /// <param name="did">The account DID.</param>
     /// <param name="handle">The new handle.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
     public Task UpdateAccountHandleAsync(
         Did did,
         Handle handle,
@@ -518,12 +473,9 @@ public sealed class PdsAdminClient : IDisposable
         return AdminCallAsync(ct => Admin.UpdateAccountHandleAsync(did, handle, ct), cancellationToken);
     }
 
-    /// <summary>
-    /// Change an account's email address.
-    /// </summary>
+    /// <summary>Change an account's email address.</summary>
     /// <param name="account">The account DID or handle.</param>
     /// <param name="email">The new email address.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
     public Task UpdateAccountEmailAsync(
         AtIdentifier account,
         string email,
@@ -534,12 +486,9 @@ public sealed class PdsAdminClient : IDisposable
         return AdminCallAsync(ct => Admin.UpdateAccountEmailAsync(account, email, ct), cancellationToken);
     }
 
-    /// <summary>
-    /// Reset an account's password.
-    /// </summary>
+    /// <summary>Reset an account's password.</summary>
     /// <param name="did">The account DID.</param>
     /// <param name="password">The new password.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
     public Task UpdateAccountPasswordAsync(
         Did did,
         string password,
@@ -550,9 +499,7 @@ public sealed class PdsAdminClient : IDisposable
         return AdminCallAsync(ct => Admin.UpdateAccountPasswordAsync(did, password, ct), cancellationToken);
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Clients for the accounts this PDS hosts
-    // ──────────────────────────────────────────────────────────
+    // ── Clients for the accounts this PDS hosts ──────────────
 
     /// <summary>
     /// Create an <see cref="AtProtoClient"/> pointed at this PDS, for acting on

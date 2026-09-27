@@ -3,9 +3,7 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Chat.Bsky.Notification;
 
-/// <summary>
-/// Known values of <see cref="ChatPreference.Include"/>.
-/// </summary>
+/// <summary>Known values of <see cref="ChatPreference.Include"/>.</summary>
 public static class ChatPreferenceInclude
 {
     /// <summary>Notify about messages from everyone.</summary>
@@ -15,9 +13,7 @@ public static class ChatPreferenceInclude
     public const string Follows = "follows";
 }
 
-/// <summary>
-/// The viewer's chat notification preferences (<c>chat.bsky.notification.defs#preferences</c>).
-/// </summary>
+/// <summary>The viewer's chat notification preferences (<c>chat.bsky.notification.defs#preferences</c>).</summary>
 public sealed class ChatNotificationPreferences : LexObject
 {
     /// <summary>Notifications for messages in accepted conversations.</summary>

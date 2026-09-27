@@ -21,10 +21,7 @@ public sealed class InMemorySpaceAuthorityStore : ISpaceAuthorityStore
 {
     private readonly ConcurrentDictionary<string, SpaceState> _spaces = new(StringComparer.Ordinal);
 
-    /// <summary>
-    /// Declares a space this authority gates, so reads and registrations for it are answered.
-    /// </summary>
-    /// <param name="space">The space.</param>
+    /// <summary>Declares a space this authority gates, so reads and registrations for it are answered.</summary>
     /// <remarks>
     /// A service whose spaces are managed through <c>com.atproto.simplespace</c> does not call
     /// this: <see cref="SimpleSpaceAuthorityStore"/> reads space existence from the
@@ -38,7 +35,6 @@ public sealed class InMemorySpaceAuthorityStore : ISpaceAuthorityStore
     }
 
     /// <summary>Marks a space deleted, so it answers <see cref="SpaceErrors.SpaceDeleted"/>.</summary>
-    /// <param name="space">The space.</param>
     /// <remarks>
     /// The counterpart of <see cref="DeclareSpace"/> for a bespoke space type. A space deleted
     /// through <c>com.atproto.simplespace.deleteSpace</c> needs no call here: its deletion is read
@@ -154,9 +150,7 @@ public sealed class InMemorySpaceAuthorityStore : ISpaceAuthorityStore
     private sealed record WriterState(Tid Rev, byte[] Hash);
 }
 
-/// <summary>
-/// An in-process <see cref="ISimpleSpaceStore"/>.
-/// </summary>
+/// <summary>An in-process <see cref="ISimpleSpaceStore"/>.</summary>
 /// <remarks>
 /// Intended for tests, samples, and single-instance development. Unlike the writer set, a member
 /// list cannot be rebuilt from anything on the network — it is never published — so a real

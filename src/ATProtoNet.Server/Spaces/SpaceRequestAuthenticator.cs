@@ -24,9 +24,7 @@ public sealed record SpaceCredentialRequestAuth(
     /// <summary>The user the requesting application is acting for.</summary>
     public Did UserDid => Delegation.UserDid;
 
-    /// <summary>
-    /// The attested client ID, or <see langword="null"/> when the app did not attest.
-    /// </summary>
+    /// <summary>The attested client ID, or <see langword="null"/> when the app did not attest.</summary>
     /// <remarks>
     /// An app access policy must be evaluated against <em>this</em> rather than against anything
     /// the request otherwise claims about itself. An unattested client ID is a self-report and
@@ -35,9 +33,7 @@ public sealed record SpaceCredentialRequestAuth(
     public string? AttestedClientId => Attestation?.ClientId;
 }
 
-/// <summary>
-/// Pulls the space flow's credentials off an ASP.NET Core request and verifies them.
-/// </summary>
+/// <summary>Pulls the space flow's credentials off an ASP.NET Core request and verifies them.</summary>
 /// <remarks>
 /// <para>Two authentication shapes reach a space server, and they are not interchangeable.</para>
 /// <list type="bullet">
@@ -62,9 +58,7 @@ public sealed class SpaceRequestAuthenticator
     private readonly SpaceClientAttestationVerifier _attestationVerifier;
     private readonly SpaceServerOptions _options;
 
-    /// <summary>
-    /// Creates an authenticator.
-    /// </summary>
+    /// <summary>Creates an authenticator.</summary>
     /// <param name="delegationVerifier">Verifies delegation tokens.</param>
     /// <param name="credentialVerifier">Verifies space credentials and their proofs.</param>
     /// <param name="proofValidator">Verifies the standalone proof on the credential exchange.</param>
@@ -100,7 +94,6 @@ public sealed class SpaceRequestAuthenticator
     /// <param name="requestedSpace">
     /// The space named in the request body. The delegation token's subject must agree with it.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="SpaceVerificationException">Thrown when any check fails.</exception>
     public async Task<SpaceCredentialRequestAuth> AuthenticateCredentialRequestAsync(
         HttpContext context,
@@ -119,7 +112,7 @@ public sealed class SpaceRequestAuthenticator
                 "A delegation token is presented under the Bearer scheme.");
         }
 
-        var delegation = await _delegationVerifier.VerifyAsync(token, requestedSpace, cancellationToken);
+        var delegation = await _delegationVerifier.VerifyAsync(token, requestedSpace, cancellationToken).ConfigureAwait(false);
 
         // No credential exists yet, so the proof carries no `ath` and is bound to nothing; its
         // own thumbprint is what the credential about to be minted will name in `cnf.jkt`.
@@ -129,28 +122,25 @@ public sealed class SpaceRequestAuthenticator
             BuildRequestUri(context),
             boundThumbprint: null,
             accessToken: null,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         VerifiedClientAttestation? attestation = null;
         if (!string.IsNullOrWhiteSpace(clientAttestation))
         {
             var audience = SpaceAuthority.HostAudience(
                 _options.ServiceDid ?? delegation.Space.Authority);
-            attestation = await _attestationVerifier.VerifyAsync(clientAttestation, audience, cancellationToken);
+            attestation = await _attestationVerifier.VerifyAsync(clientAttestation, audience, cancellationToken).ConfigureAwait(false);
         }
 
         return new SpaceCredentialRequestAuth(delegation, proof, attestation);
     }
 
-    /// <summary>
-    /// Verifies a request authenticated with a space credential.
-    /// </summary>
+    /// <summary>Verifies a request authenticated with a space credential.</summary>
     /// <param name="context">The HTTP context.</param>
     /// <param name="requestedSpace">
     /// The space named in the request, which the credential must grant. Pass
     /// <see langword="null"/> to take the space from the credential.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="SpaceVerificationException">Thrown when any check fails.</exception>
     public async Task<VerifiedSpaceCredential> AuthenticateCredentialAsync(
         HttpContext context,
@@ -176,7 +166,7 @@ public sealed class SpaceRequestAuthenticator
             context.Request.Method,
             BuildRequestUri(context),
             requestedSpace,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

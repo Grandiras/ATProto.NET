@@ -34,9 +34,7 @@ public sealed class SimpleSpaceClient
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Creates a space anchored on the authenticated user's DID, who becomes its owner.
-    /// </summary>
+    /// <summary>Creates a space anchored on the authenticated user's DID, who becomes its owner.</summary>
     /// <param name="type">The space type.</param>
     /// <param name="skey">The space key. A TID is generated when omitted.</param>
     /// <param name="readPolicy">
@@ -49,7 +47,6 @@ public sealed class SimpleSpaceClient
     /// <param name="appAccess">
     /// How to authorize requesting apps. Defaults to <see cref="OpenAppAccess"/>.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <remarks>
     /// All three policies are required on the wire, so the defaults are always sent. The write
     /// policy does not stop anyone writing to their own repo; it decides whether the authority
@@ -75,7 +72,7 @@ public sealed class SimpleSpaceClient
         };
 
         return await _xrpc.ProcedureAsync<CreateSimpleSpaceResponse>(
-            "com.atproto.simplespace.createSpace", request, cancellationToken: cancellationToken);
+            "com.atproto.simplespace.createSpace", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -86,7 +83,6 @@ public sealed class SimpleSpaceClient
     /// <param name="readPolicy">The new read policy, or <see langword="null"/> to leave it.</param>
     /// <param name="writePolicy">The new write policy, or <see langword="null"/> to leave it.</param>
     /// <param name="appAccess">The new app access policy, or <see langword="null"/> to leave it.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task UpdateSpaceAsync(
         SpaceUri space,
         SimpleSpaceUserPolicy? readPolicy = null,
@@ -105,14 +101,11 @@ public sealed class SimpleSpaceClient
         };
 
         await _xrpc.ProcedureAsync(
-            "com.atproto.simplespace.updateSpace", request, cancellationToken: cancellationToken);
+            "com.atproto.simplespace.updateSpace", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Deletes a space. The authenticated user must be its owner. Idempotent.
-    /// </summary>
+    /// <summary>Deletes a space. The authenticated user must be its owner. Idempotent.</summary>
     /// <param name="space">The space to delete.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <remarks>
     /// <para>The authority stops issuing credentials and deletes its own repo in the space.
     /// Afterwards every read and write answers <see cref="Space.SpaceErrors.SpaceNotFound"/>,
@@ -129,14 +122,10 @@ public sealed class SimpleSpaceClient
 
         var request = new DeleteSimpleSpaceRequest { Space = space };
         await _xrpc.ProcedureAsync(
-            "com.atproto.simplespace.deleteSpace", request, cancellationToken: cancellationToken);
+            "com.atproto.simplespace.deleteSpace", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Describes a space and its configuration. Served by the space host.
-    /// </summary>
-    /// <param name="space">The space.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <summary>Describes a space and its configuration. Served by the space host.</summary>
     public Task<GetSimpleSpaceResponse> GetSpaceAsync(
         SpaceUri space, CancellationToken cancellationToken = default)
     {
@@ -147,16 +136,12 @@ public sealed class SimpleSpaceClient
             "com.atproto.simplespace.getSpace", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Adds a member to a space's member list, or replaces an existing member's access.
-    /// </summary>
-    /// <param name="space">The space.</param>
+    /// <summary>Adds a member to a space's member list, or replaces an existing member's access.</summary>
     /// <param name="did">The DID of the member.</param>
     /// <param name="read">Whether the member may read under a member-list read policy.</param>
     /// <param name="write">
     /// Whether the member's writes are tracked under a member-list write policy.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <remarks>
     /// <para>An upsert: both flags are replaced every time, so to change one pass the other's
     /// current value too. A member with neither flag stays on the list but is admitted to
@@ -172,15 +157,11 @@ public sealed class SimpleSpaceClient
 
         var request = new PutSimpleSpaceMemberRequest { Space = space, Did = did, Read = read, Write = write };
         await _xrpc.ProcedureAsync(
-            "com.atproto.simplespace.putMember", request, cancellationToken: cancellationToken);
+            "com.atproto.simplespace.putMember", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Removes a member from a space's member list.
-    /// </summary>
-    /// <param name="space">The space.</param>
+    /// <summary>Removes a member from a space's member list.</summary>
     /// <param name="did">The DID of the member to remove.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <remarks>
     /// Removal stops the authority minting <em>new</em> credentials for that member. A
     /// credential already issued stays valid until it expires, and any records the member wrote
@@ -194,17 +175,15 @@ public sealed class SimpleSpaceClient
 
         var request = new RemoveSimpleSpaceMemberRequest { Space = space, Did = did };
         await _xrpc.ProcedureAsync(
-            "com.atproto.simplespace.removeMember", request, cancellationToken: cancellationToken);
+            "com.atproto.simplespace.removeMember", request, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
     /// Lists one page of a space's member list, with each member's read and write access. Must
     /// be called on the space authority's PDS.
     /// </summary>
-    /// <param name="space">The space.</param>
     /// <param name="limit">Maximum number of results per page (1–1000, default 100).</param>
     /// <param name="cursor">Pagination cursor.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <remarks>
     /// Requires OAuth with a covering read grant; a space credential is not sufficient, so
     /// members hosted elsewhere cannot enumerate the list. This reflects the
@@ -227,12 +206,8 @@ public sealed class SimpleSpaceClient
             "com.atproto.simplespace.listMembers", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerates a space's whole member list, fetching pages as needed.
-    /// </summary>
-    /// <param name="space">The space.</param>
+    /// <summary>Enumerates a space's whole member list, fetching pages as needed.</summary>
     /// <param name="pageSize">Members per request (1–1000); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<SimpleSpaceMember> EnumerateMembersAsync(
         SpaceUri space,
         int? pageSize = null,
@@ -245,10 +220,7 @@ public sealed class SimpleSpaceClient
             cancellationToken);
     }
 
-    /// <summary>
-    /// Asks a space's managing app whether to authorize a user to read or write the space.
-    /// </summary>
-    /// <param name="space">The space.</param>
+    /// <summary>Asks a space's managing app whether to authorize a user to read or write the space.</summary>
     /// <param name="user">The DID of the user.</param>
     /// <param name="access">
     /// The kind of access being checked: <see cref="SimpleSpaceAccess.Read"/> or
@@ -258,7 +230,6 @@ public sealed class SimpleSpaceClient
     /// The attested client ID, if a client attestation was presented. Omit it for write checks,
     /// which have no app behind them.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <remarks>
     /// Unlike the other <c>simplespace</c> methods this one is served by the managing app rather
     /// than by a PDS. The space authority calls it when the matching policy is a

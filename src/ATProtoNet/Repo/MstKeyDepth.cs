@@ -12,9 +12,7 @@ namespace ATProtoNet.Repo;
 /// </summary>
 internal static class MstKeyDepth
 {
-    /// <summary>
-    /// Computes the MST depth for a key (byte array).
-    /// </summary>
+    /// <summary>Computes the MST depth for a key (byte array).</summary>
     /// <param name="key">The key bytes (typically UTF-8 encoded repo path).</param>
     /// <returns>The depth (number of leading zero 2-bit pairs in the SHA-256 hash).</returns>
     public static int ComputeDepth(ReadOnlySpan<byte> key)
@@ -46,9 +44,7 @@ internal static class MstKeyDepth
     /// </summary>
     private const int MaxStackKeyBytes = 1024;
 
-    /// <summary>
-    /// Computes the MST depth for a string key (UTF-8 encoded).
-    /// </summary>
+    /// <summary>Computes the MST depth for a string key (UTF-8 encoded).</summary>
     /// <param name="key">The key string (e.g., "app.bsky.feed.post/abc123").</param>
     /// <returns>The depth.</returns>
     public static int ComputeDepth(string key)

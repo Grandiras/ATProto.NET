@@ -13,9 +13,7 @@ namespace ATProtoNet.Streaming;
 /// </remarks>
 public static class FirehoseEventParser
 {
-    /// <summary>
-    /// Parses one firehose frame.
-    /// </summary>
+    /// <summary>Parses one firehose frame.</summary>
     /// <param name="frame">The frame: a CBOR header followed by the CBOR body.</param>
     /// <returns>
     /// The message, or <see langword="null"/> for a frame that is malformed, has an identifier

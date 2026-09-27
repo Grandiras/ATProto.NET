@@ -25,19 +25,13 @@ public sealed partial record Did : IIdentifier<Did>
     [GeneratedRegex(@"^did:[a-z]+:[a-zA-Z0-9._:%-]*[a-zA-Z0-9._-]\z")]
     private static partial Regex DidPattern();
 
-    /// <summary>
-    /// The full DID string value.
-    /// </summary>
+    /// <summary>The full DID string value.</summary>
     public string Value { get; }
 
-    /// <summary>
-    /// The DID method (e.g., "plc", "web").
-    /// </summary>
+    /// <summary>The DID method (e.g., "plc", "web").</summary>
     public string Method => Value[4..Value.IndexOf(':', 4)];
 
-    /// <summary>
-    /// The method-specific identifier portion of the DID.
-    /// </summary>
+    /// <summary>The method-specific identifier portion of the DID.</summary>
     public string MethodSpecificId => Value[(Value.IndexOf(':', 4) + 1)..];
 
     private Did(string value)
@@ -45,18 +39,14 @@ public sealed partial record Did : IIdentifier<Did>
         Value = value;
     }
 
-    /// <summary>
-    /// Creates a DID from a string value with validation.
-    /// </summary>
+    /// <summary>Creates a DID from a string value with validation.</summary>
     /// <param name="value">The DID string.</param>
     /// <returns>A validated DID instance.</returns>
     /// <exception cref="ArgumentException">Thrown if the value is not a valid DID.</exception>
     public static Did Parse(string value) =>
         TryParse(value, out var did) ? did : throw IIdentifier<Did>.InvalidValue(value, "DID");
 
-    /// <summary>
-    /// Attempts to create a DID from a string value without throwing.
-    /// </summary>
+    /// <summary>Attempts to create a DID from a string value without throwing.</summary>
     /// <param name="value">The DID string.</param>
     /// <param name="did">The parsed DID on success.</param>
     /// <returns><see langword="true"/> if <paramref name="value"/> is a valid DID.</returns>
@@ -74,17 +64,13 @@ public sealed partial record Did : IIdentifier<Did>
         return result is not null;
     }
 
-    /// <summary>
-    /// Implicitly converts a <see cref="Did"/> to its <see cref="string"/> representation.
-    /// </summary>
+    /// <summary>Implicitly converts a <see cref="Did"/> to its <see cref="string"/> representation.</summary>
     /// <param name="did">The value to convert.</param>
     /// <returns>The converted value, or <see langword="null"/> for a <see langword="null"/> DID.</returns>
     [return: NotNullIfNotNull(nameof(did))]
     public static implicit operator string?(Did? did) => did?.Value;
 
-    /// <summary>
-    /// Explicitly converts a <see cref="string"/> to its <see cref="Did"/> representation.
-    /// </summary>
+    /// <summary>Explicitly converts a <see cref="string"/> to its <see cref="Did"/> representation.</summary>
     /// <param name="value">The value to convert.</param>
     /// <returns>The converted value.</returns>
     /// <exception cref="ArgumentException">Thrown if the value is not a valid <see cref="Did"/>.</exception>

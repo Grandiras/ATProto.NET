@@ -21,24 +21,16 @@ public sealed partial record Nsid : IIdentifier<Nsid>
     [GeneratedRegex(@"^[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(\.[a-zA-Z]([a-zA-Z0-9]{0,62})?)\z")]
     private static partial Regex NsidPattern();
 
-    /// <summary>
-    /// The full NSID string value.
-    /// </summary>
+    /// <summary>The full NSID string value.</summary>
     public string Value { get; }
 
-    /// <summary>
-    /// The authority segments (reversed domain), e.g., "com.atproto.repo".
-    /// </summary>
+    /// <summary>The authority segments (reversed domain), e.g., "com.atproto.repo".</summary>
     public string Authority => Value[..Value.LastIndexOf('.')];
 
-    /// <summary>
-    /// The name segment (last part), e.g., "createRecord".
-    /// </summary>
+    /// <summary>The name segment (last part), e.g., "createRecord".</summary>
     public string Name => Value[(Value.LastIndexOf('.') + 1)..];
 
-    /// <summary>
-    /// The individual segments of the NSID.
-    /// </summary>
+    /// <summary>The individual segments of the NSID.</summary>
     public string[] Segments => Value.Split('.');
 
     private Nsid(string value)
@@ -46,18 +38,14 @@ public sealed partial record Nsid : IIdentifier<Nsid>
         Value = value;
     }
 
-    /// <summary>
-    /// Creates an NSID from a string value with validation.
-    /// </summary>
+    /// <summary>Creates an NSID from a string value with validation.</summary>
     /// <param name="value">The NSID string.</param>
     /// <returns>A validated NSID.</returns>
     /// <exception cref="ArgumentException">Thrown if the value is not a valid NSID.</exception>
     public static Nsid Parse(string value) =>
         TryParse(value, out var nsid) ? nsid : throw IIdentifier<Nsid>.InvalidValue(value, "NSID");
 
-    /// <summary>
-    /// Attempts to create an NSID from a string value without throwing.
-    /// </summary>
+    /// <summary>Attempts to create an NSID from a string value without throwing.</summary>
     /// <param name="value">The NSID string.</param>
     /// <param name="nsid">The parsed NSID on success.</param>
     /// <returns><see langword="true"/> if <paramref name="value"/> is a valid NSID.</returns>
@@ -75,17 +63,13 @@ public sealed partial record Nsid : IIdentifier<Nsid>
         return result is not null;
     }
 
-    /// <summary>
-    /// Implicitly converts a <see cref="Nsid"/> to its <see cref="string"/> representation.
-    /// </summary>
+    /// <summary>Implicitly converts a <see cref="Nsid"/> to its <see cref="string"/> representation.</summary>
     /// <param name="nsid">The value to convert.</param>
     /// <returns>The converted value, or <see langword="null"/> for a <see langword="null"/> NSID.</returns>
     [return: NotNullIfNotNull(nameof(nsid))]
     public static implicit operator string?(Nsid? nsid) => nsid?.Value;
 
-    /// <summary>
-    /// Explicitly converts a <see cref="string"/> to its <see cref="Nsid"/> representation.
-    /// </summary>
+    /// <summary>Explicitly converts a <see cref="string"/> to its <see cref="Nsid"/> representation.</summary>
     /// <param name="value">The value to convert.</param>
     /// <returns>The converted value.</returns>
     /// <exception cref="ArgumentException">Thrown if the value is not a valid <see cref="Nsid"/>.</exception>

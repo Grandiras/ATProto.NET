@@ -38,7 +38,6 @@ public interface IAtProtoClientFactory
     /// among them, are not considered, so a service auth token naming a DID never reaches that
     /// account's stored session.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// An authenticated <see cref="AtProtoClient"/>, or <c>null</c> if the principal carries no
     /// OAuth login user, or the user has no stored session (signed out, say).

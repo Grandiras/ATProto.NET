@@ -4,9 +4,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Serialization;
 
-/// <summary>
-/// Reads and writes an identifier type as its JSON string form.
-/// </summary>
+/// <summary>Reads and writes an identifier type as its JSON string form.</summary>
 /// <remarks>
 /// An invalid value fails as a <see cref="JsonException"/>, which the serializer completes with
 /// the JSON path and position of the offending string; the <see cref="FormatException"/> it
@@ -33,9 +31,7 @@ internal sealed class IdentifierJsonConverter<T> : JsonConverter<T>
         writer.WriteStringValue(value.ToString());
 }
 
-/// <summary>
-/// Reads and writes an <see cref="AtDatetime"/> as its JSON string, exactly as written.
-/// </summary>
+/// <summary>Reads and writes an <see cref="AtDatetime"/> as its JSON string, exactly as written.</summary>
 /// <remarks>
 /// Reading never rejects a string, so one malformed timestamp does not fail a whole response;
 /// the value keeps the text and reports <see cref="AtDatetime.IsValid"/> <see langword="false"/>.

@@ -60,9 +60,7 @@ public sealed class OAuthClientKey : IDisposable
         }
     }
 
-    /// <summary>
-    /// The key id (<c>kid</c>) the key is published under and names in its assertions' headers.
-    /// </summary>
+    /// <summary>The key id (<c>kid</c>) the key is published under and names in its assertions' headers.</summary>
     public string KeyId { get; }
 
     /// <summary>
@@ -129,7 +127,6 @@ public sealed class OAuthClientKey : IDisposable
     /// <c>iss</c> and <c>sub</c> the client id, <c>aud</c> the authorization server's issuer, a
     /// fresh <c>jti</c>, and an <c>exp</c> <see cref="AssertionLifetime"/> after <c>iat</c>.
     /// </summary>
-    /// <param name="clientId">The client id.</param>
     /// <param name="audience">The issuer of the authorization server the assertion is for.</param>
     /// <param name="now">The time the assertion is issued at.</param>
     internal string CreateAssertion(string clientId, string audience, DateTimeOffset now)

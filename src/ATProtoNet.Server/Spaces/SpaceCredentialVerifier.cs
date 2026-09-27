@@ -6,16 +6,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// A space credential that verified, together with the proof that accompanied it.
-/// </summary>
+/// <summary>A space credential that verified, together with the proof that accompanied it.</summary>
 /// <param name="Space">The space it grants read access to, from its <c>sub</c>.</param>
 /// <param name="Proof">The DPoP proof presented with it, already verified against the request.</param>
 public sealed record VerifiedSpaceCredential(SpaceUri Space, DPoPProof Proof);
 
-/// <summary>
-/// Verifies the space credentials presented to a repo host.
-/// </summary>
+/// <summary>Verifies the space credentials presented to a repo host.</summary>
 /// <remarks>
 /// <para>This is the repo host's side of the read path. A credential says the space authority
 /// admitted this reader to this space; the repo host does not re-evaluate that decision, and has
@@ -52,9 +48,7 @@ public sealed class SpaceCredentialVerifier
     private readonly Dictionary<Did, int> _perAuthority = new();
     private int _signatureChecks;
 
-    /// <summary>
-    /// Creates a verifier.
-    /// </summary>
+    /// <summary>Creates a verifier.</summary>
     /// <param name="resolver">
     /// Resolves the issuing authority's DID document; a <see cref="CachingDidResolver"/>, since
     /// every request resolves one. Resolved from the container under
@@ -94,9 +88,7 @@ public sealed class SpaceCredentialVerifier
     /// <summary>How many credential signatures have been checked, for tests.</summary>
     internal int SignatureChecks => Volatile.Read(ref _signatureChecks);
 
-    /// <summary>
-    /// Verifies a credential and the proof presented with it.
-    /// </summary>
+    /// <summary>Verifies a credential and the proof presented with it.</summary>
     /// <param name="credentialJwt">The credential, from the <c>Authorization: DPoP</c> header.</param>
     /// <param name="proofJwt">The proof, from the <c>DPoP</c> header.</param>
     /// <param name="httpMethod">The HTTP method as received.</param>
@@ -105,7 +97,6 @@ public sealed class SpaceCredentialVerifier
     /// The space the request names, which the credential must grant. Pass <see langword="null"/>
     /// to take the space from the credential instead.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="SpaceVerificationException">Thrown when any check fails.</exception>
     public async Task<VerifiedSpaceCredential> VerifyAsync(
         string credentialJwt,
@@ -128,14 +119,14 @@ public sealed class SpaceCredentialVerifier
             if (expectedSpace is not null && credential.Space != expectedSpace)
                 throw WrongSpace(credential.Space, expectedSpace);
 
-            if (!await IsKeyCurrentAsync(credential, cancellationToken))
+            if (!await IsKeyCurrentAsync(credential, cancellationToken).ConfigureAwait(false))
             {
                 Forget(credential);
                 credential = null;
             }
         }
 
-        credential ??= await VerifyCredentialAsync(credentialJwt, accessTokenHash, expectedSpace, now, cancellationToken);
+        credential ??= await VerifyCredentialAsync(credentialJwt, accessTokenHash, expectedSpace, now, cancellationToken).ConfigureAwait(false);
 
         // Checked on every presentation, cached or not: the skew allowance is evaluated against
         // the request's own instant.
@@ -148,7 +139,7 @@ public sealed class SpaceCredentialVerifier
             requestUri,
             boundThumbprint: credential.Token.ConfirmationThumbprint,
             expectedAccessTokenHash: accessTokenHash,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         return new VerifiedSpaceCredential(credential.Space, proof);
     }
@@ -197,7 +188,7 @@ public sealed class SpaceCredentialVerifier
             async refresh =>
             {
                 (key, document) = await _resolver.ResolveKeyWithDocumentAsync(
-                    space.Authority, keyId, SpaceErrors.NotAuthorized, refresh, cancellationToken);
+                    space.Authority, keyId, SpaceErrors.NotAuthorized, refresh, cancellationToken).ConfigureAwait(false);
                 return key;
             },
             authorityKey =>
@@ -205,7 +196,7 @@ public sealed class SpaceCredentialVerifier
                 Interlocked.Increment(ref _signatureChecks);
                 return SpaceTokens.Verify(parsed, authorityKey, expectedAudience: null, expectedSubject: space, now);
             },
-            SpaceErrors.NotAuthorized);
+            SpaceErrors.NotAuthorized).ConfigureAwait(false);
 
         var entry = new CachedCredential(accessTokenHash, verified, space, keyId, key!, document!);
         Remember(entry);
@@ -218,7 +209,7 @@ public sealed class SpaceCredentialVerifier
     /// </summary>
     private async Task<bool> IsKeyCurrentAsync(CachedCredential entry, CancellationToken cancellationToken)
     {
-        var document = await _resolver.ResolveOrRefuseAsync(entry.Space.Authority, refresh: false, cancellationToken);
+        var document = await _resolver.ResolveOrRefuseAsync(entry.Space.Authority, refresh: false, cancellationToken).ConfigureAwait(false);
 
         // A caching resolver hands back the same document until it refetches, so the common case
         // is a reference comparison.

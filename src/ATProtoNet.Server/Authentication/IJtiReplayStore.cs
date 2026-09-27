@@ -28,9 +28,7 @@ namespace ATProtoNet.Server.Authentication;
 /// </remarks>
 public interface IJtiReplayStore
 {
-    /// <summary>
-    /// Records a token identifier as spent, and reports whether it was still available.
-    /// </summary>
+    /// <summary>Records a token identifier as spent, and reports whether it was still available.</summary>
     /// <param name="issuer">
     /// What scopes the identifier: the token's <c>iss</c>, or for a DPoP proof its key's
     /// thumbprint.
@@ -41,7 +39,6 @@ public interface IJtiReplayStore
     /// whatever clock skew the caller's expiry check allows. The entry must be kept until then,
     /// and need not be kept longer, since the token is refused on its own expiry from then on.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// <see langword="true"/> when the identifier had not been seen and is now consumed;
     /// <see langword="false"/> when it was already spent, which means a replay.
@@ -54,9 +51,7 @@ public interface IJtiReplayStore
         string issuer, string tokenId, DateTimeOffset expiresAt, CancellationToken cancellationToken = default);
 }
 
-/// <summary>
-/// An in-process <see cref="IJtiReplayStore"/>, suitable for a single-instance service.
-/// </summary>
+/// <summary>An in-process <see cref="IJtiReplayStore"/>, suitable for a single-instance service.</summary>
 /// <remarks>
 /// Expired entries are swept at most once a minute, in the background, triggered by whichever
 /// consumption finds a sweep due — so the store's size tracks the number of tokens in flight

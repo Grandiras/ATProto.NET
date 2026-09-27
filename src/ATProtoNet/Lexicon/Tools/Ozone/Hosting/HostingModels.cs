@@ -100,9 +100,7 @@ public sealed class HandleUpdated : AccountHistoryDetails
     public required Handle Handle { get; init; }
 }
 
-/// <summary>
-/// The kinds of account history event, for <see cref="HostingClient.GetAccountHistoryAsync"/>.
-/// </summary>
+/// <summary>The kinds of account history event, for <see cref="HostingClient.GetAccountHistoryAsync"/>.</summary>
 public static class AccountHistoryEventType
 {
     /// <summary>The account was created.</summary>
@@ -121,9 +119,7 @@ public static class AccountHistoryEventType
     public const string HandleUpdated = "handleUpdated";
 }
 
-/// <summary>
-/// Response from tools.ozone.hosting.getAccountHistory.
-/// </summary>
+/// <summary>Response from tools.ozone.hosting.getAccountHistory.</summary>
 public sealed class GetAccountHistoryResponse : ICursorPage<AccountHistoryEvent>
 {
     /// <summary>

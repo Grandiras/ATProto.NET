@@ -36,9 +36,7 @@ public enum LabelVerificationStatus
     /// </summary>
     IssuerUnresolved,
 
-    /// <summary>
-    /// The signature does not verify against the issuer's current key, even after a refetch.
-    /// </summary>
+    /// <summary>The signature does not verify against the issuer's current key, even after a refetch.</summary>
     /// <remarks>
     /// A labeler that rotated its key may not have re-signed labels issued under the old one, and
     /// the spec accepts that; such a label reads as invalid until it is.
@@ -46,9 +44,7 @@ public enum LabelVerificationStatus
     InvalidSignature,
 }
 
-/// <summary>
-/// A label and the outcome of verifying its signature.
-/// </summary>
+/// <summary>A label and the outcome of verifying its signature.</summary>
 public sealed class LabelVerificationResult
 {
     /// <summary>The label that was verified.</summary>
@@ -106,9 +102,7 @@ public sealed class LabelVerifier
 {
     private readonly IDidResolver _resolver;
 
-    /// <summary>
-    /// Creates a verifier.
-    /// </summary>
+    /// <summary>Creates a verifier.</summary>
     /// <param name="resolver">
     /// Resolves each label's issuer. Use a caching one: every label resolves a document.
     /// </param>
@@ -118,11 +112,7 @@ public sealed class LabelVerifier
         _resolver = resolver;
     }
 
-    /// <summary>
-    /// Verifies a label's signature against its issuer's <c>#atproto_label</c> key.
-    /// </summary>
-    /// <param name="label">The label.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <summary>Verifies a label's signature against its issuer's <c>#atproto_label</c> key.</summary>
     /// <returns>The outcome.</returns>
     public async Task<LabelVerificationResult> VerifyAsync(Label label, CancellationToken cancellationToken = default)
     {
@@ -164,11 +154,7 @@ public sealed class LabelVerifier
         }
     }
 
-    /// <summary>
-    /// Verifies each of a set of labels, such as a <c>queryLabels</c> page.
-    /// </summary>
-    /// <param name="labels">The labels.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <summary>Verifies each of a set of labels, such as a <c>queryLabels</c> page.</summary>
     /// <returns>One result per label, in the same order.</returns>
     public async Task<IReadOnlyList<LabelVerificationResult>> VerifyAllAsync(
         IEnumerable<Label> labels, CancellationToken cancellationToken = default)

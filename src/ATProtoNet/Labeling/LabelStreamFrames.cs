@@ -18,9 +18,7 @@ namespace ATProtoNet.Labeling;
 /// </remarks>
 public static class LabelStreamFrames
 {
-    /// <summary>
-    /// Encodes a <c>#labels</c> or <c>#info</c> message as a frame.
-    /// </summary>
+    /// <summary>Encodes a <c>#labels</c> or <c>#info</c> message as a frame.</summary>
     /// <param name="message">
     /// The message. Every label of a <see cref="LabelsEvent"/> must be signed: the spec requires
     /// <c>ver</c> and <c>sig</c> on labels a service hands to another. Sign them with
@@ -54,9 +52,7 @@ public static class LabelStreamFrames
         return writer.Encode();
     }
 
-    /// <summary>
-    /// Encodes an error frame: the last frame before the server closes the stream.
-    /// </summary>
+    /// <summary>Encodes an error frame: the last frame before the server closes the stream.</summary>
     /// <param name="error">
     /// The error name, such as <see cref="Streaming.EventStreamErrors.FutureCursor"/>.
     /// </param>

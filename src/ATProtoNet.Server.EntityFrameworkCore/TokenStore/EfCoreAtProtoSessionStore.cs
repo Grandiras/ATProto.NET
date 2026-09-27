@@ -33,9 +33,7 @@ public sealed class EfCoreAtProtoSessionStore<TContext> : IAtProtoSessionStore
     private readonly IDataProtector _protector;
     private readonly ILogger<EfCoreAtProtoSessionStore<TContext>> _logger;
 
-    /// <summary>
-    /// Creates a new <see cref="EfCoreAtProtoSessionStore{TContext}"/>.
-    /// </summary>
+    /// <summary>Creates a new <see cref="EfCoreAtProtoSessionStore{TContext}"/>.</summary>
     public EfCoreAtProtoSessionStore(
         IDbContextFactory<TContext> contextFactory,
         IDataProtectionProvider dataProtectionProvider,
@@ -57,10 +55,12 @@ public sealed class EfCoreAtProtoSessionStore<TContext> : IAtProtoSessionStore
         var did = session.Did.Value;
         var encrypted = _protector.Protect(AtProtoSessionJson.Serialize(session));
 
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        #pragma warning restore CA2007
         var tokens = context.Set<AtProtoTokenEntity>();
 
-        var existing = await tokens.FindAsync([did], cancellationToken);
+        var existing = await tokens.FindAsync([did], cancellationToken).ConfigureAwait(false);
         if (existing is not null)
         {
             existing.EncryptedTokenData = encrypted;
@@ -76,7 +76,7 @@ public sealed class EfCoreAtProtoSessionStore<TContext> : IAtProtoSessionStore
             });
         }
 
-        await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         _logger.LogDebug("Stored the session of {Did}", did);
     }
 
@@ -86,10 +86,12 @@ public sealed class EfCoreAtProtoSessionStore<TContext> : IAtProtoSessionStore
         ArgumentNullException.ThrowIfNull(did);
 
         var key = did.Value;
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        #pragma warning restore CA2007
         var entity = await context.Set<AtProtoTokenEntity>()
             .AsNoTracking()
-            .FirstOrDefaultAsync(e => e.Did == key, cancellationToken);
+            .FirstOrDefaultAsync(e => e.Did == key, cancellationToken).ConfigureAwait(false);
 
         if (entity is null)
             return null;
@@ -102,7 +104,7 @@ public sealed class EfCoreAtProtoSessionStore<TContext> : IAtProtoSessionStore
         catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or JsonException or FormatException)
         {
             _logger.LogWarning(ex, "Failed to decrypt the session of {Did}; removing corrupted entry", did);
-            await RemoveAsync(did, cancellationToken);
+            await RemoveAsync(did, cancellationToken).ConfigureAwait(false);
             return null;
         }
     }
@@ -112,13 +114,15 @@ public sealed class EfCoreAtProtoSessionStore<TContext> : IAtProtoSessionStore
     {
         ArgumentNullException.ThrowIfNull(did);
 
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
-        var entity = await context.Set<AtProtoTokenEntity>().FindAsync([did.Value], cancellationToken);
+        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        #pragma warning restore CA2007
+        var entity = await context.Set<AtProtoTokenEntity>().FindAsync([did.Value], cancellationToken).ConfigureAwait(false);
 
         if (entity is not null)
         {
             context.Set<AtProtoTokenEntity>().Remove(entity);
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             _logger.LogDebug("Removed the session of {Did}", did);
         }
     }

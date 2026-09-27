@@ -2,9 +2,7 @@ using System.Formats.Cbor;
 
 namespace ATProtoNet.Repo;
 
-/// <summary>
-/// Represents a single entry within an MST node, corresponding to the CBOR TreeEntry schema.
-/// </summary>
+/// <summary>Represents a single entry within an MST node, corresponding to the CBOR TreeEntry schema.</summary>
 /// <param name="PrefixLength">Count of bytes shared with the previous entry's key in this node.</param>
 /// <param name="KeySuffix">Remainder of the key after removing the shared prefix.</param>
 /// <param name="Value">CID link (binary) to the record data.</param>
@@ -30,9 +28,7 @@ internal sealed class MstNodeData
     /// <summary>Ordered list of tree entries.</summary>
     public required List<MstTreeEntry> Entries { get; init; }
 
-    /// <summary>
-    /// Serializes this node to deterministic DAG-CBOR bytes.
-    /// </summary>
+    /// <summary>Serializes this node to deterministic DAG-CBOR bytes.</summary>
     public byte[] ToBytes()
     {
         // Every map is written in canonical key order by hand ("e" < "l"; "k" < "p" < "t" < "v"),
@@ -68,9 +64,7 @@ internal sealed class MstNodeData
         return writer.Encode();
     }
 
-    /// <summary>
-    /// Deserializes an MST node from DAG-CBOR bytes.
-    /// </summary>
+    /// <summary>Deserializes an MST node from DAG-CBOR bytes.</summary>
     /// <exception cref="FormatException">
     /// The bytes are not a well-formed MST node, including an entry whose prefix length is
     /// negative or longer than the key before it.

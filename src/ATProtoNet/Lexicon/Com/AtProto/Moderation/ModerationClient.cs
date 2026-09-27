@@ -3,9 +3,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Moderation;
 
-/// <summary>
-/// Client for com.atproto.moderation.* XRPC endpoints.
-/// </summary>
+/// <summary>Client for com.atproto.moderation.* XRPC endpoints.</summary>
 public sealed class ModerationClient
 {
     private readonly XrpcClient _xrpc;
@@ -15,16 +13,13 @@ public sealed class ModerationClient
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Submit a moderation report for a repo (account) or record.
-    /// </summary>
+    /// <summary>Submit a moderation report for a repo (account) or record.</summary>
     /// <param name="subject">
     /// The subject being reported: a <see cref="RepoSubject"/> or a <see cref="RecordSubject"/>.
     /// </param>
     /// <param name="reasonType">The reason type. Use constants from <see cref="ReportReasons"/>.</param>
     /// <param name="reason">Optional free-text description of the report.</param>
     /// <param name="modTool">The tool filing the report, if the labeler should know.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<CreateReportResponse> CreateReportAsync(
         ModerationSubject subject,
         string reasonType,
@@ -44,13 +39,10 @@ public sealed class ModerationClient
             "com.atproto.moderation.createReport", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Report a repo (account) for moderation.
-    /// </summary>
+    /// <summary>Report a repo (account) for moderation.</summary>
     /// <param name="did">The DID of the account being reported.</param>
     /// <param name="reasonType">The reason type. Use constants from <see cref="ReportReasons"/>.</param>
     /// <param name="reason">Optional free-text description of the report.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<CreateReportResponse> ReportAccountAsync(
         Did did,
         string reasonType,
@@ -64,14 +56,11 @@ public sealed class ModerationClient
             cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Report a specific record for moderation.
-    /// </summary>
+    /// <summary>Report a specific record for moderation.</summary>
     /// <param name="uri">The AT URI of the record being reported.</param>
     /// <param name="cid">The CID of the record version being reported.</param>
     /// <param name="reasonType">The reason type. Use constants from <see cref="ReportReasons"/>.</param>
     /// <param name="reason">Optional free-text description of the report.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<CreateReportResponse> ReportRecordAsync(
         AtUri uri,
         Cid cid,

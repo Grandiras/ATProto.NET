@@ -9,9 +9,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Lexicon;
 
-/// <summary>
-/// Resolves an NSID to the Lexicon schema its authority publishes.
-/// </summary>
+/// <summary>Resolves an NSID to the Lexicon schema its authority publishes.</summary>
 /// <remarks>
 /// <para><see cref="LexiconResolver"/> resolves over the network and verifies what it fetches;
 /// <see cref="LexiconClient"/> asks a service (<c>com.atproto.lexicon.resolveLexicon</c>) and
@@ -20,20 +18,14 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Lexicon;
 /// </remarks>
 public interface ILexiconResolver
 {
-    /// <summary>
-    /// Resolves an NSID to its published schema.
-    /// </summary>
+    /// <summary>Resolves an NSID to its published schema.</summary>
     /// <param name="nsid">The NSID of the schema.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The schema, whose <see cref="LexiconSchemaRecord.Id"/> is <paramref name="nsid"/>.</returns>
     /// <exception cref="LexiconResolutionException">The schema could not be resolved.</exception>
     Task<ResolvedLexicon> ResolveAsync(Nsid nsid, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Drops anything cached for an NSID, so its next resolution fetches it afresh.
-    /// </summary>
+    /// <summary>Drops anything cached for an NSID, so its next resolution fetches it afresh.</summary>
     /// <param name="nsid">The NSID whose schema changed.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <remarks>
     /// A consumer of the firehose can call it when it sees a <c>com.atproto.lexicon.schema</c>
     /// record change. A resolver that caches nothing has nothing to drop.
@@ -67,9 +59,7 @@ public sealed class LexiconResolver : ILexiconResolver, IDisposable
     private readonly Uri? _dnsOverHttpsUrl;
     private readonly ILogger _logger;
 
-    /// <summary>
-    /// Creates a resolver with its own client under the SDK's identity fetch policy.
-    /// </summary>
+    /// <summary>Creates a resolver with its own client under the SDK's identity fetch policy.</summary>
     /// <param name="didResolver">Resolves authority DIDs; a <see cref="CachingDidResolver"/> in most applications.</param>
     /// <param name="options">
     /// The DNS-over-HTTPS endpoint, the fetch policy and the per-request timeout. Defaults apply when
@@ -81,9 +71,7 @@ public sealed class LexiconResolver : ILexiconResolver, IDisposable
     {
     }
 
-    /// <summary>
-    /// Creates a resolver that sends its requests through <paramref name="httpClient"/>.
-    /// </summary>
+    /// <summary>Creates a resolver that sends its requests through <paramref name="httpClient"/>.</summary>
     /// <param name="didResolver">Resolves authority DIDs.</param>
     /// <param name="httpClient">
     /// The client to use, which the caller owns. Its handler is used as is: the connection-level
@@ -118,7 +106,6 @@ public sealed class LexiconResolver : ILexiconResolver, IDisposable
     /// <c>_lexicon.</c> followed by the NSID's domain authority, its segments reversed and the name
     /// dropped (<c>app.example.feed.post</c> → <c>_lexicon.feed.example.app</c>).
     /// </summary>
-    /// <param name="nsid">The NSID.</param>
     /// <returns>The DNS name, in lowercase.</returns>
     public static string GetDnsName(Nsid nsid)
     {
@@ -140,8 +127,6 @@ public sealed class LexiconResolver : ILexiconResolver, IDisposable
     /// Looks up the DID that publishes the schemas of <paramref name="nsid"/>'s authority, from the
     /// <c>_lexicon</c> TXT record at <see cref="GetDnsName"/>.
     /// </summary>
-    /// <param name="nsid">The NSID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The authority's DID.</returns>
     /// <exception cref="LexiconResolutionException">
     /// Thrown with <see cref="LexiconResolutionErrorKind.AuthorityNotFound"/> when the name has no
@@ -210,7 +195,6 @@ public sealed class LexiconResolver : ILexiconResolver, IDisposable
     /// </summary>
     /// <param name="nsid">The NSID of the schema.</param>
     /// <param name="authority">The DID whose repository holds the schema record.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The schema, verified against the authority's signing key.</returns>
     /// <exception cref="LexiconResolutionException">The schema could not be resolved.</exception>
     public async Task<ResolvedLexicon> ResolveAsync(Nsid nsid, Did authority, CancellationToken cancellationToken = default)
@@ -379,9 +363,7 @@ public enum LexiconResolutionErrorKind
     NotPermissionSet,
 }
 
-/// <summary>
-/// Thrown when a Lexicon schema cannot be resolved.
-/// </summary>
+/// <summary>Thrown when a Lexicon schema cannot be resolved.</summary>
 public sealed class LexiconResolutionException : AtProtoException
 {
     /// <summary>Creates an exception.</summary>
@@ -422,12 +404,8 @@ public sealed class LexiconResolutionException : AtProtoException
 /// </example>
 public static class LexiconResolverExtensions
 {
-    /// <summary>
-    /// Resolves a permission set by NSID.
-    /// </summary>
-    /// <param name="resolver">The resolver.</param>
+    /// <summary>Resolves a permission set by NSID.</summary>
     /// <param name="nsid">The permission set's NSID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The permission set: the <c>main</c> definition of the resolved schema.</returns>
     /// <exception cref="LexiconResolutionException">
     /// The schema could not be resolved, or (<see cref="LexiconResolutionErrorKind.NotPermissionSet"/>)
@@ -457,15 +435,11 @@ public static class LexiconResolverExtensions
             nsid, LexiconResolutionErrorKind.NotPermissionSet);
     }
 
-    /// <summary>
-    /// Resolves the permission set an <c>include:</c> scope names.
-    /// </summary>
-    /// <param name="resolver">The resolver.</param>
+    /// <summary>Resolves the permission set an <c>include:</c> scope names.</summary>
     /// <param name="scope">
     /// An <c>include</c> scope, as <c>AtProtoScopes.Include</c> builds it
     /// (<c>include:app.example.authFull?aud=…</c>).
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The permission set.</returns>
     /// <exception cref="ArgumentException"><paramref name="scope"/> is not an <c>include</c> scope naming a valid NSID.</exception>
     /// <exception cref="LexiconResolutionException">The set could not be resolved, or the Lexicon is not a permission set.</exception>

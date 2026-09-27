@@ -5,9 +5,7 @@ using ATProtoNet.Repo;
 
 namespace ATProtoNet.Spaces;
 
-/// <summary>
-/// One record in a serialized permissioned repo: its path, its CID, and its DAG-CBOR bytes.
-/// </summary>
+/// <summary>One record in a serialized permissioned repo: its path, its CID, and its DAG-CBOR bytes.</summary>
 /// <param name="Collection">The record collection NSID.</param>
 /// <param name="Rkey">The record key.</param>
 /// <param name="Cid">The record's CID.</param>
@@ -17,9 +15,7 @@ public readonly record struct SpaceRepoRecord(Nsid Collection, RecordKey Rkey, C
     /// <summary>The record's path within the repo, <c>{collection}/{rkey}</c>.</summary>
     public string Path => $"{Collection}/{Rkey}";
 
-    /// <summary>
-    /// Encodes a record value as DAG-CBOR and computes its CID.
-    /// </summary>
+    /// <summary>Encodes a record value as DAG-CBOR and computes its CID.</summary>
     /// <param name="collection">The record collection NSID.</param>
     /// <param name="rkey">The record key.</param>
     /// <param name="value">The record value, in the AT Protocol JSON data model.</param>
@@ -30,9 +26,7 @@ public readonly record struct SpaceRepoRecord(Nsid Collection, RecordKey Rkey, C
     }
 }
 
-/// <summary>
-/// A permissioned repo decoded from its serialized CAR form, with everything already verified.
-/// </summary>
+/// <summary>A permissioned repo decoded from its serialized CAR form, with everything already verified.</summary>
 /// <param name="Commit">The signed commit, verified against the author's signing key.</param>
 /// <param name="Index">
 /// The repo index: <c>{collection}/{rkey}</c> to record CID, in the order the CAR carried it.
@@ -66,9 +60,7 @@ public sealed record VerifiedSpaceRepo(
 /// </remarks>
 public static class SpaceRepoCar
 {
-    /// <summary>
-    /// Serializes a permissioned repo as a CAR file.
-    /// </summary>
+    /// <summary>Serializes a permissioned repo as a CAR file.</summary>
     /// <param name="commit">The signed commit over the repo's current contents.</param>
     /// <param name="records">The records the repo holds. Order does not matter; they are sorted canonically.</param>
     /// <param name="excludeValues">
@@ -130,9 +122,7 @@ public static class SpaceRepoCar
         return CarWriter.Write([commitCid, indexCid], blocks);
     }
 
-    /// <summary>
-    /// Verifies a serialized permissioned repo and decodes its contents.
-    /// </summary>
+    /// <summary>Verifies a serialized permissioned repo and decodes its contents.</summary>
     /// <param name="car">The CAR bytes, as returned by <c>com.atproto.space.getRepo</c>.</param>
     /// <param name="space">The space the repo belongs to.</param>
     /// <param name="author">The DID of the account whose repo this is.</param>
@@ -235,7 +225,6 @@ public static class SpaceRepoCar
     /// Decodes the index block into path/CID pairs, preserving the CAR's own order so that the
     /// record blocks can be matched against it positionally.
     /// </summary>
-    /// <param name="indexBlock">The index block.</param>
     /// <param name="paths">Each entry's path, parsed, in the same order.</param>
     private static List<KeyValuePair<string, Cid>> DecodeIndex(
         ReadOnlyMemory<byte> indexBlock, out List<(Nsid Collection, RecordKey Rkey)> paths)

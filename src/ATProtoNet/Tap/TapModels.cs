@@ -25,9 +25,7 @@ public abstract class TapEvent
     /// <summary>The event's id: what an acknowledgement names.</summary>
     public long Id { get; }
 
-    /// <summary>
-    /// Parses one Tap event from its JSON.
-    /// </summary>
+    /// <summary>Parses one Tap event from its JSON.</summary>
     /// <param name="utf8Json">The event, as Tap sends it.</param>
     /// <returns>The event.</returns>
     /// <exception cref="FormatException">
@@ -58,9 +56,7 @@ public abstract class TapEvent
     }
 }
 
-/// <summary>
-/// A record created, updated or deleted, from the live firehose or from a backfill.
-/// </summary>
+/// <summary>A record created, updated or deleted, from the live firehose or from a backfill.</summary>
 /// <remarks>
 /// It implements <see cref="IRecordEvent"/>, as the firehose's and Jetstream's record events do,
 /// so indexing code can take all three.
@@ -129,9 +125,7 @@ public sealed class TapRecordEvent : TapEvent, IRecordEvent
     };
 }
 
-/// <summary>
-/// An account's identity or hosting status changed: its handle, or whether it is active.
-/// </summary>
+/// <summary>An account's identity or hosting status changed: its handle, or whether it is active.</summary>
 public sealed class TapIdentityEvent : TapEvent
 {
     private TapIdentityEvent(long id) : base(id)
@@ -182,9 +176,7 @@ public static class TapRepoStatus
     public const string Deleted = "deleted";
 }
 
-/// <summary>
-/// What Tap knows about a repository it tracks: <c>GET /info/:did</c>.
-/// </summary>
+/// <summary>What Tap knows about a repository it tracks: <c>GET /info/:did</c>.</summary>
 public sealed class TapRepoInfo
 {
     /// <summary>The repository.</summary>

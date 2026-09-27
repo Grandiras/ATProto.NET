@@ -8,9 +8,7 @@ using ATProtoNet.Crypto;
 
 namespace ATProtoNet.Spaces;
 
-/// <summary>
-/// A homomorphic set hash over the records in a permissioned repo.
-/// </summary>
+/// <summary>A homomorphic set hash over the records in a permissioned repo.</summary>
 /// <remarks>
 /// <para>Each element expands to 1024 little-endian <see cref="ushort"/> lanes with BLAKE3 in
 /// extendable-output mode, and those lanes are added into (or subtracted from) a fixed
@@ -41,9 +39,7 @@ public sealed class LtHash : IEquatable<LtHash>
         _lanes = new ushort[Lanes];
     }
 
-    /// <summary>
-    /// Creates a set hash from a previously persisted state.
-    /// </summary>
+    /// <summary>Creates a set hash from a previously persisted state.</summary>
     /// <param name="state">
     /// A <see cref="StateBytes"/>-byte state as returned by <see cref="GetState"/>, or an empty
     /// span for an empty repo.

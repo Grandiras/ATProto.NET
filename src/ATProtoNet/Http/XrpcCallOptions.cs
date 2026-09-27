@@ -1,8 +1,6 @@
 namespace ATProtoNet.Http;
 
-/// <summary>
-/// Per-call settings for one XRPC request.
-/// </summary>
+/// <summary>Per-call settings for one XRPC request.</summary>
 /// <remarks>
 /// <para>Everything here applies to the one call it is passed to and overrides the client-wide
 /// defaults (<see cref="AtProtoClient.SetProxy"/>, <see cref="AtProtoClient.SetLabelers(IEnumerable{string})"/>)

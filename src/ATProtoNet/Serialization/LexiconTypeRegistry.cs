@@ -32,9 +32,7 @@ public sealed class LexiconTypeRegistry : ILexiconTypeRegistrar
     {
     }
 
-    /// <summary>
-    /// Gets the registry that <see cref="AtProtoJsonDefaults.Options"/> consults.
-    /// </summary>
+    /// <summary>Gets the registry that <see cref="AtProtoJsonDefaults.Options"/> consults.</summary>
     public static LexiconTypeRegistry Instance { get; } = new();
 
     /// <inheritdoc />
@@ -95,9 +93,7 @@ public sealed class LexiconTypeRegistry : ILexiconTypeRegistrar
         }
     }
 
-    /// <summary>
-    /// Loads a Lexicon plugin, invoking its <see cref="ILexiconPlugin.Register"/> method.
-    /// </summary>
+    /// <summary>Loads a Lexicon plugin, invoking its <see cref="ILexiconPlugin.Register"/> method.</summary>
     /// <typeparam name="TPlugin">The plugin type.</typeparam>
     public void LoadPlugin<TPlugin>() where TPlugin : ILexiconPlugin, new()
         => new TPlugin().Register(this);
@@ -142,9 +138,7 @@ public sealed class LexiconTypeRegistry : ILexiconTypeRegistrar
         return false;
     }
 
-    /// <summary>
-    /// Contract modifier behind <see cref="AtProtoJsonDefaults.Options"/>'s union handling.
-    /// </summary>
+    /// <summary>Contract modifier behind <see cref="AtProtoJsonDefaults.Options"/>'s union handling.</summary>
     /// <remarks>
     /// <list type="bullet">
     /// <item><description>An <see cref="AtProtoUnionAttribute"/> base is converted by

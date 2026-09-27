@@ -10,9 +10,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Embed;
 
-// ──────────────────────────────────────────────────────────────
-//  Embed types (used as post embeds when creating records)
-// ──────────────────────────────────────────────────────────────
+// ── Embed types (used as post embeds when creating records) ──
 
 /// <summary>
 /// Base type for embed objects attached to posts (the open <c>app.bsky.feed.post#embed</c> union).
@@ -50,13 +48,9 @@ public sealed class UnknownEmbed : EmbedBase, IUnknownUnionVariant
     public JsonElement Raw { get; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  app.bsky.embed.images
-// ──────────────────────────────────────────────────────────────
+// ── app.bsky.embed.images ────────────────────────────────────
 
-/// <summary>
-/// An images embed containing up to 4 images.
-/// </summary>
+/// <summary>An images embed containing up to 4 images.</summary>
 public sealed class ImagesEmbed : EmbedBase
 {
     /// <summary>The images to embed (up to four).</summary>
@@ -64,9 +58,7 @@ public sealed class ImagesEmbed : EmbedBase
     public required IReadOnlyList<EmbedImage> Images { get; init; }
 }
 
-/// <summary>
-/// A single image within an images embed.
-/// </summary>
+/// <summary>A single image within an images embed.</summary>
 public sealed class EmbedImage : LexObject
 {
     /// <summary>The uploaded blob reference for the image.</summary>
@@ -82,9 +74,7 @@ public sealed class EmbedImage : LexObject
     public AspectRatio? AspectRatio { get; init; }
 }
 
-/// <summary>
-/// Aspect ratio hint for image display.
-/// </summary>
+/// <summary>Aspect ratio hint for image display.</summary>
 public sealed class AspectRatio : LexObject
 {
     /// <summary>The width in pixels.</summary>
@@ -96,13 +86,9 @@ public sealed class AspectRatio : LexObject
     public int Height { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  app.bsky.embed.external
-// ──────────────────────────────────────────────────────────────
+// ── app.bsky.embed.external ──────────────────────────────────
 
-/// <summary>
-/// An external link embed (link card / Open Graph preview).
-/// </summary>
+/// <summary>An external link embed (link card / Open Graph preview).</summary>
 public sealed class ExternalEmbed : EmbedBase
 {
     /// <summary>The external link preview.</summary>
@@ -110,9 +96,7 @@ public sealed class ExternalEmbed : EmbedBase
     public required ExternalInfo External { get; init; }
 }
 
-/// <summary>
-/// External link metadata.
-/// </summary>
+/// <summary>External link metadata.</summary>
 public sealed class ExternalInfo : LexObject
 {
     /// <summary>URL of the linked page.</summary>
@@ -139,13 +123,9 @@ public sealed class ExternalInfo : LexObject
     public IReadOnlyList<StrongRef>? AssociatedRefs { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  app.bsky.embed.record
-// ──────────────────────────────────────────────────────────────
+// ── app.bsky.embed.record ────────────────────────────────────
 
-/// <summary>
-/// A quote / embedded record reference.
-/// </summary>
+/// <summary>A quote / embedded record reference.</summary>
 public sealed class RecordEmbed : EmbedBase
 {
     /// <summary>A reference to the embedded record.</summary>
@@ -153,13 +133,9 @@ public sealed class RecordEmbed : EmbedBase
     public required StrongRef Record { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  app.bsky.embed.recordWithMedia
-// ──────────────────────────────────────────────────────────────
+// ── app.bsky.embed.recordWithMedia ───────────────────────────
 
-/// <summary>
-/// A record embed combined with media.
-/// </summary>
+/// <summary>A record embed combined with media.</summary>
 public sealed class RecordWithMediaEmbed : EmbedBase
 {
     /// <summary>The embedded record.</summary>
@@ -174,13 +150,9 @@ public sealed class RecordWithMediaEmbed : EmbedBase
     public required EmbedBase Media { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  app.bsky.embed.video
-// ──────────────────────────────────────────────────────────────
+// ── app.bsky.embed.video ─────────────────────────────────────
 
-/// <summary>
-/// A video embed.
-/// </summary>
+/// <summary>A video embed.</summary>
 public sealed class VideoEmbed : EmbedBase
 {
     /// <summary>The uploaded video blob.</summary>
@@ -191,9 +163,7 @@ public sealed class VideoEmbed : EmbedBase
     [JsonPropertyName("alt")]
     public string? Alt { get; init; }
 
-    /// <summary>
-    /// The intrinsic aspect ratio of the media, used to lay out the placeholder before it loads.
-    /// </summary>
+    /// <summary>The intrinsic aspect ratio of the media, used to lay out the placeholder before it loads.</summary>
     [JsonPropertyName("aspectRatio")]
     public AspectRatio? AspectRatio { get; init; }
 
@@ -209,9 +179,7 @@ public sealed class VideoEmbed : EmbedBase
     public string? Presentation { get; init; }
 }
 
-/// <summary>
-/// Known values of <see cref="VideoEmbed.Presentation"/> and <see cref="VideoView.Presentation"/>.
-/// </summary>
+/// <summary>Known values of <see cref="VideoEmbed.Presentation"/> and <see cref="VideoView.Presentation"/>.</summary>
 public static class VideoPresentation
 {
     /// <summary>A regular video.</summary>
@@ -221,9 +189,7 @@ public static class VideoPresentation
     public const string Gif = "gif";
 }
 
-/// <summary>
-/// A video caption file reference.
-/// </summary>
+/// <summary>A video caption file reference.</summary>
 public sealed class VideoCaption : LexObject
 {
     /// <summary>The BCP-47 language tag of the caption track.</summary>
@@ -235,9 +201,7 @@ public sealed class VideoCaption : LexObject
     public required BlobRef File { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  app.bsky.embed.gallery
-// ──────────────────────────────────────────────────────────────
+// ── app.bsky.embed.gallery ───────────────────────────────────
 
 /// <summary>
 /// A gallery embed: an assortment of media items. The Lexicon allows up to 20 items; clients should
@@ -258,9 +222,7 @@ public sealed class GalleryEmbed : EmbedBase
 [JsonDerivedType(typeof(GalleryImage), "app.bsky.embed.gallery#image")]
 public abstract class GalleryItem : LexObject;
 
-/// <summary>
-/// An image in a gallery embed. Unlike <see cref="EmbedImage"/>, alt text and aspect ratio are required.
-/// </summary>
+/// <summary>An image in a gallery embed. Unlike <see cref="EmbedImage"/>, alt text and aspect ratio are required.</summary>
 public sealed class GalleryImage : GalleryItem
 {
     /// <summary>The uploaded image blob (<c>image/*</c>, at most 2,000,000 bytes).</summary>
@@ -299,9 +261,7 @@ public sealed class UnknownGalleryItem : GalleryItem, IUnknownUnionVariant
     public JsonElement Raw { get; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Embed view types (returned when reading posts)
-// ──────────────────────────────────────────────────────────────
+// ── Embed view types (returned when reading posts) ───────────
 
 /// <summary>
 /// Base type for embedded content views returned by the appview (the open
@@ -340,9 +300,7 @@ public sealed class UnknownEmbedView : EmbedView, IUnknownUnionVariant
     public JsonElement Raw { get; }
 }
 
-/// <summary>
-/// View of an images embed.
-/// </summary>
+/// <summary>View of an images embed.</summary>
 public sealed class ImagesView : EmbedView
 {
     /// <summary>The embedded image views.</summary>
@@ -350,9 +308,7 @@ public sealed class ImagesView : EmbedView
     public required IReadOnlyList<ImageViewItem> Images { get; init; }
 }
 
-/// <summary>
-/// A viewed image with thumbnails.
-/// </summary>
+/// <summary>A viewed image with thumbnails.</summary>
 public sealed class ImageViewItem : LexObject
 {
     /// <summary>URL of the thumbnail image.</summary>
@@ -367,16 +323,12 @@ public sealed class ImageViewItem : LexObject
     [JsonPropertyName("alt")]
     public required string Alt { get; init; }
 
-    /// <summary>
-    /// The intrinsic aspect ratio of the media, used to lay out the placeholder before it loads.
-    /// </summary>
+    /// <summary>The intrinsic aspect ratio of the media, used to lay out the placeholder before it loads.</summary>
     [JsonPropertyName("aspectRatio")]
     public AspectRatio? AspectRatio { get; init; }
 }
 
-/// <summary>
-/// View of an external link embed.
-/// </summary>
+/// <summary>View of an external link embed.</summary>
 public sealed class ExternalView : EmbedView
 {
     /// <summary>The external link preview.</summary>
@@ -384,9 +336,7 @@ public sealed class ExternalView : EmbedView
     public required ExternalViewInfo External { get; init; }
 }
 
-/// <summary>
-/// External link view metadata.
-/// </summary>
+/// <summary>External link view metadata.</summary>
 public sealed class ExternalViewInfo : LexObject
 {
     /// <summary>URL of the linked page.</summary>
@@ -500,9 +450,7 @@ public sealed class ColorRgb : LexObject
     public required int B { get; init; }
 }
 
-/// <summary>
-/// View of a quoted record embed.
-/// </summary>
+/// <summary>View of a quoted record embed.</summary>
 public sealed class RecordEmbedView : EmbedView
 {
     /// <summary>
@@ -551,9 +499,7 @@ public sealed class UnknownEmbeddedRecordView : EmbeddedRecordView, IUnknownUnio
     public JsonElement Raw { get; }
 }
 
-/// <summary>
-/// An embedded record, such as a quoted post (<c>app.bsky.embed.record#viewRecord</c>).
-/// </summary>
+/// <summary>An embedded record, such as a quoted post (<c>app.bsky.embed.record#viewRecord</c>).</summary>
 public sealed class EmbeddedRecord : EmbeddedRecordView
 {
     /// <summary>The AT-URI of the record.</summary>
@@ -601,9 +547,7 @@ public sealed class EmbeddedRecord : EmbeddedRecordView
     public required AtDatetime IndexedAt { get; init; }
 }
 
-/// <summary>
-/// An embedded record that was not found (<c>app.bsky.embed.record#viewNotFound</c>).
-/// </summary>
+/// <summary>An embedded record that was not found (<c>app.bsky.embed.record#viewNotFound</c>).</summary>
 public sealed class EmbeddedRecordNotFound : EmbeddedRecordView
 {
     /// <summary>The AT-URI of the record.</summary>
@@ -649,9 +593,7 @@ public sealed class EmbeddedRecordDetached : EmbeddedRecordView
     public bool Detached => true;
 }
 
-/// <summary>
-/// View of a record-with-media embed.
-/// </summary>
+/// <summary>View of a record-with-media embed.</summary>
 public sealed class RecordWithMediaView : EmbedView
 {
     /// <summary>The embedded record view.</summary>
@@ -663,9 +605,7 @@ public sealed class RecordWithMediaView : EmbedView
     public required EmbedView Media { get; init; }
 }
 
-/// <summary>
-/// View of a video embed.
-/// </summary>
+/// <summary>View of a video embed.</summary>
 public sealed class VideoView : EmbedView
 {
     /// <summary>The CID of the video blob.</summary>
@@ -684,9 +624,7 @@ public sealed class VideoView : EmbedView
     [JsonPropertyName("alt")]
     public string? Alt { get; init; }
 
-    /// <summary>
-    /// The intrinsic aspect ratio of the media, used to lay out the placeholder before it loads.
-    /// </summary>
+    /// <summary>The intrinsic aspect ratio of the media, used to lay out the placeholder before it loads.</summary>
     [JsonPropertyName("aspectRatio")]
     public AspectRatio? AspectRatio { get; init; }
 
@@ -698,9 +636,7 @@ public sealed class VideoView : EmbedView
     public string? Presentation { get; init; }
 }
 
-/// <summary>
-/// View of a gallery embed.
-/// </summary>
+/// <summary>View of a gallery embed.</summary>
 public sealed class GalleryView : EmbedView
 {
     /// <summary>The media item views.</summary>
@@ -716,9 +652,7 @@ public sealed class GalleryView : EmbedView
 [JsonDerivedType(typeof(GalleryViewImage), "app.bsky.embed.gallery#viewImage")]
 public abstract class GalleryViewItem : LexObject;
 
-/// <summary>
-/// A viewed image in a gallery embed.
-/// </summary>
+/// <summary>A viewed image in a gallery embed.</summary>
 public sealed class GalleryViewImage : GalleryViewItem
 {
     /// <summary>URL of a thumbnail of the image, typically on the appview's CDN.</summary>
@@ -761,9 +695,7 @@ public sealed class UnknownGalleryViewItem : GalleryViewItem, IUnknownUnionVaria
     public JsonElement Raw { get; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  getEmbedExternalView
-// ──────────────────────────────────────────────────────────────
+// ── getEmbedExternalView ─────────────────────────────────────
 
 /// <summary>
 /// Response from getEmbedExternalView. Every property is <see langword="null"/> when no record

@@ -31,9 +31,7 @@ public static class PlcOperationBuilder
     /// <summary>The verification-method id for a repository signing key.</summary>
     public const string AtprotoVerificationMethodId = "atproto";
 
-    /// <summary>
-    /// Builds an unsigned <c>plc_operation</c> genesis operation.
-    /// </summary>
+    /// <summary>Builds an unsigned <c>plc_operation</c> genesis operation.</summary>
     /// <param name="rotationKeys">
     /// Ordered <c>did:key</c> rotation keys, highest authority first. At least one is required;
     /// the PLC spec allows up to five.
@@ -83,9 +81,7 @@ public static class PlcOperationBuilder
         };
     }
 
-    /// <summary>
-    /// Signs a PLC operation with a rotation key and derives the resulting DID.
-    /// </summary>
+    /// <summary>Signs a PLC operation with a rotation key and derives the resulting DID.</summary>
     /// <param name="unsignedOperation">
     /// The operation without a <c>sig</c> field (as returned by <see cref="CreateGenesisOperation"/>).
     /// </param>
@@ -131,9 +127,7 @@ public static class PlcOperationBuilder
         => JsonSerializer.SerializeToElement(node);
 }
 
-/// <summary>
-/// A signed PLC operation together with the DID derived from it.
-/// </summary>
+/// <summary>A signed PLC operation together with the DID derived from it.</summary>
 /// <param name="Did">The DID the operation belongs to (derived from a genesis operation).</param>
 /// <param name="Operation">The operation JSON including its <c>sig</c> field — the submission body.</param>
 /// <param name="Cbor">The DAG-CBOR encoding of the signed operation.</param>

@@ -56,9 +56,7 @@ public enum DidResolutionErrorKind
     OperationRejected,
 }
 
-/// <summary>
-/// Thrown when a DID, a handle or a PLC directory request cannot be resolved.
-/// </summary>
+/// <summary>Thrown when a DID, a handle or a PLC directory request cannot be resolved.</summary>
 /// <remarks>
 /// Every resolver in <see cref="ATProtoNet.Identity"/> reports failure with this one type,
 /// including a network failure or a timeout, so a caller that turns an unresolvable identity

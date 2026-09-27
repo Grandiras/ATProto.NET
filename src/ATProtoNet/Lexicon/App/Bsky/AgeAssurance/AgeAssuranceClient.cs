@@ -15,14 +15,11 @@ public sealed class AgeAssuranceClient
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Start age assurance for the authenticated account. The provider emails the instructions.
-    /// </summary>
+    /// <summary>Start age assurance for the authenticated account. The provider emails the instructions.</summary>
     /// <param name="email">The address to send the instructions to.</param>
     /// <param name="language">The language to communicate in, such as <c>en</c>.</param>
     /// <param name="countryCode">The ISO 3166-1 alpha-2 code of the user's country.</param>
     /// <param name="regionCode">The ISO 3166-2 code of the user's region, if any.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The account's state after starting.</returns>
     /// <exception cref="XrpcException">
     /// One of <see cref="AgeAssuranceErrors"/>, such as <see cref="AgeAssuranceErrors.RegionNotSupported"/>.
@@ -50,7 +47,6 @@ public sealed class AgeAssuranceClient
     /// Get the age assurance configuration: per region, the minimum age and the rules that
     /// decide an account's access.
     /// </summary>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<AgeAssuranceConfig> GetConfigAsync(CancellationToken cancellationToken = default)
     {
         return _xrpc.QueryAsync<AgeAssuranceConfig>(
@@ -63,7 +59,6 @@ public sealed class AgeAssuranceClient
     /// </summary>
     /// <param name="countryCode">The ISO 3166-1 alpha-2 code of the user's country.</param>
     /// <param name="regionCode">The ISO 3166-2 code of the user's region, if any.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetStateResponse> GetStateAsync(
         string countryCode, string? regionCode = null, CancellationToken cancellationToken = default)
     {

@@ -19,9 +19,7 @@ public sealed class QueueView : LexObject
     [JsonPropertyName("name")]
     public required string Name { get; init; }
 
-    /// <summary>
-    /// The kinds of subject the queue takes (see <see cref="Report.ReportSubjectType"/>).
-    /// </summary>
+    /// <summary>The kinds of subject the queue takes (see <see cref="Report.ReportSubjectType"/>).</summary>
     [JsonPropertyName("subjectTypes")]
     public IReadOnlyList<string>? SubjectTypes { get; init; }
 
@@ -66,9 +64,7 @@ public sealed class QueueView : LexObject
     public required QueueStats Stats { get; init; }
 }
 
-/// <summary>
-/// Statistics about a queue's reports (<c>tools.ozone.queue.defs#queueStats</c>).
-/// </summary>
+/// <summary>Statistics about a queue's reports (<c>tools.ozone.queue.defs#queueStats</c>).</summary>
 public sealed class QueueStats : LexObject
 {
     /// <summary>The reports in <c>open</c> status.</summary>
@@ -103,9 +99,7 @@ public sealed class QueueStats : LexObject
     public AtDatetime? LastUpdated { get; init; }
 }
 
-/// <summary>
-/// A moderator's assignment to a queue (<c>tools.ozone.queue.defs#assignmentView</c>).
-/// </summary>
+/// <summary>A moderator's assignment to a queue (<c>tools.ozone.queue.defs#assignmentView</c>).</summary>
 public sealed class AssignmentView : LexObject
 {
     /// <summary>The assignment's identifier.</summary>
@@ -135,9 +129,7 @@ public sealed class AssignmentView : LexObject
 
 // ─── Request / Response Models ───
 
-/// <summary>
-/// Request body for tools.ozone.queue.createQueue.
-/// </summary>
+/// <summary>Request body for tools.ozone.queue.createQueue.</summary>
 internal sealed class CreateQueueRequest
 {
     /// <summary>The queue's display name.</summary>
@@ -165,9 +157,7 @@ internal sealed class CreateQueueRequest
     public IReadOnlyList<string>? RecommendedPolicies { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.queue.createQueue.
-/// </summary>
+/// <summary>Response from tools.ozone.queue.createQueue.</summary>
 public sealed class CreateQueueResponse
 {
     /// <summary>The new queue.</summary>
@@ -175,9 +165,7 @@ public sealed class CreateQueueResponse
     public required QueueView Queue { get; init; }
 }
 
-/// <summary>
-/// Request body for tools.ozone.queue.updateQueue.
-/// </summary>
+/// <summary>Request body for tools.ozone.queue.updateQueue.</summary>
 internal sealed class UpdateQueueRequest
 {
     /// <summary>The queue to update.</summary>
@@ -201,9 +189,7 @@ internal sealed class UpdateQueueRequest
     public IReadOnlyList<string>? RecommendedPolicies { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.queue.updateQueue.
-/// </summary>
+/// <summary>Response from tools.ozone.queue.updateQueue.</summary>
 public sealed class UpdateQueueResponse
 {
     /// <summary>The updated queue.</summary>
@@ -211,9 +197,7 @@ public sealed class UpdateQueueResponse
     public required QueueView Queue { get; init; }
 }
 
-/// <summary>
-/// Request body for tools.ozone.queue.deleteQueue.
-/// </summary>
+/// <summary>Request body for tools.ozone.queue.deleteQueue.</summary>
 internal sealed class DeleteQueueRequest
 {
     /// <summary>The queue to delete.</summary>
@@ -225,9 +209,7 @@ internal sealed class DeleteQueueRequest
     public long? MigrateToQueueId { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.queue.deleteQueue.
-/// </summary>
+/// <summary>Response from tools.ozone.queue.deleteQueue.</summary>
 public sealed class DeleteQueueResponse
 {
     /// <summary>Whether the queue was deleted.</summary>
@@ -239,9 +221,7 @@ public sealed class DeleteQueueResponse
     public int? ReportsMigrated { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.queue.listQueues.
-/// </summary>
+/// <summary>Response from tools.ozone.queue.listQueues.</summary>
 public sealed class ListQueuesResponse : ICursorPage<QueueView>
 {
     /// <summary>
@@ -258,9 +238,7 @@ public sealed class ListQueuesResponse : ICursorPage<QueueView>
     IReadOnlyList<QueueView> ICursorPage<QueueView>.Items => Queues;
 }
 
-/// <summary>
-/// Request body for tools.ozone.queue.assignModerator.
-/// </summary>
+/// <summary>Request body for tools.ozone.queue.assignModerator.</summary>
 internal sealed class AssignModeratorRequest
 {
     /// <summary>The queue.</summary>
@@ -272,9 +250,7 @@ internal sealed class AssignModeratorRequest
     public required Did Did { get; init; }
 }
 
-/// <summary>
-/// Request body for tools.ozone.queue.unassignModerator.
-/// </summary>
+/// <summary>Request body for tools.ozone.queue.unassignModerator.</summary>
 internal sealed class UnassignModeratorRequest
 {
     /// <summary>The queue.</summary>
@@ -286,9 +262,7 @@ internal sealed class UnassignModeratorRequest
     public required Did Did { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.queue.getAssignments.
-/// </summary>
+/// <summary>Response from tools.ozone.queue.getAssignments.</summary>
 public sealed class GetAssignmentsResponse : ICursorPage<AssignmentView>
 {
     /// <summary>
@@ -305,9 +279,7 @@ public sealed class GetAssignmentsResponse : ICursorPage<AssignmentView>
     IReadOnlyList<AssignmentView> ICursorPage<AssignmentView>.Items => Assignments;
 }
 
-/// <summary>
-/// Request body for tools.ozone.queue.routeReports.
-/// </summary>
+/// <summary>Request body for tools.ozone.queue.routeReports.</summary>
 internal sealed class RouteReportsRequest
 {
     /// <summary>The first report to route.</summary>
@@ -319,9 +291,7 @@ internal sealed class RouteReportsRequest
     public required long EndReportId { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.queue.routeReports.
-/// </summary>
+/// <summary>Response from tools.ozone.queue.routeReports.</summary>
 public sealed class RouteReportsResponse
 {
     /// <summary>The number of reports routed to a queue.</summary>

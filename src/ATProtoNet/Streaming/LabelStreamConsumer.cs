@@ -65,9 +65,7 @@ public sealed class LabelStreamConsumer
     private readonly ILogger _logger;
     private CursorTracker? _cursor;
 
-    /// <summary>
-    /// Create a label stream consumer.
-    /// </summary>
+    /// <summary>Create a label stream consumer.</summary>
     /// <param name="options">Consumer configuration.</param>
     /// <exception cref="ArgumentException">The options are not valid.</exception>
     public LabelStreamConsumer(LabelStreamConsumerOptions options)
@@ -90,9 +88,7 @@ public sealed class LabelStreamConsumer
     /// </summary>
     public long? LastSeq => _cursor?.Current;
 
-    /// <summary>
-    /// Consume the label stream with automatic reconnection and cursor persistence.
-    /// </summary>
+    /// <summary>Consume the label stream with automatic reconnection and cursor persistence.</summary>
     /// <param name="cursor">The sequence number to resume after. When null, the stored cursor is used
     /// if there is a <see cref="StreamConsumerOptions.CursorStore"/>, and the live stream otherwise.</param>
     /// <param name="cancellationToken">Cancellation token to stop consuming.</param>

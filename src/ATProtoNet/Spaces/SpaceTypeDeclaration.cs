@@ -4,9 +4,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Spaces;
 
-/// <summary>
-/// A space type declaration: the Lexicon definition a space type NSID resolves to.
-/// </summary>
+/// <summary>A space type declaration: the Lexicon definition a space type NSID resolves to.</summary>
 /// <remarks>
 /// <para>A space type names the <em>modality</em> of a space — a forum, a set of bookmarks, a
 /// group chat — and identifies the kind of data it holds before any network resolution, much as
@@ -41,9 +39,7 @@ public sealed class SpaceTypeDeclaration
     [JsonPropertyName("type")]
     public string Type { get; init; } = "space";
 
-    /// <summary>
-    /// A description of the space type for developers. Not shown to users.
-    /// </summary>
+    /// <summary>A description of the space type for developers. Not shown to users.</summary>
     [JsonPropertyName("description")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Description { get; init; }
@@ -66,9 +62,7 @@ public sealed class SpaceTypeDeclaration
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Dictionary<string, string>? LocalizedNames { get; init; }
 
-    /// <summary>
-    /// The collections clients should expect in a space of this type.
-    /// </summary>
+    /// <summary>The collections clients should expect in a space of this type.</summary>
     /// <remarks>
     /// This is a recommendation and the default collection set for a bare <c>space:</c> scope of
     /// this type — not a constraint. Any collection may be written to any space; the protocol
@@ -78,9 +72,7 @@ public sealed class SpaceTypeDeclaration
     [JsonPropertyName("collections")]
     public required IReadOnlyList<Nsid> Collections { get; init; }
 
-    /// <summary>
-    /// Returns the localized name for a language, falling back to <see cref="Name"/>.
-    /// </summary>
+    /// <summary>Returns the localized name for a language, falling back to <see cref="Name"/>.</summary>
     /// <param name="language">The language code to look for.</param>
     public string GetName(string? language) =>
         language is not null &&
@@ -89,9 +81,7 @@ public sealed class SpaceTypeDeclaration
             ? localized
             : Name;
 
-    /// <summary>
-    /// Extracts the space type declaration from a Lexicon document's <c>main</c> definition.
-    /// </summary>
+    /// <summary>Extracts the space type declaration from a Lexicon document's <c>main</c> definition.</summary>
     /// <param name="lexicon">The parsed Lexicon document.</param>
     /// <returns>The declaration, or <see langword="null"/> when the document does not declare a space type.</returns>
     /// <exception cref="JsonException">

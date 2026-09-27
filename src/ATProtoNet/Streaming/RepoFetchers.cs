@@ -15,19 +15,14 @@ namespace ATProtoNet.Streaming;
 /// </remarks>
 public interface IRepoFetcher
 {
-    /// <summary>
-    /// Downloads the repository's CAR export, or returns null when this source does not have it.
-    /// </summary>
+    /// <summary>Downloads the repository's CAR export, or returns null when this source does not have it.</summary>
     /// <param name="did">The repository.</param>
     /// <param name="maxBytes">The largest export to accept.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="RepoFetchException">The source failed, or the export exceeds <paramref name="maxBytes"/>.</exception>
     Task<byte[]?> FetchAsync(Did did, long maxBytes, CancellationToken cancellationToken = default);
 }
 
-/// <summary>
-/// Fetches repositories from one host: the relay a firehose comes from, or a mirror.
-/// </summary>
+/// <summary>Fetches repositories from one host: the relay a firehose comes from, or a mirror.</summary>
 /// <remarks>
 /// Asking the relay first is what the sync spec recommends, so many consumers resynchronizing
 /// one repository do not descend on its PDS at once: the relay can coalesce and cache the export,
@@ -39,9 +34,7 @@ public sealed class HostRepoFetcher : IRepoFetcher
     private readonly HttpClient _httpClient;
     private readonly bool _allowHttp;
 
-    /// <summary>
-    /// Creates a fetcher for one host.
-    /// </summary>
+    /// <summary>Creates a fetcher for one host.</summary>
     /// <param name="host">The host's base URL, e.g. <c>https://bsky.network</c>.</param>
     /// <param name="httpClient">
     /// The client to send requests with; its <see cref="HttpClient.Timeout"/> bounds each whole
@@ -75,18 +68,14 @@ public sealed class HostRepoFetcher : IRepoFetcher
     public override string ToString() => _host.GetLeftPart(UriPartial.Authority);
 }
 
-/// <summary>
-/// Fetches a repository from the PDS its account's DID document names.
-/// </summary>
+/// <summary>Fetches a repository from the PDS its account's DID document names.</summary>
 public sealed class PdsRepoFetcher : IRepoFetcher
 {
     private readonly IDidResolver _didResolver;
     private readonly HttpClient _httpClient;
     private readonly bool _allowHttp;
 
-    /// <summary>
-    /// Creates a fetcher.
-    /// </summary>
+    /// <summary>Creates a fetcher.</summary>
     /// <param name="didResolver">Resolves each account's PDS. A caching resolver avoids a lookup per fetch.</param>
     /// <param name="httpClient">
     /// The client to send requests with; its <see cref="HttpClient.Timeout"/> bounds each whole
@@ -240,7 +229,9 @@ internal static class RepoDownload
     private static async Task<byte[]> ReadBoundedAsync(
         HttpContent content, long? declared, long maxBytes, Did did, CancellationToken cancellationToken)
     {
+        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
         await using var stream = await content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        #pragma warning restore CA2007
 
         // A declared length sizes the buffer up to 1 MiB and no further: the header is the host's
         // word, so a larger claim must not reserve memory before the bytes arrive.

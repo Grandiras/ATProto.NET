@@ -5,9 +5,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace ATProtoNet.Aspire;
 
-/// <summary>
-/// Extension methods for integrating ATProto.NET into .NET Aspire service defaults.
-/// </summary>
+/// <summary>Extension methods for integrating ATProto.NET into .NET Aspire service defaults.</summary>
 public static class AtProtoAspireExtensions
 {
     /// <summary>The configuration section <see cref="AddAtProtoClient"/> binds by default.</summary>

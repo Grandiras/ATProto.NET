@@ -4,9 +4,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Auth.OAuth;
 
-/// <summary>
-/// Actions for repository record permissions.
-/// </summary>
+/// <summary>Actions for repository record permissions.</summary>
 [Flags]
 public enum RepoAction
 {
@@ -30,9 +28,7 @@ public enum RepoAction
     All = Create | Update | Delete,
 }
 
-/// <summary>
-/// Actions for account attribute permissions.
-/// </summary>
+/// <summary>Actions for account attribute permissions.</summary>
 public enum AccountAction
 {
     /// <summary>Read-only access to the account attribute.</summary>
@@ -42,9 +38,7 @@ public enum AccountAction
     Manage,
 }
 
-/// <summary>
-/// Actions for identity attribute permissions.
-/// </summary>
+/// <summary>Actions for identity attribute permissions.</summary>
 /// <remarks>
 /// The permission spec no longer has an <c>action</c> parameter on <c>identity</c> scopes, and
 /// authorization servers reject a scope that carries one. Use
@@ -61,9 +55,7 @@ public enum IdentityAction
     Submit,
 }
 
-/// <summary>
-/// Actions a <c>space:</c> permission grants over the <em>records</em> in a space.
-/// </summary>
+/// <summary>Actions a <c>space:</c> permission grants over the <em>records</em> in a space.</summary>
 /// <remarks>
 /// Read access is all-or-nothing at the space boundary — there is no partial, per-record,
 /// per-collection, or per-author read grant — so <see cref="Read"/> and
@@ -79,9 +71,7 @@ public enum SpaceAction
     /// </summary>
     None = 0,
 
-    /// <summary>
-    /// Read the holder's <b>own</b> repo in the space, and nothing else in it.
-    /// </summary>
+    /// <summary>Read the holder's <b>own</b> repo in the space, and nothing else in it.</summary>
     /// <remarks>
     /// The narrower read grant. It confers the read and sync methods for the holder's own repo
     /// but <b>not</b> <c>getDelegationToken</c>, so an application holding only this cannot
@@ -90,9 +80,7 @@ public enum SpaceAction
     /// </remarks>
     ReadSelf = 1,
 
-    /// <summary>
-    /// Read the whole space.
-    /// </summary>
+    /// <summary>Read the whole space.</summary>
     /// <remarks>
     /// Confers the read and sync methods on the holder's own PDS <em>and</em> access to
     /// <c>getDelegationToken</c>, which an application exchanges for the space credential that
@@ -134,9 +122,7 @@ public enum SpaceManage
     /// <summary>No management capability.</summary>
     None = 0,
 
-    /// <summary>
-    /// Create spaces of the granted type under the granted authority.
-    /// </summary>
+    /// <summary>Create spaces of the granted type under the granted authority.</summary>
     /// <remarks>
     /// Unlike every other operation this concerns a space that does not yet exist, so scoping it
     /// to a concrete space key is unusual — it is typically granted with the key left wild.
@@ -629,9 +615,7 @@ public static class AtProtoScopes
         public const string BlueskyAppWithChat =
             BlueskyApp + " include:chat.bsky.authFullChatClient?aud=did:web:api.bsky.chat%23bsky_chat";
 
-        /// <summary>
-        /// Read-only Bluesky access: <see cref="PermissionSets.ViewAll"/> at the AppView.
-        /// </summary>
+        /// <summary>Read-only Bluesky access: <see cref="PermissionSets.ViewAll"/> at the AppView.</summary>
         public const string BlueskyReadOnly =
             "atproto include:app.bsky.authViewAll?aud=did:web:api.bsky.app%23bsky_appview";
 

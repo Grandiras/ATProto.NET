@@ -28,9 +28,7 @@ internal static class SpaceDidResolution
     /// </summary>
     public static readonly string[] CredentialKeyIds = [SpaceAuthority.SigningKeyId, DidDocument.SigningKeyId];
 
-    /// <summary>
-    /// Resolves a DID, or refreshes it past any cached copy, reporting failure as a refusal.
-    /// </summary>
+    /// <summary>Resolves a DID, or refreshes it past any cached copy, reporting failure as a refusal.</summary>
     /// <exception cref="SpaceVerificationException">The DID cannot be resolved.</exception>
     public static async Task<DidDocument> ResolveOrRefuseAsync(
         this IDidResolver resolver, Did did, bool refresh, CancellationToken cancellationToken)
@@ -38,8 +36,8 @@ internal static class SpaceDidResolution
         try
         {
             return refresh
-                ? await resolver.RefreshAsync(did, cancellationToken)
-                : await resolver.ResolveAsync(did, cancellationToken);
+                ? await resolver.RefreshAsync(did, cancellationToken).ConfigureAwait(false)
+                : await resolver.ResolveAsync(did, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
@@ -88,12 +86,10 @@ internal static class SpaceDidResolution
     /// Resolves the <c>did:key</c> a DID publishes under one verification-method fragment, with
     /// no fallback to any other.
     /// </summary>
-    /// <param name="resolver">The resolver.</param>
     /// <param name="did">The token issuer's DID.</param>
     /// <param name="fragment">The fragment the token's <c>kid</c> named, from <see cref="RequireKeyId"/>.</param>
     /// <param name="error">The XRPC error name to report a missing or malformed key under.</param>
     /// <param name="refresh">Whether to bypass a cached document.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="SpaceVerificationException">
     /// Thrown when the DID does not resolve, publishes no such key, or publishes one that is not
     /// usable. The document is fetched from a party this service does not control, so unusable
@@ -107,16 +103,14 @@ internal static class SpaceDidResolution
     /// </remarks>
     public static async Task<string> ResolveKeyAsync(
         this IDidResolver resolver, Did did, string fragment, string error, bool refresh, CancellationToken cancellationToken) =>
-        (await resolver.ResolveKeyWithDocumentAsync(did, fragment, error, refresh, cancellationToken)).Key;
+        (await resolver.ResolveKeyWithDocumentAsync(did, fragment, error, refresh, cancellationToken).ConfigureAwait(false)).Key;
 
-    /// <summary>
-    /// <see cref="ResolveKeyAsync"/>, also returning the document the key was read from.
-    /// </summary>
+    /// <summary><see cref="ResolveKeyAsync"/>, also returning the document the key was read from.</summary>
     /// <exception cref="SpaceVerificationException">As <see cref="ResolveKeyAsync"/>.</exception>
     public static async Task<(string Key, DidDocument Document)> ResolveKeyWithDocumentAsync(
         this IDidResolver resolver, Did did, string fragment, string error, bool refresh, CancellationToken cancellationToken)
     {
-        var document = await resolver.ResolveOrRefuseAsync(did, refresh, cancellationToken);
+        var document = await resolver.ResolveOrRefuseAsync(did, refresh, cancellationToken).ConfigureAwait(false);
 
         return document.TryGetVerificationKey(fragment, out var key) switch
         {
@@ -140,14 +134,14 @@ internal static class SpaceDidResolution
     public static async Task<SpaceToken> VerifyWithKeyRefreshAsync(
         Func<bool, Task<string>> resolveKey, Func<string, SpaceToken> verify, string error)
     {
-        var key = await resolveKey(false);
+        var key = await resolveKey(false).ConfigureAwait(false);
         try
         {
             return verify(key);
         }
         catch (SpaceTokenException ex) when (ex.IsSignatureFailure)
         {
-            var refreshed = await resolveKey(true);
+            var refreshed = await resolveKey(true).ConfigureAwait(false);
             if (string.Equals(refreshed, key, StringComparison.Ordinal))
                 throw new SpaceVerificationException(error, ex.Message, ex);
 

@@ -6,7 +6,25 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- The public surface is fully documented; keep it that way. A new public member
          without an XML comment is a build error, not one warning lost among a thousand. -->
-    <WarningsAsErrors>$(WarningsAsErrors);CS1591</WarningsAsErrors>
+    <!-- CA2007 (missing ConfigureAwait) is likewise promoted to an error; see src/.editorconfig. -->
+    <!-- RS0016/RS0017 (public API tracking, below) are promoted the same way: an added or
+         removed public member must be reflected in PublicAPI.Unshipped.txt in the same commit. -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS1591;CA2007;RS0016;RS0017</WarningsAsErrors>
+    <!-- A <param> that only restates its parameter's name (e.g. "Cancellation token." on
+         `cancellationToken`) is dropped rather than kept for its own sake; when that leaves some
+         but not all of a member's parameters documented, CS1573 would otherwise fire. -->
+    <NoWarn>$(NoWarn);CS1573</NoWarn>
   </PropertyGroup>
+
+  <!-- Public API tracking: every packable project declares its shipped and unshipped surface in
+       PublicAPI.Shipped.txt / PublicAPI.Unshipped.txt (see CONTRIBUTING.md), so an accidental
+       binary or source break shows up as a diff on review instead of only at pack time. The
+       package's own build logic picks up those two files from the project directory. -->
+  <ItemGroup Condition="'$(IsPackable)' != 'false'">
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="5.6.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
 
 </Project>

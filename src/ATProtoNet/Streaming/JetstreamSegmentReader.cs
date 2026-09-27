@@ -9,9 +9,7 @@ using DidValue = ATProtoNet.Identity.Did;
 
 namespace ATProtoNet.Streaming;
 
-/// <summary>
-/// The kind discriminator stored in a segment row, as written on disk.
-/// </summary>
+/// <summary>The kind discriminator stored in a segment row, as written on disk.</summary>
 /// <remarks>
 /// Finer-grained than <see cref="JetstreamEventKind"/>: the three commit operations are separate
 /// values, and <see cref="CreateResync"/> is a create written while replacing a repo's records
@@ -41,9 +39,7 @@ public enum JetstreamArchiveRowKind : byte
     CreateResync = 7,
 }
 
-/// <summary>
-/// One decoded row of a segment block, before projection to a <see cref="JetstreamEvent"/>.
-/// </summary>
+/// <summary>One decoded row of a segment block, before projection to a <see cref="JetstreamEvent"/>.</summary>
 /// <remarks>
 /// This is the archive's own shape: the raw column values, including the untouched
 /// <see cref="Payload"/> CBOR. It is exposed for mirrors and auditors that want the bytes the
@@ -95,9 +91,7 @@ public sealed class JetstreamArchiveRow
     /// </summary>
     public long TimeUs => IndexedAt != 0 ? IndexedAt : WitnessedAt;
 
-    /// <summary>
-    /// Project this row to the same event model the live tail delivers.
-    /// </summary>
+    /// <summary>Project this row to the same event model the live tail delivers.</summary>
     /// <returns>The event, or null when the row cannot be projected — an unknown kind, an
     /// unparseable DID, collection or record key, or a payload that is not the CBOR the kind
     /// requires. Malformed rows are skipped rather than thrown on, matching the live parser's
@@ -168,9 +162,7 @@ public sealed class JetstreamArchiveRow
     }
 }
 
-/// <summary>
-/// The 256-byte fixed header of a sealed Jetstream segment (<c>.jss</c>).
-/// </summary>
+/// <summary>The 256-byte fixed header of a sealed Jetstream segment (<c>.jss</c>).</summary>
 public sealed class JetstreamSegmentHeader
 {
     /// <summary>The size of the fixed header, in bytes. Blocks start immediately after it.</summary>
@@ -270,9 +262,7 @@ public static class JetstreamSegmentReader
     /// <summary>A sanity ceiling on one stored block frame (256 MiB), for the same reason.</summary>
     private const long MaxBlockFrameBytes = 256L * 1024 * 1024;
 
-    /// <summary>
-    /// Parse the 256-byte fixed header of a sealed segment.
-    /// </summary>
+    /// <summary>Parse the 256-byte fixed header of a sealed segment.</summary>
     /// <param name="header">At least <see cref="JetstreamSegmentHeader.Size"/> bytes from the
     /// start of the file.</param>
     /// <exception cref="JetstreamException">The bytes are not a sealed segment header.</exception>
@@ -491,13 +481,10 @@ public static class JetstreamSegmentReader
         static string Utf8(ReadOnlySpan<byte> bytes) => bytes.IsEmpty ? string.Empty : Encoding.UTF8.GetString(bytes);
     }
 
-    /// <summary>
-    /// Stream every row of a sealed segment, block by block, in sequence order.
-    /// </summary>
+    /// <summary>Stream every row of a sealed segment, block by block, in sequence order.</summary>
     /// <param name="segment">The segment file, positioned at its start. Read sequentially; the
     /// stream need not be seekable.</param>
     /// <param name="decompressor">The zstd decompressor for the block frames.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="JetstreamException">The segment is not a sealed <c>.jss</c> file,
     /// or is truncated.</exception>
     public static async IAsyncEnumerable<JetstreamArchiveRow> ReadRowsAsync(
@@ -523,7 +510,6 @@ public static class JetstreamSegmentReader
     /// </summary>
     /// <param name="segment">The segment file, positioned at its start.</param>
     /// <param name="decompressor">The zstd decompressor for the block frames.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public static async IAsyncEnumerable<JetstreamEvent> ReadEventsAsync(
         Stream segment,
         IJetstreamBlockDecompressor decompressor,

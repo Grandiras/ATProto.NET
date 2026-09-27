@@ -19,16 +19,12 @@ namespace ATProtoNet.Serialization;
 /// </example>
 public interface ILexiconPlugin
 {
-    /// <summary>
-    /// Called during initialization to register custom lexicon types.
-    /// </summary>
+    /// <summary>Called during initialization to register custom lexicon types.</summary>
     /// <param name="registrar">The registrar for adding types.</param>
     void Register(ILexiconTypeRegistrar registrar);
 }
 
-/// <summary>
-/// Provides methods for plugins to register their lexicon types.
-/// </summary>
+/// <summary>Provides methods for plugins to register their lexicon types.</summary>
 public interface ILexiconTypeRegistrar
 {
     /// <summary>

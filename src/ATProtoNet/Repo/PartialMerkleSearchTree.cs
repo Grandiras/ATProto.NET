@@ -49,9 +49,7 @@ internal sealed class PartialMerkleSearchTree
         return new PartialMerkleSearchTree(LoadNode(rootCid, data, blocks, 0, null, null, expectedHeight: -1));
     }
 
-    /// <summary>
-    /// Reads the value stored under <paramref name="key"/>, or null when the key is absent.
-    /// </summary>
+    /// <summary>Reads the value stored under <paramref name="key"/>, or null when the key is absent.</summary>
     /// <exception cref="PartialTreeException">The path to the key runs through a subtree that is not loaded.</exception>
     public byte[]? Get(string key) => _root.Get(Key(key), -1);
 
@@ -68,9 +66,7 @@ internal sealed class PartialMerkleSearchTree
         return previous;
     }
 
-    /// <summary>
-    /// Removes <paramref name="key"/> and returns the value it held, or null when it was absent.
-    /// </summary>
+    /// <summary>Removes <paramref name="key"/> and returns the value it held, or null when it was absent.</summary>
     /// <exception cref="PartialTreeException">The change touches a subtree that is not loaded.</exception>
     public byte[]? Remove(string key)
     {

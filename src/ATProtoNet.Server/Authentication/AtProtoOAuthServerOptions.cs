@@ -64,9 +64,7 @@ public sealed class AtProtoOAuthServerOptions
     /// </summary>
     public string Scopes { get; set; } = AtProtoScopes.Default;
 
-    /// <summary>
-    /// Optional application name shown on the authorization server's consent page.
-    /// </summary>
+    /// <summary>Optional application name shown on the authorization server's consent page.</summary>
     public string? ClientName { get; set; }
 
     /// <summary>

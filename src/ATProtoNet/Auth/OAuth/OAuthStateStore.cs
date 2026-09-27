@@ -103,7 +103,6 @@ public interface IOAuthStateStore
 {
     /// <summary>Stores a pending authorization under its <see cref="OAuthPendingAuthorization.State"/>.</summary>
     /// <param name="authorization">The pending authorization.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     ValueTask SetAsync(OAuthPendingAuthorization authorization, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -111,7 +110,6 @@ public interface IOAuthStateStore
     /// one is completed at most once.
     /// </summary>
     /// <param name="state">The <c>state</c> parameter of the callback.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// The pending authorization, or <see langword="null"/> when none is stored under it. One
     /// that has expired may be returned; the client refuses it.
@@ -263,9 +261,7 @@ public sealed class InMemoryOAuthStateStore : IOAuthStateStore
     }
 }
 
-/// <summary>
-/// Options for <see cref="DistributedCacheOAuthStateStore"/>.
-/// </summary>
+/// <summary>Options for <see cref="DistributedCacheOAuthStateStore"/>.</summary>
 public sealed class DistributedCacheOAuthStateStoreOptions
 {
     /// <summary>The prefix of the cache keys. Default: <c>atproto:oauth-state:</c>.</summary>
@@ -320,7 +316,6 @@ public sealed class DistributedCacheOAuthStateStore : IOAuthStateStore
     private readonly DistributedCacheOAuthStateStoreOptions _options;
 
     /// <summary>Creates a store over <paramref name="cache"/>.</summary>
-    /// <param name="cache">The cache.</param>
     /// <param name="options">
     /// Options: <see cref="DistributedCacheOAuthStateStoreOptions.Protect"/> and
     /// <see cref="DistributedCacheOAuthStateStoreOptions.Unprotect"/>, or the explicit

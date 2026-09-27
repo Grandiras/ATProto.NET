@@ -37,18 +37,14 @@ public sealed class AtProtoTranquilPdsContainerResource(
     ParameterResource masterKey)
     : AtProtoPdsContainerResourceBase(name, jwtSecret)
 {
-    /// <summary>
-    /// The local part prepended to the hostname when no administrator handle is set.
-    /// </summary>
+    /// <summary>The local part prepended to the hostname when no administrator handle is set.</summary>
     /// <remarks>
     /// Not <c>admin</c>: Tranquil rejects a signup whose first handle label is a reserved
     /// subdomain, and <c>admin</c> is on that list.
     /// </remarks>
     public const string DefaultAdminHandlePrefix = "pdsadmin";
 
-    /// <summary>
-    /// The password of the account this PDS is administered through.
-    /// </summary>
+    /// <summary>The password of the account this PDS is administered through.</summary>
     /// <remarks>
     /// Tranquil has no server-wide admin password. The account named by
     /// <see cref="AtProtoTranquilPdsHostingExtensions.WithAdminAccount"/> is an ordinary
@@ -58,14 +54,10 @@ public sealed class AtProtoTranquilPdsContainerResource(
     /// </remarks>
     public ParameterResource AdminAccountPasswordParameter { get; internal set; } = adminAccountPassword;
 
-    /// <summary>
-    /// The secret this PDS validates OAuth DPoP proofs with (<c>DPOP_SECRET</c>).
-    /// </summary>
+    /// <summary>The secret this PDS validates OAuth DPoP proofs with (<c>DPOP_SECRET</c>).</summary>
     public ParameterResource DPoPSecretParameter { get; internal set; } = dpopSecret;
 
-    /// <summary>
-    /// The master key this PDS derives its key-encryption keys from (<c>MASTER_KEY</c>).
-    /// </summary>
+    /// <summary>The master key this PDS derives its key-encryption keys from (<c>MASTER_KEY</c>).</summary>
     /// <remarks>
     /// Every account's signing key is encrypted with a key derived from this value, so
     /// changing it strands the identities already created on the server. It is persisted
@@ -79,14 +71,10 @@ public sealed class AtProtoTranquilPdsContainerResource(
     /// </summary>
     internal object? AdminHandle { get; set; }
 
-    /// <summary>
-    /// The <c>DATABASE_URL</c> the container is given — a <c>postgres://</c> URI.
-    /// </summary>
+    /// <summary>The <c>DATABASE_URL</c> the container is given — a <c>postgres://</c> URI.</summary>
     internal object DatabaseUrl { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Whether the container starts with the local-development relaxations applied.
-    /// </summary>
+    /// <summary>Whether the container starts with the local-development relaxations applied.</summary>
     internal bool DevelopmentMode { get; set; }
 
     /// <summary>

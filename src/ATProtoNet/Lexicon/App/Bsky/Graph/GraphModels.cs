@@ -10,13 +10,9 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Graph;
 
-// ──────────────────────────────────────────────────────────────
-//  Graph records (stored in repos)
-// ──────────────────────────────────────────────────────────────
+// ── Graph records (stored in repos) ──────────────────────────
 
-/// <summary>
-/// A follow record. Collection: app.bsky.graph.follow
-/// </summary>
+/// <summary>A follow record. Collection: app.bsky.graph.follow</summary>
 public sealed class FollowRecord : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>app.bsky.graph.follow</c>).</summary>
@@ -34,16 +30,12 @@ public sealed class FollowRecord : LexObject, IAtProtoRecord
     [JsonPropertyName("createdAt")]
     public required AtDatetime CreatedAt { get; init; }
 
-    /// <summary>
-    /// The record through which the account came to follow, such as a starter pack.
-    /// </summary>
+    /// <summary>The record through which the account came to follow, such as a starter pack.</summary>
     [JsonPropertyName("via")]
     public StrongRef? Via { get; init; }
 }
 
-/// <summary>
-/// A block record. Collection: app.bsky.graph.block
-/// </summary>
+/// <summary>A block record. Collection: app.bsky.graph.block</summary>
 public sealed class BlockRecord : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>app.bsky.graph.block</c>).</summary>
@@ -62,9 +54,7 @@ public sealed class BlockRecord : LexObject, IAtProtoRecord
     public required AtDatetime CreatedAt { get; init; }
 }
 
-/// <summary>
-/// A list record. Collection: app.bsky.graph.list
-/// </summary>
+/// <summary>A list record. Collection: app.bsky.graph.list</summary>
 public sealed class ListRecord : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>app.bsky.graph.list</c>).</summary>
@@ -103,9 +93,7 @@ public sealed class ListRecord : LexObject, IAtProtoRecord
     public required AtDatetime CreatedAt { get; init; }
 }
 
-/// <summary>
-/// A list item record. Collection: app.bsky.graph.listitem
-/// </summary>
+/// <summary>A list item record. Collection: app.bsky.graph.listitem</summary>
 public sealed class ListItemRecord : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>app.bsky.graph.listitem</c>).</summary>
@@ -128,9 +116,7 @@ public sealed class ListItemRecord : LexObject, IAtProtoRecord
     public required AtDatetime CreatedAt { get; init; }
 }
 
-/// <summary>
-/// A list block record. Collection: app.bsky.graph.listblock
-/// </summary>
+/// <summary>A list block record. Collection: app.bsky.graph.listblock</summary>
 public sealed class ListBlockRecord : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>app.bsky.graph.listblock</c>).</summary>
@@ -209,13 +195,9 @@ public sealed class VerificationRecord : LexObject, IAtProtoRecord
     public required AtDatetime CreatedAt { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Well-known list purposes
-// ──────────────────────────────────────────────────────────────
+// ── Well-known list purposes ─────────────────────────────────
 
-/// <summary>
-/// Well-known list purpose URIs.
-/// </summary>
+/// <summary>Well-known list purpose URIs.</summary>
 public static class ListPurpose
 {
     /// <summary>A moderation list (muting/blocking).</summary>
@@ -228,13 +210,9 @@ public static class ListPurpose
     public const string ReferenceList = "app.bsky.graph.defs#referencelist";
 }
 
-// ──────────────────────────────────────────────────────────────
-//  View types
-// ──────────────────────────────────────────────────────────────
+// ── View types ───────────────────────────────────────────────
 
-/// <summary>
-/// A list view. Also a variant of <see cref="EmbeddedRecordView"/>, for a list embedded in a post.
-/// </summary>
+/// <summary>A list view. Also a variant of <see cref="EmbeddedRecordView"/>, for a list embedded in a post.</summary>
 public sealed class ListView : EmbeddedRecordView
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
@@ -286,9 +264,7 @@ public sealed class ListView : EmbeddedRecordView
     public required AtDatetime IndexedAt { get; init; }
 }
 
-/// <summary>
-/// Viewer state for a list.
-/// </summary>
+/// <summary>Viewer state for a list.</summary>
 public sealed class ListViewerState : LexObject
 {
     /// <summary>Whether the viewer has muted this list.</summary>
@@ -299,16 +275,12 @@ public sealed class ListViewerState : LexObject
     [JsonPropertyName("blocked")]
     public AtUri? Blocked { get; init; }
 
-    /// <summary>
-    /// The AT-URI of the viewer's opt-out record, if the viewer opted out of this reference list.
-    /// </summary>
+    /// <summary>The AT-URI of the viewer's opt-out record, if the viewer opted out of this reference list.</summary>
     [JsonPropertyName("referenceListOptOut")]
     public AtUri? ReferenceListOptOut { get; init; }
 }
 
-/// <summary>
-/// A basic list view (less detail).
-/// </summary>
+/// <summary>A basic list view (less detail).</summary>
 public sealed class ListViewBasic : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
@@ -348,9 +320,7 @@ public sealed class ListViewBasic : LexObject
     public AtDatetime? IndexedAt { get; init; }
 }
 
-/// <summary>
-/// A list item view (a member of a list).
-/// </summary>
+/// <summary>A list item view (a member of a list).</summary>
 public sealed class ListItemView : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
@@ -369,13 +339,9 @@ public sealed class ListItemView : LexObject
     public bool? SubjectOptedOut { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  API responses
-// ──────────────────────────────────────────────────────────────
+// ── API responses ────────────────────────────────────────────
 
-/// <summary>
-/// Response from getFollowers.
-/// </summary>
+/// <summary>Response from getFollowers.</summary>
 public sealed class GetFollowersResponse : ICursorPage<ProfileView>
 {
     /// <summary>
@@ -396,9 +362,7 @@ public sealed class GetFollowersResponse : ICursorPage<ProfileView>
     IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Followers;
 }
 
-/// <summary>
-/// Response from getFollows.
-/// </summary>
+/// <summary>Response from getFollows.</summary>
 public sealed class GetFollowsResponse : ICursorPage<ProfileView>
 {
     /// <summary>
@@ -419,9 +383,7 @@ public sealed class GetFollowsResponse : ICursorPage<ProfileView>
     IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Follows;
 }
 
-/// <summary>
-/// Response from getBlocks.
-/// </summary>
+/// <summary>Response from getBlocks.</summary>
 public sealed class GetBlocksResponse : ICursorPage<ProfileView>
 {
     /// <summary>
@@ -438,9 +400,7 @@ public sealed class GetBlocksResponse : ICursorPage<ProfileView>
     IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Blocks;
 }
 
-/// <summary>
-/// Response from getLists.
-/// </summary>
+/// <summary>Response from getLists.</summary>
 public sealed class GetListsResponse : ICursorPage<ListView>
 {
     /// <summary>
@@ -457,9 +417,7 @@ public sealed class GetListsResponse : ICursorPage<ListView>
     IReadOnlyList<ListView> ICursorPage<ListView>.Items => Lists;
 }
 
-/// <summary>
-/// Response from getList.
-/// </summary>
+/// <summary>Response from getList.</summary>
 public sealed class GetListResponse : ICursorPage<ListItemView>
 {
     /// <summary>
@@ -480,9 +438,7 @@ public sealed class GetListResponse : ICursorPage<ListItemView>
     IReadOnlyList<ListItemView> ICursorPage<ListItemView>.Items => Items;
 }
 
-/// <summary>
-/// Response from getMutes.
-/// </summary>
+/// <summary>Response from getMutes.</summary>
 public sealed class GetMutesResponse : ICursorPage<ProfileView>
 {
     /// <summary>
@@ -499,9 +455,7 @@ public sealed class GetMutesResponse : ICursorPage<ProfileView>
     IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Mutes;
 }
 
-/// <summary>
-/// Response from getListMutes.
-/// </summary>
+/// <summary>Response from getListMutes.</summary>
 public sealed class GetListMutesResponse : ICursorPage<ListView>
 {
     /// <summary>
@@ -518,9 +472,7 @@ public sealed class GetListMutesResponse : ICursorPage<ListView>
     IReadOnlyList<ListView> ICursorPage<ListView>.Items => Lists;
 }
 
-/// <summary>
-/// Response from getListBlocks.
-/// </summary>
+/// <summary>Response from getListBlocks.</summary>
 public sealed class GetListBlocksResponse : ICursorPage<ListView>
 {
     /// <summary>
@@ -537,32 +489,24 @@ public sealed class GetListBlocksResponse : ICursorPage<ListView>
     IReadOnlyList<ListView> ICursorPage<ListView>.Items => Lists;
 }
 
-/// <summary>
-/// Response from getSuggestedFollowsByActor.
-/// </summary>
+/// <summary>Response from getSuggestedFollowsByActor.</summary>
 public sealed class GetSuggestedFollowsByActorResponse
 {
     /// <summary>The suggested profiles.</summary>
     [JsonPropertyName("suggestions")]
     public required IReadOnlyList<ProfileView> Suggestions { get; init; }
 
-    /// <summary>
-    /// The recommendation's identifier (a snowflake), for recommendation events.
-    /// </summary>
+    /// <summary>The recommendation's identifier (a snowflake), for recommendation events.</summary>
     [JsonPropertyName("recIdStr")]
     public string? RecIdStr { get; init; }
 
-    /// <summary>
-    /// Whether these were generic fallback suggestions. No longer used.
-    /// </summary>
+    /// <summary>Whether these were generic fallback suggestions. No longer used.</summary>
     [JsonPropertyName("isFallback")]
     [Obsolete("Deprecated upstream: the appview no longer uses this field.")]
     public bool? IsFallback { get; init; }
 }
 
-/// <summary>
-/// Request body for muteActor / unmuteActor.
-/// </summary>
+/// <summary>Request body for muteActor / unmuteActor.</summary>
 internal sealed class MuteActorRequest
 {
     /// <summary>The DID or handle of the actor to mute.</summary>
@@ -578,9 +522,7 @@ internal sealed class MuteActorRequest
     public bool? OnlyQuoteposts { get; init; }
 }
 
-/// <summary>
-/// Request body for muteActorList / unmuteActorList.
-/// </summary>
+/// <summary>Request body for muteActorList / unmuteActorList.</summary>
 internal sealed class MuteActorListRequest
 {
     /// <summary>The AT-URI of the list to mute.</summary>
@@ -588,13 +530,9 @@ internal sealed class MuteActorListRequest
     public required AtUri List { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Starter pack records & views
-// ──────────────────────────────────────────────────────────────
+// ── Starter pack records & views ─────────────────────────────
 
-/// <summary>
-/// A starter pack record. Collection: app.bsky.graph.starterpack
-/// </summary>
+/// <summary>A starter pack record. Collection: app.bsky.graph.starterpack</summary>
 public sealed class StarterPackRecord : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>app.bsky.graph.starterpack</c>).</summary>
@@ -629,9 +567,7 @@ public sealed class StarterPackRecord : LexObject, IAtProtoRecord
     public required AtDatetime CreatedAt { get; init; }
 }
 
-/// <summary>
-/// A feed item reference in a starter pack.
-/// </summary>
+/// <summary>A feed item reference in a starter pack.</summary>
 public sealed class StarterPackFeedItem : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
@@ -665,9 +601,7 @@ public sealed class StarterPackViewBasic : EmbeddedRecordView
     [JsonPropertyName("listItemCount")]
     public int? ListItemCount { get; init; }
 
-    /// <summary>
-    /// The number of accounts that joined via this starter pack in the last week.
-    /// </summary>
+    /// <summary>The number of accounts that joined via this starter pack in the last week.</summary>
     [JsonPropertyName("joinedWeekCount")]
     public int? JoinedWeekCount { get; init; }
 
@@ -684,9 +618,7 @@ public sealed class StarterPackViewBasic : EmbeddedRecordView
     public required AtDatetime IndexedAt { get; init; }
 }
 
-/// <summary>
-/// Full view of a starter pack.
-/// </summary>
+/// <summary>Full view of a starter pack.</summary>
 public sealed class StarterPackView : LexObject
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
@@ -717,9 +649,7 @@ public sealed class StarterPackView : LexObject
     [JsonPropertyName("feeds")]
     public IReadOnlyList<GeneratorView>? Feeds { get; init; }
 
-    /// <summary>
-    /// The number of accounts that joined via this starter pack in the last week.
-    /// </summary>
+    /// <summary>The number of accounts that joined via this starter pack in the last week.</summary>
     [JsonPropertyName("joinedWeekCount")]
     public int? JoinedWeekCount { get; init; }
 
@@ -736,9 +666,7 @@ public sealed class StarterPackView : LexObject
     public required AtDatetime IndexedAt { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Relationship types
-// ──────────────────────────────────────────────────────────────
+// ── Relationship types ───────────────────────────────────────
 
 /// <summary>
 /// One entry of a <c>getRelationships</c> response: a <see cref="Relationship"/>, or a
@@ -773,36 +701,26 @@ public sealed class UnknownRelationshipEntry : RelationshipEntry, IUnknownUnionV
     public JsonElement Raw { get; }
 }
 
-/// <summary>
-/// The relationship between the queried actor and another account.
-/// </summary>
+/// <summary>The relationship between the queried actor and another account.</summary>
 public sealed class Relationship : RelationshipEntry
 {
     /// <summary>The DID (decentralized identifier) of the other account.</summary>
     [JsonPropertyName("did")]
     public required Did Did { get; init; }
 
-    /// <summary>
-    /// The AT-URI of the actor's follow record, if the actor follows the other account.
-    /// </summary>
+    /// <summary>The AT-URI of the actor's follow record, if the actor follows the other account.</summary>
     [JsonPropertyName("following")]
     public AtUri? Following { get; init; }
 
-    /// <summary>
-    /// The AT-URI of the other account's follow record, if it follows the actor.
-    /// </summary>
+    /// <summary>The AT-URI of the other account's follow record, if it follows the actor.</summary>
     [JsonPropertyName("followedBy")]
     public AtUri? FollowedBy { get; init; }
 
-    /// <summary>
-    /// The AT-URI of the actor's block record, if the actor blocks the other account.
-    /// </summary>
+    /// <summary>The AT-URI of the actor's block record, if the actor blocks the other account.</summary>
     [JsonPropertyName("blocking")]
     public AtUri? Blocking { get; init; }
 
-    /// <summary>
-    /// The AT-URI of the other account's block record, if it blocks the actor.
-    /// </summary>
+    /// <summary>The AT-URI of the other account's block record, if it blocks the actor.</summary>
     [JsonPropertyName("blockedBy")]
     public AtUri? BlockedBy { get; init; }
 
@@ -821,29 +739,21 @@ public sealed class Relationship : RelationshipEntry
     public AtUri? BlockedByList { get; init; }
 }
 
-/// <summary>
-/// A "not found" actor placeholder in relationship responses.
-/// </summary>
+/// <summary>A "not found" actor placeholder in relationship responses.</summary>
 public sealed class NotFoundActor : RelationshipEntry
 {
     /// <summary>The DID or handle that could not be resolved.</summary>
     [JsonPropertyName("actor")]
     public required AtIdentifier Actor { get; init; }
 
-    /// <summary>
-    /// Always <see langword="true"/>; marks the referenced subject as unavailable.
-    /// </summary>
+    /// <summary>Always <see langword="true"/>; marks the referenced subject as unavailable.</summary>
     [JsonPropertyName("notFound")]
     public required bool NotFound { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Additional API responses
-// ──────────────────────────────────────────────────────────────
+// ── Additional API responses ─────────────────────────────────
 
-/// <summary>
-/// Response from getRelationships.
-/// </summary>
+/// <summary>Response from getRelationships.</summary>
 public sealed class GetRelationshipsResponse
 {
     /// <summary>The DID of the actor the relationships are relative to.</summary>
@@ -855,9 +765,7 @@ public sealed class GetRelationshipsResponse
     public required IReadOnlyList<RelationshipEntry> Relationships { get; init; }
 }
 
-/// <summary>
-/// Response from getKnownFollowers.
-/// </summary>
+/// <summary>Response from getKnownFollowers.</summary>
 public sealed class GetKnownFollowersResponse : ICursorPage<ProfileView>
 {
     /// <summary>The profile of the account whose known followers these are.</summary>
@@ -878,9 +786,7 @@ public sealed class GetKnownFollowersResponse : ICursorPage<ProfileView>
     IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Followers;
 }
 
-/// <summary>
-/// Response from getStarterPack.
-/// </summary>
+/// <summary>Response from getStarterPack.</summary>
 public sealed class GetStarterPackResponse
 {
     /// <summary>The starter pack.</summary>
@@ -888,9 +794,7 @@ public sealed class GetStarterPackResponse
     public required StarterPackView StarterPack { get; init; }
 }
 
-/// <summary>
-/// Response from getStarterPacks.
-/// </summary>
+/// <summary>Response from getStarterPacks.</summary>
 public sealed class GetStarterPacksResponse
 {
     /// <summary>The starter packs.</summary>
@@ -898,9 +802,7 @@ public sealed class GetStarterPacksResponse
     public required IReadOnlyList<StarterPackViewBasic> StarterPacks { get; init; }
 }
 
-/// <summary>
-/// Response from getActorStarterPacks.
-/// </summary>
+/// <summary>Response from getActorStarterPacks.</summary>
 public sealed class GetActorStarterPacksResponse : ICursorPage<StarterPackViewBasic>
 {
     /// <summary>
@@ -917,9 +819,7 @@ public sealed class GetActorStarterPacksResponse : ICursorPage<StarterPackViewBa
     IReadOnlyList<StarterPackViewBasic> ICursorPage<StarterPackViewBasic>.Items => StarterPacks;
 }
 
-/// <summary>
-/// Response from searchStarterPacks.
-/// </summary>
+/// <summary>Response from searchStarterPacks.</summary>
 public sealed class SearchStarterPacksResponse : ICursorPage<StarterPackViewBasic>
 {
     /// <summary>
@@ -936,9 +836,7 @@ public sealed class SearchStarterPacksResponse : ICursorPage<StarterPackViewBasi
     IReadOnlyList<StarterPackViewBasic> ICursorPage<StarterPackViewBasic>.Items => StarterPacks;
 }
 
-/// <summary>
-/// Response from searchStarterPacksV2, which returns full starter pack views.
-/// </summary>
+/// <summary>Response from searchStarterPacksV2, which returns full starter pack views.</summary>
 public sealed class SearchStarterPacksV2Response : ICursorPage<StarterPackView>
 {
     /// <summary>
@@ -974,9 +872,7 @@ public sealed class ListWithMembership : LexObject
     public ListItemView? ListItem { get; init; }
 }
 
-/// <summary>
-/// Response from getListsWithMembership.
-/// </summary>
+/// <summary>Response from getListsWithMembership.</summary>
 public sealed class GetListsWithMembershipResponse : ICursorPage<ListWithMembership>
 {
     /// <summary>
@@ -1011,9 +907,7 @@ public sealed class StarterPackWithMembership : LexObject
     public ListItemView? ListItem { get; init; }
 }
 
-/// <summary>
-/// Response from getStarterPacksWithMembership.
-/// </summary>
+/// <summary>Response from getStarterPacksWithMembership.</summary>
 public sealed class GetStarterPacksWithMembershipResponse : ICursorPage<StarterPackWithMembership>
 {
     /// <summary>
@@ -1031,9 +925,7 @@ public sealed class GetStarterPacksWithMembershipResponse : ICursorPage<StarterP
         StarterPacksWithMembership;
 }
 
-/// <summary>
-/// Request body for muteThread / unmuteThread.
-/// </summary>
+/// <summary>Request body for muteThread / unmuteThread.</summary>
 internal sealed class MuteThreadRequest
 {
     /// <summary>The AT-URI of the root post of the thread to mute.</summary>

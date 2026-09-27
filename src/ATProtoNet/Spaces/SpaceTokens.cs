@@ -7,9 +7,7 @@ using ATProtoNet.Crypto;
 
 namespace ATProtoNet.Spaces;
 
-/// <summary>
-/// The three classes of JWT the permissioned data protocol uses to reach a space.
-/// </summary>
+/// <summary>The three classes of JWT the permissioned data protocol uses to reach a space.</summary>
 /// <remarks>
 /// They share a wire shape and differ only in who signs them, who they are addressed to, and
 /// how long they live.
@@ -40,9 +38,7 @@ public enum SpaceTokenType
     ClientAttestation,
 }
 
-/// <summary>
-/// A parsed space token: its header, its claims, and the signing input its signature covers.
-/// </summary>
+/// <summary>A parsed space token: its header, its claims, and the signing input its signature covers.</summary>
 public sealed class SpaceToken
 {
     internal SpaceToken(
@@ -124,9 +120,7 @@ public sealed class SpaceToken
     public SpaceUri ToSpaceUri() => SpaceUri.Parse(Subject);
 }
 
-/// <summary>
-/// Creates, parses, and verifies the JWTs that gate access to a permissioned space.
-/// </summary>
+/// <summary>Creates, parses, and verifies the JWTs that gate access to a permissioned space.</summary>
 /// <remarks>
 /// <para>Reaching a space takes two tokens on two axes. <b>Which user</b> is being acted for is
 /// established by a <see cref="SpaceTokenType.Delegation">delegation token</see> minted by that
@@ -169,9 +163,7 @@ public static class SpaceTokens
         _ => throw new ArgumentOutOfRangeException(nameof(type)),
     };
 
-    /// <summary>
-    /// Mints a space token.
-    /// </summary>
+    /// <summary>Mints a space token.</summary>
     /// <param name="type">Which class of token to create.</param>
     /// <param name="issuer">The <c>iss</c>: a DID, or a client ID for a client attestation.</param>
     /// <param name="subject">The <c>sub</c>: the space URI, or the client ID for a client attestation.</param>
@@ -256,9 +248,7 @@ public static class SpaceTokens
         return Jwt.Sign(header, payload.WrittenSpan, signingKey);
     }
 
-    /// <summary>
-    /// Parses and structurally validates a space token, without checking its signature.
-    /// </summary>
+    /// <summary>Parses and structurally validates a space token, without checking its signature.</summary>
     /// <param name="type">The token class the caller expects.</param>
     /// <param name="jwt">The encoded token.</param>
     /// <exception cref="SpaceTokenException">Thrown when the token is malformed or is not of the expected class.</exception>
@@ -338,9 +328,7 @@ public static class SpaceTokens
             signature);
     }
 
-    /// <summary>
-    /// Attempts to parse a space token, returning <see langword="false"/> rather than throwing.
-    /// </summary>
+    /// <summary>Attempts to parse a space token, returning <see langword="false"/> rather than throwing.</summary>
     /// <param name="type">The token class the caller expects.</param>
     /// <param name="jwt">The encoded token.</param>
     /// <param name="token">The parsed token on success.</param>

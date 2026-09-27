@@ -3,6 +3,10 @@
   <PropertyGroup>
     <Description>Blazor components for AT Protocol applications — login form, profile card, feed, post card and composer — acting as the signed-in user through ATProtoNet.Server.</Description>
     <PackageTags>atproto;bluesky;blazor;at-protocol;dotnet</PackageTags>
+    <!-- Razor's generated BuildRenderTree override uses an unannotated parameter type; that
+         generated code is outside our control, and an .editorconfig severity override does not
+         reach it (its diagnostics report against the obj/ source-generator output). -->
+    <NoWarn>$(NoWarn);RS0041</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

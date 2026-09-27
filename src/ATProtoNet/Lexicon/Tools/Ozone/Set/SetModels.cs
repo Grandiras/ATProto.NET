@@ -4,9 +4,7 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Set;
 
-/// <summary>
-/// A named set of values used for moderation rules.
-/// </summary>
+/// <summary>A named set of values used for moderation rules.</summary>
 public sealed class OzoneSetView : LexObject
 {
     /// <summary>The name of the set.</summary>
@@ -30,9 +28,7 @@ public sealed class OzoneSetView : LexObject
     public required AtDatetime UpdatedAt { get; init; }
 }
 
-/// <summary>
-/// Request to create or update a set.
-/// </summary>
+/// <summary>Request to create or update a set.</summary>
 public sealed class UpsertSetRequest
 {
     /// <summary>The name.</summary>
@@ -44,9 +40,7 @@ public sealed class UpsertSetRequest
     public string? Description { get; init; }
 }
 
-/// <summary>
-/// Request to delete a set.
-/// </summary>
+/// <summary>Request to delete a set.</summary>
 internal sealed class DeleteSetRequest
 {
     /// <summary>The name.</summary>
@@ -54,9 +48,7 @@ internal sealed class DeleteSetRequest
     public required string Name { get; init; }
 }
 
-/// <summary>
-/// Request to add values to a set.
-/// </summary>
+/// <summary>Request to add values to a set.</summary>
 internal sealed class AddValuesRequest
 {
     /// <summary>The name of the set.</summary>
@@ -68,9 +60,7 @@ internal sealed class AddValuesRequest
     public required IReadOnlyList<string> Values { get; init; }
 }
 
-/// <summary>
-/// Request to delete values from a set.
-/// </summary>
+/// <summary>Request to delete values from a set.</summary>
 internal sealed class DeleteValuesRequest
 {
     /// <summary>The name of the set.</summary>
@@ -82,9 +72,7 @@ internal sealed class DeleteValuesRequest
     public required IReadOnlyList<string> Values { get; init; }
 }
 
-/// <summary>
-/// Response from querySets.
-/// </summary>
+/// <summary>Response from querySets.</summary>
 public sealed class QuerySetsResponse : ICursorPage<OzoneSetView>
 {
     /// <summary>
@@ -101,9 +89,7 @@ public sealed class QuerySetsResponse : ICursorPage<OzoneSetView>
     IReadOnlyList<OzoneSetView> ICursorPage<OzoneSetView>.Items => Sets;
 }
 
-/// <summary>
-/// Response from getValues.
-/// </summary>
+/// <summary>Response from getValues.</summary>
 public sealed class GetValuesResponse : ICursorPage<string>
 {
     /// <summary>The set.</summary>

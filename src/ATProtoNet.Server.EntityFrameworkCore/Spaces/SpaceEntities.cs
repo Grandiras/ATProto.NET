@@ -2,9 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ATProtoNet.Server.EntityFrameworkCore;
 
-/// <summary>
-/// A space this authority gates, and whether it has been deleted.
-/// </summary>
+/// <summary>A space this authority gates, and whether it has been deleted.</summary>
 /// <remarks>
 /// A row here is what makes a space <em>exist</em> as far as the authority endpoints are
 /// concerned: <c>listRepos</c>, <c>registerNotify</c>, and <c>notifyWrite</c> all answer
@@ -23,9 +21,7 @@ public sealed class SpaceEntity
     public bool Deleted { get; set; }
 }
 
-/// <summary>
-/// One account's entry in a space's writer set, as last reported to the authority.
-/// </summary>
+/// <summary>One account's entry in a space's writer set, as last reported to the authority.</summary>
 /// <remarks>
 /// The writer set is the sync boundary, not an access-control list. Each entry carries the
 /// revision and commit hash from the last <c>notifyWrite</c>, which is what lets a syncer
@@ -49,9 +45,7 @@ public sealed class SpaceWriterEntity
     public required byte[] Hash { get; set; }
 }
 
-/// <summary>
-/// A service registered to receive a space's write notifications.
-/// </summary>
+/// <summary>A service registered to receive a space's write notifications.</summary>
 public sealed class SpaceSubscriberEntity
 {
     /// <summary>The space URI. Part of the composite primary key.</summary>
@@ -65,15 +59,11 @@ public sealed class SpaceSubscriberEntity
     [MaxLength(512)]
     public required string Service { get; set; }
 
-    /// <summary>
-    /// When the registration lapses. Stored as Unix milliseconds, and so read back as UTC.
-    /// </summary>
+    /// <summary>When the registration lapses. Stored as Unix milliseconds, and so read back as UTC.</summary>
     public DateTimeOffset ExpiresAt { get; set; }
 }
 
-/// <summary>
-/// A space as <c>com.atproto.simplespace</c> stores it.
-/// </summary>
+/// <summary>A space as <c>com.atproto.simplespace</c> stores it.</summary>
 public sealed class SimpleSpaceEntity
 {
     /// <summary>The space URI. Primary key.</summary>
@@ -85,9 +75,7 @@ public sealed class SimpleSpaceEntity
     [MaxLength(512)]
     public required string Owner { get; set; }
 
-    /// <summary>
-    /// The read policy, as the JSON of its Lexicon union variant (carrying its <c>$type</c>).
-    /// </summary>
+    /// <summary>The read policy, as the JSON of its Lexicon union variant (carrying its <c>$type</c>).</summary>
     /// <remarks>
     /// Stored as the wire form rather than as columns so a policy variant added to the union
     /// later needs no schema change — the discriminator is what a
@@ -106,9 +94,7 @@ public sealed class SimpleSpaceEntity
     public bool Deleted { get; set; }
 }
 
-/// <summary>
-/// One DID on a space's member list, and its access.
-/// </summary>
+/// <summary>One DID on a space's member list, and its access.</summary>
 /// <remarks>
 /// Unlike the writer set, this is never published to the network and cannot be rebuilt from
 /// anything on it — which is why an authority that means to survive a restart must keep it here

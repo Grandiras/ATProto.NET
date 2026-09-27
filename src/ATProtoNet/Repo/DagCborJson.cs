@@ -5,9 +5,7 @@ using System.Text.Json;
 
 namespace ATProtoNet.Repo;
 
-/// <summary>
-/// How <see cref="DagCborJson"/> renders the two DAG-CBOR kinds JSON has no type for.
-/// </summary>
+/// <summary>How <see cref="DagCborJson"/> renders the two DAG-CBOR kinds JSON has no type for.</summary>
 internal enum DagCborJsonForm
 {
     /// <summary>
@@ -23,9 +21,7 @@ internal enum DagCborJsonForm
     Flattened,
 }
 
-/// <summary>
-/// Transcodes DAG-CBOR straight into a <see cref="Utf8JsonWriter"/> in one pass.
-/// </summary>
+/// <summary>Transcodes DAG-CBOR straight into a <see cref="Utf8JsonWriter"/> in one pass.</summary>
 /// <remarks>
 /// <para>This is the one DAG-CBOR→JSON walker in the SDK, shared by
 /// <see cref="DagCborDecoder.Decode"/> and the firehose frame parser. Writing into the JSON writer
@@ -45,9 +41,7 @@ internal static class DagCborJson
     /// </summary>
     internal const int MaxDepth = 64;
 
-    /// <summary>
-    /// Writes the next DAG-CBOR value as JSON.
-    /// </summary>
+    /// <summary>Writes the next DAG-CBOR value as JSON.</summary>
     /// <param name="reader">Positioned at the value.</param>
     /// <param name="writer">Receives the value.</param>
     /// <param name="form">How CIDs and byte strings are rendered.</param>

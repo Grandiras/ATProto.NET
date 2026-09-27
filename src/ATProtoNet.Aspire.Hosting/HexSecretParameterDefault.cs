@@ -4,9 +4,7 @@ using Aspire.Hosting.Publishing;
 
 namespace ATProtoNet.Aspire.Hosting;
 
-/// <summary>
-/// Generates a random lowercase hex string of a fixed byte length.
-/// </summary>
+/// <summary>Generates a random lowercase hex string of a fixed byte length.</summary>
 /// <remarks>
 /// The PDS reads its JWT secret and PLC rotation key as hex, so the generated
 /// alphanumeric passwords Aspire produces by default are not usable for them.

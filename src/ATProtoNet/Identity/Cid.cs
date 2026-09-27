@@ -4,9 +4,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// The content type a <see cref="Cid"/> declares for the data it addresses.
-/// </summary>
+/// <summary>The content type a <see cref="Cid"/> declares for the data it addresses.</summary>
 public enum CidCodec
 {
     /// <summary>Raw bytes (multicodec <c>0x55</c>): the codec of blob CIDs.</summary>
@@ -16,9 +14,7 @@ public enum CidCodec
     DagCbor = 0x71,
 }
 
-/// <summary>
-/// Represents a Content Identifier (CID) used to reference content-addressed data.
-/// </summary>
+/// <summary>Represents a Content Identifier (CID) used to reference content-addressed data.</summary>
 /// <remarks>
 /// <para>Only the CID form the atproto data model blesses is accepted: CIDv1 with the
 /// <see cref="CidCodec.DagCbor"/> or <see cref="CidCodec.Raw"/> codec and a 32-byte SHA-256
@@ -43,19 +39,13 @@ public sealed record Cid : IIdentifier<Cid>
 
     private readonly byte[] _bytes;
 
-    /// <summary>
-    /// The CID string value.
-    /// </summary>
+    /// <summary>The CID string value.</summary>
     public string Value { get; }
 
-    /// <summary>
-    /// The codec of the addressed content.
-    /// </summary>
+    /// <summary>The codec of the addressed content.</summary>
     public CidCodec Codec => (CidCodec)_bytes[1];
 
-    /// <summary>
-    /// The 32-byte SHA-256 digest of the addressed content.
-    /// </summary>
+    /// <summary>The 32-byte SHA-256 digest of the addressed content.</summary>
     public ReadOnlyMemory<byte> Digest => _bytes.AsMemory(4);
 
     private Cid(string value, byte[] bytes)
@@ -64,18 +54,14 @@ public sealed record Cid : IIdentifier<Cid>
         _bytes = bytes;
     }
 
-    /// <summary>
-    /// Creates a CID from its string form with validation.
-    /// </summary>
+    /// <summary>Creates a CID from its string form with validation.</summary>
     /// <param name="value">The CID string, e.g. <c>bafyrei…</c>.</param>
     /// <returns>A validated CID.</returns>
     /// <exception cref="ArgumentException">Thrown if the value is not a valid atproto CID.</exception>
     public static Cid Parse(string value) =>
         TryParse(value, out var cid) ? cid : throw IIdentifier<Cid>.InvalidValue(value, "CID");
 
-    /// <summary>
-    /// Attempts to create a CID from its string form without throwing.
-    /// </summary>
+    /// <summary>Attempts to create a CID from its string form without throwing.</summary>
     /// <param name="value">The CID string, e.g. <c>bafyrei…</c>.</param>
     /// <param name="cid">The parsed CID on success.</param>
     /// <returns><see langword="true"/> if <paramref name="value"/> is a valid atproto CID.</returns>
@@ -135,26 +121,20 @@ public sealed record Cid : IIdentifier<Cid>
         return (buffer & ((1 << bits) - 1)) == 0;
     }
 
-    /// <summary>
-    /// Returns the binary form of the CID: version, codec, multihash header and digest.
-    /// </summary>
+    /// <summary>Returns the binary form of the CID: version, codec, multihash header and digest.</summary>
     /// <returns>A new 36-byte array.</returns>
     public byte[] ToBytes() => (byte[])_bytes.Clone();
 
     /// <summary>The binary form, without the copy <see cref="ToBytes"/> makes.</summary>
     internal ReadOnlySpan<byte> AsSpan() => _bytes;
 
-    /// <summary>
-    /// Implicitly converts a <see cref="Cid"/> to its <see cref="string"/> representation.
-    /// </summary>
+    /// <summary>Implicitly converts a <see cref="Cid"/> to its <see cref="string"/> representation.</summary>
     /// <param name="cid">The value to convert.</param>
     /// <returns>The converted value, or <see langword="null"/> for a <see langword="null"/> CID.</returns>
     [return: NotNullIfNotNull(nameof(cid))]
     public static implicit operator string?(Cid? cid) => cid?.Value;
 
-    /// <summary>
-    /// Explicitly converts a <see cref="string"/> to its <see cref="Cid"/> representation.
-    /// </summary>
+    /// <summary>Explicitly converts a <see cref="string"/> to its <see cref="Cid"/> representation.</summary>
     /// <param name="value">The value to convert.</param>
     /// <returns>The converted value.</returns>
     /// <exception cref="ArgumentException">Thrown if the value is not a valid <see cref="Cid"/>.</exception>

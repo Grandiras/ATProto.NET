@@ -4,13 +4,9 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Identity;
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.identity.resolveHandle
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.identity.resolveHandle ───────────────────────
 
-/// <summary>
-/// Response from resolveHandle – maps a handle to a DID.
-/// </summary>
+/// <summary>Response from resolveHandle – maps a handle to a DID.</summary>
 public sealed class ResolveHandleResponse
 {
     /// <summary>The resolved DID.</summary>
@@ -18,13 +14,9 @@ public sealed class ResolveHandleResponse
     public required Did Did { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.identity.defs
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.identity.defs ────────────────────────────────
 
-/// <summary>
-/// An identity as a service resolved it (<c>com.atproto.identity.defs#identityInfo</c>).
-/// </summary>
+/// <summary>An identity as a service resolved it (<c>com.atproto.identity.defs#identityInfo</c>).</summary>
 public sealed class IdentityInfo : LexObject
 {
     /// <summary>The account's DID.</summary>
@@ -43,13 +35,9 @@ public sealed class IdentityInfo : LexObject
     public required DidDocument DidDoc { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.identity.resolveDid
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.identity.resolveDid ──────────────────────────
 
-/// <summary>
-/// Response from resolveDid.
-/// </summary>
+/// <summary>Response from resolveDid.</summary>
 public sealed class ResolveDidResponse
 {
     /// <summary>The complete DID document.</summary>
@@ -57,13 +45,9 @@ public sealed class ResolveDidResponse
     public required DidDocument DidDoc { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.identity.refreshIdentity
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.identity.refreshIdentity ─────────────────────
 
-/// <summary>
-/// Request body for refreshIdentity.
-/// </summary>
+/// <summary>Request body for refreshIdentity.</summary>
 internal sealed class RefreshIdentityRequest
 {
     /// <summary>The DID or handle to refresh.</summary>
@@ -71,13 +55,9 @@ internal sealed class RefreshIdentityRequest
     public required AtIdentifier Identifier { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.identity.updateHandle
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.identity.updateHandle ────────────────────────
 
-/// <summary>
-/// Request body for updateHandle.
-/// </summary>
+/// <summary>Request body for updateHandle.</summary>
 internal sealed class UpdateHandleRequest
 {
     /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
@@ -85,13 +65,9 @@ internal sealed class UpdateHandleRequest
     public required Handle Handle { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.identity.getRecommendedDidCredentials
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.identity.getRecommendedDidCredentials ────────
 
-/// <summary>
-/// Response with recommended DID credentials for account migration.
-/// </summary>
+/// <summary>Response with recommended DID credentials for account migration.</summary>
 public sealed class GetRecommendedDidCredentialsResponse
 {
     /// <summary>The DID PLC rotation keys, as <c>did:key</c> strings.</summary>
@@ -111,9 +87,7 @@ public sealed class GetRecommendedDidCredentialsResponse
     public Dictionary<string, DidService>? Services { get; init; }
 }
 
-/// <summary>
-/// A DID document service entry.
-/// </summary>
+/// <summary>A DID document service entry.</summary>
 public sealed class DidService
 {
     /// <summary>The service type (for example <c>AtprotoPersonalDataServer</c>).</summary>
@@ -125,13 +99,9 @@ public sealed class DidService
     public required string Endpoint { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.identity.signPlcOperation
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.identity.signPlcOperation ────────────────────
 
-/// <summary>
-/// Request body for signing a PLC operation.
-/// </summary>
+/// <summary>Request body for signing a PLC operation.</summary>
 public sealed class SignPlcOperationRequest
 {
     /// <summary>The confirmation token emailed to the account holder.</summary>
@@ -155,9 +125,7 @@ public sealed class SignPlcOperationRequest
     public Dictionary<string, DidService>? Services { get; init; }
 }
 
-/// <summary>
-/// Response with the signed PLC operation.
-/// </summary>
+/// <summary>Response with the signed PLC operation.</summary>
 public sealed class SignPlcOperationResponse
 {
     /// <summary>A signed PLC operation object.</summary>
@@ -165,13 +133,9 @@ public sealed class SignPlcOperationResponse
     public required Dictionary<string, object> Operation { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  com.atproto.identity.submitPlcOperation
-// ──────────────────────────────────────────────────────────────
+// ── com.atproto.identity.submitPlcOperation ──────────────────
 
-/// <summary>
-/// Request body for submitting a PLC operation.
-/// </summary>
+/// <summary>Request body for submitting a PLC operation.</summary>
 public sealed class SubmitPlcOperationRequest
 {
     /// <summary>The signed DID PLC operation to submit.</summary>

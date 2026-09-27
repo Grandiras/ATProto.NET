@@ -15,21 +15,15 @@ namespace ATProtoNet.Server.EntityFrameworkCore;
 /// </remarks>
 public class AtProtoTokenDbContext : DbContext
 {
-    /// <summary>
-    /// The stored AT Protocol tokens.
-    /// </summary>
+    /// <summary>The stored AT Protocol tokens.</summary>
     public DbSet<AtProtoTokenEntity> AtProtoTokens => Set<AtProtoTokenEntity>();
 
-    /// <summary>
-    /// Creates a new <see cref="AtProtoTokenDbContext"/>.
-    /// </summary>
+    /// <summary>Creates a new <see cref="AtProtoTokenDbContext"/>.</summary>
     public AtProtoTokenDbContext(DbContextOptions<AtProtoTokenDbContext> options) : base(options)
     {
     }
 
-    /// <summary>
-    /// Creates a new instance with generic options (for derived contexts).
-    /// </summary>
+    /// <summary>Creates a new instance with generic options (for derived contexts).</summary>
     protected AtProtoTokenDbContext(DbContextOptions options) : base(options)
     {
     }

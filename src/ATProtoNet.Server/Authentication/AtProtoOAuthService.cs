@@ -50,9 +50,7 @@ public sealed class AtProtoOAuthService : IDisposable
     private HttpClient? _httpClient;
     private volatile bool _disposed;
 
-    /// <summary>
-    /// Creates a new <see cref="AtProtoOAuthService"/>.
-    /// </summary>
+    /// <summary>Creates a new <see cref="AtProtoOAuthService"/>.</summary>
     /// <param name="serverOptions">The OAuth server options.</param>
     /// <param name="loggerFactory">Creates the service's loggers.</param>
     /// <param name="identityResolver">
@@ -211,9 +209,7 @@ public sealed class AtProtoOAuthService : IDisposable
         }
     }
 
-    /// <summary>
-    /// Starts the OAuth login flow and returns the authorization URL to redirect the user to.
-    /// </summary>
+    /// <summary>Starts the OAuth login flow and returns the authorization URL to redirect the user to.</summary>
     /// <param name="context">The current HTTP context.</param>
     /// <param name="handle">The user's AT Protocol handle (e.g., "alice.bsky.social"), DID, or PDS URL.</param>
     /// <param name="returnUrl">
@@ -222,7 +218,6 @@ public sealed class AtProtoOAuthService : IDisposable
     /// kept with the pending login on the server.
     /// </param>
     /// <param name="pdsUrl">Optional explicit PDS URL to skip automatic discovery.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The authorization URL to redirect the user to.</returns>
     /// <exception cref="OAuthException">Resolution, discovery or the pushed authorization request failed.</exception>
     /// <remarks>
@@ -257,7 +252,7 @@ public sealed class AtProtoOAuthService : IDisposable
                 RequesterId = OAuthAuthorizationOptions.RequesterIdFor(context.Connection.RemoteIpAddress),
                 AppState = loginState.Serialize(),
             },
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         _logger.LogInformation("OAuth login started for handle: {Handle}", handle);
 
@@ -272,7 +267,6 @@ public sealed class AtProtoOAuthService : IDisposable
     /// <param name="code">The authorization code from the callback.</param>
     /// <param name="state">The state parameter from the callback.</param>
     /// <param name="issuer">The issuer parameter from the callback.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// Whom the login signed in and where to redirect: the login's local return URL, or, when the
     /// callback arrived on another loopback origin than the login started on, that origin's relay
@@ -296,7 +290,7 @@ public sealed class AtProtoOAuthService : IDisposable
         // another instance sharing the state store, completes.
         var client = Client;
 
-        var result = await client.CompleteAuthorizationWithAppStateAsync(code, state, issuer, cancellationToken);
+        var result = await client.CompleteAuthorizationWithAppStateAsync(code, state, issuer, cancellationToken).ConfigureAwait(false);
         var session = result.Session;
         var loginState = OAuthLoginState.TryParse(result.AppState);
         var callbackOrigin = $"{context.Request.Scheme}://{context.Request.Host}";
@@ -325,15 +319,15 @@ public sealed class AtProtoOAuthService : IDisposable
 
         if (loginState is null || !OAuthLoginBinding.Verify(context, loginState.BindingHash))
         {
-            await RevokeQuietlyAsync(client, session);
+            await RevokeQuietlyAsync(client, session).ConfigureAwait(false);
             throw new OAuthException(
                 "This sign-in was not started in this browser. Start it again from the sign-in page.",
                 "login_not_bound");
         }
 
         OAuthLoginBinding.Clear(context);
-        await StoreSessionAsync(context, session, cancellationToken);
-        await context.SignInAsync(_serverOptions.CookieScheme, CreatePrincipal(session), CreateAuthenticationProperties());
+        await StoreSessionAsync(context, session, cancellationToken).ConfigureAwait(false);
+        await context.SignInAsync(_serverOptions.CookieScheme, CreatePrincipal(session), CreateAuthenticationProperties()).ConfigureAwait(false);
 
         _logger.LogInformation(
             "OAuth login completed for DID: {Did}, Handle: {Handle}",
@@ -348,7 +342,6 @@ public sealed class AtProtoOAuthService : IDisposable
     /// authentication cookie.
     /// </summary>
     /// <param name="context">The current HTTP context.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The URL to redirect to after logout.</returns>
     /// <remarks>
     /// The session is removed under the account's refresh lock, so a refresh running meanwhile
@@ -366,10 +359,10 @@ public sealed class AtProtoOAuthService : IDisposable
         if (sessionStore is not null && OAuthUser.DidOf(context.User) is { } did)
         {
             AtProtoSession? session;
-            await using (await AcquireRefreshLeaseAsync(did, cancellationToken))
+            await using (await AcquireRefreshLeaseAsync(did, cancellationToken).ConfigureAwait(false))
             {
-                session = await sessionStore.GetAsync(did, cancellationToken);
-                await sessionStore.RemoveAsync(did, cancellationToken);
+                session = await sessionStore.GetAsync(did, cancellationToken).ConfigureAwait(false);
+                await sessionStore.RemoveAsync(did, cancellationToken).ConfigureAwait(false);
             }
 
             _logger.LogInformation("Removed the stored OAuth session of {Did}", did);
@@ -382,7 +375,7 @@ public sealed class AtProtoOAuthService : IDisposable
 
                 try
                 {
-                    await Client.RevokeAsync(oauth, cancellationToken);
+                    await Client.RevokeAsync(oauth, cancellationToken).ConfigureAwait(false);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -391,7 +384,7 @@ public sealed class AtProtoOAuthService : IDisposable
             }
         }
 
-        await context.SignOutAsync(_serverOptions.CookieScheme);
+        await context.SignOutAsync(_serverOptions.CookieScheme).ConfigureAwait(false);
         _logger.LogInformation("User logged out");
         return _serverOptions.PostLogoutRedirectUri;
     }
@@ -402,7 +395,6 @@ public sealed class AtProtoOAuthService : IDisposable
     /// </summary>
     /// <param name="context">The current HTTP context (on the user's browsing domain).</param>
     /// <param name="code">The one-time relay code from the query string.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// The return URL to redirect to, or null if the code is invalid or expired, or the browser
     /// does not present the binding cookie of the login the code completes.
@@ -434,16 +426,16 @@ public sealed class AtProtoOAuthService : IDisposable
         {
             _logger.LogWarning("Cookie relay refused: the browser did not start the login it completes");
             if (entry.Session is not null)
-                await RevokeQuietlyAsync(Client, entry.Session);
+                await RevokeQuietlyAsync(Client, entry.Session).ConfigureAwait(false);
             return null;
         }
 
         OAuthLoginBinding.Clear(context);
         if (entry.Session is not null)
-            await StoreSessionAsync(context, entry.Session, cancellationToken);
+            await StoreSessionAsync(context, entry.Session, cancellationToken).ConfigureAwait(false);
 
         // Issue the cookie on this domain (the user's actual browsing domain)
-        await context.SignInAsync(_serverOptions.CookieScheme, entry.Principal, entry.Properties);
+        await context.SignInAsync(_serverOptions.CookieScheme, entry.Principal, entry.Properties).ConfigureAwait(false);
 
         _logger.LogInformation(
             "Cookie relay completed: auth cookie issued on {Host}",
@@ -651,22 +643,22 @@ public sealed class AtProtoOAuthService : IDisposable
     {
         if (context.RequestServices?.GetService<IAtProtoSessionStore>() is { } sessionStore)
         {
-            await using (await AcquireRefreshLeaseAsync(session.Did, cancellationToken))
-                await sessionStore.SetAsync(session, cancellationToken);
+            await using (await AcquireRefreshLeaseAsync(session.Did, cancellationToken).ConfigureAwait(false))
+                await sessionStore.SetAsync(session, cancellationToken).ConfigureAwait(false);
 
             _logger.LogInformation("Stored the OAuth session of {Did}", session.Did);
         }
     }
 
     private async ValueTask<IAsyncDisposable> AcquireRefreshLeaseAsync(Did did, CancellationToken cancellationToken) =>
-        _refreshCoordinator is null ? NoLease.Instance : await _refreshCoordinator.AcquireAsync(did, cancellationToken);
+        _refreshCoordinator is null ? NoLease.Instance : await _refreshCoordinator.AcquireAsync(did, cancellationToken).ConfigureAwait(false);
 
     /// <summary>Revokes a session this service refuses to sign in with, best effort.</summary>
     private async Task RevokeQuietlyAsync(OAuthClient client, OAuthSession session)
     {
         try
         {
-            await client.RevokeAsync(session, CancellationToken.None);
+            await client.RevokeAsync(session, CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is OAuthException or OperationCanceledException or ObjectDisposedException)
         {
@@ -684,7 +676,7 @@ public sealed class AtProtoOAuthService : IDisposable
         {
             try
             {
-                await client.RevokeAsync(session, CancellationToken.None);
+                await client.RevokeAsync(session, CancellationToken.None).ConfigureAwait(false);
                 _logger.LogDebug("Revoked the {Reason} relayed session of {Did}", reason, session.Did);
             }
             catch (Exception ex)

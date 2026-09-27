@@ -12,9 +12,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// Client for a PLC directory (<c>https://plc.directory</c>), the registry behind <c>did:plc</c>.
-/// </summary>
+/// <summary>Client for a PLC directory (<c>https://plc.directory</c>), the registry behind <c>did:plc</c>.</summary>
 /// <remarks>
 /// <para>Reads need no authentication. <see cref="ResolveAsync"/> makes this an
 /// <see cref="IDidResolver"/> for <c>did:plc</c>; the operation log, audit log, current state,
@@ -89,16 +87,11 @@ public sealed class PlcClient : IDidResolver, IDisposable
     /// <summary>The directory's base URL, ending in <c>/</c>.</summary>
     public Uri DirectoryUrl { get; }
 
-    /// <summary>
-    /// Connects the export stream's WebSocket. Tests replace it to reach an in-process server.
-    /// </summary>
+    /// <summary>Connects the export stream's WebSocket. Tests replace it to reach an in-process server.</summary>
     internal Func<Uri, CancellationToken, Task<WebSocket>>? ConnectWebSocket { get; set; }
 
-    /// <summary>
-    /// Resolves a <c>did:plc</c> identifier to its DID document.
-    /// </summary>
+    /// <summary>Resolves a <c>did:plc</c> identifier to its DID document.</summary>
     /// <param name="did">The DID (e.g. <c>did:plc:ewvi7nxzyoun6zhxrhs64oiz</c>).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The document.</returns>
     /// <exception cref="DidResolutionException">
     /// Thrown when the DID is not found (<see cref="DidResolutionErrorKind.NotFound"/>), is
@@ -115,8 +108,6 @@ public sealed class PlcClient : IDidResolver, IDisposable
     /// Gets a DID's operation log: the chain of signed operations that produced its current state,
     /// nullified ones excluded.
     /// </summary>
-    /// <param name="did">The DID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The operations, oldest first.</returns>
     /// <exception cref="DidResolutionException">Thrown when the request fails.</exception>
     public Task<IReadOnlyList<PlcOperation>> GetOperationLogAsync(
@@ -130,8 +121,6 @@ public sealed class PlcClient : IDidResolver, IDisposable
     /// Gets a DID's audit log: every operation the directory accepted, with its CID, time and
     /// whether a later operation nullified it.
     /// </summary>
-    /// <param name="did">The DID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The entries, oldest first.</returns>
     /// <exception cref="DidResolutionException">Thrown when the request fails.</exception>
     public Task<IReadOnlyList<PlcAuditEntry>> GetAuditLogAsync(
@@ -142,8 +131,6 @@ public sealed class PlcClient : IDidResolver, IDisposable
     }
 
     /// <summary>Gets the latest operation for a DID.</summary>
-    /// <param name="did">The DID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The most recent operation.</returns>
     /// <exception cref="DidResolutionException">Thrown when the request fails.</exception>
     public Task<PlcOperation> GetLastOperationAsync(Did did, CancellationToken cancellationToken = default)
@@ -156,8 +143,6 @@ public sealed class PlcClient : IDidResolver, IDisposable
     /// Gets a DID's current PLC state: its rotation keys, verification methods, handles and
     /// services, in operation form without <c>type</c>, <c>prev</c> or <c>sig</c>.
     /// </summary>
-    /// <param name="did">The DID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The current state.</returns>
     /// <exception cref="DidResolutionException">Thrown when the request fails.</exception>
     public Task<PlcOperation> GetPlcDataAsync(Did did, CancellationToken cancellationToken = default)
@@ -166,14 +151,11 @@ public sealed class PlcClient : IDidResolver, IDisposable
         return GetJsonAsync<PlcOperation>(DidUrl(did, "data"), did, _options.MaxDidDocumentBytes, cancellationToken);
     }
 
-    /// <summary>
-    /// Submits a signed PLC operation, registering or updating a DID.
-    /// </summary>
+    /// <summary>Submits a signed PLC operation, registering or updating a DID.</summary>
     /// <param name="operation">
     /// The signed operation, as produced by <see cref="PlcOperationBuilder.Sign"/>. For a
     /// genesis operation the DID is taken from <see cref="PlcSignedOperation.Did"/>.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The DID the operation was submitted under.</returns>
     /// <exception cref="DidResolutionException">
     /// Thrown with <see cref="DidResolutionErrorKind.OperationRejected"/> when the directory
@@ -192,7 +174,6 @@ public sealed class PlcClient : IDidResolver, IDisposable
     /// </summary>
     /// <param name="did">The DID to submit under.</param>
     /// <param name="operation">The signed operation JSON.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The DID the operation was submitted under.</returns>
     /// <exception cref="DidResolutionException">
     /// Thrown with <see cref="DidResolutionErrorKind.OperationRejected"/> when the directory
@@ -235,7 +216,6 @@ public sealed class PlcClient : IDidResolver, IDisposable
     }
 
     /// <summary>Checks whether the directory answers its health endpoint.</summary>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns><see langword="true"/> if the directory answers with a success status.</returns>
     public async Task<bool> IsHealthyAsync(CancellationToken cancellationToken = default)
     {
@@ -263,7 +243,6 @@ public sealed class PlcClient : IDidResolver, IDisposable
     /// The most entries to return, up to <see cref="MaxExportCount"/>. <see langword="null"/> is
     /// the directory's default.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// The entries. Continue with the last entry's <see cref="PlcAuditEntry.Seq"/>; a page shorter
     /// than <paramref name="count"/> has reached the head, from where
@@ -403,9 +382,7 @@ public sealed class PlcClient : IDidResolver, IDisposable
         }
     }
 
-    /// <summary>
-    /// Reads one whole text message, or returns <see langword="null"/> when the stream is over.
-    /// </summary>
+    /// <summary>Reads one whole text message, or returns <see langword="null"/> when the stream is over.</summary>
     private static async Task<ReadOnlyMemory<byte>?> ReceiveMessageAsync(
         WebSocket socket, byte[] buffer, Uri url, CancellationToken cancellationToken)
     {
@@ -567,9 +544,7 @@ public sealed class PlcOperation
     public string? Sig { get; init; }
 }
 
-/// <summary>
-/// An operation as the directory recorded it: from a DID's audit log, or from the export.
-/// </summary>
+/// <summary>An operation as the directory recorded it: from a DID's audit log, or from the export.</summary>
 public sealed class PlcAuditEntry
 {
     /// <summary>
@@ -611,9 +586,7 @@ public sealed class PlcAuditEntry
     public long? Seq { get; init; }
 }
 
-/// <summary>
-/// Thrown when a PLC directory closes its export stream with a reason.
-/// </summary>
+/// <summary>Thrown when a PLC directory closes its export stream with a reason.</summary>
 public sealed class PlcExportStreamException : AtProtoException
 {
     /// <summary>Creates an exception.</summary>

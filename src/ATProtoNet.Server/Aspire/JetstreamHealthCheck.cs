@@ -13,9 +13,7 @@ public sealed class JetstreamHealthCheck : IHealthCheck
     private readonly JetstreamArchiveClient _client;
     private readonly string _serviceUrl;
 
-    /// <summary>
-    /// Creates a health check for the Jetstream instance <paramref name="client"/> talks to.
-    /// </summary>
+    /// <summary>Creates a health check for the Jetstream instance <paramref name="client"/> talks to.</summary>
     /// <param name="client">The client to call <see cref="JetstreamArchiveClient.GetHealthAsync"/> on.</param>
     /// <param name="serviceUrl">The instance's URL, for the result description.</param>
     public JetstreamHealthCheck(JetstreamArchiveClient client, string serviceUrl)
@@ -33,7 +31,7 @@ public sealed class JetstreamHealthCheck : IHealthCheck
     {
         try
         {
-            var health = await _client.GetHealthAsync(cancellationToken);
+            var health = await _client.GetHealthAsync(cancellationToken).ConfigureAwait(false);
             return HealthCheckResult.Healthy(
                 $"Jetstream reachable at {_serviceUrl}" + (health.Version is { } version ? $" (version {version})" : string.Empty));
         }

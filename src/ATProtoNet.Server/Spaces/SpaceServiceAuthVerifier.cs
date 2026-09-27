@@ -1,7 +1,6 @@
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Server.Authentication;
-using ATProtoNet.Spaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -28,9 +27,7 @@ public sealed class SpaceServiceAuthVerifier
 {
     private readonly ServiceAuthVerifier _verifier;
 
-    /// <summary>
-    /// Creates a verifier.
-    /// </summary>
+    /// <summary>Creates a verifier.</summary>
     /// <param name="resolver">
     /// Resolves the caller's DID document; a <see cref="CachingDidResolver"/>, since every
     /// notification resolves one. Resolved from the container under
@@ -68,7 +65,6 @@ public sealed class SpaceServiceAuthVerifier
     /// <param name="context">The HTTP context.</param>
     /// <param name="expectedAudience">The service identifier the token's <c>aud</c> must equal.</param>
     /// <param name="expectedMethod">The <c>lxm</c> the token must be scoped to.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="SpaceVerificationException">Thrown when any check fails.</exception>
     public Task<VerifiedServiceAuth> VerifyAsync(
         HttpContext context,
@@ -80,9 +76,7 @@ public sealed class SpaceServiceAuthVerifier
         return VerifyAsync(context, [expectedAudience], expectedMethod, cancellationToken);
     }
 
-    /// <summary>
-    /// Verifies the <c>Authorization: Bearer</c> service auth token on a request.
-    /// </summary>
+    /// <summary>Verifies the <c>Authorization: Bearer</c> service auth token on a request.</summary>
     /// <param name="context">The HTTP context.</param>
     /// <param name="acceptedAudiences">
     /// The service identifiers this service answers to for the request. The token's <c>aud</c>
@@ -91,7 +85,6 @@ public sealed class SpaceServiceAuthVerifier
     /// <c>{did}#atproto_space_host</c> or its own service DID by others.
     /// </param>
     /// <param name="expectedMethod">The <c>lxm</c> the token must be scoped to.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="SpaceVerificationException">Thrown when any check fails.</exception>
     public async Task<VerifiedServiceAuth> VerifyAsync(
         HttpContext context,
@@ -113,7 +106,7 @@ public sealed class SpaceServiceAuthVerifier
         try
         {
             return await _verifier.VerifyAsync(
-                header["Bearer ".Length..].Trim(), acceptedAudiences, expectedMethod, cancellationToken);
+                header["Bearer ".Length..].Trim(), acceptedAudiences, expectedMethod, cancellationToken).ConfigureAwait(false);
         }
         catch (ServiceAuthException ex)
         {

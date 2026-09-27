@@ -25,9 +25,7 @@ internal static class SpaceRecordCbor
     /// <summary>The CBOR tag DAG-CBOR marks a CID link with.</summary>
     private const ulong CidTag = 42;
 
-    /// <summary>
-    /// Validates <paramref name="block"/> as a single record map.
-    /// </summary>
+    /// <summary>Validates <paramref name="block"/> as a single record map.</summary>
     /// <param name="block">The record block.</param>
     /// <param name="error">Why the block is not a record, when it is not.</param>
     /// <returns>Whether the block is a record map.</returns>

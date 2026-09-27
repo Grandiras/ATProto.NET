@@ -16,11 +16,8 @@ public sealed class VerificationClient
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Verify several accounts at once.
-    /// </summary>
+    /// <summary>Verify several accounts at once.</summary>
     /// <param name="verifications">The accounts to verify (at most 100).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The verifications created, and the accounts that failed.</returns>
     public Task<GrantVerificationsResponse> GrantVerificationsAsync(
         IEnumerable<VerificationInput> verifications,
@@ -31,12 +28,9 @@ public sealed class VerificationClient
             "tools.ozone.verification.grantVerifications", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Revoke several verifications at once.
-    /// </summary>
+    /// <summary>Revoke several verifications at once.</summary>
     /// <param name="uris">The verification records to revoke (at most 100).</param>
     /// <param name="revokeReason">Why they are revoked (at most 1,000 characters).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The verifications revoked, and those that failed.</returns>
     public Task<RevokeVerificationsResponse> RevokeVerificationsAsync(
         IEnumerable<AtUri> uris,
@@ -48,9 +42,7 @@ public sealed class VerificationClient
             "tools.ozone.verification.revokeVerifications", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// List one page of verifications.
-    /// </summary>
+    /// <summary>List one page of verifications.</summary>
     /// <param name="subjects">Only verifications of these accounts (at most 100).</param>
     /// <param name="issuers">Only verifications from these issuers (at most 100).</param>
     /// <param name="createdAfter">Only verifications created after this time.</param>
@@ -59,7 +51,6 @@ public sealed class VerificationClient
     /// <param name="sortDirection">The sort direction by creation time: <c>asc</c> or <c>desc</c> (the default).</param>
     /// <param name="limit">Maximum number of verifications (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ListVerificationsResponse> ListVerificationsAsync(
         IEnumerable<Did>? subjects = null,
         IEnumerable<Did>? issuers = null,
@@ -84,9 +75,7 @@ public sealed class VerificationClient
             "tools.ozone.verification.listVerifications", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate every verification matching the filters, fetching pages as needed.
-    /// </summary>
+    /// <summary>Enumerate every verification matching the filters, fetching pages as needed.</summary>
     /// <param name="subjects">Only verifications of these accounts (at most 100).</param>
     /// <param name="issuers">Only verifications from these issuers (at most 100).</param>
     /// <param name="createdAfter">Only verifications created after this time.</param>
@@ -94,7 +83,6 @@ public sealed class VerificationClient
     /// <param name="isRevoked">Only revoked (or only unrevoked) verifications; <see langword="null"/> for both.</param>
     /// <param name="sortDirection">The sort direction by creation time: <c>asc</c> or <c>desc</c> (the default).</param>
     /// <param name="pageSize">Verifications per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<VerificationView> EnumerateVerificationsAsync(
         IEnumerable<Did>? subjects = null,
         IEnumerable<Did>? issuers = null,

@@ -2,9 +2,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Spaces;
 
-/// <summary>
-/// Resolves a space authority's key material and host endpoint from its DID document.
-/// </summary>
+/// <summary>Resolves a space authority's key material and host endpoint from its DID document.</summary>
 /// <remarks>
 /// <para>A space authority publishes two optional entries in its DID document: a verification
 /// method with id <c>#atproto_space</c>, the public key its space credentials verify against,
@@ -104,9 +102,7 @@ public static class SpaceAuthority
         };
     }
 
-    /// <summary>
-    /// Extracts the endpoint a service identifier names, for delivering write notifications.
-    /// </summary>
+    /// <summary>Extracts the endpoint a service identifier names, for delivering write notifications.</summary>
     /// <param name="didDocument">The subscriber's DID document.</param>
     /// <param name="serviceId">
     /// The service fragment (e.g. <c>#atproto_space_syncer</c>). When omitted, the space host

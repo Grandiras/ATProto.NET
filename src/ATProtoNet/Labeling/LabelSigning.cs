@@ -24,17 +24,13 @@ namespace ATProtoNet.Labeling;
 /// </remarks>
 public static class LabelSigning
 {
-    /// <summary>
-    /// The label format version this SDK signs and verifies: the only one the spec defines.
-    /// </summary>
+    /// <summary>The label format version this SDK signs and verifies: the only one the spec defines.</summary>
     public const int Version = 1;
 
     /// <summary>The Lexicon's maximum length of a label value, in UTF-8 bytes.</summary>
     public const int MaxValueLength = 128;
 
-    /// <summary>
-    /// The bytes a label's signature covers: its DRISL encoding without <c>sig</c>.
-    /// </summary>
+    /// <summary>The bytes a label's signature covers: its DRISL encoding without <c>sig</c>.</summary>
     /// <param name="label">The label. Its <see cref="Label.Sig"/>, if any, is ignored.</param>
     /// <returns>The encoded label.</returns>
     /// <exception cref="ArgumentException">
@@ -47,9 +43,7 @@ public static class LabelSigning
         return Encode(label, includeSignature: false);
     }
 
-    /// <summary>
-    /// Checks a label's signature against a known key, without resolving the issuer.
-    /// </summary>
+    /// <summary>Checks a label's signature against a known key, without resolving the issuer.</summary>
     /// <param name="label">The signed label.</param>
     /// <param name="didKey">The issuer's <c>#atproto_label</c> key as a <c>did:key</c>.</param>
     /// <returns>
@@ -81,9 +75,7 @@ public static class LabelSigning
             : LabelVerificationStatus.InvalidSignature;
     }
 
-    /// <summary>
-    /// Checks what can be checked without a key, and encodes the signed bytes.
-    /// </summary>
+    /// <summary>Checks what can be checked without a key, and encodes the signed bytes.</summary>
     /// <returns>Why the label cannot verify, or <see langword="null"/> when it is worth a key.</returns>
     internal static LabelVerificationStatus? Prepare(Label label, out byte[] bytes)
     {
@@ -123,9 +115,7 @@ public static class LabelSigning
         }
     }
 
-    /// <summary>
-    /// Encodes a label as DRISL, with or without its signature.
-    /// </summary>
+    /// <summary>Encodes a label as DRISL, with or without its signature.</summary>
     /// <exception cref="ArgumentException">See <see cref="GetSigningBytes"/>.</exception>
     internal static byte[] Encode(Label label, bool includeSignature)
     {
@@ -134,9 +124,7 @@ public static class LabelSigning
         return writer.Encode();
     }
 
-    /// <summary>
-    /// Writes a label as a DRISL map, with or without its signature.
-    /// </summary>
+    /// <summary>Writes a label as a DRISL map, with or without its signature.</summary>
     /// <exception cref="ArgumentException">See <see cref="GetSigningBytes"/>.</exception>
     internal static void Write(CborWriter writer, Label label, bool includeSignature)
     {

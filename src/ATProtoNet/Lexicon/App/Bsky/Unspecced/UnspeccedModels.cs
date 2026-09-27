@@ -7,13 +7,9 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Unspecced;
 
-// ──────────────────────────────────────────────────────────────
-//  getPostThreadV2 / getPostThreadOtherV2
-// ──────────────────────────────────────────────────────────────
+// ── getPostThreadV2 / getPostThreadOtherV2 ───────────────────
 
-/// <summary>
-/// Response from getPostThreadV2.
-/// </summary>
+/// <summary>Response from getPostThreadV2.</summary>
 public sealed class GetPostThreadV2Response
 {
     /// <summary>
@@ -35,9 +31,7 @@ public sealed class GetPostThreadV2Response
     public required bool HasOtherReplies { get; init; }
 }
 
-/// <summary>
-/// Response from getPostThreadOtherV2.
-/// </summary>
+/// <summary>Response from getPostThreadOtherV2.</summary>
 public sealed class GetPostThreadOtherV2Response
 {
     /// <summary>The further replies as a flat list; each item's value is a <see cref="ThreadItemPost"/>.</summary>
@@ -103,9 +97,7 @@ public sealed class UnknownThreadItemValue : ThreadItemValue, IUnknownUnionVaria
     public JsonElement Raw { get; }
 }
 
-/// <summary>
-/// A post in a flat thread (<c>app.bsky.unspecced.defs#threadItemPost</c>).
-/// </summary>
+/// <summary>A post in a flat thread (<c>app.bsky.unspecced.defs#threadItemPost</c>).</summary>
 public sealed class ThreadItemPost : ThreadItemValue
 {
     /// <summary>The post.</summary>
@@ -120,9 +112,7 @@ public sealed class ThreadItemPost : ThreadItemValue
     [JsonPropertyName("moreReplies")]
     public required int MoreReplies { get; init; }
 
-    /// <summary>
-    /// Whether the post is part of the original poster's contiguous thread from the root.
-    /// </summary>
+    /// <summary>Whether the post is part of the original poster's contiguous thread from the root.</summary>
     [JsonPropertyName("opThread")]
     public required bool OpThread { get; init; }
 
@@ -149,14 +139,10 @@ public sealed class ThreadItemPost : ThreadItemValue
 /// </summary>
 public sealed class ThreadItemNoUnauthenticated : ThreadItemValue;
 
-/// <summary>
-/// A post that could not be found (<c>app.bsky.unspecced.defs#threadItemNotFound</c>).
-/// </summary>
+/// <summary>A post that could not be found (<c>app.bsky.unspecced.defs#threadItemNotFound</c>).</summary>
 public sealed class ThreadItemNotFound : ThreadItemValue;
 
-/// <summary>
-/// A post hidden by a block (<c>app.bsky.unspecced.defs#threadItemBlocked</c>).
-/// </summary>
+/// <summary>A post hidden by a block (<c>app.bsky.unspecced.defs#threadItemBlocked</c>).</summary>
 public sealed class ThreadItemBlocked : ThreadItemValue
 {
     /// <summary>The post's author, and the viewer's relationship to them.</summary>
@@ -164,9 +150,7 @@ public sealed class ThreadItemBlocked : ThreadItemValue
     public required BlockedAuthor Author { get; init; }
 }
 
-/// <summary>
-/// Known values of the <c>sort</c> parameter of getPostThreadV2.
-/// </summary>
+/// <summary>Known values of the <c>sort</c> parameter of getPostThreadV2.</summary>
 public static class PostThreadSort
 {
     /// <summary>Newest replies first.</summary>

@@ -4,39 +4,27 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Server;
 
-/// <summary>
-/// Request body for com.atproto.server.createSession.
-/// </summary>
+/// <summary>Request body for com.atproto.server.createSession.</summary>
 internal sealed class CreateSessionRequest
 {
-    /// <summary>
-    /// Handle or other identifier supported by the server for the authenticating user.
-    /// </summary>
+    /// <summary>Handle or other identifier supported by the server for the authenticating user.</summary>
     [JsonPropertyName("identifier")]
     public required string Identifier { get; init; }
 
-    /// <summary>
-    /// The password for the account.
-    /// </summary>
+    /// <summary>The password for the account.</summary>
     [JsonPropertyName("password")]
     public required string Password { get; init; }
 
-    /// <summary>
-    /// Email auth factor token, if email authentication is enabled.
-    /// </summary>
+    /// <summary>Email auth factor token, if email authentication is enabled.</summary>
     [JsonPropertyName("authFactorToken")]
     public string? AuthFactorToken { get; init; }
 
-    /// <summary>
-    /// Whether a taken-down account may sign in, to a session that can only migrate or export it.
-    /// </summary>
+    /// <summary>Whether a taken-down account may sign in, to a session that can only migrate or export it.</summary>
     [JsonPropertyName("allowTakendown")]
     public bool? AllowTakendown { get; init; }
 }
 
-/// <summary>
-/// Response from com.atproto.server.createSession and com.atproto.server.refreshSession.
-/// </summary>
+/// <summary>Response from com.atproto.server.createSession and com.atproto.server.refreshSession.</summary>
 public sealed class SessionResponse
 {
     /// <summary>The access JWT used to authenticate subsequent requests.</summary>
@@ -71,9 +59,7 @@ public sealed class SessionResponse
     [JsonPropertyName("emailAuthFactor")]
     public bool? EmailAuthFactor { get; init; }
 
-    /// <summary>
-    /// Whether the account is active (not deactivated, suspended, or taken down).
-    /// </summary>
+    /// <summary>Whether the account is active (not deactivated, suspended, or taken down).</summary>
     [JsonPropertyName("active")]
     public bool? Active { get; init; }
 
@@ -82,9 +68,7 @@ public sealed class SessionResponse
     public string? Status { get; init; }
 }
 
-/// <summary>
-/// Response from com.atproto.server.getSession.
-/// </summary>
+/// <summary>Response from com.atproto.server.getSession.</summary>
 public sealed class GetSessionResponse
 {
     /// <summary>The handle of the account (e.g. <c>alice.bsky.social</c>).</summary>
@@ -111,9 +95,7 @@ public sealed class GetSessionResponse
     [JsonPropertyName("didDoc")]
     public object? DidDoc { get; init; }
 
-    /// <summary>
-    /// Whether the account is active (not deactivated, suspended, or taken down).
-    /// </summary>
+    /// <summary>Whether the account is active (not deactivated, suspended, or taken down).</summary>
     [JsonPropertyName("active")]
     public bool? Active { get; init; }
 
@@ -122,9 +104,7 @@ public sealed class GetSessionResponse
     public string? Status { get; init; }
 }
 
-/// <summary>
-/// Request body for com.atproto.server.createAccount.
-/// </summary>
+/// <summary>Request body for com.atproto.server.createAccount.</summary>
 public sealed class CreateAccountRequest
 {
     /// <summary>The email address of the account.</summary>
@@ -164,9 +144,7 @@ public sealed class CreateAccountRequest
     public object? PlcOp { get; init; }
 }
 
-/// <summary>
-/// Response from com.atproto.server.createAccount.
-/// </summary>
+/// <summary>Response from com.atproto.server.createAccount.</summary>
 public sealed class CreateAccountResponse
 {
     /// <summary>The access JWT used to authenticate subsequent requests.</summary>
@@ -190,9 +168,7 @@ public sealed class CreateAccountResponse
     public object? DidDoc { get; init; }
 }
 
-/// <summary>
-/// Request body for deactivateAccount.
-/// </summary>
+/// <summary>Request body for deactivateAccount.</summary>
 internal sealed class DeactivateAccountRequest
 {
     /// <summary>How long the server should keep the deactivated account before deleting it.</summary>
@@ -200,9 +176,7 @@ internal sealed class DeactivateAccountRequest
     public AtDatetime? DeleteAfter { get; init; }
 }
 
-/// <summary>
-/// Request body for com.atproto.server.deleteAccount.
-/// </summary>
+/// <summary>Request body for com.atproto.server.deleteAccount.</summary>
 public sealed class DeleteAccountRequest
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -218,9 +192,7 @@ public sealed class DeleteAccountRequest
     public required string Token { get; init; }
 }
 
-/// <summary>
-/// Response from com.atproto.server.describeServer.
-/// </summary>
+/// <summary>Response from com.atproto.server.describeServer.</summary>
 public sealed class DescribeServerResponse
 {
     /// <summary>Whether an invite code is required to create an account.</summary>
@@ -272,25 +244,19 @@ public sealed class ServerContact : LexObject
     public string? Email { get; init; }
 }
 
-/// <summary>
-/// Request body for com.atproto.server.createAppPassword.
-/// </summary>
+/// <summary>Request body for com.atproto.server.createAppPassword.</summary>
 internal sealed class CreateAppPasswordRequest
 {
     /// <summary>A name identifying what the app password is used for.</summary>
     [JsonPropertyName("name")]
     public required string Name { get; init; }
 
-    /// <summary>
-    /// Whether the app password is privileged (may access chat and other restricted endpoints).
-    /// </summary>
+    /// <summary>Whether the app password is privileged (may access chat and other restricted endpoints).</summary>
     [JsonPropertyName("privileged")]
     public bool? Privileged { get; init; }
 }
 
-/// <summary>
-/// Response from com.atproto.server.createAppPassword.
-/// </summary>
+/// <summary>Response from com.atproto.server.createAppPassword.</summary>
 public sealed class AppPassword : LexObject
 {
     /// <summary>The name of the app password.</summary>
@@ -305,16 +271,12 @@ public sealed class AppPassword : LexObject
     [JsonPropertyName("createdAt")]
     public required AtDatetime CreatedAt { get; init; }
 
-    /// <summary>
-    /// Whether the app password is privileged (may access chat and other restricted endpoints).
-    /// </summary>
+    /// <summary>Whether the app password is privileged (may access chat and other restricted endpoints).</summary>
     [JsonPropertyName("privileged")]
     public bool? Privileged { get; init; }
 }
 
-/// <summary>
-/// Response from com.atproto.server.listAppPasswords.
-/// </summary>
+/// <summary>Response from com.atproto.server.listAppPasswords.</summary>
 public sealed class ListAppPasswordsResponse
 {
     /// <summary>The app passwords on the account.</summary>
@@ -333,16 +295,12 @@ public sealed class AppPasswordInfo : LexObject
     [JsonPropertyName("createdAt")]
     public required AtDatetime CreatedAt { get; init; }
 
-    /// <summary>
-    /// Whether the app password is privileged (may access chat and other restricted endpoints).
-    /// </summary>
+    /// <summary>Whether the app password is privileged (may access chat and other restricted endpoints).</summary>
     [JsonPropertyName("privileged")]
     public bool? Privileged { get; init; }
 }
 
-/// <summary>
-/// Request body for com.atproto.server.requestPasswordReset.
-/// </summary>
+/// <summary>Request body for com.atproto.server.requestPasswordReset.</summary>
 internal sealed class RequestPasswordResetRequest
 {
     /// <summary>The email address of the account.</summary>
@@ -350,9 +308,7 @@ internal sealed class RequestPasswordResetRequest
     public required string Email { get; init; }
 }
 
-/// <summary>
-/// Request body for com.atproto.server.resetPassword.
-/// </summary>
+/// <summary>Request body for com.atproto.server.resetPassword.</summary>
 internal sealed class ResetPasswordRequest
 {
     /// <summary>The reset token emailed to the account holder.</summary>
@@ -364,9 +320,7 @@ internal sealed class ResetPasswordRequest
     public required string Password { get; init; }
 }
 
-/// <summary>
-/// Request body for com.atproto.server.confirmEmail.
-/// </summary>
+/// <summary>Request body for com.atproto.server.confirmEmail.</summary>
 internal sealed class ConfirmEmailRequest
 {
     /// <summary>The email address of the account.</summary>
@@ -378,9 +332,7 @@ internal sealed class ConfirmEmailRequest
     public required string Token { get; init; }
 }
 
-/// <summary>
-/// Request body for com.atproto.server.updateEmail.
-/// </summary>
+/// <summary>Request body for com.atproto.server.updateEmail.</summary>
 public sealed class UpdateEmailRequest
 {
     /// <summary>The email address of the account.</summary>
@@ -396,9 +348,7 @@ public sealed class UpdateEmailRequest
     public string? Token { get; init; }
 }
 
-/// <summary>
-/// Response from com.atproto.server.requestEmailUpdate.
-/// </summary>
+/// <summary>Response from com.atproto.server.requestEmailUpdate.</summary>
 public sealed class RequestEmailUpdateResponse
 {
     /// <summary>Whether a confirmation token is required to complete the update.</summary>
@@ -406,9 +356,7 @@ public sealed class RequestEmailUpdateResponse
     public bool TokenRequired { get; init; }
 }
 
-/// <summary>
-/// Response from com.atproto.server.getServiceAuth.
-/// </summary>
+/// <summary>Response from com.atproto.server.getServiceAuth.</summary>
 public sealed class GetServiceAuthResponse
 {
     /// <summary>The signed service auth JWT.</summary>
@@ -416,9 +364,7 @@ public sealed class GetServiceAuthResponse
     public string Token { get; init; } = string.Empty;
 }
 
-/// <summary>
-/// Request body for com.atproto.server.createInviteCode.
-/// </summary>
+/// <summary>Request body for com.atproto.server.createInviteCode.</summary>
 internal sealed class CreateInviteCodeRequest
 {
     /// <summary>The number of times each code may be used.</summary>
@@ -438,9 +384,7 @@ public sealed class CreateInviteCodeResponse
     public string Code { get; init; } = string.Empty;
 }
 
-/// <summary>
-/// Request body for com.atproto.server.createInviteCodes.
-/// </summary>
+/// <summary>Request body for com.atproto.server.createInviteCodes.</summary>
 public sealed class CreateInviteCodesRequest
 {
     /// <summary>The number of codes to create per account.</summary>
@@ -479,9 +423,7 @@ public sealed class AccountCodes : LexObject
     public IReadOnlyList<string> Codes { get; init; } = [];
 }
 
-/// <summary>
-/// Response from com.atproto.server.getAccountInviteCodes.
-/// </summary>
+/// <summary>Response from com.atproto.server.getAccountInviteCodes.</summary>
 public sealed class GetAccountInviteCodesResponse
 {
     /// <summary>The invite codes.</summary>
@@ -539,9 +481,7 @@ public sealed class InviteCodeUse : LexObject
     public required AtDatetime UsedAt { get; init; }
 }
 
-/// <summary>
-/// Request body for com.atproto.server.revokeAppPassword.
-/// </summary>
+/// <summary>Request body for com.atproto.server.revokeAppPassword.</summary>
 internal sealed class RevokeAppPasswordRequest
 {
     /// <summary>The name.</summary>
@@ -549,9 +489,7 @@ internal sealed class RevokeAppPasswordRequest
     public required string Name { get; init; }
 }
 
-/// <summary>
-/// Request body for com.atproto.server.reserveSigningKey.
-/// </summary>
+/// <summary>Request body for com.atproto.server.reserveSigningKey.</summary>
 internal sealed class ReserveSigningKeyRequest
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -567,9 +505,7 @@ public sealed class ReserveSigningKeyResponse
     public string SigningKey { get; init; } = string.Empty;
 }
 
-/// <summary>
-/// Response from com.atproto.server.checkAccountStatus.
-/// </summary>
+/// <summary>Response from com.atproto.server.checkAccountStatus.</summary>
 public sealed class CheckAccountStatusResponse
 {
     /// <summary>Whether the account has been activated.</summary>
@@ -609,9 +545,7 @@ public sealed class CheckAccountStatusResponse
     public int ImportedBlobs { get; init; }
 }
 
-/// <summary>
-/// Server definition types.
-/// </summary>
+/// <summary>Server definition types.</summary>
 public static class ServerDefs
 {
     /// <summary>The <c>admin</c> invite code type.</summary>

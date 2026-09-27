@@ -39,9 +39,7 @@ public sealed class EfCoreJtiReplayStore<TContext> : IJtiReplayStore
     private long _sweepDue;
     private Task _sweep = Task.CompletedTask;
 
-    /// <summary>
-    /// Creates the store.
-    /// </summary>
+    /// <summary>Creates the store.</summary>
     /// <param name="contextFactory">Supplies a context per operation.</param>
     /// <param name="logger">Receives sweep diagnostics.</param>
     public EfCoreJtiReplayStore(
@@ -51,9 +49,7 @@ public sealed class EfCoreJtiReplayStore<TContext> : IJtiReplayStore
     {
     }
 
-    /// <summary>
-    /// Creates the store, reading the current time from <paramref name="timeProvider"/>.
-    /// </summary>
+    /// <summary>Creates the store, reading the current time from <paramref name="timeProvider"/>.</summary>
     /// <param name="contextFactory">Supplies a context per operation.</param>
     /// <param name="timeProvider">The clock the sweep is scheduled against.</param>
     /// <param name="logger">Receives sweep diagnostics.</param>
@@ -88,12 +84,14 @@ public sealed class EfCoreJtiReplayStore<TContext> : IJtiReplayStore
 
         var expiry = expiresAt.ToUnixTimeSeconds();
 
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        #pragma warning restore CA2007
         context.Add(new JtiReplayEntity { Issuer = issuer, TokenId = tokenId, ExpiresAt = expiry });
 
         try
         {
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             SweepIfDue();
             return true;
         }
@@ -109,7 +107,7 @@ public sealed class EfCoreJtiReplayStore<TContext> : IJtiReplayStore
                 .AsNoTracking()
                 .AnyAsync(
                     e => e.Issuer == issuer && e.TokenId == tokenId && e.ExpiresAt == expiry,
-                    cancellationToken);
+                    cancellationToken).ConfigureAwait(false);
 
             if (!spent)
                 throw;
@@ -143,10 +141,12 @@ public sealed class EfCoreJtiReplayStore<TContext> : IJtiReplayStore
     {
         try
         {
-            await using var context = await _contextFactory.CreateDbContextAsync();
+            #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
+            await using var context = await _contextFactory.CreateDbContextAsync().ConfigureAwait(false);
+            #pragma warning restore CA2007
             await context.Set<JtiReplayEntity>()
                 .Where(e => e.ExpiresAt < cutoff)
-                .ExecuteDeleteAsync();
+                .ExecuteDeleteAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {

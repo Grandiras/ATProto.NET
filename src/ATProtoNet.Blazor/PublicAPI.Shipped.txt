@@ -1,0 +1,165 @@
+#nullable enable
+abstract ATProtoNet.Blazor.FeedSource.<Clone>$() -> ATProtoNet.Blazor.FeedSource!
+ATProtoNet.Blazor._Imports
+ATProtoNet.Blazor._Imports._Imports() -> void
+ATProtoNet.Blazor._Imports.Execute() -> void
+ATProtoNet.Blazor.AtProtoBlazorServiceCollectionExtensions
+ATProtoNet.Blazor.AtProtoUserClientAccessor
+ATProtoNet.Blazor.AtProtoUserClientAccessor.AtProtoUserClientAccessor(Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider! authenticationState, ATProtoNet.Server.Services.IAtProtoClientFactory! factory, ATProtoNet.Auth.IAtProtoSessionStore! sessionStore) -> void
+ATProtoNet.Blazor.AtProtoUserClientAccessor.DisposeAsync() -> System.Threading.Tasks.ValueTask
+ATProtoNet.Blazor.AtProtoUserClientAccessor.GetClientAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.AtProtoClient?>!
+ATProtoNet.Blazor.Components.ComposePost
+ATProtoNet.Blazor.Components.ComposePost.ComposePost() -> void
+ATProtoNet.Blazor.Components.ComposePost.CssClass.get -> string?
+ATProtoNet.Blazor.Components.ComposePost.CssClass.set -> void
+ATProtoNet.Blazor.Components.ComposePost.Langs.get -> System.Collections.Generic.List<string!>?
+ATProtoNet.Blazor.Components.ComposePost.Langs.set -> void
+ATProtoNet.Blazor.Components.ComposePost.OnPostCreated.get -> Microsoft.AspNetCore.Components.EventCallback<ATProtoNet.RecordRef!>
+ATProtoNet.Blazor.Components.ComposePost.OnPostCreated.set -> void
+ATProtoNet.Blazor.Components.ComposePost.Placeholder.get -> string!
+ATProtoNet.Blazor.Components.ComposePost.Placeholder.set -> void
+ATProtoNet.Blazor.Components.ComposePost.ReplyTo.get -> ATProtoNet.Lexicon.App.Bsky.Feed.ReplyRef?
+ATProtoNet.Blazor.Components.ComposePost.ReplyTo.set -> void
+ATProtoNet.Blazor.Components.ComposePost.Rows.get -> int
+ATProtoNet.Blazor.Components.ComposePost.Rows.set -> void
+ATProtoNet.Blazor.Components.FeedView
+ATProtoNet.Blazor.Components.FeedView.CssClass.get -> string?
+ATProtoNet.Blazor.Components.FeedView.CssClass.set -> void
+ATProtoNet.Blazor.Components.FeedView.FeedSource.get -> ATProtoNet.Blazor.FeedSource!
+ATProtoNet.Blazor.Components.FeedView.FeedSource.set -> void
+ATProtoNet.Blazor.Components.FeedView.FeedView() -> void
+ATProtoNet.Blazor.Components.FeedView.OnLike.get -> Microsoft.AspNetCore.Components.EventCallback<ATProtoNet.Lexicon.App.Bsky.Feed.PostView!>
+ATProtoNet.Blazor.Components.FeedView.OnLike.set -> void
+ATProtoNet.Blazor.Components.FeedView.OnReply.get -> Microsoft.AspNetCore.Components.EventCallback<ATProtoNet.Lexicon.App.Bsky.Feed.PostView!>
+ATProtoNet.Blazor.Components.FeedView.OnReply.set -> void
+ATProtoNet.Blazor.Components.FeedView.OnRepost.get -> Microsoft.AspNetCore.Components.EventCallback<ATProtoNet.Lexicon.App.Bsky.Feed.PostView!>
+ATProtoNet.Blazor.Components.FeedView.OnRepost.set -> void
+ATProtoNet.Blazor.Components.FeedView.PageSize.get -> int
+ATProtoNet.Blazor.Components.FeedView.PageSize.set -> void
+ATProtoNet.Blazor.Components.LoginForm
+ATProtoNet.Blazor.Components.LoginForm.ButtonText.get -> string?
+ATProtoNet.Blazor.Components.LoginForm.ButtonText.set -> void
+ATProtoNet.Blazor.Components.LoginForm.CssClass.get -> string?
+ATProtoNet.Blazor.Components.LoginForm.CssClass.set -> void
+ATProtoNet.Blazor.Components.LoginForm.HandleHint.get -> string?
+ATProtoNet.Blazor.Components.LoginForm.HandleHint.set -> void
+ATProtoNet.Blazor.Components.LoginForm.HandleLabel.get -> string?
+ATProtoNet.Blazor.Components.LoginForm.HandleLabel.set -> void
+ATProtoNet.Blazor.Components.LoginForm.HandlePlaceholder.get -> string?
+ATProtoNet.Blazor.Components.LoginForm.HandlePlaceholder.set -> void
+ATProtoNet.Blazor.Components.LoginForm.HeadingText.get -> string?
+ATProtoNet.Blazor.Components.LoginForm.HeadingText.set -> void
+ATProtoNet.Blazor.Components.LoginForm.LoginEndpoint.get -> string!
+ATProtoNet.Blazor.Components.LoginForm.LoginEndpoint.set -> void
+ATProtoNet.Blazor.Components.LoginForm.LoginForm() -> void
+ATProtoNet.Blazor.Components.LoginForm.PdsCheckboxLabel.get -> string?
+ATProtoNet.Blazor.Components.LoginForm.PdsCheckboxLabel.set -> void
+ATProtoNet.Blazor.Components.LoginForm.PdsHint.get -> string?
+ATProtoNet.Blazor.Components.LoginForm.PdsHint.set -> void
+ATProtoNet.Blazor.Components.LoginForm.ReturnUrl.get -> string!
+ATProtoNet.Blazor.Components.LoginForm.ReturnUrl.set -> void
+ATProtoNet.Blazor.Components.LoginForm.ShowPdsOption.get -> bool
+ATProtoNet.Blazor.Components.LoginForm.ShowPdsOption.set -> void
+ATProtoNet.Blazor.Components.LoginForm.SubtitleText.get -> string?
+ATProtoNet.Blazor.Components.LoginForm.SubtitleText.set -> void
+ATProtoNet.Blazor.Components.PostCard
+ATProtoNet.Blazor.Components.PostCard.CssClass.get -> string?
+ATProtoNet.Blazor.Components.PostCard.CssClass.set -> void
+ATProtoNet.Blazor.Components.PostCard.OnLike.get -> Microsoft.AspNetCore.Components.EventCallback<ATProtoNet.Lexicon.App.Bsky.Feed.PostView!>
+ATProtoNet.Blazor.Components.PostCard.OnLike.set -> void
+ATProtoNet.Blazor.Components.PostCard.OnReply.get -> Microsoft.AspNetCore.Components.EventCallback<ATProtoNet.Lexicon.App.Bsky.Feed.PostView!>
+ATProtoNet.Blazor.Components.PostCard.OnReply.set -> void
+ATProtoNet.Blazor.Components.PostCard.OnRepost.get -> Microsoft.AspNetCore.Components.EventCallback<ATProtoNet.Lexicon.App.Bsky.Feed.PostView!>
+ATProtoNet.Blazor.Components.PostCard.OnRepost.set -> void
+ATProtoNet.Blazor.Components.PostCard.Post.get -> ATProtoNet.Lexicon.App.Bsky.Feed.PostView!
+ATProtoNet.Blazor.Components.PostCard.Post.set -> void
+ATProtoNet.Blazor.Components.PostCard.PostCard() -> void
+ATProtoNet.Blazor.Components.ProfileCard
+ATProtoNet.Blazor.Components.ProfileCard.Actor.get -> ATProtoNet.Identity.AtIdentifier?
+ATProtoNet.Blazor.Components.ProfileCard.Actor.set -> void
+ATProtoNet.Blazor.Components.ProfileCard.ChildContent.get -> Microsoft.AspNetCore.Components.RenderFragment?
+ATProtoNet.Blazor.Components.ProfileCard.ChildContent.set -> void
+ATProtoNet.Blazor.Components.ProfileCard.CssClass.get -> string?
+ATProtoNet.Blazor.Components.ProfileCard.CssClass.set -> void
+ATProtoNet.Blazor.Components.ProfileCard.Profile.get -> ATProtoNet.Lexicon.App.Bsky.Actor.ProfileViewDetailed?
+ATProtoNet.Blazor.Components.ProfileCard.Profile.set -> void
+ATProtoNet.Blazor.Components.ProfileCard.ProfileCard() -> void
+ATProtoNet.Blazor.Components.ProfileCard.ShowBanner.get -> bool
+ATProtoNet.Blazor.Components.ProfileCard.ShowBanner.set -> void
+ATProtoNet.Blazor.Components.ProfileCard.ShowDescription.get -> bool
+ATProtoNet.Blazor.Components.ProfileCard.ShowDescription.set -> void
+ATProtoNet.Blazor.Components.ProfileCard.ShowStats.get -> bool
+ATProtoNet.Blazor.Components.ProfileCard.ShowStats.set -> void
+ATProtoNet.Blazor.FeedSource
+ATProtoNet.Blazor.FeedSource.AuthorSource
+ATProtoNet.Blazor.FeedSource.AuthorSource.Actor.get -> ATProtoNet.Identity.AtIdentifier!
+ATProtoNet.Blazor.FeedSource.AuthorSource.Actor.init -> void
+ATProtoNet.Blazor.FeedSource.AuthorSource.AuthorSource(ATProtoNet.Identity.AtIdentifier! Actor) -> void
+ATProtoNet.Blazor.FeedSource.AuthorSource.Deconstruct(out ATProtoNet.Identity.AtIdentifier! Actor) -> void
+ATProtoNet.Blazor.FeedSource.AuthorSource.Equals(ATProtoNet.Blazor.FeedSource.AuthorSource? other) -> bool
+ATProtoNet.Blazor.FeedSource.FeedSource(ATProtoNet.Blazor.FeedSource! original) -> void
+ATProtoNet.Blazor.FeedSource.GeneratorSource
+ATProtoNet.Blazor.FeedSource.GeneratorSource.Deconstruct(out ATProtoNet.Identity.AtUri! GeneratorUri) -> void
+ATProtoNet.Blazor.FeedSource.GeneratorSource.Equals(ATProtoNet.Blazor.FeedSource.GeneratorSource? other) -> bool
+ATProtoNet.Blazor.FeedSource.GeneratorSource.GeneratorSource(ATProtoNet.Identity.AtUri! GeneratorUri) -> void
+ATProtoNet.Blazor.FeedSource.GeneratorSource.GeneratorUri.get -> ATProtoNet.Identity.AtUri!
+ATProtoNet.Blazor.FeedSource.GeneratorSource.GeneratorUri.init -> void
+ATProtoNet.Blazor.FeedSource.ListSource
+ATProtoNet.Blazor.FeedSource.ListSource.Deconstruct(out ATProtoNet.Identity.AtUri! ListUri) -> void
+ATProtoNet.Blazor.FeedSource.ListSource.Equals(ATProtoNet.Blazor.FeedSource.ListSource? other) -> bool
+ATProtoNet.Blazor.FeedSource.ListSource.ListSource(ATProtoNet.Identity.AtUri! ListUri) -> void
+ATProtoNet.Blazor.FeedSource.ListSource.ListUri.get -> ATProtoNet.Identity.AtUri!
+ATProtoNet.Blazor.FeedSource.ListSource.ListUri.init -> void
+ATProtoNet.Blazor.FeedSource.TimelineSource
+ATProtoNet.Blazor.FeedSource.TimelineSource.Equals(ATProtoNet.Blazor.FeedSource.TimelineSource? other) -> bool
+ATProtoNet.Blazor.FeedSource.TimelineSource.TimelineSource() -> void
+override ATProtoNet.Blazor.Components.FeedView.OnParametersSetAsync() -> System.Threading.Tasks.Task!
+override ATProtoNet.Blazor.Components.LoginForm.OnInitialized() -> void
+override ATProtoNet.Blazor.Components.PostCard.OnParametersSet() -> void
+override ATProtoNet.Blazor.Components.ProfileCard.OnParametersSetAsync() -> System.Threading.Tasks.Task!
+override ATProtoNet.Blazor.FeedSource.AuthorSource.<Clone>$() -> ATProtoNet.Blazor.FeedSource.AuthorSource!
+override ATProtoNet.Blazor.FeedSource.AuthorSource.Equals(object? obj) -> bool
+override ATProtoNet.Blazor.FeedSource.AuthorSource.GetHashCode() -> int
+override ATProtoNet.Blazor.FeedSource.AuthorSource.ToString() -> string!
+override ATProtoNet.Blazor.FeedSource.Equals(object? obj) -> bool
+override ATProtoNet.Blazor.FeedSource.GeneratorSource.<Clone>$() -> ATProtoNet.Blazor.FeedSource.GeneratorSource!
+override ATProtoNet.Blazor.FeedSource.GeneratorSource.Equals(object? obj) -> bool
+override ATProtoNet.Blazor.FeedSource.GeneratorSource.GetHashCode() -> int
+override ATProtoNet.Blazor.FeedSource.GeneratorSource.ToString() -> string!
+override ATProtoNet.Blazor.FeedSource.GetHashCode() -> int
+override ATProtoNet.Blazor.FeedSource.ListSource.<Clone>$() -> ATProtoNet.Blazor.FeedSource.ListSource!
+override ATProtoNet.Blazor.FeedSource.ListSource.Equals(object? obj) -> bool
+override ATProtoNet.Blazor.FeedSource.ListSource.GetHashCode() -> int
+override ATProtoNet.Blazor.FeedSource.ListSource.ToString() -> string!
+override ATProtoNet.Blazor.FeedSource.TimelineSource.<Clone>$() -> ATProtoNet.Blazor.FeedSource.TimelineSource!
+override ATProtoNet.Blazor.FeedSource.TimelineSource.Equals(object? obj) -> bool
+override ATProtoNet.Blazor.FeedSource.TimelineSource.GetHashCode() -> int
+override ATProtoNet.Blazor.FeedSource.TimelineSource.ToString() -> string!
+override ATProtoNet.Blazor.FeedSource.ToString() -> string!
+override sealed ATProtoNet.Blazor.FeedSource.AuthorSource.Equals(ATProtoNet.Blazor.FeedSource? other) -> bool
+override sealed ATProtoNet.Blazor.FeedSource.GeneratorSource.Equals(ATProtoNet.Blazor.FeedSource? other) -> bool
+override sealed ATProtoNet.Blazor.FeedSource.ListSource.Equals(ATProtoNet.Blazor.FeedSource? other) -> bool
+override sealed ATProtoNet.Blazor.FeedSource.TimelineSource.Equals(ATProtoNet.Blazor.FeedSource? other) -> bool
+static ATProtoNet.Blazor.AtProtoBlazorServiceCollectionExtensions.AddAtProtoBlazor(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static ATProtoNet.Blazor.FeedSource.Author(ATProtoNet.Identity.AtIdentifier! actor) -> ATProtoNet.Blazor.FeedSource!
+static ATProtoNet.Blazor.FeedSource.AuthorSource.operator !=(ATProtoNet.Blazor.FeedSource.AuthorSource? left, ATProtoNet.Blazor.FeedSource.AuthorSource? right) -> bool
+static ATProtoNet.Blazor.FeedSource.AuthorSource.operator ==(ATProtoNet.Blazor.FeedSource.AuthorSource? left, ATProtoNet.Blazor.FeedSource.AuthorSource? right) -> bool
+static ATProtoNet.Blazor.FeedSource.Feed(ATProtoNet.Identity.AtUri! generator) -> ATProtoNet.Blazor.FeedSource!
+static ATProtoNet.Blazor.FeedSource.GeneratorSource.operator !=(ATProtoNet.Blazor.FeedSource.GeneratorSource? left, ATProtoNet.Blazor.FeedSource.GeneratorSource? right) -> bool
+static ATProtoNet.Blazor.FeedSource.GeneratorSource.operator ==(ATProtoNet.Blazor.FeedSource.GeneratorSource? left, ATProtoNet.Blazor.FeedSource.GeneratorSource? right) -> bool
+static ATProtoNet.Blazor.FeedSource.List(ATProtoNet.Identity.AtUri! list) -> ATProtoNet.Blazor.FeedSource!
+static ATProtoNet.Blazor.FeedSource.ListSource.operator !=(ATProtoNet.Blazor.FeedSource.ListSource? left, ATProtoNet.Blazor.FeedSource.ListSource? right) -> bool
+static ATProtoNet.Blazor.FeedSource.ListSource.operator ==(ATProtoNet.Blazor.FeedSource.ListSource? left, ATProtoNet.Blazor.FeedSource.ListSource? right) -> bool
+static ATProtoNet.Blazor.FeedSource.operator !=(ATProtoNet.Blazor.FeedSource? left, ATProtoNet.Blazor.FeedSource? right) -> bool
+static ATProtoNet.Blazor.FeedSource.operator ==(ATProtoNet.Blazor.FeedSource? left, ATProtoNet.Blazor.FeedSource? right) -> bool
+static ATProtoNet.Blazor.FeedSource.Timeline.get -> ATProtoNet.Blazor.FeedSource!
+static ATProtoNet.Blazor.FeedSource.TimelineSource.operator !=(ATProtoNet.Blazor.FeedSource.TimelineSource? left, ATProtoNet.Blazor.FeedSource.TimelineSource? right) -> bool
+static ATProtoNet.Blazor.FeedSource.TimelineSource.operator ==(ATProtoNet.Blazor.FeedSource.TimelineSource? left, ATProtoNet.Blazor.FeedSource.TimelineSource? right) -> bool
+virtual ATProtoNet.Blazor.FeedSource.EqualityContract.get -> System.Type!
+virtual ATProtoNet.Blazor.FeedSource.Equals(ATProtoNet.Blazor.FeedSource? other) -> bool
+virtual ATProtoNet.Blazor.FeedSource.PrintMembers(System.Text.StringBuilder! builder) -> bool
+~override ATProtoNet.Blazor.Components.ComposePost.BuildRenderTree(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder) -> void
+~override ATProtoNet.Blazor.Components.FeedView.BuildRenderTree(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder) -> void
+~override ATProtoNet.Blazor.Components.LoginForm.BuildRenderTree(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder) -> void
+~override ATProtoNet.Blazor.Components.PostCard.BuildRenderTree(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder) -> void
+~override ATProtoNet.Blazor.Components.ProfileCard.BuildRenderTree(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder) -> void

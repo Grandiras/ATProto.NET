@@ -18,9 +18,7 @@ public sealed class CarReader
     private readonly IReadOnlyList<CarBlock> _blocks;
     private readonly CarHeader _header;
 
-    /// <summary>
-    /// CID → block index, built on the first <see cref="FindBlock"/> call.
-    /// </summary>
+    /// <summary>CID → block index, built on the first <see cref="FindBlock"/> call.</summary>
     /// <remarks>
     /// Resolving a repository's MST means one lookup per node, and a repo export runs to tens
     /// of thousands of blocks — a linear scan per lookup makes the walk quadratic. The index is
@@ -44,9 +42,7 @@ public sealed class CarReader
         _blocks = blocks;
     }
 
-    /// <summary>
-    /// Parses a CAR file from a byte array.
-    /// </summary>
+    /// <summary>Parses a CAR file from a byte array.</summary>
     /// <param name="data">The raw CAR file bytes.</param>
     /// <param name="verifyBlockCids">
     /// When <c>true</c>, every block's CID is recomputed from its bytes and compared
@@ -159,25 +155,20 @@ public sealed class CarReader
             : BlockCidVerification.Mismatch;
     }
 
-    /// <summary>
-    /// Parses a CAR file from a stream.
-    /// </summary>
+    /// <summary>Parses a CAR file from a stream.</summary>
     /// <param name="stream">The stream containing the CAR data.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A <see cref="CarReader"/> containing the parsed header and blocks.</returns>
     public static async Task<CarReader> FromStreamAsync(Stream stream, CancellationToken cancellationToken = default)
     {
         using var ms = new MemoryStream();
-        await stream.CopyToAsync(ms, cancellationToken);
+        await stream.CopyToAsync(ms, cancellationToken).ConfigureAwait(false);
 
         // Parse the stream's own buffer. ToArray() would copy the whole CAR a second time,
         // and repo exports are large enough for that to land on the large object heap.
         return FromBytes(ms.GetBuffer().AsSpan(0, (int)ms.Length));
     }
 
-    /// <summary>
-    /// Finds a block by its CID bytes.
-    /// </summary>
+    /// <summary>Finds a block by its CID bytes.</summary>
     /// <param name="cid">The CID to search for.</param>
     /// <returns>The matching block, or <c>null</c> if not found.</returns>
     public CarBlock? FindBlock(ReadOnlySpan<byte> cid)
@@ -232,9 +223,7 @@ public sealed class CarReader
         }
     }
 
-    /// <summary>
-    /// Gets the root block (first root CID's data).
-    /// </summary>
+    /// <summary>Gets the root block (first root CID's data).</summary>
     /// <returns>The root block, or <c>null</c> if not found.</returns>
     public CarBlock? GetRootBlock()
     {
@@ -246,9 +235,7 @@ public sealed class CarReader
 
     // ── Header parsing ───────────────────────────────────────
 
-    /// <summary>
-    /// Parses the DAG-CBOR header, <c>{"roots": [&lt;CID link&gt;, …], "version": 1}</c>.
-    /// </summary>
+    /// <summary>Parses the DAG-CBOR header, <c>{"roots": [&lt;CID link&gt;, …], "version": 1}</c>.</summary>
     /// <remarks>
     /// <see cref="CborReader"/> walks nested values iteratively, so a hostile header of deeply
     /// nested arrays under an unknown key is skipped rather than overflowing the stack.
@@ -339,9 +326,7 @@ public sealed class CarReader
 
     // ── Unsigned varint (LEB128) ─────────────────────────────
 
-    /// <summary>
-    /// Reads a multiformats unsigned varint: at most 9 bytes (63 bits), minimally encoded.
-    /// </summary>
+    /// <summary>Reads a multiformats unsigned varint: at most 9 bytes (63 bits), minimally encoded.</summary>
     /// <exception cref="FormatException">The varint is truncated, too long, or not minimal.</exception>
     internal static ulong ReadUvarint(ReadOnlySpan<byte> data, ref int offset)
     {

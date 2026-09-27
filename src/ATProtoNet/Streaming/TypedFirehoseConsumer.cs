@@ -8,9 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Streaming;
 
-/// <summary>
-/// Configuration options for the typed firehose consumer.
-/// </summary>
+/// <summary>Configuration options for the typed firehose consumer.</summary>
 public sealed class TypedFirehoseConsumerOptions : StreamConsumerOptions
 {
     /// <summary>
@@ -121,9 +119,7 @@ public sealed class TypedFirehoseConsumer
     private readonly CollectionMatcher? _filter;
     private CursorTracker? _cursor;
 
-    /// <summary>
-    /// Create a typed firehose consumer.
-    /// </summary>
+    /// <summary>Create a typed firehose consumer.</summary>
     /// <param name="options">Consumer configuration.</param>
     /// <exception cref="ArgumentException">The options are not valid.</exception>
     public TypedFirehoseConsumer(TypedFirehoseConsumerOptions options)
@@ -147,9 +143,7 @@ public sealed class TypedFirehoseConsumer
     /// </summary>
     public long? LastSeq => _cursor?.Current;
 
-    /// <summary>
-    /// Consume typed firehose events with parsing, filtering, and optional verification.
-    /// </summary>
+    /// <summary>Consume typed firehose events with parsing, filtering, and optional verification.</summary>
     /// <param name="cursor">The sequence number to resume after. When null, the stored cursor is used
     /// if there is a <see cref="StreamConsumerOptions.CursorStore"/>, and the live stream otherwise.</param>
     /// <param name="cancellationToken">Cancellation token to stop consuming.</param>
@@ -464,9 +458,7 @@ public sealed class TypedFirehoseConsumer
         }
     }
 
-    /// <summary>
-    /// Matches commits against a collection filter, on parsed events or straight from the CBOR body.
-    /// </summary>
+    /// <summary>Matches commits against a collection filter, on parsed events or straight from the CBOR body.</summary>
     private sealed class CollectionMatcher
     {
         private readonly HashSet<string> _collections;

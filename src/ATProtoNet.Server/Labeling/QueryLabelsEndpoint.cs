@@ -12,9 +12,7 @@ namespace ATProtoNet.Server.Labeling;
 /// <summary>Query parameters for <c>com.atproto.label.queryLabels</c>.</summary>
 public sealed class QueryLabelsParameters
 {
-    /// <summary>
-    /// The subjects to match: full URIs, prefixes ending in <c>*</c>, or <c>*</c> for all.
-    /// </summary>
+    /// <summary>The subjects to match: full URIs, prefixes ending in <c>*</c>, or <c>*</c> for all.</summary>
     [JsonPropertyName("uriPatterns")]
     public required IReadOnlyList<string> UriPatterns { get; init; }
 
@@ -66,9 +64,7 @@ public sealed class QueryLabelsEndpoint : IXrpcQuery<QueryLabelsParameters, Quer
     private readonly ILabelSource _source;
     private readonly LabelSigner? _signer;
 
-    /// <summary>
-    /// Creates the endpoint.
-    /// </summary>
+    /// <summary>Creates the endpoint.</summary>
     /// <param name="source">The labeler's labels.</param>
     /// <param name="signer">
     /// Signs the labeler's unsigned labels on the way out, or <see langword="null"/> to serve
@@ -99,7 +95,7 @@ public sealed class QueryLabelsEndpoint : IXrpcQuery<QueryLabelsParameters, Quer
             Cursor = parameters.Cursor,
         };
 
-        var page = await _source.QueryLabelsAsync(query, cancellationToken);
+        var page = await _source.QueryLabelsAsync(query, cancellationToken).ConfigureAwait(false);
         if (_signer is not { } signer || !page.Labels.Any(NeedsSignature))
             return page;
 

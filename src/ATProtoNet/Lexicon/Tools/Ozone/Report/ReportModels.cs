@@ -90,9 +90,7 @@ public sealed class ReportView : LexObject
     [JsonPropertyName("queue")]
     public QueueView? Queue { get; init; }
 
-    /// <summary>
-    /// Whether the report is muted: its reporter or its subject was muted when it was filed.
-    /// </summary>
+    /// <summary>Whether the report is muted: its reporter or its subject was muted when it was filed.</summary>
     [JsonPropertyName("isMuted")]
     public bool? IsMuted { get; init; }
 
@@ -142,9 +140,7 @@ public static class ReportSubjectType
     public const string Conversation = "conversation";
 }
 
-/// <summary>
-/// The moderator currently assigned to a report (<c>tools.ozone.report.defs#reportAssignment</c>).
-/// </summary>
+/// <summary>The moderator currently assigned to a report (<c>tools.ozone.report.defs#reportAssignment</c>).</summary>
 public sealed class ReportAssignment : LexObject
 {
     /// <summary>The DID of the assigned moderator.</summary>
@@ -160,9 +156,7 @@ public sealed class ReportAssignment : LexObject
     public required AtDatetime AssignedAt { get; init; }
 }
 
-/// <summary>
-/// A moderator's assignment to a report (<c>tools.ozone.report.defs#assignmentView</c>).
-/// </summary>
+/// <summary>A moderator's assignment to a report (<c>tools.ozone.report.defs#assignmentView</c>).</summary>
 public sealed class AssignmentView : LexObject
 {
     /// <summary>The assignment's identifier.</summary>
@@ -295,9 +289,7 @@ public sealed class ReopenActivity : ReportActivity
 /// </summary>
 public sealed class NoteActivity : ReportActivity;
 
-/// <summary>
-/// One activity on a report (<c>tools.ozone.report.defs#reportActivityView</c>).
-/// </summary>
+/// <summary>One activity on a report (<c>tools.ozone.report.defs#reportActivityView</c>).</summary>
 public sealed class ReportActivityView : LexObject
 {
     /// <summary>The activity's identifier.</summary>
@@ -328,9 +320,7 @@ public sealed class ReportActivityView : LexObject
     [JsonPropertyName("isAutomated")]
     public required bool IsAutomated { get; init; }
 
-    /// <summary>
-    /// The DID of the moderator who recorded the activity, or the service's DID for an automated one.
-    /// </summary>
+    /// <summary>The DID of the moderator who recorded the activity, or the service's DID for an automated one.</summary>
     [JsonPropertyName("createdBy")]
     public required Did CreatedBy { get; init; }
 
@@ -349,9 +339,7 @@ public sealed class ReportActivityView : LexObject
 
 // ─── Statistics ───
 
-/// <summary>
-/// Report statistics for the current day (<c>tools.ozone.report.defs#liveStats</c>).
-/// </summary>
+/// <summary>Report statistics for the current day (<c>tools.ozone.report.defs#liveStats</c>).</summary>
 public sealed class LiveStats : LexObject
 {
     /// <summary>The reports not closed yet.</summary>
@@ -374,9 +362,7 @@ public sealed class LiveStats : LexObject
     [JsonPropertyName("actionRate")]
     public int? ActionRate { get; init; }
 
-    /// <summary>
-    /// The average time in seconds from a report's creation (or assignment) to its close.
-    /// </summary>
+    /// <summary>The average time in seconds from a report's creation (or assignment) to its close.</summary>
     [JsonPropertyName("avgHandlingTimeSec")]
     public int? AvgHandlingTimeSec { get; init; }
 
@@ -385,9 +371,7 @@ public sealed class LiveStats : LexObject
     public AtDatetime? LastUpdated { get; init; }
 }
 
-/// <summary>
-/// Report statistics for one past day (<c>tools.ozone.report.defs#historicalStats</c>).
-/// </summary>
+/// <summary>Report statistics for one past day (<c>tools.ozone.report.defs#historicalStats</c>).</summary>
 public sealed class HistoricalStats : LexObject
 {
     /// <summary>The day, as <c>YYYY-MM-DD</c>.</summary>
@@ -418,9 +402,7 @@ public sealed class HistoricalStats : LexObject
     [JsonPropertyName("actionRate")]
     public int? ActionRate { get; init; }
 
-    /// <summary>
-    /// The average time in seconds from a report's creation (or assignment) to its close.
-    /// </summary>
+    /// <summary>The average time in seconds from a report's creation (or assignment) to its close.</summary>
     [JsonPropertyName("avgHandlingTimeSec")]
     public int? AvgHandlingTimeSec { get; init; }
 }
@@ -498,9 +480,7 @@ public sealed class ReportFilter
 
 // ─── Request / Response Models ───
 
-/// <summary>
-/// Request body for tools.ozone.report.assignModerator.
-/// </summary>
+/// <summary>Request body for tools.ozone.report.assignModerator.</summary>
 internal sealed class AssignModeratorRequest
 {
     /// <summary>The report to assign.</summary>
@@ -520,9 +500,7 @@ internal sealed class AssignModeratorRequest
     public bool? IsPermanent { get; init; }
 }
 
-/// <summary>
-/// Request body for tools.ozone.report.unassignModerator.
-/// </summary>
+/// <summary>Request body for tools.ozone.report.unassignModerator.</summary>
 internal sealed class UnassignModeratorRequest
 {
     /// <summary>The report to unassign.</summary>
@@ -530,9 +508,7 @@ internal sealed class UnassignModeratorRequest
     public required long ReportId { get; init; }
 }
 
-/// <summary>
-/// Request body for tools.ozone.report.closeReports.
-/// </summary>
+/// <summary>Request body for tools.ozone.report.closeReports.</summary>
 internal sealed class CloseReportsRequest
 {
     /// <summary>The subject whose reports to close: an account's DID, or a record's AT URI.</summary>
@@ -552,9 +528,7 @@ internal sealed class CloseReportsRequest
     public bool? IsAutomated { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.report.closeReports.
-/// </summary>
+/// <summary>Response from tools.ozone.report.closeReports.</summary>
 public sealed class CloseReportsResponse
 {
     /// <summary>The number of reports closed.</summary>
@@ -566,9 +540,7 @@ public sealed class CloseReportsResponse
     public required IReadOnlyList<long> ReportIds { get; init; }
 }
 
-/// <summary>
-/// Request body for tools.ozone.report.createActivity.
-/// </summary>
+/// <summary>Request body for tools.ozone.report.createActivity.</summary>
 internal sealed class CreateActivityRequest
 {
     /// <summary>The report to record the activity on.</summary>
@@ -596,9 +568,7 @@ internal sealed class CreateActivityRequest
     public bool? IsAutomated { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.report.createActivity.
-/// </summary>
+/// <summary>Response from tools.ozone.report.createActivity.</summary>
 public sealed class CreateActivityResponse
 {
     /// <summary>The recorded activity.</summary>
@@ -606,9 +576,7 @@ public sealed class CreateActivityResponse
     public required ReportActivityView Activity { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.report.getAssignments.
-/// </summary>
+/// <summary>Response from tools.ozone.report.getAssignments.</summary>
 public sealed class GetAssignmentsResponse : ICursorPage<AssignmentView>
 {
     /// <summary>
@@ -625,9 +593,7 @@ public sealed class GetAssignmentsResponse : ICursorPage<AssignmentView>
     IReadOnlyList<AssignmentView> ICursorPage<AssignmentView>.Items => Assignments;
 }
 
-/// <summary>
-/// Response from tools.ozone.report.getHistoricalStats.
-/// </summary>
+/// <summary>Response from tools.ozone.report.getHistoricalStats.</summary>
 public sealed class GetHistoricalStatsResponse : ICursorPage<HistoricalStats>
 {
     /// <summary>The daily statistics, newest first.</summary>
@@ -644,9 +610,7 @@ public sealed class GetHistoricalStatsResponse : ICursorPage<HistoricalStats>
     IReadOnlyList<HistoricalStats> ICursorPage<HistoricalStats>.Items => Stats;
 }
 
-/// <summary>
-/// Response from tools.ozone.report.getLatestReport.
-/// </summary>
+/// <summary>Response from tools.ozone.report.getLatestReport.</summary>
 public sealed class GetLatestReportResponse
 {
     /// <summary>The most recent report.</summary>
@@ -654,9 +618,7 @@ public sealed class GetLatestReportResponse
     public required ReportView Report { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.report.getLiveStats.
-/// </summary>
+/// <summary>Response from tools.ozone.report.getLiveStats.</summary>
 public sealed class GetLiveStatsResponse
 {
     /// <summary>The statistics.</summary>
@@ -664,9 +626,7 @@ public sealed class GetLiveStatsResponse
     public required LiveStats Stats { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.report.listActivities.
-/// </summary>
+/// <summary>Response from tools.ozone.report.listActivities.</summary>
 public sealed class ListActivitiesResponse : ICursorPage<ReportActivityView>
 {
     /// <summary>The report's activities, most recent first.</summary>
@@ -683,9 +643,7 @@ public sealed class ListActivitiesResponse : ICursorPage<ReportActivityView>
     IReadOnlyList<ReportActivityView> ICursorPage<ReportActivityView>.Items => Activities;
 }
 
-/// <summary>
-/// Response from tools.ozone.report.queryActivities.
-/// </summary>
+/// <summary>Response from tools.ozone.report.queryActivities.</summary>
 public sealed class QueryActivitiesResponse : ICursorPage<ReportActivityView>
 {
     /// <summary>The activities.</summary>
@@ -702,9 +660,7 @@ public sealed class QueryActivitiesResponse : ICursorPage<ReportActivityView>
     IReadOnlyList<ReportActivityView> ICursorPage<ReportActivityView>.Items => Activities;
 }
 
-/// <summary>
-/// Response from tools.ozone.report.queryReports.
-/// </summary>
+/// <summary>Response from tools.ozone.report.queryReports.</summary>
 public sealed class QueryReportsResponse : ICursorPage<ReportView>
 {
     /// <summary>
@@ -721,9 +677,7 @@ public sealed class QueryReportsResponse : ICursorPage<ReportView>
     IReadOnlyList<ReportView> ICursorPage<ReportView>.Items => Reports;
 }
 
-/// <summary>
-/// Request body for tools.ozone.report.reassignQueue.
-/// </summary>
+/// <summary>Request body for tools.ozone.report.reassignQueue.</summary>
 internal sealed class ReassignQueueRequest
 {
     /// <summary>The report to move.</summary>
@@ -739,9 +693,7 @@ internal sealed class ReassignQueueRequest
     public string? Comment { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.report.reassignQueue.
-/// </summary>
+/// <summary>Response from tools.ozone.report.reassignQueue.</summary>
 public sealed class ReassignQueueResponse
 {
     /// <summary>The report, in its new queue.</summary>
@@ -749,9 +701,7 @@ public sealed class ReassignQueueResponse
     public required ReportView Report { get; init; }
 }
 
-/// <summary>
-/// Request body for tools.ozone.report.refreshStats.
-/// </summary>
+/// <summary>Request body for tools.ozone.report.refreshStats.</summary>
 internal sealed class RefreshStatsRequest
 {
     /// <summary>The first day to recompute.</summary>

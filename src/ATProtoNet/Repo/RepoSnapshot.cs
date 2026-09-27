@@ -93,9 +93,7 @@ public sealed class RepoSnapshot
         }
     }
 
-    /// <summary>
-    /// Reads and verifies a repository export.
-    /// </summary>
+    /// <summary>Reads and verifies a repository export.</summary>
     /// <param name="car">The CAR file, as <c>com.atproto.sync.getRepo</c> returned it.</param>
     /// <param name="did">The repository it must be.</param>
     /// <param name="signingKey">

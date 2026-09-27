@@ -3,9 +3,7 @@ using ATProtoNet.Models;
 
 namespace ATProtoNet.Http;
 
-/// <summary>
-/// The one cursor-pagination loop behind every <c>Enumerate*</c> method.
-/// </summary>
+/// <summary>The one cursor-pagination loop behind every <c>Enumerate*</c> method.</summary>
 internal static class Pagination
 {
     /// <summary>
@@ -17,7 +15,6 @@ internal static class Pagination
     /// <param name="fetchPage">
     /// Fetches the page after a cursor; <see langword="null"/> asks for the first page.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <remarks>
     /// The walk ends after a page whose cursor is <see langword="null"/>, empty, or one the
     /// server already returned. A server that repeats a cursor would otherwise be asked for the

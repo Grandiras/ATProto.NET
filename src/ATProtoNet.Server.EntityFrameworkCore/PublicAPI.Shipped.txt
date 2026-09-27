@@ -1,0 +1,155 @@
+#nullable enable
+ATProtoNet.Server.EntityFrameworkCore.AtProtoTokenDbContext
+ATProtoNet.Server.EntityFrameworkCore.AtProtoTokenDbContext.AtProtoTokenDbContext(Microsoft.EntityFrameworkCore.DbContextOptions! options) -> void
+ATProtoNet.Server.EntityFrameworkCore.AtProtoTokenDbContext.AtProtoTokenDbContext(Microsoft.EntityFrameworkCore.DbContextOptions<ATProtoNet.Server.EntityFrameworkCore.AtProtoTokenDbContext!>! options) -> void
+ATProtoNet.Server.EntityFrameworkCore.AtProtoTokenDbContext.AtProtoTokens.get -> Microsoft.EntityFrameworkCore.DbSet<ATProtoNet.Server.EntityFrameworkCore.AtProtoTokenEntity!>!
+ATProtoNet.Server.EntityFrameworkCore.AtProtoTokenEntity
+ATProtoNet.Server.EntityFrameworkCore.AtProtoTokenEntity.AtProtoTokenEntity() -> void
+ATProtoNet.Server.EntityFrameworkCore.AtProtoTokenEntity.Did.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.AtProtoTokenEntity.Did.set -> void
+ATProtoNet.Server.EntityFrameworkCore.AtProtoTokenEntity.EncryptedTokenData.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.AtProtoTokenEntity.EncryptedTokenData.set -> void
+ATProtoNet.Server.EntityFrameworkCore.AtProtoTokenEntity.UpdatedAt.get -> System.DateTimeOffset
+ATProtoNet.Server.EntityFrameworkCore.AtProtoTokenEntity.UpdatedAt.set -> void
+ATProtoNet.Server.EntityFrameworkCore.AtProtoTokenStoreExtensions
+ATProtoNet.Server.EntityFrameworkCore.EfCoreAtProtoSessionStore<TContext>
+ATProtoNet.Server.EntityFrameworkCore.EfCoreAtProtoSessionStore<TContext>.EfCoreAtProtoSessionStore(Microsoft.EntityFrameworkCore.IDbContextFactory<TContext!>! contextFactory, Microsoft.AspNetCore.DataProtection.IDataProtectionProvider! dataProtectionProvider, Microsoft.Extensions.Logging.ILogger<ATProtoNet.Server.EntityFrameworkCore.EfCoreAtProtoSessionStore<TContext!>!>! logger) -> void
+ATProtoNet.Server.EntityFrameworkCore.EfCoreAtProtoSessionStore<TContext>.GetAsync(ATProtoNet.Identity.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ATProtoNet.Auth.AtProtoSession?>
+ATProtoNet.Server.EntityFrameworkCore.EfCoreAtProtoSessionStore<TContext>.RemoveAsync(ATProtoNet.Identity.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ATProtoNet.Server.EntityFrameworkCore.EfCoreAtProtoSessionStore<TContext>.SetAsync(ATProtoNet.Auth.AtProtoSession! session, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ATProtoNet.Server.EntityFrameworkCore.EfCoreJtiReplayStore<TContext>
+ATProtoNet.Server.EntityFrameworkCore.EfCoreJtiReplayStore<TContext>.EfCoreJtiReplayStore(Microsoft.EntityFrameworkCore.IDbContextFactory<TContext!>! contextFactory, Microsoft.Extensions.Logging.ILogger<ATProtoNet.Server.EntityFrameworkCore.EfCoreJtiReplayStore<TContext!>!>? logger = null) -> void
+ATProtoNet.Server.EntityFrameworkCore.EfCoreJtiReplayStore<TContext>.EfCoreJtiReplayStore(Microsoft.EntityFrameworkCore.IDbContextFactory<TContext!>! contextFactory, System.TimeProvider! timeProvider, Microsoft.Extensions.Logging.ILogger<ATProtoNet.Server.EntityFrameworkCore.EfCoreJtiReplayStore<TContext!>!>? logger = null) -> void
+ATProtoNet.Server.EntityFrameworkCore.EfCoreJtiReplayStore<TContext>.TryConsumeAsync(string! issuer, string! tokenId, System.DateTimeOffset expiresAt, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
+ATProtoNet.Server.EntityFrameworkCore.EfCoreRepoSyncStateStore<TContext>
+ATProtoNet.Server.EntityFrameworkCore.EfCoreRepoSyncStateStore<TContext>.EfCoreRepoSyncStateStore(Microsoft.EntityFrameworkCore.IDbContextFactory<TContext!>! contextFactory) -> void
+ATProtoNet.Server.EntityFrameworkCore.EfCoreRepoSyncStateStore<TContext>.EfCoreRepoSyncStateStore(Microsoft.EntityFrameworkCore.IDbContextFactory<TContext!>! contextFactory, System.TimeProvider! timeProvider) -> void
+ATProtoNet.Server.EntityFrameworkCore.EfCoreRepoSyncStateStore<TContext>.GetAsync(ATProtoNet.Identity.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ATProtoNet.Streaming.RepoSyncState?>
+ATProtoNet.Server.EntityFrameworkCore.EfCoreRepoSyncStateStore<TContext>.ListUnsynchronizedAsync(int limit, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<ATProtoNet.Streaming.RepoSyncState!>!>
+ATProtoNet.Server.EntityFrameworkCore.EfCoreRepoSyncStateStore<TContext>.RemoveAsync(ATProtoNet.Identity.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ATProtoNet.Server.EntityFrameworkCore.EfCoreRepoSyncStateStore<TContext>.SetAsync(ATProtoNet.Streaming.RepoSyncState! state, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSimpleSpaceStore<TContext>
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSimpleSpaceStore<TContext>.CreateSpaceAsync(ATProtoNet.Server.Spaces.SimpleSpaceRecord! space, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSimpleSpaceStore<TContext>.DeleteSpaceAsync(ATProtoNet.Spaces.SpaceUri! space, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSimpleSpaceStore<TContext>.EfCoreSimpleSpaceStore(Microsoft.EntityFrameworkCore.IDbContextFactory<TContext!>! contextFactory) -> void
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSimpleSpaceStore<TContext>.EfCoreSimpleSpaceStore(Microsoft.EntityFrameworkCore.IDbContextFactory<TContext!>! contextFactory, System.Text.Json.JsonSerializerOptions! jsonOptions) -> void
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSimpleSpaceStore<TContext>.GetMemberAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Com.AtProto.SimpleSpace.SimpleSpaceMember?>!
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSimpleSpaceStore<TContext>.GetSpaceAsync(ATProtoNet.Spaces.SpaceUri! space, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Server.Spaces.SimpleSpaceRecord?>!
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSimpleSpaceStore<TContext>.ListMembersAsync(ATProtoNet.Spaces.SpaceUri! space, int limit, string? cursor, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Com.AtProto.SimpleSpace.ListSimpleSpaceMembersResponse!>!
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSimpleSpaceStore<TContext>.PutMemberAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! did, bool read, bool write, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSimpleSpaceStore<TContext>.RemoveMemberAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSimpleSpaceStore<TContext>.UpdateSpaceAsync(ATProtoNet.Server.Spaces.SimpleSpaceRecord! space, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore<TContext>
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore<TContext>.DeclareSpaceAsync(ATProtoNet.Spaces.SpaceUri! space, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore<TContext>.EfCoreSpaceAuthorityStore(Microsoft.EntityFrameworkCore.IDbContextFactory<TContext!>! contextFactory) -> void
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore<TContext>.EfCoreSpaceAuthorityStore(Microsoft.EntityFrameworkCore.IDbContextFactory<TContext!>! contextFactory, System.TimeProvider! timeProvider) -> void
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore<TContext>.GetSpaceStateAsync(ATProtoNet.Spaces.SpaceUri! space, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Server.Spaces.SpaceAccessOutcome>!
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore<TContext>.ListReposAsync(ATProtoNet.Spaces.SpaceUri! space, int limit, string? cursor, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Com.AtProto.Space.ListSpaceReposResponse!>!
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore<TContext>.ListSubscribersAsync(ATProtoNet.Spaces.SpaceUri! space, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<ATProtoNet.Server.Spaces.SpaceNotifySubscriber!>!>!
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore<TContext>.MarkDeletedAsync(ATProtoNet.Spaces.SpaceUri! space, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore<TContext>.RecordWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! rev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore<TContext>.RegisterNotifyAsync(ATProtoNet.Spaces.SpaceUri! space, string! service, System.DateTimeOffset expiresAt, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore<TContext>.UnregisterNotifyAsync(ATProtoNet.Spaces.SpaceUri! space, string! service, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+ATProtoNet.Server.EntityFrameworkCore.JtiReplayDbContext
+ATProtoNet.Server.EntityFrameworkCore.JtiReplayDbContext.AtProtoJtiReplay.get -> Microsoft.EntityFrameworkCore.DbSet<ATProtoNet.Server.EntityFrameworkCore.JtiReplayEntity!>!
+ATProtoNet.Server.EntityFrameworkCore.JtiReplayDbContext.JtiReplayDbContext(Microsoft.EntityFrameworkCore.DbContextOptions! options) -> void
+ATProtoNet.Server.EntityFrameworkCore.JtiReplayDbContext.JtiReplayDbContext(Microsoft.EntityFrameworkCore.DbContextOptions<ATProtoNet.Server.EntityFrameworkCore.JtiReplayDbContext!>! options) -> void
+ATProtoNet.Server.EntityFrameworkCore.JtiReplayEntity
+ATProtoNet.Server.EntityFrameworkCore.JtiReplayEntity.ExpiresAt.get -> long
+ATProtoNet.Server.EntityFrameworkCore.JtiReplayEntity.ExpiresAt.set -> void
+ATProtoNet.Server.EntityFrameworkCore.JtiReplayEntity.Issuer.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.JtiReplayEntity.Issuer.set -> void
+ATProtoNet.Server.EntityFrameworkCore.JtiReplayEntity.JtiReplayEntity() -> void
+ATProtoNet.Server.EntityFrameworkCore.JtiReplayEntity.TokenId.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.JtiReplayEntity.TokenId.set -> void
+ATProtoNet.Server.EntityFrameworkCore.JtiReplayStoreExtensions
+ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateDbContext
+ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateDbContext.AtProtoRepoSyncStates.get -> Microsoft.EntityFrameworkCore.DbSet<ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateEntity!>!
+ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateDbContext.RepoSyncStateDbContext(Microsoft.EntityFrameworkCore.DbContextOptions! options) -> void
+ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateDbContext.RepoSyncStateDbContext(Microsoft.EntityFrameworkCore.DbContextOptions<ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateDbContext!>! options) -> void
+ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateEntity
+ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateEntity.Data.get -> string?
+ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateEntity.Data.set -> void
+ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateEntity.Did.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateEntity.Did.set -> void
+ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateEntity.RepoSyncStateEntity() -> void
+ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateEntity.Rev.get -> string?
+ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateEntity.Rev.set -> void
+ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateEntity.Status.get -> ATProtoNet.Streaming.RepoSyncStatus
+ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateEntity.Status.set -> void
+ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateEntity.UpdatedAt.get -> long
+ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateEntity.UpdatedAt.set -> void
+ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateStoreExtensions
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceEntity
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceEntity.AppAccess.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceEntity.AppAccess.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceEntity.Deleted.get -> bool
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceEntity.Deleted.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceEntity.Owner.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceEntity.Owner.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceEntity.ReadPolicy.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceEntity.ReadPolicy.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceEntity.SimpleSpaceEntity() -> void
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceEntity.Space.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceEntity.Space.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceEntity.WritePolicy.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceEntity.WritePolicy.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceMemberEntity
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceMemberEntity.Did.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceMemberEntity.Did.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceMemberEntity.Read.get -> bool
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceMemberEntity.Read.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceMemberEntity.SimpleSpaceMemberEntity() -> void
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceMemberEntity.Space.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceMemberEntity.Space.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceMemberEntity.Write.get -> bool
+ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceMemberEntity.Write.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext
+ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.AtProtoJtiReplay.get -> Microsoft.EntityFrameworkCore.DbSet<ATProtoNet.Server.EntityFrameworkCore.JtiReplayEntity!>!
+ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.AtProtoSimpleSpaceMembers.get -> Microsoft.EntityFrameworkCore.DbSet<ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceMemberEntity!>!
+ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.AtProtoSimpleSpaces.get -> Microsoft.EntityFrameworkCore.DbSet<ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceEntity!>!
+ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.AtProtoSpaces.get -> Microsoft.EntityFrameworkCore.DbSet<ATProtoNet.Server.EntityFrameworkCore.SpaceEntity!>!
+ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.AtProtoSpaceSubscribers.get -> Microsoft.EntityFrameworkCore.DbSet<ATProtoNet.Server.EntityFrameworkCore.SpaceSubscriberEntity!>!
+ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.AtProtoSpaceWriters.get -> Microsoft.EntityFrameworkCore.DbSet<ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity!>!
+ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.SpaceDbContext(Microsoft.EntityFrameworkCore.DbContextOptions! options) -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.SpaceDbContext(Microsoft.EntityFrameworkCore.DbContextOptions<ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext!>! options) -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceEntity
+ATProtoNet.Server.EntityFrameworkCore.SpaceEntity.Deleted.get -> bool
+ATProtoNet.Server.EntityFrameworkCore.SpaceEntity.Deleted.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceEntity.Space.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.SpaceEntity.Space.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceEntity.SpaceEntity() -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceStoreExtensions
+ATProtoNet.Server.EntityFrameworkCore.SpaceSubscriberEntity
+ATProtoNet.Server.EntityFrameworkCore.SpaceSubscriberEntity.ExpiresAt.get -> System.DateTimeOffset
+ATProtoNet.Server.EntityFrameworkCore.SpaceSubscriberEntity.ExpiresAt.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceSubscriberEntity.Service.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.SpaceSubscriberEntity.Service.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceSubscriberEntity.Space.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.SpaceSubscriberEntity.Space.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceSubscriberEntity.SpaceSubscriberEntity() -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity
+ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.Did.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.Did.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.Hash.get -> byte[]!
+ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.Hash.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.Rev.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.Rev.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.Space.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.Space.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.SpaceWriterEntity() -> void
+override ATProtoNet.Server.EntityFrameworkCore.AtProtoTokenDbContext.OnModelCreating(Microsoft.EntityFrameworkCore.ModelBuilder! modelBuilder) -> void
+override ATProtoNet.Server.EntityFrameworkCore.JtiReplayDbContext.OnModelCreating(Microsoft.EntityFrameworkCore.ModelBuilder! modelBuilder) -> void
+override ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateDbContext.OnModelCreating(Microsoft.EntityFrameworkCore.ModelBuilder! modelBuilder) -> void
+override ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.OnModelCreating(Microsoft.EntityFrameworkCore.ModelBuilder! modelBuilder) -> void
+static ATProtoNet.Server.EntityFrameworkCore.AtProtoTokenDbContext.ConfigureAtProtoTokenModel(Microsoft.EntityFrameworkCore.ModelBuilder! modelBuilder) -> void
+static ATProtoNet.Server.EntityFrameworkCore.AtProtoTokenStoreExtensions.WithEfCoreSessionStore<TContext>(this ATProtoNet.Server.IAtProtoBuilder! builder) -> ATProtoNet.Server.IAtProtoBuilder!
+static ATProtoNet.Server.EntityFrameworkCore.JtiReplayDbContext.ConfigureJtiReplayModel(Microsoft.EntityFrameworkCore.ModelBuilder! modelBuilder) -> void
+static ATProtoNet.Server.EntityFrameworkCore.JtiReplayStoreExtensions.AddAtProtoEfCoreJtiReplayStore<TContext>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateDbContext.ConfigureRepoSyncStateModel(Microsoft.EntityFrameworkCore.ModelBuilder! modelBuilder) -> void
+static ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateStoreExtensions.AddAtProtoEfCoreRepoSyncStateStore<TContext>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.ConfigureSimpleSpaceModel(Microsoft.EntityFrameworkCore.ModelBuilder! modelBuilder) -> void
+static ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.ConfigureSpaceAuthorityModel(Microsoft.EntityFrameworkCore.ModelBuilder! modelBuilder) -> void
+static ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.ConfigureSpaceModel(Microsoft.EntityFrameworkCore.ModelBuilder! modelBuilder) -> void
+static ATProtoNet.Server.EntityFrameworkCore.SpaceStoreExtensions.AddAtProtoEfCoreSimpleSpace<TContext>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static ATProtoNet.Server.EntityFrameworkCore.SpaceStoreExtensions.AddAtProtoEfCoreSpaceAuthority<TContext>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, ATProtoNet.Crypto.AtProtoKey! signingKey) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

@@ -3,9 +3,7 @@ using ATProtoNet.Http;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// Thrown when a credential presented to a space server does not verify.
-/// </summary>
+/// <summary>Thrown when a credential presented to a space server does not verify.</summary>
 /// <remarks>
 /// <para>It is an <see cref="XrpcException"/>, so a handler that lets one escape answers with
 /// the named error the Lexicon declares rather than a 500 — <c>InvalidDelegationToken</c>,
@@ -16,9 +14,7 @@ namespace ATProtoNet.Server.Spaces;
 /// </remarks>
 public sealed class SpaceVerificationException : XrpcException
 {
-    /// <summary>
-    /// Creates a verification failure.
-    /// </summary>
+    /// <summary>Creates a verification failure.</summary>
     /// <param name="error">The XRPC error name. See <c>SpaceErrors</c>.</param>
     /// <param name="message">A description of what failed.</param>
     /// <param name="statusCode">The HTTP status. Defaults to 401.</param>
@@ -28,9 +24,7 @@ public sealed class SpaceVerificationException : XrpcException
     {
     }
 
-    /// <summary>
-    /// Creates a verification failure with an underlying cause.
-    /// </summary>
+    /// <summary>Creates a verification failure with an underlying cause.</summary>
     /// <param name="error">The XRPC error name. See <c>SpaceErrors</c>.</param>
     /// <param name="message">A description of what failed.</param>
     /// <param name="innerException">The underlying cause.</param>

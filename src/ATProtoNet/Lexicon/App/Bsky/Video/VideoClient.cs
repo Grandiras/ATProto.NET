@@ -136,7 +136,6 @@ public sealed class VideoClient
     /// </summary>
     /// <param name="data">The video data stream.</param>
     /// <param name="mimeType">The MIME type (e.g., "video/mp4").</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The initial job status for the upload.</returns>
     public Task<UploadVideoResponse> UploadVideoInOneRequestAsync(
         Stream data, string mimeType = "video/mp4",
@@ -146,11 +145,8 @@ public sealed class VideoClient
             "app.bsky.video.uploadVideo", data, mimeType, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get the processing status of a video upload job.
-    /// </summary>
+    /// <summary>Get the processing status of a video upload job.</summary>
     /// <param name="jobId">The job identifier returned from upload.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetJobStatusResponse> GetJobStatusAsync(
         string jobId, CancellationToken cancellationToken = default)
     {
@@ -159,9 +155,7 @@ public sealed class VideoClient
             "app.bsky.video.getJobStatus", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get the current video upload limits for the authenticated account.
-    /// </summary>
+    /// <summary>Get the current video upload limits for the authenticated account.</summary>
     public Task<GetUploadLimitsResponse> GetUploadLimitsAsync(
         CancellationToken cancellationToken = default)
     {
@@ -169,13 +163,9 @@ public sealed class VideoClient
             "app.bsky.video.getUploadLimits", null, cancellationToken: cancellationToken);
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Multipart upload
-    // ──────────────────────────────────────────────────────────
+    // ── Multipart upload ─────────────────────────────────────
 
-    /// <summary>
-    /// Start a multipart upload session. The service answers with the part size and count.
-    /// </summary>
+    /// <summary>Start a multipart upload session. The service answers with the part size and count.</summary>
     /// <param name="sizeBytes">The exact size of the whole video, in bytes.</param>
     /// <param name="mimeType">The MIME type (e.g., "video/mp4").</param>
     /// <param name="name">The file name, if any.</param>
@@ -184,7 +174,6 @@ public sealed class VideoClient
     /// </param>
     /// <param name="width">The width in pixels, if known; advisory.</param>
     /// <param name="height">The height in pixels, if known; advisory.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<StartUploadResponse> StartUploadAsync(
         long sizeBytes,
         string mimeType,
@@ -208,9 +197,7 @@ public sealed class VideoClient
             "app.bsky.video.startUpload", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Upload one part of a multipart upload. Parts may be sent in any order, and resent.
-    /// </summary>
+    /// <summary>Upload one part of a multipart upload. Parts may be sent in any order, and resent.</summary>
     /// <param name="jobId">The upload session, from <see cref="StartUploadAsync"/>.</param>
     /// <param name="partNumber">The part's number, from 1.</param>
     /// <param name="data">
@@ -218,7 +205,6 @@ public sealed class VideoClient
     /// size the session expects for the part, so the stream should be seekable: the service
     /// needs a <c>Content-Length</c>.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<UploadPartResponse> UploadPartAsync(
         string jobId, int partNumber, Stream data, CancellationToken cancellationToken = default)
     {
@@ -230,11 +216,8 @@ public sealed class VideoClient
             "app.bsky.video.uploadPart", data, OctetStream, parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Finish a multipart upload and hand the video to a processing job. Safe to retry.
-    /// </summary>
+    /// <summary>Finish a multipart upload and hand the video to a processing job. Safe to retry.</summary>
     /// <param name="jobId">The upload session.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// The processing job to poll with <see cref="GetJobStatusAsync"/>. Validation of the video
     /// itself fails later, as a <see cref="JobState.Failed"/> job.
@@ -247,11 +230,8 @@ public sealed class VideoClient
             "app.bsky.video.finishUpload", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get the state of a multipart upload session, including the parts stored so far.
-    /// </summary>
+    /// <summary>Get the state of a multipart upload session, including the parts stored so far.</summary>
     /// <param name="jobId">The upload session.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetUploadStatusResponse> GetUploadStatusAsync(
         string jobId, CancellationToken cancellationToken = default)
     {
@@ -265,7 +245,6 @@ public sealed class VideoClient
     /// quota. A session that already ended keeps, and reports, its outcome.
     /// </summary>
     /// <param name="jobId">The upload session.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<AbortUploadResponse> AbortUploadAsync(
         string jobId, CancellationToken cancellationToken = default)
     {
@@ -334,9 +313,7 @@ public sealed class VideoClient
         }
     }
 
-    /// <summary>
-    /// Runs a call, retrying transient failures with exponential backoff.
-    /// </summary>
+    /// <summary>Runs a call, retrying transient failures with exponential backoff.</summary>
     private async Task<T> WithRetriesAsync<T>(
         Func<CancellationToken, Task<T>> call,
         RetryKind kind,

@@ -3,9 +3,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Unspecced;
 
-/// <summary>
-/// Client for app.bsky.unspecced.* XRPC endpoints.
-/// </summary>
+/// <summary>Client for app.bsky.unspecced.* XRPC endpoints.</summary>
 /// <remarks>
 /// These are endpoints the Bluesky app relies on before they are specified. Upstream warns that
 /// they may change without notice, so expect this client to follow those changes, breaking ones
@@ -32,7 +30,6 @@ public sealed class UnspeccedClient
     /// default 10).
     /// </param>
     /// <param name="sort">The reply order (see <see cref="PostThreadSort"/>; default oldest).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetPostThreadV2Response> GetPostThreadV2Async(
         AtUri anchor,
         bool? above = null,
@@ -58,7 +55,6 @@ public sealed class UnspeccedClient
     /// <see cref="GetPostThreadV2Response.HasOtherReplies"/> is set.
     /// </summary>
     /// <param name="anchor">The AT-URI of the anchor post.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetPostThreadOtherV2Response> GetPostThreadOtherV2Async(
         AtUri anchor, CancellationToken cancellationToken = default)
     {

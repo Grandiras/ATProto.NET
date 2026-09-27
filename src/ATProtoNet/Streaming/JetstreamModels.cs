@@ -274,13 +274,10 @@ public static class JetstreamCursor
     }
 
     /// <summary>Whether <paramref name="cursor"/> is a unix-microseconds timestamp rather than a sequence number.</summary>
-    /// <param name="cursor">The cursor.</param>
     public static bool IsTimestamp(long cursor) => cursor >= TimestampThreshold;
 }
 
-/// <summary>
-/// The public Jetstream instances operated by Bluesky.
-/// </summary>
+/// <summary>The public Jetstream instances operated by Bluesky.</summary>
 public static class JetstreamEndpoints
 {
     /// <summary>US East v2 instance. Serves both <see cref="JetstreamProtocol.V2"/> and <see cref="JetstreamProtocol.V1"/>.</summary>
@@ -378,9 +375,7 @@ public interface IJetstreamDecompressor
     byte[] Decompress(ReadOnlySpan<byte> frame);
 }
 
-/// <summary>
-/// Base type for events received from a Jetstream instance.
-/// </summary>
+/// <summary>Base type for events received from a Jetstream instance.</summary>
 /// <remarks>
 /// Jetstream events are plain JSON without MST proofs or commit signatures —
 /// unlike the binary firehose, they <b>cannot be cryptographically verified</b>.

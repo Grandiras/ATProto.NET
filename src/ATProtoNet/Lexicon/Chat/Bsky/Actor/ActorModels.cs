@@ -7,9 +7,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.Chat.Bsky.Actor;
 
-/// <summary>
-/// Record type for chat.bsky.actor.declaration — declares chat preferences.
-/// </summary>
+/// <summary>Record type for chat.bsky.actor.declaration — declares chat preferences.</summary>
 public sealed class ChatDeclarationRecord : LexObject, IAtProtoRecord
 {
     /// <summary>The collection records of this type are stored in (<c>chat.bsky.actor.declaration</c>).</summary>
@@ -50,9 +48,7 @@ public static class ChatAllowIncoming
     public const string Following = "following";
 }
 
-/// <summary>
-/// Known values of a group member's role (<c>chat.bsky.actor.defs#memberRole</c>).
-/// </summary>
+/// <summary>Known values of a group member's role (<c>chat.bsky.actor.defs#memberRole</c>).</summary>
 public static class ChatMemberRole
 {
     /// <summary>The group's owner, who manages its members, name and join link.</summary>
@@ -113,9 +109,7 @@ public sealed class GroupConvoMember : ChatMemberKind
 /// <summary>A former member of a group (<c>chat.bsky.actor.defs#pastGroupConvoMember</c>).</summary>
 public sealed class PastGroupConvoMember : ChatMemberKind;
 
-/// <summary>
-/// Response from chat.bsky.actor.getStatus.
-/// </summary>
+/// <summary>Response from chat.bsky.actor.getStatus.</summary>
 public sealed class GetStatusResponse
 {
     /// <summary>Whether the viewer's account is disabled and cannot actively take part in chats.</summary>

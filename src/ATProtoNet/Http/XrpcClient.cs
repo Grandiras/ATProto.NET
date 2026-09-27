@@ -48,9 +48,7 @@ internal sealed class XrpcClient : IXrpcTransport
     private volatile string? _latestRepoRev;
     private volatile RateLimitInfo? _latestRateLimitInfo;
 
-    /// <summary>
-    /// Creates a transport for <paramref name="serviceUrl"/> over <paramref name="httpClient"/>.
-    /// </summary>
+    /// <summary>Creates a transport for <paramref name="serviceUrl"/> over <paramref name="httpClient"/>.</summary>
     /// <param name="httpClient">The client to send with. Never mutated, so it may be shared.</param>
     /// <param name="serviceUrl">The service to address. Taken as configured; see <see cref="SetServiceUrl"/>.</param>
     /// <param name="logger">An optional logger.</param>
@@ -98,9 +96,7 @@ internal sealed class XrpcClient : IXrpcTransport
     /// <summary>Whether PDS admin credentials are set.</summary>
     internal bool HasAdminCredentials => _adminCredential is not null;
 
-    /// <summary>
-    /// Keeps the session's credentials fresh: consulted by every call authenticated with them.
-    /// </summary>
+    /// <summary>Keeps the session's credentials fresh: consulted by every call authenticated with them.</summary>
     internal IXrpcSessionHandler? SessionHandler { get; set; }
 
     /// <summary>
@@ -128,7 +124,6 @@ internal sealed class XrpcClient : IXrpcTransport
     /// and a proof signed by <paramref name="dpop"/>.
     /// </summary>
     /// <param name="accessToken">The DPoP-bound access token.</param>
-    /// <param name="refreshToken">The refresh token.</param>
     /// <param name="dpop">The DPoP key for this session.</param>
     internal void SetOAuthTokens(string accessToken, string? refreshToken, DPoPProofGenerator dpop)
     {
@@ -144,7 +139,6 @@ internal sealed class XrpcClient : IXrpcTransport
     /// The service, already validated with <see cref="AtProtoHttp.ValidateServiceUrl"/> (or equal
     /// to the current one); <see langword="null"/> keeps the current service.
     /// </param>
-    /// <param name="credentials">The credentials.</param>
     internal void SetSession(Uri? serviceUrl, XrpcCredentials? credentials)
     {
         lock (_targetLock)
@@ -191,9 +185,7 @@ internal sealed class XrpcClient : IXrpcTransport
     /// <summary>Clears the client-wide <c>atproto-accept-labelers</c> header.</summary>
     internal void ClearLabelers() => _labelerHeader = null;
 
-    // ──────────────────────────────────────────────────────────
-    //  Calls
-    // ──────────────────────────────────────────────────────────
+    // ── Calls ────────────────────────────────────────────────
 
     /// <summary>Performs an XRPC query (HTTP GET) and deserializes the JSON response.</summary>
     internal async Task<TResponse> QueryAsync<TResponse>(
@@ -206,8 +198,8 @@ internal sealed class XrpcClient : IXrpcTransport
         using var deadline = Deadline.Start(request, cancellationToken);
         try
         {
-            using var response = await SendAsync(request, deadline.Token);
-            return await ReadJsonAsync<TResponse>(response, nsid, deadline.Token);
+            using var response = await SendAsync(request, deadline.Token).ConfigureAwait(false);
+            return await ReadJsonAsync<TResponse>(response, nsid, deadline.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException ex) when (deadline.IsExpired)
         {
@@ -215,14 +207,11 @@ internal sealed class XrpcClient : IXrpcTransport
         }
     }
 
-    /// <summary>
-    /// Performs an XRPC procedure (HTTP POST) and deserializes the JSON response.
-    /// </summary>
+    /// <summary>Performs an XRPC procedure (HTTP POST) and deserializes the JSON response.</summary>
     /// <param name="nsid">The method NSID.</param>
     /// <param name="body">The request body, serialized as JSON by its runtime type; <see langword="null"/> for none.</param>
     /// <param name="parameters">Query parameters, if the method takes any.</param>
     /// <param name="options">Per-call options.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     internal async Task<TResponse> ProcedureAsync<TResponse>(
         string nsid,
         object? body = null,
@@ -234,8 +223,8 @@ internal sealed class XrpcClient : IXrpcTransport
         using var deadline = Deadline.Start(request, cancellationToken);
         try
         {
-            using var response = await SendAsync(request, deadline.Token);
-            return await ReadJsonAsync<TResponse>(response, nsid, deadline.Token);
+            using var response = await SendAsync(request, deadline.Token).ConfigureAwait(false);
+            return await ReadJsonAsync<TResponse>(response, nsid, deadline.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException ex) when (deadline.IsExpired)
         {
@@ -255,9 +244,7 @@ internal sealed class XrpcClient : IXrpcTransport
             new XrpcRequest(HttpMethod.Post, nsid, parameters, options) { Content = JsonBody(body) },
             cancellationToken);
 
-    /// <summary>
-    /// Uploads binary data (HTTP POST) and deserializes the JSON response.
-    /// </summary>
+    /// <summary>Uploads binary data (HTTP POST) and deserializes the JSON response.</summary>
     /// <remarks>
     /// The body is read from the stream's current position. A retry (DPoP nonce, 429) rewinds
     /// to that position, which needs a seekable stream; a non-seekable one that would need a
@@ -276,8 +263,8 @@ internal sealed class XrpcClient : IXrpcTransport
         using var deadline = Deadline.Start(request, cancellationToken);
         try
         {
-            using var response = await SendAsync(request, deadline.Token);
-            return await ReadJsonAsync<TResponse>(response, nsid, deadline.Token);
+            using var response = await SendAsync(request, deadline.Token).ConfigureAwait(false);
+            return await ReadJsonAsync<TResponse>(response, nsid, deadline.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException ex) when (deadline.IsExpired)
         {
@@ -330,8 +317,8 @@ internal sealed class XrpcClient : IXrpcTransport
         HttpResponseMessage? response = null;
         try
         {
-            response = await SendAsync(request, deadline.Token);
-            var content = await response.Content.ReadAsStreamAsync(deadline.Token);
+            response = await SendAsync(request, deadline.Token).ConfigureAwait(false);
+            var content = await response.Content.ReadAsStreamAsync(deadline.Token).ConfigureAwait(false);
             return new XrpcStreamResponse(response, content);
         }
         catch (OperationCanceledException ex) when (deadline.IsExpired)
@@ -356,12 +343,11 @@ internal sealed class XrpcClient : IXrpcTransport
     /// <param name="bearerToken">
     /// The bearer token to send (a refresh JWT, say), or <see langword="null"/> to send none.
     /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     internal async Task<TResponse> ProcedureWithTokenAsync<TResponse>(
         string nsid, object? body, string? bearerToken, CancellationToken cancellationToken = default)
     {
-        using var response = await SendAsync(TokenRequest(nsid, body, bearerToken), cancellationToken);
-        return await ReadJsonAsync<TResponse>(response, nsid, cancellationToken);
+        using var response = await SendAsync(TokenRequest(nsid, body, bearerToken), cancellationToken).ConfigureAwait(false);
+        return await ReadJsonAsync<TResponse>(response, nsid, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -372,7 +358,7 @@ internal sealed class XrpcClient : IXrpcTransport
     internal async Task ProcedureWithTokenAsync(
         string nsid, object? body, string? bearerToken, CancellationToken cancellationToken = default)
     {
-        using var response = await SendAsync(TokenRequest(nsid, body, bearerToken), cancellationToken);
+        using var response = await SendAsync(TokenRequest(nsid, body, bearerToken), cancellationToken).ConfigureAwait(false);
     }
 
     private XrpcRequest TokenRequest(string nsid, object? body, string? bearerToken) =>
@@ -390,9 +376,7 @@ internal sealed class XrpcClient : IXrpcTransport
     /// </summary>
     internal static XrpcCallOptions Direct { get; } = new() { IsDirect = true };
 
-    // ──────────────────────────────────────────────────────────
-    //  IXrpcTransport: the same calls, for sub-clients outside the SDK
-    // ──────────────────────────────────────────────────────────
+    // ── IXrpcTransport: the same calls, for sub-clients outside the SDK ──
 
     Task<TOut> IXrpcTransport.QueryAsync<TOut>(
         Nsid nsid, XrpcParams? parameters, XrpcCallOptions? options, CancellationToken cancellationToken) =>
@@ -425,16 +409,14 @@ internal sealed class XrpcClient : IXrpcTransport
         return nsid.Value;
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Pipeline
-    // ──────────────────────────────────────────────────────────
+    // ── Pipeline ─────────────────────────────────────────────
 
     private async Task SendAndDiscardAsync(XrpcRequest request, CancellationToken cancellationToken)
     {
         using var deadline = Deadline.Start(request, cancellationToken);
         try
         {
-            using var response = await SendAsync(request, deadline.Token);
+            using var response = await SendAsync(request, deadline.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException ex) when (deadline.IsExpired)
         {
@@ -463,7 +445,7 @@ internal sealed class XrpcClient : IXrpcTransport
         var sessionHandler = request.Authentication == XrpcAuthentication.Session ? SessionHandler : null;
 
         if (sessionHandler is not null && _target.Credentials is not null)
-            await sessionHandler.BeforeSendAsync(cancellationToken);
+            await sessionHandler.BeforeSendAsync(cancellationToken).ConfigureAwait(false);
 
         // Read once, after any refresh above, and used for every attempt: a session installed
         // while this call waits (on a 429, on a refresh) must not receive it, and its tokens must
@@ -481,7 +463,7 @@ internal sealed class XrpcClient : IXrpcTransport
             var message = CreateMessage(request, uri, target, request.Nsid, out var credentials);
             var usedDPoP = credentials?.DPoP is not null;
             var response = await _httpClient.SendAsync(
-                message, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                message, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
 
             try
             {
@@ -500,7 +482,7 @@ internal sealed class XrpcClient : IXrpcTransport
                     !HasInvalidTokenChallenge(response))
                 {
                     nonceRetried = true;
-                    await EnsureReplayableAsync(request, response, "answer a DPoP nonce challenge", cancellationToken);
+                    await EnsureReplayableAsync(request, response, "answer a DPoP nonce challenge", cancellationToken).ConfigureAwait(false);
                     _logger.LogDebug("DPoP nonce required for {Nsid}; retrying with the server-provided nonce", request.Nsid);
                     response.Dispose();
                     continue;
@@ -510,17 +492,17 @@ internal sealed class XrpcClient : IXrpcTransport
                     rateLimitAttempt < RateLimit.MaxRetries &&
                     GetRateLimitDelay(response, rateLimitAttempt) is { } delay)
                 {
-                    await EnsureReplayableAsync(request, response, "retry after a 429", cancellationToken);
+                    await EnsureReplayableAsync(request, response, "retry after a 429", cancellationToken).ConfigureAwait(false);
                     rateLimitAttempt++;
                     _logger.LogWarning(
                         "Rate limited (429) on {Nsid}. Retry {Attempt}/{Max} after {Delay}ms",
                         request.Nsid, rateLimitAttempt, RateLimit.MaxRetries, (int)delay.TotalMilliseconds);
                     response.Dispose();
-                    await Task.Delay(delay, TimeProvider, cancellationToken);
+                    await Task.Delay(delay, TimeProvider, cancellationToken).ConfigureAwait(false);
                     continue;
                 }
 
-                var exception = await CreateExceptionAsync(response, request.Nsid, cancellationToken);
+                var exception = await CreateExceptionAsync(response, request.Nsid, cancellationToken).ConfigureAwait(false);
 
                 // An expired or invalidated access token: have the session refreshed (or pick up
                 // the tokens another call has refreshed meanwhile) and resend, once. The refresh
@@ -530,7 +512,7 @@ internal sealed class XrpcClient : IXrpcTransport
                 {
                     sessionRetried = true;
 
-                    if (await sessionHandler.TryRecoverAsync(credentials, cancellationToken) is { } recovered &&
+                    if (await sessionHandler.TryRecoverAsync(credentials, cancellationToken).ConfigureAwait(false) is { } recovered &&
                         request.Replayable)
                     {
                         // The same account on the same service, so the same URI.
@@ -614,7 +596,7 @@ internal sealed class XrpcClient : IXrpcTransport
         if (request.Replayable)
             return;
 
-        var failure = await CreateExceptionAsync(response, request.Nsid, cancellationToken);
+        var failure = await CreateExceptionAsync(response, request.Nsid, cancellationToken).ConfigureAwait(false);
         throw new InvalidOperationException(
             $"{request.Nsid} needs to be sent again to {reason}, but its body stream cannot be " +
             "rewound. Pass a seekable stream (a FileStream or MemoryStream, for example).",
@@ -624,7 +606,7 @@ internal sealed class XrpcClient : IXrpcTransport
     private async Task<XrpcException> CreateExceptionAsync(
         HttpResponseMessage response, string nsid, CancellationToken cancellationToken)
     {
-        var body = await XrpcResponseReader.ReadErrorAsync(response, cancellationToken);
+        var body = await XrpcResponseReader.ReadErrorAsync(response, cancellationToken).ConfigureAwait(false);
         return XrpcResponseReader.CreateException(response, nsid, body, TimeProvider.GetUtcNow());
     }
 
@@ -633,8 +615,10 @@ internal sealed class XrpcClient : IXrpcTransport
     {
         try
         {
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            var result = await JsonSerializer.DeserializeAsync<TResponse>(stream, JsonOptions, cancellationToken);
+            #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            #pragma warning restore CA2007
+            var result = await JsonSerializer.DeserializeAsync<TResponse>(stream, JsonOptions, cancellationToken).ConfigureAwait(false);
             return result ?? throw new XrpcResponseFormatException(
                 nsid, $"{nsid} returned null where a {typeof(TResponse).Name} was expected.");
         }
@@ -816,9 +800,7 @@ internal sealed class XrpcClient : IXrpcTransport
         return joined.Length > 0 ? joined : null;
     }
 
-    // ──────────────────────────────────────────────────────────
-    //  Types
-    // ──────────────────────────────────────────────────────────
+    // ── Types ────────────────────────────────────────────────
 
     /// <summary>The service calls go to, and the session credentials that belong to it.</summary>
     /// <param name="ServiceUrl">The service.</param>
@@ -924,7 +906,7 @@ internal sealed class XrpcClient : IXrpcTransport
             if (_start is { } start)
                 _stream.Position = start;
 
-            await _stream.CopyToAsync(stream, cancellationToken);
+            await _stream.CopyToAsync(stream, cancellationToken).ConfigureAwait(false);
         }
 
         protected override bool TryComputeLength(out long length)
@@ -950,7 +932,6 @@ internal sealed class XrpcClient : IXrpcTransport
 /// Session credentials as <see cref="XrpcClient"/> sends them. Immutable: a change of tokens is a
 /// new instance, so comparing references tells whether the credentials changed.
 /// </summary>
-/// <param name="AccessToken">The access token.</param>
 /// <param name="RefreshToken">The refresh token, if the holder keeps it here.</param>
 /// <param name="DPoP">The DPoP key the access token is bound to, for an OAuth session.</param>
 internal sealed record XrpcCredentials(string AccessToken, string? RefreshToken, DPoPProofGenerator? DPoP)

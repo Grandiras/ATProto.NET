@@ -21,24 +21,18 @@ public sealed class ChatActorClient
     /// Gets the viewer's chat status: whether chat is disabled for the account, whether it may
     /// create groups, and how many members a group may have.
     /// </summary>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetStatusResponse> GetStatusAsync(CancellationToken cancellationToken = default) =>
         _xrpc.QueryAsync<GetStatusResponse>(
             "chat.bsky.actor.getStatus", options: ChatProxy, cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Deletes the chat account data for the authenticated user.
-    /// </summary>
+    /// <summary>Deletes the chat account data for the authenticated user.</summary>
     public async Task DeleteAccountAsync(CancellationToken cancellationToken = default)
     {
         await _xrpc.ProcedureAsync(
-            "chat.bsky.actor.deleteAccount", options: ChatProxy, cancellationToken: cancellationToken);
+            "chat.bsky.actor.deleteAccount", options: ChatProxy, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Exports the chat account data for the authenticated user.
-    /// </summary>
-    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <summary>Exports the chat account data for the authenticated user.</summary>
     /// <returns>
     /// The export as JSON Lines (<c>application/jsonl</c>): one JSON object per line. Dispose it
     /// once read.

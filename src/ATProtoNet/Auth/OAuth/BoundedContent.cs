@@ -12,7 +12,6 @@ internal static class BoundedContent
     /// </summary>
     /// <param name="content">The response content.</param>
     /// <param name="maxBytes">The largest body accepted.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <remarks>
     /// A declared <c>Content-Length</c> over the ceiling is refused before anything is read. The
     /// read enforces the ceiling as well, because a chunked body declares no length and a
@@ -33,7 +32,7 @@ internal static class BoundedContent
         var buffer = new byte[Math.Min((declared ?? 4096) + 1, maxBytes + 1L)];
         var read = 0;
 
-        using var stream = await content.ReadAsStreamAsync(cancellationToken);
+        using var stream = await content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         while (true)
         {
             if (read == buffer.Length)
@@ -44,7 +43,7 @@ internal static class BoundedContent
                 Array.Resize(ref buffer, (int)Math.Min(buffer.Length * 2L, maxBytes + 1L));
             }
 
-            var n = await stream.ReadAsync(buffer.AsMemory(read), cancellationToken);
+            var n = await stream.ReadAsync(buffer.AsMemory(read), cancellationToken).ConfigureAwait(false);
             if (n == 0)
                 return buffer.AsMemory(0, read);
 

@@ -103,7 +103,6 @@ public static class RecordEventExtensions
     /// operation whose path is not a valid <c>collection/rkey</c> is skipped, and one whose record
     /// block is missing or does not decode has a null <see cref="FirehoseRecordEvent.Record"/>.
     /// </remarks>
-    /// <param name="commit">The commit.</param>
     /// <returns>The commit's operations, in order.</returns>
     public static IReadOnlyList<FirehoseRecordEvent> GetRecordEvents(this CommitEvent commit)
     {

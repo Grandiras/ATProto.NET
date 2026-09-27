@@ -3,9 +3,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.Tools.Ozone.Moderation;
 
-/// <summary>
-/// Client for tools.ozone.moderation.* endpoints.
-/// </summary>
+/// <summary>Client for tools.ozone.moderation.* endpoints.</summary>
 public sealed class ModerationClient
 {
     private readonly XrpcClient _xrpc;
@@ -15,22 +13,16 @@ public sealed class ModerationClient
         _xrpc = xrpc;
     }
 
-    /// <summary>
-    /// Emit a moderation event (takedown, label, acknowledge, escalate, etc.).
-    /// </summary>
+    /// <summary>Emit a moderation event (takedown, label, acknowledge, escalate, etc.).</summary>
     /// <param name="request">The event, its subject and the moderator emitting it.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ModEventView> EmitEventAsync(
         EmitEventRequest request,
         CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync<ModEventView>(
             "tools.ozone.moderation.emitEvent", request, cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Get a specific moderation event by ID.
-    /// </summary>
+    /// <summary>Get a specific moderation event by ID.</summary>
     /// <param name="id">The event's identifier.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ModEventViewDetail> GetEventAsync(
         long id,
         CancellationToken cancellationToken = default)
@@ -40,12 +32,9 @@ public sealed class ModerationClient
             "tools.ozone.moderation.getEvent", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get a record with moderation context.
-    /// </summary>
+    /// <summary>Get a record with moderation context.</summary>
     /// <param name="uri">The record's AT URI.</param>
     /// <param name="cid">Optional specific version CID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<RecordViewDetail> GetRecordAsync(
         AtUri uri,
         Cid? cid = null,
@@ -58,11 +47,8 @@ public sealed class ModerationClient
             "tools.ozone.moderation.getRecord", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get a repo/account with moderation context.
-    /// </summary>
+    /// <summary>Get a repo/account with moderation context.</summary>
     /// <param name="did">The account's DID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<RepoViewDetail> GetRepoAsync(
         Did did,
         CancellationToken cancellationToken = default)
@@ -72,9 +58,7 @@ public sealed class ModerationClient
             "tools.ozone.moderation.getRepo", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Search/filter one page of moderation events.
-    /// </summary>
+    /// <summary>Search/filter one page of moderation events.</summary>
     /// <param name="subject">
     /// Only events on this subject: an account's DID, or a record's AT URI.
     /// </param>
@@ -105,7 +89,6 @@ public sealed class ModerationClient
     /// <param name="withStrike"><see langword="true"/> for only events that gave strikes.</param>
     /// <param name="limit">Maximum number of events (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<QueryEventsResponse> QueryEventsAsync(
         string? subject = null,
         Did? createdBy = null,
@@ -160,9 +143,7 @@ public sealed class ModerationClient
             "tools.ozone.moderation.queryEvents", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate every moderation event matching the filters, fetching pages as needed.
-    /// </summary>
+    /// <summary>Enumerate every moderation event matching the filters, fetching pages as needed.</summary>
     /// <param name="subject">
     /// Only events on this subject: an account's DID, or a record's AT URI.
     /// </param>
@@ -192,7 +173,6 @@ public sealed class ModerationClient
     /// <param name="ageAssuranceState">Only age-assurance events that set this state.</param>
     /// <param name="withStrike"><see langword="true"/> for only events that gave strikes.</param>
     /// <param name="pageSize">Events per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<ModEventView> EnumerateEventsAsync(
         string? subject = null,
         Did? createdBy = null,
@@ -225,13 +205,10 @@ public sealed class ModerationClient
                 ageAssuranceState, withStrike, pageSize, cursor, ct),
             cancellationToken);
 
-    /// <summary>
-    /// Get one page of the subjects' moderation statuses: the review queue.
-    /// </summary>
+    /// <summary>Get one page of the subjects' moderation statuses: the review queue.</summary>
     /// <param name="filter">Which subjects to return and in what order; <see langword="null"/> for the defaults.</param>
     /// <param name="limit">Maximum number of statuses (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<QueryStatusesResponse> QueryStatusesAsync(
         SubjectStatusFilter? filter = null,
         int? limit = null,
@@ -245,12 +222,9 @@ public sealed class ModerationClient
             "tools.ozone.moderation.queryStatuses", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate every subject status a filter matches, fetching pages as needed.
-    /// </summary>
+    /// <summary>Enumerate every subject status a filter matches, fetching pages as needed.</summary>
     /// <param name="filter">Which subjects to return and in what order; <see langword="null"/> for the defaults.</param>
     /// <param name="pageSize">Statuses per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<SubjectStatusView> EnumerateStatusesAsync(
         SubjectStatusFilter? filter = null,
         int? pageSize = null,
@@ -259,13 +233,10 @@ public sealed class ModerationClient
             (cursor, ct) => QueryStatusesAsync(filter, pageSize, cursor, ct),
             cancellationToken);
 
-    /// <summary>
-    /// Search one page of repos with moderation context.
-    /// </summary>
+    /// <summary>Search one page of repos with moderation context.</summary>
     /// <param name="q">The search term; <see langword="null"/> matches every repo.</param>
     /// <param name="limit">Maximum number of repos (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<SearchReposResponse> SearchReposAsync(
         string? q = null,
         int? limit = null,
@@ -280,12 +251,9 @@ public sealed class ModerationClient
             "tools.ozone.moderation.searchRepos", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate every repo a search matches, fetching pages as needed.
-    /// </summary>
+    /// <summary>Enumerate every repo a search matches, fetching pages as needed.</summary>
     /// <param name="q">The search term; <see langword="null"/> matches every repo.</param>
     /// <param name="pageSize">Repos per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<RepoView> EnumerateReposAsync(
         string? q = null,
         int? pageSize = null,
@@ -294,11 +262,8 @@ public sealed class ModerationClient
             (cursor, ct) => SearchReposAsync(q, pageSize, cursor, ct),
             cancellationToken);
 
-    /// <summary>
-    /// Get an account's private app preferences. Needs moderator or admin auth.
-    /// </summary>
+    /// <summary>Get an account's private app preferences. Needs moderator or admin auth.</summary>
     /// <param name="did">The account's DID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetAccountPreferencesResponse> GetAccountPreferencesAsync(
         Did did,
         CancellationToken cancellationToken = default)
@@ -308,11 +273,8 @@ public sealed class ModerationClient
             "tools.ozone.moderation.getAccountPreferences", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get several accounts with moderation context at once.
-    /// </summary>
+    /// <summary>Get several accounts with moderation context at once.</summary>
     /// <param name="dids">The accounts' DIDs (at most 100).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// One entry per DID: a <see cref="RepoViewDetail"/>, or a <see cref="RepoViewNotFound"/>.
     /// </returns>
@@ -325,11 +287,8 @@ public sealed class ModerationClient
             "tools.ozone.moderation.getRepos", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get several records with moderation context at once.
-    /// </summary>
+    /// <summary>Get several records with moderation context at once.</summary>
     /// <param name="uris">The records' AT URIs (at most 100).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// One entry per URI: a <see cref="RecordViewDetail"/>, or a <see cref="RecordViewNotFound"/>.
     /// </returns>
@@ -342,11 +301,8 @@ public sealed class ModerationClient
             "tools.ozone.moderation.getRecords", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get everything Ozone knows about several subjects: status, account, profile and record.
-    /// </summary>
+    /// <summary>Get everything Ozone knows about several subjects: status, account, profile and record.</summary>
     /// <param name="subjects">The subjects (at most 100): account DIDs or record AT URIs.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetSubjectsResponse> GetSubjectsAsync(
         IEnumerable<string> subjects,
         CancellationToken cancellationToken = default)
@@ -356,11 +312,8 @@ public sealed class ModerationClient
             "tools.ozone.moderation.getSubjects", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get an account's history, day by day: moderation events, account changes and PLC operations.
-    /// </summary>
+    /// <summary>Get an account's history, day by day: moderation events, account changes and PLC operations.</summary>
     /// <param name="did">The account's DID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcException"><c>RepoNotFound</c> when Ozone does not know the account.</exception>
     public Task<GetAccountTimelineResponse> GetAccountTimelineAsync(
         Did did,
@@ -376,7 +329,6 @@ public sealed class ModerationClient
     /// takedown or a label.
     /// </summary>
     /// <param name="dids">The reporters' DIDs (at most 100).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<GetReporterStatsResponse> GetReporterStatsAsync(
         IEnumerable<Did> dids,
         CancellationToken cancellationToken = default)
@@ -386,15 +338,12 @@ public sealed class ModerationClient
             "tools.ozone.moderation.getReporterStats", parameters, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Schedule a moderation action to run later on several accounts.
-    /// </summary>
+    /// <summary>Schedule a moderation action to run later on several accounts.</summary>
     /// <param name="subjects">The accounts (at most 100).</param>
     /// <param name="action">The action, such as a <see cref="ScheduledTakedown"/>.</param>
     /// <param name="scheduling">When it runs: an exact time, or a random time in a window.</param>
     /// <param name="createdBy">The moderator scheduling it.</param>
     /// <param name="modTool">The tool scheduling it; passed on to the event the action emits.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The accounts the action was scheduled for, and those it failed for.</returns>
     public Task<ScheduledActionResults> ScheduleActionAsync(
         IEnumerable<Did> subjects,
@@ -416,16 +365,13 @@ public sealed class ModerationClient
             "tools.ozone.moderation.scheduleAction", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// List one page of scheduled moderation actions.
-    /// </summary>
+    /// <summary>List one page of scheduled moderation actions.</summary>
     /// <param name="statuses">Only actions in these statuses (see <see cref="ScheduledActionStatus"/>).</param>
     /// <param name="subjects">Only actions for these accounts (at most 100).</param>
     /// <param name="startsAfter">Only actions scheduled to run after this time.</param>
     /// <param name="endsBefore">Only actions scheduled to run before this time.</param>
     /// <param name="limit">Maximum number of actions (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<ListScheduledActionsResponse> ListScheduledActionsAsync(
         IEnumerable<string> statuses,
         IEnumerable<Did>? subjects = null,
@@ -448,15 +394,12 @@ public sealed class ModerationClient
             "tools.ozone.moderation.listScheduledActions", request, cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Enumerate every scheduled moderation action matching the filters, fetching pages as needed.
-    /// </summary>
+    /// <summary>Enumerate every scheduled moderation action matching the filters, fetching pages as needed.</summary>
     /// <param name="statuses">Only actions in these statuses (see <see cref="ScheduledActionStatus"/>).</param>
     /// <param name="subjects">Only actions for these accounts (at most 100).</param>
     /// <param name="startsAfter">Only actions scheduled to run after this time.</param>
     /// <param name="endsBefore">Only actions scheduled to run before this time.</param>
     /// <param name="pageSize">Actions per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<ScheduledActionView> EnumerateScheduledActionsAsync(
         IEnumerable<string> statuses,
         IEnumerable<Did>? subjects = null,
@@ -468,12 +411,9 @@ public sealed class ModerationClient
             (cursor, ct) => ListScheduledActionsAsync(statuses, subjects, startsAfter, endsBefore, pageSize, cursor, ct),
             cancellationToken);
 
-    /// <summary>
-    /// Cancel every pending scheduled action on several accounts.
-    /// </summary>
+    /// <summary>Cancel every pending scheduled action on several accounts.</summary>
     /// <param name="subjects">The accounts (at most 100).</param>
     /// <param name="comment">Why the actions are cancelled.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The accounts whose actions were cancelled, and those it failed for.</returns>
     public Task<CancellationResults> CancelScheduledActionsAsync(
         IEnumerable<Did> subjects,

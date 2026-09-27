@@ -1,8 +1,6 @@
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// Resolves a DID to its DID document.
-/// </summary>
+/// <summary>Resolves a DID to its DID document.</summary>
 /// <remarks>
 /// <para><see cref="DidResolver"/> fetches <c>did:plc</c> and <c>did:web</c> documents under the
 /// SDK's SSRF policy; <see cref="CachingDidResolver"/> caches any resolver. Implement this
@@ -14,20 +12,14 @@ namespace ATProtoNet.Identity;
 /// </remarks>
 public interface IDidResolver
 {
-    /// <summary>
-    /// Resolves a DID to its document, from a cache where the resolver keeps one.
-    /// </summary>
+    /// <summary>Resolves a DID to its document, from a cache where the resolver keeps one.</summary>
     /// <param name="did">The DID to resolve.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The document, whose <see cref="DidDocument.Id"/> is <paramref name="did"/>.</returns>
     /// <exception cref="DidResolutionException">Thrown when the DID cannot be resolved.</exception>
     Task<DidDocument> ResolveAsync(Did did, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Fetches a DID's document afresh, bypassing and then replacing any cached copy.
-    /// </summary>
+    /// <summary>Fetches a DID's document afresh, bypassing and then replacing any cached copy.</summary>
     /// <param name="did">The DID to resolve.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The document.</returns>
     /// <exception cref="DidResolutionException">Thrown when the DID cannot be resolved.</exception>
     /// <remarks>
@@ -38,11 +30,8 @@ public interface IDidResolver
     Task<DidDocument> RefreshAsync(Did did, CancellationToken cancellationToken = default) =>
         ResolveAsync(did, cancellationToken);
 
-    /// <summary>
-    /// Drops anything cached for a DID, so its next resolution fetches the document afresh.
-    /// </summary>
+    /// <summary>Drops anything cached for a DID, so its next resolution fetches the document afresh.</summary>
     /// <param name="did">The DID whose document changed.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <remarks>A resolver that caches nothing has nothing to drop.</remarks>
     Task InvalidateAsync(Did did, CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
@@ -57,11 +46,7 @@ public interface IDidResolver
 /// </remarks>
 public interface IHandleResolver
 {
-    /// <summary>
-    /// Resolves a handle to a DID.
-    /// </summary>
-    /// <param name="handle">The handle.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <summary>Resolves a handle to a DID.</summary>
     /// <returns>The DID, or <see langword="null"/> when no authority answered with one.</returns>
     /// <exception cref="DidResolutionException">
     /// Thrown with <see cref="DidResolutionErrorKind.HandleConflict"/> when the authorities
@@ -70,9 +55,7 @@ public interface IHandleResolver
     Task<Did?> ResolveAsync(Handle handle, CancellationToken cancellationToken = default);
 }
 
-/// <summary>
-/// Resolves an account identifier, a DID or a handle, to a verified identity.
-/// </summary>
+/// <summary>Resolves an account identifier, a DID or a handle, to a verified identity.</summary>
 public interface IIdentityResolver
 {
     /// <summary>
@@ -80,7 +63,6 @@ public interface IIdentityResolver
     /// handle and its PDS.
     /// </summary>
     /// <param name="identifier">A DID or a handle.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The identity.</returns>
     /// <exception cref="DidResolutionException">
     /// Thrown when the DID cannot be resolved, or a handle identifier resolves to no DID
@@ -92,8 +74,6 @@ public interface IIdentityResolver
     /// Resolves a DID as <see cref="ResolveAsync"/> does, but from a DID document fetched afresh:
     /// no cached copy, however recent, is used, and the fetched one replaces it.
     /// </summary>
-    /// <param name="did">The DID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The identity.</returns>
     /// <exception cref="DidResolutionException">Thrown when the DID cannot be resolved.</exception>
     /// <remarks>
@@ -106,9 +86,7 @@ public interface IIdentityResolver
         ResolveAsync(AtIdentifier.FromDid(did), cancellationToken);
 }
 
-/// <summary>
-/// An account identity, resolved and checked in both directions.
-/// </summary>
+/// <summary>An account identity, resolved and checked in both directions.</summary>
 /// <param name="Did">The account's DID.</param>
 /// <param name="Handle">
 /// The handle: the verified one when <paramref name="HandleVerified"/>, otherwise

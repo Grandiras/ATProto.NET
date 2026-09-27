@@ -4,9 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ATProtoNet.Server.EntityFrameworkCore;
 
-/// <summary>
-/// Extension methods for registering the EF Core-backed AT Protocol session store.
-/// </summary>
+/// <summary>Extension methods for registering the EF Core-backed AT Protocol session store.</summary>
 public static class AtProtoTokenStoreExtensions
 {
     /// <summary>

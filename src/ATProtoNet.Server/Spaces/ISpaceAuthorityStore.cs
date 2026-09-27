@@ -4,9 +4,7 @@ using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>
-/// A service registered to receive a space's write notifications.
-/// </summary>
+/// <summary>A service registered to receive a space's write notifications.</summary>
 /// <param name="Service">
 /// The service identifier, a DID with an optional fragment naming the entry in its DID document
 /// to deliver to (e.g. <c>did:web:syncer.example.com#atproto_space_syncer</c>).
@@ -34,32 +32,22 @@ public sealed record SpaceNotifySubscriber(string Service, DateTimeOffset Expire
 /// </remarks>
 public interface ISpaceAuthorityStore
 {
-    /// <summary>
-    /// Reports whether a space exists, and whether it has been deleted.
-    /// </summary>
-    /// <param name="space">The space.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <summary>Reports whether a space exists, and whether it has been deleted.</summary>
     Task<SpaceAccessOutcome> GetSpaceStateAsync(SpaceUri space, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Lists the accounts that hold data in a space — the sync boundary, not an access-control
     /// list.
     /// </summary>
-    /// <param name="space">The space.</param>
     /// <param name="limit">Maximum number of results.</param>
     /// <param name="cursor">Pagination cursor from a previous page.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     Task<ListSpaceReposResponse> ListReposAsync(
         SpaceUri space, int limit, string? cursor, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Records that a repo advanced, so <c>listRepos</c> reflects it.
-    /// </summary>
-    /// <param name="space">The space.</param>
+    /// <summary>Records that a repo advanced, so <c>listRepos</c> reflects it.</summary>
     /// <param name="repoDid">The DID of the account whose repo advanced.</param>
     /// <param name="rev">The revision of the write.</param>
     /// <param name="hash">The repo's commit hash after the write.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <remarks>
     /// This is also how an account joins the writer set: the first notification for a repo adds
     /// it, since the set is defined as the accounts that have written at least one record.
@@ -71,34 +59,22 @@ public interface ISpaceAuthorityStore
     /// Registers a service to receive a space's write notifications, or renews an existing
     /// registration.
     /// </summary>
-    /// <param name="space">The space.</param>
     /// <param name="service">The subscriber's service identifier.</param>
     /// <param name="expiresAt">When the registration lapses.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     Task RegisterNotifyAsync(
         SpaceUri space, string service, DateTimeOffset expiresAt, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Removes a notification registration. Idempotent.
-    /// </summary>
-    /// <param name="space">The space.</param>
+    /// <summary>Removes a notification registration. Idempotent.</summary>
     /// <param name="service">The subscriber's service identifier.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     Task UnregisterNotifyAsync(SpaceUri space, string service, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Lists the services currently registered for a space's notifications.
-    /// </summary>
-    /// <param name="space">The space.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <summary>Lists the services currently registered for a space's notifications.</summary>
     /// <returns>The subscribers whose registrations have not lapsed.</returns>
     Task<IReadOnlyList<SpaceNotifySubscriber>> ListSubscribersAsync(
         SpaceUri space, CancellationToken cancellationToken = default);
 }
 
-/// <summary>
-/// The reads a <em>repo host</em> serves for the permissioned repos it holds.
-/// </summary>
+/// <summary>The reads a <em>repo host</em> serves for the permissioned repos it holds.</summary>
 /// <remarks>
 /// <para>Every method here is reached with a space credential the authority issued, verified by
 /// <see cref="SpaceCredentialVerifier"/> before the call. A repo host does not re-evaluate the
@@ -110,51 +86,35 @@ public interface ISpaceAuthorityStore
 /// </remarks>
 public interface ISpaceRepoHost
 {
-    /// <summary>
-    /// Reads one record.
-    /// </summary>
-    /// <param name="space">The space.</param>
+    /// <summary>Reads one record.</summary>
     /// <param name="repoDid">The DID of the account whose repo to read.</param>
     /// <param name="collection">The record collection NSID.</param>
     /// <param name="rkey">The record key.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The record, or <see langword="null"/> when there is none at that path.</returns>
     Task<GetSpaceRecordResponse?> GetRecordAsync(
         SpaceUri space, Did repoDid, Nsid collection, RecordKey rkey,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Lists the records in an account's repo within a space.
-    /// </summary>
-    /// <param name="space">The space.</param>
+    /// <summary>Lists the records in an account's repo within a space.</summary>
     /// <param name="repoDid">The DID of the account whose repo to list.</param>
     /// <param name="collection">Restrict to one collection, or <see langword="null"/> for all.</param>
     /// <param name="reverse">Reverse the order of the returned records.</param>
     /// <param name="excludeValues">Return only metadata.</param>
     /// <param name="limit">Maximum number of results.</param>
     /// <param name="cursor">Pagination cursor.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     Task<ListSpaceRecordsResponse> ListRecordsAsync(
         SpaceUri space, Did repoDid, Nsid? collection, bool reverse, bool excludeValues, int limit,
         string? cursor, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Returns an account's current signed commit for a space.
-    /// </summary>
-    /// <param name="space">The space.</param>
+    /// <summary>Returns an account's current signed commit for a space.</summary>
     /// <param name="repoDid">The DID of the account.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The commit, or <see langword="null"/> when the account holds no repo here.</returns>
     Task<SignedSpaceCommit?> GetLatestCommitAsync(
         SpaceUri space, Did repoDid, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Serializes an account's whole permissioned repo as a CAR, for full-state recovery.
-    /// </summary>
-    /// <param name="space">The space.</param>
+    /// <summary>Serializes an account's whole permissioned repo as a CAR, for full-state recovery.</summary>
     /// <param name="repoDid">The DID of the account.</param>
     /// <param name="excludeValues">Write only the commit and index roots, with no record blocks.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The CAR bytes, or <see langword="null"/> when the account holds no repo here.</returns>
     /// <remarks>
     /// Build the CAR with <see cref="SpaceRepoCar.Serialize"/>; its two-root layout is what lets
@@ -163,16 +123,12 @@ public interface ISpaceRepoHost
     Task<Stream?> GetRepoAsync(
         SpaceUri space, Did repoDid, bool excludeValues, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Returns a page of an account's operation log for a space.
-    /// </summary>
-    /// <param name="space">The space.</param>
+    /// <summary>Returns a page of an account's operation log for a space.</summary>
     /// <param name="repoDid">The DID of the account.</param>
     /// <param name="since">Return operations after this revision.</param>
     /// <param name="excludeValues">Return operation metadata only.</param>
     /// <param name="limit">Maximum number of operations.</param>
     /// <param name="cursor">Opaque pagination cursor; takes precedence over <paramref name="since"/>.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The page, or <see langword="null"/> when the account holds no repo here.</returns>
     /// <remarks>
     /// The oplog is a transport optimization, not a committed data structure: a host may compact
@@ -185,26 +141,18 @@ public interface ISpaceRepoHost
         SpaceUri space, Did repoDid, Tid? since, bool excludeValues, int limit, string? cursor,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Lists the CIDs of blobs referenced by an account's records within a space.
-    /// </summary>
-    /// <param name="space">The space.</param>
+    /// <summary>Lists the CIDs of blobs referenced by an account's records within a space.</summary>
     /// <param name="repoDid">The DID of the account.</param>
     /// <param name="since">List blobs referenced since this revision.</param>
     /// <param name="limit">Maximum number of results.</param>
     /// <param name="cursor">Pagination cursor.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     Task<ListSpaceBlobsResponse> ListBlobsAsync(
         SpaceUri space, Did repoDid, Tid? since, int limit, string? cursor,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Reads a blob referenced from a record in a space.
-    /// </summary>
-    /// <param name="space">The space.</param>
+    /// <summary>Reads a blob referenced from a record in a space.</summary>
     /// <param name="repoDid">The DID of the account whose repo references the blob.</param>
     /// <param name="cid">The blob's CID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The blob, or <see langword="null"/> when the repo does not reference it in this space.</returns>
     /// <remarks>
     /// The reference check is the access check. A blob is not uploaded through this namespace —
@@ -216,9 +164,7 @@ public interface ISpaceRepoHost
         SpaceUri space, Did repoDid, Cid cid, CancellationToken cancellationToken = default);
 }
 
-/// <summary>
-/// A blob served from a permissioned repo.
-/// </summary>
+/// <summary>A blob served from a permissioned repo.</summary>
 /// <param name="Content">The blob bytes. The routing disposes the stream after writing it.</param>
 /// <param name="MimeType">The blob's MIME type, as recorded when it was uploaded.</param>
 /// <param name="Length">The blob's length when known.</param>

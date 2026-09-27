@@ -77,9 +77,7 @@ public sealed class TapClient : IDisposable
     private readonly string? _authorization;
     private readonly DuplexStreamConnector _connector;
 
-    /// <summary>
-    /// Creates a client.
-    /// </summary>
+    /// <summary>Creates a client.</summary>
     /// <param name="serviceUrl">The Tap instance's base URL, e.g. <c>http://localhost:2480</c>.</param>
     /// <param name="adminPassword">The instance's admin password, if it has one.</param>
     public TapClient(Uri serviceUrl, string? adminPassword = null)
@@ -87,10 +85,7 @@ public sealed class TapClient : IDisposable
     {
     }
 
-    /// <summary>
-    /// Creates a client.
-    /// </summary>
-    /// <param name="options">The options.</param>
+    /// <summary>Creates a client.</summary>
     /// <exception cref="ArgumentException">The URL is not an absolute http(s) URL.</exception>
     public TapClient(TapClientOptions options)
         : this(options, StreamSocket.DuplexConnector)
@@ -132,7 +127,6 @@ public sealed class TapClient : IDisposable
     /// streams its live events. Adding one already tracked changes nothing.
     /// </summary>
     /// <param name="dids">The repositories.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="TapException">Tap refused the request.</exception>
     public Task AddReposAsync(IEnumerable<Did> dids, CancellationToken cancellationToken = default) =>
         PostDidsAsync("/repos/add", dids, "add repos", cancellationToken);
@@ -142,16 +136,11 @@ public sealed class TapClient : IDisposable
     /// Events already queued for delivery are still delivered.
     /// </summary>
     /// <param name="dids">The repositories.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="TapException">Tap refused the request.</exception>
     public Task RemoveReposAsync(IEnumerable<Did> dids, CancellationToken cancellationToken = default) =>
         PostDidsAsync("/repos/remove", dids, "remove repos", cancellationToken);
 
-    /// <summary>
-    /// Resolves a DID to its document through Tap's identity cache (<c>GET /resolve/:did</c>).
-    /// </summary>
-    /// <param name="did">The DID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <summary>Resolves a DID to its document through Tap's identity cache (<c>GET /resolve/:did</c>).</summary>
     /// <returns>The document, or null when the DID does not resolve.</returns>
     /// <exception cref="TapException">Tap failed the request.</exception>
     public async Task<DidDocument?> ResolveDidAsync(Did did, CancellationToken cancellationToken = default)
@@ -167,11 +156,8 @@ public sealed class TapClient : IDisposable
             json => json.Deserialize<DidDocument>(AtProtoJsonDefaults.Options), cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Reads what Tap knows about a repository it tracks (<c>GET /info/:did</c>).
-    /// </summary>
+    /// <summary>Reads what Tap knows about a repository it tracks (<c>GET /info/:did</c>).</summary>
     /// <param name="did">The repository.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The repository's state, revision and record count.</returns>
     /// <exception cref="TapException">
     /// Tap failed the request, or does not track the repository (<see cref="TapException.StatusCode"/> 404).
@@ -185,9 +171,7 @@ public sealed class TapClient : IDisposable
         return await ReadJsonAsync(response, "get repo info", TapRepoInfo.Read, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Opens a channel: Tap's <c>/channel</c> WebSocket, which delivers events to acknowledge.
-    /// </summary>
+    /// <summary>Opens a channel: Tap's <c>/channel</c> WebSocket, which delivers events to acknowledge.</summary>
     /// <remarks>
     /// Several channels may be open at once; Tap shares events out among them, keeping each
     /// repository's events in order.
@@ -266,7 +250,9 @@ public sealed class TapClient : IDisposable
     {
         try
         {
+            #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
             await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            #pragma warning restore CA2007
             using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
             return read(document.RootElement.Clone()) ?? throw new TapException($"Failed to {what}: Tap answered null.", response.StatusCode);
         }
@@ -335,9 +321,7 @@ public sealed class TapChannel
     /// <summary>The channel's WebSocket URL.</summary>
     public Uri Endpoint => _endpoint;
 
-    /// <summary>
-    /// Reads events until the token is cancelled, reconnecting as the connection drops.
-    /// </summary>
+    /// <summary>Reads events until the token is cancelled, reconnecting as the connection drops.</summary>
     /// <param name="cancellationToken">Cancellation token; cancelling ends the enumeration normally.</param>
     /// <exception cref="EventStreamException">
     /// Tap refused the connection, or every reconnect attempt the policy allows failed.
@@ -435,11 +419,8 @@ public sealed class TapChannel
         }
     }
 
-    /// <summary>
-    /// Acknowledges an event, so Tap does not send it again: <c>{"type":"ack","id":…}</c>.
-    /// </summary>
+    /// <summary>Acknowledges an event, so Tap does not send it again: <c>{"type":"ack","id":…}</c>.</summary>
     /// <param name="evt">The event.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// A task that completes once the acknowledgement is sent, or queued for the next connection
     /// when there is none: not once Tap has processed it.
@@ -452,7 +433,6 @@ public sealed class TapChannel
 
     /// <summary>Acknowledges an event by its id.</summary>
     /// <param name="id">The event's <see cref="TapEvent.Id"/>.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// A task that completes once the acknowledgement is sent, or queued for the next connection.
     /// </returns>

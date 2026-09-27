@@ -11,9 +11,7 @@ namespace ATProtoNet.Repo;
 /// </summary>
 public static class DagCborDecoder
 {
-    /// <summary>
-    /// Decodes DRISL-CBOR bytes into a <see cref="JsonElement"/>.
-    /// </summary>
+    /// <summary>Decodes DRISL-CBOR bytes into a <see cref="JsonElement"/>.</summary>
     /// <param name="data">The CBOR-encoded bytes.</param>
     /// <returns>The decoded JSON element using AT Protocol conventions.</returns>
     /// <exception cref="FormatException">
@@ -43,9 +41,7 @@ public static class DagCborDecoder
         return JsonElement.ParseValue(ref jsonReader);
     }
 
-    /// <summary>
-    /// Validates that the given bytes are valid DRISL-CBOR per AT Protocol rules.
-    /// </summary>
+    /// <summary>Validates that the given bytes are valid DRISL-CBOR per AT Protocol rules.</summary>
     /// <param name="data">The CBOR-encoded bytes.</param>
     /// <param name="error">The validation error, if any.</param>
     /// <returns><c>true</c> if valid; otherwise <c>false</c>.</returns>

@@ -1,17 +1,12 @@
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using ATProtoNet.Identity;
 using ATProtoNet.Models;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Video;
 
-// ──────────────────────────────────────────────────────────────
-//  Job status
-// ──────────────────────────────────────────────────────────────
+// ── Job status ───────────────────────────────────────────────
 
-/// <summary>
-/// The processing status of a video upload job.
-/// </summary>
+/// <summary>The processing status of a video upload job.</summary>
 public sealed class JobStatus : LexObject
 {
     /// <summary>The identifier of the processing job.</summary>
@@ -47,9 +42,7 @@ public sealed class JobStatus : LexObject
     public string? Message { get; init; }
 }
 
-/// <summary>
-/// Well-known job state constants.
-/// </summary>
+/// <summary>Well-known job state constants.</summary>
 public static class JobState
 {
     /// <summary>The <c>JOB_STATE_CREATED</c> video processing job state.</summary>
@@ -80,9 +73,7 @@ public static class JobState
     public const string Failed = "JOB_STATE_FAILED";
 }
 
-/// <summary>
-/// Known values of <see cref="JobStatus.FailureCode"/>.
-/// </summary>
+/// <summary>Known values of <see cref="JobStatus.FailureCode"/>.</summary>
 public static class JobFailureCode
 {
     /// <summary>The upload is not a valid video, or breaks a limit.</summary>
@@ -101,13 +92,9 @@ public static class JobFailureCode
     public const string GenericFailure = "generic_failure";
 }
 
-// ──────────────────────────────────────────────────────────────
-//  API responses
-// ──────────────────────────────────────────────────────────────
+// ── API responses ────────────────────────────────────────────
 
-/// <summary>
-/// Response from getJobStatus.
-/// </summary>
+/// <summary>Response from getJobStatus.</summary>
 public sealed class GetJobStatusResponse
 {
     /// <summary>The status of the processing job.</summary>
@@ -115,9 +102,7 @@ public sealed class GetJobStatusResponse
     public required JobStatus JobStatus { get; init; }
 }
 
-/// <summary>
-/// Response from uploadVideo.
-/// </summary>
+/// <summary>Response from uploadVideo.</summary>
 public sealed class UploadVideoResponse
 {
     /// <summary>The status of the processing job.</summary>
@@ -125,13 +110,9 @@ public sealed class UploadVideoResponse
     public required JobStatus JobStatus { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Multipart upload
-// ──────────────────────────────────────────────────────────────
+// ── Multipart upload ─────────────────────────────────────────
 
-/// <summary>
-/// Request body for startUpload.
-/// </summary>
+/// <summary>Request body for startUpload.</summary>
 internal sealed class StartUploadRequest
 {
     /// <summary>The exact size of the whole video, in bytes.</summary>
@@ -159,9 +140,7 @@ internal sealed class StartUploadRequest
     public int? Height { get; init; }
 }
 
-/// <summary>
-/// Response from startUpload: how to split the video, and until when the session is open.
-/// </summary>
+/// <summary>Response from startUpload: how to split the video, and until when the session is open.</summary>
 public sealed class StartUploadResponse
 {
     /// <summary>The upload session's identifier.</summary>
@@ -181,9 +160,7 @@ public sealed class StartUploadResponse
     public required AtDatetime ExpiresAt { get; init; }
 }
 
-/// <summary>
-/// Response from uploadPart.
-/// </summary>
+/// <summary>Response from uploadPart.</summary>
 public sealed class UploadPartResponse
 {
     /// <summary>The part that was stored.</summary>
@@ -195,9 +172,7 @@ public sealed class UploadPartResponse
     public required long SizeBytes { get; init; }
 }
 
-/// <summary>
-/// Request body for finishUpload.
-/// </summary>
+/// <summary>Request body for finishUpload.</summary>
 internal sealed class FinishUploadRequest
 {
     /// <summary>The upload session to finish.</summary>
@@ -205,9 +180,7 @@ internal sealed class FinishUploadRequest
     public required string JobId { get; init; }
 }
 
-/// <summary>
-/// Response from finishUpload.
-/// </summary>
+/// <summary>Response from finishUpload.</summary>
 public sealed class FinishUploadResponse
 {
     /// <summary>
@@ -223,9 +196,7 @@ public sealed class FinishUploadResponse
     public required JobStatus JobStatus { get; init; }
 }
 
-/// <summary>
-/// Response from getUploadStatus: the authoritative state of an upload session.
-/// </summary>
+/// <summary>Response from getUploadStatus: the authoritative state of an upload session.</summary>
 public sealed class GetUploadStatusResponse
 {
     /// <summary>The upload session's identifier.</summary>
@@ -265,9 +236,7 @@ public sealed class GetUploadStatusResponse
     public string? FailureReason { get; init; }
 }
 
-/// <summary>
-/// Request body for abortUpload.
-/// </summary>
+/// <summary>Request body for abortUpload.</summary>
 internal sealed class AbortUploadRequest
 {
     /// <summary>The upload session to abort.</summary>
@@ -294,9 +263,7 @@ public sealed class AbortUploadResponse
     public string? FailureReason { get; init; }
 }
 
-/// <summary>
-/// Known values of a multipart upload session's state (<see cref="GetUploadStatusResponse.State"/>).
-/// </summary>
+/// <summary>Known values of a multipart upload session's state (<see cref="GetUploadStatusResponse.State"/>).</summary>
 public static class UploadState
 {
     /// <summary>The session is open for parts.</summary>
@@ -376,9 +343,7 @@ public static class VideoErrors
     public const string MissingParts = "MissingParts";
 }
 
-/// <summary>
-/// Settings for <see cref="VideoClient.UploadVideoAsync"/>.
-/// </summary>
+/// <summary>Settings for <see cref="VideoClient.UploadVideoAsync"/>.</summary>
 public sealed record VideoUploadOptions
 {
     /// <summary>The settings used when none are passed.</summary>
@@ -446,15 +411,11 @@ public sealed class VideoUploadException : AtProtoException
     /// <summary>The processing job's final status, when the failure came from processing.</summary>
     public JobStatus? JobStatus { get; }
 
-    /// <summary>
-    /// Why processing failed (see <see cref="JobFailureCode"/>), when the service said so.
-    /// </summary>
+    /// <summary>Why processing failed (see <see cref="JobFailureCode"/>), when the service said so.</summary>
     public string? FailureCode => JobStatus?.FailureCode;
 }
 
-/// <summary>
-/// Response from getUploadLimits.
-/// </summary>
+/// <summary>Response from getUploadLimits.</summary>
 public sealed class GetUploadLimitsResponse
 {
     /// <summary>Whether the account may currently upload a video.</summary>

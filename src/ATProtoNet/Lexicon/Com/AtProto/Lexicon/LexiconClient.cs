@@ -3,9 +3,7 @@ using ATProtoNet.Identity;
 
 namespace ATProtoNet.Lexicon.Com.AtProto.Lexicon;
 
-/// <summary>
-/// Client for com.atproto.lexicon.* XRPC endpoints: Lexicon resolution delegated to a service.
-/// </summary>
+/// <summary>Client for com.atproto.lexicon.* XRPC endpoints: Lexicon resolution delegated to a service.</summary>
 /// <remarks>
 /// As an <see cref="ILexiconResolver"/> it trusts the service's answer, checking only that the
 /// schema is the one asked for. To resolve and verify locally, use <see cref="LexiconResolver"/>.
@@ -27,7 +25,6 @@ public sealed class LexiconClient : ILexiconResolver
     /// (<c>com.atproto.lexicon.resolveLexicon</c>).
     /// </summary>
     /// <param name="nsid">The NSID of the schema.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The schema record, its AT URI and its CID, as the service reports them.</returns>
     /// <exception cref="XrpcException">
     /// Thrown with <see cref="XrpcErrors.LexiconNotFound"/> when the service resolved no schema.

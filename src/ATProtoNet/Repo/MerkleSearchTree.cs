@@ -45,9 +45,7 @@ public sealed class MerkleSearchTree
     {
     }
 
-    /// <summary>
-    /// Creates an empty MST.
-    /// </summary>
+    /// <summary>Creates an empty MST.</summary>
     public static MerkleSearchTree Create() => new();
 
     /// <summary>
@@ -67,9 +65,7 @@ public sealed class MerkleSearchTree
         return tree;
     }
 
-    /// <summary>
-    /// Gets the record CID for a given key, or <c>null</c> if not found.
-    /// </summary>
+    /// <summary>Gets the record CID for a given key, or <c>null</c> if not found.</summary>
     /// <param name="key">The repo path (e.g., "app.bsky.feed.post/abc123").</param>
     /// <returns>The record CID bytes, or <c>null</c>.</returns>
     public byte[]? Get(string key)
@@ -78,18 +74,14 @@ public sealed class MerkleSearchTree
         return _entries.TryGetValue(key, out var leaf) ? leaf.Value : null;
     }
 
-    /// <summary>
-    /// Enumerates all key/value pairs in sorted order.
-    /// </summary>
+    /// <summary>Enumerates all key/value pairs in sorted order.</summary>
     public IEnumerable<KeyValuePair<string, byte[]>> GetEntries()
     {
         foreach (var (key, leaf) in _entries)
             yield return new KeyValuePair<string, byte[]>(key, leaf.Value);
     }
 
-    /// <summary>
-    /// Adds a new key/value pair. Throws if the key already exists.
-    /// </summary>
+    /// <summary>Adds a new key/value pair. Throws if the key already exists.</summary>
     /// <param name="key">The repo path.</param>
     /// <param name="value">The record CID bytes.</param>
     /// <exception cref="ArgumentException">The key is not a valid MST key, or already exists.</exception>
@@ -107,9 +99,7 @@ public sealed class MerkleSearchTree
         _loadedRoot = null;
     }
 
-    /// <summary>
-    /// Updates the value for an existing key. Throws if the key does not exist.
-    /// </summary>
+    /// <summary>Updates the value for an existing key. Throws if the key does not exist.</summary>
     /// <param name="key">The repo path.</param>
     /// <param name="value">The new record CID bytes.</param>
     /// <exception cref="KeyNotFoundException">Key not found.</exception>
@@ -125,9 +115,7 @@ public sealed class MerkleSearchTree
         _loadedRoot = null;
     }
 
-    /// <summary>
-    /// Removes a key/value pair. Throws if the key does not exist.
-    /// </summary>
+    /// <summary>Removes a key/value pair. Throws if the key does not exist.</summary>
     /// <param name="key">The repo path.</param>
     /// <exception cref="KeyNotFoundException">Key not found.</exception>
     public void Delete(string key)
@@ -140,14 +128,10 @@ public sealed class MerkleSearchTree
         _loadedRoot = null;
     }
 
-    /// <summary>
-    /// Checks whether a key exists in the tree.
-    /// </summary>
+    /// <summary>Checks whether a key exists in the tree.</summary>
     public bool ContainsKey(string key) => Get(key) is not null;
 
-    /// <summary>
-    /// Gets the total number of entries in the tree.
-    /// </summary>
+    /// <summary>Gets the total number of entries in the tree.</summary>
     public int Count => _entries.Count;
 
     /// <summary>
@@ -197,9 +181,7 @@ public sealed class MerkleSearchTree
         return (root.Cid, proof);
     }
 
-    /// <summary>
-    /// Deserializes an MST from a block store (CID → DAG-CBOR bytes mapping) starting from a root CID.
-    /// </summary>
+    /// <summary>Deserializes an MST from a block store (CID → DAG-CBOR bytes mapping) starting from a root CID.</summary>
     /// <param name="rootCid">The root node CID bytes.</param>
     /// <param name="blocks">Block lookup function (CID string → DAG-CBOR bytes).</param>
     /// <returns>The deserialized MST.</returns>
@@ -225,9 +207,7 @@ public sealed class MerkleSearchTree
         return tree;
     }
 
-    /// <summary>
-    /// Computes the root CID of the tree without materializing all blocks.
-    /// </summary>
+    /// <summary>Computes the root CID of the tree without materializing all blocks.</summary>
     public byte[] ComputeRootCid() => Build().Cid;
 
     /// <summary>

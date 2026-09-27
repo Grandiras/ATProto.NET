@@ -29,9 +29,7 @@ namespace ATProtoNet.Auth.OAuth;
 /// </remarks>
 public sealed class AuthorizationServerDiscovery : IDisposable
 {
-    /// <summary>
-    /// Default budget applied to each handle resolution round (5 seconds).
-    /// </summary>
+    /// <summary>Default budget applied to each handle resolution round (5 seconds).</summary>
     public static readonly TimeSpan DefaultHandleResolutionTimeout = TimeSpan.FromSeconds(5);
 
     /// <summary>How long a fetched metadata document is reused (5 minutes).</summary>
@@ -54,16 +52,13 @@ public sealed class AuthorizationServerDiscovery : IDisposable
     // The raw documents, not the deserialized models: those are mutable and handed to callers.
     private readonly ConcurrentDictionary<string, CachedDocument> _metadataCache = new(StringComparer.Ordinal);
 
-    /// <summary>
-    /// Creates a new discovery instance.
-    /// </summary>
+    /// <summary>Creates a new discovery instance.</summary>
     /// <param name="httpClient">
     /// The client the metadata requests go through, used as is and owned by the caller: the
     /// address check lives in the SDK's own handler, while the URL rules (HTTPS, no query or
     /// fragment) and the body cap still apply. Pass <see langword="null"/> to fetch under the
     /// SDK's identity fetch policy, as <see cref="OAuthClient"/> does by default.
     /// </param>
-    /// <param name="logger">Logger.</param>
     /// <param name="identityResolver">
     /// Resolves handles and DIDs. When omitted, one is created with
     /// <see cref="Identity.IdentityResolver.CreateDefault"/> and owned by this instance.
@@ -97,11 +92,8 @@ public sealed class AuthorizationServerDiscovery : IDisposable
     /// <summary>The clock the metadata cache expires by.</summary>
     internal TimeProvider TimeProvider { get; init; } = TimeProvider.System;
 
-    /// <summary>
-    /// Resolves an account identifier (handle or DID) to the PDS URL and Authorization Server metadata.
-    /// </summary>
+    /// <summary>Resolves an account identifier (handle or DID) to the PDS URL and Authorization Server metadata.</summary>
     /// <param name="identifier">A handle (e.g., "alice.bsky.social") or DID (e.g., "did:plc:...").</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The resolved PDS URL, Authorization Server metadata, and DID.</returns>
     /// <exception cref="OAuthException">
     /// Thrown when the identifier is malformed (<c>invalid_handle</c>, <c>invalid_did</c>), does not
@@ -114,14 +106,14 @@ public sealed class AuthorizationServerDiscovery : IDisposable
     {
         _logger.LogInformation("Resolving identity for OAuth: {Identifier}", identifier);
 
-        var identity = await ResolveIdentityAsync(ParseIdentifier(identifier), cancellationToken);
+        var identity = await ResolveIdentityAsync(ParseIdentifier(identifier), cancellationToken).ConfigureAwait(false);
         var pds = identity.PdsEndpoint
             ?? throw new OAuthException(
                 $"DID document for '{identity.Did}' does not contain an atproto PDS service.", "pds_not_found");
 
         _logger.LogDebug("Resolved {Identifier} to {Did} at PDS {PdsUrl}", identifier, identity.Did, pds);
 
-        var metadata = await ResolveAuthorizationServerAsync(pds.OriginalString, cancellationToken);
+        var metadata = await ResolveAuthorizationServerAsync(pds.OriginalString, cancellationToken).ConfigureAwait(false);
         return (pds.OriginalString, metadata, identity.Did.Value);
     }
 
@@ -143,7 +135,7 @@ public sealed class AuthorizationServerDiscovery : IDisposable
     {
         try
         {
-            return await resolution;
+            return await resolution.ConfigureAwait(false);
         }
         catch (DidResolutionException ex)
         {
@@ -186,7 +178,6 @@ public sealed class AuthorizationServerDiscovery : IDisposable
     /// Used when the user provides a PDS URL directly instead of a handle.
     /// </summary>
     /// <param name="pdsUrl">The PDS URL (e.g., "https://bsky.social").</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The Authorization Server metadata, validated.</returns>
     /// <exception cref="OAuthException">
     /// The PDS's protected-resource metadata names no usable authorization server or describes
@@ -207,8 +198,8 @@ public sealed class AuthorizationServerDiscovery : IDisposable
     internal async Task<AuthorizationServerMetadata> ResolveAuthorizationServerAsync(
         string pdsUrl, bool bypassCache, CancellationToken cancellationToken)
     {
-        var resource = await ResolveResourceAsync(pdsUrl, bypassCache, cancellationToken);
-        return await ResolveAuthorizationServerAsync(resource, bypassCache, cancellationToken);
+        var resource = await ResolveResourceAsync(pdsUrl, bypassCache, cancellationToken).ConfigureAwait(false);
+        return await ResolveAuthorizationServerAsync(resource, bypassCache, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -218,7 +209,7 @@ public sealed class AuthorizationServerDiscovery : IDisposable
     private async Task<AuthorizationServerMetadata> ResolveAuthorizationServerAsync(
         (string Resource, string Issuer) resource, bool bypassCache, CancellationToken cancellationToken)
     {
-        var metadata = await GetAuthorizationServerMetadataAsync(resource.Issuer, bypassCache, cancellationToken);
+        var metadata = await GetAuthorizationServerMetadataAsync(resource.Issuer, bypassCache, cancellationToken).ConfigureAwait(false);
 
         // RFC 9728 section 4: an authorization server that lists the resources it protects must
         // list this one.
@@ -247,7 +238,7 @@ public sealed class AuthorizationServerDiscovery : IDisposable
         (string Resource, string Issuer) resource;
         try
         {
-            resource = await ResolveResourceAsync(serverUrl, bypassCache: false, cancellationToken);
+            resource = await ResolveResourceAsync(serverUrl, bypassCache: false, cancellationToken).ConfigureAwait(false);
         }
         catch (OAuthException ex) when (ex.Error != "invalid_server_url")
         {
@@ -255,7 +246,7 @@ public sealed class AuthorizationServerDiscovery : IDisposable
 
             try
             {
-                return await GetAuthorizationServerMetadataAsync(NormalizeUrl(serverUrl), bypassCache: false, cancellationToken);
+                return await GetAuthorizationServerMetadataAsync(NormalizeUrl(serverUrl), bypassCache: false, cancellationToken).ConfigureAwait(false);
             }
             catch (OAuthException)
             {
@@ -265,7 +256,7 @@ public sealed class AuthorizationServerDiscovery : IDisposable
             throw;
         }
 
-        return await ResolveAuthorizationServerAsync(resource, bypassCache: false, cancellationToken);
+        return await ResolveAuthorizationServerAsync(resource, bypassCache: false, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -277,7 +268,7 @@ public sealed class AuthorizationServerDiscovery : IDisposable
         string issuer, bool bypassCache, CancellationToken cancellationToken)
     {
         var metadata = await FetchMetadataAsync<AuthorizationServerMetadata>(
-            issuer, ".well-known/oauth-authorization-server", bypassCache, cancellationToken);
+            issuer, ".well-known/oauth-authorization-server", bypassCache, cancellationToken).ConfigureAwait(false);
         ValidateAuthorizationServerMetadata(metadata, issuer);
         return metadata;
     }
@@ -291,7 +282,7 @@ public sealed class AuthorizationServerDiscovery : IDisposable
         string pdsUrl, bool bypassCache, CancellationToken cancellationToken)
     {
         var resourceMetadata = await FetchMetadataAsync<ProtectedResourceMetadata>(
-            pdsUrl, ".well-known/oauth-protected-resource", bypassCache, cancellationToken);
+            pdsUrl, ".well-known/oauth-protected-resource", bypassCache, cancellationToken).ConfigureAwait(false);
 
         // RFC 9728 section 3.3: the metadata must be about the resource it was fetched for, or a
         // server could vouch for someone else's PDS.
@@ -329,9 +320,7 @@ public sealed class AuthorizationServerDiscovery : IDisposable
         return (resourceMetadata.Resource!, issuer);
     }
 
-    /// <summary>
-    /// Fetches the Protected Resource metadata from a PDS, without validating it.
-    /// </summary>
+    /// <summary>Fetches the Protected Resource metadata from a PDS, without validating it.</summary>
     /// <exception cref="OAuthException">
     /// Thrown when the URL is refused (<c>invalid_server_url</c>), the request fails
     /// (<c>metadata_fetch_failed</c>) or the answer is not metadata (<c>invalid_metadata</c>).
@@ -340,9 +329,7 @@ public sealed class AuthorizationServerDiscovery : IDisposable
         string pdsUrl, CancellationToken cancellationToken = default) =>
         FetchMetadataAsync<ProtectedResourceMetadata>(pdsUrl, ".well-known/oauth-protected-resource", bypassCache: false, cancellationToken);
 
-    /// <summary>
-    /// Fetches the Authorization Server metadata, without validating it.
-    /// </summary>
+    /// <summary>Fetches the Authorization Server metadata, without validating it.</summary>
     /// <exception cref="OAuthException">
     /// Thrown when the URL is refused (<c>invalid_server_url</c>), the request fails
     /// (<c>metadata_fetch_failed</c>) or the answer is not metadata (<c>invalid_metadata</c>).
@@ -366,7 +353,7 @@ public sealed class AuthorizationServerDiscovery : IDisposable
         }
 
         var url = new Uri(baseUrl, wellKnown);
-        var body = await GetMetadataDocumentAsync(url, bypassCache, cancellationToken);
+        var body = await GetMetadataDocumentAsync(url, bypassCache, cancellationToken).ConfigureAwait(false);
 
         try
         {
@@ -395,7 +382,7 @@ public sealed class AuthorizationServerDiscovery : IDisposable
         try
         {
             result = await IdentityFetch.GetAsync(
-                _metadataClient, url, "application/json", MaxMetadataBytes, MetadataTimeout, did: null, cancellationToken);
+                _metadataClient, url, "application/json", MaxMetadataBytes, MetadataTimeout, did: null, cancellationToken).ConfigureAwait(false);
         }
         catch (DidResolutionException ex)
         {
@@ -557,9 +544,7 @@ public sealed class AuthorizationServerDiscovery : IDisposable
     private readonly record struct CachedDocument(ReadOnlyMemory<byte> Body, DateTimeOffset ExpiresAt);
 }
 
-/// <summary>
-/// Exception thrown for OAuth-specific errors.
-/// </summary>
+/// <summary>Exception thrown for OAuth-specific errors.</summary>
 public sealed class OAuthException : AtProtoException
 {
     /// <summary>
@@ -569,9 +554,7 @@ public sealed class OAuthException : AtProtoException
     /// </summary>
     public string Error { get; }
 
-    /// <summary>
-    /// Creates a new OAuth exception.
-    /// </summary>
+    /// <summary>Creates a new OAuth exception.</summary>
     /// <param name="message">A description of what went wrong.</param>
     /// <param name="error">The error code.</param>
     public OAuthException(string message, string error)
@@ -580,9 +563,7 @@ public sealed class OAuthException : AtProtoException
         Error = error;
     }
 
-    /// <summary>
-    /// Creates a new OAuth exception with an inner exception.
-    /// </summary>
+    /// <summary>Creates a new OAuth exception with an inner exception.</summary>
     /// <param name="message">A description of what went wrong.</param>
     /// <param name="error">The error code.</param>
     /// <param name="innerException">The underlying cause.</param>

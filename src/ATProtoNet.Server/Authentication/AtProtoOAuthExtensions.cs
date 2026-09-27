@@ -234,7 +234,7 @@ public static class AtProtoOAuthExtensions
                     handle,
                     OAuthLoginBinding.IsLocalUrl(returnUrl) ? returnUrl : null,
                     string.IsNullOrWhiteSpace(pdsUrl) ? null : pdsUrl,
-                    cancellationToken);
+                    cancellationToken).ConfigureAwait(false);
 
                 return Results.Redirect(authorizationUrl);
             }
@@ -274,7 +274,7 @@ public static class AtProtoOAuthExtensions
 
             try
             {
-                var result = await oauthService.CompleteCallbackAsync(context, code, state, iss, cancellationToken);
+                var result = await oauthService.CompleteCallbackAsync(context, code, state, iss, cancellationToken).ConfigureAwait(false);
                 return Results.Redirect(result.RedirectUrl);
             }
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
@@ -294,7 +294,7 @@ public static class AtProtoOAuthExtensions
             CancellationToken cancellationToken) =>
         {
             var code = context.Request.Query["code"].ToString();
-            var returnUrl = await oauthService.TryRedeemRelayCodeAsync(context, code, cancellationToken);
+            var returnUrl = await oauthService.TryRedeemRelayCodeAsync(context, code, cancellationToken).ConfigureAwait(false);
 
             if (returnUrl is not null)
                 return Results.Redirect(returnUrl);
@@ -310,7 +310,7 @@ public static class AtProtoOAuthExtensions
             AtProtoOAuthService oauthService,
             CancellationToken cancellationToken) =>
         {
-            var redirectUrl = await oauthService.LogoutAsync(context, cancellationToken);
+            var redirectUrl = await oauthService.LogoutAsync(context, cancellationToken).ConfigureAwait(false);
             return Results.Redirect(redirectUrl);
         })
         .ExcludeFromDescription();

@@ -122,14 +122,10 @@ public sealed class RecordCollection<T> where T : class
         Collection = collection;
     }
 
-    /// <summary>
-    /// The NSID of the collection (e.g., "com.example.todo.item").
-    /// </summary>
+    /// <summary>The NSID of the collection (e.g., "com.example.todo.item").</summary>
     public Nsid Collection { get; }
 
-    /// <summary>
-    /// Create a new record in this collection.
-    /// </summary>
+    /// <summary>Create a new record in this collection.</summary>
     /// <param name="record">
     /// The record data to store. An <see cref="AtProtoRecord"/> whose
     /// <see cref="AtProtoRecord.CreatedAt"/> is <see langword="null"/> has it set to the current
@@ -137,7 +133,6 @@ public sealed class RecordCollection<T> where T : class
     /// </param>
     /// <param name="rkey">Optional record key. If not specified, the server generates a TID.</param>
     /// <param name="validate">Whether to validate against the Lexicon schema on the server.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A reference containing the AT URI, CID, and parsed record key.</returns>
     /// <exception cref="XrpcAuthenticationException">No session is installed.</exception>
     public Task<RecordRef> CreateAsync(
@@ -157,12 +152,9 @@ public sealed class RecordCollection<T> where T : class
             cancellationToken: cancellationToken);
     }
 
-    /// <summary>
-    /// Get a record by its record key.
-    /// </summary>
+    /// <summary>Get a record by its record key.</summary>
     /// <param name="rkey">The record key.</param>
     /// <param name="cid">Optional CID for a specific version.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The deserialized record with metadata.</returns>
     /// <exception cref="XrpcException">
     /// The service refused the call; <see cref="XrpcErrors.RecordNotFound"/> when there is no such
@@ -174,13 +166,10 @@ public sealed class RecordCollection<T> where T : class
         CancellationToken cancellationToken = default) =>
         GetFromAsync(_client.RequireDid(), rkey, cid, cancellationToken);
 
-    /// <summary>
-    /// Get a record from any user's repository by DID and record key.
-    /// </summary>
+    /// <summary>Get a record from any user's repository by DID and record key.</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
     /// <param name="rkey">The record key.</param>
     /// <param name="cid">Optional CID for a specific version.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcException">
     /// The service refused the call; <see cref="XrpcErrors.RecordNotFound"/> when there is no such
     /// record (see <see cref="FindFromAsync"/>).
@@ -192,12 +181,9 @@ public sealed class RecordCollection<T> where T : class
         CancellationToken cancellationToken = default) =>
         _client.Repo.GetRecordAsync<T>(repo, Collection, rkey, cid, cancellationToken);
 
-    /// <summary>
-    /// Get a record by its record key, or <see langword="null"/> when there is none.
-    /// </summary>
+    /// <summary>Get a record by its record key, or <see langword="null"/> when there is none.</summary>
     /// <param name="rkey">The record key.</param>
     /// <param name="cid">Optional CID for a specific version.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The record, or <see langword="null"/> on <see cref="XrpcErrors.RecordNotFound"/>.</returns>
     /// <exception cref="XrpcException">
     /// Any other refusal, such as a malformed key or a missing repository: only the named error
@@ -209,13 +195,10 @@ public sealed class RecordCollection<T> where T : class
         CancellationToken cancellationToken = default) =>
         FindFromAsync(_client.RequireDid(), rkey, cid, cancellationToken);
 
-    /// <summary>
-    /// Get a record from any user's repository, or <see langword="null"/> when there is none.
-    /// </summary>
+    /// <summary>Get a record from any user's repository, or <see langword="null"/> when there is none.</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
     /// <param name="rkey">The record key.</param>
     /// <param name="cid">Optional CID for a specific version.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The record, or <see langword="null"/> on <see cref="XrpcErrors.RecordNotFound"/>.</returns>
     /// <exception cref="XrpcException">
     /// Any other refusal, such as a malformed key or a missing repository: only the named error
@@ -229,7 +212,7 @@ public sealed class RecordCollection<T> where T : class
     {
         try
         {
-            return await GetFromAsync(repo, rkey, cid, cancellationToken);
+            return await GetFromAsync(repo, rkey, cid, cancellationToken).ConfigureAwait(false);
         }
         catch (XrpcException ex) when (ex.Is(XrpcErrors.RecordNotFound))
         {
@@ -237,14 +220,11 @@ public sealed class RecordCollection<T> where T : class
         }
     }
 
-    /// <summary>
-    /// Create or update a record at a specific record key (upsert).
-    /// </summary>
+    /// <summary>Create or update a record at a specific record key (upsert).</summary>
     /// <param name="rkey">The record key.</param>
     /// <param name="record">The record data, written as it is.</param>
     /// <param name="validate">Whether to validate against the Lexicon schema.</param>
     /// <param name="swapRecord">Optional CAS: the CID of the existing record to swap.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcAuthenticationException">No session is installed.</exception>
     public Task<RecordRef> PutAsync(
         RecordKey rkey,
@@ -256,12 +236,9 @@ public sealed class RecordCollection<T> where T : class
             _client.RequireDid(), Collection, rkey, record, validate, swapRecord,
             cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// Delete a record by its record key.
-    /// </summary>
+    /// <summary>Delete a record by its record key.</summary>
     /// <param name="rkey">The record key.</param>
     /// <param name="swapRecord">Optional CAS: the CID of the record version to delete.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcAuthenticationException">No session is installed.</exception>
     public Task DeleteAsync(
         RecordKey rkey,
@@ -271,13 +248,10 @@ public sealed class RecordCollection<T> where T : class
             _client.RequireDid(), Collection, rkey, swapRecord,
             cancellationToken: cancellationToken);
 
-    /// <summary>
-    /// List one page of records in this collection.
-    /// </summary>
+    /// <summary>List one page of records in this collection.</summary>
     /// <param name="reverse">Whether to reverse the sort order.</param>
     /// <param name="limit">Maximum number of records per page (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcResponseFormatException">A record on the page is not a valid <typeparamref name="T"/>.</exception>
     public Task<RecordPage<T>> ListAsync(
         bool? reverse = null,
@@ -286,14 +260,11 @@ public sealed class RecordCollection<T> where T : class
         CancellationToken cancellationToken = default) =>
         ListFromAsync(_client.RequireDid(), reverse, limit, cursor, cancellationToken);
 
-    /// <summary>
-    /// List one page of records from any user's repository.
-    /// </summary>
+    /// <summary>List one page of records from any user's repository.</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
     /// <param name="reverse">Whether to reverse the sort order.</param>
     /// <param name="limit">Maximum number of records per page (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor from a previous response.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcResponseFormatException">A record on the page is not a valid <typeparamref name="T"/>.</exception>
     public Task<RecordPage<T>> ListFromAsync(
         AtIdentifier repo,
@@ -303,11 +274,8 @@ public sealed class RecordCollection<T> where T : class
         CancellationToken cancellationToken = default) =>
         _client.Repo.ListRecordsAsync<T>(repo, Collection, reverse, limit, cursor, cancellationToken);
 
-    /// <summary>
-    /// Enumerate every record in this collection, fetching pages as needed.
-    /// </summary>
+    /// <summary>Enumerate every record in this collection, fetching pages as needed.</summary>
     /// <param name="pageSize">Records per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<RecordView<T>> EnumerateAsync(
         int? pageSize = null,
         CancellationToken cancellationToken = default) =>
@@ -319,7 +287,6 @@ public sealed class RecordCollection<T> where T : class
     /// </summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
     /// <param name="pageSize">Records per request (1-100); <see langword="null"/> for the server default.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public IAsyncEnumerable<RecordView<T>> EnumerateFromAsync(
         AtIdentifier repo,
         int? pageSize = null,
@@ -333,12 +300,11 @@ public sealed class RecordCollection<T> where T : class
     /// <see langword="null"/>.
     /// </summary>
     /// <param name="rkey">The record key.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="XrpcException">
     /// Any refusal other than <see cref="XrpcErrors.RecordNotFound"/>, as for <see cref="FindAsync"/>.
     /// </exception>
     public async Task<bool> ExistsAsync(RecordKey rkey, CancellationToken cancellationToken = default) =>
-        await FindAsync(rkey, cancellationToken: cancellationToken) is not null;
+        await FindAsync(rkey, cancellationToken: cancellationToken).ConfigureAwait(false) is not null;
 }
 
 /// <summary>
@@ -388,9 +354,7 @@ public sealed record RecordRef
     public StrongRef ToStrongRef() => new() { Uri = Uri, Cid = Cid };
 }
 
-/// <summary>
-/// A record read from a repository: its AT URI, the CID of the version read, and its value.
-/// </summary>
+/// <summary>A record read from a repository: its AT URI, the CID of the version read, and its value.</summary>
 /// <typeparam name="T">The deserialized record type.</typeparam>
 public sealed record RecordView<T>
 {
@@ -422,9 +386,7 @@ public sealed record RecordView<T>
     public RecordKey RecordKey { get; }
 }
 
-/// <summary>
-/// A paginated page of records.
-/// </summary>
+/// <summary>A paginated page of records.</summary>
 /// <typeparam name="T">The deserialized record type.</typeparam>
 public sealed class RecordPage<T> : ICursorPage<RecordView<T>>
 {

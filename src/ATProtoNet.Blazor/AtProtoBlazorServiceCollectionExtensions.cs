@@ -3,9 +3,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace ATProtoNet.Blazor;
 
-/// <summary>
-/// Registers what the AT Protocol Blazor components need.
-/// </summary>
+/// <summary>Registers what the AT Protocol Blazor components need.</summary>
 public static class AtProtoBlazorServiceCollectionExtensions
 {
     /// <summary>

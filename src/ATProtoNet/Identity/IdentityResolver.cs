@@ -3,9 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// Resolves DIDs and handles to verified identities, checking a handle in both directions.
-/// </summary>
+/// <summary>Resolves DIDs and handles to verified identities, checking a handle in both directions.</summary>
 /// <remarks>
 /// <para>A handle is verified when the DID document claims it (<c>alsoKnownAs</c> lists
 /// <c>at://handle</c>) and the handle resolves back to that DID. Either half alone proves
@@ -22,9 +20,7 @@ public sealed class IdentityResolver : IIdentityResolver, IDisposable
     private readonly IDisposable[] _owned;
     private readonly ILogger _logger;
 
-    /// <summary>
-    /// Creates a resolver over the given DID and handle resolvers, which the caller owns.
-    /// </summary>
+    /// <summary>Creates a resolver over the given DID and handle resolvers, which the caller owns.</summary>
     /// <param name="didResolver">Resolves DIDs; a <see cref="CachingDidResolver"/> in most applications.</param>
     /// <param name="handleResolver">Resolves handles.</param>
     /// <param name="logger">Optional logger.</param>

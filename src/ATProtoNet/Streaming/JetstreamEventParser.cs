@@ -19,9 +19,7 @@ public static class JetstreamEventParser
 {
     private const string V2TypePrefix = "network.bsky.jetstream.subscribeEvents#";
 
-    /// <summary>
-    /// Parse a single Jetstream frame on the given wire protocol.
-    /// </summary>
+    /// <summary>Parse a single Jetstream frame on the given wire protocol.</summary>
     /// <param name="json">The UTF-8 JSON payload of one WebSocket message. It is read in place,
     /// and the result keeps no reference to it.</param>
     /// <param name="protocol">The wire protocol the frame was received on.</param>
@@ -32,9 +30,7 @@ public static class JetstreamEventParser
     public static JetstreamFrame ParseFrame(ReadOnlyMemory<byte> json, JetstreamProtocol protocol)
         => Parse(json, protocol, out _);
 
-    /// <summary>
-    /// Parses a frame, and says why when it yields nothing.
-    /// </summary>
+    /// <summary>Parses a frame, and says why when it yields nothing.</summary>
     internal static JetstreamFrame Parse(ReadOnlyMemory<byte> json, JetstreamProtocol protocol, out StreamDropReason? dropped)
     {
         dropped = null;

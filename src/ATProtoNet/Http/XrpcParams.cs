@@ -9,9 +9,7 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Http;
 
-/// <summary>
-/// Accumulates XRPC query parameters in call order, formatted for the wire.
-/// </summary>
+/// <summary>Accumulates XRPC query parameters in call order, formatted for the wire.</summary>
 /// <remarks>
 /// <para>Null values are dropped. Booleans render as <c>true</c>/<c>false</c>, numbers in the
 /// invariant culture, timestamps as ISO 8601 in UTC with millisecond precision (the form

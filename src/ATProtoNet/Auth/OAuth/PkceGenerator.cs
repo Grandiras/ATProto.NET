@@ -10,9 +10,7 @@ namespace ATProtoNet.Auth.OAuth;
 /// </summary>
 public static class PkceGenerator
 {
-    /// <summary>
-    /// Generates a new PKCE code verifier (43–128 characters of URL-safe random bytes).
-    /// </summary>
+    /// <summary>Generates a new PKCE code verifier (43–128 characters of URL-safe random bytes).</summary>
     public static string GenerateCodeVerifier()
     {
         // Generate 32 random bytes → 43 base64url characters
@@ -32,9 +30,7 @@ public static class PkceGenerator
         return Base64Url.EncodeToString(hash);
     }
 
-    /// <summary>
-    /// Generates a random state parameter for OAuth authorization requests.
-    /// </summary>
+    /// <summary>Generates a random state parameter for OAuth authorization requests.</summary>
     public static string GenerateState()
     {
         var bytes = RandomNumberGenerator.GetBytes(32);

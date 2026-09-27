@@ -227,9 +227,7 @@ public sealed class ModEventMuteReporter : ModEventType
     [JsonPropertyName("comment")]
     public string? Comment { get; init; }
 
-    /// <summary>
-    /// How long the mute lasts, in hours; <see langword="null"/> (or 0) for a permanent mute.
-    /// </summary>
+    /// <summary>How long the mute lasts, in hours; <see langword="null"/> (or 0) for a permanent mute.</summary>
     [JsonPropertyName("durationInHours")]
     public int? DurationInHours { get; init; }
 }
@@ -278,9 +276,7 @@ public sealed class ModEventEmail : ModEventType
     public bool? IsDelivered { get; init; }
 }
 
-/// <summary>
-/// A moderation event that diverts the subject's blobs to a separate review service.
-/// </summary>
+/// <summary>A moderation event that diverts the subject's blobs to a separate review service.</summary>
 public sealed class ModEventDivert : ModEventType
 {
     /// <summary>A free-text moderator comment.</summary>
@@ -316,9 +312,7 @@ public sealed class ModEventResolveAppeal : ModEventType
     public string? Comment { get; init; }
 }
 
-/// <summary>
-/// A moderation event that sets the subject's priority score, which orders the review queue.
-/// </summary>
+/// <summary>A moderation event that sets the subject's priority score, which orders the review queue.</summary>
 public sealed class ModEventPriorityScore : ModEventType
 {
     /// <summary>A free-text moderator comment.</summary>
@@ -386,9 +380,7 @@ public sealed class IdentityEvent : ModEventType
     public required AtDatetime Timestamp { get; init; }
 }
 
-/// <summary>
-/// A write to the subject record, which Ozone records as it arrives from the network.
-/// </summary>
+/// <summary>A write to the subject record, which Ozone records as it arrives from the network.</summary>
 public sealed class RecordEvent : ModEventType
 {
     /// <summary>A free-text comment.</summary>
@@ -423,9 +415,7 @@ public sealed class AgeAssuranceEvent : ModEventType
     [JsonPropertyName("status")]
     public required string Status { get; init; }
 
-    /// <summary>
-    /// The access level the flow granted: <c>unknown</c>, <c>none</c>, <c>safe</c> or <c>full</c>.
-    /// </summary>
+    /// <summary>The access level the flow granted: <c>unknown</c>, <c>none</c>, <c>safe</c> or <c>full</c>.</summary>
     [JsonPropertyName("access")]
     public string? Access { get; init; }
 
@@ -464,9 +454,7 @@ public sealed class AgeAssuranceOverrideEvent : ModEventType
     [JsonPropertyName("status")]
     public required string Status { get; init; }
 
-    /// <summary>
-    /// The access level to grant: <c>unknown</c>, <c>none</c>, <c>safe</c> or <c>full</c>.
-    /// </summary>
+    /// <summary>The access level to grant: <c>unknown</c>, <c>none</c>, <c>safe</c> or <c>full</c>.</summary>
     [JsonPropertyName("access")]
     public string? Access { get; init; }
 
@@ -491,9 +479,7 @@ public sealed class RevokeAccountCredentialsEvent : ModEventType
     public required string Comment { get; init; }
 }
 
-/// <summary>
-/// A takedown was scheduled for the account (see <see cref="ModerationClient.ScheduleActionAsync"/>).
-/// </summary>
+/// <summary>A takedown was scheduled for the account (see <see cref="ModerationClient.ScheduleActionAsync"/>).</summary>
 public sealed class ScheduleTakedownEvent : ModEventType
 {
     /// <summary>A free-text moderator comment.</summary>
@@ -523,9 +509,7 @@ public sealed class CancelScheduledTakedownEvent : ModEventType
 
 // ─── View Models ───
 
-/// <summary>
-/// A moderation event record as returned by the API.
-/// </summary>
+/// <summary>A moderation event record as returned by the API.</summary>
 public sealed class ModEventView : LexObject
 {
     /// <summary>The identifier of the event.</summary>
@@ -565,9 +549,7 @@ public sealed class ModEventView : LexObject
     public ModTool? ModTool { get; init; }
 }
 
-/// <summary>
-/// Moderation event detail view with subject/event metadata.
-/// </summary>
+/// <summary>Moderation event detail view with subject/event metadata.</summary>
 public sealed class ModEventViewDetail : LexObject
 {
     /// <summary>The identifier of the event.</summary>
@@ -599,9 +581,7 @@ public sealed class ModEventViewDetail : LexObject
     public ModTool? ModTool { get; init; }
 }
 
-/// <summary>
-/// The tool a moderation event was emitted with (<c>tools.ozone.moderation.defs#modTool</c>).
-/// </summary>
+/// <summary>The tool a moderation event was emitted with (<c>tools.ozone.moderation.defs#modTool</c>).</summary>
 public sealed class ModTool : LexObject
 {
     /// <summary>The tool's name, such as <c>automod/1.1.3</c> or <c>ozone/workspace</c>.</summary>
@@ -613,9 +593,7 @@ public sealed class ModTool : LexObject
     public JsonElement? Meta { get; init; }
 }
 
-/// <summary>
-/// A subject's moderation status, from queryStatuses.
-/// </summary>
+/// <summary>A subject's moderation status, from queryStatuses.</summary>
 public sealed class SubjectStatusView : LexObject
 {
     /// <summary>The identifier of the subject status record.</summary>
@@ -690,9 +668,7 @@ public sealed class SubjectStatusView : LexObject
     [JsonPropertyName("tags")]
     public IReadOnlyList<string>? Tags { get; init; }
 
-    /// <summary>
-    /// The subject's hosting status: an <see cref="AccountHosting"/> or a <see cref="RecordHosting"/>.
-    /// </summary>
+    /// <summary>The subject's hosting status: an <see cref="AccountHosting"/> or a <see cref="RecordHosting"/>.</summary>
     [JsonPropertyName("hosting")]
     public SubjectHosting? Hosting { get; init; }
 
@@ -807,9 +783,7 @@ public sealed class RecordHosting : SubjectHosting
     public AtDatetime? DeletedAt { get; init; }
 }
 
-/// <summary>
-/// Moderation statistics about an account (<c>tools.ozone.moderation.defs#accountStats</c>).
-/// </summary>
+/// <summary>Moderation statistics about an account (<c>tools.ozone.moderation.defs#accountStats</c>).</summary>
 public sealed class AccountStats : LexObject
 {
     /// <summary>The number of reports on the account.</summary>
@@ -872,9 +846,7 @@ public sealed class RecordsStats : LexObject
     public int? TakendownCount { get; init; }
 }
 
-/// <summary>
-/// An account's strikes (<c>tools.ozone.moderation.defs#accountStrike</c>).
-/// </summary>
+/// <summary>An account's strikes (<c>tools.ozone.moderation.defs#accountStrike</c>).</summary>
 public sealed class AccountStrike : LexObject
 {
     /// <summary>The strikes that have not expired.</summary>
@@ -947,9 +919,7 @@ public sealed class RecordViewNotFound : ModerationSubjectView
     public required AtUri Uri { get; init; }
 }
 
-/// <summary>
-/// Record view with moderation context.
-/// </summary>
+/// <summary>Record view with moderation context.</summary>
 public sealed class RecordViewDetail : ModerationSubjectView
 {
     /// <summary>The AT-URI of the record (<c>at://did/collection/rkey</c>).</summary>
@@ -985,9 +955,7 @@ public sealed class RecordViewDetail : ModerationSubjectView
     public required RepoView Repo { get; init; }
 }
 
-/// <summary>
-/// A blob with its moderation context (<c>tools.ozone.moderation.defs#blobView</c>).
-/// </summary>
+/// <summary>A blob with its moderation context (<c>tools.ozone.moderation.defs#blobView</c>).</summary>
 public sealed class BlobView : LexObject
 {
     /// <summary>The blob's CID.</summary>
@@ -1006,9 +974,7 @@ public sealed class BlobView : LexObject
     [JsonPropertyName("createdAt")]
     public required AtDatetime CreatedAt { get; init; }
 
-    /// <summary>
-    /// Media details: an <see cref="ImageDetails"/> or a <see cref="VideoDetails"/>.
-    /// </summary>
+    /// <summary>Media details: an <see cref="ImageDetails"/> or a <see cref="VideoDetails"/>.</summary>
     [JsonPropertyName("details")]
     public BlobDetails? Details { get; init; }
 
@@ -1077,9 +1043,7 @@ public sealed class VideoDetails : BlobDetails
     public required int Length { get; init; }
 }
 
-/// <summary>
-/// Moderation detail attached to a record or repo view.
-/// </summary>
+/// <summary>Moderation detail attached to a record or repo view.</summary>
 public sealed class ModerationDetail : LexObject
 {
     /// <summary>The current moderation status of the subject.</summary>
@@ -1087,9 +1051,7 @@ public sealed class ModerationDetail : LexObject
     public SubjectStatusView? SubjectStatus { get; init; }
 }
 
-/// <summary>
-/// Repo/account view with moderation context.
-/// </summary>
+/// <summary>Repo/account view with moderation context.</summary>
 public sealed class RepoView : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -1104,9 +1066,7 @@ public sealed class RepoView : LexObject
     [JsonPropertyName("email")]
     public string? Email { get; init; }
 
-    /// <summary>
-    /// Selected records from the repository (such as the profile record) included for convenience.
-    /// </summary>
+    /// <summary>Selected records from the repository (such as the profile record) included for convenience.</summary>
     [JsonPropertyName("relatedRecords")]
     public IReadOnlyList<JsonElement>? RelatedRecords { get; init; }
 
@@ -1134,16 +1094,12 @@ public sealed class RepoView : LexObject
     [JsonPropertyName("deactivatedAt")]
     public AtDatetime? DeactivatedAt { get; init; }
 
-    /// <summary>
-    /// Signals correlating this account with others (such as a shared IP or device).
-    /// </summary>
+    /// <summary>Signals correlating this account with others (such as a shared IP or device).</summary>
     [JsonPropertyName("threatSignatures")]
     public IReadOnlyList<JsonElement>? ThreatSignatures { get; init; }
 }
 
-/// <summary>
-/// Repo view detail with additional fields.
-/// </summary>
+/// <summary>Repo view detail with additional fields.</summary>
 public sealed class RepoViewDetail : ModerationSubjectView
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -1158,9 +1114,7 @@ public sealed class RepoViewDetail : ModerationSubjectView
     [JsonPropertyName("email")]
     public string? Email { get; init; }
 
-    /// <summary>
-    /// Selected records from the repository (such as the profile record) included for convenience.
-    /// </summary>
+    /// <summary>Selected records from the repository (such as the profile record) included for convenience.</summary>
     [JsonPropertyName("relatedRecords")]
     public IReadOnlyList<JsonElement>? RelatedRecords { get; init; }
 
@@ -1200,9 +1154,7 @@ public sealed class RepoViewDetail : ModerationSubjectView
     [JsonPropertyName("deactivatedAt")]
     public AtDatetime? DeactivatedAt { get; init; }
 
-    /// <summary>
-    /// Signals correlating this account with others (such as a shared IP or device).
-    /// </summary>
+    /// <summary>Signals correlating this account with others (such as a shared IP or device).</summary>
     [JsonPropertyName("threatSignatures")]
     public IReadOnlyList<JsonElement>? ThreatSignatures { get; init; }
 }
@@ -1241,9 +1193,7 @@ public sealed class SubjectView : LexObject
     public RecordViewDetail? Record { get; init; }
 }
 
-/// <summary>
-/// How an account's reports turned out (<c>tools.ozone.moderation.defs#reporterStats</c>).
-/// </summary>
+/// <summary>How an account's reports turned out (<c>tools.ozone.moderation.defs#reporterStats</c>).</summary>
 public sealed class ReporterStats : LexObject
 {
     /// <summary>The reporter's DID.</summary>
@@ -1572,17 +1522,13 @@ public sealed class FailedCancellation : LexObject
 
 // ─── Subject review state constants ───
 
-/// <summary>
-/// Review state constants for moderation subjects.
-/// </summary>
+/// <summary>Review state constants for moderation subjects.</summary>
 public static class SubjectReviewState
 {
     /// <summary>The <c>tools.ozone.moderation.defs#reviewOpen</c> subject review state.</summary>
     public const string Open = "tools.ozone.moderation.defs#reviewOpen";
 
-    /// <summary>
-    /// The <c>tools.ozone.moderation.defs#reviewEscalated</c> subject review state.
-    /// </summary>
+    /// <summary>The <c>tools.ozone.moderation.defs#reviewEscalated</c> subject review state.</summary>
     public const string Escalated = "tools.ozone.moderation.defs#reviewEscalated";
 
     /// <summary>The <c>tools.ozone.moderation.defs#reviewClosed</c> subject review state.</summary>
@@ -1594,9 +1540,7 @@ public static class SubjectReviewState
 
 // ─── Request / Response Models ───
 
-/// <summary>
-/// Request body for tools.ozone.moderation.emitEvent.
-/// </summary>
+/// <summary>Request body for tools.ozone.moderation.emitEvent.</summary>
 public sealed class EmitEventRequest
 {
     /// <summary>The moderation event to emit.</summary>
@@ -1654,9 +1598,7 @@ public sealed class ReportAction : LexObject
     public string? Note { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.moderation.queryEvents.
-/// </summary>
+/// <summary>Response from tools.ozone.moderation.queryEvents.</summary>
 public sealed class QueryEventsResponse : ICursorPage<ModEventView>
 {
     /// <summary>
@@ -1673,9 +1615,7 @@ public sealed class QueryEventsResponse : ICursorPage<ModEventView>
     IReadOnlyList<ModEventView> ICursorPage<ModEventView>.Items => Events;
 }
 
-/// <summary>
-/// Response from tools.ozone.moderation.queryStatuses (the review queue).
-/// </summary>
+/// <summary>Response from tools.ozone.moderation.queryStatuses (the review queue).</summary>
 public sealed class QueryStatusesResponse : ICursorPage<SubjectStatusView>
 {
     /// <summary>
@@ -1703,9 +1643,7 @@ public sealed class SubjectStatusFilter
     /// <summary>Only this subject: an account's DID, or a record's AT URI.</summary>
     public string? Subject { get; init; }
 
-    /// <summary>
-    /// With an account <see cref="Subject"/>, also the statuses of the account's records.
-    /// </summary>
+    /// <summary>With an account <see cref="Subject"/>, also the statuses of the account's records.</summary>
     public bool? IncludeAllUserRecords { get; init; }
 
     /// <summary>Only subjects of this kind: <c>account</c>, <c>record</c> or <c>conversation</c>.</summary>
@@ -1850,9 +1788,7 @@ public sealed class SubjectStatusFilter
         .Add("queueSeed", QueueSeed);
 }
 
-/// <summary>
-/// Response from tools.ozone.moderation.searchRepos.
-/// </summary>
+/// <summary>Response from tools.ozone.moderation.searchRepos.</summary>
 public sealed class SearchReposResponse : ICursorPage<RepoView>
 {
     /// <summary>
@@ -1869,9 +1805,7 @@ public sealed class SearchReposResponse : ICursorPage<RepoView>
     IReadOnlyList<RepoView> ICursorPage<RepoView>.Items => Repos;
 }
 
-/// <summary>
-/// Response from tools.ozone.moderation.getAccountPreferences.
-/// </summary>
+/// <summary>Response from tools.ozone.moderation.getAccountPreferences.</summary>
 public sealed class GetAccountPreferencesResponse
 {
     /// <summary>The account's private app preferences, one object per kind.</summary>
@@ -1879,9 +1813,7 @@ public sealed class GetAccountPreferencesResponse
     public required IReadOnlyList<Preference> Preferences { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.moderation.getRepos.
-/// </summary>
+/// <summary>Response from tools.ozone.moderation.getRepos.</summary>
 public sealed class GetReposResponse
 {
     /// <summary>
@@ -1892,9 +1824,7 @@ public sealed class GetReposResponse
     public required IReadOnlyList<ModerationSubjectView> Repos { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.moderation.getRecords.
-/// </summary>
+/// <summary>Response from tools.ozone.moderation.getRecords.</summary>
 public sealed class GetRecordsResponse
 {
     /// <summary>
@@ -1905,9 +1835,7 @@ public sealed class GetRecordsResponse
     public required IReadOnlyList<ModerationSubjectView> Records { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.moderation.getSubjects.
-/// </summary>
+/// <summary>Response from tools.ozone.moderation.getSubjects.</summary>
 public sealed class GetSubjectsResponse
 {
     /// <summary>The subjects.</summary>
@@ -1915,9 +1843,7 @@ public sealed class GetSubjectsResponse
     public required IReadOnlyList<SubjectView> Subjects { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.moderation.getAccountTimeline.
-/// </summary>
+/// <summary>Response from tools.ozone.moderation.getAccountTimeline.</summary>
 public sealed class GetAccountTimelineResponse
 {
     /// <summary>The account's history, one entry per day.</summary>
@@ -1925,9 +1851,7 @@ public sealed class GetAccountTimelineResponse
     public required IReadOnlyList<TimelineItem> Timeline { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.moderation.getReporterStats.
-/// </summary>
+/// <summary>Response from tools.ozone.moderation.getReporterStats.</summary>
 public sealed class GetReporterStatsResponse
 {
     /// <summary>The statistics, one entry per reporter.</summary>
@@ -1935,9 +1859,7 @@ public sealed class GetReporterStatsResponse
     public required IReadOnlyList<ReporterStats> Stats { get; init; }
 }
 
-/// <summary>
-/// Request body for tools.ozone.moderation.scheduleAction.
-/// </summary>
+/// <summary>Request body for tools.ozone.moderation.scheduleAction.</summary>
 internal sealed class ScheduleActionRequest
 {
     /// <summary>The action to schedule.</summary>
@@ -1961,9 +1883,7 @@ internal sealed class ScheduleActionRequest
     public ModTool? ModTool { get; init; }
 }
 
-/// <summary>
-/// Request body for tools.ozone.moderation.listScheduledActions.
-/// </summary>
+/// <summary>Request body for tools.ozone.moderation.listScheduledActions.</summary>
 internal sealed class ListScheduledActionsRequest
 {
     /// <summary>Only actions scheduled to run after this time.</summary>
@@ -1991,9 +1911,7 @@ internal sealed class ListScheduledActionsRequest
     public string? Cursor { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.moderation.listScheduledActions.
-/// </summary>
+/// <summary>Response from tools.ozone.moderation.listScheduledActions.</summary>
 public sealed class ListScheduledActionsResponse : ICursorPage<ScheduledActionView>
 {
     /// <summary>The scheduled actions.</summary>
@@ -2010,9 +1928,7 @@ public sealed class ListScheduledActionsResponse : ICursorPage<ScheduledActionVi
     IReadOnlyList<ScheduledActionView> ICursorPage<ScheduledActionView>.Items => Actions;
 }
 
-/// <summary>
-/// Request body for tools.ozone.moderation.cancelScheduledActions.
-/// </summary>
+/// <summary>Request body for tools.ozone.moderation.cancelScheduledActions.</summary>
 internal sealed class CancelScheduledActionsRequest
 {
     /// <summary>The accounts whose pending actions to cancel.</summary>

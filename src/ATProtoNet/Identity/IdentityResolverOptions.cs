@@ -1,8 +1,6 @@
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// Configuration for the SDK's DID and handle resolvers.
-/// </summary>
+/// <summary>Configuration for the SDK's DID and handle resolvers.</summary>
 public sealed class IdentityResolverOptions
 {
     /// <summary>The PLC directory the SDK resolves <c>did:plc</c> against by default.</summary>
@@ -49,9 +47,7 @@ public sealed class IdentityResolverOptions
     /// <summary>The largest DID document accepted, in bytes. Defaults to 64 KiB.</summary>
     public int MaxDidDocumentBytes { get; set; } = 64 * 1024;
 
-    /// <summary>
-    /// The development opt-out from the identity fetch policy. Defaults to <see langword="false"/>.
-    /// </summary>
+    /// <summary>The development opt-out from the identity fetch policy. Defaults to <see langword="false"/>.</summary>
     /// <remarks>
     /// <para>By default every identity fetch is HTTPS-only, a <c>did:web</c> carries no port, and
     /// no connection reaches a loopback, private, link-local or CGNAT address, whatever name led
@@ -85,9 +81,7 @@ public sealed class IdentityResolverOptions
     }
 }
 
-/// <summary>
-/// Configuration for a <see cref="CachingDidResolver"/>.
-/// </summary>
+/// <summary>Configuration for a <see cref="CachingDidResolver"/>.</summary>
 /// <remarks>
 /// The defaults match the reference implementation's (<c>@atproto/identity</c>): a document is
 /// served as is for an hour, served while being refreshed in the background for up to a day,

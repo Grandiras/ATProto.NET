@@ -10,13 +10,9 @@ using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Lexicon.App.Bsky.Actor;
 
-// ──────────────────────────────────────────────────────────────
-//  Profile types
-// ──────────────────────────────────────────────────────────────
+// ── Profile types ────────────────────────────────────────────
 
-/// <summary>
-/// Detailed profile view (returned by getProfile).
-/// </summary>
+/// <summary>Detailed profile view (returned by getProfile).</summary>
 public sealed class ProfileViewDetailed : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -107,9 +103,7 @@ public sealed class ProfileViewDetailed : LexObject
     public JsonElement? Debug { get; init; }
 }
 
-/// <summary>
-/// Basic profile view (used in actor lists, follows, etc.).
-/// </summary>
+/// <summary>Basic profile view (used in actor lists, follows, etc.).</summary>
 public sealed class ProfileView : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -172,9 +166,7 @@ public sealed class ProfileView : LexObject
     public JsonElement? Debug { get; init; }
 }
 
-/// <summary>
-/// Minimal profile view (used inline in posts, etc.).
-/// </summary>
+/// <summary>Minimal profile view (used inline in posts, etc.).</summary>
 public sealed class ProfileViewBasic : LexObject
 {
     /// <summary>The DID (decentralized identifier) of the account.</summary>
@@ -229,9 +221,7 @@ public sealed class ProfileViewBasic : LexObject
     public JsonElement? Debug { get; init; }
 }
 
-/// <summary>
-/// Viewer relationship state between the authenticated user and a viewed actor.
-/// </summary>
+/// <summary>Viewer relationship state between the authenticated user and a viewed actor.</summary>
 public sealed class ViewerState : LexObject
 {
     /// <summary>
@@ -271,15 +261,11 @@ public sealed class ViewerState : LexObject
     [JsonPropertyName("blockingByList")]
     public ListViewBasic? BlockingByList { get; init; }
 
-    /// <summary>
-    /// The AT-URI of the viewer's follow record, if the viewer follows this actor.
-    /// </summary>
+    /// <summary>The AT-URI of the viewer's follow record, if the viewer follows this actor.</summary>
     [JsonPropertyName("following")]
     public AtUri? Following { get; init; }
 
-    /// <summary>
-    /// The AT-URI of the subject's follow record, if the subject follows the viewer.
-    /// </summary>
+    /// <summary>The AT-URI of the subject's follow record, if the subject follows the viewer.</summary>
     [JsonPropertyName("followedBy")]
     public AtUri? FollowedBy { get; init; }
 
@@ -295,9 +281,7 @@ public sealed class ViewerState : LexObject
     public ActivitySubscription? ActivitySubscription { get; init; }
 }
 
-/// <summary>
-/// Known followers between the viewer and the subject.
-/// </summary>
+/// <summary>Known followers between the viewer and the subject.</summary>
 public sealed class KnownFollowers : LexObject
 {
     /// <summary>The total number of known followers.</summary>
@@ -309,9 +293,7 @@ public sealed class KnownFollowers : LexObject
     public required IReadOnlyList<ProfileViewBasic> Followers { get; init; }
 }
 
-/// <summary>
-/// What an account has published or allows (<c>app.bsky.actor.defs#profileAssociated</c>).
-/// </summary>
+/// <summary>What an account has published or allows (<c>app.bsky.actor.defs#profileAssociated</c>).</summary>
 public sealed class ProfileAssociated : LexObject
 {
     /// <summary>The number of lists the account has created.</summary>
@@ -343,9 +325,7 @@ public sealed class ProfileAssociated : LexObject
     public ProfileAssociatedGerm? Germ { get; init; }
 }
 
-/// <summary>
-/// An account's chat settings (<c>app.bsky.actor.defs#profileAssociatedChat</c>).
-/// </summary>
+/// <summary>An account's chat settings (<c>app.bsky.actor.defs#profileAssociatedChat</c>).</summary>
 public sealed class ProfileAssociatedChat : LexObject
 {
     /// <summary>
@@ -363,9 +343,7 @@ public sealed class ProfileAssociatedChat : LexObject
     public string? AllowGroupInvites { get; init; }
 }
 
-/// <summary>
-/// An account's Germ DM declaration (<c>app.bsky.actor.defs#profileAssociatedGerm</c>).
-/// </summary>
+/// <summary>An account's Germ DM declaration (<c>app.bsky.actor.defs#profileAssociatedGerm</c>).</summary>
 public sealed class ProfileAssociatedGerm : LexObject
 {
     /// <summary>The URL that starts a Germ conversation with the account.</summary>
@@ -388,9 +366,7 @@ public sealed class ProfileAssociatedActivitySubscription : LexObject
     public required string AllowSubscriptions { get; init; }
 }
 
-/// <summary>
-/// An account's verification information (<c>app.bsky.actor.defs#verificationState</c>).
-/// </summary>
+/// <summary>An account's verification information (<c>app.bsky.actor.defs#verificationState</c>).</summary>
 public sealed class VerificationState : LexObject
 {
     /// <summary>
@@ -409,9 +385,7 @@ public sealed class VerificationState : LexObject
     public required string TrustedVerifierStatus { get; init; }
 }
 
-/// <summary>
-/// One verification of an account (<c>app.bsky.actor.defs#verificationView</c>).
-/// </summary>
+/// <summary>One verification of an account (<c>app.bsky.actor.defs#verificationView</c>).</summary>
 public sealed class VerificationView : LexObject
 {
     /// <summary>The account that issued the verification.</summary>
@@ -455,9 +429,7 @@ public static class VerificationStatus
     public const string None = "none";
 }
 
-/// <summary>
-/// An account's current status, such as being live (<c>app.bsky.actor.defs#statusView</c>).
-/// </summary>
+/// <summary>An account's current status, such as being live (<c>app.bsky.actor.defs#statusView</c>).</summary>
 public sealed class StatusView : LexObject
 {
     /// <summary>The AT-URI of the status record.</summary>
@@ -497,13 +469,9 @@ public sealed class StatusView : LexObject
     public bool? IsDisabled { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  getProfile / getProfiles
-// ──────────────────────────────────────────────────────────────
+// ── getProfile / getProfiles ─────────────────────────────────
 
-/// <summary>
-/// Response from getProfiles (batch profile lookup).
-/// </summary>
+/// <summary>Response from getProfiles (batch profile lookup).</summary>
 public sealed class GetProfilesResponse
 {
     /// <summary>The detailed profile views.</summary>
@@ -511,13 +479,9 @@ public sealed class GetProfilesResponse
     public required IReadOnlyList<ProfileViewDetailed> Profiles { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Preferences
-// ──────────────────────────────────────────────────────────────
+// ── Preferences ──────────────────────────────────────────────
 
-/// <summary>
-/// Response from getPreferences.
-/// </summary>
+/// <summary>Response from getPreferences.</summary>
 public sealed class GetPreferencesResponse
 {
     /// <summary>The account's preferences, one object per kind.</summary>
@@ -525,9 +489,7 @@ public sealed class GetPreferencesResponse
     public required IReadOnlyList<Preference> Preferences { get; init; }
 }
 
-/// <summary>
-/// Request for putPreferences.
-/// </summary>
+/// <summary>Request for putPreferences.</summary>
 internal sealed class PutPreferencesRequest
 {
     /// <summary>The account's preferences, one object per kind.</summary>
@@ -755,9 +717,7 @@ public sealed class MutedWord : LexObject
     [JsonPropertyName("targets")]
     public required IReadOnlyList<string> Targets { get; set; }
 
-    /// <summary>
-    /// Whose posts the word applies to: <c>all</c> (the default) or <c>exclude-following</c>.
-    /// </summary>
+    /// <summary>Whose posts the word applies to: <c>all</c> (the default) or <c>exclude-following</c>.</summary>
     [JsonPropertyName("actorTarget")]
     public string? ActorTarget { get; set; }
 
@@ -774,9 +734,7 @@ public sealed class HiddenPostsPreference : Preference
     public required IReadOnlyList<AtUri> Items { get; set; }
 }
 
-/// <summary>
-/// State specific to the Bluesky app (<c>#bskyAppStatePref</c>). Other apps should not use it.
-/// </summary>
+/// <summary>State specific to the Bluesky app (<c>#bskyAppStatePref</c>). Other apps should not use it.</summary>
 public sealed class BskyAppStatePreference : Preference
 {
     /// <summary>The progress guide the owner is going through, if any.</summary>
@@ -846,9 +804,7 @@ public sealed class LabelerPreferenceItem : LexObject
 /// </summary>
 public sealed class PostInteractionSettingsPreference : Preference
 {
-    /// <summary>
-    /// Who may reply. An empty list allows no one; <see langword="null"/> allows everyone.
-    /// </summary>
+    /// <summary>Who may reply. An empty list allows no one; <see langword="null"/> allows everyone.</summary>
     [JsonPropertyName("threadgateAllowRules")]
     public IReadOnlyList<ThreadgateRule>? ThreadgateAllowRules { get; set; }
 
@@ -877,13 +833,9 @@ public sealed class LiveEventPreferences : Preference
     public bool? HideAllFeeds { get; set; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Suggestions / Search
-// ──────────────────────────────────────────────────────────────
+// ── Suggestions / Search ─────────────────────────────────────
 
-/// <summary>
-/// Response from getSuggestions.
-/// </summary>
+/// <summary>Response from getSuggestions.</summary>
 public sealed class GetSuggestionsResponse : ICursorPage<ProfileView>
 {
     /// <summary>
@@ -897,18 +849,14 @@ public sealed class GetSuggestionsResponse : ICursorPage<ProfileView>
     [JsonPropertyName("actors")]
     public required IReadOnlyList<ProfileView> Actors { get; init; }
 
-    /// <summary>
-    /// The recommendation's identifier (a snowflake), for recommendation events.
-    /// </summary>
+    /// <summary>The recommendation's identifier (a snowflake), for recommendation events.</summary>
     [JsonPropertyName("recIdStr")]
     public string? RecIdStr { get; init; }
 
     IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Actors;
 }
 
-/// <summary>
-/// Response from searchActors.
-/// </summary>
+/// <summary>Response from searchActors.</summary>
 public sealed class SearchActorsResponse : ICursorPage<ProfileView>
 {
     /// <summary>
@@ -925,9 +873,7 @@ public sealed class SearchActorsResponse : ICursorPage<ProfileView>
     IReadOnlyList<ProfileView> ICursorPage<ProfileView>.Items => Actors;
 }
 
-/// <summary>
-/// Response from searchActorsTypeahead (autocomplete).
-/// </summary>
+/// <summary>Response from searchActorsTypeahead (autocomplete).</summary>
 public sealed class SearchActorsTypeaheadResponse
 {
     /// <summary>The actors.</summary>
@@ -935,13 +881,9 @@ public sealed class SearchActorsTypeaheadResponse
     public required IReadOnlyList<ProfileViewBasic> Actors { get; init; }
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Profile record (the actual repo record)
-// ──────────────────────────────────────────────────────────────
+// ── Profile record (the actual repo record) ──────────────────
 
-/// <summary>
-/// An actor profile record stored in the repo at app.bsky.actor.profile/self.
-/// </summary>
+/// <summary>An actor profile record stored in the repo at app.bsky.actor.profile/self.</summary>
 /// <remarks>
 /// The properties are settable so that <see cref="BlueskyClients.UpdateProfileAsync"/> can hand the
 /// current record to a callback that edits it in place. Setting a property to
@@ -1027,9 +969,7 @@ public sealed class StatusRecord : LexObject, IAtProtoRecord
     public required AtDatetime CreatedAt { get; init; }
 }
 
-/// <summary>
-/// Known values of <see cref="StatusRecord.Status"/> and <see cref="StatusView.Status"/>.
-/// </summary>
+/// <summary>Known values of <see cref="StatusRecord.Status"/> and <see cref="StatusView.Status"/>.</summary>
 public static class ActorStatus
 {
     /// <summary>The account is offering live content.</summary>
@@ -1045,9 +985,7 @@ public sealed class ContentVisibilityDeclarationRecord : LexObject, IAtProtoReco
     /// <summary>The collection records of this type are stored in (<c>app.bsky.actor.contentVisibilityDeclaration</c>).</summary>
     public static Nsid Collection { get; } = Nsid.Parse("app.bsky.actor.contentVisibilityDeclaration");
 
-    /// <summary>
-    /// The Lexicon type discriminator (<c>app.bsky.actor.contentVisibilityDeclaration</c>).
-    /// </summary>
+    /// <summary>The Lexicon type discriminator (<c>app.bsky.actor.contentVisibilityDeclaration</c>).</summary>
     [JsonPropertyName("$type")]
     public string Type => Collection;
 

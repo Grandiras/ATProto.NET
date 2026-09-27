@@ -43,9 +43,7 @@ public sealed class UrlRule : LexObject
     public required AtDatetime UpdatedAt { get; init; }
 }
 
-/// <summary>
-/// One change to the URL safety rules, from their audit log (<c>tools.ozone.safelink.defs#event</c>).
-/// </summary>
+/// <summary>One change to the URL safety rules, from their audit log (<c>tools.ozone.safelink.defs#event</c>).</summary>
 public sealed class SafelinkEvent : LexObject
 {
     /// <summary>The event's identifier.</summary>
@@ -85,9 +83,7 @@ public sealed class SafelinkEvent : LexObject
     public string? Comment { get; init; }
 }
 
-/// <summary>
-/// What a URL safety rule matches (<c>tools.ozone.safelink.defs#patternType</c>).
-/// </summary>
+/// <summary>What a URL safety rule matches (<c>tools.ozone.safelink.defs#patternType</c>).</summary>
 public static class SafelinkPatternType
 {
     /// <summary>Every URL on the domain.</summary>
@@ -113,9 +109,7 @@ public static class SafelinkActionType
     public const string Whitelist = "whitelist";
 }
 
-/// <summary>
-/// Why a URL safety rule exists (<c>tools.ozone.safelink.defs#reasonType</c>).
-/// </summary>
+/// <summary>Why a URL safety rule exists (<c>tools.ozone.safelink.defs#reasonType</c>).</summary>
 public static class SafelinkReasonType
 {
     /// <summary>Child sexual abuse material.</summary>
@@ -131,9 +125,7 @@ public static class SafelinkReasonType
     public const string None = "none";
 }
 
-/// <summary>
-/// The kinds of change in the URL safety audit log (<c>tools.ozone.safelink.defs#eventType</c>).
-/// </summary>
+/// <summary>The kinds of change in the URL safety audit log (<c>tools.ozone.safelink.defs#eventType</c>).</summary>
 public static class SafelinkEventType
 {
     /// <summary>A rule was added.</summary>
@@ -179,9 +171,7 @@ internal sealed class AddRuleRequest
     public Did? CreatedBy { get; init; }
 }
 
-/// <summary>
-/// Request body for tools.ozone.safelink.removeRule.
-/// </summary>
+/// <summary>Request body for tools.ozone.safelink.removeRule.</summary>
 internal sealed class RemoveRuleRequest
 {
     /// <summary>The URL or domain.</summary>
@@ -201,9 +191,7 @@ internal sealed class RemoveRuleRequest
     public Did? CreatedBy { get; init; }
 }
 
-/// <summary>
-/// Request body for tools.ozone.safelink.queryEvents.
-/// </summary>
+/// <summary>Request body for tools.ozone.safelink.queryEvents.</summary>
 internal sealed class QueryEventsRequest
 {
     /// <summary>Pagination cursor from a previous response.</summary>
@@ -227,9 +215,7 @@ internal sealed class QueryEventsRequest
     public string? SortDirection { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.safelink.queryEvents.
-/// </summary>
+/// <summary>Response from tools.ozone.safelink.queryEvents.</summary>
 public sealed class QueryEventsResponse : ICursorPage<SafelinkEvent>
 {
     /// <summary>
@@ -246,9 +232,7 @@ public sealed class QueryEventsResponse : ICursorPage<SafelinkEvent>
     IReadOnlyList<SafelinkEvent> ICursorPage<SafelinkEvent>.Items => Events;
 }
 
-/// <summary>
-/// Request body for tools.ozone.safelink.queryRules.
-/// </summary>
+/// <summary>Request body for tools.ozone.safelink.queryRules.</summary>
 internal sealed class QueryRulesRequest
 {
     /// <summary>Pagination cursor from a previous response.</summary>
@@ -284,9 +268,7 @@ internal sealed class QueryRulesRequest
     public string? SortDirection { get; init; }
 }
 
-/// <summary>
-/// Response from tools.ozone.safelink.queryRules.
-/// </summary>
+/// <summary>Response from tools.ozone.safelink.queryRules.</summary>
 public sealed class QueryRulesResponse : ICursorPage<UrlRule>
 {
     /// <summary>

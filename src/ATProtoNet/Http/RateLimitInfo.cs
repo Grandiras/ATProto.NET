@@ -1,8 +1,6 @@
 namespace ATProtoNet.Http;
 
-/// <summary>
-/// Rate limit information parsed from HTTP response headers.
-/// </summary>
+/// <summary>Rate limit information parsed from HTTP response headers.</summary>
 public sealed class RateLimitInfo
 {
     /// <summary>Maximum number of requests allowed per time window.</summary>

@@ -6,9 +6,7 @@ using ATProtoNet.Repo;
 
 namespace ATProtoNet.Streaming;
 
-/// <summary>
-/// Configures a <see cref="RepoSyncVerifier"/>.
-/// </summary>
+/// <summary>Configures a <see cref="RepoSyncVerifier"/>.</summary>
 public sealed class RepoSyncVerifierOptions
 {
     /// <summary>Where each repository's sync state is kept. Default: a new <see cref="InMemoryRepoSyncStateStore"/>.</summary>
@@ -88,9 +86,7 @@ public sealed class RepoSyncVerifier : IDisposable
     private readonly TimeSpan _maxClockSkew;
     private readonly Action<RepoSyncResult>? _onDesynchronized;
 
-    /// <summary>
-    /// Creates a verifier.
-    /// </summary>
+    /// <summary>Creates a verifier.</summary>
     /// <param name="options">The options. Defaults apply when omitted.</param>
     public RepoSyncVerifier(RepoSyncVerifierOptions? options = null)
     {
@@ -116,18 +112,14 @@ public sealed class RepoSyncVerifier : IDisposable
     /// freshly resolved key. Call it for every <c>#identity</c> event.
     /// </summary>
     /// <param name="did">The account whose identity changed.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public Task InvalidateIdentityAsync(Did did, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(did);
         return _didResolver.InvalidateAsync(did, cancellationToken);
     }
 
-    /// <summary>
-    /// Verifies a <c>#commit</c> event, and checks that it chains on the repository's state.
-    /// </summary>
+    /// <summary>Verifies a <c>#commit</c> event, and checks that it chains on the repository's state.</summary>
     /// <param name="commit">The event.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// The outcome. A <see cref="RepoSyncOutcome.Valid"/> commit's new state is not recorded until
     /// <see cref="ApplyAsync"/> is called for it, once the commit is processed, so a process that
@@ -185,11 +177,8 @@ public sealed class RepoSyncVerifier : IDisposable
         return new RepoSyncResult(RepoSyncOutcome.Valid, did, commit.Rev, data, next, null);
     }
 
-    /// <summary>
-    /// Verifies a <c>#sync</c> event, which asserts a repository's current commit.
-    /// </summary>
+    /// <summary>Verifies a <c>#sync</c> event, which asserts a repository's current commit.</summary>
     /// <param name="sync">The event.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// <see cref="RepoSyncOutcome.Valid"/> when the event confirms the tree already verified (or
     /// the repository has no state yet): record it with <see cref="ApplyAsync"/>.
@@ -233,7 +222,6 @@ public sealed class RepoSyncVerifier : IDisposable
     /// it once the event is processed; for any other outcome it does nothing.
     /// </summary>
     /// <param name="result">The result of verifying the event.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public ValueTask ApplyAsync(RepoSyncResult result, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(result);
@@ -612,9 +600,7 @@ public enum RepoSyncOutcome
     Desynchronized,
 }
 
-/// <summary>
-/// The outcome of verifying one <c>#commit</c> or <c>#sync</c> event with a <see cref="RepoSyncVerifier"/>.
-/// </summary>
+/// <summary>The outcome of verifying one <c>#commit</c> or <c>#sync</c> event with a <see cref="RepoSyncVerifier"/>.</summary>
 public sealed class RepoSyncResult
 {
     internal RepoSyncResult(RepoSyncOutcome outcome, Did did, Tid? rev, Cid? data, RepoSyncState? state, string? reason)

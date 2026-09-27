@@ -7,9 +7,7 @@ using Microsoft.Extensions.Options;
 
 namespace ATProtoNet.Server;
 
-/// <summary>
-/// Registers the AT Protocol services with dependency injection.
-/// </summary>
+/// <summary>Registers the AT Protocol services with dependency injection.</summary>
 public static class AtProtoServiceCollectionExtensions
 {
     /// <summary>

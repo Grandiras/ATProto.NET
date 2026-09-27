@@ -1,8 +1,6 @@
 namespace ATProtoNet.Identity;
 
-/// <summary>
-/// Resolves <c>did:plc</c> and <c>did:web</c> DIDs, dispatching on the method.
-/// </summary>
+/// <summary>Resolves <c>did:plc</c> and <c>did:web</c> DIDs, dispatching on the method.</summary>
 /// <remarks>
 /// <para>Nothing is cached: every call fetches. Wrap it in a <see cref="CachingDidResolver"/>
 /// wherever documents are resolved repeatedly, as signature verification does.</para>
@@ -15,9 +13,7 @@ public sealed class DidResolver : IDidResolver, IDisposable
     private readonly DidWebResolver _webResolver;
     private readonly bool _ownsResolvers;
 
-    /// <summary>
-    /// Creates a resolver with its own <see cref="PlcClient"/> and <see cref="DidWebResolver"/>.
-    /// </summary>
+    /// <summary>Creates a resolver with its own <see cref="PlcClient"/> and <see cref="DidWebResolver"/>.</summary>
     /// <param name="options">Resolver options. Defaults apply when omitted.</param>
     public DidResolver(IdentityResolverOptions? options = null)
     {
@@ -26,9 +22,7 @@ public sealed class DidResolver : IDidResolver, IDisposable
         _ownsResolvers = true;
     }
 
-    /// <summary>
-    /// Creates a resolver over existing method resolvers, which the caller owns.
-    /// </summary>
+    /// <summary>Creates a resolver over existing method resolvers, which the caller owns.</summary>
     /// <param name="plcClient">Resolves <c>did:plc</c>.</param>
     /// <param name="webResolver">Resolves <c>did:web</c>.</param>
     public DidResolver(PlcClient plcClient, DidWebResolver webResolver)
