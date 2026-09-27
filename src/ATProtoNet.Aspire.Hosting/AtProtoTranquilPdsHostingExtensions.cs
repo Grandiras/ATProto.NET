@@ -542,81 +542,6 @@ public static class AtProtoTranquilPdsHostingExtensions
         return builder;
     }
 
-    /// <summary>
-    /// Configures the PDS to use a specific PLC directory URL.
-    /// Default: <c>https://plc.directory</c>.
-    /// </summary>
-    /// <param name="builder">The PDS resource builder.</param>
-    /// <param name="plcUrl">The PLC directory URL.</param>
-    /// <returns>The resource builder for chaining.</returns>
-    public static IResourceBuilder<AtProtoTranquilPdsContainerResource> WithPlcUrl(
-        this IResourceBuilder<AtProtoTranquilPdsContainerResource> builder,
-        string plcUrl)
-    {
-        return builder.WithEnvironment("PLC_DIRECTORY_URL", plcUrl);
-    }
-
-    /// <summary>Configures the relay / crawler notification URLs for the PDS.</summary>
-    /// <param name="builder">The PDS resource builder.</param>
-    /// <param name="crawlers">A comma-separated list of relay URLs.</param>
-    /// <returns>The resource builder for chaining.</returns>
-    public static IResourceBuilder<AtProtoTranquilPdsContainerResource> WithCrawlers(
-        this IResourceBuilder<AtProtoTranquilPdsContainerResource> builder,
-        string crawlers)
-    {
-        return builder.WithEnvironment("CRAWLERS", crawlers);
-    }
-
-    /// <summary>Requires an invite code for signups.</summary>
-    /// <remarks>
-    /// Tranquil's own default is <c>true</c>; running locally,
-    /// <see cref="AddAtProtoTranquilPds"/> turns it off so the first account can be
-    /// created without one. Turning it back on means the first signup needs the bootstrap
-    /// code Tranquil writes to its log on an empty instance, which no program can read —
-    /// so create the administrator account first, then enable this.
-    /// </remarks>
-    /// <param name="builder">The PDS resource builder.</param>
-    /// <param name="required">Whether invite codes are required. Default: <c>true</c>.</param>
-    /// <returns>The resource builder for chaining.</returns>
-    public static IResourceBuilder<AtProtoTranquilPdsContainerResource> WithInviteCodeRequired(
-        this IResourceBuilder<AtProtoTranquilPdsContainerResource> builder,
-        bool required = true)
-    {
-        return builder.WithEnvironment("INVITE_CODE_REQUIRED", required ? "true" : "false");
-    }
-
-    /// <summary>
-    /// Sets the maximum blob upload size in bytes.
-    /// Tranquil's default is <c>10737418240</c> (10 GiB).
-    /// </summary>
-    /// <param name="builder">The PDS resource builder.</param>
-    /// <param name="maxBytes">The maximum blob size in bytes.</param>
-    /// <returns>The resource builder for chaining.</returns>
-    public static IResourceBuilder<AtProtoTranquilPdsContainerResource> WithBlobUploadLimit(
-        this IResourceBuilder<AtProtoTranquilPdsContainerResource> builder,
-        long maxBytes)
-    {
-        return builder.WithEnvironment("MAX_BLOB_SIZE", maxBytes.ToString());
-    }
-
-    /// <summary>Configures the moderation / report service URL and DID for the PDS.</summary>
-    /// <param name="builder">The PDS resource builder.</param>
-    /// <returns>The resource builder for chaining.</returns>
-    public static IResourceBuilder<AtProtoTranquilPdsContainerResource> WithReportService(
-        this IResourceBuilder<AtProtoTranquilPdsContainerResource> builder,
-        string reportServiceUrl,
-        string? reportServiceDid = null)
-    {
-        builder = builder.WithEnvironment("REPORT_SERVICE_URL", reportServiceUrl);
-
-        if (reportServiceDid is not null)
-        {
-            builder = builder.WithEnvironment("REPORT_SERVICE_DID", reportServiceDid);
-        }
-
-        return builder;
-    }
-
     /// <summary>Configures outgoing mail for the PDS, relayed through an SMTP smarthost.</summary>
     /// <remarks>
     /// With mail configured, accounts can verify an email address, which is what
@@ -681,7 +606,7 @@ public static class AtProtoTranquilPdsHostingExtensions
     /// </para>
     /// <para>
     /// Individual settings can also be overridden on their own — a later
-    /// <see cref="WithInviteCodeRequired"/> wins over the value this applies.
+    /// <see cref="AtProtoPdsHostingExtensions.WithInviteCodeRequired{T}"/> wins over the value this applies.
     /// </para>
     /// </remarks>
     /// <param name="builder">The PDS resource builder.</param>

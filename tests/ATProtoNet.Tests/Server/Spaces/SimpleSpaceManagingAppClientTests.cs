@@ -6,6 +6,7 @@ using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Spaces;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Server.Spaces;
 
@@ -23,7 +24,7 @@ public class SimpleSpaceManagingAppClientTests
 
     private static SpaceUri Space => SpaceUri.Parse($"at://{AuthorityDid}/space/com.atmoboards.forum/default");
 
-    private readonly RecordingHandler _handler = new();
+    private readonly HttpStub _handler = new HttpStub().Fallback("""{"authorized":true}""");
 
     private SimpleSpaceManagingAppClient CreateClient(
         string endpoint = "https://app.example.com", ISpaceAccountSigner? accountSigner = null, Did? serviceDid = null)
@@ -52,9 +53,9 @@ public class SimpleSpaceManagingAppClientTests
         Assert.True(await CreateClient().CheckUserAccessAsync(
             ManagingApp, Space, UserDid, SpaceAccessKind.Read, ClientId));
 
-        var query = ParseQuery(_handler.LastRequest!.RequestUri!);
+        var query = ParseQuery(_handler.Requests[^1].Uri);
         Assert.Equal("https://app.example.com/xrpc/com.atproto.simplespace.checkUserAccess",
-            _handler.LastRequest.RequestUri!.GetLeftPart(UriPartial.Path));
+            _handler.Requests[^1].Uri.GetLeftPart(UriPartial.Path));
         Assert.Equal(Space.Value, query["space"]);
         Assert.Equal(UserDid, query["user"]);
         Assert.Equal("read", query["access"]);
@@ -73,7 +74,7 @@ public class SimpleSpaceManagingAppClientTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => CreateClient(endpoint).CheckUserAccessAsync(
             ManagingApp, Space, UserDid, SpaceAccessKind.Read, ClientId));
 
-        Assert.Null(_handler.LastRequest);
+        Assert.Empty(_handler.Requests);
     }
 
     [Fact]
@@ -81,7 +82,7 @@ public class SimpleSpaceManagingAppClientTests
     {
         await CreateClient().CheckUserAccessAsync(ManagingApp, Space, UserDid, SpaceAccessKind.Write, ClientId);
 
-        var query = ParseQuery(_handler.LastRequest!.RequestUri!);
+        var query = ParseQuery(_handler.Requests[^1].Uri);
         Assert.Equal("write", query["access"]);
         Assert.False(query.ContainsKey("clientId"));
     }
@@ -92,7 +93,7 @@ public class SimpleSpaceManagingAppClientTests
         // A managing app verifies `aud` against its own service identifier, fragment and all.
         await CreateClient().CheckUserAccessAsync(ManagingApp, Space, UserDid, SpaceAccessKind.Read, null);
 
-        var claims = DecodePayload(_handler.LastRequest!.Headers.Authorization!.Parameter!);
+        var claims = TestJws.DecodeJson(_handler.Requests[^1].Headers.Authorization!.Parameter!, 1);
         Assert.Equal(ManagingApp, claims.GetProperty("aud").GetString());
         Assert.Equal(AuthorityDid, claims.GetProperty("iss").GetString());
         Assert.Equal(SpaceNsids.CheckUserAccess, claims.GetProperty("lxm").GetString());
@@ -109,7 +110,7 @@ public class SimpleSpaceManagingAppClientTests
 
         await client.CheckUserAccessAsync(ManagingApp, Space, UserDid, SpaceAccessKind.Read, null);
 
-        var claims = DecodePayload(_handler.LastRequest!.Headers.Authorization!.Parameter!);
+        var claims = TestJws.DecodeJson(_handler.Requests[^1].Headers.Authorization!.Parameter!, 1);
         Assert.Equal(AuthorityDid, claims.GetProperty("iss").GetString());
         Assert.Equal([AuthorityDid], signer.Requests);
     }
@@ -122,7 +123,7 @@ public class SimpleSpaceManagingAppClientTests
 
         await client.CheckUserAccessAsync(ManagingApp, Space, UserDid, SpaceAccessKind.Read, null);
 
-        var claims = DecodePayload(_handler.LastRequest!.Headers.Authorization!.Parameter!);
+        var claims = TestJws.DecodeJson(_handler.Requests[^1].Headers.Authorization!.Parameter!, 1);
         Assert.Equal(serviceDid, claims.GetProperty("iss").GetString());
     }
 
@@ -137,14 +138,14 @@ public class SimpleSpaceManagingAppClientTests
         await CreateClient(accountSigner: signer).CheckUserAccessAsync(ManagingApp, Space, UserDid, SpaceAccessKind.Read, null);
 
         Assert.Equal([AuthorityDid], signer.Requests);
-        var parts = _handler.LastRequest!.Headers.Authorization!.Parameter!.Split('.');
+        var parts = _handler.Requests[^1].Headers.Authorization!.Parameter!.Split('.');
         Assert.True(accountKey.Verify(Encoding.ASCII.GetBytes($"{parts[0]}.{parts[1]}"), TestJws.Decode(parts[2])));
     }
 
     [Fact]
     public async Task CheckUserAccessAsync_ErrorResponse_Throws()
     {
-        _handler.Status = HttpStatusCode.BadRequest;
+        _handler.Fallback(_ => new HttpResponseMessage(HttpStatusCode.BadRequest));
 
         await Assert.ThrowsAsync<HttpRequestException>(() => CreateClient().CheckUserAccessAsync(
             ManagingApp, Space, UserDid, SpaceAccessKind.Read, null));
@@ -155,28 +156,4 @@ public class SimpleSpaceManagingAppClientTests
             .Split('&', StringSplitOptions.RemoveEmptyEntries)
             .Select(pair => pair.Split('=', 2))
             .ToDictionary(pair => pair[0], pair => Uri.UnescapeDataString(pair[1]));
-
-    private static JsonElement DecodePayload(string jwt)
-    {
-        var part = jwt.Split('.')[1].Replace('-', '+').Replace('_', '/');
-        part = part.PadRight(part.Length + ((4 - (part.Length % 4)) % 4), '=');
-        return JsonSerializer.Deserialize<JsonElement>(Convert.FromBase64String(part));
-    }
-
-    private sealed class RecordingHandler : HttpMessageHandler
-    {
-        public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
-
-        public HttpRequestMessage? LastRequest { get; private set; }
-
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            LastRequest = request;
-            return Task.FromResult(new HttpResponseMessage(Status)
-            {
-                Content = new StringContent("""{"authorized":true}""", Encoding.UTF8, "application/json"),
-            });
-        }
-    }
 }

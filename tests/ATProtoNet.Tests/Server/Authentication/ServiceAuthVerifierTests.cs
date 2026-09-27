@@ -349,28 +349,9 @@ public sealed class ServiceAuthVerifierTests : IDisposable
     }
 
     [Fact]
-    public async Task VerifyAsync_NoLxm_IsRefusedByDefault()
+    public async Task VerifyAsync_NoLxm_IsRefused()
     {
         var ex = await RefusedAsync(Token(p => p.Remove("lxm")));
-
-        Assert.Equal(ServiceAuthErrors.BadJwtLexiconMethod, ex.Error);
-    }
-
-    [Fact]
-    public async Task VerifyAsync_NoLxmWithTheRequirementOff_IsAccepted()
-    {
-        var verified = await Verifier(new ServiceAuthVerifierOptions { RequireLexiconMethod = false })
-            .VerifyAsync(Token(p => p.Remove("lxm")), Audiences, GetFeedSkeleton);
-
-        Assert.Null(verified.Method);
-    }
-
-    [Fact]
-    public async Task VerifyAsync_WrongLxmWithTheRequirementOff_IsStillRefused()
-    {
-        var verifier = Verifier(new ServiceAuthVerifierOptions { RequireLexiconMethod = false });
-
-        var ex = await RefusedAsync(Token(p => p["lxm"] = "com.atproto.repo.deleteRecord"), verifier);
 
         Assert.Equal(ServiceAuthErrors.BadJwtLexiconMethod, ex.Error);
     }
@@ -441,6 +422,8 @@ public sealed class ServiceAuthVerifierTests : IDisposable
     [InlineData("exp", -62135596801L)] // one second before 0001-01-01
     [InlineData("exp", long.MinValue)]
     [InlineData("iat", 253402300800L)]
+    [InlineData("iat", long.MaxValue)]
+    [InlineData("iat", -62135596801L)]
     [InlineData("iat", long.MinValue)]
     public async Task VerifyAsync_TimeClaimOutsideTheRepresentableRange_IsRefusedNotThrown(string claim, long seconds)
     {
@@ -661,15 +644,14 @@ public sealed class ServiceAuthVerifierTests : IDisposable
     public async Task VerifyAsync_SpaceDelegationTokenFromTheSameAccount_IsNotAServiceAuthToken()
     {
         // Same issuer, same #atproto key, an audience this service accepts, and no lxm: without
-        // the type check a verifier binding no method (or not requiring one) took it.
+        // the type check a verifier binding no method took it.
         var space = SpaceUri.Parse($"at://{Caller}/space/com.example.forum/main");
         var delegation = SpaceTokens.Create(SpaceTokenType.Delegation, Caller, space.Value, _key, audience: Audience);
         // The system clock, as SpaceTokens.Create stamps the token with it.
-        var lenient = new ServiceAuthVerifier(
-            _resolver, _replay, new ServiceAuthVerifierOptions { RequireLexiconMethod = false });
+        var verifier = new ServiceAuthVerifier(_resolver, _replay);
 
         var ex = await Assert.ThrowsAsync<ServiceAuthException>(
-            () => lenient.VerifyAsync(delegation, Audiences, GetFeedSkeleton));
+            () => verifier.VerifyAsync(delegation, Audiences, method: null));
 
         Assert.Equal(ServiceAuthErrors.BadJwtType, ex.Error);
     }
@@ -784,10 +766,10 @@ public sealed class ServiceAuthVerifierTests : IDisposable
         var verifier = Verifier(options);
 
         options.AllowedKeyIds.Add("#atproto_label");
-        options.RequireLexiconMethod = false;
+        options.MaxTokenLifetime = TimeSpan.FromHours(1);
 
         await RefusedAsync(Token(header: h => h["kid"] = "#atproto_label"), verifier);
-        await RefusedAsync(Token(p => p.Remove("lxm")), verifier);
+        await RefusedAsync(Token(p => p["exp"] = _clock.GetUtcNow().AddMinutes(30).ToUnixTimeSeconds()), verifier);
     }
 
     [Fact]

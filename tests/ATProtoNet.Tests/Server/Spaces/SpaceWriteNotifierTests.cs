@@ -5,6 +5,8 @@ using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Spaces;
+using ATProtoNet.Tests.TestSupport;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 
 namespace ATProtoNet.Tests.Server.Spaces;
@@ -35,7 +37,7 @@ public class SpaceWriteNotifierTests
     private const string AuthorityPds = "https://pds.example.com";
     private static readonly Did HostDid = Did.Parse("did:web:host.example.com");
 
-    private static (SpaceWriteNotifier Notifier, InMemorySpaceAuthorityStore Store, RecordingHandler Handler)
+    private static (SpaceWriteNotifier Notifier, InMemorySpaceAuthorityStore Store, HttpStub Handler)
         Create(HttpStatusCode status = HttpStatusCode.OK, ISpaceAccountSigner? accountSigner = null)
     {
         var store = new InMemorySpaceAuthorityStore();
@@ -44,7 +46,7 @@ public class SpaceWriteNotifierTests
         var resolver = new FakeDidDocumentResolver()
             .Publish(SyncerDid, SyncerDocument())
             .PublishAccount(AuthorityDid, AtProtoCrypto.GenerateP256Key(), AuthorityPds);
-        var handler = new RecordingHandler(status);
+        var handler = new HttpStub().Fallback(_ => new HttpResponseMessage(status));
         var serviceAuth = new ServiceAuthGenerator(HostDid, AtProtoCrypto.GenerateP256Key());
 
         return (new SpaceWriteNotifier(store, resolver, serviceAuth, new HttpClient(handler), accountSigner), store, handler);
@@ -61,8 +63,8 @@ public class SpaceWriteNotifierTests
 
         Assert.Equal(1, delivered);
         var request = Assert.Single(handler.Requests);
-        Assert.Equal($"{SyncerEndpoint}/xrpc/{SpaceNsids.NotifyWrite}", request.Url);
-        Assert.Equal("Bearer", request.AuthorizationScheme);
+        Assert.Equal($"{SyncerEndpoint}/xrpc/{SpaceNsids.NotifyWrite}", request.Uri.ToString());
+        Assert.Equal("Bearer", request.Headers.Authorization?.Scheme);
     }
 
     [Fact]
@@ -115,7 +117,7 @@ public class SpaceWriteNotifierTests
             Space, $"{SyncerDid}#atproto_space_syncer", DateTimeOffset.UtcNow.AddDays(1));
 
         Assert.Equal(1, await notifier.NotifySpaceDeletedAsync(Space));
-        Assert.Equal($"{SyncerEndpoint}/xrpc/{SpaceNsids.NotifySpaceDeleted}", Assert.Single(handler.Requests).Url);
+        Assert.Equal($"{SyncerEndpoint}/xrpc/{SpaceNsids.NotifySpaceDeleted}", Assert.Single(handler.Requests).Uri.ToString());
     }
 
     [Theory]
@@ -132,17 +134,16 @@ public class SpaceWriteNotifierTests
             .Publish(SyncerDid, SyncerDocument())
             .Publish(attacker, JsonSerializer.Deserialize<DidDocument>(attackerDocument, ATProtoNet.Serialization.AtProtoJsonDefaults.Options)!)
             .PublishAccount(AuthorityDid, AtProtoCrypto.GenerateP256Key(), AuthorityPds);
-        var handler = new RecordingHandler(HttpStatusCode.OK)
-        {
-            Throw = request => request.RequestUri!.Host == "explode.example.com" ? new NotSupportedException("boom") : null,
-        };
+        var handler = new HttpStub().Fallback(r => r.Uri.Host == "explode.example.com"
+            ? throw new NotSupportedException("boom")
+            : new HttpResponseMessage(HttpStatusCode.OK));
         var notifier = new SpaceWriteNotifier(
             store, resolver, new ServiceAuthGenerator(HostDid, AtProtoCrypto.GenerateP256Key()), new HttpClient(handler));
         await store.RegisterNotifyAsync(Space, $"{attacker}#atproto_space_syncer", DateTimeOffset.UtcNow.AddDays(1));
         await store.RegisterNotifyAsync(Space, $"{SyncerDid}#atproto_space_syncer", DateTimeOffset.UtcNow.AddDays(1));
 
         Assert.Equal(1, await notifier.NotifySpaceDeletedAsync(Space));
-        Assert.Contains(handler.Requests, r => r.Url.StartsWith(SyncerEndpoint, StringComparison.Ordinal));
+        Assert.Contains(handler.Requests, r => r.Uri.ToString().StartsWith(SyncerEndpoint, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -154,10 +155,34 @@ public class SpaceWriteNotifierTests
             .Returns(_ => Task.FromException<DidDocument>(new InvalidCastException("custom resolver bug")));
         var notifier = new SpaceWriteNotifier(
             store, resolver, new ServiceAuthGenerator(HostDid, AtProtoCrypto.GenerateP256Key()),
-            new HttpClient(new RecordingHandler(HttpStatusCode.OK)));
+            new HttpClient(new HttpStub().Fallback(_ => new HttpResponseMessage(HttpStatusCode.OK))));
         await store.RegisterNotifyAsync(Space, $"{SyncerDid}#atproto_space_syncer", DateTimeOffset.UtcNow.AddDays(1));
 
         Assert.Equal(0, await notifier.NotifyWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]));
+    }
+
+    [Fact]
+    public async Task NotifyWriteAsync_SubscriberWithAMalformedSpaceHostEntry_IsSkippedWithTheCauseLogged()
+    {
+        // A space host whose #atproto_space_host is not an https AtprotoSpaceHost entry.
+        var host = Did.Parse("did:web:broken.example.com");
+        var store = new InMemorySpaceAuthorityStore();
+        var resolver = new FakeDidDocumentResolver().Publish(host, new DidDocument
+        {
+            Id = host,
+            Service = [new DidDocumentService { Id = "#atproto_space_host", Type = "AtprotoSpaceHost", Endpoint = "http://broken.example.com" }],
+        });
+        var logs = new CapturingLoggerProvider();
+        using var loggers = LoggerFactory.Create(builder => builder.AddProvider(logs));
+        var notifier = new SpaceWriteNotifier(
+            store, resolver, new ServiceAuthGenerator(HostDid, AtProtoCrypto.GenerateP256Key()),
+            new HttpClient(new HttpStub()), logger: loggers.CreateLogger<SpaceWriteNotifier>());
+        await store.RegisterNotifyAsync(Space, $"{host}#atproto_space_host", DateTimeOffset.UtcNow.AddDays(1));
+
+        Assert.Equal(0, await notifier.NotifyWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]));
+
+        var warning = Assert.Single(logs.Entries, e => e.Level == LogLevel.Warning);
+        Assert.IsType<FormatException>(warning.Exception);
     }
 
     [Fact]
@@ -209,10 +234,10 @@ public class SpaceWriteNotifierTests
         Assert.Equal(1, await notifier.NotifyWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1, 2, 3]));
 
         var request = Assert.Single(handler.Requests);
-        Assert.Equal($"{AuthorityPds}/xrpc/{SpaceNsids.NotifyWrite}", request.Url);
-        Assert.Equal(AuthorityDid, Claim(request.Token, "aud"));
-        Assert.Equal(HostDid, Claim(request.Token, "iss"));
-        Assert.Equal(SpaceNsids.NotifyWrite, Claim(request.Token, "lxm"));
+        Assert.Equal($"{AuthorityPds}/xrpc/{SpaceNsids.NotifyWrite}", request.Uri.ToString());
+        Assert.Equal(AuthorityDid, Claim(request.Headers.Authorization?.Parameter, "aud"));
+        Assert.Equal(HostDid, Claim(request.Headers.Authorization?.Parameter, "iss"));
+        Assert.Equal(SpaceNsids.NotifyWrite, Claim(request.Headers.Authorization?.Parameter, "lxm"));
     }
 
     [Fact]
@@ -225,7 +250,7 @@ public class SpaceWriteNotifierTests
 
         await notifier.NotifyWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]);
 
-        Assert.Equal($"{SyncerDid}#atproto_space_syncer", Claim(Assert.Single(handler.Requests).Token, "aud"));
+        Assert.Equal($"{SyncerDid}#atproto_space_syncer", Claim(Assert.Single(handler.Requests).Headers.Authorization?.Parameter, "aud"));
     }
 
     [Fact]
@@ -241,9 +266,9 @@ public class SpaceWriteNotifierTests
         Assert.Equal(1, await notifier.ForwardWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1, 2, 3]));
 
         var request = Assert.Single(handler.Requests);
-        Assert.Equal($"{SyncerEndpoint}/xrpc/{SpaceNsids.NotifyWrite}", request.Url);
+        Assert.Equal($"{SyncerEndpoint}/xrpc/{SpaceNsids.NotifyWrite}", request.Uri.ToString());
 
-        using var body = JsonDocument.Parse(request.Body!);
+        using var body = JsonDocument.Parse(request.BodyText);
         Assert.Equal(MemberDid, body.RootElement.GetProperty("repo").GetString());
         Assert.Equal("3l6oveex3ii2l", body.RootElement.GetProperty("rev").GetString());
     }
@@ -272,7 +297,7 @@ public class SpaceWriteNotifierTests
             store,
             new FakeDidDocumentResolver(),
             new ServiceAuthGenerator(HostDid, AtProtoCrypto.GenerateP256Key()),
-            new HttpClient(new RecordingHandler(HttpStatusCode.OK)));
+            new HttpClient(new HttpStub().Fallback(_ => new HttpResponseMessage(HttpStatusCode.OK))));
 
         Assert.Equal(0, await notifier.ForwardWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]));
     }
@@ -291,7 +316,7 @@ public class SpaceWriteNotifierTests
 
         Assert.Equal(1, await notifier.NotifyWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]));
 
-        var token = Assert.Single(handler.Requests).Token!;
+        var token = Assert.Single(handler.Requests).Headers.Authorization?.Parameter!;
         Assert.Equal(MemberDid, Claim(token, "iss"));
         Assert.Equal(AuthorityDid, Claim(token, "aud"));
         Assert.True(VerifiesAgainst(token, memberKey));
@@ -307,7 +332,7 @@ public class SpaceWriteNotifierTests
 
         Assert.Equal(1, await notifier.ForwardWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]));
 
-        var token = Assert.Single(handler.Requests).Token!;
+        var token = Assert.Single(handler.Requests).Headers.Authorization?.Parameter!;
         Assert.Equal(AuthorityDid, Claim(token, "iss"));
         Assert.True(VerifiesAgainst(token, authorityKey));
     }
@@ -322,7 +347,7 @@ public class SpaceWriteNotifierTests
 
         await notifier.NotifySpaceDeletedAsync(Space);
 
-        Assert.Equal(AuthorityDid, Claim(Assert.Single(handler.Requests).Token, "iss"));
+        Assert.Equal(AuthorityDid, Claim(Assert.Single(handler.Requests).Headers.Authorization?.Parameter, "iss"));
     }
 
     [Fact]
@@ -335,7 +360,7 @@ public class SpaceWriteNotifierTests
 
         await notifier.NotifyWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]);
 
-        Assert.Equal(HostDid, Claim(Assert.Single(handler.Requests).Token, "iss"));
+        Assert.Equal(HostDid, Claim(Assert.Single(handler.Requests).Headers.Authorization?.Parameter, "iss"));
     }
 
     [Fact]
@@ -346,7 +371,7 @@ public class SpaceWriteNotifierTests
         await notifier.EnsureAuthoritySubscribedAsync(Space, MemberDid);
 
         Assert.Equal(1, await notifier.NotifyWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]));
-        Assert.Equal(HostDid, Claim(Assert.Single(handler.Requests).Token, "iss"));
+        Assert.Equal(HostDid, Claim(Assert.Single(handler.Requests).Headers.Authorization?.Parameter, "iss"));
     }
 
     [Fact]
@@ -360,7 +385,7 @@ public class SpaceWriteNotifierTests
 
         await notifier.NotifyWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]);
 
-        Assert.Equal(HostDid, Claim(Assert.Single(handler.Requests).Token, "iss"));
+        Assert.Equal(HostDid, Claim(Assert.Single(handler.Requests).Headers.Authorization?.Parameter, "iss"));
     }
 
     private static bool VerifiesAgainst(string jwt, AtProtoKey key)
@@ -370,40 +395,6 @@ public class SpaceWriteNotifierTests
             System.Text.Encoding.ASCII.GetBytes($"{parts[0]}.{parts[1]}"), TestJws.Decode(parts[2]));
     }
 
-    private static string? Claim(string? jwt, string name)
-    {
-        var part = jwt!.Split('.')[1].Replace('-', '+').Replace('_', '/');
-        part = part.PadRight(part.Length + ((4 - (part.Length % 4)) % 4), '=');
-
-        using var payload = JsonDocument.Parse(Convert.FromBase64String(part));
-        return payload.RootElement.TryGetProperty(name, out var value) ? value.GetString() : null;
-    }
-
-    private sealed class RecordingHandler(HttpStatusCode status) : HttpMessageHandler
-    {
-        public List<(string Url, string? AuthorizationScheme, string? Token, string? Body)> Requests { get; } = [];
-
-        /// <summary>An exception to fail a request with instead of answering it, if any.</summary>
-        public Func<HttpRequestMessage, Exception?> Throw { get; init; } = _ => null;
-
-        protected override async Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            if (Throw(request) is { } failure)
-                throw failure;
-
-            var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
-
-            lock (Requests)
-            {
-                Requests.Add((
-                    request.RequestUri!.ToString(),
-                    request.Headers.Authorization?.Scheme,
-                    request.Headers.Authorization?.Parameter,
-                    body));
-            }
-
-            return new HttpResponseMessage(status);
-        }
-    }
+    private static string? Claim(string? jwt, string name) =>
+        TestJws.DecodeJson(jwt!, 1).TryGetProperty(name, out var value) ? value.GetString() : null;
 }

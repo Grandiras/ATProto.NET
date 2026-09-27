@@ -145,12 +145,9 @@ public sealed class FileAtProtoSessionStore : IAtProtoSessionStore
     {
         try
         {
-            #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-            await using var stream = new FileStream(
+            using var reader = new StreamReader(new FileStream(
                 filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete,
-                bufferSize: 4096, FileOptions.Asynchronous);
-            #pragma warning restore CA2007
-            using var reader = new StreamReader(stream);
+                bufferSize: 4096, FileOptions.Asynchronous));
             return await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)

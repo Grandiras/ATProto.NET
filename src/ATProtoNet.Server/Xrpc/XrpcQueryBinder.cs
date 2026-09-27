@@ -13,7 +13,7 @@ namespace ATProtoNet.Server.Xrpc;
 /// string or a one-element list depends only on what the parameter is declared as. The plan below
 /// reads that from the serializer's own contract for <typeparamref name="TParams"/> — names,
 /// types, required members, custom converters — once per type.</para>
-/// <para>Each request writes the query straight into a reused UTF-8 buffer as the JSON object the
+/// <para>Each request writes the query straight into a UTF-8 buffer as the JSON object the
 /// contract expects (a collection always as an array, a boolean as a boolean, everything else as a
 /// string the property's converter parses) and deserializes it from there, so identifier types
 /// are validated by their own parsers and constructor-bound types bind as they do from a body.</para>
@@ -30,26 +30,23 @@ internal static class XrpcQueryBinder<TParams>
     /// <exception cref="XrpcException">A value is missing, repeated, or malformed.</exception>
     public static TParams Bind(IQueryCollection query)
     {
-        var scratch = XrpcQueryScratch.Rent();
-        try
+        var buffer = new ArrayBufferWriter<byte>(256);
+        using (var writer = new Utf8JsonWriter(buffer))
         {
-            var writer = scratch.Writer;
             writer.WriteStartObject();
             foreach (var parameter in Parameters)
                 parameter.Write(writer, query);
             writer.WriteEndObject();
-            writer.Flush();
+        }
 
-            return JsonSerializer.Deserialize(scratch.Buffer.WrittenSpan, XrpcJson<TParams>.TypeInfo)
+        try
+        {
+            return JsonSerializer.Deserialize(buffer.WrittenSpan, XrpcJson<TParams>.TypeInfo)
                    ?? throw new XrpcException(XrpcErrors.InvalidRequest, "Could not bind query parameters.");
         }
         catch (JsonException ex)
         {
             throw InvalidValue(ex);
-        }
-        finally
-        {
-            XrpcQueryScratch.Return(scratch);
         }
     }
 
@@ -147,45 +144,5 @@ internal static class XrpcQueryBinder<TParams>
             else
                 writer.WriteStringValue(value);
         }
-    }
-}
-
-/// <summary>
-/// The buffer and writer a query binding writes into, reused per thread. Binding is synchronous,
-/// so an instance is never shared across an await.
-/// </summary>
-internal sealed class XrpcQueryScratch
-{
-    // A query string past this leaves its buffer to the GC rather than pinning it to the thread.
-    private const int MaxRetainedBytes = 16 * 1024;
-
-    [ThreadStatic]
-    private static XrpcQueryScratch? t_cached;
-
-    private XrpcQueryScratch()
-    {
-        Buffer = new ArrayBufferWriter<byte>(256);
-        Writer = new Utf8JsonWriter(Buffer);
-    }
-
-    public ArrayBufferWriter<byte> Buffer { get; }
-
-    public Utf8JsonWriter Writer { get; }
-
-    public static XrpcQueryScratch Rent()
-    {
-        var scratch = t_cached ?? new XrpcQueryScratch();
-        t_cached = null;
-        return scratch;
-    }
-
-    public static void Return(XrpcQueryScratch scratch)
-    {
-        if (scratch.Buffer.Capacity > MaxRetainedBytes)
-            return;
-
-        scratch.Buffer.ResetWrittenCount();
-        scratch.Writer.Reset(scratch.Buffer);
-        t_cached = scratch;
     }
 }

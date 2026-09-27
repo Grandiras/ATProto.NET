@@ -38,23 +38,6 @@ public enum AccountAction
     Manage,
 }
 
-/// <summary>Actions for identity attribute permissions.</summary>
-/// <remarks>
-/// The permission spec no longer has an <c>action</c> parameter on <c>identity</c> scopes, and
-/// authorization servers reject a scope that carries one. Use
-/// <see cref="AtProtoScopes.Identity(string)"/>.
-/// </remarks>
-[Obsolete("The permission spec dropped the action parameter of identity scopes, and authorization servers reject " +
-    "'identity:*?action=...'. Use AtProtoScopes.Identity(attr), which grants control of the attribute.")]
-public enum IdentityAction
-{
-    /// <summary>Full control over the identity attribute.</summary>
-    Manage,
-
-    /// <summary>Submit-only access to the identity attribute.</summary>
-    Submit,
-}
-
 /// <summary>Actions a <c>space:</c> permission grants over the <em>records</em> in a space.</summary>
 /// <remarks>
 /// Read access is all-or-nothing at the space boundary — there is no partial, per-record,
@@ -529,21 +512,6 @@ public static class AtProtoScopes
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(attr);
         return $"identity:{attr}";
-    }
-
-    /// <summary>
-    /// Constructs an <c>identity</c> permission scope with an <c>action</c> parameter, which the
-    /// permission spec no longer has.
-    /// </summary>
-    /// <param name="attr">The identity attribute (<c>"handle"</c> or <c>"*"</c> for full control).</param>
-    /// <param name="action">The action type.</param>
-    [Obsolete("The permission spec dropped the action parameter of identity scopes, and authorization servers reject " +
-        "'identity:*?action=submit'. Use Identity(attr).")]
-    public static string Identity(string attr, IdentityAction action)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(attr);
-        var scope = $"identity:{attr}";
-        return action == IdentityAction.Manage ? scope : $"{scope}?action=submit";
     }
 
     /// <summary>

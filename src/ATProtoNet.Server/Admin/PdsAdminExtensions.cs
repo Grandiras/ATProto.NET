@@ -96,30 +96,16 @@ public static class PdsAdminExtensions
         return builder;
     }
 
-    /// <summary>Registers a <see cref="PdsAdminClient"/> as a typed <see cref="HttpClient"/> with explicit options.</summary>
-    /// <param name="services">The service collection.</param>
-    /// <param name="options">The PDS URL and admin credentials, copied into the registration.</param>
-    /// <returns>The service collection for chaining.</returns>
-    /// <remarks>
-    /// The options are validated when the host starts, as by the
-    /// <see cref="AddAtProtoPdsAdmin(IHostApplicationBuilder, string, Action{PdsAdminOptions}?)"/>
-    /// overload, and without a host when the client is first resolved.
-    /// </remarks>
-    public static IServiceCollection AddAtProtoPdsAdmin(
-        this IServiceCollection services,
-        PdsAdminOptions options)
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(options);
-
-        return services.AddPdsAdminClient(target => CopyOptions(options, target));
-    }
-
     /// <summary>Registers a <see cref="PdsAdminClient"/> as a typed <see cref="HttpClient"/> for the given PDS.</summary>
     /// <param name="services">The service collection.</param>
     /// <param name="pdsUrl">The PDS base URL.</param>
     /// <param name="adminPassword">The server's admin password.</param>
     /// <returns>The service collection for chaining.</returns>
+    /// <remarks>
+    /// The options go through <see cref="IOptions{TOptions}"/>, so the other settings are
+    /// <c>services.Configure&lt;PdsAdminOptions&gt;(…)</c>. They are validated when the host starts,
+    /// and without a host when the client is first resolved.
+    /// </remarks>
     public static IServiceCollection AddAtProtoPdsAdmin(
         this IServiceCollection services,
         string pdsUrl,
@@ -195,16 +181,5 @@ public static class PdsAdminExtensions
                 $"'{DefaultConfigurationSection}:AllowInsecureHttp' if the PDS is only reachable over a private " +
                 "network you trust.");
         }
-    }
-
-    /// <summary>Copies every setting of <paramref name="source"/> onto <paramref name="target"/>.</summary>
-    internal static void CopyOptions(PdsAdminOptions source, PdsAdminOptions target)
-    {
-        target.Url = source.Url;
-        target.AdminPassword = source.AdminPassword;
-        target.Authentication = source.Authentication;
-        target.AdminIdentifier = source.AdminIdentifier;
-        target.AdminUser = source.AdminUser;
-        target.AllowInsecureHttp = source.AllowInsecureHttp;
     }
 }

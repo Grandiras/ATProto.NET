@@ -220,7 +220,7 @@ When the user is redirected back, your callback receives `code`, `state`, and `i
 ```csharp
 app.MapGet("/oauth/callback", async (string code, string state, string iss) =>
 {
-    var session = await oauthClient.CompleteAuthorizationAsync(code, state, issuer: iss);
+    var (session, _) = await oauthClient.CompleteAuthorizationAsync(code, state, issuer: iss);
 
     Console.WriteLine($"Authenticated as {session.Handle} ({session.Did})");
     Console.WriteLine($"PDS: {session.ServiceEndpoint}");
@@ -332,8 +332,8 @@ legacy: still accepted, but the specification intends to remove them, and the co
 presents `transition:generic` as access to nearly everything. `AtProtoScopes.Default`
 (`atproto transition:generic`) remains the SDK's default for now; new applications should not rely
 on it. The `action` parameter of `identity` scopes is gone from the specification and
-authorization servers reject it, so `IdentityAction` and `Identity(attr, action)` are obsolete:
-use `AtProtoScopes.Identity("handle")` or `AtProtoScopes.Identity("*")`.
+authorization servers reject it, so there is none: use `AtProtoScopes.Identity("handle")` or
+`AtProtoScopes.Identity("*")`.
 
 ## Dynamic PDS Selection
 
@@ -495,10 +495,15 @@ without `atproto`, a `RoutePrefix` or `LoginPath` that is not a local path, `Cli
 | `ClaimsFactory` | `Func<OAuthSession, IEnumerable<Claim>>?` | — | Custom claims factory |
 | `CookieExpiration` | `TimeSpan` | 7 days | Cookie lifetime |
 | `IsPersistent` | `bool` | `true` | Persist cookie across sessions |
-| `HttpClient` | `HttpClient?` | — | Client used for OAuth discovery, pushed authorization, token and revocation requests. Caller-owned: used as is, its `Timeout` is untouched and it is not disposed with the service. Without it, the named client `AtProtoOAuthExtensions.HttpClientName` is used |
-| `HttpClientTimeout` | `TimeSpan` | 30 s | Timeout of the OAuth `HttpClient`. Ignored when `HttpClient` is set |
-| `HandleResolutionTimeout` | `TimeSpan` | 5 s | Budget per handle-resolution round. `Timeout.InfiniteTimeSpan` disables it |
-| `AllowPrivateNetworks` | `bool` | `false` | Development opt-out for a local PDS or PLC: plain HTTP and private addresses in discovery and identity resolution. Never set it where users can name any handle, DID or PDS |
+
+Identity settings come from `AddAtProtoIdentity()`'s `IdentityResolverOptions`: its
+`HandleResolutionTimeout` bounds each handle lookup, and its `AllowPrivateNetworks` is the
+development opt-out for a local PDS or PLC (plain HTTP and private addresses, in identity resolution
+and OAuth discovery alike). Never set that where users can name any handle, DID or PDS. The login
+resolves identities through the `IIdentityResolver` `AddAtProtoIdentity()` registers, when there is
+one, and through its own otherwise; it never picks up an `IDidResolver` registered on its own. The
+issuer check at a callback reads the account's DID document afresh through
+`IDidResolver.InvalidateAsync`, which a replacement resolver must honour.
 
 The login's `OAuthClient` (`AtProtoOAuthService.Client`) is built from these options alone and
 registered as the `OAuthClient` singleton, which the client factory refreshes and revokes sessions
@@ -506,20 +511,20 @@ with.
 
 #### Its HttpClient
 
-Without `HttpClient`, the login sends its discovery, PAR, token and revocation requests with the
-named `HttpClient` `AtProtoOAuthExtensions.HttpClientName` (`"ATProtoNet.OAuth"`), which
-`WithOAuth()` gives the identity fetch policy (public addresses only, no redirects; see
-[Fetch Policy](#fetch-policy)) and `HttpClientTimeout`. Add logging or telemetry handlers to it with
-`builder.Services.AddHttpClient(AtProtoOAuthExtensions.HttpClientName)`, but no handler that
-retries: an authorization code and a refresh token are single-use, and a DPoP proof sent twice is
-refused. Aspire service defaults add a retrying one to every client; remove it (see
+The login sends its discovery, PAR, token and revocation requests with the named `HttpClient`
+`AtProtoOAuthExtensions.HttpClientName` (`"ATProtoNet.OAuth"`), which `WithOAuth()` gives the
+identity fetch policy (public addresses only, no redirects; see [Fetch Policy](#fetch-policy)), a
+30-second timeout and the SDK's `User-Agent`. Configure it further, a timeout or a logging handler,
+with `builder.Services.AddHttpClient(AtProtoOAuthExtensions.HttpClientName)`, but add no handler
+that retries: an authorization code and a refresh token are single-use, and a DPoP proof sent twice
+is refused. Aspire service defaults add a retrying one to every client; remove it (see
 [.NET Aspire: Resilience](aspire.md#resilience)).
 
 Its primary handler connects directly and never through a proxy — the policy checks the address it
 connects to, and a proxy would make that the proxy's address rather than the target's. An
-application that must reach the internet through an egress proxy supplies its own `HttpClient`
-(which is then used as is, proxy included) and relies on the proxy to keep requests off private
-addresses.
+application that must reach the internet through an egress proxy replaces the primary handler with
+`ConfigurePrimaryHttpMessageHandler` on that named client and relies on the proxy to keep requests
+off private addresses.
 
 #### Pending logins
 
@@ -554,17 +559,15 @@ builder.Services.AddSingleton<IOAuthStateStore>(sp =>
 
 Handle resolution talks to a host named by the user (`https://<handle>/.well-known/atproto-did`),
 which may be parked or firewalled and silently drop traffic on port 443. The login runs that lookup
-alongside the DNS-over-HTTPS TXT lookup and bounds both with `HandleResolutionTimeout`, so a dead
-handle domain costs a few seconds instead of the `HttpClient` timeout. When an `IIdentityResolver`
-is registered (`AddAtProtoIdentity`), the service uses it instead, and its own options apply. Raise
-it for slow networks, or lower it for a snappier sign-in:
+alongside the DNS-over-HTTPS TXT lookup and bounds both with the identity options'
+`HandleResolutionTimeout` (5 s by default), so a dead handle domain costs a few seconds instead of
+the `HttpClient` timeout. Raise it for slow networks, or lower it for a snappier sign-in:
 
 ```csharp
-builder.Services.AddAtProto().WithOAuth(options =>
-{
-    options.HandleResolutionTimeout = TimeSpan.FromSeconds(3);
-    options.HttpClientTimeout = TimeSpan.FromSeconds(20);
-});
+builder.Services.AddAtProtoIdentity(options => options.HandleResolutionTimeout = TimeSpan.FromSeconds(3));
+builder.Services.AddAtProto().WithOAuth();
+builder.Services.AddHttpClient(AtProtoOAuthExtensions.HttpClientName)
+    .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(20));
 ```
 
 ### Development (Loopback Client)
@@ -674,7 +677,7 @@ to a pending authorization, and each state completes at most once. It does not t
 to the browser that started the login, so a web front end must bind the two itself; the hosted
 login does it with a cookie (see [Login CSRF protection](#login-csrf-protection)). Keep application data, such as
 the return URL, with the pending authorization: `OAuthAuthorizationOptions.AppState` is handed
-back by `CompleteAuthorizationWithAppStateAsync`.
+back with the session by `CompleteAuthorizationAsync`.
 
 ### Issuer Verification
 
@@ -704,8 +707,7 @@ Authorization server metadata is held to the AT Protocol profile:
 A PDS's protected-resource metadata must name that PDS as its `resource` (RFC 9728 section 3.3)
 and exactly one authorization server, and an authorization server that lists
 `protected_resources` must list that PDS (section 4), as the reference client checks. Metadata
-documents are cached by URL for five minutes (`AuthorizationServerDiscovery.MetadataCacheLifetime`)
-for starting logins; the issuer check at a code exchange or refresh fetches them afresh.
+documents are cached by URL for five minutes for starting logins; the issuer check at a code exchange or refresh fetches them afresh.
 
 ### Handle and DID Resolution
 
@@ -794,33 +796,15 @@ var oauthOptions = new OAuthOptions
 
 ## Server Discovery
 
-The `AuthorizationServerDiscovery` class handles the full resolution chain:
+`OAuthClient.StartAuthorizationAsync` walks the whole resolution chain, reporting a failure as an
+`OAuthException`:
 
 ```
 Handle → DID → PDS → Protected Resource Metadata → Authorization Server Metadata
 ```
 
-### Resolution Methods
-
-`OAuthClient.StartAuthorizationAsync` walks the whole chain for you. The steps are public if you need
-them on their own:
-
-<!-- snippet: ATProtoNet.Identity.IIdentityResolver identityResolver; -->
-```csharp
-using var discovery = new AuthorizationServerDiscovery(httpClient: null, logger, identityResolver);
-
-// Handle or DID → DID, PDS and authorization server metadata, as OAuthException on failure
-var (pdsUrl, metadata, did) = await discovery.ResolveFromIdentifierAsync("alice.bsky.social");
-
-// PDS → authorization server metadata (protected-resource metadata, then AS metadata), validated
-var metadata2 = await discovery.ResolveAuthorizationServerAsync("https://pds.example.com");
-
-// The identity steps on their own: DID document, verified handle, PDS
-var identity = await discovery.IdentityResolver.ResolveAsync(AtIdentifier.Parse("alice.bsky.social"));
-```
-
-`FetchProtectedResourceMetadataAsync` and `FetchAuthorizationServerMetadataAsync` return the
-documents as fetched, without the checks above.
+For the identity steps on their own (DID document, verified handle, PDS), use an
+`IIdentityResolver` (see [Identity Resolution](did-resolution.md)).
 
 Handle resolution consults only the handle's own authorities, DNS TXT (over a configurable
 DNS-over-HTTPS endpoint) and the HTTPS well-known, concurrently and within `HandleResolutionTimeout`.
@@ -852,7 +836,7 @@ OAuth-specific errors throw `OAuthException`:
 ```csharp
 try
 {
-    var session = await oauthClient.CompleteAuthorizationAsync(code, state, issuer);
+    var (session, _) = await oauthClient.CompleteAuthorizationAsync(code, state, issuer);
 }
 catch (OAuthException ex) when (ex.Error == "invalid_state")
 {

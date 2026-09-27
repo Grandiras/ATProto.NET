@@ -12,93 +12,34 @@ namespace ATProtoNet.Server.Spaces;
 /// A DPoP proof that has been parsed and verified, per
 /// <see href="https://www.rfc-editor.org/rfc/rfc9449">RFC 9449</see>.
 /// </summary>
-/// <remarks>
-/// The proof is what turns a space credential from a bearer token into one that only its holder
-/// can present. Its <see cref="KeyThumbprint"/> is the value a credential's <c>cnf.jkt</c> names,
-/// and — on the credential exchange, where no credential exists yet — the value the authority
-/// binds the credential it is about to mint to.
-/// </remarks>
 public sealed class DPoPProof
 {
-    internal DPoPProof(
-        string raw,
-        string algorithm,
-        string keyThumbprint,
-        string tokenId,
-        string method,
-        string uri,
-        DateTimeOffset issuedAt)
-    {
-        Raw = raw;
-        Algorithm = algorithm;
-        KeyThumbprint = keyThumbprint;
-        TokenId = tokenId;
-        Method = method;
-        Uri = uri;
-        IssuedAt = issuedAt;
-    }
-
-    /// <summary>The proof as it arrived on the <c>DPoP</c> header.</summary>
-    public string Raw { get; }
-
-    /// <summary>The JWS <c>alg</c>. Always <c>ES256</c>, the only algorithm a space DPoP proof may use.</summary>
-    public string Algorithm { get; }
+    internal DPoPProof(string keyThumbprint) => KeyThumbprint = keyThumbprint;
 
     /// <summary>
-    /// The RFC 7638 thumbprint of the proof's own embedded <c>jwk</c>, which a credential's
-    /// <c>cnf.jkt</c> is compared against.
+    /// The RFC 7638 thumbprint of the proof's own embedded <c>jwk</c>: what a credential's
+    /// <c>cnf.jkt</c> is compared against, and on the credential exchange what the new credential
+    /// is bound to.
     /// </summary>
     public string KeyThumbprint { get; }
-
-    /// <summary>The proof's <c>jti</c>, spent once.</summary>
-    public string TokenId { get; }
-
-    /// <summary>The <c>htm</c>: the HTTP method the proof was minted for.</summary>
-    public string Method { get; }
-
-    /// <summary>The <c>htu</c>: the request URL, without query or fragment.</summary>
-    public string Uri { get; }
-
-    /// <summary>The <c>iat</c>.</summary>
-    public DateTimeOffset IssuedAt { get; }
 }
 
 /// <summary>Verifies the DPoP proofs presented alongside space credentials.</summary>
 /// <remarks>
 /// <para>A space credential reads a whole space and is presented to every repo host in it, so as
-/// a bearer token it would be a shared secret: a host given one in order to serve its own repo
-/// could replay it against every other host in the space. What stops that is this — every
-/// request carries a fresh proof, signed by the key the credential is bound to and naming the
-/// method and URL it is addressed to. A captured credential without the key is inert, and a
-/// captured proof names a host and a method, so it does not travel.</para>
-/// <para>Six things are checked, and all six matter:</para>
-/// <list type="number">
-/// <item><description>the signature verifies against the proof's <em>own</em> embedded
-/// <c>jwk</c> — which proves nothing on its own, since an attacker can embed any key;</description></item>
-/// <item><description>that key's thumbprint matches the credential's <c>cnf.jkt</c> — which is
-/// what makes step 1 mean something;</description></item>
-/// <item><description><c>ath</c> matches the credential actually presented, so a proof minted
-/// for one credential cannot carry another;</description></item>
-/// <item><description><c>htm</c> and <c>htu</c> match the request as received, so a proof
-/// captured by one host cannot be replayed at another;</description></item>
-/// <item><description><c>iat</c> is recent, bounding how long a captured proof is useful;</description></item>
-/// <item><description>the <c>jti</c> has not been seen, so it cannot be used twice inside that
-/// window.</description></item>
-/// </list>
-/// <para>Proposal 0016 narrows RFC 9449 in two ways, and both are enforced as the reference
-/// implementation enforces them. The proof is signed with <c>ES256</c> and nothing else. And the
-/// proof on the credential exchange carries <em>no</em> <c>ath</c>: the delegation token it
-/// travels with is a single-use grant rather than an access token, so an <c>ath</c> there binds
-/// the proof to something it has no business naming. Server-provided nonces are not used; a
-/// <c>nonce</c> claim is ignored.</para>
+/// a bearer token a host could replay it against every other host. Every request therefore
+/// carries a fresh proof, signed by the key the credential is bound to (<c>cnf.jkt</c>) and naming
+/// the credential (<c>ath</c>), the method and the URL it is addressed to: a captured credential
+/// without the key is inert, and a captured proof does not travel.</para>
+/// <para>Proposal 0016 narrows RFC 9449, as the reference implementation does: the proof is signed
+/// with <c>ES256</c> only, and the proof on the credential exchange carries <em>no</em>
+/// <c>ath</c>, since the delegation token it travels with is a grant rather than an access token.
+/// Server-provided nonces are not used; a <c>nonce</c> claim is ignored.</para>
 /// </remarks>
 public sealed class DPoPProofValidator
 {
-    /// <summary>The <c>typ</c> header every DPoP proof carries.</summary>
-    public const string ProofType = DPoP.TokenType;
-
-    /// <summary>The one JWS algorithm a space DPoP proof may be signed with.</summary>
-    public const string ProofAlgorithm = "ES256";
+    private const string ProofType = DPoP.TokenType;
+    private const string ProofAlgorithm = "ES256";
 
     private readonly IJtiReplayStore _replayStore;
     private readonly SpaceServerOptions _options;
@@ -214,8 +155,8 @@ public sealed class DPoPProofValidator
 
         var thumbprint = JsonWebKeyVerifier.ComputeThumbprint(jwk, Invalid);
 
-        // Step 2 before step 1 is deliberate: with no binding to check against, verifying the
-        // signature proves only that whoever minted the proof holds the key they chose.
+        // The binding before the signature, deliberately: without it, verifying the signature
+        // proves only that whoever minted the proof holds the key they chose to embed.
         if (boundThumbprint is not null &&
             !CryptographicOperations.FixedTimeEquals(
                 Encoding.UTF8.GetBytes(thumbprint), Encoding.UTF8.GetBytes(boundThumbprint)))
@@ -226,14 +167,7 @@ public sealed class DPoPProofValidator
         if (!JsonWebKeyVerifier.Verify(jwk, algorithm, signingInput, signature, Invalid, thumbprint))
             throw Invalid("The DPoP proof's signature does not verify against its embedded key.");
 
-        var tokenId = payload.GetStringOrNull("jti")
-            ?? throw Invalid("The DPoP proof is missing its \"jti\" claim.");
-        if (!Jwt.IsUsableTokenId(tokenId))
-        {
-            throw Invalid(
-                "The DPoP proof's \"jti\" must be printable, not only whitespace, and at most " +
-                $"{Jwt.MaxTokenIdLength} characters.");
-        }
+        var tokenId = Jwt.RequireTokenId(payload, "DPoP proof", Invalid);
         var method = payload.GetStringOrNull("htm")
             ?? throw Invalid("The DPoP proof is missing its \"htm\" claim.");
         var uri = payload.GetStringOrNull("htu")
@@ -286,7 +220,7 @@ public sealed class DPoPProofValidator
         if (!await _replayStore.TryConsumeAsync(thumbprint, tokenId, issuedAt + _options.ProofLifetime, cancellationToken).ConfigureAwait(false))
             throw Invalid("The DPoP proof has already been used.");
 
-        return new DPoPProof(proofJwt, algorithm, thumbprint, tokenId, method, uri, issuedAt);
+        return new DPoPProof(thumbprint);
     }
 
     private static SpaceVerificationException Invalid(string message) =>

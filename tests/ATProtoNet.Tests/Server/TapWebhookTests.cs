@@ -3,10 +3,12 @@ using System.Net.Http.Headers;
 using System.Text;
 using ATProtoNet.Server.Tap;
 using ATProtoNet.Tap;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Tests.Server;
 
@@ -150,34 +152,25 @@ public sealed class TapWebhookTests : IAsyncDisposable
     [Theory]
     [InlineData("not json")]
     [InlineData("""{"id":1,"type":"commit"}""")]
-    public async Task Post_NotATapEvent_IsAcknowledgedAndReported(string body)
+    public async Task Post_NotATapEvent_IsAcknowledgedWithAWarning(string body)
     {
         // Refused, Tap would resend it forever and hold back the repository's later events.
-        var unreadable = new List<TapUnreadableEvent>();
-        var client = await StartAsync(o =>
-        {
-            o.AdminPassword = "secret";
-            o.OnUnreadableEvent = unreadable.Add;
-        });
+        var logs = new CapturingLoggerProvider();
+        var client = await StartAsync(
+            app => app.MapTapWebhook("/tap/webhook", (evt, _) =>
+            {
+                _received.Add(evt);
+                return Task.CompletedTask;
+            }, o => o.AdminPassword = "secret"),
+            services => services.AddLogging(logging => logging.AddProvider(logs)));
 
         using var response = await client.SendAsync(Post(body: body));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Empty(_received);
-        var reported = Assert.Single(unreadable);
-        Assert.Equal(body, System.Text.Encoding.UTF8.GetString(reported.Body));
-        Assert.NotNull(reported.Error);
-    }
-
-    [Fact]
-    public async Task Post_NotATapEventWithoutAHook_IsAcknowledged()
-    {
-        var client = await StartAsync();
-
-        using var response = await client.SendAsync(Post(body: """{"id":1,"type":"commit"}"""));
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Empty(_received);
+        var warning = Assert.Single(logs.Entries, e => e.Message.Contains("not a readable event"));
+        Assert.Equal(LogLevel.Warning, warning.Level);
+        Assert.IsType<FormatException>(warning.Exception);
     }
 
     [Fact]
@@ -208,35 +201,10 @@ public sealed class TapWebhookTests : IAsyncDisposable
     }
 
     [Fact]
-    public async Task MapTapWebhookOfHandler_ResolvesTheHandlerFromServices()
-    {
-        var handler = new RecordingHandler();
-        var client = await StartAsync(
-            app => app.MapTapWebhook<RecordingHandler>("/tap/webhook", o => o.AdminPassword = "secret"),
-            services => services.AddSingleton(handler));
-
-        using var response = await client.SendAsync(Post());
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(7, Assert.Single(handler.Received).Id);
-    }
-
-    [Fact]
     public void IsAuthorized_AcceptsTheHeaderTheTapClientFormats()
     {
         Assert.True(TapWebhookExtensions.IsAuthorized(TapClient.FormatAdminAuthHeader("secret"), "secret"));
         Assert.True(TapWebhookExtensions.IsAuthorized("basic YWRtaW46c2VjcmV0", "secret"));
         Assert.False(TapWebhookExtensions.IsAuthorized(TapClient.FormatAdminAuthHeader("secret"), "other"));
-    }
-
-    private sealed class RecordingHandler : ITapEventHandler
-    {
-        public List<TapEvent> Received { get; } = [];
-
-        public Task HandleAsync(TapEvent evt, CancellationToken cancellationToken)
-        {
-            Received.Add(evt);
-            return Task.CompletedTask;
-        }
     }
 }

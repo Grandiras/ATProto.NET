@@ -132,7 +132,6 @@ public class TypedIdentifierGuardTests
             "Scopes a `jti`: a token's `iss` (a DID or a client ID) or a DPoP key's thumbprint.",
         ["ATProtoNet.Server.Authentication.InMemoryJtiReplayStore.TryConsumeAsync(issuer)"] =
             "Scopes a `jti`: a token's `iss` (a DID or a client ID) or a DPoP key's thumbprint.",
-        ["ATProtoNet.Server.Spaces.DPoPProof.Uri"] = "The DPoP `htu`: an HTTP URL, not an AT URI.",
         ["ATProtoNet.Server.Spaces.DPoPProofValidator.ValidateAsync(requestUri)"] = "An HTTP request URL, not an AT URI.",
         ["ATProtoNet.Server.Spaces.SpaceCredentialVerifier.VerifyAsync(requestUri)"] = "An HTTP request URL, not an AT URI.",
 

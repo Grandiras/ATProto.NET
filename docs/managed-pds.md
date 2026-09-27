@@ -460,9 +460,10 @@ a hex private key.
 
 ### Helpers for both servers
 
-Both resources derive from `AtProtoPdsContainerResourceBase`. `WithHostname` and `WithJwtSecret`
-are the same generic methods for either server and return the concrete builder, so they chain into
-the server-specific ones. Write your own AppHost helpers against the base type
+Both resources derive from `AtProtoPdsContainerResourceBase`. `WithHostname`, `WithJwtSecret`,
+`WithPlcUrl`, `WithCrawlers`, `WithInviteCodeRequired`, `WithBlobUploadLimit` and
+`WithReportService` are the same generic methods for either server (each sets that server's own
+environment variable) and return the concrete builder, so they chain into the server-specific ones. Write your own AppHost helpers against the base type
 (`where T : AtProtoPdsContainerResourceBase`) to cover both.
 
 ## Without Aspire

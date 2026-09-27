@@ -150,24 +150,6 @@ public class AtProtoScopesTests
         Assert.Equal("identity:*", AtProtoScopes.Identity("*"));
     }
 
-    [Fact]
-    public void Identity_ObsoleteSubmitAction_StillEmitsTheOldForm()
-    {
-#pragma warning disable CS0618 // Kept for source compatibility; servers reject the action parameter.
-        Assert.Equal("identity:handle?action=submit", AtProtoScopes.Identity("handle", IdentityAction.Submit));
-        Assert.Equal("identity:handle", AtProtoScopes.Identity("handle", IdentityAction.Manage));
-#pragma warning restore CS0618
-    }
-
-    [Fact]
-    public void IdentityAction_IsObsolete()
-    {
-#pragma warning disable CS0618
-        var type = typeof(IdentityAction);
-#pragma warning restore CS0618
-        Assert.NotNull(type.GetCustomAttributes(typeof(ObsoleteAttribute), inherit: false).SingleOrDefault());
-    }
-
     // ─── Audiences ──────────────────────────────────────────────────────
 
     [Theory]

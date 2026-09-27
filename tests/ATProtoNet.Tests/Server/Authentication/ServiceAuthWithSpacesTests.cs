@@ -80,11 +80,7 @@ public sealed class ServiceAuthWithSpacesTests : IAsyncDisposable
                     services.AddSingleton<ISimpleSpaceStore>(_spaces);
 
                     services
-                        .AddAtProtoSpaces(options =>
-                        {
-                            options.ServiceDid = Did.Parse(AuthorityDid);
-                            options.WarnOnInMemoryStores = false;
-                        })
+                        .AddAtProtoSpaces(options => options.ServiceDid = Did.Parse(AuthorityDid))
                         .AddSpaceAuthority<InMemorySpaceAuthorityStore>(_authorityKey)
                         .AddSimpleSpace<InMemorySimpleSpaceStore>();
 

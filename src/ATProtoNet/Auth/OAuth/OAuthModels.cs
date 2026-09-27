@@ -331,14 +331,11 @@ public sealed class OAuthOptions
     public string Scope { get; set; } = AtProtoScopes.Default;
 
     /// <summary>
-    /// Budget for each handle resolution round during discovery. Keeps a handle
-    /// domain that silently drops traffic (parked apex, firewall) from stalling the
-    /// login flow for the full <see cref="System.Net.Http.HttpClient.Timeout"/>.
-    /// Default: <see cref="AuthorizationServerDiscovery.DefaultHandleResolutionTimeout"/>
-    /// (5 seconds). Set to <see cref="Timeout.InfiniteTimeSpan"/> to disable.
+    /// Budget for each handle resolution round of the client's own resolver, so a handle domain
+    /// that silently drops traffic cannot stall a login. Default: 5 seconds;
+    /// <see cref="Timeout.InfiniteTimeSpan"/> disables it.
     /// </summary>
-    public TimeSpan HandleResolutionTimeout { get; set; } =
-        AuthorizationServerDiscovery.DefaultHandleResolutionTimeout;
+    public TimeSpan HandleResolutionTimeout { get; set; } = TimeSpan.FromSeconds(5);
 
     /// <summary>
     /// Resolves the identities the flow handles: the handle or DID a login starts from, and the
@@ -429,7 +426,7 @@ public sealed class OAuthAuthorizationOptions
 
     /// <summary>
     /// Application data kept with the pending authorization and handed back by
-    /// <see cref="OAuthClient.CompleteAuthorizationWithAppStateAsync"/>, such as where to send the
+    /// <see cref="OAuthClient.CompleteAuthorizationAsync"/>, such as where to send the
     /// user afterwards. It stays on the server, in the state store; at most
     /// <see cref="MaxAppStateLength"/> characters.
     /// </summary>

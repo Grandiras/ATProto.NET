@@ -1,5 +1,4 @@
 using System.Buffers;
-using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text.Json;
 using ATProtoNet.Auth;
@@ -115,9 +114,6 @@ public sealed class SpaceToken
     /// <param name="clockSkew">Tolerance for clock skew. Defaults to <see cref="SpaceTokens.DefaultClockSkew"/>.</param>
     public bool IsExpired(DateTimeOffset? now = null, TimeSpan? clockSkew = null) =>
         (now ?? DateTimeOffset.UtcNow) - (clockSkew ?? SpaceTokens.DefaultClockSkew) >= ExpiresAt;
-
-    /// <summary>Parses <see cref="Subject"/> as a space URI. Not meaningful for a client attestation.</summary>
-    public SpaceUri ToSpaceUri() => SpaceUri.Parse(Subject);
 }
 
 /// <summary>Creates, parses, and verifies the JWTs that gate access to a permissioned space.</summary>
@@ -296,15 +292,10 @@ public static class SpaceTokens
         if (type == SpaceTokenType.Credential && string.IsNullOrEmpty(thumbprint))
             throw new SpaceTokenException("A space credential must carry a \"cnf.jkt\" claim.");
 
-        var tokenId = payload.GetStringOrNull("jti");
-        if (type != SpaceTokenType.Credential && string.IsNullOrEmpty(tokenId))
-            throw new SpaceTokenException($"A {type} token requires a \"jti\" to be consumed by.");
-        if (type != SpaceTokenType.Credential && !Jwt.IsUsableTokenId(tokenId))
-        {
-            throw new SpaceTokenException(
-                $"A {type} token's \"jti\" must be printable, not only whitespace, and at most " +
-                $"{Jwt.MaxTokenIdLength} characters.");
-        }
+        // A credential is presented many times; only the single-use tokens are consumed by jti.
+        var tokenId = type == SpaceTokenType.Credential
+            ? payload.GetStringOrNull("jti")
+            : Jwt.RequireTokenId(payload, $"{type} token", message => new SpaceTokenException(message));
 
         if (type == SpaceTokenType.ClientAttestation && !string.Equals(issuer, subject, StringComparison.Ordinal))
             throw new SpaceTokenException("A client attestation's \"iss\" and \"sub\" must both be the client ID.");
@@ -328,64 +319,17 @@ public static class SpaceTokens
             signature);
     }
 
-    /// <summary>Attempts to parse a space token, returning <see langword="false"/> rather than throwing.</summary>
-    /// <param name="type">The token class the caller expects.</param>
-    /// <param name="jwt">The encoded token.</param>
-    /// <param name="token">The parsed token on success.</param>
-    public static bool TryParse(SpaceTokenType type, string? jwt, [NotNullWhen(true)] out SpaceToken? token)
-    {
-        try
-        {
-            token = jwt is null ? null : Parse(type, jwt);
-            return token is not null;
-        }
-        catch (SpaceTokenException)
-        {
-            token = null;
-            return false;
-        }
-    }
-
     /// <summary>
-    /// Parses a token, checks its expiry and the claims the caller pins, and verifies its
-    /// signature against the issuer's key.
+    /// Checks a parsed token's expiry and the claims the caller pins, and verifies its signature
+    /// against the issuer's key.
     /// </summary>
-    /// <param name="type">The token class the caller expects.</param>
-    /// <param name="jwt">The encoded token.</param>
-    /// <param name="issuerDidKey">The issuer's signing key as a <c>did:key</c> string.</param>
-    /// <param name="expectedAudience">The audience this service answers to, or <see langword="null"/> to skip the check.</param>
-    /// <param name="expectedSubject">The space the token must name, or <see langword="null"/> to skip the check.</param>
-    /// <param name="now">The instant to evaluate expiry against. Defaults to the current time.</param>
-    /// <exception cref="SpaceTokenException">Thrown when any check fails.</exception>
-    public static SpaceToken Verify(
-        SpaceTokenType type,
-        string jwt,
-        string issuerDidKey,
-        string? expectedAudience = null,
-        SpaceUri? expectedSubject = null,
-        DateTimeOffset? now = null)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(issuerDidKey);
-
-        return Verify(Parse(type, jwt), issuerDidKey, expectedAudience, expectedSubject, now);
-    }
-
-    /// <summary>
-    /// Checks an already parsed token's expiry and the claims the caller pins, and verifies its
-    /// signature against the issuer's key.
-    /// </summary>
-    /// <param name="token">A token from <see cref="Parse"/>.</param>
+    /// <param name="token">A token from <see cref="Parse"/>, whose <c>iss</c> and <c>kid</c> name the key to check.</param>
     /// <param name="issuerDidKey">The issuer's signing key as a <c>did:key</c> string.</param>
     /// <param name="expectedAudience">The audience this service answers to, or <see langword="null"/> to skip the check.</param>
     /// <param name="expectedSubject">The space the token must name, or <see langword="null"/> to skip the check.</param>
     /// <param name="now">The instant to evaluate expiry against. Defaults to the current time.</param>
     /// <returns><paramref name="token"/>, once every check has passed.</returns>
     /// <exception cref="SpaceTokenException">Thrown when any check fails.</exception>
-    /// <remarks>
-    /// For a verifier that has to read the token before it knows which key to check it against,
-    /// such as one resolving the key from the token's <c>iss</c> and <c>kid</c>, so the token is
-    /// parsed once.
-    /// </remarks>
     public static SpaceToken Verify(
         SpaceToken token,
         string issuerDidKey,

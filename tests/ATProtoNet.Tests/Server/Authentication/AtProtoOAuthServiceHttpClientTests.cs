@@ -2,86 +2,43 @@ using System.Net;
 using ATProtoNet.Auth.OAuth;
 using ATProtoNet.Server.Authentication;
 using ATProtoNet.Identity;
-using Microsoft.Extensions.DependencyInjection;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 namespace ATProtoNet.Tests.Server.Authentication;
 
 /// <summary>
-/// Tests how <see cref="AtProtoOAuthService"/> sources its <see cref="HttpClient"/>:
-/// a caller-supplied client is used as-is and left alive, an SDK-created one gets a
-/// timeout well below the 100 s <see cref="HttpClient"/> default.
+/// Tests how <see cref="AtProtoOAuthService"/> sources its <see cref="HttpClient"/>: the named
+/// client it is given is used as is and left alive, and without one the OAuth client's own keeps
+/// the identity fetch policy.
 /// </summary>
 public class AtProtoOAuthServiceHttpClientTests
 {
     [Fact]
-    public async Task SuppliedHttpClient_IsUsedForDiscoveryAndNotDisposedWithTheService()
+    public async Task GivenHttpClient_IsUsedForDiscoveryAndLeftAsItWas()
     {
-        var requests = new List<string>();
-        using var handler = new RecordingHandler(requests);
-        using var callerClient = new HttpClient(handler, disposeHandler: false);
+        using var stub = new HttpStub().Fallback(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+        using var named = new HttpClient(stub, disposeHandler: false) { Timeout = TimeSpan.FromSeconds(7) };
 
-        var options = CreateOptions();
-        options.HttpClient = callerClient;
+        var service = new AtProtoOAuthService(CreateOptions(), NullLoggerFactory.Instance, named);
 
-        var service = new AtProtoOAuthService(options, NullLoggerFactory.Instance);
-        var client = service.Client;
-        Assert.NotNull(client);
-
-        // The OAuth metadata requests go through the caller's client; identity resolution has
-        // its own, under the identity fetch policy.
+        // The OAuth metadata requests go through it; identity resolution has its own client.
         await Assert.ThrowsAnyAsync<Exception>(
-            () => client.Discovery.ResolveAuthorizationServerAsync("https://pds.example.com"));
-        Assert.NotEmpty(requests);
+            () => service.Client.Discovery.ResolveAuthorizationServerAsync("https://pds.example.com"));
+        Assert.NotEmpty(stub.Requests);
 
-        // The caller owns the client's lifetime — it must survive the service.
+        // The factory owns it: its timeout is left alone, and it survives the service.
+        Assert.Equal(TimeSpan.FromSeconds(7), named.Timeout);
         service.Dispose();
-        using var response = await callerClient.GetAsync("https://example.com/still-usable");
+        using var response = await named.GetAsync("https://example.com/still-usable");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
-    public void SuppliedHttpClient_TimeoutIsLeftUntouched()
+    public void WithoutAnHttpClient_TheOAuthClientsOwnKeepsTheIdentityFetchPolicy()
     {
-        using var handler = new RecordingHandler([]);
-        using var callerClient = new HttpClient(handler, disposeHandler: false)
-        {
-            Timeout = TimeSpan.FromSeconds(7),
-        };
-
-        var options = CreateOptions();
-        options.HttpClient = callerClient;
-        options.HttpClientTimeout = TimeSpan.FromSeconds(30);
-
-        using var service = new AtProtoOAuthService(options, NullLoggerFactory.Instance);
-        Assert.NotNull(service.Client);
-
-        Assert.Equal(TimeSpan.FromSeconds(7), callerClient.Timeout);
-    }
-
-    [Fact]
-    public void CreatedHttpClient_UsesConfiguredTimeout()
-    {
-        var options = CreateOptions();
-        options.HttpClientTimeout = TimeSpan.FromSeconds(12);
-
-        using var service = new AtProtoOAuthService(options, NullLoggerFactory.Instance);
-
-        Assert.Equal(TimeSpan.FromSeconds(12), service.Client.HttpClient.Timeout);
-    }
-
-    [Fact]
-    public void ConstructedFromAContainerWithoutWithOAuth_KeepsTheIdentityFetchPolicy()
-    {
-        // Without WithOAuth() the named client has a default handler, which follows redirects and
-        // reaches private addresses; the service must not pick it up just because a factory exists.
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddHttpClient();
-        using var provider = services.BuildServiceProvider();
-
-        using var service = ActivatorUtilities.CreateInstance<AtProtoOAuthService>(provider, CreateOptions());
+        using var service = new AtProtoOAuthService(CreateOptions(), NullLoggerFactory.Instance);
 
         var primary = Assert.IsType<SocketsHttpHandler>(HandlerOf(service.Client.HttpClient));
         Assert.NotNull(primary.ConnectCallback);
@@ -166,13 +123,14 @@ public class AtProtoOAuthServiceHttpClientTests
     [Fact]
     public void Client_ClientKeysWithoutClientMetadata_AreRefused()
     {
+        // WithOAuth refuses this at startup; a loopback client is public, so its keys are refused too.
         using var key = OAuthClientKey.Generate("key-1");
         var options = new AtProtoOAuthServerOptions { BaseUrl = "http://127.0.0.1:8080" };
         options.ClientKeys.Add(key);
 
         using var service = new AtProtoOAuthService(options, NullLoggerFactory.Instance);
 
-        Assert.Throws<InvalidOperationException>(() => service.Client);
+        Assert.Throws<ArgumentException>(() => service.Client);
     }
 
     [Fact]
@@ -236,7 +194,7 @@ public class AtProtoOAuthServiceHttpClientTests
     {
         var resolver = Substitute.For<IIdentityResolver>();
 
-        using var service = new AtProtoOAuthService(CreateOptions(), NullLoggerFactory.Instance, resolver);
+        using var service = new AtProtoOAuthService(CreateOptions(), NullLoggerFactory.Instance, identityResolver: resolver);
         var client = service.Client;
         Assert.NotNull(client);
 
@@ -246,10 +204,7 @@ public class AtProtoOAuthServiceHttpClientTests
     [Fact]
     public void WithoutAnIdentityResolver_DiscoveryCreatesItsOwn()
     {
-        var options = CreateOptions();
-        options.HandleResolutionTimeout = TimeSpan.FromSeconds(3);
-
-        using var service = new AtProtoOAuthService(options, NullLoggerFactory.Instance);
+        using var service = new AtProtoOAuthService(CreateOptions(), NullLoggerFactory.Instance);
         var client = service.Client;
         Assert.NotNull(client);
 
@@ -268,19 +223,4 @@ public class AtProtoOAuthServiceHttpClientTests
             RedirectUris = ["https://app.example/atproto/callback"],
         },
     };
-
-    private sealed class RecordingHandler(List<string> requests) : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            lock (requests)
-                requests.Add(request.RequestUri!.ToString());
-
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)
-            {
-                RequestMessage = request,
-            });
-        }
-    }
 }

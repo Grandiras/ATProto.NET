@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using ATProtoNet.Server.Spaces;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Server.Spaces;
 
@@ -25,7 +26,7 @@ public class HttpSpaceClientMetadataResolverTests
 
     private static HttpSpaceClientMetadataResolver CreateResolver(Func<Uri, HttpContent> respond) =>
         new(
-            new HttpClient(new StubHandler(respond)),
+            new HttpClient(new HttpStub().Fallback(r => new HttpResponseMessage(HttpStatusCode.OK) { Content = respond(r.Uri) })),
             new SpaceServerOptions { MaxClientMetadataBytes = Cap });
 
     /// <summary>Pads a JSON document with trailing whitespace to exactly <paramref name="bytes"/> bytes.</summary>
@@ -94,17 +95,6 @@ public class HttpSpaceClientMetadataResolverTests
         var keys = await resolver.ResolveKeysAsync(ClientId);
 
         Assert.Equal("key-1", Assert.Single(keys).Kid);
-    }
-
-    private sealed class StubHandler(Func<Uri, HttpContent> respond) : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = respond(request.RequestUri!),
-                RequestMessage = request,
-            });
     }
 
     /// <summary>A body with no <c>Content-Length</c>, as a chunked response arrives.</summary>

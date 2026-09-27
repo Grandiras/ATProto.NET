@@ -16,6 +16,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NSubstitute;
 using static ATProtoNet.Tests.Auth.SessionKit;
 
 namespace ATProtoNet.Tests.Server;
@@ -244,17 +245,15 @@ public class AtProtoBuilderTests
     }
 
     [Fact]
-    public async Task WithSessionStore_FromAFactory_IsWhereTheClientPersistsItsSession()
+    public async Task WithSessionStore_IsWhereTheClientPersistsItsSession()
     {
-        var store = new CountingStore();
         var services = Services();
-        services.AddAtProto().WithSessionStore(_ => store);
+        services.AddAtProto().WithSessionStore<CountingStore>();
 
         await using var provider = services.BuildServiceProvider();
         await provider.GetRequiredService<AtProtoClient>().ApplySessionAsync(PasswordSession("access", "refresh"));
 
-        Assert.Same(store, provider.GetRequiredService<IAtProtoSessionStore>());
-        Assert.Equal(1, store.Writes);
+        Assert.Equal(1, Assert.IsType<CountingStore>(provider.GetRequiredService<IAtProtoSessionStore>()).Writes);
     }
 
     [Fact]
@@ -324,7 +323,7 @@ public class AtProtoBuilderTests
         await host.StartAsync();
         await host.StopAsync();
 
-        var warning = Assert.Single(logs.Entries, e => e.Category == typeof(InMemorySessionStoreWarning).FullName);
+        var warning = Assert.Single(logs.Entries, e => e.Category == typeof(InMemoryDefaultsWarning).FullName);
         Assert.Equal(LogLevel.Warning, warning.Level);
         Assert.Contains("WithFileSessionStore()", warning.Message);
     }
@@ -353,7 +352,7 @@ public class AtProtoBuilderTests
             await host.StartAsync();
             await host.StopAsync();
 
-            Assert.DoesNotContain(logs.Entries, e => e.Category == typeof(InMemorySessionStoreWarning).FullName);
+            Assert.DoesNotContain(logs.Entries, e => e.Category == typeof(InMemoryDefaultsWarning).FullName);
         }
         finally
         {
@@ -530,16 +529,12 @@ public class AtProtoBuilderTests
     public void WithOAuth_TheLoginSendsThroughItsNamedClient()
     {
         var services = Services();
-        services.AddAtProto().WithOAuth(o =>
-        {
-            o.BaseUrl = "http://127.0.0.1:5000";
-            o.HttpClientTimeout = TimeSpan.FromSeconds(7);
-        });
+        services.AddAtProto().WithOAuth(o => o.BaseUrl = "http://127.0.0.1:5000");
 
         using var provider = services.BuildServiceProvider();
         var oauth = provider.GetRequiredService<OAuthClient>();
 
-        Assert.Equal(TimeSpan.FromSeconds(7), oauth.HttpClient.Timeout);
+        Assert.Equal(TimeSpan.FromSeconds(30), oauth.HttpClient.Timeout);
         Assert.StartsWith("ATProtoNet/", oauth.HttpClient.DefaultRequestHeaders.UserAgent.ToString());
 
         // The identity fetch policy: its own handler, which follows no redirects, goes through no
@@ -552,16 +547,34 @@ public class AtProtoBuilderTests
     }
 
     [Fact]
-    public void WithOAuth_AllowPrivateNetworks_LiftsTheAddressCheck()
+    public void WithOAuth_TheIdentityOptionsAllowPrivateNetworks_LiftsTheAddressCheck()
     {
         var services = Services();
-        services.AddAtProto().WithOAuth(o => o.AllowPrivateNetworks = true);
+        services.AddAtProtoIdentity(o => o.AllowPrivateNetworks = true);
+        services.AddAtProto().WithOAuth(o => o.BaseUrl = "http://127.0.0.1:5000");
 
         using var provider = services.BuildServiceProvider();
         var primary = Assert.IsType<SocketsHttpHandler>(PrimaryHandlerOf(provider.GetRequiredService<IHttpMessageHandlerFactory>()
             .CreateHandler(AtProtoOAuthExtensions.HttpClientName)));
 
         Assert.Null(primary.ConnectCallback);
+        Assert.Same(provider.GetRequiredService<IIdentityResolver>(), provider.GetRequiredService<OAuthClient>().Discovery.IdentityResolver);
+    }
+
+    [Fact]
+    public void WithOAuth_ADidResolverRegisteredWithoutAddAtProtoIdentity_IsNotWhatTheLoginResolvesThrough()
+    {
+        // The issuer check reads the account's document afresh through InvalidateAsync, which a
+        // resolver registered for other purposes need not honour: the login keeps its own.
+        var services = Services();
+        services.AddSingleton(Substitute.For<IDidResolver>());
+        services.AddAtProto().WithOAuth(o => o.BaseUrl = "http://127.0.0.1:5000");
+
+        using var provider = services.BuildServiceProvider();
+
+        Assert.Null(provider.GetService<IIdentityResolver>());
+        Assert.IsType<CachingDidResolver>(
+            Assert.IsType<IdentityResolver>(provider.GetRequiredService<OAuthClient>().Discovery.IdentityResolver).DidResolver);
     }
 
     [Fact]
@@ -572,7 +585,6 @@ public class AtProtoBuilderTests
             {
                 ["AtProto:OAuth:ClientName"] = "My App",
                 ["AtProto:OAuth:BaseUrl"] = "https://app.example.com",
-                ["AtProto:OAuth:HttpClientTimeout"] = "00:00:12",
                 ["AtProto:OAuth:ClientMetadata:ClientId"] = "https://app.example.com/oauth-client-metadata.json",
                 ["AtProto:OAuth:ClientMetadata:RedirectUris:0"] = "https://app.example.com/atproto/callback",
             })
@@ -586,7 +598,6 @@ public class AtProtoBuilderTests
 
         Assert.Equal("My App", options.ClientName);
         Assert.Equal("https://app.example.com", options.BaseUrl);
-        Assert.Equal(TimeSpan.FromSeconds(12), options.HttpClientTimeout);
         Assert.Equal(["https://app.example.com/atproto/callback"], options.ClientMetadata!.RedirectUris);
         Assert.Equal("https://app.example.com/oauth-client-metadata.json", provider.GetRequiredService<OAuthClient>().ClientId);
     }
@@ -597,7 +608,6 @@ public class AtProtoBuilderTests
         { "RoutePrefix", o => o.RoutePrefix = "atproto" },
         { "LoginPath", o => o.LoginPath = "//evil.example.com" },
         { "BaseUrl", o => o.BaseUrl = "app.example.com" },
-        { "HttpClientTimeout", o => o.HttpClientTimeout = TimeSpan.Zero },
         { "CookieScheme", o => o.CookieScheme = "" },
         { "ClientKeys", o => o.ClientKeys.Add(OAuthClientKey.Generate("key-1")) },
     };
@@ -638,8 +648,11 @@ public class AtProtoBuilderTests
     [Fact]
     public async Task AddSpaceAuthority_WithoutAServiceDid_StopsTheHostInOptionsValidation()
     {
-        using var host = Host(s => s.AddAtProtoSpaces(o => o.WarnOnInMemoryStores = false)
-            .AddSpaceAuthority<InMemorySpaceAuthorityStore>(ATProtoNet.Crypto.AtProtoCrypto.GenerateP256Key()));
+        // A complete authority (AddSimpleSpace supplies its access policy), so the host builds in
+        // Development too, where the container validates every registration on build.
+        using var host = Host(s => s.AddAtProtoSpaces()
+            .AddSpaceAuthority<InMemorySpaceAuthorityStore>(ATProtoNet.Crypto.AtProtoCrypto.GenerateP256Key())
+            .AddSimpleSpace<InMemorySimpleSpaceStore>());
 
         var ex = await Assert.ThrowsAsync<OptionsValidationException>(() => host.StartAsync());
 
@@ -650,7 +663,7 @@ public class AtProtoBuilderTests
     public async Task AddAtProtoSpaces_WithoutAnAuthority_StartsWithoutAServiceDid()
     {
         // Verifying tokens, or hosting repos, needs no DID of the service's own.
-        using var host = Host(s => s.AddAtProtoSpaces(o => o.WarnOnInMemoryStores = false));
+        using var host = Host(s => s.AddAtProtoSpaces());
 
         await host.StartAsync();
         await host.StopAsync();

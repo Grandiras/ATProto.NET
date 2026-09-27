@@ -202,34 +202,13 @@ public class SpaceTokensTests
     }
 
     [Theory]
-    [InlineData("not.a.jwt.at.all")]
     [InlineData("onlyonepart")]
-    [InlineData("!!!.!!!.!!!")]
-    public void TryParse_Malformed_ReturnsFalse(string jwt)
-    {
-        Assert.False(SpaceTokens.TryParse(SpaceTokenType.Delegation, jwt, out _));
-    }
-
-    [Theory]
-    [InlineData("a.b")]
     [InlineData("a.b.c.d")]
-    public void Parse_NotThreeSegments_Throws(string jwt)
+    [InlineData("!!!.!!!.!!!")]
+    [InlineData("e30.WzFd.AAAA")] // a payload that is not a JSON object
+    public void Parse_MalformedToken_ThrowsSpaceTokenException(string jwt)
     {
-        Assert.Throws<SpaceTokenException>(() => SpaceTokens.Parse(SpaceTokenType.Delegation, jwt));
-    }
-
-    [Theory]
-    [InlineData(0, "not json")]
-    [InlineData(0, "[1,2]")]
-    [InlineData(1, "{\"iss\":")]
-    [InlineData(1, "[\"iss\"]")]
-    [InlineData(1, "\"a string\"")]
-    public void Parse_SegmentThatIsNotAJsonObject_Throws(int index, string json)
-    {
-        using var key = AtProtoCrypto.GenerateP256Key();
-        var jwt = TestJws.WithSegment(
-            MintDelegation(key), index, TestJws.Encode(Encoding.UTF8.GetBytes(json)));
-
+        // How each segment decodes is JwtTests'; this pins that a failure is this parser's error.
         Assert.Throws<SpaceTokenException>(() => SpaceTokens.Parse(SpaceTokenType.Delegation, jwt));
     }
 
@@ -239,14 +218,13 @@ public class SpaceTokensTests
     [InlineData("exp", long.MinValue)]
     [InlineData("iat", 253402300800L)]
     [InlineData("iat", -62135596801L)] // one second before 0001-01-01
-    public void TryParse_TimeClaimOutsideTheRepresentableRange_ReturnsFalse(string claim, long seconds)
+    public void Parse_TimeClaimOutsideTheRepresentableRange_Throws(string claim, long seconds)
     {
         // Regression: DateTimeOffset.FromUnixTimeSeconds threw ArgumentOutOfRangeException, which
-        // escaped TryParse, and reached a space server's host as a 500 instead of a refusal.
+        // reached a space server's host as a 500 instead of a refusal.
         using var key = AtProtoCrypto.GenerateP256Key();
         var jwt = WithClaim(MintDelegation(key), claim, seconds);
 
-        Assert.False(SpaceTokens.TryParse(SpaceTokenType.Delegation, jwt, out _));
         var ex = Assert.Throws<SpaceTokenException>(() => SpaceTokens.Parse(SpaceTokenType.Delegation, jwt));
         Assert.Contains("not a valid time", ex.Message, StringComparison.Ordinal);
     }
@@ -255,13 +233,13 @@ public class SpaceTokensTests
     [InlineData(" ")]
     [InlineData("\t\t")]
     [InlineData("a\u0000b")]
-    public void TryParse_JtiThatCannotBeSpent_ReturnsFalse(string jti)
+    public void Parse_JtiThatCannotBeSpent_Throws(string jti)
     {
         // A replay store refuses to key on it, so it has to be refused here, not surface there.
         using var key = AtProtoCrypto.GenerateP256Key();
         var jwt = WithClaim(MintDelegation(key), "jti", jti);
 
-        Assert.False(SpaceTokens.TryParse(SpaceTokenType.Delegation, jwt, out _));
+        Assert.Throws<SpaceTokenException>(() => SpaceTokens.Parse(SpaceTokenType.Delegation, jwt));
     }
 
     [Fact]
@@ -284,55 +262,6 @@ public class SpaceTokensTests
         Assert.Equal(DateTimeOffset.MaxValue.ToUnixTimeSeconds(), token.ExpiresAt.ToUnixTimeSeconds());
     }
 
-    [Theory]
-    [InlineData(JwsSegments.Header)]
-    [InlineData(JwsSegments.Payload)]
-    [InlineData(JwsSegments.Signature)]
-    [InlineData(JwsSegments.All)]
-    public void Verify_SegmentsWithBase64Padding_AreAccepted(JwsSegments padded)
-    {
-        // RFC 7515 omits the padding, but a correctly padded segment decodes to the same bytes,
-        // and the signature covers the header and payload exactly as they were sent.
-        using var key = AtProtoCrypto.GenerateP256Key();
-        var jwt = MintDelegation(key, padded);
-
-        var token = SpaceTokens.Verify(
-            SpaceTokenType.Delegation, jwt, key.ToDidKey(), HostAudience, SpaceUri.Parse(Space));
-
-        Assert.Equal(UserDid, token.Issuer);
-        Assert.Equal("a-token-id", token.TokenId);
-    }
-
-    [Theory]
-    [InlineData(0, "!!!!")]
-    [InlineData(1, "!!!!")]
-    [InlineData(2, "!!!!")]
-    [InlineData(0, "AAAAA")]
-    [InlineData(1, "AAAAA")]
-    [InlineData(2, "AAAAA")]
-    public void Parse_SegmentThatIsNotBase64Url_Throws(int index, string segment)
-    {
-        using var key = AtProtoCrypto.GenerateP256Key();
-        var jwt = TestJws.WithSegment(MintDelegation(key), index, segment);
-
-        Assert.Throws<SpaceTokenException>(() => SpaceTokens.Parse(SpaceTokenType.Delegation, jwt));
-        Assert.False(SpaceTokens.TryParse(SpaceTokenType.Delegation, jwt, out _));
-    }
-
-    [Fact]
-    public void Parse_SignatureInTheStandardBase64Alphabet_Throws()
-    {
-        // Base64url has one alphabet; '+' and '/' belong to the standard one.
-        using var key = AtProtoCrypto.GenerateP256Key();
-        var jwt = MintDelegation(key);
-        var signature = jwt.Split('.')[2];
-
-        Assert.Throws<SpaceTokenException>(() => SpaceTokens.Parse(
-            SpaceTokenType.Delegation, TestJws.WithSegment(jwt, 2, "+" + signature[1..])));
-        Assert.Throws<SpaceTokenException>(() => SpaceTokens.Parse(
-            SpaceTokenType.Delegation, TestJws.WithSegment(jwt, 2, "/" + signature[1..])));
-    }
-
     [Fact]
     public void Create_EveryToken_CarriesA128BitHexJti()
     {
@@ -350,47 +279,6 @@ public class SpaceTokensTests
     }
 
     [Fact]
-    public void Verify_AnAlreadyParsedToken_ChecksItWithoutParsingAgain()
-    {
-        using var key = AtProtoCrypto.GenerateP256Key();
-        var parsed = SpaceTokens.Parse(SpaceTokenType.Delegation, MintDelegation(key));
-
-        var verified = SpaceTokens.Verify(parsed, key.ToDidKey(), HostAudience, SpaceUri.Parse(Space));
-
-        Assert.Same(parsed, verified);
-    }
-
-    [Fact]
-    public void Verify_AnAlreadyParsedTokenAgainstTheWrongKey_Throws()
-    {
-        using var key = AtProtoCrypto.GenerateP256Key();
-        using var other = AtProtoCrypto.GenerateP256Key();
-        var parsed = SpaceTokens.Parse(SpaceTokenType.Delegation, MintDelegation(key));
-
-        Assert.Throws<SpaceTokenException>(() => SpaceTokens.Verify(parsed, other.ToDidKey()));
-    }
-
-    [Fact]
-    public void Verify_AnAlreadyParsedTokenThatHasExpired_Throws()
-    {
-        using var key = AtProtoCrypto.GenerateP256Key();
-        var parsed = SpaceTokens.Parse(SpaceTokenType.Delegation, MintDelegation(key));
-
-        Assert.Throws<SpaceTokenException>(
-            () => SpaceTokens.Verify(parsed, key.ToDidKey(), now: parsed.ExpiresAt.AddMinutes(1)));
-    }
-
-    [Fact]
-    public void Verify_AnAlreadyParsedTokenForAnotherAudience_Throws()
-    {
-        using var key = AtProtoCrypto.GenerateP256Key();
-        var parsed = SpaceTokens.Parse(SpaceTokenType.Delegation, MintDelegation(key));
-
-        Assert.Throws<SpaceTokenException>(
-            () => SpaceTokens.Verify(parsed, key.ToDidKey(), expectedAudience: $"{UserDid}#atproto_space_host"));
-    }
-
-    [Fact]
     public void Parse_ExposesTheSigningInputTheSignatureCovers()
     {
         using var key = AtProtoCrypto.GenerateP256Key();
@@ -404,30 +292,19 @@ public class SpaceTokensTests
         Assert.True(key.Verify(token.SigningInput, token.Signature));
     }
 
-    [Fact]
-    public void ToSpaceUri_ParsesTheSubjectAsASpace()
-    {
-        using var key = AtProtoCrypto.GenerateP256Key();
-        var token = SpaceTokens.Parse(
-            SpaceTokenType.Delegation,
-            SpaceTokens.Create(SpaceTokenType.Delegation, UserDid, Space, key, audience: HostAudience));
-
-        Assert.Equal(SpaceUri.Parse(Space), token.ToSpaceUri());
-    }
-
     // ── Verification ─────────────────────────────────────────────
 
+    private static SpaceToken Parsed(AtProtoKey key) => SpaceTokens.Parse(SpaceTokenType.Delegation, MintDelegation(key));
+
     [Fact]
-    public void Verify_AGoodToken_Succeeds()
+    public void Verify_AGoodToken_ReturnsTheParsedToken()
     {
         using var key = AtProtoCrypto.GenerateP256Key();
-        var jwt = SpaceTokens.Create(
-            SpaceTokenType.Delegation, UserDid, Space, key, audience: HostAudience);
+        var parsed = Parsed(key);
 
-        var token = SpaceTokens.Verify(
-            SpaceTokenType.Delegation, jwt, key.ToDidKey(), HostAudience, SpaceUri.Parse(Space));
+        var verified = SpaceTokens.Verify(parsed, key.ToDidKey(), HostAudience, SpaceUri.Parse(Space));
 
-        Assert.Equal(UserDid, token.Issuer);
+        Assert.Same(parsed, verified);
     }
 
     [Fact]
@@ -435,11 +312,8 @@ public class SpaceTokensTests
     {
         using var key = AtProtoCrypto.GenerateP256Key();
         using var other = AtProtoCrypto.GenerateP256Key();
-        var jwt = SpaceTokens.Create(
-            SpaceTokenType.Delegation, UserDid, Space, key, audience: HostAudience);
 
-        Assert.Throws<SpaceTokenException>(
-            () => SpaceTokens.Verify(SpaceTokenType.Delegation, jwt, other.ToDidKey()));
+        Assert.Throws<SpaceTokenException>(() => SpaceTokens.Verify(Parsed(key), other.ToDidKey()));
     }
 
     [Fact]
@@ -448,23 +322,18 @@ public class SpaceTokensTests
         // The audience is derived from the subject space, so a token minted for one authority
         // cannot be presented at another.
         using var key = AtProtoCrypto.GenerateP256Key();
-        var jwt = SpaceTokens.Create(
-            SpaceTokenType.Delegation, UserDid, Space, key, audience: HostAudience);
 
         Assert.Throws<SpaceTokenException>(() => SpaceTokens.Verify(
-            SpaceTokenType.Delegation, jwt, key.ToDidKey(),
-            expectedAudience: "did:plc:z72i7hdynmk6r22z27h6tvur#atproto_space_host"));
+            Parsed(key), key.ToDidKey(), expectedAudience: "did:plc:z72i7hdynmk6r22z27h6tvur#atproto_space_host"));
     }
 
     [Fact]
     public void Verify_ForADifferentSpace_Throws()
     {
         using var key = AtProtoCrypto.GenerateP256Key();
-        var jwt = SpaceTokens.Create(
-            SpaceTokenType.Delegation, UserDid, Space, key, audience: HostAudience);
 
         Assert.Throws<SpaceTokenException>(() => SpaceTokens.Verify(
-            SpaceTokenType.Delegation, jwt, key.ToDidKey(),
+            Parsed(key), key.ToDidKey(),
             expectedSubject: SpaceUri.Parse($"at://{AuthorityDid}/space/com.atmoboards.forum/other")));
     }
 
@@ -472,12 +341,9 @@ public class SpaceTokensTests
     public void Verify_AnExpiredToken_Throws()
     {
         using var key = AtProtoCrypto.GenerateP256Key();
-        var jwt = SpaceTokens.Create(
-            SpaceTokenType.Delegation, UserDid, Space, key,
-            audience: HostAudience, lifetime: TimeSpan.FromSeconds(1));
+        var parsed = Parsed(key);
 
-        Assert.Throws<SpaceTokenException>(() => SpaceTokens.Verify(
-            SpaceTokenType.Delegation, jwt, key.ToDidKey(), now: DateTimeOffset.UtcNow.AddMinutes(5)));
+        Assert.Throws<SpaceTokenException>(() => SpaceTokens.Verify(parsed, key.ToDidKey(), now: parsed.ExpiresAt.AddMinutes(1)));
     }
 
     [Fact]
@@ -506,6 +372,6 @@ public class SpaceTokensTests
             .TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
         Assert.Throws<SpaceTokenException>(() => SpaceTokens.Verify(
-            SpaceTokenType.Delegation, $"{parts[0]}.{forged}.{parts[2]}", key.ToDidKey()));
+            SpaceTokens.Parse(SpaceTokenType.Delegation, $"{parts[0]}.{forged}.{parts[2]}"), key.ToDidKey()));
     }
 }

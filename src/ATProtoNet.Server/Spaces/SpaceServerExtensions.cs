@@ -52,7 +52,7 @@ public static class SpaceServerExtensions
 
     /// <summary>
     /// Registers the credential verification layer: DPoP proof, delegation token, space
-    /// credential, client attestation, and service auth verification.
+    /// credential and client attestation verification.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="configure">Configures <see cref="SpaceServerOptions"/>.</param>
@@ -87,13 +87,7 @@ public static class SpaceServerExtensions
             .ConfigurePrimaryHttpMessageHandler(sp =>
                 IdentityNetworkPolicy.CreateHandler(sp.GetRequiredService<IdentityResolverOptions>().AllowPrivateNetworks));
 
-        services.TryAddSingleton<IJtiReplayStore, InMemoryJtiReplayStore>();
-
-        // The in-process defaults are the right choice for a single instance and the wrong one
-        // for two, and nothing about a deployment says which it is — so the service says at
-        // startup which stores it ended up with.
-        services.TryAddEnumerable(
-            ServiceDescriptor.Singleton<IHostedService, InMemorySpaceStoreWarning>());
+        InMemoryDefaultsWarning.TryAdd<IJtiReplayStore, InMemoryJtiReplayStore>(services);
 
         // Every authenticated request resolves a DID document. The space server keeps a cache of
         // its own, with a lifetime short enough that a rotated key stops verifying quickly, and
@@ -123,7 +117,6 @@ public static class SpaceServerExtensions
         services.TryAddSingleton<SpaceDelegationTokenVerifier>();
         services.TryAddSingleton<SpaceCredentialVerifier>();
         services.TryAddSingleton<SpaceClientAttestationVerifier>();
-        services.TryAddSingleton<SpaceServiceAuthVerifier>();
         services.TryAddSingleton<SpaceRequestAuthenticator>();
 
         return services;
@@ -140,11 +133,6 @@ public static class SpaceServerExtensions
         RequirePositive(options.CredentialLifetime, nameof(options.CredentialLifetime));
         RequirePositive(options.NotifyRegistrationLifetime, nameof(options.NotifyRegistrationLifetime));
         ArgumentOutOfRangeException.ThrowIfLessThan(options.ClockSkew, TimeSpan.Zero, nameof(options.ClockSkew));
-        ArgumentOutOfRangeException.ThrowIfLessThan(
-            options.ClientMetadataCacheLifetime, TimeSpan.Zero, nameof(options.ClientMetadataCacheLifetime));
-        ArgumentOutOfRangeException.ThrowIfNegative(
-            options.VerifiedCredentialCacheCapacity, nameof(options.VerifiedCredentialCacheCapacity));
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaxClientMetadataBytes, nameof(options.MaxClientMetadataBytes));
         ArgumentNullException.ThrowIfNull(options.DidCache, nameof(options.DidCache));
         options.DidCache.Validate();
 
@@ -186,11 +174,9 @@ public static class SpaceServerExtensions
     /// yourself if it needs the same bridge.</para>
     /// <para><see cref="SpaceServerOptions.ServiceDid"/> is required: without it the host fails to
     /// start with an <see cref="Microsoft.Extensions.Options.OptionsValidationException"/>.</para>
-    /// <para>Outbound notifications and managing-app checks are signed as
-    /// <see cref="SpaceServerOptions.ServiceDid"/> with <paramref name="signingKey"/>, unless an
-    /// <see cref="ISpaceAccountSigner"/> is registered and holds the key of the account a call
-    /// speaks for — which a service hosting its users' repos needs, since the reference authority
-    /// accepts a write notification only from its writer.</para>
+    /// <para>An <see cref="ISpaceAccountSigner"/>, when registered, signs outbound calls as the
+    /// account they speak for, which a service hosting its users' repos needs: the reference
+    /// authority accepts a write notification only from its writer.</para>
     /// </remarks>
     public static IServiceCollection AddSpaceAuthority<TStore>(
         this IServiceCollection services, AtProtoKey signingKey, AtProtoKey? serviceAuthKey = null)
@@ -222,8 +208,7 @@ public static class SpaceServerExtensions
                 : store;
         });
 
-        services.TryAddSingleton<ISpaceCredentialIssuer>(sp =>
-            new SpaceCredentialIssuer(signingKey, sp.GetRequiredService<SpaceServerOptions>()));
+        services.TryAddSingleton(sp => new SpaceCredentialIssuer(signingKey, sp.GetRequiredService<SpaceServerOptions>()));
 
         services.TryAddSingleton(sp => CreateServiceAuth(
             sp.GetRequiredService<SpaceServerOptions>(),

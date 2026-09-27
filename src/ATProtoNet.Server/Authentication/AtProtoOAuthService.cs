@@ -39,7 +39,9 @@ public sealed class AtProtoOAuthService : IDisposable
     private readonly AtProtoOAuthServerOptions _serverOptions;
     private readonly ILogger<AtProtoOAuthService> _logger;
     private readonly ILogger<OAuthClient> _oauthClientLogger;
+    private readonly HttpClient? _httpClient;
     private readonly IIdentityResolver? _identityResolver;
+    private readonly IdentityResolverOptions _identityOptions;
     private readonly IOAuthStateStore? _stateStore;
     private readonly IServer? _server;
     private readonly ISessionRefreshCoordinator? _refreshCoordinator;
@@ -47,21 +49,16 @@ public sealed class AtProtoOAuthService : IDisposable
     private readonly ConcurrentDictionary<string, RelayCode> _relayCodes = new(StringComparer.Ordinal);
     private volatile OAuthClient? _oauthClient;
     private string? _loopbackCallbackUrl;
-    private HttpClient? _httpClient;
     private volatile bool _disposed;
 
-    /// <summary>Creates a new <see cref="AtProtoOAuthService"/>.</summary>
-    /// <param name="serverOptions">The OAuth server options.</param>
-    /// <param name="loggerFactory">Creates the service's loggers.</param>
-    /// <param name="identityResolver">
-    /// Resolves the handles and DIDs the login flow handles. Taken from dependency injection when
-    /// registered (see <c>AddAtProtoIdentity</c>); when <see langword="null"/>, the OAuth client
-    /// creates its own.
+    /// <param name="httpClient">
+    /// The named client <see cref="AtProtoOAuthExtensions.HttpClientName"/>, not owned. Without
+    /// one, the OAuth client creates its own under the identity fetch policy.
     /// </param>
-    /// <param name="stateStore">
-    /// Where pending logins wait for their callbacks. Taken from dependency injection when
-    /// registered, such as a <see cref="DistributedCacheOAuthStateStore"/> shared by several
-    /// instances; when <see langword="null"/>, the OAuth client keeps them in memory.
+    /// <param name="identityResolver">The registered resolver; without one, the OAuth client creates its own.</param>
+    /// <param name="identityOptions">
+    /// The handle resolution budget and the development opt-out for private networks, for the OAuth
+    /// client's own resolver and its metadata requests.
     /// </param>
     /// <param name="server">
     /// The server, whose plain HTTP address the development loopback client's callback uses when
@@ -69,20 +66,15 @@ public sealed class AtProtoOAuthService : IDisposable
     /// <see cref="AtProtoOAuthServerOptions.ClientMetadata"/> is set.
     /// </param>
     /// <param name="refreshCoordinator">
-    /// The coordinator the client factory's clients refresh under (registered by
-    /// <c>WithClientFactory()</c>). Storing a new session and signing out take the account's
+    /// The client factory's coordinator: storing a new session and signing out take the account's
     /// lock too, so neither interleaves with a refresh.
     /// </param>
-    /// <remarks>
-    /// Without <see cref="AtProtoOAuthServerOptions.HttpClient"/>, a service constructed here
-    /// creates and owns a client under the identity fetch policy. The one <c>WithOAuth()</c>
-    /// registers sends with the named client <see cref="AtProtoOAuthExtensions.HttpClientName"/>
-    /// instead, which it configures with the same policy.
-    /// </remarks>
-    public AtProtoOAuthService(
+    internal AtProtoOAuthService(
         AtProtoOAuthServerOptions serverOptions,
         ILoggerFactory loggerFactory,
+        HttpClient? httpClient = null,
         IIdentityResolver? identityResolver = null,
+        IdentityResolverOptions? identityOptions = null,
         IOAuthStateStore? stateStore = null,
         IServer? server = null,
         ISessionRefreshCoordinator? refreshCoordinator = null)
@@ -92,18 +84,13 @@ public sealed class AtProtoOAuthService : IDisposable
 
         _logger = loggerFactory.CreateLogger<AtProtoOAuthService>();
         _oauthClientLogger = loggerFactory.CreateLogger<OAuthClient>();
+        _httpClient = httpClient;
         _identityResolver = identityResolver;
+        _identityOptions = identityOptions ?? new IdentityResolverOptions();
         _stateStore = stateStore;
         _server = server;
         _refreshCoordinator = refreshCoordinator;
     }
-
-    /// <summary>
-    /// The factory of the named client <see cref="AtProtoOAuthExtensions.HttpClientName"/>, set
-    /// only by <c>WithOAuth()</c>, which gives that name the identity fetch policy. Anywhere else
-    /// the name could carry a default handler that follows redirects to private addresses.
-    /// </summary>
-    internal IHttpClientFactory? PolicyHttpClientFactory { get; init; }
 
     /// <summary>The coordinator a new session is stored under and a sign-out waits on.</summary>
     internal ISessionRefreshCoordinator? RefreshCoordinator => _refreshCoordinator;
@@ -158,52 +145,24 @@ public sealed class AtProtoOAuthService : IDisposable
             }
             else
             {
-                if (_serverOptions.ClientKeys.Count > 0)
-                {
-                    throw new InvalidOperationException(
-                        "ClientKeys are for a confidential client, which needs ClientMetadata: its client_id " +
-                        "document must publish the keys, which a loopback client has nowhere to do.");
-                }
-
                 _loopbackCallbackUrl = LoopbackCallbackUrl();
                 clientMetadata = CreateLoopbackMetadata(_loopbackCallbackUrl, _serverOptions.Scopes, _serverOptions.ClientName);
             }
 
-            // A caller-supplied client is theirs: it is used as is (so it is theirs to secure),
-            // its Timeout is left alone, and it is not disposed with this service. So is the
-            // factory's, which WithOAuth configures. An owned one runs under the identity fetch
-            // policy, public addresses only, with the configured timeout.
-            var httpClient = _serverOptions.HttpClient ?? PolicyHttpClientFactory?.CreateClient(AtProtoOAuthExtensions.HttpClientName);
-            HttpClient? owned = null;
-            if (httpClient is null)
-            {
-                httpClient = owned = IdentityNetworkPolicy.CreateClient(_serverOptions.AllowPrivateNetworks);
-                httpClient.Timeout = _serverOptions.HttpClientTimeout;
-            }
-
-            try
-            {
-                var oauthOptions = new OAuthOptions
+            _oauthClient = new OAuthClient(
+                new OAuthOptions
                 {
                     ClientMetadata = clientMetadata,
                     ClientKeys = [.. _serverOptions.ClientKeys],
                     Scope = _serverOptions.Scopes,
-                    HandleResolutionTimeout = _serverOptions.HandleResolutionTimeout,
                     IdentityResolver = _identityResolver,
-                    AllowPrivateNetworks = _serverOptions.AllowPrivateNetworks,
-                    HttpClient = httpClient,
+                    HandleResolutionTimeout = _identityOptions.HandleResolutionTimeout,
+                    AllowPrivateNetworks = _identityOptions.AllowPrivateNetworks,
+                    HttpClient = _httpClient,
                     StateStore = _stateStore,
-                };
+                },
+                _oauthClientLogger);
 
-                _oauthClient = new OAuthClient(oauthOptions, _oauthClientLogger);
-            }
-            catch
-            {
-                owned?.Dispose();
-                throw;
-            }
-
-            _httpClient = owned;
             _logger.LogInformation("AT Proto OAuth client initialized with client_id: {ClientId}", clientMetadata.ClientId);
             return _oauthClient;
         }
@@ -290,7 +249,7 @@ public sealed class AtProtoOAuthService : IDisposable
         // another instance sharing the state store, completes.
         var client = Client;
 
-        var result = await client.CompleteAuthorizationWithAppStateAsync(code, state, issuer, cancellationToken).ConfigureAwait(false);
+        var result = await client.CompleteAuthorizationAsync(code, state, issuer, cancellationToken).ConfigureAwait(false);
         var session = result.Session;
         var loginState = OAuthLoginState.TryParse(result.AppState);
         var callbackOrigin = $"{context.Request.Scheme}://{context.Request.Host}";
@@ -708,14 +667,6 @@ public sealed class AtProtoOAuthService : IDisposable
         public ITimer? Timer { get; set; }
     }
 
-    /// <summary>The lease when no coordinator is registered: nothing to release.</summary>
-    private sealed class NoLease : IAsyncDisposable
-    {
-        public static readonly NoLease Instance = new();
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
-
     /// <inheritdoc/>
     /// <remarks>
     /// Relayed logins still waiting are dropped without being revoked; they expire at the
@@ -736,6 +687,5 @@ public sealed class AtProtoOAuthService : IDisposable
         _relayCodes.Clear();
 
         _oauthClient?.Dispose();
-        _httpClient?.Dispose();
     }
 }

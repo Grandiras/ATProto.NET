@@ -49,9 +49,8 @@ public sealed class EfCoreRepoSyncStateStore<TContext> : IRepoSyncStateStore
     {
         ArgumentNullException.ThrowIfNull(did);
 
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using var contextScope = context.ConfigureAwait(false);
         var entity = await context.Set<RepoSyncStateEntity>()
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.Did == did.Value, cancellationToken).ConfigureAwait(false);
@@ -64,9 +63,8 @@ public sealed class EfCoreRepoSyncStateStore<TContext> : IRepoSyncStateStore
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using var contextScope = context.ConfigureAwait(false);
         var set = context.Set<RepoSyncStateEntity>();
         var entity = await set.FirstOrDefaultAsync(e => e.Did == state.Did.Value, cancellationToken).ConfigureAwait(false);
         if (entity is null)
@@ -99,9 +97,8 @@ public sealed class EfCoreRepoSyncStateStore<TContext> : IRepoSyncStateStore
     {
         ArgumentNullException.ThrowIfNull(did);
 
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using var contextScope = context.ConfigureAwait(false);
         var set = context.Set<RepoSyncStateEntity>();
         if (await set.FirstOrDefaultAsync(e => e.Did == did.Value, cancellationToken).ConfigureAwait(false) is { } entity)
         {
@@ -115,9 +112,8 @@ public sealed class EfCoreRepoSyncStateStore<TContext> : IRepoSyncStateStore
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
 
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using var contextScope = context.ConfigureAwait(false);
         var entities = await context.Set<RepoSyncStateEntity>()
             .AsNoTracking()
             .Where(e => e.Status != RepoSyncStatus.Synchronized)

@@ -18,9 +18,7 @@ public class SpaceIdentityRefreshTests
 {
     private static readonly Did UserDid = Did.Parse("did:plc:aaaaaaaaaaaaaaaaaaaaaaaa");
     private static readonly Did AuthorityDid = Did.Parse("did:plc:bbbbbbbbbbbbbbbbbbbbbbbb");
-    private static readonly Did HostDid = Did.Parse("did:plc:cccccccccccccccccccccccc");
     private static readonly SpaceUri Space = SpaceUri.Parse($"at://{AuthorityDid}/space/com.atmoboards.forum/default");
-    private static readonly Nsid NotifyWrite = Nsid.Parse(SpaceNsids.NotifyWrite);
 
     private static string DelegationToken(AtProtoKey key) =>
         SpaceTokens.Create(SpaceTokenType.Delegation, UserDid, Space.Value, key, audience: Space.HostAudience);
@@ -117,25 +115,6 @@ public class SpaceIdentityRefreshTests
         var verified = await verifier.VerifyAsync(credential, dpop.Proof("GET", url, accessToken: credential), "GET", url, Space);
 
         Assert.Equal(Space, verified.Space);
-        Assert.Equal(1, resolver.RefreshCount);
-    }
-
-    [Fact]
-    public async Task ServiceAuth_SignedWithAKeyRotatedSinceCaching_VerifiesAfterOneRefresh()
-    {
-        using var oldKey = AtProtoCrypto.GenerateP256Key();
-        using var newKey = AtProtoCrypto.GenerateP256Key();
-        var resolver = new FakeDidDocumentResolver()
-            .PublishAccount(HostDid, oldKey)
-            .Rotate(HostDid, FakeDidDocumentResolver.AccountDocument(HostDid, newKey));
-        var verifier = new SpaceServiceAuthVerifier(resolver, new InMemoryJtiReplayStore());
-        using var generator = new ServiceAuthGenerator(HostDid, newKey);
-
-        var context = new DefaultHttpContext();
-        context.Request.Headers.Authorization = $"Bearer {generator.CreateToken(AuthorityDid.Value, NotifyWrite)}";
-        var verified = await verifier.VerifyAsync(context, AuthorityDid.Value, NotifyWrite);
-
-        Assert.Equal(HostDid, verified.Issuer);
         Assert.Equal(1, resolver.RefreshCount);
     }
 }

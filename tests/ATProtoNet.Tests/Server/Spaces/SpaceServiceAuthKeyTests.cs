@@ -5,6 +5,7 @@ using ATProtoNet.Identity;
 using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Spaces;
 using ATProtoNet.Spaces;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -25,7 +26,7 @@ public sealed class SpaceServiceAuthKeyTests : IDisposable
     private readonly AtProtoKey _accountKey = AtProtoCrypto.GenerateP256Key();
     private readonly AtProtoKey _spaceKey = AtProtoCrypto.GenerateP256Key();
     private readonly FakeDidDocumentResolver _resolver = new();
-    private readonly RecordingHandler _handler = new();
+    private readonly HttpStub _handler = new HttpStub().Fallback("""{"authorized":true}""");
 
     public SpaceServiceAuthKeyTests()
     {
@@ -93,7 +94,7 @@ public sealed class SpaceServiceAuthKeyTests : IDisposable
         await provider.GetRequiredService<ISimpleSpaceManagingAppClient>().CheckUserAccessAsync(
             ManagingApp, Space, Did.Parse("did:plc:aaaaaaaaaaaaaaaaaaaaaaaa"), SpaceAccessKind.Read, null);
 
-        var verified = await Verify(_handler.LastToken!);
+        var verified = await Verify(_handler.Requests[^1].Headers.Authorization!.Parameter!);
         Assert.Equal(AuthorityDid, verified.Issuer);
     }
 
@@ -108,7 +109,7 @@ public sealed class SpaceServiceAuthKeyTests : IDisposable
         await provider.GetRequiredService<ISimpleSpaceManagingAppClient>().CheckUserAccessAsync(
             ManagingApp, Space, Did.Parse("did:plc:aaaaaaaaaaaaaaaaaaaaaaaa"), SpaceAccessKind.Read, null);
 
-        await Verify(_handler.LastToken!);
+        await Verify(_handler.Requests[^1].Headers.Authorization!.Parameter!);
         Assert.Equal([AuthorityDid], signer.Requests);
     }
 
@@ -127,24 +128,10 @@ public sealed class SpaceServiceAuthKeyTests : IDisposable
         await provider.GetRequiredService<ISimpleSpaceManagingAppClient>().CheckUserAccessAsync(
             ManagingApp, Space, Did.Parse("did:plc:aaaaaaaaaaaaaaaaaaaaaaaa"), SpaceAccessKind.Read, null);
 
-        await Verify(_handler.LastToken!);
+        await Verify(_handler.Requests[^1].Headers.Authorization!.Parameter!);
     }
 
     private Task<VerifiedServiceAuth> Verify(string token) =>
         new ServiceAuthVerifier(_resolver, new InMemoryJtiReplayStore())
             .VerifyAsync(token, [ManagingApp], Nsid.Parse(SpaceNsids.CheckUserAccess));
-
-    private sealed class RecordingHandler : HttpMessageHandler
-    {
-        public string? LastToken { get; private set; }
-
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            LastToken = request.Headers.Authorization?.Parameter;
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("""{"authorized":true}""", System.Text.Encoding.UTF8, "application/json"),
-            });
-        }
-    }
 }

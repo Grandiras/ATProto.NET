@@ -235,7 +235,7 @@ internal static class SessionKit
     public static async Task<(OAuthSession Session, OAuthAuthorizationRequest Authorization)> SignInAsync(OAuthClient client)
     {
         var authorization = await client.StartAuthorizationAsync(AliceHandle.Value, RedirectUri);
-        var session = await client.CompleteAuthorizationAsync("code", authorization.State, Issuer);
+        var (session, _) = await client.CompleteAuthorizationAsync("code", authorization.State, Issuer);
         return (session, authorization);
     }
 

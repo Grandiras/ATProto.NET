@@ -63,9 +63,8 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
     {
         ArgumentNullException.ThrowIfNull(space);
 
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using var contextScope = context.ConfigureAwait(false);
         var entity = await context.Set<SimpleSpaceEntity>()
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.Space == space.Value, cancellationToken).ConfigureAwait(false);
@@ -79,9 +78,8 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
     {
         ArgumentNullException.ThrowIfNull(space);
 
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using var contextScope = context.ConfigureAwait(false);
         var spaces = context.Set<SimpleSpaceEntity>();
 
         if (await spaces.FindAsync([space.Uri.Value], cancellationToken).ConfigureAwait(false) is not null)
@@ -124,9 +122,8 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
 
         // A space that is not there is left alone rather than created, matching the in-memory
         // store: an update reaches here only through an endpoint that already loaded it.
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using var contextScope = context.ConfigureAwait(false);
         await context.Set<SimpleSpaceEntity>()
             .Where(e => e.Space == uri)
             .ExecuteUpdateAsync(
@@ -148,9 +145,8 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
 
         // Flagged rather than removed: a deleted space keeps answering SpaceDeleted, which is how
         // a syncer that missed the notification learns to drop its copy.
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using var contextScope = context.ConfigureAwait(false);
         await context.Set<SimpleSpaceEntity>()
             .Where(e => e.Space == uri && !e.Deleted)
             .ExecuteUpdateAsync(set => set.SetProperty(e => e.Deleted, true), cancellationToken).ConfigureAwait(false);
@@ -166,9 +162,8 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
         // Changing an existing member's flags, the common case, is one statement.
         var spaceValue = space.Value;
         var member = did.Value;
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using (var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false))
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using (context.ConfigureAwait(false))
         {
             var updated = await context.Set<SimpleSpaceMemberEntity>()
                 .Where(e => e.Space == spaceValue && e.Did == member)
@@ -192,9 +187,8 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
     private async Task<bool> TryPutMemberAsync(
         SpaceUri space, string did, bool read, bool write, CancellationToken cancellationToken)
     {
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using var contextScope = context.ConfigureAwait(false);
 
         // A member list belongs to a space; putting a member into one that does not exist is a
         // no-op rather than a row nothing would ever read.
@@ -234,9 +228,8 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
         var spaceValue = space.Value;
         var member = did.Value;
 
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using var contextScope = context.ConfigureAwait(false);
         await context.Set<SimpleSpaceMemberEntity>()
             .Where(e => e.Space == spaceValue && e.Did == member)
             .ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
@@ -252,9 +245,8 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
         var spaceValue = space.Value;
         var member = did.Value;
 
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using var contextScope = context.ConfigureAwait(false);
         var entity = await context.Set<SimpleSpaceMemberEntity>()
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.Space == spaceValue && e.Did == member, cancellationToken).ConfigureAwait(false);
@@ -268,9 +260,8 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
     {
         ArgumentNullException.ThrowIfNull(space);
 
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using var contextScope = context.ConfigureAwait(false);
 
         var query = context.Set<SimpleSpaceMemberEntity>()
             .AsNoTracking()

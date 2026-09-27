@@ -72,12 +72,38 @@ public class JwtTests
     [InlineData("!.e30.", "the header is not base64url")]
     [InlineData("e30.!.", "the payload is not base64url")]
     [InlineData("e30.e30.!", "the signature is not base64url")]
+    [InlineData("AAAAA.e30.", "the header is not base64url")]
+    [InlineData("e30.AAAAA.", "the payload is not base64url")]
+    [InlineData("e30.e30.AAAAA", "the signature is not base64url")]
     [InlineData("bm90IGpzb24.e30.", "the header is not JSON")]
+    [InlineData("e30.bm90IGpzb24.", "the payload is not JSON")]
+    [InlineData("e30.eyJpc3MiOg.", "the payload is not JSON")] // {"iss":
     [InlineData("e30.WzFd.", "the payload is not a JSON object")]
+    [InlineData("WzFd.e30.", "the header is not a JSON object")]
     public void TryDecode_MalformedToken_SaysWhy(string jwt, string reason)
     {
         Assert.False(Jwt.TryDecode(jwt, out _, out var error));
         Assert.StartsWith(reason, error, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(JwsSegments.Header)]
+    [InlineData(JwsSegments.Payload)]
+    [InlineData(JwsSegments.Signature)]
+    [InlineData(JwsSegments.All)]
+    public void TryDecode_SegmentsWithBase64Padding_DecodeAndSignOverTheTextAsSent(JwsSegments padded)
+    {
+        // Every verifier decodes through here, so a padded segment is accepted by all of them.
+        var jwt = TestJws.Mint(
+            new Dictionary<string, object> { ["alg"] = "ES256" },
+            new Dictionary<string, object> { ["iss"] = "did:plc:a" },
+            _ => [1, 2, 3, 4],
+            padded);
+
+        Assert.True(Jwt.TryDecode(jwt, out var token, out _));
+        Assert.Equal("did:plc:a", token.Payload.GetStringOrNull("iss"));
+        Assert.Equal(Encoding.ASCII.GetBytes(jwt[..jwt.LastIndexOf('.')]), token.SigningInput);
+        Assert.Equal(new byte[] { 1, 2, 3, 4 }, token.Signature);
     }
 
     // ── Signing ──────────────────────────────────────────────────

@@ -60,8 +60,6 @@ public class DPoPInteropTests
         // The server derives the thumbprint from the proof's embedded JWK on its own, so the two
         // RFC 7638 implementations agree.
         Assert.Equal(generator.KeyThumbprint, proof.KeyThumbprint);
-        Assert.Equal("GET", proof.Method);
-        Assert.Equal(Url, proof.Uri);
     }
 
     [Fact]
@@ -81,15 +79,12 @@ public class DPoPInteropTests
     {
         using var generator = new DPoPProofGenerator();
         var withQuery = Url + "?space=at://did:plc:a/space/com.example.t/s&repo=did:plc:b#frag";
+        var proof = generator.GenerateProofWithAccessToken("get", withQuery, nonce: null, Credential);
 
-        var proof = await CreateValidator().ValidateAsync(
-            generator.GenerateProofWithAccessToken("get", withQuery, nonce: null, Credential),
-            "GET",
-            withQuery,
-            boundThumbprint: generator.KeyThumbprint,
-            accessToken: Credential);
+        await CreateValidator().ValidateAsync(
+            proof, "GET", withQuery, boundThumbprint: generator.KeyThumbprint, accessToken: Credential);
 
-        Assert.Equal(Url, proof.Uri);
+        Assert.Equal(Url, TestJws.DecodeJson(proof, 1).GetProperty("htu").GetString());
     }
 
     [Fact]
@@ -99,15 +94,13 @@ public class DPoPInteropTests
         // form the server compares, and a stricter verifier comparing it verbatim agrees too.
         using var generator = new DPoPProofGenerator();
 
-        var proof = await CreateValidator().ValidateAsync(
-            generator.GenerateProofWithAccessToken(
-                "GET", "https://user:secret@pds.example.com/xrpc/com.atproto.space.getRecord", null, Credential),
-            "GET",
-            Url,
-            boundThumbprint: generator.KeyThumbprint,
-            accessToken: Credential);
+        var proof = generator.GenerateProofWithAccessToken(
+            "GET", "https://user:secret@pds.example.com/xrpc/com.atproto.space.getRecord", null, Credential);
 
-        Assert.Equal(Url, proof.Uri);
+        await CreateValidator().ValidateAsync(
+            proof, "GET", Url, boundThumbprint: generator.KeyThumbprint, accessToken: Credential);
+
+        Assert.Equal(Url, TestJws.DecodeJson(proof, 1).GetProperty("htu").GetString());
     }
 
     [Fact]
@@ -173,8 +166,9 @@ public class DPoPInteropTests
     public async Task RfcResourceRequestProof_Validates()
     {
         var clock = new FixedClock(DateTimeOffset.FromUnixTimeSeconds(RfcResourceIssuedAt + 1));
+        var replay = new InMemoryJtiReplayStore(clock);
 
-        var proof = await CreateValidator(clock).ValidateAsync(
+        var proof = await new DPoPProofValidator(replay, new SpaceServerOptions(), clock).ValidateAsync(
             RfcResourceProof,
             "GET",
             RfcResourceUrl,
@@ -182,7 +176,9 @@ public class DPoPInteropTests
             accessToken: RfcAccessToken);
 
         Assert.Equal(RfcThumbprint, proof.KeyThumbprint);
-        Assert.Equal("e1j3V_bKic8-LAEB", proof.TokenId);
+        // The example's jti, spent under its key until the proof ages out.
+        var agesOut = DateTimeOffset.FromUnixTimeSeconds(RfcResourceIssuedAt) + new SpaceServerOptions().ProofLifetime;
+        Assert.False(await replay.TryConsumeAsync(RfcThumbprint, "e1j3V_bKic8-LAEB", agesOut));
     }
 
     [Fact]

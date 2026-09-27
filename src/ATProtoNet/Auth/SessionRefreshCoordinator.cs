@@ -56,3 +56,11 @@ public sealed class InProcessSessionRefreshCoordinator : ISessionRefreshCoordina
         return await _locks.AcquireAsync(did, cancellationToken).ConfigureAwait(false);
     }
 }
+
+/// <summary>The lease when there is no coordinator: nothing to release.</summary>
+internal sealed class NoLease : IAsyncDisposable
+{
+    public static readonly NoLease Instance = new();
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+}

@@ -78,7 +78,7 @@ var session = await client.CreateAccountAndLoginAsync(new CreateAccountRequest
 
 <!-- snippet: ATProtoNet.Auth.OAuth.OAuthClient oauthClient; string code, state, issuer; -->
 ```csharp
-var session = await oauthClient.CompleteAuthorizationAsync(code, state, issuer);
+var (session, _) = await oauthClient.CompleteAuthorizationAsync(code, state, issuer);
 await client.ApplySessionAsync(session, oauthClient);
 ```
 

@@ -10,16 +10,12 @@ namespace ATProtoNet.Server.EntityFrameworkCore;
 /// table shared by every instance.
 /// </summary>
 /// <remarks>
-/// <para>Consuming a token is one insert. The table's primary key is <c>(iss, jti, exp)</c> —
-/// exactly what the store is keyed on — so the database's uniqueness enforcement <em>is</em> the
-/// replay check, with no read-modify-write to race. Two instances presented the same token
-/// concurrently therefore see exactly one success between them, which is the guarantee
-/// <see cref="InMemoryJtiReplayStore"/> cannot give across a load balancer.</para>
-/// <para>Expired rows are swept at most once a minute, in the background: the consumption that
-/// finds a sweep due starts it and returns without waiting. Nothing depends on it for
-/// correctness — a token past its expiry is rejected on the expiry itself, so a row that
-/// outlives its sweep costs space and nothing else. A sweep that fails — a provider that cannot
-/// translate the bulk delete, a transient outage — is logged and ignored.</para>
+/// <para>Consuming a token is one insert. The table's primary key is <c>(iss, jti, exp)</c>, what
+/// the store is keyed on, so the database's uniqueness enforcement <em>is</em> the replay check:
+/// two instances presented the same token concurrently see exactly one success between
+/// them.</para>
+/// <para>Expired rows are swept at most once a minute, in the background. A token past its expiry
+/// is refused on the expiry itself, so a sweep that fails is only logged.</para>
 /// <para>Register it with
 /// <see cref="JtiReplayStoreExtensions.AddAtProtoEfCoreJtiReplayStore{TContext}"/>.</para>
 /// </remarks>
@@ -31,13 +27,9 @@ namespace ATProtoNet.Server.EntityFrameworkCore;
 public sealed class EfCoreJtiReplayStore<TContext> : IJtiReplayStore
     where TContext : DbContext
 {
-    private static readonly TimeSpan SweepInterval = TimeSpan.FromMinutes(1);
-
     private readonly IDbContextFactory<TContext> _contextFactory;
-    private readonly TimeProvider _timeProvider;
+    private readonly SweepSchedule _sweeps;
     private readonly ILogger _logger;
-    private long _sweepDue;
-    private Task _sweep = Task.CompletedTask;
 
     /// <summary>Creates the store.</summary>
     /// <param name="contextFactory">Supplies a context per operation.</param>
@@ -67,13 +59,12 @@ public sealed class EfCoreJtiReplayStore<TContext> : IJtiReplayStore
         ArgumentNullException.ThrowIfNull(timeProvider);
 
         _contextFactory = contextFactory;
-        _timeProvider = timeProvider;
+        _sweeps = new SweepSchedule(timeProvider);
         _logger = logger ?? (ILogger)NullLogger.Instance;
-        _sweepDue = _timeProvider.GetUtcNow().Add(SweepInterval).ToUnixTimeMilliseconds();
     }
 
     /// <summary>The most recent background sweep, for tests to wait on.</summary>
-    internal Task LastSweep => Volatile.Read(ref _sweep);
+    internal Task LastSweep => _sweeps.Last;
 
     /// <inheritdoc/>
     public async ValueTask<bool> TryConsumeAsync(
@@ -84,15 +75,18 @@ public sealed class EfCoreJtiReplayStore<TContext> : IJtiReplayStore
 
         var expiry = expiresAt.ToUnixTimeSeconds();
 
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using var contextScope = context.ConfigureAwait(false);
         context.Add(new JtiReplayEntity { Issuer = issuer, TokenId = tokenId, ExpiresAt = expiry });
 
         try
         {
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-            SweepIfDue();
+
+            // Rows hold whole seconds, rounded down from the instant the entry must outlive, so a
+            // row stamped with this very second may still guard a token for a fraction of it: only
+            // rows from earlier seconds are certainly past.
+            _sweeps.RunIfDue(now => SweepAsync(now.ToUnixTimeSeconds()));
             return true;
         }
         catch (DbUpdateException)
@@ -116,34 +110,12 @@ public sealed class EfCoreJtiReplayStore<TContext> : IJtiReplayStore
         }
     }
 
-    private void SweepIfDue()
-    {
-        var now = _timeProvider.GetUtcNow();
-        var due = Interlocked.Read(ref _sweepDue);
-        if (now.ToUnixTimeMilliseconds() < due)
-            return;
-
-        var next = now.Add(SweepInterval).ToUnixTimeMilliseconds();
-        if (Interlocked.CompareExchange(ref _sweepDue, next, due) != due)
-            return;
-
-        // Rows hold whole seconds, rounded down from the instant the entry must outlive, so a row
-        // stamped with this very second may still guard a token for a fraction of it: only rows
-        // from earlier seconds are certainly past.
-        var cutoff = now.ToUnixTimeSeconds();
-
-        // Not awaited, and not tied to the request's cancellation: the request that found the
-        // sweep due should not pay for it, and cancelling it would only leave the rows for later.
-        Volatile.Write(ref _sweep, Task.Run(() => SweepAsync(cutoff)));
-    }
-
     private async Task SweepAsync(long cutoff)
     {
         try
         {
-            #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-            await using var context = await _contextFactory.CreateDbContextAsync().ConfigureAwait(false);
-            #pragma warning restore CA2007
+            var context = await _contextFactory.CreateDbContextAsync().ConfigureAwait(false);
+            await using var contextScope = context.ConfigureAwait(false);
             await context.Set<JtiReplayEntity>()
                 .Where(e => e.ExpiresAt < cutoff)
                 .ExecuteDeleteAsync().ConfigureAwait(false);

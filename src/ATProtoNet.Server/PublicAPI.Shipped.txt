@@ -16,8 +16,6 @@ ATProtoNet.Server.Authentication.AtProtoOAuthCallbackResult.IsRelay.get -> bool
 ATProtoNet.Server.Authentication.AtProtoOAuthCallbackResult.RedirectUrl.get -> string!
 ATProtoNet.Server.Authentication.AtProtoOAuthExtensions
 ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions
-ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.AllowPrivateNetworks.get -> bool
-ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.AllowPrivateNetworks.set -> void
 ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.AtProtoOAuthServerOptions() -> void
 ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.BaseUrl.get -> string?
 ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.BaseUrl.set -> void
@@ -34,12 +32,6 @@ ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.CookieScheme.get -> s
 ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.CookieScheme.set -> void
 ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.DefaultReturnUrl.get -> string!
 ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.DefaultReturnUrl.set -> void
-ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.HandleResolutionTimeout.get -> System.TimeSpan
-ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.HandleResolutionTimeout.set -> void
-ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.HttpClient.get -> System.Net.Http.HttpClient?
-ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.HttpClient.set -> void
-ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.HttpClientTimeout.get -> System.TimeSpan
-ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.HttpClientTimeout.set -> void
 ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.IsPersistent.get -> bool
 ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.IsPersistent.set -> void
 ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.LoginPath.get -> string!
@@ -53,7 +45,6 @@ ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.Scopes.set -> void
 ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.ServeClientMetadata.get -> bool
 ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions.ServeClientMetadata.set -> void
 ATProtoNet.Server.Authentication.AtProtoOAuthService
-ATProtoNet.Server.Authentication.AtProtoOAuthService.AtProtoOAuthService(ATProtoNet.Server.Authentication.AtProtoOAuthServerOptions! serverOptions, Microsoft.Extensions.Logging.ILoggerFactory! loggerFactory, ATProtoNet.Identity.IIdentityResolver? identityResolver = null, ATProtoNet.Auth.OAuth.IOAuthStateStore? stateStore = null, Microsoft.AspNetCore.Hosting.Server.IServer? server = null, ATProtoNet.Auth.ISessionRefreshCoordinator? refreshCoordinator = null) -> void
 ATProtoNet.Server.Authentication.AtProtoOAuthService.Client.get -> ATProtoNet.Auth.OAuth.OAuthClient!
 ATProtoNet.Server.Authentication.AtProtoOAuthService.CompleteCallbackAsync(Microsoft.AspNetCore.Http.HttpContext! context, string! code, string! state, string! issuer, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Server.Authentication.AtProtoOAuthCallbackResult!>!
 ATProtoNet.Server.Authentication.AtProtoOAuthService.Dispose() -> void
@@ -63,15 +54,9 @@ ATProtoNet.Server.Authentication.AtProtoOAuthService.TryRedeemRelayCodeAsync(Mic
 ATProtoNet.Server.Authentication.AtProtoServiceAuthDefaults
 ATProtoNet.Server.Authentication.AtProtoServiceAuthExtensions
 ATProtoNet.Server.Authentication.AtProtoServiceAuthOptions
-ATProtoNet.Server.Authentication.AtProtoServiceAuthOptions.AllowedKeyIds.get -> System.Collections.Generic.ISet<string!>!
 ATProtoNet.Server.Authentication.AtProtoServiceAuthOptions.AtProtoServiceAuthOptions() -> void
 ATProtoNet.Server.Authentication.AtProtoServiceAuthOptions.Audiences.get -> System.Collections.Generic.IList<string!>!
-ATProtoNet.Server.Authentication.AtProtoServiceAuthOptions.ClockSkew.get -> System.TimeSpan
-ATProtoNet.Server.Authentication.AtProtoServiceAuthOptions.ClockSkew.set -> void
-ATProtoNet.Server.Authentication.AtProtoServiceAuthOptions.MaxTokenLifetime.get -> System.TimeSpan
-ATProtoNet.Server.Authentication.AtProtoServiceAuthOptions.MaxTokenLifetime.set -> void
-ATProtoNet.Server.Authentication.AtProtoServiceAuthOptions.RequireLexiconMethod.get -> bool
-ATProtoNet.Server.Authentication.AtProtoServiceAuthOptions.RequireLexiconMethod.set -> void
+ATProtoNet.Server.Authentication.AtProtoServiceAuthOptions.Verifier.get -> ATProtoNet.Server.Authentication.ServiceAuthVerifierOptions!
 ATProtoNet.Server.Authentication.IJtiReplayStore
 ATProtoNet.Server.Authentication.IJtiReplayStore.TryConsumeAsync(string! issuer, string! tokenId, System.DateTimeOffset expiresAt, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
 ATProtoNet.Server.Authentication.InMemoryJtiReplayStore
@@ -95,8 +80,6 @@ ATProtoNet.Server.Authentication.ServiceAuthVerifierOptions.ClockSkew.get -> Sys
 ATProtoNet.Server.Authentication.ServiceAuthVerifierOptions.ClockSkew.set -> void
 ATProtoNet.Server.Authentication.ServiceAuthVerifierOptions.MaxTokenLifetime.get -> System.TimeSpan
 ATProtoNet.Server.Authentication.ServiceAuthVerifierOptions.MaxTokenLifetime.set -> void
-ATProtoNet.Server.Authentication.ServiceAuthVerifierOptions.RequireLexiconMethod.get -> bool
-ATProtoNet.Server.Authentication.ServiceAuthVerifierOptions.RequireLexiconMethod.set -> void
 ATProtoNet.Server.Authentication.ServiceAuthVerifierOptions.ServiceAuthVerifierOptions() -> void
 ATProtoNet.Server.Authentication.VerifiedServiceAuth
 ATProtoNet.Server.Authentication.VerifiedServiceAuth.Audience.get -> string!
@@ -155,13 +138,7 @@ ATProtoNet.Server.Spaces.ClaimsSpaceCallerResolver
 ATProtoNet.Server.Spaces.ClaimsSpaceCallerResolver.ClaimsSpaceCallerResolver() -> void
 ATProtoNet.Server.Spaces.ClaimsSpaceCallerResolver.GetCallerDid(Microsoft.AspNetCore.Http.HttpContext! context) -> ATProtoNet.Identity.Did?
 ATProtoNet.Server.Spaces.DPoPProof
-ATProtoNet.Server.Spaces.DPoPProof.Algorithm.get -> string!
-ATProtoNet.Server.Spaces.DPoPProof.IssuedAt.get -> System.DateTimeOffset
 ATProtoNet.Server.Spaces.DPoPProof.KeyThumbprint.get -> string!
-ATProtoNet.Server.Spaces.DPoPProof.Method.get -> string!
-ATProtoNet.Server.Spaces.DPoPProof.Raw.get -> string!
-ATProtoNet.Server.Spaces.DPoPProof.TokenId.get -> string!
-ATProtoNet.Server.Spaces.DPoPProof.Uri.get -> string!
 ATProtoNet.Server.Spaces.DPoPProofValidator
 ATProtoNet.Server.Spaces.DPoPProofValidator.DPoPProofValidator(ATProtoNet.Server.Authentication.IJtiReplayStore! replayStore, ATProtoNet.Server.Spaces.SpaceServerOptions? options = null, System.TimeProvider? timeProvider = null) -> void
 ATProtoNet.Server.Spaces.DPoPProofValidator.ValidateAsync(string! proofJwt, string! httpMethod, string! requestUri, string? boundThumbprint = null, string? accessToken = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Server.Spaces.DPoPProof!>!
@@ -214,8 +191,6 @@ ATProtoNet.Server.Spaces.ISpaceCallerResolver
 ATProtoNet.Server.Spaces.ISpaceCallerResolver.GetCallerDid(Microsoft.AspNetCore.Http.HttpContext! context) -> ATProtoNet.Identity.Did?
 ATProtoNet.Server.Spaces.ISpaceClientMetadataResolver
 ATProtoNet.Server.Spaces.ISpaceClientMetadataResolver.ResolveKeysAsync(string! clientId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<ATProtoNet.Auth.OAuth.JsonWebKey!>!>!
-ATProtoNet.Server.Spaces.ISpaceCredentialIssuer
-ATProtoNet.Server.Spaces.ISpaceCredentialIssuer.IssueAsync(ATProtoNet.Spaces.SpaceUri! space, string! dpopThumbprint, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
 ATProtoNet.Server.Spaces.ISpaceRepoHost
 ATProtoNet.Server.Spaces.ISpaceRepoHost.GetBlobAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Cid! cid, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Server.Spaces.SpaceBlobContent?>!
 ATProtoNet.Server.Spaces.ISpaceRepoHost.GetLatestCommitAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Spaces.SignedSpaceCommit?>!
@@ -229,7 +204,6 @@ ATProtoNet.Server.Spaces.SimpleSpaceAccessPolicy.EvaluateAsync(ATProtoNet.Server
 ATProtoNet.Server.Spaces.SimpleSpaceAccessPolicy.SimpleSpaceAccessPolicy(ATProtoNet.Server.Spaces.ISimpleSpaceStore! store, ATProtoNet.Server.Spaces.ISimpleSpaceManagingAppClient! managingApp, Microsoft.Extensions.Logging.ILogger<ATProtoNet.Server.Spaces.SimpleSpaceAccessPolicy!>? logger = null) -> void
 ATProtoNet.Server.Spaces.SimpleSpaceAuthorityStore
 ATProtoNet.Server.Spaces.SimpleSpaceAuthorityStore.GetSpaceStateAsync(ATProtoNet.Spaces.SpaceUri! space, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Server.Spaces.SpaceAccessOutcome>!
-ATProtoNet.Server.Spaces.SimpleSpaceAuthorityStore.Inner.get -> ATProtoNet.Server.Spaces.ISpaceAuthorityStore!
 ATProtoNet.Server.Spaces.SimpleSpaceAuthorityStore.ListReposAsync(ATProtoNet.Spaces.SpaceUri! space, int limit, string? cursor, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Com.AtProto.Space.ListSpaceReposResponse!>!
 ATProtoNet.Server.Spaces.SimpleSpaceAuthorityStore.ListSubscribersAsync(ATProtoNet.Spaces.SpaceUri! space, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<ATProtoNet.Server.Spaces.SpaceNotifySubscriber!>!>!
 ATProtoNet.Server.Spaces.SimpleSpaceAuthorityStore.RecordWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! rev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
@@ -342,9 +316,6 @@ ATProtoNet.Server.Spaces.SpaceRequestAuthenticator.AuthenticateCredentialRequest
 ATProtoNet.Server.Spaces.SpaceRequestAuthenticator.SpaceRequestAuthenticator(ATProtoNet.Server.Spaces.SpaceDelegationTokenVerifier! delegationVerifier, ATProtoNet.Server.Spaces.SpaceCredentialVerifier! credentialVerifier, ATProtoNet.Server.Spaces.DPoPProofValidator! proofValidator, ATProtoNet.Server.Spaces.SpaceClientAttestationVerifier! attestationVerifier, ATProtoNet.Server.Spaces.SpaceServerOptions? options = null) -> void
 ATProtoNet.Server.Spaces.SpaceServerExtensions
 ATProtoNet.Server.Spaces.SpaceServerOptions
-ATProtoNet.Server.Spaces.SpaceServerOptions.BuildRequestUri(string! requestScheme, string! requestHost, string! path) -> string!
-ATProtoNet.Server.Spaces.SpaceServerOptions.ClientMetadataCacheLifetime.get -> System.TimeSpan
-ATProtoNet.Server.Spaces.SpaceServerOptions.ClientMetadataCacheLifetime.set -> void
 ATProtoNet.Server.Spaces.SpaceServerOptions.ClockSkew.get -> System.TimeSpan
 ATProtoNet.Server.Spaces.SpaceServerOptions.ClockSkew.set -> void
 ATProtoNet.Server.Spaces.SpaceServerOptions.CredentialKeyId.get -> string?
@@ -353,8 +324,6 @@ ATProtoNet.Server.Spaces.SpaceServerOptions.CredentialLifetime.get -> System.Tim
 ATProtoNet.Server.Spaces.SpaceServerOptions.CredentialLifetime.set -> void
 ATProtoNet.Server.Spaces.SpaceServerOptions.DidCache.get -> ATProtoNet.Identity.DidCacheOptions!
 ATProtoNet.Server.Spaces.SpaceServerOptions.DidCache.set -> void
-ATProtoNet.Server.Spaces.SpaceServerOptions.MaxClientMetadataBytes.get -> int
-ATProtoNet.Server.Spaces.SpaceServerOptions.MaxClientMetadataBytes.set -> void
 ATProtoNet.Server.Spaces.SpaceServerOptions.MaxSingleUseTokenLifetime.get -> System.TimeSpan
 ATProtoNet.Server.Spaces.SpaceServerOptions.MaxSingleUseTokenLifetime.set -> void
 ATProtoNet.Server.Spaces.SpaceServerOptions.NotifyRegistrationLifetime.get -> System.TimeSpan
@@ -366,14 +335,6 @@ ATProtoNet.Server.Spaces.SpaceServerOptions.PublicBaseUrl.set -> void
 ATProtoNet.Server.Spaces.SpaceServerOptions.ServiceDid.get -> ATProtoNet.Identity.Did?
 ATProtoNet.Server.Spaces.SpaceServerOptions.ServiceDid.set -> void
 ATProtoNet.Server.Spaces.SpaceServerOptions.SpaceServerOptions() -> void
-ATProtoNet.Server.Spaces.SpaceServerOptions.VerifiedCredentialCacheCapacity.get -> int
-ATProtoNet.Server.Spaces.SpaceServerOptions.VerifiedCredentialCacheCapacity.set -> void
-ATProtoNet.Server.Spaces.SpaceServerOptions.WarnOnInMemoryStores.get -> bool
-ATProtoNet.Server.Spaces.SpaceServerOptions.WarnOnInMemoryStores.set -> void
-ATProtoNet.Server.Spaces.SpaceServiceAuthVerifier
-ATProtoNet.Server.Spaces.SpaceServiceAuthVerifier.SpaceServiceAuthVerifier(ATProtoNet.Identity.IDidResolver! resolver, ATProtoNet.Server.Authentication.IJtiReplayStore! replayStore, ATProtoNet.Server.Spaces.SpaceServerOptions? options = null, System.TimeProvider? timeProvider = null) -> void
-ATProtoNet.Server.Spaces.SpaceServiceAuthVerifier.VerifyAsync(Microsoft.AspNetCore.Http.HttpContext! context, string! expectedAudience, ATProtoNet.Identity.Nsid! expectedMethod, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Server.Authentication.VerifiedServiceAuth!>!
-ATProtoNet.Server.Spaces.SpaceServiceAuthVerifier.VerifyAsync(Microsoft.AspNetCore.Http.HttpContext! context, System.Collections.Generic.IReadOnlyCollection<string!>! acceptedAudiences, ATProtoNet.Identity.Nsid! expectedMethod, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Server.Authentication.VerifiedServiceAuth!>!
 ATProtoNet.Server.Spaces.SpaceVerificationException
 ATProtoNet.Server.Spaces.SpaceVerificationException.SpaceVerificationException(string! error, string! message, System.Exception! innerException, System.Net.HttpStatusCode statusCode = System.Net.HttpStatusCode.Unauthorized) -> void
 ATProtoNet.Server.Spaces.SpaceVerificationException.SpaceVerificationException(string! error, string! message, System.Net.HttpStatusCode statusCode = System.Net.HttpStatusCode.Unauthorized) -> void
@@ -408,17 +369,6 @@ ATProtoNet.Server.Spaces.VerifiedSpaceCredential.Proof.init -> void
 ATProtoNet.Server.Spaces.VerifiedSpaceCredential.Space.get -> ATProtoNet.Spaces.SpaceUri!
 ATProtoNet.Server.Spaces.VerifiedSpaceCredential.Space.init -> void
 ATProtoNet.Server.Spaces.VerifiedSpaceCredential.VerifiedSpaceCredential(ATProtoNet.Spaces.SpaceUri! Space, ATProtoNet.Server.Spaces.DPoPProof! Proof) -> void
-ATProtoNet.Server.Tap.ITapEventHandler
-ATProtoNet.Server.Tap.ITapEventHandler.HandleAsync(ATProtoNet.Tap.TapEvent! evt, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
-ATProtoNet.Server.Tap.TapUnreadableEvent
-ATProtoNet.Server.Tap.TapUnreadableEvent.<Clone>$() -> ATProtoNet.Server.Tap.TapUnreadableEvent!
-ATProtoNet.Server.Tap.TapUnreadableEvent.Body.get -> byte[]!
-ATProtoNet.Server.Tap.TapUnreadableEvent.Body.init -> void
-ATProtoNet.Server.Tap.TapUnreadableEvent.Deconstruct(out byte[]! Body, out System.FormatException! Error) -> void
-ATProtoNet.Server.Tap.TapUnreadableEvent.Equals(ATProtoNet.Server.Tap.TapUnreadableEvent? other) -> bool
-ATProtoNet.Server.Tap.TapUnreadableEvent.Error.get -> System.FormatException!
-ATProtoNet.Server.Tap.TapUnreadableEvent.Error.init -> void
-ATProtoNet.Server.Tap.TapUnreadableEvent.TapUnreadableEvent(byte[]! Body, System.FormatException! Error) -> void
 ATProtoNet.Server.Tap.TapWebhookExtensions
 ATProtoNet.Server.Tap.TapWebhookOptions
 ATProtoNet.Server.Tap.TapWebhookOptions.AdminPassword.get -> string?
@@ -427,8 +377,6 @@ ATProtoNet.Server.Tap.TapWebhookOptions.AllowUnauthenticated.get -> bool
 ATProtoNet.Server.Tap.TapWebhookOptions.AllowUnauthenticated.set -> void
 ATProtoNet.Server.Tap.TapWebhookOptions.MaxBodyBytes.get -> long
 ATProtoNet.Server.Tap.TapWebhookOptions.MaxBodyBytes.set -> void
-ATProtoNet.Server.Tap.TapWebhookOptions.OnUnreadableEvent.get -> System.Action<ATProtoNet.Server.Tap.TapUnreadableEvent!>?
-ATProtoNet.Server.Tap.TapWebhookOptions.OnUnreadableEvent.set -> void
 ATProtoNet.Server.Tap.TapWebhookOptions.TapWebhookOptions() -> void
 ATProtoNet.Server.TokenStore.FileAtProtoSessionStore
 ATProtoNet.Server.TokenStore.FileAtProtoSessionStore.FileAtProtoSessionStore(Microsoft.AspNetCore.DataProtection.IDataProtectionProvider! dataProtectionProvider, Microsoft.Extensions.Logging.ILogger<ATProtoNet.Server.TokenStore.FileAtProtoSessionStore!>! logger, ATProtoNet.Server.TokenStore.FileSessionStoreOptions? options = null) -> void
@@ -508,9 +456,6 @@ const ATProtoNet.Server.Labeling.LabelQuery.MatchAll = "*" -> string!
 const ATProtoNet.Server.Labeling.QueryLabelsEndpoint.DefaultLimit = 50 -> int
 const ATProtoNet.Server.Labeling.QueryLabelsEndpoint.MaxLimit = 250 -> int
 const ATProtoNet.Server.PdsAdminExtensions.DefaultConfigurationSection = "AtProto:Pds" -> string!
-const ATProtoNet.Server.Spaces.ClaimsSpaceCallerResolver.DidClaimType = "did" -> string!
-const ATProtoNet.Server.Spaces.DPoPProofValidator.ProofAlgorithm = "ES256" -> string!
-const ATProtoNet.Server.Spaces.DPoPProofValidator.ProofType = "dpop+jwt" -> string!
 const ATProtoNet.Server.Spaces.SpaceNsids.CheckUserAccess = "com.atproto.simplespace.checkUserAccess" -> string!
 const ATProtoNet.Server.Spaces.SpaceNsids.CreateSimpleSpace = "com.atproto.simplespace.createSpace" -> string!
 const ATProtoNet.Server.Spaces.SpaceNsids.DeleteSimpleSpace = "com.atproto.simplespace.deleteSpace" -> string!
@@ -562,9 +507,6 @@ override ATProtoNet.Server.Spaces.VerifiedDelegationToken.ToString() -> string!
 override ATProtoNet.Server.Spaces.VerifiedSpaceCredential.Equals(object? obj) -> bool
 override ATProtoNet.Server.Spaces.VerifiedSpaceCredential.GetHashCode() -> int
 override ATProtoNet.Server.Spaces.VerifiedSpaceCredential.ToString() -> string!
-override ATProtoNet.Server.Tap.TapUnreadableEvent.Equals(object? obj) -> bool
-override ATProtoNet.Server.Tap.TapUnreadableEvent.GetHashCode() -> int
-override ATProtoNet.Server.Tap.TapUnreadableEvent.ToString() -> string!
 override ATProtoNet.Server.Xrpc.XrpcBlobInput.Equals(object? obj) -> bool
 override ATProtoNet.Server.Xrpc.XrpcBlobInput.GetHashCode() -> int
 override ATProtoNet.Server.Xrpc.XrpcBlobInput.ToString() -> string!
@@ -580,7 +522,6 @@ static ATProtoNet.Server.AtProtoBuilderExtensions.WithFileSessionStore(this ATPr
 static ATProtoNet.Server.AtProtoBuilderExtensions.WithHealthCheck(this ATProtoNet.Server.IAtProtoBuilder! builder, string! name = "atproto-pds", Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus? failureStatus = Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Degraded, System.Collections.Generic.IEnumerable<string!>? tags = null) -> ATProtoNet.Server.IAtProtoBuilder!
 static ATProtoNet.Server.AtProtoBuilderExtensions.WithInMemorySessionStore(this ATProtoNet.Server.IAtProtoBuilder! builder) -> ATProtoNet.Server.IAtProtoBuilder!
 static ATProtoNet.Server.AtProtoBuilderExtensions.WithLifetime(this ATProtoNet.Server.IAtProtoBuilder! builder, Microsoft.Extensions.DependencyInjection.ServiceLifetime lifetime) -> ATProtoNet.Server.IAtProtoBuilder!
-static ATProtoNet.Server.AtProtoBuilderExtensions.WithSessionStore(this ATProtoNet.Server.IAtProtoBuilder! builder, System.Func<System.IServiceProvider!, ATProtoNet.Auth.IAtProtoSessionStore!>! factory) -> ATProtoNet.Server.IAtProtoBuilder!
 static ATProtoNet.Server.AtProtoBuilderExtensions.WithSessionStore<TStore>(this ATProtoNet.Server.IAtProtoBuilder! builder) -> ATProtoNet.Server.IAtProtoBuilder!
 static ATProtoNet.Server.AtProtoServiceCollectionExtensions.AddAtProto(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<ATProtoNet.AtProtoClientOptions!>? configure = null) -> ATProtoNet.Server.IAtProtoBuilder!
 static ATProtoNet.Server.Authentication.AtProtoOAuthExtensions.MapAtProtoOAuth(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! endpoints) -> Microsoft.AspNetCore.Routing.IEndpointRouteBuilder!
@@ -590,7 +531,6 @@ static ATProtoNet.Server.Authentication.AtProtoServiceAuthExtensions.AddAtProtoS
 static ATProtoNet.Server.Authentication.AtProtoServiceAuthExtensions.RequireServiceAuth<TBuilder>(this TBuilder builder, string! authenticationScheme = "AtProtoServiceAuth") -> TBuilder
 static ATProtoNet.Server.IdentityServiceCollectionExtensions.AddAtProtoIdentity(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<ATProtoNet.Identity.IdentityResolverOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static ATProtoNet.Server.Labeling.QueryLabelsEndpoint.Nsid.get -> ATProtoNet.Identity.Nsid!
-static ATProtoNet.Server.PdsAdminExtensions.AddAtProtoPdsAdmin(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, ATProtoNet.Admin.PdsAdminOptions! options) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static ATProtoNet.Server.PdsAdminExtensions.AddAtProtoPdsAdmin(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, string! pdsUrl, string! adminPassword) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static ATProtoNet.Server.PdsAdminExtensions.AddAtProtoPdsAdmin(this Microsoft.Extensions.Hosting.IHostApplicationBuilder! builder, string! configurationSectionName = "AtProto:Pds", System.Action<ATProtoNet.Admin.PdsAdminOptions!>? configureOptions = null) -> Microsoft.Extensions.Hosting.IHostApplicationBuilder!
 static ATProtoNet.Server.Spaces.SimpleSpaceRecord.operator !=(ATProtoNet.Server.Spaces.SimpleSpaceRecord? left, ATProtoNet.Server.Spaces.SimpleSpaceRecord? right) -> bool
@@ -617,10 +557,7 @@ static ATProtoNet.Server.Spaces.VerifiedDelegationToken.operator !=(ATProtoNet.S
 static ATProtoNet.Server.Spaces.VerifiedDelegationToken.operator ==(ATProtoNet.Server.Spaces.VerifiedDelegationToken? left, ATProtoNet.Server.Spaces.VerifiedDelegationToken? right) -> bool
 static ATProtoNet.Server.Spaces.VerifiedSpaceCredential.operator !=(ATProtoNet.Server.Spaces.VerifiedSpaceCredential? left, ATProtoNet.Server.Spaces.VerifiedSpaceCredential? right) -> bool
 static ATProtoNet.Server.Spaces.VerifiedSpaceCredential.operator ==(ATProtoNet.Server.Spaces.VerifiedSpaceCredential? left, ATProtoNet.Server.Spaces.VerifiedSpaceCredential? right) -> bool
-static ATProtoNet.Server.Tap.TapUnreadableEvent.operator !=(ATProtoNet.Server.Tap.TapUnreadableEvent? left, ATProtoNet.Server.Tap.TapUnreadableEvent? right) -> bool
-static ATProtoNet.Server.Tap.TapUnreadableEvent.operator ==(ATProtoNet.Server.Tap.TapUnreadableEvent? left, ATProtoNet.Server.Tap.TapUnreadableEvent? right) -> bool
 static ATProtoNet.Server.Tap.TapWebhookExtensions.MapTapWebhook(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! endpoints, string! pattern, System.Func<ATProtoNet.Tap.TapEvent!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>! handler, System.Action<ATProtoNet.Server.Tap.TapWebhookOptions!>? configure = null) -> Microsoft.AspNetCore.Builder.RouteHandlerBuilder!
-static ATProtoNet.Server.Tap.TapWebhookExtensions.MapTapWebhook<THandler>(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! endpoints, string! pattern, System.Action<ATProtoNet.Server.Tap.TapWebhookOptions!>? configure = null) -> Microsoft.AspNetCore.Builder.RouteHandlerBuilder!
 static ATProtoNet.Server.Xrpc.XrpcBlobInput.operator !=(ATProtoNet.Server.Xrpc.XrpcBlobInput? left, ATProtoNet.Server.Xrpc.XrpcBlobInput? right) -> bool
 static ATProtoNet.Server.Xrpc.XrpcBlobInput.operator ==(ATProtoNet.Server.Xrpc.XrpcBlobInput? left, ATProtoNet.Server.Xrpc.XrpcBlobInput? right) -> bool
 static ATProtoNet.Server.Xrpc.XrpcBlobResult.operator !=(ATProtoNet.Server.Xrpc.XrpcBlobResult? left, ATProtoNet.Server.Xrpc.XrpcBlobResult? right) -> bool

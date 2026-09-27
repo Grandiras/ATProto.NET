@@ -98,30 +98,17 @@ app.MapTapWebhook("/tap/webhook", (evt, ct) =>
 }, options => options.AdminPassword = builder.Configuration["Tap:AdminPassword"]);
 ```
 
-Or register a handler class and map it by type; it is resolved from the request's services:
-
-```csharp
-builder.Services.AddScoped<IndexingTapHandler>();
-app.MapTapWebhook<IndexingTapHandler>("/tap/webhook", o => o.AdminPassword = builder.Configuration["Tap:AdminPassword"]);
-
-public sealed class IndexingTapHandler(ILogger<IndexingTapHandler> logger) : ITapEventHandler
-{
-    public Task HandleAsync(TapEvent evt, CancellationToken cancellationToken)
-    {
-        logger.LogInformation("Tap event {Event}", evt);
-        return Task.CompletedTask;
-    }
-}
-```
+A handler that needs scoped services, a `DbContext` say, creates a scope from `app.Services` for
+each event.
 
 The endpoint:
 
 - checks the `Authorization` header in constant time and answers **401** unless it is Basic auth for user `admin` with the configured password. Mapping one without a password throws, unless `AllowUnauthenticated` is set for an instance that has none;
 - refuses a body over `MaxBodyBytes` (4 MiB by default) with **413**, whether declared or streamed;
-- acknowledges a body that is not a Tap event (malformed, or of a type this SDK version does not model) with **200**, and reports it to `OnUnreadableEvent` (a warning log by default): Tap resends any refused event forever and holds back that repository's later events meanwhile;
+- acknowledges a body that is not a Tap event (malformed, or of a type this SDK version does not model) with **200**, and logs a warning: Tap resends any refused event forever and holds back that repository's later events meanwhile;
 - answers **500** when the handler throws, so Tap retries, and **200** once it returns.
 
-Both methods return the endpoint's `RouteHandlerBuilder`, for conventions such as rate limiting. Tap redelivers an event whose webhook failed or timed out, so handlers must be idempotent.
+`MapTapWebhook` returns the endpoint's `RouteHandlerBuilder`, for conventions such as rate limiting. Tap redelivers an event whose webhook failed or timed out, so handlers must be idempotent.
 
 ## Event format
 

@@ -48,6 +48,9 @@ public abstract class AtProtoPdsContainerResourceBase : ContainerResource, IReso
     /// </remarks>
     internal object Hostname { get; set; } = "localhost";
 
+    /// <summary>The environment variables this server reads the settings both servers share from.</summary>
+    internal abstract SharedSettingNames Settings { get; }
+
     /// <summary>
     /// Gets the connection string expression for this PDS instance,
     /// formatted as <c>http://{host}:{port}</c>.
@@ -56,3 +59,11 @@ public abstract class AtProtoPdsContainerResourceBase : ContainerResource, IReso
         ReferenceExpression.Create(
             $"http://{this.GetEndpoint(HttpEndpointName).Property(EndpointProperty.Host)}:{this.GetEndpoint(HttpEndpointName).Property(EndpointProperty.Port)}");
 }
+
+internal sealed record SharedSettingNames(
+    string PlcUrl,
+    string Crawlers,
+    string InviteRequired,
+    string BlobUploadLimit,
+    string ReportServiceUrl,
+    string ReportServiceDid);

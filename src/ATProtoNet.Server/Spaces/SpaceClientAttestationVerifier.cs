@@ -138,8 +138,7 @@ public sealed class HttpSpaceClientMetadataResolver : ISpaceClientMetadataResolv
 /// JWKS the client publishes at its own <c>client_id</c> URL, which is what makes an allow-list
 /// of client IDs enforceable rather than advisory: only the holder of the published key can
 /// produce one.</para>
-/// <para>A client's published keys are remembered for
-/// <see cref="SpaceServerOptions.ClientMetadataCacheLifetime"/>, so an app renewing its
+/// <para>A client's published keys are remembered for five minutes, so an app renewing its
 /// credentials does not cost a fetch of its metadata (and JWKS) each time. The flip side is that
 /// a key the client removes from its JWKS keeps verifying here for up to that long. An
 /// attestation naming a key the remembered set lacks, or failing against it, is checked once more

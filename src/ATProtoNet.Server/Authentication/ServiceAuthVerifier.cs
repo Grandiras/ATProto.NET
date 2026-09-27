@@ -22,8 +22,7 @@ public sealed class VerifiedServiceAuth
 
     /// <summary>
     /// The XRPC method it was scoped to (<c>lxm</c>), or <see langword="null"/> when it named
-    /// none, which only a verifier with <see cref="ServiceAuthVerifierOptions.RequireLexiconMethod"/>
-    /// off, or one binding no method, lets through.
+    /// none, which only a call binding no method lets through.
     /// </summary>
     public Nsid? Method { get; init; }
 
@@ -64,16 +63,6 @@ public sealed class ServiceAuthVerifierOptions
     public ISet<string> AllowedKeyIds { get; } = new HashSet<string>(StringComparer.Ordinal) { DefaultKeyId };
 
     /// <summary>
-    /// Whether a call to an XRPC method refuses a token that names no <c>lxm</c>. Defaults to
-    /// <see langword="true"/>, as the spec requires since its 2026 revision.
-    /// </summary>
-    /// <remarks>
-    /// Turn it off only for a sender that has not caught up. A token that does name a method is
-    /// held to it either way.
-    /// </remarks>
-    public bool RequireLexiconMethod { get; set; } = true;
-
-    /// <summary>
     /// How far the issuer's clock may disagree with this one: a token is accepted for this long
     /// past its <c>exp</c>, and with an <c>iat</c> or <c>nbf</c> this far ahead. Defaults to 30
     /// seconds.
@@ -96,6 +85,31 @@ public sealed class ServiceAuthVerifierOptions
     /// <c>getServiceAuth</c> when a client asks for one, so raise this if your callers do.
     /// </remarks>
     public TimeSpan MaxTokenLifetime { get; set; } = TimeSpan.FromMinutes(5);
+
+    /// <exception cref="ArgumentException">
+    /// An allowed key ID is not a <c>#fragment</c>, none is allowed, or a duration is out of range.
+    /// </exception>
+    internal void Validate()
+    {
+        if (AllowedKeyIds.Count == 0)
+            throw new ArgumentException("At least one key ID must be allowed.", nameof(AllowedKeyIds));
+
+        foreach (var keyId in AllowedKeyIds)
+        {
+            if (!ServiceAuthSyntax.IsKeyId(keyId))
+            {
+                throw new ArgumentException(
+                    $"An allowed key ID is a verification-method fragment such as '#atproto'; got '{keyId}'.",
+                    nameof(AllowedKeyIds));
+            }
+        }
+
+        if (ClockSkew < TimeSpan.Zero)
+            throw new ArgumentException("The clock skew cannot be negative.", nameof(ClockSkew));
+
+        if (MaxTokenLifetime <= TimeSpan.Zero)
+            throw new ArgumentException("The maximum token lifetime must be positive.", nameof(MaxTokenLifetime));
+    }
 }
 
 /// <summary>
@@ -166,22 +180,11 @@ public sealed class ServiceAuthException : XrpcException
 /// account.
 /// </summary>
 /// <remarks>
-/// <para>Checks, in order: the token's structure and <c>alg</c>; a <c>typ</c> other than
-/// <c>JWT</c> or none, which marks another kind of token; an <c>iss</c> that is a DID without a
-/// fragment; the <c>kid</c> (or the <c>#atproto</c> its absence means) against
-/// <see cref="ServiceAuthVerifierOptions.AllowedKeyIds"/>; the <c>aud</c> against the accepted
-/// audiences; the <c>lxm</c> against the method called; <c>exp</c>, <c>iat</c> and any
-/// <c>nbf</c> against the clock, and <c>exp</c> and <c>iat</c> against
-/// <see cref="ServiceAuthVerifierOptions.MaxTokenLifetime"/>; the signature, against the issuer's
-/// key as resolved (and cached) by the <see cref="IDidResolver"/>; and last the <c>jti</c>, which
-/// is spent in the <see cref="IJtiReplayStore"/> only once everything else has passed, so a forged
-/// token cannot burn the identifier of a genuine one, and kept until the token stops being
-/// accepted.</para>
-/// <para>A signature that fails against the cached key is retried once against a refreshed DID
-/// document, since the issuer may have rotated its key; the resolver rate-limits refreshes, so
-/// forged tokens cannot each cost a directory request. As in the reference implementation, a
-/// high-S signature is accepted: generic JOSE signers emit one about half the time, and a bearer
-/// token is not content-addressed.</para>
+/// <para>The <c>jti</c> is spent last, once every other check has passed, so a forged token
+/// cannot burn the identifier of a genuine one. A signature that fails against the cached key is
+/// retried once against a refreshed DID document; the resolver rate-limits refreshes. As in the
+/// reference implementation, a high-S signature is accepted: a bearer token is not
+/// content-addressed.</para>
 /// <para>This is the check behind <c>AddAtProtoServiceAuth()</c>; call it directly to verify a
 /// token that does not arrive as an ASP.NET Core request.</para>
 /// </remarks>
@@ -191,7 +194,6 @@ public sealed class ServiceAuthVerifier
     private readonly IJtiReplayStore _replayStore;
     private readonly TimeProvider _timeProvider;
     private readonly HashSet<string> _allowedKeyIds;
-    private readonly bool _requireLexiconMethod;
     private readonly TimeSpan _clockSkew;
     private readonly TimeSpan _maxTokenLifetime;
 
@@ -204,10 +206,7 @@ public sealed class ServiceAuthVerifier
     /// How strictly to check. Defaults to the <see cref="ServiceAuthVerifierOptions"/> defaults.
     /// </param>
     /// <param name="timeProvider">The clock. Defaults to the system clock.</param>
-    /// <exception cref="ArgumentException">
-    /// An allowed key ID is not a <c>#fragment</c>, none is allowed, or a duration is negative
-    /// (<see cref="ServiceAuthVerifierOptions.MaxTokenLifetime"/> must also be non-zero).
-    /// </exception>
+    /// <exception cref="ArgumentException">The options are invalid.</exception>
     public ServiceAuthVerifier(
         IDidResolver resolver,
         IJtiReplayStore replayStore,
@@ -218,25 +217,7 @@ public sealed class ServiceAuthVerifier
         ArgumentNullException.ThrowIfNull(replayStore);
 
         options ??= new ServiceAuthVerifierOptions();
-
-        if (options.AllowedKeyIds.Count == 0)
-            throw new ArgumentException("At least one key ID must be allowed.", nameof(options));
-
-        foreach (var keyId in options.AllowedKeyIds)
-        {
-            if (!ServiceAuthSyntax.IsKeyId(keyId))
-            {
-                throw new ArgumentException(
-                    $"An allowed key ID is a verification-method fragment such as '#atproto'; got '{keyId}'.",
-                    nameof(options));
-            }
-        }
-
-        if (options.ClockSkew < TimeSpan.Zero)
-            throw new ArgumentException("The clock skew cannot be negative.", nameof(options));
-
-        if (options.MaxTokenLifetime <= TimeSpan.Zero)
-            throw new ArgumentException("The maximum token lifetime must be positive.", nameof(options));
+        options.Validate();
 
         _resolver = resolver;
         _replayStore = replayStore;
@@ -244,7 +225,6 @@ public sealed class ServiceAuthVerifier
 
         // Copied, so a verifier's policy cannot change under it after construction.
         _allowedKeyIds = new HashSet<string>(options.AllowedKeyIds, StringComparer.Ordinal);
-        _requireLexiconMethod = options.RequireLexiconMethod;
         _clockSkew = options.ClockSkew;
         _maxTokenLifetime = options.MaxTokenLifetime;
     }
@@ -337,16 +317,7 @@ public sealed class ServiceAuthVerifier
 
         var (issuedAt, expiresAt) = ReadLifetime(payload);
 
-        var tokenId = payload.GetStringOrNull("jti");
-        if (string.IsNullOrEmpty(tokenId))
-            throw Refuse(ServiceAuthErrors.BadJwt, "The service auth token is missing its \"jti\".");
-        if (!Jwt.IsUsableTokenId(tokenId))
-        {
-            throw Refuse(
-                ServiceAuthErrors.BadJwt,
-                "The service auth token's \"jti\" must be printable, not only whitespace, and at most " +
-                $"{Jwt.MaxTokenIdLength} characters.");
-        }
+        var tokenId = Jwt.RequireTokenId(payload, "service auth token", message => Refuse(ServiceAuthErrors.BadJwt, message));
 
         await VerifySignatureAsync(issuer, keyId, algorithm, decoded, cancellationToken).ConfigureAwait(false);
 
@@ -413,16 +384,12 @@ public sealed class ServiceAuthVerifier
         if (method is null)
             return tokenMethod;
 
+        // Required since the spec's 2026 revision.
         if (tokenMethod is null)
         {
-            if (_requireLexiconMethod)
-            {
-                throw Refuse(
-                    ServiceAuthErrors.BadJwtLexiconMethod,
-                    $"The service auth token names no \"lxm\"; a call to '{method}' needs one naming it.");
-            }
-
-            return null;
+            throw Refuse(
+                ServiceAuthErrors.BadJwtLexiconMethod,
+                $"The service auth token names no \"lxm\"; a call to '{method}' needs one naming it.");
         }
 
         // Exact, as the reference compares: the token names the method its issuer approved.

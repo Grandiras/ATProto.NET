@@ -147,14 +147,6 @@ ATProtoNet.Auth.OAuth.AccountAction.Read = 0 -> ATProtoNet.Auth.OAuth.AccountAct
 ATProtoNet.Auth.OAuth.AtProtoScopes
 ATProtoNet.Auth.OAuth.AtProtoScopes.PermissionSets
 ATProtoNet.Auth.OAuth.AtProtoScopes.Presets
-ATProtoNet.Auth.OAuth.AuthorizationServerDiscovery
-ATProtoNet.Auth.OAuth.AuthorizationServerDiscovery.AuthorizationServerDiscovery(System.Net.Http.HttpClient? httpClient, Microsoft.Extensions.Logging.ILogger! logger, ATProtoNet.Identity.IIdentityResolver? identityResolver = null, bool allowPrivateNetworks = false) -> void
-ATProtoNet.Auth.OAuth.AuthorizationServerDiscovery.Dispose() -> void
-ATProtoNet.Auth.OAuth.AuthorizationServerDiscovery.FetchAuthorizationServerMetadataAsync(string! authServerUrl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Auth.OAuth.AuthorizationServerMetadata!>!
-ATProtoNet.Auth.OAuth.AuthorizationServerDiscovery.FetchProtectedResourceMetadataAsync(string! pdsUrl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Auth.OAuth.ProtectedResourceMetadata!>!
-ATProtoNet.Auth.OAuth.AuthorizationServerDiscovery.IdentityResolver.get -> ATProtoNet.Identity.IIdentityResolver!
-ATProtoNet.Auth.OAuth.AuthorizationServerDiscovery.ResolveAuthorizationServerAsync(string! pdsUrl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Auth.OAuth.AuthorizationServerMetadata!>!
-ATProtoNet.Auth.OAuth.AuthorizationServerDiscovery.ResolveFromIdentifierAsync(string! identifier, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<(string! PdsUrl, ATProtoNet.Auth.OAuth.AuthorizationServerMetadata! Metadata, string! Did)>!
 ATProtoNet.Auth.OAuth.AuthorizationServerMetadata
 ATProtoNet.Auth.OAuth.AuthorizationServerMetadata.AuthorizationEndpoint.get -> string!
 ATProtoNet.Auth.OAuth.AuthorizationServerMetadata.AuthorizationEndpoint.set -> void
@@ -216,9 +208,6 @@ ATProtoNet.Auth.OAuth.DistributedCacheOAuthStateStoreOptions.Unprotect.set -> vo
 ATProtoNet.Auth.OAuth.IOAuthStateStore
 ATProtoNet.Auth.OAuth.IOAuthStateStore.SetAsync(ATProtoNet.Auth.OAuth.OAuthPendingAuthorization! authorization, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 ATProtoNet.Auth.OAuth.IOAuthStateStore.TakeAsync(string! state, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ATProtoNet.Auth.OAuth.OAuthPendingAuthorization?>
-ATProtoNet.Auth.OAuth.IdentityAction
-ATProtoNet.Auth.OAuth.IdentityAction.Manage = 0 -> ATProtoNet.Auth.OAuth.IdentityAction
-ATProtoNet.Auth.OAuth.IdentityAction.Submit = 1 -> ATProtoNet.Auth.OAuth.IdentityAction
 ATProtoNet.Auth.OAuth.InMemoryOAuthStateStore
 ATProtoNet.Auth.OAuth.InMemoryOAuthStateStore.Capacity.get -> int
 ATProtoNet.Auth.OAuth.InMemoryOAuthStateStore.Count.get -> int
@@ -275,9 +264,7 @@ ATProtoNet.Auth.OAuth.OAuthAuthorizationResult.OAuthAuthorizationResult(ATProtoN
 ATProtoNet.Auth.OAuth.OAuthAuthorizationResult.Session.get -> ATProtoNet.Auth.OAuthSession!
 ATProtoNet.Auth.OAuth.OAuthAuthorizationResult.Session.init -> void
 ATProtoNet.Auth.OAuth.OAuthClient
-ATProtoNet.Auth.OAuth.OAuthClient.CompleteAuthorizationAsync(string! code, string! state, string! issuer, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Auth.OAuthSession!>!
-ATProtoNet.Auth.OAuth.OAuthClient.CompleteAuthorizationWithAppStateAsync(string! code, string! state, string! issuer, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Auth.OAuth.OAuthAuthorizationResult!>!
-ATProtoNet.Auth.OAuth.OAuthClient.Discovery.get -> ATProtoNet.Auth.OAuth.AuthorizationServerDiscovery!
+ATProtoNet.Auth.OAuth.OAuthClient.CompleteAuthorizationAsync(string! code, string! state, string! issuer, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Auth.OAuth.OAuthAuthorizationResult!>!
 ATProtoNet.Auth.OAuth.OAuthClient.Dispose() -> void
 ATProtoNet.Auth.OAuth.OAuthClient.OAuthClient(ATProtoNet.Auth.OAuth.OAuthOptions! options, Microsoft.Extensions.Logging.ILogger? logger = null) -> void
 ATProtoNet.Auth.OAuth.OAuthClient.RefreshAsync(ATProtoNet.Auth.OAuthSession! session, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Auth.OAuthSession!>!
@@ -7205,7 +7192,6 @@ ATProtoNet.Spaces.SpaceToken.Raw.get -> string!
 ATProtoNet.Spaces.SpaceToken.Signature.get -> byte[]!
 ATProtoNet.Spaces.SpaceToken.SigningInput.get -> byte[]!
 ATProtoNet.Spaces.SpaceToken.Subject.get -> string!
-ATProtoNet.Spaces.SpaceToken.ToSpaceUri() -> ATProtoNet.Spaces.SpaceUri!
 ATProtoNet.Spaces.SpaceToken.TokenId.get -> string?
 ATProtoNet.Spaces.SpaceToken.Type.get -> ATProtoNet.Spaces.SpaceTokenType
 ATProtoNet.Spaces.SpaceTokenException
@@ -8888,7 +8874,6 @@ static ATProtoNet.Auth.OAuth.AtProtoScopes.Blob(System.Collections.Generic.IRead
 static ATProtoNet.Auth.OAuth.AtProtoScopes.Blob(string! accept = "*/*") -> string!
 static ATProtoNet.Auth.OAuth.AtProtoScopes.Combine(params string![]! scopes) -> string!
 static ATProtoNet.Auth.OAuth.AtProtoScopes.Identity(string! attr) -> string!
-static ATProtoNet.Auth.OAuth.AtProtoScopes.Identity(string! attr, ATProtoNet.Auth.OAuth.IdentityAction action) -> string!
 static ATProtoNet.Auth.OAuth.AtProtoScopes.Include(string! permissionSetNsid, string? aud = null) -> string!
 static ATProtoNet.Auth.OAuth.AtProtoScopes.Repo(System.Collections.Generic.IReadOnlyList<string!>! collections, ATProtoNet.Auth.OAuth.RepoAction actions = ATProtoNet.Auth.OAuth.RepoAction.All) -> string!
 static ATProtoNet.Auth.OAuth.AtProtoScopes.Repo(string! collection, ATProtoNet.Auth.OAuth.RepoAction actions = ATProtoNet.Auth.OAuth.RepoAction.All) -> string!
@@ -9267,10 +9252,8 @@ static ATProtoNet.Spaces.SpaceSyncResult.operator !=(ATProtoNet.Spaces.SpaceSync
 static ATProtoNet.Spaces.SpaceSyncResult.operator ==(ATProtoNet.Spaces.SpaceSyncResult? left, ATProtoNet.Spaces.SpaceSyncResult? right) -> bool
 static ATProtoNet.Spaces.SpaceTokens.Create(ATProtoNet.Spaces.SpaceTokenType type, string! issuer, string! subject, ATProtoNet.Crypto.AtProtoKey! signingKey, string? audience = null, string? dpopThumbprint = null, System.TimeSpan? lifetime = null, string? keyId = null) -> string!
 static ATProtoNet.Spaces.SpaceTokens.Parse(ATProtoNet.Spaces.SpaceTokenType type, string! jwt) -> ATProtoNet.Spaces.SpaceToken!
-static ATProtoNet.Spaces.SpaceTokens.TryParse(ATProtoNet.Spaces.SpaceTokenType type, string? jwt, out ATProtoNet.Spaces.SpaceToken? token) -> bool
 static ATProtoNet.Spaces.SpaceTokens.TypeHeader(ATProtoNet.Spaces.SpaceTokenType type) -> string!
 static ATProtoNet.Spaces.SpaceTokens.Verify(ATProtoNet.Spaces.SpaceToken! token, string! issuerDidKey, string? expectedAudience = null, ATProtoNet.Spaces.SpaceUri? expectedSubject = null, System.DateTimeOffset? now = null) -> ATProtoNet.Spaces.SpaceToken!
-static ATProtoNet.Spaces.SpaceTokens.Verify(ATProtoNet.Spaces.SpaceTokenType type, string! jwt, string! issuerDidKey, string? expectedAudience = null, ATProtoNet.Spaces.SpaceUri? expectedSubject = null, System.DateTimeOffset? now = null) -> ATProtoNet.Spaces.SpaceToken!
 static ATProtoNet.Spaces.SpaceTypeDeclaration.FromLexicon(System.Text.Json.JsonElement lexicon) -> ATProtoNet.Spaces.SpaceTypeDeclaration?
 static ATProtoNet.Spaces.SpaceUri.Create(ATProtoNet.Identity.Did! authority, ATProtoNet.Identity.Nsid! spaceType, ATProtoNet.Identity.RecordKey! skey) -> ATProtoNet.Spaces.SpaceUri!
 static ATProtoNet.Spaces.SpaceUri.IsSpaceUri(string? value) -> bool
@@ -9312,8 +9295,6 @@ static ATProtoNet.Streaming.StreamReconnectPolicy.operator !=(ATProtoNet.Streami
 static ATProtoNet.Streaming.StreamReconnectPolicy.operator ==(ATProtoNet.Streaming.StreamReconnectPolicy? left, ATProtoNet.Streaming.StreamReconnectPolicy? right) -> bool
 static ATProtoNet.Tap.TapClient.FormatAdminAuthHeader(string! password) -> string!
 static ATProtoNet.Tap.TapEvent.Parse(System.ReadOnlySpan<byte> utf8Json) -> ATProtoNet.Tap.TapEvent!
-static readonly ATProtoNet.Auth.OAuth.AuthorizationServerDiscovery.DefaultHandleResolutionTimeout -> System.TimeSpan
-static readonly ATProtoNet.Auth.OAuth.AuthorizationServerDiscovery.MetadataCacheLifetime -> System.TimeSpan
 static readonly ATProtoNet.Auth.OAuth.OAuthClient.AuthorizationLifetime -> System.TimeSpan
 static readonly ATProtoNet.Identity.IdentityResolverOptions.DefaultDnsOverHttpsUrl -> System.Uri!
 static readonly ATProtoNet.Identity.IdentityResolverOptions.DefaultPlcDirectoryUrl -> System.Uri!

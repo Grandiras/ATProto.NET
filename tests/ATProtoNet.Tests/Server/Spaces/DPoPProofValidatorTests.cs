@@ -22,7 +22,6 @@ public class DPoPProofValidatorTests
         var proof = await validator.ValidateAsync(key.Proof("GET", Url), "GET", Url);
 
         Assert.Equal(key.Thumbprint, proof.KeyThumbprint);
-        Assert.Equal("GET", proof.Method);
     }
 
     [Theory]
@@ -326,48 +325,6 @@ public class DPoPProofValidatorTests
         Assert.Equal("NotAuthorized", ex.Error);
     }
 
-    [Theory]
-    [InlineData(JwsSegments.Header)]
-    [InlineData(JwsSegments.Payload)]
-    [InlineData(JwsSegments.Signature)]
-    [InlineData(JwsSegments.All)]
-    public async Task ValidateAsync_SegmentsWithBase64Padding_AreAccepted(JwsSegments padded)
-    {
-        // RFC 7515 omits the padding, but a correctly padded segment decodes to the same bytes,
-        // and the signature covers the header and payload exactly as they were sent.
-        using var key = new TestDPoPKey();
-        var validator = CreateValidator();
-
-        var proof = await validator.ValidateAsync(
-            key.Proof("GET", Url, accessToken: "a-credential", padded: padded),
-            "GET",
-            Url,
-            boundThumbprint: key.Thumbprint,
-            accessToken: "a-credential");
-
-        Assert.Equal(key.Thumbprint, proof.KeyThumbprint);
-    }
-
-    [Theory]
-    [InlineData(0, "!!!!")]
-    [InlineData(1, "!!!!")]
-    [InlineData(2, "!!!!")]
-    [InlineData(0, "AAAAA")]
-    [InlineData(1, "AAAAA")]
-    [InlineData(2, "AAAAA")]
-    public async Task ValidateAsync_SegmentThatIsNotBase64Url_IsRejected(int index, string segment)
-    {
-        using var key = new TestDPoPKey();
-        var validator = CreateValidator();
-
-        var malformed = TestJws.WithSegment(key.Proof("GET", Url), index, segment);
-
-        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => validator.ValidateAsync(malformed, "GET", Url));
-
-        Assert.Equal("NotAuthorized", ex.Error);
-    }
-
     [Fact]
     public async Task ValidateAsync_JwkWithPaddedCoordinates_IsAccepted()
     {
@@ -403,27 +360,16 @@ public class DPoPProofValidatorTests
 
     [Theory]
     [InlineData("a.b")]
-    [InlineData("a.b.c.d")]
     [InlineData("not-a-jwt")]
-    public async Task ValidateAsync_NotThreeSegments_IsRejected(string proof)
+    [InlineData("e30.e30.!!!!")]
+    [InlineData("bm90IGpzb24.e30.AAAA")] // a header that is not JSON
+    public async Task ValidateAsync_MalformedProof_IsNotAuthorized(string proof)
     {
-        var validator = CreateValidator();
+        // How each segment decodes is JwtTests'; this pins that a failure is this verifier's error.
+        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
+            () => CreateValidator().ValidateAsync(proof, "GET", Url));
 
-        await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => validator.ValidateAsync(proof, "GET", Url));
-    }
-
-    [Fact]
-    public async Task ValidateAsync_HeaderThatIsNotJson_IsRejected()
-    {
-        using var key = new TestDPoPKey();
-        var validator = CreateValidator();
-
-        var malformed = TestJws.WithSegment(
-            key.Proof("GET", Url), 0, TestJws.Encode("not json"u8));
-
-        await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => validator.ValidateAsync(malformed, "GET", Url));
+        Assert.Equal("NotAuthorized", ex.Error);
     }
 
     [Fact]
@@ -473,26 +419,6 @@ public class DPoPProofValidatorTests
         var validator = CreateValidator();
 
         await validator.ValidateAsync(key.Proof("GET", proofUrl), "GET", requestUrl);
-    }
-
-    [Theory]
-    [InlineData("+")]
-    [InlineData("/")]
-    public async Task ValidateAsync_SignatureInTheStandardBase64Alphabet_IsRejected(string character)
-    {
-        // Base64url has one alphabet. A segment spelled with the standard alphabet's '+' or '/'
-        // is not a JWS segment, whatever it would decode to.
-        using var key = new TestDPoPKey();
-        var validator = CreateValidator();
-
-        var proof = key.Proof("GET", Url);
-        var signature = proof.Split('.')[2];
-        var respelled = TestJws.WithSegment(proof, 2, character + signature[1..]);
-
-        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => validator.ValidateAsync(respelled, "GET", Url));
-
-        Assert.Contains("not base64url", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]

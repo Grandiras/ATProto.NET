@@ -1,5 +1,6 @@
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
+using ATProtoNet.Server.Authentication;
 using ATProtoNet.Spaces;
 using Microsoft.AspNetCore.Http;
 
@@ -180,23 +181,14 @@ public sealed class SpaceRequestAuthenticator
             request.Scheme, request.Host.Value ?? string.Empty, request.PathBase + request.Path);
     }
 
-    private static (string Scheme, string Token) ReadAuthorization(HttpContext context)
-    {
-        var header = context.Request.Headers.Authorization.ToString();
-        if (string.IsNullOrWhiteSpace(header))
-        {
-            throw new SpaceVerificationException(
+    private static (string Scheme, string Token) ReadAuthorization(HttpContext context) =>
+        AuthorizationHeader.TryRead(context.Request, out var scheme, out var token)
+            ? (scheme, token)
+            : throw new SpaceVerificationException(
                 SpaceErrors.NotAuthorized, "The request carries no Authorization header.")
             {
                 Headers = { ["WWW-Authenticate"] = "DPoP" },
             };
-        }
-
-        var space = header.IndexOf(' ');
-        return space < 0
-            ? (header, string.Empty)
-            : (header[..space], header[(space + 1)..].Trim());
-    }
 
     private static string ReadProof(HttpContext context)
     {

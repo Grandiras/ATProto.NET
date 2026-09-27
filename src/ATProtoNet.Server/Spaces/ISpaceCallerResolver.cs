@@ -28,17 +28,18 @@ public interface ISpaceCallerResolver
 /// <see cref="ClaimsPrincipal"/>.
 /// </summary>
 /// <remarks>
-/// It looks for a <c>did</c> claim first — <see cref="Authentication.AtProtoClaimTypes.Did"/>,
+/// <para>It looks for a <c>did</c> claim first — <see cref="Authentication.AtProtoClaimTypes.Did"/>,
 /// which the OAuth login and service auth issue — and falls back to
 /// <see cref="ClaimTypes.NameIdentifier"/>. Either way the value must parse as a DID; a handle
 /// is rejected, because a handle can be reassigned and would silently transfer ownership of a
-/// space.
+/// space.</para>
+/// <para>Unlike the OAuth login's client factory, which takes only the identity the login issued
+/// because it then acts through that account's stored session, it accepts the claim from any
+/// authentication scheme: nothing here uses a stored session or credential for the account, so a
+/// verified caller can only ever act as itself.</para>
 /// </remarks>
 public sealed class ClaimsSpaceCallerResolver : ISpaceCallerResolver
 {
-    /// <summary>The claim type the AT Protocol authentication handler issues.</summary>
-    public const string DidClaimType = "did";
-
     /// <inheritdoc/>
     public Did? GetCallerDid(HttpContext context)
     {
@@ -48,7 +49,7 @@ public sealed class ClaimsSpaceCallerResolver : ISpaceCallerResolver
         if (user?.Identity?.IsAuthenticated != true)
             return null;
 
-        var value = user.FindFirstValue(DidClaimType) ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
+        var value = user.FindFirstValue(Authentication.AtProtoClaimTypes.Did) ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
 
         return Did.TryParse(value, out var did) ? did : null;
     }

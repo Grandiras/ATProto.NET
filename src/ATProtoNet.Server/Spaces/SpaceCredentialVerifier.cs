@@ -28,8 +28,8 @@ public sealed record VerifiedSpaceCredential(SpaceUri Space, DPoPProof Proof);
 /// key — re-read from the (cached) DID document and compared with the key the signature was
 /// checked against. So a rotated authority key stops verifying a cached credential at exactly the
 /// moment it stops verifying a new one; the cache never extends the DID cache's own window.</para>
-/// <para>The cache is bounded by <see cref="SpaceServerOptions.VerifiedCredentialCacheCapacity"/>
-/// and evicts the least recently used entry when full. Any DID can be the authority of its own
+/// <para>The cache holds 10,000 credentials (about 30 MB) and evicts the least recently used
+/// entry when full. Any DID can be the authority of its own
 /// spaces and mint credentials for them, so one authority may hold at most a quarter of the
 /// entries: an authority presenting more displaces its own least recently used ones, and
 /// credentials in steady use by other authorities stay cached.</para>
@@ -55,10 +55,7 @@ public sealed class SpaceCredentialVerifier
     /// <see cref="SpaceServerExtensions.DidResolverKey"/>.
     /// </param>
     /// <param name="proofValidator">Verifies the accompanying DPoP proof.</param>
-    /// <param name="options">
-    /// Server options: the size of the verified-credential cache
-    /// (<see cref="SpaceServerOptions.VerifiedCredentialCacheCapacity"/>).
-    /// </param>
+    /// <param name="options">Server options.</param>
     /// <param name="timeProvider">The clock. Defaults to the system clock.</param>
     public SpaceCredentialVerifier(
         [FromKeyedServices(SpaceServerExtensions.DidResolverKey)] IDidResolver resolver,

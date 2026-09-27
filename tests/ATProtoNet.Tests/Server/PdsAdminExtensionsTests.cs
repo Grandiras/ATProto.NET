@@ -166,32 +166,6 @@ public class PdsAdminExtensionsTests
     }
 
     [Fact]
-    public void AddAtProtoPdsAdmin_WithAnOptionsInstance_RegistersClientWithEverySetting()
-    {
-        var services = new ServiceCollection();
-        var options = new PdsAdminOptions
-        {
-            Url = "http://pds:3000",
-            AdminPassword = "hunter2",
-            Authentication = PdsAdminAuthentication.AdminAccount,
-            AdminIdentifier = "admin.pds.example.com",
-            AdminUser = "root",
-            AllowInsecureHttp = true,
-        };
-
-        services.AddAtProtoPdsAdmin(options);
-
-        using var provider = services.BuildServiceProvider();
-        var registered = provider.GetRequiredService<IOptions<PdsAdminOptions>>().Value;
-
-        // Every public setting is carried over, so one added later cannot be silently dropped.
-        foreach (var property in typeof(PdsAdminOptions).GetProperties())
-            Assert.Equal(property.GetValue(options), property.GetValue(registered));
-
-        Assert.Equal(PdsAdminAuthentication.AdminAccount, provider.GetRequiredService<PdsAdminClient>().Authentication);
-    }
-
-    [Fact]
     public void AddAtProtoPdsAdmin_BindsAccountAuthentication()
     {
         var builder = Host.CreateApplicationBuilder();

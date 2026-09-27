@@ -53,21 +53,14 @@ public interface IJtiReplayStore
 
 /// <summary>An in-process <see cref="IJtiReplayStore"/>, suitable for a single-instance service.</summary>
 /// <remarks>
-/// Expired entries are swept at most once a minute, in the background, triggered by whichever
-/// consumption finds a sweep due — so the store's size tracks the number of tokens in flight
-/// rather than the number ever seen, and no request waits on a scan. It holds no state across a
-/// restart: a token accepted before one can be replayed after it, within its own (short)
-/// lifetime. Use a shared store where that matters, or where more than one instance serves the
-/// same DID — <c>AddAtProtoEfCoreJtiReplayStore&lt;TContext&gt;()</c>, or your own.
+/// Expired entries are swept at most once a minute, in the background, so its size tracks the
+/// tokens in flight. It is per-process and holds nothing across a restart; see
+/// <see cref="IJtiReplayStore"/> for when that matters.
 /// </remarks>
 public sealed class InMemoryJtiReplayStore : IJtiReplayStore
 {
-    private static readonly TimeSpan SweepInterval = TimeSpan.FromMinutes(1);
-
     private readonly ConcurrentDictionary<string, DateTimeOffset> _consumed = new(StringComparer.Ordinal);
-    private readonly TimeProvider _timeProvider;
-    private long _sweepDue;
-    private Task _sweep = Task.CompletedTask;
+    private readonly SweepSchedule _sweeps;
 
     /// <summary>Creates a store using the system clock.</summary>
     public InMemoryJtiReplayStore() : this(TimeProvider.System)
@@ -80,15 +73,14 @@ public sealed class InMemoryJtiReplayStore : IJtiReplayStore
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
 
-        _timeProvider = timeProvider;
-        _sweepDue = _timeProvider.GetUtcNow().Add(SweepInterval).ToUnixTimeMilliseconds();
+        _sweeps = new SweepSchedule(timeProvider);
     }
 
     /// <summary>The number of identifiers currently held, for diagnostics and tests.</summary>
     public int Count => _consumed.Count;
 
     /// <summary>The most recent background sweep, for tests to wait on.</summary>
-    internal Task LastSweep => Volatile.Read(ref _sweep);
+    internal Task LastSweep => _sweeps.Last;
 
     /// <inheritdoc/>
     public ValueTask<bool> TryConsumeAsync(
@@ -97,32 +89,49 @@ public sealed class InMemoryJtiReplayStore : IJtiReplayStore
         ArgumentException.ThrowIfNullOrWhiteSpace(issuer);
         ArgumentException.ThrowIfNullOrWhiteSpace(tokenId);
 
-        var now = _timeProvider.GetUtcNow();
-        SweepIfDue(now);
-
-        var key = $"{issuer}|{tokenId}|{expiresAt.ToUnixTimeSeconds()}";
-        return ValueTask.FromResult(_consumed.TryAdd(key, expiresAt));
-    }
-
-    private void SweepIfDue(DateTimeOffset now)
-    {
-        var due = Interlocked.Read(ref _sweepDue);
-        if (now.ToUnixTimeMilliseconds() < due)
-            return;
-
-        var next = now.Add(SweepInterval).ToUnixTimeMilliseconds();
-        if (Interlocked.CompareExchange(ref _sweepDue, next, due) != due)
-            return;
-
-        // A scan of every entry has no place on the request that happened to find it due. The
-        // dictionary tolerates the concurrent consumptions the scan runs alongside.
-        Volatile.Write(ref _sweep, Task.Run(() =>
+        // The dictionary tolerates the consumptions the scan runs alongside.
+        _sweeps.RunIfDue(now =>
         {
             foreach (var (key, expiry) in _consumed)
             {
                 if (expiry <= now)
                     _consumed.TryRemove(key, out _);
             }
-        }));
+
+            return Task.CompletedTask;
+        });
+
+        var key = $"{issuer}|{tokenId}|{expiresAt.ToUnixTimeSeconds()}";
+        return ValueTask.FromResult(_consumed.TryAdd(key, expiresAt));
+    }
+}
+
+/// <summary>
+/// Runs a replay store's expiry sweep at most once a minute, in the background, started by
+/// whichever call finds one due.
+/// </summary>
+internal sealed class SweepSchedule(TimeProvider timeProvider)
+{
+    private static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
+
+    private long _due = timeProvider.GetUtcNow().Add(Interval).ToUnixTimeMilliseconds();
+    private Task _last = Task.CompletedTask;
+
+    public Task Last => Volatile.Read(ref _last);
+
+    /// <summary>Starts <paramref name="sweep"/> with the current time, when one is due, without waiting for it.</summary>
+    public void RunIfDue(Func<DateTimeOffset, Task> sweep)
+    {
+        var now = timeProvider.GetUtcNow();
+        var due = Interlocked.Read(ref _due);
+        if (now.ToUnixTimeMilliseconds() < due ||
+            Interlocked.CompareExchange(ref _due, now.Add(Interval).ToUnixTimeMilliseconds(), due) != due)
+        {
+            return;
+        }
+
+        // Not awaited, and not tied to the request's cancellation: the request that found the
+        // sweep due should not pay for it, and cancelling it would only leave the entries for later.
+        Volatile.Write(ref _last, Task.Run(() => sweep(now)));
     }
 }

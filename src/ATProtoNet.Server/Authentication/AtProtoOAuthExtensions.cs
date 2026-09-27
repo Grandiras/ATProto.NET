@@ -48,13 +48,12 @@ public static class AtProtoOAuthExtensions
     /// </summary>
     /// <remarks>
     /// <see cref="WithOAuth"/> gives it the identity fetch policy (public addresses only, no
-    /// redirects; <see cref="AtProtoOAuthServerOptions.AllowPrivateNetworks"/> lifts it) and
-    /// <see cref="AtProtoOAuthServerOptions.HttpClientTimeout"/>, and the SDK's <c>User-Agent</c>.
-    /// It connects directly, never through a proxy: the policy checks the address it connects to.
-    /// Add handlers to it with
-    /// <c>services.AddHttpClient(AtProtoOAuthExtensions.HttpClientName)</c>, but no retrying one:
-    /// an authorization code and a refresh token are single-use, and a DPoP proof is refused when
-    /// sent twice.
+    /// redirects; <c>AddAtProtoIdentity</c>'s <see cref="IdentityResolverOptions.AllowPrivateNetworks"/>
+    /// lifts it), a 30-second timeout and the SDK's <c>User-Agent</c>. It connects directly, never
+    /// through a proxy: the policy checks the address it connects to. Configure it further with
+    /// <c>services.AddHttpClient(AtProtoOAuthExtensions.HttpClientName)</c>, but add no retrying
+    /// handler, for the reasons <see cref="IAtProtoBuilder.HttpClient"/> gives; an authorization
+    /// code and a refresh token are single-use too.
     /// </remarks>
     public const string HttpClientName = "ATProtoNet.OAuth";
 
@@ -84,6 +83,11 @@ public static class AtProtoOAuthExtensions
     /// <para>With <see cref="AtProtoBuilderExtensions.WithClientFactory"/>, the login stores each
     /// session in the session store for the factory, and revokes and removes it on sign-out.
     /// Without it, the login only signs users in.</para>
+    /// <para>Identities are resolved through the <see cref="IIdentityResolver"/> that
+    /// <c>AddAtProtoIdentity()</c> registers, when there is one, and otherwise through the login's
+    /// own under the <see cref="IdentityResolverOptions"/>. The issuer check at a callback reads
+    /// the account's DID document afresh through <see cref="IDidResolver.InvalidateAsync"/>, so a
+    /// resolver registered in their place must honour it.</para>
     /// </remarks>
     /// <param name="builder">The AT Protocol builder.</param>
     /// <param name="configure">Configures the login.</param>
@@ -97,25 +101,29 @@ public static class AtProtoOAuthExtensions
 
         services.AddValidatedOptions(configure, ValidateOptions);
 
+        // The identity options only. Registering the identity resolvers here would put the login
+        // on whatever IDidResolver the application registered for other purposes, fresh or not.
+        services.AddValidatedOptions<IdentityResolverOptions>(null, static options => options.Validate());
+
         services.AddHttpClient(HttpClientName)
-            .ConfigureHttpClient((sp, client) =>
+            .ConfigureHttpClient(client =>
             {
-                client.Timeout = OptionsOf(sp).HttpClientTimeout;
+                // Far below the 100-second default: no browser or reverse proxy waits that long during a login.
+                client.Timeout = TimeSpan.FromSeconds(30);
                 client.DefaultRequestHeaders.UserAgent.TryParseAdd(AtProtoHttp.DefaultUserAgent);
             })
-            .ConfigurePrimaryHttpMessageHandler(sp => IdentityNetworkPolicy.CreateHandler(OptionsOf(sp).AllowPrivateNetworks));
+            .ConfigurePrimaryHttpMessageHandler(sp =>
+                IdentityNetworkPolicy.CreateHandler(sp.GetRequiredService<IdentityResolverOptions>().AllowPrivateNetworks));
 
         services.TryAddSingleton(sp => new AtProtoOAuthService(
             sp.GetRequiredService<AtProtoOAuthServerOptions>(),
             sp.GetRequiredService<ILoggerFactory>(),
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(HttpClientName),
             sp.GetService<IIdentityResolver>(),
+            sp.GetRequiredService<IdentityResolverOptions>(),
             sp.GetService<IOAuthStateStore>(),
             sp.GetService<IServer>(),
-            sp.GetService<ISessionRefreshCoordinator>())
-        {
-            // The name was just given the identity fetch policy.
-            PolicyHttpClientFactory = sp.GetRequiredService<IHttpClientFactory>(),
-        });
+            sp.GetService<ISessionRefreshCoordinator>()));
 
         // The client factory refreshes and revokes the OAuth sessions it restores with the
         // OAuthClient registered here: the service's own. Both the service and the container
@@ -124,9 +132,6 @@ public static class AtProtoOAuthExtensions
 
         return builder;
     }
-
-    private static AtProtoOAuthServerOptions OptionsOf(IServiceProvider services) =>
-        services.GetRequiredService<IOptions<AtProtoOAuthServerOptions>>().Value;
 
     /// <summary>The checks <see cref="WithOAuth"/> runs on the options when the host starts.</summary>
     internal static void ValidateOptions(AtProtoOAuthServerOptions options)
@@ -146,8 +151,6 @@ public static class AtProtoOAuthExtensions
         if (!string.IsNullOrWhiteSpace(options.BaseUrl))
             AtProtoOptionsRegistration.RequireHttpUrl(options.BaseUrl, nameof(options.BaseUrl));
 
-        AtProtoOptionsRegistration.RequirePositive(options.HttpClientTimeout, nameof(options.HttpClientTimeout));
-        AtProtoOptionsRegistration.RequirePositive(options.HandleResolutionTimeout, nameof(options.HandleResolutionTimeout));
         if (options.CookieExpiration <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(options.CookieExpiration), options.CookieExpiration, "Must be positive.");
 

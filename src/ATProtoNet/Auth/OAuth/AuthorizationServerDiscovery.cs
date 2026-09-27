@@ -6,34 +6,23 @@ using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Auth.OAuth;
 
-/// <summary>
-/// Discovers Authorization Server and Protected Resource metadata for AT Protocol OAuth.
-/// Handles the full resolution chain: handle → DID → DID document → PDS → Authorization Server.
-/// </summary>
-/// <remarks>
-/// <para>Identity resolution (handle → DID → DID document → PDS) goes through an
-/// <see cref="IIdentityResolver"/>, under the SDK's identity fetch policy unless one configured
-/// otherwise is supplied. This class adds the OAuth metadata steps and reports failures as
-/// <see cref="OAuthException"/>.</para>
-/// <para>The PDS and authorization server URLs come from a DID document, which anyone can write,
-/// so the metadata requests follow the same policy by default: HTTPS only, no query or fragment,
-/// public addresses only (checked after DNS), no redirects, a 64 KiB body cap and a 10-second
-/// timeout.</para>
-/// <para>Metadata documents are cached for <see cref="MetadataCacheLifetime"/> by URL, so the
-/// callback of a login and the refreshes of many sessions on one server do not fetch them again.
-/// Authorization server metadata is held to the AT Protocol profile: its <c>issuer</c> must be
-/// exactly the issuer it was looked up as, its endpoints absolute HTTPS URLs without a query or
-/// fragment, and it must require pushed authorization requests and support the <c>iss</c>
-/// response parameter and client ID metadata documents. A PDS's protected-resource metadata must
-/// name the PDS itself as its <c>resource</c>.</para>
-/// </remarks>
-public sealed class AuthorizationServerDiscovery : IDisposable
+// OAuthClient's discovery chain: handle → DID → DID document → PDS → authorization server.
+//
+// Identity resolution goes through an IIdentityResolver; this adds the OAuth metadata steps and
+// reports failures as OAuthException. The PDS and authorization server URLs come from a DID
+// document, which anyone can write, so the metadata requests follow the identity fetch policy by
+// default: HTTPS only, no query or fragment, public addresses only (checked after DNS), no
+// redirects, a 64 KiB body cap and a 10-second timeout.
+//
+// Metadata documents are cached by URL for MetadataCacheLifetime, so the callback of a login and
+// the refreshes of many sessions on one server do not fetch them again. Authorization server
+// metadata is held to the AT Protocol profile: its issuer must be exactly the issuer it was looked
+// up as, its endpoints absolute HTTPS URLs without a query or fragment, and it must require pushed
+// authorization requests and support the iss response parameter and client ID metadata documents.
+// A PDS's protected-resource metadata must name the PDS itself as its resource.
+internal sealed class AuthorizationServerDiscovery : IDisposable
 {
-    /// <summary>Default budget applied to each handle resolution round (5 seconds).</summary>
-    public static readonly TimeSpan DefaultHandleResolutionTimeout = TimeSpan.FromSeconds(5);
-
-    /// <summary>How long a fetched metadata document is reused (5 minutes).</summary>
-    public static readonly TimeSpan MetadataCacheLifetime = TimeSpan.FromMinutes(5);
+    internal static readonly TimeSpan MetadataCacheLifetime = TimeSpan.FromMinutes(5);
 
     // Protected-resource and authorization-server metadata are a few kilobytes.
     private const int MaxMetadataBytes = 64 * 1024;
@@ -52,22 +41,9 @@ public sealed class AuthorizationServerDiscovery : IDisposable
     // The raw documents, not the deserialized models: those are mutable and handed to callers.
     private readonly ConcurrentDictionary<string, CachedDocument> _metadataCache = new(StringComparer.Ordinal);
 
-    /// <summary>Creates a new discovery instance.</summary>
-    /// <param name="httpClient">
-    /// The client the metadata requests go through, used as is and owned by the caller: the
-    /// address check lives in the SDK's own handler, while the URL rules (HTTPS, no query or
-    /// fragment) and the body cap still apply. Pass <see langword="null"/> to fetch under the
-    /// SDK's identity fetch policy, as <see cref="OAuthClient"/> does by default.
-    /// </param>
-    /// <param name="identityResolver">
-    /// Resolves handles and DIDs. When omitted, one is created with
-    /// <see cref="Identity.IdentityResolver.CreateDefault"/> and owned by this instance.
-    /// </param>
-    /// <param name="allowPrivateNetworks">
-    /// The development opt-out for the metadata requests, as
-    /// <see cref="IdentityResolverOptions.AllowPrivateNetworks"/>: plain HTTP and private
-    /// addresses, for a local PDS.
-    /// </param>
+    // A supplied client is used as is and not owned: the address check lives in the SDK's own
+    // handler, while the URL rules and the body cap still apply. Without one, and without a
+    // resolver, this creates and owns its own under the identity fetch policy.
     public AuthorizationServerDiscovery(
         HttpClient? httpClient, ILogger logger, IIdentityResolver? identityResolver = null, bool allowPrivateNetworks = false)
     {
@@ -86,21 +62,12 @@ public sealed class AuthorizationServerDiscovery : IDisposable
         IdentityResolver = identityResolver;
     }
 
-    /// <summary>The resolver handles and DIDs are resolved through.</summary>
     public IIdentityResolver IdentityResolver { get; }
 
-    /// <summary>The clock the metadata cache expires by.</summary>
-    internal TimeProvider TimeProvider { get; init; } = TimeProvider.System;
+    public TimeProvider TimeProvider { get; init; } = TimeProvider.System;
 
-    /// <summary>Resolves an account identifier (handle or DID) to the PDS URL and Authorization Server metadata.</summary>
-    /// <param name="identifier">A handle (e.g., "alice.bsky.social") or DID (e.g., "did:plc:...").</param>
-    /// <returns>The resolved PDS URL, Authorization Server metadata, and DID.</returns>
-    /// <exception cref="OAuthException">
-    /// Thrown when the identifier is malformed (<c>invalid_handle</c>, <c>invalid_did</c>), does not
-    /// resolve (<c>handle_resolution_failed</c>, <c>handle_resolution_conflict</c>,
-    /// <c>unsupported_did_method</c>, <c>did_resolution_failed</c>), publishes no PDS
-    /// (<c>pds_not_found</c>), or the PDS's metadata is unusable.
-    /// </exception>
+    // Errors: invalid_handle, invalid_did, handle_resolution_failed, handle_resolution_conflict,
+    // unsupported_did_method, did_resolution_failed, pds_not_found, or the PDS metadata's.
     public async Task<(string PdsUrl, AuthorizationServerMetadata Metadata, string Did)>
         ResolveFromIdentifierAsync(string identifier, CancellationToken cancellationToken = default)
     {
@@ -173,19 +140,8 @@ public sealed class AuthorizationServerDiscovery : IDisposable
             : new OAuthException($"'{identifier}' is not a valid handle.", "invalid_handle");
     }
 
-    /// <summary>
-    /// Resolves a PDS URL or hostname to its Authorization Server metadata.
-    /// Used when the user provides a PDS URL directly instead of a handle.
-    /// </summary>
-    /// <param name="pdsUrl">The PDS URL (e.g., "https://bsky.social").</param>
-    /// <returns>The Authorization Server metadata, validated.</returns>
-    /// <exception cref="OAuthException">
-    /// The PDS's protected-resource metadata names no usable authorization server or describes
-    /// another resource (<c>invalid_resource_metadata</c>), or the authorization server's metadata
-    /// fails validation (<c>issuer_mismatch</c>, <c>invalid_metadata</c>, <c>unsupported_scope</c>,
-    /// <c>unsupported_dpop_alg</c>), besides the fetch failures of
-    /// <see cref="FetchProtectedResourceMetadataAsync"/>.
-    /// </exception>
+    // Errors: invalid_resource_metadata, issuer_mismatch, invalid_metadata, unsupported_scope,
+    // unsupported_dpop_alg, and the fetch failures below.
     public Task<AuthorizationServerMetadata> ResolveAuthorizationServerAsync(
         string pdsUrl, CancellationToken cancellationToken = default) =>
         ResolveAuthorizationServerAsync(pdsUrl, bypassCache: false, cancellationToken);
@@ -320,20 +276,12 @@ public sealed class AuthorizationServerDiscovery : IDisposable
         return (resourceMetadata.Resource!, issuer);
     }
 
-    /// <summary>Fetches the Protected Resource metadata from a PDS, without validating it.</summary>
-    /// <exception cref="OAuthException">
-    /// Thrown when the URL is refused (<c>invalid_server_url</c>), the request fails
-    /// (<c>metadata_fetch_failed</c>) or the answer is not metadata (<c>invalid_metadata</c>).
-    /// </exception>
+    // Unvalidated fetches. Errors: invalid_server_url (refused URL), metadata_fetch_failed,
+    // invalid_metadata (not metadata).
     public Task<ProtectedResourceMetadata> FetchProtectedResourceMetadataAsync(
         string pdsUrl, CancellationToken cancellationToken = default) =>
         FetchMetadataAsync<ProtectedResourceMetadata>(pdsUrl, ".well-known/oauth-protected-resource", bypassCache: false, cancellationToken);
 
-    /// <summary>Fetches the Authorization Server metadata, without validating it.</summary>
-    /// <exception cref="OAuthException">
-    /// Thrown when the URL is refused (<c>invalid_server_url</c>), the request fails
-    /// (<c>metadata_fetch_failed</c>) or the answer is not metadata (<c>invalid_metadata</c>).
-    /// </exception>
     public Task<AuthorizationServerMetadata> FetchAuthorizationServerMetadataAsync(
         string authServerUrl, CancellationToken cancellationToken = default) =>
         FetchMetadataAsync<AuthorizationServerMetadata>(authServerUrl, ".well-known/oauth-authorization-server", bypassCache: false, cancellationToken);
@@ -533,7 +481,6 @@ public sealed class AuthorizationServerDiscovery : IDisposable
         return url.TrimEnd('/');
     }
 
-    /// <summary>Releases the metadata client and identity resolver this instance created, if any.</summary>
     public void Dispose()
     {
         if (_ownsMetadataClient)

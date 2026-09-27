@@ -22,7 +22,7 @@ namespace ATProtoNet.Auth.OAuth;
 /// <item>Call <see cref="StartAuthorizationAsync"/> to get an authorization URL</item>
 /// <item>Redirect the user to that URL</item>
 /// <item>Handle the callback via <see cref="CompleteAuthorizationAsync"/></item>
-/// <item>Install the returned <see cref="Auth.OAuthSession"/> with
+/// <item>Install the result's <see cref="OAuthAuthorizationResult.Session"/> with
 /// <see cref="AtProtoClient.ApplySessionAsync"/>, passing this client so the session can be
 /// refreshed</item>
 /// </list>
@@ -104,8 +104,7 @@ public sealed class OAuthClient : IDisposable
         _stateStore = options.StateStore ?? new InMemoryOAuthStateStore();
     }
 
-    /// <summary>The authorization server discovery service.</summary>
-    public AuthorizationServerDiscovery Discovery => _discovery;
+    internal AuthorizationServerDiscovery Discovery => _discovery;
 
     /// <summary>The client every request to a PDS or authorization server goes through.</summary>
     internal HttpClient HttpClient => _httpClient;
@@ -266,7 +265,8 @@ public sealed class OAuthClient : IDisposable
     /// <param name="state">The state parameter from the callback.</param>
     /// <param name="issuer">The issuer (iss) parameter from the callback.</param>
     /// <returns>
-    /// The session: the account's DID and PDS, its tokens and the DPoP key they are bound to.
+    /// The session — the account's DID and PDS, its tokens and the DPoP key they are bound to —
+    /// and the <see cref="OAuthAuthorizationOptions.AppState"/> the authorization was started with.
     /// </returns>
     /// <remarks>
     /// <para>Before the session is returned, the account the tokens name is resolved from a
@@ -286,23 +286,7 @@ public sealed class OAuthClient : IDisposable
     /// differs (<c>issuer_mismatch</c>), the token exchange failed, or the tokens are not for the
     /// expected account on this authorization server.
     /// </exception>
-    public async Task<Auth.OAuthSession> CompleteAuthorizationAsync(
-        string code,
-        string state,
-        string issuer,
-        CancellationToken cancellationToken = default) =>
-        (await CompleteAuthorizationWithAppStateAsync(code, state, issuer, cancellationToken).ConfigureAwait(false)).Session;
-
-    /// <summary>
-    /// <see cref="CompleteAuthorizationAsync"/>, also returning the
-    /// <see cref="OAuthAuthorizationOptions.AppState"/> the authorization was started with.
-    /// </summary>
-    /// <param name="code">The authorization code from the callback.</param>
-    /// <param name="state">The state parameter from the callback.</param>
-    /// <param name="issuer">The issuer (iss) parameter from the callback.</param>
-    /// <returns>The session and the application state.</returns>
-    /// <exception cref="OAuthException">As <see cref="CompleteAuthorizationAsync"/>.</exception>
-    public async Task<OAuthAuthorizationResult> CompleteAuthorizationWithAppStateAsync(
+    public async Task<OAuthAuthorizationResult> CompleteAuthorizationAsync(
         string code,
         string state,
         string issuer,

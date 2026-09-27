@@ -591,8 +591,9 @@ public sealed class AtProtoClient : IDisposable, IAsyncDisposable
     }
 
     /// <summary>
-    /// Install a session you already hold — from <see cref="OAuthClient.CompleteAuthorizationAsync"/>,
-    /// or saved earlier — as it is, without contacting the service.
+    /// Install a session you already hold — the <see cref="OAuthAuthorizationResult.Session"/> that
+    /// <see cref="OAuthClient.CompleteAuthorizationAsync"/> returns, or one saved earlier — as it
+    /// is, without contacting the service.
     /// </summary>
     /// <param name="session">The session. It replaces any installed session, of either kind.</param>
     /// <param name="oauthClient">

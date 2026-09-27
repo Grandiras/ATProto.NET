@@ -337,11 +337,11 @@ What a token must satisfy, following the service auth spec as revised in 2026
 | --- | --- | --- |
 | `typ` is `JWT` or absent: no `…+jwt` type of another kind of token | always | — |
 | `aud` is one of this service's audiences | — (required) | `Audiences` |
-| `lxm` names the endpoint's NSID | required | `RequireLexiconMethod`: off tolerates a missing `lxm` from a sender that has not caught up, never a wrong one |
-| The `kid` header names an accepted key (no `kid` means `#atproto`, held to the same list) | `#atproto` only | `AllowedKeyIds`: add `#atproto_label` or similar only if that key should authenticate |
+| `lxm` names the endpoint's NSID | always | — |
+| The `kid` header names an accepted key (no `kid` means `#atproto`, held to the same list) | `#atproto` only | `Verifier.AllowedKeyIds`: add `#atproto_label` or similar only if that key should authenticate |
 | `iss` is a bare DID | always | — |
-| `exp` has not passed; `iat` and any `nbf` are not in the future | 30 seconds of clock skew | `ClockSkew` |
-| `exp` is no further ahead, and `iat` no further back, than | 5 minutes | `MaxTokenLifetime`: a reference PDS mints tokens of up to an hour on request |
+| `exp` has not passed; `iat` and any `nbf` are not in the future | 30 seconds of clock skew | `Verifier.ClockSkew` |
+| `exp` is no further ahead, and `iat` no further back, than | 5 minutes | `Verifier.MaxTokenLifetime`: a reference PDS mints tokens of up to an hour on request |
 | The signature verifies against the issuer's key | refetched once on failure | the `IDidResolver` from `AddAtProtoIdentity()` |
 | The `jti` has not been used; it is kept until `exp` plus the skew | always | the registered `IJtiReplayStore` |
 
@@ -353,7 +353,8 @@ no token.
 Some things to know:
 
 - **Run more than one instance? Share the replay store.** The default `InMemoryJtiReplayStore` is
-  per-process, so a captured token replayed against another instance is accepted. Register
+  per-process, so a captured token replayed against another instance is accepted; a warning at
+  startup says so while it is the fallback (register it yourself to keep it quietly). Register
   `AddAtProtoEfCoreJtiReplayStore<JtiReplayDbContext>()` (with `AddDbContextFactory<JtiReplayDbContext>`,
   from the `ATProtoNet.Server.EntityFrameworkCore` package), or implement `IJtiReplayStore` over
   anything with an atomic "set if absent, with expiry", such as Redis `SET key value NX EX ttl`

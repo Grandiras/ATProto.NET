@@ -41,11 +41,11 @@ public sealed class AtProtoOAuthCallbackBindingTests : IDisposable
                 ClientId = ClientId,
                 RedirectUris = ["https://app.example.com/atproto/callback"],
             },
-            HttpClient = _http,
         },
         NullLoggerFactory.Instance,
+        _http,
         AliceIdentity(),
-        _store);
+        stateStore: _store);
 
     private DefaultHttpContext Request(string host = "app.example.com", string? cookie = null)
     {
@@ -300,9 +300,9 @@ public sealed class AtProtoOAuthCallbackBindingTests : IDisposable
             new AtProtoOAuthServerOptions
             {
                 ClientMetadata = new OAuthClientMetadata { ClientId = ClientId, RedirectUris = ["https://app.example.com/atproto/callback"] },
-                HttpClient = _http,
             },
             NullLoggerFactory.Instance,
+            _http,
             AliceIdentity(),
             refreshCoordinator: coordinator);
 

@@ -49,9 +49,9 @@ public sealed class CookieRelayTests : IDisposable
                     ClientId = ClientId,
                     RedirectUris = ["https://app.example.com/atproto/callback"],
                 },
-                HttpClient = _http,
             },
             NullLoggerFactory.Instance,
+            _http,
             AliceIdentity())
         {
             TimeProvider = time,

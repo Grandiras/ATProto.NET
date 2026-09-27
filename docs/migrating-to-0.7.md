@@ -113,7 +113,7 @@ builder.Services.AddAtProto()
 ```
 
 - **The store is chosen on the builder**, whichever order the calls run in:
-  `WithSessionStore<T>()`, `WithSessionStore(factory)`, `WithInMemorySessionStore()`,
+  `WithSessionStore<T>()`, `WithInMemorySessionStore()`,
   `WithFileSessionStore()` or `WithEfCoreSessionStore<TContext>()`. `WithHealthCheck()` adds the PDS
   health check outside Aspire.
 - **The client factory's default session store is in memory, with a warning at startup.**
@@ -139,6 +139,9 @@ builder.Services.AddAtProto()
   instead of throwing `InvalidOperationException` from the registration call, and a space authority
   without `ServiceDid` fails options validation instead of throwing from its startup check. Catch
   `OptionsValidationException` where you caught the old exceptions.
+- **`services.AddAtProtoPdsAdmin(PdsAdminOptions)` is removed.** Call
+  `services.AddAtProtoPdsAdmin(url, adminPassword)` and set the other settings with
+  `services.Configure<PdsAdminOptions>(o => …)`, or use `builder.AddAtProtoPdsAdmin(configureOptions: …)`.
 - **`AtProtoClientSettings` is gone.** Its `InstanceUrl` and `AutoRefreshSession` keys bind to
   `AtProtoClientOptions` from the same section, `DisableHealthChecks` still applies, and
   `DisableResilience` has nothing left to disable. `RelayUrl` (`AtProto:RelayUrl`) is gone with it;
@@ -355,10 +358,11 @@ One session model replaces three. See [Session Management](session-management.md
   installs either kind of session without a request. Its `tokenStore` parameter is gone: the client
   persists to its own session store. `ResumeSessionAsync` takes an `AtProtoSession` and an optional
   `OAuthClient`, and returns the session as installed.
-- **`OAuthClient.CompleteAuthorizationAsync` returns an `OAuthSession`, and `RefreshTokensAsync` is
-  replaced by `RefreshAsync(session)`**, which returns the refreshed session. Nothing to dispose:
-  drop the `using`. Outside an `AtProtoClient`, which refreshes by itself, call
-  `session = await oauth.RefreshAsync(session)`.
+- **`OAuthClient.CompleteAuthorizationAsync` returns an `OAuthAuthorizationResult`, and
+  `RefreshTokensAsync` is replaced by `RefreshAsync(session)`**, which returns the refreshed session.
+  The result carries the `OAuthSession` and the `AppState` the authorization was started with
+  (`var (session, appState) = …`). Nothing to dispose: drop the `using`. Outside an `AtProtoClient`,
+  which refreshes by itself, call `session = await oauth.RefreshAsync(session)`.
 
 ```csharp before
 using var result = await oauth.CompleteAuthorizationAsync(code, state, issuer);
@@ -371,7 +375,7 @@ if (client.OAuthSession is { } oauthSession)
 ```csharp
 using ATProtoNet.Auth;
 
-var session = await oauth.CompleteAuthorizationAsync(code, state, issuer);
+var (session, _) = await oauth.CompleteAuthorizationAsync(code, state, issuer);
 await client.ApplySessionAsync(session, oauth);   // persisted to the client's own session store
 
 switch (client.Session)
@@ -851,13 +855,11 @@ See [OAuth Authentication](oauth.md).
   after DNS), no redirects, bodies capped at 64 KiB, and every failure an `OAuthException`
   (`invalid_server_url`, `metadata_fetch_failed`, `invalid_metadata`, `request_failed`,
   `request_timeout`) rather than an `HttpRequestException` or `JsonException`. For a local PDS set
-  `OAuthOptions.AllowPrivateNetworks` (or `AtProtoOAuthServerOptions.AllowPrivateNetworks`).
-- **Discovery resolves identities through an `IIdentityResolver`.** `AuthorizationServerDiscovery`
-  takes an optional resolver (exposed as `IdentityResolver`), is `IDisposable`, takes a nullable
-  `HttpClient` (`null` fetches under the policy) and an `allowPrivateNetworks` flag, and loses
-  `ResolveHandleToDidAsync`, `ResolveHandleAuthoritativeAsync`, `ResolvePdsFromDidAsync`,
-  `FetchDidDocumentAsync` and `HandleResolutionTimeout`. `OAuthOptions.IdentityResolver` supplies the
-  resolver; use `discovery.IdentityResolver.ResolveAsync(AtIdentifier.Parse(handle))`.
+  `OAuthOptions.AllowPrivateNetworks` (or, for the hosted login, `AddAtProtoIdentity(o =>
+  o.AllowPrivateNetworks = true)`).
+- **`AuthorizationServerDiscovery` and `OAuthClient.Discovery` are internal.** `OAuthClient` walks
+  the discovery chain itself; `OAuthOptions.IdentityResolver` supplies the resolver it uses. Resolve an
+  identity on its own with an `IIdentityResolver` (`resolver.ResolveAsync(AtIdentifier.Parse(handle))`).
 - **`StartAuthorizationAsync` returns an `OAuthAuthorizationRequest` and takes
   `OAuthAuthorizationOptions`.** The record carries `AuthorizationUrl` (a `Uri`), `State` and
   `ExpiresAt` instead of a `(string, string)` tuple, and deconstructs; the `pdsUrl` parameter becomes
@@ -873,6 +875,9 @@ See [OAuth Authentication](oauth.md).
 - **`AtProtoScopes.Rpc` and `Include` refuse an audience that is not a service**: an `aud` is a DID
   with a service fragment (`did:web:api.bsky.app#bsky_appview`, `AtProtoScopes.BlueskyAppView`), or
   `*` for `rpc`; a bare DID and `include:…?aud=*` throw `ArgumentException`.
+- **`IdentityAction` and the `action` parameter of `AtProtoScopes.Identity` are removed**: the
+  permission spec dropped it, and authorization servers reject `identity:*?action=…`. Call
+  `AtProtoScopes.Identity(attr)`.
 - **`AtProtoScopes.PermissionSets` holds only published permission sets.** `DeletePosts`,
   `ManagePosts`, `ManageFollows`, `ManageListsAndPacks`, `ViewNotifications` and
   `ManagePreferences` named sets nobody published and are removed, and `ManageNotifications` is now
@@ -925,9 +930,16 @@ See [OAuth: Hosted Login](oauth.md#hosted-login-aspnet-core).
 - **`AtProtoOAuthService.CompleteCallbackAsync` returns an `AtProtoOAuthCallbackResult`**:
   `RedirectUrl` (the login's local return URL, or the relay URL on its loopback origin), `IsRelay` and
   `Did`, instead of a string the caller had to vet. Redirect to `result.RedirectUrl`.
-- **`AtProtoOAuthService`'s constructor takes more optional parameters**: an `IOAuthStateStore`
-  (after `identityResolver`), and `IServer` and `ISessionRefreshCoordinator`, all resolved from
-  dependency injection. Recompile code that constructs the service.
+- **`AtProtoOAuthService`'s constructor is internal**: `WithOAuth()` builds the service, from the
+  container's `IIdentityResolver`, `IOAuthStateStore`, `IServer` and `ISessionRefreshCoordinator`.
+  Resolve it from dependency injection instead of constructing it.
+- **The login's HTTP and identity knobs move to the shared registrations.**
+  `AtProtoOAuthServerOptions.HttpClient`, `HttpClientTimeout`, `HandleResolutionTimeout` and
+  `AllowPrivateNetworks` are removed. The login reads `AddAtProtoIdentity()`'s
+  `HandleResolutionTimeout` and `AllowPrivateNetworks` (`AddAtProtoIdentity(o => …)`), and sends with the named
+  client `AtProtoOAuthExtensions.HttpClientName` (30-second timeout): change the timeout, or replace
+  the primary handler for an egress proxy, with
+  `services.AddHttpClient(AtProtoOAuthExtensions.HttpClientName)`.
 - **`AtProtoOAuthServerOptions.ClaimsFactory` takes an `OAuthSession`**: read `session.Did.Value` and
   `session.Handle.Value` where `result.Did` and `result.Handle` were read.
 - **The claim types have constants**, on `AtProtoClaimTypes` (`ATProtoNet.Server.Authentication`):
@@ -1030,6 +1042,12 @@ var token = generator.CreateToken("did:web:feed.example.com#bsky_fg", Nsid.Parse
   init-only properties rather than a positional record. It reports the token's own `lxm` as
   `Method`, and gains `KeyId`, `TokenId`, `IssuedAt` and `ExpiresAt`: read properties instead of
   deconstructing.
+- **`AtProtoServiceAuthOptions` groups the token checks under `Verifier`**, a
+  `ServiceAuthVerifierOptions`: `o.AllowedKeyIds`, `o.ClockSkew` and `o.MaxTokenLifetime` are
+  `o.Verifier.AllowedKeyIds`, `o.Verifier.ClockSkew` and `o.Verifier.MaxTokenLifetime`.
+- **`RequireLexiconMethod` is removed** from both option types: the 2026 spec requires an `lxm`, so a
+  token for an XRPC method that names none is always refused (`BadJwtLexiconMethod`). A sender that
+  omits it has to be updated.
 
 ## Streaming
 
@@ -1153,6 +1171,13 @@ using var archive = new JetstreamArchiveClient(JetstreamEndpoints.UsEast);
 var dictionary = await archive.GetZstdDictionaryAsync();
 ```
 
+### Tap webhooks
+
+- **`MapTapWebhook` takes a delegate**, new in this release as `app.MapTapWebhook(pattern, (evt, ct) =>
+  …, configure)`; a delivery that is not a readable event is acknowledged with a logged warning.
+  Code written against the preview's `ITapEventHandler`, `MapTapWebhook<THandler>` or
+  `TapWebhookOptions.OnUnreadableEvent` maps a delegate instead (see [Tap](tap.md#webhooks)).
+
 ## Repositories
 
 See [Low-Level Repo API](low-level-repo.md#repository-data-structures).
@@ -1249,8 +1274,7 @@ var access = await client.SimpleSpace.CheckUserAccessAsync(
   public handlers (below). A custom store implements the two new members and keeps both flags.
 - **The space server is typed** like the client: `ISpaceRepoHost`, `ISpaceAuthorityStore`,
   `ISimpleSpaceStore`, `SimpleSpaceRecord.Owner`, `SpaceAccessRequest`, the verified-token records,
-  `ISpaceCallerResolver`, `SpaceServiceAuthVerifier` (`expectedMethod` is an `Nsid`),
-  `SpaceWriteNotifier` and `SpaceServerOptions.ServiceDid` (`options.ServiceDid = Did.Parse(…)`) take
+  `ISpaceCallerResolver`, `SpaceWriteNotifier` and `SpaceServerOptions.ServiceDid` (`options.ServiceDid = Did.Parse(…)`) take
   and return `Did`, `SpaceUri`, `Nsid`, `RecordKey`, `Tid` and `Cid`.
 - **The EF Core `simplespace` schema changes**: `AtProtoSimpleSpaces.Policy` becomes `ReadPolicy` and
   `WritePolicy`, and `AtProtoSimpleSpaceMembers` gains `Read` and `Write`. Add a migration that copies
@@ -1277,27 +1301,52 @@ var access = await client.SimpleSpace.CheckUserAccessAsync(
   the `*Parameters` types they bind. `AddSpaceAuthority`, `AddSpaceRepoHost` and `AddSimpleSpace`
   register them as before; code that constructed or subclassed one implements its own
   `IXrpcEndpoint`.
-- **`ISpaceServiceAuthVerifier` is removed**; resolve `SpaceServiceAuthVerifier` directly.
+- **`ISpaceServiceAuthVerifier` and `SpaceServiceAuthVerifier` are removed.** `notifyWrite` checks its
+  service auth with `ServiceAuthVerifier` itself, under `SpaceServerOptions.ClockSkew` and
+  `MaxSingleUseTokenLifetime`. To verify a service auth token elsewhere, use `ServiceAuthVerifier`
+  (or the `AddAtProtoServiceAuth()` scheme) and map `ServiceAuthException` to your own error.
 - **`notifyWrite` must be signed by its writer, and more strictly.** As in the reference authority,
-  the service auth's `iss` must be the account whose repo advanced, so
-  `SpaceServiceAuthVerifier.IsRepoHostAsync` is removed. A token without a `jti`, `lxm` or `iat`, one
+  the service auth's `iss` must be the account whose repo advanced, so the repo-host check
+  (`IsRepoHostAsync`) is gone. A token without a `jti`, `lxm` or `iat`, one
   whose `iss` carries a fragment, and one naming a `kid` other than `#atproto` are refused. A repo host
   signs its notifications as the writer through `ISpaceAccountSigner`.
 - **Verified space-token records carry only what they establish**:
   `VerifiedDelegationToken(Space, UserDid)`, `VerifiedSpaceCredential(Space, Proof)` and
   `VerifiedClientAttestation(ClientId)` drop their unused `Token` (and `AuthorityDid`), and
-  `SpaceCredentialRequestAuth.Space`, `DPoPProof.AccessTokenHash` / `Nonce` and
-  `SpaceRequestAuthenticator.BuildRequestUri` are removed. Use `auth.Delegation.Space`,
-  `credential.Space.Authority` and `SpaceServerOptions.BuildRequestUri`.
+  `SpaceCredentialRequestAuth.Space`, `SpaceRequestAuthenticator.BuildRequestUri` and
+  `SpaceServerOptions.BuildRequestUri` are removed. Use `auth.Delegation.Space` and
+  `credential.Space.Authority`.
+- **`DPoPProof` carries only `KeyThumbprint`**: `Raw`, `Algorithm`, `TokenId`, `Method`, `Uri`,
+  `IssuedAt`, `AccessTokenHash` and `Nonce` are removed, as is the `DPoPProofValidator.ProofType`
+  constant (`dpop+jwt`). The validator has checked each claim against the request by the time it
+  returns, so read the request itself for the method and URL.
+- **Test-only members are removed or internal**: `SpaceTokens.TryParse` (catch `SpaceTokenException`
+  from `Parse`), the `SpaceTokens.Verify(type, jwt, …)` overload (`Verify(SpaceTokens.Parse(type,
+  jwt), …)`), `SpaceToken.ToSpaceUri()` (`SpaceUri.Parse(token.Subject)`),
+  `ClaimsSpaceCallerResolver.DidClaimType` (`AtProtoClaimTypes.Did`) and
+  `SimpleSpaceAuthorityStore.Inner`.
 - **Space server constructors take new optional parameters.** `AddSpaceAuthority<T>(signingKey,
   serviceAuthKey?)` gains the service's `#atproto` key; `SpaceCredentialVerifier(resolver,
   proofValidator, options?, timeProvider?)` gains `options` before `timeProvider`;
   `SpaceWriteNotifier` and `SimpleSpaceManagingAppClient` gain an `ISpaceAccountSigner? accountSigner`
   before their logger; `SpaceCredentialIssuer` drops `ownsKey` and `IDisposable`. Pass
   `timeProvider:` / `logger:` by name, and dispose an issuer's key yourself.
+- **`ISpaceCredentialIssuer` is removed, and credential signing is no longer pluggable.** The
+  credential exchange signs with `SpaceCredentialIssuer`, over the `AtProtoKey` passed to
+  `AddSpaceAuthority`: a private key held in process. Resolve `SpaceCredentialIssuer` where you
+  resolved the interface. An issuer that signed elsewhere (an HSM, a KMS, a signing service) has no
+  replacement in 0.7: the SDK signs everything (credentials, service auth, repo commits, labels)
+  with an in-process `AtProtoKey`, and the interface had neither an implementation nor a test
+  behind it, so it only looked like a seam. `ISpaceAccountSigner` does not stand in for it: it
+  chooses which in-process key signs an outbound service auth call.
 - **Space tokens must name their key.** A delegation token's `kid` must be `#atproto`, and a
   credential's `#atproto_space` or `#atproto`; only the named key is tried. An authority signing with
   a dedicated `#atproto_space` key sets `SpaceServerOptions.CredentialKeyId = "#atproto_space"`.
+- **`SpaceServerOptions.WarnOnInMemoryStores` and `MaxClientMetadataBytes` are removed.** The
+  startup warning about the in-process replay store (now also given by `AddAtProtoServiceAuth()`)
+  stays quiet when the application registers a store itself: to keep the in-memory one, register it
+  with `services.AddSingleton<IJtiReplayStore, InMemoryJtiReplayStore>()`. The cap on a fetched client
+  metadata or JWKS document is a fixed 256 KiB.
 - **The EF Core space and replay stores no longer run on the EF Core in-memory provider**: they write
   with `ExecuteUpdate` / `ExecuteDelete`, which `Microsoft.EntityFrameworkCore.InMemory` does not
   translate. Tests use SQLite in memory: `UseSqlite` over a `SqliteConnection` to
@@ -1336,8 +1385,10 @@ See [Lexicon Code Generator](lexicon-codegen.md).
 
 See [.NET Aspire](aspire.md) and [Managed PDS](managed-pds.md).
 
-- **`WithHostname` and `WithJwtSecret` are generic over the PDS resource type**: the reference-PDS
-  and Tranquil overloads are replaced by one generic method each on `AtProtoPdsHostingExtensions`,
+- **The settings both servers share are generic over the PDS resource type**: the reference-PDS
+  and Tranquil overloads of `WithHostname`, `WithJwtSecret`, `WithPlcUrl`, `WithCrawlers`,
+  `WithInviteCodeRequired`, `WithBlobUploadLimit` and `WithReportService` are replaced by one
+  generic method each on `AtProtoPdsHostingExtensions`,
   constrained to the new `AtProtoPdsContainerResourceBase`. Extension-method calls compile unchanged
   and still return the concrete builder. Rewrite an explicit static call such as
   `AtProtoTranquilPdsHostingExtensions.WithHostname(pds, …)` as `pds.WithHostname(…)`.
@@ -1361,8 +1412,8 @@ These compile unchanged and behave differently:
 - **Identity fetches refuse private networks.** `did:web` documents, PLC lookups, handle
   well-knowns, DNS-over-HTTPS and OAuth's discovery, token and revocation requests are HTTPS-only,
   reach public addresses only (checked after DNS), follow no redirects and read bounded bodies. A
-  local PDS or PLC needs `IdentityResolverOptions.AllowPrivateNetworks`,
-  `OAuthOptions.AllowPrivateNetworks` or `AtProtoOAuthServerOptions.AllowPrivateNetworks`. See
+  local PDS or PLC needs `IdentityResolverOptions.AllowPrivateNetworks` (which the hosted OAuth
+  login reads too) or `OAuthOptions.AllowPrivateNetworks`. See
   [The fetch policy](did-resolution.md#the-fetch-policy-ssrf).
 - **Rate-limit waits are capped.** A 429 asking for longer than `RateLimit.MaxDelay` (30 s) throws
   `XrpcRateLimitException` at once, where a daily window used to hold the call for hours.

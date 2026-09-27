@@ -384,7 +384,7 @@ public class AuthorizationServerMetadataValidationTests
         using var oauth = OAuthClient(http);
 
         var authorization = await oauth.StartAuthorizationAsync(entryway, RedirectUri);
-        var session = await oauth.CompleteAuthorizationAsync("code", authorization.State, entryway);
+        var (session, _) = await oauth.CompleteAuthorizationAsync("code", authorization.State, entryway);
 
         Assert.StartsWith($"{entryway}/oauth/authorize?", authorization.AuthorizationUrl.AbsoluteUri);
         Assert.Single(server.To("/oauth/par"));

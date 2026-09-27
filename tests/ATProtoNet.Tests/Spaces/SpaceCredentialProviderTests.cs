@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using ATProtoNet.Identity;
 using ATProtoNet.Spaces;
+using ATProtoNet.Tests.TestSupport;
 
 namespace ATProtoNet.Tests.Spaces;
 
@@ -112,19 +113,9 @@ public class SpaceCredentialProviderTests : IDisposable
             }
             """;
 
-        var plc = new HttpClient(new StaticHandler(document)) { BaseAddress = new Uri("https://plc.directory/") };
+        var plc = new HttpClient(new HttpStub().Fallback(document)) { BaseAddress = new Uri("https://plc.directory/") };
         return new DidResolver(
             new PlcClient(plc, new Uri("https://plc.directory/")),
-            new DidWebResolver(new HttpClient(new StaticHandler("{}"))));
-    }
-
-    private sealed class StaticHandler(string body) : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(body, Encoding.UTF8, "application/json"),
-            });
+            new DidWebResolver(new HttpClient(new HttpStub().Fallback("{}"))));
     }
 }

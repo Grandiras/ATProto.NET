@@ -8,6 +8,9 @@ using ATProtoNet.Server.Spaces;
 using ATProtoNet.Spaces;
 using ATProtoNet.Tests.Identity;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 
 namespace ATProtoNet.Tests.Server.Spaces;
 
@@ -281,6 +284,19 @@ public class SpaceDelegationTokenVerifierTests
 
         await Assert.ThrowsAsync<SpaceVerificationException>(() => verifier.VerifyAsync(jwt, space));
     }
+
+    [Theory]
+    [InlineData("a.b")]
+    [InlineData("e30.e30.!!!!")]
+    public async Task VerifyAsync_MalformedToken_IsInvalidDelegationToken(string jwt)
+    {
+        // How each segment decodes is JwtTests'; this pins that a failure is this verifier's error.
+        var verifier = new SpaceDelegationTokenVerifier(new FakeDidDocumentResolver(), new InMemoryJtiReplayStore());
+
+        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(() => verifier.VerifyAsync(jwt, Space()));
+
+        Assert.Equal("InvalidDelegationToken", ex.Error);
+    }
 }
 
 public class SpaceCredentialVerifierTests
@@ -484,6 +500,18 @@ public class SpaceClientAttestationVerifierTests
         return key.SignJws(header, payload);
     }
 
+    [Theory]
+    [InlineData("a.b")]
+    [InlineData("e30.e30.!!!!")]
+    public async Task VerifyAsync_MalformedAttestation_IsInvalidClientAttestation(string jwt)
+    {
+        var verifier = new SpaceClientAttestationVerifier(new FakeClientMetadataResolver(), new InMemoryJtiReplayStore());
+
+        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(() => verifier.VerifyAsync(jwt, Audience));
+
+        Assert.Equal("InvalidClientAttestation", ex.Error);
+    }
+
     [Fact]
     public async Task VerifyAsync_AttestationSignedByAPublishedKey_ReturnsTheClientId()
     {
@@ -641,318 +669,146 @@ public class SpaceClientAttestationVerifierTests
     }
 }
 
-public class SpaceServiceAuthVerifierTests
+/// <summary>
+/// <c>notifyWrite</c>'s service auth: the general <see cref="ServiceAuthVerifier"/>, whose checks
+/// <c>ServiceAuthVerifierTests</c> pins, under the space server's options and error contract.
+/// </summary>
+public class NotifyWriteServiceAuthTests
 {
-    private const string HostDid = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa";
+    private const string WriterDid = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa";
     private const string AuthorityDid = "did:plc:bbbbbbbbbbbbbbbbbbbbbbbb";
+    private const string ServiceDid = "did:web:pds.example.com";
+    private static readonly SpaceUri Space = SpaceUri.Parse($"at://{AuthorityDid}/space/com.atmoboards.forum/default");
     private static readonly Nsid NotifyWrite = Nsid.Parse(SpaceNsids.NotifyWrite);
 
-    private static HttpContext ContextWith(string jwt)
+    private static NotifyWriteEndpoint Endpoint(AtProtoKey writerKey, SpaceServerOptions? options = null) =>
+        new(
+            new FakeDidDocumentResolver().PublishAccount(WriterDid, writerKey),
+            new InMemoryJtiReplayStore(),
+            Substitute.For<ISpaceAuthorityStore>(),
+            Substitute.For<ISpaceAccessPolicy>(),
+            options ?? new SpaceServerOptions { ServiceDid = Did.Parse(ServiceDid) },
+            NullLogger<NotifyWriteEndpoint>.Instance);
+
+    private static DefaultHttpContext Request(string authorization)
     {
         var context = new DefaultHttpContext();
-        context.Request.Headers.Authorization = $"Bearer {jwt}";
+        context.Request.Headers.Authorization = authorization;
         return context;
     }
 
-    /// <summary>
-    /// Mints a service auth token with claims a test chooses, including ones
-    /// <see cref="ServiceAuthGenerator"/> would refuse to produce.
-    /// </summary>
-    private static string ServiceAuth(
-        AtProtoKey key,
-        TimeSpan? lifetime = null,
-        TimeSpan? issuedOffset = null,
-        string? jti = null,
-        string audience = AuthorityDid,
-        JwsSegments padded = JwsSegments.None,
-        string issuer = HostDid,
-        Action<Dictionary<string, object>>? edit = null,
-        Action<Dictionary<string, object>>? editHeader = null)
+    private static string Token(AtProtoKey key, string audience = AuthorityDid, TimeSpan? expiresIn = null)
     {
-        var now = DateTimeOffset.UtcNow;
-        var header = new Dictionary<string, object> { ["typ"] = "JWT", ["alg"] = "ES256" };
-        var payload = new Dictionary<string, object>
-        {
-            ["iss"] = issuer,
-            ["aud"] = audience,
-            ["lxm"] = SpaceNsids.NotifyWrite,
-            ["iat"] = now.Add(issuedOffset ?? TimeSpan.Zero).ToUnixTimeSeconds(),
-            ["exp"] = now.Add(lifetime ?? TimeSpan.FromSeconds(60)).ToUnixTimeSeconds(),
-            ["jti"] = jti ?? Guid.NewGuid().ToString("N"),
-        };
-
-        edit?.Invoke(payload);
-        editHeader?.Invoke(header);
-        return TestJws.Mint(header, payload, input => key.Sign(input), padded);
-    }
-
-    private static SpaceServiceAuthVerifier CreateVerifier(AtProtoKey hostKey) =>
-        new(new FakeDidDocumentResolver().PublishAccount(HostDid, hostKey), new InMemoryJtiReplayStore());
-
-    [Fact]
-    public async Task VerifyAsync_ValidToken_ReturnsTheCallingService()
-    {
-        using var hostKey = AtProtoCrypto.GenerateP256Key();
-
-        var verified = await CreateVerifier(hostKey).VerifyAsync(
-            ContextWith(ServiceAuth(hostKey)), AuthorityDid, NotifyWrite);
-
-        Assert.Equal(HostDid, verified.Issuer);
-        Assert.Equal(SpaceNsids.NotifyWrite, verified.Method);
-    }
-
-    [Theory]
-    [InlineData("exp", 253402300800L)] // 10000-01-01, one second past what DateTimeOffset holds
-    [InlineData("exp", long.MinValue)]
-    [InlineData("iat", long.MaxValue)]
-    [InlineData("iat", -62135596801L)] // one second before 0001-01-01
-    public async Task VerifyAsync_TimeClaimOutsideTheRepresentableRange_IsRefusedNotThrown(string claim, long seconds)
-    {
-        // Regression: DateTimeOffset.FromUnixTimeSeconds threw ArgumentOutOfRangeException, which
-        // reached the host as a 500 where a 401 was owed.
-        using var hostKey = AtProtoCrypto.GenerateP256Key();
-
-        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => CreateVerifier(hostKey).VerifyAsync(
-                ContextWith(ServiceAuth(hostKey, edit: p => p[claim] = seconds)), AuthorityDid, NotifyWrite));
-
-        Assert.Equal("NotAuthorized", ex.Error);
-        Assert.Contains("not a valid time", ex.Message, StringComparison.Ordinal);
-    }
-
-    [Theory]
-    [InlineData("jti")]
-    [InlineData("lxm")]
-    [InlineData("iat")]
-    public async Task VerifyAsync_TokenWithoutARequiredClaim_IsRejected(string claim)
-    {
-        // The spec requires all three; this verifier let a token without a jti or an lxm through
-        // before it was rebuilt on the general one.
-        using var hostKey = AtProtoCrypto.GenerateP256Key();
-
-        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => CreateVerifier(hostKey).VerifyAsync(
-                ContextWith(ServiceAuth(hostKey, edit: p => p.Remove(claim))), AuthorityDid, NotifyWrite));
-
-        Assert.Equal("NotAuthorized", ex.Error);
-        Assert.Contains(claim, ex.Message, StringComparison.Ordinal);
-        Assert.IsType<ServiceAuthException>(ex.InnerException);
-    }
-
-    [Fact]
-    public async Task VerifyAsync_TokenSignedWithAnotherKeyType_IsRejected()
-    {
-        using var hostKey = AtProtoCrypto.GenerateP256Key();
-
-        await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => CreateVerifier(hostKey).VerifyAsync(
-                ContextWith(ServiceAuth(hostKey, editHeader: h => h["kid"] = "#atproto_label")), AuthorityDid, NotifyWrite));
-    }
-
-    [Fact]
-    public async Task VerifyAsync_IssuerWithAServiceFragment_IsRejected()
-    {
-        using var hostKey = AtProtoCrypto.GenerateP256Key();
-
-        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => CreateVerifier(hostKey).VerifyAsync(
-                ContextWith(ServiceAuth(hostKey, issuer: $"{HostDid}#atproto_pds")), AuthorityDid, NotifyWrite));
-
-        Assert.Contains("bare DID", ex.Message, StringComparison.Ordinal);
+        using var generator = new ServiceAuthGenerator(Did.Parse(WriterDid), key);
+        return generator.CreateToken(audience, NotifyWrite, expiresIn);
     }
 
     [Theory]
     [InlineData(AuthorityDid)] // what the reference implementation sends
     [InlineData(AuthorityDid + "#atproto_space_host")]
-    public async Task VerifyAsync_EitherFormOfTheAuthoritysAudience_IsAccepted(string audience)
+    [InlineData(ServiceDid)]
+    public async Task VerifyCallerAsync_EachWayOfAddressingTheAuthority_ReturnsTheWriter(string audience)
     {
-        using var hostKey = AtProtoCrypto.GenerateP256Key();
+        using var key = AtProtoCrypto.GenerateP256Key();
 
-        var verified = await CreateVerifier(hostKey).VerifyAsync(
-            ContextWith(ServiceAuth(hostKey, audience: audience)),
-            [AuthorityDid, AuthorityDid + "#atproto_space_host"],
-            NotifyWrite);
+        var verified = await Endpoint(key).VerifyCallerAsync(Request($"Bearer {Token(key, audience)}"), Space, default);
 
+        Assert.Equal(WriterDid, verified.Issuer);
         Assert.Equal(audience, verified.Audience);
     }
 
-    [Fact]
-    public async Task VerifyAsync_TokenValidForLongerThanTheCeiling_IsRejected()
+    [Theory]
+    [InlineData("DPoP {0}")]
+    [InlineData("Bearer ")]
+    [InlineData("")]
+    public async Task VerifyCallerAsync_NoBearerToken_IsNotAuthorized(string authorization)
     {
-        // The exp is the issuer's own choice, and the issuer is only checked against the repo it
-        // names after this. A century-long token would otherwise stay replayable for a century,
-        // and would hold its jti in the replay store for just as long.
-        using var hostKey = AtProtoCrypto.GenerateP256Key();
+        using var key = AtProtoCrypto.GenerateP256Key();
 
         var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => CreateVerifier(hostKey).VerifyAsync(
-                ContextWith(ServiceAuth(hostKey, lifetime: TimeSpan.FromDays(365))),
-                AuthorityDid,
-                NotifyWrite));
+            () => Endpoint(key).VerifyCallerAsync(Request(string.Format(authorization, Token(key))), Space, default));
 
-        Assert.Contains("longer than", ex.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task VerifyAsync_TokenDatedInTheFuture_IsRejected()
-    {
-        using var hostKey = AtProtoCrypto.GenerateP256Key();
-
-        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => CreateVerifier(hostKey).VerifyAsync(
-                ContextWith(ServiceAuth(hostKey, issuedOffset: TimeSpan.FromMinutes(2))),
-                AuthorityDid,
-                NotifyWrite));
-
-        Assert.Contains("future", ex.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task VerifyAsync_ExpiredToken_IsRejected()
-    {
-        using var hostKey = AtProtoCrypto.GenerateP256Key();
-
-        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => CreateVerifier(hostKey).VerifyAsync(
-                ContextWith(ServiceAuth(hostKey, lifetime: TimeSpan.FromMinutes(-2))),
-                AuthorityDid,
-                NotifyWrite));
-
-        Assert.Contains("expired", ex.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task VerifyAsync_SameTokenTwice_IsRejectedTheSecondTime()
-    {
-        using var hostKey = AtProtoCrypto.GenerateP256Key();
-        var verifier = CreateVerifier(hostKey);
-        var jwt = ServiceAuth(hostKey);
-
-        await verifier.VerifyAsync(ContextWith(jwt), AuthorityDid, NotifyWrite);
-
-        await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => verifier.VerifyAsync(ContextWith(jwt), AuthorityDid, NotifyWrite));
-    }
-
-    [Fact]
-    public async Task VerifyAsync_TokenForAnotherAudience_IsRejected()
-    {
-        using var hostKey = AtProtoCrypto.GenerateP256Key();
-
-        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => CreateVerifier(hostKey).VerifyAsync(
-                ContextWith(ServiceAuth(hostKey, audience: "did:plc:cccccccccccccccccccccccc")),
-                AuthorityDid,
-                NotifyWrite));
-
-        Assert.Contains("addressed to", ex.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task VerifyAsync_TokenSignedByAnotherKey_IsRejected()
-    {
-        using var hostKey = AtProtoCrypto.GenerateP256Key();
-        using var otherKey = AtProtoCrypto.GenerateP256Key();
-
-        await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => CreateVerifier(hostKey).VerifyAsync(
-                ContextWith(ServiceAuth(otherKey)), AuthorityDid, NotifyWrite));
-    }
-
-    [Fact]
-    public async Task VerifyAsync_IssuerThatIsNotADid_IsRejected()
-    {
-        using var hostKey = AtProtoCrypto.GenerateP256Key();
-
-        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => CreateVerifier(hostKey).VerifyAsync(
-                ContextWith(ServiceAuth(hostKey, issuer: "host.example.com")), AuthorityDid, NotifyWrite));
-
-        Assert.Contains("must be a DID", ex.Message, StringComparison.Ordinal);
+        Assert.Equal("NotAuthorized", ex.Error);
     }
 
     [Theory]
     [InlineData("a.b")]
-    [InlineData("a.b.c.d")]
     [InlineData("not-a-jwt")]
-    public async Task VerifyAsync_NotThreeSegments_IsRejected(string jwt)
+    [InlineData("e30.e30.AAAAA")]
+    public async Task VerifyCallerAsync_MalformedToken_IsNotAuthorizedWithTheServiceAuthCause(string token)
     {
-        using var hostKey = AtProtoCrypto.GenerateP256Key();
+        using var key = AtProtoCrypto.GenerateP256Key();
 
-        await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => CreateVerifier(hostKey).VerifyAsync(ContextWith(jwt), AuthorityDid, NotifyWrite));
+        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
+            () => Endpoint(key).VerifyCallerAsync(Request($"Bearer {token}"), Space, default));
+
+        Assert.Equal("NotAuthorized", ex.Error);
+        Assert.Equal(ServiceAuthErrors.BadJwt, Assert.IsType<ServiceAuthException>(ex.InnerException).Error);
     }
 
     [Fact]
-    public async Task VerifyAsync_NoBearerToken_IsRejected()
+    public async Task VerifyCallerAsync_SameTokenTwice_IsRefusedTheSecondTime()
     {
-        using var hostKey = AtProtoCrypto.GenerateP256Key();
-        var context = new DefaultHttpContext();
-        context.Request.Headers.Authorization = $"DPoP {ServiceAuth(hostKey)}";
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var endpoint = Endpoint(key);
+        var token = Token(key);
 
-        await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => CreateVerifier(hostKey).VerifyAsync(context, AuthorityDid, NotifyWrite));
-    }
-
-    [Theory]
-    [InlineData("not json")]
-    [InlineData("[1,2]")]
-    [InlineData("{\"iss\":")]
-    public async Task VerifyAsync_PayloadThatIsNotAJsonObject_IsRejected(string json)
-    {
-        using var hostKey = AtProtoCrypto.GenerateP256Key();
-        var jwt = TestJws.WithSegment(ServiceAuth(hostKey), 1, TestJws.Encode(Encoding.UTF8.GetBytes(json)));
-
-        await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => CreateVerifier(hostKey).VerifyAsync(ContextWith(jwt), AuthorityDid, NotifyWrite));
-    }
-
-    [Theory]
-    [InlineData(JwsSegments.Header)]
-    [InlineData(JwsSegments.Payload)]
-    [InlineData(JwsSegments.Signature)]
-    [InlineData(JwsSegments.All)]
-    public async Task VerifyAsync_SegmentsWithBase64Padding_AreAccepted(JwsSegments padded)
-    {
-        using var hostKey = AtProtoCrypto.GenerateP256Key();
-
-        var verified = await CreateVerifier(hostKey).VerifyAsync(
-            ContextWith(ServiceAuth(hostKey, padded: padded)), AuthorityDid, NotifyWrite);
-
-        Assert.Equal(HostDid, verified.Issuer);
-    }
-
-    [Theory]
-    [InlineData(0, "!!!!")]
-    [InlineData(1, "!!!!")]
-    [InlineData(2, "!!!!")]
-    [InlineData(0, "AAAAA")]
-    [InlineData(1, "AAAAA")]
-    [InlineData(2, "AAAAA")]
-    public async Task VerifyAsync_SegmentThatIsNotBase64Url_IsRejected(int index, string segment)
-    {
-        using var hostKey = AtProtoCrypto.GenerateP256Key();
-        var jwt = TestJws.WithSegment(ServiceAuth(hostKey), index, segment);
+        await endpoint.VerifyCallerAsync(Request($"Bearer {token}"), Space, default);
 
         var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => CreateVerifier(hostKey).VerifyAsync(ContextWith(jwt), AuthorityDid, NotifyWrite));
-
-        Assert.Equal("NotAuthorized", ex.Error);
+            () => endpoint.VerifyCallerAsync(Request($"Bearer {token}"), Space, default));
+        Assert.Contains("already been used", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task VerifyAsync_SignatureWithAnSOfTheOrderOrMore_IsRejectedNotThrown()
+    public async Task VerifyCallerAsync_TokenLongerThanTheSpaceCeiling_IsRefused()
     {
-        // Regression: the general verifier's high-S normalization threw OverflowException on it.
-        using var hostKey = AtProtoCrypto.GenerateP256Key();
-        var parts = ServiceAuth(hostKey).Split('.');
-        var signature = TestJws.Decode(parts[2]);
-        signature.AsSpan(32).Fill(0xFF);
+        // The ceiling is SpaceServerOptions.MaxSingleUseTokenLifetime, not the verifier's default.
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var options = new SpaceServerOptions { MaxSingleUseTokenLifetime = TimeSpan.FromMinutes(1) };
 
         var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => CreateVerifier(hostKey).VerifyAsync(
-                ContextWith($"{parts[0]}.{parts[1]}.{TestJws.Encode(signature)}"), AuthorityDid, NotifyWrite));
+            () => Endpoint(key, options).VerifyCallerAsync(
+                Request($"Bearer {Token(key, expiresIn: TimeSpan.FromMinutes(4))}"), Space, default));
 
-        Assert.Equal("NotAuthorized", ex.Error);
+        Assert.Contains("longer than", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(null, "expired")] // the default 5-second skew: expired 10 seconds ago by the host's clock
+    [InlineData(30, null)]        // SpaceServerOptions.ClockSkew covers it
+    public async Task VerifyCallerAsync_FromTheContainer_UsesTheHostsClockAndTheSpaceClockSkew(int? skewSeconds, string? refusal)
+    {
+        // A 60-second token presented 70 seconds later by the registered TimeProvider.
+        using var key = AtProtoCrypto.GenerateP256Key();
+        using var authorityKey = AtProtoCrypto.GenerateP256Key();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton<TimeProvider>(new ManualClock(DateTimeOffset.UtcNow.AddSeconds(70)));
+        services.AddKeyedSingleton<IDidResolver>(
+            SpaceServerExtensions.DidResolverKey, new FakeDidDocumentResolver().PublishAccount(WriterDid, key));
+        services
+            .AddAtProtoSpaces(o =>
+            {
+                o.ServiceDid = Did.Parse(AuthorityDid);
+                if (skewSeconds is { } seconds)
+                    o.ClockSkew = TimeSpan.FromSeconds(seconds);
+            })
+            .AddSpaceAuthority<InMemorySpaceAuthorityStore>(authorityKey)
+            .AddSimpleSpace<InMemorySimpleSpaceStore>();
+        await using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var endpoint = scope.ServiceProvider.GetRequiredService<NotifyWriteEndpoint>();
+
+        var verify = () => endpoint.VerifyCallerAsync(Request($"Bearer {Token(key)}"), Space, default);
+
+        if (refusal is null)
+        {
+            Assert.Equal(WriterDid, (await verify()).Issuer);
+            return;
+        }
+
+        var ex = await Assert.ThrowsAsync<SpaceVerificationException>(verify);
+        Assert.Contains(refusal, ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 }

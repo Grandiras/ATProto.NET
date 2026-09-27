@@ -173,9 +173,8 @@ internal sealed class XrpcEndpointRegistration
             var blob = await Handler<THandler>(context).HandleAsync(parameters, context, context.RequestAborted).ConfigureAwait(false);
 
             // Streamed rather than buffered: a repo CAR is arbitrarily large.
-            #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-            await using var content = blob.Content;
-            #pragma warning restore CA2007
+            var content = blob.Content;
+            await using var contentScope = content.ConfigureAwait(false);
 
             var response = context.Response;
             response.ContentType = blob.ContentType;

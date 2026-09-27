@@ -51,7 +51,8 @@ public sealed class OAuthClientKey : IDisposable
             _key = key;
             _x = Base64Url.EncodeToString(parameters.Q.X);
             _y = Base64Url.EncodeToString(parameters.Q.Y);
-            _encodedHeader = EncodeHeader(keyId);
+            // The reference client sends only alg and kid: RFC 7523 defines no typ for client assertions.
+            _encodedHeader = Jwt.EncodeHeader(type: null, KeyCurve.P256, keyId);
         }
         catch
         {
@@ -153,23 +154,6 @@ public sealed class OAuthClientKey : IDisposable
         jwk.Kty == "EC" && jwk.Crv == "P-256" &&
         string.Equals(jwk.X, _x, StringComparison.Ordinal) &&
         string.Equals(jwk.Y, _y, StringComparison.Ordinal);
-
-    // The reference client sends only alg and kid: RFC 7523 defines no typ for client assertions.
-    private static byte[] EncodeHeader(string keyId)
-    {
-        var json = new ArrayBufferWriter<byte>(128);
-        using (var writer = new Utf8JsonWriter(json))
-        {
-            writer.WriteStartObject();
-            writer.WriteString("alg"u8, Algorithm);
-            writer.WriteString("kid"u8, keyId);
-            writer.WriteEndObject();
-        }
-
-        var encoded = new byte[Base64Url.GetEncodedLength(json.WrittenCount)];
-        Base64Url.EncodeToUtf8(json.WrittenSpan, encoded);
-        return encoded;
-    }
 
     /// <inheritdoc/>
     public void Dispose() => _key.Dispose();

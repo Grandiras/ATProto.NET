@@ -65,25 +65,6 @@ public static class AtProtoBuilderExtensions
     }
 
     /// <summary>
-    /// Stores sessions in the store <paramref name="factory"/> creates, a singleton, instead of
-    /// the in-memory default.
-    /// </summary>
-    /// <remarks>
-    /// <paramref name="factory"/> runs once, against the root provider: resolve no scoped service
-    /// (a <c>DbContext</c>, say) from it.
-    /// </remarks>
-    /// <param name="builder">The AT Protocol builder.</param>
-    /// <param name="factory">Creates the session store.</param>
-    /// <returns>The builder, for chaining.</returns>
-    public static IAtProtoBuilder WithSessionStore(
-        this IAtProtoBuilder builder, Func<IServiceProvider, IAtProtoSessionStore> factory)
-    {
-        ArgumentNullException.ThrowIfNull(builder);
-        ArgumentNullException.ThrowIfNull(factory);
-        return builder.UseSessionStore(ServiceDescriptor.Singleton(factory));
-    }
-
-    /// <summary>
     /// Keeps sessions in memory (<see cref="InMemoryAtProtoSessionStore"/>) on purpose, which
     /// <see cref="WithClientFactory"/> otherwise does with a warning at startup.
     /// </summary>
@@ -96,10 +77,7 @@ public static class AtProtoBuilderExtensions
     public static IAtProtoBuilder WithInMemorySessionStore(this IAtProtoBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
-
-        builder.UseSessionStore(ServiceDescriptor.Singleton<IAtProtoSessionStore, InMemoryAtProtoSessionStore>());
-        builder.Services.TryAddSingleton<InMemorySessionStoreChoice>();
-        return builder;
+        return builder.UseSessionStore(ServiceDescriptor.Singleton<IAtProtoSessionStore, InMemoryAtProtoSessionStore>());
     }
 
     /// <summary>
@@ -139,7 +117,6 @@ public static class AtProtoBuilderExtensions
     private static IAtProtoBuilder UseSessionStore(this IAtProtoBuilder builder, ServiceDescriptor store)
     {
         builder.Services.RemoveAll<IAtProtoSessionStore>();
-        builder.Services.RemoveAll<InMemorySessionStoreChoice>();
         builder.Services.Add(store);
         return builder;
     }
@@ -187,8 +164,7 @@ public static class AtProtoBuilderExtensions
         ArgumentNullException.ThrowIfNull(builder);
         var services = builder.Services;
 
-        services.TryAddSingleton<IAtProtoSessionStore, InMemoryAtProtoSessionStore>();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, InMemorySessionStoreWarning>());
+        InMemoryDefaultsWarning.TryAdd<IAtProtoSessionStore, InMemoryAtProtoSessionStore>(services);
         services.TryAddSingleton<ISessionRefreshCoordinator, InProcessSessionRefreshCoordinator>();
         services.TryAddSingleton<IAtProtoClientFactory>(sp => new AtProtoClientFactory(
             sp.GetRequiredService<IAtProtoSessionStore>(),

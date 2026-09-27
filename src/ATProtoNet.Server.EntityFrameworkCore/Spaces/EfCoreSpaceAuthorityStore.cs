@@ -84,9 +84,8 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
         ArgumentNullException.ThrowIfNull(space);
 
         var spaceValue = space.Value;
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using (var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false))
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using (context.ConfigureAwait(false))
         {
             var updated = await context.Set<SpaceEntity>()
                 .Where(e => e.Space == spaceValue)
@@ -113,9 +112,8 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
     {
         ArgumentNullException.ThrowIfNull(space);
 
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using var contextScope = context.ConfigureAwait(false);
         var entity = await context.Set<SpaceEntity>()
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.Space == space.Value, cancellationToken).ConfigureAwait(false);
@@ -132,9 +130,8 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
     {
         ArgumentNullException.ThrowIfNull(space);
 
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using var contextScope = context.ConfigureAwait(false);
 
         var query = context.Set<SpaceWriterEntity>()
             .AsNoTracking()
@@ -173,9 +170,8 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
 
         for (var attempt = 1; ; attempt++)
         {
-            #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-            await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-            #pragma warning restore CA2007
+            var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+            await using var contextScope = context.ConfigureAwait(false);
             var writers = context.Set<SpaceWriterEntity>();
 
             var current = await writers
@@ -240,9 +236,8 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
         var spaceValue = space.Value;
 
         // A renewal, the common case, is one statement.
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using (var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false))
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using (context.ConfigureAwait(false))
         {
             var updated = await context.Set<SpaceSubscriberEntity>()
                 .Where(e => e.Space == spaceValue && e.Service == service)
@@ -284,9 +279,8 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
 
         var spaceValue = space.Value;
 
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using var contextScope = context.ConfigureAwait(false);
         await context.Set<SpaceSubscriberEntity>()
             .Where(e => e.Space == spaceValue && e.Service == service)
             .ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
@@ -300,9 +294,8 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
 
         var now = _timeProvider.GetUtcNow();
 
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using var contextScope = context.ConfigureAwait(false);
         var live = await context.Set<SpaceSubscriberEntity>()
             .AsNoTracking()
             .Where(e => e.Space == space.Value && e.ExpiresAt > now)
@@ -341,9 +334,8 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
     {
         try
         {
-            #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-            await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-            #pragma warning restore CA2007
+            var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+            await using var contextScope = context.ConfigureAwait(false);
             await mutate(context, cancellationToken).ConfigureAwait(false);
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return;
@@ -353,9 +345,8 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
             // Fall through to the retry, on a context that never saw the failed change.
         }
 
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var retry = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
+        var retry = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using var retryScope = retry.ConfigureAwait(false);
         await mutate(retry, cancellationToken).ConfigureAwait(false);
         await retry.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }

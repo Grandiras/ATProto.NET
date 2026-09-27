@@ -272,27 +272,19 @@ public sealed class SimpleSpaceManagingAppClient : ISimpleSpaceManagingAppClient
             _ => throw new ArgumentOutOfRangeException(nameof(access), access, "Unknown access kind."),
         };
 
-        var (did, fragment) = SpaceAuthority.ParseServiceIdentifier(managingApp);
-        var document = await _resolver.ResolveOrRefuseAsync(did, refresh: false, cancellationToken).ConfigureAwait(false);
-
-        Uri? endpoint;
+        // No usable endpoint, malformed included, is an unreachable app, which the policy treats as a refusal.
+        Uri? url;
         try
         {
-            endpoint = SpaceAuthority.GetServiceEndpoint(document, fragment);
+            url = await SpaceServiceCall.ResolveAsync(_resolver, managingApp, CheckUserAccessNsid, cancellationToken).ConfigureAwait(false);
         }
         catch (FormatException ex)
         {
-            // A malformed #atproto_space_host is as unusable as a missing one, which the policy
-            // treats as an unreachable app: a refusal.
             throw new InvalidOperationException($"Managing app '{managingApp}' publishes a malformed endpoint: {ex.Message}", ex);
         }
 
-        if (endpoint is null)
+        if (url is null)
             throw new InvalidOperationException($"Managing app '{managingApp}' resolves to no usable endpoint.");
-
-        // The same failure as a missing endpoint, which the policy treats as a refusal.
-        if (!Http.AtProtoHttp.TryNormalizeBaseUrl(endpoint.OriginalString, out var baseUrl))
-            throw new InvalidOperationException($"Managing app '{managingApp}' resolves to an unusable endpoint '{endpoint.OriginalString}'.");
 
         // The Lexicon omits clientId for write checks, which have no app behind them.
         var query = $"?space={Uri.EscapeDataString(space.Value)}" +
@@ -301,16 +293,13 @@ public sealed class SimpleSpaceManagingAppClient : ISimpleSpaceManagingAppClient
                     (clientId is null || access == SpaceAccessKind.Write
                         ? string.Empty
                         : $"&clientId={Uri.EscapeDataString(clientId)}");
-        var url = new Uri(baseUrl, $"xrpc/{SpaceNsids.CheckUserAccess}{query}");
 
         var signer = await SpaceAccountSigning.ChooseAsync(
             _accountSigner, _serviceAuth, space.Authority, _logger, cancellationToken).ConfigureAwait(false);
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
-            "Bearer", signer.CreateToken(managingApp, CheckUserAccessNsid));
-
-        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(url + query));
+        using var response = await SpaceServiceCall.SendAsync(
+            _httpClient, request, signer, managingApp, CheckUserAccessNsid, cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
             throw new HttpRequestException(

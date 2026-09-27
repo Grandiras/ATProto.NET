@@ -626,15 +626,15 @@ captured proof is useful, and `jti` is spent once. As proposal 0016 specifies, a
 delegation token beside it is a one-time grant, not an access token.
 
 A syncer presents the same credential on every read for two hours, so the repo host remembers a
-credential whose signature verified — keyed by its SHA-256 hash, up to
-`SpaceServerOptions.VerifiedCredentialCacheCapacity` of them — and skips parsing and the signature
+credential whose signature verified — keyed by its SHA-256 hash, up to 10,000 of them — and skips
+parsing and the signature
 check when it comes back. Expiry, the requested space and the proof are still checked on every
 request, and so is the authority's key: it is re-read from the cached DID document and compared with
 the key the signature was checked against, so a rotated key stops verifying cached credentials at
 exactly the moment it stops verifying new ones. When the cache is full the least recently used entry
 goes; since any DID can mint credentials for its own spaces, one authority holds at most a quarter
 of it. A client's published
-attestation keys are likewise remembered for `ClientMetadataCacheLifetime` (five minutes) — so a
+attestation keys are likewise remembered for five minutes — so a
 key the client removes keeps verifying for up to that long — and refetched early when an
 attestation names a key the remembered set lacks. A client's metadata is fetched at most every 30
 seconds, successful or not, and concurrent requests share one fetch.
@@ -681,9 +681,10 @@ and any repo host's next `notifyWrite` restores it; a member list is never publi
 at all, so losing it on a restart loses the space's access control while the space itself carries
 on existing.
 
-`AddAtProtoSpaces()` logs a warning at startup while the in-process replay store is registered. Set
-`SpaceServerOptions.WarnOnInMemoryStores = false` where it is the intended choice, as in a test
-host.
+`AddAtProtoSpaces()` (like `AddAtProtoServiceAuth()`) logs a warning at startup while the replay
+store is the in-process default it fell back to. Where that store is the intended choice, as in a
+test host, register it yourself (`services.AddSingleton<IJtiReplayStore, InMemoryJtiReplayStore>()`)
+and the warning stays quiet.
 
 The durable stores are in the `ATProtoNet.Server.EntityFrameworkCore` package:
 
@@ -988,8 +989,9 @@ PDS already has.
 | `SpaceTypeDeclaration` | The `"type": "space"` Lexicon definition |
 | `AtProtoScopes.Space` | Build `space:` OAuth scopes |
 | `AddAtProtoSpaces` / `AddSpaceAuthority` / `AddSpaceRepoHost` / `AddSimpleSpace` | Register the server halves (`ATProtoNet.Server`); the endpoint handlers are internal |
-| `SpaceRequestAuthenticator`, `DPoPProofValidator`, `SpaceDelegationTokenVerifier`, `SpaceCredentialVerifier`, `SpaceClientAttestationVerifier`, `SpaceServiceAuthVerifier` | Verify what a caller presents |
-| `ISpaceAccessPolicy`, `ISpaceCredentialIssuer`, `ISpaceAuthorityStore`, `ISpaceRepoHost`, `ISimpleSpaceStore`, `IJtiReplayStore` | The seams a server implements |
+| `SpaceRequestAuthenticator`, `DPoPProofValidator`, `SpaceDelegationTokenVerifier`, `SpaceCredentialVerifier`, `SpaceClientAttestationVerifier` | Verify what a caller presents (`notifyWrite`'s service auth is checked by `ServiceAuthVerifier`) |
+| `ISpaceAccessPolicy`, `ISpaceAuthorityStore`, `ISpaceRepoHost`, `ISimpleSpaceStore`, `IJtiReplayStore` | The seams a server implements |
+| `SpaceCredentialIssuer` | Signs the credentials an authority issues |
 | `EfCoreJtiReplayStore`, `EfCoreSpaceAuthorityStore`, `EfCoreSimpleSpaceStore` | Durable, multi-instance implementations of those stores (`ATProtoNet.Server.EntityFrameworkCore`) |
 | `SpaceWriteNotifier`, `ISpaceAccountSigner` | Deliver write and deletion notifications, signed as the account they speak for |
 

@@ -55,9 +55,8 @@ public sealed class EfCoreAtProtoSessionStore<TContext> : IAtProtoSessionStore
         var did = session.Did.Value;
         var encrypted = _protector.Protect(AtProtoSessionJson.Serialize(session));
 
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using var contextScope = context.ConfigureAwait(false);
         var tokens = context.Set<AtProtoTokenEntity>();
 
         var existing = await tokens.FindAsync([did], cancellationToken).ConfigureAwait(false);
@@ -86,9 +85,8 @@ public sealed class EfCoreAtProtoSessionStore<TContext> : IAtProtoSessionStore
         ArgumentNullException.ThrowIfNull(did);
 
         var key = did.Value;
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using var contextScope = context.ConfigureAwait(false);
         var entity = await context.Set<AtProtoTokenEntity>()
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.Did == key, cancellationToken).ConfigureAwait(false);
@@ -114,9 +112,8 @@ public sealed class EfCoreAtProtoSessionStore<TContext> : IAtProtoSessionStore
     {
         ArgumentNullException.ThrowIfNull(did);
 
-        #pragma warning disable CA2007 // The resource keeps the default context for disposal: ConfigureAwait on it would change its declared type.
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        #pragma warning restore CA2007
+        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await using var contextScope = context.ConfigureAwait(false);
         var entity = await context.Set<AtProtoTokenEntity>().FindAsync([did.Value], cancellationToken).ConfigureAwait(false);
 
         if (entity is not null)

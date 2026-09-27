@@ -4,10 +4,14 @@ using ATProtoNet.Auth.OAuth;
 namespace ATProtoNet.Server.Authentication;
 
 /// <summary>
-/// Options for the hosted AT Protocol OAuth login, which signs users in with a cookie.
-/// Use with <see cref="AtProtoOAuthExtensions.WithOAuth"/> and
-/// <see cref="AtProtoOAuthExtensions.MapAtProtoOAuth"/>.
+/// Options for the hosted AT Protocol OAuth login, which signs users in with a cookie. Use with
+/// <see cref="AtProtoOAuthExtensions.WithOAuth"/> and <see cref="AtProtoOAuthExtensions.MapAtProtoOAuth"/>.
 /// </summary>
+/// <remarks>
+/// The handle resolution budget and the development opt-out for private networks come from
+/// <c>AddAtProtoIdentity</c>'s options; the requests to authorization servers go through the named
+/// client <see cref="AtProtoOAuthExtensions.HttpClientName"/>.
+/// </remarks>
 /// <example>
 /// <code>
 /// builder.Services.AddAtProto().WithOAuth(options =>
@@ -22,54 +26,42 @@ namespace ATProtoNet.Server.Authentication;
 public sealed class AtProtoOAuthServerOptions
 {
     /// <summary>
-    /// The route prefix for AT Proto OAuth endpoints.
-    /// Default: "/atproto".
-    /// Mapped endpoints: <c>{RoutePrefix}/login</c>, <c>{RoutePrefix}/callback</c>,
-    /// <c>{RoutePrefix}/relay</c> and <c>{RoutePrefix}/logout</c>.
+    /// The route prefix of the login endpoints: <c>{RoutePrefix}/login</c>, <c>/callback</c>,
+    /// <c>/relay</c> and <c>/logout</c>. Default: <c>/atproto</c>.
     /// </summary>
     public string RoutePrefix { get; set; } = "/atproto";
 
     /// <summary>
-    /// The cookie authentication scheme to sign in with after successful OAuth.
-    /// Must match the scheme configured in <c>AddAuthentication().AddCookie()</c>.
-    /// Default: "Cookies" (<c>CookieAuthenticationDefaults.AuthenticationScheme</c>).
+    /// The cookie authentication scheme to sign in with, as registered with
+    /// <c>AddAuthentication().AddCookie()</c>. Default: <c>Cookies</c>.
     /// </summary>
     public string CookieScheme { get; set; } = "Cookies";
 
-    /// <summary>
-    /// Default return URL after successful login when no <c>returnUrl</c> query parameter is provided.
-    /// Default: "/".
-    /// </summary>
+    /// <summary>Where a login returns to when it names no local <c>returnUrl</c>. Default: <c>/</c>.</summary>
     public string DefaultReturnUrl { get; set; } = "/";
 
-    /// <summary>
-    /// URL to redirect to after logout.
-    /// Default: "/".
-    /// </summary>
+    /// <summary>Where a logout redirects to. Default: <c>/</c>.</summary>
     public string PostLogoutRedirectUri { get; set; } = "/";
 
     /// <summary>
-    /// Path to redirect to when a login fails, with an <c>error</c> query parameter carrying a
-    /// short error code: the <see cref="OAuthException.Error"/> of an OAuth failure (such as
-    /// <c>invalid_handle</c> or <c>login_not_bound</c>), the authorization server's error (such
-    /// as <c>access_denied</c>), or <c>login_failed</c> for anything else. Never an exception
-    /// message. Default: "/login".
+    /// Where a failed login redirects to, with an <c>error</c> code (the
+    /// <see cref="OAuthException.Error"/>, the authorization server's error, or
+    /// <c>login_failed</c>), never an exception message. Default: <c>/login</c>.
     /// </summary>
     public string LoginPath { get; set; } = "/login";
 
     /// <summary>
-    /// OAuth scopes to request. Must include "atproto".
-    /// Default: <see cref="AtProtoScopes.Default"/> ("atproto transition:generic").
-    /// Use <see cref="AtProtoScopes"/> constants to compose scope values.
+    /// The OAuth scopes to request, which must include <c>atproto</c> (see
+    /// <see cref="AtProtoScopes"/>). Default: <see cref="AtProtoScopes.Default"/>.
     /// </summary>
     public string Scopes { get; set; } = AtProtoScopes.Default;
 
-    /// <summary>Optional application name shown on the authorization server's consent page.</summary>
+    /// <summary>The application name shown on the authorization server's consent page.</summary>
     public string? ClientName { get; set; }
 
     /// <summary>
-    /// Optional explicit base URL for the application (e.g., "https://myapp.example.com").
-    /// When set, the OAuth callback URL is <c>{BaseUrl}{RoutePrefix}/callback</c>.
+    /// The application's base URL, e.g. <c>https://myapp.example.com</c>; the callback is then
+    /// <c>{BaseUrl}{RoutePrefix}/callback</c>.
     /// </summary>
     /// <remarks>
     /// Without it, a client with <see cref="ClientMetadata"/> uses the registered redirect URI on
@@ -79,16 +71,13 @@ public sealed class AtProtoOAuthServerOptions
     public string? BaseUrl { get; set; }
 
     /// <summary>
-    /// Optional explicit OAuth client metadata. When provided, this is used directly
-    /// instead of auto-generating loopback client metadata.
-    /// Required for production deployments with a registered client_id URL.
+    /// The client metadata of a published <c>client_id</c>, required in production. Without it,
+    /// development loopback metadata is generated.
     /// </summary>
     public OAuthClientMetadata? ClientMetadata { get; set; }
 
     /// <summary>
-    /// The keys of a confidential client (<c>private_key_jwt</c>), which authenticate every
-    /// pushed authorization, token, refresh and revocation request with a client assertion.
-    /// Empty (the default) for a public client.
+    /// The keys of a confidential client (<c>private_key_jwt</c>); empty for a public client.
     /// </summary>
     /// <remarks>
     /// <para>With keys, <see cref="ClientMetadata"/> is required and must declare
@@ -96,26 +85,25 @@ public sealed class AtProtoOAuthServerOptions
     /// <c>token_endpoint_auth_signing_alg</c> <c>ES256</c>, and the public keys, inline as
     /// <see cref="OAuthClientMetadata.Jwks"/> (see <see cref="OAuthClientKey.CreateKeySet"/>) or
     /// at <see cref="OAuthClientMetadata.JwksUri"/>, which <see cref="ServeClientMetadata"/> can
-    /// serve. The client checks this when it is built.</para>
+    /// serve.</para>
     /// <para>A session stays bound to the key that authorized it, so keep retired keys here until
     /// their sessions are gone; new logins use the first key. The service does not dispose them.</para>
     /// </remarks>
     public IList<OAuthClientKey> ClientKeys { get; } = new List<OAuthClientKey>();
 
     /// <summary>
-    /// Whether <see cref="AtProtoOAuthExtensions.MapAtProtoOAuth"/> also serves the client's
-    /// public documents: <see cref="ClientMetadata"/> at the path of its <c>client_id</c> (for
-    /// example <c>/oauth-client-metadata.json</c>), and, when the metadata names a
-    /// <see cref="OAuthClientMetadata.JwksUri"/>, the public halves of <see cref="ClientKeys"/>
-    /// at that URL's path. Default: <see langword="false"/>.
+    /// Whether <see cref="AtProtoOAuthExtensions.MapAtProtoOAuth"/> also serves
+    /// <see cref="ClientMetadata"/> at the path of its <c>client_id</c>, and the public halves of
+    /// <see cref="ClientKeys"/> at the path of its <see cref="OAuthClientMetadata.JwksUri"/>.
+    /// Default: <see langword="false"/>.
     /// </summary>
     public bool ServeClientMetadata { get; set; }
 
     /// <summary>
-    /// Optional callback to customize the claims created from the OAuth session.
-    /// When not set, default claims are generated: <see cref="ClaimTypes.NameIdentifier"/>
-    /// (DID), <see cref="ClaimTypes.Name"/> (handle), and the <see cref="AtProtoClaimTypes"/>
-    /// <c>did</c>, <c>handle</c>, <c>handle_verified</c>, <c>pds_url</c> and <c>auth_method</c>.
+    /// Builds the claims of a signed-in user from the session. Default: the DID as
+    /// <see cref="ClaimTypes.NameIdentifier"/>, the handle as <see cref="ClaimTypes.Name"/>, and the
+    /// <see cref="AtProtoClaimTypes"/> <c>did</c>, <c>handle</c>, <c>handle_verified</c>,
+    /// <c>pds_url</c> and <c>auth_method</c>.
     /// </summary>
     /// <remarks>
     /// Keep a <see cref="AtProtoClaimTypes.Did"/> (or <see cref="ClaimTypes.NameIdentifier"/>)
@@ -123,56 +111,9 @@ public sealed class AtProtoOAuthServerOptions
     /// </remarks>
     public Func<ATProtoNet.Auth.OAuthSession, IEnumerable<Claim>>? ClaimsFactory { get; set; }
 
-    /// <summary>
-    /// Expiration duration for the authentication cookie.
-    /// Default: 7 days.
-    /// </summary>
+    /// <summary>How long the authentication cookie lasts. Default: 7 days.</summary>
     public TimeSpan CookieExpiration { get; set; } = TimeSpan.FromDays(7);
 
-    /// <summary>
-    /// Whether the authentication cookie should persist across browser sessions.
-    /// Default: true.
-    /// </summary>
+    /// <summary>Whether the authentication cookie outlives the browser session. Default: <see langword="true"/>.</summary>
     public bool IsPersistent { get; set; } = true;
-
-    /// <summary>
-    /// Optional <see cref="System.Net.Http.HttpClient"/> to use for OAuth discovery and
-    /// token requests. When set, the caller owns its lifetime (it is not disposed with
-    /// the service) and its <see cref="System.Net.Http.HttpClient.Timeout"/> is left
-    /// untouched. It is used as is, so it is also the caller's to keep from reaching
-    /// private addresses (see <see cref="OAuthOptions.HttpClient"/>). When not set, the login
-    /// sends with the client named <see cref="AtProtoOAuthExtensions.HttpClientName"/>, which
-    /// <see cref="AtProtoOAuthExtensions.WithOAuth"/> gives the identity fetch policy and
-    /// <see cref="HttpClientTimeout"/>; add logging or telemetry handlers to that client. It
-    /// connects directly, never through a proxy, since the policy checks the address it connects
-    /// to: behind an egress proxy, supply this client (with the proxy) and let the proxy keep
-    /// requests off private addresses.
-    /// </summary>
-    public HttpClient? HttpClient { get; set; }
-
-    /// <summary>
-    /// Timeout of the <see cref="System.Net.Http.HttpClient"/> used for OAuth requests.
-    /// Ignored when <see cref="HttpClient"/> is supplied.
-    /// Default: 30 seconds (the <see cref="System.Net.Http.HttpClient"/> default of
-    /// 100 seconds is far longer than any browser or reverse proxy will wait during login).
-    /// </summary>
-    public TimeSpan HttpClientTimeout { get; set; } = TimeSpan.FromSeconds(30);
-
-    /// <summary>
-    /// Budget for resolving a handle: its HTTPS well-known and DNS TXT lookups run together
-    /// within it. Prevents a handle whose domain silently drops traffic on port 443 from
-    /// stalling sign-in.
-    /// Default: <see cref="AuthorizationServerDiscovery.DefaultHandleResolutionTimeout"/>
-    /// (5 seconds). Set to <see cref="Timeout.InfiniteTimeSpan"/> to disable.
-    /// </summary>
-    public TimeSpan HandleResolutionTimeout { get; set; } =
-        AuthorizationServerDiscovery.DefaultHandleResolutionTimeout;
-
-    /// <summary>
-    /// The development opt-out for OAuth discovery and identity resolution: plain HTTP and private
-    /// addresses are accepted, for a local PDS or PLC. Defaults to <see langword="false"/>. Never
-    /// set it where users can name any handle, DID or PDS. A registered
-    /// <see cref="ATProtoNet.Identity.IIdentityResolver"/> brings its own policy.
-    /// </summary>
-    public bool AllowPrivateNetworks { get; set; }
 }

@@ -46,7 +46,7 @@ public class OAuthCallbackHandleVerificationTests
         using var client = Client(stub);
         var state = await StartAsync(client);
 
-        var session = await client.CompleteAuthorizationAsync("code", state, Issuer);
+        var (session, _) = await client.CompleteAuthorizationAsync("code", state, Issuer);
 
         Assert.Equal(Did, session.Did.Value);
         Assert.Equal(Handle, session.Handle.Value);
@@ -89,7 +89,7 @@ public class OAuthCallbackHandleVerificationTests
         using var client = Client(stub);
         var state = await StartAsync(client);
 
-        var session = await client.CompleteAuthorizationAsync("code", state, Issuer);
+        var (session, _) = await client.CompleteAuthorizationAsync("code", state, Issuer);
 
         Assert.Equal(new Uri(PdsUrl), session.ServiceEndpoint);
         Assert.Equal("at", session.AccessToken);
@@ -113,7 +113,7 @@ public class OAuthCallbackHandleVerificationTests
         using var client = Client(stub);
         var state = await StartAsync(client, fromServer: true);
 
-        var session = await client.CompleteAuthorizationAsync("code", state, Issuer);
+        var (session, _) = await client.CompleteAuthorizationAsync("code", state, Issuer);
 
         Assert.Equal(Did, session.Did.Value);
         Assert.Equal(Handle, session.Handle.Value);
@@ -147,7 +147,7 @@ public class OAuthCallbackHandleVerificationTests
         using var client = Client(stub);
         var state = await StartAsync(client, fromServer: true);
 
-        var session = await client.CompleteAuthorizationAsync("code", state, Issuer);
+        var (session, _) = await client.CompleteAuthorizationAsync("code", state, Issuer);
 
         Assert.Equal("handle.invalid", session.Handle.Value);
     }
@@ -160,7 +160,7 @@ public class OAuthCallbackHandleVerificationTests
         using var client = Client(stub);
         var state = await StartAsync(client, fromServer: true);
 
-        var session = await client.CompleteAuthorizationAsync("code", state, Issuer);
+        var (session, _) = await client.CompleteAuthorizationAsync("code", state, Issuer);
 
         Assert.Equal(Handle, session.Handle.Value);
     }
@@ -172,7 +172,7 @@ public class OAuthCallbackHandleVerificationTests
         using var client = Client(stub);
         var state = await StartAsync(client, fromServer: true);
 
-        var session = await client.CompleteAuthorizationAsync("code", state, Issuer);
+        var (session, _) = await client.CompleteAuthorizationAsync("code", state, Issuer);
 
         Assert.Equal("handle.invalid", session.Handle.Value);
     }

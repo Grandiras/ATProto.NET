@@ -34,11 +34,11 @@ public sealed class AtProtoOAuthServiceStateTests : IDisposable
                 ClientId = ClientId,
                 RedirectUris = ["https://app.example.com/atproto/callback"],
             },
-            HttpClient = _http,
         },
         NullLoggerFactory.Instance,
+        _http,
         AliceIdentity(),
-        store);
+        stateStore: store);
 
     private static DefaultHttpContext Request(string remoteAddress)
     {

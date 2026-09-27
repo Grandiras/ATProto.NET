@@ -2,9 +2,11 @@ using System.Net;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
+using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Xrpc;
 using ATProtoNet.Spaces;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace ATProtoNet.Server.Spaces;
@@ -27,7 +29,7 @@ namespace ATProtoNet.Server.Spaces;
 internal sealed class GetSpaceCredentialEndpoint(
     SpaceRequestAuthenticator authenticator,
     ISpaceAccessPolicy policy,
-    ISpaceCredentialIssuer issuer,
+    SpaceCredentialIssuer issuer,
     SpaceServerOptions options,
     ILogger<GetSpaceCredentialEndpoint> logger)
     : IXrpcProcedure<GetSpaceCredentialRequest, GetSpaceCredentialResponse>
@@ -207,13 +209,15 @@ internal sealed class UnregisterNotifyEndpoint(SpaceRequestAuthenticator authent
 /// the space's write policy admits, and this notification is the authority's only evidence of the
 /// first.</para>
 /// <para>It is authenticated with <em>service auth</em> rather than with a space credential:
-/// the caller is the writer's PDS, not an application acting for a user. As in the reference
-/// implementation, the token's <c>iss</c> must be the writer itself — a PDS signs it with the
-/// account's own key (<see cref="ISpaceAccountSigner"/> on an SDK host) — so no service can
-/// advance another account's revision in the writer set, however its DID document describes
-/// it. The token may address this authority by its bare DID (what the reference implementation
-/// sends), as <c>{authority}#atproto_space_host</c>, or by
-/// <see cref="SpaceServerOptions.ServiceDid"/>.</para>
+/// the caller is the writer's PDS, not an application acting for a user. The token is checked by
+/// <see cref="ServiceAuthVerifier"/> under <see cref="SpaceServerOptions.ClockSkew"/> and
+/// <see cref="SpaceServerOptions.MaxSingleUseTokenLifetime"/>, and a refusal is answered as
+/// <see cref="SpaceErrors.NotAuthorized"/>. As in the reference implementation, the token's
+/// <c>iss</c> must be the writer itself — a PDS signs it with the account's own key
+/// (<see cref="ISpaceAccountSigner"/> on an SDK host) — so no service can advance another
+/// account's revision in the writer set, however its DID document describes it. The token may
+/// address this authority by its bare DID (what the reference implementation sends), as
+/// <c>{authority}#atproto_space_host</c>, or by <see cref="SpaceServerOptions.ServiceDid"/>.</para>
 /// <para>The writer is then put to the access policy as a <see cref="SpaceAccessKind.Write"/>.
 /// One it refuses is answered with 403 and neither recorded nor forwarded — refusing a write
 /// notification does not stop anyone writing to their own repo, only this authority listing and
@@ -222,14 +226,22 @@ internal sealed class UnregisterNotifyEndpoint(SpaceRequestAuthenticator authent
 /// </remarks>
 [AuthenticatesItself]
 internal sealed class NotifyWriteEndpoint(
-    SpaceServiceAuthVerifier serviceAuth,
+    [FromKeyedServices(SpaceServerExtensions.DidResolverKey)] IDidResolver resolver,
+    IJtiReplayStore replayStore,
     ISpaceAuthorityStore store,
     ISpaceAccessPolicy policy,
     SpaceServerOptions options,
     ILogger<NotifyWriteEndpoint> logger,
-    SpaceWriteNotifier? notifier = null)
+    SpaceWriteNotifier? notifier = null,
+    TimeProvider? timeProvider = null)
     : IXrpcProcedureVoid<NotifyWriteRequest>
 {
+    private readonly ServiceAuthVerifier _serviceAuth = new(
+        resolver,
+        replayStore,
+        new ServiceAuthVerifierOptions { ClockSkew = options.ClockSkew, MaxTokenLifetime = options.MaxSingleUseTokenLifetime },
+        timeProvider);
+
     public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.NotifyWrite);
 
     public async Task HandleAsync(
@@ -243,7 +255,7 @@ internal sealed class NotifyWriteEndpoint(
         var rev = SpaceRequestValidation.Require(input.Rev, "rev");
         var hash = input.Hash ?? throw new XrpcException(XrpcErrors.InvalidRequest, "The \"hash\" field is required.");
 
-        var caller = await serviceAuth.VerifyAsync(context, AcceptedAudiences(space), Nsid, cancellationToken).ConfigureAwait(false);
+        var caller = await VerifyCallerAsync(context, space, cancellationToken).ConfigureAwait(false);
 
         // The signer is the writer and nobody else. A service listing an endpoint at the writer's
         // PDS origin proves nothing: any DID document can name any URL.
@@ -283,8 +295,25 @@ internal sealed class NotifyWriteEndpoint(
         _ = notifier?.ForwardWriteAsync(space, repo, rev, hash);
     }
 
-    private string[] AcceptedAudiences(SpaceUri space) =>
-        options.ServiceDid is { } serviceDid && serviceDid != space.Authority
+    /// <summary>Verifies the request's service auth, reporting a refusal as <see cref="SpaceErrors.NotAuthorized"/>.</summary>
+    internal async Task<VerifiedServiceAuth> VerifyCallerAsync(
+        HttpContext context, SpaceUri space, CancellationToken cancellationToken)
+    {
+        var token = AuthorizationHeader.Bearer(context.Request)
+            ?? throw new SpaceVerificationException(
+                SpaceErrors.NotAuthorized, "A write notification is authenticated with a Bearer service auth token.");
+
+        string[] audiences = options.ServiceDid is { } serviceDid && serviceDid != space.Authority
             ? [space.Authority.Value, SpaceAuthority.HostAudience(space.Authority), serviceDid.Value]
             : [space.Authority.Value, SpaceAuthority.HostAudience(space.Authority)];
+
+        try
+        {
+            return await _serviceAuth.VerifyAsync(token, audiences, Nsid, cancellationToken).ConfigureAwait(false);
+        }
+        catch (ServiceAuthException ex)
+        {
+            throw new SpaceVerificationException(SpaceErrors.NotAuthorized, ex.ErrorMessage ?? ex.Error, ex);
+        }
+    }
 }

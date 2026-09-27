@@ -37,18 +37,19 @@ internal static class Jwt
     /// Serializes and base64url-encodes a JOSE header, for signers that reuse one header across
     /// many tokens.
     /// </summary>
-    /// <param name="type">The <c>typ</c>.</param>
+    /// <param name="type">The <c>typ</c>, or <see langword="null"/> for none.</param>
     /// <param name="curve">The signing key's curve, which determines the <c>alg</c>.</param>
     /// <param name="keyId">The <c>kid</c>, when the token names one.</param>
     /// <param name="jwk">The public key to embed as <c>jwk</c>, as a DPoP proof does.</param>
     /// <returns>The encoded header as ASCII bytes.</returns>
-    public static byte[] EncodeHeader(string type, KeyCurve curve, string? keyId = null, JsonWebKey? jwk = null)
+    public static byte[] EncodeHeader(string? type, KeyCurve curve, string? keyId = null, JsonWebKey? jwk = null)
     {
         var json = new ArrayBufferWriter<byte>(jwk is null ? 128 : 256);
         using (var writer = new Utf8JsonWriter(json))
         {
             writer.WriteStartObject();
-            writer.WriteString("typ"u8, type);
+            if (type is not null)
+                writer.WriteString("typ"u8, type);
             writer.WriteString("alg"u8, curve.JwsAlgorithm());
 
             if (keyId is not null)
@@ -131,6 +132,25 @@ internal static class Jwt
         tokenId.Length <= MaxTokenIdLength &&
         !tokenId.AsSpan().ContainsAnyInRange('\0', '\x1f') &&
         !tokenId.AsSpan().ContainsAnyInRange('\x7f', '\x9f');
+
+    /// <summary>
+    /// The payload's <c>jti</c>, or the exception <paramref name="refuse"/> builds from why it is
+    /// missing or not <see cref="IsUsableTokenId">usable</see>.
+    /// </summary>
+    /// <param name="payload">The token's claims.</param>
+    /// <param name="token">What the token is, for the message: "service auth token", "DPoP proof".</param>
+    /// <param name="refuse">Builds the verifier's own refusal from a message.</param>
+    public static string RequireTokenId(JsonElement payload, string token, Func<string, Exception> refuse)
+    {
+        var tokenId = payload.GetStringOrNull("jti");
+        if (string.IsNullOrEmpty(tokenId))
+            throw refuse($"The {token} is missing its \"jti\".");
+
+        return IsUsableTokenId(tokenId)
+            ? tokenId
+            : throw refuse(
+                $"The {token}'s \"jti\" must be printable, not only whitespace, and at most {MaxTokenIdLength} characters.");
+    }
 
     /// <summary>Splits a compact JWS and decodes its three parts, without verifying anything.</summary>
     /// <param name="jwt">The token.</param>

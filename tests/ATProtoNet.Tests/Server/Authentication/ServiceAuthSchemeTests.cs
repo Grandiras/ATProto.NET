@@ -7,6 +7,7 @@ using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
 using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Xrpc;
+using ATProtoNet.Tests.Identity;
 using ATProtoNet.Tests.Server.Spaces;
 using ATProtoNet.Tests.TestSupport;
 using Microsoft.AspNetCore.Authorization;
@@ -378,6 +379,69 @@ public sealed class ServiceAuthSchemeTests : IDisposable
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Equal("Forbidden", (await XrpcTestHost.ReadErrorAsync(response)).Error);
+    }
+
+    public static TheoryData<string, Action<AtProtoServiceAuthOptions>, string?> VerifierSettings => new()
+    {
+        { "defaults, 70 s ahead", o => o.TimeProvider = new ManualClock(DateTimeOffset.UtcNow.AddSeconds(70)), null },
+        { "ClockSkew", o =>
+            {
+                o.TimeProvider = new ManualClock(DateTimeOffset.UtcNow.AddSeconds(70));
+                o.Verifier.ClockSkew = TimeSpan.FromSeconds(5);
+            }, ServiceAuthErrors.JwtExpired },
+        { "MaxTokenLifetime", o => o.Verifier.MaxTokenLifetime = TimeSpan.FromSeconds(20), ServiceAuthErrors.BadJwt },
+        { "AllowedKeyIds", o =>
+            {
+                o.Verifier.AllowedKeyIds.Clear();
+                o.Verifier.AllowedKeyIds.Add("#atproto_label");
+            }, ServiceAuthErrors.BadJwt },
+    };
+
+    [Theory]
+    [MemberData(nameof(VerifierSettings))]
+    public async Task AddAtProtoServiceAuth_VerifierSettings_ReachTheHandler(
+        string setting, Action<AtProtoServiceAuthOptions> configure, string? expectedError)
+    {
+        // A 60-second #atproto token, checked 70 seconds later or under a changed setting: each
+        // setting on Verifier refuses what the defaults accept.
+        _ = setting;
+        await using var host = await StartAsync(o =>
+        {
+            o.Audiences.Add(Audience);
+            configure(o);
+        });
+
+        var response = await host.Client.SendAsync(
+            Get("/xrpc/com.example.serviceAuth.whoAmI", Token(ServiceAuthWhoAmI.Nsid)));
+
+        if (expectedError is null)
+        {
+            Assert.Equal(Caller, (await ReadCallerAsync(response)).Did);
+            return;
+        }
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(expectedError, (await XrpcTestHost.ReadErrorAsync(response)).Error);
+    }
+
+    [Fact]
+    public async Task AddAtProtoServiceAuth_InvalidVerifierSettings_FailTheHostStartWithInvalidOperationException()
+    {
+        var ex = await Assert.ThrowsAnyAsync<Exception>(() => StartAsync(o =>
+        {
+            o.Audiences.Add(Audience);
+            o.Verifier.AllowedKeyIds.Clear();
+        }));
+
+        // The type the scheme's other configuration errors have, and 0.6's knobs had.
+        var refusal = Chain(ex).First(e => e.Message.Contains("key ID", StringComparison.Ordinal));
+        Assert.IsType<InvalidOperationException>(refusal);
+
+        static IEnumerable<Exception> Chain(Exception? e)
+        {
+            for (; e is not null; e = e.InnerException)
+                yield return e;
+        }
     }
 
     [Fact]

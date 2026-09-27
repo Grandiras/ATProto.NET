@@ -31,4 +31,8 @@ public sealed class AtProtoPdsContainerResource(
     /// regenerated on every run.
     /// </remarks>
     public ParameterResource PlcRotationKeyParameter { get; internal set; } = plcRotationKey;
+
+    internal override SharedSettingNames Settings { get; } = new(
+        "PDS_DID_PLC_URL", "PDS_CRAWLERS", "PDS_INVITE_REQUIRED", "PDS_BLOB_UPLOAD_LIMIT",
+        "PDS_REPORT_SERVICE_URL", "PDS_REPORT_SERVICE_DID");
 }

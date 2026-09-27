@@ -3,29 +3,7 @@ using ATProtoNet.Spaces;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>Mints the space credentials this authority issues.</summary>
-/// <remarks>
-/// Separate from <see cref="ISpaceAccessPolicy"/> because the two answer different questions and
-/// tend to live in different places: the policy is application logic, while this holds the
-/// authority's signing key and is the natural seam for an HSM, a KMS, or a signing service.
-/// </remarks>
-public interface ISpaceCredentialIssuer
-{
-    /// <summary>Mints a credential for a space, bound to the key that signed the request's DPoP proof.</summary>
-    /// <param name="space">The space the credential reads.</param>
-    /// <param name="dpopThumbprint">
-    /// The RFC 7638 thumbprint of the requester's key, copied into the credential's
-    /// <c>cnf.jkt</c>. This is what stops the credential being a bearer token.
-    /// </param>
-    /// <returns>The signed credential JWT.</returns>
-    Task<string> IssueAsync(
-        SpaceUri space, string dpopThumbprint, CancellationToken cancellationToken = default);
-}
-
-/// <summary>
-/// The default <see cref="ISpaceCredentialIssuer"/>: signs credentials with a key held in
-/// process.
-/// </summary>
+/// <summary>Mints the space credentials this authority issues, signed with a key held in process.</summary>
 /// <remarks>
 /// <para>The key must be the one published in the authority's DID document at
 /// <see cref="SpaceAuthority.SigningKeyId"/>, or at <c>#atproto</c> when the authority publishes
@@ -35,7 +13,7 @@ public interface ISpaceCredentialIssuer
 /// <para>The issuer does not own the key: a signing key usually outlives any one consumer, and
 /// whoever created it disposes it.</para>
 /// </remarks>
-public sealed class SpaceCredentialIssuer : ISpaceCredentialIssuer
+public sealed class SpaceCredentialIssuer
 {
     private readonly AtProtoKey _signingKey;
     private readonly SpaceServerOptions _options;
@@ -63,7 +41,14 @@ public sealed class SpaceCredentialIssuer : ISpaceCredentialIssuer
         _options = options;
     }
 
-    /// <inheritdoc/>
+    /// <summary>Mints a credential for a space, bound to the key that signed the request's DPoP proof.</summary>
+    /// <param name="space">The space the credential reads.</param>
+    /// <param name="dpopThumbprint">
+    /// The RFC 7638 thumbprint of the requester's key, copied into the credential's
+    /// <c>cnf.jkt</c>. This is what stops the credential being a bearer token.
+    /// </param>
+    /// <param name="cancellationToken">Unused; signing happens in process.</param>
+    /// <returns>The signed credential JWT.</returns>
     public Task<string> IssueAsync(
         SpaceUri space, string dpopThumbprint, CancellationToken cancellationToken = default)
     {

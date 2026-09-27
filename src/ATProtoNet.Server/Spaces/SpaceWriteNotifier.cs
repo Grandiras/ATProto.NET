@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using ATProtoNet.Auth;
 using ATProtoNet.Identity;
@@ -235,9 +234,9 @@ public sealed class SpaceWriteNotifier
     /// except for the space's own authority host, which the reference authority expects to be
     /// addressed by its bare DID.
     /// </summary>
-    private static string Audience(SpaceUri space, string service, Did did) =>
+    private static string Audience(SpaceUri space, string service) =>
         string.Equals(service, SpaceAuthority.HostAudience(space.Authority), StringComparison.Ordinal)
-            ? did.Value
+            ? space.Authority.Value
             : service;
 
     /// <summary>
@@ -271,14 +270,8 @@ public sealed class SpaceWriteNotifier
     {
         try
         {
-            var (did, fragment) = SpaceAuthority.ParseServiceIdentifier(subscriber.Service);
-            var document = await _resolver.ResolveOrRefuseAsync(did, refresh: false, cancellationToken).ConfigureAwait(false);
-
-            // A #atproto_space_host fragment resolves with its #atproto_pds fallback, so an
-            // authority on an ordinary PDS, which publishes no such entry, is still reached.
-            var endpoint = SpaceAuthority.GetServiceEndpoint(document, fragment);
-
-            if (endpoint is null)
+            var url = await SpaceServiceCall.ResolveAsync(_resolver, subscriber.Service, nsid, cancellationToken).ConfigureAwait(false);
+            if (url is null)
             {
                 _logger.LogWarning(
                     "Subscriber {Service} for {Space} resolves to no delivery endpoint; skipping.",
@@ -286,16 +279,13 @@ public sealed class SpaceWriteNotifier
                 return false;
             }
 
-            var url = new Uri(Http.AtProtoHttp.NormalizeBaseUrl(endpoint), $"xrpc/{nsid}");
-
             using var request = new HttpRequestMessage(HttpMethod.Post, url)
             {
                 Content = JsonContent.Create(body, options: AtProtoJsonDefaults.Options),
             };
-            request.Headers.Authorization = new AuthenticationHeaderValue(
-                "Bearer", signer.CreateToken(Audience(space, subscriber.Service, did), nsid));
 
-            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            using var response = await SpaceServiceCall.SendAsync(
+                _httpClient, request, signer, Audience(space, subscriber.Service), nsid, cancellationToken).ConfigureAwait(false);
 
             if (response.IsSuccessStatusCode)
                 return true;

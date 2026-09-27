@@ -433,19 +433,14 @@ public static class AtProtoPdsHostingExtensions
         return ReplaceStorageMount(builder, name ?? $"{builder.Resource.Name}-data", DataTarget, isBindMount: false);
     }
 
-    /// <summary>
-    /// Configures the PDS to use a specific PLC directory URL.
-    /// Default: <c>https://plc.directory</c>.
-    /// </summary>
+    /// <summary>Configures the PLC directory the PDS uses. Default: <c>https://plc.directory</c>.</summary>
+    /// <typeparam name="T">The PDS resource type.</typeparam>
     /// <param name="builder">The PDS resource builder.</param>
     /// <param name="plcUrl">The PLC directory URL.</param>
     /// <returns>The resource builder for chaining.</returns>
-    public static IResourceBuilder<AtProtoPdsContainerResource> WithPlcUrl(
-        this IResourceBuilder<AtProtoPdsContainerResource> builder,
-        string plcUrl)
-    {
-        return builder.WithEnvironment("PDS_DID_PLC_URL", plcUrl);
-    }
+    public static IResourceBuilder<T> WithPlcUrl<T>(this IResourceBuilder<T> builder, string plcUrl)
+        where T : AtProtoPdsContainerResourceBase =>
+        builder.WithEnvironment(builder.Resource.Settings.PlcUrl, plcUrl);
 
     /// <summary>Configures the Bluesky app view URL and optional DID for the PDS.</summary>
     /// <param name="builder">The PDS resource builder.</param>
@@ -465,16 +460,14 @@ public static class AtProtoPdsHostingExtensions
         return builder;
     }
 
-    /// <summary>Configures the relay crawler URLs for the PDS.</summary>
+    /// <summary>Configures the relays the PDS asks to crawl it.</summary>
+    /// <typeparam name="T">The PDS resource type.</typeparam>
     /// <param name="builder">The PDS resource builder.</param>
     /// <param name="crawlers">A comma-separated list of relay URLs.</param>
     /// <returns>The resource builder for chaining.</returns>
-    public static IResourceBuilder<AtProtoPdsContainerResource> WithCrawlers(
-        this IResourceBuilder<AtProtoPdsContainerResource> builder,
-        string crawlers)
-    {
-        return builder.WithEnvironment("PDS_CRAWLERS", crawlers);
-    }
+    public static IResourceBuilder<T> WithCrawlers<T>(this IResourceBuilder<T> builder, string crawlers)
+        where T : AtProtoPdsContainerResourceBase =>
+        builder.WithEnvironment(builder.Resource.Settings.Crawlers, crawlers);
 
     /// <summary>Disables dev mode, requiring proper PLC directory, app view, and relay configuration.</summary>
     /// <param name="builder">The PDS resource builder.</param>
@@ -486,49 +479,50 @@ public static class AtProtoPdsHostingExtensions
     }
 
     /// <summary>
-    /// Requires an invite code for signups. <c>PdsAdminClient.CreateAccountAsync()</c>
-    /// mints one automatically when this is enabled.
+    /// Requires an invite code for signups. On the reference PDS,
+    /// <c>PdsAdminClient.CreateAccountAsync()</c> mints one automatically when this is enabled.
     /// </summary>
+    /// <remarks>
+    /// Tranquil's own default is <c>true</c>; running locally,
+    /// <see cref="AtProtoTranquilPdsHostingExtensions.AddAtProtoTranquilPds"/> turns it off so the
+    /// first account can be created without one. Turning it back on there means the first signup
+    /// needs the bootstrap code Tranquil writes to its log on an empty instance, which no program
+    /// can read, so create the administrator account first, then enable this.
+    /// </remarks>
+    /// <typeparam name="T">The PDS resource type.</typeparam>
     /// <param name="builder">The PDS resource builder.</param>
     /// <param name="required">Whether invite codes are required. Default: <c>true</c>.</param>
     /// <returns>The resource builder for chaining.</returns>
-    public static IResourceBuilder<AtProtoPdsContainerResource> WithInviteCodeRequired(
-        this IResourceBuilder<AtProtoPdsContainerResource> builder,
-        bool required = true)
-    {
-        return builder.WithEnvironment("PDS_INVITE_REQUIRED", required ? "true" : "false");
-    }
+    public static IResourceBuilder<T> WithInviteCodeRequired<T>(this IResourceBuilder<T> builder, bool required = true)
+        where T : AtProtoPdsContainerResourceBase =>
+        builder.WithEnvironment(builder.Resource.Settings.InviteRequired, required ? "true" : "false");
 
     /// <summary>
-    /// Sets the maximum blob upload size in bytes.
-    /// Default: <c>5242880</c> (5 MB).
+    /// Sets the maximum blob upload size in bytes. Default: 5 MB on the reference PDS, 10 GiB on
+    /// Tranquil.
     /// </summary>
+    /// <typeparam name="T">The PDS resource type.</typeparam>
     /// <param name="builder">The PDS resource builder.</param>
     /// <param name="maxBytes">The maximum blob size in bytes.</param>
     /// <returns>The resource builder for chaining.</returns>
-    public static IResourceBuilder<AtProtoPdsContainerResource> WithBlobUploadLimit(
-        this IResourceBuilder<AtProtoPdsContainerResource> builder,
-        long maxBytes)
-    {
-        return builder.WithEnvironment("PDS_BLOB_UPLOAD_LIMIT", maxBytes.ToString());
-    }
+    public static IResourceBuilder<T> WithBlobUploadLimit<T>(this IResourceBuilder<T> builder, long maxBytes)
+        where T : AtProtoPdsContainerResourceBase =>
+        builder.WithEnvironment(builder.Resource.Settings.BlobUploadLimit, maxBytes.ToString());
 
     /// <summary>Configures the moderation / report service URL and DID for the PDS.</summary>
+    /// <typeparam name="T">The PDS resource type.</typeparam>
     /// <param name="builder">The PDS resource builder.</param>
+    /// <param name="reportServiceUrl">The report service URL.</param>
+    /// <param name="reportServiceDid">The report service DID, if the PDS should not resolve it.</param>
     /// <returns>The resource builder for chaining.</returns>
-    public static IResourceBuilder<AtProtoPdsContainerResource> WithReportService(
-        this IResourceBuilder<AtProtoPdsContainerResource> builder,
-        string reportServiceUrl,
-        string? reportServiceDid = null)
+    public static IResourceBuilder<T> WithReportService<T>(
+        this IResourceBuilder<T> builder, string reportServiceUrl, string? reportServiceDid = null)
+        where T : AtProtoPdsContainerResourceBase
     {
-        builder = builder.WithEnvironment("PDS_REPORT_SERVICE_URL", reportServiceUrl);
-
-        if (reportServiceDid is not null)
-        {
-            builder = builder.WithEnvironment("PDS_REPORT_SERVICE_DID", reportServiceDid);
-        }
-
-        return builder;
+        builder = builder.WithEnvironment(builder.Resource.Settings.ReportServiceUrl, reportServiceUrl);
+        return reportServiceDid is null
+            ? builder
+            : builder.WithEnvironment(builder.Resource.Settings.ReportServiceDid, reportServiceDid);
     }
 
     /// <summary>Configures SMTP email settings for the PDS.</summary>

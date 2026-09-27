@@ -77,6 +77,10 @@ public sealed class AtProtoTranquilPdsContainerResource(
     /// <summary>Whether the container starts with the local-development relaxations applied.</summary>
     internal bool DevelopmentMode { get; set; }
 
+    internal override SharedSettingNames Settings { get; } = new(
+        "PLC_DIRECTORY_URL", "CRAWLERS", "INVITE_CODE_REQUIRED", "MAX_BLOB_SIZE",
+        "REPORT_SERVICE_URL", "REPORT_SERVICE_DID");
+
     /// <summary>
     /// Resolves the administrator handle, deriving <c>pdsadmin.{hostname}</c> when none
     /// was set explicitly.

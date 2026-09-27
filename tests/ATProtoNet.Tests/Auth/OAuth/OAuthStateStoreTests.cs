@@ -189,7 +189,7 @@ public sealed class OAuthStateStoreTests : IDisposable
 
         var authorization = await oauth.StartAuthorizationAsync(
             AliceHandle.Value, RedirectUri, new OAuthAuthorizationOptions { RequesterId = "198.51.100.1" });
-        var session = await oauth.CompleteAuthorizationAsync("code", authorization.State, Issuer);
+        var (session, _) = await oauth.CompleteAuthorizationAsync("code", authorization.State, Issuer);
 
         Assert.Equal(Alice, session.Did);
     }
@@ -323,7 +323,7 @@ public sealed class OAuthStateStoreTests : IDisposable
         using var second = Client(store);
 
         var authorization = await first.StartAuthorizationAsync(AliceHandle.Value, RedirectUri);
-        var session = await second.CompleteAuthorizationAsync("code", authorization.State, Issuer);
+        var (session, _) = await second.CompleteAuthorizationAsync("code", authorization.State, Issuer);
 
         Assert.Equal(Alice, session.Did);
         Assert.Equal(AliceHandle, session.Handle);
@@ -387,7 +387,7 @@ public sealed class OAuthStateStoreTests : IDisposable
         var authorization = await oauth.StartAuthorizationAsync(
             AliceHandle.Value, RedirectUri, new OAuthAuthorizationOptions { AppState = "back-to=/inbox" });
 
-        var result = await oauth.CompleteAuthorizationWithAppStateAsync("code", authorization.State, Issuer);
+        var result = await oauth.CompleteAuthorizationAsync("code", authorization.State, Issuer);
 
         Assert.Equal("back-to=/inbox", result.AppState);
         Assert.Equal(Alice, result.Session.Did);

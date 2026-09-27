@@ -1,48 +1,31 @@
 using System.Net;
-using System.Text.Json;
 using ATProtoNet.Aspire;
+using ATProtoNet.Tests.TestSupport;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace ATProtoNet.Tests.Aspire;
 
 public class AtProtoPdsHealthCheckTests
 {
-    private static AtProtoClient CreateClientWithHandler(HttpMessageHandler handler)
+    private const string DescribeServer = "com.atproto.server.describeServer";
+
+    private static async Task<HealthCheckResult> CheckAsync(HttpStub pds, HealthStatus? failureStatus = null)
     {
-        var httpClient = new HttpClient(handler);
-        var options = new AtProtoClientOptions
+        var healthCheck = new AtProtoPdsHealthCheck(pds.CreateClient("https://test-pds.example.com"));
+
+        return await healthCheck.CheckHealthAsync(new HealthCheckContext
         {
-            InstanceUrl = "https://test-pds.example.com",
-        };
-        return new AtProtoClient(options, httpClient, null, null);
+            Registration = new HealthCheckRegistration("test", healthCheck, failureStatus, null),
+        });
     }
 
     [Fact]
     public async Task CheckHealthAsync_ReturnsHealthy_WhenServerResponds()
     {
-        var response = new
-        {
-            availableUserDomains = new[] { "test.bsky.social" },
-            did = "did:web:test-pds.example.com"
-        };
+        using var pds = new HttpStub().On(
+            DescribeServer, """{"availableUserDomains":["test.bsky.social"],"did":"did:web:test-pds.example.com"}""");
 
-        var handler = new FakeHttpMessageHandler(
-            new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(
-                    JsonSerializer.Serialize(response),
-                    System.Text.Encoding.UTF8,
-                    "application/json")
-            });
-
-        var client = CreateClientWithHandler(handler);
-        var healthCheck = new AtProtoPdsHealthCheck(client);
-
-        var result = await healthCheck.CheckHealthAsync(
-            new HealthCheckContext
-            {
-                Registration = new HealthCheckRegistration("test", healthCheck, null, null)
-            });
+        var result = await CheckAsync(pds);
 
         Assert.Equal(HealthStatus.Healthy, result.Status);
         Assert.Contains("test-pds.example.com", result.Description);
@@ -51,20 +34,9 @@ public class AtProtoPdsHealthCheckTests
     [Fact]
     public async Task CheckHealthAsync_ReturnsUnhealthy_WhenServerThrows()
     {
-        var handler = new FakeHttpMessageHandler(
-            new HttpResponseMessage(HttpStatusCode.InternalServerError)
-            {
-                Content = new StringContent("Server Error")
-            });
+        using var pds = new HttpStub().On(DescribeServer, _ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
 
-        var client = CreateClientWithHandler(handler);
-        var healthCheck = new AtProtoPdsHealthCheck(client);
-
-        var result = await healthCheck.CheckHealthAsync(
-            new HealthCheckContext
-            {
-                Registration = new HealthCheckRegistration("test", healthCheck, null, null)
-            });
+        var result = await CheckAsync(pds);
 
         Assert.Equal(HealthStatus.Unhealthy, result.Status);
     }
@@ -73,28 +45,11 @@ public class AtProtoPdsHealthCheckTests
     public async Task CheckHealthAsync_WhenServerThrows_ReportsTheRegistrationsFailureStatus()
     {
         // WithHealthCheck() registers the check as Degraded; it always answered Unhealthy.
-        var handler = new FakeHttpMessageHandler(
-            new HttpResponseMessage(HttpStatusCode.InternalServerError) { Content = new StringContent("Server Error") });
-        var healthCheck = new AtProtoPdsHealthCheck(CreateClientWithHandler(handler));
+        using var pds = new HttpStub().On(DescribeServer, _ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
 
-        var result = await healthCheck.CheckHealthAsync(
-            new HealthCheckContext
-            {
-                Registration = new HealthCheckRegistration("test", healthCheck, HealthStatus.Degraded, null)
-            });
+        var result = await CheckAsync(pds, HealthStatus.Degraded);
 
         Assert.Equal(HealthStatus.Degraded, result.Status);
         Assert.NotNull(result.Exception);
-    }
-
-    private sealed class FakeHttpMessageHandler : HttpMessageHandler
-    {
-        private readonly HttpResponseMessage _response;
-
-        public FakeHttpMessageHandler(HttpResponseMessage response) => _response = response;
-
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-            => Task.FromResult(_response);
     }
 }

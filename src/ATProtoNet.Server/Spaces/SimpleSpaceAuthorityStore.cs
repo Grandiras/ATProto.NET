@@ -46,8 +46,7 @@ public sealed class SimpleSpaceAuthorityStore : ISpaceAuthorityStore
         _spaces = spaces;
     }
 
-    /// <summary>The store holding the writer set and the notification registrations.</summary>
-    public ISpaceAuthorityStore Inner => _inner;
+    internal ISpaceAuthorityStore Inner => _inner;
 
     /// <inheritdoc/>
     public async Task<SpaceAccessOutcome> GetSpaceStateAsync(

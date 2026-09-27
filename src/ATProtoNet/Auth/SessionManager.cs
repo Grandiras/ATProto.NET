@@ -581,14 +581,6 @@ internal sealed class SessionManager : IXrpcSessionHandler
             _ => false,
         };
 
-    /// <summary>The lease without a coordinator: nothing to release.</summary>
-    private sealed class NoLease : IAsyncDisposable
-    {
-        public static readonly NoLease Instance = new();
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
-
     /// <summary>Reads the account's session from the store, within the refresh time limit.</summary>
     private async Task<AtProtoSession?> ReadStoredAsync(Did did)
     {
@@ -1087,25 +1079,8 @@ internal sealed class SessionManager : IXrpcSessionHandler
 
     /// <summary>Reads the <c>exp</c> claim of a JWT without verifying it, for scheduling a refresh.</summary>
     /// <returns>The expiry, or <see langword="null"/> for a token that is not a JWT or has none.</returns>
-    internal static DateTimeOffset? ReadJwtExpiry(string token)
-    {
-        if (!Jwt.TryDecode(token, out var jwt, out _) ||
-            !jwt.Payload.TryGetProperty("exp", out var exp) ||
-            exp.ValueKind != JsonValueKind.Number ||
-            !exp.TryGetInt64(out var seconds))
-        {
-            return null;
-        }
-
-        try
-        {
-            return DateTimeOffset.FromUnixTimeSeconds(seconds);
-        }
-        catch (ArgumentOutOfRangeException)
-        {
-            return null;
-        }
-    }
+    internal static DateTimeOffset? ReadJwtExpiry(string token) =>
+        Jwt.TryDecode(token, out var jwt, out _) && jwt.Payload.TryGetNumericDate("exp", out var exp) ? exp : null;
 
     /// <summary>
     /// The service a password session should use after <c>createSession</c> or
@@ -1117,7 +1092,8 @@ internal sealed class SessionManager : IXrpcSessionHandler
     /// This is how signing in through an entryway (<c>bsky.social</c>) lands the session on the
     /// account's PDS, as the reference client does. The move is only between HTTPS services: a
     /// development PDS reached over plain HTTP publishes the address it believes it has, which
-    /// is usually not the one this process reaches it at.
+    /// is usually not the one this process reaches it at. Only the <c>id</c> and the <c>service</c>
+    /// entries are read, so a malformed entry elsewhere does not keep the session on the entryway.
     /// </remarks>
     internal static Uri ResolveServiceEndpoint(object? didDoc, Did did, Uri current)
     {
@@ -1133,8 +1109,8 @@ internal sealed class SessionManager : IXrpcSessionHandler
         foreach (var service in services.EnumerateArray())
         {
             var id = service.GetStringOrNull("id");
-            if ((id == "#atproto_pds" || id == did.Value + "#atproto_pds") &&
-                service.GetStringOrNull("type") == "AtprotoPersonalDataServer")
+            if ((id == DidDocument.PdsServiceId || id == did.Value + DidDocument.PdsServiceId) &&
+                service.GetStringOrNull("type") == DidDocument.PdsServiceType)
             {
                 return AtProtoHttp.TryNormalizeBaseUrl(service.GetStringOrNull("serviceEndpoint"), out var pds) &&
                        pds.Scheme == Uri.UriSchemeHttps

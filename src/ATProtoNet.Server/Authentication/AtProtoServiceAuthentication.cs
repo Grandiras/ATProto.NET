@@ -42,21 +42,13 @@ public sealed class AtProtoServiceAuthOptions : AuthenticationSchemeOptions
     /// </remarks>
     public IList<string> Audiences { get; } = new List<string>();
 
-    /// <inheritdoc cref="ServiceAuthVerifierOptions.AllowedKeyIds"/>
-    public ISet<string> AllowedKeyIds { get; } =
-        new HashSet<string>(StringComparer.Ordinal) { ServiceAuthVerifierOptions.DefaultKeyId };
-
-    /// <inheritdoc cref="ServiceAuthVerifierOptions.RequireLexiconMethod"/>
-    public bool RequireLexiconMethod { get; set; } = true;
-
-    /// <inheritdoc cref="ServiceAuthVerifierOptions.ClockSkew"/>
-    public TimeSpan ClockSkew { get; set; } = TimeSpan.FromSeconds(30);
-
-    /// <inheritdoc cref="ServiceAuthVerifierOptions.MaxTokenLifetime"/>
-    public TimeSpan MaxTokenLifetime { get; set; } = TimeSpan.FromMinutes(5);
+    /// <summary>How strictly tokens are checked: the accepted keys, the clock skew and the lifetime ceiling.</summary>
+    public ServiceAuthVerifierOptions Verifier { get; } = new();
 
     /// <inheritdoc/>
-    /// <exception cref="InvalidOperationException">An option is missing or invalid.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// No audience is set, one is not a DID, or <see cref="Verifier"/> is invalid.
+    /// </exception>
     public override void Validate()
     {
         base.Validate();
@@ -77,37 +69,15 @@ public sealed class AtProtoServiceAuthOptions : AuthenticationSchemeOptions
             }
         }
 
-        if (AllowedKeyIds.Count == 0)
-            throw new InvalidOperationException($"Service auth needs at least one of {nameof(AllowedKeyIds)}.");
-
-        foreach (var keyId in AllowedKeyIds)
+        try
         {
-            if (!ServiceAuthSyntax.IsKeyId(keyId))
-            {
-                throw new InvalidOperationException(
-                    $"An allowed key ID is a verification-method fragment such as '#atproto'; got '{keyId}'.");
-            }
+            Verifier.Validate();
         }
-
-        if (ClockSkew < TimeSpan.Zero)
-            throw new InvalidOperationException($"{nameof(ClockSkew)} cannot be negative.");
-
-        if (MaxTokenLifetime <= TimeSpan.Zero)
-            throw new InvalidOperationException($"{nameof(MaxTokenLifetime)} must be positive.");
-    }
-
-    internal ServiceAuthVerifierOptions CreateVerifierOptions()
-    {
-        var options = new ServiceAuthVerifierOptions
+        catch (ArgumentException ex)
         {
-            RequireLexiconMethod = RequireLexiconMethod,
-            ClockSkew = ClockSkew,
-            MaxTokenLifetime = MaxTokenLifetime,
-        };
-
-        options.AllowedKeyIds.Clear();
-        options.AllowedKeyIds.UnionWith(AllowedKeyIds);
-        return options;
+            // The type the scheme's other configuration errors have.
+            throw new InvalidOperationException($"{nameof(Verifier)}: {ex.Message}", ex);
+        }
     }
 }
 
@@ -135,12 +105,7 @@ internal sealed class AtProtoServiceAuthHandler : AuthenticationHandler<AtProtoS
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        var authorization = Request.Headers.Authorization.ToString();
-        if (!authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-            return AuthenticateResult.NoResult();
-
-        var token = authorization["Bearer ".Length..].Trim();
-        if (token.Length == 0)
+        if (AuthorizationHeader.Bearer(Request) is not { } token)
             return AuthenticateResult.NoResult();
 
         // Verifying a token spends it. As @atproto/xrpc-server verifies only for a method that
@@ -165,7 +130,7 @@ internal sealed class AtProtoServiceAuthHandler : AuthenticationHandler<AtProtoS
         }
 
         var audiences = Options.Audiences as IReadOnlyCollection<string> ?? [.. Options.Audiences];
-        var verifier = new ServiceAuthVerifier(_resolver, _replayStore, Options.CreateVerifierOptions(), TimeProvider);
+        var verifier = new ServiceAuthVerifier(_resolver, _replayStore, Options.Verifier, TimeProvider);
 
         VerifiedServiceAuth verified;
         try
@@ -309,8 +274,8 @@ public static class AtProtoServiceAuthExtensions
     /// there is nothing to hold its token to.</para>
     /// <para>This also registers the identity resolvers (<c>AddAtProtoIdentity()</c>), whose cache
     /// the issuer's keys are read through, and an in-process <see cref="IJtiReplayStore"/> unless
-    /// one is registered already: replace it with a shared store when more than one instance
-    /// serves this DID.</para>
+    /// one is registered already, with a warning at startup: replace it with a shared store when
+    /// more than one instance serves this DID.</para>
     /// <para>Authentication needs the endpoint, so <c>UseAuthentication()</c> must run after
     /// routing, as it does by default in a <c>WebApplication</c>.</para>
     /// </remarks>
@@ -350,7 +315,7 @@ public static class AtProtoServiceAuthExtensions
         ArgumentException.ThrowIfNullOrWhiteSpace(authenticationScheme);
 
         builder.Services.AddAtProtoIdentity();
-        builder.Services.TryAddSingleton<IJtiReplayStore, InMemoryJtiReplayStore>();
+        InMemoryDefaultsWarning.TryAdd<IJtiReplayStore, InMemoryJtiReplayStore>(builder.Services);
         builder.Services.AddOptions<AtProtoServiceAuthOptions>(authenticationScheme).ValidateOnStart();
 
         return builder.AddScheme<AtProtoServiceAuthOptions, AtProtoServiceAuthHandler>(authenticationScheme, configure);

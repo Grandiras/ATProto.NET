@@ -89,6 +89,37 @@ public class SessionTests
         Assert.Null(SessionManager.ReadJwtExpiry(TestJws.Mint(new { alg = "HS256" }, new { sub = "x" }, _ => new byte[32])));
     }
 
+    [Theory]
+    [InlineData("""{"id":42,"type":"Multikey"}""")]          // a verification method whose id is not a string
+    [InlineData("42")]                                        // not an entry at all
+    public void ResolveServiceEndpoint_AnUnrelatedEntryIsMalformed_StillMovesToThePds(string verificationMethod)
+    {
+        // Only the id and the #atproto_pds entry decide the move: a password session is not left
+        // on the entryway because some other part of the document does not parse.
+        using var document = JsonDocument.Parse($$"""
+            {"id":"{{Alice}}","verificationMethod":[{{verificationMethod}}],
+             "service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"https://pds.example.net"}]}
+            """);
+
+        var endpoint = SessionManager.ResolveServiceEndpoint(document.RootElement, Alice, new Uri("https://entryway.example.com"));
+
+        Assert.Equal(new Uri("https://pds.example.net/"), endpoint);
+    }
+
+    [Fact]
+    public void ResolveServiceEndpoint_FirstPdsEntryOfAnotherType_IsPassedOver()
+    {
+        using var document = JsonDocument.Parse($$"""
+            {"id":"{{Alice}}","service":[
+              {"id":"#atproto_pds","type":"SomethingElse","serviceEndpoint":"https://wrong.example.net"},
+              {"id":"{{Alice}}#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"https://pds.example.net"}]}
+            """);
+
+        var endpoint = SessionManager.ResolveServiceEndpoint(document.RootElement, Alice, new Uri("https://entryway.example.com"));
+
+        Assert.Equal(new Uri("https://pds.example.net/"), endpoint);
+    }
+
     // ──────────────────────────────────────────────────────────
     //  The persisted form, and what the 0.6 token stores wrote
     // ──────────────────────────────────────────────────────────

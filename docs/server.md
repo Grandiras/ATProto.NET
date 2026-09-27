@@ -149,7 +149,7 @@ whichever order the calls run in:
 | `WithInMemorySessionStore()` | `InMemoryAtProtoSessionStore`, on purpose: no warning |
 | `WithFileSessionStore(o => o.Directory = …)` | `FileAtProtoSessionStore` |
 | `WithEfCoreSessionStore<TContext>()` | `EfCoreAtProtoSessionStore<TContext>` (`ATProtoNet.Server.EntityFrameworkCore`) |
-| `WithSessionStore<TStore>()` / `WithSessionStore(sp => …)` | Your own |
+| `WithSessionStore<TStore>()` | Your own |
 
 ### Default: In Memory
 

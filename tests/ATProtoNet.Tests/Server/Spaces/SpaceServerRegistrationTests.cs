@@ -41,7 +41,6 @@ public class SpaceServerRegistrationTests
         using var provider = services.BuildServiceProvider();
 
         Assert.NotNull(provider.GetRequiredService<SpaceRequestAuthenticator>());
-        Assert.NotNull(provider.GetRequiredService<SpaceServiceAuthVerifier>());
     }
 
     [Fact]
