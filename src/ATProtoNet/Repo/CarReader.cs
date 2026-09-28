@@ -144,11 +144,10 @@ public sealed class CarReader
         if (!isDagCbor && !isRaw)
             return BlockCidVerification.UnknownCodec;
 
-        var expected = isDagCbor
-            ? CidComputation.ComputeBinaryForDagCbor(block.Data)
-            : CidComputation.ComputeBinaryForRaw(block.Data);
+        Span<byte> expected = stackalloc byte[CidComputation.BinaryCidLength];
+        CidComputation.WriteBinaryCid(block.Data, codec, expected);
 
-        return expected.AsSpan().SequenceEqual(block.Cid)
+        return expected.SequenceEqual(block.Cid)
             ? BlockCidVerification.Match
             : BlockCidVerification.Mismatch;
     }
@@ -323,6 +322,16 @@ public sealed class CarReader
     //
     // Throws FormatException: The varint is truncated, too long, or not minimal.
     internal static ulong ReadUvarint(ReadOnlySpan<byte> data, ref int offset)
+    {
+        // A CID's header fields are one byte each, so this runs four times a block: kept small enough
+        // to inline, with the general case out of line.
+        if ((uint)offset < (uint)data.Length && data[offset] < 0x80)
+            return data[offset++];
+
+        return ReadUvarintCore(data, ref offset);
+    }
+
+    private static ulong ReadUvarintCore(ReadOnlySpan<byte> data, ref int offset)
     {
         const int MaxBytes = 9;
 

@@ -1,4 +1,6 @@
+using System.Runtime.InteropServices;
 using System.Text.Json;
+using ATProtoNet.Identity;
 
 namespace ATProtoNet.Serialization;
 
@@ -14,8 +16,40 @@ internal static class JsonElementExtensions
             ? value.GetString()
             : null;
 
+    // The same, for a member named by its UTF-8 bytes, which spares transcoding the name on every
+    // lookup. A hot path passes a u8 literal.
+    public static string? GetStringOrNull(this JsonElement element, ReadOnlySpan<byte> utf8Name) =>
+        element.ValueKind == JsonValueKind.Object && element.TryGetProperty(utf8Name, out var value)
+            && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+
+    // Reads an identifier member as T's TryParse reads the member's string, straight from its UTF-8 bytes
+    // when it has no escapes.
+    public static T? GetIdentifierOrNull<T>(this JsonElement element, ReadOnlySpan<byte> utf8Name)
+        where T : class, IIdentifier<T>
+    {
+        if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty(utf8Name, out var value)
+            || value.ValueKind != JsonValueKind.String)
+            return null;
+
+        // The raw value is the string as sent, in its quotes.
+        var raw = JsonMarshal.GetRawUtf8Value(value);
+        if (raw.IndexOf((byte)'\\') < 0 && T.TryCreate(raw[1..^1], out var fromUtf8))
+            return fromUtf8;
+
+        var text = value.GetString()!;
+        return T.TryCreate(text, text, out var parsed) ? parsed : null;
+    }
+
     public static long? GetInt64OrNull(this JsonElement element, string name) =>
         TryGetMember(element, name, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out var number)
+            ? number
+            : null;
+
+    public static long? GetInt64OrNull(this JsonElement element, ReadOnlySpan<byte> utf8Name) =>
+        element.ValueKind == JsonValueKind.Object && element.TryGetProperty(utf8Name, out var value)
+            && value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out var number)
             ? number
             : null;
 

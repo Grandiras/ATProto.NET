@@ -20,6 +20,16 @@ internal interface IIdentifier<TSelf> : ISpanParsable<TSelf>, IEquatable<TSelf>,
     // result: The identifier on success.
     static abstract bool TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out TSelf? result);
 
+    // Creates the identifier straight from the unescaped UTF-8 bytes of a JSON string, without the UTF-16
+    // string the reader would otherwise decode first. False only means this path produced nothing — the
+    // bytes are not a valid identifier, or the type has no such path — and the caller falls back to
+    // TryCreate on the decoded string, which reports the error.
+    static virtual bool TryCreate(ReadOnlySpan<byte> utf8, [NotNullWhen(true)] out TSelf? result)
+    {
+        result = null;
+        return false;
+    }
+
     // The exception a public Parse(string) throws for value: ArgumentNullException for null, otherwise
     // ArgumentException naming the identifier kind.
     static ArgumentException InvalidValue(string? value, string kind) => value is null

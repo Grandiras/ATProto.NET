@@ -161,6 +161,31 @@ public class AtDatetimeTests
     }
 
     [Theory]
+    [InlineData("1985-04-12 23:20:50.123+02:00", 120)]
+    [InlineData("1985-04-12T23:20:50.123-0530", -330)]
+    [InlineData("1985-04-12T23:20:50", 0)]
+    public void Json_NearMissIso8601_KeepsItsOffset(string text, int offsetMinutes)
+    {
+        var holder = JsonSerializer.Deserialize<Holder>(JsonSerializer.Serialize(new { when = text }), Options)!;
+
+        Assert.False(holder.When.IsValid);
+        Assert.Equal(TimeSpan.FromMinutes(offsetMinutes), holder.When.Value.Offset);
+    }
+
+    [Theory]
+    [InlineData("1985-04-12T23:20:50.123+05:30", 330)]
+    [InlineData("1985-04-12T23:20:50-00:30", -30)]
+    [InlineData("1985-04-12T23:20:50.1234567+14:00", 840)]
+    [InlineData("1985-04-12T23:20:50Z", 0)]
+    public void Value_ValidDatetime_KeepsItsOffset(string text, int offsetMinutes)
+    {
+        var datetime = AtDatetime.Parse(text);
+
+        Assert.Equal(TimeSpan.FromMinutes(offsetMinutes), datetime.Value.Offset);
+        Assert.Equal(DateTimeOffset.Parse(text, CultureInfo.InvariantCulture), datetime.Value);
+    }
+
+    [Theory]
     [InlineData("not a date")]
     [InlineData("04/12/1985")]
     [InlineData("")]

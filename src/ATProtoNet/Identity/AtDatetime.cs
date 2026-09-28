@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Numerics;
 using System.Text.Json.Serialization;
 using ATProtoNet.Serialization;
 
@@ -40,17 +41,19 @@ public readonly record struct AtDatetime : ISpanParsable<AtDatetime>, IComparabl
 
     private const string CanonicalFormat = "yyyy-MM-dd'T'HH:mm:ss.fff'Z'";
 
-    private readonly string? _text;
-    private readonly long _ticks;
-    private readonly short _offsetMinutes;
-    private readonly State _state;
+    // The instant's ticks, below 2^62 for any year the syntax allows, share a word with the State in the
+    // top two bits, so that a datetime field in a model is two words wide. The offset is not stored:
+    // the text holds it.
+    private const int StateShift = 62;
+    private const long TicksMask = (1L << StateShift) - 1;
 
-    private AtDatetime(string text, long ticks, int offsetMinutes, State state)
+    private readonly string? _text;
+    private readonly long _ticksAndState;
+
+    private AtDatetime(string text, long ticks, State state)
     {
         _text = text;
-        _ticks = ticks;
-        _offsetMinutes = (short)offsetMinutes;
-        _state = state;
+        _ticksAndState = ticks | ((long)state << StateShift);
     }
 
     private enum State : byte
@@ -69,7 +72,11 @@ public readonly record struct AtDatetime : ISpanParsable<AtDatetime>, IComparabl
     }
 
     /// <summary>Whether the text is a valid atproto datetime. Always <see langword="true"/> for a value created from code; a value read from the wire may not be.</summary>
-    public bool IsValid => _state == State.Valid;
+    public bool IsValid => CurrentState == State.Valid;
+
+    private State CurrentState => (State)((ulong)_ticksAndState >> StateShift);
+
+    private long Ticks => _ticksAndState & TicksMask;
 
     /// <summary>The instant the text denotes, in the offset it was written with.</summary>
     /// <remarks>
@@ -95,20 +102,40 @@ public readonly record struct AtDatetime : ISpanParsable<AtDatetime>, IComparabl
     public bool TryGetValue(out DateTimeOffset value)
     {
         value = default;
-        if (_state < State.Lenient)
+        if (CurrentState < State.Lenient)
             return false;
 
-        var utcTicks = _ticks - Year1Ticks;
+        var utcTicks = Ticks - Year1Ticks;
         if (utcTicks < DateTime.MinValue.Ticks || utcTicks > DateTime.MaxValue.Ticks)
             return false;
 
-        var offsetTicks = _offsetMinutes * TimeSpan.TicksPerMinute;
+        var offsetMinutes = OffsetMinutes();
+        var offsetTicks = offsetMinutes * TimeSpan.TicksPerMinute;
         var localTicks = utcTicks + offsetTicks;
-        value = Math.Abs(_offsetMinutes) <= MaxClrOffsetMinutes
+        value = Math.Abs(offsetMinutes) <= MaxClrOffsetMinutes
                 && localTicks >= DateTime.MinValue.Ticks && localTicks <= DateTime.MaxValue.Ticks
             ? new DateTimeOffset(localTicks, TimeSpan.FromTicks(offsetTicks))
             : new DateTimeOffset(utcTicks, TimeSpan.Zero);
         return true;
+    }
+
+    // The offset the text was written with, read back from it. A valid datetime ends in Z or ±HH:MM; a
+    // lenient reading's offset is the one the framework's parser found in it on the way in.
+    private int OffsetMinutes()
+    {
+        var text = _text!;
+        if (CurrentState != State.Valid)
+        {
+            return DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var lenient)
+                ? (int)lenient.Offset.TotalMinutes
+                : 0;
+        }
+
+        if (text[^1] == 'Z')
+            return 0;
+
+        var minutes = ((text[^5] - '0') * 10 + (text[^4] - '0')) * 60 + (text[^2] - '0') * 10 + (text[^1] - '0');
+        return text[^6] == '-' ? -minutes : minutes;
     }
 
     /// <summary>The current time as a canonical atproto datetime (UTC, millisecond precision).</summary>
@@ -131,7 +158,7 @@ public readonly record struct AtDatetime : ISpanParsable<AtDatetime>, IComparabl
         // The invariant culture: under the current one, a Thai or Japanese-era locale would
         // write its own calendar's year, and some locales a different time separator.
         var text = utc.ToString(CanonicalFormat, CultureInfo.InvariantCulture);
-        return new AtDatetime(text, utc.Ticks + Year1Ticks, 0, State.Valid);
+        return new AtDatetime(text, utc.Ticks + Year1Ticks, State.Valid);
     }
 
     /// <summary>Creates the canonical atproto datetime for a <see cref="DateTime"/>, as <see cref="FromDateTimeOffset"/> does.</summary>
@@ -204,40 +231,93 @@ public readonly record struct AtDatetime : ISpanParsable<AtDatetime>, IComparabl
             && char.IsAsciiDigit(text[2]) && char.IsAsciiDigit(text[3]) && text[4] == '-'
             && DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var lenient))
         {
-            return new AtDatetime(text, lenient.UtcTicks + Year1Ticks, (int)lenient.Offset.TotalMinutes, State.Lenient);
+            return new AtDatetime(text, lenient.UtcTicks + Year1Ticks, State.Lenient);
         }
 
-        return new AtDatetime(text, 0, 0, State.Unreadable);
+        return new AtDatetime(text, 0, State.Unreadable);
+    }
+
+    // Reads UTF-8 text as DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture,
+    // DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal) does, for the text on which the
+    // two provably agree: a valid atproto datetime with at most seven fractional digits (the framework
+    // rounds finer ones), an offset of at most 14 hours, and an instant a DateTimeOffset holds on both
+    // sides of its offset. False means only "ask DateTimeOffset.TryParse", not that the text is invalid.
+    internal static bool TryParseUtc(ReadOnlySpan<byte> utf8, out DateTime utc)
+    {
+        utc = default;
+        if (!TryParseInstant(utf8, out var ticks, out var offsetMinutes) || Math.Abs(offsetMinutes) > MaxClrOffsetMinutes)
+            return false;
+
+        // A valid datetime has a fraction exactly when a '.' follows the seconds, and ends in Z or ±HH:MM.
+        var fractionDigits = utf8[19] == '.' ? utf8.Length - 20 - (utf8[^1] == 'Z' ? 1 : 6) : 0;
+        var utcTicks = ticks - Year1Ticks;
+        var localTicks = utcTicks + offsetMinutes * TimeSpan.TicksPerMinute;
+        if (fractionDigits > 7
+            || utcTicks < DateTime.MinValue.Ticks || utcTicks > DateTime.MaxValue.Ticks
+            || localTicks < DateTime.MinValue.Ticks || localTicks > DateTime.MaxValue.Ticks)
+            return false;
+
+        utc = new DateTime(utcTicks, DateTimeKind.Utc);
+        return true;
+    }
+
+    // Reads a valid atproto datetime from the unescaped UTF-8 bytes of a JSON string. A valid datetime is
+    // plain ASCII, so the bytes are its text.
+    internal static bool TryCreate(ReadOnlySpan<byte> utf8, out AtDatetime result)
+    {
+        result = TryParseInstant(utf8, out var ticks, out _)
+            ? new AtDatetime(IdentifierSyntax.ToAsciiString(utf8), ticks, State.Valid)
+            : default;
+        return result.IsValid;
+    }
+
+    private static bool TryCreate(ReadOnlySpan<char> s, string? text, out AtDatetime result)
+    {
+        result = TryParseInstant(s, out var ticks, out _)
+            ? new AtDatetime(text ?? s.ToString(), ticks, State.Valid)
+            : default;
+        return result.IsValid;
     }
 
     // Validates the atproto datetime syntax — RFC 3339 restricted to what ISO 8601 also allows: an
     // upper-case T, seconds precision or finer, and a mandatory time zone that is Z or ±HH:MM but not
-    // -00:00 — and then the calendar.
-    private static bool TryCreate(ReadOnlySpan<char> s, string? text, out AtDatetime result)
+    // -00:00 — and then the calendar. ticks counts from year zero, in UTC.
+    private static bool TryParseInstant<TChar>(ReadOnlySpan<TChar> s, out long ticks, out int offsetMinutes)
+        where TChar : unmanaged, IBinaryInteger<TChar>
     {
-        result = default;
+        ticks = 0;
+        offsetMinutes = 0;
 
         // Shortest form: yyyy-MM-ddTHH:mm:ssZ.
         if (s.Length < 20 || s.Length > MaxLength
-            || s[4] != '-' || s[7] != '-' || s[10] != 'T' || s[13] != ':' || s[16] != ':'
-            || !TryDigits(s, 0, 4, out var year)
-            || !TryDigits(s, 5, 2, out var month)
-            || !TryDigits(s, 8, 2, out var day)
-            || !TryDigits(s, 11, 2, out var hour)
-            || !TryDigits(s, 14, 2, out var minute)
-            || !TryDigits(s, 17, 2, out var second))
+            || Unit(s[4]) != '-' || Unit(s[7]) != '-' || Unit(s[10]) != 'T' || Unit(s[13]) != ':' || Unit(s[16]) != ':')
             return false;
+
+        uint y0 = Digit(s[0]), y1 = Digit(s[1]), y2 = Digit(s[2]), y3 = Digit(s[3]);
+        uint mo0 = Digit(s[5]), mo1 = Digit(s[6]), d0 = Digit(s[8]), d1 = Digit(s[9]);
+        uint h0 = Digit(s[11]), h1 = Digit(s[12]), mi0 = Digit(s[14]), mi1 = Digit(s[15]);
+        uint s0 = Digit(s[17]), s1 = Digit(s[18]);
+        if (y0 > 9 | y1 > 9 | y2 > 9 | y3 > 9 | mo0 > 9 | mo1 > 9 | d0 > 9 | d1 > 9
+            | h0 > 9 | h1 > 9 | mi0 > 9 | mi1 > 9 | s0 > 9 | s1 > 9)
+            return false;
+
+        var year = (int)(y0 * 1000 + y1 * 100 + y2 * 10 + y3);
+        var month = (int)(mo0 * 10 + mo1);
+        var day = (int)(d0 * 10 + d1);
+        var hour = (int)(h0 * 10 + h1);
+        var minute = (int)(mi0 * 10 + mi1);
+        var second = (int)(s0 * 10 + s1);
 
         var at = 19;
         long fractionTicks = 0;
-        if (s[at] == '.')
+        if (Unit(s[at]) == '.')
         {
             var start = ++at;
-            while (at < s.Length && char.IsAsciiDigit(s[at]))
+            while (at < s.Length && Digit(s[at]) <= 9)
             {
                 // Digits beyond the seventh are below a tick and truncated.
                 if (at - start < 7)
-                    fractionTicks = fractionTicks * 10 + (s[at] - '0');
+                    fractionTicks = fractionTicks * 10 + Digit(s[at]);
                 at++;
             }
 
@@ -249,52 +329,67 @@ public readonly record struct AtDatetime : ISpanParsable<AtDatetime>, IComparabl
                 fractionTicks *= 10;
         }
 
-        int offsetMinutes;
         var zone = s[at..];
-        if (zone is "Z")
+        if (zone.Length == 1 && Unit(zone[0]) == 'Z')
         {
             offsetMinutes = 0;
         }
-        else if (zone.Length == 6 && zone[0] is '+' or '-' && zone[3] == ':'
+        else if (zone.Length == 6 && Unit(zone[0]) is '+' or '-' && Unit(zone[3]) == ':'
                  && TryDigits(zone, 1, 2, out var offsetHours)
                  && TryDigits(zone, 4, 2, out var offsetMinute)
-                 && offsetHours <= 23 && offsetMinute <= 59
-                 && zone is not "-00:00")
+                 && offsetHours <= 23 && offsetMinute <= 59)
         {
-            offsetMinutes = (offsetHours * 60 + offsetMinute) * (zone[0] == '-' ? -1 : 1);
+            var negative = Unit(zone[0]) == '-';
+
+            // -00:00 means "offset unknown" in RFC 3339.
+            if (negative && offsetHours == 0 && offsetMinute == 0)
+                return false;
+
+            offsetMinutes = (offsetHours * 60 + offsetMinute) * (negative ? -1 : 1);
         }
         else
         {
             return false;
         }
 
-        if (month is < 1 or > 12 || day < 1 || day > DaysInMonth(year, month)
-            || hour > 23 || minute > 59 || second > 59)
+        if (month is < 1 or > 12 || day < 1 || hour > 23 || minute > 59 || second > 59)
             return false;
 
-        var localTicks = (DaysBeforeYear(year) + DaysBeforeMonth(year, month) + day - 1) * TimeSpan.TicksPerDay
+        // Leap days count from March.
+        var leapDay = month > 2 && IsLeapYear(year) ? 1 : 0;
+        if (day > DaysInMonth(year, month))
+            return false;
+
+        var localTicks = (DaysBeforeYear(year) + CommonDaysBeforeMonth[month - 1] + leapDay + day - 1) * TimeSpan.TicksPerDay
             + hour * TimeSpan.TicksPerHour
             + minute * TimeSpan.TicksPerMinute
             + second * TimeSpan.TicksPerSecond
             + fractionTicks;
-        var ticks = localTicks - offsetMinutes * TimeSpan.TicksPerMinute;
+        ticks = localTicks - offsetMinutes * TimeSpan.TicksPerMinute;
 
         // "0000-01-01T00:00:00+01:00" is before year zero.
-        if (ticks < 0)
-            return false;
-
-        result = new AtDatetime(text ?? s.ToString(), ticks, offsetMinutes, State.Valid);
-        return true;
+        return ticks >= 0;
     }
 
-    private static bool TryDigits(ReadOnlySpan<char> s, int start, int count, out int value)
+    private static uint Unit<TChar>(TChar c)
+        where TChar : unmanaged, IBinaryInteger<TChar>
+        => uint.CreateTruncating(c);
+
+    // The value of a decimal digit, or more than 9 for any other character.
+    private static uint Digit<TChar>(TChar c)
+        where TChar : unmanaged, IBinaryInteger<TChar>
+        => uint.CreateTruncating(c) - '0';
+
+    private static bool TryDigits<TChar>(ReadOnlySpan<TChar> s, int start, int count, out int value)
+        where TChar : unmanaged, IBinaryInteger<TChar>
     {
         value = 0;
         foreach (var c in s.Slice(start, count))
         {
-            if (!char.IsAsciiDigit(c))
+            var digit = Digit(c);
+            if (digit > 9)
                 return false;
-            value = value * 10 + (c - '0');
+            value = value * 10 + (int)digit;
         }
 
         return true;
@@ -304,20 +399,13 @@ public readonly record struct AtDatetime : ISpanParsable<AtDatetime>, IComparabl
 
     private static long DaysBeforeYear(int year) => year * 365L + (year + 3) / 4 - (year + 99) / 100 + (year + 399) / 400;
 
-    private static int DaysInMonth(int year, int month) => month switch
-    {
-        2 => IsLeapYear(year) ? 29 : 28,
-        4 or 6 or 9 or 11 => 30,
-        _ => 31,
-    };
+    private static int DaysInMonth(int year, int month) =>
+        month == 2 && IsLeapYear(year) ? 29 : CommonDaysInMonth[month - 1];
 
-    private static int DaysBeforeMonth(int year, int month)
-    {
-        var days = 0;
-        for (var m = 1; m < month; m++)
-            days += DaysInMonth(year, m);
-        return days;
-    }
+    private static ReadOnlySpan<byte> CommonDaysInMonth => [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+    // Days in the months of a common year before the first of each month.
+    private static ReadOnlySpan<short> CommonDaysBeforeMonth => [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
 
     /// <summary>Whether two values have the same text.</summary>
     /// <param name="other">The value to compare with.</param>
@@ -332,13 +420,13 @@ public readonly record struct AtDatetime : ISpanParsable<AtDatetime>, IComparabl
     /// <returns>A negative number, zero or a positive number as this value sorts before, with or after <paramref name="other"/>.</returns>
     public int CompareTo(AtDatetime other)
     {
-        var hasInstant = _state >= State.Lenient;
-        var otherHasInstant = other._state >= State.Lenient;
+        var hasInstant = CurrentState >= State.Lenient;
+        var otherHasInstant = other.CurrentState >= State.Lenient;
         if (hasInstant != otherHasInstant)
             return hasInstant ? 1 : -1;
 
-        if (hasInstant && _ticks != other._ticks)
-            return _ticks < other._ticks ? -1 : 1;
+        if (hasInstant && Ticks != other.Ticks)
+            return Ticks < other.Ticks ? -1 : 1;
 
         return string.CompareOrdinal(_text, other._text);
     }

@@ -17,17 +17,15 @@ internal static class SyntaxFixtures
     /// lines starting with <c>#</c> are skipped and nothing is trimmed: leading and trailing
     /// whitespace is part of several invalid cases.
     /// </summary>
-    public static TheoryData<string> Lines(string fileName)
-    {
-        var data = new TheoryData<string>();
-        foreach (var line in File.ReadLines(Path.Combine(FixtureDirectory.Value, fileName)).Distinct(StringComparer.Ordinal))
-        {
-            if (line.Length > 0 && !line.StartsWith('#'))
-                data.Add(line);
-        }
+    public static TheoryData<string> Lines(string fileName) => [.. Values(fileName)];
 
-        return data;
-    }
+    /// <summary>The test lines of one fixture file, as <see cref="Lines"/> reads them.</summary>
+    public static IReadOnlyList<string> Values(string fileName) =>
+    [
+        .. File.ReadLines(Path.Combine(FixtureDirectory.Value, fileName))
+            .Distinct(StringComparer.Ordinal)
+            .Where(line => line.Length > 0 && !line.StartsWith('#')),
+    ];
 
     private static string FindDirectory()
     {

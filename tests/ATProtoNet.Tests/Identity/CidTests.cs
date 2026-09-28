@@ -1,5 +1,7 @@
+using System.Text.Json;
 using ATProtoNet.Identity;
 using ATProtoNet.Repo;
+using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Tests.Identity;
 
@@ -63,6 +65,29 @@ public class CidTests
 
         Assert.Equal(EmptyMstNode, cid.Value);
         Assert.Equal(CidCodec.DagCbor, cid.Codec);
+    }
+
+    [Fact]
+    public void Equals_SameCidParsedAndComputed_IsEqualWithTheSameHashCode()
+    {
+        // One is built from its string form, the other from its bytes, and encodes its string on use.
+        var parsed = Cid.Parse(EmptyMstNode);
+        var computed = CidComputation.ComputeForDagCbor([0xA2, 0x61, 0x65, 0x80, 0x61, 0x6C, 0xF6]);
+
+        Assert.Equal(parsed, computed);
+        Assert.Equal(parsed.GetHashCode(), computed.GetHashCode());
+        Assert.NotEqual(parsed, Cid.Parse(EmptyRaw));
+        Assert.Equal(0, parsed.CompareTo(computed));
+    }
+
+    [Fact]
+    public void Deserialize_CidFromJson_WritesBackItsText()
+    {
+        var cid = JsonSerializer.Deserialize<Cid>($"\"{EmptyRaw}\"", AtProtoJsonDefaults.Options)!;
+
+        Assert.Equal(EmptySha256, Convert.ToHexStringLower(cid.Digest.Span));
+        Assert.Equal($"\"{EmptyRaw}\"", JsonSerializer.Serialize(cid, AtProtoJsonDefaults.Options));
+        Assert.Equal(EmptyRaw, cid.Value);
     }
 
     [Theory]

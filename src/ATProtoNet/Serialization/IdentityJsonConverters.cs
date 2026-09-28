@@ -15,6 +15,12 @@ internal sealed class IdentifierJsonConverter<T> : JsonConverter<T>
 {
     public override T? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
+        // A valid identifier is plain ASCII, so it is usually read straight from the JSON bytes; anything
+        // else takes the decoded string, which also produces the error.
+        if (reader.TokenType == JsonTokenType.String && !reader.ValueIsEscaped && !reader.HasValueSequence
+            && T.TryCreate(reader.ValueSpan, out var fast))
+            return fast;
+
         var value = reader.GetString();
         if (value is null)
             return null;
@@ -40,6 +46,9 @@ internal sealed class AtDatetimeJsonConverter : JsonConverter<AtDatetime>
     {
         if (reader.TokenType != JsonTokenType.String)
             throw new JsonException(null, new FormatException($"A datetime must be a JSON string, not {reader.TokenType}."));
+
+        if (!reader.ValueIsEscaped && !reader.HasValueSequence && AtDatetime.TryCreate(reader.ValueSpan, out var valid))
+            return valid;
 
         return AtDatetime.FromWire(reader.GetString()!);
     }

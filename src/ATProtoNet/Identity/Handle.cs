@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Identity;
@@ -11,16 +10,8 @@ namespace ATProtoNet.Identity;
 /// <see cref="Value"/> is always normalized and equality and ordering are ordinal on it.
 /// </remarks>
 [JsonConverter(typeof(IdentifierJsonConverter<Handle>))]
-public sealed partial record Handle : IIdentifier<Handle>
+public sealed record Handle : IIdentifier<Handle>
 {
-    private const int MaxLength = 253;
-
-    // Handle must be a valid domain name
-    // Each label: 1-63 chars, alphanumeric + hyphens, no leading/trailing hyphens
-    // The top-level label may not start with a digit
-    [GeneratedRegex(@"^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\z")]
-    private static partial Regex HandlePattern();
-
     /// <summary><c>handle.invalid</c>: what an account is shown as when its handle does not verify bidirectionally. The <c>.invalid</c> TLD never resolves.</summary>
     public static Handle Invalid { get; } = new("handle.invalid");
 
@@ -50,8 +41,13 @@ public sealed partial record Handle : IIdentifier<Handle>
         TryCreate(span, text, out result);
 
     // Whether span is a handle exactly as written: no @ prefix is stripped. Case is not significant.
-    internal static bool IsValidSyntax(ReadOnlySpan<char> span) =>
-        span.Length <= MaxLength && HandlePattern().IsMatch(span);
+    //
+    // A handle is a domain name: two or more labels of 1-63 letters, digits and hyphens, none starting or
+    // ending with a hyphen, and the top-level label not starting with a digit.
+    internal static bool IsValidSyntax(ReadOnlySpan<char> span) => IdentifierSyntax.IsHandle(span, out _);
+
+    // Creates the handle of text already known to be valid, lower-cased.
+    internal static Handle FromValidated(string text) => new(text.ToLowerInvariant());
 
     internal static bool TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out Handle? result)
     {
@@ -63,12 +59,29 @@ public sealed partial record Handle : IIdentifier<Handle>
             text = null;
         }
 
-        if (!IsValidSyntax(span))
+        if (!IdentifierSyntax.IsHandle(span, out var hasUpper))
             return false;
 
-        // The pattern admits ASCII only, so invariant lower-casing is the whole normalization.
-        // ToLowerInvariant returns the same instance when nothing changes.
-        result = new Handle((text ?? span.ToString()).ToLowerInvariant());
+        // The syntax admits ASCII only, so invariant lower-casing is the whole normalization.
+        text ??= span.ToString();
+        result = new Handle(hasUpper ? text.ToLowerInvariant() : text);
+        return true;
+    }
+
+    static bool IIdentifier<Handle>.TryCreate(ReadOnlySpan<byte> utf8, [NotNullWhen(true)] out Handle? result) =>
+        TryCreate(utf8, out result);
+
+    internal static bool TryCreate(ReadOnlySpan<byte> utf8, [NotNullWhen(true)] out Handle? result)
+    {
+        // An @-prefixed handle takes the UTF-16 path, which strips the prefix.
+        if (!IdentifierSyntax.IsHandle(utf8, out var hasUpper))
+        {
+            result = null;
+            return false;
+        }
+
+        var text = IdentifierSyntax.ToAsciiString(utf8);
+        result = new Handle(hasUpper ? text.ToLowerInvariant() : text);
         return true;
     }
 

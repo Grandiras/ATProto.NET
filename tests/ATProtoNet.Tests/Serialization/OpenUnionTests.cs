@@ -279,6 +279,72 @@ public class OpenUnionTests
         Assert.IsType<LinkFeature>(link);
     }
 
+    [Theory]
+    [InlineData("""{"$type":"app.bsky.richtext.facet#mention","did":"not-a-did"}""", "$.did", nameof(ATProtoNet.Identity.Did))]
+    [InlineData("""{"did":"not-a-did","$type":"app.bsky.richtext.facet#mention"}""", "$.did", nameof(ATProtoNet.Identity.Did))]
+    [InlineData("""{"$type":"app.bsky.richtext.facet#link","uri":7}""", "$.uri", nameof(String))]
+    public void Deserialize_InvalidMemberOfAVariant_NamesItsPathWithinTheVariant(string json, string path, string type)
+    {
+        var ex = Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<FacetFeature>(json, Options));
+
+        Assert.Equal(path, ex.Path);
+        Assert.Contains(type, ex.Message, StringComparison.Ordinal);
+    }
+
+    // Unions nested nearly as deep as the reader allows, around a member no variant accepts. The expected
+    // errors are what origin/main threw, where every union member went through JsonSerializer.Deserialize.
+    [Theory]
+    [InlineData("embed", false)]
+    [InlineData("embed", true)]
+    [InlineData("post embed", false)]
+    [InlineData("post embed", true)]
+    [InlineData("thread parent", false)]
+    [InlineData("thread parent", true)]
+    public async Task Deserialize_InvalidMemberUnderDeeplyNestedUnions_FailsFastWithTheErrorOfOneDeserialize(
+        string nesting, bool onThreadPool)
+    {
+        const int depth = 60;
+        const string embed = """{"$type":"app.bsky.embed.recordWithMedia","media":""";
+        const string badExternal = """{"$type":"app.bsky.embed.external","external":5}""";
+        var embeds = string.Concat(Enumerable.Repeat(embed, depth)) + badExternal + new string('}', depth);
+
+        var (type, json, path, message) = nesting switch
+        {
+            "embed" => (typeof(EmbedBase), embeds, "$.external",
+                "The JSON value could not be converted to ATProtoNet.Lexicon.App.Bsky.Embed.ExternalInfo. Path: $.external | LineNumber: 0 | BytePositionInLine: 47."),
+            "post embed" => (typeof(PostRecord), $$"""{"text":"t","createdAt":"2024-01-01T00:00:00Z","embed":{{embeds}}}""", "$.external",
+                "The JSON value could not be converted to ATProtoNet.Lexicon.App.Bsky.Embed.ExternalInfo. Path: $.external | LineNumber: 0 | BytePositionInLine: 47."),
+            _ => (typeof(ThreadNode),
+                string.Concat(Enumerable.Repeat("""{"$type":"app.bsky.feed.defs#threadViewPost","parent":""", depth))
+                    + """{"$type":"app.bsky.feed.defs#notFoundPost","uri":"bad","notFound":true}""" + new string('}', depth),
+                "$.uri",
+                "The JSON value could not be converted to ATProtoNet.Identity.AtUri. Path: $.uri | LineNumber: 0 | BytePositionInLine: 54."),
+        };
+
+        // A thread-pool thread has the smallest stack a read gets; the other thread's stack is large
+        // enough that only the time the read takes can fail it.
+        var failure = new TaskCompletionSource<Exception?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        void Read() => failure.SetResult(Record.Exception(() => JsonSerializer.Deserialize(json, type, Options)));
+        if (onThreadPool)
+            ThreadPool.QueueUserWorkItem(_ => Read());
+        else
+            new Thread(Read, maxStackSize: 256 << 20) { IsBackground = true }.Start();
+
+        var ex = Assert.IsType<JsonException>(
+            await failure.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+        Assert.Equal(path, ex.Path);
+        Assert.Equal(message, ex.Message);
+    }
+
+    [Fact]
+    public void Deserialize_EscapedDiscriminatorValue_IsMatchedUnescaped()
+    {
+        var tag = JsonSerializer.Deserialize<FacetFeature>(
+            """{"$type":"app.bsky.richtext.facet\u0023tag","tag":"dotnet"}""", Options);
+
+        Assert.Equal("dotnet", Assert.IsType<TagFeature>(tag).Tag);
+    }
+
     [Fact]
     public void Deserialize_UtfEightDiscriminatorWithEscapes_IsMatchedUnescaped()
     {
@@ -288,5 +354,148 @@ public class OpenUnionTests
         var tag = JsonSerializer.Deserialize<FacetFeature>(json, Options);
 
         Assert.Equal("dotnet", Assert.IsType<TagFeature>(tag).Tag);
+    }
+
+    // A mention and a tag, the mention read by a custom converter. origin/main confined that converter to
+    // the mention's value and checked that it read all of it.
+    private const string MentionThenTagPost = """
+        {"text":"t","createdAt":"2024-01-01T00:00:00Z","facets":[{"index":{"byteStart":0,"byteEnd":1},"features":[
+        {"$type":"app.bsky.richtext.facet#mention","did":"did:plc:a"},{"$type":"app.bsky.richtext.facet#tag","tag":"x"}]}]}
+        """;
+
+    [Fact]
+    public void Deserialize_VariantConverterThatReadsPastItsValue_CannotReachTheNextMember()
+    {
+        var options = new JsonSerializerOptions(Options);
+        options.Converters.Insert(0, new OverReadingConverter<MentionFeature>());
+
+        var post = JsonSerializer.Deserialize<PostRecord>(MentionThenTagPost, options)!;
+
+        Assert.Collection(
+            Assert.Single(post.Facets!).Features,
+            Assert.Null,
+            feature => Assert.Equal("x", Assert.IsType<TagFeature>(feature).Tag));
+    }
+
+    [Fact]
+    public void Deserialize_VariantConverterThatStopsShortOfItsValue_FailsAsDeserializeWould()
+    {
+        var options = new JsonSerializerOptions(Options);
+        options.Converters.Insert(0, new UnderReadingConverter<MentionFeature>());
+
+        var ex = Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<PostRecord>(MentionThenTagPost, options));
+
+        Assert.Equal("$", ex.Path);
+        Assert.Equal(
+            $"The converter '{typeof(UnderReadingConverter<MentionFeature>)}' read too much or not enough. Path: $ | LineNumber: 0 | BytePositionInLine: 1.",
+            ex.Message);
+    }
+
+    // A converter that catches an invalid union member and skips it, as origin/main left the reader at the
+    // member's start: it reads on after the member, whether the union is the outermost one read or is
+    // nested in a record-with-media embed, and whatever the error.
+    [Theory]
+    [InlineData(false, "\"bad\"", false)]
+    [InlineData(false, "\"bad\"", true)]
+    [InlineData(false, "5", false)]
+    [InlineData(false, "5", true)]
+    [InlineData(true, "\"bad\"", false)]
+    [InlineData(true, "\"bad\"", true)]
+    [InlineData(true, "5", false)]
+    [InlineData(true, "5", true)]
+    public void Deserialize_ConverterThatSkipsAnInvalidUnionMember_ReadsOnAfterTheMember(
+        bool nested, string did, bool tokenByToken)
+    {
+        var images = $$"""
+            {"$type":"app.bsky.embed.images",
+             "feature":{"$type":"app.bsky.richtext.facet#mention","did":{{did}},"alt":"inside the feature"},
+             "alt":"after the feature","images":[]}
+            """;
+        var json = nested
+            ? $$$"""
+                {"$type":"app.bsky.embed.recordWithMedia","record":{"record":{"uri":"at://did:plc:a/app.bsky.feed.post/3k2la",
+                 "cid":"bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"}},"media":{{{images}}}}
+                """
+            : images;
+        var options = new JsonSerializerOptions(Options);
+        options.Converters.Insert(0, new LenientImagesConverter(tokenByToken));
+
+        var embed = JsonSerializer.Deserialize<EmbedBase>(json, options);
+
+        var read = Assert.IsType<ImagesEmbed>(nested ? Assert.IsType<RecordWithMediaEmbed>(embed).Media : embed);
+        Assert.Equal("after the feature", read.ExtensionData!["alt"].GetString());
+    }
+
+    // Reads an images embed's "feature" with the facet-feature union's converter, skipping it when it is
+    // invalid, and keeps the first "alt" it meets. It reads member by member, or every token up to its
+    // end, which ends in the right place even when a skip did not.
+    private sealed class LenientImagesConverter(bool tokenByToken) : JsonConverter<ImagesEmbed>
+    {
+        public override ImagesEmbed Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var features = (JsonConverter<FacetFeature>)options.GetConverter(typeof(FacetFeature));
+            var depth = reader.CurrentDepth;
+            string? alt = null;
+            while (reader.Read() && (tokenByToken
+                ? reader.TokenType != JsonTokenType.EndObject || reader.CurrentDepth != depth
+                : reader.TokenType == JsonTokenType.PropertyName))
+            {
+                if (reader.TokenType != JsonTokenType.PropertyName)
+                    continue;
+
+                var name = reader.GetString();
+                reader.Read();
+                if (name == "feature")
+                {
+                    try
+                    {
+                        features.Read(ref reader, typeof(FacetFeature), options);
+                    }
+                    catch (JsonException)
+                    {
+                        reader.Skip();
+                    }
+                }
+                else if (name == "alt")
+                {
+                    alt ??= reader.GetString();
+                }
+                else if (!tokenByToken)
+                {
+                    reader.Skip();
+                }
+            }
+
+            return new ImagesEmbed
+            {
+                Images = [],
+                ExtensionData = new Dictionary<string, JsonElement> { ["alt"] = JsonSerializer.SerializeToElement(alt) },
+            };
+        }
+
+        public override void Write(Utf8JsonWriter writer, ImagesEmbed value, JsonSerializerOptions options) => writer.WriteNullValue();
+    }
+
+    // Skips its value, then the one after it if the reader has one.
+    private sealed class OverReadingConverter<T> : JsonConverter<T>
+    {
+        public override T? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            reader.Skip();
+            if (reader.Read())
+                reader.Skip();
+
+            return default;
+        }
+
+        public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options) => writer.WriteNullValue();
+    }
+
+    // Returns without reading its value.
+    private sealed class UnderReadingConverter<T> : JsonConverter<T>
+    {
+        public override T? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => default;
+
+        public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options) => writer.WriteNullValue();
     }
 }

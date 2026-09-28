@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Identity;
@@ -8,13 +7,8 @@ namespace ATProtoNet.Identity;
 /// <summary>Represents a record key used to identify individual records within a collection. Record keys have specific restrictions on allowed characters and patterns. Common patterns: "self" (singleton), TID (timestamp-based), or custom strings.</summary>
 /// <remarks>Record keys are case-sensitive; equality and ordering are ordinal on <see cref="Value"/>.</remarks>
 [JsonConverter(typeof(IdentifierJsonConverter<RecordKey>))]
-public sealed partial record RecordKey : IIdentifier<RecordKey>
+public sealed record RecordKey : IIdentifier<RecordKey>
 {
-    // 1-512 characters from A-Z a-z 0-9 . - _ : ~ (the URI "unreserved" set plus ':'),
-    // excluding the relative-path segments "." and "..".
-    [GeneratedRegex(@"^[A-Za-z0-9._:~-]{1,512}\z")]
-    private static partial Regex RecordKeyPattern();
-
     /// <summary>A well-known record key for singleton records (e.g., profile records).</summary>
     public static readonly RecordKey Self = new("self");
 
@@ -43,11 +37,23 @@ public sealed partial record RecordKey : IIdentifier<RecordKey>
     static bool IIdentifier<RecordKey>.TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out RecordKey? result) =>
         TryCreate(span, text, out result);
 
+    // Creates the record key of text already known to be valid.
+    internal static RecordKey FromValidated(string text) => new(text);
+
+    // 1-512 characters from A-Z a-z 0-9 . - _ : ~ (the URI "unreserved" set plus ':'), excluding the
+    // relative-path segments "." and "..".
     internal static bool TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out RecordKey? result)
     {
-        result = span is not "." and not ".." && RecordKeyPattern().IsMatch(span)
-            ? new RecordKey(text ?? span.ToString())
-            : null;
+        result = IdentifierSyntax.IsRecordKey(span) ? new RecordKey(text ?? span.ToString()) : null;
+        return result is not null;
+    }
+
+    static bool IIdentifier<RecordKey>.TryCreate(ReadOnlySpan<byte> utf8, [NotNullWhen(true)] out RecordKey? result) =>
+        TryCreate(utf8, out result);
+
+    internal static bool TryCreate(ReadOnlySpan<byte> utf8, [NotNullWhen(true)] out RecordKey? result)
+    {
+        result = IdentifierSyntax.IsRecordKey(utf8) ? new RecordKey(IdentifierSyntax.ToAsciiString(utf8)) : null;
         return result is not null;
     }
 

@@ -76,18 +76,27 @@ public sealed record AtIdentifier : IIdentifier<AtIdentifier>
     static bool IIdentifier<AtIdentifier>.TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out AtIdentifier? result) =>
         TryCreate(span, text, out result);
 
-    // Parses an identifier exactly as written, as the authority of an AT URI requires: the @ prefix
-    // Handle.Parse tolerates in user input is rejected.
-    internal static bool TryCreateStrict(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out AtIdentifier? result)
+    static bool IIdentifier<AtIdentifier>.TryCreate(ReadOnlySpan<byte> utf8, [NotNullWhen(true)] out AtIdentifier? result)
     {
-        if (span.StartsWith('@'))
+        result = null;
+        if (utf8.StartsWith("did:"u8))
         {
-            result = null;
-            return false;
+            if (Identity.Did.TryCreate(utf8, out var did))
+                result = new AtIdentifier(did);
+        }
+        else if (Identity.Handle.TryCreate(utf8, out var handle))
+        {
+            result = new AtIdentifier(handle);
         }
 
-        return TryCreate(span, text, out result);
+        return result is not null;
     }
+
+    // Creates the identifier of text already known to be a valid DID or handle.
+    internal static AtIdentifier FromValidated(string text) =>
+        text.StartsWith("did:", StringComparison.Ordinal)
+            ? new AtIdentifier(Identity.Did.FromValidated(text))
+            : new AtIdentifier(Identity.Handle.FromValidated(text));
 
     internal static bool TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out AtIdentifier? result)
     {

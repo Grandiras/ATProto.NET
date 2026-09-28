@@ -412,6 +412,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Bodies from untrusted senders go through one bounded reader** — the Tap webhook, record proofs, repository downloads and space recovery use the identity and OAuth fetches' reader, with their own limits and errors; a response's declared length pre-allocates at most 1 MiB, and a webhook sender's none (#180)
 - **Signature checks against a DID document share one refetch-once path** — the Sync 1.1, label, service auth and space token verifiers and `SpaceSyncer` keep their key rules and errors. `SpaceCommitVerifier.Verify` returns `false`, not an exception, for a curve this platform lacks (#180)
 - **Every bounded cache evicts the least recently used entry** — the DPoP key, nonce, client-metadata, JWK and OAuth metadata caches no longer clear themselves or drop arbitrary entries when full; `CachingLexiconResolver` runs on `CachingDidResolver`'s cache core (#180)
+- **Faster JSON model (de)serialization, XRPC calls, Jetstream parsing and CAR reading** — identifiers and datetimes are validated without regular expressions, straight from the UTF-8 bytes; `AtUri` builds its parts and `Cid` its string on first use; a union member is read in one pass. What is accepted and produced is unchanged (#190)
 
 ### Fixed
 

@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Identity;
@@ -11,15 +10,10 @@ namespace ATProtoNet.Identity;
 /// order of <see cref="ToInt64"/>.
 /// </remarks>
 [JsonConverter(typeof(IdentifierJsonConverter<Tid>))]
-public sealed partial record Tid : IIdentifier<Tid>
+public sealed record Tid : IIdentifier<Tid>
 {
     private const string Base32SortableChars = "234567abcdefghijklmnopqrstuvwxyz";
     private const int TidLength = 13;
-
-    // The first character carries the high bit, which must be zero, so it is limited to the
-    // lower half of the alphabet.
-    [GeneratedRegex(@"^[234567abcdefghij][234567abcdefghijklmnopqrstuvwxyz]{12}\z")]
-    private static partial Regex TidPattern();
 
     /// <summary>The TID string value.</summary>
     public string Value { get; }
@@ -46,9 +40,20 @@ public sealed partial record Tid : IIdentifier<Tid>
     static bool IIdentifier<Tid>.TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out Tid? result) =>
         TryCreate(span, text, out result);
 
+    // 13 base32-sortable characters. The first carries the high bit, which must be zero, so it is limited
+    // to the lower half of the alphabet.
     internal static bool TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out Tid? result)
     {
-        result = TidPattern().IsMatch(span) ? new Tid(text ?? span.ToString()) : null;
+        result = IdentifierSyntax.IsTid(span) ? new Tid(text ?? span.ToString()) : null;
+        return result is not null;
+    }
+
+    static bool IIdentifier<Tid>.TryCreate(ReadOnlySpan<byte> utf8, [NotNullWhen(true)] out Tid? result) =>
+        TryCreate(utf8, out result);
+
+    internal static bool TryCreate(ReadOnlySpan<byte> utf8, [NotNullWhen(true)] out Tid? result)
+    {
+        result = IdentifierSyntax.IsTid(utf8) ? new Tid(IdentifierSyntax.ToAsciiString(utf8)) : null;
         return result is not null;
     }
 

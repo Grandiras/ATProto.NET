@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Identity;
@@ -12,15 +11,8 @@ namespace ATProtoNet.Identity;
 /// <c>atproto-interop-tests</c> syntax fixtures.
 /// </remarks>
 [JsonConverter(typeof(IdentifierJsonConverter<Did>))]
-public sealed partial record Did : IIdentifier<Did>
+public sealed record Did : IIdentifier<Did>
 {
-    private const int MaxLength = 2048;
-
-    // did:<method>:<method-specific-id>. The method is lowercase letters only; the id may
-    // contain '%' (percent-encoding) and ':', but may not end with either.
-    [GeneratedRegex(@"^did:[a-z]+:[a-zA-Z0-9._:%-]*[a-zA-Z0-9._-]\z")]
-    private static partial Regex DidPattern();
-
     /// <summary>The full DID string value.</summary>
     public string Value { get; }
 
@@ -52,11 +44,23 @@ public sealed partial record Did : IIdentifier<Did>
     static bool IIdentifier<Did>.TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out Did? result) =>
         TryCreate(span, text, out result);
 
+    // Creates the DID of text already known to be valid.
+    internal static Did FromValidated(string text) => new(text);
+
+    // did:<method>:<method-specific-id>. The method is lowercase letters only; the id may contain '%'
+    // (percent-encoding) and ':', but may not end with either.
     internal static bool TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out Did? result)
     {
-        result = span.Length <= MaxLength && DidPattern().IsMatch(span)
-            ? new Did(text ?? span.ToString())
-            : null;
+        result = IdentifierSyntax.IsDid(span) ? new Did(text ?? span.ToString()) : null;
+        return result is not null;
+    }
+
+    static bool IIdentifier<Did>.TryCreate(ReadOnlySpan<byte> utf8, [NotNullWhen(true)] out Did? result) =>
+        TryCreate(utf8, out result);
+
+    internal static bool TryCreate(ReadOnlySpan<byte> utf8, [NotNullWhen(true)] out Did? result)
+    {
+        result = IdentifierSyntax.IsDid(utf8) ? new Did(IdentifierSyntax.ToAsciiString(utf8)) : null;
         return result is not null;
     }
 

@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
 using System.Text.Json.Serialization;
 using ATProtoNet.Serialization;
 
@@ -18,28 +19,39 @@ public sealed record AtUri : IIdentifier<AtUri>
     private const string Scheme = "at://";
     private const int MaxLength = 8 * 1024;
 
+    // Where the parts end in Value: just past the authority, and just past the collection (-1 without
+    // one). Parsing validates every part but builds each only on first use, since most URIs read off
+    // the wire are only ever compared or written back.
+    private readonly int _authorityEnd;
+    private readonly int _collectionEnd;
+
+    // The parts built so far. A race builds a part twice, to equal values.
+    private Parts? _parts;
+
     /// <summary>The full AT URI string value.</summary>
     public string Value { get; }
 
     /// <summary>The authority part (DID or handle), as written in the URI.</summary>
-    public string Authority { get; }
+    public string Authority => (_parts ??= new()).Authority ??= Value[Scheme.Length.._authorityEnd];
 
     /// <summary>The authority parsed as an <see cref="AtIdentifier"/>. A handle authority is lower-cased here, as <see cref="Handle"/> always is.</summary>
-    public AtIdentifier Repo { get; }
+    public AtIdentifier Repo => (_parts ??= new()).Repo ??= AtIdentifier.FromValidated(Authority);
 
     /// <summary>The collection NSID, if present.</summary>
-    public Nsid? Collection { get; }
+    public Nsid? Collection => _collectionEnd < 0
+        ? null
+        : (_parts ??= new()).Collection ??= Nsid.FromValidated(Value[(_authorityEnd + 1).._collectionEnd]);
 
     /// <summary>The record key, if present.</summary>
-    public RecordKey? RecordKey { get; }
+    public RecordKey? RecordKey => _collectionEnd < 0 || _collectionEnd == Value.Length
+        ? null
+        : (_parts ??= new()).RecordKey ??= Identity.RecordKey.FromValidated(Value[(_collectionEnd + 1)..]);
 
-    private AtUri(string value, string authority, AtIdentifier repo, Nsid? collection, RecordKey? recordKey)
+    private AtUri(string value, int authorityEnd, int collectionEnd)
     {
         Value = value;
-        Authority = authority;
-        Repo = repo;
-        Collection = collection;
-        RecordKey = recordKey;
+        _authorityEnd = authorityEnd;
+        _collectionEnd = collectionEnd;
     }
 
     /// <summary>Creates an AT URI from a string value with validation.</summary>
@@ -56,51 +68,68 @@ public sealed record AtUri : IIdentifier<AtUri>
     public static bool TryParse([NotNullWhen(true)] string? value, [NotNullWhen(true)] out AtUri? atUri)
     {
         atUri = null;
-        return value is not null && TryCreate(value, out atUri);
+        return value is not null && TryCreate(value, value, out atUri);
     }
 
-    static bool IIdentifier<AtUri>.TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out AtUri? result)
+    static bool IIdentifier<AtUri>.TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out AtUri? result) =>
+        TryCreate(span, text, out result);
+
+    static bool IIdentifier<AtUri>.TryCreate(ReadOnlySpan<byte> utf8, [NotNullWhen(true)] out AtUri? result)
     {
-        result = null;
-        return span.StartsWith(Scheme, StringComparison.Ordinal)
-            && span.Length <= MaxLength
-            && TryCreate(text ?? span.ToString(), out result);
+        result = TryParseSyntax(utf8, out var authorityEnd, out var collectionEnd)
+            ? new AtUri(IdentifierSyntax.ToAsciiString(utf8), authorityEnd, collectionEnd)
+            : null;
+        return result is not null;
     }
 
-    private static bool TryCreate(string value, [NotNullWhen(true)] out AtUri? result)
+    private static bool TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out AtUri? result)
     {
-        result = null;
-        if (value.Length > MaxLength || !value.StartsWith(Scheme, StringComparison.Ordinal))
+        result = TryParseSyntax(span, out var authorityEnd, out var collectionEnd)
+            ? new AtUri(text ?? span.ToString(), authorityEnd, collectionEnd)
+            : null;
+        return result is not null;
+    }
+
+    // Validates at://AUTHORITY[/COLLECTION[/RKEY]] and finds where the authority and the collection end.
+    // Each part's own syntax excludes '/', '?', '#' and whitespace, so splitting on '/' and validating
+    // every part also rejects queries, fragments and empty segments.
+    private static bool TryParseSyntax<TChar>(ReadOnlySpan<TChar> s, out int authorityEnd, out int collectionEnd)
+        where TChar : unmanaged, IBinaryInteger<TChar>
+    {
+        authorityEnd = collectionEnd = -1;
+        if (s.Length > MaxLength || s.Length < Scheme.Length)
             return false;
 
-        // Each part's own syntax excludes '/', '?', '#' and whitespace, so splitting on '/' and
-        // validating every part also rejects queries, fragments and empty segments.
-        var path = value.AsSpan(Scheme.Length);
-        var slash = path.IndexOf('/');
-        var authoritySpan = slash < 0 ? path : path[..slash];
-        if (!AtIdentifier.TryCreateStrict(authoritySpan, null, out var repo))
-            return false;
-
-        // A handle is lower-cased in Repo; Authority keeps the text as written.
-        var authority = authoritySpan.SequenceEqual(repo.Value) ? repo.Value : authoritySpan.ToString();
-
-        Nsid? collection = null;
-        Identity.RecordKey? rkey = null;
-        if (slash >= 0)
+        for (var i = 0; i < Scheme.Length; i++)
         {
-            path = path[(slash + 1)..];
-            slash = path.IndexOf('/');
-            var collectionSpan = slash < 0 ? path : path[..slash];
-            if (!Nsid.TryCreate(collectionSpan, null, out collection))
-                return false;
-
-            if (slash >= 0 && !Identity.RecordKey.TryCreate(path[(slash + 1)..], null, out rkey))
+            if (uint.CreateTruncating(s[i]) != Scheme[i])
                 return false;
         }
 
-        result = new AtUri(value, authority, repo, collection, rkey);
-        return true;
+        var slash = TChar.CreateTruncating('/');
+        var next = s[Scheme.Length..].IndexOf(slash);
+        authorityEnd = next < 0 ? s.Length : Scheme.Length + next;
+
+        // The authority is a DID or a handle exactly as written: the @ prefix Handle.Parse tolerates in
+        // user input is not a handle character.
+        var authority = s[Scheme.Length..authorityEnd];
+        if (!(StartsWithDid(authority) ? IdentifierSyntax.IsDid(authority) : IdentifierSyntax.IsHandle(authority, out _)))
+            return false;
+
+        if (next < 0)
+            return true;
+
+        next = s[(authorityEnd + 1)..].IndexOf(slash);
+        collectionEnd = next < 0 ? s.Length : authorityEnd + 1 + next;
+        return IdentifierSyntax.IsNsid(s[(authorityEnd + 1)..collectionEnd])
+            && (next < 0 || IdentifierSyntax.IsRecordKey(s[(collectionEnd + 1)..]));
     }
+
+    private static bool StartsWithDid<TChar>(ReadOnlySpan<TChar> s)
+        where TChar : unmanaged, IBinaryInteger<TChar>
+        => s.Length >= 4
+            && uint.CreateTruncating(s[0]) == 'd' && uint.CreateTruncating(s[1]) == 'i'
+            && uint.CreateTruncating(s[2]) == 'd' && uint.CreateTruncating(s[3]) == ':';
 
     /// <summary>Creates a new AT URI from components.</summary>
     /// <param name="repo">The repository: a DID or handle.</param>
@@ -122,7 +151,11 @@ public sealed record AtUri : IIdentifier<AtUri>
             : rkey is null ? $"{Scheme}{repo.Value}/{collection.Value}"
             : $"{Scheme}{repo.Value}/{collection.Value}/{rkey.Value}";
 
-        return new AtUri(value, repo.Value, repo, collection, rkey);
+        var authorityEnd = Scheme.Length + repo.Value.Length;
+        return new AtUri(value, authorityEnd, collection is null ? -1 : authorityEnd + 1 + collection.Value.Length)
+        {
+            _parts = new() { Authority = repo.Value, Repo = repo, Collection = collection, RecordKey = rkey },
+        };
     }
 
     /// <summary>Implicitly converts a <see cref="AtUri"/> to its <see cref="string"/> representation.</summary>
@@ -148,4 +181,12 @@ public sealed record AtUri : IIdentifier<AtUri>
 
     /// <inheritdoc />
     public override string ToString() => Value;
+
+    private sealed class Parts
+    {
+        public string? Authority;
+        public AtIdentifier? Repo;
+        public Nsid? Collection;
+        public RecordKey? RecordKey;
+    }
 }

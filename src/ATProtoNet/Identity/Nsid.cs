@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Identity;
@@ -8,16 +7,8 @@ namespace ATProtoNet.Identity;
 /// <summary>Represents a Namespaced Identifier (NSID) used to identify Lexicon schemas. Format: segment.segment.name (e.g., com.atproto.repo.createRecord)</summary>
 /// <remarks>Equality and ordering are ordinal on <see cref="Value"/>.</remarks>
 [JsonConverter(typeof(IdentifierJsonConverter<Nsid>))]
-public sealed partial record Nsid : IIdentifier<Nsid>
+public sealed record Nsid : IIdentifier<Nsid>
 {
-    private const int MaxLength = 317;
-
-    // The spec's reference pattern: a reversed-domain authority of at least two segments
-    // (1-63 chars each, no leading/trailing hyphen, the first not starting with a digit),
-    // then a name segment of 1-63 ASCII letters and digits starting with a letter.
-    [GeneratedRegex(@"^[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(\.[a-zA-Z]([a-zA-Z0-9]{0,62})?)\z")]
-    private static partial Regex NsidPattern();
-
     /// <summary>The full NSID string value.</summary>
     public string Value { get; }
 
@@ -52,11 +43,24 @@ public sealed partial record Nsid : IIdentifier<Nsid>
     static bool IIdentifier<Nsid>.TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out Nsid? result) =>
         TryCreate(span, text, out result);
 
+    // Creates the NSID of text already known to be valid.
+    internal static Nsid FromValidated(string text) => new(text);
+
+    // The spec's reference syntax: a reversed-domain authority of at least two segments (1-63 chars each,
+    // no leading/trailing hyphen, the first not starting with a digit), then a name segment of 1-63 ASCII
+    // letters and digits starting with a letter.
     internal static bool TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out Nsid? result)
     {
-        result = span.Length <= MaxLength && NsidPattern().IsMatch(span)
-            ? new Nsid(text ?? span.ToString())
-            : null;
+        result = IdentifierSyntax.IsNsid(span) ? new Nsid(text ?? span.ToString()) : null;
+        return result is not null;
+    }
+
+    static bool IIdentifier<Nsid>.TryCreate(ReadOnlySpan<byte> utf8, [NotNullWhen(true)] out Nsid? result) =>
+        TryCreate(utf8, out result);
+
+    internal static bool TryCreate(ReadOnlySpan<byte> utf8, [NotNullWhen(true)] out Nsid? result)
+    {
+        result = IdentifierSyntax.IsNsid(utf8) ? new Nsid(IdentifierSyntax.ToAsciiString(utf8)) : null;
         return result is not null;
     }
 

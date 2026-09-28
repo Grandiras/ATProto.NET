@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Numerics;
 using System.Security.Cryptography;
 using ATProtoNet.Identity;
 
@@ -125,28 +126,32 @@ public static class CidComputation
     /// <returns><c>true</c> if the CID matches; otherwise <c>false</c>.</returns>
     public static bool Verify(Cid cid, ReadOnlySpan<byte> data, bool isDagCbor = true)
     {
-        var expected = isDagCbor ? ComputeForDagCbor(data) : ComputeForRaw(data);
-        return cid.Value == expected.Value;
+        Span<byte> expected = stackalloc byte[BinaryCidLength];
+        WriteBinaryCid(data, isDagCbor ? DagCborCodec : RawCodec, expected);
+        return cid.AsSpan().SequenceEqual(expected);
     }
 
     private static Cid ComputeCid(ReadOnlySpan<byte> data, byte codec) => Cid.FromBytes(ComputeBinaryCid(data, codec));
 
     private static byte[] ComputeBinaryCid(ReadOnlySpan<byte> data, byte codec)
     {
-        // Hash the data with SHA-256
-        Span<byte> hash = stackalloc byte[32];
-        SHA256.HashData(data, hash);
-
-        // CID binary: version(1) + codec(1) + multihash_code(1) + multihash_length(1) + hash(32)
-        // All as unsigned varints (but these values all fit in 1 byte)
-        var cidBytes = new byte[1 + 1 + 1 + 1 + 32];
-        cidBytes[0] = CidVersion;
-        cidBytes[1] = codec;
-        cidBytes[2] = Sha256Code;
-        cidBytes[3] = Sha256Length;
-        hash.CopyTo(cidBytes.AsSpan(4));
-
+        var cidBytes = new byte[BinaryCidLength];
+        WriteBinaryCid(data, codec, cidBytes);
         return cidBytes;
+    }
+
+    // The length of a binary CID: version(1) + codec(1) + multihash_code(1) + multihash_length(1) + hash(32).
+    internal const int BinaryCidLength = 4 + 32;
+
+    // Writes the binary CIDv1 of data under codec into destination, which holds BinaryCidLength bytes.
+    // Each header field is an unsigned varint, but every value used here fits in one byte.
+    internal static void WriteBinaryCid(ReadOnlySpan<byte> data, byte codec, Span<byte> destination)
+    {
+        destination[0] = CidVersion;
+        destination[1] = codec;
+        destination[2] = Sha256Code;
+        destination[3] = Sha256Length;
+        SHA256.HashData(data, destination.Slice(4, 32));
     }
 }
 
@@ -221,21 +226,43 @@ internal static class Base32Lower
     // Decodes unpadded base32 in lower case into bytes, which must hold chars.Length * 5 / 8 bytes. Only
     // the canonical encoding is accepted: no character left over and the unused bits of the last one zero,
     // so each value has one string form.
-    public static bool TryDecode(ReadOnlySpan<char> chars, Span<byte> bytes)
+    public static bool TryDecode<TChar>(ReadOnlySpan<TChar> chars, Span<byte> bytes)
+        where TChar : unmanaged, IBinaryInteger<TChar>
     {
-        int buffer = 0, bits = 0, at = 0;
-        foreach (var c in chars)
+        // Eight characters are exactly five bytes, so whole groups decode without carrying bits over. An
+        // invalid character's value has bits above the low five set, which the OR of all of them keeps.
+        var at = 0;
+        var i = 0;
+        uint seen = 0;
+        for (; i + 8 <= chars.Length; i += 8)
         {
-            int value = c switch
+            ulong group = 0;
+            for (var k = 0; k < 8; k++)
             {
-                >= 'a' and <= 'z' => c - 'a',
-                >= '2' and <= '7' => c - '2' + 26,
-                _ => -1,
-            };
-            if (value < 0)
+                var value = Value(chars[i + k]);
+                seen |= value;
+                group = (group << 5) | value;
+            }
+
+            bytes[at] = (byte)(group >> 32);
+            bytes[at + 1] = (byte)(group >> 24);
+            bytes[at + 2] = (byte)(group >> 16);
+            bytes[at + 3] = (byte)(group >> 8);
+            bytes[at + 4] = (byte)group;
+            at += 5;
+        }
+
+        if (seen > 31)
+            return false;
+
+        int buffer = 0, bits = 0;
+        for (; i < chars.Length; i++)
+        {
+            var value = Value(chars[i]);
+            if (value > 31)
                 return false;
 
-            buffer = ((buffer << 5) | value) & 0xFFF;
+            buffer = ((buffer << 5) | (int)value) & 0xFFF;
             bits += 5;
             if (bits >= 8)
             {
@@ -246,4 +273,26 @@ internal static class Base32Lower
 
         return bits < 5 && (buffer & ((1 << bits) - 1)) == 0;
     }
+
+    // The value of a base32 character, or 255 for any other.
+    private static uint Value<TChar>(TChar unit)
+        where TChar : unmanaged, IBinaryInteger<TChar>
+    {
+        var c = uint.CreateTruncating(unit);
+        return c < 128 ? DecodeTable[(int)c] : 255u;
+    }
+
+    private static ReadOnlySpan<byte> DecodeTable =>
+    [
+        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+        // '2'-'7'
+        255, 255, 26, 27, 28, 29, 30, 31, 255, 255, 255, 255, 255, 255, 255, 255,
+        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+        // 'a'-'z'
+        255, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+        15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 255, 255, 255, 255, 255,
+    ];
 }

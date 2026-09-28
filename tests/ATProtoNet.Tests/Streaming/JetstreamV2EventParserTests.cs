@@ -1,6 +1,8 @@
-using ATProtoNet.Lexicon.Com.AtProto.Sync;
+using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
+using ATProtoNet.Lexicon.Com.AtProto.Sync;
 using ATProtoNet.Streaming;
 
 namespace ATProtoNet.Tests.Streaming;
@@ -232,6 +234,77 @@ public class JetstreamV2EventParserTests
         var json = CommitJson.Replace("\"time\":\"2024-09-09T19:46:02.329308Z\",", "");
 
         Assert.Null(Parse(json).Event);
+    }
+
+    [Theory]
+    [InlineData("2024-09-09T19:46:02.329308Z")]
+    [InlineData("2024-09-09T19:46:02Z")]
+    [InlineData("2024-09-09T19:46:02.1234567+01:45")]
+    [InlineData("2024-09-09T19:46:02.123456789Z")]      // finer than a tick: the framework rounds
+    [InlineData("2024-09-09T19:46:02.99999995Z")]       // and rounds up into the next second
+    [InlineData("2024-09-09T19:46:02.329-14:00")]
+    [InlineData("2024-09-09T19:46:02.329+14:30")]       // beyond a DateTimeOffset's offset
+    [InlineData("2024-09-09T19:46:02.329-00:00")]
+    [InlineData("2024-09-09t19:46:02.329z")]
+    [InlineData("2024-09-09 19:46:02.329Z")]
+    [InlineData("2024-09-09T19:46:02")]
+    [InlineData("2024-02-29T00:00:00Z")]
+    [InlineData("2023-02-29T00:00:00Z")]
+    [InlineData("2016-12-31T23:59:60Z")]
+    [InlineData("0001-01-01T00:30:00+01:00")]           // before year one in UTC
+    [InlineData("0001-01-01T00:30:00-01:00")]
+    [InlineData("9999-12-31T23:30:00-01:00")]           // after year 9999 in UTC
+    [InlineData("0000-06-01T00:00:00Z")]
+    [InlineData("\\u0032024-09-09T19:46:02.329308Z")]  // escaped
+    [InlineData("not a time")]
+    public void ParseFrame_Time_ReadsAsTheFrameworkParserDoes(string time)
+    {
+        var json = CommitJson.Replace("2024-09-09T19:46:02.329308Z", time);
+        var text = JsonDocument.Parse($"\"{time}\"").RootElement.GetString();
+        long? expected = DateTimeOffset.TryParse(
+            text, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var parsed)
+            ? (parsed.UtcDateTime - DateTime.UnixEpoch).Ticks / 10
+            : null;
+
+        Assert.Equal(expected, Parse(json).Event?.TimeUs);
+    }
+
+    [Theory]
+    [InlineData("\"collection\":\"app.bsky.feed.like\"", "\"collection\":\"app.bsky.feed.\\u006cike\"")]
+    [InlineData("\"rkey\":\"3l3qo2vuowo2b\"", "\"rkey\":\"3l3qo2vu\\u006fwo2b\"")]
+    [InlineData("\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\"", "\"did\":\"did:plc:eygmaihciaxprqvxpfvl6fl\\u006b\"")]
+    [InlineData("\"rev\":\"3l3qo2vutsw2b\"", "\"rev\":\"3l3qo2vutsw2\\u0062\"")]
+    [InlineData("\"operation\":\"create\"", "\"operation\":\"cr\\u0065ate\"")]
+    public void ParseFrame_EscapedFields_ReadAsTheirUnescapedText(string field, string escaped)
+    {
+        var expected = Assert.IsType<JetstreamCommitEvent>(Parse(CommitJson).Event);
+        var actual = Assert.IsType<JetstreamCommitEvent>(Parse(CommitJson.Replace(field, escaped)).Event);
+
+        Assert.Equal(
+            (expected.Did, expected.Collection, expected.Rkey, expected.Operation, expected.Rev, expected.Cid, expected.TimeUs),
+            (actual.Did, actual.Collection, actual.Rkey, actual.Operation, actual.Rev, actual.Cid, actual.TimeUs));
+    }
+
+    [Theory]
+    [InlineData("\"collection\":\"app.bsky.feed.like\"", "\"collection\":\"app.bsky.feed.-like\"")]
+    [InlineData("\"collection\":\"app.bsky.feed.like\"", "\"collection\":7")]
+    [InlineData("\"rkey\":\"3l3qo2vuowo2b\"", "\"rkey\":\"..\"")]
+    [InlineData("\"operation\":\"create\"", "\"operation\":\"Create\"")]
+    [InlineData("\"operation\":\"create\"", "\"operation\":null")]
+    public void ParseFrame_InvalidCommitField_Skipped(string field, string invalid)
+    {
+        Assert.Null(Parse(CommitJson.Replace(field, invalid)).Event);
+    }
+
+    [Theory]
+    [InlineData("\"rev\":\"3l3qo2vutsw2b\"", "\"rev\":\"not-a-tid\"")]
+    [InlineData("\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\"", "\"cid\":\"Qm-not-a-cid\"")]
+    public void ParseFrame_InvalidOptionalField_DropsOnlyThatField(string field, string invalid)
+    {
+        var commit = Assert.IsType<JetstreamCommitEvent>(Parse(CommitJson.Replace(field, invalid)).Event);
+
+        Assert.True(commit.Rev is null || commit.Cid is null);
+        Assert.Equal("app.bsky.feed.like", commit.Collection);
     }
 
     [Fact]

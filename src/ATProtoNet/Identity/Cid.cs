@@ -1,4 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 using ATProtoNet.Repo;
 using ATProtoNet.Serialization;
@@ -38,21 +40,35 @@ public sealed record Cid : IIdentifier<Cid>
     private const byte CidVersion1 = 0x01;
     private const byte Sha256 = 0x12;
 
-    private readonly byte[] _bytes;
+    // The binary form, held in the object rather than in an array of its own.
+    private readonly Binary _binary;
+
+    // The string form, when the CID was parsed from one; otherwise encoded on first use. A CID read off
+    // the wire is mostly compared or written back, and its binary form is what both need.
+    private string? _value;
+
+    // The digest as an array, for Digest, made on first use.
+    private byte[]? _digest;
 
     /// <summary>The CID string value.</summary>
-    public string Value { get; }
+    public string Value => _value ??= Base32Lower.EncodeWithPrefix('b', AsSpan());
 
     /// <summary>The codec of the addressed content.</summary>
-    public CidCodec Codec => (CidCodec)_bytes[1];
+    public CidCodec Codec => (CidCodec)_binary[1];
 
     /// <summary>The 32-byte SHA-256 digest of the addressed content.</summary>
-    public ReadOnlyMemory<byte> Digest => _bytes.AsMemory(4);
+    public ReadOnlyMemory<byte> Digest => _digest ??= AsSpan()[4..].ToArray();
 
-    private Cid(string value, byte[] bytes)
+    private Cid(string? value, ReadOnlySpan<byte> bytes)
     {
-        Value = value;
-        _bytes = bytes;
+        _value = value;
+        bytes.CopyTo(_binary);
+    }
+
+    [InlineArray(BinaryLength)]
+    private struct Binary
+    {
+        private byte _element;
     }
 
     /// <summary>Creates a CID from its string form with validation.</summary>
@@ -74,23 +90,29 @@ public sealed record Cid : IIdentifier<Cid>
 
     internal static bool TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out Cid? result)
     {
-        result = null;
-        if (span.Length != StringLength || span[0] != 'b')
-            return false;
-
         Span<byte> bytes = stackalloc byte[BinaryLength];
-        if (!Base32Lower.TryDecode(span[1..], bytes) || !IsValid(bytes))
-            return false;
-
-        result = new Cid(text ?? span.ToString(), bytes.ToArray());
-        return true;
+        result = TryDecode(span, bytes) ? new Cid(text, bytes) : null;
+        return result is not null;
     }
+
+    static bool IIdentifier<Cid>.TryCreate(ReadOnlySpan<byte> utf8, [NotNullWhen(true)] out Cid? result)
+    {
+        Span<byte> bytes = stackalloc byte[BinaryLength];
+        result = TryDecode(utf8, bytes) ? new Cid(null, bytes) : null;
+        return result is not null;
+    }
+
+    // Decodes the string form of a CID this type accepts into bytes, which holds BinaryLength bytes.
+    private static bool TryDecode<TChar>(ReadOnlySpan<TChar> text, Span<byte> bytes)
+        where TChar : unmanaged, IBinaryInteger<TChar>
+        => text.Length == StringLength && uint.CreateTruncating(text[0]) == 'b'
+            && Base32Lower.TryDecode(text[1..], bytes) && IsValid(bytes);
 
     // Creates a CID from its binary form, as ToBytes returns it.
     //
     // Throws ArgumentException: The bytes are not a valid atproto CID.
     internal static Cid FromBytes(ReadOnlySpan<byte> bytes) => IsValid(bytes)
-        ? new Cid(Base32Lower.EncodeWithPrefix('b', bytes), bytes.ToArray())
+        ? new Cid(null, bytes)
         : throw IIdentifier<Cid>.InvalidValue(Convert.ToHexStringLower(bytes), "binary CID");
 
     // Whether bytes is the binary form of a CID this type accepts.
@@ -103,10 +125,10 @@ public sealed record Cid : IIdentifier<Cid>
 
     /// <summary>Returns the binary form of the CID: version, codec, multihash header and digest.</summary>
     /// <returns>A new 36-byte array.</returns>
-    public byte[] ToBytes() => (byte[])_bytes.Clone();
+    public byte[] ToBytes() => AsSpan().ToArray();
 
     // The binary form, without the copy ToBytes makes.
-    internal ReadOnlySpan<byte> AsSpan() => _bytes;
+    internal ReadOnlySpan<byte> AsSpan() => _binary;
 
     /// <summary>Implicitly converts a <see cref="Cid"/> to its <see cref="string"/> representation.</summary>
     /// <param name="cid">The value to convert.</param>
@@ -120,11 +142,19 @@ public sealed record Cid : IIdentifier<Cid>
     /// <exception cref="ArgumentException">Thrown if the value is not a valid <see cref="Cid"/>.</exception>
     public static explicit operator Cid(string value) => Parse(value);
 
-    /// <inheritdoc />
-    public bool Equals(Cid? other) => other is not null && string.Equals(Value, other.Value, StringComparison.Ordinal);
+    // The string form is canonical, so comparing the binary forms is comparing the strings.
 
     /// <inheritdoc />
-    public override int GetHashCode() => Value.GetHashCode(StringComparison.Ordinal);
+    public bool Equals(Cid? other) => other is not null && AsSpan().SequenceEqual(other.AsSpan());
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+    {
+        // Seeded per process, as string hashing is: a parsed CID's digest is whatever its sender chose.
+        var hash = new HashCode();
+        hash.AddBytes(AsSpan());
+        return hash.ToHashCode();
+    }
 
     /// <inheritdoc />
     public int CompareTo(Cid? other) => string.CompareOrdinal(Value, other?.Value);
