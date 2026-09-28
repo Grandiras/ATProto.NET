@@ -734,7 +734,9 @@ These follow the Lexicons now, where 0.6 had fields that were never on the wire:
   `GetFollowersAsync` / `GetFollowsAsync` and their enumerators; `purposes` precedes `limit` in
   `GetListsAsync`; `MuteActorAsync`, `CreateReportAsync`, `DeactivateAccountAsync`,
   `QueryEventsAsync`, `ListMembersAsync` and `QuerySetsAsync` gain the inputs and filters their
-  Lexicons define before the paging arguments or the token. Name the arguments after the first.
+  Lexicons define before the paging arguments or the token, and `AtProtoClient.LoginAsync` and
+  `ServerClient.CreateSessionAsync` take `allowTakendown` before the token. Name the arguments
+  after the first.
 - **`VideoClient.UploadVideoAsync` uploads in parts and waits for processing.** It runs the
   multipart flow (`startUpload`, `uploadPart`, `finishUpload`), retries transient failures, polls
   the job and returns the completed `JobStatus`, whose `Blob` goes into a `VideoEmbed`; a failed job
@@ -1447,7 +1449,7 @@ These compile unchanged and behave differently:
 - **`DisposeAsync` is the primary way to dispose `AtProtoClient`**: it waits for a token exchange
   under way to finish and be stored. `Dispose` returns at once.
 - **A v2 `JetstreamConsumer` skips the replay of its start cursor**, which the server replays
-  inclusively, and **`#sync` events are CID-checked whenever a `Verifier` is set**.
+  inclusively.
 - **Unmatched `/xrpc/{nsid}` requests answer with an XRPC error**: `501 MethodNotImplemented` for an
   NSID no handler serves, where 0.6 answered an empty 404.
 - **A `did:web` document must name exactly the DID it was fetched for** (the comparison was
