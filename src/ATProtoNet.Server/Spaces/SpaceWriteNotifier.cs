@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using ATProtoNet.Auth;
 using ATProtoNet.Identity;
@@ -16,10 +17,13 @@ namespace ATProtoNet.Server.Spaces;
 /// no record data — only that a repo reached a new revision and hash — and say "this one
 /// advanced, read it now".</para>
 /// <para>They are deliberately <b>best-effort</b>. A dropped notification is not a lost write:
-/// the repo is caught up by a later one, or by the syncer's periodic sweep over
-/// <c>listRepos</c>, which is the actual correctness guarantee. Delivery failures are therefore
-/// logged and dropped rather than retried into a queue, and one unreachable subscriber never
-/// holds up the others.</para>
+/// the repo is caught up by a later one, or by the syncer's catch-up over <c>listRepos</c> from its
+/// <c>spaceRev</c> checkpoint, which is the actual correctness guarantee. A failed delivery is
+/// therefore logged and dropped, and one unreachable subscriber never holds up the others. The one
+/// leg that retries is a repo host's notification to its authority
+/// (<see cref="NotifyWriteInBackground"/>): the authority is what sequences a write for everyone
+/// else, so that leg is retried with backoff for <see cref="RetryWindow"/>, coalescing to the latest
+/// revision per repo and space.</para>
 /// <para>Each delivery is authenticated with service auth scoped to the method being called and
 /// addressed to the service identifier the subscriber registered — fragment and all, since that
 /// is the audience a subscriber such as
@@ -44,6 +48,13 @@ public sealed class SpaceWriteNotifier
     private readonly HttpClient _httpClient;
     private readonly ISpaceAccountSigner? _accountSigner;
     private readonly ILogger _logger;
+    private readonly Dictionary<(string Space, string Repo), PendingWrite> _pending = [];
+
+    /// <summary>How long <see cref="NotifyWriteInBackground"/> keeps retrying a failed delivery. A newer revision of the same repo and space starts the window afresh. Defaults to one hour.</summary>
+    public TimeSpan RetryWindow { get; set; } = TimeSpan.FromHours(1);
+
+    /// <summary>The delay before the first retry, which doubles with each further one up to five minutes, with jitter. Defaults to five seconds.</summary>
+    public TimeSpan RetryBaseDelay { get; set; } = TimeSpan.FromSeconds(5);
 
     /// <summary>Creates a notifier.</summary>
     /// <param name="store">The authority's state, which holds the subscriber list.</param>
@@ -78,32 +89,132 @@ public sealed class SpaceWriteNotifier
 
     /// <summary>Fans a write notification out to every service registered for the space.</summary>
     /// <param name="repoDid">The DID of the account whose repo advanced.</param>
-    /// <param name="rev">The revision of the write.</param>
+    /// <param name="repoRev">The repo's revision after the write.</param>
     /// <param name="hash">The repo's commit hash after the write.</param>
     /// <returns>The number of subscribers the notification reached.</returns>
     /// <remarks>
-    /// This is the repo host's half of the notification path. On a repo host the subscribers
+    /// One attempt, with no retry: call <see cref="NotifyWriteInBackground"/> instead to have a failed
+    /// delivery retried. This is the repo host's half of the notification path. On a repo host the subscribers
     /// include the space's authority, registered by <see cref="EnsureAuthoritySubscribedAsync"/>,
     /// which applies its write policy and forwards the notification to its own subscribers
     /// (<see cref="ForwardWriteAsync"/>). Each delivery is signed as <paramref name="repoDid"/>
     /// when an <see cref="ISpaceAccountSigner"/> holds its key.
     /// </remarks>
-    public Task<int> NotifyWriteAsync(
-        SpaceUri space, Did repoDid, Tid rev, byte[] hash, CancellationToken cancellationToken = default)
+    public async Task<int> NotifyWriteAsync(
+        SpaceUri space, Did repoDid, Tid repoRev, byte[] hash, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(space);
         ArgumentNullException.ThrowIfNull(repoDid);
-        ArgumentNullException.ThrowIfNull(rev);
+        ArgumentNullException.ThrowIfNull(repoRev);
         ArgumentNullException.ThrowIfNull(hash);
 
-        var body = new NotifyWriteRequest { Space = space, Repo = repoDid, Rev = rev, Hash = hash };
-        return FanOutAsync(space, repoDid, NotifyWrite, body, includeAuthority: true, cancellationToken);
+        var body = new NotifyWriteRequest { Space = space, Repo = repoDid, RepoRev = repoRev, Hash = hash };
+        var outcomes = await FanOutAsync(space, repoDid, NotifyWrite, body, includeAuthority: true, cancellationToken).ConfigureAwait(false);
+        return outcomes.Count(o => o == Delivery.Delivered);
     }
+
+    /// <summary>Notifies the space's subscribers (the authority first among them) of a write in the background, retrying what fails.</summary>
+    /// <param name="repoDid">The DID of the account whose repo advanced.</param>
+    /// <param name="repoRev">The repo's revision after the write.</param>
+    /// <param name="hash">The repo's commit hash after the write.</param>
+    /// <remarks>
+    /// <para>This is what a repo host calls after a write. A delivery that fails in a way that may pass
+    /// (a network error, a timeout, a 408, 429 or 5xx answer, an endpoint that does not resolve) is
+    /// retried with exponential backoff and jitter until <see cref="RetryWindow"/> runs out; one the
+    /// receiver refused (any other answer, such as <c>FutureRev</c> or a refused writer) is dropped.</para>
+    /// <para>Calls coalesce per repo and space: a newer revision replaces a pending older one and
+    /// restarts the window, and an older or equal one is ignored. The authority applies each
+    /// idempotently, so a repeated delivery is harmless.</para>
+    /// <para>The queue lives in this process. The reference PDS persists it and retries for 24 hours,
+    /// so that a restart loses nothing; here a restart drops what is pending, and the repo is caught
+    /// up by its next write. Call it again from your own durable record of writes to close that gap.</para>
+    /// </remarks>
+    public void NotifyWriteInBackground(SpaceUri space, Did repoDid, Tid repoRev, byte[] hash)
+    {
+        ArgumentNullException.ThrowIfNull(space);
+        ArgumentNullException.ThrowIfNull(repoDid);
+        ArgumentNullException.ThrowIfNull(repoRev);
+        ArgumentNullException.ThrowIfNull(hash);
+
+        var key = (space.Value, repoDid.Value);
+        var write = new PendingWrite(repoRev, hash, DateTimeOffset.UtcNow + RetryWindow);
+
+        lock (_pending)
+        {
+            // A worker is already delivering this repo: hand it the newer state.
+            if (_pending.TryGetValue(key, out var current))
+            {
+                if (repoRev.CompareTo(current.RepoRev) > 0)
+                    _pending[key] = write;
+                return;
+            }
+
+            _pending[key] = write;
+        }
+
+        _ = Task.Run(() => DeliverWithRetryAsync(space, repoDid, key));
+    }
+
+    // Delivers the latest pending write of one repo and space until it succeeds, is refused, or the
+    // window closes, picking up a newer revision whenever one arrives meanwhile.
+    private async Task DeliverWithRetryAsync(SpaceUri space, Did repoDid, (string Space, string Repo) key)
+    {
+        var attempt = 0;
+        while (true)
+        {
+            PendingWrite write;
+            lock (_pending)
+                write = _pending[key];
+
+            var retry = false;
+            try
+            {
+                var body = new NotifyWriteRequest { Space = space, Repo = repoDid, RepoRev = write.RepoRev, Hash = write.Hash };
+                var outcomes = await FanOutAsync(space, repoDid, NotifyWrite, body, includeAuthority: true, CancellationToken.None).ConfigureAwait(false);
+                retry = outcomes.Contains(Delivery.Retry);
+            }
+            catch (Exception ex)
+            {
+                // Reading the subscriber list failed, which may pass.
+                _logger.LogWarning(ex, "Notifying {Space} of a write by {Repo} failed.", space, repoDid);
+                retry = true;
+            }
+
+            TimeSpan delay;
+            lock (_pending)
+            {
+                if (!ReferenceEquals(_pending[key], write))
+                {
+                    attempt = 0;
+                    continue;
+                }
+
+                var remaining = write.Deadline - DateTimeOffset.UtcNow;
+                if (!retry || remaining <= TimeSpan.Zero)
+                {
+                    _pending.Remove(key);
+                    if (retry)
+                        _logger.LogWarning("Gave up notifying {Space} of {Repo} at {RepoRev}.", space, repoDid, write.RepoRev);
+                    return;
+                }
+
+                var backoff = Math.Min(RetryBaseDelay.TotalSeconds * Math.Pow(2, attempt++), 300);
+                delay = TimeSpan.FromSeconds(backoff * (0.5 + Random.Shared.NextDouble() / 2));
+                if (delay > remaining)
+                    delay = remaining;
+            }
+
+            await Task.Delay(delay).ConfigureAwait(false);
+        }
+    }
+
+    private sealed record PendingWrite(Tid RepoRev, byte[] Hash, DateTimeOffset Deadline);
 
     /// <summary>Forwards a write notification this authority accepted to the services registered for the space, in the background.</summary>
     /// <param name="repoDid">The DID of the account whose repo advanced.</param>
-    /// <param name="rev">The revision of the write.</param>
+    /// <param name="repoRev">The repo's revision after the write.</param>
     /// <param name="hash">The repo's commit hash after the write.</param>
+    /// <param name="sequence">The space revision <see cref="ISpaceAuthorityStore.RecordWriteAsync"/> assigned, which the syncers use to detect a gap.</param>
     /// <returns>
     /// The fan-out, which never faults: it resolves to the number of subscribers reached. The
     /// <c>notifyWrite</c> endpoint does not await it, so neither the writer's repo host nor the
@@ -117,14 +228,19 @@ public sealed class SpaceWriteNotifier
     /// host and authority it sits in the same store, and forwarding to it would only deliver the
     /// notification back to this endpoint.</para>
     /// </remarks>
-    public Task<int> ForwardWriteAsync(SpaceUri space, Did repoDid, Tid rev, byte[] hash)
+    public Task<int> ForwardWriteAsync(SpaceUri space, Did repoDid, Tid repoRev, byte[] hash, SpaceWriteSequence sequence)
     {
         ArgumentNullException.ThrowIfNull(space);
         ArgumentNullException.ThrowIfNull(repoDid);
-        ArgumentNullException.ThrowIfNull(rev);
+        ArgumentNullException.ThrowIfNull(repoRev);
         ArgumentNullException.ThrowIfNull(hash);
+        ArgumentNullException.ThrowIfNull(sequence);
 
-        var body = new NotifyWriteRequest { Space = space, Repo = repoDid, Rev = rev, Hash = hash };
+        var body = new NotifyWriteRequest
+        {
+            Space = space, Repo = repoDid, RepoRev = repoRev, Hash = hash,
+            SpaceRev = sequence.SpaceRev, PrevSpaceRev = sequence.PrevSpaceRev,
+        };
 
         // Off the caller's path, and with no cancellation token: the request that triggered this
         // completes before the deliveries do, and cancelling them with it would drop them all.
@@ -132,13 +248,14 @@ public sealed class SpaceWriteNotifier
         {
             try
             {
-                return await FanOutAsync(
+                var outcomes = await FanOutAsync(
                     space, space.Authority, NotifyWrite, body, includeAuthority: false, CancellationToken.None).ConfigureAwait(false);
+                return outcomes.Count(o => o == Delivery.Delivered);
             }
             catch (Exception ex)
             {
                 // Best-effort: a failure to even read the subscriber list is a latency cost, since
-                // every syncer's sweep over listRepos still finds the write.
+                // every syncer's catch-up over listRepos still finds the write.
                 _logger.LogWarning(ex, "Forwarding {Nsid} for {Space} failed.", SpaceNsids.NotifyWrite, space);
                 return 0;
             }
@@ -153,13 +270,14 @@ public sealed class SpaceWriteNotifier
     /// <see cref="SpaceErrors.SpaceDeleted"/> — so this is a latency optimization here too, not
     /// the mechanism a deletion depends on.
     /// </remarks>
-    public Task<int> NotifySpaceDeletedAsync(SpaceUri space, CancellationToken cancellationToken = default)
+    public async Task<int> NotifySpaceDeletedAsync(SpaceUri space, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(space);
 
         // Only the authority deletes a space, so its own registration has nothing to learn.
         var body = new NotifySpaceDeletedRequest(space);
-        return FanOutAsync(space, space.Authority, NotifySpaceDeleted, body, includeAuthority: false, cancellationToken);
+        var outcomes = await FanOutAsync(space, space.Authority, NotifySpaceDeleted, body, includeAuthority: false, cancellationToken).ConfigureAwait(false);
+        return outcomes.Count(o => o == Delivery.Delivered);
     }
 
     /// <summary>Registers a space's own authority as a subscriber for a repo's writes, if it is not the repo's owner.</summary>
@@ -200,7 +318,7 @@ public sealed class SpaceWriteNotifier
         return true;
     }
 
-    // Delivers one notification to every subscriber of a space.
+    // Delivers one notification to every subscriber of a space, reporting how each ended.
     //
     // issuer: The account the notification speaks for, which it is signed as when possible.
     //
@@ -209,7 +327,7 @@ public sealed class SpaceWriteNotifier
     // body: The request body.
     //
     // includeAuthority: Whether the space's own authority subscription is delivered to.
-    private async Task<int> FanOutAsync<TBody>(
+    private async Task<Delivery[]> FanOutAsync<TBody>(
         SpaceUri space, Did issuer, Nsid nsid, TBody body, bool includeAuthority, CancellationToken cancellationToken)
     {
         var subscribers = await _store.ListSubscribersAsync(space, cancellationToken).ConfigureAwait(false);
@@ -218,14 +336,19 @@ public sealed class SpaceWriteNotifier
             subscribers = subscribers.Where(s => !IsAuthority(space, s.Service)).ToList();
 
         if (subscribers.Count == 0)
-            return 0;
+            return [];
 
         var signer = await SpaceAccountSigning.ChooseAsync(_accountSigner, _serviceAuth, issuer, _logger, cancellationToken).ConfigureAwait(false);
         var deliveries = subscribers.Select(s => DeliverAsync(space, s, signer, nsid, body, cancellationToken));
-        var results = await Task.WhenAll(deliveries).ConfigureAwait(false);
-
-        return results.Count(delivered => delivered);
+        return await Task.WhenAll(deliveries).ConfigureAwait(false);
     }
+
+    // How one delivery ended: Retry for a failure that may pass, Failed for one that will not.
+    private enum Delivery { Delivered, Retry, Failed }
+
+    // Whether an answer says "try again later" rather than "no".
+    private static bool IsTransient(HttpStatusCode status) =>
+        status is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests || (int)status >= 500;
 
     // The aud a delivery is addressed to: the identifier the subscriber registered, except for the
     // space's own authority host, which the reference authority expects to be addressed by its bare DID.
@@ -250,7 +373,7 @@ public sealed class SpaceWriteNotifier
     private static bool IsDeliveryFailure(Exception exception, CancellationToken cancellationToken) =>
         exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested;
 
-    private async Task<bool> DeliverAsync<TBody>(
+    private async Task<Delivery> DeliverAsync<TBody>(
         SpaceUri space,
         SpaceNotifySubscriber subscriber,
         ServiceAuthGenerator signer,
@@ -266,7 +389,7 @@ public sealed class SpaceWriteNotifier
                 _logger.LogWarning(
                     "Subscriber {Service} for {Space} resolves to no delivery endpoint; skipping.",
                     subscriber.Service, space);
-                return false;
+                return Delivery.Retry;
             }
 
             using var request = new HttpRequestMessage(HttpMethod.Post, url)
@@ -278,20 +401,20 @@ public sealed class SpaceWriteNotifier
                 _httpClient, request, signer, Audience(space, subscriber.Service), nsid, cancellationToken).ConfigureAwait(false);
 
             if (response.IsSuccessStatusCode)
-                return true;
+                return Delivery.Delivered;
 
             _logger.LogWarning(
                 "Delivering {Nsid} for {Space} to {Service} answered {Status}.",
                 nsid, space, subscriber.Service, (int)response.StatusCode);
-            return false;
+            return IsTransient(response.StatusCode) ? Delivery.Retry : Delivery.Failed;
         }
         catch (Exception ex) when (IsDeliveryFailure(ex, cancellationToken))
         {
-            // Best-effort by design: the syncer's periodic sweep is what makes a dropped
+            // Best-effort by design: the syncer's catch-up over listRepos is what makes a dropped
             // notification a latency cost rather than a lost write.
             _logger.LogWarning(
                 ex, "Delivering {Nsid} for {Space} to {Service} failed.", nsid, space, subscriber.Service);
-            return false;
+            return Delivery.Retry;
         }
     }
 }

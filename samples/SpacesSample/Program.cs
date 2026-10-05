@@ -140,7 +140,7 @@ try
     // never enumerated.
     await foreach (var writer in client.Space.EnumerateReposAsync(space))
     {
-        Console.WriteLine($"\nwriter {writer.Did} @ rev {writer.Rev}");
+        Console.WriteLine($"\nwriter {writer.Did} @ repoRev {writer.RepoRev}, spaceRev {writer.SpaceRev}");
 
         using var reader = await provider.CreateReaderForRepoAsync(space, writer.Did);
         await foreach (var record in reader.Space.EnumerateRecordsAsync(space, writer.Did))

@@ -10,11 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking changes
 
 - **New optional parameters sit before `limit`** — on `GetTimelineAsync`, `GetListFeedAsync`, `GetQuotesAsync`, `CreateQueueAsync` and `UpdateQueueAsync`; live report stats are a `LiveStats`. Migration: name positional `limit`/`cursor` arguments (#210)
+- **Spaces: `repoRev`, `spaceRev`, `listRepos` checkpoints** — `Rev` is `RepoRev`; the authority sequences writes with a `spaceRev`, `listRepos` pages by it, and `RecordWriteAsync` returns it. Migration: rename `.Rev`, return `SpaceWriteSequence?` from your store, migrate the EF schema, restart syncers from `null` (#213)
 
 ### Added
 
 - **Lexicons synced with upstream `main`** — `since`/`StartCursor` for polling the timeline and list feeds, `sort` for quotes, a post's position in its author's thread, queue `recommendedLabels`, and the new report statistics (#210)
 - **`Ozone.Inbox`** — `AppealActionedSubjectAsync` lets an account appeal a moderation action against it or its content (`tools.ozone.inbox`) (#210)
+- **Spaces write retry and syncer catch-up** — `NotifyWriteInBackground` retries with backoff; `notifyWrite` answers `FutureRev`, ignores a stale `repoRev`; `SpaceSyncer.ListChangedReposAsync` and `NeedsCatchUp` resume from a `spaceRev` checkpoint (#213)
 - **Handle answers are cached** — `HandleResolver` remembers a handle's DID for `IdentityResolverOptions.HandleCacheTtl` (5 minutes; zero disables), so re-verifying a DID's handle no longer costs a lookup each time. `ResolveUncachedAsync` still looks it up afresh (#197)
 
 ### Changed

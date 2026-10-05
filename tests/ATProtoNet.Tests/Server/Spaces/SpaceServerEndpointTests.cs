@@ -311,7 +311,21 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         var body = await response.Content.ReadFromJsonAsync<ListSpaceReposResponse>(AtProtoJsonDefaults.Options);
         var repo = Assert.Single(body!.Repos);
         Assert.Equal(MemberDid, repo.Did);
-        Assert.Equal("3l6oveex3ii2l", repo.Rev);
+        Assert.Equal("3l6oveex3ii2l", repo.RepoRev);
+    }
+
+    [Fact]
+    public async Task ListRepos_WithACursorThatIsNotARevision_IsARequestError()
+    {
+        using var dpop = new TestDPoPKey();
+        var credential = await MintCredentialAsync(dpop);
+
+        // A DID cursor saved before revisions existed must not read as "nothing changed".
+        var url = $"/xrpc/{SpaceNsids.ListRepos}?space={Uri.EscapeDataString(_space.Value)}&cursor={Uri.EscapeDataString(MemberDid)}";
+        using var response = await SendWithCredentialAsync(HttpMethod.Get, url, credential, dpop);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("InvalidRequest", await ReadErrorAsync(response));
     }
 
     [Fact]
@@ -387,7 +401,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         var body = await response.Content.ReadFromJsonAsync<ListSpaceReposResponse>(AtProtoJsonDefaults.Options);
         var repo = Assert.Single(body!.Repos);
         Assert.Equal(MemberDid, repo.Did);
-        Assert.Equal("3l6oveex3ii2l", repo.Rev);
+        Assert.Equal("3l6oveex3ii2l", repo.RepoRev);
     }
 
     [Fact]
@@ -499,14 +513,14 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task NotifyWrite_RevThatIsNotATid_IsARequestErrorBeforeAnyAuthCheck()
+    public async Task NotifyWrite_RepoRevThatIsNotATid_IsARequestErrorBeforeAnyAuthCheck()
     {
-        // No Authorization header at all: the malformed rev is what gets refused.
+        // No Authorization header at all: the malformed repoRev is what gets refused.
         using var request = new HttpRequestMessage(HttpMethod.Post, $"/xrpc/{SpaceNsids.NotifyWrite}")
         {
-            // Written by hand: the request model cannot carry a malformed rev.
+            // Written by hand: the request model cannot carry a malformed repoRev.
             Content = new StringContent(
-                $$"""{"space":"{{_space}}","repo":"{{MemberDid}}","rev":"not-a-tid","hash":{"$bytes":"AQ"} }""",
+                $$"""{"space":"{{_space}}","repo":"{{MemberDid}}","repoRev":"not-a-tid","hash":{"$bytes":"AQ"} }""",
                 System.Text.Encoding.UTF8,
                 "application/json"),
         };
@@ -597,7 +611,52 @@ public class SpaceServerEndpointTests : IAsyncLifetime
 
         using var forwarded = JsonDocument.Parse(body);
         Assert.Equal(MemberDid, forwarded.RootElement.GetProperty("repo").GetString());
-        Assert.Equal("3l6oveex3ii2l", forwarded.RootElement.GetProperty("rev").GetString());
+        Assert.Equal("3l6oveex3ii2l", forwarded.RootElement.GetProperty("repoRev").GetString());
+        Assert.False(forwarded.RootElement.TryGetProperty("rev", out _));
+
+        // The authority's own sequence: the first update of the space has a spaceRev and no predecessor.
+        var listed = Assert.Single((await store.ListReposAsync(_space, 10, null)).Repos);
+        Assert.Equal(listed.SpaceRev.Value, forwarded.RootElement.GetProperty("spaceRev").GetString());
+        Assert.False(forwarded.RootElement.TryGetProperty("prevSpaceRev", out _));
+    }
+
+    [Fact]
+    public async Task NotifyWrite_RepoRevMoreThanFiveMinutesAhead_AnswersFutureRevAndRecordsNothing()
+    {
+        var micros = (DateTimeOffset.UtcNow + TimeSpan.FromMinutes(10) - DateTimeOffset.UnixEpoch).Ticks / 10;
+        var future = Tid.FromInt64(micros << 10).Value;
+
+        using var response = await NotifyWriteAsync(_space, MemberDid, _memberKey, future);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(SpaceErrors.FutureRev, await ReadErrorAsync(response));
+        Assert.DoesNotContain(MemberDid, await WriterDidsAsync(_space));
+    }
+
+    [Fact]
+    public async Task NotifyWrite_RepoRevWithinFiveMinutesAhead_IsAccepted()
+    {
+        var micros = (DateTimeOffset.UtcNow + TimeSpan.FromMinutes(2) - DateTimeOffset.UnixEpoch).Ticks / 10;
+
+        using var response = await NotifyWriteAsync(_space, MemberDid, _memberKey, Tid.FromInt64(micros << 10).Value);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task NotifyWrite_StaleRepoRev_IsAcceptedButIgnored()
+    {
+        // A repo host's retry of an older revision must not resequence the repo.
+        using (await NotifyWriteAsync(_space, MemberDid, _memberKey, "3l6oveex3ii2l")) { }
+        var store = _host.Services.GetRequiredService<ISpaceAuthorityStore>();
+        var before = Assert.Single((await store.ListReposAsync(_space, 10, null)).Repos);
+
+        using var response = await NotifyWriteAsync(_space, MemberDid, _memberKey, "3l6oveex3ii2a");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var after = Assert.Single((await store.ListReposAsync(_space, 10, null)).Repos);
+        Assert.Equal(before.SpaceRev, after.SpaceRev);
+        Assert.Equal(before.RepoRev, after.RepoRev);
     }
 
     // ── Helpers ───────────────────────────────────────────────
@@ -693,12 +752,13 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     private async Task<HttpResponseMessage> NotifyWriteAsync(
         SpaceUri space, string repoDid, AtProtoKey repoKey, string rev, string audience = AuthorityDid, string? signer = null)
     {
-        using var generator = new ServiceAuthGenerator(Did.Parse(signer ?? repoDid), repoKey);
+        // Not disposed: that would dispose repoKey, which a test may use for a second notification.
+        var generator = new ServiceAuthGenerator(Did.Parse(signer ?? repoDid), repoKey);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, $"/xrpc/{SpaceNsids.NotifyWrite}")
         {
             Content = JsonContent.Create(
-                new NotifyWriteRequest { Space = space, Repo = Did.Parse(repoDid), Rev = Tid.Parse(rev), Hash = [1, 2, 3] },
+                new NotifyWriteRequest { Space = space, Repo = Did.Parse(repoDid), RepoRev = Tid.Parse(rev), Hash = [1, 2, 3] },
                 options: AtProtoJsonDefaults.Options),
         };
 

@@ -97,7 +97,7 @@ public sealed class SpaceClientTests : IDisposable
     public async Task ListReposAsync_DecodesTheWriterSet()
     {
         _fixture.On("com.atproto.space.listRepos", """
-        {"repos":[{"did":"did:plc:z72i7hdynmk6r22z27h6tvur","rev":"3l6oveex3ii2l","hash":{"$bytes":"AQID"}}],
+        {"repos":[{"did":"did:plc:z72i7hdynmk6r22z27h6tvur","repoRev":"3l6oveex3ii2l","hash":{"$bytes":"AQID"},"spaceRev":"3l6oveex3ii2m"}],
          "cursor":"next"}
         """);
 

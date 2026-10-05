@@ -65,9 +65,9 @@ public sealed class SimpleSpaceAuthorityStore : ISpaceAuthorityStore
         _inner.ListReposAsync(space, limit, cursor, cancellationToken);
 
     /// <inheritdoc/>
-    public Task RecordWriteAsync(
-        SpaceUri space, Did repoDid, Tid rev, byte[] hash, CancellationToken cancellationToken = default) =>
-        _inner.RecordWriteAsync(space, repoDid, rev, hash, cancellationToken);
+    public Task<SpaceWriteSequence?> RecordWriteAsync(
+        SpaceUri space, Did repoDid, Tid repoRev, byte[] hash, CancellationToken cancellationToken = default) =>
+        _inner.RecordWriteAsync(space, repoDid, repoRev, hash, cancellationToken);
 
     /// <inheritdoc/>
     public Task RegisterNotifyAsync(

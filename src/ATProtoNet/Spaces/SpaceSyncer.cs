@@ -124,10 +124,11 @@ public sealed class SpaceRepoCursor
 /// digests means the copy is exactly current and the signature authenticates that state. A
 /// mismatch, or a <c>since</c> the host can no longer serve, falls back to a full download.</para>
 /// <para>To sync a space in full, start from
-/// <see cref="SpaceClient.ListReposAsync">the writer set</see>. Because each entry carries that
-/// repo's current revision, a periodic sweep can compare revisions and re-sync only what
-/// advanced, rather than polling every repo — which is also the backstop for a dropped write
-/// notification.</para>
+/// <see cref="SpaceClient.ListReposAsync">the writer set</see>. It is ordered by <c>spaceRev</c>, the
+/// space host's sequence over every repo's updates, so a syncer persists the last <c>spaceRev</c> it
+/// processed and resumes from it with <see cref="ListChangedReposAsync"/>: only what advanced since,
+/// rather than polling every repo. That is also the backstop for a dropped write notification, which
+/// is detected with <see cref="NeedsCatchUp"/>.</para>
 /// </remarks>
 public sealed class SpaceSyncer
 {
@@ -184,6 +185,51 @@ public sealed class SpaceSyncer
     }
 
     private long _maxRepoSize = 256L * 1024 * 1024;
+
+    /// <summary>Reports whether a forwarded write notification shows that notifications were missed, so the syncer must catch up through <see cref="ListChangedReposAsync"/>.</summary>
+    /// <param name="checkpoint">The last <c>spaceRev</c> this syncer has safely processed for the space, or <see langword="null"/> if none.</param>
+    /// <param name="notification">A write notification forwarded by the space host.</param>
+    /// <returns>
+    /// <see langword="true"/> when the notification does not follow the checkpoint directly. A
+    /// notification the checkpoint already covers (a duplicate, or one that arrived out of order
+    /// behind a later one) returns <see langword="false"/>: apply nothing and never move the checkpoint
+    /// backwards. One that directly follows it returns <see langword="false"/> too; sync the repo, then
+    /// advance the checkpoint to its <c>spaceRev</c>.
+    /// </returns>
+    /// <remarks>A notification without a <c>spaceRev</c> was not forwarded by a space host and says nothing about the sequence.</remarks>
+    public static bool NeedsCatchUp(Tid? checkpoint, NotifyWriteRequest notification)
+    {
+        ArgumentNullException.ThrowIfNull(notification);
+
+        if (notification.SpaceRev is not { } spaceRev || (checkpoint is not null && checkpoint.CompareTo(spaceRev) >= 0))
+            return false;
+
+        return notification.PrevSpaceRev != checkpoint;
+    }
+
+    /// <summary>Lists the repos that advanced after a checkpoint, in ascending <c>spaceRev</c> order: the catch-up after downtime or a gap in <c>prevSpaceRev</c>.</summary>
+    /// <param name="client">A client for the space host, authenticated for this space.</param>
+    /// <param name="checkpoint">The last <c>spaceRev</c> safely processed, or <see langword="null"/> to list the whole writer set.</param>
+    /// <param name="pageSize">Repos per request (1–1000); <see langword="null"/> for the server default.</param>
+    /// <remarks>
+    /// <para>Sync each repo (<see cref="SyncRepoAsync"/>) and persist its <see cref="SpaceRepoView.SpaceRev"/>
+    /// as the new checkpoint only after that repo is safely stored; never past work a crash would lose.
+    /// A repo that is updated while the walk is in flight appears again later in it.</para>
+    /// <para>A checkpoint persisted before <c>spaceRev</c> existed was a DID, not a revision, and cannot
+    /// be reused: pass <see langword="null"/> to rebootstrap.</para>
+    /// </remarks>
+    public IAsyncEnumerable<SpaceRepoView> ListChangedReposAsync(
+        SpaceClient client,
+        Tid? checkpoint,
+        int? pageSize = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+
+        return Pagination.EnumerateAsync<ListSpaceReposResponse, SpaceRepoView>(
+            (cursor, ct) => client.ListReposAsync(_space, pageSize, cursor ?? checkpoint?.Value, ct),
+            cancellationToken);
+    }
 
     /// <summary>Advances one repo as far as it can, recovering in full if the operation log cannot carry the copy forward.</summary>
     /// <param name="client">A client for the repo's host, authenticated for this space.</param>

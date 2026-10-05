@@ -1,3 +1,5 @@
+using ATProtoNet.Identity;
+
 namespace ATProtoNet.Server.Spaces;
 
 // The keyset paging every space store serves its lists with: rows ordered by DID, a cursor that names
@@ -35,5 +37,28 @@ internal static class SpacePaging
             items.Add(map(rows[i]));
 
         return (items, rows.Count > limit && items.Count > 0 ? key(items[^1]) : null);
+    }
+
+    // The Page of a list ordered by space revision, whose cursor is a checkpoint rather than a continuation:
+    // every non-empty page carries its last key (a syncer persists it as the position it has processed to,
+    // whether or not more follows) and an empty page carries none.
+    public static (List<TItem> Items, string? Cursor) CheckpointPage<TRow, TItem>(
+        IReadOnlyList<TRow> rows, int limit, Func<TRow, TItem> map, Func<TItem, string> key)
+    {
+        var (items, _) = Page(rows, limit, map, key);
+        return (items, items.Count > 0 ? key(items[^1]) : null);
+    }
+
+    // The revision for a space's next update: a fresh TID, or one past the previous revision when the clock
+    // has not moved beyond it (or has stepped back), so revisions only ever increase. One timestamp tick
+    // past the previous one keeps the fresh TID's clock identifier, as the reference implementation does.
+    public static Tid NextSpaceRev(Tid? previous)
+    {
+        var fresh = Tid.Next();
+        if (previous is null || fresh.CompareTo(previous) > 0)
+            return fresh;
+
+        const int ClockIdBits = 10;
+        return Tid.FromInt64((((previous.ToInt64() >> ClockIdBits) + 1) << ClockIdBits) | (fresh.ToInt64() & ((1 << ClockIdBits) - 1)));
     }
 }

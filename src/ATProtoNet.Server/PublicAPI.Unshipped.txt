@@ -1,1 +1,30 @@
 #nullable enable
+ATProtoNet.Server.Spaces.ISpaceAuthorityStore.RecordWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! repoRev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Server.Spaces.SpaceWriteSequence?>!
+*REMOVED*ATProtoNet.Server.Spaces.ISpaceAuthorityStore.RecordWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! rev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+ATProtoNet.Server.Spaces.InMemorySpaceAuthorityStore.RecordWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! repoRev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Server.Spaces.SpaceWriteSequence?>!
+*REMOVED*ATProtoNet.Server.Spaces.InMemorySpaceAuthorityStore.RecordWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! rev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+ATProtoNet.Server.Spaces.SimpleSpaceAuthorityStore.RecordWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! repoRev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Server.Spaces.SpaceWriteSequence?>!
+*REMOVED*ATProtoNet.Server.Spaces.SimpleSpaceAuthorityStore.RecordWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! rev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+ATProtoNet.Server.Spaces.SpaceWriteNotifier.ForwardWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! repoRev, byte[]! hash, ATProtoNet.Server.Spaces.SpaceWriteSequence! sequence) -> System.Threading.Tasks.Task<int>!
+*REMOVED*ATProtoNet.Server.Spaces.SpaceWriteNotifier.ForwardWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! rev, byte[]! hash) -> System.Threading.Tasks.Task<int>!
+ATProtoNet.Server.Spaces.SpaceWriteNotifier.NotifyWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! repoRev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<int>!
+*REMOVED*ATProtoNet.Server.Spaces.SpaceWriteNotifier.NotifyWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! rev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<int>!
+ATProtoNet.Server.Spaces.SpaceWriteNotifier.NotifyWriteInBackground(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! repoRev, byte[]! hash) -> void
+ATProtoNet.Server.Spaces.SpaceWriteNotifier.RetryBaseDelay.get -> System.TimeSpan
+ATProtoNet.Server.Spaces.SpaceWriteNotifier.RetryBaseDelay.set -> void
+ATProtoNet.Server.Spaces.SpaceWriteNotifier.RetryWindow.get -> System.TimeSpan
+ATProtoNet.Server.Spaces.SpaceWriteNotifier.RetryWindow.set -> void
+ATProtoNet.Server.Spaces.SpaceWriteSequence
+ATProtoNet.Server.Spaces.SpaceWriteSequence.<Clone>$() -> ATProtoNet.Server.Spaces.SpaceWriteSequence!
+ATProtoNet.Server.Spaces.SpaceWriteSequence.Deconstruct(out ATProtoNet.Identity.Tid! SpaceRev, out ATProtoNet.Identity.Tid? PrevSpaceRev) -> void
+ATProtoNet.Server.Spaces.SpaceWriteSequence.Equals(ATProtoNet.Server.Spaces.SpaceWriteSequence? other) -> bool
+ATProtoNet.Server.Spaces.SpaceWriteSequence.PrevSpaceRev.get -> ATProtoNet.Identity.Tid?
+ATProtoNet.Server.Spaces.SpaceWriteSequence.PrevSpaceRev.init -> void
+ATProtoNet.Server.Spaces.SpaceWriteSequence.SpaceRev.get -> ATProtoNet.Identity.Tid!
+ATProtoNet.Server.Spaces.SpaceWriteSequence.SpaceRev.init -> void
+ATProtoNet.Server.Spaces.SpaceWriteSequence.SpaceWriteSequence(ATProtoNet.Identity.Tid! SpaceRev, ATProtoNet.Identity.Tid? PrevSpaceRev) -> void
+override ATProtoNet.Server.Spaces.SpaceWriteSequence.Equals(object? obj) -> bool
+override ATProtoNet.Server.Spaces.SpaceWriteSequence.GetHashCode() -> int
+override ATProtoNet.Server.Spaces.SpaceWriteSequence.ToString() -> string!
+static ATProtoNet.Server.Spaces.SpaceWriteSequence.operator !=(ATProtoNet.Server.Spaces.SpaceWriteSequence? left, ATProtoNet.Server.Spaces.SpaceWriteSequence? right) -> bool
+static ATProtoNet.Server.Spaces.SpaceWriteSequence.operator ==(ATProtoNet.Server.Spaces.SpaceWriteSequence? left, ATProtoNet.Server.Spaces.SpaceWriteSequence? right) -> bool

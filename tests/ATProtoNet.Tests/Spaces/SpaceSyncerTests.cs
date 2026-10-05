@@ -446,7 +446,79 @@ public class SpaceSyncerTests : IDisposable
         Assert.Empty(_store.Replaced);
     }
 
-    // ── Cursor persistence ───────────────────────────────────────
+    // ── Catch-up from a spaceRev checkpoint ─────────────────────
+
+    private static string RepoJson(string did, string repoRev, string spaceRev) =>
+        $$"""{"did":"{{did}}","repoRev":"{{repoRev}}","hash":{"$bytes":"AQID"},"spaceRev":"{{spaceRev}}"}""";
+
+    [Fact]
+    public async Task ListChangedReposAsync_ResumesFromTheCheckpointAndWalksUntilAnEmptyPage()
+    {
+        // The server pages by exclusive spaceRev checkpoint, returns the last one even on a short page,
+        // and omits the cursor on the empty page that ends the walk.
+        var cursors = new List<string?>();
+        _host.Stub.On("com.atproto.space.listRepos", request =>
+        {
+            var cursor = System.Web.HttpUtility.ParseQueryString(request.Uri.Query)["cursor"];
+            cursors.Add(cursor);
+            return HttpStub.JsonResponse(cursor switch
+            {
+                "3l6oveex3ii2c" => $$"""{"repos":[{{RepoJson("did:plc:a", "3l6oveex3ii2x", "3l6oveex3ii2d")}},{{RepoJson("did:plc:b", "3l6oveex3ii2y", "3l6oveex3ii2e")}}],"cursor":"3l6oveex3ii2e"}""",
+                "3l6oveex3ii2e" => $$"""{"repos":[{{RepoJson("did:plc:a", "3l6oveex3ii2z", "3l6oveex3ii2f")}}],"cursor":"3l6oveex3ii2f"}""",
+                _ => """{"repos":[]}""",
+            });
+        });
+
+        var changed = new List<SpaceRepoView>();
+        await foreach (var repo in CreateSyncer().ListChangedReposAsync(_client, Tid.Parse("3l6oveex3ii2c"), pageSize: 2))
+            changed.Add(repo);
+
+        Assert.Equal(["3l6oveex3ii2c", "3l6oveex3ii2e", "3l6oveex3ii2f"], cursors);
+        Assert.Equal(["did:plc:a", "did:plc:b", "did:plc:a"], changed.Select(r => r.Did.Value));
+        Assert.Equal("3l6oveex3ii2f", changed[^1].SpaceRev.Value);
+    }
+
+    [Fact]
+    public async Task ListChangedReposAsync_WithoutACheckpoint_ListsTheWholeWriterSet()
+    {
+        _host.Stub.On("com.atproto.space.listRepos", request =>
+            HttpStub.JsonResponse(request.Uri.Query.Contains("cursor=", StringComparison.Ordinal)
+                ? """{"repos":[]}"""
+                : $$"""{"repos":[{{RepoJson("did:plc:a", "3l6oveex3ii2x", "3l6oveex3ii2d")}}],"cursor":"3l6oveex3ii2d"}"""));
+
+        var changed = new List<SpaceRepoView>();
+        await foreach (var repo in CreateSyncer().ListChangedReposAsync(_client, checkpoint: null))
+            changed.Add(repo);
+
+        Assert.Equal("did:plc:a", Assert.Single(changed).Did);
+    }
+
+    private static NotifyWriteRequest Forwarded(string? spaceRev, string? prevSpaceRev) => new()
+    {
+        Space = _space,
+        Repo = Repo,
+        RepoRev = Tid.Parse("3l6oveex3ii2l"),
+        Hash = [1],
+        SpaceRev = spaceRev is null ? null : Tid.Parse(spaceRev),
+        PrevSpaceRev = prevSpaceRev is null ? null : Tid.Parse(prevSpaceRev),
+    };
+
+    [Theory]
+    [InlineData("3l6oveex3ii2c", "3l6oveex3ii2d", "3l6oveex3ii2c", false)]  // directly follows the checkpoint
+    [InlineData(null, "3l6oveex3ii2d", null, false)]                        // the space's first update, from nothing
+    [InlineData("3l6oveex3ii2c", "3l6oveex3ii2f", "3l6oveex3ii2e", true)]   // notifications between were missed
+    [InlineData(null, "3l6oveex3ii2f", "3l6oveex3ii2e", true)]              // nothing held, but the space has history
+    [InlineData("3l6oveex3ii2e", "3l6oveex3ii2d", "3l6oveex3ii2c", false)]  // out of order behind the checkpoint: covered
+    [InlineData("3l6oveex3ii2d", "3l6oveex3ii2d", "3l6oveex3ii2c", false)]  // duplicate: covered
+    [InlineData("3l6oveex3ii2c", "3l6oveex3ii2d", null, true)]              // the space was reset behind the checkpoint
+    public void NeedsCatchUp_ComparesTheNotificationsChainToTheCheckpoint(string? checkpoint, string spaceRev, string? prev, bool expected) =>
+        Assert.Equal(expected, SpaceSyncer.NeedsCatchUp(checkpoint is null ? null : Tid.Parse(checkpoint), Forwarded(spaceRev, prev)));
+
+    [Fact]
+    public void NeedsCatchUp_NotificationWithoutASpaceRev_SaysNothingAboutTheSequence() =>
+        Assert.False(SpaceSyncer.NeedsCatchUp(Tid.Parse("3l6oveex3ii2c"), Forwarded(null, null)));
+
+    // ── Cursor persistence───────────────────────────────────────
 
     [Fact]
     public void GetState_RoundTripsThroughTheCursorConstructor()

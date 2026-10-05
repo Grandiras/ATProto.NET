@@ -65,7 +65,7 @@ public abstract class SpaceAuthorityStoreContractTests
         var repos = await store.ListReposAsync(Space, 10, null);
         var alice = Assert.Single(repos.Repos);
         Assert.Equal("did:plc:alice", alice.Did);
-        Assert.Equal("3kaaaaaaaaaaa", alice.Rev);
+        Assert.Equal("3kaaaaaaaaaaa", alice.RepoRev);
         Assert.Equal([1, 2, 3], alice.Hash);
     }
 
@@ -78,7 +78,7 @@ public abstract class SpaceAuthorityStoreContractTests
         await store.RecordWriteAsync(Space, Did.Parse("did:plc:alice"), Tid.Parse("3kaaaaaaaaaaa"), [1]);
 
         var repos = await store.ListReposAsync(Space, 10, null);
-        Assert.Equal("3kbbbbbbbbbbb", Assert.Single(repos.Repos).Rev);
+        Assert.Equal("3kbbbbbbbbbbb", Assert.Single(repos.Repos).RepoRev);
     }
 
     [Fact]
@@ -91,35 +91,125 @@ public abstract class SpaceAuthorityStoreContractTests
 
         var repos = await store.ListReposAsync(Space, 10, null);
         var alice = Assert.Single(repos.Repos);
-        Assert.Equal("3kbbbbbbbbbbb", alice.Rev);
+        Assert.Equal("3kbbbbbbbbbbb", alice.RepoRev);
         Assert.Equal([2], alice.Hash);
     }
 
     [Fact]
-    public async Task RecordWriteAsync_TheSameRevisionAgain_UpdatesTheHash()
+    public async Task RecordWriteAsync_TheSameRevisionAgain_IsIgnored()
     {
         var store = CreateStore();
-        await store.RecordWriteAsync(Space, Did.Parse("did:plc:alice"), Tid.Parse("3kaaaaaaaaaaa"), [1]);
+        var first = await store.RecordWriteAsync(Space, Did.Parse("did:plc:alice"), Tid.Parse("3kaaaaaaaaaaa"), [1]);
 
-        await store.RecordWriteAsync(Space, Did.Parse("did:plc:alice"), Tid.Parse("3kaaaaaaaaaaa"), [9]);
+        var again = await store.RecordWriteAsync(Space, Did.Parse("did:plc:alice"), Tid.Parse("3kaaaaaaaaaaa"), [9]);
 
-        Assert.Equal([9], Assert.Single((await store.ListReposAsync(Space, 10, null)).Repos).Hash);
+        Assert.NotNull(first);
+        Assert.Null(again);
+        var alice = Assert.Single((await store.ListReposAsync(Space, 10, null)).Repos);
+        Assert.Equal([1], alice.Hash);
+        Assert.Equal(first.SpaceRev, alice.SpaceRev);
     }
 
     [Fact]
-    public async Task ListReposAsync_PagesByDid_AndTheCursorResumesWhereItLeftOff()
+    public async Task RecordWriteAsync_StaleRevision_IsNotSequenced()
     {
         var store = CreateStore();
-        foreach (var did in new[] { Did.Parse("did:plc:c"), Did.Parse("did:plc:a"), Did.Parse("did:plc:b") })
-            await store.RecordWriteAsync(Space, did, Tid.Parse("3kaaaaaaaaaaa"), [1]);
+        await store.RecordWriteAsync(Space, Did.Parse("did:plc:alice"), Tid.Parse("3kbbbbbbbbbbb"), [2]);
+
+        Assert.Null(await store.RecordWriteAsync(Space, Did.Parse("did:plc:alice"), Tid.Parse("3kaaaaaaaaaaa"), [1]));
+
+        // The stale notification consumed no space revision: the next one chains onto the first.
+        var next = await store.RecordWriteAsync(Space, Did.Parse("did:plc:bob"), Tid.Parse("3kaaaaaaaaaaa"), [3]);
+        Assert.Equal(Assert.Single((await store.ListReposAsync(Space, 1, null)).Repos).SpaceRev, next!.PrevSpaceRev);
+    }
+
+    [Fact]
+    public async Task RecordWriteAsync_AcrossWriters_AssignsStrictlyIncreasingChainedSpaceRevisions()
+    {
+        var store = CreateStore();
+
+        var first = await store.RecordWriteAsync(Space, Did.Parse("did:plc:alice"), Tid.Parse("3kaaaaaaaaaaa"), [1]);
+        var second = await store.RecordWriteAsync(Space, Did.Parse("did:plc:bob"), Tid.Parse("3kaaaaaaaaaaa"), [1]);
+        var third = await store.RecordWriteAsync(Space, Did.Parse("did:plc:alice"), Tid.Parse("3kbbbbbbbbbbb"), [2]);
+
+        Assert.Null(first!.PrevSpaceRev);
+        Assert.Equal(first.SpaceRev, second!.PrevSpaceRev);
+        Assert.Equal(second.SpaceRev, third!.PrevSpaceRev);
+        Assert.True(first.SpaceRev.CompareTo(second.SpaceRev) < 0);
+        Assert.True(second.SpaceRev.CompareTo(third.SpaceRev) < 0);
+    }
+
+    [Fact]
+    public async Task RecordWriteAsync_InDifferentSpaces_SequencesEachOnItsOwn()
+    {
+        var store = CreateStore();
+        var other = SpaceUri.Parse("at://did:plc:authority/space/com.example.forum/other");
+        await store.RecordWriteAsync(Space, Did.Parse("did:plc:alice"), Tid.Parse("3kaaaaaaaaaaa"), [1]);
+
+        var first = await store.RecordWriteAsync(other, Did.Parse("did:plc:alice"), Tid.Parse("3kaaaaaaaaaaa"), [1]);
+
+        Assert.Null(first!.PrevSpaceRev);
+    }
+
+    [Fact]
+    public async Task ListReposAsync_OrdersBySpaceRev_AndAnUpdatedRepoMovesToTheEnd()
+    {
+        var store = CreateStore();
+        await store.RecordWriteAsync(Space, Did.Parse("did:plc:c"), Tid.Parse("3kaaaaaaaaaaa"), [1]);
+        await store.RecordWriteAsync(Space, Did.Parse("did:plc:a"), Tid.Parse("3kaaaaaaaaaaa"), [1]);
+        await store.RecordWriteAsync(Space, Did.Parse("did:plc:c"), Tid.Parse("3kbbbbbbbbbbb"), [2]);
+
+        var repos = (await store.ListReposAsync(Space, 10, null)).Repos;
+
+        Assert.Equal(["did:plc:a", "did:plc:c"], repos.Select(r => r.Did.Value));
+        Assert.True(repos[0].SpaceRev.CompareTo(repos[1].SpaceRev) < 0);
+    }
+
+    [Fact]
+    public async Task ListReposAsync_CursorIsAnExclusiveSpaceRevCheckpoint_ReturnedEvenOnAShortPage()
+    {
+        var store = CreateStore();
+        foreach (var did in new[] { "did:plc:c", "did:plc:a", "did:plc:b" })
+            await store.RecordWriteAsync(Space, Did.Parse(did), Tid.Parse("3kaaaaaaaaaaa"), [1]);
 
         var first = await store.ListReposAsync(Space, 2, null);
-        Assert.Equal(["did:plc:a", "did:plc:b"], first.Repos.Select(r => r.Did.Value));
-        Assert.Equal("did:plc:b", first.Cursor);
+        Assert.Equal(["did:plc:c", "did:plc:a"], first.Repos.Select(r => r.Did.Value));
+        Assert.Equal(first.Repos[^1].SpaceRev.Value, first.Cursor);
 
+        // A short page still carries its checkpoint; only an empty one has none.
         var second = await store.ListReposAsync(Space, 2, first.Cursor);
-        Assert.Equal(["did:plc:c"], second.Repos.Select(r => r.Did.Value));
-        Assert.Null(second.Cursor);
+        Assert.Equal(["did:plc:b"], second.Repos.Select(r => r.Did.Value));
+        Assert.Equal(second.Repos[^1].SpaceRev.Value, second.Cursor);
+
+        var empty = await store.ListReposAsync(Space, 2, second.Cursor);
+        Assert.Empty(empty.Repos);
+        Assert.Null(empty.Cursor);
+    }
+
+    [Fact]
+    public async Task ListReposAsync_FromACheckpoint_ShowsOnlyWhatAdvancedSince()
+    {
+        var store = CreateStore();
+        await store.RecordWriteAsync(Space, Did.Parse("did:plc:alice"), Tid.Parse("3kaaaaaaaaaaa"), [1]);
+        var checkpoint = (await store.ListReposAsync(Space, 10, null)).Cursor;
+
+        await store.RecordWriteAsync(Space, Did.Parse("did:plc:bob"), Tid.Parse("3kaaaaaaaaaaa"), [1]);
+        await store.RecordWriteAsync(Space, Did.Parse("did:plc:alice"), Tid.Parse("3kbbbbbbbbbbb"), [2]);
+
+        var since = await store.ListReposAsync(Space, 10, checkpoint);
+
+        Assert.Equal(["did:plc:bob", "did:plc:alice"], since.Repos.Select(r => r.Did.Value));
+    }
+
+    [Fact]
+    public async Task ListReposAsync_UnknownSpace_IsEmptyWithNoCursor()
+    {
+        var store = CreateStore();
+
+        var page = await store.ListReposAsync(Space, 10, null);
+
+        Assert.Empty(page.Repos);
+        Assert.Null(page.Cursor);
     }
 
     [Fact]

@@ -153,7 +153,7 @@ public class PaginationTests : IDisposable
                 $"repo={DidText}&collection=com.example.note&limit=2", (c, _) => c.Repo.EnumerateRecordsAsync(alice, Nsid.Parse("com.example.note"), pageSize: 2)
             },
             {
-                "com.atproto.space.listRepos", $$"""{"repos":[{"did":"{{DidText}}","rev":"3l6oveex3ii2l","hash":{"$bytes":"AQID"} }]}""",
+                "com.atproto.space.listRepos", $$"""{"repos":[{"did":"{{DidText}}","repoRev":"3l6oveex3ii2l","hash":{"$bytes":"AQID"},"spaceRev":"3l6oveex3ii2m"}]}""",
                 $"space={space}&limit=2", (c, _) => c.Space.EnumerateReposAsync(space, pageSize: 2)
             },
             {

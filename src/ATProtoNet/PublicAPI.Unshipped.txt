@@ -138,3 +138,22 @@ ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.TakedownActionCount.init -> void
 *REMOVED*ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueClient.CreateQueueAsync(string! name, System.Collections.Generic.IEnumerable<string!>? subjectTypes = null, ATProtoNet.Identity.Nsid? collection = null, System.Collections.Generic.IEnumerable<string!>? reportTypes = null, string? description = null, System.Collections.Generic.IEnumerable<string!>? recommendedPolicies = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Tools.Ozone.Queue.CreateQueueResponse!>!
 *REMOVED*ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueClient.UpdateQueueAsync(long queueId, string? name = null, bool? enabled = null, string? description = null, System.Collections.Generic.IEnumerable<string!>? recommendedPolicies = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Tools.Ozone.Queue.UpdateQueueResponse!>!
 *REMOVED*ATProtoNet.Lexicon.Tools.Ozone.Report.GetLiveStatsResponse.Stats.get -> ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueStats!
+ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.PrevSpaceRev.get -> ATProtoNet.Identity.Tid?
+ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.PrevSpaceRev.init -> void
+ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.RepoRev.get -> ATProtoNet.Identity.Tid!
+ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.RepoRev.init -> void
+*REMOVED*ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.Rev.get -> ATProtoNet.Identity.Tid!
+*REMOVED*ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.Rev.init -> void
+ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.SpaceRev.get -> ATProtoNet.Identity.Tid?
+ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.SpaceRev.init -> void
+ATProtoNet.Lexicon.Com.AtProto.Space.SpaceClient.NotifyWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repo, ATProtoNet.Identity.Tid! repoRev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+*REMOVED*ATProtoNet.Lexicon.Com.AtProto.Space.SpaceClient.NotifyWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repo, ATProtoNet.Identity.Tid! rev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRepoView.RepoRev.get -> ATProtoNet.Identity.Tid!
+ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRepoView.RepoRev.init -> void
+*REMOVED*ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRepoView.Rev.get -> ATProtoNet.Identity.Tid!
+*REMOVED*ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRepoView.Rev.init -> void
+ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRepoView.SpaceRev.get -> ATProtoNet.Identity.Tid!
+ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRepoView.SpaceRev.init -> void
+ATProtoNet.Spaces.SpaceSyncer.ListChangedReposAsync(ATProtoNet.Lexicon.Com.AtProto.Space.SpaceClient! client, ATProtoNet.Identity.Tid? checkpoint, int? pageSize = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRepoView!>!
+const ATProtoNet.Lexicon.Com.AtProto.Space.SpaceErrors.FutureRev = "FutureRev" -> string!
+static ATProtoNet.Spaces.SpaceSyncer.NeedsCatchUp(ATProtoNet.Identity.Tid? checkpoint, ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest! notification) -> bool

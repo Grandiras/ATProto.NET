@@ -16,6 +16,11 @@ namespace ATProtoNet.Server.Spaces;
 /// </param>
 public sealed record SpaceNotifySubscriber(string Service, DateTimeOffset ExpiresAt);
 
+/// <summary>A space revision the authority assigned to an accepted write.</summary>
+/// <param name="SpaceRev">The revision assigned: strictly greater than every one assigned before it in the space.</param>
+/// <param name="PrevSpaceRev">The revision assigned before <paramref name="SpaceRev"/>, or <see langword="null"/> for the space's first.</param>
+public sealed record SpaceWriteSequence(Tid SpaceRev, Tid? PrevSpaceRev);
+
 /// <summary>The state a space <em>authority</em> keeps: which repos hold data in each space, and who has asked to be told when they advance.</summary>
 /// <remarks>
 /// <para>Notably absent is the member list. Membership is a space-management concern
@@ -24,8 +29,8 @@ public sealed record SpaceNotifySubscriber(string Service, DateTimeOffset Expire
 /// all.</para>
 /// <para>The writer set is only what the authority claims, kept current by the
 /// <c>notifyWrite</c> calls it receives. A listed account's repo host is the source of truth,
-/// which is why each entry carries a revision: a syncer sweeping the space compares revisions
-/// and re-syncs only what advanced.</para>
+/// which is why each entry carries revisions: the space-wide <c>spaceRev</c>, assigned here in the
+/// order writes are accepted, lets a syncer resume from a checkpoint and re-sync only what advanced.</para>
 /// </remarks>
 public interface ISpaceAuthorityStore
 {
@@ -34,20 +39,32 @@ public interface ISpaceAuthorityStore
 
     /// <summary>Lists the accounts that hold data in a space — the sync boundary, not an access-control list.</summary>
     /// <param name="limit">Maximum number of results.</param>
-    /// <param name="cursor">Pagination cursor from a previous page.</param>
+    /// <param name="cursor">An exclusive <c>spaceRev</c> checkpoint, or <see langword="null"/> for the first page.</param>
+    /// <returns>
+    /// The entries after <paramref name="cursor"/> in ascending <c>spaceRev</c> order. A non-empty page
+    /// carries its last entry's <c>spaceRev</c> as its cursor (even a short page); an empty one has none.
+    /// </returns>
     Task<ListSpaceReposResponse> ListReposAsync(
         SpaceUri space, int limit, string? cursor, CancellationToken cancellationToken = default);
 
-    /// <summary>Records that a repo advanced, so <c>listRepos</c> reflects it.</summary>
+    /// <summary>Records that a repo advanced and sequences it in the space.</summary>
     /// <param name="repoDid">The DID of the account whose repo advanced.</param>
-    /// <param name="rev">The revision of the write.</param>
+    /// <param name="repoRev">The repo's revision after the write.</param>
     /// <param name="hash">The repo's commit hash after the write.</param>
+    /// <returns>
+    /// The space revision assigned, or <see langword="null"/> when <paramref name="repoRev"/> is not
+    /// after the one already recorded for the repo: a stale or duplicate notification, which is neither
+    /// recorded nor sequenced, and which the caller must not forward.
+    /// </returns>
     /// <remarks>
-    /// This is also how an account joins the writer set: the first notification for a repo adds
-    /// it, since the set is defined as the accounts that have written at least one record.
+    /// <para>This is also how an account joins the writer set: the first notification for a repo adds
+    /// it, since the set is defined as the accounts that have written at least one record.</para>
+    /// <para>Allocating the revision and updating the writer are one atomic step. Revisions are strictly
+    /// increasing across every writer in the order the steps commit, which is what makes a
+    /// <c>listRepos</c> checkpoint safe to resume from: nothing can later appear below one.</para>
     /// </remarks>
-    Task RecordWriteAsync(
-        SpaceUri space, Did repoDid, Tid rev, byte[] hash, CancellationToken cancellationToken = default);
+    Task<SpaceWriteSequence?> RecordWriteAsync(
+        SpaceUri space, Did repoDid, Tid repoRev, byte[] hash, CancellationToken cancellationToken = default);
 
     /// <summary>Registers a service to receive a space's write notifications, or renews an existing registration.</summary>
     /// <param name="service">The subscriber's service identifier.</param>

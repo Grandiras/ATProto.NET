@@ -18,6 +18,8 @@ public class SpaceWriteNotifierTests
     private static readonly Did MemberDid = Did.Parse("did:plc:aaaaaaaaaaaaaaaaaaaaaaaa");
     private const string SyncerEndpoint = "https://syncer.example.com";
 
+    private static readonly SpaceWriteSequence Sequence = new(Tid.Parse("3l6oveex3ii2n"), Tid.Parse("3l6oveex3ii2m"));
+
     private static SpaceUri Space => SpaceUri.Parse($"at://{AuthorityDid}/space/com.atmoboards.forum/default");
 
     private static DidDocument SyncerDocument() => new()
@@ -263,14 +265,17 @@ public class SpaceWriteNotifierTests
         await store.RegisterNotifyAsync(
             Space, $"{SyncerDid}#atproto_space_syncer", DateTimeOffset.UtcNow.AddDays(1));
 
-        Assert.Equal(1, await notifier.ForwardWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1, 2, 3]));
+        Assert.Equal(1, await notifier.ForwardWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1, 2, 3], Sequence));
 
         var request = Assert.Single(handler.Requests);
         Assert.Equal($"{SyncerEndpoint}/xrpc/{SpaceNsids.NotifyWrite}", request.Uri.ToString());
 
         using var body = JsonDocument.Parse(request.BodyText);
         Assert.Equal(MemberDid, body.RootElement.GetProperty("repo").GetString());
-        Assert.Equal("3l6oveex3ii2l", body.RootElement.GetProperty("rev").GetString());
+        Assert.Equal("3l6oveex3ii2l", body.RootElement.GetProperty("repoRev").GetString());
+        Assert.Equal("3l6oveex3ii2n", body.RootElement.GetProperty("spaceRev").GetString());
+        Assert.Equal("3l6oveex3ii2m", body.RootElement.GetProperty("prevSpaceRev").GetString());
+        Assert.False(body.RootElement.TryGetProperty("rev", out _));
     }
 
     [Fact]
@@ -299,7 +304,97 @@ public class SpaceWriteNotifierTests
             new ServiceAuthGenerator(HostDid, AtProtoCrypto.GenerateP256Key()),
             new HttpClient(new HttpStub().Fallback(_ => new HttpResponseMessage(HttpStatusCode.OK))));
 
-        Assert.Equal(0, await notifier.ForwardWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]));
+        Assert.Equal(0, await notifier.ForwardWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1], Sequence));
+    }
+
+    // ── Retry of the repo host's notification ──────────────────
+
+    private static async Task<bool> WaitForAsync(Func<bool> condition)
+    {
+        for (var i = 0; i < 500 && !condition(); i++)
+            await Task.Delay(10);
+        return condition();
+    }
+
+    private static SpaceWriteNotifier CreateRetrying(HttpStub handler)
+    {
+        var resolver = new StubDidResolver().PublishAccount(AuthorityDid, AtProtoCrypto.GenerateP256Key(), AuthorityPds);
+        return new SpaceWriteNotifier(
+            new InMemorySpaceAuthorityStore(), resolver, new ServiceAuthGenerator(HostDid, AtProtoCrypto.GenerateP256Key()), new HttpClient(handler))
+        {
+            RetryBaseDelay = TimeSpan.FromMilliseconds(1),
+        };
+    }
+
+    [Fact]
+    public async Task NotifyWriteInBackground_TransientFailure_IsRetriedUntilDelivered()
+    {
+        var attempts = 0;
+        var handler = new HttpStub().Fallback(_ =>
+            new HttpResponseMessage(Interlocked.Increment(ref attempts) < 3 ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.OK));
+        var notifier = CreateRetrying(handler);
+        await notifier.EnsureAuthoritySubscribedAsync(Space, MemberDid);
+
+        notifier.NotifyWriteInBackground(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]);
+
+        Assert.True(await WaitForAsync(() => handler.Requests.Count >= 3));
+        await Task.Delay(100);
+        Assert.Equal(3, handler.Requests.Count);
+    }
+
+    [Fact]
+    public async Task NotifyWriteInBackground_RefusedByTheAuthority_IsNotRetried()
+    {
+        var handler = new HttpStub().Fallback(_ => new HttpResponseMessage(HttpStatusCode.BadRequest));
+        var notifier = CreateRetrying(handler);
+        await notifier.EnsureAuthoritySubscribedAsync(Space, MemberDid);
+
+        notifier.NotifyWriteInBackground(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]);
+
+        Assert.True(await WaitForAsync(() => handler.Requests.Count >= 1));
+        await Task.Delay(100);
+        Assert.Single(handler.Requests);
+    }
+
+    [Fact]
+    public async Task NotifyWriteInBackground_RetryWindowThatCloses_GivesUp()
+    {
+        var handler = new HttpStub().Fallback(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
+        var notifier = CreateRetrying(handler);
+        notifier.RetryWindow = TimeSpan.FromMilliseconds(100);
+        await notifier.EnsureAuthoritySubscribedAsync(Space, MemberDid);
+
+        notifier.NotifyWriteInBackground(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]);
+
+        await Task.Delay(400);
+        var attempts = handler.Requests.Count;
+        Assert.InRange(attempts, 2, 100);
+        await Task.Delay(200);
+        Assert.Equal(attempts, handler.Requests.Count);
+    }
+
+    [Fact]
+    public async Task NotifyWriteInBackground_NewerRevisionWhileRetrying_ReplacesTheOlderOne()
+    {
+        // Coalescing per repo and space: once a newer revision is pending the older is never sent again,
+        // and an older one arriving late is ignored.
+        var failing = true;
+        var handler = new HttpStub().Fallback(_ => new HttpResponseMessage(failing ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.OK));
+        var notifier = CreateRetrying(handler);
+        notifier.RetryBaseDelay = TimeSpan.FromMilliseconds(300);
+        await notifier.EnsureAuthoritySubscribedAsync(Space, MemberDid);
+
+        notifier.NotifyWriteInBackground(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]);
+        Assert.True(await WaitForAsync(() => handler.Requests.Count >= 1));
+        notifier.NotifyWriteInBackground(Space, MemberDid, Tid.Parse("3l6oveex3ii2n"), [3]);
+        notifier.NotifyWriteInBackground(Space, MemberDid, Tid.Parse("3l6oveex3ii2m"), [2]);
+        failing = false;
+
+        Assert.True(await WaitForAsync(() => handler.Requests.Count >= 2));
+        await Task.Delay(100);
+        var revisions = handler.Requests.Select(r => JsonDocument.Parse(r.BodyText).RootElement.GetProperty("repoRev").GetString()).ToList();
+        Assert.Equal("3l6oveex3ii2l", revisions[0]);
+        Assert.All(revisions.Skip(1), r => Assert.Equal("3l6oveex3ii2n", r));
     }
 
     // ── Per-account signing ────────────────────────────────────
@@ -330,7 +425,7 @@ public class SpaceWriteNotifierTests
         var (notifier, store, handler) = Create(accountSigner: signer);
         await store.RegisterNotifyAsync(Space, $"{SyncerDid}#atproto_space_syncer", DateTimeOffset.UtcNow.AddDays(1));
 
-        Assert.Equal(1, await notifier.ForwardWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1]));
+        Assert.Equal(1, await notifier.ForwardWriteAsync(Space, MemberDid, Tid.Parse("3l6oveex3ii2l"), [1], Sequence));
 
         var token = Assert.Single(handler.Requests).Headers.Authorization?.Parameter!;
         Assert.Equal(AuthorityDid, Claim(token, "iss"));

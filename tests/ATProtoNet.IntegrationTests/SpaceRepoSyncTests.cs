@@ -284,13 +284,14 @@ public class SpaceRepoSyncTests(SpaceNetworkFixture fixture)
             repos => repos.Any(repo => repo.Did == fixture.Member.Did));
 
         var writer = Assert.Single(writers, repo => repo.Did == fixture.Member.Did);
-        Assert.NotNull(writer.Rev);
+        Assert.NotNull(writer.RepoRev);
+        Assert.NotNull(writer.SpaceRev);
         Assert.NotEmpty(writer.Hash);
 
-        // Each entry carries the repo's current rev, which is what lets a sweep re-sync only the
+        // Each entry carries the repo's current repoRev and the space-wide spaceRev, which lets a sweep re-sync only the
         // repos that advanced instead of polling every one of them.
         var commit = await host.Space.GetLatestCommitAsync(space, fixture.Member.Did);
-        Assert.Equal(commit.Commit.Rev, writer.Rev);
+        Assert.Equal(commit.Commit.Rev, writer.RepoRev);
     }
 
     private static async Task<byte[]> DownloadRepoAsync(

@@ -115,16 +115,21 @@ public sealed class SpaceClient
 
     /// <summary>Lists one page of the repos that hold data in a space — the writer set. Served by the space host.</summary>
     /// <param name="limit">Maximum number of results per page (1–1000, default 100).</param>
-    /// <param name="cursor">Pagination cursor.</param>
+    /// <param name="cursor">
+    /// A <c>spaceRev</c> checkpoint, exclusive: the cursor of a previous page, or a <c>spaceRev</c>
+    /// already processed. Sent as the plain string it is, so a cursor the server does not recognize
+    /// (an old DID-based one) is its to refuse.
+    /// </param>
     /// <remarks>
     /// <para>This is the sync boundary, not an access-control list: it enumerates accounts that
     /// have <em>written at least one record</em>, never the broader set allowed to write and
     /// never readers, which the protocol does not enumerate at all.</para>
     /// <para>It is also only what the authority claims, kept current by the write notifications
     /// it has received. A listed account's repo host is the source of truth. Treat the writer
-    /// set as a starting point for discovery and confirm each repo by syncing it. Because each
-    /// entry carries a <c>rev</c>, a syncer can sweep the whole space by comparing revisions and
-    /// re-syncing only what advanced.</para>
+    /// set as a starting point for discovery and confirm each repo by syncing it. Entries come
+    /// in ascending <c>spaceRev</c> order and <paramref name="cursor"/> is an exclusive <c>spaceRev</c>
+    /// checkpoint, so a syncer resumes from the last one it processed and re-syncs only what advanced
+    /// (<see cref="ATProtoNet.Spaces.SpaceSyncer.ListChangedReposAsync"/>).</para>
     /// </remarks>
     public Task<ListSpaceReposResponse> ListReposAsync(
         SpaceUri space,
@@ -530,7 +535,7 @@ public sealed class SpaceClient
     /// that host's repos.</para>
     /// <para>Notifications carry no record data — only that a given repo reached a new revision
     /// and hash — and are best-effort. A dropped notification is not a lost write: the repo is
-    /// caught up by a later notification or by a periodic sweep over the writer set.</para>
+    /// caught up by a later notification or by a catch-up over the writer set from a spaceRev checkpoint.</para>
     /// <para>Authenticated with a space credential. Re-registering replaces the existing
     /// registration and extends its expiry.</para>
     /// </remarks>
@@ -562,27 +567,29 @@ public sealed class SpaceClient
 
     /// <summary>Notifies that a repo in a space advanced to a new revision.</summary>
     /// <param name="repo">The DID of the account whose repo advanced.</param>
-    /// <param name="rev">The revision of the write.</param>
+    /// <param name="repoRev">The repo's revision after the write.</param>
     /// <param name="hash">The repo's commit hash after the write.</param>
     /// <remarks>
-    /// Sent by a repo host to the space host, and forwarded by the space host to the services
-    /// registered for the space. Authenticated with service auth.
+    /// Sent by a repo host to the space host with service auth, which sequences it and forwards it
+    /// (with a <c>spaceRev</c>) to the services registered for the space. Answers
+    /// <see cref="SpaceErrors.SpaceNotFound"/> for an unknown space and
+    /// <see cref="SpaceErrors.FutureRev"/> for a revision more than five minutes ahead.
     /// </remarks>
     public async Task NotifyWriteAsync(
         SpaceUri space,
         Did repo,
-        Tid rev,
+        Tid repoRev,
         byte[] hash,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(space);
         ArgumentNullException.ThrowIfNull(repo);
-        ArgumentNullException.ThrowIfNull(rev);
+        ArgumentNullException.ThrowIfNull(repoRev);
         ArgumentNullException.ThrowIfNull(hash);
 
         await _xrpc.ProcedureAsync(
             "com.atproto.space.notifyWrite",
-            new NotifyWriteRequest { Space = space, Repo = repo, Rev = rev, Hash = hash },
+            new NotifyWriteRequest { Space = space, Repo = repo, RepoRev = repoRev, Hash = hash },
             cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 

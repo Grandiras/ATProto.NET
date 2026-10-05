@@ -64,36 +64,45 @@ public sealed class InMemorySpaceAuthorityStore : ISpaceAuthorityStore
         if (!_spaces.TryGetValue(space.Value, out var state))
             return Task.FromResult(new ListSpaceReposResponse { Repos = [] });
 
-        var rows = SpacePaging.After(state.Writers, entry => entry.Key.Value, cursor, limit);
-        var (repos, next) = SpacePaging.Page(
+        // Selected under the sequencing lock: enumerating the dictionary while a write lands could show a
+        // later revision without an earlier one, and the cursor would then skip the earlier.
+        List<KeyValuePair<Did, WriterState>> rows;
+        lock (state.Sequence)
+            rows = SpacePaging.After(state.Writers, entry => entry.Value.SpaceRev.Value, cursor, limit);
+
+        var (repos, next) = SpacePaging.CheckpointPage(
             rows,
             limit,
-            entry => new SpaceRepoView { Did = entry.Key, Rev = entry.Value.Rev, Hash = entry.Value.Hash },
-            repo => repo.Did.Value);
+            entry => new SpaceRepoView { Did = entry.Key, RepoRev = entry.Value.RepoRev, Hash = entry.Value.Hash, SpaceRev = entry.Value.SpaceRev },
+            repo => repo.SpaceRev.Value);
 
         return Task.FromResult(new ListSpaceReposResponse { Repos = repos, Cursor = next });
     }
 
     /// <inheritdoc/>
-    public Task RecordWriteAsync(
-        SpaceUri space, Did repoDid, Tid rev, byte[] hash, CancellationToken cancellationToken = default)
+    public Task<SpaceWriteSequence?> RecordWriteAsync(
+        SpaceUri space, Did repoDid, Tid repoRev, byte[] hash, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(space);
         ArgumentNullException.ThrowIfNull(repoDid);
-        ArgumentNullException.ThrowIfNull(rev);
+        ArgumentNullException.ThrowIfNull(repoRev);
 
         var state = _spaces.GetOrAdd(space.Value, _ => new SpaceState());
 
-        // A notification that arrives out of order must not walk a repo's revision backwards; a
-        // syncer reads the writer set to decide what advanced.
-        state.Writers.AddOrUpdate(
-            repoDid,
-            _ => new WriterState(rev, hash),
-            (_, existing) => rev.CompareTo(existing.Rev) >= 0
-                ? new WriterState(rev, hash)
-                : existing);
+        // One lock per space: the revision is allocated and the writer updated as a single step, so
+        // revisions increase in the order writes are accepted.
+        lock (state.Sequence)
+        {
+            // A repo's revision never moves backwards, and a duplicate changes nothing.
+            if (state.Writers.TryGetValue(repoDid, out var existing) && repoRev.CompareTo(existing.RepoRev) <= 0)
+                return Task.FromResult<SpaceWriteSequence?>(null);
 
-        return Task.CompletedTask;
+            var spaceRev = SpacePaging.NextSpaceRev(state.LastSpaceRev);
+            var sequence = new SpaceWriteSequence(spaceRev, state.LastSpaceRev);
+            state.Writers[repoDid] = new WriterState(repoRev, hash, spaceRev);
+            state.LastSpaceRev = spaceRev;
+            return Task.FromResult<SpaceWriteSequence?>(sequence);
+        }
     }
 
     /// <inheritdoc/>
@@ -140,11 +149,13 @@ public sealed class InMemorySpaceAuthorityStore : ISpaceAuthorityStore
     private sealed class SpaceState
     {
         public bool Deleted { get; set; }
+        public object Sequence { get; } = new();
+        public Tid? LastSpaceRev { get; set; }
         public ConcurrentDictionary<Did, WriterState> Writers { get; } = new();
         public ConcurrentDictionary<string, DateTimeOffset> Subscribers { get; } = new(StringComparer.Ordinal);
     }
 
-    private sealed record WriterState(Tid Rev, byte[] Hash);
+    private sealed record WriterState(Tid RepoRev, byte[] Hash, Tid SpaceRev);
 }
 
 /// <summary>An in-process <see cref="ISimpleSpaceStore"/>.</summary>

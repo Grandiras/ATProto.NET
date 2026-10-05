@@ -127,11 +127,11 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
 
         await store.RecordWriteAsync(Space, alice, Tid.Parse("3kbbbbbbbbbbb"), [2]);
         await store.RecordWriteAsync(Space, alice, Tid.Parse("3kaaaaaaaaaaa"), [1]);
-        Assert.Equal("3kbbbbbbbbbbb", Assert.Single((await store.ListReposAsync(Space, 10, null)).Repos).Rev);
+        Assert.Equal("3kbbbbbbbbbbb", Assert.Single((await store.ListReposAsync(Space, 10, null)).Repos).RepoRev);
 
         await store.RecordWriteAsync(Space, alice, Tid.Parse("3kccccccccccc"), [3]);
         var repo = Assert.Single((await store.ListReposAsync(Space, 10, null)).Repos);
-        Assert.Equal("3kccccccccccc", repo.Rev);
+        Assert.Equal("3kccccccccccc", repo.RepoRev);
         Assert.Equal([3], repo.Hash);
     }
 
@@ -204,7 +204,7 @@ public sealed class EfCoreSpaceStoreTests : IAsyncLifetime
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             SpaceDbContext.ConfigureSpaceAuthorityModel(modelBuilder);
-            modelBuilder.Entity<SpaceWriterEntity>().Property(e => e.Rev).UseCollation("REVERSED");
+            modelBuilder.Entity<SpaceWriterEntity>().Property(e => e.RepoRev).UseCollation("REVERSED");
         }
     }
 

@@ -110,7 +110,7 @@ public sealed class ServiceAuthWithSpacesTests : IAsyncDisposable
         var request = new HttpRequestMessage(HttpMethod.Post, $"/xrpc/{SpaceNsids.NotifyWrite}")
         {
             Content = JsonContent.Create(
-                new NotifyWriteRequest { Space = _space, Repo = Did.Parse(MemberDid), Rev = Tid.Parse("3l6oveex3ii2l"), Hash = [1, 2, 3] },
+                new NotifyWriteRequest { Space = _space, Repo = Did.Parse(MemberDid), RepoRev = Tid.Parse("3l6oveex3ii2l"), Hash = [1, 2, 3] },
                 options: AtProtoJsonDefaults.Options),
         };
         request.Headers.Authorization = new AuthenticationHeaderValue(

@@ -87,7 +87,7 @@ internal sealed class GetSpaceCredentialEndpoint(
 // written at least one record and that the space's write policy admitted — never the broader set allowed
 // to write, and never readers; the protocol does not enumerate readers at all. It is also only what this
 // authority claims, kept current by the write notifications it has accepted; a listed account's repo
-// host is the source of truth, which is what the per-entry revision is for.
+// host is the source of truth, which is what the per-entry repoRev and the spaceRev ordering are for.
 [AuthenticatesItself]
 internal sealed class ListSpaceReposEndpoint(SpaceRequestAuthenticator authenticator, ISpaceAuthorityStore store)
     : IXrpcQuery<ListSpaceReposParameters, ListSpaceReposResponse>
@@ -102,6 +102,11 @@ internal sealed class ListSpaceReposEndpoint(SpaceRequestAuthenticator authentic
         var space = SpaceRequestValidation.RequireSpace(parameters.Space);
         await authenticator.AuthenticateCredentialAsync(context, space, cancellationToken).ConfigureAwait(false);
         await RequireLiveSpaceAsync(store, space, cancellationToken).ConfigureAwait(false);
+
+        // A checkpoint is a space revision. Anything else, such as a DID cursor saved before revisions existed,
+        // would compare past every revision and read as "nothing changed", so it is refused instead.
+        if (parameters.Cursor is { } cursor && !Tid.TryParse(cursor, out _))
+            throw new XrpcException(XrpcErrors.InvalidRequest, "The \"cursor\" parameter must be a space revision (a TID).");
 
         return await store.ListReposAsync(
             space, SpaceRequestValidation.Limit(parameters.Limit), parameters.Cursor, cancellationToken).ConfigureAwait(false);
@@ -129,7 +134,7 @@ internal sealed class ListSpaceReposEndpoint(SpaceRequestAuthenticator authentic
 //
 // Notifications are the latency optimization, not the correctness guarantee. They carry no record data —
 // only that a repo reached a new revision and hash — and are best-effort: a dropped one is not a lost
-// write, because the syncer's periodic sweep over listRepos catches it. That is why the registration
+// write, because the syncer's catch-up over listRepos from its spaceRev checkpoint finds it. That is why the registration
 // merely has to be recorded, and why letting one lapse is not an error.
 [AuthenticatesItself]
 internal sealed class RegisterNotifyEndpoint(
@@ -168,7 +173,7 @@ internal sealed class RegisterNotifyEndpoint(
 //
 // As in the reference authority, any caller with a credential for the space may remove any registration
 // in it: a credential names the space and the reading client, not a subscriber service, so there is
-// nothing to match service against. A removed syncer loses only latency — its listRepos sweep still
+// nothing to match service against. A removed syncer loses only latency — its listRepos catch-up still
 // catches every write — and its next renewal restores it.
 [AuthenticatesItself]
 internal sealed class UnregisterNotifyEndpoint(SpaceRequestAuthenticator authenticator, ISpaceAuthorityStore store)
@@ -210,8 +215,10 @@ internal sealed class UnregisterNotifyEndpoint(SpaceRequestAuthenticator authent
 //
 // The writer is then put to the access policy as a SpaceAccessKind.Write. One it refuses is answered
 // with 403 and neither recorded nor forwarded — refusing a write notification does not stop anyone
-// writing to their own repo, only this authority listing and relaying it. One it admits is recorded, and
-// forwarded in the background to every service registered for the space.
+// writing to their own repo, only this authority listing and relaying it. One it admits is recorded and
+// given the space's next spaceRev, and forwarded in the background, with that spaceRev and the previous
+// one, to every service registered for the space. A repoRev the repo has already reached is ignored, and
+// one more than five minutes ahead of the clock is refused as FutureRev.
 [AuthenticatesItself]
 internal sealed class NotifyWriteEndpoint(
     [FromKeyedServices(SpaceServerExtensions.DidResolverKey)] IDidResolver resolver,
@@ -232,6 +239,9 @@ internal sealed class NotifyWriteEndpoint(
 
     public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.NotifyWrite);
 
+    // How far ahead of the clock a repo revision may be, as in the reference authority.
+    private static readonly TimeSpan MaxRevisionSkew = TimeSpan.FromMinutes(5);
+
     public async Task HandleAsync(
         NotifyWriteRequest input, HttpContext context, CancellationToken cancellationToken = default)
     {
@@ -240,7 +250,7 @@ internal sealed class NotifyWriteEndpoint(
         // Malformed input is refused before any auth check, as the Lexicon's own types would be.
         var space = SpaceRequestValidation.RequireSpace(input.Space);
         var repo = SpaceRequestValidation.Require(input.Repo, "repo");
-        var rev = SpaceRequestValidation.Require(input.Rev, "rev");
+        var repoRev = SpaceRequestValidation.Require(input.RepoRev, "repoRev");
         var hash = input.Hash ?? throw new XrpcException(XrpcErrors.InvalidRequest, "The \"hash\" field is required.");
 
         var caller = await VerifyCallerAsync(context, space, cancellationToken).ConfigureAwait(false);
@@ -252,6 +262,11 @@ internal sealed class NotifyWriteEndpoint(
                 SpaceErrors.NotAuthorized,
                 $"A write notification for '{repo}' must be signed by '{repo}', not by '{caller.Issuer}'.",
                 HttpStatusCode.Forbidden);
+
+        // A revision from the future would outrank every honest one the repo reports after it.
+        var now = (timeProvider ?? TimeProvider.System).GetUtcNow();
+        if (repoRev.ToInt64() >> 10 > (now + MaxRevisionSkew - DateTimeOffset.UnixEpoch).Ticks / 10)
+            throw new XrpcException(SpaceErrors.FutureRev, $"The repo revision {repoRev} is in the future.");
 
         await ListSpaceReposEndpoint.RequireLiveSpaceAsync(store, space, cancellationToken).ConfigureAwait(false);
 
@@ -274,11 +289,13 @@ internal sealed class NotifyWriteEndpoint(
                 HttpStatusCode.Forbidden);
         }
 
-        await store.RecordWriteAsync(space, repo, rev, hash, cancellationToken).ConfigureAwait(false);
+        // Null for a revision the repo has already reached: ignored, neither sequenced nor forwarded.
+        if (await store.RecordWriteAsync(space, repo, repoRev, hash, cancellationToken).ConfigureAwait(false) is not { } sequence)
+            return;
 
         // Not awaited: neither the writer's repo host nor this request waits on downstream
         // syncers, whose deliveries are best-effort anyway.
-        _ = notifier?.ForwardWriteAsync(space, repo, rev, hash);
+        _ = notifier?.ForwardWriteAsync(space, repo, repoRev, hash, sequence);
     }
 
     // Verifies the request's service auth, reporting a refusal as SpaceErrors.NotAuthorized.

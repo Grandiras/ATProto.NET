@@ -19,13 +19,22 @@ public sealed class SpaceEntity
 
     /// <summary>Whether the space has been deleted.</summary>
     public bool Deleted { get; set; }
+
+    /// <summary>The last space revision (a TID) assigned in the space, or <see langword="null"/> before the first.</summary>
+    /// <remarks>
+    /// The sequencer: a new revision is claimed by an update conditioned on this value, so concurrent
+    /// writers of one space are serialized and revisions commit in increasing order.
+    /// </remarks>
+    [MaxLength(64)]
+    public string? LastSpaceRev { get; set; }
 }
 
 /// <summary>One account's entry in a space's writer set, as last reported to the authority.</summary>
 /// <remarks>
 /// The writer set is the sync boundary, not an access-control list. Each entry carries the
-/// revision and commit hash from the last <c>notifyWrite</c>, which is what lets a syncer
-/// re-sync only the repos that advanced.
+/// repo revision and commit hash from the last <c>notifyWrite</c> and the space revision it was
+/// sequenced at, which is what lets a syncer resume from a checkpoint and re-sync only the repos
+/// that advanced.
 /// </remarks>
 public sealed class SpaceWriterEntity
 {
@@ -39,7 +48,12 @@ public sealed class SpaceWriterEntity
 
     /// <summary>The repo's revision (a TID) as last reported.</summary>
     [MaxLength(64)]
-    public required string Rev { get; set; }
+    public required string RepoRev { get; set; }
+
+    /// <summary>The space revision (a TID) this entry was last sequenced at.</summary>
+    /// <remarks>Ordered and compared as a string, so the column needs an ordinal (binary) collation; SQLite's default is one.</remarks>
+    [MaxLength(64)]
+    public required string SpaceRev { get; set; }
 
     /// <summary>The repo's commit hash as last reported.</summary>
     public required byte[] Hash { get; set; }

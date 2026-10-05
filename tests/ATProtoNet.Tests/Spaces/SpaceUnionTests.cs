@@ -92,7 +92,7 @@ public class SpaceUnionTests
     public void ListRepos_EntriesKeepFieldsTheyDoNotDeclare()
     {
         const string json =
-            """{"repos":[{"did":"did:plc:aaaaaaaaaaaaaaaaaaaaaaaa","rev":"3l6oveex3ii2l","hash":{"$bytes":"AAEC"},"status":"active"}]}""";
+            """{"repos":[{"did":"did:plc:aaaaaaaaaaaaaaaaaaaaaaaa","repoRev":"3l6oveex3ii2l","hash":{"$bytes":"AAEC"},"spaceRev":"3l6oveex3ii2m","status":"active"}]}""";
 
         var response = JsonSerializer.Deserialize<ListSpaceReposResponse>(json, Options)!;
 

@@ -382,8 +382,30 @@ up. An authority may exclude writers for any reason, spam and abuse included; wi
 policy it tracks writers who were never members.
 
 It is also only what the authority *claims*, kept current by the write notifications it has
-accepted. A listed account's repo host is the source of truth. Because each entry carries that
-repo's current revision, a periodic sweep can compare revisions and re-sync only what advanced.
+accepted. A listed account's repo host is the source of truth.
+
+Each entry is `{ did, repoRev, hash, spaceRev }`. `repoRev` is that repo's own revision. `spaceRev`
+is the space-wide one: the authority assigns a new, strictly increasing TID to every update it
+accepts, across all writers, and the list is **ordered by it**. `cursor` is an *exclusive
+`spaceRev` checkpoint*, a plain string: pass a previous page's cursor, or a `spaceRev` you have
+already processed, and you get only what advanced since. A non-empty page returns its last
+`spaceRev` as the cursor even when it is short, and the walk ends at an empty page, which carries no
+cursor, so keep your previous checkpoint when a page omits it. A repo that is updated while you
+paginate appears again later in the walk.
+
+A syncer that persists a checkpoint per space therefore never needs a full sweep.
+`SpaceSyncer.ListChangedReposAsync` is the walk, and `SpaceSyncer.NeedsCatchUp` is the gap check on a
+forwarded notification (below). Advance the checkpoint to a repo's `spaceRev` only after that repo is
+safely synced, never past work a crash would lose, and never backwards. A checkpoint saved before
+`spaceRev` existed was a DID and cannot be reused: start again from `null`.
+
+<!-- snippet: SpaceSyncer syncer; SpaceClient client; Tid? checkpoint; NotifyWriteRequest notification; -->
+```csharp
+// A forwarded notification either follows the checkpoint directly (sync that repo) or shows a gap.
+if (SpaceSyncer.NeedsCatchUp(checkpoint, notification))
+    await foreach (var changed in syncer.ListChangedReposAsync(client, checkpoint))
+        Console.WriteLine($"{changed.Did} advanced to {changed.SpaceRev}");
+```
 
 ### Write notifications
 
@@ -394,16 +416,25 @@ Rather than polling, a syncer registers for notifications:
 await reader.Space.RegisterNotifyAsync(space, "did:web:syncer.example.com#atproto_space_syncer");
 ```
 
-A writer's repo host tells the space's authority, and the authority forwards each notification it
-accepts to every service registered with it. Notifications carry no record data — only that a repo
-reached a new revision and hash — and are **best-effort**. A dropped one is not a lost write: the
-repo is caught up by a later notification, or by the periodic sweep above. They are the latency
-optimization; the sweep is the correctness guarantee.
+A writer's repo host tells the space's authority (`{ space, repo, repoRev, hash }`), and the
+authority forwards each notification it accepts to every service registered with it, adding the
+`spaceRev` it assigned and the `prevSpaceRev` before it (absent on the space's first update).
+Notifications carry no record data — only that a repo reached a new revision and hash.
+
+The authority ignores a `repoRev` at or below the one it already holds for that repo, neither
+sequencing nor forwarding it, and refuses one more than five minutes ahead of its clock with
+`FutureRev`. An unknown or deleted space answers `SpaceNotFound`.
+
+Delivery to syncers is **best-effort**. A syncer holds the last `spaceRev` it processed as its
+checkpoint. A notification whose `prevSpaceRev` is not that checkpoint means it missed some, and so
+does coming back after downtime; either way it catches up through `listRepos` from the checkpoint.
+A duplicate or out-of-order notification at or below the checkpoint is ignored. Notifications are
+the latency optimization; the catch-up is the correctness guarantee.
 
 Registrations are keyed by space and service only. A space credential names the space and the
 reading application, not a subscriber service, so `unregisterNotify` — here as in the reference
 authority — removes the named service for any caller holding a credential for that space. Being
-dropped costs a syncer latency, not data: its sweep still catches every write, and its next
+dropped costs a syncer latency, not data: its catch-up still finds every write, and its next
 `registerNotify` renewal puts it back.
 
 ## Managing a space with `simplespace`
@@ -707,14 +738,48 @@ builder.Services
 The EF Core stores take an `IDbContextFactory<T>` — they open a context per operation — and use
 `SpaceDbContext` or any context of your own that calls `SpaceDbContext.ConfigureSpaceModel()` (or
 one of `ConfigureSpaceAuthorityModel`, `ConfigureSimpleSpaceModel` and
-`JtiReplayDbContext.ConfigureJtiReplayModel`) from its `OnModelCreating`. Pagination is by DID, as in the in-memory stores, so a cursor names a
-position rather than an offset into a set that reorders as writes arrive. Changes to rows that exist
+`JtiReplayDbContext.ConfigureJtiReplayModel`) from its `OnModelCreating`. The writer set pages by
+`spaceRev`, as in the in-memory stores, so a cursor is a checkpoint rather than an offset; the
+`SpaceRev` column therefore needs an ordinal (binary) collation, which SQLite's default is, or a
+checkpoint could skip a repo. Each accepted write takes the next `spaceRev` in one transaction: the
+space row holds the last one assigned and is updated conditioned on the value just read, so writers
+of a space serialize and commit in revision order. Changes to rows that exist
 — a renewed registration, a member's flags — are a single `UPDATE` with no read before it (a
-writer advancing reads its revision first, to compare it ordinally rather than by the database's
-collation), and the replay store sweeps expired rows in the background rather than on the request
+writer advancing reads its repo revision first, to compare it ordinally rather than by the
+database's collation), and the replay store sweeps expired rows in the background rather than on the request
 that finds a sweep due. Both need a provider that translates `ExecuteUpdate`/`ExecuteDelete`, which
 every relational one does and the EF Core in-memory provider does not: for tests, use SQLite in
 memory (`Data Source=<name>;Mode=Memory;Cache=Shared`, over a connection held open for the test).
+
+#### Upgrading the writer set from 0.7
+
+`spaceRev` changed the authority schema (`dotnet ef migrations add SpaceRevisions`):
+
+| Table | Before | After |
+| --- | --- | --- |
+| `AtProtoSpaces` | `Space`, `Deleted` | plus `LastSpaceRev` (nullable, 64) |
+| `AtProtoSpaceWriters` | `Rev` | `RepoRev` (renamed), plus `SpaceRev` (required, 64, unique with `Space`) |
+
+Rename the column rather than drop it, and **clear the writer rows**: existing entries have no
+`spaceRev`, and the writer set is only what the authority claims, rebuilt by each repo host's next
+`notifyWrite`. Syncers must rebootstrap their checkpoints anyway, because the old DID cursors are not
+revisions.
+
+```csharp
+using Microsoft.EntityFrameworkCore.Migrations;
+
+public partial class SpaceRevisions : Migration
+{
+    protected override void Up(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.Sql("""DELETE FROM "AtProtoSpaceWriters" """);
+        migrationBuilder.RenameColumn(name: "Rev", table: "AtProtoSpaceWriters", newName: "RepoRev");
+        migrationBuilder.AddColumn<string>(name: "SpaceRev", table: "AtProtoSpaceWriters", maxLength: 64, nullable: false, defaultValue: "");
+        migrationBuilder.AddColumn<string>(name: "LastSpaceRev", table: "AtProtoSpaces", maxLength: 64, nullable: true);
+        migrationBuilder.CreateIndex(name: "IX_AtProtoSpaceWriters_Space_SpaceRev", table: "AtProtoSpaceWriters", columns: ["Space", "SpaceRev"], unique: true);
+    }
+}
+```
 
 #### Upgrading a `simplespace` database from 0.6
 
@@ -899,9 +964,9 @@ for any of its spaces.
 ### Write notifications
 
 `SpaceWriteNotifier` fans `notifyWrite` out to the services registered for a space, authenticated
-with service auth. Delivery is best-effort by design: a failure is logged and dropped, because the
-syncer's periodic sweep over `listRepos` is the correctness guarantee and the notification is only
-the latency optimization.
+with service auth. Delivery to syncers is best-effort by design: a failure is logged and dropped, because
+the syncer's catch-up over `listRepos` from its `spaceRev` checkpoint is the correctness guarantee
+and the notification is only the latency optimization.
 
 The token is signed as the account the call speaks for when this service holds that account's key:
 the writer on a repo host's `notifyWrite`, and the space's authority on a forwarded one, on
@@ -935,8 +1000,21 @@ builder.Services.AddSingleton<ISpaceAccountSigner, ActorStoreSigner>();
 ```csharp partial
 // On a repo host, after a write into a space anchored on someone else's DID.
 await notifier.EnsureAuthoritySubscribedAsync(space, repoDid, ct);
-await notifier.NotifyWriteAsync(space, repoDid, rev, hash, ct);
+notifier.NotifyWriteInBackground(space, repoDid, rev, hash);
 ```
+
+`NotifyWriteInBackground` is the repo host's half and the one leg that retries, because the authority
+is what sequences a write for everyone else. A failure that may pass (a network error, a timeout, a
+408, 429 or 5xx answer, an endpoint that does not resolve) is retried with exponential backoff and
+jitter for `RetryWindow` (an hour by default, from `RetryBaseDelay`); anything else the receiver
+refuses is dropped. Calls coalesce per repo and space: a newer revision replaces a pending older one
+and restarts the window. `NotifyWriteAsync` is the single attempt, for a caller that wants the count.
+
+**The queue lives in the process.** The reference PDS persists retries and keeps them for 24 hours, so
+a restart loses nothing; here a restart drops what is pending, and the repo is caught up by its next
+write. A repo host that must not wait for that records its writes durably and calls
+`NotifyWriteInBackground` again for what is outstanding on startup; the authority applies each
+idempotently.
 
 `EnsureAuthoritySubscribedAsync` is what puts an account into a space's writer set at all: an
 authority learns who holds data in its spaces only from the notifications it receives, and it
@@ -950,9 +1028,9 @@ is reached at the authority's `#atproto_space_host` endpoint, or at its `#atprot
 publishes none, as an authority on an ordinary PDS does. It is addressed by the authority's bare
 DID, which is what the reference authority checks.
 
-Inbound, `NotifyWriteEndpoint` does four things in order:
+Inbound, `NotifyWriteEndpoint` does five things in order:
 
-1. It refuses malformed input before any auth check. `rev` must be a TID.
+1. It refuses malformed input before any auth check. `repoRev` must be a TID.
 2. It accepts a token addressed to the authority's bare DID, to `{authority}#atproto_space_host`,
    or to `SpaceServerOptions.ServiceDid`. Reference repo hosts send the first, so a multi-tenant
    host configured with its own `ServiceDid` still accepts them.
@@ -960,11 +1038,15 @@ Inbound, `NotifyWriteEndpoint` does four things in order:
    reference authority does. Otherwise any service could advance any account's revision in the
    writer set, which is what a syncer uses to decide whether to re-read a repo; a PDS signs as the
    account it hosts (`ISpaceAccountSigner` on an SDK host).
-4. It puts the writer to the access policy as a write. A refused writer gets a 403 and is neither
-   recorded nor forwarded. An admitted one is recorded, then forwarded in the background to every
-   service registered for the space (`SpaceWriteNotifier.ForwardWriteAsync`). The authority's own
-   registration is skipped, so a service that is both repo host and authority does not notify
-   itself.
+4. It refuses a `repoRev` more than five minutes ahead of the clock with `FutureRev`, and an unknown
+   or deleted space with `SpaceNotFound`.
+5. It puts the writer to the access policy as a write. A refused writer gets a 403 and is neither
+   recorded nor forwarded. An admitted one is recorded and given the space's next `spaceRev`
+   (`ISpaceAuthorityStore.RecordWriteAsync`), unless its `repoRev` is not past the one held: that is
+   ignored. A sequenced write is forwarded in the background, with the `spaceRev` and `prevSpaceRev`,
+   to every service registered for the space (`SpaceWriteNotifier.ForwardWriteAsync`). The
+   authority's own registration is skipped, so a service that is both repo host and authority does
+   not notify itself.
 
 ### What is not here
 

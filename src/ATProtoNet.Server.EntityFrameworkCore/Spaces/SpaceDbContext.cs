@@ -86,6 +86,7 @@ public class SpaceDbContext : DbContext
             entity.HasKey(e => e.Space);
             entity.Property(e => e.Space).HasMaxLength(512);
             entity.Property(e => e.Deleted);
+            entity.Property(e => e.LastSpaceRev).HasMaxLength(64);
         });
 
         modelBuilder.Entity<SpaceWriterEntity>(entity =>
@@ -94,8 +95,12 @@ public class SpaceDbContext : DbContext
             entity.HasKey(e => new { e.Space, e.Did });
             entity.Property(e => e.Space).HasMaxLength(512);
             entity.Property(e => e.Did).HasMaxLength(512);
-            entity.Property(e => e.Rev).HasMaxLength(64).IsRequired();
+            entity.Property(e => e.RepoRev).HasMaxLength(64).IsRequired();
+            entity.Property(e => e.SpaceRev).HasMaxLength(64).IsRequired();
             entity.Property(e => e.Hash).IsRequired();
+
+            // listRepos pages by space revision, and a revision is assigned once.
+            entity.HasIndex(e => new { e.Space, e.SpaceRev }).IsUnique();
         });
 
         modelBuilder.Entity<SpaceSubscriberEntity>(entity =>

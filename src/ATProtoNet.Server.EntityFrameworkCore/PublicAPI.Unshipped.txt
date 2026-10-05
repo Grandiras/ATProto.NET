@@ -1,1 +1,11 @@
 #nullable enable
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore<TContext>.RecordWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! repoRev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Server.Spaces.SpaceWriteSequence?>!
+*REMOVED*ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore<TContext>.RecordWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! rev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+ATProtoNet.Server.EntityFrameworkCore.SpaceEntity.LastSpaceRev.get -> string?
+ATProtoNet.Server.EntityFrameworkCore.SpaceEntity.LastSpaceRev.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.RepoRev.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.RepoRev.set -> void
+*REMOVED*ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.Rev.get -> string!
+*REMOVED*ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.Rev.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.SpaceRev.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.SpaceRev.set -> void

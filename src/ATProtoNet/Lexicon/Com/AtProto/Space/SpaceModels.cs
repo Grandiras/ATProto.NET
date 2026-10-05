@@ -72,16 +72,26 @@ public sealed class SpaceRepoView : LexObject
     public required Did Did { get; init; }
 
     /// <summary>The repo's current revision, as last reported to the authority. May lag the repo host, which is the source of truth.</summary>
-    [JsonPropertyName("rev")]
-    public required Tid Rev { get; init; }
+    [JsonPropertyName("repoRev")]
+    public required Tid RepoRev { get; init; }
 
     /// <summary>The repo's current commit hash (<c>sha256</c> of the LtHash state), as last reported to the authority.</summary>
     [JsonPropertyName("hash")]
     [JsonConverter(typeof(LexBytesJsonConverter))]
     public required byte[] Hash { get; init; }
+
+    /// <summary>The space revision at which this repo was last updated. Entries come in ascending order of it, and a page's last one is the next page's <c>cursor</c>.</summary>
+    [JsonPropertyName("spaceRev")]
+    public required Tid SpaceRev { get; init; }
 }
 
-/// <summary>Response from <c>listRepos</c>: a space's writer set.</summary>
+/// <summary>Response from <c>listRepos</c>: the writer set, in ascending <see cref="SpaceRepoView.SpaceRev"/> order.</summary>
+/// <remarks>
+/// <see cref="CursorPage{T}.Cursor"/> is the last entry's <see cref="SpaceRepoView.SpaceRev"/> on any
+/// non-empty page, even a short one, and is omitted on an empty page: keep walking until an empty page,
+/// and keep the previous checkpoint when it omits the cursor. A repo reappears if it was updated while
+/// paginating.
+/// </remarks>
 public sealed record ListSpaceReposResponse : CursorPage<SpaceRepoView>
 {
     /// <summary>The repos that hold data in the space.</summary>
@@ -415,14 +425,22 @@ public sealed class NotifyWriteRequest
     [JsonPropertyName("repo")]
     public required Did Repo { get; init; }
 
-    /// <summary>The revision of the write.</summary>
-    [JsonPropertyName("rev")]
-    public required Tid Rev { get; init; }
+    /// <summary>The repo's revision after the write.</summary>
+    [JsonPropertyName("repoRev")]
+    public required Tid RepoRev { get; init; }
 
     /// <summary>The repo's current commit hash (<c>sha256</c> of the LtHash state) after the write. Lets the space host maintain each repo's hash for <c>listRepos</c>.</summary>
     [JsonPropertyName("hash")]
     [JsonConverter(typeof(LexBytesJsonConverter))]
     public required byte[] Hash { get; init; }
+
+    /// <summary>The space revision the space host assigned. Set only on a notification forwarded to a syncer, never on one a repo host sends.</summary>
+    [JsonPropertyName("spaceRev")]
+    public Tid? SpaceRev { get; init; }
+
+    /// <summary>The space revision before <see cref="SpaceRev"/>, or <see langword="null"/> on the space's first update. A syncer whose checkpoint is not this one has missed notifications and recovers through <c>listRepos</c> with a <c>cursor</c>.</summary>
+    [JsonPropertyName("prevSpaceRev")]
+    public Tid? PrevSpaceRev { get; init; }
 }
 
 internal sealed record NotifySpaceDeletedRequest([property: JsonPropertyName("space")] SpaceUri Space);
@@ -481,6 +499,9 @@ public static class SpaceErrors
 
     /// <summary>The blob is not held by the repo in this space.</summary>
     public const string BlobNotFound = "BlobNotFound";
+
+    /// <summary>A repo revision is further in the future than the permitted clock skew (five minutes).</summary>
+    public const string FutureRev = "FutureRev";
 
     /// <summary>A registered service identifier could not be resolved to a delivery endpoint.</summary>
     public const string ServiceNotResolvable = "ServiceNotResolvable";
