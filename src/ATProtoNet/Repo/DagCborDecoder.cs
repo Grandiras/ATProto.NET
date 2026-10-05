@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Formats.Cbor;
 using System.Text.Json;
 
@@ -20,25 +19,28 @@ public static class DagCborDecoder
     /// </exception>
     public static JsonElement Decode(ReadOnlyMemory<byte> data)
     {
-        // JSON is bulkier than the CBOR it came from (base64, quoting, `$link` wrappers).
-        var buffer = new ArrayBufferWriter<byte>(Math.Max(256, data.Length * 2));
-
+        var buffer = DagCborJson.RentBuffer();
         try
         {
-            var reader = new CborReader(data, CborConformanceMode.Lax, allowMultipleRootLevelValues: false);
+            try
+            {
+                var reader = new CborReader(data, CborConformanceMode.Lax, allowMultipleRootLevelValues: false);
+                using var writer = new Utf8JsonWriter(buffer, DagCborJson.WriterOptions);
+                DagCborJson.WriteValue(reader, writer, DagCborJsonForm.Wrapped, depth: 0);
+            }
+            catch (Exception ex) when (IsMalformed(ex))
+            {
+                throw new FormatException($"Invalid DAG-CBOR: {ex.Message}", ex);
+            }
 
-            // SkipValidation: the JSON structure comes from the transcoder, not from the input.
-            using var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { SkipValidation = true });
-            DagCborJson.WriteValue(reader, writer, DagCborJsonForm.Wrapped, depth: 0);
+            // ParseValue copies into an element that owns its memory, so nothing needs disposing.
+            var jsonReader = new Utf8JsonReader(buffer.WrittenSpan, new JsonReaderOptions { MaxDepth = DagCborJson.MaxDepth });
+            return JsonElement.ParseValue(ref jsonReader);
         }
-        catch (Exception ex) when (IsMalformed(ex))
+        finally
         {
-            throw new FormatException($"Invalid DAG-CBOR: {ex.Message}", ex);
+            DagCborJson.ReturnBuffer(buffer);
         }
-
-        // ParseValue copies into an element that owns its memory, so nothing needs disposing.
-        var jsonReader = new Utf8JsonReader(buffer.WrittenSpan, new JsonReaderOptions { MaxDepth = DagCborJson.MaxDepth });
-        return JsonElement.ParseValue(ref jsonReader);
     }
 
     // What CborReader, and the readers built on it, throw for input that is not well-formed or not the

@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Identity fetches use HTTP/2** — DID document, PLC, well-known and DNS-over-HTTPS requests ask for HTTP/2 and fall back to 1.1, so concurrent lookups against one host share a connection; a burst of PLC lookups resolves about 40% faster (#197)
 - **Leaner request path** — XRPC calls offer HTTP/2 (falling back to 1.1), send JSON bodies with a `Content-Length` instead of chunked, and allocate less per DPoP-signed request (#194)
 - **Allocation-free DID document lookups** — `GetPdsEndpoint`, `GetSigningKey`, `GetServiceEndpoint` and `TryGetVerificationKey` parse and decode an entry once per document instead of on every call, and `GetHandle` no longer allocates an enumerator (#200)
+- **Firehose, label and archive decoding allocate far less** — frame and record transcoding reuses its buffer and builds no string per key or value, so a commit frame allocates about a third of what it did; Spaces record checks shed their copies too (#195)
 
 ## [0.7.0] - 2026-09-28
 

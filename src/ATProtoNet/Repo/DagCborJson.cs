@@ -1,7 +1,9 @@
 using System.Buffers;
 using System.Buffers.Text;
 using System.Formats.Cbor;
+using System.Text;
 using System.Text.Json;
+using System.Text.Unicode;
 
 namespace ATProtoNet.Repo;
 
@@ -32,6 +34,29 @@ internal static class DagCborJson
     // the JsonSerializerOptions.MaxDepth default, which every consumer of the output parses with, so
     // anything deeper could not be read anyway.
     internal const int MaxDepth = 64;
+
+    // SkipValidation: the JSON structure comes from the transcoder, not from its input.
+    internal static readonly JsonWriterOptions WriterOptions = new() { SkipValidation = true };
+
+    // The buffer a transcode writes its JSON to, kept per thread: the walk is synchronous and its output is
+    // consumed before the caller returns, so one buffer serves every call. RentBuffer takes it (a nested
+    // call gets a fresh one) and ReturnBuffer gives it back, unless it has grown past a megabyte.
+    [ThreadStatic]
+    private static ArrayBufferWriter<byte>? t_buffer;
+
+    internal static ArrayBufferWriter<byte> RentBuffer()
+    {
+        var buffer = t_buffer ?? new ArrayBufferWriter<byte>(1024);
+        t_buffer = null;
+        return buffer;
+    }
+
+    internal static void ReturnBuffer(ArrayBufferWriter<byte> buffer)
+    {
+        buffer.ResetWrittenCount();
+        if (buffer.Capacity <= 1 << 20)
+            t_buffer = buffer;
+    }
 
     // Writes the next DAG-CBOR value as JSON.
     //
@@ -78,7 +103,7 @@ internal static class DagCborJson
                 WriteArray(reader, writer, form, depth + 1);
                 break;
             case CborReaderState.TextString:
-                writer.WriteStringValue(reader.ReadTextString());
+                writer.WriteStringValue(ReadUtf8(reader));
                 break;
             case CborReaderState.ByteString:
                 WriteBytes(reader, writer, form, depth);
@@ -114,9 +139,9 @@ internal static class DagCborJson
     //
     // depth: The depth of the object the properties are written into (1 for the root).
     //
-    // skip: Returns true for a key whose entry is left out.
+    // skipType: Leaves out a "$type" entry.
     internal static void WriteMapBody(
-        CborReader reader, Utf8JsonWriter writer, DagCborJsonForm form, int depth, Func<string, bool>? skip = null)
+        CborReader reader, Utf8JsonWriter writer, DagCborJsonForm form, int depth, bool skipType = false)
     {
         EnsureDepth(depth);
         reader.ReadStartMap();
@@ -126,8 +151,8 @@ internal static class DagCborJson
             if (reader.PeekState() != CborReaderState.TextString)
                 throw new FormatException("DAG-CBOR map keys must be text strings.");
 
-            var key = reader.ReadTextString();
-            if (skip is not null && skip(key))
+            var key = ReadUtf8(reader);
+            if (skipType && key.SequenceEqual("$type"u8))
             {
                 reader.SkipValue();
                 continue;
@@ -178,20 +203,20 @@ internal static class DagCborJson
     {
         if (form == DagCborJsonForm.Flattened)
         {
-            writer.WriteBase64StringValue(reader.ReadByteString());
+            writer.WriteBase64StringValue(reader.ReadDefiniteLengthByteString().Span);
             return;
         }
 
         EnsureDepth(depth + 1);
         writer.WriteStartObject();
         writer.WritePropertyName("$bytes");
-        WriteUnpaddedBase64(writer, reader.ReadByteString());
+        WriteUnpaddedBase64(writer, reader.ReadDefiniteLengthByteString().Span);
         writer.WriteEndObject();
     }
 
     // Writes bytes as a base64 string without trailing =: the data model's $bytes form.
     // Utf8JsonWriter.WriteBase64StringValue always pads.
-    private static void WriteUnpaddedBase64(Utf8JsonWriter writer, byte[] bytes)
+    private static void WriteUnpaddedBase64(Utf8JsonWriter writer, ReadOnlySpan<byte> bytes)
     {
         // Two quotes around the encoding; the base64 alphabet needs no JSON escaping.
         var length = Base64.GetMaxEncodedToUtf8Length(bytes.Length) + 2;
@@ -213,6 +238,14 @@ internal static class DagCborJson
             if (rented is not null)
                 ArrayPool<byte>.Shared.Return(rented);
         }
+    }
+
+    // The UTF-8 of the next text string, as sent when it is valid, and otherwise with each bad sequence
+    // replaced, as the lax CborReader decodes it. Reading the bytes saves a string per key and value.
+    private static ReadOnlySpan<byte> ReadUtf8(CborReader reader)
+    {
+        var utf8 = reader.ReadDefiniteLengthTextStringBytes().Span;
+        return Utf8.IsValid(utf8) ? utf8 : Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(utf8));
     }
 
     private static void EnsureDepth(int depth)

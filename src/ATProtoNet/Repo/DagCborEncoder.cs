@@ -83,11 +83,8 @@ public static class DagCborEncoder
 
     private static void WriteObject(CborWriter writer, JsonElement element)
     {
-        // Check for special AT Protocol JSON objects
-        if (TryWriteLink(writer, element))
-            return;
-
-        if (TryWriteBytes(writer, element))
+        // The special AT Protocol JSON objects
+        if (TryWriteLink(writer, element) || TryWriteBytes(writer, element))
             return;
 
         // Regular object: sort keys length-first, then by UTF-8 byte value (DRISL
@@ -102,11 +99,9 @@ public static class DagCborEncoder
 
         // Sorted, a repeated name sits next to its twin. DAG-CBOR maps have unique keys.
         for (var i = 1; i < properties.Count; i++)
-        {
             if (properties[i].Name == properties[i - 1].Name)
                 throw new InvalidOperationException(
                     $"DRISL-CBOR maps cannot repeat a key; '{properties[i].Name}' appears more than once.");
-        }
 
         writer.WriteStartMap(properties.Count);
         foreach (var property in properties)
@@ -153,42 +148,34 @@ public static class DagCborEncoder
         };
     }
 
+    // { "$link": "bafyrei..." } → CBOR tag 42 + 0x00 + CID bytes
     private static bool TryWriteLink(CborWriter writer, JsonElement element)
     {
-        // { "$link": "bafyrei..." } → CBOR tag 42 + 0x00 + CID bytes
-        if (!element.TryGetProperty("$link", out var linkValue) ||
-            linkValue.ValueKind != JsonValueKind.String)
+        if (!TryGetOnlyString(element, "$link", out var link))
             return false;
 
-        // Only treat as a CID link if it has exactly one property
-        int propertyCount = 0;
-        foreach (var _ in element.EnumerateObject())
-        {
-            propertyCount++;
-            if (propertyCount > 1) return false;
-        }
-
-        DagCborLink.Write(writer, CidComputation.DecodeCidString(linkValue.GetString()!));
+        DagCborLink.Write(writer, CidComputation.DecodeCidString(link));
         return true;
     }
 
+    // { "$bytes": "base64..." } → CBOR byte string
     private static bool TryWriteBytes(CborWriter writer, JsonElement element)
     {
-        // { "$bytes": "base64..." } → CBOR byte string
-        if (!element.TryGetProperty("$bytes", out var bytesValue) ||
-            bytesValue.ValueKind != JsonValueKind.String)
+        if (!TryGetOnlyString(element, "$bytes", out var bytes))
             return false;
 
-        // Only treat as bytes if it has exactly one property
-        int propertyCount = 0;
-        foreach (var _ in element.EnumerateObject())
-        {
-            propertyCount++;
-            if (propertyCount > 1) return false;
-        }
+        writer.WriteByteString(LexBase64.Decode(bytes));
+        return true;
+    }
 
-        writer.WriteByteString(LexBase64.Decode(bytesValue.GetString()!));
+    // Whether the object's only property is name, holding a string: anything more is a regular object.
+    private static bool TryGetOnlyString(JsonElement element, string name, out string value)
+    {
+        value = null!;
+        if (element.GetPropertyCount() != 1 || !element.TryGetProperty(name, out var property) || property.ValueKind != JsonValueKind.String)
+            return false;
 
+        value = property.GetString()!;
         return true;
     }
 
@@ -198,24 +185,18 @@ public static class DagCborEncoder
         // materializing the items into a list first.
         writer.WriteStartArray(element.GetArrayLength());
         foreach (var item in element.EnumerateArray())
-        {
             WriteValue(writer, item);
-        }
         writer.WriteEndArray();
     }
 
+    // The AT Protocol data model does not allow floats.
     private static void WriteNumber(CborWriter writer, JsonElement element)
     {
-        // AT Protocol data model does not allow floats
-        if (element.TryGetInt64(out var longValue))
-        {
-            writer.WriteInt64(longValue);
-        }
-        else
-        {
+        if (!element.TryGetInt64(out var value))
             throw new InvalidOperationException(
                 "Floating point numbers are not allowed in the AT Protocol data model. " +
                 "Use integers, strings, or bytes instead.");
-        }
+
+        writer.WriteInt64(value);
     }
 }

@@ -72,7 +72,7 @@ internal static class SpaceRecordCbor
                 {
                     if (reader.PeekState() != CborReaderState.TextString)
                         throw new FormatException("map keys must be text strings.");
-                    reader.ReadTextString();
+                    reader.ReadDefiniteLengthTextStringBytes();
                     ReadValue(reader, depth + 1);
                 }
 
@@ -92,17 +92,17 @@ internal static class SpaceRecordCbor
                     throw new FormatException($"tag {tag} is not allowed; the only tag is 42, a CID link.");
                 if (reader.PeekState() != CborReaderState.ByteString)
                     throw new FormatException("tag 42 must wrap a byte string.");
-                var link = reader.ReadByteString();
+                var link = reader.ReadDefiniteLengthByteString().Span;
                 if (link.Length < 2 || link[0] != 0x00)
                     throw new FormatException("a CID link must be a byte string starting with the 0x00 multibase prefix.");
                 break;
 
             case CborReaderState.TextString:
-                reader.ReadTextString();
+                reader.ReadDefiniteLengthTextStringBytes();
                 break;
 
             case CborReaderState.ByteString:
-                reader.ReadByteString();
+                reader.ReadDefiniteLengthByteString();
                 break;
 
             case CborReaderState.UnsignedInteger:

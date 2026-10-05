@@ -92,7 +92,7 @@ public static class SpaceRepoCar
         indexWriter.WriteStartMap(paths.Count);
         for (var i = 0; i < paths.Count; i++)
         {
-            recordCids[i] = CidComputation.DecodeCidString(byPath[paths[i]].Cid.Value);
+            recordCids[i] = byPath[paths[i]].Cid.ToBytes();
             indexWriter.WriteTextString(paths[i]);
             DagCborLink.Write(indexWriter, recordCids[i]);
         }
@@ -198,8 +198,7 @@ public static class SpaceRepoCar
             var (path, cid) = index[i];
             var block = blocks[i + 2];
 
-            var expectedCid = CidComputation.DecodeCidString(cid.Value);
-            if (!block.Cid.AsSpan().SequenceEqual(expectedCid))
+            if (!block.Cid.AsSpan().SequenceEqual(cid.AsSpan()))
             {
                 throw new SpaceRepoVerificationException(
                     $"Expected block {cid} at '{path}', got {CidComputation.EncodeCidToString(block.Cid)}.");

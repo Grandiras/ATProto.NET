@@ -111,6 +111,8 @@ public static class RecordProof
             uri, committed, rev, Identity.Cid.FromBytes(recordCid), value);
     }
 
+    private static string Name(byte[] cid) => CidComputation.EncodeCidToString(cid);
+
     // Follows key down the tree from root and returns the record CID it maps to, or null when the path
     // shows the key is absent.
     //
@@ -132,9 +134,8 @@ public static class RecordProof
             if (depth > MerkleSearchTree.MaxTreeDepth)
                 throw new RepoVerificationException($"The tree on the path is deeper than {MerkleSearchTree.MaxTreeDepth} layers.");
 
-            var cidText = CidComputation.EncodeCidToString(cid);
             var block = car.FindBlock(cid)
-                ?? throw new RepoVerificationException($"The record proof is incomplete: it lacks tree node {cidText}.");
+                ?? throw new RepoVerificationException($"The record proof is incomplete: it lacks tree node {Name(cid)}.");
 
             MstNodeData node;
             byte[][] keys;
@@ -145,13 +146,13 @@ public static class RecordProof
             }
             catch (FormatException ex)
             {
-                throw new RepoVerificationException($"Tree node {cidText} is malformed: {ex.Message}", ex);
+                throw new RepoVerificationException($"Tree node {Name(cid)} is malformed: {ex.Message}", ex);
             }
 
             // The layer this node must sit on, when a parent fixed it.
             int? expected = layer - 1;
             if (expected < 0)
-                throw new RepoVerificationException($"Tree node {cidText} sits below layer 0.");
+                throw new RepoVerificationException($"Tree node {Name(cid)} sits below layer 0.");
 
             if (node.Entries.Count == 0)
             {
@@ -159,7 +160,7 @@ public static class RecordProof
                 if (node.Left is null && depth == 0)
                     return null;
                 if (node.Left is null || depth == 0)
-                    throw new RepoVerificationException($"Tree node {cidText} is empty.");
+                    throw new RepoVerificationException($"Tree node {Name(cid)} is empty.");
 
                 cid = node.Left;
                 layer = expected;
@@ -170,7 +171,7 @@ public static class RecordProof
             foreach (var entryKey in keys)
             {
                 if (MstKeyDepth.ComputeDepth(entryKey) != nodeLayer || (expected is { } e && nodeLayer != e))
-                    throw new RepoVerificationException($"Tree node {cidText} holds keys of the wrong layer.");
+                    throw new RepoVerificationException($"Tree node {Name(cid)} holds keys of the wrong layer.");
             }
 
             var index = 0;

@@ -78,28 +78,12 @@ public sealed class LtHash : IEquatable<LtHash>
     /// <summary>Adds an element to the set.</summary>
     /// <param name="element">The element, typically <c>{collection}/{rkey}/{cid}</c>.</param>
     /// <returns>This instance, for chaining.</returns>
-    public LtHash Add(string element)
-    {
-        ArgumentNullException.ThrowIfNull(element);
-
-        Span<ushort> expanded = stackalloc ushort[Lanes];
-        Expand(element, expanded);
-        AddLanes(_lanes, expanded);
-        return this;
-    }
+    public LtHash Add(string element) => Combine(element, subtract: false);
 
     /// <summary>Removes an element from the set.</summary>
     /// <param name="element">The element, typically <c>{collection}/{rkey}/{cid}</c>.</param>
     /// <returns>This instance, for chaining.</returns>
-    public LtHash Remove(string element)
-    {
-        ArgumentNullException.ThrowIfNull(element);
-
-        Span<ushort> expanded = stackalloc ushort[Lanes];
-        Expand(element, expanded);
-        SubtractLanes(_lanes, expanded);
-        return this;
-    }
+    public LtHash Remove(string element) => Combine(element, subtract: true);
 
     /// <summary>Returns the full <see cref="StateBytes"/>-byte state, for persistence. A repo host keeps this so it can update the hash incrementally; only <see cref="Digest"/> travels on the wire.</summary>
     public byte[] GetState()
@@ -200,37 +184,28 @@ public sealed class LtHash : IEquatable<LtHash>
             BinaryPrimitives.ReverseEndianness(source, lanes);
     }
 
-    // Lane-wise arithmetic mod 2^16, a vector at a time where the hardware allows it; the
-    // wrap-around is the defined behaviour of both the vector and the unchecked scalar ops.
-    private static void AddLanes(Span<ushort> lanes, ReadOnlySpan<ushort> delta)
+    // Adds an element's lanes into the state, or subtracts them: lane-wise arithmetic mod 2^16, a vector at a
+    // time where the hardware allows it; the wrap-around is the defined behaviour of both the vector and the
+    // unchecked scalar ops.
+    private LtHash Combine(string element, bool subtract)
     {
+        ArgumentNullException.ThrowIfNull(element);
+
+        Span<ushort> delta = stackalloc ushort[Lanes];
+        Expand(element, delta);
+
         var i = 0;
         if (Vector.IsHardwareAccelerated)
         {
-            var vectors = MemoryMarshal.Cast<ushort, Vector<ushort>>(lanes);
-            var deltas = MemoryMarshal.Cast<ushort, Vector<ushort>>(delta[..lanes.Length]);
+            var vectors = MemoryMarshal.Cast<ushort, Vector<ushort>>(_lanes.AsSpan());
+            var deltas = MemoryMarshal.Cast<ushort, Vector<ushort>>(delta);
             for (var v = 0; v < vectors.Length; v++)
-                vectors[v] += deltas[v];
+                vectors[v] = subtract ? vectors[v] - deltas[v] : vectors[v] + deltas[v];
             i = vectors.Length * Vector<ushort>.Count;
         }
 
-        for (; i < lanes.Length; i++)
-            lanes[i] = unchecked((ushort)(lanes[i] + delta[i]));
-    }
-
-    private static void SubtractLanes(Span<ushort> lanes, ReadOnlySpan<ushort> delta)
-    {
-        var i = 0;
-        if (Vector.IsHardwareAccelerated)
-        {
-            var vectors = MemoryMarshal.Cast<ushort, Vector<ushort>>(lanes);
-            var deltas = MemoryMarshal.Cast<ushort, Vector<ushort>>(delta[..lanes.Length]);
-            for (var v = 0; v < vectors.Length; v++)
-                vectors[v] -= deltas[v];
-            i = vectors.Length * Vector<ushort>.Count;
-        }
-
-        for (; i < lanes.Length; i++)
-            lanes[i] = unchecked((ushort)(lanes[i] - delta[i]));
+        for (; i < Lanes; i++)
+            _lanes[i] = unchecked((ushort)(subtract ? _lanes[i] - delta[i] : _lanes[i] + delta[i]));
+        return this;
     }
 }

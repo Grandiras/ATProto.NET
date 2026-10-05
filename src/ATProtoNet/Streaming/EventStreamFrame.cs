@@ -1,5 +1,5 @@
-using System.Buffers;
 using System.Formats.Cbor;
+using System.Text;
 using System.Text.Json;
 using ATProtoNet.Repo;
 using ATProtoNet.Serialization;
@@ -41,18 +41,13 @@ internal static class EventStreamFrame
             reader.ReadStartMap();
             while (reader.PeekState() != CborReaderState.EndMap)
             {
-                switch (reader.ReadTextString())
-                {
-                    case "op":
-                        op = reader.ReadInt32();
-                        break;
-                    case "t":
-                        type = reader.ReadTextString();
-                        break;
-                    default:
-                        reader.SkipValue();
-                        break;
-                }
+                var key = reader.ReadDefiniteLengthTextStringBytes().Span;
+                if (key.SequenceEqual("op"u8))
+                    op = reader.ReadInt32();
+                else if (key.SequenceEqual("t"u8))
+                    type = TypeName(reader.ReadDefiniteLengthTextStringBytes().Span);
+                else
+                    reader.SkipValue();
             }
 
             reader.ReadEndMap();
@@ -63,6 +58,18 @@ internal static class EventStreamFrame
         {
             return false;
         }
+    }
+
+    private static readonly string[] s_types = ["#commit", "#sync", "#identity", "#account", "#info", "#labels"];
+
+    // The message type as a string: the shared one for every type the SDK models, so most frames allocate none.
+    private static string TypeName(ReadOnlySpan<byte> utf8)
+    {
+        foreach (var known in s_types)
+            if (Ascii.Equals(utf8, known))
+                return known;
+
+        return Encoding.UTF8.GetString(utf8);
     }
 
     // Reads the body of an op = -1 frame, or null when it names no error.
@@ -132,25 +139,21 @@ internal static class EventStreamFrame
     // discriminator: A $type to write ahead of the body, for a union base.
     public static T? Deserialize<T>(ReadOnlyMemory<byte> body, string? discriminator = null) where T : class
     {
+        var buffer = DagCborJson.RentBuffer();
         try
         {
             var reader = new CborReader(body, CborConformanceMode.Lax);
             if (reader.PeekState() != CborReaderState.StartMap)
                 return null;
 
-            // JSON is bulkier than the CBOR it came from, mostly the base64 blow-up of a commit's
-            // blocks, so start above the source size to avoid a regrow on the common frame.
-            var buffer = new ArrayBufferWriter<byte>(Math.Max(256, body.Length * 2));
-
-            // SkipValidation: the writer's structure comes from the transcoder, not from the frame.
-            using (var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { SkipValidation = true }))
+            using (var writer = new Utf8JsonWriter(buffer, DagCborJson.WriterOptions))
             {
                 writer.WriteStartObject();
                 if (discriminator is not null)
                     writer.WriteString("$type", discriminator);
 
                 // A body carrying its own $type would otherwise write the property twice.
-                DagCborJson.WriteMapBody(reader, writer, DagCborJsonForm.Flattened, depth: 1, static key => key == "$type");
+                DagCborJson.WriteMapBody(reader, writer, DagCborJsonForm.Flattened, depth: 1, skipType: true);
                 writer.WriteEndObject();
             }
 
@@ -159,6 +162,10 @@ internal static class EventStreamFrame
         catch (Exception ex) when (DagCborDecoder.IsMalformed(ex) || ex is JsonException)
         {
             return null;
+        }
+        finally
+        {
+            DagCborJson.ReturnBuffer(buffer);
         }
     }
 }

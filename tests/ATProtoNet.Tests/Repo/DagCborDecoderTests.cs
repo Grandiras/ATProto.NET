@@ -88,6 +88,28 @@ public class DagCborDecoderTests
     }
 
     [Fact]
+    public void Decode_InvalidUtf8Text_IsReplacedAsTheLaxReaderDoes()
+    {
+        // A map {"k\xFF": "v\xC3("}: the text of the key and the value is not UTF-8.
+        byte[] cbor = [0xA1, 0x62, (byte)'k', 0xFF, 0x63, (byte)'v', 0xC3, 0x28];
+
+        var decoded = DagCborDecoder.Decode(cbor);
+
+        Assert.Equal("v�(", decoded.GetProperty("k�").GetString());
+    }
+
+    [Fact]
+    public void Decode_AfterAFailedDecode_ReturnsOnlyItsOwnValue()
+    {
+        // The JSON buffer is reused between calls: a decode that failed halfway must leave nothing behind.
+        Assert.Throws<FormatException>(() => DagCborDecoder.Decode(new byte[] { 0xA2, 0x61, (byte)'a', 0x01, 0x61, (byte)'b', 0xFB, 0, 0, 0, 0, 0, 0, 0, 0 }));
+
+        var decoded = DagCborDecoder.Decode(new byte[] { 0xA1, 0x61, (byte)'c', 0x02 });
+
+        Assert.Equal("""{"c":2}""", decoded.GetRawText());
+    }
+
+    [Fact]
     public void Decode_FloatValue_ThrowsFormatException()
     {
         var writer = new CborWriter(CborConformanceMode.Lax);

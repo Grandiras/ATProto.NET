@@ -551,7 +551,7 @@ public static class AtProtoCrypto
     internal static bool IsLowS(ReadOnlySpan<byte> signature, KeyCurve curve)
     {
         var halfLen = signature.Length / 2;
-        return CompareBigEndianUnsigned(signature[halfLen..], CurveInfo.For(curve).HalfOrder) <= 0;
+        return signature[halfLen..].SequenceCompareTo(CurveInfo.For(curve).HalfOrder) <= 0;
     }
 
     // Whether both scalars of an IEEE P1363 r || s signature lie in [1, n − 1], the only values an ECDSA
@@ -567,7 +567,7 @@ public static class AtProtoCrypto
         return IsInRange(signature[..half], order) && IsInRange(signature[half..], order);
 
         static bool IsInRange(ReadOnlySpan<byte> scalar, byte[] order) =>
-            scalar.ContainsAnyExcept((byte)0) && CompareBigEndianUnsigned(scalar, order) < 0;
+            scalar.ContainsAnyExcept((byte)0) && scalar.SequenceCompareTo(order) < 0;
     }
 
     // Whether signature has the IEEE P1363 length of both supported curves. A DER-encoded signature,
@@ -583,41 +583,18 @@ public static class AtProtoCrypto
         var curveInfo = CurveInfo.For(curve);
 
         // An S of n or more is no signature at all, and n - S would be negative: leave it as it
-        // is to fail verification rather than throw on the way there.
-        if (CompareBigEndianUnsigned(sSpan, curveInfo.OrderBytes) >= 0)
+        // is to fail verification rather than throw on the way there. An S in the low half is already
+        // normal.
+        if (sSpan.SequenceCompareTo(curveInfo.OrderBytes) >= 0 || sSpan.SequenceCompareTo(curveInfo.HalfOrder) <= 0)
             return signature;
 
-        // Compare S > halfOrder (big-endian unsigned)
-        if (CompareBigEndianUnsigned(sSpan, curveInfo.HalfOrder) > 0)
-        {
-            var s = new BigInteger(sSpan, true, true);
-            var lowS = curveInfo.Order - s;
-            var lowSBytes = lowS.ToByteArray(true, true);
+        var lowSBytes = (curveInfo.Order - new BigInteger(sSpan, true, true)).ToByteArray(true, true);
+        var result = (byte[])signature.Clone();
 
-            var result = (byte[])signature.Clone();
-            // Clear S portion and write normalized value (right-aligned, zero-padded)
-            Array.Clear(result, halfLen, halfLen);
-            lowSBytes.CopyTo(result, halfLen + (halfLen - lowSBytes.Length));
-            return result;
-        }
-
-        return signature;
-    }
-
-    // Compares two big-endian unsigned byte sequences. Returns negative if a < b, 0 if equal, positive
-    // if a > b.
-    private static int CompareBigEndianUnsigned(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
-    {
-        // Pad to same length by comparing from most significant byte
-        var maxLen = Math.Max(a.Length, b.Length);
-        for (var i = 0; i < maxLen; i++)
-        {
-            var aByte = i < maxLen - a.Length ? (byte)0 : a[i - (maxLen - a.Length)];
-            var bByte = i < maxLen - b.Length ? (byte)0 : b[i - (maxLen - b.Length)];
-            if (aByte != bByte)
-                return aByte.CompareTo(bByte);
-        }
-        return 0;
+        // Clear S portion and write normalized value (right-aligned, zero-padded)
+        Array.Clear(result, halfLen, halfLen);
+        lowSBytes.CopyTo(result, halfLen + (halfLen - lowSBytes.Length));
+        return result;
     }
 }
 
