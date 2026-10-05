@@ -14,8 +14,8 @@ namespace ATProtoNet.Server.Spaces;
 // Serves com.atproto.space.getSpaceCredential: the credential exchange, and the only point at which a
 // space authority decides who may read a space.
 //
-// The exchange takes a delegation token minted by the requesting user's PDS and a DPoP proof, optionally
-// alongside a client attestation, and returns a credential bound to the key that signed the proof.
+// The exchange takes a delegation token minted by the requesting user's PDS and an HTTP message signature,
+// optionally alongside a client attestation, and returns a credential bound to the key that signed the request.
 // Everything downstream of it — every repo host in the space — trusts this decision and does not revisit
 // it, which is why all of the policy lives here.
 //
@@ -71,7 +71,7 @@ internal sealed class GetSpaceCredentialEndpoint(
                 HttpStatusCode.Forbidden);
         }
 
-        var credential = await issuer.IssueAsync(space, auth.Proof.KeyThumbprint, cancellationToken).ConfigureAwait(false);
+        var credential = await issuer.IssueAsync(space, auth.KeyId, cancellationToken).ConfigureAwait(false);
 
         logger.LogDebug(
             "Issued a credential for {Space} to {User} (app {App})",
@@ -100,7 +100,7 @@ internal sealed class ListSpaceReposEndpoint(SpaceRequestAuthenticator authentic
         ArgumentNullException.ThrowIfNull(parameters);
 
         var space = SpaceRequestValidation.RequireSpace(parameters.Space);
-        await authenticator.AuthenticateCredentialAsync(context, space, cancellationToken).ConfigureAwait(false);
+        await authenticator.AuthenticateCredentialAsync(context, space, space.Authority, cancellationToken).ConfigureAwait(false);
         await RequireLiveSpaceAsync(store, space, cancellationToken).ConfigureAwait(false);
 
         // A checkpoint is a space revision. Anything else, such as a DID cursor saved before revisions existed,
@@ -156,12 +156,12 @@ internal sealed class RegisterNotifyEndpoint(
         var space = SpaceRequestValidation.RequireSpace(input.Space);
         var service = SpaceRequestValidation.RequireServiceIdentifier(input.Service, "service");
 
-        await authenticator.AuthenticateCredentialAsync(context, space, cancellationToken).ConfigureAwait(false);
+        await authenticator.AuthenticateCredentialAsync(context, space, space.Authority, cancellationToken).ConfigureAwait(false);
         await ListSpaceReposEndpoint.RequireLiveSpaceAsync(store, space, cancellationToken).ConfigureAwait(false);
 
         // The registration may outlive the credential the request was authenticated with, which
         // is the point: a syncer holds a subscription across credential renewals rather than
-        // re-registering every two hours.
+        // re-registering every ten minutes.
         var expiresAt = _timeProvider.GetUtcNow().Add(options.NotifyRegistrationLifetime);
         await store.RegisterNotifyAsync(space, service, expiresAt, cancellationToken).ConfigureAwait(false);
 
@@ -189,7 +189,7 @@ internal sealed class UnregisterNotifyEndpoint(SpaceRequestAuthenticator authent
         var space = SpaceRequestValidation.RequireSpace(input.Space);
         var service = SpaceRequestValidation.RequireServiceIdentifier(input.Service, "service");
 
-        await authenticator.AuthenticateCredentialAsync(context, space, cancellationToken).ConfigureAwait(false);
+        await authenticator.AuthenticateCredentialAsync(context, space, space.Authority, cancellationToken).ConfigureAwait(false);
 
         // Idempotent, and deliberately unconditional on the space's state: a syncer unsubscribing
         // from a space that has since been deleted is exactly the case that must not fail.

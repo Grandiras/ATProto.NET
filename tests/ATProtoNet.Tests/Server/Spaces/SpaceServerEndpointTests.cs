@@ -69,11 +69,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
                     services.AddSingleton<ISpaceRepoHost>(_repoHost);
 
                     services
-                        .AddAtProtoSpaces(options =>
-                        {
-                            options.ServiceDid = Did.Parse(AuthorityDid);
-                            options.PublicBaseUrl = BaseUrl;
-                        })
+                        .AddAtProtoSpaces(options => options.ServiceDid = Did.Parse(AuthorityDid))
                         .AddSpaceAuthority<InMemorySpaceAuthorityStore>(_authorityKey)
                         .AddSimpleSpace<InMemorySimpleSpaceStore>()
                         .AddSpaceRepoHost<StubRepoHost>();
@@ -108,9 +104,9 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     [Fact]
     public async Task GetSpaceCredential_MemberOfTheSpace_ReceivesACredentialBoundToItsOwnKey()
     {
-        using var dpop = new TestDPoPKey();
+        using var holder = AtProtoCrypto.GenerateP256Key();
 
-        var response = await ExchangeAsync(MemberDid, _memberKey, dpop);
+        var response = await ExchangeAsync(MemberDid, _memberKey, holder);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -119,22 +115,22 @@ public class SpaceServerEndpointTests : IAsyncLifetime
 
         Assert.Equal(_space.Value, credential.Subject);
         Assert.Equal(AuthorityDid, credential.Issuer);
-        Assert.Equal(dpop.Thumbprint, credential.ConfirmationThumbprint);
+        Assert.Equal(holder.ToDidKey(), credential.ConfirmationKeyId);
     }
 
     [Fact]
     public async Task GetSpaceCredential_AccountNotOnTheMemberList_IsRefused()
     {
-        using var dpop = new TestDPoPKey();
+        using var holder = AtProtoCrypto.GenerateP256Key();
 
-        var response = await ExchangeAsync(StrangerDid, _strangerKey, dpop);
+        var response = await ExchangeAsync(StrangerDid, _strangerKey, holder);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Equal(SpaceErrors.UserNotAuthorized, await ReadErrorAsync(response));
     }
 
     [Fact]
-    public async Task GetSpaceCredential_NoDPoPProof_IsRefused()
+    public async Task GetSpaceCredential_NoSignature_IsRefused()
     {
         var delegation = MintDelegation(MemberDid, _memberKey);
 
@@ -148,13 +144,50 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         using var response = await _client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(SpaceErrors.BadSpaceSignature, await ReadErrorAsync(response));
+    }
+
+    [Fact]
+    public async Task GetSpaceCredential_SignedByAKeyOtherThanTheKeyid_IsRefused()
+    {
+        // The signature has to verify against the key it names: naming another key's did:key, or
+        // signing the delegation token with a different key, cannot bind the credential to either.
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        using var other = AtProtoCrypto.GenerateP256Key();
+        var delegation = MintDelegation(MemberDid, _memberKey);
+        var authorization = $"Bearer {delegation}";
+        var signed = SpaceHttpSignature.SignExchange(holder, authorization);
+
+        using var response = await ExchangeAsync(
+            delegation, holder, tamper: request =>
+            {
+                request.Headers.Remove("Signature-Input");
+                request.Headers.TryAddWithoutValidation(
+                    "Signature-Input", signed.SignatureInput.Replace(holder.ToDidKey(), other.ToDidKey(), StringComparison.Ordinal));
+            });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(SpaceErrors.BadSpaceSignature, await ReadErrorAsync(response));
+    }
+
+    [Fact]
+    public async Task GetSpaceCredential_DuplicateAuthorizationHeader_IsRefused()
+    {
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var delegation = MintDelegation(MemberDid, _memberKey);
+
+        using var response = await ExchangeAsync(
+            delegation, holder, tamper: request => request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {delegation}"));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(SpaceErrors.BadSpaceSignature, await ReadErrorAsync(response));
     }
 
     [Fact]
     public async Task GetSpaceCredential_ReusedDelegationToken_IsRefused()
     {
-        using var first = new TestDPoPKey();
-        using var second = new TestDPoPKey();
+        using var first = AtProtoCrypto.GenerateP256Key();
+        using var second = AtProtoCrypto.GenerateP256Key();
         var delegation = MintDelegation(MemberDid, _memberKey);
 
         using var accepted = await ExchangeAsync(delegation, first);
@@ -178,8 +211,8 @@ public class SpaceServerEndpointTests : IAsyncLifetime
             new PublicPolicy(),
             new AllowListAppAccess { Allowed = ["https://app.example.com/client-metadata.json"] }));
 
-        using var dpop = new TestDPoPKey();
-        using var response = await ExchangeAsync(MintDelegation(MemberDid, _memberKey, gated), dpop, gated);
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        using var response = await ExchangeAsync(MintDelegation(MemberDid, _memberKey, gated), holder, gated);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Equal(SpaceErrors.AppNotAuthorized, await ReadErrorAsync(response));
@@ -190,8 +223,8 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     {
         var elsewhere = SpaceUri.Parse($"at://{MemberDid}/space/com.atmoboards.forum/default");
 
-        using var dpop = new TestDPoPKey();
-        using var response = await ExchangeAsync(MintDelegation(MemberDid, _memberKey, elsewhere), dpop, elsewhere);
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        using var response = await ExchangeAsync(MintDelegation(MemberDid, _memberKey, elsewhere), holder, elsewhere);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal(SpaceErrors.SpaceNotFound, await ReadErrorAsync(response));
@@ -202,13 +235,13 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     [Fact]
     public async Task GetRecord_WithACredentialFromTheExchange_ReturnsTheRecord()
     {
-        using var dpop = new TestDPoPKey();
-        var credential = await MintCredentialAsync(dpop);
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
 
         var url = $"/xrpc/{SpaceNsids.GetRecord}?space={Uri.EscapeDataString(_space.Value)}" +
                   $"&repo={MemberDid}&collection=com.atmoboards.thread&rkey=3l6oveex3ii2l";
 
-        using var response = await SendWithCredentialAsync(HttpMethod.Get, url, credential, dpop);
+        using var response = await SendWithCredentialAsync(HttpMethod.Get, url, credential, holder);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var record = await response.Content.ReadFromJsonAsync<GetSpaceRecordResponse>(AtProtoJsonDefaults.Options);
@@ -218,13 +251,13 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     [Fact]
     public async Task GetRecord_MissingRecord_AnswersRecordNotFound()
     {
-        using var dpop = new TestDPoPKey();
-        var credential = await MintCredentialAsync(dpop);
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
 
         var url = $"/xrpc/{SpaceNsids.GetRecord}?space={Uri.EscapeDataString(_space.Value)}" +
                   $"&repo={MemberDid}&collection=com.atmoboards.thread&rkey=nothinghere0";
 
-        using var response = await SendWithCredentialAsync(HttpMethod.Get, url, credential, dpop);
+        using var response = await SendWithCredentialAsync(HttpMethod.Get, url, credential, holder);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal(SpaceErrors.RecordNotFound, await ReadErrorAsync(response));
@@ -234,15 +267,14 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     public async Task GetRecord_CredentialPresentedAsABearerToken_IsRefused()
     {
         // A credential is not a bearer token, and the server does not let a caller pretend it is.
-        using var dpop = new TestDPoPKey();
-        var credential = await MintCredentialAsync(dpop);
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
 
         var url = $"/xrpc/{SpaceNsids.GetRecord}?space={Uri.EscapeDataString(_space.Value)}" +
                   $"&repo={MemberDid}&collection=com.atmoboards.thread&rkey=3l6oveex3ii2l";
 
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", credential);
-        request.Headers.TryAddWithoutValidation("DPoP", dpop.Proof("GET", $"{BaseUrl}/xrpc/{SpaceNsids.GetRecord}", credential));
 
         using var response = await _client.SendAsync(request);
 
@@ -252,14 +284,14 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     [Fact]
     public async Task GetRecord_CredentialForAnotherSpaceOnTheSameHost_IsRefused()
     {
-        using var dpop = new TestDPoPKey();
-        var credential = await MintCredentialAsync(dpop);
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
 
         var other = SpaceUri.Parse($"at://{AuthorityDid}/space/com.atmoboards.forum/other");
         var url = $"/xrpc/{SpaceNsids.GetRecord}?space={Uri.EscapeDataString(other.Value)}" +
                   $"&repo={MemberDid}&collection=com.atmoboards.thread&rkey=3l6oveex3ii2l";
 
-        using var response = await SendWithCredentialAsync(HttpMethod.Get, url, credential, dpop);
+        using var response = await SendWithCredentialAsync(HttpMethod.Get, url, credential, holder);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -267,12 +299,12 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     [Fact]
     public async Task GetRepo_ServesTheCarAsABinaryBody()
     {
-        using var dpop = new TestDPoPKey();
-        var credential = await MintCredentialAsync(dpop);
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
 
         var url = $"/xrpc/{SpaceNsids.GetRepo}?space={Uri.EscapeDataString(_space.Value)}&repo={MemberDid}";
 
-        using var response = await SendWithCredentialAsync(HttpMethod.Get, url, credential, dpop);
+        using var response = await SendWithCredentialAsync(HttpMethod.Get, url, credential, holder);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(GetSpaceRepoEndpoint.CarContentType, response.Content.Headers.ContentType?.MediaType);
@@ -282,13 +314,13 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     [Fact]
     public async Task ListRecords_BindsBooleanQueryParameters()
     {
-        using var dpop = new TestDPoPKey();
-        var credential = await MintCredentialAsync(dpop);
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
 
         var url = $"/xrpc/{SpaceNsids.ListRecords}?space={Uri.EscapeDataString(_space.Value)}" +
                   $"&repo={MemberDid}&excludeValues=true&limit=7";
 
-        using var response = await SendWithCredentialAsync(HttpMethod.Get, url, credential, dpop);
+        using var response = await SendWithCredentialAsync(HttpMethod.Get, url, credential, holder);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.True(_repoHost.LastExcludeValues);
@@ -301,11 +333,11 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         var store = _host.Services.GetRequiredService<ISpaceAuthorityStore>();
         await store.RecordWriteAsync(_space, Did.Parse(MemberDid), Tid.Parse("3l6oveex3ii2l"), [1, 2, 3]);
 
-        using var dpop = new TestDPoPKey();
-        var credential = await MintCredentialAsync(dpop);
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
 
         var url = $"/xrpc/{SpaceNsids.ListRepos}?space={Uri.EscapeDataString(_space.Value)}";
-        using var response = await SendWithCredentialAsync(HttpMethod.Get, url, credential, dpop);
+        using var response = await SendWithCredentialAsync(HttpMethod.Get, url, credential, holder);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<ListSpaceReposResponse>(AtProtoJsonDefaults.Options);
@@ -317,12 +349,12 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     [Fact]
     public async Task ListRepos_WithACursorThatIsNotARevision_IsARequestError()
     {
-        using var dpop = new TestDPoPKey();
-        var credential = await MintCredentialAsync(dpop);
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
 
         // A DID cursor saved before revisions existed must not read as "nothing changed".
         var url = $"/xrpc/{SpaceNsids.ListRepos}?space={Uri.EscapeDataString(_space.Value)}&cursor={Uri.EscapeDataString(MemberDid)}";
-        using var response = await SendWithCredentialAsync(HttpMethod.Get, url, credential, dpop);
+        using var response = await SendWithCredentialAsync(HttpMethod.Get, url, credential, holder);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal("InvalidRequest", await ReadErrorAsync(response));
@@ -333,14 +365,14 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     {
         var store = _host.Services.GetRequiredService<ISpaceAuthorityStore>();
 
-        using var dpop = new TestDPoPKey();
-        var credential = await MintCredentialAsync(dpop);
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
 
         using var response = await SendWithCredentialAsync(
             HttpMethod.Post,
             $"/xrpc/{SpaceNsids.RegisterNotify}",
             credential,
-            dpop,
+            holder,
             new RegisterNotifyRequest
             {
                 Space = _space,
@@ -388,14 +420,14 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         // writer set that can never be populated — and the writer set is the sync boundary.
         var space = await CreateSpaceThroughSimpleSpaceAsync("bridged");
 
-        using var dpop = new TestDPoPKey();
-        var credential = await MintCredentialAsync(dpop, space);
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder, space);
 
         using var notified = await NotifyWriteAsync(space, MemberDid, _memberKey, "3l6oveex3ii2l");
         Assert.Equal(HttpStatusCode.OK, notified.StatusCode);
 
         var url = $"/xrpc/{SpaceNsids.ListRepos}?space={Uri.EscapeDataString(space.Value)}";
-        using var response = await SendWithCredentialAsync(HttpMethod.Get, url, credential, dpop);
+        using var response = await SendWithCredentialAsync(HttpMethod.Get, url, credential, holder);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<ListSpaceReposResponse>(AtProtoJsonDefaults.Options);
@@ -409,14 +441,14 @@ public class SpaceServerEndpointTests : IAsyncLifetime
     {
         var space = await CreateSpaceThroughSimpleSpaceAsync("bridged-notify");
 
-        using var dpop = new TestDPoPKey();
-        var credential = await MintCredentialAsync(dpop, space);
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder, space);
 
         using var response = await SendWithCredentialAsync(
             HttpMethod.Post,
             $"/xrpc/{SpaceNsids.RegisterNotify}",
             credential,
-            dpop,
+            holder,
             new RegisterNotifyRequest
             {
                 Space = space,
@@ -437,8 +469,8 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         // it to drop its copy.
         var space = await CreateSpaceThroughSimpleSpaceAsync("bridged-deleted");
 
-        using var dpop = new TestDPoPKey();
-        var credential = await MintCredentialAsync(dpop, space);
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder, space);
 
         using var notified = await NotifyWriteAsync(space, MemberDid, _memberKey, "3l6oveex3ii2l");
         Assert.Equal(HttpStatusCode.OK, notified.StatusCode);
@@ -451,7 +483,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, deleted.StatusCode);
 
         var url = $"/xrpc/{SpaceNsids.ListRepos}?space={Uri.EscapeDataString(space.Value)}";
-        using var response = await SendWithCredentialAsync(HttpMethod.Get, url, credential, dpop);
+        using var response = await SendWithCredentialAsync(HttpMethod.Get, url, credential, holder);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal(SpaceErrors.SpaceDeleted, await ReadErrorAsync(response));
@@ -659,6 +691,208 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         Assert.Equal(before.RepoRev, after.RepoRev);
     }
 
+    // ── The request signature and its audience ────────────────
+
+    private string GetRecordUrl(string? repo = null) =>
+        $"/xrpc/{SpaceNsids.GetRecord}?space={Uri.EscapeDataString(_space.Value)}" +
+        $"&repo={repo ?? MemberDid}&collection=com.atmoboards.thread&rkey=3l6oveex3ii2l";
+
+    private string ListReposUrl => $"/xrpc/{SpaceNsids.ListRepos}?space={Uri.EscapeDataString(_space.Value)}";
+
+    [Fact]
+    public async Task RepoRead_SignedForAnotherRepoOwner_AnswersBadSpaceAudience()
+    {
+        // The audience is the owner of the repo being read, even on a host that serves several
+        // accounts: a signature made for one account's repo does not read another's.
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
+
+        using var response = await SendWithCredentialAsync(
+            HttpMethod.Get, GetRecordUrl(), credential, holder, audience: StrangerDid);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(SpaceErrors.BadSpaceAudience, await ReadErrorAsync(response));
+    }
+
+    [Fact]
+    public async Task SpaceHostRead_SignedForARepoOwnerInsteadOfTheAuthority_AnswersBadSpaceAudience()
+    {
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
+
+        using var response = await SendWithCredentialAsync(
+            HttpMethod.Get, ListReposUrl, credential, holder, audience: MemberDid);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(SpaceErrors.BadSpaceAudience, await ReadErrorAsync(response));
+    }
+
+    [Fact]
+    public async Task RepoRead_SignedForTheAuthorityInsteadOfTheRepoOwner_AnswersBadSpaceAudience()
+    {
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
+
+        using var response = await SendWithCredentialAsync(
+            HttpMethod.Get, GetRecordUrl(), credential, holder, audience: AuthorityDid);
+
+        Assert.Equal(SpaceErrors.BadSpaceAudience, await ReadErrorAsync(response));
+    }
+
+    [Fact]
+    public async Task RepoRead_CredentialSignedByAnotherKey_AnswersBadSpaceSignature()
+    {
+        // A host handed the credential to serve its own repo cannot read the rest of the space with it.
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        using var thief = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
+
+        using var response = await SendWithCredentialAsync(HttpMethod.Get, GetRecordUrl(), credential, thief);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(SpaceErrors.BadSpaceSignature, await ReadErrorAsync(response));
+    }
+
+    [Fact]
+    public async Task RepoRead_AudienceHeaderChangedAfterSigning_AnswersBadSpaceSignature()
+    {
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
+
+        using var response = await SendWithCredentialAsync(
+            HttpMethod.Get, GetRecordUrl(), credential, holder, tamper: request =>
+            {
+                request.Headers.Remove(SpaceHttpSignature.AudienceHeader);
+                request.Headers.TryAddWithoutValidation(SpaceHttpSignature.AudienceHeader, StrangerDid);
+            });
+
+        Assert.Equal(SpaceErrors.BadSpaceSignature, await ReadErrorAsync(response));
+    }
+
+    [Theory]
+    [InlineData("Authorization")]
+    [InlineData("Atproto-Space-Audience")]
+    public async Task RepoRead_DuplicateField_AnswersBadSpaceSignature(string header)
+    {
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
+
+        using var response = await SendWithCredentialAsync(
+            HttpMethod.Get, GetRecordUrl(), credential, holder, tamper: request =>
+                request.Headers.TryAddWithoutValidation(header, request.Headers.GetValues(header).First()));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(SpaceErrors.BadSpaceSignature, await ReadErrorAsync(response));
+    }
+
+    [Theory]
+    [InlineData(SpaceHttpSignature.AudienceHeader)]
+    [InlineData("Signature-Input")]
+    [InlineData("Signature")]
+    public async Task RepoRead_MissingField_AnswersBadSpaceSignature(string header)
+    {
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
+
+        using var response = await SendWithCredentialAsync(
+            HttpMethod.Get, GetRecordUrl(), credential, holder, tamper: request => request.Headers.Remove(header));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(SpaceErrors.BadSpaceSignature, await ReadErrorAsync(response));
+    }
+
+    [Fact]
+    public async Task RepoRead_AudienceThatIsNotADid_AnswersBadSpaceSignature()
+    {
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
+
+        using var response = await SendWithCredentialAsync(
+            HttpMethod.Get, GetRecordUrl(), credential, holder, tamper: request =>
+            {
+                request.Headers.Remove(SpaceHttpSignature.AudienceHeader);
+                request.Headers.TryAddWithoutValidation(SpaceHttpSignature.AudienceHeader, "pds.example.com");
+            });
+
+        Assert.Equal(SpaceErrors.BadSpaceSignature, await ReadErrorAsync(response));
+    }
+
+    [Fact]
+    public async Task RepoRead_CredentialUnderTheDPoPScheme_IsRefused()
+    {
+        // The Spaces alpha dropped DPoP: a credential travels under its own scheme.
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, GetRecordUrl());
+        var authorization = $"DPoP {credential}";
+        Sign(request, authorization, SpaceHttpSignature.SignRequest(holder, authorization, Did.Parse(MemberDid)), Did.Parse(MemberDid));
+
+        using var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(SpaceErrors.NotAuthorized, await ReadErrorAsync(response));
+    }
+
+    [Fact]
+    public async Task RepoRead_SchemeIsCaseInsensitive()
+    {
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, GetRecordUrl());
+        var authorization = $"atproto-space {credential}";
+        Sign(request, authorization, SpaceHttpSignature.SignRequest(holder, authorization, Did.Parse(MemberDid)), Did.Parse(MemberDid));
+
+        using var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RepoRead_OneSignatureServesEveryRequestForTheSameCredentialAndAudience()
+    {
+        // No method, URL, nonce or timestamp is signed, so one signature is reusable until the credential expires.
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
+        var authorization = $"{SpaceHttpSignature.CredentialScheme} {credential}";
+        var signature = SpaceHttpSignature.SignRequest(holder, authorization, Did.Parse(MemberDid));
+
+        foreach (var url in new[] { GetRecordUrl(), GetRecordUrl(), $"/xrpc/{SpaceNsids.ListRecords}?space={Uri.EscapeDataString(_space.Value)}&repo={MemberDid}" })
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            Sign(request, authorization, signature, Did.Parse(MemberDid));
+
+            using var response = await _client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task RepoRead_ExpiredCredential_IsRefused()
+    {
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var now = DateTimeOffset.UtcNow;
+        var credential = TestJws.Mint(
+            new Dictionary<string, object> { ["typ"] = SpaceTokens.CredentialType, ["alg"] = "ES256", ["kid"] = "#atproto" },
+            new Dictionary<string, object>
+            {
+                ["iss"] = AuthorityDid,
+                ["sub"] = _space.Value,
+                ["cnf"] = new Dictionary<string, string> { ["kid"] = holder.ToDidKey() },
+                ["iat"] = now.AddMinutes(-20).ToUnixTimeSeconds(),
+                ["exp"] = now.AddMinutes(-10).ToUnixTimeSeconds(),
+                ["jti"] = Guid.NewGuid().ToString("N"),
+            },
+            input => _authorityKey.Sign(input));
+
+        using var response = await SendWithCredentialAsync(HttpMethod.Get, GetRecordUrl(), credential, holder);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(SpaceErrors.NotAuthorized, await ReadErrorAsync(response));
+    }
+
     // ── Helpers ───────────────────────────────────────────────
 
     private string MintDelegation(string userDid, AtProtoKey userKey, SpaceUri? space = null)
@@ -668,15 +902,17 @@ public class SpaceServerEndpointTests : IAsyncLifetime
             SpaceTokenType.Delegation, userDid, target.Value, userKey, audience: target.HostAudience);
     }
 
-    private Task<HttpResponseMessage> ExchangeAsync(string userDid, AtProtoKey userKey, TestDPoPKey dpop) =>
-        ExchangeAsync(MintDelegation(userDid, userKey), dpop);
+    private Task<HttpResponseMessage> ExchangeAsync(string userDid, AtProtoKey userKey, AtProtoKey holder) =>
+        ExchangeAsync(MintDelegation(userDid, userKey), holder);
 
     private async Task<HttpResponseMessage> ExchangeAsync(
-        string delegation, TestDPoPKey dpop, SpaceUri? space = null, string? attestation = null)
+        string delegation,
+        AtProtoKey holder,
+        SpaceUri? space = null,
+        string? attestation = null,
+        Action<HttpRequestMessage>? tamper = null)
     {
-        var endpoint = $"/xrpc/{SpaceNsids.GetSpaceCredential}";
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/xrpc/{SpaceNsids.GetSpaceCredential}")
         {
             Content = JsonContent.Create(
                 new GetSpaceCredentialRequest
@@ -687,36 +923,55 @@ public class SpaceServerEndpointTests : IAsyncLifetime
                 options: AtProtoJsonDefaults.Options),
         };
 
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", delegation);
-        request.Headers.TryAddWithoutValidation("DPoP", dpop.Proof("POST", BaseUrl + endpoint));
+        var authorization = $"Bearer {delegation}";
+        Sign(request, authorization, SpaceHttpSignature.SignExchange(holder, authorization));
+        tamper?.Invoke(request);
 
         return await _client.SendAsync(request);
     }
 
-    private async Task<string> MintCredentialAsync(TestDPoPKey dpop, SpaceUri? space = null)
+    private async Task<string> MintCredentialAsync(AtProtoKey holder, SpaceUri? space = null)
     {
-        using var response = await ExchangeAsync(MintDelegation(MemberDid, _memberKey, space), dpop, space);
+        using var response = await ExchangeAsync(MintDelegation(MemberDid, _memberKey, space), holder, space);
         response.EnsureSuccessStatusCode();
 
         var body = await response.Content.ReadFromJsonAsync<GetSpaceCredentialResponse>(AtProtoJsonDefaults.Options);
         return body!.Credential;
     }
 
+    // Sends a request as a credential holder does. The audience is the repo the URL names, or the
+    // authority when it names none, unless the test says otherwise.
     private async Task<HttpResponseMessage> SendWithCredentialAsync(
-        HttpMethod method, string url, string credential, TestDPoPKey dpop, object? body = null)
+        HttpMethod method,
+        string url,
+        string credential,
+        AtProtoKey holder,
+        object? body = null,
+        string? audience = null,
+        Action<HttpRequestMessage>? tamper = null)
     {
         using var request = new HttpRequestMessage(method, url);
 
         if (body is not null)
             request.Content = JsonContent.Create(body, body.GetType(), options: AtProtoJsonDefaults.Options);
 
-        // A proof names the path without its query, which is exactly what a real client sends.
-        var path = url.Split('?')[0];
-        request.Headers.Authorization = new AuthenticationHeaderValue("DPoP", credential);
-        request.Headers.TryAddWithoutValidation(
-            "DPoP", dpop.Proof(method.Method, BaseUrl + path, credential));
+        var signedAudience = Did.Parse(
+            audience ?? System.Web.HttpUtility.ParseQueryString(new Uri(BaseUrl + url).Query)["repo"] ?? AuthorityDid);
+        var authorization = $"{SpaceHttpSignature.CredentialScheme} {credential}";
+        Sign(request, authorization, SpaceHttpSignature.SignRequest(holder, authorization, signedAudience), signedAudience);
+        tamper?.Invoke(request);
 
         return await _client.SendAsync(request);
+    }
+
+    private static void Sign(HttpRequestMessage request, string authorization, SpaceSignatureHeaders signature, Did? audience = null)
+    {
+        request.Headers.TryAddWithoutValidation("Authorization", authorization);
+        if (audience is not null)
+            request.Headers.TryAddWithoutValidation(SpaceHttpSignature.AudienceHeader, audience.Value);
+
+        request.Headers.TryAddWithoutValidation("Signature-Input", signature.SignatureInput);
+        request.Headers.TryAddWithoutValidation("Signature", signature.Signature);
     }
 
     /// <summary>Creates a space the way an application does: over the owner's own session.</summary>

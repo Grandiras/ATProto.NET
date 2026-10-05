@@ -638,11 +638,23 @@ public class AtProtoBuilderTests
     [Fact]
     public async Task AddAtProtoSpaces_InvalidOptions_StopTheHost()
     {
-        using var host = Host(s => s.AddAtProtoSpaces(o => o.ProofLifetime = TimeSpan.Zero));
+        using var host = Host(s => s.AddAtProtoSpaces(o => o.NotifyRegistrationLifetime = TimeSpan.Zero));
 
         var ex = await Assert.ThrowsAsync<OptionsValidationException>(() => host.StartAsync());
 
-        Assert.Contains("ProofLifetime", ex.Message);
+        Assert.Contains("NotifyRegistrationLifetime", ex.Message);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(3601)]
+    public async Task AddAtProtoSpaces_CredentialLifetimeOutsideTheProtocolBound_StopsTheHost(int seconds)
+    {
+        using var host = Host(s => s.AddAtProtoSpaces(o => o.CredentialLifetime = TimeSpan.FromSeconds(seconds)));
+
+        var ex = await Assert.ThrowsAsync<OptionsValidationException>(() => host.StartAsync());
+
+        Assert.Contains("CredentialLifetime", ex.Message);
     }
 
     [Fact]
@@ -673,14 +685,14 @@ public class AtProtoBuilderTests
     public void AddAtProtoSpaces_CalledTwice_AppliesBothConfigurations()
     {
         var services = Services();
-        services.AddAtProtoSpaces(o => o.PublicBaseUrl = "https://pds.example.com");
-        services.AddAtProtoSpaces(o => o.CredentialLifetime = TimeSpan.FromHours(1));
+        services.AddAtProtoSpaces(o => o.NotifyRegistrationLifetime = TimeSpan.FromDays(1));
+        services.AddAtProtoSpaces(o => o.CredentialLifetime = TimeSpan.FromMinutes(30));
 
         using var provider = services.BuildServiceProvider();
         var options = provider.GetRequiredService<SpaceServerOptions>();
 
-        Assert.Equal("https://pds.example.com", options.PublicBaseUrl);
-        Assert.Equal(TimeSpan.FromHours(1), options.CredentialLifetime);
+        Assert.Equal(TimeSpan.FromDays(1), options.NotifyRegistrationLifetime);
+        Assert.Equal(TimeSpan.FromMinutes(30), options.CredentialLifetime);
     }
 
     [Fact]

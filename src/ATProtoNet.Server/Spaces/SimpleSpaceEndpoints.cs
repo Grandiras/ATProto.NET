@@ -201,7 +201,7 @@ internal sealed class GetSimpleSpaceEndpoint(
         // space to it discloses nothing new.
         var caller = CallerResolver.GetCallerDid(context);
         if (space.Owner != caller)
-            await authenticator.AuthenticateCredentialAsync(context, uri, cancellationToken).ConfigureAwait(false);
+            await authenticator.AuthenticateCredentialAsync(context, uri, uri.Authority, cancellationToken).ConfigureAwait(false);
 
         return new GetSimpleSpaceResponse
         {

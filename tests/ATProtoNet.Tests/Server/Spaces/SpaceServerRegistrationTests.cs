@@ -1,6 +1,7 @@
 using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
 using ATProtoNet.Server.Spaces;
+using ATProtoNet.Spaces;
 using ATProtoNet.Tests.Identity;
 using ATProtoNet.Tests.TestSupport;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,20 +16,25 @@ namespace ATProtoNet.Tests.Server.Spaces;
 /// </summary>
 public class SpaceServerRegistrationTests
 {
-    private const string Url = "https://pds.example.com/xrpc/com.atproto.space.getRecord";
-
     [Fact]
     public async Task AddAtProtoSpaces_VerifiersUseARegisteredTimeProvider()
     {
-        // An hour behind: a proof minted now is dated in the future by the registered clock.
+        // An hour behind: a credential issued now is dated in the future by the registered clock.
+        using var authorityKey = AtProtoCrypto.GenerateP256Key();
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var authority = Did.Parse("did:web:pds.example.com");
+        var space = SpaceUri.Create(authority, Nsid.Parse("com.atmoboards.forum"), RecordKey.Parse("default"));
         var services = new ServiceCollection();
         services.AddSingleton<TimeProvider>(new FakeTimeProvider(DateTimeOffset.UtcNow.AddHours(-1)));
-        services.AddAtProtoSpaces(o => o.ServiceDid = Did.Parse("did:web:pds.example.com"));
+        services.AddKeyedSingleton<IDidResolver>(
+            SpaceServerExtensions.DidResolverKey, new StubDidResolver().PublishAccount(authority.Value, authorityKey));
+        services.AddAtProtoSpaces(o => o.ServiceDid = authority);
         using var provider = services.BuildServiceProvider();
-        using var key = new TestDPoPKey();
+        var credential = SpaceTokens.Create(
+            SpaceTokenType.Credential, authority.Value, space.Value, authorityKey, confirmationKeyId: holder.ToDidKey());
 
         var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => provider.GetRequiredService<DPoPProofValidator>().ValidateAsync(key.Proof("GET", Url), "GET", Url));
+            () => provider.GetRequiredService<SpaceCredentialVerifier>().VerifyAsync(credential, space));
 
         Assert.Contains("future", ex.Message, StringComparison.Ordinal);
     }

@@ -1,10 +1,37 @@
 #nullable enable
+*REMOVED*ATProtoNet.Server.Spaces.DPoPProof
+*REMOVED*ATProtoNet.Server.Spaces.DPoPProof.KeyThumbprint.get -> string!
+*REMOVED*ATProtoNet.Server.Spaces.DPoPProofValidator
+*REMOVED*ATProtoNet.Server.Spaces.DPoPProofValidator.DPoPProofValidator(ATProtoNet.Server.Authentication.IJtiReplayStore! replayStore, ATProtoNet.Server.Spaces.SpaceServerOptions? options = null, System.TimeProvider? timeProvider = null) -> void
+*REMOVED*ATProtoNet.Server.Spaces.DPoPProofValidator.ValidateAsync(string! proofJwt, string! httpMethod, string! requestUri, string? boundThumbprint = null, string? accessToken = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Server.Spaces.DPoPProof!>!
 ATProtoNet.Server.Spaces.ISpaceAuthorityStore.RecordWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! repoRev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Server.Spaces.SpaceWriteSequence?>!
 *REMOVED*ATProtoNet.Server.Spaces.ISpaceAuthorityStore.RecordWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! rev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 ATProtoNet.Server.Spaces.InMemorySpaceAuthorityStore.RecordWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! repoRev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Server.Spaces.SpaceWriteSequence?>!
 *REMOVED*ATProtoNet.Server.Spaces.InMemorySpaceAuthorityStore.RecordWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! rev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 ATProtoNet.Server.Spaces.SimpleSpaceAuthorityStore.RecordWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! repoRev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Server.Spaces.SpaceWriteSequence?>!
 *REMOVED*ATProtoNet.Server.Spaces.SimpleSpaceAuthorityStore.RecordWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! rev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+*REMOVED*ATProtoNet.Server.Spaces.SpaceCredentialIssuer.IssueAsync(ATProtoNet.Spaces.SpaceUri! space, string! dpopThumbprint, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
+ATProtoNet.Server.Spaces.SpaceCredentialIssuer.IssueAsync(ATProtoNet.Spaces.SpaceUri! space, string! keyId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
+*REMOVED*ATProtoNet.Server.Spaces.SpaceCredentialRequestAuth.Deconstruct(out ATProtoNet.Server.Spaces.VerifiedDelegationToken! Delegation, out ATProtoNet.Server.Spaces.DPoPProof! Proof, out ATProtoNet.Server.Spaces.VerifiedClientAttestation? Attestation) -> void
+ATProtoNet.Server.Spaces.SpaceCredentialRequestAuth.Deconstruct(out ATProtoNet.Server.Spaces.VerifiedDelegationToken! Delegation, out string! KeyId, out ATProtoNet.Server.Spaces.VerifiedClientAttestation? Attestation) -> void
+ATProtoNet.Server.Spaces.SpaceCredentialRequestAuth.KeyId.get -> string!
+ATProtoNet.Server.Spaces.SpaceCredentialRequestAuth.KeyId.init -> void
+*REMOVED*ATProtoNet.Server.Spaces.SpaceCredentialRequestAuth.Proof.get -> ATProtoNet.Server.Spaces.DPoPProof!
+*REMOVED*ATProtoNet.Server.Spaces.SpaceCredentialRequestAuth.Proof.init -> void
+*REMOVED*ATProtoNet.Server.Spaces.SpaceCredentialRequestAuth.SpaceCredentialRequestAuth(ATProtoNet.Server.Spaces.VerifiedDelegationToken! Delegation, ATProtoNet.Server.Spaces.DPoPProof! Proof, ATProtoNet.Server.Spaces.VerifiedClientAttestation? Attestation) -> void
+ATProtoNet.Server.Spaces.SpaceCredentialRequestAuth.SpaceCredentialRequestAuth(ATProtoNet.Server.Spaces.VerifiedDelegationToken! Delegation, string! KeyId, ATProtoNet.Server.Spaces.VerifiedClientAttestation? Attestation) -> void
+*REMOVED*ATProtoNet.Server.Spaces.SpaceCredentialVerifier.SpaceCredentialVerifier(ATProtoNet.Identity.IDidResolver! resolver, ATProtoNet.Server.Spaces.DPoPProofValidator! proofValidator, ATProtoNet.Server.Spaces.SpaceServerOptions? options = null, System.TimeProvider? timeProvider = null) -> void
+ATProtoNet.Server.Spaces.SpaceCredentialVerifier.SpaceCredentialVerifier(ATProtoNet.Identity.IDidResolver! resolver, ATProtoNet.Server.Spaces.SpaceServerOptions? options = null, System.TimeProvider? timeProvider = null) -> void
+ATProtoNet.Server.Spaces.SpaceCredentialVerifier.VerifyAsync(string! credentialJwt, ATProtoNet.Spaces.SpaceUri? expectedSpace = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Server.Spaces.VerifiedSpaceCredential!>!
+*REMOVED*ATProtoNet.Server.Spaces.SpaceCredentialVerifier.VerifyAsync(string! credentialJwt, string! proofJwt, string! httpMethod, string! requestUri, ATProtoNet.Spaces.SpaceUri? expectedSpace = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Server.Spaces.VerifiedSpaceCredential!>!
+*REMOVED*ATProtoNet.Server.Spaces.SpaceRequestAuthenticator.AuthenticateCredentialAsync(Microsoft.AspNetCore.Http.HttpContext! context, ATProtoNet.Spaces.SpaceUri? requestedSpace = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Server.Spaces.VerifiedSpaceCredential!>!
+ATProtoNet.Server.Spaces.SpaceRequestAuthenticator.AuthenticateCredentialAsync(Microsoft.AspNetCore.Http.HttpContext! context, ATProtoNet.Spaces.SpaceUri? requestedSpace, ATProtoNet.Identity.Did! audience, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Server.Spaces.VerifiedSpaceCredential!>!
+*REMOVED*ATProtoNet.Server.Spaces.SpaceRequestAuthenticator.SpaceRequestAuthenticator(ATProtoNet.Server.Spaces.SpaceDelegationTokenVerifier! delegationVerifier, ATProtoNet.Server.Spaces.SpaceCredentialVerifier! credentialVerifier, ATProtoNet.Server.Spaces.DPoPProofValidator! proofValidator, ATProtoNet.Server.Spaces.SpaceClientAttestationVerifier! attestationVerifier, ATProtoNet.Server.Spaces.SpaceServerOptions? options = null) -> void
+ATProtoNet.Server.Spaces.SpaceRequestAuthenticator.SpaceRequestAuthenticator(ATProtoNet.Server.Spaces.SpaceDelegationTokenVerifier! delegationVerifier, ATProtoNet.Server.Spaces.SpaceCredentialVerifier! credentialVerifier, ATProtoNet.Server.Spaces.SpaceClientAttestationVerifier! attestationVerifier, ATProtoNet.Server.Spaces.SpaceServerOptions? options = null) -> void
+*REMOVED*ATProtoNet.Server.Spaces.SpaceServerOptions.ProofLifetime.get -> System.TimeSpan
+*REMOVED*ATProtoNet.Server.Spaces.SpaceServerOptions.ProofLifetime.set -> void
+*REMOVED*ATProtoNet.Server.Spaces.SpaceServerOptions.PublicBaseUrl.get -> string?
+*REMOVED*ATProtoNet.Server.Spaces.SpaceServerOptions.PublicBaseUrl.set -> void
 ATProtoNet.Server.Spaces.SpaceWriteNotifier.ForwardWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! repoRev, byte[]! hash, ATProtoNet.Server.Spaces.SpaceWriteSequence! sequence) -> System.Threading.Tasks.Task<int>!
 *REMOVED*ATProtoNet.Server.Spaces.SpaceWriteNotifier.ForwardWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! rev, byte[]! hash) -> System.Threading.Tasks.Task<int>!
 ATProtoNet.Server.Spaces.SpaceWriteNotifier.NotifyWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! repoRev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<int>!
@@ -23,6 +50,14 @@ ATProtoNet.Server.Spaces.SpaceWriteSequence.PrevSpaceRev.init -> void
 ATProtoNet.Server.Spaces.SpaceWriteSequence.SpaceRev.get -> ATProtoNet.Identity.Tid!
 ATProtoNet.Server.Spaces.SpaceWriteSequence.SpaceRev.init -> void
 ATProtoNet.Server.Spaces.SpaceWriteSequence.SpaceWriteSequence(ATProtoNet.Identity.Tid! SpaceRev, ATProtoNet.Identity.Tid? PrevSpaceRev) -> void
+*REMOVED*ATProtoNet.Server.Spaces.VerifiedSpaceCredential.Deconstruct(out ATProtoNet.Spaces.SpaceUri! Space, out ATProtoNet.Server.Spaces.DPoPProof! Proof) -> void
+ATProtoNet.Server.Spaces.VerifiedSpaceCredential.Deconstruct(out ATProtoNet.Spaces.SpaceUri! Space, out ATProtoNet.Spaces.SpaceToken! Token) -> void
+*REMOVED*ATProtoNet.Server.Spaces.VerifiedSpaceCredential.Proof.get -> ATProtoNet.Server.Spaces.DPoPProof!
+*REMOVED*ATProtoNet.Server.Spaces.VerifiedSpaceCredential.Proof.init -> void
+ATProtoNet.Server.Spaces.VerifiedSpaceCredential.Token.get -> ATProtoNet.Spaces.SpaceToken!
+ATProtoNet.Server.Spaces.VerifiedSpaceCredential.Token.init -> void
+*REMOVED*ATProtoNet.Server.Spaces.VerifiedSpaceCredential.VerifiedSpaceCredential(ATProtoNet.Spaces.SpaceUri! Space, ATProtoNet.Server.Spaces.DPoPProof! Proof) -> void
+ATProtoNet.Server.Spaces.VerifiedSpaceCredential.VerifiedSpaceCredential(ATProtoNet.Spaces.SpaceUri! Space, ATProtoNet.Spaces.SpaceToken! Token) -> void
 override ATProtoNet.Server.Spaces.SpaceWriteSequence.Equals(object? obj) -> bool
 override ATProtoNet.Server.Spaces.SpaceWriteSequence.GetHashCode() -> int
 override ATProtoNet.Server.Spaces.SpaceWriteSequence.ToString() -> string!

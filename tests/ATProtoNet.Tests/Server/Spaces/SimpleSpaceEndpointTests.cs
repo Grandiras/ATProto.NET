@@ -50,11 +50,7 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
                     services.AddSingleton<ISpaceCallerResolver>(_caller);
 
                     services
-                        .AddAtProtoSpaces(options =>
-                        {
-                            options.ServiceDid = Owner;
-                            options.PublicBaseUrl = BaseUrl;
-                        })
+                        .AddAtProtoSpaces(options => options.ServiceDid = Owner)
                         .AddSpaceAuthority<InMemorySpaceAuthorityStore>(_authorityKey)
                         .AddSimpleSpace<InMemorySimpleSpaceStore>();
                 });

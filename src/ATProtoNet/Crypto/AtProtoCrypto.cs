@@ -110,6 +110,24 @@ public static class AtProtoCrypto
         return CreatePublicKey(parameters, curve);
     }
 
+    // Whether a string is a P-256 did:key, without decompressing the point.
+    internal static bool IsP256DidKey(string didKey)
+    {
+        if (!didKey.StartsWith("did:key:z", StringComparison.Ordinal))
+            return false;
+
+        Span<byte> bytes = stackalloc byte[MultikeyLength + 8];
+        try
+        {
+            var length = Base58Decode(MultibasePayload(didKey["did:key:".Length..]), bytes);
+            return length == MultikeyLength && CurveInfo.FromMulticodec(bytes[0], bytes[1]) is { Curve: KeyCurve.P256 };
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+    }
+
     // Parses a did:key to its curve and decompressed public point. The point is validated to lie on the
     // curve but not yet imported into a platform key.
     //

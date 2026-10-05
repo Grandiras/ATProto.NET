@@ -3,8 +3,10 @@ using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using ATProtoNet.Auth.OAuth;
+using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
 using ATProtoNet.Serialization;
+using ATProtoNet.Spaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -117,6 +119,23 @@ internal sealed class XrpcClient : IXrpcTransport
     {
         ArgumentNullException.ThrowIfNull(dpop);
         SetSession(serviceUrl: null, new XrpcCredentials(accessToken, refreshToken, dpop));
+    }
+
+    // Sets a space credential. Requests then carry Authorization: Atproto-Space <credential>, the DID they
+    // are addressed to, and a signature by key over both.
+    //
+    // credential: The space credential JWT.
+    //
+    // key: The key the credential is bound to.
+    //
+    // spaceAuthority: The space's authority, the audience of every call that names no repo.
+    internal void SetSpaceCredential(string credential, AtProtoKey key, Did spaceAuthority)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(spaceAuthority);
+        SetSession(
+            serviceUrl: null,
+            new XrpcCredentials(credential, RefreshToken: null, DPoP: null) { Space = new SpaceRequestSigner(key, spaceAuthority) });
     }
 
     // Installs session credentials, or clears them with null, together with the service they belong to,
@@ -668,6 +687,19 @@ internal sealed class XrpcClient : IXrpcTransport
             return null;
         }
 
+        if (credentials.Space is { } space)
+        {
+            // A repo operation is addressed to the repo's owner, a space-host operation to the authority.
+            var authorization = $"{SpaceHttpSignature.CredentialScheme} {credentials.AccessToken}";
+            var audience = request.Parameters?.Get("repo") is { } repo ? Did.Parse(repo) : space.SpaceAuthority;
+            var signature = SpaceHttpSignature.SignRequest(space.Key, authorization, audience);
+            message.Headers.TryAddWithoutValidation("Authorization", authorization);
+            message.Headers.TryAddWithoutValidation(SpaceHttpSignature.AudienceHeader, audience.Value);
+            message.Headers.TryAddWithoutValidation("Signature-Input", signature.SignatureInput);
+            message.Headers.TryAddWithoutValidation("Signature", signature.Signature);
+            return credentials;
+        }
+
         if (credentials.DPoP is { } dpop)
         {
             var uri = message.RequestUri!;
@@ -859,6 +891,9 @@ internal sealed record XrpcCredentials(string AccessToken, string? RefreshToken,
     // The account the credentials authenticate, when a session installed them.
     public Did? Account { get; init; }
 
+    // The key and authority of a space credential, when these are one.
+    public SpaceRequestSigner? Space { get; init; }
+
     // The service the credentials belong to, when a session installed them.
     public Uri? Service { get; init; }
 
@@ -866,6 +901,10 @@ internal sealed record XrpcCredentials(string AccessToken, string? RefreshToken,
     public override string ToString() =>
         $"XrpcCredentials {{ Account = {Account}, Service = {Service}, DPoP = {DPoP is not null} }}";
 }
+
+// What signs a space credential's requests: the key it is bound to, and the space authority that is the
+// audience of a call naming no repo.
+internal sealed record SpaceRequestSigner(AtProtoKey Key, Did SpaceAuthority);
 
 // Keeps the credentials of an XrpcClient fresh. AtProtoClient implements it over its session.
 internal interface IXrpcSessionHandler

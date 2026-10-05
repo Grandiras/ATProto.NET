@@ -223,7 +223,7 @@ They are presented together but signed by different parties and evaluated indepe
     │                  ├──── OAuth token ────►                        │
     │                  ◄─ getDelegationToken ┤                        │
     │                  ├─ delegation token ──►  getSpaceCredential    │
-    │                  │                     ├─(token + DPoP ────────►│
+    │                  │                     ├─(token + signature ───►│
     │                  │                     │   [+ attestation])     │
     │                  │                     ◄─── space credential ───┤
 ```
@@ -248,9 +248,52 @@ await foreach (var writer in client.Space.EnumerateReposAsync(space))
 A credential is **not a bearer token**. It reads a whole space and is presented to every repo host
 in it, so as a bearer token it would be a shared secret — a host given one in order to serve its own
 repo could replay it against every other host in the space. It is bound at issuance to a key the
-requester holds, and every request carries a [DPoP](https://www.rfc-editor.org/rfc/rfc9449) proof
-signed by that key and naming the host it is addressed to. The provider generates a fresh keypair
-per credential and discards it when the credential expires.
+requester holds, and every request carries an
+[HTTP message signature](https://www.rfc-editor.org/rfc/rfc9421) by that key over the credential and
+the DID the request is addressed to. The provider generates a fresh P-256 keypair per credential and
+discards it when the credential expires.
+
+A credential lives ten minutes by default (an authority may issue up to an hour), and the provider
+renews it by the expiry the authority actually gave it — a minute before, or half-way through if it
+is shorter than two minutes (`SpaceCredentialOptions.RenewalWindow`) — with a fresh key and a fresh
+delegation token.
+
+### What goes on the wire
+
+The exchange (`getSpaceCredential`) carries the delegation token as a bearer grant and a signature
+that names the key the credential is to be bound to:
+
+```http
+POST /xrpc/com.atproto.space.getSpaceCredential
+Authorization: Bearer <delegation token>
+Signature-Input: atproto-space=("authorization");keyid="did:key:zDn…"
+Signature: atproto-space=:<base64, 64 bytes r || s>:
+```
+
+The authority copies `keyid` into the credential's `cnf.kid` (a credential's `cnf.jkt` of the DPoP
+era is gone). Every later request presents the credential under its own scheme, with the DID it is
+for, and a signature by the bound key over both:
+
+```http
+GET /xrpc/com.atproto.space.getRecord?space=…&repo=did:plc:member&…
+Authorization: Atproto-Space <credential>
+Atproto-Space-Audience: did:plc:member
+Signature-Input: atproto-space=("authorization" "atproto-space-audience")
+Signature: atproto-space=:<base64>:
+```
+
+The audience is the **owner of the repo** for a repo operation (`getRecord`, `listRecords`,
+`getRepo`, …), even where one PDS serves several accounts, and the **space authority's bare DID**
+for a space-host operation (`listRepos`, `registerNotify`, `unregisterNotify`, `getSpace`) — never
+a host name or a `#atproto_space_host` identifier. The signed bytes are the RFC 9421 signature base:
+`"authorization": <header value>`, `"atproto-space-audience": <DID>` and
+`"@signature-params": <the input>`, joined by LF with no trailing LF, signed with `ecdsa-p256-sha256`
+(SHA-256, 64-byte `r || s`). Nothing binds a signature to a method, URL, nonce or time, so one
+signature serves every request made with the same credential and audience.
+
+`SpaceHttpSignature` signs and verifies these (`SignExchange`, `SignRequest`, `VerifyExchange`,
+`VerifyRequest`); the provider and its readers use it, and a host built on `ATProtoNet.Server`
+verifies with it. Only the Spaces use this: ordinary OAuth requests to a PDS keep their DPoP.
 
 An application serving many users of a space does **not** need a credential per user. It may obtain
 one using any single user's session and fan the data out from its own copy — which is also what
@@ -574,7 +617,6 @@ builder.Services
     .AddAtProtoSpaces(options =>
     {
         options.ServiceDid = Did.Parse("did:web:pds.example.com");
-        options.PublicBaseUrl = "https://pds.example.com";   // what a DPoP proof's htu names
     })
     .AddSpaceAuthority<InMemorySpaceAuthorityStore>(credentialSigningKey)  // getSpaceCredential, listRepos, …
     .AddSimpleSpace<InMemorySimpleSpaceStore>()                            // com.atproto.simplespace.*
@@ -622,13 +664,13 @@ register a keyed `IDidResolver` under `SpaceServerExtensions.DidResolverKey`. Se
 ### The verifiers
 
 Four credential classes reach a space server, and each is verified by a type that can be used
-directly:
+directly (the request signature belongs to `SpaceRequestAuthenticator`):
 
 | Type | Verifies |
 | --- | --- |
 | `SpaceDelegationTokenVerifier` | The delegation token on `getSpaceCredential` |
-| `DPoPProofValidator` | The DPoP proof on every authenticated request |
-| `SpaceCredentialVerifier` | A space credential together with its proof |
+| `SpaceCredentialVerifier` | A space credential: its signature, issuer, space, lifetime and key binding |
+| `SpaceRequestAuthenticator` | The request around either: the HTTP message signature, its audience, and one-field headers |
 | `SpaceClientAttestationVerifier` | A client attestation, against the client's published JWKS |
 
 Three checks in there are the ones the protocol's guarantees rest on.
@@ -649,20 +691,27 @@ resolved from exactly the entry named: a credential labelled `#atproto_space` fr
 publishes no such entry is refused rather than tried against `#atproto`. An authority that signs with
 a dedicated `#atproto_space` key sets `SpaceServerOptions.CredentialKeyId` to say so.
 
-**A proof binds a credential to its holder.** The signature is verified against the proof's own
-embedded `jwk`, which proves nothing on its own — anyone can embed any key — so the thumbprint is
-matched against the credential's `cnf.jkt`, which is what makes it mean something. `ath` pins the
-proof to the credential presented, `htm` and `htu` pin it to this request, `iat` bounds how long a
-captured proof is useful, and `jti` is spent once. As proposal 0016 specifies, a proof is signed with
-`ES256` and nothing else, and the proof on `getSpaceCredential` must carry **no** `ath`: the
-delegation token beside it is a one-time grant, not an access token.
+**A signature binds a credential to its holder.** The credential names a key (`cnf.kid`, a P-256
+`did:key`) and the request's signature is verified against *that* key — never against one the
+request supplies. The signature must cover exactly `"authorization"` and `"atproto-space-audience"`,
+in that order, must be `ecdsa-p256-sha256` if it says so (`alg` is optional), may repeat the key in
+`keyid` only if it is the credential's, and is the 64 bytes `r || s`: DER is refused, high-S is
+accepted. The `Authorization` and `Atproto-Space-Audience` fields must each appear exactly once.
+The audience then has to be the DID the endpoint expects, which each endpoint names: the owner of
+the repo in the request, or the space's authority. Failures answer `BadSpaceSignature` and
+`BadSpaceAudience` (both 401).
 
-A syncer presents the same credential on every read for two hours, so the repo host remembers a
+**A credential is short-lived and carries its own proof of age.** It must have a non-empty `jti`,
+finite `iat` and `exp` with `exp` after `iat` and at most an hour apart, and an `iat` no more than
+five seconds ahead of the verifier's clock. An authority issues ten minutes by default
+(`SpaceServerOptions.CredentialLifetime`, at most an hour).
+
+A syncer presents the same credential on every read until it expires, so the repo host remembers a
 credential whose signature verified — keyed by its SHA-256 hash, up to 10,000 of them — and skips
 parsing and the signature
-check when it comes back. Expiry, the requested space and the proof are still checked on every
-request, and so is the authority's key: it is re-read from the cached DID document and compared with
-the key the signature was checked against, so a rotated key stops verifying cached credentials at
+check when it comes back. Expiry, the requested space and the request signature are still checked on
+every request, and so is the authority's key: it is re-read from the cached DID document and compared
+with the key the signature was checked against, so a rotated key stops verifying cached credentials at
 exactly the moment it stops verifying new ones. When the cache is full the least recently used entry
 goes; since any DID can mint credentials for its own spaces, one authority holds at most a quarter
 of it. A client's published
@@ -685,11 +734,6 @@ default) is the ceiling this service will accept. It bounds two things at once: 
 captured token stays replayable, and how long its `jti` occupies the replay store — which drops
 an entry only once the token it guards has expired anyway.
 
-> `PublicBaseUrl` is not optional behind a reverse proxy. A proof names the URL it was minted for
-> and the verifier compares it against the request *as received*, which behind a proxy is an
-> internal `http://` name that no client could have named. Set it to the URL clients actually
-> address, or apply `UseForwardedHeaders` before the endpoints run.
-
 ### The stores
 
 The space server keeps state in three places, and each has an in-process default that a real
@@ -704,7 +748,7 @@ deployment should replace:
 Two of those defaults are more than an inconvenience.
 
 **The replay store is a correctness gap across instances.** It is what makes a delegation token, a
-client attestation, a DPoP proof and a `notifyWrite` service auth token single-use, and being
+client attestation and a `notifyWrite` service auth token single-use, and being
 per-process means a replay is caught only by the instance that saw the original — two replicas
 behind a load balancer accept the same delegation token twice.
 
@@ -1072,7 +1116,7 @@ PDS already has.
 | `SpaceTypeDeclaration` | The `"type": "space"` Lexicon definition |
 | `AtProtoScopes.Space` | Build `space:` OAuth scopes |
 | `AddAtProtoSpaces` / `AddSpaceAuthority` / `AddSpaceRepoHost` / `AddSimpleSpace` | Register the server halves (`ATProtoNet.Server`); the endpoint handlers are internal |
-| `SpaceRequestAuthenticator`, `DPoPProofValidator`, `SpaceDelegationTokenVerifier`, `SpaceCredentialVerifier`, `SpaceClientAttestationVerifier` | Verify what a caller presents (`notifyWrite`'s service auth is checked by `ServiceAuthVerifier`) |
+| `SpaceRequestAuthenticator`, `SpaceDelegationTokenVerifier`, `SpaceCredentialVerifier`, `SpaceClientAttestationVerifier` | Verify what a caller presents (`notifyWrite`'s service auth is checked by `ServiceAuthVerifier`) |
 | `ISpaceAccessPolicy`, `ISpaceAuthorityStore`, `ISpaceRepoHost`, `ISimpleSpaceStore`, `IJtiReplayStore` | The seams a server implements |
 | `SpaceCredentialIssuer` | Signs the credentials an authority issues |
 | `EfCoreJtiReplayStore`, `EfCoreSpaceAuthorityStore`, `EfCoreSimpleSpaceStore` | Durable, multi-instance implementations of those stores (`ATProtoNet.Server.EntityFrameworkCore`) |
@@ -1082,7 +1126,7 @@ PDS already has.
 
 - [`samples/SpacesSample`](../samples/SpacesSample/Program.cs) — a runnable walk through personal data, sync, and the credential exchange against a permissioned-data PDS
 - [Testing Against a Real Space Host](testing-spaces.md) — how to run the space integration tests against a permissioned-data PDS
-- [OAuth Authentication](oauth.md) — the DPoP, PAR, and PKCE flow the credential exchange builds on
+- [OAuth Authentication](oauth.md) — the OAuth flow whose session mints the delegation token the credential exchange starts from
 - [Low-Level Repo API](low-level-repo.md) — CAR files and DAG-CBOR, shared with public repositories
 - [Cryptography](crypto.md) — key generation, signing, and `did:key` encoding
 - [Firehose Streaming](firehose.md) — the `#identity` and `#account` events permissioned syncers need

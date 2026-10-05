@@ -18,7 +18,6 @@ public class SpaceTokenKeyIdTests
 {
     private static readonly Did UserDid = Did.Parse("did:plc:aaaaaaaaaaaaaaaaaaaaaaaa");
     private static readonly Did AuthorityDid = Did.Parse("did:plc:bbbbbbbbbbbbbbbbbbbbbbbb");
-    private const string Url = "https://pds.example.com/xrpc/com.atproto.space.getRecord";
 
     private static SpaceUri Space => SpaceUri.Parse($"at://{AuthorityDid}/space/com.atmoboards.forum/default");
 
@@ -89,7 +88,6 @@ public class SpaceTokenKeyIdTests
     public async Task Credential_WithoutAKid_IsRejected()
     {
         using var authorityKey = AtProtoCrypto.GenerateP256Key();
-        using var dpop = new TestDPoPKey();
         var verifier = CredentialVerifier(new StubDidResolver().PublishAccount(AuthorityDid.Value, authorityKey));
         var now = DateTimeOffset.UtcNow;
 
@@ -99,15 +97,15 @@ public class SpaceTokenKeyIdTests
             {
                 ["iss"] = AuthorityDid.Value,
                 ["sub"] = Space.Value,
-                ["cnf"] = new Dictionary<string, string> { ["jkt"] = dpop.Thumbprint },
+                ["cnf"] = new Dictionary<string, string> { ["kid"] = TestHolder.KeyId },
                 ["iat"] = now.ToUnixTimeSeconds(),
-                ["exp"] = now.AddHours(2).ToUnixTimeSeconds(),
+                ["exp"] = now.AddMinutes(10).ToUnixTimeSeconds(),
                 ["jti"] = Guid.NewGuid().ToString("N"),
             },
             input => authorityKey.Sign(input));
 
         var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => verifier.VerifyAsync(credential, dpop.Proof("GET", Url, accessToken: credential), "GET", Url, Space));
+            () => verifier.VerifyAsync(credential, Space));
 
         Assert.Contains("kid", ex.Message, StringComparison.Ordinal);
     }
@@ -118,13 +116,12 @@ public class SpaceTokenKeyIdTests
     public async Task Credential_KidOutsideTheAllowList_IsRejected(string kid)
     {
         using var authorityKey = AtProtoCrypto.GenerateP256Key();
-        using var dpop = new TestDPoPKey();
         var verifier = CredentialVerifier(new StubDidResolver().PublishAccount(AuthorityDid.Value, authorityKey));
 
-        var credential = Credential(authorityKey, dpop, kid);
+        var credential = Credential(authorityKey, kid);
 
         var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => verifier.VerifyAsync(credential, dpop.Proof("GET", Url, accessToken: credential), "GET", Url, Space));
+            () => verifier.VerifyAsync(credential, Space));
 
         Assert.Contains("kid", ex.Message, StringComparison.Ordinal);
     }
@@ -135,14 +132,13 @@ public class SpaceTokenKeyIdTests
         // Signed with the #atproto key but labelled #atproto_space: the reference resolves
         // exactly the entry the kid names, so the account key is never tried.
         using var authorityKey = AtProtoCrypto.GenerateP256Key();
-        using var dpop = new TestDPoPKey();
         var resolver = new StubDidResolver().PublishAccount(AuthorityDid.Value, authorityKey);
         var verifier = CredentialVerifier(resolver);
 
-        var credential = Credential(authorityKey, dpop, SpaceAuthority.SigningKeyId);
+        var credential = Credential(authorityKey, SpaceAuthority.SigningKeyId);
 
         var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => verifier.VerifyAsync(credential, dpop.Proof("GET", Url, accessToken: credential), "GET", Url, Space));
+            () => verifier.VerifyAsync(credential, Space));
 
         Assert.Contains("#atproto_space", ex.Message, StringComparison.Ordinal);
 
@@ -155,14 +151,13 @@ public class SpaceTokenKeyIdTests
     {
         using var accountKey = AtProtoCrypto.GenerateP256Key();
         using var spaceKey = AtProtoCrypto.GenerateP256Key();
-        using var dpop = new TestDPoPKey();
         var verifier = CredentialVerifier(new StubDidResolver().Publish(
             AuthorityDid.Value, TwoKeyDocument(accountKey.ToMultikey(), spaceKey.ToMultikey())));
 
-        var credential = Credential(accountKey, dpop, "#atproto");
+        var credential = Credential(accountKey, "#atproto");
 
         var verified = await verifier.VerifyAsync(
-            credential, dpop.Proof("GET", Url, accessToken: credential), "GET", Url, Space);
+            credential, Space);
 
         Assert.Equal(Space, verified.Space);
     }
@@ -171,15 +166,14 @@ public class SpaceTokenKeyIdTests
     public async Task Credential_NamingAMalformedSpaceKey_IsRejected()
     {
         using var accountKey = AtProtoCrypto.GenerateP256Key();
-        using var dpop = new TestDPoPKey();
         var resolver = new StubDidResolver().Publish(
             AuthorityDid.Value, TwoKeyDocument(accountKey.ToMultikey(), spaceMultibase: null));
         var verifier = CredentialVerifier(resolver);
 
-        var credential = Credential(accountKey, dpop, SpaceAuthority.SigningKeyId);
+        var credential = Credential(accountKey, SpaceAuthority.SigningKeyId);
 
         var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => verifier.VerifyAsync(credential, dpop.Proof("GET", Url, accessToken: credential), "GET", Url, Space));
+            () => verifier.VerifyAsync(credential, Space));
 
         Assert.Contains("malformed", ex.Message, StringComparison.Ordinal);
         Assert.Equal(0, resolver.Refreshes);
@@ -189,11 +183,11 @@ public class SpaceTokenKeyIdTests
         new(new StubDidResolver().PublishAccount(UserDid.Value, userKey), new InMemoryJtiReplayStore());
 
     private static SpaceCredentialVerifier CredentialVerifier(IDidResolver resolver) =>
-        new(resolver, new DPoPProofValidator(new InMemoryJtiReplayStore()));
+        new(resolver);
 
-    private static string Credential(AtProtoKey key, TestDPoPKey dpop, string kid) =>
+    private static string Credential(AtProtoKey key, string kid) =>
         SpaceTokens.Create(
-            SpaceTokenType.Credential, AuthorityDid.Value, Space.Value, key, dpopThumbprint: dpop.Thumbprint, keyId: kid);
+            SpaceTokenType.Credential, AuthorityDid.Value, Space.Value, key, confirmationKeyId: TestHolder.KeyId, keyId: kid);
 
     private static DidDocument TwoKeyDocument(string accountMultibase, string? spaceMultibase) => new()
     {

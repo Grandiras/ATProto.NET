@@ -9,7 +9,7 @@ namespace ATProtoNet.Server.Authentication;
 /// <remarks>
 /// <para>Every token this SDK verifies on a server carries a <c>jti</c> that may be spent exactly
 /// once: a service auth token (<see cref="ServiceAuthVerifier"/>), and on a space server a
-/// delegation token, a client attestation and a DPoP proof. Their signatures are what make them
+/// delegation token and a client attestation. Their signatures are what make them
 /// unforgeable; this is what makes them unrepeatable.</para>
 /// <para>Entries are keyed on <c>(issuer, jti, expiry)</c> rather than on the <c>jti</c> alone.
 /// Two issuers picking the same nonce is not a collision, and including the expiry is what lets
@@ -30,8 +30,7 @@ public interface IJtiReplayStore
 {
     /// <summary>Records a token identifier as spent, and reports whether it was still available.</summary>
     /// <param name="issuer">
-    /// What scopes the identifier: the token's <c>iss</c>, or for a DPoP proof its key's
-    /// thumbprint.
+    /// What scopes the identifier: the token's <c>iss</c>.
     /// </param>
     /// <param name="tokenId">The token's <c>jti</c>.</param>
     /// <param name="expiresAt">

@@ -15,7 +15,7 @@ namespace ATProtoNet.Server.EntityFrameworkCore;
 public sealed class JtiReplayEntity
 {
     /// <summary>
-    /// What scopes the identifier: the token's <c>iss</c>, or a DPoP key's thumbprint. Part of the
+    /// What scopes the identifier: the token's <c>iss</c>. Part of the
     /// composite primary key.
     /// </summary>
     [MaxLength(512)]

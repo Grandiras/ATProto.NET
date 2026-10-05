@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using ATProtoNet.Auth.OAuth;
+using ATProtoNet.Crypto;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
 using ATProtoNet.Spaces;
@@ -12,13 +12,13 @@ namespace ATProtoNet.IntegrationTests;
 /// The credential exchange, against a live space host.
 /// </summary>
 /// <remarks>
-/// <para>Unit tests pin the SDK's tokens and proofs against the reference implementation's own
-/// outputs. What they cannot check is whether a server accepts them — whether the <c>htu</c> the
-/// SDK puts in a proof is the one the host computes for the request, whether the delegation
-/// token it sends as a bearer grant is honoured as one, whether the key it proves possession of
-/// is the key the issued credential ends up bound to.</para>
+/// <para>Unit tests pin the SDK's tokens and signatures against the reference implementation's own
+/// outputs. What they cannot check is whether a server accepts them — whether the audience the
+/// SDK signs is the one the host expects for the request, whether the delegation token it sends
+/// as a bearer grant is honoured as one, whether the key it signs with is the key the issued
+/// credential ends up bound to.</para>
 /// <para>The refusals matter as much as the acceptance: a credential is whole-space read access,
-/// so if the exchange succeeded for the wrong reasons — a replayed token, a proof signed by
+/// so if the exchange succeeded for the wrong reasons — a replayed token, a signature by
 /// someone else's key — the positive tests would still pass.</para>
 /// </remarks>
 [Collection("Spaces")]
@@ -53,8 +53,8 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
         Assert.Equal(SpaceTokenType.Credential, credential.Token.Type);
 
         // The whole point of the exchange: the credential is bound to the key that signed the
-        // proof, so it cannot be replayed by whoever it is presented to.
-        Assert.Equal(credential.Key.KeyThumbprint, credential.Token.ConfirmationThumbprint);
+        // request, so it cannot be replayed by whoever it is presented to.
+        Assert.Equal(credential.Key.ToDidKey(), credential.Token.ConfirmationKeyId);
         Assert.False(credential.IsExpired());
         Assert.True(credential.ExpiresAt > DateTimeOffset.UtcNow);
     }
@@ -71,11 +71,11 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
         Assert.Same(first, cached);
 
         // A renewal is a second full exchange — a fresh delegation token and a fresh key — which
-        // is what a long-running syncer does every couple of hours.
+        // is what a long-running syncer does every few minutes.
         var renewed = await provider.GetCredentialAsync(space, forceRenew: true);
         Assert.NotSame(first, renewed);
         Assert.NotEqual(first.Raw, renewed.Raw);
-        Assert.NotEqual(first.Token.ConfirmationThumbprint, renewed.Token.ConfirmationThumbprint);
+        Assert.NotEqual(first.Token.ConfirmationKeyId, renewed.Token.ConfirmationKeyId);
     }
 
     [RequiresFact(IntegrationRequirement.Spaces)]
@@ -85,7 +85,7 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
         await fixture.WriteAsync(fixture.Member, space, "members only", rkey: "shared");
 
         // The authority resolves the member's host from its DID document and reads it with the
-        // credential — one proof per request, each naming that request's URL.
+        // credential, each request signed for the member whose repo it reads.
         await using var provider = fixture.CreateProvider(fixture.Authority);
         using var reader = await provider.CreateReaderForRepoAsync(space, fixture.Member.Did);
 
@@ -98,8 +98,7 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
         var listed = await reader.Space.ListRecordsAsync(space, fixture.Member.Did);
         Assert.Single(listed.Records);
 
-        // Several requests on one credential, each with its own proof: a replayed proof would
-        // fail here, which is the check the SDK's per-request `jti` exists for.
+        // Several requests on one credential, each signed for the same audience.
         var commit = await reader.Space.GetLatestCommitAsync(space, fixture.Member.Did);
         Assert.NotNull(commit.Commit.Rev);
     }
@@ -111,9 +110,9 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
 
         var delegation = await fixture.Member.Client.Space.GetDelegationTokenAsync(space);
 
-        // A fresh proof each time, so the DPoP replay check is satisfied and the token's own
-        // single-use property is what has to refuse the second exchange. A captured token that
-        // could be spent twice would mint credentials for anyone who caught it.
+        // A fresh key and signature each time, so the token's own single-use property is what has
+        // to refuse the second exchange. A captured token that could be spent twice would mint
+        // credentials for anyone who caught it.
         using var first = await ExchangeAsync(space, delegation.Token);
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
 
@@ -141,7 +140,7 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
     }
 
     [RequiresFact(IntegrationRequirement.Spaces)]
-    public async Task SpaceCredential_PresentedWithAProofSignedByAnotherKey_IsRefused()
+    public async Task SpaceCredential_SignedByAnotherKey_IsRefused()
     {
         var space = await fixture.CreateSpaceAsync("cred-rebind", members: [fixture.Member]);
         await fixture.WriteAsync(fixture.Member, space, "not yours to read");
@@ -150,30 +149,31 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
         var credential = await provider.GetCredentialAsync(space);
 
         // Whoever the credential is presented to could otherwise re-present it elsewhere. The
-        // `cnf` thumbprint is what stops them: a proof from any other key does not match it.
-        using var attacker = new DPoPProofGenerator();
+        // `cnf.kid` is what stops them: a signature by any other key does not verify against it.
+        using var attacker = AtProtoCrypto.GenerateP256Key();
         using var response = await GetLatestCommitAsync(space, credential, attacker);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("BadSpaceSignature", await ErrorOf(response));
     }
 
     [RequiresFact(IntegrationRequirement.Spaces)]
-    public async Task SpaceCredential_PresentedWithAProofForAnotherHost_IsRefused()
+    public async Task SpaceCredential_SignedForAnotherAudience_IsRefused()
     {
-        var space = await fixture.CreateSpaceAsync("cred-htu", members: [fixture.Member]);
-        await fixture.WriteAsync(fixture.Member, space, "authority repo");
+        var space = await fixture.CreateSpaceAsync("cred-aud", members: [fixture.Member]);
+        await fixture.WriteAsync(fixture.Member, space, "member repo");
 
         await using var provider = fixture.CreateProvider(fixture.Authority);
         var credential = await provider.GetCredentialAsync(space);
 
         // A credential reads every repo in the space, so it is handed to hosts that are not the
-        // one that issued it. The proof names the host it is for; presented anywhere else the
-        // `htu` no longer matches the request.
-        var elsewhere = $"https://other-host.invalid/xrpc/com.atproto.space.getLatestCommit";
-        var proof = credential.Key.GenerateProofWithAccessToken("GET", elsewhere, null, credential.Raw);
+        // one that issued it. The signature names the DID it is for; a repo operation signed for
+        // anyone but the repo's owner is refused, however well it verifies.
+        using var response = await GetLatestCommitAsync(
+            space, credential, credential.Key, audience: fixture.Authority.Did);
 
-        using var response = await SendAsync(LatestCommitUri(space, fixture.Member.Did), credential.Raw, proof);
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("BadSpaceAudience", await ErrorOf(response));
     }
 
     [RequiresFact(IntegrationRequirement.Spaces)]
@@ -192,9 +192,9 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
         using var response = await client.SendAsync(request);
         Assert.False(response.IsSuccessStatusCode);
 
-        // The control: the same credential on the same request, presented under the DPoP scheme
-        // with a proof, is served — so the refusal is about the scheme and not the credential.
-        using var proper = await GetLatestCommitAsync(space, credential, credential.Key, fixture.Authority.Did);
+        // The control: the same credential on the same request, presented under its own scheme with
+        // a signature, is served — so the refusal is about the scheme and not the credential.
+        using var proper = await GetLatestCommitAsync(space, credential, credential.Key, repo: fixture.Authority.Did);
         Assert.Equal(HttpStatusCode.OK, proper.StatusCode);
     }
 
@@ -218,42 +218,44 @@ public class SpaceCredentialTests(SpaceNetworkFixture fixture)
     }
 
     /// <summary>
-    /// One <c>getSpaceCredential</c> exchange, by hand: a delegation token as a bearer grant and
-    /// a fresh proof over a fresh key, which is what <see cref="SpaceCredentialProvider"/> does
-    /// internally. Written out here so a test can vary one half of it.
+    /// One <c>getSpaceCredential</c> exchange, by hand: a delegation token as a bearer grant, signed
+    /// by a fresh key, which is what <see cref="SpaceCredentialProvider"/> does internally. Written
+    /// out here so a test can vary one half of it.
     /// </summary>
     private async Task<HttpResponseMessage> ExchangeAsync(SpaceUri space, string delegationToken)
     {
-        var endpoint = $"{fixture.PdsUrl}/xrpc/com.atproto.space.getSpaceCredential";
-
-        using var key = new DPoPProofGenerator();
+        using var key = AtProtoCrypto.GenerateP256Key();
         using var client = new HttpClient();
-        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{fixture.PdsUrl}/xrpc/com.atproto.space.getSpaceCredential")
         {
             Content = JsonContent.Create(new GetSpaceCredentialRequest { Space = space }),
         };
 
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", delegationToken);
-        request.Headers.TryAddWithoutValidation("DPoP", key.GenerateProof("POST", endpoint));
+        var authorization = $"Bearer {delegationToken}";
+        var signature = SpaceHttpSignature.SignExchange(key, authorization);
+        request.Headers.TryAddWithoutValidation("Authorization", authorization);
+        request.Headers.TryAddWithoutValidation("Signature-Input", signature.SignatureInput);
+        request.Headers.TryAddWithoutValidation("Signature", signature.Signature);
 
         return await client.SendAsync(request);
     }
 
-    private Task<HttpResponseMessage> GetLatestCommitAsync(
-        SpaceUri space, SpaceCredential credential, DPoPProofGenerator signer, string? repo = null)
+    // Reads a repo's latest commit with the credential, signed by signer for audience (the repo's
+    // owner unless the test says otherwise).
+    private async Task<HttpResponseMessage> GetLatestCommitAsync(
+        SpaceUri space, SpaceCredential credential, AtProtoKey signer, string? repo = null, string? audience = null)
     {
-        var uri = LatestCommitUri(space, repo ?? fixture.Member.Did);
-        var proof = signer.GenerateProofWithAccessToken("GET", uri, null, credential.Raw);
+        repo ??= fixture.Member.Did;
+        var authorization = $"{SpaceHttpSignature.CredentialScheme} {credential.Raw}";
+        var signedFor = Did.Parse(audience ?? repo);
+        var signature = SpaceHttpSignature.SignRequest(signer, authorization, signedFor);
 
-        return SendAsync(uri, credential.Raw, proof);
-    }
-
-    private static async Task<HttpResponseMessage> SendAsync(string uri, string credential, string proof)
-    {
         using var client = new HttpClient();
-        using var request = new HttpRequestMessage(HttpMethod.Get, uri);
-        request.Headers.TryAddWithoutValidation("Authorization", $"DPoP {credential}");
-        request.Headers.TryAddWithoutValidation("DPoP", proof);
+        using var request = new HttpRequestMessage(HttpMethod.Get, LatestCommitUri(space, repo));
+        request.Headers.TryAddWithoutValidation("Authorization", authorization);
+        request.Headers.TryAddWithoutValidation(SpaceHttpSignature.AudienceHeader, signedFor.Value);
+        request.Headers.TryAddWithoutValidation("Signature-Input", signature.SignatureInput);
+        request.Headers.TryAddWithoutValidation("Signature", signature.Signature);
 
         return await client.SendAsync(request);
     }

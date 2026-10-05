@@ -27,7 +27,6 @@ namespace ATProtoNet.Server.Spaces;
 ///     .AddAtProtoSpaces(options =>
 ///     {
 ///         options.ServiceDid = Did.Parse("did:web:pds.example.com");
-///         options.PublicBaseUrl = "https://pds.example.com";
 ///     })
 ///     .AddSpaceAuthority&lt;MyAuthorityStore&gt;(signingKey)
 ///     .AddSimpleSpace&lt;MySimpleSpaceStore&gt;()
@@ -44,7 +43,7 @@ public static class SpaceServerExtensions
     /// <summary>The service key of the <see cref="IDidResolver"/> the space server resolves DID documents through: a cache of its own, configured by <see cref="SpaceServerOptions.DidCache"/>.</summary>
     public const string DidResolverKey = "ATProtoNet.Server.Spaces";
 
-    /// <summary>Registers the credential verification layer: DPoP proof, delegation token, space credential and client attestation verification.</summary>
+    /// <summary>Registers the credential verification layer: delegation token, space credential, HTTP message signature and client attestation verification.</summary>
     /// <param name="services">The service collection.</param>
     /// <param name="configure">Configures <see cref="SpaceServerOptions"/>.</param>
     /// <returns>The service collection for chaining.</returns>
@@ -104,7 +103,6 @@ public static class SpaceServerExtensions
 
         // The verifiers take the space server's own resolver through [FromKeyedServices], and a
         // registered TimeProvider when there is one.
-        services.TryAddSingleton<DPoPProofValidator>();
         services.TryAddSingleton<SpaceDelegationTokenVerifier>();
         services.TryAddSingleton<SpaceCredentialVerifier>();
         services.TryAddSingleton<SpaceClientAttestationVerifier>();
@@ -116,12 +114,10 @@ public static class SpaceServerExtensions
     // The checks AddAtProtoSpaces runs on the options when the host starts.
     internal static void ValidateOptions(SpaceServerOptions options)
     {
-        if (!string.IsNullOrEmpty(options.PublicBaseUrl))
-            AtProtoOptionsRegistration.RequireHttpUrl(options.PublicBaseUrl, nameof(options.PublicBaseUrl));
-
-        RequirePositive(options.ProofLifetime, nameof(options.ProofLifetime));
         RequirePositive(options.MaxSingleUseTokenLifetime, nameof(options.MaxSingleUseTokenLifetime));
         RequirePositive(options.CredentialLifetime, nameof(options.CredentialLifetime));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(
+            options.CredentialLifetime, SpaceTokens.MaxCredentialLifetime, nameof(options.CredentialLifetime));
         RequirePositive(options.NotifyRegistrationLifetime, nameof(options.NotifyRegistrationLifetime));
         ArgumentOutOfRangeException.ThrowIfLessThan(options.ClockSkew, TimeSpan.Zero, nameof(options.ClockSkew));
         ArgumentNullException.ThrowIfNull(options.DidCache, nameof(options.DidCache));

@@ -133,11 +133,9 @@ public class TypedIdentifierGuardTests
         ["ATProtoNet.Spaces.SpaceTokens.Create(issuer)"] = "JWT `iss`: a DID, or an OAuth client ID on a client attestation.",
         ["ATProtoNet.Spaces.SpaceTokens.Create(subject)"] = "JWT `sub`: a space URI, or an OAuth client ID on a client attestation.",
         ["ATProtoNet.Server.Authentication.IJtiReplayStore.TryConsumeAsync(issuer)"] =
-            "Scopes a `jti`: a token's `iss` (a DID or a client ID) or a DPoP key's thumbprint.",
+            "Scopes a `jti`: a token's `iss` (a DID or a client ID).",
         ["ATProtoNet.Server.Authentication.InMemoryJtiReplayStore.TryConsumeAsync(issuer)"] =
-            "Scopes a `jti`: a token's `iss` (a DID or a client ID) or a DPoP key's thumbprint.",
-        ["ATProtoNet.Server.Spaces.DPoPProofValidator.ValidateAsync(requestUri)"] = "An HTTP request URL, not an AT URI.",
-        ["ATProtoNet.Server.Spaces.SpaceCredentialVerifier.VerifyAsync(requestUri)"] = "An HTTP request URL, not an AT URI.",
+            "Scopes a `jti`: a token's `iss` (a DID or a client ID).",
 
         // Jetstream collection filters accept NSID prefix wildcards (`app.bsky.graph.*`).
         ["ATProtoNet.Streaming.JetstreamConsumerOptions.WantedCollections"] = "NSIDs or NSID prefix wildcards.",

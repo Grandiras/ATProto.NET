@@ -88,3 +88,69 @@ var spaces = await client.Space.ListSpacesAsync(spaceType: Nsid.Parse("com.examp
 ```
 
 A positional call (`CreateSpaceAsync(Nsid.Parse("com.example.forum"))`) compiles unchanged.
+
+### HTTP message signatures replace DPoP
+
+The alpha binds a space credential to a key with an
+[HTTP message signature](https://www.rfc-editor.org/rfc/rfc9421) instead of a DPoP proof (see
+[What goes on the wire](spaces.md#what-goes-on-the-wire)). Ordinary OAuth DPoP, for requests to a PDS
+with an OAuth session, is untouched.
+
+Applications that read through `SpaceCredentialProvider` and its readers change nothing but what
+they inspect: the provider generates a fresh P-256 key per credential, signs the exchange and every
+request, and renews by the credential's real expiry.
+
+- `SpaceCredential.Key` is an `AtProtoKey` (a P-256 key), not a `DPoPProofGenerator`.
+- `SpaceToken.ConfirmationThumbprint` (`cnf.jkt`) is `SpaceToken.ConfirmationKeyId` (`cnf.kid`, the
+  key's `did:key`), and `SpaceTokens.Create(dpopThumbprint: …)` is `Create(confirmationKeyId: …)`.
+- A credential is presented as `Authorization: Atproto-Space <credential>` with an
+  `Atproto-Space-Audience` header and `Signature-Input` / `Signature`, not under the `DPoP` scheme.
+  `SpaceHttpSignature` signs and verifies them for code that talks to a host directly.
+
+Services built on `ATProtoNet.Server` change more:
+
+- `DPoPProofValidator`, `DPoPProof`, `SpaceServerOptions.ProofLifetime` and
+  `SpaceServerOptions.PublicBaseUrl` are removed. A signature names no URL, so a reverse proxy needs
+  neither `PublicBaseUrl` nor `UseForwardedHeaders` for Spaces.
+- `SpaceCredentialVerifier` no longer takes a proof validator: `VerifyAsync(credential, expectedSpace)`
+  checks the credential, and its `VerifiedSpaceCredential` carries the `SpaceToken` instead of a proof.
+  `SpaceRequestAuthenticator` verifies the signature, and `SpaceCredentialRequestAuth.Proof` is
+  `KeyId`. `SpaceCredentialIssuer.IssueAsync` takes that key id.
+- `SpaceRequestAuthenticator.AuthenticateCredentialAsync` takes the **audience** the request must be
+  signed for: the owner of the repo it names for a repo operation, the space's authority for a
+  space-host operation. A custom endpoint that authenticated with a credential passes it:
+
+<!-- snippet: ATProtoNet.Server.Spaces.SpaceRequestAuthenticator authenticator; Microsoft.AspNetCore.Http.HttpContext context; ATProtoNet.Spaces.SpaceUri space; ATProtoNet.Identity.Did repoOwner; -->
+```csharp before
+await authenticator.AuthenticateCredentialAsync(context, space);
+```
+
+<!-- snippet: ATProtoNet.Server.Spaces.SpaceRequestAuthenticator authenticator; Microsoft.AspNetCore.Http.HttpContext context; ATProtoNet.Spaces.SpaceUri space; ATProtoNet.Identity.Did repoOwner; -->
+```csharp
+await authenticator.AuthenticateCredentialAsync(context, space, repoOwner);
+```
+
+- A refusal is `BadSpaceSignature` (the signature, or a duplicated or missing header) or
+  `BadSpaceAudience` (the signed audience is not the expected one), both `401`.
+
+### Credentials last ten minutes
+
+An authority issues credentials of ten minutes by default, not two hours, and never more than an
+hour. Every verifier now requires a non-empty `jti` and an `iat` (at most five seconds in the
+future) with `exp` after it, and `SpaceCredentialProvider` renews a credential by the expiry it was
+actually given — `SpaceCredentialOptions.RenewalWindow` is now one minute, or half the credential's
+life when that is shorter.
+
+- `SpaceServerOptions.CredentialLifetime` defaults to ten minutes and is rejected above an hour at
+  start-up. `SpaceTokens.DefaultCredentialLifetime` is ten minutes and `SpaceTokens.MaxCredentialLifetime`
+  is new.
+- A credential cached or stored by the old format (a `cnf.jkt`) is not accepted: the provider simply
+  mints a new one.
+- A reader (`SpaceReader`) is not renewed, so one kept for more than ten minutes starts failing. Create
+  readers per sync pass.
+
+```csharp
+using ATProtoNet.Server.Spaces;
+
+builder.Services.AddAtProtoSpaces(options => options.CredentialLifetime = TimeSpan.FromMinutes(30));
+```

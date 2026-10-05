@@ -1,4 +1,5 @@
-using ATProtoNet.Auth.OAuth;
+using System.Security.Cryptography;
+using System.Text;
 using ATProtoNet.Caching;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
@@ -7,28 +8,28 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ATProtoNet.Server.Spaces;
 
-/// <summary>A space credential that verified, together with the proof that accompanied it.</summary>
+/// <summary>A space credential that verified.</summary>
 /// <param name="Space">The space it grants read access to, from its <c>sub</c>.</param>
-/// <param name="Proof">The DPoP proof presented with it, already verified against the request.</param>
-public sealed record VerifiedSpaceCredential(SpaceUri Space, DPoPProof Proof);
+/// <param name="Token">The parsed credential; its <see cref="SpaceToken.ConfirmationKeyId"/> is the key a request must be signed with.</param>
+public sealed record VerifiedSpaceCredential(SpaceUri Space, SpaceToken Token);
 
-/// <summary>Verifies the space credentials presented to a repo host.</summary>
+/// <summary>Verifies the space credentials presented to a repo host, though not the signature of the request that carries one.</summary>
 /// <remarks>
 /// <para>This is the repo host's side of the read path. A credential says the space authority
 /// admitted this reader to this space; the repo host does not re-evaluate that decision, and has
 /// no way to — it holds no member list and the protocol enumerates no readers. What it does
-/// check is that the credential is genuine, current, addressed to this space, and presented by
-/// the party it was issued to.</para>
-/// <para>That last part is the DPoP binding, and it is what makes a credential safe to hand to
-/// a host at all. A credential reads a whole space and is presented to every host in it, so
+/// check is that the credential is genuine, current, and addressed to this space. That it was
+/// presented by the party it was issued to is the request signature's business
+/// (<see cref="SpaceRequestAuthenticator"/>), and it is what makes a credential safe to hand to
+/// a host at all: a credential reads a whole space and is presented to every host in it, so
 /// without the binding any one of those hosts could replay it against the rest.</para>
-/// <para>A syncer presents the same credential on every request for two hours, so a credential
+/// <para>A syncer presents the same credential on every request until it expires, so a credential
 /// whose signature verified is remembered, keyed by its SHA-256 hash, and a later presentation
 /// skips parsing and the signature check. Everything else is checked every time: expiry, the
-/// space the request names, the DPoP proof with its single-use <c>jti</c>, and the authority's
-/// key — re-read from the (cached) DID document and compared with the key the signature was
-/// checked against. So a rotated authority key stops verifying a cached credential at exactly the
-/// moment it stops verifying a new one; the cache never extends the DID cache's own window.</para>
+/// space the request names, and the authority's key — re-read from the (cached) DID document and
+/// compared with the key the signature was checked against. So a rotated authority key stops
+/// verifying a cached credential at exactly the moment it stops verifying a new one; the cache
+/// never extends the DID cache's own window.</para>
 /// <para>The cache holds 10,000 credentials (about 30 MB) and evicts the least recently used
 /// entry when full. Any DID can be the authority of its own
 /// spaces and mint credentials for them, so one authority may hold at most a quarter of the
@@ -38,11 +39,10 @@ public sealed record VerifiedSpaceCredential(SpaceUri Space, DPoPProof Proof);
 public sealed class SpaceCredentialVerifier
 {
     private readonly IDidResolver _resolver;
-    private readonly DPoPProofValidator _proofValidator;
     private readonly SpaceServerOptions _options;
     private readonly TimeProvider _timeProvider;
 
-    // ath (base64url SHA-256 of the credential) → entry; the lock keeps the per-authority counts
+    // SHA-256 of the credential, base64 → entry; the lock keeps the per-authority counts
     // in step with it. Null when caching is off.
     private readonly object _lock = new();
     private readonly LruCache<string, CachedCredential>? _entries;
@@ -55,20 +55,16 @@ public sealed class SpaceCredentialVerifier
     /// every request resolves one. Resolved from the container under
     /// <see cref="SpaceServerExtensions.DidResolverKey"/>.
     /// </param>
-    /// <param name="proofValidator">Verifies the accompanying DPoP proof.</param>
     /// <param name="options">Server options.</param>
     /// <param name="timeProvider">The clock. Defaults to the system clock.</param>
     public SpaceCredentialVerifier(
         [FromKeyedServices(SpaceServerExtensions.DidResolverKey)] IDidResolver resolver,
-        DPoPProofValidator proofValidator,
         SpaceServerOptions? options = null,
         TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(resolver);
-        ArgumentNullException.ThrowIfNull(proofValidator);
 
         _resolver = resolver;
-        _proofValidator = proofValidator;
         _options = options ?? new SpaceServerOptions();
         _timeProvider = timeProvider ?? TimeProvider.System;
         if (_options.VerifiedCredentialCacheCapacity > 0)
@@ -81,11 +77,8 @@ public sealed class SpaceCredentialVerifier
     // How many credential signatures have been checked, for tests.
     internal int SignatureChecks => Volatile.Read(ref _signatureChecks);
 
-    /// <summary>Verifies a credential and the proof presented with it.</summary>
-    /// <param name="credentialJwt">The credential, from the <c>Authorization: DPoP</c> header.</param>
-    /// <param name="proofJwt">The proof, from the <c>DPoP</c> header.</param>
-    /// <param name="httpMethod">The HTTP method as received.</param>
-    /// <param name="requestUri">The request URL as received.</param>
+    /// <summary>Verifies a credential.</summary>
+    /// <param name="credentialJwt">The credential, from the <c>Authorization: Atproto-Space</c> header.</param>
     /// <param name="expectedSpace">
     /// The space the request names, which the credential must grant. Pass <see langword="null"/>
     /// to take the space from the credential instead.
@@ -93,17 +86,13 @@ public sealed class SpaceCredentialVerifier
     /// <exception cref="SpaceVerificationException">Thrown when any check fails.</exception>
     public async Task<VerifiedSpaceCredential> VerifyAsync(
         string credentialJwt,
-        string proofJwt,
-        string httpMethod,
-        string requestUri,
         SpaceUri? expectedSpace = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(credentialJwt))
             throw Invalid("The request carries no space credential.");
 
-        // One hash serves as the cache key and as the `ath` the proof must carry.
-        var accessTokenHash = DPoP.AccessTokenHash(credentialJwt);
+        var accessTokenHash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(credentialJwt)));
         var now = _timeProvider.GetUtcNow();
 
         var credential = Lookup(accessTokenHash, now);
@@ -126,15 +115,7 @@ public sealed class SpaceCredentialVerifier
         if (credential.Token.IsExpired(now))
             throw Invalid("The space credential is expired.");
 
-        var proof = await _proofValidator.ValidateWithHashAsync(
-            proofJwt,
-            httpMethod,
-            requestUri,
-            boundThumbprint: credential.Token.ConfirmationThumbprint,
-            expectedAccessTokenHash: accessTokenHash,
-            cancellationToken).ConfigureAwait(false);
-
-        return new VerifiedSpaceCredential(credential.Space, proof);
+        return new VerifiedSpaceCredential(credential.Space, credential.Token);
     }
 
     private async Task<CachedCredential> VerifyCredentialAsync(

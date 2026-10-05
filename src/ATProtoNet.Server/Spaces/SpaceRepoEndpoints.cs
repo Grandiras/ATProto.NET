@@ -12,7 +12,8 @@ namespace ATProtoNet.Server.Spaces;
 // pair it names.
 //
 // The credential is checked against the space the request names, so a credential for one space cannot be
-// used to read another even on a host that serves both. Nothing else is re-decided here — the authority
+// used to read another even on a host that serves both, and the request's signed audience against the repo
+// it names, so a signature made for one account's repo cannot read another's. Nothing else is re-decided here — the authority
 // already made the access decision, and a repo host holds no state with which to second-guess it.
 //
 // TParams: The endpoint's query parameters.
@@ -34,7 +35,7 @@ internal abstract class SpaceRepoEndpointBase<TParams>(SpaceRequestAuthenticator
         var space = SpaceRequestValidation.RequireSpace(parameters.Space);
         var repo = SpaceRequestValidation.Require(parameters.Repo, "repo");
 
-        await authenticator.AuthenticateCredentialAsync(context, space, cancellationToken).ConfigureAwait(false);
+        await authenticator.AuthenticateCredentialAsync(context, space, repo, cancellationToken).ConfigureAwait(false);
 
         return (space, repo);
     }

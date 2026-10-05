@@ -17,18 +17,6 @@ public sealed class SpaceServerOptions
     /// <summary>This service's DID: the space authority's DID when acting as one, and the issuer of its outbound service auth.</summary>
     public Did? ServiceDid { get; set; }
 
-    /// <summary>The externally reachable base URL of this service, e.g. <c>https://pds.example.com</c>.</summary>
-    /// <remarks>
-    /// A DPoP proof's <c>htu</c> is compared with the request as received, which behind a reverse
-    /// proxy names an internal host. Set this to the URL clients address (only its scheme, host and
-    /// port are used), or apply <c>UseForwardedHeaders</c>; this is the more reliable of the two,
-    /// since it trusts no header.
-    /// </remarks>
-    public string? PublicBaseUrl { get; set; }
-
-    /// <summary>How far a DPoP proof's <c>iat</c> may sit from this service's clock, and so how long its <c>jti</c> is remembered. Default: 5 minutes.</summary>
-    public TimeSpan ProofLifetime { get; set; } = TimeSpan.FromMinutes(5);
-
     /// <summary>Tolerance of the token expiry checks. Default: <see cref="SpaceTokens.DefaultClockSkew"/>.</summary>
     public TimeSpan ClockSkew { get; set; } = SpaceTokens.DefaultClockSkew;
 
@@ -58,7 +46,7 @@ public sealed class SpaceServerOptions
         ExpireAfter = TimeSpan.FromMinutes(5),
     };
 
-    /// <summary>The lifetime of the credentials this authority issues. Default: <see cref="SpaceTokens.DefaultCredentialLifetime"/> (two hours).</summary>
+    /// <summary>The lifetime of the credentials this authority issues. Default: <see cref="SpaceTokens.DefaultCredentialLifetime"/> (ten minutes); at most <see cref="SpaceTokens.MaxCredentialLifetime"/>.</summary>
     public TimeSpan CredentialLifetime { get; set; } = SpaceTokens.DefaultCredentialLifetime;
 
     /// <summary>How long a <c>registerNotify</c> registration lasts before it must be renewed. Default: 7 days.</summary>
@@ -88,10 +76,4 @@ public sealed class SpaceServerOptions
     // and service auth with ClockSkew; the larger covers either.
     internal DateTimeOffset ReplayRetention(DateTimeOffset expiresAt) =>
         expiresAt + (ClockSkew > SpaceTokens.DefaultClockSkew ? ClockSkew : SpaceTokens.DefaultClockSkew);
-
-    // The absolute URL a DPoP proof's htu is compared against, honouring PublicBaseUrl.
-    internal string BuildRequestUri(string requestScheme, string requestHost, string path) =>
-        string.IsNullOrEmpty(PublicBaseUrl)
-            ? $"{requestScheme}://{requestHost}{path}"
-            : $"{PublicBaseUrl.TrimEnd('/')}{path}";
 }

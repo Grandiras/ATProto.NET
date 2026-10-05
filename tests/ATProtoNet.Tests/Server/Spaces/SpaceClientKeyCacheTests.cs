@@ -29,7 +29,7 @@ public class SpaceClientKeyCacheTests
             new SpaceServerOptions { ClientMetadataCacheLifetime = cacheLifetime ?? TimeSpan.FromMinutes(5) },
             _clock);
 
-    private string Attestation(TestDPoPKey key, string kid) =>
+    private string Attestation(TestEcKey key, string kid) =>
         key.SignJws(
             new Dictionary<string, object> { ["typ"] = SpaceTokens.ClientAttestationType, ["alg"] = "ES256", ["kid"] = kid },
             new Dictionary<string, object>
@@ -45,7 +45,7 @@ public class SpaceClientKeyCacheTests
     [Fact]
     public async Task VerifyAsync_SameClientTwice_FetchesItsKeysOnce()
     {
-        using var key = new TestDPoPKey();
+        using var key = new TestEcKey();
         _resolver.Keys = [key.ToJsonWebKey("key-1")];
         var verifier = CreateVerifier();
 
@@ -58,7 +58,7 @@ public class SpaceClientKeyCacheTests
     [Fact]
     public async Task VerifyAsync_AfterTheCacheLifetime_FetchesAgain()
     {
-        using var key = new TestDPoPKey();
+        using var key = new TestEcKey();
         _resolver.Keys = [key.ToJsonWebKey("key-1")];
         var verifier = CreateVerifier();
 
@@ -72,8 +72,8 @@ public class SpaceClientKeyCacheTests
     [Fact]
     public async Task VerifyAsync_KeyRotatedInSinceTheLastFetch_IsPickedUpWithoutWaitingForExpiry()
     {
-        using var oldKey = new TestDPoPKey();
-        using var newKey = new TestDPoPKey();
+        using var oldKey = new TestEcKey();
+        using var newKey = new TestEcKey();
         _resolver.Keys = [oldKey.ToJsonWebKey("key-1")];
         var verifier = CreateVerifier();
 
@@ -93,8 +93,8 @@ public class SpaceClientKeyCacheTests
     {
         // A forged attestation naming a kid the client never published must not turn into a
         // fetch of the client's metadata per request.
-        using var key = new TestDPoPKey();
-        using var forger = new TestDPoPKey();
+        using var key = new TestEcKey();
+        using var forger = new TestEcKey();
         _resolver.Keys = [key.ToJsonWebKey("key-1")];
         var verifier = CreateVerifier();
 
@@ -113,7 +113,7 @@ public class SpaceClientKeyCacheTests
     [Fact]
     public async Task VerifyAsync_WithTheCacheOff_FetchesEveryTime()
     {
-        using var key = new TestDPoPKey();
+        using var key = new TestEcKey();
         _resolver.Keys = [key.ToJsonWebKey("key-1")];
         var verifier = CreateVerifier(TimeSpan.Zero);
 
@@ -128,8 +128,8 @@ public class SpaceClientKeyCacheTests
     {
         // A failed refetch counts as an attempt, so forged attestations cannot turn a failing
         // client host into a fetch per request.
-        using var key = new TestDPoPKey();
-        using var forger = new TestDPoPKey();
+        using var key = new TestEcKey();
+        using var forger = new TestEcKey();
         _resolver.Keys = [key.ToJsonWebKey("key-1")];
         var verifier = CreateVerifier();
         await verifier.VerifyAsync(Attestation(key, "key-1"), Audience);
@@ -152,7 +152,7 @@ public class SpaceClientKeyCacheTests
     [Fact]
     public async Task VerifyAsync_AClientWhoseMetadataCannotBeFetched_IsNotFetchedAgainForThirtySeconds()
     {
-        using var key = new TestDPoPKey();
+        using var key = new TestEcKey();
         _resolver.Fail = true;
         var verifier = CreateVerifier();
 
@@ -171,7 +171,7 @@ public class SpaceClientKeyCacheTests
     [Fact]
     public async Task VerifyAsync_ConcurrentAttestationsFromOneClient_ShareOneFetch()
     {
-        using var key = new TestDPoPKey();
+        using var key = new TestEcKey();
         _resolver.Keys = [key.ToJsonWebKey("key-1")];
         _resolver.Gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var verifier = CreateVerifier();
@@ -187,7 +187,7 @@ public class SpaceClientKeyCacheTests
     [Fact]
     public async Task VerifyAsync_AFetchOneCallerStoppedWaitingFor_StillServesTheNext()
     {
-        using var key = new TestDPoPKey();
+        using var key = new TestEcKey();
         _resolver.Keys = [key.ToJsonWebKey("key-1")];
         _resolver.Gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var verifier = CreateVerifier(TimeSpan.Zero);

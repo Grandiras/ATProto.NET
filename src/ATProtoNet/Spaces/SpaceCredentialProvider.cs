@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using ATProtoNet.Auth.OAuth;
+using ATProtoNet.Crypto;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
@@ -16,14 +15,14 @@ namespace ATProtoNet.Spaces;
 /// The credential is not a bearer token. It grants read access to a whole space and is presented
 /// to every repo host in it, so as a bearer token it would be a shared secret — a host given one
 /// in order to serve its own repo could replay it against every other host in the space. It is
-/// bound at issuance to a key held by the requester, and every request carries a DPoP proof
-/// signed by that key naming the host it is addressed to.
+/// bound at issuance to a key held by the requester, and every request carries an HTTP message
+/// signature by that key (see <see cref="SpaceHttpSignature"/>) naming the DID it is addressed to.
 /// </remarks>
 public sealed class SpaceCredential : IDisposable
 {
     private bool _disposed;
 
-    internal SpaceCredential(SpaceUri space, SpaceToken token, DPoPProofGenerator key)
+    internal SpaceCredential(SpaceUri space, SpaceToken token, AtProtoKey key)
     {
         Space = space;
         Token = token;
@@ -36,18 +35,18 @@ public sealed class SpaceCredential : IDisposable
     /// <summary>The parsed credential.</summary>
     public SpaceToken Token { get; }
 
-    /// <summary>The credential as it should be presented under the <c>DPoP</c> scheme.</summary>
+    /// <summary>The credential as it should be presented under the <c>Atproto-Space</c> scheme.</summary>
     public string Raw => Token.Raw;
 
     /// <summary>When the credential expires.</summary>
     public DateTimeOffset ExpiresAt => Token.ExpiresAt;
 
-    /// <summary>The key the credential is bound to, which signs the DPoP proof on every request made with it.</summary>
+    /// <summary>The key the credential is bound to, which signs every request made with it.</summary>
     /// <remarks>
-    /// A fresh keypair is generated per credential and need only outlive it — it is disposed
+    /// A fresh P-256 keypair is generated per credential and need only outlive it — it is disposed
     /// along with the credential.
     /// </remarks>
-    public DPoPProofGenerator Key { get; }
+    public AtProtoKey Key { get; }
 
     /// <summary>Whether the credential is expired as of <paramref name="now"/>.</summary>
     /// <param name="now">The instant to check against. Defaults to the current time.</param>
@@ -79,8 +78,9 @@ public sealed class SpaceCredentialOptions
     /// </remarks>
     public Func<string, CancellationToken, Task<string>>? ClientAttestationFactory { get; init; }
 
-    /// <summary>How long before expiry a cached credential is renewed. Defaults to five minutes.</summary>
-    public TimeSpan RenewalWindow { get; init; } = TimeSpan.FromMinutes(5);
+    /// <summary>How long before expiry a cached credential is renewed. Defaults to one minute.</summary>
+    /// <remarks>A credential that lives less than twice this is renewed half-way through its life instead, so a short-lived credential is not minted anew for every call.</remarks>
+    public TimeSpan RenewalWindow { get; init; } = TimeSpan.FromMinutes(1);
 
     /// <summary>Resolves a space authority or repo host DID to its endpoint. Supply this to override DID document resolution, e.g. to point a test at a local PDS.</summary>
     public Func<Did, CancellationToken, Task<string>>? HostResolver { get; init; }
@@ -90,10 +90,10 @@ public sealed class SpaceCredentialOptions
 /// <remarks>
 /// <para>This runs the credential flow end to end. The application asks the user's PDS for a
 /// <see cref="SpaceTokenType.Delegation">delegation token</see>, presents it to the space
-/// authority alongside a DPoP proof (and a client attestation if the space wants one), and
-/// receives a <see cref="SpaceCredential"/> bound to the key that signed the proof. From then on
-/// it reads each member's repo from that member's own host, with the credential and a fresh
-/// proof addressed to that host.</para>
+/// authority, signed with a fresh key (and with a client attestation if the space wants one), and
+/// receives a <see cref="SpaceCredential"/> bound to that key. From then on it reads each member's
+/// repo from that member's own host, with the credential and a signature addressed to that
+/// member.</para>
 /// <para>An application serving many users of a space does <b>not</b> need a credential per
 /// user. It may obtain one using any single user's session and fan the resulting data out from
 /// its own copy — which is also what keeps the number of distinct syncers per repo low enough
@@ -239,8 +239,12 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
         }
     }
 
+    // Fresh until it is about to expire, by the expiry the authority actually gave it.
     private bool IsFresh(SpaceCredential? credential) =>
-        credential is not null && !credential.IsExpired(DateTimeOffset.UtcNow + _options.RenewalWindow);
+        credential is not null &&
+        DateTimeOffset.UtcNow < credential.ExpiresAt - Min(_options.RenewalWindow, (credential.ExpiresAt - credential.Token.IssuedAt) / 2);
+
+    private static TimeSpan Min(TimeSpan a, TimeSpan b) => a < b ? a : b;
 
     // Keeps a replaced credential for the readers still holding it, and disposes the ones that have
     // expired, which no reader can use any more.
@@ -359,7 +363,7 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
             "xrpc/com.atproto.space.getSpaceCredential");
 
         // A fresh keypair per credential, discarded when the credential expires.
-        var key = new DPoPProofGenerator();
+        var key = AtProtoCrypto.GenerateP256Key();
         try
         {
             // Whether the space gates on app identity is not advertised, so ask without an
@@ -383,11 +387,11 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
 
             var token = SpaceTokens.Parse(SpaceTokenType.Credential, response.Credential);
 
-            if (!string.Equals(token.ConfirmationThumbprint, key.KeyThumbprint, StringComparison.Ordinal))
+            if (!string.Equals(token.ConfirmationKeyId, key.ToDidKey(), StringComparison.Ordinal))
             {
                 throw new SpaceCredentialException(
                     "The authority issued a credential bound to a different key than the one this " +
-                    "application proved possession of.");
+                    "application signed the request with.");
             }
 
             if (!string.Equals(token.Subject, space.Value, StringComparison.Ordinal))
@@ -407,7 +411,7 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
     private async Task<GetSpaceCredentialResponse?> ExchangeAsync(
         SpaceUri space,
         Uri endpoint,
-        DPoPProofGenerator key,
+        AtProtoKey key,
         string? clientAttestation,
         CancellationToken cancellationToken)
     {
@@ -421,11 +425,13 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
                 options: AtProtoJsonDefaults.Options),
         };
 
-        // The delegation token is an authorization grant rather than an access token, so it
-        // travels as a bearer token and the proof carries no `ath`.
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", delegation.Token);
-        request.Headers.TryAddWithoutValidation(
-            "DPoP", key.GenerateProof(HttpMethod.Post.Method, endpoint.ToString()));
+        // The delegation token is an authorization grant rather than an access token, so it travels as a
+        // bearer token. The signature over it names the key the credential will be bound to.
+        var authorization = $"Bearer {delegation.Token}";
+        var signature = SpaceHttpSignature.SignExchange(key, authorization);
+        request.Headers.TryAddWithoutValidation("Authorization", authorization);
+        request.Headers.TryAddWithoutValidation("Signature-Input", signature.SignatureInput);
+        request.Headers.TryAddWithoutValidation("Signature", signature.Signature);
 
         using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
 
@@ -489,11 +495,12 @@ public sealed class SpaceCredentialProvider : IAsyncDisposable, IDisposable
 
 /// <summary>Reads a space from one repo host, authenticated with a space credential rather than OAuth.</summary>
 /// <remarks>
-/// <para>Every request carries <c>Authorization: DPoP &lt;credential&gt;</c> together with a proof
-/// signed by the credential's bound key and naming this host, so the credential cannot be
-/// replayed by this host against any other host in the space.</para>
+/// <para>Every request carries <c>Authorization: Atproto-Space &lt;credential&gt;</c> together with a
+/// signature by the credential's bound key over it and the DID the request is addressed to — the
+/// repo's owner for a repo operation — so the credential cannot be replayed by a host against
+/// another account's repo.</para>
 /// <para>A reader holds the credential it was created with and does not renew it, so one kept
-/// past that credential's expiry (two hours by default) starts failing. Create readers per sync
+/// past that credential's expiry (ten minutes by default) starts failing. Create readers per sync
 /// pass rather than caching them for the lifetime of a long-running syncer.</para>
 /// </remarks>
 public sealed class SpaceReader : IDisposable
@@ -509,7 +516,7 @@ public sealed class SpaceReader : IDisposable
         // The transport addresses its host with absolute URIs, so every reader shares the
         // provider's HttpClient and connection pool, however many hosts a syncer walks.
         _xrpc = new XrpcClient(httpClient, AtProtoHttp.NormalizeBaseUrl(HostUrl), logger);
-        _xrpc.SetOAuthTokens(credential.Raw, refreshToken: null, credential.Key);
+        _xrpc.SetSpaceCredential(credential.Raw, credential.Key, credential.Space.Authority);
 
         Space = new SpaceClient(_xrpc);
         SimpleSpace = new Lexicon.Com.AtProto.SimpleSpace.SimpleSpaceClient(_xrpc);

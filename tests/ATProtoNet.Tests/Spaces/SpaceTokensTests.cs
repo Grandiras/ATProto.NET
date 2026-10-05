@@ -12,7 +12,7 @@ public class SpaceTokensTests
     private const string Space = $"at://{AuthorityDid}/space/com.atmoboards.forum/default";
     private const string HostAudience = $"{AuthorityDid}#atproto_space_host";
     private const string ClientId = "https://app.example.com/client-metadata.json";
-    private const string Thumbprint = "0ZcOCORZNYy-DWpqq30jZyJGHTN0d2HglBV3uiguA4I";
+    private const string HolderKeyId = "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW";
 
     private static JsonElement DecodePart(string jwt, int index) => TestJws.DecodeJson(jwt, index);
 
@@ -109,12 +109,13 @@ public class SpaceTokensTests
         using var key = AtProtoCrypto.GenerateP256Key();
 
         var jwt = SpaceTokens.Create(
-            SpaceTokenType.Credential, AuthorityDid, Space, key, dpopThumbprint: Thumbprint);
+            SpaceTokenType.Credential, AuthorityDid, Space, key, confirmationKeyId: HolderKeyId);
 
         var payload = DecodePart(jwt, 1);
 
         Assert.Equal("atproto-space-credential+jwt", DecodePart(jwt, 0).GetProperty("typ").GetString());
-        Assert.Equal(Thumbprint, payload.GetProperty("cnf").GetProperty("jkt").GetString());
+        Assert.Equal(HolderKeyId, payload.GetProperty("cnf").GetProperty("kid").GetString());
+        Assert.False(payload.GetProperty("cnf").TryGetProperty("jkt", out _));
         // A credential is presented to every repo host in the space, so it names no single one.
         Assert.False(payload.TryGetProperty("aud", out _));
     }
@@ -131,15 +132,46 @@ public class SpaceTokensTests
     }
 
     [Fact]
-    public void Create_Credential_DefaultsToTwoHours()
+    public void Create_Credential_DefaultsToTenMinutes()
     {
         using var key = AtProtoCrypto.GenerateP256Key();
 
         var token = SpaceTokens.Parse(
             SpaceTokenType.Credential,
-            SpaceTokens.Create(SpaceTokenType.Credential, AuthorityDid, Space, key, dpopThumbprint: Thumbprint));
+            SpaceTokens.Create(SpaceTokenType.Credential, AuthorityDid, Space, key, confirmationKeyId: HolderKeyId));
 
-        Assert.Equal(7200, (token.ExpiresAt - token.IssuedAt).TotalSeconds, 1);
+        Assert.Equal(600, (token.ExpiresAt - token.IssuedAt).TotalSeconds, 1);
+    }
+
+    [Theory]
+    [InlineData("not a did")]
+    [InlineData("")]
+    public void Create_CredentialBoundToSomethingThatIsNotADid_Throws(string keyId)
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+
+        Assert.Throws<ArgumentException>(() => SpaceTokens.Create(
+            SpaceTokenType.Credential, AuthorityDid, Space, key, confirmationKeyId: keyId));
+    }
+
+    [Theory]
+    [InlineData(3600, true)]
+    [InlineData(3601, false)]
+    [InlineData(1, true)]
+    [InlineData(0, false)]
+    [InlineData(-5, false)]
+    public void Create_CredentialLifetime_IsBoundedByAnHour(int seconds, bool allowed)
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+
+        void Mint() => SpaceTokens.Create(
+            SpaceTokenType.Credential, AuthorityDid, Space, key,
+            confirmationKeyId: HolderKeyId, lifetime: TimeSpan.FromSeconds(seconds));
+
+        if (allowed)
+            Mint();
+        else
+            Assert.Throws<ArgumentOutOfRangeException>(Mint);
     }
 
     [Fact]
@@ -149,9 +181,141 @@ public class SpaceTokensTests
 
         var jwt = SpaceTokens.Create(
             SpaceTokenType.Credential, AuthorityDid, Space, key,
-            dpopThumbprint: Thumbprint, keyId: SpaceAuthority.SigningKeyId);
+            confirmationKeyId: HolderKeyId, keyId: SpaceAuthority.SigningKeyId);
 
         Assert.Equal("#atproto_space", DecodePart(jwt, 0).GetProperty("kid").GetString());
+    }
+
+    /// <summary>Mints a credential with claims a test chooses, signed by <paramref name="key"/>.</summary>
+    private static string MintCredential(AtProtoKey key, Action<Dictionary<string, object>>? edit = null)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var claims = new Dictionary<string, object>
+        {
+            ["iss"] = AuthorityDid,
+            ["sub"] = Space,
+            ["cnf"] = new Dictionary<string, string> { ["kid"] = HolderKeyId },
+            ["iat"] = now.ToUnixTimeSeconds(),
+            ["exp"] = now.AddMinutes(10).ToUnixTimeSeconds(),
+            ["jti"] = "a-credential-id",
+        };
+        edit?.Invoke(claims);
+
+        return TestJws.Mint(
+            new Dictionary<string, object> { ["typ"] = SpaceTokens.CredentialType, ["alg"] = "ES256", ["kid"] = "#atproto" },
+            claims,
+            input => key.Sign(input));
+    }
+
+    [Fact]
+    public void Parse_Credential_ReadsItsKeyBindingAndTokenId()
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+
+        var token = SpaceTokens.Parse(SpaceTokenType.Credential, MintCredential(key));
+
+        Assert.Equal(HolderKeyId, token.ConfirmationKeyId);
+        Assert.Equal("a-credential-id", token.TokenId);
+    }
+
+    [Theory]
+    [InlineData("jkt")] // the DPoP-era binding, which names no key a signature could be checked against
+    [InlineData("other")]
+    public void Parse_CredentialBoundByAnythingButCnfKid_Throws(string member)
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var jwt = MintCredential(key, claims => claims["cnf"] = new Dictionary<string, string> { [member] = HolderKeyId });
+
+        var ex = Assert.Throws<SpaceTokenException>(() => SpaceTokens.Parse(SpaceTokenType.Credential, jwt));
+
+        Assert.Contains("cnf.kid", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Parse_CredentialWithoutAnyBinding_Throws()
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var jwt = MintCredential(key, claims => claims.Remove("cnf"));
+
+        Assert.Throws<SpaceTokenException>(() => SpaceTokens.Parse(SpaceTokenType.Credential, jwt));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    public void Parse_CredentialWithoutAUsableJti_Throws(string jti)
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+
+        Assert.Throws<SpaceTokenException>(
+            () => SpaceTokens.Parse(SpaceTokenType.Credential, MintCredential(key, claims => claims["jti"] = jti)));
+        Assert.Throws<SpaceTokenException>(
+            () => SpaceTokens.Parse(SpaceTokenType.Credential, MintCredential(key, claims => claims.Remove("jti"))));
+    }
+
+    [Fact]
+    public void Parse_CredentialWithoutIat_Throws()
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+
+        Assert.Throws<SpaceTokenException>(
+            () => SpaceTokens.Parse(SpaceTokenType.Credential, MintCredential(key, claims => claims.Remove("iat"))));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(3601)]
+    public void Parse_CredentialLifetimeOutsideTheBound_Throws(int lifetimeSeconds)
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var iat = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var jwt = MintCredential(key, claims =>
+        {
+            claims["iat"] = iat;
+            claims["exp"] = iat + lifetimeSeconds;
+        });
+
+        Assert.Throws<SpaceTokenException>(() => SpaceTokens.Parse(SpaceTokenType.Credential, jwt));
+    }
+
+    [Fact]
+    public void Parse_CredentialLastingExactlyAnHour_IsAccepted()
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var iat = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+        var token = SpaceTokens.Parse(
+            SpaceTokenType.Credential,
+            MintCredential(key, claims =>
+            {
+                claims["iat"] = iat;
+                claims["exp"] = iat + 3600;
+            }));
+
+        Assert.Equal(TimeSpan.FromHours(1), token.ExpiresAt - token.IssuedAt);
+    }
+
+    [Theory]
+    [InlineData(4, true)]   // inside the 5 second skew
+    [InlineData(6, false)]  // past it
+    [InlineData(600, false)]
+    public void Verify_CredentialIssuedInTheFuture_IsRefusedBeyondTheSkew(int secondsAhead, bool accepted)
+    {
+        using var key = AtProtoCrypto.GenerateP256Key();
+        var iat = DateTimeOffset.UtcNow.AddSeconds(secondsAhead).ToUnixTimeSeconds();
+        var parsed = SpaceTokens.Parse(
+            SpaceTokenType.Credential,
+            MintCredential(key, claims =>
+            {
+                claims["iat"] = iat;
+                claims["exp"] = iat + 600;
+            }));
+
+        if (accepted)
+            SpaceTokens.Verify(parsed, key.ToDidKey());
+        else
+            Assert.Contains("future", Assert.Throws<SpaceTokenException>(() => SpaceTokens.Verify(parsed, key.ToDidKey())).Message, StringComparison.Ordinal);
     }
 
     // ── Client attestations ──────────────────────────────────────
@@ -193,7 +357,7 @@ public class SpaceTokensTests
         // credential from being presented where a delegation token belongs.
         using var key = AtProtoCrypto.GenerateP256Key();
         var credential = SpaceTokens.Create(
-            SpaceTokenType.Credential, AuthorityDid, Space, key, dpopThumbprint: Thumbprint);
+            SpaceTokenType.Credential, AuthorityDid, Space, key, confirmationKeyId: HolderKeyId);
 
         var ex = Assert.Throws<SpaceTokenException>(
             () => SpaceTokens.Parse(SpaceTokenType.Delegation, credential));

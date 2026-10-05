@@ -119,8 +119,8 @@ Console.WriteLine($"persisted {savedState.Length}-byte set-hash state at rev {sa
 // ── 3. Shared reads ───────────────────────────────────────────────────────
 //
 // Reading another member's repo needs a space credential: the application asks the user's PDS
-// for a delegation token, presents it to the space authority with a DPoP proof, and gets back a
-// credential bound to the key that signed that proof.
+// for a delegation token, presents it to the space authority signed with a fresh key, and gets
+// back a credential bound to that key.
 
 Console.WriteLine("── Reading the space as a syncer would ──");
 
@@ -133,7 +133,7 @@ await using var provider = new SpaceCredentialProvider(
 try
 {
     var credential = await provider.GetCredentialAsync(space);
-    Console.WriteLine($"credential expires {credential.ExpiresAt:u}, bound to key {credential.Token.ConfirmationThumbprint}");
+    Console.WriteLine($"credential expires {credential.ExpiresAt:u}, bound to key {credential.Token.ConfirmationKeyId}");
 
     // The writer set: accounts that have written at least one record into the space and that its
     // write policy admits. It is the sync boundary, not an access-control list — readers are

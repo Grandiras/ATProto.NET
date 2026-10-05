@@ -37,19 +37,19 @@ public sealed class SpaceCredentialIssuer
         _options = options;
     }
 
-    /// <summary>Mints a credential for a space, bound to the key that signed the request's DPoP proof.</summary>
+    /// <summary>Mints a credential for a space, bound to the key that signed the request.</summary>
     /// <param name="space">The space the credential reads.</param>
-    /// <param name="dpopThumbprint">
-    /// The RFC 7638 thumbprint of the requester's key, copied into the credential's
-    /// <c>cnf.jkt</c>. This is what stops the credential being a bearer token.
+    /// <param name="keyId">
+    /// The <c>did:key</c> of the requester's P-256 key, copied into the credential's
+    /// <c>cnf.kid</c>. This is what stops the credential being a bearer token.
     /// </param>
     /// <param name="cancellationToken">Unused; signing happens in process.</param>
     /// <returns>The signed credential JWT.</returns>
     public Task<string> IssueAsync(
-        SpaceUri space, string dpopThumbprint, CancellationToken cancellationToken = default)
+        SpaceUri space, string keyId, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(space);
-        ArgumentException.ThrowIfNullOrWhiteSpace(dpopThumbprint);
+        ArgumentException.ThrowIfNullOrWhiteSpace(keyId);
 
         // An authority mints credentials only for the spaces it gates. Minting one whose subject
         // names another authority would produce a token no reader will accept, because a reader
@@ -63,7 +63,7 @@ public sealed class SpaceCredentialIssuer
             issuer: _options.ServiceDid!.Value,
             subject: space.Value,
             signingKey: _signingKey,
-            dpopThumbprint: dpopThumbprint,
+            confirmationKeyId: keyId,
             lifetime: _options.CredentialLifetime,
             keyId: _options.CredentialKeyId);
 

@@ -104,16 +104,15 @@ public class SpaceIdentityRefreshTests
     {
         using var oldKey = AtProtoCrypto.GenerateP256Key();
         using var newKey = AtProtoCrypto.GenerateP256Key();
-        using var dpop = new TestDPoPKey();
+        using var holder = AtProtoCrypto.GenerateP256Key();
         var resolver = new StubDidResolver()
             .PublishAccount(AuthorityDid, oldKey)
             .Rotate(AuthorityDid, StubDidResolver.AccountDocument(AuthorityDid, newKey));
-        var verifier = new SpaceCredentialVerifier(resolver, new DPoPProofValidator(new InMemoryJtiReplayStore()));
-        const string url = "https://host.example.com/xrpc/com.atproto.space.listRecords";
+        var verifier = new SpaceCredentialVerifier(resolver);
         var credential = SpaceTokens.Create(
-            SpaceTokenType.Credential, AuthorityDid, Space.Value, newKey, dpopThumbprint: dpop.Thumbprint);
+            SpaceTokenType.Credential, AuthorityDid, Space.Value, newKey, confirmationKeyId: holder.ToDidKey());
 
-        var verified = await verifier.VerifyAsync(credential, dpop.Proof("GET", url, accessToken: credential), "GET", url, Space);
+        var verified = await verifier.VerifyAsync(credential, Space);
 
         Assert.Equal(Space, verified.Space);
         Assert.Equal(1, resolver.Refreshes);

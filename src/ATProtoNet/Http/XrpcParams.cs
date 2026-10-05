@@ -78,6 +78,9 @@ public sealed class XrpcParams : IEnumerable<KeyValuePair<string, string>>
         return this;
     }
 
+    // The first value added under a key, or null.
+    internal string? Get(string key) => _pairs.FirstOrDefault(pair => pair.Key == key).Value;
+
     // The parameters as a percent-encoded query string with repeated keys for arrays, prefixed with ?,
     // or an empty string when there are none.
     internal string ToQueryString()

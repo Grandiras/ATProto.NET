@@ -35,7 +35,7 @@ public sealed class GetSpaceCredentialRequest
 /// <summary>Response from <c>getSpaceCredential</c>.</summary>
 public sealed class GetSpaceCredentialResponse
 {
-    /// <summary>A signed JWT space credential, bound through its <c>cnf.jkt</c> claim to the key that signed the request's DPoP proof.</summary>
+    /// <summary>A signed JWT space credential, bound through its <c>cnf.kid</c> claim to the key that signed the request.</summary>
     [JsonPropertyName("credential")]
     public required string Credential { get; init; }
 }
@@ -496,6 +496,12 @@ public static class SpaceErrors
 
     /// <summary>The presented client attestation was malformed, expired, or not verifiable.</summary>
     public const string InvalidClientAttestation = "InvalidClientAttestation";
+
+    /// <summary>The HTTP message signature of a space request was missing, malformed, or did not verify against the credential's key.</summary>
+    public const string BadSpaceSignature = "BadSpaceSignature";
+
+    /// <summary>The audience a space request was signed for is not the party the request is addressed to.</summary>
+    public const string BadSpaceAudience = "BadSpaceAudience";
 
     /// <summary>The blob is not held by the repo in this space.</summary>
     public const string BlobNotFound = "BlobNotFound";

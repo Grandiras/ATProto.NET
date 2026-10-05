@@ -24,7 +24,7 @@ namespace ATProtoNet.Lexicon.Com.AtProto.Space;
 /// <see cref="ListReposAsync"/>, and the notification registrations. Served by the space
 /// authority.</description></item>
 /// </list>
-/// <para>Reading <em>another member's</em> repo needs a space credential, which is DPoP-bound
+/// <para>Reading <em>another member's</em> repo needs a space credential, which is bound to a key
 /// and cannot be presented as a bearer token. <see cref="SpaceCredentialProvider"/> runs that
 /// exchange and <see cref="SpaceSyncer"/> drives sync on top of it; this client is the raw
 /// endpoint surface underneath both.</para>
@@ -64,10 +64,10 @@ public sealed class SpaceClient
     /// The application's client attestation JWT, required only when the space gates on app identity.
     /// </param>
     /// <remarks>
-    /// <para>This request must carry the delegation token as its authorization and a DPoP proof
-    /// signed by the key the resulting credential is to be bound to. Neither is applied here —
-    /// this method is the raw endpoint. Use <see cref="SpaceCredentialProvider"/> for the whole
-    /// exchange, including the DPoP binding and credential caching.</para>
+    /// <para>This request must carry the delegation token as its authorization and an HTTP message
+    /// signature by the key the resulting credential is to be bound to (<see cref="SpaceHttpSignature"/>).
+    /// Neither is applied here — this method is the raw endpoint. Use <see cref="SpaceCredentialProvider"/>
+    /// for the whole exchange, including the key binding and credential caching.</para>
     /// <para>Whether the space requires a client attestation is not advertised: an application
     /// either learns it out of band or discovers it by asking without one and seeing whether an
     /// <see cref="SpaceErrors.AppNotAuthorized"/> comes back.</para>

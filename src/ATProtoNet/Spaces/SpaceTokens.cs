@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using ATProtoNet.Auth;
 using ATProtoNet.Crypto;
+using ATProtoNet.Identity;
 using ATProtoNet.Serialization;
 
 namespace ATProtoNet.Spaces;
@@ -21,7 +22,7 @@ public enum SpaceTokenType
     /// </remarks>
     Delegation,
 
-    /// <summary>Issued by a space authority in exchange for a delegation token. Multi-use, two hours, with no audience — it is presented to every repo host in the space — and bound to the holder's key through its <c>cnf.jkt</c> claim.</summary>
+    /// <summary>Issued by a space authority in exchange for a delegation token. Multi-use, ten minutes by default, with no audience — it is presented to every repo host in the space — and bound to the holder's key through its <c>cnf.kid</c> claim.</summary>
     Credential,
 
     /// <summary>Signed by an application's own client authentication key, proving the application's identity to a space authority. Required only when a space gates on app identity.</summary>
@@ -39,7 +40,7 @@ public sealed class SpaceToken
         string issuer,
         string subject,
         string? audience,
-        string? confirmationThumbprint,
+        string? confirmationKeyId,
         DateTimeOffset issuedAt,
         DateTimeOffset expiresAt,
         string? tokenId,
@@ -53,7 +54,7 @@ public sealed class SpaceToken
         Issuer = issuer;
         Subject = subject;
         Audience = audience;
-        ConfirmationThumbprint = confirmationThumbprint;
+        ConfirmationKeyId = confirmationKeyId;
         IssuedAt = issuedAt;
         ExpiresAt = expiresAt;
         TokenId = tokenId;
@@ -82,8 +83,8 @@ public sealed class SpaceToken
     /// <summary>The <c>aud</c>. Absent on a credential, which has many recipients.</summary>
     public string? Audience { get; }
 
-    /// <summary>The <c>cnf.jkt</c>: the thumbprint of the key a credential is bound to.</summary>
-    public string? ConfirmationThumbprint { get; }
+    /// <summary>The <c>cnf.kid</c>: the <c>did:key</c> of the P-256 key a credential is bound to, which signs every request made with it.</summary>
+    public string? ConfirmationKeyId { get; }
 
     /// <summary>The <c>iat</c>.</summary>
     public DateTimeOffset IssuedAt { get; }
@@ -91,7 +92,7 @@ public sealed class SpaceToken
     /// <summary>The <c>exp</c>.</summary>
     public DateTimeOffset ExpiresAt { get; }
 
-    /// <summary>The <c>jti</c>, the nonce a single-use token is consumed by.</summary>
+    /// <summary>The <c>jti</c>, which a single-use token is consumed by and a credential is revoked by.</summary>
     public string? TokenId { get; }
 
     /// <summary>The bytes the signature covers: <c>{header}.{payload}</c>.</summary>
@@ -135,7 +136,10 @@ public static class SpaceTokens
     public static readonly TimeSpan DefaultShortLifetime = TimeSpan.FromSeconds(60);
 
     /// <summary>Default lifetime of a space credential.</summary>
-    public static readonly TimeSpan DefaultCredentialLifetime = TimeSpan.FromHours(2);
+    public static readonly TimeSpan DefaultCredentialLifetime = TimeSpan.FromMinutes(10);
+
+    /// <summary>The longest lifetime a space credential may have: an issuer will not mint a longer one, and a verifier refuses one.</summary>
+    public static readonly TimeSpan MaxCredentialLifetime = TimeSpan.FromHours(1);
 
     /// <summary>Tolerance applied to expiry checks.</summary>
     public static readonly TimeSpan DefaultClockSkew = TimeSpan.FromSeconds(5);
@@ -159,11 +163,14 @@ public static class SpaceTokens
     /// The <c>aud</c>. Required for a delegation token and a client attestation, and rejected
     /// for a credential, which is presented to many hosts.
     /// </param>
-    /// <param name="dpopThumbprint">
-    /// The JWK thumbprint to bind a credential to, copied into <c>cnf.jkt</c>. Required for a
-    /// credential.
+    /// <param name="confirmationKeyId">
+    /// The <c>did:key</c> of the P-256 key to bind a credential to, copied into <c>cnf.kid</c>.
+    /// Required for a credential.
     /// </param>
-    /// <param name="lifetime">Token lifetime. Defaults to the type's standard lifetime.</param>
+    /// <param name="lifetime">
+    /// Token lifetime. Defaults to the type's standard lifetime; a credential's may not exceed
+    /// <see cref="MaxCredentialLifetime"/>.
+    /// </param>
     /// <param name="keyId">
     /// The <c>kid</c>. Defaults to <c>#atproto</c>; a space authority publishing a dedicated
     /// <c>#atproto_space</c> key names it here.
@@ -175,7 +182,7 @@ public static class SpaceTokens
         string subject,
         AtProtoKey signingKey,
         string? audience = null,
-        string? dpopThumbprint = null,
+        string? confirmationKeyId = null,
         TimeSpan? lifetime = null,
         string? keyId = null)
     {
@@ -187,11 +194,11 @@ public static class SpaceTokens
         if (requiresAudience && string.IsNullOrEmpty(audience))
             throw new ArgumentException($"A {type} token requires an audience.", nameof(audience));
 
-        if (type == SpaceTokenType.Credential && string.IsNullOrEmpty(dpopThumbprint))
+        if (type == SpaceTokenType.Credential && !Did.TryParse(confirmationKeyId, out _))
         {
             throw new ArgumentException(
-                "A space credential must be DPoP-bound; supply the holder's JWK thumbprint.",
-                nameof(dpopThumbprint));
+                "A space credential must be bound to its holder's key; supply the key's did:key.",
+                nameof(confirmationKeyId));
         }
 
         if (type == SpaceTokenType.ClientAttestation && !string.Equals(issuer, subject, StringComparison.Ordinal))
@@ -204,6 +211,12 @@ public static class SpaceTokens
         var expiry = lifetime ?? (type == SpaceTokenType.Credential
             ? DefaultCredentialLifetime
             : DefaultShortLifetime);
+
+        if (type == SpaceTokenType.Credential && (expiry <= TimeSpan.Zero || expiry > MaxCredentialLifetime))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(lifetime), expiry, $"A space credential lasts more than zero and at most {MaxCredentialLifetime}.");
+        }
 
         // A client attestation's key comes from the client's own JWKS, so it has no default kid.
         var kid = keyId ?? (type == SpaceTokenType.ClientAttestation ? null : "#atproto");
@@ -219,10 +232,10 @@ public static class SpaceTokens
             if (!string.IsNullOrEmpty(audience))
                 writer.WriteString("aud"u8, audience);
 
-            if (!string.IsNullOrEmpty(dpopThumbprint))
+            if (!string.IsNullOrEmpty(confirmationKeyId))
             {
                 writer.WriteStartObject("cnf"u8);
-                writer.WriteString("jkt"u8, dpopThumbprint);
+                writer.WriteString("kid"u8, confirmationKeyId);
                 writer.WriteEndObject();
             }
 
@@ -276,23 +289,29 @@ public static class SpaceTokens
         if (type is SpaceTokenType.Delegation or SpaceTokenType.ClientAttestation && audience is null)
             throw new SpaceTokenException("Token is missing its \"aud\" claim.");
 
-        string? thumbprint = null;
+        string? keyId = null;
         if (payload.TryGetProperty("cnf", out var cnf) && cnf.ValueKind == JsonValueKind.Object)
-            thumbprint = cnf.GetStringOrNull("jkt");
+            keyId = cnf.GetStringOrNull("kid");
 
-        if (type == SpaceTokenType.Credential && string.IsNullOrEmpty(thumbprint))
-            throw new SpaceTokenException("A space credential must carry a \"cnf.jkt\" claim.");
+        if (type == SpaceTokenType.Credential && !Did.TryParse(keyId, out _))
+            throw new SpaceTokenException("A space credential must carry a \"cnf.kid\" claim naming its key.");
 
-        // A credential is presented many times; only the single-use tokens are consumed by jti.
-        var tokenId = type == SpaceTokenType.Credential
-            ? payload.GetStringOrNull("jti")
-            : Jwt.RequireTokenId(payload, $"{type} token", message => new SpaceTokenException(message));
+        // Every token has one: a single-use token is consumed by it, a credential revoked by it.
+        var tokenId = Jwt.RequireTokenId(payload, $"{type} token", message => new SpaceTokenException(message));
 
         if (type == SpaceTokenType.ClientAttestation && !string.Equals(issuer, subject, StringComparison.Ordinal))
             throw new SpaceTokenException("A client attestation's \"iss\" and \"sub\" must both be the client ID.");
 
         if (!payload.TryGetNumericDate("iat", out var issuedAt))
             throw new SpaceTokenException("Token's \"iat\" claim is not a valid time.");
+
+        if (type == SpaceTokenType.Credential)
+        {
+            if (issuedAt is not { } issued)
+                throw new SpaceTokenException("A space credential is missing its \"iat\" claim.");
+            if (expiresAt <= issued || expiresAt - issued > MaxCredentialLifetime)
+                throw new SpaceTokenException($"A space credential must expire after it was issued and within {MaxCredentialLifetime} of it.");
+        }
 
         return new SpaceToken(
             type,
@@ -302,7 +321,7 @@ public static class SpaceTokens
             issuer,
             subject,
             audience,
-            thumbprint,
+            keyId,
             issuedAt ?? DateTimeOffset.MinValue,
             expiresAt,
             tokenId,
@@ -330,6 +349,12 @@ public static class SpaceTokens
 
         if (token.IsExpired(now))
             throw new SpaceTokenException("Token is expired.");
+
+        if (token.Type == SpaceTokenType.Credential &&
+            token.IssuedAt > (now ?? DateTimeOffset.UtcNow) + DefaultClockSkew)
+        {
+            throw new SpaceTokenException("The space credential was issued in the future.");
+        }
 
         if (expectedAudience is not null &&
             !string.Equals(token.Audience, expectedAudience, StringComparison.Ordinal))

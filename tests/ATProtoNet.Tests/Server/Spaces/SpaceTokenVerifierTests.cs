@@ -236,7 +236,7 @@ public class SpaceDelegationTokenVerifierTests
 
         var space = Space();
         var credential = SpaceTokens.Create(
-            SpaceTokenType.Credential, AuthorityDid, space.Value, userKey, dpopThumbprint: "abc");
+            SpaceTokenType.Credential, AuthorityDid, space.Value, userKey, confirmationKeyId: TestHolder.KeyId);
 
         await Assert.ThrowsAsync<SpaceVerificationException>(() => verifier.VerifyAsync(credential, space));
     }
@@ -305,34 +305,31 @@ public class SpaceCredentialVerifierTests
 {
     private static readonly Did AuthorityDid = Did.Parse("did:plc:bbbbbbbbbbbbbbbbbbbbbbbb");
     private static readonly Did ImpostorDid = Did.Parse("did:plc:dddddddddddddddddddddddd");
-    private const string Url = "https://pds.example.com/xrpc/com.atproto.space.getRecord";
 
     private static SpaceUri Space(Did? authority = null) =>
         SpaceUri.Parse($"at://{authority ?? AuthorityDid}/space/com.atmoboards.forum/default");
 
     private static SpaceCredentialVerifier CreateVerifier(IDidResolver resolver)
     {
-        var replayStore = new InMemoryJtiReplayStore();
-        return new SpaceCredentialVerifier(resolver, new DPoPProofValidator(replayStore));
+        return new SpaceCredentialVerifier(resolver);
     }
 
     [Fact]
-    public async Task VerifyAsync_ValidCredentialAndProof_IsAccepted()
+    public async Task VerifyAsync_ValidCredential_IsAccepted()
     {
         using var authorityKey = AtProtoCrypto.GenerateP256Key();
-        using var dpop = new TestDPoPKey();
         var resolver = new StubDidResolver().PublishAccount(AuthorityDid, authorityKey);
         var verifier = CreateVerifier(resolver);
 
         var space = Space();
         var credential = SpaceTokens.Create(
-            SpaceTokenType.Credential, AuthorityDid, space.Value, authorityKey, dpopThumbprint: dpop.Thumbprint);
+            SpaceTokenType.Credential, AuthorityDid, space.Value, authorityKey, confirmationKeyId: TestHolder.KeyId);
 
         var verified = await verifier.VerifyAsync(
-            credential, dpop.Proof("GET", Url, accessToken: credential), "GET", Url, space);
+            credential, space);
 
         Assert.Equal(space, verified.Space);
-        Assert.Equal(dpop.Thumbprint, verified.Proof.KeyThumbprint);
+        Assert.Equal(TestHolder.KeyId, verified.Token.ConfirmationKeyId);
     }
 
     [Fact]
@@ -341,17 +338,16 @@ public class SpaceCredentialVerifierTests
         // A credential's signer is resolved from the space URI, not from the credential's own
         // issuer — so nobody but a space's authority can mint credentials for it.
         using var impostorKey = AtProtoCrypto.GenerateP256Key();
-        using var dpop = new TestDPoPKey();
         var resolver = new StubDidResolver().PublishAccount(ImpostorDid, impostorKey);
         var verifier = CreateVerifier(resolver);
 
         var space = Space();
         var credential = SpaceTokens.Create(
-            SpaceTokenType.Credential, ImpostorDid, space.Value, impostorKey, dpopThumbprint: dpop.Thumbprint);
+            SpaceTokenType.Credential, ImpostorDid, space.Value, impostorKey, confirmationKeyId: TestHolder.KeyId);
 
         var ex = await Assert.ThrowsAsync<SpaceVerificationException>(
             () => verifier.VerifyAsync(
-                credential, dpop.Proof("GET", Url, accessToken: credential), "GET", Url, space));
+                credential, space));
 
         Assert.Contains("not by the space's authority", ex.Message, StringComparison.Ordinal);
     }
@@ -360,37 +356,16 @@ public class SpaceCredentialVerifierTests
     public async Task VerifyAsync_CredentialForAnotherSpace_IsRejected()
     {
         using var authorityKey = AtProtoCrypto.GenerateP256Key();
-        using var dpop = new TestDPoPKey();
         var resolver = new StubDidResolver().PublishAccount(AuthorityDid, authorityKey);
         var verifier = CreateVerifier(resolver);
 
         var granted = SpaceUri.Parse($"at://{AuthorityDid}/space/com.atmoboards.forum/other");
         var credential = SpaceTokens.Create(
-            SpaceTokenType.Credential, AuthorityDid, granted.Value, authorityKey, dpopThumbprint: dpop.Thumbprint);
+            SpaceTokenType.Credential, AuthorityDid, granted.Value, authorityKey, confirmationKeyId: TestHolder.KeyId);
 
         await Assert.ThrowsAsync<SpaceVerificationException>(
             () => verifier.VerifyAsync(
-                credential, dpop.Proof("GET", Url, accessToken: credential), "GET", Url, Space()));
-    }
-
-    [Fact]
-    public async Task VerifyAsync_StolenCredentialWithTheThiefsOwnKey_IsRejected()
-    {
-        // The scenario the DPoP binding exists for: a repo host handed a credential in order to
-        // serve its own repo tries to read another host in the space with it.
-        using var authorityKey = AtProtoCrypto.GenerateP256Key();
-        using var holder = new TestDPoPKey();
-        using var thief = new TestDPoPKey();
-        var resolver = new StubDidResolver().PublishAccount(AuthorityDid, authorityKey);
-        var verifier = CreateVerifier(resolver);
-
-        var space = Space();
-        var credential = SpaceTokens.Create(
-            SpaceTokenType.Credential, AuthorityDid, space.Value, authorityKey, dpopThumbprint: holder.Thumbprint);
-
-        await Assert.ThrowsAsync<SpaceVerificationException>(
-            () => verifier.VerifyAsync(
-                credential, thief.Proof("GET", Url, accessToken: credential), "GET", Url, space));
+                credential, Space()));
     }
 
     [Fact]
@@ -399,7 +374,6 @@ public class SpaceCredentialVerifierTests
         // #atproto_space takes precedence over #atproto when an authority publishes one.
         using var accountKey = AtProtoCrypto.GenerateP256Key();
         using var spaceKey = AtProtoCrypto.GenerateP256Key();
-        using var dpop = new TestDPoPKey();
 
         var document = new ATProtoNet.Identity.DidDocument
         {
@@ -430,11 +404,11 @@ public class SpaceCredentialVerifierTests
             AuthorityDid,
             space.Value,
             spaceKey,
-            dpopThumbprint: dpop.Thumbprint,
+            confirmationKeyId: TestHolder.KeyId,
             keyId: SpaceAuthority.SigningKeyId);
 
         var verified = await verifier.VerifyAsync(
-            credential, dpop.Proof("GET", Url, accessToken: credential), "GET", Url, space);
+            credential, space);
 
         Assert.Equal(space, verified.Space);
     }
@@ -447,7 +421,6 @@ public class SpaceCredentialVerifierTests
         // document verifies or fails depending only on whether the token carried a kid.
         var ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var spaceKey = new AtProtoKey(ecdsa, KeyCurve.P256);
-        using var dpop = new TestDPoPKey();
 
         var resolver = new StubDidResolver()
             .PublishLegacyAccount(AuthorityDid, SpaceAuthority.SigningKeyId, ecdsa);
@@ -459,11 +432,11 @@ public class SpaceCredentialVerifierTests
             AuthorityDid,
             space.Value,
             spaceKey,
-            dpopThumbprint: dpop.Thumbprint,
+            confirmationKeyId: TestHolder.KeyId,
             keyId: SpaceAuthority.SigningKeyId);
 
         var verified = await verifier.VerifyAsync(
-            credential, dpop.Proof("GET", Url, accessToken: credential), "GET", Url, space);
+            credential, space);
 
         Assert.Equal(space, verified.Space);
     }
@@ -477,7 +450,7 @@ public class SpaceClientAttestationVerifierTests
     private static string Audience => SpaceAuthority.HostAudience(AuthorityDid);
 
     private static string Attestation(
-        TestDPoPKey key, string? audience = null, string? kid = "key-1", TimeSpan? lifetime = null)
+        TestEcKey key, string? audience = null, string? kid = "key-1", TimeSpan? lifetime = null)
     {
         var now = DateTimeOffset.UtcNow;
         var header = new Dictionary<string, object>
@@ -517,7 +490,7 @@ public class SpaceClientAttestationVerifierTests
     [Fact]
     public async Task VerifyAsync_AttestationSignedByAPublishedKey_ReturnsTheClientId()
     {
-        using var key = new TestDPoPKey();
+        using var key = new TestEcKey();
         var resolver = new FakeClientMetadataResolver().Publish(ClientId, key.ToJsonWebKey("key-1"));
         var verifier = new SpaceClientAttestationVerifier(resolver, new InMemoryJtiReplayStore());
 
@@ -529,7 +502,7 @@ public class SpaceClientAttestationVerifierTests
     [Fact]
     public async Task VerifyAsync_PublishedKeyWithPaddedCoordinates_Verifies()
     {
-        using var key = new TestDPoPKey();
+        using var key = new TestEcKey();
         var jwk = key.ToJsonWebKey("key-1");
         jwk.X += "=";
         jwk.Y += "=";
@@ -546,7 +519,7 @@ public class SpaceClientAttestationVerifierTests
     [InlineData("AAAAA")]
     public async Task VerifyAsync_PublishedKeyWithUndecodableCoordinates_IsRejected(string x)
     {
-        using var key = new TestDPoPKey();
+        using var key = new TestEcKey();
         var jwk = key.ToJsonWebKey("key-1");
         jwk.X = x;
         var resolver = new FakeClientMetadataResolver().Publish(ClientId, jwk);
@@ -562,8 +535,8 @@ public class SpaceClientAttestationVerifierTests
     public async Task VerifyAsync_SignedByAKeyTheClientDoesNotPublish_IsRejected()
     {
         // This is what makes an allow list of client IDs enforceable rather than advisory.
-        using var published = new TestDPoPKey();
-        using var attacker = new TestDPoPKey();
+        using var published = new TestEcKey();
+        using var attacker = new TestEcKey();
         var resolver = new FakeClientMetadataResolver().Publish(ClientId, published.ToJsonWebKey("key-1"));
         var verifier = new SpaceClientAttestationVerifier(resolver, new InMemoryJtiReplayStore());
 
@@ -576,7 +549,7 @@ public class SpaceClientAttestationVerifierTests
     [Fact]
     public async Task VerifyAsync_KidNamingAnUnpublishedKey_IsRejected()
     {
-        using var key = new TestDPoPKey();
+        using var key = new TestEcKey();
         var resolver = new FakeClientMetadataResolver().Publish(ClientId, key.ToJsonWebKey("key-1"));
         var verifier = new SpaceClientAttestationVerifier(resolver, new InMemoryJtiReplayStore());
 
@@ -591,8 +564,8 @@ public class SpaceClientAttestationVerifierTests
     {
         // Trying every key would let a client with one compromised key keep attesting under
         // another, so an ambiguous choice is refused rather than resolved.
-        using var first = new TestDPoPKey();
-        using var second = new TestDPoPKey();
+        using var first = new TestEcKey();
+        using var second = new TestEcKey();
         var resolver = new FakeClientMetadataResolver()
             .Publish(ClientId, first.ToJsonWebKey("key-1"), second.ToJsonWebKey("key-2"));
         var verifier = new SpaceClientAttestationVerifier(resolver, new InMemoryJtiReplayStore());
@@ -604,7 +577,7 @@ public class SpaceClientAttestationVerifierTests
     [Fact]
     public async Task VerifyAsync_NoKidWithOnePublishedKey_IsAccepted()
     {
-        using var key = new TestDPoPKey();
+        using var key = new TestEcKey();
         var resolver = new FakeClientMetadataResolver().Publish(ClientId, key.ToJsonWebKey());
         var verifier = new SpaceClientAttestationVerifier(resolver, new InMemoryJtiReplayStore());
 
@@ -616,7 +589,7 @@ public class SpaceClientAttestationVerifierTests
     [Fact]
     public async Task VerifyAsync_AttestationForAnotherAuthority_IsRejected()
     {
-        using var key = new TestDPoPKey();
+        using var key = new TestEcKey();
         var resolver = new FakeClientMetadataResolver().Publish(ClientId, key.ToJsonWebKey("key-1"));
         var verifier = new SpaceClientAttestationVerifier(resolver, new InMemoryJtiReplayStore());
 
@@ -629,7 +602,7 @@ public class SpaceClientAttestationVerifierTests
     [Fact]
     public async Task VerifyAsync_AttestationValidForLongerThanTheCeiling_IsRejected()
     {
-        using var key = new TestDPoPKey();
+        using var key = new TestEcKey();
         var resolver = new FakeClientMetadataResolver().Publish(ClientId, key.ToJsonWebKey("key-1"));
         var verifier = new SpaceClientAttestationVerifier(resolver, new InMemoryJtiReplayStore());
 
@@ -642,7 +615,7 @@ public class SpaceClientAttestationVerifierTests
     [Fact]
     public async Task VerifyAsync_SameAttestationTwice_IsRejectedTheSecondTime()
     {
-        using var key = new TestDPoPKey();
+        using var key = new TestEcKey();
         var resolver = new FakeClientMetadataResolver().Publish(ClientId, key.ToJsonWebKey("key-1"));
         var verifier = new SpaceClientAttestationVerifier(resolver, new InMemoryJtiReplayStore());
 
@@ -658,7 +631,7 @@ public class SpaceClientAttestationVerifierTests
     {
         var start = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
         var clock = new FakeTimeProvider(start);
-        using var key = new TestDPoPKey();
+        using var key = new TestEcKey();
         var resolver = new FakeClientMetadataResolver().Publish(ClientId, key.ToJsonWebKey("key-1"));
         var verifier = new SpaceClientAttestationVerifier(resolver, new InMemoryJtiReplayStore(clock), timeProvider: clock);
 

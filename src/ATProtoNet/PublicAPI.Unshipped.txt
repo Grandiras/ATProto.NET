@@ -162,6 +162,41 @@ ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.TagActionCount.get -> int?
 ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.TagActionCount.init -> void
 ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.TakedownActionCount.get -> int?
 ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.TakedownActionCount.init -> void
+*REMOVED*ATProtoNet.Spaces.SpaceCredential.Key.get -> ATProtoNet.Auth.OAuth.DPoPProofGenerator!
+ATProtoNet.Spaces.SpaceCredential.Key.get -> ATProtoNet.Crypto.AtProtoKey!
+ATProtoNet.Spaces.SpaceHttpSignature
+ATProtoNet.Spaces.SpaceSignatureException
+ATProtoNet.Spaces.SpaceSignatureException.SpaceSignatureException(string! message) -> void
+ATProtoNet.Spaces.SpaceSignatureException.SpaceSignatureException(string! message, System.Exception! innerException) -> void
+ATProtoNet.Spaces.SpaceSignatureHeaders
+ATProtoNet.Spaces.SpaceSignatureHeaders.<Clone>$() -> ATProtoNet.Spaces.SpaceSignatureHeaders!
+ATProtoNet.Spaces.SpaceSignatureHeaders.Deconstruct(out string! SignatureInput, out string! Signature) -> void
+ATProtoNet.Spaces.SpaceSignatureHeaders.Equals(ATProtoNet.Spaces.SpaceSignatureHeaders? other) -> bool
+ATProtoNet.Spaces.SpaceSignatureHeaders.Signature.get -> string!
+ATProtoNet.Spaces.SpaceSignatureHeaders.Signature.init -> void
+ATProtoNet.Spaces.SpaceSignatureHeaders.SignatureInput.get -> string!
+ATProtoNet.Spaces.SpaceSignatureHeaders.SignatureInput.init -> void
+ATProtoNet.Spaces.SpaceSignatureHeaders.SpaceSignatureHeaders(string! SignatureInput, string! Signature) -> void
 ATProtoNet.Spaces.SpaceSyncer.ListChangedReposAsync(ATProtoNet.Lexicon.Com.AtProto.Space.SpaceClient! client, ATProtoNet.Identity.Tid? checkpoint, int? pageSize = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRepoView!>!
+ATProtoNet.Spaces.SpaceToken.ConfirmationKeyId.get -> string?
+*REMOVED*ATProtoNet.Spaces.SpaceToken.ConfirmationThumbprint.get -> string?
+const ATProtoNet.Lexicon.Com.AtProto.Space.SpaceErrors.BadSpaceAudience = "BadSpaceAudience" -> string!
+const ATProtoNet.Lexicon.Com.AtProto.Space.SpaceErrors.BadSpaceSignature = "BadSpaceSignature" -> string!
 const ATProtoNet.Lexicon.Com.AtProto.Space.SpaceErrors.FutureRev = "FutureRev" -> string!
+const ATProtoNet.Spaces.SpaceHttpSignature.Algorithm = "ecdsa-p256-sha256" -> string!
+const ATProtoNet.Spaces.SpaceHttpSignature.AudienceHeader = "Atproto-Space-Audience" -> string!
+const ATProtoNet.Spaces.SpaceHttpSignature.CredentialScheme = "Atproto-Space" -> string!
+const ATProtoNet.Spaces.SpaceHttpSignature.Label = "atproto-space" -> string!
+override ATProtoNet.Spaces.SpaceSignatureHeaders.Equals(object? obj) -> bool
+override ATProtoNet.Spaces.SpaceSignatureHeaders.GetHashCode() -> int
+override ATProtoNet.Spaces.SpaceSignatureHeaders.ToString() -> string!
+static ATProtoNet.Spaces.SpaceHttpSignature.SignExchange(ATProtoNet.Crypto.AtProtoKey! key, string! authorization) -> ATProtoNet.Spaces.SpaceSignatureHeaders!
+static ATProtoNet.Spaces.SpaceHttpSignature.SignRequest(ATProtoNet.Crypto.AtProtoKey! key, string! authorization, ATProtoNet.Identity.Did! audience) -> ATProtoNet.Spaces.SpaceSignatureHeaders!
+static ATProtoNet.Spaces.SpaceHttpSignature.VerifyExchange(string! authorization, string! signatureInput, string! signature) -> string!
+static ATProtoNet.Spaces.SpaceHttpSignature.VerifyRequest(string! authorization, ATProtoNet.Identity.Did! audience, string! signatureInput, string! signature, string! credentialKeyId) -> string!
+static ATProtoNet.Spaces.SpaceSignatureHeaders.operator !=(ATProtoNet.Spaces.SpaceSignatureHeaders? left, ATProtoNet.Spaces.SpaceSignatureHeaders? right) -> bool
+static ATProtoNet.Spaces.SpaceSignatureHeaders.operator ==(ATProtoNet.Spaces.SpaceSignatureHeaders? left, ATProtoNet.Spaces.SpaceSignatureHeaders? right) -> bool
 static ATProtoNet.Spaces.SpaceSyncer.NeedsCatchUp(ATProtoNet.Identity.Tid? checkpoint, ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest! notification) -> bool
+static ATProtoNet.Spaces.SpaceTokens.Create(ATProtoNet.Spaces.SpaceTokenType type, string! issuer, string! subject, ATProtoNet.Crypto.AtProtoKey! signingKey, string? audience = null, string? confirmationKeyId = null, System.TimeSpan? lifetime = null, string? keyId = null) -> string!
+*REMOVED*static ATProtoNet.Spaces.SpaceTokens.Create(ATProtoNet.Spaces.SpaceTokenType type, string! issuer, string! subject, ATProtoNet.Crypto.AtProtoKey! signingKey, string? audience = null, string? dpopThumbprint = null, System.TimeSpan? lifetime = null, string? keyId = null) -> string!
+static readonly ATProtoNet.Spaces.SpaceTokens.MaxCredentialLifetime -> System.TimeSpan

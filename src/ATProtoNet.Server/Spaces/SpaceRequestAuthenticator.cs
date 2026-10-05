@@ -8,16 +8,16 @@ namespace ATProtoNet.Server.Spaces;
 
 /// <summary>What a verified credential-mint request establishes: which user, which app, and which key the credential about to be minted must be bound to.</summary>
 /// <param name="Delegation">The verified delegation token.</param>
-/// <param name="Proof">
-/// The verified DPoP proof. Its
-/// <see cref="DPoPProof.KeyThumbprint"/> becomes the issued credential's <c>cnf.jkt</c>.
+/// <param name="KeyId">
+/// The <c>did:key</c> of the P-256 key that signed the request, from its <c>keyid</c>. It becomes
+/// the issued credential's <c>cnf.kid</c>.
 /// </param>
 /// <param name="Attestation">
 /// The verified client attestation, or <see langword="null"/> when the request carried none.
 /// A space with open app access does not need one.
 /// </param>
 public sealed record SpaceCredentialRequestAuth(
-    VerifiedDelegationToken Delegation, DPoPProof Proof, VerifiedClientAttestation? Attestation)
+    VerifiedDelegationToken Delegation, string KeyId, VerifiedClientAttestation? Attestation)
 {
     /// <summary>The user the requesting application is acting for.</summary>
     public Did UserDid => Delegation.UserDid;
@@ -33,55 +33,48 @@ public sealed record SpaceCredentialRequestAuth(
 
 /// <summary>Pulls the space flow's credentials off an ASP.NET Core request and verifies them.</summary>
 /// <remarks>
-/// <para>Two authentication shapes reach a space server, and they are not interchangeable.</para>
+/// <para>Two authentication shapes reach a space server, and they are not interchangeable. Both carry an
+/// <see cref="SpaceHttpSignature">HTTP message signature</see>, and both refuse a request whose
+/// <c>Authorization</c> header appears more than once.</para>
 /// <list type="bullet">
 /// <item><description><b>The credential exchange</b> (<c>getSpaceCredential</c>) carries a
 /// delegation token as <c>Authorization: Bearer</c> — it is an authorization grant, not an
-/// access token, so it travels as a bearer token and its proof carries no <c>ath</c> — plus a
-/// DPoP proof naming the key the credential will be bound to.</description></item>
+/// access token — signed by the key the credential will be bound to.</description></item>
 /// <item><description><b>Every subsequent read</b> carries the credential as
-/// <c>Authorization: DPoP</c> plus a proof signed by the bound key, naming this host and this
-/// method.</description></item>
+/// <c>Authorization: Atproto-Space</c> and the DID it is addressed to, signed by the bound
+/// key. The caller says which DID that must be: the repo owner for a repo operation, the space
+/// authority for a space-host operation.</description></item>
 /// </list>
-/// <para>Both compare the proof's <c>htm</c> and <c>htu</c> against the request <em>as
-/// received</em>, which is why <see cref="SpaceServerOptions.PublicBaseUrl"/> exists: behind a
-/// reverse proxy the request line names an internal host, and comparing against that would
-/// reject every proof a client could mint.</para>
 /// </remarks>
 public sealed class SpaceRequestAuthenticator
 {
     private readonly SpaceDelegationTokenVerifier _delegationVerifier;
     private readonly SpaceCredentialVerifier _credentialVerifier;
-    private readonly DPoPProofValidator _proofValidator;
     private readonly SpaceClientAttestationVerifier _attestationVerifier;
     private readonly SpaceServerOptions _options;
 
     /// <summary>Creates an authenticator.</summary>
     /// <param name="delegationVerifier">Verifies delegation tokens.</param>
-    /// <param name="credentialVerifier">Verifies space credentials and their proofs.</param>
-    /// <param name="proofValidator">Verifies the standalone proof on the credential exchange.</param>
+    /// <param name="credentialVerifier">Verifies space credentials.</param>
     /// <param name="attestationVerifier">Verifies client attestations.</param>
     /// <param name="options">Server options.</param>
     public SpaceRequestAuthenticator(
         SpaceDelegationTokenVerifier delegationVerifier,
         SpaceCredentialVerifier credentialVerifier,
-        DPoPProofValidator proofValidator,
         SpaceClientAttestationVerifier attestationVerifier,
         SpaceServerOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(delegationVerifier);
         ArgumentNullException.ThrowIfNull(credentialVerifier);
-        ArgumentNullException.ThrowIfNull(proofValidator);
         ArgumentNullException.ThrowIfNull(attestationVerifier);
 
         _delegationVerifier = delegationVerifier;
         _credentialVerifier = credentialVerifier;
-        _proofValidator = proofValidator;
         _attestationVerifier = attestationVerifier;
         _options = options ?? new SpaceServerOptions();
     }
 
-    /// <summary>Verifies a <c>getSpaceCredential</c> request: its delegation token, its DPoP proof, and its client attestation when it presented one.</summary>
+    /// <summary>Verifies a <c>getSpaceCredential</c> request: its delegation token, its signature, and its client attestation when it presented one.</summary>
     /// <param name="context">The HTTP context.</param>
     /// <param name="clientAttestation">
     /// The <c>clientAttestation</c> field from the request body, or <see langword="null"/>.
@@ -99,23 +92,20 @@ public sealed class SpaceRequestAuthenticator
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(requestedSpace);
 
-        var (scheme, token) = ReadAuthorization(context);
+        var authorization = SingleAuthorization(context);
+        var (scheme, token) = ReadAuthorization(authorization);
         if (!string.Equals(scheme, "Bearer", StringComparison.OrdinalIgnoreCase))
             throw new SpaceVerificationException(
                 SpaceErrors.InvalidDelegationToken,
                 "A delegation token is presented under the Bearer scheme.");
 
-        var delegation = await _delegationVerifier.VerifyAsync(token, requestedSpace, cancellationToken).ConfigureAwait(false);
+        // No credential exists yet, so the signing key names itself, and is what the credential about to be
+        // minted will be bound to. Checked before the delegation token, as the reference does, so a request
+        // with a bad signature does not spend the token's jti.
+        var keyId = VerifySignature(
+            () => SpaceHttpSignature.VerifyExchange(authorization, Header(context, "Signature-Input"), Header(context, "Signature")));
 
-        // No credential exists yet, so the proof carries no `ath` and is bound to nothing; its
-        // own thumbprint is what the credential about to be minted will name in `cnf.jkt`.
-        var proof = await _proofValidator.ValidateAsync(
-            ReadProof(context),
-            context.Request.Method,
-            BuildRequestUri(context),
-            boundThumbprint: null,
-            accessToken: null,
-            cancellationToken).ConfigureAwait(false);
+        var delegation = await _delegationVerifier.VerifyAsync(token, requestedSpace, cancellationToken).ConfigureAwait(false);
 
         VerifiedClientAttestation? attestation = null;
         if (!string.IsNullOrWhiteSpace(clientAttestation))
@@ -125,7 +115,7 @@ public sealed class SpaceRequestAuthenticator
             attestation = await _attestationVerifier.VerifyAsync(clientAttestation, audience, cancellationToken).ConfigureAwait(false);
         }
 
-        return new SpaceCredentialRequestAuth(delegation, proof, attestation);
+        return new SpaceCredentialRequestAuth(delegation, keyId, attestation);
     }
 
     /// <summary>Verifies a request authenticated with a space credential.</summary>
@@ -134,67 +124,93 @@ public sealed class SpaceRequestAuthenticator
     /// The space named in the request, which the credential must grant. Pass
     /// <see langword="null"/> to take the space from the credential.
     /// </param>
-    /// <exception cref="SpaceVerificationException">Thrown when any check fails.</exception>
+    /// <param name="audience">
+    /// The DID the request must be addressed to: the owner of the repo it names for a repo operation,
+    /// the space's authority for a space-host operation. Never the host name or a service identifier.
+    /// </param>
+    /// <exception cref="SpaceVerificationException">
+    /// Thrown when any check fails: <c>BadSpaceSignature</c> for a signature or header problem,
+    /// <c>BadSpaceAudience</c> when the signed audience is not <paramref name="audience"/>.
+    /// </exception>
     public async Task<VerifiedSpaceCredential> AuthenticateCredentialAsync(
         HttpContext context,
-        SpaceUri? requestedSpace = null,
+        SpaceUri? requestedSpace,
+        Did audience,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(audience);
 
-        var (scheme, token) = ReadAuthorization(context);
-        if (!string.Equals(scheme, "DPoP", StringComparison.OrdinalIgnoreCase))
+        var authorization = SingleAuthorization(context);
+        var (scheme, token) = ReadAuthorization(authorization);
+        if (!string.Equals(scheme, SpaceHttpSignature.CredentialScheme, StringComparison.OrdinalIgnoreCase))
         {
             throw new SpaceVerificationException(
                 SpaceErrors.NotAuthorized,
-                "A space credential is presented under the DPoP scheme, not as a bearer token.")
+                $"A space credential is presented under the {SpaceHttpSignature.CredentialScheme} scheme, not as a bearer token.")
             {
-                Headers = { ["WWW-Authenticate"] = "DPoP" },
+                Headers = { ["WWW-Authenticate"] = SpaceHttpSignature.CredentialScheme },
             };
         }
 
-        return await _credentialVerifier.VerifyAsync(
-            token,
-            ReadProof(context),
-            context.Request.Method,
-            BuildRequestUri(context),
-            requestedSpace,
-            cancellationToken).ConfigureAwait(false);
+        var credential = await _credentialVerifier.VerifyAsync(token, requestedSpace, cancellationToken).ConfigureAwait(false);
+
+        var signedAudience = Did.TryParse(SingleHeader(context, SpaceHttpSignature.AudienceHeader), out var parsed)
+            ? parsed
+            : throw new SpaceVerificationException(SpaceErrors.BadSpaceSignature, "The space audience is not a DID.");
+
+        VerifySignature(() => SpaceHttpSignature.VerifyRequest(
+            authorization, signedAudience, Header(context, "Signature-Input"), Header(context, "Signature"),
+            credential.Token.ConfirmationKeyId!));
+
+        if (signedAudience != audience)
+            throw new SpaceVerificationException(
+                SpaceErrors.BadSpaceAudience, "The space audience does not match the request.");
+
+        return credential;
     }
 
-    // The URL a DPoP proof presented on this request must name, honouring
-    // SpaceServerOptions.PublicBaseUrl.
-    private string BuildRequestUri(HttpContext context)
+    // Runs a signature check, answering its failure as BadSpaceSignature.
+    private static string VerifySignature(Func<string> verify)
     {
-        var request = context.Request;
-        return _options.BuildRequestUri(
-            request.Scheme, request.Host.Value ?? string.Empty, request.PathBase + request.Path);
+        try
+        {
+            return verify();
+        }
+        catch (SpaceSignatureException ex)
+        {
+            throw new SpaceVerificationException(SpaceErrors.BadSpaceSignature, ex.Message, ex);
+        }
     }
 
-    private static (string Scheme, string Token) ReadAuthorization(HttpContext context) =>
-        AuthorizationHeader.TryRead(context.Request, out var scheme, out var token)
-            ? (scheme, token)
-            : throw new SpaceVerificationException(
+    // The Authorization header: absent is a challenge, repeated is malformed.
+    private static string SingleAuthorization(HttpContext context) =>
+        context.Request.Headers.Authorization.Count == 0
+            ? throw new SpaceVerificationException(
                 SpaceErrors.NotAuthorized, "The request carries no Authorization header.")
             {
-                Headers = { ["WWW-Authenticate"] = "DPoP" },
-            };
+                Headers = { ["WWW-Authenticate"] = SpaceHttpSignature.CredentialScheme },
+            }
+            : SingleHeader(context, "Authorization");
 
-    private static string ReadProof(HttpContext context)
+    // The value of a header that must appear exactly once: a second one is malformed rather than ambiguous,
+    // and picking either would let a client smuggle a second value past a middlebox.
+    private static string SingleHeader(HttpContext context, string name)
     {
-        // More than one DPoP header is malformed rather than ambiguous: RFC 9449 permits exactly
-        // one, and picking either would let a client smuggle a second proof past a middlebox.
-        var proofs = context.Request.Headers["DPoP"];
-        return proofs.Count switch
-        {
-            0 => throw new SpaceVerificationException(
-                SpaceErrors.NotAuthorized, "The request carries no DPoP header.")
-            {
-                Headers = { ["WWW-Authenticate"] = "DPoP" },
-            },
-            1 => proofs[0] ?? string.Empty,
-            _ => throw new SpaceVerificationException(
-                SpaceErrors.NotAuthorized, "The request carries more than one DPoP header."),
-        };
+        var values = context.Request.Headers[name];
+        return values.Count == 1 && !string.IsNullOrEmpty(values[0])
+            ? values[0]!
+            : throw new SpaceVerificationException(
+                SpaceErrors.BadSpaceSignature, $"The request requires exactly one \"{name.ToLowerInvariant()}\" field.");
+    }
+
+    // A header that may be missing, which verification then refuses.
+    private static string Header(HttpContext context, string name) => context.Request.Headers[name].ToString();
+
+    // Splits an Authorization header at its first space.
+    private static (string Scheme, string Token) ReadAuthorization(string authorization)
+    {
+        var space = authorization.IndexOf(' ', StringComparison.Ordinal);
+        return space < 0 ? (authorization, string.Empty) : (authorization[..space], authorization[(space + 1)..].Trim());
     }
 }

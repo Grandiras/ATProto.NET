@@ -72,16 +72,19 @@ public sealed class FakeClientMetadataResolver : ISpaceClientMetadataResolver
             : throw new SpaceVerificationException("InvalidClientAttestation", $"No fixture for '{clientId}'.");
 }
 
-/// <summary>
-/// Mints DPoP proofs with claims a test chooses, including the ones the SDK's own generator
-/// would never produce — a stale <c>iat</c>, a mismatched <c>htu</c>, a private key in the
-/// header.
-/// </summary>
-public sealed class TestDPoPKey : IDisposable
+/// <summary>The key a test credential is bound to, when the test never signs a request with it.</summary>
+public static class TestHolder
+{
+    /// <summary>A P-256 <c>did:key</c> for a <c>cnf.kid</c>.</summary>
+    public static string KeyId { get; } = AtProtoCrypto.GenerateP256Key().ToDidKey();
+}
+
+/// <summary>An ES256 key with the JWK and JWS plumbing a client attestation test needs.</summary>
+public sealed class TestEcKey : IDisposable
 {
     private readonly ECDsa _key;
 
-    public TestDPoPKey()
+    public TestEcKey()
     {
         _key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var parameters = _key.ExportParameters(includePrivateParameters: false);
@@ -99,63 +102,8 @@ public sealed class TestDPoPKey : IDisposable
     /// <summary>The base64url y coordinate.</summary>
     public string Y { get; }
 
-    /// <summary>The RFC 7638 thumbprint a credential's <c>cnf.jkt</c> names.</summary>
+    /// <summary>The RFC 7638 thumbprint.</summary>
     public string Thumbprint { get; }
-
-    /// <summary>Mints a proof.</summary>
-    /// <param name="method">The <c>htm</c>.</param>
-    /// <param name="url">The <c>htu</c>, used verbatim.</param>
-    /// <param name="accessToken">The credential to bind the proof to through <c>ath</c>.</param>
-    /// <param name="issuedAt">The <c>iat</c>. Defaults to now.</param>
-    /// <param name="jti">The <c>jti</c>. Defaults to a fresh one.</param>
-    /// <param name="includePrivateKey">Leaks the private key into the embedded JWK as <c>d</c>.</param>
-    /// <param name="algorithm">The <c>alg</c> header.</param>
-    /// <param name="padded">Which segments carry base64 padding.</param>
-    /// <param name="editJwk">Rewrites the embedded JWK before it is signed over.</param>
-    public string Proof(
-        string method,
-        string url,
-        string? accessToken = null,
-        DateTimeOffset? issuedAt = null,
-        string? jti = null,
-        bool includePrivateKey = false,
-        string algorithm = "ES256",
-        JwsSegments padded = JwsSegments.None,
-        Action<Dictionary<string, string>>? editJwk = null)
-    {
-        var jwk = new Dictionary<string, string>
-        {
-            ["kty"] = "EC",
-            ["crv"] = "P-256",
-            ["x"] = X,
-            ["y"] = Y,
-        };
-
-        if (includePrivateKey)
-            jwk["d"] = Base64Url(_key.ExportParameters(includePrivateParameters: true).D!);
-
-        editJwk?.Invoke(jwk);
-
-        var header = new Dictionary<string, object>
-        {
-            ["typ"] = "dpop+jwt",
-            ["alg"] = algorithm,
-            ["jwk"] = jwk,
-        };
-
-        var payload = new Dictionary<string, object>
-        {
-            ["jti"] = jti ?? Guid.NewGuid().ToString("N"),
-            ["htm"] = method,
-            ["htu"] = url,
-            ["iat"] = (issuedAt ?? DateTimeOffset.UtcNow).ToUnixTimeSeconds(),
-        };
-
-        if (accessToken is not null)
-            payload["ath"] = Base64Url(SHA256.HashData(Encoding.UTF8.GetBytes(accessToken)));
-
-        return TestJws.Mint(header, payload, Sign, padded);
-    }
 
     /// <summary>Signs raw bytes with this key, producing a JWS <c>r || s</c> signature.</summary>
     public byte[] Sign(byte[] signingInput) =>
