@@ -60,19 +60,13 @@ public sealed class HttpSpaceClientMetadataResolver : ISpaceClientMetadataResolv
         // metadata at an https URL. The loopback client IDs OAuth allows for development are
         // public clients with no keys, so they cannot attest and are rejected here rather than
         // producing a confusing fetch failure.
-        if (!Uri.TryCreate(clientId, UriKind.Absolute, out var metadataUri) ||
-            !string.Equals(metadataUri.Scheme, Uri.UriSchemeHttps, StringComparison.Ordinal))
-        {
-            throw Invalid($"Client ID '{clientId}' is not an https URL, so it publishes no attestation keys.");
-        }
+        var metadataUri = RequireHttps(clientId, $"Client ID '{clientId}' is not an https URL, so it publishes no attestation keys.");
 
         var metadata = await FetchAsync<OAuthClientMetadata>(metadataUri, "client metadata", cancellationToken).ConfigureAwait(false);
 
         if (!string.Equals(metadata.ClientId, clientId, StringComparison.Ordinal))
-        {
             throw Invalid(
                 $"The metadata at '{clientId}' declares client_id '{metadata.ClientId}', which does not match.");
-        }
 
         if (metadata.Jwks is { Keys.Count: > 0 })
             return metadata.Jwks.Keys;
@@ -80,11 +74,7 @@ public sealed class HttpSpaceClientMetadataResolver : ISpaceClientMetadataResolv
         if (string.IsNullOrEmpty(metadata.JwksUri))
             throw Invalid($"Client '{clientId}' publishes neither inline keys nor a jwks_uri.");
 
-        if (!Uri.TryCreate(metadata.JwksUri, UriKind.Absolute, out var jwksUri) ||
-            !string.Equals(jwksUri.Scheme, Uri.UriSchemeHttps, StringComparison.Ordinal))
-        {
-            throw Invalid($"Client '{clientId}' publishes a jwks_uri that is not an https URL.");
-        }
+        var jwksUri = RequireHttps(metadata.JwksUri, $"Client '{clientId}' publishes a jwks_uri that is not an https URL.");
 
         var jwks = await FetchAsync<JsonWebKeySet>(jwksUri, "JWKS", cancellationToken).ConfigureAwait(false);
 
@@ -119,6 +109,9 @@ public sealed class HttpSpaceClientMetadataResolver : ISpaceClientMetadataResolv
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    private static Uri RequireHttps(string? value, string failure) =>
+        Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps ? uri : throw Invalid(failure);
 
     private static SpaceVerificationException Invalid(string message) =>
         new(SpaceErrors.InvalidClientAttestation, message);
@@ -205,10 +198,8 @@ public sealed class SpaceClientAttestationVerifier
         }
 
         if (!string.Equals(parsed.Audience, expectedAudience, StringComparison.Ordinal))
-        {
             throw Invalid(
                 $"The client attestation is addressed to '{parsed.Audience}', not to '{expectedAudience}'.");
-        }
 
         var now = _timeProvider.GetUtcNow();
         if (parsed.IsExpired(now))
@@ -217,11 +208,9 @@ public sealed class SpaceClientAttestationVerifier
         // An attestation lives 60 seconds; the client picks the `exp` it carries, so one dated
         // far ahead is refused rather than held in the replay store until then.
         if (!_options.IsWithinSingleUseWindow(parsed.ExpiresAt, now))
-        {
             throw Invalid(
                 $"The client attestation is valid for longer than the {_options.MaxSingleUseTokenLifetime} " +
                 "this service accepts.");
-        }
 
         var (keys, cached) = await GetKeysAsync(parsed.Issuer, now, cancellationToken).ConfigureAwait(false);
         var failure = Check(keys, parsed);
@@ -244,9 +233,7 @@ public sealed class SpaceClientAttestationVerifier
 
         if (!await _replayStore.TryConsumeAsync(
                 parsed.Issuer, parsed.TokenId!, _options.ReplayRetention(parsed.ExpiresAt), cancellationToken).ConfigureAwait(false))
-        {
             throw Invalid("The client attestation has already been used; attestations are single-use.");
-        }
 
         return new VerifiedClientAttestation(parsed.Issuer);
     }
@@ -328,10 +315,8 @@ public sealed class SpaceClientAttestationVerifier
     private static JsonWebKey SelectKey(IReadOnlyList<JsonWebKey> keys, string? keyId, string clientId)
     {
         if (keyId is not null)
-        {
             return keys.FirstOrDefault(k => string.Equals(k.Kid, keyId, StringComparison.Ordinal))
                    ?? throw Invalid($"Client '{clientId}' publishes no key with kid '{keyId}'.");
-        }
 
         // A kid is only omissible when the choice is unambiguous. Trying every published key
         // instead would let a client with one compromised key keep attesting under another.

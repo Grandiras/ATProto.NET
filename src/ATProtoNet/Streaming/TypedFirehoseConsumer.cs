@@ -470,13 +470,9 @@ public sealed class TypedFirehoseConsumer
             {
                 if (reader.ReadDefiniteLengthTextStringBytes().Span.SequenceEqual("path"u8)
                     && reader.PeekState() == CborReaderState.TextString)
-                {
                     matches = MatchesPath(reader.ReadDefiniteLengthTextStringBytes().Span);
-                }
                 else
-                {
                     reader.SkipValue();
-                }
             }
 
             reader.ReadEndMap();

@@ -63,11 +63,9 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
     {
         ArgumentNullException.ThrowIfNull(space);
 
-        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        await using var contextScope = context.ConfigureAwait(false);
-        var entity = await context.Set<SimpleSpaceEntity>()
+        var entity = await _contextFactory.UseAsync((context, ct) => context.Set<SimpleSpaceEntity>()
             .AsNoTracking()
-            .FirstOrDefaultAsync(e => e.Space == space.Value, cancellationToken).ConfigureAwait(false);
+            .FirstOrDefaultAsync(e => e.Space == space.Value, ct), cancellationToken).ConfigureAwait(false);
 
         return entity is null ? null : ToRecord(entity);
     }
@@ -122,9 +120,7 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
 
         // A space that is not there is left alone rather than created, matching the in-memory
         // store: an update reaches here only through an endpoint that already loaded it.
-        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        await using var contextScope = context.ConfigureAwait(false);
-        await context.Set<SimpleSpaceEntity>()
+        await _contextFactory.UseAsync((context, ct) => context.Set<SimpleSpaceEntity>()
             .Where(e => e.Space == uri)
             .ExecuteUpdateAsync(
                 set => set
@@ -133,7 +129,7 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
                     .SetProperty(e => e.WritePolicy, writePolicy)
                     .SetProperty(e => e.AppAccess, appAccess)
                     .SetProperty(e => e.Deleted, deleted),
-                cancellationToken).ConfigureAwait(false);
+                ct), cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -145,11 +141,9 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
 
         // Flagged rather than removed: a deleted space keeps answering SpaceDeleted, which is how
         // a syncer that missed the notification learns to drop its copy.
-        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        await using var contextScope = context.ConfigureAwait(false);
-        await context.Set<SimpleSpaceEntity>()
+        await _contextFactory.UseAsync((context, ct) => context.Set<SimpleSpaceEntity>()
             .Where(e => e.Space == uri && !e.Deleted)
-            .ExecuteUpdateAsync(set => set.SetProperty(e => e.Deleted, true), cancellationToken).ConfigureAwait(false);
+            .ExecuteUpdateAsync(set => set.SetProperty(e => e.Deleted, true), ct), cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -162,16 +156,12 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
         // Changing an existing member's flags, the common case, is one statement.
         var spaceValue = space.Value;
         var member = did.Value;
-        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        await using (context.ConfigureAwait(false))
-        {
-            var updated = await context.Set<SimpleSpaceMemberEntity>()
-                .Where(e => e.Space == spaceValue && e.Did == member)
-                .ExecuteUpdateAsync(set => set.SetProperty(e => e.Read, read).SetProperty(e => e.Write, write), cancellationToken).ConfigureAwait(false);
+        var updated = await _contextFactory.UseAsync((context, ct) => context.Set<SimpleSpaceMemberEntity>()
+            .Where(e => e.Space == spaceValue && e.Did == member)
+            .ExecuteUpdateAsync(set => set.SetProperty(e => e.Read, read).SetProperty(e => e.Write, write), ct), cancellationToken).ConfigureAwait(false);
 
-            if (updated > 0)
-                return;
-        }
+        if (updated > 0)
+            return;
 
         if (await TryPutMemberAsync(space, did.Value, read, write, cancellationToken).ConfigureAwait(false))
             return;
@@ -200,9 +190,7 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
         var entity = await members.FindAsync([space.Value, did], cancellationToken).ConfigureAwait(false);
 
         if (entity is null)
-        {
             members.Add(new SimpleSpaceMemberEntity { Space = space.Value, Did = did, Read = read, Write = write });
-        }
         else
         {
             entity.Read = read;
@@ -229,11 +217,9 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
         var spaceValue = space.Value;
         var member = did.Value;
 
-        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        await using var contextScope = context.ConfigureAwait(false);
-        await context.Set<SimpleSpaceMemberEntity>()
+        await _contextFactory.UseAsync((context, ct) => context.Set<SimpleSpaceMemberEntity>()
             .Where(e => e.Space == spaceValue && e.Did == member)
-            .ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+            .ExecuteDeleteAsync(ct), cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -246,11 +232,9 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
         var spaceValue = space.Value;
         var member = did.Value;
 
-        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        await using var contextScope = context.ConfigureAwait(false);
-        var entity = await context.Set<SimpleSpaceMemberEntity>()
+        var entity = await _contextFactory.UseAsync((context, ct) => context.Set<SimpleSpaceMemberEntity>()
             .AsNoTracking()
-            .FirstOrDefaultAsync(e => e.Space == spaceValue && e.Did == member, cancellationToken).ConfigureAwait(false);
+            .FirstOrDefaultAsync(e => e.Space == spaceValue && e.Did == member, ct), cancellationToken).ConfigureAwait(false);
 
         return entity is null ? null : ToMember(entity);
     }
@@ -261,21 +245,15 @@ public sealed class EfCoreSimpleSpaceStore<TContext> : ISimpleSpaceStore
     {
         ArgumentNullException.ThrowIfNull(space);
 
-        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        await using var contextScope = context.ConfigureAwait(false);
-
-        var query = context.Set<SimpleSpaceMemberEntity>()
-            .AsNoTracking()
-            .Where(e => e.Space == space.Value);
-
-        if (cursor is not null)
-            query = query.Where(e => string.Compare(e.Did, cursor) > 0);
-
         // One row past the page, so the presence of a next page is known without a count.
-        var page = await query
-            .OrderBy(e => e.Did)
-            .Take(limit + 1)
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        var page = await _contextFactory.UseAsync((context, ct) =>
+        {
+            // Filtered only with a cursor, so the first page's SQL has no "@cursor IS NULL OR" to defeat the index.
+            var query = context.Set<SimpleSpaceMemberEntity>().AsNoTracking().Where(e => e.Space == space.Value);
+            if (cursor is not null)
+                query = query.Where(e => string.Compare(e.Did, cursor) > 0);
+            return query.OrderBy(e => e.Did).Take(limit + 1).ToListAsync(ct);
+        }, cancellationToken).ConfigureAwait(false);
 
         var (members, next) = SpacePaging.Page(page, limit, ToMember, member => member.Did.Value);
 

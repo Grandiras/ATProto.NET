@@ -165,10 +165,8 @@ public sealed class SpaceCredentialVerifier
         // signer from the space URI rather than from the credential's iss is what stops an
         // authority minting credentials for a space it does not gate.
         if (!string.Equals(parsed.Issuer, space.Authority.Value, StringComparison.Ordinal))
-        {
             throw Invalid(
                 $"The credential for {space} was issued by '{parsed.Issuer}', not by the space's authority.");
-        }
 
         var keyId = SpaceDidResolution.RequireKeyId(
             parsed.KeyId, SpaceDidResolution.CredentialKeyIds, SpaceErrors.NotAuthorized);
@@ -245,9 +243,7 @@ public sealed class SpaceCredentialVerifier
             // steadily used credentials stay put.
             if (_perAuthority.GetValueOrDefault(authority) >= quota &&
                 _entries.RemoveLeastRecent(cached => cached.Space.Authority == authority) is { } own)
-            {
                 Removed(own.Value);
-            }
 
             if (_entries.Set(entry.Key, entry) is { } evicted)
                 Removed(evicted.Value);

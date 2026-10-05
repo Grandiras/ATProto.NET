@@ -46,7 +46,7 @@ internal delegate ValueTask<IDuplexStreamSocket> DuplexStreamConnector(
 
 // The one WebSocket client behind every event stream: connects, reassembles fragmented messages into a
 // reused buffer, and closes the socket when the reader is done with it.
-internal sealed class StreamSocket : IDuplexStreamSocket
+internal sealed class StreamSocket(ClientWebSocket socket, int maxMessageBytes) : IDuplexStreamSocket
 {
     // The largest message accepted. A firehose commit carries at most 2 MB of blocks, so this is generous;
     // it only stops a misbehaving server from growing the buffer without bound.
@@ -56,15 +56,7 @@ internal sealed class StreamSocket : IDuplexStreamSocket
 
     private static readonly TimeSpan CloseTimeout = TimeSpan.FromSeconds(2);
 
-    private readonly ClientWebSocket _socket;
-    private readonly int _maxMessageBytes;
     private byte[] _buffer = new byte[InitialBufferBytes];
-
-    private StreamSocket(ClientWebSocket socket, int maxMessageBytes)
-    {
-        _socket = socket;
-        _maxMessageBytes = maxMessageBytes;
-    }
 
     // The default StreamConnector: a real WebSocket connection.
     public static StreamConnector Connector { get; } = ReadAllAsync;
@@ -123,16 +115,16 @@ internal sealed class StreamSocket : IDuplexStreamSocket
             {
                 if (length == _buffer.Length)
                 {
-                    if (length >= _maxMessageBytes)
-                        throw new EventStreamException($"A message exceeded {_maxMessageBytes} bytes.");
-                    Array.Resize(ref _buffer, Math.Min(_maxMessageBytes, length * 2));
+                    if (length >= maxMessageBytes)
+                        throw new EventStreamException($"A message exceeded {maxMessageBytes} bytes.");
+                    Array.Resize(ref _buffer, Math.Min(maxMessageBytes, length * 2));
                 }
 
-                var result = await _socket.ReceiveAsync(_buffer.AsMemory(length), cancellationToken).ConfigureAwait(false);
+                var result = await socket.ReceiveAsync(_buffer.AsMemory(length), cancellationToken).ConfigureAwait(false);
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
                     // A reason is how a service without error frames (the PLC export) says why.
-                    if (_socket.CloseStatus is not WebSocketCloseStatus.NormalClosure && _socket.CloseStatusDescription is { Length: > 0 } reason)
+                    if (socket.CloseStatus is not WebSocketCloseStatus.NormalClosure && socket.CloseStatusDescription is { Length: > 0 } reason)
                         throw new EventStreamException($"The server closed the connection: {reason}.", error: reason);
                     return null;
                 }
@@ -153,18 +145,18 @@ internal sealed class StreamSocket : IDuplexStreamSocket
 
     // Sends one text message. At most one send may run at a time.
     public ValueTask SendTextAsync(ReadOnlyMemory<byte> utf8, CancellationToken cancellationToken) =>
-        _socket.SendAsync(utf8, WebSocketMessageType.Text, endOfMessage: true, cancellationToken);
+        socket.SendAsync(utf8, WebSocketMessageType.Text, endOfMessage: true, cancellationToken);
 
     // Closes the connection, if it is open, and releases the socket.
     public async ValueTask DisposeAsync()
     {
-        if (_socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
+        if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
         {
             // Send our close frame without waiting for the server's: the socket is disposed next.
             using var timeout = new CancellationTokenSource(CloseTimeout);
             try
             {
-                await _socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, timeout.Token)
+                await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, timeout.Token)
                     .ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is WebSocketException or OperationCanceledException or ObjectDisposedException)
@@ -173,7 +165,7 @@ internal sealed class StreamSocket : IDuplexStreamSocket
             }
         }
 
-        _socket.Dispose();
+        socket.Dispose();
     }
 
     // Connects, then yields every message until the server closes the connection.

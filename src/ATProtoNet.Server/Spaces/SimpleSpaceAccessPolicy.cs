@@ -134,10 +134,8 @@ public sealed class SimpleSpaceAccessPolicy : ISpaceAccessPolicy
             case MemberListPolicy:
                 var member = await _store.GetMemberAsync(space.Uri, request.UserDid, cancellationToken).ConfigureAwait(false);
                 if (member is null)
-                {
                     return SpaceAccessDecision.Refuse(
                         SpaceAccessOutcome.UserNotAuthorized, "Not on the space's member list.");
-                }
 
                 return (write ? member.Write : member.Read)
                     ? SpaceAccessDecision.Granted
@@ -298,10 +296,8 @@ public sealed class SimpleSpaceManagingAppClient : ISimpleSpaceManagingAppClient
         using var response = await SpaceServiceCall.SendAsync(
             _httpClient, request, signer, managingApp, CheckUserAccessNsid, cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
-        {
             throw new HttpRequestException(
                 $"Managing app '{managingApp}' answered {(int)response.StatusCode}.", null, response.StatusCode);
-        }
 
         var body = await response.Content.ReadFromJsonAsync<CheckUserAccessResponse>(cancellationToken).ConfigureAwait(false);
         return body?.Authorized ?? false;

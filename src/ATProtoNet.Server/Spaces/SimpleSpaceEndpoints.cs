@@ -94,21 +94,17 @@ internal sealed class CreateSimpleSpaceEndpoint(ISpaceCallerResolver callerResol
         RequireSupported(writePolicy);
 
         if (appAccess is not (null or OpenAppAccess or AllowListAppAccess))
-        {
             throw new XrpcException(
                 SimpleSpaceErrors.UnsupportedAppAccess,
                 $"This host does not implement the '{VariantName(appAccess)}' app access variant.");
-        }
     }
 
     private static void RequireSupported(SimpleSpaceUserPolicy? policy)
     {
         if (policy is not (null or PublicPolicy or MemberListPolicy or ManagingAppPolicy))
-        {
             throw new XrpcException(
                 SimpleSpaceErrors.UnsupportedPolicy,
                 $"This host does not implement the '{VariantName(policy)}' user policy.");
-        }
 
         if (policy is ManagingAppPolicy managing)
             SpaceRequestValidation.RequireServiceIdentifier(managing.ManagingApp, "managingApp");

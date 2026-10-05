@@ -49,11 +49,9 @@ public sealed class EfCoreRepoSyncStateStore<TContext> : IRepoSyncStateStore
     {
         ArgumentNullException.ThrowIfNull(did);
 
-        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        await using var contextScope = context.ConfigureAwait(false);
-        var entity = await context.Set<RepoSyncStateEntity>()
+        var entity = await _contextFactory.UseAsync((context, ct) => context.Set<RepoSyncStateEntity>()
             .AsNoTracking()
-            .FirstOrDefaultAsync(e => e.Did == did.Value, cancellationToken).ConfigureAwait(false);
+            .FirstOrDefaultAsync(e => e.Did == did.Value, ct), cancellationToken).ConfigureAwait(false);
 
         return entity is null ? null : ToState(entity);
     }
@@ -112,14 +110,12 @@ public sealed class EfCoreRepoSyncStateStore<TContext> : IRepoSyncStateStore
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
 
-        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        await using var contextScope = context.ConfigureAwait(false);
-        var entities = await context.Set<RepoSyncStateEntity>()
+        var entities = await _contextFactory.UseAsync((context, ct) => context.Set<RepoSyncStateEntity>()
             .AsNoTracking()
             .Where(e => e.Status != RepoSyncStatus.Synchronized)
             .OrderBy(e => e.UpdatedAt)
             .Take(limit)
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
+            .ToListAsync(ct), cancellationToken).ConfigureAwait(false);
 
         return [.. entities.Select(ToState)];
     }

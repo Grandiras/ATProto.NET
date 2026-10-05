@@ -152,9 +152,7 @@ public sealed class DPoPProofValidator
         if (boundThumbprint is not null &&
             !CryptographicOperations.FixedTimeEquals(
                 Encoding.UTF8.GetBytes(thumbprint), Encoding.UTF8.GetBytes(boundThumbprint)))
-        {
             throw Invalid("The DPoP proof is signed by a key the credential is not bound to.");
-        }
 
         if (!JsonWebKeyVerifier.Verify(jwk, algorithm, signingInput, signature, Invalid, thumbprint))
             throw Invalid("The DPoP proof's signature does not verify against its embedded key.");
@@ -196,9 +194,7 @@ public sealed class DPoPProofValidator
                 throw Invalid("The DPoP proof is missing the \"ath\" hash of the credential it accompanies.");
             if (!CryptographicOperations.FixedTimeEquals(
                     Encoding.UTF8.GetBytes(accessTokenHash), Encoding.UTF8.GetBytes(expectedAccessTokenHash)))
-            {
                 throw Invalid("The DPoP proof's \"ath\" names a different credential than the one presented.");
-            }
         }
         else if (payload.TryGetProperty("ath", out _))
         {

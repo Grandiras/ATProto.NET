@@ -95,10 +95,8 @@ public sealed class SpaceDelegationTokenVerifier
         // verify at another even if that other authority is the one holding it.
         var expectedAudience = SpaceAuthority.HostAudience(space.Authority);
         if (!string.Equals(parsed.Audience, expectedAudience, StringComparison.Ordinal))
-        {
             throw Invalid(
                 $"The delegation token is addressed to '{parsed.Audience}', not to '{expectedAudience}'.");
-        }
 
         // A delegation token is minted by the user's PDS in the user's name, so its issuer is the
         // user's DID and nothing else.
@@ -118,19 +116,15 @@ public sealed class SpaceDelegationTokenVerifier
         // A delegation token lives 60 seconds; its issuer chooses the `exp` it actually carries,
         // so one dated far ahead is refused rather than remembered until then.
         if (!_options.IsWithinSingleUseWindow(verified.ExpiresAt, _timeProvider.GetUtcNow()))
-        {
             throw Invalid(
                 $"The delegation token is valid for longer than the {_options.MaxSingleUseTokenLifetime} " +
                 "this service accepts.");
-        }
 
         // Spent only once everything else has passed, so a forged token cannot burn the
         // identifier of one the legitimate holder is about to present.
         if (!await _replayStore.TryConsumeAsync(
                 verified.Issuer, verified.TokenId!, _options.ReplayRetention(verified.ExpiresAt), cancellationToken).ConfigureAwait(false))
-        {
             throw Invalid("The delegation token has already been used; delegation tokens are single-use.");
-        }
 
         return new VerifiedDelegationToken(space, userDid);
     }

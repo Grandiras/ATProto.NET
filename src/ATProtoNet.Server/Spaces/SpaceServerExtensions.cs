@@ -178,7 +178,7 @@ public static class SpaceServerExtensions
         services.AddOptions<SpaceServerOptions>()
             .Validate(
                 options => options.ServiceDid is not null,
-                $"A space authority must know its own DID; set {nameof(SpaceServerOptions)}.{nameof(SpaceServerOptions.ServiceDid)}.")
+                SpaceServerOptions.ServiceDidRequired)
             .ValidateOnStart();
 
         services.TryAddSingleton<TStore>();
@@ -234,10 +234,7 @@ public static class SpaceServerExtensions
         SpaceServerOptions options, AtProtoKey signingKey, AtProtoKey? serviceAuthKey, bool hasAccountSigner)
     {
         if (options.ServiceDid is null)
-        {
-            throw new InvalidOperationException(
-                $"A space authority must know its own DID; set {nameof(SpaceServerOptions)}.{nameof(SpaceServerOptions.ServiceDid)}.");
-        }
+            throw new InvalidOperationException(SpaceServerOptions.ServiceDidRequired);
 
         if (serviceAuthKey is not null)
             return new ServiceAuthGenerator(options.ServiceDid, serviceAuthKey);
@@ -246,12 +243,10 @@ public static class SpaceServerExtensions
             return new ServiceAuthGenerator(options.ServiceDid, signingKey);
 
         if (!hasAccountSigner)
-        {
             throw new InvalidOperationException(
                 $"Credentials are signed with the dedicated {SpaceAuthority.SigningKeyId} key, but service auth is only " +
                 $"accepted from an #atproto key. Pass the service's #atproto key to {nameof(AddSpaceAuthority)} as " +
                 $"serviceAuthKey, or register an {nameof(ISpaceAccountSigner)} that signs as {options.ServiceDid}.");
-        }
 
         // The signer answers for the service's own DID. This generator is reached only for an
         // account the signer holds no key for, and says truthfully which key it signs with; a

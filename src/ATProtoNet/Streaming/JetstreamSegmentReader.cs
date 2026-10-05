@@ -488,13 +488,11 @@ public static class JetstreamSegmentReader
         ArgumentNullException.ThrowIfNull(decompressor);
 
         await foreach (var frame in ReadBlockFramesAsync(segment, cancellationToken).ConfigureAwait(false))
-        {
             foreach (var row in DecodeBlockFrame(frame, decompressor))
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 yield return row;
             }
-        }
     }
 
     /// <summary>
@@ -509,10 +507,8 @@ public static class JetstreamSegmentReader
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await foreach (var row in ReadRowsAsync(segment, decompressor, cancellationToken).ConfigureAwait(false))
-        {
             if (row.ToEvent() is { } evt)
                 yield return evt;
-        }
     }
 
     // Read a sealed segment's header, then yield each stored block frame (still compressed) in order.
@@ -605,7 +601,7 @@ internal sealed class JetstreamArchiveRowFilter
 {
     private readonly HashSet<string>? _dids;
     private readonly HashSet<string>? _collections;
-    private readonly string[] _collectionPrefixes;
+    private readonly string[] _collectionPrefixes = [];
     private readonly HashSet<JetstreamEventKind>? _kinds;
 
     public JetstreamArchiveRowFilter(JetstreamConsumerOptions options, long afterSeq, long ceiling)
@@ -623,10 +619,6 @@ internal sealed class JetstreamArchiveRowFilter
         {
             _collections = new HashSet<string>(collections.Where(c => !c.EndsWith('*')), StringComparer.Ordinal);
             _collectionPrefixes = [.. collections.Where(c => c.EndsWith('*')).Select(c => c[..^1])];
-        }
-        else
-        {
-            _collectionPrefixes = [];
         }
     }
 
@@ -666,17 +658,12 @@ internal sealed class JetstreamArchiveRowFilter
 
     private bool MatchesCollection(string collection)
     {
-        if (_collections is null)
-            return true;
-
-        if (_collections.Contains(collection))
+        if (_collections is null || _collections.Contains(collection))
             return true;
 
         foreach (var prefix in _collectionPrefixes)
-        {
             if (collection.StartsWith(prefix, StringComparison.Ordinal))
                 return true;
-        }
 
         return false;
     }

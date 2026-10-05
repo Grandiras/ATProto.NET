@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Leaner request path** — XRPC calls offer HTTP/2 (falling back to 1.1), send JSON bodies with a `Content-Length` instead of chunked, and allocate less per DPoP-signed request (#194)
 - **Allocation-free DID document lookups** — `GetPdsEndpoint`, `GetSigningKey`, `GetServiceEndpoint` and `TryGetVerificationKey` parse and decode an entry once per document instead of on every call, and `GetHandle` no longer allocates an enumerator (#200)
 - **Firehose, label and archive decoding allocate far less** — frame and record transcoding reuses its buffer and builds no string per key or value, so a commit frame allocates about a third of what it did; Spaces record checks shed their copies too (#195)
+- **Leaner Spaces server, EF Core stores and streaming consumers** — the EF Core stores share one context-per-operation helper, and repeated checks, braces and single-use plumbing are gone, with no change to the public API or behaviour (#207)
 
 ## [0.7.0] - 2026-09-28
 

@@ -117,11 +117,11 @@ public sealed class RepoSyncVerifier : IDisposable
         if (commit.Ops is { Count: > MaxCommitOps } tooMany)
             return Invalid(did, commit.Rev, $"The commit has {tooMany.Count} operations; at most {MaxCommitOps} are allowed.");
 
-        if (!TryReadCommit(commit.Blocks, commit.Commit, did, commit.Rev, out var car, out var block, out var error))
+        if (ReadCommit(commit.Blocks, commit.Commit, did, commit.Rev, out var car, out var block) is { } error)
             return Invalid(did, commit.Rev, error);
 
         var state = await StateStore.GetAsync(did, cancellationToken).ConfigureAwait(false);
-        if (IsStale(state, commit.Rev, out var stale))
+        if (StaleReason(state, commit.Rev) is { } stale)
             return new RepoSyncResult(RepoSyncOutcome.Stale, did, commit.Rev, null, state, stale);
 
         if (await VerifySignatureAsync(did, block, cancellationToken).ConfigureAwait(false) is { } signatureError)
@@ -141,11 +141,9 @@ public sealed class RepoSyncVerifier : IDisposable
         if (commit.PrevData is { } prevData)
         {
             if (!prevData.Equals(state.Data))
-            {
                 return await DesynchronizeAsync(did, commit.Rev, data,
                     $"The commit's prevData {prevData} is not the last verified tree {state.Data?.ToString() ?? "(unknown)"}.",
                     cancellationToken).ConfigureAwait(false);
-            }
         }
         else
         {
@@ -173,11 +171,11 @@ public sealed class RepoSyncVerifier : IDisposable
         ArgumentNullException.ThrowIfNull(sync);
         var did = sync.Did;
 
-        if (!TryReadCommit(sync.Blocks, expectedCommit: null, did, sync.Rev, out _, out var block, out var error))
+        if (ReadCommit(sync.Blocks, expectedCommit: null, did, sync.Rev, out _, out var block) is { } error)
             return Invalid(did, sync.Rev, error);
 
         var state = await StateStore.GetAsync(did, cancellationToken).ConfigureAwait(false);
-        if (IsStale(state, sync.Rev, out var stale))
+        if (StaleReason(state, sync.Rev) is { } stale)
             return new RepoSyncResult(RepoSyncOutcome.Stale, did, sync.Rev, null, state, stale);
 
         if (await VerifySignatureAsync(did, block, cancellationToken).ConfigureAwait(false) is { } signatureError)
@@ -261,38 +259,22 @@ public sealed class RepoSyncVerifier : IDisposable
         return result;
     }
 
-    private static bool IsStale(RepoSyncState? state, Tid rev, out string? reason)
-    {
-        if (state?.Rev is { } last && rev.CompareTo(last) <= 0)
-        {
-            reason = $"The revision {rev} is not after the last one seen, {last}.";
-            return true;
-        }
-
-        reason = null;
-        return false;
-    }
+    private static string? StaleReason(RepoSyncState? state, Tid rev) =>
+        state?.Rev is { } last && rev.CompareTo(last) <= 0 ? $"The revision {rev} is not after the last one seen, {last}." : null;
 
     // Reads an event's CAR, checking every block against its CID, and the commit block it carries as its
-    // first root, checking the commit against the event.
-    private bool TryReadCommit(
-        byte[]? blocks, Cid? expectedCommit, Did did, Tid rev,
-        out CarReader car, out CommitBlock block, out string error)
+    // first root, checking the commit against the event. Returns the reason it fails, or null.
+    private string? ReadCommit(
+        byte[]? blocks, Cid? expectedCommit, Did did, Tid rev, out CarReader car, out CommitBlock block)
     {
         car = null!;
         block = null!;
 
         if (blocks is not { Length: > 0 })
-        {
-            error = "The event carries no blocks.";
-            return false;
-        }
+            return "The event carries no blocks.";
 
         if (blocks.Length > MaxBlocksBytes)
-        {
-            error = $"The event's blocks hold {blocks.Length} bytes; at most {MaxBlocksBytes} are allowed.";
-            return false;
-        }
+            return $"The event's blocks hold {blocks.Length} bytes; at most {MaxBlocksBytes} are allowed.";
 
         try
         {
@@ -300,32 +282,18 @@ public sealed class RepoSyncVerifier : IDisposable
         }
         catch (FormatException ex)
         {
-            error = ex.Message;
-            return false;
+            return ex.Message;
         }
 
         if (!string.Equals(block.Did, did.Value, StringComparison.Ordinal))
-        {
-            error = $"The signed commit is for {block.Did}, not the event's {did}.";
-            return false;
-        }
+            return $"The signed commit is for {block.Did}, not the event's {did}.";
 
         if (!string.Equals(block.Rev, rev.Value, StringComparison.Ordinal))
-        {
-            error = $"The signed commit's revision is {block.Rev}, not the event's {rev}.";
-            return false;
-        }
+            return $"The signed commit's revision is {block.Rev}, not the event's {rev}.";
 
         // A TID holds microseconds since the epoch above its 10-bit clock identifier.
         var limit = (_timeProvider.GetUtcNow() + _maxClockSkew).ToUnixTimeMilliseconds() * 1000;
-        if ((rev.ToInt64() >> 10) > limit)
-        {
-            error = $"The revision {rev} lies in the future.";
-            return false;
-        }
-
-        error = string.Empty;
-        return true;
+        return (rev.ToInt64() >> 10) > limit ? $"The revision {rev} lies in the future." : null;
     }
 
     // Checks a commit's operations against its blocks: well formed, every created or updated record
@@ -418,10 +386,8 @@ public sealed class RepoSyncVerifier : IDisposable
 
             var inverted = tree.RootCid();
             if (!commit.PrevData!.AsSpan().SequenceEqual(inverted))
-            {
                 return $"Inverting the operations gives tree {CidComputation.EncodeCidToString(inverted)}, " +
                        $"not the commit's prevData {commit.PrevData}.";
-            }
 
             return null;
         }

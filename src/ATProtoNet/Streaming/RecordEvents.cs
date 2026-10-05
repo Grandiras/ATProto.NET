@@ -129,9 +129,7 @@ public static class RecordEventExtensions
             if (slash < 0
                 || !Nsid.TryParse(op.Path[..slash], out var collection)
                 || !RecordKey.TryParse(op.Path[(slash + 1)..], out var rkey))
-            {
                 continue;
-            }
 
             events.Add(new FirehoseRecordEvent
             {

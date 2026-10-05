@@ -107,9 +107,7 @@ public sealed class JetstreamConsumer
         {
             await foreach (var evt in EventStreamLoop.RunAsync(new Handler(this, tracker), _connector, cancellationToken)
                 .ConfigureAwait(false))
-            {
                 yield return evt;
-            }
         }
     }
 
@@ -213,9 +211,7 @@ public sealed class JetstreamConsumer
             if (_v2
                 ? _seqFloor is { } floor && evt.Cursor is { } seq && seq <= floor
                 : _owner.LastTimeUs is { } last && evt.TimeUs <= last)
-            {
                 return default;
-            }
 
             _owner.LastTimeUs = evt.TimeUs;
             if (evt.Cursor is { } eventCursor)

@@ -108,9 +108,7 @@ public static class JetstreamEventParser
     private static JetstreamEvent? ParseV2Event(JsonElement payload, string kind, out StreamDropReason? dropped)
     {
         dropped = kind is "commit" or "identity" or "account" or "sync" ? null : StreamDropReason.UnknownType;
-        if (dropped is not null || JetstreamEvents.ParseDid(payload) is not { } did)
-            return null;
-        if (!TryParseTime(payload, out var time))
+        if (dropped is not null || JetstreamEvents.ParseDid(payload) is not { } did || !TryParseTime(payload, out var time))
             return null;
 
         var timeUs = (time - DateTime.UnixEpoch).Ticks / 10;
@@ -136,9 +134,7 @@ public static class JetstreamEventParser
         if (root.ValueKind != JsonValueKind.Object)
             return null;
 
-        if (JetstreamEvents.ParseDid(root) is not { } did)
-            return null;
-        if (root.GetInt64OrNull("time_us"u8) is not { } timeUs)
+        if (JetstreamEvents.ParseDid(root) is not { } did || root.GetInt64OrNull("time_us"u8) is not { } timeUs)
             return null;
 
         // A v2 host serving the v1 wire adds its sequence number as "cursor"; a legacy host omits it.
@@ -166,9 +162,8 @@ public static class JetstreamEventParser
     private static JetstreamCommitEvent? ParseCommit(JsonElement commit, Did did, long timeUs, long? cursor)
     {
         // A commit whose path does not parse names no record a consumer could act on.
-        if (commit.GetIdentifierOrNull<Nsid>("collection"u8) is not { } collection)
-            return null;
-        if (commit.GetIdentifierOrNull<RecordKey>("rkey"u8) is not { } rkey)
+        if (commit.GetIdentifierOrNull<Nsid>("collection"u8) is not { } collection ||
+            commit.GetIdentifierOrNull<RecordKey>("rkey"u8) is not { } rkey)
             return null;
 
         // Unknown or missing operation — tolerate for forward compatibility.

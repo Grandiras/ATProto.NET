@@ -248,12 +248,10 @@ internal sealed class NotifyWriteEndpoint(
         // The signer is the writer and nobody else. A service listing an endpoint at the writer's
         // PDS origin proves nothing: any DID document can name any URL.
         if (caller.Issuer != repo)
-        {
             throw new SpaceVerificationException(
                 SpaceErrors.NotAuthorized,
                 $"A write notification for '{repo}' must be signed by '{repo}', not by '{caller.Issuer}'.",
                 HttpStatusCode.Forbidden);
-        }
 
         await ListSpaceReposEndpoint.RequireLiveSpaceAsync(store, space, cancellationToken).ConfigureAwait(false);
 

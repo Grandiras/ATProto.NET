@@ -85,11 +85,9 @@ public sealed class EfCoreAtProtoSessionStore<TContext> : IAtProtoSessionStore
         ArgumentNullException.ThrowIfNull(did);
 
         var key = did.Value;
-        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        await using var contextScope = context.ConfigureAwait(false);
-        var entity = await context.Set<AtProtoTokenEntity>()
+        var entity = await _contextFactory.UseAsync((context, ct) => context.Set<AtProtoTokenEntity>()
             .AsNoTracking()
-            .FirstOrDefaultAsync(e => e.Did == key, cancellationToken).ConfigureAwait(false);
+            .FirstOrDefaultAsync(e => e.Did == key, ct), cancellationToken).ConfigureAwait(false);
 
         if (entity is null)
             return null;

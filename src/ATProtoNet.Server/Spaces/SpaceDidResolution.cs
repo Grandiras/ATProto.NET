@@ -66,10 +66,8 @@ internal static class SpaceDidResolution
 
         var fragment = keyId.StartsWith('#') ? keyId : "#" + keyId;
         foreach (var candidate in allowed)
-        {
             if (string.Equals(fragment, candidate, StringComparison.Ordinal))
                 return candidate;
-        }
 
         throw new SpaceVerificationException(
             error, $"The token's \"kid\" must be {string.Join(" or ", allowed)}; got '{keyId}'.");

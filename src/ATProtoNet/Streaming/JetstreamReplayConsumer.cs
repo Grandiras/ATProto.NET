@@ -221,7 +221,6 @@ public sealed class JetstreamReplayConsumer : IDisposable
                     yield break;
 
                 if (attempt >= _archive.MaxCutoverAttempts)
-                {
                     throw new JetstreamException(
                         $"The Jetstream live tail refused the cutover at sequence {cutover} after " +
                         $"{attempt + 1} backfill attempts; the archive is not catching up to the " +
@@ -229,7 +228,6 @@ public sealed class JetstreamReplayConsumer : IDisposable
                         refused.StatusCode,
                         refused.Error,
                         innerException: refused);
-                }
 
                 // Re-enter the plan loop from what we durably delivered rather than skip the gap.
                 start = LastCursor ?? start;
@@ -399,9 +397,7 @@ public sealed class JetstreamReplayConsumer : IDisposable
                 {
                     await foreach (var evt in unit.ReadAsync(_archive.BlockDecompressor, filter, parallelism, cancellationToken)
                         .ConfigureAwait(false))
-                    {
                         yield return evt;
-                    }
                 }
                 finally
                 {
@@ -556,10 +552,8 @@ public sealed class JetstreamReplayConsumer : IDisposable
                 }
 
                 while (pending.Count > 0)
-                {
                     foreach (var evt in await pending.Dequeue().ConfigureAwait(false))
                         yield return evt;
-                }
             }
             finally
             {

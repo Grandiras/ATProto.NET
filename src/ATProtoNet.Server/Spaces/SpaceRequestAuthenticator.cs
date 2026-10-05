@@ -101,11 +101,9 @@ public sealed class SpaceRequestAuthenticator
 
         var (scheme, token) = ReadAuthorization(context);
         if (!string.Equals(scheme, "Bearer", StringComparison.OrdinalIgnoreCase))
-        {
             throw new SpaceVerificationException(
                 SpaceErrors.InvalidDelegationToken,
                 "A delegation token is presented under the Bearer scheme.");
-        }
 
         var delegation = await _delegationVerifier.VerifyAsync(token, requestedSpace, cancellationToken).ConfigureAwait(false);
 

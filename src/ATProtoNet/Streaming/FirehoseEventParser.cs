@@ -28,10 +28,8 @@ public static class FirehoseEventParser
 
         var body = frame[bodyOffset..];
         if (op == EventStreamFrame.ErrorOp)
-        {
             throw EventStreamException.FromErrorFrame(
                 "firehose", EventStreamFrame.ReadError(body) ?? new EventStreamError("Unknown", null));
-        }
 
         return op == EventStreamFrame.MessageOp && type is not null ? ParseBody(type, body) : null;
     }

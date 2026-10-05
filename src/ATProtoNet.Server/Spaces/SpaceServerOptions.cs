@@ -12,6 +12,8 @@ namespace ATProtoNet.Server.Spaces;
 /// </remarks>
 public sealed class SpaceServerOptions
 {
+    internal const string ServiceDidRequired = "A space authority must know its own DID; set SpaceServerOptions.ServiceDid.";
+
     /// <summary>This service's DID: the space authority's DID when acting as one, and the issuer of its outbound service auth.</summary>
     public Did? ServiceDid { get; set; }
 

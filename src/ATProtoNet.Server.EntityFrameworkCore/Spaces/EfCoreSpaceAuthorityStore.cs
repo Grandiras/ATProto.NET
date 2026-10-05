@@ -84,16 +84,12 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
         ArgumentNullException.ThrowIfNull(space);
 
         var spaceValue = space.Value;
-        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        await using (context.ConfigureAwait(false))
-        {
-            var updated = await context.Set<SpaceEntity>()
-                .Where(e => e.Space == spaceValue)
-                .ExecuteUpdateAsync(set => set.SetProperty(e => e.Deleted, true), cancellationToken).ConfigureAwait(false);
+        var updated = await _contextFactory.UseAsync((context, ct) => context.Set<SpaceEntity>()
+            .Where(e => e.Space == spaceValue)
+            .ExecuteUpdateAsync(set => set.SetProperty(e => e.Deleted, true), ct), cancellationToken).ConfigureAwait(false);
 
-            if (updated > 0)
-                return;
-        }
+        if (updated > 0)
+            return;
 
         await MutateAsync(async (context, ct) =>
         {
@@ -112,11 +108,9 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
     {
         ArgumentNullException.ThrowIfNull(space);
 
-        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        await using var contextScope = context.ConfigureAwait(false);
-        var entity = await context.Set<SpaceEntity>()
+        var entity = await _contextFactory.UseAsync((context, ct) => context.Set<SpaceEntity>()
             .AsNoTracking()
-            .FirstOrDefaultAsync(e => e.Space == space.Value, cancellationToken).ConfigureAwait(false);
+            .FirstOrDefaultAsync(e => e.Space == space.Value, ct), cancellationToken).ConfigureAwait(false);
 
         if (entity is null)
             return SpaceAccessOutcome.SpaceNotFound;
@@ -130,21 +124,15 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
     {
         ArgumentNullException.ThrowIfNull(space);
 
-        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        await using var contextScope = context.ConfigureAwait(false);
-
-        var query = context.Set<SpaceWriterEntity>()
-            .AsNoTracking()
-            .Where(e => e.Space == space.Value);
-
-        if (cursor is not null)
-            query = query.Where(e => string.Compare(e.Did, cursor) > 0);
-
         // One row past the page, so the presence of a next page is known without a count.
-        var page = await query
-            .OrderBy(e => e.Did)
-            .Take(limit + 1)
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        var page = await _contextFactory.UseAsync((context, ct) =>
+        {
+            // Filtered only with a cursor, so the first page's SQL has no "@cursor IS NULL OR" to defeat the index.
+            var query = context.Set<SpaceWriterEntity>().AsNoTracking().Where(e => e.Space == space.Value);
+            if (cursor is not null)
+                query = query.Where(e => string.Compare(e.Did, cursor) > 0);
+            return query.OrderBy(e => e.Did).Take(limit + 1).ToListAsync(ct);
+        }, cancellationToken).ConfigureAwait(false);
 
         var (repos, next) = SpacePaging.Page(
             page,
@@ -215,10 +203,8 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
                 return;
 
             if (attempt >= MaxWriteAttempts)
-            {
                 throw new DbUpdateConcurrencyException(
                     $"The revision of '{did}' in '{spaceValue}' kept changing while recording '{revValue}'.");
-            }
         }
     }
 
@@ -236,16 +222,12 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
         var spaceValue = space.Value;
 
         // A renewal, the common case, is one statement.
-        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        await using (context.ConfigureAwait(false))
-        {
-            var updated = await context.Set<SpaceSubscriberEntity>()
-                .Where(e => e.Space == spaceValue && e.Service == service)
-                .ExecuteUpdateAsync(set => set.SetProperty(e => e.ExpiresAt, expiresAt), cancellationToken).ConfigureAwait(false);
+        var updated = await _contextFactory.UseAsync((context, ct) => context.Set<SpaceSubscriberEntity>()
+            .Where(e => e.Space == spaceValue && e.Service == service)
+            .ExecuteUpdateAsync(set => set.SetProperty(e => e.ExpiresAt, expiresAt), ct), cancellationToken).ConfigureAwait(false);
 
-            if (updated > 0)
-                return;
-        }
+        if (updated > 0)
+            return;
 
         await MutateAsync(async (context, ct) =>
         {
@@ -255,18 +237,9 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
             var existing = await subscribers.FindAsync([space.Value, service], ct).ConfigureAwait(false);
 
             if (existing is null)
-            {
-                subscribers.Add(new SpaceSubscriberEntity
-                {
-                    Space = space.Value,
-                    Service = service,
-                    ExpiresAt = expiresAt,
-                });
-            }
+                subscribers.Add(new SpaceSubscriberEntity { Space = space.Value, Service = service, ExpiresAt = expiresAt });
             else
-            {
                 existing.ExpiresAt = expiresAt;
-            }
         }, cancellationToken).ConfigureAwait(false);
     }
 
@@ -279,11 +252,9 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
 
         var spaceValue = space.Value;
 
-        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        await using var contextScope = context.ConfigureAwait(false);
-        await context.Set<SpaceSubscriberEntity>()
+        await _contextFactory.UseAsync((context, ct) => context.Set<SpaceSubscriberEntity>()
             .Where(e => e.Space == spaceValue && e.Service == service)
-            .ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+            .ExecuteDeleteAsync(ct), cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -294,13 +265,11 @@ public sealed class EfCoreSpaceAuthorityStore<TContext> : ISpaceAuthorityStore
 
         var now = _timeProvider.GetUtcNow();
 
-        var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        await using var contextScope = context.ConfigureAwait(false);
-        var live = await context.Set<SpaceSubscriberEntity>()
+        var live = await _contextFactory.UseAsync((context, ct) => context.Set<SpaceSubscriberEntity>()
             .AsNoTracking()
             .Where(e => e.Space == space.Value && e.ExpiresAt > now)
             .OrderBy(e => e.Service)
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
+            .ToListAsync(ct), cancellationToken).ConfigureAwait(false);
 
         return live.Select(e => new SpaceNotifySubscriber(e.Service, e.ExpiresAt)).ToList();
     }

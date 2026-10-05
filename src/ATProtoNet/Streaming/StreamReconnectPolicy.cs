@@ -65,14 +65,12 @@ internal sealed class ReconnectBackoff(StreamReconnectPolicy policy, ILogger log
     {
         _attempts++;
         if (policy.MaxAttempts is { } max && _attempts > max)
-        {
             throw new EventStreamException(
                 $"The {stream} disconnected and {max} reconnect attempt(s) failed; giving up." +
                 (lastFailure is null ? string.Empty : $" Last failure: {lastFailure.Message}"),
                 (lastFailure as EventStreamException)?.Error,
                 (lastFailure as EventStreamException)?.StatusCode,
                 lastFailure);
-        }
 
         var delay = policy.DelayFor(_attempts);
         logger.LogWarning(lastFailure,

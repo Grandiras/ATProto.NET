@@ -96,9 +96,7 @@ public sealed class LabelStreamConsumer
         {
             await foreach (var message in EventStreamLoop.RunAsync(new Handler(_options, tracker), _connector, cancellationToken)
                 .ConfigureAwait(false))
-            {
                 yield return message;
-            }
         }
     }
 

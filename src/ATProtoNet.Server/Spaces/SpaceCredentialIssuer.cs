@@ -31,11 +31,7 @@ public sealed class SpaceCredentialIssuer
         ArgumentNullException.ThrowIfNull(options);
 
         if (options.ServiceDid is null)
-        {
-            throw new ArgumentException(
-                $"A space authority must know its own DID; set {nameof(SpaceServerOptions)}.{nameof(SpaceServerOptions.ServiceDid)}.",
-                nameof(options));
-        }
+            throw new ArgumentException(SpaceServerOptions.ServiceDidRequired, nameof(options));
 
         _signingKey = signingKey;
         _options = options;
@@ -59,10 +55,8 @@ public sealed class SpaceCredentialIssuer
         // names another authority would produce a token no reader will accept, because a reader
         // resolves the signer from the space URI rather than from the credential's issuer.
         if (space.Authority != _options.ServiceDid)
-        {
             throw new InvalidOperationException(
                 $"This service ({_options.ServiceDid}) is not the authority for {space}.");
-        }
 
         var credential = SpaceTokens.Create(
             SpaceTokenType.Credential,

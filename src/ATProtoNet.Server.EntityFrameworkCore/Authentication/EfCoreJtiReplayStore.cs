@@ -114,11 +114,9 @@ public sealed class EfCoreJtiReplayStore<TContext> : IJtiReplayStore
     {
         try
         {
-            var context = await _contextFactory.CreateDbContextAsync().ConfigureAwait(false);
-            await using var contextScope = context.ConfigureAwait(false);
-            await context.Set<JtiReplayEntity>()
+            await _contextFactory.UseAsync((context, ct) => context.Set<JtiReplayEntity>()
                 .Where(e => e.ExpiresAt < cutoff)
-                .ExecuteDeleteAsync().ConfigureAwait(false);
+                .ExecuteDeleteAsync(ct), CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

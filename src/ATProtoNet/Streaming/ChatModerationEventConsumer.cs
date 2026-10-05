@@ -101,9 +101,7 @@ public sealed class ChatModerationEventConsumer
 
         await foreach (var evt in EventStreamLoop.RunAsync(new Handler(this, cursor), _connector, cancellationToken)
             .ConfigureAwait(false))
-        {
             yield return evt;
-        }
     }
 
     private sealed class Handler(ChatModerationEventConsumer owner, string? start)

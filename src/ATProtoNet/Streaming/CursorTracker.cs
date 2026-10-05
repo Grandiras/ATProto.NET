@@ -15,12 +15,9 @@ namespace ATProtoNet.Streaming;
 // blocks the read loop, which a server would disconnect as too slow. FlushAsync waits for that and
 // saves the final position; consumers dispose the tracker with their enumeration, so a break, a
 // cancellation and an exception all keep it.
-internal sealed class CursorTracker : IAsyncDisposable
+internal sealed class CursorTracker(IStreamCursorStore? store, string streamId, int persistInterval, ILogger logger) : IAsyncDisposable
 {
-    private readonly IStreamCursorStore? _store;
-    private readonly string _streamId;
-    private readonly int _persistInterval;
-    private readonly ILogger _logger;
+    private readonly int _persistInterval = Math.Max(1, persistInterval);
     private readonly Lock _gate = new();
 
     private long? _current;
@@ -29,14 +26,6 @@ internal sealed class CursorTracker : IAsyncDisposable
     private int _sinceSave;
     private Task? _saving;
     private bool _saveAgain;
-
-    public CursorTracker(IStreamCursorStore? store, string streamId, int persistInterval, ILogger logger)
-    {
-        _store = store;
-        _streamId = streamId;
-        _persistInterval = Math.Max(1, persistInterval);
-        _logger = logger;
-    }
 
     // Starts the tracker of one consumer run: resuming after cursor, or after the stored cursor when it is
     // null. Returns null when cancellationToken is cancelled while the stored cursor is loaded.
@@ -77,10 +66,10 @@ internal sealed class CursorTracker : IAsyncDisposable
     // Loads the stored cursor, or null when there is no store or nothing stored.
     public async ValueTask<long?> LoadAsync(CancellationToken cancellationToken)
     {
-        if (_store is null)
+        if (store is null)
             return null;
 
-        var stored = await _store.GetCursorAsync(_streamId, cancellationToken).ConfigureAwait(false);
+        var stored = await store.GetCursorAsync(streamId, cancellationToken).ConfigureAwait(false);
         _saved = stored;
         return stored;
     }
@@ -114,7 +103,7 @@ internal sealed class CursorTracker : IAsyncDisposable
 
             _current = position;
 
-            if (_store is null || ++_sinceSave < _persistInterval)
+            if (store is null || ++_sinceSave < _persistInterval)
                 return true;
 
             _sinceSave = 0;
@@ -133,7 +122,7 @@ internal sealed class CursorTracker : IAsyncDisposable
     // failed save is logged, and the next run replays from the last saved one.
     public async ValueTask FlushAsync()
     {
-        if (_store is null)
+        if (store is null)
             return;
 
         Task? saving;
@@ -187,7 +176,7 @@ internal sealed class CursorTracker : IAsyncDisposable
     {
         try
         {
-            await _store!.StoreCursorAsync(_streamId, position, CancellationToken.None).ConfigureAwait(false);
+            await store!.StoreCursorAsync(streamId, position, CancellationToken.None).ConfigureAwait(false);
             lock (_gate)
             {
                 if (_saved is not { } saved || position > saved)
@@ -196,7 +185,7 @@ internal sealed class CursorTracker : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not store cursor {Cursor} for stream {StreamId}", position, _streamId);
+            logger.LogWarning(ex, "Could not store cursor {Cursor} for stream {StreamId}", position, streamId);
         }
     }
 }
