@@ -153,4 +153,5 @@ Console.WriteLine($"{profile.DisplayName} is {profile.Did}");
 - [ASP.NET Core](aspnet-core.md) — Use in web applications
 - [Firehose Streaming](firehose.md) — Real-time event streaming with verification
 - [Error Handling](error-handling.md) — the exceptions the SDK throws
+- [Migrating to 0.8](migrating-to-0.8.md) — upgrading from 0.7
 - [Migrating to 0.7](migrating-to-0.7.md) — upgrading from 0.6
