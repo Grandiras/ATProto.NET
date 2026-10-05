@@ -40,12 +40,6 @@ public sealed record Handle : IIdentifier<Handle>
     static bool IIdentifier<Handle>.TryCreate(ReadOnlySpan<char> span, string? text, [NotNullWhen(true)] out Handle? result) =>
         TryCreate(span, text, out result);
 
-    // Whether span is a handle exactly as written: no @ prefix is stripped. Case is not significant.
-    //
-    // A handle is a domain name: two or more labels of 1-63 letters, digits and hyphens, none starting or
-    // ending with a hyphen, and the top-level label not starting with a digit.
-    internal static bool IsValidSyntax(ReadOnlySpan<char> span) => IdentifierSyntax.IsHandle(span, out _);
-
     // Creates the handle of text already known to be valid, lower-cased.
     internal static Handle FromValidated(string text) => new(text.ToLowerInvariant());
 

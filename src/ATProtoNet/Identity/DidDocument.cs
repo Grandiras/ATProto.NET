@@ -84,12 +84,14 @@ public sealed class DidDocument
     /// </remarks>
     public Handle? GetHandle()
     {
-        foreach (var entry in AlsoKnownAs)
+        // Indexed: foreach over the interface would box the list's enumerator on every call.
+        for (var i = 0; i < AlsoKnownAs.Count; i++)
         {
-            if (entry is null || !entry.StartsWith("at://", StringComparison.Ordinal))
+            if (AlsoKnownAs[i] is not { } entry || !entry.StartsWith("at://", StringComparison.Ordinal))
                 continue;
 
-            return Handle.IsValidSyntax(entry.AsSpan(5)) && Handle.TryParse(entry[5..], out var handle)
+            // An @ prefix, which Handle.TryCreate would strip, is not part of a handle.
+            return !entry.StartsWith("at://@", StringComparison.Ordinal) && Handle.TryCreate(entry.AsSpan(5), null, out var handle)
                 ? handle
                 : null;
         }
@@ -159,7 +161,12 @@ public sealed class DidDocument
             if (method.ToDidKey() is not { } key)
                 return DidDocumentEntryStatus.Malformed;
 
-            AtProtoCrypto.ParseDidKey(key, out _);
+            if (!method.KeyChecked)
+            {
+                AtProtoCrypto.ParseDidKey(key, out _);
+                method.KeyChecked = true;
+            }
+
             didKey = key;
             return DidDocumentEntryStatus.Found;
         }
@@ -208,21 +215,15 @@ public sealed class DidDocument
 
         // The first entry by id decides, as in the reference implementation: a later entry with
         // the same id and the expected type does not stand in for a first one that is wrong.
-        foreach (var service in Service)
+        for (var i = 0; i < Service.Count; i++)
         {
-            if (service is null || !IsFragment(service.Id, fragment))
+            if (Service[i] is not { } service || !IsFragment(service.Id, fragment))
                 continue;
             if (type is not null && !string.Equals(service.Type, type, StringComparison.Ordinal))
                 return DidDocumentEntryStatus.Malformed;
 
-            if (!Uri.TryCreate(service.Endpoint, UriKind.Absolute, out var parsed) ||
-                (parsed.Scheme != Uri.UriSchemeHttps && parsed.Scheme != Uri.UriSchemeHttp))
-            {
-                return DidDocumentEntryStatus.Malformed;
-            }
-
-            endpoint = parsed;
-            return DidDocumentEntryStatus.Found;
+            endpoint = service.HttpEndpoint;
+            return endpoint is null ? DidDocumentEntryStatus.Malformed : DidDocumentEntryStatus.Found;
         }
 
         return DidDocumentEntryStatus.Absent;
@@ -236,9 +237,9 @@ public sealed class DidDocument
     {
         fragment = NormalizeFragment(fragment);
 
-        foreach (var method in VerificationMethod)
+        for (var i = 0; i < VerificationMethod.Count; i++)
         {
-            if (method is not null && IsFragment(method.Id, fragment))
+            if (VerificationMethod[i] is { } method && IsFragment(method.Id, fragment))
                 return method;
         }
 
@@ -299,10 +300,9 @@ public sealed class DidDocument
     {
         public override IReadOnlyList<string>? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
+            // A null never reaches the converter: the serializer reads and omits it itself.
             switch (reader.TokenType)
             {
-                case JsonTokenType.Null:
-                    return null;
                 case JsonTokenType.String:
                     return [reader.GetString()!];
                 case JsonTokenType.StartArray:
@@ -323,14 +323,8 @@ public sealed class DidDocument
 
         public override void Write(Utf8JsonWriter writer, IReadOnlyList<string>? value, JsonSerializerOptions options)
         {
-            if (value is null)
-            {
-                writer.WriteNullValue();
-                return;
-            }
-
             writer.WriteStartArray();
-            foreach (var entry in value)
+            foreach (var entry in value!)
                 writer.WriteStringValue(entry);
             writer.WriteEndArray();
         }
@@ -386,19 +380,19 @@ public sealed class VerificationMethod
     /// <para>plc.directory serves <c>Multikey</c> today, but older PLC releases and
     /// hand-written <c>did:web</c> documents may publish the legacy forms.</para>
     /// </remarks>
-    public string? ToDidKey()
+    public string? ToDidKey() => _didKey ??= string.IsNullOrEmpty(PublicKeyMultibase) ? null : Type switch
     {
-        if (string.IsNullOrEmpty(PublicKeyMultibase))
-            return null;
+        "Multikey" => $"did:key:{PublicKeyMultibase}",
+        "EcdsaSecp256k1VerificationKey2019" => FormatLegacyDidKey(PublicKeyMultibase, KeyCurve.K256),
+        "EcdsaSecp256r1VerificationKey2019" => FormatLegacyDidKey(PublicKeyMultibase, KeyCurve.P256),
+        _ => null,
+    };
 
-        return Type switch
-        {
-            "Multikey" => $"did:key:{PublicKeyMultibase}",
-            "EcdsaSecp256k1VerificationKey2019" => FormatLegacyDidKey(PublicKeyMultibase, KeyCurve.K256),
-            "EcdsaSecp256r1VerificationKey2019" => FormatLegacyDidKey(PublicKeyMultibase, KeyCurve.P256),
-            _ => null,
-        };
-    }
+    // Documents are shared and read on every verification, so the did:key is built once, and a key the
+    // strict lookup has decoded is not decoded again.
+    private string? _didKey;
+
+    internal bool KeyChecked { get; set; }
 
     private static string FormatLegacyDidKey(string publicKeyMultibase, KeyCurve curve)
         => AtProtoCrypto.FormatDidKey(AtProtoCrypto.MultibaseToBytes(publicKeyMultibase), curve);
@@ -421,10 +415,14 @@ public sealed class DidDocumentService
     [JsonConverter(typeof(StringOrNullConverter))]
     public string? Endpoint { get; init; }
 
+    // The endpoint when it is an absolute http(s) URL, parsed once.
+    internal Uri? HttpEndpoint => _endpoint ??=
+        Uri.TryCreate(Endpoint, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp) ? uri : null;
+
+    private Uri? _endpoint;
+
     private sealed class StringOrNullConverter : JsonConverter<string?>
     {
-        public override bool HandleNull => true;
-
         public override string? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             if (reader.TokenType == JsonTokenType.String)
@@ -434,12 +432,7 @@ public sealed class DidDocumentService
             return null;
         }
 
-        public override void Write(Utf8JsonWriter writer, string? value, JsonSerializerOptions options)
-        {
-            if (value is null)
-                writer.WriteNullValue();
-            else
-                writer.WriteStringValue(value);
-        }
+        public override void Write(Utf8JsonWriter writer, string? value, JsonSerializerOptions options) =>
+            writer.WriteStringValue(value);
     }
 }

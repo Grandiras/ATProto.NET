@@ -238,9 +238,8 @@ public sealed class PlcClient : IDidResolver, IDisposable
             ArgumentOutOfRangeException.ThrowIfGreaterThan(count.Value, MaxExportCount, nameof(count));
         }
 
-        var query = $"export?after={after.ToString(System.Globalization.CultureInfo.InvariantCulture)}" +
-                    (count is { } c ? $"&count={c.ToString(System.Globalization.CultureInfo.InvariantCulture)}" : "");
-        var url = new Uri(DirectoryUrl, query);
+        // Non-negative integers format the same under every culture.
+        var url = new Uri(DirectoryUrl, $"export?after={after}" + (count is { } c ? $"&count={c}" : ""));
 
         var result = await IdentityFetch.GetAsync(
             _httpClient, url, "application/jsonlines, application/json", MaxExportBytes, _options.RequestTimeout,
@@ -287,7 +286,7 @@ public sealed class PlcClient : IDidResolver, IDisposable
             ArgumentOutOfRangeException.ThrowIfNegative(cursor.Value, nameof(cursor));
 
         var url = AtProtoHttp.WithScheme(
-            new Uri(DirectoryUrl, "export/stream" + (cursor is { } value ? $"?cursor={value.ToString(System.Globalization.CultureInfo.InvariantCulture)}" : "")),
+            new Uri(DirectoryUrl, "export/stream" + (cursor is { } value ? $"?cursor={value}" : "")),
             webSocket: true);
 
         // The owned client's handler carries the identity fetch policy; a caller's client is used

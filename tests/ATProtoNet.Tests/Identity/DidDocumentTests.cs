@@ -26,6 +26,18 @@ public class DidDocumentTests
     }
 
     [Fact]
+    public void Lookups_RepeatedOnASharedDocument_AnswerWithTheSameValues()
+    {
+        var document = Parse(DidDocs.AtprotoDotCom);
+
+        Assert.Same(document.GetPdsEndpoint(), document.GetPdsEndpoint());
+        Assert.Equal(DidDocumentEntryStatus.Found, document.TryGetVerificationKey("#atproto", out var first));
+        Assert.Equal(DidDocumentEntryStatus.Found, document.TryGetVerificationKey("#atproto", out var second));
+        Assert.Equal(first, second);
+        Assert.Equal(first, document.GetSigningKey());
+    }
+
+    [Fact]
     public void Deserialize_SingleStringContextAndInlineContextObjects_AreTolerated()
     {
         var single = Parse("""{"@context":"https://www.w3.org/ns/did/v1","id":"did:web:example.com"}""");
