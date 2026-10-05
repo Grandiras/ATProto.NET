@@ -47,9 +47,14 @@ ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore<TContext>.GetSpa
 ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore<TContext>.ListReposAsync(ATProtoNet.Spaces.SpaceUri! space, int limit, string? cursor, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Com.AtProto.Space.ListSpaceReposResponse!>!
 ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore<TContext>.ListSubscribersAsync(ATProtoNet.Spaces.SpaceUri! space, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<ATProtoNet.Server.Spaces.SpaceNotifySubscriber!>!>!
 ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore<TContext>.MarkDeletedAsync(ATProtoNet.Spaces.SpaceUri! space, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
-ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore<TContext>.RecordWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! rev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore<TContext>.RecordWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repoDid, ATProtoNet.Identity.Tid! repoRev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Server.Spaces.SpaceWriteSequence?>!
 ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore<TContext>.RegisterNotifyAsync(ATProtoNet.Spaces.SpaceUri! space, string! service, System.DateTimeOffset expiresAt, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceAuthorityStore<TContext>.UnregisterNotifyAsync(ATProtoNet.Spaces.SpaceUri! space, string! service, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceCredentialRevocationStore<TContext>
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceCredentialRevocationStore<TContext>.EfCoreSpaceCredentialRevocationStore(Microsoft.EntityFrameworkCore.IDbContextFactory<TContext!>! contextFactory, Microsoft.Extensions.Logging.ILogger<ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceCredentialRevocationStore<TContext!>!>? logger = null) -> void
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceCredentialRevocationStore<TContext>.EfCoreSpaceCredentialRevocationStore(Microsoft.EntityFrameworkCore.IDbContextFactory<TContext!>! contextFactory, System.TimeProvider! timeProvider, Microsoft.Extensions.Logging.ILogger<ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceCredentialRevocationStore<TContext!>!>? logger = null) -> void
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceCredentialRevocationStore<TContext>.IsRevokedAsync(ATProtoNet.Spaces.SpaceUri! space, string! credentialId, System.DateTimeOffset now, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceCredentialRevocationStore<TContext>.RevokeAsync(ATProtoNet.Spaces.SpaceUri! space, System.Collections.Generic.IReadOnlyCollection<string!>! credentialIds, System.DateTimeOffset retainUntil, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 ATProtoNet.Server.EntityFrameworkCore.JtiReplayDbContext
 ATProtoNet.Server.EntityFrameworkCore.JtiReplayDbContext.AtProtoJtiReplay.get -> Microsoft.EntityFrameworkCore.DbSet<ATProtoNet.Server.EntityFrameworkCore.JtiReplayEntity!>!
 ATProtoNet.Server.EntityFrameworkCore.JtiReplayDbContext.JtiReplayDbContext(Microsoft.EntityFrameworkCore.DbContextOptions! options) -> void
@@ -104,10 +109,19 @@ ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceMemberEntity.Space.get -> strin
 ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceMemberEntity.Space.set -> void
 ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceMemberEntity.Write.get -> bool
 ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceMemberEntity.Write.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceCredentialRevocationEntity
+ATProtoNet.Server.EntityFrameworkCore.SpaceCredentialRevocationEntity.CredentialId.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.SpaceCredentialRevocationEntity.CredentialId.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceCredentialRevocationEntity.RetainUntil.get -> long
+ATProtoNet.Server.EntityFrameworkCore.SpaceCredentialRevocationEntity.RetainUntil.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceCredentialRevocationEntity.Space.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.SpaceCredentialRevocationEntity.Space.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceCredentialRevocationEntity.SpaceCredentialRevocationEntity() -> void
 ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext
 ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.AtProtoJtiReplay.get -> Microsoft.EntityFrameworkCore.DbSet<ATProtoNet.Server.EntityFrameworkCore.JtiReplayEntity!>!
 ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.AtProtoSimpleSpaceMembers.get -> Microsoft.EntityFrameworkCore.DbSet<ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceMemberEntity!>!
 ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.AtProtoSimpleSpaces.get -> Microsoft.EntityFrameworkCore.DbSet<ATProtoNet.Server.EntityFrameworkCore.SimpleSpaceEntity!>!
+ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.AtProtoSpaceCredentialRevocations.get -> Microsoft.EntityFrameworkCore.DbSet<ATProtoNet.Server.EntityFrameworkCore.SpaceCredentialRevocationEntity!>!
 ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.AtProtoSpaces.get -> Microsoft.EntityFrameworkCore.DbSet<ATProtoNet.Server.EntityFrameworkCore.SpaceEntity!>!
 ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.AtProtoSpaceSubscribers.get -> Microsoft.EntityFrameworkCore.DbSet<ATProtoNet.Server.EntityFrameworkCore.SpaceSubscriberEntity!>!
 ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.AtProtoSpaceWriters.get -> Microsoft.EntityFrameworkCore.DbSet<ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity!>!
@@ -116,6 +130,8 @@ ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.SpaceDbContext(Microsoft.En
 ATProtoNet.Server.EntityFrameworkCore.SpaceEntity
 ATProtoNet.Server.EntityFrameworkCore.SpaceEntity.Deleted.get -> bool
 ATProtoNet.Server.EntityFrameworkCore.SpaceEntity.Deleted.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceEntity.LastSpaceRev.get -> string?
+ATProtoNet.Server.EntityFrameworkCore.SpaceEntity.LastSpaceRev.set -> void
 ATProtoNet.Server.EntityFrameworkCore.SpaceEntity.Space.get -> string!
 ATProtoNet.Server.EntityFrameworkCore.SpaceEntity.Space.set -> void
 ATProtoNet.Server.EntityFrameworkCore.SpaceEntity.SpaceEntity() -> void
@@ -133,10 +149,12 @@ ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.Did.get -> string!
 ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.Did.set -> void
 ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.Hash.get -> byte[]!
 ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.Hash.set -> void
-ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.Rev.get -> string!
-ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.Rev.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.RepoRev.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.RepoRev.set -> void
 ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.Space.get -> string!
 ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.Space.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.SpaceRev.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.SpaceRev.set -> void
 ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.SpaceWriterEntity() -> void
 override ATProtoNet.Server.EntityFrameworkCore.AtProtoTokenDbContext.OnModelCreating(Microsoft.EntityFrameworkCore.ModelBuilder! modelBuilder) -> void
 override ATProtoNet.Server.EntityFrameworkCore.JtiReplayDbContext.OnModelCreating(Microsoft.EntityFrameworkCore.ModelBuilder! modelBuilder) -> void
@@ -150,6 +168,8 @@ static ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateDbContext.ConfigureRep
 static ATProtoNet.Server.EntityFrameworkCore.RepoSyncStateStoreExtensions.AddAtProtoEfCoreRepoSyncStateStore<TContext>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.ConfigureSimpleSpaceModel(Microsoft.EntityFrameworkCore.ModelBuilder! modelBuilder) -> void
 static ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.ConfigureSpaceAuthorityModel(Microsoft.EntityFrameworkCore.ModelBuilder! modelBuilder) -> void
+static ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.ConfigureSpaceCredentialRevocationModel(Microsoft.EntityFrameworkCore.ModelBuilder! modelBuilder) -> void
 static ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.ConfigureSpaceModel(Microsoft.EntityFrameworkCore.ModelBuilder! modelBuilder) -> void
 static ATProtoNet.Server.EntityFrameworkCore.SpaceStoreExtensions.AddAtProtoEfCoreSimpleSpace<TContext>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static ATProtoNet.Server.EntityFrameworkCore.SpaceStoreExtensions.AddAtProtoEfCoreSpaceAuthority<TContext>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, ATProtoNet.Crypto.AtProtoKey! signingKey) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static ATProtoNet.Server.EntityFrameworkCore.SpaceStoreExtensions.AddAtProtoEfCoreSpaceCredentialRevocationStore<TContext>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
