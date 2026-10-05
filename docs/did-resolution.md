@@ -115,22 +115,23 @@ The resolver queries both of the handle's authorities concurrently, under one
 1. DNS TXT at `_atproto.alice.bsky.social`, over DNS-over-HTTPS;
 2. `GET https://alice.bsky.social/.well-known/atproto-did`.
 
-The two are different trust roots — DNS and a TLS certificate — so when both answer they must
-agree: a disagreement fails closed with `Kind == HandleConflict` rather than picking one, and so
-do two distinct `did=` values in DNS. When only one answers, its answer is used; when neither
-does, the result is `null`. The well-known request follows up to three HTTPS redirects on the
-handle's own host; one to another host or to plain HTTP, a response larger than 2 KiB, or any
-failure to read it counts as no answer. Handles under TLDs that never resolve (`.local`, `.localhost`,
-`.internal`, `.arpa`, `.onion`, `.alt`, `.example`, `.invalid`) are not looked up; `.test` is,
-under the development opt-out only.
+DNS is preferred, as the handle spec recommends: its answer is returned as soon as it arrives and
+the HTTPS lookup is cancelled, so a handle configured in DNS never waits for its web host. The
+HTTPS answer is used only when DNS has none; when neither answers, the result is `null`. Two
+distinct `did=` values in DNS fail with `Kind == HandleConflict`. The well-known request follows up
+to three HTTPS redirects on the handle's own host; one to another host or to plain HTTP, a response
+larger than 2 KiB, or any failure to read it counts as no answer. Handles under TLDs that never
+resolve (`.local`, `.localhost`, `.internal`, `.arpa`, `.onion`, `.alt`, `.example`, `.invalid`)
+are not looked up; `.test` is, under the development opt-out only.
 
 An answer is remembered for `HandleCacheTtl` (5 minutes by default; `TimeSpan.Zero` turns the
 cache off), so verifying the same handle again costs no lookup. "No answer" and conflicts are
 not remembered, and `IdentityResolver.ResolveUncachedAsync` looks the handle up afresh.
 
 .NET has no TXT lookup of its own, so the DNS query goes to a DNS-over-HTTPS endpoint, which
-learns every handle resolved. It defaults to `https://dns.google/resolve`; point it at a resolver
-you run or trust, or disable DNS resolution:
+learns every handle resolved and, because its answer is preferred, decides which DID a handle names
+(the DID document must still claim the handle back). It defaults to `https://dns.google/resolve`;
+point it at a resolver you run or trust, or disable DNS resolution:
 
 ```csharp
 var options = new IdentityResolverOptions
@@ -249,7 +250,7 @@ catch (DidResolutionException ex) when (ex.Kind is DidResolutionErrorKind.NotFou
 | `ResponseTooLarge` | The response exceeded the cap |
 | `InvalidDocument` | Malformed JSON (including a `null` list entry), a body that does not decode, or an `id` other than the DID asked for |
 | `HandleNotFound` | A handle identifier resolved to no DID |
-| `HandleConflict` | The handle's authorities disagree |
+| `HandleConflict` | The handle publishes more than one DID in DNS |
 | `OperationRejected` | The PLC directory rejected a submitted operation |
 
 ## The DID document model

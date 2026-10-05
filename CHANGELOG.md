@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Handle resolution prefers DNS** — a DNS TXT answer is returned at once instead of waiting for the handle's web host, as the handle spec recommends; the HTTPS well-known counts only when DNS has none, and no longer fails a DNS answer it disagrees with (#193)
 - **Leaner Lexicon clients** — the generated-style XRPC clients, the PDS admin client, the Aspire hosting extensions and the Lexicon tool build their requests as single expressions, with no change to the public API or behaviour. About 650 fewer lines (#196)
 - **Leaner auth and server layers** — Braces, forwarding fields and form-building callbacks are gone from the OAuth client, session manager and ASP.NET Core integration; behavior and public API are unchanged (#204)
 - **Identity fetches use HTTP/2** — DID document, PLC, well-known and DNS-over-HTTPS requests ask for HTTP/2 and fall back to 1.1, so concurrent lookups against one host share a connection; a burst of PLC lookups resolves about 40% faster (#197)

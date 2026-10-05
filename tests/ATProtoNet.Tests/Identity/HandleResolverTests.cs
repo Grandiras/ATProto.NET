@@ -9,7 +9,7 @@ namespace ATProtoNet.Tests.Identity;
 
 /// <summary>
 /// Handle resolution through the handle's own authorities: the two lookups racing under one
-/// budget, the fail-closed conflict policy, the configurable DNS-over-HTTPS endpoint, and the
+/// budget, DNS answers preferred over HTTPS, the configurable DNS-over-HTTPS endpoint, and the
 /// hardening of the untrusted <c>/.well-known/atproto-did</c> response.
 /// </summary>
 public class HandleResolverTests
@@ -70,15 +70,29 @@ public class HandleResolverTests
     }
 
     [Fact]
-    public async Task ResolveAsync_AuthoritiesDisagree_FailsClosed()
+    public async Task ResolveAsync_AuthoritiesDisagree_DnsWins()
     {
         using var resolver = Create((request, _) => Task.FromResult(IsWellKnown(request)
             ? HttpStub.Text("did:plc:impostorimpostorimpostor")
             : HttpStub.TxtAnswer($"\"did={AliceDid}\"")), out _);
 
-        var ex = await Assert.ThrowsAsync<DidResolutionException>(() => resolver.ResolveAsync(Alice));
+        Assert.Equal(AliceDid, await resolver.ResolveAsync(Alice));
+    }
 
-        Assert.Equal(DidResolutionErrorKind.HandleConflict, ex.Kind);
+    [Fact]
+    public async Task ResolveAsync_DnsAnswers_DoesNotWaitForHttps()
+    {
+        using var resolver = Create(
+            (request, ct) => IsWellKnown(request)
+                ? HttpStub.Never(ct)
+                : Task.FromResult(HttpStub.TxtAnswer($"\"did={AliceDid}\"")),
+            out _,
+            new IdentityResolverOptions { HandleResolutionTimeout = TimeSpan.FromMinutes(1) });
+
+        var stopwatch = Stopwatch.StartNew();
+
+        Assert.Equal(AliceDid, await resolver.ResolveAsync(Alice));
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(10), $"Took {stopwatch.Elapsed}.");
     }
 
     [Fact]

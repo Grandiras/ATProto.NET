@@ -46,8 +46,8 @@ public interface IHandleResolver
     /// <summary>Resolves a handle to a DID.</summary>
     /// <returns>The DID, or <see langword="null"/> when no authority answered with one.</returns>
     /// <exception cref="DidResolutionException">
-    /// Thrown with <see cref="DidResolutionErrorKind.HandleConflict"/> when the authorities
-    /// disagree.
+    /// Thrown with <see cref="DidResolutionErrorKind.HandleConflict"/> when the handle publishes
+    /// more than one DID in DNS.
     /// </exception>
     Task<Did?> ResolveAsync(Handle handle, CancellationToken cancellationToken = default);
 }
@@ -60,7 +60,8 @@ public interface IIdentityResolver
     /// <returns>The identity.</returns>
     /// <exception cref="DidResolutionException">
     /// Thrown when the DID cannot be resolved, or a handle identifier resolves to no DID
-    /// (<see cref="DidResolutionErrorKind.HandleNotFound"/>) or to conflicting ones.
+    /// (<see cref="DidResolutionErrorKind.HandleNotFound"/>) or to several DIDs in DNS
+    /// (<see cref="DidResolutionErrorKind.HandleConflict"/>).
     /// </exception>
     Task<ResolvedIdentity> ResolveAsync(AtIdentifier identifier, CancellationToken cancellationToken = default);
 

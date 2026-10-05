@@ -11,11 +11,11 @@ namespace ATProtoNet.Identity;
 /// <para>Both lookups run concurrently under one
 /// <see cref="IdentityResolverOptions.HandleResolutionTimeout"/> budget, so a handle domain that
 /// never answers turns into "no answer" rather than holding the caller.</para>
-/// <para>The two authorities are different trust roots — DNS and a TLS certificate — so when both
-/// answer they must agree. A first-answer-wins policy would let an attacker who controls either
-/// one (a hijacked web host for a domain whose DNS is intact) complete resolution alone, so a
-/// disagreement fails closed with <see cref="DidResolutionErrorKind.HandleConflict"/>. When only
-/// one answers, its answer is used.</para>
+/// <para>DNS is preferred, as the handle specification recommends: a DNS answer is returned as soon as
+/// it arrives, without waiting for the web host, and the HTTPS answer is used only when DNS has
+/// none. Control of a domain's DNS already implies control of what its web host serves. Several
+/// distinct <c>did=</c> records in DNS fail with
+/// <see cref="DidResolutionErrorKind.HandleConflict"/>.</para>
 /// <para>Handles under TLDs that never resolve (<c>.local</c>, <c>.localhost</c>, <c>.internal</c>,
 /// <c>.arpa</c>, <c>.onion</c>, <c>.alt</c>, <c>.example</c>, <c>.invalid</c>) are not looked up;
 /// <c>.test</c> is looked up only under the development opt-out.</para>
@@ -92,35 +92,23 @@ public sealed class HandleResolver : IHandleResolver, IDisposable
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         budget.CancelAfter(_options.HandleResolutionTimeout);
 
+        // DNS is the preferred authority, as the handle spec recommends: its answer stands at once, and the
+        // concurrent HTTPS lookup is consulted only when DNS has none.
         var httpsTask = ResolveViaHttpsAsync(handle, budget.Token, cancellationToken);
-        var dnsTask = _dnsOverHttpsUrl is null
-            ? Task.FromResult<Did?>(null)
-            : ResolveViaDnsAsync(handle, _dnsOverHttpsUrl, budget.Token, cancellationToken);
-
+        Did? answer;
         try
         {
-            await Task.WhenAll(httpsTask, dnsTask).ConfigureAwait(false);
+            answer = (_dnsOverHttpsUrl is null ? null
+                    : await ResolveViaDnsAsync(handle, _dnsOverHttpsUrl, budget.Token, cancellationToken).ConfigureAwait(false))
+                ?? await httpsTask.ConfigureAwait(false);
         }
-        catch
+        finally
         {
-            // Observed below: caller cancellation and a DNS conflict propagate, and whichever of
-            // the two failed first must not leave the other's outcome unobserved.
+            // Stops an HTTPS lookup the DNS answer made moot; it reports every failure as no answer.
+            await budget.CancelAsync().ConfigureAwait(false);
+            await ((Task)httpsTask).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
         }
 
-        var httpsDid = await httpsTask.ConfigureAwait(false);
-        var dnsDid = await dnsTask.ConfigureAwait(false);
-
-        if (httpsDid is not null && dnsDid is not null && httpsDid != dnsDid)
-        {
-            _logger.LogWarning(
-                "Handle {Handle} resolves to conflicting DIDs (HTTPS {HttpsDid}, DNS {DnsDid}); failing closed.",
-                handle, httpsDid, dnsDid);
-            throw new DidResolutionException(
-                $"Handle '{handle}' resolution conflict: HTTPS reports '{httpsDid}', DNS reports '{dnsDid}'.",
-                DidResolutionErrorKind.HandleConflict);
-        }
-
-        var answer = httpsDid ?? dnsDid;
         if (answer is not null)
             _answers?.Set(handle, (answer, Environment.TickCount64 + (long)_options.HandleCacheTtl.TotalMilliseconds));
         return answer;

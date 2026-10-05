@@ -36,7 +36,7 @@ public enum DidResolutionErrorKind
     /// <summary>Neither DNS nor HTTPS resolved the handle to a DID.</summary>
     HandleNotFound,
 
-    /// <summary>The handle's DNS and HTTPS answers name different DIDs, or its DNS answer names more than one. Resolution fails closed rather than picking one.</summary>
+    /// <summary>The handle's DNS answer names more than one DID. Resolution fails closed rather than picking one.</summary>
     HandleConflict,
 
     /// <summary>The PLC directory rejected a submitted operation.</summary>

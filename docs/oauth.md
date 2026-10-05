@@ -808,8 +808,8 @@ For the identity steps on their own (DID document, verified handle, PDS), use an
 
 Handle resolution consults only the handle's own authorities, DNS TXT (over a configurable
 DNS-over-HTTPS endpoint) and the HTTPS well-known, concurrently and within `HandleResolutionTimeout`.
-When both answer they must agree, and a disagreement fails with `handle_resolution_conflict`; no third
-party such as an AppView is asked.
+A DNS answer wins at once, the well-known counts only when DNS has none, and several DIDs in DNS fail
+with `handle_resolution_conflict`; no third party such as an AppView is asked.
 
 ## DPoP Key Management
 
@@ -877,7 +877,7 @@ catch (OAuthException ex)
 | `invalid_did` | The DID is malformed, or the identity fetch policy refuses it (a private host, a port, a path-based `did:web`) |
 | `unsupported_did_method` | The DID uses a method other than `did:plc` / `did:web` |
 | `handle_resolution_failed` | The handle resolves to no DID |
-| `handle_resolution_conflict` | HTTPS and DNS resolution returned different DIDs |
+| `handle_resolution_conflict` | The handle publishes more than one DID in DNS |
 | `did_resolution_failed` | The DID document could not be fetched, or is not the requested DID's |
 | `pds_not_found` | The DID document declares no PDS service endpoint |
 | `invalid_server_url` | A PDS, authorization server or endpoint URL the fetch policy refuses (not HTTPS, a query or fragment, a private address) |
