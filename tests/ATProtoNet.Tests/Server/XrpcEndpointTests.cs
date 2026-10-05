@@ -717,7 +717,7 @@ public class XrpcEndpointRegistrationTests
         var scanned = Registry(new ServiceCollection().AddXrpcEndpointsFromAssembly(typeof(SpaceNsids).Assembly))
             .Registrations;
 
-        Assert.Equal(20, registered.Count);
+        Assert.Equal(21, registered.Count);
         Assert.Equal(Describe(registered), Describe(scanned));
     }
 

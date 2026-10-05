@@ -51,6 +51,18 @@ public class SpaceStoreRegistrationTests : IDisposable
     }
 
     [Fact]
+    public void AddAtProtoEfCoreSpaceCredentialRevocationStore_AfterAddAtProtoSpaces_Wins()
+    {
+        var services = Services();
+        services.AddAtProtoSpaces();
+        services.AddAtProtoEfCoreSpaceCredentialRevocationStore<SpaceDbContext>();
+
+        using var provider = services.BuildServiceProvider();
+
+        Assert.IsType<EfCoreSpaceCredentialRevocationStore<SpaceDbContext>>(provider.GetRequiredService<ISpaceCredentialRevocationStore>());
+    }
+
+    [Fact]
     public void AddAtProtoEfCoreSimpleSpace_RegistersTheStoreAndTheBaselinePolicy()
     {
         var services = Services();

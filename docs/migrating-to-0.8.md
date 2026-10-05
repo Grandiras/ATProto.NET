@@ -154,3 +154,18 @@ using ATProtoNet.Server.Spaces;
 
 builder.Services.AddAtProtoSpaces(options => options.CredentialLifetime = TimeSpan.FromMinutes(30));
 ```
+
+### Credential revocation
+
+Repo hosts now serve `com.atproto.space.notifyCredentialRevoked` and refuse a revoked credential with
+`CredentialRevoked` (see [Revoking credentials](spaces.md#revoking-credentials)). `AddSpaceRepoHost` registers the
+endpoint, so your host has to answer one new question.
+
+- `ISpaceRepoHost` gains `HostsAccountAsync(Did, CancellationToken)`: whether the account's repo is hosted
+  here, deactivated and taken-down accounts included. Implement it over your account store.
+- `SpaceCredentialVerifier` takes an optional `ISpaceCredentialRevocationStore`, which `AddAtProtoSpaces`
+  supplies. The in-process default forgets revocations on restart and logs a warning at startup; use
+  `AddAtProtoEfCoreSpaceCredentialRevocationStore<TContext>()` when more than one instance serves spaces.
+- The EF Core schema gains the `AtProtoSpaceCredentialRevocations` table
+  (`SpaceDbContext.ConfigureSpaceCredentialRevocationModel`, part of `ConfigureSpaceModel`); add a migration.
+  A context of your own that calls only the narrower `Configure*` methods needs the new one only if it stores revocations.

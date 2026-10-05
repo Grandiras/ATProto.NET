@@ -14,9 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Spaces `type` is `spaceType`** — `createSpace` and `listSpaces` take `spaceType` on the wire; `CreateSimpleSpaceRequest.Type` and the `type` parameters of `CreateSpaceAsync` and `ListSpacesAsync` are renamed. Migration: rename them; see `docs/migrating-to-0.8.md` (#211)
 - **Spaces requests are signed with HTTP message signatures, not DPoP** — a credential binds to a P-256 key (`cnf.kid`); each request carries `Authorization: Atproto-Space`, `Atproto-Space-Audience` and a signature. Migration: remove `DPoPProofValidator`, `ProofLifetime` and `PublicBaseUrl`; see `docs/migrating-to-0.8.md` (#212)
 - **Space credentials last ten minutes** — at most an hour, with `jti` and `iat` required, and `SpaceCredentialProvider` renews by the real expiry. Migration: `SpaceServerOptions.CredentialLifetime` now defaults to 10 minutes; set it to keep another value (#212)
+- **`ISpaceRepoHost` gains `HostsAccountAsync`** — a repo host says whether an account is hosted there, so it can tell which revocations are addressed to it. Migration: implement it, and migrate the EF schema for `AtProtoSpaceCredentialRevocations`; see `docs/migrating-to-0.8.md` (#214)
 
 ### Added
 
+- **Spaces credential revocation** — `notifyCredentialRevoked`: repo hosts record `(space, jti)` for 3610 s and refuse the credential with `CredentialRevoked`; authorities revoke with `SpaceCredentialRevoker`, stores in memory and EF Core (#214)
 - **Lexicons synced with upstream `main`** — `since`/`StartCursor` for polling the timeline and list feeds, `sort` for quotes, a post's position in its author's thread, queue `recommendedLabels`, and the new report statistics (#210)
 - **`Ozone.Inbox`** — `AppealActionedSubjectAsync` lets an account appeal a moderation action against it or its content (`tools.ozone.inbox`) (#210)
 - **Spaces write retry and syncer catch-up** — `NotifyWriteInBackground` retries with backoff; `notifyWrite` answers `FutureRev`, ignores a stale `repoRev`; `SpaceSyncer.ListChangedReposAsync` and `NeedsCatchUp` resume from a `spaceRev` checkpoint (#213)

@@ -10,7 +10,8 @@ namespace ATProtoNet.Server.EntityFrameworkCore;
 /// <remarks>
 /// <para>Use this context as-is, or add the entities to a context you already have by calling
 /// <see cref="ConfigureSpaceModel(ModelBuilder)"/> — or the narrower
-/// <see cref="ConfigureSpaceAuthorityModel"/>, <see cref="ConfigureSimpleSpaceModel"/> and
+/// <see cref="ConfigureSpaceAuthorityModel"/>, <see cref="ConfigureSimpleSpaceModel"/>,
+/// <see cref="ConfigureSpaceCredentialRevocationModel"/> and
 /// <see cref="JtiReplayDbContext.ConfigureJtiReplayModel"/> — from your own
 /// <c>OnModelCreating</c>. A service that is an authority but not a repo host, or that keeps its
 /// replay entries elsewhere, only needs the parts it registers.</para>
@@ -43,6 +44,9 @@ public class SpaceDbContext : DbContext
     /// </summary>
     public DbSet<JtiReplayEntity> AtProtoJtiReplay => Set<JtiReplayEntity>();
 
+    /// <summary>The space credentials revoked by their authority, for <see cref="EfCoreSpaceCredentialRevocationStore{TContext}"/>.</summary>
+    public DbSet<SpaceCredentialRevocationEntity> AtProtoSpaceCredentialRevocations => Set<SpaceCredentialRevocationEntity>();
+
     /// <summary>Creates a new <see cref="SpaceDbContext"/>.</summary>
     /// <param name="options">The context options.</param>
     public SpaceDbContext(DbContextOptions<SpaceDbContext> options) : base(options)
@@ -69,6 +73,7 @@ public class SpaceDbContext : DbContext
     {
         ConfigureSpaceAuthorityModel(modelBuilder);
         ConfigureSimpleSpaceModel(modelBuilder);
+        ConfigureSpaceCredentialRevocationModel(modelBuilder);
         JtiReplayDbContext.ConfigureJtiReplayModel(modelBuilder);
     }
 
@@ -155,6 +160,26 @@ public class SpaceDbContext : DbContext
             // true for existing rows instead — see docs/spaces.md.
             entity.Property(e => e.Read);
             entity.Property(e => e.Write);
+        });
+    }
+
+    /// <summary>
+    /// Applies the configuration <see cref="EfCoreSpaceCredentialRevocationStore{TContext}"/> needs:
+    /// the revoked credentials.
+    /// </summary>
+    public static void ConfigureSpaceCredentialRevocationModel(ModelBuilder modelBuilder)
+    {
+        ArgumentNullException.ThrowIfNull(modelBuilder);
+
+        modelBuilder.Entity<SpaceCredentialRevocationEntity>(entity =>
+        {
+            entity.ToTable("AtProtoSpaceCredentialRevocations");
+            entity.HasKey(e => new { e.Space, e.CredentialId });
+            entity.Property(e => e.Space).HasMaxLength(512);
+            entity.Property(e => e.CredentialId).HasMaxLength(255);
+
+            // The sweep deletes by retention across every space, so it needs its own index.
+            entity.HasIndex(e => e.RetainUntil);
         });
     }
 }

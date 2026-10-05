@@ -200,3 +200,5 @@ static ATProtoNet.Spaces.SpaceSyncer.NeedsCatchUp(ATProtoNet.Identity.Tid? check
 static ATProtoNet.Spaces.SpaceTokens.Create(ATProtoNet.Spaces.SpaceTokenType type, string! issuer, string! subject, ATProtoNet.Crypto.AtProtoKey! signingKey, string? audience = null, string? confirmationKeyId = null, System.TimeSpan? lifetime = null, string? keyId = null) -> string!
 *REMOVED*static ATProtoNet.Spaces.SpaceTokens.Create(ATProtoNet.Spaces.SpaceTokenType type, string! issuer, string! subject, ATProtoNet.Crypto.AtProtoKey! signingKey, string? audience = null, string? dpopThumbprint = null, System.TimeSpan? lifetime = null, string? keyId = null) -> string!
 static readonly ATProtoNet.Spaces.SpaceTokens.MaxCredentialLifetime -> System.TimeSpan
+ATProtoNet.Lexicon.Com.AtProto.Space.SpaceClient.NotifyCredentialRevokedAsync(ATProtoNet.Spaces.SpaceUri! space, System.Collections.Generic.IReadOnlyList<string!>! credentials, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+const ATProtoNet.Lexicon.Com.AtProto.Space.SpaceErrors.CredentialRevoked = "CredentialRevoked" -> string!

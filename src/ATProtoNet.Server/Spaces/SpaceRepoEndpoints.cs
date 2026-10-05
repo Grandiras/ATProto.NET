@@ -1,10 +1,14 @@
 using System.Net;
+using ATProtoNet.Auth;
 using ATProtoNet.Http;
 using ATProtoNet.Identity;
 using ATProtoNet.Lexicon.Com.AtProto.Space;
+using ATProtoNet.Serialization;
+using ATProtoNet.Server.Authentication;
 using ATProtoNet.Server.Xrpc;
 using ATProtoNet.Spaces;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ATProtoNet.Server.Spaces;
 
@@ -205,4 +209,109 @@ internal sealed class GetSpaceBlobEndpoint(SpaceRequestAuthenticator authenticat
 
         return new XrpcBlobResult(blob.Content, blob.MimeType, blob.Length);
     }
+}
+
+// Serves com.atproto.space.notifyCredentialRevoked: a space's authority telling this repo host that credentials it
+// issued are revoked.
+//
+// Authenticated with service auth, not a space credential: the caller is the authority, not a reader. The token
+// is checked by ServiceAuthVerifier under SpaceServerOptions.ClockSkew and MaxSingleUseTokenLifetime, for this
+// method (lxm) and for an audience that is a repo DID, and then two more things, each refused with 403:
+//
+//   - the token's iss is the space's own authority. Only that DID mints credentials for the space, so only it
+//     may revoke them, and the check is what keeps any other service from locking readers out of a space;
+//   - the audience is an account hosted here, as the reference host requires. A host records nothing it was not
+//     addressed to, and a service DID or an account elsewhere is no address.
+//
+// The jtis are opaque, and an unknown one is recorded like any other, since a revocation may reach a host before
+// the credential does. Entries are kept for the longest a credential can verify (see SpaceCredentialRevocation),
+// and the call is idempotent.
+[AuthenticatesItself]
+internal sealed class NotifyCredentialRevokedEndpoint(
+    [FromKeyedServices(SpaceServerExtensions.DidResolverKey)] IDidResolver resolver,
+    IJtiReplayStore replayStore,
+    ISpaceRepoHost repoHost,
+    ISpaceCredentialRevocationStore revocations,
+    SpaceServerOptions options,
+    TimeProvider? timeProvider = null)
+    : IXrpcProcedureVoid<NotifyCredentialRevokedRequest>
+{
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+
+    private readonly ServiceAuthVerifier _serviceAuth = new(
+        resolver,
+        replayStore,
+        new ServiceAuthVerifierOptions { ClockSkew = options.ClockSkew, MaxTokenLifetime = options.MaxSingleUseTokenLifetime },
+        timeProvider);
+
+    public static Nsid Nsid { get; } = Nsid.Parse(SpaceNsids.NotifyCredentialRevoked);
+
+    public async Task HandleAsync(
+        NotifyCredentialRevokedRequest input, HttpContext context, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        // Malformed input is refused before any auth check, as the Lexicon's own types would be.
+        var space = SpaceRequestValidation.RequireSpace(input.Space);
+        var credentials = input.Credentials;
+        // An identifier no credential could carry would only take up room in the store.
+        if (credentials is not { Count: >= 1 and <= NotifyCredentialRevokedRequest.MaxCredentials } || !credentials.All(Jwt.IsUsableTokenId))
+            throw new XrpcException(
+                XrpcErrors.InvalidRequest,
+                $"The \"credentials\" field must hold between 1 and {NotifyCredentialRevokedRequest.MaxCredentials} credential identifiers (jti).");
+
+        var caller = await VerifyCallerAsync(context, cancellationToken).ConfigureAwait(false);
+
+        if (caller.Issuer != space.Authority)
+            throw new SpaceVerificationException(
+                SpaceErrors.NotAuthorized,
+                $"A credential revocation for {space} must be signed by its authority, not by '{caller.Issuer}'.",
+                HttpStatusCode.Forbidden);
+
+        // Looked up after the signature, so an unauthenticated caller cannot probe which accounts this host holds.
+        if (!await repoHost.HostsAccountAsync(Did.Parse(caller.Audience), cancellationToken).ConfigureAwait(false))
+            throw new SpaceVerificationException(
+                SpaceErrors.NotAuthorized,
+                $"'{caller.Audience}' is not an account hosted here.",
+                HttpStatusCode.Forbidden);
+
+        await revocations.RevokeAsync(
+            space, credentials, SpaceCredentialRevocation.RetainUntil(_timeProvider.GetUtcNow(), options), cancellationToken).ConfigureAwait(false);
+    }
+
+    // Verifies the request's service auth, whose audience is the repo DID it is addressed to, reporting a refusal
+    // as SpaceErrors.NotAuthorized.
+    private async Task<VerifiedServiceAuth> VerifyCallerAsync(HttpContext context, CancellationToken cancellationToken)
+    {
+        var token = AuthorizationHeader.Bearer(context.Request)
+            ?? throw new SpaceVerificationException(
+                SpaceErrors.NotAuthorized, "A credential revocation is authenticated with a Bearer service auth token.");
+
+        // The audience varies with the repo the authority addresses, so it is read from the token to hand to the
+        // verifier, which refuses the token unless its signature covers that audience.
+        if (!Jwt.TryDecode(token, out var decoded, out _) ||
+            decoded.Payload.GetStringOrNull("aud") is not { } audience || !Did.TryParse(audience, out _))
+            throw new SpaceVerificationException(
+                SpaceErrors.NotAuthorized, "A credential revocation is addressed to a repo DID.");
+
+        try
+        {
+            return await _serviceAuth.VerifyAsync(token, [audience], Nsid, cancellationToken).ConfigureAwait(false);
+        }
+        catch (ServiceAuthException ex)
+        {
+            throw new SpaceVerificationException(SpaceErrors.NotAuthorized, ex.ErrorMessage ?? ex.Error, ex);
+        }
+    }
+}
+
+// What a repo host retains a revocation for.
+internal static class SpaceCredentialRevocation
+{
+    // The longest a credential can verify: its lifetime ceiling, plus the clock skew allowed at issuance and again
+    // at expiry. A revocation dropped sooner would revive the credential. Bluesky's 3600 + 2 x 5 s = 3610 s.
+    // Credentials are checked with SpaceTokens.DefaultClockSkew whatever ClockSkew says, so the larger counts.
+    public static DateTimeOffset RetainUntil(DateTimeOffset now, SpaceServerOptions options) =>
+        now + SpaceTokens.MaxCredentialLifetime
+            + 2 * (options.ClockSkew > SpaceTokens.DefaultClockSkew ? options.ClockSkew : SpaceTokens.DefaultClockSkew);
 }

@@ -42,11 +42,28 @@ public class InMemoryDefaultsWarningTests
         // Registering the in-memory store yourself is the choice that silences it.
         var logs = new CapturingLoggerProvider();
         var services = BuildServices(logs, "spaces", s =>
-            s.AddSingleton<IJtiReplayStore>(inMemory ? new InMemoryJtiReplayStore() : new SharedReplayStore()));
+        {
+            s.AddSingleton<IJtiReplayStore>(inMemory ? new InMemoryJtiReplayStore() : new SharedReplayStore());
+            s.AddSingleton<ISpaceCredentialRevocationStore>(new InMemorySpaceCredentialRevocationStore());
+        });
 
         await StartAsync(services);
 
         Assert.Empty(logs.Entries);
+    }
+
+    [Fact]
+    public async Task StartAsync_WithTheDefaultRevocationStore_Warns()
+    {
+        // A revocation forgotten on restart or unseen by another instance un-revokes a credential, silently.
+        var logs = new CapturingLoggerProvider();
+        var services = BuildServices(logs, "spaces", s => s.AddSingleton<IJtiReplayStore>(new SharedReplayStore()));
+
+        await StartAsync(services);
+
+        var warning = Assert.Single(logs.Entries);
+        Assert.Equal(LogLevel.Warning, warning.Level);
+        Assert.Contains("AddAtProtoEfCoreSpaceCredentialRevocationStore", warning.Message);
     }
 
     [Fact]
@@ -58,6 +75,7 @@ public class InMemoryDefaultsWarningTests
         var services = BuildServices(logs, "spaces", s =>
         {
             s.AddSingleton<IJtiReplayStore>(new SharedReplayStore());
+            s.AddSingleton<ISpaceCredentialRevocationStore>(new InMemorySpaceCredentialRevocationStore());
             s.AddSingleton<ISimpleSpaceStore>(new InMemorySimpleSpaceStore());
             s.AddSingleton<ISpaceAuthorityStore>(new InMemorySpaceAuthorityStore());
         });
@@ -79,6 +97,7 @@ public class InMemoryDefaultsWarningTests
         builder.Services.AddLogging(logging => logging.AddProvider(logs));
         Register(builder.Services, registration);
         builder.Services.AddScoped<IJtiReplayStore, SharedReplayStore>();
+        builder.Services.AddScoped<ISpaceCredentialRevocationStore, InMemorySpaceCredentialRevocationStore>();
         using var host = builder.Build();
 
         await host.StartAsync(TestContext.Current.CancellationToken);
@@ -110,6 +129,7 @@ public class InMemoryDefaultsWarningTests
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.AddProvider(logs));
         services.AddSingleton<IJtiReplayStore, InMemoryJtiReplayStore>();
+        services.AddSingleton<ISpaceCredentialRevocationStore, InMemorySpaceCredentialRevocationStore>();
         Register(services, "spaces");
         Register(services, "service auth");
 

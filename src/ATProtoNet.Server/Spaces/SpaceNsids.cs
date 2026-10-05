@@ -26,6 +26,9 @@ public static class SpaceNsids
     /// <summary><c>com.atproto.space.listBlobs</c>.</summary>
     public const string ListBlobs = "com.atproto.space.listBlobs";
 
+    /// <summary><c>com.atproto.space.notifyCredentialRevoked</c>.</summary>
+    public const string NotifyCredentialRevoked = "com.atproto.space.notifyCredentialRevoked";
+
     // ── Served by a space authority ───────────────────────────
 
     /// <summary><c>com.atproto.space.getSpaceCredential</c>.</summary>

@@ -2,6 +2,7 @@ using ATProtoNet.Crypto;
 using ATProtoNet.Server.Spaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace ATProtoNet.Server.EntityFrameworkCore;
 
@@ -47,6 +48,24 @@ public static class SpaceStoreExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         return services.AddSpaceAuthority<EfCoreSpaceAuthorityStore<TContext>>(signingKey);
+    }
+
+    /// <summary>
+    /// Replaces the in-process <see cref="ISpaceCredentialRevocationStore"/> with an EF Core-backed one, so a
+    /// credential revoked on one instance is refused by every instance, and across a restart.
+    /// </summary>
+    /// <typeparam name="TContext">
+    /// A <see cref="DbContext"/> configured with
+    /// <see cref="SpaceDbContext.ConfigureSpaceCredentialRevocationModel"/>.
+    /// </typeparam>
+    /// <param name="services">The service collection.</param>
+    /// <returns>The service collection for chaining.</returns>
+    public static IServiceCollection AddAtProtoEfCoreSpaceCredentialRevocationStore<TContext>(this IServiceCollection services)
+        where TContext : DbContext
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        return services.Replace(ServiceDescriptor.Singleton<ISpaceCredentialRevocationStore, EfCoreSpaceCredentialRevocationStore<TContext>>());
     }
 
     /// <summary>

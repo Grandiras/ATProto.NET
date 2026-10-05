@@ -29,7 +29,8 @@ public sealed record VerifiedSpaceCredential(SpaceUri Space, SpaceToken Token);
 /// space the request names, and the authority's key — re-read from the (cached) DID document and
 /// compared with the key the signature was checked against. So a rotated authority key stops
 /// verifying a cached credential at exactly the moment it stops verifying a new one; the cache
-/// never extends the DID cache's own window.</para>
+/// never extends the DID cache's own window. A revocation is checked on every presentation too, against an
+/// <see cref="ISpaceCredentialRevocationStore"/>, because it arrives after the credential was cached.</para>
 /// <para>The cache holds 10,000 credentials (about 30 MB) and evicts the least recently used
 /// entry when full. Any DID can be the authority of its own
 /// spaces and mint credentials for them, so one authority may hold at most a quarter of the
@@ -41,6 +42,7 @@ public sealed class SpaceCredentialVerifier
     private readonly IDidResolver _resolver;
     private readonly SpaceServerOptions _options;
     private readonly TimeProvider _timeProvider;
+    private readonly ISpaceCredentialRevocationStore? _revocations;
 
     // SHA-256 of the credential, base64 → entry; the lock keeps the per-authority counts
     // in step with it. Null when caching is off.
@@ -57,14 +59,20 @@ public sealed class SpaceCredentialVerifier
     /// </param>
     /// <param name="options">Server options.</param>
     /// <param name="timeProvider">The clock. Defaults to the system clock.</param>
+    /// <param name="revocations">
+    /// The credentials the authority revoked early, which are refused as
+    /// <see cref="SpaceErrors.CredentialRevoked"/>. Without one no credential is treated as revoked.
+    /// </param>
     public SpaceCredentialVerifier(
         [FromKeyedServices(SpaceServerExtensions.DidResolverKey)] IDidResolver resolver,
         SpaceServerOptions? options = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        ISpaceCredentialRevocationStore? revocations = null)
     {
         ArgumentNullException.ThrowIfNull(resolver);
 
         _resolver = resolver;
+        _revocations = revocations;
         _options = options ?? new SpaceServerOptions();
         _timeProvider = timeProvider ?? TimeProvider.System;
         if (_options.VerifiedCredentialCacheCapacity > 0)
@@ -114,6 +122,12 @@ public sealed class SpaceCredentialVerifier
         // the request's own instant.
         if (credential.Token.IsExpired(now))
             throw Invalid("The space credential is expired.");
+
+        // Every presentation, cached or not: a revocation arrives after the credential was cached. Last, so
+        // only a credential that otherwise verifies costs a store read.
+        if (_revocations is not null &&
+            await _revocations.IsRevokedAsync(credential.Space, credential.Token.TokenId!, now, cancellationToken).ConfigureAwait(false))
+            throw new SpaceVerificationException(SpaceErrors.CredentialRevoked, "The space credential was revoked by its authority.");
 
         return new VerifiedSpaceCredential(credential.Space, credential.Token);
     }

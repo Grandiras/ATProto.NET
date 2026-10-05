@@ -9,3 +9,19 @@ ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.RepoRev.set -> void
 *REMOVED*ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.Rev.set -> void
 ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.SpaceRev.get -> string!
 ATProtoNet.Server.EntityFrameworkCore.SpaceWriterEntity.SpaceRev.set -> void
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceCredentialRevocationStore<TContext>
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceCredentialRevocationStore<TContext>.EfCoreSpaceCredentialRevocationStore(Microsoft.EntityFrameworkCore.IDbContextFactory<TContext!>! contextFactory, Microsoft.Extensions.Logging.ILogger<ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceCredentialRevocationStore<TContext!>!>? logger = null) -> void
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceCredentialRevocationStore<TContext>.EfCoreSpaceCredentialRevocationStore(Microsoft.EntityFrameworkCore.IDbContextFactory<TContext!>! contextFactory, System.TimeProvider! timeProvider, Microsoft.Extensions.Logging.ILogger<ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceCredentialRevocationStore<TContext!>!>? logger = null) -> void
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceCredentialRevocationStore<TContext>.IsRevokedAsync(ATProtoNet.Spaces.SpaceUri! space, string! credentialId, System.DateTimeOffset now, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
+ATProtoNet.Server.EntityFrameworkCore.EfCoreSpaceCredentialRevocationStore<TContext>.RevokeAsync(ATProtoNet.Spaces.SpaceUri! space, System.Collections.Generic.IReadOnlyCollection<string!>! credentialIds, System.DateTimeOffset retainUntil, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+ATProtoNet.Server.EntityFrameworkCore.SpaceCredentialRevocationEntity
+ATProtoNet.Server.EntityFrameworkCore.SpaceCredentialRevocationEntity.CredentialId.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.SpaceCredentialRevocationEntity.CredentialId.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceCredentialRevocationEntity.RetainUntil.get -> long
+ATProtoNet.Server.EntityFrameworkCore.SpaceCredentialRevocationEntity.RetainUntil.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceCredentialRevocationEntity.Space.get -> string!
+ATProtoNet.Server.EntityFrameworkCore.SpaceCredentialRevocationEntity.Space.set -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceCredentialRevocationEntity.SpaceCredentialRevocationEntity() -> void
+ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.AtProtoSpaceCredentialRevocations.get -> Microsoft.EntityFrameworkCore.DbSet<ATProtoNet.Server.EntityFrameworkCore.SpaceCredentialRevocationEntity!>!
+static ATProtoNet.Server.EntityFrameworkCore.SpaceDbContext.ConfigureSpaceCredentialRevocationModel(Microsoft.EntityFrameworkCore.ModelBuilder! modelBuilder) -> void
+static ATProtoNet.Server.EntityFrameworkCore.SpaceStoreExtensions.AddAtProtoEfCoreSpaceCredentialRevocationStore<TContext>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

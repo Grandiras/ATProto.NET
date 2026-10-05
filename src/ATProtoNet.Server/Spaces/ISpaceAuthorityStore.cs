@@ -94,6 +94,15 @@ public interface ISpaceAuthorityStore
 /// </remarks>
 public interface ISpaceRepoHost
 {
+    /// <summary>Reports whether an account's repo is hosted here.</summary>
+    /// <param name="did">The account's DID.</param>
+    /// <returns><see langword="true"/> when this host holds the account, whatever its status: deactivated and taken-down accounts count.</returns>
+    /// <remarks>
+    /// Answers whether a credential revocation addressed to <paramref name="did"/> is meant for this
+    /// host (<c>notifyCredentialRevoked</c>), so a host never records a revocation it was not sent.
+    /// </remarks>
+    Task<bool> HostsAccountAsync(Did did, CancellationToken cancellationToken = default);
+
     /// <summary>Reads one record.</summary>
     /// <param name="repoDid">The DID of the account whose repo to read.</param>
     /// <param name="collection">The record collection NSID.</param>

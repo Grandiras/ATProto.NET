@@ -445,6 +445,16 @@ public sealed class NotifyWriteRequest
 
 internal sealed record NotifySpaceDeletedRequest([property: JsonPropertyName("space")] SpaceUri Space);
 
+// ── com.atproto.space.notifyCredentialRevoked ────────────────
+
+internal sealed record NotifyCredentialRevokedRequest(
+    [property: JsonPropertyName("space")] SpaceUri Space,
+    [property: JsonPropertyName("credentials")] IReadOnlyList<string> Credentials)
+{
+    // The Lexicon's bound on the credentials a single call revokes.
+    public const int MaxCredentials = 100;
+}
+
 // ── Errors ───────────────────────────────────────────────────
 
 /// <summary>The named errors the <c>com.atproto.space.*</c> endpoints return.</summary>
@@ -502,6 +512,9 @@ public static class SpaceErrors
 
     /// <summary>The audience a space request was signed for is not the party the request is addressed to.</summary>
     public const string BadSpaceAudience = "BadSpaceAudience";
+
+    /// <summary>The presented space credential was revoked by its authority before it expired. Do not retry it; ask the authority for a new one.</summary>
+    public const string CredentialRevoked = "CredentialRevoked";
 
     /// <summary>The blob is not held by the repo in this space.</summary>
     public const string BlobNotFound = "BlobNotFound";

@@ -1,5 +1,6 @@
 using ATProtoNet.Auth;
 using ATProtoNet.Server.Authentication;
+using ATProtoNet.Server.Spaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -54,6 +55,14 @@ internal sealed class InMemoryDefaultsWarning(InMemoryFallbacks fallbacks, ILogg
                 "ATProtoNet.Server.EntityFrameworkCore) if more than one instance answers for this service, or register " +
                 "{Store} yourself to keep it.",
                 nameof(InMemoryJtiReplayStore), nameof(InMemoryJtiReplayStore));
+
+        if (fallbacks.IsInEffect<ISpaceCredentialRevocationStore>())
+            logger.LogWarning(
+                "Revoked space credentials are tracked by {Store}, which is per-process: a credential its authority " +
+                "revoked is accepted again after a restart, or by another instance, until it expires. Register a " +
+                "shared store (AddAtProtoEfCoreSpaceCredentialRevocationStore, from ATProtoNet.Server.EntityFrameworkCore) " +
+                "if more than one instance serves spaces, or register {Store} yourself to keep it.",
+                nameof(InMemorySpaceCredentialRevocationStore), nameof(InMemorySpaceCredentialRevocationStore));
 
         return Task.CompletedTask;
     }

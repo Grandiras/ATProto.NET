@@ -41,6 +41,7 @@ public sealed class SpaceWriteNotifier
 {
     private static readonly Nsid NotifyWrite = Nsid.Parse(SpaceNsids.NotifyWrite);
     private static readonly Nsid NotifySpaceDeleted = Nsid.Parse(SpaceNsids.NotifySpaceDeleted);
+    private static readonly Nsid NotifyCredentialRevoked = Nsid.Parse(SpaceNsids.NotifyCredentialRevoked);
 
     private readonly ISpaceAuthorityStore _store;
     private readonly IDidResolver _resolver;
@@ -278,6 +279,57 @@ public sealed class SpaceWriteNotifier
         var body = new NotifySpaceDeletedRequest(space);
         var outcomes = await FanOutAsync(space, space.Authority, NotifySpaceDeleted, body, includeAuthority: false, cancellationToken).ConfigureAwait(false);
         return outcomes.Count(o => o == Delivery.Delivered);
+    }
+
+    /// <summary>Tells the repo host of every account that wrote into a space that credentials were revoked.</summary>
+    /// <param name="space">The space, whose authority this service is.</param>
+    /// <param name="credentialIds">The <c>jti</c> of each revoked credential, in batches of 100.</param>
+    /// <returns>The number of deliveries that succeeded: one per writer and batch.</returns>
+    /// <remarks>
+    /// <para>This is the authority's half of revocation; <see cref="SpaceCredentialRevoker"/> wraps it. A repo host
+    /// refuses a revoked credential only once told, so the authority sends one request per writer in the
+    /// space (<c>listRepos</c>), each signed as the space's authority and addressed to that writer's DID, which is
+    /// how the receiving host knows it is meant for it. Writers are the only repos that can hold the
+    /// space's data, so no other host needs telling.</para>
+    /// <para>Best-effort, one attempt, no retry: a host that misses it still refuses the credential when it expires,
+    /// at most an hour later. A failed delivery is logged and not counted.</para>
+    /// </remarks>
+    public async Task<int> NotifyCredentialRevokedAsync(
+        SpaceUri space, IReadOnlyCollection<string> credentialIds, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(space);
+        ArgumentNullException.ThrowIfNull(credentialIds);
+
+        var batches = credentialIds.Distinct(StringComparer.Ordinal)
+            .Chunk(NotifyCredentialRevokedRequest.MaxCredentials)
+            .Select(batch => new NotifyCredentialRevokedRequest(space, batch))
+            .ToList();
+        if (batches.Count == 0)
+            return 0;
+
+        var signer = await SpaceAccountSigning.ChooseAsync(_accountSigner, _serviceAuth, space.Authority, _logger, cancellationToken).ConfigureAwait(false);
+        var delivered = 0;
+
+        string? cursor = null;
+        do
+        {
+            var page = await _store.ListReposAsync(space, 1000, cursor, cancellationToken).ConfigureAwait(false);
+            cursor = page.Cursor;
+
+            await Parallel.ForEachAsync(
+                page.Repos.SelectMany(repo => batches.Select(batch => (repo.Did, batch))),
+                new ParallelOptions { MaxDegreeOfParallelism = 8, CancellationToken = cancellationToken },
+                async (target, ct) =>
+                {
+                    var outcome = await DeliverAsync(
+                        space, new SpaceNotifySubscriber(target.Did.Value, default), signer, NotifyCredentialRevoked, target.batch, ct).ConfigureAwait(false);
+                    if (outcome == Delivery.Delivered)
+                        Interlocked.Increment(ref delivered);
+                }).ConfigureAwait(false);
+        }
+        while (cursor is not null);
+
+        return delivered;
     }
 
     /// <summary>Registers a space's own authority as a subscriber for a repo's writes, if it is not the repo's owner.</summary>

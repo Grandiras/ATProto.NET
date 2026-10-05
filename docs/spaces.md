@@ -736,7 +736,7 @@ an entry only once the token it guards has expired anyway.
 
 ### The stores
 
-The space server keeps state in three places, and each has an in-process default that a real
+The space server keeps state in four places, and each has an in-process default that a real
 deployment should replace:
 
 | Seam | Default | Durable implementations |
@@ -744,13 +744,18 @@ deployment should replace:
 | `IJtiReplayStore` | `InMemoryJtiReplayStore` | `EfCoreJtiReplayStore<T>`, or [your own over Redis](#a-replay-store-on-redis) |
 | `ISimpleSpaceStore` | `InMemorySimpleSpaceStore` | `EfCoreSimpleSpaceStore<T>` |
 | `ISpaceAuthorityStore` | `InMemorySpaceAuthorityStore` | `EfCoreSpaceAuthorityStore<T>` |
+| `ISpaceCredentialRevocationStore` | `InMemorySpaceCredentialRevocationStore` | `EfCoreSpaceCredentialRevocationStore<T>` |
 
-Two of those defaults are more than an inconvenience.
+Three of those defaults are more than an inconvenience.
 
 **The replay store is a correctness gap across instances.** It is what makes a delegation token, a
 client attestation and a `notifyWrite` service auth token single-use, and being
 per-process means a replay is caught only by the instance that saw the original — two replicas
 behind a load balancer accept the same delegation token twice.
+
+**A revocation store that forgets un-revokes credentials.** A revoked credential is refused only while
+its entry is kept (see [Revoking credentials](#revoking-credentials)); a restart, or an instance that was
+not told, accepts it again until it expires.
 
 **A `simplespace` member list cannot be rebuilt.** The writer set is only what an authority claims,
 and any repo host's next `notifyWrite` restores it; a member list is never published to the network
@@ -758,9 +763,9 @@ at all, so losing it on a restart loses the space's access control while the spa
 on existing.
 
 `AddAtProtoSpaces()` (like `AddAtProtoServiceAuth()`) logs a warning at startup while the replay
-store is the in-process default it fell back to. Where that store is the intended choice, as in a
-test host, register it yourself (`services.AddSingleton<IJtiReplayStore, InMemoryJtiReplayStore>()`)
-and the warning stays quiet.
+store, or the revocation store, is the in-process default it fell back to. Where that store is the
+intended choice, as in a test host, register it yourself
+(`services.AddSingleton<IJtiReplayStore, InMemoryJtiReplayStore>()`) and the warning stays quiet.
 
 The durable stores are in the `ATProtoNet.Server.EntityFrameworkCore` package:
 
@@ -783,7 +788,7 @@ builder.Services
 The EF Core stores take an `IDbContextFactory<T>` — they open a context per operation — and use
 `SpaceDbContext` or any context of your own that calls `SpaceDbContext.ConfigureSpaceModel()` (or
 one of `ConfigureSpaceAuthorityModel`, `ConfigureSimpleSpaceModel` and
-`JtiReplayDbContext.ConfigureJtiReplayModel`) from its `OnModelCreating`. The writer set pages by
+`ConfigureSpaceCredentialRevocationModel` and `JtiReplayDbContext.ConfigureJtiReplayModel`) from its `OnModelCreating`. The writer set pages by
 `spaceRev`, as in the in-memory stores, so a cursor is a checkpoint rather than an offset; the
 `SpaceRev` column therefore needs an ordinal (binary) collation, which SQLite's default is, or a
 checkpoint could skip a repo. Each accepted write takes the next `spaceRev` in one transaction: the
@@ -979,7 +984,7 @@ the app into an open space.
 
 ### The repo host: serving reads
 
-`ISpaceRepoHost` is seven methods over whatever store already holds the records. The handlers do
+`ISpaceRepoHost` is eight methods over whatever store already holds the records. The handlers do
 the verification, the addressing, and the error names; the implementation only reads.
 
 ```csharp partial
@@ -992,7 +997,7 @@ public sealed class MyRepoHost : ISpaceRepoHost
 
         return new MemoryStream(SpaceRepoCar.Serialize(commit, records, excludeValues));
     }
-    // getRecord, listRecords, getLatestCommit, listRepoOps, listBlobs, getBlob
+    // HostsAccountAsync, getRecord, listRecords, getLatestCommit, listRepoOps, listBlobs, getBlob
 }
 ```
 
@@ -1005,6 +1010,39 @@ a member at all* — the protocol carries no reader set, and saying more would l
 same applies to `GetBlobAsync`: the reference check **is** the access check, because serving a blob
 on the basis of its CID alone would hand out any blob the account holds to anyone with a credential
 for any of its spaces.
+
+### Revoking credentials
+
+A credential lasts ten minutes, which is the main limit on a reader whose access ended. For the cases where
+that is too long, an authority can revoke credentials early, and a repo host then refuses them with
+`CredentialRevoked`. It is optional for an authority and required of a repo host.
+
+**The authority** calls `SpaceCredentialRevoker.RevokeAsync(space, jtis)` (registered by `AddSpaceAuthority`)
+with the `jti` of each credential to cut off (`SpaceToken.TokenId`; the authority keeps no record of what it
+issued, and removing a member revokes nothing by itself). It records them locally, so its own endpoints refuse
+them at once, and sends `com.atproto.space.notifyCredentialRevoked` to the repo host of every writer in the
+space (`listRepos`), in batches of 100, signed as the authority and addressed (`aud`) to that writer's DID.
+One attempt each, no retry: a host that misses it still refuses the credential when it expires. The result is
+the number of deliveries that succeeded. `AtProtoClient.Space.NotifyCredentialRevokedAsync` is the raw call, for
+an authority that sends its own service auth.
+
+**The repo host** serves `notifyCredentialRevoked` from `AddSpaceRepoHost`. The caller is authenticated with
+service auth, and a request is refused with 403 unless
+
+- the token's `iss` is the space's own authority, since only that DID mints credentials for the space;
+- its `aud` is an account `ISpaceRepoHost.HostsAccountAsync` says is hosted here (deactivated and taken-down
+  accounts count); a service DID or an account elsewhere is no address.
+
+The token is also checked for `lxm`, expiry and single use like any service auth (401), and the body for 1 to
+100 non-empty identifiers (400). The call is idempotent, and an identifier the host has never seen is recorded
+anyway: a revocation can reach a host before the credential does.
+
+Each `(space, jti)` is kept in an `ISpaceCredentialRevocationStore` for an hour plus the clock skew at issuance
+and at expiry (3610 seconds with the default skew), counted from receipt: the longest the credential could
+still verify. `SpaceCredentialVerifier` checks the store on every presentation, cached credentials included,
+and answers 401 `CredentialRevoked`. A client does not retry a revoked credential; it asks the authority for a
+new one, which only a still-authorized session gets. Sweeping drops only entries past their retention, so
+cleanup never revives a credential.
 
 ### Write notifications
 
@@ -1118,7 +1156,8 @@ PDS already has.
 | `AddAtProtoSpaces` / `AddSpaceAuthority` / `AddSpaceRepoHost` / `AddSimpleSpace` | Register the server halves (`ATProtoNet.Server`); the endpoint handlers are internal |
 | `SpaceRequestAuthenticator`, `SpaceDelegationTokenVerifier`, `SpaceCredentialVerifier`, `SpaceClientAttestationVerifier` | Verify what a caller presents (`notifyWrite`'s service auth is checked by `ServiceAuthVerifier`) |
 | `ISpaceAccessPolicy`, `ISpaceAuthorityStore`, `ISpaceRepoHost`, `ISimpleSpaceStore`, `IJtiReplayStore` | The seams a server implements |
-| `SpaceCredentialIssuer` | Signs the credentials an authority issues |
+| `SpaceCredentialIssuer`, `SpaceCredentialRevoker` | Sign the credentials an authority issues, and revoke them early |
+| `ISpaceCredentialRevocationStore` | The revoked credentials a repo host remembers; `EfCoreSpaceCredentialRevocationStore` is its durable implementation |
 | `EfCoreJtiReplayStore`, `EfCoreSpaceAuthorityStore`, `EfCoreSimpleSpaceStore` | Durable, multi-instance implementations of those stores (`ATProtoNet.Server.EntityFrameworkCore`) |
 | `SpaceWriteNotifier`, `ISpaceAccountSigner` | Deliver write and deletion notifications, signed as the account they speak for |
 

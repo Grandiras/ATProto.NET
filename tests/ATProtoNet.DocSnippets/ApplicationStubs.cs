@@ -39,6 +39,10 @@ namespace DocSnippets
     public sealed class MyRepoHost : ISpaceRepoHost
     {
         /// <inheritdoc />
+        public Task<bool> HostsAccountAsync(Did did, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        /// <inheritdoc />
         public Task<GetSpaceRecordResponse?> GetRecordAsync(
             SpaceUri space, Did repoDid, Nsid collection, RecordKey rkey, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();

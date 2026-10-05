@@ -610,4 +610,30 @@ public sealed class SpaceClient
             new NotifySpaceDeletedRequest(Space: space),
             cancellationToken: cancellationToken).ConfigureAwait(false);
     }
+
+    /// <summary>Tells a repo host that a space's authority revoked credentials it had issued.</summary>
+    /// <param name="space">The space the credentials grant access to.</param>
+    /// <param name="credentials">The <c>jti</c> of each revoked credential: 1 to 100 non-empty identifiers, not the credentials themselves.</param>
+    /// <remarks>
+    /// Sent by the space authority with service auth, signed as the authority and addressed to a repo
+    /// DID the receiving host holds (<c>aud</c>), for this method (<c>lxm</c>). The host then refuses
+    /// each credential with <see cref="SpaceErrors.CredentialRevoked"/> until it would have expired
+    /// anyway. Idempotent. Revoking is optional for an authority, since credentials are short-lived.
+    /// </remarks>
+    /// <exception cref="ArgumentException"><paramref name="credentials"/> is empty, longer than 100, or holds a blank identifier.</exception>
+    public async Task NotifyCredentialRevokedAsync(
+        SpaceUri space, IReadOnlyList<string> credentials, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(space);
+        ArgumentNullException.ThrowIfNull(credentials);
+        if (credentials.Count is 0 or > NotifyCredentialRevokedRequest.MaxCredentials || credentials.Any(string.IsNullOrWhiteSpace))
+            throw new ArgumentException(
+                $"Revoke between 1 and {NotifyCredentialRevokedRequest.MaxCredentials} credentials, each named by a non-blank jti.",
+                nameof(credentials));
+
+        await _xrpc.ProcedureAsync(
+            "com.atproto.space.notifyCredentialRevoked",
+            new NotifyCredentialRevokedRequest(space, credentials),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
 }

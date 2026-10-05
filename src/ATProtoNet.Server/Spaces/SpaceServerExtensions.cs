@@ -78,6 +78,7 @@ public static class SpaceServerExtensions
                 IdentityNetworkPolicy.CreateHandler(sp.GetRequiredService<IdentityResolverOptions>().AllowPrivateNetworks));
 
         InMemoryDefaultsWarning.TryAdd<IJtiReplayStore, InMemoryJtiReplayStore>(services);
+        InMemoryDefaultsWarning.TryAdd<ISpaceCredentialRevocationStore, InMemorySpaceCredentialRevocationStore>(services);
 
         // Every authenticated request resolves a DID document. The space server keeps a cache of
         // its own, with a lifetime short enough that a rotated key stops verifying quickly, and
@@ -127,7 +128,7 @@ public static class SpaceServerExtensions
             ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, TimeSpan.Zero, name);
     }
 
-    /// <summary>Registers the space-authority endpoints: <c>getSpaceCredential</c>, <c>listRepos</c>, <c>registerNotify</c>, <c>unregisterNotify</c>, and <c>notifyWrite</c>.</summary>
+    /// <summary>Registers the space-authority endpoints: <c>getSpaceCredential</c>, <c>listRepos</c>, <c>registerNotify</c>, <c>unregisterNotify</c>, and <c>notifyWrite</c>, and the <see cref="SpaceCredentialRevoker"/>.</summary>
     /// <typeparam name="TStore">The authority's state store.</typeparam>
     /// <param name="services">The service collection.</param>
     /// <param name="signingKey">
@@ -212,6 +213,8 @@ public static class SpaceServerExtensions
             sp.GetService<ISpaceAccountSigner>(),
             sp.GetService<Microsoft.Extensions.Logging.ILogger<SpaceWriteNotifier>>()));
 
+        services.TryAddSingleton<SpaceCredentialRevoker>();
+
         services.AddXrpcEndpoint<GetSpaceCredentialEndpoint>();
         services.AddXrpcEndpoint<ListSpaceReposEndpoint>();
         services.AddXrpcEndpoint<RegisterNotifyEndpoint>();
@@ -291,7 +294,7 @@ public static class SpaceServerExtensions
         return services;
     }
 
-    /// <summary>Registers the repo-host endpoints: <c>getRecord</c>, <c>listRecords</c>, <c>getLatestCommit</c>, <c>getRepo</c>, <c>listRepoOps</c>, <c>getBlob</c>, and <c>listBlobs</c>.</summary>
+    /// <summary>Registers the repo-host endpoints: <c>getRecord</c>, <c>listRecords</c>, <c>getLatestCommit</c>, <c>getRepo</c>, <c>listRepoOps</c>, <c>getBlob</c>, <c>listBlobs</c>, and <c>notifyCredentialRevoked</c>.</summary>
     /// <typeparam name="THost">The implementation serving this host's permissioned repos.</typeparam>
     /// <param name="services">The service collection.</param>
     /// <returns>The service collection for chaining.</returns>
@@ -309,6 +312,7 @@ public static class SpaceServerExtensions
         services.AddXrpcEndpoint<ListSpaceRepoOpsEndpoint>();
         services.AddXrpcEndpoint<GetSpaceBlobEndpoint>();
         services.AddXrpcEndpoint<ListSpaceBlobsEndpoint>();
+        services.AddXrpcEndpoint<NotifyCredentialRevokedEndpoint>();
 
         return services;
     }

@@ -130,3 +130,19 @@ public sealed class SimpleSpaceMemberEntity
     /// <summary>Whether the member's writes are tracked under a member-list write policy.</summary>
     public bool Write { get; set; }
 }
+
+/// <summary>A space credential its authority revoked, kept until it could no longer verify anyway.</summary>
+/// <remarks>Keyed on the space as well as the <c>jti</c>: an authority chooses its own identifiers and revokes only for its own spaces.</remarks>
+public sealed class SpaceCredentialRevocationEntity
+{
+    /// <summary>The space URI the credential grants access to. Part of the composite primary key.</summary>
+    [MaxLength(512)]
+    public required string Space { get; set; }
+
+    /// <summary>The credential's <c>jti</c>. Part of the composite primary key.</summary>
+    [MaxLength(255)]
+    public required string CredentialId { get; set; }
+
+    /// <summary>The first instant, as Unix milliseconds, at which this row may be deleted: the revocation is in force until then.</summary>
+    public long RetainUntil { get; set; }
+}

@@ -893,6 +893,236 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         Assert.Equal(SpaceErrors.NotAuthorized, await ReadErrorAsync(response));
     }
 
+    // ── Credential revocation ─────────────────────────────────
+
+    [Fact]
+    public async Task NotifyCredentialRevoked_ByTheAuthority_RefusesThatCredentialAndNoOther()
+    {
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var revoked = await MintCredentialAsync(holder);
+        var untouched = await MintCredentialAsync(holder);
+        await AssertReadsAsync(HttpStatusCode.OK, revoked, holder);
+
+        using var response = await NotifyCredentialRevokedAsync(_space, [JtiOf(revoked)]);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await AssertReadsAsync(HttpStatusCode.Unauthorized, revoked, holder, SpaceErrors.CredentialRevoked);
+        await AssertReadsAsync(HttpStatusCode.OK, untouched, holder);
+    }
+
+    [Fact]
+    public async Task NotifyCredentialRevoked_RepeatedAndOverlappingBatches_AreIdempotent()
+    {
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var first = await MintCredentialAsync(holder);
+        var second = await MintCredentialAsync(holder);
+
+        using (var one = await NotifyCredentialRevokedAsync(_space, [JtiOf(first)])) one.EnsureSuccessStatusCode();
+        using (var two = await NotifyCredentialRevokedAsync(_space, [JtiOf(first), JtiOf(second), JtiOf(second)])) two.EnsureSuccessStatusCode();
+
+        await AssertReadsAsync(HttpStatusCode.Unauthorized, first, holder, SpaceErrors.CredentialRevoked);
+        await AssertReadsAsync(HttpStatusCode.Unauthorized, second, holder, SpaceErrors.CredentialRevoked);
+    }
+
+    [Fact]
+    public async Task NotifyCredentialRevoked_ForAnotherSpace_DoesNotRevokeTheCredential()
+    {
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
+        var other = SpaceUri.Parse($"at://{AuthorityDid}/space/com.atmoboards.forum/other");
+
+        using var response = await NotifyCredentialRevokedAsync(other, [JtiOf(credential)]);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await AssertReadsAsync(HttpStatusCode.OK, credential, holder);
+    }
+
+    [Fact]
+    public async Task NotifyCredentialRevoked_SignedByANonAuthority_IsRefusedAndRevokesNothing()
+    {
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
+
+        // The member is a perfectly valid account, and not this space's authority.
+        using var response = await NotifyCredentialRevokedAsync(_space, [JtiOf(credential)], MemberDid, _memberKey);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(SpaceErrors.NotAuthorized, await ReadErrorAsync(response));
+        await AssertReadsAsync(HttpStatusCode.OK, credential, holder);
+    }
+
+    [Fact]
+    public async Task NotifyCredentialRevoked_AddressedToAnAccountNotHostedHere_IsRefused()
+    {
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
+
+        using var stranger = await NotifyCredentialRevokedAsync(_space, [JtiOf(credential)], audience: StrangerDid);
+        using var service = await NotifyCredentialRevokedAsync(_space, [JtiOf(credential)], audience: "did:web:pds.example.com");
+        using var fragment = await NotifyCredentialRevokedAsync(_space, [JtiOf(credential)], audience: $"{MemberDid}#atproto_pds");
+
+        Assert.Equal(HttpStatusCode.Forbidden, stranger.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, service.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, fragment.StatusCode);
+        await AssertReadsAsync(HttpStatusCode.OK, credential, holder);
+    }
+
+    [Fact]
+    public async Task NotifyCredentialRevoked_TokenForAnotherMethod_IsRefused()
+    {
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
+
+        using var response = await NotifyCredentialRevokedAsync(_space, [JtiOf(credential)], lxm: SpaceNsids.NotifyWrite);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        await AssertReadsAsync(HttpStatusCode.OK, credential, holder);
+    }
+
+    [Fact]
+    public async Task NotifyCredentialRevoked_ReplayedToken_IsRefused()
+    {
+        var generator = new ServiceAuthGenerator(Did.Parse(AuthorityDid), _authorityKey);
+        var token = generator.CreateToken(MemberDid, Nsid.Parse(SpaceNsids.NotifyCredentialRevoked));
+
+        using var first = await SendRevocationAsync(token, _space, ["a"]);
+        using var second = await SendRevocationAsync(token, _space, ["a"]);
+
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, second.StatusCode);
+    }
+
+    [Fact]
+    public async Task NotifyCredentialRevoked_WithoutServiceAuth_IsRefused()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/xrpc/{SpaceNsids.NotifyCredentialRevoked}")
+        {
+            Content = JsonContent.Create(new NotifyCredentialRevokedRequest(_space, ["a"]), options: AtProtoJsonDefaults.Options),
+        };
+
+        using var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(SpaceErrors.NotAuthorized, await ReadErrorAsync(response));
+    }
+
+    [Theory]
+    [InlineData(0, HttpStatusCode.BadRequest)]
+    [InlineData(1, HttpStatusCode.OK)]
+    [InlineData(100, HttpStatusCode.OK)]
+    [InlineData(101, HttpStatusCode.BadRequest)]
+    public async Task NotifyCredentialRevoked_BatchSize_IsBoundedToOneThroughAHundred(int count, HttpStatusCode expected)
+    {
+        using var response = await NotifyCredentialRevokedAsync(_space, Enumerable.Range(0, count).Select(i => $"jti-{i}").ToList());
+
+        Assert.Equal(expected, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("tab\tid")]
+    public async Task NotifyCredentialRevoked_IdentifierNoCredentialCouldCarry_IsARequestError(string jti)
+    {
+        using var response = await NotifyCredentialRevokedAsync(_space, ["a", jti]);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task NotifyCredentialRevoked_OverlongIdentifier_IsARequestError()
+    {
+        using var response = await NotifyCredentialRevokedAsync(_space, [new string('a', 256)]);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public void RevocationRetention_BelowTheCredentialSkew_StillOutlivesEveryCredential()
+    {
+        // Credentials are checked with SpaceTokens.DefaultClockSkew, so a smaller ClockSkew must not shorten retention:
+        // one issued DefaultClockSkew ahead verifies until DefaultClockSkew past its maximum lifetime.
+        var now = DateTimeOffset.UnixEpoch;
+        var lastValid = now + SpaceTokens.DefaultClockSkew + SpaceTokens.MaxCredentialLifetime + SpaceTokens.DefaultClockSkew;
+
+        Assert.True(SpaceCredentialRevocation.RetainUntil(now, new SpaceServerOptions { ClockSkew = TimeSpan.Zero }) >= lastValid);
+    }
+
+    [Fact]
+    public async Task NotifyCredentialRevoked_RetainsTheRevocationForTheLongestCredentialPlusSkewOnBothEnds()
+    {
+        using var response = await NotifyCredentialRevokedAsync(_space, ["retained"]);
+        response.EnsureSuccessStatusCode();
+        var store = _host.Services.GetRequiredService<ISpaceCredentialRevocationStore>();
+        var now = DateTimeOffset.UtcNow;
+
+        // 3600 s plus 5 s of skew at issuance and 5 s at expiry.
+        Assert.True(await store.IsRevokedAsync(_space, "retained", now.AddSeconds(3609)));
+        Assert.False(await store.IsRevokedAsync(_space, "retained", now.AddSeconds(3611)));
+    }
+
+    [Fact]
+    public async Task Revoke_ByTheAuthority_NotifiesTheWritersRepoHostAndRefusesTheCredentialHere()
+    {
+        using var holder = AtProtoCrypto.GenerateP256Key();
+        var credential = await MintCredentialAsync(holder);
+        using (await NotifyWriteAsync(_space, MemberDid, _memberKey, "3l6oveex3ii2l")) { }
+
+        var delivered = await _host.Services.GetRequiredService<SpaceCredentialRevoker>().RevokeAsync(_space, [JtiOf(credential)]);
+
+        Assert.Equal(1, delivered);
+        var (url, token, body) = await _outbound.FirstRequest;
+        Assert.EndsWith($"/xrpc/{SpaceNsids.NotifyCredentialRevoked}", url.AbsolutePath);
+        Assert.Contains(JtiOf(credential), body);
+
+        var payload = token!.Split('.')[1].Replace('-', '+').Replace('_', '/');
+        payload = payload.PadRight(payload.Length + ((4 - (payload.Length % 4)) % 4), '=');
+        using var document = JsonDocument.Parse(Convert.FromBase64String(payload));
+        var claims = document.RootElement;
+        Assert.Equal(AuthorityDid, claims.GetProperty("iss").GetString());
+        Assert.Equal(MemberDid, claims.GetProperty("aud").GetString());
+        Assert.Equal(SpaceNsids.NotifyCredentialRevoked, claims.GetProperty("lxm").GetString());
+
+        // The authority's own endpoints refuse it too, without waiting for a notification.
+        using var listing = await SendWithCredentialAsync(HttpMethod.Get, ListReposUrl, credential, holder);
+        Assert.Equal(HttpStatusCode.Unauthorized, listing.StatusCode);
+        Assert.Equal(SpaceErrors.CredentialRevoked, await ReadErrorAsync(listing));
+    }
+
+    private static string JtiOf(string credential) => SpaceTokens.Parse(SpaceTokenType.Credential, credential).TokenId!;
+
+    private async Task AssertReadsAsync(HttpStatusCode expected, string credential, AtProtoKey holder, string? error = null)
+    {
+        using var response = await SendWithCredentialAsync(HttpMethod.Get, GetRecordUrl(), credential, holder);
+
+        Assert.Equal(expected, response.StatusCode);
+        if (error is not null)
+            Assert.Equal(error, await ReadErrorAsync(response));
+    }
+
+    private Task<HttpResponseMessage> NotifyCredentialRevokedAsync(
+        SpaceUri space,
+        IReadOnlyList<string> jtis,
+        string signer = AuthorityDid,
+        AtProtoKey? key = null,
+        string audience = MemberDid,
+        string? lxm = null)
+    {
+        // Not disposed: that would dispose a key the test fixture owns.
+        var generator = new ServiceAuthGenerator(Did.Parse(signer), key ?? _authorityKey);
+        return SendRevocationAsync(generator.CreateToken(audience, Nsid.Parse(lxm ?? SpaceNsids.NotifyCredentialRevoked)), space, jtis);
+    }
+
+    private async Task<HttpResponseMessage> SendRevocationAsync(string token, SpaceUri space, IReadOnlyList<string> jtis)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/xrpc/{SpaceNsids.NotifyCredentialRevoked}")
+        {
+            Content = JsonContent.Create(new NotifyCredentialRevokedRequest(space, jtis), options: AtProtoJsonDefaults.Options),
+        };
+
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return await _client.SendAsync(request);
+    }
+
     // ── Helpers ───────────────────────────────────────────────
 
     private string MintDelegation(string userDid, AtProtoKey userKey, SpaceUri? space = null)
@@ -1065,6 +1295,9 @@ public class SpaceServerEndpointTests : IAsyncLifetime
         public bool LastExcludeValues { get; private set; }
 
         public int LastLimit { get; private set; }
+
+        public Task<bool> HostsAccountAsync(Did did, CancellationToken cancellationToken = default) =>
+            Task.FromResult(did.Value == MemberDid);
 
         public Task<GetSpaceRecordResponse?> GetRecordAsync(
             SpaceUri space, Did repoDid, Nsid collection, RecordKey rkey,
